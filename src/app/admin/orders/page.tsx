@@ -3,6 +3,7 @@
 import { ArrowLeft, FunnelSimple, ListChecks, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { formatWibDateTime } from "@/lib/datetime";
 
 type OrderRow = {
   id: string;
@@ -24,7 +25,7 @@ type OrderRow = {
 type Booth = { id: number; code: string; name: string };
 
 const money = (value: number) => `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
-const dateTime = (value: string | null) => (value ? new Date(value).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" }) : "—");
+const dateTime = (value: string | null) => formatWibDateTime(value);
 const statusBadge = (status: string): { label: string; className: string } => {
   switch (status) {
     case "paid": return { label: "Lunas", className: "bg-[#EEF8F0] text-[var(--brand-strong)]" };

@@ -3,6 +3,7 @@
 import { ArrowLeft, CheckCircle, Eye, MonitorPlay, UploadSimple, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { formatWibDateTime } from "@/lib/datetime";
 
 type NameDisplayMode = "full" | "initials" | "company_only" | "hidden";
 type EventSettings = {
@@ -198,7 +199,7 @@ export default function DisplaySettingsPage() {
 
           <section className="bg-[var(--surface)] p-6">
             <button onClick={save} disabled={saving} className="flex min-h-14 w-full items-center justify-center gap-2 bg-[var(--brand)] text-sm font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-50">{saving ? "Menyimpan..." : "Simpan tampilan"}</button>
-            {settings.updated_at && <p className="mt-3 text-center text-xs text-[var(--ink-muted)]">Terakhir diubah {new Date(settings.updated_at).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })}</p>}
+            {settings.updated_at && <p className="mt-3 text-center text-xs text-[var(--ink-muted)]">Terakhir diubah {formatWibDateTime(settings.updated_at)} WIB</p>}
           </section>
         </div>
 

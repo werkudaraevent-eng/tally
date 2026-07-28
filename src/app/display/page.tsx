@@ -3,6 +3,7 @@
 import { Broadcast, ChartLineUp, Crown, DotsSix, EyeSlash, Medal, Storefront, TrendUp, Trophy } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
+import { formatWibTimeWithSeconds } from "@/lib/datetime";
 
 // Peringkat 1-3 mendapat medali; sisanya nomor urut biasa.
 const MEDALS = ["#F2C14E", "#C7CDD4", "#C98B5E"] as const;
@@ -41,6 +42,8 @@ const DEFAULT_CONFIG: DisplayConfig = {
 };
 
 const formatRupiah = (amount: number) => `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
+// Semua jam dipaksa WIB agar tidak ikut timezone device panitia.
+const formatWibTime = formatWibTimeWithSeconds;
 
 export default function DisplayPage() {
   const [tick, setTick] = useState(0);
@@ -49,6 +52,18 @@ export default function DisplayPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [config, setConfig] = useState<DisplayConfig>(DEFAULT_CONFIG);
+  // Spec 7.3: mode fullscreen lewat ?fullscreen=1 — sembunyikan kontrol operator
+  // agar layar proyektor bersih. Dibaca sekali saat mount (lazy initializer)
+  // supaya tidak memanggil setState di dalam effect.
+  const [chromeHidden] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("fullscreen") === "1");
+
+  // Browser hanya mengizinkan fullscreen setelah gesture pengguna.
+  useEffect(() => {
+    if (!chromeHidden) return;
+    const request = () => { void document.documentElement.requestFullscreen?.().catch(() => undefined); document.removeEventListener("click", request); };
+    document.addEventListener("click", request);
+    return () => document.removeEventListener("click", request);
+  }, [chromeHidden]);
 
   const refresh = useCallback(async (limit: number) => {
     const [leaderboardResponse, configResponse] = await Promise.all([
@@ -91,12 +106,14 @@ export default function DisplayPage() {
           <div><p className="text-xs font-semibold uppercase tracking-[0.22em]" style={{ opacity: 0.5 }}>{config.event_title}</p><h1 className="mt-1 text-2xl font-semibold tracking-[-0.04em]">{config.headline}</h1></div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="hidden text-right sm:block"><p className="text-xs uppercase tracking-[0.15em]" style={{ opacity: 0.45 }}>Refresh {tick}</p><p className="mt-1 font-mono text-sm">{lastUpdated ? `Updated ${new Date(lastUpdated).toLocaleTimeString("id-ID")}` : "Connecting"}</p></div>
-          <button onClick={() => setEnabled((value) => !value)} className="flex min-h-12 items-center gap-2 border border-white/20 px-4 text-sm font-semibold hover:bg-white/10">{leaderboardVisible ? <EyeSlash size={20} /> : <Broadcast size={20} />} {leaderboardVisible ? "Hide leaderboard" : "Show leaderboard"}</button>
+          <div className="hidden text-right sm:block"><p className="text-xs uppercase tracking-[0.15em]" style={{ opacity: 0.45 }}>Refresh {tick}</p><p className="mt-1 font-mono text-sm">{lastUpdated ? `Update ${formatWibTime(lastUpdated)} WIB` : "Menghubungkan"}</p></div>
+          {!chromeHidden && <button onClick={() => setEnabled((value) => !value)} className="flex min-h-12 items-center gap-2 border border-white/20 px-4 text-sm font-semibold hover:bg-white/10">{leaderboardVisible ? <EyeSlash size={20} /> : <Broadcast size={20} />} {leaderboardVisible ? "Sembunyikan" : "Tampilkan"}</button>}
         </div>
       </header>
 
-      {leaderboardVisible ? <div className={`grid gap-10 px-8 py-10 xl:px-14 xl:py-14 ${config.show_booth_progress ? "xl:grid-cols-[1.4fr_0.6fr]" : ""}`}>
+      {/* Satu halaman adaptif: side-panel hanya di landscape lebar. Di layar
+          portrait panel turun ke bawah agar leaderboard dapat lebar penuh. */}
+      {leaderboardVisible ? <div className={`grid gap-10 px-8 py-10 xl:px-14 xl:py-14 ${config.show_booth_progress ? "xl:landscape:grid-cols-[1.4fr_0.6fr]" : ""}`}>
         <section>
           <div className="mb-8 flex items-end justify-between">
             <div><p className="text-xs uppercase tracking-[0.22em]" style={{ color: config.accent_color }}>01 / Leaderboard</p><h2 className="mt-3 text-4xl font-semibold tracking-[-0.06em] xl:text-6xl">{config.tagline}</h2></div>
@@ -113,10 +130,10 @@ export default function DisplayPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -16 }}
                   transition={{ type: "spring", stiffness: 320, damping: 32 }}
-                  className={`grid items-center gap-5 ${index === 0 ? "py-7" : "py-6"} ${config.show_booth_progress ? "grid-cols-[64px_1fr_auto] xl:grid-cols-[84px_1fr_180px_110px]" : "grid-cols-[64px_1fr_auto] xl:grid-cols-[84px_1fr_200px]"}`}
+                  className={`grid items-center gap-x-5 gap-y-2 ${index === 0 ? "py-7" : "py-6"} grid-cols-[64px_1fr] lg:grid-cols-[84px_1fr_auto]`}
                   style={index === 0 ? { background: `linear-gradient(90deg, ${config.accent_color}1f, transparent 65%)` } : undefined}
                 >
-                  <span className="flex items-center justify-center">
+                  <span className="row-span-2 flex items-center justify-center lg:row-span-1">
                     {medal ? <span className="flex size-12 items-center justify-center rounded-full xl:size-14" style={{ backgroundColor: `${medal}26`, border: `2px solid ${medal}` }}>
                       <Medal size={index === 0 ? 30 : 26} weight="fill" style={{ color: medal }} />
                     </span> : <span className="font-mono text-3xl font-semibold" style={{ opacity: 0.35 }}>{String(index + 1).padStart(2, "0")}</span>}
@@ -125,11 +142,14 @@ export default function DisplayPage() {
                     <p className={`truncate font-semibold ${index === 0 ? "text-2xl xl:text-4xl" : "text-xl xl:text-2xl"}`}>{entry.display_name}</p>
                     {config.show_company && entry.company && <p className="mt-1 truncate text-sm" style={{ opacity: 0.5 }}>{entry.company}</p>}
                   </div>
-                  <p className={`hidden text-right font-mono font-semibold xl:block ${index === 0 ? "text-2xl" : "text-lg"}`} style={index === 0 ? { color: config.accent_color } : undefined}>{formatRupiah(entry.total_spent)}</p>
-                  {config.show_booth_progress && <div className="flex items-center justify-end gap-1.5" aria-label={`${entry.booth_count} dari 6 booth dikunjungi`}>
-                    {Array.from({ length: 6 }).map((_, dot) => <span key={dot} className="size-2.5 rounded-full transition-colors xl:size-3" style={{ backgroundColor: dot < entry.booth_count ? config.accent_color : "rgba(255,255,255,0.15)" }} />)}
-                    {entry.booth_count >= 6 && <Crown size={18} weight="fill" className="ml-1" style={{ color: config.accent_color }} />}
-                  </div>}
+                  {/* Nominal & progress selalu terlihat, termasuk di layar portrait. */}
+                  <div className="flex items-center justify-between gap-4 lg:flex-col lg:items-end lg:gap-2">
+                    <p className={`font-mono font-semibold tabular-nums ${index === 0 ? "text-xl xl:text-3xl" : "text-lg xl:text-xl"}`} style={index === 0 ? { color: config.accent_color } : undefined}>{formatRupiah(entry.total_spent)}</p>
+                    {config.show_booth_progress && <div className="flex shrink-0 items-center gap-1.5" aria-label={`${entry.booth_count} dari 6 booth dikunjungi`}>
+                      {Array.from({ length: 6 }).map((_, dot) => <span key={dot} className="size-2.5 rounded-full transition-colors xl:size-3" style={{ backgroundColor: dot < entry.booth_count ? config.accent_color : "rgba(255,255,255,0.15)" }} />)}
+                      {entry.booth_count >= 6 && <Crown size={18} weight="fill" className="ml-1" style={{ color: config.accent_color }} />}
+                    </div>}
+                  </div>
                 </motion.div>;
               })}
             </AnimatePresence>

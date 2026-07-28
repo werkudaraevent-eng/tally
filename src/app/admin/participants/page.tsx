@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle, CloudArrowDown, UsersThree, XCircle } from "@ph
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ParticipantList } from "@/components/admin/participant-list";
+import { formatWibDateTime } from "@/lib/datetime";
 
 const AUTO_OPTIONS = [
   { label: "Mati", value: 0 },
@@ -76,7 +77,7 @@ export default function ParticipantsAdminPage() {
           </label>
           <div className="mt-5 border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-xs leading-5 text-[var(--ink-muted)]">
             <p>{autoMinutes > 0 ? <>Sync otomatis aktif setiap <span className="font-semibold text-[var(--ink)]">{autoMinutes} menit</span> selama halaman ini terbuka.</> : "Sync otomatis mati. Data hanya diperbarui saat tombol Sync ditekan."}</p>
-            <p className="mt-2">Sync terakhir: <span className="font-semibold text-[var(--ink)]">{lastSyncedAt ? new Date(lastSyncedAt).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" }) : "belum ada"}</span>{syncing ? " · sedang berjalan..." : ""}</p>
+            <p className="mt-2">Sync terakhir: <span className="font-semibold text-[var(--ink)]">{lastSyncedAt ? `${formatWibDateTime(lastSyncedAt)} WIB` : "belum ada"}</span>{syncing ? " · sedang berjalan..." : ""}</p>
           </div>
         </section>
       </div>
