@@ -3,6 +3,7 @@
 import { ArrowRight, LockKey, QrCode, ShieldCheck } from "@phosphor-icons/react";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/toast";
 import { roleRedirects } from "@/lib/auth/roles";
 
 export default function LoginPage() {
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const router = useRouter();
+  const toast = useToast();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,9 +30,12 @@ export default function LoginPage() {
     if (!response.ok) {
       setPending(false);
       setError("Username atau PIN salah.");
+      toast.error("Login gagal", "Username atau PIN salah. Periksa kembali.");
       return;
     }
     const result = await response.json();
+    const roleLabel: Record<string, string> = { booth: "Admin Booth", cashier: "Kasir", admin: "Panitia / Admin" };
+    toast.success(`Selamat datang, ${result.user.username}`, `Masuk sebagai ${roleLabel[result.user.role] ?? result.user.role}.`);
     const destination = roleRedirects[result.user.role as keyof typeof roleRedirects] ?? "/booth";
     router.push(destination);
   }

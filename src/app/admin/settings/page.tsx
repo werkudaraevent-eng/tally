@@ -3,6 +3,7 @@
 import { ArrowLeft, CheckCircle, GearSix, Trash, Warning, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/toast";
 import { formatWibDateTime } from "@/lib/datetime";
 
 const RESET_PHRASE = "HAPUS SEMUA DATA";
@@ -26,14 +27,22 @@ export default function AdminSettingsPage() {
   const [resetting, setResetting] = useState(false);
   const [resetMessage, setResetMessage] = useState("");
   const [resetError, setResetError] = useState("");
+  const toast = useToast();
 
   async function resetRecords() {
     setResetting(true); setResetError(""); setResetMessage("");
     const response = await fetch("/api/admin/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: resetPhrase, include_participants: resetParticipants }) });
     const data = await response.json();
     setResetting(false);
-    if (!response.ok) { setResetError(data.error?.message ?? "Reset data gagal."); return; }
-    setResetMessage(`Data terhapus: ${data.deleted_orders} order${data.deleted_participants ? `, ${data.deleted_participants} peserta` : ""}.`);
+    if (!response.ok) {
+      const failure = data.error?.message ?? "Reset data gagal.";
+      setResetError(failure);
+      toast.error("Reset data gagal", failure);
+      return;
+    }
+    const summary = `${data.deleted_orders} order${data.deleted_participants ? `, ${data.deleted_participants} peserta` : ""} terhapus.`;
+    setResetMessage(`Data terhapus: ${summary}`);
+    toast.warning("Data pencatatan dikosongkan", summary);
     setResetPhrase(""); setResetParticipants(false); setResetOpen(false);
   }
 
@@ -48,8 +57,14 @@ export default function AdminSettingsPage() {
     }) });
     const data = await response.json();
     setSaving(false);
-    if (!response.ok) { setError(data.error?.message ?? "Settings gagal disimpan."); return; }
+    if (!response.ok) {
+      const failure = data.error?.message ?? "Settings gagal disimpan.";
+      setError(failure);
+      toast.error("Settings gagal disimpan", failure);
+      return;
+    }
     setSettings(data); setMessage("Settings tersimpan.");
+    toast.success("Settings tersimpan", "Perubahan berlaku di semua device dalam 30 detik.");
   }
 
   return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">

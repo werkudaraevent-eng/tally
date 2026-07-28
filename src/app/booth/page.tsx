@@ -4,6 +4,7 @@ import { CheckCircle, MagnifyingGlass, Package, Scan, Storefront, UserCircle, XC
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LogoutButton } from "@/components/logout-button";
+import { useToast } from "@/components/toast";
 import { formatWibDateTime, formatWibTime } from "@/lib/datetime";
 import { useOnline } from "@/lib/use-online";
 
@@ -48,6 +49,7 @@ export default function BoothPage() {
   // lewat "Lihat semua".
   const [showAllHistory, setShowAllHistory] = useState(false);
   const online = useOnline();
+  const toast = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Order lunas yang barangnya masih ditahan di booth = butuh aksi sekarang.
@@ -129,7 +131,13 @@ export default function BoothPage() {
     const response = await fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order_code: `${booth.code}-${orderCode.padStart(3, "0")}`, participant_id: participant.id, booth_id: booth.id, has_discount_item: discount, regular_amount: Number(regularAmount) || 0 }) });
     const data = await response.json();
     setPending(false);
-    if (!response.ok) { setMessage(data.error?.code === "DISCOUNT_ALREADY_TAKEN" ? "Item diskon peserta sudah pernah diambil di booth ini." : data.error?.message ?? "Order gagal dibuat."); return; }
+    if (!response.ok) {
+      const failure = data.error?.code === "DISCOUNT_ALREADY_TAKEN" ? "Item diskon peserta sudah pernah diambil di booth ini." : data.error?.message ?? "Order gagal dibuat.";
+      setMessage(failure);
+      toast.error("Order gagal dibuat", failure);
+      return;
+    }
+    toast.success(`Order ${data.order.code} dibuat`, pickupMode === "immediate" ? "Serahkan barang sekarang, arahkan peserta ke kasir." : "Tempel stiker, simpan di rak, arahkan peserta ke kasir.");
     setSuccess(data.order.code);
     setParticipant(null);
     setOrderCode(String(Number.parseInt(orderCode, 10) + 1).padStart(3, "0"));
@@ -146,11 +154,14 @@ export default function BoothPage() {
       // Kegagalan biasanya berarti layar memegang status usang (mis. order
       // sudah di-void atau belum benar-benar lunas). Selalu muat ulang data
       // agar kartu menampilkan kondisi sebenarnya, bukan hanya pesan error.
-      setMessage(data.error?.message ?? "Penyerahan barang gagal.");
+      const failure = data.error?.message ?? "Penyerahan barang gagal.";
+      setMessage(failure);
+      toast.error("Penyerahan barang gagal", `${failure} Data diperbarui.`);
       if (participant) void lookupParticipant(participant.qr_code);
       void loadHistory();
       return;
     }
+    toast.success("Barang diserahkan", `Order ${data.order?.code ?? ""} selesai.`.trim());
     if (participant) void lookupParticipant(participant.qr_code);
     void loadHistory();
   }

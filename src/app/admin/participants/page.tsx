@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle, CloudArrowDown, UsersThree, XCircle } from "@ph
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ParticipantList } from "@/components/admin/participant-list";
+import { useToast } from "@/components/toast";
 import { formatWibDateTime } from "@/lib/datetime";
 
 const AUTO_OPTIONS = [
@@ -21,22 +22,31 @@ export default function ParticipantsAdminPage() {
   const [autoMinutes, setAutoMinutes] = useState(0);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const toast = useToast();
 
   const sync = useCallback(async () => {
     setSyncing(true); setMessage(""); setError("");
     try {
       const response = await fetch("/api/admin/participants/sync", { method: "POST", signal: AbortSignal.timeout(90000) });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) { setError(data.error?.message ?? `Sync peserta gagal (HTTP ${response.status}).`); return; }
+      if (!response.ok) {
+        const failure = data.error?.message ?? `Sync peserta gagal (HTTP ${response.status}).`;
+        setError(failure);
+        toast.error("Sync peserta gagal", failure);
+        return;
+      }
       setMessage(`${data.synced} peserta tersinkron dari API client. Total sumber: ${data.source_total}.`);
+      toast.success(`${data.synced} peserta tersinkron`, `Total di sumber: ${data.source_total}.`);
       setLastSyncedAt(new Date().toISOString());
       setReloadKey((key) => key + 1);
     } catch (syncError) {
-      setError(syncError instanceof DOMException && syncError.name === "TimeoutError" ? "Sync terlalu lama. Periksa koneksi API client lalu coba lagi." : "Sync gagal karena koneksi terputus. Coba lagi.");
+      const failure = syncError instanceof DOMException && syncError.name === "TimeoutError" ? "Sync terlalu lama. Periksa koneksi API client lalu coba lagi." : "Sync gagal karena koneksi terputus. Coba lagi.";
+      setError(failure);
+      toast.error("Sync peserta gagal", failure);
     } finally {
       setSyncing(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     if (autoMinutes <= 0) return;

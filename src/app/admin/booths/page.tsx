@@ -3,6 +3,7 @@
 import { ArrowLeft, CheckCircle, FloppyDisk, Plus, Storefront, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/toast";
 
 type Booth = { id: number; code: string; name: string; discount_item_name: string; discount_item_stock: number | null; is_active: boolean; discount_enabled: boolean; discount_limit_per_participant: number };
 const blank: Booth = { id: 0, code: "B7", name: "Booth baru", discount_item_name: "Item diskon", discount_item_stock: null, is_active: true, discount_enabled: true, discount_limit_per_participant: 1 };
@@ -13,6 +14,7 @@ export default function BoothManagementPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
 
   async function load() {
     const response = await fetch("/api/admin/booths", { cache: "no-store" });
@@ -28,8 +30,14 @@ export default function BoothManagementPage() {
     const response = await fetch("/api/admin/booths", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...selected, id: selected.id || null }) });
     const data = await response.json();
     setSaving(false);
-    if (!response.ok) { setError(data.error?.message ?? "Booth gagal disimpan."); return; }
+    if (!response.ok) {
+      const failure = data.error?.message ?? "Booth gagal disimpan.";
+      setError(failure);
+      toast.error("Booth gagal disimpan", failure);
+      return;
+    }
     setMessage(`${data.booth.code} berhasil disimpan.`);
+    toast.success(`${data.booth.code} tersimpan`, `${data.booth.name} diperbarui.`);
     setSelected(data.booth);
     void load();
   }

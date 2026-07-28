@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle, CreditCard, MagnifyingGlass, Money, Receipt, S
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LogoutButton } from "@/components/logout-button";
+import { useToast } from "@/components/toast";
 import { terbilangRupiah } from "@/lib/terbilang";
 import { useOnline } from "@/lib/use-online";
 
@@ -34,6 +35,7 @@ export default function CashierPage() {
   const [scanning, setScanning] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const online = useOnline();
+  const toast = useToast();
   const total = useMemo(() => orders.filter((order) => selected.includes(order.id)).reduce((sum, order) => sum + order.total_amount, 0), [orders, selected]);
 
   const loadQueue = useCallback(async () => {
@@ -97,8 +99,15 @@ export default function CashierPage() {
     const response = await fetch("/api/orders/settle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order_ids: selected, payment_method: method, approval_code: method === "edc" ? approval : null }) });
     const data = await response.json();
     setLoading(false);
-    if (!response.ok) { setError(data.error?.message ?? "Pembayaran gagal."); return; }
-    setSuccess(data.settled_orders.map((order: Order) => order.code));
+    if (!response.ok) {
+      const failure = data.error?.message ?? "Pembayaran gagal.";
+      setError(failure);
+      toast.error("Pembayaran gagal", failure);
+      return;
+    }
+    const codes = data.settled_orders.map((order: Order) => order.code);
+    setSuccess(codes);
+    toast.success(`${codes.length} order lunas`, `${codes.join(" · ")} — ${formatRupiah(data.total ?? total)}`);
     setOrders((current) => current.filter((order) => !selected.includes(order.id)));
     setSelected([]); setApproval("");
     void loadQueue();
@@ -112,7 +121,13 @@ export default function CashierPage() {
     const response = await fetch(`/api/orders/${voidTarget.id}/void`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: voidReason.trim() }) });
     const data = await response.json();
     setLoading(false);
-    if (!response.ok) { setError(data.error?.message ?? "Void gagal."); return; }
+    if (!response.ok) {
+      const failure = data.error?.message ?? "Void gagal.";
+      setError(failure);
+      toast.error("Void gagal", failure);
+      return;
+    }
+    toast.warning(`Order ${voidTarget.code} dibatalkan`, "Kuota item diskon peserta kembali tersedia.");
     setOrders((current) => current.filter((order) => order.id !== voidTarget.id));
     setSelected((current) => current.filter((id) => id !== voidTarget.id));
     setVoidTarget(null); setVoidReason("");

@@ -3,6 +3,7 @@
 import { ArrowLeft, CheckCircle, Eye, MonitorPlay, UploadSimple, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/toast";
 import { formatWibDateTime } from "@/lib/datetime";
 
 type NameDisplayMode = "full" | "initials" | "company_only" | "hidden";
@@ -42,6 +43,7 @@ export default function DisplaySettingsPage() {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const toast = useToast();
 
   useEffect(() => { const timer = window.setTimeout(() => {
     void fetch("/api/display/settings", { cache: "no-store" }).then(async (response) => { if (response.ok) setSettings(await response.json()); else setError("Setting display gagal dimuat."); });
@@ -63,9 +65,15 @@ export default function DisplaySettingsPage() {
     const response = await fetch("/api/display/background", { method: "POST", body: form });
     const data = await response.json();
     setUploading(false);
-    if (!response.ok) { setError(data.error?.details?.file ?? data.error?.message ?? "Upload gambar gagal."); return; }
+    if (!response.ok) {
+      const failure = data.error?.details?.file ?? data.error?.message ?? "Upload gambar gagal.";
+      setError(failure);
+      toast.error("Upload gambar gagal", failure);
+      return;
+    }
     update("background_image_url", data.url);
     setMessage("Gambar terunggah. Klik Simpan untuk menerapkan ke Live Display.");
+    toast.info("Gambar terunggah", "Klik Simpan tampilan untuk menerapkannya ke Live Display.");
   }
 
   async function save() {
@@ -92,9 +100,19 @@ export default function DisplaySettingsPage() {
     ]);
     const data = await response.json();
     setSaving(false);
-    if (!response.ok) { setError(data.error?.message ?? "Setting display gagal disimpan."); return; }
-    if (eventResponse && !eventResponse.ok) { setError("Sebagian setting leaderboard gagal disimpan."); return; }
+    if (!response.ok) {
+      const failure = data.error?.message ?? "Setting display gagal disimpan.";
+      setError(failure);
+      toast.error("Setting display gagal disimpan", failure);
+      return;
+    }
+    if (eventResponse && !eventResponse.ok) {
+      setError("Sebagian setting leaderboard gagal disimpan.");
+      toast.error("Sebagian setting gagal disimpan", "Tampilan tersimpan, tetapi setting leaderboard gagal. Coba simpan ulang.");
+      return;
+    }
     setSettings(data); setMessage("Setting display tersimpan. Live Display akan menyesuaikan dalam beberapa detik.");
+    toast.success("Tampilan tersimpan", "Live Display menyesuaikan dalam beberapa detik.");
   }
 
   return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">

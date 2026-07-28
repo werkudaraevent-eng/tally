@@ -3,6 +3,7 @@
 import { ArrowLeft, CheckCircle, Plus, ShieldCheck, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useToast } from "@/components/toast";
 
 type User = { id: string; username: string; role: "booth" | "cashier" | "admin"; booth_id: number | null; is_active: boolean };
 type Booth = { id: number; code: string; name: string };
@@ -23,6 +24,7 @@ export default function AdminUsersPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
 
   const load = useCallback(async () => {
     const [usersResponse, boothsResponse] = await Promise.all([fetch("/api/admin/users", { cache: "no-store" }), fetch("/api/admin/booths", { cache: "no-store" })]);
@@ -41,15 +43,21 @@ export default function AdminUsersPage() {
   async function save() {
     setSaving(true); setError(""); setMessage("");
     const isNew = !draft.id;
-    if (isNew && !/^\d{6}$/.test(draft.pin)) { setSaving(false); setError("PIN wajib 6 digit untuk user baru."); return; }
+    if (isNew && !/^\d{6}$/.test(draft.pin)) { setSaving(false); setError("PIN wajib 6 digit untuk user baru."); toast.error("PIN belum valid", "PIN wajib 6 digit angka untuk user baru."); return; }
     const payload: Record<string, unknown> = { username: draft.username, role: draft.role, booth_id: draft.role === "booth" ? draft.booth_id : null, is_active: draft.is_active };
     if (draft.id) payload.id = draft.id;
     if (draft.pin) payload.pin = draft.pin;
     const response = await fetch("/api/admin/users", { method: isNew ? "POST" : "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const data = await response.json();
     setSaving(false);
-    if (!response.ok) { setError(data.error?.message ?? "User gagal disimpan."); return; }
+    if (!response.ok) {
+      const failure = data.error?.message ?? "User gagal disimpan.";
+      setError(failure);
+      toast.error("User gagal disimpan", failure);
+      return;
+    }
     setMessage(`${data.user.username} berhasil disimpan.`);
+    toast.success(`${data.user.username} tersimpan`, isNew ? "User baru dapat langsung login." : "Perubahan user diterapkan.");
     setDraft(blank);
     void load();
   }
