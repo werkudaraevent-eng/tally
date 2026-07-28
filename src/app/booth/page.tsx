@@ -142,7 +142,15 @@ export default function BoothPage() {
     const response = await fetch(`/api/orders/${orderId}/hand-over`, { method: "POST" });
     const data = await response.json();
     setPending(false);
-    if (!response.ok) { setMessage(data.error?.message ?? "Penyerahan barang gagal."); return; }
+    if (!response.ok) {
+      // Kegagalan biasanya berarti layar memegang status usang (mis. order
+      // sudah di-void atau belum benar-benar lunas). Selalu muat ulang data
+      // agar kartu menampilkan kondisi sebenarnya, bukan hanya pesan error.
+      setMessage(data.error?.message ?? "Penyerahan barang gagal.");
+      if (participant) void lookupParticipant(participant.qr_code);
+      void loadHistory();
+      return;
+    }
     if (participant) void lookupParticipant(participant.qr_code);
     void loadHistory();
   }
