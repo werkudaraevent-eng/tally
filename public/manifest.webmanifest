@@ -1,0 +1,11 @@
+{
+  "name": "Tally — Event Transaction Hub",
+  "short_name": "Tally",
+  "description": "Booth transaction and live leaderboard system for events.",
+  "start_url": "/login",
+  "display": "standalone",
+  "background_color": "#F5F4F0",
+  "theme_color": "#2649D0",
+  "lang": "id",
+  "icons": []
+}

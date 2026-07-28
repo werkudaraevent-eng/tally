@@ -1,0 +1,98 @@
+import { z } from "zod";
+import bcrypt from "bcryptjs";
+import { apiError } from "@/lib/api";
+import { requireUser } from "@/lib/auth/guards";
+import { getSupabaseServiceClient } from "@/lib/supabase/service";
+
+const createSchema = z.object({
+  username: z.string().trim().min(3).max(50).regex(/^[a-z0-9._-]+$/i, "Username hanya huruf, angka, titik, garis."),
+  pin: z.string().regex(/^\d{6}$/, "PIN harus 6 digit angka."),
+  role: z.enum(["booth", "cashier", "admin"]),
+  booth_id: z.number().int().positive().nullable().optional(),
+  is_active: z.boolean().optional(),
+});
+
+const updateSchema = z.object({
+  id: z.string().uuid(),
+  username: z.string().trim().min(3).max(50).regex(/^[a-z0-9._-]+$/i).optional(),
+  pin: z.string().regex(/^\d{6}$/).optional(),
+  role: z.enum(["booth", "cashier", "admin"]).optional(),
+  booth_id: z.number().int().positive().nullable().optional(),
+  is_active: z.boolean().optional(),
+});
+
+type UserRow = { id: string; username: string; role: string; booth_id: number | null; is_active: boolean };
+
+export async function GET() {
+  const auth = await requireUser(["admin"]);
+  if (auth.response) return auth.response;
+  const { data, error } = await getSupabaseServiceClient()
+    .from("users")
+    .select("id,username,role,booth_id,is_active")
+    .order("role", { ascending: true })
+    .order("username", { ascending: true });
+  if (error) return apiError("INTERNAL_ERROR", 500);
+  return Response.json({ users: data ?? [] });
+}
+
+export async function POST(request: Request) {
+  const auth = await requireUser(["admin"]);
+  if (auth.response) return auth.response;
+  const parsed = createSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+  if (parsed.data.role === "booth" && !parsed.data.booth_id) return apiError("VALIDATION_ERROR", 422, { message: "Booth wajib dipilih untuk role booth." });
+
+  const client = getSupabaseServiceClient();
+  const { data: existing } = await client.from("users").select("id").eq("username", parsed.data.username).maybeSingle() as { data: { id: string } | null };
+  if (existing) return apiError("USERNAME_TAKEN", 409);
+
+  const pinHash = await bcrypt.hash(parsed.data.pin, 12);
+  const { data, error } = await client
+    .from("users")
+    .insert({ username: parsed.data.username, pin_hash: pinHash, role: parsed.data.role, booth_id: parsed.data.role === "booth" ? parsed.data.booth_id : null, is_active: parsed.data.is_active ?? true } as never)
+    .select("id,username,role,booth_id,is_active")
+    .single();
+  if (error) return apiError("INTERNAL_ERROR", 500);
+  await client.from("audit_logs").insert({ user_id: auth.user.id, action: "user_create", payload: { user: data } } as never);
+  return Response.json({ user: data }, { status: 201 });
+}
+
+export async function PATCH(request: Request) {
+  const auth = await requireUser(["admin"]);
+  if (auth.response) return auth.response;
+  const parsed = updateSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+  const client = getSupabaseServiceClient();
+
+  const { data: current } = await client.from("users").select("id,username,role,booth_id,is_active").eq("id", parsed.data.id).maybeSingle() as { data: UserRow | null };
+  if (!current) return apiError("USER_NOT_FOUND", 404);
+
+  const nextRole = parsed.data.role ?? current.role;
+  const nextBoothId = nextRole === "booth" ? (parsed.data.booth_id ?? current.booth_id) : null;
+  if (nextRole === "booth" && !nextBoothId) return apiError("VALIDATION_ERROR", 422, { message: "Booth wajib dipilih untuk role booth." });
+
+  // Prevent removing the last active admin.
+  const losingAdmin = current.role === "admin" && (nextRole !== "admin" || parsed.data.is_active === false);
+  if (losingAdmin) {
+    const { count } = await client.from("users").select("id", { count: "exact", head: true }).eq("role", "admin").eq("is_active", true);
+    if ((count ?? 0) <= 1) return apiError("VALIDATION_ERROR", 422, { message: "Minimal satu admin aktif harus tersisa." });
+  }
+
+  if (parsed.data.username && parsed.data.username !== current.username) {
+    const { data: taken } = await client.from("users").select("id").eq("username", parsed.data.username).neq("id", parsed.data.id).maybeSingle() as { data: { id: string } | null };
+    if (taken) return apiError("USERNAME_TAKEN", 409);
+  }
+
+  const update: Record<string, unknown> = {
+    role: nextRole,
+    booth_id: nextBoothId,
+  };
+  if (parsed.data.username) update.username = parsed.data.username;
+  if (typeof parsed.data.is_active === "boolean") update.is_active = parsed.data.is_active;
+  if (parsed.data.pin) update.pin_hash = await bcrypt.hash(parsed.data.pin, 12);
+
+  const { data, error } = await client.from("users").update(update as never).eq("id", parsed.data.id).select("id,username,role,booth_id,is_active").single();
+  if (error) return apiError("INTERNAL_ERROR", 500);
+  await client.from("audit_logs").insert({ user_id: auth.user.id, action: "user_update", payload: { old: current, new: data } } as never);
+  return Response.json({ user: data });
+}
