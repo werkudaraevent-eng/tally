@@ -12,7 +12,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const params = paramsSchema.safeParse(await context.params);
   const body = bodySchema.safeParse(await request.json().catch(() => null));
   if (!params.success || !body.success) return apiError("VALIDATION_ERROR", 422, body.success ? undefined : body.error.flatten());
-  const { data, error } = await getSupabaseServiceClient().rpc("void_order_transaction" as never, { p_order_id: params.data.id, p_reason: body.data.reason, p_user_id: auth.user.id } as never);
+  // BR-08: hanya admin yang boleh mem-void order berstatus handed_over.
+  const { data, error } = await getSupabaseServiceClient().rpc("void_order_transaction" as never, { p_order_id: params.data.id, p_reason: body.data.reason, p_user_id: auth.user.id, p_is_admin: auth.user.role === "admin" } as never);
   if (error) return apiError(mapDatabaseError(error), 409);
   return Response.json({ order: data });
 }

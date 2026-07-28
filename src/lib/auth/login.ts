@@ -5,7 +5,11 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { CurrentUser } from "./roles";
 
 const SESSION_COOKIE = "tally_session";
+// Default menutupi durasi acara penuh (BR non-functional: jangan auto-logout
+// selama event). "Ingat saya" memperpanjang hingga 30 hari untuk device panitia
+// yang dipakai berulang kali.
 const SESSION_SECONDS = 12 * 60 * 60;
+const REMEMBER_ME_SECONDS = 30 * 24 * 60 * 60;
 
 function sessionSecret() {
   const secret = process.env.SESSION_SECRET;
@@ -29,12 +33,12 @@ function validSession(value: string) {
   return id;
 }
 
-export async function loginWithPin(username: string, pin: string): Promise<CurrentUser | null> {
+export async function loginWithPin(username: string, pin: string, rememberMe = false): Promise<CurrentUser | null> {
   const client = getSupabaseServiceClient();
   const { data: user } = await client.from("users").select("id,username,pin_hash,role,booth_id,is_active").eq("username", username.trim()).eq("is_active", true).single() as { data: { id: string; username: string; pin_hash: string; role: "booth" | "cashier" | "admin"; booth_id: number | null; is_active: boolean } | null };
   if (!user || !(await bcrypt.compare(pin, user.pin_hash))) return null;
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, encodeSession(user.id), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: SESSION_SECONDS, path: "/" });
+  cookieStore.set(SESSION_COOKIE, encodeSession(user.id), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: rememberMe ? REMEMBER_ME_SECONDS : SESSION_SECONDS, path: "/" });
   return { id: user.id, username: user.username, role: user.role, booth_id: user.booth_id };
 }
 

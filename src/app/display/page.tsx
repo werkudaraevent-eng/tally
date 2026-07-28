@@ -1,7 +1,11 @@
 "use client";
 
-import { Broadcast, ChartLineUp, Crown, DotsSix, EyeSlash, Storefront, Trophy } from "@phosphor-icons/react";
+import { Broadcast, ChartLineUp, Crown, DotsSix, EyeSlash, Medal, Storefront, TrendUp, Trophy } from "@phosphor-icons/react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
+
+// Peringkat 1-3 mendapat medali; sisanya nomor urut biasa.
+const MEDALS = ["#F2C14E", "#C7CDD4", "#C98B5E"] as const;
 
 type Entry = { display_name: string; company: string | null; total_spent: number; booth_count: number };
 type DisplayConfig = {
@@ -99,12 +103,36 @@ export default function DisplayPage() {
             <ChartLineUp size={42} weight="duotone" style={{ opacity: 0.35 }} />
           </div>
           <div className="divide-y divide-white/15 border-y border-white/15">
-            {entries.map((entry, index) => <div key={`${entry.display_name}-${index}`} className={`grid items-center gap-5 py-6 ${config.show_booth_progress ? "grid-cols-[56px_1fr_auto] xl:grid-cols-[76px_1fr_180px_100px]" : "grid-cols-[56px_1fr_auto] xl:grid-cols-[76px_1fr_200px]"}`}>
-              <span className="font-mono text-3xl font-semibold" style={{ color: index === 0 ? config.accent_color : undefined, opacity: index === 0 ? 1 : 0.35 }}>{String(index + 1).padStart(2, "0")}</span>
-              <div><p className="text-xl font-semibold xl:text-2xl">{entry.display_name}</p>{config.show_company && entry.company && <p className="mt-1 text-sm" style={{ opacity: 0.5 }}>{entry.company}</p>}</div>
-              <p className="hidden text-right font-mono text-lg font-semibold xl:block">{formatRupiah(entry.total_spent)}</p>
-              {config.show_booth_progress && <div className="flex items-center justify-end gap-1" aria-label={`${entry.booth_count} booth dikunjungi`}>{Array.from({ length: 6 }).map((_, dot) => <span key={dot} className="size-2.5 rounded-full" style={{ backgroundColor: dot < entry.booth_count ? config.accent_color : "rgba(255,255,255,0.15)" }} />)}</div>}
-            </div>)}
+            <AnimatePresence initial={false}>
+              {entries.map((entry, index) => {
+                const medal = MEDALS[index];
+                return <motion.div
+                  key={entry.display_name}
+                  layout
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                  transition={{ type: "spring", stiffness: 320, damping: 32 }}
+                  className={`grid items-center gap-5 ${index === 0 ? "py-7" : "py-6"} ${config.show_booth_progress ? "grid-cols-[64px_1fr_auto] xl:grid-cols-[84px_1fr_180px_110px]" : "grid-cols-[64px_1fr_auto] xl:grid-cols-[84px_1fr_200px]"}`}
+                  style={index === 0 ? { background: `linear-gradient(90deg, ${config.accent_color}1f, transparent 65%)` } : undefined}
+                >
+                  <span className="flex items-center justify-center">
+                    {medal ? <span className="flex size-12 items-center justify-center rounded-full xl:size-14" style={{ backgroundColor: `${medal}26`, border: `2px solid ${medal}` }}>
+                      <Medal size={index === 0 ? 30 : 26} weight="fill" style={{ color: medal }} />
+                    </span> : <span className="font-mono text-3xl font-semibold" style={{ opacity: 0.35 }}>{String(index + 1).padStart(2, "0")}</span>}
+                  </span>
+                  <div className="min-w-0">
+                    <p className={`truncate font-semibold ${index === 0 ? "text-2xl xl:text-4xl" : "text-xl xl:text-2xl"}`}>{entry.display_name}</p>
+                    {config.show_company && entry.company && <p className="mt-1 truncate text-sm" style={{ opacity: 0.5 }}>{entry.company}</p>}
+                  </div>
+                  <p className={`hidden text-right font-mono font-semibold xl:block ${index === 0 ? "text-2xl" : "text-lg"}`} style={index === 0 ? { color: config.accent_color } : undefined}>{formatRupiah(entry.total_spent)}</p>
+                  {config.show_booth_progress && <div className="flex items-center justify-end gap-1.5" aria-label={`${entry.booth_count} dari 6 booth dikunjungi`}>
+                    {Array.from({ length: 6 }).map((_, dot) => <span key={dot} className="size-2.5 rounded-full transition-colors xl:size-3" style={{ backgroundColor: dot < entry.booth_count ? config.accent_color : "rgba(255,255,255,0.15)" }} />)}
+                    {entry.booth_count >= 6 && <Crown size={18} weight="fill" className="ml-1" style={{ color: config.accent_color }} />}
+                  </div>}
+                </motion.div>;
+              })}
+            </AnimatePresence>
           </div>
           {entries.length === 0 && <p className="py-16 text-center" style={{ opacity: 0.5 }}>Belum ada transaksi lunas.</p>}
         </section>
@@ -119,8 +147,8 @@ export default function DisplayPage() {
             <div className="mt-6 grid grid-cols-6 gap-2">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="flex aspect-square items-center justify-center text-xs font-bold text-black" style={{ backgroundColor: index < (topEntry?.booth_count ?? 0) ? config.accent_color : "rgba(255,255,255,0.15)" }}>B{index + 1}</div>)}</div>
           </section>
           <section className="grid grid-cols-2 gap-px bg-white/15">
-            <div className="p-5" style={{ backgroundColor: config.background_color }}><p className="font-mono text-4xl font-semibold">{entries.length}</p><p className="mt-2 text-xs uppercase tracking-[0.14em]" style={{ opacity: 0.45 }}>Spender</p></div>
-            <div className="p-5" style={{ backgroundColor: config.background_color }}><p className="font-mono text-4xl font-semibold">{entries.reduce((sum, entry) => sum + entry.booth_count, 0)}</p><p className="mt-2 text-xs uppercase tracking-[0.14em]" style={{ opacity: 0.45 }}>Booth visits</p></div>
+            <div className="p-5" style={{ backgroundColor: config.background_color }}><TrendUp size={22} weight="duotone" style={{ color: config.accent_color }} /><p className="mt-3 font-mono text-4xl font-semibold">{entries.length}</p><p className="mt-2 text-xs uppercase tracking-[0.14em]" style={{ opacity: 0.45 }}>Spender</p></div>
+            <div className="p-5" style={{ backgroundColor: config.background_color }}><Storefront size={22} weight="duotone" style={{ color: config.accent_color }} /><p className="mt-3 font-mono text-4xl font-semibold">{entries.reduce((sum, entry) => sum + entry.booth_count, 0)}</p><p className="mt-2 text-xs uppercase tracking-[0.14em]" style={{ opacity: 0.45 }}>Booth visits</p></div>
           </section>
         </aside>}
       </div> : <div className="flex min-h-[70dvh] items-center justify-center px-8 text-center"><div><DotsSix size={64} className="mx-auto" style={{ opacity: 0.2 }} /><h2 className="mt-6 text-4xl font-semibold">Leaderboard sedang disembunyikan.</h2><p className="mt-3" style={{ opacity: 0.45 }}>Sesi presentasi dapat dimulai kembali oleh Admin.</p></div></div>}
