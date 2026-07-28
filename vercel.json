@@ -1,12 +1,3 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/auto-void",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/sync-participants",
-      "schedule": "*/15 * * * *"
-    }
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }
