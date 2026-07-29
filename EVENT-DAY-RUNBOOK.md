@@ -61,7 +61,7 @@ Open `http://localhost:3000/login`.
 - Reconcile cashier total against EDC settlement, then against any other active method separately.
 - Payment methods are managed in Settings. Disable a method instead of deleting it; at least one must stay active or the cashier cannot settle.
 - Special offers are managed in `/admin/offers` only. The Booth & item page shows a summary and links there; it no longer edits price, quota, or stock. A booth's discount item row is created automatically when the booth is created.
-- Offer `code` and scope cannot be changed after creation. Everything else is editable; create a new offer if the scope must differ.
+- Offer `code` cannot be changed after creation. Scope and booth can still be changed while the offer has no claims; after the first claim they lock. Builtin booth offers can never change scope.
 - Special offers are managed in `/admin/offers`. Disable instead of deleting; anything already claimed cannot be deleted.
 - Changing an offer's price or top-spender flag only affects future claims. Existing claims keep the values captured at claim time, so projector figures never shift on their own.
 - If a participant's spend drops below an offer threshold after a void, the claim already made stays valid. Barang sudah di tangan peserta.

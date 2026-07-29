@@ -72,6 +72,9 @@ const updateSchema = z.object({
   counts_toward_leaderboard: z.boolean().optional(),
   is_active: z.boolean().optional(),
   sort_order: z.number().int().min(0).max(9999).optional(),
+  // Hanya boleh diubah selama penawaran belum pernah diklaim, lihat guard di PATCH.
+  scope: z.enum(["per_booth", "global"]).optional(),
+  booth_id: z.number().int().positive().nullable().optional(),
 });
 
 // Booth dan kasir ikut membaca daftar ini untuk menampilkan penawaran yang berlaku.
@@ -139,10 +142,35 @@ export async function PATCH(request: Request) {
   if (Object.keys(changes).length === 0) return apiError("VALIDATION_ERROR", 422);
 
   const client = getSupabaseServiceClient();
-  const { data: current } = await client.from("special_offers").select(SELECT).eq("id", id).maybeSingle() as { data: { is_builtin: boolean; price: number } | null };
+  const { data: current } = await client.from("special_offers").select(SELECT).eq("id", id).maybeSingle() as { data: { is_builtin: boolean; price: number; scope: string; booth_id: number | null } | null };
   if (!current) return apiError("OFFER_NOT_FOUND", 404);
 
-  const { data, error } = await client.from("special_offers").update(changes as never).eq("id", id).select(SELECT).single();
+  const wantsScopeChange = (changes.scope !== undefined && changes.scope !== current.scope)
+    || (changes.booth_id !== undefined && (changes.booth_id ?? null) !== current.booth_id);
+
+  if (wantsScopeChange) {
+    // Penawaran bawaan booth terikat booth-nya: memindahkannya akan menabrak
+    // partial unique index satu-builtin-per-booth, dan trigger sinkronisasi booth
+    // akan terus menariknya kembali.
+    if (current.is_builtin) return apiError("OFFER_SCOPE_LOCKED_BUILTIN", 422);
+
+    // Klaim yang sudah ada dicatat terhadap cakupan saat itu. Mengubah cakupan
+    // setelah ada klaim membuat laporan menyatakan aturan yang tidak pernah
+    // berlaku saat transaksi terjadi.
+    const { count } = await client.from("order_special_items").select("id", { count: "exact", head: true }).eq("offer_id", id);
+    if ((count ?? 0) > 0) return apiError("OFFER_SCOPE_LOCKED_CLAIMED", 422);
+  }
+
+  const nextScope = changes.scope ?? current.scope;
+  if (nextScope === "per_booth" && !(changes.booth_id ?? current.booth_id)) {
+    return apiError("VALIDATION_ERROR", 422, { message: "Penawaran per booth harus memilih booth." });
+  }
+
+  const { data, error } = await client.from("special_offers").update({
+    ...changes,
+    // Global tidak boleh menyimpan booth_id; constraint database menolaknya.
+    ...(changes.scope !== undefined ? { booth_id: changes.scope === "global" ? null : (changes.booth_id ?? current.booth_id) } : {}),
+  } as never).eq("id", id).select(SELECT).single();
   if (error) return apiError(mapDatabaseError(error), 422);
 
   // Penawaran builtin mencerminkan config booth; jaga agar halaman Booth tidak

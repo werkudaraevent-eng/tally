@@ -59,9 +59,16 @@ export default function OfferManagementPage() {
   // Penawaran yang sedang diedit. `code` dan `scope` tidak dapat diubah karena
   // keduanya dirujuk klaim historis, jadi keduanya tampil sebagai teks saja.
   const [editing, setEditing] = useState<Offer | null>(null);
-  const [editForm, setEditForm] = useState<{ name: string; price: string; stock: string; max_per_participant: string; conditions: OfferConditionGroup }>({ name: "", price: "", stock: "", max_per_participant: "", conditions: { op: "and", children: [] } });
+  const [editForm, setEditForm] = useState<{ name: string; price: string; stock: string; max_per_participant: string; scope: "global" | "per_booth"; booth_id: number; conditions: OfferConditionGroup }>({ name: "", price: "", stock: "", max_per_participant: "", scope: "global", booth_id: 0, conditions: { op: "and", children: [] } });
   const [savingEdit, setSavingEdit] = useState(false);
   const toast = useToast();
+
+  // Cakupan hanya boleh diubah selama penawaran belum pernah diklaim dan bukan
+  // bawaan booth. Bawaan booth terikat booth-nya (partial unique index + trigger
+  // sinkronisasi), dan klaim yang sudah ada dicatat terhadap cakupan saat itu.
+  function canEditScope(offer: Offer | null): boolean {
+    return Boolean(offer) && !offer!.is_builtin && offer!.claim_count === 0;
+  }
 
   function openEdit(offer: Offer) {
     setEditing(offer);
@@ -70,6 +77,8 @@ export default function OfferManagementPage() {
       price: String(offer.price),
       stock: offer.stock === null ? "" : String(offer.stock),
       max_per_participant: String(offer.max_per_participant),
+      scope: offer.scope,
+      booth_id: offer.booth_id ?? 0,
       conditions: offer.conditions ?? { op: "and", children: [] },
     });
     setError("");
@@ -88,6 +97,9 @@ export default function OfferManagementPage() {
         stock: editForm.stock === "" ? null : Number(editForm.stock),
         max_per_participant: Number(editForm.max_per_participant) || 0,
         conditions: editForm.conditions,
+        // Hanya dikirim bila memang boleh diubah, agar penawaran bawaan atau yang
+        // sudah diklaim tidak ditolak server hanya karena field ikut terkirim.
+        ...(canEditScope(editing) ? { scope: editForm.scope, booth_id: editForm.scope === "per_booth" ? editForm.booth_id : null } : {}),
       }),
     });
     const data = await response.json();
@@ -304,6 +316,22 @@ export default function OfferManagementPage() {
               </label>
             </div>
 
+            {canEditScope(offer) && <div className="mt-4">
+              <p className="text-sm font-semibold">Berlaku di</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {([["global", "Semua booth", "Satu kuota untuk seluruh acara."], ["per_booth", "Booth tertentu", "Hanya berlaku di satu booth."]] as const).map(([value, label, desc]) => <label key={value} className={`flex cursor-pointer gap-3 border p-3 ${editForm.scope === value ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)]"}`}>
+                  <input type="radio" name={`edit-scope-${offer.id}`} checked={editForm.scope === value} onChange={() => setEditForm((current) => ({ ...current, scope: value }))} className="mt-1 size-4 accent-[var(--brand)]" />
+                  <span><span className="block text-sm font-semibold">{label}</span><span className="mt-0.5 block text-xs text-[var(--ink-muted)]">{desc}</span></span>
+                </label>)}
+              </div>
+              {editForm.scope === "per_booth" && <label className="mt-3 block text-sm font-semibold">Booth
+                <select value={editForm.booth_id} onChange={(event) => setEditForm((current) => ({ ...current, booth_id: Number(event.target.value) }))} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]">
+                  <option value={0}>Pilih booth</option>
+                  {booths.map((booth) => <option key={booth.id} value={booth.id}>{booth.code} — {booth.name}</option>)}
+                </select>
+              </label>}
+            </div>}
+
             <div className="mt-4 border border-[var(--line)] bg-[var(--background)] p-4">
               <p className="text-sm font-semibold">Syarat penawaran</p>
               <p className="mt-1 text-xs text-[var(--ink-muted)]">Dihitung dari order yang sudah lunas saja. Perubahan berlaku untuk klaim berikutnya.</p>
@@ -313,7 +341,14 @@ export default function OfferManagementPage() {
             </div>
             {/* Kode & cakupan tidak dapat diubah: keduanya dirujuk klaim historis,
                 mengubahnya akan memutus referensi laporan. */}
-            <p className="mt-3 text-xs text-[var(--ink-muted)]">Kode <span className="font-mono">{offer.code}</span> dan cakupan <span className="font-semibold">{offer.scope === "global" ? "semua booth" : boothLabel(offer.booth_id)}</span> tidak dapat diubah karena sudah dirujuk klaim dan laporan. Buat penawaran baru bila perlu berbeda.{offer.claim_count > 0 && ` ${offer.claim_count} klaim yang sudah ada tetap memakai harga saat diklaim.`}</p>
+            <p className="mt-3 text-xs text-[var(--ink-muted)]">
+              Kode <span className="font-mono">{offer.code}</span> tidak dapat diubah karena dipakai di database dan laporan.
+              {offer.is_builtin
+                ? " Cakupan penawaran bawaan selalu terikat booth-nya; buat penawaran baru bila perlu cakupan lain."
+                : offer.claim_count > 0
+                  ? ` Cakupan terkunci karena sudah ada ${offer.claim_count} klaim yang tercatat terhadap cakupan tersebut. ${offer.claim_count} klaim itu juga tetap memakai harga saat diklaim.`
+                  : " Cakupan masih dapat diubah karena penawaran ini belum pernah diklaim."}
+            </p>
             <div className="mt-4 flex gap-3">
               <button type="button" onClick={() => setEditing(null)} className="min-h-12 flex-1 border border-[var(--line)] text-sm font-semibold">Batal</button>
               <button type="button" onClick={() => void saveEdit()} disabled={savingEdit || !editForm.name.trim()} className="min-h-12 flex-1 bg-[var(--brand)] text-sm font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-50">{savingEdit ? "Menyimpan..." : "Simpan perubahan"}</button>

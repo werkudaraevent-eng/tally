@@ -29,6 +29,8 @@ const messages: Record<ApiErrorCode, string> = {
   OFFER_CONDITIONS_NOT_MET: "Peserta belum memenuhi syarat penawaran ini.",
   OFFER_IN_USE: "Penawaran sudah diklaim order. Matikan saja, jangan dihapus.",
   OFFER_BUILTIN: "Penawaran bawaan booth tidak dapat dihapus. Matikan saja bila tidak dipakai.",
+  OFFER_SCOPE_LOCKED_BUILTIN: "Penawaran bawaan booth selalu terikat booth-nya. Buat penawaran baru bila perlu cakupan lain.",
+  OFFER_SCOPE_LOCKED_CLAIMED: "Cakupan tidak dapat diubah karena penawaran sudah pernah diklaim. Buat penawaran baru.",
   DUPLICATE_OFFER_CODE: "Kode penawaran sudah dipakai.",
   ORDER_TOTAL_MISMATCH: "Total order tidak cocok dengan item yang diklaim.",
   INTERNAL_ERROR: "Terjadi kesalahan server. Coba lagi.",
@@ -62,6 +64,9 @@ export function mapDatabaseError(error: { code?: string; message?: string }) {
   if (message.includes("OFFER_INACTIVE")) return "OFFER_INACTIVE" as const;
   if (message.includes("OFFER_WRONG_BOOTH")) return "OFFER_WRONG_BOOTH" as const;
   if (message.includes("OFFER_CONDITIONS_NOT_MET")) return "OFFER_CONDITIONS_NOT_MET" as const;
+  // Dilempar trigger guard_builtin_offer_scope bila ada jalur lain yang mencoba
+  // memindahkan penawaran bawaan booth.
+  if (message.includes("OFFER_SCOPE_LOCKED_BUILTIN")) return "OFFER_SCOPE_LOCKED_BUILTIN" as const;
   if (message.includes("ORDER_TOTAL_MISMATCH")) return "ORDER_TOTAL_MISMATCH" as const;
   if (error.code === "23505") return "DISCOUNT_ALREADY_TAKEN" as const;
   return "INTERNAL_ERROR" as const;
