@@ -26,7 +26,7 @@ const messages: Record<ApiErrorCode, string> = {
   OFFER_NOT_FOUND: "Penawaran spesial tidak ditemukan.",
   OFFER_INACTIVE: "Penawaran spesial ini sedang dimatikan admin.",
   OFFER_WRONG_BOOTH: "Penawaran ini hanya berlaku di booth lain.",
-  OFFER_BELOW_MIN_ACCUMULATED: "Total transaksi peserta belum memenuhi syarat minimum penawaran ini.",
+  OFFER_CONDITIONS_NOT_MET: "Peserta belum memenuhi syarat penawaran ini.",
   OFFER_IN_USE: "Penawaran sudah diklaim order. Matikan saja, jangan dihapus.",
   OFFER_BUILTIN: "Penawaran bawaan booth tidak dapat dihapus. Matikan saja bila tidak dipakai.",
   DUPLICATE_OFFER_CODE: "Kode penawaran sudah dipakai.",
@@ -61,7 +61,7 @@ export function mapDatabaseError(error: { code?: string; message?: string }) {
   if (message.includes("OFFER_NOT_FOUND")) return "OFFER_NOT_FOUND" as const;
   if (message.includes("OFFER_INACTIVE")) return "OFFER_INACTIVE" as const;
   if (message.includes("OFFER_WRONG_BOOTH")) return "OFFER_WRONG_BOOTH" as const;
-  if (message.includes("OFFER_BELOW_MIN_ACCUMULATED")) return "OFFER_BELOW_MIN_ACCUMULATED" as const;
+  if (message.includes("OFFER_CONDITIONS_NOT_MET")) return "OFFER_CONDITIONS_NOT_MET" as const;
   if (message.includes("ORDER_TOTAL_MISMATCH")) return "ORDER_TOTAL_MISMATCH" as const;
   if (error.code === "23505") return "DISCOUNT_ALREADY_TAKEN" as const;
   return "INTERNAL_ERROR" as const;

@@ -4,6 +4,8 @@ import { ArrowLeft, CheckCircle, PencilSimple, Plus, Storefront, Tag, Trash, Tre
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
+import { ConditionBuilder, describeConditions } from "@/components/admin/condition-builder";
+import type { OfferConditionGroup } from "@/lib/domain";
 
 type Offer = {
   id: number;
@@ -14,7 +16,7 @@ type Offer = {
   scope: "per_booth" | "global";
   booth_id: number | null;
   max_per_participant: number;
-  min_accumulated_amount: number | null;
+  conditions: OfferConditionGroup;
   counts_toward_leaderboard: boolean;
   is_active: boolean;
   sort_order: number;
@@ -28,6 +30,11 @@ const formatRupiah = (amount: number) => `Rp ${new Intl.NumberFormat("id-ID").fo
 const digitsOnly = (value: string) => value.replace(/\D/g, "");
 const grouped = (digits: string) => (digits ? new Intl.NumberFormat("id-ID").format(Number(digits)) : "");
 
+const EMPTY_CONDITIONS: OfferConditionGroup = {
+  op: "and",
+  children: [{ var: "total_spend", scope: "all_booths", cmp: "gte", value: 500000 }],
+};
+
 const EMPTY_FORM = {
   code: "",
   name: "",
@@ -36,7 +43,7 @@ const EMPTY_FORM = {
   scope: "global" as "global" | "per_booth",
   booth_id: 0,
   max_per_participant: "1",
-  min_accumulated_amount: "500000",
+  conditions: EMPTY_CONDITIONS,
   counts_toward_leaderboard: true,
 };
 
@@ -52,7 +59,7 @@ export default function OfferManagementPage() {
   // Penawaran yang sedang diedit. `code` dan `scope` tidak dapat diubah karena
   // keduanya dirujuk klaim historis, jadi keduanya tampil sebagai teks saja.
   const [editing, setEditing] = useState<Offer | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", price: "", stock: "", max_per_participant: "", min_accumulated_amount: "" });
+  const [editForm, setEditForm] = useState<{ name: string; price: string; stock: string; max_per_participant: string; conditions: OfferConditionGroup }>({ name: "", price: "", stock: "", max_per_participant: "", conditions: { op: "and", children: [] } });
   const [savingEdit, setSavingEdit] = useState(false);
   const toast = useToast();
 
@@ -63,7 +70,7 @@ export default function OfferManagementPage() {
       price: String(offer.price),
       stock: offer.stock === null ? "" : String(offer.stock),
       max_per_participant: String(offer.max_per_participant),
-      min_accumulated_amount: offer.min_accumulated_amount === null ? "" : String(offer.min_accumulated_amount),
+      conditions: offer.conditions ?? { op: "and", children: [] },
     });
     setError("");
   }
@@ -80,7 +87,7 @@ export default function OfferManagementPage() {
         price: Number(editForm.price) || 0,
         stock: editForm.stock === "" ? null : Number(editForm.stock),
         max_per_participant: Number(editForm.max_per_participant) || 0,
-        min_accumulated_amount: editForm.min_accumulated_amount === "" ? null : Number(editForm.min_accumulated_amount),
+        conditions: editForm.conditions,
       }),
     });
     const data = await response.json();
@@ -152,7 +159,7 @@ export default function OfferManagementPage() {
         scope: form.scope,
         booth_id: form.scope === "per_booth" ? form.booth_id || null : null,
         max_per_participant: Number(form.max_per_participant) || 1,
-        min_accumulated_amount: form.min_accumulated_amount === "" ? null : Number(form.min_accumulated_amount),
+        conditions: form.conditions,
         counts_toward_leaderboard: form.counts_toward_leaderboard,
         sort_order: 900,
       }),
@@ -228,11 +235,17 @@ export default function OfferManagementPage() {
           <label className="block text-sm font-semibold">Maksimal per peserta
             <input value={form.max_per_participant} onChange={(event) => setForm((current) => ({ ...current, max_per_participant: digitsOnly(event.target.value) }))} inputMode="numeric" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm tabular-nums outline-none focus:border-[var(--brand)]" />
           </label>
-          <label className="block text-sm font-semibold">Syarat total transaksi (Rp) <span className="font-normal text-[var(--ink-muted)]">(kosong = tanpa syarat)</span>
-            <input value={grouped(form.min_accumulated_amount)} onChange={(event) => setForm((current) => ({ ...current, min_accumulated_amount: digitsOnly(event.target.value) }))} inputMode="numeric" placeholder="Tanpa syarat" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm tabular-nums outline-none focus:border-[var(--brand)]" />
-          </label>
         </div>
-        <p className="mt-2 text-xs text-[var(--ink-muted)]">Syarat dihitung dari akumulasi transaksi peserta di semua booth, hanya order yang sudah lunas.</p>
+
+        {/* Menggantikan field "Syarat total transaksi (Rp)" yang tidak menyebutkan
+            cakupan. Setiap syarat kini eksplisit: variabel, cakupan, pembanding, nilai. */}
+        <div className="mt-5 border border-[var(--line)] bg-[var(--background)] p-4">
+          <p className="text-sm font-semibold">Syarat penawaran</p>
+          <p className="mt-1 text-xs text-[var(--ink-muted)]">Dihitung dari order yang sudah lunas saja. Kosongkan bila penawaran terbuka untuk semua peserta.</p>
+          <div className="mt-3">
+            <ConditionBuilder value={form.conditions} booths={booths} onChange={(next) => setForm((current) => ({ ...current, conditions: next }))} />
+          </div>
+        </div>
 
         <label className="mt-5 flex cursor-pointer items-start gap-3 text-sm">
           <input type="checkbox" checked={form.counts_toward_leaderboard} onChange={(event) => setForm((current) => ({ ...current, counts_toward_leaderboard: event.target.checked }))} className="mt-0.5 size-5 shrink-0 accent-[var(--brand)]" />
@@ -260,7 +273,7 @@ export default function OfferManagementPage() {
                 <div><dt className="inline">Berlaku </dt><dd className="inline font-semibold text-[var(--ink)]">{offer.scope === "global" ? "semua booth" : boothLabel(offer.booth_id)}</dd></div>
                 <div><dt className="inline">Maks/peserta </dt><dd className="inline font-semibold tabular-nums text-[var(--ink)]">{offer.max_per_participant}</dd></div>
                 <div><dt className="inline">Stok </dt><dd className="inline font-semibold tabular-nums text-[var(--ink)]">{offer.stock === null ? "tak terbatas" : offer.stock}</dd></div>
-                <div><dt className="inline">Syarat </dt><dd className="inline font-semibold tabular-nums text-[var(--ink)]">{offer.min_accumulated_amount === null ? "tanpa syarat" : `min ${formatRupiah(offer.min_accumulated_amount)}`}</dd></div>
+                <div><dt className="inline">Syarat </dt><dd className="inline font-semibold text-[var(--ink)]">{describeConditions(offer.conditions ?? { op: "and", children: [] }, booths)}</dd></div>
                 <div><dt className="inline">Diklaim </dt><dd className="inline font-semibold tabular-nums text-[var(--ink)]">{offer.claim_count}x</dd></div>
               </dl>
             </div>
@@ -289,9 +302,14 @@ export default function OfferManagementPage() {
               <label className="block text-sm font-semibold">Maksimal per peserta
                 <input value={editForm.max_per_participant} onChange={(event) => setEditForm((current) => ({ ...current, max_per_participant: digitsOnly(event.target.value) }))} inputMode="numeric" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm tabular-nums outline-none focus:border-[var(--brand)]" />
               </label>
-              <label className="block text-sm font-semibold sm:col-span-2">Syarat total transaksi (Rp) <span className="font-normal text-[var(--ink-muted)]">(kosong = tanpa syarat)</span>
-                <input value={grouped(editForm.min_accumulated_amount)} onChange={(event) => setEditForm((current) => ({ ...current, min_accumulated_amount: digitsOnly(event.target.value) }))} inputMode="numeric" placeholder="Tanpa syarat" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm tabular-nums outline-none focus:border-[var(--brand)]" />
-              </label>
+            </div>
+
+            <div className="mt-4 border border-[var(--line)] bg-[var(--background)] p-4">
+              <p className="text-sm font-semibold">Syarat penawaran</p>
+              <p className="mt-1 text-xs text-[var(--ink-muted)]">Dihitung dari order yang sudah lunas saja. Perubahan berlaku untuk klaim berikutnya.</p>
+              <div className="mt-3">
+                <ConditionBuilder value={editForm.conditions} booths={booths} onChange={(next) => setEditForm((current) => ({ ...current, conditions: next }))} />
+              </div>
             </div>
             {/* Kode & cakupan tidak dapat diubah: keduanya dirujuk klaim historis,
                 mengubahnya akan memutus referensi laporan. */}

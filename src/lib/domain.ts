@@ -59,17 +59,38 @@ export type SpecialOffer = {
   scope: "per_booth" | "global";
   booth_id: number | null;
   max_per_participant: number;
-  // null = tanpa syarat akumulasi transaksi.
-  min_accumulated_amount: number | null;
+  // Pohon syarat. children kosong = penawaran terbuka tanpa syarat.
+  conditions: OfferConditionGroup;
   counts_toward_leaderboard: boolean;
   is_active: boolean;
   sort_order: number;
   is_builtin: boolean;
 };
 
+// Cakupan total transaksi. Dipisah eksplisit karena "total transaksi" tanpa
+// keterangan cakupan ambigu: peserta bisa punya 1.320.000 lintas booth tapi hanya
+// 470.000 di booth tertinggi, sehingga ambang 500.000 memberi hasil berbeda.
+export type OfferSpendScope = "all_booths" | "this_booth" | "booth";
+
+export type OfferConditionLeaf =
+  | { var: "total_spend"; scope: OfferSpendScope; booth_id?: number | null; cmp: "gte" | "gt" | "lte" | "lt" | "eq"; value: number }
+  | { var: "booth_count"; cmp: "gte" | "gt" | "lte" | "lt" | "eq"; value: number }
+  | { var: "participant_type"; cmp: "in" | "not_in"; values: string[] };
+
+export type OfferConditionNode = OfferConditionLeaf | OfferConditionGroup;
+
+export type OfferConditionGroup = { op: "and" | "or"; children: OfferConditionNode[] };
+
+// Hasil evaluasi dari server; `failed` menjelaskan syarat mana yang belum
+// terpenuhi agar layar booth tidak hanya bilang "tidak tersedia".
+export type OfferConditionResult = {
+  passed: boolean;
+  failed: Array<{ var: string; scope?: string | null; booth_id?: string | null; cmp?: string; value?: number; values?: string[]; actual?: number | string | null; reason?: string }>;
+};
+
 // Alasan penawaran tidak dapat diklaim, dihitung di server agar layar booth
 // tidak perlu menebak.
-export type OfferBlockedReason = "QUOTA_REACHED" | "OUT_OF_STOCK" | "BELOW_MIN_ACCUMULATED" | null;
+export type OfferBlockedReason = "QUOTA_REACHED" | "OUT_OF_STOCK" | "CONDITIONS_NOT_MET" | null;
 
 export type Order = {
   id: string;
@@ -118,7 +139,7 @@ export type ApiErrorCode =
   | "OFFER_NOT_FOUND"
   | "OFFER_INACTIVE"
   | "OFFER_WRONG_BOOTH"
-  | "OFFER_BELOW_MIN_ACCUMULATED"
+  | "OFFER_CONDITIONS_NOT_MET"
   | "OFFER_IN_USE"
   | "OFFER_BUILTIN"
   | "DUPLICATE_OFFER_CODE"

@@ -75,7 +75,7 @@ Field yang dapat diatur admin per penawaran:
 - `price` — harga bebas (BR-03).
 - `scope` — `global` (semua booth) atau `per_booth` (satu booth tertentu).
 - `max_per_participant` — kuota per peserta (BR-01).
-- `min_accumulated_amount` — syarat akumulasi transaksi peserta di semua booth. Dihitung `participant_accumulated_amount()` dari order `paid`/`handed_over` saja, definisi yang sama dengan leaderboard agar keduanya tidak pernah berbeda.
+- `conditions` — pohon syarat (BR-16b). Menggantikan `min_accumulated_amount` yang dihapus di migrasi 202607290011.
 - `counts_toward_leaderboard` — masuk hitungan top spender atau tidak (BR-05).
 - `stock` — null = tak terbatas. Dikembalikan saat void, baik manual maupun auto-void.
 
@@ -84,11 +84,31 @@ Aturan yang dijaga sistem:
 - Penawaran bawaan booth (`is_builtin`) tidak dapat dihapus, hanya dinonaktifkan.
 - `code` dan `scope` **tidak dapat diubah** setelah penawaran dibuat: keduanya dirujuk klaim historis dan laporan. Field lain dapat diedit; perubahan hanya berlaku untuk klaim berikutnya.
 - **Satu editor saja.** Harga, kuota, dan stok item diskon booth diatur di `/admin/offers`. Halaman Booth & item hanya menampilkan ringkasan plus tautan ke sana. Sebelumnya data yang sama dapat diubah dari dua halaman, dan halaman Booth tidak punya kontrol untuk syarat akumulasi maupun flag top spender.
-- Trigger `booths_sync_builtin_offer` menjaga kolom `discount_*` di `booths` selaras dengan baris `special_offers` builtin, dan **membuatkan baris otomatis untuk booth baru**. Tanpa trigger ini booth baru tidak punya penawaran sama sekali sehingga item diskonnya tidak pernah muncul di layar booth — gagal diam-diam (migrasi 202607290009). `min_accumulated_amount` dan `counts_toward_leaderboard` sengaja tidak ikut disinkron karena tidak punya padanan di tabel `booths`.
+- Trigger `booths_sync_builtin_offer` menjaga kolom `discount_*` di `booths` selaras dengan baris `special_offers` builtin, dan **membuatkan baris otomatis untuk booth baru**. Tanpa trigger ini booth baru tidak punya penawaran sama sekali sehingga item diskonnya tidak pernah muncul di layar booth — gagal diam-diam (migrasi 202607290009). `conditions` dan `counts_toward_leaderboard` sengaja tidak ikut disinkron karena tidak punya padanan di tabel `booths`.
 - Penawaran yang sudah diklaim tidak dapat dihapus (FK `on delete restrict`), agar laporan tidak kehilangan referensi harga.
 - `total_amount = regular_amount + Σ price_at_claim` ditegakkan **constraint trigger DEFERRABLE INITIALLY DEFERRED**, bukan CHECK. Postgres menolak subquery di CHECK (SQLSTATE `0A000`), dan baris order selalu masuk sebelum baris klaimnya sehingga validasi harus menunggu COMMIT.
 
-**BR-16a** — Ambang `min_accumulated_amount` diperiksa **saat klaim**. Jika order lama di-void setelahnya sehingga akumulasi peserta jatuh di bawah ambang, klaim yang sudah terjadi **tetap sah** — barangnya sudah di tangan peserta. Membatalkan otomatis akan lebih membingungkan di lapangan.
+**BR-16a** — Syarat penawaran diperiksa **saat klaim**. Jika order lama di-void setelahnya sehingga peserta tidak lagi memenuhi syarat, klaim yang sudah terjadi **tetap sah** — barangnya sudah di tangan peserta. Membatalkan otomatis akan lebih membingungkan di lapangan.
+
+**BR-16b** — Syarat penawaran disimpan sebagai pohon kondisi di `special_offers.conditions` (jsonb), dibangun admin lewat rule builder di `/admin/offers`. `children` kosong = penawaran terbuka tanpa syarat.
+
+Kenapa bukan satu angka: kolom lama `min_accumulated_amount` tidak menyebutkan **cakupan**, dan cakupan mengubah hasil. Contoh nyata di data produksi — seorang peserta punya total `1.320.000` lintas 4 booth tapi hanya `470.000` di booth tertingginya, sehingga ambang `500.000` **meloloskannya** bila dihitung semua booth dan **menolaknya** bila per booth. Label yang ambigu berarti admin dapat salah setel tanpa sadar.
+
+Variabel yang tersedia:
+
+| Variabel | Nilai / cakupan |
+| --- | --- |
+| `total_spend` | `scope`: `all_booths` \| `this_booth` \| `booth` (+ `booth_id`) |
+| `booth_count` | jumlah booth berbeda yang sudah ditransaksikan |
+| `participant_type` | `in` / `not_in` daftar tipe (Delegates, Committee, Media, Speaker) |
+
+Grup `and`/`or` dapat bersarang. Contoh: total semua booth ≥ 500.000 **DAN** (kunjungi ≥ 3 booth **ATAU** tipe Delegates).
+
+Aturan evaluasi:
+- Semua variabel dihitung dari order `paid`/`handed_over` saja — definisi yang sama dengan leaderboard, agar syarat penawaran dan angka top spender tidak pernah berbeda.
+- Grup kosong **lolos**, supaya penawaran tanpa syarat tetap terbuka.
+- Variabel tak dikenal **GAGAL**, bukan lolos. Kalau lolos, salah tulis konfigurasi akan diam-diam membuka penawaran untuk semua peserta.
+- Evaluasi dilakukan di server (`evaluate_offer_conditions`) dan hasilnya dikirim ke layar booth berisi daftar syarat yang gagal beserta nilai aktualnya, sehingga staf dapat menyebutkan kekurangannya ke peserta (mis. "Perlu belanja di semua booth Rp 500.000 — baru Rp 320.000") bukan sekadar "tidak tersedia".
 
 **BR-15** — Konfirmasi kasir dapat dimatikan lewat setting `cashier_confirmation_required`:
 - `true` (**default**) — alur asli. Order booth berstatus `pending`, masuk antrean kasir, dan baru masuk hitungan top spender setelah kasir menandai lunas.
@@ -188,7 +208,7 @@ CREATE TABLE special_offers (
   scope        text NOT NULL DEFAULT 'per_booth', -- 'per_booth' | 'global'
   booth_id     int REFERENCES booths(id),       -- wajib bila per_booth, null bila global
   max_per_participant    int NOT NULL DEFAULT 1, -- kuota (BR-01)
-  min_accumulated_amount int,                    -- syarat akumulasi, null = bebas
+  conditions   jsonb NOT NULL DEFAULT '{"op":"and","children":[]}', -- pohon syarat (BR-16b)
   counts_toward_leaderboard boolean NOT NULL DEFAULT false, -- BR-05
   is_active    boolean NOT NULL DEFAULT true,
   sort_order   int NOT NULL DEFAULT 100,
@@ -317,10 +337,12 @@ GET  /api/participants/by-qr?qr={qr_code}&boothId={id}
          special_offers: {
            accumulated_amount,                 -- total belanja lunas peserta
            offers: [{ code, name, price, scope, stock, max_per_participant,
-                      min_accumulated_amount, counts_toward_leaderboard,
-                      is_builtin, claimed, blocked_reason }]
+                      conditions, counts_toward_leaderboard, is_builtin,
+                      claimed, condition_result, blocked_reason }]
          } }
-     // blocked_reason: 'QUOTA_REACHED' | 'OUT_OF_STOCK' | 'BELOW_MIN_ACCUMULATED' | null
+     // blocked_reason: 'QUOTA_REACHED' | 'OUT_OF_STOCK' | 'CONDITIONS_NOT_MET' | null
+     // condition_result: { passed, failed: [{ var, scope, cmp, value, actual }] }
+     //   `failed` dipakai layar booth untuk menyebut angka yang kurang (BR-16b).
      // Dihitung di server (BR-16) agar layar booth tidak menebak aturan dan dapat
      // menjelaskan ke peserta kenapa item belum bisa diambil.
 
@@ -329,7 +351,7 @@ POST /api/orders
              regular_amount, note, offer_codes?: string[] }
      → 201 { order } | 409 { error: "DISCOUNT_ALREADY_TAKEN" } 
                      | 409 { error: "ORDER_CODE_USED" }
-                     | 422 { error: "OFFER_BELOW_MIN_ACCUMULATED" }
+                     | 422 { error: "OFFER_CONDITIONS_NOT_MET" }
                      | 422 { error: "OFFER_WRONG_BOOTH" | "OFFER_INACTIVE" }
      // offer_codes opsional: tanpa itu, has_discount_item = true diartikan
      // mengklaim penawaran bawaan booth (kompatibilitas pemanggil lama).

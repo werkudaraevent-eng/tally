@@ -3,7 +3,51 @@ import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
-const SELECT = "id,code,name,price,stock,scope,booth_id,max_per_participant,min_accumulated_amount,counts_toward_leaderboard,is_active,sort_order,is_builtin";
+const SELECT = "id,code,name,price,stock,scope,booth_id,max_per_participant,conditions,counts_toward_leaderboard,is_active,sort_order,is_builtin";
+
+// Pohon kondisi. Grup 'and'/'or' dapat bersarang, daun membandingkan satu
+// variabel. Divalidasi di sini agar bentuk yang salah tidak pernah sampai ke
+// evaluator di database, yang memperlakukan variabel tak dikenal sebagai GAGAL.
+const leafSchema = z.discriminatedUnion("var", [
+  z.object({
+    var: z.literal("total_spend"),
+    // all_booths = akumulasi di SEMUA booth. this_booth = hanya booth tempat order
+    // dibuat. booth = booth tertentu yang dipilih admin.
+    scope: z.enum(["all_booths", "this_booth", "booth"]).default("all_booths"),
+    booth_id: z.number().int().positive().nullable().optional(),
+    cmp: z.enum(["gte", "gt", "lte", "lt", "eq"]).default("gte"),
+    value: z.number().int().min(0).max(1_000_000_000),
+  }),
+  z.object({
+    var: z.literal("booth_count"),
+    cmp: z.enum(["gte", "gt", "lte", "lt", "eq"]).default("gte"),
+    value: z.number().int().min(0).max(999),
+  }),
+  z.object({
+    var: z.literal("participant_type"),
+    cmp: z.enum(["in", "not_in"]).default("in"),
+    values: z.array(z.string().trim().min(1).max(50)).min(1).max(20),
+  }),
+]);
+
+type ConditionNode = z.infer<typeof leafSchema> | { op: "and" | "or"; children: ConditionNode[] };
+
+// Kedalaman dibatasi 4 supaya aturan tetap dapat dibaca manusia dan evaluator
+// rekursif di database tidak pernah menerima pohon yang sangat dalam.
+// Input diberi tipe `unknown`, bukan ConditionNode: field ber-`.default()` membuat
+// tipe input berbeda dari output (scope opsional saat masuk, terisi saat keluar),
+// sehingga ZodType<ConditionNode> tidak dapat mencocokkan keduanya.
+const conditionSchema: z.ZodType<ConditionNode, z.ZodTypeDef, unknown> = z.lazy(() =>
+  z.union([
+    leafSchema,
+    z.object({ op: z.enum(["and", "or"]), children: z.array(conditionSchema).max(10) }),
+  ]),
+);
+
+const rootConditionSchema = z.object({
+  op: z.enum(["and", "or"]),
+  children: z.array(conditionSchema).max(10),
+});
 
 const createSchema = z.object({
   code: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{2,40}$/, "Kode hanya huruf kecil, angka, dan underscore."),
@@ -13,7 +57,7 @@ const createSchema = z.object({
   scope: z.enum(["per_booth", "global"]),
   booth_id: z.number().int().positive().nullable().optional(),
   max_per_participant: z.number().int().min(0).max(999).default(1),
-  min_accumulated_amount: z.number().int().min(0).nullable().optional(),
+  conditions: rootConditionSchema.default({ op: "and", children: [] }),
   counts_toward_leaderboard: z.boolean().default(false),
   sort_order: z.number().int().min(0).max(9999).default(100),
 });
@@ -24,7 +68,7 @@ const updateSchema = z.object({
   price: z.number().int().min(0).max(1_000_000_000).optional(),
   stock: z.number().int().min(0).nullable().optional(),
   max_per_participant: z.number().int().min(0).max(999).optional(),
-  min_accumulated_amount: z.number().int().min(0).nullable().optional(),
+  conditions: rootConditionSchema.optional(),
   counts_toward_leaderboard: z.boolean().optional(),
   is_active: z.boolean().optional(),
   sort_order: z.number().int().min(0).max(9999).optional(),
@@ -74,7 +118,7 @@ export async function POST(request: Request) {
     scope: parsed.data.scope,
     booth_id: parsed.data.scope === "per_booth" ? parsed.data.booth_id : null,
     max_per_participant: parsed.data.max_per_participant,
-    min_accumulated_amount: parsed.data.min_accumulated_amount ?? null,
+    conditions: parsed.data.conditions,
     counts_toward_leaderboard: parsed.data.counts_toward_leaderboard,
     sort_order: parsed.data.sort_order,
     is_builtin: false,
