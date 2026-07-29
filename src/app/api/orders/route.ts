@@ -12,6 +12,10 @@ const bodySchema = z.object({
   regular_amount: z.number().int().min(0),
   note: z.string().max(500).optional(),
   created_by: z.string().uuid().nullable().optional(),
+  // Kode penawaran spesial yang diklaim. Dibiarkan opsional supaya pemanggil lama
+  // (hanya has_discount_item) tetap bekerja: RPC menerjemahkannya ke penawaran
+  // bawaan booth. Kuota, stok, syarat akumulasi, dan harga divalidasi di RPC.
+  offer_codes: z.array(z.string().trim().regex(/^[a-z0-9_]{2,40}$/)).max(10).optional(),
 });
 
 export async function POST(request: Request) {
@@ -28,11 +32,12 @@ export async function POST(request: Request) {
     p_regular_amount: parsed.data.regular_amount,
     p_note: parsed.data.note ?? null,
     p_created_by: auth.user.id,
+    p_offer_codes: parsed.data.offer_codes ?? null,
   } as never);
   if (error) {
     const code = mapDatabaseError(error);
     return apiError(code, code === "DISCOUNT_ALREADY_TAKEN" || code === "ORDER_CODE_USED" ? 409 : 422);
   }
-  await getSupabaseServiceClient().from("audit_logs").insert({ order_id: (data as { id?: string } | null)?.id ?? null, user_id: auth.user.id, action: "booth_order_created", payload: { booth_id: parsed.data.booth_id, participant_id: parsed.data.participant_id, has_discount_item: parsed.data.has_discount_item } } as never);
+  await getSupabaseServiceClient().from("audit_logs").insert({ order_id: (data as { id?: string } | null)?.id ?? null, user_id: auth.user.id, action: "booth_order_created", payload: { booth_id: parsed.data.booth_id, participant_id: parsed.data.participant_id, has_discount_item: parsed.data.has_discount_item, offer_codes: parsed.data.offer_codes ?? null } } as never);
   return Response.json({ order: data }, { status: 201 });
 }

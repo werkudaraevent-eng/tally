@@ -48,6 +48,29 @@ export type Booth = {
   discount_limit_per_participant: number;
 };
 
+// Item spesial (diskon per booth, tebus murah, dst). Dikelola admin lewat
+// /admin/offers tanpa perlu migrasi baru (BR-16).
+export type SpecialOffer = {
+  id: number;
+  code: string;
+  name: string;
+  price: number;
+  stock: number | null;
+  scope: "per_booth" | "global";
+  booth_id: number | null;
+  max_per_participant: number;
+  // null = tanpa syarat akumulasi transaksi.
+  min_accumulated_amount: number | null;
+  counts_toward_leaderboard: boolean;
+  is_active: boolean;
+  sort_order: number;
+  is_builtin: boolean;
+};
+
+// Alasan penawaran tidak dapat diklaim, dihitung di server agar layar booth
+// tidak perlu menebak.
+export type OfferBlockedReason = "QUOTA_REACHED" | "OUT_OF_STOCK" | "BELOW_MIN_ACCUMULATED" | null;
+
 export type Order = {
   id: string;
   code: string;
@@ -92,6 +115,14 @@ export type ApiErrorCode =
   | "PAYMENT_METHOD_BUILTIN"
   | "DUPLICATE_PAYMENT_METHOD"
   | "AT_LEAST_ONE_PAYMENT_METHOD_REQUIRED"
+  | "OFFER_NOT_FOUND"
+  | "OFFER_INACTIVE"
+  | "OFFER_WRONG_BOOTH"
+  | "OFFER_BELOW_MIN_ACCUMULATED"
+  | "OFFER_IN_USE"
+  | "OFFER_BUILTIN"
+  | "DUPLICATE_OFFER_CODE"
+  | "ORDER_TOTAL_MISMATCH"
   | "INTERNAL_ERROR";
 
 export type ApiError = {

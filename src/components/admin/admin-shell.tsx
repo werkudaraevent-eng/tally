@@ -1,6 +1,6 @@
 "use client";
 
-import { ChartBar, GearSix, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, UsersThree } from "@phosphor-icons/react";
+import { ChartBar, GearSix, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UsersThree } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -11,6 +11,7 @@ const navigation = [
   { href: "/admin/reports", label: "Reports", icon: Receipt },
   { href: "/admin/participants", label: "Peserta", icon: UsersThree },
   { href: "/admin/booths", label: "Booth & item", icon: Storefront },
+  { href: "/admin/offers", label: "Item spesial", icon: Tag },
   { href: "/admin/users", label: "User & role", icon: ShieldCheck },
   { href: "/admin/display", label: "Live Display", icon: MonitorPlay },
   { href: "/admin/settings", label: "Settings", icon: GearSix },

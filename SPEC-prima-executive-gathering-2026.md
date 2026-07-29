@@ -37,15 +37,17 @@ Semua aplikasi berada dalam **satu codebase**, dibedakan oleh route dan role pad
 
 ## 3. Aturan Bisnis (WAJIB)
 
-**BR-01** — Satu peserta hanya boleh memiliki **1 order dengan item diskon per booth**. Aturan ini ditegakkan dengan **unique constraint di level database**, bukan hanya validasi di aplikasi.
+**BR-01** — Kuota item spesial per peserta ditentukan `special_offers.max_per_participant` (default **1**). Untuk penawaran `scope = 'per_booth'` kuota berlaku per booth; untuk `scope = 'global'` kuota berlaku sekali untuk seluruh acara. Ditegakkan di dalam `create_order_transaction` yang mengunci baris **peserta** lalu baris booth — urutan itu wajib, karena penawaran global tidak terlindungi lock booth (booth berbeda = baris berbeda) sehingga peserta bisa menebus di dua booth sekaligus dan keduanya lolos.
 
 **BR-02** — Order yang berstatus `void` tidak dihitung dalam BR-01. Artinya jika order dibatalkan, kuota item diskon peserta di booth tersebut kembali tersedia.
 
-**BR-03** — Item diskon harganya **selalu Rp 1** dan tidak dapat diubah oleh admin booth.
+**BR-03** — Harga item spesial diatur per penawaran di `special_offers.price`. Item diskon bawaan booth tetap **Rp 1**; penawaran lain (mis. tebus murah) boleh bernilai berapa pun. Harga di-snapshot ke `order_special_items.price_at_claim` saat diklaim, sehingga mengubah harga penawaran tidak mengubah nilai order yang sudah terjadi.
 
 **BR-04** — Leaderboard **hanya menghitung order berstatus `paid` atau `handed_over`**. Order `pending` tidak masuk hitungan.
 
-**BR-05** — Nilai Rp 1 dari item diskon **tidak dihitung** ke total leaderboard. Leaderboard hanya menjumlahkan nilai item reguler. (Alasan: kalau dihitung, 6 item diskon hanya bernilai Rp 6 dan tidak berpengaruh — lebih baik dikeluarkan agar angka bersih.)
+**BR-05** — Apakah harga item spesial ikut ke total leaderboard ditentukan `special_offers.counts_toward_leaderboard`, dapat diatur admin per penawaran. Item diskon bawaan booth bernilai `false` (Rp 1 x 6 booth tidak berpengaruh, lebih baik angka bersih). Tebus murah bernilai `true`.
+
+Flag dibaca dari `order_special_items.counts_toward_leaderboard` (snapshot saat klaim), **bukan** dari `special_offers`. Mengubah toggle karena itu **tidak retroaktif**: leaderboard tampil di proyektor di depan peserta, dan angka yang bergeser mendadak tanpa transaksi baru tidak bisa dijelaskan panitia di tempat.
 
 **BR-06** — Order `pending` yang belum dibayar dalam **45 menit** otomatis berubah menjadi `void` (cron/scheduled job setiap 5 menit). Kuota diskon peserta kembali tersedia.
 
@@ -63,7 +65,27 @@ Semua aplikasi berada dalam **satu codebase**, dibedakan oleh route dan role pad
 - Metode bawaan (`edc`, `cash`) tidak dapat dihapus, hanya dinonaktifkan.
 - Kasir memuat ulang daftar metode tiap 30 detik, sehingga metode yang baru dimatikan hilang dari layar tanpa perlu reload.
 
-**BR-14** — Konfirmasi kasir dapat dimatikan lewat setting `cashier_confirmation_required`:
+**BR-16** — Item spesial dikelola sebagai **data**, bukan kolom. Admin membuat, menyalakan, mematikan, dan menghapus penawaran lewat halaman `/admin/offers` tanpa perlu migrasi baru.
+
+Struktur: `special_offers` (aturan) dan `order_special_items` (klaim, satu baris per item). Satu order dapat membawa beberapa item spesial sekaligus — hal yang mustahil dengan boolean tunggal `orders.has_discount_item`.
+
+Field yang dapat diatur admin per penawaran:
+- `price` — harga bebas (BR-03).
+- `scope` — `global` (semua booth) atau `per_booth` (satu booth tertentu).
+- `max_per_participant` — kuota per peserta (BR-01).
+- `min_accumulated_amount` — syarat akumulasi transaksi peserta di semua booth. Dihitung `participant_accumulated_amount()` dari order `paid`/`handed_over` saja, definisi yang sama dengan leaderboard agar keduanya tidak pernah berbeda.
+- `counts_toward_leaderboard` — masuk hitungan top spender atau tidak (BR-05).
+- `stock` — null = tak terbatas. Dikembalikan saat void, baik manual maupun auto-void.
+
+Aturan yang dijaga sistem:
+- `orders.has_discount_item` tetap berarti **klaim penawaran bawaan booth ini saja**, bukan "ada item spesial apa pun". Kalau penawaran global ikut men-set `true`, kuota diskon per-booth akan salah terpakai dan laporan lama jadi keliru.
+- Penawaran bawaan booth (`is_builtin`) tidak dapat dihapus, hanya dinonaktifkan, dan tetap tersinkron dengan halaman Booth & item.
+- Penawaran yang sudah diklaim tidak dapat dihapus (FK `on delete restrict`), agar laporan tidak kehilangan referensi harga.
+- `total_amount = regular_amount + Σ price_at_claim` ditegakkan **constraint trigger DEFERRABLE INITIALLY DEFERRED**, bukan CHECK. Postgres menolak subquery di CHECK (SQLSTATE `0A000`), dan baris order selalu masuk sebelum baris klaimnya sehingga validasi harus menunggu COMMIT.
+
+**BR-16a** — Ambang `min_accumulated_amount` diperiksa **saat klaim**. Jika order lama di-void setelahnya sehingga akumulasi peserta jatuh di bawah ambang, klaim yang sudah terjadi **tetap sah** — barangnya sudah di tangan peserta. Membatalkan otomatis akan lebih membingungkan di lapangan.
+
+**BR-15** — Konfirmasi kasir dapat dimatikan lewat setting `cashier_confirmation_required`:
 - `true` (**default**) — alur asli. Order booth berstatus `pending`, masuk antrean kasir, dan baru masuk hitungan top spender setelah kasir menandai lunas.
 - `false` — order booth **langsung final saat dibuat** (`handed_over` bila `pickup_mode = immediate`, `paid` bila `after_payment`), dengan `auto_settled = true`. Nilainya langsung masuk top spender tanpa kasir.
 
@@ -71,9 +93,10 @@ Konsekuensi yang disengaja saat `false`:
 - `payment_method` dibiarkan **NULL**. Tidak ada kasir yang memilih metode, dan mengisi nilai palsu akan mengotori rekonsiliasi EDC.
 - Tidak ada verifikasi pihak kedua atas pembayaran. Ini keputusan bisnis, bukan celah teknis.
 - **Booth boleh mem-void order buatannya sendiri** dengan alasan wajib, dibatasi pada order `auto_settled` milik `booth_id`-nya. Tanpa ini booth tidak punya jalan koreksi apa pun untuk salah input, karena `pickup_mode = immediate` membuat order langsung `handed_over` yang dilindungi BR-08. Order alur kasir tetap mengikuti BR-08.
+- Stok penawaran spesial dikembalikan saat void, baik oleh booth, kasir, admin, maupun auto-void (BR-16).
 - Order `pending` yang masih menggantung di antrean kasir **ikut ditandai lunas** saat toggle dimatikan. Tanpa ini order tersebut tidak ada yang melayani dan akan kena auto-void (BR-06).
 
-**BR-14a** — Nilai toggle **disnapshot di `orders.auto_settled` saat order dibuat**, pola sama dengan BR-12. Status order tidak pernah ditentukan ulang oleh leaderboard: leaderboard tetap menghitung `paid`/`handed_over` saja (BR-04). Membuat leaderboard ikut menghitung `pending` akan bertabrakan dengan auto-void sehingga angka top spender naik lalu turun sendiri.
+**BR-15a** — Nilai toggle **disnapshot di `orders.auto_settled` saat order dibuat**, pola sama dengan BR-12. Status order tidak pernah ditentukan ulang oleh leaderboard: leaderboard tetap menghitung `paid`/`handed_over` saja (BR-04). Membuat leaderboard ikut menghitung `pending` akan bertabrakan dengan auto-void sehingga angka top spender naik lalu turun sendiri.
 
 **BR-11** — Mode penyerahan barang dikendalikan oleh setting `pickup_mode`, dapat diubah kapan saja lewat halaman Settings:
 - `after_payment` (**default**) — barang disimpan di booth, peserta bayar ke kasir, lalu kembali ke booth untuk mengambil. Order melewati status `handed_over`.
@@ -146,6 +169,39 @@ CREATE TABLE booths (
   discount_item_stock int,                      -- nullable = unlimited
   is_active           boolean DEFAULT true
 );
+-- Kolom discount_* di atas dipertahankan untuk halaman Booth & item, dan
+-- tersinkron dua arah dengan baris special_offers builtin milik booth tsb (BR-16).
+
+-- Item spesial adalah DATA, bukan kolom boolean: admin mengelolanya dari
+-- /admin/offers tanpa migrasi (BR-16). Dibuat di migrasi 202607290006.
+CREATE TABLE special_offers (
+  id           bigserial PRIMARY KEY,
+  code         text UNIQUE NOT NULL,            -- 'booth_1_diskon', 'tebus_murah'
+  name         text NOT NULL,
+  price        int NOT NULL DEFAULT 1,          -- harga bebas (BR-03)
+  stock        int,                             -- null = tak terbatas
+  scope        text NOT NULL DEFAULT 'per_booth', -- 'per_booth' | 'global'
+  booth_id     int REFERENCES booths(id),       -- wajib bila per_booth, null bila global
+  max_per_participant    int NOT NULL DEFAULT 1, -- kuota (BR-01)
+  min_accumulated_amount int,                    -- syarat akumulasi, null = bebas
+  counts_toward_leaderboard boolean NOT NULL DEFAULT false, -- BR-05
+  is_active    boolean NOT NULL DEFAULT true,
+  sort_order   int NOT NULL DEFAULT 100,
+  is_builtin   boolean NOT NULL DEFAULT false,  -- turunan config booth, tak bisa dihapus
+  CHECK ((scope = 'per_booth' AND booth_id IS NOT NULL)
+      OR (scope = 'global'    AND booth_id IS NULL))
+);
+
+-- Satu baris per item spesial yang diklaim. Menggantikan boolean tunggal,
+-- sehingga satu order dapat membawa beberapa item spesial sekaligus.
+CREATE TABLE order_special_items (
+  id         bigserial PRIMARY KEY,
+  order_id   uuid   NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  offer_id   bigint NOT NULL REFERENCES special_offers(id) ON DELETE RESTRICT,
+  price_at_claim int NOT NULL,                  -- snapshot harga (BR-03)
+  counts_toward_leaderboard boolean NOT NULL DEFAULT false, -- snapshot flag (BR-05)
+  UNIQUE (order_id, offer_id)
+);
 
 -- Order
 CREATE TYPE order_status AS ENUM ('pending','paid','void','handed_over');
@@ -169,12 +225,13 @@ CREATE TABLE orders (
   code             text UNIQUE NOT NULL,        -- dari stiker fisik, 'B3-014'
   participant_id   uuid NOT NULL REFERENCES participants(id),
   booth_id         int  NOT NULL REFERENCES booths(id),
-  has_discount_item boolean NOT NULL DEFAULT false,
+  has_discount_item boolean NOT NULL DEFAULT false, -- HANYA klaim offer builtin booth ini (BR-16)
   regular_amount   int NOT NULL DEFAULT 0,      -- rupiah, item reguler
-  total_amount     int NOT NULL,                -- regular_amount + (has_discount_item ? 1 : 0)
+  total_amount     int NOT NULL,                -- regular_amount + Σ order_special_items.price_at_claim
+                                                -- ditegakkan constraint trigger deferred (BR-16)
   status           order_status NOT NULL DEFAULT 'pending',
   pickup_mode      pickup_mode NOT NULL,        -- snapshot saat order dibuat (BR-12)
-  auto_settled     boolean NOT NULL DEFAULT false, -- lunas tanpa kasir (BR-14a)
+  auto_settled     boolean NOT NULL DEFAULT false, -- lunas tanpa kasir (BR-15a)
   note             text,
   created_by       uuid REFERENCES users(id),
   created_at       timestamptz DEFAULT now(),
@@ -221,7 +278,7 @@ CREATE TABLE event_settings (
   name_display_mode        name_display_mode NOT NULL DEFAULT 'full',
   leaderboard_enabled      boolean NOT NULL DEFAULT true,
   pending_auto_void_minutes int NOT NULL DEFAULT 45,
-  cashier_confirmation_required boolean NOT NULL DEFAULT true, -- BR-14
+  cashier_confirmation_required boolean NOT NULL DEFAULT true, -- BR-15
   updated_at               timestamptz DEFAULT now(),
   updated_by               uuid REFERENCES users(id)
 );
@@ -249,14 +306,29 @@ Semua endpoint memerlukan autentikasi (session/JWT). Role dicek di server, bukan
 
 ### Booth
 ```
-GET  /api/participants/by-qr?qr={qr_code}
+GET  /api/participants/by-qr?qr={qr_code}&boothId={id}
      → { participant, discount_available: bool, discount_taken_at, 
-         existing_orders_at_this_booth[], progress: { visited: 3, total: 6 } }
+         existing_orders_at_this_booth[], progress: { visited: 3, total: 6 },
+         special_offers: {
+           accumulated_amount,                 -- total belanja lunas peserta
+           offers: [{ code, name, price, scope, stock, max_per_participant,
+                      min_accumulated_amount, counts_toward_leaderboard,
+                      is_builtin, claimed, blocked_reason }]
+         } }
+     // blocked_reason: 'QUOTA_REACHED' | 'OUT_OF_STOCK' | 'BELOW_MIN_ACCUMULATED' | null
+     // Dihitung di server (BR-16) agar layar booth tidak menebak aturan dan dapat
+     // menjelaskan ke peserta kenapa item belum bisa diambil.
 
 POST /api/orders
-     body: { order_code, participant_id, has_discount_item, regular_amount, note }
+     body: { order_code, participant_id, booth_id, has_discount_item,
+             regular_amount, note, offer_codes?: string[] }
      → 201 { order } | 409 { error: "DISCOUNT_ALREADY_TAKEN" } 
                      | 409 { error: "ORDER_CODE_USED" }
+                     | 422 { error: "OFFER_BELOW_MIN_ACCUMULATED" }
+                     | 422 { error: "OFFER_WRONG_BOOTH" | "OFFER_INACTIVE" }
+     // offer_codes opsional: tanpa itu, has_discount_item = true diartikan
+     // mengklaim penawaran bawaan booth (kompatibilitas pemanggil lama).
+     // Harga TIDAK dikirim klien; RPC membacanya dari special_offers.
 
 POST /api/orders/{id}/hand-over
      → { order }   // hanya jika status = 'paid'
@@ -274,7 +346,7 @@ POST /api/orders/settle
 POST /api/orders/{id}/void        // role booth, cashier, admin
      body: { reason }
      → { order }
-     // booth dibatasi: hanya order auto_settled milik booth_id-nya (BR-14).
+     // booth dibatasi: hanya order auto_settled milik booth_id-nya (BR-15).
      // cashier: pending/paid. admin: termasuk handed_over (BR-08).
 ```
 
@@ -296,6 +368,27 @@ GET  /api/admin/stats
 GET  /api/admin/export.csv
 ```
 
+### Item spesial (BR-16)
+```
+GET  /api/admin/offers            // role admin, booth, cashier (baca saja)
+     → { offers: [{ ...special_offers, claim_count }] }
+
+POST /api/admin/offers            // role admin saja
+     body: { code, name, price, stock?, scope, booth_id?, max_per_participant,
+             min_accumulated_amount?, counts_toward_leaderboard, sort_order? }
+     → 201 { offer } | 422 { error: "DUPLICATE_OFFER_CODE" }
+
+PATCH /api/admin/offers           // role admin saja
+     body: { id, name?, price?, stock?, max_per_participant?,
+             min_accumulated_amount?, counts_toward_leaderboard?, is_active?, sort_order? }
+     → { offer }
+     // `code` dan `scope` TIDAK dapat diubah: keduanya dirujuk klaim historis.
+     // Penawaran builtin ikut memperbarui kolom discount_* di tabel booths.
+
+DELETE /api/admin/offers?id={id}  // role admin saja
+     → { deleted } | 422 { error: "OFFER_IN_USE" | "OFFER_BUILTIN" }
+```
+
 ### Settings
 ```
 GET  /api/settings
@@ -310,7 +403,7 @@ PATCH /api/settings                      // role admin saja
      → { settings, auto_settled_orders }
      // wajib tulis ke audit_logs: nilai lama → nilai baru + user
      // auto_settled_orders = jumlah order pending yang ikut dilunasi saat
-     // cashier_confirmation_required diubah true → false (BR-14)
+     // cashier_confirmation_required diubah true → false (BR-15)
 ```
 
 **Propagasi setting:** App Booth, App Kasir, dan Live Display harus memuat ulang `/api/settings` setiap **30 detik** (atau lewat realtime subscription). Setting yang diubah harus berlaku di semua device tanpa perlu logout atau reload manual. Simpan di context/store global, jangan panggil per-komponen.
