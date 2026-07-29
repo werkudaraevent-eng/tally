@@ -63,6 +63,18 @@ Semua aplikasi berada dalam **satu codebase**, dibedakan oleh route dan role pad
 - Metode bawaan (`edc`, `cash`) tidak dapat dihapus, hanya dinonaktifkan.
 - Kasir memuat ulang daftar metode tiap 30 detik, sehingga metode yang baru dimatikan hilang dari layar tanpa perlu reload.
 
+**BR-14** — Konfirmasi kasir dapat dimatikan lewat setting `cashier_confirmation_required`:
+- `true` (**default**) — alur asli. Order booth berstatus `pending`, masuk antrean kasir, dan baru masuk hitungan top spender setelah kasir menandai lunas.
+- `false` — order booth **langsung final saat dibuat** (`handed_over` bila `pickup_mode = immediate`, `paid` bila `after_payment`), dengan `auto_settled = true`. Nilainya langsung masuk top spender tanpa kasir.
+
+Konsekuensi yang disengaja saat `false`:
+- `payment_method` dibiarkan **NULL**. Tidak ada kasir yang memilih metode, dan mengisi nilai palsu akan mengotori rekonsiliasi EDC.
+- Tidak ada verifikasi pihak kedua atas pembayaran. Ini keputusan bisnis, bukan celah teknis.
+- **Booth boleh mem-void order buatannya sendiri** dengan alasan wajib, dibatasi pada order `auto_settled` milik `booth_id`-nya. Tanpa ini booth tidak punya jalan koreksi apa pun untuk salah input, karena `pickup_mode = immediate` membuat order langsung `handed_over` yang dilindungi BR-08. Order alur kasir tetap mengikuti BR-08.
+- Order `pending` yang masih menggantung di antrean kasir **ikut ditandai lunas** saat toggle dimatikan. Tanpa ini order tersebut tidak ada yang melayani dan akan kena auto-void (BR-06).
+
+**BR-14a** — Nilai toggle **disnapshot di `orders.auto_settled` saat order dibuat**, pola sama dengan BR-12. Status order tidak pernah ditentukan ulang oleh leaderboard: leaderboard tetap menghitung `paid`/`handed_over` saja (BR-04). Membuat leaderboard ikut menghitung `pending` akan bertabrakan dengan auto-void sehingga angka top spender naik lalu turun sendiri.
+
 **BR-11** — Mode penyerahan barang dikendalikan oleh setting `pickup_mode`, dapat diubah kapan saja lewat halaman Settings:
 - `after_payment` (**default**) — barang disimpan di booth, peserta bayar ke kasir, lalu kembali ke booth untuk mengambil. Order melewati status `handed_over`.
 - `immediate` — barang langsung diserahkan saat order dibuat. Order otomatis berstatus `handed_over` bersamaan dengan `paid` (yaitu saat kasir menandai lunas), dan langkah serah-terima di booth dilewati.
@@ -162,6 +174,7 @@ CREATE TABLE orders (
   total_amount     int NOT NULL,                -- regular_amount + (has_discount_item ? 1 : 0)
   status           order_status NOT NULL DEFAULT 'pending',
   pickup_mode      pickup_mode NOT NULL,        -- snapshot saat order dibuat (BR-12)
+  auto_settled     boolean NOT NULL DEFAULT false, -- lunas tanpa kasir (BR-14a)
   note             text,
   created_by       uuid REFERENCES users(id),
   created_at       timestamptz DEFAULT now(),
@@ -208,6 +221,7 @@ CREATE TABLE event_settings (
   name_display_mode        name_display_mode NOT NULL DEFAULT 'full',
   leaderboard_enabled      boolean NOT NULL DEFAULT true,
   pending_auto_void_minutes int NOT NULL DEFAULT 45,
+  cashier_confirmation_required boolean NOT NULL DEFAULT true, -- BR-14
   updated_at               timestamptz DEFAULT now(),
   updated_by               uuid REFERENCES users(id)
 );
@@ -257,9 +271,11 @@ POST /api/orders/settle
      body: { order_ids[], payment_method, approval_code }
      → { settled_orders[], total }
 
-POST /api/orders/{id}/void
+POST /api/orders/{id}/void        // role booth, cashier, admin
      body: { reason }
      → { order }
+     // booth dibatasi: hanya order auto_settled milik booth_id-nya (BR-14).
+     // cashier: pending/paid. admin: termasuk handed_over (BR-08).
 ```
 
 ### Live / Admin
@@ -284,15 +300,17 @@ GET  /api/admin/export.csv
 ```
 GET  /api/settings
      → { pickup_mode, name_display_mode, leaderboard_enabled, 
-         pending_auto_void_minutes, updated_at }
+         pending_auto_void_minutes, cashier_confirmation_required, updated_at }
      // dapat diakses semua role — App Booth & Kasir butuh nilai ini
      // untuk menentukan alur yang ditampilkan
 
 PATCH /api/settings                      // role admin saja
-     body: { pickup_mode?, name_display_mode?, 
-             leaderboard_enabled?, pending_auto_void_minutes? }
-     → { settings }
+     body: { pickup_mode?, name_display_mode?, leaderboard_enabled?, 
+             pending_auto_void_minutes?, cashier_confirmation_required? }
+     → { settings, auto_settled_orders }
      // wajib tulis ke audit_logs: nilai lama → nilai baru + user
+     // auto_settled_orders = jumlah order pending yang ikut dilunasi saat
+     // cashier_confirmation_required diubah true → false (BR-14)
 ```
 
 **Propagasi setting:** App Booth, App Kasir, dan Live Display harus memuat ulang `/api/settings` setiap **30 detik** (atau lewat realtime subscription). Setting yang diubah harus berlaku di semua device tanpa perlu logout atau reload manual. Simpan di context/store global, jangan panggil per-komponen.

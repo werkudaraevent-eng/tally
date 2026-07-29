@@ -22,6 +22,8 @@ export type EventSettings = {
   name_display_mode: "full" | "initials" | "company_only" | "hidden";
   leaderboard_enabled: boolean;
   pending_auto_void_minutes: number;
+  // false = order booth langsung lunas saat dibuat, antrean kasir tidak dipakai.
+  cashier_confirmation_required: boolean;
 };
 
 export type Participant = {
@@ -56,6 +58,8 @@ export type Order = {
   total_amount: number;
   status: OrderStatus;
   pickup_mode: PickupMode;
+  // Snapshot: true bila order dilunasi otomatis tanpa kasir (BR-14).
+  auto_settled: boolean;
   note: string | null;
   created_at: string;
   payment_method: PaymentMethod | null;

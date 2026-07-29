@@ -40,6 +40,7 @@ Open `http://localhost:3000/login`.
 - [ ] Install PWA on Android booth devices and cashier tablet.
 - [ ] Test camera permission and QR scan.
 - [ ] Test two devices claiming same participant discount simultaneously.
+- [ ] Decide the cashier confirmation mode in Settings before doors open, not mid-event.
 - [ ] Review active payment methods in Settings; confirm each one's reference rule.
 - [ ] Test payment for every active method, plus partial payment, hand-over, void, and export.
 - [ ] Confirm projector URL and fullscreen.
@@ -51,6 +52,8 @@ Open `http://localhost:3000/login`.
 - Booth owns only its own booth orders.
 - Cashier owns settlement and normal void.
 - Admin owns settings, export, and override operations.
+- If cashier confirmation is off, booth orders are final on creation and count toward top spender immediately. Booth staff can void their own orders with a reason; no payment method is recorded, so EDC reconciliation does not apply.
+- Switching cashier confirmation off settles every pending order in the queue. Do it before doors open, or announce it first.
 - Never share `SUPABASE_SERVICE_ROLE_KEY`.
 - Reconcile cashier total against EDC settlement, then against any other active method separately.
 - Payment methods are managed in Settings. Disable a method instead of deleting it; at least one must stay active or the cashier cannot settle.

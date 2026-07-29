@@ -12,9 +12,11 @@ export async function GET(request: Request) {
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
+  // auto_settled dikirim agar layar booth tahu order mana yang boleh di-void
+  // sendiri (order mode tanpa kasir), tanpa menebak dari status.
   let query = getSupabaseServiceClient()
     .from("orders")
-    .select("id,code,booth_id,has_discount_item,total_amount,status,pickup_mode,created_at,participants(qr_code,name,company)")
+    .select("id,code,booth_id,has_discount_item,total_amount,status,pickup_mode,auto_settled,created_at,participants(qr_code,name,company)")
     .order("created_at", { ascending: false })
     .limit(parsed.data.limit);
   if (auth.user.role === "booth") query = query.eq("booth_id", auth.user.booth_id as number);

@@ -14,6 +14,7 @@ type Settings = {
   name_display_mode: "full" | "initials" | "company_only" | "hidden";
   leaderboard_enabled: boolean;
   pending_auto_void_minutes: number;
+  cashier_confirmation_required: boolean;
   updated_at?: string;
 };
 
@@ -55,6 +56,7 @@ export default function AdminSettingsPage() {
     const response = await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
       pickup_mode: settings.pickup_mode,
       pending_auto_void_minutes: settings.pending_auto_void_minutes,
+      cashier_confirmation_required: settings.cashier_confirmation_required,
     }) });
     const data = await response.json();
     setSaving(false);
@@ -65,7 +67,13 @@ export default function AdminSettingsPage() {
       return;
     }
     setSettings(data); setMessage("Settings tersimpan.");
-    toast.success("Settings tersimpan", "Perubahan berlaku di semua device dalam 30 detik.");
+    // Mematikan konfirmasi kasir ikut melunasi antrean yang menggantung; jumlahnya
+    // harus terlihat agar admin tahu ada order yang berubah status.
+    if (data.auto_settled_orders > 0) {
+      toast.warning("Settings tersimpan", `${data.auto_settled_orders} order pending di antrean kasir ikut ditandai lunas.`);
+    } else {
+      toast.success("Settings tersimpan", "Perubahan berlaku di semua device dalam 30 detik.");
+    }
   }
 
   return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
@@ -94,6 +102,20 @@ export default function AdminSettingsPage() {
         <section className="bg-[var(--surface)] p-6">
           <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Item diskon</h2>
           <p className="mt-4 text-sm text-[var(--ink-muted)]">Aturan item diskon kini diatur <span className="font-semibold text-[var(--ink)]">per booth</span> (aktif/tidak, batas per peserta, dan stok). Atur di halaman <Link href="/admin/booths" className="font-semibold text-[var(--brand)]">Booth &amp; item</Link>.</p>
+        </section>
+
+        <section className="bg-[var(--surface)] p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Konfirmasi kasir</h2>
+          <div className="mt-4 space-y-2">
+            {([[true, "Lewat kasir", "Order booth masuk antrean kasir. Kasir menandai lunas dan memilih metode pembayaran. Nilai masuk top spender setelah lunas."], [false, "Tanpa kasir", "Order booth langsung tercatat lunas dan nilainya langsung masuk top spender. Antrean kasir tidak dipakai, metode pembayaran tidak dicatat."]] as const).map(([value, label, desc]) => <label key={String(value)} className={`flex cursor-pointer gap-3 border p-4 ${settings.cashier_confirmation_required === value ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)]"}`}>
+              <input type="radio" name="cashier-confirmation" checked={settings.cashier_confirmation_required === value} onChange={() => setSettings((current) => current && { ...current, cashier_confirmation_required: value })} className="mt-1 size-4 accent-[var(--brand)]" />
+              <span><span className="block text-sm font-semibold">{label}</span><span className="mt-1 block text-xs text-[var(--ink-muted)]">{desc}</span></span>
+            </label>)}
+          </div>
+          {!settings.cashier_confirmation_required && <div className="mt-4 flex items-start gap-2 border border-[#E6D3AE] bg-[#FDF6E7] p-4 text-sm text-[var(--warning)]">
+            <Warning size={18} weight="fill" className="mt-0.5 shrink-0" />
+            <span>Tanpa kasir, tidak ada pihak kedua yang memverifikasi pembayaran. Order langsung final saat dibuat, dan <span className="font-semibold">metode pembayaran tidak tercatat</span> sehingga rekonsiliasi EDC tidak bisa dipakai. Order pending yang masih di antrean kasir akan ikut ditandai lunas saat disimpan. Booth dapat mem-void order buatannya sendiri dengan alasan wajib.</span>
+          </div>}
         </section>
 
         <PaymentMethodManager />
