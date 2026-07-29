@@ -19,6 +19,8 @@ async function runSync(request: Request) {
     const { data, error } = await client.rpc("upsert_external_participants" as never, { p_participants: external.participants } as never);
     if (error) return apiError(mapDatabaseError(error), 500);
     await client.from("audit_logs").insert({ user_id: null, action: "participant_sync", payload: { source: "cron", fetched: external.participants.length, total: external.total, synced: data } } as never);
+    // `synced` kini juga membawa newly_removed / restored / total_removed dari
+    // RPC, supaya penandaan peserta yang hilang di sumber ikut terekam di log.
     return Response.json({ source_total: external.total, fetched: external.participants.length, synced: data ?? external.participants.length, synced_at: new Date().toISOString() });
   } catch (error) {
     return apiError("INTERNAL_ERROR", 502, process.env.NODE_ENV === "development" ? String(error) : undefined);

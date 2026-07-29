@@ -1,7 +1,21 @@
 export type UserRole = "booth" | "cashier" | "admin";
 export type OrderStatus = "pending" | "paid" | "void" | "handed_over";
 export type PickupMode = "after_payment" | "immediate";
-export type PaymentMethod = "edc" | "cash";
+
+// Metode pembayaran kini data, bukan enum. Admin dapat menambah metode baru
+// (QRIS, transfer) dari workspace, jadi tipenya tidak lagi union tetap.
+export type PaymentMethod = string;
+
+export type PaymentMethodConfig = {
+  code: string;
+  label: string;
+  requires_reference: boolean;
+  reference_label: string | null;
+  reference_digits: number | null;
+  is_active: boolean;
+  sort_order: number;
+  is_builtin: boolean;
+};
 
 export type EventSettings = {
   pickup_mode: PickupMode;
@@ -68,6 +82,12 @@ export type ApiErrorCode =
   | "USERNAME_TAKEN"
   | "USER_NOT_FOUND"
   | "BOOTH_NOT_FOUND"
+  | "PAYMENT_METHOD_NOT_FOUND"
+  | "PAYMENT_METHOD_INACTIVE"
+  | "PAYMENT_METHOD_IN_USE"
+  | "PAYMENT_METHOD_BUILTIN"
+  | "DUPLICATE_PAYMENT_METHOD"
+  | "AT_LEAST_ONE_PAYMENT_METHOD_REQUIRED"
   | "INTERNAL_ERROR";
 
 export type ApiError = {

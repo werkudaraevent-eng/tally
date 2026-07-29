@@ -18,8 +18,8 @@ Avoid: decorative landing-page patterns, excessive gradients, neon glow, emoji i
 | `--ink` | `#17211D` | Primary text |
 | `--ink-muted` | `#66736C` | Supporting text |
 | `--line` | `#D9DDD7` | Dividers and field borders |
-| `--brand` | `#176B54` | Primary action and event identity |
-| `--brand-strong` | `#0D4B3A` | Pressed/strong brand state |
+| `--brand` | `#2649D0` | Royal blue. Primary action and event identity |
+| `--brand-strong` | `#1B34A0` | Pressed/strong brand state |
 | `--success` | `#237A52` | Available, paid, complete |
 | `--warning` | `#A66616` | Pending and attention |
 | `--danger` | `#B13A35` | Offline, invalid, void |
@@ -31,7 +31,7 @@ Use semantic classes/tokens. Never communicate state with color alone: pair colo
 
 ## Typography
 
-- Primary: Geist or system sans stack, optimized for quick scanning.
+- Primary: Geist, self-hosted via `next/font/google` in the root layout and exposed as `--font-sans`. Falls back to the system sans stack.
 - Numeric: tabular numerals for rupiah and leaderboard values.
 - Booth/Cashier body minimum: `16px`.
 - Primary actions: `18–22px`, semibold.

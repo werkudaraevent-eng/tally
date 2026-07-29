@@ -11,12 +11,18 @@ const messages: Record<ApiErrorCode, string> = {
   ORDER_NOT_PENDING: "Order sudah diproses dan tidak lagi pending.",
   ORDER_NOT_VOIDABLE: "Order tidak dapat dibatalkan pada status ini.",
   ORDER_NOT_ELIGIBLE_FOR_HANDOVER: "Order belum siap diserahkan.",
-  INVALID_APPROVAL_CODE: "Approval code EDC harus 6 digit.",
+  INVALID_APPROVAL_CODE: "Nomor referensi pembayaran tidak sesuai jumlah digit yang diminta.",
   DISCOUNT_QUOTA_REACHED: "Peserta sudah mencapai batas maksimum item diskon.",
   DISCOUNT_NOT_OFFERED: "Booth ini tidak menyediakan item diskon.",
   USERNAME_TAKEN: "Username sudah dipakai. Gunakan username lain.",
   USER_NOT_FOUND: "User tidak ditemukan.",
   BOOTH_NOT_FOUND: "Booth tidak ditemukan.",
+  PAYMENT_METHOD_NOT_FOUND: "Metode pembayaran tidak ditemukan.",
+  PAYMENT_METHOD_INACTIVE: "Metode pembayaran ini sedang dimatikan admin.",
+  PAYMENT_METHOD_IN_USE: "Metode sudah dipakai order. Matikan saja, jangan dihapus.",
+  PAYMENT_METHOD_BUILTIN: "Metode bawaan tidak dapat dihapus. Matikan saja bila tidak dipakai.",
+  DUPLICATE_PAYMENT_METHOD: "Kode metode pembayaran sudah dipakai.",
+  AT_LEAST_ONE_PAYMENT_METHOD_REQUIRED: "Minimal satu metode pembayaran harus aktif.",
   INTERNAL_ERROR: "Terjadi kesalahan server. Coba lagi.",
 };
 
@@ -39,6 +45,9 @@ export function mapDatabaseError(error: { code?: string; message?: string }) {
   if (message.includes("USERNAME_TAKEN")) return "USERNAME_TAKEN" as const;
   if (message.includes("USER_NOT_FOUND")) return "USER_NOT_FOUND" as const;
   if (message.includes("BOOTH_NOT_FOUND")) return "BOOTH_NOT_FOUND" as const;
+  if (message.includes("PAYMENT_METHOD_NOT_FOUND")) return "PAYMENT_METHOD_NOT_FOUND" as const;
+  if (message.includes("PAYMENT_METHOD_INACTIVE")) return "PAYMENT_METHOD_INACTIVE" as const;
+  if (message.includes("AT_LEAST_ONE_PAYMENT_METHOD_REQUIRED")) return "AT_LEAST_ONE_PAYMENT_METHOD_REQUIRED" as const;
   if (error.code === "23505") return "DISCOUNT_ALREADY_TAKEN" as const;
   return "INTERNAL_ERROR" as const;
 }

@@ -17,9 +17,12 @@ export async function GET(request: Request) {
   if (auth.user.role === "booth" && auth.user.booth_id !== parsed.data.boothId) return apiError("FORBIDDEN", 403);
 
     const pattern = `%${parsed.data.q.replace(/[%_,]/g, " ")}%`;
+  // Peserta yang sudah dihapus di sumber tidak muncul di pencarian agar staf
+  // booth tidak membuat order untuk nama yang sudah dibatalkan panitia pusat.
   const { data, error } = await getSupabaseServiceClient()
     .from("participants")
     .select("id,qr_code,name,company,title")
+    .is("source_removed_at", null)
     .or(`name.ilike.${pattern},company.ilike.${pattern}`)
     .order("name", { ascending: true })
     .limit(parsed.data.limit);

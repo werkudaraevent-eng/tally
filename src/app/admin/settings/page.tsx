@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle, GearSix, Trash, Warning, XCircle } from "@phosp
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
+import { PaymentMethodManager } from "@/components/admin/payment-method-manager";
 import { formatWibDateTime } from "@/lib/datetime";
 
 const RESET_PHRASE = "HAPUS SEMUA DATA";
@@ -94,6 +95,8 @@ export default function AdminSettingsPage() {
           <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Item diskon</h2>
           <p className="mt-4 text-sm text-[var(--ink-muted)]">Aturan item diskon kini diatur <span className="font-semibold text-[var(--ink)]">per booth</span> (aktif/tidak, batas per peserta, dan stok). Atur di halaman <Link href="/admin/booths" className="font-semibold text-[var(--brand)]">Booth &amp; item</Link>.</p>
         </section>
+
+        <PaymentMethodManager />
 
         <section className="bg-[var(--surface)] p-6">
           <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Auto-void</h2>

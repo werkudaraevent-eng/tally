@@ -24,6 +24,7 @@ export async function GET(request: Request) {
   const { data, error } = await client
     .from("participants")
     .select("id,qr_code,name,company,title")
+    .is("source_removed_at", null)
     .or(`name.ilike.${pattern},company.ilike.${pattern},qr_code.ilike.${pattern}`)
     .order("name", { ascending: true })
     .limit(parsed.data.limit);

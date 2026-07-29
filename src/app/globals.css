@@ -29,8 +29,10 @@ body {
 	margin: 0;
 	background: var(--background);
 	color: var(--ink);
-	font-family: Arial, Helvetica, sans-serif;
+	font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 	font-variant-numeric: tabular-nums;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
 }
 
 @media (min-width: 1024px) {

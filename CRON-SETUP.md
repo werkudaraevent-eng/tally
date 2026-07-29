@@ -55,14 +55,16 @@ atau darurat (lihat contoh uji manual di bagian bawah).
 
 ### Prasyarat
 
-- Aplikasi sudah live di Vercel, mis. `https://tally-xi-gold.vercel.app`
+- Aplikasi sudah live di domain produksi: `https://eventhub.werkudara.group`
+  (domain `tally-eventhub.vercel.app` tetap jalan, tapi pakai domain kustom agar
+  cron tidak ikut mati kalau project di-rename di Vercel).
 - `CRON_SECRET` sudah diisi di Environment Variables Vercel (nilai sama dengan
   yang dipakai di sini). Ganti `<CRON_SECRET>` di bawah dengan nilai asli Anda.
 
 ### Job — Sync peserta dari Event Scanner
 
 - **Title**: Tally sync participants
-- **URL**: `https://<DOMAIN-VERCEL>/api/cron/sync-participants`
+- **URL**: `https://eventhub.werkudara.group/api/cron/sync-participants`
 - **Request method**: `POST` (endpoint juga menerima `GET`)
 - **Schedule**: setiap 15 menit (Every 15 minutes)
 - **Headers**:
@@ -81,8 +83,8 @@ atau darurat (lihat contoh uji manual di bagian bawah).
 
   ```powershell
   # auto-void (jalur manual/darurat)
-  Invoke-WebRequest -Uri 'https://<DOMAIN-VERCEL>/api/cron/auto-void' -Method Post -Headers @{ Authorization = 'Bearer <CRON_SECRET>' }
+  Invoke-WebRequest -Uri 'https://eventhub.werkudara.group/api/cron/auto-void' -Method Post -Headers @{ Authorization = 'Bearer <CRON_SECRET>' }
 
   # sync peserta
-  Invoke-WebRequest -Uri 'https://<DOMAIN-VERCEL>/api/cron/sync-participants' -Method Post -Headers @{ Authorization = 'Bearer <CRON_SECRET>' }
+  Invoke-WebRequest -Uri 'https://eventhub.werkudara.group/api/cron/sync-participants' -Method Post -Headers @{ Authorization = 'Bearer <CRON_SECRET>' }
   ```

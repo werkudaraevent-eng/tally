@@ -40,7 +40,8 @@ Open `http://localhost:3000/login`.
 - [ ] Install PWA on Android booth devices and cashier tablet.
 - [ ] Test camera permission and QR scan.
 - [ ] Test two devices claiming same participant discount simultaneously.
-- [ ] Test EDC payment, cash payment, partial payment, hand-over, void, and export.
+- [ ] Review active payment methods in Settings; confirm each one's reference rule.
+- [ ] Test payment for every active method, plus partial payment, hand-over, void, and export.
 - [ ] Confirm projector URL and fullscreen.
 - [ ] Confirm auto-void scheduler calls `POST /api/cron/auto-void` every 5 minutes with `Authorization: Bearer <CRON_SECRET>`.
 
@@ -51,4 +52,5 @@ Open `http://localhost:3000/login`.
 - Cashier owns settlement and normal void.
 - Admin owns settings, export, and override operations.
 - Never share `SUPABASE_SERVICE_ROLE_KEY`.
-- Reconcile cashier total against EDC settlement.
+- Reconcile cashier total against EDC settlement, then against any other active method separately.
+- Payment methods are managed in Settings. Disable a method instead of deleting it; at least one must stay active or the cashier cannot settle.

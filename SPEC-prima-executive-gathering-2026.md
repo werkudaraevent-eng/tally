@@ -10,7 +10,7 @@
 
 Event memiliki **6 booth**. Setiap booth menjual barang, dan setiap booth punya **1 item diskon seharga Rp 1**. Setiap peserta hanya boleh membeli **maksimal 1 item diskon per booth** (maksimal 6 item diskon total, dari 6 booth berbeda).
 
-Pembayaran **tidak terintegrasi** dengan sistem ini. Pembayaran dilakukan manual lewat mesin EDC di **satu kasir terpusat** yang melayani semua booth. Sistem ini berfungsi sebagai **buku catatan digital**, bukan POS.
+Pembayaran **tidak terintegrasi** dengan sistem ini. Pembayaran dilakukan manual di **satu kasir terpusat** yang melayani semua booth, umumnya lewat mesin EDC. Sistem ini berfungsi sebagai **buku catatan digital**, bukan POS. Metode pembayaran yang tersedia di kasir dikelola admin lewat Settings (BR-10a).
 
 Sistem harus:
 1. Mencegah peserta mengambil item diskon lebih dari 1 kali di booth yang sama.
@@ -55,7 +55,13 @@ Semua aplikasi berada dalam **satu codebase**, dibedakan oleh route dan role pad
 
 **BR-09** — Nomor order **diambil dari stiker fisik pre-printed** (format `B{booth}-{3 digit}`, contoh `B3-014`). Admin booth mengetik nomor dari stiker, sistem **tidak** meng-generate nomor sendiri. Sistem menolak nomor yang sudah terpakai.
 
-**BR-10** — Approval code EDC **wajib diisi** sebelum tombol "Tandai Lunas" aktif, kecuali metode bayar = tunai.
+**BR-10** — Nomor referensi pembayaran **wajib diisi** sebelum tombol "Tandai Lunas" aktif, jika metode yang dipilih menandai `requires_reference = true`. Jumlah digit mengikuti `reference_digits` milik metode tersebut (EDC = 6). Metode tanpa referensi (mis. tunai) langsung mengaktifkan tombol.
+
+**BR-10a** — Metode pembayaran **dikelola dari halaman Settings**, bukan hardcode. Admin dapat menyalakan/mematikan metode dan menambah metode baru (mis. QRIS) beserta aturan referensinya. Aturan yang dijaga sistem:
+- **Minimal satu metode harus aktif.** Ditegakkan di API dan constraint trigger database; kasir tidak boleh kehabisan opsi pembayaran di tengah acara.
+- Metode yang **sudah dipakai order tidak dapat dihapus**, hanya dinonaktifkan, agar laporan tetap utuh (FK `on delete restrict`).
+- Metode bawaan (`edc`, `cash`) tidak dapat dihapus, hanya dinonaktifkan.
+- Kasir memuat ulang daftar metode tiap 30 detik, sehingga metode yang baru dimatikan hilang dari layar tanpa perlu reload.
 
 **BR-11** — Mode penyerahan barang dikendalikan oleh setting `pickup_mode`, dapat diubah kapan saja lewat halaman Settings:
 - `after_payment` (**default**) — barang disimpan di booth, peserta bayar ke kasir, lalu kembali ke booth untuk mengambil. Order melewati status `handed_over`.
@@ -131,8 +137,20 @@ CREATE TABLE booths (
 
 -- Order
 CREATE TYPE order_status AS ENUM ('pending','paid','void','handed_over');
-CREATE TYPE payment_method AS ENUM ('edc','cash');
 CREATE TYPE pickup_mode AS ENUM ('after_payment','immediate');
+
+-- Metode pembayaran adalah DATA, bukan enum: admin mengelolanya dari Settings
+-- (BR-10a). Enum lama dihapus di migrasi 202607290004.
+CREATE TABLE payment_methods (
+  code               text PRIMARY KEY,          -- 'edc', 'cash', 'qris'
+  label              text NOT NULL,             -- nama tampilan di kasir
+  requires_reference boolean NOT NULL DEFAULT false,
+  reference_label    text,                      -- mis. 'Approval code EDC'
+  reference_digits   int,                       -- jumlah digit yang divalidasi
+  is_active          boolean NOT NULL DEFAULT true,
+  sort_order         int NOT NULL DEFAULT 100,
+  is_builtin         boolean NOT NULL DEFAULT false
+);
 
 CREATE TABLE orders (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -148,8 +166,8 @@ CREATE TABLE orders (
   created_by       uuid REFERENCES users(id),
   created_at       timestamptz DEFAULT now(),
   -- pembayaran
-  payment_method   payment_method,
-  approval_code    text,                        -- 6 digit terakhir struk EDC
+  payment_method   text REFERENCES payment_methods(code),
+  approval_code    text,                        -- nomor referensi, mis. 6 digit struk EDC
   paid_at          timestamptz,
   paid_by          uuid REFERENCES users(id),
   -- penyerahan
@@ -398,9 +416,9 @@ Gunakan tablet atau layar lebih besar. Kasir mengetik ulang nominal ke EDC secar
 │   enam ratus lima puluh ribu dua rupiah│  ← terbilang, font kecil
 │                                        │
 ├────────────────────────────────────────┤
-│  Metode:  [ EDC ]  [ Tunai ]           │
+│  Metode:  [ EDC ]  [ Tunai ]  [ ... ]  │  ← dari payment_methods aktif
 │                                        │
-│  Approval code (6 digit terakhir)      │
+│  Approval code EDC (6 digit)           │  ← label & digit dari metode
 │  [ ______ ]                            │
 ├────────────────────────────────────────┤
 │      [   TANDAI LUNAS   ]              │  ← disabled sampai approval terisi
@@ -410,8 +428,10 @@ Gunakan tablet atau layar lebih besar. Kasir mengetik ulang nominal ke EDC secar
 
 Detail perilaku:
 - Checkbox per order — peserta mungkin ingin membayar sebagian dulu. Total ikut berubah.
-- Field approval code **wajib** jika metode = EDC. Ini memaksa kasir benar-benar sudah memegang struk, bukan asal tap.
-- Jika metode = Tunai, approval code disembunyikan dan tombol langsung aktif.
+- Tombol metode dirender dari `payment_methods` yang `is_active`, bukan daftar tetap (BR-10a).
+- Field referensi **wajib** jika metode menandai `requires_reference`. Untuk EDC ini memaksa kasir benar-benar sudah memegang struk, bukan asal tap. Label dan jumlah digit mengikuti konfigurasi metode.
+- Jika metode tidak butuh referensi (mis. Tunai), field disembunyikan dan tombol langsung aktif.
+- Jika tidak ada metode aktif, kasir melihat peringatan dan tombol lunas tetap mati.
 - Tombol Void membuka modal dengan **alasan wajib diisi**.
 
 **Layar 3 — Sukses**
@@ -521,7 +541,8 @@ Jika waktu sangat mepet, `regular_amount` bisa dibuat sebagai satu field angka s
 | Peserta scan di 2 booth bersamaan | Constraint DB yang menolak, bukan validasi UI. Tampilkan pesan ramah. |
 | Nomor stiker sudah dipakai | Tolak dengan pesan: *"Nomor B3-014 sudah terpakai. Gunakan stiker berikutnya."* |
 | EDC gagal setelah ditandai lunas | Kasir void order, status kembali membolehkan pembayaran ulang |
-| Nominal terlalu kecil, EDC menolak | Kasir pilih metode Tunai (approval code tidak wajib) |
+| Nominal terlalu kecil, EDC menolak | Kasir pilih metode tanpa referensi, mis. Tunai |
+| Admin mematikan metode saat kasir sedang memilihnya | Kasir memuat ulang tiap 30 detik; pilihan pindah otomatis ke metode aktif. Server menolak `PAYMENT_METHOD_INACTIVE` bila tetap dikirim |
 | Internet mati | Tampilkan banner merah "OFFLINE — jangan buat order". Kuota diskon **wajib** divalidasi online. |
 | Peserta minta refund | Void oleh admin dengan alasan, kuota diskon otomatis kembali |
 | Order pending menumpuk di akhir acara | Halaman "Order Pending" di dashboard admin |
@@ -575,7 +596,8 @@ Sistem dianggap siap jika seluruh poin berikut lolos:
 - [ ] Peserta **bisa** mengambil item diskon di 6 booth berbeda
 - [ ] Order void mengembalikan kuota item diskon
 - [ ] Kasir melihat seluruh pending order dari semua booth dalam satu layar
-- [ ] Tombol "Tandai Lunas" mati sampai approval code terisi (metode EDC)
+- [ ] Tombol "Tandai Lunas" mati sampai nomor referensi terisi sesuai jumlah digit metode
+- [ ] Metode pembayaran dapat dinyalakan/dimatikan dari Settings, dan metode terakhir yang aktif tidak dapat dimatikan
 - [ ] Leaderboard hanya menghitung order `paid`/`handed_over`
 - [ ] Leaderboard update otomatis dalam < 10 detik tanpa refresh manual
 - [ ] Barang hanya bisa diserahkan jika status `paid`
