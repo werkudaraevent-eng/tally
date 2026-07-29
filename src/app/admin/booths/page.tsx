@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CheckCircle, FloppyDisk, Plus, Storefront, XCircle } from "@phosphor-icons/react";
+import { ArrowLeft, CheckCircle, FloppyDisk, Plus, Storefront, Tag, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
@@ -82,24 +82,27 @@ export default function BoothManagementPage() {
             <label className="text-sm font-semibold">Nama booth
               <input value={selected.name} onChange={(event) => setSelected({ ...selected, name: event.target.value })} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 outline-none focus:border-[var(--brand)]" />
             </label>
-            <label className="text-sm font-semibold sm:col-span-2">Nama item diskon
-              <input value={selected.discount_item_name} onChange={(event) => setSelected({ ...selected, discount_item_name: event.target.value })} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 outline-none focus:border-[var(--brand)]" />
-            </label>
-            <label className="flex items-end gap-3 pb-3 text-sm font-semibold"><input type="checkbox" checked={selected.is_active} onChange={(event) => setSelected({ ...selected, is_active: event.target.checked })} className="size-5 accent-[var(--brand)]" /> Booth aktif</label>
+            <label className="flex items-end gap-3 pb-3 text-sm font-semibold sm:col-span-2"><input type="checkbox" checked={selected.is_active} onChange={(event) => setSelected({ ...selected, is_active: event.target.checked })} className="size-5 accent-[var(--brand)]" /> Booth aktif</label>
           </div>
 
-          <div className="mt-6 border border-[var(--line)] p-5">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Item diskon booth ini</h3>
-            <label className="mt-4 flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={selected.discount_enabled} onChange={(event) => setSelected({ ...selected, discount_enabled: event.target.checked })} className="size-5 accent-[var(--brand)]" /> Booth ini menyediakan item diskon</label>
-            {selected.discount_enabled ? <div className="mt-5 grid gap-5 sm:grid-cols-2">
-              <label className="text-sm font-semibold">Maks. item diskon per peserta di booth ini
-                <input value={selected.discount_limit_per_participant} onChange={(event) => setSelected({ ...selected, discount_limit_per_participant: Math.max(1, Math.min(20, Number(event.target.value) || 1)) })} type="number" min="1" max="20" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-lg tabular-nums outline-none focus:border-[var(--brand)]" />
+          {/* Editor item diskon dipindah ke /admin/offers. Sebelumnya harga, kuota,
+              dan stok dapat diubah dari dua halaman berbeda untuk data yang sama,
+              dan halaman ini tidak punya kontrol untuk syarat akumulasi maupun flag
+              top spender. Satu editor menghilangkan pertanyaan "mana yang dipakai". */}
+          <div className="mt-6 border border-[var(--line)] bg-[var(--surface-muted)] p-5">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Item spesial booth ini</h3>
+            {selected.id ? <>
+              <p className="mt-3 text-sm">{selected.discount_enabled && selected.discount_limit_per_participant > 0
+                ? <><span className="font-semibold">{selected.discount_item_name}</span> · maks {selected.discount_limit_per_participant}x/peserta · stok {selected.discount_item_stock ?? "tak terbatas"}</>
+                : "Booth ini tidak menawarkan item diskon."}</p>
+              <p className="mt-2 text-xs leading-5 text-[var(--ink-muted)]">Harga, kuota, stok, syarat minimum total transaksi, dan pengaturan top spender kini diatur di satu tempat.</p>
+              <Link href="/admin/offers" className="mt-4 inline-flex min-h-12 items-center gap-2 border border-[var(--brand)] px-4 text-sm font-semibold text-[var(--brand)] hover:bg-[#E8ECFB]"><Tag size={17} /> Atur di Item spesial</Link>
+            </> : <>
+              <label className="mt-3 block text-sm font-semibold">Nama item diskon
+                <input value={selected.discount_item_name} onChange={(event) => setSelected({ ...selected, discount_item_name: event.target.value })} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 outline-none focus:border-[var(--brand)]" />
               </label>
-              <label className="text-sm font-semibold">Stok item diskon (total)
-                <input value={selected.discount_item_stock ?? ""} onChange={(event) => setSelected({ ...selected, discount_item_stock: event.target.value === "" ? null : Math.max(0, Number(event.target.value)) })} type="number" min="0" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 outline-none focus:border-[var(--brand)]" placeholder="Kosong = tak terbatas" />
-              </label>
-              <p className="text-xs leading-5 text-[var(--ink-muted)] sm:col-span-2">Contoh: isi <span className="font-semibold">1</span> agar tiap peserta hanya boleh 1 item diskon di booth ini; isi <span className="font-semibold">2</span> bila boleh 2. Harga item diskon selalu Rp 1. Kosongkan stok untuk tak terbatas.</p>
-            </div> : <p className="mt-4 text-xs leading-5 text-[var(--ink-muted)]">Booth ini tidak menawarkan item diskon. Peserta hanya bisa membeli item reguler di sini.</p>}
+              <p className="mt-3 text-xs leading-5 text-[var(--ink-muted)]">Booth baru otomatis mendapat item diskon Rp 1, maks 1x per peserta, stok tak terbatas. Setelah disimpan, atur detailnya di <Link href="/admin/offers" className="font-semibold text-[var(--brand)]">Item spesial</Link>.</p>
+            </>}
           </div>
           <button onClick={save} disabled={saving || !selected.code || !selected.name} className="mt-8 flex min-h-14 w-full items-center justify-center gap-2 bg-[var(--brand)] text-sm font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-50"><FloppyDisk size={19} />{saving ? "Menyimpan..." : "Simpan booth"}</button>
         </section>

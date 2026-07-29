@@ -41,7 +41,9 @@ Semua aplikasi berada dalam **satu codebase**, dibedakan oleh route dan role pad
 
 **BR-02** — Order yang berstatus `void` tidak dihitung dalam BR-01. Artinya jika order dibatalkan, kuota item diskon peserta di booth tersebut kembali tersedia.
 
-**BR-03** — Harga item spesial diatur per penawaran di `special_offers.price`. Item diskon bawaan booth tetap **Rp 1**; penawaran lain (mis. tebus murah) boleh bernilai berapa pun. Harga di-snapshot ke `order_special_items.price_at_claim` saat diklaim, sehingga mengubah harga penawaran tidak mengubah nilai order yang sudah terjadi.
+**BR-03** — Harga item spesial diatur per penawaran di `special_offers.price`. Item diskon bawaan booth **default Rp 1** tapi dapat diubah admin; penawaran lain (mis. tebus murah) boleh bernilai berapa pun. Harga di-snapshot ke `order_special_items.price_at_claim` saat diklaim, sehingga mengubah harga penawaran tidak mengubah nilai order yang sudah terjadi.
+
+`booths.discount_item_price` hanya **cermin** untuk halaman Booth & item; sumber kebenaran adalah `special_offers.price`. CHECK lama `discount_item_price = 1` dilonggarkan jadi `>= 0` di migrasi 202607290010 — constraint itu membuat penyimpanan harga di atas Rp 1 gagal saat nilainya disalin balik ke tabel `booths`.
 
 **BR-04** — Leaderboard **hanya menghitung order berstatus `paid` atau `handed_over`**. Order `pending` tidak masuk hitungan.
 
@@ -79,7 +81,10 @@ Field yang dapat diatur admin per penawaran:
 
 Aturan yang dijaga sistem:
 - `orders.has_discount_item` tetap berarti **klaim penawaran bawaan booth ini saja**, bukan "ada item spesial apa pun". Kalau penawaran global ikut men-set `true`, kuota diskon per-booth akan salah terpakai dan laporan lama jadi keliru.
-- Penawaran bawaan booth (`is_builtin`) tidak dapat dihapus, hanya dinonaktifkan, dan tetap tersinkron dengan halaman Booth & item.
+- Penawaran bawaan booth (`is_builtin`) tidak dapat dihapus, hanya dinonaktifkan.
+- `code` dan `scope` **tidak dapat diubah** setelah penawaran dibuat: keduanya dirujuk klaim historis dan laporan. Field lain dapat diedit; perubahan hanya berlaku untuk klaim berikutnya.
+- **Satu editor saja.** Harga, kuota, dan stok item diskon booth diatur di `/admin/offers`. Halaman Booth & item hanya menampilkan ringkasan plus tautan ke sana. Sebelumnya data yang sama dapat diubah dari dua halaman, dan halaman Booth tidak punya kontrol untuk syarat akumulasi maupun flag top spender.
+- Trigger `booths_sync_builtin_offer` menjaga kolom `discount_*` di `booths` selaras dengan baris `special_offers` builtin, dan **membuatkan baris otomatis untuk booth baru**. Tanpa trigger ini booth baru tidak punya penawaran sama sekali sehingga item diskonnya tidak pernah muncul di layar booth — gagal diam-diam (migrasi 202607290009). `min_accumulated_amount` dan `counts_toward_leaderboard` sengaja tidak ikut disinkron karena tidak punya padanan di tabel `booths`.
 - Penawaran yang sudah diklaim tidak dapat dihapus (FK `on delete restrict`), agar laporan tidak kehilangan referensi harga.
 - `total_amount = regular_amount + Σ price_at_claim` ditegakkan **constraint trigger DEFERRABLE INITIALLY DEFERRED**, bukan CHECK. Postgres menolak subquery di CHECK (SQLSTATE `0A000`), dan baris order selalu masuk sebelum baris klaimnya sehingga validasi harus menunggu COMMIT.
 

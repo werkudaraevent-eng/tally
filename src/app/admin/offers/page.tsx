@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CheckCircle, Plus, Storefront, Tag, Trash, TrendUp, WarningCircle, X, XCircle } from "@phosphor-icons/react";
+import { ArrowLeft, CheckCircle, PencilSimple, Plus, Storefront, Tag, Trash, TrendUp, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
@@ -49,7 +49,51 @@ export default function OfferManagementPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
+  // Penawaran yang sedang diedit. `code` dan `scope` tidak dapat diubah karena
+  // keduanya dirujuk klaim historis, jadi keduanya tampil sebagai teks saja.
+  const [editing, setEditing] = useState<Offer | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", price: "", stock: "", max_per_participant: "", min_accumulated_amount: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
   const toast = useToast();
+
+  function openEdit(offer: Offer) {
+    setEditing(offer);
+    setEditForm({
+      name: offer.name,
+      price: String(offer.price),
+      stock: offer.stock === null ? "" : String(offer.stock),
+      max_per_participant: String(offer.max_per_participant),
+      min_accumulated_amount: offer.min_accumulated_amount === null ? "" : String(offer.min_accumulated_amount),
+    });
+    setError("");
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    setSavingEdit(true); setError("");
+    const response = await fetch("/api/admin/offers", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: editing.id,
+        name: editForm.name.trim(),
+        price: Number(editForm.price) || 0,
+        stock: editForm.stock === "" ? null : Number(editForm.stock),
+        max_per_participant: Number(editForm.max_per_participant) || 0,
+        min_accumulated_amount: editForm.min_accumulated_amount === "" ? null : Number(editForm.min_accumulated_amount),
+      }),
+    });
+    const data = await response.json();
+    setSavingEdit(false);
+    if (!response.ok) {
+      const failure = data.error?.details?.message ?? data.error?.message ?? "Perubahan gagal disimpan.";
+      setError(failure); toast.error("Gagal menyimpan", failure);
+      return;
+    }
+    setEditing(null);
+    toast.success(`${data.name} diperbarui`, editing.claim_count > 0 ? `${editing.claim_count} klaim lama tetap memakai harga saat diklaim.` : "Berlaku untuk klaim berikutnya.");
+    void load();
+  }
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -221,6 +265,7 @@ export default function OfferManagementPage() {
               </dl>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <button type="button" onClick={() => (editing?.id === offer.id ? setEditing(null) : openEdit(offer))} disabled={busyId === offer.id} className="flex min-h-12 items-center gap-1.5 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)] disabled:opacity-45" aria-label={`Edit ${offer.name}`}><PencilSimple size={15} />{editing?.id === offer.id ? "Tutup" : "Edit"}</button>
               <button type="button" onClick={() => void patch(offer, { is_active: !offer.is_active }, offer.is_active ? "Penawaran dimatikan" : "Penawaran dinyalakan")} disabled={busyId === offer.id} className={`flex min-h-12 items-center gap-2 border px-3 text-xs font-semibold disabled:opacity-45 ${offer.is_active ? "border-[var(--brand)] text-[var(--brand-strong)]" : "border-[var(--line)]"}`}>
                 {offer.is_active ? <><CheckCircle size={15} weight="fill" /> Aktif</> : "Nonaktif"}
               </button>
@@ -229,6 +274,33 @@ export default function OfferManagementPage() {
               {!offer.is_builtin && offer.claim_count === 0 && <button type="button" onClick={() => void remove(offer)} disabled={busyId === offer.id} className="flex min-h-12 items-center border border-[var(--line)] px-3 text-xs font-semibold text-[var(--danger)] hover:border-[var(--danger)] disabled:opacity-45" aria-label={`Hapus ${offer.name}`}><Trash size={15} /></button>}
             </div>
           </div>
+
+          {editing?.id === offer.id && <div className="mt-4 border-t border-[var(--line)] pt-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-semibold">Nama item
+                <input value={editForm.name} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]" />
+              </label>
+              <label className="block text-sm font-semibold">Harga (Rp)
+                <input value={grouped(editForm.price)} onChange={(event) => setEditForm((current) => ({ ...current, price: digitsOnly(event.target.value) }))} inputMode="numeric" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm tabular-nums outline-none focus:border-[var(--brand)]" />
+              </label>
+              <label className="block text-sm font-semibold">Stok <span className="font-normal text-[var(--ink-muted)]">(kosong = tak terbatas)</span>
+                <input value={grouped(editForm.stock)} onChange={(event) => setEditForm((current) => ({ ...current, stock: digitsOnly(event.target.value) }))} inputMode="numeric" placeholder="Tak terbatas" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm tabular-nums outline-none focus:border-[var(--brand)]" />
+              </label>
+              <label className="block text-sm font-semibold">Maksimal per peserta
+                <input value={editForm.max_per_participant} onChange={(event) => setEditForm((current) => ({ ...current, max_per_participant: digitsOnly(event.target.value) }))} inputMode="numeric" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm tabular-nums outline-none focus:border-[var(--brand)]" />
+              </label>
+              <label className="block text-sm font-semibold sm:col-span-2">Syarat total transaksi (Rp) <span className="font-normal text-[var(--ink-muted)]">(kosong = tanpa syarat)</span>
+                <input value={grouped(editForm.min_accumulated_amount)} onChange={(event) => setEditForm((current) => ({ ...current, min_accumulated_amount: digitsOnly(event.target.value) }))} inputMode="numeric" placeholder="Tanpa syarat" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm tabular-nums outline-none focus:border-[var(--brand)]" />
+              </label>
+            </div>
+            {/* Kode & cakupan tidak dapat diubah: keduanya dirujuk klaim historis,
+                mengubahnya akan memutus referensi laporan. */}
+            <p className="mt-3 text-xs text-[var(--ink-muted)]">Kode <span className="font-mono">{offer.code}</span> dan cakupan <span className="font-semibold">{offer.scope === "global" ? "semua booth" : boothLabel(offer.booth_id)}</span> tidak dapat diubah karena sudah dirujuk klaim dan laporan. Buat penawaran baru bila perlu berbeda.{offer.claim_count > 0 && ` ${offer.claim_count} klaim yang sudah ada tetap memakai harga saat diklaim.`}</p>
+            <div className="mt-4 flex gap-3">
+              <button type="button" onClick={() => setEditing(null)} className="min-h-12 flex-1 border border-[var(--line)] text-sm font-semibold">Batal</button>
+              <button type="button" onClick={() => void saveEdit()} disabled={savingEdit || !editForm.name.trim()} className="min-h-12 flex-1 bg-[var(--brand)] text-sm font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-50">{savingEdit ? "Menyimpan..." : "Simpan perubahan"}</button>
+            </div>
+          </div>}
 
           <label className="mt-4 flex cursor-pointer items-start gap-3 border-t border-[var(--line)] pt-4 text-sm">
             <input type="checkbox" checked={offer.counts_toward_leaderboard} onChange={() => void patch(offer, { counts_toward_leaderboard: !offer.counts_toward_leaderboard }, "Pengaturan top spender diperbarui")} disabled={busyId === offer.id} className="mt-0.5 size-5 shrink-0 accent-[var(--brand)]" />
