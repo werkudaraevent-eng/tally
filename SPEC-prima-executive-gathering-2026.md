@@ -67,6 +67,18 @@ Flag dibaca dari `order_special_items.counts_toward_leaderboard` (snapshot saat 
 - Metode bawaan (`edc`, `cash`) tidak dapat dihapus, hanya dinonaktifkan.
 - Kasir memuat ulang daftar metode tiap 30 detik, sehingga metode yang baru dimatikan hilang dari layar tanpa perlu reload.
 
+**BR-19** — Panduan operator disajikan **dua lapis**, bukan satu halaman terpisah:
+- **Panel bantuan** di header layar booth dan kasir (`src/components/help-panel.tsx`). Terbuka menumpuk di atas layar kerja dan tertutup dengan Esc atau klik backdrop. Halaman panduan terpisah hampir tidak pernah dibuka saat benar-benar dibutuhkan, dan berpindah halaman berarti kehilangan isi order yang sedang diisi.
+- **Halaman cetak** `/panduan` untuk briefing sebelum acara dan kertas di meja booth. Kertas tetap terbaca saat HP sedang dipakai melayani peserta.
+
+Aturan penyajian:
+- Isi **adaptif** mengikuti `event_settings` (`cashier_confirmation_required`, `pickup_mode`, `pending_auto_void_minutes`). Panduan yang bertentangan dengan alur aktif lebih membingungkan daripada tidak ada panduan: dengan `cashier_confirmation_required = false`, instruksi "arahkan peserta ke kasir" menyesatkan karena kasir tidak ada di alur.
+- `/panduan` **wajib** `export const dynamic = "force-dynamic"`. Tanpa itu Next.js memprerender saat build (`○ /panduan`) sehingga isinya terkunci pada setting saat build. Kertas yang sudah dibagikan tidak bisa dikoreksi.
+- `/panduan` **sengaja tanpa autentikasi**: tidak memuat data peserta, nominal, maupun kredensial, dan panitia perlu mencetaknya sebelum login.
+- Panel memuat `/api/settings` **saat pertama dibuka**, bukan saat layar dimuat, agar tidak menambah request di jalur kerja utama.
+
+**BR-19a** — Instruksi pasca-order di layar booth harus ikut toggle kasir di **semua** tempat, bukan hanya di toast. Layar sukses hijau bertahan sampai staf menekan tombol sedangkan toast hilang beberapa detik, jadi teks yang salah di layar sukses justru yang paling lama dibaca. Berlaku juga untuk label order `pending` lama yang dibuat sebelum kasir dimatikan.
+
 **BR-18** — Audit trail tersedia di halaman `/admin/audit`, **hanya untuk `super_admin`**. Log merekam tindakan klien, jadi klien tidak dapat membacanya; kalau bisa, catatan itu kehilangan nilainya sebagai bukti netral saat ada perselisihan siapa mengubah apa.
 
 Datanya sudah tercatat sejak awal di tabel `audit_logs` (`user_id`, `action`, `payload`, `created_at`). Halaman ini murni lapisan baca — tidak ada pencatatan baru yang ditambahkan.

@@ -26,6 +26,7 @@ Open `http://localhost:3000/login`.
 - Cashier: `/cashier`
 - Admin: `/admin`
 - Projector: `/display?fullscreen=1`
+- Operator guide (print): `/panduan` — no login required
 
 ## Pre-event checklist
 
@@ -43,6 +44,8 @@ Open `http://localhost:3000/login`.
 - [ ] Test two devices claiming same participant discount simultaneously.
 - [ ] Test two devices claiming the same global offer (Tebus Murah) at different booths simultaneously; only one may succeed.
 - [ ] Decide the cashier confirmation mode in Settings before doors open, not mid-event.
+- [ ] Print `/panduan` **after** the settings above are final, one copy per booth desk plus one for the cashier. The page adapts to the active settings, so a copy printed earlier can contradict the live flow (BR-19).
+- [ ] Walk booth staff through the in-app help panel (the `?` button in the header) during briefing, so they know it exists before the queue starts.
 - [ ] Review special offers in `/admin/offers`: price, scope, per-participant quota, minimum accumulated spend, and whether each one counts toward top spender.
 - [ ] Verify the Tebus Murah threshold with a real participant below and above the limit.
 - [ ] Review active payment methods in Settings; confirm each one's reference rule.
@@ -57,6 +60,7 @@ Open `http://localhost:3000/login`.
 - Cashier owns settlement and normal void.
 - Admin owns settings, export, and override operations.
 - Audit trail lives at `/admin/audit`, visible to `super_admin` only (BR-18). Use it to answer "who changed this setting" without opening the database. Config changes survive a trial data reset; transaction logs do not.
+- Operator guide is two layers (BR-19): a help panel in the booth and cashier headers for mid-queue questions, and `/panduan` for briefing and the printed desk copy. Both read live settings and reword themselves, so if the cashier confirmation toggle changes mid-event, reprint `/panduan` — the printed copies are the only part that cannot update itself.
 - Two admin tiers (BR-17). `admin` is the client-facing role: everything operational, plus viewing the user list and resetting `booth`/`cashier` PINs. `super_admin` additionally owns clearing recorded data and managing accounts or roles - both irreversible.
 - If an operator forgets their PIN mid-event, the client can reset it themselves from User & role. No need to reach the system owner.
 - If cashier confirmation is off, booth orders are final on creation and count toward top spender immediately. Booth staff can void their own orders with a reason; no payment method is recorded, so EDC reconciliation does not apply.
