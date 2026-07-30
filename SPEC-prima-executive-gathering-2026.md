@@ -76,6 +76,16 @@ Aturan penyajian:
 - `/panduan` **wajib** `export const dynamic = "force-dynamic"`. Tanpa itu Next.js memprerender saat build (`○ /panduan`) sehingga isinya terkunci pada setting saat build. Kertas yang sudah dibagikan tidak bisa dikoreksi.
 - `/panduan` **sengaja tanpa autentikasi**: tidak memuat data peserta, nominal, maupun kredensial, dan panitia perlu mencetaknya sebelum login.
 - Panel memuat `/api/settings` **saat pertama dibuka**, bukan saat layar dimuat, agar tidak menambah request di jalur kerja utama.
+- Tombol pembuka **selalu berlabel "Panduan"**, termasuk di mobile. Ikon tanda tanya sendirian tidak cukup jelas bagi staf UMKM yang baru pertama memakai aplikasi, dan tombol Logout di sebelahnya tetap berlabel — menyembunyikan label justru membuat kontrol paling asing terlihat paling tidak penting.
+
+**BR-19b** — Penyebutan **stiker fisik** ikut `pickup_mode`, bukan selalu ada. Stiker fisik gunanya satu: mencocokkan barang di rak dengan order saat peserta kembali dari kasir. Pada `immediate` tidak ada rak, jadi menyuruh staf "isi nomor sesuai stiker fisik" berarti menyuruh mencari benda yang tidak ada di meja.
+
+Nomornya sendiri **tetap wajib** dan tidak dapat dihilangkan: ia adalah `orders.code` (`text UNIQUE NOT NULL`, divalidasi `^B[1-9][0-9]*-[0-9]{3}$`) yang disebut ke peserta, dirujuk saat void, dan muncul di audit trail serta export. Yang berubah hanya penyajiannya:
+- Label kolom di layar booth: `immediate` → "Nomor order", `after_payment` → "Nomor stiker".
+- Panduan pada `immediate` menyebut nomor sudah terisi otomatis dan tidak perlu diapa-apakan, bukan sebagai langkah kerja.
+- Footer "Aturan penting" tidak lagi menuntut nomor cocok dengan stiker fisik saat `immediate`.
+
+**BR-19c** — Nomor otomatis dihitung `max + 1` **saat layar dimuat** (`/api/booth/context`), sehingga dua perangkat di satu booth dapat memperoleh angka sama dan yang menekan belakangan ditolak `ORDER_CODE_USED`. Dulu stiker fisik mencegah ini secara alami karena tiap staf memegang lembar berbeda; pada `immediate` pengaman itu hilang. Diterima sebagai konsekuensi, **bukan** diperbaiki dengan memindahkan penomoran ke server: itu mengubah BR-09 dan fungsi transaksi, terlalu berisiko dikerjakan dekat hari-H. Mitigasinya berupa langkah pemulihan yang **tertulis eksplisit** di panduan (naikkan satu angka, coba lagi), supaya staf tidak menebak atau menyangka aplikasinya rusak. Penolakan terjadi sebelum order tersimpan, jadi tidak ada risiko dobel catat.
 
 **BR-19a** — Instruksi pasca-order di layar booth harus ikut toggle kasir di **semua** tempat, bukan hanya di toast. Layar sukses hijau bertahan sampai staf menekan tombol sedangkan toast hilang beberapa detik, jadi teks yang salah di layar sukses justru yang paling lama dibaca. Berlaku juga untuk label order `pending` lama yang dibuat sebelum kasir dimatikan.
 

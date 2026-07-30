@@ -58,7 +58,9 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
     "Periksa nama peserta yang muncul sudah benar.",
     "Centang item spesial bila peserta mengambilnya. Kalau tidak bisa dicentang, alasannya tertulis di bawah nama item.",
     "Isi nominal item reguler. Cek angka TOTAL sebelum lanjut.",
-    "Isi nomor stiker sesuai stiker fisik yang ditempel. Nomor lanjut otomatis, ubah bila tidak sesuai.",
+    handOverNow
+      ? "Nomor order sudah terisi otomatis. Biarkan apa adanya, lanjut ke langkah berikutnya."
+      : "Isi nomor stiker sesuai stiker fisik yang ditempel. Nomor lanjut otomatis, ubah bila tidak sesuai.",
     "Tekan Buat order.",
     viaCashier
       ? (handOverNow
@@ -127,12 +129,22 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
           ? "Sebutkan nomor order yang salah ke kasir."
           : "Isi alasan void, misal \"salah input nominal\". Alasan wajib dan tercatat.",
         "Setelah di-void, buat order baru dengan data yang benar.",
-        "Nomor stiker yang sudah dipakai tidak bisa dipakai lagi. Gunakan stiker berikutnya.",
+        handOverNow
+          ? "Nomor order yang sudah dipakai tidak bisa dipakai lagi. Naikkan nomornya satu angka."
+          : "Nomor stiker yang sudah dipakai tidak bisa dipakai lagi. Gunakan stiker berikutnya.",
       ],
     },
     {
-      title: "Nomor stiker sudah terpakai",
-      steps: [
+      // Tanpa stiker fisik, pengaman alami terhadap tabrakan nomor antar perangkat
+      // hilang: nomor otomatis dihitung saat layar dimuat, jadi dua HP di satu
+      // booth bisa mendapat angka yang sama. Karena itu langkah pemulihannya
+      // harus tertulis, bukan diserahkan pada tebakan staf.
+      title: handOverNow ? "Muncul pesan nomor order sudah terpakai" : "Nomor stiker sudah terpakai",
+      steps: handOverNow ? [
+        "Terjadi kalau satu booth memakai lebih dari satu HP dan keduanya kebetulan mendapat nomor yang sama.",
+        "Naikkan angka pada kolom nomor order satu angka, lalu tekan Buat order lagi.",
+        "Ulangi kalau masih tertolak. Order tidak akan tercatat dua kali.",
+      ] : [
         "Setiap nomor stiker hanya boleh dipakai sekali, termasuk oleh order yang sudah di-void.",
         "Ambil stiker fisik berikutnya dan isi nomornya.",
         "Jangan menebak nomor. Isi sesuai stiker yang benar-benar ditempel di barang.",
@@ -185,8 +197,12 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
   ];
 
   return <>
-    <button type="button" onClick={() => setOpen(true)} className="flex min-h-11 items-center gap-1.5 border border-[var(--line)] bg-[var(--surface)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]" aria-label="Buka panduan">
-      <Question size={18} weight="bold" /><span className="hidden sm:inline">Panduan</span>
+    {/* Label selalu tampil, termasuk di mobile. Ikon tanda tanya sendirian tidak
+        cukup jelas bagi staf UMKM yang baru pertama memakai aplikasi ini, dan
+        tombol Logout di sebelahnya tetap berlabel — menyembunyikan label justru
+        membuat kontrol yang paling asing terlihat paling tidak penting. */}
+    <button type="button" onClick={() => setOpen(true)} className="flex min-h-11 items-center gap-1.5 border border-[var(--line)] bg-[var(--surface)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+      <Question size={18} weight="bold" aria-hidden="true" />Panduan
     </button>
 
     {open && <div className="fixed inset-0 z-[60] flex justify-end bg-black/40" role="dialog" aria-modal="true" aria-label="Panduan operator">

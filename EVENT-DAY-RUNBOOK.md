@@ -60,6 +60,7 @@ Open `http://localhost:3000/login`.
 - Cashier owns settlement and normal void.
 - Admin owns settings, export, and override operations.
 - Audit trail lives at `/admin/audit`, visible to `super_admin` only (BR-18). Use it to answer "who changed this setting" without opening the database. Config changes survive a trial data reset; transaction logs do not.
+- With `pickup_mode = immediate` there is no rack, so physical stickers serve no purpose and the guide stops presenting the number as a step (BR-19b). If a booth runs two devices, a duplicate order number can be rejected; staff raise the number by one and retry, which the guide spells out (BR-19c).
 - Operator guide is two layers (BR-19): a help panel in the booth and cashier headers for mid-queue questions, and `/panduan` for briefing and the printed desk copy. Both read live settings and reword themselves, so if the cashier confirmation toggle changes mid-event, reprint `/panduan` — the printed copies are the only part that cannot update itself.
 - Two admin tiers (BR-17). `admin` is the client-facing role: everything operational, plus viewing the user list and resetting `booth`/`cashier` PINs. `super_admin` additionally owns clearing recorded data and managing accounts or roles - both irreversible.
 - If an operator forgets their PIN mid-event, the client can reset it themselves from User & role. No need to reach the system owner.

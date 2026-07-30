@@ -43,7 +43,12 @@ export default async function PanduanPage() {
     "Pastikan nama peserta yang muncul sudah benar.",
     "Centang item spesial bila peserta mengambilnya. Kalau tidak bisa dicentang, alasannya tertulis di bawah nama item.",
     "Isi nominal item reguler, lalu periksa angka TOTAL.",
-    "Isi nomor stiker sesuai stiker fisik yang ditempel di barang.",
+    // Stiker fisik hanya berguna untuk mencocokkan barang di rak. Dengan
+    // penyerahan langsung tidak ada rak, jadi menyuruh staf mencari stiker
+    // berarti menyuruh mencari benda yang tidak ada di meja.
+    handOverNow
+      ? "Nomor order sudah terisi otomatis. Biarkan apa adanya."
+      : "Isi nomor stiker sesuai stiker fisik yang ditempel di barang.",
     "Tekan Buat order.",
     viaCashier
       ? (handOverNow
@@ -74,9 +79,16 @@ export default async function PanduanPage() {
       viaCashier ? "Jangan buat order baru sebagai pengganti. Minta kasir mem-void order yang salah." : "Tekan Void pada baris order di daftar Order booth ini.",
       viaCashier ? "Sebutkan nomor order yang salah ke kasir." : "Isi alasan void, misal salah input nominal. Alasan wajib dan tercatat.",
       "Setelah di-void, buat order baru dengan data benar.",
-      "Nomor stiker lama tidak bisa dipakai lagi. Gunakan stiker berikutnya.",
+      handOverNow
+        ? "Nomor order lama tidak bisa dipakai lagi. Naikkan nomornya satu angka."
+        : "Nomor stiker lama tidak bisa dipakai lagi. Gunakan stiker berikutnya.",
     ] },
-    { q: "Nomor stiker sudah terpakai", a: ["Satu nomor stiker hanya sekali pakai, termasuk yang sudah di-void.", "Ambil stiker fisik berikutnya.", "Jangan menebak nomor. Isi sesuai stiker yang ditempel."] },
+    // Tanpa stiker fisik, dua HP di satu booth bisa mendapat nomor otomatis yang
+    // sama karena nomor dihitung saat layar dimuat. Langkah pemulihannya wajib
+    // tertulis supaya staf tidak menebak atau mengira aplikasinya rusak.
+    handOverNow
+      ? { q: "Muncul pesan nomor order sudah terpakai", a: ["Terjadi kalau satu booth memakai lebih dari satu HP dan keduanya dapat nomor sama.", "Naikkan angka nomor order satu angka, lalu tekan Buat order lagi.", "Ulangi kalau masih tertolak. Order tidak akan tercatat dua kali."] }
+      : { q: "Nomor stiker sudah terpakai", a: ["Satu nomor stiker hanya sekali pakai, termasuk yang sudah di-void.", "Ambil stiker fisik berikutnya.", "Jangan menebak nomor. Isi sesuai stiker yang ditempel."] },
     { q: "Muncul banner merah OFFLINE", a: ["JANGAN buat order. Order tidak akan tersimpan.", "Tunggu banner hilang sendiri.", "Lama tidak hilang? Pindah area sinyal atau ganti jaringan.", "Order yang sudah tersimpan tetap aman."] },
   ];
 
@@ -140,7 +152,7 @@ export default async function PanduanPage() {
 
     <footer className="mt-10 border-t border-[#d9ddd7] pt-4 text-xs text-[#66736c]">
       <p className="font-semibold">Aturan penting</p>
-      <p className="mt-1">Jangan pernah membuat order saat banner merah OFFLINE muncul · Nomor stiker harus sama dengan stiker fisik di barang · Setiap void wajib diberi alasan dan tercatat.</p>
+      <p className="mt-1">Jangan pernah membuat order saat banner merah OFFLINE muncul{handOverNow ? "" : " · Nomor stiker harus sama dengan stiker fisik di barang"} · Periksa nama peserta dan angka TOTAL sebelum menekan Buat order · Setiap void wajib diberi alasan dan tercatat.</p>
     </footer>
   </main>;
 }
