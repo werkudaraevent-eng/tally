@@ -56,6 +56,7 @@ Open `http://localhost:3000/login`.
 - Booth owns only its own booth orders.
 - Cashier owns settlement and normal void.
 - Admin owns settings, export, and override operations.
+- Audit trail lives at `/admin/audit`, visible to `super_admin` only (BR-18). Use it to answer "who changed this setting" without opening the database. Config changes survive a trial data reset; transaction logs do not.
 - Two admin tiers (BR-17). `admin` is the client-facing role: everything operational, plus viewing the user list and resetting `booth`/`cashier` PINs. `super_admin` additionally owns clearing recorded data and managing accounts or roles - both irreversible.
 - If an operator forgets their PIN mid-event, the client can reset it themselves from User & role. No need to reach the system owner.
 - If cashier confirmation is off, booth orders are final on creation and count toward top spender immediately. Booth staff can void their own orders with a reason; no payment method is recorded, so EDC reconciliation does not apply.

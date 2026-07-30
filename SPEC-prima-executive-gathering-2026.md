@@ -67,6 +67,20 @@ Flag dibaca dari `order_special_items.counts_toward_leaderboard` (snapshot saat 
 - Metode bawaan (`edc`, `cash`) tidak dapat dihapus, hanya dinonaktifkan.
 - Kasir memuat ulang daftar metode tiap 30 detik, sehingga metode yang baru dimatikan hilang dari layar tanpa perlu reload.
 
+**BR-18** — Audit trail tersedia di halaman `/admin/audit`, **hanya untuk `super_admin`**. Log merekam tindakan klien, jadi klien tidak dapat membacanya; kalau bisa, catatan itu kehilangan nilainya sebagai bukti netral saat ada perselisihan siapa mengubah apa.
+
+Datanya sudah tercatat sejak awal di tabel `audit_logs` (`user_id`, `action`, `payload`, `created_at`). Halaman ini murni lapisan baca — tidak ada pencatatan baru yang ditambahkan.
+
+Aturan penyajian:
+- Payload `settings_update` dan `special_offer_update` membawa objek `old` dan `new` **utuh**. Halaman menampilkan **hanya field yang benar-benar berubah**, dengan label bahasa Indonesia, format `sebelum → sesudah`. Menampilkan payload mentah memaksa pembaca membandingkan belasan field sendiri untuk menemukan satu yang berubah.
+- `pin_hash` dan kolom teknis (`id`, `updated_at`, `updated_by`, `is_builtin`) disembunyikan dari diff.
+- Kategori default adalah **perubahan konfigurasi**, bukan semua aktivitas. `participant_sync` menyumbang ~4 baris/jam dari cron dan akan menenggelamkan perubahan konfigurasi bila dicampur; tersedia sebagai filter terpisah.
+- `user_id` bernilai NULL berarti dijalankan **sistem** (cron sync, auto-void), bukan pelaku tak dikenal. Dibedakan agar tidak terbaca mencurigakan.
+
+**BR-18a** — `admin_reset_records` menghapus `audit_logs` yang `order_id`-nya **tidak** null, yaitu log transaksi. Log konfigurasi (settings, user, penawaran, booth) `order_id`-nya NULL sehingga **selamat dari reset trial**. Itu memang yang dibutuhkan: jejak audit konfigurasi harus bertahan melewati latihan hari-H.
+
+**BR-18b** — Log **tidak** append-only (keputusan disengaja). Secara teknis `super_admin` masih dapat mengubahnya lewat SQL langsung. Proteksi append-only ditolak karena membuat log menumpuk permanen tanpa cara membersihkan dari aplikasi. Konsekuensi ini diterima karena pemegang `super_admin` adalah pemilik sistem itu sendiri.
+
 **BR-17** — Kewenangan admin dipisah dua tingkat, karena akses workspace admin diberikan juga kepada klien.
 
 | Kemampuan | `admin` (klien) | `super_admin` (pemilik) |
