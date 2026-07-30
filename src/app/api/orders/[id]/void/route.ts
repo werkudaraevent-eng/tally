@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireUser } from "@/lib/auth/guards";
+import { isAdminLevel } from "@/lib/auth/roles";
 
 const paramsSchema = z.object({ id: z.string().uuid() });
 const bodySchema = z.object({ reason: z.string().trim().min(1).max(500), user_id: z.string().uuid().nullable().optional() });
@@ -21,7 +22,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     p_order_id: params.data.id,
     p_reason: body.data.reason,
     p_user_id: auth.user.id,
-    p_is_admin: auth.user.role === "admin",
+    // isAdminLevel, bukan perbandingan persis: super_admin juga harus memegang
+    // hak BR-08 untuk mem-void order handed_over.
+    p_is_admin: isAdminLevel(auth.user),
     p_booth_id: auth.user.role === "booth" ? auth.user.booth_id : null,
   } as never);
   if (error) return apiError(mapDatabaseError(error), 409);

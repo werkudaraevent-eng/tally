@@ -12,7 +12,10 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  // super_admin saja: menghapus seluruh order, riwayat scan, dan audit transaksi,
+  // tidak dapat dibalik. Klien memegang role `admin` dan tidak membutuhkan ini
+  // untuk menjalankan acara.
+  const auth = await requireUser(["super_admin"]);
   if (auth.response) return auth.response;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

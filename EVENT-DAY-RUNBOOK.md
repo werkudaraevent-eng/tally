@@ -32,7 +32,8 @@ Open `http://localhost:3000/login`.
 - [ ] Replace `[isi nama item]` on all six booths.
 - [ ] Import real participants CSV.
 - [ ] Create one user per booth and assign correct `booth_id`.
-- [ ] Create cashier and admin users.
+- [ ] Create cashier and admin users. Give the client an `admin` account, never `super_admin`.
+- [ ] Confirm at least one active `super_admin` exists and its PIN is held only by the system owner.
 - [ ] Replace demo PIN hashes.
 - [ ] Change `CRON_SECRET` to a random production value.
 - [ ] Run `npm run build`.
@@ -55,6 +56,8 @@ Open `http://localhost:3000/login`.
 - Booth owns only its own booth orders.
 - Cashier owns settlement and normal void.
 - Admin owns settings, export, and override operations.
+- Two admin tiers (BR-17). `admin` is the client-facing role: everything operational, plus viewing the user list and resetting `booth`/`cashier` PINs. `super_admin` additionally owns clearing recorded data and managing accounts or roles - both irreversible.
+- If an operator forgets their PIN mid-event, the client can reset it themselves from User & role. No need to reach the system owner.
 - If cashier confirmation is off, booth orders are final on creation and count toward top spender immediately. Booth staff can void their own orders with a reason; no payment method is recorded, so EDC reconciliation does not apply.
 - Switching cashier confirmation off settles every pending order in the queue. Do it before doors open, or announce it first.
 - Never share `SUPABASE_SERVICE_ROLE_KEY`.

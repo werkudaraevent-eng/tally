@@ -1,0 +1,21 @@
+-- Tahap 1 dari 2: tambahkan nilai enum `super_admin`.
+--
+-- WAJIB dipisah dari migrasi yang MEMAKAI nilai ini. Postgres mengizinkan
+-- `ALTER TYPE ... ADD VALUE` di dalam transaksi (sejak PG12), tetapi nilai barunya
+-- TIDAK DAPAT dipakai sampai transaksi tersebut commit. Karena setiap migrasi
+-- berjalan sebagai satu transaksi, menaikkan user ke super_admin di file yang sama
+-- akan gagal dengan:
+--   ERROR: unsafe use of new value "super_admin" of enum type user_role
+--
+-- Latar belakang pemisahan role:
+-- Akses akan diberikan ke klien. `admin` saat ini dapat melakukan dua hal yang
+-- tidak bisa dibalik dan tidak dibutuhkan klien untuk menjalankan acara:
+--   1. POST /api/admin/reset — menghapus SEMUA order, riwayat scan, audit
+--      transaksi, dan opsional seluruh peserta.
+--   2. Kelola user — membuat admin baru, mengubah PIN akun mana pun, dan
+--      menonaktifkan akun pemilik sistem. Pengaman lama hanya "minimal satu admin
+--      aktif", sehingga klien dapat mematikan akun kita selama dirinya admin.
+--
+-- Pendekatan: TAMBAH role di atas, bukan menurunkan `admin`. Dengan begitu 9 akun
+-- yang sudah ada dan seluruh alur operasional hari-H tidak tersentuh.
+alter type user_role add value if not exists 'super_admin';

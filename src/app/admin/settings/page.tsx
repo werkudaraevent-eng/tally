@@ -23,6 +23,10 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  // Danger zone hanya untuk pemilik sistem. Server sudah menolak lewat
+  // requireUser(["super_admin"]); ini agar klien tidak melihat tombol yang pasti
+  // gagal, sekaligus tidak tergoda menekannya.
+  const [isOwner, setIsOwner] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetPhrase, setResetPhrase] = useState("");
   const [resetParticipants, setResetParticipants] = useState(false);
@@ -49,6 +53,8 @@ export default function AdminSettingsPage() {
   }
 
   useEffect(() => { const timer = window.setTimeout(() => { void fetch("/api/settings", { cache: "no-store" }).then(async (response) => { if (response.ok) setSettings(await response.json()); else setError("Settings gagal dimuat."); }); }, 0); return () => window.clearTimeout(timer); }, []);
+
+  useEffect(() => { const timer = window.setTimeout(() => { void fetch("/api/auth/me", { cache: "no-store" }).then(async (response) => { if (response.ok) { const data = await response.json(); setIsOwner(data.user?.role === "super_admin"); } }); }, 0); return () => window.clearTimeout(timer); }, []);
 
   async function save() {
     if (!settings) return;
@@ -134,7 +140,7 @@ export default function AdminSettingsPage() {
         </section>
       </div>}
 
-      <div className="mt-10 border border-[#E9C7C4] bg-[#FFF7F6]">
+      {isOwner && <div className="mt-10 border border-[#E9C7C4] bg-[#FFF7F6]">
         <div className="border-b border-[#E9C7C4] px-6 py-4">
           <div className="flex items-center gap-2 text-[var(--danger)]"><Warning size={20} weight="fill" /><h2 className="text-sm font-semibold uppercase tracking-[0.14em]">Danger zone</h2></div>
           <p className="mt-2 text-sm text-[var(--ink-muted)]">Kosongkan data pencatatan untuk memulai ulang dari nol. Berguna saat masa trial. Konfigurasi booth, user, dan tampilan tetap aman.</p>
@@ -158,7 +164,7 @@ export default function AdminSettingsPage() {
             </div>
           </div>}
         </div>
-      </div>
+      </div>}
     </div>
   </main>;
 }

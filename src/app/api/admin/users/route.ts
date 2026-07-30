@@ -2,6 +2,8 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { apiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
+import { canManageUsers, canResetOperatorPin } from "@/lib/auth/roles";
+import type { UserRole } from "@/lib/domain";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const createSchema = z.object({
@@ -24,6 +26,8 @@ const updateSchema = z.object({
 type UserRow = { id: string; username: string; role: string; booth_id: number | null; is_active: boolean };
 
 export async function GET() {
+  // Klien (`admin`) boleh MELIHAT daftar operator, tapi tidak mengubahnya.
+  // `can_manage` dikirim agar UI tahu harus menampilkan mode baca saja.
   const auth = await requireUser(["admin"]);
   if (auth.response) return auth.response;
   const { data, error } = await getSupabaseServiceClient()
@@ -32,11 +36,17 @@ export async function GET() {
     .order("role", { ascending: true })
     .order("username", { ascending: true });
   if (error) return apiError("INTERNAL_ERROR", 500);
-  return Response.json({ users: data ?? [] });
+  return Response.json({
+    users: data ?? [],
+    can_manage: canManageUsers(auth.user),
+    can_reset_operator_pin: auth.user.role === "admin" || canManageUsers(auth.user),
+  });
 }
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  // super_admin saja: membuat akun berarti bisa membuat admin baru, dan itu jalan
+  // memutar untuk memperoleh kewenangan penuh.
+  const auth = await requireUser(["super_admin"]);
   if (auth.response) return auth.response;
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
@@ -67,15 +77,32 @@ export async function PATCH(request: Request) {
   const { data: current } = await client.from("users").select("id,username,role,booth_id,is_active").eq("id", parsed.data.id).maybeSingle() as { data: UserRow | null };
   if (!current) return apiError("USER_NOT_FOUND", 404);
 
+  // Klien hanya boleh mereset PIN operator booth/kasir supaya tidak perlu
+  // menghubungi pemilik saat ada yang lupa PIN di hari-H. Selain itu, seluruh
+  // perubahan akun milik super_admin.
+  if (!canManageUsers(auth.user)) {
+    const onlyPinChange = parsed.data.pin !== undefined
+      && parsed.data.username === undefined
+      && parsed.data.role === undefined
+      && parsed.data.booth_id === undefined
+      && parsed.data.is_active === undefined;
+    if (!onlyPinChange) return apiError("FORBIDDEN", 403);
+    if (!canResetOperatorPin(auth.user, current.role as UserRole)) return apiError("FORBIDDEN", 403);
+  }
+
   const nextRole = parsed.data.role ?? current.role;
   const nextBoothId = nextRole === "booth" ? (parsed.data.booth_id ?? current.booth_id) : null;
   if (nextRole === "booth" && !nextBoothId) return apiError("VALIDATION_ERROR", 422, { message: "Booth wajib dipilih untuk role booth." });
 
-  // Prevent removing the last active admin.
-  const losingAdmin = current.role === "admin" && (nextRole !== "admin" || parsed.data.is_active === false);
-  if (losingAdmin) {
-    const { count } = await client.from("users").select("id", { count: "exact", head: true }).eq("role", "admin").eq("is_active", true);
-    if ((count ?? 0) <= 1) return apiError("VALIDATION_ERROR", 422, { message: "Minimal satu admin aktif harus tersisa." });
+  // Jaga super_admin terakhir. Guard lama hanya menjaga `admin`, yang setelah
+  // pemisahan role tidak lagi cukup: menurunkan super_admin terakhir menjadi admin
+  // akan menghapus akses reset data dan kelola user dari seluruh sistem, tanpa
+  // jalan pulih dari dalam aplikasi. Trigger database menjaga hal yang sama;
+  // pemeriksaan di sini hanya agar pesannya jelas.
+  const losingSuperAdmin = current.role === "super_admin" && (nextRole !== "super_admin" || parsed.data.is_active === false);
+  if (losingSuperAdmin) {
+    const { count } = await client.from("users").select("id", { count: "exact", head: true }).eq("role", "super_admin").eq("is_active", true);
+    if ((count ?? 0) <= 1) return apiError("VALIDATION_ERROR", 422, { message: "Minimal satu super admin aktif harus tersisa." });
   }
 
   if (parsed.data.username && parsed.data.username !== current.username) {

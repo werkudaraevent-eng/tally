@@ -67,6 +67,29 @@ Flag dibaca dari `order_special_items.counts_toward_leaderboard` (snapshot saat 
 - Metode bawaan (`edc`, `cash`) tidak dapat dihapus, hanya dinonaktifkan.
 - Kasir memuat ulang daftar metode tiap 30 detik, sehingga metode yang baru dimatikan hilang dari layar tanpa perlu reload.
 
+**BR-17** — Kewenangan admin dipisah dua tingkat, karena akses workspace admin diberikan juga kepada klien.
+
+| Kemampuan | `admin` (klien) | `super_admin` (pemilik) |
+| --- | --- | --- |
+| Dashboard, laporan, export | ya | ya |
+| Booth & item spesial, metode pembayaran | ya | ya |
+| Settings acara, Live Display, sync peserta | ya | ya |
+| Void order `handed_over` (BR-08) | ya | ya |
+| Lihat daftar user | ya (baca saja) | ya |
+| Reset PIN operator `booth`/`cashier` | ya | ya |
+| **Kosongkan data pencatatan** | tidak | ya |
+| **Buat/hapus akun, ubah role** | tidak | ya |
+
+Dua kewenangan terakhir ditarik ke `super_admin` karena keduanya **tidak dapat dibalik** dan tidak dibutuhkan klien untuk menjalankan acara. Kelola user secara khusus berbahaya: tanpa pemisahan ini klien dapat membuat admin baru, mengubah PIN akun mana pun, dan menonaktifkan akun pemilik — pengaman lama hanya "minimal satu admin aktif", yang terpenuhi selama klien sendiri masih admin.
+
+Void `handed_over` tetap di `admin` karena itu kebutuhan operasional nyata di hari-H, sudah wajib beralasan, dan tercatat di audit log.
+
+Reset PIN operator diberikan ke `admin` agar klien tidak perlu menghubungi pemilik saat ada staf lupa PIN di tengah acara. Dibatasi pada akun `booth` dan `cashier`; akun `admin` dan `super_admin` hanya dapat disentuh pemilik.
+
+**BR-17a** — `super_admin` **mewarisi** seluruh kewenangan `admin`. Diterapkan di `requireUser`, bukan dengan menambahkan `"super_admin"` ke 36 pemanggilan guard — satu saja terlewat dan pemilik sistem terkunci dari halamannya sendiri. Kewenangan eksklusif dibatasi eksplisit dengan `requireUser(["super_admin"])`, tidak mengandalkan pelebaran itu. Perbandingan role persis (`role === "admin"`) tidak boleh dipakai untuk gate izin; pakai `isAdminLevel()`.
+
+**BR-17b** — **Minimal satu `super_admin` aktif harus tersisa.** Ditegakkan constraint trigger `users_guard_last_super_admin` di database, bukan hanya di API, karena tidak ada jalan pulih dari dalam aplikasi: reset data dan kelola user keduanya hanya dapat diakses `super_admin`.
+
 **BR-16** — Item spesial dikelola sebagai **data**, bukan kolom. Admin membuat, menyalakan, mematikan, dan menghapus penawaran lewat halaman `/admin/offers` tanpa perlu migrasi baru.
 
 Struktur: `special_offers` (aturan) dan `order_special_items` (klaim, satu baris per item). Satu order dapat membawa beberapa item spesial sekaligus — hal yang mustahil dengan boolean tunggal `orders.has_discount_item`.
@@ -285,7 +308,9 @@ CREATE INDEX idx_orders_participant ON orders (participant_id);
 CREATE INDEX idx_orders_status ON orders (status);
 
 -- User panitia
-CREATE TYPE user_role AS ENUM ('booth','cashier','admin');
+-- super_admin ditambahkan di migrasi 202607300001 (BR-17). Ditambahkan DI ATAS
+-- `admin`, bukan menurunkan `admin`, agar akun & alur hari-H yang ada tak tersentuh.
+CREATE TYPE user_role AS ENUM ('booth','cashier','admin','super_admin');
 
 CREATE TABLE users (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),

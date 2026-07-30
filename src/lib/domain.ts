@@ -1,4 +1,6 @@
-export type UserRole = "booth" | "cashier" | "admin";
+// super_admin = pemilik sistem. Memegang operasi yang tidak dapat dibalik (reset
+// data, kelola user/role) yang tidak dibutuhkan klien untuk menjalankan acara.
+export type UserRole = "booth" | "cashier" | "admin" | "super_admin";
 export type OrderStatus = "pending" | "paid" | "void" | "handed_over";
 export type PickupMode = "after_payment" | "immediate";
 
