@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowUpRight, ChartBar, GearSix, ListChecks, Package, Receipt, ShieldCheck, Storefront, UsersThree, Warning, XCircle } from "@phosphor-icons/react";
+import { ArrowUpRight, ChartBar, GearSix, ListChecks, Receipt, ShieldCheck, Storefront, UsersThree, Warning, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { ExportMenu } from "@/components/admin/export-menu";
 
 type Stats = {
   total_revenue: number;
@@ -59,7 +60,7 @@ export default function AdminPage() {
           <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-6xl">Control room.</h1>
           <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">Pantau data aktual, kelola operasional, dan rekonsiliasi.</p>
         </div>
-        <a href="/api/admin/export.csv" className="flex min-h-12 items-center justify-center gap-2 bg-[var(--ink)] px-4 text-sm font-semibold text-white"><Package size={19} /> Export CSV</a>
+        <ExportMenu />
       </div>
 
       {error && <div role="alert" className="mt-5 flex items-center gap-3 border border-[#E9C7C4] bg-[#FFF2F0] p-4 text-sm text-[var(--danger)]"><XCircle size={20} />{error}</div>}

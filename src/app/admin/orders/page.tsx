@@ -3,6 +3,7 @@
 import { ArrowLeft, FunnelSimple, ListChecks, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { ExportMenu } from "@/components/admin/export-menu";
 import { formatWibDateTime } from "@/lib/datetime";
 
 type OrderRow = {
@@ -71,7 +72,7 @@ export default function AdminOrdersPage() {
           <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Semua order.</h1>
           <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">Pantau seluruh transaksi dengan filter status, booth, dan pencarian nomor stiker.</p>
         </div>
-        <a href="/api/admin/export.csv" className="flex min-h-12 items-center justify-center gap-2 bg-[var(--ink)] px-4 text-sm font-semibold text-white">Export CSV</a>
+        <ExportMenu />
       </div>
 
       <div className="mt-8 flex flex-wrap items-end gap-3 border border-[var(--line)] bg-[var(--surface)] p-4">
