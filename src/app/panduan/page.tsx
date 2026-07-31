@@ -1,5 +1,5 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { boothSteps, cashierSteps, stepImage, type GuideStep } from "@/lib/panduan-steps";
+import { boothSteps, cashierSteps, stepImages, type GuideStep } from "@/lib/panduan-steps";
 
 // Panduan versi cetak, satu halaman per peran.
 //
@@ -36,7 +36,7 @@ async function loadSettings() {
 // `break-inside-avoid` menjaga gambar tidak terpisah dari instruksinya saat
 // halaman terpotong — gambar tanpa kalimatnya tidak ada gunanya di kertas.
 function PrintStep({ step, number }: { step: GuideStep; number: number }) {
-  const image = stepImage(step.id);
+  const images = stepImages(step.id);
   return <li className="flex gap-3 break-inside-avoid text-sm leading-6">
     <span className="w-5 shrink-0 text-right font-bold">{number}.</span>
     <div className="min-w-0">
@@ -45,12 +45,17 @@ function PrintStep({ step, number }: { step: GuideStep; number: number }) {
           panduan ditambahkan belakangan dengan ukuran berbeda-beda; angka yang
           salah membuat gambar tampak gepeng. Halaman ini juga dicetak, bukan
           disusuri, jadi optimasi pemuatan tidak relevan di sini. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      {image ? <img
-        src={image.src}
-        alt={image.alt}
-        className="mt-1.5 h-auto w-full max-w-[260px] border border-[#d9ddd7]"
-      /> : null}
+      {images ? <span className="mt-1.5 flex flex-wrap gap-2">
+        {images.map((image) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={image.src}
+            src={image.src}
+            alt={image.alt}
+            className="h-auto w-full max-w-[240px] border border-[#d9ddd7]"
+          />
+        ))}
+      </span> : null}
     </div>
   </li>;
 }

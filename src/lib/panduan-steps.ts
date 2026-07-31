@@ -42,15 +42,34 @@ export type GuideStep = {
  * sini dengan `alt` yang menjelaskan isinya. Lihat `public/panduan/README.md`
  * untuk daftar berkas yang dibutuhkan.
  */
-export const STEP_IMAGES: Record<string, { src: string; alt: string }> = {
-  // Sengaja masih kosong. Setiap entri baru langsung tampil di panel dan di
-  // versi cetak tanpa perubahan kode lain.
+export const STEP_IMAGES: Record<string, { src: string; alt: string }[]> = {
+  // Satu langkah boleh punya lebih dari satu gambar. Langkah scan memang butuh
+  // dua: tombolnya dulu, lalu layar pemindainya. Memaksa satu gambar per
+  // langkah akan membuat salah satu dari keduanya hilang.
   //
   // Nama berkas tidak boleh diawali titik: berkas titik di folder public tidak
   // dilayani, sehingga gambarnya gagal dimuat tanpa pesan apa pun.
+  "scan-qr": [
+    { src: "/panduan/booth-01-scan-qr.png", alt: "Tombol SCAN QR di layar booth" },
+    { src: "/panduan/booth-02-scanner-aktif.png", alt: "Layar pemindai QR sedang aktif, kamera diarahkan ke QR badge" },
+  ],
+  "periksa-nama": [
+    { src: "/panduan/booth-03-periksa-nama.png", alt: "Kartu nama peserta setelah QR terbaca" },
+  ],
+  "item-spesial": [
+    { src: "/panduan/booth-04-item-spesial.png", alt: "Item spesial yang tidak bisa dicentang beserta alasannya, kolom nominal, dan angka TOTAL" },
+  ],
+  // Hanya berlaku saat barang diserahkan langsung. Pada mode ambil setelah
+  // lunas, langkah yang tampil adalah `nomor-stiker` dan belum ada gambarnya.
+  "nomor-order-otomatis": [
+    { src: "/panduan/booth-06-nomor-order.png", alt: "Kolom nomor order yang sudah terisi otomatis" },
+  ],
+  "selesai-lunas-serah-langsung": [
+    { src: "/panduan/booth-08-selesai.png", alt: "Layar order berhasil dibuat dan tercatat lunas" },
+  ],
 };
 
-export function stepImage(id: string) {
+export function stepImages(id: string) {
   return STEP_IMAGES[id];
 }
 

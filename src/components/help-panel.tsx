@@ -3,7 +3,7 @@
 import { CaretDown, Printer, Question, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { boothSteps, cashierSteps, stepImage, type GuideStep } from "@/lib/panduan-steps";
+import { boothSteps, cashierSteps, stepImages, type GuideStep } from "@/lib/panduan-steps";
 
 // Panduan operator, disajikan sebagai panel di ATAS layar kerja.
 //
@@ -156,7 +156,7 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
       body: <ol className="space-y-4">{flow.map((step, index) => {
         // Gambar diikat ke id langkah, bukan nomor urut: isi panduan berubah
         // mengikuti setting acara, jadi urutan tidak bisa dijadikan patokan.
-        const image = stepImage(step.id);
+        const images = stepImages(step.id);
         return <li key={step.id} className="flex gap-3 text-sm leading-6">
           <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-xs font-bold text-white">{index + 1}</span>
           <div className="min-w-0">
@@ -167,14 +167,17 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
                 baru harus diukur manual, dan angka yang salah membuat gambar
                 tampak gepeng. Gambar ini juga statis, kecil, dan dimuat lazy di
                 dalam panel yang tertutup, jadi tidak memengaruhi LCP halaman. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {image ? <img
-              src={image.src}
-              alt={image.alt}
-              loading="lazy"
-              decoding="async"
-              className="mt-2 h-auto w-full max-w-sm border border-[var(--line)] bg-[var(--surface-muted)]"
-            /> : null}
+            {images?.map((image) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={image.src}
+                src={image.src}
+                alt={image.alt}
+                loading="lazy"
+                decoding="async"
+                className="mt-2 h-auto w-full max-w-sm border border-[var(--line)] bg-[var(--surface-muted)]"
+              />
+            ))}
           </div>
         </li>;
       })}</ol>,
