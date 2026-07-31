@@ -3,7 +3,8 @@
 import { ArrowDown, ArrowUp, ArrowsDownUp, CaretLeft, CaretRight, MagnifyingGlass, UsersThree, WarningCircle, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 
-type Participant = { id: string; qr_code: string; name: string; company: string | null; title: string | null; participant_type: string | null; rsvp_status: string | null; source_checked_in: boolean; source_total_scans: number; source_synced_at: string | null; source_removed_at: string | null };
+type ParticipantSeat = { subEventId: string; subEventName: string; label: string };
+type Participant = { id: string; qr_code: string; name: string; company: string | null; title: string | null; participant_type: string | null; rsvp_status: string | null; source_checked_in: boolean; source_total_scans: number; source_synced_at: string | null; source_removed_at: string | null; seats: ParticipantSeat[] | null };
 
 const PAGE_SIZE = 25;
 
@@ -18,6 +19,10 @@ const COLUMNS: Array<{ key: SortKey; label: string; align?: "right" }> = [
   { key: "source_checked_in", label: "Check-in" },
   { key: "source_total_scans", label: "Scan", align: "right" },
 ];
+
+// Kolom kursi tidak bisa diurutkan, jadi berdiri di luar COLUMNS: header yang
+// bisa diklik tapi tidak mengubah apa pun hanya membingungkan.
+const SEAT_COLUMN_LABEL = "Kursi";
 
 export function ParticipantList({ reloadKey = 0 }: { reloadKey?: number }) {
   const [query, setQuery] = useState("");
@@ -85,6 +90,7 @@ export function ParticipantList({ reloadKey = 0 }: { reloadKey?: number }) {
                 </button>
               </th>;
             })}
+            <th scope="col" className="px-5 py-4 font-semibold">{SEAT_COLUMN_LABEL}</th>
           </tr></thead>
           <tbody className="divide-y divide-[var(--line)]">
             {participants.map((participant, index) => <tr key={participant.id} className="hover:bg-[var(--surface-muted)]">
@@ -96,6 +102,14 @@ export function ParticipantList({ reloadKey = 0 }: { reloadKey?: number }) {
               <td className="px-5 py-4 text-xs">{participant.rsvp_status ?? "-"}</td>
               <td className="px-5 py-4 text-xs">{participant.source_checked_in ? <span className="inline-flex rounded-sm bg-[#EEF8F0] px-2 py-0.5 font-semibold text-[var(--brand-strong)]">Sudah</span> : <span className="inline-flex rounded-sm bg-[var(--surface-muted)] px-2 py-0.5 font-semibold text-[var(--ink-muted)]">Belum</span>}</td>
               <td className="px-5 py-4 text-right text-xs tabular-nums">{participant.source_total_scans}</td>
+              {/* Datang dari scanner API dan hanya ditampilkan. Nama sesi ikut
+                  ditulis karena satu peserta bisa punya kursi berbeda di sesi
+                  pagi dan malam; label saja akan ambigu. */}
+              <td className="px-5 py-4 text-xs">
+                {participant.seats && participant.seats.length > 0
+                  ? <span className="flex flex-wrap gap-1">{participant.seats.map((seat) => <span key={`${seat.subEventId}-${seat.label}`} title={seat.subEventName} className="inline-flex rounded-sm bg-[#E8ECFB] px-2 py-0.5 font-mono font-semibold text-[var(--brand-strong)]">{seat.label}</span>)}</span>
+                  : <span className="text-[var(--ink-muted)]">Belum ada</span>}
+              </td>
             </tr>)}
           </tbody>
         </table>

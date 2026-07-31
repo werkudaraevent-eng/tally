@@ -33,6 +33,9 @@ const messages: Record<ApiErrorCode, string> = {
   OFFER_SCOPE_LOCKED_CLAIMED: "Cakupan tidak dapat diubah karena penawaran sudah pernah diklaim. Buat penawaran baru.",
   DUPLICATE_OFFER_CODE: "Kode penawaran sudah dipakai.",
   ORDER_TOTAL_MISMATCH: "Total order tidak cocok dengan item yang diklaim.",
+  SEAT_MAP_SESSION_NOT_FOUND: "Sesi denah tidak ditemukan.",
+  DUPLICATE_SEAT_MAP_SLUG: "Slug sesi denah sudah dipakai. Gunakan slug lain.",
+  SEAT_MAP_SESSION_UNPUBLISHED: "Denah sesi ini belum dipublikasikan.",
   INTERNAL_ERROR: "Terjadi kesalahan server. Coba lagi.",
 };
 

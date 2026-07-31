@@ -1,0 +1,159 @@
+import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { normalizeConfig, normalizeSeatLabel, type SeatMapConfig } from "@/lib/seat-map";
+
+// Lapisan data denah tempat duduk. Server-only, dipakai bersama API publik dan
+// CMS admin supaya aturan pencocokan label hanya ada di satu tempat.
+//
+// Prinsip yang dipegang: modul ini hanya MEMBACA `participants`. Penempatan
+// orang milik scanner API; yang dimiliki aplikasi ini cuma geometri ruangan.
+// Karena itu tidak ada satu pun operasi tulis ke tabel peserta di sini.
+
+export type SeatMapSession = {
+  id: number;
+  slug: string;
+  name: string;
+  sub_event_id: string | null;
+  title: string;
+  subtitle: string | null;
+  background_color: string;
+  text_color: string;
+  accent_color: string;
+  is_published: boolean;
+  sort_order: number;
+};
+
+export const SESSION_COLUMNS =
+  "id,slug,name,sub_event_id,title,subtitle,background_color,text_color,accent_color,is_published,sort_order";
+
+export const CONFIG_COLUMNS =
+  "name,stage_label,row_table_counts,seat_rules,seat_label_pattern,table_overrides,updated_at";
+
+type ParticipantSeat = { subEventId: string; subEventName: string; label: string };
+
+type ParticipantRow = {
+  id: string;
+  name: string;
+  company: string | null;
+  title: string | null;
+  allow_name_display: boolean;
+  participant_type: string | null;
+  source_checked_in: boolean;
+  seats: ParticipantSeat[] | null;
+};
+
+/** Satu penempatan orang di satu kursi, sudah dipilih untuk satu sesi. */
+export type SeatAssignment = {
+  participantId: string;
+  name: string;
+  company: string | null;
+  title: string | null;
+  participantType: string | null;
+  allowNameDisplay: boolean;
+  checkedIn: boolean;
+  seatLabel: string;
+  normalizedLabel: string;
+};
+
+export async function loadSeatMapConfig(): Promise<SeatMapConfig & { name: string }> {
+  const { data } = await getSupabaseServiceClient()
+    .from("seat_maps")
+    .select(CONFIG_COLUMNS)
+    .eq("id", 1)
+    .single();
+  const raw = (data ?? {}) as Partial<SeatMapConfig> & { name?: string };
+  return { ...normalizeConfig(raw), name: typeof raw.name === "string" ? raw.name : "Denah" };
+}
+
+export async function loadSessions(options: { publishedOnly: boolean }) {
+  let query = getSupabaseServiceClient().from("seat_map_sessions").select(SESSION_COLUMNS);
+  if (options.publishedOnly) query = query.eq("is_published", true);
+  const { data } = await query.order("sort_order", { ascending: true });
+  return (data ?? []) as unknown as SeatMapSession[];
+}
+
+/**
+ * Membaca peserta aktif beserta kursinya.
+ *
+ * Sengaja mengambil seluruh baris lalu mencocokkan di memori, bukan menyaring
+ * lewat query jsonb. Peserta acara ini hanya ratusan orang, jadi biayanya tidak
+ * terasa, dan sebagai gantinya tabel `participants` tidak perlu diberi index
+ * baru. Menambah index di tabel yang sudah dipakai alur booth dan kasir adalah
+ * risiko yang tidak sebanding dengan keuntungannya di sini.
+ */
+async function loadParticipantsWithSeats() {
+  const { data, error } = await getSupabaseServiceClient()
+    .from("participants")
+    .select("id,name,company,title,allow_name_display,participant_type,source_checked_in,seats")
+    .is("source_removed_at", null);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as ParticipantRow[];
+}
+
+/**
+ * Penempatan orang untuk satu sesi.
+ *
+ * `subEventId` yang dipakai sebagai kunci, bukan nama sesi: nama bisa diubah
+ * panitia kapan saja, sedangkan id semestinya stabil. Selama admin belum
+ * memilih `sub_event_id`, hasilnya sengaja kosong daripada menampilkan
+ * penempatan sesi pagi di denah sesi malam.
+ */
+export async function loadAssignmentsForSession(subEventId: string | null) {
+  const participants = await loadParticipantsWithSeats();
+  const assignments: SeatAssignment[] = [];
+  let participantsWithoutSeat = 0;
+
+  for (const participant of participants) {
+    const seats = Array.isArray(participant.seats) ? participant.seats : [];
+    const matching = subEventId ? seats.filter((seat) => seat?.subEventId === subEventId) : [];
+
+    if (matching.length === 0) {
+      participantsWithoutSeat += 1;
+      continue;
+    }
+
+    for (const seat of matching) {
+      if (typeof seat.label !== "string" || !seat.label.trim()) continue;
+      assignments.push({
+        participantId: participant.id,
+        name: participant.name,
+        company: participant.company,
+        title: participant.title,
+        participantType: participant.participant_type,
+        allowNameDisplay: participant.allow_name_display,
+        checkedIn: participant.source_checked_in,
+        seatLabel: seat.label,
+        normalizedLabel: normalizeSeatLabel(seat.label),
+      });
+    }
+  }
+
+  return { assignments, participantsWithoutSeat, totalActiveParticipants: participants.length };
+}
+
+/**
+ * Daftar sub-event yang benar-benar ada di data scanner API.
+ *
+ * Dipakai CMS supaya admin memilih sesi dari daftar, bukan menyalin id dengan
+ * tangan. Satu salah ketik pada id berarti seluruh denah tampak kosong.
+ */
+export async function discoverSubEvents() {
+  const participants = await loadParticipantsWithSeats();
+  const found = new Map<string, { subEventId: string; subEventName: string; seatCount: number }>();
+
+  for (const participant of participants) {
+    const seats = Array.isArray(participant.seats) ? participant.seats : [];
+    for (const seat of seats) {
+      if (!seat || typeof seat.subEventId !== "string" || !seat.subEventId) continue;
+      const existing = found.get(seat.subEventId);
+      if (existing) existing.seatCount += 1;
+      else
+        found.set(seat.subEventId, {
+          subEventId: seat.subEventId,
+          subEventName: typeof seat.subEventName === "string" ? seat.subEventName : "(tanpa nama)",
+          seatCount: 1,
+        });
+    }
+  }
+
+  return [...found.values()].sort((a, b) => b.seatCount - a.seatCount);
+}

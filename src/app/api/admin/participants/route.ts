@@ -37,9 +37,12 @@ export async function GET(request: Request) {
   // mengurutkan 25 baris yang sedang tampil akan menghasilkan urutan yang salah.
   // Tiebreaker `name` menjaga urutan stabil saat kolom sort banyak nilai sama
   // (mis. rsvp_status), supaya baris tidak berpindah halaman antar-request.
+  // `seats` ikut dikirim untuk ditampilkan saja. Sengaja tidak masuk SORTABLE:
+  // mengurutkan jsonb tidak punya arti yang jelas bagi admin, dan penempatan
+  // kursi tetap milik scanner API, bukan sesuatu yang diatur dari halaman ini.
   let query = client
     .from("participants")
-    .select("id,qr_code,name,company,title,participant_type,rsvp_status,source_checked_in,source_total_scans,source_synced_at,source_removed_at", { count: "exact" })
+    .select("id,qr_code,name,company,title,participant_type,rsvp_status,source_checked_in,source_total_scans,source_synced_at,source_removed_at,seats", { count: "exact" })
     .order(SORTABLE[parsed.data.sort], { ascending: parsed.data.dir === "asc", nullsFirst: false })
     .order("name", { ascending: true })
     .range(parsed.data.offset, parsed.data.offset + parsed.data.limit - 1);
