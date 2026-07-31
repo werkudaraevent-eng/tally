@@ -1,5 +1,5 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { normalizeConfig, normalizeSeatLabel, type SeatMapConfig } from "@/lib/seat-map";
+import { normalizeConfig, normalizePublicViewMode, normalizeSeatLabel, type PublicViewMode, type SeatMapConfig } from "@/lib/seat-map";
 
 // Lapisan data denah tempat duduk. Server-only, dipakai bersama API publik dan
 // CMS admin supaya aturan pencocokan label hanya ada di satu tempat.
@@ -26,7 +26,7 @@ export const SESSION_COLUMNS =
   "id,slug,name,sub_event_id,title,subtitle,background_color,text_color,accent_color,is_published,sort_order";
 
 export const CONFIG_COLUMNS =
-  "name,stage_label,row_table_counts,seat_rules,seat_label_pattern,table_overrides,updated_at";
+  "name,stage_label,row_table_counts,seat_rules,seat_label_pattern,table_overrides,public_view_mode,updated_at";
 
 type ParticipantSeat = { subEventId: string; subEventName: string; label: string };
 
@@ -54,14 +54,18 @@ export type SeatAssignment = {
   normalizedLabel: string;
 };
 
-export async function loadSeatMapConfig(): Promise<SeatMapConfig & { name: string }> {
+export async function loadSeatMapConfig(): Promise<SeatMapConfig & { name: string; public_view_mode: PublicViewMode }> {
   const { data } = await getSupabaseServiceClient()
     .from("seat_maps")
     .select(CONFIG_COLUMNS)
     .eq("id", 1)
     .single();
-  const raw = (data ?? {}) as Partial<SeatMapConfig> & { name?: string };
-  return { ...normalizeConfig(raw), name: typeof raw.name === "string" ? raw.name : "Denah" };
+  const raw = (data ?? {}) as Partial<SeatMapConfig> & { name?: string; public_view_mode?: string };
+  return {
+    ...normalizeConfig(raw),
+    name: typeof raw.name === "string" ? raw.name : "Denah",
+    public_view_mode: normalizePublicViewMode(raw.public_view_mode),
+  };
 }
 
 export async function loadSessions(options: { publishedOnly: boolean }) {

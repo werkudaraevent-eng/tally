@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { computeSeatMapGeometry, normalizeSeatLabel, MAX_SEATS_PER_TABLE } from "@/lib/seat-map";
+import { computeSeatMapGeometry, normalizeSeatLabel, MAX_SEATS_PER_TABLE, PUBLIC_VIEW_MODES } from "@/lib/seat-map";
 import {
   CONFIG_COLUMNS,
   SESSION_COLUMNS,
@@ -48,6 +48,9 @@ const configSchema = z.object({
   table_overrides: z
     .record(z.string().regex(/^\d{1,3}$/), z.object({ dx: z.number().min(-200).max(200), dy: z.number().min(-200).max(200) }))
     .optional(),
+  // Mode bawaan untuk semua layar publik. Layar tertentu tetap bisa menimpanya
+  // lewat ?mode= pada URL-nya.
+  public_view_mode: z.enum(PUBLIC_VIEW_MODES as unknown as [string, ...string[]]).optional(),
 });
 
 const sessionPatchSchema = z.object({

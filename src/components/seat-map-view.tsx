@@ -32,6 +32,12 @@ export type SeatMapViewProps = {
   showSeatCodes?: boolean;
   /** Mewarnai kursi menurut kehadiran, bukan sekadar terisi. */
   showAttendance?: boolean;
+  /**
+   * Batas tinggi, misalnya "58vh" atau "var(--x)". Denah akan mengecil sendiri
+   * agar utuh di dalam batas itu, bukan terpotong, karena viewBox menjaga
+   * seluruh isinya tetap masuk.
+   */
+  maxHeight?: string;
   onSeatClick?: (seatLabel: string, tableNumber: number) => void;
   onTableClick?: (tableNumber: number) => void;
   className?: string;
@@ -49,6 +55,7 @@ export function SeatMapView({
   accentColor = "#f2c14e",
   showSeatCodes = true,
   showAttendance = false,
+  maxHeight,
   onSeatClick,
   onTableClick,
   className,
@@ -77,7 +84,7 @@ export function SeatMapView({
     <svg
       viewBox={`0 0 ${geometry.width} ${geometry.height}`}
       className={className}
-      style={{ background: backgroundColor, display: "block", width: "100%", height: "auto" }}
+      style={{ background: backgroundColor, display: "block", width: "100%", height: "auto", maxHeight }}
       role="img"
       aria-label={`Denah tempat duduk, ${geometry.totalTables} meja dan ${geometry.totalSeats} kursi. Acuan arah: ${geometry.stage.label} berada di depan.`}
     >

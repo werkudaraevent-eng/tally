@@ -10,6 +10,23 @@
 export type SeatRule = { from: number; to: number; seats: number };
 export type TableOffset = { dx: number; dy: number };
 
+/**
+ * Cara layar dipakai, bukan sifat acaranya.
+ *
+ *   * `search` — layar sentuh atau HP tamu; tamu mengetik namanya.
+ *   * `qr` — LED publik tanpa sentuh; tidak ada yang bisa mengetik, jadi layar
+ *     menampilkan QR agar pencarian pindah ke HP tamu. Nama peserta tidak
+ *     pernah tampil di layar besar.
+ */
+export type PublicViewMode = "search" | "qr";
+
+export const PUBLIC_VIEW_MODES: readonly PublicViewMode[] = ["search", "qr"];
+
+/** Nilai tak dikenal jatuh ke `search`: layar yang bisa dipakai lebih baik daripada layar kosong. */
+export function normalizePublicViewMode(value: unknown): PublicViewMode {
+  return value === "qr" ? "qr" : "search";
+}
+
 export type SeatMapConfig = {
   stage_label: string;
   row_table_counts: number[];

@@ -2,14 +2,24 @@
 
 import { MagnifyingGlass, Users, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SeatMapLedView } from "@/components/seat-map-led-view";
 import { SeatMapView, type SeatState } from "@/components/seat-map-view";
-import { computeSeatMapGeometry, normalizeSeatLabel, type SeatMapConfig } from "@/lib/seat-map";
+import { computeSeatMapGeometry, normalizePublicViewMode, normalizeSeatLabel, type PublicViewMode, type SeatMapConfig } from "@/lib/seat-map";
+import { formatWibTimeWithSeconds } from "@/lib/datetime";
 
 // Denah tempat duduk publik. Tanpa login, dibuka tamu dari ponsel di lokasi.
 //
-// Alurnya sengaja pencarian dulu, bukan denah penuh berisi nama: satu-satunya
-// pertanyaan tamu adalah "saya duduk di mana", dan itu terjawab tanpa halaman
-// ini perlu memajang daftar tamu ke internet.
+// Ada dua mode dengan alasan yang berbeda:
+//
+//   * `search` — layar sentuh atau HP tamu. Pencarian lebih dulu, bukan denah
+//     penuh berisi nama: pertanyaan tamu hanya "saya duduk di mana", dan itu
+//     terjawab tanpa memajang daftar tamu ke internet.
+//   * `qr` — LED publik tanpa sentuh. Tidak ada yang bisa mengetik, jadi layar
+//     menampilkan QR dan pencarian pindah ke HP tamu.
+//
+// Mode diambil dari CMS, dan bisa ditimpa per layar lewat `?mode=`. Penimpa itu
+// yang memungkinkan satu acara menjalankan LED dan layar sentuh berdampingan
+// tanpa keduanya berebut satu setelan.
 
 type SeatInfo = { occupied: boolean; checkedIn: boolean; occupants: string[] };
 type SessionInfo = {
@@ -36,10 +46,15 @@ type MapPayload = {
   config: SeatMapConfig | null;
   seats: Record<string, SeatInfo>;
   summary: Summary | null;
+  public_view_mode?: PublicViewMode;
 };
 type SearchResult = { name: string; seat_labels: string[]; normalized_labels: string[] };
 
 const MIN_QUERY_LENGTH = 3;
+
+// LED biasanya dipasang dan ditinggal, jadi datanya disegarkan sendiri. Satu
+// menit cukup: yang berubah hanya keterisian kursi, bukan tata letaknya.
+const LED_REFRESH_MS = 60000;
 
 export default function SeatMapPage() {
   const [payload, setPayload] = useState<MapPayload | null>(null);
@@ -53,25 +68,40 @@ export default function SeatMapPage() {
   const [searchNote, setSearchNote] = useState("");
   const [highlighted, setHighlighted] = useState<string[]>([]);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
+  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
+
+  // Penimpa mode per layar, dibaca sekali saat mount. Dipakai untuk menyetel
+  // satu LED ke mode qr tanpa mengubah setelan layar lain.
+  const [modeOverride] = useState<PublicViewMode | null>(() => {
+    if (typeof window === "undefined") return null;
+    const raw = new URLSearchParams(window.location.search).get("mode");
+    return raw === "qr" || raw === "search" ? raw : null;
+  });
 
   // Ref, bukan state: dipakai hanya untuk membatalkan permintaan lama dan tidak
   // perlu memicu render.
   const searchAbort = useRef<AbortController | null>(null);
 
-  const loadMap = useCallback(async (slug: string | null) => {
-    setLoading(true);
-    setFailed(false);
+  const loadMap = useCallback(async (slug: string | null, options?: { silent?: boolean }) => {
+    // Penyegaran berkala di LED berjalan diam-diam. Menyalakan status memuat
+    // setiap menit akan membuat layar berkedip sepanjang acara.
+    if (!options?.silent) setLoading(true);
     try {
       const url = slug ? `/api/seat-map?sesi=${encodeURIComponent(slug)}` : "/api/seat-map";
       const response = await fetch(url, { cache: "no-store" });
       if (!response.ok) throw new Error("gagal");
       const data = (await response.json()) as MapPayload;
       setPayload(data);
+      setLastLoadedAt(formatWibTimeWithSeconds(new Date().toISOString()));
+      setFailed(false);
       if (data.session) setActiveSlug(data.session.slug);
     } catch {
-      setFailed(true);
+      // Kegagalan pada penyegaran diam tidak boleh mengosongkan layar. LED tidak
+      // punya siapa pun yang bisa menekan "Coba lagi", jadi data terakhir yang
+      // berhasil dimuat tetap ditampilkan sampai jaringan pulih.
+      if (!options?.silent) setFailed(true);
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   }, []);
 
@@ -151,6 +181,21 @@ export default function SeatMapPage() {
   const ink = session?.text_color ?? "#ffffff";
   const accent = session?.accent_color ?? "#f2c14e";
 
+  // Penimpa lewat URL menang atas setelan CMS. Layar yang sudah dipasang di
+  // dinding tidak bisa diubah dari jauh, jadi alamatnya harus bisa memaksa mode.
+  const effectiveMode: PublicViewMode = modeOverride ?? normalizePublicViewMode(payload?.public_view_mode);
+
+  // LED dipasang lalu ditinggal, jadi ia menyegarkan datanya sendiri. Hanya di
+  // mode qr: di mode pencarian, memuat ulang saat tamu sedang mengetik akan
+  // menghapus sorotan yang baru dia temukan.
+  useEffect(() => {
+    if (effectiveMode !== "qr") return;
+    const interval = window.setInterval(() => {
+      void loadMap(activeSlug, { silent: true });
+    }, LED_REFRESH_MS);
+    return () => window.clearInterval(interval);
+  }, [effectiveMode, activeSlug, loadMap]);
+
   function switchSession(slug: string) {
     setSelectedTable(null);
     setHighlighted([]);
@@ -174,6 +219,38 @@ export default function SeatMapPage() {
       info: seatInfo[normalizeSeatLabel(seat.label)] ?? null,
     }));
   }, [selectedTable, payload]);
+
+  // Mode LED punya tata letak sendiri, bukan variasi dari halaman pencarian.
+  // Dipisah lebih awal supaya tidak ada elemen interaktif yang ikut terbawa ke
+  // layar yang tidak bisa disentuh.
+  //
+  // Ditahan sampai data pertama berhasil dimuat: LED yang menampilkan denah
+  // kosong sesaat lalu berubah akan terlihat seperti alat yang rusak.
+  if (effectiveMode === "qr") {
+    if (!payload?.published || !session) {
+      return (
+        <main className="flex min-h-dvh items-center justify-center px-6 text-center" style={{ background, color: ink }}>
+          <p style={{ fontSize: "clamp(16px, 2.6vmin, 44px)", opacity: 0.85 }}>
+            {loading || !payload ? "Menyiapkan denah…" : "Denah tempat duduk belum dipublikasikan."}
+          </p>
+        </main>
+      );
+    }
+    return (
+      <SeatMapLedView
+        config={payload.config}
+        seatStates={seatStates}
+        summary={payload.summary}
+        sessionSlug={session.slug}
+        title={session.title}
+        subtitle={session.subtitle}
+        backgroundColor={background}
+        textColor={ink}
+        accentColor={accent}
+        lastLoadedAt={lastLoadedAt}
+      />
+    );
+  }
 
   return (
     <main className="min-h-dvh px-4 py-6 sm:px-6" style={{ background, color: ink }}>

@@ -87,6 +87,9 @@ export async function GET(request: Request) {
         seat_label_pattern: config.seat_label_pattern,
         table_overrides: config.table_overrides,
       },
+      // Mode bawaan layar. Halaman publik boleh menimpanya lewat ?mode= agar
+      // satu acara bisa menjalankan LED dan layar sentuh sekaligus.
+      public_view_mode: config.public_view_mode,
       seats,
       summary: {
         total_tables: geometry.totalTables,

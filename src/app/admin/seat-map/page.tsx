@@ -1,11 +1,11 @@
 "use client";
 
-import { ArrowLeft, ArrowSquareOut, CheckCircle, Eye, EyeSlash, Warning } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowSquareOut, CheckCircle, Eye, EyeSlash, Monitor, Warning } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SeatMapView } from "@/components/seat-map-view";
 import { useToast } from "@/components/toast";
-import type { SeatMapConfig, SeatRule } from "@/lib/seat-map";
+import type { PublicViewMode, SeatMapConfig, SeatRule } from "@/lib/seat-map";
 
 // CMS denah tempat duduk.
 //
@@ -43,8 +43,17 @@ type MatchReport = {
   total_active_participants: number;
 };
 
+// Penjelasan tiap mode ditaruh berdampingan supaya admin memilih berdasarkan
+// jenis layarnya, bukan menebak dari nama modenya.
+const VIEW_MODES: { value: PublicViewMode; label: string; detail: string }[] = [
+  { value: "search", label: "Pencarian nama", detail: "Untuk HP tamu dan layar sentuh. Tamu mengetik namanya, kursinya disorot." },
+  { value: "qr", label: "QR untuk LED", detail: "Untuk LED tanpa sentuh. Layar menampilkan QR besar; nama peserta tidak ditampilkan." },
+];
+
+type ConfigState = SeatMapConfig & { name: string; public_view_mode: PublicViewMode };
+
 type Payload = {
-  config: SeatMapConfig & { name: string };
+  config: ConfigState;
   sessions: Session[];
   available_sub_events: SubEvent[];
   geometry: { total_tables: number; total_seats: number };
@@ -53,7 +62,7 @@ type Payload = {
 
 export default function SeatMapAdminPage() {
   const [payload, setPayload] = useState<Payload | null>(null);
-  const [config, setConfig] = useState<(SeatMapConfig & { name: string }) | null>(null);
+  const [config, setConfig] = useState<ConfigState | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [savingConfig, setSavingConfig] = useState(false);
   const [savingSession, setSavingSession] = useState<number | null>(null);
@@ -76,7 +85,7 @@ export default function SeatMapAdminPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  function updateConfig<K extends keyof (SeatMapConfig & { name: string })>(key: K, value: (SeatMapConfig & { name: string })[K]) {
+  function updateConfig<K extends keyof ConfigState>(key: K, value: ConfigState[K]) {
     setConfig((current) => current && { ...current, [key]: value });
   }
 
@@ -97,6 +106,7 @@ export default function SeatMapAdminPage() {
         seat_rules: config.seat_rules,
         seat_label_pattern: config.seat_label_pattern,
         table_overrides: config.table_overrides,
+        public_view_mode: config.public_view_mode,
       }),
     });
     const data = await response.json();
@@ -155,9 +165,16 @@ export default function SeatMapAdminPage() {
             Tata letak ruangan diatur di sini. Penempatan peserta datang dari scanner API dan tidak diubah dari halaman ini.
           </p>
         </div>
-        <a href="/denah" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold">
-          <ArrowSquareOut size={18} /> Buka halaman publik
-        </a>
+        <div className="flex flex-wrap gap-2">
+          <a href="/denah" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold">
+            <ArrowSquareOut size={18} /> Halaman publik
+          </a>
+          {/* Tautan langsung ke mode LED. Panitia yang memasang layar cukup
+              menyalin alamat ini, tanpa perlu mengubah setelan bawaan. */}
+          <a href="/denah?mode=qr" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold">
+            <Monitor size={18} /> Pratinjau LED
+          </a>
+        </div>
       </header>
 
       {error ? <p className="mt-4 border border-[var(--danger)] bg-[#fdf1f0] p-3 text-sm text-[var(--danger)]">{error}</p> : null}
@@ -185,7 +202,25 @@ export default function SeatMapAdminPage() {
           </div>
 
           <div className="border border-[var(--line)] bg-[var(--surface)] p-5">
-            <h2 className="text-base font-bold">Tata letak</h2>
+            <h2 className="text-base font-bold">Mode tampilan publik</h2>
+            <p className="mt-1 text-sm text-[var(--ink-muted)]">Pilih sesuai jenis layar yang dipakai.</p>
+            <fieldset className="mt-3 space-y-2">
+              <legend className="sr-only">Mode tampilan halaman publik</legend>
+              {VIEW_MODES.map((mode) => <label key={mode.value}
+                className={`flex cursor-pointer gap-3 border p-3 text-sm ${config.public_view_mode === mode.value ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)]"}`}>
+                <input type="radio" name="public-view-mode" value={mode.value} checked={config.public_view_mode === mode.value}
+                  onChange={() => updateConfig("public_view_mode", mode.value)} className="mt-0.5 size-4 shrink-0 accent-[var(--brand)]" />
+                <span>
+                  <span className="font-semibold">{mode.label}</span>
+                  <span className="mt-0.5 block text-xs text-[var(--ink-muted)]">{mode.detail}</span>
+                </span>
+              </label>)}
+            </fieldset>
+            <p className="mt-2 text-xs text-[var(--ink-muted)]">
+              Ini setelan bawaan semua layar. Satu layar bisa dipaksa ke mode tertentu lewat <code>/denah?mode=qr</code> atau <code>?mode=search</code>, berguna bila LED dan layar sentuh dipakai bersamaan.
+            </p>
+
+            <h2 className="mt-6 border-t border-[var(--line)] pt-5 text-base font-bold">Tata letak</h2>
 
             <label className="mt-4 block text-sm font-semibold" htmlFor="map-name">Nama denah</label>
             <input id="map-name" value={config.name} onChange={(event) => updateConfig("name", event.target.value)}
