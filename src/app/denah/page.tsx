@@ -78,6 +78,18 @@ export default function SeatMapPage() {
     return raw === "qr" || raw === "search" ? raw : null;
   });
 
+  // Agenda yang dipatok lewat URL, juga dibaca sekali saat mount.
+  //
+  // Tanpa ini halaman selalu jatuh ke agenda pertama, sehingga LED yang dipasang
+  // untuk sesi malam tetap menampilkan judul dan warna sesi pagi. Layar yang
+  // sudah terpasang di dinding tidak bisa diklik untuk berpindah agenda, jadi
+  // alamatnya harus bisa menentukan agenda mana yang tampil.
+  const [slugFromUrl] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const raw = new URLSearchParams(window.location.search).get("sesi")?.trim();
+    return raw && /^[a-z0-9-]{2,40}$/.test(raw) ? raw : null;
+  });
+
   // Ref, bukan state: dipakai hanya untuk membatalkan permintaan lama dan tidak
   // perlu memicu render.
   const searchAbort = useRef<AbortController | null>(null);
@@ -108,9 +120,9 @@ export default function SeatMapPage() {
   // Pemuatan awal ditunda satu tick: memanggil setState langsung di dalam efek
   // memicu render berantai, dan React Compiler menolaknya.
   useEffect(() => {
-    const timer = window.setTimeout(() => { void loadMap(null); }, 0);
+    const timer = window.setTimeout(() => { void loadMap(slugFromUrl); }, 0);
     return () => window.clearTimeout(timer);
-  }, [loadMap]);
+  }, [loadMap, slugFromUrl]);
 
   // Pencarian ditunda sejenak setelah tamu berhenti mengetik. Tanpa ini, setiap
   // huruf memicu satu permintaan dan ratusan tamu mengetik bersamaan saat acara.
