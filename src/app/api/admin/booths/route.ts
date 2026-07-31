@@ -3,7 +3,25 @@ import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
-const boothSchema = z.object({ id: z.number().int().positive().nullable().optional(), code: z.string().trim().regex(/^B[1-9][0-9]*$/), name: z.string().trim().min(1).max(100), discount_item_name: z.string().trim().min(1).max(200), discount_item_stock: z.number().int().min(0).nullable(), is_active: z.boolean(), discount_enabled: z.boolean(), discount_limit_per_participant: z.number().int().min(0).max(20) });
+// Kode booth tidak dipatok pola B1/B2/B3. Panitia memakai singkatan sendiri
+// seperti PH, dan memaksa pola bernomor membuat kode di aplikasi berbeda dengan
+// kode yang tertempel di booth.
+//
+// Tanda hubung sengaja dilarang: kode order dibentuk sebagai
+// `<kode booth>-<nomor 3 digit>` lalu dibaca kembali dengan memotong di tanda
+// hubung (lihat /api/booth/context). Kode booth yang memuat tanda hubung membuat
+// pembacaan nomor stiker menjadi ambigu.
+//
+// Aturan yang sama juga dijaga di database lewat constraint `booths_code_format`
+// dan pada `create_order_transaction`, karena booth bisa berubah lewat jalur lain
+// dan format yang salah baru terasa akibatnya saat staf gagal membuat order.
+const boothCode = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z][A-Z0-9]{0,7}$/, "Kode booth 1-8 karakter, dimulai huruf, tanpa spasi atau tanda hubung.");
+
+const boothSchema = z.object({ id: z.number().int().positive().nullable().optional(), code: boothCode, name: z.string().trim().min(1).max(100), discount_item_name: z.string().trim().min(1).max(200), discount_item_stock: z.number().int().min(0).nullable(), is_active: z.boolean(), discount_enabled: z.boolean(), discount_limit_per_participant: z.number().int().min(0).max(20) });
 
 export async function GET() {
   const auth = await requireUser(["admin"]);
