@@ -50,7 +50,7 @@ const VIEW_MODES: { value: PublicViewMode; label: string; detail: string }[] = [
   { value: "qr", label: "QR untuk LED", detail: "Untuk LED tanpa sentuh. Layar menampilkan QR besar; nama peserta tidak ditampilkan." },
 ];
 
-type ConfigState = SeatMapConfig & { name: string; public_view_mode: PublicViewMode };
+type ConfigState = SeatMapConfig & { name: string; public_view_mode: PublicViewMode; default_session_id: number | null };
 
 type Payload = {
   config: ConfigState;
@@ -113,6 +113,7 @@ export default function SeatMapAdminPage() {
         seat_label_pattern: config.seat_label_pattern,
         table_overrides: config.table_overrides,
         public_view_mode: config.public_view_mode,
+        default_session_id: config.default_session_id,
       }),
     });
     const data = await response.json();
@@ -249,7 +250,41 @@ export default function SeatMapAdminPage() {
           </div>
 
           <div className="border border-[var(--line)] bg-[var(--surface)] p-5">
-            <h2 className="text-base font-bold">Mode tampilan publik</h2>
+            {/* Pemilih agenda yang tampil di layar publik. Ini yang memindahkan
+                seluruh LED dari sesi pagi ke sesi malam tanpa menyentuh
+                perangkatnya, yang saat acara berjalan bisa sulit dijangkau.
+
+                Hanya agenda terpublikasi yang bisa dipilih: agenda draf yang
+                disetel sebagai bawaan akan membuat layar diam-diam jatuh ke
+                agenda lain, sehingga admin merasa pilihannya tidak tersimpan. */}
+            <h2 className="text-base font-bold">Agenda yang tampil</h2>
+            <p className="mt-1 text-sm text-[var(--ink-muted)]">Menentukan agenda mana yang muncul di layar publik dan LED.</p>
+
+            <label className="mt-3 block text-sm font-semibold" htmlFor="default-session">Agenda aktif</label>
+            <select id="default-session" value={config.default_session_id ?? ""}
+              onChange={(event) => updateConfig("default_session_id", event.target.value ? Number(event.target.value) : null)}
+              className="mt-1 min-h-11 w-full border border-[var(--line)] bg-[var(--surface)] px-3 text-sm">
+              <option value="">Agenda publik pertama (otomatis)</option>
+              {sessions.filter((item) => item.is_published).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+
+            {sessions.filter((item) => item.is_published).length === 0
+              ? <p className="mt-1 text-xs text-[var(--warning)]">Belum ada agenda yang dipublikasikan. Publikasikan salah satu agenda di bawah lebih dulu.</p>
+              : null}
+
+            {config.default_session_id
+              ? <p className="mt-2 text-xs text-[var(--ink-muted)]">
+                  Semua layar yang membuka <code>/denah</code> tanpa menyebut agenda akan menampilkan agenda ini.
+                </p>
+              : <p className="mt-2 text-xs text-[var(--ink-muted)]">
+                  Saat otomatis, layar mengikuti agenda publik yang urutannya paling awal.
+                </p>}
+
+            <p className="mt-2 text-xs text-[var(--ink-muted)]">
+              Untuk menjalankan dua layar dengan agenda berbeda sekaligus, sebut agendanya di alamat masing-masing, misalnya <code>/denah?sesi={sessions[0]?.slug ?? "slug-agenda"}</code>. Alamat selalu menang atas setelan ini.
+            </p>
+
+            <h2 className="mt-6 border-t border-[var(--line)] pt-5 text-base font-bold">Mode tampilan publik</h2>
             <p className="mt-1 text-sm text-[var(--ink-muted)]">Pilih sesuai jenis layar yang dipakai.</p>
             <fieldset className="mt-3 space-y-2">
               <legend className="sr-only">Mode tampilan halaman publik</legend>

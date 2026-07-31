@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { computeSeatMapGeometry, normalizeSeatLabel } from "@/lib/seat-map";
-import { loadAssignmentsForSession, loadSeatMapConfig, loadSessions } from "@/lib/seat-map-data";
+import { loadAssignmentsForSession, loadSeatMapConfig, loadSessions, resolveSession } from "@/lib/seat-map-data";
 import { publicSeatOccupantLabel, type NameDisplayMode } from "@/lib/seat-map-privacy";
 
 // Denah publik. Tanpa login, mengikuti pola /api/leaderboard.
@@ -18,20 +18,26 @@ export async function GET(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   try {
-    const sessions = await loadSessions({ publishedOnly: true });
+    // Konfigurasi dibaca lebih dulu karena agenda bawaan tersimpan di sana, dan
+    // pilihan agenda menentukan penempatan mana yang perlu diambil.
+    const [config, sessions] = await Promise.all([
+      loadSeatMapConfig(),
+      loadSessions({ publishedOnly: true }),
+    ]);
+
     if (sessions.length === 0) {
       // Bukan error: sebelum hari H memang belum ada yang dipublikasikan.
       // Halaman publik menampilkan pesan tunggu, bukan layar rusak.
       return Response.json({ published: false, sessions: [], session: null, config: null, seats: {}, summary: null });
     }
 
-    const session = parsed.data.sesi
-      ? sessions.find((item) => item.slug === parsed.data.sesi)
-      : sessions[0];
+    const session = resolveSession(sessions, {
+      requestedSlug: parsed.data.sesi,
+      defaultSessionId: config.default_session_id,
+    });
     if (!session) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
 
-    const [config, settingsResult, assignmentData] = await Promise.all([
-      loadSeatMapConfig(),
+    const [settingsResult, assignmentData] = await Promise.all([
       getSupabaseServiceClient().from("event_settings").select("name_display_mode").eq("id", 1).single(),
       loadAssignmentsForSession(session.sub_event_id),
     ]);

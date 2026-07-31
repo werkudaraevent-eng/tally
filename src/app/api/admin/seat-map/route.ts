@@ -48,6 +48,9 @@ const configSchema = z.object({
   // Mode bawaan untuk semua layar publik. Layar tertentu tetap bisa menimpanya
   // lewat ?mode= pada URL-nya.
   public_view_mode: z.enum(PUBLIC_VIEW_MODES as unknown as [string, ...string[]]).optional(),
+  // Agenda bawaan layar publik. `null` berarti kembali memakai agenda
+  // terpublikasi pertama.
+  default_session_id: z.number().int().positive().nullable().optional(),
 });
 
 // Agenda dikelola di /api/admin/seat-map/sessions, bukan di sini. Satu jalur
@@ -136,6 +139,21 @@ export async function PATCH(request: Request) {
   }
 
   const client = getSupabaseServiceClient();
+
+  // Agenda bawaan wajib ada dan sudah dipublikasikan. Menyimpan agenda draf
+  // sebagai bawaan akan membuat layar publik diam-diam jatuh ke agenda lain,
+  // sehingga admin merasa pilihannya tidak tersimpan.
+  if (parsed.data.default_session_id != null) {
+    const { data: target } = await client
+      .from("seat_map_sessions")
+      .select("id,is_published")
+      .eq("id", parsed.data.default_session_id)
+      .maybeSingle() as { data: { id: number; is_published: boolean } | null };
+    if (!target) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
+    if (!target.is_published) {
+      return apiError("VALIDATION_ERROR", 422, { message: "Agenda bawaan harus dipublikasikan lebih dulu." });
+    }
+  }
   const { data: current } = await client.from("seat_maps").select(CONFIG_COLUMNS).eq("id", 1).single();
   const { data, error } = await client
     .from("seat_maps")

@@ -26,7 +26,7 @@ export const SESSION_COLUMNS =
   "id,slug,name,sub_event_id,title,subtitle,background_color,text_color,accent_color,is_published,sort_order";
 
 export const CONFIG_COLUMNS =
-  "name,stage_label,row_table_counts,seat_rules,seat_label_pattern,table_overrides,public_view_mode,updated_at";
+  "name,stage_label,row_table_counts,seat_rules,seat_label_pattern,table_overrides,public_view_mode,default_session_id,updated_at";
 
 type ParticipantSeat = { subEventId: string; subEventName: string; label: string };
 
@@ -54,18 +54,54 @@ export type SeatAssignment = {
   normalizedLabel: string;
 };
 
-export async function loadSeatMapConfig(): Promise<SeatMapConfig & { name: string; public_view_mode: PublicViewMode }> {
+export type SeatMapConfigRow = SeatMapConfig & {
+  name: string;
+  public_view_mode: PublicViewMode;
+  /** Agenda yang tampil di layar publik bila alamatnya tidak menyebut `?sesi=`. */
+  default_session_id: number | null;
+};
+
+export async function loadSeatMapConfig(): Promise<SeatMapConfigRow> {
   const { data } = await getSupabaseServiceClient()
     .from("seat_maps")
     .select(CONFIG_COLUMNS)
     .eq("id", 1)
     .single();
-  const raw = (data ?? {}) as Partial<SeatMapConfig> & { name?: string; public_view_mode?: string };
+  const raw = (data ?? {}) as Partial<SeatMapConfig> & { name?: string; public_view_mode?: string; default_session_id?: number | null };
   return {
     ...normalizeConfig(raw),
     name: typeof raw.name === "string" ? raw.name : "Denah",
     public_view_mode: normalizePublicViewMode(raw.public_view_mode),
+    default_session_id: typeof raw.default_session_id === "number" ? raw.default_session_id : null,
   };
+}
+
+/**
+ * Memilih agenda yang ditampilkan.
+ *
+ * Urutan kewenangan, dari yang paling menentukan:
+ *   1. `?sesi=` pada alamat layar — satu-satunya cara menjalankan dua layar
+ *      dengan agenda berbeda pada waktu yang sama.
+ *   2. Agenda bawaan pilihan admin — memindahkan seluruh layar sekaligus.
+ *   3. Agenda terpublikasi pertama — jaring pengaman supaya layar tetap berisi.
+ *
+ * Agenda bawaan yang sudah tidak dipublikasikan sengaja diabaikan: kalau tetap
+ * dipakai, admin yang menarik sebuah agenda dari publik akan mendapati agenda itu
+ * masih tampil di LED.
+ */
+export function resolveSession(
+  sessions: SeatMapSession[],
+  options: { requestedSlug?: string | null; defaultSessionId?: number | null },
+) {
+  if (sessions.length === 0) return null;
+  if (options.requestedSlug) {
+    return sessions.find((item) => item.slug === options.requestedSlug) ?? null;
+  }
+  if (options.defaultSessionId != null) {
+    const preferred = sessions.find((item) => item.id === options.defaultSessionId);
+    if (preferred) return preferred;
+  }
+  return sessions[0];
 }
 
 export async function loadSessions(options: { publishedOnly: boolean }) {

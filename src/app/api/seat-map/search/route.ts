@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { normalizeSeatLabel } from "@/lib/seat-map";
-import { loadAssignmentsForSession, loadSessions } from "@/lib/seat-map-data";
+import { loadAssignmentsForSession, loadSeatMapConfig, loadSessions, resolveSession } from "@/lib/seat-map-data";
 import { searchConfirmationLabel } from "@/lib/seat-map-privacy";
 
 // Pencarian kursi untuk tamu. Publik, tanpa login.
@@ -34,12 +34,19 @@ export async function GET(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   try {
-    const sessions = await loadSessions({ publishedOnly: true });
+    // Pemilihan agenda harus mengikuti aturan yang sama dengan /api/seat-map.
+    // Kalau berbeda, tamu bisa mencari nama di agenda yang tidak sedang tampil
+    // dan mendapat nomor kursi milik sesi lain.
+    const [config, sessions] = await Promise.all([
+      loadSeatMapConfig(),
+      loadSessions({ publishedOnly: true }),
+    ]);
     if (sessions.length === 0) return apiError("SEAT_MAP_SESSION_UNPUBLISHED", 404);
 
-    const session = parsed.data.sesi
-      ? sessions.find((item) => item.slug === parsed.data.sesi)
-      : sessions[0];
+    const session = resolveSession(sessions, {
+      requestedSlug: parsed.data.sesi,
+      defaultSessionId: config.default_session_id,
+    });
     if (!session) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
 
     const needle = parsed.data.q.toLowerCase();
