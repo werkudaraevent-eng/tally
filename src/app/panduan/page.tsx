@@ -1,4 +1,5 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { boothSteps, cashierSteps, stepImage, type GuideStep } from "@/lib/panduan-steps";
 
 // Panduan versi cetak, satu halaman per peran.
 //
@@ -28,6 +29,32 @@ async function loadSettings() {
   return data;
 }
 
+// Satu langkah di kertas. Gambar ditampilkan kecil dan di bawah teksnya, bukan
+// selebar kolom seperti di panel aplikasi: panduan satu halaman bisa membengkak
+// menjadi belasan halaman dan boros tinta kalau setiap gambar dicetak besar.
+//
+// `break-inside-avoid` menjaga gambar tidak terpisah dari instruksinya saat
+// halaman terpotong — gambar tanpa kalimatnya tidak ada gunanya di kertas.
+function PrintStep({ step, number }: { step: GuideStep; number: number }) {
+  const image = stepImage(step.id);
+  return <li className="flex gap-3 break-inside-avoid text-sm leading-6">
+    <span className="w-5 shrink-0 text-right font-bold">{number}.</span>
+    <div className="min-w-0">
+      <span>{step.printText ?? step.text}</span>
+      {/* next/image mewajibkan dimensi tepat per gambar, sedangkan screenshot
+          panduan ditambahkan belakangan dengan ukuran berbeda-beda; angka yang
+          salah membuat gambar tampak gepeng. Halaman ini juga dicetak, bukan
+          disusuri, jadi optimasi pemuatan tidak relevan di sini. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {image ? <img
+        src={image.src}
+        alt={image.alt}
+        className="mt-1.5 h-auto w-full max-w-[260px] border border-[#d9ddd7]"
+      /> : null}
+    </div>
+  </li>;
+}
+
 export default async function PanduanPage() {
   const settings = await loadSettings();
   // Isi menyesuaikan setting aktif. Panduan cetak yang bertentangan dengan alur
@@ -37,39 +64,12 @@ export default async function PanduanPage() {
   const handOverNow = settings?.pickup_mode === "immediate";
   const autoVoid = settings?.pending_auto_void_minutes ?? 45;
 
-  const boothSteps = [
-    "Tekan SCAN QR. Arahkan kamera ke QR pada badge peserta.",
-    "Kalau QR tidak terbaca, tekan Cari peserta manual lalu cari pakai nama atau instansi.",
-    "Pastikan nama peserta yang muncul sudah benar.",
-    "Centang item spesial bila peserta mengambilnya. Kalau tidak bisa dicentang, alasannya tertulis di bawah nama item.",
-    "Isi nominal item reguler, lalu periksa angka TOTAL.",
-    // Stiker fisik hanya berguna untuk mencocokkan barang di rak. Dengan
-    // penyerahan langsung tidak ada rak, jadi menyuruh staf mencari stiker
-    // berarti menyuruh mencari benda yang tidak ada di meja.
-    handOverNow
-      ? "Nomor order sudah terisi otomatis. Biarkan apa adanya."
-      : "Isi nomor stiker sesuai stiker fisik yang ditempel di barang.",
-    "Tekan Buat order.",
-    viaCashier
-      ? (handOverNow
-        ? "Serahkan barang sekarang, lalu arahkan peserta ke kasir untuk membayar."
-        : "Tempel stiker pada barang dan simpan di rak booth. Arahkan peserta ke kasir. Barang diserahkan setelah lunas.")
-      : (handOverNow
-        ? "Order langsung tercatat lunas. Serahkan barang sekarang. Peserta TIDAK perlu ke kasir."
-        : "Order langsung tercatat lunas. Tempel stiker dan simpan di rak. Serahkan saat peserta kembali."),
-  ];
-
-  const cashierSteps = viaCashier ? [
-    "Pilih peserta dari antrean pembayaran, atau scan QR badge, atau cari nama.",
-    "Centang order yang akan dibayar. Peserta boleh membayar sebagian dulu.",
-    "Periksa angka TOTAL bersama peserta sebelum menagih.",
-    "Pilih metode pembayaran.",
-    "Bila metode meminta nomor referensi, isi sesuai struk. Tombol Tandai lunas mati sampai nomornya lengkap.",
-    "Tekan Tandai lunas, lalu sebutkan nomor order yang muncul ke peserta.",
-  ] : [
-    "Konfirmasi kasir sedang DIMATIKAN. Order booth langsung tercatat lunas dan tidak masuk antrean kasir.",
-    "Tidak ada tindakan di layar kasir sampai admin mengaktifkan kembali konfirmasi kasir.",
-  ];
+  // Langkah diambil dari modul bersama dengan panel bantuan dalam aplikasi.
+  // Sebelumnya kertas dan panel menyimpan kalimatnya masing-masing, dan begitu
+  // gambar ditambahkan, gambar yang sama bisa berpasangan dengan kalimat berbeda
+  // di kedua tempat tanpa ada yang menyadarinya.
+  const boothFlow = boothSteps({ viaCashier, handOverNow });
+  const cashierFlow = cashierSteps({ viaCashier, handOverNow });
 
   const masalah: Array<{ q: string; a: string[] }> = [
     { q: "QR tidak terbaca kamera", a: ["Badge jangan terlipat atau tertutup plastik yang memantul.", "Jauhkan sedikit dari kamera, jangan terlalu dekat.", "Hindari lampu menyorot langsung ke badge.", "Tetap gagal? Pakai Cari peserta manual."] },
@@ -113,9 +113,7 @@ export default async function PanduanPage() {
 
     <section className="mt-8 break-inside-avoid">
       <h2 className="text-lg font-bold">A. Admin Booth</h2>
-      <ol className="mt-3 space-y-2">{boothSteps.map((step, index) => <li key={index} className="flex gap-3 text-sm leading-6">
-        <span className="w-5 shrink-0 text-right font-bold">{index + 1}.</span><span>{step}</span>
-      </li>)}</ol>
+      <ol className="mt-3 space-y-2">{boothFlow.map((step, index) => <PrintStep key={step.id} step={step} number={index + 1} />)}</ol>
 
       <h3 className="mt-6 text-sm font-bold uppercase tracking-[0.1em]">Arti status order</h3>
       <table className="mt-2 w-full border-collapse text-sm">
@@ -135,9 +133,7 @@ export default async function PanduanPage() {
 
     <section className="mt-8 break-inside-avoid">
       <h2 className="text-lg font-bold">B. Kasir</h2>
-      <ol className="mt-3 space-y-2">{cashierSteps.map((step, index) => <li key={index} className="flex gap-3 text-sm leading-6">
-        <span className="w-5 shrink-0 text-right font-bold">{index + 1}.</span><span>{step}</span>
-      </li>)}</ol>
+      <ol className="mt-3 space-y-2">{cashierFlow.map((step, index) => <PrintStep key={step.id} step={step} number={index + 1} />)}</ol>
     </section>
 
     <section className="mt-8">

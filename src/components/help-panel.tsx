@@ -3,6 +3,7 @@
 import { CaretDown, Printer, Question, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { boothSteps, cashierSteps, stepImage, type GuideStep } from "@/lib/panduan-steps";
 
 // Panduan operator, disajikan sebagai panel di ATAS layar kerja.
 //
@@ -53,35 +54,11 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
   const handOverNow = settings?.pickup_mode === "immediate";
   const autoVoid = settings?.pending_auto_void_minutes ?? 45;
 
-  const boothFlow: string[] = [
-    "Tekan SCAN QR, arahkan kamera ke badge peserta. Kalau QR tidak terbaca, pakai Cari peserta manual.",
-    "Periksa nama peserta yang muncul sudah benar.",
-    "Centang item spesial bila peserta mengambilnya. Kalau tidak bisa dicentang, alasannya tertulis di bawah nama item.",
-    "Isi nominal item reguler. Cek angka TOTAL sebelum lanjut.",
-    handOverNow
-      ? "Nomor order sudah terisi otomatis. Biarkan apa adanya, lanjut ke langkah berikutnya."
-      : "Isi nomor stiker sesuai stiker fisik yang ditempel. Nomor lanjut otomatis, ubah bila tidak sesuai.",
-    "Tekan Buat order.",
-    viaCashier
-      ? (handOverNow
-        ? "Serahkan barang sekarang, lalu arahkan peserta ke kasir untuk membayar."
-        : "Tempel stiker pada barang, simpan di rak booth, arahkan peserta ke kasir. Barang diserahkan setelah lunas.")
-      : (handOverNow
-        ? "Order langsung tercatat lunas. Serahkan barang sekarang. Peserta TIDAK perlu ke kasir."
-        : "Order langsung tercatat lunas. Tempel stiker, simpan di rak, serahkan saat peserta kembali."),
-  ];
-
-  const cashierFlow: string[] = viaCashier ? [
-    "Pilih peserta dari antrean pembayaran, atau scan QR badge, atau cari nama.",
-    "Centang order yang akan dibayar. Peserta boleh membayar sebagian dulu.",
-    "Cek angka TOTAL bersama peserta sebelum menagih.",
-    "Pilih metode pembayaran.",
-    "Bila metode meminta nomor referensi, isi sesuai struk. Tombol Tandai lunas mati sampai nomor lengkap.",
-    "Tekan Tandai lunas. Sebutkan nomor order yang muncul ke peserta.",
-  ] : [
-    "Konfirmasi kasir sedang DIMATIKAN admin. Order booth langsung tercatat lunas dan tidak masuk antrean kasir.",
-    "Tidak ada tindakan yang perlu dilakukan di layar ini sampai admin mengaktifkan kembali konfirmasi kasir.",
-  ];
+  // Langkah diambil dari modul bersama agar panel dan halaman cetak tidak pernah
+  // memasangkan gambar yang sama dengan kalimat yang berbeda.
+  const flow: GuideStep[] = role === "booth"
+    ? boothSteps({ viaCashier, handOverNow })
+    : cashierSteps({ viaCashier, handOverNow });
 
   const boothStatus: string[] = [
     "Menunggu kasir — peserta belum membayar. Jangan serahkan barang.",
@@ -176,10 +153,31 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
     {
       id: "alur",
       title: role === "booth" ? "Cara membuat order" : "Cara menerima pembayaran",
-      body: <ol className="space-y-2.5">{(role === "booth" ? boothFlow : cashierFlow).map((step, index) => <li key={index} className="flex gap-3 text-sm leading-6">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-xs font-bold text-white">{index + 1}</span>
-        <span>{step}</span>
-      </li>)}</ol>,
+      body: <ol className="space-y-4">{flow.map((step, index) => {
+        // Gambar diikat ke id langkah, bukan nomor urut: isi panduan berubah
+        // mengikuti setting acara, jadi urutan tidak bisa dijadikan patokan.
+        const image = stepImage(step.id);
+        return <li key={step.id} className="flex gap-3 text-sm leading-6">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-xs font-bold text-white">{index + 1}</span>
+          <div className="min-w-0">
+            <p>{step.text}</p>
+            {/* next/image mewajibkan lebar dan tinggi yang tepat untuk setiap
+                gambar. Screenshot panduan berbeda-beda ukurannya dan ditambahkan
+                belakangan oleh panitia; mewajibkan dimensi berarti setiap gambar
+                baru harus diukur manual, dan angka yang salah membuat gambar
+                tampak gepeng. Gambar ini juga statis, kecil, dan dimuat lazy di
+                dalam panel yang tertutup, jadi tidak memengaruhi LCP halaman. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {image ? <img
+              src={image.src}
+              alt={image.alt}
+              loading="lazy"
+              decoding="async"
+              className="mt-2 h-auto w-full max-w-sm border border-[var(--line)] bg-[var(--surface-muted)]"
+            /> : null}
+          </div>
+        </li>;
+      })}</ol>,
     },
     ...(role === "booth" ? [{
       id: "status",
