@@ -6,10 +6,16 @@ import { canManageUsers, canResetOperatorPin } from "@/lib/auth/roles";
 import type { UserRole } from "@/lib/domain";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
+// `super_admin` harus ikut diterima: dropdown role di UI menawarkannya dan
+// kolom enum di database sudah memilikinya sejak migrasi 202607300001. Tanpa ini
+// setiap penyimpanan akun super admin (termasuk sekadar ganti PIN, karena PATCH
+// dari UI selalu menyertakan role) ditolak sebagai VALIDATION_ERROR.
+const roleSchema = z.enum(["booth", "cashier", "admin", "super_admin"]);
+
 const createSchema = z.object({
   username: z.string().trim().min(3).max(50).regex(/^[a-z0-9._-]+$/i, "Username hanya huruf, angka, titik, garis."),
   pin: z.string().regex(/^\d{6}$/, "PIN harus 6 digit angka."),
-  role: z.enum(["booth", "cashier", "admin"]),
+  role: roleSchema,
   booth_id: z.number().int().positive().nullable().optional(),
   is_active: z.boolean().optional(),
 });
@@ -18,7 +24,7 @@ const updateSchema = z.object({
   id: z.string().uuid(),
   username: z.string().trim().min(3).max(50).regex(/^[a-z0-9._-]+$/i).optional(),
   pin: z.string().regex(/^\d{6}$/).optional(),
-  role: z.enum(["booth", "cashier", "admin"]).optional(),
+  role: roleSchema.optional(),
   booth_id: z.number().int().positive().nullable().optional(),
   is_active: z.boolean().optional(),
 });
