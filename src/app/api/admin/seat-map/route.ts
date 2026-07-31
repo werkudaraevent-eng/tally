@@ -5,7 +5,6 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { computeSeatMapGeometry, normalizeSeatLabel, MAX_SEATS_PER_TABLE, PUBLIC_VIEW_MODES } from "@/lib/seat-map";
 import {
   CONFIG_COLUMNS,
-  SESSION_COLUMNS,
   discoverSubEvents,
   loadAssignmentsForSession,
   loadSeatMapConfig,
@@ -19,8 +18,6 @@ import {
 // tetap milik scanner API dan tidak pernah ditulis dari sini; kalau penempatan
 // juga bisa diedit di dua tempat, hari H akan ada dua jawaban berbeda untuk
 // pertanyaan yang sama.
-
-const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Warna harus format hex #RRGGBB");
 
 const configSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
@@ -53,18 +50,9 @@ const configSchema = z.object({
   public_view_mode: z.enum(PUBLIC_VIEW_MODES as unknown as [string, ...string[]]).optional(),
 });
 
-const sessionPatchSchema = z.object({
-  id: z.number().int().positive(),
-  name: z.string().trim().min(1).max(120).optional(),
-  sub_event_id: z.string().trim().max(120).nullable().optional(),
-  title: z.string().trim().min(1).max(160).optional(),
-  subtitle: z.string().trim().max(160).nullable().optional(),
-  background_color: hex.optional(),
-  text_color: hex.optional(),
-  accent_color: hex.optional(),
-  is_published: z.boolean().optional(),
-  sort_order: z.number().int().min(0).max(999).optional(),
-});
+// Agenda dikelola di /api/admin/seat-map/sessions, bukan di sini. Satu jalur
+// tulis saja: kalau agenda bisa diubah dari dua endpoint, aturannya akan
+// bercabang dan salah satu cabang pasti tertinggal saat ada perubahan.
 
 /**
  * Laporan pencocokan label: jembatan antara denah dan data peserta.
@@ -165,38 +153,4 @@ export async function PATCH(request: Request) {
   return Response.json(data);
 }
 
-export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
-  if (auth.response) return auth.response;
 
-  const parsed = sessionPatchSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
-  const { id, ...changes } = parsed.data;
-  if (Object.keys(changes).length === 0) return apiError("VALIDATION_ERROR", 422);
-
-  const client = getSupabaseServiceClient();
-  const { data: current } = await client.from("seat_map_sessions").select(SESSION_COLUMNS).eq("id", id).maybeSingle();
-  if (!current) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
-
-  const { data, error } = await client
-    .from("seat_map_sessions")
-    .update({
-      ...changes,
-      // String kosong dari form berarti "belum dipilih", bukan id kosong yang
-      // tidak akan pernah cocok dengan apa pun.
-      ...(changes.sub_event_id !== undefined ? { sub_event_id: changes.sub_event_id?.trim() || null } : {}),
-      updated_at: new Date().toISOString(),
-      updated_by: auth.user.id,
-    } as never)
-    .eq("id", id)
-    .select(SESSION_COLUMNS)
-    .single();
-  if (error) return apiError(error.code === "23505" ? "DUPLICATE_SEAT_MAP_SLUG" : "INTERNAL_ERROR", error.code === "23505" ? 422 : 500);
-
-  await client.from("audit_logs").insert({
-    user_id: auth.user.id,
-    action: "seat_map_session_update",
-    payload: { old: current, new: data },
-  } as never);
-  return Response.json(data);
-}

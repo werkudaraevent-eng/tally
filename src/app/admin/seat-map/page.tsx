@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowSquareOut, CheckCircle, Eye, EyeSlash, Monitor, Warning } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowSquareOut, CheckCircle, Eye, EyeSlash, Monitor, Plus, Trash, Warning } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SeatMapView } from "@/components/seat-map-view";
@@ -67,6 +67,12 @@ export default function SeatMapAdminPage() {
   const [savingConfig, setSavingConfig] = useState(false);
   const [savingSession, setSavingSession] = useState<number | null>(null);
   const [previewSlug, setPreviewSlug] = useState<string | null>(null);
+  const [newAgendaName, setNewAgendaName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  // Konfirmasi hapus ditahan di dalam kartunya sendiri, bukan lewat dialog
+  // browser: satu klik tak sengaja tidak boleh langsung membuang agenda.
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [error, setError] = useState("");
   const toast = useToast();
 
@@ -121,10 +127,51 @@ export default function SeatMapAdminPage() {
     await load();
   }
 
+  async function createAgenda() {
+    const name = newAgendaName.trim();
+    if (!name) return;
+    setCreating(true); setError("");
+    const response = await fetch("/api/admin/seat-map/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const data = await response.json();
+    setCreating(false);
+    if (!response.ok) {
+      const failure = data.error?.details?.message ?? data.error?.message ?? "Agenda gagal ditambahkan.";
+      setError(failure);
+      toast.error("Agenda gagal ditambahkan", failure);
+      return;
+    }
+    setNewAgendaName("");
+    toast.success("Agenda ditambahkan", "Masih draf. Pilih sumber penempatan lalu publikasikan.");
+    await load();
+  }
+
+  async function deleteAgenda(session: Session) {
+    setDeleting(session.id); setError("");
+    const response = await fetch(`/api/admin/seat-map/sessions?id=${session.id}`, { method: "DELETE" });
+    setDeleting(null);
+    setConfirmDelete(null);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      const failure = data.error?.message ?? "Agenda gagal dihapus.";
+      setError(failure);
+      toast.error("Agenda gagal dihapus", failure);
+      return;
+    }
+    // Pratinjau bisa sedang menunjuk agenda yang baru dihapus; dikosongkan agar
+    // jatuh ke agenda pertama yang masih ada.
+    setPreviewSlug((current) => (current === session.slug ? null : current));
+    toast.success("Agenda dihapus", "Data peserta tidak terpengaruh karena penempatan tersimpan di scanner API.");
+    await load();
+  }
+
   async function saveSession(session: Session) {
     setSavingSession(session.id); setError("");
-    const response = await fetch("/api/admin/seat-map", {
-      method: "POST",
+    const response = await fetch("/api/admin/seat-map/sessions", {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: session.id,
@@ -300,8 +347,39 @@ export default function SeatMapAdminPage() {
         </section>
 
         <section className="mt-6">
-          <h2 className="text-base font-bold">Sesi acara</h2>
-          <p className="mt-1 text-sm text-[var(--ink-muted)]">Tata letak sama untuk semua sesi. Yang berbeda hanya tampilan dan penempatan pesertanya.</p>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-base font-bold">Agenda</h2>
+              <p className="mt-1 max-w-2xl text-sm text-[var(--ink-muted)]">
+                Jumlah agenda tidak dibatasi. Tata letak dipakai bersama semua agenda; yang berbeda hanya tampilan dan penempatan pesertanya.
+              </p>
+            </div>
+            <p className="text-sm text-[var(--ink-muted)]">{sessions.length} agenda</p>
+          </div>
+
+          {/* Form tambah. Hanya meminta nama: sisanya bisa diisi setelah kartunya
+              muncul, sehingga menambah agenda tidak terasa seperti mengisi borang. */}
+          <div className="mt-4 border border-[var(--line)] bg-[var(--surface)] p-5">
+            <label className="block text-sm font-semibold" htmlFor="new-agenda">Tambah agenda</label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <input id="new-agenda" value={newAgendaName} maxLength={120}
+                onChange={(event) => setNewAgendaName(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter" && newAgendaName.trim() && !creating) { event.preventDefault(); void createAgenda(); } }}
+                placeholder="Misalnya: Coffee Break Siang"
+                className="min-h-11 flex-1 border border-[var(--line)] px-3 text-sm sm:min-w-72" />
+              <button type="button" onClick={() => void createAgenda()} disabled={creating || !newAgendaName.trim()}
+                className="inline-flex min-h-11 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-50">
+                <Plus size={18} /> {creating ? "Menambahkan…" : "Tambah"}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-[var(--ink-muted)]">Agenda baru selalu dibuat sebagai draf, jadi tidak langsung tampil ke tamu.</p>
+          </div>
+
+          {sessions.length === 0
+            ? <p className="mt-4 border border-dashed border-[var(--line)] bg-[var(--surface-muted)] p-6 text-center text-sm text-[var(--ink-muted)]">
+                Belum ada agenda. Tambahkan satu di atas untuk mulai memakai halaman denah.
+              </p>
+            : null}
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             {sessions.map((session) => {
@@ -315,7 +393,12 @@ export default function SeatMapAdminPage() {
                 </div>
                 <p className="mt-1 text-xs text-[var(--ink-muted)]">URL publik: /denah?sesi={session.slug}</p>
 
-                <label className="mt-4 block text-sm font-semibold" htmlFor={`title-${session.id}`}>Judul di halaman publik</label>
+                <label className="mt-4 block text-sm font-semibold" htmlFor={`name-${session.id}`}>Nama agenda</label>
+                <input id={`name-${session.id}`} value={session.name} maxLength={120} onChange={(event) => updateSession(session.id, { name: event.target.value })}
+                  className="mt-1 min-h-11 w-full border border-[var(--line)] px-3 text-sm" />
+                <p className="mt-1 text-xs text-[var(--ink-muted)]">Dipakai di tombol pemilih agenda, bukan di judul besar.</p>
+
+                <label className="mt-3 block text-sm font-semibold" htmlFor={`title-${session.id}`}>Judul di halaman publik</label>
                 <input id={`title-${session.id}`} value={session.title} onChange={(event) => updateSession(session.id, { title: event.target.value })}
                   className="mt-1 min-h-11 w-full border border-[var(--line)] px-3 text-sm" />
 
@@ -383,8 +466,34 @@ export default function SeatMapAdminPage() {
 
                 <button type="button" onClick={() => void saveSession(session)} disabled={savingSession === session.id}
                   className="mt-4 min-h-12 w-full bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-60">
-                  {savingSession === session.id ? "Menyimpan…" : "Simpan sesi"}
+                  {savingSession === session.id ? "Menyimpan…" : "Simpan agenda"}
                 </button>
+
+                {/* Hapus dipisah di bawah garis dan butuh satu langkah konfirmasi.
+                    Agenda yang dipublikasikan disebut khusus karena menghapusnya
+                    langsung mengubah apa yang dilihat tamu saat itu. */}
+                <div className="mt-4 border-t border-[var(--line)] pt-4">
+                  {confirmDelete === session.id
+                    ? <div className="border border-[var(--danger)] bg-[#fdf1f0] p-3">
+                        <p className="text-xs text-[var(--danger)]">
+                          Hapus <strong>{session.name}</strong>?{session.is_published ? " Agenda ini sedang tampil ke tamu." : ""} Tampilan dan pilihan sumbernya hilang; data peserta tidak terpengaruh karena penempatan tersimpan di scanner API.
+                        </p>
+                        <div className="mt-3 flex gap-2">
+                          <button type="button" onClick={() => void deleteAgenda(session)} disabled={deleting === session.id}
+                            className="min-h-11 flex-1 bg-[var(--danger)] px-3 text-sm font-semibold text-white disabled:opacity-60">
+                            {deleting === session.id ? "Menghapus…" : "Ya, hapus"}
+                          </button>
+                          <button type="button" onClick={() => setConfirmDelete(null)}
+                            className="min-h-11 flex-1 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold">
+                            Batal
+                          </button>
+                        </div>
+                      </div>
+                    : <button type="button" onClick={() => setConfirmDelete(session.id)}
+                        className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--danger)]">
+                        <Trash size={16} /> Hapus agenda
+                      </button>}
+                </div>
               </article>;
             })}
           </div>
