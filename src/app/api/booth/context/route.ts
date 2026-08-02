@@ -16,7 +16,11 @@ export async function GET() {
   }
   if (!boothId) return apiError("BOOTH_NOT_FOUND", 404);
 
-  const { data: booth, error } = await client.from("booths").select("id,code,name,discount_item_name,discount_item_stock,is_active").eq("id", boothId).single() as { data: { id: number; code: string; name: string; discount_item_name: string; discount_item_stock: number | null; is_active: boolean } | null; error: unknown };
+  // `transactions_enabled` dikirim ke layar operator supaya kolom nominal dan teks
+  // aksinya menyesuaikan sifat booth. Penegakannya tetap di
+  // `create_order_transaction`, bukan di sini: layar hanya menyembunyikan kolom,
+  // sedangkan yang menolak nominal adalah database.
+  const { data: booth, error } = await client.from("booths").select("id,code,name,discount_item_name,discount_item_stock,is_active,transactions_enabled").eq("id", boothId).single() as { data: { id: number; code: string; name: string; discount_item_name: string; discount_item_stock: number | null; is_active: boolean; transactions_enabled: boolean } | null; error: unknown };
   if (error || !booth) return apiError("BOOTH_NOT_FOUND", 404);
 
   // Suggest the next sticker number by continuing from the highest used code at this booth.

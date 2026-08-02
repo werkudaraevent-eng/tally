@@ -419,6 +419,13 @@ export default function SeatMapAdminPage() {
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             {sessions.map((session) => {
               const report = payload?.reports.find((item) => item.session_id === session.id);
+              // Pilihan tersimpan yang sudah tidak ada lagi di data scanner API.
+              // Dampaknya sama dengan belum memilih sama sekali (semua kursi kosong),
+              // tapi dropdown tampak terisi sehingga mudah disalahartikan sebagai beres.
+              // `payload !== null` menahan flag ini selama data belum termuat, supaya
+              // peringatan tidak berkedip saat halaman pertama kali dibuka.
+              const orphanSubEvent = session.sub_event_id !== null && payload !== null
+                && !payload.available_sub_events.some((item) => item.subEventId === session.sub_event_id);
               return <article key={session.id} className="border border-[var(--line)] bg-[var(--surface)] p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-bold">{session.name}</h3>
@@ -448,7 +455,7 @@ export default function SeatMapAdminPage() {
                   {payload?.available_sub_events.map((item) => <option key={item.subEventId} value={item.subEventId}>{item.subEventName} ({item.seatCount} kursi)</option>)}
                   {/* Pilihan tersimpan yang sudah tidak ada di data tetap ditampilkan,
                       supaya tidak berubah diam-diam menjadi "belum dipilih". */}
-                  {session.sub_event_id && !payload?.available_sub_events.some((item) => item.subEventId === session.sub_event_id)
+                  {orphanSubEvent && session.sub_event_id
                     ? <option value={session.sub_event_id}>{session.sub_event_id} (tidak ada di data terbaru)</option>
                     : null}
                 </select>
@@ -456,13 +463,17 @@ export default function SeatMapAdminPage() {
                   ? <p className="mt-1 text-xs text-[var(--warning)]">Scanner API belum mengirim data kursi. Pilihan akan muncul setelah panitia mengisinya.</p>
                   : null}
                 {/* Perangkap yang paling mudah terjadi: sesi sudah dipublikasikan
-                    tapi sumber penempatan belum dipilih. Denahnya tampil rapi dan
+                    tapi penempatannya tidak dapat dipetakan. Denahnya tampil rapi dan
                     seolah benar, padahal semua kursi kosong, sehingga terlihat
-                    seperti data peserta yang tidak terbaca. */}
-                {session.is_published && !session.sub_event_id
+                    seperti data peserta yang tidak terbaca. Dua penyebabnya dibedakan
+                    karena tindakan pemulihannya berbeda: yang satu perlu dipilih di
+                    sini, yang satu perlu diisi panitia di sisi scanner API. */}
+                {session.is_published && (!session.sub_event_id || orphanSubEvent)
                   ? <p className="mt-2 flex gap-2 border border-[var(--warning)] bg-[#FDF6E7] p-2 text-xs text-[var(--warning)]">
                       <Warning size={16} className="mt-0.5 shrink-0" />
-                      <span>Sesi ini sudah publik tapi <strong>sumber penempatan belum dipilih</strong>, jadi semua kursi tampak kosong. Pilih sub-event di atas lalu simpan.</span>
+                      <span>{session.sub_event_id
+                        ? <>Sesi ini sudah publik tapi <strong>sumber penempatannya tidak ada lagi di data scanner API</strong>, jadi semua kursi tampak kosong. Pilihan tetap disimpan. Kursi akan muncul kembali setelah panitia mengisi data kursi untuk sub-event ini di sisi klien.</>
+                        : <>Sesi ini sudah publik tapi <strong>sumber penempatan belum dipilih</strong>, jadi semua kursi tampak kosong. Pilih sub-event di atas lalu simpan.</>}</span>
                     </p>
                   : null}
 

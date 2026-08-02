@@ -5,13 +5,17 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 
-type Booth = { id: number; code: string; name: string; discount_item_name: string; discount_item_stock: number | null; is_active: boolean; discount_enabled: boolean; discount_limit_per_participant: number };
+type Booth = { id: number; code: string; name: string; discount_item_name: string; discount_item_stock: number | null; is_active: boolean; discount_enabled: boolean; discount_limit_per_participant: number; transactions_enabled: boolean };
 
 // Kode booth bebas huruf dan angka, jadi kode booth baru dibiarkan KOSONG dan
 // diisi admin. Sebelumnya kolom ini terisi tebakan `B<angka berikutnya>`, yang
 // membuat admin cenderung menerimanya apa adanya dan kode di aplikasi jadi
 // berbeda dengan kode yang tertempel di booth.
-const blank: Booth = { id: 0, code: "", name: "Booth baru", discount_item_name: "Item diskon", discount_item_stock: null, is_active: true, discount_enabled: true, discount_limit_per_participant: 1 };
+//
+// `transactions_enabled` default true: booth baru dianggap berjualan sampai admin
+// menyatakan sebaliknya. Menebak sebaliknya lebih berbahaya, karena booth jualan
+// yang salah disetel tanpa transaksi akan menolak order di depan peserta.
+const blank: Booth = { id: 0, code: "", name: "Booth baru", discount_item_name: "Item diskon", discount_item_stock: null, is_active: true, discount_enabled: true, discount_limit_per_participant: 1, transactions_enabled: true };
 
 const BOOTH_CODE_PATTERN = /^[A-Z][A-Z0-9]{0,7}$/;
 
@@ -72,7 +76,9 @@ export default function BoothManagementPage() {
               <Storefront size={23} className={booth.is_active ? "text-[var(--brand)]" : "text-[var(--ink-muted)]"} />
               <span className="flex-1">
                 <span className="block font-semibold">{booth.code} - {booth.name}</span>
-                <span className="mt-1 block text-xs text-[var(--ink-muted)]">{booth.discount_enabled && booth.discount_limit_per_participant > 0 ? `Diskon: ${booth.discount_limit_per_participant}x/peserta - stok ${booth.discount_item_stock ?? "tak terbatas"}` : "Tanpa item diskon"}</span>
+                <span className="mt-1 block text-xs text-[var(--ink-muted)]">{booth.transactions_enabled
+                  ? (booth.discount_enabled && booth.discount_limit_per_participant > 0 ? `Diskon: ${booth.discount_limit_per_participant}x/peserta - stok ${booth.discount_item_stock ?? "tak terbatas"}` : "Tanpa item diskon")
+                  : "Tanpa transaksi - hanya serah terima barang"}</span>
               </span>
               <span className={`text-xs font-semibold ${booth.is_active ? "text-[var(--success)]" : "text-[var(--ink-muted)]"}`}>{booth.is_active ? "Aktif" : "Nonaktif"}</span>
             </button>)}
@@ -102,6 +108,33 @@ export default function BoothManagementPage() {
             </label>
             <label className="flex items-end gap-3 pb-3 text-sm font-semibold sm:col-span-2"><input type="checkbox" checked={selected.is_active} onChange={(event) => setSelected({ ...selected, is_active: event.target.checked })} className="size-5 accent-[var(--brand)]" /> Booth aktif</label>
           </div>
+
+          {/* Sifat booth, bukan sekadar preferensi tampilan. Ditampilkan sebagai dua
+              pilihan bernama, bukan satu checkbox negatif ("tanpa transaksi"), karena
+              checkbox yang tidak dicentang tidak menjelaskan apa yang berlaku.
+              Radio dipakai supaya kedua kemungkinan terbaca sekaligus beserta akibatnya. */}
+          <fieldset className="mt-6 border border-[var(--line)] p-5">
+            <legend className="px-2 text-sm font-semibold">Sifat booth</legend>
+            <div className="grid gap-3">
+              {([
+                { value: true, title: "Dengan transaksi", detail: "Booth berjualan. Operator mengisi nominal item reguler dan order masuk hitungan top spender." },
+                { value: false, title: "Tanpa transaksi", detail: "Hanya serah terima barang, misalnya tas belanja. Kolom nominal disembunyikan dan ditolak server, jadi tidak bisa terisi karena lupa." },
+              ] as const).map((option) => <label key={String(option.value)} className={`flex cursor-pointer gap-3 border p-4 ${selected.transactions_enabled === option.value ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)]"}`}>
+                <input type="radio" name="booth-transactions" checked={selected.transactions_enabled === option.value}
+                  onChange={() => setSelected({ ...selected, transactions_enabled: option.value })}
+                  className="mt-0.5 size-5 shrink-0 accent-[var(--brand)]" />
+                <span>
+                  <span className="block text-sm font-semibold">{option.title}</span>
+                  <span className="mt-1 block text-xs leading-5 text-[var(--ink-muted)]">{option.detail}</span>
+                </span>
+              </label>)}
+            </div>
+            {/* Batas kemampuannya disebut terus terang: item spesial tetap jalan di booth
+                tanpa transaksi, dan itulah cara membatasi tas menjadi 1x per peserta. */}
+            {!selected.transactions_enabled
+              ? <p className="mt-3 text-xs leading-5 text-[var(--ink-muted)]">Batas 1x per peserta diatur lewat item spesial booth ini di <Link href="/admin/offers" className="font-semibold text-[var(--brand)]">Item spesial</Link>: harga Rp 0, kuota 1x per peserta, dan matikan hitungan top spender.</p>
+              : null}
+          </fieldset>
 
           {/* Editor item diskon dipindah ke /admin/offers. Sebelumnya harga, kuota,
               dan stok dapat diubah dari dua halaman berbeda untuk data yang sama,
