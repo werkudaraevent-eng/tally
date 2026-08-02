@@ -114,7 +114,15 @@ export default function AdminUsersPage() {
                 {users.map((user) => <tr key={user.id} className="hover:bg-[var(--surface-muted)]">
                   <td className="px-5 py-3 font-semibold">{user.username}</td>
                   <td className="px-5 py-3">{roleLabel[user.role]}</td>
-                  <td className="px-5 py-3 tabular-nums">{user.booth_id ? `B${user.booth_id}` : "—"}</td>
+                  {/* Kode booth WAJIB dibaca dari data booth, bukan dibentuk dari
+                      `B` + booth_id. Kode booth bebas huruf/angka (mis. PH), jadi
+                      menyusunnya dari id menampilkan booth PH sebagai "B8" dan
+                      membuat admin ragu apakah user tersambung ke booth yang benar.
+                      Kebetulan cocok untuk B1..B7 karena id-nya sama dengan angka
+                      di kodenya, sehingga salahnya baru terlihat pada booth non-numerik. */}
+                  <td className="px-5 py-3">{user.booth_id
+                    ? booths.find((item) => item.id === user.booth_id)?.code ?? `#${user.booth_id}`
+                    : "—"}</td>
                   <td className="px-5 py-3">{user.is_active ? <span className="inline-flex rounded-sm bg-[#EEF8F0] px-2 py-0.5 text-[11px] font-semibold text-[var(--brand-strong)]">Aktif</span> : <span className="inline-flex rounded-sm bg-[var(--surface-muted)] px-2 py-0.5 text-[11px] font-semibold text-[var(--ink-muted)]">Nonaktif</span>}</td>
                   <td className="px-5 py-3 text-right">{canEdit(user)
                     ? <button onClick={() => editUser(user)} className="min-h-11 px-2 text-sm font-semibold text-[var(--brand)]">{canManage ? "Edit" : "Reset PIN"}</button>
