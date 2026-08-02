@@ -18,6 +18,7 @@ const messages: Record<ApiErrorCode, string> = {
   USER_NOT_FOUND: "User tidak ditemukan.",
   BOOTH_NOT_FOUND: "Booth tidak ditemukan.",
   BOOTH_WITHOUT_TRANSACTIONS: "Booth ini disetel tanpa transaksi, jadi nominal item reguler harus Rp 0.",
+  EMPTY_ORDER: "Order kosong. Isi nominal item reguler atau pilih minimal satu item.",
   PAYMENT_METHOD_NOT_FOUND: "Metode pembayaran tidak ditemukan.",
   PAYMENT_METHOD_INACTIVE: "Metode pembayaran ini sedang dimatikan admin.",
   PAYMENT_METHOD_IN_USE: "Metode sudah dipakai order. Matikan saja, jangan dihapus.",
@@ -60,6 +61,7 @@ export function mapDatabaseError(error: { code?: string; message?: string }) {
   if (message.includes("USER_NOT_FOUND")) return "USER_NOT_FOUND" as const;
   if (message.includes("BOOTH_NOT_FOUND")) return "BOOTH_NOT_FOUND" as const;
   if (message.includes("BOOTH_WITHOUT_TRANSACTIONS")) return "BOOTH_WITHOUT_TRANSACTIONS" as const;
+  if (message.includes("EMPTY_ORDER")) return "EMPTY_ORDER" as const;
   if (message.includes("PAYMENT_METHOD_NOT_FOUND")) return "PAYMENT_METHOD_NOT_FOUND" as const;
   if (message.includes("PAYMENT_METHOD_INACTIVE")) return "PAYMENT_METHOD_INACTIVE" as const;
   if (message.includes("AT_LEAST_ONE_PAYMENT_METHOD_REQUIRED")) return "AT_LEAST_ONE_PAYMENT_METHOD_REQUIRED" as const;
