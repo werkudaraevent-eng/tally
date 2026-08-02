@@ -23,6 +23,17 @@
 
 html {
 	scroll-behavior: smooth;
+	/* Sisakan ruang scrollbar secara permanen.
+	 *
+	 * Tanpa ini, lebar viewport berubah begitu halaman menjadi cukup panjang untuk
+	 * memunculkan scrollbar, dan seluruh isi halaman bergeser ke kiri. Paling terasa
+	 * di layar booth: daftar hasil pencarian membuat halaman memanjang, lalu margin
+	 * kanan tampak menyempit padahal padding-nya tidak berubah.
+	 *
+	 * Diletakkan global, bukan per halaman, karena pergeseran ini muncul di mana pun
+	 * tinggi halaman berubah karena aksi pengguna (menyaring, membuka daftar, memuat
+	 * data). Tidak berpengaruh di browser dengan scrollbar mengapung seperti iOS. */
+	scrollbar-gutter: stable;
 }
 
 body {
