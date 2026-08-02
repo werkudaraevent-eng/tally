@@ -27,6 +27,11 @@ type OrderRow = {
   handed_over_at: string | null;
   void_reason: string | null;
   participants: { name: string; company: string | null; qr_code: string } | null;
+  // Rincian item yang benar-benar diserahkan. Tanpa ini, status "Diserahkan"
+  // tidak menjelaskan APA yang diserahkan, padahal tiap booth punya item berbeda.
+  // `price_at_claim` dipakai, bukan harga penawaran saat ini, supaya laporan tetap
+  // mencerminkan nilai pada saat klaim walau harganya diubah admin setelahnya.
+  order_special_items: Array<{ price_at_claim: number; special_offers: { code: string; name: string } | null }>;
 };
 
 export async function GET(request: Request) {
@@ -38,7 +43,7 @@ export async function GET(request: Request) {
   const client = getSupabaseServiceClient();
   let query = client
     .from("orders")
-    .select("id,code,booth_id,has_discount_item,regular_amount,total_amount,status,pickup_mode,payment_method,approval_code,created_at,paid_at,handed_over_at,void_reason,participants(name,company,qr_code)", { count: "exact" })
+    .select("id,code,booth_id,has_discount_item,regular_amount,total_amount,status,pickup_mode,payment_method,approval_code,created_at,paid_at,handed_over_at,void_reason,participants(name,company,qr_code),order_special_items(price_at_claim,special_offers(code,name))", { count: "exact" })
     .order("created_at", { ascending: false })
     .range(parsed.data.offset, parsed.data.offset + parsed.data.limit - 1);
   if (parsed.data.status) query = query.eq("status", parsed.data.status);

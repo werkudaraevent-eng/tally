@@ -22,6 +22,7 @@ type OrderRow = {
   handed_over_at: string | null;
   void_reason: string | null;
   participants: { name: string; company: string | null; qr_code: string } | null;
+  order_special_items?: Array<{ price_at_claim: number; special_offers: { code: string; name: string } | null }>;
 };
 type Booth = { id: number; code: string; name: string };
 
@@ -108,6 +109,10 @@ export default function AdminOrdersPage() {
               <th className="px-4 py-3 font-semibold">Order</th>
               <th className="px-4 py-3 font-semibold">Peserta</th>
               <th className="px-4 py-3 font-semibold">Booth</th>
+              {/* Kolom terpisah, bukan disisipkan ke kolom Order: isi keranjang adalah
+                  pertanyaan pertama saat merekonsiliasi serah terima barang, jadi harus
+                  dapat dibaca sekolom dari atas ke bawah. */}
+              <th className="px-4 py-3 font-semibold">Item</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 text-right font-semibold">Total</th>
               <th className="px-4 py-3 font-semibold">Dibuat</th>
@@ -115,12 +120,31 @@ export default function AdminOrdersPage() {
               <th className="px-4 py-3 font-semibold">Bayar</th>
             </tr></thead>
             <tbody className="divide-y divide-[var(--line)]">
-              {orders.length === 0 ? <tr><td colSpan={8} className="px-4 py-12 text-center text-[var(--ink-muted)]"><ListChecks size={38} className="mx-auto mb-3 opacity-40" />Tidak ada order cocok.</td></tr> : orders.map((order) => {
+              {orders.length === 0 ? <tr><td colSpan={9} className="px-4 py-12 text-center text-[var(--ink-muted)]"><ListChecks size={38} className="mx-auto mb-3 opacity-40" />Tidak ada order cocok.</td></tr> : orders.map((order) => {
                 const badge = statusBadge(order.status);
+                const items = order.order_special_items ?? [];
                 return <tr key={order.id} className="align-top hover:bg-[var(--surface-muted)]">
                   <td className="px-4 py-3"><p className="font-semibold">{order.code}</p><p className="text-xs text-[var(--ink-muted)]">{order.has_discount_item ? "Item diskon" : "Reguler"}</p></td>
                   <td className="px-4 py-3"><p className="font-medium">{order.participants?.name ?? "—"}</p><p className="text-xs text-[var(--ink-muted)]">{order.participants?.company ?? ""}</p></td>
-                  <td className="px-4 py-3 tabular-nums">B{order.booth_id}</td>
+                  {/* Kode booth dibaca dari data booth, BUKAN dibentuk dari `B` + booth_id.
+                      Kode booth bebas huruf (mis. PH), jadi menyusunnya dari id menampilkan
+                      booth PH sebagai "B8". Kebetulan cocok untuk B1..B7 karena id-nya sama
+                      dengan angka di kodenya, sehingga salahnya baru terlihat pada booth
+                      berkode non-numerik. Bug yang sama pernah terjadi di daftar user. */}
+                  <td className="px-4 py-3">{booths.find((item) => item.id === order.booth_id)?.code ?? `#${order.booth_id}`}</td>
+                  {/* Nominal reguler ikut dirinci: tanpa itu order Rp 75.000 tanpa item spesial
+                      terlihat kosong, padahal isinya belanja reguler. */}
+                  <td className="px-4 py-3 text-xs">
+                    {order.regular_amount > 0
+                      ? <p>Item reguler <span className="tabular-nums text-[var(--ink-muted)]">{money(order.regular_amount)}</span></p>
+                      : null}
+                    {items.map((item, index) => <p key={`${item.special_offers?.code ?? "item"}-${index}`}>
+                      {item.special_offers?.name ?? "Item dihapus"} <span className="tabular-nums text-[var(--ink-muted)]">{money(item.price_at_claim)}</span>
+                    </p>)}
+                    {order.regular_amount === 0 && items.length === 0
+                      ? <span className="text-[var(--ink-muted)]">—</span>
+                      : null}
+                  </td>
                   <td className="px-4 py-3">{order.status === "void" && order.void_reason ? <span title={order.void_reason} className={`inline-flex rounded-sm px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>{badge.label}</span> : <span className={`inline-flex rounded-sm px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>{badge.label}</span>}</td>
                   <td className="px-4 py-3 text-right font-semibold tabular-nums">{money(order.total_amount)}</td>
                   <td className="px-4 py-3 text-xs tabular-nums text-[var(--ink-muted)]">{dateTime(order.created_at)}</td>

@@ -26,14 +26,29 @@ type OrderRow = {
   payment_method: string | null;
   approval_code: string | null;
   paid_by: string | null;
+  booths: { code: string; name: string } | null;
+  participants: { name: string; company: string | null } | null;
+  order_special_items: Array<{ price_at_claim: number; special_offers: { name: string } | null }>;
 };
 
 /** Judul kolom. Urutannya harus sama dengan `toRow`. */
+//
+// `booth_id` dan `participant_id` sengaja DIPERTAHANKAN di samping kolom yang mudah
+// dibaca manusia: id itulah yang menyambungkan baris ini kembali ke database bila
+// ada sengketa angka, sedangkan nama bisa berubah atau berulang.
+//
+// Sebelumnya export hanya memuat kedua id tersebut. Untuk rekonsiliasi itu nyaris
+// tidak terpakai: pembaca harus menerjemahkan UUID peserta satu per satu, dan tidak
+// ada keterangan APA yang diserahkan padahal tiap booth punya item berbeda.
 export const EXPORT_HEADERS = [
   "order_code",
   "waktu",
-  "booth_id",
-  "participant_id",
+  "booth_kode",
+  "booth_nama",
+  "peserta",
+  "instansi",
+  "item_diserahkan",
+  "jumlah_item",
   "item_diskon",
   "nominal_reguler",
   "total",
@@ -41,14 +56,27 @@ export const EXPORT_HEADERS = [
   "metode_bayar",
   "approval_code",
   "kasir",
+  "booth_id",
+  "participant_id",
 ] as const;
 
 function toRow(order: OrderRow) {
+  const items = order.order_special_items ?? [];
+  // Nominal reguler ikut disebut sebagai baris item supaya kolom ini tidak pernah
+  // kosong pada order yang sebenarnya berisi belanja biasa.
+  const parts = [
+    ...(order.regular_amount > 0 ? [`Item reguler (${order.regular_amount})`] : []),
+    ...items.map((item) => `${item.special_offers?.name ?? "Item dihapus"} (${item.price_at_claim})`),
+  ];
   return [
     order.code,
     order.created_at,
-    order.booth_id,
-    order.participant_id,
+    order.booths?.code ?? "",
+    order.booths?.name ?? "",
+    order.participants?.name ?? "",
+    order.participants?.company ?? "",
+    parts.join(" + "),
+    items.length,
     order.has_discount_item ? "Y" : "N",
     order.regular_amount,
     order.total_amount,
@@ -56,13 +84,15 @@ function toRow(order: OrderRow) {
     order.payment_method,
     order.approval_code,
     order.paid_by,
+    order.booth_id,
+    order.participant_id,
   ];
 }
 
 export async function loadExportRows() {
   const { data, error } = await getSupabaseServiceClient()
     .from("orders")
-    .select("code,created_at,booth_id,participant_id,has_discount_item,regular_amount,total_amount,status,payment_method,approval_code,paid_by")
+    .select("code,created_at,booth_id,participant_id,has_discount_item,regular_amount,total_amount,status,payment_method,approval_code,paid_by,booths(code,name),participants(name,company),order_special_items(price_at_claim,special_offers(name))")
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return ((data ?? []) as unknown as OrderRow[]).map(toRow);
@@ -98,8 +128,13 @@ export async function buildXlsx(rows: unknown[][]) {
 
   // Kolom nominal diberi format angka supaya bisa langsung dijumlahkan di Excel.
   // Tanpa ini nilainya bisa terbaca sebagai teks dan SUM menghasilkan nol.
-  for (const index of [6, 7]) {
-    sheet.getColumn(index).numFmt = "#,##0";
+  //
+  // Indeks dihitung dari EXPORT_HEADERS, bukan ditulis sebagai angka tetap. Versi
+  // sebelumnya memakai [6, 7] secara harfiah, dan angka itu langsung salah menunjuk
+  // kolom begitu ada kolom baru disisipkan di depannya.
+  for (const name of ["nominal_reguler", "total"] as const) {
+    const index = EXPORT_HEADERS.indexOf(name) + 1;
+    if (index > 0) sheet.getColumn(index).numFmt = "#,##0";
   }
 
   sheet.columns.forEach((column) => { column.width = 18; });
