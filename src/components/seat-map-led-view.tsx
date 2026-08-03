@@ -28,11 +28,22 @@ import type { SeatMapConfig } from "@/lib/seat-map";
 // dengan tepi kiri QR. Versi sebelumnya memberi panduan lebarnya sendiri, jadi
 // panduan menjorok lebih kiri daripada QR dan ikut rata dengan teks ajakan.
 //
-// Porsi portrait `min(80vw, 26vh)` sengaja tanpa media query tambahan: batas `vh`
-// otomatis mengambil alih pada layar sangat tinggi. Satu rumus ini melayani TV
-// portrait biasa maupun LED 256x768 yang rasionya 1:3 — pada 1080x1920 hasilnya
-// ~499px, pada 256x768 ~200px (78% lebar), cukup besar untuk dipindai.
-const QR_BLOCK = "portrait:w-[min(80vw,26vh)] landscape:w-[min(34vmin,30vw,46vh)]";
+// Porsi portrait dikecilkan dari `min(80vw, 26vh)`.
+//
+// Alasannya terukur, bukan selera: dengan rumus lama QR memakan 44-50% LEBAR layar
+// pada LED poster (640x1280 sampai 1080x1920), dan LUAS-nya mencapai 40-52% luas
+// denah. Pada 256x768 bahkan 1,31x lebih luas daripada denahnya sendiri. QR hanya
+// pintu masuk ke ponsel; denah adalah isi yang dibaca orang, jadi perbandingan itu
+// terbalik.
+//
+// Ukuran pindai ditentukan ukuran FISIK, bukan piksel: pedoman umumnya sisi QR
+// >= 1/10 jarak pindai. Orang mendekat ke poster pada jarak 1-2 meter, jadi QR
+// selebar ~1/3 lebar panel sudah jauh melampaui kebutuhan.
+//
+// `vh` yang menjadi pembatas utama pada layar tinggi, `vw` mengambil alih pada
+// panel sempit seperti 256x768 supaya QR di sana tidak ikut menyusut menjadi
+// terlalu rapat untuk dibaca kamera.
+const QR_BLOCK = "portrait:w-[min(62vw,18vh)] landscape:w-[min(34vmin,30vw,46vh)]";
 
 // Panduan dipecah menjadi langkah bernomor, bukan satu kalimat panjang.
 //
