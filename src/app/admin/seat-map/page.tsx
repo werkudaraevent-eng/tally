@@ -3,8 +3,10 @@
 import { ArrowLeft, ArrowSquareOut, CheckCircle, Eye, EyeSlash, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
 import { useToast } from "@/components/toast";
+import { normalizeBranding, type Branding } from "@/lib/branding";
 import type { PublicViewMode, SeatMapConfig, SeatRule } from "@/lib/seat-map";
 
 // CMS denah tempat duduk.
@@ -31,7 +33,7 @@ type Session = {
   map_panel_transparent: boolean;
   is_published: boolean;
   sort_order: number;
-};
+} & Branding;
 
 type SubEvent = { subEventId: string; subEventName: string; seatCount: number };
 
@@ -223,6 +225,11 @@ export default function SeatMapAdminPage() {
         map_panel_transparent: session.map_panel_transparent,
         is_published: session.is_published,
         sort_order: session.sort_order,
+        // Branding header dan footer. Dikirim lewat `normalizeBranding` supaya
+        // hanya kolom yang memang milik branding yang ikut, dan skalanya sudah
+        // berupa angka. Menyalin field satu per satu di sini berarti setiap
+        // penambahan kolom kelak harus diingat di dua tempat.
+        ...normalizeBranding(session as unknown as Record<string, unknown>),
       }),
     });
     const data = await response.json();
@@ -606,7 +613,27 @@ export default function SeatMapAdminPage() {
                     : null}
                 </div>
 
-                <label className="mt-4 flex min-h-11 cursor-pointer items-center gap-3 text-sm font-semibold">
+                {/* Header dan footer branding. Memakai editor yang sama dengan
+                    /admin/display supaya field di kedua CMS tidak pernah berbeda.
+
+                    `idPrefix` memakai id agenda: setiap agenda punya kartunya
+                    sendiri di halaman ini, dan tanpa pembeda seluruh label akan
+                    menunjuk ke input pada kartu pertama. */}
+                <div className="mt-5 border-t border-[var(--line)] pt-5">
+                  <p className="text-sm font-bold">Header &amp; footer</p>
+                  <div className="mt-3">
+                    <BrandingEditor
+                      idPrefix={`session-${session.id}`}
+                      value={normalizeBranding(session as unknown as Record<string, unknown>)}
+                      onChange={(changes) => updateSession(session.id, changes)}
+                      baseTextColor={session.text_color}
+                      baseBackgroundColor={session.background_color}
+                      baseAccentColor={session.accent_color}
+                    />
+                  </div>
+                </div>
+
+                <label className="mt-5 flex min-h-11 cursor-pointer items-center gap-3 border-t border-[var(--line)] pt-5 text-sm font-semibold">
                   <input type="checkbox" checked={session.is_published} onChange={(event) => updateSession(session.id, { is_published: event.target.checked })}
                     className="size-4 accent-[var(--brand)]" />
                   Tampilkan di halaman publik

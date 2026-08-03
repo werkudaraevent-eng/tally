@@ -2,10 +2,33 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { BRANDING_COLUMNS, BRANDING_FONTS, SCALE_MAX, SCALE_MIN, type BrandingFont } from "@/lib/branding";
 
-const SELECT = "event_title,headline,tagline,background_color,text_color,accent_color,background_image_url,leaderboard_limit,show_company,show_booth_progress,show_ticker,ticker_text,refresh_seconds,updated_at";
+const SELECT = `event_title,headline,tagline,background_color,text_color,accent_color,background_image_url,leaderboard_limit,show_company,show_booth_progress,show_ticker,ticker_text,refresh_seconds,updated_at,${BRANDING_COLUMNS}`;
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Warna harus format hex #RRGGBB");
+
+// Skala adalah pengali 0,5-2 terhadap rumus clamp() yang sudah ada, bukan ukuran
+// piksel. Lihat `scaleClamp` di src/lib/branding.ts: ukuran absolut akan merusak
+// tata letak yang seluruhnya dibangun dari clamp() berbasis viewport.
+const scale = z.number().min(SCALE_MIN).max(SCALE_MAX);
+
+// Warna per elemen boleh null, dan itu bermakna: null berarti "ikut warna dasar
+// layar", bukan "tanpa warna".
+const brandingSchema = {
+  logo_url: z.string().trim().url().max(600).nullable().optional(),
+  logo_scale: scale.optional(),
+  footer_image_url: z.string().trim().url().max(600).nullable().optional(),
+  footer_image_scale: scale.optional(),
+  footer_text: z.string().trim().max(200).nullable().optional(),
+  heading_font: z.enum(BRANDING_FONTS.map((item) => item.value) as [BrandingFont, ...BrandingFont[]]).optional(),
+  title_scale: scale.optional(),
+  subtitle_scale: scale.optional(),
+  footer_scale: scale.optional(),
+  title_color: hex.nullable().optional(),
+  subtitle_color: hex.nullable().optional(),
+  footer_text_color: hex.nullable().optional(),
+};
 const patchSchema = z.object({
   event_title: z.string().trim().min(1).max(120).optional(),
   headline: z.string().trim().min(1).max(120).optional(),
@@ -20,6 +43,7 @@ const patchSchema = z.object({
   show_ticker: z.boolean().optional(),
   ticker_text: z.string().trim().max(300).nullable().optional(),
   refresh_seconds: z.number().int().min(5).max(300).optional(),
+  ...brandingSchema,
 });
 
 // Public read: the Live Display runs without a logged-in operator.
@@ -36,7 +60,14 @@ export async function PATCH(request: Request) {
   if (!parsed.success || Object.keys(parsed.data).length === 0) return apiError("VALIDATION_ERROR", 422, parsed.success ? undefined : parsed.error.flatten());
   const client = getSupabaseServiceClient();
   const { data: current } = await client.from("display_settings").select("*").eq("id", 1).single();
-  const { data, error } = await client.from("display_settings").update({ ...parsed.data, updated_at: new Date().toISOString(), updated_by: auth.user.id } as never).eq("id", 1).select(SELECT).single();
+  const { data, error } = await client.from("display_settings").update({
+    ...parsed.data,
+    // String kosong dari form berarti "tidak dipakai", bukan teks kosong yang
+    // tetap dirender sebagai baris kosong di footer.
+    ...(parsed.data.footer_text !== undefined ? { footer_text: parsed.data.footer_text?.trim() || null } : {}),
+    updated_at: new Date().toISOString(),
+    updated_by: auth.user.id,
+  } as never).eq("id", 1).select(SELECT).single();
   if (error) return apiError("INTERNAL_ERROR", 500);
   await client.from("audit_logs").insert({ user_id: auth.user.id, action: "display_settings_update", payload: { old: current, new: data } } as never);
   return Response.json(data);

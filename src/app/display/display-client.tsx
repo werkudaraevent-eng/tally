@@ -3,6 +3,8 @@
 import { Broadcast, ChartLineUp, Crown, DotsSix, EyeSlash, Medal, Storefront, TrendUp, Trophy } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
+import { BrandFooter, BrandLogo } from "@/components/brand-header-footer";
+import { fontStack, normalizeBranding, scaleClamp } from "@/lib/branding";
 import { formatWibTimeWithSeconds } from "@/lib/datetime";
 import { DEFAULT_CONFIG, type DisplayConfig } from "@/lib/display-config";
 
@@ -59,7 +61,17 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
       setServerEnabled(data.leaderboard_enabled !== false);
       setLastUpdated(data.updated_at ?? new Date().toISOString());
     }
-    if (configResponse.ok) setConfig({ ...DEFAULT_CONFIG, ...(await configResponse.json()) });
+    if (configResponse.ok) {
+      const raw = (await configResponse.json()) as Record<string, unknown>;
+      // Branding dinormalisasi ulang di sini, bukan hanya di server.
+      //
+      // Konfigurasi awal datang dari `page.tsx` yang sudah menormalkannya, tapi
+      // penyegaran berkala ini mengambil langsung dari endpoint. Kolom skala
+      // bertipe `numeric` dan dikirim sebagai string demi menjaga presisi; tanpa
+      // langkah ini layar tampil benar saat dibuka lalu rusak pada siklus refresh
+      // pertama — persis ketika tidak ada yang sedang menonton monitornya.
+      setConfig({ ...DEFAULT_CONFIG, ...(raw as Partial<DisplayConfig>), ...normalizeBranding(raw) });
+    }
     setTick((value) => value + 1);
   }, []);
 
@@ -93,13 +105,40 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
           tombol itulah penyumbang terbesar limpahan mendatar tersebut. */}
       <header className="flex items-center justify-between gap-x-3 border-b border-white/15 px-4 py-3 sm:px-8 xl:px-14 xl:py-4">
         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-          <div
-            className="flex shrink-0 items-center justify-center text-black"
-            style={{ backgroundColor: config.accent_color, width: "clamp(26px, 6vw, 40px)", height: "clamp(26px, 6vw, 40px)" }}
-          ><Trophy size={22} weight="fill" /></div>
+          {/* Logo MENGGANTIKAN lencana trofi, bukan berdiri di sampingnya.
+              Keduanya menempati peran yang sama (penanda visual paling kiri), dan
+              menampilkan dua-duanya membuat header padat serta mendorong judul
+              makin sempit di layar kecil. Tanpa logo, lencana trofi tetap tampil
+              seperti sebelumnya. */}
+          {config.logo_url
+            ? <BrandLogo branding={config} variant="compact" centered={false} />
+            : <div
+                className="flex shrink-0 items-center justify-center text-black"
+                style={{ backgroundColor: config.accent_color, width: "clamp(26px, 6vw, 40px)", height: "clamp(26px, 6vw, 40px)" }}
+              ><Trophy size={22} weight="fill" /></div>}
           <div className="min-w-0">
-            <p className="font-semibold uppercase" style={{ opacity: 0.5, fontSize: "clamp(8px, 1.7vw, 11px)", letterSpacing: "0.22em" }}>{config.event_title}</p>
-            <h1 className="text-balance font-semibold tracking-[-0.04em]" style={{ fontSize: "clamp(13px, 3.2vw, 24px)", lineHeight: 1.15 }}>{config.headline}</h1>
+            {/* Ukuran dan warna mengikuti setelan CMS. Skala 1 dan warna null
+                menghasilkan nilai yang identik dengan kode sebelumnya, jadi layar
+                yang belum ditata tampil sama persis. */}
+            <p
+              className="font-semibold uppercase"
+              style={{
+                fontFamily: fontStack(config.heading_font),
+                opacity: config.subtitle_color ? 1 : 0.5,
+                color: config.subtitle_color ?? undefined,
+                fontSize: scaleClamp("clamp(8px, 1.7vw, 11px)", config.subtitle_scale),
+                letterSpacing: "0.22em",
+              }}
+            >{config.event_title}</p>
+            <h1
+              className="text-balance font-semibold tracking-[-0.04em]"
+              style={{
+                fontFamily: fontStack(config.heading_font),
+                fontSize: scaleClamp("clamp(13px, 3.2vw, 24px)", config.title_scale),
+                lineHeight: 1.15,
+                color: config.title_color ?? undefined,
+              }}
+            >{config.headline}</h1>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-4">
@@ -199,13 +238,20 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
         </div>
       )}
 
-      {config.show_ticker && <footer className="fixed inset-x-0 bottom-0 border-t border-white/15 px-8 py-4 xl:px-14" style={{ backgroundColor: config.background_color }}>
-        <div className="flex items-center gap-3 text-sm">
+      {/* Footer tampil bila ticker menyala ATAU ada blok sponsor.
+          Sebelumnya syaratnya hanya `show_ticker`; kalau dibiarkan begitu, panitia
+          yang mematikan ticker akan kehilangan blok sponsornya tanpa penjelasan,
+          padahal keduanya setelan yang tidak berhubungan. */}
+      {(config.show_ticker || config.footer_image_url || config.footer_text) && <footer className="fixed inset-x-0 bottom-0 border-t border-white/15 px-8 py-4 xl:px-14" style={{ backgroundColor: config.background_color }}>
+        {/* Blok sponsor di ATAS baris ticker: sponsor adalah isi yang dilihat
+            penonton, sedangkan baris ticker lebih dekat ke penanda status sistem. */}
+        <BrandFooter branding={config} textColor={config.text_color} variant="compact" className={config.show_ticker ? "mb-3" : ""} />
+        {config.show_ticker && <div className="flex items-center gap-3 text-sm">
           <Broadcast size={18} style={{ color: config.accent_color }} />
           <span style={{ opacity: 0.55 }}>Live database</span>
           <span className="font-semibold">{config.ticker_text?.trim() || "Leaderboard ter-update dari transaksi live"}</span>
           <span className="ml-auto hidden text-xs sm:block" style={{ opacity: 0.35 }}>Refresh {tick} · <Storefront className="inline" size={14} /> Live</span>
-        </div>
+        </div>}
       </footer>}
     </div>
   </main>;

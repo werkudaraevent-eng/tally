@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BrandFooter, BrandHeader } from "@/components/brand-header-footer";
 import { SeatMapView, type SeatState } from "@/components/seat-map-view";
+import { DEFAULT_BRANDING, type Branding } from "@/lib/branding";
 import type { SeatMapConfig } from "@/lib/seat-map";
 
 // Tampilan untuk LED publik tanpa layar sentuh.
@@ -75,6 +77,14 @@ export type SeatMapLedViewProps = {
   mapPanelTransparent?: boolean;
   textColor: string;
   accentColor: string;
+  /**
+   * Logo, blok sponsor, jenis huruf, dan skala dari CMS.
+   *
+   * Opsional dengan nilai bawaan kosong: tanpa prop ini layar tampil persis
+   * seperti sebelum branding CMS ada, sehingga pemakai lama komponen ini tidak
+   * perlu diubah sekaligus.
+   */
+  branding?: Branding;
   /** Waktu data terakhir berhasil dimuat; kosong berarti belum pernah berhasil. */
   lastLoadedAt: string | null;
 };
@@ -91,6 +101,7 @@ export function SeatMapLedView({
   mapPanelTransparent = false,
   textColor,
   accentColor,
+  branding = DEFAULT_BRANDING,
   lastLoadedAt,
 }: SeatMapLedViewProps) {
   // Panel LED bisa meninggalkan bekas bila menampilkan gambar yang sama
@@ -134,27 +145,17 @@ export function SeatMapLedView({
         transition: "transform 3s ease-in-out",
       }}
     >
-      <header className="w-full shrink-0 text-center">
-        {subtitle ? (
-          <p
-            className="font-semibold uppercase opacity-75"
-            style={{ fontSize: "clamp(11px, 1.5vmin, 28px)", letterSpacing: "0.3em" }}
-          >
-            {subtitle}
-          </p>
-        ) : null}
-        <h1
-          className="text-balance font-bold uppercase"
-          style={{
-            fontSize: "clamp(20px, 3.9vmin, 76px)",
-            lineHeight: 1.1,
-            letterSpacing: "0.02em",
-            marginTop: "clamp(2px, 0.8vmin, 14px)",
-          }}
-        >
-          {title}
-        </h1>
-      </header>
+      {/* Header dipindahkan ke komponen bersama supaya /denah dan /display memakai
+          aturan yang sama. Ukuran bawaannya sengaja disalin apa adanya dari kode
+          sebelumnya, jadi selama admin belum menyetel apa pun tampilannya identik. */}
+      <BrandHeader
+        branding={branding}
+        title={title}
+        subtitle={subtitle}
+        textColor={textColor}
+        accentColor={accentColor}
+        variant="led"
+      />
 
       {/* Inti layar. Portrait: QR di atas denah. Landscape: berdampingan.
 
@@ -284,20 +285,27 @@ export function SeatMapLedView({
       </div>
 
       <footer className="w-full shrink-0 text-center">
-        {summary ? (
-          <p className="font-semibold" style={{ fontSize: "clamp(11px, 1.8vmin, 32px)" }}>
-            {summary.total_tables} Meja · {summary.total_seats} Kursi
+        {/* Blok sponsor dibungkus di ATAS ringkasan meja, lewat komponen bersama.
+            Ringkasan dan waktu pembaruan diteruskan sebagai children, jadi
+            `BrandFooter` menambahkan sponsor tanpa mengambil alih apa yang sudah
+            tampil di sini. Tanpa gambar dan teks sponsor, komponen itu
+            mengembalikan children apa adanya sehingga tidak ada jarak tambahan. */}
+        <BrandFooter branding={branding} textColor={textColor} variant="led">
+          {summary ? (
+            <p className="font-semibold" style={{ fontSize: "clamp(11px, 1.8vmin, 32px)" }}>
+              {summary.total_tables} Meja · {summary.total_seats} Kursi
+            </p>
+          ) : null}
+          <p
+            className="opacity-55"
+            style={{ fontSize: "clamp(9px, 1.2vmin, 20px)", marginTop: "clamp(2px, 0.5vmin, 8px)" }}
+          >
+            {/* Penanda halus bahwa layar masih hidup. Kalau jaringan terputus,
+                angka ini berhenti bergerak sementara denah tetap tampil, sehingga
+                panitia bisa menyadarinya tanpa pesan error yang menutupi layar. */}
+            {lastLoadedAt ? `Diperbarui ${lastLoadedAt}` : "Menyiapkan data…"}
           </p>
-        ) : null}
-        <p
-          className="opacity-55"
-          style={{ fontSize: "clamp(9px, 1.2vmin, 20px)", marginTop: "clamp(2px, 0.5vmin, 8px)" }}
-        >
-          {/* Penanda halus bahwa layar masih hidup. Kalau jaringan terputus,
-              angka ini berhenti bergerak sementara denah tetap tampil, sehingga
-              panitia bisa menyadarinya tanpa pesan error yang menutupi layar. */}
-          {lastLoadedAt ? `Diperbarui ${lastLoadedAt}` : "Menyiapkan data…"}
-        </p>
+        </BrandFooter>
       </footer>
     </div>
   );

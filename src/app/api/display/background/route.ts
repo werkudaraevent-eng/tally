@@ -10,6 +10,18 @@ const ALLOWED = new Map<string, string>([
   ["image/webp", "webp"],
 ]);
 
+// Folder tujuan, dipilih dari daftar tertutup lewat field `kind`.
+//
+// Endpoint ini kini melayani tiga jenis gambar: latar layar, logo header, dan
+// blok sponsor footer. Semuanya memakai aturan format dan ukuran yang sama, jadi
+// membuat endpoint terpisah hanya akan menggandakan aturan itu — dan begitu salah
+// satu diubah, ketiganya akan berbeda tanpa ada yang sadar.
+//
+// Yang dipisah hanya foldernya, supaya isi bucket masih bisa ditelusuri panitia
+// saat mencari berkas yang salah unggah. Daftar tertutup, bukan nilai bebas dari
+// klien: tanpa itu `kind` menjadi jalan untuk menulis ke path mana pun di bucket.
+const FOLDERS = new Set(["backgrounds", "logos", "footers"]);
+
 // Admin uploads a Live Display background image; stored in a public-read bucket
 // and returned as a public URL to be saved into display_settings.
 export async function POST(request: Request) {
@@ -24,8 +36,13 @@ export async function POST(request: Request) {
   if (!ext) return apiError("VALIDATION_ERROR", 422, { file: "Format harus PNG, JPG, atau WebP." });
   if (file.size === 0 || file.size > MAX_BYTES) return apiError("VALIDATION_ERROR", 422, { file: "Ukuran gambar maksimal 5 MB." });
 
+  // Nilai tak dikenal jatuh ke `backgrounds`, bukan ditolak: pemakai lama endpoint
+  // ini tidak mengirim `kind` sama sekali dan harus tetap bekerja seperti dulu.
+  const kindRaw = form?.get("kind");
+  const kind = typeof kindRaw === "string" && FOLDERS.has(kindRaw) ? kindRaw : "backgrounds";
+
   const client = getSupabaseServiceClient();
-  const path = `backgrounds/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+  const path = `${kind}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
   const { error } = await client.storage.from(BUCKET).upload(path, buffer, { contentType: file.type, upsert: false });
   if (error) return apiError("INTERNAL_ERROR", 500);

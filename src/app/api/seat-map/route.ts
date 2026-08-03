@@ -87,6 +87,21 @@ export async function GET(request: Request) {
         background_image_url: session.background_image_url,
         map_panel_transparent: session.map_panel_transparent,
         has_assignments: session.sub_event_id !== null,
+        // Branding header/footer. Dikirim apa adanya karena `loadSessions` sudah
+        // menormalkannya, jadi halaman publik tidak perlu tahu bahwa skala di
+        // database berbentuk string.
+        logo_url: session.logo_url,
+        logo_scale: session.logo_scale,
+        footer_image_url: session.footer_image_url,
+        footer_image_scale: session.footer_image_scale,
+        footer_text: session.footer_text,
+        heading_font: session.heading_font,
+        title_scale: session.title_scale,
+        subtitle_scale: session.subtitle_scale,
+        footer_scale: session.footer_scale,
+        title_color: session.title_color,
+        subtitle_color: session.subtitle_color,
+        footer_text_color: session.footer_text_color,
       },
       config: {
         stage_label: config.stage_label,

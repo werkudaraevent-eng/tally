@@ -1,4 +1,5 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { BRANDING_COLUMNS, normalizeBranding, type Branding } from "@/lib/branding";
 import { normalizeConfig, normalizePublicViewMode, normalizeSeatLabel, type PublicViewMode, type SeatMapConfig } from "@/lib/seat-map";
 
 // Lapisan data denah tempat duduk. Server-only, dipakai bersama API publik dan
@@ -28,10 +29,10 @@ export type SeatMapSession = {
   map_panel_transparent: boolean;
   is_published: boolean;
   sort_order: number;
-};
+} & Branding;
 
 export const SESSION_COLUMNS =
-  "id,slug,name,sub_event_id,title,subtitle,background_color,text_color,accent_color,background_image_url,map_panel_transparent,is_published,sort_order";
+  `id,slug,name,sub_event_id,title,subtitle,background_color,text_color,accent_color,background_image_url,map_panel_transparent,is_published,sort_order,${BRANDING_COLUMNS}`;
 
 export const CONFIG_COLUMNS =
   "name,stage_label,row_table_counts,seat_rules,seat_label_pattern,table_overrides,public_view_mode,default_session_id,updated_at";
@@ -116,7 +117,18 @@ export async function loadSessions(options: { publishedOnly: boolean }) {
   let query = getSupabaseServiceClient().from("seat_map_sessions").select(SESSION_COLUMNS);
   if (options.publishedOnly) query = query.eq("is_published", true);
   const { data } = await query.order("sort_order", { ascending: true });
-  return (data ?? []) as unknown as SeatMapSession[];
+
+  // Kolom branding dinormalisasi di sini, bukan di komponen layar.
+  //
+  // `numeric` di Postgres diserialkan menjadi string oleh driver agar presisinya
+  // tidak hilang, jadi skala yang belum diproses tidak bisa dipakai langsung
+  // dalam perhitungan CSS. Menormalkannya di satu tempat memastikan API publik
+  // dan CMS admin menerima bentuk yang sama, dan layar tidak perlu tahu bahwa
+  // asal datanya berupa string.
+  return ((data ?? []) as unknown as SeatMapSession[]).map((row) => ({
+    ...row,
+    ...normalizeBranding(row as unknown as Record<string, unknown>),
+  }));
 }
 
 /**

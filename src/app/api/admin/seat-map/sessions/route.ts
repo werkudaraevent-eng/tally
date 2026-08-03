@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { BRANDING_FONTS, SCALE_MAX, SCALE_MIN, type BrandingFont } from "@/lib/branding";
 import { SESSION_COLUMNS } from "@/lib/seat-map-data";
 
 // Pengelolaan agenda denah. Admin saja.
@@ -35,6 +36,32 @@ const createSchema = z.object({
 // perubahan (itu diwakili oleh field yang tidak dikirim sama sekali).
 const backgroundImage = z.string().trim().url().max(600).nullable();
 
+// Branding header dan footer.
+//
+// Warna per elemen `nullable`, dan itu bagian dari kontraknya: null berarti
+// "ikut warna dasar layar", bukan "tanpa warna". Dengan begitu admin yang hanya
+// ingin mengganti satu warna tidak terpaksa mengisi ulang semuanya, dan
+// perubahan warna dasar kelak tetap menurun ke elemen yang belum disetel khusus.
+//
+// Skala divalidasi sebagai pengali 0,5-2, bukan ukuran piksel. Alasan lengkapnya
+// ada di `scaleClamp` pada src/lib/branding.ts: ukuran piksel absolut merusak
+// tata letak LED yang seluruhnya dibangun dari clamp() berbasis viewport.
+const scale = z.number().min(SCALE_MIN).max(SCALE_MAX);
+const brandingSchema = {
+  logo_url: backgroundImage.optional(),
+  logo_scale: scale.optional(),
+  footer_image_url: backgroundImage.optional(),
+  footer_image_scale: scale.optional(),
+  footer_text: z.string().trim().max(200).nullable().optional(),
+  heading_font: z.enum(BRANDING_FONTS.map((item) => item.value) as [BrandingFont, ...BrandingFont[]]).optional(),
+  title_scale: scale.optional(),
+  subtitle_scale: scale.optional(),
+  footer_scale: scale.optional(),
+  title_color: hex.nullable().optional(),
+  subtitle_color: hex.nullable().optional(),
+  footer_text_color: hex.nullable().optional(),
+};
+
 const updateSchema = z.object({
   id: z.number().int().positive(),
   name: z.string().trim().min(1).max(120).optional(),
@@ -49,6 +76,7 @@ const updateSchema = z.object({
   map_panel_transparent: z.boolean().optional(),
   is_published: z.boolean().optional(),
   sort_order: z.number().int().min(0).max(999).optional(),
+  ...brandingSchema,
 });
 
 const deleteSchema = z.object({ id: z.coerce.number().int().positive() });
@@ -169,6 +197,9 @@ export async function PATCH(request: Request) {
       // tidak akan pernah cocok dengan apa pun.
       ...(changes.sub_event_id !== undefined ? { sub_event_id: changes.sub_event_id?.trim() || null } : {}),
       ...(changes.subtitle !== undefined ? { subtitle: changes.subtitle?.trim() || null } : {}),
+      // Sama seperti subtitle: string kosong dari form berarti "tidak dipakai",
+      // bukan teks kosong yang tetap dirender sebagai baris kosong di footer.
+      ...(changes.footer_text !== undefined ? { footer_text: changes.footer_text?.trim() || null } : {}),
       updated_at: new Date().toISOString(),
       updated_by: auth.user.id,
     } as never)

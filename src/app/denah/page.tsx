@@ -2,8 +2,10 @@
 
 import { MagnifyingGlass, Users, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BrandFooter, BrandHeader } from "@/components/brand-header-footer";
 import { SeatMapLedView } from "@/components/seat-map-led-view";
 import { SeatMapView, type SeatState } from "@/components/seat-map-view";
+import { normalizeBranding, type Branding } from "@/lib/branding";
 import { computeSeatMapGeometry, normalizePublicViewMode, normalizeSeatLabel, type PublicViewMode, type SeatMapConfig } from "@/lib/seat-map";
 import { formatWibTimeWithSeconds } from "@/lib/datetime";
 
@@ -33,7 +35,7 @@ type SessionInfo = {
   background_image_url: string | null;
   map_panel_transparent: boolean;
   has_assignments: boolean;
-};
+} & Branding;
 type Summary = {
   total_tables: number;
   total_seats: number;
@@ -208,6 +210,18 @@ export default function SeatMapPage() {
   // kontras teks tanpa alasan.
   const mapCanvas = session?.map_panel_transparent && backgroundImage ? "transparent" : undefined;
 
+  // Branding dinormalisasi ulang di sisi klien meski API sudah menormalkannya.
+  //
+  // Bukan pekerjaan ganda yang sia-sia: normalisasi ini juga menjadi jaring
+  // pengaman saat `session` masih null (sebelum data pertama tiba) dan saat
+  // respons datang dari versi API yang belum mengenal kolom branding. Keduanya
+  // menghasilkan nilai bawaan kosong, yang berarti layar tampil seperti sebelum
+  // fitur ini ada — bukan gagal render di depan tamu.
+  const branding = useMemo(
+    () => normalizeBranding(session as unknown as Record<string, unknown> | null),
+    [session],
+  );
+
   // Penimpa lewat URL menang atas setelan CMS. Layar yang sudah dipasang di
   // dinding tidak bisa diubah dari jauh, jadi alamatnya harus bisa memaksa mode.
   const effectiveMode: PublicViewMode = modeOverride ?? normalizePublicViewMode(payload?.public_view_mode);
@@ -276,6 +290,7 @@ export default function SeatMapPage() {
         mapPanelTransparent={session.map_panel_transparent}
         textColor={ink}
         accentColor={accent}
+        branding={branding}
         lastLoadedAt={lastLoadedAt}
       />
     );
@@ -297,14 +312,17 @@ export default function SeatMapPage() {
       }}
     >
       <div className="mx-auto max-w-[1180px]">
-        <header className="text-center">
-          {session?.subtitle ? (
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] opacity-70">{session.subtitle}</p>
-          ) : null}
-          <h1 className="mt-2 text-balance text-2xl font-bold uppercase leading-tight tracking-wide sm:text-3xl">
-            {session?.title ?? "Denah Tempat Duduk"}
-          </h1>
-        </header>
+        {/* Header memakai komponen bersama, sama seperti mode LED dan Live Display.
+            Varian `compact`: halaman ini dibuka dari HP tamu, jadi ukurannya
+            mengikuti lebar layar, bukan viewport LED. */}
+        <BrandHeader
+          branding={branding}
+          title={session?.title ?? "Denah Tempat Duduk"}
+          subtitle={session?.subtitle ?? null}
+          textColor={ink}
+          accentColor={accent}
+          variant="compact"
+        />
 
         {(payload?.sessions.length ?? 0) > 1 ? (
           <div className="mt-5 flex flex-wrap justify-center gap-2" role="group" aria-label="Pilih sesi acara">
@@ -471,9 +489,24 @@ export default function SeatMapPage() {
           </>
         )}
 
-        <p className="mt-8 text-center text-xs opacity-60">
-          Nama peserta ditampilkan sebagian untuk menjaga privasi. Cari nama Anda untuk melihat kursi Anda.
-        </p>
+        {/* Blok sponsor di ATAS catatan privasi: sponsor adalah bagian dari
+            identitas acara, sedangkan catatan privasi adalah keterangan kaki.
+            Tanpa gambar dan teks sponsor, `BrandFooter` mengembalikan children apa
+            adanya sehingga tidak ada jarak tambahan yang muncul. */}
+        {/* Jarak atas dipegang pembungkus milik halaman ini, bukan `BrandFooter`
+            maupun paragrafnya.
+            Alasannya: saat tidak ada branding, `BrandFooter` mengembalikan children
+            apa adanya dan `className`-nya tidak dirender, jadi jarak yang ditaruh di
+            sana akan hilang. Tapi kalau dipindah ke paragraf, jaraknya terhitung dua
+            kali begitu blok sponsor muncul. Pembungkus di sini benar pada kedua
+            keadaan, dan komponennya tetap bebas dari urusan tata letak halaman. */}
+        <div className="mt-8">
+          <BrandFooter branding={branding} textColor={ink} variant="compact">
+            <p className="text-center text-xs opacity-60">
+              Nama peserta ditampilkan sebagian untuk menjaga privasi. Cari nama Anda untuk melihat kursi Anda.
+            </p>
+          </BrandFooter>
+        </div>
       </div>
     </main>
   );

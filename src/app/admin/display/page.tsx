@@ -3,7 +3,9 @@
 import { ArrowLeft, CheckCircle, Eye, MonitorPlay, UploadSimple, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BrandingEditor } from "@/components/admin/branding-editor";
 import { useToast } from "@/components/toast";
+import { normalizeBranding, type Branding } from "@/lib/branding";
 import { formatWibDateTime } from "@/lib/datetime";
 
 type NameDisplayMode = "full" | "initials" | "company_only" | "hidden";
@@ -34,7 +36,7 @@ type DisplaySettings = {
   ticker_text: string | null;
   refresh_seconds: number;
   updated_at?: string;
-};
+} & Branding;
 
 export default function DisplaySettingsPage() {
   const [settings, setSettings] = useState<DisplaySettings | null>(null);
@@ -93,6 +95,10 @@ export default function DisplaySettingsPage() {
       show_ticker: settings.show_ticker,
       ticker_text: settings.ticker_text?.trim() ? settings.ticker_text.trim() : null,
       refresh_seconds: settings.refresh_seconds,
+      // Branding header dan footer. Dilewatkan `normalizeBranding` supaya hanya
+      // kolom milik branding yang ikut dan skalanya sudah berupa angka, bukan
+      // string seperti yang dikirim driver Postgres untuk kolom `numeric`.
+      ...normalizeBranding(settings as unknown as Record<string, unknown>),
     };
     const [response, eventResponse] = await Promise.all([
       fetch("/api/display/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
@@ -176,6 +182,26 @@ export default function DisplaySettingsPage() {
                   <span className="break-all text-xs text-[var(--ink-muted)]">{settings.background_image_url}</span>
                 </div>
               ) : null}
+            </div>
+          </section>
+
+          {/* Header dan footer branding. Memakai editor yang sama dengan
+              /admin/seat-map supaya field di kedua CMS tidak pernah berbeda.
+
+              `idPrefix` tetap diberikan meski di halaman ini hanya ada satu editor:
+              propnya wajib, dan nilai yang bermakna lebih mudah dilacak daripada
+              string kosong bila kelak ada editor kedua di halaman ini. */}
+          <section className="bg-[var(--surface)] p-6">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Header &amp; footer</h2>
+            <div className="mt-4">
+              <BrandingEditor
+                idPrefix="display"
+                value={normalizeBranding(settings as unknown as Record<string, unknown>)}
+                onChange={(changes) => setSettings((current) => current && { ...current, ...changes })}
+                baseTextColor={settings.text_color}
+                baseBackgroundColor={settings.background_color}
+                baseAccentColor={settings.accent_color}
+              />
             </div>
           </section>
 

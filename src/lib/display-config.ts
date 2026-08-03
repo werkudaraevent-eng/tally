@@ -8,6 +8,8 @@
 // Modul ini WAJIB bebas dari impor server-only (mis. service client Supabase),
 // karena ikut terbawa ke bundel browser lewat komponen layar.
 
+import { BRANDING_COLUMNS, DEFAULT_BRANDING, type Branding } from "@/lib/branding";
+
 export type DisplayConfig = {
   event_title: string;
   headline: string;
@@ -22,7 +24,7 @@ export type DisplayConfig = {
   show_ticker: boolean;
   ticker_text: string | null;
   refresh_seconds: number;
-};
+} & Branding;
 
 /**
  * Dipakai HANYA sebagai jaring pengaman bila baris `display_settings` tidak dapat
@@ -43,8 +45,11 @@ export const DEFAULT_CONFIG: DisplayConfig = {
   show_ticker: true,
   ticker_text: null,
   refresh_seconds: 30,
+  // Branding kosong dan skala 1: tanpa diisi admin, layar tampil persis seperti
+  // sebelum header/footer CMS ada.
+  ...DEFAULT_BRANDING,
 };
 
 /** Kolom yang dibaca dari `display_settings`. Sama dengan endpoint GET-nya. */
 export const DISPLAY_CONFIG_COLUMNS =
-  "event_title,headline,tagline,background_color,text_color,accent_color,background_image_url,leaderboard_limit,show_company,show_booth_progress,show_ticker,ticker_text,refresh_seconds";
+  `event_title,headline,tagline,background_color,text_color,accent_color,background_image_url,leaderboard_limit,show_company,show_booth_progress,show_ticker,ticker_text,refresh_seconds,${BRANDING_COLUMNS}`;

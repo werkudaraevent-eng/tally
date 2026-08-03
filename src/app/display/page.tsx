@@ -1,4 +1,5 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { normalizeBranding } from "@/lib/branding";
 import { DEFAULT_CONFIG, DISPLAY_CONFIG_COLUMNS, type DisplayConfig } from "@/lib/display-config";
 import DisplayClient from "./display-client";
 
@@ -24,7 +25,13 @@ async function loadConfig(): Promise<DisplayConfig> {
     if (error || !data) return DEFAULT_CONFIG;
     // Digabung dengan nilai bawaan agar kolom yang belum terisi di database tidak
     // membuat layar kehilangan properti lalu gagal render di depan penonton.
-    return { ...DEFAULT_CONFIG, ...(data as Partial<DisplayConfig>) };
+    //
+    // Branding dinormalisasi terpisah SETELAH penggabungan, karena kolom skala
+    // bertipe `numeric` dan driver Postgres mengirimkannya sebagai string demi
+    // menjaga presisi. String itu tidak bisa dipakai langsung sebagai pengali
+    // dalam perhitungan CSS, jadi ia harus melewati normalisasi lebih dulu.
+    const merged = { ...DEFAULT_CONFIG, ...(data as Partial<DisplayConfig>) };
+    return { ...merged, ...normalizeBranding(data as Record<string, unknown>) };
   } catch {
     // Layar acara tidak boleh gagal total hanya karena satu baris setting tidak
     // terbaca. Lebih baik tampil dengan nilai bawaan daripada menampilkan error.
