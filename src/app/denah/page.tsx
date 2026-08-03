@@ -31,6 +31,7 @@ type SessionInfo = {
   text_color: string;
   accent_color: string;
   background_image_url: string | null;
+  map_panel_transparent: boolean;
   has_assignments: boolean;
 };
 type Summary = {
@@ -201,6 +202,11 @@ export default function SeatMapPage() {
   // bagian gambar yang terang. Nilainya sama dengan Live Display supaya kedua layar
   // di ruangan yang sama tidak terlihat memakai aturan berbeda.
   const imageOverlay = backgroundImage ? "rgba(0,0,0,0.55)" : "transparent";
+  // Kanvas denah hanya dibuat tembus pandang bila ada gambar di belakangnya.
+  // Transparan tanpa gambar berarti denah mengambil warna latar halaman yang
+  // nilainya sama, jadi tampilannya tidak berubah dan hanya melepas jaminan
+  // kontras teks tanpa alasan.
+  const mapCanvas = session?.map_panel_transparent && backgroundImage ? "transparent" : undefined;
 
   // Penimpa lewat URL menang atas setelan CMS. Layar yang sudah dipasang di
   // dinding tidak bisa diubah dari jauh, jadi alamatnya harus bisa memaksa mode.
@@ -267,6 +273,7 @@ export default function SeatMapPage() {
         subtitle={session.subtitle}
         backgroundColor={background}
         backgroundImageUrl={backgroundImage}
+        mapPanelTransparent={session.map_panel_transparent}
         textColor={ink}
         accentColor={accent}
         lastLoadedAt={lastLoadedAt}
@@ -415,6 +422,7 @@ export default function SeatMapPage() {
                 seatStates={seatStates}
                 highlightedSeatLabels={highlighted}
                 backgroundColor={background}
+                canvasColor={mapCanvas}
                 textColor={ink}
                 accentColor={accent}
                 onTableClick={(tableNumber) => setSelectedTable((current) => (current === tableNumber ? null : tableNumber))}

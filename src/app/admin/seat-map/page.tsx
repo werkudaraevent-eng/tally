@@ -27,6 +27,8 @@ type Session = {
   accent_color: string;
   /** Null berarti agenda ini memakai warna solid. */
   background_image_url: string | null;
+  /** True berarti kanvas denah tembus pandang di atas gambar latar. */
+  map_panel_transparent: boolean;
   is_published: boolean;
   sort_order: number;
 };
@@ -218,6 +220,7 @@ export default function SeatMapAdminPage() {
         text_color: session.text_color,
         accent_color: session.accent_color,
         background_image_url: session.background_image_url,
+        map_panel_transparent: session.map_panel_transparent,
         is_published: session.is_published,
         sort_order: session.sort_order,
       }),
@@ -276,8 +279,12 @@ export default function SeatMapAdminPage() {
             {/* Gambar latar dipasang di pembungkus, bukan diteruskan ke SeatMapView.
                 Komponen itu dipakai bersama halaman publik dan hanya mengenal warna;
                 menambah properti gambar ke sana berarti mengubah kontraknya hanya
-                untuk kebutuhan pratinjau. Denahnya sendiri dibuat transparan supaya
-                gambar di belakangnya terlihat. */}
+                untuk kebutuhan pratinjau.
+
+                Transparansi kanvas diatur lewat `canvasColor`, BUKAN dengan
+                mengoper "transparent" sebagai `backgroundColor`. Warna itu juga
+                dipakai sebagai warna teks nomor meja dan label panggung, jadi
+                "transparent" membuat nomor mejanya ikut hilang. */}
             <div
               className="mt-4 overflow-x-auto bg-cover bg-center bg-no-repeat"
               style={{
@@ -289,7 +296,8 @@ export default function SeatMapAdminPage() {
             >
               <SeatMapView
                 config={config}
-                backgroundColor={previewSession?.background_image_url ? "transparent" : (previewSession?.background_color ?? "#111a63")}
+                backgroundColor={previewSession?.background_color ?? "#111a63"}
+                canvasColor={previewSession?.map_panel_transparent && previewSession.background_image_url ? "transparent" : undefined}
                 textColor={previewSession?.text_color ?? "#ffffff"}
                 accentColor={previewSession?.accent_color ?? "#f2c14e"}
                 className="min-w-[760px]"
@@ -569,6 +577,32 @@ export default function SeatMapAdminPage() {
                         <span className="h-12 w-20 shrink-0 border border-[var(--line)] bg-cover bg-center" style={{ backgroundImage: `url(${session.background_image_url})` }} />
                         <span className="break-all text-[11px] leading-4 text-[var(--ink-muted)]">{session.background_image_url}</span>
                       </div>
+                    : null}
+
+                  {/* Tanpa pilihan ini, denah selalu digambar sebagai kotak warna
+                      solid di tengah halaman, sehingga gambar latar hanya terlihat
+                      di pinggirnya. Itu bagian layar yang paling luas, jadi gambar
+                      terasa tidak terpakai.
+
+                      Hanya muncul saat ada gambar latar. Kanvas tembus pandang tanpa
+                      gambar di belakangnya menampilkan warna yang sama persis, jadi
+                      pilihan yang selalu tampil akan terlihat seperti setelan rusak.
+
+                      Warna latar TIDAK diganti menjadi "transparan" untuk tujuan ini.
+                      Warna itu juga menjadi warna teks nomor meja dan label panggung,
+                      jadi menembuskannya akan menghilangkan nomor mejanya. */}
+                  {session.background_image_url
+                    ? <label className="mt-3 flex min-h-11 cursor-pointer items-start gap-3 text-sm">
+                        <input type="checkbox" checked={session.map_panel_transparent}
+                          onChange={(event) => updateSession(session.id, { map_panel_transparent: event.target.checked })}
+                          className="mt-1 size-4 shrink-0 accent-[var(--brand)]" />
+                        <span>
+                          <span className="font-semibold">Denah tembus pandang</span>
+                          <span className="mt-0.5 block text-xs leading-5 text-[var(--ink-muted)]">
+                            Menghilangkan kotak warna di belakang meja supaya gambar latar terlihat penuh. Nomor meja tetap memakai warna latar agar terbaca.
+                          </span>
+                        </span>
+                      </label>
                     : null}
                 </div>
 

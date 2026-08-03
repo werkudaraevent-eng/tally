@@ -68,6 +68,11 @@ export type SeatMapLedViewProps = {
   backgroundColor: string;
   /** Null berarti memakai warna solid saja. */
   backgroundImageUrl?: string | null;
+  /**
+   * True berarti panel denah dibuat tembus pandang agar gambar latar terlihat di
+   * belakang meja. Diabaikan bila tidak ada gambar latar.
+   */
+  mapPanelTransparent?: boolean;
   textColor: string;
   accentColor: string;
   /** Waktu data terakhir berhasil dimuat; kosong berarti belum pernah berhasil. */
@@ -83,6 +88,7 @@ export function SeatMapLedView({
   subtitle,
   backgroundColor,
   backgroundImageUrl = null,
+  mapPanelTransparent = false,
   textColor,
   accentColor,
   lastLoadedAt,
@@ -255,6 +261,11 @@ export function SeatMapLedView({
             config={config}
             seatStates={seatStates}
             backgroundColor={backgroundColor}
+            // Kanvas dibuat tembus pandang hanya bila ada gambar di belakangnya.
+            // Tanpa gambar, transparan berarti denah jatuh ke warna latar layar
+            // yang nilainya sama, jadi tidak ada bedanya selain kehilangan
+            // jaminan kontras bila kelak latar layar ikut berubah.
+            canvasColor={mapPanelTransparent && backgroundImageUrl ? "transparent" : undefined}
             textColor={textColor}
             accentColor={accentColor}
             showSeatCodes={false}

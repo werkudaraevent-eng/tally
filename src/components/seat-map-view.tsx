@@ -25,7 +25,21 @@ export type SeatMapViewProps = {
   seatStates?: Record<string, SeatState>;
   /** Label kursi yang disorot, misalnya hasil pencarian nama tamu. */
   highlightedSeatLabels?: string[];
+  /**
+   * Warna latar denah. Dipakai untuk DUA hal sekaligus: isian kanvas dan warna
+   * teks di atas bentuk terang (nomor meja, label panggung, kursi kosong).
+   * Karena itu nilainya tidak boleh "transparent" — teksnya akan ikut hilang.
+   * Untuk kanvas tembus pandang, pakai `canvasColor`.
+   */
   backgroundColor?: string;
+  /**
+   * Isian kanvas SVG, bila perlu berbeda dari `backgroundColor`. Diisi
+   * "transparent" saat di belakang denah ada gambar latar: tanpa ini denah
+   * menutupi gambar dengan kotak warna solid, sehingga gambar hanya terlihat di
+   * pinggir halaman. Default-nya mengikuti `backgroundColor`, jadi pemanggil
+   * yang memakai warna solid tidak perlu tahu properti ini ada.
+   */
+  canvasColor?: string;
   textColor?: string;
   accentColor?: string;
   /** Menampilkan huruf kursi. Dimatikan otomatis saat denah sangat padat. */
@@ -51,6 +65,7 @@ export function SeatMapView({
   seatStates = EMPTY_STATES,
   highlightedSeatLabels = EMPTY_HIGHLIGHTS,
   backgroundColor = "#111a63",
+  canvasColor,
   textColor = "#ffffff",
   accentColor = "#f2c14e",
   showSeatCodes = true,
@@ -84,7 +99,7 @@ export function SeatMapView({
     <svg
       viewBox={`0 0 ${geometry.width} ${geometry.height}`}
       className={className}
-      style={{ background: backgroundColor, display: "block", width: "100%", height: "auto", maxHeight }}
+      style={{ background: canvasColor ?? backgroundColor, display: "block", width: "100%", height: "auto", maxHeight }}
       role="img"
       aria-label={`Denah tempat duduk, ${geometry.totalTables} meja dan ${geometry.totalSeats} kursi. Acuan arah: ${geometry.stage.label} berada di depan.`}
     >

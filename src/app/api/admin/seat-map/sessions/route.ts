@@ -46,6 +46,7 @@ const updateSchema = z.object({
   text_color: hex.optional(),
   accent_color: hex.optional(),
   background_image_url: backgroundImage.optional(),
+  map_panel_transparent: z.boolean().optional(),
   is_published: z.boolean().optional(),
   sort_order: z.number().int().min(0).max(999).optional(),
 });
@@ -125,6 +126,10 @@ export async function POST(request: Request) {
       // Agenda baru selalu mulai dari warna solid. Gambar latar dipilih setelahnya
       // lewat upload, jadi tidak ada nilai yang bisa ditebak di sini.
       background_image_url: null,
+      // Ikut mati selama belum ada gambar latar: kanvas tembus pandang tanpa
+      // gambar di belakangnya tidak mengubah apa pun selain membingungkan admin
+      // yang melihat setelan menyala tapi tampilannya sama.
+      map_panel_transparent: false,
       // Selalu draf. Agenda baru belum punya sumber penempatan, jadi bila
       // langsung publik ia tampil sebagai denah dengan semua kursi kosong.
       is_published: false,
