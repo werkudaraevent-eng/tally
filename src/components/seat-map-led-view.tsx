@@ -22,23 +22,17 @@ import type { SeatMapConfig } from "@/lib/seat-map";
 // pada layar landscape menyisakan ruang kosong di samping sementara isinya
 // justru melimpah ke bawah sampai denah terdorong keluar pandangan.
 
-// Lebar kode QR.
+// Lebar blok QR, dipakai bersama oleh kode QR dan daftar langkah di bawahnya.
 //
-// Batas `vh` pada porsi portrait dinaikkan, bukan diturunkan. Denah TIDAK dapat
-// tumbuh untuk mengisi tinggi yang tersisa: lebarnya sudah dipakai penuh dan
-// bentuknya melebar, jadi pada 1080x1920 tingginya terukur hanya 554px. Karena
-// ruang vertikal di portrait berlimpah, mengecilkan QR hanya memperbesar area
-// kosong tanpa memberi keuntungan pada denah.
-const QR_WIDTH = "portrait:w-[min(40vmin,52vw,24vh)] landscape:w-[min(34vmin,30vw,46vh)]";
-
-// Lebar daftar langkah.
+// Satu blok, bukan dua lebar terpisah, supaya tepi kiri langkah SELALU sejajar
+// dengan tepi kiri QR. Versi sebelumnya memberi panduan lebarnya sendiri, jadi
+// panduan menjorok lebih kiri daripada QR dan ikut rata dengan teks ajakan.
 //
-// Di landscape disamakan dengan QR agar keduanya terbaca sebagai satu ajakan.
-// Di portrait TIDAK boleh ikut lebar QR: lebar itu ditentukan oleh sisi bujur
-// sangkar QR, sementara ukuran huruf punya batas bawah 12px. Pada portrait yang
-// sempit kombinasi itu memaksa "Arahkan ke kode QR di atas" pecah jadi tiga baris
-// dan langkah-langkahnya jadi sulit dipindai mata.
-const GUIDE_WIDTH = "portrait:w-[min(76vw,620px)] landscape:w-[min(34vmin,30vw,46vh)]";
+// Porsi portrait `min(80vw, 26vh)` sengaja tanpa media query tambahan: batas `vh`
+// otomatis mengambil alih pada layar sangat tinggi. Satu rumus ini melayani TV
+// portrait biasa maupun LED 256x768 yang rasionya 1:3 — pada 1080x1920 hasilnya
+// ~499px, pada 256x768 ~200px (78% lebar), cukup besar untuk dipindai.
+const QR_BLOCK = "portrait:w-[min(80vw,26vh)] landscape:w-[min(34vmin,30vw,46vh)]";
 
 // Panduan dipecah menjadi langkah bernomor, bukan satu kalimat panjang.
 //
@@ -99,7 +93,12 @@ export function SeatMapLedView({
         color: textColor,
         // Padding ikut ukuran layar, bukan angka tetap, agar proporsinya tetap
         // terjaga dari monitor 24 inci sampai LED beberapa meter.
-        padding: "clamp(14px, 2.6vmin, 56px)",
+        //
+        // Sisi atas diberi porsi lebih besar daripada sisi lain. Dengan padding
+        // seragam 2.6vmin, judul hanya berjarak 28px dari tepi atas pada TV
+        // portrait 1080x1920 dan terlihat mepit, sementara ruang di tengah layar
+        // justru berlimpah.
+        padding: "clamp(20px, 4.6vmin, 76px) clamp(14px, 2.6vmin, 56px) clamp(14px, 2.6vmin, 56px)",
         gap: "clamp(8px, 1.6vmin, 28px)",
         transform: `translateY(${nudge}px)`,
         transition: "transform 3s ease-in-out",
@@ -152,59 +151,70 @@ export function SeatMapLedView({
             Pindai untuk melihat tempat duduk Anda
           </p>
 
-          {/* Sisi QR dibatasi lebar maupun tinggi. Tanpa batas tinggi, pada layar
-              yang sangat panjang QR akan mendorong denah keluar dari pandangan. */}
-          <div
-            className={QR_WIDTH}
-            style={{
-              background: "#ffffff",
-              padding: "clamp(6px, 1.2vmin, 20px)",
-              aspectRatio: "1 / 1",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {/* Dilayani sebagai SVG dari server: tajam pada resolusi berapa pun,
-                dan tidak bergantung pada JavaScript yang berjalan di layar ini. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={qrSource}
-              alt="Kode QR menuju halaman denah tempat duduk"
-              style={{ width: "100%", height: "100%", display: "block" }}
-            />
+          {/* QR dan panduan dibungkus satu blok berlebar sama, sehingga rata kiri
+              keduanya terjamin tanpa perlu menyelaraskan dua rumus lebar terpisah. */}
+          <div className={`flex flex-col ${QR_BLOCK}`}>
+            <div
+              className="w-full"
+              style={{
+                background: "#ffffff",
+                padding: "clamp(6px, 1.2vmin, 20px)",
+                aspectRatio: "1 / 1",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {/* Dilayani sebagai SVG dari server: tajam pada resolusi berapa pun,
+                  dan tidak bergantung pada JavaScript yang berjalan di layar ini. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrSource}
+                alt="Kode QR menuju halaman denah tempat duduk"
+                style={{ width: "100%", height: "100%", display: "block" }}
+              />
+            </div>
+
+            {/* Ukuran huruf memakai `max(vmin, vw)`, bukan `vmin` saja.
+                Pada layar lebar tetapi pendek, `vmin` terikat pada TINGGI, sehingga
+                panduan menyusut menjadi belasan piksel meski ruang mendatarnya luas.
+                Itulah sebab utama panduan lama nyaris tak terbaca dari jauh.
+
+                Opasitas juga dilepas: panduan ini instruksi utama, bukan keterangan
+                tambahan, jadi tidak boleh tampil lebih pudar dari isi lainnya.
+
+                `marginTop` jauh lebih besar daripada jeda antar-langkah maupun jeda
+                ajakan ke QR. Ajakan dan QR adalah satu kesatuan ("pindai ini"),
+                sedangkan panduan adalah babak berikutnya; jarak yang seragam membuat
+                ketiganya terbaca sebagai satu tumpukan tanpa hierarki. */}
+            <ol
+              className="flex flex-col"
+              style={{
+                marginTop: "clamp(16px, 3.4vmin, 48px)",
+                gap: "clamp(4px, 0.9vmin, 14px)",
+                fontSize: "clamp(12px, max(1.9vmin, 0.9vw), 32px)",
+              }}
+            >
+              {SCAN_STEPS.map((step, index) => (
+                <li key={step} className="flex items-center" style={{ gap: "clamp(6px, 1.1vmin, 16px)" }}>
+                  <span
+                    className="flex shrink-0 items-center justify-center rounded-full font-bold"
+                    style={{
+                      background: accentColor,
+                      color: backgroundColor,
+                      width: "clamp(17px, 2.6vmin, 42px)",
+                      height: "clamp(17px, 2.6vmin, 42px)",
+                      fontSize: "clamp(10px, 1.5vmin, 24px)",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {index + 1}
+                  </span>
+                  <span style={{ lineHeight: 1.3 }}>{step}</span>
+                </li>
+              ))}
+            </ol>
           </div>
-
-          {/* Ukuran huruf memakai `max(vmin, vw)`, bukan `vmin` saja.
-              Pada layar lebar tetapi pendek, `vmin` terikat pada TINGGI, sehingga
-              panduan menyusut menjadi belasan piksel meski ruang mendatarnya luas.
-              Itulah sebab utama panduan lama nyaris tak terbaca dari jauh.
-
-              Opasitas juga dilepas: panduan ini instruksi utama, bukan keterangan
-              tambahan, jadi tidak boleh tampil lebih pudar dari isi lainnya. */}
-          <ol
-            className={`flex flex-col ${GUIDE_WIDTH}`}
-            style={{ gap: "clamp(4px, 0.9vmin, 14px)", fontSize: "clamp(12px, max(1.9vmin, 0.9vw), 32px)" }}
-          >
-            {SCAN_STEPS.map((step, index) => (
-              <li key={step} className="flex items-center" style={{ gap: "clamp(6px, 1.1vmin, 16px)" }}>
-                <span
-                  className="flex shrink-0 items-center justify-center rounded-full font-bold"
-                  style={{
-                    background: accentColor,
-                    color: backgroundColor,
-                    width: "clamp(17px, 2.6vmin, 42px)",
-                    height: "clamp(17px, 2.6vmin, 42px)",
-                    fontSize: "clamp(10px, 1.5vmin, 24px)",
-                    lineHeight: 1,
-                  }}
-                >
-                  {index + 1}
-                </span>
-                <span style={{ lineHeight: 1.3 }}>{step}</span>
-              </li>
-            ))}
-          </ol>
         </div>
 
         {/* Denah sebagai orientasi ruangan, bukan sebagai daftar penghuni. Nomor
