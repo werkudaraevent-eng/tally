@@ -1,7 +1,6 @@
 "use client";
 
-import { CalendarBlank, Clock, Coffee, DotOutline, MapTrifold } from "@phosphor-icons/react";
-import Link from "next/link";
+import { CalendarBlank, Clock, Coffee, DotOutline } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrandLogo } from "@/components/brand-header-footer";
 import { fontStack, normalizeBranding, scaleClamp } from "@/lib/branding";
@@ -188,9 +187,6 @@ export default function RundownPage() {
   // header tampil seperti sebelumnya.
   const headerInk = header.text_color ?? (header.background_image_url ? "#ffffff" : "var(--ink)");
   const headerAccent = header.accent_color ?? "var(--brand)";
-  // Garis dan batas diturunkan dari tinta, bukan token tema: di atas latar gelap,
-  // --line hampir tidak terlihat.
-  const headerBorder = header.text_color || header.background_image_url ? "currentColor" : "var(--line)";
 
   // Tata letak app-shell: layar dibagi dua, header mati dan daftar bergulir.
   //
@@ -234,7 +230,7 @@ export default function RundownPage() {
       </> : null}
 
       <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
-        <div className="flex items-start justify-between gap-4 pb-3.5 pt-4">
+        <div className="pb-3.5 pt-4">
           <div className="min-w-0">
             <BrandLogo branding={branding} variant="compact" centered={false} />
 
@@ -296,20 +292,6 @@ export default function RundownPage() {
             </p>
           </div>
 
-          {/* Tautan denah jadi tombol ikon ringkas. Labelnya tetap ada di layar
-              lebar; di ponsel tinggal ikon dengan aria-label, karena teks penuh
-              memaksa header naik satu baris demi tautan sekunder.
-              Warna garis dan teks diturunkan dari warna tinta header, bukan token
-              tema, supaya tombolnya tetap terlihat di atas latar gelap. */}
-          <Link
-            href="/denah"
-            aria-label="Lihat denah tempat duduk"
-            className="inline-flex size-11 shrink-0 items-center justify-center gap-2 border transition-colors hover:bg-white/10 sm:size-auto sm:px-3 sm:py-2"
-            style={{ borderColor: headerBorder, color: headerInk }}
-          >
-            <MapTrifold size={18} />
-            <span className="hidden text-sm font-semibold sm:inline">Denah</span>
-          </Link>
         </div>
 
         {tabs.length > 1 ? <div
