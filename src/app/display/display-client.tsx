@@ -171,7 +171,33 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
             <div className="p-5" style={{ backgroundColor: config.background_color }}><Storefront size={22} weight="duotone" style={{ color: config.accent_color }} /><p className="mt-3 font-mono text-4xl font-semibold">{entries.reduce((sum, entry) => sum + entry.booth_count, 0)}</p><p className="mt-2 text-xs uppercase tracking-[0.14em]" style={{ opacity: 0.45 }}>Booth visits</p></div>
           </section>
         </aside>}
-      </div> : <div className="flex min-h-[70dvh] items-center justify-center px-8 text-center"><div><DotsSix size={64} className="mx-auto" style={{ opacity: 0.2 }} /><h2 className="mt-6 text-4xl font-semibold">Leaderboard sedang disembunyikan.</h2><p className="mt-3" style={{ opacity: 0.45 }}>Sesi presentasi dapat dimulai kembali oleh Admin.</p></div></div>}
+      </div> : (
+        /* Ukuran memakai `clamp(..., vw, ...)`, sama seperti bagian lain halaman ini.
+           Sebelumnya blok ini satu-satunya yang masih memakai ukuran tetap
+           (`text-4xl`, `px-8`, ikon 64px). Nilai tetap itu tidak pernah menyusut,
+           jadi pada LED portrait 256px kata "disembunyikan" lebih lebar dari ruang
+           yang tersedia dan terpotong di kedua sisi.
+
+           `break-words` dipasang sebagai jaring pengaman: "disembunyikan" adalah satu
+           kata panjang yang tidak punya titik potong alami, jadi pada lebar ekstrem
+           ia tetap harus boleh dipatah daripada melimpah keluar layar. */
+        <div className="flex min-h-[70dvh] items-center justify-center text-center" style={{ padding: "0 clamp(12px, 4vw, 32px)" }}>
+          {/* 34ch kira-kira sepanjang kalimatnya sendiri, jadi pada layar lebar ia
+              tetap satu baris seperti sebelumnya. Batas yang lebih ketat akan
+              memaksa pesan ini pecah dua baris di LED landscape besar, padahal di
+              sana ruangnya justru berlimpah. */}
+          <div className="max-w-[34ch]">
+            <DotsSix className="mx-auto" style={{ opacity: 0.2, width: "clamp(28px, 9vw, 64px)", height: "clamp(28px, 9vw, 64px)" }} />
+            <h2
+              className="text-balance break-words font-semibold"
+              style={{ marginTop: "clamp(12px, 3vw, 24px)", fontSize: "clamp(15px, 5vw, 36px)", lineHeight: 1.2 }}
+            >Leaderboard sedang disembunyikan.</h2>
+            <p style={{ opacity: 0.45, marginTop: "clamp(6px, 1.6vw, 12px)", fontSize: "clamp(11px, 2.6vw, 16px)", lineHeight: 1.4 }}>
+              Sesi presentasi dapat dimulai kembali oleh Admin.
+            </p>
+          </div>
+        </div>
+      )}
 
       {config.show_ticker && <footer className="fixed inset-x-0 bottom-0 border-t border-white/15 px-8 py-4 xl:px-14" style={{ backgroundColor: config.background_color }}>
         <div className="flex items-center gap-3 text-sm">
