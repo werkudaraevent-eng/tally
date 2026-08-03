@@ -18,12 +18,14 @@ export type SeatMapSession = {
   background_color: string;
   text_color: string;
   accent_color: string;
+  /** Null berarti memakai `background_color`. Sama seperti Live Display. */
+  background_image_url: string | null;
   is_published: boolean;
   sort_order: number;
 };
 
 export const SESSION_COLUMNS =
-  "id,slug,name,sub_event_id,title,subtitle,background_color,text_color,accent_color,is_published,sort_order";
+  "id,slug,name,sub_event_id,title,subtitle,background_color,text_color,accent_color,background_image_url,is_published,sort_order";
 
 export const CONFIG_COLUMNS =
   "name,stage_label,row_table_counts,seat_rules,seat_label_pattern,table_overrides,public_view_mode,default_session_id,updated_at";

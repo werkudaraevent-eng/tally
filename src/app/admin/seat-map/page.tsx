@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowSquareOut, CheckCircle, Eye, EyeSlash, Monitor, Plus, Trash, Warning } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowSquareOut, CheckCircle, Eye, EyeSlash, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SeatMapView } from "@/components/seat-map-view";
@@ -25,6 +25,8 @@ type Session = {
   background_color: string;
   text_color: string;
   accent_color: string;
+  /** Null berarti agenda ini memakai warna solid. */
+  background_image_url: string | null;
   is_published: boolean;
   sort_order: number;
 };
@@ -73,6 +75,10 @@ export default function SeatMapAdminPage() {
   // Konfirmasi hapus ditahan di dalam kartunya sendiri, bukan lewat dialog
   // browser: satu klik tak sengaja tidak boleh langsung membuang agenda.
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  // Unggahan dilacak per agenda, bukan satu penanda global: tiap kartu punya
+  // tombolnya sendiri, dan penanda global akan menonaktifkan semua tombol
+  // sekaligus padahal hanya satu yang sedang bekerja.
+  const [uploadingBackground, setUploadingBackground] = useState<number | null>(null);
   const [error, setError] = useState("");
   const toast = useToast();
 
@@ -97,6 +103,34 @@ export default function SeatMapAdminPage() {
 
   function updateSession(id: number, changes: Partial<Session>) {
     setSessions((current) => current.map((item) => (item.id === id ? { ...item, ...changes } : item)));
+  }
+
+  /**
+   * Unggah gambar latar agenda.
+   *
+   * Memakai endpoint yang sama dengan Live Display (`/api/display/background`).
+   * Endpoint itu sudah generik: ia menerima berkas, memvalidasi jenis dan ukuran,
+   * lalu mengembalikan URL publik. Membuat endpoint kedua hanya akan menduplikasi
+   * aturan ukuran dan format, dan begitu salah satu diubah keduanya akan berbeda.
+   *
+   * Hasil unggahan hanya masuk ke state, BELUM tersimpan. Admin tetap harus
+   * menekan Simpan, sama seperti perubahan warna dan judul di kartu ini.
+   */
+  async function uploadSessionBackground(session: Session, file: File) {
+    setUploadingBackground(session.id); setError("");
+    const form = new FormData();
+    form.append("file", file);
+    const response = await fetch("/api/display/background", { method: "POST", body: form });
+    const data = await response.json().catch(() => null);
+    setUploadingBackground(null);
+    if (!response.ok) {
+      const failure = data?.error?.details?.file ?? data?.error?.message ?? "Upload gambar gagal.";
+      setError(failure);
+      toast.error("Upload gambar gagal", failure);
+      return;
+    }
+    updateSession(session.id, { background_image_url: data.url });
+    toast.info("Gambar terunggah", "Klik Simpan agenda untuk menerapkannya ke halaman denah.");
   }
 
   async function saveConfig() {
@@ -183,6 +217,7 @@ export default function SeatMapAdminPage() {
         background_color: session.background_color,
         text_color: session.text_color,
         accent_color: session.accent_color,
+        background_image_url: session.background_image_url,
         is_published: session.is_published,
         sort_order: session.sort_order,
       }),
@@ -238,10 +273,23 @@ export default function SeatMapAdminPage() {
               {sessions.map((item) => <button key={item.id} type="button" onClick={() => setPreviewSlug(item.slug)} aria-pressed={item.slug === previewSession?.slug}
                 className={`min-h-11 border px-3 text-sm font-semibold ${item.slug === previewSession?.slug ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)]"}`}>{item.name}</button>)}
             </div> : null}
-            <div className="mt-4 overflow-x-auto">
+            {/* Gambar latar dipasang di pembungkus, bukan diteruskan ke SeatMapView.
+                Komponen itu dipakai bersama halaman publik dan hanya mengenal warna;
+                menambah properti gambar ke sana berarti mengubah kontraknya hanya
+                untuk kebutuhan pratinjau. Denahnya sendiri dibuat transparan supaya
+                gambar di belakangnya terlihat. */}
+            <div
+              className="mt-4 overflow-x-auto bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundColor: previewSession?.background_color ?? "#111a63",
+                backgroundImage: previewSession?.background_image_url
+                  ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${previewSession.background_image_url})`
+                  : undefined,
+              }}
+            >
               <SeatMapView
                 config={config}
-                backgroundColor={previewSession?.background_color ?? "#111a63"}
+                backgroundColor={previewSession?.background_image_url ? "transparent" : (previewSession?.background_color ?? "#111a63")}
                 textColor={previewSession?.text_color ?? "#ffffff"}
                 accentColor={previewSession?.accent_color ?? "#f2c14e"}
                 className="min-w-[760px]"
@@ -483,6 +531,45 @@ export default function SeatMapAdminPage() {
                     <input id={`${key}-${session.id}`} type="color" value={session[key]} onChange={(event) => updateSession(session.id, { [key]: event.target.value })}
                       className="mt-1 h-11 w-full border border-[var(--line)]" />
                   </div>)}
+                </div>
+
+                {/* Gambar latar bersifat opsional dan berdiri di atas warna, bukan
+                    menggantikannya. Warna latar tetap dipakai di belakang gambar
+                    supaya teks tidak hilang bila gambar gagal dimuat di LED.
+                    Keterangan itu ditulis di layar, bukan hanya di komentar kode,
+                    karena admin tidak dapat menebaknya dari tampilan form. */}
+                <div className="mt-4">
+                  <p className="text-sm font-semibold">Gambar latar <span className="font-normal text-[var(--ink-muted)]">(opsional)</span></p>
+                  <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">
+                    Kosongkan untuk memakai warna latar saja. Gambar diberi lapisan gelap otomatis agar nomor meja dan QR tetap terbaca. PNG, JPG, atau WebP, maksimal 5 MB.
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <label className={`inline-flex min-h-11 cursor-pointer items-center gap-2 border border-[var(--line)] bg-[var(--background)] px-3 text-sm font-semibold hover:border-[var(--brand)] ${uploadingBackground === session.id ? "pointer-events-none opacity-60" : ""}`}>
+                      <UploadSimple size={17} weight="bold" />
+                      {uploadingBackground === session.id ? "Mengunggah…" : "Upload gambar"}
+                      <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                        disabled={uploadingBackground === session.id}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) void uploadSessionBackground(session, file);
+                          // Direset supaya memilih berkas yang sama dua kali tetap
+                          // memicu onChange.
+                          event.target.value = "";
+                        }} />
+                    </label>
+                    {session.background_image_url
+                      ? <button type="button" onClick={() => updateSession(session.id, { background_image_url: null })}
+                          className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--danger)] hover:border-[var(--danger)]">
+                          <XCircle size={17} weight="bold" /> Hapus gambar
+                        </button>
+                      : null}
+                  </div>
+                  {session.background_image_url
+                    ? <div className="mt-2 flex items-center gap-2">
+                        <span className="h-12 w-20 shrink-0 border border-[var(--line)] bg-cover bg-center" style={{ backgroundImage: `url(${session.background_image_url})` }} />
+                        <span className="break-all text-[11px] leading-4 text-[var(--ink-muted)]">{session.background_image_url}</span>
+                      </div>
+                    : null}
                 </div>
 
                 <label className="mt-4 flex min-h-11 cursor-pointer items-center gap-3 text-sm font-semibold">

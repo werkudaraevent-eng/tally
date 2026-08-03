@@ -66,6 +66,8 @@ export type SeatMapLedViewProps = {
   title: string;
   subtitle: string | null;
   backgroundColor: string;
+  /** Null berarti memakai warna solid saja. */
+  backgroundImageUrl?: string | null;
   textColor: string;
   accentColor: string;
   /** Waktu data terakhir berhasil dimuat; kosong berarti belum pernah berhasil. */
@@ -80,6 +82,7 @@ export function SeatMapLedView({
   title,
   subtitle,
   backgroundColor,
+  backgroundImageUrl = null,
   textColor,
   accentColor,
   lastLoadedAt,
@@ -98,9 +101,19 @@ export function SeatMapLedView({
 
   return (
     <div
-      className="flex min-h-dvh flex-col items-center justify-between overflow-hidden"
+      className="flex min-h-dvh flex-col items-center justify-between overflow-hidden bg-cover bg-center bg-no-repeat"
       style={{
-        background: backgroundColor,
+        // Warna tetap dipasang di belakang gambar, bukan digantikan olehnya:
+        // gambar bisa gagal dimuat di LED yang jaringannya buruk, dan tanpa warna
+        // latar teks terang akan hilang di atas putih polos.
+        backgroundColor,
+        // Overlay gelap ditumpuk sebagai gradient di atas gambar supaya teks, nomor
+        // meja, dan QR tetap terbaca di atas bagian gambar yang terang. Nilainya
+        // sama dengan Live Display agar kedua layar di ruangan yang sama tidak
+        // terlihat memakai aturan berbeda.
+        backgroundImage: backgroundImageUrl
+          ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${backgroundImageUrl})`
+          : undefined,
         color: textColor,
         // Padding ikut ukuran layar, bukan angka tetap, agar proporsinya tetap
         // terjaga dari monitor 24 inci sampai LED beberapa meter.

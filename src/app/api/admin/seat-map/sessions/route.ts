@@ -29,6 +29,12 @@ const createSchema = z.object({
   accent_color: hex.optional(),
 });
 
+// URL gambar latar hanya boleh datang dari endpoint upload, jadi bentuknya
+// divalidasi sebagai URL. `nullable` adalah bagian penting dari kontraknya:
+// null berarti admin memilih kembali ke warna solid, bukan berarti tidak ada
+// perubahan (itu diwakili oleh field yang tidak dikirim sama sekali).
+const backgroundImage = z.string().trim().url().max(600).nullable();
+
 const updateSchema = z.object({
   id: z.number().int().positive(),
   name: z.string().trim().min(1).max(120).optional(),
@@ -39,6 +45,7 @@ const updateSchema = z.object({
   background_color: hex.optional(),
   text_color: hex.optional(),
   accent_color: hex.optional(),
+  background_image_url: backgroundImage.optional(),
   is_published: z.boolean().optional(),
   sort_order: z.number().int().min(0).max(999).optional(),
 });
@@ -115,6 +122,9 @@ export async function POST(request: Request) {
       background_color: parsed.data.background_color ?? "#111a63",
       text_color: parsed.data.text_color ?? "#ffffff",
       accent_color: parsed.data.accent_color ?? "#f2c14e",
+      // Agenda baru selalu mulai dari warna solid. Gambar latar dipilih setelahnya
+      // lewat upload, jadi tidak ada nilai yang bisa ditebak di sini.
+      background_image_url: null,
       // Selalu draf. Agenda baru belum punya sumber penempatan, jadi bila
       // langsung publik ia tampil sebagai denah dengan semua kursi kosong.
       is_published: false,

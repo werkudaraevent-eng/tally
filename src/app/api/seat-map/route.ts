@@ -84,6 +84,7 @@ export async function GET(request: Request) {
         background_color: session.background_color,
         text_color: session.text_color,
         accent_color: session.accent_color,
+        background_image_url: session.background_image_url,
         has_assignments: session.sub_event_id !== null,
       },
       config: {

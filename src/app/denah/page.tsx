@@ -30,6 +30,7 @@ type SessionInfo = {
   background_color: string;
   text_color: string;
   accent_color: string;
+  background_image_url: string | null;
   has_assignments: boolean;
 };
 type Summary = {
@@ -192,6 +193,14 @@ export default function SeatMapPage() {
   const background = session?.background_color ?? "#111a63";
   const ink = session?.text_color ?? "#ffffff";
   const accent = session?.accent_color ?? "#f2c14e";
+  // Null berarti admin memilih warna solid. `background_color` tetap dipasang di
+  // belakang gambar, bukan digantikan olehnya: gambar bisa gagal dimuat di LED
+  // yang jaringannya buruk, dan latar putih polos akan membuat teks putih hilang.
+  const backgroundImage = session?.background_image_url ?? null;
+  // Overlay gelap di atas gambar. Tanpa ini teks dan nomor meja bertabrakan dengan
+  // bagian gambar yang terang. Nilainya sama dengan Live Display supaya kedua layar
+  // di ruangan yang sama tidak terlihat memakai aturan berbeda.
+  const imageOverlay = backgroundImage ? "rgba(0,0,0,0.55)" : "transparent";
 
   // Penimpa lewat URL menang atas setelan CMS. Layar yang sudah dipasang di
   // dinding tidak bisa diubah dari jauh, jadi alamatnya harus bisa memaksa mode.
@@ -257,6 +266,7 @@ export default function SeatMapPage() {
         title={session.title}
         subtitle={session.subtitle}
         backgroundColor={background}
+        backgroundImageUrl={backgroundImage}
         textColor={ink}
         accentColor={accent}
         lastLoadedAt={lastLoadedAt}
@@ -265,7 +275,20 @@ export default function SeatMapPage() {
   }
 
   return (
-    <main className="min-h-dvh px-4 py-6 sm:px-6" style={{ background, color: ink }}>
+    <main
+      className="min-h-dvh bg-cover bg-center bg-no-repeat px-4 py-6 sm:px-6"
+      style={{
+        backgroundColor: background,
+        color: ink,
+        // Overlay ditumpuk sebagai gradient di ATAS gambar dalam satu properti
+        // `backgroundImage`. Cara ini dipilih daripada menambah elemen pembungkus
+        // baru: menyisipkan wrapper di sini berarti mengubah struktur seluruh
+        // halaman pencarian hanya untuk menggelapkan latar.
+        backgroundImage: backgroundImage
+          ? `linear-gradient(${imageOverlay}, ${imageOverlay}), url(${backgroundImage})`
+          : undefined,
+      }}
+    >
       <div className="mx-auto max-w-[1180px]">
         <header className="text-center">
           {session?.subtitle ? (
