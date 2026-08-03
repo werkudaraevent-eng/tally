@@ -22,10 +22,23 @@ import type { SeatMapConfig } from "@/lib/seat-map";
 // pada layar landscape menyisakan ruang kosong di samping sementara isinya
 // justru melimpah ke bawah sampai denah terdorong keluar pandangan.
 
-// Lebar blok QR dipakai bersama oleh kode QR dan daftar langkah di bawahnya.
-// Sebelumnya panduan memakai lebar penuh kolom sementara QR jauh lebih sempit,
-// sehingga keduanya terbaca sebagai dua elemen lepas alih-alih satu ajakan.
-const QR_BLOCK_WIDTH = "portrait:w-[min(42vmin,54vw,30vh)] landscape:w-[min(34vmin,30vw,46vh)]";
+// Lebar kode QR.
+//
+// Batas `vh` pada porsi portrait dinaikkan, bukan diturunkan. Denah TIDAK dapat
+// tumbuh untuk mengisi tinggi yang tersisa: lebarnya sudah dipakai penuh dan
+// bentuknya melebar, jadi pada 1080x1920 tingginya terukur hanya 554px. Karena
+// ruang vertikal di portrait berlimpah, mengecilkan QR hanya memperbesar area
+// kosong tanpa memberi keuntungan pada denah.
+const QR_WIDTH = "portrait:w-[min(40vmin,52vw,24vh)] landscape:w-[min(34vmin,30vw,46vh)]";
+
+// Lebar daftar langkah.
+//
+// Di landscape disamakan dengan QR agar keduanya terbaca sebagai satu ajakan.
+// Di portrait TIDAK boleh ikut lebar QR: lebar itu ditentukan oleh sisi bujur
+// sangkar QR, sementara ukuran huruf punya batas bawah 12px. Pada portrait yang
+// sempit kombinasi itu memaksa "Arahkan ke kode QR di atas" pecah jadi tiga baris
+// dan langkah-langkahnya jadi sulit dipindai mata.
+const GUIDE_WIDTH = "portrait:w-[min(76vw,620px)] landscape:w-[min(34vmin,30vw,46vh)]";
 
 // Panduan dipecah menjadi langkah bernomor, bukan satu kalimat panjang.
 //
@@ -114,9 +127,14 @@ export function SeatMapLedView({
         </h1>
       </header>
 
-      {/* Inti layar. Portrait: QR di atas denah. Landscape: berdampingan. */}
+      {/* Inti layar. Portrait: QR di atas denah. Landscape: berdampingan.
+
+          Portrait memakai `justify-evenly`. Karena denah tidak dapat mengisi tinggi
+          yang tersisa, selalu ada ruang lebih di portrait; `justify-evenly` membagi
+          ruang itu rata sehingga terbaca sebagai jarak yang disengaja, bukan dua
+          lubang kosong seperti saat ruangnya menumpuk di satu tempat. */}
       <div
-        className="flex w-full min-h-0 flex-1 items-center justify-center portrait:flex-col landscape:flex-row"
+        className="flex w-full min-h-0 flex-1 justify-center portrait:flex-col portrait:items-center portrait:justify-evenly landscape:flex-row landscape:items-center"
         style={{ gap: "clamp(10px, 2.4vmin, 44px)" }}
       >
         {/* Kolom dipersempit dari 42%: QR tidak pernah selebar itu, jadi sisanya
@@ -137,7 +155,7 @@ export function SeatMapLedView({
           {/* Sisi QR dibatasi lebar maupun tinggi. Tanpa batas tinggi, pada layar
               yang sangat panjang QR akan mendorong denah keluar dari pandangan. */}
           <div
-            className={QR_BLOCK_WIDTH}
+            className={QR_WIDTH}
             style={{
               background: "#ffffff",
               padding: "clamp(6px, 1.2vmin, 20px)",
@@ -165,7 +183,7 @@ export function SeatMapLedView({
               Opasitas juga dilepas: panduan ini instruksi utama, bukan keterangan
               tambahan, jadi tidak boleh tampil lebih pudar dari isi lainnya. */}
           <ol
-            className={`flex flex-col ${QR_BLOCK_WIDTH}`}
+            className={`flex flex-col ${GUIDE_WIDTH}`}
             style={{ gap: "clamp(4px, 0.9vmin, 14px)", fontSize: "clamp(12px, max(1.9vmin, 0.9vw), 32px)" }}
           >
             {SCAN_STEPS.map((step, index) => (
@@ -194,7 +212,11 @@ export function SeatMapLedView({
         {/* 64%, menyeimbangkan kolom QR yang dipersempit ke 36%. Kalau dibiarkan
             58% ada 6% lebar yang tidak dipakai siapa pun, dan denah tampil lebih
             kecil dari ruang yang sebenarnya tersedia untuknya. */}
-        <div className="flex w-full min-w-0 items-center justify-center portrait:max-h-[36vh] landscape:max-h-[74vh] landscape:w-[64%]">
+        {/* Sengaja TIDAK memakai `flex-1` di portrait. Denah dibatasi lebar, bukan
+            tinggi, jadi memberinya sisa tinggi tidak membuatnya lebih besar — hanya
+            memindahkan ruang kosong ke atas dan bawahnya. Membiarkan tingginya
+            sesuai isi membuat `justify-evenly` di induk yang mengatur jaraknya. */}
+        <div className="flex w-full min-w-0 items-center justify-center portrait:min-h-0 landscape:max-h-[74vh] landscape:w-[64%]">
           <SeatMapView
             config={config}
             seatStates={seatStates}
@@ -206,7 +228,12 @@ export function SeatMapLedView({
             // `maxHeight: 100%`. Persentase butuh induk dengan tinggi pasti;
             // di dalam flex hal itu tidak terjamin, sehingga pada layar sangat
             // lebar denah melewati batas dan terpotong.
-            className="mx-auto portrait:max-h-[34vh] landscape:max-h-[68vh]"
+            //
+            // Portrait dinaikkan 34vh -> 52vh. Angka lama menyisakan ruang kosong
+            // yang tidak dipakai siapa pun; denah adalah isi terpadat di layar ini,
+            // jadi ruang itu lebih berguna untuknya. Batas tetap ada supaya denah
+            // tidak pernah mendorong QR keluar dari pandangan.
+            className="mx-auto portrait:max-h-[52vh] landscape:max-h-[68vh]"
           />
         </div>
       </div>
