@@ -7,7 +7,8 @@ import { SeatMapLedView } from "@/components/seat-map-led-view";
 import { SeatMapView, type SeatState } from "@/components/seat-map-view";
 import { normalizeBranding, type Branding } from "@/lib/branding";
 import { computeSeatMapGeometry, normalizePublicViewMode, normalizeSeatLabel, type PublicViewMode, type SeatMapConfig } from "@/lib/seat-map";
-import { formatWibTimeWithSeconds } from "@/lib/datetime";
+import { formatEventTimeWithSeconds } from "@/lib/datetime";
+import { normalizeTimeZone } from "@/lib/timezone";
 
 // Denah tempat duduk publik. Tanpa login, dibuka tamu dari ponsel di lokasi.
 //
@@ -51,6 +52,9 @@ type MapPayload = {
   seats: Record<string, SeatInfo>;
   summary: Summary | null;
   public_view_mode?: PublicViewMode;
+  // Ikut payload denah, bukan dari /api/settings: halaman ini publik dan endpoint
+  // setelan butuh login.
+  time_zone?: string;
 };
 type SearchResult = { name: string; seat_labels: string[]; normalized_labels: string[] };
 
@@ -108,7 +112,9 @@ export default function SeatMapPage() {
       if (!response.ok) throw new Error("gagal");
       const data = (await response.json()) as MapPayload;
       setPayload(data);
-      setLastLoadedAt(formatWibTimeWithSeconds(new Date().toISOString()));
+      // Diformat saat disimpan, memakai zona yang datang bersama payload yang sama.
+      // Jadi jam "terakhir dimuat" selalu sezona dengan data yang ditampilkan.
+      setLastLoadedAt(formatEventTimeWithSeconds(new Date().toISOString(), normalizeTimeZone(data.time_zone)));
       setFailed(false);
       if (data.session) setActiveSlug(data.session.slug);
     } catch {

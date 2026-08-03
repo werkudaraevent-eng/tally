@@ -3,7 +3,8 @@
 import { ArrowLeft, ClipboardText, Funnel, Warning, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { formatWibDateTime } from "@/lib/datetime";
+import { formatEventDateTime } from "@/lib/datetime";
+import { useEventTimeZone } from "@/lib/use-event-timezone";
 
 type Entry = {
   id: number;
@@ -24,6 +25,7 @@ const CATEGORIES: Array<{ value: string; label: string }> = [
   { value: "offers", label: "Item spesial" },
   { value: "booths", label: "Booth" },
   { value: "payment_methods", label: "Metode pembayaran" },
+  { value: "rundown", label: "Rundown acara" },
   { value: "users", label: "User & role" },
   { value: "danger", label: "Danger zone" },
   { value: "orders", label: "Transaksi" },
@@ -43,6 +45,13 @@ const ACTION_LABEL: Record<string, string> = {
   payment_method_create: "Menambah metode pembayaran",
   payment_method_update: "Mengubah metode pembayaran",
   payment_method_delete: "Menghapus metode pembayaran",
+  rundown_header_update: "Mengubah header rundown",
+  rundown_section_create: "Menambah bagian rundown",
+  rundown_section_update: "Mengubah bagian rundown",
+  rundown_section_delete: "Menghapus bagian rundown",
+  rundown_item_create: "Menambah baris rundown",
+  rundown_item_update: "Mengubah baris rundown",
+  rundown_item_delete: "Menghapus baris rundown",
   user_create: "Membuat akun",
   user_update: "Mengubah akun",
   admin_reset_records: "Mengosongkan data pencatatan",
@@ -148,6 +157,7 @@ export default function AuditTrailPage() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { zone, abbr } = useEventTimeZone();
 
   const PAGE_SIZE = 50;
 
@@ -214,7 +224,7 @@ export default function AuditTrailPage() {
                   <p className="mt-1 text-xs text-[var(--ink-muted)]">
                     <span className="font-semibold text-[var(--ink)]">{entry.actor_username}</span>
                     {entry.actor_role && <span> ({entry.actor_role})</span>}
-                    {" · "}{formatWibDateTime(entry.created_at)} WIB
+                    {" · "}{formatEventDateTime(entry.created_at, zone)} {abbr}
                   </p>
 
                   {/* Hanya field yang berubah, bukan seluruh payload. */}

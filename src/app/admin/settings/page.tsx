@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 import { PaymentMethodManager } from "@/components/admin/payment-method-manager";
-import { formatWibDateTime } from "@/lib/datetime";
+import { formatEventDateTime } from "@/lib/datetime";
+import { DEFAULT_TIME_ZONE, EVENT_TIME_ZONES, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 
 const RESET_PHRASE = "HAPUS SEMUA DATA";
 
@@ -15,6 +16,7 @@ type Settings = {
   leaderboard_enabled: boolean;
   pending_auto_void_minutes: number;
   cashier_confirmation_required: boolean;
+  time_zone: EventTimeZone;
   updated_at?: string;
 };
 
@@ -63,6 +65,7 @@ export default function AdminSettingsPage() {
       pickup_mode: settings.pickup_mode,
       pending_auto_void_minutes: settings.pending_auto_void_minutes,
       cashier_confirmation_required: settings.cashier_confirmation_required,
+      time_zone: settings.time_zone,
     }) });
     const data = await response.json();
     setSaving(false);
@@ -95,6 +98,25 @@ export default function AdminSettingsPage() {
       {message && <div role="status" className="mt-6 flex items-center gap-2 border border-[#B9DCC5] bg-[#EEF8F0] p-4 text-sm text-[var(--brand-strong)]"><CheckCircle size={20} />{message}</div>}
 
       {!settings ? <p className="mt-8 text-sm text-[var(--ink-muted)]">Memuat settings...</p> : <div className="mt-8 space-y-px border border-[var(--line)] bg-[var(--line)]">
+        {/* Zona waktu ditaruh paling atas karena ia menentukan arti setiap angka jam
+            di halaman lain: order, audit, Live Display, denah, dan penanda "sedang
+            berlangsung" di rundown. Setelan yang salah di sini membuat semua jam
+            tampak wajar tapi geser serentak. */}
+        <section className="bg-[var(--surface)] p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Zona waktu acara</h2>
+          <p className="mt-3 text-sm text-[var(--ink-muted)]">Ikuti zona <span className="font-semibold text-[var(--ink)]">lokasi acara</span>, bukan zona kantor atau laptop panitia. Semua jam di app dipaksa ke zona ini agar tidak berbeda antar device.</p>
+          <div className="mt-4 space-y-2">
+            {EVENT_TIME_ZONES.map((option) => <label key={option.id} className={`flex cursor-pointer gap-3 border p-4 ${settings.time_zone === option.id ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)]"}`}>
+              <input type="radio" name="time-zone" checked={settings.time_zone === option.id} onChange={() => setSettings((current) => current && { ...current, time_zone: option.id })} className="mt-1 size-4 accent-[var(--brand)]" />
+              <span><span className="block text-sm font-semibold">{option.label}</span><span className="mt-1 block text-xs text-[var(--ink-muted)]">{option.hint}</span></span>
+            </label>)}
+          </div>
+          <div className="mt-4 flex items-start gap-2 border border-[#E6D3AE] bg-[#FDF6E7] p-4 text-sm text-[var(--warning)]">
+            <Warning size={18} weight="fill" className="mt-0.5 shrink-0" />
+            <span>Mengubah zona ikut menggeser <span className="font-semibold">jam order yang sudah tercatat</span> saat ditampilkan, karena yang tersimpan adalah waktu absolut. Setel sekali sebelum acara mulai, lalu jangan diubah lagi di tengah acara agar laporan tidak dibaca dengan dua zona berbeda. Jam pada rundown adalah jam dinding yang diketik panitia, jadi angkanya tidak berubah &mdash; yang menyesuaikan hanya penanda &ldquo;sedang berlangsung&rdquo;.</span>
+          </div>
+        </section>
+
         <section className="bg-[var(--surface)] p-6">
           <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Penyerahan barang</h2>
           <div className="mt-4 space-y-2">
@@ -136,7 +158,7 @@ export default function AdminSettingsPage() {
 
         <section className="bg-[var(--surface)] p-6">
           <button onClick={save} disabled={saving} className="flex min-h-14 w-full items-center justify-center gap-2 bg-[var(--brand)] text-sm font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-50"><GearSix size={19} />{saving ? "Menyimpan..." : "Simpan perubahan"}</button>
-          {settings.updated_at && <p className="mt-3 text-center text-xs text-[var(--ink-muted)]">Terakhir diubah {formatWibDateTime(settings.updated_at)} WIB</p>}
+          {settings.updated_at && <p className="mt-3 text-center text-xs text-[var(--ink-muted)]">Terakhir diubah {formatEventDateTime(settings.updated_at, settings.time_zone ?? DEFAULT_TIME_ZONE)} {timeZoneAbbr(settings.time_zone ?? DEFAULT_TIME_ZONE)}</p>}
         </section>
       </div>}
 

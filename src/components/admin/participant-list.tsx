@@ -2,6 +2,8 @@
 
 import { ArrowDown, ArrowUp, ArrowsDownUp, CaretLeft, CaretRight, MagnifyingGlass, UsersThree, WarningCircle, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
+import { formatEventDateTime } from "@/lib/datetime";
+import { DEFAULT_TIME_ZONE, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 
 type ParticipantSeat = { subEventId: string; subEventName: string; label: string };
 type Participant = { id: string; qr_code: string; name: string; company: string | null; title: string | null; participant_type: string | null; rsvp_status: string | null; source_checked_in: boolean; source_total_scans: number; source_synced_at: string | null; source_removed_at: string | null; seats: ParticipantSeat[] | null };
@@ -24,7 +26,11 @@ const COLUMNS: Array<{ key: SortKey; label: string; align?: "right" }> = [
 // bisa diklik tapi tidak mengubah apa pun hanya membingungkan.
 const SEAT_COLUMN_LABEL = "Kursi";
 
-export function ParticipantList({ reloadKey = 0 }: { reloadKey?: number }) {
+export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, timeZoneAbbr: abbr }: {
+  reloadKey?: number;
+  timeZone?: EventTimeZone;
+  timeZoneAbbr?: string;
+}) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -71,7 +77,7 @@ export function ParticipantList({ reloadKey = 0 }: { reloadKey?: number }) {
 
   return <section className="mt-8 w-full border border-[var(--line)] bg-[var(--surface)]">
     <div className="flex flex-col justify-between gap-4 border-b border-[var(--line)] p-5 sm:flex-row sm:items-center">
-      <div><h2 className="font-semibold">Daftar peserta</h2><p className="mt-1 text-xs text-[var(--ink-muted)]">{activeTotal} peserta aktif{removedCount > 0 ? ` · ${removedCount} sudah dihapus di sumber` : ""}{lastSyncedAt ? ` · sinkron ${new Date(lastSyncedAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}` : ""}</p></div>
+      <div><h2 className="font-semibold">Daftar peserta</h2><p className="mt-1 text-xs text-[var(--ink-muted)]">{activeTotal} peserta aktif{removedCount > 0 ? ` · ${removedCount} sudah dihapus di sumber` : ""}{lastSyncedAt ? ` · sinkron ${formatEventDateTime(lastSyncedAt, timeZone)} ${abbr ?? timeZoneAbbr(timeZone)}` : ""}</p></div>
       <div className="relative"><MagnifyingGlass size={18} className="absolute left-3 top-3 text-[var(--ink-muted)]" /><input value={query} onChange={(event) => setQuery(event.target.value)} className="h-11 w-full border border-[var(--line)] bg-[var(--background)] pl-10 pr-3 text-sm outline-none focus:border-[var(--brand)] sm:w-72" placeholder="Cari nama, perusahaan, QR" /></div>
     </div>
     {error && <div role="alert" className="m-5 flex items-center gap-2 border border-[#E9C7C4] bg-[#FFF2F0] p-3 text-sm text-[var(--danger)]"><XCircle size={18} />{error}</div>}

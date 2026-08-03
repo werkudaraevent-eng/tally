@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ParticipantList } from "@/components/admin/participant-list";
 import { useToast } from "@/components/toast";
-import { formatWibDateTime } from "@/lib/datetime";
+import { formatEventDateTime } from "@/lib/datetime";
+import { useEventTimeZone } from "@/lib/use-event-timezone";
 
 const AUTO_OPTIONS = [
   { label: "Mati", value: 0 },
@@ -22,6 +23,7 @@ export default function ParticipantsAdminPage() {
   const [autoMinutes, setAutoMinutes] = useState(0);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const { zone, abbr } = useEventTimeZone();
   const toast = useToast();
 
   const sync = useCallback(async () => {
@@ -87,12 +89,15 @@ export default function ParticipantsAdminPage() {
           </label>
           <div className="mt-5 border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-xs leading-5 text-[var(--ink-muted)]">
             <p>{autoMinutes > 0 ? <>Sync otomatis aktif setiap <span className="font-semibold text-[var(--ink)]">{autoMinutes} menit</span> selama halaman ini terbuka.</> : "Sync otomatis mati. Data hanya diperbarui saat tombol Sync ditekan."}</p>
-            <p className="mt-2">Sync terakhir: <span className="font-semibold text-[var(--ink)]">{lastSyncedAt ? `${formatWibDateTime(lastSyncedAt)} WIB` : "belum ada"}</span>{syncing ? " · sedang berjalan..." : ""}</p>
+            <p className="mt-2">Sync terakhir: <span className="font-semibold text-[var(--ink)]">{lastSyncedAt ? `${formatEventDateTime(lastSyncedAt, zone)} ${abbr}` : "belum ada"}</span>{syncing ? " · sedang berjalan..." : ""}</p>
           </div>
         </section>
       </div>
 
-      <ParticipantList reloadKey={reloadKey} />
+      {/* Zona diteruskan sebagai prop, bukan dibaca ulang di dalam ParticipantList:
+          keduanya menampilkan jam sync yang sama, dan dua permintaan terpisah bisa
+          sesaat menunjukkan zona berbeda di satu halaman. */}
+      <ParticipantList reloadKey={reloadKey} timeZone={zone} timeZoneAbbr={abbr} />
     </div>
   </main>;
 }

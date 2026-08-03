@@ -4,6 +4,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { computeSeatMapGeometry, normalizeSeatLabel } from "@/lib/seat-map";
 import { loadAssignmentsForSession, loadSeatMapConfig, loadSessions, resolveSession } from "@/lib/seat-map-data";
 import { publicSeatOccupantLabel, type NameDisplayMode } from "@/lib/seat-map-privacy";
+import { DEFAULT_TIME_ZONE, normalizeTimeZone } from "@/lib/timezone";
 
 // Denah publik. Tanpa login, mengikuti pola /api/leaderboard.
 //
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
     if (sessions.length === 0) {
       // Bukan error: sebelum hari H memang belum ada yang dipublikasikan.
       // Halaman publik menampilkan pesan tunggu, bukan layar rusak.
-      return Response.json({ published: false, sessions: [], session: null, config: null, seats: {}, summary: null });
+      return Response.json({ published: false, sessions: [], session: null, config: null, seats: {}, summary: null, time_zone: DEFAULT_TIME_ZONE });
     }
 
     const session = resolveSession(sessions, {
@@ -38,12 +39,17 @@ export async function GET(request: Request) {
     if (!session) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
 
     const [settingsResult, assignmentData] = await Promise.all([
-      getSupabaseServiceClient().from("event_settings").select("name_display_mode").eq("id", 1).single(),
+      // Zona waktu ikut diambil di query yang memang sudah ada, bukan lewat
+      // permintaan kedua: halaman /denah publik sehingga tidak bisa memakai
+      // /api/settings yang butuh login, dan jam "terakhir dimuat" di sana harus
+      // memakai zona acara.
+      getSupabaseServiceClient().from("event_settings").select("name_display_mode,time_zone").eq("id", 1).single(),
       loadAssignmentsForSession(session.sub_event_id),
     ]);
 
-    const mode = ((settingsResult.data as { name_display_mode?: NameDisplayMode } | null)?.name_display_mode
-      ?? "initials") as NameDisplayMode;
+    const settingsRow = settingsResult.data as { name_display_mode?: NameDisplayMode; time_zone?: string } | null;
+    const mode = (settingsRow?.name_display_mode ?? "initials") as NameDisplayMode;
+    const timeZone = normalizeTimeZone(settingsRow?.time_zone);
 
     const geometry = computeSeatMapGeometry(config);
     const knownSeatLabels = new Set<string>();
@@ -113,6 +119,7 @@ export async function GET(request: Request) {
       // Mode bawaan layar. Halaman publik boleh menimpanya lewat ?mode= agar
       // satu acara bisa menjalankan LED dan layar sentuh sekaligus.
       public_view_mode: config.public_view_mode,
+      time_zone: timeZone,
       seats,
       summary: {
         total_tables: geometry.totalTables,

@@ -759,7 +759,7 @@ Jika waktu sangat mepet, `regular_amount` bisa dibuat sebagai satu field angka s
 - **Session:** jangan auto-logout selama event (durasi minimal 12 jam).
 - **Role enforcement di server.** Admin booth tidak boleh bisa memanggil endpoint kasir walaupun tahu URL-nya.
 - **Semua nominal disimpan sebagai integer rupiah.** Jangan gunakan float.
-- **Timezone:** Asia/Jakarta (WIB) untuk semua tampilan.
+- **Timezone:** mengikuti setelan `event_settings.time_zone` (WIB / WITA / WIT) untuk semua tampilan, bukan lagi dipaku ke Asia/Jakarta. Diatur admin di `/admin/settings` sesuai **lokasi acara**; acara 2026 di Bali memakai WITA. Dibatasi tiga zona Indonesia karena aplikasi memakai offset tetap — ketiganya tanpa DST.
 - **Responsive:** App Booth dan Kasir dioptimalkan untuk mobile portrait. Live Display untuk landscape 1920×1080.
 - **Target sentuh minimal 48×48px.** Semua tombol aksi utama minimal 64px tinggi.
 - **Audit log wajib** untuk setiap perubahan status.

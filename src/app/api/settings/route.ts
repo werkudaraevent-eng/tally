@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireUser } from "@/lib/auth/guards";
+import { TIME_ZONE_IDS } from "@/lib/timezone";
 
 const patchSchema = z.object({
   pickup_mode: z.enum(["after_payment", "immediate"]).optional(),
@@ -9,9 +10,12 @@ const patchSchema = z.object({
   leaderboard_enabled: z.boolean().optional(),
   pending_auto_void_minutes: z.number().int().min(5).max(1440).optional(),
   cashier_confirmation_required: z.boolean().optional(),
+  // Daftar zona diambil dari satu sumber yang sama dengan CHECK constraint di
+  // database, jadi keduanya tidak bisa menyimpang.
+  time_zone: z.enum(TIME_ZONE_IDS as unknown as [string, ...string[]]).optional(),
 });
 
-const SELECT = "pickup_mode,name_display_mode,leaderboard_enabled,pending_auto_void_minutes,cashier_confirmation_required,updated_at";
+const SELECT = "pickup_mode,name_display_mode,leaderboard_enabled,pending_auto_void_minutes,cashier_confirmation_required,time_zone,updated_at";
 
 export async function GET() {
   const auth = await requireUser(["booth", "cashier", "admin"]);

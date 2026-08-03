@@ -6,12 +6,16 @@ import { useEffect, useState } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
-import { formatWibDateTime } from "@/lib/datetime";
+import { formatEventDateTime } from "@/lib/datetime";
+import { DEFAULT_TIME_ZONE, normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 
 type NameDisplayMode = "full" | "initials" | "company_only" | "hidden";
 type EventSettings = {
   leaderboard_enabled: boolean;
   name_display_mode: NameDisplayMode;
+  // Hanya dibaca di halaman ini, tidak diubah: zona diatur di /admin/settings
+  // supaya tidak ada dua form yang menulis satu nilai yang sama.
+  time_zone: EventTimeZone;
 };
 
 const namePreview: Record<NameDisplayMode, string> = {
@@ -49,7 +53,7 @@ export default function DisplaySettingsPage() {
 
   useEffect(() => { const timer = window.setTimeout(() => {
     void fetch("/api/display/settings", { cache: "no-store" }).then(async (response) => { if (response.ok) setSettings(await response.json()); else setError("Setting display gagal dimuat."); });
-    void fetch("/api/settings", { cache: "no-store" }).then(async (response) => { if (response.ok) { const data = await response.json(); setEvent({ leaderboard_enabled: data.leaderboard_enabled, name_display_mode: data.name_display_mode }); } });
+    void fetch("/api/settings", { cache: "no-store" }).then(async (response) => { if (response.ok) { const data = await response.json(); setEvent({ leaderboard_enabled: data.leaderboard_enabled, name_display_mode: data.name_display_mode, time_zone: normalizeTimeZone(data.time_zone) }); } });
   }, 0); return () => window.clearTimeout(timer); }, []);
 
   function update<K extends keyof DisplaySettings>(key: K, value: DisplaySettings[K]) {
@@ -243,7 +247,7 @@ export default function DisplaySettingsPage() {
 
           <section className="bg-[var(--surface)] p-6">
             <button onClick={save} disabled={saving} className="flex min-h-14 w-full items-center justify-center gap-2 bg-[var(--brand)] text-sm font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-50">{saving ? "Menyimpan..." : "Simpan tampilan"}</button>
-            {settings.updated_at && <p className="mt-3 text-center text-xs text-[var(--ink-muted)]">Terakhir diubah {formatWibDateTime(settings.updated_at)} WIB</p>}
+            {settings.updated_at && <p className="mt-3 text-center text-xs text-[var(--ink-muted)]">Terakhir diubah {formatEventDateTime(settings.updated_at, event?.time_zone ?? DEFAULT_TIME_ZONE)} {timeZoneAbbr(event?.time_zone ?? DEFAULT_TIME_ZONE)}</p>}
           </section>
         </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArmchairIcon, ChartBar, ClipboardText, GearSix, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UsersThree } from "@phosphor-icons/react";
+import { ArmchairIcon, CalendarDots, ChartBar, ClipboardText, GearSix, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UsersThree } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -15,6 +15,7 @@ const navigation = [
   { href: "/admin/users", label: "User & role", icon: ShieldCheck, ownerOnly: false },
   { href: "/admin/display", label: "Live Display", icon: MonitorPlay, ownerOnly: false },
   { href: "/admin/seat-map", label: "Denah kursi", icon: ArmchairIcon, ownerOnly: false },
+  { href: "/admin/rundown", label: "Rundown acara", icon: CalendarDots, ownerOnly: false },
   // Audit trail merekam tindakan klien, jadi hanya pemilik sistem yang melihatnya.
   // Server juga menolak lewat requireUser(["super_admin"]); menyembunyikan link
   // agar klien tidak menemui halaman yang pasti gagal.

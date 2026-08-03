@@ -34,29 +34,30 @@ export type BrandHeaderProps = {
   className?: string;
 };
 
-// Ukuran bawaan, dipertahankan sama persis dengan nilai yang sudah ada di kedua
-// layar sebelum branding CMS. Skala admin mengalikan angka-angka ini; skala 1
-// mengembalikan string aslinya tanpa disentuh.
+// Ukuran bawaan. Skala admin mengalikan angka-angka ini; skala 1 mengembalikan
+// string aslinya tanpa disentuh.
 //
-// Nilai `compact` sengaja menyalin kelas Tailwind yang dipakai halaman /denah
-// sebelumnya, bukan angka yang kelihatan sepadan:
-//
-//   * judul `text-2xl sm:text-3xl` — 24px di bawah 640px, 30px di atasnya.
-//     Rumus `4.7vw` mencapai tepat 30px pada 640px, sehingga peralihannya jatuh
-//     di titik yang sama dengan breakpoint `sm:` yang digantikannya.
-//   * sub judul `text-xs` — 12px pada semua ukuran layar, jadi tidak ada rentang
-//     yang perlu ditiru.
-//
-// Percobaan pertama memakai batas bawah 18px dan 10px, dan itu memperkecil judul
-// serta sub judul di layar ponsel dibanding sebelum fitur ini ada. Perubahan itu
-// tidak diminta siapa pun, jadi angkanya dikembalikan ke nilai aslinya.
+// Nilai `compact` untuk judul menyalin kelas Tailwind yang dipakai /denah
+// sebelumnya, bukan angka yang kelihatan sepadan: `text-2xl sm:text-3xl` berarti
+// 24px di bawah 640px dan 30px di atasnya, dan rumus `4.7vw` mencapai tepat 30px
+// pada 640px sehingga peralihannya jatuh di titik yang sama dengan breakpoint
+// `sm:` yang digantikannya.
 const TITLE_SIZE: Record<Variant, string> = {
   led: "clamp(20px, 3.9vmin, 76px)",
   compact: "clamp(24px, 4.7vw, 30px)",
 };
+
+// Sub judul kini seukuran teks biasa, bukan kelir mungil.
+//
+// Sebelumnya 11px/12px karena ia dirender sebagai kelir huruf besar berjarak
+// lebar di ATAS judul. Setelah ia menjadi baris keterangan di BAWAH judul (lihat
+// alasannya di BrandHeader), ukuran sekecil itu membuatnya nyaris tak terbaca di
+// LED dari jarak jauh. Angkanya diambil sekitar 45% dari ukuran judul, proporsi
+// judul-terhadap-keterangan yang lazim, dan admin tetap bisa menggesernya lewat
+// `subtitle_scale` di CMS.
 const SUBTITLE_SIZE: Record<Variant, string> = {
-  led: "clamp(11px, 1.5vmin, 28px)",
-  compact: "12px",
+  led: "clamp(12px, 1.8vmin, 34px)",
+  compact: "clamp(13px, 2.2vw, 15px)",
 };
 
 /**
@@ -123,25 +124,6 @@ export function BrandHeader({ branding, title, subtitle, textColor, accentColor,
     <header className={`w-full shrink-0 text-center ${className ?? ""}`}>
       <BrandLogo branding={branding} variant={variant} />
 
-      {subtitle ? (
-        <p
-          className="font-semibold uppercase"
-          style={{
-            fontFamily: headingFont,
-            fontSize: scaleClamp(SUBTITLE_SIZE[variant], branding.subtitle_scale),
-            letterSpacing: variant === "led" ? "0.3em" : "0.28em",
-            // Null berarti "ikut warna dasar", bukan "tanpa warna". Sub judul
-            // jatuh ke warna teks dengan opasitas seperti sebelumnya; begitu admin
-            // memilih warna khusus, opasitas dilepas supaya warna pilihannya tampil
-            // apa adanya dan bukan versi pudarnya.
-            color: branding.subtitle_color ?? textColor,
-            opacity: branding.subtitle_color ? 1 : variant === "led" ? 0.75 : 0.7,
-          }}
-        >
-          {subtitle}
-        </p>
-      ) : null}
-
       <h1
         className="text-balance font-bold uppercase"
         style={{
@@ -149,12 +131,43 @@ export function BrandHeader({ branding, title, subtitle, textColor, accentColor,
           fontSize: scaleClamp(TITLE_SIZE[variant], branding.title_scale),
           lineHeight: variant === "led" ? 1.1 : 1.15,
           letterSpacing: "0.02em",
-          marginTop: subtitle ? (variant === "led" ? "clamp(2px, 0.8vmin, 14px)" : "0.5rem") : undefined,
           color: branding.title_color ?? textColor,
         }}
       >
         {title}
       </h1>
+
+      {/* Sub judul DI BAWAH judul, bukan di atasnya.
+          Urutan sebelumnya menempatkannya sebagai kelir huruf besar berjarak lebar
+          di atas judul. Bentuk itu hanya benar ketika isinya memang label pendek
+          ("EVENT SCHEDULE"); begitu panitia mengisinya dengan tagline acara yang
+          panjang, teks terpanjang di header justru dirender paling kecil dan paling
+          renggang — dan itu yang dibaca tamu lebih dulu.
+          Sub judul adalah keterangan judul, jadi ia mengikuti judul. */}
+      {subtitle ? (
+        <p
+          className="text-balance"
+          style={{
+            fontFamily: headingFont,
+            fontSize: scaleClamp(SUBTITLE_SIZE[variant], branding.subtitle_scale),
+            // Jarak huruf dan huruf besar paksa dilepas: keduanya milik gaya kelir,
+            // dan pada kalimat panjang jarak 0.28em membuat kata sulit dikenali
+            // sebagai satu kesatuan. Formatnya kini sama dengan judul, hanya lebih
+            // kecil dan tidak setebal, sesuai permintaan agar ukurannya saja yang
+            // diatur dari CMS.
+            lineHeight: 1.4,
+            marginTop: variant === "led" ? "clamp(4px, 1vmin, 16px)" : "0.375rem",
+            // Null berarti "ikut warna dasar", bukan "tanpa warna". Sub judul
+            // jatuh ke warna teks dengan opasitas seperti sebelumnya; begitu admin
+            // memilih warna khusus, opasitas dilepas supaya warna pilihannya tampil
+            // apa adanya dan bukan versi pudarnya.
+            color: branding.subtitle_color ?? textColor,
+            opacity: branding.subtitle_color ? 1 : variant === "led" ? 0.8 : 0.75,
+          }}
+        >
+          {subtitle}
+        </p>
+      ) : null}
 
       {/* Aksen dipakai agar prop `accentColor` tetap bermakna: garis tipis di
           bawah judul hanya muncul kalau admin menyetel warna judul khusus,

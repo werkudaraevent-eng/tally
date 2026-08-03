@@ -38,6 +38,9 @@ const messages: Record<ApiErrorCode, string> = {
   SEAT_MAP_SESSION_NOT_FOUND: "Sesi denah tidak ditemukan.",
   DUPLICATE_SEAT_MAP_SLUG: "Slug sesi denah sudah dipakai. Gunakan slug lain.",
   SEAT_MAP_SESSION_UNPUBLISHED: "Denah sesi ini belum dipublikasikan.",
+  RUNDOWN_SECTION_NOT_FOUND: "Bagian rundown tidak ditemukan.",
+  RUNDOWN_ITEM_NOT_FOUND: "Baris rundown tidak ditemukan.",
+  DUPLICATE_RUNDOWN_SLUG: "Slug bagian rundown sudah dipakai. Gunakan slug lain.",
   INTERNAL_ERROR: "Terjadi kesalahan server. Coba lagi.",
 };
 

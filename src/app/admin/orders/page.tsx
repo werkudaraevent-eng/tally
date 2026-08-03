@@ -4,7 +4,8 @@ import { ArrowLeft, FunnelSimple, ListChecks, XCircle } from "@phosphor-icons/re
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ExportMenu } from "@/components/admin/export-menu";
-import { formatWibDateTime } from "@/lib/datetime";
+import { formatEventDateTime } from "@/lib/datetime";
+import { useEventTimeZone } from "@/lib/use-event-timezone";
 
 type OrderRow = {
   id: string;
@@ -27,7 +28,6 @@ type OrderRow = {
 type Booth = { id: number; code: string; name: string };
 
 const money = (value: number) => `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
-const dateTime = (value: string | null) => formatWibDateTime(value);
 const statusBadge = (status: string): { label: string; className: string } => {
   switch (status) {
     case "paid": return { label: "Lunas", className: "bg-[#EEF8F0] text-[var(--brand-strong)]" };
@@ -46,6 +46,10 @@ export default function AdminOrdersPage() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { zone, abbr } = useEventTimeZone();
+  // Dipindah ke dalam komponen karena kini bergantung pada zona acara. Sebagai
+  // fungsi modul ia tidak punya akses ke setelan.
+  const dateTime = (value: string | null) => formatEventDateTime(value, zone);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -115,8 +119,11 @@ export default function AdminOrdersPage() {
               <th className="px-4 py-3 font-semibold">Item</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 text-right font-semibold">Total</th>
-              <th className="px-4 py-3 font-semibold">Dibuat</th>
-              <th className="px-4 py-3 font-semibold">Lunas</th>
+              {/* Zona ditulis di judul kolom, bukan diulang di tiap sel: jam yang
+                  dipakai rekonsiliasi harus jelas zonanya, tapi mengulangnya 100
+                  kali per halaman hanya menambah lebar tabel. */}
+              <th className="px-4 py-3 font-semibold">Dibuat ({abbr})</th>
+              <th className="px-4 py-3 font-semibold">Lunas ({abbr})</th>
               <th className="px-4 py-3 font-semibold">Bayar</th>
             </tr></thead>
             <tbody className="divide-y divide-[var(--line)]">

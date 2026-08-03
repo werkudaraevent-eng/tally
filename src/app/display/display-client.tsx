@@ -5,8 +5,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { BrandFooter, BrandLogo } from "@/components/brand-header-footer";
 import { fontStack, normalizeBranding, scaleClamp } from "@/lib/branding";
-import { formatWibTimeWithSeconds } from "@/lib/datetime";
+import { formatEventTimeWithSeconds } from "@/lib/datetime";
 import { DEFAULT_CONFIG, type DisplayConfig } from "@/lib/display-config";
+import { DEFAULT_TIME_ZONE, normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 
 // Peringkat 1-3 mendapat medali; sisanya nomor urut biasa.
 const MEDALS = ["#F2C14E", "#C7CDD4", "#C98B5E"] as const;
@@ -14,8 +15,6 @@ const MEDALS = ["#F2C14E", "#C7CDD4", "#C98B5E"] as const;
 type Entry = { display_name: string; company: string | null; total_spent: number; booth_count: number };
 
 const formatRupiah = (amount: number) => `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
-// Semua jam dipaksa WIB agar tidak ikut timezone device panitia.
-const formatWibTime = formatWibTimeWithSeconds;
 
 /**
  * Layar Live Display.
@@ -37,6 +36,10 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [config, setConfig] = useState<DisplayConfig>(initialConfig);
+  // Zona acara datang bersama /api/display/settings yang sudah disegarkan berkala,
+  // jadi zona yang diubah admin saat acara berjalan ikut terpakai tanpa ada yang
+  // perlu memuat ulang layar di panggung.
+  const [timeZone, setTimeZone] = useState<EventTimeZone>(DEFAULT_TIME_ZONE);
   // Spec 7.3: mode fullscreen lewat ?fullscreen=1 — sembunyikan kontrol operator
   // agar layar proyektor bersih. Dibaca sekali saat mount (lazy initializer)
   // supaya tidak memanggil setState di dalam effect.
@@ -71,6 +74,7 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
       // langkah ini layar tampil benar saat dibuka lalu rusak pada siklus refresh
       // pertama — persis ketika tidak ada yang sedang menonton monitornya.
       setConfig({ ...DEFAULT_CONFIG, ...(raw as Partial<DisplayConfig>), ...normalizeBranding(raw) });
+      setTimeZone(normalizeTimeZone(raw.time_zone));
     }
     setTick((value) => value + 1);
   }, []);
@@ -142,7 +146,7 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-4">
-          <div className="hidden text-right sm:block"><p className="text-xs uppercase tracking-[0.15em]" style={{ opacity: 0.45 }}>Refresh {tick}</p><p className="mt-1 font-mono text-sm">{lastUpdated ? `Update ${formatWibTime(lastUpdated)} WIB` : "Menghubungkan"}</p></div>
+          <div className="hidden text-right sm:block"><p className="text-xs uppercase tracking-[0.15em]" style={{ opacity: 0.45 }}>Refresh {tick}</p><p className="mt-1 font-mono text-sm">{lastUpdated ? `Update ${formatEventTimeWithSeconds(lastUpdated, timeZone)} ${timeZoneAbbr(timeZone)}` : "Menghubungkan"}</p></div>
           {!chromeHidden && <button onClick={() => setEnabled((value) => !value)} className="flex min-h-12 shrink-0 items-center gap-2 border border-white/20 px-3 text-sm font-semibold hover:bg-white/10 sm:px-4">{leaderboardVisible ? <EyeSlash size={20} /> : <Broadcast size={20} />} <span className="hidden sm:inline">{leaderboardVisible ? "Sembunyikan" : "Tampilkan"}</span></button>}
         </div>
       </header>

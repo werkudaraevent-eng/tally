@@ -11,6 +11,14 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
   offers: ["special_offer_create", "special_offer_update", "special_offer_delete"],
   booths: ["booth_create", "booth_update"],
   payment_methods: ["payment_method_create", "payment_method_update", "payment_method_delete"],
+  // Rundown menulis audit sejak dibuat, tapi aksinya belum terdaftar di sini
+  // sehingga tidak pernah muncul di filter mana pun — tercatat di database, tidak
+  // terlihat oleh siapa pun.
+  rundown: [
+    "rundown_header_update",
+    "rundown_section_create", "rundown_section_update", "rundown_section_delete",
+    "rundown_item_create", "rundown_item_update", "rundown_item_delete",
+  ],
   users: ["user_create", "user_update"],
   danger: ["admin_reset_records"],
   orders: ["create", "pay", "void", "hand_over", "booth_order_created", "participant_scan"],
@@ -24,6 +32,7 @@ const CONFIG_ACTIONS = [
   ...CATEGORY_ACTIONS.offers,
   ...CATEGORY_ACTIONS.booths,
   ...CATEGORY_ACTIONS.payment_methods,
+  ...CATEGORY_ACTIONS.rundown,
   ...CATEGORY_ACTIONS.users,
   ...CATEGORY_ACTIONS.danger,
 ];
