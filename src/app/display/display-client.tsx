@@ -83,20 +83,34 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
 
   return <main className="min-h-dvh" style={mainStyle}>
     <div className="min-h-dvh" style={{ background: config.background_image_url ? "rgba(0,0,0,0.55)" : "transparent" }}>
-      <header className="flex items-center justify-between border-b border-white/15 px-8 py-3 xl:px-14 xl:py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center text-black" style={{ backgroundColor: config.accent_color }}><Trophy size={22} weight="fill" /></div>
-          <div><p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ opacity: 0.5 }}>{config.event_title}</p><h1 className="text-xl font-semibold tracking-[-0.04em] xl:text-2xl">{config.headline}</h1></div>
+      {/* Ukuran huruf dan padding memakai `clamp(..., vw, ...)`, bukan ukuran tetap.
+          Kelas Tailwind seperti `text-xl` bernilai sama di layar selebar apa pun, dan
+          breakpoint terkecil pun tidak menurunkannya lebih jauh. Pada LED portrait
+          256x768 akibatnya terukur: judul pecah menjadi 5 baris, header memakan 30%
+          tinggi layar, dan isi header melimpah 88px ke samping.
+
+          Label tombol disembunyikan pada layar sempit (ikonnya tetap ada) karena
+          tombol itulah penyumbang terbesar limpahan mendatar tersebut. */}
+      <header className="flex items-center justify-between gap-x-3 border-b border-white/15 px-4 py-3 sm:px-8 xl:px-14 xl:py-4">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+          <div
+            className="flex shrink-0 items-center justify-center text-black"
+            style={{ backgroundColor: config.accent_color, width: "clamp(26px, 6vw, 40px)", height: "clamp(26px, 6vw, 40px)" }}
+          ><Trophy size={22} weight="fill" /></div>
+          <div className="min-w-0">
+            <p className="font-semibold uppercase" style={{ opacity: 0.5, fontSize: "clamp(8px, 1.7vw, 11px)", letterSpacing: "0.22em" }}>{config.event_title}</p>
+            <h1 className="text-balance font-semibold tracking-[-0.04em]" style={{ fontSize: "clamp(13px, 3.2vw, 24px)", lineHeight: 1.15 }}>{config.headline}</h1>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-4">
           <div className="hidden text-right sm:block"><p className="text-xs uppercase tracking-[0.15em]" style={{ opacity: 0.45 }}>Refresh {tick}</p><p className="mt-1 font-mono text-sm">{lastUpdated ? `Update ${formatWibTime(lastUpdated)} WIB` : "Menghubungkan"}</p></div>
-          {!chromeHidden && <button onClick={() => setEnabled((value) => !value)} className="flex min-h-12 items-center gap-2 border border-white/20 px-4 text-sm font-semibold hover:bg-white/10">{leaderboardVisible ? <EyeSlash size={20} /> : <Broadcast size={20} />} {leaderboardVisible ? "Sembunyikan" : "Tampilkan"}</button>}
+          {!chromeHidden && <button onClick={() => setEnabled((value) => !value)} className="flex min-h-12 shrink-0 items-center gap-2 border border-white/20 px-3 text-sm font-semibold hover:bg-white/10 sm:px-4">{leaderboardVisible ? <EyeSlash size={20} /> : <Broadcast size={20} />} <span className="hidden sm:inline">{leaderboardVisible ? "Sembunyikan" : "Tampilkan"}</span></button>}
         </div>
       </header>
 
       {/* Satu halaman adaptif: side-panel hanya di landscape lebar. Di layar
           portrait panel turun ke bawah agar leaderboard dapat lebar penuh. */}
-      {leaderboardVisible ? <div className={`grid gap-6 px-8 py-5 xl:px-14 xl:py-6 ${config.show_booth_progress ? "xl:landscape:grid-cols-[1.4fr_0.6fr]" : ""}`}>
+      {leaderboardVisible ? <div className={`grid gap-6 px-4 py-5 sm:px-8 xl:px-14 xl:py-6 ${config.show_booth_progress ? "xl:landscape:grid-cols-[1.4fr_0.6fr]" : ""}`}>
         <section>
           {/* Tagline hanya dirender jika benar-benar berisi. Skema mewajibkan
               minimal 1 karakter, jadi admin yang ingin menyembunyikannya
@@ -116,7 +130,7 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -16 }}
                   transition={{ type: "spring", stiffness: 320, damping: 32 }}
-                  className={`grid items-center gap-x-4 gap-y-1 ${index === 0 ? "py-3.5" : "py-3"} grid-cols-[52px_1fr] lg:grid-cols-[64px_1fr_auto]`}
+                  className={`grid items-center gap-x-2 gap-y-1 sm:gap-x-4 ${index === 0 ? "py-3.5" : "py-3"} grid-cols-[34px_1fr] sm:grid-cols-[52px_1fr] lg:grid-cols-[64px_1fr_auto]`}
                   style={index === 0 ? { background: `linear-gradient(90deg, ${config.accent_color}1f, transparent 65%)` } : undefined}
                 >
                   <span className="row-span-2 flex items-center justify-center lg:row-span-1">
@@ -125,12 +139,12 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
                     </span> : <span className="font-mono text-2xl font-semibold" style={{ opacity: 0.35 }}>{String(index + 1).padStart(2, "0")}</span>}
                   </span>
                   <div className="min-w-0">
-                    <p className={`truncate font-semibold ${index === 0 ? "text-xl xl:text-3xl" : "text-lg xl:text-2xl"}`}>{entry.display_name}</p>
+                    <p className="truncate font-semibold" style={{ fontSize: index === 0 ? "clamp(14px, 3.4vw, 30px)" : "clamp(13px, 3vw, 24px)" }}>{entry.display_name}</p>
                     {config.show_company && entry.company && <p className="truncate text-sm" style={{ opacity: 0.5 }}>{entry.company}</p>}
                   </div>
                   {/* Nominal & progress selalu terlihat, termasuk di layar portrait. */}
                   <div className="flex items-center justify-between gap-4 lg:flex-col lg:items-end lg:gap-1">
-                    <p className={`font-mono font-semibold tabular-nums ${index === 0 ? "text-xl xl:text-3xl" : "text-lg xl:text-2xl"}`} style={index === 0 ? { color: config.accent_color } : undefined}>{formatRupiah(entry.total_spent)}</p>
+                    <p className="font-mono font-semibold tabular-nums" style={{ fontSize: index === 0 ? "clamp(14px, 3.4vw, 30px)" : "clamp(13px, 3vw, 24px)", ...(index === 0 ? { color: config.accent_color } : {}) }}>{formatRupiah(entry.total_spent)}</p>
                     {config.show_booth_progress && <div className="flex shrink-0 items-center gap-1.5" aria-label={`${entry.booth_count} dari 6 booth dikunjungi`}>
                       {Array.from({ length: 6 }).map((_, dot) => <span key={dot} className="size-2.5 rounded-full transition-colors xl:size-3" style={{ backgroundColor: dot < entry.booth_count ? config.accent_color : "rgba(255,255,255,0.15)" }} />)}
                       {entry.booth_count >= 6 && <Crown size={18} weight="fill" className="ml-1" style={{ color: config.accent_color }} />}
