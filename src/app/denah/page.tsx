@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrandFooter, BrandHeader } from "@/components/brand-header-footer";
 import { SeatMapLedView } from "@/components/seat-map-led-view";
 import { SeatMapView, type SeatState } from "@/components/seat-map-view";
+import { Spinner } from "@/components/search-loading";
 import { normalizeBranding, type Branding } from "@/lib/branding";
 import { computeSeatMapGeometry, normalizePublicViewMode, normalizeSeatLabel, type PublicViewMode, type SeatMapConfig } from "@/lib/seat-map";
 import { formatEventTimeWithSeconds } from "@/lib/datetime";
@@ -398,8 +399,15 @@ export default function SeatMapPage() {
                 />
               </div>
 
-              <p id="seat-search-status" aria-live="polite" className="mt-2 min-h-5 text-sm opacity-85">
-                {searching ? "Mencari…" : searchNote}
+              <p id="seat-search-status" aria-live="polite" className="mt-2 flex min-h-5 items-center gap-2 text-sm opacity-85">
+                {/* Spinner memakai currentColor, jadi ikut warna teks yang sudah
+                    disetel branding sesi — halaman ini bisa terang atau gelap
+                    tergantung setelan admin, dan warna tetap tidak boleh dikunci
+                    di sini. Kerangka baris hasil TIDAK dipakai di halaman ini:
+                    pencarian sudah ditunda 350ms setelah tamu berhenti mengetik,
+                    sehingga kerangka akan berkedip muncul-hilang pada setiap kata
+                    kunci — lebih mengganggu daripada membantu. */}
+                {searching ? <><Spinner size={15} /> Mencari…</> : searchNote}
               </p>
 
               {results && results.length > 0 ? (

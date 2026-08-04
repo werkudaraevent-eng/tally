@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CheckCircle, Eye, MonitorPlay, UploadSimple, XCircle } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, CheckCircle, Eye, ListNumbers, MonitorPlay, UploadSimple, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
@@ -45,6 +45,8 @@ type DisplaySettings = {
 export default function DisplaySettingsPage() {
   const [settings, setSettings] = useState<DisplaySettings | null>(null);
   const [event, setEvent] = useState<EventSettings | null>(null);
+  // Status reveal hanya DIBACA di sini; kontrolnya ada di /admin/display/reveal.
+  const [reveal, setReveal] = useState<{ mode: string; stage_label: string | null } | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -54,6 +56,7 @@ export default function DisplaySettingsPage() {
   useEffect(() => { const timer = window.setTimeout(() => {
     void fetch("/api/display/settings", { cache: "no-store" }).then(async (response) => { if (response.ok) setSettings(await response.json()); else setError("Setting display gagal dimuat."); });
     void fetch("/api/settings", { cache: "no-store" }).then(async (response) => { if (response.ok) { const data = await response.json(); setEvent({ leaderboard_enabled: data.leaderboard_enabled, name_display_mode: data.name_display_mode, time_zone: normalizeTimeZone(data.time_zone) }); } });
+    void fetch("/api/display/reveal", { cache: "no-store" }).then(async (response) => { if (response.ok) { const data = await response.json(); setReveal({ mode: data.mode, stage_label: data.stage_label ?? null }); } });
   }, 0); return () => window.clearTimeout(timer); }, []);
 
   function update<K extends keyof DisplaySettings>(key: K, value: DisplaySettings[K]) {
@@ -223,6 +226,22 @@ export default function DisplaySettingsPage() {
               </div>
               <p className="mt-3 border border-[var(--line)] bg-[var(--surface-muted)] p-3 text-sm">Preview: <span className="font-semibold">{namePreview[event.name_display_mode]}</span></p>
             </>}
+
+            {/* Pintu masuk ke remote control reveal.
+                Kontrolnya sengaja TIDAK ditaruh di halaman ini: tombolnya dipakai
+                saat acara berjalan dari layar ponsel, sementara halaman ini adalah
+                form panjang yang diedit lalu disimpan. Yang tinggal di sini hanya
+                status ringkas dan tautannya. */}
+            <div className="mt-6 border border-[var(--line)] bg-[var(--surface-muted)] p-4">
+              <p className="flex items-center gap-2 text-sm font-semibold"><ListNumbers size={18} className="shrink-0 text-[var(--brand)]" /> Reveal bertahap</p>
+              <p className="mt-2 text-xs leading-5 text-[var(--ink-muted)]">
+                {reveal === null ? "Memuat status..."
+                  : reveal.mode === "staged"
+                    ? <>Sedang <span className="font-semibold text-[var(--ink)]">aktif</span> — {reveal.stage_label ? `layar menampilkan ${reveal.stage_label.toLowerCase()}` : "layar menunggu tahap pertama dibuka"}.</>
+                    : <>Mati. Live Display menampilkan seluruh top {settings.leaderboard_limit} sekaligus, mengikuti transaksi live.</>}
+              </p>
+              <Link href="/admin/display/reveal" className="mt-3 inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold">Buka kontrol reveal <ArrowRight size={16} /></Link>
+            </div>
           </section>
 
           <section className="bg-[var(--surface)] p-6">

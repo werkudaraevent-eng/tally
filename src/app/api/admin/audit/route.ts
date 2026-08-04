@@ -7,7 +7,13 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 // per jam: kalau dicampur, perubahan konfigurasi yang justru ingin diaudit akan
 // tenggelam. Karena itu default-nya TIDAK menyertakan sync.
 const CATEGORY_ACTIONS: Record<string, string[]> = {
-  settings: ["settings_update", "display_settings_update", "display_background_upload"],
+  settings: [
+    "settings_update", "display_settings_update", "display_background_upload",
+    // Reveal bertahap. `next`/`prev` sengaja TIDAK dicatat: keduanya bisa ditekan
+    // puluhan kali dalam satu ceremony dan akan menenggelamkan riwayat hari itu,
+    // sementara tahap akhirnya tetap terlihat dari baris start/reset berikutnya.
+    "leaderboard_reveal_config", "leaderboard_reveal_start", "leaderboard_reveal_reset",
+  ],
   offers: ["special_offer_create", "special_offer_update", "special_offer_delete"],
   booths: ["booth_create", "booth_update"],
   payment_methods: ["payment_method_create", "payment_method_update", "payment_method_delete"],

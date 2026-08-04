@@ -59,6 +59,36 @@ body {
 	color: white;
 }
 
+/* Kilau kerangka pemuatan (lihat src/components/search-loading.tsx).
+ *
+ * Memakai `background-position`, bukan `opacity` yang berkedip. Kedipan
+ * membuat seluruh blok tampil-hilang sehingga terbaca seperti galat, sedangkan
+ * kilau yang bergerak satu arah membaca sebagai "sedang datang".
+ *
+ * Digerakkan lewat background, bukan elemen bergeser di dalam pembungkus
+ * `overflow:hidden`: tidak ada elemen tambahan, tidak ada reflow, dan hanya
+ * kompositor yang bekerja — penting karena layar booth dipakai di ponsel panitia
+ * yang sudah menyala berjam-jam. */
+.shimmer {
+	background-image: linear-gradient(90deg,
+			transparent 0%,
+			rgba(255, 255, 255, 0.85) 50%,
+			transparent 100%);
+	background-repeat: no-repeat;
+	background-size: 180% 100%;
+	animation: shimmer 1.15s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+	from {
+		background-position: -120% 0;
+	}
+
+	to {
+		background-position: 220% 0;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
@@ -67,5 +97,13 @@ body {
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
+	}
+
+	/* Aturan di atas mematikan kilau, dan itu memang diinginkan. Tapi tanpa baris
+	   ini gradiennya tertinggal beku di satu posisi, menyisakan balok yang belang
+	   dan terlihat seperti render yang gagal. Kerangkanya dikembalikan menjadi
+	   balok abu-abu rata yang tetap jelas artinya. */
+	.shimmer {
+		background-image: none !important;
 	}
 }

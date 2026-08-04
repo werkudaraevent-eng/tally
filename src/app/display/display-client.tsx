@@ -7,12 +7,22 @@ import { BrandFooter, BrandLogo } from "@/components/brand-header-footer";
 import { fontStack, normalizeBranding, scaleClamp } from "@/lib/branding";
 import { formatEventTimeWithSeconds } from "@/lib/datetime";
 import { DEFAULT_CONFIG, type DisplayConfig } from "@/lib/display-config";
+import type { LeaderboardEntry, StageLayout } from "@/lib/reveal";
 import { DEFAULT_TIME_ZONE, normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 
 // Peringkat 1-3 mendapat medali; sisanya nomor urut biasa.
 const MEDALS = ["#F2C14E", "#C7CDD4", "#C98B5E"] as const;
 
-type Entry = { display_name: string; company: string | null; total_spent: number; booth_count: number };
+// Reveal dipoll jauh lebih cepat daripada konfigurasi tampilan.
+//
+// Konfigurasi (warna, judul) berubah sesekali, jadi `refresh_seconds` bawaan 30
+// detik memadai. Tahap reveal ditekan operator tepat saat MC berbicara: menunggu
+// sampai 30 detik akan membuat panitia menekan tombolnya berulang karena mengira
+// tidak berfungsi. Payload endpoint reveal sengaja dibuat kecil (hanya peringkat
+// yang sedang tampil) supaya interval sependek ini tetap murah.
+const REVEAL_POLL_MS = 2000;
+
+type Entry = LeaderboardEntry;
 
 const formatRupiah = (amount: number) => `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
 
@@ -35,6 +45,12 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
   const [serverEnabled, setServerEnabled] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
+  // Keadaan reveal. `staged` false berarti perilaku lama: seluruh top N tampil
+  // live tanpa tahap, dan seluruh cabang render di bawah ini dilewati.
+  const [staged, setStaged] = useState(false);
+  const [stage, setStage] = useState(0);
+  const [stageLabel, setStageLabel] = useState<string | null>(null);
+  const [layout, setLayout] = useState<StageLayout>("list");
   const [config, setConfig] = useState<DisplayConfig>(initialConfig);
   // Zona acara datang bersama /api/display/settings yang sudah disegarkan berkala,
   // jadi zona yang diubah admin saat acara berjalan ikut terpakai tanpa ada yang
@@ -53,41 +69,91 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
     return () => document.removeEventListener("click", request);
   }, [chromeHidden]);
 
-  const refresh = useCallback(async (limit: number) => {
-    const [leaderboardResponse, configResponse] = await Promise.all([
-      fetch(`/api/leaderboard?limit=${limit}`, { cache: "no-store" }),
-      fetch("/api/display/settings", { cache: "no-store" }),
-    ]);
-    if (leaderboardResponse.ok) {
-      const data = await leaderboardResponse.json();
-      setEntries(data.entries ?? []);
-      setServerEnabled(data.leaderboard_enabled !== false);
-      setLastUpdated(data.updated_at ?? new Date().toISOString());
-    }
-    if (configResponse.ok) {
-      const raw = (await configResponse.json()) as Record<string, unknown>;
-      // Branding dinormalisasi ulang di sini, bukan hanya di server.
-      //
-      // Konfigurasi awal datang dari `page.tsx` yang sudah menormalkannya, tapi
-      // penyegaran berkala ini mengambil langsung dari endpoint. Kolom skala
-      // bertipe `numeric` dan dikirim sebagai string demi menjaga presisi; tanpa
-      // langkah ini layar tampil benar saat dibuka lalu rusak pada siklus refresh
-      // pertama — persis ketika tidak ada yang sedang menonton monitornya.
-      setConfig({ ...DEFAULT_CONFIG, ...(raw as Partial<DisplayConfig>), ...normalizeBranding(raw) });
-      setTimeZone(normalizeTimeZone(raw.time_zone));
-    }
+  /**
+   * Muat papan dan keadaan tahap.
+   *
+   * Layar TIDAK lagi memanggil `/api/leaderboard`, melainkan
+   * `/api/display/reveal` — endpoint itu sudah mengembalikan seluruh top N ketika
+   * mode reveal mati, jadi perilaku lama tetap utuh dengan satu jalur data saja.
+   *
+   * Alasannya bukan kerapian: kalau papan penuh diambil di sini lalu dipotong di
+   * browser, seluruh peringkat sudah ada di tab Network sebelum MC menyebutnya.
+   * Panitia yang membuka /display di laptopnya sendiri akan melihat pemenang
+   * lebih dulu. Pemotongan karena itu wajib dikerjakan server.
+   *
+   * `leaderboard_limit` juga tidak lagi dikirim sebagai query: server membacanya
+   * langsung dari `display_settings`, sehingga tidak ada lagi timer yang perlu
+   * di-restart hanya karena admin mengubah kedalaman papan.
+   */
+  const refreshBoard = useCallback(async () => {
+    const response = await fetch("/api/display/reveal", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = await response.json();
+    setEntries(data.entries ?? []);
+    setStaged(data.mode === "staged");
+    setStage(Number(data.stage) || 0);
+    setStageLabel(data.stage_label ?? null);
+    setLayout(data.layout === "spotlight" ? "spotlight" : "list");
+    setServerEnabled(data.leaderboard_enabled !== false);
+    setLastUpdated(data.updated_at ?? new Date().toISOString());
     setTick((value) => value + 1);
   }, []);
 
+  const refreshConfig = useCallback(async () => {
+    const response = await fetch("/api/display/settings", { cache: "no-store" });
+    if (!response.ok) return;
+    const raw = (await response.json()) as Record<string, unknown>;
+    // Branding dinormalisasi ulang di sini, bukan hanya di server.
+    //
+    // Konfigurasi awal datang dari `page.tsx` yang sudah menormalkannya, tapi
+    // penyegaran berkala ini mengambil langsung dari endpoint. Kolom skala
+    // bertipe `numeric` dan dikirim sebagai string demi menjaga presisi; tanpa
+    // langkah ini layar tampil benar saat dibuka lalu rusak pada siklus refresh
+    // pertama — persis ketika tidak ada yang sedang menonton monitornya.
+    setConfig({ ...DEFAULT_CONFIG, ...(raw as Partial<DisplayConfig>), ...normalizeBranding(raw) });
+    setTimeZone(normalizeTimeZone(raw.time_zone));
+  }, []);
+
+  // Dua timer terpisah, bukan satu.
+  //
+  // Papan dan tahap harus mengejar tombol operator (2 detik), sedangkan
+  // konfigurasi tampilan tidak perlu sesering itu. Menyatukannya berarti memilih
+  // salah satu: 30 detik membuat tombol reveal terasa rusak, sementara 2 detik
+  // untuk keduanya melipatgandakan permintaan setting tanpa alasan.
   useEffect(() => {
     let disposed = false;
-    const run = () => { if (!disposed) void refresh(config.leaderboard_limit); };
+    const run = () => { if (!disposed) void refreshBoard(); };
+    run();
+    const timer = window.setInterval(run, REVEAL_POLL_MS);
+    return () => { disposed = true; window.clearInterval(timer); };
+  }, [refreshBoard]);
+
+  useEffect(() => {
+    let disposed = false;
+    const run = () => { if (!disposed) void refreshConfig(); };
     run();
     const timer = window.setInterval(run, Math.max(5, config.refresh_seconds) * 1000);
     return () => { disposed = true; window.clearInterval(timer); };
-  }, [refresh, config.refresh_seconds, config.leaderboard_limit]);
+  }, [refreshConfig, config.refresh_seconds]);
 
   const leaderboardVisible = enabled && serverEnabled;
+  // Tahap 0 berarti reveal sudah aktif tapi belum ada peringkat yang dibuka:
+  // header dan tagline tetap tampil, area daftar diganti penanda.
+  const awaitingFirstStage = staged && stage === 0;
+  const spotlight = staged && layout === "spotlight";
+  // Panel samping ikut mati selama reveal karena angkanya dihitung dari papan
+  // yang saat itu hanya sebagian (alasan lengkap di dekat tempat render-nya).
+  const asideVisible = config.show_booth_progress && !staged;
+  // Ukuran spotlight jauh lebih besar, tapi tetap lewat clamp() berbasis vw dan
+  // BUKAN kelas ukuran tetap seperti `text-6xl`. Kelas Tailwind bernilai sama di
+  // layar selebar apa pun, dan LED portrait 256px di lokasi akan membuat satu
+  // nama pemenang melimpah keluar layar — kesalahan yang justru paling terlihat
+  // pada momen paling penting.
+  const nameSize = (lead: boolean) => spotlight
+    ? "clamp(18px, 5.6vw, 58px)"
+    : lead ? "clamp(14px, 3.4vw, 30px)" : "clamp(13px, 3vw, 24px)";
+  const medalBox = spotlight ? "clamp(38px, 8vw, 68px)" : "clamp(40px, 4vw, 44px)";
+  const dotSize = spotlight ? "clamp(10px, 1.4vw, 16px)" : "clamp(10px, 1vw, 12px)";
   const topEntry = entries[0];
   const mainStyle = {
     backgroundColor: config.background_color,
@@ -152,55 +218,89 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
       </header>
 
       {/* Satu halaman adaptif: side-panel hanya di landscape lebar. Di layar
-          portrait panel turun ke bawah agar leaderboard dapat lebar penuh. */}
-      {leaderboardVisible ? <div className={`grid gap-6 px-4 py-5 sm:px-8 xl:px-14 xl:py-6 ${config.show_booth_progress ? "xl:landscape:grid-cols-[1.4fr_0.6fr]" : ""}`}>
+          portrait panel turun ke bawah agar leaderboard dapat lebar penuh.
+
+          Panel booth explorer DIMATIKAN selama reveal bertahap. Isinya dihitung
+          dari `entries` yang saat itu hanya memuat sebagian papan, sehingga
+          "booth terbanyak" akan menunjuk peserta teratas dari potongan yang
+          sedang tampil — pada tahap "4-10" itu berarti peringkat 4 diberi label
+          juara booth, dan jumlah "Spender" menampilkan 7 alih-alih total
+          sebenarnya. Angka yang salah di layar proyektor lebih buruk daripada
+          panel yang absen, dan absennya justru memberi papan lebar penuh untuk
+          ceremony. */}
+      {leaderboardVisible ? <div className={`grid gap-6 px-4 py-5 sm:px-8 xl:px-14 xl:py-6 ${asideVisible ? "xl:landscape:grid-cols-[1.4fr_0.6fr]" : ""}`}>
         <section>
           {/* Tagline hanya dirender jika benar-benar berisi. Skema mewajibkan
               minimal 1 karakter, jadi admin yang ingin menyembunyikannya
               biasanya mengisi "." atau "-" — jangan sisakan ruang untuk itu. */}
-          {config.tagline.trim().length > 1 && <div className="mb-4 flex items-end justify-between gap-4">
-            <h2 className="text-2xl font-semibold tracking-[-0.05em] xl:text-4xl">{config.tagline}</h2>
-            <ChartLineUp size={34} weight="duotone" className="shrink-0" style={{ opacity: 0.3 }} />
+          {(config.tagline.trim().length > 1 || (staged && stageLabel)) && <div className="mb-4 flex items-end justify-between gap-4">
+            <h2 className="text-2xl font-semibold tracking-[-0.05em] xl:text-4xl">{config.tagline.trim().length > 1 ? config.tagline : stageLabel}</h2>
+            {/* Label tahap ikut tampil agar penonton tahu potongan mana yang
+                sedang dibuka — pada tahap "4-10" papan dimulai dari nomor 4 dan
+                tanpa keterangan itu terlihat seperti tiga besar yang hilang. */}
+            {staged && stageLabel && config.tagline.trim().length > 1
+              ? <span className="shrink-0 border px-3 py-1 text-sm font-semibold uppercase tracking-[0.14em]" style={{ borderColor: config.accent_color, color: config.accent_color }}>{stageLabel}</span>
+              : <ChartLineUp size={34} weight="duotone" className="shrink-0" style={{ opacity: 0.3 }} />}
           </div>}
-          <div className="divide-y divide-white/15 border-y border-white/15">
+
+          {awaitingFirstStage ? (
+            /* Tahap 0: reveal sudah aktif tapi belum ada peringkat yang dibuka.
+               Ukuran memakai clamp() berbasis viewport seperti sisa halaman ini,
+               supaya pesan tetap muat di LED portrait sempit. */
+            <div className="flex items-center justify-center border-y border-white/15" style={{ minHeight: "clamp(160px, 42dvh, 520px)", padding: "0 clamp(12px, 4vw, 32px)" }}>
+              <div className="max-w-[30ch] text-center">
+                <Trophy className="mx-auto" weight="duotone" style={{ color: config.accent_color, opacity: 0.6, width: "clamp(32px, 10vw, 72px)", height: "clamp(32px, 10vw, 72px)" }} />
+                <p className="text-balance font-semibold" style={{ marginTop: "clamp(10px, 2.5vw, 20px)", fontSize: "clamp(15px, 4.4vw, 34px)", lineHeight: 1.2 }}>Pengumuman top spender segera dimulai.</p>
+              </div>
+            </div>
+          ) : <div className="divide-y divide-white/15 border-y border-white/15">
             <AnimatePresence initial={false}>
-              {entries.map((entry, index) => {
-                const medal = MEDALS[index];
+              {entries.map((entry) => {
+                // Medali dan penyorotan mengikuti PERINGKAT ASLI, bukan posisi
+                // dalam array. Pada tahap "4-10" baris pertama berindeks 0, dan
+                // memakai indeks akan memberi medali emas kepada peringkat 4 —
+                // tepat di depan penonton yang baru melihat juara sebenarnya.
+                const rank = Number(entry.rank);
+                const medal = MEDALS[rank - 1];
+                const lead = rank === 1;
                 return <motion.div
-                  key={entry.display_name}
+                  key={`${entry.display_name}__${rank}`}
                   layout
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -16 }}
                   transition={{ type: "spring", stiffness: 320, damping: 32 }}
-                  className={`grid items-center gap-x-2 gap-y-1 sm:gap-x-4 ${index === 0 ? "py-3.5" : "py-3"} grid-cols-[34px_1fr] sm:grid-cols-[52px_1fr] lg:grid-cols-[64px_1fr_auto]`}
-                  style={index === 0 ? { background: `linear-gradient(90deg, ${config.accent_color}1f, transparent 65%)` } : undefined}
+                  className="grid items-center gap-x-2 gap-y-1 sm:gap-x-4 grid-cols-[34px_1fr] sm:grid-cols-[52px_1fr] lg:grid-cols-[64px_1fr_auto]"
+                  style={{
+                    paddingBlock: spotlight ? "clamp(14px, 3.4vw, 40px)" : lead ? "14px" : "12px",
+                    ...(lead ? { background: `linear-gradient(90deg, ${config.accent_color}1f, transparent 65%)` } : {}),
+                  }}
                 >
                   <span className="row-span-2 flex items-center justify-center lg:row-span-1">
-                    {medal ? <span className="flex size-10 items-center justify-center rounded-full xl:size-11" style={{ backgroundColor: `${medal}26`, border: `2px solid ${medal}` }}>
-                      <Medal size={index === 0 ? 24 : 21} weight="fill" style={{ color: medal }} />
-                    </span> : <span className="font-mono text-2xl font-semibold" style={{ opacity: 0.35 }}>{String(index + 1).padStart(2, "0")}</span>}
+                    {medal ? <span className="flex items-center justify-center rounded-full" style={{ backgroundColor: `${medal}26`, border: `2px solid ${medal}`, width: medalBox, height: medalBox }}>
+                      <Medal size={spotlight ? 34 : lead ? 24 : 21} weight="fill" style={{ color: medal }} />
+                    </span> : <span className="font-mono font-semibold" style={{ opacity: 0.35, fontSize: spotlight ? "clamp(20px, 5vw, 44px)" : "clamp(18px, 3vw, 24px)" }}>{String(rank).padStart(2, "0")}</span>}
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate font-semibold" style={{ fontSize: index === 0 ? "clamp(14px, 3.4vw, 30px)" : "clamp(13px, 3vw, 24px)" }}>{entry.display_name}</p>
-                    {config.show_company && entry.company && <p className="truncate text-sm" style={{ opacity: 0.5 }}>{entry.company}</p>}
+                    <p className="truncate font-semibold" style={{ fontSize: nameSize(lead) }}>{entry.display_name}</p>
+                    {config.show_company && entry.company && <p className="truncate" style={{ opacity: 0.5, fontSize: spotlight ? "clamp(11px, 2.4vw, 22px)" : "clamp(11px, 1.6vw, 14px)" }}>{entry.company}</p>}
                   </div>
                   {/* Nominal & progress selalu terlihat, termasuk di layar portrait. */}
                   <div className="flex items-center justify-between gap-4 lg:flex-col lg:items-end lg:gap-1">
-                    <p className="font-mono font-semibold tabular-nums" style={{ fontSize: index === 0 ? "clamp(14px, 3.4vw, 30px)" : "clamp(13px, 3vw, 24px)", ...(index === 0 ? { color: config.accent_color } : {}) }}>{formatRupiah(entry.total_spent)}</p>
+                    <p className="font-mono font-semibold tabular-nums" style={{ fontSize: nameSize(lead), ...(lead ? { color: config.accent_color } : {}) }}>{formatRupiah(entry.total_spent)}</p>
                     {config.show_booth_progress && <div className="flex shrink-0 items-center gap-1.5" aria-label={`${entry.booth_count} dari 6 booth dikunjungi`}>
-                      {Array.from({ length: 6 }).map((_, dot) => <span key={dot} className="size-2.5 rounded-full transition-colors xl:size-3" style={{ backgroundColor: dot < entry.booth_count ? config.accent_color : "rgba(255,255,255,0.15)" }} />)}
-                      {entry.booth_count >= 6 && <Crown size={18} weight="fill" className="ml-1" style={{ color: config.accent_color }} />}
+                      {Array.from({ length: 6 }).map((_, dot) => <span key={dot} className="rounded-full transition-colors" style={{ width: dotSize, height: dotSize, backgroundColor: dot < entry.booth_count ? config.accent_color : "rgba(255,255,255,0.15)" }} />)}
+                      {entry.booth_count >= 6 && <Crown size={spotlight ? 26 : 18} weight="fill" className="ml-1" style={{ color: config.accent_color }} />}
                     </div>}
                   </div>
                 </motion.div>;
               })}
             </AnimatePresence>
-          </div>
-          {entries.length === 0 && <p className="py-16 text-center" style={{ opacity: 0.5 }}>Belum ada transaksi lunas.</p>}
+          </div>}
+          {!awaitingFirstStage && entries.length === 0 && <p className="py-16 text-center" style={{ opacity: 0.5 }}>Belum ada transaksi lunas.</p>}
         </section>
 
-        {config.show_booth_progress && <aside className="space-y-8">
+        {asideVisible && <aside className="space-y-8">
           <section className="border border-white/15 p-6">
             <p className="text-xs uppercase tracking-[0.2em]" style={{ color: config.accent_color }}>02 / Booth explorer</p>
             <div className="mt-7 flex items-start justify-between">
