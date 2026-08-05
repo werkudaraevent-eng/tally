@@ -5,7 +5,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, BRANDING_FONTS, SCALE_MAX, SCALE_MIN, type BrandingFont } from "@/lib/branding";
 import { normalizeTimeZone } from "@/lib/timezone";
 
-const SELECT = `event_title,headline,tagline,background_color,text_color,accent_color,background_image_url,leaderboard_limit,show_company,show_booth_progress,show_ticker,ticker_text,refresh_seconds,updated_at,${BRANDING_COLUMNS}`;
+const SELECT = `event_title,headline,tagline,background_color,text_color,accent_color,background_image_url,leaderboard_limit,show_company,show_booth_progress,show_ticker,show_amount,ticker_text,refresh_seconds,updated_at,${BRANDING_COLUMNS}`;
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Warna harus format hex #RRGGBB");
 
@@ -42,6 +42,7 @@ const patchSchema = z.object({
   show_company: z.boolean().optional(),
   show_booth_progress: z.boolean().optional(),
   show_ticker: z.boolean().optional(),
+  show_amount: z.boolean().optional(),
   ticker_text: z.string().trim().max(300).nullable().optional(),
   refresh_seconds: z.number().int().min(5).max(300).optional(),
   ...brandingSchema,

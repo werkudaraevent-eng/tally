@@ -92,6 +92,50 @@ export type LeaderboardEntry = {
   booth_count: number;
 };
 
+/**
+ * Bentuk baris seperti yang dikirim ke layar, di mana `total_spent` DAPAT TIDAK
+ * ADA.
+ *
+ * Sengaja dibedakan dari `LeaderboardEntry`: yang itu mewakili keluaran RPC dan
+ * di sana nominal selalu ada. Dengan `display_settings.show_amount = false`,
+ * `/api/display/reveal` menghapus kolom itu dari response supaya nominal tidak
+ * terbaca dari tab Network pada endpoint yang terbuka tanpa login.
+ *
+ * Dipisah supaya TypeScript memaksa layar menangani ketidakhadirannya. Kalau
+ * `total_spent` dibiarkan wajib, `formatRupiah(undefined)` akan lolos kompilasi
+ * dan muncul sebagai "Rp NaN" di proyektor.
+ */
+export type PublicLeaderboardEntry = Omit<LeaderboardEntry, "total_spent"> & { total_spent?: number };
+
+/**
+ * Buang `total_spent` bila `display_settings.show_amount` = false.
+ *
+ * WAJIB dipakai oleh SETIAP endpoint papan yang dapat diakses tanpa login.
+ * Menyembunyikan angka lewat CSS tidak cukup: response-nya terbaca siapa pun
+ * lewat tab Network, dan itu tepat angka yang klien minta untuk tidak
+ * ditampilkan. Alasannya sama dengan pemotongan papan per tahap di
+ * `/api/display/reveal`, yang juga dikerjakan di server dan bukan di browser.
+ *
+ * Dikerjakan saat MENYUSUN response, bukan saat menulis `leaderboard_reveal.
+ * snapshot`. Kalau nominal dibuang sebelum dibekukan, mengembalikan toggle ke
+ * true tidak akan bisa memulihkan angkanya dan reveal harus dimulai ulang.
+ *
+ * Urutan tetap benar tanpa nominal: `rank` dihitung `get_leaderboard` di server,
+ * layar tidak pernah menyortir sendiri.
+ *
+ * Fungsi murni dan ada di modul ini supaya satu implementasi dipakai bersama.
+ * Tiga endpoint publik menyalin logika yang sama adalah tiga tempat yang harus
+ * diingat saat aturannya berubah, dan yang terlupa tidak akan gagal build —
+ * hanya membocorkan angka.
+ */
+export function redactAmounts<T extends { total_spent?: number }>(entries: T[], showAmount: boolean): Array<Omit<T, "total_spent">> {
+  if (showAmount) return entries;
+  return entries.map(({ total_spent, ...rest }) => {
+    void total_spent;
+    return rest;
+  });
+}
+
 /** Bentuk response GET /api/display/reveal. */
 export type RevealState = {
   mode: RevealMode;
@@ -104,5 +148,5 @@ export type RevealState = {
   frozen: boolean;
   frozen_at?: string | null;
   updated_at: string;
-  entries: LeaderboardEntry[];
+  entries: PublicLeaderboardEntry[];
 };

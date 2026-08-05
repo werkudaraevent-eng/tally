@@ -124,6 +124,24 @@ const FIELD_LABEL: Record<string, string> = {
   label: "Label",
   requires_reference: "Butuh nomor referensi",
   reference_digits: "Jumlah digit referensi",
+  // Field Live Display. Dicantumkan sebagai satu kelompok utuh, bukan hanya
+  // saklar yang baru ditambahkan: semuanya muncul di diff
+  // `display_settings_update` yang sama, dan satu label rapi di antara belasan
+  // nama kolom mentah terbaca seperti kesalahan, bukan seperti pilihan.
+  show_amount: "Tampilkan nominal belanja",
+  show_company: "Tampilkan perusahaan peserta",
+  show_booth_progress: "Tampilkan panel booth explorer",
+  show_ticker: "Tampilkan ticker bawah",
+  ticker_text: "Teks ticker",
+  event_title: "Judul acara",
+  headline: "Headline",
+  tagline: "Tagline",
+  leaderboard_limit: "Jumlah top spender",
+  refresh_seconds: "Refresh (detik)",
+  background_color: "Warna latar",
+  text_color: "Warna teks",
+  accent_color: "Warna aksen",
+  background_image_url: "Gambar latar",
 };
 
 // Field yang tidak berarti bagi pembaca audit, atau selalu berubah tanpa makna.

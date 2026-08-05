@@ -1,17 +1,28 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
+import { redactAmounts, type LeaderboardEntry } from "@/lib/reveal";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const querySchema = z.object({ limit: z.coerce.number().int().min(1).max(100).default(10) });
 
+// Endpoint PUBLIK, sama seperti /api/display/leaderboard: nominal wajib melewati
+// `redactAmounts`. Lihat catatan lengkap di fungsi itu (src/lib/reveal.ts).
 export async function GET(request: Request) {
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   try {
-     const { data, error } = await getSupabaseServiceClient().rpc("get_leaderboard" as never, { p_limit: parsed.data.limit } as never);
-    const { data: settings } = await getSupabaseServiceClient().from("event_settings").select("leaderboard_enabled").eq("id", 1).single() as { data: { leaderboard_enabled: boolean } | null };
+    const client = getSupabaseServiceClient();
+    const { data, error } = await client.rpc("get_leaderboard" as never, { p_limit: parsed.data.limit } as never);
     if (error) return apiError(mapDatabaseError(error), 500);
-     return Response.json({ updated_at: new Date().toISOString(), leaderboard_enabled: settings?.leaderboard_enabled ?? true, entries: data ?? [] });
+    const [{ data: settings }, { data: display }] = await Promise.all([
+      client.from("event_settings").select("leaderboard_enabled").eq("id", 1).single() as unknown as Promise<{ data: { leaderboard_enabled: boolean } | null }>,
+      client.from("display_settings").select("show_amount").eq("id", 1).maybeSingle() as unknown as Promise<{ data: { show_amount: boolean } | null }>,
+    ]);
+    return Response.json({
+      updated_at: new Date().toISOString(),
+      leaderboard_enabled: settings?.leaderboard_enabled ?? true,
+      entries: redactAmounts((data ?? []) as LeaderboardEntry[], display?.show_amount !== false),
+    });
   } catch {
     return apiError("INTERNAL_ERROR", 500);
   }

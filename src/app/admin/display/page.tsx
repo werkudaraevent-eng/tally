@@ -37,6 +37,7 @@ type DisplaySettings = {
   show_company: boolean;
   show_booth_progress: boolean;
   show_ticker: boolean;
+  show_amount: boolean;
   ticker_text: string | null;
   refresh_seconds: number;
   updated_at?: string;
@@ -100,6 +101,7 @@ export default function DisplaySettingsPage() {
       show_company: settings.show_company,
       show_booth_progress: settings.show_booth_progress,
       show_ticker: settings.show_ticker,
+      show_amount: settings.show_amount,
       ticker_text: settings.ticker_text?.trim() ? settings.ticker_text.trim() : null,
       refresh_seconds: settings.refresh_seconds,
       // Branding header dan footer. Dilewatkan `normalizeBranding` supaya hanya
@@ -256,9 +258,19 @@ export default function DisplaySettingsPage() {
             </div>
             <div className="mt-4 space-y-3">
               <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={settings.show_company} onChange={(event) => update("show_company", event.target.checked)} className="size-5 accent-[var(--brand)]" /> Tampilkan perusahaan peserta</label>
+              <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={settings.show_amount} onChange={(event) => update("show_amount", event.target.checked)} className="size-5 accent-[var(--brand)]" /> Tampilkan nominal belanja</label>
               <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={settings.show_booth_progress} onChange={(event) => update("show_booth_progress", event.target.checked)} className="size-5 accent-[var(--brand)]" /> Tampilkan panel booth explorer</label>
               <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={settings.show_ticker} onChange={(event) => update("show_ticker", event.target.checked)} className="size-5 accent-[var(--brand)]" /> Tampilkan ticker bawah</label>
             </div>
+            {/* Dua keterangan berbeda, bukan satu kalimat gabungan: yang pertama
+                menjelaskan jaminan teknisnya (angkanya benar-benar tidak dikirim),
+                yang kedua adalah peringatan tata letak yang hanya berlaku bila
+                kedua kolom kanan mati sekaligus. Menggabungkannya berarti
+                peringatan itu ikut tampil pada keadaan yang tidak bermasalah. */}
+            {!settings.show_amount && <div className="mt-4 space-y-2 border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-xs leading-5 text-[var(--ink-muted)]">
+              <p>Peringkat tetap tampil, nominalnya tidak. Angka juga tidak dikirim ke layar sama sekali, jadi tidak dapat dibaca dari alat pengembang browser oleh siapa pun yang membuka Live Display.</p>
+              {!settings.show_booth_progress && <p className="text-[var(--warning)]">Nominal dan progress booth dua-duanya mati, jadi setiap baris hanya berisi nama{settings.show_company ? " dan perusahaan" : ""}. Penonton tidak punya petunjuk apa pun tentang alasan urutannya.</p>}
+            </div>}
             {settings.show_ticker && <label className="mt-4 block text-sm font-semibold">Teks ticker <span className="font-normal text-[var(--ink-muted)]">(kosong = default)</span>
               <input value={settings.ticker_text ?? ""} onChange={(event) => update("ticker_text", event.target.value)} placeholder="Leaderboard ter-update dari transaksi live" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]" />
             </label>}
@@ -278,10 +290,15 @@ export default function DisplaySettingsPage() {
               <p className="mt-1 text-sm font-semibold">{settings.headline}</p>
               <p className="mt-4 text-xl font-semibold tracking-[-0.03em]" style={{ color: settings.accent_color }}>{settings.tagline}</p>
               <div className="mt-4 space-y-2">
+                {/* Nominal contoh ikut dipratinjau supaya efek mematikan togglenya
+                    terlihat di sini, bukan baru diketahui setelah proyektor menyala.
+                    Angkanya sengaja berbeda per peringkat agar terbaca sebagai data,
+                    bukan sebagai label yang sama berulang. */}
                 {[1, 2, 3].map((rank) => <div key={rank} className="flex items-center gap-3 border-t pt-2 text-xs" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
                   <span className="font-mono font-semibold" style={{ color: rank === 1 ? settings.accent_color : undefined, opacity: rank === 1 ? 1 : 0.5 }}>{String(rank).padStart(2, "0")}</span>
-                  <span className="flex-1">Peserta {rank}{settings.show_company && <span style={{ opacity: 0.5 }}> — PT Contoh</span>}</span>
-                  {settings.show_booth_progress && <span style={{ color: settings.accent_color }}>●●●</span>}
+                  <span className="flex-1 truncate">Peserta {rank}{settings.show_company && <span style={{ opacity: 0.5 }}> — PT Contoh</span>}</span>
+                  {settings.show_amount && <span className="shrink-0 font-mono tabular-nums" style={{ color: rank === 1 ? settings.accent_color : undefined }}>{["13.436.025", "6.749.463", "5.747.650"][rank - 1]}</span>}
+                  {settings.show_booth_progress && <span className="shrink-0" style={{ color: settings.accent_color }}>●●●</span>}
                 </div>)}
               </div>
               {settings.show_ticker && <p className="mt-auto border-t pt-2 text-[10px]" style={{ borderColor: "rgba(255,255,255,0.15)", opacity: 0.6 }}>{settings.ticker_text?.trim() || "Leaderboard ter-update dari transaksi live"}</p>}

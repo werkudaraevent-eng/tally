@@ -7,6 +7,7 @@ import {
   REVEAL_ACTIONS,
   clampStage,
   normalizeStages,
+  redactAmounts,
   showAllStage,
   visibleRange,
   type LeaderboardEntry,
@@ -52,11 +53,16 @@ export async function GET() {
   // papan diambil, baik saat mode off maupun saat tahap terakhir dibuka.
   const [revealResult, displayResult, eventResult] = await Promise.all([
     client.from("leaderboard_reveal").select(ROW).eq("id", 1).maybeSingle(),
-    client.from("display_settings").select("leaderboard_limit").eq("id", 1).maybeSingle(),
+    client.from("display_settings").select("leaderboard_limit,show_amount").eq("id", 1).maybeSingle(),
     client.from("event_settings").select("leaderboard_enabled").eq("id", 1).maybeSingle(),
   ]);
 
-  const limit = (displayResult.data as { leaderboard_limit?: number } | null)?.leaderboard_limit ?? 10;
+  const displayRow = displayResult.data as { leaderboard_limit?: number; show_amount?: boolean } | null;
+  const limit = displayRow?.leaderboard_limit ?? 10;
+  // `!== false`, bukan truthiness: selama baris konfigurasi belum terbaca nominal
+  // dianggap tetap tampil, sama seperti default kolomnya. Gagal baca tidak boleh
+  // mengubah tampilan yang sedang berjalan di panggung.
+  const showAmount = displayRow?.show_amount !== false;
   const enabled = (eventResult.data as { leaderboard_enabled?: boolean } | null)?.leaderboard_enabled ?? true;
   const row = revealResult.data as RevealRow | null;
   const stages = normalizeStages(row?.stages ?? DEFAULT_REVEAL_STAGES);
@@ -81,7 +87,7 @@ export async function GET() {
       frozen_at: row?.frozen_at ?? null,
       settings_updated_at: row?.updated_at ?? null,
       updated_at: new Date().toISOString(),
-      entries: live.entries,
+      entries: redactAmounts(live.entries, showAmount),
     });
   }
 
@@ -127,7 +133,7 @@ export async function GET() {
     frozen_at: row.frozen_at,
     settings_updated_at: row.updated_at,
     updated_at: new Date().toISOString(),
-    entries,
+    entries: redactAmounts(entries, showAmount),
   });
 }
 

@@ -7,7 +7,7 @@ import { BrandFooter, BrandLogo } from "@/components/brand-header-footer";
 import { fontStack, normalizeBranding, scaleClamp } from "@/lib/branding";
 import { formatEventTimeWithSeconds } from "@/lib/datetime";
 import { DEFAULT_CONFIG, type DisplayConfig } from "@/lib/display-config";
-import type { LeaderboardEntry, StageLayout } from "@/lib/reveal";
+import type { PublicLeaderboardEntry, StageLayout } from "@/lib/reveal";
 import { DEFAULT_TIME_ZONE, normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 
 // Peringkat 1-3 mendapat medali; sisanya nomor urut biasa.
@@ -22,7 +22,7 @@ const MEDALS = ["#F2C14E", "#C7CDD4", "#C98B5E"] as const;
 // yang sedang tampil) supaya interval sependek ini tetap murah.
 const REVEAL_POLL_MS = 2000;
 
-type Entry = LeaderboardEntry;
+type Entry = PublicLeaderboardEntry;
 
 const formatRupiah = (amount: number) => `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
 
@@ -263,6 +263,9 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
                 const rank = Number(entry.rank);
                 const medal = MEDALS[rank - 1];
                 const lead = rank === 1;
+                // Keberadaan nilainya, bukan setelan CMS-nya. Alasan lengkap ada di
+                // dekat blok yang memakainya.
+                const amountVisible = entry.total_spent !== undefined;
                 return <motion.div
                   key={`${entry.display_name}__${rank}`}
                   layout
@@ -285,14 +288,30 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
                     <p className="truncate font-semibold" style={{ fontSize: nameSize(lead) }}>{entry.display_name}</p>
                     {config.show_company && entry.company && <p className="truncate" style={{ opacity: 0.5, fontSize: spotlight ? "clamp(11px, 2.4vw, 22px)" : "clamp(11px, 1.6vw, 14px)" }}>{entry.company}</p>}
                   </div>
-                  {/* Nominal & progress selalu terlihat, termasuk di layar portrait. */}
-                  <div className="flex items-center justify-between gap-4 lg:flex-col lg:items-end lg:gap-1">
-                    <p className="font-mono font-semibold tabular-nums" style={{ fontSize: nameSize(lead), ...(lead ? { color: config.accent_color } : {}) }}>{formatRupiah(entry.total_spent)}</p>
+                  {/* Nominal & progress selalu terlihat, termasuk di layar portrait.
+
+                      Wrapper-nya TIDAK dirender bila kedua isinya mati. Di lg kolom
+                      `auto` memang menyusut sendiri, tapi di portrait div ini turun ke
+                      baris kedua grid dan menyisakan `gap-y-1` untuk baris yang tidak
+                      berisi apa pun — celah yang tampak seperti bug tata letak, bukan
+                      seperti kolom yang sengaja dimatikan.
+
+                      `amountVisible` memeriksa `total_spent !== undefined`, bukan
+                      `config.show_amount`. Nominal memang DIHAPUS dari response saat
+                      toggle mati (lihat /api/display/reveal), jadi keberadaan nilainya
+                      adalah sumber yang benar. Membaca config di sini akan salah tampil
+                      selama satu putaran polling setelah admin mengubah toggle: kedua
+                      nilai datang dari dua permintaan berbeda dengan selang berbeda
+                      (2 detik untuk reveal, 30 detik untuk settings), sehingga config
+                      masih bilang "tampilkan" sementara angkanya sudah tidak ada —
+                      dan yang tampil di proyektor adalah "Rp NaN". */}
+                  {(amountVisible || config.show_booth_progress) && <div className="flex items-center justify-between gap-4 lg:flex-col lg:items-end lg:gap-1">
+                    {amountVisible && <p className="font-mono font-semibold tabular-nums" style={{ fontSize: nameSize(lead), ...(lead ? { color: config.accent_color } : {}) }}>{formatRupiah(entry.total_spent ?? 0)}</p>}
                     {config.show_booth_progress && <div className="flex shrink-0 items-center gap-1.5" aria-label={`${entry.booth_count} dari 6 booth dikunjungi`}>
                       {Array.from({ length: 6 }).map((_, dot) => <span key={dot} className="rounded-full transition-colors" style={{ width: dotSize, height: dotSize, backgroundColor: dot < entry.booth_count ? config.accent_color : "rgba(255,255,255,0.15)" }} />)}
                       {entry.booth_count >= 6 && <Crown size={spotlight ? 26 : 18} weight="fill" className="ml-1" style={{ color: config.accent_color }} />}
                     </div>}
-                  </div>
+                  </div>}
                 </motion.div>;
               })}
             </AnimatePresence>

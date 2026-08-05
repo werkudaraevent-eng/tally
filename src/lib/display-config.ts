@@ -22,6 +22,15 @@ export type DisplayConfig = {
   show_company: boolean;
   show_booth_progress: boolean;
   show_ticker: boolean;
+  /**
+   * false = nominal top spender tidak dipajang; peringkat tetap tampil.
+   *
+   * Penegakannya ada di `/api/display/reveal`, yang MENGHAPUS `total_spent` dari
+   * response saat nilai ini false. Jadi pada layar, `entry.total_spent` memang
+   * tidak ada — bukan ada tapi disembunyikan. Kondisi render di komponen hanya
+   * mengatur tata letak, bukan yang menjaga kerahasiaan angkanya.
+   */
+  show_amount: boolean;
   ticker_text: string | null;
   refresh_seconds: number;
 } & Branding;
@@ -43,6 +52,10 @@ export const DEFAULT_CONFIG: DisplayConfig = {
   show_company: true,
   show_booth_progress: true,
   show_ticker: true,
+  // true, sama dengan default kolomnya: jaring pengaman tidak boleh mengubah
+  // tampilan. Kalau nilainya false di sini, kegagalan membaca satu baris
+  // konfigurasi akan menghapus nominal dari layar tanpa ada yang mengubah apa pun.
+  show_amount: true,
   ticker_text: null,
   refresh_seconds: 30,
   // Branding kosong dan skala 1: tanpa diisi admin, layar tampil persis seperti
@@ -52,4 +65,4 @@ export const DEFAULT_CONFIG: DisplayConfig = {
 
 /** Kolom yang dibaca dari `display_settings`. Sama dengan endpoint GET-nya. */
 export const DISPLAY_CONFIG_COLUMNS =
-  `event_title,headline,tagline,background_color,text_color,accent_color,background_image_url,leaderboard_limit,show_company,show_booth_progress,show_ticker,ticker_text,refresh_seconds,${BRANDING_COLUMNS}`;
+  `event_title,headline,tagline,background_color,text_color,accent_color,background_image_url,leaderboard_limit,show_company,show_booth_progress,show_ticker,show_amount,ticker_text,refresh_seconds,${BRANDING_COLUMNS}`;
