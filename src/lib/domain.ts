@@ -118,6 +118,10 @@ export type Order = {
 export type ApiErrorCode =
   | "UNAUTHENTICATED"
   | "FORBIDDEN"
+  // Percobaan login terlalu banyak untuk satu username. Bukan kegagalan kredensial
+  // dan bukan kesalahan server, jadi butuh kodenya sendiri: pesannya harus
+  // menyebutkan lama tunggu, bukan menyuruh memeriksa PIN.
+  | "RATE_LIMITED"
   | "VALIDATION_ERROR"
   | "PARTICIPANT_NOT_FOUND"
   | "DISCOUNT_ALREADY_TAKEN"
@@ -127,6 +131,14 @@ export type ApiErrorCode =
   | "ORDER_NOT_VOIDABLE"
   | "ORDER_NOT_ELIGIBLE_FOR_HANDOVER"
   | "INVALID_APPROVAL_CODE"
+  // Ditolak oleh create_order_transaction. Sebelumnya tidak terdaftar, sehingga
+  // mapDatabaseError menjatuhkannya ke INTERNAL_ERROR dan staf booth membaca
+  // "Terjadi kesalahan server. Coba lagi." untuk kesalahan yang mengulanginya
+  // tidak akan pernah menyelesaikan.
+  | "INVALID_ORDER_CODE"
+  | "INVALID_AMOUNT"
+  | "VOID_REASON_REQUIRED"
+  | "PARTICIPANT_REMOVED"
   | "DISCOUNT_QUOTA_REACHED"
   | "DISCOUNT_NOT_OFFERED"
   | "USERNAME_TAKEN"
