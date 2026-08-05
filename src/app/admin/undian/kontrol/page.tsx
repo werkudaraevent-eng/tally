@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  ArrowLeft, ArrowSquareOut, CheckCircle, Gift, Power, SkipForward,
+  ArrowLeft, ArrowSquareOut, ArrowsClockwise, CheckCircle, Flask, Gift, Power, SkipForward,
   Sparkle, Trophy, Warning, XCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
@@ -29,12 +29,17 @@ import { ANIMATIONS, type UndianPrize, normalizePrize } from "@/lib/undian";
 const POLL_MS = 2000;
 
 type Winner = {
-  id?: number; name: string; company: string | null; seat: string | null;
+  // `id` sengaja opsional: MODE LATIHAN tidak menulis baris `undian_winners`,
+  // jadi pemenang latihan tidak punya id. Karena itu `ref` yang dipakai sebagai
+  // key React — ia selalu ada, baik pada latihan maupun undian sungguhan.
+  id?: number; ref: string; name: string; company: string | null; seat: string | null;
   is_backup: boolean; slot_order: number; status?: "pending" | "confirmed" | "rejected";
 };
 
 type State = {
   mode: "off" | "live";
+  /** true = undian berjalan tetapi hasilnya tidak dicatat. */
+  rehearsal: boolean;
   phase: "idle" | "spinning" | "revealed";
   draw_round: number;
   prize: { id: number; name: string; winners_per_draw: number; winner_quota: number } | null;
@@ -48,9 +53,20 @@ export default function UndianControlPage() {
   const [state, setState] = useState<State | null>(null);
   const [prizes, setPrizes] = useState<UndianPrize[]>([]);
   const [winnerCounts, setWinnerCounts] = useState<Record<number, number>>({});
+  // Berapa pemenang yang masih menunggu konfirmasi per hadiah. Ini yang
+  // menentukan tombol "Undi ulang" muncul: hanya pemenang pending yang dapat
+  // dibatalkan, jadi tanpa angka ini panel akan menawarkan tombol yang gagal.
+  const [pendingCounts, setPendingCounts] = useState<Record<number, number>>({});
+  // Nama sesi aktif. Badge "Penuh" tanpa menyebut sesinya terbaca sebagai
+  // "hadiah ini habis selamanya".
+  const [activeSession, setActiveSession] = useState<{ id: number; name: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  // Konfirmasi undi ulang ditahan di dalam panelnya, bukan window.confirm:
+  // membatalkan sepuluh pemenang sekaligus tidak boleh terjadi karena satu
+  // ketukan tak sengaja di atas panggung.
+  const [confirmRedraw, setConfirmRedraw] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState("");
   const toast = useToast();
@@ -71,6 +87,8 @@ export default function UndianControlPage() {
     const data = await response.json();
     setPrizes((data.prizes as Record<string, unknown>[]).map(normalizePrize).filter((prize) => prize.is_active));
     setWinnerCounts(data.winner_counts ?? {});
+    setPendingCounts(data.pending_counts ?? {});
+    setActiveSession(data.active_session ?? null);
   }, []);
 
   useEffect(() => {
@@ -127,6 +145,14 @@ export default function UndianControlPage() {
   const quotaUsed = activePrize ? winnerCounts[activePrize.id] ?? 0 : 0;
   const quotaFull = activePrize ? quotaUsed >= activePrize.winner_quota : false;
   const spinning = state?.phase === "spinning";
+  const rehearsal = state?.rehearsal === true;
+  // Berapa nama yang akan dibatalkan bila "Undi ulang" ditekan.
+  const pendingHere = activePrize ? pendingCounts[activePrize.id] ?? 0 : 0;
+  // Pada mode latihan kuota tidak berlaku: tidak ada pemenang yang dicatat,
+  // jadi tidak ada kuota yang terpakai. Tombol undi harus tetap hidup, termasuk
+  // untuk hadiah yang kuotanya kebetulan sudah penuh — justru hadiah itulah yang
+  // paling perlu diuji ulang.
+  const drawBlocked = quotaFull && !rehearsal;
 
   return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1440px]">
@@ -168,6 +194,37 @@ export default function UndianControlPage() {
         </button>
       </section>
 
+      {/* --- Saklar mode latihan ---
+          Terpisah dari saklar layar karena menjawab pertanyaan yang berbeda:
+          saklar di atas menentukan layar panggung menyala atau tidak, yang ini
+          menentukan hasilnya dicatat atau tidak. Menggabungkan keduanya membuat
+          gladi bersih mustahil dilakukan dengan layar menyala — padahal justru
+          itu inti gladi bersih.
+
+          Warnanya oranye, tidak mengikuti warna brand: keadaan ini harus terbaca
+          sebagai "sedang tidak normal" dari ujung ruangan. */}
+      <section className={`mt-px flex flex-wrap items-center justify-between gap-4 border p-5 ${rehearsal ? "border-[#b45309] bg-[#FFF7ED]" : "border-[var(--line)] bg-[var(--surface)]"}`}>
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+            {rehearsal && <Flask size={18} weight="fill" className="text-[#b45309]" />}
+            Mode latihan {rehearsal ? "AKTIF" : "mati"}
+          </p>
+          <p className="mt-1 text-xs text-[var(--ink-muted)]">
+            {rehearsal
+              ? "Undian berjalan normal di layar, tetapi pemenang TIDAK dicatat dan kuota tidak terpakai. Matikan sebelum undian sungguhan."
+              : "Untuk gladi bersih. Undian berjalan seperti biasa tetapi hasilnya tidak disimpan, jadi tidak perlu dibersihkan sebelum acara."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => send({ action: "rehearsal", on: !rehearsal }, "rehearsal")}
+          disabled={busy !== null || spinning}
+          className={`flex min-h-12 items-center gap-2 border px-6 text-sm font-semibold disabled:opacity-60 ${rehearsal ? "border-[#b45309] bg-[#b45309] text-white" : "border-[var(--line)]"}`}
+        >
+          {rehearsal ? "Selesai latihan" : "Mulai latihan"}
+        </button>
+      </section>
+
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
         {/* --- Pilih hadiah --- */}
         <section>
@@ -197,7 +254,15 @@ export default function UndianControlPage() {
                     {used}/{prize.winner_quota} pemenang · {ANIMATIONS.find((item) => item.value === prize.animation)?.label}
                   </p>
                 </div>
-                {full && <span className="shrink-0 border border-[var(--line)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--ink-muted)]">Penuh</span>}
+                {full && <span
+                  className="shrink-0 border border-[var(--line)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--ink-muted)]"
+                  // "Penuh" saja terbaca sebagai "hadiah ini habis selamanya",
+                  // dan tafsir itulah yang membuat orang membuat hadiah duplikat
+                  // atau menghapus hasil undian. Kuota dihitung per SESI.
+                  title={activeSession ? `Kuota penuh di sesi "${activeSession.name}". Hadiah yang sama bisa diundi lagi di sesi berikutnya.` : "Kuota penuh"}
+                >
+                  {activeSession ? "Penuh di sesi ini" : "Penuh"}
+                </span>}
               </button>;
             })}
           </div>}
@@ -226,10 +291,10 @@ export default function UndianControlPage() {
                 <button
                   type="button"
                   onClick={() => send({ action: "draw" }, "draw")}
-                  disabled={busy !== null || spinning || quotaFull || state.mode !== "live"}
+                  disabled={busy !== null || spinning || drawBlocked || state.mode !== "live"}
                   className="flex min-h-14 flex-1 items-center justify-center gap-2 border border-[var(--brand)] bg-[var(--brand)] px-6 text-base font-semibold text-white disabled:opacity-50"
                 >
-                  <Sparkle size={20} weight="fill" /> {busy === "draw" ? "Mengundi..." : "UNDI SEKARANG"}
+                  <Sparkle size={20} weight="fill" /> {busy === "draw" ? "Mengundi..." : rehearsal ? "UNDI (LATIHAN)" : "UNDI SEKARANG"}
                 </button>
                 {spinning && <button
                   type="button"
@@ -242,7 +307,63 @@ export default function UndianControlPage() {
               </div>
 
               {state.mode !== "live" && <p className="mt-3 text-xs text-[var(--ink-muted)]">Nyalakan layar panggung dulu sebelum mengundi.</p>}
-              {quotaFull && <p className="mt-3 text-xs font-semibold text-[var(--ink-muted)]">Kuota hadiah ini sudah penuh.</p>}
+
+              {/* Kuota penuh: JALAN KELUAR, bukan kalimat buntu.
+                  Sebelumnya di sini hanya tertulis "Kuota hadiah ini sudah penuh."
+                  Jalan keluarnya sebenarnya sudah ada tiga — batalkan pemenang,
+                  tutup sesi lalu buka baru, atau hapus hasil — tetapi tidak satu
+                  pun terlihat dari layar ini. Operator menyimpulkan harus MENGHAPUS
+                  hasil, tindakan paling merusak dari ketiganya dan satu-satunya
+                  yang membuang bukti serah terima hadiah. */}
+              {drawBlocked && <div className="mt-4 border border-[var(--line)] bg-[var(--surface-muted)] p-4">
+                <p className="text-sm font-semibold">
+                  Kuota penuh{activeSession ? ` di sesi "${activeSession.name}"` : ""} ({quotaUsed}/{state.prize.winner_quota})
+                </p>
+
+                {pendingHere > 0 ? <>
+                  <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">
+                    {pendingHere} pemenang belum ditandai hadir. Undi ulang akan membatalkan {pendingHere} nama itu supaya kuota kembali kosong.
+                    Datanya tetap tersimpan lengkap dengan alasannya, tidak dihapus.
+                  </p>
+                  {!confirmRedraw ? <button
+                    type="button"
+                    onClick={() => setConfirmRedraw(true)}
+                    disabled={busy !== null || spinning}
+                    className="mt-3 flex min-h-12 items-center gap-2 border border-[var(--brand)] px-4 text-sm font-semibold text-[var(--brand)] disabled:opacity-60"
+                  >
+                    <ArrowsClockwise size={18} /> Undi ulang hadiah ini
+                  </button> : <div className="mt-3 border-t border-[var(--line)] pt-3">
+                    <p className="text-xs font-semibold text-[var(--danger)]">
+                      Batalkan {pendingHere} pemenang {state.prize.name} yang belum hadir?
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const ok = await send({ action: "redraw", prize_id: state.prize?.id }, "redraw");
+                          setConfirmRedraw(false);
+                          if (ok) toast.info("Kuota dikosongkan", `${pendingHere} pemenang dibatalkan. Hadiah ini bisa diundi lagi.`);
+                        }}
+                        disabled={busy !== null}
+                        className="min-h-11 border border-[var(--danger)] bg-[var(--danger)] px-4 text-xs font-semibold text-white disabled:opacity-60"
+                      >
+                        Ya, undi ulang
+                      </button>
+                      <button type="button" onClick={() => setConfirmRedraw(false)} className="min-h-11 border border-[var(--line)] px-4 text-xs font-semibold">Batal</button>
+                    </div>
+                  </div>}
+                </> : <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">
+                  Semua pemenang sudah ditandai hadir, jadi tidak dapat dibatalkan dari sini — hadiahnya sudah diserahkan.
+                  Untuk mengundi hadiah ini lagi, tutup sesi di <Link href="/admin/undian" className="font-semibold text-[var(--brand)] underline">CMS Undian</Link> lalu mulai sesi baru.
+                  Pemenang lama tetap tercatat.
+                </p>}
+              </div>}
+
+              {/* Pada mode latihan kuota tidak menghalangi, tapi angkanya tetap
+                  perlu terlihat supaya operator tahu keadaan sungguhannya. */}
+              {quotaFull && rehearsal && <p className="mt-3 text-xs text-[var(--ink-muted)]">
+                Kuota sebenarnya sudah penuh, tetapi mode latihan tidak memakai kuota.
+              </p>}
 
               <button
                 type="button"
@@ -259,7 +380,20 @@ export default function UndianControlPage() {
           {state && state.winners.length > 0 && <div className="bg-[var(--surface)] p-6">
             <h3 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Pemenang undian ini</h3>
             <ul className="mt-3 space-y-2">
-              {state.winners.map((winner) => <li key={winner.id} className={`border p-4 ${winner.status === "confirmed" ? "border-[var(--brand)] bg-[#E8ECFB]" : winner.status === "rejected" ? "border-[var(--line)] opacity-60" : "border-[var(--line)]"}`}>
+              {/* Key memakai `ref`, BUKAN `id`.
+
+                  `id` bertipe opsional dan memang kosong pada MODE LATIHAN: undian
+                  latihan tidak menulis baris `undian_winners` sama sekali (lihat
+                  cabang rehearsal di /api/undian/state). `key={undefined}` diterima
+                  React sebagai "tanpa key", dan itulah sumber peringatan
+                  "Each child in a list should have a unique key prop" yang muncul di
+                  konsol.
+
+                  `ref` selalu ada dan unik per peserta, jadi ia benar untuk kedua
+                  mode. Rangkaian is_backup+slot_order+name yang dipakai sebelumnya
+                  hanya sebagai jaring pengaman: dua peserta bernama sama pada slot
+                  yang sama akan bertabrakan, dan React lalu menggabungkan barisnya. */}
+              {state.winners.map((winner) => <li key={winner.ref} className={`border p-4 ${winner.status === "confirmed" ? "border-[var(--brand)] bg-[#E8ECFB]" : winner.status === "rejected" ? "border-[var(--line)] opacity-60" : "border-[var(--line)]"}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -328,7 +462,10 @@ export default function UndianControlPage() {
               <Trophy size={16} /> Sudah sah ({state.confirmed.length})
             </h3>
             <ul className="mt-3 grid gap-1 sm:grid-cols-2">
-              {state.confirmed.map((winner) => <li key={winner.id} className="truncate text-sm">
+              {/* `ref` juga di sini, dengan alasan yang sama seperti daftar di atas:
+                  `id` opsional pada tipe `UndianWinner`, jadi memakainya berarti
+                  bergantung pada jaminan yang tidak dinyatakan tipenya. */}
+              {state.confirmed.map((winner) => <li key={winner.ref} className="truncate text-sm">
                 {winner.name}
                 {winner.company && <span className="text-[var(--ink-muted)]"> — {winner.company}</span>}
               </li>)}

@@ -23,7 +23,7 @@ import type { UndianState, UndianWinner } from "@/lib/undian";
 
 export const dynamic = "force-dynamic";
 
-const STATE_ROW = "mode,active_prize_id,phase,draw_round,spin_started_at,reveal_at,pending,pool,pool_size,updated_at";
+const STATE_ROW = "mode,rehearsal,active_prize_id,phase,draw_round,spin_started_at,reveal_at,pending,pool,pool_size,updated_at";
 const SETTINGS_ROW =
   `page_title,page_subtitle,name_display,show_company,show_seat,sound_enabled,confetti_enabled,` +
   `reveal_delay_seconds,background_color,text_color,accent_color,background_image_url,${BRANDING_COLUMNS}`;
@@ -41,6 +41,7 @@ type PendingWinner = {
 
 type StateRow = {
   mode: "off" | "live";
+  rehearsal: boolean;
   active_prize_id: number | null;
   phase: "idle" | "spinning" | "revealed";
   draw_round: number;
@@ -95,7 +96,7 @@ export async function GET() {
   // brandingnya, bukan menampilkan pesan galat di depan penonton.
   if (!state || state.mode === "off") {
     return Response.json({
-      mode: "off", phase: "idle", draw_round: 0, prize: null, roster: [], pool_size: 0,
+      mode: "off", rehearsal: false, phase: "idle", draw_round: 0, prize: null, roster: [], pool_size: 0,
       spin_started_at: null, reveal_at: null, winners: [], confirmed: [],
       settings, branding, updated_at: new Date().toISOString(),
     } satisfies UndianState & { branding: unknown });
@@ -134,7 +135,35 @@ export async function GET() {
   const phase: UndianState["phase"] = state.phase === "spinning" && revealDue ? "revealed" : state.phase;
 
   let winners: UndianWinner[] = [];
-  if (phase === "revealed" && state.pending) {
+  if (phase === "revealed" && state.pending && state.rehearsal) {
+    // MODE LATIHAN: nama diambil langsung dari `pending`, tidak menyentuh tabel.
+    //
+    // Wajib dipisahkan, dan bukan sekadar demi kerapian. Undian latihan tidak
+    // menulis baris apa pun sehingga `winner_ids` kosong, dan cabang di bawah
+    // akan jatuh ke pencarian berdasarkan (prize_id, draw_round). Nomor ronde
+    // dibagi bersama antara latihan dan undian sungguhan — keduanya menaikkan
+    // penghitung yang sama di baris singleton — sehingga pencarian itu dapat
+    // memulangkan PEMENANG SUNGGUHAN dari undian sebelumnya dan menampilkannya
+    // di layar sebagai hasil latihan. Nama orang yang benar-benar menang akan
+    // terpampang di bawah pita "MODE LATIHAN", atau sebaliknya nama latihan
+    // dianggap sungguhan. Keduanya sama-sama tidak dapat diperbaiki setelah
+    // dilihat penonton.
+    //
+    // Semua ditandai `pending`: tidak ada keputusan hadir atau tidak pada
+    // latihan, dan panel operator memakai status ini untuk memutuskan apakah
+    // tombol Hadir/Tidak hadir ditampilkan. Tanpa `id`, tombol itu memang tidak
+    // dirender — tepat seperti yang diinginkan.
+    winners = state.pending.winners.map((winner) => ({
+      ref: winner.ref,
+      kind: winner.kind,
+      name: winner.name,
+      company: settings.show_company ? winner.company : null,
+      seat: settings.show_seat ? winner.seat : null,
+      is_backup: winner.is_backup,
+      slot_order: winner.slot_order,
+      status: "pending" as const,
+    }));
+  } else if (phase === "revealed" && state.pending) {
     // Baris pemenang diambil lewat ID, bukan lewat (prize_id, draw_round).
     //
     // `draw_round` BUKAN penanda unik. Ia tersimpan di baris singleton
@@ -215,6 +244,7 @@ export async function GET() {
 
   return Response.json({
     mode: state.mode,
+    rehearsal: state.rehearsal,
     phase,
     draw_round: state.draw_round,
     prize,

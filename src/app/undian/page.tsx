@@ -25,6 +25,7 @@ const SETTINGS_ROW =
 
 const DEFAULT_STATE: UndianState & { branding: Branding } = {
   mode: "off",
+  rehearsal: false,
   phase: "idle",
   draw_round: 0,
   prize: null,

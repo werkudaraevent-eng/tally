@@ -121,6 +121,30 @@ export default function UndianClient({ initial }: Props) {
   >
     <ConfettiBurst trigger={confettiTrigger} accent={accent} text={text} />
 
+    {/* Penanda LATIHAN.
+        Gladi bersih hampir selalu dijalankan dengan layar panggung sungguhan
+        menyala, di ruangan yang sudah ada kru, vendor, dan kadang tamu awal.
+        Tanpa penanda ini nama yang muncul tidak dapat dibedakan dari pemenang
+        sungguhan oleh siapa pun yang kebetulan melihat, dan kabar "si anu menang"
+        sudah beredar sebelum undian yang sebenarnya dimulai.
+
+        Ditempatkan sebagai pita di paling atas, bukan teks kecil di sudut:
+        penanda yang harus dicari tidak menjalankan tugasnya. Warnanya tidak
+        mengikuti branding dengan sengaja — justru harus terlihat asing terhadap
+        tampilan acara. */}
+    {state.rehearsal && <div
+      className="shrink-0 text-center font-bold uppercase"
+      style={{
+        background: "#b45309",
+        color: "#ffffff",
+        letterSpacing: "0.22em",
+        fontSize: "clamp(10px, 1.6vmin, 22px)",
+        padding: "0.6vh 0",
+      }}
+    >
+      Mode latihan — hasil tidak dicatat
+    </div>}
+
     {/* Header: shrink-0 supaya tidak ikut menyusut ketika isi tengah membesar. */}
     <header className="shrink-0 px-[4vw] pt-[3vh] text-center">
       <BrandLogo branding={branding} variant="led" />

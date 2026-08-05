@@ -122,6 +122,34 @@ async function winnerCounts(): Promise<Record<number, number>> {
   return counts;
 }
 
+/**
+ * Berapa pemenang yang masih MENUNGGU konfirmasi, per hadiah.
+ *
+ * Dipakai panel operator untuk menjawab pertanyaan yang selama ini tidak
+ * terjawab di layar: ketika kuota penuh, apakah masih ada jalan keluar?
+ * Pemenang `pending` dapat dibatalkan massal lewat aksi `redraw` sehingga kuota
+ * kembali kosong; yang `confirmed` tidak, karena hadiahnya sudah diserahkan.
+ *
+ * Angka inilah yang menentukan tombol "Undi ulang" muncul atau tidak. Tanpa
+ * angka ini panel hanya bisa menawarkan tombol yang mungkin gagal, dan tombol
+ * yang gagal di atas panggung lebih buruk daripada tombol yang tidak ada.
+ */
+async function pendingCounts(): Promise<Record<number, number>> {
+  const client = getSupabaseServiceClient();
+  const { data: session } = await client.from("undian_sessions").select("id").eq("status", "active").maybeSingle();
+  const sessionId = (session as { id: number } | null)?.id ?? null;
+
+  let query = client.from("undian_winners").select("prize_id").eq("status", "pending");
+  query = sessionId === null ? query.is("session_id", null) : query.eq("session_id", sessionId);
+
+  const { data } = await query;
+  const counts: Record<number, number> = {};
+  for (const row of (data ?? []) as { prize_id: number }[]) {
+    counts[row.prize_id] = (counts[row.prize_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
 export async function GET(request: Request) {
   const auth = await requireUser(["admin"]);
   if (auth.response) return auth.response;
@@ -132,6 +160,16 @@ export async function GET(request: Request) {
 
   const prizes = ((data ?? []) as Record<string, unknown>[]).map(normalizePrize);
   const counts = await winnerCounts();
+  const pending = await pendingCounts();
+
+  // Nama sesi aktif ikut dikirim. Badge "Penuh" tanpa menyebut sesinya terbaca
+  // sebagai "hadiah ini habis selamanya", dan itulah tafsir yang membuat orang
+  // membuat hadiah duplikat atau menghapus hasil undian.
+  const { data: activeSession } = await client
+    .from("undian_sessions")
+    .select("id,name")
+    .eq("status", "active")
+    .maybeSingle();
 
   // Ukuran kolam dihitung hanya bila diminta. Ia memanggil RPC agregat dan
   // menyaring ratusan baris per hadiah; halaman kontrol operator yang menyegarkan
@@ -150,7 +188,13 @@ export async function GET(request: Request) {
     }
   }
 
-  return Response.json({ prizes, winner_counts: counts, pools });
+  return Response.json({
+    prizes,
+    winner_counts: counts,
+    pending_counts: pending,
+    active_session: (activeSession as { id: number; name: string } | null) ?? null,
+    pools,
+  });
 }
 
 export async function POST(request: Request) {

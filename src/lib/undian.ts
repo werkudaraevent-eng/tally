@@ -595,6 +595,15 @@ export type UndianWinner = {
  */
 export type UndianState = {
   mode: UndianMode;
+  /**
+   * true = undian sedang dijalankan sebagai LATIHAN. Hasilnya tidak dicatat.
+   *
+   * Wajib ikut ke layar panggung, bukan hanya dipakai server. Gladi bersih
+   * biasanya dijalankan dengan layar sungguhan menyala di ruangan yang sudah
+   * ada orangnya; tanpa penanda di layar, nama yang muncul tidak dapat
+   * dibedakan dari pemenang sungguhan oleh siapa pun yang kebetulan melihat.
+   */
+  rehearsal: boolean;
   phase: UndianPhase;
   draw_round: number;
   prize: {

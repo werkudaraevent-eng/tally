@@ -34,6 +34,10 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
     "undian_prize_create", "undian_prize_update", "undian_prize_delete",
     "undian_draw", "undian_winner_confirm", "undian_winner_reject",
     "undian_mode_change", "undian_reset",
+    // Undi ulang membatalkan beberapa pemenang sekaligus, jadi justru paling
+    // perlu tercatat. Mode latihan dicatat karena ia menjawab "kenapa undian
+    // hadiah ini muncul enam kali tapi pemenangnya cuma satu rombongan".
+    "undian_redraw", "undian_rehearsal_on", "undian_rehearsal_off",
     "undian_entry_import", "undian_entry_group_delete",
     "undian_exclusion_add", "undian_exclusion_remove",
     "undian_rule_create", "undian_rule_update", "undian_rule_delete",

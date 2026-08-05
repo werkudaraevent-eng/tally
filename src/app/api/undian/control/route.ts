@@ -21,10 +21,12 @@ import { PRIZE_COLUMNS } from "../../admin/undian/prizes/route";
 // menyebutnya — dan pada acara dengan hadiah bernilai, itu bukan kemungkinan
 // teoretis. Alasan yang sama dengan /api/display/reveal.
 
-const ROW = "mode,active_prize_id,phase,draw_round,spin_started_at,reveal_at,pending,pool,pool_frozen_at,pool_size,session_id,updated_at";
+const ROW = "mode,rehearsal,active_prize_id,phase,draw_round,spin_started_at,reveal_at,pending,pool,pool_frozen_at,pool_size,session_id,updated_at";
 
 type StateRow = {
   mode: "off" | "live";
+  /** true = undian berjalan normal di layar tetapi pemenang tidak dicatat. */
+  rehearsal: boolean;
   active_prize_id: number | null;
   phase: "idle" | "spinning" | "revealed";
   draw_round: number;
@@ -72,8 +74,10 @@ type PendingDraw = {
 };
 
 const postSchema = z.object({
-  action: z.enum(["mode", "select", "draw", "reveal", "decide", "reset"]),
+  action: z.enum(["mode", "rehearsal", "select", "draw", "reveal", "decide", "reset", "redraw"]),
   mode: z.enum(["off", "live"]).optional(),
+  /** Untuk aksi `rehearsal`. */
+  on: z.boolean().optional(),
   prize_id: z.number().int().positive().nullable().optional(),
   winner_id: z.number().int().positive().optional(),
   status: z.enum(["confirmed", "rejected"]).optional(),
@@ -128,6 +132,40 @@ export async function POST(request: Request) {
     }
 
     // -----------------------------------------------------------------------
+    case "rehearsal": {
+      if (typeof parsed.data.on !== "boolean") return apiError("VALIDATION_ERROR", 422);
+
+      // Berganti mode SELALU membersihkan tampilan, ke arah mana pun.
+      //
+      // Tanpa ini, mematikan latihan meninggalkan pemenang latihan tetap terpampang
+      // di layar panggung, dan tidak ada satu pun tanda bahwa nama itu tidak
+      // tercatat — persis keadaan yang membuat orang mengira undian sungguhan sudah
+      // berjalan. Arah sebaliknya sama berbahayanya: menyalakan latihan sementara
+      // pemenang SUNGGUHAN masih tampil akan memberi mereka label "LATIHAN" di
+      // layar, membuat pemenang sah terlihat seperti hasil uji coba.
+      const { error } = await client
+        .from("undian_state")
+        .update({
+          rehearsal: parsed.data.on,
+          phase: "idle",
+          pending: null,
+          pool: null,
+          pool_frozen_at: null,
+          pool_size: 0,
+          spin_started_at: null,
+          reveal_at: null,
+          ...stamp,
+        } as never)
+        .eq("id", 1);
+      if (error) return apiError("INTERNAL_ERROR", 500);
+      await audit(auth.user.id, parsed.data.on ? "undian_rehearsal_on" : "undian_rehearsal_off", {
+        old: { rehearsal: state.rehearsal },
+        new: { rehearsal: parsed.data.on },
+      });
+      break;
+    }
+
+    // -----------------------------------------------------------------------
     case "select": {
       const prizeId = parsed.data.prize_id ?? null;
       if (prizeId !== null && !(await loadPrize(prizeId))) return apiError("UNDIAN_PRIZE_NOT_FOUND", 404);
@@ -177,18 +215,26 @@ export async function POST(request: Request) {
       // Kalau dihitung lintas sesi, hadiah berkuota 10 yang sudah habis di sesi
       // siang akan menolak diundi lagi di sesi malam — padahal panitia sengaja
       // menutup sesi sebelumnya justru supaya bisa mengundi ulang hadiah itu.
-      let quotaQuery = client
-        .from("undian_winners")
-        .select("id", { count: "exact", head: true })
-        .eq("prize_id", prizeId)
-        .eq("is_backup", false)
-        .neq("status", "rejected");
-      quotaQuery = sessionId === null
-        ? quotaQuery.is("session_id", null)
-        : quotaQuery.eq("session_id", sessionId);
-      const { count } = await quotaQuery;
-      const confirmed = count ?? 0;
-      if (confirmed >= prize.winner_quota) return apiError("UNDIAN_QUOTA_REACHED", 409);
+      //
+      // Pada mode latihan pemeriksaan ini DILEWATI seluruhnya. Latihan tidak
+      // menulis pemenang, jadi tidak ada kuota yang terpakai; menolaknya hanya
+      // membuat gladi bersih mustahil dilakukan untuk hadiah yang kuotanya
+      // kebetulan sudah penuh — justru hadiah yang paling perlu diuji ulang.
+      let confirmed = 0;
+      if (!state.rehearsal) {
+        let quotaQuery = client
+          .from("undian_winners")
+          .select("id", { count: "exact", head: true })
+          .eq("prize_id", prizeId)
+          .eq("is_backup", false)
+          .neq("status", "rejected");
+        quotaQuery = sessionId === null
+          ? quotaQuery.is("session_id", null)
+          : quotaQuery.eq("session_id", sessionId);
+        const { count } = await quotaQuery;
+        confirmed = count ?? 0;
+        if (confirmed >= prize.winner_quota) return apiError("UNDIAN_QUOTA_REACHED", 409);
+      }
 
       const pool = await buildPool(prize);
       if ("error" in pool) return apiError("INTERNAL_ERROR", 500);
@@ -250,26 +296,42 @@ export async function POST(request: Request) {
       // Bila insert gagal, state belum tersentuh sehingga layar tetap pada keadaan
       // sebelumnya — lebih baik daripada layar berputar untuk undian yang tidak
       // pernah tercatat.
-      const { data: insertedWinners, error: winnerError } = await client
-        .from("undian_winners")
-        .insert(
-          pending.winners.map((winner) => ({
-            prize_id: prizeId,
-            session_id: sessionId,
-            draw_round: round,
-            participant_id: winner.kind === "participant" ? winner.ref : null,
-            entry_id: winner.kind === "entry" ? Number(winner.ref) : null,
-            display_name: winner.name,
-            company: winner.company,
-            seat_label: winner.seat,
-            is_backup: winner.is_backup,
-            slot_order: winner.slot_order,
-            drawn_by: auth.user.id,
-          })) as never,
-        )
-        .select("id");
-      if (winnerError) return apiError("INTERNAL_ERROR", 500);
-      pending.winner_ids = ((insertedWinners ?? []) as { id: number }[]).map((row) => row.id);
+      //
+      // PADA MODE LATIHAN seluruh penulisan dilewati. Inilah satu-satunya
+      // perbedaan nyata antara latihan dan undian sungguhan: animasi, pemilihan
+      // pemenang, kolam, dan tampilan layar berjalan identik, hanya hasilnya yang
+      // tidak menyentuh `undian_winners`. Dengan begitu gladi bersih benar-benar
+      // menguji apa yang akan terjadi, bukan versi yang disederhanakan.
+      //
+      // `winner_ids` tetap kosong di sini karena tidak ada baris yang ditulis.
+      // `/api/undian/state` menanganinya lewat cabang khusus latihan yang membaca
+      // nama langsung dari `pending`. Cabang itu WAJIB ada: cabang biasa akan
+      // jatuh ke pencarian berdasarkan (prize_id, draw_round), dan nomor ronde
+      // dibagi bersama antara latihan dan undian sungguhan — sehingga layar bisa
+      // menampilkan pemenang SUNGGUHAN dari undian sebelumnya sebagai hasil
+      // latihan, lengkap dengan pita "MODE LATIHAN" di atasnya.
+      if (!state.rehearsal) {
+        const { data: insertedWinners, error: winnerError } = await client
+          .from("undian_winners")
+          .insert(
+            pending.winners.map((winner) => ({
+              prize_id: prizeId,
+              session_id: sessionId,
+              draw_round: round,
+              participant_id: winner.kind === "participant" ? winner.ref : null,
+              entry_id: winner.kind === "entry" ? Number(winner.ref) : null,
+              display_name: winner.name,
+              company: winner.company,
+              seat_label: winner.seat,
+              is_backup: winner.is_backup,
+              slot_order: winner.slot_order,
+              drawn_by: auth.user.id,
+            })) as never,
+          )
+          .select("id");
+        if (winnerError) return apiError("INTERNAL_ERROR", 500);
+        pending.winner_ids = ((insertedWinners ?? []) as { id: number }[]).map((row) => row.id);
+      }
 
       const { error } = await client
         .from("undian_state")
@@ -294,6 +356,10 @@ export async function POST(request: Request) {
         old: null,
         new: {
           prize: prize.name, draw_round: round, session_id: sessionId,
+          // Ditandai di audit juga, bukan hanya di state. Tanpa ini baris latihan
+          // dan baris sungguhan terbaca identik di jejak audit, dan pertanyaan
+          // "kenapa hadiah ini diundi enam kali" tidak punya jawaban.
+          rehearsal: state.rehearsal,
           pool_size: pool.candidates.length,
           total_tickets: pool.total_tickets,
           winners: pending.winners.map((winner) => ({ name: winner.name, is_backup: winner.is_backup })),
@@ -360,6 +426,84 @@ export async function POST(request: Request) {
       if (error) return apiError("INTERNAL_ERROR", 500);
       await audit(auth.user.id, "undian_reset", { old: { phase: state.phase, draw_round: state.draw_round }, new: { phase: "idle" } });
       break;
+    }
+
+    // -----------------------------------------------------------------------
+    case "redraw": {
+      // Mengosongkan kuota sebuah hadiah dengan MENOLAK pemenang yang masih
+      // menggantung, bukan menghapusnya.
+      //
+      // Ini jalan keluar dari keadaan "kuota penuh" yang selama ini ada tetapi
+      // tidak terlihat: kuota dihitung dengan `status <> 'rejected'`, jadi menolak
+      // sepuluh nama sudah cukup untuk bisa mengundi lagi. Operator sebelumnya
+      // harus menekan "Tidak hadir" sepuluh kali, dan karena itu tidak terlihat
+      // sebagai jalan keluar, yang ditempuh justru menghapus seluruh hasil undian.
+      //
+      // Baris tetap tersimpan lengkap dengan alasan dan waktunya. Pertanyaan
+      // "kenapa hadiah ini diundi dua kali" masih bisa dijawab berminggu-minggu
+      // kemudian, dan itu tidak mungkin bila barisnya dibuang.
+      const prizeId = parsed.data.prize_id ?? state.active_prize_id;
+      if (!prizeId) return apiError("UNDIAN_NO_ACTIVE_PRIZE", 422);
+      const prize = await loadPrize(prizeId);
+      if (!prize) return apiError("UNDIAN_PRIZE_NOT_FOUND", 404);
+
+      // Menolak di tengah animasi akan membatalkan pemenang yang rodanya masih
+      // berputar di depan penonton.
+      if (state.phase === "spinning" && state.reveal_at && new Date(state.reveal_at) > now) {
+        return apiError("UNDIAN_ALREADY_SPINNING", 409);
+      }
+
+      const { data: activeSession } = await client
+        .from("undian_sessions")
+        .select("id")
+        .eq("status", "active")
+        .maybeSingle();
+      const sessionId = (activeSession as { id: number } | null)?.id ?? null;
+
+      // HANYA yang berstatus `pending`.
+      //
+      // Pemenang `confirmed` berarti orangnya sudah naik panggung dan menerima
+      // hadiahnya. Membatalkan itu lewat satu tombol akan membuat dua orang
+      // memegang klaim atas hadiah yang sama, dan tidak ada satu pun keadaan di
+      // mana operator memaksudkan hal tersebut saat menekan "undi ulang".
+      let targetQuery = client
+        .from("undian_winners")
+        .select("id,display_name")
+        .eq("prize_id", prizeId)
+        .eq("status", "pending");
+      targetQuery = sessionId === null
+        ? targetQuery.is("session_id", null)
+        : targetQuery.eq("session_id", sessionId);
+      const { data: targets, error: targetError } = await targetQuery;
+      if (targetError) return apiError("INTERNAL_ERROR", 500);
+
+      const rows = (targets ?? []) as { id: number; display_name: string }[];
+      if (rows.length === 0) {
+        return apiError("VALIDATION_ERROR", 422, {
+          message: "Tidak ada pemenang yang masih menunggu konfirmasi pada hadiah ini. Pemenang yang sudah ditandai hadir tidak dapat dibatalkan dari sini.",
+        });
+      }
+
+      const reason = parsed.data.reason?.trim() || "Diundi ulang";
+      const { error } = await client
+        .from("undian_winners")
+        .update({ status: "rejected", reject_reason: reason, decided_at: now.toISOString(), decided_by: auth.user.id } as never)
+        .in("id", rows.map((row) => row.id));
+      if (error) return apiError("INTERNAL_ERROR", 500);
+
+      // Tampilan layar ikut dibersihkan. Nama yang baru saja dibatalkan tidak
+      // boleh tetap terpampang di panggung sebagai pemenang.
+      const { error: stateError } = await client
+        .from("undian_state")
+        .update({ phase: "idle", pending: null, pool: null, pool_frozen_at: null, pool_size: 0, spin_started_at: null, reveal_at: null, ...stamp } as never)
+        .eq("id", 1);
+      if (stateError) return apiError("INTERNAL_ERROR", 500);
+
+      await audit(auth.user.id, "undian_redraw", {
+        old: { prize: prize.name, session_id: sessionId, cancelled: rows.map((row) => row.display_name) },
+        new: { reason, count: rows.length },
+      });
+      return Response.json({ ok: true, cancelled: rows.length });
     }
   }
 
