@@ -7,7 +7,7 @@ import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
-import type { PublicViewMode, SeatMapConfig, SeatRule } from "@/lib/seat-map";
+import { duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, tableLabelFor, type PublicViewMode, type SeatMapConfig, type SeatRule } from "@/lib/seat-map";
 
 // CMS denah tempat duduk.
 //
@@ -150,6 +150,7 @@ export default function SeatMapAdminPage() {
         seat_rules: config.seat_rules,
         seat_label_pattern: config.seat_label_pattern,
         table_overrides: config.table_overrides,
+        table_labels: config.table_labels,
         public_view_mode: config.public_view_mode,
         default_session_id: config.default_session_id,
       }),
@@ -246,6 +247,30 @@ export default function SeatMapAdminPage() {
 
   const previewSession = sessions.find((item) => item.slug === previewSlug) ?? sessions[0] ?? null;
   const totalTablesFromRows = (config?.row_table_counts ?? []).reduce((sum, count) => sum + count, 0);
+
+  // Label meja yang bentrok. Dihitung dari konfigurasi yang sedang diedit, bukan
+  // dari yang tersimpan, supaya admin melihatnya sebelum menekan Simpan. Server
+  // tetap menolaknya juga: peringatan di layar dapat dilewati, penolakan tidak.
+  const labelConflicts = config ? duplicateTableLabels(config) : [];
+
+  // Meja yang sudah diberi label menyimpang. Hanya ini yang ditampilkan sebagai
+  // baris, bukan seluruh 32 meja: daftar 32 kolom isian membuat admin harus
+  // menggulir jauh untuk mengubah satu meja, dan kolom kosong berjejer 31 baris
+  // terbaca seperti pekerjaan yang belum selesai padahal justru itu keadaan yang
+  // benar.
+  const labeledTables = Object.keys(config?.table_labels ?? {})
+    .map(Number)
+    .filter((position) => Number.isFinite(position) && position >= 1 && position <= totalTablesFromRows)
+    .sort((a, b) => a - b);
+
+  /** Menyetel label satu meja. String kosong berarti kembali ke nomor posisinya. */
+  function setTableLabel(position: number, label: string) {
+    if (!config) return;
+    const next = { ...config.table_labels };
+    if (label.trim()) next[String(position)] = label;
+    else delete next[String(position)];
+    updateConfig("table_labels", next);
+  }
 
   return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1440px]">
@@ -399,6 +424,61 @@ export default function SeatMapAdminPage() {
               <p className="mt-2 text-xs text-[var(--ink-muted)]">Total {totalTablesFromRows} meja.</p>
             </fieldset>
 
+            {/* Label meja yang menyimpang dari nomornya.
+                Ditaruh tepat di bawah "Jumlah meja per baris" karena di situlah
+                nomor meja terbentuk; menaruhnya di kartu lain akan membuat admin
+                mencari-cari hubungan antara "meja ke-4" dan angka yang diubahnya. */}
+            <fieldset className="mt-5">
+              <legend className="text-sm font-semibold">Label meja khusus</legend>
+              <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                Untuk meja yang tulisannya berbeda dari nomor urutnya, misalnya meja ke-4 ditulis <strong>3A</strong> karena
+                nomor 4 dihindari. Posisi meja TIDAK bergeser: meja ke-5 tetap bernomor 5.
+              </p>
+
+              {labeledTables.length > 0 ? <div className="mt-3 space-y-2">
+                {labeledTables.map((position) => <div key={position} className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-[var(--ink-muted)]">Meja ke-{position} ditulis</span>
+                  <input value={config.table_labels[String(position)] ?? ""} maxLength={MAX_TABLE_LABEL_LENGTH}
+                    aria-label={`Label untuk meja ke-${position}`}
+                    onChange={(event) => setTableLabel(position, event.target.value)}
+                    className="min-h-11 w-24 border border-[var(--line)] px-3 font-mono text-sm" />
+                  <button type="button" onClick={() => setTableLabel(position, "")}
+                    className="min-h-11 px-2 text-sm font-semibold text-[var(--danger)]">Hapus</button>
+                </div>)}
+              </div> : <p className="mt-3 text-xs text-[var(--ink-muted)]">Belum ada label khusus. Semua meja memakai nomor urutnya.</p>}
+
+              {/* Pemilih posisi, bukan kolom nomor bebas: mengetik "40" pada denah
+                  32 meja menyimpan label untuk meja yang tidak ada, dan admin akan
+                  menunggu perubahan yang tidak pernah muncul di pratinjau. */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <label className="text-sm text-[var(--ink-muted)]" htmlFor="add-table-label">Tambah label untuk meja ke-</label>
+                <select id="add-table-label" value="" onChange={(event) => {
+                  const position = Number(event.target.value);
+                  if (!position) return;
+                  // Nilai awal = nomornya sendiri supaya kolomnya tidak pernah
+                  // kosong; label kosong berarti meja tanpa tulisan di layar.
+                  setTableLabel(position, String(position));
+                }}
+                  className="min-h-11 border border-[var(--line)] px-3 text-sm">
+                  <option value="">Pilih meja</option>
+                  {Array.from({ length: totalTablesFromRows }, (_, index) => index + 1)
+                    .filter((position) => !(String(position) in config.table_labels))
+                    .map((position) => <option key={position} value={position}>Meja ke-{position} (sekarang {tableLabelFor(position, config.table_labels)})</option>)}
+                </select>
+              </div>
+
+              {labelConflicts.length > 0 ? <p className="mt-3 flex items-start gap-2 border border-[var(--danger)] bg-[#fdf1f0] p-3 text-xs text-[var(--danger)]">
+                <Warning size={16} className="mt-0.5 shrink-0" />
+                <span>Label <strong>{labelConflicts.join(", ")}</strong> dipakai lebih dari satu meja. Dua meja bernama sama membuat satu label kursi ada di dua tempat, sehingga tamu diarahkan ke meja yang salah. Denah tidak dapat disimpan sebelum ini dibetulkan.</span>
+              </p> : null}
+
+              <p className="mt-3 text-xs text-[var(--ink-muted)]">
+                Label ini ikut menyusun label kursi lewat pola di bawah, jadi meja <strong>3A</strong> memberi kursi <strong>A3A</strong>,
+                <strong> B3A</strong>, dan seterusnya. Penulisannya harus sama dengan yang dipakai scanner API, kalau tidak peserta di meja
+                itu tidak akan muncul di denah.
+              </p>
+            </fieldset>
+
             <fieldset className="mt-5">
               <legend className="text-sm font-semibold">Kursi per meja</legend>
               <p className="mt-1 text-xs text-[var(--ink-muted)]">Diatur per rentang nomor meja. Aturan paling bawah menang bila bertumpuk.</p>
@@ -437,9 +517,9 @@ export default function SeatMapAdminPage() {
               Wajib memuat <code>{"{table}"}</code> dan <code>{"{seat}"}</code>. Harus sama dengan penulisan label di scanner API, kalau tidak kursi tidak akan cocok.
             </p>
 
-            <button type="button" onClick={() => void saveConfig()} disabled={savingConfig}
+            <button type="button" onClick={() => void saveConfig()} disabled={savingConfig || labelConflicts.length > 0}
               className="mt-5 min-h-12 w-full bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-60">
-              {savingConfig ? "Menyimpan…" : "Simpan tata letak"}
+              {savingConfig ? "Menyimpan…" : labelConflicts.length > 0 ? "Betulkan label ganda dulu" : "Simpan tata letak"}
             </button>
           </div>
         </section>

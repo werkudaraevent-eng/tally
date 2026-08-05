@@ -155,16 +155,20 @@ export function SeatMapView({
               textAnchor="middle"
               dominantBaseline="central"
               fill={backgroundColor}
-              fontSize={26}
+              // Label bisa lebih panjang dari satu atau dua angka ("3A"), jadi
+              // ukuran huruf mengecil mengikuti panjangnya. Tanpa ini "3A" pada
+              // ukuran 26 sudah menyentuh tepi bulatan, dan label yang menyentuh
+              // tepi terbaca terpotong dari kursi tamu di seberang meja.
+              fontSize={table.label.length > 3 ? 18 : table.label.length > 2 ? 22 : 26}
               fontWeight={600}
               pointerEvents="none"
             >
-              {table.number}
+              {table.label}
             </text>
 
             {/* Deskripsi per meja untuk pembaca layar. Denah visual saja tidak
                 terbaca, jadi tiap meja membawa ringkasan keterisiannya. */}
-            <title>{`Meja ${table.number}: ${occupiedCount} dari ${tableSeats.length} kursi terisi`}</title>
+            <title>{`Meja ${table.label}: ${occupiedCount} dari ${tableSeats.length} kursi terisi`}</title>
 
             {tableSeats.map((seat) => {
               const key = normalizeSeatLabel(seat.label);

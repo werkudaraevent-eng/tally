@@ -33,6 +33,15 @@ export type SeatMapConfig = {
   seat_rules: SeatRule[];
   seat_label_pattern: string;
   table_overrides: Record<string, TableOffset>;
+  /**
+   * Label meja yang menyimpang dari nomor urutnya, bentuk `{"4": "3A"}`.
+   *
+   * Kuncinya nomor POSISI (meja ke-berapa dari depan, menerus antar baris),
+   * bukan label. Dengan begitu mengubah satu label tidak menggeser meja lain:
+   * permintaan "meja 4 diganti 3A" tidak boleh mengubah meja 5 sampai 32, sebab
+   * denah cetak, kartu meja, dan penempatan peserta sudah memakai nomor itu.
+   */
+  table_labels: Record<string, string>;
 };
 
 export type SeatGeometry = {
@@ -40,6 +49,11 @@ export type SeatGeometry = {
   code: string;
   /** Label penuh hasil pola, dipakai mencocokkan dengan data scanner API. */
   label: string;
+  /**
+   * Nomor POSISI mejanya, bukan labelnya. Dipakai untuk menghubungkan kursi ke
+   * mejanya di dalam kode (mis. panel "kursi meja ini"), sehingga tetap berupa
+   * angka walau label mejanya "3A".
+   */
   tableNumber: number;
   x: number;
   y: number;
@@ -47,7 +61,17 @@ export type SeatGeometry = {
 };
 
 export type TableGeometry = {
+  /**
+   * Nomor posisi, menerus dari baris terdepan. Tetap `number` dengan sengaja:
+   * dipakai sebagai kunci render, acuan `table_overrides`, `seat_rules`, dan
+   * meja terpilih di halaman publik. Yang berubah hanya tulisannya.
+   */
   number: number;
+  /**
+   * Tulisan yang tampil di meja, mis. "3A". Sama dengan `String(number)` bila
+   * tidak ada penyimpangan. Ini pula yang menyusun label kursi.
+   */
+  label: string;
   x: number;
   y: number;
   r: number;
@@ -108,9 +132,31 @@ export function seatCountForTable(tableNumber: number, rules: SeatRule[]) {
  * Sengaja dibuat sebagai pola, bukan hasil menebak format lewat parsing string
  * dari API. Kalau panitia memakai gaya penulisan lain, admin cukup mengganti
  * satu pola dan seluruh label ikut benar; parsing akan pecah satu per satu.
+ *
+ * `tableLabel` adalah STRING, bukan angka, karena satu meja bisa berlabel "3A".
+ * Label itulah yang harus masuk ke label kursi ("A3A"), sebab yang dicocokkan
+ * dengan scanner API adalah tulisan yang dilihat tamu di meja — bukan nomor
+ * posisi yang hanya dipakai di dalam kode.
  */
-export function buildSeatLabel(pattern: string, tableNumber: number, seatCode: string) {
-  return pattern.replaceAll("{table}", String(tableNumber)).replaceAll("{seat}", seatCode);
+export function buildSeatLabel(pattern: string, tableLabel: string, seatCode: string) {
+  return pattern.replaceAll("{table}", tableLabel).replaceAll("{seat}", seatCode);
+}
+
+/**
+ * Panjang maksimum label meja. Cukup untuk "3A" atau "12B" tetapi menolak teks
+ * yang akan meluber keluar bulatan meja di layar.
+ */
+export const MAX_TABLE_LABEL_LENGTH = 6;
+
+/**
+ * Tulisan yang tampil pada sebuah meja.
+ *
+ * Jatuh ke nomor posisinya bila tidak ada penyimpangan, sehingga denah yang
+ * belum pernah disetel tetap menampilkan 1..32 seperti sebelumnya.
+ */
+export function tableLabelFor(tableNumber: number, labels: Record<string, string>) {
+  const custom = labels[String(tableNumber)];
+  return custom && custom.trim() ? custom.trim() : String(tableNumber);
 }
 
 /**
@@ -160,6 +206,32 @@ function sanitizeOverrides(overrides: unknown): Record<string, TableOffset> {
   return result;
 }
 
+/**
+ * Membersihkan pemetaan label meja.
+ *
+ * Kunci wajib berupa angka posisi. Nilai kosong DIBUANG, bukan disimpan sebagai
+ * string kosong: meja tanpa tulisan apa pun di denah tidak dapat disebutkan ke
+ * tamu, dan kelalaian mengosongkan satu kolom di CMS tidak boleh menghasilkan
+ * meja tak bernama di layar. Membuangnya membuat meja itu kembali memakai nomor
+ * posisinya, yang selalu benar.
+ *
+ * Label yang identik dengan nomor posisinya juga dibuang — menyimpannya hanya
+ * menambah baris yang harus dibaca admin tanpa mengubah apa pun.
+ */
+function sanitizeTableLabels(labels: unknown): Record<string, string> {
+  if (!labels || typeof labels !== "object" || Array.isArray(labels)) return {};
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(labels as Record<string, unknown>)) {
+    if (!/^\d{1,3}$/.test(key)) continue;
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim().replace(/\s+/g, " ").slice(0, MAX_TABLE_LABEL_LENGTH);
+    if (!trimmed) continue;
+    if (trimmed === key) continue;
+    result[key] = trimmed;
+  }
+  return result;
+}
+
 /** Membersihkan konfigurasi mentah dari database menjadi bentuk yang aman dipakai. */
 export function normalizeConfig(raw: Partial<SeatMapConfig> | null | undefined): SeatMapConfig {
   const pattern = typeof raw?.seat_label_pattern === "string" && raw.seat_label_pattern.includes("{table}") && raw.seat_label_pattern.includes("{seat}")
@@ -171,6 +243,7 @@ export function normalizeConfig(raw: Partial<SeatMapConfig> | null | undefined):
     seat_rules: sanitizeRules(raw?.seat_rules),
     seat_label_pattern: pattern,
     table_overrides: sanitizeOverrides(raw?.table_overrides),
+    table_labels: sanitizeTableLabels(raw?.table_labels),
   };
 }
 
@@ -216,7 +289,12 @@ export function computeSeatMapGeometry(input: Partial<SeatMapConfig> | null | un
       const centerX = rowStartX + indexInRow * CELL_WIDTH + CELL_WIDTH / 2 + offset.dx;
       const y = centerY + offset.dy;
 
+      // Aturan kursi memakai nomor POSISI, bukan label. Rentang "meja 1-25 enam
+      // kursi" tetap berlaku apa adanya walau salah satu meja di dalamnya
+      // berlabel "3A"; kalau aturan ikut memakai label, mengganti satu tulisan
+      // akan mengubah jumlah kursi di meja itu tanpa ada yang meminta.
       const seatCount = seatCountForTable(tableNumber, config.seat_rules);
+      const label = tableLabelFor(tableNumber, config.table_labels);
       const seats: SeatGeometry[] = [];
 
       // Satu kursi tidak punya jarak antar kursi, jadi dibagi rata pada busur
@@ -232,7 +310,7 @@ export function computeSeatMapGeometry(input: Partial<SeatMapConfig> | null | un
         const code = seatLetter(seatIndex);
         seats.push({
           code,
-          label: buildSeatLabel(config.seat_label_pattern, tableNumber, code),
+          label: buildSeatLabel(config.seat_label_pattern, label, code),
           tableNumber,
           x: centerX + Math.cos(angle) * SEAT_ORBIT,
           y: y + Math.sin(angle) * SEAT_ORBIT,
@@ -240,7 +318,7 @@ export function computeSeatMapGeometry(input: Partial<SeatMapConfig> | null | un
         });
       }
 
-      tables.push({ number: tableNumber, x: centerX, y, r: TABLE_RADIUS, rowIndex, seats });
+      tables.push({ number: tableNumber, label, x: centerX, y, r: TABLE_RADIUS, rowIndex, seats });
     }
   });
 
@@ -252,4 +330,28 @@ export function computeSeatMapGeometry(input: Partial<SeatMapConfig> | null | un
     totalTables: tables.length,
     totalSeats: tables.reduce((sum, table) => sum + table.seats.length, 0),
   };
+}
+
+/**
+ * Label meja yang muncul lebih dari sekali.
+ *
+ * Ini kesalahan yang paling mahal pada fitur label meja, dan satu-satunya yang
+ * tidak dapat dilihat dari denah. Memberi label "3A" pada meja 4 sementara meja
+ * 3 masih bernomor 3 aman; tetapi memberi label "5" pada meja 4 membuat DUA meja
+ * bernama 5, dan kursi "A5" lalu ada di dua tempat. Pencocokan dengan data
+ * peserta akan menyorot kedua meja itu sekaligus, jadi tamu dikirim ke meja yang
+ * salah tanpa satu pun pesan kesalahan muncul.
+ *
+ * Dikembalikan sebagai daftar, bukan boolean, supaya CMS dapat menyebutkan label
+ * mana yang bentrok. "Ada label ganda" tanpa menyebut labelnya memaksa admin
+ * memeriksa 32 baris satu per satu.
+ */
+export function duplicateTableLabels(input: Partial<SeatMapConfig> | null | undefined): string[] {
+  const geometry = computeSeatMapGeometry(input);
+  const seen = new Map<string, number>();
+  for (const table of geometry.tables) {
+    const key = table.label.trim().toUpperCase();
+    seen.set(key, (seen.get(key) ?? 0) + 1);
+  }
+  return [...seen.entries()].filter(([, count]) => count > 1).map(([label]) => label);
 }

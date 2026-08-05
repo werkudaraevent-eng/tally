@@ -35,7 +35,7 @@ export const SESSION_COLUMNS =
   `id,slug,name,sub_event_id,title,subtitle,background_color,text_color,accent_color,background_image_url,map_panel_transparent,is_published,sort_order,${BRANDING_COLUMNS}`;
 
 export const CONFIG_COLUMNS =
-  "name,stage_label,row_table_counts,seat_rules,seat_label_pattern,table_overrides,public_view_mode,default_session_id,updated_at";
+  "name,stage_label,row_table_counts,seat_rules,seat_label_pattern,table_overrides,table_labels,public_view_mode,default_session_id,updated_at";
 
 type ParticipantSeat = { subEventId: string; subEventName: string; label: string };
 

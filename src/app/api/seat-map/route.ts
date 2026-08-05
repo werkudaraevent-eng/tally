@@ -115,6 +115,10 @@ export async function GET(request: Request) {
         seat_rules: config.seat_rules,
         seat_label_pattern: config.seat_label_pattern,
         table_overrides: config.table_overrides,
+        // Wajib ikut: halaman publik menghitung ulang geometri di browser, jadi
+        // tanpa ini meja yang seharusnya "3A" akan tampil sebagai "4" di layar
+        // tamu walau CMS sudah benar.
+        table_labels: config.table_labels,
       },
       // Mode bawaan layar. Halaman publik boleh menimpanya lewat ?mode= agar
       // satu acara bisa menjalankan LED dan layar sentuh sekaligus.

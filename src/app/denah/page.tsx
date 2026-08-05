@@ -268,6 +268,17 @@ export default function SeatMapPage() {
     }));
   }, [selectedTable, payload]);
 
+  // Tulisan meja terpilih. `selectedTable` adalah nomor POSISI karena itulah yang
+  // dipakai untuk mencari mejanya di geometri; yang harus dibaca tamu adalah
+  // labelnya. Judul panel yang menyebut "Meja 4" untuk meja bertulisan "3A" akan
+  // membuat tamu mencari meja yang tidak ada di ruangan.
+  const selectedTableLabel = useMemo(() => {
+    const mapConfig = payload?.config;
+    if (selectedTable === null || !mapConfig) return "";
+    const table = computeSeatMapGeometry(mapConfig).tables.find((item) => item.number === selectedTable);
+    return table?.label ?? String(selectedTable);
+  }, [selectedTable, payload]);
+
   // Mode LED punya tata letak sendiri, bukan variasi dari halaman pencarian.
   // Dipisah lebih awal supaya tidak ada elemen interaktif yang ikut terbawa ke
   // layar yang tidak bisa disentuh.
@@ -473,7 +484,7 @@ export default function SeatMapPage() {
               <div className="mx-auto mt-5 max-w-xl border p-4" style={{ borderColor: `${ink}44` }}>
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="flex items-center gap-2 text-base font-bold">
-                    <Users size={18} /> Meja {selectedTable}
+                    <Users size={18} /> Meja {selectedTableLabel}
                   </h2>
                   <button
                     type="button"

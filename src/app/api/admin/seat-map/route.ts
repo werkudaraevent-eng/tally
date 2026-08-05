@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { computeSeatMapGeometry, normalizeSeatLabel, MAX_SEATS_PER_TABLE, PUBLIC_VIEW_MODES } from "@/lib/seat-map";
+import { computeSeatMapGeometry, duplicateTableLabels, normalizeSeatLabel, MAX_SEATS_PER_TABLE, MAX_TABLE_LABEL_LENGTH, PUBLIC_VIEW_MODES } from "@/lib/seat-map";
 import {
   CONFIG_COLUMNS,
   discoverSubEvents,
@@ -45,6 +45,13 @@ const configSchema = z.object({
   table_overrides: z
     .record(z.string().regex(/^\d{1,3}$/), z.object({ dx: z.number().min(-200).max(200), dy: z.number().min(-200).max(200) }))
     .optional(),
+  // Label meja yang menyimpang dari nomor urutnya, mis. {"4": "3A"}.
+  //
+  // Kuncinya nomor POSISI, pola sama dengan `table_overrides` di atas. String
+  // kosong diterima di sini dengan sengaja: itulah cara admin membatalkan label
+  // dan mengembalikan meja ke nomornya. `normalizeConfig` yang membuangnya,
+  // sehingga tidak ada meja tanpa tulisan di layar.
+  table_labels: z.record(z.string().regex(/^\d{1,3}$/), z.string().trim().max(MAX_TABLE_LABEL_LENGTH)).optional(),
   // Mode bawaan untuk semua layar publik. Layar tertentu tetap bisa menimpanya
   // lewat ?mode= pada URL-nya.
   public_view_mode: z.enum(PUBLIC_VIEW_MODES as unknown as [string, ...string[]]).optional(),
@@ -139,6 +146,28 @@ export async function PATCH(request: Request) {
   }
 
   const client = getSupabaseServiceClient();
+
+  // Label meja ganda ditolak DI SINI, bukan hanya diperingatkan di layar.
+  //
+  // Dua meja bernama sama membuat satu label kursi ("A5") ada di dua tempat, dan
+  // pencocokan dengan data peserta akan menyorot keduanya sekaligus — tamu
+  // dikirim ke meja yang salah tanpa satu pun pesan kesalahan muncul. Ini satu-
+  // satunya kesalahan pada fitur label yang tidak terlihat dari denah, jadi ia
+  // tidak boleh bisa tersimpan.
+  //
+  // Diperiksa terhadap konfigurasi GABUNGAN, bukan hanya kiriman ini: PATCH
+  // bersifat sebagian, jadi admin bisa mengirim `table_labels` saja sementara
+  // jumlah barisnya datang dari baris yang sudah tersimpan. Memeriksa kiriman
+  // saja akan meloloskan bentrokan yang lahir dari gabungan keduanya.
+  if (parsed.data.table_labels || parsed.data.row_table_counts) {
+    const { data: existing } = await client.from("seat_maps").select(CONFIG_COLUMNS).eq("id", 1).single();
+    const duplicates = duplicateTableLabels({ ...(existing ?? {}), ...parsed.data });
+    if (duplicates.length > 0) {
+      return apiError("VALIDATION_ERROR", 422, {
+        message: `Label meja tidak boleh sama: ${duplicates.join(", ")}. Dua meja bernama sama membuat tamu diarahkan ke meja yang salah.`,
+      });
+    }
+  }
 
   // Agenda bawaan wajib ada dan sudah dipublikasikan. Menyimpan agenda draf
   // sebagai bawaan akan membuat layar publik diam-diam jatuh ke agenda lain,
