@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, BRANDING_FONTS, SCALE_MAX, SCALE_MIN, type BrandingFont } from "@/lib/branding";
+import { loadActiveBoothCodes } from "@/lib/display-booths";
 import { normalizeTimeZone } from "@/lib/timezone";
 
 const SELECT = `event_title,headline,tagline,background_color,text_color,accent_color,background_image_url,leaderboard_limit,show_company,show_booth_progress,show_ticker,show_amount,ticker_text,refresh_seconds,updated_at,${BRANDING_COLUMNS}`;
@@ -55,9 +56,10 @@ export async function GET() {
   // Live Display menyegarkan dirinya dari sini tiap beberapa detik, jadi zona
   // yang diubah admin saat acara berjalan langsung ikut terpakai tanpa perlu
   // ada yang memuat ulang layar di panggung.
-  const [displayResult, settingsResult] = await Promise.all([
+  const [displayResult, settingsResult, boothCodes] = await Promise.all([
     client.from("display_settings").select(SELECT).eq("id", 1).single(),
     client.from("event_settings").select("time_zone").eq("id", 1).maybeSingle(),
+    loadActiveBoothCodes(),
   ]);
   if (displayResult.error) return apiError("INTERNAL_ERROR", 500);
   // Cast diperlukan karena proyek ini tidak memakai tipe hasil generate Supabase,
@@ -65,6 +67,17 @@ export async function GET() {
   return Response.json({
     ...(displayResult.data as Record<string, unknown>),
     time_zone: normalizeTimeZone((settingsResult.data as { time_zone?: string } | null)?.time_zone),
+    // Bukan kolom display_settings, tapi WAJIB ikut di sini.
+    //
+    // Layar menyegarkan konfigurasinya dari endpoint ini tiap 30 detik dan
+    // menimpa state-nya dengan hasilnya. Tanpa daftar booth di response, nilai
+    // yang dikirim server page saat render pertama akan terhapus pada siklus
+    // penyegaran berikutnya dan panel progress lenyap sendiri setengah menit
+    // setelah layar dinyalakan — tepat setelah tidak ada lagi yang menontonnya.
+    //
+    // Efek sampingnya diinginkan: booth yang diaktifkan atau dinonaktifkan admin
+    // saat acara berjalan ikut terpakai tanpa ada yang memuat ulang proyektor.
+    active_booth_codes: boothCodes,
   });
 }
 

@@ -141,9 +141,18 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
   // header dan tagline tetap tampil, area daftar diganti penanda.
   const awaitingFirstStage = staged && stage === 0;
   const spotlight = staged && layout === "spotlight";
+  // Penyebut progress booth. Dulu ditulis mati sebagai 6 di empat tempat, jadi
+  // saat panitia menambah booth ketujuh papan tetap menggambar enam titik dan
+  // peserta yang sudah keliling sembilan booth terlihat baru enam.
+  const boothCodes = config.active_booth_codes;
+  const boothTotal = boothCodes.length;
+  // Nol berarti daftarnya gagal dimuat, bukan "acara tanpa booth" (acara tanpa
+  // booth tidak punya leaderboard sama sekali). Panel disembunyikan daripada
+  // menampilkan "2/0" atau barisan titik kosong.
+  const boothProgressVisible = config.show_booth_progress && boothTotal > 0;
   // Panel samping ikut mati selama reveal karena angkanya dihitung dari papan
   // yang saat itu hanya sebagian (alasan lengkap di dekat tempat render-nya).
-  const asideVisible = config.show_booth_progress && !staged;
+  const asideVisible = boothProgressVisible && !staged;
   // Ukuran spotlight jauh lebih besar, tapi tetap lewat clamp() berbasis vw dan
   // BUKAN kelas ukuran tetap seperti `text-6xl`. Kelas Tailwind bernilai sama di
   // layar selebar apa pun, dan LED portrait 256px di lokasi akan membuat satu
@@ -153,7 +162,16 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
     ? "clamp(18px, 5.6vw, 58px)"
     : lead ? "clamp(14px, 3.4vw, 30px)" : "clamp(13px, 3vw, 24px)";
   const medalBox = spotlight ? "clamp(38px, 8vw, 68px)" : "clamp(40px, 4vw, 44px)";
-  const dotSize = spotlight ? "clamp(10px, 1.4vw, 16px)" : "clamp(10px, 1vw, 12px)";
+  // Titik progress menyusut mengikuti JUMLAH booth, bukan ukuran tetap.
+  //
+  // Dengan 6 booth ukuran tetap masih muat di LED portrait 256px, dengan 9 tidak:
+  // sembilan titik memakan 138px dan bersama nominal (84px) melebihi lebar layar,
+  // sehingga halaman melebar dan tidak ada yang bisa menggeser proyektor.
+  // Pembaginya `boothTotal` supaya ruang yang dipakai kira-kira tetap berapa pun
+  // booth yang ditambahkan panitia. Batas bawah 6px menjaga titik tetap terlihat.
+  const dotSize = boothTotal > 0
+    ? `clamp(6px, ${(spotlight ? 9 : 6.5) / boothTotal}vw, ${spotlight ? 16 : 12}px)`
+    : "0px";
   const topEntry = entries[0];
   const mainStyle = {
     backgroundColor: config.background_color,
@@ -305,11 +323,11 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
                       (2 detik untuk reveal, 30 detik untuk settings), sehingga config
                       masih bilang "tampilkan" sementara angkanya sudah tidak ada —
                       dan yang tampil di proyektor adalah "Rp NaN". */}
-                  {(amountVisible || config.show_booth_progress) && <div className="flex items-center justify-between gap-4 lg:flex-col lg:items-end lg:gap-1">
+                  {(amountVisible || boothProgressVisible) && <div className="flex items-center justify-between gap-4 lg:flex-col lg:items-end lg:gap-1">
                     {amountVisible && <p className="font-mono font-semibold tabular-nums" style={{ fontSize: nameSize(lead), ...(lead ? { color: config.accent_color } : {}) }}>{formatRupiah(entry.total_spent ?? 0)}</p>}
-                    {config.show_booth_progress && <div className="flex shrink-0 items-center gap-1.5" aria-label={`${entry.booth_count} dari 6 booth dikunjungi`}>
-                      {Array.from({ length: 6 }).map((_, dot) => <span key={dot} className="rounded-full transition-colors" style={{ width: dotSize, height: dotSize, backgroundColor: dot < entry.booth_count ? config.accent_color : "rgba(255,255,255,0.15)" }} />)}
-                      {entry.booth_count >= 6 && <Crown size={spotlight ? 26 : 18} weight="fill" className="ml-1" style={{ color: config.accent_color }} />}
+                    {boothProgressVisible && <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5" aria-label={`${entry.booth_count} dari ${boothTotal} booth dikunjungi`}>
+                      {boothCodes.map((code, dot) => <span key={code} className="shrink-0 rounded-full transition-colors" style={{ width: dotSize, height: dotSize, backgroundColor: dot < entry.booth_count ? config.accent_color : "rgba(255,255,255,0.15)" }} />)}
+                      {entry.booth_count >= boothTotal && <Crown size={spotlight ? 26 : 18} weight="fill" className="ml-1 shrink-0" style={{ color: config.accent_color }} />}
                     </div>}
                   </div>}
                 </motion.div>;
@@ -323,10 +341,18 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
           <section className="border border-white/15 p-6">
             <p className="text-xs uppercase tracking-[0.2em]" style={{ color: config.accent_color }}>02 / Booth explorer</p>
             <div className="mt-7 flex items-start justify-between">
-              <div><p className="text-6xl font-semibold tracking-[-0.08em]">{topEntry?.booth_count ?? 0}<span className="text-2xl" style={{ opacity: 0.35 }}>/6</span></p><p className="mt-2 text-sm" style={{ opacity: 0.55 }}>{topEntry?.display_name ?? "Belum ada peserta"}<br />booth terbanyak</p></div>
+              <div><p className="text-6xl font-semibold tracking-[-0.08em]">{topEntry?.booth_count ?? 0}<span className="text-2xl" style={{ opacity: 0.35 }}>/{boothTotal}</span></p><p className="mt-2 text-sm" style={{ opacity: 0.55 }}>{topEntry?.display_name ?? "Belum ada peserta"}<br />booth terbanyak</p></div>
               <Crown size={32} weight="duotone" style={{ color: config.accent_color }} />
             </div>
-            <div className="mt-6 grid grid-cols-6 gap-2">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="flex aspect-square items-center justify-center text-xs font-bold text-black" style={{ backgroundColor: index < (topEntry?.booth_count ?? 0) ? config.accent_color : "rgba(255,255,255,0.15)" }}>B{index + 1}</div>)}</div>
+            {/* Kolom mengikuti jumlah booth, dibatasi 6 supaya kotaknya tidak
+                menyusut jadi tak terbaca. Dengan 9 booth hasilnya 5+4, bukan satu
+                baris berisi sembilan kotak sempit di panel yang lebarnya tetap.
+
+                Label memakai KODE booth, bukan "B" + nomor urut. Kode booth bebas
+                sejak 202607310003_flexible_booth_codes, jadi merakit sendiri
+                labelnya membuat booth berkode UMKM2 tampil sebagai B2 di layar
+                dan tidak cocok dengan papan nama fisiknya. */}
+            <div className="mt-6 grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(boothTotal, 6)}, minmax(0, 1fr))` }}>{boothCodes.map((code, index) => <div key={code} className="flex aspect-square items-center justify-center px-0.5 text-center text-[10px] font-bold leading-none text-black" style={{ backgroundColor: index < (topEntry?.booth_count ?? 0) ? config.accent_color : "rgba(255,255,255,0.15)" }}>{code}</div>)}</div>
           </section>
           <section className="grid grid-cols-2 gap-px bg-white/15">
             <div className="p-5" style={{ backgroundColor: config.background_color }}><TrendUp size={22} weight="duotone" style={{ color: config.accent_color }} /><p className="mt-3 font-mono text-4xl font-semibold">{entries.length}</p><p className="mt-2 text-xs uppercase tracking-[0.14em]" style={{ opacity: 0.45 }}>Spender</p></div>

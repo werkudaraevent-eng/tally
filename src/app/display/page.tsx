@@ -1,5 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeBranding } from "@/lib/branding";
+import { loadActiveBoothCodes } from "@/lib/display-booths";
 import { DEFAULT_CONFIG, DISPLAY_CONFIG_COLUMNS, type DisplayConfig } from "@/lib/display-config";
 import DisplayClient from "./display-client";
 
@@ -17,12 +18,17 @@ export const dynamic = "force-dynamic";
 
 async function loadConfig(): Promise<DisplayConfig> {
   try {
-    const { data, error } = await getSupabaseServiceClient()
-      .from("display_settings")
-      .select(DISPLAY_CONFIG_COLUMNS)
-      .eq("id", 1)
-      .single();
-    if (error || !data) return DEFAULT_CONFIG;
+    // Dijalankan berbarengan: keduanya tidak saling bergantung, dan halaman ini
+    // dirender di server pada setiap permintaan.
+    const [{ data, error }, boothCodes] = await Promise.all([
+      getSupabaseServiceClient()
+        .from("display_settings")
+        .select(DISPLAY_CONFIG_COLUMNS)
+        .eq("id", 1)
+        .single(),
+      loadActiveBoothCodes(),
+    ]);
+    if (error || !data) return { ...DEFAULT_CONFIG, active_booth_codes: boothCodes };
     // Digabung dengan nilai bawaan agar kolom yang belum terisi di database tidak
     // membuat layar kehilangan properti lalu gagal render di depan penonton.
     //
@@ -31,7 +37,7 @@ async function loadConfig(): Promise<DisplayConfig> {
     // menjaga presisi. String itu tidak bisa dipakai langsung sebagai pengali
     // dalam perhitungan CSS, jadi ia harus melewati normalisasi lebih dulu.
     const merged = { ...DEFAULT_CONFIG, ...(data as Partial<DisplayConfig>) };
-    return { ...merged, ...normalizeBranding(data as Record<string, unknown>) };
+    return { ...merged, ...normalizeBranding(data as Record<string, unknown>), active_booth_codes: boothCodes };
   } catch {
     // Layar acara tidak boleh gagal total hanya karena satu baris setting tidak
     // terbaca. Lebih baik tampil dengan nilai bawaan daripada menampilkan error.

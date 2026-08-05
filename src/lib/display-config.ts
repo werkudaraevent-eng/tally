@@ -33,6 +33,25 @@ export type DisplayConfig = {
   show_amount: boolean;
   ticker_text: string | null;
   refresh_seconds: number;
+  /**
+   * Kode booth yang sedang aktif, urut nomor. BUKAN kolom `display_settings`.
+   *
+   * Ikut di sini karena layar memakainya sebagai penyebut progress booth, dan
+   * angka itu sebelumnya ditulis mati sebagai 6 di empat tempat. Begitu panitia
+   * menambah booth ketujuh, papan proyektor tetap menggambar enam titik dan
+   * peserta yang sudah keliling sembilan booth terlihat seperti baru enam —
+   * salah di depan penonton, tanpa ada yang mengubah apa pun.
+   *
+   * Kodenya ikut dikirim, bukan hanya jumlahnya, karena panel booth explorer
+   * memberi label tiap kotak. Label itu dulu dirakit sebagai "B" + nomor urut,
+   * padahal kode booth bebas sejak 202607310003_flexible_booth_codes — booth
+   * berkode UMKM2 tampil sebagai B2 di layar dan tidak cocok dengan papan nama
+   * fisiknya.
+   *
+   * Aman untuk endpoint publik: kode booth tercetak di papan nama di lokasi dan
+   * sudah muncul di nomor order yang dipegang peserta.
+   */
+  active_booth_codes: string[];
 } & Branding;
 
 /**
@@ -58,11 +77,21 @@ export const DEFAULT_CONFIG: DisplayConfig = {
   show_amount: true,
   ticker_text: null,
   refresh_seconds: 30,
+  // Kosong, BUKAN enam. Nilai jaring pengaman tidak boleh menebak jumlah booth:
+  // menebak salah berarti penyebut yang keliru terpampang di proyektor, dan itu
+  // lebih buruk daripada panel progress yang absen. Layar menyembunyikan titik
+  // progress selama daftar ini kosong.
+  active_booth_codes: [],
   // Branding kosong dan skala 1: tanpa diisi admin, layar tampil persis seperti
   // sebelum header/footer CMS ada.
   ...DEFAULT_BRANDING,
 };
 
-/** Kolom yang dibaca dari `display_settings`. Sama dengan endpoint GET-nya. */
+/**
+ * Kolom yang dibaca dari `display_settings`. Sama dengan endpoint GET-nya.
+ *
+ * `active_booth_codes` sengaja TIDAK di sini: ia bukan kolom tabel ini melainkan
+ * hasil kueri ke `booths`, dan dilampirkan terpisah oleh pemanggilnya.
+ */
 export const DISPLAY_CONFIG_COLUMNS =
   `event_title,headline,tagline,background_color,text_color,accent_color,background_image_url,leaderboard_limit,show_company,show_booth_progress,show_ticker,show_amount,ticker_text,refresh_seconds,${BRANDING_COLUMNS}`;
