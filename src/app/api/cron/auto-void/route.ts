@@ -10,5 +10,12 @@ export async function POST(request: Request) {
   if (!matches) return apiError("FORBIDDEN", 403);
   const { data, error } = await getSupabaseServiceClient().rpc("auto_void_expired_orders" as never);
   if (error) return apiError("INTERNAL_ERROR", 500);
+  // Pembersihan penghitung login ditumpangkan ke jadwal yang sudah berjalan,
+  // bukan diberi cron sendiri. Satu jadwal tambahan berarti satu lagi yang harus
+  // diperiksa ketika ada yang tidak jalan di hari-H, sementara pekerjaannya sendiri
+  // hanya satu DELETE. Kegagalannya diabaikan dengan sengaja: baris penghitung yang
+  // tertinggal tidak merugikan siapa pun, sedangkan auto-void yang dilaporkan gagal
+  // karena pembersihan bermasalah akan menyesatkan panitia.
+  await getSupabaseServiceClient().rpc("purge_stale_login_attempts" as never);
   return Response.json({ voided_count: data ?? 0 });
 }

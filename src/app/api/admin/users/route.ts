@@ -2,6 +2,11 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { apiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
+// Biaya hash diimpor, tidak diulang sebagai angka di sini. Dua tempat yang
+// menuliskan cost sendiri adalah dua tempat yang bisa menyimpang, dan ketidaksamaan
+// itu tidak akan memunculkan kesalahan apa pun — hanya PIN yang lebih lambat
+// diverifikasi daripada yang diperkirakan.
+import { PIN_HASH_ROUNDS } from "@/lib/auth/login";
 import { canManageUsers, canResetOperatorPin } from "@/lib/auth/roles";
 import type { UserRole } from "@/lib/domain";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -62,7 +67,7 @@ export async function POST(request: Request) {
   const { data: existing } = await client.from("users").select("id").eq("username", parsed.data.username).maybeSingle() as { data: { id: string } | null };
   if (existing) return apiError("USERNAME_TAKEN", 409);
 
-  const pinHash = await bcrypt.hash(parsed.data.pin, 12);
+  const pinHash = await bcrypt.hash(parsed.data.pin, PIN_HASH_ROUNDS);
   const { data, error } = await client
     .from("users")
     .insert({ username: parsed.data.username, pin_hash: pinHash, role: parsed.data.role, booth_id: parsed.data.role === "booth" ? parsed.data.booth_id : null, is_active: parsed.data.is_active ?? true } as never)
@@ -122,7 +127,7 @@ export async function PATCH(request: Request) {
   };
   if (parsed.data.username) update.username = parsed.data.username;
   if (typeof parsed.data.is_active === "boolean") update.is_active = parsed.data.is_active;
-  if (parsed.data.pin) update.pin_hash = await bcrypt.hash(parsed.data.pin, 12);
+  if (parsed.data.pin) update.pin_hash = await bcrypt.hash(parsed.data.pin, PIN_HASH_ROUNDS);
 
   const { data, error } = await client.from("users").update(update as never).eq("id", parsed.data.id).select("id,username,role,booth_id,is_active").single();
   if (error) return apiError("INTERNAL_ERROR", 500);

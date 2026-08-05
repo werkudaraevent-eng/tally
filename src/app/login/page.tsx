@@ -42,12 +42,33 @@ export default function LoginPage() {
     }
     if (!response.ok) {
       setPending(false);
+      // Kuncian rate limit dibedakan dari PIN salah.
+      //
+      // Kalau keduanya menampilkan "Username atau PIN salah", operator yang sedang
+      // terkunci akan mencoba PIN lain — padahal PIN-nya mungkin sudah benar — dan
+      // menghabiskan seluruh masa tunggu dengan menebak-nebak. Sebutkan lama
+      // tunggunya, dan JANGAN kosongkan kolom PIN: isinya tidak bersalah di sini,
+      // dan mengosongkannya memaksa pengetikan ulang tanpa alasan.
+      if (response.status === 429) {
+        const body = await response.json().catch(() => null);
+        const message = body?.error?.message ?? "Terlalu banyak percobaan login. Tunggu sebentar, lalu coba lagi.";
+        setError(message);
+        toast.error("Login dijeda sementara", message);
+        return;
+      }
       setPin("");
       setError("Username atau PIN salah.");
       toast.error("Login gagal", "Username atau PIN salah. Periksa kembali.");
       return;
     }
-    const result = await response.json();
+    const result = await response.json().catch(() => null);
+    // Status 200 berarti cookie sesi SUDAH disetel, jadi body yang gagal terbaca
+    // tidak boleh menghentikan pengalihan. Tanpa cabang ini staf terhenti di layar
+    // login padahal sudah masuk, dan menekan Masuk lagi hanya mengulang bcrypt.
+    if (!result?.user) {
+      router.push("/booth");
+      return;
+    }
     const roleLabel: Record<string, string> = { booth: "Admin Booth", cashier: "Kasir", admin: "Panitia / Admin" };
     toast.success(`Selamat datang, ${result.user.username}`, `Masuk sebagai ${roleLabel[result.user.role] ?? result.user.role}.`);
     const destination = roleRedirects[result.user.role as keyof typeof roleRedirects] ?? "/booth";
