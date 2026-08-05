@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowsDownUp, CaretLeft, CaretRight, MagnifyingGlass, UsersThree, WarningCircle, XCircle } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, ArrowsDownUp, CaretLeft, CaretRight, MagnifyingGlass, Prohibit, UsersThree, WarningCircle, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { formatEventDateTime } from "@/lib/datetime";
 import { DEFAULT_TIME_ZONE, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
@@ -43,6 +43,11 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Peserta yang dikecualikan dari undian. Dimuat sekali, lalu diperbarui secara
+  // optimis: daftarnya berisi belasan orang, tidak sepadan memuat ulang seluruh
+  // tabel peserta hanya untuk mengubah satu tanda.
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const [togglingExclusion, setTogglingExclusion] = useState<string | null>(null);
 
   const load = useCallback(async (search: string, pageIndex: number, sortKey: SortKey, sortDir: "asc" | "desc") => {
     setLoading(true); setError("");
@@ -61,6 +66,40 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
     const timer = window.setTimeout(() => { setDebouncedQuery(query); setPage(0); }, 250);
     return () => window.clearTimeout(timer);
   }, [query]);
+
+  // Daftar pengecualian undian dimuat sekali. Kegagalannya tidak menggagalkan
+  // tabel peserta: tandanya sekadar tidak muncul, dan fungsi utama halaman tetap
+  // berjalan.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const response = await fetch("/api/admin/undian/exclusions", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        setExcluded(new Set((data.exclusions ?? []).map((row: { participant_id: string }) => row.participant_id)));
+      })();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [reloadKey]);
+
+  async function toggleExclusion(participant: Participant) {
+    const isExcluded = excluded.has(participant.id);
+    setTogglingExclusion(participant.id);
+    const response = isExcluded
+      ? await fetch(`/api/admin/undian/exclusions?participant_id=${participant.id}`, { method: "DELETE" })
+      : await fetch("/api/admin/undian/exclusions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ participant_id: participant.id }),
+        });
+    setTogglingExclusion(null);
+    if (!response.ok) { setError("Status undian gagal diubah."); return; }
+    setExcluded((current) => {
+      const next = new Set(current);
+      if (isExcluded) next.delete(participant.id); else next.add(participant.id);
+      return next;
+    });
+  }
 
   useEffect(() => { const timer = window.setTimeout(() => { void load(debouncedQuery, page, sort, dir); }, 0); return () => window.clearTimeout(timer); }, [load, debouncedQuery, page, sort, dir, reloadKey]);
 
@@ -97,6 +136,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
               </th>;
             })}
             <th scope="col" className="px-5 py-4 font-semibold">{SEAT_COLUMN_LABEL}</th>
+            <th scope="col" className="px-5 py-4 text-right font-semibold">Undian</th>
           </tr></thead>
           <tbody className="divide-y divide-[var(--line)]">
             {participants.map((participant, index) => <tr key={participant.id} className="hover:bg-[var(--surface-muted)]">
@@ -115,6 +155,19 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
                 {participant.seats && participant.seats.length > 0
                   ? <span className="flex flex-wrap gap-1">{participant.seats.map((seat) => <span key={`${seat.subEventId}-${seat.label}`} title={seat.subEventName} className="inline-flex rounded-sm bg-[#E8ECFB] px-2 py-0.5 font-mono font-semibold text-[var(--brand-strong)]">{seat.label}</span>)}</span>
                   : <span className="text-[var(--ink-muted)]">Belum ada</span>}
+              </td>
+              {/* Pengecualian undian: panitia, MC, dan perwakilan sponsor lazimnya
+                  tidak boleh menang meski terdaftar dan memenuhi syarat. */}
+              <td className="px-5 py-4 text-right">
+                <button
+                  type="button"
+                  onClick={() => void toggleExclusion(participant)}
+                  disabled={togglingExclusion === participant.id}
+                  title={excluded.has(participant.id) ? "Ikutkan lagi ke undian" : "Kecualikan dari semua undian"}
+                  className={`inline-flex min-h-9 items-center gap-1.5 border px-2.5 text-xs font-semibold disabled:opacity-50 ${excluded.has(participant.id) ? "border-[var(--warning)] bg-[#FDF6E7] text-[var(--warning)]" : "border-[var(--line)] text-[var(--ink-muted)] hover:border-[var(--brand)] hover:text-[var(--brand)]"}`}
+                >
+                  <Prohibit size={14} />{excluded.has(participant.id) ? "Dikecualikan" : "Ikut"}
+                </button>
               </td>
             </tr>)}
           </tbody>

@@ -25,6 +25,21 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
     "rundown_section_create", "rundown_section_update", "rundown_section_delete",
     "rundown_item_create", "rundown_item_update", "rundown_item_delete",
   ],
+  // Undian. `undian_draw` sengaja dicatat meski frekuensinya lumayan: berbeda
+  // dengan tombol next/prev reveal yang hanya mengganti tampilan, setiap undi
+  // menghasilkan pemenang yang membawa pulang barang. Itu justru catatan yang
+  // paling dicari bila kelak ada yang mempersoalkan hasilnya.
+  undian: [
+    "undian_settings_update",
+    "undian_prize_create", "undian_prize_update", "undian_prize_delete",
+    "undian_draw", "undian_winner_confirm", "undian_winner_reject",
+    "undian_mode_change", "undian_reset",
+    "undian_entry_import", "undian_entry_group_delete",
+    "undian_exclusion_add", "undian_exclusion_remove",
+    "undian_rule_create", "undian_rule_update", "undian_rule_delete",
+    "undian_session_start", "undian_session_close", "undian_session_delete",
+    "undian_session_adopt",
+  ],
   users: ["user_create", "user_update"],
   danger: ["admin_reset_records"],
   orders: ["create", "pay", "void", "hand_over", "booth_order_created", "participant_scan"],
@@ -39,12 +54,13 @@ const CONFIG_ACTIONS = [
   ...CATEGORY_ACTIONS.booths,
   ...CATEGORY_ACTIONS.payment_methods,
   ...CATEGORY_ACTIONS.rundown,
+  ...CATEGORY_ACTIONS.undian,
   ...CATEGORY_ACTIONS.users,
   ...CATEGORY_ACTIONS.danger,
 ];
 
 const querySchema = z.object({
-  category: z.enum(["config", "settings", "offers", "booths", "payment_methods", "users", "danger", "orders", "sync", "all"]).default("config"),
+  category: z.enum(["config", "settings", "offers", "booths", "payment_methods", "rundown", "undian", "users", "danger", "orders", "sync", "all"]).default("config"),
   actor: z.string().uuid().optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
