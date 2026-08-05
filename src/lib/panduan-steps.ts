@@ -95,7 +95,11 @@ export function boothSteps({ viaCashier, handOverNow }: EventFlags): GuideStep[]
     },
     {
       id: "nominal",
-      text: "Isi nominal item reguler. Cek angka TOTAL sebelum lanjut.",
+      // Contoh penjumlahan disebut di kalimatnya, bukan sebagai langkah terpisah.
+      // Kolomnya memang satu dan tetap boleh diisi satu angka; menjadikannya langkah
+      // sendiri akan terbaca sebagai kewajiban baru untuk setiap order.
+      text: "Isi nominal item reguler. Kalau peserta beli beberapa barang, boleh langsung dijumlahkan di kolomnya, contoh 12000+5000+3000 — hasilnya muncul di bawah kolom. Cek angka TOTAL sebelum lanjut.",
+      printText: "Isi nominal item reguler. Beberapa barang boleh dijumlahkan langsung, contoh 12000+5000+3000. Cek angka TOTAL sebelum lanjut.",
     },
     // Dua id berbeda, bukan satu id dengan dua kalimat: layarnya memang berbeda,
     // jadi gambarnya pun harus berbeda dan tidak boleh saling menggantikan.

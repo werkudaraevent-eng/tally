@@ -3,19 +3,7 @@ import { apiError, mapDatabaseError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireUser } from "@/lib/auth/guards";
 import { canUseBooth } from "@/lib/auth/roles";
-
-// Batas atas nominal item reguler.
-//
-// Tanpa batas ini, nominal 12 digit lolos validasi lalu ditolak Postgres dengan
-// SQLSTATE 22003 ("value out of range for type integer") — pesan yang tidak
-// dikenali `mapDatabaseError` sehingga staf booth membaca "Terjadi kesalahan
-// server. Coba lagi." untuk kesalahan yang sepenuhnya ada di kolom isian.
-//
-// Angkanya Rp 2 miliar, bukan int4 max (2.147.483.647). Menyisakan ruang di bawah
-// batas tipe supaya `regular_amount + harga item spesial` tidak dapat melampauinya
-// pada penjumlahan di dalam RPC — nominal yang sah sendiri tetapi menjadi tidak sah
-// setelah item ditambahkan adalah kegagalan yang paling sulit dijelaskan ke staf.
-const MAX_ORDER_AMOUNT = 2_000_000_000;
+import { MAX_ORDER_AMOUNT } from "@/lib/domain";
 
 const bodySchema = z.object({
   order_code: z.string().trim().min(1).max(20),

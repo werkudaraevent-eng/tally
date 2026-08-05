@@ -8,6 +8,7 @@ import { HelpPanel } from "@/components/help-panel";
 import { SearchResultsSkeleton, Spinner } from "@/components/search-loading";
 import { useToast } from "@/components/toast";
 import { formatEventDateTime, formatEventTime } from "@/lib/datetime";
+import { MAX_ORDER_AMOUNT } from "@/lib/domain";
 import { DEFAULT_TIME_ZONE, normalizeTimeZone, type EventTimeZone } from "@/lib/timezone";
 import { useOnline } from "@/lib/use-online";
 
@@ -61,6 +62,56 @@ function errorMessage(data: Record<string, unknown>, response: Response, fallbac
 // Input rupiah tampil dengan pemisah ribuan (mis. "250.000") agar admin booth
 // tidak salah baca nominal besar. Nilai asli tetap disimpan sebagai digit.
 const groupDigits = (digits: string) => (digits ? new Intl.NumberFormat("id-ID").format(Number(digits)) : "");
+
+// Kolom nominal menerima penjumlahan, mis. "12000+5000+3000".
+//
+// Alasannya satu: staf booth adalah pelaku UMKM yang menjual beberapa barang
+// sekaligus. Sebelum ini mereka menjumlahkan di kalkulator HP lalu memindahkan
+// hasilnya ke sini, dan setiap pemindahan angka antar aplikasi adalah kesempatan
+// salah ketik yang tidak dapat dideteksi siapa pun sesudahnya — laporan hanya
+// memuat hasil akhirnya.
+//
+// Rincian sukunya TIDAK disimpan. Yang dikirim ke server tetap satu angka pada
+// `regular_amount`, persis seperti sebelumnya: tidak ada kolom, tabel, atau RPC
+// yang berubah. Ini alat bantu hitung, bukan pencatatan per barang.
+//
+// Sanitizer: hanya digit dan '+'. Titik dan koma DIBUANG, tidak diterjemahkan
+// sebagai pemisah ribuan atau desimal. Rupiah di acara ini tidak pernah memakai
+// sen, dan menebak maksud "1.500" (seribu lima ratus? satu koma lima?) berarti
+// menebak nominal uang orang.
+const sanitizeAmountInput = (raw: string) =>
+  raw
+    .replace(/[^\d+]/g, "")
+    // '+' berurutan diciutkan jadi satu. Ketukan ganda pada keypad HP sering
+    // terjadi, dan "12000++5000" yang gagal dihitung membuat kolomnya tampak
+    // rusak padahal maksud staf sudah jelas.
+    .replace(/\+{2,}/g, "+")
+    // '+' di awal dibuang: tidak ada suku sebelumnya untuk dijumlahkan.
+    .replace(/^\+/, "");
+
+// Suku-suku yang sudah lengkap. Suku kosong dilewati supaya "12000+" yang sedang
+// diketik tetap terhitung 12000, bukan dianggap tidak sah — memblokir keadaan
+// setengah ketik berarti tombol mati tepat saat staf menekan '+'.
+const amountParts = (value: string) => value.split("+").filter((part) => part !== "").map(Number);
+
+// Nilai yang dikirim ke server.
+//
+// WAJIB dipakai di SEMUA tempat yang dulu menulis `Number(regularAmount) || 0`.
+// `Number("12000+5000")` adalah NaN dan `NaN || 0` adalah 0, jadi satu tempat yang
+// terlewat tidak akan gagal build maupun melempar error — ia hanya diam-diam
+// membaca nol. Pada `emptyOrder` itu berarti tombol "Buat order" mati sendiri saat
+// staf memasukkan penjumlahan, dan pada body kiriman berarti order tersimpan
+// dengan nominal Rp 0.
+const amountTotal = (value: string) => amountParts(value).reduce((sum, part) => sum + part, 0);
+
+// Tampilan pengingat di bawah kolom, mis. "12.000 + 5.000 + 3.000".
+const formatAmountParts = (value: string) => amountParts(value).map((part) => new Intl.NumberFormat("id-ID").format(part)).join(" + ");
+
+// Kolom menampilkan tiap suku dengan pemisah ribuan, tetapi '+' TIDAK boleh
+// hilang saat sedang diketik. Suku kosong di ujung dipertahankan sebagai string
+// kosong supaya "12.000+" tetap terlihat begitu, bukan menyusut jadi "12.000"
+// dan membuat '+' yang baru ditekan seolah tidak masuk.
+const groupAmountInput = (value: string) => value.split("+").map((part) => groupDigits(part)).join("+");
 const orderStatusBadge = (status: string): { label: string; className: string } => {
   switch (status) {
     case "paid": return { label: "Lunas - siap diserahkan", className: "bg-[#EEF8F0] text-[var(--brand-strong)]" };
@@ -234,7 +285,7 @@ export default function BoothPage() {
     if (!participant || !online) { setMessage("Offline — order tidak boleh dibuat."); return; }
     if (!booth) { setMessage("Booth belum termuat. Muat ulang halaman."); return; }
     setPending(true); setMessage("");
-    const response = await fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order_code: `${booth.code}-${orderCode.padStart(3, "0")}`, participant_id: participant.id, booth_id: booth.id, has_discount_item: discount, regular_amount: booth.transactions_enabled === false ? 0 : Number(regularAmount) || 0, offer_codes: selectedOffers }) }).catch(() => null);
+    const response = await fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order_code: `${booth.code}-${orderCode.padStart(3, "0")}`, participant_id: participant.id, booth_id: booth.id, has_discount_item: discount, regular_amount: booth.transactions_enabled === false ? 0 : amountTotal(regularAmount), offer_codes: selectedOffers }) }).catch(() => null);
     // Jaringan putus di tengah kiriman adalah satu-satunya kegagalan yang TIDAK
     // boleh menyarankan "coba lagi" tanpa syarat: server mungkin sudah menyimpan
     // ordernya sementara responsnya tidak pernah sampai. Riwayat dimuat ulang agar
@@ -370,7 +421,15 @@ export default function BoothPage() {
   // booth dianggap berjualan supaya kolom nominal tidak sempat tampil lalu hilang.
   // Penolakan nominal yang sebenarnya ada di `create_order_transaction`.
   const transactionsEnabled = booth?.transactions_enabled !== false;
-  const previewTotal = (transactionsEnabled ? Number(regularAmount) || 0 : 0) + selectedOfferTotal;
+  // `amountTotal`, bukan `Number(regularAmount)`: kolomnya dapat memuat
+  // penjumlahan ("12000+5000"), dan `Number()` atas string itu adalah NaN yang
+  // lalu diciutkan menjadi 0 oleh `|| 0` tanpa error apa pun.
+  const regularTotal = transactionsEnabled ? amountTotal(regularAmount) : 0;
+  const previewTotal = regularTotal + selectedOfferTotal;
+  // Penjumlahan di kolom dapat melampaui batas kolom int Postgres walau setiap
+  // sukunya wajar. Ditahan di layar karena penolakannya di server muncul sebagai
+  // SQLSTATE 22003 — kegagalan yang tidak menyebutkan kolom mana yang salah.
+  const amountTooLarge = transactionsEnabled && regularTotal > MAX_ORDER_AMOUNT;
   // Kosong dan nol WAJIB dibedakan. Keduanya sama-sama menghasilkan Rp 0, jadi
   // "lupa mengisi" dan "peserta memang tidak beli" tidak dapat dipisahkan setelah
   // order tersimpan, baik di layar maupun di laporan. Order hanya boleh dibuat
@@ -385,7 +444,7 @@ export default function BoothPage() {
   //
   // Penegakan sebenarnya ada di `create_order_transaction` (EMPTY_ORDER); ini hanya
   // mencegah operator menekan tombol yang sudah pasti ditolak.
-  const emptyOrder = (Number(regularAmount) || 0) === 0 && selectedOffers.length === 0;
+  const emptyOrder = regularTotal === 0 && selectedOffers.length === 0;
   // Peserta yang sudah dihapus panitia pusat. Perbandingan terhadap null dan
   // undefined sekaligus: peserta yang dipilih dari HASIL PENCARIAN tidak melewati
   // kolom ini sama sekali, dan `undefined` di sana berarti "belum diperiksa", bukan
@@ -443,13 +502,24 @@ export default function BoothPage() {
                   staf harus BERHENTI mengisi order dan bukan sekadar menyesuaikan angka.
                   Namanya tetap tampil supaya staf dapat menyebutkannya ke meja registrasi. */}
               {participantRemoved && <div role="alert" className="m-5 border border-[#E9C7C4] bg-[#FFF2F0] p-5 text-[var(--danger)]"><p className="flex items-center gap-2 font-semibold"><Prohibit size={22} weight="fill" /> PESERTA SUDAH DIHAPUS PANITIA</p><p className="mt-2 text-sm">Order tidak dapat dibuat untuk peserta ini. Arahkan peserta ke meja registrasi lebih dulu.</p></div>}{progress && <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] px-5 py-4"><span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Progress peserta</span><span className="flex items-center gap-3"><span className="flex items-center gap-1.5" aria-hidden="true">{Array.from({ length: progress.total }).map((_, dot) => <span key={dot} className="size-3 rounded-full" style={{ backgroundColor: dot < progress.visited ? "var(--brand)" : "var(--line)" }} />)}</span><span className="text-sm font-semibold tabular-nums">{progress.visited} dari {progress.total} booth</span></span></div>}{existingOrders.filter((order) => order.pickup_mode === "after_payment" && order.status !== "void" && order.status !== "handed_over").map((order) => <div key={order.id} className={`m-5 border p-5 ${order.status === "paid" ? "border-[#B9DCC5] bg-[#EEF8F0] text-[var(--brand-strong)]" : "border-[#E9C7C4] bg-[#FFF2F0] text-[var(--danger)]"}`}><p className="flex items-center gap-2 font-semibold"><Package size={22} weight="fill" /> BARANG SIAP DIAMBIL</p><p className="mt-2 text-sm">{order.code} · {order.has_discount_item ? "Item diskon" : "Reguler"} · {formatRupiah(order.total_amount)}</p>{order.status === "paid" ? <><p className="mt-1 flex items-center gap-1 text-sm font-semibold"><CheckCircle size={16} weight="fill" /> LUNAS{order.paid_at ? ` ${formatEventTime(order.paid_at, timeZone)}` : ""}</p><button onClick={() => handOverOrder(order.id)} disabled={pending || !online} className="mt-4 min-h-12 w-full bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-50">Serahkan barang</button></> : <p className="mt-2 text-sm font-semibold">{cashierRequired ? "BELUM LUNAS — arahkan peserta ke kasir" : "BELUM LUNAS — order lama sebelum kasir dimatikan. Hubungi admin."}</p>}</div>)}<div className="m-5 space-y-3">{offers.length === 0 ? <div className="border border-[var(--line)] bg-[var(--surface-muted)] p-5 text-sm text-[var(--ink-muted)]">Tidak ada item spesial di booth ini.</div> : <><div className="flex items-baseline justify-between"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Item spesial</p><p className="text-xs text-[var(--ink-muted)]">Total belanja peserta ini di semua booth <span className="font-semibold tabular-nums text-[var(--ink)]">{formatRupiah(accumulated)}</span></p></div>{offers.map((offer) => { const chosen = selectedOffers.includes(offer.code); const blocked = Boolean(offer.blocked_reason); return <div key={offer.code} className={`border p-5 ${blocked ? "border-[#E9C7C4] bg-[#FFF2F0] text-[var(--danger)]" : chosen ? "border-[#B9DCC5] bg-[#EEF8F0] text-[var(--brand-strong)]" : "border-[var(--line)] bg-[var(--surface-muted)] text-[var(--ink)]"}`}><p className="flex items-start gap-2 font-semibold">{blocked ? <XCircle size={22} weight="fill" className="shrink-0" /> : chosen ? <CheckCircle size={22} weight="fill" className="shrink-0" /> : <span className="mt-0.5 size-[22px] shrink-0 border-2 border-current" />}<span className="min-w-0">{offer.name.toUpperCase()}{offer.scope === "global" && <span className="ml-2 rounded-sm bg-[var(--surface)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-muted)]">Semua booth</span>}</span></p><p className="mt-2 text-sm tabular-nums">{formatRupiah(offer.price)}</p>{/* Alasan spesifik, bukan sekadar "tidak tersedia": staf booth harus bisa
-                    menjelaskan ke peserta kenapa item tidak bisa diambil. */}<p className="mt-2 text-xs">{blocked ? offerBlockedLabel(offer) : "Ketuk untuk memasukkan item ini ke order."}</p><label className={`mt-4 flex min-h-12 items-center gap-3 border border-current px-4 text-sm font-semibold ${blocked ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}><input type="checkbox" checked={chosen} disabled={blocked} onChange={() => toggleOffer(offer)} className="size-5 accent-[var(--brand)]" />{blocked ? "Tidak tersedia" : chosen ? "Dipilih" : `Ambil ${offer.name}`}</label></div>; })}</>}</div><div className={`grid gap-4 p-5 pt-0 ${transactionsEnabled ? "sm:grid-cols-2" : ""}`}>{transactionsEnabled ? <label className="text-sm font-semibold">Item reguler (Rp)<input value={groupDigits(regularAmount)} placeholder="Wajib diisi" aria-describedby="regular-amount-help" aria-invalid={amountMissing} onChange={(event) => setRegularAmount(event.target.value.replace(/\D/g, ""))} className={`mt-2 h-14 w-full rounded-xl border bg-[var(--background)] px-4 text-xl font-semibold outline-none focus:border-[var(--brand)] ${amountMissing ? "border-[var(--warning)]" : "border-[var(--line)]"}`} inputMode="numeric" />{/* Hanya keterangan, tanpa tombol aksi. Menambah tombol di sini berarti
+                    menjelaskan ke peserta kenapa item tidak bisa diambil. */}<p className="mt-2 text-xs">{blocked ? offerBlockedLabel(offer) : "Ketuk untuk memasukkan item ini ke order."}</p><label className={`mt-4 flex min-h-12 items-center gap-3 border border-current px-4 text-sm font-semibold ${blocked ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}><input type="checkbox" checked={chosen} disabled={blocked} onChange={() => toggleOffer(offer)} className="size-5 accent-[var(--brand)]" />{blocked ? "Tidak tersedia" : chosen ? "Dipilih" : `Ambil ${offer.name}`}</label></div>; })}</>}</div><div className={`grid gap-4 p-5 pt-0 ${transactionsEnabled ? "sm:grid-cols-2" : ""}`}>{transactionsEnabled ? <label className="text-sm font-semibold">Item reguler (Rp)<input value={groupAmountInput(regularAmount)} placeholder="Wajib diisi" aria-describedby="regular-amount-help" aria-invalid={amountMissing || amountTooLarge} onChange={(event) => setRegularAmount(sanitizeAmountInput(event.target.value))} className={`mt-2 h-14 w-full rounded-xl border bg-[var(--background)] px-4 text-xl font-semibold outline-none focus:border-[var(--brand)] ${amountMissing || amountTooLarge ? "border-[var(--warning)]" : "border-[var(--line)]"}`} inputMode="numeric" />{/* Hasil penjumlahan ditampilkan SEKARANG, bukan hanya di baris TOTAL.
+                  Baris TOTAL ada di bawah dan sudah memuat harga item spesial, jadi angkanya
+                  berbeda dari isi kolom ini dan tidak dapat dipakai untuk memeriksa
+                  penjumlahan yang baru diketik. Rincian sukunya ikut ditulis ulang dengan
+                  pemisah ribuan supaya suku yang salah ketik terlihat sebelum disimpan. */}
+                {amountParts(regularAmount).length > 1 ? <span className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs font-normal leading-5 text-[var(--ink-muted)]"><span className="tabular-nums">{formatAmountParts(regularAmount)}</span><span className="font-semibold text-[var(--ink)]">= {formatRupiah(regularTotal)}</span><span>({amountParts(regularAmount).length} item)</span></span> : null}{/* Hanya keterangan, tanpa tombol aksi. Menambah tombol di sini berarti
                   menambah langkah yang tidak ada di panduan cetak untuk staf booth, dan
                   panduan yang tidak cocok dengan layar lebih merugikan daripada satu
-                  ketukan yang dihemat. Nol dinyatakan dengan mengetik 0. */}
-                {amountMissing
-                  ? <span id="regular-amount-help" className="mt-2 block text-xs font-normal leading-5 text-[var(--warning)]">Wajib diisi. Kalau peserta tidak beli item reguler, tulis 0.</span>
-                  : <span id="regular-amount-help" className="mt-2 block text-xs font-normal leading-5 text-[var(--ink-muted)]">Nominal item reguler yang dibeli peserta di booth ini.</span>}</label> : null}<label className="text-sm font-semibold">{pickupMode === "immediate" ? "Nomor order" : "Nomor stiker"} {booth?.code ?? "booth"} <span className="font-normal text-[var(--ink-muted)]">(otomatis lanjut)</span><input value={orderCode} onChange={(event) => setOrderCode(event.target.value.replace(/\D/g, "").slice(0, 3))} className="mt-2 h-14 w-full border border-[var(--line)] bg-[var(--background)] px-4 text-xl outline-none focus:border-[var(--brand)]" inputMode="numeric" /></label></div><div className="border-t border-[var(--line)] p-5">{selectedOfferTotal > 0 && <div className="mb-3 space-y-1 text-xs text-[var(--ink-muted)]">{transactionsEnabled ? <div className="flex items-center justify-between"><span>Item reguler</span><span className="tabular-nums">{formatRupiah(Number(regularAmount) || 0)}</span></div> : null}{offers.filter((offer) => selectedOffers.includes(offer.code)).map((offer) => <div key={offer.code} className="flex items-center justify-between"><span className="truncate pr-2">{offer.name}</span><span className="shrink-0 tabular-nums">{formatRupiah(offer.price)}</span></div>)}</div>}<div className="flex items-center justify-between"><span className="text-sm font-semibold">TOTAL</span><span className="text-3xl font-semibold tabular-nums">{formatRupiah(previewTotal)}</span></div></div><button disabled={pending || !orderCode || !participant || amountMissing || emptyOrder || participantRemoved} onClick={createOrder} className="m-5 mt-0 flex min-h-16 w-[calc(100%-2.5rem)] items-center justify-center gap-2 bg-[var(--brand)] text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{pending ? "Menyimpan..." : participantRemoved ? "Peserta sudah dihapus panitia" : amountMissing ? "Isi nominal dulu" : emptyOrder ? (transactionsEnabled ? "Isi nominal atau pilih item" : "Pilih item dulu") : transactionsEnabled ? "Buat order" : "Catat serah terima"}</button></div> : <><button onClick={() => setScanning(true)} className="flex min-h-32 w-full items-center justify-between rounded-2xl bg-[var(--brand)] px-6 text-left text-white shadow-sm transition-colors hover:bg-[var(--brand-strong)] sm:min-h-36 sm:px-8"><span className="block text-3xl font-semibold sm:text-4xl">SCAN QR</span><Scan size={52} weight="duotone" /></button><button onClick={() => setSearch(!search)} className="mt-3 flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-sm font-semibold"><MagnifyingGlass size={20} /> Cari peserta manual</button>{search && <div className="mt-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4"><label htmlFor="manual-search" className="text-sm font-semibold">Nama atau instansi peserta</label><div className="mt-2 flex gap-2"><input id="manual-search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchParticipants(); }} placeholder="Contoh: Ratna atau nama perusahaan" className="h-12 min-w-0 flex-1 border border-[var(--line)] bg-[var(--background)] px-3 outline-none focus:border-[var(--brand)]" /><button onClick={() => void searchParticipants()} disabled={searching || pending || !online || !searchTerm.trim()} className="flex min-h-12 shrink-0 items-center justify-center gap-2 bg-[var(--ink)] px-4 text-sm font-semibold text-white disabled:opacity-50">{searching ? <><Spinner size={17} /> Mencari</> : "Cari"}</button></div>{/* Kerangka hasil, bukan sekadar teks "Mencari...".
+                  ketukan yang dihemat. Nol dinyatakan dengan mengetik 0.
+
+                  Sebab itu pula penjumlahan diterima di kolomnya sendiri, bukan lewat
+                  tombol "tambah item": keypad numerik HP sudah memuat '+', jadi tidak ada
+                  ketukan tambahan dan tidak ada langkah baru yang harus dicetak ulang. */}
+                {amountTooLarge
+                  ? <span id="regular-amount-help" className="mt-2 block text-xs font-normal leading-5 text-[var(--warning)]">Jumlahnya terlalu besar. Batas satu order {formatRupiah(MAX_ORDER_AMOUNT)}. Periksa apakah ada suku yang kelebihan angka nol.</span>
+                  : amountMissing
+                    ? <span id="regular-amount-help" className="mt-2 block text-xs font-normal leading-5 text-[var(--warning)]">Wajib diisi. Kalau peserta tidak beli item reguler, tulis 0.</span>
+                    : <span id="regular-amount-help" className="mt-2 block text-xs font-normal leading-5 text-[var(--ink-muted)]">Nominal item reguler yang dibeli peserta di booth ini. Beberapa barang boleh dijumlahkan langsung di sini, contoh 12000+5000+3000.</span>}</label> : null}<label className="text-sm font-semibold">{pickupMode === "immediate" ? "Nomor order" : "Nomor stiker"} {booth?.code ?? "booth"} <span className="font-normal text-[var(--ink-muted)]">(otomatis lanjut)</span><input value={orderCode} onChange={(event) => setOrderCode(event.target.value.replace(/\D/g, "").slice(0, 3))} className="mt-2 h-14 w-full border border-[var(--line)] bg-[var(--background)] px-4 text-xl outline-none focus:border-[var(--brand)]" inputMode="numeric" /></label></div><div className="border-t border-[var(--line)] p-5">{selectedOfferTotal > 0 && <div className="mb-3 space-y-1 text-xs text-[var(--ink-muted)]">{transactionsEnabled ? <div className="flex items-center justify-between"><span>Item reguler{amountParts(regularAmount).length > 1 ? ` (${formatAmountParts(regularAmount)})` : ""}</span><span className="tabular-nums">{formatRupiah(regularTotal)}</span></div> : null}{offers.filter((offer) => selectedOffers.includes(offer.code)).map((offer) => <div key={offer.code} className="flex items-center justify-between"><span className="truncate pr-2">{offer.name}</span><span className="shrink-0 tabular-nums">{formatRupiah(offer.price)}</span></div>)}</div>}<div className="flex items-center justify-between"><span className="text-sm font-semibold">TOTAL</span><span className="text-3xl font-semibold tabular-nums">{formatRupiah(previewTotal)}</span></div></div><button disabled={pending || !orderCode || !participant || amountMissing || amountTooLarge || emptyOrder || participantRemoved} onClick={createOrder} className="m-5 mt-0 flex min-h-16 w-[calc(100%-2.5rem)] items-center justify-center gap-2 bg-[var(--brand)] text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{pending ? "Menyimpan..." : participantRemoved ? "Peserta sudah dihapus panitia" : amountMissing ? "Isi nominal dulu" : amountTooLarge ? "Nominal terlalu besar" : emptyOrder ? (transactionsEnabled ? "Isi nominal atau pilih item" : "Pilih item dulu") : transactionsEnabled ? "Buat order" : "Catat serah terima"}</button></div> : <><button onClick={() => setScanning(true)} className="flex min-h-32 w-full items-center justify-between rounded-2xl bg-[var(--brand)] px-6 text-left text-white shadow-sm transition-colors hover:bg-[var(--brand-strong)] sm:min-h-36 sm:px-8"><span className="block text-3xl font-semibold sm:text-4xl">SCAN QR</span><Scan size={52} weight="duotone" /></button><button onClick={() => setSearch(!search)} className="mt-3 flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-sm font-semibold"><MagnifyingGlass size={20} /> Cari peserta manual</button>{search && <div className="mt-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4"><label htmlFor="manual-search" className="text-sm font-semibold">Nama atau instansi peserta</label><div className="mt-2 flex gap-2"><input id="manual-search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchParticipants(); }} placeholder="Contoh: Ratna atau nama perusahaan" className="h-12 min-w-0 flex-1 border border-[var(--line)] bg-[var(--background)] px-3 outline-none focus:border-[var(--brand)]" /><button onClick={() => void searchParticipants()} disabled={searching || pending || !online || !searchTerm.trim()} className="flex min-h-12 shrink-0 items-center justify-center gap-2 bg-[var(--ink)] px-4 text-sm font-semibold text-white disabled:opacity-50">{searching ? <><Spinner size={17} /> Mencari</> : "Cari"}</button></div>{/* Kerangka hasil, bukan sekadar teks "Mencari...".
                   Tingginya sama dengan daftar hasil sungguhan, jadi kartu tidak
                   melompat saat data tiba dan tombol di bawahnya tidak bergeser
                   tepat ketika admin booth hendak menekannya. */}
