@@ -1,6 +1,6 @@
 "use client";
 
-import { Broadcast, ChartLineUp, Crown, DotsSix, EyeSlash, Medal, Storefront, TrendUp, Trophy } from "@phosphor-icons/react";
+import { Broadcast, ChartLineUp, Crown, DotsSix, EyeSlash, Medal, Storefront, Trophy } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { BrandFooter, BrandLogo } from "@/components/brand-header-footer";
@@ -172,7 +172,38 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
   const dotSize = boothTotal > 0
     ? `clamp(6px, ${(spotlight ? 9 : 6.5) / boothTotal}vw, ${spotlight ? 16 : 12}px)`
     : "0px";
-  const topEntry = entries[0];
+  /**
+   * Peserta dengan booth TERBANYAK. Bukan `entries[0]`.
+   *
+   * `entries[0]` adalah peringkat 1 menurut BELANJA — itu urutan `get_leaderboard`.
+   * Panel ini berlabel "booth terbanyak", jadi memakai entri pertama membuat
+   * labelnya berbohong setiap kali peserta terboros bukan yang paling rajin
+   * keliling. Saat ini keduanya kebetulan orang yang sama, sehingga kesalahannya
+   * tidak terlihat sampai ada peserta lain yang menyusul jumlah boothnya — persis
+   * di tengah acara, di depan penonton.
+   *
+   * Seri diputus oleh urutan papan (belanja tertinggi menang) karena `reduce`
+   * hanya menggantikan pada `>`, bukan `>=`. Itu aturan yang bisa dijelaskan.
+   */
+  const topBoothEntry = entries.reduce<Entry | undefined>(
+    (best, entry) => (best === undefined || entry.booth_count > best.booth_count ? entry : best),
+    undefined,
+  );
+  /**
+   * Jumlah kolom kotak booth: pembagian paling rata yang barisnya tidak menggantung.
+   *
+   * Membatasi pada 6 kolom saja membuat 9 booth menjadi 6+3, dan tiga kotak yatim
+   * di bawah baris penuh terbaca sebagai tata letak yang belum selesai. Mencari
+   * pembagi yang habis lebih dulu memberi 3x3 untuk 9, 4x2 untuk 8, 5x2 untuk 10.
+   *
+   * Batas 3..6: di bawah 3 kotaknya terlalu lebar untuk panel samping, di atas 6
+   * terlalu sempit untuk kode tiga huruf seperti DSP.
+   */
+  const boothColumns = (() => {
+    if (boothTotal <= 6) return Math.max(boothTotal, 1);
+    for (const columns of [6, 5, 4, 3]) if (boothTotal % columns === 0) return columns;
+    return 5;
+  })();
   const mainStyle = {
     backgroundColor: config.background_color,
     color: config.text_color,
@@ -337,27 +368,52 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
           {!awaitingFirstStage && entries.length === 0 && <p className="py-16 text-center" style={{ opacity: 0.5 }}>Belum ada transaksi lunas.</p>}
         </section>
 
-        {asideVisible && <aside className="space-y-8">
+        {asideVisible && <aside>
           <section className="border border-white/15 p-6">
             <p className="text-xs uppercase tracking-[0.2em]" style={{ color: config.accent_color }}>02 / Booth explorer</p>
-            <div className="mt-7 flex items-start justify-between">
-              <div><p className="text-6xl font-semibold tracking-[-0.08em]">{topEntry?.booth_count ?? 0}<span className="text-2xl" style={{ opacity: 0.35 }}>/{boothTotal}</span></p><p className="mt-2 text-sm" style={{ opacity: 0.55 }}>{topEntry?.display_name ?? "Belum ada peserta"}<br />booth terbanyak</p></div>
-              <Crown size={32} weight="duotone" style={{ color: config.accent_color }} />
+            {/* `items-baseline`, bukan dua ukuran font yang ditumpuk begitu saja.
+                Sebelumnya "2" (text-6xl) dan "/9" (text-2xl) berada di flow yang
+                sama tanpa penyelarasan, sehingga penyebutnya duduk di tengah
+                tinggi angka besar dan terbaca seperti pecahan miring, bukan
+                "2 dari 9". */}
+            <div className="mt-6 flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="flex items-baseline gap-1 font-semibold leading-none tracking-[-0.06em]">
+                  <span className="text-6xl">{topBoothEntry?.booth_count ?? 0}</span>
+                  <span className="text-2xl" style={{ opacity: 0.4 }}>/ {boothTotal}</span>
+                </p>
+                <p className="mt-3 truncate text-sm font-semibold">{topBoothEntry?.display_name ?? "Belum ada peserta"}</p>
+                <p className="mt-0.5 text-xs uppercase tracking-[0.14em]" style={{ opacity: 0.45 }}>Booth terbanyak</p>
+              </div>
+              <Crown size={32} weight="duotone" className="shrink-0" style={{ color: config.accent_color }} />
             </div>
-            {/* Kolom mengikuti jumlah booth, dibatasi 6 supaya kotaknya tidak
-                menyusut jadi tak terbaca. Dengan 9 booth hasilnya 5+4, bukan satu
-                baris berisi sembilan kotak sempit di panel yang lebarnya tetap.
+            {/* Kolom dipilih supaya baris terakhir tidak menggantung. Dengan 6
+                kolom, sembilan booth menjadi 6+3 dan tiga kotak yatim di bawah
+                baris penuh terlihat seperti tata letak yang belum selesai.
+                `boothColumns` mencari pembagian paling rata (9 -> 3x3).
 
-                Label memakai KODE booth, bukan "B" + nomor urut. Kode booth bebas
-                sejak 202607310003_flexible_booth_codes, jadi merakit sendiri
-                labelnya membuat booth berkode UMKM2 tampil sebagai B2 di layar
-                dan tidak cocok dengan papan nama fisiknya. */}
-            <div className="mt-6 grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(boothTotal, 6)}, minmax(0, 1fr))` }}>{boothCodes.map((code, index) => <div key={code} className="flex aspect-square items-center justify-center px-0.5 text-center text-[10px] font-bold leading-none text-black" style={{ backgroundColor: index < (topEntry?.booth_count ?? 0) ? config.accent_color : "rgba(255,255,255,0.15)" }}>{code}</div>)}</div>
+                Tinggi tetap, BUKAN aspect-square. Kotak persegi memaksa lebar
+                kolom menentukan tingginya, jadi menambah booth membuat kotak
+                mengecil ke dua arah sekaligus dan kode tiga huruf seperti DSP
+                tidak lagi terbaca dari jarak proyektor. */}
+            <div className="mt-6 grid gap-2" style={{ gridTemplateColumns: `repeat(${boothColumns}, minmax(0, 1fr))` }}>{boothCodes.map((code, index) => {
+              const visited = index < (topBoothEntry?.booth_count ?? 0);
+              return <div key={code} className="flex h-10 items-center justify-center truncate px-1 text-xs font-bold tracking-[0.04em]" style={{ backgroundColor: visited ? config.accent_color : "rgba(255,255,255,0.1)", color: visited ? "#000" : "rgba(255,255,255,0.55)" }}>{code}</div>;
+            })}</div>
           </section>
-          <section className="grid grid-cols-2 gap-px bg-white/15">
-            <div className="p-5" style={{ backgroundColor: config.background_color }}><TrendUp size={22} weight="duotone" style={{ color: config.accent_color }} /><p className="mt-3 font-mono text-4xl font-semibold">{entries.length}</p><p className="mt-2 text-xs uppercase tracking-[0.14em]" style={{ opacity: 0.45 }}>Spender</p></div>
-            <div className="p-5" style={{ backgroundColor: config.background_color }}><Storefront size={22} weight="duotone" style={{ color: config.accent_color }} /><p className="mt-3 font-mono text-4xl font-semibold">{entries.reduce((sum, entry) => sum + entry.booth_count, 0)}</p><p className="mt-2 text-xs uppercase tracking-[0.14em]" style={{ opacity: 0.45 }}>Booth visits</p></div>
-          </section>
+          {/* Panel statistik "Spender" dan "Booth visits" DIHAPUS, bukan
+              dipindahkan.
+
+              Keduanya dihitung dari `entries`, yang isinya hanya sedalam
+              `leaderboard_limit`. Jadi "Spender" tidak pernah menampilkan jumlah
+              peserta yang bertransaksi melainkan panjang papan — 9 di layar
+              padahal ratusan orang sudah belanja — dan "Booth visits" hanya
+              menjumlahkan kunjungan sepuluh besar, bukan kunjungan seluruh acara.
+              Angka yang salah di proyektor lebih buruk daripada angka yang absen,
+              dan tidak ada yang bisa menjelaskannya kalau ada yang bertanya.
+
+              Memperbaikinya butuh agregat sendiri di server. Itu fitur baru,
+              bukan penataan ulang tampilan, jadi tidak dikerjakan di sini. */}
         </aside>}
       </div> : (
         /* Ukuran memakai `clamp(..., vw, ...)`, sama seperti bagian lain halaman ini.
