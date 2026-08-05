@@ -7,7 +7,7 @@ import { SeatMapLedView } from "@/components/seat-map-led-view";
 import { SeatMapView, type SeatState } from "@/components/seat-map-view";
 import { Spinner } from "@/components/search-loading";
 import { normalizeBranding, type Branding } from "@/lib/branding";
-import { computeSeatMapGeometry, normalizePublicViewMode, normalizeSeatLabel, type PublicViewMode, type SeatMapConfig } from "@/lib/seat-map";
+import { computeSeatMapGeometry, normalizePublicViewMode, normalizeSeatLabel, type PublicViewMode, type SeatColors, type SeatMapConfig } from "@/lib/seat-map";
 import { formatEventTimeWithSeconds } from "@/lib/datetime";
 import { normalizeTimeZone } from "@/lib/timezone";
 
@@ -37,7 +37,7 @@ type SessionInfo = {
   background_image_url: string | null;
   map_panel_transparent: boolean;
   has_assignments: boolean;
-} & Branding;
+} & Branding & SeatColors;
 type Summary = {
   total_tables: number;
   total_seats: number;
@@ -309,6 +309,7 @@ export default function SeatMapPage() {
         textColor={ink}
         accentColor={accent}
         branding={branding}
+        seatColors={session}
         lastLoadedAt={lastLoadedAt}
       />
     );
@@ -468,6 +469,7 @@ export default function SeatMapPage() {
                 canvasColor={mapCanvas}
                 textColor={ink}
                 accentColor={accent}
+                seatColors={session}
                 onTableClick={(tableNumber) => setSelectedTable((current) => (current === tableNumber ? null : tableNumber))}
                 className="min-w-[820px]"
               />

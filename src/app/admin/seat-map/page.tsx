@@ -2,12 +2,12 @@
 
 import { ArrowLeft, ArrowSquareOut, CheckCircle, Eye, EyeSlash, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
-import { duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, tableLabelFor, type PublicViewMode, type SeatMapConfig, type SeatRule } from "@/lib/seat-map";
+import { computeSeatMapGeometry, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor, type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatRule } from "@/lib/seat-map";
 
 // CMS denah tempat duduk.
 //
@@ -33,7 +33,7 @@ type Session = {
   map_panel_transparent: boolean;
   is_published: boolean;
   sort_order: number;
-} & Branding;
+} & Branding & SeatColors;
 
 type SubEvent = { subEventId: string; subEventName: string; seatCount: number };
 
@@ -226,6 +226,13 @@ export default function SeatMapAdminPage() {
         map_panel_transparent: session.map_panel_transparent,
         is_published: session.is_published,
         sort_order: session.sort_order,
+        // Warna kursi. Dikirim satu per satu, bukan lewat spread, supaya null
+        // benar-benar terkirim: itulah cara admin mengembalikan satu warna ke
+        // bawaan, dan field yang hilang berarti "tidak diubah", bukan "kosongkan".
+        seat_available_color: session.seat_available_color,
+        seat_occupied_color: session.seat_occupied_color,
+        seat_checked_in_color: session.seat_checked_in_color,
+        seat_outline_color: session.seat_outline_color,
         // Branding header dan footer. Dikirim lewat `normalizeBranding` supaya
         // hanya kolom yang memang milik branding yang ikut, dan skalanya sudah
         // berupa angka. Menyalin field satu per satu di sini berarti setiap
@@ -271,6 +278,28 @@ export default function SeatMapAdminPage() {
     else delete next[String(position)];
     updateConfig("table_labels", next);
   }
+
+  // Keterisian CONTOH untuk pratinjau.
+  //
+  // Tanpa ini seluruh kursi di pratinjau tampak kosong, sehingga admin memilih
+  // warna "kursi terisi" dan "sudah check-in" tanpa pernah melihat hasilnya —
+  // pertama kali warna itu terlihat adalah di layar tamu. Datanya dibuat, bukan
+  // diambil dari peserta sungguhan: CMS tidak perlu memuat 194 penempatan hanya
+  // untuk menunjukkan sebuah warna, dan pratinjau harus tetap bermakna pada
+  // agenda yang penempatannya memang belum ada.
+  //
+  // Meja 1 terisi + sudah check-in, meja 2 terisi tanpa check-in, sisanya kosong.
+  // Ketiga keadaan tampil berdampingan sehingga bisa dibandingkan sekaligus.
+  const previewSeatStates = useMemo(() => {
+    if (!config) return {};
+    const states: Record<string, { occupied: boolean; checkedIn: boolean }> = {};
+    for (const table of computeSeatMapGeometry(config).tables.slice(0, 2)) {
+      for (const seat of table.seats) {
+        states[normalizeSeatLabel(seat.label)] = { occupied: true, checkedIn: table.number === 1 };
+      }
+    }
+    return states;
+  }, [config]);
 
   return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1440px]">
@@ -328,10 +357,13 @@ export default function SeatMapAdminPage() {
             >
               <SeatMapView
                 config={config}
+                seatStates={previewSeatStates}
+                showAttendance
                 backgroundColor={previewSession?.background_color ?? "#111a63"}
                 canvasColor={previewSession?.map_panel_transparent && previewSession.background_image_url ? "transparent" : undefined}
                 textColor={previewSession?.text_color ?? "#ffffff"}
                 accentColor={previewSession?.accent_color ?? "#f2c14e"}
+                seatColors={previewSession}
                 className="min-w-[760px]"
               />
             </div>
@@ -627,6 +659,63 @@ export default function SeatMapAdminPage() {
                       className="mt-1 h-11 w-full border border-[var(--line)]" />
                   </div>)}
                 </div>
+
+                {/* Warna kursi.
+                    Terpisah dari tiga warna dasar di atas karena maknanya berbeda:
+                    yang di atas adalah warna LAYAR, yang di sini adalah KEADAAN
+                    kursi. Sebelum ada kolom ini kursi meminjam warna layar — kursi
+                    terisi memakai warna teks — sehingga warna kursi tidak dapat
+                    diubah tanpa ikut mengubah nomor meja dan judul. */}
+                <fieldset className="mt-4 border border-[var(--line)] p-3">
+                  <legend className="px-1 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">Warna kursi</legend>
+                  <p className="text-xs text-[var(--ink-muted)]">
+                    Kosongkan (tombol Bawaan) untuk mengikuti warna layar seperti sebelumnya.
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    {([
+                      ["seat_available_color", "Kursi kosong", "Bawaan: warna Latar"],
+                      ["seat_occupied_color", "Kursi terisi", "Bawaan: warna Teks"],
+                      ["seat_checked_in_color", "Sudah check-in", "Bawaan: hijau"],
+                      ["seat_outline_color", "Garis tepi kursi", "Bawaan: warna Teks"],
+                    ] as const).map(([key, label, hint]) => {
+                      // Warna EFEKTIF, yaitu yang benar-benar tampil di denah.
+                      // `<input type="color">` tidak bisa kosong, jadi tanpa ini
+                      // kolom yang belum disetel akan menampilkan hitam dan admin
+                      // mengira kursinya memang hitam.
+                      const effective = resolveSeatColors(session, {
+                        backgroundColor: session.background_color,
+                        textColor: session.text_color,
+                      });
+                      const shown = session[key] ?? (
+                        key === "seat_available_color" ? effective.available
+                          : key === "seat_occupied_color" ? effective.occupied
+                            : key === "seat_checked_in_color" ? effective.checkedIn
+                              : effective.outline
+                      );
+                      return <div key={key}>
+                        <label className="block text-xs font-semibold" htmlFor={`${key}-${session.id}`}>{label}</label>
+                        <div className="mt-1 flex items-center gap-2">
+                          <input id={`${key}-${session.id}`} type="color" value={shown}
+                            onChange={(event) => updateSession(session.id, { [key]: event.target.value })}
+                            className="h-11 w-full border border-[var(--line)]" />
+                          {/* Tombol reset wajib ada: `<input type="color">` tidak
+                              punya keadaan kosong, jadi tanpa tombol ini sebuah
+                              warna tidak akan pernah bisa dikembalikan ke bawaan
+                              setelah sekali disentuh. Idiom yang sama dipakai
+                              BrandingEditor. */}
+                          <button type="button" onClick={() => updateSession(session.id, { [key]: null })}
+                            disabled={session[key] === null}
+                            className="min-h-11 shrink-0 border border-[var(--line)] px-2 text-xs font-semibold disabled:opacity-40">Bawaan</button>
+                        </div>
+                        <p className="mt-1 text-[11px] text-[var(--ink-muted)]">{session[key] ? session[key]?.toUpperCase() : hint}</p>
+                      </div>;
+                    })}
+                  </div>
+                  <p className="mt-3 text-[11px] text-[var(--ink-muted)]">
+                    Warna &quot;Sudah check-in&quot; hanya tampil pada layar yang menyalakan tampilan kehadiran.
+                    Huruf kursi otomatis memakai hitam atau putih mengikuti terang-gelapnya warna yang dipilih.
+                  </p>
+                </fieldset>
 
                 {/* Gambar latar bersifat opsional dan berdiri di atas warna, bukan
                     menggantikannya. Warna latar tetap dipakai di belakang gambar

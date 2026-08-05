@@ -62,6 +62,21 @@ const brandingSchema = {
   footer_text_color: hex.nullable().optional(),
 };
 
+// Warna kursi pada denah.
+//
+// `nullable` sama pentingnya di sini seperti pada warna branding, tetapi dengan
+// arti yang khas: null berarti "ikuti perilaku lama" — kursi kosong memakai warna
+// latar, kursi terisi memakai warna teks, kursi check-in memakai hijau bawaan.
+// Itulah cara admin mengembalikan satu warna ke keadaan semula tanpa harus
+// menebak nilai hex aslinya, dan cara denah yang belum pernah disetel tetap
+// tampil persis seperti sebelum fitur ini ada.
+const seatColorSchema = {
+  seat_available_color: hex.nullable().optional(),
+  seat_occupied_color: hex.nullable().optional(),
+  seat_checked_in_color: hex.nullable().optional(),
+  seat_outline_color: hex.nullable().optional(),
+};
+
 const updateSchema = z.object({
   id: z.number().int().positive(),
   name: z.string().trim().min(1).max(120).optional(),
@@ -77,6 +92,7 @@ const updateSchema = z.object({
   is_published: z.boolean().optional(),
   sort_order: z.number().int().min(0).max(999).optional(),
   ...brandingSchema,
+  ...seatColorSchema,
 });
 
 const deleteSchema = z.object({ id: z.coerce.number().int().positive() });

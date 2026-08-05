@@ -93,6 +93,15 @@ export async function GET(request: Request) {
         background_image_url: session.background_image_url,
         map_panel_transparent: session.map_panel_transparent,
         has_assignments: session.sub_event_id !== null,
+        // Warna kursi. Dikirim apa adanya termasuk null, karena null di sini
+        // BERARTI sesuatu ("ikuti warna latar / warna teks") dan diselesaikan
+        // oleh `resolveSeatColors` di renderer. Mengubahnya jadi warna nyata di
+        // sini akan membekukan pilihan itu, sehingga mengganti `text_color`
+        // tidak lagi ikut mengubah kursi seperti yang selama ini terjadi.
+        seat_available_color: session.seat_available_color,
+        seat_occupied_color: session.seat_occupied_color,
+        seat_checked_in_color: session.seat_checked_in_color,
+        seat_outline_color: session.seat_outline_color,
         // Branding header/footer. Dikirim apa adanya karena `loadSessions` sudah
         // menormalkannya, jadi halaman publik tidak perlu tahu bahwa skala di
         // database berbentuk string.

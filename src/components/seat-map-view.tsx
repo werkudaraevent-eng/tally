@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { computeSeatMapGeometry, normalizeSeatLabel, type SeatMapConfig } from "@/lib/seat-map";
+import { computeSeatMapGeometry, normalizeSeatLabel, readableOn, resolveSeatColors, type SeatColors, type SeatMapConfig } from "@/lib/seat-map";
 
 // Renderer denah. Satu komponen dipakai bersama halaman publik dan editor CMS.
 //
@@ -47,6 +47,13 @@ export type SeatMapViewProps = {
   /** Mewarnai kursi menurut kehadiran, bukan sekadar terisi. */
   showAttendance?: boolean;
   /**
+   * Warna kursi pilihan admin. Setiap field boleh null, artinya "ikuti perilaku
+   * lama" — kosong memakai `backgroundColor`, terisi memakai `textColor`, dan
+   * check-in memakai hijau bawaan. Prop ini opsional supaya pemanggil yang belum
+   * mengaturnya tidak perlu berubah sama sekali.
+   */
+  seatColors?: Partial<SeatColors> | null;
+  /**
    * Batas tinggi, misalnya "58vh" atau "var(--x)". Denah akan mengecil sendiri
    * agar utuh di dalam batas itu, bukan terpotong, karena viewBox menjaga
    * seluruh isinya tetap masuk.
@@ -70,12 +77,27 @@ export function SeatMapView({
   accentColor = "#f2c14e",
   showSeatCodes = true,
   showAttendance = false,
+  seatColors,
   maxHeight,
   onSeatClick,
   onTableClick,
   className,
 }: SeatMapViewProps) {
   const geometry = useMemo(() => computeSeatMapGeometry(config), [config]);
+
+  // Null diselesaikan SEKALI di sini, bukan di dalam perulangan kursi. Selain
+  // lebih murah, ini membuat satu-satunya sumber jawaban "warna apa yang benar
+  // dipakai" berada di `resolveSeatColors`, sehingga pratinjau CMS tidak dapat
+  // menyimpang dari layar tamu.
+  //
+  // Namanya `palette`, bukan `seat`: perulangan di bawah sudah memakai `seat`
+  // untuk satu kursi, dan nama yang sama membuat `seat.available` diam-diam
+  // membaca field yang tidak ada pada `SeatGeometry` — undefined, tanpa satu pun
+  // keluhan dari TypeScript, dan kursi kehilangan warnanya.
+  const palette = useMemo(
+    () => resolveSeatColors(seatColors, { backgroundColor, textColor }),
+    [seatColors, backgroundColor, textColor],
+  );
 
   // Dinormalisasi sekali; kalau tidak, tiap kursi akan menormalisasi ulang
   // seluruh daftar sorotan dan pekerjaannya jadi berlipat.
@@ -177,8 +199,8 @@ export function SeatMapView({
 
               // Urutan penentu warna: sorotan menang atas segalanya, lalu
               // kehadiran (bila diminta), lalu terisi, terakhir kosong.
-              let fill = backgroundColor;
-              let stroke = textColor;
+              let fill = palette.available;
+              let stroke = palette.outline;
               let strokeWidth = 1.5;
 
               if (isHighlighted) {
@@ -187,10 +209,11 @@ export function SeatMapView({
                 strokeWidth = 2.5;
               } else if (state?.occupied) {
                 if (showAttendance) {
-                  fill = state.checkedIn ? "#237a52" : textColor;
-                  stroke = state.checkedIn ? "#237a52" : textColor;
+                  fill = state.checkedIn ? palette.checkedIn : palette.occupied;
+                  stroke = fill;
                 } else {
-                  fill = textColor;
+                  fill = palette.occupied;
+                  stroke = fill;
                 }
               }
 
@@ -214,9 +237,16 @@ export function SeatMapView({
                       y={seat.y}
                       textAnchor="middle"
                       dominantBaseline="central"
-                      // Teks harus kontras terhadap isian kursi, bukan terhadap
-                      // latar denah, kalau tidak huruf hilang saat kursi terisi.
-                      fill={isHighlighted || state?.occupied ? backgroundColor : textColor}
+                      // Teks harus kontras terhadap ISIAN KURSI yang sebenarnya
+                      // dipakai, bukan terhadap tebakan.
+                      //
+                      // Versi lama menulis `occupied ? backgroundColor : textColor`,
+                      // yang benar hanya selama kursi terisi pasti berwarna terang
+                      // (dulu selalu putih). Begitu admin boleh memilih warna, kursi
+                      // terisi bisa gelap dan hurufnya ikut gelap — hilang sama
+                      // sekali. `readableOn` menghitungnya dari luminansi isian, jadi
+                      // pilihan warna apa pun tetap terbaca.
+                      fill={readableOn(fill, backgroundColor, textColor)}
                       fontSize={9}
                       fontWeight={600}
                       pointerEvents="none"

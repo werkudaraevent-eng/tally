@@ -27,6 +27,123 @@ export function normalizePublicViewMode(value: unknown): PublicViewMode {
   return value === "qr" ? "qr" : "search";
 }
 
+/**
+ * Warna kursi per agenda. Semua boleh null.
+ *
+ * Null BUKAN berarti "tanpa warna", melainkan "ikuti perilaku lama". Sebelum
+ * kolom-kolom ini ada, kursi meminjam warna lain: kosong memakai warna latar,
+ * terisi memakai warna TEKS, dan yang sudah check-in memakai hijau yang ditulis
+ * langsung di komponen. Menjadikan null sebagai penanda itu membuat denah yang
+ * sudah ditata panitia tidak berubah satu piksel pun sampai ada yang benar-benar
+ * mengisinya.
+ *
+ * Idiom yang sama dipakai `title_color` dan `subtitle_color`.
+ */
+export type SeatColors = {
+  /** Isian kursi kosong. Null -> warna latar denah. */
+  seat_available_color: string | null;
+  /** Isian kursi terisi. Null -> warna teks. */
+  seat_occupied_color: string | null;
+  /** Isian kursi yang tamunya sudah check-in. Null -> DEFAULT_CHECKED_IN_COLOR. */
+  seat_checked_in_color: string | null;
+  /** Garis tepi kursi. Null -> warna teks. */
+  seat_outline_color: string | null;
+};
+
+export const SEAT_COLOR_COLUMNS =
+  "seat_available_color,seat_occupied_color,seat_checked_in_color,seat_outline_color";
+
+/**
+ * Hijau kehadiran sebelum warna kursi dapat diatur. Tetap dipakai sebagai nilai
+ * jatuh-tempo supaya denah yang belum disetel tampil persis seperti sebelumnya.
+ */
+export const DEFAULT_CHECKED_IN_COLOR = "#237a52";
+
+export const DEFAULT_SEAT_COLORS: SeatColors = {
+  seat_available_color: null,
+  seat_occupied_color: null,
+  seat_checked_in_color: null,
+  seat_outline_color: null,
+};
+
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/**
+ * Hanya hex enam digit yang diterima; sisanya jadi null.
+ *
+ * Bukan sekadar kerapian. SVG menerima "biru" atau "#fff" tanpa mengeluh lalu
+ * mengabaikannya, jadi warna yang salah tulis akan tampil sebagai warna bawaan
+ * tanpa satu pun pesan kesalahan — admin mengira setelannya tidak tersimpan.
+ * Menjatuhkannya ke null membuat hasilnya sama tetapi maknanya jujur: kolom itu
+ * memang tidak berisi warna yang sah.
+ */
+function normalizeSeatHex(raw: unknown): string | null {
+  return typeof raw === "string" && HEX.test(raw) ? raw : null;
+}
+
+/** Membaca kolom warna kursi dari baris agenda mana pun. */
+export function normalizeSeatColors(raw: Record<string, unknown> | null | undefined): SeatColors {
+  if (!raw) return DEFAULT_SEAT_COLORS;
+  return {
+    seat_available_color: normalizeSeatHex(raw.seat_available_color),
+    seat_occupied_color: normalizeSeatHex(raw.seat_occupied_color),
+    seat_checked_in_color: normalizeSeatHex(raw.seat_checked_in_color),
+    seat_outline_color: normalizeSeatHex(raw.seat_outline_color),
+  };
+}
+
+/**
+ * Warna kursi yang benar-benar dipakai menggambar, setelah null diselesaikan.
+ *
+ * Penyelesaian null dikerjakan DI SATU TEMPAT, bukan di dalam renderer, supaya
+ * editor CMS dapat menampilkan warna efektif yang sama persis dengan yang dilihat
+ * tamu. Kalau tiap pemakai menyelesaikan null-nya sendiri, pratinjau dan layar
+ * publik akan berbeda begitu salah satunya lupa diperbarui.
+ */
+export function resolveSeatColors(
+  colors: Partial<SeatColors> | null | undefined,
+  fallback: { backgroundColor: string; textColor: string },
+) {
+  return {
+    available: colors?.seat_available_color ?? fallback.backgroundColor,
+    occupied: colors?.seat_occupied_color ?? fallback.textColor,
+    checkedIn: colors?.seat_checked_in_color ?? DEFAULT_CHECKED_IN_COLOR,
+    outline: colors?.seat_outline_color ?? fallback.textColor,
+  };
+}
+
+/**
+ * Luminansi relatif (WCAG). 0 = hitam, 1 = putih.
+ *
+ * Nilai bukan hex dianggap gelap (0). Itu pilihan yang aman: hasilnya teks
+ * terang, dan teks terang di atas warna tak dikenal lebih mungkin terbaca
+ * daripada teks gelap — latar denah acara ini selalu gelap.
+ */
+function luminance(hex: string): number {
+  if (!HEX.test(hex)) return 0;
+  const channel = (start: number) => {
+    const value = Number.parseInt(hex.slice(start, start + 2), 16) / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+}
+
+/**
+ * Memilih warna teks yang terbaca di atas sebuah isian.
+ *
+ * Dibutuhkan begitu warna kursi dapat dipilih admin. Sebelumnya kursi terisi
+ * selalu terang (memakai warna teks, praktis selalu putih), jadi huruf kursi
+ * cukup memakai warna latar dan pasti kontras. Sekarang admin bisa memilih isian
+ * gelap, dan aturan tetap itu membuat huruf gelap di atas kursi gelap: hilang
+ * tanpa ada yang menyadarinya sampai denah tampil di layar.
+ *
+ * Ambang 0.5 memakai luminansi WCAG, bukan rata-rata RGB: mata jauh lebih peka
+ * pada hijau, sehingga #00ff00 terbaca terang walau rata-rata RGB-nya hanya 85.
+ */
+export function readableOn(fill: string, darkText: string, lightText: string): string {
+  return luminance(fill) > 0.5 ? darkText : lightText;
+}
+
 export type SeatMapConfig = {
   stage_label: string;
   row_table_counts: number[];

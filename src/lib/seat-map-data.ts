@@ -1,6 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, normalizeBranding, type Branding } from "@/lib/branding";
-import { normalizeConfig, normalizePublicViewMode, normalizeSeatLabel, type PublicViewMode, type SeatMapConfig } from "@/lib/seat-map";
+import { normalizeConfig, normalizePublicViewMode, normalizeSeatColors, normalizeSeatLabel, SEAT_COLOR_COLUMNS, type PublicViewMode, type SeatColors, type SeatMapConfig } from "@/lib/seat-map";
 
 // Lapisan data denah tempat duduk. Server-only, dipakai bersama API publik dan
 // CMS admin supaya aturan pencocokan label hanya ada di satu tempat.
@@ -29,10 +29,10 @@ export type SeatMapSession = {
   map_panel_transparent: boolean;
   is_published: boolean;
   sort_order: number;
-} & Branding;
+} & Branding & SeatColors;
 
 export const SESSION_COLUMNS =
-  `id,slug,name,sub_event_id,title,subtitle,background_color,text_color,accent_color,background_image_url,map_panel_transparent,is_published,sort_order,${BRANDING_COLUMNS}`;
+  `id,slug,name,sub_event_id,title,subtitle,background_color,text_color,accent_color,background_image_url,map_panel_transparent,is_published,sort_order,${BRANDING_COLUMNS},${SEAT_COLOR_COLUMNS}`;
 
 export const CONFIG_COLUMNS =
   "name,stage_label,row_table_counts,seat_rules,seat_label_pattern,table_overrides,table_labels,public_view_mode,default_session_id,updated_at";
@@ -128,6 +128,10 @@ export async function loadSessions(options: { publishedOnly: boolean }) {
   return ((data ?? []) as unknown as SeatMapSession[]).map((row) => ({
     ...row,
     ...normalizeBranding(row as unknown as Record<string, unknown>),
+    // Warna kursi dinormalisasi di sini juga, sejalan dengan branding: nilai yang
+    // bukan hex enam digit jatuh ke null, sehingga renderer cukup memeriksa null
+    // dan tidak perlu tahu ada bentuk penulisan warna yang tidak sah.
+    ...normalizeSeatColors(row as unknown as Record<string, unknown>),
   }));
 }
 

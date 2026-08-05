@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { BrandFooter, BrandHeader } from "@/components/brand-header-footer";
 import { SeatMapView, type SeatState } from "@/components/seat-map-view";
 import { DEFAULT_BRANDING, type Branding } from "@/lib/branding";
-import type { SeatMapConfig } from "@/lib/seat-map";
+import type { SeatColors, SeatMapConfig } from "@/lib/seat-map";
 
 // Tampilan untuk LED publik tanpa layar sentuh.
 //
@@ -85,6 +85,12 @@ export type SeatMapLedViewProps = {
    * perlu diubah sekaligus.
    */
   branding?: Branding;
+  /**
+   * Warna kursi pilihan admin. Field null berarti "ikuti perilaku lama".
+   * Opsional dengan alasan yang sama seperti `branding`: tanpa prop ini layar
+   * tampil persis seperti sebelum fitur warna kursi ada.
+   */
+  seatColors?: Partial<SeatColors> | null;
   /** Waktu data terakhir berhasil dimuat; kosong berarti belum pernah berhasil. */
   lastLoadedAt: string | null;
 };
@@ -102,6 +108,7 @@ export function SeatMapLedView({
   textColor,
   accentColor,
   branding = DEFAULT_BRANDING,
+  seatColors = null,
   lastLoadedAt,
 }: SeatMapLedViewProps) {
   // Panel LED bisa meninggalkan bekas bila menampilkan gambar yang sama
@@ -269,6 +276,7 @@ export function SeatMapLedView({
             canvasColor={mapPanelTransparent && backgroundImageUrl ? "transparent" : undefined}
             textColor={textColor}
             accentColor={accentColor}
+            seatColors={seatColors}
             showSeatCodes={false}
             // Batas tinggi dipasang lewat kelas bersatuan viewport, bukan
             // `maxHeight: 100%`. Persentase butuh induk dengan tinggi pasti;
