@@ -13,6 +13,10 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
     // puluhan kali dalam satu ceremony dan akan menenggelamkan riwayat hari itu,
     // sementara tahap akhirnya tetap terlihat dari baris start/reset berikutnya.
     "leaderboard_reveal_config", "leaderboard_reveal_start", "leaderboard_reveal_reset",
+    // Pengecualian top spender. Justru aksi yang paling perlu tercatat di
+    // kategori ini: ia menentukan siapa TIDAK BERHAK menang, dan pertanyaannya
+    // ("kenapa perusahaan kami tidak muncul") baru datang setelah acara selesai.
+    "leaderboard_exclusion_create", "leaderboard_exclusion_update", "leaderboard_exclusion_delete",
   ],
   offers: ["special_offer_create", "special_offer_update", "special_offer_delete"],
   booths: ["booth_create", "booth_update"],

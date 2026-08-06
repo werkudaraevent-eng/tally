@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, CheckCircle, Eye, ListNumbers, MonitorPlay, UploadSimple, XCircle } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, CheckCircle, Eye, ListNumbers, MonitorPlay, Prohibit, UploadSimple, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
@@ -243,6 +243,18 @@ export default function DisplaySettingsPage() {
                     : <>Mati. Live Display menampilkan seluruh top {settings.leaderboard_limit} sekaligus, mengikuti transaksi live.</>}
               </p>
               <Link href="/admin/display/reveal" className="mt-3 inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold">Buka kontrol reveal <ArrowRight size={16} /></Link>
+            </div>
+
+            {/* Pengecualian top spender.
+                Sama seperti kontrol reveal, hanya ringkasan + tautan yang tinggal
+                di sini. Ini aturan KELAYAKAN, bukan setelan tampilan: kalau
+                daftarnya diedit di form ini, ia akan ikut terkirim setiap kali
+                ada yang mengganti warna latar, dan sebaliknya menambah satu
+                perusahaan akan menerbitkan perubahan warna yang belum selesai. */}
+            <div className="mt-4 border border-[var(--line)] bg-[var(--surface-muted)] p-4">
+              <p className="flex items-center gap-2 text-sm font-semibold"><Prohibit size={18} className="shrink-0 text-[var(--brand)]" /> Pengecualian peserta</p>
+              <p className="mt-2 text-xs leading-5 text-[var(--ink-muted)]">Perusahaan atau peserta yang tidak berhak masuk top spender, misalnya internal klien. Transaksinya tetap terhitung penuh di Reports.</p>
+              <Link href="/admin/display/exclusions" className="mt-3 inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold">Atur pengecualian <ArrowRight size={16} /></Link>
             </div>
           </section>
 
