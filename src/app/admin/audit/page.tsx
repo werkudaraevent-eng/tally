@@ -90,6 +90,7 @@ const ACTION_LABEL: Record<string, string> = {
   create: "Membuat order",
   pay: "Menandai lunas",
   void: "Void order",
+  admin_order_void: "Void order dari layar admin",
   hand_over: "Menyerahkan barang",
   booth_order_created: "Order dibuat di booth",
   participant_scan: "Scan peserta",

@@ -50,7 +50,7 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
   ],
   users: ["user_create", "user_update"],
   danger: ["admin_reset_records"],
-  orders: ["create", "pay", "void", "hand_over", "booth_order_created", "participant_scan"],
+  orders: ["create", "pay", "void", "hand_over", "booth_order_created", "participant_scan", "admin_order_void"],
   sync: ["participant_sync", "participant_qr_archived"],
 };
 
