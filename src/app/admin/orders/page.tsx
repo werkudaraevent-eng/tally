@@ -27,6 +27,22 @@ type OrderRow = {
   order_special_items?: Array<{ price_at_claim: number; special_offers: { code: string; name: string } | null }>;
 };
 type Booth = { id: number; code: string; name: string };
+/**
+ * Ringkasan hasil filter, DIHITUNG DI SERVER atas seluruh baris yang cocok.
+ *
+ * Sengaja tidak dijumlahkan dari `orders` di layar ini: halaman mengambil 100
+ * baris sekaligus sementara ordernya sudah 195, sehingga penjumlahan sisi klien
+ * pernah terukur meleset Rp 26,8 juta tanpa satu pun tanda bahwa angkanya salah.
+ */
+type Summary = {
+  order_count: number;
+  total_amount: number;
+  regular_amount: number;
+  special_amount: number;
+  discount_item_count: number;
+  void_count: number;
+  void_amount: number;
+};
 
 const money = (value: number) => `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
 const statusBadge = (status: string): { label: string; className: string } => {
@@ -42,6 +58,9 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [booths, setBooths] = useState<Booth[]>([]);
   const [total, setTotal] = useState(0);
+  // undefined = belum dimuat, null = gagal dihitung. Dibedakan supaya layar
+  // tidak memajang Rp 0 untuk keadaan "tidak diketahui".
+  const [summary, setSummary] = useState<Summary | null | undefined>(undefined);
   const [status, setStatus] = useState("");
   const [boothId, setBoothId] = useState("");
   const [q, setQ] = useState("");
@@ -73,6 +92,7 @@ export default function AdminOrdersPage() {
     if (!response.ok) { setError(data.error?.message ?? "Order gagal dimuat."); return; }
     setOrders(data.orders ?? []);
     setTotal(data.total ?? 0);
+    setSummary(data.summary ?? null);
   }, [status, boothId, q]);
 
   useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
@@ -144,6 +164,49 @@ export default function AdminOrdersPage() {
       </div>
 
       {error && <div role="alert" className="mt-5 flex items-center gap-3 border border-[#E9C7C4] bg-[#FFF2F0] p-4 text-sm text-[var(--danger)]"><XCircle size={20} />{error}</div>}
+
+      {/* Ringkasan hasil filter.
+          Ditaruh DI ANTARA filter dan tabel supaya terbaca sebagai akibat dari
+          filter di atasnya. Di bawah tabel ia akan terlewat, karena dengan 100
+          baris tidak ada yang menggulir sampai dasar untuk memeriksa total. */}
+      {summary === null
+        ? <p className="mt-6 border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-sm text-[var(--ink-muted)]">Ringkasan gagal dihitung. Angka sengaja tidak ditampilkan daripada menampilkan nilai yang belum tentu benar.</p>
+        : summary && <section className="mt-6" aria-label="Ringkasan hasil filter">
+          <div className="grid gap-px border border-[var(--line)] bg-[var(--line)] sm:grid-cols-2 lg:grid-cols-4">
+            {/* Nilai transaksi lebih dulu dan paling besar: itu satu-satunya
+                angka yang dicari saat merekonsiliasi uang. */}
+            <div className="bg-[var(--surface)] p-4">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">Nilai transaksi</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">{money(summary.total_amount)}</p>
+              <p className="mt-1 text-xs text-[var(--ink-muted)]">{summary.order_count} order dihitung</p>
+            </div>
+            <div className="bg-[var(--surface)] p-4">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">Belanja reguler</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">{money(summary.regular_amount)}</p>
+              <p className="mt-1 text-xs text-[var(--ink-muted)]">Angka inilah yang masuk leaderboard</p>
+            </div>
+            <div className="bg-[var(--surface)] p-4">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">Item spesial</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">{money(summary.special_amount)}</p>
+              <p className="mt-1 text-xs text-[var(--ink-muted)]">{summary.discount_item_count} order pakai item diskon</p>
+            </div>
+            {/* Void dipisah, TIDAK dicampur ke total. Mencampurnya membuat angka
+                di sini tidak cocok dengan Reports dan leaderboard, yang keduanya
+                hanya menghitung paid/handed_over — dan satu angka yang tidak bisa
+                dijelaskan asalnya menghentikan seluruh rekonsiliasi. */}
+            <div className="bg-[var(--surface)] p-4">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">Void (tidak dihitung)</p>
+              <p className={`mt-1 text-2xl font-semibold tabular-nums ${summary.void_count > 0 ? "text-[var(--danger)]" : "text-[var(--ink-muted)]"}`}>{summary.void_count}</p>
+              <p className="mt-1 text-xs text-[var(--ink-muted)]">{summary.void_count > 0 ? `Senilai ${money(summary.void_amount)}` : "Tidak ada order dibatalkan"}</p>
+            </div>
+          </div>
+          {/* Cakupan ditulis eksplisit. Tabel hanya memuat 100 baris pertama,
+              jadi tanpa keterangan ini orang wajar menyangka totalnya berasal
+              dari yang terlihat saja. */}
+          <p className="mt-2 text-xs text-[var(--ink-muted)]">
+            Dihitung dari seluruh {total} order yang cocok dengan filter, bukan hanya {orders.length} baris yang tampil di tabel.
+          </p>
+        </section>}
 
       <section className="mt-6 border border-[var(--line)] bg-[var(--surface)]">
         <div className="overflow-x-auto">
