@@ -4,7 +4,6 @@ import { ArrowRight, Eye, EyeSlash, LockKey, QrCode, ShieldCheck, WifiSlash } fr
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
-import { roleRedirects } from "@/lib/auth/roles";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -66,13 +65,12 @@ export default function LoginPage() {
     // tidak boleh menghentikan pengalihan. Tanpa cabang ini staf terhenti di layar
     // login padahal sudah masuk, dan menekan Masuk lagi hanya mengulang bcrypt.
     if (!result?.user) {
-      router.push("/booth");
+      router.push("/events");
       return;
     }
     const roleLabel: Record<string, string> = { booth: "Admin Booth", cashier: "Kasir", admin: "Panitia / Admin" };
     toast.success(`Selamat datang, ${result.user.username}`, `Masuk sebagai ${roleLabel[result.user.role] ?? result.user.role}.`);
-    const destination = roleRedirects[result.user.role as keyof typeof roleRedirects] ?? "/booth";
-    router.push(destination);
+    router.push("/events");
   }
 
   return (

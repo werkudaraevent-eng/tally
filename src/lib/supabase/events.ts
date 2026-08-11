@@ -98,7 +98,7 @@ export async function createEvent(input: CreateEventInput): Promise<EventRow> {
       participant_source: input.participant_source ?? "manual",
       scanner_api_event_slug: input.scanner_api_event_slug ?? null,
       registration_enabled: input.registration_enabled ?? false,
-      time_zone: input.time_zone ?? "WIB",
+      time_zone: input.time_zone ?? "Asia/Jakarta",
       created_by: input.created_by ?? null,
     } as never)
     .select(EVENT_COLUMNS)
