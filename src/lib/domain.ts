@@ -1,8 +1,76 @@
+import type { EventTimeZone } from "./timezone";
+
 // super_admin = pemilik sistem. Memegang operasi yang tidak dapat dibalik (reset
 // data, kelola user/role) yang tidak dibutuhkan klien untuk menjalankan acara.
 export type UserRole = "booth" | "cashier" | "admin" | "super_admin";
 export type OrderStatus = "pending" | "paid" | "void" | "handed_over";
 export type PickupMode = "after_payment" | "immediate";
+
+// ============================================================================
+// Multi-Event Types
+// ============================================================================
+
+export type EventStatus = "draft" | "active" | "completed" | "archived";
+
+export type ParticipantSource =
+  | "scanner_api"  // Tarik dari API eksternal
+  | "manual"       // Entri atau impor di CMS
+  | "public_form"  // Peserta mendaftar sendiri
+  | "hybrid";      // Gabungan
+
+// Dinamai EventRow, bukan Event: `Event` adalah tipe bawaan DOM (lib.dom.d.ts).
+// Menimpanya membuat setiap handler yang memakai Event DOM di berkas yang sama
+// menerima tipe yang salah tanpa selalu gagal compile.
+export type EventRow = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  event_date: string | null;
+  status: EventStatus;
+  participant_source: ParticipantSource;
+  scanner_api_event_slug: string | null;
+  registration_enabled: boolean;
+  registration_form_config: RegistrationFormConfig;
+  time_zone: EventTimeZoneCode;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+};
+
+// ID IANA, bukan singkatan. Sengaja mengacu ke EVENT_TIME_ZONES di
+// src/lib/timezone.ts agar menambah zona hanya perlu satu perubahan; menulis
+// ulang unionnya di sini membuat kedua daftar bisa berbeda tanpa gagal compile.
+// "WIB"/"WITA"/"WIT" hanyalah label tampilan (timeZoneAbbr).
+export type EventTimeZoneCode = EventTimeZone;
+
+// Field wajib registrasi publik TIDAK ada di sini. Nama, email, dan telepon
+// ditegakkan sebagai kolom NOT NULL di tabel pendaftaran, bukan sebagai entri
+// konfigurasi -- konfigurasi bisa dikosongkan admin, dan pendaftar tanpa email
+// tidak punya jalan menerima QR-nya.
+export type RegistrationFormConfig = {
+  fields?: RegistrationField[];
+  welcome_text?: string;
+  success_text?: string;
+  /** Jadikan perusahaan wajib. Bawaan opsional. */
+  require_company?: boolean;
+  /** Jadikan jabatan wajib. Bawaan opsional. */
+  require_job_title?: boolean;
+};
+
+export type RegistrationField = {
+  key: string;
+  label: string;
+  type: "text" | "email" | "tel" | "textarea" | "select";
+  required: boolean;
+  options?: string[];
+  placeholder?: string;
+  help_text?: string;
+};
+
+// ============================================================================
+// Existing Types (now event-scoped)
+// ============================================================================
 
 // Metode pembayaran kini data, bukan enum. Admin dapat menambah metode baru
 // (QRIS, transfer) dari workspace, jadi tipenya tidak lagi union tetap.
