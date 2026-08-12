@@ -63,11 +63,17 @@ const WINNER_SELECT =
  * sebelum fitur sesi ada). Itu bukan kasus pinggiran: sepuluh baris pertama di
  * database ini memang tidak bersesi, dan menyembunyikannya akan membuat export
  * "semua hasil" berbohong.
+ *
+ * `eventId` WAJIB, dan posisinya PERTAMA supaya pemanggil lama gagal compile.
+ * Tanpa filter event, "seluruh riwayat" berarti riwayat SEMUA event: satu layar
+ * riwayat dan satu berkas Excel memuat pemenang acara yang berbeda-beda, dan
+ * itulah berkas yang diserahkan ke klien sebagai bukti serah terima hadiah.
  */
-export async function loadWinners(sessionId: number | null): Promise<WinnerDetail[]> {
+export async function loadWinners(eventId: string, sessionId: number | null): Promise<WinnerDetail[]> {
   let query = getSupabaseServiceClient()
     .from("undian_winners")
     .select(WINNER_SELECT)
+    .eq("event_id", eventId)
     .order("drawn_at", { ascending: true })
     .order("is_backup", { ascending: true })
     .order("slot_order", { ascending: true });
