@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     if (!scopedBooth) return apiError("BOOTH_NOT_FOUND", 404);
     const { data: scopedParticipant } = await client.from("participants").select("id").eq("event_id", auth.scope.event.id).eq("qr_code", parsed.data.qr).maybeSingle();
     if (!scopedParticipant) return apiError("PARTICIPANT_NOT_FOUND", 404);
-    const { data, error } = await client.rpc("get_participant_by_qr" as never, { p_qr_code: parsed.data.qr, p_booth_id: parsed.data.boothId } as never);
+    const { data, error } = await client.rpc("get_participant_by_qr" as never, { p_qr_code: parsed.data.qr, p_booth_id: parsed.data.boothId, p_event_id: auth.scope.event.id } as never);
     if (error) return apiError(mapDatabaseError(error), error.message.includes("PARTICIPANT_NOT_FOUND") ? 404 : 422);
 
     // Daftar penawaran spesial yang berlaku, beserta alasan kalau belum memenuhi
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     const participantId = (data as { participant?: { id?: string } } | null)?.participant?.id;
     let offers: unknown = { accumulated_amount: 0, offers: [] };
     if (participantId) {
-      const { data: offerData } = await client.rpc("get_available_offers" as never, { p_participant_id: participantId, p_booth_id: parsed.data.boothId } as never);
+      const { data: offerData } = await client.rpc("get_available_offers" as never, { p_participant_id: participantId, p_booth_id: parsed.data.boothId, p_event_id: auth.scope.event.id } as never);
       if (offerData) offers = offerData;
     }
 
