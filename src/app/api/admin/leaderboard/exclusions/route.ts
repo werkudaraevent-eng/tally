@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -53,17 +53,18 @@ const createSchema = z.object({
 type ImpactRow = { id: number; matched_participants: number; matched_spenders: number };
 type SummaryRow = { total_spenders: number; excluded_spenders: number; remaining_spenders: number };
 
-export async function GET() {
-  const auth = await requireUser(["admin"]);
+export async function GET(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
+  const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
   const [rulesResult, impactResult, summaryResult, participantsResult, companiesResult] = await Promise.all([
-    client.from("leaderboard_exclusions").select(COLUMNS).order("created_at", { ascending: true }),
-    client.rpc("leaderboard_exclusion_impact" as never),
-    client.rpc("leaderboard_exclusion_summary" as never),
-    client.from("participants").select("id,name,company").is("source_removed_at", null).order("name"),
-    client.from("participants").select("company").is("source_removed_at", null).not("company", "is", null),
+    client.from("leaderboard_exclusions").select(COLUMNS).eq("event_id", eventId).order("created_at", { ascending: true }),
+    client.rpc("leaderboard_exclusion_impact" as never, { p_event_id: eventId } as never),
+    client.rpc("leaderboard_exclusion_summary" as never, { p_event_id: eventId } as never),
+    client.from("participants").select("id,name,company").eq("event_id", eventId).is("source_removed_at", null).order("name"),
+    client.from("participants").select("company").eq("event_id", eventId).is("source_removed_at", null).not("company", "is", null),
   ]);
   if (rulesResult.error) return apiError(mapDatabaseError(rulesResult.error), 500);
 
@@ -114,7 +115,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
   const body = await request.json().catch(() => null);
@@ -125,6 +126,7 @@ export async function POST(request: Request) {
   const { data, error } = await client
     .from("leaderboard_exclusions")
     .insert({
+      event_id: auth.scope.event.id,
       company_keyword: parsed.data.company_keyword ?? null,
       participant_id: parsed.data.participant_id ?? null,
       reason: parsed.data.reason ?? null,

@@ -15,7 +15,10 @@ export async function GET(request: Request) {
     const client = getSupabaseServiceClient();
     const event = await getPublicRequestEvent(request);
     if (!event) return apiError("INTERNAL_ERROR", 404);
-    const { data, error } = await client.rpc("get_leaderboard" as never, { p_limit: parsed.data.limit } as never);
+    // p_event_id dikirim EKSPLISIT. Tanpa itu RPC jatuh ke resolve_event_id, dan
+    // saat dua event aktif ia menolak menebak -- endpoint publik ini akan mati
+    // justru pada kondisi yang seharusnya didukung.
+    const { data, error } = await client.rpc("get_leaderboard" as never, { p_limit: parsed.data.limit, p_event_id: event.id } as never);
     if (error) return apiError(mapDatabaseError(error), 500);
     const [{ data: settings }, { data: display }] = await Promise.all([
       client.from("event_settings").select("leaderboard_enabled").eq("event_id", event.id).single() as unknown as Promise<{ data: { leaderboard_enabled: boolean } | null }>,

@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const event = await getPublicRequestEvent(request);
   if (!event) return apiError("INTERNAL_ERROR", 404);
   const client = getSupabaseServiceClient();
-  const { data, error } = await client.rpc("get_leaderboard" as never, { p_limit: parsed.data.limit } as never);
+  const { data, error } = await client.rpc("get_leaderboard" as never, { p_limit: parsed.data.limit, p_event_id: event.id } as never);
   if (error) return apiError(mapDatabaseError(error), 500);
   const [{ data: settings }, { data: display }] = await Promise.all([
     client.from("event_settings").select("leaderboard_enabled").eq("event_id", event.id).single() as unknown as Promise<{ data: { leaderboard_enabled: boolean } | null }>,

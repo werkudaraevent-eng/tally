@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { getPublicRequestEvent, requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import {
   DEFAULT_REVEAL_STAGES,
@@ -41,20 +41,23 @@ type RevealRow = {
 };
 
 /** Ambil papan live dari RPC yang sama dengan /api/leaderboard. */
-async function liveEntries(limit: number) {
-  const { data, error } = await getSupabaseServiceClient().rpc("get_leaderboard" as never, { p_limit: limit } as never);
+async function liveEntries(limit: number, eventId: string) {
+  const { data, error } = await getSupabaseServiceClient().rpc("get_leaderboard" as never, { p_limit: limit, p_event_id: eventId } as never);
   if (error) return { error };
   return { entries: (data ?? []) as LeaderboardEntry[] };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const event = await getPublicRequestEvent(request);
+  if (!event) return apiError("INTERNAL_ERROR", 404);
+  const eventId = event.id;
   const client = getSupabaseServiceClient();
   // `leaderboard_limit` tetap milik display_settings: ia menentukan sedalam apa
   // papan diambil, baik saat mode off maupun saat tahap terakhir dibuka.
   const [revealResult, displayResult, eventResult] = await Promise.all([
-    client.from("leaderboard_reveal").select(ROW).eq("id", 1).maybeSingle(),
-    client.from("display_settings").select("leaderboard_limit,show_amount").eq("id", 1).maybeSingle(),
-    client.from("event_settings").select("leaderboard_enabled").eq("id", 1).maybeSingle(),
+    client.from("leaderboard_reveal").select(ROW).eq("event_id", eventId).maybeSingle(),
+    client.from("display_settings").select("leaderboard_limit,show_amount").eq("event_id", eventId).maybeSingle(),
+    client.from("event_settings").select("leaderboard_enabled").eq("event_id", eventId).maybeSingle(),
   ]);
 
   const displayRow = displayResult.data as { leaderboard_limit?: number; show_amount?: boolean } | null;
@@ -71,7 +74,7 @@ export async function GET() {
   // seluruh top N, live. Ini juga jaring pengaman bila tabelnya belum termigrasi
   // di suatu lingkungan — layar tetap menyala, bukan blank.
   if (!row || row.mode === "off") {
-    const live = await liveEntries(limit);
+    const live = await liveEntries(limit, eventId);
     if (live.error) return apiError(mapDatabaseError(live.error), 500);
     return Response.json({
       mode: "off" as const,
@@ -99,7 +102,7 @@ export async function GET() {
   if (frozen) {
     source = row.snapshot as LeaderboardEntry[];
   } else {
-    const live = await liveEntries(limit);
+    const live = await liveEntries(limit, eventId);
     if (live.error) return apiError(mapDatabaseError(live.error), 500);
     source = live.entries;
   }
@@ -152,8 +155,9 @@ const postSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
   const parsed = postSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   const { action } = parsed.data;
@@ -168,8 +172,8 @@ export async function POST(request: Request) {
 
   const client = getSupabaseServiceClient();
   const [currentResult, displayResult] = await Promise.all([
-    client.from("leaderboard_reveal").select(ROW).eq("id", 1).maybeSingle(),
-    client.from("display_settings").select("leaderboard_limit").eq("id", 1).maybeSingle(),
+    client.from("leaderboard_reveal").select(ROW).eq("event_id", eventId).maybeSingle(),
+    client.from("display_settings").select("leaderboard_limit").eq("event_id", eventId).maybeSingle(),
   ]);
   // Baris singleton dibuat oleh migrasi, tapi bila entah bagaimana hilang, ia
   // dibuat ulang di sini alih-alih menolak permintaan. Halaman ini dipakai di atas
@@ -177,7 +181,10 @@ export async function POST(request: Request) {
   // siapa pun, sedangkan memasang ulang nilai bawaan selalu benar.
   let current = currentResult.data as RevealRow | null;
   if (!current) {
-    const inserted = await client.from("leaderboard_reveal").insert({ id: 1 } as never).select(ROW).single();
+    // `id` TIDAK lagi ditulis tangan: tabel ini kini satu baris per event dan
+    // `id` diisi sequence (lihat 202608070004). Menulis `id: 1` akan menabrak
+    // baris event pertama.
+    const inserted = await client.from("leaderboard_reveal").insert({ event_id: eventId } as never).select(ROW).single();
     if (inserted.error) return apiError("INTERNAL_ERROR", 500);
     current = inserted.data as RevealRow;
   }
@@ -207,7 +214,7 @@ export async function POST(request: Request) {
       patch.mode = "staged";
       patch.stage = 0;
       if (freezeOnStart) {
-        const live = await liveEntries(limit);
+        const live = await liveEntries(limit, eventId);
         if (live.error) return apiError(mapDatabaseError(live.error), 500);
         patch.snapshot = live.entries;
         patch.frozen_at = new Date().toISOString();
@@ -227,7 +234,7 @@ export async function POST(request: Request) {
     case "reset": Object.assign(patch, { stage: 0, snapshot: null, frozen_at: null }); break;
   }
 
-  const { data, error } = await client.from("leaderboard_reveal").update(patch as never).eq("id", 1).select(ROW).single();
+  const { data, error } = await client.from("leaderboard_reveal").update(patch as never).eq("event_id", eventId).select(ROW).single();
   if (error) return apiError("INTERNAL_ERROR", 500);
   const saved = data as RevealRow;
 
@@ -240,6 +247,7 @@ export async function POST(request: Request) {
     // menggelembungkan baris audit tanpa dibaca siapa pun.
     const strip = (row: RevealRow | null) => row && { ...row, snapshot: Array.isArray(row.snapshot) ? `${row.snapshot.length} entri` : null };
     await client.from("audit_logs").insert({
+      event_id: eventId,
       user_id: auth.user.id,
       action: `leaderboard_reveal_${action}`,
       payload: { old: strip(current), new: strip(saved) },
