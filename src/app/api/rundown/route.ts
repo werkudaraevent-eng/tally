@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
+import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { DEFAULT_HEADER, HEADER_COLUMNS, ITEM_COLUMNS, SECTION_COLUMNS, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { normalizeTimeZone } from "@/lib/timezone";
@@ -20,6 +21,9 @@ export async function GET(request: Request) {
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
+  const event = await getPublicRequestEvent(request);
+  if (!event) return apiError("INTERNAL_ERROR", 404);
+  const eventId = event.id;
   const client = getSupabaseServiceClient();
 
   // Zona acara ikut dikirim karena penanda "sedang berlangsung" dihitung di
@@ -30,13 +34,14 @@ export async function GET(request: Request) {
     client
       .from("rundown_sections")
       .select(SECTION_COLUMNS)
+      .eq("event_id", eventId)
       .eq("is_published", true)
       .order("sort_order", { ascending: true })
       .order("id", { ascending: true }),
-    client.from("event_settings").select("time_zone").eq("id", 1).maybeSingle(),
+    client.from("event_settings").select("time_zone").eq("event_id", eventId).maybeSingle(),
     // Header dibaca sekali dan berlaku untuk seluruh tab, jadi ia tidak ikut
     // berubah saat tamu berpindah agenda.
-    client.from("rundown_settings").select(HEADER_COLUMNS).eq("id", 1).maybeSingle(),
+    client.from("rundown_settings").select(HEADER_COLUMNS).eq("event_id", eventId).maybeSingle(),
   ]);
   const { data: sectionRows, error: sectionError } = sectionResult;
   if (sectionError) return apiError("INTERNAL_ERROR", 500);
@@ -66,6 +71,7 @@ export async function GET(request: Request) {
   const { data: itemRows, error: itemError } = await client
     .from("rundown_items")
     .select(ITEM_COLUMNS)
+    .eq("event_id", eventId)
     .eq("section_id", section.id)
     .eq("is_published", true)
     .order("sort_order", { ascending: true })
