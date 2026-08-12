@@ -1,17 +1,18 @@
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { apiError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
-export async function GET() {
-  const auth = await requireUser(["admin"]);
+export async function GET(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
   const [{ data: orders, error: orderError }, { data: booths, error: boothError }, { data: participants, error: participantError }] = await Promise.all([
-    client.from("orders").select("id,code,participant_id,booth_id,has_discount_item,regular_amount,total_amount,status,payment_method,created_at,paid_at,handed_over_at"),
-    client.from("booths").select("id,code,name"),
+    client.from("orders").select("id,code,participant_id,booth_id,has_discount_item,regular_amount,total_amount,status,payment_method,created_at,paid_at,handed_over_at").eq("event_id", eventId),
+    client.from("booths").select("id,code,name").eq("event_id", eventId),
     // Hanya peserta aktif: yang sudah dihapus di sumber tidak boleh menggelembungkan
     // angka laporan pasca-acara.
-    client.from("participants").select("id,name,company,source_checked_in,source_total_scans").is("source_removed_at", null),
+    client.from("participants").select("id,name,company,source_checked_in,source_total_scans").eq("event_id", eventId).is("source_removed_at", null),
   ]);
   if (orderError || boothError || participantError) return apiError("INTERNAL_ERROR", 500);
   const orderRows = (orders ?? []) as Array<{ id: string; code: string; participant_id: string; booth_id: number; has_discount_item: boolean; regular_amount: number; total_amount: number; status: string; payment_method: string | null; created_at: string; paid_at: string | null; handed_over_at: string | null }>;

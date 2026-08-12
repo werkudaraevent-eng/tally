@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const querySchema = z.object({
@@ -35,11 +35,12 @@ type OrderRow = {
 };
 
 export async function GET(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
+  const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
 
   /**
@@ -52,7 +53,11 @@ export async function GET(request: Request) {
    * hanya angka yang salah.
    */
   const applyFilters = <T extends { eq: (col: string, value: never) => T; ilike: (col: string, value: string) => T }>(builder: T): T => {
-    let q = builder;
+    // event_id ikut DI DALAM fungsi ini, bukan ditambahkan terpisah di kedua
+    // query. Itu justru alasan fungsi ini ada: kalau scope event terlewat di
+    // salah satu sisi, ringkasan uang dihitung dari event yang berbeda dari
+    // baris yang tampil, tanpa satu pun galat.
+    let q = builder.eq("event_id", eventId as never);
     if (parsed.data.status) q = q.eq("status", parsed.data.status as never);
     if (parsed.data.booth_id) q = q.eq("booth_id", parsed.data.booth_id as never);
     if (parsed.data.q) q = q.ilike("code", `%${parsed.data.q.replace(/[%_,]/g, " ")}%`);

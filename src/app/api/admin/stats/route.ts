@@ -1,14 +1,15 @@
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
-export async function GET() {
-  const auth = await requireUser(["admin"]);
+export async function GET(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
   const [{ data: orders, error }, { data: booths, error: boothsError }] = await Promise.all([
-    client.from("orders").select("status,total_amount,booth_id,has_discount_item,regular_amount"),
-    client.from("booths").select("id,code,name,discount_item_stock,is_active").order("id"),
+    client.from("orders").select("status,total_amount,booth_id,has_discount_item,regular_amount").eq("event_id", eventId),
+    client.from("booths").select("id,code,name,discount_item_stock,is_active").eq("event_id", eventId).order("id"),
   ]);
   if (error || boothsError) return apiError("INTERNAL_ERROR", 500);
   const allOrders = (orders ?? []) as Array<{ status: string; total_amount: number; booth_id: number; has_discount_item: boolean }>;

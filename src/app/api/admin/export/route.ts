@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import {
   EXPORT_CONTENT_TYPES,
   buildCsv,
@@ -18,7 +18,7 @@ import {
 const querySchema = z.object({ format: z.string().trim().toLowerCase().optional() });
 
 export async function GET(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   const format = normalizeExportFormat(parsed.success ? parsed.data.format : undefined);
 
   try {
-    const rows = await loadExportRows();
+    const rows = await loadExportRows(auth.scope.event.id);
     const body = format === "xlsx" ? await buildXlsx(rows) : buildCsv(rows);
 
     return new Response(body, {
