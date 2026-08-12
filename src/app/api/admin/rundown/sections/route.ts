@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { ITEM_COLUMNS, SECTION_COLUMNS } from "@/lib/rundown";
 
@@ -64,9 +64,13 @@ function toSlug(name: string) {
  * pesan "slug sudah dipakai" yang harus dia perbaiki sendiri. Unique index di
  * database tetap jaring pengaman terakhir.
  */
-async function uniqueSlug(desired: string) {
+async function uniqueSlug(eventId: string, desired: string) {
   const client = getSupabaseServiceClient();
-  const { data } = await client.from("rundown_sections").select("slug");
+  // Difilter per event karena slug kini unik PER EVENT (index
+  // rundown_sections_slug_event_unique). Memeriksa seluruh event membuat slug
+  // diberi angka tambahan tanpa alasan: "acara-utama" di event baru akan jadi
+  // "acara-utama-2" hanya karena event lain memakainya, padahal tidak bentrok.
+  const { data } = await client.from("rundown_sections").select("slug").eq("event_id", eventId);
   const taken = new Set(((data ?? []) as { slug: string }[]).map((row) => row.slug));
   if (!taken.has(desired)) return desired;
   for (let suffix = 2; suffix < 100; suffix += 1) {
@@ -78,14 +82,15 @@ async function uniqueSlug(desired: string) {
 }
 
 /** Seluruh bagian beserta isinya, untuk CMS. Termasuk yang belum publish. */
-export async function GET() {
-  const auth = await requireUser(["admin"]);
+export async function GET(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const client = getSupabaseServiceClient();
   const [sections, items] = await Promise.all([
-    client.from("rundown_sections").select(SECTION_COLUMNS).order("sort_order", { ascending: true }).order("id", { ascending: true }),
-    client.from("rundown_items").select(ITEM_COLUMNS).order("sort_order", { ascending: true }).order("start_time", { ascending: true }).order("id", { ascending: true }),
+    client.from("rundown_sections").select(SECTION_COLUMNS).eq("event_id", eventId).order("sort_order", { ascending: true }).order("id", { ascending: true }),
+    client.from("rundown_items").select(ITEM_COLUMNS).eq("event_id", eventId).order("sort_order", { ascending: true }).order("start_time", { ascending: true }).order("id", { ascending: true }),
   ]);
   if (sections.error || items.error) return apiError("INTERNAL_ERROR", 500);
 
@@ -93,8 +98,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
@@ -111,6 +117,7 @@ export async function POST(request: Request) {
   const { data: last } = await client
     .from("rundown_sections")
     .select("sort_order")
+    .eq("event_id", eventId)
     .order("sort_order", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -119,7 +126,8 @@ export async function POST(request: Request) {
   const { data, error } = await client
     .from("rundown_sections")
     .insert({
-      slug: await uniqueSlug(requested),
+      event_id: eventId,
+      slug: await uniqueSlug(eventId, requested),
       name: parsed.data.name,
       // Judul publik ikut nama bila belum diisi: admin bisa langsung menyimpan
       // lalu memperbaikinya, tanpa dipaksa mengisi dua kolom serupa.
@@ -141,6 +149,7 @@ export async function POST(request: Request) {
   }
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "rundown_section_create",
     payload: { new: data },
@@ -149,8 +158,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const parsed = updateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
@@ -158,7 +168,7 @@ export async function PATCH(request: Request) {
   if (Object.keys(changes).length === 0) return apiError("VALIDATION_ERROR", 422);
 
   const client = getSupabaseServiceClient();
-  const { data: current } = await client.from("rundown_sections").select(SECTION_COLUMNS).eq("id", id).maybeSingle();
+  const { data: current } = await client.from("rundown_sections").select(SECTION_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   if (!current) return apiError("RUNDOWN_SECTION_NOT_FOUND", 404);
 
   const { data, error } = await client
@@ -171,6 +181,7 @@ export async function PATCH(request: Request) {
       updated_at: new Date().toISOString(),
       updated_by: auth.user.id,
     } as never)
+    .eq("event_id", eventId)
     .eq("id", id)
     .select(SECTION_COLUMNS)
     .single();
@@ -179,6 +190,7 @@ export async function PATCH(request: Request) {
   }
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "rundown_section_update",
     payload: { old: current, new: data },
@@ -187,16 +199,20 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const parsed = deleteSchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const client = getSupabaseServiceClient();
+  // Filter event WAJIB di sini: DELETE ini cascade ke seluruh baris jadwalnya,
+  // jadi satu id yang salah bisa memusnahkan rundown event lain sekaligus.
   const { data: current } = await client
     .from("rundown_sections")
     .select(SECTION_COLUMNS)
+    .eq("event_id", eventId)
     .eq("id", parsed.data.id)
     .maybeSingle();
   if (!current) return apiError("RUNDOWN_SECTION_NOT_FOUND", 404);
@@ -207,13 +223,15 @@ export async function DELETE(request: Request) {
   const { data: items } = await client
     .from("rundown_items")
     .select(ITEM_COLUMNS)
+    .eq("event_id", eventId)
     .eq("section_id", parsed.data.id)
     .order("sort_order", { ascending: true });
 
-  const { error } = await client.from("rundown_sections").delete().eq("id", parsed.data.id);
+  const { error } = await client.from("rundown_sections").delete().eq("event_id", eventId).eq("id", parsed.data.id);
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "rundown_section_delete",
     payload: { old: current, items: items ?? [] },
