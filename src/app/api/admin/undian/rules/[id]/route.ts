@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeExclusionRule } from "@/lib/undian";
 import { RULE_COLUMNS, groupSchema } from "../route";
@@ -16,8 +16,9 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const id = Number((await context.params).id);
   if (!Number.isInteger(id) || id <= 0) return apiError("VALIDATION_ERROR", 422);
@@ -27,11 +28,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (Object.keys(parsed.data).length === 0) return apiError("VALIDATION_ERROR", 422);
 
   const client = getSupabaseServiceClient();
-  const { data: current } = await client.from("undian_exclusion_rules").select(RULE_COLUMNS).eq("id", id).maybeSingle();
+  const { data: current } = await client.from("undian_exclusion_rules").select(RULE_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   if (!current) return apiError("UNDIAN_RULE_NOT_FOUND", 404);
 
+  // Hadiah sasaran juga harus milik event ini. Tanpa filter, aturan event A bisa
+  // ditambatkan ke hadiah event B; FK komposit menolaknya, tetapi galat mentahnya
+  // tidak menjelaskan apa pun ke admin.
   if (parsed.data.prize_id) {
-    const { data: prize } = await client.from("undian_prizes").select("id").eq("id", parsed.data.prize_id).maybeSingle();
+    const { data: prize } = await client.from("undian_prizes").select("id").eq("event_id", eventId).eq("id", parsed.data.prize_id).maybeSingle();
     if (!prize) return apiError("UNDIAN_PRIZE_NOT_FOUND", 404);
   }
 
@@ -43,6 +47,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       updated_at: new Date().toISOString(),
       updated_by: auth.user.id,
     } as never)
+    .eq("event_id", eventId)
     .eq("id", id)
     .select(RULE_COLUMNS)
     .single();
@@ -50,6 +55,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   const after = normalizeExclusionRule(data as Record<string, unknown>);
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "undian_rule_update",
     payload: { old: normalizeExclusionRule(current as Record<string, unknown>), new: after },
@@ -57,15 +63,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   return Response.json(after);
 }
 
-export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
-  const auth = await requireUser(["admin"]);
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const id = Number((await context.params).id);
   if (!Number.isInteger(id) || id <= 0) return apiError("VALIDATION_ERROR", 422);
 
   const client = getSupabaseServiceClient();
-  const { data: current } = await client.from("undian_exclusion_rules").select(RULE_COLUMNS).eq("id", id).maybeSingle();
+  const { data: current } = await client.from("undian_exclusion_rules").select(RULE_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   if (!current) return apiError("UNDIAN_RULE_NOT_FOUND", 404);
 
   // Aturan boleh dihapus tanpa syarat, tidak seperti hadiah.
@@ -73,10 +80,11 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   // Ia tidak menyimpan hasil apa pun: menghapusnya hanya berarti orang-orang yang
   // tadinya tersaring kembali masuk kolam pada undian berikutnya. Pemenang yang
   // sudah keluar tidak berubah, karena kolam dibekukan pada saat undi.
-  const { error } = await client.from("undian_exclusion_rules").delete().eq("id", id);
+  const { error } = await client.from("undian_exclusion_rules").delete().eq("event_id", eventId).eq("id", id);
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "undian_rule_delete",
     payload: { old: normalizeExclusionRule(current as Record<string, unknown>), new: null },
