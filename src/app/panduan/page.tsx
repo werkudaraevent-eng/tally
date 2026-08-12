@@ -1,3 +1,4 @@
+import { getPublicPageEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { boothSteps, cashierSteps, stepImages, type GuideStep } from "@/lib/panduan-steps";
 
@@ -20,11 +21,11 @@ export const metadata = { title: "Panduan Operator — Tally" };
 // justru jadi alasan halaman ini membaca setting.
 export const dynamic = "force-dynamic";
 
-async function loadSettings() {
+async function loadSettings(eventId: string) {
   const { data } = await getSupabaseServiceClient()
     .from("event_settings")
     .select("pickup_mode,cashier_confirmation_required,pending_auto_void_minutes")
-    .eq("id", 1)
+    .eq("event_id", eventId)
     .single() as { data: { pickup_mode: string; cashier_confirmation_required: boolean; pending_auto_void_minutes: number } | null };
   return data;
 }
@@ -60,8 +61,16 @@ function PrintStep({ step, number }: { step: GuideStep; number: number }) {
   </li>;
 }
 
-export default async function PanduanPage() {
-  const settings = await loadSettings();
+export default async function PanduanPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // Slug diteruskan proxy sebagai `?eventSlug=`. Tanpa event yang bisa
+  // ditentukan, panduan tetap tercetak memakai nilai bawaan di bawah -- kertas
+  // panduan yang gagal dibuka lebih merugikan daripada yang memakai default.
+  const event = await getPublicPageEvent(searchParams);
+  const settings = event ? await loadSettings(event.id) : null;
   // Isi menyesuaikan setting aktif. Panduan cetak yang bertentangan dengan alur
   // sebenarnya lebih berbahaya daripada tidak ada panduan, karena kertas tidak
   // bisa diperbarui setelah dibagikan.

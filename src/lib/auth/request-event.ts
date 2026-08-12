@@ -22,3 +22,25 @@ export async function getPublicRequestEvent(request: Request) {
   const active = await listActiveEvents();
   return active.length === 1 ? active[0] : null;
 }
+
+/**
+ * Versi untuk SERVER COMPONENT (halaman), bukan route handler.
+ *
+ * Halaman tidak menerima `Request`; ia menerima `searchParams`. Slug sampai ke
+ * sana karena `src/proxy.ts` me-rewrite `/e/<slug>/display` menjadi
+ * `/display?eventSlug=<slug>`.
+ *
+ * Aturan fallback-nya SAMA dengan getPublicRequestEvent: tanpa slug hanya aman
+ * bila tepat satu event aktif. Dengan dua event aktif, menebak berarti
+ * menayangkan data event yang salah di proyektor.
+ */
+export async function getPublicPageEvent(
+  searchParams?: Promise<Record<string, string | string[] | undefined>>,
+) {
+  const params = searchParams ? await searchParams : undefined;
+  const raw = params?.eventSlug;
+  const slug = Array.isArray(raw) ? raw[0] : raw;
+  if (slug) return getEventBySlugPublic(slug);
+  const active = await listActiveEvents();
+  return active.length === 1 ? active[0] : null;
+}
