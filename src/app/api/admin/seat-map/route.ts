@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { computeSeatMapGeometry, duplicateTableLabels, normalizeSeatLabel, MAX_SEATS_PER_TABLE, MAX_TABLE_LABEL_LENGTH, PUBLIC_VIEW_MODES } from "@/lib/seat-map";
 import {
@@ -71,7 +71,7 @@ const configSchema = z.object({
  * artinya ada peserta yang tidak muncul di mana pun. Karena itu dilaporkan
  * eksplisit, bukan dibuang diam-diam.
  */
-async function buildMatchReport(sessions: SeatMapSession[], config: Awaited<ReturnType<typeof loadSeatMapConfig>>) {
+async function buildMatchReport(eventId: string, sessions: SeatMapSession[], config: Awaited<ReturnType<typeof loadSeatMapConfig>>) {
   const geometry = computeSeatMapGeometry(config);
   const knownLabels = new Set<string>();
   for (const table of geometry.tables) {
@@ -80,7 +80,7 @@ async function buildMatchReport(sessions: SeatMapSession[], config: Awaited<Retu
 
   const reports = [];
   for (const session of sessions) {
-    const { assignments, participantsWithoutSeat, totalActiveParticipants } = await loadAssignmentsForSession(session.sub_event_id);
+    const { assignments, participantsWithoutSeat, totalActiveParticipants } = await loadAssignmentsForSession(eventId, session.sub_event_id);
     const matchedLabels = new Set<string>();
     const unmatched = new Map<string, number>();
 
@@ -105,17 +105,18 @@ async function buildMatchReport(sessions: SeatMapSession[], config: Awaited<Retu
   return { geometry: { total_tables: geometry.totalTables, total_seats: geometry.totalSeats }, reports };
 }
 
-export async function GET() {
-  const auth = await requireUser(["admin"]);
+export async function GET(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   try {
     const [config, sessions, subEvents] = await Promise.all([
-      loadSeatMapConfig(),
-      loadSessions({ publishedOnly: false }),
-      discoverSubEvents(),
+      loadSeatMapConfig(eventId),
+      loadSessions(eventId, { publishedOnly: false }),
+      discoverSubEvents(eventId),
     ]);
-    const match = await buildMatchReport(sessions, config);
+    const match = await buildMatchReport(eventId, sessions, config);
 
     return Response.json({
       config,
@@ -131,8 +132,9 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const body = await request.json().catch(() => null);
   const parsed = configSchema.safeParse(body);
@@ -160,7 +162,7 @@ export async function PATCH(request: Request) {
   // jumlah barisnya datang dari baris yang sudah tersimpan. Memeriksa kiriman
   // saja akan meloloskan bentrokan yang lahir dari gabungan keduanya.
   if (parsed.data.table_labels || parsed.data.row_table_counts) {
-    const { data: existing } = await client.from("seat_maps").select(CONFIG_COLUMNS).eq("id", 1).single();
+    const { data: existing } = await client.from("seat_maps").select(CONFIG_COLUMNS).eq("event_id", eventId).single();
     const duplicates = duplicateTableLabels({ ...(existing ?? {}), ...parsed.data });
     if (duplicates.length > 0) {
       return apiError("VALIDATION_ERROR", 422, {
@@ -176,6 +178,7 @@ export async function PATCH(request: Request) {
     const { data: target } = await client
       .from("seat_map_sessions")
       .select("id,is_published")
+      .eq("event_id", eventId)
       .eq("id", parsed.data.default_session_id)
       .maybeSingle() as { data: { id: number; is_published: boolean } | null };
     if (!target) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
@@ -183,16 +186,17 @@ export async function PATCH(request: Request) {
       return apiError("VALIDATION_ERROR", 422, { message: "Agenda bawaan harus dipublikasikan lebih dulu." });
     }
   }
-  const { data: current } = await client.from("seat_maps").select(CONFIG_COLUMNS).eq("id", 1).single();
+  const { data: current } = await client.from("seat_maps").select(CONFIG_COLUMNS).eq("event_id", eventId).single();
   const { data, error } = await client
     .from("seat_maps")
     .update({ ...parsed.data, updated_at: new Date().toISOString(), updated_by: auth.user.id } as never)
-    .eq("id", 1)
+    .eq("event_id", eventId)
     .select(CONFIG_COLUMNS)
     .single();
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "seat_map_update",
     payload: { old: current, new: data },

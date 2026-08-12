@@ -70,11 +70,19 @@ export type SeatMapConfigRow = SeatMapConfig & {
   default_session_id: number | null;
 };
 
-export async function loadSeatMapConfig(): Promise<SeatMapConfigRow> {
+/**
+ * `eventId` WAJIB di seluruh fungsi modul ini, bukan opsional.
+ *
+ * Denah, daftar agenda, dan penempatan kursi semuanya per event. Kalau parameter
+ * ini opsional, pemanggil yang lupa tetap lolos compile lalu diam-diam
+ * menampilkan denah event lain -- kesalahan yang tidak menimbulkan galat, hanya
+ * tamu yang diarahkan ke meja yang tidak ada.
+ */
+export async function loadSeatMapConfig(eventId: string): Promise<SeatMapConfigRow> {
   const { data } = await getSupabaseServiceClient()
     .from("seat_maps")
     .select(CONFIG_COLUMNS)
-    .eq("id", 1)
+    .eq("event_id", eventId)
     .single();
   const raw = (data ?? {}) as Partial<SeatMapConfig> & { name?: string; public_view_mode?: string; default_session_id?: number | null };
   return {
@@ -113,8 +121,8 @@ export function resolveSession(
   return sessions[0];
 }
 
-export async function loadSessions(options: { publishedOnly: boolean }) {
-  let query = getSupabaseServiceClient().from("seat_map_sessions").select(SESSION_COLUMNS);
+export async function loadSessions(eventId: string, options: { publishedOnly: boolean }) {
+  let query = getSupabaseServiceClient().from("seat_map_sessions").select(SESSION_COLUMNS).eq("event_id", eventId);
   if (options.publishedOnly) query = query.eq("is_published", true);
   const { data } = await query.order("sort_order", { ascending: true });
 
@@ -144,10 +152,11 @@ export async function loadSessions(options: { publishedOnly: boolean }) {
  * baru. Menambah index di tabel yang sudah dipakai alur booth dan kasir adalah
  * risiko yang tidak sebanding dengan keuntungannya di sini.
  */
-async function loadParticipantsWithSeats() {
+async function loadParticipantsWithSeats(eventId: string) {
   const { data, error } = await getSupabaseServiceClient()
     .from("participants")
     .select("id,name,company,title,allow_name_display,participant_type,source_checked_in,seats")
+    .eq("event_id", eventId)
     .is("source_removed_at", null);
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as ParticipantRow[];
@@ -161,8 +170,8 @@ async function loadParticipantsWithSeats() {
  * memilih `sub_event_id`, hasilnya sengaja kosong daripada menampilkan
  * penempatan sesi pagi di denah sesi malam.
  */
-export async function loadAssignmentsForSession(subEventId: string | null) {
-  const participants = await loadParticipantsWithSeats();
+export async function loadAssignmentsForSession(eventId: string, subEventId: string | null) {
+  const participants = await loadParticipantsWithSeats(eventId);
   const assignments: SeatAssignment[] = [];
   let participantsWithoutSeat = 0;
 
@@ -200,8 +209,8 @@ export async function loadAssignmentsForSession(subEventId: string | null) {
  * Dipakai CMS supaya admin memilih sesi dari daftar, bukan menyalin id dengan
  * tangan. Satu salah ketik pada id berarti seluruh denah tampak kosong.
  */
-export async function discoverSubEvents() {
-  const participants = await loadParticipantsWithSeats();
+export async function discoverSubEvents(eventId: string) {
+  const participants = await loadParticipantsWithSeats(eventId);
   const found = new Map<string, { subEventId: string; subEventName: string; seatCount: number }>();
 
   for (const participant of participants) {
