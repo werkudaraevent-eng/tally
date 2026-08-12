@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Kode booth tidak dipatok pola B1/B2/B3. Panitia memakai singkatan sendiri
@@ -27,21 +27,31 @@ const boothCode = z
 // berubah sifatnya hanya karena pemanggil belum mengirim field ini.
 const boothSchema = z.object({ id: z.number().int().positive().nullable().optional(), code: boothCode, name: z.string().trim().min(1).max(100), discount_item_name: z.string().trim().min(1).max(200), discount_item_stock: z.number().int().min(0).nullable(), is_active: z.boolean(), discount_enabled: z.boolean(), discount_limit_per_participant: z.number().int().min(0).max(20), transactions_enabled: z.boolean().default(true) });
 
-export async function GET() {
-  const auth = await requireUser(["admin"]);
+export async function GET(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
-  const { data, error } = await getSupabaseServiceClient().from("booths").select("id,code,name,discount_item_name,discount_item_price,discount_item_stock,is_active,discount_enabled,discount_limit_per_participant,transactions_enabled").order("id");
+  const { data, error } = await getSupabaseServiceClient().from("booths").select("id,code,name,discount_item_name,discount_item_price,discount_item_stock,is_active,discount_enabled,discount_limit_per_participant,transactions_enabled").eq("event_id", auth.scope.event.id).order("id");
   if (error) return apiError("INTERNAL_ERROR", 500);
   return Response.json({ booths: data ?? [] });
 }
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
   const parsed = boothSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
-  const { data, error } = await getSupabaseServiceClient().rpc("admin_upsert_booth" as never, { p_id: parsed.data.id ?? null, p_code: parsed.data.code, p_name: parsed.data.name, p_discount_item_name: parsed.data.discount_item_name, p_discount_item_stock: parsed.data.discount_item_stock, p_is_active: parsed.data.is_active, p_discount_enabled: parsed.data.discount_enabled, p_discount_limit_per_participant: parsed.data.discount_limit_per_participant, p_transactions_enabled: parsed.data.transactions_enabled } as never);
+  const client = getSupabaseServiceClient();
+  let data: unknown;
+  let error: { code?: string; message?: string } | null = null;
+  if (parsed.data.id) {
+    const result = await client.from("booths").update({ code: parsed.data.code, name: parsed.data.name, discount_item_name: parsed.data.discount_item_name, discount_item_stock: parsed.data.discount_item_stock, is_active: parsed.data.is_active, discount_enabled: parsed.data.discount_enabled, discount_limit_per_participant: parsed.data.discount_limit_per_participant, transactions_enabled: parsed.data.transactions_enabled } as never).eq("event_id", auth.scope.event.id).eq("id", parsed.data.id).select().maybeSingle();
+    data = result.data; error = result.error;
+  } else {
+    const result = await client.from("booths").insert({ event_id: auth.scope.event.id, code: parsed.data.code, name: parsed.data.name, discount_item_name: parsed.data.discount_item_name, discount_item_stock: parsed.data.discount_item_stock, is_active: parsed.data.is_active, discount_enabled: parsed.data.discount_enabled, discount_limit_per_participant: parsed.data.discount_limit_per_participant, transactions_enabled: parsed.data.transactions_enabled } as never).select().single();
+    data = result.data; error = result.error;
+  }
   if (error) return apiError(mapDatabaseError(error), 409);
-  await getSupabaseServiceClient().from("audit_logs").insert({ user_id: auth.user.id, action: parsed.data.id ? "booth_update" : "booth_create", payload: { booth: data } } as never);
+  if (!data) return apiError("BOOTH_NOT_FOUND", 404);
+  await client.from("audit_logs").insert({ event_id: auth.scope.event.id, user_id: auth.user.id, action: parsed.data.id ? "booth_update" : "booth_create", payload: { booth: data } } as never);
   return Response.json({ booth: data });
 }

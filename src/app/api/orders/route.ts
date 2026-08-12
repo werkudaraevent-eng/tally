@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { requireUser } from "@/lib/auth/guards";
-import { canUseBooth } from "@/lib/auth/roles";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { MAX_ORDER_AMOUNT } from "@/lib/domain";
 
 const bodySchema = z.object({
@@ -20,12 +19,19 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["booth", "admin"]);
+  const auth = await requireRequestEvent(request, ["booth", "admin"]);
   if (auth.response) return auth.response;
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
-  if (!canUseBooth(auth.user, parsed.data.booth_id)) return apiError("FORBIDDEN", 403);
-  const { data, error } = await getSupabaseServiceClient().rpc("create_order_transaction" as never, {
+  if (auth.scope.role === "booth" && auth.scope.boothId !== parsed.data.booth_id) return apiError("FORBIDDEN", 403);
+  const client = getSupabaseServiceClient();
+  const [{ data: booth }, { data: participant }] = await Promise.all([
+    client.from("booths").select("id").eq("event_id", auth.scope.event.id).eq("id", parsed.data.booth_id).maybeSingle(),
+    client.from("participants").select("id").eq("event_id", auth.scope.event.id).eq("id", parsed.data.participant_id).maybeSingle(),
+  ]);
+  if (!booth) return apiError("BOOTH_NOT_FOUND", 404);
+  if (!participant) return apiError("PARTICIPANT_NOT_FOUND", 404);
+  const { data, error } = await client.rpc("create_order_transaction" as never, {
     p_code: parsed.data.order_code,
     p_participant_id: parsed.data.participant_id,
     p_booth_id: parsed.data.booth_id,
@@ -39,6 +45,6 @@ export async function POST(request: Request) {
     const code = mapDatabaseError(error);
     return apiError(code, code === "DISCOUNT_ALREADY_TAKEN" || code === "ORDER_CODE_USED" ? 409 : 422);
   }
-  await getSupabaseServiceClient().from("audit_logs").insert({ order_id: (data as { id?: string } | null)?.id ?? null, user_id: auth.user.id, action: "booth_order_created", payload: { booth_id: parsed.data.booth_id, participant_id: parsed.data.participant_id, has_discount_item: parsed.data.has_discount_item, offer_codes: parsed.data.offer_codes ?? null } } as never);
+  await client.from("audit_logs").insert({ event_id: auth.scope.event.id, order_id: (data as { id?: string } | null)?.id ?? null, user_id: auth.user.id, action: "booth_order_created", payload: { booth_id: parsed.data.booth_id, participant_id: parsed.data.participant_id, has_discount_item: parsed.data.has_discount_item, offer_codes: parsed.data.offer_codes ?? null } } as never);
   return Response.json({ order: data }, { status: 201 });
 }

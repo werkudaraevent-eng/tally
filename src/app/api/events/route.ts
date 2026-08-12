@@ -66,7 +66,27 @@ export async function POST(request: Request) {
       created_by: auth.user.id,
     });
 
-    await getSupabaseServiceClient().from("audit_logs").insert({
+    // Setiap tabel settings kini satu baris PER EVENT. Dibuat segera saat event
+    // dibuat supaya CMS tidak perlu punya tujuh cabang "kalau belum ada, insert".
+    const client = getSupabaseServiceClient();
+    const settings = await Promise.all([
+      client.from("event_settings").insert({ event_id: event.id, time_zone: event.time_zone } as never),
+      client.from("display_settings").insert({ event_id: event.id } as never),
+      client.from("seat_maps").insert({ event_id: event.id } as never),
+      client.from("rundown_settings").insert({ event_id: event.id, event_title: event.name } as never),
+      client.from("leaderboard_reveal").insert({ event_id: event.id } as never),
+      client.from("undian_settings").insert({ event_id: event.id } as never),
+      client.from("undian_state").insert({ event_id: event.id } as never),
+    ]);
+    const settingsError = settings.find((result) => result.error)?.error;
+    if (settingsError) {
+      // Event draft tanpa settings tidak dapat dipakai. Hapus kembali agar
+      // pengguna tidak melihat workspace setengah jadi.
+      await client.from("events").delete().eq("id", event.id);
+      throw settingsError;
+    }
+
+    await client.from("audit_logs").insert({
       user_id: auth.user.id,
       event_id: event.id,
       action: "event_create",

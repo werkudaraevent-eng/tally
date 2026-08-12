@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { redactAmounts, type LeaderboardEntry } from "@/lib/reveal";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { getPublicRequestEvent } from "@/lib/auth/request-event";
 
 const querySchema = z.object({ limit: z.coerce.number().int().min(1).max(100).default(10) });
 
@@ -12,11 +13,13 @@ export async function GET(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   try {
     const client = getSupabaseServiceClient();
+    const event = await getPublicRequestEvent(request);
+    if (!event) return apiError("INTERNAL_ERROR", 404);
     const { data, error } = await client.rpc("get_leaderboard" as never, { p_limit: parsed.data.limit } as never);
     if (error) return apiError(mapDatabaseError(error), 500);
     const [{ data: settings }, { data: display }] = await Promise.all([
-      client.from("event_settings").select("leaderboard_enabled").eq("id", 1).single() as unknown as Promise<{ data: { leaderboard_enabled: boolean } | null }>,
-      client.from("display_settings").select("show_amount").eq("id", 1).maybeSingle() as unknown as Promise<{ data: { show_amount: boolean } | null }>,
+      client.from("event_settings").select("leaderboard_enabled").eq("event_id", event.id).single() as unknown as Promise<{ data: { leaderboard_enabled: boolean } | null }>,
+      client.from("display_settings").select("show_amount").eq("event_id", event.id).maybeSingle() as unknown as Promise<{ data: { show_amount: boolean } | null }>,
     ]);
     return Response.json({
       updated_at: new Date().toISOString(),

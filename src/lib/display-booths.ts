@@ -28,13 +28,14 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * Mengembalikan array kosong bila gagal: layar menyembunyikan panel progress,
  * yang jauh lebih baik daripada memajang penyebut yang ditebak.
  */
-export async function loadActiveBoothCodes(): Promise<string[]> {
+export async function loadActiveBoothCodes(eventId?: string): Promise<string[]> {
   try {
-    const { data, error } = await getSupabaseServiceClient()
+    let query = getSupabaseServiceClient()
       .from("booths")
       .select("code")
-      .eq("is_active", true)
-      .order("id", { ascending: true });
+      .eq("is_active", true);
+    if (eventId) query = query.eq("event_id", eventId);
+    const { data, error } = await query.order("id", { ascending: true });
     if (error || !data) return [];
     return (data as Array<{ code: string }>).map((row) => row.code);
   } catch {
