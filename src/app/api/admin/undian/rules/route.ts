@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import {
@@ -113,21 +112,25 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const client = getSupabaseServiceClient();
+  // Hadiah sasaran harus milik event ini. FK komposit juga menolaknya, tetapi
+  // galat mentahnya tidak menjelaskan apa pun kepada admin.
   if (parsed.data.prize_id) {
-    const { data: prize } = await client.from("undian_prizes").select("id").eq("id", parsed.data.prize_id).maybeSingle();
+    const { data: prize } = await client.from("undian_prizes").select("id").eq("event_id", eventId).eq("id", parsed.data.prize_id).maybeSingle();
     if (!prize) return apiError("UNDIAN_PRIZE_NOT_FOUND", 404);
   }
 
   const { data, error } = await client
     .from("undian_exclusion_rules")
     .insert({
+      event_id: eventId,
       name: parsed.data.name,
       note: parsed.data.note?.trim() || null,
       conditions: parsed.data.conditions,
@@ -142,6 +145,7 @@ export async function POST(request: Request) {
 
   const rule = normalizeExclusionRule(data as Record<string, unknown>);
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "undian_rule_create",
     payload: { old: null, new: rule },

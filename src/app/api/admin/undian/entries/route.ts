@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { MAX_ROWS, parseEntryText, parseEntryXlsx, type ParsedEntry } from "@/lib/undian-import";
 
@@ -30,19 +30,21 @@ const jsonSchema = z.object({
   text: z.string().max(1_000_000),
 });
 
-export async function GET() {
-  const auth = await requireUser(["admin"]);
+export async function GET(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const client = getSupabaseServiceClient();
   const { data: groups, error } = await client
     .from("undian_entry_groups")
     .select("id,name,note,created_at")
+    .eq("event_id", eventId)
     .order("id", { ascending: false });
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   // Jumlah baris per grup dihitung dalam satu query, bukan satu per grup.
-  const { data: rows } = await client.from("undian_entries").select("group_id").eq("is_active", true);
+  const { data: rows } = await client.from("undian_entries").select("group_id").eq("event_id", eventId).eq("is_active", true);
   const counts: Record<number, number> = {};
   for (const row of (rows ?? []) as { group_id: number }[]) counts[row.group_id] = (counts[row.group_id] ?? 0) + 1;
 
@@ -52,8 +54,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const contentType = request.headers.get("content-type") ?? "";
   const input = contentType.includes("multipart/form-data")
@@ -81,7 +84,7 @@ export async function POST(request: Request) {
   const client = getSupabaseServiceClient();
   const { data: group, error: groupError } = await client
     .from("undian_entry_groups")
-    .insert({ name, note: note?.trim() || null, created_by: auth.user.id } as never)
+    .insert({ event_id: eventId, name, note: note?.trim() || null, created_by: auth.user.id } as never)
     .select("id,name,note,created_at")
     .single();
   if (groupError || !group) return apiError("INTERNAL_ERROR", 500);
@@ -89,16 +92,17 @@ export async function POST(request: Request) {
   const groupId = (group as { id: number }).id;
   const { error: rowError } = await client
     .from("undian_entries")
-    .insert(rows.map((row) => ({ ...row, group_id: groupId })) as never);
+    .insert(rows.map((row) => ({ ...row, event_id: eventId, group_id: groupId })) as never);
   if (rowError) {
     // Grup tanpa baris adalah jebakan: ia muncul di daftar pilihan, dipilih untuk
     // sebuah hadiah, lalu menghasilkan kolam kosong tanpa penjelasan. Lebih baik
     // dibatalkan seluruhnya.
-    await client.from("undian_entry_groups").delete().eq("id", groupId);
+    await client.from("undian_entry_groups").delete().eq("event_id", eventId).eq("id", groupId);
     return apiError("INTERNAL_ERROR", 500);
   }
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "undian_entry_import",
     payload: { old: null, new: { group, entry_count: rows.length, source } },
