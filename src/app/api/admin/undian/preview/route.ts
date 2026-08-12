@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import {
   matchesConditions,
@@ -72,15 +72,16 @@ const bodySchemaWithPrize = bodySchema.extend({
 });
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
   const parsed = bodySchemaWithPrize.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
+  const eventId = auth.scope.event.id;
   const [poolResult, rules] = await Promise.all([
-    getSupabaseServiceClient().rpc("undian_participant_pool" as never),
-    activeRulesFor(parsed.data.prize_id ?? null),
+    getSupabaseServiceClient().rpc("undian_participant_pool" as never, { p_event_id: eventId } as never),
+    activeRulesFor(eventId, parsed.data.prize_id ?? null),
   ]);
   if (poolResult.error) return apiError("INTERNAL_ERROR", 500);
 

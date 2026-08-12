@@ -52,11 +52,19 @@ type EntryRow = {
   weight: number;
 };
 
-/** Aturan yang berlaku untuk sebuah hadiah: yang global plus yang khusus hadiah itu. */
-export async function activeRulesFor(prizeId: number | null): Promise<UndianExclusionRule[]> {
+/**
+ * Aturan yang berlaku untuk sebuah hadiah: yang global plus yang khusus hadiah itu.
+ *
+ * `eventId` WAJIB, bukan opsional. Aturan pengecualian satu event tidak boleh
+ * ikut menggugurkan peserta event lain, dan menjadikannya opsional berarti
+ * pemanggil yang lupa tetap lolos compile lalu diam-diam memakai aturan yang
+ * salah -- kesalahan yang tidak menimbulkan galat, hanya pemenang yang keliru.
+ */
+export async function activeRulesFor(eventId: string, prizeId: number | null): Promise<UndianExclusionRule[]> {
   const { data, error } = await getSupabaseServiceClient()
     .from("undian_exclusion_rules")
     .select("id,name,note,conditions,prize_id,is_active")
+    .eq("event_id", eventId)
     .eq("is_active", true)
     .order("id");
   if (error || !data) return [];
@@ -82,7 +90,7 @@ export async function activeRulesFor(prizeId: number | null): Promise<UndianExcl
  * itu, sedangkan 'all_prizes' melihat semuanya. RPC tidak tahu hadiah mana yang
  * sedang diundi.
  */
-export async function buildPool(prize: UndianPrize): Promise<PoolResult | { error: "POOL_ERROR" }> {
+export async function buildPool(eventId: string, prize: UndianPrize): Promise<PoolResult | { error: "POOL_ERROR" }> {
   const client = getSupabaseServiceClient();
 
   if (prize.source === "entries") {
@@ -96,13 +104,14 @@ export async function buildPool(prize: UndianPrize): Promise<PoolResult | { erro
     const { data, error } = await client
       .from("undian_entries")
       .select("id,label,sublabel,code,weight")
+      .eq("event_id", eventId)
       .eq("group_id", prize.entry_group_id)
       .eq("is_active", true)
       .order("id");
     if (error) return { error: "POOL_ERROR" };
 
     const rows = (data ?? []) as EntryRow[];
-    const wonEntryIds = await previousWinnerRefs(prize, "entry");
+    const wonEntryIds = await previousWinnerRefs(eventId, prize, "entry");
     const eligible = rows.map((row): Candidate => ({
       kind: "entry",
       ref: String(row.id),
@@ -136,13 +145,13 @@ export async function buildPool(prize: UndianPrize): Promise<PoolResult | { erro
   }
 
   const [poolResult, rules] = await Promise.all([
-    client.rpc("undian_participant_pool" as never),
-    activeRulesFor(prize.id),
+    client.rpc("undian_participant_pool" as never, { p_event_id: eventId } as never),
+    activeRulesFor(eventId, prize.id),
   ]);
   if (poolResult.error) return { error: "POOL_ERROR" };
 
   const rows = (poolResult.data ?? []) as ParticipantPoolRow[];
-  const wonIds = await previousWinnerRefs(prize, "participant");
+  const wonIds = await previousWinnerRefs(eventId, prize, "participant");
 
   const breakdown: PoolBreakdown = {
     total: rows.length,
@@ -222,12 +231,12 @@ function emptyBreakdown(): PoolBreakdown {
  * supaya aturan yang sama berlaku pada setiap pemanggil tanpa perlu diingat
  * ulang — termasuk kelak bila ada jalur lain yang membangun kolam.
  */
-async function previousWinnerRefs(prize: UndianPrize, kind: "participant" | "entry"): Promise<Set<string>> {
+async function previousWinnerRefs(eventId: string, prize: UndianPrize, kind: "participant" | "entry"): Promise<Set<string>> {
   if (prize.exclude_scope === "none") return new Set();
 
   const { data, error } = await getSupabaseServiceClient().rpc(
     "undian_blocking_winner_ids" as never,
-    { p_prize_id: prize.id, p_scope: prize.exclude_scope } as never,
+    { p_prize_id: prize.id, p_scope: prize.exclude_scope, p_event_id: eventId } as never,
   );
   if (error || !data) return new Set();
 

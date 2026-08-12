@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizePrize, type UndianPrize } from "@/lib/undian";
 import { buildPool } from "@/lib/undian-pool";
@@ -106,12 +107,12 @@ const bodySchema = z.object({
  * sesi siang akan tampil "penuh" di sesi malam — padahal panitia menutup sesi
  * sebelumnya justru supaya hadiah itu bisa diundi lagi.
  */
-async function winnerCounts(): Promise<Record<number, number>> {
+async function winnerCounts(eventId: string): Promise<Record<number, number>> {
   const client = getSupabaseServiceClient();
-  const { data: session } = await client.from("undian_sessions").select("id").eq("status", "active").maybeSingle();
+  const { data: session } = await client.from("undian_sessions").select("id").eq("event_id", eventId).eq("status", "active").maybeSingle();
   const sessionId = (session as { id: number } | null)?.id ?? null;
 
-  let query = client.from("undian_winners").select("prize_id").neq("status", "rejected");
+  let query = client.from("undian_winners").select("prize_id").eq("event_id", eventId).neq("status", "rejected");
   query = sessionId === null ? query.is("session_id", null) : query.eq("session_id", sessionId);
 
   const { data } = await query;
@@ -134,12 +135,12 @@ async function winnerCounts(): Promise<Record<number, number>> {
  * angka ini panel hanya bisa menawarkan tombol yang mungkin gagal, dan tombol
  * yang gagal di atas panggung lebih buruk daripada tombol yang tidak ada.
  */
-async function pendingCounts(): Promise<Record<number, number>> {
+async function pendingCounts(eventId: string): Promise<Record<number, number>> {
   const client = getSupabaseServiceClient();
-  const { data: session } = await client.from("undian_sessions").select("id").eq("status", "active").maybeSingle();
+  const { data: session } = await client.from("undian_sessions").select("id").eq("event_id", eventId).eq("status", "active").maybeSingle();
   const sessionId = (session as { id: number } | null)?.id ?? null;
 
-  let query = client.from("undian_winners").select("prize_id").eq("status", "pending");
+  let query = client.from("undian_winners").select("prize_id").eq("event_id", eventId).eq("status", "pending");
   query = sessionId === null ? query.is("session_id", null) : query.eq("session_id", sessionId);
 
   const { data } = await query;
@@ -151,16 +152,17 @@ async function pendingCounts(): Promise<Record<number, number>> {
 }
 
 export async function GET(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
+  const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
-  const { data, error } = await client.from("undian_prizes").select(PRIZE_COLUMNS).order("sort_order").order("id");
+  const { data, error } = await client.from("undian_prizes").select(PRIZE_COLUMNS).eq("event_id", eventId).order("sort_order").order("id");
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   const prizes = ((data ?? []) as Record<string, unknown>[]).map(normalizePrize);
-  const counts = await winnerCounts();
-  const pending = await pendingCounts();
+  const counts = await winnerCounts(eventId);
+  const pending = await pendingCounts(eventId);
 
   // Nama sesi aktif ikut dikirim. Badge "Penuh" tanpa menyebut sesinya terbaca
   // sebagai "hadiah ini habis selamanya", dan itulah tafsir yang membuat orang
@@ -168,6 +170,7 @@ export async function GET(request: Request) {
   const { data: activeSession } = await client
     .from("undian_sessions")
     .select("id,name")
+    .eq("event_id", eventId)
     .eq("status", "active")
     .maybeSingle();
 
@@ -178,7 +181,7 @@ export async function GET(request: Request) {
   const pools: Record<number, { eligible: number; candidates: number; tickets: number }> = {};
   if (withPool) {
     for (const prize of prizes) {
-      const result = await buildPool(prize);
+      const result = await buildPool(eventId, prize);
       if ("error" in result) continue;
       pools[prize.id] = {
         eligible: result.eligible_count,
