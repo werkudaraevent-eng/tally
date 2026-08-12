@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeSessionSummary } from "@/lib/undian";
 
@@ -21,12 +22,13 @@ const createSchema = z.object({
   note: z.string().trim().max(300).nullable().optional(),
 });
 
-export async function GET() {
-  const auth = await requireUser(["admin"]);
+export async function GET(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
+  const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
-  const { data, error } = await client.rpc("undian_session_summary" as never);
+  const { data, error } = await client.rpc("undian_session_summary" as never, { p_event_id: eventId } as never);
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   // Pemenang yang belum bersesi dihitung terpisah.

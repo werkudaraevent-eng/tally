@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { hasInvalidLeaf, isTrulyEmpty, matchesConditions, normalizeConditions, type ParticipantPoolRow } from "@/lib/undian";
 import { groupSchema } from "../route";
@@ -30,13 +30,13 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
-  const { data, error } = await getSupabaseServiceClient().rpc("undian_participant_pool" as never);
+  const { data, error } = await getSupabaseServiceClient().rpc("undian_participant_pool" as never, { p_event_id: auth.scope.event.id } as never);
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   const rows = (data ?? []) as ParticipantPoolRow[];

@@ -41,7 +41,7 @@ export async function PATCH(request: Request) {
   // sekaligus supaya tidak hilang diam-diam.
   let autoSettled = 0;
   if (parsed.data.cashier_confirmation_required === false && current.cashier_confirmation_required) {
-    const { data: settleResult } = await client.rpc("settle_pending_orders_without_cashier" as never, { p_user_id: auth.user.id } as never);
+    const { data: settleResult } = await client.rpc("settle_pending_orders_without_cashier" as never, { p_event_id: auth.scope.event.id, p_user_id: auth.user.id } as never);
     autoSettled = (settleResult as { settled?: number } | null)?.settled ?? 0;
   }
 
