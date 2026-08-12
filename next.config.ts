@@ -1,14 +1,17 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  async rewrites() {
-    return [
-      // Halaman lama dipakai ulang; browser tetap menampilkan /e/<slug>/...
-      // dan slug diteruskan sebagai query untuk Server Components.
-      { source: "/e/:eventSlug/api/:path*", destination: "/api/:path*?eventSlug=:eventSlug" },
-      { source: "/e/:eventSlug/:path*", destination: "/:path*?eventSlug=:eventSlug" },
-    ];
-  },
-};
+// Rewrite untuk URL ber-scope event (`/e/<slug>/...`) TIDAK ditaruh di sini.
+//
+// Awalnya dicoba lewat `rewrites()`, dan DIUKUR gagal meneruskan slug:
+// `/e/<slug-ngawur>/api/leaderboard` tetap membalas 200 sementara
+// `?eventSlug=<ngawur>` langsung membalas 404 — query pada destination rewrite
+// tidak pernah sampai ke route handler, sehingga handler jatuh ke event aktif
+// tunggal dan slug di URL diabaikan. Dua varian pola (`:path+`, lalu destination
+// `:path*`) memberi hasil sama.
+//
+// Mekanismenya dipindah ke `src/proxy.ts`: proxy berjalan lebih dulu, tujuannya
+// dapat dipastikan, dan satu mekanisme lebih mudah dipertanggungjawabkan
+// daripada dua lapisan yang saling menimpa.
+const nextConfig: NextConfig = {};
 
 export default nextConfig;
