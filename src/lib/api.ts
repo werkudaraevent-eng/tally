@@ -65,6 +65,12 @@ const messages: Record<ApiErrorCode, string> = {
   UNDIAN_SESSION_ACTIVE: "Masih ada sesi yang berjalan. Tutup dulu sebelum memulai sesi baru.",
   UNDIAN_SESSION_CLOSED: "Sesi ini sudah ditutup.",
   UNDIAN_NO_ACTIVE_SESSION: "Belum ada sesi undian yang dimulai.",
+  REGISTRATION_CLOSED: "Pendaftaran untuk acara ini sedang ditutup.",
+  // Menyebut "sudah terdaftar" dan bukan "email dipakai": pendaftar yang lupa
+  // pernah mengisi form akan mengira ada orang lain memakai emailnya.
+  REGISTRATION_DUPLICATE_EMAIL: "Email ini sudah terdaftar untuk acara ini. Periksa kotak masuk Anda; bila tidak ada, hubungi panitia.",
+  REGISTRATION_NOT_FOUND: "Pendaftaran tidak ditemukan.",
+  REGISTRATION_ALREADY_REVIEWED: "Pendaftaran ini sudah diproses admin lain. Muat ulang daftarnya.",
   INTERNAL_ERROR: "Terjadi kesalahan server. Coba lagi.",
 };
 
@@ -113,6 +119,13 @@ export function mapDatabaseError(error: { code?: string; message?: string }) {
   // memindahkan penawaran bawaan booth.
   if (message.includes("OFFER_SCOPE_LOCKED_BUILTIN")) return "OFFER_SCOPE_LOCKED_BUILTIN" as const;
   if (message.includes("ORDER_TOTAL_MISMATCH")) return "ORDER_TOTAL_MISMATCH" as const;
+  // Diperiksa SEBELUM cabang 23505 di bawah, yang memetakan setiap pelanggaran
+  // unik ke DISCOUNT_ALREADY_TAKEN — pendaftar yang emailnya bentrok akan
+  // membaca "sudah mengambil item diskon di booth ini" tanpa cabang ini.
+  if (message.includes("event_registrations_email_unique")) return "REGISTRATION_DUPLICATE_EMAIL" as const;
+  if (message.includes("REGISTRATION_CLOSED")) return "REGISTRATION_CLOSED" as const;
+  if (message.includes("REGISTRATION_ALREADY_REVIEWED")) return "REGISTRATION_ALREADY_REVIEWED" as const;
+  if (message.includes("REGISTRATION_NOT_FOUND")) return "REGISTRATION_NOT_FOUND" as const;
   // Postgres 22003 = numeric_value_out_of_range. Muncul ketika `regular_amount`
   // ditambah harga item spesial melampaui int4, jadi nominalnya sendiri lolos
   // validasi tetapi jumlahnya tidak. Tanpa cabang ini pesannya jatuh ke
