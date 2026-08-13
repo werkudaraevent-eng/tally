@@ -1,8 +1,8 @@
 # Status Multi-Event — Prima Hub
 
 Terakhir diperbarui: **2026-08-13**
-Branch: `feat/multi-event-foundation` (33 commit di depan `main`, **BELUM di-merge, BELUM di-deploy**)
-Commit terakhir: `feat(events): UI kelola hak akses user per event`
+Branch: `feat/multi-event-foundation` (34 commit di depan `main`, **BELUM di-merge, BELUM di-deploy**)
+Commit terakhir: `fix(events): lengkapi event_id audit dan wajibkan eventId booth aktif`
 
 ---
 
@@ -85,6 +85,10 @@ dijalankan ke DB produksi).
 - UI akses diuji sampai jalur TULIS di event draft: `user_event_access`
   15 → 16 → 15, event produksi tetap 15 baris, order tetap 225. Tiga penolakan
   benar: booth event lain 404, peran booth tanpa booth 422, `super_admin` 422
+- 51 insert `audit_logs` ditelusuri satu per satu: 44 sudah benar, 1 bolong
+  (`leaderboard_exclusions` POST) sudah ditambal. Sisa 6 memang lintas event
+  (`payment_methods`, `users`, unggah aset display) — tabelnya global, tidak
+  punya `event_id`, jadi mengisinya justru berbohong
 - `npm run typecheck` + `npm run lint` bersih
 
 ---
@@ -104,14 +108,6 @@ berubah**. Akibat yang sudah terjadi: sinkronisasi peserta mati sejak
 `events.registration_enabled` + `participant_source in (manual, public_form,
 hybrid)` sudah ada di skema, halamannya belum dibuat. Kolom nama/email/telepon
 wajib NOT NULL (bukan konfigurasi form) — lihat catatan arsitektur.
-
-### P4 — `audit_logs.event_id` di ± 25 insert
-Kolomnya nullable, jadi baris tetap tercatat tapi **tidak terlihat** di tampilan
-audit yang difilter event. Salah tampil, bukan salah tulis.
-
-### P5 — `loadActiveBoothCodes(eventId?)` jadikan wajib
-Parameter opsional = pemanggil yang lupa lolos build lalu diam-diam memakai
-event yang salah.
 
 ### P6 — Bersihkan event uji
 `uji-duplikat-dari-ui` masih ada (sudah diturunkan ke `draft`, jadi aman).

@@ -145,6 +145,7 @@ export async function POST(request: Request) {
   }
 
   await client.from("audit_logs").insert({
+    event_id: auth.scope.event.id,
     action: "leaderboard_exclusion_create",
     user_id: auth.user.id,
     payload: { old: null, new: data },
