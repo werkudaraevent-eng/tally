@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDots, CopySimple, Plus, SignOut, Storefront } from "@phosphor-icons/react";
+import { CalendarDots, CopySimple, Plus, SignOut, Storefront, UsersThree } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import type { EventRow, ParticipantSource } from "@/lib/domain";
@@ -171,6 +171,7 @@ export default function EventsPage() {
               onClick={() => { setDuplicating(item); setError(""); setNotice(""); }}
               className="flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold disabled:opacity-50"
             ><CopySimple size={16} /> Duplikat</button>
+            <Link href={`/events/${item.id}/access`} className="flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold"><UsersThree size={16} /> Hak akses</Link>
           </div>
         </article>)}
       </section>}
