@@ -40,6 +40,13 @@ const CONFIRM_TEXT: Partial<Record<Action, string>> = {
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventRow[]>([]);
+  // Membuat, mengubah status, menduplikasi, dan mengatur hak akses event adalah
+  // kewenangan super_admin saja -- keempat endpoint-nya memakai
+  // requireUser(["super_admin"]). Halaman ini dulu menampilkannya ke semua role,
+  // padahal login mendorong booth dan kasir ke sini juga: mereka melihat empat
+  // tombol yang pasti membalas 403. Tombol yang selalu gagal terbaca sebagai
+  // sistem rusak, bukan sebagai batas kewenangan.
+  const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -54,6 +61,9 @@ export default function EventsPage() {
   }
 
   async function load() {
+    void fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (r) => { if (r.ok) setIsOwner((await r.json()).user?.role === "super_admin"); })
+      .catch(() => null);
     const response = await fetch("/api/events").catch(() => null);
     if (!response) { setError("Koneksi gagal. Muat ulang halaman."); setLoading(false); return; }
     if (response.status === 401) { window.location.href = "/login"; return; }
@@ -145,7 +155,7 @@ export default function EventsPage() {
     <div className="mx-auto max-w-[1200px]">
       <header className="flex flex-wrap items-end justify-between gap-5 border-b border-[var(--line)] pb-6">
         <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand)]">Tally workspace</p><h1 className="mt-2 text-4xl font-semibold tracking-[-0.05em]">Pilih event.</h1><p className="mt-2 text-sm text-[var(--ink-muted)]">Setiap event punya transaksi, peserta, booth, display, dan konfigurasi terpisah.</p></div>
-        <div className="flex gap-2"><button onClick={() => setCreating(true)} className="flex min-h-11 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-semibold text-white"><Plus size={18} weight="bold" /> Buat event</button><button type="button" onClick={() => void logout()} className="flex min-h-11 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold"><SignOut size={18} /> Keluar</button></div>
+        <div className="flex gap-2">{isOwner && <button onClick={() => setCreating(true)} className="flex min-h-11 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-semibold text-white"><Plus size={18} weight="bold" /> Buat event</button>}<button type="button" onClick={() => void logout()} className="flex min-h-11 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold"><SignOut size={18} /> Keluar</button></div>
       </header>
 
       {error && <p role="alert" className="mt-5 border border-[var(--danger)]/30 bg-[var(--danger)]/5 p-4 text-sm font-medium text-[var(--danger)]">{error}</p>}
@@ -157,7 +167,7 @@ export default function EventsPage() {
           <p className="mt-2 text-sm text-[var(--ink-muted)]">{item.event_date ? new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeZone: item.time_zone }).format(new Date(`${item.event_date}T12:00:00Z`)) : "Tanggal belum ditentukan"}</p>
           <Link href={`/e/${item.slug}`} className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--brand)]">Buka workspace →</Link>
 
-          <div className="mt-6 flex flex-wrap gap-2 border-t border-[var(--line)] pt-4">
+          {isOwner && <div className="mt-6 flex flex-wrap gap-2 border-t border-[var(--line)] pt-4">
             {ACTIONS[item.status].map((entry) => <button
               key={entry.action}
               type="button"
@@ -172,7 +182,7 @@ export default function EventsPage() {
               className="flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold disabled:opacity-50"
             ><CopySimple size={16} /> Duplikat</button>
             <Link href={`/events/${item.id}/access`} className="flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold"><UsersThree size={16} /> Hak akses</Link>
-          </div>
+          </div>}
         </article>)}
       </section>}
     </div>
