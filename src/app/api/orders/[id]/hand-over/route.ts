@@ -16,7 +16,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { data: order } = await getSupabaseServiceClient().from("orders").select("booth_id").eq("event_id", event.id).eq("id", params.data.id).maybeSingle() as { data: { booth_id: number } | null };
   const boleh = order && (role === "admin" || role === "super_admin" || (role === "booth" && boothId === order.booth_id));
   if (!boleh) return apiError("FORBIDDEN", 403);
-  const { data, error } = await getSupabaseServiceClient().rpc("hand_over_order_transaction" as never, { p_order_id: params.data.id, p_user_id: auth.user.id } as never);
+  const { data, error } = await getSupabaseServiceClient().rpc("hand_over_order_transaction" as never, { p_event_id: event.id, p_order_id: params.data.id, p_user_id: auth.user.id } as never);
   if (error) return apiError(mapDatabaseError(error), 409);
   return Response.json({ order: data });
 }

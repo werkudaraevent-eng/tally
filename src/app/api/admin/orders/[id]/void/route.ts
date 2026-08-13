@@ -76,6 +76,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   const { data, error } = await client.rpc("void_order_transaction" as never, {
+    p_event_id: eventId,
     p_order_id: params.data.id,
     p_reason: body.data.reason,
     p_user_id: auth.user.id,

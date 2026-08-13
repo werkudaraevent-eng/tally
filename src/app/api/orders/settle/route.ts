@@ -33,6 +33,7 @@ export async function POST(request: Request) {
   }
 
   const { data, error } = await client.rpc("settle_orders_transaction" as never, {
+    p_event_id: auth.scope.event.id,
     p_order_ids: parsed.data.order_ids,
     p_payment_method: parsed.data.payment_method,
     p_approval_code: parsed.data.approval_code ?? null,

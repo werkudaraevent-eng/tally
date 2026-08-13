@@ -32,6 +32,7 @@ export async function POST(request: Request) {
   if (!booth) return apiError("BOOTH_NOT_FOUND", 404);
   if (!participant) return apiError("PARTICIPANT_NOT_FOUND", 404);
   const { data, error } = await client.rpc("create_order_transaction" as never, {
+    p_event_id: auth.scope.event.id,
     p_code: parsed.data.order_code,
     p_participant_id: parsed.data.participant_id,
     p_booth_id: parsed.data.booth_id,

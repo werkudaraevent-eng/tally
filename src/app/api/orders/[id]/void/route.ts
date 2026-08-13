@@ -27,6 +27,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!owned) return apiError("ORDER_NOT_VOIDABLE", 404, { reason: "Order tidak ada di event ini." });
 
   const { data, error } = await client.rpc("void_order_transaction" as never, {
+    p_event_id: event.id,
     p_order_id: params.data.id,
     p_reason: body.data.reason,
     p_user_id: auth.user.id,
