@@ -1,6 +1,6 @@
 "use client";
 
-import { ArmchairIcon, CalendarDots, ChartBar, ClipboardText, GearSix, Gift, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UsersThree } from "@phosphor-icons/react";
+import { ArmchairIcon, CalendarDots, ChartBar, ClipboardText, GearSix, Gift, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UserPlus, UsersThree } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,6 +10,7 @@ const navigation = [
   { href: "/admin/orders", label: "Orders", icon: ListChecks, ownerOnly: false },
   { href: "/admin/reports", label: "Reports", icon: Receipt, ownerOnly: false },
   { href: "/admin/participants", label: "Peserta", icon: UsersThree, ownerOnly: false },
+  { href: "/admin/registrasi", label: "Registrasi publik", icon: UserPlus, ownerOnly: false },
   { href: "/admin/booths", label: "Booth & item", icon: Storefront, ownerOnly: false },
   { href: "/admin/offers", label: "Item spesial", icon: Tag, ownerOnly: false },
   { href: "/admin/users", label: "User & role", icon: ShieldCheck, ownerOnly: false },

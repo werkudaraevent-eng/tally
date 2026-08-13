@@ -25,7 +25,6 @@ export default async function DaftarPage({
 
   const config = event.registration_form_config ?? {};
   return <DaftarClient
-    eventSlug={event.slug}
     eventName={event.name}
     eventDate={event.event_date}
     timeZone={event.time_zone}

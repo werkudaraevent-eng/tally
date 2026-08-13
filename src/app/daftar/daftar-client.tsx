@@ -3,10 +3,10 @@
 import { CheckCircle, Hourglass } from "@phosphor-icons/react";
 import { useState, type FormEvent } from "react";
 import type { RegistrationField } from "@/lib/domain";
+import { eventApiPath } from "@/lib/event-url";
 import type { EventTimeZone } from "@/lib/timezone";
 
 type Props = {
-  eventSlug: string;
   eventName: string;
   eventDate: string | null;
   timeZone: EventTimeZone;
@@ -39,13 +39,12 @@ export default function DaftarClient(props: Props) {
       if (typeof value === "string" && value.trim()) extra[field.key] = value.trim();
     }
 
-    // Slug DITULIS EKSPLISIT di query, bukan diandalkan datang dari proxy.
-    // `src/proxy.ts` memang menambahkan `?eventSlug=` dari Referer, tetapi
-    // parameter yang DITAMBAHKAN saat rewrite tidak pernah sampai ke route
-    // handler -- itu jebakan yang sudah tercatat, dan di sini akibatnya terukur:
-    // pendaftaran dari /e/<slug>/daftar jatuh ke "event aktif tunggal", yaitu
-    // event PRODUKSI, bukan event yang alamatnya sedang dibuka.
-    const response = await fetch(`/api/registrasi?eventSlug=${encodeURIComponent(props.eventSlug)}`, {
+    // Slug WAJIB ikut di path. `src/proxy.ts` memang menambahkan `?eventSlug=`
+    // dari Referer, tetapi parameter yang DITAMBAHKAN saat rewrite tidak pernah
+    // sampai ke route handler -- itu jebakan yang sudah tercatat, dan di sini
+    // akibatnya terukur: pendaftaran dari /e/<slug>/daftar jatuh ke "event aktif
+    // tunggal", yaitu event PRODUKSI, bukan event yang alamatnya sedang dibuka.
+    const response = await fetch(eventApiPath("/api/registrasi"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
