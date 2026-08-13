@@ -89,10 +89,11 @@ function toRow(order: OrderRow) {
   ];
 }
 
-export async function loadExportRows() {
+export async function loadExportRows(eventId: string) {
   const { data, error } = await getSupabaseServiceClient()
     .from("orders")
     .select("code,created_at,booth_id,participant_id,has_discount_item,regular_amount,total_amount,status,payment_method,approval_code,paid_by,booths(code,name),participants(name,company),order_special_items(price_at_claim,special_offers(name))")
+    .eq("event_id", eventId)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return ((data ?? []) as unknown as OrderRow[]).map(toRow);

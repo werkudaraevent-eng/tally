@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
+import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { normalizeSeatLabel } from "@/lib/seat-map";
 import { loadAssignmentsForSession, loadSeatMapConfig, loadSessions, resolveSession } from "@/lib/seat-map-data";
 import { searchConfirmationLabel } from "@/lib/seat-map-privacy";
@@ -33,13 +34,17 @@ export async function GET(request: Request) {
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
+  const event = await getPublicRequestEvent(request);
+  if (!event) return apiError("INTERNAL_ERROR", 404);
+  const eventId = event.id;
+
   try {
     // Pemilihan agenda harus mengikuti aturan yang sama dengan /api/seat-map.
     // Kalau berbeda, tamu bisa mencari nama di agenda yang tidak sedang tampil
     // dan mendapat nomor kursi milik sesi lain.
     const [config, sessions] = await Promise.all([
-      loadSeatMapConfig(),
-      loadSessions({ publishedOnly: true }),
+      loadSeatMapConfig(eventId),
+      loadSessions(eventId, { publishedOnly: true }),
     ]);
     if (sessions.length === 0) return apiError("SEAT_MAP_SESSION_UNPUBLISHED", 404);
 
@@ -50,7 +55,7 @@ export async function GET(request: Request) {
     if (!session) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
 
     const needle = parsed.data.q.toLowerCase();
-    const { assignments } = await loadAssignmentsForSession(session.sub_event_id);
+    const { assignments } = await loadAssignmentsForSession(eventId, session.sub_event_id);
 
     // Satu orang bisa memegang lebih dari satu kursi; dikelompokkan per orang
     // supaya tamu melihat satu hasil dengan daftar kursinya, bukan hasil ganda.

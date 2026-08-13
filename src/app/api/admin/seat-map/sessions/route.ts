@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_FONTS, SCALE_MAX, SCALE_MIN, type BrandingFont } from "@/lib/branding";
 import { SESSION_COLUMNS } from "@/lib/seat-map-data";
@@ -118,9 +118,13 @@ function toSlug(name: string) {
  * bukan pesan "slug sudah dipakai" yang harus dia perbaiki sendiri. Unique index
  * di database tetap menjadi jaring pengaman terakhir.
  */
-async function uniqueSlug(desired: string) {
+async function uniqueSlug(eventId: string, desired: string) {
   const client = getSupabaseServiceClient();
-  const { data } = await client.from("seat_map_sessions").select("slug");
+  // Difilter per event karena slug kini unik PER EVENT (index
+  // seat_map_sessions_slug_event_unique). Memeriksa seluruh event membuat slug
+  // diberi angka tambahan tanpa alasan: "makan-siang" di event baru akan jadi
+  // "makan-siang-2" hanya karena event lain memakainya, padahal tidak bentrok.
+  const { data } = await client.from("seat_map_sessions").select("slug").eq("event_id", eventId);
   const taken = new Set(((data ?? []) as { slug: string }[]).map((row) => row.slug));
   if (!taken.has(desired)) return desired;
   for (let suffix = 2; suffix < 100; suffix += 1) {
@@ -132,8 +136,9 @@ async function uniqueSlug(desired: string) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
@@ -150,15 +155,28 @@ export async function POST(request: Request) {
   const { data: last } = await client
     .from("seat_map_sessions")
     .select("sort_order")
+    .eq("event_id", eventId)
     .order("sort_order", { ascending: false })
     .limit(1)
     .maybeSingle();
   const nextOrder = Math.min(999, (((last as { sort_order: number } | null)?.sort_order ?? 0) + 1));
 
+  // Peta milik event ini. Dibaca SEKALI ke variabel: FK komposit
+  // seat_map_sessions_map_same_event menolak peta milik event lain, dan tanpa
+  // nilai ini agenda tidak terhubung ke peta mana pun.
+  const { data: mapRow } = await client
+    .from("seat_maps")
+    .select("id")
+    .eq("event_id", eventId)
+    .maybeSingle();
+  const seatMapId = (mapRow as { id: number } | null)?.id ?? null;
+
   const { data, error } = await client
     .from("seat_map_sessions")
     .insert({
-      slug: await uniqueSlug(requested),
+      event_id: eventId,
+      seat_map_id: seatMapId,
+      slug: await uniqueSlug(eventId, requested),
       name: parsed.data.name,
       // Judul di halaman publik ikut nama bila belum diisi: admin bisa langsung
       // menyimpan lalu memperbaikinya, tanpa dipaksa mengisi dua kolom serupa.
@@ -185,6 +203,7 @@ export async function POST(request: Request) {
   if (error) return apiError(error.code === "23505" ? "DUPLICATE_SEAT_MAP_SLUG" : "INTERNAL_ERROR", error.code === "23505" ? 422 : 500);
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "seat_map_session_create",
     payload: { new: data },
@@ -193,8 +212,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const parsed = updateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
@@ -202,7 +222,7 @@ export async function PATCH(request: Request) {
   if (Object.keys(changes).length === 0) return apiError("VALIDATION_ERROR", 422);
 
   const client = getSupabaseServiceClient();
-  const { data: current } = await client.from("seat_map_sessions").select(SESSION_COLUMNS).eq("id", id).maybeSingle();
+  const { data: current } = await client.from("seat_map_sessions").select(SESSION_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   if (!current) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
 
   const { data, error } = await client
@@ -219,12 +239,14 @@ export async function PATCH(request: Request) {
       updated_at: new Date().toISOString(),
       updated_by: auth.user.id,
     } as never)
+    .eq("event_id", eventId)
     .eq("id", id)
     .select(SESSION_COLUMNS)
     .single();
   if (error) return apiError(error.code === "23505" ? "DUPLICATE_SEAT_MAP_SLUG" : "INTERNAL_ERROR", error.code === "23505" ? 422 : 500);
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "seat_map_session_update",
     payload: { old: current, new: data },
@@ -233,8 +255,9 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const parsed = deleteSchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
@@ -243,11 +266,12 @@ export async function DELETE(request: Request) {
   const { data: current } = await client
     .from("seat_map_sessions")
     .select(SESSION_COLUMNS)
+    .eq("event_id", eventId)
     .eq("id", parsed.data.id)
     .maybeSingle();
   if (!current) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
 
-  const { error } = await client.from("seat_map_sessions").delete().eq("id", parsed.data.id);
+  const { error } = await client.from("seat_map_sessions").delete().eq("event_id", eventId).eq("id", parsed.data.id);
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   // Isi baris lama disimpan utuh di audit. Menghapus agenda hanya membuang
@@ -255,6 +279,7 @@ export async function DELETE(request: Request) {
   // penempatan tersimpan di scanner API, bukan di sini. Jadi agenda yang
   // terhapus bisa dibuat ulang dan langsung terisi kembali.
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "seat_map_session_delete",
     payload: { old: current },

@@ -1,3 +1,4 @@
+import { getPublicPageEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, DEFAULT_BRANDING, normalizeBranding, type Branding } from "@/lib/branding";
 import type { UndianState } from "@/lib/undian";
@@ -51,12 +52,12 @@ const DEFAULT_STATE: UndianState & { branding: Branding } = {
   updated_at: new Date().toISOString(),
 };
 
-async function loadInitial(): Promise<UndianState & { branding: Branding }> {
+async function loadInitial(eventId: string): Promise<UndianState & { branding: Branding }> {
   try {
     const { data, error } = await getSupabaseServiceClient()
       .from("undian_settings")
       .select(SETTINGS_ROW)
-      .eq("id", 1)
+      .eq("event_id", eventId)
       .maybeSingle();
     if (error || !data) return DEFAULT_STATE;
     const raw = data as Record<string, unknown>;
@@ -83,6 +84,11 @@ async function loadInitial(): Promise<UndianState & { branding: Branding }> {
   }
 }
 
-export default async function UndianPage() {
-  return <UndianClient initial={await loadInitial()} />;
+export default async function UndianPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const event = await getPublicPageEvent(searchParams);
+  return <UndianClient initial={event ? await loadInitial(event.id) : DEFAULT_STATE} />;
 }

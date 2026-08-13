@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { getPublicRequestEvent, requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, BRANDING_FONTS, SCALE_MAX, SCALE_MIN, type BrandingFont } from "@/lib/branding";
 import { loadActiveBoothCodes } from "@/lib/display-booths";
@@ -50,16 +50,18 @@ const patchSchema = z.object({
 });
 
 // Public read: the Live Display runs without a logged-in operator.
-export async function GET() {
+export async function GET(request: Request) {
+  const event = await getPublicRequestEvent(request);
+  if (!event) return apiError("INTERNAL_ERROR", 404);
   const client = getSupabaseServiceClient();
   // Zona acara ikut dikirim di endpoint ini, bukan lewat prop dari server page:
   // Live Display menyegarkan dirinya dari sini tiap beberapa detik, jadi zona
   // yang diubah admin saat acara berjalan langsung ikut terpakai tanpa perlu
   // ada yang memuat ulang layar di panggung.
   const [displayResult, settingsResult, boothCodes] = await Promise.all([
-    client.from("display_settings").select(SELECT).eq("id", 1).single(),
-    client.from("event_settings").select("time_zone").eq("id", 1).maybeSingle(),
-    loadActiveBoothCodes(),
+    client.from("display_settings").select(SELECT).eq("event_id", event.id).single(),
+    client.from("event_settings").select("time_zone").eq("event_id", event.id).maybeSingle(),
+    loadActiveBoothCodes(event.id),
   ]);
   if (displayResult.error) return apiError("INTERNAL_ERROR", 500);
   // Cast diperlukan karena proyek ini tidak memakai tipe hasil generate Supabase,
@@ -82,12 +84,12 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
   const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success || Object.keys(parsed.data).length === 0) return apiError("VALIDATION_ERROR", 422, parsed.success ? undefined : parsed.error.flatten());
   const client = getSupabaseServiceClient();
-  const { data: current } = await client.from("display_settings").select("*").eq("id", 1).single();
+  const { data: current } = await client.from("display_settings").select("*").eq("event_id", auth.scope.event.id).single();
   const { data, error } = await client.from("display_settings").update({
     ...parsed.data,
     // String kosong dari form berarti "tidak dipakai", bukan teks kosong yang
@@ -95,8 +97,8 @@ export async function PATCH(request: Request) {
     ...(parsed.data.footer_text !== undefined ? { footer_text: parsed.data.footer_text?.trim() || null } : {}),
     updated_at: new Date().toISOString(),
     updated_by: auth.user.id,
-  } as never).eq("id", 1).select(SELECT).single();
+  } as never).eq("event_id", auth.scope.event.id).select(SELECT).single();
   if (error) return apiError("INTERNAL_ERROR", 500);
-  await client.from("audit_logs").insert({ user_id: auth.user.id, action: "display_settings_update", payload: { old: current, new: data } } as never);
+  await client.from("audit_logs").insert({ event_id: auth.scope.event.id, user_id: auth.user.id, action: "display_settings_update", payload: { old: current, new: data } } as never);
   return Response.json(data);
 }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const querySchema = z.object({
@@ -10,18 +10,20 @@ const querySchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const auth = await requireUser(["booth", "admin"]);
+  const auth = await requireRequestEvent(request, ["booth", "admin"]);
   if (auth.response) return auth.response;
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
-  if (auth.user.role === "booth" && auth.user.booth_id !== parsed.data.boothId) return apiError("FORBIDDEN", 403);
+  if (auth.scope.role === "booth" && auth.scope.boothId !== parsed.data.boothId) return apiError("FORBIDDEN", 403);
 
+  const eventId = auth.scope.event.id;
     const pattern = `%${parsed.data.q.replace(/[%_,]/g, " ")}%`;
   // Peserta yang sudah dihapus di sumber tidak muncul di pencarian agar staf
   // booth tidak membuat order untuk nama yang sudah dibatalkan panitia pusat.
   const { data, error } = await getSupabaseServiceClient()
     .from("participants")
     .select("id,qr_code,name,company,title")
+    .eq("event_id", eventId)
     .is("source_removed_at", null)
     .or(`name.ilike.${pattern},company.ilike.${pattern}`)
     .order("name", { ascending: true })
@@ -30,11 +32,11 @@ export async function GET(request: Request) {
   const participants = (data ?? []) as Array<{ id: string; qr_code: string; name: string; company: string | null; title: string | null }>;
   const participantIds = participants.map((participant) => participant.id);
 
-  const { data: boothRow } = await getSupabaseServiceClient().from("booths").select("discount_enabled,discount_limit_per_participant,discount_item_stock").eq("id", parsed.data.boothId).single() as { data: { discount_enabled: boolean; discount_limit_per_participant: number; discount_item_stock: number | null } | null };
+  const { data: boothRow } = await getSupabaseServiceClient().from("booths").select("discount_enabled,discount_limit_per_participant,discount_item_stock").eq("event_id", eventId).eq("id", parsed.data.boothId).single() as { data: { discount_enabled: boolean; discount_limit_per_participant: number; discount_item_stock: number | null } | null };
   const boothOffersDiscount = Boolean(boothRow?.discount_enabled) && (boothRow?.discount_limit_per_participant ?? 0) > 0 && (boothRow?.discount_item_stock === null || (boothRow?.discount_item_stock ?? 0) > 0);
   const limit = boothRow?.discount_limit_per_participant ?? 0;
 
-  const { data: claims } = participantIds.length ? await getSupabaseServiceClient().from("orders").select("participant_id").in("participant_id", participantIds).eq("booth_id", parsed.data.boothId).eq("has_discount_item", true).neq("status", "void") : { data: [] as Array<{ participant_id: string }> };
+  const { data: claims } = participantIds.length ? await getSupabaseServiceClient().from("orders").select("participant_id").eq("event_id", eventId).in("participant_id", participantIds).eq("booth_id", parsed.data.boothId).eq("has_discount_item", true).neq("status", "void") : { data: [] as Array<{ participant_id: string }> };
   const claimCount = new Map<string, number>();
   for (const claim of claims ?? []) claimCount.set(claim.participant_id, (claimCount.get(claim.participant_id) ?? 0) + 1);
   return Response.json({ participants: participants.map((participant) => ({ ...participant, discount_available: boothOffersDiscount && (claimCount.get(participant.id) ?? 0) < limit })) });

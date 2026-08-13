@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { drawWinners, normalizePrize, shuffle, type Candidate, type UndianPrize } from "@/lib/undian";
 import { buildPool } from "@/lib/undian-pool";
@@ -84,31 +84,33 @@ const postSchema = z.object({
   reason: z.string().trim().max(200).optional(),
 });
 
-async function loadState(): Promise<StateRow | null> {
+async function loadState(eventId: string): Promise<StateRow | null> {
   const client = getSupabaseServiceClient();
-  const { data } = await client.from("undian_state").select(ROW).eq("id", 1).maybeSingle();
+  const { data } = await client.from("undian_state").select(ROW).eq("event_id", eventId).maybeSingle();
   if (data) return data as StateRow;
-  // Baris singleton dibuat migrasi, tapi bila hilang ia dipasang ulang di sini
-  // alih-alih menolak permintaan. Halaman ini dipakai di atas panggung: "baris
-  // tidak ditemukan" pada saat itu tidak bisa ditindaklanjuti siapa pun.
-  const inserted = await client.from("undian_state").insert({ id: 1 } as never).select(ROW).single();
+  // Baris state dibuat saat event dibuat, tapi bila hilang ia dipasang ulang di
+  // sini alih-alih menolak permintaan. Halaman ini dipakai di atas panggung:
+  // "baris tidak ditemukan" pada saat itu tidak bisa ditindaklanjuti siapa pun.
+  // `id` TIDAK ditulis tangan lagi — kini satu baris per event dengan id sequence.
+  const inserted = await client.from("undian_state").insert({ event_id: eventId } as never).select(ROW).single();
   return (inserted.data as StateRow | null) ?? null;
 }
 
-async function loadPrize(id: number): Promise<UndianPrize | null> {
-  const { data } = await getSupabaseServiceClient().from("undian_prizes").select(PRIZE_COLUMNS).eq("id", id).maybeSingle();
+async function loadPrize(eventId: string, id: number): Promise<UndianPrize | null> {
+  const { data } = await getSupabaseServiceClient().from("undian_prizes").select(PRIZE_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   return data ? normalizePrize(data as Record<string, unknown>) : null;
 }
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const parsed = postSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const client = getSupabaseServiceClient();
-  const state = await loadState();
+  const state = await loadState(eventId);
   if (!state) return apiError("INTERNAL_ERROR", 500);
 
   const now = new Date();
@@ -125,9 +127,9 @@ export async function POST(request: Request) {
       const patch = parsed.data.mode === "off"
         ? { mode: "off", phase: "idle", pending: null, pool: null, pool_frozen_at: null, pool_size: 0, spin_started_at: null, reveal_at: null, ...stamp }
         : { mode: "live", ...stamp };
-      const { error } = await client.from("undian_state").update(patch as never).eq("id", 1);
+      const { error } = await client.from("undian_state").update(patch as never).eq("event_id", eventId);
       if (error) return apiError("INTERNAL_ERROR", 500);
-      await audit(auth.user.id, "undian_mode_change", { old: { mode: state.mode }, new: { mode: parsed.data.mode } });
+      await audit(eventId, auth.user.id, "undian_mode_change", { old: { mode: state.mode }, new: { mode: parsed.data.mode } });
       break;
     }
 
@@ -156,9 +158,9 @@ export async function POST(request: Request) {
           reveal_at: null,
           ...stamp,
         } as never)
-        .eq("id", 1);
+        .eq("event_id", eventId);
       if (error) return apiError("INTERNAL_ERROR", 500);
-      await audit(auth.user.id, parsed.data.on ? "undian_rehearsal_on" : "undian_rehearsal_off", {
+      await audit(eventId, auth.user.id, parsed.data.on ? "undian_rehearsal_on" : "undian_rehearsal_off", {
         old: { rehearsal: state.rehearsal },
         new: { rehearsal: parsed.data.on },
       });
@@ -168,14 +170,14 @@ export async function POST(request: Request) {
     // -----------------------------------------------------------------------
     case "select": {
       const prizeId = parsed.data.prize_id ?? null;
-      if (prizeId !== null && !(await loadPrize(prizeId))) return apiError("UNDIAN_PRIZE_NOT_FOUND", 404);
+      if (prizeId !== null && !(await loadPrize(eventId, prizeId))) return apiError("UNDIAN_PRIZE_NOT_FOUND", 404);
       // Berganti hadiah selalu mengembalikan layar ke keadaan diam. Membawa
       // pemenang hadiah sebelumnya ke tampilan hadiah baru akan menampilkan nama
       // yang benar di bawah hadiah yang salah.
       const { error } = await client
         .from("undian_state")
         .update({ active_prize_id: prizeId, phase: "idle", pending: null, pool: null, pool_frozen_at: null, pool_size: 0, spin_started_at: null, reveal_at: null, ...stamp } as never)
-        .eq("id", 1);
+        .eq("event_id", eventId);
       if (error) return apiError("INTERNAL_ERROR", 500);
       break;
     }
@@ -184,7 +186,7 @@ export async function POST(request: Request) {
     case "draw": {
       const prizeId = parsed.data.prize_id ?? state.active_prize_id;
       if (!prizeId) return apiError("UNDIAN_NO_ACTIVE_PRIZE", 422);
-      const prize = await loadPrize(prizeId);
+      const prize = await loadPrize(eventId, prizeId);
       if (!prize) return apiError("UNDIAN_PRIZE_NOT_FOUND", 404);
 
       // Tombol ganda saat gugup adalah hal biasa di atas panggung. Tanpa penjaga
@@ -206,6 +208,7 @@ export async function POST(request: Request) {
       const { data: activeSession } = await client
         .from("undian_sessions")
         .select("id")
+        .eq("event_id", eventId)
         .eq("status", "active")
         .maybeSingle();
       const sessionId = (activeSession as { id: number } | null)?.id ?? null;
@@ -225,6 +228,7 @@ export async function POST(request: Request) {
         let quotaQuery = client
           .from("undian_winners")
           .select("id", { count: "exact", head: true })
+          .eq("event_id", eventId)
           .eq("prize_id", prizeId)
           .eq("is_backup", false)
           .neq("status", "rejected");
@@ -236,7 +240,7 @@ export async function POST(request: Request) {
         if (confirmed >= prize.winner_quota) return apiError("UNDIAN_QUOTA_REACHED", 409);
       }
 
-      const pool = await buildPool(prize);
+      const pool = await buildPool(eventId, prize);
       if ("error" in pool) return apiError("INTERNAL_ERROR", 500);
       if (pool.candidates.length === 0) return apiError("UNDIAN_POOL_EMPTY", 409);
 
@@ -281,7 +285,7 @@ export async function POST(request: Request) {
       }));
 
       const spinMs = Math.round(prize.spin_seconds * 1000);
-      const { data: settings } = await client.from("undian_settings").select("reveal_delay_seconds").eq("id", 1).maybeSingle();
+      const { data: settings } = await client.from("undian_settings").select("reveal_delay_seconds").eq("event_id", eventId).maybeSingle();
       const delayMs = Math.round(Number((settings as { reveal_delay_seconds?: number } | null)?.reveal_delay_seconds ?? 0) * 1000);
 
       // Pemenang dicatat SEKARANG, sebelum state diperbarui.
@@ -315,6 +319,7 @@ export async function POST(request: Request) {
           .from("undian_winners")
           .insert(
             pending.winners.map((winner) => ({
+              event_id: eventId,
               prize_id: prizeId,
               session_id: sessionId,
               draw_round: round,
@@ -349,10 +354,10 @@ export async function POST(request: Request) {
           session_id: sessionId,
           ...stamp,
         } as never)
-        .eq("id", 1);
+        .eq("event_id", eventId);
       if (error) return apiError("INTERNAL_ERROR", 500);
 
-      await audit(auth.user.id, "undian_draw", {
+      await audit(eventId, auth.user.id, "undian_draw", {
         old: null,
         new: {
           prize: prize.name, draw_round: round, session_id: sessionId,
@@ -376,7 +381,7 @@ export async function POST(request: Request) {
       const { error } = await client
         .from("undian_state")
         .update({ phase: "revealed", reveal_at: now.toISOString(), ...stamp } as never)
-        .eq("id", 1);
+        .eq("event_id", eventId);
       if (error) return apiError("INTERNAL_ERROR", 500);
       break;
     }
@@ -387,6 +392,7 @@ export async function POST(request: Request) {
       const { data: winner } = await client
         .from("undian_winners")
         .select("id,prize_id,display_name,status")
+        .eq("event_id", eventId)
         .eq("id", parsed.data.winner_id)
         .maybeSingle();
       if (!winner) return apiError("UNDIAN_WINNER_NOT_FOUND", 404);
@@ -404,10 +410,11 @@ export async function POST(request: Request) {
           decided_at: now.toISOString(),
           decided_by: auth.user.id,
         } as never)
+        .eq("event_id", eventId)
         .eq("id", current.id);
       if (error) return apiError("INTERNAL_ERROR", 500);
 
-      await audit(auth.user.id, parsed.data.status === "confirmed" ? "undian_winner_confirm" : "undian_winner_reject", {
+      await audit(eventId, auth.user.id, parsed.data.status === "confirmed" ? "undian_winner_confirm" : "undian_winner_reject", {
         old: { name: current.display_name, status: "pending" },
         new: { name: current.display_name, status: parsed.data.status, reason: parsed.data.reason ?? null },
       });
@@ -422,9 +429,9 @@ export async function POST(request: Request) {
       const { error } = await client
         .from("undian_state")
         .update({ phase: "idle", pending: null, pool: null, pool_frozen_at: null, pool_size: 0, spin_started_at: null, reveal_at: null, ...stamp } as never)
-        .eq("id", 1);
+        .eq("event_id", eventId);
       if (error) return apiError("INTERNAL_ERROR", 500);
-      await audit(auth.user.id, "undian_reset", { old: { phase: state.phase, draw_round: state.draw_round }, new: { phase: "idle" } });
+      await audit(eventId, auth.user.id, "undian_reset", { old: { phase: state.phase, draw_round: state.draw_round }, new: { phase: "idle" } });
       break;
     }
 
@@ -444,7 +451,7 @@ export async function POST(request: Request) {
       // kemudian, dan itu tidak mungkin bila barisnya dibuang.
       const prizeId = parsed.data.prize_id ?? state.active_prize_id;
       if (!prizeId) return apiError("UNDIAN_NO_ACTIVE_PRIZE", 422);
-      const prize = await loadPrize(prizeId);
+      const prize = await loadPrize(eventId, prizeId);
       if (!prize) return apiError("UNDIAN_PRIZE_NOT_FOUND", 404);
 
       // Menolak di tengah animasi akan membatalkan pemenang yang rodanya masih
@@ -456,6 +463,7 @@ export async function POST(request: Request) {
       const { data: activeSession } = await client
         .from("undian_sessions")
         .select("id")
+        .eq("event_id", eventId)
         .eq("status", "active")
         .maybeSingle();
       const sessionId = (activeSession as { id: number } | null)?.id ?? null;
@@ -469,6 +477,7 @@ export async function POST(request: Request) {
       let targetQuery = client
         .from("undian_winners")
         .select("id,display_name")
+        .eq("event_id", eventId)
         .eq("prize_id", prizeId)
         .eq("status", "pending");
       targetQuery = sessionId === null
@@ -488,6 +497,7 @@ export async function POST(request: Request) {
       const { error } = await client
         .from("undian_winners")
         .update({ status: "rejected", reject_reason: reason, decided_at: now.toISOString(), decided_by: auth.user.id } as never)
+        .eq("event_id", eventId)
         .in("id", rows.map((row) => row.id));
       if (error) return apiError("INTERNAL_ERROR", 500);
 
@@ -496,10 +506,10 @@ export async function POST(request: Request) {
       const { error: stateError } = await client
         .from("undian_state")
         .update({ phase: "idle", pending: null, pool: null, pool_frozen_at: null, pool_size: 0, spin_started_at: null, reveal_at: null, ...stamp } as never)
-        .eq("id", 1);
+        .eq("event_id", eventId);
       if (stateError) return apiError("INTERNAL_ERROR", 500);
 
-      await audit(auth.user.id, "undian_redraw", {
+      await audit(eventId, auth.user.id, "undian_redraw", {
         old: { prize: prize.name, session_id: sessionId, cancelled: rows.map((row) => row.display_name) },
         new: { reason, count: rows.length },
       });
@@ -510,6 +520,6 @@ export async function POST(request: Request) {
   return Response.json({ ok: true });
 }
 
-async function audit(userId: string, action: string, payload: unknown) {
-  await getSupabaseServiceClient().from("audit_logs").insert({ user_id: userId, action, payload } as never);
+async function audit(eventId: string, userId: string, action: string, payload: unknown) {
+  await getSupabaseServiceClient().from("audit_logs").insert({ event_id: eventId, user_id: userId, action, payload } as never);
 }

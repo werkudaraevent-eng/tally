@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
+import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { computeSeatMapGeometry, normalizeSeatLabel } from "@/lib/seat-map";
 import { loadAssignmentsForSession, loadSeatMapConfig, loadSessions, resolveSession } from "@/lib/seat-map-data";
@@ -18,12 +19,16 @@ export async function GET(request: Request) {
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
+  const event = await getPublicRequestEvent(request);
+  if (!event) return apiError("INTERNAL_ERROR", 404);
+  const eventId = event.id;
+
   try {
     // Konfigurasi dibaca lebih dulu karena agenda bawaan tersimpan di sana, dan
     // pilihan agenda menentukan penempatan mana yang perlu diambil.
     const [config, sessions] = await Promise.all([
-      loadSeatMapConfig(),
-      loadSessions({ publishedOnly: true }),
+      loadSeatMapConfig(eventId),
+      loadSessions(eventId, { publishedOnly: true }),
     ]);
 
     if (sessions.length === 0) {
@@ -43,8 +48,8 @@ export async function GET(request: Request) {
       // permintaan kedua: halaman /denah publik sehingga tidak bisa memakai
       // /api/settings yang butuh login, dan jam "terakhir dimuat" di sana harus
       // memakai zona acara.
-      getSupabaseServiceClient().from("event_settings").select("name_display_mode,time_zone").eq("id", 1).single(),
-      loadAssignmentsForSession(session.sub_event_id),
+      getSupabaseServiceClient().from("event_settings").select("name_display_mode,time_zone").eq("event_id", eventId).single(),
+      loadAssignmentsForSession(eventId, session.sub_event_id),
     ]);
 
     const settingsRow = settingsResult.data as { name_display_mode?: NameDisplayMode; time_zone?: string } | null;

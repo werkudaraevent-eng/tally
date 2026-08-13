@@ -25,16 +25,24 @@ const pageSchema = z.object({
 
 export type ExternalParticipant = z.infer<typeof participantSchema>;
 
-function getConfig() {
+/**
+ * `slugOverride` berasal dari `events.scanner_api_event_slug`.
+ *
+ * Env var `SCANNER_API_EVENT_SLUG` dipertahankan HANYA sebagai cadangan untuk
+ * event pertama: satu deploy kini melayani banyak event, dan satu env var tidak
+ * bisa menunjuk lebih dari satu slug. Base URL dan kunci API tetap dari env
+ * karena keduanya milik integrasinya, bukan milik salah satu event.
+ */
+function getConfig(slugOverride?: string | null) {
   const baseUrl = process.env.SCANNER_API_BASE_URL?.replace(/\/$/, "");
-  const slug = process.env.SCANNER_API_EVENT_SLUG;
+  const slug = slugOverride?.trim() || process.env.SCANNER_API_EVENT_SLUG;
   const key = process.env.SCANNER_API_KEY;
   if (!baseUrl || !slug || !key) throw new Error("External scanner API environment variables are missing.");
   return { baseUrl, slug, key };
 }
 
-export async function fetchExternalParticipants() {
-  const { baseUrl, slug, key } = getConfig();
+export async function fetchExternalParticipants(slugOverride?: string | null) {
+  const { baseUrl, slug, key } = getConfig(slugOverride);
   const participants: ExternalParticipant[] = [];
   const limit = 200;
   let offset = 0;

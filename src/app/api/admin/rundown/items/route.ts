@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { ITEM_COLUMNS, toDbTime } from "@/lib/rundown";
 
@@ -83,8 +83,9 @@ function invalidRange(start: string, end: string | null | undefined) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
@@ -93,9 +94,12 @@ export async function POST(request: Request) {
   }
 
   const client = getSupabaseServiceClient();
+  // Bagian induk WAJIB milik event ini. Tanpa filter, admin event A dapat
+  // menyisipkan baris ke rundown event B hanya dengan menebak section_id.
   const { data: section } = await client
     .from("rundown_sections")
     .select("id")
+    .eq("event_id", eventId)
     .eq("id", parsed.data.section_id)
     .maybeSingle();
   if (!section) return apiError("RUNDOWN_SECTION_NOT_FOUND", 404);
@@ -107,6 +111,7 @@ export async function POST(request: Request) {
   const { data: last } = await client
     .from("rundown_items")
     .select("sort_order")
+    .eq("event_id", eventId)
     .eq("section_id", parsed.data.section_id)
     .order("sort_order", { ascending: false })
     .limit(1)
@@ -116,6 +121,7 @@ export async function POST(request: Request) {
   const { data, error } = await client
     .from("rundown_items")
     .insert({
+      event_id: eventId,
       section_id: parsed.data.section_id,
       start_time: toDbTime(parsed.data.start_time),
       end_time: parsed.data.end_time ? toDbTime(parsed.data.end_time) : null,
@@ -135,6 +141,7 @@ export async function POST(request: Request) {
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "rundown_item_create",
     payload: { new: data },
@@ -143,8 +150,9 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const parsed = updateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
@@ -152,7 +160,7 @@ export async function PATCH(request: Request) {
   if (Object.keys(changes).length === 0) return apiError("VALIDATION_ERROR", 422);
 
   const client = getSupabaseServiceClient();
-  const { data: current } = await client.from("rundown_items").select(ITEM_COLUMNS).eq("id", id).maybeSingle();
+  const { data: current } = await client.from("rundown_items").select(ITEM_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   if (!current) return apiError("RUNDOWN_ITEM_NOT_FOUND", 404);
 
   const row = current as { start_time: string; end_time: string | null };
@@ -177,12 +185,14 @@ export async function PATCH(request: Request) {
       updated_at: new Date().toISOString(),
       updated_by: auth.user.id,
     } as never)
+    .eq("event_id", eventId)
     .eq("id", id)
     .select(ITEM_COLUMNS)
     .single();
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "rundown_item_update",
     payload: { old: current, new: data },
@@ -191,8 +201,9 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const parsed = deleteSchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
@@ -201,14 +212,16 @@ export async function DELETE(request: Request) {
   const { data: current } = await client
     .from("rundown_items")
     .select(ITEM_COLUMNS)
+    .eq("event_id", eventId)
     .eq("id", parsed.data.id)
     .maybeSingle();
   if (!current) return apiError("RUNDOWN_ITEM_NOT_FOUND", 404);
 
-  const { error } = await client.from("rundown_items").delete().eq("id", parsed.data.id);
+  const { error } = await client.from("rundown_items").delete().eq("event_id", eventId).eq("id", parsed.data.id);
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "rundown_item_delete",
     payload: { old: current },

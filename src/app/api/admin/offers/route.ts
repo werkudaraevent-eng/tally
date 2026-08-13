@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const SELECT = "id,code,name,price,stock,scope,booth_id,max_per_participant,conditions,counts_toward_leaderboard,is_active,sort_order,is_builtin";
@@ -79,16 +79,17 @@ const updateSchema = z.object({
 
 // Booth dan kasir ikut membaca daftar ini untuk menampilkan penawaran yang berlaku.
 // Operasi tulis tetap admin saja.
-export async function GET() {
-  const auth = await requireUser(["admin", "booth", "cashier"]);
+export async function GET(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin", "booth", "cashier"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
-  const { data, error } = await client.from("special_offers").select(SELECT).order("sort_order", { ascending: true });
+  const { data, error } = await client.from("special_offers").select(SELECT).eq("event_id", eventId).order("sort_order", { ascending: true });
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   // Jumlah klaim per penawaran: admin perlu tahu mana yang sudah terpakai sebelum
   // mengubah atau menghapusnya.
-  const { data: claims } = await client.from("order_special_items").select("offer_id") as { data: Array<{ offer_id: number }> | null };
+  const { data: claims } = await client.from("order_special_items").select("offer_id").eq("event_id", eventId) as { data: Array<{ offer_id: number }> | null };
   const claimCount = new Map<number, number>();
   for (const claim of claims ?? []) claimCount.set(claim.offer_id, (claimCount.get(claim.offer_id) ?? 0) + 1);
 
@@ -98,8 +99,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
@@ -113,7 +115,16 @@ export async function POST(request: Request) {
   }
 
   const client = getSupabaseServiceClient();
+
+  // Booth harus milik event ini. FK komposit juga menolaknya, tetapi galat
+  // constraint mentah tidak menjelaskan apa pun kepada admin.
+  if (parsed.data.scope === "per_booth" && parsed.data.booth_id) {
+    const { data: booth } = await client.from("booths").select("id").eq("event_id", eventId).eq("id", parsed.data.booth_id).maybeSingle();
+    if (!booth) return apiError("BOOTH_NOT_FOUND", 404);
+  }
+
   const { data, error } = await client.from("special_offers").insert({
+    event_id: eventId,
     code: parsed.data.code,
     name: parsed.data.name,
     price: parsed.data.price,
@@ -129,20 +140,23 @@ export async function POST(request: Request) {
   } as never).select(SELECT).single();
   if (error) return apiError(error.code === "23505" ? "DUPLICATE_OFFER_CODE" : mapDatabaseError(error), 422);
 
-  await client.from("audit_logs").insert({ user_id: auth.user.id, action: "special_offer_create", payload: { new: data } } as never);
+  await client.from("audit_logs").insert({ event_id: eventId, user_id: auth.user.id, action: "special_offer_create", payload: { new: data } } as never);
   return Response.json(data, { status: 201 });
 }
 
 export async function PATCH(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
   const parsed = updateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   const { id, ...changes } = parsed.data;
   if (Object.keys(changes).length === 0) return apiError("VALIDATION_ERROR", 422);
 
   const client = getSupabaseServiceClient();
-  const { data: current } = await client.from("special_offers").select(SELECT).eq("id", id).maybeSingle() as { data: { is_builtin: boolean; price: number; scope: string; booth_id: number | null } | null };
+  // Filter event ikut di pencarian: penawaran event lain tidak akan ditemukan,
+  // jadi tidak perlu pemeriksaan kepemilikan terpisah yang bisa terlupa.
+  const { data: current } = await client.from("special_offers").select(SELECT).eq("event_id", eventId).eq("id", id).maybeSingle() as { data: { is_builtin: boolean; price: number; scope: string; booth_id: number | null } | null };
   if (!current) return apiError("OFFER_NOT_FOUND", 404);
 
   const wantsScopeChange = (changes.scope !== undefined && changes.scope !== current.scope)
@@ -157,20 +171,25 @@ export async function PATCH(request: Request) {
     // Klaim yang sudah ada dicatat terhadap cakupan saat itu. Mengubah cakupan
     // setelah ada klaim membuat laporan menyatakan aturan yang tidak pernah
     // berlaku saat transaksi terjadi.
-    const { count } = await client.from("order_special_items").select("id", { count: "exact", head: true }).eq("offer_id", id);
+    const { count } = await client.from("order_special_items").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("offer_id", id);
     if ((count ?? 0) > 0) return apiError("OFFER_SCOPE_LOCKED_CLAIMED", 422);
   }
 
   const nextScope = changes.scope ?? current.scope;
-  if (nextScope === "per_booth" && !(changes.booth_id ?? current.booth_id)) {
+  const nextBoothId = changes.booth_id ?? current.booth_id;
+  if (nextScope === "per_booth" && !nextBoothId) {
     return apiError("VALIDATION_ERROR", 422, { message: "Penawaran per booth harus memilih booth." });
+  }
+  if (nextScope === "per_booth" && nextBoothId && changes.booth_id !== undefined) {
+    const { data: booth } = await client.from("booths").select("id").eq("event_id", eventId).eq("id", nextBoothId).maybeSingle();
+    if (!booth) return apiError("BOOTH_NOT_FOUND", 404);
   }
 
   const { data, error } = await client.from("special_offers").update({
     ...changes,
     // Global tidak boleh menyimpan booth_id; constraint database menolaknya.
     ...(changes.scope !== undefined ? { booth_id: changes.scope === "global" ? null : (changes.booth_id ?? current.booth_id) } : {}),
-  } as never).eq("id", id).select(SELECT).single();
+  } as never).eq("event_id", eventId).eq("id", id).select(SELECT).single();
   if (error) return apiError(mapDatabaseError(error), 422);
 
   // Penawaran builtin mencerminkan config booth; jaga agar halaman Booth tidak
@@ -183,34 +202,35 @@ export async function PATCH(request: Request) {
     if (changes.max_per_participant !== undefined) boothChanges.discount_limit_per_participant = changes.max_per_participant;
     if (changes.is_active !== undefined) boothChanges.discount_enabled = changes.is_active;
     if (Object.keys(boothChanges).length > 0) {
-      await client.from("booths").update(boothChanges as never).eq("id", (data as { booth_id: number }).booth_id);
+      await client.from("booths").update(boothChanges as never).eq("event_id", eventId).eq("id", (data as { booth_id: number }).booth_id);
     }
   }
 
-  await client.from("audit_logs").insert({ user_id: auth.user.id, action: "special_offer_update", payload: { old: current, new: data } } as never);
+  await client.from("audit_logs").insert({ event_id: eventId, user_id: auth.user.id, action: "special_offer_update", payload: { old: current, new: data } } as never);
   return Response.json(data);
 }
 
 export async function DELETE(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
   const id = Number(new URL(request.url).searchParams.get("id"));
   if (!Number.isInteger(id) || id <= 0) return apiError("VALIDATION_ERROR", 422);
 
   const client = getSupabaseServiceClient();
-  const { data: current } = await client.from("special_offers").select(SELECT).eq("id", id).maybeSingle() as { data: { is_builtin: boolean; name: string } | null };
+  const { data: current } = await client.from("special_offers").select(SELECT).eq("event_id", eventId).eq("id", id).maybeSingle() as { data: { is_builtin: boolean; name: string } | null };
   if (!current) return apiError("OFFER_NOT_FOUND", 404);
   // Builtin terikat config booth; dinonaktifkan saja, jangan dihapus.
   if (current.is_builtin) return apiError("OFFER_BUILTIN", 422);
 
   // Penawaran yang sudah diklaim harus tetap ada, kalau tidak laporan kehilangan
   // referensi harga. FK on delete restrict juga menolak; ini agar pesannya jelas.
-  const { count } = await client.from("order_special_items").select("id", { count: "exact", head: true }).eq("offer_id", id);
+  const { count } = await client.from("order_special_items").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("offer_id", id);
   if ((count ?? 0) > 0) return apiError("OFFER_IN_USE", 422);
 
-  const { error } = await client.from("special_offers").delete().eq("id", id);
+  const { error } = await client.from("special_offers").delete().eq("event_id", eventId).eq("id", id);
   if (error) return apiError(mapDatabaseError(error), 422);
 
-  await client.from("audit_logs").insert({ user_id: auth.user.id, action: "special_offer_delete", payload: { old: current } } as never);
+  await client.from("audit_logs").insert({ event_id: eventId, user_id: auth.user.id, action: "special_offer_delete", payload: { old: current } } as never);
   return Response.json({ deleted: id });
 }

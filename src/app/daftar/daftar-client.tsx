@@ -1,0 +1,159 @@
+"use client";
+
+import { CheckCircle, Hourglass } from "@phosphor-icons/react";
+import { useState, type FormEvent } from "react";
+import type { RegistrationField } from "@/lib/domain";
+import { eventApiPath } from "@/lib/event-url";
+import type { EventTimeZone } from "@/lib/timezone";
+
+type Props = {
+  eventName: string;
+  eventDate: string | null;
+  timeZone: EventTimeZone;
+  fields: RegistrationField[];
+  welcomeText: string | null;
+  successText: string | null;
+  requireCompany: boolean;
+  requireJobTitle: boolean;
+};
+
+type Hasil = { status: string; qr_code: string | null };
+
+const input = "mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-4 text-base";
+const label = "mt-5 block text-sm font-semibold";
+
+export default function DaftarClient(props: Props) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [hasil, setHasil] = useState<Hasil | null>(null);
+
+  async function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    setPending(true);
+    setError("");
+
+    const extra: Record<string, string> = {};
+    for (const field of props.fields) {
+      const value = form.get(`extra.${field.key}`);
+      if (typeof value === "string" && value.trim()) extra[field.key] = value.trim();
+    }
+
+    // Slug WAJIB ikut di path. `src/proxy.ts` memang menambahkan `?eventSlug=`
+    // dari Referer, tetapi parameter yang DITAMBAHKAN saat rewrite tidak pernah
+    // sampai ke route handler -- itu jebakan yang sudah tercatat, dan di sini
+    // akibatnya terukur: pendaftaran dari /e/<slug>/daftar jatuh ke "event aktif
+    // tunggal", yaitu event PRODUKSI, bukan event yang alamatnya sedang dibuka.
+    const response = await fetch(eventApiPath("/api/registrasi"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: form.get("name"), email: form.get("email"), phone: form.get("phone"),
+        company: form.get("company") || null, job_title: form.get("job_title") || null,
+        extra,
+      }),
+    }).catch(() => null);
+    setPending(false);
+
+    // POST yang tidak berbalas mungkin SUDAH tersimpan. Menyuruh "coba lagi"
+    // berarti menyuruh mendaftar dua kali; yang kedua akan ditolak sebagai email
+    // duplikat dan pendaftar mengira pendaftarannya gagal seluruhnya.
+    if (!response) {
+      setError("Koneksi terputus. Pendaftaran Anda mungkin sudah tersimpan — periksa email sebelum mengisi ulang.");
+      return;
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(body.error?.details?.message ?? body.error?.message ?? "Pendaftaran gagal. Coba lagi.");
+      return;
+    }
+    setHasil(body);
+  }
+
+  if (hasil) {
+    const disetujui = hasil.status === "approved" && hasil.qr_code;
+    return <Bingkai nama={props.eventName} tanggal={props.eventDate} zona={props.timeZone}>
+      <div className="text-center">
+        {disetujui
+          ? <CheckCircle size={56} weight="fill" className="mx-auto text-[var(--brand)]" />
+          : <Hourglass size={56} className="mx-auto text-[var(--ink-muted)]" />}
+        <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em]">
+          {disetujui ? "Pendaftaran berhasil" : "Pendaftaran diterima"}
+        </h2>
+        {/* TIDAK menjanjikan email: pengirimannya belum ada. Menjanjikannya
+            membuat pendaftar menutup halaman ini tanpa menyimpan kodenya, lalu
+            menunggu email yang tidak akan pernah datang -- dan baru sadar di
+            meja registrasi, saat antrean sudah panjang. */}
+        <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">
+          {props.successText ?? (disetujui
+            ? "Simpan kode di bawah ini. Tunjukkan kode itu di meja registrasi saat hari acara."
+            : "Panitia akan memeriksa pendaftaran Anda, lalu menghubungi Anda lewat kontak yang diisi di atas.")}
+        </p>
+        {disetujui && <div className="mt-6 border border-[var(--line)] bg-[var(--surface-muted)] p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Kode peserta</p>
+          {/* Kode ditampilkan BESAR dan bisa disalin. Email bisa masuk spam,
+              tertunda, atau salah ketik; kode di layar adalah satu-satunya salinan
+              yang pasti sampai pada detik ini. */}
+          <p className="mt-2 select-all font-mono text-3xl font-semibold tracking-[0.1em]">{hasil.qr_code}</p>
+          <p className="mt-3 text-sm font-semibold text-[var(--danger)]">Potret layar ini sekarang. Kode tidak dikirim lewat email dan halaman ini tidak bisa dibuka lagi.</p>
+        </div>}
+      </div>
+    </Bingkai>;
+  }
+
+  return <Bingkai nama={props.eventName} tanggal={props.eventDate} zona={props.timeZone}>
+    {props.welcomeText && <p className="border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-sm leading-6">{props.welcomeText}</p>}
+    <form onSubmit={submit} noValidate={false}>
+      <label className={label}>Nama lengkap
+        <input required minLength={2} maxLength={120} name="name" autoComplete="name" className={input} />
+      </label>
+      <label className={label}>Email
+        <input required type="email" maxLength={160} name="email" autoComplete="email" inputMode="email" className={input} />
+        <span className="mt-2 block text-sm font-normal text-[var(--ink-muted)]">Dipakai panitia untuk menghubungi Anda. Satu email hanya bisa mendaftar sekali.</span>
+      </label>
+      <label className={label}>Nomor telepon
+        <input required type="tel" minLength={6} maxLength={30} name="phone" autoComplete="tel" inputMode="tel" className={input} />
+      </label>
+      <label className={label}>Perusahaan {!props.requireCompany && <span className="font-normal text-[var(--ink-muted)]">(opsional)</span>}
+        <input required={props.requireCompany} maxLength={160} name="company" autoComplete="organization" className={input} />
+      </label>
+      <label className={label}>Jabatan {!props.requireJobTitle && <span className="font-normal text-[var(--ink-muted)]">(opsional)</span>}
+        <input required={props.requireJobTitle} maxLength={160} name="job_title" autoComplete="organization-title" className={input} />
+      </label>
+
+      {props.fields.map((field) => <label key={field.key} className={label}>
+        {field.label} {!field.required && <span className="font-normal text-[var(--ink-muted)]">(opsional)</span>}
+        {field.type === "textarea"
+          ? <textarea required={field.required} maxLength={2000} rows={3} name={`extra.${field.key}`} placeholder={field.placeholder} className="mt-2 w-full border border-[var(--line)] bg-[var(--background)] p-4 text-base" />
+          : field.type === "select"
+            ? <select required={field.required} name={`extra.${field.key}`} defaultValue="" className={input}>
+                <option value="" disabled>Pilih…</option>
+                {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            : <input required={field.required} type={field.type} maxLength={2000} name={`extra.${field.key}`} placeholder={field.placeholder} className={input} />}
+        {field.help_text && <span className="mt-2 block text-sm font-normal text-[var(--ink-muted)]">{field.help_text}</span>}
+      </label>)}
+
+      {error && <p role="alert" className="mt-6 border border-[var(--danger)]/30 bg-[var(--danger)]/5 p-4 text-sm font-medium text-[var(--danger)]">{error}</p>}
+
+      <button disabled={pending} className="mt-7 min-h-12 w-full bg-[var(--brand)] px-5 font-semibold text-white disabled:opacity-50">
+        {pending ? "Mengirim…" : "Daftar sekarang"}
+      </button>
+    </form>
+  </Bingkai>;
+}
+
+function Bingkai({ nama, tanggal, zona, children }: { nama: string; tanggal: string | null; zona: EventTimeZone; children: React.ReactNode }) {
+  return <main className="min-h-dvh bg-[var(--background)] px-5 py-10 text-[var(--ink)]">
+    <div className="mx-auto w-full max-w-lg">
+      <header className="border-b border-[var(--line)] pb-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand)]">Pendaftaran peserta</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">{nama}</h1>
+        {tanggal && <p className="mt-2 text-sm text-[var(--ink-muted)]">
+          {new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone: zona }).format(new Date(`${tanggal}T12:00:00Z`))}
+        </p>}
+      </header>
+      <div className="mt-7 border border-[var(--line)] bg-[var(--surface)] p-6 sm:p-8">{children}</div>
+    </div>
+  </main>;
+}

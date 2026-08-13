@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Kategori aksi. participant_sync dipisah sendiri karena cron menambah ~4 baris
@@ -80,16 +80,23 @@ export async function GET(request: Request) {
   // super_admin saja: log ini merekam tindakan klien. Kalau klien dapat
   // membacanya, catatan itu kehilangan nilainya sebagai bukti netral saat ada
   // perselisihan siapa mengubah apa.
-  const auth = await requireUser(["super_admin"]);
+  const auth = await requireRequestEvent(request, ["super_admin"]);
   if (auth.response) return auth.response;
 
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const client = getSupabaseServiceClient();
+  // Jejak audit difilter per event. Tanpa ini satu layar audit memuat tindakan
+  // dari seluruh acara, dan pertanyaan "siapa mengubah apa di acara ini" tidak
+  // bisa dijawab tanpa menebak baris mana milik acara mana.
+  //
+  // Baris ber-event_id NULL (aksi tingkat sistem: kelola user, buat event) memang
+  // TIDAK muncul di sini. Itu benar: keduanya bukan tindakan di dalam acara.
   let query = client
     .from("audit_logs")
     .select("id,action,payload,created_at,user_id,order_id", { count: "exact" })
+    .eq("event_id", auth.scope.event.id)
     .order("created_at", { ascending: false })
     .range(parsed.data.offset, parsed.data.offset + parsed.data.limit - 1);
 

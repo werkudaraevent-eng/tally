@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Worksheet } from "exceljs";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { WINNER_STATUS_LABEL } from "@/lib/undian";
 import { buildPrizeRecap, buildTimeline, loadWinners } from "@/lib/undian-results";
@@ -25,19 +25,20 @@ const querySchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   const sessionId = parsed.success ? parsed.data.session ?? null : null;
 
   try {
     const client = getSupabaseServiceClient();
-    const winners = await loadWinners(sessionId);
+    const winners = await loadWinners(eventId, sessionId);
 
     let sessionName = "Semua sesi";
     if (sessionId !== null) {
-      const { data } = await client.from("undian_sessions").select("name").eq("id", sessionId).maybeSingle();
+      const { data } = await client.from("undian_sessions").select("name").eq("event_id", eventId).eq("id", sessionId).maybeSingle();
       sessionName = (data as { name?: string } | null)?.name ?? `Sesi ${sessionId}`;
     }
 

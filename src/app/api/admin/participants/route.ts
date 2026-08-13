@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Whitelist kolom sort. Nama kolom TIDAK BOLEH diambil langsung dari query
@@ -23,11 +23,12 @@ const querySchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
+  const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
 
   // Admin tetap melihat peserta bertanda source_removed_at agar bisa diaudit;
@@ -43,6 +44,7 @@ export async function GET(request: Request) {
   let query = client
     .from("participants")
     .select("id,qr_code,name,company,title,participant_type,rsvp_status,source_checked_in,source_total_scans,source_synced_at,source_removed_at,seats", { count: "exact" })
+    .eq("event_id", eventId)
     .order(SORTABLE[parsed.data.sort], { ascending: parsed.data.dir === "asc", nullsFirst: false })
     .order("name", { ascending: true })
     .range(parsed.data.offset, parsed.data.offset + parsed.data.limit - 1);
@@ -50,8 +52,8 @@ export async function GET(request: Request) {
 
   const [result, removed, latest] = await Promise.all([
     query,
-    client.from("participants").select("id", { count: "exact", head: true }).not("source_removed_at", "is", null),
-    client.from("participants").select("source_synced_at").order("source_synced_at", { ascending: false }).limit(1).maybeSingle(),
+    client.from("participants").select("id", { count: "exact", head: true }).eq("event_id", eventId).not("source_removed_at", "is", null),
+    client.from("participants").select("source_synced_at").eq("event_id", eventId).order("source_synced_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
   if (result.error) return apiError("INTERNAL_ERROR", 500);
 

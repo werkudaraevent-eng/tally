@@ -1,3 +1,5 @@
+import { apiError } from "@/lib/api";
+import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, normalizeBranding } from "@/lib/branding";
 import type { UndianState, UndianWinner } from "@/lib/undian";
@@ -66,11 +68,14 @@ const DEFAULT_SETTINGS = {
   background_image_url: null,
 };
 
-export async function GET() {
+export async function GET(request: Request) {
+  const event = await getPublicRequestEvent(request);
+  if (!event) return apiError("INTERNAL_ERROR", 404);
+  const eventId = event.id;
   const client = getSupabaseServiceClient();
   const [stateResult, settingsResult] = await Promise.all([
-    client.from("undian_state").select(STATE_ROW).eq("id", 1).maybeSingle(),
-    client.from("undian_settings").select(SETTINGS_ROW).eq("id", 1).maybeSingle(),
+    client.from("undian_state").select(STATE_ROW).eq("event_id", eventId).maybeSingle(),
+    client.from("undian_settings").select(SETTINGS_ROW).eq("event_id", eventId).maybeSingle(),
   ]);
 
   const settingsRow = (settingsResult.data ?? {}) as Record<string, unknown>;
@@ -104,7 +109,7 @@ export async function GET() {
 
   let prize: UndianState["prize"] = null;
   if (state.active_prize_id) {
-    const { data } = await client.from("undian_prizes").select(PRIZE_ROW).eq("id", state.active_prize_id).maybeSingle();
+    const { data } = await client.from("undian_prizes").select(PRIZE_ROW).eq("event_id", eventId).eq("id", state.active_prize_id).maybeSingle();
     if (data) {
       const row = data as Record<string, unknown>;
       prize = {
@@ -179,7 +184,8 @@ export async function GET() {
     const ids = state.pending.winner_ids ?? [];
     let query = client
       .from("undian_winners")
-      .select("id,participant_id,entry_id,display_name,company,seat_label,is_backup,slot_order,status");
+      .select("id,participant_id,entry_id,display_name,company,seat_label,is_backup,slot_order,status")
+      .eq("event_id", eventId);
     query = ids.length > 0
       ? query.in("id", ids)
       // Cadangan untuk `pending` yang ditulis sebelum `winner_ids` ada. Dibatasi
@@ -224,6 +230,7 @@ export async function GET() {
     const { data: rows } = await client
       .from("undian_winners")
       .select("id,display_name,company,seat_label,is_backup,slot_order,draw_round")
+      .eq("event_id", eventId)
       .eq("prize_id", state.active_prize_id)
       .eq("status", "confirmed")
       .order("draw_round")

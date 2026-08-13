@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { SESSION_COLUMNS } from "../route";
 
@@ -33,8 +33,9 @@ const deleteSchema = z.object({
 });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
-  const auth = await requireUser(["admin"]);
+  const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const id = Number((await context.params).id);
   if (!Number.isInteger(id) || id <= 0) return apiError("VALIDATION_ERROR", 422);
@@ -55,6 +56,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const { count: pendingCount } = await client
     .from("undian_winners")
     .select("id", { count: "exact", head: true })
+    .eq("event_id", eventId)
     .eq("session_id", id)
     .eq("status", "pending");
 
@@ -67,6 +69,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       closed_by: auth.user.id,
       ...(parsed.data.note !== undefined ? { note: parsed.data.note.trim() || null } : {}),
     } as never)
+    .eq("event_id", eventId)
     .eq("id", id)
     .select(SESSION_COLUMNS)
     .single();
@@ -82,9 +85,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       spin_started_at: null, reveal_at: null,
       updated_at: now, updated_by: auth.user.id,
     } as never)
-    .eq("id", 1);
+    .eq("event_id", eventId);
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "undian_session_close",
     payload: { old: current, new: { ...(data as object), pending_winners: pendingCount ?? 0 } },
@@ -97,8 +101,9 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   // super_admin saja: menghapus catatan serah terima hadiah tidak dapat dibalik,
   // dan klien tidak membutuhkannya untuk menjalankan acara. Aturan yang sama
   // dengan /api/admin/reset.
-  const auth = await requireUser(["super_admin"]);
+  const auth = await requireRequestEvent(request, ["super_admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const id = Number((await context.params).id);
   if (!Number.isInteger(id) || id <= 0) return apiError("VALIDATION_ERROR", 422);
@@ -107,7 +112,9 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const client = getSupabaseServiceClient();
-  const { data: current } = await client.from("undian_sessions").select(SESSION_COLUMNS).eq("id", id).maybeSingle();
+  // Filter event WAJIB pada operasi yang menghapus: tanpa ini super_admin bisa
+  // memusnahkan catatan serah terima hadiah milik event lain hanya dengan id.
+  const { data: current } = await client.from("undian_sessions").select(SESSION_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   if (!current) return apiError("UNDIAN_SESSION_NOT_FOUND", 404);
 
   // Seluruh isi disalin ke audit SEBELUM dihapus.
@@ -118,19 +125,22 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   const { data: winners } = await client
     .from("undian_winners")
     .select("id,prize_id,draw_round,display_name,company,seat_label,is_backup,slot_order,status,drawn_at")
+    .eq("event_id", eventId)
     .eq("session_id", id)
     .order("drawn_at");
 
   const { error, count } = await client
     .from("undian_winners")
     .delete({ count: "exact" })
+    .eq("event_id", eventId)
     .eq("session_id", id);
   if (error) return apiError("INTERNAL_ERROR", 500);
 
-  const { error: sessionError } = await client.from("undian_sessions").delete().eq("id", id);
+  const { error: sessionError } = await client.from("undian_sessions").delete().eq("event_id", eventId).eq("id", id);
   if (sessionError) return apiError("INTERNAL_ERROR", 500);
 
   await client.from("audit_logs").insert({
+    event_id: eventId,
     user_id: auth.user.id,
     action: "undian_session_delete",
     payload: { old: { session: current, winners: winners ?? [] }, new: null },

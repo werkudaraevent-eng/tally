@@ -1,3 +1,4 @@
+import { getPublicPageEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeBranding } from "@/lib/branding";
 import { loadActiveBoothCodes } from "@/lib/display-booths";
@@ -16,7 +17,7 @@ import DisplayClient from "./display-client";
 // build, dan konfigurasinya membeku pada nilai saat build, bukan saat ditonton.
 export const dynamic = "force-dynamic";
 
-async function loadConfig(): Promise<DisplayConfig> {
+async function loadConfig(eventId: string): Promise<DisplayConfig> {
   try {
     // Dijalankan berbarengan: keduanya tidak saling bergantung, dan halaman ini
     // dirender di server pada setiap permintaan.
@@ -24,9 +25,9 @@ async function loadConfig(): Promise<DisplayConfig> {
       getSupabaseServiceClient()
         .from("display_settings")
         .select(DISPLAY_CONFIG_COLUMNS)
-        .eq("id", 1)
+        .eq("event_id", eventId)
         .single(),
-      loadActiveBoothCodes(),
+      loadActiveBoothCodes(eventId),
     ]);
     if (error || !data) return { ...DEFAULT_CONFIG, active_booth_codes: boothCodes };
     // Digabung dengan nilai bawaan agar kolom yang belum terisi di database tidak
@@ -45,6 +46,14 @@ async function loadConfig(): Promise<DisplayConfig> {
   }
 }
 
-export default async function DisplayPage() {
-  return <DisplayClient initialConfig={await loadConfig()} />;
+export default async function DisplayPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // Slug diteruskan proxy sebagai `?eventSlug=`. Tanpa event yang bisa
+  // ditentukan (mis. dua event aktif dan alamatnya tidak menyebut slug), layar
+  // tampil dengan nilai bawaan alih-alih menayangkan data event yang salah.
+  const event = await getPublicPageEvent(searchParams);
+  return <DisplayClient initialConfig={event ? await loadConfig(event.id) : DEFAULT_CONFIG} />;
 }

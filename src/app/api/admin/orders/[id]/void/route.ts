@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -43,8 +43,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   // Guard melebarkan "admin" agar mencakup super_admin, tetapi tidak sebaliknya.
   // Permintaan klien: hanya pemilik sistem yang boleh membatalkan transaksi dari
   // layar ini.
-  const auth = await requireUser(["super_admin"]);
+  const auth = await requireRequestEvent(request, ["super_admin"]);
   if (auth.response) return auth.response;
+  const eventId = auth.scope.event.id;
 
   const params = paramsSchema.safeParse(await context.params);
   if (!params.success) return apiError("VALIDATION_ERROR", 422);
@@ -62,7 +63,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   // menambah satu hanya demi ini akan menuntut pendaftaran di tiga tempat
   // (union, peta pesan, cabang mapDatabaseError) untuk perbedaan yang sudah
   // cukup dijelaskan lewat `details`.
-  const { data: before } = await client.from("orders").select("id,code,status").eq("id", params.data.id).maybeSingle();
+  // Filter event ikut di pencarian ini. Tanpa itu super_admin dapat mem-void
+  // order milik event LAIN hanya dengan menebak id: uangnya keluar dari
+  // leaderboard dan stok event tersebut, dan RPC-nya sendiri belum mengenal event.
+  const { data: before } = await client.from("orders").select("id,code,status").eq("event_id", eventId).eq("id", params.data.id).maybeSingle();
   const previous = before as { id: string; code: string; status: string } | null;
   if (!previous) {
     return apiError("ORDER_NOT_VOIDABLE", 404, { reason: ["Order tidak ditemukan. Muat ulang daftarnya."] });
@@ -72,6 +76,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   const { data, error } = await client.rpc("void_order_transaction" as never, {
+    p_event_id: eventId,
     p_order_id: params.data.id,
     p_reason: body.data.reason,
     p_user_id: auth.user.id,
@@ -90,6 +95,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   // pertanyaan "siapa yang membatalkan ini dan dari mana" tidak terjawab oleh
   // baris 'void' saja, yang bentuknya sama untuk ketiga pintu masuk.
   await client.from("audit_logs").insert({
+    event_id: eventId,
     order_id: params.data.id,
     user_id: auth.user.id,
     action: "admin_order_void",

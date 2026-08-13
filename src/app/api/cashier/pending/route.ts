@@ -1,5 +1,5 @@
 import { apiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 type PendingRow = {
@@ -12,12 +12,13 @@ type PendingRow = {
   participants: { qr_code: string; name: string; company: string | null } | null;
 };
 
-export async function GET() {
-  const auth = await requireUser(["cashier", "admin"]);
+export async function GET(request: Request) {
+  const auth = await requireRequestEvent(request, ["cashier", "admin"]);
   if (auth.response) return auth.response;
   const { data, error } = await getSupabaseServiceClient()
     .from("orders")
     .select("id,code,booth_id,total_amount,created_at,participant_id,participants(qr_code,name,company)")
+    .eq("event_id", auth.scope.event.id)
     .eq("status", "pending")
     .order("created_at", { ascending: true });
   if (error) return apiError("INTERNAL_ERROR", 500);
