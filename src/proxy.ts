@@ -17,10 +17,13 @@ import { NextResponse, type NextRequest } from "next/server";
  *    mengubah hasil, jadi pekerjaannya dipindah ke sini -- proxy berjalan lebih
  *    dulu dan tujuannya bisa dipastikan.
  *
- * 2. REFERER -- halaman lama memanggil `/api/...` absolut (88 tempat). Saat
- *    halaman itu dibuka lewat `/e/<slug>/...`, slug hanya ada di Referer.
+ * Referer TIDAK ditangani di sini. Dulu ada cabangnya, tetapi ia menempuh jalur
+ * yang sama persis (menyisipkan `?eventSlug=` saat rewrite) sehingga ikut gagal:
+ * Referer berisi slug ngawur tetap dilayani event aktif tunggal. Pembacaan
+ * Referer kini ada di eventSlugFromRequest() (src/lib/auth/request-event.ts),
+ * tempat handler benar-benar bisa melihatnya.
  *
- * Ini BUKAN otorisasi. Keduanya dapat dipalsukan; handler tetap wajib memanggil
+ * Ini BUKAN otorisasi. Slug dapat dipalsukan; handler tetap wajib memanggil
  * requireRequestEvent(), yang membaca event dari database dan memeriksa
  * user_event_access.
  */
@@ -44,20 +47,7 @@ function eventRewrite(request: NextRequest) {
     return destination;
   }
 
-  if (!pathname.startsWith("/api/")) return null;
-  const referer = request.headers.get("referer");
-  if (!referer) return null;
-  let refPath: string;
-  try {
-    refPath = new URL(referer).pathname;
-  } catch {
-    return null;
-  }
-  const fromReferer = refPath.match(/^\/e\/([^/]+)/);
-  if (!fromReferer) return null;
-  const destination = request.nextUrl.clone();
-  destination.searchParams.set("eventSlug", decodeURIComponent(fromReferer[1]));
-  return destination;
+  return null;
 }
 
 export async function proxy(request: NextRequest) {

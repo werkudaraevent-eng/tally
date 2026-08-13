@@ -9,6 +9,9 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    // Berkas *.check.ts dijalankan langsung oleh Node (ESM), yang mewajibkan
+    // ekstensi ditulis penuh. Aman dengan noEmit: tsc tidak menulis berkas apa pun.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",

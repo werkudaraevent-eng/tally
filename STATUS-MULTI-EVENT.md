@@ -1,8 +1,8 @@
 # Status Multi-Event — Prima Hub
 
 Terakhir diperbarui: **2026-08-13**
-Branch: `feat/multi-event-foundation` (38 commit di depan `main`, **BELUM di-merge, BELUM di-deploy**)
-Commit terakhir: `feat(registrasi): tampilkan kode peserta, hapus janji email`
+Branch: **sudah di-merge ke `main` dan di-push** (`807d1c3`, 38 commit)
+Commit terakhir: `fix(routing): baca slug event dari Referer di handler, bukan lewat rewrite`
 
 ---
 
@@ -16,9 +16,11 @@ bersamaan sudah diuji dan berhasil** (14/14 endpoint API + 6 halaman publik
 membalas 200 untuk kedua event, dengan data yang benar-benar terpisah).
 Pengelolaan akses user per event kini punya layarnya sendiri, jadi event hasil
 duplikat bisa dipakai operator booth dan kasir. Form registrasi publik sudah
-jalan penuh kecuali pengiriman email (ditunda atas permintaan). Yang paling
-mendesak tetap sama: **produksi masih menjalankan kode lama sementara signature
-RPC di database sudah berubah**.
+jalan penuh kecuali pengiriman email (ditunda atas permintaan). Penghalang
+terbesar sudah lepas: **`main` sudah berisi kode baru dan sudah di-push**, jadi
+signature RPC di database dan kode aplikasi kembali sejalan. Penghalang kedua
+juga lepas: slug event kini terbaca dari Referer di handler, sehingga dua event
+aktif bersamaan tidak lagi menuntut penyuntingan 129 pemanggil.
 
 ---
 
@@ -98,30 +100,57 @@ dijalankan ke DB produksi).
   auto-approve menerbitkan QR seketika, nama ter-trim + email jadi huruf kecil
 - Toggle "Buka pendaftaran" menolak event bersumber `manual` dengan pesan yang
   menyebut apa yang harus diubah, bukan galat CHECK Postgres
-- `npm run typecheck` + `npm run lint` bersih
+- `npm run build` lulus sebelum merge; `main` di-push (`6321c76..807d1c3`)
+- Slug dari Referer diuji dengan DUA event aktif sungguhan: Referer berbeda →
+  event berbeda, tanpa Referer → 404 ambigu, Referer slug ngawur → 404 (sebelum
+  perbaikan: 422, yaitu diam-diam dilayani event lain)
+- `npm run typecheck` + `npm run lint` + `npm run check` bersih
 
 ---
 
 ## 4. Yang BELUM selesai (urut prioritas)
 
-### P1 — Deploy (MENDESAK)
-Produksi menjalankan kode lama, sementara **signature RPC di database sudah
-berubah**. Akibat yang sudah terjadi: sinkronisasi peserta mati sejak
-2026-08-11 06:40 (± 2 hari). Perbaikannya ada di branch ini, belum di-deploy.
+### P1 — Deploy — SELESAI (2026-08-13)
+Produksi menjalankan kode lama sementara signature RPC di database sudah berubah;
+sinkronisasi peserta mati sejak 2026-08-11 06:40. `feat/multi-event-foundation`
+di-merge ke `main` (`807d1c3`, merge commit, riwayat 38 commit dipertahankan) dan
+di-push — Vercel men-deploy otomatis.
 
-> Sebelum deploy: pastikan hanya SATU event berstatus `active`, karena tautan
-> publik tanpa slug (`/display`, `/denah`, `/rundown`) hanya hidup saat tepat
-> satu event aktif — kalau lebih, ia membalas 404 (disengaja, bukan bug).
+Prasyarat saat merge sudah terpenuhi: tepat SATU event `active`. Ini penting
+karena tautan publik tanpa slug (`/display`, `/denah`, `/rundown`) hanya hidup
+saat tepat satu event aktif — kalau lebih, ia membalas 404 (disengaja).
 
-### P7 — 95 `fetch("/api/...")` absolut di sisi klien (BLOKIR dua event aktif)
-Ditemukan saat mengerjakan P3. Halaman klien memanggil `/api/...` tanpa slug;
-proxy menambahkannya dari Referer, dan tambahan saat rewrite tidak pernah sampai
-ke handler — permintaannya jatuh ke "event aktif tunggal". Selama hanya ada satu
-event aktif, tidak ada gejala apa pun. Dengan dua event aktif, halaman admin
-event A akan membaca dan MENULIS ke event lain.
+**Verifikasi yang tersisa untuk pengguna:** buka dasbor Vercel, pastikan deploy
+hijau, lalu cek sinkronisasi peserta jalan lagi (kolom sync terakhir bergerak).
 
-Obatnya sudah ada: bungkus dengan `eventApiPath()` (`src/lib/event-url.ts`).
-Halaman `/daftar` dan `/admin/registrasi` sudah memakainya. Lihat jebakan #2.
+### P7 — `fetch("/api/...")` absolut di sisi klien — SELESAI
+Ditemukan saat mengerjakan P3, dituntaskan 2026-08-13. Halaman klien memanggil
+`/api/...` tanpa slug; proxy menambahkannya dari Referer, dan tambahan saat
+rewrite tidak pernah sampai ke handler — permintaannya jatuh ke "event aktif
+tunggal". Dengan dua event aktif, halaman admin event A akan membaca dan MENULIS
+ke event lain.
+
+Rencana awal: bungkus 129 pemanggilan dengan `eventApiPath()`. **Tidak jadi.**
+Cabang Referer di `src/proxy.ts` ternyata KODE MATI — diukur dengan slug ngawur:
+lewat Referer tetap 422 (dilayani event aktif tunggal), lewat `?eventSlug=`
+langsung 404. Yang salah bukan pemanggilnya, melainkan tempat Referer dibaca.
+
+Perbaikannya: Referer dibaca di `eventSlugFromRequest()`
+(`src/lib/auth/event-slug.ts`), tempat handler benar-benar melihatnya; cabang
+mati di proxy dibuang. Satu perbaikan menggantikan 129 penyuntingan, dan
+pemanggil baru tidak bisa lupa memakainya.
+
+Urutan sumber slug: **query > path > referer**. Referer terakhir supaya pemanggil
+yang menyebut slug eksplisit tidak dikalahkan halaman asal, dan hanya untuk
+`/api/...` — halaman menerima slug lewat rewrite proxy.
+
+Dibuktikan dengan DUA event aktif sungguhan: Referer berbeda → event berbeda
+(satu 200 bernama event draft, satu 422 event produksi), tanpa Referer → 404
+ambigu (bukan menebak). Data uji dikembalikan setelahnya.
+
+`eventApiPath()` tetap ada dan tetap berguna untuk pemanggil yang ingin
+eksplisit; ia hanya bukan lagi satu-satunya penyelamat. Ada `npm run check` —
+9 pemeriksaan urutan prioritas, karena salah urutan gagalnya SENYAP.
 
 ### P3b — Kirim kode peserta lewat email
 Ditunda atas permintaan; belum ada dependensi email di proyek. Sampai ada,
@@ -181,17 +210,19 @@ leaderboard_exclusions).
    sampai ada event kedua aktif. Solusi sekarang: `eventSlugFromRequest()` membaca
    slug dari PATH (`/^\/e\/([^/]+)\//`).
 
-   **Sisi KLIEN masih rentan dan ini belum selesai.** Halaman yang memanggil
-   `fetch("/api/...")` absolut tidak punya slug di path sama sekali; proxy
-   menambahkannya dari Referer, dan tambahan itulah yang hilang. Terukur ulang
-   saat membuat halaman registrasi: PATCH dari `/e/<slug>/admin/registrasi`
-   mengenai event PRODUKSI, bukan event yang alamatnya sedang dibuka. Obatnya
-   sudah ada dan tinggal dipakai: `eventApiPath()` di `src/lib/event-url.ts`.
-   Selama produksi hanya punya SATU event aktif, fallback menutupi ini
-   sepenuhnya — sama seperti bug induknya, ia baru menggigit saat ada event
-   kedua. **Sebelum menjalankan dua event aktif bersamaan, audit setiap
-   `fetch("/api/` di `src/app/**` dan bungkus dengan `eventApiPath()`.**
-   Terhitung **95 pemanggilan** yang masih absolut per 2026-08-13.
+   **Sisi KLIEN sudah ditangani (2026-08-13).** Halaman yang memanggil
+   `fetch("/api/...")` absolut tidak punya slug di path; proxy menambahkannya
+   dari Referer, dan tambahan itulah yang hilang. Terukur saat membuat halaman
+   registrasi: PATCH dari `/e/<slug>/admin/registrasi` mengenai event PRODUKSI.
+   Rencana awal membungkus 129 pemanggilan dengan `eventApiPath()` DIBATALKAN
+   setelah terbukti cabang Referer di proxy adalah kode mati: Referer dibaca
+   langsung di `eventSlugFromRequest()` (`src/lib/auth/event-slug.ts`), satu
+   tempat, dan pemanggil tidak perlu diubah sama sekali.
+
+   **Pelajarannya:** saat sebuah perbaikan menuntut ratusan penyuntingan
+   seragam, curigai lapisannya dulu. Ukur mana sumber yang benar-benar sampai
+   (pakai nilai NGAWUR — kalau tetap dilayani, berarti sumber itu diabaikan)
+   sebelum menyunting satu pun pemanggil.
 
 3. **Menambah parameter berdefault = OVERLOAD, bukan mengganti.** Versi lama tanpa
    scope event tetap bisa dipanggil = pintu bocor, dan pemanggil lama jadi ambigu
@@ -240,7 +271,9 @@ leaderboard_exclusions).
 | Berkas | Peran |
 |---|---|
 | `src/proxy.ts` | middleware (Next.js 16 menamainya `proxy`, bukan `middleware`) |
-| `src/lib/auth/request-event.ts` | resolusi slug → event; baca slug dari PATH |
+| `src/lib/auth/event-slug.ts` | **sumber slug: query > path > referer** (fungsi murni) |
+| `src/lib/auth/event-slug.check.ts` | 9 pemeriksaan urutan sumber — `npm run check` |
+| `src/lib/auth/request-event.ts` | slug → event + aturan fallback satu event aktif |
 | `src/lib/auth/guards.ts` | `requireUser(roles)`, `requireRequestEvent()` |
 | `src/app/events/page.tsx` | pemilih event + aksi status + duplikat |
 | `src/app/events/[id]/access/page.tsx` | UI hak akses per event |
@@ -248,7 +281,7 @@ leaderboard_exclusions).
 | `src/app/api/events/[id]/duplicate/route.ts` | duplikat event |
 | `src/app/api/events/[id]/access/route.ts` | GET/PUT/DELETE hak akses |
 | `supabase/migrations/202608070016_duplicate_event.sql` | RPC duplikat |
-| `src/lib/event-url.ts` | `eventApiPath()` — WAJIB untuk setiap fetch dari klien |
+| `src/lib/event-url.ts` | `eventApiPath()` — opsional, untuk fetch klien yang ingin eksplisit |
 | `src/app/daftar/` | form registrasi publik |
 | `src/app/admin/registrasi/page.tsx` | moderasi + toggle pendaftaran |
 | `src/app/api/registrasi/route.ts` | endpoint publik tanpa login |
@@ -259,8 +292,9 @@ leaderboard_exclusions).
 
 ## 9. Langkah berikutnya yang disarankan
 
-1. Deploy branch ini ke produksi (P1) — sinkronisasi peserta sedang mati.
-2. Bungkus 95 fetch klien dengan `eventApiPath()` (P7) — **wajib sebelum ada dua
-   event aktif bersamaan**.
-3. Arsipkan atau hapus event uji `uji-duplikat-dari-ui` (P6).
-4. Kirim kode peserta lewat email (P3b), bila diinginkan.
+1. **Pastikan deploy Vercel hijau**, lalu cek sinkronisasi peserta hidup lagi.
+   Ini satu-satunya langkah yang tidak bisa diverifikasi dari sini.
+2. Arsipkan atau hapus event uji `uji-duplikat-dari-ui` (P6).
+3. Kirim kode peserta lewat email (P3b), bila diinginkan.
+
+P1 dan P7 sudah selesai.

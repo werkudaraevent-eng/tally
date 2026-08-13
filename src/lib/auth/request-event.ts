@@ -1,36 +1,8 @@
 import type { UserRole } from "./roles";
 import { getEventBySlugPublic, listActiveEvents, requireEventScope } from "./event-scope";
+import { eventSlugFromRequest } from "./event-slug";
 
-/**
- * Slug event dari sebuah permintaan.
- *
- * DUA sumber, dan keduanya wajib ada -- ini bukan kelebihan, melainkan hasil
- * pengukuran:
- *
- * `src/proxy.ts` me-rewrite `/e/<slug>/api/...` menjadi
- * `/api/...?eventSlug=<slug>`, dan rewrite-nya MEMANG terjadi (diverifikasi
- * lewat header penanda: `rewrite:/api/leaderboard`). Tetapi `request.url` yang
- * diterima route handler tetap URL ASLI berikut prefiks `/e/<slug>`, sehingga
- * `eventSlug` yang ditambahkan proxy tidak pernah terbaca. Query yang ditulis
- * pemanggil sendiri (`?limit=999`) sampai dengan utuh -- jadi yang hilang
- * spesifik parameter yang DITAMBAHKAN saat rewrite.
- *
- * Ini persis kegagalan yang dulu membuat `rewrites()` di next.config ditinggalkan;
- * ternyata penyebabnya bukan mekanismenya, melainkan sifat rewrite itu sendiri.
- *
- * Akibatnya kalau hanya membaca query: seluruh URL `/e/<slug>/api/...` jatuh ke
- * jalur "tanpa slug", yang hanya aman bila tepat satu event aktif. Dengan dua
- * event aktif SEMUA endpoint publik membalas 404 -- termasuk yang slug-nya sudah
- * ditulis eksplisit di URL.
- */
-export function eventSlugFromRequest(request: Request) {
-  const url = new URL(request.url);
-  const fromQuery = url.searchParams.get("eventSlug");
-  if (fromQuery) return fromQuery;
-
-  const fromPath = url.pathname.match(/^\/e\/([^/]+)\//);
-  return fromPath ? decodeURIComponent(fromPath[1]) : undefined;
-}
+export { eventSlugFromRequest };
 
 export async function requireRequestEvent(request: Request, roles?: UserRole[]) {
   const explicit = eventSlugFromRequest(request);
