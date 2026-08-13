@@ -20,6 +20,7 @@ type Row = {
   reject_reason: string | null;
   created_at: string;
   participant_id: string | null;
+  qr_code: string | null;
 };
 
 type EventConfig = {
@@ -194,6 +195,10 @@ export default function RegistrasiAdminPage() {
                   <p className="mt-1 break-words text-sm text-[var(--ink-muted)]">{row.email} · {row.phone}</p>
                   {(row.company || row.job_title) && <p className="mt-1 text-sm text-[var(--ink-muted)]">{[row.job_title, row.company].filter(Boolean).join(" · ")}</p>}
                   <p className="mt-2 text-xs text-[var(--ink-muted)]">Didaftarkan {formatEventDateTime(row.created_at, zone)} {abbr}</p>
+                  {/* Kode ditampilkan karena belum ada pengiriman email: pendaftar
+                      yang lupa memotret layarnya hanya bisa mendapatkannya dari
+                      panitia, dan panitia hanya bisa membacanya di sini. */}
+                  {row.qr_code && <p className="mt-2 text-sm">Kode peserta: <span className="select-all font-mono font-semibold">{row.qr_code}</span></p>}
                   {row.reject_reason && <p className="mt-2 text-sm text-[var(--danger)]">Alasan penolakan: {row.reject_reason}</p>}
                   {Object.keys(row.extra ?? {}).length > 0 && <dl className="mt-3 grid gap-1 text-sm">
                     {Object.entries(row.extra).map(([key, value]) => <div key={key} className="flex gap-2">

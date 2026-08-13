@@ -80,10 +80,14 @@ export default function DaftarClient(props: Props) {
         <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em]">
           {disetujui ? "Pendaftaran berhasil" : "Pendaftaran diterima"}
         </h2>
+        {/* TIDAK menjanjikan email: pengirimannya belum ada. Menjanjikannya
+            membuat pendaftar menutup halaman ini tanpa menyimpan kodenya, lalu
+            menunggu email yang tidak akan pernah datang -- dan baru sadar di
+            meja registrasi, saat antrean sudah panjang. */}
         <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">
           {props.successText ?? (disetujui
-            ? "Kode masuk Anda sudah dikirim ke email. Tunjukkan kode itu di meja registrasi."
-            : "Panitia akan memeriksa pendaftaran Anda. Kode masuk dikirim ke email setelah disetujui.")}
+            ? "Simpan kode di bawah ini. Tunjukkan kode itu di meja registrasi saat hari acara."
+            : "Panitia akan memeriksa pendaftaran Anda, lalu menghubungi Anda lewat kontak yang diisi di atas.")}
         </p>
         {disetujui && <div className="mt-6 border border-[var(--line)] bg-[var(--surface-muted)] p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Kode peserta</p>
@@ -91,7 +95,7 @@ export default function DaftarClient(props: Props) {
               tertunda, atau salah ketik; kode di layar adalah satu-satunya salinan
               yang pasti sampai pada detik ini. */}
           <p className="mt-2 select-all font-mono text-3xl font-semibold tracking-[0.1em]">{hasil.qr_code}</p>
-          <p className="mt-3 text-sm text-[var(--ink-muted)]">Simpan atau potret layar ini sebagai cadangan.</p>
+          <p className="mt-3 text-sm font-semibold text-[var(--danger)]">Potret layar ini sekarang. Kode tidak dikirim lewat email dan halaman ini tidak bisa dibuka lagi.</p>
         </div>}
       </div>
     </Bingkai>;
@@ -105,7 +109,7 @@ export default function DaftarClient(props: Props) {
       </label>
       <label className={label}>Email
         <input required type="email" maxLength={160} name="email" autoComplete="email" inputMode="email" className={input} />
-        <span className="mt-2 block text-sm font-normal text-[var(--ink-muted)]">Kode masuk dikirim ke alamat ini. Pastikan ejaannya benar.</span>
+        <span className="mt-2 block text-sm font-normal text-[var(--ink-muted)]">Dipakai panitia untuk menghubungi Anda. Satu email hanya bisa mendaftar sekali.</span>
       </label>
       <label className={label}>Nomor telepon
         <input required type="tel" minLength={6} maxLength={30} name="phone" autoComplete="tel" inputMode="tel" className={input} />

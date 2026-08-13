@@ -1,8 +1,8 @@
 # Status Multi-Event — Prima Hub
 
 Terakhir diperbarui: **2026-08-13**
-Branch: `feat/multi-event-foundation` (34 commit di depan `main`, **BELUM di-merge, BELUM di-deploy**)
-Commit terakhir: `fix(events): lengkapi event_id audit dan wajibkan eventId booth aktif`
+Branch: `feat/multi-event-foundation` (38 commit di depan `main`, **BELUM di-merge, BELUM di-deploy**)
+Commit terakhir: `feat(registrasi): tampilkan kode peserta, hapus janji email`
 
 ---
 
@@ -15,9 +15,10 @@ menjumlahkan atau menghapus sudah menerima `p_event_id`. **Dua event aktif
 bersamaan sudah diuji dan berhasil** (14/14 endpoint API + 6 halaman publik
 membalas 200 untuk kedua event, dengan data yang benar-benar terpisah).
 Pengelolaan akses user per event kini punya layarnya sendiri, jadi event hasil
-duplikat bisa dipakai operator booth dan kasir. Yang belum ada adalah form
-registrasi publik, dan yang paling mendesak: **produksi masih menjalankan kode
-lama sementara signature RPC di database sudah berubah**.
+duplikat bisa dipakai operator booth dan kasir. Form registrasi publik sudah
+jalan penuh kecuali pengiriman email (ditunda atas permintaan). Yang paling
+mendesak tetap sama: **produksi masih menjalankan kode lama sementara signature
+RPC di database sudah berubah**.
 
 ---
 
@@ -89,6 +90,14 @@ dijalankan ke DB produksi).
   (`leaderboard_exclusions` POST) sudah ditambal. Sisa 6 memang lintas event
   (`payment_methods`, `users`, unggah aset display) — tabelnya global, tidak
   punya `event_id`, jadi mengisinya justru berbohong
+- Registrasi publik diuji di browser sampai jalur TULIS, di event **draft**:
+  daftar → antre → setujui → peserta terbit ber-QR `REG######`, reviewer
+  tercatat, `event_id` peserta = `event_id` pendaftaran. Peserta produksi tetap
+  278, order tetap 225. Enam uji SQL lulus: pendaftaran ditolak saat ditutup,
+  email duplikat ditolak, setujui ganda ditolak, id lintas event ditolak,
+  auto-approve menerbitkan QR seketika, nama ter-trim + email jadi huruf kecil
+- Toggle "Buka pendaftaran" menolak event bersumber `manual` dengan pesan yang
+  menyebut apa yang harus diubah, bukan galat CHECK Postgres
 - `npm run typecheck` + `npm run lint` bersih
 
 ---
@@ -104,15 +113,35 @@ berubah**. Akibat yang sudah terjadi: sinkronisasi peserta mati sejak
 > publik tanpa slug (`/display`, `/denah`, `/rundown`) hanya hidup saat tepat
 > satu event aktif — kalau lebih, ia membalas 404 (disengaja, bukan bug).
 
-### P3 — Form registrasi publik
-`events.registration_enabled` + `participant_source in (manual, public_form,
-hybrid)` sudah ada di skema, halamannya belum dibuat. Kolom nama/email/telepon
-wajib NOT NULL (bukan konfigurasi form) — lihat catatan arsitektur.
+### P7 — 95 `fetch("/api/...")` absolut di sisi klien (BLOKIR dua event aktif)
+Ditemukan saat mengerjakan P3. Halaman klien memanggil `/api/...` tanpa slug;
+proxy menambahkannya dari Referer, dan tambahan saat rewrite tidak pernah sampai
+ke handler — permintaannya jatuh ke "event aktif tunggal". Selama hanya ada satu
+event aktif, tidak ada gejala apa pun. Dengan dua event aktif, halaman admin
+event A akan membaca dan MENULIS ke event lain.
+
+Obatnya sudah ada: bungkus dengan `eventApiPath()` (`src/lib/event-url.ts`).
+Halaman `/daftar` dan `/admin/registrasi` sudah memakainya. Lihat jebakan #2.
+
+### P3b — Kirim kode peserta lewat email
+Ditunda atas permintaan; belum ada dependensi email di proyek. Sampai ada,
+**tidak boleh ada teks yang menjanjikan email** — pendaftar akan menutup halaman
+tanpa menyimpan kodenya lalu menunggu email yang tidak datang. Sekarang
+kodenya ditampilkan besar di layar sukses, dan ikut tampil di daftar Disetujui
+supaya panitia bisa membacakannya.
+
+Pilihan saat dikerjakan: Resend (`npm i resend`, gratis 3.000/bulan, perlu
+verifikasi domain) atau SMTP lewat nodemailer. `qrcode` sudah terpasang, jadi
+lampiran PNG tidak perlu dependensi baru.
 
 ### P6 — Bersihkan event uji
 `uji-duplikat-dari-ui` masih ada (sudah diturunkan ke `draft`, jadi aman).
-Menghapusnya harus mengikuti urutan `ON DELETE RESTRICT` pada ± 15 tabel anak
-(booths, special_offers, rundown_*, seat_map_*, undian_*, leaderboard_exclusions).
+**Tidak ada endpoint DELETE event** — `/api/events/[id]` hanya punya PATCH
+dengan aksi activate/deactivate/complete/archive, jadi admin tidak bisa
+menghapusnya sendiri lewat UI. Mengarsipkan sudah cukup untuk menyembunyikannya.
+Menghapus permanen harus lewat SQL, mengikuti urutan `ON DELETE RESTRICT` pada
+± 15 tabel anak (booths, special_offers, rundown_*, seat_map_*, undian_*,
+leaderboard_exclusions).
 
 ---
 
@@ -151,6 +180,18 @@ Menghapusnya harus mengikuti urutan `ON DELETE RESTRICT` pada ± 15 tabel anak
    URL asli. Query dari CALLER tetap sampai — itulah kenapa bug ini diam total
    sampai ada event kedua aktif. Solusi sekarang: `eventSlugFromRequest()` membaca
    slug dari PATH (`/^\/e\/([^/]+)\//`).
+
+   **Sisi KLIEN masih rentan dan ini belum selesai.** Halaman yang memanggil
+   `fetch("/api/...")` absolut tidak punya slug di path sama sekali; proxy
+   menambahkannya dari Referer, dan tambahan itulah yang hilang. Terukur ulang
+   saat membuat halaman registrasi: PATCH dari `/e/<slug>/admin/registrasi`
+   mengenai event PRODUKSI, bukan event yang alamatnya sedang dibuka. Obatnya
+   sudah ada dan tinggal dipakai: `eventApiPath()` di `src/lib/event-url.ts`.
+   Selama produksi hanya punya SATU event aktif, fallback menutupi ini
+   sepenuhnya — sama seperti bug induknya, ia baru menggigit saat ada event
+   kedua. **Sebelum menjalankan dua event aktif bersamaan, audit setiap
+   `fetch("/api/` di `src/app/**` dan bungkus dengan `eventApiPath()`.**
+   Terhitung **95 pemanggilan** yang masih absolut per 2026-08-13.
 
 3. **Menambah parameter berdefault = OVERLOAD, bukan mengganti.** Versi lama tanpa
    scope event tetap bisa dipanggil = pintu bocor, dan pemanggil lama jadi ambigu
@@ -207,6 +248,11 @@ Menghapusnya harus mengikuti urutan `ON DELETE RESTRICT` pada ± 15 tabel anak
 | `src/app/api/events/[id]/duplicate/route.ts` | duplikat event |
 | `src/app/api/events/[id]/access/route.ts` | GET/PUT/DELETE hak akses |
 | `supabase/migrations/202608070016_duplicate_event.sql` | RPC duplikat |
+| `src/lib/event-url.ts` | `eventApiPath()` — WAJIB untuk setiap fetch dari klien |
+| `src/app/daftar/` | form registrasi publik |
+| `src/app/admin/registrasi/page.tsx` | moderasi + toggle pendaftaran |
+| `src/app/api/registrasi/route.ts` | endpoint publik tanpa login |
+| `supabase/migrations/202608130001_public_registration.sql` | antrean registrasi |
 | `tasks/multi-event-plan.md` | rencana asli |
 
 ---
@@ -214,5 +260,7 @@ Menghapusnya harus mengikuti urutan `ON DELETE RESTRICT` pada ± 15 tabel anak
 ## 9. Langkah berikutnya yang disarankan
 
 1. Deploy branch ini ke produksi (P1) — sinkronisasi peserta sedang mati.
-2. Hapus event uji `uji-duplikat-dari-ui` (P6).
-3. Form registrasi publik (P3).
+2. Bungkus 95 fetch klien dengan `eventApiPath()` (P7) — **wajib sebelum ada dua
+   event aktif bersamaan**.
+3. Arsipkan atau hapus event uji `uji-duplikat-dari-ui` (P6).
+4. Kirim kode peserta lewat email (P3b), bila diinginkan.

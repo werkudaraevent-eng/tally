@@ -52,8 +52,24 @@ export async function GET(request: Request) {
   ]);
   if (result.error) return apiError("INTERNAL_ERROR", 500);
 
+  // Kode peserta ikut dikirim untuk baris yang sudah disetujui. Belum ada
+  // pengiriman email, jadi ini satu-satunya cara panitia bisa menyampaikan kode
+  // kepada orang yang lupa memotret layarnya. Diambil terpisah, bukan lewat
+  // join: PostgREST butuh relasi terdaftar, dan `participant_id` sengaja
+  // `on delete set null` sehingga barisnya bisa saja sudah tidak ada.
+  const rows = (result.data ?? []) as Array<{ participant_id: string | null }>;
+  const ids = rows.map((row) => row.participant_id).filter((id): id is string => id !== null);
+  let kode = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: peserta } = await client.from("participants").select("id,qr_code").in("id", ids);
+    kode = new Map(((peserta as Array<{ id: string; qr_code: string }> | null) ?? []).map((p) => [p.id, p.qr_code]));
+  }
+
   return Response.json({
-    registrations: result.data ?? [],
+    registrations: rows.map((row) => ({
+      ...row,
+      qr_code: row.participant_id ? kode.get(row.participant_id) ?? null : null,
+    })),
     total: result.count ?? 0,
     pending: menunggu.count ?? 0,
     event: {

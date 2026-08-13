@@ -68,7 +68,7 @@ const messages: Record<ApiErrorCode, string> = {
   REGISTRATION_CLOSED: "Pendaftaran untuk acara ini sedang ditutup.",
   // Menyebut "sudah terdaftar" dan bukan "email dipakai": pendaftar yang lupa
   // pernah mengisi form akan mengira ada orang lain memakai emailnya.
-  REGISTRATION_DUPLICATE_EMAIL: "Email ini sudah terdaftar untuk acara ini. Periksa kotak masuk Anda; bila tidak ada, hubungi panitia.",
+  REGISTRATION_DUPLICATE_EMAIL: "Email ini sudah terdaftar untuk acara ini. Hubungi panitia bila Anda belum menerima kode peserta.",
   REGISTRATION_NOT_FOUND: "Pendaftaran tidak ditemukan.",
   REGISTRATION_ALREADY_REVIEWED: "Pendaftaran ini sudah diproses admin lain. Muat ulang daftarnya.",
   INTERNAL_ERROR: "Terjadi kesalahan server. Coba lagi.",
