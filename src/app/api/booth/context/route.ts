@@ -8,13 +8,33 @@ export async function GET(request: Request) {
 
   const client = getSupabaseServiceClient();
 
-  // Booth operator: resolve their assigned booth. Admin: pick the first active booth as a working default.
-  let boothId = auth.scope.boothId;
+  // Operator booth: booth-nya sudah melekat pada akun. Admin/super_admin: TIDAK
+  // ditebak.
+  //
+  // Sebelum ini admin tanpa booth diberi "booth aktif pertama urut id" sebagai
+  // default kerja. Akibatnya layar booth terbuka atas nama B1 tanpa satu pun
+  // tindakan memilih, dan admin yang mengira sedang menolong booth lain mencatat
+  // order ke B1 — nominal uang orang masuk ke booth yang salah, dan tidak ada
+  // jejak yang membedakannya dari order sah.
+  //
+  // Sekarang admin menerima daftar booth dan harus menyebut `?boothId=`. Tanpa
+  // itu jawabannya `booth: null` (bukan galat): layar menampilkan pemilih, bukan
+  // pesan kesalahan.
+  const isAdmin = auth.scope.role !== "booth";
+  const requestedBoothId = Number(new URL(request.url).searchParams.get("boothId"));
+  const boothId = auth.scope.boothId ?? (isAdmin && Number.isSafeInteger(requestedBoothId) && requestedBoothId > 0 ? requestedBoothId : null);
+
+  // Hanya booth aktif yang boleh dipilih; booth nonaktif tetap dapat dibuka lewat
+  // boothId langsung supaya riwayatnya masih bisa dilihat.
+  const { data: boothOptions } = isAdmin
+    ? await client.from("booths").select("id,code,name").eq("event_id", auth.scope.event.id).eq("is_active", true).order("id", { ascending: true }) as { data: Array<{ id: number; code: string; name: string }> | null }
+    : { data: null };
+  const booths = boothOptions ?? [];
+
   if (!boothId) {
-    const { data: firstBooth } = await client.from("booths").select("id").eq("event_id", auth.scope.event.id).eq("is_active", true).order("id", { ascending: true }).limit(1).maybeSingle() as { data: { id: number } | null };
-    boothId = firstBooth?.id ?? null;
+    if (!isAdmin) return apiError("BOOTH_NOT_FOUND", 404);
+    return Response.json({ booth: null, booths, operator: { username: auth.user.username, role: auth.scope.role }, next_sticker: null });
   }
-  if (!boothId) return apiError("BOOTH_NOT_FOUND", 404);
 
   // `transactions_enabled` dikirim ke layar operator supaya kolom nominal dan teks
   // aksinya menyesuaikan sifat booth. Penegakannya tetap di
@@ -35,6 +55,7 @@ export async function GET(request: Request) {
 
   return Response.json({
     booth,
+    booths,
     operator: { username: auth.user.username, role: auth.scope.role },
     next_sticker: nextSticker,
   });

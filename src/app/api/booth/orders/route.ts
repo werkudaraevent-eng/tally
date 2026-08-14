@@ -3,7 +3,7 @@ import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
-const querySchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20) });
+const querySchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20), boothId: z.coerce.number().int().positive().optional() });
 
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["booth", "admin"]);
@@ -20,7 +20,15 @@ export async function GET(request: Request) {
     .eq("event_id", auth.scope.event.id)
     .order("created_at", { ascending: false })
     .limit(parsed.data.limit);
-  if (auth.scope.role === "booth") query = query.eq("booth_id", auth.scope.boothId as number);
+  // Penyaring booth: operator selalu terkunci ke booth-nya sendiri; admin
+  // mengikuti booth yang sedang ia pilih di layar.
+  //
+  // Tanpa baris kedua, panel berjudul "Order booth ini" menampilkan order SELURUH
+  // event kepada admin — daftar berisi B4 dan B5 sementara header menyebut B1.
+  // Tombol Void di setiap baris membuatnya bukan sekadar salah tampil: admin bisa
+  // mem-void order booth yang sama sekali tidak sedang ia tangani.
+  const boothFilter = auth.scope.role === "booth" ? auth.scope.boothId : parsed.data.boothId;
+  if (boothFilter) query = query.eq("booth_id", boothFilter);
   const { data, error } = await query;
   if (error) return apiError("INTERNAL_ERROR", 500);
   return Response.json({ orders: data ?? [] });

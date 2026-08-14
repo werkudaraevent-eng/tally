@@ -30,7 +30,9 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const auth = await requireRequestEvent(request, ["admin"]);
+  // POST tetapi TIDAK menulis apa pun: pohon syarat aturan terlalu besar untuk
+  // query string. Lihat catatan readOnly di requireRequestEvent().
+  const auth = await requireRequestEvent(request, ["admin"], { readOnly: true });
   if (auth.response) return auth.response;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

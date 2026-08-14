@@ -72,7 +72,10 @@ const bodySchemaWithPrize = bodySchema.extend({
 });
 
 export async function POST(request: Request) {
-  const auth = await requireRequestEvent(request, ["admin"]);
+  // POST tetapi TIDAK menulis apa pun: pohon syarat undian terlalu besar untuk
+  // query string. Tanpa penanda ini, pratinjau ikut diblokir di event selesai
+  // padahal ia hanya menghitung.
+  const auth = await requireRequestEvent(request, ["admin"], { readOnly: true });
   if (auth.response) return auth.response;
 
   const parsed = bodySchemaWithPrize.safeParse(await request.json().catch(() => null));

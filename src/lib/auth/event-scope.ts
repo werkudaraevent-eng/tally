@@ -183,23 +183,9 @@ export async function requireEventScope(
     }
   }
 
-  // Event arsip hanya boleh dibaca. Menulis ke event yang sudah diarsipkan
-  // mengubah laporan yang sudah diserahkan ke klien.
+  // Status event TIDAK diperiksa di sini: fungsi ini juga melayani pembacaan,
+  // dan event selesai memang dirancang tetap bisa dibuka serta diekspor.
+  // Penjaga tulisnya ada di requireRequestEvent() (src/lib/auth/request-event.ts),
+  // satu titik yang dilewati semua route sehingga tidak bisa lupa dipasang.
   return { scope: { event, role: effectiveRole, boothId }, user, response: null };
-}
-
-/**
- * Penjaga terpisah untuk aksi yang MENULIS. Event yang sudah selesai atau
- * diarsipkan tetap boleh dibuka dan diekspor, tetapi tidak boleh menerima
- * transaksi baru -- laporannya sudah diserahkan.
- */
-export function ensureEventWritable(event: EventRow): Response | null {
-  if (event.status === "archived" || event.status === "completed") {
-    return errorResponse(
-      "EVENT_NOT_WRITABLE",
-      `Event ini berstatus ${event.status === "archived" ? "arsip" : "selesai"} dan tidak menerima perubahan data.`,
-      409,
-    );
-  }
-  return null;
 }
