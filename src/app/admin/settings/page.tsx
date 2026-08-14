@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, CheckCircle, GearSix, Trash, Warning, XCircle } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 import { PaymentMethodManager } from "@/components/admin/payment-method-manager";

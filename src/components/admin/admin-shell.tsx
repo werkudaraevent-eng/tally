@@ -1,6 +1,6 @@
 "use client";
 
-import { ArmchairIcon, CalendarDots, ChartBar, ClipboardText, GearSix, Gift, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UserPlus, UsersThree } from "@phosphor-icons/react";
+import { ArmchairIcon, CalendarDots, CaretLeft, ChartBar, ClipboardText, GearSix, Gift, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UserPlus, UsersThree } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -34,6 +34,7 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [eventName, setEventName] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -43,6 +44,33 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  /**
+   * Nama event di kepala sidebar. Sebelumnya teks mati "Event Transaction Hub",
+   * yang berbahaya justru karena terlihat benar: admin dengan akses beberapa
+   * event tidak punya cara membedakan workspace mana yang sedang dibuka.
+   *
+   * Memakai /api/events yang sudah ada, bukan endpoint baru: daftarnya kecil dan
+   * sudah difilter hak akses di server. Slug diambil dari prefiks URL; tanpa
+   * prefiks (link lama) dipakai aturan yang SAMA dengan getPublicRequestEvent —
+   * hanya aman bila tepat satu event aktif, selain itu label dibiarkan kosong
+   * daripada menebak dan menampilkan nama event yang salah.
+   */
+  const eventSlug = eventPrefix.slice(3);
+  useEffect(() => {
+    let batal = false;
+    void fetch("/api/events", { cache: "no-store" }).then(async (response) => {
+      if (!response.ok || batal) return;
+      const events = ((await response.json()).events ?? []) as Array<{ slug: string; name: string; status: string }>;
+      const cocok = eventSlug
+        ? events.find((event) => event.slug === eventSlug)
+        : events.filter((event) => event.status === "active").length === 1
+          ? events.find((event) => event.status === "active")
+          : undefined;
+      if (!batal) setEventName(cocok?.name ?? null);
+    });
+    return () => { batal = true; };
+  }, [eventSlug]);
 
   /**
    * Kunci gulir halaman selama menu mobile terbuka.
@@ -106,7 +134,10 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
         tertutup bilah navigasi. `overflow-hidden` di sini memaksa penggulirannya
         terjadi di <nav>, satu-satunya bagian yang memang panjang; kepala dan
         tombol logout tetap di tempatnya. */}
-    <aside className={`fixed left-0 top-0 z-40 flex h-dvh w-[272px] flex-col overflow-hidden border-r border-[var(--line)] bg-[var(--surface)] transition-transform duration-200 lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}><div className="shrink-0 border-b border-[var(--line)] px-6 py-5"><div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center bg-[var(--brand)] text-white"><Storefront size={22} weight="duotone" /></div><div><p className="text-sm font-semibold tracking-tight">Tally Control Room</p><p className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Admin workspace</p></div></div></div><div className="shrink-0 border-b border-[var(--line)] px-6 py-5"><p className="truncate text-sm font-semibold">Event Transaction Hub</p><p className="mt-1 truncate text-xs text-[var(--ink-muted)]">/event-transaction-hub</p></div>{/* `min-h-0` WAJIB. Tanpa itu anak flex menolak menyusut di bawah tinggi
+    <aside className={`fixed left-0 top-0 z-40 flex h-dvh w-[272px] flex-col overflow-hidden border-r border-[var(--line)] bg-[var(--surface)] transition-transform duration-200 lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}><div className="shrink-0 border-b border-[var(--line)] px-6 py-5"><div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center bg-[var(--brand)] text-white"><Storefront size={22} weight="duotone" /></div><div><p className="text-sm font-semibold tracking-tight">Tally Control Room</p><p className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Admin workspace</p></div></div></div>{/* Satu-satunya jalan keluar ke pemilih event. Login mendorong SEMUA role ke
+        /events, jadi tautan ini tidak dibatasi super_admin; /events sendiri yang
+        menyaring event mana yang boleh dilihat. */}
+    <Link href="/events" className="flex shrink-0 items-center gap-3 border-b border-[var(--line)] px-6 py-5 hover:bg-[var(--surface-muted)]"><CaretLeft size={16} className="shrink-0 text-[var(--ink-muted)]" /><span className="min-w-0"><span className="block truncate text-sm font-semibold">{eventName ?? "Semua event"}</span><span className="mt-1 block truncate text-xs text-[var(--ink-muted)]">Ganti event</span></span></Link>{/* `min-h-0` WAJIB. Tanpa itu anak flex menolak menyusut di bawah tinggi
         kontennya, <nav> memanjang melewati sidebar, dan penggulirannya tidak
         pernah aktif — persis kegagalan yang sama seperti pada app-shell /rundown. */}
     <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-5" aria-label="Admin navigation">{visibleNavigation.map(({ href, label, icon: Icon }) => { const active = href === "/admin" ? logicalPathname === "/admin" : logicalPathname.startsWith(href); return <Link key={href} href={`${eventPrefix}${href}`} onClick={() => setMobileOpen(false)} className={`flex min-h-12 items-center gap-3 px-4 text-sm font-semibold transition-colors ${active ? "bg-[var(--brand)] text-white" : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"}`}><Icon size={20} weight={active ? "fill" : "regular"} />{label}</Link>; })}</nav><div className="shrink-0 border-t border-[var(--line)] p-3"><button type="button" onClick={logout} disabled={loggingOut} className="flex min-h-12 w-full items-center gap-3 px-4 text-sm font-semibold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] disabled:opacity-50"><SignOut size={20} />{loggingOut ? "Keluar..." : "Logout"}</button></div></aside>{mobileOpen && <button type="button" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-30 bg-[var(--ink)]/30 lg:hidden" aria-label="Tutup menu admin" />}{children}</div>;

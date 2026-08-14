@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, Check, Hourglass, Link as LinkIcon, X } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";

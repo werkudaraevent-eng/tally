@@ -12,7 +12,7 @@
 // belum siap hanya karena ingin memindahkan tahap.
 
 import { ArrowClockwise, ArrowLeft, ArrowLineRight, ArrowLeft as ArrowPrev, CaretRight, Eye, EyeSlash, ListNumbers, Lock, LockOpen, MonitorPlay, Play, Rows, Snowflake, WarningCircle } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
@@ -133,7 +133,7 @@ export default function RevealControlPage() {
           <h1 className="text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">Reveal bertahap</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--ink-muted)]">Umumkan peringkat sedikit-sedikit di layar proyektor. Setiap tombol di halaman ini berlaku seketika, tanpa perlu disimpan.</p>
         </div>
-        <a href="/display?fullscreen=1" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold"><MonitorPlay size={18} /> Buka Live Display</a>
+        <Link href="/display?fullscreen=1" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold"><MonitorPlay size={18} /> Buka Live Display</Link>
       </div>
 
       {error && <p className="mt-6 flex items-start gap-2 border border-[var(--danger)] bg-[var(--surface)] p-3 text-sm text-[var(--danger)]"><WarningCircle size={18} className="mt-0.5 shrink-0" /> {error}</p>}

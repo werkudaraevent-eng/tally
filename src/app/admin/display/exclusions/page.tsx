@@ -15,7 +15,7 @@
 // seharusnya gugur tetap naik ke proyektor.
 
 import { ArrowLeft, Buildings, CheckCircle, Info, Prohibit, Snowflake, Trash, User, WarningCircle, XCircle } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 

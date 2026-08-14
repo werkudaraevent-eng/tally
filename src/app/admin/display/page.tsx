@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, CheckCircle, Eye, ListNumbers, MonitorPlay, Prohibit, UploadSimple, XCircle } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useEffect, useState } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { useToast } from "@/components/toast";
@@ -139,7 +139,7 @@ export default function DisplaySettingsPage() {
           <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Tampilan top spender.</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--ink-muted)]">Atur teks, warna, background, dan layout layar leaderboard yang tampil di proyektor.</p>
         </div>
-        <a href="/display" target="_blank" rel="noreferrer" className="flex min-h-12 items-center justify-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold"><MonitorPlay size={19} /> Buka Live Display</a>
+        <Link href="/display" target="_blank" rel="noreferrer" className="flex min-h-12 items-center justify-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold"><MonitorPlay size={19} /> Buka Live Display</Link>
       </div>
 
       {error && <div role="alert" className="mt-6 flex items-center gap-2 border border-[#E9C7C4] bg-[#FFF2F0] p-4 text-sm text-[var(--danger)]"><XCircle size={20} />{error}</div>}

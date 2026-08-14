@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, CheckCircle, CloudArrowDown, UsersThree, XCircle } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { ParticipantList } from "@/components/admin/participant-list";
 import { useToast } from "@/components/toast";

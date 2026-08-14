@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ClipboardText, Funnel, Warning, XCircle } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { formatEventDateTime } from "@/lib/datetime";
 import { useEventTimeZone } from "@/lib/use-event-timezone";

@@ -4,7 +4,7 @@ import {
   ArrowLeft, ArrowSquareOut, ArrowsClockwise, CheckCircle, Flask, Gift, Power, SkipForward,
   Sparkle, Trophy, Warning, XCircle,
 } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { useToast } from "@/components/toast";

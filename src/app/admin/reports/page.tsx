@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ChartBar, CheckCircle, Receipt, UsersThree } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useEffect, useState } from "react";
 import { ExportMenu } from "@/components/admin/export-menu";
 

@@ -4,7 +4,7 @@ import {
   ArrowLeft, ArrowSquareOut, ClockCounterClockwise, Confetti, DownloadSimple, FloppyDisk, Gift, Plus, Prohibit,
   SlidersHorizontal, SpeakerHigh, Trash, UploadSimple, Users, Warning,
 } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useEffect, useMemo, useState } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { ImagePreview } from "@/components/admin/image-preview";

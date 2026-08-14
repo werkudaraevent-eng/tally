@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, CheckCircle, PencilSimple, Plus, Storefront, Tag, Trash, TrendUp, WarningCircle, X, XCircle } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 import { ConditionBuilder, describeConditions } from "@/components/admin/condition-builder";

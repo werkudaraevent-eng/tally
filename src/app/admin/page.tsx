@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight, ChartBar, GearSix, ListChecks, Receipt, ShieldCheck, Storefront, UsersThree, Warning, XCircle } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { ExportMenu } from "@/components/admin/export-menu";
 

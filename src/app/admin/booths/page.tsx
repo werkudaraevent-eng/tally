@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, CheckCircle, FloppyDisk, Plus, Storefront, Tag, XCircle } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 

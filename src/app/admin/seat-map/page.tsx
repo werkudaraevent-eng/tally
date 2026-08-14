@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ArrowSquareOut, CheckCircle, Eye, EyeSlash, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useEffect, useMemo, useState } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
@@ -313,14 +313,14 @@ export default function SeatMapAdminPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <a href="/denah" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold">
+          <Link href="/denah" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold">
             <ArrowSquareOut size={18} /> Halaman publik
-          </a>
+          </Link>
           {/* Tautan langsung ke mode LED. Panitia yang memasang layar cukup
               menyalin alamat ini, tanpa perlu mengubah setelan bawaan. */}
-          <a href="/denah?mode=qr" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold">
+          <Link href="/denah?mode=qr" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold">
             <Monitor size={18} /> Pratinjau LED
-          </a>
+          </Link>
         </div>
       </header>
 
