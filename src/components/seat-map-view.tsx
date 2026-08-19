@@ -111,7 +111,7 @@ export function SeatMapView({
 
   if (geometry.tables.length === 0) {
     return (
-      <p className="border border-dashed border-[var(--line)] bg-[var(--surface-muted)] p-6 text-center text-sm text-[var(--ink-muted)]">
+      <p className="rounded-lg border border-dashed border-outline-variant bg-panel-high p-6 text-center text-body-medium text-on-surface-variant">
         Denah belum punya baris meja. Tambahkan baris di pengaturan denah.
       </p>
     );

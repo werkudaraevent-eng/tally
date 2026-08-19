@@ -234,76 +234,76 @@ export default function AuditTrailPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1440px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--brand)]"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
+      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
       <div className="mt-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Audit trail</p>
+        <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Audit trail</p>
         <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Jejak perubahan.</h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--ink-muted)]">Siapa mengubah apa dan kapan. Tercatat otomatis untuk settings, item spesial, booth, metode pembayaran, akun, dan pengosongan data. Halaman ini hanya dapat dibuka super admin.</p>
+        <p className="mt-3 max-w-3xl text-body-medium leading-6 text-on-surface-variant">Siapa mengubah apa dan kapan. Tercatat otomatis untuk settings, item spesial, booth, metode pembayaran, akun, dan pengosongan data. Halaman ini hanya dapat dibuka super admin.</p>
       </div>
 
-      {error && <div role="alert" className="mt-6 flex items-center gap-2 border border-[#E9C7C4] bg-[#FFF2F0] p-4 text-sm text-[var(--danger)]"><XCircle size={20} />{error}</div>}
+      {error && <div role="alert" className="rounded-lg mt-6 flex items-center gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={20} />{error}</div>}
 
-      <div className="mt-8 flex flex-wrap items-end gap-4 border border-[var(--line)] bg-[var(--surface)] p-5">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]"><Funnel size={16} /> Filter</div>
-        <label className="block text-sm font-semibold">Kategori
-          <select value={category} onChange={(event) => { setCategory(event.target.value); setPage(0); }} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)] sm:w-64">
+      <div className="rounded-lg mt-8 flex flex-wrap items-end gap-4 border border-outline-variant bg-panel p-5">
+        <div className="flex items-center gap-2 text-body-small font-semibold uppercase tracking-[0.14em] text-on-surface-variant"><Funnel size={16} /> Filter</div>
+        <label className="block text-body-medium font-semibold">Kategori
+          <select value={category} onChange={(event) => { setCategory(event.target.value); setPage(0); }} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary sm:w-64">
             {CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
         </label>
-        <label className="block text-sm font-semibold">Pelaku
-          <select value={actor} onChange={(event) => { setActor(event.target.value); setPage(0); }} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)] sm:w-56">
+        <label className="block text-body-medium font-semibold">Pelaku
+          <select value={actor} onChange={(event) => { setActor(event.target.value); setPage(0); }} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary sm:w-56">
             <option value="">Semua pelaku</option>
             {actors.map((item) => <option key={item.id} value={item.id}>{item.username}</option>)}
           </select>
         </label>
-        <p className="ml-auto text-xs text-[var(--ink-muted)]">{total} catatan</p>
+        <p className="ml-auto text-body-small text-on-surface-variant">{total} catatan</p>
       </div>
 
-      {loading ? <p className="mt-8 text-sm text-[var(--ink-muted)]">Memuat audit trail...</p> : entries.length === 0 ? <div className="mt-8 flex min-h-48 flex-col items-center justify-center gap-3 border border-[var(--line)] bg-[var(--surface)] text-center text-sm text-[var(--ink-muted)]"><ClipboardText size={40} className="opacity-40" />Belum ada catatan untuk filter ini.</div> : <>
+      {loading ? <p className="mt-8 text-body-medium text-on-surface-variant">Memuat audit trail...</p> : entries.length === 0 ? <div className="rounded-lg mt-8 flex min-h-48 flex-col items-center justify-center gap-3 border border-outline-variant bg-panel text-center text-body-medium text-on-surface-variant"><ClipboardText size={40} className="opacity-40" />Belum ada catatan untuk filter ini.</div> : <>
         <div className="mt-6 space-y-2">
           {entries.map((entry) => {
             const changes = diffFields(entry.payload);
             const summary = summarise(entry);
             const isDanger = entry.action === "admin_reset_records";
             const open = expanded === entry.id;
-            return <section key={entry.id} className={`border bg-[var(--surface)] ${isDanger ? "border-[#E9C7C4]" : "border-[var(--line)]"}`}>
+            return <section key={entry.id} className={`rounded-lg border bg-panel ${isDanger ? "border-error-soft-outline" : "border-outline-variant"}`}>
               <div className="flex flex-wrap items-start justify-between gap-3 p-4">
                 <div className="min-w-0 flex-1">
-                  <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                    {isDanger && <Warning size={16} weight="fill" className="shrink-0 text-[var(--danger)]" />}
+                  <p className="flex flex-wrap items-center gap-2 text-body-medium font-semibold">
+                    {isDanger && <Warning size={16} weight="fill" className="shrink-0 text-error" />}
                     {ACTION_LABEL[entry.action] ?? entry.action}
-                    {summary && <span className="font-normal text-[var(--ink-muted)]">· {summary}</span>}
+                    {summary && <span className="font-normal text-on-surface-variant">· {summary}</span>}
                   </p>
-                  <p className="mt-1 text-xs text-[var(--ink-muted)]">
-                    <span className="font-semibold text-[var(--ink)]">{entry.actor_username}</span>
+                  <p className="mt-1 text-body-small text-on-surface-variant">
+                    <span className="font-semibold text-on-surface">{entry.actor_username}</span>
                     {entry.actor_role && <span> ({entry.actor_role})</span>}
                     {" · "}{formatEventDateTime(entry.created_at, zone)} {abbr}
                   </p>
 
                   {/* Hanya field yang berubah, bukan seluruh payload. */}
-                  {changes.length > 0 && <ul className="mt-3 space-y-1 border-t border-[var(--line)] pt-3 text-xs">
+                  {changes.length > 0 && <ul className="mt-3 space-y-1 border-t border-outline-variant pt-3 text-body-small">
                     {changes.map((change) => <li key={change.field} className="flex flex-wrap items-baseline gap-1.5">
                       <span className="font-semibold">{change.field}:</span>
-                      <span className="text-[var(--ink-muted)] line-through">{change.from}</span>
+                      <span className="text-on-surface-variant line-through">{change.from}</span>
                       <span aria-hidden="true">→</span>
-                      <span className="font-semibold text-[var(--brand-strong)]">{change.to}</span>
+                      <span className="font-semibold text-primary-dim">{change.to}</span>
                     </li>)}
                   </ul>}
                 </div>
-                {entry.payload && <button type="button" onClick={() => setExpanded(open ? null : entry.id)} className="min-h-11 shrink-0 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">{open ? "Tutup detail" : "Detail"}</button>}
+                {entry.payload && <button type="button" onClick={() => setExpanded(open ? null : entry.id)} className="rounded-md min-h-11 shrink-0 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">{open ? "Tutup detail" : "Detail"}</button>}
               </div>
-              {open && <pre className="overflow-x-auto border-t border-[var(--line)] bg-[var(--surface-muted)] p-4 text-[11px] leading-5">{JSON.stringify(entry.payload, null, 2)}</pre>}
+              {open && <pre className="overflow-x-auto border-t border-outline-variant bg-panel-high p-4 text-[11px] leading-5">{JSON.stringify(entry.payload, null, 2)}</pre>}
             </section>;
           })}
         </div>
 
-        <div className="mt-6 flex flex-col items-center justify-between gap-3 border border-[var(--line)] bg-[var(--surface)] p-4 sm:flex-row">
-          <p className="text-xs text-[var(--ink-muted)]">Halaman {page + 1} dari {totalPages}</p>
+        <div className="rounded-lg mt-6 flex flex-col items-center justify-between gap-3 border border-outline-variant bg-panel p-4 sm:flex-row">
+          <p className="text-body-small text-on-surface-variant">Halaman {page + 1} dari {totalPages}</p>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading} className="min-h-11 border border-[var(--line)] px-3 text-sm font-semibold disabled:opacity-40">Sebelumnya</button>
-            <button onClick={() => setPage((current) => (current + 1 < totalPages ? current + 1 : current))} disabled={page + 1 >= totalPages || loading} className="min-h-11 border border-[var(--line)] px-3 text-sm font-semibold disabled:opacity-40">Berikutnya</button>
+            <button onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-medium font-semibold disabled:opacity-40">Sebelumnya</button>
+            <button onClick={() => setPage((current) => (current + 1 < totalPages ? current + 1 : current))} disabled={page + 1 >= totalPages || loading} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-medium font-semibold disabled:opacity-40">Berikutnya</button>
           </div>
         </div>
       </>}

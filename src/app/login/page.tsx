@@ -4,6 +4,7 @@ import { ArrowRight, Eye, EyeSlash, LockKey, QrCode, ShieldCheck, WifiSlash } fr
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
+import { Button, IconButton, TextField, ThemeToggle } from "@/components/m3";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -78,34 +79,106 @@ export default function LoginPage() {
     // min-h-[calc(100dvh-2.5rem)] di atas padding py-5 + py-12, jadi tinggi
     // total selalu melebihi viewport dan memaksa scroll. Sekarang tinggi
     // dikunci ke layar dan hanya viewport pendek yang boleh scroll.
-    <main className="flex min-h-dvh flex-col bg-[var(--background)] px-5 text-[var(--ink)] sm:px-8 lg:h-dvh lg:overflow-hidden lg:px-12">
+    <main className="flex min-h-dvh flex-col bg-surface px-5 text-on-surface sm:px-8 lg:h-dvh lg:overflow-hidden lg:px-12">
       <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col">
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--line)] py-4">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-[var(--brand)] text-white"><QrCode size={24} weight="bold" /></div>
-          <div><p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--ink-muted)]">Tally</p><p className="text-sm font-semibold">Event Transaction Hub</p></div>
+        <header className="flex shrink-0 items-center gap-3 border-b border-outline-variant py-4">
+          <div className="flex size-11 items-center justify-center rounded-lg bg-primary text-on-primary"><QrCode size={24} weight="bold" /></div>
+          <div className="flex-1">
+            <p className="text-label-medium font-semibold uppercase tracking-[0.18em] text-on-surface-variant">Tally</p>
+            <p className="text-title-small font-semibold">Event Transaction Hub</p>
+          </div>
+          {/* Pemilih tema ada di layar login, bukan hanya di admin: staf booth dan
+              kasir tidak pernah membuka admin, dan merekalah yang paling sering
+              berpindah antara ruang terang dan ruang panggung yang gelap. */}
+          <ThemeToggle />
         </header>
+
         {/* py-4 di mobile: pada iPhone SE (375x667) padding 32px membuat kartu
             melebihi viewport 22px dan memunculkan scroll. */}
         <div className="grid flex-1 items-center gap-8 py-4 sm:py-8 lg:grid-cols-[1fr_minmax(380px,460px)] lg:gap-16 lg:py-6">
           {/* Disembunyikan di mobile: di layar sempit heading raksasa mendorong
               form ke bawah fold, padahal header sudah membawa identitas produk. */}
           <section className="hidden max-w-xl lg:block">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Operator access</p>
-            {/* clamp menggantikan text-5xl/sm:text-7xl agar heading menyusut di
-                laptop 768px-tinggi, bukan memaksa halaman scroll. */}
-            <h1 className="mt-4 text-[clamp(2.5rem,4.4vw,4rem)] font-semibold leading-[0.95] tracking-[-0.055em]">Keep the room moving.</h1>
-            <p className="mt-5 max-w-md text-base leading-7 text-[var(--ink-muted)]">Login dengan username dan PIN panitia. Sistem otomatis mengarahkan Anda sesuai peran akun.</p>
-            <ul className="mt-8 space-y-3 border-t border-[var(--line)] pt-6 text-sm text-[var(--ink-muted)]">
-              <li className="flex items-center gap-3"><ShieldCheck size={20} className="shrink-0 text-[var(--brand)]" /> Role dicek di server pada setiap aksi.</li>
-              <li className="flex items-center gap-3"><WifiSlash size={20} className="shrink-0 text-[var(--brand)]" /> Status koneksi selalu terlihat saat bertransaksi.</li>
+            <p className="text-label-large font-semibold uppercase tracking-[0.18em] text-primary">Operator access</p>
+            {/* clamp menggantikan skala tetap agar heading menyusut di laptop
+                768px-tinggi, bukan memaksa halaman scroll. Batas atasnya setara
+                display-medium M3. */}
+            <h1 className="mt-4 text-[clamp(2.5rem,4.4vw,3.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">Keep the room moving.</h1>
+            <p className="mt-5 max-w-md text-body-large text-on-surface-variant">Login dengan username dan PIN panitia. Sistem otomatis mengarahkan Anda sesuai peran akun.</p>
+            <ul className="mt-8 space-y-3 border-t border-outline-variant pt-6 text-body-medium text-on-surface-variant">
+              <li className="flex items-center gap-3"><ShieldCheck size={20} className="shrink-0 text-primary" /> Role dicek di server pada setiap aksi.</li>
+              <li className="flex items-center gap-3"><WifiSlash size={20} className="shrink-0 text-primary" /> Status koneksi selalu terlihat saat bertransaksi.</li>
             </ul>
           </section>
-          <div className="w-full border border-[var(--line)] bg-[var(--surface)] p-6 sm:p-8">
-            <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ink-muted)]">Sign in</p><h2 className="mt-1.5 text-2xl font-semibold tracking-[-0.04em]">Masuk workspace</h2></div><LockKey size={26} weight="duotone" className="mt-1 shrink-0 text-[var(--brand)]" /></div>
-            <form className="mt-6" onSubmit={handleSubmit} noValidate><label htmlFor="username" className="block text-sm font-semibold">Username</label><input id="username" name="username" autoComplete="username" autoFocus value={username} onChange={(event) => { setUsername(event.target.value); setError(""); }} className="mt-2 h-14 w-full border border-[var(--line)] bg-[var(--background)] px-4 text-base outline-none transition-colors focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/20" placeholder="username panitia" /><div className="mt-4 flex items-baseline justify-between"><label htmlFor="pin" className="block text-sm font-semibold">PIN 6 digit</label><button type="button" onClick={() => setShowPin((value) => !value)} className="flex items-center gap-1.5 text-xs font-semibold text-[var(--ink-muted)] transition-colors hover:text-[var(--brand)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]">{showPin ? <EyeSlash size={16} /> : <Eye size={16} />}{showPin ? "Sembunyikan" : "Tampilkan"}</button></div><input id="pin" name="pin" type={showPin ? "text" : "password"} inputMode="numeric" autoComplete="current-password" maxLength={6} value={pin} onChange={(event) => { setPin(event.target.value.replace(/\D/g, "")); setError(""); }} placeholder="••••••" className="mt-2 h-16 w-full border border-[var(--line)] bg-[var(--background)] px-5 text-center text-2xl tracking-[0.45em] outline-none transition-colors focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/20" aria-describedby={error ? "pin-error" : "pin-help"} aria-invalid={error ? true : undefined} />{error ? <p id="pin-error" className="mt-2 text-sm font-medium text-[var(--danger)]" role="alert">{error}</p> : <p id="pin-help" className="mt-2 text-xs text-[var(--ink-muted)]">Masukkan username dan PIN panitia 6 digit.</p>}<label className="mt-4 flex cursor-pointer items-start gap-3 text-sm"><input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} className="mt-0.5 size-5 shrink-0 accent-[var(--brand)]" /><span><span className="block font-semibold">Ingat saya di device ini</span><span className="mt-0.5 block text-xs text-[var(--ink-muted)]">Sesi bertahan 30 hari. Tanpa dicentang, sesi berlaku 12 jam.</span></span></label><button disabled={pending} type="submit" className="mt-6 flex min-h-16 w-full items-center justify-center gap-3 bg-[var(--brand)] px-5 text-base font-semibold text-white transition-colors hover:bg-[var(--brand-strong)] active:scale-[0.99] disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]">{pending ? "Memeriksa..." : "Masuk"} {!pending && <ArrowRight size={19} weight="bold" />}</button></form>
+
+          <div className="w-full rounded-2xl bg-surface-container p-6 sm:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-label-medium font-semibold uppercase tracking-[0.16em] text-on-surface-variant">Sign in</p>
+                <h2 className="mt-1.5 text-headline-small font-semibold tracking-tight">Masuk workspace</h2>
+              </div>
+              <LockKey size={26} weight="duotone" className="mt-1 shrink-0 text-primary" />
+            </div>
+
+            <form className="mt-6" onSubmit={handleSubmit} noValidate>
+              <TextField
+                label="Username"
+                name="username"
+                autoComplete="username"
+                autoFocus
+                value={username}
+                onChange={(event) => { setUsername(event.target.value); setError(""); }}
+                placeholder="username panitia"
+              />
+
+              <TextField
+                className="mt-4"
+                label="PIN 6 digit"
+                name="pin"
+                size="lg"
+                type={showPin ? "text" : "password"}
+                inputMode="numeric"
+                autoComplete="current-password"
+                maxLength={6}
+                value={pin}
+                onChange={(event) => { setPin(event.target.value.replace(/\D/g, "")); setError(""); }}
+                placeholder="••••••"
+                error={error || undefined}
+                hint="Masukkan username dan PIN panitia 6 digit."
+                trailing={
+                  <IconButton
+                    size="sm"
+                    label={showPin ? "Sembunyikan PIN" : "Tampilkan PIN"}
+                    onClick={() => setShowPin((value) => !value)}
+                  >
+                    {showPin ? <EyeSlash size={20} /> : <Eye size={20} />}
+                  </IconButton>
+                }
+              />
+
+              <label className="mt-4 flex cursor-pointer items-start gap-3">
+                <input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} className="mt-0.5 size-5 shrink-0 accent-[var(--md-sys-color-primary)]" />
+                <span>
+                  <span className="block text-body-large font-semibold">Ingat saya di device ini</span>
+                  <span className="mt-0.5 block text-body-small text-on-surface-variant">Sesi bertahan 30 hari. Tanpa dicentang, sesi berlaku 12 jam.</span>
+                </span>
+              </label>
+
+              <Button
+                type="submit"
+                className="mt-6"
+                size="xl"
+                block
+                loading={pending}
+                trailingIcon={pending ? undefined : <ArrowRight size={20} weight="bold" />}
+              >
+                {pending ? "Memeriksa..." : "Masuk"}
+              </Button>
+            </form>
           </div>
         </div>
-        <footer className="shrink-0 border-t border-[var(--line)] py-4 text-xs text-[var(--ink-muted)]">Akses operator terlindungi.</footer>
+
+        <footer className="shrink-0 border-t border-outline-variant py-4 text-body-small text-on-surface-variant">Akses operator terlindungi.</footer>
       </div>
     </main>
   );

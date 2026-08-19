@@ -185,8 +185,8 @@ export default function RundownPage() {
   // putih: tirai gelap di atas gambar membuat tinta gelap bawaan tidak terbaca.
   // Tanpa gambar dan tanpa warna pilihan, nilainya jatuh ke token tema sehingga
   // header tampil seperti sebelumnya.
-  const headerInk = header.text_color ?? (header.background_image_url ? "#ffffff" : "var(--ink)");
-  const headerAccent = header.accent_color ?? "var(--brand)";
+  const headerInk = header.text_color ?? (header.background_image_url ? "#ffffff" : "var(--md-sys-color-on-surface)");
+  const headerAccent = header.accent_color ?? "var(--md-sys-color-primary)";
 
   // Tata letak app-shell: layar dibagi dua, header mati dan daftar bergulir.
   //
@@ -204,16 +204,16 @@ export default function RundownPage() {
   // yang hilang dari jadwal. Kelir "RUNDOWN ACARA", judul 4xl, dan tombol denah
   // setinggi 48px dilepas — bertiga memakan lebih dari separuh layar ponsel dan
   // hanya menyisakan dua baris jadwal.
-  return <main className="flex h-dvh flex-col overflow-hidden bg-[var(--background)] text-[var(--ink)]">
+  return <main className="flex h-dvh flex-col overflow-hidden bg-surface text-on-surface">
     {/* Header berbranding, SATU untuk seluruh acara.
         Judul, warna, dan logo datang dari setelan global, bukan dari tab yang
         sedang aktif. Semuanya boleh kosong, dan ketika kosong nilainya jatuh ke
         token tema — header tampil persis seperti sebelum fitur branding ada. Ini
         janji yang sama dengan branding /denah dan /display. */}
     <header
-      className="relative isolate shrink-0 overflow-hidden border-b border-[var(--line)]"
+      className="relative isolate shrink-0 overflow-hidden border-b border-outline-variant"
       style={{
-        background: header.background_color ?? "var(--surface)",
+        background: header.background_color ?? "var(--md-sys-color-surface-container)",
         color: headerInk,
       }}
     >
@@ -226,7 +226,7 @@ export default function RundownPage() {
           className="absolute inset-0 -z-10 bg-cover bg-center"
           style={{ backgroundImage: `url("${header.background_image_url}")` }}
         />
-        <span aria-hidden className="absolute inset-0 -z-10 bg-black/45" />
+        <span aria-hidden className="absolute inset-0 -z-10 bg-scrim/50" />
       </> : null}
 
       <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
@@ -282,7 +282,7 @@ export default function RundownPage() {
                 Sebelumnya ketiganya berdiri sendiri-sendiri dan menghabiskan tiga
                 baris untuk keterangan yang dibaca sekali saja. */}
             <p
-              className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs"
+              className="mt-1 flex flex-wrap items-center gap-x-1.5 text-body-small"
               style={{ color: headerInk, opacity: 0.75 }}
             >
               <CalendarBlank size={14} className="shrink-0" />
@@ -314,7 +314,7 @@ export default function RundownPage() {
               role="tab"
               aria-selected={isActive}
               onClick={() => selectSection(tab.slug)}
-              className={`min-h-11 min-w-0 flex-1 border-b-2 px-2 pb-2 text-sm leading-5 transition-colors sm:flex-none sm:px-4 ${isActive ? "font-semibold" : "font-medium"}`}
+              className={`min-h-11 min-w-0 flex-1 border-b-2 px-2 pb-2 text-body-medium leading-5 transition-colors sm:flex-none sm:px-4 ${isActive ? "font-semibold" : "font-medium"}`}
               style={{
                 borderColor: isActive ? headerAccent : "transparent",
                 color: isActive ? headerAccent : headerInk,
@@ -337,18 +337,18 @@ export default function RundownPage() {
         browser sebagai pull-to-refresh saat tamu menggulir cepat di ponsel. */}
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
       <div className="mx-auto w-full max-w-3xl px-4 pb-10 pt-4 sm:px-6">
-        {loading ? <p role="status" className="border border-[var(--line)] bg-[var(--surface)] px-4 py-10 text-center text-sm text-[var(--ink-muted)]">
+        {loading ? <p role="status" className="rounded-lg border border-outline-variant bg-panel px-4 py-10 text-center text-body-medium text-on-surface-variant">
           Memuat rundown…
-        </p> : failed ? <p role="alert" className="border border-[var(--danger)] bg-[var(--surface)] px-4 py-10 text-center text-sm text-[var(--danger)]">
+        </p> : failed ? <p role="alert" className="rounded-lg border border-error bg-panel px-4 py-10 text-center text-body-medium text-error">
           Rundown gagal dimuat. Periksa koneksi lalu muat ulang halaman ini.
-        </p> : !payload?.published ? <p role="status" className="border border-[var(--line)] bg-[var(--surface)] px-4 py-10 text-center text-sm text-[var(--ink-muted)]">
+        </p> : !payload?.published ? <p role="status" className="rounded-lg border border-outline-variant bg-panel px-4 py-10 text-center text-body-medium text-on-surface-variant">
           Rundown acara belum dipublikasikan. Silakan cek kembali sebentar lagi.
-        </p> : items.length === 0 ? <p role="status" className="border border-[var(--line)] bg-[var(--surface)] px-4 py-10 text-center text-sm text-[var(--ink-muted)]">
+        </p> : items.length === 0 ? <p role="status" className="rounded-lg border border-outline-variant bg-panel px-4 py-10 text-center text-body-medium text-on-surface-variant">
           Belum ada susunan acara untuk bagian ini.
         </p> : <>
           {/* Garis pemisah antar baris muncul dari gap-px di atas latar --line,
               sesuai DESIGN.md: batas dan jarak lebih dulu, bukan bayangan. */}
-          <ol ref={listRef} className="space-y-px border border-[var(--line)] bg-[var(--line)]">
+          <ol ref={listRef} className="space-y-2">
             {items.map((item) => <RundownRow
               key={item.id}
               item={item}
@@ -359,7 +359,7 @@ export default function RundownPage() {
             />)}
           </ol>
 
-          {highlightEnabled ? <p className="mt-3 flex items-center gap-2 text-xs text-[var(--ink-muted)]">
+          {highlightEnabled ? <p className="mt-3 flex items-center gap-2 text-body-small text-on-surface-variant">
             <Clock size={14} className="shrink-0" />
             Penanda acara berjalan diperbarui otomatis.
           </p> : null}
@@ -400,27 +400,27 @@ function RundownRow({ item, eventDate, now, zone, isActive }: {
     // yang bergulir, sehingga baris teratas bisa berhenti di belakangnya. Sekarang
     // header berada di luar wadah gulir dan tidak menutupi apa pun, jadi tepi atas
     // wadah ini sudah menjadi batas yang benar.
-    className="relative bg-[var(--surface)] px-4 py-4 sm:px-5"
+    className="rounded-lg relative bg-panel px-4 py-4 sm:px-5"
   >
     {/* Batang penanda di tepi kiri. Dipasangkan label teks di bawah, bukan hanya
         warna: DESIGN.md melarang menandai keadaan dengan warna saja, dan tamu
         dengan buta warna tetap harus bisa menemukan acara yang sedang jalan. */}
-    {highlighted ? <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${status === "current" ? "bg-[var(--brand)]" : "bg-[var(--line)]"}`} /> : null}
+    {highlighted ? <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${status === "current" ? "bg-primary" : "bg-outline-variant"}`} /> : null}
 
     <div className="grid gap-1.5 sm:grid-cols-[132px_minmax(0,1fr)] sm:gap-4">
-      <p className={`font-mono text-sm tabular-nums ${status === "current" ? "font-semibold text-[var(--brand)]" : dimmed ? "text-[var(--ink-muted)]" : "text-[var(--brand)]"}`}>
+      <p className={`font-mono text-body-medium tabular-nums ${status === "current" ? "font-semibold text-primary" : dimmed ? "text-on-surface-variant" : "text-primary"}`}>
         {formatClock(item.start_time)}
-        {item.end_time ? <span className="text-[var(--ink-muted)]"> – {formatClock(item.end_time)}</span> : null}
+        {item.end_time ? <span className="text-on-surface-variant"> – {formatClock(item.end_time)}</span> : null}
       </p>
 
       <div className="min-w-0 space-y-1">
-        <p className={`text-base font-semibold leading-6 ${dimmed && status !== "current" ? "text-[var(--ink-muted)]" : "text-[var(--ink)]"}`}>
+        <p className={`text-body-large font-semibold leading-6 ${dimmed && status !== "current" ? "text-on-surface-variant" : "text-on-surface"}`}>
           {item.title}
         </p>
         {/* Satu baris keterangan tetap dirender sebagai paragraf, bukan daftar
             berbutir: butir tunggal terlihat seperti daftar yang isinya hilang. */}
         {lines.length === 1 && lines[0].kind === "item"
-          ? <p className="text-sm leading-6 text-[var(--ink-muted)]">{lines[0].text}</p>
+          ? <p className="text-body-medium leading-6 text-on-surface-variant">{lines[0].text}</p>
           : null}
 
         {/* Baris judul ("Panelists:", "Moderator:") TIDAK diberi bulet: ia label
@@ -431,12 +431,12 @@ function RundownRow({ item, eventDate, now, zone, isActive }: {
             pembaca layar mengumumkan jumlah butir per daftar, dan judul yang
             terhitung sebagai butir membuat jumlahnya salah. */}
         {lines.length > 1 || (lines.length === 1 && lines[0].kind === "heading")
-          ? <div className="space-y-1 text-sm leading-6 text-[var(--ink-muted)]">
+          ? <div className="space-y-1 text-body-medium leading-6 text-on-surface-variant">
             {groupSubtitleLines(lines).map((group, groupIndex) => <div key={groupIndex} className={group.heading && groupIndex > 0 ? "pt-1" : undefined}>
-              {group.heading ? <p className="font-semibold text-[var(--ink)]">{group.heading}</p> : null}
+              {group.heading ? <p className="font-semibold text-on-surface">{group.heading}</p> : null}
               {group.items.length > 0 ? <ul className={group.heading ? "mt-0.5 space-y-0.5" : "space-y-0.5"}>
                 {group.items.map((text, index) => <li key={`${text}-${index}`} className="flex gap-2">
-                  <span aria-hidden className="select-none text-[var(--line)]">&bull;</span>
+                  <span aria-hidden className="select-none text-outline-variant">&bull;</span>
                   <span className="min-w-0">{text}</span>
                 </li>)}
               </ul> : null}
@@ -445,14 +445,14 @@ function RundownRow({ item, eventDate, now, zone, isActive }: {
           : null}
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
-          {highlighted ? <span className={`inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${status === "current" ? "text-[var(--brand)]" : "text-[var(--ink-muted)]"}`}>
+          {highlighted ? <span className={`inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${status === "current" ? "text-primary" : "text-on-surface-variant"}`}>
             <DotOutline size={18} weight="fill" className="-ml-1 shrink-0" />
             {status === "current" ? "Sedang berlangsung" : "Berikutnya"}
           </span> : null}
-          {item.is_break ? <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">
+          {item.is_break ? <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
             <Coffee size={14} className="shrink-0" />Jeda
           </span> : null}
-          {status === "past" ? <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">
+          {status === "past" ? <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
             Selesai
           </span> : null}
         </div>

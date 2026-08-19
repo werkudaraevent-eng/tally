@@ -37,9 +37,9 @@ export function ImagePreview({ url, alt, fit = "contain", className = "h-16 w-24
   }
 
   if (failed) {
-    return <div className={`flex ${className} shrink-0 flex-col items-center justify-center gap-1 border border-dashed border-[var(--danger)] bg-[#FDECEC] px-2 text-center`}>
-      <ImageBroken size={18} className="text-[var(--danger)]" />
-      <span className="text-[10px] font-semibold leading-tight text-[var(--danger)]">Gambar tidak dapat dimuat</span>
+    return <div className={`rounded-lg flex ${className} shrink-0 flex-col items-center justify-center gap-1 border border-dashed border-error bg-error-soft px-2 text-center`}>
+      <ImageBroken size={18} className="text-error" />
+      <span className="text-[10px] font-semibold leading-tight text-error">Gambar tidak dapat dimuat</span>
     </div>;
   }
 
@@ -49,7 +49,7 @@ export function ImagePreview({ url, alt, fit = "contain", className = "h-16 w-24
         jadi panitia tidak bisa tahu apakah berkasnya sudah benar sampai melihatnya
         di layar acara. Pola yang sama dipakai <BrandingEditor>. */}
     <span
-      className={`flex ${className} shrink-0 items-center justify-center overflow-hidden border border-[var(--line)]`}
+      className={`rounded-lg flex ${className} shrink-0 items-center justify-center overflow-hidden border border-outline-variant`}
       style={{
         backgroundImage:
           "linear-gradient(45deg, #e6e6e6 25%, transparent 25%, transparent 75%, #e6e6e6 75%), linear-gradient(45deg, #e6e6e6 25%, transparent 25%, transparent 75%, #e6e6e6 75%)",
@@ -68,6 +68,6 @@ export function ImagePreview({ url, alt, fit = "contain", className = "h-16 w-24
         className={`h-full w-full ${fit === "cover" ? "object-cover" : "object-contain"}`}
       />
     </span>
-    {showUrl && <span className="min-w-0 break-all text-[11px] leading-4 text-[var(--ink-muted)]">{url}</span>}
+    {showUrl && <span className="min-w-0 break-all text-[11px] leading-4 text-on-surface-variant">{url}</span>}
   </div>;
 }

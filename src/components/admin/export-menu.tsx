@@ -52,7 +52,7 @@ export function ExportMenu({ className }: { className?: string }) {
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex min-h-12 w-full items-center justify-center gap-2 bg-[var(--ink)] px-4 text-sm font-semibold text-white"
+        className="rounded-md flex min-h-12 w-full items-center justify-center gap-2 bg-on-surface px-4 text-body-medium font-semibold text-surface"
       >
         <Package size={19} /> Export data
         <CaretDown size={15} weight="bold" className={`transition-transform ${open ? "rotate-180" : ""}`} />
@@ -64,7 +64,7 @@ export function ExportMenu({ className }: { className?: string }) {
           aria-label="Pilih format export"
           // Menu dibuat melebar minimal selebar tombolnya dan diberi lapisan di
           // atas isi halaman, supaya tidak terpotong kartu di bawahnya.
-          className="absolute right-0 z-30 mt-1 w-72 border border-[var(--line)] bg-[var(--surface)] shadow-lg"
+          className="absolute right-0 z-30 mt-1 w-72 overflow-hidden rounded-md bg-surface-container-high shadow-level2"
         >
           {CHOICES.map(({ format, label, detail, Icon }) => (
             <a
@@ -72,12 +72,12 @@ export function ExportMenu({ className }: { className?: string }) {
               role="menuitem"
               href={`/api/admin/export?format=${format}`}
               onClick={() => setOpen(false)}
-              className="flex items-start gap-3 border-b border-[var(--line)] p-3 text-left last:border-b-0 hover:bg-[var(--surface-muted)]"
+              className="flex items-start gap-3 border-b border-outline-variant p-3 text-left last:border-b-0 hover:bg-panel-high"
             >
-              <Icon size={20} className="mt-0.5 shrink-0 text-[var(--brand)]" />
+              <Icon size={20} className="mt-0.5 shrink-0 text-primary" />
               <span>
-                <span className="block text-sm font-semibold">{label}</span>
-                <span className="mt-0.5 block text-xs text-[var(--ink-muted)]">{detail}</span>
+                <span className="block text-body-medium font-semibold">{label}</span>
+                <span className="mt-0.5 block text-body-small text-on-surface-variant">{detail}</span>
               </span>
             </a>
           ))}

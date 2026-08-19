@@ -62,7 +62,7 @@ function contrastRatio(foreground: string, background: string): number {
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
 const inputClass =
-  "h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]";
+  "h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
 
 export function BrandingEditor({
   value,
@@ -104,7 +104,7 @@ export function BrandingEditor({
       {/* Penjelasan di depan, sebelum field apa pun.
           Seluruh bagian ini opsional, dan itu tidak terlihat dari form-nya sendiri:
           admin yang menemukan belasan field baru cenderung merasa harus mengisinya. */}
-      <p className="border border-[var(--line)] bg-[var(--surface-muted)] p-3 text-xs leading-5 text-[var(--ink-muted)]">
+      <p className="rounded-lg border border-outline-variant bg-panel-high p-3 text-body-small leading-5 text-on-surface-variant">
         Semua isian di bagian ini <strong>opsional</strong>. Dibiarkan kosong, layar tampil
         seperti sebelumnya tanpa logo dan tanpa blok sponsor.
       </p>
@@ -113,13 +113,13 @@ export function BrandingEditor({
       {/* Logo header                                                        */}
       {/* ------------------------------------------------------------------ */}
       <div>
-        <p className="text-sm font-semibold">Logo header</p>
-        <p className="mt-1 text-xs text-[var(--ink-muted)]">
+        <p className="text-body-medium font-semibold">Logo header</p>
+        <p className="mt-1 text-body-small text-on-surface-variant">
           Tampil di atas judul. PNG berlatar transparan paling baik. Maksimal 5 MB.
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <label
-            className={`inline-flex min-h-11 cursor-pointer items-center gap-2 border border-[var(--line)] bg-[var(--background)] px-3 text-sm font-semibold hover:border-[var(--brand)] ${uploading === "logo" ? "pointer-events-none opacity-60" : ""}`}
+            className={`rounded-md inline-flex min-h-11 cursor-pointer items-center gap-2 border border-outline-variant bg-surface px-3 text-body-medium font-semibold hover:border-primary ${uploading === "logo" ? "pointer-events-none opacity-60" : ""}`}
           >
             <UploadSimple size={17} weight="bold" />
             {uploading === "logo" ? "Mengunggah…" : "Upload logo"}
@@ -141,7 +141,7 @@ export function BrandingEditor({
             <button
               type="button"
               onClick={() => onChange({ logo_url: null })}
-              className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--danger)] hover:border-[var(--danger)]"
+              className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-3 text-body-medium font-semibold text-error hover:border-error"
             >
               <XCircle size={17} weight="bold" /> Hapus logo
             </button>
@@ -155,7 +155,7 @@ export function BrandingEditor({
                   berlatar putih, jadi admin tidak bisa tahu apakah berkasnya sudah
                   benar sampai ia melihatnya di layar acara. */}
               <span
-                className="flex h-14 w-24 shrink-0 items-center justify-center border border-[var(--line)]"
+                className="rounded-md flex h-14 w-24 shrink-0 items-center justify-center border border-outline-variant"
                 style={{
                   backgroundImage:
                     "linear-gradient(45deg, #e6e6e6 25%, transparent 25%, transparent 75%, #e6e6e6 75%), linear-gradient(45deg, #e6e6e6 25%, transparent 25%, transparent 75%, #e6e6e6 75%)",
@@ -166,7 +166,7 @@ export function BrandingEditor({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={value.logo_url} alt="Pratinjau logo" className="max-h-12 max-w-20 object-contain" />
               </span>
-              <span className="break-all text-[11px] leading-4 text-[var(--ink-muted)]">{value.logo_url}</span>
+              <span className="break-all text-[11px] leading-4 text-on-surface-variant">{value.logo_url}</span>
             </div>
             <ScaleField
               id={`${idPrefix}-logo-scale`}
@@ -181,17 +181,17 @@ export function BrandingEditor({
       {/* ------------------------------------------------------------------ */}
       {/* Footer sponsor                                                     */}
       {/* ------------------------------------------------------------------ */}
-      <div className="border-t border-[var(--line)] pt-5">
-        <p className="text-sm font-semibold">Blok sponsor / media partner</p>
-        <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">
+      <div className="border-t border-outline-variant pt-5">
+        <p className="text-body-medium font-semibold">Blok sponsor / media partner</p>
+        <p className="mt-1 text-body-small leading-5 text-on-surface-variant">
           Satu gambar gabungan yang sudah ditata desainer, bukan logo satu per satu.
           Jarak antar logo dan ukuran optisnya tidak bisa disusun otomatis dengan
           hasil yang rapi, jadi tata letaknya tetap dipegang desainer.
           Disarankan PNG transparan, lebar 1600–2400px.
         </p>
 
-        <label className="mt-4 block text-sm font-semibold" htmlFor={`${idPrefix}-footer-text`}>
-          Teks di atas gambar <span className="font-normal text-[var(--ink-muted)]">(opsional)</span>
+        <label className="mt-4 block text-body-medium font-semibold" htmlFor={`${idPrefix}-footer-text`}>
+          Teks di atas gambar <span className="font-normal text-on-surface-variant">(opsional)</span>
         </label>
         <input
           id={`${idPrefix}-footer-text`}
@@ -204,7 +204,7 @@ export function BrandingEditor({
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <label
-            className={`inline-flex min-h-11 cursor-pointer items-center gap-2 border border-[var(--line)] bg-[var(--background)] px-3 text-sm font-semibold hover:border-[var(--brand)] ${uploading === "footer" ? "pointer-events-none opacity-60" : ""}`}
+            className={`rounded-md inline-flex min-h-11 cursor-pointer items-center gap-2 border border-outline-variant bg-surface px-3 text-body-medium font-semibold hover:border-primary ${uploading === "footer" ? "pointer-events-none opacity-60" : ""}`}
           >
             <UploadSimple size={17} weight="bold" />
             {uploading === "footer" ? "Mengunggah…" : "Upload gambar sponsor"}
@@ -224,7 +224,7 @@ export function BrandingEditor({
             <button
               type="button"
               onClick={() => onChange({ footer_image_url: null })}
-              className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--danger)] hover:border-[var(--danger)]"
+              className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-3 text-body-medium font-semibold text-error hover:border-error"
             >
               <XCircle size={17} weight="bold" /> Hapus gambar
             </button>
@@ -235,7 +235,7 @@ export function BrandingEditor({
           <div className="mt-3 space-y-3">
             <div className="flex items-center gap-3">
               <span
-                className="flex h-14 w-32 shrink-0 items-center justify-center border border-[var(--line)]"
+                className="rounded-md flex h-14 w-32 shrink-0 items-center justify-center border border-outline-variant"
                 style={{
                   backgroundImage:
                     "linear-gradient(45deg, #e6e6e6 25%, transparent 25%, transparent 75%, #e6e6e6 75%), linear-gradient(45deg, #e6e6e6 25%, transparent 25%, transparent 75%, #e6e6e6 75%)",
@@ -246,7 +246,7 @@ export function BrandingEditor({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={value.footer_image_url} alt="Pratinjau blok sponsor" className="max-h-12 max-w-28 object-contain" />
               </span>
-              <span className="break-all text-[11px] leading-4 text-[var(--ink-muted)]">{value.footer_image_url}</span>
+              <span className="break-all text-[11px] leading-4 text-on-surface-variant">{value.footer_image_url}</span>
             </div>
             <ScaleField
               id={`${idPrefix}-footer-image-scale`}
@@ -261,8 +261,8 @@ export function BrandingEditor({
       {/* ------------------------------------------------------------------ */}
       {/* Tipografi                                                          */}
       {/* ------------------------------------------------------------------ */}
-      <div className="border-t border-[var(--line)] pt-5">
-        <p className="text-sm font-semibold">Jenis huruf judul</p>
+      <div className="border-t border-outline-variant pt-5">
+        <p className="text-body-medium font-semibold">Jenis huruf judul</p>
         <select
           id={`${idPrefix}-font`}
           aria-label="Jenis huruf judul"
@@ -274,13 +274,13 @@ export function BrandingEditor({
             <option key={font.value} value={font.value}>{font.label}</option>
           ))}
         </select>
-        <p className="mt-2 text-xs text-[var(--ink-muted)]">
+        <p className="mt-2 text-body-small text-on-surface-variant">
           {BRANDING_FONTS.find((font) => font.value === value.heading_font)?.hint}
         </p>
 
         {/* Kenapa pengali, bukan ukuran piksel. Penjelasan singkat ditaruh di form
             karena inilah pertanyaan pertama admin saat mencari field "ukuran font". */}
-        <p className="mt-4 border border-[var(--line)] bg-[var(--surface-muted)] p-3 text-xs leading-5 text-[var(--ink-muted)]">
+        <p className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-3 text-body-small leading-5 text-on-surface-variant">
           Ukuran diatur sebagai <strong>pengali</strong>, bukan angka piksel. Layar acara
           punya banyak resolusi dan ukurannya menyesuaikan diri sendiri; angka piksel
           tetap akan mepet di panel sempit dan mungil di LED besar. 1,0× berarti ukuran
@@ -297,9 +297,9 @@ export function BrandingEditor({
       {/* ------------------------------------------------------------------ */}
       {/* Warna per elemen                                                   */}
       {/* ------------------------------------------------------------------ */}
-      <div className="border-t border-[var(--line)] pt-5">
-        <p className="text-sm font-semibold">Warna per elemen</p>
-        <p className="mt-1 text-xs text-[var(--ink-muted)]">
+      <div className="border-t border-outline-variant pt-5">
+        <p className="text-body-medium font-semibold">Warna per elemen</p>
+        <p className="mt-1 text-body-small text-on-surface-variant">
           Dibiarkan kosong, elemen mengikuti warna dasar layar. Mengubah warna dasar
           nanti tetap berlaku untuk elemen yang belum disetel khusus di sini.
         </p>
@@ -329,7 +329,7 @@ export function BrandingEditor({
             onChange={(next) => onChange({ footer_text_color: next })}
           />
         </div>
-        <p className="mt-3 text-xs text-[var(--ink-muted)]">
+        <p className="mt-3 text-body-small text-on-surface-variant">
           Warna aksen layar ({baseAccentColor.toUpperCase()}) tetap dipakai untuk garis
           bawah judul dan nomor langkah pada layar QR.
         </p>
@@ -360,8 +360,8 @@ function ScaleField({
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
-        <label className="text-xs font-semibold" htmlFor={id}>{label}</label>
-        <span className="font-mono text-xs text-[var(--ink-muted)]">{value.toFixed(2)}×</span>
+        <label className="text-body-small font-semibold" htmlFor={id}>{label}</label>
+        <span className="font-mono text-body-small text-on-surface-variant">{value.toFixed(2)}×</span>
       </div>
       <div className="mt-1 flex items-center gap-3">
         <input
@@ -372,7 +372,7 @@ function ScaleField({
           step={0.05}
           value={value}
           onChange={(event) => onChange(Number.parseFloat(event.target.value))}
-          className="h-11 w-full accent-[var(--brand)]"
+          className="h-11 w-full accent-primary"
         />
         {/* Tombol reset hanya muncul saat nilainya bukan bawaan. Selalu
             menampilkannya membuat admin ragu apakah 1,0× sudah "disetel" atau belum. */}
@@ -380,7 +380,7 @@ function ScaleField({
           <button
             type="button"
             onClick={() => onChange(1)}
-            className="min-h-11 shrink-0 px-2 text-xs font-semibold text-[var(--brand)]"
+            className="min-h-11 shrink-0 px-2 text-body-small font-semibold text-primary"
           >
             Reset
           </button>
@@ -419,11 +419,11 @@ function ColorField({
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
-        <label className="text-xs font-semibold" htmlFor={id}>{label}</label>
+        <label className="text-body-small font-semibold" htmlFor={id}>{label}</label>
         {value === null ? (
-          <span className="text-[11px] text-[var(--ink-muted)]">Ikut warna dasar</span>
+          <span className="text-[11px] text-on-surface-variant">Ikut warna dasar</span>
         ) : (
-          <button type="button" onClick={() => onChange(null)} className="min-h-8 text-[11px] font-semibold text-[var(--brand)]">
+          <button type="button" onClick={() => onChange(null)} className="min-h-8 text-[11px] font-semibold text-primary">
             Kembalikan ke warna dasar
           </button>
         )}
@@ -434,7 +434,7 @@ function ColorField({
           type="color"
           value={effective}
           onChange={(event) => onChange(event.target.value)}
-          className="h-10 w-12 shrink-0 cursor-pointer border border-[var(--line)] bg-[var(--background)]"
+          className="rounded-md h-10 w-12 shrink-0 cursor-pointer border border-outline-variant bg-surface"
         />
         <input
           value={value ?? ""}
@@ -449,11 +449,11 @@ function ColorField({
             if (next === "") onChange(null);
             else if (HEX.test(next)) onChange(next);
           }}
-          className="h-10 w-full border border-[var(--line)] bg-[var(--background)] px-2 font-mono text-xs uppercase outline-none focus:border-[var(--brand)]"
+          className="rounded-md h-10 w-full border border-outline-variant bg-surface px-2 font-mono text-body-small uppercase outline-none focus:border-primary"
         />
       </div>
       {low ? (
-        <p className="mt-1 text-[11px] text-[var(--danger)]">
+        <p className="mt-1 text-[11px] text-error">
           Kontras {ratio?.toFixed(1)}:1 terhadap latar. Di bawah 4,5:1 teks sulit dibaca
           dari jauh. Tetap bisa disimpan.
         </p>

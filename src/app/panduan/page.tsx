@@ -38,7 +38,7 @@ async function loadSettings(eventId: string) {
 // halaman terpotong — gambar tanpa kalimatnya tidak ada gunanya di kertas.
 function PrintStep({ step, number }: { step: GuideStep; number: number }) {
   const images = stepImages(step.id);
-  return <li className="flex gap-3 break-inside-avoid text-sm leading-6">
+  return <li className="flex gap-3 break-inside-avoid text-body-medium leading-6">
     <span className="w-5 shrink-0 text-right font-bold">{number}.</span>
     <div className="min-w-0">
       <span>{step.printText ?? step.text}</span>
@@ -53,7 +53,7 @@ function PrintStep({ step, number }: { step: GuideStep; number: number }) {
             key={image.src}
             src={image.src}
             alt={image.alt}
-            className="h-auto w-full max-w-[240px] border border-[#d9ddd7]"
+            className="h-auto w-full max-w-[240px] rounded-lg border border-outline-variant"
           />
         ))}
       </span> : null}
@@ -110,16 +110,16 @@ export default async function PanduanPage({
     masalah.splice(4, 0, { q: `Order hilang setelah ${autoVoid} menit`, a: [`Order belum dibayar lebih dari ${autoVoid} menit otomatis dibatalkan sistem.`, "Normal, bukan kerusakan. Kuota item spesial peserta kembali.", "Peserta datang terlambat? Buat order baru."] });
   }
 
-  return <main className="mx-auto max-w-3xl bg-white px-8 py-10 text-[#17211d] print:px-0 print:py-0">
-    <div className="print:hidden mb-8 flex flex-wrap items-center justify-between gap-3 border border-[#d9ddd7] bg-[#f5f4f0] p-4">
-      <p className="text-sm">Tekan <span className="font-semibold">Ctrl + P</span> untuk mencetak. Letakkan di meja booth.</p>
-      <a href="/booth" className="min-h-11 border border-[#d9ddd7] bg-white px-4 text-sm font-semibold leading-[2.75rem]">Kembali ke aplikasi</a>
+  return <main className="rounded-lg mx-auto max-w-3xl bg-white px-8 py-10 text-on-surface print:px-0 print:py-0">
+    <div className="rounded-lg print:hidden mb-8 flex flex-wrap items-center justify-between gap-3 border border-outline-variant bg-surface p-4">
+      <p className="text-body-medium">Tekan <span className="font-semibold">Ctrl + P</span> untuk mencetak. Letakkan di meja booth.</p>
+      <a href="/booth" className="rounded-md min-h-11 border border-outline-variant bg-white px-4 text-body-medium font-semibold leading-[2.75rem]">Kembali ke aplikasi</a>
     </div>
 
-    <header className="border-b-2 border-[#17211d] pb-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#66736c]">Panduan Operator</p>
+    <header className="border-b-2 border-on-surface pb-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Panduan Operator</p>
       <h1 className="mt-1 text-3xl font-bold">Tally — Event Transaction Hub</h1>
-      <p className="mt-2 text-sm text-[#66736c]">
+      <p className="mt-2 text-body-medium text-on-surface-variant">
         Alur aktif: {viaCashier ? "pembayaran lewat kasir" : "tanpa kasir, order langsung lunas"} ·{" "}
         {handOverNow ? "barang diserahkan langsung di booth" : "barang diambil setelah lunas"}
       </p>
@@ -129,15 +129,15 @@ export default async function PanduanPage({
       <h2 className="text-lg font-bold">A. Admin Booth</h2>
       <ol className="mt-3 space-y-2">{boothFlow.map((step, index) => <PrintStep key={step.id} step={step} number={index + 1} />)}</ol>
 
-      <h3 className="mt-6 text-sm font-bold uppercase tracking-[0.1em]">Arti status order</h3>
-      <table className="mt-2 w-full border-collapse text-sm">
+      <h3 className="mt-6 text-body-medium font-bold uppercase tracking-[0.1em]">Arti status order</h3>
+      <table className="mt-2 w-full border-collapse text-body-medium">
         <tbody>
           {[
             ["Menunggu kasir", "Belum dibayar. Jangan serahkan barang."],
             ["Lunas, siap diserahkan", "Sudah dibayar. Serahkan barang, lalu tekan Serahkan barang."],
             ["Sudah diserahkan", "Selesai. Tidak ada tindakan lagi."],
             ["Void", "Dibatalkan. Tidak dihitung, kuota item spesial peserta kembali."],
-          ].map(([status, arti]) => <tr key={status} className="border-b border-[#d9ddd7]">
+          ].map(([status, arti]) => <tr key={status} className="border-b border-outline-variant">
             <td className="w-56 py-2 pr-3 align-top font-semibold">{status}</td>
             <td className="py-2 align-top">{arti}</td>
           </tr>)}
@@ -153,14 +153,14 @@ export default async function PanduanPage({
     <section className="mt-8">
       <h2 className="text-lg font-bold">C. Kalau ada masalah</h2>
       <div className="mt-3 space-y-4">{masalah.map((item) => <div key={item.q} className="break-inside-avoid">
-        <p className="text-sm font-bold">{item.q}</p>
-        <ul className="mt-1 space-y-0.5">{item.a.map((line, index) => <li key={index} className="flex gap-2 text-sm leading-6">
+        <p className="text-body-medium font-bold">{item.q}</p>
+        <ul className="mt-1 space-y-0.5">{item.a.map((line, index) => <li key={index} className="flex gap-2 text-body-medium leading-6">
           <span aria-hidden="true">–</span><span>{line}</span>
         </li>)}</ul>
       </div>)}</div>
     </section>
 
-    <footer className="mt-10 border-t border-[#d9ddd7] pt-4 text-xs text-[#66736c]">
+    <footer className="mt-10 border-t border-outline-variant pt-4 text-body-small text-on-surface-variant">
       <p className="font-semibold">Aturan penting</p>
       <p className="mt-1">Jangan pernah membuat order saat banner merah OFFLINE muncul{handOverNow ? "" : " · Nomor stiker harus sama dengan stiker fisik di barang"} · Periksa nama peserta dan angka TOTAL sebelum menekan Buat order · Setiap void wajib diberi alasan dan tercatat.</p>
     </footer>

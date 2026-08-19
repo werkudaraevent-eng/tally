@@ -130,65 +130,65 @@ export default function DisplaySettingsPage() {
     toast.success("Tampilan tersimpan", "Live Display menyesuaikan dalam beberapa detik.");
   }
 
-  return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1440px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--brand)]"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
+      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
       <div className="mt-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Live display CMS</p>
+          <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Live display CMS</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Tampilan top spender.</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--ink-muted)]">Atur teks, warna, background, dan layout layar leaderboard yang tampil di proyektor.</p>
+          <p className="mt-3 max-w-2xl text-body-medium leading-6 text-on-surface-variant">Atur teks, warna, background, dan layout layar leaderboard yang tampil di proyektor.</p>
         </div>
-        <Link href="/display" target="_blank" rel="noreferrer" className="flex min-h-12 items-center justify-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold"><MonitorPlay size={19} /> Buka Live Display</Link>
+        <Link href="/display" target="_blank" rel="noreferrer" className="rounded-md flex min-h-12 items-center justify-center gap-2 border border-outline-variant px-4 text-body-medium font-semibold"><MonitorPlay size={19} /> Buka Live Display</Link>
       </div>
 
-      {error && <div role="alert" className="mt-6 flex items-center gap-2 border border-[#E9C7C4] bg-[#FFF2F0] p-4 text-sm text-[var(--danger)]"><XCircle size={20} />{error}</div>}
-      {message && <div role="status" className="mt-6 flex items-center gap-2 border border-[#B9DCC5] bg-[#EEF8F0] p-4 text-sm text-[var(--brand-strong)]"><CheckCircle size={20} />{message}</div>}
+      {error && <div role="alert" className="rounded-lg mt-6 flex items-center gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={20} />{error}</div>}
+      {message && <div role="status" className="rounded-lg mt-6 flex items-center gap-2 border border-success-soft-outline bg-success-soft p-4 text-body-medium text-primary-dim"><CheckCircle size={20} />{message}</div>}
 
-      {!settings ? <p className="mt-8 text-sm text-[var(--ink-muted)]">Memuat setting...</p> : <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-start">
-        <div className="space-y-px border border-[var(--line)] bg-[var(--line)]">
-          <section className="bg-[var(--surface)] p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Teks</h2>
-            <label className="mt-4 block text-sm font-semibold">Judul acara
-              <input value={settings.event_title} onChange={(event) => update("event_title", event.target.value)} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]" />
+      {!settings ? <p className="mt-8 text-body-medium text-on-surface-variant">Memuat setting...</p> : <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-start">
+        <div className="space-y-2">
+          <section className="rounded-lg bg-panel p-6">
+            <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Teks</h2>
+            <label className="mt-4 block text-body-medium font-semibold">Judul acara
+              <input value={settings.event_title} onChange={(event) => update("event_title", event.target.value)} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary" />
             </label>
-            <label className="mt-4 block text-sm font-semibold">Headline
-              <input value={settings.headline} onChange={(event) => update("headline", event.target.value)} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]" />
+            <label className="mt-4 block text-body-medium font-semibold">Headline
+              <input value={settings.headline} onChange={(event) => update("headline", event.target.value)} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary" />
             </label>
-            <label className="mt-4 block text-sm font-semibold">Tagline besar
-              <input value={settings.tagline} onChange={(event) => update("tagline", event.target.value)} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]" />
+            <label className="mt-4 block text-body-medium font-semibold">Tagline besar
+              <input value={settings.tagline} onChange={(event) => update("tagline", event.target.value)} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary" />
             </label>
           </section>
 
-          <section className="bg-[var(--surface)] p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Warna</h2>
+          <section className="rounded-lg bg-panel p-6">
+            <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Warna</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              {([["background_color", "Background"], ["text_color", "Teks"], ["accent_color", "Aksen"]] as const).map(([key, label]) => <label key={key} className="block text-sm font-semibold">{label}
+              {([["background_color", "Background"], ["text_color", "Teks"], ["accent_color", "Aksen"]] as const).map(([key, label]) => <label key={key} className="block text-body-medium font-semibold">{label}
                 <span className="mt-2 flex items-center gap-2">
-                  <input type="color" value={settings[key]} onChange={(event) => update(key, event.target.value)} className="h-10 w-12 cursor-pointer border border-[var(--line)] bg-[var(--background)]" />
-                  <input value={settings[key]} onChange={(event) => update(key, event.target.value)} className="h-10 w-full border border-[var(--line)] bg-[var(--background)] px-2 font-mono text-xs uppercase outline-none focus:border-[var(--brand)]" />
+                  <input type="color" value={settings[key]} onChange={(event) => update(key, event.target.value)} className="rounded-md h-10 w-12 cursor-pointer border border-outline-variant bg-surface" />
+                  <input value={settings[key]} onChange={(event) => update(key, event.target.value)} className="rounded-md h-10 w-full border border-outline-variant bg-surface px-2 font-mono text-body-small uppercase outline-none focus:border-primary" />
                 </span>
               </label>)}
             </div>
             <div className="mt-4">
-              <p className="text-sm font-semibold">Background image <span className="font-normal text-[var(--ink-muted)]">(opsional, disarankan 1920×1080)</span></p>
+              <p className="text-body-medium font-semibold">Background image <span className="font-normal text-on-surface-variant">(opsional, disarankan 1920×1080)</span></p>
               <div className="mt-2 flex flex-wrap items-center gap-3">
-                <label className={`inline-flex h-12 cursor-pointer items-center gap-2 border border-[var(--line)] bg-[var(--background)] px-4 text-sm font-semibold hover:border-[var(--brand)] ${uploading ? "pointer-events-none opacity-60" : ""}`}>
+                <label className={`rounded-md inline-flex h-12 cursor-pointer items-center gap-2 border border-outline-variant bg-surface px-4 text-body-medium font-semibold hover:border-primary ${uploading ? "pointer-events-none opacity-60" : ""}`}>
                   <UploadSimple size={18} weight="bold" />
                   {uploading ? "Mengunggah..." : "Upload gambar"}
                   <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadBackground(file); event.target.value = ""; }} />
                 </label>
                 {settings.background_image_url ? (
-                  <button type="button" onClick={() => update("background_image_url", null)} className="inline-flex h-12 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--danger)] hover:border-[var(--danger)]">
+                  <button type="button" onClick={() => update("background_image_url", null)} className="rounded-lg inline-flex h-12 items-center gap-2 border border-outline-variant bg-panel px-4 text-body-medium font-semibold text-error hover:border-error">
                     <XCircle size={18} weight="bold" /> Hapus gambar
                   </button>
                 ) : null}
               </div>
-              <p className="mt-2 text-xs text-[var(--ink-muted)]">Format PNG, JPG, atau WebP. Maksimal 5 MB.</p>
+              <p className="mt-2 text-body-small text-on-surface-variant">Format PNG, JPG, atau WebP. Maksimal 5 MB.</p>
               {settings.background_image_url ? (
                 <div className="mt-3 flex items-center gap-3">
-                  <span className="h-16 w-28 shrink-0 border border-[var(--line)] bg-cover bg-center" style={{ backgroundImage: `url(${settings.background_image_url})` }} />
-                  <span className="break-all text-xs text-[var(--ink-muted)]">{settings.background_image_url}</span>
+                  <span className="rounded-md h-16 w-28 shrink-0 border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${settings.background_image_url})` }} />
+                  <span className="break-all text-body-small text-on-surface-variant">{settings.background_image_url}</span>
                 </div>
               ) : null}
             </div>
@@ -200,8 +200,8 @@ export default function DisplaySettingsPage() {
               `idPrefix` tetap diberikan meski di halaman ini hanya ada satu editor:
               propnya wajib, dan nilai yang bermakna lebih mudah dilacak daripada
               string kosong bila kelak ada editor kedua di halaman ini. */}
-          <section className="bg-[var(--surface)] p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Header &amp; footer</h2>
+          <section className="rounded-lg bg-panel p-6">
+            <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Header &amp; footer</h2>
             <div className="mt-4">
               <BrandingEditor
                 idPrefix="display"
@@ -214,19 +214,19 @@ export default function DisplaySettingsPage() {
             </div>
           </section>
 
-          <section className="bg-[var(--surface)] p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Leaderboard & privasi</h2>
-            {!event ? <p className="mt-4 text-sm text-[var(--ink-muted)]">Memuat setting leaderboard...</p> : <>
-              <label className="mt-4 flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={event.leaderboard_enabled} onChange={(e) => updateEvent("leaderboard_enabled", e.target.checked)} className="size-5 accent-[var(--brand)]" /> Tampilkan leaderboard di Live Display</label>
-              <p className="mt-2 flex items-start gap-2 text-xs text-[var(--ink-muted)]"><Eye size={16} className="mt-0.5 shrink-0 text-[var(--brand)]" /> Saklar master. Jika dimatikan, leaderboard disembunyikan di semua layar display.</p>
-              <p className="mt-5 text-sm font-semibold">Nama peserta di leaderboard</p>
+          <section className="rounded-lg bg-panel p-6">
+            <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Leaderboard & privasi</h2>
+            {!event ? <p className="mt-4 text-body-medium text-on-surface-variant">Memuat setting leaderboard...</p> : <>
+              <label className="mt-4 flex items-center gap-3 text-body-medium font-semibold"><input type="checkbox" checked={event.leaderboard_enabled} onChange={(e) => updateEvent("leaderboard_enabled", e.target.checked)} className="size-5 accent-primary" /> Tampilkan leaderboard di Live Display</label>
+              <p className="mt-2 flex items-start gap-2 text-body-small text-on-surface-variant"><Eye size={16} className="mt-0.5 shrink-0 text-primary" /> Saklar master. Jika dimatikan, leaderboard disembunyikan di semua layar display.</p>
+              <p className="mt-5 text-body-medium font-semibold">Nama peserta di leaderboard</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {(["full", "initials", "company_only", "hidden"] as const).map((mode) => <label key={mode} className={`flex cursor-pointer items-center gap-3 border p-3 text-sm ${event.name_display_mode === mode ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)]"}`}>
-                  <input type="radio" name="name-mode" checked={event.name_display_mode === mode} onChange={() => updateEvent("name_display_mode", mode)} className="size-4 accent-[var(--brand)]" />
+                {(["full", "initials", "company_only", "hidden"] as const).map((mode) => <label key={mode} className={`rounded-lg flex cursor-pointer items-center gap-3 border p-3 text-body-medium ${event.name_display_mode === mode ? "border-primary bg-primary-soft" : "border-outline-variant"}`}>
+                  <input type="radio" name="name-mode" checked={event.name_display_mode === mode} onChange={() => updateEvent("name_display_mode", mode)} className="size-4 accent-primary" />
                   {mode === "full" ? "Nama lengkap" : mode === "initials" ? "Inisial" : mode === "company_only" ? "Perusahaan saja" : "Sembunyikan"}
                 </label>)}
               </div>
-              <p className="mt-3 border border-[var(--line)] bg-[var(--surface-muted)] p-3 text-sm">Preview: <span className="font-semibold">{namePreview[event.name_display_mode]}</span></p>
+              <p className="rounded-lg mt-3 border border-outline-variant bg-panel-high p-3 text-body-medium">Preview: <span className="font-semibold">{namePreview[event.name_display_mode]}</span></p>
             </>}
 
             {/* Pintu masuk ke remote control reveal.
@@ -234,15 +234,15 @@ export default function DisplaySettingsPage() {
                 saat acara berjalan dari layar ponsel, sementara halaman ini adalah
                 form panjang yang diedit lalu disimpan. Yang tinggal di sini hanya
                 status ringkas dan tautannya. */}
-            <div className="mt-6 border border-[var(--line)] bg-[var(--surface-muted)] p-4">
-              <p className="flex items-center gap-2 text-sm font-semibold"><ListNumbers size={18} className="shrink-0 text-[var(--brand)]" /> Reveal bertahap</p>
-              <p className="mt-2 text-xs leading-5 text-[var(--ink-muted)]">
+            <div className="rounded-lg mt-6 border border-outline-variant bg-panel-high p-4">
+              <p className="flex items-center gap-2 text-body-medium font-semibold"><ListNumbers size={18} className="shrink-0 text-primary" /> Reveal bertahap</p>
+              <p className="mt-2 text-body-small leading-5 text-on-surface-variant">
                 {reveal === null ? "Memuat status..."
                   : reveal.mode === "staged"
-                    ? <>Sedang <span className="font-semibold text-[var(--ink)]">aktif</span> — {reveal.stage_label ? `layar menampilkan ${reveal.stage_label.toLowerCase()}` : "layar menunggu tahap pertama dibuka"}.</>
+                    ? <>Sedang <span className="font-semibold text-on-surface">aktif</span> — {reveal.stage_label ? `layar menampilkan ${reveal.stage_label.toLowerCase()}` : "layar menunggu tahap pertama dibuka"}.</>
                     : <>Mati. Live Display menampilkan seluruh top {settings.leaderboard_limit} sekaligus, mengikuti transaksi live.</>}
               </p>
-              <Link href="/admin/display/reveal" className="mt-3 inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold">Buka kontrol reveal <ArrowRight size={16} /></Link>
+              <Link href="/admin/display/reveal" className="rounded-lg mt-3 inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-4 text-body-medium font-semibold">Buka kontrol reveal <ArrowRight size={16} /></Link>
             </div>
 
             {/* Pengecualian top spender.
@@ -251,62 +251,62 @@ export default function DisplaySettingsPage() {
                 daftarnya diedit di form ini, ia akan ikut terkirim setiap kali
                 ada yang mengganti warna latar, dan sebaliknya menambah satu
                 perusahaan akan menerbitkan perubahan warna yang belum selesai. */}
-            <div className="mt-4 border border-[var(--line)] bg-[var(--surface-muted)] p-4">
-              <p className="flex items-center gap-2 text-sm font-semibold"><Prohibit size={18} className="shrink-0 text-[var(--brand)]" /> Pengecualian peserta</p>
-              <p className="mt-2 text-xs leading-5 text-[var(--ink-muted)]">Perusahaan atau peserta yang tidak berhak masuk top spender, misalnya internal klien. Transaksinya tetap terhitung penuh di Reports.</p>
-              <Link href="/admin/display/exclusions" className="mt-3 inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold">Atur pengecualian <ArrowRight size={16} /></Link>
+            <div className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-4">
+              <p className="flex items-center gap-2 text-body-medium font-semibold"><Prohibit size={18} className="shrink-0 text-primary" /> Pengecualian peserta</p>
+              <p className="mt-2 text-body-small leading-5 text-on-surface-variant">Perusahaan atau peserta yang tidak berhak masuk top spender, misalnya internal klien. Transaksinya tetap terhitung penuh di Reports.</p>
+              <Link href="/admin/display/exclusions" className="rounded-lg mt-3 inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-4 text-body-medium font-semibold">Atur pengecualian <ArrowRight size={16} /></Link>
             </div>
           </section>
 
-          <section className="bg-[var(--surface)] p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Layout</h2>
+          <section className="rounded-lg bg-panel p-6">
+            <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Layout</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm font-semibold">Jumlah top spender
-                <input type="number" min={3} max={50} value={settings.leaderboard_limit} onChange={(event) => update("leaderboard_limit", Math.max(3, Math.min(50, Number(event.target.value) || 10)))} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-lg tabular-nums outline-none focus:border-[var(--brand)]" />
+              <label className="block text-body-medium font-semibold">Jumlah top spender
+                <input type="number" min={3} max={50} value={settings.leaderboard_limit} onChange={(event) => update("leaderboard_limit", Math.max(3, Math.min(50, Number(event.target.value) || 10)))} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-lg tabular-nums outline-none focus:border-primary" />
               </label>
-              <label className="block text-sm font-semibold">Refresh (detik)
-                <input type="number" min={5} max={300} value={settings.refresh_seconds} onChange={(event) => update("refresh_seconds", Math.max(5, Math.min(300, Number(event.target.value) || 30)))} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-lg tabular-nums outline-none focus:border-[var(--brand)]" />
+              <label className="block text-body-medium font-semibold">Refresh (detik)
+                <input type="number" min={5} max={300} value={settings.refresh_seconds} onChange={(event) => update("refresh_seconds", Math.max(5, Math.min(300, Number(event.target.value) || 30)))} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-lg tabular-nums outline-none focus:border-primary" />
               </label>
             </div>
             <div className="mt-4 space-y-3">
-              <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={settings.show_company} onChange={(event) => update("show_company", event.target.checked)} className="size-5 accent-[var(--brand)]" /> Tampilkan perusahaan peserta</label>
-              <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={settings.show_amount} onChange={(event) => update("show_amount", event.target.checked)} className="size-5 accent-[var(--brand)]" /> Tampilkan nominal belanja</label>
-              <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={settings.show_booth_progress} onChange={(event) => update("show_booth_progress", event.target.checked)} className="size-5 accent-[var(--brand)]" /> Tampilkan panel booth explorer</label>
-              <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={settings.show_ticker} onChange={(event) => update("show_ticker", event.target.checked)} className="size-5 accent-[var(--brand)]" /> Tampilkan ticker bawah</label>
+              <label className="flex items-center gap-3 text-body-medium font-semibold"><input type="checkbox" checked={settings.show_company} onChange={(event) => update("show_company", event.target.checked)} className="size-5 accent-primary" /> Tampilkan perusahaan peserta</label>
+              <label className="flex items-center gap-3 text-body-medium font-semibold"><input type="checkbox" checked={settings.show_amount} onChange={(event) => update("show_amount", event.target.checked)} className="size-5 accent-primary" /> Tampilkan nominal belanja</label>
+              <label className="flex items-center gap-3 text-body-medium font-semibold"><input type="checkbox" checked={settings.show_booth_progress} onChange={(event) => update("show_booth_progress", event.target.checked)} className="size-5 accent-primary" /> Tampilkan panel booth explorer</label>
+              <label className="flex items-center gap-3 text-body-medium font-semibold"><input type="checkbox" checked={settings.show_ticker} onChange={(event) => update("show_ticker", event.target.checked)} className="size-5 accent-primary" /> Tampilkan ticker bawah</label>
             </div>
             {/* Dua keterangan berbeda, bukan satu kalimat gabungan: yang pertama
                 menjelaskan jaminan teknisnya (angkanya benar-benar tidak dikirim),
                 yang kedua adalah peringatan tata letak yang hanya berlaku bila
                 kedua kolom kanan mati sekaligus. Menggabungkannya berarti
                 peringatan itu ikut tampil pada keadaan yang tidak bermasalah. */}
-            {!settings.show_amount && <div className="mt-4 space-y-2 border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-xs leading-5 text-[var(--ink-muted)]">
+            {!settings.show_amount && <div className="rounded-lg mt-4 space-y-2 border border-outline-variant bg-panel-high p-4 text-body-small leading-5 text-on-surface-variant">
               <p>Peringkat tetap tampil, nominalnya tidak. Angka juga tidak dikirim ke layar sama sekali, jadi tidak dapat dibaca dari alat pengembang browser oleh siapa pun yang membuka Live Display.</p>
-              {!settings.show_booth_progress && <p className="text-[var(--warning)]">Nominal dan progress booth dua-duanya mati, jadi setiap baris hanya berisi nama{settings.show_company ? " dan perusahaan" : ""}. Penonton tidak punya petunjuk apa pun tentang alasan urutannya.</p>}
+              {!settings.show_booth_progress && <p className="text-warning">Nominal dan progress booth dua-duanya mati, jadi setiap baris hanya berisi nama{settings.show_company ? " dan perusahaan" : ""}. Penonton tidak punya petunjuk apa pun tentang alasan urutannya.</p>}
             </div>}
-            {settings.show_ticker && <label className="mt-4 block text-sm font-semibold">Teks ticker <span className="font-normal text-[var(--ink-muted)]">(kosong = default)</span>
-              <input value={settings.ticker_text ?? ""} onChange={(event) => update("ticker_text", event.target.value)} placeholder="Leaderboard ter-update dari transaksi live" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]" />
+            {settings.show_ticker && <label className="mt-4 block text-body-medium font-semibold">Teks ticker <span className="font-normal text-on-surface-variant">(kosong = default)</span>
+              <input value={settings.ticker_text ?? ""} onChange={(event) => update("ticker_text", event.target.value)} placeholder="Leaderboard ter-update dari transaksi live" className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary" />
             </label>}
           </section>
 
-          <section className="bg-[var(--surface)] p-6">
-            <button onClick={save} disabled={saving} className="flex min-h-14 w-full items-center justify-center gap-2 bg-[var(--brand)] text-sm font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-50">{saving ? "Menyimpan..." : "Simpan tampilan"}</button>
-            {settings.updated_at && <p className="mt-3 text-center text-xs text-[var(--ink-muted)]">Terakhir diubah {formatEventDateTime(settings.updated_at, event?.time_zone ?? DEFAULT_TIME_ZONE)} {timeZoneAbbr(event?.time_zone ?? DEFAULT_TIME_ZONE)}</p>}
+          <section className="rounded-lg bg-panel p-6">
+            <button onClick={save} disabled={saving} className="rounded-md flex min-h-14 w-full items-center justify-center gap-2 bg-primary text-body-medium font-semibold text-on-primary hover:bg-primary-dim disabled:opacity-50">{saving ? "Menyimpan..." : "Simpan tampilan"}</button>
+            {settings.updated_at && <p className="mt-3 text-center text-body-small text-on-surface-variant">Terakhir diubah {formatEventDateTime(settings.updated_at, event?.time_zone ?? DEFAULT_TIME_ZONE)} {timeZoneAbbr(event?.time_zone ?? DEFAULT_TIME_ZONE)}</p>}
           </section>
         </div>
 
         <section className="lg:sticky lg:top-6">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Preview</h2>
-          <div className="mt-4 aspect-video w-full overflow-hidden border border-[var(--line)]" style={{ backgroundColor: settings.background_color, color: settings.text_color, backgroundImage: settings.background_image_url ? `url(${settings.background_image_url})` : undefined, backgroundSize: "cover", backgroundPosition: "center" }}>
+          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Preview</h2>
+          <div className="mt-4 aspect-video w-full overflow-hidden rounded-lg border border-outline-variant" style={{ backgroundColor: settings.background_color, color: settings.text_color, backgroundImage: settings.background_image_url ? `url(${settings.background_image_url})` : undefined, backgroundSize: "cover", backgroundPosition: "center" }}>
             <div className="flex h-full flex-col p-5" style={{ background: settings.background_image_url ? "rgba(0,0,0,0.45)" : "transparent" }}>
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ opacity: 0.6 }}>{settings.event_title}</p>
-              <p className="mt-1 text-sm font-semibold">{settings.headline}</p>
+              <p className="mt-1 text-body-medium font-semibold">{settings.headline}</p>
               <p className="mt-4 text-xl font-semibold tracking-[-0.03em]" style={{ color: settings.accent_color }}>{settings.tagline}</p>
               <div className="mt-4 space-y-2">
                 {/* Nominal contoh ikut dipratinjau supaya efek mematikan togglenya
                     terlihat di sini, bukan baru diketahui setelah proyektor menyala.
                     Angkanya sengaja berbeda per peringkat agar terbaca sebagai data,
                     bukan sebagai label yang sama berulang. */}
-                {[1, 2, 3].map((rank) => <div key={rank} className="flex items-center gap-3 border-t pt-2 text-xs" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+                {[1, 2, 3].map((rank) => <div key={rank} className="flex items-center gap-3 border-t pt-2 text-body-small" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
                   <span className="font-mono font-semibold" style={{ color: rank === 1 ? settings.accent_color : undefined, opacity: rank === 1 ? 1 : 0.5 }}>{String(rank).padStart(2, "0")}</span>
                   <span className="flex-1 truncate">Peserta {rank}{settings.show_company && <span style={{ opacity: 0.5 }}> — PT Contoh</span>}</span>
                   {settings.show_amount && <span className="shrink-0 font-mono tabular-nums" style={{ color: rank === 1 ? settings.accent_color : undefined }}>{["13.436.025", "6.749.463", "5.747.650"][rank - 1]}</span>}
@@ -316,7 +316,7 @@ export default function DisplaySettingsPage() {
               {settings.show_ticker && <p className="mt-auto border-t pt-2 text-[10px]" style={{ borderColor: "rgba(255,255,255,0.15)", opacity: 0.6 }}>{settings.ticker_text?.trim() || "Leaderboard ter-update dari transaksi live"}</p>}
             </div>
           </div>
-          <p className="mt-3 text-xs text-[var(--ink-muted)]">Preview perkiraan. Buka Live Display untuk tampilan penuh di proyektor.</p>
+          <p className="mt-3 text-body-small text-on-surface-variant">Preview perkiraan. Buka Live Display untuk tampilan penuh di proyektor.</p>
         </section>
       </div>}
     </div>

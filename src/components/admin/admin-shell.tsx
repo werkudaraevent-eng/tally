@@ -1,9 +1,10 @@
 "use client";
 
-import { ArmchairIcon, CalendarDots, CaretLeft, ChartBar, ChartBarHorizontal, ClipboardText, GearSix, Gift, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UserPlus, UsersThree } from "@phosphor-icons/react";
+import { ArmchairIcon, CalendarDots, CaretLeft, ChartBar, ChartBarHorizontal, ClipboardText, GearSix, Gift, List, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UserPlus, UsersThree, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { IconButton, ThemeToggle, TopAppBar } from "@/components/m3";
 
 const navigation = [
   { href: "/admin", label: "Dashboard", icon: ChartBar, ownerOnly: false },
@@ -113,6 +114,19 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
 
   const visibleNavigation = navigation.filter((item) => !item.ownerOnly || isOwner);
 
+  /**
+   * Judul top app bar. Diambil dari tabel `navigation` yang sama dengan
+   * penyorot menu aktif — daftar judul kedua akan menyimpang pada perubahan
+   * pertama, dan judul yang tidak cocok dengan menu yang tersorot membuat orang
+   * mengira ia salah halaman.
+   *
+   * Padanan terpanjang menang: /admin/undian/kontrol harus menjadi "Undian",
+   * bukan "Dashboard" hanya karena /admin cocok lebih dulu.
+   */
+  const currentPage = navigation
+    .filter(({ href }) => (href === "/admin" ? logicalPathname === "/admin" : logicalPathname.startsWith(href)))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+
   async function logout() {
     setLoggingOut(true);
     await fetch("/api/auth/logout", { method: "POST" });
@@ -120,26 +134,107 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
     router.refresh();
   }
 
-  return <div className="admin-shell min-h-dvh bg-[var(--background)] text-[var(--ink)]"><button type="button" onClick={() => setMobileOpen((open) => !open)} className="fixed left-4 top-4 z-50 flex size-11 items-center justify-center border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] shadow-sm lg:hidden" aria-label="Buka menu admin"><span className="text-xl leading-none">{mobileOpen ? "×" : "☰"}</span></button>{/* Latar gelap saat menu terbuka.
+  return (
+    <div className="admin-shell min-h-dvh bg-surface text-on-surface">
+      {/* Latar gelap saat menu terbuka.
 
-      Bukan sekadar hiasan: sebelumnya tidak ada apa pun di antara menu dan
-      halaman, sehingga sentuhan yang meleset sedikit dari sidebar langsung
-      menggulir konten di belakangnya. Lapisan ini menangkap sentuhan itu dan
-      menutup menu — perilaku yang sudah diharapkan orang dari drawer.
+          Bukan sekadar hiasan: sebelumnya tidak ada apa pun di antara menu dan
+          halaman, sehingga sentuhan yang meleset sedikit dari sidebar langsung
+          menggulir konten di belakangnya. Lapisan ini menangkap sentuhan itu dan
+          menutup menu — perilaku yang sudah diharapkan orang dari drawer.
 
-      Hanya di bawah lg: pada layar besar sidebar bagian dari tata letak, dan
-      menggelapkan halaman di sana justru menghalangi pekerjaan. */}
-    <button type="button" onClick={() => setMobileOpen(false)} aria-label="Tutup menu admin" tabIndex={mobileOpen ? 0 : -1} className={`fixed inset-0 z-30 bg-black/40 transition-opacity duration-200 lg:hidden ${mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"}`} />
-    {/* `h-dvh`, bukan `inset-y-0`: di browser ponsel bilah alamat menyusut dan
-        memuai, dan dvh mengikutinya sehingga tepi bawah sidebar tidak pernah
-        tertutup bilah navigasi. `overflow-hidden` di sini memaksa penggulirannya
-        terjadi di <nav>, satu-satunya bagian yang memang panjang; kepala dan
-        tombol logout tetap di tempatnya. */}
-    <aside className={`fixed left-0 top-0 z-40 flex h-dvh w-[272px] flex-col overflow-hidden border-r border-[var(--line)] bg-[var(--surface)] transition-transform duration-200 lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}><div className="shrink-0 border-b border-[var(--line)] px-6 py-5"><div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center bg-[var(--brand)] text-white"><Storefront size={22} weight="duotone" /></div><div><p className="text-sm font-semibold tracking-tight">Tally Control Room</p><p className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Admin workspace</p></div></div></div>{/* Satu-satunya jalan keluar ke pemilih event. Login mendorong SEMUA role ke
-        /events, jadi tautan ini tidak dibatasi super_admin; /events sendiri yang
-        menyaring event mana yang boleh dilihat. */}
-    <Link href="/events" className="flex shrink-0 items-center gap-3 border-b border-[var(--line)] px-6 py-5 hover:bg-[var(--surface-muted)]"><CaretLeft size={16} className="shrink-0 text-[var(--ink-muted)]" /><span className="min-w-0"><span className="block truncate text-sm font-semibold">{eventName ?? "Semua event"}</span><span className="mt-1 block truncate text-xs text-[var(--ink-muted)]">Ganti event</span></span></Link>{/* `min-h-0` WAJIB. Tanpa itu anak flex menolak menyusut di bawah tinggi
-        kontennya, <nav> memanjang melewati sidebar, dan penggulirannya tidak
-        pernah aktif — persis kegagalan yang sama seperti pada app-shell /rundown. */}
-    <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-5" aria-label="Admin navigation">{visibleNavigation.map(({ href, label, icon: Icon }) => { const active = href === "/admin" ? logicalPathname === "/admin" : logicalPathname.startsWith(href); return <Link key={href} href={`${eventPrefix}${href}`} onClick={() => setMobileOpen(false)} className={`flex min-h-12 items-center gap-3 px-4 text-sm font-semibold transition-colors ${active ? "bg-[var(--brand)] text-white" : "text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"}`}><Icon size={20} weight={active ? "fill" : "regular"} />{label}</Link>; })}</nav><div className="shrink-0 border-t border-[var(--line)] p-3"><button type="button" onClick={logout} disabled={loggingOut} className="flex min-h-12 w-full items-center gap-3 px-4 text-sm font-semibold text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] disabled:opacity-50"><SignOut size={20} />{loggingOut ? "Keluar..." : "Logout"}</button></div></aside>{mobileOpen && <button type="button" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-30 bg-[var(--ink)]/30 lg:hidden" aria-label="Tutup menu admin" />}{children}</div>;
+          Hanya di bawah lg: pada layar besar sidebar bagian dari tata letak, dan
+          menggelapkan halaman di sana justru menghalangi pekerjaan. */}
+      <button
+        type="button"
+        onClick={() => setMobileOpen(false)}
+        aria-label="Tutup menu admin"
+        tabIndex={mobileOpen ? 0 : -1}
+        className={`fixed inset-0 z-30 bg-scrim/50 transition-opacity duration-200 ease-standard lg:hidden ${mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+      />
+
+      {/* `h-dvh`, bukan `inset-y-0`: di browser ponsel bilah alamat menyusut dan
+          memuai, dan dvh mengikutinya sehingga tepi bawah sidebar tidak pernah
+          tertutup bilah navigasi. `overflow-hidden` di sini memaksa penggulirannya
+          terjadi di <nav>, satu-satunya bagian yang memang panjang; kepala dan
+          tombol logout tetap di tempatnya. */}
+      <aside className={`fixed left-0 top-0 z-40 flex h-dvh w-[272px] flex-col overflow-hidden bg-surface-container-low transition-transform duration-300 ease-emphasized lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="shrink-0 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex size-11 items-center justify-center rounded-lg bg-primary text-on-primary">
+              <Storefront size={22} weight="duotone" />
+            </div>
+            <div>
+              <p className="text-title-small font-semibold tracking-tight">Tally Control Room</p>
+              <p className="text-label-small uppercase tracking-[0.18em] text-on-surface-variant">Admin workspace</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Satu-satunya jalan keluar ke pemilih event. Login mendorong SEMUA role ke
+            /events, jadi tautan ini tidak dibatasi super_admin; /events sendiri yang
+            menyaring event mana yang boleh dilihat. */}
+        <Link href="/events" className="m3-state mx-3 flex shrink-0 items-center gap-3 rounded-2xl bg-surface-container px-4 py-4">
+          <CaretLeft size={16} className="shrink-0 text-on-surface-variant" />
+          <span className="min-w-0">
+            <span className="block truncate text-body-medium font-semibold">{eventName ?? "Semua event"}</span>
+            <span className="mt-0.5 block truncate text-body-small text-on-surface-variant">Ganti event</span>
+          </span>
+        </Link>
+
+        {/* `min-h-0` WAJIB. Tanpa itu anak flex menolak menyusut di bawah tinggi
+            kontennya, <nav> memanjang melewati sidebar, dan penggulirannya tidak
+            pernah aktif — persis kegagalan yang sama seperti pada app-shell /rundown. */}
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-4" aria-label="Admin navigation">
+          {visibleNavigation.map(({ href, label, icon: Icon }) => {
+            const active = href === "/admin" ? logicalPathname === "/admin" : logicalPathname.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={`${eventPrefix}${href}`}
+                onClick={() => setMobileOpen(false)}
+                aria-current={active ? "page" : undefined}
+                // Item aktif memakai bentuk pil penuh — itu cara M3 menandai
+                // tujuan saat ini di navigasi, dan bentuknya tetap terbaca
+                // ketika latar terang membuat perbedaan warnanya menipis.
+                className={`m3-state flex min-h-13 items-center gap-3 px-4 text-label-large font-semibold transition-[border-radius,background-color,color] duration-200 ease-emphasized ${active ? "rounded-full bg-secondary-container text-on-secondary-container" : "rounded-full text-on-surface-variant"}`}
+              >
+                <Icon size={22} weight={active ? "fill" : "regular"} />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="shrink-0 space-y-2 border-t border-outline-variant p-3">
+          <ThemeToggle compact className="w-full" />
+          <button
+            type="button"
+            onClick={logout}
+            disabled={loggingOut}
+            className="m3-state flex min-h-13 w-full items-center gap-3 rounded-full px-4 text-label-large font-semibold text-on-surface-variant disabled:opacity-50"
+          >
+            <SignOut size={22} />
+            {loggingOut ? "Keluar..." : "Logout"}
+          </button>
+        </div>
+      </aside>
+
+      <TopAppBar
+        title={currentPage?.label ?? "Admin"}
+        subtitle={eventName ?? undefined}
+        leading={
+          <IconButton
+            label={mobileOpen ? "Tutup menu admin" : "Buka menu admin"}
+            onClick={() => setMobileOpen((open) => !open)}
+            className="-ml-2 lg:hidden"
+          >
+            {mobileOpen ? <X size={22} weight="bold" /> : <List size={22} weight="bold" />}
+          </IconButton>
+        }
+      />
+
+      {children}
+    </div>
+  );
 }

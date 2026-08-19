@@ -3,6 +3,7 @@
 import { SignOut } from "@phosphor-icons/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/m3";
 
 export function LogoutButton() {
   const router = useRouter();
@@ -16,14 +17,14 @@ export function LogoutButton() {
   }
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="outlined"
+      size="sm"
       onClick={handleLogout}
-      disabled={pending}
-      className="flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-3 text-xs font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-wait disabled:opacity-60"
+      loading={pending}
+      icon={pending ? undefined : <SignOut size={18} weight="duotone" aria-hidden="true" />}
     >
-      <SignOut size={18} weight="duotone" aria-hidden="true" />
       {pending ? "Keluar..." : "Logout"}
-    </button>
+    </Button>
   );
 }

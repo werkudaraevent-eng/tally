@@ -19,8 +19,8 @@ type Props = {
 
 type Hasil = { status: string; qr_code: string | null; email_sent?: boolean };
 
-const input = "mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-4 text-base";
-const label = "mt-5 block text-sm font-semibold";
+const input = "mt-2 h-12 w-full border border-outline-variant bg-surface px-4 text-body-large";
+const label = "mt-5 block text-body-medium font-semibold";
 
 export default function DaftarClient(props: Props) {
   const [pending, setPending] = useState(false);
@@ -83,70 +83,70 @@ export default function DaftarClient(props: Props) {
     return <Bingkai nama={props.eventName} tanggal={props.eventDate} zona={props.timeZone}>
       <div className="text-center">
         {disetujui
-          ? <CheckCircle size={56} weight="fill" className="mx-auto text-[var(--brand)]" />
-          : <Hourglass size={56} className="mx-auto text-[var(--ink-muted)]" />}
-        <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em]">
+          ? <CheckCircle size={56} weight="fill" className="mx-auto text-primary" />
+          : <Hourglass size={56} className="mx-auto text-on-surface-variant" />}
+        <h2 className="mt-5 text-headline-small font-semibold tracking-[-0.03em]">
           {disetujui ? "Pendaftaran berhasil" : "Pendaftaran diterima"}
         </h2>
         {/* Email disebut HANYA bila benar-benar terkirim. Menjanjikannya lebih
             dulu membuat pendaftar menutup halaman ini tanpa menyimpan kodenya,
             lalu menunggu email yang tidak akan pernah datang -- dan baru sadar
             di meja registrasi, saat antrean sudah panjang. */}
-        <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">
+        <p className="mt-3 text-body-medium leading-6 text-on-surface-variant">
           {props.successText ?? (disetujui
             ? "Simpan kode di bawah ini. Tunjukkan kode itu di meja registrasi saat hari acara."
             : "Panitia akan memeriksa pendaftaran Anda, lalu menghubungi Anda lewat kontak yang diisi di atas.")}
         </p>
-        {disetujui && <div className="mt-6 border border-[var(--line)] bg-[var(--surface-muted)] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Kode peserta</p>
+        {disetujui && <div className="rounded-lg mt-6 border border-outline-variant bg-panel-high p-5">
+          <p className="text-body-small font-semibold uppercase tracking-[0.16em] text-on-surface-variant">Kode peserta</p>
           {/* Kode tetap ditampilkan BESAR walau emailnya terkirim. Email bisa
               masuk spam, tertunda, atau salah ketik; kode di layar adalah satu-
               satunya salinan yang pasti sampai pada detik ini. */}
           <p className="mt-2 select-all font-mono text-3xl font-semibold tracking-[0.1em]">{hasil.qr_code}</p>
           {lewatEmail
-            ? <p className="mt-3 text-sm">Kode ini juga sudah dikirim ke email Anda, lengkap dengan QR-nya. <span className="font-semibold">Tetap potret layar ini</span> — email bisa masuk folder spam.</p>
-            : <p className="mt-3 text-sm font-semibold text-[var(--danger)]">Potret layar ini sekarang. Kode tidak dikirim lewat email dan halaman ini tidak bisa dibuka lagi.</p>}
+            ? <p className="mt-3 text-body-medium">Kode ini juga sudah dikirim ke email Anda, lengkap dengan QR-nya. <span className="font-semibold">Tetap potret layar ini</span> — email bisa masuk folder spam.</p>
+            : <p className="mt-3 text-body-medium font-semibold text-error">Potret layar ini sekarang. Kode tidak dikirim lewat email dan halaman ini tidak bisa dibuka lagi.</p>}
         </div>}
       </div>
     </Bingkai>;
   }
 
   return <Bingkai nama={props.eventName} tanggal={props.eventDate} zona={props.timeZone}>
-    {props.welcomeText && <p className="border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-sm leading-6">{props.welcomeText}</p>}
+    {props.welcomeText && <p className="rounded-lg border border-outline-variant bg-panel-high p-4 text-body-medium leading-6">{props.welcomeText}</p>}
     <form onSubmit={submit} noValidate={false}>
       <label className={label}>Nama lengkap
         <input required minLength={2} maxLength={120} name="name" autoComplete="name" className={input} />
       </label>
       <label className={label}>Email
         <input required type="email" maxLength={160} name="email" autoComplete="email" inputMode="email" className={input} />
-        <span className="mt-2 block text-sm font-normal text-[var(--ink-muted)]">Dipakai panitia untuk menghubungi Anda. Satu email hanya bisa mendaftar sekali.</span>
+        <span className="mt-2 block text-body-medium font-normal text-on-surface-variant">Dipakai panitia untuk menghubungi Anda. Satu email hanya bisa mendaftar sekali.</span>
       </label>
       <label className={label}>Nomor telepon
         <input required type="tel" minLength={6} maxLength={30} name="phone" autoComplete="tel" inputMode="tel" className={input} />
       </label>
-      <label className={label}>Perusahaan {!props.requireCompany && <span className="font-normal text-[var(--ink-muted)]">(opsional)</span>}
+      <label className={label}>Perusahaan {!props.requireCompany && <span className="font-normal text-on-surface-variant">(opsional)</span>}
         <input required={props.requireCompany} maxLength={160} name="company" autoComplete="organization" className={input} />
       </label>
-      <label className={label}>Jabatan {!props.requireJobTitle && <span className="font-normal text-[var(--ink-muted)]">(opsional)</span>}
+      <label className={label}>Jabatan {!props.requireJobTitle && <span className="font-normal text-on-surface-variant">(opsional)</span>}
         <input required={props.requireJobTitle} maxLength={160} name="job_title" autoComplete="organization-title" className={input} />
       </label>
 
       {props.fields.map((field) => <label key={field.key} className={label}>
-        {field.label} {!field.required && <span className="font-normal text-[var(--ink-muted)]">(opsional)</span>}
+        {field.label} {!field.required && <span className="font-normal text-on-surface-variant">(opsional)</span>}
         {field.type === "textarea"
-          ? <textarea required={field.required} maxLength={2000} rows={3} name={`extra.${field.key}`} placeholder={field.placeholder} className="mt-2 w-full border border-[var(--line)] bg-[var(--background)] p-4 text-base" />
+          ? <textarea required={field.required} maxLength={2000} rows={3} name={`extra.${field.key}`} placeholder={field.placeholder} className="rounded-lg mt-2 w-full border border-outline-variant bg-surface p-4 text-body-large" />
           : field.type === "select"
             ? <select required={field.required} name={`extra.${field.key}`} defaultValue="" className={input}>
                 <option value="" disabled>Pilih…</option>
                 {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             : <input required={field.required} type={field.type} maxLength={2000} name={`extra.${field.key}`} placeholder={field.placeholder} className={input} />}
-        {field.help_text && <span className="mt-2 block text-sm font-normal text-[var(--ink-muted)]">{field.help_text}</span>}
+        {field.help_text && <span className="mt-2 block text-body-medium font-normal text-on-surface-variant">{field.help_text}</span>}
       </label>)}
 
-      {error && <p role="alert" className="mt-6 border border-[var(--danger)]/30 bg-[var(--danger)]/5 p-4 text-sm font-medium text-[var(--danger)]">{error}</p>}
+      {error && <p role="alert" className="rounded-lg mt-6 border border-error/30 bg-error/5 p-4 text-body-medium font-medium text-error">{error}</p>}
 
-      <button disabled={pending} className="mt-7 min-h-12 w-full bg-[var(--brand)] px-5 font-semibold text-white disabled:opacity-50">
+      <button disabled={pending} className="rounded-md mt-7 min-h-12 w-full bg-primary px-5 font-semibold text-on-primary disabled:opacity-50">
         {pending ? "Mengirim…" : "Daftar sekarang"}
       </button>
     </form>
@@ -154,16 +154,16 @@ export default function DaftarClient(props: Props) {
 }
 
 function Bingkai({ nama, tanggal, zona, children }: { nama: string; tanggal: string | null; zona: EventTimeZone; children: React.ReactNode }) {
-  return <main className="min-h-dvh bg-[var(--background)] px-5 py-10 text-[var(--ink)]">
+  return <main className="min-h-dvh bg-surface px-5 py-10 text-on-surface">
     <div className="mx-auto w-full max-w-lg">
-      <header className="border-b border-[var(--line)] pb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand)]">Pendaftaran peserta</p>
+      <header className="border-b border-outline-variant pb-6">
+        <p className="text-body-small font-semibold uppercase tracking-[0.18em] text-primary">Pendaftaran peserta</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">{nama}</h1>
-        {tanggal && <p className="mt-2 text-sm text-[var(--ink-muted)]">
+        {tanggal && <p className="mt-2 text-body-medium text-on-surface-variant">
           {new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone: zona }).format(new Date(`${tanggal}T12:00:00Z`))}
         </p>}
       </header>
-      <div className="mt-7 border border-[var(--line)] bg-[var(--surface)] p-6 sm:p-8">{children}</div>
+      <div className="rounded-lg mt-7 border border-outline-variant bg-panel p-6 sm:p-8">{children}</div>
     </div>
   </main>;
 }

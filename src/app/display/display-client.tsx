@@ -2,6 +2,7 @@
 
 import { Broadcast, ChartLineUp, Crown, DotsSix, EyeSlash, Medal, Storefront, Trophy } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
+import { standard } from "@/lib/m3/motion";
 import { useCallback, useEffect, useState } from "react";
 import { BrandFooter, BrandLogo } from "@/components/brand-header-footer";
 import { fontStack, normalizeBranding, scaleClamp } from "@/lib/branding";
@@ -261,8 +262,8 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-4">
-          <div className="hidden text-right sm:block"><p className="text-xs uppercase tracking-[0.15em]" style={{ opacity: 0.45 }}>Refresh {tick}</p><p className="mt-1 font-mono text-sm">{lastUpdated ? `Update ${formatEventTimeWithSeconds(lastUpdated, timeZone)} ${timeZoneAbbr(timeZone)}` : "Menghubungkan"}</p></div>
-          {!chromeHidden && <button onClick={() => setEnabled((value) => !value)} className="flex min-h-12 shrink-0 items-center gap-2 border border-white/20 px-3 text-sm font-semibold hover:bg-white/10 sm:px-4">{leaderboardVisible ? <EyeSlash size={20} /> : <Broadcast size={20} />} <span className="hidden sm:inline">{leaderboardVisible ? "Sembunyikan" : "Tampilkan"}</span></button>}
+          <div className="hidden text-right sm:block"><p className="text-body-small uppercase tracking-[0.15em]" style={{ opacity: 0.45 }}>Refresh {tick}</p><p className="mt-1 font-mono text-body-medium">{lastUpdated ? `Update ${formatEventTimeWithSeconds(lastUpdated, timeZone)} ${timeZoneAbbr(timeZone)}` : "Menghubungkan"}</p></div>
+          {!chromeHidden && <button onClick={() => setEnabled((value) => !value)} className="rounded-md flex min-h-12 shrink-0 items-center gap-2 border border-white/20 px-3 text-body-medium font-semibold hover:bg-white/10 sm:px-4">{leaderboardVisible ? <EyeSlash size={20} /> : <Broadcast size={20} />} <span className="hidden sm:inline">{leaderboardVisible ? "Sembunyikan" : "Tampilkan"}</span></button>}
         </div>
       </header>
 
@@ -283,12 +284,12 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
               minimal 1 karakter, jadi admin yang ingin menyembunyikannya
               biasanya mengisi "." atau "-" — jangan sisakan ruang untuk itu. */}
           {(config.tagline.trim().length > 1 || (staged && stageLabel)) && <div className="mb-4 flex items-end justify-between gap-4">
-            <h2 className="text-2xl font-semibold tracking-[-0.05em] xl:text-4xl">{config.tagline.trim().length > 1 ? config.tagline : stageLabel}</h2>
+            <h2 className="text-headline-small font-semibold tracking-[-0.05em] xl:text-4xl">{config.tagline.trim().length > 1 ? config.tagline : stageLabel}</h2>
             {/* Label tahap ikut tampil agar penonton tahu potongan mana yang
                 sedang dibuka — pada tahap "4-10" papan dimulai dari nomor 4 dan
                 tanpa keterangan itu terlihat seperti tiga besar yang hilang. */}
             {staged && stageLabel && config.tagline.trim().length > 1
-              ? <span className="shrink-0 border px-3 py-1 text-sm font-semibold uppercase tracking-[0.14em]" style={{ borderColor: config.accent_color, color: config.accent_color }}>{stageLabel}</span>
+              ? <span className="rounded-sm shrink-0 border px-3 py-1 text-body-medium font-semibold uppercase tracking-[0.14em]" style={{ borderColor: config.accent_color, color: config.accent_color }}>{stageLabel}</span>
               : <ChartLineUp size={34} weight="duotone" className="shrink-0" style={{ opacity: 0.3 }} />}
           </div>}
 
@@ -321,7 +322,10 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -16 }}
-                  transition={{ type: "spring", stiffness: 320, damping: 32 }}
+                  // Skema tenang, bukan ekspresif: baris ini berpindah setiap kali ada
+                  // order masuk, sepanjang acara. Pantulan yang menyenangkan sekali
+                  // menjadi gangguan pada kali kelima puluh.
+                  transition={standard.spatial.default}
                   className="grid items-center gap-x-2 gap-y-1 sm:gap-x-4 grid-cols-[34px_1fr] sm:grid-cols-[52px_1fr] lg:grid-cols-[64px_1fr_auto]"
                   style={{
                     paddingBlock: spotlight ? "clamp(14px, 3.4vw, 40px)" : lead ? "14px" : "12px",
@@ -369,10 +373,10 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
         </section>
 
         {asideVisible && <aside>
-          <section className="border border-white/15 p-6">
-            <p className="text-xs uppercase tracking-[0.2em]" style={{ color: config.accent_color }}>02 / Booth explorer</p>
+          <section className="rounded-lg border border-white/15 p-6">
+            <p className="text-body-small uppercase tracking-[0.2em]" style={{ color: config.accent_color }}>02 / Booth explorer</p>
             {/* `items-baseline`, bukan dua ukuran font yang ditumpuk begitu saja.
-                Sebelumnya "2" (text-6xl) dan "/9" (text-2xl) berada di flow yang
+                Sebelumnya "2" (text-6xl) dan "/9" (text-headline-small) berada di flow yang
                 sama tanpa penyelarasan, sehingga penyebutnya duduk di tengah
                 tinggi angka besar dan terbaca seperti pecahan miring, bukan
                 "2 dari 9". */}
@@ -380,10 +384,10 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
               <div className="min-w-0">
                 <p className="flex items-baseline gap-1 font-semibold leading-none tracking-[-0.06em]">
                   <span className="text-6xl">{topBoothEntry?.booth_count ?? 0}</span>
-                  <span className="text-2xl" style={{ opacity: 0.4 }}>/ {boothTotal}</span>
+                  <span className="text-headline-small" style={{ opacity: 0.4 }}>/ {boothTotal}</span>
                 </p>
-                <p className="mt-3 truncate text-sm font-semibold">{topBoothEntry?.display_name ?? "Belum ada peserta"}</p>
-                <p className="mt-0.5 text-xs uppercase tracking-[0.14em]" style={{ opacity: 0.45 }}>Booth terbanyak</p>
+                <p className="mt-3 truncate text-body-medium font-semibold">{topBoothEntry?.display_name ?? "Belum ada peserta"}</p>
+                <p className="mt-0.5 text-body-small uppercase tracking-[0.14em]" style={{ opacity: 0.45 }}>Booth terbanyak</p>
               </div>
               <Crown size={32} weight="duotone" className="shrink-0" style={{ color: config.accent_color }} />
             </div>
@@ -398,7 +402,7 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
                 tidak lagi terbaca dari jarak proyektor. */}
             <div className="mt-6 grid gap-2" style={{ gridTemplateColumns: `repeat(${boothColumns}, minmax(0, 1fr))` }}>{boothCodes.map((code, index) => {
               const visited = index < (topBoothEntry?.booth_count ?? 0);
-              return <div key={code} className="flex h-10 items-center justify-center truncate px-1 text-xs font-bold tracking-[0.04em]" style={{ backgroundColor: visited ? config.accent_color : "rgba(255,255,255,0.1)", color: visited ? "#000" : "rgba(255,255,255,0.55)" }}>{code}</div>;
+              return <div key={code} className="flex h-10 items-center justify-center truncate px-1 text-body-small font-bold tracking-[0.04em]" style={{ backgroundColor: visited ? config.accent_color : "rgba(255,255,255,0.1)", color: visited ? "#000" : "rgba(255,255,255,0.55)" }}>{code}</div>;
             })}</div>
           </section>
           {/* Panel statistik "Spender" dan "Booth visits" DIHAPUS, bukan
@@ -451,11 +455,11 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
         {/* Blok sponsor di ATAS baris ticker: sponsor adalah isi yang dilihat
             penonton, sedangkan baris ticker lebih dekat ke penanda status sistem. */}
         <BrandFooter branding={config} textColor={config.text_color} variant="compact" className={config.show_ticker ? "mb-3" : ""} />
-        {config.show_ticker && <div className="flex items-center gap-3 text-sm">
+        {config.show_ticker && <div className="flex items-center gap-3 text-body-medium">
           <Broadcast size={18} style={{ color: config.accent_color }} />
           <span style={{ opacity: 0.55 }}>Live database</span>
           <span className="font-semibold">{config.ticker_text?.trim() || "Leaderboard ter-update dari transaksi live"}</span>
-          <span className="ml-auto hidden text-xs sm:block" style={{ opacity: 0.35 }}>Refresh {tick} · <Storefront className="inline" size={14} /> Live</span>
+          <span className="ml-auto hidden text-body-small sm:block" style={{ opacity: 0.35 }}>Refresh {tick} · <Storefront className="inline" size={14} /> Live</span>
         </div>}
       </footer>}
     </div>

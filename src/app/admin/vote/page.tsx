@@ -87,8 +87,8 @@ function emptySettings(): DisplaySettings {
   };
 }
 
-const inputClass = "mt-1.5 h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]";
-const labelClass = "text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]";
+const inputClass = "mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
+const labelClass = "text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant";
 
 export default function VoteAdminPage() {
   const [polls, setPolls] = useState<VotePoll[]>([]);
@@ -322,66 +322,66 @@ export default function VoteAdminPage() {
     void load();
   }
 
-  return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1200px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--brand)]"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
+      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
 
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Voting langsung</p>
+          <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Voting langsung</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Vote.</h1>
-          <p className="mt-3 max-w-2xl text-sm text-[var(--ink-muted)]">
+          <p className="mt-3 max-w-2xl text-body-medium text-on-surface-variant">
             Susun pertanyaan, tayangkan ke layar, buka voting, lalu perlihatkan hasilnya saat MC siap.
             Peserta memilih dari HP lewat QR yang muncul di layar.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setSettingsOpen((open) => !open)} className="flex min-h-12 items-center gap-2 border border-[var(--line)] px-5 text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+          <button type="button" onClick={() => setSettingsOpen((open) => !open)} className="rounded-md flex min-h-12 items-center gap-2 border border-outline-variant px-5 text-body-medium font-semibold hover:border-primary hover:text-primary">
             <Palette size={18} /> {settingsOpen ? "Tutup tampilan" : "Tampilan layar"}
           </button>
-          <Link href="/vote/layar" target="_blank" className="flex min-h-12 items-center gap-2 border border-[var(--line)] px-5 text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+          <Link href="/vote/layar" target="_blank" className="rounded-md flex min-h-12 items-center gap-2 border border-outline-variant px-5 text-body-medium font-semibold hover:border-primary hover:text-primary">
             <ArrowSquareOut size={18} /> Layar panggung
           </Link>
         </div>
       </div>
 
-      {error && <p role="alert" className="mt-5 flex items-start gap-2 border border-[#E9C7C4] bg-[#FFF2F0] p-4 text-sm text-[var(--danger)]"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</p>}
+      {error && <p role="alert" className="rounded-lg mt-5 flex items-start gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</p>}
 
-      {settingsOpen && settings && <section className="mt-6 border border-[var(--line)] bg-[var(--surface)] p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Tampilan layar panggung</h2>
-        <p className="mt-2 text-xs text-[var(--ink-muted)]">
+      {settingsOpen && settings && <section className="rounded-lg mt-6 border border-outline-variant bg-panel p-6">
+        <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Tampilan layar panggung</h2>
+        <p className="mt-2 text-body-small text-on-surface-variant">
           Berlaku untuk <span className="font-mono">/vote/layar</span>. Judul di sini adalah judul ACARA yang menetap; pertanyaannya sendiri berganti mengikuti apa yang sedang ditayangkan.
         </p>
 
         {/* Kode gabung berdiri di paling atas panel: inilah satu-satunya bagian
             yang dibacakan MC dari panggung, dan yang paling sering dicari
             operator saat peserta bertanya "caranya ikut bagaimana". */}
-        <div className="mt-5 flex flex-wrap items-center gap-4 border border-[var(--line)] bg-[var(--surface-muted)] p-4">
+        <div className="rounded-lg mt-5 flex flex-wrap items-center gap-4 border border-outline-variant bg-panel-high p-4">
           <div>
             <p className={labelClass}>Kode gabung acara</p>
             <p className="mt-1 font-mono text-3xl font-bold tabular-nums tracking-[0.14em]">
               {joinCode ? `${joinCode.slice(0, 3)} ${joinCode.slice(3)}` : "—"}
             </p>
           </div>
-          <p className="min-w-48 flex-1 text-xs leading-relaxed text-[var(--ink-muted)]">
+          <p className="min-w-48 flex-1 text-body-small leading-relaxed text-on-surface-variant">
             Peserta membuka <span className="font-mono">/join</span> lalu mengetik angka ini. Berlaku untuk seluruh acara, bukan per pertanyaan — cukup sekali di awal sesi.
           </p>
-          <button type="button" onClick={() => void rotateJoinCode()} disabled={rotating} className="min-h-11 border border-[var(--line)] bg-[var(--surface)] px-3 text-xs font-semibold hover:border-[var(--danger)] hover:text-[var(--danger)] disabled:opacity-50">
+          <button type="button" onClick={() => void rotateJoinCode()} disabled={rotating} className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-small font-semibold hover:border-error hover:text-error disabled:opacity-50">
             {rotating ? "Menerbitkan…" : "Ganti kode"}
           </button>
           {/* Peringatan ditulis di sebelah tombolnya, bukan di dialog konfirmasi:
               satu kalimat yang terbaca sebelum menekan lebih berguna daripada
               dialog yang ditekan "ya" tanpa dibaca. */}
-          <p className="w-full text-[11px] text-[var(--ink-muted)]">
+          <p className="w-full text-[11px] text-on-surface-variant">
             Mengganti kode memutus peserta yang sudah memegang kode lama — mereka akan mengetik angka yang tidak menemukan apa pun.
           </p>
         </div>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm font-semibold">Judul layar
+          <label className="block text-body-medium font-semibold">Judul layar
             <input value={settings.page_title} onChange={(event) => setSettings({ ...settings, page_title: event.target.value })} className={inputClass} />
           </label>
-          <label className="block text-sm font-semibold">Sub judul
+          <label className="block text-body-medium font-semibold">Sub judul
             <input value={settings.page_subtitle} onChange={(event) => setSettings({ ...settings, page_subtitle: event.target.value })} className={inputClass} placeholder="Opsional" />
           </label>
         </div>
@@ -394,18 +394,18 @@ export default function VoteAdminPage() {
             ["accent_color", "Aksen"],
             ["panel_color", "Panel hasil"],
           ] as const).map(([key, label]) => <div key={key}>
-            <label className="block text-sm font-semibold">{label}
+            <label className="block text-body-medium font-semibold">{label}
               <span className="mt-1.5 flex items-center gap-2">
                 <input
                   type="color"
                   value={settings[key] ?? COLOR_FALLBACK[key]}
                   onChange={(event) => setSettings({ ...settings, [key]: event.target.value })}
-                  className="h-11 w-16 border border-[var(--line)] bg-[var(--background)]"
+                  className="rounded-md h-11 w-16 border border-outline-variant bg-surface"
                 />
                 {/* Tombol ini mengembalikan kolomnya ke NULL, bukan mengetik warna
                     bawaan: keduanya terlihat sama di layar, tetapi hanya NULL yang
                     ikut berubah bila bawaannya kelak diubah. */}
-                <button type="button" onClick={() => setSettings({ ...settings, [key]: null })} disabled={settings[key] === null} className="min-h-11 border border-[var(--line)] px-2 text-xs font-semibold disabled:opacity-40">
+                <button type="button" onClick={() => setSettings({ ...settings, [key]: null })} disabled={settings[key] === null} className="rounded-md min-h-11 border border-outline-variant px-2 text-body-small font-semibold disabled:opacity-40">
                   {settings[key] === null ? "Bawaan" : "Pakai bawaan"}
                 </button>
               </span>
@@ -415,13 +415,13 @@ export default function VoteAdminPage() {
         {/* Panel diberi keterangan sendiri: ia satu-satunya warna yang punya
             perhitungan otomatis, dan tanpa kalimat ini "Bawaan" terbaca seperti
             warna tetap. */}
-        <p className="mt-2 text-[11px] text-[var(--ink-muted)]">
+        <p className="mt-2 text-[11px] text-on-surface-variant">
           Panel hasil adalah bidang di belakang daftar suara. Dibiarkan bawaan, ia menjadi lapisan gelap tembus pandang sehingga selalu serasi dengan gambar latar apa pun — isi warna hanya bila Anda ingin bidang solid.
         </p>
 
         <p className={`mt-5 ${labelClass}`}>Gambar latar</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+          <label className="rounded-md flex min-h-11 cursor-pointer items-center gap-2 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
             <UploadSimple size={15} /> {uploading === "background" ? "Mengunggah…" : settings.background_image_url ? "Ganti" : "Unggah"}
             <input type="file" accept="image/*" className="hidden" onChange={async (event) => {
               const file = event.target.files?.[0];
@@ -433,11 +433,11 @@ export default function VoteAdminPage() {
           </label>
           {settings.background_image_url && <>
             <ImagePreview url={settings.background_image_url} alt="Pratinjau latar" className="h-16 w-28" />
-            <button type="button" onClick={() => setSettings({ ...settings, background_image_url: null })} className="min-h-11 border border-[var(--line)] px-3 text-xs font-semibold text-[var(--danger)]">Hapus</button>
+            <button type="button" onClick={() => setSettings({ ...settings, background_image_url: null })} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-small font-semibold text-error">Hapus</button>
           </>}
         </div>
 
-        <div className="mt-6 border-t border-[var(--line)] pt-5">
+        <div className="mt-6 border-t border-outline-variant pt-5">
           <BrandingEditor
             value={settings}
             onChange={(changes) => setSettings((current) => current && { ...current, ...changes })}
@@ -448,20 +448,20 @@ export default function VoteAdminPage() {
           />
         </div>
 
-        <button type="button" onClick={() => void saveSettings()} disabled={savingSettings} className="mt-6 min-h-12 bg-[var(--brand)] px-5 font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-50">
+        <button type="button" onClick={() => void saveSettings()} disabled={savingSettings} className="rounded-md mt-6 min-h-12 bg-primary px-5 font-semibold text-on-primary hover:bg-primary-dim disabled:opacity-50">
           {savingSettings ? "Menyimpan…" : "Simpan tampilan"}
         </button>
       </section>}
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Pertanyaan</h2>
-        <button type="button" onClick={() => setDraft(emptyDraft())} className="inline-flex min-h-11 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-semibold text-white hover:bg-[var(--brand-strong)]">
+        <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Pertanyaan</h2>
+        <button type="button" onClick={() => setDraft(emptyDraft())} className="rounded-md inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary hover:bg-primary-dim">
           <Plus size={16} /> Pertanyaan baru
         </button>
       </div>
 
-      {loading ? <p className="mt-6 text-sm text-[var(--ink-muted)]">Memuat…</p>
-        : polls.length === 0 ? <p className="mt-6 border border-[var(--line)] bg-[var(--surface)] p-6 text-sm text-[var(--ink-muted)]">
+      {loading ? <p className="mt-6 text-body-medium text-on-surface-variant">Memuat…</p>
+        : polls.length === 0 ? <p className="rounded-lg mt-6 border border-outline-variant bg-panel p-6 text-body-medium text-on-surface-variant">
             Belum ada pertanyaan. Tekan <span className="font-semibold">Pertanyaan baru</span> untuk membuat yang pertama.
           </p>
         : <ul className="mt-4 space-y-4">
@@ -469,72 +469,72 @@ export default function VoteAdminPage() {
               const counts = poll.options.map((option) => option.vote_count);
               const percentages = votePercentages(counts);
               const onScreen = activeId === poll.id;
-              return <li key={poll.id} className="border border-[var(--line)] bg-[var(--surface)]">
-                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line)] p-5">
+              return <li key={poll.id} className="rounded-lg border border-outline-variant bg-panel">
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-outline-variant p-5">
                   <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-2">
                       <span className="text-lg font-semibold">{poll.question}</span>
-                      {onScreen && <span className="inline-flex items-center gap-1 bg-[#E8ECFB] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--brand-strong)]"><Monitor size={12} /> Di layar</span>}
-                      <span className={`px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${poll.status === "open" ? "bg-[#EEF8F0] text-[var(--brand-strong)]" : poll.status === "closed" ? "bg-[var(--surface-muted)] text-[var(--ink-muted)]" : "bg-[#FDF6E7] text-[var(--warning)]"}`}>
+                      {onScreen && <span className="rounded-sm inline-flex items-center gap-1 bg-primary-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary-dim"><Monitor size={12} /> Di layar</span>}
+                      <span className={`px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${poll.status === "open" ? "bg-success-soft text-primary-dim" : poll.status === "closed" ? "bg-panel-high text-on-surface-variant" : "bg-warning-soft text-warning"}`}>
                         {VOTE_STATUS_LABEL[poll.status]}
                       </span>
                     </p>
-                    <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                    <p className="mt-1 text-body-small text-on-surface-variant">
                       {VOTE_TYPES.find((item) => item.value === poll.type)?.label}
                       {poll.type === "multi" ? ` · maks ${poll.max_choices}` : ""}
                       {" · "}{VOTER_MODES.find((item) => item.value === poll.voter_mode)?.label}
-                      {" · "}<span className="font-semibold text-[var(--ink)]">{poll.ballots}</span> orang memilih
+                      {" · "}<span className="font-semibold text-on-surface">{poll.ballots}</span> orang memilih
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => setDraft(toDraft(poll))} className="min-h-10 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">Sunting</button>
-                    <button type="button" onClick={() => setConfirmDelete(poll)} className="inline-flex min-h-10 items-center border border-[var(--line)] px-2 text-xs font-semibold text-[var(--ink-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)]" aria-label="Hapus"><Trash size={14} /></button>
+                    <button type="button" onClick={() => setDraft(toDraft(poll))} className="rounded-md min-h-10 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">Sunting</button>
+                    <button type="button" onClick={() => setConfirmDelete(poll)} className="rounded-md inline-flex min-h-10 items-center border border-outline-variant px-2 text-body-small font-semibold text-on-surface-variant hover:border-error hover:text-error" aria-label="Hapus"><Trash size={14} /></button>
                   </div>
                 </div>
 
                 <div className="space-y-2 p-5">
-                  {poll.type === "rating" && <p className="text-sm text-[var(--ink-muted)]">
+                  {poll.type === "rating" && <p className="text-body-medium text-on-surface-variant">
                     Skala 1–{poll.rating_max}. Rata-rata dan sebaran tampil di layar panggung saat hasil diperlihatkan.
                   </p>}
-                  {poll.type === "wordcloud" && <div className="text-sm">
-                    <p className="text-[var(--ink-muted)]">
+                  {poll.type === "wordcloud" && <div className="text-body-medium">
+                    <p className="text-on-surface-variant">
                       Maksimal {poll.max_words} kata per peserta. Moderasi {poll.moderation ? "menyala" : "mati"}.
                     </p>
                     {poll.moderation && <button
                       type="button"
                       onClick={() => setModerating(moderating === poll.id ? null : poll.id)}
-                      className={`mt-2 inline-flex min-h-10 items-center gap-2 border px-3 text-xs font-semibold ${poll.pending_words > 0 ? "border-[var(--warning)] bg-[#FDF6E7] text-[var(--warning)]" : "border-[var(--line)]"}`}
+                      className={`rounded-md mt-2 inline-flex min-h-10 items-center gap-2 border px-3 text-body-small font-semibold ${poll.pending_words > 0 ? "border-warning bg-warning-soft text-warning" : "border-outline-variant"}`}
                     >
                       {poll.pending_words > 0 ? `${poll.pending_words} kata menunggu persetujuan` : "Antrean moderasi kosong"}
                     </button>}
-                    {moderating === poll.id && <ul className="mt-3 max-h-64 space-y-1 overflow-y-auto border border-[var(--line)] p-2">
-                      {pending.length === 0 ? <li className="p-2 text-xs text-[var(--ink-muted)]">Tidak ada kata menunggu.</li>
-                        : pending.map((row) => <li key={row.id} className="flex items-center gap-2 border-b border-[var(--line)] p-2 last:border-b-0">
-                          <span className="min-w-0 flex-1 truncate font-mono text-xs">{row.text_value}</span>
-                          {row.display_name && <span className="shrink-0 text-[10px] text-[var(--ink-muted)]">{row.display_name}</span>}
-                          <button type="button" onClick={() => void moderate(row.id, true)} className="min-h-9 shrink-0 border border-[var(--line)] px-2 text-xs font-semibold text-[var(--brand-strong)] hover:border-[var(--brand)]">Setujui</button>
-                          <button type="button" onClick={() => void moderate(row.id, false)} className="min-h-9 shrink-0 border border-[var(--line)] px-2 text-xs font-semibold text-[var(--danger)] hover:border-[var(--danger)]">Tolak</button>
+                    {moderating === poll.id && <ul className="mt-3 max-h-64 space-y-1 overflow-y-auto rounded-md border border-outline-variant p-2">
+                      {pending.length === 0 ? <li className="p-2 text-body-small text-on-surface-variant">Tidak ada kata menunggu.</li>
+                        : pending.map((row) => <li key={row.id} className="flex items-center gap-2 border-b border-outline-variant p-2 last:border-b-0">
+                          <span className="min-w-0 flex-1 truncate font-mono text-body-small">{row.text_value}</span>
+                          {row.display_name && <span className="shrink-0 text-[10px] text-on-surface-variant">{row.display_name}</span>}
+                          <button type="button" onClick={() => void moderate(row.id, true)} className="rounded-sm min-h-9 shrink-0 border border-outline-variant px-2 text-body-small font-semibold text-primary-dim hover:border-primary">Setujui</button>
+                          <button type="button" onClick={() => void moderate(row.id, false)} className="rounded-sm min-h-9 shrink-0 border border-outline-variant px-2 text-body-small font-semibold text-error hover:border-error">Tolak</button>
                         </li>)}
                     </ul>}
                   </div>}
-                  {poll.options.map((option, index) => <div key={option.id} className="relative overflow-hidden border border-[var(--line)]">
-                    <div className="absolute inset-y-0 left-0 bg-[#E8ECFB]" style={{ width: `${percentages[index]}%` }} />
-                    <div className="relative flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                  {poll.options.map((option, index) => <div key={option.id} className="relative overflow-hidden rounded-full border border-outline-variant">
+                    <div className="absolute inset-y-0 left-0 bg-primary-soft" style={{ width: `${percentages[index]}%` }} />
+                    <div className="relative flex items-center justify-between gap-3 px-3 py-2 text-body-medium">
                       <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                      <span className="shrink-0 tabular-nums text-[var(--ink-muted)]">{percentages[index]}% · {option.vote_count}</span>
+                      <span className="shrink-0 tabular-nums text-on-surface-variant">{percentages[index]}% · {option.vote_count}</span>
                     </div>
                   </div>)}
                 </div>
 
                 {/* Empat tombol, urutannya urutan pemakaian di panggung. */}
-                <div className="flex flex-wrap gap-2 border-t border-[var(--line)] p-4">
-                  <button type="button" disabled={busy !== null} onClick={() => void control(onScreen ? "hide" : "show", poll.id)} className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold disabled:opacity-50">
+                <div className="flex flex-wrap gap-2 border-t border-outline-variant p-4">
+                  <button type="button" disabled={busy !== null} onClick={() => void control(onScreen ? "hide" : "show", poll.id)} className="rounded-md inline-flex min-h-11 items-center gap-2 border border-outline-variant px-3 text-body-medium font-semibold disabled:opacity-50">
                     <Monitor size={16} /> {onScreen ? "Turunkan dari layar" : "Tayangkan"}
                   </button>
-                  <button type="button" disabled={busy !== null} onClick={() => void control(poll.status === "open" ? "close" : "open", poll.id)} className={`inline-flex min-h-11 items-center gap-2 px-3 text-sm font-semibold text-white disabled:opacity-50 ${poll.status === "open" ? "bg-[var(--danger)]" : "bg-[var(--brand)]"}`}>
+                  <button type="button" disabled={busy !== null} onClick={() => void control(poll.status === "open" ? "close" : "open", poll.id)} className={`rounded-md inline-flex min-h-11 items-center gap-2 px-3 text-body-medium font-semibold disabled:opacity-50 ${poll.status === "open" ? "bg-error text-on-error" : "bg-primary text-on-primary"}`}>
                     {poll.status === "open" ? <><Lock size={16} /> Tutup voting</> : <><LockOpen size={16} /> Buka voting</>}
                   </button>
-                  <button type="button" disabled={busy !== null} onClick={() => void control(poll.results_visible ? "hide_results" : "reveal_results", poll.id)} className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold disabled:opacity-50">
+                  <button type="button" disabled={busy !== null} onClick={() => void control(poll.results_visible ? "hide_results" : "reveal_results", poll.id)} className="rounded-md inline-flex min-h-11 items-center gap-2 border border-outline-variant px-3 text-body-medium font-semibold disabled:opacity-50">
                     {poll.results_visible ? <><EyeSlash size={16} /> Sembunyikan hasil</> : <><Eye size={16} /> Perlihatkan hasil</>}
                   </button>
                   {/* Ekspor selalu tersedia, termasuk saat voting masih dibuka:
@@ -542,10 +542,10 @@ export default function VoteAdminPage() {
                       `<a>` biasa, bukan <Link>: alamatnya route handler yang
                       membalas Content-Disposition attachment, dan navigasi klien
                       Next akan mencoba me-render balasannya sebagai halaman. */}
-                  <a href={`/api/admin/vote/polls/${poll.id}/export?format=xlsx`} className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+                  <a href={`/api/admin/vote/polls/${poll.id}/export?format=xlsx`} className="rounded-md inline-flex min-h-11 items-center gap-2 border border-outline-variant px-3 text-body-medium font-semibold hover:border-primary hover:text-primary">
                     <DownloadSimple size={16} /> XLSX
                   </a>
-                  <a href={`/api/admin/vote/polls/${poll.id}/export?format=csv`} className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]" title="Rekap saja; detail per pemilih ada di XLSX">
+                  <a href={`/api/admin/vote/polls/${poll.id}/export?format=csv`} className="rounded-md inline-flex min-h-11 items-center gap-2 border border-outline-variant px-3 text-body-medium font-semibold hover:border-primary hover:text-primary" title="Rekap saja; detail per pemilih ada di XLSX">
                     <DownloadSimple size={16} /> CSV
                   </a>
 
@@ -553,12 +553,12 @@ export default function VoteAdminPage() {
                     {/* Reset hanya muncul bila memang ada yang bisa dikosongkan.
                         Tombol yang selalu tampil tapi tidak pernah berguna pada
                         pertanyaan kosong hanya menambah satu cara salah tekan. */}
-                    {poll.ballots > 0 && <button type="button" disabled={busy !== null} onClick={() => setConfirmReset(poll)} className="inline-flex min-h-11 items-center gap-1.5 px-2 text-xs font-semibold text-[var(--danger)] underline disabled:opacity-50">
+                    {poll.ballots > 0 && <button type="button" disabled={busy !== null} onClick={() => setConfirmReset(poll)} className="inline-flex min-h-11 items-center gap-1.5 px-2 text-body-small font-semibold text-error underline disabled:opacity-50">
                       <ArrowCounterClockwise size={14} /> Kosongkan suara
                     </button>}
                     {/* Hitung ulang jarang dipakai, dan memang harus terlihat
                         begitu: ia hanya berguna bila angkanya diragukan. */}
-                    <button type="button" disabled={busy !== null} onClick={() => void control("recount", poll.id)} className="min-h-11 px-2 text-xs font-semibold text-[var(--ink-muted)] underline disabled:opacity-50">
+                    <button type="button" disabled={busy !== null} onClick={() => void control("recount", poll.id)} className="min-h-11 px-2 text-body-small font-semibold text-on-surface-variant underline disabled:opacity-50">
                       Hitung ulang
                     </button>
                   </div>
@@ -569,45 +569,45 @@ export default function VoteAdminPage() {
     </div>
 
     {/* Editor pertanyaan */}
-    {draft && <div role="dialog" aria-modal="true" aria-label="Editor pertanyaan" className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setDraft(null); }}>
-      <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto border border-[var(--line)] bg-[var(--surface)] p-6 sm:p-8">
+    {draft && <div role="dialog" aria-modal="true" aria-label="Editor pertanyaan" className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setDraft(null); }}>
+      <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="rounded-lg max-h-[90dvh] w-full max-w-2xl overflow-y-auto border border-outline-variant bg-panel p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4">
-          <h2 className="text-2xl font-semibold">{draft.id ? "Sunting pertanyaan" : "Pertanyaan baru"}</h2>
+          <h2 className="text-headline-small font-semibold">{draft.id ? "Sunting pertanyaan" : "Pertanyaan baru"}</h2>
           <button type="button" onClick={() => setDraft(null)} disabled={saving} className="min-h-11 px-2 disabled:opacity-40" aria-label="Tutup"><X size={18} /></button>
         </div>
 
-        <label className="mt-6 block text-sm font-semibold">Pertanyaan
+        <label className="mt-6 block text-body-medium font-semibold">Pertanyaan
           <input value={draft.question} onChange={(event) => setDraft({ ...draft, question: event.target.value })} className={inputClass} placeholder="Siapa karyawan terbaik tahun ini?" required />
         </label>
-        <label className="mt-4 block text-sm font-semibold">Keterangan
+        <label className="mt-4 block text-body-medium font-semibold">Keterangan
           <input value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} className={inputClass} placeholder="Opsional, tampil di bawah pertanyaan" />
         </label>
 
         <p className={`mt-5 ${labelClass}`}>Tipe</p>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {VOTE_TYPES.map((item) => <button key={item.value} type="button" onClick={() => setDraft({ ...draft, type: item.value })} className={`border p-3 text-left ${draft.type === item.value ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)] hover:border-[var(--brand)]"}`}>
-            <span className="block text-sm font-semibold">{item.label}</span>
-            <span className="mt-1 block text-[11px] leading-snug text-[var(--ink-muted)]">{item.hint}</span>
+          {VOTE_TYPES.map((item) => <button key={item.value} type="button" onClick={() => setDraft({ ...draft, type: item.value })} className={`rounded-lg border p-3 text-left ${draft.type === item.value ? "border-primary bg-primary-soft" : "border-outline-variant hover:border-primary"}`}>
+            <span className="block text-body-medium font-semibold">{item.label}</span>
+            <span className="mt-1 block text-[11px] leading-snug text-on-surface-variant">{item.hint}</span>
           </button>)}
         </div>
 
         {draft.type === "rating" && <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <label className="block text-sm font-semibold">Nilai tertinggi
+          <label className="block text-body-medium font-semibold">Nilai tertinggi
             <input type="number" min={2} max={10} value={draft.rating_max} onChange={(event) => setDraft({ ...draft, rating_max: Math.min(10, Math.max(2, Number(event.target.value) || 5)) })} className={inputClass} />
           </label>
-          <label className="block text-sm font-semibold">Label nilai 1
+          <label className="block text-body-medium font-semibold">Label nilai 1
             <input value={draft.rating_min_label} onChange={(event) => setDraft({ ...draft, rating_min_label: event.target.value })} className={inputClass} placeholder="Sangat kurang" />
           </label>
-          <label className="block text-sm font-semibold">Label nilai tertinggi
+          <label className="block text-body-medium font-semibold">Label nilai tertinggi
             <input value={draft.rating_max_label} onChange={(event) => setDraft({ ...draft, rating_max_label: event.target.value })} className={inputClass} placeholder="Sangat baik" />
           </label>
         </div>}
 
         {draft.type === "wordcloud" && <div className="mt-4 space-y-3">
-          <label className="block text-sm font-semibold">Maksimal kata per peserta
+          <label className="block text-body-medium font-semibold">Maksimal kata per peserta
             <input type="number" min={1} max={5} value={draft.max_words} onChange={(event) => setDraft({ ...draft, max_words: Math.min(5, Math.max(1, Number(event.target.value) || 3)) })} className={inputClass} />
           </label>
-          <label className="flex items-start gap-2 text-sm">
+          <label className="flex items-start gap-2 text-body-medium">
             <input type="checkbox" checked={draft.moderation} onChange={(event) => setDraft({ ...draft, moderation: event.target.checked })} className="mt-1 size-4" />
             <span>
               <span className="font-semibold">Tahan kata sampai disetujui</span>
@@ -615,28 +615,28 @@ export default function VoteAdminPage() {
                   sudah terdaftar; nama orang dan sindiran tidak akan pernah ada
                   di daftar mana pun, dan yang tampil di layar besar di depan
                   klien tidak bisa ditarik kembali. */}
-              <span className="mt-1 block text-[11px] leading-relaxed text-[var(--ink-muted)]">
+              <span className="mt-1 block text-[11px] leading-relaxed text-on-surface-variant">
                 Sangat disarankan. Kata baru masuk antrean dan baru tampil di layar setelah Anda setujui. Dimatikan, apa pun yang diketik peserta langsung terpampang.
               </span>
             </span>
           </label>
         </div>}
 
-        {draft.type === "multi" && <label className="mt-4 block text-sm font-semibold">Maksimal pilihan
+        {draft.type === "multi" && <label className="mt-4 block text-body-medium font-semibold">Maksimal pilihan
           <input type="number" min={2} max={20} value={draft.max_choices} onChange={(event) => setDraft({ ...draft, max_choices: Math.max(2, Number(event.target.value) || 2) })} className={inputClass} />
         </label>}
 
         <p className={`mt-5 ${labelClass}`}>Siapa yang boleh memilih</p>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {VOTER_MODES.map((item) => <button key={item.value} type="button" onClick={() => setDraft({ ...draft, voter_mode: item.value })} className={`border p-3 text-left ${draft.voter_mode === item.value ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)] hover:border-[var(--brand)]"}`}>
-            <span className="block text-sm font-semibold">{item.label}</span>
-            <span className="mt-1 block text-[11px] leading-snug text-[var(--ink-muted)]">{item.hint}</span>
+          {VOTER_MODES.map((item) => <button key={item.value} type="button" onClick={() => setDraft({ ...draft, voter_mode: item.value })} className={`rounded-lg border p-3 text-left ${draft.voter_mode === item.value ? "border-primary bg-primary-soft" : "border-outline-variant hover:border-primary"}`}>
+            <span className="block text-body-medium font-semibold">{item.label}</span>
+            <span className="mt-1 block text-[11px] leading-snug text-on-surface-variant">{item.hint}</span>
           </button>)}
         </div>
         {/* Peringatan kekuatan mode ditampilkan DI SEBELAH pilihannya, bukan di
             dokumentasi: panitia yang memilih anonim untuk voting berhadiah perlu
             membacanya sebelum acara, bukan sesudah. */}
-        <p className="mt-2 text-[11px] leading-relaxed text-[var(--ink-muted)]">
+        <p className="mt-2 text-[11px] leading-relaxed text-on-surface-variant">
           {VOTER_MODES.find((item) => item.value === draft.voter_mode)?.warning}
         </p>
 
@@ -646,10 +646,10 @@ export default function VoteAdminPage() {
           {draft.options.map((option, index) => <li key={index} className="flex gap-2">
             {/* Gambar opsi. Opsional dan berdampingan dengan labelnya: voting
                 "pilih desain" butuh gambar, sebagian besar pertanyaan tidak. */}
-            <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center overflow-hidden border border-[var(--line)] hover:border-[var(--brand)]" title={option.image_url ? "Ganti gambar opsi" : "Unggah gambar opsi"}>
+            <label className="rounded-md flex size-11 shrink-0 cursor-pointer items-center justify-center overflow-hidden border border-outline-variant hover:border-primary" title={option.image_url ? "Ganti gambar opsi" : "Unggah gambar opsi"}>
               {option.image_url
                 ? <ImagePreview url={option.image_url} alt={`Gambar opsi ${index + 1}`} className="size-11" />
-                : <UploadSimple size={16} className={uploading === `option-${index}` ? "animate-pulse" : "text-[var(--ink-muted)]"} />}
+                : <UploadSimple size={16} className={uploading === `option-${index}` ? "animate-pulse" : "text-on-surface-variant"} />}
               <input type="file" accept="image/*" className="hidden" onChange={async (event) => {
                 const file = event.target.files?.[0];
                 event.target.value = "";
@@ -661,33 +661,33 @@ export default function VoteAdminPage() {
             <input
               value={option.label}
               onChange={(event) => setDraft({ ...draft, options: draft.options.map((item, position) => position === index ? { ...item, label: event.target.value } : item) })}
-              className="h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]"
+              className="rounded-md h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary"
               placeholder={`Opsi ${index + 1}`}
             />
             {option.image_url && <button
               type="button"
               onClick={() => setDraft({ ...draft, options: draft.options.map((item, position) => position === index ? { ...item, image_url: null } : item) })}
-              className="min-h-11 shrink-0 border border-[var(--line)] px-2 text-[10px] font-semibold text-[var(--ink-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)]"
+              className="rounded-md min-h-11 shrink-0 border border-outline-variant px-2 text-[10px] font-semibold text-on-surface-variant hover:border-error hover:text-error"
             >Hapus gambar</button>}
             <button
               type="button"
               onClick={() => setDraft({ ...draft, options: draft.options.filter((_, position) => position !== index) })}
               disabled={draft.options.length <= 2}
-              className="min-h-11 shrink-0 border border-[var(--line)] px-3 text-xs font-semibold text-[var(--ink-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)] disabled:opacity-30"
+              className="rounded-md min-h-11 shrink-0 border border-outline-variant px-3 text-body-small font-semibold text-on-surface-variant hover:border-error hover:text-error disabled:opacity-30"
               aria-label={`Hapus opsi ${index + 1}`}
             ><Trash size={14} /></button>
           </li>)}
         </ul>
-        <button type="button" onClick={() => setDraft({ ...draft, options: [...draft.options, { id: null, label: "", image_url: null }] })} disabled={draft.options.length >= 30} className="mt-2 inline-flex min-h-10 items-center gap-1.5 border border-[var(--line)] px-3 text-xs font-semibold disabled:opacity-40">
+        <button type="button" onClick={() => setDraft({ ...draft, options: [...draft.options, { id: null, label: "", image_url: null }] })} disabled={draft.options.length >= 30} className="rounded-md mt-2 inline-flex min-h-10 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold disabled:opacity-40">
           <Plus size={14} /> Tambah opsi
         </button>
         </>}
 
         <div className="mt-8 flex flex-wrap gap-2">
-          <button type="submit" disabled={saving || !draft.question.trim() || (TYPES_WITH_OPTIONS.includes(draft.type) && draft.options.filter((option) => option.label.trim()).length < 2)} className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-[var(--brand)] px-4 font-semibold text-white disabled:opacity-40">
+          <button type="submit" disabled={saving || !draft.question.trim() || (TYPES_WITH_OPTIONS.includes(draft.type) && draft.options.filter((option) => option.label.trim()).length < 2)} className="rounded-md inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-primary px-4 font-semibold text-on-primary disabled:opacity-40">
             <Check size={18} /> {saving ? "Menyimpan…" : "Simpan"}
           </button>
-          <button type="button" onClick={() => setDraft(null)} disabled={saving} className="min-h-12 border border-[var(--line)] px-4 font-semibold disabled:opacity-40">Batal</button>
+          <button type="button" onClick={() => setDraft(null)} disabled={saving} className="rounded-md min-h-12 border border-outline-variant px-4 font-semibold disabled:opacity-40">Batal</button>
         </div>
       </form>
     </div>}
@@ -696,18 +696,18 @@ export default function VoteAdminPage() {
         yang ini membuang SUARA dan menyisakan pertanyaannya, yang itu membuang
         keduanya. Satu dialog dengan kalimat samar untuk dua akibat yang berbeda
         adalah cara tercepat menghapus hal yang salah. */}
-    {confirmReset && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmReset(null); }}>
-      <div className="w-full max-w-md border border-[var(--line)] bg-[var(--surface)] p-6">
-        <h2 className="text-xl font-semibold text-[var(--danger)]">Kosongkan suara</h2>
-        <p className="mt-3 text-sm leading-6">
+    {confirmReset && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmReset(null); }}>
+      <div className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-6">
+        <h2 className="text-xl font-semibold text-error">Kosongkan suara</h2>
+        <p className="mt-3 text-body-medium leading-6">
           <span className="font-semibold">{confirmReset.ballots} suara</span> pada &ldquo;{confirmReset.question}&rdquo; akan dihapus permanen dan penghitungnya kembali ke nol.
         </p>
-        <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">
+        <p className="mt-3 text-body-medium leading-6 text-on-surface-variant">
           Pertanyaan, opsi, gambar, dan setelannya tetap utuh — begitu juga status buka/tutup dan tampil/sembunyi. Unduh hasilnya lebih dulu bila masih dibutuhkan.
         </p>
         <div className="mt-6 flex gap-2">
-          <button type="button" onClick={() => void reset(confirmReset)} disabled={busy !== null} className="min-h-12 flex-1 bg-[var(--danger)] px-4 font-semibold text-white disabled:opacity-50">Kosongkan</button>
-          <button type="button" onClick={() => setConfirmReset(null)} className="min-h-12 border border-[var(--line)] px-4 font-semibold">Batal</button>
+          <button type="button" onClick={() => void reset(confirmReset)} disabled={busy !== null} className="rounded-md min-h-12 flex-1 bg-error px-4 font-semibold text-on-error disabled:opacity-50">Kosongkan</button>
+          <button type="button" onClick={() => setConfirmReset(null)} className="rounded-md min-h-12 border border-outline-variant px-4 font-semibold">Batal</button>
         </div>
       </div>
     </div>}
@@ -715,15 +715,15 @@ export default function VoteAdminPage() {
     {/* Konfirmasi hapus. Menyebut jumlah suara yang ikut hilang, karena itulah
         yang sebenarnya dipertaruhkan — bukan pertanyaannya, yang bisa diketik
         ulang dalam sepuluh detik. */}
-    {confirmDelete && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmDelete(null); }}>
-      <div className="w-full max-w-md border border-[var(--line)] bg-[var(--surface)] p-6">
-        <h2 className="text-xl font-semibold text-[var(--danger)]">Hapus pertanyaan</h2>
-        <p className="mt-3 text-sm leading-6">
+    {confirmDelete && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmDelete(null); }}>
+      <div className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-6">
+        <h2 className="text-xl font-semibold text-error">Hapus pertanyaan</h2>
+        <p className="mt-3 text-body-medium leading-6">
           &ldquo;{confirmDelete.question}&rdquo; akan dihapus{confirmDelete.ballots > 0 ? <> beserta <span className="font-semibold">{confirmDelete.ballots} suara</span> yang sudah masuk</> : ""}. Tidak dapat dikembalikan.
         </p>
         <div className="mt-6 flex gap-2">
-          <button type="button" onClick={() => void remove(confirmDelete)} disabled={busy !== null} className="min-h-12 flex-1 bg-[var(--danger)] px-4 font-semibold text-white disabled:opacity-50">Hapus</button>
-          <button type="button" onClick={() => setConfirmDelete(null)} className="min-h-12 border border-[var(--line)] px-4 font-semibold">Batal</button>
+          <button type="button" onClick={() => void remove(confirmDelete)} disabled={busy !== null} className="rounded-md min-h-12 flex-1 bg-error px-4 font-semibold text-on-error disabled:opacity-50">Hapus</button>
+          <button type="button" onClick={() => setConfirmDelete(null)} className="rounded-md min-h-12 border border-outline-variant px-4 font-semibold">Batal</button>
         </div>
       </div>
     </div>}

@@ -353,7 +353,7 @@ export default function SeatMapPage() {
                   type="button"
                   onClick={() => switchSession(item.slug)}
                   aria-pressed={active}
-                  className="min-h-11 border px-4 text-sm font-semibold transition-opacity"
+                  className="rounded-md min-h-11 border px-4 text-body-medium font-semibold transition-opacity"
                   style={{
                     borderColor: active ? accent : `${ink}55`,
                     background: active ? accent : "transparent",
@@ -368,27 +368,27 @@ export default function SeatMapPage() {
         ) : null}
 
         {loading ? (
-          <p className="mt-10 text-center text-sm opacity-80">Memuat denah…</p>
+          <p className="mt-10 text-center text-body-medium opacity-80">Memuat denah…</p>
         ) : failed ? (
           <div className="mt-10 text-center">
-            <p className="text-sm opacity-80">Denah gagal dimuat.</p>
+            <p className="text-body-medium opacity-80">Denah gagal dimuat.</p>
             <button
               type="button"
               onClick={() => void loadMap(activeSlug)}
-              className="mt-3 min-h-11 border px-5 text-sm font-semibold"
+              className="rounded-md mt-3 min-h-11 border px-5 text-body-medium font-semibold"
               style={{ borderColor: accent, color: ink }}
             >
               Coba lagi
             </button>
           </div>
         ) : !payload?.published ? (
-          <p className="mx-auto mt-10 max-w-md border p-5 text-center text-sm opacity-90" style={{ borderColor: `${ink}44` }}>
+          <p className="rounded-lg mx-auto mt-10 max-w-md border p-5 text-center text-body-medium opacity-90" style={{ borderColor: `${ink}44` }}>
             Denah tempat duduk belum dipublikasikan. Silakan cek kembali nanti.
           </p>
         ) : (
           <>
             <div className="mx-auto mt-6 max-w-xl">
-              <label htmlFor="seat-search" className="block text-sm font-semibold">
+              <label htmlFor="seat-search" className="block text-body-medium font-semibold">
                 Cari nama Anda untuk melihat tempat duduk
               </label>
               <div className="relative mt-2">
@@ -405,13 +405,13 @@ export default function SeatMapPage() {
                   placeholder="Ketik minimal 3 huruf nama Anda"
                   autoComplete="off"
                   enterKeyHint="search"
-                  className="min-h-12 w-full border-0 pl-10 pr-4 text-base outline-none"
+                  className="min-h-12 w-full border-0 pl-10 pr-4 text-body-large outline-none"
                   style={{ background: ink, color: background }}
                   aria-describedby="seat-search-status"
                 />
               </div>
 
-              <p id="seat-search-status" aria-live="polite" className="mt-2 flex min-h-5 items-center gap-2 text-sm opacity-85">
+              <p id="seat-search-status" aria-live="polite" className="mt-2 flex min-h-5 items-center gap-2 text-body-medium opacity-85">
                 {/* Spinner memakai currentColor, jadi ikut warna teks yang sudah
                     disetel branding sesi — halaman ini bisa terang atau gelap
                     tergantung setelan admin, dan warna tetap tidak boleh dikunci
@@ -429,7 +429,7 @@ export default function SeatMapPage() {
                       <button
                         type="button"
                         onClick={() => setHighlighted(result.normalized_labels)}
-                        className="flex min-h-12 w-full items-center justify-between gap-3 border px-4 text-left text-sm"
+                        className="rounded-md flex min-h-12 w-full items-center justify-between gap-3 border px-4 text-left text-body-medium"
                         style={{ borderColor: `${ink}55` }}
                       >
                         <span className="font-semibold">{result.name}</span>
@@ -446,7 +446,7 @@ export default function SeatMapPage() {
                 <button
                   type="button"
                   onClick={() => { setHighlighted([]); setQuery(""); }}
-                  className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold underline"
+                  className="mt-3 inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold underline"
                   style={{ color: accent }}
                 >
                   <X size={16} /> Hapus sorotan
@@ -455,7 +455,7 @@ export default function SeatMapPage() {
             </div>
 
             {!session?.has_assignments ? (
-              <p className="mx-auto mt-6 max-w-xl border p-4 text-center text-sm opacity-90" style={{ borderColor: `${ink}44` }}>
+              <p className="rounded-lg mx-auto mt-6 max-w-xl border p-4 text-center text-body-medium opacity-90" style={{ borderColor: `${ink}44` }}>
                 Penempatan peserta untuk sesi ini belum tersedia. Denah di bawah menunjukkan tata letak ruangan.
               </p>
             ) : null}
@@ -476,31 +476,31 @@ export default function SeatMapPage() {
             </div>
 
             {payload.summary ? (
-              <p className="mt-5 text-center text-sm font-semibold">
+              <p className="mt-5 text-center text-body-medium font-semibold">
                 {payload.summary.total_tables} Meja, {payload.summary.total_seats} Kursi
                 {session?.has_assignments ? ` · ${payload.summary.occupied_seats} terisi` : ""}
               </p>
             ) : null}
 
             {selectedTable !== null ? (
-              <div className="mx-auto mt-5 max-w-xl border p-4" style={{ borderColor: `${ink}44` }}>
+              <div className="rounded-lg mx-auto mt-5 max-w-xl border p-4" style={{ borderColor: `${ink}44` }}>
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className="flex items-center gap-2 text-base font-bold">
+                  <h2 className="flex items-center gap-2 text-body-large font-bold">
                     <Users size={18} /> Meja {selectedTableLabel}
                   </h2>
                   <button
                     type="button"
                     onClick={() => setSelectedTable(null)}
-                    className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold"
+                    className="inline-flex min-h-11 items-center gap-1 text-body-medium font-semibold"
                     style={{ color: accent }}
                   >
                     <X size={16} /> Tutup
                   </button>
                 </div>
                 {selectedTableSeats.length === 0 ? (
-                  <p className="mt-2 text-sm opacity-85">Meja ini tidak ada di denah.</p>
+                  <p className="mt-2 text-body-medium opacity-85">Meja ini tidak ada di denah.</p>
                 ) : (
-                  <ul className="mt-2 space-y-1 text-sm">
+                  <ul className="mt-2 space-y-1 text-body-medium">
                     {selectedTableSeats.map(({ label, info }) => (
                       <li key={label} className="flex items-center justify-between gap-3">
                         <span className="font-semibold">{label}</span>
@@ -529,7 +529,7 @@ export default function SeatMapPage() {
             keadaan, dan komponennya tetap bebas dari urusan tata letak halaman. */}
         <div className="mt-8">
           <BrandFooter branding={branding} textColor={ink} variant="compact">
-            <p className="text-center text-xs opacity-60">
+            <p className="text-center text-body-small opacity-60">
               Nama peserta ditampilkan sebagian untuk menjaga privasi. Cari nama Anda untuk melihat kursi Anda.
             </p>
           </BrandFooter>

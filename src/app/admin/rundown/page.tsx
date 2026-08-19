@@ -331,13 +331,13 @@ export default function RundownAdminPage() {
   // Elemen akar harus <main>: aturan offset sidebar di globals.css memakai
   // selektor `.admin-shell > main`, jadi <div> di posisi ini membuat halaman
   // tertindih sidebar di layar lg ke atas.
-  return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1440px] space-y-8">
     <header className="space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Rundown acara</p>
+      <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Rundown acara</p>
       <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Susunan acara publik</h1>
-      <p className="max-w-2xl text-sm leading-6 text-[var(--ink-muted)]">
-        Yang disusun di sini tampil di halaman <code className="font-mono text-xs">/rundown</code> yang dibuka tamu tanpa login.
+      <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">
+        Yang disusun di sini tampil di halaman <code className="font-mono text-body-small">/rundown</code> yang dibuka tamu tanpa login.
         Halaman itu menandai acara yang sedang berlangsung memakai tanggal bagian dan jam tiap baris, jadi tanggal yang salah membuat penanda ikut salah.
       </p>
       <div className="flex flex-wrap items-center gap-3">
@@ -345,11 +345,11 @@ export default function RundownAdminPage() {
           href="/rundown"
           target="_blank"
           rel="noreferrer"
-          className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--ink)] hover:bg-[var(--surface-muted)]"
+          className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-4 text-body-medium font-semibold text-on-surface hover:bg-panel-high"
         >
           <ArrowSquareOut size={18} />Buka halaman publik
         </Link>
-        <p className="text-xs text-[var(--ink-muted)]">
+        <p className="text-body-small text-on-surface-variant">
           {publishedCount === 0
             ? "Belum ada bagian yang dipublikasikan, jadi halaman publik masih menampilkan pesan tunggu."
             : `${publishedCount} dari ${sections.length} bagian tampil di publik.`}
@@ -357,7 +357,7 @@ export default function RundownAdminPage() {
       </div>
     </header>
 
-    {error ? <p role="alert" className="flex items-start gap-2 border border-[var(--danger)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--danger)]">
+    {error ? <p role="alert" className="rounded-lg flex items-start gap-2 border border-error bg-panel px-4 py-3 text-body-medium text-error">
       <Warning size={18} className="mt-0.5 shrink-0" />{error}
     </p> : null}
 
@@ -369,12 +369,12 @@ export default function RundownAdminPage() {
         admin wajar menyimpulkan isinya berlaku untuk tab yang sedang dipilih —
         dan dugaan itu memang benar sebelum perubahan ini, yang justru jadi
         masalahnya. */}
-    <section className="space-y-4 border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6">
+    <section className="rounded-lg space-y-4 border border-outline-variant bg-panel p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Header halaman publik</h2>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--ink-muted)]">
-            Berlaku untuk <strong className="font-semibold text-[var(--ink)]">semua tab</strong>. Judul dan tampilan header tidak
+          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Header halaman publik</h2>
+          <p className="mt-1 max-w-2xl text-body-small leading-5 text-on-surface-variant">
+            Berlaku untuk <strong className="font-semibold text-on-surface">semua tab</strong>. Judul dan tampilan header tidak
             lagi berubah saat tamu berpindah agenda. Isian tampilan bersifat opsional; dibiarkan kosong, header memakai tema bawaan.
           </p>
         </div>
@@ -382,7 +382,7 @@ export default function RundownAdminPage() {
           type="button"
           onClick={() => void saveHeader()}
           disabled={savingHeader}
-          className="inline-flex min-h-11 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-50"
+          className="rounded-md inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-50"
         >
           <FloppyDisk size={18} />{savingHeader ? "Menyimpan…" : "Simpan header"}
         </button>
@@ -390,24 +390,24 @@ export default function RundownAdminPage() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold text-[var(--ink-muted)]">Judul acara</span>
+          <span className="text-body-small font-semibold text-on-surface-variant">Judul acara</span>
           <input
             value={header.event_title}
             onChange={(event) => updateHeader({ event_title: event.target.value })}
             placeholder="Mis. PRIMA EXECUTIVE GATHERING"
-            className="min-h-11 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold"
+            className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium font-semibold"
           />
-          <span className="text-xs text-[var(--ink-muted)]">Tampil sama di semua tab.</span>
+          <span className="text-body-small text-on-surface-variant">Tampil sama di semua tab.</span>
         </label>
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold text-[var(--ink-muted)]">Sub judul acara</span>
+          <span className="text-body-small font-semibold text-on-surface-variant">Sub judul acara</span>
           <input
             value={header.event_subtitle ?? ""}
             onChange={(event) => updateHeader({ event_subtitle: event.target.value })}
             placeholder="Mis. Beyond Tomorrow: Securing Progress"
-            className="min-h-11 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm"
+            className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium"
           />
-          <span className="text-xs text-[var(--ink-muted)]">Boleh dikosongkan. Maksimal dua baris di halaman publik.</span>
+          <span className="text-body-small text-on-surface-variant">Boleh dikosongkan. Maksimal dua baris di halaman publik.</span>
         </label>
       </div>
 
@@ -415,31 +415,31 @@ export default function RundownAdminPage() {
           yang selalu punya nilai. Jadi tiap warna dipasangkan tombol reset ke null.
           Tanpa itu, admin yang sekali mencoba warna tidak punya cara kembali ke tema
           bawaan selain menebak kode hex aslinya. */}
-      <div className="grid gap-3 border-t border-[var(--line)] pt-4 sm:grid-cols-3">
+      <div className="grid gap-3 border-t border-outline-variant pt-4 sm:grid-cols-3">
         {([
           ["background_color", "Latar header"],
           ["text_color", "Warna tulisan"],
           ["accent_color", "Aksen (garis tab)"],
         ] as const).map(([key, label]) => <div key={key}>
-          <label className="block text-xs font-semibold" htmlFor={`header-${key}`}>{label}</label>
+          <label className="block text-body-small font-semibold" htmlFor={`header-${key}`}>{label}</label>
           <div className="mt-1 flex items-center gap-2">
             <input
               id={`header-${key}`}
               type="color"
               value={header[key] ?? BRANDING_FALLBACK[key]}
               onChange={(event) => updateHeader({ [key]: event.target.value })}
-              className="h-11 w-full border border-[var(--line)]"
+              className="rounded-md h-11 w-full border border-outline-variant"
             />
             {header[key] ? <button
               type="button"
               onClick={() => updateHeader({ [key]: null })}
               aria-label={`Kembalikan ${label} ke bawaan`}
-              className="inline-flex size-11 shrink-0 items-center justify-center border border-[var(--line)] text-[var(--ink-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)]"
+              className="rounded-md inline-flex size-11 shrink-0 items-center justify-center border border-outline-variant text-on-surface-variant hover:border-error hover:text-error"
             >
               <XCircle size={17} weight="bold" />
             </button> : null}
           </div>
-          <p className="mt-1 text-[11px] text-[var(--ink-muted)]">
+          <p className="mt-1 text-[11px] text-on-surface-variant">
             {header[key] ? header[key] : "Ikut tema bawaan"}
           </p>
         </div>)}
@@ -449,13 +449,13 @@ export default function RundownAdminPage() {
           dipakai di belakangnya supaya teks tidak hilang bila gambar gagal dimuat di
           jaringan lokasi. Keterangan ini ditulis di layar karena admin tidak dapat
           menebaknya dari form. */}
-      <div className="border-t border-[var(--line)] pt-4">
-        <p className="text-sm font-semibold">Gambar latar header <span className="font-normal text-[var(--ink-muted)]">(opsional)</span></p>
-        <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">
+      <div className="border-t border-outline-variant pt-4">
+        <p className="text-body-medium font-semibold">Gambar latar header <span className="font-normal text-on-surface-variant">(opsional)</span></p>
+        <p className="mt-1 text-body-small leading-5 text-on-surface-variant">
           Gambar diberi lapisan gelap otomatis dan tulisan dipaksa putih agar tetap terbaca. PNG, JPG, atau WebP, maksimal 5 MB.
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <label className={`inline-flex min-h-11 cursor-pointer items-center gap-2 border border-[var(--line)] bg-[var(--background)] px-3 text-sm font-semibold hover:border-[var(--brand)] ${uploadingBackground ? "pointer-events-none opacity-60" : ""}`}>
+          <label className={`rounded-md inline-flex min-h-11 cursor-pointer items-center gap-2 border border-outline-variant bg-surface px-3 text-body-medium font-semibold hover:border-primary ${uploadingBackground ? "pointer-events-none opacity-60" : ""}`}>
             <UploadSimple size={17} weight="bold" />
             {uploadingBackground ? "Mengunggah…" : "Upload gambar"}
             <input
@@ -474,21 +474,21 @@ export default function RundownAdminPage() {
           {header.background_image_url ? <button
             type="button"
             onClick={() => updateHeader({ background_image_url: null })}
-            className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--danger)] hover:border-[var(--danger)]"
+            className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-3 text-body-medium font-semibold text-error hover:border-error"
           >
             <XCircle size={17} weight="bold" /> Hapus gambar
           </button> : null}
         </div>
         {header.background_image_url ? <div className="mt-2 flex items-center gap-2">
-          <span className="h-12 w-20 shrink-0 border border-[var(--line)] bg-cover bg-center" style={{ backgroundImage: `url(${header.background_image_url})` }} />
-          <span className="break-all text-[11px] leading-4 text-[var(--ink-muted)]">{header.background_image_url}</span>
+          <span className="rounded-md h-12 w-20 shrink-0 border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${header.background_image_url})` }} />
+          <span className="break-all text-[11px] leading-4 text-on-surface-variant">{header.background_image_url}</span>
         </div> : null}
       </div>
 
       {/* Editor logo, jenis huruf, ukuran, dan warna per elemen. Komponen yang sama
           dipakai /admin/seat-map dan /admin/display, jadi ketiga CMS menawarkan
           setelan yang identik tanpa satu pun disalin. */}
-      <div className="border-t border-[var(--line)] pt-4">
+      <div className="border-t border-outline-variant pt-4">
         <BrandingEditor
           value={headerBranding}
           onChange={(changes) => updateHeader(changes)}
@@ -512,9 +512,9 @@ export default function RundownAdminPage() {
             role="tab"
             aria-selected={isActive}
             onClick={() => setActiveId(section.id)}
-            className={`inline-flex min-h-11 items-center gap-2 border px-4 text-sm font-semibold transition-colors ${isActive
-              ? "border-[var(--brand)] bg-[var(--brand)] text-white"
-              : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"}`}
+            className={`rounded-lg inline-flex min-h-11 items-center gap-2 border px-4 text-body-medium font-semibold transition-colors ${isActive
+              ? "border-primary bg-primary text-on-primary"
+              : "border-outline-variant bg-panel text-on-surface-variant hover:bg-panel-high hover:text-on-surface"}`}
           >
             {section.name}
             {/* Status publish dipasangkan ikon dan teks, tidak hanya warna:
@@ -526,50 +526,50 @@ export default function RundownAdminPage() {
         })}
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 border border-[var(--line)] bg-[var(--surface)] p-4">
+      <div className="rounded-lg flex flex-wrap items-end gap-3 border border-outline-variant bg-panel p-4">
         <label className="flex min-w-[220px] flex-1 flex-col gap-1.5">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Bagian baru</span>
+          <span className="text-body-small font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Bagian baru</span>
           <input
             value={newSectionName}
             onChange={(event) => setNewSectionName(event.target.value)}
             placeholder="Mis. Prima Awards"
-            className="min-h-11 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm"
+            className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium"
           />
         </label>
         <button
           type="button"
           onClick={() => void createSection()}
           disabled={creatingSection || !newSectionName.trim()}
-          className="inline-flex min-h-11 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-50"
+          className="rounded-md inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-50"
         >
           <Plus size={18} />{creatingSection ? "Menambahkan…" : "Tambah bagian"}
         </button>
       </div>
     </div>
 
-    {active ? <div className="space-y-px border border-[var(--line)] bg-[var(--line)]">
+    {active ? <div className="space-y-2">
       {/* Setelan bagian */}
-      <section className="space-y-4 bg-[var(--surface)] p-5 sm:p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Setelan bagian</h2>
+      <section className="rounded-lg space-y-4 bg-panel p-5 sm:p-6">
+        <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Setelan bagian</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold text-[var(--ink-muted)]">Label tab</span>
+            <span className="text-body-small font-semibold text-on-surface-variant">Label tab</span>
             <input
               value={active.name}
               onChange={(event) => updateSection(active.id, { name: event.target.value })}
-              className="min-h-11 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm"
+              className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium"
             />
-            <span className="text-xs text-[var(--ink-muted)]">Pendek, agar beberapa tab muat di layar ponsel.</span>
+            <span className="text-body-small text-on-surface-variant">Pendek, agar beberapa tab muat di layar ponsel.</span>
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold text-[var(--ink-muted)]">Tanggal acara</span>
+            <span className="text-body-small font-semibold text-on-surface-variant">Tanggal acara</span>
             <input
               type="date"
               value={active.event_date}
               onChange={(event) => updateSection(active.id, { event_date: event.target.value })}
-              className="min-h-11 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm"
+              className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium"
             />
-            <span className="text-xs text-[var(--ink-muted)]">
+            <span className="text-body-small text-on-surface-variant">
               Dipakai penanda &ldquo;sedang berlangsung&rdquo;. {formatEventDate(active.event_date, zone)} ({abbr})
             </span>
           </label>
@@ -585,7 +585,7 @@ export default function RundownAdminPage() {
         {/* Sakelar penanda. Ditaruh bersama tanggal karena keduanya satu urusan:
             penanda hanya benar bila tanggalnya benar, jadi admin yang mematikan
             penanda tidak perlu lagi memikirkan tanggal, dan sebaliknya. */}
-        <label className="flex items-start gap-3 border-t border-[var(--line)] pt-4">
+        <label className="flex items-start gap-3 border-t border-outline-variant pt-4">
           <input
             type="checkbox"
             checked={active.highlight_current}
@@ -593,8 +593,8 @@ export default function RundownAdminPage() {
             className="mt-0.5 size-4"
           />
           <span className="space-y-1">
-            <span className="block text-sm font-semibold">Tandai acara yang sedang berlangsung</span>
-            <span className="block text-xs leading-5 text-[var(--ink-muted)]">
+            <span className="block text-body-medium font-semibold">Tandai acara yang sedang berlangsung</span>
+            <span className="block text-body-small leading-5 text-on-surface-variant">
               {active.highlight_current
                 ? "Halaman publik menyorot acara berjalan, menandai acara berikutnya, meredupkan yang sudah selesai, dan menggulir otomatis ke baris tersebut. Butuh tanggal di atas benar."
                 : "Jadwal tampil sebagai daftar biasa tanpa sorotan dan tanpa gulir otomatis. Pakai ini bila tanggal acara belum tiba, agar tamu tidak melihat penanda pada acara yang belum jalan."}
@@ -602,8 +602,8 @@ export default function RundownAdminPage() {
           </span>
         </label>
 
-        <div className="flex flex-wrap items-center gap-3 border-t border-[var(--line)] pt-4">
-          <label className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold">
+        <div className="flex flex-wrap items-center gap-3 border-t border-outline-variant pt-4">
+          <label className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold">
             <input
               type="checkbox"
               checked={active.is_published}
@@ -612,7 +612,7 @@ export default function RundownAdminPage() {
             />
             Tampilkan di halaman publik
           </label>
-          <span className="text-xs text-[var(--ink-muted)]">
+          <span className="text-body-small text-on-surface-variant">
             Slug URL: <code className="font-mono">/rundown?sesi={active.slug}</code>
           </span>
           <div className="ml-auto flex flex-wrap gap-2">
@@ -620,7 +620,7 @@ export default function RundownAdminPage() {
               type="button"
               onClick={() => void saveSection(active)}
               disabled={savingSection}
-              className="inline-flex min-h-11 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-md inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-50"
             >
               <FloppyDisk size={18} />{savingSection ? "Menyimpan…" : "Simpan bagian"}
             </button>
@@ -628,69 +628,69 @@ export default function RundownAdminPage() {
               <button
                 type="button"
                 onClick={() => void deleteSection(active)}
-                className="inline-flex min-h-11 items-center gap-2 bg-[var(--danger)] px-4 text-sm font-semibold text-white"
+                className="rounded-md inline-flex min-h-11 items-center gap-2 bg-error px-4 text-body-medium font-semibold text-on-error"
               >
                 <Trash size={18} />Ya, hapus bagian
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmSection(null)}
-                className="inline-flex min-h-11 items-center px-4 text-sm font-semibold text-[var(--ink-muted)]"
+                className="inline-flex min-h-11 items-center px-4 text-body-medium font-semibold text-on-surface-variant"
               >
                 Batal
               </button>
             </> : <button
               type="button"
               onClick={() => setConfirmSection(active.id)}
-              className="inline-flex min-h-11 items-center gap-2 border border-[var(--danger)] px-4 text-sm font-semibold text-[var(--danger)]"
+              className="rounded-md inline-flex min-h-11 items-center gap-2 border border-error px-4 text-body-medium font-semibold text-error"
             >
               <Trash size={18} />Hapus bagian
             </button>}
           </div>
         </div>
-        {confirmSection === active.id ? <p role="alert" className="text-xs text-[var(--danger)]">
+        {confirmSection === active.id ? <p role="alert" className="text-body-small text-error">
           Seluruh {activeItems.length} baris jadwal di bagian ini ikut terhapus. Salinannya tersimpan di audit trail.
         </p> : null}
       </section>
 
       {/* Baris jadwal */}
-      <section className="space-y-4 bg-[var(--surface)] p-5 sm:p-6">
+      <section className="rounded-lg space-y-4 bg-panel p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">
+          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
             Baris jadwal ({activeItems.length})
           </h2>
-          <p className="text-xs text-[var(--ink-muted)]">Urutan mengikuti jam mulai. Tidak perlu disusun ulang.</p>
+          <p className="text-body-small text-on-surface-variant">Urutan mengikuti jam mulai. Tidak perlu disusun ulang.</p>
         </div>
 
-        {activeItems.length === 0 ? <p className="border border-dashed border-[var(--line)] px-4 py-6 text-center text-sm text-[var(--ink-muted)]">
+        {activeItems.length === 0 ? <p className="rounded-lg border border-dashed border-outline-variant px-4 py-6 text-center text-body-medium text-on-surface-variant">
           Belum ada baris jadwal. Tambahkan lewat formulir di bawah.
-        </p> : <div className="space-y-px bg-[var(--line)]">
-          {activeItems.map((item) => <div key={item.id} className="space-y-3 bg-[var(--surface)] p-4">
+        </p> : <div className="space-y-2">
+          {activeItems.map((item) => <div key={item.id} className="rounded-lg space-y-3 bg-panel p-4">
             <div className="grid gap-3 sm:grid-cols-[104px_104px_minmax(0,1fr)]">
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Mulai</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Mulai</span>
                 <input
                   type="time"
                   value={formatClock(item.start_time)}
                   onChange={(event) => updateItem(item.id, { start_time: event.target.value })}
-                  className="min-h-11 border border-[var(--line)] bg-[var(--surface)] px-2 font-mono text-sm"
+                  className="rounded-lg min-h-11 border border-outline-variant bg-panel px-2 font-mono text-body-medium"
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Selesai</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Selesai</span>
                 <input
                   type="time"
                   value={item.end_time ? formatClock(item.end_time) : ""}
                   onChange={(event) => updateItem(item.id, { end_time: event.target.value || null })}
-                  className="min-h-11 border border-[var(--line)] bg-[var(--surface)] px-2 font-mono text-sm"
+                  className="rounded-lg min-h-11 border border-outline-variant bg-panel px-2 font-mono text-body-medium"
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Nama acara</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Nama acara</span>
                 <input
                   value={item.title}
                   onChange={(event) => updateItem(item.id, { title: event.target.value })}
-                  className="min-h-11 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold"
+                  className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium font-semibold"
                 />
               </label>
             </div>
@@ -699,20 +699,20 @@ export default function RundownAdminPage() {
                 di halaman publik. Tinggi awal 3 baris agar terlihat bahwa kotak
                 ini menerima lebih dari satu baris. */}
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Keterangan</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Keterangan</span>
               <textarea
                 value={item.subtitle ?? ""}
                 onChange={(event) => updateItem(item.id, { subtitle: event.target.value })}
                 rows={4}
                 placeholder={"Panelists:\nSantoso, Chairman - ASPI\nModerator:\nAbraham J. Adriaansz, President Director - PT Rintis Sejahtera"}
-                className="min-h-11 resize-y border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm leading-6"
+                className="rounded-lg min-h-11 resize-y border border-outline-variant bg-panel px-3 py-2 text-body-medium leading-6"
               />
-              <span className="text-[11px] leading-5 text-[var(--ink-muted)]">
-                Satu baris per pembicara. Baris yang diakhiri <strong className="font-semibold text-[var(--ink)]">titik dua</strong> jadi judul kelompok (mis. <code className="font-mono">Moderator:</code>) dan tidak diberi bulet.
+              <span className="text-[11px] leading-5 text-on-surface-variant">
+                Satu baris per pembicara. Baris yang diakhiri <strong className="font-semibold text-on-surface">titik dua</strong> jadi judul kelompok (mis. <code className="font-mono">Moderator:</code>) dan tidak diberi bulet.
               </span>
             </label>
             <div className="flex flex-wrap items-center gap-3">
-              <label className="inline-flex min-h-11 items-center gap-2 text-xs font-semibold">
+              <label className="inline-flex min-h-11 items-center gap-2 text-body-small font-semibold">
                 <input
                   type="checkbox"
                   checked={item.is_break}
@@ -721,7 +721,7 @@ export default function RundownAdminPage() {
                 />
                 <Coffee size={16} />Jeda (tampil lebih redup)
               </label>
-              <label className="inline-flex min-h-11 items-center gap-2 text-xs font-semibold">
+              <label className="inline-flex min-h-11 items-center gap-2 text-body-small font-semibold">
                 <input
                   type="checkbox"
                   checked={item.is_published}
@@ -735,7 +735,7 @@ export default function RundownAdminPage() {
                   type="button"
                   onClick={() => void saveItem(item)}
                   disabled={savingItem === item.id}
-                  className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-xs font-semibold hover:bg-[var(--surface-muted)] disabled:opacity-50"
+                  className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant px-3 text-body-small font-semibold hover:bg-panel-high disabled:opacity-50"
                 >
                   <FloppyDisk size={16} />{savingItem === item.id ? "Menyimpan…" : "Simpan"}
                 </button>
@@ -744,21 +744,21 @@ export default function RundownAdminPage() {
                     type="button"
                     onClick={() => void deleteItem(item)}
                     disabled={deletingItem === item.id}
-                    className="inline-flex min-h-11 items-center gap-2 bg-[var(--danger)] px-3 text-xs font-semibold text-white disabled:opacity-50"
+                    className="rounded-md inline-flex min-h-11 items-center gap-2 bg-error px-3 text-body-small font-semibold text-on-error disabled:opacity-50"
                   >
                     <Trash size={16} />{deletingItem === item.id ? "Menghapus…" : "Ya, hapus"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setConfirmItem(null)}
-                    className="inline-flex min-h-11 items-center px-3 text-xs font-semibold text-[var(--ink-muted)]"
+                    className="inline-flex min-h-11 items-center px-3 text-body-small font-semibold text-on-surface-variant"
                   >
                     Batal
                   </button>
                 </> : <button
                   type="button"
                   onClick={() => setConfirmItem(item.id)}
-                  className="inline-flex min-h-11 items-center gap-2 border border-[var(--danger)] px-3 text-xs font-semibold text-[var(--danger)]"
+                  className="rounded-md inline-flex min-h-11 items-center gap-2 border border-error px-3 text-body-small font-semibold text-error"
                 >
                   <Trash size={16} />Hapus
                 </button>}
@@ -768,54 +768,54 @@ export default function RundownAdminPage() {
         </div>}
 
         {/* Formulir baris baru */}
-        <div className="space-y-3 border border-[var(--line)] bg-[var(--surface-muted)] p-4">
-          <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">
+        <div className="rounded-lg space-y-3 border border-outline-variant bg-panel-high p-4">
+          <h3 className="flex items-center gap-2 text-body-small font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
             <CalendarDots size={16} />Tambah baris
           </h3>
           <div className="grid gap-3 sm:grid-cols-[104px_104px_minmax(0,1fr)]">
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Mulai</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Mulai</span>
               <input
                 type="time"
                 value={draft.start_time}
                 onChange={(event) => updateDraft({ start_time: event.target.value })}
-                className="min-h-11 border border-[var(--line)] bg-[var(--surface)] px-2 font-mono text-sm"
+                className="rounded-lg min-h-11 border border-outline-variant bg-panel px-2 font-mono text-body-medium"
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Selesai</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Selesai</span>
               <input
                 type="time"
                 value={draft.end_time}
                 onChange={(event) => updateDraft({ end_time: event.target.value })}
-                className="min-h-11 border border-[var(--line)] bg-[var(--surface)] px-2 font-mono text-sm"
+                className="rounded-lg min-h-11 border border-outline-variant bg-panel px-2 font-mono text-body-medium"
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Nama acara</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Nama acara</span>
               <input
                 value={draft.title}
                 onChange={(event) => updateDraft({ title: event.target.value })}
                 placeholder="Mis. Opening Keynote Speech"
-                className="min-h-11 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm"
+                className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium"
               />
             </label>
           </div>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Keterangan</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Keterangan</span>
             <textarea
               value={draft.subtitle}
               onChange={(event) => updateDraft({ subtitle: event.target.value })}
               rows={4}
               placeholder={"Panelists:\nSantoso, Chairman - ASPI\nModerator:\nAbraham J. Adriaansz, President Director - PT Rintis Sejahtera"}
-              className="min-h-11 resize-y border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm leading-6"
+              className="rounded-lg min-h-11 resize-y border border-outline-variant bg-panel px-3 py-2 text-body-medium leading-6"
             />
-            <span className="text-[11px] leading-5 text-[var(--ink-muted)]">
-              Satu baris per pembicara. Baris berakhiran <strong className="font-semibold text-[var(--ink)]">titik dua</strong> jadi judul kelompok. Boleh dikosongkan.
+            <span className="text-[11px] leading-5 text-on-surface-variant">
+              Satu baris per pembicara. Baris berakhiran <strong className="font-semibold text-on-surface">titik dua</strong> jadi judul kelompok. Boleh dikosongkan.
             </span>
           </label>
           <div className="flex flex-wrap items-center gap-3">
-            <label className="inline-flex min-h-11 items-center gap-2 text-xs font-semibold">
+            <label className="inline-flex min-h-11 items-center gap-2 text-body-small font-semibold">
               <input
                 type="checkbox"
                 checked={draft.is_break}
@@ -824,19 +824,19 @@ export default function RundownAdminPage() {
               />
               <Coffee size={16} />Jeda
             </label>
-            <p className="text-xs text-[var(--ink-muted)]">Jam selesai boleh dikosongkan untuk penanda momen.</p>
+            <p className="text-body-small text-on-surface-variant">Jam selesai boleh dikosongkan untuk penanda momen.</p>
             <button
               type="button"
               onClick={() => void addItem()}
               disabled={addingItem || !draft.title.trim() || !draft.start_time}
-              className="ml-auto inline-flex min-h-11 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-md ml-auto inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-50"
             >
               <Plus size={18} />{addingItem ? "Menambahkan…" : "Tambah baris"}
             </button>
           </div>
         </div>
       </section>
-    </div> : <p className="border border-dashed border-[var(--line)] px-4 py-10 text-center text-sm text-[var(--ink-muted)]">
+    </div> : <p className="rounded-lg border border-dashed border-outline-variant px-4 py-10 text-center text-body-medium text-on-surface-variant">
       Belum ada bagian rundown. Tambahkan satu untuk mulai menyusun jadwal.
     </p>}
     </div>

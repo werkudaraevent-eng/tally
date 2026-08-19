@@ -179,66 +179,66 @@ export default function ParticipantsAdminPage() {
   }
 
   const usesScanner = config ? ["scanner_api", "hybrid"].includes(config.participant_source) : true;
-  const buttonClass = "inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]";
+  const buttonClass = "inline-flex min-h-11 items-center gap-2 border border-outline-variant px-3 text-body-medium font-semibold hover:border-primary hover:text-primary";
 
-  return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1440px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--brand)]"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
+      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
       <div className="mt-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Participant directory</p>
+        <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Participant directory</p>
         <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Peserta.</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--ink-muted)]">Tarik peserta dari Event Scanner API, atau kelola sendiri lewat impor berkas dan penyuntingan per baris.</p>
+        <p className="mt-3 max-w-2xl text-body-medium leading-6 text-on-surface-variant">Tarik peserta dari Event Scanner API, atau kelola sendiri lewat impor berkas dan penyuntingan per baris.</p>
       </div>
 
       {/* Baris status: satu baris, bukan tiga kartu. Ia menjawab tiga pertanyaan
           yang memang ditanyakan berulang -- kapan sync terakhir, apakah otomatis
           menyala, dan apakah setelannya lengkap -- lalu menyerahkan sisa layar
           ke tabel peserta. */}
-      <section className="mt-8 flex flex-col gap-3 border border-[var(--line)] bg-[var(--surface)] p-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--ink-muted)]">
-          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--ink)]">Scanner API</span>
-          <span>Sync terakhir: <span className="font-semibold text-[var(--ink)]">{lastSyncedAt ? `${formatEventDateTime(lastSyncedAt, zone)} ${abbr}` : "belum ada"}</span>{syncing ? " · berjalan..." : ""}</span>
+      <section className="rounded-lg mt-8 flex flex-col gap-3 border border-outline-variant bg-panel p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body-small text-on-surface-variant">
+          <span className="inline-flex items-center gap-1.5 text-body-medium font-semibold text-on-surface">Scanner API</span>
+          <span>Sync terakhir: <span className="font-semibold text-on-surface">{lastSyncedAt ? `${formatEventDateTime(lastSyncedAt, zone)} ${abbr}` : "belum ada"}</span>{syncing ? " · berjalan..." : ""}</span>
           <span>Base URL <span className="font-mono">{config?.base_url ?? (config?.env_fallback.base_url ? "dari env" : "—")}</span></span>
           <span>Slug <span className="font-mono">{config?.event_slug ?? (config?.env_fallback.event_slug ? "dari env" : "—")}</span></span>
           <span>Kunci <span className="font-mono">{config?.key_masked ?? (config?.env_fallback.key ? "dari env" : "—")}</span></span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select value={autoMinutes} onChange={(event) => setAutoMinutes(Number(event.target.value))} className="h-11 border border-[var(--line)] bg-[var(--background)] px-2 text-sm outline-none focus:border-[var(--brand)]" aria-label="Interval sync otomatis">
+          <select value={autoMinutes} onChange={(event) => setAutoMinutes(Number(event.target.value))} className="rounded-md h-11 border border-outline-variant bg-surface px-2 text-body-medium outline-none focus:border-primary" aria-label="Interval sync otomatis">
             {AUTO_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
           <button type="button" onClick={() => setConfigOpen((open) => !open)} className={buttonClass} aria-expanded={configOpen}><Gear size={16} />{configOpen ? "Tutup setelan" : "Setelan"}</button>
-          <button type="button" onClick={() => void sync()} disabled={syncing} className="inline-flex min-h-11 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-semibold text-white hover:bg-[var(--brand-strong)] disabled:cursor-wait disabled:opacity-60"><ArrowsClockwise size={16} />{syncing ? "Menyinkron..." : "Sync sekarang"}</button>
+          <button type="button" onClick={() => void sync()} disabled={syncing} className="rounded-md inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary hover:bg-primary-dim disabled:cursor-wait disabled:opacity-60"><ArrowsClockwise size={16} />{syncing ? "Menyinkron..." : "Sync sekarang"}</button>
         </div>
       </section>
 
-      {!usesScanner && <p className="mt-3 flex items-start gap-2 border border-[#E6D3AE] bg-[#FDF6E7] p-3 text-xs text-[var(--warning)]"><WarningCircle size={16} className="mt-0.5 shrink-0" />Sumber peserta event ini <span className="font-semibold">{config?.participant_source}</span>, jadi sinkronisasi terjadwal melewatinya. Setelan Scanner API tetap tersimpan bila diisi.</p>}
+      {!usesScanner && <p className="rounded-lg mt-3 flex items-start gap-2 border border-warning-soft-outline bg-warning-soft p-3 text-body-small text-warning"><WarningCircle size={16} className="mt-0.5 shrink-0" />Sumber peserta event ini <span className="font-semibold">{config?.participant_source}</span>, jadi sinkronisasi terjadwal melewatinya. Setelan Scanner API tetap tersimpan bila diisi.</p>}
 
-      {configOpen && <section className="mt-3 border border-[var(--line)] bg-[var(--surface)] p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]">Setelan Scanner API</h2>
-        <p className="mt-2 text-xs text-[var(--ink-muted)]">Kredensial disimpan per event. Bila kolom dikosongkan, sinkronisasi memakai variabel lingkungan sebagai cadangan.</p>
+      {configOpen && <section className="rounded-lg mt-3 border border-outline-variant bg-panel p-6">
+        <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Setelan Scanner API</h2>
+        <p className="mt-2 text-body-small text-on-surface-variant">Kredensial disimpan per event. Bila kolom dikosongkan, sinkronisasi memakai variabel lingkungan sebagai cadangan.</p>
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
-          <label className="block text-sm font-semibold">Base URL
-            <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://scanner.contoh.com/api/v1" className="mt-1.5 h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 font-mono text-xs outline-none focus:border-[var(--brand)]" />
+          <label className="block text-body-medium font-semibold">Base URL
+            <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://scanner.contoh.com/api/v1" className="rounded-md mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 font-mono text-body-small outline-none focus:border-primary" />
           </label>
-          <label className="block text-sm font-semibold">Slug event di Scanner API
-            <input value={eventSlug} onChange={(event) => setEventSlug(event.target.value)} placeholder="nama-acara-2026" className="mt-1.5 h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 font-mono text-xs outline-none focus:border-[var(--brand)]" />
+          <label className="block text-body-medium font-semibold">Slug event di Scanner API
+            <input value={eventSlug} onChange={(event) => setEventSlug(event.target.value)} placeholder="nama-acara-2026" className="rounded-md mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 font-mono text-body-small outline-none focus:border-primary" />
           </label>
-          <label className="block text-sm font-semibold">Kunci API
-            <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} type="password" autoComplete="off" placeholder={config?.key_set ? "Kosongkan untuk mempertahankan kunci sekarang" : "Tempel kunci di sini"} className="mt-1.5 h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 font-mono text-xs outline-none focus:border-[var(--brand)]" />
+          <label className="block text-body-medium font-semibold">Kunci API
+            <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} type="password" autoComplete="off" placeholder={config?.key_set ? "Kosongkan untuk mempertahankan kunci sekarang" : "Tempel kunci di sini"} className="rounded-md mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 font-mono text-body-small outline-none focus:border-primary" />
           </label>
         </div>
         {/* Kunci yang sudah tersimpan tidak pernah dikirim balik ke layar ini,
             jadi kolomnya SELALU mulai kosong. Kalimat ini yang mencegahnya
             terbaca sebagai setelan yang hilang. */}
-        <p className="mt-3 text-xs text-[var(--ink-muted)]">Kunci tersimpan tidak pernah ditampilkan ulang — yang terlihat hanya empat karakter terakhirnya.</p>
+        <p className="mt-3 text-body-small text-on-surface-variant">Kunci tersimpan tidak pernah ditampilkan ulang — yang terlihat hanya empat karakter terakhirnya.</p>
         <div className="mt-5 flex flex-wrap gap-2">
-          <button type="button" onClick={() => void saveConfig()} disabled={savingConfig} className="min-h-11 bg-[var(--brand)] px-4 text-sm font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-50">{savingConfig ? "Menyimpan..." : "Simpan setelan"}</button>
-          {config?.key_set && <button type="button" onClick={() => void clearKey()} disabled={savingConfig} className="min-h-11 border border-[var(--line)] px-4 text-sm font-semibold text-[var(--danger)] hover:border-[var(--danger)] disabled:opacity-50">Hapus kunci</button>}
+          <button type="button" onClick={() => void saveConfig()} disabled={savingConfig} className="rounded-md min-h-11 bg-primary px-4 text-body-medium font-semibold text-on-primary hover:bg-primary-dim disabled:opacity-50">{savingConfig ? "Menyimpan..." : "Simpan setelan"}</button>
+          {config?.key_set && <button type="button" onClick={() => void clearKey()} disabled={savingConfig} className="rounded-md min-h-11 border border-outline-variant px-4 text-body-medium font-semibold text-error hover:border-error disabled:opacity-50">Hapus kunci</button>}
         </div>
       </section>}
 
-      {error && <div role="alert" className="mt-3 flex items-start gap-3 border border-[#E9C7C4] bg-[#FFF2F0] p-4 text-sm text-[var(--danger)]"><XCircle size={20} className="mt-0.5 shrink-0" />{error}</div>}
-      {message && <div role="status" className="mt-3 flex items-start gap-3 border border-[#B9DCC5] bg-[#EEF8F0] p-4 text-sm text-[var(--brand-strong)]"><CheckCircle size={20} className="mt-0.5 shrink-0" />{message}</div>}
+      {error && <div role="alert" className="rounded-lg mt-3 flex items-start gap-3 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={20} className="mt-0.5 shrink-0" />{error}</div>}
+      {message && <div role="status" className="rounded-lg mt-3 flex items-start gap-3 border border-success-soft-outline bg-success-soft p-4 text-body-medium text-primary-dim"><CheckCircle size={20} className="mt-0.5 shrink-0" />{message}</div>}
 
       {/* Zona diteruskan sebagai prop, bukan dibaca ulang di dalam ParticipantList:
           keduanya menampilkan jam sync yang sama, dan dua permintaan terpisah bisa
@@ -267,21 +267,21 @@ export default function ParticipantsAdminPage() {
       role="dialog"
       aria-modal="true"
       aria-label="Impor peserta"
-      className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"
+      className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4"
       onMouseDown={(event) => { if (event.target === event.currentTarget && !importing) closeImport(); }}
     >
-      <div className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto border border-[var(--line)] bg-[var(--surface)] p-6 sm:p-8">
+      <div className="rounded-lg max-h-[90dvh] w-full max-w-2xl overflow-y-auto border border-outline-variant bg-panel p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand)]">Impor peserta</p>
-            <h2 className="mt-2 text-2xl font-semibold">Unggah CSV atau XLSX</h2>
+            <p className="text-body-small font-semibold uppercase tracking-[0.16em] text-primary">Impor peserta</p>
+            <h2 className="mt-2 text-headline-small font-semibold">Unggah CSV atau XLSX</h2>
           </div>
-          <button type="button" onClick={closeImport} disabled={importing} className="min-h-11 px-2 text-sm font-semibold disabled:opacity-40" aria-label="Tutup"><X size={18} /></button>
+          <button type="button" onClick={closeImport} disabled={importing} className="min-h-11 px-2 text-body-medium font-semibold disabled:opacity-40" aria-label="Tutup"><X size={18} /></button>
         </div>
 
-        <div className="mt-6 border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-sm leading-6">
+        <div className="rounded-lg mt-6 border border-outline-variant bg-panel-high p-4 text-body-medium leading-6">
           <p className="font-semibold">Belum punya berkasnya?</p>
-          <p className="mt-1 text-xs text-[var(--ink-muted)]">Template berisi kedelapan kolom yang dibaca importir dan dua baris contoh. Hapus baris contoh sebelum mengunggah.</p>
+          <p className="mt-1 text-body-small text-on-surface-variant">Template berisi kedelapan kolom yang dibaca importir dan dua baris contoh. Hapus baris contoh sebelum mengunggah.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a href="/api/admin/participants/export?template=1&format=xlsx" className={buttonClass}><DownloadSimple size={16} /> Template XLSX</a>
@@ -290,29 +290,29 @@ export default function ParticipantsAdminPage() {
           </div>
         </div>
 
-        <p className="mt-5 text-xs leading-5 text-[var(--ink-muted)]">
+        <p className="mt-5 text-body-small leading-5 text-on-surface-variant">
           Kolom dicocokkan lewat baris pertama, dan nama Indonesia ikut dikenali (<span className="font-mono">nama</span>, <span className="font-mono">perusahaan</span>, <span className="font-mono">jabatan</span>, <span className="font-mono">no_hp</span>). Hanya <span className="font-mono">qr_code</span> dan <span className="font-mono">name</span> yang wajib. Baris dicocokkan dengan peserta lama lewat <span className="font-mono">qr_code</span>: yang sudah ada diperbarui, yang belum ditambahkan. Peserta dari Scanner API hanya diperbarui email dan teleponnya.
         </p>
 
-        <label className="mt-5 block text-sm font-semibold">Berkas
+        <label className="mt-5 block text-body-medium font-semibold">Berkas
           <input
             type="file"
             accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             onChange={(event) => { setImportFile(event.target.files?.[0] ?? null); setPreview(null); }}
-            className="mt-2 block w-full border border-[var(--line)] bg-[var(--background)] p-2.5 text-sm file:mr-3 file:border-0 file:bg-[var(--surface-muted)] file:px-3 file:py-1.5 file:text-xs file:font-semibold"
+            className="rounded-lg mt-2 block w-full border border-outline-variant bg-surface p-2.5 text-body-medium file:mr-3 file:border-0 file:bg-panel-high file:px-3 file:py-1.5 file:text-body-small file:font-semibold"
           />
         </label>
 
-        {preview && <div className="mt-5 border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-sm leading-6">
+        {preview && <div className="rounded-lg mt-5 border border-outline-variant bg-panel-high p-4 text-body-medium leading-6">
           <p className="font-semibold">{preview.file_name} · {preview.rows} baris terbaca</p>
-          <ul className="mt-2 space-y-0.5 text-xs">
-            <li><span className="font-semibold text-[var(--brand-strong)]">{preview.inserted}</span> peserta baru ditambahkan</li>
+          <ul className="mt-2 space-y-0.5 text-body-small">
+            <li><span className="font-semibold text-primary-dim">{preview.inserted}</span> peserta baru ditambahkan</li>
             <li><span className="font-semibold">{preview.updated}</span> peserta manual diperbarui</li>
             <li><span className="font-semibold">{preview.source_locked}</span> peserta Scanner API — hanya email &amp; telepon</li>
-            <li><span className="font-semibold text-[var(--danger)]">{preview.rejected}</span> baris ditolak</li>
+            <li><span className="font-semibold text-error">{preview.rejected}</span> baris ditolak</li>
           </ul>
-          <p className="mt-2 text-xs text-[var(--ink-muted)]">Kolom dikenali: {preview.recognized_columns.join(", ") || "-"}</p>
-          {preview.issues.length > 0 && <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto border-t border-[var(--line)] pt-2 text-xs text-[var(--ink-muted)]">
+          <p className="mt-2 text-body-small text-on-surface-variant">Kolom dikenali: {preview.recognized_columns.join(", ") || "-"}</p>
+          {preview.issues.length > 0 && <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto border-t border-outline-variant pt-2 text-body-small text-on-surface-variant">
             {preview.issues.map((issue) => <li key={`${issue.row}-${issue.qr_code ?? ""}`}>Baris {issue.row}{issue.qr_code ? ` (${issue.qr_code})` : ""}: {issue.reason}</li>)}
             {preview.issues_truncated && <li className="italic">Daftar dipotong pada 50 baris pertama.</li>}
           </ul>}
@@ -323,9 +323,9 @@ export default function ParticipantsAdminPage() {
               hitungannya lebih dulu adalah cara paling cepat menimpa ratusan
               nama dengan berkas yang kolomnya tergeser satu. */}
           {preview
-            ? <button type="button" onClick={() => void runImport(false)} disabled={importing || preview.inserted + preview.updated + preview.source_locked === 0} className="min-h-12 flex-1 bg-[var(--brand)] px-4 font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-40">{importing ? "Menerapkan..." : `Terapkan ke ${preview.inserted + preview.updated + preview.source_locked} baris`}</button>
-            : <button type="button" onClick={() => void runImport(true)} disabled={!importFile || importing} className="min-h-12 flex-1 bg-[var(--brand)] px-4 font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-40">{importing ? "Membaca berkas..." : "Pratinjau impor"}</button>}
-          <button type="button" onClick={closeImport} disabled={importing} className="min-h-12 border border-[var(--line)] px-4 font-semibold disabled:opacity-40">Batal</button>
+            ? <button type="button" onClick={() => void runImport(false)} disabled={importing || preview.inserted + preview.updated + preview.source_locked === 0} className="rounded-md min-h-12 flex-1 bg-primary px-4 font-semibold text-on-primary hover:bg-primary-dim disabled:opacity-40">{importing ? "Menerapkan..." : `Terapkan ke ${preview.inserted + preview.updated + preview.source_locked} baris`}</button>
+            : <button type="button" onClick={() => void runImport(true)} disabled={!importFile || importing} className="rounded-md min-h-12 flex-1 bg-primary px-4 font-semibold text-on-primary hover:bg-primary-dim disabled:opacity-40">{importing ? "Membaca berkas..." : "Pratinjau impor"}</button>}
+          <button type="button" onClick={closeImport} disabled={importing} className="rounded-md min-h-12 border border-outline-variant px-4 font-semibold disabled:opacity-40">Batal</button>
         </div>
       </div>
     </div>}

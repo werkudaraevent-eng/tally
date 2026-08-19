@@ -157,8 +157,8 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
         // Gambar diikat ke id langkah, bukan nomor urut: isi panduan berubah
         // mengikuti setting acara, jadi urutan tidak bisa dijadikan patokan.
         const images = stepImages(step.id);
-        return <li key={step.id} className="flex gap-3 text-sm leading-6">
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-xs font-bold text-white">{index + 1}</span>
+        return <li key={step.id} className="flex gap-3 text-body-medium leading-6">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-body-small font-bold text-on-primary">{index + 1}</span>
           <div className="min-w-0">
             <p>{step.text}</p>
             {/* next/image mewajibkan lebar dan tinggi yang tepat untuk setiap
@@ -175,7 +175,7 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
                 alt={image.alt}
                 loading="lazy"
                 decoding="async"
-                className="mt-2 h-auto w-full max-w-sm border border-[var(--line)] bg-[var(--surface-muted)]"
+                className="rounded-lg mt-2 h-auto w-full max-w-sm border border-outline-variant bg-panel-high"
               />
             ))}
           </div>
@@ -185,14 +185,14 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
     ...(role === "booth" ? [{
       id: "status",
       title: "Arti status order",
-      body: <ul className="space-y-2 text-sm leading-6">{boothStatus.map((item) => <li key={item} className="border-l-2 border-[var(--line)] pl-3">{item}</li>)}</ul>,
+      body: <ul className="space-y-2 text-body-medium leading-6">{boothStatus.map((item) => <li key={item} className="border-l-2 border-outline-variant pl-3">{item}</li>)}</ul>,
     }] : []),
     {
       id: "masalah",
       title: "Kalau ada masalah",
       body: <div className="space-y-4">{troubleshooting.map((item) => <div key={item.title}>
-        <p className="text-sm font-semibold">{item.title}</p>
-        <ul className="mt-1.5 space-y-1 text-sm leading-6 text-[var(--ink-muted)]">{item.steps.map((step, index) => <li key={index} className="flex gap-2"><span aria-hidden="true">·</span><span>{step}</span></li>)}</ul>
+        <p className="text-body-medium font-semibold">{item.title}</p>
+        <ul className="mt-1.5 space-y-1 text-body-medium leading-6 text-on-surface-variant">{item.steps.map((step, index) => <li key={index} className="flex gap-2"><span aria-hidden="true">·</span><span>{step}</span></li>)}</ul>
       </div>)}</div>,
     },
   ];
@@ -202,27 +202,30 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
         cukup jelas bagi staf UMKM yang baru pertama memakai aplikasi ini, dan
         tombol Logout di sebelahnya tetap berlabel — menyembunyikan label justru
         membuat kontrol yang paling asing terlihat paling tidak penting. */}
-    <button type="button" onClick={() => setOpen(true)} className="flex min-h-11 items-center gap-1.5 border border-[var(--line)] bg-[var(--surface)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+    <button type="button" onClick={() => setOpen(true)} className="rounded-lg flex min-h-11 items-center gap-1.5 border border-outline-variant bg-panel px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
       <Question size={18} weight="bold" aria-hidden="true" />Panduan
     </button>
 
-    {open && <div className="fixed inset-0 z-[60] flex justify-end bg-black/40" role="dialog" aria-modal="true" aria-label="Panduan operator">
+    {open && <div className="fixed inset-0 z-[60] flex justify-end bg-scrim/50" role="dialog" aria-modal="true" aria-label="Panduan operator">
       {/* Klik area gelap ikut menutup: jalan keluar paling mudah ditemukan. */}
       <button type="button" className="flex-1 cursor-default" onClick={() => setOpen(false)} aria-label="Tutup panduan" />
-      <div className="flex w-full max-w-lg flex-col overflow-y-auto bg-[var(--surface)] shadow-2xl">
-        <header className="sticky top-0 flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-5 py-4">
+      {/* Sudut membulat hanya di tepi yang menghadap halaman. Side sheet M3
+          menempel ke sisi layar; membulatkan keempat sudut menyisakan celah
+          kanvas di kanan atas dan kanan bawah. */}
+      <div className="flex w-full max-w-lg flex-col overflow-y-auto rounded-l-2xl bg-panel shadow-level3">
+        <header className="sticky top-0 flex items-center justify-between gap-3 border-b border-outline-variant bg-panel px-5 py-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Panduan</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant">Panduan</p>
             <p className="mt-0.5 font-semibold">{role === "booth" ? "Admin Booth" : "Kasir"}</p>
           </div>
-          <button type="button" onClick={() => setOpen(false)} className="flex min-h-11 items-center gap-1.5 border border-[var(--line)] px-3 text-sm font-semibold hover:border-[var(--brand)]"><X size={17} /> Tutup</button>
+          <button type="button" onClick={() => setOpen(false)} className="rounded-md flex min-h-11 items-center gap-1.5 border border-outline-variant px-3 text-body-medium font-semibold hover:border-primary"><X size={17} /> Tutup</button>
         </header>
 
-        <div className="flex-1 divide-y divide-[var(--line)]">
+        <div className="flex-1 divide-y divide-outline-variant">
           {sections.map((section) => {
             const expanded = openSection === section.id;
             return <div key={section.id}>
-              <button type="button" onClick={() => setOpenSection(expanded ? null : section.id)} className="flex min-h-14 w-full items-center justify-between gap-3 px-5 text-left text-sm font-semibold hover:bg-[var(--surface-muted)]" aria-expanded={expanded}>
+              <button type="button" onClick={() => setOpenSection(expanded ? null : section.id)} className="flex min-h-14 w-full items-center justify-between gap-3 px-5 text-left text-body-medium font-semibold hover:bg-panel-high" aria-expanded={expanded}>
                 {section.title}
                 <CaretDown size={16} weight="bold" className={`shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
               </button>
@@ -231,11 +234,11 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
           })}
         </div>
 
-        <footer className="sticky bottom-0 border-t border-[var(--line)] bg-[var(--surface-muted)] px-5 py-4">
-          <Link href="/panduan" target="_blank" className="flex min-h-12 items-center justify-center gap-2 border border-[var(--line)] bg-[var(--surface)] text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+        <footer className="sticky bottom-0 border-t border-outline-variant bg-panel-high px-5 py-4">
+          <Link href="/panduan" target="_blank" className="rounded-lg flex min-h-12 items-center justify-center gap-2 border border-outline-variant bg-panel text-body-medium font-semibold hover:border-primary hover:text-primary">
             <Printer size={18} /> Buka versi cetak
           </Link>
-          <p className="mt-2 text-center text-[11px] text-[var(--ink-muted)]">Cetak dan letakkan di meja booth untuk dibaca saat HP sedang dipakai.</p>
+          <p className="mt-2 text-center text-[11px] text-on-surface-variant">Cetak dan letakkan di meja booth untuk dibaca saat HP sedang dipakai.</p>
         </footer>
       </div>
     </div>}

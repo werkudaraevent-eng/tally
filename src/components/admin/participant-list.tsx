@@ -73,8 +73,8 @@ function toDraft(participant: Participant): Draft {
   };
 }
 
-const inputClass = "mt-1.5 h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]";
-const lockedClass = "mt-1.5 flex min-h-11 items-center border border-dashed border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm text-[var(--ink-muted)]";
+const inputClass = "mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
+const lockedClass = "mt-1.5 flex min-h-11 items-center border border-dashed border-outline-variant bg-panel-high px-3 text-body-medium text-on-surface-variant";
 
 export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, timeZoneAbbr: abbr, onChanged, toolbar }: {
   reloadKey?: number;
@@ -246,8 +246,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
    * sebagai keputusan.
    */
   function field(label: string, node: React.ReactNode, hint?: string) {
-    return <label className="block text-sm font-semibold">{label}{node}
-      {hint && <span className="mt-1 block text-xs font-normal text-[var(--ink-muted)]">{hint}</span>}
+    return <label className="block text-body-medium font-semibold">{label}{node}
+      {hint && <span className="mt-1 block text-body-small font-normal text-on-surface-variant">{hint}</span>}
     </label>;
   }
 
@@ -266,27 +266,27 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
 
   const editingLocked = editingRow?.source_participant_id != null;
 
-  return <section className="mt-8 w-full border border-[var(--line)] bg-[var(--surface)]">
-    <div className="flex flex-col justify-between gap-4 border-b border-[var(--line)] p-5 sm:flex-row sm:items-center">
-      <div><h2 className="font-semibold">Daftar peserta</h2><p className="mt-1 text-xs text-[var(--ink-muted)]">{activeTotal} peserta aktif{removedCount > 0 ? ` · ${removedCount} sudah dihapus di sumber` : ""}{lastSyncedAt ? ` · sinkron ${formatEventDateTime(lastSyncedAt, timeZone)} ${abbr ?? timeZoneAbbr(timeZone)}` : ""}</p></div>
+  return <section className="rounded-lg mt-8 w-full border border-outline-variant bg-panel">
+    <div className="flex flex-col justify-between gap-4 border-b border-outline-variant p-5 sm:flex-row sm:items-center">
+      <div><h2 className="font-semibold">Daftar peserta</h2><p className="mt-1 text-body-small text-on-surface-variant">{activeTotal} peserta aktif{removedCount > 0 ? ` · ${removedCount} sudah dihapus di sumber` : ""}{lastSyncedAt ? ` · sinkron ${formatEventDateTime(lastSyncedAt, timeZone)} ${abbr ?? timeZoneAbbr(timeZone)}` : ""}</p></div>
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative"><MagnifyingGlass size={18} className="absolute left-3 top-3 text-[var(--ink-muted)]" /><input value={query} onChange={(event) => setQuery(event.target.value)} className="h-11 w-full border border-[var(--line)] bg-[var(--background)] pl-10 pr-3 text-sm outline-none focus:border-[var(--brand)] sm:w-56" placeholder="Cari nama, perusahaan, QR" /></div>
+        <div className="relative"><MagnifyingGlass size={18} className="absolute left-3 top-3 text-on-surface-variant" /><input value={query} onChange={(event) => setQuery(event.target.value)} className="rounded-md h-11 w-full border border-outline-variant bg-surface pl-10 pr-3 text-body-medium outline-none focus:border-primary sm:w-56" placeholder="Cari nama, perusahaan, QR" /></div>
         {toolbar}
-        <button type="button" onClick={startAdd} disabled={editingId !== null} className="inline-flex min-h-11 items-center gap-2 bg-[var(--brand)] px-3 text-sm font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-40"><Plus size={16} /> Tambah peserta</button>
+        <button type="button" onClick={startAdd} disabled={editingId !== null} className="rounded-md inline-flex min-h-11 items-center gap-2 bg-primary px-3 text-body-medium font-semibold text-on-primary hover:bg-primary-dim disabled:opacity-40"><Plus size={16} /> Tambah peserta</button>
       </div>
     </div>
-    {error && <div role="alert" className="m-5 flex items-start gap-2 border border-[#E9C7C4] bg-[#FFF2F0] p-3 text-sm text-[var(--danger)]"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</div>}
-    {notice && <div role="status" className="m-5 flex items-center gap-2 border border-[#B9DCC5] bg-[#EEF8F0] p-3 text-sm text-[var(--brand-strong)]"><Check size={18} />{notice}</div>}
-    {removedCount > 0 && <div className="m-5 flex items-start gap-2 border border-[#E6D3AE] bg-[#FDF6E7] p-3 text-sm text-[var(--warning)]"><WarningCircle size={18} className="mt-0.5 shrink-0" /><span><span className="font-semibold">{removedCount} peserta sudah dihapus di sumber data.</span> Barisnya tetap disimpan di sini untuk audit, tapi tidak muncul lagi di pencarian booth dan kasir serta tidak dihitung di laporan. Karena itu total {total} di sini lebih besar dari angka aktif {activeTotal}.</span></div>}
-    {loading ? <div className="flex min-h-48 items-center justify-center text-sm text-[var(--ink-muted)]">Memuat peserta...</div> : participants.length === 0 ? <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center text-sm text-[var(--ink-muted)]"><UsersThree size={40} className="opacity-40" />Belum ada peserta cocok.</div> : <>
+    {error && <div role="alert" className="rounded-lg m-5 flex items-start gap-2 border border-error-soft-outline bg-error-soft p-3 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</div>}
+    {notice && <div role="status" className="rounded-lg m-5 flex items-center gap-2 border border-success-soft-outline bg-success-soft p-3 text-body-medium text-primary-dim"><Check size={18} />{notice}</div>}
+    {removedCount > 0 && <div className="rounded-lg m-5 flex items-start gap-2 border border-warning-soft-outline bg-warning-soft p-3 text-body-medium text-warning"><WarningCircle size={18} className="mt-0.5 shrink-0" /><span><span className="font-semibold">{removedCount} peserta sudah dihapus di sumber data.</span> Barisnya tetap disimpan di sini untuk audit, tapi tidak muncul lagi di pencarian booth dan kasir serta tidak dihitung di laporan. Karena itu total {total} di sini lebih besar dari angka aktif {activeTotal}.</span></div>}
+    {loading ? <div className="flex min-h-48 items-center justify-center text-body-medium text-on-surface-variant">Memuat peserta...</div> : participants.length === 0 ? <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center text-body-medium text-on-surface-variant"><UsersThree size={40} className="opacity-40" />Belum ada peserta cocok.</div> : <>
       <div className="w-full overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-[var(--line)] text-xs uppercase tracking-[0.12em] text-[var(--ink-muted)]"><tr>
+        <table className="w-full text-left text-body-medium">
+          <thead className="border-b border-outline-variant text-body-small uppercase tracking-[0.12em] text-on-surface-variant"><tr>
             <th scope="col" className="w-12 px-5 py-4 text-right font-semibold">No</th>
             {COLUMNS.slice(0, 4).map((column) => {
               const active = sort === column.key;
               return <th key={column.key} scope="col" aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"} className="px-5 py-4">
-                <button type="button" onClick={() => toggleSort(column.key)} className={`inline-flex min-h-6 items-center gap-1.5 uppercase tracking-[0.12em] transition-colors hover:text-[var(--brand)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)] ${active ? "font-semibold text-[var(--ink)]" : ""}`} title={`Urutkan menurut ${column.label}`}>
+                <button type="button" onClick={() => toggleSort(column.key)} className={`inline-flex min-h-6 items-center gap-1.5 uppercase tracking-[0.12em] transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${active ? "font-semibold text-on-surface" : ""}`} title={`Urutkan menurut ${column.label}`}>
                   {column.label}
                   {active ? (dir === "asc" ? <ArrowUp size={13} weight="bold" /> : <ArrowDown size={13} weight="bold" />) : <ArrowsDownUp size={13} className="opacity-35" />}
                 </button>
@@ -297,7 +297,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
             {COLUMNS.slice(4).map((column) => {
               const active = sort === column.key;
               return <th key={column.key} scope="col" aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"} className={`px-5 py-4 ${column.align === "right" ? "text-right" : ""}`}>
-                <button type="button" onClick={() => toggleSort(column.key)} className={`inline-flex min-h-6 items-center gap-1.5 uppercase tracking-[0.12em] transition-colors hover:text-[var(--brand)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)] ${active ? "font-semibold text-[var(--ink)]" : ""}`} title={`Urutkan menurut ${column.label}`}>
+                <button type="button" onClick={() => toggleSort(column.key)} className={`inline-flex min-h-6 items-center gap-1.5 uppercase tracking-[0.12em] transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${active ? "font-semibold text-on-surface" : ""}`} title={`Urutkan menurut ${column.label}`}>
                   {column.label}
                   {active ? (dir === "asc" ? <ArrowUp size={13} weight="bold" /> : <ArrowDown size={13} weight="bold" />) : <ArrowsDownUp size={13} className="opacity-35" />}
                 </button>
@@ -307,38 +307,38 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
             <th scope="col" className="px-5 py-4 text-right font-semibold">Undian</th>
             <th scope="col" className="px-5 py-4 text-right font-semibold">Aksi</th>
           </tr></thead>
-          <tbody className="divide-y divide-[var(--line)]">
+          <tbody className="divide-y divide-outline-variant">
             {participants.map((participant, index) => {
               const fromSource = participant.source_participant_id != null;
-              return <tr key={participant.id} className="hover:bg-[var(--surface-muted)]">
+              return <tr key={participant.id} className="hover:bg-panel-high">
                 {/* Nomor melanjutkan antar-halaman (hal 2 mulai dari 26), bukan reset ke 1. */}
-                <td className="px-5 py-4 text-right text-xs tabular-nums text-[var(--ink-muted)]">{page * PAGE_SIZE + index + 1}</td>
+                <td className="px-5 py-4 text-right text-body-small tabular-nums text-on-surface-variant">{page * PAGE_SIZE + index + 1}</td>
                 <td className="px-5 py-4">
                   <p className="flex items-center gap-2 font-semibold">
                     {participant.name}
-                    {participant.source_removed_at && <span className="inline-flex shrink-0 rounded-sm bg-[#FDF6E7] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--warning)]">Dihapus di sumber</span>}
+                    {participant.source_removed_at && <span className="inline-flex shrink-0 rounded-sm bg-warning-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-warning">Dihapus di sumber</span>}
                     {/* Penanda asal baris ditulis di kolom nama, bukan disembunyikan
                         di tooltip tombol: ia menjelaskan kenapa sebagian sel tidak
                         bisa disunting, dan penjelasan itu harus terbaca sebelum
                         orang mencoba menyuntingnya. */}
-                    {!fromSource && <span className="inline-flex shrink-0 rounded-sm bg-[#E8ECFB] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--brand-strong)]">Manual</span>}
+                    {!fromSource && <span className="inline-flex shrink-0 rounded-sm bg-primary-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary-dim">Manual</span>}
                   </p>
-                  <p className="mt-1 text-xs text-[var(--ink-muted)]">{participant.company ?? "Tanpa perusahaan"}{participant.title ? ` · ${participant.title}` : ""}</p>
+                  <p className="mt-1 text-body-small text-on-surface-variant">{participant.company ?? "Tanpa perusahaan"}{participant.title ? ` · ${participant.title}` : ""}</p>
                 </td>
-                <td className="px-5 py-4 font-mono text-xs">{participant.qr_code}</td>
-                <td className="px-5 py-4 text-xs">{participant.participant_type ?? "-"}</td>
-                <td className="px-5 py-4 text-xs">{participant.rsvp_status ?? "-"}</td>
-                <td className="px-5 py-4 text-xs">{participant.email ?? <span className="text-[var(--ink-muted)]">-</span>}</td>
-                <td className="px-5 py-4 text-xs">{participant.phone ?? <span className="text-[var(--ink-muted)]">-</span>}</td>
-                <td className="px-5 py-4 text-xs">{participant.source_checked_in ? <span className="inline-flex rounded-sm bg-[#EEF8F0] px-2 py-0.5 font-semibold text-[var(--brand-strong)]">Sudah</span> : <span className="inline-flex rounded-sm bg-[var(--surface-muted)] px-2 py-0.5 font-semibold text-[var(--ink-muted)]">Belum</span>}</td>
-                <td className="px-5 py-4 text-right text-xs tabular-nums">{participant.source_total_scans}</td>
+                <td className="px-5 py-4 font-mono text-body-small">{participant.qr_code}</td>
+                <td className="px-5 py-4 text-body-small">{participant.participant_type ?? "-"}</td>
+                <td className="px-5 py-4 text-body-small">{participant.rsvp_status ?? "-"}</td>
+                <td className="px-5 py-4 text-body-small">{participant.email ?? <span className="text-on-surface-variant">-</span>}</td>
+                <td className="px-5 py-4 text-body-small">{participant.phone ?? <span className="text-on-surface-variant">-</span>}</td>
+                <td className="px-5 py-4 text-body-small">{participant.source_checked_in ? <span className="inline-flex rounded-sm bg-success-soft px-2 py-0.5 font-semibold text-primary-dim">Sudah</span> : <span className="inline-flex rounded-sm bg-panel-high px-2 py-0.5 font-semibold text-on-surface-variant">Belum</span>}</td>
+                <td className="px-5 py-4 text-right text-body-small tabular-nums">{participant.source_total_scans}</td>
                 {/* Datang dari scanner API dan hanya ditampilkan. Nama sesi ikut
                     ditulis karena satu peserta bisa punya kursi berbeda di sesi
                     pagi dan malam; label saja akan ambigu. */}
-                <td className="px-5 py-4 text-xs">
+                <td className="px-5 py-4 text-body-small">
                   {participant.seats && participant.seats.length > 0
-                    ? <span className="flex flex-wrap gap-1">{participant.seats.map((seat) => <span key={`${seat.subEventId}-${seat.label}`} title={seat.subEventName} className="inline-flex rounded-sm bg-[#E8ECFB] px-2 py-0.5 font-mono font-semibold text-[var(--brand-strong)]">{seat.label}</span>)}</span>
-                    : <span className="text-[var(--ink-muted)]">Belum ada</span>}
+                    ? <span className="flex flex-wrap gap-1">{participant.seats.map((seat) => <span key={`${seat.subEventId}-${seat.label}`} title={seat.subEventName} className="inline-flex rounded-sm bg-primary-soft px-2 py-0.5 font-mono font-semibold text-primary-dim">{seat.label}</span>)}</span>
+                    : <span className="text-on-surface-variant">Belum ada</span>}
                 </td>
                 {/* Pengecualian undian: panitia, MC, dan perwakilan sponsor lazimnya
                     tidak boleh menang meski terdaftar dan memenuhi syarat. */}
@@ -348,19 +348,19 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
                     onClick={() => void toggleExclusion(participant)}
                     disabled={togglingExclusion === participant.id}
                     title={excluded.has(participant.id) ? "Ikutkan lagi ke undian" : "Kecualikan dari semua undian"}
-                    className={`inline-flex min-h-9 items-center gap-1.5 border px-2.5 text-xs font-semibold disabled:opacity-50 ${excluded.has(participant.id) ? "border-[var(--warning)] bg-[#FDF6E7] text-[var(--warning)]" : "border-[var(--line)] text-[var(--ink-muted)] hover:border-[var(--brand)] hover:text-[var(--brand)]"}`}
+                    className={`rounded-sm inline-flex min-h-9 items-center gap-1.5 border px-2.5 text-body-small font-semibold disabled:opacity-50 ${excluded.has(participant.id) ? "border-warning bg-warning-soft text-warning" : "border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary"}`}
                   >
                     <Prohibit size={14} />{excluded.has(participant.id) ? "Dikecualikan" : "Ikut"}
                   </button>
                 </td>
                 <td className="px-5 py-4">
                   <div className="flex items-center justify-end gap-1.5">
-                    <button type="button" onClick={() => startEdit(participant)} disabled={editingId !== null || saving} title={fromSource ? "Sunting email dan telepon" : "Sunting peserta"} className="inline-flex min-h-9 items-center gap-1.5 border border-[var(--line)] px-2 text-xs font-semibold text-[var(--ink-muted)] hover:border-[var(--brand)] hover:text-[var(--brand)] disabled:opacity-40"><PencilSimple size={14} /></button>
+                    <button type="button" onClick={() => startEdit(participant)} disabled={editingId !== null || saving} title={fromSource ? "Sunting email dan telepon" : "Sunting peserta"} className="rounded-sm inline-flex min-h-9 items-center gap-1.5 border border-outline-variant px-2 text-body-small font-semibold text-on-surface-variant hover:border-primary hover:text-primary disabled:opacity-40"><PencilSimple size={14} /></button>
                     {/* Tombol hapus hanya untuk baris manual. Untuk baris scanner ia
                         tidak ditampilkan sama sekali: menampilkannya lalu menolak
                         dengan galat membuat aturan yang disengaja terbaca sebagai
                         kerusakan. */}
-                    {!fromSource && <button type="button" onClick={() => void remove(participant)} disabled={editingId !== null || saving} title="Hapus peserta manual" className="inline-flex min-h-9 items-center border border-[var(--line)] px-2 text-xs font-semibold text-[var(--ink-muted)] hover:border-[var(--danger)] hover:text-[var(--danger)] disabled:opacity-40"><Trash size={14} /></button>}
+                    {!fromSource && <button type="button" onClick={() => void remove(participant)} disabled={editingId !== null || saving} title="Hapus peserta manual" className="rounded-sm inline-flex min-h-9 items-center border border-outline-variant px-2 text-body-small font-semibold text-on-surface-variant hover:border-error hover:text-error disabled:opacity-40"><Trash size={14} /></button>}
                   </div>
                 </td>
               </tr>;
@@ -368,12 +368,12 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
           </tbody>
         </table>
       </div>
-      <div className="flex flex-col items-center justify-between gap-3 border-t border-[var(--line)] p-4 sm:flex-row">
-        <p className="text-xs text-[var(--ink-muted)]">Menampilkan {rangeStart}–{rangeEnd} dari {total} peserta</p>
+      <div className="flex flex-col items-center justify-between gap-3 border-t border-outline-variant p-4 sm:flex-row">
+        <p className="text-body-small text-on-surface-variant">Menampilkan {rangeStart}–{rangeEnd} dari {total} peserta</p>
         <div className="flex items-center gap-2">
-          <button onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading} className="flex min-h-10 items-center gap-1 border border-[var(--line)] px-3 text-sm font-semibold disabled:opacity-40"><CaretLeft size={16} /> Sebelumnya</button>
-          <span className="text-sm tabular-nums text-[var(--ink-muted)]">Hal {page + 1} / {totalPages}</span>
-          <button onClick={() => setPage((current) => (current + 1 < totalPages ? current + 1 : current))} disabled={page + 1 >= totalPages || loading} className="flex min-h-10 items-center gap-1 border border-[var(--line)] px-3 text-sm font-semibold disabled:opacity-40">Berikutnya <CaretRight size={16} /></button>
+          <button onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading} className="rounded-md flex min-h-10 items-center gap-1 border border-outline-variant px-3 text-body-medium font-semibold disabled:opacity-40"><CaretLeft size={16} /> Sebelumnya</button>
+          <span className="text-body-medium tabular-nums text-on-surface-variant">Hal {page + 1} / {totalPages}</span>
+          <button onClick={() => setPage((current) => (current + 1 < totalPages ? current + 1 : current))} disabled={page + 1 >= totalPages || loading} className="rounded-md flex min-h-10 items-center gap-1 border border-outline-variant px-3 text-body-medium font-semibold disabled:opacity-40">Berikutnya <CaretRight size={16} /></button>
         </div>
       </div>
     </>}
@@ -385,27 +385,27 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
       role="dialog"
       aria-modal="true"
       aria-label={editingId === "new" ? "Tambah peserta" : "Sunting peserta"}
-      className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4"
+      className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4"
       onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) cancelEdit(); }}
     >
       <form
         onSubmit={(event) => { event.preventDefault(); void save(); }}
-        className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto border border-[var(--line)] bg-[var(--surface)] p-6 sm:p-8"
+        className="rounded-lg max-h-[90dvh] w-full max-w-2xl overflow-y-auto border border-outline-variant bg-panel p-6 sm:p-8"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand)]">{editingId === "new" ? "Peserta baru" : "Sunting peserta"}</p>
-            <h2 className="mt-2 text-2xl font-semibold">{editingId === "new" ? "Tambah peserta manual" : editingRow?.name}</h2>
+            <p className="text-body-small font-semibold uppercase tracking-[0.16em] text-primary">{editingId === "new" ? "Peserta baru" : "Sunting peserta"}</p>
+            <h2 className="mt-2 text-headline-small font-semibold">{editingId === "new" ? "Tambah peserta manual" : editingRow?.name}</h2>
           </div>
-          <button type="button" onClick={cancelEdit} disabled={saving} className="min-h-11 px-2 text-sm font-semibold disabled:opacity-40" aria-label="Tutup"><X size={18} /></button>
+          <button type="button" onClick={cancelEdit} disabled={saving} className="min-h-11 px-2 text-body-medium font-semibold disabled:opacity-40" aria-label="Tutup"><X size={18} /></button>
         </div>
 
-        {editingLocked && <p className="mt-5 flex items-start gap-2 border border-[#E6D3AE] bg-[#FDF6E7] p-4 text-sm leading-6 text-[var(--warning)]">
+        {editingLocked && <p className="rounded-lg mt-5 flex items-start gap-2 border border-warning-soft-outline bg-warning-soft p-4 text-body-medium leading-6 text-warning">
           <LockSimple size={18} className="mt-0.5 shrink-0" />
           <span>Peserta ini ditarik dari Scanner API. Nama, perusahaan, jabatan, kode QR, tipe, dan RSVP dikelola di sana dan akan ditimpa pada sync berikutnya — karena itu tidak dapat diubah dari sini. <span className="font-semibold">Email dan telepon tetap bisa diisi</span>, karena Scanner API tidak mengirim keduanya.</span>
         </p>}
 
-        {error && <p role="alert" className="mt-5 flex items-start gap-2 border border-[#E9C7C4] bg-[#FFF2F0] p-4 text-sm text-[var(--danger)]"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</p>}
+        {error && <p role="alert" className="rounded-lg mt-5 flex items-start gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</p>}
 
         <div className="mt-6 grid gap-5 sm:grid-cols-2">
           <div className="sm:col-span-2">{textField("Nama lengkap", "name", { locked: editingLocked, value: editingRow?.name, placeholder: "Nama peserta" })}</div>
@@ -432,10 +432,10 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
         </div>
 
         <div className="mt-8 flex flex-wrap gap-2">
-          <button type="submit" disabled={saving || !draft.name.trim() || !draft.qr_code.trim()} className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-[var(--brand)] px-4 font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-40">
+          <button type="submit" disabled={saving || !draft.name.trim() || !draft.qr_code.trim()} className="rounded-md inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-primary px-4 font-semibold text-on-primary hover:bg-primary-dim disabled:opacity-40">
             <Check size={18} />{saving ? "Menyimpan..." : editingId === "new" ? "Tambah peserta" : "Simpan perubahan"}
           </button>
-          <button type="button" onClick={cancelEdit} disabled={saving} className="min-h-12 border border-[var(--line)] px-4 font-semibold disabled:opacity-40">Batal</button>
+          <button type="button" onClick={cancelEdit} disabled={saving} className="rounded-md min-h-12 border border-outline-variant px-4 font-semibold disabled:opacity-40">Batal</button>
         </div>
       </form>
     </div>}

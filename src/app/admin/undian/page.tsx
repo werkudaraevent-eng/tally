@@ -353,17 +353,17 @@ export default function UndianAdminPage() {
     toast.success("Peserta kembali ikut undian");
   }
 
-  return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1440px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--brand)]">
+      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary">
         <ArrowLeft size={18} /> Kembali ke Dashboard
       </Link>
 
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Undian CMS</p>
+          <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Undian CMS</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Undian berhadiah.</h1>
-          <p className="mt-3 max-w-2xl text-sm text-[var(--ink-muted)]">
+          <p className="mt-3 max-w-2xl text-body-medium text-on-surface-variant">
             Atur hadiah, siapa yang berhak diundi, dan bagaimana namanya tampil di panggung.
             Menjalankan undiannya ada di halaman kontrol.
           </p>
@@ -375,13 +375,13 @@ export default function UndianAdminPage() {
               terbuka pada undian tanpa kandidat justru gagal di layar yang
               paling tidak boleh gagal. */}
           {canRun
-            ? <Link href="/admin/undian/kontrol" className="flex min-h-12 items-center gap-2 border border-[var(--brand)] bg-[var(--brand)] px-5 text-sm font-semibold text-white">
+            ? <Link href="/admin/undian/kontrol" className="rounded-md flex min-h-12 items-center gap-2 border border-primary bg-primary px-5 text-body-medium font-semibold text-on-primary">
                 <SlidersHorizontal size={18} /> Buka kontrol undian
               </Link>
-            : <span title="Selesaikan dulu butir bertanda wajib di daftar kesiapan" className="flex min-h-12 cursor-not-allowed items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-5 text-sm font-semibold text-[var(--ink-muted)]">
+            : <span title="Selesaikan dulu butir bertanda wajib di daftar kesiapan" className="rounded-lg flex min-h-12 cursor-not-allowed items-center gap-2 border border-outline-variant bg-panel-high px-5 text-body-medium font-semibold text-on-surface-variant">
                 <LockSimple size={18} /> Buka kontrol undian
               </span>}
-          <Link href="/undian" target="_blank" className="flex min-h-12 items-center gap-2 border border-[var(--line)] px-5 text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+          <Link href="/undian" target="_blank" className="rounded-md flex min-h-12 items-center gap-2 border border-outline-variant px-5 text-body-medium font-semibold hover:border-primary hover:text-primary">
             <ArrowSquareOut size={18} /> Layar panggung
           </Link>
         </div>
@@ -389,7 +389,7 @@ export default function UndianAdminPage() {
 
       <ReadinessPanel steps={readiness} canRun={canRun} onGo={setTab} />
 
-      {error && <p className="mt-5 flex items-start gap-2 border border-[var(--danger)] bg-[#FDECEC] p-4 text-sm text-[var(--danger)]">
+      {error && <p className="rounded-lg mt-5 flex items-start gap-2 border border-error bg-error-soft p-4 text-body-medium text-error">
         <Warning size={18} className="mt-0.5 shrink-0" /> {error}
       </p>}
 
@@ -397,7 +397,7 @@ export default function UndianAdminPage() {
           seberapa sering dipakai. Nomornya bukan gerbang -- tab mana pun tetap
           bisa dibuka -- melainkan jawaban atas satu pertanyaan yang berulang:
           mulai dari mana. */}
-      <div className="mt-8 flex flex-wrap gap-px border border-[var(--line)] bg-[var(--line)]">
+      <div className="mt-8 flex flex-wrap gap-3">
         {([
           { key: "data", label: "Sumber data", icon: Users },
           { key: "prizes", label: "Hadiah & syarat", icon: Gift },
@@ -407,9 +407,9 @@ export default function UndianAdminPage() {
           key={item.key}
           type="button"
           onClick={() => setTab(item.key)}
-          className={`flex min-h-12 flex-1 items-center justify-center gap-2 px-5 text-sm font-semibold ${tab === item.key ? "bg-[var(--brand)] text-white" : "bg-[var(--surface)] hover:text-[var(--brand)]"}`}
+          className={`rounded-md flex min-h-12 flex-1 items-center justify-center gap-2 px-5 text-body-medium font-semibold ${tab === item.key ? "bg-primary text-on-primary" : "bg-panel hover:text-primary"}`}
         >
-          <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] tabular-nums ${tab === item.key ? "bg-white/20" : "bg-[var(--surface-muted)] text-[var(--ink-muted)]"}`}>{index + 1}</span>
+          <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] tabular-nums ${tab === item.key ? "bg-white/20" : "bg-panel-high text-on-surface-variant"}`}>{index + 1}</span>
           <item.icon size={18} /> {item.label}
         </button>)}
       </div>
@@ -472,36 +472,36 @@ function ReadinessPanel({ steps, canRun, onGo }: {
   const pending = steps.filter((step) => !step.done);
   const [open, setOpen] = useState(pending.length > 0);
 
-  return <section className="mt-6 border border-[var(--line)] bg-[var(--surface)]">
+  return <section className="rounded-lg mt-6 border border-outline-variant bg-panel">
     <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-      <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Kesiapan undian</h2>
-      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold ${canRun ? "bg-[#EEF8F0] text-[var(--brand-strong)]" : "bg-[#FFF2F0] text-[var(--danger)]"}`}>
+      <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Kesiapan undian</h2>
+      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-body-small font-semibold ${canRun ? "bg-success-soft text-primary-dim" : "bg-error-soft text-error"}`}>
         {canRun ? <><Check size={13} weight="bold" /> Siap dijalankan</> : <><LockSimple size={13} weight="bold" /> Belum bisa dijalankan</>}
       </span>
-      <span className="text-xs text-[var(--ink-muted)]">{steps.length - pending.length} dari {steps.length} butir beres</span>
-      <button type="button" onClick={() => setOpen((value) => !value)} className="ml-auto min-h-8 text-xs font-semibold text-[var(--brand)] underline">
+      <span className="text-body-small text-on-surface-variant">{steps.length - pending.length} dari {steps.length} butir beres</span>
+      <button type="button" onClick={() => setOpen((value) => !value)} className="ml-auto min-h-8 text-body-small font-semibold text-primary underline">
         {open ? "Sembunyikan" : "Lihat daftar"}
       </button>
     </div>
 
-    {open && <ol className="border-t border-[var(--line)]">
-      {steps.map((step, index) => <li key={step.id} className="flex flex-wrap items-start gap-3 border-b border-[var(--line)] px-4 py-3 last:border-b-0">
-        <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums ${step.done ? "bg-[#EEF8F0] text-[var(--brand-strong)]" : step.blocking ? "bg-[#FFF2F0] text-[var(--danger)]" : "bg-[#FDF6E7] text-[var(--warning)]"}`}>
+    {open && <ol className="border-t border-outline-variant">
+      {steps.map((step, index) => <li key={step.id} className="flex flex-wrap items-start gap-3 border-b border-outline-variant px-4 py-3 last:border-b-0">
+        <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums ${step.done ? "bg-success-soft text-primary-dim" : step.blocking ? "bg-error-soft text-error" : "bg-warning-soft text-warning"}`}>
           {step.done ? <Check size={12} weight="bold" /> : index + 1}
         </span>
         <div className="min-w-52 flex-1">
-          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+          <p className="flex flex-wrap items-center gap-2 text-body-medium font-semibold">
             {step.label}
             {/* Label wajib/opsional ditulis pada butirnya sendiri, bukan hanya
                 tersirat dari warna: pembaca yang tidak membedakan merah dan
                 kuning tetap harus bisa tahu mana yang mengunci. */}
-            {!step.done && <span className={`px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${step.blocking ? "bg-[#FFF2F0] text-[var(--danger)]" : "bg-[#FDF6E7] text-[var(--warning)]"}`}>
+            {!step.done && <span className={`px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${step.blocking ? "bg-error-soft text-error" : "bg-warning-soft text-warning"}`}>
               {step.blocking ? "Wajib" : "Opsional"}
             </span>}
           </p>
-          {step.detail && <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">{step.detail}</p>}
+          {step.detail && <p className="mt-1 text-body-small leading-5 text-on-surface-variant">{step.detail}</p>}
         </div>
-        {!step.done && <button type="button" onClick={() => onGo(step.tab)} className="min-h-9 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+        {!step.done && <button type="button" onClick={() => onGo(step.tab)} className="rounded-sm min-h-9 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
           Bereskan
         </button>}
       </li>)}
@@ -537,13 +537,13 @@ function PrizesTab({
           sedang berjalan, dan tanpa keterangan ini "kuota penuh" terbaca sebagai
           buntu permanen — padahal jalan keluarnya adalah menutup sesi, bukan
           membuat hadiah baru. */}
-      <div className="mb-3 flex flex-wrap items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs">
+      <div className="rounded-lg mb-3 flex flex-wrap items-center gap-2 border border-outline-variant bg-panel px-3 py-2 text-body-small">
         {activeSession
-          ? <><span className="inline-block size-2 shrink-0 animate-pulse rounded-full bg-[var(--brand)]" />
+          ? <><span className="inline-block size-2 shrink-0 animate-pulse rounded-full bg-primary" />
             <span>Menghitung untuk sesi <span className="font-semibold">{activeSession.name}</span></span></>
-          : <><Warning size={14} className="shrink-0 text-[var(--ink-muted)]" />
-            <span className="text-[var(--ink-muted)]">Belum ada sesi berjalan. Undian tetap bisa dijalankan, hasilnya saja yang tidak terkelompok.</span></>}
-        <button type="button" onClick={onGoToHistory} className="ml-auto min-h-8 font-semibold text-[var(--brand)] underline">
+          : <><Warning size={14} className="shrink-0 text-on-surface-variant" />
+            <span className="text-on-surface-variant">Belum ada sesi berjalan. Undian tetap bisa dijalankan, hasilnya saja yang tidak terkelompok.</span></>}
+        <button type="button" onClick={onGoToHistory} className="ml-auto min-h-8 font-semibold text-primary underline">
           {activeSession ? "Kelola sesi" : "Mulai sesi"}
         </button>
       </div>
@@ -552,7 +552,7 @@ function PrizesTab({
           sesi yang bisa ditutup untuk membebaskannya. Keadaan ini mustahil
           ditemukan sendiri oleh panitia — yang terlihat hanya hadiah yang terus
           menolak diundi. */}
-      {orphanWinners > 0 && <p className="mb-3 flex items-start gap-2 border border-[#E6D3AE] bg-[#FDF6E7] p-3 text-xs leading-relaxed text-[#7A5B00]">
+      {orphanWinners > 0 && <p className="rounded-lg mb-3 flex items-start gap-2 border border-warning-soft-outline bg-warning-soft p-3 text-body-small leading-relaxed text-on-warning-soft">
         <Warning size={15} className="mt-0.5 shrink-0" />
         <span>
           Ada <span className="font-semibold">{orphanWinners} pemenang lama</span> yang belum masuk sesi mana pun, jadi mereka
@@ -562,44 +562,44 @@ function PrizesTab({
       </p>}
 
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Daftar hadiah</h2>
-        <button type="button" onClick={() => onOpen(null)} className="flex min-h-11 items-center gap-1.5 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+        <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Daftar hadiah</h2>
+        <button type="button" onClick={() => onOpen(null)} className="rounded-md flex min-h-11 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
           <Plus size={15} /> Tambah hadiah
         </button>
       </div>
 
       {/* Petunjuk hanya muncul ketika keadaannya benar-benar terjadi. Menampilkannya
           terus-menerus membuatnya jadi latar yang tidak dibaca siapa pun. */}
-      {anyQuotaFull && <p className="mb-3 border border-[var(--brand)]/40 bg-[#E8ECFB] p-3 text-xs leading-relaxed text-[var(--brand-strong)]">
+      {anyQuotaFull && <p className="rounded-lg mb-3 border border-primary/40 bg-primary-soft p-3 text-body-small leading-relaxed text-primary-dim">
         Untuk mengundi hadiah yang kuotanya penuh pada sesi berikutnya,
         <span className="font-semibold"> tutup sesi sekarang lalu mulai sesi baru</span> — hadiah yang sama dipakai lagi, tidak perlu dibuat ulang.
         Kuota dan daftar pemenang dihitung ulang per sesi.
       </p>}
 
-      {prizes.length === 0 ? <p className="border border-dashed border-[var(--line)] p-8 text-center text-sm text-[var(--ink-muted)]">
+      {prizes.length === 0 ? <p className="rounded-lg border border-dashed border-outline-variant p-8 text-center text-body-medium text-on-surface-variant">
         Belum ada hadiah. Tambahkan hadiah pertama untuk mulai.
-      </p> : <div className="space-y-px border border-[var(--line)] bg-[var(--line)]">
+      </p> : <div className="space-y-2">
         {prizes.map((prize) => {
           const pool = pools[prize.id];
           const won = winnerCounts[prize.id] ?? 0;
-          return <div key={prize.id} className={`bg-[var(--surface)] p-4 ${editingId === prize.id ? "ring-2 ring-inset ring-[var(--brand)]" : ""}`}>
+          return <div key={prize.id} className={`rounded-lg bg-panel p-4 ${editingId === prize.id ? "ring-2 ring-inset ring-primary" : ""}`}>
             <div className="flex items-start gap-3">
               {prize.image_url
                 ? <ImagePreview url={prize.image_url} alt="" className="h-14 w-14" />
-                : <div className="flex h-14 w-14 shrink-0 items-center justify-center border border-dashed border-[var(--line)] text-[var(--ink-muted)]"><Gift size={20} /></div>}
+                : <div className="rounded-md flex h-14 w-14 shrink-0 items-center justify-center border border-dashed border-outline-variant text-on-surface-variant"><Gift size={20} /></div>}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold">{prize.name || "(tanpa nama)"}</span>
-                  {!prize.is_active && <span className="border border-[var(--line)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--ink-muted)]">Nonaktif</span>}
+                  {!prize.is_active && <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant">Nonaktif</span>}
                   {/* "Penuh di sesi ini", bukan "Kuota penuh".
                       Tanpa keterangan sesi, label ini terbaca sebagai hadiah yang
                       habis selamanya — dan panitia lalu membuat hadiah duplikat
                       untuk sesi berikutnya, padahal cukup menutup sesi. */}
-                  {won >= prize.winner_quota && <span className="border border-[var(--brand)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--brand)]">
+                  {won >= prize.winner_quota && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">
                     {activeSession ? "Penuh di sesi ini" : "Kuota penuh"}
                   </span>}
                 </div>
-                <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                <p className="mt-1 text-body-small text-on-surface-variant">
                   {ANIMATIONS.find((item) => item.value === prize.animation)?.label}
                   {" · "}{prize.winners_per_draw} pemenang/undi
                   {prize.backup_per_draw > 0 && ` + ${prize.backup_per_draw} cadangan`}
@@ -609,29 +609,29 @@ function PrizesTab({
                     undi lebih besar dari kuotanya. Sistem menjepitnya saat mengundi,
                     tapi tanpa peringatan panitia mengira akan keluar sepuluh nama
                     dan hanya satu yang muncul di panggung. */}
-                {prize.winners_per_draw > prize.winner_quota && <p className="mt-1 flex items-start gap-1 text-xs font-semibold text-[var(--warning)]">
+                {prize.winners_per_draw > prize.winner_quota && <p className="mt-1 flex items-start gap-1 text-body-small font-semibold text-warning">
                   <Warning size={13} className="mt-0.5 shrink-0" />
                   {prize.winners_per_draw} pemenang/undi melebihi kuota {prize.winner_quota}. Hanya {prize.winner_quota} nama yang akan keluar.
                 </p>}
-                <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                <p className="mt-1 text-body-small text-on-surface-variant">
                   Syarat: {prize.source === "entries"
                     ? `daftar "${groups.find((group) => group.id === prize.entry_group_id)?.name ?? "?"}"`
                     : describeConditions(prize.conditions)}
                 </p>
-                {pool && <p className="mt-1 text-xs tabular-nums text-[var(--brand)]">
+                {pool && <p className="mt-1 text-body-small tabular-nums text-primary">
                   {pool.candidates} nama siap diundi
                   {pool.eligible !== pool.candidates && ` (${pool.eligible - pool.candidates} sudah menang di sesi yang masih terbuka)`}
                 </p>}
               </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" onClick={() => onOpen(prize)} className="min-h-10 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">Ubah</button>
+              <button type="button" onClick={() => onOpen(prize)} className="rounded-md min-h-10 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">Ubah</button>
               {confirmPrize === prize.id
                 ? <>
-                  <button type="button" onClick={() => onDelete(prize.id)} className="min-h-10 border border-[var(--danger)] bg-[var(--danger)] px-3 text-xs font-semibold text-white">Ya, hapus</button>
-                  <button type="button" onClick={() => onConfirm(null)} className="min-h-10 border border-[var(--line)] px-3 text-xs font-semibold">Batal</button>
+                  <button type="button" onClick={() => onDelete(prize.id)} className="rounded-md min-h-10 border border-error bg-error px-3 text-body-small font-semibold text-on-error">Ya, hapus</button>
+                  <button type="button" onClick={() => onConfirm(null)} className="rounded-md min-h-10 border border-outline-variant px-3 text-body-small font-semibold">Batal</button>
                 </>
-                : <button type="button" onClick={() => onConfirm(prize.id)} className="flex min-h-10 items-center gap-1.5 border border-[var(--line)] px-3 text-xs font-semibold text-[var(--danger)] hover:border-[var(--danger)]"><Trash size={14} /> Hapus</button>}
+                : <button type="button" onClick={() => onConfirm(prize.id)} className="rounded-md flex min-h-10 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold text-error hover:border-error"><Trash size={14} /> Hapus</button>}
             </div>
           </div>;
         })}
@@ -653,12 +653,12 @@ function PrizeEditor({
   onChange: (changes: Partial<Omit<UndianPrize, "id">>) => void;
   onSave: () => void; onClose: () => void; onUpload: (file: File) => void;
 }) {
-  const inputClass = "h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]";
-  const labelClass = "text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]";
+  const inputClass = "h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
+  const labelClass = "text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant";
 
-  return <section className="space-y-px self-start border border-[var(--line)] bg-[var(--line)] lg:sticky lg:top-6">
-    <div className="bg-[var(--surface)] p-5">
-      <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Detail hadiah</h2>
+  return <section className="rounded-lg overflow-hidden space-y-px self-start border border-outline-variant bg-outline-variant lg:sticky lg:top-6">
+    <div className="rounded-lg bg-panel p-5">
+      <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Detail hadiah</h2>
 
       <div className="mt-4 space-y-4">
         <div>
@@ -674,7 +674,7 @@ function PrizeEditor({
           <div>
             <label htmlFor="prize-image" className={labelClass}>Gambar hadiah</label>
             <div className="mt-1.5 flex items-center gap-2">
-              <label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+              <label className="rounded-md flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
                 <UploadSimple size={15} /> {uploading ? "Mengunggah..." : draft.image_url ? "Ganti" : "Unggah"}
                 <input id="prize-image" type="file" accept="image/*" className="hidden" onChange={(event) => {
                   const file = event.target.files?.[0];
@@ -684,7 +684,7 @@ function PrizeEditor({
                   if (file) onUpload(file);
                 }} />
               </label>
-              {draft.image_url && <button type="button" onClick={() => onChange({ image_url: null })} className="min-h-11 border border-[var(--line)] px-3 text-xs font-semibold text-[var(--danger)]">Hapus</button>}
+              {draft.image_url && <button type="button" onClick={() => onChange({ image_url: null })} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-small font-semibold text-error">Hapus</button>}
             </div>
             {/* Pratinjau, bukan sekadar tombol yang berubah menjadi "Ganti".
                 Tombol memberi tahu bahwa ADA gambar, bukan gambar YANG MANA. */}
@@ -702,18 +702,18 @@ function PrizeEditor({
     </div>
 
     {/* --- Cara mengundi --- */}
-    <div className="bg-[var(--surface)] p-5">
-      <h3 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Cara mengundi</h3>
+    <div className="rounded-lg bg-panel p-5">
+      <h3 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Cara mengundi</h3>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {ANIMATIONS.map((item) => <button
           key={item.value}
           type="button"
           onClick={() => onChange({ animation: item.value as UndianAnimation })}
-          className={`border p-3 text-left ${draft.animation === item.value ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)] hover:border-[var(--brand)]"}`}
+          className={`rounded-lg border p-3 text-left ${draft.animation === item.value ? "border-primary bg-primary-soft" : "border-outline-variant hover:border-primary"}`}
         >
-          <span className="block text-sm font-semibold">{item.label}</span>
-          <span className="mt-1 block text-[11px] leading-snug text-[var(--ink-muted)]">{item.hint}</span>
+          <span className="block text-body-medium font-semibold">{item.label}</span>
+          <span className="mt-1 block text-[11px] leading-snug text-on-surface-variant">{item.hint}</span>
         </button>)}
       </div>
 
@@ -722,7 +722,7 @@ function PrizeEditor({
         <NumberField id="winner-quota" label="Total kuota" value={draft.winner_quota} min={1} max={500} onChange={(value) => onChange({ winner_quota: value })} />
         <NumberField id="backup-per-draw" label="Cadangan per undi" value={draft.backup_per_draw} min={0} max={20} onChange={(value) => onChange({ backup_per_draw: value })} />
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-[var(--ink-muted)]">
+      <p className="mt-2 text-[11px] leading-relaxed text-on-surface-variant">
         Kuota lebih besar dari pemenang per undi berarti hadiah ini diundi beberapa kali.
         Cadangan ikut diundi bersamaan, dipakai bila pemenang utama tidak ada di tempat.
       </p>
@@ -737,19 +737,19 @@ function PrizeEditor({
             key={item.value}
             type="button"
             onClick={() => onChange({ spin_mode: item.value })}
-            className={`border p-3 text-left ${draft.spin_mode === item.value ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)] hover:border-[var(--brand)]"}`}
+            className={`rounded-lg border p-3 text-left ${draft.spin_mode === item.value ? "border-primary bg-primary-soft" : "border-outline-variant hover:border-primary"}`}
           >
-            <span className="block text-sm font-semibold">{item.label}</span>
-            <span className="mt-1 block text-[11px] leading-snug text-[var(--ink-muted)]">{item.hint}</span>
+            <span className="block text-body-medium font-semibold">{item.label}</span>
+            <span className="mt-1 block text-[11px] leading-snug text-on-surface-variant">{item.hint}</span>
           </button>)}
         </div>
 
         {draft.spin_mode === "timed"
           ? <div className="mt-4">
               <label htmlFor="spin-seconds" className={labelClass}>Durasi animasi: {draft.spin_seconds.toFixed(1)} detik</label>
-              <input id="spin-seconds" type="range" min={1} max={30} step={0.5} value={draft.spin_seconds} onChange={(event) => onChange({ spin_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full accent-[var(--brand)]" />
+              <input id="spin-seconds" type="range" min={1} max={30} step={0.5} value={draft.spin_seconds} onChange={(event) => onChange({ spin_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full accent-primary" />
             </div>
-          : <p className="mt-3 flex items-start gap-2 border border-[#E6D3AE] bg-[#FDF6E7] p-3 text-[11px] leading-relaxed text-[var(--warning)]">
+          : <p className="rounded-lg mt-3 flex items-start gap-2 border border-warning-soft-outline bg-warning-soft p-3 text-[11px] leading-relaxed text-warning">
               <Warning size={14} className="mt-0.5 shrink-0" />
               <span>Undian tidak akan selesai sendiri — operator wajib menekan <span className="font-semibold">Berhenti &amp; tampilkan</span> di halaman kontrol. Pemenang sudah tersimpan sejak tombol Undi ditekan, jadi tidak ada yang hilang bila peramban tertutup: siapa pun bisa menghentikannya dari halaman kontrol. Jeda tampil pemenang tidak berlaku pada mode ini.</span>
             </p>}
@@ -757,15 +757,15 @@ function PrizeEditor({
     </div>
 
     {/* --- Sumber & syarat --- */}
-    <div className="bg-[var(--surface)] p-5">
-      <h3 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Siapa yang diundi</h3>
+    <div className="rounded-lg bg-panel p-5">
+      <h3 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Siapa yang diundi</h3>
 
       <div className="mt-4 flex gap-2">
         {([["participants", "Ikut tab Peserta"], ["entries", "Daftar import"]] as const).map(([key, label]) => <button
           key={key}
           type="button"
           onClick={() => onChange({ source: key })}
-          className={`min-h-11 flex-1 border px-3 text-xs font-semibold ${draft.source === key ? "border-[var(--brand)] bg-[#E8ECFB] text-[var(--brand-strong)]" : "border-[var(--line)]"}`}
+          className={`rounded-md min-h-11 flex-1 border px-3 text-body-small font-semibold ${draft.source === key ? "border-primary bg-primary-soft text-primary-dim" : "border-outline-variant"}`}
         >{label}</button>)}
       </div>
 
@@ -775,7 +775,7 @@ function PrizeEditor({
           <option value={0}>Pilih daftar</option>
           {groups.map((group) => <option key={group.id} value={group.id}>{group.name} ({group.entry_count} baris)</option>)}
         </select>
-        {groups.length === 0 && <p className="mt-2 text-xs text-[var(--ink-muted)]">Belum ada daftar. Buat di tab &ldquo;Sumber data&rdquo;.</p>}
+        {groups.length === 0 && <p className="mt-2 text-body-small text-on-surface-variant">Belum ada daftar. Buat di tab &ldquo;Sumber data&rdquo;.</p>}
       </div> : <>
         <div className="mt-4">
           <p className={labelClass}>Syarat kelayakan</p>
@@ -790,34 +790,34 @@ function PrizeEditor({
           </div>
         </div>
 
-        {preview && <div className="mt-4 border border-[var(--brand)]/40 bg-[#E8ECFB] p-3">
-          <p className="text-sm font-semibold tabular-nums text-[var(--brand-strong)]">
+        {preview && <div className="rounded-lg mt-4 border border-primary/40 bg-primary-soft p-3">
+          <p className="text-body-medium font-semibold tabular-nums text-primary-dim">
             {preview.available} nama siap diundi
           </p>
           {/* Rincian penyusutan kolam. Satu angka akhir tidak dapat diperiksa
               siapa pun; selisih yang terurai bisa — dan kalau salah satunya
               mengejutkan, panitia tahu persis di mana harus melihat. */}
-          <ul className="mt-2 space-y-0.5 text-xs tabular-nums text-[var(--brand-strong)]/80">
+          <ul className="mt-2 space-y-0.5 text-body-small tabular-nums text-primary-dim/80">
             <li>{preview.total_participants} peserta aktif</li>
             {preview.breakdown.failed_conditions > 0 && <li>− {preview.breakdown.failed_conditions} tidak memenuhi syarat</li>}
             {preview.breakdown.by_rules > 0 && <li>
               − {preview.breakdown.by_rules} kena aturan pengecualian
-              {preview.breakdown.rule_hits.length > 0 && <span className="text-[var(--brand-strong)]/60">
+              {preview.breakdown.rule_hits.length > 0 && <span className="text-primary-dim/60">
                 {" "}({preview.breakdown.rule_hits.map((hit) => `${hit.rule_name}: ${hit.count}`).join(", ")})
               </span>}
             </li>}
             {preview.breakdown.by_manual > 0 && <li>− {preview.breakdown.by_manual} dikecualikan per orang</li>}
             {preview.breakdown.by_previous_wins > 0 && <li>− {preview.breakdown.by_previous_wins} sudah pernah menang</li>}
           </ul>
-          {preview.max_tickets > 1 && <p className="mt-2 text-xs tabular-nums text-[var(--brand-strong)]/80">
+          {preview.max_tickets > 1 && <p className="mt-2 text-body-small tabular-nums text-primary-dim/80">
             {preview.total_tickets} total tiket · peluang tertinggi {(preview.top_share * 100).toFixed(1)}%
           </p>}
-          {preview.available === 0 && <p className="mt-2 flex items-start gap-1.5 text-xs font-semibold text-[var(--danger)]">
+          {preview.available === 0 && <p className="mt-2 flex items-start gap-1.5 text-body-small font-semibold text-error">
             <Warning size={14} className="mt-0.5 shrink-0" /> Kolam kosong. Tombol undi akan ditolak.
           </p>}
           {preview.sample.length > 0 && <details className="mt-2">
-            <summary className="cursor-pointer text-xs font-semibold text-[var(--brand-strong)]">Lihat contoh nama</summary>
-            <ul className="mt-2 space-y-1 text-xs text-[var(--brand-strong)]/80">
+            <summary className="cursor-pointer text-body-small font-semibold text-primary-dim">Lihat contoh nama</summary>
+            <ul className="mt-2 space-y-1 text-body-small text-primary-dim/80">
               {preview.sample.map((row, index) => <li key={index} className="tabular-nums">
                 {row.name}{row.company ? ` — ${row.company}` : ""}
                 {row.tickets > 1 && ` (${row.tickets} tiket)`}
@@ -836,15 +836,15 @@ function PrizeEditor({
     </div>
 
     {/* --- Bobot --- */}
-    {draft.source === "participants" && <div className="bg-[var(--surface)] p-5">
-      <h3 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Peluang menang</h3>
+    {draft.source === "participants" && <div className="rounded-lg bg-panel p-5">
+      <h3 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Peluang menang</h3>
 
       <div className="mt-4 flex gap-2">
         {([["equal", "Semua sama rata"], ["formula", "Berbobot"]] as const).map(([key, label]) => <button
           key={key}
           type="button"
           onClick={() => onChange({ weight_mode: key })}
-          className={`min-h-11 flex-1 border px-3 text-xs font-semibold ${draft.weight_mode === key ? "border-[var(--brand)] bg-[#E8ECFB] text-[var(--brand-strong)]" : "border-[var(--line)]"}`}
+          className={`rounded-md min-h-11 flex-1 border px-3 text-body-small font-semibold ${draft.weight_mode === key ? "border-primary bg-primary-soft text-primary-dim" : "border-outline-variant"}`}
         >{label}</button>)}
       </div>
 
@@ -871,20 +871,20 @@ function PrizeEditor({
             <NumberField id="weight-max" label="Tiket maksimum" value={draft.weight_max} min={1} max={1000} onChange={(value) => onChange({ weight_max: value })} />
           </div>
         </div>
-        <p className="mt-3 text-[11px] leading-relaxed text-[var(--ink-muted)]">
+        <p className="mt-3 text-[11px] leading-relaxed text-on-surface-variant">
           Tiket = {draft.weight_base} + ({WEIGHT_VAR_LABEL[draft.weight_var].toLowerCase()} ÷ {rupiah(draft.weight_divisor)}), maksimal {draft.weight_max}.
           Batas maksimum menjaga satu peserta dengan angka ekstrem tidak menguasai kolam.
         </p>
       </>}
     </div>}
 
-    <div className="flex flex-wrap gap-2 bg-[var(--surface)] p-5">
-      <button type="button" onClick={onSave} disabled={saving} className="flex min-h-12 flex-1 items-center justify-center gap-2 border border-[var(--brand)] bg-[var(--brand)] px-5 text-sm font-semibold text-white disabled:opacity-60">
+    <div className="rounded-lg flex flex-wrap gap-2 bg-panel p-5">
+      <button type="button" onClick={onSave} disabled={saving} className="rounded-md flex min-h-12 flex-1 items-center justify-center gap-2 border border-primary bg-primary px-5 text-body-medium font-semibold text-on-primary disabled:opacity-60">
         <FloppyDisk size={18} /> {saving ? "Menyimpan..." : "Simpan hadiah"}
       </button>
-      <button type="button" onClick={onClose} className="min-h-12 border border-[var(--line)] px-5 text-sm font-semibold">Tutup</button>
-      <label className="flex min-h-12 cursor-pointer items-center gap-2 border border-[var(--line)] px-4 text-sm">
-        <input type="checkbox" checked={draft.is_active} onChange={(event) => onChange({ is_active: event.target.checked })} className="h-4 w-4 accent-[var(--brand)]" />
+      <button type="button" onClick={onClose} className="rounded-md min-h-12 border border-outline-variant px-5 text-body-medium font-semibold">Tutup</button>
+      <label className="rounded-md flex min-h-12 cursor-pointer items-center gap-2 border border-outline-variant px-4 text-body-medium">
+        <input type="checkbox" checked={draft.is_active} onChange={(event) => onChange({ is_active: event.target.checked })} className="h-4 w-4 accent-primary" />
         Aktif
       </label>
     </div>
@@ -893,7 +893,7 @@ function PrizeEditor({
 
 function NumberField({ id, label, value, min, max, onChange }: { id: string; label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
   return <div>
-    <label htmlFor={id} className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">{label}</label>
+    <label htmlFor={id} className="text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">{label}</label>
     <input
       id={id}
       type="number"
@@ -904,7 +904,7 @@ function NumberField({ id, label, value, min, max, onChange }: { id: string; lab
         const next = Number(event.target.value);
         onChange(Number.isFinite(next) ? Math.max(min, Math.min(max, next)) : min);
       }}
-      className="mt-1.5 h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm tabular-nums outline-none focus:border-[var(--brand)]"
+      className="rounded-md mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium tabular-nums outline-none focus:border-primary"
     />
   </div>;
 }
@@ -919,12 +919,12 @@ function DisplayTab({
   settings: Settings; branding: Branding; saving: boolean; uploading: boolean;
   onChange: (changes: Partial<Settings>) => void; onSave: () => void; onUpload: (file: File) => void;
 }) {
-  const inputClass = "h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]";
-  const labelClass = "text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]";
+  const inputClass = "h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
+  const labelClass = "text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant";
 
-  return <div className="mt-6 space-y-px border border-[var(--line)] bg-[var(--line)]">
-    <section className="bg-[var(--surface)] p-6">
-      <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Judul layar</h2>
+  return <div className="mt-6 space-y-2">
+    <section className="rounded-lg bg-panel p-6">
+      <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Judul layar</h2>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="page-title" className={labelClass}>Judul</label>
@@ -937,19 +937,19 @@ function DisplayTab({
       </div>
     </section>
 
-    <section className="bg-[var(--surface)] p-6">
-      <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Nama pemenang</h2>
+    <section className="rounded-lg bg-panel p-6">
+      <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Nama pemenang</h2>
 
       <div className="mt-4 flex gap-2">
         {([["full", "Selalu nama lengkap"], ["follow_event", "Ikut aturan privasi acara"]] as const).map(([key, label]) => <button
           key={key}
           type="button"
           onClick={() => onChange({ name_display: key })}
-          className={`min-h-11 flex-1 border px-3 text-xs font-semibold ${settings.name_display === key ? "border-[var(--brand)] bg-[#E8ECFB] text-[var(--brand-strong)]" : "border-[var(--line)]"}`}
+          className={`rounded-md min-h-11 flex-1 border px-3 text-body-small font-semibold ${settings.name_display === key ? "border-primary bg-primary-soft text-primary-dim" : "border-outline-variant"}`}
         >{label}</button>)}
       </div>
 
-      {settings.name_display === "follow_event" && <p className="mt-3 flex items-start gap-2 border border-[#D9A400] bg-[#FFF8E6] p-3 text-xs leading-relaxed text-[#7A5B00]">
+      {settings.name_display === "follow_event" && <p className="rounded-lg mt-3 flex items-start gap-2 border border-warning-soft-outline bg-warning-soft p-3 text-body-small leading-relaxed text-on-warning-soft">
         <Warning size={16} className="mt-0.5 shrink-0" />
         Aturan privasi acara dapat menyamarkan nama menjadi inisial atau nama perusahaan saja.
         Untuk undian, MC biasanya perlu memanggil nama lengkap ke atas panggung — pastikan ini memang yang diinginkan.
@@ -959,38 +959,38 @@ function DisplayTab({
         {([
           ["show_company", "Tampilkan perusahaan"],
           ["show_seat", "Tampilkan nomor kursi"],
-        ] as const).map(([key, label]) => <label key={key} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
-          <input type="checkbox" checked={settings[key]} onChange={(event) => onChange({ [key]: event.target.checked } as Partial<Settings>)} className="h-4 w-4 accent-[var(--brand)]" />
+        ] as const).map(([key, label]) => <label key={key} className="flex min-h-11 cursor-pointer items-center gap-2 text-body-medium">
+          <input type="checkbox" checked={settings[key]} onChange={(event) => onChange({ [key]: event.target.checked } as Partial<Settings>)} className="h-4 w-4 accent-primary" />
           {label}
         </label>)}
       </div>
     </section>
 
-    <section className="bg-[var(--surface)] p-6">
-      <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Efek panggung</h2>
+    <section className="rounded-lg bg-panel p-6">
+      <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Efek panggung</h2>
       <div className="mt-4 flex flex-wrap gap-4">
-        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
-          <input type="checkbox" checked={settings.sound_enabled} onChange={(event) => onChange({ sound_enabled: event.target.checked })} className="h-4 w-4 accent-[var(--brand)]" />
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-body-medium">
+          <input type="checkbox" checked={settings.sound_enabled} onChange={(event) => onChange({ sound_enabled: event.target.checked })} className="h-4 w-4 accent-primary" />
           <SpeakerHigh size={16} /> Suara
         </label>
-        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
-          <input type="checkbox" checked={settings.confetti_enabled} onChange={(event) => onChange({ confetti_enabled: event.target.checked })} className="h-4 w-4 accent-[var(--brand)]" />
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-body-medium">
+          <input type="checkbox" checked={settings.confetti_enabled} onChange={(event) => onChange({ confetti_enabled: event.target.checked })} className="h-4 w-4 accent-primary" />
           <Confetti size={16} /> Confetti
         </label>
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-[var(--ink-muted)]">
+      <p className="mt-2 text-[11px] leading-relaxed text-on-surface-variant">
         Matikan suara bila sound system venue sudah memutar musik sendiri, dan confetti bila mengganggu kamera live streaming.
       </p>
 
       <div className="mt-4">
         <label htmlFor="reveal-delay" className={labelClass}>Jeda sebelum nama terbaca: {settings.reveal_delay_seconds.toFixed(1)} detik</label>
-        <input id="reveal-delay" type="range" min={0} max={5} step={0.5} value={settings.reveal_delay_seconds} onChange={(event) => onChange({ reveal_delay_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full accent-[var(--brand)]" />
-        <p className="mt-1 text-[11px] text-[var(--ink-muted)]">Waktu tambahan setelah animasi berhenti, memberi MC kesempatan menarik napas.</p>
+        <input id="reveal-delay" type="range" min={0} max={5} step={0.5} value={settings.reveal_delay_seconds} onChange={(event) => onChange({ reveal_delay_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full accent-primary" />
+        <p className="mt-1 text-[11px] text-on-surface-variant">Waktu tambahan setelah animasi berhenti, memberi MC kesempatan menarik napas.</p>
       </div>
     </section>
 
-    <section className="bg-[var(--surface)] p-6">
-      <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Warna & latar</h2>
+    <section className="rounded-lg bg-panel p-6">
+      <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Warna & latar</h2>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         {([
           ["background_color", "Latar", FALLBACK.background_color],
@@ -999,16 +999,16 @@ function DisplayTab({
         ] as const).map(([key, label, fallback]) => <div key={key}>
           <div className="flex items-center justify-between">
             <label htmlFor={`color-${key}`} className={labelClass}>{label}</label>
-            {settings[key] && <button type="button" onClick={() => onChange({ [key]: null } as Partial<Settings>)} className="min-h-8 text-[11px] font-semibold text-[var(--brand)]">Reset</button>}
+            {settings[key] && <button type="button" onClick={() => onChange({ [key]: null } as Partial<Settings>)} className="min-h-8 text-[11px] font-semibold text-primary">Reset</button>}
           </div>
-          <input id={`color-${key}`} type="color" value={settings[key] ?? fallback} onChange={(event) => onChange({ [key]: event.target.value } as Partial<Settings>)} className="mt-1.5 h-11 w-full cursor-pointer border border-[var(--line)] bg-[var(--background)] px-1" />
+          <input id={`color-${key}`} type="color" value={settings[key] ?? fallback} onChange={(event) => onChange({ [key]: event.target.value } as Partial<Settings>)} className="rounded-md mt-1.5 h-11 w-full cursor-pointer border border-outline-variant bg-surface px-1" />
         </div>)}
       </div>
 
       <div className="mt-4">
         <p className={labelClass}>Gambar latar</p>
         <div className="mt-1.5 flex items-center gap-2">
-          <label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+          <label className="rounded-md flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
             <UploadSimple size={15} /> {uploading ? "Mengunggah..." : settings.background_image_url ? "Ganti gambar" : "Unggah gambar"}
             <input type="file" accept="image/*" className="hidden" onChange={(event) => {
               const file = event.target.files?.[0];
@@ -1016,7 +1016,7 @@ function DisplayTab({
               if (file) onUpload(file);
             }} />
           </label>
-          {settings.background_image_url && <button type="button" onClick={() => onChange({ background_image_url: null })} className="min-h-11 border border-[var(--line)] px-3 text-xs font-semibold text-[var(--danger)]">Hapus</button>}
+          {settings.background_image_url && <button type="button" onClick={() => onChange({ background_image_url: null })} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-small font-semibold text-error">Hapus</button>}
         </div>
 
         {/* Pratinjau latar dibuat lebar dan memakai `cover`, meniru cara gambar
@@ -1034,7 +1034,7 @@ function DisplayTab({
       </div>
     </section>
 
-    <section className="bg-[var(--surface)] p-6">
+    <section className="rounded-lg bg-panel p-6">
       <BrandingEditor
         value={branding}
         onChange={(changes) => onChange(changes as Partial<Settings>)}
@@ -1045,8 +1045,8 @@ function DisplayTab({
       />
     </section>
 
-    <div className="bg-[var(--surface)] p-6">
-      <button type="button" onClick={onSave} disabled={saving} className="flex min-h-12 items-center gap-2 border border-[var(--brand)] bg-[var(--brand)] px-6 text-sm font-semibold text-white disabled:opacity-60">
+    <div className="rounded-lg bg-panel p-6">
+      <button type="button" onClick={onSave} disabled={saving} className="rounded-md flex min-h-12 items-center gap-2 border border-primary bg-primary px-6 text-body-medium font-semibold text-on-primary disabled:opacity-60">
         <FloppyDisk size={18} /> {saving ? "Menyimpan..." : "Simpan tampilan"}
       </button>
     </div>
@@ -1068,7 +1068,7 @@ function DataTab({
   onImport: () => void; onDeleteGroup: (id: number) => void; onRemoveExclusion: (id: string) => void;
   onRulesChanged: () => void;
 }) {
-  const inputClass = "h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]";
+  const inputClass = "h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
 
   return <div className="mt-6 space-y-6">
     {/* Aturan diletakkan paling atas dan selebar halaman.
@@ -1081,12 +1081,12 @@ function DataTab({
     />
 
     <div className="grid gap-6 lg:grid-cols-2">
-    <section className="space-y-px self-start border border-[var(--line)] bg-[var(--line)]">
-      <div className="bg-[var(--surface)] p-5">
+    <section className="rounded-lg overflow-hidden space-y-px self-start border border-outline-variant bg-outline-variant">
+      <div className="rounded-lg bg-panel p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Import daftar</h2>
-            <p className="mt-2 max-w-md text-xs leading-relaxed text-[var(--ink-muted)]">
+            <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Import daftar</h2>
+            <p className="mt-2 max-w-md text-body-small leading-relaxed text-on-surface-variant">
               Untuk yang tidak terdaftar sebagai peserta: kupon fisik, daftar sponsor, atau nomor kursi.
             </p>
           </div>
@@ -1100,7 +1100,7 @@ function DataTab({
           <a
             href="/api/admin/undian/entries/template"
             download
-            className="flex min-h-11 items-center gap-1.5 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]"
+            className="rounded-md flex min-h-11 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary"
           >
             <DownloadSimple size={15} /> Unduh templat
           </a>
@@ -1108,14 +1108,14 @@ function DataTab({
 
         <div className="mt-4 space-y-3">
           <div>
-            <label htmlFor="import-name" className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">Nama daftar</label>
+            <label htmlFor="import-name" className="text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Nama daftar</label>
             <input id="import-name" value={importName} onChange={(event) => onImportName(event.target.value)} className={`${inputClass} mt-1.5`} placeholder="Kupon Sesi Siang" />
           </div>
 
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">Unggah berkas</p>
+            <p className="text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Unggah berkas</p>
             <div className="mt-1.5 flex items-center gap-2">
-              <label className="flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 border border-dashed border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+              <label className="rounded-md flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 border border-dashed border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
                 <UploadSimple size={15} />
                 {importFile ? importFile.name : "Pilih berkas .xlsx, .csv, atau .txt"}
                 <input
@@ -1131,51 +1131,51 @@ function DataTab({
                   }}
                 />
               </label>
-              {importFile && <button type="button" onClick={() => onImportFile(null)} className="min-h-11 border border-[var(--line)] px-3 text-xs font-semibold text-[var(--danger)]">Hapus</button>}
+              {importFile && <button type="button" onClick={() => onImportFile(null)} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-small font-semibold text-error">Hapus</button>}
             </div>
-            {importFile && <p className="mt-1.5 text-[11px] text-[var(--ink-muted)]">
+            {importFile && <p className="mt-1.5 text-[11px] text-on-surface-variant">
               Berkas dibaca di server saat tombol ditekan. Kotak teks di bawah diabaikan.
             </p>}
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="h-px flex-1 bg-[var(--line)]" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">atau tempel</span>
-            <span className="h-px flex-1 bg-[var(--line)]" />
+            <span className="h-px flex-1 bg-outline-variant" />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-on-surface-variant">atau tempel</span>
+            <span className="h-px flex-1 bg-outline-variant" />
           </div>
 
           <div>
-            <label htmlFor="import-text" className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">Isi daftar</label>
+            <label htmlFor="import-text" className="text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Isi daftar</label>
             <textarea
               id="import-text"
               value={importText}
               onChange={(event) => onImportText(event.target.value)}
               rows={6}
               disabled={importFile !== null}
-              className="mt-1.5 w-full border border-[var(--line)] bg-[var(--background)] p-3 font-mono text-xs outline-none focus:border-[var(--brand)] disabled:opacity-45"
+              className="rounded-lg mt-1.5 w-full border border-outline-variant bg-surface p-3 font-mono text-body-small outline-none focus:border-primary disabled:opacity-45"
               placeholder={"Nama,Perusahaan,Kode,Bobot\nBudi Santoso,PT Maju,K-001,1\nSiti Rahayu,PT Jaya,K-002,3"}
             />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--ink-muted)]">
+            <p className="mt-1.5 text-[11px] leading-relaxed text-on-surface-variant">
               Tempel langsung dari Excel, atau satu nama per baris. Kolom yang dikenali: nama, perusahaan, kode, bobot.
               Hanya kolom nama yang wajib.
             </p>
           </div>
 
-          <button type="button" onClick={onImport} disabled={importing} className="flex min-h-12 items-center gap-2 border border-[var(--brand)] bg-[var(--brand)] px-5 text-sm font-semibold text-white disabled:opacity-60">
+          <button type="button" onClick={onImport} disabled={importing} className="rounded-md flex min-h-12 items-center gap-2 border border-primary bg-primary px-5 text-body-medium font-semibold text-on-primary disabled:opacity-60">
             <Plus size={18} /> {importing ? "Mengimpor..." : "Buat daftar"}
           </button>
         </div>
       </div>
 
-      {groups.length > 0 && <div className="bg-[var(--surface)] p-5">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Daftar tersimpan</h3>
+      {groups.length > 0 && <div className="rounded-lg bg-panel p-5">
+        <h3 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Daftar tersimpan</h3>
         <ul className="mt-3 space-y-2">
-          {groups.map((group) => <li key={group.id} className="flex items-center justify-between gap-3 border border-[var(--line)] p-3">
+          {groups.map((group) => <li key={group.id} className="rounded-lg flex items-center justify-between gap-3 border border-outline-variant p-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{group.name}</p>
-              <p className="text-xs tabular-nums text-[var(--ink-muted)]">{group.entry_count} baris</p>
+              <p className="truncate text-body-medium font-semibold">{group.name}</p>
+              <p className="text-body-small tabular-nums text-on-surface-variant">{group.entry_count} baris</p>
             </div>
-            <button type="button" onClick={() => onDeleteGroup(group.id)} className="flex min-h-10 shrink-0 items-center gap-1.5 border border-[var(--line)] px-3 text-xs font-semibold text-[var(--danger)] hover:border-[var(--danger)]">
+            <button type="button" onClick={() => onDeleteGroup(group.id)} className="rounded-md flex min-h-10 shrink-0 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold text-error hover:border-error">
               <Trash size={14} /> Hapus
             </button>
           </li>)}
@@ -1183,26 +1183,26 @@ function DataTab({
       </div>}
     </section>
 
-    <section className="space-y-px self-start border border-[var(--line)] bg-[var(--line)]">
-      <div className="bg-[var(--surface)] p-5">
-        <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">
+    <section className="rounded-lg overflow-hidden space-y-px self-start border border-outline-variant bg-outline-variant">
+      <div className="rounded-lg bg-panel p-5">
+        <h2 className="flex items-center gap-2 text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">
           <Prohibit size={16} /> Pengecualian per orang
         </h2>
-        <p className="mt-2 text-xs leading-relaxed text-[var(--ink-muted)]">
+        <p className="mt-2 text-body-small leading-relaxed text-on-surface-variant">
           Untuk kasus yang tidak punya pola — mis. satu orang yang kebetulan jadi MC malam ini.
           Yang punya pola sebaiknya dibuat sebagai aturan di atas, supaya peserta baru hasil sinkronisasi ikut tersaring.
-          Tambahkan lewat tombol di halaman <Link href="/admin/participants" className="font-semibold text-[var(--brand)] underline">Peserta</Link>.
+          Tambahkan lewat tombol di halaman <Link href="/admin/participants" className="font-semibold text-primary underline">Peserta</Link>.
         </p>
 
-        {exclusions.length === 0 ? <p className="mt-4 border border-dashed border-[var(--line)] p-6 text-center text-sm text-[var(--ink-muted)]">
+        {exclusions.length === 0 ? <p className="rounded-lg mt-4 border border-dashed border-outline-variant p-6 text-center text-body-medium text-on-surface-variant">
           Belum ada peserta yang dikecualikan satu per satu.
         </p> : <ul className="mt-4 space-y-2">
-          {exclusions.map((item) => <li key={item.participant_id} className="flex items-center justify-between gap-3 border border-[var(--line)] p-3">
+          {exclusions.map((item) => <li key={item.participant_id} className="rounded-lg flex items-center justify-between gap-3 border border-outline-variant p-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{item.name}</p>
-              <p className="truncate text-xs text-[var(--ink-muted)]">{item.company ?? "—"}{item.reason ? ` · ${item.reason}` : ""}</p>
+              <p className="truncate text-body-medium font-semibold">{item.name}</p>
+              <p className="truncate text-body-small text-on-surface-variant">{item.company ?? "—"}{item.reason ? ` · ${item.reason}` : ""}</p>
             </div>
-            <button type="button" onClick={() => onRemoveExclusion(item.participant_id)} className="min-h-10 shrink-0 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+            <button type="button" onClick={() => onRemoveExclusion(item.participant_id)} className="rounded-md min-h-10 shrink-0 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
               Ikutkan lagi
             </button>
           </li>)}

@@ -186,81 +186,81 @@ export function ExclusionRuleManager({
     onChanged();
   }
 
-  const inputClass = "h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]";
-  const labelClass = "text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]";
+  const inputClass = "h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
+  const labelClass = "text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant";
 
-  return <div className="space-y-px border border-[var(--line)] bg-[var(--line)]">
-    <div className="bg-[var(--surface)] p-5">
+  return <div className="space-y-2">
+    <div className="rounded-lg bg-panel p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">
+          <h2 className="flex items-center gap-2 text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">
             <Funnel size={16} /> Aturan pengecualian
           </h2>
-          <p className="mt-2 max-w-lg text-xs leading-relaxed text-[var(--ink-muted)]">
-            Peserta yang <span className="font-semibold text-[var(--ink)]">memenuhi</span> aturan justru dikeluarkan dari undian.
+          <p className="mt-2 max-w-lg text-body-small leading-relaxed text-on-surface-variant">
+            Peserta yang <span className="font-semibold text-on-surface">memenuhi</span> aturan justru dikeluarkan dari undian.
             Aturan dievaluasi ulang setiap kali mengundi, jadi peserta baru hasil sinkronisasi ikut tersaring otomatis.
           </p>
         </div>
-        {editingId === null && <button type="button" onClick={() => openEditor(null)} className="flex min-h-11 items-center gap-1.5 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+        {editingId === null && <button type="button" onClick={() => openEditor(null)} className="rounded-md flex min-h-11 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
           <Plus size={15} /> Buat aturan
         </button>}
       </div>
 
-      {error && <p className="mt-4 flex items-start gap-2 border border-[var(--danger)] bg-[#FDECEC] p-3 text-xs text-[var(--danger)]">
+      {error && <p className="rounded-lg mt-4 flex items-start gap-2 border border-error bg-error-soft p-3 text-body-small text-error">
         <Warning size={15} className="mt-0.5 shrink-0" /> {error}
       </p>}
 
       {rules.length === 0 && editingId === null ? <div className="mt-4">
-        <p className="border border-dashed border-[var(--line)] p-6 text-center text-sm text-[var(--ink-muted)]">
+        <p className="rounded-lg border border-dashed border-outline-variant p-6 text-center text-body-medium text-on-surface-variant">
           Belum ada aturan. Semua peserta aktif ikut diundi.
         </p>
-        <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">Mulai cepat</p>
+        <p className="mt-4 mb-2 text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Mulai cepat</p>
         <div className="grid gap-2 sm:grid-cols-2">
           {TEMPLATES.map((template) => <button
             key={template.label}
             type="button"
             onClick={() => { setEditingId("new"); setDraft(template.draft()); setPreview(null); setError(""); }}
-            className="border border-[var(--line)] p-3 text-left hover:border-[var(--brand)]"
+            className="rounded-lg border border-outline-variant p-3 text-left hover:border-primary"
           >
-            <span className="block text-sm font-semibold">{template.label}</span>
-            <span className="mt-1 block text-[11px] leading-snug text-[var(--ink-muted)]">{template.hint}</span>
+            <span className="block text-body-medium font-semibold">{template.label}</span>
+            <span className="mt-1 block text-[11px] leading-snug text-on-surface-variant">{template.hint}</span>
           </button>)}
         </div>
       </div> : rules.length > 0 && <ul className="mt-4 space-y-2">
         {rules.map((rule) => {
           const hit = counts[rule.id] ?? 0;
-          return <li key={rule.id} className={`border p-3 ${rule.is_active ? "border-[var(--line)]" : "border-[var(--line)] opacity-55"} ${editingId === rule.id ? "ring-2 ring-inset ring-[var(--brand)]" : ""}`}>
+          return <li key={rule.id} className={`rounded-lg border p-3 ${rule.is_active ? "border-outline-variant" : "border-outline-variant opacity-55"} ${editingId === rule.id ? "ring-2 ring-inset ring-primary" : ""}`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold">{rule.name}</span>
-                  {!rule.is_active && <span className="border border-[var(--line)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--ink-muted)]">Nonaktif</span>}
-                  {rule.prize_id !== null && <span className="border border-[var(--brand)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--brand)]">
+                  {!rule.is_active && <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant">Nonaktif</span>}
+                  {rule.prize_id !== null && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">
                     {prizes.find((prize) => prize.id === rule.prize_id)?.name ?? "hadiah tertentu"}
                   </span>}
                 </div>
-                <p className="mt-1 text-xs text-[var(--ink-muted)]">Kecualikan bila: {describeConditions(rule.conditions)}</p>
-                {rule.note && <p className="mt-1 text-xs italic text-[var(--ink-muted)]">{rule.note}</p>}
+                <p className="mt-1 text-body-small text-on-surface-variant">Kecualikan bila: {describeConditions(rule.conditions)}</p>
+                {rule.note && <p className="mt-1 text-body-small italic text-on-surface-variant">{rule.note}</p>}
                 {/* Angka nol ditandai, bukan disembunyikan. Aturan yang tidak
                     mengenai siapa pun hampir selalu salah tulis, dan itu satu-satunya
                     petunjuk yang tersedia sebelum acara. */}
-                <p className={`mt-1.5 text-xs font-semibold tabular-nums ${hit === 0 ? "text-[var(--warning)]" : "text-[var(--brand)]"}`}>
+                <p className={`mt-1.5 text-body-small font-semibold tabular-nums ${hit === 0 ? "text-warning" : "text-primary"}`}>
                   {hit === 0
                     ? "Tidak mengenai satu peserta pun — periksa lagi ejaan nilainya."
                     : `${hit} dari ${totalParticipants} peserta dikecualikan`}
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap gap-2">
-                <button type="button" onClick={() => openEditor(rule)} className="min-h-10 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">Ubah</button>
-                <button type="button" onClick={() => void toggleActive(rule)} className="min-h-10 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+                <button type="button" onClick={() => openEditor(rule)} className="rounded-md min-h-10 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">Ubah</button>
+                <button type="button" onClick={() => void toggleActive(rule)} className="rounded-md min-h-10 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
                   {rule.is_active ? "Matikan" : "Aktifkan"}
                 </button>
                 {confirmDelete === rule.id
                   ? <>
-                    <button type="button" onClick={() => void remove(rule.id)} className="min-h-10 border border-[var(--danger)] bg-[var(--danger)] px-3 text-xs font-semibold text-white">Ya, hapus</button>
-                    <button type="button" onClick={() => setConfirmDelete(null)} className="min-h-10 border border-[var(--line)] px-3 text-xs font-semibold">Batal</button>
+                    <button type="button" onClick={() => void remove(rule.id)} className="rounded-md min-h-10 border border-error bg-error px-3 text-body-small font-semibold text-on-error">Ya, hapus</button>
+                    <button type="button" onClick={() => setConfirmDelete(null)} className="rounded-md min-h-10 border border-outline-variant px-3 text-body-small font-semibold">Batal</button>
                   </>
-                  : <button type="button" onClick={() => setConfirmDelete(rule.id)} className="flex min-h-10 items-center gap-1.5 border border-[var(--line)] px-3 text-xs font-semibold text-[var(--danger)] hover:border-[var(--danger)]"><Trash size={14} /></button>}
+                  : <button type="button" onClick={() => setConfirmDelete(rule.id)} className="rounded-md flex min-h-10 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold text-error hover:border-error"><Trash size={14} /></button>}
               </div>
             </div>
           </li>;
@@ -268,8 +268,8 @@ export function ExclusionRuleManager({
       </ul>}
     </div>
 
-    {editingId !== null && <div className="bg-[var(--surface)] p-5">
-      <h3 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">
+    {editingId !== null && <div className="rounded-lg bg-panel p-5">
+      <h3 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">
         {editingId === "new" ? "Aturan baru" : "Ubah aturan"}
       </h3>
 
@@ -309,8 +309,8 @@ export function ExclusionRuleManager({
       {/* Pratinjau. Daftar nama, bukan sekadar jumlah: angka nol masih bisa
           diabaikan sebagai kebetulan, daftar kosong di sebelah kolom yang baru
           diketik jauh lebih sulit dilewatkan. */}
-      {visiblePreview && !visiblePreview.incomplete && <div className={`mt-4 border p-3 ${visiblePreview.matched === 0 ? "border-[#E6D3AE] bg-[#FDF6E7]" : "border-[var(--brand)]/40 bg-[#E8ECFB]"}`}>
-        {visiblePreview.matched === 0 ? <p className="flex items-start gap-2 text-sm font-semibold text-[var(--warning)]">
+      {visiblePreview && !visiblePreview.incomplete && <div className={`rounded-lg mt-4 border p-3 ${visiblePreview.matched === 0 ? "border-warning-soft-outline bg-warning-soft" : "border-primary/40 bg-primary-soft"}`}>
+        {visiblePreview.matched === 0 ? <p className="flex items-start gap-2 text-body-medium font-semibold text-warning">
           <Warning size={16} className="mt-0.5 shrink-0" />
           {visiblePreview.has_invalid
             // Dua sebab berbeda untuk angka nol yang sama, dan tindakannya berbeda
@@ -319,27 +319,27 @@ export function ExclusionRuleManager({
             ? "Ada syarat yang belum lengkap. Lengkapi nilainya — selama masih kosong, aturan ini tidak akan pernah berlaku."
             : "Tidak ada peserta yang cocok. Periksa ejaan nilainya, atau coba pembanding “mengandung”."}
         </p> : <>
-          <p className="flex items-center gap-2 text-sm font-semibold text-[var(--brand-strong)]">
+          <p className="flex items-center gap-2 text-body-medium font-semibold text-primary-dim">
             <Prohibit size={16} /> {visiblePreview.matched} dari {visiblePreview.total_participants} peserta akan dikecualikan
           </p>
-          <ul className="mt-2 grid gap-0.5 text-xs text-[var(--brand-strong)]/85 sm:grid-cols-2">
+          <ul className="mt-2 grid gap-0.5 text-body-small text-primary-dim/85 sm:grid-cols-2">
             {visiblePreview.sample.map((row) => <li key={row.participant_id} className="truncate">
               {row.name}{row.company ? ` — ${row.company}` : ""}
             </li>)}
           </ul>
-          {visiblePreview.matched > visiblePreview.sample.length && <p className="mt-1.5 text-xs text-[var(--brand-strong)]/70">
+          {visiblePreview.matched > visiblePreview.sample.length && <p className="mt-1.5 text-body-small text-primary-dim/70">
             dan {visiblePreview.matched - visiblePreview.sample.length} lainnya
           </p>}
         </>}
       </div>}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" onClick={() => void save()} disabled={saving} className="flex min-h-12 items-center gap-2 border border-[var(--brand)] bg-[var(--brand)] px-5 text-sm font-semibold text-white disabled:opacity-60">
+        <button type="button" onClick={() => void save()} disabled={saving} className="rounded-md flex min-h-12 items-center gap-2 border border-primary bg-primary px-5 text-body-medium font-semibold text-on-primary disabled:opacity-60">
           <FloppyDisk size={18} /> {saving ? "Menyimpan..." : "Simpan aturan"}
         </button>
-        <button type="button" onClick={() => setEditingId(null)} className="min-h-12 border border-[var(--line)] px-5 text-sm font-semibold">Batal</button>
-        <label className="flex min-h-12 cursor-pointer items-center gap-2 border border-[var(--line)] px-4 text-sm">
-          <input type="checkbox" checked={draft.is_active} onChange={(event) => setDraft({ ...draft, is_active: event.target.checked })} className="h-4 w-4 accent-[var(--brand)]" />
+        <button type="button" onClick={() => setEditingId(null)} className="rounded-md min-h-12 border border-outline-variant px-5 text-body-medium font-semibold">Batal</button>
+        <label className="rounded-md flex min-h-12 cursor-pointer items-center gap-2 border border-outline-variant px-4 text-body-medium">
+          <input type="checkbox" checked={draft.is_active} onChange={(event) => setDraft({ ...draft, is_active: event.target.checked })} className="h-4 w-4 accent-primary" />
           <CheckCircle size={16} /> Aktif
         </label>
       </div>

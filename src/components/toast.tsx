@@ -18,6 +18,7 @@
 import { CheckCircle, Info, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { standard } from "@/lib/m3/motion";
 
 type ToastVariant = "success" | "error" | "warning" | "info";
 
@@ -45,11 +46,14 @@ const DURATION: Record<ToastVariant, number> = {
   error: 7000,
 };
 
+// Pita warna DAN ikon, bukan salah satu. Toast muncul di tepi layar tempat mata
+// belum tentu tertuju; pita memberi tahu jenisnya sebelum teksnya terbaca, dan
+// ikon menanggung arti yang sama untuk siapa pun yang tidak membedakan warnanya.
 const STYLE: Record<ToastVariant, { icon: typeof CheckCircle; bar: string; iconColor: string }> = {
-  success: { icon: CheckCircle, bar: "bg-[var(--success)]", iconColor: "text-[var(--success)]" },
-  error: { icon: XCircle, bar: "bg-[var(--danger)]", iconColor: "text-[var(--danger)]" },
-  warning: { icon: WarningCircle, bar: "bg-[var(--warning)]", iconColor: "text-[var(--warning)]" },
-  info: { icon: Info, bar: "bg-[var(--brand)]", iconColor: "text-[var(--brand)]" },
+  success: { icon: CheckCircle, bar: "bg-success", iconColor: "text-success" },
+  error: { icon: XCircle, bar: "bg-error", iconColor: "text-error" },
+  warning: { icon: WarningCircle, bar: "bg-warning", iconColor: "text-warning" },
+  info: { icon: Info, bar: "bg-primary", iconColor: "text-primary" },
 };
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -107,21 +111,24 @@ export function ToastProvider({ children }: Readonly<{ children: React.ReactNode
             initial={{ opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 400, damping: 32 }}
+            // Pegas M3 skema tenang, bukan angka pegas yang ditebak. Toast muncul
+            // saat operator sedang mengerjakan hal lain; pantulan menarik mata
+            // ke tepi layar tepat ketika ia tidak boleh berpaling.
+            transition={standard.spatial.default}
             role={toast.variant === "error" ? "alert" : "status"}
-            className="pointer-events-auto flex w-full max-w-md overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)] shadow-lg"
+            className="pointer-events-auto flex w-full max-w-md overflow-hidden rounded-2xl bg-surface-container-high text-on-surface shadow-level3"
           >
             <span className={`w-1.5 shrink-0 ${bar}`} aria-hidden="true" />
             <div className="flex flex-1 items-start gap-3 p-4">
               <Icon size={22} weight="fill" className={`mt-0.5 shrink-0 ${iconColor}`} aria-hidden="true" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold leading-snug">{toast.title}</p>
-                {toast.description && <p className="mt-1 text-xs leading-relaxed text-[var(--ink-muted)]">{toast.description}</p>}
+                <p className="text-body-large font-semibold leading-snug">{toast.title}</p>
+                {toast.description && <p className="mt-1 text-body-small leading-relaxed text-on-surface-variant">{toast.description}</p>}
               </div>
               <button
                 type="button"
                 onClick={() => dismiss(toast.id)}
-                className="-m-1 flex size-8 shrink-0 items-center justify-center rounded-lg text-[var(--ink-muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"
+                className="m3-state -m-1 flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
                 aria-label="Tutup notifikasi"
               >
                 <X size={16} weight="bold" />

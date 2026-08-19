@@ -37,10 +37,10 @@ export default async function DaftarPage({
 }
 
 function Pesan({ judul, isi }: { judul: string; isi: string }) {
-  return <main className="grid min-h-dvh place-items-center bg-[var(--background)] px-5 text-[var(--ink)]">
-    <div className="w-full max-w-md border border-[var(--line)] bg-[var(--surface)] p-8 text-center">
-      <h1 className="text-2xl font-semibold tracking-[-0.03em]">{judul}</h1>
-      <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">{isi}</p>
+  return <main className="grid min-h-dvh place-items-center bg-surface px-5 text-on-surface">
+    <div className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-8 text-center">
+      <h1 className="text-headline-small font-semibold tracking-[-0.03em]">{judul}</h1>
+      <p className="mt-3 text-body-medium leading-6 text-on-surface-variant">{isi}</p>
     </div>
   </main>;
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { expressive } from "@/lib/m3/motion";
 import { mixHex, readableOn } from "@/lib/color";
 
 // Lapisan animasi layar undian.
@@ -502,7 +503,7 @@ export function CardsAnimation({ roster, winners, endsAt, accent, text, fontFami
         className="flex min-w-0 items-center justify-center overflow-hidden border-2 px-[1.5vh] text-center"
         style={{ borderColor: accent, background: open ? accent : `${accent}14` }}
         animate={open ? { rotateY: [90, 0], scale: [0.9, 1] } : {}}
-        transition={{ duration: 0.45 }}
+        transition={expressive.spatial.default}
       >
         {open && winner ? <div className="min-w-0">
           <p className="truncate font-bold uppercase" style={{ fontFamily, fontSize: nameSize, color: "#0B1020" }}>{winner.name}</p>
@@ -826,7 +827,7 @@ export function DartAnimation({ roster, winners, accent, text, fontFamily, pendi
             // Sentakan saat panah mendarat: kertas terdorong lalu diam.
             initial={{ scale: 0.9, opacity: 0, rotate: index % 2 === 0 ? -2.5 : 2.5 }}
             animate={{ scale: [0.9, 1.05, 1], opacity: 1, rotate: [index % 2 === 0 ? -2.5 : 2.5, 0.8, 0] }}
-            transition={{ delay: index * 0.07 + 0.28, duration: 0.4, ease: "easeOut" }}
+            transition={{ ...expressive.effects.default, delay: index * 0.07 + 0.28 }}
           >
             {/* Isi digeser ke kanan sejauh mata panah masuk, supaya batangnya
                 tidak pernah melintang di atas huruf. */}
@@ -850,7 +851,10 @@ export function DartAnimation({ roster, winners, accent, text, fontFamily, pendi
               animate={{ x: 0, opacity: 1, rotate: 0 }}
               // Semua panah berangkat hampir bersamaan; 70ms hanya memberi kesan
               // lontaran beruntun, bukan antrean.
-              transition={{ delay: index * 0.07, type: "spring", stiffness: 210, damping: 17, mass: 0.7 }}
+              // Pegas M3 skema ekspresif, bukan angka yang ditebak. Nama pemenang
+              // memang boleh melewati sasaran sedikit lalu kembali — di layar
+              // panggung, itulah yang membuat pengumuman terasa hidup.
+              transition={{ ...expressive.spatial.default, delay: index * 0.07 }}
             />
           </motion.div>)}
     </div>
@@ -901,7 +905,7 @@ export function WinnerList({
           // Jeda antar nama dijaga agar totalnya tidak melebihi ~2 detik. Dengan
           // 0.35s tetap, sepuluh nama butuh 3,5 detik dan yang terakhir muncul
           // setelah MC selesai menyebutkan semuanya.
-          transition={{ delay: Math.min(index * 0.35, index * (2 / Math.max(1, main.length))), type: "spring", stiffness: 220, damping: 20 }}
+          transition={{ ...expressive.spatial.default, delay: Math.min(index * 0.35, index * (2 / Math.max(1, main.length))) }}
           className="min-w-0 text-center"
         >
           <p className="truncate font-bold uppercase tracking-[-0.03em]" style={{ fontFamily, fontSize: size, color: accent, lineHeight: 1.1 }}>

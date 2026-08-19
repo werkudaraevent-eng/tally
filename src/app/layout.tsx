@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Montserrat, Oswald, Playfair_Display, Space_Grotesk 
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
 import { OfflineBanner } from "./offline-banner";
+import { THEME_INIT_SCRIPT } from "@/lib/m3/theme";
 
 // Sebelumnya body memakai Arial. Geist di-self-host oleh next/font sehingga
 // tidak ada request eksternal dan tidak ada layout shift saat font dimuat.
@@ -51,11 +52,19 @@ export const metadata: Metadata = {
 
 // dvh dipakai di seluruh layar operasional; tanpa viewport-fit toolbar browser
 // mobile memotong area aman di iPhone.
+//
+// themeColor mengikuti skema, bukan satu warna brand. Bilah alamat Chrome
+// mobile memakai nilai ini; satu warna tetap berarti bilah biru terang menempel
+// di atas halaman gelap. Nilainya adalah peran `surface` dari m3-theme.css —
+// perbarui bila warna sumber diganti.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#2649d0",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f9f5ff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a082f" },
+  ],
 };
 
 export default function RootLayout({
@@ -64,7 +73,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" className={fontVariables}>
+    // suppressHydrationWarning: skrip di bawah menulis data-theme ke <html>
+    // sebelum React sempat menghidrasi, jadi atribut di DOM memang berbeda dari
+    // markup server. Itu disengaja, dan hanya atribut ini yang terpengaruh.
+    <html lang="id" className={fontVariables} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body><ToastProvider>{children}<OfflineBanner /></ToastProvider></body>
     </html>
   );

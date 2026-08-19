@@ -85,55 +85,55 @@ export default function EventAccessPage() {
   // super_admin sengaja tidak muncul: sudah punya akses semua event tanpa baris.
   const grantable = users.filter((user) => user.role !== "super_admin" && user.is_active);
 
-  return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
+  return <main className="min-h-dvh bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1100px]">
-      <Link href="/events" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--ink-muted)]"><ArrowLeft size={16} /> Daftar event</Link>
-      <header className="mt-4 border-b border-[var(--line)] pb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand)]">Hak akses event</p>
+      <Link href="/events" className="inline-flex items-center gap-2 text-body-medium font-semibold text-on-surface-variant"><ArrowLeft size={16} /> Daftar event</Link>
+      <header className="mt-4 border-b border-outline-variant pb-6">
+        <p className="text-body-small font-semibold uppercase tracking-[0.18em] text-primary">Hak akses event</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">{event?.name ?? "Memuat…"}</h1>
-        <p className="mt-2 text-sm text-[var(--ink-muted)]">Tanpa baris di sini, hanya super admin yang bisa membuka event ini. Peran disimpan per event — seseorang bisa jadi kasir di sini dan admin booth di event lain.</p>
+        <p className="mt-2 text-body-medium text-on-surface-variant">Tanpa baris di sini, hanya super admin yang bisa membuka event ini. Peran disimpan per event — seseorang bisa jadi kasir di sini dan admin booth di event lain.</p>
       </header>
 
-      {error && <p role="alert" className="mt-5 border border-[var(--danger)]/30 bg-[var(--danger)]/5 p-4 text-sm font-medium text-[var(--danger)]">{error}</p>}
-      {notice && <p role="status" className="mt-5 border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-sm font-medium">{notice}</p>}
+      {error && <p role="alert" className="rounded-lg mt-5 border border-error/30 bg-error/5 p-4 text-body-medium font-medium text-error">{error}</p>}
+      {notice && <p role="status" className="rounded-lg mt-5 border border-outline-variant bg-panel-high p-4 text-body-medium font-medium">{notice}</p>}
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
         <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wider">Punya akses ({access.length})</h2>
-          {loading ? <p className="py-10 text-sm text-[var(--ink-muted)]">Memuat…</p>
-            : access.length === 0 ? <p className="mt-4 border border-[var(--line)] bg-[var(--surface-muted)] p-6 text-sm text-[var(--ink-muted)]">Belum ada. Operator booth dan kasir tidak akan bisa login ke event ini sampai didaftarkan.</p>
-            : <ul className="mt-4 grid gap-px border border-[var(--line)] bg-[var(--line)]">
-              {access.map((row) => <li key={row.user_id} className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface)] p-4">
+          <h2 className="text-body-medium font-semibold uppercase tracking-wider">Punya akses ({access.length})</h2>
+          {loading ? <p className="py-10 text-body-medium text-on-surface-variant">Memuat…</p>
+            : access.length === 0 ? <p className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-6 text-body-medium text-on-surface-variant">Belum ada. Operator booth dan kasir tidak akan bisa login ke event ini sampai didaftarkan.</p>
+            : <ul className="mt-4 grid gap-3">
+              {access.map((row) => <li key={row.user_id} className="rounded-lg flex flex-wrap items-center justify-between gap-3 bg-panel p-4">
                 <div>
                   <p className="font-semibold">{named(row.user_id)}</p>
-                  <p className="mt-1 text-sm text-[var(--ink-muted)]">{roleLabel[row.role]}{row.role === "booth" && ` · ${boothLabel(row.booth_id)}`}</p>
+                  <p className="mt-1 text-body-medium text-on-surface-variant">{roleLabel[row.role]}{row.role === "booth" && ` · ${boothLabel(row.booth_id)}`}</p>
                 </div>
-                <button type="button" disabled={pending} onClick={() => void revoke(row, named(row.user_id))} className="flex min-h-11 items-center gap-2 border border-[var(--danger)]/40 px-3 text-sm font-semibold text-[var(--danger)] disabled:opacity-50"><Trash size={16} /> Cabut</button>
+                <button type="button" disabled={pending} onClick={() => void revoke(row, named(row.user_id))} className="rounded-md flex min-h-11 items-center gap-2 border border-error/40 px-3 text-body-medium font-semibold text-error disabled:opacity-50"><Trash size={16} /> Cabut</button>
               </li>)}
             </ul>}
         </section>
 
-        <form onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); void grant(new FormData(e.currentTarget)); }} className="h-fit border border-[var(--line)] bg-[var(--surface)] p-6">
-          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider"><ShieldCheck size={18} className="text-[var(--brand)]" /> Beri akses</h2>
-          <label className="mt-5 block text-sm font-semibold">User<select required name="user_id" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3">
+        <form onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); void grant(new FormData(e.currentTarget)); }} className="rounded-lg h-fit border border-outline-variant bg-panel p-6">
+          <h2 className="flex items-center gap-2 text-body-medium font-semibold uppercase tracking-wider"><ShieldCheck size={18} className="text-primary" /> Beri akses</h2>
+          <label className="mt-5 block text-body-medium font-semibold">User<select required name="user_id" className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3">
             <option value="">Pilih user…</option>
             {grantable.map((user) => <option key={user.id} value={user.id}>{user.username}</option>)}
           </select></label>
-          <label className="mt-4 block text-sm font-semibold">Peran di event ini<select name="role" value={role} onChange={(e) => setRole(e.target.value as Role)} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3">
+          <label className="mt-4 block text-body-medium font-semibold">Peran di event ini<select name="role" value={role} onChange={(e) => setRole(e.target.value as Role)} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3">
             <option value="booth">Admin Booth</option>
             <option value="cashier">Kasir</option>
             <option value="admin">Panitia / Admin</option>
           </select></label>
-          {role === "booth" && <label className="mt-4 block text-sm font-semibold">Booth
-            <select required name="booth_id" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3">
+          {role === "booth" && <label className="mt-4 block text-body-medium font-semibold">Booth
+            <select required name="booth_id" className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3">
               <option value="">Pilih booth…</option>
               {booths.map((booth) => <option key={booth.id} value={booth.id}>{booth.code} · {booth.name}</option>)}
             </select>
-            {booths.length === 0 && <span className="mt-2 block text-sm font-normal text-[var(--danger)]">Event ini belum punya booth. Tambahkan booth dulu di workspace event.</span>}
+            {booths.length === 0 && <span className="mt-2 block text-body-medium font-normal text-error">Event ini belum punya booth. Tambahkan booth dulu di workspace event.</span>}
           </label>}
-          <p className="mt-4 border border-[var(--line)] bg-[var(--surface-muted)] p-3 text-sm text-[var(--ink-muted)]">Memberi akses ke user yang sudah terdaftar akan menimpa peran lamanya di event ini.</p>
-          <button disabled={pending} className="mt-5 min-h-12 w-full bg-[var(--brand)] px-4 font-semibold text-white disabled:opacity-50">{pending ? "Menyimpan…" : "Simpan akses"}</button>
-          <p className="mt-4 text-sm text-[var(--ink-muted)]">Super admin tidak muncul di daftar — mereka sudah punya akses ke semua event tanpa perlu didaftarkan.</p>
+          <p className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-3 text-body-medium text-on-surface-variant">Memberi akses ke user yang sudah terdaftar akan menimpa peran lamanya di event ini.</p>
+          <button disabled={pending} className="rounded-md mt-5 min-h-12 w-full bg-primary px-4 font-semibold text-on-primary disabled:opacity-50">{pending ? "Menyimpan…" : "Simpan akses"}</button>
+          <p className="mt-4 text-body-medium text-on-surface-variant">Super admin tidak muncul di daftar — mereka sudah punya akses ke semua event tanpa perlu didaftarkan.</p>
         </form>
       </div>
     </div>

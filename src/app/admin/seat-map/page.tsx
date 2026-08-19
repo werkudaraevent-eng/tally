@@ -301,41 +301,41 @@ export default function SeatMapAdminPage() {
     return states;
   }, [config]);
 
-  return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1440px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--brand)]"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
+      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
 
       <header className="mt-3 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Denah tempat duduk</h1>
-          <p className="mt-1 max-w-2xl text-sm text-[var(--ink-muted)]">
+          <h1 className="text-headline-small font-bold">Denah tempat duduk</h1>
+          <p className="mt-1 max-w-2xl text-body-medium text-on-surface-variant">
             Tata letak ruangan diatur di sini. Penempatan peserta datang dari scanner API dan tidak diubah dari halaman ini.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/denah" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold">
+          <Link href="/denah" target="_blank" rel="noreferrer" className="rounded-md inline-flex min-h-11 items-center gap-2 border border-outline-variant px-4 text-body-medium font-semibold">
             <ArrowSquareOut size={18} /> Halaman publik
           </Link>
           {/* Tautan langsung ke mode LED. Panitia yang memasang layar cukup
               menyalin alamat ini, tanpa perlu mengubah setelan bawaan. */}
-          <Link href="/denah?mode=qr" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold">
+          <Link href="/denah?mode=qr" target="_blank" rel="noreferrer" className="rounded-md inline-flex min-h-11 items-center gap-2 border border-outline-variant px-4 text-body-medium font-semibold">
             <Monitor size={18} /> Pratinjau LED
           </Link>
         </div>
       </header>
 
-      {error ? <p className="mt-4 border border-[var(--danger)] bg-[#fdf1f0] p-3 text-sm text-[var(--danger)]">{error}</p> : null}
+      {error ? <p className="rounded-lg mt-4 border border-error bg-error-soft p-3 text-body-medium text-error">{error}</p> : null}
 
-      {!config ? <p className="mt-8 text-sm text-[var(--ink-muted)]">Memuat…</p> : <>
+      {!config ? <p className="mt-8 text-body-medium text-on-surface-variant">Memuat…</p> : <>
         <section className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
-          <div className="border border-[var(--line)] bg-[var(--surface)] p-5">
-            <h2 className="text-base font-bold">Pratinjau</h2>
-            <p className="mt-1 text-sm text-[var(--ink-muted)]">
+          <div className="rounded-lg border border-outline-variant bg-panel p-5">
+            <h2 className="text-body-large font-bold">Pratinjau</h2>
+            <p className="mt-1 text-body-medium text-on-surface-variant">
               Persis seperti yang dilihat tamu. {payload?.geometry.total_tables ?? 0} meja, {payload?.geometry.total_seats ?? 0} kursi.
             </p>
             {sessions.length > 1 ? <div className="mt-3 flex flex-wrap gap-2">
               {sessions.map((item) => <button key={item.id} type="button" onClick={() => setPreviewSlug(item.slug)} aria-pressed={item.slug === previewSession?.slug}
-                className={`min-h-11 border px-3 text-sm font-semibold ${item.slug === previewSession?.slug ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)]"}`}>{item.name}</button>)}
+                className={`rounded-md min-h-11 border px-3 text-body-medium font-semibold ${item.slug === previewSession?.slug ? "border-primary bg-primary-soft" : "border-outline-variant"}`}>{item.name}</button>)}
             </div> : null}
             {/* Gambar latar dipasang di pembungkus, bukan diteruskan ke SeatMapView.
                 Komponen itu dipakai bersama halaman publik dan hanya mengenal warna;
@@ -347,7 +347,7 @@ export default function SeatMapAdminPage() {
                 dipakai sebagai warna teks nomor meja dan label panggung, jadi
                 "transparent" membuat nomor mejanya ikut hilang. */}
             <div
-              className="mt-4 overflow-x-auto bg-cover bg-center bg-no-repeat"
+              className="mt-4 overflow-x-auto rounded-lg bg-cover bg-center bg-no-repeat"
               style={{
                 backgroundColor: previewSession?.background_color ?? "#111a63",
                 backgroundImage: previewSession?.background_image_url
@@ -369,7 +369,7 @@ export default function SeatMapAdminPage() {
             </div>
           </div>
 
-          <div className="border border-[var(--line)] bg-[var(--surface)] p-5">
+          <div className="rounded-lg border border-outline-variant bg-panel p-5">
             {/* Pemilih agenda yang tampil di layar publik. Ini yang memindahkan
                 seluruh LED dari sesi pagi ke sesi malam tanpa menyentuh
                 perangkatnya, yang saat acara berjalan bisa sulit dijangkau.
@@ -377,83 +377,83 @@ export default function SeatMapAdminPage() {
                 Hanya agenda terpublikasi yang bisa dipilih: agenda draf yang
                 disetel sebagai bawaan akan membuat layar diam-diam jatuh ke
                 agenda lain, sehingga admin merasa pilihannya tidak tersimpan. */}
-            <h2 className="text-base font-bold">Agenda yang tampil</h2>
-            <p className="mt-1 text-sm text-[var(--ink-muted)]">Menentukan agenda mana yang muncul di layar publik dan LED.</p>
+            <h2 className="text-body-large font-bold">Agenda yang tampil</h2>
+            <p className="mt-1 text-body-medium text-on-surface-variant">Menentukan agenda mana yang muncul di layar publik dan LED.</p>
 
-            <label className="mt-3 block text-sm font-semibold" htmlFor="default-session">Agenda aktif</label>
+            <label className="mt-3 block text-body-medium font-semibold" htmlFor="default-session">Agenda aktif</label>
             <select id="default-session" value={config.default_session_id ?? ""}
               onChange={(event) => updateConfig("default_session_id", event.target.value ? Number(event.target.value) : null)}
-              className="mt-1 min-h-11 w-full border border-[var(--line)] bg-[var(--surface)] px-3 text-sm">
+              className="rounded-lg mt-1 min-h-11 w-full border border-outline-variant bg-panel px-3 text-body-medium">
               <option value="">Agenda publik pertama (otomatis)</option>
               {sessions.filter((item) => item.is_published).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
 
             {sessions.filter((item) => item.is_published).length === 0
-              ? <p className="mt-1 text-xs text-[var(--warning)]">Belum ada agenda yang dipublikasikan. Publikasikan salah satu agenda di bawah lebih dulu.</p>
+              ? <p className="mt-1 text-body-small text-warning">Belum ada agenda yang dipublikasikan. Publikasikan salah satu agenda di bawah lebih dulu.</p>
               : null}
 
             {config.default_session_id
-              ? <p className="mt-2 text-xs text-[var(--ink-muted)]">
+              ? <p className="mt-2 text-body-small text-on-surface-variant">
                   Semua layar yang membuka <code>/denah</code> tanpa menyebut agenda akan menampilkan agenda ini.
                 </p>
-              : <p className="mt-2 text-xs text-[var(--ink-muted)]">
+              : <p className="mt-2 text-body-small text-on-surface-variant">
                   Saat otomatis, layar mengikuti agenda publik yang urutannya paling awal.
                 </p>}
 
-            <p className="mt-2 text-xs text-[var(--ink-muted)]">
+            <p className="mt-2 text-body-small text-on-surface-variant">
               Untuk menjalankan dua layar dengan agenda berbeda sekaligus, sebut agendanya di alamat masing-masing, misalnya <code>/denah?sesi={sessions[0]?.slug ?? "slug-agenda"}</code>. Alamat selalu menang atas setelan ini.
             </p>
 
-            <h2 className="mt-6 border-t border-[var(--line)] pt-5 text-base font-bold">Mode tampilan publik</h2>
-            <p className="mt-1 text-sm text-[var(--ink-muted)]">Pilih sesuai jenis layar yang dipakai.</p>
+            <h2 className="mt-6 border-t border-outline-variant pt-5 text-body-large font-bold">Mode tampilan publik</h2>
+            <p className="mt-1 text-body-medium text-on-surface-variant">Pilih sesuai jenis layar yang dipakai.</p>
             <fieldset className="mt-3 space-y-2">
               <legend className="sr-only">Mode tampilan halaman publik</legend>
               {VIEW_MODES.map((mode) => <label key={mode.value}
-                className={`flex cursor-pointer gap-3 border p-3 text-sm ${config.public_view_mode === mode.value ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)]"}`}>
+                className={`rounded-lg flex cursor-pointer gap-3 border p-3 text-body-medium ${config.public_view_mode === mode.value ? "border-primary bg-primary-soft" : "border-outline-variant"}`}>
                 <input type="radio" name="public-view-mode" value={mode.value} checked={config.public_view_mode === mode.value}
-                  onChange={() => updateConfig("public_view_mode", mode.value)} className="mt-0.5 size-4 shrink-0 accent-[var(--brand)]" />
+                  onChange={() => updateConfig("public_view_mode", mode.value)} className="mt-0.5 size-4 shrink-0 accent-primary" />
                 <span>
                   <span className="font-semibold">{mode.label}</span>
-                  <span className="mt-0.5 block text-xs text-[var(--ink-muted)]">{mode.detail}</span>
+                  <span className="mt-0.5 block text-body-small text-on-surface-variant">{mode.detail}</span>
                 </span>
               </label>)}
             </fieldset>
-            <p className="mt-2 text-xs text-[var(--ink-muted)]">
+            <p className="mt-2 text-body-small text-on-surface-variant">
               Ini setelan bawaan semua layar. Satu layar bisa dipaksa ke mode tertentu lewat <code>/denah?mode=qr</code> atau <code>?mode=search</code>, berguna bila LED dan layar sentuh dipakai bersamaan.
             </p>
 
-            <h2 className="mt-6 border-t border-[var(--line)] pt-5 text-base font-bold">Tata letak</h2>
+            <h2 className="mt-6 border-t border-outline-variant pt-5 text-body-large font-bold">Tata letak</h2>
 
-            <label className="mt-4 block text-sm font-semibold" htmlFor="map-name">Nama denah</label>
+            <label className="mt-4 block text-body-medium font-semibold" htmlFor="map-name">Nama denah</label>
             <input id="map-name" value={config.name} onChange={(event) => updateConfig("name", event.target.value)}
-              className="mt-1 min-h-11 w-full border border-[var(--line)] px-3 text-sm" />
+              className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium" />
 
-            <label className="mt-4 block text-sm font-semibold" htmlFor="stage-label">Label panggung</label>
+            <label className="mt-4 block text-body-medium font-semibold" htmlFor="stage-label">Label panggung</label>
             <input id="stage-label" value={config.stage_label} onChange={(event) => updateConfig("stage_label", event.target.value)}
-              className="mt-1 min-h-11 w-full border border-[var(--line)] px-3 text-sm" />
-            <p className="mt-1 text-xs text-[var(--ink-muted)]">Acuan arah tamu saat membaca denah.</p>
+              className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium" />
+            <p className="mt-1 text-body-small text-on-surface-variant">Acuan arah tamu saat membaca denah.</p>
 
             <fieldset className="mt-5">
-              <legend className="text-sm font-semibold">Jumlah meja per baris</legend>
-              <p className="mt-1 text-xs text-[var(--ink-muted)]">Baris pertama paling dekat panggung. Nomor meja berjalan menerus.</p>
+              <legend className="text-body-medium font-semibold">Jumlah meja per baris</legend>
+              <p className="mt-1 text-body-small text-on-surface-variant">Baris pertama paling dekat panggung. Nomor meja berjalan menerus.</p>
               <div className="mt-2 space-y-2">
                 {config.row_table_counts.map((count, index) => <div key={index} className="flex items-center gap-2">
-                  <span className="w-16 text-sm text-[var(--ink-muted)]">Baris {index + 1}</span>
+                  <span className="w-16 text-body-medium text-on-surface-variant">Baris {index + 1}</span>
                   <input type="number" min={1} max={40} value={count} aria-label={`Jumlah meja baris ${index + 1}`}
                     onChange={(event) => {
                       const next = [...config.row_table_counts];
                       next[index] = Math.max(1, Number(event.target.value) || 1);
                       updateConfig("row_table_counts", next);
                     }}
-                    className="min-h-11 w-24 border border-[var(--line)] px-3 text-sm" />
+                    className="rounded-md min-h-11 w-24 border border-outline-variant px-3 text-body-medium" />
                   <button type="button" onClick={() => updateConfig("row_table_counts", config.row_table_counts.filter((_, i) => i !== index))}
                     disabled={config.row_table_counts.length <= 1}
-                    className="min-h-11 px-2 text-sm font-semibold text-[var(--danger)] disabled:opacity-40">Hapus</button>
+                    className="min-h-11 px-2 text-body-medium font-semibold text-error disabled:opacity-40">Hapus</button>
                 </div>)}
               </div>
               <button type="button" onClick={() => updateConfig("row_table_counts", [...config.row_table_counts, 8])}
-                className="mt-2 min-h-11 border border-[var(--line)] px-3 text-sm font-semibold">Tambah baris</button>
-              <p className="mt-2 text-xs text-[var(--ink-muted)]">Total {totalTablesFromRows} meja.</p>
+                className="rounded-md mt-2 min-h-11 border border-outline-variant px-3 text-body-medium font-semibold">Tambah baris</button>
+              <p className="mt-2 text-body-small text-on-surface-variant">Total {totalTablesFromRows} meja.</p>
             </fieldset>
 
             {/* Label meja yang menyimpang dari nomornya.
@@ -461,29 +461,29 @@ export default function SeatMapAdminPage() {
                 nomor meja terbentuk; menaruhnya di kartu lain akan membuat admin
                 mencari-cari hubungan antara "meja ke-4" dan angka yang diubahnya. */}
             <fieldset className="mt-5">
-              <legend className="text-sm font-semibold">Label meja khusus</legend>
-              <p className="mt-1 text-xs text-[var(--ink-muted)]">
+              <legend className="text-body-medium font-semibold">Label meja khusus</legend>
+              <p className="mt-1 text-body-small text-on-surface-variant">
                 Untuk meja yang tulisannya berbeda dari nomor urutnya, misalnya meja ke-4 ditulis <strong>3A</strong> karena
                 nomor 4 dihindari. Posisi meja TIDAK bergeser: meja ke-5 tetap bernomor 5.
               </p>
 
               {labeledTables.length > 0 ? <div className="mt-3 space-y-2">
                 {labeledTables.map((position) => <div key={position} className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-[var(--ink-muted)]">Meja ke-{position} ditulis</span>
+                  <span className="text-body-medium text-on-surface-variant">Meja ke-{position} ditulis</span>
                   <input value={config.table_labels[String(position)] ?? ""} maxLength={MAX_TABLE_LABEL_LENGTH}
                     aria-label={`Label untuk meja ke-${position}`}
                     onChange={(event) => setTableLabel(position, event.target.value)}
-                    className="min-h-11 w-24 border border-[var(--line)] px-3 font-mono text-sm" />
+                    className="rounded-md min-h-11 w-24 border border-outline-variant px-3 font-mono text-body-medium" />
                   <button type="button" onClick={() => setTableLabel(position, "")}
-                    className="min-h-11 px-2 text-sm font-semibold text-[var(--danger)]">Hapus</button>
+                    className="min-h-11 px-2 text-body-medium font-semibold text-error">Hapus</button>
                 </div>)}
-              </div> : <p className="mt-3 text-xs text-[var(--ink-muted)]">Belum ada label khusus. Semua meja memakai nomor urutnya.</p>}
+              </div> : <p className="mt-3 text-body-small text-on-surface-variant">Belum ada label khusus. Semua meja memakai nomor urutnya.</p>}
 
               {/* Pemilih posisi, bukan kolom nomor bebas: mengetik "40" pada denah
                   32 meja menyimpan label untuk meja yang tidak ada, dan admin akan
                   menunggu perubahan yang tidak pernah muncul di pratinjau. */}
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <label className="text-sm text-[var(--ink-muted)]" htmlFor="add-table-label">Tambah label untuk meja ke-</label>
+                <label className="text-body-medium text-on-surface-variant" htmlFor="add-table-label">Tambah label untuk meja ke-</label>
                 <select id="add-table-label" value="" onChange={(event) => {
                   const position = Number(event.target.value);
                   if (!position) return;
@@ -491,7 +491,7 @@ export default function SeatMapAdminPage() {
                   // kosong; label kosong berarti meja tanpa tulisan di layar.
                   setTableLabel(position, String(position));
                 }}
-                  className="min-h-11 border border-[var(--line)] px-3 text-sm">
+                  className="rounded-md min-h-11 border border-outline-variant px-3 text-body-medium">
                   <option value="">Pilih meja</option>
                   {Array.from({ length: totalTablesFromRows }, (_, index) => index + 1)
                     .filter((position) => !(String(position) in config.table_labels))
@@ -499,12 +499,12 @@ export default function SeatMapAdminPage() {
                 </select>
               </div>
 
-              {labelConflicts.length > 0 ? <p className="mt-3 flex items-start gap-2 border border-[var(--danger)] bg-[#fdf1f0] p-3 text-xs text-[var(--danger)]">
+              {labelConflicts.length > 0 ? <p className="rounded-lg mt-3 flex items-start gap-2 border border-error bg-error-soft p-3 text-body-small text-error">
                 <Warning size={16} className="mt-0.5 shrink-0" />
                 <span>Label <strong>{labelConflicts.join(", ")}</strong> dipakai lebih dari satu meja. Dua meja bernama sama membuat satu label kursi ada di dua tempat, sehingga tamu diarahkan ke meja yang salah. Denah tidak dapat disimpan sebelum ini dibetulkan.</span>
               </p> : null}
 
-              <p className="mt-3 text-xs text-[var(--ink-muted)]">
+              <p className="mt-3 text-body-small text-on-surface-variant">
                 Label ini ikut menyusun label kursi lewat pola di bawah, jadi meja <strong>3A</strong> memberi kursi <strong>A3A</strong>,
                 <strong> B3A</strong>, dan seterusnya. Penulisannya harus sama dengan yang dipakai scanner API, kalau tidak peserta di meja
                 itu tidak akan muncul di denah.
@@ -512,11 +512,11 @@ export default function SeatMapAdminPage() {
             </fieldset>
 
             <fieldset className="mt-5">
-              <legend className="text-sm font-semibold">Kursi per meja</legend>
-              <p className="mt-1 text-xs text-[var(--ink-muted)]">Diatur per rentang nomor meja. Aturan paling bawah menang bila bertumpuk.</p>
+              <legend className="text-body-medium font-semibold">Kursi per meja</legend>
+              <p className="mt-1 text-body-small text-on-surface-variant">Diatur per rentang nomor meja. Aturan paling bawah menang bila bertumpuk.</p>
               <div className="mt-2 space-y-2">
                 {config.seat_rules.map((rule, index) => <div key={index} className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-[var(--ink-muted)]">Meja</span>
+                  <span className="text-body-medium text-on-surface-variant">Meja</span>
                   {(["from", "to"] as const).map((field) => <input key={field} type="number" min={1} max={999} value={rule[field]}
                     aria-label={field === "from" ? `Nomor meja awal aturan ${index + 1}` : `Nomor meja akhir aturan ${index + 1}`}
                     onChange={(event) => {
@@ -524,33 +524,33 @@ export default function SeatMapAdminPage() {
                       next[index] = { ...rule, [field]: Math.max(1, Number(event.target.value) || 1) };
                       updateConfig("seat_rules", next);
                     }}
-                    className="min-h-11 w-20 border border-[var(--line)] px-2 text-sm" />)}
-                  <span className="text-sm text-[var(--ink-muted)]">=</span>
+                    className="rounded-md min-h-11 w-20 border border-outline-variant px-2 text-body-medium" />)}
+                  <span className="text-body-medium text-on-surface-variant">=</span>
                   <input type="number" min={0} max={26} value={rule.seats} aria-label={`Jumlah kursi aturan ${index + 1}`}
                     onChange={(event) => {
                       const next: SeatRule[] = [...config.seat_rules];
                       next[index] = { ...rule, seats: Math.max(0, Number(event.target.value) || 0) };
                       updateConfig("seat_rules", next);
                     }}
-                    className="min-h-11 w-20 border border-[var(--line)] px-2 text-sm" />
-                  <span className="text-sm text-[var(--ink-muted)]">kursi</span>
+                    className="rounded-md min-h-11 w-20 border border-outline-variant px-2 text-body-medium" />
+                  <span className="text-body-medium text-on-surface-variant">kursi</span>
                   <button type="button" onClick={() => updateConfig("seat_rules", config.seat_rules.filter((_, i) => i !== index))}
-                    className="min-h-11 px-2 text-sm font-semibold text-[var(--danger)]">Hapus</button>
+                    className="min-h-11 px-2 text-body-medium font-semibold text-error">Hapus</button>
                 </div>)}
               </div>
               <button type="button" onClick={() => updateConfig("seat_rules", [...config.seat_rules, { from: 1, to: 1, seats: 6 }])}
-                className="mt-2 min-h-11 border border-[var(--line)] px-3 text-sm font-semibold">Tambah aturan</button>
+                className="rounded-md mt-2 min-h-11 border border-outline-variant px-3 text-body-medium font-semibold">Tambah aturan</button>
             </fieldset>
 
-            <label className="mt-5 block text-sm font-semibold" htmlFor="label-pattern">Pola label kursi</label>
+            <label className="mt-5 block text-body-medium font-semibold" htmlFor="label-pattern">Pola label kursi</label>
             <input id="label-pattern" value={config.seat_label_pattern} onChange={(event) => updateConfig("seat_label_pattern", event.target.value)}
-              className="mt-1 min-h-11 w-full border border-[var(--line)] px-3 font-mono text-sm" />
-            <p className="mt-1 text-xs text-[var(--ink-muted)]">
+              className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 font-mono text-body-medium" />
+            <p className="mt-1 text-body-small text-on-surface-variant">
               Wajib memuat <code>{"{table}"}</code> dan <code>{"{seat}"}</code>. Harus sama dengan penulisan label di scanner API, kalau tidak kursi tidak akan cocok.
             </p>
 
             <button type="button" onClick={() => void saveConfig()} disabled={savingConfig || labelConflicts.length > 0}
-              className="mt-5 min-h-12 w-full bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-60">
+              className="rounded-md mt-5 min-h-12 w-full bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-60">
               {savingConfig ? "Menyimpan…" : labelConflicts.length > 0 ? "Betulkan label ganda dulu" : "Simpan tata letak"}
             </button>
           </div>
@@ -559,34 +559,34 @@ export default function SeatMapAdminPage() {
         <section className="mt-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="text-base font-bold">Agenda</h2>
-              <p className="mt-1 max-w-2xl text-sm text-[var(--ink-muted)]">
+              <h2 className="text-body-large font-bold">Agenda</h2>
+              <p className="mt-1 max-w-2xl text-body-medium text-on-surface-variant">
                 Jumlah agenda tidak dibatasi. Tata letak dipakai bersama semua agenda; yang berbeda hanya tampilan dan penempatan pesertanya.
               </p>
             </div>
-            <p className="text-sm text-[var(--ink-muted)]">{sessions.length} agenda</p>
+            <p className="text-body-medium text-on-surface-variant">{sessions.length} agenda</p>
           </div>
 
           {/* Form tambah. Hanya meminta nama: sisanya bisa diisi setelah kartunya
               muncul, sehingga menambah agenda tidak terasa seperti mengisi borang. */}
-          <div className="mt-4 border border-[var(--line)] bg-[var(--surface)] p-5">
-            <label className="block text-sm font-semibold" htmlFor="new-agenda">Tambah agenda</label>
+          <div className="rounded-lg mt-4 border border-outline-variant bg-panel p-5">
+            <label className="block text-body-medium font-semibold" htmlFor="new-agenda">Tambah agenda</label>
             <div className="mt-2 flex flex-wrap gap-2">
               <input id="new-agenda" value={newAgendaName} maxLength={120}
                 onChange={(event) => setNewAgendaName(event.target.value)}
                 onKeyDown={(event) => { if (event.key === "Enter" && newAgendaName.trim() && !creating) { event.preventDefault(); void createAgenda(); } }}
                 placeholder="Misalnya: Coffee Break Siang"
-                className="min-h-11 flex-1 border border-[var(--line)] px-3 text-sm sm:min-w-72" />
+                className="rounded-md min-h-11 flex-1 border border-outline-variant px-3 text-body-medium sm:min-w-72" />
               <button type="button" onClick={() => void createAgenda()} disabled={creating || !newAgendaName.trim()}
-                className="inline-flex min-h-11 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-50">
+                className="rounded-md inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-50">
                 <Plus size={18} /> {creating ? "Menambahkan…" : "Tambah"}
               </button>
             </div>
-            <p className="mt-2 text-xs text-[var(--ink-muted)]">Agenda baru selalu dibuat sebagai draf, jadi tidak langsung tampil ke tamu.</p>
+            <p className="mt-2 text-body-small text-on-surface-variant">Agenda baru selalu dibuat sebagai draf, jadi tidak langsung tampil ke tamu.</p>
           </div>
 
           {sessions.length === 0
-            ? <p className="mt-4 border border-dashed border-[var(--line)] bg-[var(--surface-muted)] p-6 text-center text-sm text-[var(--ink-muted)]">
+            ? <p className="rounded-lg mt-4 border border-dashed border-outline-variant bg-panel-high p-6 text-center text-body-medium text-on-surface-variant">
                 Belum ada agenda. Tambahkan satu di atas untuk mulai memakai halaman denah.
               </p>
             : null}
@@ -601,31 +601,31 @@ export default function SeatMapAdminPage() {
               // peringatan tidak berkedip saat halaman pertama kali dibuka.
               const orphanSubEvent = session.sub_event_id !== null && payload !== null
                 && !payload.available_sub_events.some((item) => item.subEventId === session.sub_event_id);
-              return <article key={session.id} className="border border-[var(--line)] bg-[var(--surface)] p-5">
+              return <article key={session.id} className="rounded-lg border border-outline-variant bg-panel p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-bold">{session.name}</h3>
-                  <span className={`inline-flex items-center gap-1 border px-2 py-1 text-xs font-semibold ${session.is_published ? "border-[var(--success)] text-[var(--success)]" : "border-[var(--line)] text-[var(--ink-muted)]"}`}>
+                  <h3 className="text-body-medium font-bold">{session.name}</h3>
+                  <span className={`rounded-sm inline-flex items-center gap-1 border px-2 py-1 text-body-small font-semibold ${session.is_published ? "border-success text-success" : "border-outline-variant text-on-surface-variant"}`}>
                     {session.is_published ? <><Eye size={14} /> Publik</> : <><EyeSlash size={14} /> Draf</>}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-[var(--ink-muted)]">URL publik: /denah?sesi={session.slug}</p>
+                <p className="mt-1 text-body-small text-on-surface-variant">URL publik: /denah?sesi={session.slug}</p>
 
-                <label className="mt-4 block text-sm font-semibold" htmlFor={`name-${session.id}`}>Nama agenda</label>
+                <label className="mt-4 block text-body-medium font-semibold" htmlFor={`name-${session.id}`}>Nama agenda</label>
                 <input id={`name-${session.id}`} value={session.name} maxLength={120} onChange={(event) => updateSession(session.id, { name: event.target.value })}
-                  className="mt-1 min-h-11 w-full border border-[var(--line)] px-3 text-sm" />
-                <p className="mt-1 text-xs text-[var(--ink-muted)]">Dipakai di tombol pemilih agenda, bukan di judul besar.</p>
+                  className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium" />
+                <p className="mt-1 text-body-small text-on-surface-variant">Dipakai di tombol pemilih agenda, bukan di judul besar.</p>
 
-                <label className="mt-3 block text-sm font-semibold" htmlFor={`title-${session.id}`}>Judul di halaman publik</label>
+                <label className="mt-3 block text-body-medium font-semibold" htmlFor={`title-${session.id}`}>Judul di halaman publik</label>
                 <input id={`title-${session.id}`} value={session.title} onChange={(event) => updateSession(session.id, { title: event.target.value })}
-                  className="mt-1 min-h-11 w-full border border-[var(--line)] px-3 text-sm" />
+                  className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium" />
 
-                <label className="mt-3 block text-sm font-semibold" htmlFor={`subtitle-${session.id}`}>Sub judul</label>
+                <label className="mt-3 block text-body-medium font-semibold" htmlFor={`subtitle-${session.id}`}>Sub judul</label>
                 <input id={`subtitle-${session.id}`} value={session.subtitle ?? ""} onChange={(event) => updateSession(session.id, { subtitle: event.target.value })}
-                  className="mt-1 min-h-11 w-full border border-[var(--line)] px-3 text-sm" />
+                  className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium" />
 
-                <label className="mt-3 block text-sm font-semibold" htmlFor={`subevent-${session.id}`}>Sumber penempatan (sub-event scanner API)</label>
+                <label className="mt-3 block text-body-medium font-semibold" htmlFor={`subevent-${session.id}`}>Sumber penempatan (sub-event scanner API)</label>
                 <select id={`subevent-${session.id}`} value={session.sub_event_id ?? ""} onChange={(event) => updateSession(session.id, { sub_event_id: event.target.value || null })}
-                  className="mt-1 min-h-11 w-full border border-[var(--line)] bg-[var(--surface)] px-3 text-sm">
+                  className="rounded-lg mt-1 min-h-11 w-full border border-outline-variant bg-panel px-3 text-body-medium">
                   <option value="">— Belum dipilih —</option>
                   {payload?.available_sub_events.map((item) => <option key={item.subEventId} value={item.subEventId}>{item.subEventName} ({item.seatCount} kursi)</option>)}
                   {/* Pilihan tersimpan yang sudah tidak ada di data tetap ditampilkan,
@@ -635,7 +635,7 @@ export default function SeatMapAdminPage() {
                     : null}
                 </select>
                 {payload?.available_sub_events.length === 0
-                  ? <p className="mt-1 text-xs text-[var(--warning)]">Scanner API belum mengirim data kursi. Pilihan akan muncul setelah panitia mengisinya.</p>
+                  ? <p className="mt-1 text-body-small text-warning">Scanner API belum mengirim data kursi. Pilihan akan muncul setelah panitia mengisinya.</p>
                   : null}
                 {/* Perangkap yang paling mudah terjadi: sesi sudah dipublikasikan
                     tapi penempatannya tidak dapat dipetakan. Denahnya tampil rapi dan
@@ -644,7 +644,7 @@ export default function SeatMapAdminPage() {
                     karena tindakan pemulihannya berbeda: yang satu perlu dipilih di
                     sini, yang satu perlu diisi panitia di sisi scanner API. */}
                 {session.is_published && (!session.sub_event_id || orphanSubEvent)
-                  ? <p className="mt-2 flex gap-2 border border-[var(--warning)] bg-[#FDF6E7] p-2 text-xs text-[var(--warning)]">
+                  ? <p className="mt-2 flex gap-2 rounded-md border border-warning bg-warning-soft p-2 text-body-small text-warning">
                       <Warning size={16} className="mt-0.5 shrink-0" />
                       <span>{session.sub_event_id
                         ? <>Sesi ini sudah publik tapi <strong>sumber penempatannya tidak ada lagi di data scanner API</strong>, jadi semua kursi tampak kosong. Pilihan tetap disimpan. Kursi akan muncul kembali setelah panitia mengisi data kursi untuk sub-event ini di sisi klien.</>
@@ -654,9 +654,9 @@ export default function SeatMapAdminPage() {
 
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {([["background_color", "Latar"], ["text_color", "Teks"], ["accent_color", "Aksen"]] as const).map(([key, label]) => <div key={key}>
-                    <label className="block text-xs font-semibold" htmlFor={`${key}-${session.id}`}>{label}</label>
+                    <label className="block text-body-small font-semibold" htmlFor={`${key}-${session.id}`}>{label}</label>
                     <input id={`${key}-${session.id}`} type="color" value={session[key]} onChange={(event) => updateSession(session.id, { [key]: event.target.value })}
-                      className="mt-1 h-11 w-full border border-[var(--line)]" />
+                      className="rounded-md mt-1 h-11 w-full border border-outline-variant" />
                   </div>)}
                 </div>
 
@@ -666,9 +666,9 @@ export default function SeatMapAdminPage() {
                     kursi. Sebelum ada kolom ini kursi meminjam warna layar — kursi
                     terisi memakai warna teks — sehingga warna kursi tidak dapat
                     diubah tanpa ikut mengubah nomor meja dan judul. */}
-                <fieldset className="mt-4 border border-[var(--line)] p-3">
-                  <legend className="px-1 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">Warna kursi</legend>
-                  <p className="text-xs text-[var(--ink-muted)]">
+                <fieldset className="rounded-lg mt-4 border border-outline-variant p-3">
+                  <legend className="px-1 text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Warna kursi</legend>
+                  <p className="text-body-small text-on-surface-variant">
                     Kosongkan (tombol Bawaan) untuk mengikuti warna layar seperti sebelumnya.
                   </p>
                   <div className="mt-3 grid grid-cols-2 gap-3">
@@ -693,11 +693,11 @@ export default function SeatMapAdminPage() {
                               : effective.outline
                       );
                       return <div key={key}>
-                        <label className="block text-xs font-semibold" htmlFor={`${key}-${session.id}`}>{label}</label>
+                        <label className="block text-body-small font-semibold" htmlFor={`${key}-${session.id}`}>{label}</label>
                         <div className="mt-1 flex items-center gap-2">
                           <input id={`${key}-${session.id}`} type="color" value={shown}
                             onChange={(event) => updateSession(session.id, { [key]: event.target.value })}
-                            className="h-11 w-full border border-[var(--line)]" />
+                            className="rounded-md h-11 w-full border border-outline-variant" />
                           {/* Tombol reset wajib ada: `<input type="color">` tidak
                               punya keadaan kosong, jadi tanpa tombol ini sebuah
                               warna tidak akan pernah bisa dikembalikan ke bawaan
@@ -705,13 +705,13 @@ export default function SeatMapAdminPage() {
                               BrandingEditor. */}
                           <button type="button" onClick={() => updateSession(session.id, { [key]: null })}
                             disabled={session[key] === null}
-                            className="min-h-11 shrink-0 border border-[var(--line)] px-2 text-xs font-semibold disabled:opacity-40">Bawaan</button>
+                            className="rounded-md min-h-11 shrink-0 border border-outline-variant px-2 text-body-small font-semibold disabled:opacity-40">Bawaan</button>
                         </div>
-                        <p className="mt-1 text-[11px] text-[var(--ink-muted)]">{session[key] ? session[key]?.toUpperCase() : hint}</p>
+                        <p className="mt-1 text-[11px] text-on-surface-variant">{session[key] ? session[key]?.toUpperCase() : hint}</p>
                       </div>;
                     })}
                   </div>
-                  <p className="mt-3 text-[11px] text-[var(--ink-muted)]">
+                  <p className="mt-3 text-[11px] text-on-surface-variant">
                     Warna &quot;Sudah check-in&quot; hanya tampil pada layar yang menyalakan tampilan kehadiran.
                     Huruf kursi otomatis memakai hitam atau putih mengikuti terang-gelapnya warna yang dipilih.
                   </p>
@@ -723,12 +723,12 @@ export default function SeatMapAdminPage() {
                     Keterangan itu ditulis di layar, bukan hanya di komentar kode,
                     karena admin tidak dapat menebaknya dari tampilan form. */}
                 <div className="mt-4">
-                  <p className="text-sm font-semibold">Gambar latar <span className="font-normal text-[var(--ink-muted)]">(opsional)</span></p>
-                  <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">
+                  <p className="text-body-medium font-semibold">Gambar latar <span className="font-normal text-on-surface-variant">(opsional)</span></p>
+                  <p className="mt-1 text-body-small leading-5 text-on-surface-variant">
                     Kosongkan untuk memakai warna latar saja. Gambar diberi lapisan gelap otomatis agar nomor meja dan QR tetap terbaca. PNG, JPG, atau WebP, maksimal 5 MB.
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <label className={`inline-flex min-h-11 cursor-pointer items-center gap-2 border border-[var(--line)] bg-[var(--background)] px-3 text-sm font-semibold hover:border-[var(--brand)] ${uploadingBackground === session.id ? "pointer-events-none opacity-60" : ""}`}>
+                    <label className={`rounded-md inline-flex min-h-11 cursor-pointer items-center gap-2 border border-outline-variant bg-surface px-3 text-body-medium font-semibold hover:border-primary ${uploadingBackground === session.id ? "pointer-events-none opacity-60" : ""}`}>
                       <UploadSimple size={17} weight="bold" />
                       {uploadingBackground === session.id ? "Mengunggah…" : "Upload gambar"}
                       <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
@@ -743,15 +743,15 @@ export default function SeatMapAdminPage() {
                     </label>
                     {session.background_image_url
                       ? <button type="button" onClick={() => updateSession(session.id, { background_image_url: null })}
-                          className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--danger)] hover:border-[var(--danger)]">
+                          className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-3 text-body-medium font-semibold text-error hover:border-error">
                           <XCircle size={17} weight="bold" /> Hapus gambar
                         </button>
                       : null}
                   </div>
                   {session.background_image_url
                     ? <div className="mt-2 flex items-center gap-2">
-                        <span className="h-12 w-20 shrink-0 border border-[var(--line)] bg-cover bg-center" style={{ backgroundImage: `url(${session.background_image_url})` }} />
-                        <span className="break-all text-[11px] leading-4 text-[var(--ink-muted)]">{session.background_image_url}</span>
+                        <span className="rounded-md h-12 w-20 shrink-0 border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${session.background_image_url})` }} />
+                        <span className="break-all text-[11px] leading-4 text-on-surface-variant">{session.background_image_url}</span>
                       </div>
                     : null}
 
@@ -768,13 +768,13 @@ export default function SeatMapAdminPage() {
                       Warna itu juga menjadi warna teks nomor meja dan label panggung,
                       jadi menembuskannya akan menghilangkan nomor mejanya. */}
                   {session.background_image_url
-                    ? <label className="mt-3 flex min-h-11 cursor-pointer items-start gap-3 text-sm">
+                    ? <label className="mt-3 flex min-h-11 cursor-pointer items-start gap-3 text-body-medium">
                         <input type="checkbox" checked={session.map_panel_transparent}
                           onChange={(event) => updateSession(session.id, { map_panel_transparent: event.target.checked })}
-                          className="mt-1 size-4 shrink-0 accent-[var(--brand)]" />
+                          className="mt-1 size-4 shrink-0 accent-primary" />
                         <span>
                           <span className="font-semibold">Denah tembus pandang</span>
-                          <span className="mt-0.5 block text-xs leading-5 text-[var(--ink-muted)]">
+                          <span className="mt-0.5 block text-body-small leading-5 text-on-surface-variant">
                             Menghilangkan kotak warna di belakang meja supaya gambar latar terlihat penuh. Nomor meja tetap memakai warna latar agar terbaca.
                           </span>
                         </span>
@@ -788,8 +788,8 @@ export default function SeatMapAdminPage() {
                     `idPrefix` memakai id agenda: setiap agenda punya kartunya
                     sendiri di halaman ini, dan tanpa pembeda seluruh label akan
                     menunjuk ke input pada kartu pertama. */}
-                <div className="mt-5 border-t border-[var(--line)] pt-5">
-                  <p className="text-sm font-bold">Header &amp; footer</p>
+                <div className="mt-5 border-t border-outline-variant pt-5">
+                  <p className="text-body-medium font-bold">Header &amp; footer</p>
                   <div className="mt-3">
                     <BrandingEditor
                       idPrefix={`session-${session.id}`}
@@ -802,20 +802,20 @@ export default function SeatMapAdminPage() {
                   </div>
                 </div>
 
-                <label className="mt-5 flex min-h-11 cursor-pointer items-center gap-3 border-t border-[var(--line)] pt-5 text-sm font-semibold">
+                <label className="mt-5 flex min-h-11 cursor-pointer items-center gap-3 border-t border-outline-variant pt-5 text-body-medium font-semibold">
                   <input type="checkbox" checked={session.is_published} onChange={(event) => updateSession(session.id, { is_published: event.target.checked })}
-                    className="size-4 accent-[var(--brand)]" />
+                    className="size-4 accent-primary" />
                   Tampilkan di halaman publik
                 </label>
 
-                {report ? <div className="mt-4 border border-[var(--line)] bg-[var(--surface-muted)] p-3 text-sm">
+                {report ? <div className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-3 text-body-medium">
                   <p className="font-semibold">Pencocokan data</p>
-                  <ul className="mt-1 space-y-1 text-[var(--ink-muted)]">
+                  <ul className="mt-1 space-y-1 text-on-surface-variant">
                     <li>{report.matched_seats} kursi terisi, {report.empty_seats} kosong.</li>
                     <li>{report.participants_without_seat} dari {report.total_active_participants} peserta aktif belum punya kursi di sesi ini.</li>
                   </ul>
                   {report.unmatched_count > 0
-                    ? <p className="mt-2 flex gap-2 border border-[var(--danger)] bg-[#fdf1f0] p-2 text-xs text-[var(--danger)]">
+                    ? <p className="mt-2 flex gap-2 rounded-md border border-error bg-error-soft p-2 text-body-small text-error">
                         <Warning size={16} className="mt-0.5 shrink-0" />
                         <span>
                           <strong>{report.unmatched_count} label tidak ada di denah</strong>, jadi peserta tersebut tidak muncul di mana pun.
@@ -823,37 +823,37 @@ export default function SeatMapAdminPage() {
                         </span>
                       </p>
                     : report.total_assignments > 0
-                      ? <p className="mt-2 flex items-center gap-2 text-xs text-[var(--success)]"><CheckCircle size={16} /> Semua label cocok dengan denah.</p>
+                      ? <p className="mt-2 flex items-center gap-2 text-body-small text-success"><CheckCircle size={16} /> Semua label cocok dengan denah.</p>
                       : null}
                 </div> : null}
 
                 <button type="button" onClick={() => void saveSession(session)} disabled={savingSession === session.id}
-                  className="mt-4 min-h-12 w-full bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-60">
+                  className="rounded-md mt-4 min-h-12 w-full bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-60">
                   {savingSession === session.id ? "Menyimpan…" : "Simpan agenda"}
                 </button>
 
                 {/* Hapus dipisah di bawah garis dan butuh satu langkah konfirmasi.
                     Agenda yang dipublikasikan disebut khusus karena menghapusnya
                     langsung mengubah apa yang dilihat tamu saat itu. */}
-                <div className="mt-4 border-t border-[var(--line)] pt-4">
+                <div className="mt-4 border-t border-outline-variant pt-4">
                   {confirmDelete === session.id
-                    ? <div className="border border-[var(--danger)] bg-[#fdf1f0] p-3">
-                        <p className="text-xs text-[var(--danger)]">
+                    ? <div className="rounded-lg border border-error bg-error-soft p-3">
+                        <p className="text-body-small text-error">
                           Hapus <strong>{session.name}</strong>?{session.is_published ? " Agenda ini sedang tampil ke tamu." : ""} Tampilan dan pilihan sumbernya hilang; data peserta tidak terpengaruh karena penempatan tersimpan di scanner API.
                         </p>
                         <div className="mt-3 flex gap-2">
                           <button type="button" onClick={() => void deleteAgenda(session)} disabled={deleting === session.id}
-                            className="min-h-11 flex-1 bg-[var(--danger)] px-3 text-sm font-semibold text-white disabled:opacity-60">
+                            className="rounded-md min-h-11 flex-1 bg-error px-3 text-body-medium font-semibold text-on-error disabled:opacity-60">
                             {deleting === session.id ? "Menghapus…" : "Ya, hapus"}
                           </button>
                           <button type="button" onClick={() => setConfirmDelete(null)}
-                            className="min-h-11 flex-1 border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold">
+                            className="rounded-lg min-h-11 flex-1 border border-outline-variant bg-panel px-3 text-body-medium font-semibold">
                             Batal
                           </button>
                         </div>
                       </div>
                     : <button type="button" onClick={() => setConfirmDelete(session.id)}
-                        className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--danger)]">
+                        className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-error">
                         <Trash size={16} /> Hapus agenda
                       </button>}
                 </div>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { expressive } from "@/lib/m3/motion";
 import { BrandFooter, BrandHeader } from "@/components/brand-header-footer";
 import { fontStack, type Branding } from "@/lib/branding";
 import { readableOn } from "@/lib/color";
@@ -243,7 +244,7 @@ export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, s
                   style={{ background: accent }}
                   initial={{ height: 0 }}
                   animate={{ height: `${(bucket.count / top) * 100}%` }}
-                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  transition={expressive.spatial.slow}
                 />
                 <span className="font-bold tabular-nums" style={{ fontSize: "clamp(12px, 2.2vh, 30px)" }}>{bucket.value}</span>
               </div>;
@@ -270,7 +271,7 @@ export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, s
                 key={entry.word}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4 }}
+                transition={expressive.effects.default}
                 className="font-bold uppercase leading-none"
                 style={{
                   fontSize: `calc(1.6vh + ${(scale * 9).toFixed(2)}vh)`,
@@ -353,7 +354,7 @@ export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, s
                   animate={{ width: percent > 0 ? `max(${percent}%, ${rowFont})` : "0%" }}
                   // Cukup lambat untuk terbaca sebagai gerakan, cukup cepat untuk
                   // selesai sebelum polling berikutnya datang.
-                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  transition={expressive.spatial.slow}
                 />
               </div>
             </div>

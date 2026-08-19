@@ -156,20 +156,20 @@ export default function RegistrasiAdminPage() {
 
   const tautan = config ? `/e/${config.slug}/daftar` : "";
 
-  return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1200px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--brand)]"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
+      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
       <div className="mt-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Registrasi publik</p>
+        <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Registrasi publik</p>
         <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Pendaftaran.</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--ink-muted)]">Peserta mendaftar sendiri lewat tautan publik. Yang disetujui langsung mendapat kode peserta dan bisa discan booth.</p>
+        <p className="mt-3 max-w-2xl text-body-medium leading-6 text-on-surface-variant">Peserta mendaftar sendiri lewat tautan publik. Yang disetujui langsung mendapat kode peserta dan bisa discan booth.</p>
       </div>
 
-      {config && <section className="mt-8 border border-[var(--line)] bg-[var(--surface)] p-6">
+      {config && <section className="rounded-lg mt-8 border border-outline-variant bg-panel p-6">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
             <h2 className="font-semibold">Status pendaftaran</h2>
-            <p className="mt-1 text-sm text-[var(--ink-muted)]">
+            <p className="mt-1 text-body-medium text-on-surface-variant">
               {config.registration_enabled
                 ? "Terbuka. Siapa pun yang punya tautan bisa mendaftar."
                 : "Tertutup. Halaman pendaftaran menolak semua pengiriman."}
@@ -179,12 +179,12 @@ export default function RegistrasiAdminPage() {
             type="button"
             disabled={busy}
             onClick={() => void simpanKonfigurasi({ registration_enabled: !config.registration_enabled })}
-            className={`min-h-11 border px-4 text-sm font-semibold disabled:opacity-50 ${config.registration_enabled ? "border-[var(--danger)]/40 text-[var(--danger)]" : "border-transparent bg-[var(--brand)] text-white"}`}
+            className={`rounded-md min-h-11 border px-4 text-body-medium font-semibold disabled:opacity-50 ${config.registration_enabled ? "border-error/40 text-error" : "border-transparent bg-primary text-on-primary"}`}
           >{config.registration_enabled ? "Tutup pendaftaran" : "Buka pendaftaran"}</button>
         </div>
 
         {config.registration_enabled && <>
-          <label className="mt-6 flex items-start gap-3 border-t border-[var(--line)] pt-5 text-sm">
+          <label className="mt-6 flex items-start gap-3 border-t border-outline-variant pt-5 text-body-medium">
             <input
               type="checkbox"
               checked={config.registration_auto_approve}
@@ -197,62 +197,62 @@ export default function RegistrasiAdminPage() {
               {/* Akibatnya ditulis, bukan sekadar nama setelannya. Dicentang
                   tanpa membaca, panitia baru sadar ada 40 peserta asing di
                   leaderboard saat acara sudah berjalan. */}
-              <span className="mt-1 block text-[var(--ink-muted)]">Pendaftar langsung jadi peserta dan kode terbit seketika, tanpa diperiksa siapa pun. Tanpa ini, setiap pendaftaran menunggu persetujuan di daftar bawah.</span>
+              <span className="mt-1 block text-on-surface-variant">Pendaftar langsung jadi peserta dan kode terbit seketika, tanpa diperiksa siapa pun. Tanpa ini, setiap pendaftaran menunggu persetujuan di daftar bawah.</span>
             </span>
           </label>
 
-          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[var(--line)] pt-5">
-            <LinkIcon size={18} className="text-[var(--ink-muted)]" />
-            <code className="select-all text-sm">{tautan}</code>
+          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-outline-variant pt-5">
+            <LinkIcon size={18} className="text-on-surface-variant" />
+            <code className="select-all text-body-medium">{tautan}</code>
             <button
               type="button"
               onClick={() => { void navigator.clipboard.writeText(new URL(tautan, window.location.origin).toString()); toast.success("Tautan disalin", "Sebarkan ke calon peserta."); }}
-              className="min-h-11 border border-[var(--line)] px-3 text-sm font-semibold"
+              className="rounded-md min-h-11 border border-outline-variant px-3 text-body-medium font-semibold"
             >Salin tautan</button>
           </div>
         </>}
       </section>}
 
-      {error && <p role="alert" className="mt-6 border border-[var(--danger)]/30 bg-[var(--danger)]/5 p-4 text-sm font-medium text-[var(--danger)]">{error}</p>}
+      {error && <p role="alert" className="rounded-lg mt-6 border border-error/30 bg-error/5 p-4 text-body-medium font-medium text-error">{error}</p>}
 
       <div className="mt-8 flex flex-wrap gap-2">
         {TABS.map((entry) => <button
           key={entry.key}
           type="button"
           onClick={() => { setTab(entry.key); setLoading(true); }}
-          className={`min-h-11 border px-4 text-sm font-semibold ${tab === entry.key ? "border-[var(--brand)] text-[var(--brand)]" : "border-[var(--line)]"}`}
+          className={`rounded-md min-h-11 border px-4 text-body-medium font-semibold ${tab === entry.key ? "border-primary text-primary" : "border-outline-variant"}`}
         >{entry.label}{entry.key === "pending" && pending > 0 ? ` (${pending})` : ""}</button>)}
       </div>
 
-      {loading ? <p className="py-16 text-sm text-[var(--ink-muted)]">Memuat…</p>
+      {loading ? <p className="py-16 text-body-medium text-on-surface-variant">Memuat…</p>
         : rows.length === 0 ? <section className="py-20 text-center">
-            <Hourglass size={44} className="mx-auto text-[var(--ink-muted)]" />
-            <p className="mt-4 text-sm text-[var(--ink-muted)]">Belum ada pendaftaran pada status ini.</p>
+            <Hourglass size={44} className="mx-auto text-on-surface-variant" />
+            <p className="mt-4 text-body-medium text-on-surface-variant">Belum ada pendaftaran pada status ini.</p>
           </section>
-        : <section className="mt-6 grid gap-px border border-[var(--line)] bg-[var(--line)]">
-            {rows.map((row) => <article key={row.id} className="bg-[var(--surface)] p-5">
+        : <section className="mt-6 grid gap-3">
+            {rows.map((row) => <article key={row.id} className="rounded-lg bg-panel p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h3 className="text-lg font-semibold tracking-[-0.02em]">{row.name}</h3>
-                  <p className="mt-1 break-words text-sm text-[var(--ink-muted)]">{row.email} · {row.phone}</p>
-                  {(row.company || row.job_title) && <p className="mt-1 text-sm text-[var(--ink-muted)]">{[row.job_title, row.company].filter(Boolean).join(" · ")}</p>}
-                  <p className="mt-2 text-xs text-[var(--ink-muted)]">Didaftarkan {formatEventDateTime(row.created_at, zone)} {abbr}</p>
+                  <p className="mt-1 break-words text-body-medium text-on-surface-variant">{row.email} · {row.phone}</p>
+                  {(row.company || row.job_title) && <p className="mt-1 text-body-medium text-on-surface-variant">{[row.job_title, row.company].filter(Boolean).join(" · ")}</p>}
+                  <p className="mt-2 text-body-small text-on-surface-variant">Didaftarkan {formatEventDateTime(row.created_at, zone)} {abbr}</p>
                   {/* Kode tetap ditampilkan meski email sudah aktif: email bisa
                       masuk spam atau ditolak server penerima, dan panitia harus
                       bisa membacakannya lewat telepon tanpa membuka database. */}
-                  {row.qr_code && <p className="mt-2 text-sm">Kode peserta: <span className="select-all font-mono font-semibold">{row.qr_code}</span></p>}
+                  {row.qr_code && <p className="mt-2 text-body-medium">Kode peserta: <span className="select-all font-mono font-semibold">{row.qr_code}</span></p>}
                   {row.status === "approved" && row.qr_code && <StatusEmail row={row} emailAktif={emailAktif} zone={zone} abbr={abbr} />}
-                  {row.reject_reason && <p className="mt-2 text-sm text-[var(--danger)]">Alasan penolakan: {row.reject_reason}</p>}
-                  {Object.keys(row.extra ?? {}).length > 0 && <dl className="mt-3 grid gap-1 text-sm">
+                  {row.reject_reason && <p className="mt-2 text-body-medium text-error">Alasan penolakan: {row.reject_reason}</p>}
+                  {Object.keys(row.extra ?? {}).length > 0 && <dl className="mt-3 grid gap-1 text-body-medium">
                     {Object.entries(row.extra).map(([key, value]) => <div key={key} className="flex gap-2">
-                      <dt className="font-semibold">{key}:</dt><dd className="text-[var(--ink-muted)]">{value}</dd>
+                      <dt className="font-semibold">{key}:</dt><dd className="text-on-surface-variant">{value}</dd>
                     </div>)}
                   </dl>}
                 </div>
 
                 {row.status === "pending" && <div className="flex gap-2">
-                  <button type="button" disabled={busy} onClick={() => void review(row, true)} className="flex min-h-11 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-50"><Check size={16} weight="bold" /> Setujui</button>
-                  <button type="button" disabled={busy} onClick={() => setMenolak(row)} className="flex min-h-11 items-center gap-2 border border-[var(--danger)]/40 px-4 text-sm font-semibold text-[var(--danger)] disabled:opacity-50"><X size={16} weight="bold" /> Tolak</button>
+                  <button type="button" disabled={busy} onClick={() => void review(row, true)} className="rounded-md flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-50"><Check size={16} weight="bold" /> Setujui</button>
+                  <button type="button" disabled={busy} onClick={() => setMenolak(row)} className="rounded-md flex min-h-11 items-center gap-2 border border-error/40 px-4 text-body-medium font-semibold text-error disabled:opacity-50"><X size={16} weight="bold" /> Tolak</button>
                 </div>}
 
                 {/* Tombol disembunyikan, bukan diredupkan, saat email belum
@@ -262,27 +262,27 @@ export default function RegistrasiAdminPage() {
                   type="button"
                   disabled={mengirim === row.id}
                   onClick={() => void kirimUlang(row)}
-                  className="flex min-h-11 shrink-0 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold disabled:opacity-50"
+                  className="rounded-md flex min-h-11 shrink-0 items-center gap-2 border border-outline-variant px-4 text-body-medium font-semibold disabled:opacity-50"
                 ><PaperPlaneTilt size={16} /> {mengirim === row.id ? "Mengirim…" : row.email_sent_at ? "Kirim ulang" : "Kirim kode"}</button>}
               </div>
             </article>)}
           </section>}
     </div>
 
-    {menolak && <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setMenolak(null); }}>
+    {menolak && <div className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setMenolak(null); }}>
       <form
         onSubmit={(e) => { e.preventDefault(); void review(menolak, false, String(new FormData(e.currentTarget).get("reason") ?? "")); }}
-        className="w-full max-w-md border border-[var(--line)] bg-[var(--surface)] p-6"
+        className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-6"
       >
         <h2 className="text-xl font-semibold">Tolak pendaftaran</h2>
-        <p className="mt-2 text-sm text-[var(--ink-muted)]">{menolak.name} · {menolak.email}</p>
-        <p className="mt-4 border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-sm">Pendaftar tidak dibuatkan kode peserta. Catatannya tetap tersimpan, dan orang ini boleh mendaftar ulang dengan email yang sama.</p>
-        <label className="mt-5 block text-sm font-semibold">Alasan <span className="font-normal text-[var(--ink-muted)]">(opsional, untuk catatan panitia)</span>
-          <input name="reason" maxLength={300} className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-4" />
+        <p className="mt-2 text-body-medium text-on-surface-variant">{menolak.name} · {menolak.email}</p>
+        <p className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-4 text-body-medium">Pendaftar tidak dibuatkan kode peserta. Catatannya tetap tersimpan, dan orang ini boleh mendaftar ulang dengan email yang sama.</p>
+        <label className="mt-5 block text-body-medium font-semibold">Alasan <span className="font-normal text-on-surface-variant">(opsional, untuk catatan panitia)</span>
+          <input name="reason" maxLength={300} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-4" />
         </label>
         <div className="mt-6 flex gap-2">
-          <button disabled={busy} className="min-h-12 flex-1 border border-[var(--danger)]/40 px-4 font-semibold text-[var(--danger)] disabled:opacity-50">{busy ? "Memproses…" : "Tolak"}</button>
-          <button type="button" onClick={() => setMenolak(null)} className="min-h-12 border border-[var(--line)] px-4 font-semibold">Batal</button>
+          <button disabled={busy} className="rounded-md min-h-12 flex-1 border border-error/40 px-4 font-semibold text-error disabled:opacity-50">{busy ? "Memproses…" : "Tolak"}</button>
+          <button type="button" onClick={() => setMenolak(null)} className="rounded-md min-h-12 border border-outline-variant px-4 font-semibold">Batal</button>
         </div>
       </form>
     </div>}
@@ -310,24 +310,24 @@ function StatusEmail({ row, emailAktif, zone, abbr }: {
   abbr: string;
 }) {
   if (!emailAktif) {
-    return <p className="mt-2 flex items-start gap-2 text-sm text-[var(--ink-muted)]">
+    return <p className="mt-2 flex items-start gap-2 text-body-medium text-on-surface-variant">
       <EnvelopeSimple size={16} className="mt-0.5 shrink-0" />
       <span>Pengiriman email belum diaktifkan di server. Bacakan kode di atas ke pendaftar.</span>
     </p>;
   }
   if (row.email_error) {
-    return <p className="mt-2 flex items-start gap-2 text-sm text-[var(--danger)]">
+    return <p className="mt-2 flex items-start gap-2 text-body-medium text-error">
       <WarningCircle size={16} weight="fill" className="mt-0.5 shrink-0" />
       <span>Email gagal terkirim setelah {row.email_attempts}× percobaan: {row.email_error}</span>
     </p>;
   }
   if (row.email_sent_at) {
-    return <p className="mt-2 flex items-start gap-2 text-sm text-[var(--success)]">
+    return <p className="mt-2 flex items-start gap-2 text-body-medium text-success">
       <Check size={16} weight="bold" className="mt-0.5 shrink-0" />
       <span>Email terkirim {formatEventDateTime(row.email_sent_at, zone)} {abbr}</span>
     </p>;
   }
-  return <p className="mt-2 flex items-start gap-2 text-sm text-[var(--warning)]">
+  return <p className="mt-2 flex items-start gap-2 text-body-medium text-warning">
     <Hourglass size={16} className="mt-0.5 shrink-0" />
     <span>Kode belum pernah dikirim lewat email.</span>
   </p>;

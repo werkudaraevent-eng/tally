@@ -18,7 +18,7 @@ export default async function VotePage({ searchParams }: {
     // Terjadi bila tautan dibuka tanpa slug sementara ada dua event aktif —
     // dijawab dengan kalimat yang menyuruh memindai ulang, bukan halaman kosong.
     return <main className="mx-auto flex min-h-dvh w-full max-w-lg items-center px-5 py-8">
-      <p className="border border-[var(--line)] bg-[var(--surface)] p-5 text-sm text-[var(--ink-muted)]">
+      <p className="rounded-lg border border-outline-variant bg-panel p-5 text-body-medium text-on-surface-variant">
         Acara tidak dikenali. Pindai ulang QR yang tampil di layar panggung.
       </p>
     </main>;

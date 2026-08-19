@@ -47,10 +47,10 @@ type Summary = {
 const money = (value: number) => `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
 const statusBadge = (status: string): { label: string; className: string } => {
   switch (status) {
-    case "paid": return { label: "Lunas", className: "bg-[#EEF8F0] text-[var(--brand-strong)]" };
-    case "handed_over": return { label: "Diserahkan", className: "bg-[var(--surface-muted)] text-[var(--ink-muted)]" };
-    case "void": return { label: "Void", className: "bg-[#FFF2F0] text-[var(--danger)]" };
-    default: return { label: "Pending", className: "bg-[#FFF7E6] text-[#9A6B00]" };
+    case "paid": return { label: "Lunas", className: "bg-success-soft text-primary-dim" };
+    case "handed_over": return { label: "Diserahkan", className: "bg-panel-high text-on-surface-variant" };
+    case "void": return { label: "Void", className: "bg-error-soft text-error" };
+    default: return { label: "Pending", className: "bg-warning-soft text-on-warning-soft" };
   }
 };
 
@@ -127,22 +127,22 @@ export default function AdminOrdersPage() {
     await load();
   }
 
-  return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1440px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--brand)]"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
+      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
       <div className="mt-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Order management</p>
+          <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Order management</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Semua order.</h1>
-          <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">Pantau seluruh transaksi dengan filter status, booth, dan pencarian nomor stiker.</p>
+          <p className="mt-3 text-body-medium leading-6 text-on-surface-variant">Pantau seluruh transaksi dengan filter status, booth, dan pencarian nomor stiker.</p>
         </div>
         <ExportMenu />
       </div>
 
-      <div className="mt-8 flex flex-wrap items-end gap-3 border border-[var(--line)] bg-[var(--surface)] p-4">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ink-muted)]"><FunnelSimple size={18} /> Filter</div>
-        <label className="text-sm">Status
-          <select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1 block h-11 w-44 border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]">
+      <div className="rounded-lg mt-8 flex flex-wrap items-end gap-3 border border-outline-variant bg-panel p-4">
+        <div className="flex items-center gap-2 text-body-small font-semibold uppercase tracking-[0.14em] text-on-surface-variant"><FunnelSimple size={18} /> Filter</div>
+        <label className="text-body-medium">Status
+          <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-md mt-1 block h-11 w-44 border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary">
             <option value="">Semua status</option>
             <option value="pending">Pending</option>
             <option value="paid">Lunas</option>
@@ -150,68 +150,68 @@ export default function AdminOrdersPage() {
             <option value="void">Void</option>
           </select>
         </label>
-        <label className="text-sm">Booth
-          <select value={boothId} onChange={(event) => setBoothId(event.target.value)} className="mt-1 block h-11 w-44 border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]">
+        <label className="text-body-medium">Booth
+          <select value={boothId} onChange={(event) => setBoothId(event.target.value)} className="rounded-md mt-1 block h-11 w-44 border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary">
             <option value="">Semua booth</option>
             {booths.map((booth) => <option key={booth.id} value={booth.id}>{booth.code} · {booth.name}</option>)}
           </select>
         </label>
-        <label className="text-sm">Nomor stiker
-          <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Contoh: B3-014" className="mt-1 block h-11 w-48 border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]" />
+        <label className="text-body-medium">Nomor stiker
+          <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Contoh: B3-014" className="rounded-md mt-1 block h-11 w-48 border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary" />
         </label>
-        <button onClick={() => void load()} disabled={loading} className="min-h-11 bg-[var(--brand)] px-4 text-sm font-semibold text-white hover:bg-[var(--brand-strong)] disabled:opacity-50">{loading ? "Memuat..." : "Terapkan"}</button>
-        <span className="ml-auto text-sm text-[var(--ink-muted)]">{total} order</span>
+        <button onClick={() => void load()} disabled={loading} className="rounded-md min-h-11 bg-primary px-4 text-body-medium font-semibold text-on-primary hover:bg-primary-dim disabled:opacity-50">{loading ? "Memuat..." : "Terapkan"}</button>
+        <span className="ml-auto text-body-medium text-on-surface-variant">{total} order</span>
       </div>
 
-      {error && <div role="alert" className="mt-5 flex items-center gap-3 border border-[#E9C7C4] bg-[#FFF2F0] p-4 text-sm text-[var(--danger)]"><XCircle size={20} />{error}</div>}
+      {error && <div role="alert" className="rounded-lg mt-5 flex items-center gap-3 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={20} />{error}</div>}
 
       {/* Ringkasan hasil filter.
           Ditaruh DI ANTARA filter dan tabel supaya terbaca sebagai akibat dari
           filter di atasnya. Di bawah tabel ia akan terlewat, karena dengan 100
           baris tidak ada yang menggulir sampai dasar untuk memeriksa total. */}
       {summary === null
-        ? <p className="mt-6 border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-sm text-[var(--ink-muted)]">Ringkasan gagal dihitung. Angka sengaja tidak ditampilkan daripada menampilkan nilai yang belum tentu benar.</p>
+        ? <p className="rounded-lg mt-6 border border-outline-variant bg-panel-high p-4 text-body-medium text-on-surface-variant">Ringkasan gagal dihitung. Angka sengaja tidak ditampilkan daripada menampilkan nilai yang belum tentu benar.</p>
         : summary && <section className="mt-6" aria-label="Ringkasan hasil filter">
-          <div className="grid gap-px border border-[var(--line)] bg-[var(--line)] sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {/* Nilai transaksi lebih dulu dan paling besar: itu satu-satunya
                 angka yang dicari saat merekonsiliasi uang. */}
-            <div className="bg-[var(--surface)] p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">Nilai transaksi</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums">{money(summary.total_amount)}</p>
-              <p className="mt-1 text-xs text-[var(--ink-muted)]">{summary.order_count} order dihitung</p>
+            <div className="rounded-lg bg-panel p-4">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-on-surface-variant">Nilai transaksi</p>
+              <p className="mt-1 text-headline-small font-semibold tabular-nums">{money(summary.total_amount)}</p>
+              <p className="mt-1 text-body-small text-on-surface-variant">{summary.order_count} order dihitung</p>
             </div>
-            <div className="bg-[var(--surface)] p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">Belanja reguler</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums">{money(summary.regular_amount)}</p>
-              <p className="mt-1 text-xs text-[var(--ink-muted)]">Angka inilah yang masuk leaderboard</p>
+            <div className="rounded-lg bg-panel p-4">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-on-surface-variant">Belanja reguler</p>
+              <p className="mt-1 text-headline-small font-semibold tabular-nums">{money(summary.regular_amount)}</p>
+              <p className="mt-1 text-body-small text-on-surface-variant">Angka inilah yang masuk leaderboard</p>
             </div>
-            <div className="bg-[var(--surface)] p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">Item spesial</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums">{money(summary.special_amount)}</p>
-              <p className="mt-1 text-xs text-[var(--ink-muted)]">{summary.discount_item_count} order pakai item diskon</p>
+            <div className="rounded-lg bg-panel p-4">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-on-surface-variant">Item spesial</p>
+              <p className="mt-1 text-headline-small font-semibold tabular-nums">{money(summary.special_amount)}</p>
+              <p className="mt-1 text-body-small text-on-surface-variant">{summary.discount_item_count} order pakai item diskon</p>
             </div>
             {/* Void dipisah, TIDAK dicampur ke total. Mencampurnya membuat angka
                 di sini tidak cocok dengan Reports dan leaderboard, yang keduanya
                 hanya menghitung paid/handed_over — dan satu angka yang tidak bisa
                 dijelaskan asalnya menghentikan seluruh rekonsiliasi. */}
-            <div className="bg-[var(--surface)] p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">Void (tidak dihitung)</p>
-              <p className={`mt-1 text-2xl font-semibold tabular-nums ${summary.void_count > 0 ? "text-[var(--danger)]" : "text-[var(--ink-muted)]"}`}>{summary.void_count}</p>
-              <p className="mt-1 text-xs text-[var(--ink-muted)]">{summary.void_count > 0 ? `Senilai ${money(summary.void_amount)}` : "Tidak ada order dibatalkan"}</p>
+            <div className="rounded-lg bg-panel p-4">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-on-surface-variant">Void (tidak dihitung)</p>
+              <p className={`mt-1 text-headline-small font-semibold tabular-nums ${summary.void_count > 0 ? "text-error" : "text-on-surface-variant"}`}>{summary.void_count}</p>
+              <p className="mt-1 text-body-small text-on-surface-variant">{summary.void_count > 0 ? `Senilai ${money(summary.void_amount)}` : "Tidak ada order dibatalkan"}</p>
             </div>
           </div>
           {/* Cakupan ditulis eksplisit. Tabel hanya memuat 100 baris pertama,
               jadi tanpa keterangan ini orang wajar menyangka totalnya berasal
               dari yang terlihat saja. */}
-          <p className="mt-2 text-xs text-[var(--ink-muted)]">
+          <p className="mt-2 text-body-small text-on-surface-variant">
             Dihitung dari seluruh {total} order yang cocok dengan filter, bukan hanya {orders.length} baris yang tampil di tabel.
           </p>
         </section>}
 
-      <section className="mt-6 border border-[var(--line)] bg-[var(--surface)]">
+      <section className="rounded-lg mt-6 border border-outline-variant bg-panel">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1040px] text-sm">
-            <thead><tr className="border-b border-[var(--line)] text-left text-xs uppercase tracking-[0.12em] text-[var(--ink-muted)]">
+          <table className="w-full min-w-[1040px] text-body-medium">
+            <thead><tr className="border-b border-outline-variant text-left text-body-small uppercase tracking-[0.12em] text-on-surface-variant">
               <th className="px-4 py-3 font-semibold">Order</th>
               <th className="px-4 py-3 font-semibold">Peserta</th>
               <th className="px-4 py-3 font-semibold">Booth</th>
@@ -231,13 +231,13 @@ export default function AdminOrdersPage() {
                   bertambah bagi admin biasa yang tidak punya tombol apa pun. */}
               {isOwner && <th className="px-4 py-3 text-right font-semibold">Aksi</th>}
             </tr></thead>
-            <tbody className="divide-y divide-[var(--line)]">
-              {orders.length === 0 ? <tr><td colSpan={isOwner ? 10 : 9} className="px-4 py-12 text-center text-[var(--ink-muted)]"><ListChecks size={38} className="mx-auto mb-3 opacity-40" />Tidak ada order cocok.</td></tr> : orders.map((order) => {
+            <tbody className="divide-y divide-outline-variant">
+              {orders.length === 0 ? <tr><td colSpan={isOwner ? 10 : 9} className="px-4 py-12 text-center text-on-surface-variant"><ListChecks size={38} className="mx-auto mb-3 opacity-40" />Tidak ada order cocok.</td></tr> : orders.map((order) => {
                 const badge = statusBadge(order.status);
                 const items = order.order_special_items ?? [];
-                return <tr key={order.id} className="align-top hover:bg-[var(--surface-muted)]">
-                  <td className="px-4 py-3"><p className="font-semibold">{order.code}</p><p className="text-xs text-[var(--ink-muted)]">{order.has_discount_item ? "Item diskon" : "Reguler"}</p></td>
-                  <td className="px-4 py-3"><p className="font-medium">{order.participants?.name ?? "—"}</p><p className="text-xs text-[var(--ink-muted)]">{order.participants?.company ?? ""}</p></td>
+                return <tr key={order.id} className="align-top hover:bg-panel-high">
+                  <td className="px-4 py-3"><p className="font-semibold">{order.code}</p><p className="text-body-small text-on-surface-variant">{order.has_discount_item ? "Item diskon" : "Reguler"}</p></td>
+                  <td className="px-4 py-3"><p className="font-medium">{order.participants?.name ?? "—"}</p><p className="text-body-small text-on-surface-variant">{order.participants?.company ?? ""}</p></td>
                   {/* Kode booth dibaca dari data booth, BUKAN dibentuk dari `B` + booth_id.
                       Kode booth bebas huruf (mis. PH), jadi menyusunnya dari id menampilkan
                       booth PH sebagai "B8". Kebetulan cocok untuk B1..B7 karena id-nya sama
@@ -246,29 +246,29 @@ export default function AdminOrdersPage() {
                   <td className="px-4 py-3">{booths.find((item) => item.id === order.booth_id)?.code ?? `#${order.booth_id}`}</td>
                   {/* Nominal reguler ikut dirinci: tanpa itu order Rp 75.000 tanpa item spesial
                       terlihat kosong, padahal isinya belanja reguler. */}
-                  <td className="px-4 py-3 text-xs">
+                  <td className="px-4 py-3 text-body-small">
                     {order.regular_amount > 0
-                      ? <p>Item reguler <span className="tabular-nums text-[var(--ink-muted)]">{money(order.regular_amount)}</span></p>
+                      ? <p>Item reguler <span className="tabular-nums text-on-surface-variant">{money(order.regular_amount)}</span></p>
                       : null}
                     {items.map((item, index) => <p key={`${item.special_offers?.code ?? "item"}-${index}`}>
-                      {item.special_offers?.name ?? "Item dihapus"} <span className="tabular-nums text-[var(--ink-muted)]">{money(item.price_at_claim)}</span>
+                      {item.special_offers?.name ?? "Item dihapus"} <span className="tabular-nums text-on-surface-variant">{money(item.price_at_claim)}</span>
                     </p>)}
                     {order.regular_amount === 0 && items.length === 0
-                      ? <span className="text-[var(--ink-muted)]">—</span>
+                      ? <span className="text-on-surface-variant">—</span>
                       : null}
                   </td>
                   <td className="px-4 py-3">{order.status === "void" && order.void_reason ? <span title={order.void_reason} className={`inline-flex rounded-sm px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>{badge.label}</span> : <span className={`inline-flex rounded-sm px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>{badge.label}</span>}</td>
                   <td className="px-4 py-3 text-right font-semibold tabular-nums">{money(order.total_amount)}</td>
-                  <td className="px-4 py-3 text-xs tabular-nums text-[var(--ink-muted)]">{dateTime(order.created_at)}</td>
-                  <td className="px-4 py-3 text-xs tabular-nums text-[var(--ink-muted)]">{dateTime(order.paid_at)}</td>
-                  <td className="px-4 py-3 text-xs text-[var(--ink-muted)]">{order.payment_method ? order.payment_method.toUpperCase() : "—"}{order.approval_code ? ` · ${order.approval_code}` : ""}</td>
+                  <td className="px-4 py-3 text-body-small tabular-nums text-on-surface-variant">{dateTime(order.created_at)}</td>
+                  <td className="px-4 py-3 text-body-small tabular-nums text-on-surface-variant">{dateTime(order.paid_at)}</td>
+                  <td className="px-4 py-3 text-body-small text-on-surface-variant">{order.payment_method ? order.payment_method.toUpperCase() : "—"}{order.approval_code ? ` · ${order.approval_code}` : ""}</td>
                   {/* Order yang sudah void tidak punya tombol: mem-void ulang
                       tidak melakukan apa-apa, dan tombol yang selalu gagal
                       membuat staf mengira sistemnya rusak. */}
                   {isOwner && <td className="px-4 py-3 text-right">
                     {order.status === "void"
-                      ? <span className="text-xs text-[var(--ink-muted)]">—</span>
-                      : <button type="button" onClick={() => { setVoidTarget(order); setVoidReason(""); setError(""); }} className="inline-flex min-h-9 items-center gap-1.5 border border-[var(--line)] px-2.5 text-xs font-semibold text-[var(--danger)] hover:border-[var(--danger)]"><Prohibit size={15} /> Void</button>}
+                      ? <span className="text-body-small text-on-surface-variant">—</span>
+                      : <button type="button" onClick={() => { setVoidTarget(order); setVoidReason(""); setError(""); }} className="rounded-sm inline-flex min-h-9 items-center gap-1.5 border border-outline-variant px-2.5 text-body-small font-semibold text-error hover:border-error"><Prohibit size={15} /> Void</button>}
                   </td>}
                 </tr>;
               })}
@@ -283,38 +283,38 @@ export default function AdminOrdersPage() {
           konfirmasi di dalam baris bisa berada di luar layar saat tombolnya
           ditekan. window.confirm juga tidak dipakai — ia tidak bisa memuat
           kolom alasan yang wajib diisi. */}
-      {voidTarget && <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="void-title">
-        <div className="w-full max-w-lg border border-[var(--line)] bg-[var(--surface)] p-6">
-          <p id="void-title" className="flex items-center gap-2 text-lg font-semibold"><Prohibit size={22} className="shrink-0 text-[var(--danger)]" /> Void order {voidTarget.code}?</p>
+      {voidTarget && <div className="fixed inset-0 z-50 flex items-end justify-center bg-scrim/50 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="void-title">
+        <div className="rounded-lg w-full max-w-lg border border-outline-variant bg-panel p-6">
+          <p id="void-title" className="flex items-center gap-2 text-lg font-semibold"><Prohibit size={22} className="shrink-0 text-error" /> Void order {voidTarget.code}?</p>
 
           {/* Ringkasan order. Nomor stiker saja tidak cukup untuk memastikan
               baris yang benar — dua booth bisa punya nomor berdekatan, dan yang
               dibatalkan adalah transaksi milik orang sungguhan. */}
-          <div className="mt-4 space-y-1 border border-[var(--line)] bg-[var(--surface-muted)] p-4 text-sm">
+          <div className="rounded-lg mt-4 space-y-1 border border-outline-variant bg-panel-high p-4 text-body-medium">
             <p className="font-semibold">{voidTarget.participants?.name ?? "—"}</p>
-            {voidTarget.participants?.company && <p className="text-xs text-[var(--ink-muted)]">{voidTarget.participants.company}</p>}
+            {voidTarget.participants?.company && <p className="text-body-small text-on-surface-variant">{voidTarget.participants.company}</p>}
             <p className="pt-1 tabular-nums">{money(voidTarget.total_amount)} · {booths.find((item) => item.id === voidTarget.booth_id)?.code ?? `#${voidTarget.booth_id}`} · {statusBadge(voidTarget.status).label}</p>
           </div>
 
           {/* Akibatnya ditulis, bukan diringkas jadi "yakin?". Void mengubah
               angka yang sedang tampil di proyektor, dan itu tidak jelas dari
               nama tombolnya. */}
-          <ul className="mt-4 space-y-1.5 text-xs leading-5 text-[var(--ink-muted)]">
+          <ul className="mt-4 space-y-1.5 text-body-small leading-5 text-on-surface-variant">
             <li>· Nilainya keluar dari leaderboard top spender dan dari Reports.</li>
             <li>· Kuota item diskon peserta kembali tersedia.</li>
             <li>· Barisnya TETAP ada dengan status Void — riwayat dan nomor stikernya tidak hilang.</li>
-            {voidTarget.status === "handed_over" && <li className="font-semibold text-[var(--warning)]">· Barang sudah diserahkan ke peserta. Void tidak menariknya kembali, hanya mencatat pembatalannya.</li>}
+            {voidTarget.status === "handed_over" && <li className="font-semibold text-warning">· Barang sudah diserahkan ke peserta. Void tidak menariknya kembali, hanya mencatat pembatalannya.</li>}
           </ul>
 
-          <label htmlFor="void-reason" className="mt-4 block text-sm font-semibold">Alasan void <span className="font-normal text-[var(--ink-muted)]">(wajib)</span></label>
-          <input id="void-reason" value={voidReason} onChange={(event) => setVoidReason(event.target.value)} maxLength={500} autoFocus placeholder="mis. salah input nominal" className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]" />
-          <p className="mt-2 text-xs text-[var(--ink-muted)]">Tersimpan permanen di audit trail bersama nama Anda. Ini satu-satunya keterangan kenapa nomor stiker ini tidak terhitung.</p>
+          <label htmlFor="void-reason" className="mt-4 block text-body-medium font-semibold">Alasan void <span className="font-normal text-on-surface-variant">(wajib)</span></label>
+          <input id="void-reason" value={voidReason} onChange={(event) => setVoidReason(event.target.value)} maxLength={500} autoFocus placeholder="mis. salah input nominal" className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary" />
+          <p className="mt-2 text-body-small text-on-surface-variant">Tersimpan permanen di audit trail bersama nama Anda. Ini satu-satunya keterangan kenapa nomor stiker ini tidak terhitung.</p>
 
-          {error && <p role="alert" className="mt-3 border border-[#E9C7C4] bg-[#FFF2F0] p-3 text-xs text-[var(--danger)]">{error}</p>}
+          {error && <p role="alert" className="rounded-lg mt-3 border border-error-soft-outline bg-error-soft p-3 text-body-small text-error">{error}</p>}
 
           <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
-            <button type="button" onClick={() => void confirmVoid()} disabled={voiding || voidReason.trim().length < 3} className="flex min-h-12 items-center justify-center gap-2 bg-[var(--danger)] px-5 text-sm font-semibold text-white disabled:opacity-40"><Prohibit size={18} /> {voiding ? "Membatalkan..." : "Ya, void order ini"}</button>
-            <button type="button" onClick={() => { setVoidTarget(null); setVoidReason(""); setError(""); }} disabled={voiding} className="flex min-h-12 items-center justify-center border border-[var(--line)] px-5 text-sm font-semibold disabled:opacity-40">Batal</button>
+            <button type="button" onClick={() => void confirmVoid()} disabled={voiding || voidReason.trim().length < 3} className="rounded-md flex min-h-12 items-center justify-center gap-2 bg-error px-5 text-body-medium font-semibold text-on-error disabled:opacity-40"><Prohibit size={18} /> {voiding ? "Membatalkan..." : "Ya, void order ini"}</button>
+            <button type="button" onClick={() => { setVoidTarget(null); setVoidReason(""); setError(""); }} disabled={voiding} className="rounded-md flex min-h-12 items-center justify-center border border-outline-variant px-5 text-body-medium font-semibold disabled:opacity-40">Batal</button>
           </div>
         </div>
       </div>}

@@ -38,7 +38,7 @@ export type BrandHeaderProps = {
 // string aslinya tanpa disentuh.
 //
 // Nilai `compact` untuk judul menyalin kelas Tailwind yang dipakai /denah
-// sebelumnya, bukan angka yang kelihatan sepadan: `text-2xl sm:text-3xl` berarti
+// sebelumnya, bukan angka yang kelihatan sepadan: `text-headline-small sm:text-3xl` berarti
 // 24px di bawah 640px dan 30px di atasnya, dan rumus `4.7vw` mencapai tepat 30px
 // pada 640px sehingga peralihannya jatuh di titik yang sama dengan breakpoint
 // `sm:` yang digantikannya.

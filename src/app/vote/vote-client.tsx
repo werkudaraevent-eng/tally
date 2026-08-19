@@ -189,18 +189,18 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
 
   return <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-5 px-5 py-8">
     <header>
-      <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: accent }}>{eventName}</p>
-      <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Voting</h1>
+      <p className="text-body-small font-semibold uppercase tracking-[0.18em]" style={{ color: accent }}>{eventName}</p>
+      <h1 className="mt-2 text-headline-small font-semibold tracking-[-0.03em]">Voting</h1>
     </header>
 
-    {loading ? <p className="text-sm text-[var(--ink-muted)]">Memuat…</p>
-      : !poll ? <p className="border border-[var(--line)] bg-[var(--surface)] p-5 text-sm text-[var(--ink-muted)]">
+    {loading ? <p className="text-body-medium text-on-surface-variant">Memuat…</p>
+      : !poll ? <p className="rounded-lg border border-outline-variant bg-panel p-5 text-body-medium text-on-surface-variant">
           Belum ada voting yang dibuka. Biarkan halaman ini terbuka — pertanyaannya akan muncul sendiri.
         </p>
-      : <section className="border border-[var(--line)] bg-[var(--surface)] p-5">
+      : <section className="rounded-lg border border-outline-variant bg-panel p-5">
           <h2 className="text-lg font-semibold leading-6">{poll.question}</h2>
-          {poll.description && <p className="mt-2 text-sm text-[var(--ink-muted)]">{poll.description}</p>}
-          <p className="mt-2 text-xs text-[var(--ink-muted)]">
+          {poll.description && <p className="mt-2 text-body-medium text-on-surface-variant">{poll.description}</p>}
+          <p className="mt-2 text-body-small text-on-surface-variant">
             {poll.type === "multi" ? `Pilih maksimal ${poll.max_choices}.`
               : poll.type === "rating" ? `Beri nilai 1 sampai ${poll.rating_max}.`
               : poll.type === "wordcloud" ? `Ketik maksimal ${poll.max_words} kata.`
@@ -208,11 +208,11 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
             {poll.voter_mode === "participant_code" ? " Butuh kode peserta di badge Anda." : ""}
           </p>
 
-          {alreadyVoted && <p role="status" className="mt-4 border border-[#B9DCC5] bg-[#EEF8F0] p-3 text-sm font-semibold text-[var(--brand-strong)]">
+          {alreadyVoted && <p role="status" className="rounded-lg mt-4 border border-success-soft-outline bg-success-soft p-3 text-body-medium font-semibold text-primary-dim">
             Suara Anda sudah tercatat. Terima kasih.
           </p>}
 
-          {poll.status !== "open" && !alreadyVoted && <p className="mt-4 border border-[#E6D3AE] bg-[#FDF6E7] p-3 text-sm text-[var(--warning)]">
+          {poll.status !== "open" && !alreadyVoted && <p className="rounded-lg mt-4 border border-warning-soft-outline bg-warning-soft p-3 text-body-medium text-warning">
             {poll.status === "closed" ? "Voting sudah ditutup." : "Voting belum dibuka. Tunggu aba-aba dari panggung."}
           </p>}
 
@@ -225,11 +225,11 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
                 onClick={() => { setRating(value); setError(""); }}
                 disabled={alreadyVoted || poll.status !== "open" || sending}
                 aria-pressed={rating === value}
-                className={`min-h-14 flex-1 border text-lg font-bold tabular-nums disabled:opacity-70 ${rating === value ? "border-[var(--brand)] text-white" : "border-[var(--line)]"}`}
+                className={`rounded-md min-h-14 flex-1 border text-lg font-bold tabular-nums disabled:opacity-70 ${rating === value ? "border-primary bg-primary text-on-primary" : "border-outline-variant"}`}
                 style={rating === value ? { background: accent } : undefined}
               >{value}</button>)}
             </div>
-            {(poll.rating_min_label || poll.rating_max_label) && <div className="mt-2 flex justify-between text-xs text-[var(--ink-muted)]">
+            {(poll.rating_min_label || poll.rating_max_label) && <div className="mt-2 flex justify-between text-body-small text-on-surface-variant">
               <span>{poll.rating_min_label}</span><span>{poll.rating_max_label}</span>
             </div>}
           </div>}
@@ -247,9 +247,9 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
               disabled={alreadyVoted || poll.status !== "open" || sending}
               placeholder={index === 0 ? "Kata pertama" : `Kata ke-${index + 1} (opsional)`}
               maxLength={40}
-              className="h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)] disabled:opacity-70"
+              className="rounded-md h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary disabled:opacity-70"
             />)}
-            <p className="text-xs text-[var(--ink-muted)]">
+            <p className="text-body-small text-on-surface-variant">
               Satu kata per kolom. Tanda baca dan huruf besar-kecil diseragamkan supaya kata yang sama tidak terpecah di layar.
             </p>
           </div>}
@@ -265,7 +265,7 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
                   onClick={() => toggle(option.id)}
                   disabled={disabled}
                   aria-pressed={active}
-                  className={`relative flex min-h-14 w-full items-center justify-between gap-3 overflow-hidden border py-2 pl-2 pr-4 text-left text-sm font-semibold disabled:opacity-70 ${active ? "border-[var(--brand)]" : "border-[var(--line)]"}`}
+                  className={`rounded-md relative flex min-h-14 w-full items-center justify-between gap-3 overflow-hidden border py-2 pl-2 pr-4 text-left text-body-medium font-semibold disabled:opacity-70 ${active ? "border-primary" : "border-outline-variant"}`}
                 >
                   {/* Bar hasil digambar DI DALAM tombol, bukan sebagai elemen
                       terpisah di bawahnya: pada layar HP yang sempit, dua baris
@@ -278,7 +278,7 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
                   {option.image_url && <img src={option.image_url} alt="" aria-hidden="true" className="relative size-12 shrink-0 object-cover" />}
                   <span className="relative min-w-0 flex-1 truncate">{option.label}</span>
                   {poll.results_visible
-                    ? <span className="relative shrink-0 tabular-nums text-[var(--ink-muted)]">{percentages[index]}%</span>
+                    ? <span className="relative shrink-0 tabular-nums text-on-surface-variant">{percentages[index]}%</span>
                     : active && <span className="relative shrink-0" style={{ color: accent }}>✓</span>}
                 </button>
               </li>;
@@ -287,63 +287,63 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
 
           {/* ---- Pilih nama dari daftar ---- */}
           {poll.voter_mode === "participant_pick" && !alreadyVoted && poll.status === "open" && <div className="mt-4">
-            <label className="block text-sm font-semibold">Nama Anda
+            <label className="block text-body-medium font-semibold">Nama Anda
               <input
                 value={picked ? picked.name : nameQuery}
                 onChange={(event) => { setPicked(null); setNameQuery(event.target.value); setError(""); }}
                 placeholder="Ketik minimal 3 huruf"
                 autoComplete="off"
-                className="mt-1.5 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]"
+                className="rounded-md mt-1.5 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary"
               />
             </label>
             {/* Hasil hanya tampil selama belum ada yang dipilih: daftar yang
                 tetap terbuka setelah pemilihan membuat orang mengira pilihannya
                 belum tersimpan. */}
-            {!picked && nameResults.length > 0 && <ul className="mt-2 max-h-52 divide-y divide-[var(--line)] overflow-y-auto border border-[var(--line)]">
+            {!picked && nameResults.length > 0 && <ul className="rounded-lg mt-2 max-h-52 divide-y divide-outline-variant overflow-y-auto border border-outline-variant">
               {nameResults.map((person) => <li key={person.id}>
-                <button type="button" onClick={() => { setPicked({ id: person.id, name: person.name }); setNameResults([]); }} className="min-h-12 w-full px-3 py-2 text-left text-sm hover:bg-[var(--surface-muted)]">
+                <button type="button" onClick={() => { setPicked({ id: person.id, name: person.name }); setNameResults([]); }} className="min-h-12 w-full px-3 py-2 text-left text-body-medium hover:bg-panel-high">
                   <span className="block font-semibold">{person.name}</span>
-                  {person.company && <span className="block text-xs text-[var(--ink-muted)]">{person.company}</span>}
+                  {person.company && <span className="block text-body-small text-on-surface-variant">{person.company}</span>}
                 </button>
               </li>)}
             </ul>}
-            {!picked && nameQuery.trim().length >= 3 && nameResults.length === 0 && <p className="mt-2 text-xs text-[var(--ink-muted)]">Tidak ada nama yang cocok.</p>}
+            {!picked && nameQuery.trim().length >= 3 && nameResults.length === 0 && <p className="mt-2 text-body-small text-on-surface-variant">Tidak ada nama yang cocok.</p>}
           </div>}
 
           {/* ---- Ketik nama sendiri ---- */}
-          {poll.voter_mode === "name_text" && !alreadyVoted && poll.status === "open" && <label className="mt-4 block text-sm font-semibold">Nama Anda
+          {poll.voter_mode === "name_text" && !alreadyVoted && poll.status === "open" && <label className="mt-4 block text-body-medium font-semibold">Nama Anda
             <input
               value={name}
               onChange={(event) => { setName(event.target.value); setError(""); }}
               placeholder="Nama yang akan tercatat"
               autoComplete="name"
-              className="mt-1.5 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]"
+              className="rounded-md mt-1.5 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary"
             />
           </label>}
 
-          {poll.voter_mode === "participant_code" && !alreadyVoted && poll.status === "open" && <label className="mt-4 block text-sm font-semibold">Kode peserta
+          {poll.voter_mode === "participant_code" && !alreadyVoted && poll.status === "open" && <label className="mt-4 block text-body-medium font-semibold">Kode peserta
             <input
               value={code}
               onChange={(event) => setCode(event.target.value)}
               placeholder="Contoh: REG159425"
               autoCapitalize="characters"
               autoComplete="off"
-              className="mt-1.5 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-3 font-mono text-sm outline-none focus:border-[var(--brand)]"
+              className="rounded-md mt-1.5 h-12 w-full border border-outline-variant bg-surface px-3 font-mono text-body-medium outline-none focus:border-primary"
             />
           </label>}
 
-          {error && <p role="alert" className="mt-4 border border-[#E9C7C4] bg-[#FFF2F0] p-3 text-sm text-[var(--danger)]">{error}</p>}
+          {error && <p role="alert" className="rounded-lg mt-4 border border-error-soft-outline bg-error-soft p-3 text-body-medium text-error">{error}</p>}
 
           {!alreadyVoted && poll.status === "open" && <button
             type="button"
             onClick={() => void submit()}
             disabled={sending || !answerReady() || !identityReady()}
-            className="mt-5 min-h-14 w-full bg-[var(--brand)] px-4 text-base font-semibold text-white disabled:opacity-40"
+            className="rounded-md mt-5 min-h-14 w-full bg-primary px-4 text-body-large font-semibold text-on-primary disabled:opacity-40"
           >
             {sending ? "Mengirim…" : "Kirim suara"}
           </button>}
 
-          {poll.results_visible && poll.total_ballots !== null && <p className="mt-4 text-center text-xs text-[var(--ink-muted)]">
+          {poll.results_visible && poll.total_ballots !== null && <p className="mt-4 text-center text-body-small text-on-surface-variant">
             {poll.total_ballots} orang sudah memilih
           </p>}
         </section>}

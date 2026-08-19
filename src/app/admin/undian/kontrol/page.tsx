@@ -160,31 +160,31 @@ export default function UndianControlPage() {
   // paling perlu diuji ulang.
   const drawBlocked = quotaFull && !rehearsal;
 
-  return <main className="min-h-dvh bg-[var(--background)] px-5 py-6 text-[var(--ink)] sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1440px]">
-      <Link href="/admin/undian" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--brand)]">
+      <Link href="/admin/undian" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary">
         <ArrowLeft size={18} /> Kembali ke CMS Undian
       </Link>
 
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Kontrol undian</p>
+          <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Kontrol undian</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Panel operator.</h1>
         </div>
-        <Link href="/undian?fullscreen=1" target="_blank" className="flex min-h-12 items-center gap-2 border border-[var(--line)] px-5 text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+        <Link href="/undian?fullscreen=1" target="_blank" className="rounded-md flex min-h-12 items-center gap-2 border border-outline-variant px-5 text-body-medium font-semibold hover:border-primary hover:text-primary">
           <ArrowSquareOut size={18} /> Buka layar panggung
         </Link>
       </div>
 
-      {error && <p className="mt-5 flex items-start gap-2 border border-[var(--danger)] bg-[#FDECEC] p-4 text-sm text-[var(--danger)]">
+      {error && <p className="rounded-lg mt-5 flex items-start gap-2 border border-error bg-error-soft p-4 text-body-medium text-error">
         <Warning size={18} className="mt-0.5 shrink-0" /> {error}
       </p>}
 
       {/* --- Saklar mode --- */}
-      <section className="mt-8 flex flex-wrap items-center justify-between gap-4 border border-[var(--line)] bg-[var(--surface)] p-5">
+      <section className="rounded-lg mt-8 flex flex-wrap items-center justify-between gap-4 border border-outline-variant bg-panel p-5">
         <div>
-          <p className="text-sm font-semibold">Layar panggung {state?.mode === "live" ? "AKTIF" : "mati"}</p>
-          <p className="mt-1 text-xs text-[var(--ink-muted)]">
+          <p className="text-body-medium font-semibold">Layar panggung {state?.mode === "live" ? "AKTIF" : "mati"}</p>
+          <p className="mt-1 text-body-small text-on-surface-variant">
             {state?.mode === "live"
               ? "Layar /undian menampilkan hadiah dan hasil undian."
               : "Layar /undian diam. Nyalakan sebelum sesi undian dimulai."}
@@ -194,7 +194,7 @@ export default function UndianControlPage() {
           type="button"
           onClick={() => send({ action: "mode", mode: state?.mode === "live" ? "off" : "live" }, "mode")}
           disabled={busy !== null}
-          className={`flex min-h-12 items-center gap-2 border px-6 text-sm font-semibold disabled:opacity-60 ${state?.mode === "live" ? "border-[var(--line)]" : "border-[var(--brand)] bg-[var(--brand)] text-white"}`}
+          className={`rounded-md flex min-h-12 items-center gap-2 border px-6 text-body-medium font-semibold disabled:opacity-60 ${state?.mode === "live" ? "border-outline-variant" : "border-primary bg-primary text-on-primary"}`}
         >
           <Power size={18} /> {state?.mode === "live" ? "Matikan layar" : "Nyalakan layar"}
         </button>
@@ -209,13 +209,13 @@ export default function UndianControlPage() {
 
           Warnanya oranye, tidak mengikuti warna brand: keadaan ini harus terbaca
           sebagai "sedang tidak normal" dari ujung ruangan. */}
-      <section className={`mt-px flex flex-wrap items-center justify-between gap-4 border p-5 ${rehearsal ? "border-[#b45309] bg-[#FFF7ED]" : "border-[var(--line)] bg-[var(--surface)]"}`}>
+      <section className={`rounded-lg mt-px flex flex-wrap items-center justify-between gap-4 border p-5 ${rehearsal ? "border-warning-soft-outline bg-warning-soft" : "border-outline-variant bg-panel"}`}>
         <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-            {rehearsal && <Flask size={18} weight="fill" className="text-[#b45309]" />}
+          <p className="flex flex-wrap items-center gap-2 text-body-medium font-semibold">
+            {rehearsal && <Flask size={18} weight="fill" className="text-on-warning-soft" />}
             Mode latihan {rehearsal ? "AKTIF" : "mati"}
           </p>
-          <p className="mt-1 text-xs text-[var(--ink-muted)]">
+          <p className="mt-1 text-body-small text-on-surface-variant">
             {rehearsal
               ? "Undian berjalan normal di layar, tetapi pemenang TIDAK dicatat dan kuota tidak terpakai. Matikan sebelum undian sungguhan."
               : "Untuk gladi bersih. Undian berjalan seperti biasa tetapi hasilnya tidak disimpan, jadi tidak perlu dibersihkan sebelum acara."}
@@ -225,7 +225,7 @@ export default function UndianControlPage() {
           type="button"
           onClick={() => send({ action: "rehearsal", on: !rehearsal }, "rehearsal")}
           disabled={busy !== null || spinning}
-          className={`flex min-h-12 items-center gap-2 border px-6 text-sm font-semibold disabled:opacity-60 ${rehearsal ? "border-[#b45309] bg-[#b45309] text-white" : "border-[var(--line)]"}`}
+          className={`rounded-md flex min-h-12 items-center gap-2 border px-6 text-body-medium font-semibold disabled:opacity-60 ${rehearsal ? "border-warning-soft-outline bg-warning text-on-warning" : "border-outline-variant"}`}
         >
           {rehearsal ? "Selesai latihan" : "Mulai latihan"}
         </button>
@@ -234,10 +234,10 @@ export default function UndianControlPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
         {/* --- Pilih hadiah --- */}
         <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Pilih hadiah</h2>
-          {prizes.length === 0 ? <p className="border border-dashed border-[var(--line)] p-8 text-center text-sm text-[var(--ink-muted)]">
-            Belum ada hadiah aktif. Tambahkan di <Link href="/admin/undian" className="font-semibold text-[var(--brand)] underline">CMS Undian</Link>.
-          </p> : <div className="space-y-px border border-[var(--line)] bg-[var(--line)]">
+          <h2 className="mb-3 text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Pilih hadiah</h2>
+          {prizes.length === 0 ? <p className="rounded-lg border border-dashed border-outline-variant p-8 text-center text-body-medium text-on-surface-variant">
+            Belum ada hadiah aktif. Tambahkan di <Link href="/admin/undian" className="font-semibold text-primary underline">CMS Undian</Link>.
+          </p> : <div className="space-y-2">
             {prizes.map((prize) => {
               const used = winnerCounts[prize.id] ?? 0;
               const full = used >= prize.winner_quota;
@@ -249,19 +249,19 @@ export default function UndianControlPage() {
                 // sudah ditentukan dan belum sempat tampil.
                 onClick={() => send({ action: "select", prize_id: prize.id }, `select-${prize.id}`)}
                 disabled={busy !== null || spinning}
-                className={`flex w-full items-center gap-3 p-4 text-left disabled:opacity-60 ${active ? "bg-[#E8ECFB] ring-2 ring-inset ring-[var(--brand)]" : "bg-[var(--surface)] hover:bg-[#F7F8FC]"}`}
+                className={`flex w-full items-center gap-3 p-4 text-left disabled:opacity-60 ${active ? "bg-primary-soft ring-2 ring-inset ring-primary" : "bg-panel hover:bg-surface-container-high"}`}
               >
                 {prize.image_url
                   ? <ImagePreview url={prize.image_url} alt="" className="h-12 w-12" />
-                  : <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-dashed border-[var(--line)] text-[var(--ink-muted)]"><Gift size={18} /></div>}
+                  : <div className="rounded-md flex h-12 w-12 shrink-0 items-center justify-center border border-dashed border-outline-variant text-on-surface-variant"><Gift size={18} /></div>}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{prize.name}</p>
-                  <p className="text-xs tabular-nums text-[var(--ink-muted)]">
+                  <p className="truncate text-body-medium font-semibold">{prize.name}</p>
+                  <p className="text-body-small tabular-nums text-on-surface-variant">
                     {used}/{prize.winner_quota} pemenang · {ANIMATIONS.find((item) => item.value === prize.animation)?.label}
                   </p>
                 </div>
                 {full && <span
-                  className="shrink-0 border border-[var(--line)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--ink-muted)]"
+                  className="rounded-sm shrink-0 border border-outline-variant px-1.5 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant"
                   // "Penuh" saja terbaca sebagai "hadiah ini habis selamanya",
                   // dan tafsir itulah yang membuat orang membuat hadiah duplikat
                   // atau menghapus hasil undian. Kuota dihitung per SESI.
@@ -275,12 +275,12 @@ export default function UndianControlPage() {
         </section>
 
         {/* --- Panel undi --- */}
-        <section className="space-y-px self-start border border-[var(--line)] bg-[var(--line)]">
-          <div className="bg-[var(--surface)] p-6">
-            {!state?.prize ? <p className="py-8 text-center text-sm text-[var(--ink-muted)]">Pilih hadiah untuk mulai mengundi.</p> : <>
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Sedang diundi</p>
-              <p className="mt-2 text-2xl font-semibold tracking-[-0.03em]">{state.prize.name}</p>
-              <p className="mt-1 text-sm tabular-nums text-[var(--ink-muted)]">
+        <section className="rounded-lg overflow-hidden space-y-px self-start border border-outline-variant bg-outline-variant">
+          <div className="rounded-lg bg-panel p-6">
+            {!state?.prize ? <p className="py-8 text-center text-body-medium text-on-surface-variant">Pilih hadiah untuk mulai mengundi.</p> : <>
+              <p className="text-body-small font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Sedang diundi</p>
+              <p className="mt-2 text-headline-small font-semibold tracking-[-0.03em]">{state.prize.name}</p>
+              <p className="mt-1 text-body-medium tabular-nums text-on-surface-variant">
                 {quotaUsed}/{state.prize.winner_quota} pemenang
                 {state.pool_size > 0 && ` · ${state.pool_size} nama di kolam`}
               </p>
@@ -288,14 +288,14 @@ export default function UndianControlPage() {
               {/* Pada mode manual tidak ada angka yang bisa dihitung mundur.
                   Menampilkan "0.0" di sana akan terbaca sebagai animasi yang
                   macet, padahal justru itulah perilaku yang diminta. */}
-              {spinning && <div className="mt-5 border border-[var(--brand)] bg-[#E8ECFB] p-5 text-center">
-                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--brand-strong)]">Sedang mengundi</p>
+              {spinning && <div className="rounded-lg mt-5 border border-primary bg-primary-soft p-5 text-center">
+                <p className="text-body-small font-semibold uppercase tracking-[0.15em] text-primary-dim">Sedang mengundi</p>
                 {manualSpin
-                  ? <p className="mt-2 flex items-center justify-center gap-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--brand-strong)]">
-                      <span className="inline-block size-2.5 animate-pulse rounded-full bg-[var(--brand)]" /> Menunggu aba-aba
+                  ? <p className="mt-2 flex items-center justify-center gap-2 text-headline-small font-semibold tracking-[-0.03em] text-primary-dim">
+                      <span className="inline-block size-2.5 animate-pulse rounded-full bg-primary" /> Menunggu aba-aba
                     </p>
-                  : <p className="mt-2 text-5xl font-semibold tabular-nums tracking-[-0.05em] text-[var(--brand-strong)]">{countdown.toFixed(1)}</p>}
-                <p className="mt-2 text-xs text-[var(--brand-strong)]/80">
+                  : <p className="mt-2 text-5xl font-semibold tabular-nums tracking-[-0.05em] text-primary-dim">{countdown.toFixed(1)}</p>}
+                <p className="mt-2 text-body-small text-primary-dim/80">
                   {manualSpin
                     ? "Roda berputar sampai Anda menekan Berhenti. Pemenang sudah ditentukan dan tersimpan sejak tombol Undi ditekan — menutup halaman ini tidak menghilangkannya."
                     : "Pemenang sudah ditentukan dan dirahasiakan sampai animasi berhenti."}
@@ -307,7 +307,7 @@ export default function UndianControlPage() {
                   type="button"
                   onClick={() => send({ action: "draw" }, "draw")}
                   disabled={busy !== null || spinning || drawBlocked || state.mode !== "live"}
-                  className="flex min-h-14 flex-1 items-center justify-center gap-2 border border-[var(--brand)] bg-[var(--brand)] px-6 text-base font-semibold text-white disabled:opacity-50"
+                  className="rounded-md flex min-h-14 flex-1 items-center justify-center gap-2 border border-primary bg-primary px-6 text-body-large font-semibold text-on-primary disabled:opacity-50"
                 >
                   <Sparkle size={20} weight="fill" /> {busy === "draw" ? "Mengundi..." : rehearsal ? "UNDI (LATIHAN)" : "UNDI SEKARANG"}
                 </button>
@@ -321,8 +321,8 @@ export default function UndianControlPage() {
                   onClick={() => send({ action: "reveal" }, "reveal")}
                   disabled={busy !== null}
                   className={manualSpin
-                    ? "flex min-h-14 flex-1 items-center justify-center gap-2 border border-[var(--danger)] bg-[var(--danger)] px-6 text-base font-semibold text-white disabled:opacity-60"
-                    : "flex min-h-14 items-center gap-2 border border-[var(--line)] px-5 text-sm font-semibold disabled:opacity-60"}
+                    ? "flex min-h-14 flex-1 items-center justify-center gap-2 border border-error bg-error px-6 text-body-large font-semibold text-on-error disabled:opacity-60"
+                    : "flex min-h-14 items-center gap-2 border border-outline-variant px-5 text-body-medium font-semibold disabled:opacity-60"}
                 >
                   {manualSpin
                     ? <><Stop size={20} weight="fill" /> {busy === "reveal" ? "Menghentikan..." : "BERHENTI & TAMPILKAN"}</>
@@ -330,7 +330,7 @@ export default function UndianControlPage() {
                 </button>}
               </div>
 
-              {state.mode !== "live" && <p className="mt-3 text-xs text-[var(--ink-muted)]">Nyalakan layar panggung dulu sebelum mengundi.</p>}
+              {state.mode !== "live" && <p className="mt-3 text-body-small text-on-surface-variant">Nyalakan layar panggung dulu sebelum mengundi.</p>}
 
               {/* Kuota penuh: JALAN KELUAR, bukan kalimat buntu.
                   Sebelumnya di sini hanya tertulis "Kuota hadiah ini sudah penuh."
@@ -339,13 +339,13 @@ export default function UndianControlPage() {
                   pun terlihat dari layar ini. Operator menyimpulkan harus MENGHAPUS
                   hasil, tindakan paling merusak dari ketiganya dan satu-satunya
                   yang membuang bukti serah terima hadiah. */}
-              {drawBlocked && <div className="mt-4 border border-[var(--line)] bg-[var(--surface-muted)] p-4">
-                <p className="text-sm font-semibold">
+              {drawBlocked && <div className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-4">
+                <p className="text-body-medium font-semibold">
                   Kuota penuh{activeSession ? ` di sesi "${activeSession.name}"` : ""} ({quotaUsed}/{state.prize.winner_quota})
                 </p>
 
                 {pendingHere > 0 ? <>
-                  <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">
+                  <p className="mt-1 text-body-small leading-5 text-on-surface-variant">
                     {pendingHere} pemenang belum ditandai hadir. Undi ulang akan membatalkan {pendingHere} nama itu supaya kuota kembali kosong.
                     Datanya tetap tersimpan lengkap dengan alasannya, tidak dihapus.
                   </p>
@@ -353,11 +353,11 @@ export default function UndianControlPage() {
                     type="button"
                     onClick={() => setConfirmRedraw(true)}
                     disabled={busy !== null || spinning}
-                    className="mt-3 flex min-h-12 items-center gap-2 border border-[var(--brand)] px-4 text-sm font-semibold text-[var(--brand)] disabled:opacity-60"
+                    className="rounded-md mt-3 flex min-h-12 items-center gap-2 border border-primary px-4 text-body-medium font-semibold text-primary disabled:opacity-60"
                   >
                     <ArrowsClockwise size={18} /> Undi ulang hadiah ini
-                  </button> : <div className="mt-3 border-t border-[var(--line)] pt-3">
-                    <p className="text-xs font-semibold text-[var(--danger)]">
+                  </button> : <div className="mt-3 border-t border-outline-variant pt-3">
+                    <p className="text-body-small font-semibold text-error">
                       Batalkan {pendingHere} pemenang {state.prize.name} yang belum hadir?
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -369,23 +369,23 @@ export default function UndianControlPage() {
                           if (ok) toast.info("Kuota dikosongkan", `${pendingHere} pemenang dibatalkan. Hadiah ini bisa diundi lagi.`);
                         }}
                         disabled={busy !== null}
-                        className="min-h-11 border border-[var(--danger)] bg-[var(--danger)] px-4 text-xs font-semibold text-white disabled:opacity-60"
+                        className="rounded-md min-h-11 border border-error bg-error px-4 text-body-small font-semibold text-on-error disabled:opacity-60"
                       >
                         Ya, undi ulang
                       </button>
-                      <button type="button" onClick={() => setConfirmRedraw(false)} className="min-h-11 border border-[var(--line)] px-4 text-xs font-semibold">Batal</button>
+                      <button type="button" onClick={() => setConfirmRedraw(false)} className="rounded-md min-h-11 border border-outline-variant px-4 text-body-small font-semibold">Batal</button>
                     </div>
                   </div>}
-                </> : <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">
+                </> : <p className="mt-1 text-body-small leading-5 text-on-surface-variant">
                   Semua pemenang sudah ditandai hadir, jadi tidak dapat dibatalkan dari sini — hadiahnya sudah diserahkan.
-                  Untuk mengundi hadiah ini lagi, tutup sesi di <Link href="/admin/undian" className="font-semibold text-[var(--brand)] underline">CMS Undian</Link> lalu mulai sesi baru.
+                  Untuk mengundi hadiah ini lagi, tutup sesi di <Link href="/admin/undian" className="font-semibold text-primary underline">CMS Undian</Link> lalu mulai sesi baru.
                   Pemenang lama tetap tercatat.
                 </p>}
               </div>}
 
               {/* Pada mode latihan kuota tidak menghalangi, tapi angkanya tetap
                   perlu terlihat supaya operator tahu keadaan sungguhannya. */}
-              {quotaFull && rehearsal && <p className="mt-3 text-xs text-[var(--ink-muted)]">
+              {quotaFull && rehearsal && <p className="mt-3 text-body-small text-on-surface-variant">
                 Kuota sebenarnya sudah penuh, tetapi mode latihan tidak memakai kuota.
               </p>}
 
@@ -393,7 +393,7 @@ export default function UndianControlPage() {
                 type="button"
                 onClick={() => send({ action: "reset" }, "reset")}
                 disabled={busy !== null}
-                className="mt-3 min-h-11 text-xs font-semibold text-[var(--ink-muted)] underline disabled:opacity-60"
+                className="mt-3 min-h-11 text-body-small font-semibold text-on-surface-variant underline disabled:opacity-60"
               >
                 Bersihkan tampilan layar (pemenang tetap tercatat)
               </button>
@@ -401,8 +401,8 @@ export default function UndianControlPage() {
           </div>
 
           {/* --- Pemenang undian terakhir --- */}
-          {state && state.winners.length > 0 && <div className="bg-[var(--surface)] p-6">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Pemenang undian ini</h3>
+          {state && state.winners.length > 0 && <div className="rounded-lg bg-panel p-6">
+            <h3 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Pemenang undian ini</h3>
             <ul className="mt-3 space-y-2">
               {/* Key memakai `ref`, BUKAN `id`.
 
@@ -417,16 +417,16 @@ export default function UndianControlPage() {
                   mode. Rangkaian is_backup+slot_order+name yang dipakai sebelumnya
                   hanya sebagai jaring pengaman: dua peserta bernama sama pada slot
                   yang sama akan bertabrakan, dan React lalu menggabungkan barisnya. */}
-              {state.winners.map((winner) => <li key={winner.ref} className={`border p-4 ${winner.status === "confirmed" ? "border-[var(--brand)] bg-[#E8ECFB]" : winner.status === "rejected" ? "border-[var(--line)] opacity-60" : "border-[var(--line)]"}`}>
+              {state.winners.map((winner) => <li key={winner.ref} className={`rounded-lg border p-4 ${winner.status === "confirmed" ? "border-primary bg-primary-soft" : winner.status === "rejected" ? "border-outline-variant opacity-60" : "border-outline-variant"}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-lg font-semibold">{winner.name}</span>
-                      {winner.is_backup && <span className="border border-[var(--line)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--ink-muted)]">Cadangan {winner.slot_order}</span>}
-                      {winner.status === "confirmed" && <span className="border border-[var(--brand)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--brand)]">Sah</span>}
-                      {winner.status === "rejected" && <span className="border border-[var(--danger)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--danger)]">Dibatalkan</span>}
+                      {winner.is_backup && <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant">Cadangan {winner.slot_order}</span>}
+                      {winner.status === "confirmed" && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">Sah</span>}
+                      {winner.status === "rejected" && <span className="rounded-sm border border-error px-1.5 py-0.5 text-[10px] font-semibold uppercase text-error">Dibatalkan</span>}
                     </div>
-                    <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                    <p className="mt-1 text-body-small text-on-surface-variant">
                       {[winner.company, winner.seat && `Kursi ${winner.seat}`].filter(Boolean).join(" · ") || "—"}
                     </p>
                   </div>
@@ -436,7 +436,7 @@ export default function UndianControlPage() {
                       type="button"
                       onClick={() => send({ action: "decide", winner_id: winner.id, status: "confirmed" }, `confirm-${winner.id}`)}
                       disabled={busy !== null}
-                      className="flex min-h-11 items-center gap-1.5 border border-[var(--brand)] bg-[var(--brand)] px-4 text-xs font-semibold text-white disabled:opacity-60"
+                      className="rounded-md flex min-h-11 items-center gap-1.5 border border-primary bg-primary px-4 text-body-small font-semibold text-on-primary disabled:opacity-60"
                     >
                       <CheckCircle size={16} /> Hadir
                     </button>
@@ -444,7 +444,7 @@ export default function UndianControlPage() {
                       type="button"
                       onClick={() => { setRejecting(winner.id ?? null); setRejectReason(""); }}
                       disabled={busy !== null}
-                      className="flex min-h-11 items-center gap-1.5 border border-[var(--line)] px-4 text-xs font-semibold text-[var(--danger)] hover:border-[var(--danger)] disabled:opacity-60"
+                      className="rounded-md flex min-h-11 items-center gap-1.5 border border-outline-variant px-4 text-body-small font-semibold text-error hover:border-error disabled:opacity-60"
                     >
                       <XCircle size={16} /> Tidak hadir
                     </button>
@@ -452,13 +452,13 @@ export default function UndianControlPage() {
                 </div>
 
                 {/* Konfirmasi ditahan di dalam barisnya, bukan lewat dialog browser. */}
-                {rejecting === winner.id && <div className="mt-3 border-t border-[var(--line)] pt-3">
-                  <label htmlFor={`reason-${winner.id}`} className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">Alasan (opsional)</label>
+                {rejecting === winner.id && <div className="mt-3 border-t border-outline-variant pt-3">
+                  <label htmlFor={`reason-${winner.id}`} className="text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Alasan (opsional)</label>
                   <input
                     id={`reason-${winner.id}`}
                     value={rejectReason}
                     onChange={(event) => setRejectReason(event.target.value)}
-                    className="mt-1.5 h-11 w-full border border-[var(--line)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]"
+                    className="rounded-md mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary"
                     placeholder="Tidak ada di tempat"
                   />
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -469,11 +469,11 @@ export default function UndianControlPage() {
                         if (ok) { setRejecting(null); toast.info("Pemenang dibatalkan", "Peserta kembali masuk kolam undian berikutnya."); }
                       }}
                       disabled={busy !== null}
-                      className="min-h-11 border border-[var(--danger)] bg-[var(--danger)] px-4 text-xs font-semibold text-white disabled:opacity-60"
+                      className="rounded-md min-h-11 border border-error bg-error px-4 text-body-small font-semibold text-on-error disabled:opacity-60"
                     >
                       Ya, batalkan
                     </button>
-                    <button type="button" onClick={() => setRejecting(null)} className="min-h-11 border border-[var(--line)] px-4 text-xs font-semibold">Batal</button>
+                    <button type="button" onClick={() => setRejecting(null)} className="rounded-md min-h-11 border border-outline-variant px-4 text-body-small font-semibold">Batal</button>
                   </div>
                 </div>}
               </li>)}
@@ -481,17 +481,17 @@ export default function UndianControlPage() {
           </div>}
 
           {/* --- Rekap --- */}
-          {state && state.confirmed.length > 0 && <div className="bg-[var(--surface)] p-6">
-            <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">
+          {state && state.confirmed.length > 0 && <div className="rounded-lg bg-panel p-6">
+            <h3 className="flex items-center gap-2 text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">
               <Trophy size={16} /> Sudah sah ({state.confirmed.length})
             </h3>
             <ul className="mt-3 grid gap-1 sm:grid-cols-2">
               {/* `ref` juga di sini, dengan alasan yang sama seperti daftar di atas:
                   `id` opsional pada tipe `UndianWinner`, jadi memakainya berarti
                   bergantung pada jaminan yang tidak dinyatakan tipenya. */}
-              {state.confirmed.map((winner) => <li key={winner.ref} className="truncate text-sm">
+              {state.confirmed.map((winner) => <li key={winner.ref} className="truncate text-body-medium">
                 {winner.name}
-                {winner.company && <span className="text-[var(--ink-muted)]"> — {winner.company}</span>}
+                {winner.company && <span className="text-on-surface-variant"> — {winner.company}</span>}
               </li>)}
             </ul>
           </div>}

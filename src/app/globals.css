@@ -1,21 +1,335 @@
 @import "tailwindcss";
+@import "./m3-theme.css";
+
+/* ==========================================================================
+   Token sistem Material 3 (Expressive)
+   ==========================================================================
+
+   Warna dibangkitkan terpisah di m3-theme.css. Berkas ini memegang token yang
+   tidak diturunkan dari warna: bentuk, tipografi, elevasi, gerak, dan lapisan
+   status. Semuanya memakai penamaan resmi `--md-sys-*` supaya bisa dicocokkan
+   langsung dengan spesifikasi ketika ada yang meragukan sebuah nilai.
+   ========================================================================== */
 
 :root {
-	--background: #f5f4f0;
-	--surface: #ffffff;
-	--surface-muted: #edece6;
-	--ink: #17211d;
-	--ink-muted: #66736c;
-	--line: #d9ddd7;
-	--brand: #2649d0;
-	--brand-strong: #1b34a0;
-	--success: #237a52;
-	--warning: #a66616;
-	--danger: #b13a35;
-	--unavailable: #37413d;
-	--display-bg: #101613;
-	--display-ink: #f7f5ed;
+	/* ---- Bentuk (shape scale) ----------------------------------------------
+	   Tujuh langkah baku M3 plus dua langkah "increased" yang ditambahkan M3
+	   Expressive. Nilai absolut, kecuali `full` yang berupa persen/px besar. */
+	--md-sys-shape-corner-none: 0px;
+	--md-sys-shape-corner-extra-small: 4px;
+	--md-sys-shape-corner-small: 8px;
+	--md-sys-shape-corner-medium: 12px;
+	--md-sys-shape-corner-large: 16px;
+	--md-sys-shape-corner-large-increased: 20px;
+	--md-sys-shape-corner-extra-large: 28px;
+	--md-sys-shape-corner-extra-large-increased: 32px;
+	--md-sys-shape-corner-extra-extra-large: 48px;
+	--md-sys-shape-corner-full: 9999px;
+
+	/* ---- Jenis huruf --------------------------------------------------------
+	   M3 memisahkan `brand` (judul, ekspresif) dari `plain` (isi, terbaca).
+	   Layar operasional memakai satu huruf untuk keduanya: mengganti huruf judul
+	   di layar booth hanya menambah beban render tanpa manfaat membaca. Layar
+	   publik menimpanya per elemen lewat --font-geometric dan kawan-kawan. */
+	--md-ref-typeface-brand: var(--font-sans), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+	--md-ref-typeface-plain: var(--font-sans), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+
+	/* ---- Elevasi ------------------------------------------------------------
+	   Enam level (0, 1, 3, 6, 8, 12 dp) sebagai bayangan dua lapis seperti
+	   material-web. M3 mendahulukan elevasi tonal — naikkan tier
+	   surface-container sebelum menambah bayangan; bayangan dipakai hanya untuk
+	   hal yang benar-benar melayang di atas konten (dialog, menu, sheet). */
+	--md-sys-elevation-level0: none;
+	--md-sys-elevation-level1: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 1px 3px 1px rgb(0 0 0 / 0.15);
+	--md-sys-elevation-level2: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15);
+	--md-sys-elevation-level3: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 4px 8px 3px rgb(0 0 0 / 0.15);
+	--md-sys-elevation-level4: 0 2px 3px 0 rgb(0 0 0 / 0.3), 0 6px 10px 4px rgb(0 0 0 / 0.15);
+	--md-sys-elevation-level5: 0 4px 4px 0 rgb(0 0 0 / 0.3), 0 8px 12px 6px rgb(0 0 0 / 0.15);
+
+	/* ---- Lapisan status (state layer) --------------------------------------
+	   M3 tidak menggelapkan warna tombol saat hover. Ia menumpuk lapisan tipis
+	   warna `on-*` di atasnya. Konsekuensinya satu aturan hover berlaku untuk
+	   semua warna tombol, termasuk yang belum ada. */
+	--md-sys-state-hover-opacity: 0.08;
+	--md-sys-state-focus-opacity: 0.1;
+	--md-sys-state-pressed-opacity: 0.1;
+	--md-sys-state-dragged-opacity: 0.16;
+
+	/* ---- Gerak: easing dan durasi ------------------------------------------
+	   Sistem klasik M3. Dipakai untuk transisi CSS. Gerak berbasis pegas milik
+	   M3 Expressive tidak bisa dinyatakan sebagai cubic-bezier, jadi ia hidup di
+	   src/lib/m3/motion.ts dan dijalankan Framer Motion. */
+	--md-sys-motion-easing-linear: cubic-bezier(0, 0, 1, 1);
+	--md-sys-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+	--md-sys-motion-easing-standard-accelerate: cubic-bezier(0.3, 0, 1, 1);
+	--md-sys-motion-easing-standard-decelerate: cubic-bezier(0, 0, 0, 1);
+	--md-sys-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+	--md-sys-motion-easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+	--md-sys-motion-easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+
+	--md-sys-motion-duration-short1: 50ms;
+	--md-sys-motion-duration-short2: 100ms;
+	--md-sys-motion-duration-short3: 150ms;
+	--md-sys-motion-duration-short4: 200ms;
+	--md-sys-motion-duration-medium1: 250ms;
+	--md-sys-motion-duration-medium2: 300ms;
+	--md-sys-motion-duration-medium3: 350ms;
+	--md-sys-motion-duration-medium4: 400ms;
+	--md-sys-motion-duration-long1: 450ms;
+	--md-sys-motion-duration-long2: 500ms;
+	--md-sys-motion-duration-long3: 550ms;
+	--md-sys-motion-duration-long4: 600ms;
+	--md-sys-motion-duration-extra-long1: 700ms;
+	--md-sys-motion-duration-extra-long2: 800ms;
+	--md-sys-motion-duration-extra-long3: 900ms;
+	--md-sys-motion-duration-extra-long4: 1000ms;
 }
+
+/* ==========================================================================
+   Token turunan
+   ==========================================================================
+
+   Sisa dari jembatan alias lama. Tiga belas variabel dulu dipakai di lebih dari
+   2.500 tempat; sekarang semuanya menyebut peran M3 langsung, kecuali empat di
+   bawah ini yang memang tidak bisa dinyatakan sebagai satu peran.
+   ========================================================================== */
+
+:root {
+	/* Panel: permukaan yang lebih dekat ke pengguna daripada kanvas.
+	 *
+	 * Tier-nya berbeda per tema, jadi ini bukan satu peran M3. Di terang,
+	 * `surface-container-lowest` adalah putih bersih di atas kanvas bernada. Di
+	 * gelap tier itu hitam pekat, yang membuat panel lebih GELAP daripada
+	 * kanvasnya — hierarki terbalik. Nilai gelapnya ditimpa di bawah. */
+	--surface: var(--md-sys-color-surface-container-lowest);
+	--surface-muted: var(--md-sys-color-surface-container);
+
+	/* Layar proyektor tidak boleh ikut mode terang. Diikat ke nada palet mentah,
+	 * bukan ke peran surface, karena palet nada sama di kedua skema — jadi
+	 * kanvasnya tetap gelap apa pun tema yang dipilih operator. */
+	--display-bg: var(--md-ref-palette-neutral-6);
+	--display-ink: var(--md-ref-palette-neutral-95);
+}
+
+/* Dinaikkan dua tingkat di gelap, bukan satu: pada `container-low` jarak terang
+ * panel ke kanvas hanya 1.04:1 — di proyektor dan di ponsel yang diredupkan
+ * otomatis, tepi panel praktis lenyap. */
+@media (prefers-color-scheme: dark) {
+	:root {
+		--surface: var(--md-sys-color-surface-container);
+		--surface-muted: var(--md-sys-color-surface-container-high);
+	}
+}
+
+[data-theme="dark"] {
+	--surface: var(--md-sys-color-surface-container);
+	--surface-muted: var(--md-sys-color-surface-container-high);
+}
+
+[data-theme="light"] {
+	--surface: var(--md-sys-color-surface-container-lowest);
+	--surface-muted: var(--md-sys-color-surface-container);
+}
+
+/* ==========================================================================
+   Pemetaan ke Tailwind
+   ==========================================================================
+
+   `@theme inline` dipakai, bukan `@theme`. Dengan `inline`, `bg-primary`
+   menghasilkan `background-color: var(--md-sys-color-primary)` — variabelnya
+   dibaca di tempat kelas itu dipakai. Tanpa `inline`, nilainya akan dibekukan
+   saat dideklarasikan dan pergantian tema di tengah pohon DOM (mis. panel gelap
+   di dalam halaman terang) berhenti bekerja.
+   ========================================================================== */
+
+@theme inline {
+	/* ---- Warna --------------------------------------------------------------
+	   Hanya peran yang benar-benar dipakai di UI. Peran `*-fixed` M3 ditujukan
+	   untuk warna yang harus sama di terang dan gelap (mis. konten yang mengalir
+	   antar layar); belum ada kebutuhannya di sini, jadi tidak dipetakan supaya
+	   daftar kelas yang muncul di autocomplete tetap bisa dibaca. */
+	--color-primary: var(--md-sys-color-primary);
+	--color-on-primary: var(--md-sys-color-on-primary);
+	--color-primary-container: var(--md-sys-color-primary-container);
+	--color-on-primary-container: var(--md-sys-color-on-primary-container);
+	--color-primary-dim: var(--md-sys-color-primary-dim);
+	--color-inverse-primary: var(--md-sys-color-inverse-primary);
+
+	--color-secondary: var(--md-sys-color-secondary);
+	--color-on-secondary: var(--md-sys-color-on-secondary);
+	--color-secondary-container: var(--md-sys-color-secondary-container);
+	--color-on-secondary-container: var(--md-sys-color-on-secondary-container);
+
+	--color-tertiary: var(--md-sys-color-tertiary);
+	--color-on-tertiary: var(--md-sys-color-on-tertiary);
+	--color-tertiary-container: var(--md-sys-color-tertiary-container);
+	--color-on-tertiary-container: var(--md-sys-color-on-tertiary-container);
+
+	--color-error: var(--md-sys-color-error);
+	--color-on-error: var(--md-sys-color-on-error);
+	--color-error-container: var(--md-sys-color-error-container);
+	--color-on-error-container: var(--md-sys-color-on-error-container);
+
+	--color-success: var(--md-sys-color-success);
+	--color-on-success: var(--md-sys-color-on-success);
+	--color-success-container: var(--md-sys-color-success-container);
+	--color-on-success-container: var(--md-sys-color-on-success-container);
+
+	--color-warning: var(--md-sys-color-warning);
+	--color-on-warning: var(--md-sys-color-on-warning);
+	--color-warning-container: var(--md-sys-color-warning-container);
+	--color-on-warning-container: var(--md-sys-color-on-warning-container);
+
+	/* Peran "soft": tint pucat untuk bidang lebar. Lihat catatan di
+	   scripts/m3/gen-theme.mjs tentang kapan memakai ini alih-alih `*-container`. */
+	--color-primary-soft: var(--md-sys-color-primary-soft);
+	--color-primary-soft-outline: var(--md-sys-color-primary-soft-outline);
+	--color-on-primary-soft: var(--md-sys-color-on-primary-soft);
+	--color-error-soft: var(--md-sys-color-error-soft);
+	--color-error-soft-outline: var(--md-sys-color-error-soft-outline);
+	--color-on-error-soft: var(--md-sys-color-on-error-soft);
+	--color-success-soft: var(--md-sys-color-success-soft);
+	--color-success-soft-outline: var(--md-sys-color-success-soft-outline);
+	--color-on-success-soft: var(--md-sys-color-on-success-soft);
+	--color-warning-soft: var(--md-sys-color-warning-soft);
+	--color-warning-soft-outline: var(--md-sys-color-warning-soft-outline);
+	--color-on-warning-soft: var(--md-sys-color-on-warning-soft);
+
+	/* Dua tier permukaan yang nilainya berbeda per tema.
+	 *
+	 * Di tema terang, panel yang benar adalah `surface-container-lowest` — putih
+	 * bersih di atas kanvas yang sedikit bernada. Di tema gelap tier itu adalah
+	 * hitam pekat, yang membuat panel lebih GELAP daripada kanvasnya dan
+	 * membalik hierarki. M3 menaikkan tier untuk permukaan yang lebih dekat ke
+	 * pengguna, jadi di gelap panel memakai `surface-container`.
+	 *
+	 * Karena pilihannya bergantung tema, ia tidak bisa dinyatakan sebagai satu
+	 * peran M3 dan hidup sebagai nama sendiri. Definisinya ada di blok token
+	 * lama di atas. */
+	--color-panel: var(--surface);
+	--color-panel-high: var(--surface-muted);
+
+	--color-surface: var(--md-sys-color-surface);
+	--color-on-surface: var(--md-sys-color-on-surface);
+	--color-on-surface-variant: var(--md-sys-color-on-surface-variant);
+	--color-surface-dim: var(--md-sys-color-surface-dim);
+	--color-surface-bright: var(--md-sys-color-surface-bright);
+	--color-surface-container-lowest: var(--md-sys-color-surface-container-lowest);
+	--color-surface-container-low: var(--md-sys-color-surface-container-low);
+	--color-surface-container: var(--md-sys-color-surface-container);
+	--color-surface-container-high: var(--md-sys-color-surface-container-high);
+	--color-surface-container-highest: var(--md-sys-color-surface-container-highest);
+	--color-inverse-surface: var(--md-sys-color-inverse-surface);
+	--color-inverse-on-surface: var(--md-sys-color-inverse-on-surface);
+
+	--color-outline: var(--md-sys-color-outline);
+	--color-outline-variant: var(--md-sys-color-outline-variant);
+	--color-scrim: var(--md-sys-color-scrim);
+
+	/* ---- Bentuk -------------------------------------------------------------
+	   Skala radius bawaan Tailwind DIGANTI oleh skala bentuk M3, bukan
+	   didampingi. Kalau keduanya hidup berdampingan, `rounded-lg` di satu berkas
+	   berarti 8px dan di berkas lain 16px, dan tidak ada cara melihat mana yang
+	   dimaksud. Nilai lama Tailwind lebih kecil, jadi sudut yang sudah ada
+	   memang akan tampak lebih bulat — itu perubahan yang diinginkan. */
+	--radius-xs: var(--md-sys-shape-corner-extra-small);
+	--radius-sm: var(--md-sys-shape-corner-small);
+	--radius-md: var(--md-sys-shape-corner-medium);
+	--radius-lg: var(--md-sys-shape-corner-large);
+	--radius-xl: var(--md-sys-shape-corner-large-increased);
+	--radius-2xl: var(--md-sys-shape-corner-extra-large);
+	--radius-3xl: var(--md-sys-shape-corner-extra-large-increased);
+	--radius-4xl: var(--md-sys-shape-corner-extra-extra-large);
+
+	/* ---- Elevasi ------------------------------------------------------------ */
+	--shadow-level1: var(--md-sys-elevation-level1);
+	--shadow-level2: var(--md-sys-elevation-level2);
+	--shadow-level3: var(--md-sys-elevation-level3);
+	--shadow-level4: var(--md-sys-elevation-level4);
+	--shadow-level5: var(--md-sys-elevation-level5);
+
+	/* ---- Skala tipografi ----------------------------------------------------
+	   Lima belas gaya M3. Ukuran default Tailwind (text-sm, text-base, ...)
+	   sengaja dibiarkan hidup: layar yang belum dipindahkan masih memakainya,
+	   dan menghapusnya akan merusak 66 berkas sekaligus.
+
+	   Ukuran ditulis dalam rem supaya ikut membesar ketika pengguna menaikkan
+	   ukuran huruf peramban. Spesifikasi M3 menyebutnya dalam sp/dp; 1rem = 16px
+	   pada setelan baku.
+
+	   Bobot huruf SENGAJA tidak ikut didefinisikan di sini, walau spesifikasi
+	   menyebutkannya. Kalau `--text-title-medium--font-weight` ada, kelas
+	   `text-title-medium` ikut menulis font-weight — dan pada elemen yang juga
+	   memakai `font-semibold`, yang menang adalah utilitas yang kebetulan
+	   ditulis belakangan oleh Tailwind. Ratusan label tebal di basis kode ini
+	   bisa berubah menjadi tipis tanpa satu pun kesalahan build. Bobot ditulis
+	   eksplisit di tempat pemakaian. */
+	--text-display-large: 3.5625rem;
+	--text-display-large--line-height: 4rem;
+	--text-display-large--letter-spacing: -0.015625rem;
+
+	--text-display-medium: 2.8125rem;
+	--text-display-medium--line-height: 3.25rem;
+
+	--text-display-small: 2.25rem;
+	--text-display-small--line-height: 2.75rem;
+
+	--text-headline-large: 2rem;
+	--text-headline-large--line-height: 2.5rem;
+
+	--text-headline-medium: 1.75rem;
+	--text-headline-medium--line-height: 2.25rem;
+
+	--text-headline-small: 1.5rem;
+	--text-headline-small--line-height: 2rem;
+
+	--text-title-large: 1.375rem;
+	--text-title-large--line-height: 1.75rem;
+
+	--text-title-medium: 1rem;
+	--text-title-medium--line-height: 1.5rem;
+	--text-title-medium--letter-spacing: 0.009375rem;
+
+	--text-title-small: 0.875rem;
+	--text-title-small--line-height: 1.25rem;
+	--text-title-small--letter-spacing: 0.00625rem;
+
+	--text-body-large: 1rem;
+	--text-body-large--line-height: 1.5rem;
+	--text-body-large--letter-spacing: 0.03125rem;
+
+	--text-body-medium: 0.875rem;
+	--text-body-medium--line-height: 1.25rem;
+	--text-body-medium--letter-spacing: 0.015625rem;
+
+	--text-body-small: 0.75rem;
+	--text-body-small--line-height: 1rem;
+	--text-body-small--letter-spacing: 0.025rem;
+
+	--text-label-large: 0.875rem;
+	--text-label-large--line-height: 1.25rem;
+	--text-label-large--letter-spacing: 0.00625rem;
+
+	--text-label-medium: 0.75rem;
+	--text-label-medium--line-height: 1rem;
+	--text-label-medium--letter-spacing: 0.03125rem;
+
+	--text-label-small: 0.6875rem;
+	--text-label-small--line-height: 1rem;
+	--text-label-small--letter-spacing: 0.03125rem;
+
+	/* ---- Easing dan durasi sebagai utilitas Tailwind ----------------------- */
+	--ease-standard: var(--md-sys-motion-easing-standard);
+	--ease-standard-accelerate: var(--md-sys-motion-easing-standard-accelerate);
+	--ease-standard-decelerate: var(--md-sys-motion-easing-standard-decelerate);
+	--ease-emphasized: var(--md-sys-motion-easing-emphasized);
+	--ease-emphasized-accelerate: var(--md-sys-motion-easing-emphasized-accelerate);
+	--ease-emphasized-decelerate: var(--md-sys-motion-easing-emphasized-decelerate);
+}
+
+/* ==========================================================================
+   Dasar
+   ========================================================================== */
 
 * {
 	box-sizing: border-box;
@@ -38,9 +352,11 @@ html {
 
 body {
 	margin: 0;
-	background: var(--background);
-	color: var(--ink);
-	font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+	background: var(--md-sys-color-surface);
+	color: var(--md-sys-color-on-surface);
+	font-family: var(--md-ref-typeface-plain);
+	font-size: var(--text-body-large);
+	line-height: var(--text-body-large--line-height);
 	font-variant-numeric: tabular-nums;
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
@@ -55,8 +371,194 @@ body {
 }
 
 ::selection {
-	background: var(--brand);
-	color: white;
+	background: var(--md-sys-color-primary);
+	color: var(--md-sys-color-on-primary);
+}
+
+/* Cincin fokus tunggal untuk seluruh aplikasi.
+ *
+ * M3 menggambar fokus sebagai garis luar tebal berwarna `primary` dengan celah,
+ * bukan bayangan halus. Dipasang di `:focus-visible` saja supaya tidak muncul
+ * saat disentuh atau diklik, hanya saat berpindah dengan papan ketik. */
+:focus-visible {
+	outline: 3px solid var(--md-sys-color-primary);
+	outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Batang gulir
+   ==========================================================================
+
+   Scrollbar bawaan sistem adalah satu-satunya bagian antarmuka yang tidak ikut
+   tema: ia tetap abu-abu tebal bersudut siku di atas kanvas yang sudah bernada
+   biru, dan di mode gelap Chrome menggambar jalur abu terang yang justru lebih
+   mencolok daripada isinya.
+
+   Memakai properti standar (`scrollbar-width`/`scrollbar-color`), bukan
+   `::-webkit-scrollbar`. Sejak Chrome 121 keduanya tidak bisa dipakai bersama —
+   begitu properti standar ada, seluruh aturan `::-webkit-scrollbar` diabaikan.
+   Jadi versi webkit-nya diletakkan di balik `@supports not`, sebagai cadangan
+   untuk Safari lama saja.
+
+   Warnanya `outline`, bukan `outline-variant`. Batang gulir adalah kontrol,
+   dan WCAG 1.4.11 menuntut 3:1 terhadap latarnya; `outline-variant` hanya
+   mencapai ~2:1 dan batangnya nyaris tidak terlihat di layar yang diredupkan.
+   ========================================================================== */
+
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--md-sys-color-outline) transparent;
+}
+
+/* Jalur dibiarkan transparan, bukan diberi warna. Jalur yang terlihat membagi
+ * tepi panel menjadi dua garis sejajar — satu tepi panel, satu tepi jalur — dan
+ * itu terbaca sebagai kolom tambahan yang tidak ada isinya.
+ *
+ * TIDAK ada aturan hover di sini, walau menggelapkan batang saat disentuh
+ * terasa wajar. `scrollbar-color` diwariskan, dan `:hover` juga cocok ke semua
+ * leluhur elemen yang disentuh — jadi kursor di mana pun di dalam halaman akan
+ * menyalakan batang gulir dokumen. Yang tersisa hanya satu warna yang selalu
+ * "aktif", tanpa pernah ada keadaan istirahat untuk dibandingkan. */
+
+@supports not (scrollbar-color: auto) {
+	::-webkit-scrollbar {
+		width: 10px;
+		height: 10px;
+	}
+
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	::-webkit-scrollbar-thumb {
+		background: var(--md-sys-color-outline);
+		/* Sudut penuh, dengan jalur transparan di sekelilingnya lewat border yang
+		 * memotong latar. Tanpa ini batangnya menempel rapat ke tepi konten. */
+		border: 2px solid transparent;
+		background-clip: content-box;
+		border-radius: var(--md-sys-shape-corner-full);
+	}
+
+	/* Tombol panah di ujung batang. Tidak ada padanannya di M3, dan tidak ada
+	 * yang memakainya sejak roda tetikus jadi baku. */
+	::-webkit-scrollbar-button {
+		display: none;
+	}
+
+	::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+}
+
+/* ==========================================================================
+   Utilitas
+   ========================================================================== */
+
+/* Lapisan status M3.
+ *
+ * Pasang `.m3-state` pada elemen interaktif dan setel `--m3-state-color` ke
+ * warna `on-*` yang sesuai. Elemennya butuh `position: relative` dan
+ * `isolation: isolate`; keduanya sudah termasuk di sini.
+ *
+ * Memakai pseudo-elemen, bukan mengubah background: warna latar tombol tetap
+ * satu sumber kebenaran, dan lapisan ini bekerja di atas gradien, gambar, atau
+ * warna apa pun tanpa perlu tahu warna dasarnya. */
+.m3-state {
+	position: relative;
+	isolation: isolate;
+	--m3-state-color: currentColor;
+}
+
+.m3-state::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	border-radius: inherit;
+	background: var(--m3-state-color);
+	opacity: 0;
+	transition: opacity var(--md-sys-motion-duration-short3) var(--md-sys-motion-easing-standard);
+	pointer-events: none;
+}
+
+@media (hover: hover) {
+	.m3-state:hover::after {
+		opacity: var(--md-sys-state-hover-opacity);
+	}
+}
+
+.m3-state:focus-visible::after {
+	opacity: var(--md-sys-state-focus-opacity);
+}
+
+.m3-state:active::after {
+	opacity: var(--md-sys-state-pressed-opacity);
+}
+
+.m3-state:disabled::after,
+.m3-state[aria-disabled="true"]::after {
+	opacity: 0;
+}
+
+/* Indikator progres — lihat src/components/m3/progress.tsx. */
+
+.m3-spin {
+	animation: m3-spin 1.4s linear infinite;
+}
+
+@keyframes m3-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* Batang tak-tentu: bergerak melintas, bukan tumbuh dari nol. Batang yang
+ * tumbuh terbaca sebagai progres nyata, dan itu janji yang tidak bisa ditepati
+ * ketika lamanya memang tidak diketahui. */
+.m3-indeterminate {
+	animation: m3-indeterminate 1.6s var(--md-sys-motion-easing-emphasized) infinite;
+}
+
+@keyframes m3-indeterminate {
+	from {
+		transform: translateX(-100%);
+	}
+
+	to {
+		transform: translateX(300%);
+	}
+}
+
+/* Bentuk yang berubah sambil berputar — indikator pemuatan ekspresif M3.
+ *
+ * Radius sudut dianimasikan, bukan bentuk SVG yang di-morph: browser
+ * menginterpolasi border-radius di kompositor, sedangkan morph jalur SVG
+ * memaksa perhitungan ulang tiap frame. Di layar panggung yang menyala
+ * berjam-jam, perbedaannya adalah kipas yang berputar. */
+.m3-morph {
+	animation: m3-morph 3s var(--md-sys-motion-easing-emphasized) infinite;
+}
+
+@keyframes m3-morph {
+	0% {
+		border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
+		transform: rotate(0deg);
+	}
+
+	33% {
+		border-radius: 68% 32% 34% 66% / 63% 32% 68% 37%;
+		transform: rotate(120deg);
+	}
+
+	66% {
+		border-radius: 33% 67% 58% 42% / 47% 62% 38% 53%;
+		transform: rotate(240deg);
+	}
+
+	100% {
+		border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
+		transform: rotate(360deg);
+	}
 }
 
 /* Kilau kerangka pemuatan (lihat src/components/search-loading.tsx).
@@ -72,7 +574,7 @@ body {
 .shimmer {
 	background-image: linear-gradient(90deg,
 			transparent 0%,
-			rgba(255, 255, 255, 0.85) 50%,
+			color-mix(in srgb, var(--md-sys-color-surface-bright) 85%, transparent) 50%,
 			transparent 100%);
 	background-repeat: no-repeat;
 	background-size: 180% 100%;

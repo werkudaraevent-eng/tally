@@ -52,22 +52,22 @@ export function Spinner({ size = 18, label }: { size?: number; label?: string })
  */
 export function SearchResultsSkeleton({ rows = 3, className = "" }: { rows?: number; className?: string }) {
   return <div
-    className={`divide-y divide-[var(--line)] border border-[var(--line)] ${className}`}
+    className={`divide-y divide-outline-variant rounded-lg border border-outline-variant ${className}`}
     // Status disampaikan sekali lewat teks di luar (aria-live), jadi kerangka ini
     // disembunyikan dari pembaca layar. Tanpa ini pembaca layar akan mengumumkan
     // sejumlah baris kosong tak bermakna.
     aria-hidden="true"
   >
     {Array.from({ length: rows }).map((_, index) => <div key={index} className="flex min-h-16 items-center gap-3 p-3">
-      <span className="size-[34px] shrink-0 rounded-full bg-[var(--surface-muted)] shimmer" />
+      <span className="size-[34px] shrink-0 rounded-full bg-surface-container-highest shimmer" />
       <span className="min-w-0 flex-1 space-y-2">
         {/* Lebar dibuat berbeda-beda per baris. Beberapa balok selebar penuh dan
             sama persis terbaca sebagai tabel yang gagal dimuat, bukan sebagai
             daftar nama yang sedang datang. */}
-        <span className="block h-3.5 rounded bg-[var(--surface-muted)] shimmer" style={{ width: `${[72, 58, 65, 50, 62][index % 5]}%` }} />
-        <span className="block h-2.5 rounded bg-[var(--surface-muted)] shimmer" style={{ width: `${[48, 62, 40, 55, 44][index % 5]}%` }} />
+        <span className="block h-3.5 rounded-xs bg-surface-container-highest shimmer" style={{ width: `${[72, 58, 65, 50, 62][index % 5]}%` }} />
+        <span className="block h-2.5 rounded-xs bg-surface-container-highest shimmer" style={{ width: `${[48, 62, 40, 55, 44][index % 5]}%` }} />
       </span>
-      <span className="h-3 w-9 shrink-0 rounded bg-[var(--surface-muted)] shimmer" />
+      <span className="h-3 w-9 shrink-0 rounded-xs bg-surface-container-highest shimmer" />
     </div>)}
   </div>;
 }

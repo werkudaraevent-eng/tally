@@ -38,9 +38,9 @@ export default function JoinClient() {
 
   return <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-5 py-10">
     <div className="text-center">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">Gabung acara</p>
+      <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Gabung acara</p>
       <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em]">Masukkan kode</h1>
-      <p className="mt-2 text-sm text-[var(--ink-muted)]">Tujuh angka yang tertera di layar panggung.</p>
+      <p className="mt-2 text-body-medium text-on-surface-variant">Tujuh angka yang tertera di layar panggung.</p>
     </div>
 
     <form onSubmit={(event) => { event.preventDefault(); void submit(); }} className="space-y-4">
@@ -55,21 +55,21 @@ export default function JoinClient() {
         maxLength={12}
         placeholder="1234567"
         aria-label="Kode acara"
-        className="h-16 w-full border border-[var(--line)] bg-[var(--background)] text-center font-mono text-3xl tracking-[0.3em] outline-none focus:border-[var(--brand)]"
+        className="rounded-md h-16 w-full border border-outline-variant bg-surface text-center font-mono text-3xl tracking-[0.3em] outline-none focus:border-primary"
       />
 
-      {error && <p role="alert" className="border border-[#E9C7C4] bg-[#FFF2F0] p-3 text-sm text-[var(--danger)]">{error}</p>}
+      {error && <p role="alert" className="rounded-lg border border-error-soft-outline bg-error-soft p-3 text-body-medium text-error">{error}</p>}
 
       <button
         type="submit"
         disabled={digits.length !== 7 || busy}
-        className="min-h-14 w-full bg-[var(--brand)] px-4 text-base font-semibold text-white disabled:opacity-40"
+        className="rounded-md min-h-14 w-full bg-primary px-4 text-body-large font-semibold text-on-primary disabled:opacity-40"
       >
         {busy ? "Mencari acara…" : "Gabung"}
       </button>
     </form>
 
-    <p className="text-center text-xs text-[var(--ink-muted)]">
+    <p className="text-center text-body-small text-on-surface-variant">
       Bisa juga langsung memindai QR di layar panggung.
     </p>
   </main>;
