@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { BrandFooter, BrandHeader } from "@/components/brand-header-footer";
 import { fontStack, type Branding } from "@/lib/branding";
+import { readableOn } from "@/lib/color";
 import { votePercentages, type PublicVoteState } from "@/lib/vote";
 
 // Layar panggung voting. Bar bergerak mengikuti suara yang masuk.
@@ -14,7 +15,7 @@ import { votePercentages, type PublicVoteState } from "@/lib/vote";
 
 const POLL_MS = 2000;
 
-export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, subtitle, accent, text, background, backgroundImage, branding }: {
+export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, subtitle, accent, text, background, backgroundImage, panelColor, branding }: {
   /** Alamat yang dipindai peserta. Dirender jadi QR di sudut layar. */
   voteUrl: string;
   /** Host tanpa skema, untuk dibaca dan diketik peserta: "acara.com/join". */
@@ -27,6 +28,8 @@ export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, s
   text: string;
   background: string;
   backgroundImage: string | null;
+  /** Warna bidang di belakang daftar hasil. Null = dihitung dari latar. */
+  panelColor: string | null;
   branding: Branding;
 }) {
   const [state, setState] = useState<PublicVoteState>({ poll: null });
@@ -43,6 +46,33 @@ export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, s
     const timer = window.setInterval(() => { void load(); }, POLL_MS);
     return () => { window.clearTimeout(first); window.clearInterval(timer); };
   }, [load]);
+
+  /*
+    Layar ini tidak pernah menggulir, jadi dokumennya tidak boleh menyisakan
+    jalur scrollbar.
+
+    `globals.css` memasang `scrollbar-gutter: stable` pada <html> secara global,
+    dan itu keputusan yang benar untuk halaman aplikasi: tanpa jalur permanen,
+    lebar viewport berubah begitu halaman cukup panjang untuk memunculkan
+    scrollbar, dan seluruh isi bergeser ke kiri. Tetapi di layar proyektor
+    jalur itu tampil sebagai pita putih di tepi kanan — persis yang terlihat —
+    padahal tidak ada yang pernah digulirkan di sana.
+
+    Dimatikan lewat gaya inline pada elemen, bukan lewat kelas di CSS global:
+    aturan ini hanya berlaku selama layar ini terbuka, dan dikembalikan saat
+    ditinggalkan supaya halaman admin berikutnya tetap mendapat jalurnya.
+  */
+  useEffect(() => {
+    const root = document.documentElement;
+    const gutterSebelumnya = root.style.scrollbarGutter;
+    const overflowSebelumnya = root.style.overflow;
+    root.style.scrollbarGutter = "auto";
+    root.style.overflow = "hidden";
+    return () => {
+      root.style.scrollbarGutter = gutterSebelumnya;
+      root.style.overflow = overflowSebelumnya;
+    };
+  }, []);
 
   // QR dibuat sekali di klien. Paket `qrcode` sudah menjadi dependensi aplikasi
   // dan diimpor dinamis supaya tidak ikut membebani muatan awal layar.
@@ -62,6 +92,36 @@ export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, s
   const leading = counts.length > 0 ? Math.max(...counts) : 0;
 
   const headingFont = fontStack(branding.heading_font);
+  /*
+    PANEL BAWAAN ADALAH LAPISAN TEMBUS PANDANG, bukan warna yang dihitung.
+
+    Versi sebelumnya menurunkan warna panel dari `background_color`. Itu keliru
+    sejak awal: yang benar-benar terlihat penonton adalah GAMBAR latar yang
+    diunggah panitia, sementara `background_color` hanya warna cadangan di
+    belakangnya. Dua sumber yang berbeda, jadi hasilnya tidak akan pernah cocok
+    — panel abu kecoklatan di atas gradien biru, persis seperti yang terjadi.
+
+    Menebak warna dominan gambar juga bukan jawabannya: membacanya di browser
+    butuh kanvas yang tidak boleh ternoda lintas-domain, dan menghitungnya di
+    server butuh pustaka pengolah gambar yang belum ada di proyek ini.
+
+    Lapisan gelap tembus pandang menyelesaikannya tanpa perlu tahu apa pun
+    tentang gambarnya: panel SELALU serasi karena ia memang gambar itu sendiri,
+    yang diredupkan. Garis tepi tipis menjaga batasnya tetap terlihat bahkan di
+    atas latar yang sudah pekat, tempat gelap-di-atas-gelap kehilangan bentuk.
+  */
+  const customPanel = panelColor !== null;
+  const panelStyle = customPanel
+    ? { background: panelColor, color: readableOn(panelColor) }
+    : {
+        background: "rgba(0, 0, 0, 0.34)",
+        color: text,
+        border: "0.15vh solid rgba(255, 255, 255, 0.14)",
+        // Buram membuat gambar latar yang ramai tidak bersaing dengan angka di
+        // atasnya. Peramban yang tidak mendukungnya tetap mendapat lapisan
+        // gelapnya — tidak ada yang rusak, hanya kurang halus.
+        backdropFilter: "blur(6px)",
+      };
 
   /*
     Baris opsi menyusut mengikuti jumlahnya.
@@ -84,15 +144,14 @@ export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, s
     diturunkan dari angka itu, jadi delapan opsi benar-benar mengecil.
   */
   const rowFont = `min(3.2vh, ${(26 / rows).toFixed(2)}vh)`;
-  const rowPadding = `min(1.8vh, ${(13 / rows).toFixed(2)}vh)`;
-  const rowGap = `min(1.2vh, ${(9 / rows).toFixed(2)}vh)`;
+  const rowGap = `min(2vh, ${(15 / rows).toFixed(2)}vh)`;
 
   return <main
     // `h-dvh` + `overflow-hidden`, BUKAN `min-h-dvh`. Dengan min-height, isi yang
     // lebih tinggi dari layar memperbesar halamannya sendiri dan seluruh layar
     // ikut menggulir — QR dan kode gabung terdorong keluar pandangan, padahal
     // keduanya justru yang harus selalu terlihat.
-    className="flex h-dvh flex-col overflow-hidden bg-cover bg-center px-[4vw] py-[3vh]"
+    className="flex h-dvh flex-col overflow-hidden bg-cover bg-center px-[3vw] py-[3vh]"
     style={{
       // Gambar latar ditumpuk DI ATAS warna, bukan menggantikannya: gambar yang
       // gagal dimuat menyisakan warna acara, bukan layar putih.
@@ -106,11 +165,59 @@ export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, s
         Pertanyaannya sendiri berganti-ganti sepanjang sesi; judul acara tidak. */}
     <BrandHeader branding={branding} title={title} subtitle={subtitle} textColor={text} accentColor={accent} variant="led" className="shrink-0" />
 
+    {/* DUA KOLOM: cara gabung di kiri, hasil di kanan.
+        Sebelumnya QR dan kode ditaruh di bawah daftar, dan di sanalah keduanya
+        paling mudah terdorong keluar layar begitu opsinya bertambah — padahal
+        justru itu yang harus terlihat sepanjang voting berjalan. Kolom kiri
+        lebarnya tetap, jadi panjang daftar tidak pernah menggesernya. */}
+    <div className="mt-[2vh] flex min-h-0 flex-1 flex-col gap-[2vw] lg:flex-row">
+      {/*
+        Isi kolom ini diukur terhadap LEBAR KOLOMNYA, bukan terhadap viewport.
+
+        Versi sebelumnya memakai `min(20vh, 18vw)` untuk QR. Pada layar lebar,
+        18vw jauh lebih besar daripada kolomnya sendiri, sehingga QR membengkak
+        sampai memenuhi kolom sementara sisanya menjadi ruang kosong — persis
+        yang terlihat: kotak raksasa mengambang di tengah.
+
+        Sekarang QR mengisi 78% lebar kolom dan berhenti di 30vh, jadi ia tetap
+        proporsional pada lebar layar berapa pun. `max-w` pada kolom menjaga
+        angkanya tidak ikut membesar tanpa batas di layar ultrawide.
+      */}
+      <aside className="flex w-full shrink-0 flex-col items-center justify-center gap-[1.2vh] lg:w-[23%] lg:max-w-[430px]">
+        {poll?.status === "open" && qr && <div className="w-[78%] max-w-[30vh] rounded-[1.2vh] bg-white p-[3%]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qr} alt="QR menuju halaman voting" className="block w-full rounded-[0.4vh]" style={{ height: "auto" }} />
+        </div>}
+        <div className="w-full text-center">
+          <p style={{ fontSize: "clamp(10px, 1.6vh, 20px)", opacity: 0.65 }}>
+            {poll?.status === "closed" ? "Voting ditutup" : poll?.status === "open" ? "Pindai, atau buka" : "Voting belum dibuka"}
+          </p>
+          {poll?.status === "open" && <>
+            <p className="truncate font-semibold" style={{ fontSize: "clamp(12px, 1.9vh, 26px)" }}>{joinHost}/join</p>
+            {joinCode && <p className="mt-[0.4vh] font-bold tabular-nums leading-none" style={{ fontSize: "clamp(22px, 4.6vh, 62px)", color: accent, letterSpacing: "0.04em" }}>
+              {/* Dikelompokkan 3-4 seperti nomor telepon. Tujuh angka beruntun
+                  sulit dibaca sekali lihat dan lebih sulit lagi dibacakan MC. */}
+              {joinCode.slice(0, 3)} {joinCode.slice(3)}
+            </p>}
+          </>}
+          {poll?.results_visible && poll.total_ballots !== null && <p className="mt-[1.2vh] font-semibold tabular-nums" style={{ fontSize: "clamp(11px, 1.7vh, 22px)", opacity: 0.7 }}>
+            {poll.total_ballots} orang sudah memilih
+          </p>}
+        </div>
+      </aside>
+
+      {/* `rounded-[1.6vh]`: sudut siku membuat panel terbaca sebagai potongan
+          yang ditempel, bukan bagian dari layar. Radiusnya dalam vh supaya ikut
+          berskala di proyektor beresolusi berapa pun. */}
+      <section
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.6vh] p-[2.4vh]"
+        style={panelStyle}
+      >
     {!poll ? <div className="flex flex-1 items-center justify-center">
       <p style={{ fontSize: "clamp(18px, 3.4vh, 44px)", opacity: 0.55 }}>Menunggu voting dimulai…</p>
     </div> : <>
-      <header className="mt-[1.5vh] shrink-0 text-center">
-        <h1 className="font-bold tracking-[-0.03em]" style={{ fontSize: "clamp(24px, 5.4vh, 76px)" }}>{poll.question}</h1>
+      <header className="shrink-0 text-center">
+        <h1 className="font-bold tracking-[-0.03em]" style={{ fontSize: "clamp(24px, 5vh, 68px)" }}>{poll.question}</h1>
         {poll.description && <p className="mt-[1vh]" style={{ fontSize: "clamp(12px, 2.2vh, 30px)", opacity: 0.7 }}>{poll.description}</p>}
       </header>
 
@@ -184,7 +291,9 @@ export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, s
          lama dikenal. `min-h-full` membuat pembungkus dalam setinggi wadah saat
          opsinya sedikit (sehingga tetap terpusat), dan tumbuh melewatinya saat
          banyak (sehingga menggulir dari atas). */
-      : <div className="mt-[2vh] min-h-0 flex-1 overflow-y-auto">
+      /* `pr` menyediakan jalur untuk scrollbar. Tanpa itu, batang gulung
+         digambar DI ATAS kolom persentase dan angka paling kanan terpotong. */
+      : <div className="mt-[2vh] min-h-0 flex-1 overflow-y-auto pr-[1.2vw]">
         <div className="flex min-h-full flex-col justify-center" style={{ gap: rowGap }}>
         {poll.options.map((option, index) => {
           const count = option.vote_count ?? 0;
@@ -193,69 +302,76 @@ export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, s
           // suara yang masih mengalir, lencana itu berganti-ganti tiap dua detik
           // dan justru mengalihkan perhatian dari bar-nya sendiri.
           const isLeading = poll.results_visible && count > 0 && count === leading;
-          return <div key={option.id} className="relative overflow-hidden" style={{ background: `${accent}1A`, border: `0.25vh solid ${accent}55` }}>
-            <motion.div
-              className="absolute inset-y-0 left-0"
-              style={{ background: isLeading ? accent : `${accent}77` }}
-              initial={{ width: 0 }}
-              animate={{ width: `${percent}%` }}
-              // Cukup lambat untuk terbaca sebagai gerakan, cukup cepat untuk
-              // selesai sebelum polling berikutnya datang.
-              transition={{ duration: 0.8, ease: "easeOut" }}
-            />
-            <div className="relative flex items-center justify-between gap-[2vw] px-[2.5vw]" style={{ paddingTop: rowPadding, paddingBottom: rowPadding }}>
-              {/* Gambar opsi, bila ada. Tinggi dikunci ke tinggi baris supaya
-                  gambar berukuran apa pun tidak mengubah tinggi bar-nya. */}
-              {/* `<img>`, bukan next/image: URL-nya datang dari storage Supabase
-                  dan bisa berubah kapan saja lewat CMS, sedangkan next/image butuh
-                  host yang didaftarkan lebih dulu di konfigurasi. Pola yang sama
-                  dipakai layar undian. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {option.image_url && <img src={option.image_url} alt="" aria-hidden="true" className="shrink-0 object-cover" style={{ height: `calc(${rowFont} * 2)`, width: `calc(${rowFont} * 2)` }} />}
-              {/* `leading-normal` eksplisit: dengan padding yang mengecil, tinggi
+          /*
+            TIGA KOLOM, bukan satu kotak berisi segalanya.
+
+            Versi sebelumnya menaruh foto, nama, dan angka DI DALAM satu bar
+            berbingkai persegi, dan bar itu sekaligus menjadi indikator
+            persentase. Akibatnya foto ikut tertimpa warna isian saat suara
+            bertambah, dan setiap baris terbaca sebagai kotak kaku berjajar.
+
+            Sekarang tiap peran punya tempatnya sendiri: foto di kiri sebagai
+            lingkaran, nama dan bar di tengah, angka di kanan. Bar berdiri
+            sendiri sebagai jalur membulat sehingga panjangnya yang berbicara,
+            bukan latar sebuah kotak.
+          */
+          return <div key={option.id} className="flex items-center" style={{ gap: `calc(${rowFont} * 0.8)` }}>
+            {/* `<img>`, bukan next/image: URL-nya datang dari storage Supabase
+                dan bisa berubah kapan saja lewat CMS, sedangkan next/image butuh
+                host yang didaftarkan lebih dulu di konfigurasi. Pola yang sama
+                dipakai layar undian. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {option.image_url && <img
+              src={option.image_url}
+              alt=""
+              aria-hidden="true"
+              className="shrink-0 rounded-full object-cover"
+              // Cincin tipis memisahkan foto dari latar acara yang warnanya bisa
+              // apa saja; tanpa itu foto berlatar gelap menyatu dengan layar.
+              style={{ height: `calc(${rowFont} * 2.6)`, width: `calc(${rowFont} * 2.6)`, boxShadow: `0 0 0 0.25vh ${accent}66` }}
+            />}
+
+            <div className="min-w-0 flex-1">
+              {/* `leading-normal` eksplisit: dengan jarak yang mengecil, tinggi
                   baris bawaan yang rapat memotong ekor huruf y, g, dan j. */}
-              <span className="min-w-0 flex-1 truncate font-semibold leading-normal" style={{ fontSize: rowFont }}>{option.label}</span>
-              {poll.results_visible
-                ? <span className="shrink-0 font-bold tabular-nums" style={{ fontSize: rowFont }}>
-                    {percent}% <span style={{ opacity: 0.6, fontSize: "0.62em" }}>({count})</span>
-                  </span>
-                : <span className="shrink-0" style={{ fontSize: "clamp(11px, 1.8vh, 22px)", opacity: 0.5 }}>tersembunyi</span>}
+              <p className="truncate font-semibold leading-normal" style={{ fontSize: rowFont }}>{option.label}</p>
+              <div
+                className="mt-[0.4vh] w-full overflow-hidden rounded-full"
+                style={{ height: `calc(${rowFont} * 0.62)`, background: `${accent}26` }}
+              >
+                <motion.div
+                  className="h-full rounded-full"
+                  // Pemuncak dipekatkan, yang lain diredupkan. Bukan lencana
+                  // "unggul": pada suara yang masih mengalir, lencana itu
+                  // berpindah tiap dua detik dan mengalihkan perhatian dari
+                  // bar-nya sendiri.
+                  style={{ background: isLeading ? accent : `${accent}99` }}
+                  initial={{ width: 0 }}
+                  // Lebar minimum saat sudah ada suara: nilai 1% pada jalur
+                  // membulat menghasilkan noktah yang terpotong radiusnya sendiri
+                  // dan terbaca sebagai nol.
+                  animate={{ width: percent > 0 ? `max(${percent}%, ${rowFont})` : "0%" }}
+                  // Cukup lambat untuk terbaca sebagai gerakan, cukup cepat untuk
+                  // selesai sebelum polling berikutnya datang.
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                />
+              </div>
             </div>
+
+            {poll.results_visible
+              ? <div className="shrink-0 text-right" style={{ minWidth: `calc(${rowFont} * 4)` }}>
+                  <span className="font-bold tabular-nums leading-none" style={{ fontSize: `calc(${rowFont} * 1.15)`, color: isLeading ? accent : undefined }}>{percent}%</span>
+                  <span className="block tabular-nums leading-none" style={{ fontSize: `calc(${rowFont} * 0.5)`, opacity: 0.55 }}>{count} suara</span>
+                </div>
+              : <span className="shrink-0" style={{ fontSize: `calc(${rowFont} * 0.55)`, opacity: 0.45 }}>tersembunyi</span>}
           </div>;
         })}
         </div>
       </div>}
 
-      <footer className="mt-[2vh] flex shrink-0 items-end justify-between gap-[3vw]">
-        <div className="min-w-0">
-          <p style={{ fontSize: "clamp(12px, 2vh, 26px)", opacity: 0.7 }}>
-            {poll.status === "open" ? "Pindai QR, atau buka" : poll.status === "closed" ? "Voting ditutup" : "Voting belum dibuka"}
-          </p>
-          {/* Jalur kode, sejajar dengan QR dan bukan di bawahnya. Yang duduk di
-              belakang tidak bisa memindai apa pun; bagi mereka angka inilah
-              satu-satunya jalan masuk, jadi ia harus seukuran yang bisa dibaca
-              dari kursi terjauh. */}
-          {poll.status === "open" && joinCode && <div className="mt-[0.6vh]">
-            <p className="font-semibold" style={{ fontSize: "clamp(14px, 2.6vh, 34px)" }}>{joinHost}/join</p>
-            <p className="font-bold tabular-nums leading-none" style={{ fontSize: "clamp(24px, 5.5vh, 76px)", color: accent, letterSpacing: "0.06em" }}>
-              {/* Dikelompokkan 3-4 seperti nomor telepon. Tujuh angka beruntun
-                  sulit dibaca sekali lihat dan lebih sulit lagi dibacakan MC. */}
-              {joinCode.slice(0, 3)} {joinCode.slice(3)}
-            </p>
-          </div>}
-          {poll.results_visible && poll.total_ballots !== null && <p className="mt-[0.5vh] font-semibold tabular-nums" style={{ fontSize: "clamp(14px, 2.6vh, 34px)" }}>
-            {poll.total_ballots} orang sudah memilih
-          </p>}
-        </div>
-        {/* QR hanya berguna selama voting dibuka. Dibiarkan tampil setelah
-            ditutup, orang di kursi belakang tetap memindainya dan mendapat
-            halaman yang menolak — pengalaman yang terbaca seperti kerusakan. */}
-        {poll.status === "open" && qr && <div className="shrink-0 bg-white p-[1vh]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qr} alt="QR menuju halaman voting" style={{ width: "min(13vh, 18vw)", height: "auto", display: "block" }} />
-        </div>}
-      </footer>
     </>}
+      </section>
+    </div>
 
     <BrandFooter branding={branding} textColor={text} variant="led" className="mt-[2vh] shrink-0">{null}</BrandFooter>
   </main>;

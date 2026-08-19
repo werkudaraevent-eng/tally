@@ -71,17 +71,18 @@ type DisplaySettings = {
   background_color: string | null;
   text_color: string | null;
   accent_color: string | null;
+  panel_color: string | null;
   background_image_url: string | null;
 } & Branding;
 
 /** Warna yang ditampilkan <input type="color"> saat kolomnya masih null. Bukan
  *  nilai yang disimpan: kolomnya tetap null sampai panitia benar-benar memilih. */
-const COLOR_FALLBACK = { background_color: "#0B1020", text_color: "#FFFFFF", accent_color: "#F5C451" } as const;
+const COLOR_FALLBACK = { background_color: "#0B1020", text_color: "#FFFFFF", accent_color: "#F5C451", panel_color: "#141A33" } as const;
 
 function emptySettings(): DisplaySettings {
   return {
     page_title: "Voting", page_subtitle: "",
-    background_color: null, text_color: null, accent_color: null, background_image_url: null,
+    background_color: null, text_color: null, accent_color: null, panel_color: null, background_image_url: null,
     ...DEFAULT_BRANDING,
   };
 }
@@ -199,6 +200,7 @@ export default function VoteAdminPage() {
           background_color: (raw.background_color as string | null) ?? null,
           text_color: (raw.text_color as string | null) ?? null,
           accent_color: (raw.accent_color as string | null) ?? null,
+          panel_color: (raw.panel_color as string | null) ?? null,
           background_image_url: (raw.background_image_url as string | null) ?? null,
           // Dinormalisasi ulang di klien: kolom skala bertipe `numeric` dan tiba
           // sebagai string lewat PostgREST.
@@ -374,11 +376,12 @@ export default function VoteAdminPage() {
         </div>
 
         <p className={`mt-5 ${labelClass}`}>Warna</p>
-        <div className="mt-2 grid gap-4 sm:grid-cols-3">
+        <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {([
             ["background_color", "Latar"],
             ["text_color", "Teks"],
             ["accent_color", "Aksen"],
+            ["panel_color", "Panel hasil"],
           ] as const).map(([key, label]) => <div key={key}>
             <label className="block text-sm font-semibold">{label}
               <span className="mt-1.5 flex items-center gap-2">
@@ -398,6 +401,12 @@ export default function VoteAdminPage() {
             </label>
           </div>)}
         </div>
+        {/* Panel diberi keterangan sendiri: ia satu-satunya warna yang punya
+            perhitungan otomatis, dan tanpa kalimat ini "Bawaan" terbaca seperti
+            warna tetap. */}
+        <p className="mt-2 text-[11px] text-[var(--ink-muted)]">
+          Panel hasil adalah bidang di belakang daftar suara. Dibiarkan bawaan, ia menjadi lapisan gelap tembus pandang sehingga selalu serasi dengan gambar latar apa pun — isi warna hanya bila Anda ingin bidang solid.
+        </p>
 
         <p className={`mt-5 ${labelClass}`}>Gambar latar</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">

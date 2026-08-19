@@ -18,7 +18,7 @@ import VoteScreenClient from "./vote-screen-client";
 export const dynamic = "force-dynamic";
 
 const SETTINGS_ROW =
-  `page_title,page_subtitle,background_color,text_color,accent_color,background_image_url,${BRANDING_COLUMNS}`;
+  `page_title,page_subtitle,background_color,text_color,accent_color,panel_color,background_image_url,${BRANDING_COLUMNS}`;
 
 const FALLBACK = { background: "#0B1020", text: "#FFFFFF", accent: "#F5C451" };
 
@@ -31,6 +31,7 @@ export default async function VoteScreenPage({ searchParams }: {
   let subtitle: string | null = null;
   let colors = FALLBACK;
   let backgroundImage: string | null = null;
+  let panelColor: string | null = null;
   let branding: Branding = DEFAULT_BRANDING;
 
   if (event) {
@@ -46,6 +47,7 @@ export default async function VoteScreenPage({ searchParams }: {
         accent: (row.accent_color as string | null) ?? FALLBACK.accent,
       };
       backgroundImage = (row.background_image_url as string | null) ?? null;
+      panelColor = (row.panel_color as string | null) ?? null;
       branding = normalizeBranding(row);
     }
   }
@@ -88,6 +90,7 @@ export default async function VoteScreenPage({ searchParams }: {
     text={colors.text}
     background={colors.background}
     backgroundImage={backgroundImage}
+    panelColor={panelColor}
     branding={branding}
   />;
 }

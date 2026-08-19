@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { mixHex, readableOn } from "@/lib/color";
 
 // Lapisan animasi layar undian.
 //
@@ -42,44 +43,6 @@ export type AnimationProps = {
 
 /** Nama cadangan saat kolam belum termuat, supaya animasi tidak kosong. */
 const PLACEHOLDER = ["• • •", "• • • •", "• • •"];
-
-// ---------------------------------------------------------------------------
-// Warna
-//
-// Layar panggung boleh memakai gambar latar apa pun, dan gambar itu bisa terang
-// atau gelap. Warna teks yang disetel panitia dipilih untuk latar polosnya,
-// bukan untuk gambar yang dipasang belakangan -- dan default `text` berwarna
-// putih. Di atas gambar krem, tulisan putih hilang sama sekali.
-//
-// Karena itu apa pun yang digambar DI ATAS bidang berwarna milik animasi
-// sendiri (segmen roda, poros) memilih warna tulisannya dari bidang itu, bukan
-// dari setelan. Yang melayang langsung di atas latar tetap memakai `text`.
-// ---------------------------------------------------------------------------
-
-function parseHex(hex: string) {
-  const raw = (hex ?? "").replace("#", "").trim();
-  const full = raw.length === 3 ? raw.split("").map((char) => char + char).join("") : raw;
-  const value = Number.parseInt(full, 16);
-  // Jatuh ke emas bawaan bila nilainya tidak terbaca. Melempar di sini berarti
-  // layar panggung kosong hanya karena satu kolom warna salah ketik.
-  if (full.length !== 6 || !Number.isFinite(value)) return { r: 245, g: 196, b: 81 };
-  return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
-}
-
-const toHex = (value: number) => Math.round(Math.max(0, Math.min(255, value))).toString(16).padStart(2, "0");
-
-/** Campur `hex` menuju `target` sebanyak `amount` (0..1). */
-function mixHex(hex: string, target: string, amount: number) {
-  const from = parseHex(hex);
-  const to = parseHex(target);
-  return `#${toHex(from.r + (to.r - from.r) * amount)}${toHex(from.g + (to.g - from.g) * amount)}${toHex(from.b + (to.b - from.b) * amount)}`;
-}
-
-/** Hitam atau putih, mana pun yang terbaca di atas `hex`. */
-function readableOn(hex: string) {
-  const { r, g, b } = parseHex(hex);
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? "#0B1020" : "#FFFFFF";
-}
 
 function useRosterNames(roster: AnimationProps["roster"]): string[] {
   return useMemo(() => (roster.length > 0 ? roster.map((item) => item.name) : PLACEHOLDER), [roster]);

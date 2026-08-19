@@ -12,7 +12,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * `<BrandingEditor>` yang sudah ada melayaninya tanpa cabang khusus.
  */
 export const VOTE_SETTINGS_ROW =
-  `page_title,page_subtitle,background_color,text_color,accent_color,background_image_url,${BRANDING_COLUMNS}`;
+  `page_title,page_subtitle,background_color,text_color,accent_color,panel_color,background_image_url,${BRANDING_COLUMNS}`;
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Warna harus format #RRGGBB");
 const scale = z.number().min(0.5).max(2);
@@ -23,6 +23,8 @@ const bodySchema = z.object({
   background_color: hex.nullish(),
   text_color: hex.nullish(),
   accent_color: hex.nullish(),
+  // NULL = dihitung dari warna latar. Lihat panelOn() di lib/color.
+  panel_color: hex.nullish(),
   background_image_url: z.string().trim().url().max(500).nullish(),
   logo_url: z.string().trim().url().max(500).nullish(),
   logo_scale: scale.default(1),
@@ -69,6 +71,7 @@ export async function PATCH(request: Request) {
     background_color: blank(body.data.background_color),
     text_color: blank(body.data.text_color),
     accent_color: blank(body.data.accent_color),
+    panel_color: blank(body.data.panel_color),
     background_image_url: blank(body.data.background_image_url),
     logo_url: blank(body.data.logo_url),
     footer_image_url: blank(body.data.footer_image_url),
