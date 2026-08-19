@@ -1,4 +1,4 @@
-import { ArrowLeft, GearSix, MonitorPlay, Storefront } from "@phosphor-icons/react/dist/ssr";
+import { ArrowLeft, GearSix, Storefront } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/login";
@@ -38,13 +38,19 @@ export default async function EventWorkspace({ params }: { params: Promise<{ slu
     <Link href="/events" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--brand)]"><ArrowLeft size={18} /> Semua event</Link>
     <header className="mt-5 border-b border-[var(--line)] pb-7"><div className="flex flex-wrap items-start justify-between gap-4"><div><span className="border border-[var(--line)] px-2 py-1 text-xs font-semibold uppercase">{event.status}</span><h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em]">{event.name}</h1><p className="mt-3 text-sm text-[var(--ink-muted)]">Workspace terisolasi · {event.slug}</p></div>{role === "super_admin" || role === "admin" ? <Link href={`/e/${slug}/admin/settings`} className="flex min-h-11 items-center gap-2 border border-[var(--line)] px-4 text-sm font-semibold"><GearSix size={18} /> Konfigurasi event</Link> : null}</div></header>
     {banner && <div className="mt-6 border border-[var(--warning)]/30 bg-[var(--warning)]/5 p-4 text-sm"><strong>{banner.judul}</strong> {banner.teks}</div>}
-    <section className="mt-8 grid gap-px border border-[var(--line)] bg-[var(--line)] sm:grid-cols-2 lg:grid-cols-3">
+    <section className="mt-8 grid gap-px border border-[var(--line)] bg-[var(--line)] sm:grid-cols-2">
       {(role === "admin" || role === "super_admin") && <Link href={`/e/${slug}/admin`} aria-disabled={isDraft} className={`bg-[var(--surface)] p-6 ${isDraft ? "pointer-events-none opacity-45" : "hover:bg-[var(--surface-muted)]"}`}><GearSix size={26} className="text-[var(--brand)]" /><h2 className="mt-8 text-lg font-semibold">Admin</h2><p className="mt-2 text-sm text-[var(--ink-muted)]">{isFrozen ? "Baca laporan, peserta, dan transaksi. Ekspor tetap tersedia." : "Peserta, booth, transaksi, laporan, dan CMS."}</p></Link>}
       {/* Booth diredupkan pada event selesai, TIDAK seperti Admin: layar booth
           hanya berguna untuk mencatat transaksi baru, dan itu memang ditolak
           server. Membiarkannya terbuka hanya mengantar operator ke penolakan. */}
       {(role === "booth" || role === "admin" || role === "super_admin") && <Link href={`/e/${slug}/booth`} aria-disabled={isDraft || isFrozen} className={`bg-[var(--surface)] p-6 ${isDraft || isFrozen ? "pointer-events-none opacity-45" : "hover:bg-[var(--surface-muted)]"}`}><Storefront size={26} className="text-[var(--brand)]" /><h2 className="mt-8 text-lg font-semibold">Booth</h2><p className="mt-2 text-sm text-[var(--ink-muted)]">{role === "booth" ? "Scan peserta dan catat transaksi." : "Bantu booth di lapangan. Pilih booth dulu di layarnya."}</p></Link>}
-      <Link href={`/e/${slug}/display`} className="bg-[var(--surface)] p-6 hover:bg-[var(--surface-muted)]"><MonitorPlay size={26} className="text-[var(--brand)]" /><h2 className="mt-8 text-lg font-semibold">Display publik</h2><p className="mt-2 text-sm text-[var(--ink-muted)]">Leaderboard untuk layar acara.</p></Link>
+      {/* TIDAK ada kartu "Display publik" di sini, dan itu disengaja.
+          Aplikasi ini kini punya banyak layar publik — leaderboard, denah,
+          rundown, undian, voting — sementara kartu itu hanya menunjuk salah
+          satunya. Satu pintasan yang mewakili sebagian kecil pilihan lebih
+          menyesatkan daripada tidak ada pintasan sama sekali; seluruh layar
+          dibuka dari halamannya masing-masing di dalam Admin, tempat panitia
+          juga mengatur isinya. */}
     </section>
   </div></main>;
 }
