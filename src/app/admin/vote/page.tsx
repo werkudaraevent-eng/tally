@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowSquareOut, Check, Eye, EyeSlash, Lock, LockOpen, Monitor, Palette, Plus, Trash, UploadSimple, X, XCircle } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, ArrowLeft, ArrowSquareOut, Check, DownloadSimple, Eye, EyeSlash, Lock, LockOpen, Monitor, Palette, Plus, Trash, UploadSimple, X, XCircle } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
@@ -99,6 +99,7 @@ export default function VoteAdminPage() {
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<VotePoll | null>(null);
+  const [confirmReset, setConfirmReset] = useState<VotePoll | null>(null);
   // Antrean moderasi hanya dimuat untuk pertanyaan yang panelnya dibuka:
   // memuat seluruh antrean untuk setiap pertanyaan di tiap polling tiga detik
   // membaca tabel suara berulang tanpa ada yang melihatnya.
@@ -299,6 +300,16 @@ export default function VoteAdminPage() {
     }).catch(() => null);
     if (!response?.ok) { setError("Moderasi gagal. Muat ulang daftar."); }
     if (moderating !== null) void loadPending(moderating);
+    void load();
+  }
+
+  async function reset(poll: VotePoll) {
+    setBusy(`reset-${poll.id}`); setError("");
+    const response = await fetch(`/api/admin/vote/polls/${poll.id}/reset`, { method: "POST" }).catch(() => null);
+    setBusy(null); setConfirmReset(null);
+    if (!response?.ok) { setError("Suara gagal dikosongkan."); return; }
+    const body = await response.json().catch(() => ({}));
+    toast.success("Suara dikosongkan", `${body.ballots_deleted ?? 0} suara dihapus. Opsi dan setelan pertanyaan tetap utuh.`);
     void load();
   }
 
@@ -526,11 +537,31 @@ export default function VoteAdminPage() {
                   <button type="button" disabled={busy !== null} onClick={() => void control(poll.results_visible ? "hide_results" : "reveal_results", poll.id)} className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold disabled:opacity-50">
                     {poll.results_visible ? <><EyeSlash size={16} /> Sembunyikan hasil</> : <><Eye size={16} /> Perlihatkan hasil</>}
                   </button>
-                  {/* Hitung ulang jarang dipakai, dan memang harus terlihat
-                      begitu: ia hanya berguna bila angkanya diragukan. */}
-                  <button type="button" disabled={busy !== null} onClick={() => void control("recount", poll.id)} className="ml-auto min-h-11 px-2 text-xs font-semibold text-[var(--ink-muted)] underline disabled:opacity-50">
-                    Hitung ulang
-                  </button>
+                  {/* Ekspor selalu tersedia, termasuk saat voting masih dibuka:
+                      panitia sering mengambil angka sementara untuk dibacakan MC.
+                      `<a>` biasa, bukan <Link>: alamatnya route handler yang
+                      membalas Content-Disposition attachment, dan navigasi klien
+                      Next akan mencoba me-render balasannya sebagai halaman. */}
+                  <a href={`/api/admin/vote/polls/${poll.id}/export?format=xlsx`} className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+                    <DownloadSimple size={16} /> XLSX
+                  </a>
+                  <a href={`/api/admin/vote/polls/${poll.id}/export?format=csv`} className="inline-flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]" title="Rekap saja; detail per pemilih ada di XLSX">
+                    <DownloadSimple size={16} /> CSV
+                  </a>
+
+                  <div className="ml-auto flex items-center gap-3">
+                    {/* Reset hanya muncul bila memang ada yang bisa dikosongkan.
+                        Tombol yang selalu tampil tapi tidak pernah berguna pada
+                        pertanyaan kosong hanya menambah satu cara salah tekan. */}
+                    {poll.ballots > 0 && <button type="button" disabled={busy !== null} onClick={() => setConfirmReset(poll)} className="inline-flex min-h-11 items-center gap-1.5 px-2 text-xs font-semibold text-[var(--danger)] underline disabled:opacity-50">
+                      <ArrowCounterClockwise size={14} /> Kosongkan suara
+                    </button>}
+                    {/* Hitung ulang jarang dipakai, dan memang harus terlihat
+                        begitu: ia hanya berguna bila angkanya diragukan. */}
+                    <button type="button" disabled={busy !== null} onClick={() => void control("recount", poll.id)} className="min-h-11 px-2 text-xs font-semibold text-[var(--ink-muted)] underline disabled:opacity-50">
+                      Hitung ulang
+                    </button>
+                  </div>
                 </div>
               </li>;
             })}
@@ -659,6 +690,26 @@ export default function VoteAdminPage() {
           <button type="button" onClick={() => setDraft(null)} disabled={saving} className="min-h-12 border border-[var(--line)] px-4 font-semibold disabled:opacity-40">Batal</button>
         </div>
       </form>
+    </div>}
+
+    {/* Konfirmasi kosongkan. Dipisah dari dialog hapus karena akibatnya berbeda:
+        yang ini membuang SUARA dan menyisakan pertanyaannya, yang itu membuang
+        keduanya. Satu dialog dengan kalimat samar untuk dua akibat yang berbeda
+        adalah cara tercepat menghapus hal yang salah. */}
+    {confirmReset && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmReset(null); }}>
+      <div className="w-full max-w-md border border-[var(--line)] bg-[var(--surface)] p-6">
+        <h2 className="text-xl font-semibold text-[var(--danger)]">Kosongkan suara</h2>
+        <p className="mt-3 text-sm leading-6">
+          <span className="font-semibold">{confirmReset.ballots} suara</span> pada &ldquo;{confirmReset.question}&rdquo; akan dihapus permanen dan penghitungnya kembali ke nol.
+        </p>
+        <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">
+          Pertanyaan, opsi, gambar, dan setelannya tetap utuh — begitu juga status buka/tutup dan tampil/sembunyi. Unduh hasilnya lebih dulu bila masih dibutuhkan.
+        </p>
+        <div className="mt-6 flex gap-2">
+          <button type="button" onClick={() => void reset(confirmReset)} disabled={busy !== null} className="min-h-12 flex-1 bg-[var(--danger)] px-4 font-semibold text-white disabled:opacity-50">Kosongkan</button>
+          <button type="button" onClick={() => setConfirmReset(null)} className="min-h-12 border border-[var(--line)] px-4 font-semibold">Batal</button>
+        </div>
+      </div>
     </div>}
 
     {/* Konfirmasi hapus. Menyebut jumlah suara yang ikut hilang, karena itulah
