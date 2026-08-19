@@ -288,6 +288,17 @@ export async function POST(request: Request) {
       const { data: settings } = await client.from("undian_settings").select("reveal_delay_seconds").eq("event_id", eventId).maybeSingle();
       const delayMs = Math.round(Number((settings as { reveal_delay_seconds?: number } | null)?.reveal_delay_seconds ?? 0) * 1000);
 
+      // Mode manual = tanpa waktu berhenti. Bukan "waktu yang sangat lama":
+      // NULL sudah punya arti di seluruh rantai hilir -- `revealDue` di
+      // /api/undian/state menjaga `reveal_at !== null`, dan ticker animasi
+      // memakai kecepatan tetap saat `endsAt` kosong. Angka besar justru akan
+      // membuat animasi melambat seolah hendak berhenti.
+      //
+      // `reveal_delay_seconds` ikut tidak berlaku di sini: jeda itu ada untuk
+      // menahan nama sesaat setelah animasi berhenti sendiri, sedangkan pada
+      // mode manual penekanan tombol operator ADALAH momen berhentinya.
+      const manual = prize.spin_mode === "manual";
+
       // Pemenang dicatat SEKARANG, sebelum state diperbarui.
       //
       // Kalau ditulis saat reveal, listrik padam atau peramban operator ditutup
@@ -346,7 +357,7 @@ export async function POST(request: Request) {
           phase: "spinning",
           draw_round: round,
           spin_started_at: now.toISOString(),
-          reveal_at: new Date(now.getTime() + spinMs + delayMs).toISOString(),
+          reveal_at: manual ? null : new Date(now.getTime() + spinMs + delayMs).toISOString(),
           pending,
           pool: roster,
           pool_frozen_at: now.toISOString(),
@@ -361,6 +372,7 @@ export async function POST(request: Request) {
         old: null,
         new: {
           prize: prize.name, draw_round: round, session_id: sessionId,
+          spin_mode: prize.spin_mode,
           // Ditandai di audit juga, bukan hanya di state. Tanpa ini baris latihan
           // dan baris sungguhan terbaca identik di jejak audit, dan pertanyaan
           // "kenapa hadiah ini diundi enam kali" tidak punya jawaban.

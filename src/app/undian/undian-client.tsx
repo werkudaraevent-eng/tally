@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { BrandFooter, BrandLogo } from "@/components/brand-header-footer";
 import { DEFAULT_BRANDING, fontStack, normalizeBranding, scaleClamp, type Branding } from "@/lib/branding";
 import type { UndianState } from "@/lib/undian";
-import { CardsAnimation, ConfettiBurst, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList } from "./undian-animations";
+import { CardsAnimation, ConfettiBurst, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList } from "./undian-animations";
 
 // Layar panggung undian.
 //
@@ -225,6 +225,7 @@ export default function UndianClient({ initial }: Props) {
             : state.prize.animation === "slot" ? <SlotAnimation {...animationProps} />
             : state.prize.animation === "cards" ? <CardsAnimation {...animationProps} />
             : state.prize.animation === "digits" ? <DigitsAnimation {...animationProps} />
+            : state.prize.animation === "dart" ? <DartAnimation {...animationProps} />
             : spinning
               ? <p style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: 0.5 }}>Mengundi...</p>
               : <WinnerList winners={animationProps.winners} accent={accent} text={text} fontFamily={headingFont} />}

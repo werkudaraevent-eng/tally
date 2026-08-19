@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  ArrowLeft, ArrowSquareOut, ClockCounterClockwise, Confetti, DownloadSimple, FloppyDisk, Gift, Plus, Prohibit,
-  SlidersHorizontal, SpeakerHigh, Trash, UploadSimple, Users, Warning,
+  ArrowLeft, ArrowSquareOut, Check, ClockCounterClockwise, Confetti, DownloadSimple, FloppyDisk, Gift,
+  LockSimple, Plus, Prohibit, SlidersHorizontal, SpeakerHigh, Trash, UploadSimple, Users, Warning,
 } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
 import { useEffect, useMemo, useState } from "react";
@@ -14,10 +14,11 @@ import { SessionHistory } from "@/components/admin/undian-session-history";
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
 import {
-  ANIMATIONS, EMPTY_CONDITIONS, EXCLUDE_SCOPE_LABEL, WEIGHT_VAR_LABEL,
+  ANIMATIONS, EMPTY_CONDITIONS, EXCLUDE_SCOPE_LABEL, SPIN_MODES, WEIGHT_VAR_LABEL,
   describeConditions, normalizePrize,
   type ExcludeScope, type PoolBreakdown, type UndianAnimation, type UndianPrize, type WeightVar,
 } from "@/lib/undian";
+import { undianCanRun, undianReadiness, type ReadinessStep, type ReadinessTab } from "@/lib/undian-readiness";
 
 // CMS Undian.
 //
@@ -58,7 +59,7 @@ function newPrizeDraft(): Omit<UndianPrize, "id"> {
   return {
     name: "", description: null, image_url: null, sponsor_name: null,
     winners_per_draw: 1, winner_quota: 1, backup_per_draw: 0,
-    animation: "wheel", spin_seconds: 6,
+    animation: "wheel", spin_mode: "timed", spin_seconds: 6,
     source: "participants", entry_group_id: null,
     conditions: EMPTY_CONDITIONS, exclude_scope: "all_prizes",
     weight_mode: "equal", weight_var: "total_spend", weight_divisor: 500000, weight_base: 1, weight_max: 10,
@@ -67,7 +68,11 @@ function newPrizeDraft(): Omit<UndianPrize, "id"> {
 }
 
 export default function UndianAdminPage() {
-  const [tab, setTab] = useState<"prizes" | "display" | "data" | "history">("prizes");
+  // Mulai dari "data", bukan "prizes". Urutan tab kini mengikuti arah
+  // ketergantungan: hadiah bersumber daftar entri butuh daftarnya ada lebih
+  // dulu, jadi membuka halaman ini di tab hadiah berarti menyuruh orang mulai
+  // dari langkah yang paling bergantung pada langkah lain.
+  const [tab, setTab] = useState<ReadinessTab>("data");
   const [prizes, setPrizes] = useState<UndianPrize[]>([]);
   const [winnerCounts, setWinnerCounts] = useState<Record<number, number>>({});
   const [pools, setPools] = useState<Record<number, PoolStat>>({});
@@ -328,6 +333,19 @@ export default function UndianAdminPage() {
     toast.success("Daftar dihapus");
   }
 
+  // Dihitung dari data yang SUDAH dimuat halaman ini -- tidak ada permintaan
+  // tambahan. `pools` datang dari /prizes?pool=1 dan sudah memuat jumlah
+  // kandidat per hadiah; sebelumnya angka itu hanya ditampilkan sebagai
+  // keterangan dan tidak pernah menghalangi apa pun.
+  const readiness = useMemo(() => undianReadiness({
+    prizes: prizes.map((prize) => ({
+      id: prize.id, name: prize.name, is_active: prize.is_active,
+      winner_quota: prize.winner_quota, source: prize.source, entry_group_id: prize.entry_group_id,
+    })),
+    pools, groups, activeSession, pageTitle: settings?.page_title ?? null,
+  }), [prizes, pools, groups, activeSession, settings?.page_title]);
+  const canRun = undianCanRun(readiness);
+
   async function removeExclusion(participantId: string) {
     const response = await fetch(`/api/admin/undian/exclusions?participant_id=${participantId}`, { method: "DELETE" });
     if (!response.ok) { toast.error("Gagal mengembalikan peserta"); return; }
@@ -351,31 +369,47 @@ export default function UndianAdminPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/admin/undian/kontrol" className="flex min-h-12 items-center gap-2 border border-[var(--brand)] bg-[var(--brand)] px-5 text-sm font-semibold text-white">
-            <SlidersHorizontal size={18} /> Buka kontrol undian
-          </Link>
+          {/* Tombol berubah jadi teks mati saat undian belum bisa dijalankan.
+              Bukan Link yang dinonaktifkan lewat CSS: <a> tetap bisa diklik dan
+              tetap bisa dibuka lewat papan ketik, dan halaman kontrol yang
+              terbuka pada undian tanpa kandidat justru gagal di layar yang
+              paling tidak boleh gagal. */}
+          {canRun
+            ? <Link href="/admin/undian/kontrol" className="flex min-h-12 items-center gap-2 border border-[var(--brand)] bg-[var(--brand)] px-5 text-sm font-semibold text-white">
+                <SlidersHorizontal size={18} /> Buka kontrol undian
+              </Link>
+            : <span title="Selesaikan dulu butir bertanda wajib di daftar kesiapan" className="flex min-h-12 cursor-not-allowed items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-5 text-sm font-semibold text-[var(--ink-muted)]">
+                <LockSimple size={18} /> Buka kontrol undian
+              </span>}
           <Link href="/undian" target="_blank" className="flex min-h-12 items-center gap-2 border border-[var(--line)] px-5 text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
             <ArrowSquareOut size={18} /> Layar panggung
           </Link>
         </div>
       </div>
 
+      <ReadinessPanel steps={readiness} canRun={canRun} onGo={setTab} />
+
       {error && <p className="mt-5 flex items-start gap-2 border border-[var(--danger)] bg-[#FDECEC] p-4 text-sm text-[var(--danger)]">
         <Warning size={18} className="mt-0.5 shrink-0" /> {error}
       </p>}
 
+      {/* Tab dinomori dan diurutkan menurut ketergantungan data, bukan menurut
+          seberapa sering dipakai. Nomornya bukan gerbang -- tab mana pun tetap
+          bisa dibuka -- melainkan jawaban atas satu pertanyaan yang berulang:
+          mulai dari mana. */}
       <div className="mt-8 flex flex-wrap gap-px border border-[var(--line)] bg-[var(--line)]">
         {([
+          { key: "data", label: "Sumber data", icon: Users },
           { key: "prizes", label: "Hadiah & syarat", icon: Gift },
           { key: "display", label: "Tampilan panggung", icon: Confetti },
-          { key: "data", label: "Sumber data", icon: Users },
-          { key: "history", label: "Hasil & riwayat", icon: ClockCounterClockwise },
-        ] as const).map((item) => <button
+          { key: "history", label: "Sesi, hasil & riwayat", icon: ClockCounterClockwise },
+        ] as const).map((item, index) => <button
           key={item.key}
           type="button"
           onClick={() => setTab(item.key)}
           className={`flex min-h-12 flex-1 items-center justify-center gap-2 px-5 text-sm font-semibold ${tab === item.key ? "bg-[var(--brand)] text-white" : "bg-[var(--surface)] hover:text-[var(--brand)]"}`}
         >
+          <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] tabular-nums ${tab === item.key ? "bg-white/20" : "bg-[var(--surface-muted)] text-[var(--ink-muted)]"}`}>{index + 1}</span>
           <item.icon size={18} /> {item.label}
         </button>)}
       </div>
@@ -410,6 +444,69 @@ export default function UndianAdminPage() {
       {tab === "history" && <SessionHistory isOwner={isOwner} onChanged={() => { void load(); }} />}
     </div>
   </main>;
+}
+
+// ===========================================================================
+// Panel kesiapan
+// ===========================================================================
+
+/**
+ * Daftar periksa sebelum mengundi.
+ *
+ * Dipilih ketimbang wizard bertahap. Wizard membantu sekali, pada penyiapan
+ * pertama; sesudah itu ia menghalangi -- panitia yang kembali lima menit sebelum
+ * acara untuk menaikkan satu kuota harus melewati tiga layar pengantar. Panel
+ * ini memberi urutan yang sama tanpa memenjarakan kunjungan berikutnya, dan
+ * memaksa hanya di satu titik yang benar-benar penting: pintu ke halaman
+ * kontrol.
+ *
+ * Melipat sendiri saat semua beres. Daftar centang hijau yang menetap di atas
+ * layar berhenti dibaca, lalu ikut tidak terbaca ketika salah satunya berubah
+ * merah.
+ */
+function ReadinessPanel({ steps, canRun, onGo }: {
+  steps: ReadinessStep[];
+  canRun: boolean;
+  onGo: (tab: ReadinessTab) => void;
+}) {
+  const pending = steps.filter((step) => !step.done);
+  const [open, setOpen] = useState(pending.length > 0);
+
+  return <section className="mt-6 border border-[var(--line)] bg-[var(--surface)]">
+    <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+      <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--ink-muted)]">Kesiapan undian</h2>
+      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold ${canRun ? "bg-[#EEF8F0] text-[var(--brand-strong)]" : "bg-[#FFF2F0] text-[var(--danger)]"}`}>
+        {canRun ? <><Check size={13} weight="bold" /> Siap dijalankan</> : <><LockSimple size={13} weight="bold" /> Belum bisa dijalankan</>}
+      </span>
+      <span className="text-xs text-[var(--ink-muted)]">{steps.length - pending.length} dari {steps.length} butir beres</span>
+      <button type="button" onClick={() => setOpen((value) => !value)} className="ml-auto min-h-8 text-xs font-semibold text-[var(--brand)] underline">
+        {open ? "Sembunyikan" : "Lihat daftar"}
+      </button>
+    </div>
+
+    {open && <ol className="border-t border-[var(--line)]">
+      {steps.map((step, index) => <li key={step.id} className="flex flex-wrap items-start gap-3 border-b border-[var(--line)] px-4 py-3 last:border-b-0">
+        <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums ${step.done ? "bg-[#EEF8F0] text-[var(--brand-strong)]" : step.blocking ? "bg-[#FFF2F0] text-[var(--danger)]" : "bg-[#FDF6E7] text-[var(--warning)]"}`}>
+          {step.done ? <Check size={12} weight="bold" /> : index + 1}
+        </span>
+        <div className="min-w-52 flex-1">
+          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+            {step.label}
+            {/* Label wajib/opsional ditulis pada butirnya sendiri, bukan hanya
+                tersirat dari warna: pembaca yang tidak membedakan merah dan
+                kuning tetap harus bisa tahu mana yang mengunci. */}
+            {!step.done && <span className={`px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${step.blocking ? "bg-[#FFF2F0] text-[var(--danger)]" : "bg-[#FDF6E7] text-[var(--warning)]"}`}>
+              {step.blocking ? "Wajib" : "Opsional"}
+            </span>}
+          </p>
+          {step.detail && <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">{step.detail}</p>}
+        </div>
+        {!step.done && <button type="button" onClick={() => onGo(step.tab)} className="min-h-9 border border-[var(--line)] px-3 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">
+          Bereskan
+        </button>}
+      </li>)}
+    </ol>}
+  </section>;
 }
 
 // ===========================================================================
@@ -630,9 +727,32 @@ function PrizeEditor({
         Cadangan ikut diundi bersamaan, dipakai bila pemenang utama tidak ada di tempat.
       </p>
 
+      {/* Pilihan berhenti hanya berarti bila ADA animasi. Mode `instant`
+          menampilkan pemenang seketika, jadi tidak ada apa pun untuk
+          dihentikan. */}
       {draft.animation !== "instant" && <div className="mt-4">
-        <label htmlFor="spin-seconds" className={labelClass}>Durasi animasi: {draft.spin_seconds.toFixed(1)} detik</label>
-        <input id="spin-seconds" type="range" min={1} max={30} step={0.5} value={draft.spin_seconds} onChange={(event) => onChange({ spin_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full accent-[var(--brand)]" />
+        <p className={labelClass}>Kapan animasi berhenti</p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {SPIN_MODES.map((item) => <button
+            key={item.value}
+            type="button"
+            onClick={() => onChange({ spin_mode: item.value })}
+            className={`border p-3 text-left ${draft.spin_mode === item.value ? "border-[var(--brand)] bg-[#E8ECFB]" : "border-[var(--line)] hover:border-[var(--brand)]"}`}
+          >
+            <span className="block text-sm font-semibold">{item.label}</span>
+            <span className="mt-1 block text-[11px] leading-snug text-[var(--ink-muted)]">{item.hint}</span>
+          </button>)}
+        </div>
+
+        {draft.spin_mode === "timed"
+          ? <div className="mt-4">
+              <label htmlFor="spin-seconds" className={labelClass}>Durasi animasi: {draft.spin_seconds.toFixed(1)} detik</label>
+              <input id="spin-seconds" type="range" min={1} max={30} step={0.5} value={draft.spin_seconds} onChange={(event) => onChange({ spin_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full accent-[var(--brand)]" />
+            </div>
+          : <p className="mt-3 flex items-start gap-2 border border-[#E6D3AE] bg-[#FDF6E7] p-3 text-[11px] leading-relaxed text-[var(--warning)]">
+              <Warning size={14} className="mt-0.5 shrink-0" />
+              <span>Undian tidak akan selesai sendiri — operator wajib menekan <span className="font-semibold">Berhenti &amp; tampilkan</span> di halaman kontrol. Pemenang sudah tersimpan sejak tombol Undi ditekan, jadi tidak ada yang hilang bila peramban tertutup: siapa pun bisa menghentikannya dari halaman kontrol. Jeda tampil pemenang tidak berlaku pada mode ini.</span>
+            </p>}
       </div>}
     </div>
 

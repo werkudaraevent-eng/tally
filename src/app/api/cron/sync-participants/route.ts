@@ -30,18 +30,26 @@ async function runSync(request: Request) {
   const client = getSupabaseServiceClient();
   const { data: events, error: eventError } = await client
     .from("events")
-    .select("id,slug,scanner_api_event_slug")
+    .select("id,slug,scanner_api_event_slug,scanner_api_base_url,scanner_api_key")
     .in("participant_source", ["scanner_api", "hybrid"])
     .in("status", ["active", "draft"])
     .not("scanner_api_event_slug", "is", null);
   if (eventError) return apiError("INTERNAL_ERROR", 500);
 
-  const targets = (events ?? []) as Array<{ id: string; slug: string; scanner_api_event_slug: string }>;
+  const targets = (events ?? []) as Array<{
+    id: string;
+    slug: string;
+    scanner_api_event_slug: string;
+    scanner_api_base_url: string | null;
+    scanner_api_key: string | null;
+  }>;
   const results: Array<Record<string, unknown>> = [];
 
   for (const target of targets) {
     try {
-      const external = await fetchExternalParticipants(target.scanner_api_event_slug);
+      // Seluruh kredensial dari baris event; env hanya cadangan bila kolomnya
+      // kosong. Satu putaran bisa menyentuh dua penyedia scanner berbeda.
+      const external = await fetchExternalParticipants(target);
       const { data, error } = await client.rpc("upsert_external_participants" as never, { p_event_id: target.id, p_participants: external.participants } as never);
       if (error) {
         results.push({ event: target.slug, ok: false, error: mapDatabaseError(error) });

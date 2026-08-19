@@ -275,6 +275,50 @@ export type ApiErrorCode =
   | "REGISTRATION_DUPLICATE_EMAIL"
   | "REGISTRATION_NOT_FOUND"
   | "REGISTRATION_ALREADY_REVIEWED"
+  // Pendaftaran yang belum punya peserta tidak bisa dikirimi kode. Dipisahkan
+  // dari REGISTRATION_NOT_FOUND karena tindak lanjutnya berbeda: yang ini
+  // menyuruh menyetujui dulu, bukan mencari barisnya.
+  | "REGISTRATION_NOT_APPROVED"
+  | "EMAIL_NOT_CONFIGURED"
+  | "EMAIL_SEND_FAILED"
+  // Dua penjaga penghapusan event. Dipisah karena jalan keluarnya berbeda:
+  // yang pertama diselesaikan dengan mengubah status, yang kedua tidak dapat
+  // diselesaikan sama sekali — event yang pernah bertransaksi diarsipkan.
+  | "EVENT_NOT_DELETABLE"
+  | "EVENT_HAS_ORDERS"
+  // Pengelolaan peserta oleh panitia sendiri. SOURCE_LOCKED berdiri sendiri dan
+  // bukan varian FORBIDDEN: yang menolak bukan peran pengguna melainkan asal
+  // barisnya, dan tindak lanjutnya adalah membetulkan data di Scanner API —
+  // sesuatu yang tidak dilakukan di halaman ini.
+  | "PARTICIPANT_SOURCE_LOCKED"
+  | "PARTICIPANT_QR_TAKEN"
+  | "PARTICIPANT_FIELDS_REQUIRED"
+  | "PARTICIPANT_RSVP_INVALID"
+  | "PARTICIPANT_IN_USE"
+  | "IMPORT_EMPTY"
+  | "IMPORT_TOO_LARGE"
+  | "IMPORT_UNREADABLE"
+  | "SCANNER_NOT_CONFIGURED"
+  // Voting langsung. VOTE_ALREADY_CAST dipisah dari VALIDATION_ERROR karena
+  // pemilih yang membacanya tidak melakukan kesalahan apa pun — suaranya sudah
+  // masuk, dan yang perlu ia lihat adalah hasil, bukan perintah mengulang.
+  | "VOTE_POLL_NOT_FOUND"
+  | "VOTE_CLOSED"
+  | "VOTE_ALREADY_CAST"
+  | "VOTE_NO_OPTION"
+  | "VOTE_OPTION_INVALID"
+  | "VOTE_TOO_MANY"
+  | "VOTE_INVALID_REQUEST"
+  | "VOTE_HAS_BALLOTS"
+  | "VOTE_QUESTION_REQUIRED"
+  | "VOTE_NEED_TWO_OPTIONS"
+  | "VOTE_TOO_MANY_OPTIONS"
+  | "VOTE_OPTION_LABEL_REQUIRED"
+  | "VOTE_CODE_NOT_FOUND"
+  | "VOTE_RATING_INVALID"
+  | "VOTE_WORD_TOO_LONG"
+  | "VOTE_TEXT_BLOCKED"
+  | "VOTE_BALLOT_NOT_FOUND"
   | "INTERNAL_ERROR";
 
 export type ApiError = {

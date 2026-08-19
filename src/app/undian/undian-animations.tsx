@@ -43,6 +43,44 @@ export type AnimationProps = {
 /** Nama cadangan saat kolam belum termuat, supaya animasi tidak kosong. */
 const PLACEHOLDER = ["• • •", "• • • •", "• • •"];
 
+// ---------------------------------------------------------------------------
+// Warna
+//
+// Layar panggung boleh memakai gambar latar apa pun, dan gambar itu bisa terang
+// atau gelap. Warna teks yang disetel panitia dipilih untuk latar polosnya,
+// bukan untuk gambar yang dipasang belakangan -- dan default `text` berwarna
+// putih. Di atas gambar krem, tulisan putih hilang sama sekali.
+//
+// Karena itu apa pun yang digambar DI ATAS bidang berwarna milik animasi
+// sendiri (segmen roda, poros) memilih warna tulisannya dari bidang itu, bukan
+// dari setelan. Yang melayang langsung di atas latar tetap memakai `text`.
+// ---------------------------------------------------------------------------
+
+function parseHex(hex: string) {
+  const raw = (hex ?? "").replace("#", "").trim();
+  const full = raw.length === 3 ? raw.split("").map((char) => char + char).join("") : raw;
+  const value = Number.parseInt(full, 16);
+  // Jatuh ke emas bawaan bila nilainya tidak terbaca. Melempar di sini berarti
+  // layar panggung kosong hanya karena satu kolom warna salah ketik.
+  if (full.length !== 6 || !Number.isFinite(value)) return { r: 245, g: 196, b: 81 };
+  return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
+}
+
+const toHex = (value: number) => Math.round(Math.max(0, Math.min(255, value))).toString(16).padStart(2, "0");
+
+/** Campur `hex` menuju `target` sebanyak `amount` (0..1). */
+function mixHex(hex: string, target: string, amount: number) {
+  const from = parseHex(hex);
+  const to = parseHex(target);
+  return `#${toHex(from.r + (to.r - from.r) * amount)}${toHex(from.g + (to.g - from.g) * amount)}${toHex(from.b + (to.b - from.b) * amount)}`;
+}
+
+/** Hitam atau putih, mana pun yang terbaca di atas `hex`. */
+function readableOn(hex: string) {
+  const { r, g, b } = parseHex(hex);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? "#0B1020" : "#FFFFFF";
+}
+
 function useRosterNames(roster: AnimationProps["roster"]): string[] {
   return useMemo(() => (roster.length > 0 ? roster.map((item) => item.name) : PLACEHOLDER), [roster]);
 }
@@ -93,33 +131,199 @@ function useTicker(names: string[], endsAt: number | null, active: boolean, roun
 // ===========================================================================
 // Slot machine
 // ===========================================================================
-export function SlotAnimation({ roster, winners, endsAt, accent, text, fontFamily, round }: AnimationProps) {
+export function SlotAnimation({ roster, winners, endsAt, accent, text, fontFamily, round, pendingCount }: AnimationProps) {
   const names = useRosterNames(roster);
-  const spinning = winners.length === 0;
-  const current = useTicker(names, endsAt, spinning, round);
+  const drawing = winners.length === 0;
 
-  return <div className="flex w-full flex-col items-center gap-[2vh]">
-    {spinning ? <div
-      className="flex w-full items-center justify-center overflow-hidden border-y-2 px-[4vw]"
-      style={{ borderColor: accent, height: "26vh", background: `${accent}14` }}
-    >
-      <span
-        className="truncate text-center font-bold uppercase tracking-[-0.02em]"
-        style={{ fontFamily, fontSize: "clamp(28px, 7vw, 110px)", color: text }}
-      >
-        {current}
-      </span>
-    </div> : <WinnerList winners={winners} accent={accent} text={text} fontFamily={fontFamily} />}
+  /**
+   * SATU GULUNGAN PER PEMENANG, berhenti satu per satu dari kiri.
+   *
+   * Sebelumnya komponen ini hanya punya satu gulungan lalu berpindah ke daftar
+   * pemenang. Pada hadiah berpemenang tiga, penonton melihat satu nama bergulir
+   * lalu tiba-tiba tiga nama muncul — tidak ada hubungan yang terbaca antara
+   * animasinya dan hasilnya.
+   *
+   * Mesin slot justru metafora yang paling cocok untuk pemenang banyak: mesin
+   * sungguhan memang punya beberapa gulungan yang berhenti berurutan. Tidak ada
+   * yang perlu dibatasi di sisi konfigurasi.
+   */
+  const main = useMemo(() => winners.filter((winner) => !winner.is_backup), [winners]);
+  const winnerCount = main.length;
+  // Dari konfigurasi hadiah, bukan dari hasil: jumlah gulungan harus sudah benar
+  // sejak animasi mulai, kalau tidak tata letak melompat saat pemenang datang.
+  const reels = Math.max(1, drawing ? (pendingCount ?? 1) : winnerCount);
+
+  const [settled, setSettled] = useState(0);
+  const [seenRound, setSeenRound] = useState(round);
+  if (seenRound !== round) {
+    setSeenRound(round);
+    setSettled(0);
+  }
+
+  // Dependency angka, bukan array: halaman menyegarkan tiap dua detik dan
+  // membangun ulang array pemenang, sehingga dependency array akan membatalkan
+  // timer lalu mengulang penghentian dari gulungan pertama tanpa henti.
+  useEffect(() => {
+    if (winnerCount === 0) return;
+    const step = Math.max(320, Math.min(900, Math.round(2400 / winnerCount)));
+    const timers = Array.from({ length: winnerCount }, (_, index) => window.setTimeout(
+      // Hanya boleh maju: gulungan yang sudah berhenti lalu berputar lagi
+      // terbaca sebagai hasil yang ditarik ulang.
+      () => setSettled((current) => Math.max(current, index + 1)),
+      index * step,
+    ));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [winnerCount, round]);
+
+  const stopping = winnerCount > 0 && settled < winnerCount;
+  const spinning = drawing || stopping;
+  const current = useTicker(names, drawing ? endsAt : null, spinning, round);
+
+  const size = reels === 1
+    ? { height: "26vh", font: "clamp(28px, 7vw, 110px)" }
+    : reels <= 3
+      ? { height: "18vh", font: "clamp(16px, 3.2vw, 54px)" }
+      : { height: "12vh", font: "clamp(12px, 2vw, 32px)" };
+
+  const backups = useMemo(() => winners.filter((winner) => winner.is_backup), [winners]);
+
+  // Gulungan TETAP menjadi tampilan akhir; tidak berpindah ke WinnerList.
+  //
+  // Sebelumnya, begitu gulungan terakhir berhenti, layar berganti ke daftar
+  // pemenang yang menumpuk nama secara vertikal — tiga nama besar bertumpuk
+  // meluber melewati tepi bawah panggung, dan bentuk mesin slot yang baru saja
+  // dibangun animasinya hilang tepat pada saat hasilnya diumumkan. Nama yang
+  // berhenti di gulungannya sendiri sudah merupakan pengumuman yang utuh.
+  return <div className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-[2vh] overflow-hidden">
+    <div className="flex w-full flex-wrap items-center justify-center gap-[1.5vh] px-[3vw]">
+      {Array.from({ length: reels }).map((_, index) => {
+        const done = index < settled;
+        const winner = main[index];
+        // Offset per gulungan supaya ketiganya tidak menampilkan nama yang sama
+        // persis pada tiap denyut — tiga gulungan yang seirama terlihat seperti
+        // satu gulungan yang digandakan.
+        const rolling = names[(names.indexOf(current) + index * 3 + names.length) % names.length] ?? current;
+        return <div
+          key={index}
+          className="flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden border-y-2 px-[1.5vw]"
+          style={{
+            borderColor: accent,
+            height: size.height,
+            background: done ? accent : `${accent}14`,
+            // Lebar minimum menjaga tiga gulungan tetap sebaris di layar lebar,
+            // dan membiarkannya membungkus di layar sempit.
+            minWidth: reels > 1 ? "26%" : undefined,
+          }}
+        >
+          <span
+            className="w-full truncate text-center font-bold uppercase tracking-[-0.02em]"
+            style={{ fontFamily, fontSize: size.font, color: done ? readableOn(accent) : text }}
+          >
+            {done ? winner?.name : rolling}
+          </span>
+          {/* Perusahaan ikut DI DALAM gulungan, bukan di baris terpisah di bawah:
+              dengan tiga gulungan, satu daftar perusahaan di bawah tidak lagi
+              jelas milik nama yang mana. */}
+          {done && winner?.company && <span
+            className="w-full truncate text-center"
+            style={{ fontFamily, fontSize: reels === 1 ? "clamp(12px, 2vw, 30px)" : "clamp(9px, 1.2vw, 18px)", color: readableOn(accent), opacity: 0.75 }}
+          >
+            {winner.company}
+          </span>}
+        </div>;
+      })}
+    </div>
+
+    {!spinning && backups.length > 0 && <p className="px-[3vw] text-center" style={{ fontFamily, fontSize: "clamp(10px, 1.4vw, 20px)", color: text, opacity: 0.7 }}>
+      Cadangan: {backups.map((winner) => winner.name).join(" · ")}
+    </p>}
   </div>;
 }
 
 // ===========================================================================
 // Roda putar
 // ===========================================================================
-export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFamily, round }: AnimationProps) {
+export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFamily, round, pendingCount }: AnimationProps) {
   const names = useRosterNames(roster);
-  const spinning = winners.length === 0;
-  const current = useTicker(names, endsAt, spinning, round);
+  const drawing = winners.length === 0;
+
+  /**
+   * Roda punya SATU penunjuk, jadi satu putaran berarti satu nama.
+   *
+   * Hadiah berpemenang banyak karena itu tidak ditolak, melainkan diungkap
+   * BERURUTAN: roda terus berputar dan berhenti pada satu nama, lalu berputar
+   * lagi untuk nama berikutnya, sampai semuanya keluar. Ini yang dilakukan orang
+   * dengan roda fisik, dan yang dilakukan platform undian yang memakai metafora
+   * roda — bukan menampilkan dua nama sekaligus dari satu penunjuk.
+   *
+   * Seluruhnya di sisi tampilan. Pemenang sudah ditentukan server sejak `draw`
+   * dan datang lengkap dalam satu payload; komponen ini hanya mengatur kapan
+   * masing-masing terlihat. Tidak ada undian tambahan, dan urutannya adalah
+   * `slot_order` dari server, bukan urutan yang dikarang di sini.
+   */
+  const main = useMemo(() => winners.filter((winner) => !winner.is_backup), [winners]);
+  const winnerCount = main.length;
+
+  const [shown, setShown] = useState(0);
+  const [frozen, setFrozen] = useState<number | null>(null);
+  const [seenRound, setSeenRound] = useState(round);
+  if (seenRound !== round) {
+    setSeenRound(round);
+    setShown(0);
+    setFrozen(null);
+  }
+
+  // Dependency berupa ANGKA, bukan array `main`: halaman menyegarkan data setiap
+  // dua detik dan membangun ulang array pemenang tiap kali, sehingga effect
+  // dengan dependency array akan membatalkan seluruh timer dan mengulang
+  // pengungkapan dari nama pertama — selamanya.
+  useEffect(() => {
+    if (winnerCount === 0) return;
+    // Satu pemenang tidak diberi cabang khusus: loop di bawah menjalankannya
+    // pada t=0 tanpa jeda lanjutan, jadi layar langsung berpindah ke daftar
+    // pemenang. Cabang khusus di sini berarti setState sinkron di badan effect,
+    // yang ditolak React Compiler dengan alasan yang sama seperti di useTicker.
+    //
+    // Total pengungkapan dijaga ~6 detik berapa pun jumlah pemenangnya.
+    const step = Math.max(1100, Math.min(2400, Math.round(6000 / winnerCount)));
+    const hold = Math.round(step * 0.62);
+    const timers: number[] = [];
+    for (let index = 0; index < winnerCount; index += 1) {
+      timers.push(window.setTimeout(() => {
+        setFrozen(index);
+        // Hanya boleh maju: nama yang sudah dipanggil tidak boleh hilang lagi
+        // dari layar bila effect ini sempat berjalan ulang.
+        setShown((current) => Math.max(current, index + 1));
+      }, index * step));
+      // Poros kembali berputar di sela dua nama, supaya terbaca sebagai putaran
+      // baru dan bukan sebagai daftar yang berganti sendiri.
+      if (index < winnerCount - 1) {
+        timers.push(window.setTimeout(() => setFrozen(null), index * step + hold));
+      }
+    }
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [winnerCount, round]);
+
+  const revealing = winnerCount > 0 && shown < winnerCount;
+  // Roda tetap tampil selama masih ada nama yang belum dipanggil.
+  const spinning = drawing || revealing;
+  const current = useTicker(names, drawing ? endsAt : null, spinning, round);
+  const hubName = frozen !== null ? (main[frozen]?.name ?? current) : current;
+
+  /**
+   * Ukuran roda menyusut bila hadiah ini berpemenang banyak.
+   *
+   * Panggung animasi punya tinggi tetap dan `overflow-hidden`; roda 52vh
+   * ditambah barisan nama yang sudah dipanggil melebihi ruang itu, dan yang
+   * terpotong justru barisan namanya — bagian yang paling perlu dibaca.
+   *
+   * Diambil dari `pendingCount` (konfigurasi hadiah), bukan dari jumlah pemenang
+   * yang sudah datang, supaya rodanya tidak mengecil mendadak tepat pada detik
+   * nama pertama muncul. Alasan yang sama dipakai varian kartu.
+   */
+  const expected = Math.max(winnerCount, pendingCount ?? 1);
+  const multi = expected > 1;
+  const wheelSize = multi ? "min(40vh, 68vw)" : "min(52vh, 90vw)";
 
   // Roda hanya menggambar sebagian kolam.
   //
@@ -127,7 +331,11 @@ export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFami
   // berubah menjadi cakram berwarna. Yang tampil karena itu sebuah jendela yang
   // ikut bergerak — ia terasa penuh, tetap terbaca, dan yang penting: pemilihan
   // tetap dari SELURUH kolam, jadi peluang setiap orang tidak berubah sedikit pun.
-  const segments = Math.min(names.length, 16);
+  //
+  // Jumlahnya dijaga GENAP. Segmen berselang-seling dua warna; pada jumlah
+  // ganjil, segmen pertama dan terakhir bersentuhan dengan warna yang sama dan
+  // batas di antara keduanya lenyap.
+  const segments = Math.max(2, Math.min(names.length, 16) - (Math.min(names.length, 16) % 2));
   const visible = useMemo(() => {
     if (names.length <= segments) return names;
     const start = names.indexOf(current);
@@ -135,30 +343,62 @@ export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFami
     return Array.from({ length: segments }, (_, i) => names[(from + i) % names.length]);
   }, [names, segments, current]);
 
-  return <div className="flex w-full flex-col items-center gap-[2vh]">
-    {spinning ? <div className="relative flex items-center justify-center" style={{ width: "min(52vh, 90vw)", height: "min(52vh, 90vw)" }}>
+  // Irisan pai sungguhan, bukan cincin kosong berisi tulisan.
+  //
+  // Versi sebelumnya menggambar nama langsung di atas apa pun yang ada di
+  // belakang roda, memakai warna teks dari setelan. Dengan gambar latar terang
+  // dan `text` bawaan putih, seluruh nama tidak terlihat dan yang tersisa hanya
+  // cincin — roda yang tampak kosong. Sekarang setiap segmen punya bidang
+  // warnanya sendiri, dan warna tulisannya dihitung dari bidang itu, sehingga
+  // keterbacaan tidak lagi bergantung pada gambar latar.
+  const slice = 360 / visible.length;
+  const segmentA = accent;
+  const segmentB = mixHex(accent, "#000000", 0.42);
+  const rim = mixHex(accent, "#000000", 0.6);
+  const hub = mixHex(accent, "#FFFFFF", 0.88);
+  const pie = useMemo(() => {
+    const stops = Array.from({ length: visible.length }, (_, index) => {
+      const color = index % 2 === 0 ? segmentA : segmentB;
+      return `${color} ${(index * slice).toFixed(3)}deg ${((index + 1) * slice).toFixed(3)}deg`;
+    });
+    // `from -slice/2` menggeser awal gradien setengah irisan, sehingga segmen ke-i
+    // BERPUSAT tepat pada sudut jari-jari label ke-i, bukan dimulai di sana.
+    return `conic-gradient(from ${(-slice / 2).toFixed(3)}deg, ${stops.join(", ")})`;
+  }, [visible.length, slice, segmentA, segmentB]);
+
+  return <div className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-[1.5vh] overflow-hidden">
+    {spinning ? <div className="relative flex shrink-0 items-center justify-center" style={{ width: wheelSize, height: wheelSize }}>
       {/* Penunjuk */}
       <div
         className="absolute left-1/2 top-0 z-20 -translate-x-1/2"
-        style={{ borderLeft: "1.4vh solid transparent", borderRight: "1.4vh solid transparent", borderTop: `2.4vh solid ${accent}` }}
+        style={{ borderLeft: "1.4vh solid transparent", borderRight: "1.4vh solid transparent", borderTop: `2.4vh solid ${rim}` }}
       />
       <motion.div
         key={round}
-        className="relative h-full w-full rounded-full"
-        style={{ border: `0.5vh solid ${accent}` }}
+        className="relative h-full w-full overflow-hidden rounded-full"
+        style={{ border: `0.5vh solid ${rim}`, background: pie }}
         animate={{ rotate: 360 }}
         transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }}
       >
         {visible.map((name, index) => {
-          const angle = (360 / visible.length) * index;
+          // -90 menyelaraskan jari-jari dengan gradien: rotate(0) menunjuk pukul
+          // tiga, sedangkan sudut conic-gradient dihitung dari pukul dua belas.
+          const angle = slice * index - 90;
           return <div
             key={`${name}-${index}`}
             className="absolute left-1/2 top-1/2 origin-left"
             style={{ transform: `rotate(${angle}deg)`, width: "50%" }}
           >
+            {/* Padding kiri harus MELEWATI poros. Poros lebarnya 46% dari
+                diameter, artinya 46% dari panjang jari-jari ini — nilai lama 24%
+                menaruh tulisan tepat di bawahnya, dan seluruh nama tertimbun. */}
             <span
-              className="block truncate pl-[14%] pr-[4%] font-semibold uppercase"
-              style={{ fontFamily, fontSize: "clamp(9px, 1.5vh, 20px)", color: text, opacity: index % 2 === 0 ? 1 : 0.62 }}
+              className="block truncate pl-[50%] pr-[6%] font-semibold uppercase"
+              style={{
+                fontFamily,
+                fontSize: "clamp(9px, 1.5vh, 20px)",
+                color: readableOn(index % 2 === 0 ? segmentA : segmentB),
+              }}
             >
               {name}
             </span>
@@ -166,16 +406,42 @@ export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFami
         })}
       </motion.div>
       {/* Nama yang sedang lewat, di poros roda: dari kursi belakang inilah yang
-          terbaca, bukan tulisan pada segmennya. */}
+          terbaca, bukan tulisan pada segmennya. Porosnya bulat dan berwarna
+          terang supaya menonjol di atas irisan, dan tidak ikut berputar. */}
       <div
-        className="absolute z-10 flex items-center justify-center rounded-full px-[3vh]"
-        style={{ width: "58%", height: "34%", background: `${accent}` }}
+        className="absolute z-10 flex aspect-square items-center justify-center rounded-full px-[2vh]"
+        style={{ width: "46%", background: hub, border: `0.4vh solid ${rim}` }}
       >
-        <span className="truncate text-center font-bold uppercase" style={{ fontFamily, fontSize: "clamp(16px, 2.8vh, 44px)", color: "#0B1020" }}>
-          {current}
+        <span className="truncate text-center font-bold uppercase" style={{ fontFamily, fontSize: "clamp(16px, 2.8vh, 44px)", color: readableOn(hub) }}>
+          {hubName}
         </span>
       </div>
     </div> : <WinnerList winners={winners} accent={accent} text={text} fontFamily={fontFamily} />}
+
+    {/* Nama yang sudah dipanggil tetap terpampang selama roda memanggil sisanya.
+        Tanpa ini, penonton yang baru melihat layar pada nama ketiga tidak punya
+        cara tahu siapa dua yang sebelumnya, dan MC harus mengulang. */}
+    {/* Ruangnya disediakan sejak awal lewat `multi`, bukan saat nama pertama
+        muncul: baris yang tiba-tiba ada akan mendorong roda ke atas persis pada
+        detik semua mata tertuju ke layar. */}
+    {multi && spinning && <div className="flex min-h-[6vh] shrink-0 flex-wrap items-center justify-center gap-[1vh] px-[4vw]">
+      {revealing && shown > 0 && main.slice(0, shown).map((winner, index) => <span
+        key={`${winner.name}-${winner.slot_order}`}
+        className="truncate px-[1.6vh] py-[0.6vh] font-bold uppercase"
+        style={{
+          fontFamily,
+          fontSize: "clamp(12px, 2vh, 30px)",
+          background: index === frozen ? accent : `${accent}22`,
+          color: index === frozen ? readableOn(accent) : text,
+          border: `0.25vh solid ${accent}`,
+        }}
+      >
+        {winner.name}
+      </span>)}
+      {revealing && shown > 0 && <span style={{ fontFamily, fontSize: "clamp(10px, 1.6vh, 22px)", color: text, opacity: 0.7 }}>
+        {shown} dari {winnerCount}
+      </span>}
+    </div>}
   </div>;
 }
 
@@ -289,36 +555,77 @@ export function CardsAnimation({ roster, winners, endsAt, accent, text, fontFami
 // ===========================================================================
 // Angka per digit
 // ===========================================================================
-export function DigitsAnimation({ roster, winners, accent, text, fontFamily, round }: AnimationProps) {
+export function DigitsAnimation({ roster, winners, accent, text, fontFamily, round, pendingCount }: AnimationProps) {
   const spinning = winners.length === 0;
 
-  // Kode kursi dipakai bila ada, kalau tidak nama. Panjangnya dikunci ke kode
-  // pemenang begitu ia datang, supaya jumlah kotak tidak berubah saat berhenti —
-  // perubahan itu terlihat seperti kesalahan tampilan tepat di puncak ketegangan.
-  const target = winners[0]?.seat ?? winners[0]?.name ?? "";
+  // SATU DERET PER PEMENANG.
+  //
+  // Sebelumnya seluruh komponen ini membaca `winners[0]`, jadi hadiah dengan
+  // "pemenang per undi" dua atau lebih hanya menampilkan orang pertama. Nama
+  // kedua tetap terundi dan tetap tersimpan di `undian_winners` — ia hanya tidak
+  // pernah muncul di layar, dan itu ketahuan pada saat MC memanggil nama yang
+  // tidak ada di proyektor.
+  const main = useMemo(() => winners.filter((winner) => !winner.is_backup), [winners]);
+  const backups = useMemo(() => winners.filter((winner) => winner.is_backup), [winners]);
+
+  // Selama berputar, jumlah deret diambil dari konfigurasi hadiah — alasan yang
+  // sama seperti varian kartu: tanpa itu, jumlah deret berubah tepat pada detik
+  // pemenang muncul, dan lompatan tata letak terjadi persis saat semua mata
+  // tertuju ke layar.
+  const strips = spinning ? Math.max(1, pendingCount ?? 1) : Math.max(1, main.length);
+
+  const codeOf = (index: number) => main[index]?.seat ?? main[index]?.name ?? "";
+
   const sampleLength = useMemo(() => {
     const codes = roster.map((item) => item.code ?? item.seat ?? item.name).filter(Boolean);
     if (codes.length === 0) return 5;
     return Math.min(10, Math.round(codes.reduce((sum, code) => sum + code.length, 0) / codes.length));
   }, [roster]);
-  const length = target.length > 0 ? target.length : sampleLength;
 
-  // Digit dikunci berurutan dari kiri, satu per detik terakhir.
-  //
-  // Penyetelan ulang dilakukan SAAT RENDER lewat perbandingan nilai sebelumnya,
-  // bukan di dalam effect: React Compiler menolak setState sinkron di badan effect
-  // karena memicu render berantai.
-  const [locked, setLocked] = useState(0);
+  /**
+   * Panjang tiap deret sebagai STRING, bukan array.
+   *
+   * Dependency effect di bawah tidak boleh berupa `main`: halaman menyegarkan
+   * data setiap dua detik dan membangun ulang array pemenang setiap kali, jadi
+   * identitasnya selalu baru meski isinya sama. Effect akan dianggap usang,
+   * seluruh timer dibatalkan, dan penguncian digit mengulang dari awal —
+   * selamanya. Cacat yang sama pernah terjadi pada varian kartu dan dicatat di
+   * sana; string ini menghindarinya karena nilainya yang dibandingkan, bukan
+   * rujukannya.
+   */
+  const lengthsKey = main.map((_, index) => codeOf(index).length).join("-");
+
+  const [locked, setLocked] = useState<number[]>([]);
   const [seen, setSeen] = useState({ round, spinning });
   if (seen.round !== round || seen.spinning !== spinning) {
     setSeen({ round, spinning });
-    setLocked(0);
+    setLocked([]);
   }
+
   useEffect(() => {
-    if (spinning) return;
-    const timers = Array.from({ length }, (_, index) => window.setTimeout(() => setLocked(index + 1), index * 450));
+    if (spinning || !lengthsKey) return;
+    const lengths = lengthsKey.split("-").map(Number);
+    const total = lengths.reduce((sum, value) => sum + value, 0);
+    // Seluruh penguncian dijaga di sekitar 2,6 detik berapa pun jumlah digitnya.
+    // Dengan jeda tetap 450ms, dua pemenang berkode enam huruf butuh 5,4 detik —
+    // MC sudah selesai bicara sebelum kotak terakhir berhenti.
+    const step = Math.max(90, Math.min(450, Math.round(2600 / Math.max(1, total))));
+    const timers: number[] = [];
+    let order = 0;
+    lengths.forEach((length, strip) => {
+      for (let digit = 0; digit < length; digit += 1) {
+        timers.push(window.setTimeout(() => setLocked((current) => {
+          const next = [...current];
+          // Hanya boleh maju. Sama seperti kartu: kotak yang sudah berhenti lalu
+          // berputar lagi terlihat seperti hasil undian yang ditarik ulang.
+          next[strip] = Math.max(next[strip] ?? 0, digit + 1);
+          return next;
+        }), order * step));
+        order += 1;
+      }
+    });
     return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [spinning, length]);
+  }, [spinning, lengthsKey, round]);
 
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -328,34 +635,272 @@ export function DigitsAnimation({ roster, winners, accent, text, fontFamily, rou
 
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
-  return <div className="flex w-full flex-col items-center gap-[3vh]">
-    <div className="flex flex-wrap justify-center gap-[1.2vh]">
-      {Array.from({ length }).map((_, index) => {
-        const settled = !spinning && index < locked;
-        const char = settled ? target[index] : alphabet[(tick + index * 7) % alphabet.length];
-        return <div
-          key={index}
-          className="flex items-center justify-center border-2"
-          style={{
-            borderColor: accent,
-            background: settled ? accent : "transparent",
-            width: "clamp(38px, 8vh, 120px)",
-            height: "clamp(52px, 11vh, 160px)",
-          }}
-        >
-          <span className="font-bold tabular-nums" style={{ fontFamily, fontSize: "clamp(24px, 6vh, 92px)", color: settled ? "#0B1020" : text }}>
-            {char}
-          </span>
-        </div>;
-      })}
+  // Di atas enam deret, satu kolom menjadi terlalu tinggi meski kotaknya sudah
+  // dikecilkan. Dua kolom memotong tingginya setengah — pola yang sama dipakai
+  // WinnerList untuk alasan yang sama.
+  const columns = strips <= 6 ? 1 : 2;
+
+  /**
+   * Ukuran kotak DIHITUNG dari ruang yang tersisa, bukan dari daftar nilai tetap.
+   *
+   * Versi sebelumnya memakai `clamp(... , 4.6vh, 62px)` per tingkat jumlah
+   * pemenang. Batas atas dalam piksel itulah masalahnya: di layar proyektor yang
+   * tinggi, kotak berhenti tumbuh pada 62px dan lima deret berkumpul kecil-kecil
+   * di tengah dengan ruang kosong lebar di atas dan di bawahnya.
+   *
+   * Sekarang dua batas dihitung dan CSS `min()` memilih yang lebih ketat:
+   *   - batas TINGGI  — jatah vertikal tiap baris deret, dibagi jumlah baris.
+   *   - batas LEBAR   — jatah horizontal dibagi jumlah huruf deret terpanjang,
+   *                     sehingga nama sepanjang apa pun tetap muat sebaris.
+   *
+   * Hasilnya kotak sebesar mungkin yang masih muat: besar untuk satu pemenang,
+   * mengecil sendiri saat pemenangnya banyak, tanpa ambang yang ditebak.
+   */
+  const rows = Math.ceil(strips / columns);
+  const lengths = Array.from({ length: strips }, (_, index) => {
+    const code = codeOf(index);
+    return code.length > 0 ? code.length : sampleLength;
+  });
+  // `sampleLength` ikut dihitung supaya kotak tidak menyusut mendadak saat nama
+  // pemenang ternyata lebih panjang dari rata-rata kolam.
+  const maxLength = Math.max(3, sampleLength, ...lengths);
+  const perRow = 54 / rows;
+  const widthBudget = columns === 1 ? 74 : 35;
+  const byWidth = widthBudget / maxLength;
+
+  const box = {
+    width: `min(${(perRow * 0.45).toFixed(2)}vh, ${byWidth.toFixed(2)}vw)`,
+    height: `min(${(perRow * 0.62).toFixed(2)}vh, ${(byWidth / 0.72).toFixed(2)}vw)`,
+    font: `min(${(perRow * 0.36).toFixed(2)}vh, ${(byWidth * 0.62).toFixed(2)}vw)`,
+    name: `min(${(perRow * 0.15).toFixed(2)}vh, ${(byWidth * 0.3).toFixed(2)}vw)`,
+    gap: `min(${(perRow * 0.06).toFixed(2)}vh, ${(byWidth * 0.1).toFixed(2)}vw)`,
+  };
+
+  return <div
+    className="grid h-full min-h-0 w-full place-content-center justify-items-center overflow-hidden px-[3vw]"
+    style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, auto))`, gap: `1.4vh 3vw` }}
+  >
+    {Array.from({ length: strips }).map((_, strip) => {
+      const target = codeOf(strip);
+      const length = target.length > 0 ? target.length : sampleLength;
+      const lockedHere = locked[strip] ?? 0;
+      const settledAll = !spinning && lockedHere >= length;
+
+      // Nama di bawah deret hanya ditulis bila digitnya BUKAN nama itu sendiri.
+      //
+      // Deret mengeja nomor kursi bila peserta punya, dan namanya bila tidak.
+      // Pada kasus kedua, menambahkan nama di bawahnya berarti menulis kata yang
+      // sama dua kali berturut-turut. Pada kasus pertama ia justru wajib: tanpa
+      // itu penonton hanya melihat kode kursi dan tidak tahu siapa yang menang.
+      const spellsName = target.length > 0 && target === (main[strip]?.name ?? "");
+
+      return <div key={strip} className="flex flex-col items-center" style={{ gap: box.gap }}>
+        <div className="flex flex-wrap justify-center" style={{ gap: box.gap }}>
+          {Array.from({ length }).map((_, index) => {
+            const settled = !spinning && index < lockedHere;
+            // Offset `strip * 13` membuat deret kedua tidak menampilkan huruf
+            // acak yang persis sama dengan deret pertama pada tiap denyut.
+            const char = settled ? target[index] : alphabet[(tick + index * 7 + strip * 13) % alphabet.length];
+            return <div
+              key={index}
+              className="flex items-center justify-center border-2"
+              style={{ borderColor: accent, background: settled ? accent : "transparent", width: box.width, height: box.height }}
+            >
+              <span className="font-bold tabular-nums" style={{ fontFamily, fontSize: box.font, color: settled ? "#0B1020" : text }}>
+                {char}
+              </span>
+            </div>;
+          })}
+        </div>
+
+        {settledAll && (!spellsName || main[strip]?.company) && <AnimatePresence>
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="max-w-[70vw] text-center">
+            {!spellsName && <p className="truncate font-bold uppercase" style={{ fontFamily, fontSize: box.name, color: accent }}>{main[strip]?.name}</p>}
+            {main[strip]?.company && <p className="truncate" style={{ fontFamily, fontSize: box.name, color: text, opacity: 0.7 }}>{main[strip].company}</p>}
+          </motion.div>
+        </AnimatePresence>}
+      </div>;
+    })}
+
+    {/* Cadangan tidak mendapat deret digitnya sendiri: ia bukan yang dipanggil ke
+        panggung, dan memberinya kotak sebesar pemenang membuat penonton mengira
+        pemenangnya ada empat. */}
+    {/* `gridColumn: 1 / -1` supaya baris cadangan tetap melintang penuh saat
+        deretnya disusun dua kolom, bukan terjepit di satu sel. */}
+    {!spinning && backups.length > 0 && <p className="text-center" style={{ gridColumn: "1 / -1", fontFamily, fontSize: "clamp(10px, 1.6vh, 22px)", color: text, opacity: 0.7 }}>
+      Cadangan: {backups.map((winner) => winner.name).join(" · ")}
+    </p>}
+  </div>;
+}
+
+// ===========================================================================
+// Panah tancap
+// ===========================================================================
+
+/**
+ * Acak yang DAPAT DIULANG, diturunkan dari indeks.
+ *
+ * `Math.random()` tidak boleh dipakai untuk posisi kertas: server dan browser
+ * akan menghasilkan angka berbeda pada render pertama, dan React membuang
+ * seluruh pohonnya karena tidak cocok. Fungsi ini memberi sebaran yang terlihat
+ * acak tetapi sama di kedua sisi.
+ *
+ * TIDAK menyentuh apa pun yang menyangkut hasil undian — pemenang datang dari
+ * server. Ini murni tata letak.
+ */
+function scatter(index: number, salt: number) {
+  const value = Math.sin((index + 1) * 12.9898 + salt * 78.233) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+/**
+ * Kertas undian melayang, lalu SELURUH panah dilepas bersamaan.
+ *
+ * Panah serentak, bukan bergiliran. Undian lima pemenang adalah satu lemparan
+ * yang menghasilkan lima nama, bukan lima undian berturut-turut — versi
+ * bergiliran membuat panah kedua terasa seperti undian ulang. Jeda antar panah
+ * hanya 70ms, cukup untuk terbaca sebagai lontaran beruntun, bukan antrean.
+ *
+ * Kertas dan panahnya berkas SVG di `public/undian/`, bukan bentukan CSS. SVG
+ * dan bukan PNG karena kartu ikut membesar mengikuti jumlah pemenang: raster
+ * akan pecah persis pada ukuran yang paling terlihat dari kursi belakang.
+ */
+export function DartAnimation({ roster, winners, accent, text, fontFamily, pendingCount }: AnimationProps) {
+  const names = useRosterNames(roster);
+  const drawing = winners.length === 0;
+  const main = useMemo(() => winners.filter((winner) => !winner.is_backup), [winners]);
+  const backups = useMemo(() => winners.filter((winner) => winner.is_backup), [winners]);
+  const winnerCount = main.length;
+
+  // Jumlah kartu sudah benar sejak animasi mulai, diambil dari konfigurasi
+  // hadiah. Tanpa itu tata letak melompat tepat pada detik pemenang muncul.
+  const slots = Math.max(1, drawing ? (pendingCount ?? 1) : winnerCount);
+
+  /**
+   * Ukuran kartu dihitung dari ruang tersisa, bukan dari daftar nilai tetap.
+   *
+   * Dua batas, CSS `min()` memilih yang lebih ketat: jatah lebar dibagi jumlah
+   * kolom, dan jatah tinggi dibagi jumlah baris. Kertasnya beraspek 1,4 : 1
+   * mengikuti berkas SVG-nya.
+   */
+  const columns = slots <= 2 ? slots : slots <= 6 ? 3 : 4;
+  const rows = Math.ceil(slots / columns);
+
+  /**
+   * Panah butuh RUANGNYA SENDIRI di kiri tiap kartu.
+   *
+   * Batang yang menjulur keluar kartu ikut dihitung dalam pembagian lebar,
+   * kalau tidak ia menimpa kartu di sebelah kirinya — dan dengan tiga kartu
+   * berjajar, tiga batang hitam melintang di atas tiga nama sekaligus.
+   *
+   *   lebar total  = kolom x kartu + (kolom-1) x (julur + sela)
+   *   julur        = PROTRUDE x lebar kartu
+   */
+  const PROTRUDE = 0.34;
+  const GAP_VW = 1.5;
+  const widthVw = (86 - (columns - 1) * GAP_VW) / (columns + (columns - 1) * PROTRUDE);
+  const heightVw = (56 / rows) * 1.4;
+  const cardWidth = `min(${widthVw.toFixed(2)}vw, ${heightVw.toFixed(2)}vh)`;
+  const nameSize = `min(${(widthVw * 0.12).toFixed(2)}vw, ${(heightVw * 0.12).toFixed(2)}vh)`;
+  const subSize = `min(${(widthVw * 0.052).toFixed(2)}vw, ${(heightVw * 0.052).toFixed(2)}vh)`;
+  // Sela kolom memuat julur batang. Dihitung dari cabang vw; bila batas tinggi
+  // yang menang, kartunya lebih kecil dan selanya sekadar sedikit berlebih.
+  const columnGap = `${(widthVw * PROTRUDE + GAP_VW).toFixed(2)}vw`;
+
+  // Kertas latar dibatasi 16: di atas itu layar penuh, tiap kertas terlalu kecil
+  // untuk terbaca, dan beban animasi di komputer panggung naik terus.
+  const papers = useMemo(() => names.slice(0, 16), [names]);
+
+  return <div className="relative flex h-full min-h-0 w-full flex-col items-center justify-center overflow-hidden">
+    {/* Lapisan kertas melayang. `pointer-events-none` supaya tidak pernah
+        menangkap sentuhan di layar sentuh yang dipakai operator. */}
+    <div className="pointer-events-none absolute inset-0">
+      {papers.map((name, index) => <motion.div
+        key={`${name}-${index}`}
+        className="absolute flex items-center justify-center"
+        style={{
+          left: `${(3 + scatter(index, 1) * 84).toFixed(2)}%`,
+          top: `${(4 + scatter(index, 2) * 82).toFixed(2)}%`,
+          width: `min(15vw, 17vh)`,
+          aspectRatio: "1.4",
+          backgroundImage: "url(/undian/paper.svg)",
+          backgroundSize: "100% 100%",
+          // Kertas latar diredupkan begitu pemenang muncul supaya kartu yang
+          // tertancap panah menjadi satu-satunya yang menarik mata.
+          opacity: drawing ? 0.9 : 0.25,
+        }}
+        animate={{
+          y: [0, -12 - scatter(index, 3) * 16, 0],
+          rotate: [-9 + scatter(index, 4) * 18, 7 - scatter(index, 5) * 16, -9 + scatter(index, 4) * 18],
+        }}
+        transition={{ duration: 3.6 + scatter(index, 6) * 2.8, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <span className="max-w-[86%] truncate font-semibold uppercase" style={{ fontFamily, fontSize: "clamp(9px, 1.4vh, 18px)", color: "#6B5B3A" }}>
+          {name}
+        </span>
+      </motion.div>)}
     </div>
 
-    {!spinning && locked >= length && <AnimatePresence>
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="text-center">
-        <p className="font-bold uppercase" style={{ fontFamily, fontSize: "clamp(22px, 5vh, 76px)", color: accent }}>{winners[0]?.name}</p>
-        {winners[0]?.company && <p className="mt-[0.8vh]" style={{ fontFamily, fontSize: "clamp(12px, 2vh, 28px)", color: text, opacity: 0.75 }}>{winners[0].company}</p>}
-      </motion.div>
-    </AnimatePresence>}
+    {/* Kartu pemenang. Muncul serentak bersama panahnya. */}
+    <div className="relative z-10 flex flex-wrap items-center justify-center px-[3vw]" style={{ columnGap, rowGap: "2.5vh" }}>
+      {drawing
+        ? <p style={{ fontFamily, fontSize: "clamp(16px, 3.4vh, 46px)", color: text, opacity: 0.6 }}>
+            {slots > 1 ? `Membidik ${slots} nama…` : "Membidik…"}
+          </p>
+        : main.map((winner, index) => <motion.div
+            key={`${winner.name}-${winner.slot_order}`}
+            className="relative flex flex-col items-center justify-center"
+            style={{
+              width: cardWidth,
+              aspectRatio: "1.4",
+              backgroundImage: "url(/undian/paper.svg)",
+              backgroundSize: "100% 100%",
+              // Satu-satunya sentuhan warna branding pada kartu. Kertasnya
+              // sengaja dibiarkan berwarna kertas: mewarnai seluruh lembar
+              // dengan accent menghapus alasan memakai gambar kertas.
+              boxShadow: `0 0 0 0.35vh ${accent}`,
+            }}
+            // Sentakan saat panah mendarat: kertas terdorong lalu diam.
+            initial={{ scale: 0.9, opacity: 0, rotate: index % 2 === 0 ? -2.5 : 2.5 }}
+            animate={{ scale: [0.9, 1.05, 1], opacity: 1, rotate: [index % 2 === 0 ? -2.5 : 2.5, 0.8, 0] }}
+            transition={{ delay: index * 0.07 + 0.28, duration: 0.4, ease: "easeOut" }}
+          >
+            {/* Isi digeser ke kanan sejauh mata panah masuk, supaya batangnya
+                tidak pernah melintang di atas huruf. */}
+            <p className="max-w-[70%] truncate pl-[16%] font-bold uppercase tracking-[-0.02em]" style={{ fontFamily, fontSize: nameSize, color: "#2A2010" }}>
+              {winner.name}
+            </p>
+            {winner.company && <p className="mt-[0.4vh] max-w-[70%] truncate pl-[16%]" style={{ fontFamily, fontSize: subSize, color: "#2A2010", opacity: 0.65 }}>
+              {winner.company}
+            </p>}
+
+            {/* Panah menancap dari kiri. Lebarnya relatif terhadap kartu, jadi
+                proporsinya tetap sama di jumlah pemenang berapa pun. Julurnya
+                (34%) ikut diperhitungkan saat membagi lebar layar di atas. */}
+            <motion.img
+              src="/undian/dart.svg"
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute"
+              style={{ width: "48%", left: "-34%", top: "50%", translateY: "-50%" }}
+              initial={{ x: "-120vw", opacity: 0, rotate: -6 }}
+              animate={{ x: 0, opacity: 1, rotate: 0 }}
+              // Semua panah berangkat hampir bersamaan; 70ms hanya memberi kesan
+              // lontaran beruntun, bukan antrean.
+              transition={{ delay: index * 0.07, type: "spring", stiffness: 210, damping: 17, mass: 0.7 }}
+            />
+          </motion.div>)}
+    </div>
+
+    {/* Jumlah kertas TIDAK menyatakan besarnya kolam — kolam bisa ratusan.
+        Keterangan ini mencegah penonton menyimpulkan pesertanya cuma enam belas. */}
+    {drawing && <p className="relative z-10 mt-[2vh]" style={{ fontFamily, fontSize: "clamp(10px, 1.6vh, 22px)", color: text, opacity: 0.55 }}>
+      {roster.length > papers.length ? `${roster.length} nama di kolam` : ""}
+    </p>}
+
+    {!drawing && backups.length > 0 && <p className="relative z-10 mt-[2vh] px-[3vw] text-center" style={{ fontFamily, fontSize: "clamp(10px, 1.6vh, 22px)", color: text, opacity: 0.7 }}>
+      Cadangan: {backups.map((winner) => winner.name).join(" · ")}
+    </p>}
   </div>;
 }
 

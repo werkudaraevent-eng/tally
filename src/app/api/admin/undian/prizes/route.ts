@@ -9,7 +9,7 @@ import { buildPool } from "@/lib/undian-pool";
 
 export const PRIZE_COLUMNS =
   "id,name,description,image_url,sponsor_name,winners_per_draw,winner_quota,backup_per_draw," +
-  "animation,spin_seconds,source,entry_group_id,conditions,exclude_scope," +
+  "animation,spin_mode,spin_seconds,source,entry_group_id,conditions,exclude_scope," +
   "weight_mode,weight_var,weight_divisor,weight_base,weight_max,sort_order,is_active";
 
 // Pohon syarat divalidasi rekursif. Kedalaman dibatasi 4 karena z.lazy tanpa
@@ -64,7 +64,8 @@ const bodySchema = z.object({
   winners_per_draw: z.number().int().min(1).max(50),
   winner_quota: z.number().int().min(1).max(500),
   backup_per_draw: z.number().int().min(0).max(20),
-  animation: z.enum(["wheel", "slot", "cards", "digits", "instant"]),
+  animation: z.enum(["wheel", "slot", "cards", "digits", "dart", "instant"]),
+  spin_mode: z.enum(["timed", "manual"]).default("timed"),
   spin_seconds: z.number().min(1).max(60),
   source: z.enum(["participants", "entries"]),
   entry_group_id: z.number().int().positive().nullable().optional(),

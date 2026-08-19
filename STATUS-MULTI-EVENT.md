@@ -1,6 +1,6 @@
 # Status Multi-Event — Prima Hub
 
-Terakhir diperbarui: **2026-08-13**
+Terakhir diperbarui: **2026-08-18**
 Branch: **sudah di-merge ke `main` dan di-push** (`807d1c3`, 38 commit)
 Commit terakhir: `fix(routing): baca slug event dari Referer di handler, bukan lewat rewrite`
 
@@ -152,25 +152,75 @@ ambigu (bukan menebak). Data uji dikembalikan setelahnya.
 eksplisit; ia hanya bukan lagi satu-satunya penyelamat. Ada `npm run check` —
 9 pemeriksaan urutan prioritas, karena salah urutan gagalnya SENYAP.
 
-### P3b — Kirim kode peserta lewat email
-Ditunda atas permintaan; belum ada dependensi email di proyek. Sampai ada,
-**tidak boleh ada teks yang menjanjikan email** — pendaftar akan menutup halaman
-tanpa menyimpan kodenya lalu menunggu email yang tidak datang. Sekarang
-kodenya ditampilkan besar di layar sukses, dan ikut tampil di daftar Disetujui
-supaya panitia bisa membacakannya.
+### P3b — Kirim kode peserta lewat email — KODE SELESAI (2026-08-18)
+Resend, dipanggil lewat `fetch` biasa. **Tanpa dependensi baru**: yang dipakai
+hanya satu endpoint dengan enam field, dan paket `resend` tidak menambah
+kemampuan di atas itu. `qrcode` yang sudah terpasang menggambar lampiran PNG.
 
-Pilihan saat dikerjakan: Resend (`npm i resend`, gratis 3.000/bulan, perlu
-verifikasi domain) atau SMTP lewat nodemailer. `qrcode` sudah terpasang, jadi
-lampiran PNG tidak perlu dependensi baru.
+Bentuknya: kirim langsung di jalur permintaan, tanpa outbox dan tanpa percobaan
+ulang otomatis. Kegagalan disimpan sebagai teks di
+`event_registrations.email_error` dan panitia menekan **Kirim ulang**. Outbox
+menuntut penjadwal kedua di samping cron yang sudah ada, dan email gagal bukan
+keadaan darurat — kodenya tetap tampil di layar sukses pendaftar dan di layar
+moderasi.
 
-### P6 — Bersihkan event uji
-`uji-duplikat-dari-ui` masih ada (sudah diturunkan ke `draft`, jadi aman).
-**Tidak ada endpoint DELETE event** — `/api/events/[id]` hanya punya PATCH
-dengan aksi activate/deactivate/complete/archive, jadi admin tidak bisa
-menghapusnya sendiri lewat UI. Mengarsipkan sudah cukup untuk menyembunyikannya.
-Menghapus permanen harus lewat SQL, mengikuti urutan `ON DELETE RESTRICT` pada
-± 15 tabel anak (booths, special_offers, rundown_*, seat_map_*, undian_*,
-leaderboard_exclusions).
+Aturan yang dijaga:
+- **Email hanya disebut kalau benar-benar terkirim.** Layar sukses membaca
+  `email_sent` dari jawaban server, bukan dari "seharusnya sudah aktif". Kunci
+  API kosong, alamat ditolak, dan penyedia mati semuanya sampai sebagai `false`,
+  dan teks "potret layar ini sekarang" kembali muncul.
+- **Kode tetap ditampilkan besar** di kedua layar walau emailnya terkirim. Email
+  masuk spam adalah kejadian biasa; kode di layar satu-satunya salinan yang pasti.
+- **Gagal kirim TIDAK mengubah status HTTP persetujuan.** Pesertanya sudah dibuat;
+  membalas 5xx membuat admin menekan Setujui lagi dan menabrak
+  `REGISTRATION_ALREADY_REVIEWED`. Statusnya menempel sebagai field `email`.
+- **Kirim ulang satu baris per permintaan, tanpa versi massal.** Satu klik salah
+  mengirim ratusan email yang tidak dapat ditarik, dan lonjakannya membuat
+  penyedia menandai domain acara sebagai spam — sehingga pendaftar BERIKUTNYA
+  ikut tidak menerima apa pun.
+- **`email_attempts` naik lewat RPC**, bukan baca-lalu-tulis dari klien Supabase.
+  Dua penekanan berbarengan akan sama-sama membaca 2 dan menulis 3.
+- **`RESEND_API_KEY`/`EMAIL_FROM` sengaja TIDAK masuk `src/lib/env.ts`.** Berkas
+  itu memvalidasi di tingkat modul; menambahkannya di sana membuat seluruh
+  aplikasi gagal start hanya karena email belum disetel.
+
+**Belum dijalankan:** migrasi `202608180002` belum diterapkan ke DB produksi, dan
+`RESEND_API_KEY` + `EMAIL_FROM` belum diisi di Vercel. Sampai keduanya ada,
+fiturnya diam sepenuhnya — tombol kirim ulang disembunyikan dan tidak ada teks
+yang menjanjikan email.
+
+### P6 — Hapus event — KODE SELESAI (2026-08-18)
+`DELETE /api/events/[id]` + tombol **Hapus permanen** di `/events`, menggantikan
+rencana skrip SQL sekali pakai.
+
+Penghapusan berjalan di dalam RPC `delete_event`, bukan sebagai rangkaian
+`.delete()` dari route handler: klien Supabase mengirim tiap penghapusan sebagai
+permintaan HTTP terpisah dengan transaksinya sendiri, dan gagal di tabel ke-12
+meninggalkan 11 tabel kosong sementara event-nya masih ada — keadaan yang tidak
+diwakili status mana pun.
+
+Penjaga berlapis, masing-masing menutup kegagalan berbeda:
+- `super_admin` saja, sejajar dengan reset data dan kelola user (BR-17).
+- `confirm_slug` harus diketik ulang dan cocok. Yang dicegah bukan "menekan tanpa
+  membaca" melainkan **menekan pada baris yang salah**: kartu event berjajar dan
+  tombolnya identik.
+- Status wajib `draft`/`archived` dan **nol order**, ditegakkan DI DALAM fungsi.
+  Diperiksa di route, hitungannya sudah basi saat penghapusan berjalan.
+- Order adalah satu-satunya data di sini yang mewakili UANG; sisanya bisa dibuat
+  ulang. Event yang pernah bertransaksi **diarsipkan, tidak dihapus**.
+- Peserta sengaja TIDAK diperiksa — peserta uji itulah yang harus ikut terbuang.
+
+Urutan 19 langkah mengikuti FK, dan tiga di antaranya bukan tebakan:
+`audit_logs.order_id -> orders` dan `seat_map_sessions.seat_map_id -> seat_maps`
+keduanya NO ACTION (harus lebih dulu), sementara tujuh tabel setelan +
+`user_event_access` sudah `on delete cascade` sehingga sengaja tidak disebut.
+Balapan dengan order yang masuk bersamaan tidak butuh penguncian tambahan:
+`orders.event_id ... on delete restrict` menolak langkah terakhir dengan 23503
+dan membatalkan seluruh transaksi.
+
+**Belum dijalankan:** migrasi `202608180001` belum diterapkan ke DB produksi, dan
+`uji-duplikat-dari-ui` **masih ada**. Menghapusnya adalah langkah pengguna
+setelah migrasi terpasang.
 
 ---
 
@@ -286,15 +336,41 @@ leaderboard_exclusions).
 | `src/app/admin/registrasi/page.tsx` | moderasi + toggle pendaftaran |
 | `src/app/api/registrasi/route.ts` | endpoint publik tanpa login |
 | `supabase/migrations/202608130001_public_registration.sql` | antrean registrasi |
+| `src/lib/email/client.ts` | transport Resend lewat `fetch`, tidak pernah melempar |
+| `src/lib/email/registration-code.ts` | template + orkestrasi kirim & pencatatan |
+| `src/app/api/admin/registrasi/resend/route.ts` | kirim ulang, satu baris per permintaan |
+| `supabase/migrations/202608180001_delete_event.sql` | RPC hapus event, 19 langkah berurut FK |
+| `supabase/migrations/202608180002_registration_email.sql` | jejak kirim + `record_registration_email` |
 | `tasks/multi-event-plan.md` | rencana asli |
 
 ---
 
 ## 9. Langkah berikutnya yang disarankan
 
-1. **Pastikan deploy Vercel hijau**, lalu cek sinkronisasi peserta hidup lagi.
-   Ini satu-satunya langkah yang tidak bisa diverifikasi dari sini.
-2. Arsipkan atau hapus event uji `uji-duplikat-dari-ui` (P6).
-3. Kirim kode peserta lewat email (P3b), bila diinginkan.
+P1 dan P7 sudah selesai. P3b dan P6 **kodenya** sudah selesai; yang tersisa
+seluruhnya di luar repo dan tidak dapat dikerjakan dari sini.
 
-P1 dan P7 sudah selesai.
+1. **Terapkan dua migrasi baru ke DB produksi**, berurutan, lewat SQL Editor
+   Supabase:
+   - `202608180001_delete_event.sql`
+   - `202608180002_registration_email.sql`
+
+   Keduanya aditif — `create function` dan `add column if not exists`. Tidak ada
+   `drop`, tidak ada perubahan constraint yang sudah dirujuk `ON CONFLICT`, jadi
+   jebakan #3 dan #5 tidak berlaku di sini.
+
+2. **Isi env di Vercel** (Project Settings → Environment Variables):
+   `RESEND_API_KEY`, `EMAIL_FROM`, opsional `EMAIL_REPLY_TO`. Domain di
+   `EMAIL_FROM` **wajib** sudah diverifikasi di dashboard Resend; kalau belum,
+   penyedia menolak dengan "domain is not verified" dan pesannya muncul apa
+   adanya di layar moderasi.
+
+3. **Uji sampai jalur TULIS di event DRAFT, bukan produksi.** Ini aturan yang
+   sudah menyelamatkan proyek ini dua kali (lihat §7): daftar satu pendaftar uji
+   dengan alamat sungguhan, setujui, pastikan emailnya sampai berikut lampiran
+   QR, lalu tekan Kirim ulang dan pastikan `email_attempts` naik.
+
+4. **Hapus `uji-duplikat-dari-ui`** lewat tombol Hapus permanen di `/events`.
+   Sekaligus bukti bahwa P6 bekerja. Sebelum menekan, catat jumlah order
+   produksi (225) dan bandingkan setelahnya — "225 → 225" membuktikan tidak ada
+   yang bocor; angka tunggal tidak membuktikan apa pun.

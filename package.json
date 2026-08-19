@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "check": "node --experimental-strip-types --no-warnings src/lib/auth/event-slug.check.ts && node --experimental-strip-types --no-warnings src/lib/auth/event-writable.check.ts && node --experimental-strip-types --no-warnings src/lib/event-path.check.ts"
+    "check": "node --experimental-strip-types --no-warnings src/lib/auth/event-slug.check.ts && node --experimental-strip-types --no-warnings src/lib/auth/event-writable.check.ts && node --experimental-strip-types --no-warnings src/lib/event-path.check.ts && node --experimental-strip-types --no-warnings src/lib/undian-readiness.check.ts && node --experimental-strip-types --no-warnings src/lib/vote.check.ts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

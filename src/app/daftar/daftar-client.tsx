@@ -17,7 +17,7 @@ type Props = {
   requireJobTitle: boolean;
 };
 
-type Hasil = { status: string; qr_code: string | null };
+type Hasil = { status: string; qr_code: string | null; email_sent?: boolean };
 
 const input = "mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-4 text-base";
 const label = "mt-5 block text-sm font-semibold";
@@ -59,7 +59,10 @@ export default function DaftarClient(props: Props) {
     // berarti menyuruh mendaftar dua kali; yang kedua akan ditolak sebagai email
     // duplikat dan pendaftar mengira pendaftarannya gagal seluruhnya.
     if (!response) {
-      setError("Koneksi terputus. Pendaftaran Anda mungkin sudah tersimpan — periksa email sebelum mengisi ulang.");
+      // TIDAK menyuruh "periksa email": pengiriman email bisa saja belum
+      // diaktifkan di server, dan menyuruh menunggu sesuatu yang tidak akan
+      // datang membuat pendaftar berdiri di meja registrasi tanpa kode.
+      setError("Koneksi terputus. Pendaftaran Anda mungkin sudah tersimpan. Jangan mengisi ulang — hubungi panitia untuk memastikan.");
       return;
     }
     const body = await response.json().catch(() => ({}));
@@ -72,6 +75,11 @@ export default function DaftarClient(props: Props) {
 
   if (hasil) {
     const disetujui = hasil.status === "approved" && hasil.qr_code;
+    // Dibaca dari JAWABAN server, bukan dari asumsi bahwa email sudah aktif.
+    // Server hanya mengirim true bila penyedia benar-benar menerima kiriman;
+    // kunci API yang belum diisi, alamat yang ditolak, dan penyedia yang sedang
+    // mati semuanya sampai ke sini sebagai false.
+    const lewatEmail = disetujui && hasil.email_sent === true;
     return <Bingkai nama={props.eventName} tanggal={props.eventDate} zona={props.timeZone}>
       <div className="text-center">
         {disetujui
@@ -80,10 +88,10 @@ export default function DaftarClient(props: Props) {
         <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em]">
           {disetujui ? "Pendaftaran berhasil" : "Pendaftaran diterima"}
         </h2>
-        {/* TIDAK menjanjikan email: pengirimannya belum ada. Menjanjikannya
-            membuat pendaftar menutup halaman ini tanpa menyimpan kodenya, lalu
-            menunggu email yang tidak akan pernah datang -- dan baru sadar di
-            meja registrasi, saat antrean sudah panjang. */}
+        {/* Email disebut HANYA bila benar-benar terkirim. Menjanjikannya lebih
+            dulu membuat pendaftar menutup halaman ini tanpa menyimpan kodenya,
+            lalu menunggu email yang tidak akan pernah datang -- dan baru sadar
+            di meja registrasi, saat antrean sudah panjang. */}
         <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">
           {props.successText ?? (disetujui
             ? "Simpan kode di bawah ini. Tunjukkan kode itu di meja registrasi saat hari acara."
@@ -91,11 +99,13 @@ export default function DaftarClient(props: Props) {
         </p>
         {disetujui && <div className="mt-6 border border-[var(--line)] bg-[var(--surface-muted)] p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ink-muted)]">Kode peserta</p>
-          {/* Kode ditampilkan BESAR dan bisa disalin. Email bisa masuk spam,
-              tertunda, atau salah ketik; kode di layar adalah satu-satunya salinan
-              yang pasti sampai pada detik ini. */}
+          {/* Kode tetap ditampilkan BESAR walau emailnya terkirim. Email bisa
+              masuk spam, tertunda, atau salah ketik; kode di layar adalah satu-
+              satunya salinan yang pasti sampai pada detik ini. */}
           <p className="mt-2 select-all font-mono text-3xl font-semibold tracking-[0.1em]">{hasil.qr_code}</p>
-          <p className="mt-3 text-sm font-semibold text-[var(--danger)]">Potret layar ini sekarang. Kode tidak dikirim lewat email dan halaman ini tidak bisa dibuka lagi.</p>
+          {lewatEmail
+            ? <p className="mt-3 text-sm">Kode ini juga sudah dikirim ke email Anda, lengkap dengan QR-nya. <span className="font-semibold">Tetap potret layar ini</span> — email bisa masuk folder spam.</p>
+            : <p className="mt-3 text-sm font-semibold text-[var(--danger)]">Potret layar ini sekarang. Kode tidak dikirim lewat email dan halaman ini tidak bisa dibuka lagi.</p>}
         </div>}
       </div>
     </Bingkai>;

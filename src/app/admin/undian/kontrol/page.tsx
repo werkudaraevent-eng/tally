@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  ArrowLeft, ArrowSquareOut, ArrowsClockwise, CheckCircle, Flask, Gift, Power, SkipForward,
+  ArrowLeft, ArrowSquareOut, ArrowsClockwise, CheckCircle, Flask, Gift, Power, SkipForward, Stop,
   Sparkle, Trophy, Warning, XCircle,
 } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
@@ -145,6 +145,12 @@ export default function UndianControlPage() {
   const quotaUsed = activePrize ? winnerCounts[activePrize.id] ?? 0 : 0;
   const quotaFull = activePrize ? quotaUsed >= activePrize.winner_quota : false;
   const spinning = state?.phase === "spinning";
+  // Diturunkan dari state, bukan dari kolom hadiah yang dipipa ke sini.
+  // `reveal_at` kosong saat berputar HANYA terjadi pada mode manual, dan itu
+  // kebenaran runtime-nya sendiri: kalau hadiahnya diubah ke mode lain di
+  // tengah putaran, tombol di layar ini tetap cocok dengan undian yang sedang
+  // berjalan, bukan dengan setelan terbarunya.
+  const manualSpin = spinning && !state?.reveal_at;
   const rehearsal = state?.rehearsal === true;
   // Berapa nama yang akan dibatalkan bila "Undi ulang" ditekan.
   const pendingHere = activePrize ? pendingCounts[activePrize.id] ?? 0 : 0;
@@ -279,11 +285,20 @@ export default function UndianControlPage() {
                 {state.pool_size > 0 && ` · ${state.pool_size} nama di kolam`}
               </p>
 
+              {/* Pada mode manual tidak ada angka yang bisa dihitung mundur.
+                  Menampilkan "0.0" di sana akan terbaca sebagai animasi yang
+                  macet, padahal justru itulah perilaku yang diminta. */}
               {spinning && <div className="mt-5 border border-[var(--brand)] bg-[#E8ECFB] p-5 text-center">
                 <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--brand-strong)]">Sedang mengundi</p>
-                <p className="mt-2 text-5xl font-semibold tabular-nums tracking-[-0.05em] text-[var(--brand-strong)]">{countdown.toFixed(1)}</p>
+                {manualSpin
+                  ? <p className="mt-2 flex items-center justify-center gap-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--brand-strong)]">
+                      <span className="inline-block size-2.5 animate-pulse rounded-full bg-[var(--brand)]" /> Menunggu aba-aba
+                    </p>
+                  : <p className="mt-2 text-5xl font-semibold tabular-nums tracking-[-0.05em] text-[var(--brand-strong)]">{countdown.toFixed(1)}</p>}
                 <p className="mt-2 text-xs text-[var(--brand-strong)]/80">
-                  Pemenang sudah ditentukan dan dirahasiakan sampai animasi berhenti.
+                  {manualSpin
+                    ? "Roda berputar sampai Anda menekan Berhenti. Pemenang sudah ditentukan dan tersimpan sejak tombol Undi ditekan — menutup halaman ini tidak menghilangkannya."
+                    : "Pemenang sudah ditentukan dan dirahasiakan sampai animasi berhenti."}
                 </p>
               </div>}
 
@@ -296,13 +311,22 @@ export default function UndianControlPage() {
                 >
                   <Sparkle size={20} weight="fill" /> {busy === "draw" ? "Mengundi..." : rehearsal ? "UNDI (LATIHAN)" : "UNDI SEKARANG"}
                 </button>
+                {/* Aksi yang sama (`reveal`), bobot visual berbeda. Pada mode
+                    durasi tetap ia jalan pintas darurat; pada mode manual ia
+                    satu-satunya cara undian selesai, jadi ia harus terlihat
+                    seperti tombol utama — operator yang berdiri di samping MC
+                    tidak punya waktu mencari tombol sekunder. */}
                 {spinning && <button
                   type="button"
                   onClick={() => send({ action: "reveal" }, "reveal")}
                   disabled={busy !== null}
-                  className="flex min-h-14 items-center gap-2 border border-[var(--line)] px-5 text-sm font-semibold disabled:opacity-60"
+                  className={manualSpin
+                    ? "flex min-h-14 flex-1 items-center justify-center gap-2 border border-[var(--danger)] bg-[var(--danger)] px-6 text-base font-semibold text-white disabled:opacity-60"
+                    : "flex min-h-14 items-center gap-2 border border-[var(--line)] px-5 text-sm font-semibold disabled:opacity-60"}
                 >
-                  <SkipForward size={18} /> Langsung tampilkan
+                  {manualSpin
+                    ? <><Stop size={20} weight="fill" /> {busy === "reveal" ? "Menghentikan..." : "BERHENTI & TAMPILKAN"}</>
+                    : <><SkipForward size={18} /> Langsung tampilkan</>}
                 </button>}
               </div>
 

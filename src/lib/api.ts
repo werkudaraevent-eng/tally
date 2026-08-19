@@ -71,6 +71,46 @@ const messages: Record<ApiErrorCode, string> = {
   REGISTRATION_DUPLICATE_EMAIL: "Email ini sudah terdaftar untuk acara ini. Hubungi panitia bila Anda belum menerima kode peserta.",
   REGISTRATION_NOT_FOUND: "Pendaftaran tidak ditemukan.",
   REGISTRATION_ALREADY_REVIEWED: "Pendaftaran ini sudah diproses admin lain. Muat ulang daftarnya.",
+  REGISTRATION_NOT_APPROVED: "Pendaftaran ini belum disetujui, jadi belum ada kode peserta yang bisa dikirim.",
+  // Menyebut SIAPA yang harus bertindak. Panitia yang membaca "gagal terkirim"
+  // akan menekan Kirim ulang berkali-kali untuk keadaan yang tidak akan berubah
+  // sampai pemilik sistem mengisi kunci API.
+  EMAIL_NOT_CONFIGURED: "Pengiriman email belum diaktifkan di server. Hubungi pemilik sistem; kode peserta tetap bisa dibacakan dari daftar ini.",
+  EMAIL_SEND_FAILED: "Email gagal dikirim. Sebabnya tercatat di baris pendaftaran.",
+  EVENT_NOT_DELETABLE: "Hanya event berstatus Draft atau Arsip yang dapat dihapus. Kembalikan ke draft atau arsipkan dulu.",
+  EVENT_HAS_ORDERS: "Event ini sudah punya transaksi tercatat, jadi tidak dapat dihapus. Arsipkan saja — datanya hilang dari daftar utama tanpa memusnahkan laporan.",
+  // Menyebut APA yang masih boleh diubah, bukan sekadar menolak. Tanpa itu
+  // panitia mengira barisnya rusak dan mencoba lagi dengan cara yang sama.
+  PARTICIPANT_SOURCE_LOCKED: "Peserta ini datang dari Scanner API, jadi nama, perusahaan, jabatan, kode QR, tipe, dan RSVP-nya dikelola di sana — suntingan di sini akan tertimpa pada sync berikutnya. Hanya email dan telepon yang bisa diubah dari halaman ini.",
+  PARTICIPANT_QR_TAKEN: "Kode QR ini sudah dipakai peserta lain di event ini. Gunakan kode lain.",
+  PARTICIPANT_FIELDS_REQUIRED: "Kode QR dan nama wajib diisi.",
+  PARTICIPANT_RSVP_INVALID: "RSVP hanya boleh kosong, invited, atau confirmed.",
+  PARTICIPANT_IN_USE: "Peserta ini sudah punya transaksi atau pernah menang undian, jadi tidak dapat dihapus.",
+  IMPORT_EMPTY: "Berkas tidak memuat satu baris data pun.",
+  IMPORT_TOO_LARGE: "Berkas melebihi 5.000 baris. Pecah menjadi beberapa berkas.",
+  IMPORT_UNREADABLE: "Berkas tidak terbaca. Pastikan formatnya CSV atau XLSX dan baris pertamanya berisi nama kolom.",
+  SCANNER_NOT_CONFIGURED: "Scanner API belum disetel untuk event ini. Isi base URL, kunci API, dan slug event di kartu Setelan Scanner API.",
+  VOTE_POLL_NOT_FOUND: "Pertanyaan voting tidak ditemukan.",
+  VOTE_CLOSED: "Voting untuk pertanyaan ini sedang ditutup.",
+  VOTE_ALREADY_CAST: "Anda sudah memberikan suara untuk pertanyaan ini.",
+  VOTE_NO_OPTION: "Pilih dulu jawabannya.",
+  VOTE_OPTION_INVALID: "Ada pilihan yang tidak dikenali. Muat ulang halaman lalu coba lagi.",
+  VOTE_TOO_MANY: "Pilihan Anda melebihi batas untuk pertanyaan ini.",
+  VOTE_INVALID_REQUEST: "Permintaan voting tidak lengkap.",
+  // Menyebut APA yang masih boleh diubah. Tanpa itu panitia mengira pertanyaan
+  // terkunci sepenuhnya dan membuat pertanyaan baru di tengah acara.
+  VOTE_HAS_BALLOTS: "Suara sudah masuk untuk pertanyaan ini, jadi opsi tidak dapat ditambah, dihapus, atau diganti tipenya — angka yang sudah terkumpul akan kehilangan artinya. Teks pertanyaan dan label opsi tetap bisa dibetulkan.",
+  VOTE_QUESTION_REQUIRED: "Pertanyaan wajib diisi.",
+  VOTE_NEED_TWO_OPTIONS: "Isi minimal dua opsi jawaban.",
+  VOTE_TOO_MANY_OPTIONS: "Maksimal 30 opsi per pertanyaan.",
+  VOTE_OPTION_LABEL_REQUIRED: "Ada opsi yang labelnya masih kosong.",
+  VOTE_CODE_NOT_FOUND: "Kode peserta tidak ditemukan di acara ini. Periksa kembali kode di badge Anda.",
+  VOTE_RATING_INVALID: "Nilai yang dipilih di luar rentang yang disediakan.",
+  VOTE_WORD_TOO_LONG: "Ada kata yang terlalu panjang. Maksimal 40 huruf per kata.",
+  // Tidak menyebutkan kata mana yang tertolak: mengulanginya di layar sama saja
+  // menampilkannya, dan pengetiknya sudah tahu apa yang baru saja ia ketik.
+  VOTE_TEXT_BLOCKED: "Ada kata yang tidak dapat ditampilkan di layar acara. Ganti dengan kata lain.",
+  VOTE_BALLOT_NOT_FOUND: "Entri tidak ditemukan.",
   INTERNAL_ERROR: "Terjadi kesalahan server. Coba lagi.",
 };
 
@@ -126,6 +166,45 @@ export function mapDatabaseError(error: { code?: string; message?: string }) {
   if (message.includes("REGISTRATION_CLOSED")) return "REGISTRATION_CLOSED" as const;
   if (message.includes("REGISTRATION_ALREADY_REVIEWED")) return "REGISTRATION_ALREADY_REVIEWED" as const;
   if (message.includes("REGISTRATION_NOT_FOUND")) return "REGISTRATION_NOT_FOUND" as const;
+  // Dilempar delete_event. EVENT_NOT_FOUND sengaja TIDAK dipetakan di sini:
+  // route penghapusan sudah membaca barisnya lebih dulu dan menjawabnya dengan
+  // 404 berikut saran "muat ulang daftarnya", sama seperti PATCH di berkas yang
+  // sama. Memetakannya jadi 422 akan membuat dua jawaban berbeda untuk sebab
+  // yang persis sama.
+  if (message.includes("EVENT_NOT_DELETABLE")) return "EVENT_NOT_DELETABLE" as const;
+  if (message.includes("EVENT_HAS_ORDERS")) return "EVENT_HAS_ORDERS" as const;
+  // Dilempar save_participant / delete_participant / import_participants.
+  // PARTICIPANT_NOT_FOUND sudah terdaftar di atas lewat cabang bersama.
+  if (message.includes("PARTICIPANT_SOURCE_LOCKED")) return "PARTICIPANT_SOURCE_LOCKED" as const;
+  if (message.includes("PARTICIPANT_QR_TAKEN")) return "PARTICIPANT_QR_TAKEN" as const;
+  if (message.includes("PARTICIPANT_FIELDS_REQUIRED")) return "PARTICIPANT_FIELDS_REQUIRED" as const;
+  if (message.includes("PARTICIPANT_RSVP_INVALID")) return "PARTICIPANT_RSVP_INVALID" as const;
+  if (message.includes("PARTICIPANT_IN_USE")) return "PARTICIPANT_IN_USE" as const;
+  // Diperiksa SEBELUM cabang 23505 di bawah: bentrok kode peserta yang lolos
+  // pemeriksaan eksplisit di RPC (balapan dua admin) tetap harus terbaca sebagai
+  // kode terpakai, bukan sebagai "sudah mengambil item diskon".
+  if (message.includes("participants_qr_code_event_unique")) return "PARTICIPANT_QR_TAKEN" as const;
+  if (message.includes("IMPORT_TOO_LARGE")) return "IMPORT_TOO_LARGE" as const;
+  if (message.includes("IMPORT_EMPTY")) return "IMPORT_EMPTY" as const;
+  // Dilempar cast_vote dan save_vote_poll. Urutannya penting: VOTE_TOO_MANY dan
+  // VOTE_TOO_MANY_OPTIONS berbagi awalan, jadi yang lebih panjang diperiksa
+  // lebih dulu — pencocokan substring pada yang pendek akan menutupinya.
+  if (message.includes("VOTE_TOO_MANY_OPTIONS")) return "VOTE_TOO_MANY_OPTIONS" as const;
+  if (message.includes("VOTE_TOO_MANY")) return "VOTE_TOO_MANY" as const;
+  if (message.includes("VOTE_POLL_NOT_FOUND")) return "VOTE_POLL_NOT_FOUND" as const;
+  if (message.includes("VOTE_CLOSED")) return "VOTE_CLOSED" as const;
+  if (message.includes("VOTE_ALREADY_CAST")) return "VOTE_ALREADY_CAST" as const;
+  if (message.includes("VOTE_NO_OPTION")) return "VOTE_NO_OPTION" as const;
+  if (message.includes("VOTE_OPTION_LABEL_REQUIRED")) return "VOTE_OPTION_LABEL_REQUIRED" as const;
+  if (message.includes("VOTE_OPTION_INVALID")) return "VOTE_OPTION_INVALID" as const;
+  if (message.includes("VOTE_INVALID_REQUEST")) return "VOTE_INVALID_REQUEST" as const;
+  if (message.includes("VOTE_HAS_BALLOTS")) return "VOTE_HAS_BALLOTS" as const;
+  if (message.includes("VOTE_QUESTION_REQUIRED")) return "VOTE_QUESTION_REQUIRED" as const;
+  if (message.includes("VOTE_NEED_TWO_OPTIONS")) return "VOTE_NEED_TWO_OPTIONS" as const;
+  if (message.includes("VOTE_RATING_INVALID")) return "VOTE_RATING_INVALID" as const;
+  if (message.includes("VOTE_WORD_TOO_LONG")) return "VOTE_WORD_TOO_LONG" as const;
+  if (message.includes("VOTE_TEXT_BLOCKED")) return "VOTE_TEXT_BLOCKED" as const;
+  if (message.includes("VOTE_BALLOT_NOT_FOUND")) return "VOTE_BALLOT_NOT_FOUND" as const;
   // Postgres 22003 = numeric_value_out_of_range. Muncul ketika `regular_amount`
   // ditambah harga item spesial melampaui int4, jadi nominalnya sendiri lolos
   // validasi tetapi jumlahnya tidak. Tanpa cabang ini pesannya jatuh ke

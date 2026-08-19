@@ -25,24 +25,47 @@ const pageSchema = z.object({
 
 export type ExternalParticipant = z.infer<typeof participantSchema>;
 
+/** Kolom Scanner API pada baris `events`. Ketiganya boleh kosong. */
+export type ScannerOverrides = {
+  scanner_api_base_url?: string | null;
+  scanner_api_key?: string | null;
+  scanner_api_event_slug?: string | null;
+};
+
+export type ScannerConfig = { baseUrl: string; slug: string; key: string };
+
 /**
- * `slugOverride` berasal dari `events.scanner_api_event_slug`.
+ * Setelan event menang atas env; env tinggal sebagai cadangan.
  *
- * Env var `SCANNER_API_EVENT_SLUG` dipertahankan HANYA sebagai cadangan untuk
- * event pertama: satu deploy kini melayani banyak event, dan satu env var tidak
- * bisa menunjuk lebih dari satu slug. Base URL dan kunci API tetap dari env
- * karena keduanya milik integrasinya, bukan milik salah satu event.
+ * Ketiganya dulu milik "integrasinya", bukan milik satu event -- benar selama
+ * satu deploy melayani satu klien. Sejak tidak lagi begitu, base URL dan kunci
+ * ikut pindah ke baris event: dua klien bisa memakai penyedia scanner berbeda,
+ * dan satu env var tidak bisa menunjuk dua endpoint.
+ *
+ * Env dipertahankan supaya event yang sudah berjalan tidak perlu diisi ulang
+ * satu per satu sebelum sinkronisasi berikutnya berhasil.
  */
-function getConfig(slugOverride?: string | null) {
-  const baseUrl = process.env.SCANNER_API_BASE_URL?.replace(/\/$/, "");
-  const slug = slugOverride?.trim() || process.env.SCANNER_API_EVENT_SLUG;
-  const key = process.env.SCANNER_API_KEY;
-  if (!baseUrl || !slug || !key) throw new Error("External scanner API environment variables are missing.");
+export function resolveScannerConfig(overrides?: ScannerOverrides): ScannerConfig | null {
+  const baseUrl = (overrides?.scanner_api_base_url?.trim() || process.env.SCANNER_API_BASE_URL)?.replace(/\/$/, "");
+  const slug = overrides?.scanner_api_event_slug?.trim() || process.env.SCANNER_API_EVENT_SLUG;
+  const key = overrides?.scanner_api_key?.trim() || process.env.SCANNER_API_KEY;
+  if (!baseUrl || !slug || !key) return null;
   return { baseUrl, slug, key };
 }
 
-export async function fetchExternalParticipants(slugOverride?: string | null) {
-  const { baseUrl, slug, key } = getConfig(slugOverride);
+/**
+ * Dilempar saat ketiga nilai belum lengkap. Kelas sendiri, bukan `Error` biasa:
+ * pemanggil harus membedakan "belum disetel" (yang dijawab dengan menyuruh
+ * mengisi CMS) dari "API-nya menolak" (yang dijawab dengan coba lagi).
+ */
+export class ScannerNotConfiguredError extends Error {
+  constructor() { super("SCANNER_NOT_CONFIGURED"); this.name = "ScannerNotConfiguredError"; }
+}
+
+export async function fetchExternalParticipants(overrides?: ScannerOverrides) {
+  const config = resolveScannerConfig(overrides);
+  if (!config) throw new ScannerNotConfiguredError();
+  const { baseUrl, slug, key } = config;
   const participants: ExternalParticipant[] = [];
   const limit = 200;
   let offset = 0;

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
+import { sendRegistrationCode } from "@/lib/email/registration-code";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -84,12 +85,39 @@ export async function POST(request: Request) {
   }
 
   const hasil = data as { registration_id: string; status: string; qr_code: string | null };
+
+  // Email hanya untuk jalur auto-approve: di event bermoderasi belum ada kode
+  // yang bisa dikirim, dan email "pendaftaran diterima" tanpa kode hanya
+  // membuat pendaftar mengira urusannya sudah selesai.
+  //
+  // Ditunggu (await), tidak dilepas sebagai janji menggantung. Di lingkungan
+  // serverless, fungsi yang sudah membalas dapat dibekukan sebelum janji itu
+  // selesai — emailnya hilang tanpa satu pun galat, dan `email_attempts` tidak
+  // pernah naik sehingga tidak ada tanda bahwa ada yang tidak terkirim.
+  const kirim = hasil.status === "approved" && hasil.qr_code
+    ? await sendRegistrationCode({
+        eventId: event.id,
+        registrationId: hasil.registration_id,
+        eventName: event.name,
+        eventDate: event.event_date,
+        timeZone: event.time_zone,
+        to: parsed.data.email,
+        name: parsed.data.name,
+        qrCode: hasil.qr_code,
+      })
+    : { state: "not_configured" as const };
+
   return Response.json({
     status: hasil.status,
     // qr_code hanya ada pada event auto-approve. Pendaftar di event bermoderasi
     // menerima null, dan halamannya harus mengatakan "menunggu persetujuan" —
     // bukan menampilkan kotak QR kosong.
     qr_code: hasil.qr_code,
+    // Layar sukses memakai ini untuk memilih kalimatnya. Hanya `sent` yang boleh
+    // menyebut email: menjanjikannya saat pengiriman gagal atau belum disetel
+    // membuat pendaftar menutup halaman tanpa menyimpan kode, lalu menunggu
+    // email yang tidak akan datang.
+    email_sent: kirim.state === "sent",
     event: { name: event.name, slug: event.slug },
   });
 }

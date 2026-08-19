@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { isEmailConfigured } from "@/lib/email/client";
+import { sendRegistrationCode } from "@/lib/email/registration-code";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const querySchema = z.object({
@@ -31,7 +33,7 @@ export async function GET(request: Request) {
 
   let query = client
     .from("event_registrations")
-    .select("id,name,email,phone,company,job_title,extra,status,reject_reason,created_at,reviewed_at,participant_id", { count: "exact" })
+    .select("id,name,email,phone,company,job_title,extra,status,reject_reason,created_at,reviewed_at,participant_id,email_sent_at,email_error,email_attempts", { count: "exact" })
     .eq("event_id", eventId)
     // Terlama di ATAS. Antrean moderasi bukan linimasa: yang sudah menunggu
     // paling lama harus dikerjakan lebih dulu, dan urutan terbaru-di-atas
@@ -52,10 +54,11 @@ export async function GET(request: Request) {
   ]);
   if (result.error) return apiError("INTERNAL_ERROR", 500);
 
-  // Kode peserta ikut dikirim untuk baris yang sudah disetujui. Belum ada
-  // pengiriman email, jadi ini satu-satunya cara panitia bisa menyampaikan kode
-  // kepada orang yang lupa memotret layarnya. Diambil terpisah, bukan lewat
-  // join: PostgREST butuh relasi terdaftar, dan `participant_id` sengaja
+  // Kode peserta ikut dikirim untuk baris yang sudah disetujui. Tetap dikirim
+  // meskipun email sudah aktif: email bisa masuk spam, salah ketik, atau
+  // ditolak server penerima, dan panitia harus tetap bisa membacakan kodenya
+  // lewat telepon tanpa membuka database. Diambil terpisah, bukan lewat join:
+  // PostgREST butuh relasi terdaftar, dan `participant_id` sengaja
   // `on delete set null` sehingga barisnya bisa saja sudah tidak ada.
   const rows = (result.data ?? []) as Array<{ participant_id: string | null }>;
   const ids = rows.map((row) => row.participant_id).filter((id): id is string => id !== null);
@@ -78,6 +81,11 @@ export async function GET(request: Request) {
       participant_source: auth.scope.event.participant_source,
       slug: auth.scope.event.slug,
     },
+    // Dibaca dari env, bukan dari data. Layar moderasi memakainya untuk memilih
+    // antara "belum terkirim, coba lagi" (yang menyuruh panitia bertindak) dan
+    // "pengiriman email belum diaktifkan" (yang menyuruh panitia berhenti
+    // menekan tombol dan menghubungi pemilik sistem).
+    email_configured: isEmailConfigured(),
   });
 }
 
@@ -152,5 +160,38 @@ export async function POST(request: Request) {
     return apiError(code, code === "INTERNAL_ERROR" ? 500 : 422);
   }
 
-  return Response.json(data);
+  const hasil = data as { status: string; qr_code: string | null; participant_id: string | null };
+
+  // Nama dan email diambil SESUDAH persetujuan, bukan dikirim dari layar.
+  // Layar bisa saja menampilkan baris yang sudah basi; barisnya di database
+  // adalah satu-satunya yang pasti sesuai dengan peserta yang barusan dibuat.
+  let kirim: { state: string; error?: string } = { state: "not_configured" };
+  if (hasil.status === "approved" && hasil.qr_code) {
+    const { data: baris } = await getSupabaseServiceClient()
+      .from("event_registrations")
+      .select("name,email")
+      .eq("id", parsed.data.id)
+      .eq("event_id", auth.scope.event.id)
+      .maybeSingle();
+    const reg = baris as { name: string; email: string } | null;
+    if (reg) {
+      kirim = await sendRegistrationCode({
+        eventId: auth.scope.event.id,
+        registrationId: parsed.data.id,
+        eventName: auth.scope.event.name,
+        eventDate: auth.scope.event.event_date,
+        timeZone: auth.scope.event.time_zone,
+        to: reg.email,
+        name: reg.name,
+        qrCode: hasil.qr_code,
+        actorId: auth.user.id,
+      });
+    }
+  }
+
+  // Status email menempel di jawaban, TIDAK mengubah status HTTP. Persetujuan
+  // sudah tersimpan dan pesertanya sudah ada; membalas 5xx karena emailnya
+  // gagal akan membuat admin menekan Setujui lagi dan menabrak
+  // REGISTRATION_ALREADY_REVIEWED.
+  return Response.json({ ...hasil, email: kirim });
 }

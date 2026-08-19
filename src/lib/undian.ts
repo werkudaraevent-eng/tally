@@ -491,13 +491,21 @@ export function shuffle<T>(items: T[]): T[] {
 // Hadiah dan state
 // ---------------------------------------------------------------------------
 
-export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "instant";
+export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "instant";
+
+export type SpinMode = "timed" | "manual";
+
+export const SPIN_MODES: { value: SpinMode; label: string; hint: string }[] = [
+  { value: "timed", label: "Durasi tetap", hint: "Animasi berhenti sendiri setelah waktu yang disetel. Cocok saat rundown padat." },
+  { value: "manual", label: "Berhenti manual", hint: "Animasi berputar terus sampai operator menekan Berhenti. Cocok untuk hadiah utama yang momennya ingin ditahan MC." },
+];
 
 export const ANIMATIONS: { value: UndianAnimation; label: string; hint: string }[] = [
   { value: "wheel", label: "Roda putar", hint: "Paling dikenali penonton. Nyaman sampai sekitar 200 nama." },
   { value: "slot", label: "Slot machine", hint: "Nama bergulir cepat lalu berhenti. Kuat untuk ratusan sampai ribuan nama." },
   { value: "cards", label: "Kartu terbalik", hint: "Kartu dibuka satu per satu. Terbaik untuk beberapa pemenang sekaligus." },
   { value: "digits", label: "Angka per digit", hint: "Nomor kursi atau kode muncul digit demi digit. Paling menegangkan." },
+  { value: "dart", label: "Panah tancap", hint: "Kertas undian melayang, lalu anak panah menancap pada pemenangnya. Paling ramai di layar besar." },
   { value: "instant", label: "Langsung tampil", hint: "Tanpa animasi. Cadangan bila waktu acara mepet." },
 ];
 
@@ -520,6 +528,14 @@ export type UndianPrize = {
   winner_quota: number;
   backup_per_draw: number;
   animation: UndianAnimation;
+  /**
+   * `manual` membuat animasi berputar sampai operator menekan Berhenti.
+   *
+   * Teknisnya: `draw` tidak mengisi `reveal_at`, dan seluruh rantai di
+   * hilirnya sudah memperlakukan NULL sebagai "belum waktunya" -- lihat
+   * `revealDue` di /api/undian/state dan `endsAt` di undian-animations.
+   */
+  spin_mode: SpinMode;
   spin_seconds: number;
   source: PrizeSource;
   entry_group_id: number | null;
@@ -555,6 +571,7 @@ export function normalizePrize(raw: Record<string, unknown>): UndianPrize {
     winner_quota: numeric(raw.winner_quota, 1),
     backup_per_draw: numeric(raw.backup_per_draw, 0),
     animation: (ANIMATIONS.some((item) => item.value === raw.animation) ? raw.animation : "wheel") as UndianAnimation,
+    spin_mode: raw.spin_mode === "manual" ? "manual" : "timed",
     spin_seconds: numeric(raw.spin_seconds, 6),
     source: raw.source === "entries" ? "entries" : "participants",
     entry_group_id: raw.entry_group_id == null ? null : Number(raw.entry_group_id),

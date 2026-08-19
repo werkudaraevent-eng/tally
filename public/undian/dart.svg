@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 96" width="360" height="96" role="img" aria-label="Anak panah">
+  <!--
+    Anak panah untuk animasi undian "Panah tancap".
+
+    SVG, bukan PNG: layar panggung berjalan di proyektor beresolusi tak menentu
+    dan panah ini diperbesar mengikuti lebar kartu pemenang. Raster akan pecah
+    persis pada ukuran yang paling terlihat.
+
+    Ujungnya menghadap KANAN. Komponen menerbangkannya dari tepi kiri layar,
+    jadi arah ini yang membuat mata panah mendarat lebih dulu di kartu.
+  -->
+  <defs>
+    <linearGradient id="logam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FDFEFF"/>
+      <stop offset="26%" stop-color="#C9D2DC"/>
+      <stop offset="52%" stop-color="#7C8794"/>
+      <stop offset="74%" stop-color="#A9B4C0"/>
+      <stop offset="100%" stop-color="#464E58"/>
+    </linearGradient>
+    <linearGradient id="batang" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5B646F"/>
+      <stop offset="30%" stop-color="#2B3138"/>
+      <stop offset="55%" stop-color="#171B20"/>
+      <stop offset="100%" stop-color="#0B0E11"/>
+    </linearGradient>
+    <linearGradient id="bulu" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F0705F"/>
+      <stop offset="45%" stop-color="#C7352A"/>
+      <stop offset="100%" stop-color="#7B1B14"/>
+    </linearGradient>
+    <linearGradient id="cincin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFE9A8"/>
+      <stop offset="50%" stop-color="#D3A43C"/>
+      <stop offset="100%" stop-color="#8A6415"/>
+    </linearGradient>
+    <filter id="bayang" x="-10%" y="-40%" width="125%" height="190%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#bayang)">
+    <!--
+      Bulu ekor: DUA HELAI menyapu ke belakang, bukan satu bentuk chevron.
+
+      Versi pertama memakai chevron dan hasilnya terbaca sebagai mata panah
+      kedua yang menghadap terbalik — orang pertama yang melihatnya di layar
+      langsung menanyakan "panah merah di belakang itu apa". Helai yang miring
+      menjauh dari batang tidak punya ujung lancip yang menghadap ke mana pun.
+    -->
+    <path d="M72 43 L28 17 L12 25 L58 45 Z" fill="url(#bulu)"/>
+    <path d="M72 54 L28 80 L12 72 L58 52 Z" fill="url(#bulu)"/>
+    <!-- Sisi bawah tiap helai digelapkan supaya keduanya tidak menyatu jadi satu bidang. -->
+    <path d="M58 45 L12 25 L20 22 L62 43 Z" fill="#000000" opacity="0.2"/>
+    <path d="M58 52 L12 72 L20 75 L62 54 Z" fill="#000000" opacity="0.28"/>
+    <!-- Takik tali di pangkal. -->
+    <rect x="8" y="43" width="14" height="11" rx="3" fill="#2B3138"/>
+
+    <!-- Batang. Garis terang tipis di sepertiga atas memberi kesan silinder. -->
+    <rect x="56" y="40" width="212" height="17" rx="8" fill="url(#batang)"/>
+    <rect x="60" y="43" width="200" height="4" rx="2" fill="#FFFFFF" opacity="0.28"/>
+
+    <!-- Cincin penahan di pangkal mata panah. -->
+    <rect x="258" y="34" width="18" height="29" rx="4" fill="url(#cincin)"/>
+
+    <!-- Mata panah. Sisi bawah digelapkan supaya kerucutnya tidak terbaca datar. -->
+    <path d="M272 24 L356 48 L272 72 Z" fill="url(#logam)"/>
+    <path d="M272 48 L356 48 L272 72 Z" fill="#000000" opacity="0.22"/>
+    <path d="M280 34 L336 47 L280 44 Z" fill="#FFFFFF" opacity="0.55"/>
+  </g>
+</svg>

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 300" width="420" height="300" preserveAspectRatio="none" role="img" aria-label="Kertas undian">
+  <!--
+    Kertas undian untuk animasi "Panah tancap".
+
+    `preserveAspectRatio="none"` disengaja: kertas dipakai sebagai LATAR kartu
+    yang lebarnya mengikuti jumlah pemenang, jadi ia harus ikut melar tanpa
+    menyisakan celah. Karena itu tidak ada elemen bulat di dalamnya — lingkaran
+    akan menjadi lonjong saat dilarkan, sedangkan garis dan bidang datar tidak.
+
+    Sudut kanan bawah dibuat terlipat, bukan rata. Itu yang membedakan
+    "selembar kertas" dari "kotak putih" pada pandangan sekilas dari jauh.
+  -->
+  <defs>
+    <linearGradient id="lembar" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0%" stop-color="#FFFDF7"/>
+      <stop offset="55%" stop-color="#F8F2E4"/>
+      <stop offset="100%" stop-color="#E9E0CB"/>
+    </linearGradient>
+    <linearGradient id="lipatan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D9CEB4"/>
+      <stop offset="100%" stop-color="#B9AC8C"/>
+    </linearGradient>
+    <filter id="bayangKertas" x="-8%" y="-8%" width="118%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#3A2A0B" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#bayangKertas)">
+    <!-- Badan kertas, dengan sudut kanan bawah dipotong untuk lipatannya. -->
+    <path d="M6 6 H414 V246 L366 294 H6 Z" fill="url(#lembar)"/>
+    <!-- Lipatan sudut. -->
+    <path d="M414 246 L366 294 V246 Z" fill="url(#lipatan)"/>
+    <!-- Bayangan tipis di sisi kiri: memberi kesan lembaran melengkung. -->
+    <path d="M6 6 H30 V294 H6 Z" fill="#000000" opacity="0.045"/>
+    <!-- Garis tepi halus. -->
+    <path d="M6 6 H414 V246 L366 294 H6 Z" fill="none" stroke="#C9BC9C" stroke-width="2"/>
+  </g>
+</svg>

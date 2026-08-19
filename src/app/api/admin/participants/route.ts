@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { apiError } from "@/lib/api";
+import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { participantBodySchema, toRpcArgs } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Whitelist kolom sort. Nama kolom TIDAK BOLEH diambil langsung dari query
@@ -43,7 +44,12 @@ export async function GET(request: Request) {
   // kursi tetap milik scanner API, bukan sesuatu yang diatur dari halaman ini.
   let query = client
     .from("participants")
-    .select("id,qr_code,name,company,title,participant_type,rsvp_status,source_checked_in,source_total_scans,source_synced_at,source_removed_at,seats", { count: "exact" })
+    // `source_participant_id` ikut dikirim karena ia yang menentukan sel mana
+    // yang boleh disunting di tabel. UI tidak boleh menebaknya dari
+    // `source_synced_at`: peserta manual yang pernah ada di sumber lalu dihapus
+    // tetap punya stempel sync, dan menebak dari situ mengunci baris yang
+    // sebenarnya milik panitia.
+    .select("id,qr_code,name,company,title,email,phone,participant_type,rsvp_status,source_participant_id,source_checked_in,source_total_scans,source_synced_at,source_removed_at,seats", { count: "exact" })
     .eq("event_id", eventId)
     .order(SORTABLE[parsed.data.sort], { ascending: parsed.data.dir === "asc", nullsFirst: false })
     .order("name", { ascending: true })
@@ -69,4 +75,31 @@ export async function GET(request: Request) {
     offset: parsed.data.offset,
     participants: result.data ?? [],
   });
+}
+
+/**
+ * Tambah peserta manual.
+ *
+ * Barisnya dibuat tanpa `source_participant_id`, dan justru itulah yang membuat
+ * sinkronisasi Scanner API tidak menyentuhnya: sapuan `source_removed_at`
+ * menyaring `source_participant_id is not null`, dan upsert-nya memakai
+ * conflict target `(event_id, source_participant_id)`.
+ */
+export async function POST(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"]);
+  if (auth.response) return auth.response;
+  const body = participantBodySchema.safeParse(await request.json().catch(() => null));
+  if (!body.success) return apiError("VALIDATION_ERROR", 422, body.error.flatten());
+
+  const { data, error } = await getSupabaseServiceClient().rpc("save_participant" as never, {
+    p_event_id: auth.scope.event.id,
+    p_id: null,
+    ...toRpcArgs(body.data),
+    p_actor: auth.user.id,
+  } as never);
+  if (error) {
+    const code = mapDatabaseError(error);
+    return apiError(code, code === "INTERNAL_ERROR" ? 500 : 422);
+  }
+  return Response.json({ participant: data }, { status: 201 });
 }

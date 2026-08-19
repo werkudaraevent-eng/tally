@@ -20,7 +20,11 @@ const ALLOWED = new Map<string, string>([
 // Yang dipisah hanya foldernya, supaya isi bucket masih bisa ditelusuri panitia
 // saat mencari berkas yang salah unggah. Daftar tertutup, bukan nilai bebas dari
 // klien: tanpa itu `kind` menjadi jalan untuk menulis ke path mana pun di bucket.
-const FOLDERS = new Set(["backgrounds", "logos", "footers"]);
+// `undian` dan `vote` menyusul: gambar hadiah undian sudah lama mengirim
+// kind="undian" tetapi belum terdaftar di sini, sehingga selama ini jatuh ke
+// folder backgrounds — bekerja, tetapi menaruh gambar hadiah bercampur dengan
+// latar layar dan mempersulit penelusuran saat panitia mencari berkas salah unggah.
+const FOLDERS = new Set(["backgrounds", "logos", "footers", "undian", "vote"]);
 
 // Admin uploads a Live Display background image; stored in a public-read bucket
 // and returned as a public URL to be saved into display_settings.

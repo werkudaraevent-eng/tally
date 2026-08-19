@@ -37,6 +37,8 @@ Open `http://localhost:3000/login`.
 - [ ] Confirm at least one active `super_admin` exists and its PIN is held only by the system owner.
 - [ ] Replace demo PIN hashes.
 - [ ] Change `CRON_SECRET` to a random production value.
+- [ ] For public-registration events: set `RESEND_API_KEY` and `EMAIL_FROM`, and verify the sending domain in Resend first. Leaving them empty is a valid choice — the app then never promises an email anywhere, and the participant code stays visible on the registration success screen and in `/admin/registrasi`. Setting them with an unverified domain is the failure case: every send is rejected and registrants are told a code is coming.
+- [ ] Send one test registration to a real inbox and confirm the QR attachment opens. Do this on a draft event, not on the live one.
 - [ ] Run `npm run build`.
 - [ ] Deploy HTTPS; camera requires secure context.
 - [ ] Install PWA on Android booth devices and cashier tablet.
@@ -66,6 +68,8 @@ Open `http://localhost:3000/login`.
 - If an operator forgets their PIN mid-event, the client can reset it themselves from User & role. No need to reach the system owner.
 - If cashier confirmation is off, booth orders are final on creation and count toward top spender immediately. Booth staff can void their own orders with a reason; no payment method is recorded, so EDC reconciliation does not apply.
 - Switching cashier confirmation off settles every pending order in the queue. Do it before doors open, or announce it first.
+- Registration emails are best effort. Approval always succeeds; the email is a second copy. Each approved row shows whether the code was sent, and a **Kirim ulang** button retries one registrant at a time. There is deliberately no bulk send: one wrong click would mail hundreds of people irreversibly and get the event domain flagged as spam, so the *next* registrant would receive nothing either. Read the code aloud from `/admin/registrasi` when someone says the email never arrived — that always works, even when email is off.
+- Deleting an event is permanent and `super_admin` only. It is refused for `active`/`completed` events and for any event that has orders, because orders are the only data here that represents money. Archive those instead. The dialog requires typing the event slug — that is the guard against hitting the button on the neighbouring card, not against acting without thinking.
 - Never share `SUPABASE_SERVICE_ROLE_KEY`.
 - Reconcile cashier total against EDC settlement, then against any other active method separately.
 - Payment methods are managed in Settings. Disable a method instead of deleting it; at least one must stay active or the cashier cannot settle.

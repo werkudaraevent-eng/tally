@@ -1,6 +1,6 @@
 "use client";
 
-import { ArmchairIcon, CalendarDots, CaretLeft, ChartBar, ClipboardText, GearSix, Gift, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UserPlus, UsersThree } from "@phosphor-icons/react";
+import { ArmchairIcon, CalendarDots, CaretLeft, ChartBar, ChartBarHorizontal, ClipboardText, GearSix, Gift, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UserPlus, UsersThree } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -19,6 +19,7 @@ const navigation = [
   { href: "/admin/rundown", label: "Rundown acara", icon: CalendarDots, ownerOnly: false },
   // Cocok dengan startsWith, jadi /admin/undian/kontrol ikut menyorot entri ini.
   { href: "/admin/undian", label: "Undian", icon: Gift, ownerOnly: false },
+  { href: "/admin/vote", label: "Voting langsung", icon: ChartBarHorizontal, ownerOnly: false },
   // Audit trail merekam tindakan klien, jadi hanya pemilik sistem yang melihatnya.
   // Server juga menolak lewat requireUser(["super_admin"]); menyembunyikan link
   // agar klien tidak menemui halaman yang pasti gagal.

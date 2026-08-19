@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDots, CopySimple, Plus, SignOut, Storefront, UsersThree } from "@phosphor-icons/react";
+import { CalendarDots, CopySimple, Plus, SignOut, Storefront, Trash, UsersThree } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import type { EventRow, ParticipantSource } from "@/lib/domain";
@@ -30,6 +30,25 @@ const ACTIONS: Record<EventRow["status"], Array<{ action: Action; label: string;
   archived: [{ action: "deactivate", label: "Kembalikan ke draft" }],
 };
 
+/**
+ * Status yang boleh dihapus. Cerminan penjaga di `delete_event`; kalau keduanya
+ * berbeda pendapat yang menang adalah database, dan tombolnya di sini hanya
+ * berhenti muncul untuk aksi yang pasti ditolak.
+ */
+const DELETABLE: EventRow["status"][] = ["draft", "archived"];
+
+/** Nama tabel dari `delete_event` -> kata yang bisa dibaca panitia. */
+const LABEL_HITUNGAN: Record<string, string> = {
+  participants: "peserta",
+  booths: "booth",
+  special_offers: "item spesial",
+  registrations: "pendaftaran",
+  undian_prizes: "hadiah undian",
+  rundown_items: "baris rundown",
+  seat_map_sessions: "sesi denah",
+  audit_logs: "baris audit",
+};
+
 /** Aksi yang mengubah apa yang tampil di layar publik butuh konfirmasi. */
 const CONFIRM_TEXT: Partial<Record<Action, string>> = {
   activate: "Event aktif ikut jadi kandidat untuk tautan publik tanpa slug (/display, /denah, /rundown). Bila ada lebih dari satu event aktif, tautan lama akan meminta pengguna memilih.",
@@ -53,6 +72,11 @@ export default function EventsPage() {
   const [creating, setCreating] = useState(false);
   const [duplicating, setDuplicating] = useState<EventRow | null>(null);
   const [confirming, setConfirming] = useState<{ event: EventRow; action: Action; label: string } | null>(null);
+  // Dipisahkan dari `confirming`: penghapusan tidak dapat dibatalkan, jadi
+  // dialognya menuntut slug diketik ulang dan tidak boleh ikut memakai dialog
+  // konfirmasi biasa yang cukup satu klik.
+  const [deleting, setDeleting] = useState<EventRow | null>(null);
+  const [confirmSlug, setConfirmSlug] = useState("");
   const [pending, setPending] = useState(false);
 
   async function logout() {
@@ -125,6 +149,37 @@ export default function EventsPage() {
     setNotice(`Salinan "${body.event.name}" dibuat sebagai draft. Peserta, transaksi, dan pemenang undian TIDAK ikut disalin.`);
   }
 
+  async function remove() {
+    if (!deleting) return;
+    setPending(true);
+    setError("");
+    setNotice("");
+    const response = await fetch(`/api/events/${deleting.id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm_slug: confirmSlug.trim() }),
+    }).catch(() => null);
+    setPending(false);
+    if (!response) {
+      // Penghapusan berjalan dalam satu transaksi di database, jadi keadaan
+      // setengah jadi tidak mungkin -- tetapi permintaan yang tidak berbalas
+      // bisa saja SUDAH selesai. Daftarnya yang harus menjawab, bukan tebakan.
+      setError("Koneksi terputus. Muat ulang halaman untuk melihat apakah event sudah terhapus.");
+      return;
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(body.error?.details?.message ?? body.error?.message ?? "Penghapusan gagal.");
+      return;
+    }
+    const hapus = (body.deleted ?? {}) as Record<string, number>;
+    const rincian = Object.entries(hapus).filter(([, jumlah]) => jumlah > 0).map(([nama, jumlah]) => `${jumlah} ${LABEL_HITUNGAN[nama] ?? nama}`);
+    setDeleting(null);
+    setConfirmSlug("");
+    setEvents((current) => current.filter((row) => row.id !== deleting.id));
+    setNotice(`"${body.name}" dihapus permanen${rincian.length > 0 ? `, beserta ${rincian.join(", ")}` : ", tanpa data anak"}.`);
+  }
+
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -182,6 +237,15 @@ export default function EventsPage() {
               className="flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold disabled:opacity-50"
             ><CopySimple size={16} /> Duplikat</button>
             <Link href={`/events/${item.id}/access`} className="flex min-h-11 items-center gap-2 border border-[var(--line)] px-3 text-sm font-semibold"><UsersThree size={16} /> Hak akses</Link>
+            {/* Hanya muncul untuk status yang memang bisa dihapus. Menampilkannya
+                selalu lalu menolak dengan 422 membuat aturannya terbaca sebagai
+                kerusakan, bukan sebagai batas yang disengaja. */}
+            {DELETABLE.includes(item.status) && <button
+              type="button"
+              disabled={pending}
+              onClick={() => { setDeleting(item); setConfirmSlug(""); setError(""); setNotice(""); }}
+              className="flex min-h-11 items-center gap-2 border border-[var(--danger)]/40 px-3 text-sm font-semibold text-[var(--danger)] disabled:opacity-50"
+            ><Trash size={16} /> Hapus permanen</button>}
           </div>}
         </article>)}
       </section>}
@@ -197,6 +261,37 @@ export default function EventsPage() {
         <button type="button" onClick={() => setConfirming(null)} className="min-h-12 border border-[var(--line)] px-4 font-semibold">Batal</button>
       </div>
     </div></div>}
+
+    {deleting && <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setDeleting(null); }}><form onSubmit={(e) => { e.preventDefault(); void remove(); }} className="w-full max-w-md border border-[var(--line)] bg-[var(--surface)] p-6">
+      <h2 className="text-xl font-semibold text-[var(--danger)]">Hapus permanen</h2>
+      <p className="mt-2 text-sm text-[var(--ink-muted)]">{deleting.name}</p>
+      {/* Yang ditulis adalah APA yang hilang dan APA gantinya, bukan "tindakan
+          ini tidak dapat dibatalkan" -- kalimat itu ada di setiap dialog hapus
+          di dunia dan sudah berhenti dibaca. Arsipkan disebut sebagai jalan
+          keluar karena itulah yang sebenarnya dibutuhkan sebagian besar orang
+          yang sampai ke dialog ini. */}
+      <p className="mt-4 border border-[var(--danger)]/30 bg-[var(--danger)]/5 p-4 text-sm leading-6">
+        Booth, peserta, item spesial, pendaftaran, rundown, denah, hadiah undian, dan riwayat audit event ini dihapus dari database dan tidak dapat dikembalikan. Tidak ada cadangan di dalam aplikasi.
+        <span className="mt-2 block font-semibold">Kalau yang Anda inginkan hanya menyembunyikannya dari daftar, batalkan lalu pakai Arsipkan.</span>
+      </p>
+      <label className="mt-5 block text-sm font-semibold">Ketik slug event untuk melanjutkan
+        <code className="mt-2 block select-all bg-[var(--surface-muted)] px-3 py-2 font-mono text-sm">{deleting.slug}</code>
+        <input
+          value={confirmSlug}
+          onChange={(e) => setConfirmSlug(e.target.value)}
+          autoComplete="off"
+          spellCheck={false}
+          className="mt-2 h-12 w-full border border-[var(--line)] bg-[var(--background)] px-4 font-mono"
+        />
+      </label>
+      <div className="mt-6 flex gap-2">
+        <button
+          disabled={pending || confirmSlug.trim() !== deleting.slug}
+          className="min-h-12 flex-1 bg-[var(--danger)] px-4 font-semibold text-white disabled:opacity-40"
+        >{pending ? "Menghapus…" : "Hapus permanen"}</button>
+        <button type="button" onClick={() => setDeleting(null)} className="min-h-12 border border-[var(--line)] px-4 font-semibold">Batal</button>
+      </div>
+    </form></div>}
 
     {duplicating && <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setDuplicating(null); }}><form onSubmit={(e) => { e.preventDefault(); void duplicate(new FormData(e.currentTarget)); }} className="max-h-[90dvh] w-full max-w-xl overflow-y-auto border border-[var(--line)] bg-[var(--surface)] p-6 sm:p-8">
       <div className="flex justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand)]">Duplikat event</p><h2 className="mt-2 text-2xl font-semibold">Salin dari &ldquo;{duplicating.name}&rdquo;</h2></div><button type="button" onClick={() => setDuplicating(null)} className="min-h-11 px-3 text-sm font-semibold">Tutup</button></div>
