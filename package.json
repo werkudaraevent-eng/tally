@@ -12,6 +12,7 @@
     "theme": "node --import ./scripts/m3/register.mjs scripts/m3/gen-theme.mjs"
   },
   "dependencies": {
+    "@material/material-color-utilities": "^0.4.0",
     "@phosphor-icons/react": "^2.1.10",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.53.0",
@@ -27,7 +28,6 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@material/material-color-utilities": "^0.4.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/qrcode": "1.5.5",

@@ -34,7 +34,7 @@ type ResolveOk = { scope: EventScope; user: CurrentUser; response: null };
 type ResolveErr = { scope: null; user: null; response: Response };
 
 const EVENT_COLUMNS =
-  "id,slug,name,description,event_date,status,participant_source,scanner_api_event_slug,registration_enabled,registration_form_config,time_zone,created_at,updated_at,archived_at";
+  "id,slug,name,description,event_date,status,participant_source,scanner_api_event_slug,registration_enabled,registration_form_config,time_zone,end_date,start_time,end_time,tagline,venue_name,venue_address,venue_map_url,landing_config,created_at,updated_at,archived_at";
 
 function errorResponse(code: string, message: string, status: number): Response {
   return Response.json({ error: { code, message } }, { status });

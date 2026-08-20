@@ -41,7 +41,13 @@ export function ThemeToggle({ className = "", compact = false }: { className?: s
 		<div
 			role="radiogroup"
 			aria-label="Tema tampilan"
-			className={`flex items-center gap-1 rounded-2xl bg-surface-container p-1 ${className}`}
+			// Warna latar TIDAK ditetapkan di sini. Komponen ini duduk di dua tier
+			// permukaan yang berbeda — `surface` di layar login, `surface-container`
+			// di rel navigasi admin — dan menaruh satu nilai bawaan lalu menimpanya
+			// lewat className tidak dapat diandalkan: yang menang adalah utilitas
+			// yang kebetulan ditulis belakangan oleh Tailwind, bukan yang belakangan
+			// di string. Pemanggil yang menentukan.
+			className={`flex items-center gap-1 rounded-2xl p-1 ${className}`}
 		>
 			{OPTIONS.map(({ value, label, Icon }) => {
 				const selected = preference === value;

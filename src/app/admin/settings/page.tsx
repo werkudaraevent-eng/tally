@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CheckCircle, GearSix, Trash, Warning, XCircle } from "@phosphor-icons/react";
+import { CheckCircle, GearSix, Trash, Warning, XCircle } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
@@ -85,13 +85,10 @@ export default function AdminSettingsPage() {
     }
   }
 
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
-    <div className="mx-auto max-w-3xl">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
-      <div className="mt-8">
-        <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Event settings</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Pengaturan acara.</h1>
-        <p className="mt-3 text-body-medium leading-6 text-on-surface-variant">Perubahan berlaku di semua device dalam 30 detik. Setiap perubahan tercatat di audit log.</p>
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
+    <div className="mx-auto max-w-[1440px] [&>*]:max-w-3xl">
+      <div>
+        <p className="text-body-medium leading-6 text-on-surface-variant">Perubahan berlaku di semua device dalam 30 detik. Setiap perubahan tercatat di audit log.</p>
       </div>
 
       {error && <div role="alert" className="rounded-lg mt-6 flex items-center gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={20} />{error}</div>}

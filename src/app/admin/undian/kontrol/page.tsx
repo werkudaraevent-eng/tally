@@ -160,7 +160,7 @@ export default function UndianControlPage() {
   // paling perlu diuji ulang.
   const drawBlocked = quotaFull && !rehearsal;
 
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
       <Link href="/admin/undian" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary">
         <ArrowLeft size={18} /> Kembali ke CMS Undian
@@ -168,8 +168,9 @@ export default function UndianControlPage() {
 
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Kontrol undian</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Panel operator.</h1>
+          {/* Subhalaman: judulnya lebih spesifik daripada label nav induknya
+              ("Undian" di bilah), dan itu memang perannya. */}
+          <h2 className="text-headline-small font-semibold tracking-tight">Panel operator</h2>
         </div>
         <Link href="/undian?fullscreen=1" target="_blank" className="rounded-md flex min-h-12 items-center gap-2 border border-outline-variant px-5 text-body-medium font-semibold hover:border-primary hover:text-primary">
           <ArrowSquareOut size={18} /> Buka layar panggung

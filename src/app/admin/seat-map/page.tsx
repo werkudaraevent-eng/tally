@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowSquareOut, CheckCircle, Eye, EyeSlash, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
+import { ArrowSquareOut, CheckCircle, Eye, EyeSlash, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
 import { useEffect, useMemo, useState } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
@@ -301,14 +301,11 @@ export default function SeatMapAdminPage() {
     return states;
   }, [config]);
 
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
-
-      <header className="mt-3 flex flex-wrap items-end justify-between gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-headline-small font-bold">Denah tempat duduk</h1>
-          <p className="mt-1 max-w-2xl text-body-medium text-on-surface-variant">
+          <p className="max-w-2xl text-body-medium text-on-surface-variant">
             Tata letak ruangan diatur di sini. Penempatan peserta datang dari scanner API dan tidak diubah dari halaman ini.
           </p>
         </div>

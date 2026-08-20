@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowLeft, ClipboardText, Funnel, Warning, XCircle } from "@phosphor-icons/react";
-import Link from "@/components/event-link";
+import { ClipboardText, Funnel, Warning, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { formatEventDateTime } from "@/lib/datetime";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
@@ -234,13 +233,10 @@ export default function AuditTrailPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
-      <div className="mt-8">
-        <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Audit trail</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Jejak perubahan.</h1>
-        <p className="mt-3 max-w-3xl text-body-medium leading-6 text-on-surface-variant">Siapa mengubah apa dan kapan. Tercatat otomatis untuk settings, item spesial, booth, metode pembayaran, akun, dan pengosongan data. Halaman ini hanya dapat dibuka super admin.</p>
+      <div>
+        <p className="max-w-3xl text-body-medium leading-6 text-on-surface-variant">Siapa mengubah apa dan kapan. Tercatat otomatis untuk settings, item spesial, booth, metode pembayaran, akun, dan pengosongan data. Halaman ini hanya dapat dibuka super admin.</p>
       </div>
 
       {error && <div role="alert" className="rounded-lg mt-6 flex items-center gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={20} />{error}</div>}

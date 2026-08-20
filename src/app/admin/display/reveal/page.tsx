@@ -100,8 +100,8 @@ export default function RevealControlPage() {
     return true;
   }
 
-  if (!row) return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
-    <div className="mx-auto max-w-[900px]">
+  if (!row) return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
+    <div className="mx-auto max-w-[1440px] [&>*]:max-w-[900px]">
       <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Live Display</Link>
       <p className="mt-6 text-body-medium text-on-surface-variant">{error || "Memuat status reveal..."}</p>
     </div>
@@ -125,12 +125,12 @@ export default function RevealControlPage() {
     : currentStage ? `${currentStage.label} (peringkat ${currentStage.from}-${currentStage.to})`
     : "Belum ada peringkat yang dibuka";
 
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
-    <div className="mx-auto max-w-[900px]">
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
+    <div className="mx-auto max-w-[1440px] [&>*]:max-w-[900px]">
       <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Live Display</Link>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">Reveal bertahap</h1>
+          <h2 className="text-headline-small font-semibold tracking-tight">Reveal bertahap</h2>
           <p className="mt-3 max-w-2xl text-body-medium leading-6 text-on-surface-variant">Umumkan peringkat sedikit-sedikit di layar proyektor. Setiap tombol di halaman ini berlaku seketika, tanpa perlu disimpan.</p>
         </div>
         <Link href="/display?fullscreen=1" target="_blank" rel="noreferrer" className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-4 text-body-medium font-semibold"><MonitorPlay size={18} /> Buka Live Display</Link>

@@ -220,7 +220,7 @@ export default function EventsPage() {
           <div className="flex items-start justify-between gap-4"><span className="rounded-sm border border-outline-variant px-2 py-1 text-[11px] font-semibold uppercase tracking-wider">{statusLabel[item.status]}</span><Storefront size={22} className="text-primary" /></div>
           <h2 className="mt-8 text-xl font-semibold tracking-[-0.03em]">{item.name}</h2>
           <p className="mt-2 text-body-medium text-on-surface-variant">{item.event_date ? new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeZone: item.time_zone }).format(new Date(`${item.event_date}T12:00:00Z`)) : "Tanggal belum ditentukan"}</p>
-          <Link href={`/e/${item.slug}`} className="mt-5 text-body-small font-semibold uppercase tracking-[0.14em] text-primary">Buka workspace →</Link>
+          <Link href={`/e/${item.slug}/workspace`} className="mt-5 text-body-small font-semibold uppercase tracking-[0.14em] text-primary">Buka workspace →</Link>
 
           {isOwner && <div className="mt-6 flex flex-wrap gap-2 border-t border-outline-variant pt-4">
             {ACTIONS[item.status].map((entry) => <button

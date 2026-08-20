@@ -1,9 +1,13 @@
 "use client";
 
-import { ArrowLeft, Check, EnvelopeSimple, Hourglass, Link as LinkIcon, PaperPlaneTilt, WarningCircle, X } from "@phosphor-icons/react";
-import Link from "@/components/event-link";
+import { Check, EnvelopeSimple, Hourglass, Link as LinkIcon, PaperPlaneTilt, WarningCircle, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
+import { Button } from "@/components/m3";
+import { RegistrationFormBuilder } from "@/components/admin/registration-form-builder";
+import { RegistrationFormPreview } from "@/components/admin/registration-form-preview";
+import type { RegistrationFormConfig } from "@/lib/domain";
+import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { formatEventDateTime } from "@/lib/datetime";
 import { eventApiPath } from "@/lib/event-url";
 import type { EventTimeZone } from "@/lib/timezone";
@@ -32,6 +36,7 @@ type EventConfig = {
   registration_auto_approve: boolean;
   participant_source: string;
   slug: string;
+  registration_form_config: RegistrationFormConfig;
 };
 
 const TABS = [
@@ -53,6 +58,11 @@ export default function RegistrasiAdminPage() {
   // global akan mematikan ketiga puluh tombol sekaligus saat satu ditekan.
   const [mengirim, setMengirim] = useState<string | null>(null);
   const [emailAktif, setEmailAktif] = useState(false);
+  // Susunan form disunting di state lokal, bukan disimpan pada setiap ketukan.
+  // Menyimpan per karakter berarti satu PATCH per huruf, dan yang lebih buruk:
+  // form setengah jadi ikut tayang di halaman publik saat itu juga.
+  const [draftForm, setDraftForm] = useState<RegistrationFormConfig | null>(null);
+  const [simpanForm, setSimpanForm] = useState(false);
   const { zone, abbr } = useEventTimeZone();
   const toast = useToast();
 
@@ -92,6 +102,69 @@ export default function RegistrasiAdminPage() {
     }
     setConfig({ ...config, ...body });
     toast.success("Tersimpan", body.registration_enabled ? "Pendaftaran dibuka." : "Pendaftaran ditutup.");
+  }
+
+  /**
+   * Menyimpan susunan form.
+   *
+   * Peran warnanya TIDAK dikirim dari sini — hanya warna dasarnya. Server yang
+   * menurunkan seluruh peran lewat HCT lalu menyimpannya. Menghitungnya di sini
+   * berarti pustaka warna ikut terunduh ke setiap admin yang membuka halaman
+   * ini, dan hasilnya bisa berbeda dari yang dihitung server.
+   */
+  async function kirimForm(next: RegistrationFormConfig) {
+    if (!config) return;
+    setSimpanForm(true);
+    const response = await fetch(eventApiPath("/api/admin/registrasi"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        registration_enabled: config.registration_enabled,
+        registration_auto_approve: config.registration_auto_approve,
+        form: {
+          fields: next.fields ?? [],
+          welcome_text: next.welcome_text,
+          success_text: next.success_text,
+          require_company: next.require_company,
+          require_job_title: next.require_job_title,
+          theme: {
+            seed: next.theme?.seed ?? DEFAULT_REGISTRATION_SEED,
+            dark_mode: next.theme?.dark_mode ?? "auto",
+            logo_url: next.theme?.logo_url ?? null,
+            background_image_url: next.theme?.background_image_url ?? null,
+          },
+        },
+      }),
+    }).catch(() => null);
+    setSimpanForm(false);
+    if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat status sebenarnya."); return; }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const rincian = body.error?.details as Record<string, string> | undefined;
+      const pesan = rincian ? Object.values(rincian)[0] : undefined;
+      toast.error("Form gagal disimpan", pesan ?? body.error?.message ?? "Coba lagi.");
+      return;
+    }
+    setConfig({ ...config, ...body });
+    setDraftForm(null);
+    toast.success("Form tersimpan", "Halaman pendaftaran publik langsung memakai susunan baru.");
+  }
+
+  /**
+   * Membuka berkas unggahan pendaftar.
+   *
+   * Tautannya diminta saat ditekan, bukan disiapkan lebih dulu untuk seluruh
+   * daftar: signed URL berumur lima menit, dan membuat puluhan sekaligus saat
+   * halaman dimuat berarti hampir semuanya mati sebelum sempat dipakai.
+   */
+  async function bukaBerkas(uploadId: string) {
+    const response = await fetch(eventApiPath(`/api/admin/registrasi/upload?id=${encodeURIComponent(uploadId)}`), { cache: "no-store" }).catch(() => null);
+    const body = await response?.json().catch(() => null);
+    if (!response?.ok || !body?.url) {
+      toast.error("Berkas tidak bisa dibuka", body?.error?.details?.message ?? "Coba muat ulang halaman.");
+      return;
+    }
+    window.open(body.url, "_blank", "noopener,noreferrer");
   }
 
   async function review(row: Row, approve: boolean, reason?: string) {
@@ -155,14 +228,18 @@ export default function RegistrasiAdminPage() {
   }
 
   const tautan = config ? `/e/${config.slug}/daftar` : "";
+  // Draf diturunkan, bukan disalin lewat useEffect. Menyalin state ke state lain
+  // di dalam effect menambah satu render setiap kali data dimuat ulang, dan
+  // pemuatan berkala akan menimpa suntingan yang sedang berjalan.
+  const formDraft = draftForm ?? config?.registration_form_config ?? {};
+  // Nama acara hanya untuk pratinjau. Diambil dari slug bila belum termuat:
+  // pratinjau bertuliskan "undefined" lebih membingungkan daripada slug mentah.
+  const namaEvent = config?.slug ?? "Acara";
 
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
-    <div className="mx-auto max-w-[1200px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
-      <div className="mt-8">
-        <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Registrasi publik</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Pendaftaran.</h1>
-        <p className="mt-3 max-w-2xl text-body-medium leading-6 text-on-surface-variant">Peserta mendaftar sendiri lewat tautan publik. Yang disetujui langsung mendapat kode peserta dan bisa discan booth.</p>
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
+    <div className="mx-auto max-w-[1440px]">
+      <div>
+        <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">Peserta mendaftar sendiri lewat tautan publik. Yang disetujui langsung mendapat kode peserta dan bisa discan booth.</p>
       </div>
 
       {config && <section className="rounded-lg mt-8 border border-outline-variant bg-panel p-6">
@@ -213,6 +290,78 @@ export default function RegistrasiAdminPage() {
         </>}
       </section>}
 
+      {config && <section className="rounded-lg mt-6 border border-outline-variant bg-panel p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="font-semibold">Susunan form</h2>
+            <p className="mt-1 max-w-2xl text-body-medium text-on-surface-variant">
+              Apa yang ditanyakan ke pendaftar, dan seperti apa halamannya terlihat.
+              Perubahan baru berlaku setelah ditekan Simpan.
+            </p>
+          </div>
+          <Button onClick={() => void kirimForm(formDraft)} loading={simpanForm} disabled={busy}>
+            Simpan form
+          </Button>
+        </div>
+
+        {/* Penyunting dan pratinjau bersebelahan di layar lebar, bertumpuk di
+            layar sempit. Pratinjau di bawah lipatan sama saja dengan tidak ada:
+            yang membuatnya berguna adalah melihat akibat suntingan tanpa
+            memalingkan mata. */}
+        <div className="mt-6 grid gap-6 border-t border-outline-variant pt-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] xl:items-start">
+          <RegistrationFormBuilder
+            config={formDraft}
+            onChange={setDraftForm}
+            disabled={simpanForm}
+          />
+          <div className="xl:sticky xl:top-20">
+            <RegistrationFormPreview config={formDraft} eventName={namaEvent} />
+          </div>
+        </div>
+
+        <div className="mt-8 border-t border-outline-variant pt-6">
+          <h3 className="text-title-medium font-semibold">Tampilan halaman</h3>
+          {/* Satu warna, bukan tiga pemilih terpisah.
+              Latar, teks, tombol, tepi kolom, dan warna galat semuanya diturunkan
+              dari warna ini di server. Memberi pemilih terpisah untuk latar dan
+              teks berarti kombinasi seperti abu muda di atas putih bisa tersimpan,
+              dan tidak ada yang menyadarinya sampai ada pendaftar yang tidak bisa
+              membaca formnya di bawah matahari. */}
+          <p className="mt-1 max-w-2xl text-body-medium text-on-surface-variant">
+            Pilih satu warna merek. Seluruh warna lain diturunkan darinya, jadi
+            teksnya dijamin tetap terbaca di layar mana pun.
+          </p>
+
+          <div className="mt-4 flex flex-wrap items-end gap-4">
+            <label className="flex items-center gap-3">
+              <input
+                type="color"
+                value={formDraft.theme?.seed ?? DEFAULT_REGISTRATION_SEED}
+                disabled={simpanForm}
+                onChange={(event) => setDraftForm({ ...formDraft, theme: { ...formDraft.theme, seed: event.target.value } })}
+                className="size-14 cursor-pointer rounded-lg border border-outline bg-transparent"
+                aria-label="Warna merek form"
+              />
+              <span>
+                <span className="block text-label-large font-semibold">Warna merek</span>
+                <span className="mt-0.5 block font-mono text-body-small text-on-surface-variant">
+                  {formDraft.theme?.seed ?? DEFAULT_REGISTRATION_SEED}
+                </span>
+              </span>
+            </label>
+
+            <a
+              href={`/e/${config.slug}/daftar`}
+              target="_blank"
+              rel="noreferrer"
+              className="m3-state inline-flex min-h-12 items-center gap-2 rounded-md border border-outline px-4 text-label-large font-semibold text-primary"
+            >
+              Lihat halaman publik
+            </a>
+          </div>
+        </div>
+      </section>}
+
       {error && <p role="alert" className="rounded-lg mt-6 border border-error/30 bg-error/5 p-4 text-body-medium font-medium text-error">{error}</p>}
 
       <div className="mt-8 flex flex-wrap gap-2">
@@ -244,9 +393,24 @@ export default function RegistrasiAdminPage() {
                   {row.status === "approved" && row.qr_code && <StatusEmail row={row} emailAktif={emailAktif} zone={zone} abbr={abbr} />}
                   {row.reject_reason && <p className="mt-2 text-body-medium text-error">Alasan penolakan: {row.reject_reason}</p>}
                   {Object.keys(row.extra ?? {}).length > 0 && <dl className="mt-3 grid gap-1 text-body-medium">
-                    {Object.entries(row.extra).map(([key, value]) => <div key={key} className="flex gap-2">
-                      <dt className="font-semibold">{key}:</dt><dd className="text-on-surface-variant">{value}</dd>
-                    </div>)}
+                    {Object.entries(row.extra).map(([key, value]) => {
+                      // Label pertanyaan, bukan kunci datanya. Kuncinya dibuat
+                      // otomatis dari label dan tidak dimaksudkan untuk dibaca
+                      // panitia yang sedang memeriksa pendaftar.
+                      const field = (formDraft.fields ?? []).find((entry) => entry.key === key);
+                      return <div key={key} className="flex gap-2">
+                        <dt className="font-semibold">{field?.label ?? key}:</dt>
+                        <dd className="min-w-0 text-on-surface-variant">
+                          {field?.type === "file"
+                            // Berkasnya di bucket privat: tidak ada URL yang bisa
+                            // ditaruh di sini. Tautannya diminta ke server saat
+                            // ditekan dan berlaku lima menit.
+                            ? <button type="button" onClick={() => void bukaBerkas(value)} className="font-semibold text-primary underline">Buka berkas</button>
+                            : field?.type === "checkbox" ? (value === "true" ? "Ya" : "Tidak")
+                            : value}
+                        </dd>
+                      </div>;
+                    })}
                   </dl>}
                 </div>
 

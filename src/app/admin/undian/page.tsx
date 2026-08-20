@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  ArrowLeft, ArrowSquareOut, Check, ClockCounterClockwise, Confetti, DownloadSimple, FloppyDisk, Gift,
+  ArrowSquareOut, Check, ClockCounterClockwise, Confetti, DownloadSimple, FloppyDisk, Gift,
   LockSimple, Plus, Prohibit, SlidersHorizontal, SpeakerHigh, Trash, UploadSimple, Users, Warning,
 } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
@@ -353,17 +353,12 @@ export default function UndianAdminPage() {
     toast.success("Peserta kembali ikut undian");
   }
 
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary">
-        <ArrowLeft size={18} /> Kembali ke Dashboard
-      </Link>
 
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Undian CMS</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Undian berhadiah.</h1>
-          <p className="mt-3 max-w-2xl text-body-medium text-on-surface-variant">
+          <p className="max-w-2xl text-body-medium text-on-surface-variant">
             Atur hadiah, siapa yang berhak diundi, dan bagaimana namanya tampil di panggung.
             Menjalankan undiannya ada di halaman kontrol.
           </p>

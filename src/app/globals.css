@@ -362,10 +362,14 @@ body {
 	text-rendering: optimizeLegibility;
 }
 
+/* Panel konten admin digeser melewati rel navigasi yang `fixed`.
+ *
+ * Aturannya di sini, bukan sebagai kelas Tailwind di komponennya, karena
+ * lebarnya harus cocok dengan lebar <aside> — dan dua angka yang harus sama
+ * tetapi ditulis di dua tempat akan berpisah pada perubahan pertama. */
 @media (min-width: 1024px) {
 
-	.admin-shell > main,
-	.admin-shell > header {
+	.admin-shell > .admin-pane {
 		margin-left: 272px;
 	}
 }

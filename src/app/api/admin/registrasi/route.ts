@@ -4,6 +4,9 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { isEmailConfigured } from "@/lib/email/client";
 import { sendRegistrationCode } from "@/lib/email/registration-code";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
+import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "@/lib/registration-fields";
+import { withDerivedRoles } from "@/lib/registration-theme";
 
 const querySchema = z.object({
   status: z.enum(["pending", "approved", "rejected", "all"]).default("pending"),
@@ -17,9 +20,42 @@ const reviewSchema = z.object({
   reason: z.string().trim().max(300).optional().nullable(),
 });
 
+const fieldSchema = z.object({
+  key: z.string().trim().regex(FIELD_KEY_PATTERN),
+  label: z.string().trim().min(1).max(120),
+  type: z.enum(["text", "email", "tel", "textarea", "select", "radio", "checkbox", "date", "number", "file"]),
+  required: z.boolean(),
+  options: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
+  placeholder: z.string().trim().max(120).optional(),
+  help_text: z.string().trim().max(300).optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+});
+
 const configSchema = z.object({
   registration_enabled: z.boolean(),
   registration_auto_approve: z.boolean(),
+  // Opsional supaya pemanggil lama yang hanya menyalakan/mematikan pendaftaran
+  // tidak ikut mengosongkan seluruh susunan form.
+  form: z
+    .object({
+      fields: z.array(fieldSchema).max(MAX_CUSTOM_FIELDS),
+      welcome_text: z.string().trim().max(1000).optional(),
+      success_text: z.string().trim().max(1000).optional(),
+      require_email: z.boolean().optional(),
+      require_phone: z.boolean().optional(),
+      require_company: z.boolean().optional(),
+      require_job_title: z.boolean().optional(),
+      theme: z
+        .object({
+          seed: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+          dark_mode: z.enum(["auto", "light"]).optional(),
+          logo_url: z.string().url().max(600).nullable().optional(),
+          background_image_url: z.string().url().max(600).nullable().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export async function GET(request: Request) {
@@ -80,6 +116,10 @@ export async function GET(request: Request) {
       registration_auto_approve: (konfigurasi.data as { registration_auto_approve: boolean } | null)?.registration_auto_approve ?? false,
       participant_source: auth.scope.event.participant_source,
       slug: auth.scope.event.slug,
+      // Susunan form dikirim apa adanya supaya penyunting memuat keadaan yang
+      // sama persis dengan yang dipakai halaman publik — bukan hasil rekaan
+      // ulang dari beberapa medan terpisah.
+      registration_form_config: auth.scope.event.registration_form_config ?? {},
     },
     // Dibaca dari env, bukan dari data. Layar moderasi memakainya untuk memilih
     // antara "belum terkirim, coba lagi" (yang menyuruh panitia bertindak) dan
@@ -113,11 +153,33 @@ export async function PATCH(request: Request) {
     });
   }
 
+  // Susunan form diperiksa DI SINI, bukan hanya di penyunting.
+  //
+  // Skema Zod di atas hanya menahan bentuknya. Aturan yang membuat sebuah field
+  // dapat dipakai — kunci unik, dropdown punya minimal dua pilihan, batas angka
+  // masuk akal — hidup di satu berkas bersama validasi jawaban, supaya definisi
+  // dan pemeriksaannya tidak bisa berbeda pendapat.
+  let formConfig: RegistrationFormConfig | undefined;
+  if (parsed.data.form) {
+    const issues = validateFieldDefinitions(parsed.data.form.fields as RegistrationField[]);
+    if (issues.length > 0) {
+      return apiError("VALIDATION_ERROR", 422, Object.fromEntries(issues.map((issue) => [issue.key || "fields", issue.message])));
+    }
+    formConfig = {
+      ...parsed.data.form,
+      fields: parsed.data.form.fields as RegistrationField[],
+      // Peran warna diturunkan di server, sekali, saat disimpan. Halaman publik
+      // menerima hex jadi dan tidak perlu memuat pustaka warna apa pun.
+      theme: parsed.data.form.theme ? withDerivedRoles(parsed.data.form.theme) : undefined,
+    };
+  }
+
   const client = getSupabaseServiceClient();
   const { data, error } = await client
     .from("events")
     .update({
       registration_enabled: parsed.data.registration_enabled,
+      ...(formConfig ? { registration_form_config: formConfig } : {}),
       // Auto-approve tanpa pendaftaran yang dibuka tidak punya arti, dan
       // menyimpannya sebagai true berarti event yang dibuka lagi berbulan
       // kemudian langsung menerbitkan QR tanpa ada yang memutuskan begitu.
@@ -125,7 +187,7 @@ export async function PATCH(request: Request) {
       updated_at: new Date().toISOString(),
     } as never)
     .eq("id", event.id)
-    .select("registration_enabled,registration_auto_approve")
+    .select("registration_enabled,registration_auto_approve,registration_form_config")
     .single();
   if (error) return apiError("INTERNAL_ERROR", 500);
 

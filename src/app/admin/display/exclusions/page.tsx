@@ -144,13 +144,12 @@ export default function LeaderboardExclusionsPage() {
   const tooFew = summary !== null && summary.remaining_spenders < limit;
   const empty = summary !== null && summary.remaining_spenders === 0;
 
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
-    <div className="mx-auto max-w-[900px]">
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
+    <div className="mx-auto max-w-[1440px] [&>*]:max-w-[900px]">
       <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Live Display</Link>
 
-      <div className="mt-8">
-        <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Top spender</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Pengecualian peserta.</h1>
+      <div>
+        <h2 className="text-headline-small font-semibold tracking-tight">Pengecualian peserta</h2>
         <p className="mt-3 max-w-2xl text-body-medium leading-6 text-on-surface-variant">
           Peserta dan perusahaan di daftar ini <span className="font-semibold text-on-surface">tidak berhak</span> masuk top spender.
           Transaksinya tetap tercatat penuh di Reports — yang gugur hanya lombanya.

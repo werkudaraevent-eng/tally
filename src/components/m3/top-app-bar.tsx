@@ -9,6 +9,12 @@ export type TopAppBarProps = {
 	title: ReactNode;
 	/** Baris kecil di bawah judul. Konteks, bukan kalimat kedua. */
 	subtitle?: ReactNode;
+	/**
+	 * Kelas tambahan untuk subjudul. Ada supaya pemanggil bisa menyembunyikannya
+	 * pada lebar tertentu — mis. ketika navigasi samping sudah menampilkan
+	 * keterangan yang sama dan subjudulnya jadi pengulangan bersebelahan.
+	 */
+	subtitleClassName?: string;
 	/** Aksi di ujung akhir. Ikon, bukan tombol berteks panjang. */
 	actions?: ReactNode;
 	/** Lebar isi bilah disamakan dengan konten halaman di bawahnya. */
@@ -27,10 +33,10 @@ export type TopAppBarProps = {
  *    bilah terbaca sebagai lapisan terpisah bukan warnanya, melainkan fakta
  *    bahwa konten bergulir MASUK ke bawahnya.
  *
- * 2. **Perubahannya warna, bukan bayangan.** Begitu ada yang tergulir, bilah
- *    naik ke `surface-container`. M3 mengganti elevasi bayangan dengan elevasi
- *    tonal justru di tempat seperti ini: bayangan di bawah bilah selebar layar
- *    hanya menghasilkan pita kabur yang mengaburkan baris teratas konten.
+ * 2. **Bukan bayangan.** Bayangan di bawah bilah selebar layar hanya
+ *    menghasilkan pita kabur yang mengaburkan baris teratas konten. M3
+ *    menggantinya dengan perubahan tone; di sini diganti garis rambut, karena
+ *    perubahan tone merusak bentuk panel — lihat catatan di kelasnya.
  *
  * Bilahnya selalu menempel (`sticky`). Di layar admin dan booth, isi halaman
  * jauh lebih panjang daripada layar, dan aksi utama beserta identitas booth
@@ -66,7 +72,7 @@ export function useScrolledPastTop() {
 	return { sentinel, scrolled };
 }
 
-export function TopAppBar({ leading, title, subtitle, actions, maxWidth = "1440px", className }: TopAppBarProps) {
+export function TopAppBar({ leading, title, subtitle, subtitleClassName, actions, maxWidth = "1440px", className }: TopAppBarProps) {
 	const { sentinel, scrolled } = useScrolledPastTop();
 
 	return (
@@ -75,17 +81,37 @@ export function TopAppBar({ leading, title, subtitle, actions, maxWidth = "1440p
 			<header
 				className={cx(
 					// z-20, di bawah laci navigasi (z-40) dan latar gelapnya (z-30).
-					"sticky top-0 z-20 px-5 transition-colors duration-200 ease-standard sm:px-8",
-					scrolled ? "bg-surface-container" : "bg-surface",
+					"sticky top-0 z-20 border-b px-5 transition-colors duration-200 ease-standard sm:px-8",
+					// Bilah SELALU setone dengan panel konten, tidak pernah berubah warna.
+					//
+					// Spesifikasi M3 menaikkan tone bilah begitu ada yang tergulir di
+					// bawahnya, dan itu benar untuk bilah yang berdiri di atas kanvas
+					// polos. Di sini bilah adalah bagian ATAS dari panel yang sudutnya
+					// membulat — begitu warnanya berbeda dari panel, ia terbaca sebagai
+					// kepingan terpisah: takik sudut membulat di atas, tepi lurus tepat
+					// di bawahnya, dan garis putus di antaranya.
+					//
+					// Isyarat gulirnya dipindahkan ke garis rambut di bawah ini. Ia
+					// muncul HANYA saat ada yang tergulir, jadi bukan garis bawah
+					// permanen ala Material 2; saat halaman di posisi teratas bilah tetap
+					// tak terlihat sama sekali.
+					"bg-surface",
+					scrolled ? "border-b-outline-variant" : "border-b-transparent",
 					className,
 				)}
 			>
 				<div className="mx-auto flex min-h-16 items-center gap-3" style={{ maxWidth }}>
 					{leading}
+					{/* Ini SATU-SATUNYA judul halaman — halaman di bawahnya langsung
+					    mulai dari isinya. Sebelumnya bilah dan konten masing-masing
+					    membawa judul, dan dua judul yang saling mengulang menghabiskan
+					    sepertiga layar sebelum ada satu pun data yang terbaca.
+					    `<h1>`, bukan `<p>`: pembaca layar dan daftar heading peramban
+					    memakainya untuk melompat ke isi utama. */}
 					<div className="min-w-0 flex-1">
-						<p className="truncate text-title-medium font-semibold text-on-surface">{title}</p>
+						<h1 className="truncate text-title-large font-semibold text-on-surface">{title}</h1>
 						{subtitle ? (
-							<p className="truncate text-label-medium uppercase tracking-[0.16em] text-on-surface-variant">{subtitle}</p>
+							<p className={cx("truncate text-label-medium uppercase tracking-[0.16em] text-on-surface-variant", subtitleClassName)}>{subtitle}</p>
 						) : null}
 					</div>
 					{actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}

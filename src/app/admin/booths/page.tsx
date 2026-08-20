@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CheckCircle, FloppyDisk, Plus, Storefront, Tag, XCircle } from "@phosphor-icons/react";
+import { CheckCircle, FloppyDisk, Plus, Storefront, Tag, XCircle } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
@@ -53,14 +53,11 @@ export default function BoothManagementPage() {
     void load();
   }
 
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
-    <div className="mx-auto max-w-6xl">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
-      <div className="mt-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
+    <div className="mx-auto max-w-[1440px]">
+      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Booth configuration</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Atur booth.</h1>
-          <p className="mt-3 text-body-medium leading-6 text-on-surface-variant">Edit nama, kode, item diskon, stok, dan status. Histori order tetap aman.</p>
+          <p className="text-body-medium leading-6 text-on-surface-variant">Edit nama, kode, item diskon, stok, dan status. Histori order tetap aman.</p>
         </div>
         <button onClick={() => setSelected({ ...blank, id: 0 })} className="rounded-md flex min-h-12 items-center justify-center gap-2 bg-on-surface px-4 text-body-medium font-semibold text-surface"><Plus size={19} /> Booth baru</button>
       </div>

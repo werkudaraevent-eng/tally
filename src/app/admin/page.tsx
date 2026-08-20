@@ -44,12 +44,15 @@ export default function AdminPage() {
   ] : [];
 
   return <main className="bg-surface text-on-surface">
-    <div className="mx-auto max-w-[1440px] px-5 py-8 sm:px-8 lg:py-12">
+    <div className="mx-auto max-w-[1440px] px-5 pb-8 pt-6 sm:px-8 lg:pb-12">
+      {/* Tanpa judul halaman: bilah atas yang membawanya, dan bilah itu selalu
+          terlihat. Sebelumnya judul ada di dua tempat sekaligus — "Control room."
+          di konten sementara bilah dan menu menyebut "Dashboard" — dua nama untuk
+          satu tempat, dan keduanya memakan ruang di atas data yang sebenarnya
+          dicari orang. */}
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Event overview</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-6xl">Control room.</h1>
-          <p className="mt-3 text-body-medium leading-6 text-on-surface-variant">Pantau data aktual, kelola operasional, dan rekonsiliasi.</p>
+          <p className="text-body-medium leading-6 text-on-surface-variant">Pantau data aktual, kelola operasional, dan rekonsiliasi.</p>
         </div>
         {/* Refresh pindah ke sini dari bilah atas. Bilah itu sekarang milik
             shell dan sama di semua halaman admin; menaruh aksi khusus satu

@@ -149,7 +149,7 @@ akibatnya token bisa berubah tanpa perubahan itu sampai ke layar.
 | `LinearProgress`, `CircularProgress`, `LoadingIndicator` | Yang terakhir hanya untuk layar panggung |
 | `Divider`, `PageHeader`, `EmptyState` | Keadaan kosong selalu menyebutkan langkah berikutnya |
 | `ThemeToggle` | Tiga pilihan sekaligus, bukan satu tombol berputar. `compact` untuk ruang sempit |
-| `TopAppBar`, `useScrolledPastTop` | Sewarna kanvas saat diam, `surface-container` saat tergulir |
+| `TopAppBar`, `useScrolledPastTop` | Selalu sewarna panel; garis rambut muncul saat tergulir |
 
 ## Tema dan kontras
 
@@ -271,23 +271,122 @@ Dua aturan yang paling sering dilanggar, keduanya ada di spesifikasi:
    garis di bawahnya adalah pola Material 2. Yang membuat bilah terbaca sebagai
    lapisan terpisah bukan warnanya, melainkan konten yang bergulir masuk ke
    bawahnya.
-2. **Perubahannya warna, bukan bayangan.** Begitu ada yang tergulir, bilah naik
-   ke `surface-container`. Inilah tempat M3 mengganti elevasi bayangan dengan
-   elevasi tonal: bayangan di bawah bilah selebar layar hanya menghasilkan pita
-   kabur yang mengaburkan baris teratas konten.
+2. **Isyarat gulir berupa garis rambut, bukan bayangan dan bukan perubahan
+   tone.** Begitu ada yang tergulir, tepi bawah bilah berubah dari transparan
+   menjadi `outline-variant`. Bayangan di bawah bilah selebar layar hanya
+   menghasilkan pita kabur yang mengaburkan baris teratas konten — M3 memang
+   menggantinya dengan perubahan tone, tetapi di layout panel perubahan tone
+   memecah bentuk panelnya. Alasan lengkapnya di bagian "Bingkai dan panel".
 
 Bilahnya **selalu menempel** (`sticky`). Isi layar admin dan booth jauh lebih
 panjang daripada layarnya, dan identitas halaman harus terjangkau tanpa
 menggulir balik ke atas.
 
-Isinya: tombol navigasi di ujung awal, judul halaman, dan aksi berupa ikon di
-ujung akhir. **Aksi khusus satu halaman tidak masuk ke sini** — bilah milik
-shell dan sama di semua halaman; menaruh "Refresh" di sana membuatnya berbeda
-lagi per halaman. Aksi halaman tinggal di `PageHeader`.
+### Satu judul, bukan dua
+
+Bilah membawa **`<h1>` satu-satunya** halaman. Halaman di bawahnya langsung mulai
+dari isinya — tanpa eyebrow, tanpa judul besar, tanpa tautan "Kembali ke
+Dashboard" yang mengulang menu di sebelahnya.
+
+Sebelumnya tiap halaman admin menumpuk empat baris sebelum data pertama: tautan
+kembali, eyebrow huruf kapital, judul `display`-size, lalu deskripsi. Ditambah
+bilah, judulnya muncul dua kali dengan dua nama berbeda — "Control room." di
+konten sementara bilah dan menu menyebut "Dashboard".
 
 Judul diambil dari tabel `navigation` yang sama dengan penyorot menu aktif.
 Daftar judul kedua akan menyimpang pada perubahan pertama, dan judul yang tidak
 cocok dengan menu yang tersorot membuat orang mengira ia salah halaman.
+
+Subhalaman (`/admin/undian/kontrol`, `/admin/display/reveal`) menyimpan judulnya
+sendiri di konten karena lebih spesifik daripada label induknya — tetapi sebagai
+`<h2>`, supaya tetap satu `<h1>` per halaman.
+
+**Aksi khusus satu halaman tidak masuk ke bilah.** Bilah milik shell dan sama di
+semua halaman; menaruh "Refresh" di sana membuatnya berbeda lagi per halaman.
+Aksi halaman duduk sebaris dengan deskripsi, di blok pembuka konten.
+
+### Bilah dan navigasi samping harus terbaca sebagai satu bidang
+
+Tiga aturan, semuanya lahir dari keluhan nyata bahwa kiri dan atas "terlihat
+seperti dua rancangan berbeda":
+
+1. **Satu tone.** Rel navigasi memakai `surface-container`, tone yang sama
+   dengan latar shell, sehingga keduanya menjadi satu bingkai. Dulu rel memakai
+   `surface-container-low` sementara bilah naik ke `surface-container` saat
+   digulir, dan keduanya bertemu di satu sudut — terbentuk huruf L dari dua
+   warna yang tidak pernah menyatu.
+2. **Satu tinggi.** Kepala drawer dikunci 64px, sama dengan bilah, supaya nama
+   produk dan judul halaman duduk di garis dasar yang sama.
+3. **Satu header.** Drawer tidak lagi menulis "ADMIN WORKSPACE", dan nama event
+   di subjudul bilah disembunyikan pada `lg` ke atas — di sana drawer sudah
+   menampilkan nama yang sama sebagai kartu besar tepat di sebelahnya.
+
+Penyimpangan yang disengaja: lebar drawer 272px, bukan 360dp seperti spesifikasi.
+Lima belas entri navigasi dengan label panjang di layar padat data lebih butuh
+ruang konten daripada ruang menu.
+
+### Bingkai dan panel
+
+Layar admin bukan "rel di kiri, sisa ruang di kanan". Ia **bingkai** (rel
+navigasi, `surface-container`) yang memuat sebuah **panel** (`surface`) dengan
+sudut kiri-atas membulat `28px` — pola pane pada layout adaptif M3.
+
+Tanpa itu, satu-satunya sudut siku 90° yang tersisa di seluruh layar admin
+justru sudut paling besar dan paling sering dilihat, sementara setiap wadah di
+dalamnya sudah membulat.
+
+Tiga hal yang saling mengunci di sini, dan mengubah salah satunya akan merusak
+dua lainnya:
+
+- Latar shell **harus** setone dengan rel. Ia yang mengintip di takik sudut;
+  kalau setone dengan panel, lengkungannya tidak terlihat sama sekali.
+- Bilah atas ikut dibulatkan di sudut yang sama. Ia elemen teratas di dalam
+  panel, jadi sudut sikunya akan menonjol menutupi lengkungan panel. Dua
+  `rounded-tl` lebih murah daripada `overflow: hidden` pada panel — yang akan
+  mematahkan `position: sticky` milik bilah.
+- Bilah **tidak pernah berubah warna**, termasuk saat digulir. Ini penyimpangan
+  sadar dari spesifikasi, dan alasannya bentuk: bilah adalah bagian ATAS panel,
+  jadi begitu warnanya berbeda dari panel ia terbaca sebagai kepingan terpisah —
+  takik membulat di atas, tepi lurus tepat di bawahnya, garis putus di antaranya.
+  Isyarat gulirnya dipindah ke garis rambut `outline-variant` di tepi bawah.
+
+Pilihan yang DITOLAK, supaya tidak dicoba lagi:
+
+- *Membulatkan tepi bawah bilah.* Itu menjadikan bilah pita mengambang yang
+  terpisah dari panel — kebalikan dari menyambungkan keduanya.
+- *Menjadikan panel wadah gulirnya sendiri* (`h-dvh` + `overflow-y-auto`).
+  Ini yang paling setia pada layout panel M3 dan membuat sudut membulat tetap
+  terlihat saat digulir, tetapi dokumen berhenti menjadi elemen yang bergulir —
+  dan pemulihan posisi gulir milik App Router bekerja pada dokumen, jadi
+  berpindah menu akan mendarat di tengah halaman, bukan di atas.
+
+## Grid halaman
+
+**Satu grid untuk semua layar admin: `mx-auto max-w-[1440px]`**, sama persis
+dengan grid isi top app bar. Judul di bilah dan konten di bawahnya selalu
+berbagi satu tepi kiri, di lebar layar mana pun.
+
+Dulu ada enam angka lebar yang berbeda — `3xl`, `5xl`, `6xl`, `900px`, `1200px`,
+`1440px` — semuanya `mx-auto`. Karena tiap halaman punya lebar sendiri dan
+semuanya dipusatkan, tiap halaman juga punya tepi kiri sendiri, dan tak satu pun
+segaris dengan judul bilah. Berpindah menu terasa seperti berpindah aplikasi.
+
+**Lebar TIDAK diseragamkan, titik mulainya yang diseragamkan.** Lebar harus ikut
+jenis konten:
+
+| Konten | Perlakuan |
+| --- | --- |
+| Tabel, daftar, grid kartu | Isi penuh grid 1440 |
+| Prosa dan formulir | Kolom baca sempit di DALAM grid, rata kiri |
+
+Kolom baca dipasang lewat `[&>*]:max-w-3xl` pada containernya — menyempitkan
+anak-anak langsungnya tanpa memindahkan containernya, jadi tepi kirinya tetap
+di grid yang sama. Settings memakai `3xl`, panel kontrol Live Display `900px`.
+
+Angkanya bukan selera: paragraf `body-medium` di 768px sudah ~100 karakter per
+baris. Dipaksa ke 1440px ia menjadi ~190 karakter, dan mata kehilangan awal
+baris berikutnya. Ruang kosong di kanan lebih murah daripada teks yang tidak
+terbaca.
 
 ## Batang gulir
 

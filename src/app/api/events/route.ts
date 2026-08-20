@@ -34,7 +34,7 @@ export async function GET() {
 
     const { data, error: eventError } = await client
       .from("events")
-      .select("id,slug,name,description,event_date,status,participant_source,scanner_api_event_slug,registration_enabled,registration_form_config,time_zone,created_at,updated_at,archived_at")
+      .select("id,slug,name,description,event_date,status,participant_source,scanner_api_event_slug,registration_enabled,registration_form_config,time_zone,end_date,start_time,end_time,tagline,venue_name,venue_address,venue_map_url,landing_config,created_at,updated_at,archived_at")
       .in("id", ids)
       .order("event_date", { ascending: false, nullsFirst: false });
     if (eventError) return apiError("INTERNAL_ERROR", 500);

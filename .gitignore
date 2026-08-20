@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude code — pengaturan personal, bukan milik repo
+.claude/settings.local.json

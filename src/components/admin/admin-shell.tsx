@@ -1,6 +1,6 @@
 "use client";
 
-import { ArmchairIcon, CalendarDots, CaretLeft, ChartBar, ChartBarHorizontal, ClipboardText, GearSix, Gift, List, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UserPlus, UsersThree, X } from "@phosphor-icons/react";
+import { ArmchairIcon, Browsers, CalendarDots, CaretLeft, ChartBar, ChartBarHorizontal, ClipboardText, GearSix, Gift, List, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UserPlus, UsersThree, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -12,6 +12,7 @@ const navigation = [
   { href: "/admin/reports", label: "Reports", icon: Receipt, ownerOnly: false },
   { href: "/admin/participants", label: "Peserta", icon: UsersThree, ownerOnly: false },
   { href: "/admin/registrasi", label: "Registrasi publik", icon: UserPlus, ownerOnly: false },
+  { href: "/admin/landing", label: "Halaman acara", icon: Browsers, ownerOnly: false },
   { href: "/admin/booths", label: "Booth & item", icon: Storefront, ownerOnly: false },
   { href: "/admin/offers", label: "Item spesial", icon: Tag, ownerOnly: false },
   { href: "/admin/users", label: "User & role", icon: ShieldCheck, ownerOnly: false },
@@ -135,7 +136,10 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
   }
 
   return (
-    <div className="admin-shell min-h-dvh bg-surface text-on-surface">
+    // Latar shell = tone rel navigasi. Ia yang mengintip di takik sudut panel
+    // konten; tanpa itu sudut membulatnya tidak punya apa pun untuk
+    // memperlihatkan lengkungannya.
+    <div className="admin-shell min-h-dvh bg-surface-container text-on-surface">
       {/* Latar gelap saat menu terbuka.
 
           Bukan sekadar hiasan: sebelumnya tidak ada apa pun di antara menu dan
@@ -158,23 +162,34 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
           tertutup bilah navigasi. `overflow-hidden` di sini memaksa penggulirannya
           terjadi di <nav>, satu-satunya bagian yang memang panjang; kepala dan
           tombol logout tetap di tempatnya. */}
-      <aside className={`fixed left-0 top-0 z-40 flex h-dvh w-[272px] flex-col overflow-hidden bg-surface-container-low transition-transform duration-300 ease-emphasized lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="shrink-0 px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-lg bg-primary text-on-primary">
-              <Storefront size={22} weight="duotone" />
-            </div>
-            <div>
-              <p className="text-title-small font-semibold tracking-tight">Tally Control Room</p>
-              <p className="text-label-small uppercase tracking-[0.18em] text-on-surface-variant">Admin workspace</p>
-            </div>
+      {/* Tone drawer disamakan dengan tone bilah-yang-tergulir (`surface-container`),
+          bukan satu tingkat di bawahnya.
+
+          Sebelumnya drawer `surface-container-low` sementara bilah naik ke
+          `surface-container` begitu halaman digulir. Keduanya bertemu di satu
+          sudut, jadi terbentuk huruf L dari dua warna yang tidak pernah menyatu —
+          itulah yang membuat kiri dan atas terbaca sebagai dua rancangan berbeda.
+          Sekarang keduanya satu bidang yang sama. */}
+      <aside className={`fixed left-0 top-0 z-40 flex h-dvh w-[272px] flex-col overflow-hidden bg-surface-container transition-transform duration-300 ease-emphasized lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        {/* Tinggi dikunci ke tinggi bilah atas (64px) supaya nama produk di sini
+            duduk pada garis dasar yang SAMA dengan judul halaman di sebelahnya.
+            Baris "ADMIN WORKSPACE" dibuang: bilah sudah membawa pasangan
+            judul+subjudul, dan dua pasang yang sejajar dengan ukuran berbeda
+            terbaca sebagai dua header yang bersaing, bukan satu. */}
+        <div className="flex h-16 shrink-0 items-center gap-3 px-5">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
+            <Storefront size={20} weight="duotone" />
           </div>
+          <p className="truncate text-title-medium font-semibold tracking-tight">Tally Control Room</p>
         </div>
 
         {/* Satu-satunya jalan keluar ke pemilih event. Login mendorong SEMUA role ke
             /events, jadi tautan ini tidak dibatasi super_admin; /events sendiri yang
-            menyaring event mana yang boleh dilihat. */}
-        <Link href="/events" className="m3-state mx-3 flex shrink-0 items-center gap-3 rounded-2xl bg-surface-container px-4 py-4">
+            menyaring event mana yang boleh dilihat.
+
+            Naik ke `surface-container-high` karena drawer-nya sendiri sekarang
+            `surface-container` — pada tier yang sama kartunya lenyap. */}
+        <Link href="/events" className="m3-state mx-3 flex shrink-0 items-center gap-3 rounded-2xl bg-surface-container-high px-4 py-3">
           <CaretLeft size={16} className="shrink-0 text-on-surface-variant" />
           <span className="min-w-0">
             <span className="block truncate text-body-medium font-semibold">{eventName ?? "Semua event"}</span>
@@ -184,8 +199,12 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
 
         {/* `min-h-0` WAJIB. Tanpa itu anak flex menolak menyusut di bawah tinggi
             kontennya, <nav> memanjang melewati sidebar, dan penggulirannya tidak
-            pernah aktif — persis kegagalan yang sama seperti pada app-shell /rundown. */}
-        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-4" aria-label="Admin navigation">
+            pernah aktif — persis kegagalan yang sama seperti pada app-shell /rundown.
+
+            `pr-2`, bukan `px-3`: batang gulir menempel di tepi kanan, dan tanpa
+            celah ia menempel rapat pada pil item sehingga terbaca sebagai garis
+            vertikal kedua di samping tepi drawer. */}
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain py-3 pl-3 pr-2" aria-label="Admin navigation">
           {visibleNavigation.map(({ href, label, icon: Icon }) => {
             const active = href === "/admin" ? logicalPathname === "/admin" : logicalPathname.startsWith(href);
             return (
@@ -197,7 +216,10 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
                 // Item aktif memakai bentuk pil penuh — itu cara M3 menandai
                 // tujuan saat ini di navigasi, dan bentuknya tetap terbaca
                 // ketika latar terang membuat perbedaan warnanya menipis.
-                className={`m3-state flex min-h-13 items-center gap-3 px-4 text-label-large font-semibold transition-[border-radius,background-color,color] duration-200 ease-emphasized ${active ? "rounded-full bg-secondary-container text-on-secondary-container" : "rounded-full text-on-surface-variant"}`}
+                // 56px, tinggi item drawer menurut spesifikasi. Sebelumnya 52px —
+                // selisih kecil, tetapi dikalikan lima belas item ia menggeser
+                // seluruh daftar keluar dari irama vertikal yang sama dengan konten.
+                className={`m3-state flex min-h-14 items-center gap-3 px-4 text-label-large font-semibold transition-[border-radius,background-color,color] duration-200 ease-emphasized ${active ? "rounded-full bg-secondary-container text-on-secondary-container" : "rounded-full text-on-surface-variant"}`}
               >
                 <Icon size={22} weight={active ? "fill" : "regular"} />
                 {label}
@@ -206,13 +228,13 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
           })}
         </nav>
 
-        <div className="shrink-0 space-y-2 border-t border-outline-variant p-3">
-          <ThemeToggle compact className="w-full" />
+        <div className="shrink-0 space-y-1 p-3">
+          <ThemeToggle compact className="w-full bg-surface-container-high" />
           <button
             type="button"
             onClick={logout}
             disabled={loggingOut}
-            className="m3-state flex min-h-13 w-full items-center gap-3 rounded-full px-4 text-label-large font-semibold text-on-surface-variant disabled:opacity-50"
+            className="m3-state flex min-h-14 w-full items-center gap-3 rounded-full px-4 text-label-large font-semibold text-on-surface-variant disabled:opacity-50"
           >
             <SignOut size={22} />
             {loggingOut ? "Keluar..." : "Logout"}
@@ -220,21 +242,41 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
         </div>
       </aside>
 
-      <TopAppBar
-        title={currentPage?.label ?? "Admin"}
-        subtitle={eventName ?? undefined}
-        leading={
-          <IconButton
-            label={mobileOpen ? "Tutup menu admin" : "Buka menu admin"}
-            onClick={() => setMobileOpen((open) => !open)}
-            className="-ml-2 lg:hidden"
-          >
-            {mobileOpen ? <X size={22} weight="bold" /> : <List size={22} weight="bold" />}
-          </IconButton>
-        }
-      />
+      {/* Panel konten, bukan sekadar sisa ruang di kanan rel.
 
-      {children}
+          Sudut kiri-atasnya dibulatkan 28px sehingga rel navigasi dan panel
+          terbaca sebagai bingkai dan isi, bukan dua persegi yang ditempelkan.
+          Ini pola pane pada layout adaptif M3, dan ia satu-satunya sudut di
+          seluruh layar admin yang tadinya masih siku 90° padahal semua wadah di
+          dalamnya sudah membulat.
+
+          Bilah atas ikut dibulatkan di sudut yang sama: ia elemen teratas di
+          dalam panel, jadi sudut siku miliknya akan menonjol menutupi lengkungan
+          panel. Membulatkan keduanya lebih murah daripada `overflow: hidden`,
+          yang akan mematahkan `position: sticky` pada bilah. */}
+      <div className="admin-pane min-h-dvh bg-surface lg:rounded-tl-2xl">
+        <TopAppBar
+          className="lg:rounded-tl-2xl"
+          title={currentPage?.label ?? "Admin"}
+          // Nama event hanya di layar sempit. Di lg ke atas drawer sudah
+          // menampilkannya sebagai kartu besar tepat di sebelah kiri bilah, jadi
+          // menuliskannya lagi di sini berarti teks yang sama muncul dua kali
+          // bersebelahan.
+          subtitle={eventName ?? undefined}
+          subtitleClassName="lg:hidden"
+          leading={
+            <IconButton
+              label={mobileOpen ? "Tutup menu admin" : "Buka menu admin"}
+              onClick={() => setMobileOpen((open) => !open)}
+              className="-ml-2 lg:hidden"
+            >
+              {mobileOpen ? <X size={22} weight="bold" /> : <List size={22} weight="bold" />}
+            </IconButton>
+          }
+        />
+
+        {children}
+      </div>
     </div>
   );
 }

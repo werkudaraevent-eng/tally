@@ -24,7 +24,7 @@ const ALLOWED = new Map<string, string>([
 // kind="undian" tetapi belum terdaftar di sini, sehingga selama ini jatuh ke
 // folder backgrounds — bekerja, tetapi menaruh gambar hadiah bercampur dengan
 // latar layar dan mempersulit penelusuran saat panitia mencari berkas salah unggah.
-const FOLDERS = new Set(["backgrounds", "logos", "footers", "undian", "vote"]);
+const FOLDERS = new Set(["backgrounds", "logos", "footers", "undian", "vote", "landing"]);
 
 // Admin uploads a Live Display background image; stored in a public-read bucket
 // and returned as a public URL to be saved into display_settings.

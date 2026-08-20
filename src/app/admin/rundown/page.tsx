@@ -331,11 +331,9 @@ export default function RundownAdminPage() {
   // Elemen akar harus <main>: aturan offset sidebar di globals.css memakai
   // selektor `.admin-shell > main`, jadi <div> di posisi ini membuat halaman
   // tertindih sidebar di layar lg ke atas.
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px] space-y-8">
     <header className="space-y-3">
-      <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Rundown acara</p>
-      <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Susunan acara publik</h1>
       <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">
         Yang disusun di sini tampil di halaman <code className="font-mono text-body-small">/rundown</code> yang dibuka tamu tanpa login.
         Halaman itu menandai acara yang sedang berlangsung memakai tanggal bagian dan jam tiap baris, jadi tanggal yang salah membuat penanda ikut salah.

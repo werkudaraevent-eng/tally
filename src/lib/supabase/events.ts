@@ -11,7 +11,7 @@ import type { EventRow, EventStatus, ParticipantSource, EventTimeZoneCode } from
  */
 
 const EVENT_COLUMNS =
-  "id,slug,name,description,event_date,status,participant_source,scanner_api_event_slug,registration_enabled,registration_form_config,time_zone,created_at,updated_at,archived_at";
+  "id,slug,name,description,event_date,status,participant_source,scanner_api_event_slug,registration_enabled,registration_form_config,time_zone,end_date,start_time,end_time,tagline,venue_name,venue_address,venue_map_url,landing_config,created_at,updated_at,archived_at";
 
 /** Bentuk slug yang sah, harus sama dengan CHECK events_slug_format di DB. */
 export const EVENT_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/;

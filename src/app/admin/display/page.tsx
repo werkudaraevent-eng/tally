@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, CheckCircle, Eye, ListNumbers, MonitorPlay, Prohibit, UploadSimple, XCircle } from "@phosphor-icons/react";
+import { ArrowRight, CheckCircle, Eye, ListNumbers, MonitorPlay, Prohibit, UploadSimple, XCircle } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
 import { useEffect, useState } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
@@ -130,14 +130,11 @@ export default function DisplaySettingsPage() {
     toast.success("Tampilan tersimpan", "Live Display menyesuaikan dalam beberapa detik.");
   }
 
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
-      <div className="mt-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Live display CMS</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Tampilan top spender.</h1>
-          <p className="mt-3 max-w-2xl text-body-medium leading-6 text-on-surface-variant">Atur teks, warna, background, dan layout layar leaderboard yang tampil di proyektor.</p>
+          <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">Atur teks, warna, background, dan layout layar leaderboard yang tampil di proyektor.</p>
         </div>
         <Link href="/display" target="_blank" rel="noreferrer" className="rounded-md flex min-h-12 items-center justify-center gap-2 border border-outline-variant px-4 text-body-medium font-semibold"><MonitorPlay size={19} /> Buka Live Display</Link>
       </div>

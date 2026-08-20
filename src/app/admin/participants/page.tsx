@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowsClockwise, CheckCircle, DownloadSimple, FileArrowUp, Gear, WarningCircle, X, XCircle } from "@phosphor-icons/react";
-import Link from "@/components/event-link";
+import { ArrowsClockwise, CheckCircle, DownloadSimple, FileArrowUp, Gear, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { ParticipantList } from "@/components/admin/participant-list";
 import { useToast } from "@/components/toast";
@@ -181,13 +180,10 @@ export default function ParticipantsAdminPage() {
   const usesScanner = config ? ["scanner_api", "hybrid"].includes(config.participant_source) : true;
   const buttonClass = "inline-flex min-h-11 items-center gap-2 border border-outline-variant px-3 text-body-medium font-semibold hover:border-primary hover:text-primary";
 
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
-      <div className="mt-8">
-        <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Participant directory</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Peserta.</h1>
-        <p className="mt-3 max-w-2xl text-body-medium leading-6 text-on-surface-variant">Tarik peserta dari Event Scanner API, atau kelola sendiri lewat impor berkas dan penyuntingan per baris.</p>
+      <div>
+        <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">Tarik peserta dari Event Scanner API, atau kelola sendiri lewat impor berkas dan penyuntingan per baris.</p>
       </div>
 
       {/* Baris status: satu baris, bukan tiga kartu. Ia menjawab tiga pertanyaan

@@ -1,4 +1,5 @@
 import { getPublicPageEvent } from "@/lib/auth/request-event";
+import { registrationThemeStyle } from "@/lib/registration-theme-css";
 import DaftarClient from "./daftar-client";
 
 // Sama alasannya dengan /display: tanpa ini Next.js mem-prerender halaman saat
@@ -25,12 +26,17 @@ export default async function DaftarPage({
 
   const config = event.registration_form_config ?? {};
   return <DaftarClient
+    theme={registrationThemeStyle(config.theme)}
+    logoUrl={config.theme?.logo_url ?? null}
+    backgroundImageUrl={config.theme?.background_image_url ?? null}
     eventName={event.name}
     eventDate={event.event_date}
     timeZone={event.time_zone}
     fields={config.fields ?? []}
     welcomeText={config.welcome_text ?? null}
     successText={config.success_text ?? null}
+    requireEmail={config.require_email !== false}
+    requirePhone={config.require_phone !== false}
     requireCompany={config.require_company ?? false}
     requireJobTitle={config.require_job_title ?? false}
   />;

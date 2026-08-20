@@ -90,7 +90,7 @@ export default function LoginPage() {
           {/* Pemilih tema ada di layar login, bukan hanya di admin: staf booth dan
               kasir tidak pernah membuka admin, dan merekalah yang paling sering
               berpindah antara ruang terang dan ruang panggung yang gelap. */}
-          <ThemeToggle />
+          <ThemeToggle className="bg-surface-container" />
         </header>
 
         {/* py-4 di mobile: pada iPhone SE (375x667) padding 32px membuat kartu

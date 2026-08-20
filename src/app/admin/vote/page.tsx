@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowCounterClockwise, ArrowLeft, ArrowSquareOut, Check, DownloadSimple, Eye, EyeSlash, Lock, LockOpen, Monitor, Palette, Plus, Trash, UploadSimple, X, XCircle } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, ArrowSquareOut, Check, DownloadSimple, Eye, EyeSlash, Lock, LockOpen, Monitor, Palette, Plus, Trash, UploadSimple, X, XCircle } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
@@ -322,15 +322,12 @@ export default function VoteAdminPage() {
     void load();
   }
 
-  return <main className="bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
-    <div className="mx-auto max-w-[1200px]">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Dashboard</Link>
+  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
+    <div className="mx-auto max-w-[1440px]">
 
-      <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Voting langsung</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">Vote.</h1>
-          <p className="mt-3 max-w-2xl text-body-medium text-on-surface-variant">
+          <p className="max-w-2xl text-body-medium text-on-surface-variant">
             Susun pertanyaan, tayangkan ke layar, buka voting, lalu perlihatkan hasilnya saat MC siap.
             Peserta memilih dari HP lewat QR yang muncul di layar.
           </p>
