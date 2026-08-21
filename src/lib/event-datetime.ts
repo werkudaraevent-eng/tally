@@ -51,14 +51,8 @@ export function formatEventSchedule(schedule: EventSchedule): string | null {
   return waktu ? `${hari} · ${waktu}` : hari;
 }
 
-/**
- * Baris tanggal saja, tanpa jam.
- *
- * Dipakai kartu detail di hero, tempat tanggal dan jam berdiri sebagai dua baris
- * berlabel. Memisahkannya di sini — bukan memotong hasil `formatEventSchedule`
- * pada tanda `·` — supaya kedua tampilan tetap berasal dari satu perhitungan.
- */
-export function formatEventDate(schedule: EventSchedule): string | null {
+/** Baris tanggal saja, tanpa jam. */
+function formatEventDate(schedule: EventSchedule): string | null {
   if (!schedule.event_date) return null;
   return schedule.end_date && schedule.end_date !== schedule.event_date
     ? `${tanggal(schedule.event_date, schedule.time_zone, false)} – ${tanggal(schedule.end_date, schedule.time_zone, false)}`
@@ -66,7 +60,7 @@ export function formatEventDate(schedule: EventSchedule): string | null {
 }
 
 /** Baris jam saja: "09.00–17.00 WITA" atau "mulai 09.00 WITA". */
-export function formatEventTime(schedule: EventSchedule): string | null {
+function formatEventTime(schedule: EventSchedule): string | null {
   const mulai = jam(schedule.start_time);
   if (!mulai) return null;
   const selesai = jam(schedule.end_time);

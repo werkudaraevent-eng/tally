@@ -41,7 +41,7 @@ export function formatEventTime(
   });
 }
 
-/** Jam lengkap dengan detik untuk Live Display, mis. "00.14.44". */
+/** Jam lengkap dengan detik untuk Papan peringkat, mis. "00.14.44". */
 export function formatEventTimeWithSeconds(
   value: string | null | undefined,
   zone: EventTimeZone = DEFAULT_TIME_ZONE,

@@ -1,4 +1,11 @@
+import { createRequire } from "node:module";
 import type { NextConfig } from "next";
+
+// Versi aplikasi datang dari package.json, satu sumber. Menuliskannya ulang di
+// konstanta TypeScript berarti angka di kaki sidebar bisa berbeda dari versi yang
+// benar-benar dirilis — dan yang dibaca orang saat melaporkan bug adalah yang di
+// layar.
+const { version } = createRequire(import.meta.url)("./package.json") as { version: string };
 
 // Rewrite untuk URL ber-scope event (`/e/<slug>/...`) TIDAK ditaruh di sini.
 //
@@ -12,6 +19,8 @@ import type { NextConfig } from "next";
 // Mekanismenya dipindah ke `src/proxy.ts`: proxy berjalan lebih dulu, tujuannya
 // dapat dipastikan, dan satu mekanisme lebih mudah dipertanggungjawabkan
 // daripada dua lapisan yang saling menimpa.
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_APP_VERSION: version },
+};
 
 export default nextConfig;

@@ -19,7 +19,7 @@ export type SeatMapSession = {
   background_color: string;
   text_color: string;
   accent_color: string;
-  /** Null berarti memakai `background_color`. Sama seperti Live Display. */
+  /** Null berarti memakai `background_color`. Sama seperti Papan peringkat. */
   background_image_url: string | null;
   /**
    * True berarti kanvas denah dibuat tembus pandang agar gambar latar terlihat

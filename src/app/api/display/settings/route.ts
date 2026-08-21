@@ -49,13 +49,13 @@ const patchSchema = z.object({
   ...brandingSchema,
 });
 
-// Public read: the Live Display runs without a logged-in operator.
+// Public read: the Papan peringkat runs without a logged-in operator.
 export async function GET(request: Request) {
   const event = await getPublicRequestEvent(request);
   if (!event) return apiError("INTERNAL_ERROR", 404);
   const client = getSupabaseServiceClient();
   // Zona acara ikut dikirim di endpoint ini, bukan lewat prop dari server page:
-  // Live Display menyegarkan dirinya dari sini tiap beberapa detik, jadi zona
+  // Papan peringkat menyegarkan dirinya dari sini tiap beberapa detik, jadi zona
   // yang diubah admin saat acara berjalan langsung ikut terpakai tanpa perlu
   // ada yang memuat ulang layar di panggung.
   const [displayResult, settingsResult, boothCodes] = await Promise.all([

@@ -2,6 +2,21 @@ import type { CSSProperties } from "react";
 import { DEFAULT_REGISTRATION_SEED, buildRegistrationThemeRoles, type RegistrationFormTheme, type RegistrationThemeRoles } from "./registration-theme";
 
 /**
+ * Tema mana yang dipakai halaman pendaftaran sebuah acara.
+ *
+ * Satu tempat, dipakai halaman publik DAN pratinjau di CMS. Aturan yang hidup di
+ * dua tempat akan berbeda pendapat, dan yang terlihat admin adalah pratinjau
+ * berwarna A sementara pendaftarnya melihat warna B.
+ */
+export function resolveFormTheme(
+  formTheme: RegistrationFormTheme | undefined,
+  landingTheme: RegistrationFormTheme | undefined,
+): RegistrationFormTheme | undefined {
+  const pakaiSendiri = Boolean(formTheme?.seed) && formTheme?.inherit !== true;
+  return pakaiSendiri ? formTheme : (landingTheme ?? formTheme);
+}
+
+/**
  * Mengubah peran warna form menjadi variabel CSS untuk dipasang di elemen
  * pembungkus halaman pendaftaran.
  *

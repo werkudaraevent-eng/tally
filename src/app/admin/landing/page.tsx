@@ -15,6 +15,7 @@ import {
   type EventLandingConfig,
   type LandingSection,
   type LandingSectionId,
+  type RegistrationFormConfig,
 } from "@/lib/domain";
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { eventApiPath } from "@/lib/event-url";
@@ -46,6 +47,10 @@ export default function LandingCmsPage() {
   // berubah di sana — menyegarkannya di setiap ketikan berarti memuat ulang satu
   // halaman penuh berkali-kali per detik.
   const [previewKey, setPreviewKey] = useState(0);
+  // Warna formulir disimpan di kolom lain (`registration_form_config.theme`),
+  // jadi ia punya keadaan sendiri di layar ini alih-alih ikut `landing`.
+  const [formInherit, setFormInherit] = useState(true);
+  const [formSeed, setFormSeed] = useState(DEFAULT_REGISTRATION_SEED);
   const toast = useToast();
 
   const load = useCallback(async () => {
@@ -54,11 +59,20 @@ export default function LandingCmsPage() {
     const body = await response.json().catch(() => null);
     // /api/events mengembalikan daftar; slug dari URL yang menentukan mana.
     const slug = window.location.pathname.match(/^\/e\/([^/]+)/)?.[1];
-    const list = (body?.events ?? []) as (Facts & { landing_config?: EventLandingConfig })[];
+    const list = (body?.events ?? []) as (Facts & {
+      landing_config?: EventLandingConfig;
+      registration_form_config?: RegistrationFormConfig;
+    })[];
     const found = slug ? list.find((item) => item.slug === slug) : list[0];
     if (!found) { setError("Acara tidak ditemukan."); return; }
     setFacts(found);
     setLanding(found.landing_config ?? {});
+    // `inherit` yang belum pernah disimpan berarti konfigurasi dibuat sebelum
+    // saklar ini ada. Acara yang sudah punya warna formulir sendiri dianggap
+    // memang memilihnya — ia tidak boleh berganti warna karena sebuah pembaruan.
+    const formTheme = found.registration_form_config?.theme;
+    setFormInherit(formTheme?.inherit ?? !formTheme?.seed);
+    setFormSeed(formTheme?.seed ?? found.landing_config?.theme?.seed ?? DEFAULT_REGISTRATION_SEED);
     setError("");
   }, []);
 
@@ -122,6 +136,7 @@ export default function LandingCmsPage() {
           sections,
           theme: { seed: landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
         },
+        form_theme: { inherit: formInherit, seed: formSeed },
       }),
     }).catch(() => null);
     setBusy(false);
@@ -344,9 +359,41 @@ export default function LandingCmsPage() {
               </label>
             </div>
             <p className="mt-2 text-body-small leading-5 text-on-surface-variant">
-              Satu warna; sisanya diturunkan otomatis. Warna ini terpisah dari warna form pendaftaran —
-              samakan keduanya bila ingin satu identitas.
+              Satu warna; sisanya diturunkan otomatis, jadi teksnya dijamin tetap terbaca di layar mana pun.
+              Warna ini juga dipakai halaman pendaftaran.
             </p>
+
+            {/* Saklar warna formulir tinggal DI SINI, bukan di CMS Registrasi.
+                Warna acara punya satu sumber; kontrol yang tersebar di dua layar
+                akan berbeda isinya dan tidak ada yang tahu mana yang menang. */}
+            <div className="mt-6 border-t border-outline-variant pt-5">
+              <Switch
+                checked={!formInherit}
+                onChange={(value) => setFormInherit(!value)}
+                label="Formulir pendaftaran pakai warna berbeda"
+              />
+              <p className="mt-2 pl-16 text-body-small leading-5 text-on-surface-variant">
+                {formInherit
+                  ? "Halaman pendaftaran memakai warna di atas. Tamu yang menekan “Daftar sekarang” tidak berpindah identitas visual."
+                  : "Halaman pendaftaran memakai warnanya sendiri. Pakai ini hanya bila memang disengaja — dua warna dalam dua ketukan berurutan terbaca seperti pindah ke situs lain."}
+              </p>
+
+              {!formInherit ? (
+                <label className="mt-4 flex items-center gap-3 pl-16">
+                  <input
+                    type="color"
+                    value={formSeed}
+                    onChange={(event) => setFormSeed(event.target.value)}
+                    className="size-14 cursor-pointer rounded-lg border border-outline bg-transparent"
+                    aria-label="Warna merek formulir pendaftaran"
+                  />
+                  <span>
+                    <span className="block text-label-large font-semibold">Warna formulir</span>
+                    <span className="mt-0.5 block font-mono text-body-small text-on-surface-variant">{formSeed}</span>
+                  </span>
+                </label>
+              ) : null}
+            </div>
           </Card>
 
           {/* ---- Bagian ----------------------------------------------------- */}

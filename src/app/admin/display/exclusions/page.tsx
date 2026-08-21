@@ -146,7 +146,7 @@ export default function LeaderboardExclusionsPage() {
 
   return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px] [&>*]:max-w-[900px]">
-      <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Live Display</Link>
+      <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Papan peringkat</Link>
 
       <div>
         <h2 className="text-headline-small font-semibold tracking-tight">Pengecualian peserta</h2>
@@ -171,12 +171,12 @@ export default function LeaderboardExclusionsPage() {
           { label: "Masuk papan", value: summary.remaining_spenders },
         ].map((item) => <div key={item.label} className="rounded-lg bg-panel p-4">
           <p className="text-body-small uppercase tracking-[0.14em] text-on-surface-variant">{item.label}</p>
-          <p className="mt-1 text-3xl font-semibold tabular-nums">{item.value}</p>
+          <p className="mt-1 text-headline-medium font-semibold tabular-nums">{item.value}</p>
         </div>)}
       </div>}
 
       {empty
-        ? <div className="rounded-lg mt-4 flex items-start gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><WarningCircle size={20} className="mt-0.5 shrink-0" /><span>Tidak ada peserta tersisa. Live Display akan menampilkan &quot;Belum ada transaksi lunas.&quot; — di proyektor itu terbaca seperti sistem rusak.</span></div>
+        ? <div className="rounded-lg mt-4 flex items-start gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><WarningCircle size={20} className="mt-0.5 shrink-0" /><span>Tidak ada peserta tersisa. Papan peringkat akan menampilkan &quot;Belum ada transaksi lunas.&quot; — di proyektor itu terbaca seperti sistem rusak.</span></div>
         : tooFew && <div className="rounded-lg mt-4 flex items-start gap-2 border border-outline-variant bg-panel-high p-4 text-body-medium text-on-surface-variant"><Info size={20} className="mt-0.5 shrink-0 text-warning" /><span>Papan disetel {limit} baris, tapi hanya {summary?.remaining_spenders} peserta yang memenuhi syarat. Layar akan menampilkan lebih sedikit dari itu.</span></div>}
 
       <section className="rounded-lg mt-8 border border-outline-variant bg-panel p-6">

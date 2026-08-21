@@ -102,7 +102,7 @@ export default function RevealControlPage() {
 
   if (!row) return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px] [&>*]:max-w-[900px]">
-      <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Live Display</Link>
+      <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Papan peringkat</Link>
       <p className="mt-6 text-body-medium text-on-surface-variant">{error || "Memuat status reveal..."}</p>
     </div>
   </main>;
@@ -127,13 +127,13 @@ export default function RevealControlPage() {
 
   return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px] [&>*]:max-w-[900px]">
-      <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Live Display</Link>
+      <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Papan peringkat</Link>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-headline-small font-semibold tracking-tight">Reveal bertahap</h2>
           <p className="mt-3 max-w-2xl text-body-medium leading-6 text-on-surface-variant">Umumkan peringkat sedikit-sedikit di layar proyektor. Setiap tombol di halaman ini berlaku seketika, tanpa perlu disimpan.</p>
         </div>
-        <Link href="/display?fullscreen=1" target="_blank" rel="noreferrer" className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-4 text-body-medium font-semibold"><MonitorPlay size={18} /> Buka Live Display</Link>
+        <Link href="/display?fullscreen=1" target="_blank" rel="noreferrer" className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-4 text-body-medium font-semibold"><MonitorPlay size={18} /> Buka Papan peringkat</Link>
       </div>
 
       {error && <p className="rounded-lg mt-6 flex items-start gap-2 border border-error bg-panel p-3 text-body-medium text-error"><WarningCircle size={18} className="mt-0.5 shrink-0" /> {error}</p>}
@@ -146,7 +146,7 @@ export default function RevealControlPage() {
         <EyeSlash size={20} className="mt-0.5 shrink-0 text-warning" />
         <div>
           <p className="font-semibold">Leaderboard sedang disembunyikan di semua layar.</p>
-          <p className="mt-1 text-on-surface-variant">Tahap tetap berpindah saat kamu menekan tombol, tetapi penonton belum melihat apa pun. Nyalakan kembali saklar <span className="font-semibold">Tampilkan leaderboard</span> di Live Display saat siap. Tahap yang sudah dibuka tidak hilang.</p>
+          <p className="mt-1 text-on-surface-variant">Tahap tetap berpindah saat kamu menekan tombol, tetapi penonton belum melihat apa pun. Nyalakan kembali saklar <span className="font-semibold">Tampilkan leaderboard</span> di Papan peringkat saat siap. Tahap yang sudah dibuka tidak hilang.</p>
         </div>
       </div>}
 

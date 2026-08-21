@@ -133,7 +133,7 @@ export function SeatMapLedView({
         backgroundColor,
         // Overlay gelap ditumpuk sebagai gradient di atas gambar supaya teks, nomor
         // meja, dan QR tetap terbaca di atas bagian gambar yang terang. Nilainya
-        // sama dengan Live Display agar kedua layar di ruangan yang sama tidak
+        // sama dengan Papan peringkat agar kedua layar di ruangan yang sama tidak
         // terlihat memakai aturan berbeda.
         backgroundImage: backgroundImageUrl
           ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${backgroundImageUrl})`

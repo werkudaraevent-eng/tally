@@ -48,7 +48,11 @@ export function SegmentedButton<T extends string>({ options, value, onChange, la
 						onClick={() => onChange(option.value)}
 						title={compact ? option.label : undefined}
 						className={cx(
-							"m3-state flex min-h-11 flex-1 items-center justify-center gap-2 px-4 text-label-large font-semibold",
+							// `whitespace-nowrap`: labelnya dua kata seperti "User & role" dan
+							// "Audit trail". Tanpa ini flexbox menyusutkan tombolnya sampai
+							// selebar kata terpanjang lalu memecah labelnya jadi dua baris —
+							// grup tombol setinggi dua baris di tengah ruang yang masih lapang.
+							"m3-state flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap px-4 text-label-large font-semibold",
 							"transition-[border-radius,background-color,color] duration-200 ease-emphasized",
 							"disabled:pointer-events-none disabled:opacity-40",
 							selected ? "rounded-lg bg-primary text-on-primary" : "rounded-2xl text-on-surface-variant",

@@ -118,7 +118,7 @@ export default async function PanduanPage({
 
     <header className="border-b-2 border-on-surface pb-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Panduan Operator</p>
-      <h1 className="mt-1 text-3xl font-bold">Tally — Event Transaction Hub</h1>
+      <h1 className="mt-1 text-headline-medium font-bold">Tally — Event Transaction Hub</h1>
       <p className="mt-2 text-body-medium text-on-surface-variant">
         Alur aktif: {viaCashier ? "pembayaran lewat kasir" : "tanpa kasir, order langsung lunas"} ·{" "}
         {handOverNow ? "barang diserahkan langsung di booth" : "barang diambil setelah lunas"}
@@ -126,7 +126,7 @@ export default async function PanduanPage({
     </header>
 
     <section className="mt-8 break-inside-avoid">
-      <h2 className="text-lg font-bold">A. Admin Booth</h2>
+      <h2 className="text-title-large font-bold">A. Admin Booth</h2>
       <ol className="mt-3 space-y-2">{boothFlow.map((step, index) => <PrintStep key={step.id} step={step} number={index + 1} />)}</ol>
 
       <h3 className="mt-6 text-body-medium font-bold uppercase tracking-[0.1em]">Arti status order</h3>
@@ -146,12 +146,12 @@ export default async function PanduanPage({
     </section>
 
     <section className="mt-8 break-inside-avoid">
-      <h2 className="text-lg font-bold">B. Kasir</h2>
+      <h2 className="text-title-large font-bold">B. Kasir</h2>
       <ol className="mt-3 space-y-2">{cashierFlow.map((step, index) => <PrintStep key={step.id} step={step} number={index + 1} />)}</ol>
     </section>
 
     <section className="mt-8">
-      <h2 className="text-lg font-bold">C. Kalau ada masalah</h2>
+      <h2 className="text-title-large font-bold">C. Kalau ada masalah</h2>
       <div className="mt-3 space-y-4">{masalah.map((item) => <div key={item.q} className="break-inside-avoid">
         <p className="text-body-medium font-bold">{item.q}</p>
         <ul className="mt-1 space-y-0.5">{item.a.map((line, index) => <li key={index} className="flex gap-2 text-body-medium leading-6">

@@ -18,10 +18,21 @@ import { eventApiPath } from "@/lib/event-url";
  * pembungkusnya.
  */
 
-const CONTROL =
+/**
+ * Bentuk kolom isian, dipakai bersama oleh kolom bawaan di halaman pendaftaran
+ * dan kolom tambahan di berkas ini.
+ *
+ * Diekspor, bukan disalin: dua definisi yang "seharusnya sama" akan menyimpang
+ * pada perubahan pertama yang hanya menyentuh salah satunya, dan yang terlihat
+ * pendaftar adalah satu formulir dengan dua jenis kotak isian.
+ */
+export const REG_CONTROL =
   "mt-2 w-full rounded-md border px-4 py-3 text-body-large outline-none transition-colors " +
   "border-[var(--reg-outline)] bg-[var(--reg-field)] text-[var(--reg-on-surface)] " +
   "focus:border-[var(--reg-primary)]";
+
+/** Label kolom. `label-large`, sama dengan kolom isian M3 di layar admin. */
+export const REG_LABEL = "mt-6 block text-label-large font-semibold";
 
 type UploadState = { id: string; name: string } | null;
 
@@ -55,7 +66,7 @@ export function RegistrationFieldInput({ field }: { field: RegistrationField }) 
   // sebelahnya, dan pada layar sempit ia terbaca sebagai kotak tanpa arti.
   if (field.type === "checkbox") {
     return (
-      <label className="mt-5 flex cursor-pointer items-start gap-3">
+      <label className="mt-6 flex cursor-pointer items-start gap-3">
         <input
           type="checkbox"
           required={field.required}
@@ -79,8 +90,8 @@ export function RegistrationFieldInput({ field }: { field: RegistrationField }) 
 
   if (field.type === "radio") {
     return (
-      <fieldset className="mt-5">
-        <legend className="text-body-medium font-semibold">{field.label} {optional}</legend>
+      <fieldset className="mt-6">
+        <legend className="text-label-large font-semibold">{field.label} {optional}</legend>
         <div className="mt-2 space-y-2">
           {(field.options ?? []).map((option) => (
             <label key={option} className="flex cursor-pointer items-center gap-3 rounded-md border border-[var(--reg-outline)] px-4 py-3">
@@ -104,8 +115,8 @@ export function RegistrationFieldInput({ field }: { field: RegistrationField }) 
 
   if (field.type === "file") {
     return (
-      <div className="mt-5">
-        <p className="text-body-medium font-semibold">{field.label} {optional}</p>
+      <div className="mt-6">
+        <p className="text-label-large font-semibold">{field.label} {optional}</p>
         {/* Nilai yang dikirim adalah id baris unggahan, bukan berkasnya.
             Berkasnya sudah naik lebih dulu lewat endpoint tersendiri, jadi
             formulir ini tetap satu permintaan JSON kecil — penting di jaringan
@@ -148,7 +159,7 @@ export function RegistrationFieldInput({ field }: { field: RegistrationField }) 
   }
 
   return (
-    <label className="mt-5 block text-body-medium font-semibold">
+    <label className={REG_LABEL}>
       {field.label} {optional}
       {field.type === "textarea" ? (
         <textarea
@@ -157,10 +168,10 @@ export function RegistrationFieldInput({ field }: { field: RegistrationField }) 
           rows={3}
           name={`extra.${field.key}`}
           placeholder={field.placeholder}
-          className={`${CONTROL} resize-y font-normal leading-6`}
+          className={`${REG_CONTROL} resize-y font-normal leading-6`}
         />
       ) : field.type === "select" ? (
-        <select required={field.required} name={`extra.${field.key}`} defaultValue="" className={`${CONTROL} font-normal`}>
+        <select required={field.required} name={`extra.${field.key}`} defaultValue="" className={`${REG_CONTROL} font-normal`}>
           <option value="" disabled>Pilih…</option>
           {(field.options ?? []).map((option) => (
             <option key={option} value={option}>{option}</option>
@@ -175,7 +186,7 @@ export function RegistrationFieldInput({ field }: { field: RegistrationField }) 
           max={field.type === "number" ? field.max : undefined}
           name={`extra.${field.key}`}
           placeholder={field.placeholder}
-          className={`${CONTROL} font-normal`}
+          className={`${REG_CONTROL} font-normal`}
         />
       )}
       {field.help_text ? (

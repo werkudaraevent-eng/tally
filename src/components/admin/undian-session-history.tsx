@@ -244,7 +244,7 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
           <p className="flex items-center gap-2 text-body-small font-semibold uppercase tracking-[0.15em] text-primary">
             <span className="inline-block size-2 animate-pulse rounded-full bg-primary" /> Sesi berjalan
           </p>
-          <p className="mt-2 text-xl font-semibold tracking-[-0.02em]">{active.name}</p>
+          <p className="mt-2 text-title-large font-semibold tracking-[-0.02em]">{active.name}</p>
           <p className="mt-1 text-body-small tabular-nums text-on-surface-variant">
             Mulai {clockShort(active.started_at)} · {active.winner_total} pemenang · {active.draw_count} kali undi
           </p>
@@ -472,7 +472,7 @@ function Modal({
     <button type="button" onClick={onClose} className="absolute inset-0 cursor-default" aria-label="Tutup dialog" />
     <div className={`rounded-lg relative w-full max-w-lg border-2 bg-panel p-6 ${tone === "danger" ? "border-error" : "border-primary"}`}>
       <div className="mb-4 flex items-start justify-between gap-4">
-        <h2 className={`text-lg font-semibold tracking-[-0.02em] ${tone === "danger" ? "text-error" : ""}`}>{title}</h2>
+        <h2 className={`text-title-large font-semibold tracking-[-0.02em] ${tone === "danger" ? "text-error" : ""}`}>{title}</h2>
         <button type="button" onClick={onClose} className="flex min-h-9 items-center px-1 text-on-surface-variant hover:text-on-surface" aria-label="Tutup"><X size={18} /></button>
       </div>
       {children}

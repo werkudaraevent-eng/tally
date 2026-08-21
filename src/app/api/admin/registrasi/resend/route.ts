@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { isEmailConfigured } from "@/lib/email/client";
 import { sendRegistrationCode } from "@/lib/email/registration-code";
+import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   const client = getSupabaseServiceClient();
   const { data, error } = await client
     .from("event_registrations")
-    .select("id,name,email,status,participant_id")
+    .select("id,name,email,status,participant_id,access_token")
     // event_id ikut disaring, bukan sekadar id: admin event A yang menempelkan
     // id dari event B tidak boleh bisa memicu pengiriman di event lain.
     .eq("id", parsed.data.id)
@@ -46,7 +47,10 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (error) return apiError("INTERNAL_ERROR", 500);
 
-  const reg = data as { id: string; name: string; email: string; status: string; participant_id: string | null } | null;
+  const reg = data as {
+    id: string; name: string; email: string; status: string;
+    participant_id: string | null; access_token: string | null;
+  } | null;
   if (!reg) return apiError("REGISTRATION_NOT_FOUND", 404);
   // participant_id boleh kosong meski status 'approved' — kolomnya
   // `on delete set null`, jadi peserta yang sudah dihapus meninggalkan baris
@@ -70,6 +74,7 @@ export async function POST(request: Request) {
     to: reg.email,
     name: reg.name,
     qrCode,
+    codeUrl: registrationCodeUrl(request.url, auth.scope.event.slug, reg.access_token),
     actorId: auth.user.id,
   });
 

@@ -13,7 +13,7 @@ const workspaces = [
   { label: "Admin Booth", detail: "Scan badge peserta, buat order, dan serahkan barang.", icon: Storefront, accent: "bg-primary text-on-primary", device: "Optimal di HP", href: "/booth" },
   { label: "Kasir", detail: "Terima pembayaran EDC atau tunai dan kelola antrean.", icon: CreditCard, accent: "bg-on-surface text-surface", device: "HP atau tablet", href: "/cashier" },
   { label: "Panitia / Admin", detail: "Pantau transaksi, kelola booth, user, dan tampilan display.", icon: ShieldCheck, accent: "bg-primary-dim text-on-primary", device: "Optimal di laptop", href: "/admin" },
-  { label: "Live Display", detail: "Leaderboard top spender untuk ditayangkan di proyektor.", icon: MonitorPlay, accent: "bg-warning text-on-warning", device: "Layar 1920 × 1080", href: "/display" },
+  { label: "Papan peringkat", detail: "Leaderboard top spender untuk ditayangkan di proyektor.", icon: MonitorPlay, accent: "bg-warning text-on-warning", device: "Layar 1920 × 1080", href: "/display" },
 ];
 
 export default function Home() {
@@ -31,7 +31,7 @@ export default function Home() {
         </header>
 
         <section className="py-12 sm:py-16">
-          <h1 className="max-w-2xl text-4xl font-semibold leading-[1.05] tracking-[-0.05em] sm:text-5xl">Pilih workspace Anda.</h1>
+          <h1 className="max-w-2xl text-display-small font-semibold leading-[1.05] tracking-[-0.05em] sm:text-display-medium">Pilih workspace Anda.</h1>
           <p className="mt-5 max-w-xl text-body-large leading-7 text-on-surface-variant">Login sekali dengan username dan PIN panitia. Sistem otomatis mengarahkan Anda ke halaman sesuai peran akun.</p>
         </section>
 
@@ -43,7 +43,7 @@ export default function Home() {
                 <div className={`flex size-11 shrink-0 items-center justify-center ${accent}`}><Icon size={23} weight="duotone" aria-hidden="true" /></div>
                 <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">{device}</span>
               </div>
-              <p className="mt-6 text-lg font-semibold tracking-[-0.02em]">{label}</p>
+              <p className="mt-6 text-title-large font-semibold tracking-[-0.02em]">{label}</p>
               <p className="mt-2 text-body-medium leading-6 text-on-surface-variant">{detail}</p>
               <span className="mt-5 flex items-center gap-2 text-body-medium font-semibold text-primary">Buka <ArrowRight size={16} weight="bold" className="transition-transform group-hover:translate-x-1" aria-hidden="true" /></span>
             </Link>)}

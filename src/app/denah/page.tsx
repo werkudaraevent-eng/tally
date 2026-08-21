@@ -208,7 +208,7 @@ export default function SeatMapPage() {
   // yang jaringannya buruk, dan latar putih polos akan membuat teks putih hilang.
   const backgroundImage = session?.background_image_url ?? null;
   // Overlay gelap di atas gambar. Tanpa ini teks dan nomor meja bertabrakan dengan
-  // bagian gambar yang terang. Nilainya sama dengan Live Display supaya kedua layar
+  // bagian gambar yang terang. Nilainya sama dengan Papan peringkat supaya kedua layar
   // di ruangan yang sama tidak terlihat memakai aturan berbeda.
   const imageOverlay = backgroundImage ? "rgba(0,0,0,0.55)" : "transparent";
   // Kanvas denah hanya dibuat tembus pandang bila ada gambar di belakangnya.
@@ -331,7 +331,7 @@ export default function SeatMapPage() {
       }}
     >
       <div className="mx-auto max-w-[1180px]">
-        {/* Header memakai komponen bersama, sama seperti mode LED dan Live Display.
+        {/* Header memakai komponen bersama, sama seperti mode LED dan Papan peringkat.
             Varian `compact`: halaman ini dibuka dari HP tamu, jadi ukurannya
             mengikuti lebar layar, bukan viewport LED. */}
         <BrandHeader

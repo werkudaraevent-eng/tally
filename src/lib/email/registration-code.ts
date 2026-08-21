@@ -32,6 +32,14 @@ type Input = {
   to: string;
   name: string;
   qrCode: string;
+  /**
+   * Alamat lengkap halaman kode permanen.
+   *
+   * Disebutkan di email karena lampiran QR tidak selalu selamat: klien email
+   * perusahaan membuang lampiran gambar, dan email yang diteruskan sering
+   * kehilangan lampirannya. Tautan ini tetap membawa pendaftar ke QR-nya.
+   */
+  codeUrl?: string | null;
   actorId?: string | null;
 };
 
@@ -118,6 +126,8 @@ function htmlBody(b: Body) {
       <p style="margin:10px 0 0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:30px;letter-spacing:0.1em;font-weight:600;">${escapeHtml(b.qrCode)}</p>
     </div>
 
+    ${b.codeUrl ? `<p style="margin:24px 0 0;text-align:center;"><a href="${escapeHtml(b.codeUrl)}" style="display:inline-block;padding:14px 28px;background:#2649D0;color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none;border-radius:999px;">Buka kode &amp; QR</a></p>` : ""}
+
     <p style="margin:24px 0 0;font-size:15px;line-height:1.6;">Tunjukkan kode ini di meja registrasi saat hari acara. QR-nya juga terlampir di email ini sebagai berkas gambar, tinggal ditunjukkan dari layar ponsel.</p>
     <p style="margin:16px 0 0;font-size:14px;line-height:1.6;color:#66736C;">Kode ini khusus untuk Anda. Jangan diteruskan ke orang lain — kode yang sama tidak bisa dipakai dua orang.</p>
 
@@ -140,6 +150,7 @@ function textBody(b: Body) {
     "",
     `KODE PESERTA: ${b.qrCode}`,
     "",
+    ...(b.codeUrl ? [`Kode dan QR-nya juga bisa dibuka kapan saja di: ${b.codeUrl}`, ""] : []),
     "Tunjukkan kode ini di meja registrasi saat hari acara. QR-nya juga terlampir sebagai berkas gambar.",
     "Kode ini khusus untuk Anda. Jangan diteruskan ke orang lain.",
     "",

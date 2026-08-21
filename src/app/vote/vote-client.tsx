@@ -198,7 +198,7 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
           Belum ada voting yang dibuka. Biarkan halaman ini terbuka — pertanyaannya akan muncul sendiri.
         </p>
       : <section className="rounded-lg border border-outline-variant bg-panel p-5">
-          <h2 className="text-lg font-semibold leading-6">{poll.question}</h2>
+          <h2 className="text-title-large font-semibold leading-6">{poll.question}</h2>
           {poll.description && <p className="mt-2 text-body-medium text-on-surface-variant">{poll.description}</p>}
           <p className="mt-2 text-body-small text-on-surface-variant">
             {poll.type === "multi" ? `Pilih maksimal ${poll.max_choices}.`
@@ -225,7 +225,7 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
                 onClick={() => { setRating(value); setError(""); }}
                 disabled={alreadyVoted || poll.status !== "open" || sending}
                 aria-pressed={rating === value}
-                className={`rounded-md min-h-14 flex-1 border text-lg font-bold tabular-nums disabled:opacity-70 ${rating === value ? "border-primary bg-primary text-on-primary" : "border-outline-variant"}`}
+                className={`rounded-md min-h-14 flex-1 border text-title-large font-bold tabular-nums disabled:opacity-70 ${rating === value ? "border-primary bg-primary text-on-primary" : "border-outline-variant"}`}
                 style={rating === value ? { background: accent } : undefined}
               >{value}</button>)}
             </div>

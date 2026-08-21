@@ -209,16 +209,16 @@ export default function EventsPage() {
   return <main className="min-h-dvh bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-10">
     <div className="mx-auto max-w-[1200px]">
       <header className="flex flex-wrap items-end justify-between gap-5 border-b border-outline-variant pb-6">
-        <div><p className="text-body-small font-semibold uppercase tracking-[0.18em] text-primary">Tally workspace</p><h1 className="mt-2 text-4xl font-semibold tracking-[-0.05em]">Pilih event.</h1><p className="mt-2 text-body-medium text-on-surface-variant">Setiap event punya transaksi, peserta, booth, display, dan konfigurasi terpisah.</p></div>
+        <div><p className="text-body-small font-semibold uppercase tracking-[0.18em] text-primary">Tally workspace</p><h1 className="mt-2 text-display-small font-semibold tracking-[-0.05em]">Pilih event.</h1><p className="mt-2 text-body-medium text-on-surface-variant">Setiap event punya transaksi, peserta, booth, display, dan konfigurasi terpisah.</p></div>
         <div className="flex gap-2">{isOwner && <button onClick={() => setCreating(true)} className="rounded-md flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary"><Plus size={18} weight="bold" /> Buat event</button>}<button type="button" onClick={() => void logout()} className="rounded-md flex min-h-11 items-center gap-2 border border-outline-variant px-4 text-body-medium font-semibold"><SignOut size={18} /> Keluar</button></div>
       </header>
 
       {error && <p role="alert" className="rounded-lg mt-5 border border-error/30 bg-error/5 p-4 text-body-medium font-medium text-error">{error}</p>}
       {notice && <p role="status" className="rounded-lg mt-5 border border-outline-variant bg-panel-high p-4 text-body-medium font-medium">{notice}</p>}
-      {loading ? <p className="py-16 text-body-medium text-on-surface-variant">Memuat event…</p> : events.length === 0 ? <section className="py-20 text-center"><CalendarDots size={48} className="mx-auto text-on-surface-variant" /><h2 className="mt-4 text-xl font-semibold">Belum ada event</h2><p className="mt-2 text-body-medium text-on-surface-variant">Buat event pertama untuk mulai menyiapkan workspace.</p></section> : <section className="mt-8 grid gap-4 md:grid-cols-2">
+      {loading ? <p className="py-16 text-body-medium text-on-surface-variant">Memuat event…</p> : events.length === 0 ? <section className="py-20 text-center"><CalendarDots size={48} className="mx-auto text-on-surface-variant" /><h2 className="mt-4 text-title-large font-semibold">Belum ada event</h2><p className="mt-2 text-body-medium text-on-surface-variant">Buat event pertama untuk mulai menyiapkan workspace.</p></section> : <section className="mt-8 grid gap-4 md:grid-cols-2">
         {events.map((item) => <article key={item.id} className="rounded-lg flex flex-col bg-panel p-6">
           <div className="flex items-start justify-between gap-4"><span className="rounded-sm border border-outline-variant px-2 py-1 text-[11px] font-semibold uppercase tracking-wider">{statusLabel[item.status]}</span><Storefront size={22} className="text-primary" /></div>
-          <h2 className="mt-8 text-xl font-semibold tracking-[-0.03em]">{item.name}</h2>
+          <h2 className="mt-8 text-title-large font-semibold tracking-[-0.03em]">{item.name}</h2>
           <p className="mt-2 text-body-medium text-on-surface-variant">{item.event_date ? new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeZone: item.time_zone }).format(new Date(`${item.event_date}T12:00:00Z`)) : "Tanggal belum ditentukan"}</p>
           <Link href={`/e/${item.slug}/workspace`} className="mt-5 text-body-small font-semibold uppercase tracking-[0.14em] text-primary">Buka workspace →</Link>
 
@@ -252,7 +252,7 @@ export default function EventsPage() {
     </div>
 
     {confirming && <div className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirming(null); }}><div className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-6">
-      <h2 className="text-xl font-semibold">{confirming.label}</h2>
+      <h2 className="text-title-large font-semibold">{confirming.label}</h2>
       <p className="mt-2 text-body-medium text-on-surface-variant">{confirming.event.name}</p>
       {/* Isi dialog menulis AKIBATnya, bukan sekadar "yakin?". */}
       <p className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-4 text-body-medium">{CONFIRM_TEXT[confirming.action]}</p>
@@ -263,7 +263,7 @@ export default function EventsPage() {
     </div></div>}
 
     {deleting && <div className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setDeleting(null); }}><form onSubmit={(e) => { e.preventDefault(); void remove(); }} className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-6">
-      <h2 className="text-xl font-semibold text-error">Hapus permanen</h2>
+      <h2 className="text-title-large font-semibold text-error">Hapus permanen</h2>
       <p className="mt-2 text-body-medium text-on-surface-variant">{deleting.name}</p>
       {/* Yang ditulis adalah APA yang hilang dan APA gantinya, bukan "tindakan
           ini tidak dapat dibatalkan" -- kalimat itu ada di setiap dialog hapus

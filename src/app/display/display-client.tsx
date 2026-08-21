@@ -28,7 +28,7 @@ type Entry = PublicLeaderboardEntry;
 const formatRupiah = (amount: number) => `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
 
 /**
- * Layar Live Display.
+ * Layar Papan peringkat.
  *
  * `initialConfig` datang dari server (lihat `page.tsx`) dan WAJIB dipakai sebagai
  * nilai awal state, bukan `DEFAULT_CONFIG`. Sebelumnya layar selalu mulai dari
@@ -216,7 +216,7 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
   return <main className="min-h-dvh" style={mainStyle}>
     <div className="min-h-dvh" style={{ background: config.background_image_url ? "rgba(0,0,0,0.55)" : "transparent" }}>
       {/* Ukuran huruf dan padding memakai `clamp(..., vw, ...)`, bukan ukuran tetap.
-          Kelas Tailwind seperti `text-xl` bernilai sama di layar selebar apa pun, dan
+          Kelas Tailwind seperti `text-title-large` bernilai sama di layar selebar apa pun, dan
           breakpoint terkecil pun tidak menurunkannya lebih jauh. Pada LED portrait
           256x768 akibatnya terukur: judul pecah menjadi 5 baris, header memakan 30%
           tinggi layar, dan isi header melimpah 88px ke samping.
@@ -284,7 +284,7 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
               minimal 1 karakter, jadi admin yang ingin menyembunyikannya
               biasanya mengisi "." atau "-" — jangan sisakan ruang untuk itu. */}
           {(config.tagline.trim().length > 1 || (staged && stageLabel)) && <div className="mb-4 flex items-end justify-between gap-4">
-            <h2 className="text-headline-small font-semibold tracking-[-0.05em] xl:text-4xl">{config.tagline.trim().length > 1 ? config.tagline : stageLabel}</h2>
+            <h2 className="text-headline-small font-semibold tracking-[-0.05em] xl:text-display-small">{config.tagline.trim().length > 1 ? config.tagline : stageLabel}</h2>
             {/* Label tahap ikut tampil agar penonton tahu potongan mana yang
                 sedang dibuka — pada tahap "4-10" papan dimulai dari nomor 4 dan
                 tanpa keterangan itu terlihat seperti tiga besar yang hilang. */}
@@ -376,14 +376,14 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
           <section className="rounded-lg border border-white/15 p-6">
             <p className="text-body-small uppercase tracking-[0.2em]" style={{ color: config.accent_color }}>02 / Booth explorer</p>
             {/* `items-baseline`, bukan dua ukuran font yang ditumpuk begitu saja.
-                Sebelumnya "2" (text-6xl) dan "/9" (text-headline-small) berada di flow yang
+                Sebelumnya "2" (text-display-large) dan "/9" (text-headline-small) berada di flow yang
                 sama tanpa penyelarasan, sehingga penyebutnya duduk di tengah
                 tinggi angka besar dan terbaca seperti pecahan miring, bukan
                 "2 dari 9". */}
             <div className="mt-6 flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="flex items-baseline gap-1 font-semibold leading-none tracking-[-0.06em]">
-                  <span className="text-6xl">{topBoothEntry?.booth_count ?? 0}</span>
+                  <span className="text-display-large">{topBoothEntry?.booth_count ?? 0}</span>
                   <span className="text-headline-small" style={{ opacity: 0.4 }}>/ {boothTotal}</span>
                 </p>
                 <p className="mt-3 truncate text-body-medium font-semibold">{topBoothEntry?.display_name ?? "Belum ada peserta"}</p>
@@ -422,7 +422,7 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
       </div> : (
         /* Ukuran memakai `clamp(..., vw, ...)`, sama seperti bagian lain halaman ini.
            Sebelumnya blok ini satu-satunya yang masih memakai ukuran tetap
-           (`text-4xl`, `px-8`, ikon 64px). Nilai tetap itu tidak pernah menyusut,
+           (`text-display-small`, `px-8`, ikon 64px). Nilai tetap itu tidak pernah menyusut,
            jadi pada LED portrait 256px kata "disembunyikan" lebih lebar dari ruang
            yang tersedia dan terpotong di kedua sisi.
 

@@ -7,7 +7,6 @@ import { Button } from "@/components/m3";
 import { RegistrationFormBuilder } from "@/components/admin/registration-form-builder";
 import { RegistrationFormPreview } from "@/components/admin/registration-form-preview";
 import type { RegistrationFormConfig } from "@/lib/domain";
-import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { formatEventDateTime } from "@/lib/datetime";
 import { eventApiPath } from "@/lib/event-url";
 import type { EventTimeZone } from "@/lib/timezone";
@@ -37,6 +36,8 @@ type EventConfig = {
   participant_source: string;
   slug: string;
   registration_form_config: RegistrationFormConfig;
+  /** Warna halaman pendaftaran, sudah memperhitungkan saklar di CMS halaman acara. */
+  form_theme_seed: string;
 };
 
 const TABS = [
@@ -107,10 +108,9 @@ export default function RegistrasiAdminPage() {
   /**
    * Menyimpan susunan form.
    *
-   * Peran warnanya TIDAK dikirim dari sini — hanya warna dasarnya. Server yang
-   * menurunkan seluruh peran lewat HCT lalu menyimpannya. Menghitungnya di sini
-   * berarti pustaka warna ikut terunduh ke setiap admin yang membuka halaman
-   * ini, dan hasilnya bisa berbeda dari yang dihitung server.
+   * Warnanya TIDAK ikut dikirim: warna acara diatur di CMS halaman acara, satu
+   * tempat untuk keduanya. Server mempertahankan tema yang sudah tersimpan
+   * ketika permintaan ini tidak menyebutnya.
    */
   async function kirimForm(next: RegistrationFormConfig) {
     if (!config) return;
@@ -127,12 +127,6 @@ export default function RegistrasiAdminPage() {
           success_text: next.success_text,
           require_company: next.require_company,
           require_job_title: next.require_job_title,
-          theme: {
-            seed: next.theme?.seed ?? DEFAULT_REGISTRATION_SEED,
-            dark_mode: next.theme?.dark_mode ?? "auto",
-            logo_url: next.theme?.logo_url ?? null,
-            background_image_url: next.theme?.background_image_url ?? null,
-          },
         },
       }),
     }).catch(() => null);
@@ -315,51 +309,10 @@ export default function RegistrasiAdminPage() {
             disabled={simpanForm}
           />
           <div className="xl:sticky xl:top-20">
-            <RegistrationFormPreview config={formDraft} eventName={namaEvent} />
+            <RegistrationFormPreview config={formDraft} eventName={namaEvent} seed={config.form_theme_seed} />
           </div>
         </div>
 
-        <div className="mt-8 border-t border-outline-variant pt-6">
-          <h3 className="text-title-medium font-semibold">Tampilan halaman</h3>
-          {/* Satu warna, bukan tiga pemilih terpisah.
-              Latar, teks, tombol, tepi kolom, dan warna galat semuanya diturunkan
-              dari warna ini di server. Memberi pemilih terpisah untuk latar dan
-              teks berarti kombinasi seperti abu muda di atas putih bisa tersimpan,
-              dan tidak ada yang menyadarinya sampai ada pendaftar yang tidak bisa
-              membaca formnya di bawah matahari. */}
-          <p className="mt-1 max-w-2xl text-body-medium text-on-surface-variant">
-            Pilih satu warna merek. Seluruh warna lain diturunkan darinya, jadi
-            teksnya dijamin tetap terbaca di layar mana pun.
-          </p>
-
-          <div className="mt-4 flex flex-wrap items-end gap-4">
-            <label className="flex items-center gap-3">
-              <input
-                type="color"
-                value={formDraft.theme?.seed ?? DEFAULT_REGISTRATION_SEED}
-                disabled={simpanForm}
-                onChange={(event) => setDraftForm({ ...formDraft, theme: { ...formDraft.theme, seed: event.target.value } })}
-                className="size-14 cursor-pointer rounded-lg border border-outline bg-transparent"
-                aria-label="Warna merek form"
-              />
-              <span>
-                <span className="block text-label-large font-semibold">Warna merek</span>
-                <span className="mt-0.5 block font-mono text-body-small text-on-surface-variant">
-                  {formDraft.theme?.seed ?? DEFAULT_REGISTRATION_SEED}
-                </span>
-              </span>
-            </label>
-
-            <a
-              href={`/e/${config.slug}/daftar`}
-              target="_blank"
-              rel="noreferrer"
-              className="m3-state inline-flex min-h-12 items-center gap-2 rounded-md border border-outline px-4 text-label-large font-semibold text-primary"
-            >
-              Lihat halaman publik
-            </a>
-          </div>
-        </div>
       </section>}
 
       {error && <p role="alert" className="rounded-lg mt-6 border border-error/30 bg-error/5 p-4 text-body-medium font-medium text-error">{error}</p>}
@@ -382,7 +335,7 @@ export default function RegistrasiAdminPage() {
             {rows.map((row) => <article key={row.id} className="rounded-lg bg-panel p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h3 className="text-lg font-semibold tracking-[-0.02em]">{row.name}</h3>
+                  <h3 className="text-title-large font-semibold tracking-[-0.02em]">{row.name}</h3>
                   <p className="mt-1 break-words text-body-medium text-on-surface-variant">{row.email} · {row.phone}</p>
                   {(row.company || row.job_title) && <p className="mt-1 text-body-medium text-on-surface-variant">{[row.job_title, row.company].filter(Boolean).join(" · ")}</p>}
                   <p className="mt-2 text-body-small text-on-surface-variant">Didaftarkan {formatEventDateTime(row.created_at, zone)} {abbr}</p>
@@ -438,7 +391,7 @@ export default function RegistrasiAdminPage() {
         onSubmit={(e) => { e.preventDefault(); void review(menolak, false, String(new FormData(e.currentTarget).get("reason") ?? "")); }}
         className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-6"
       >
-        <h2 className="text-xl font-semibold">Tolak pendaftaran</h2>
+        <h2 className="text-title-large font-semibold">Tolak pendaftaran</h2>
         <p className="mt-2 text-body-medium text-on-surface-variant">{menolak.name} · {menolak.email}</p>
         <p className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-4 text-body-medium">Pendaftar tidak dibuatkan kode peserta. Catatannya tetap tersimpan, dan orang ini boleh mendaftar ulang dengan email yang sama.</p>
         <label className="mt-5 block text-body-medium font-semibold">Alasan <span className="font-normal text-on-surface-variant">(opsional, untuk catatan panitia)</span>

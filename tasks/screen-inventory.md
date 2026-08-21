@@ -31,7 +31,7 @@
 | Settings | Save event settings | Preview, confirmation dialog, save success, conflict/error |
 | Audit | Inspect changes | Empty, filters, loading |
 
-## Live Display
+## Papan peringkat
 
 | Screen | Primary action | Required states |
 | --- | --- | --- |

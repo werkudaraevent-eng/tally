@@ -15,6 +15,16 @@ export type TopAppBarProps = {
 	 * keterangan yang sama dan subjudulnya jadi pengulangan bersebelahan.
 	 */
 	subtitleClassName?: string;
+	/**
+	 * Elemen sebelum judul: remah roti, pemilih scope, atau chip konteks.
+	 *
+	 * Slot tersendiri karena judul dibungkus `truncate`, dan `truncate` membawa
+	 * `overflow: hidden`. Menaruh menu di dalamnya berarti panelnya terpotong
+	 * habis oleh kotak judul — tombolnya bisa ditekan, menunya tidak pernah
+	 * terlihat. Itu bukan hipotesis: persis begitu yang terjadi pada pemilih event
+	 * sebelum slot ini ada.
+	 */
+	breadcrumb?: ReactNode;
 	/** Aksi di ujung akhir. Ikon, bukan tombol berteks panjang. */
 	actions?: ReactNode;
 	/** Lebar isi bilah disamakan dengan konten halaman di bawahnya. */
@@ -72,7 +82,7 @@ export function useScrolledPastTop() {
 	return { sentinel, scrolled };
 }
 
-export function TopAppBar({ leading, title, subtitle, subtitleClassName, actions, maxWidth = "1440px", className }: TopAppBarProps) {
+export function TopAppBar({ leading, title, subtitle, subtitleClassName, breadcrumb, actions, maxWidth = "1440px", className }: TopAppBarProps) {
 	const { sentinel, scrolled } = useScrolledPastTop();
 
 	return (
@@ -102,6 +112,7 @@ export function TopAppBar({ leading, title, subtitle, subtitleClassName, actions
 			>
 				<div className="mx-auto flex min-h-16 items-center gap-3" style={{ maxWidth }}>
 					{leading}
+					{breadcrumb}
 					{/* Ini SATU-SATUNYA judul halaman — halaman di bawahnya langsung
 					    mulai dari isinya. Sebelumnya bilah dan konten masing-masing
 					    membawa judul, dan dua judul yang saling mengulang menghabiskan

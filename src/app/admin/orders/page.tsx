@@ -281,7 +281,7 @@ export default function AdminOrdersPage() {
           kolom alasan yang wajib diisi. */}
       {voidTarget && <div className="fixed inset-0 z-50 flex items-end justify-center bg-scrim/50 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="void-title">
         <div className="rounded-lg w-full max-w-lg border border-outline-variant bg-panel p-6">
-          <p id="void-title" className="flex items-center gap-2 text-lg font-semibold"><Prohibit size={22} className="shrink-0 text-error" /> Void order {voidTarget.code}?</p>
+          <p id="void-title" className="flex items-center gap-2 text-title-large font-semibold"><Prohibit size={22} className="shrink-0 text-error" /> Void order {voidTarget.code}?</p>
 
           {/* Ringkasan order. Nomor stiker saja tidak cukup untuk memastikan
               baris yang benar — dua booth bisa punya nomor berdekatan, dan yang

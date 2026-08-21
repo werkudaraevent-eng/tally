@@ -17,7 +17,7 @@ import { fontStack, footerImageHeight, logoHeight, scaleClamp, type Branding } f
 
 /**
  * `led` untuk layar besar tanpa sentuh (mode QR di /denah): ukuran mengikuti
- * viewport supaya terbaca dari jauh. `compact` untuk HP tamu dan Live Display
+ * viewport supaya terbaca dari jauh. `compact` untuk HP tamu dan Papan peringkat
  * yang isinya jauh lebih padat.
  */
 type Variant = "led" | "compact";
@@ -63,7 +63,7 @@ const SUBTITLE_SIZE: Record<Variant, string> = {
 /**
  * Logo saja, tanpa judul.
  *
- * Dipisah dari `BrandHeader` karena Live Display punya header mendatar (ikon,
+ * Dipisah dari `BrandHeader` karena Papan peringkat punya header mendatar (ikon,
  * teks, tombol operator) yang tata letaknya berbeda dari header bertumpuk di
  * /denah. Memaksakan `BrandHeader` ke sana berarti menyusun ulang header yang
  * sudah rapi hanya untuk menyisipkan satu gambar.

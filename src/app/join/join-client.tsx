@@ -39,7 +39,7 @@ export default function JoinClient() {
   return <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-5 py-10">
     <div className="text-center">
       <p className="text-body-small font-semibold uppercase tracking-[0.2em] text-primary">Gabung acara</p>
-      <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em]">Masukkan kode</h1>
+      <h1 className="mt-3 text-headline-medium font-semibold tracking-[-0.04em]">Masukkan kode</h1>
       <p className="mt-2 text-body-medium text-on-surface-variant">Tujuh angka yang tertera di layar panggung.</p>
     </div>
 
@@ -55,7 +55,7 @@ export default function JoinClient() {
         maxLength={12}
         placeholder="1234567"
         aria-label="Kode acara"
-        className="rounded-md h-16 w-full border border-outline-variant bg-surface text-center font-mono text-3xl tracking-[0.3em] outline-none focus:border-primary"
+        className="rounded-md h-16 w-full border border-outline-variant bg-surface text-center font-mono text-headline-medium tracking-[0.3em] outline-none focus:border-primary"
       />
 
       {error && <p role="alert" className="rounded-lg border border-error-soft-outline bg-error-soft p-3 text-body-medium text-error">{error}</p>}

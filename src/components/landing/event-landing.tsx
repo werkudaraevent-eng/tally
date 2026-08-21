@@ -6,7 +6,6 @@ import {
   CalendarPlus,
   CaretDown,
   ChatCircleText,
-  Clock,
   Envelope,
   MapPin,
   Phone,
@@ -19,7 +18,6 @@ import type {
   LandingSectionId,
 } from "@/lib/domain";
 import { LANDING_SECTION_LABELS } from "@/lib/domain";
-import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { LandingNav } from "./landing-nav";
 
@@ -123,17 +121,22 @@ function SectionShell({ id, title, children }: { id: string; title: string; chil
 function DetailRow({
   icon,
   label,
+  muted,
+  iconClass,
   children,
 }: {
   icon: React.ReactNode;
   label: string;
+  /** Kelas warna label. Berbeda di kartu kaca, tempat latarnya gelap. */
+  muted: string;
+  iconClass: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex gap-4 py-4">
-      <span className="mt-0.5 shrink-0 text-[var(--reg-primary)]">{icon}</span>
+      <span className={`mt-0.5 shrink-0 ${iconClass}`}>{icon}</span>
       <div className="min-w-0">
-        <p className={`text-label-medium uppercase tracking-[0.14em] ${MUTED}`}>{label}</p>
+        <p className={`text-label-medium uppercase tracking-[0.14em] ${muted}`}>{label}</p>
         <div className="mt-1 text-body-large">{children}</div>
       </div>
     </div>
@@ -144,9 +147,6 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
   const aktif = sections.filter((section) => section.enabled);
   const daftarUrl = `/e/${event.slug}/daftar`;
   const ctaLabel = config.cta_label?.trim() || "Daftar sekarang";
-
-  const tanggal = formatEventDate(event);
-  const waktu = formatEventTime(event);
 
   // Agenda hanya diambil bila bagiannya memang dinyalakan. Query rundown pada
   // halaman yang tidak menampilkannya adalah biaya yang dibayar setiap tamu.
@@ -168,10 +168,20 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
   };
   const tampil = aktif.filter((section) => isi[section.id]);
 
-  // Kartu detail hero hanya berdiri kalau memang ada fakta di dalamnya. Kartu
-  // berisi satu baris di sebelah judul raksasa terbaca sebagai kotak yang lupa
-  // diisi, dan lebih baik hero memakai seluruh lebarnya.
-  const adaDetail = Boolean(tanggal || waktu || event.venue_name || event.venue_address);
+  // Pembagian isi hero, dan aturannya satu fakta satu tempat:
+  //
+  //   pil kiri atas → KAPAN (tanggal dan jam, lewat `schedule`)
+  //   kartu kanan   → DI MANA (nama tempat, alamat) beserta tindakannya
+  //
+  // Sebelumnya kartu ikut menampilkan baris "Tanggal", jadi acara tanpa jam dan
+  // tanpa venue memunculkan tanggal yang sama persis dua kali di satu layar —
+  // dan tamu yang membaca dua penyebutan cenderung mencari bedanya, bukan
+  // menganggapnya penegasan.
+  //
+  // Kartu tidak dirender tanpa venue. Kartu berisi satu tombol di sebelah judul
+  // raksasa terbaca sebagai kotak yang lupa diisi; tombol kalendernya pindah ke
+  // baris tombol di kiri.
+  const adaKartu = Boolean(event.venue_name?.trim() || event.venue_address?.trim());
 
   // Banner tampil apa adanya. Berlaku hanya kalau bannernya memang ada — tanpa
   // gambar, "warna asli" tidak menggambarkan apa pun dan teks putih akan berdiri
@@ -182,6 +192,24 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
   // mengikuti warna merek dan bisa gelap.
   const heroTeks = fotoAsli ? "text-white" : "";
   const heroMuted = fotoAsli ? "text-white/85" : MUTED;
+
+  // Kartu lokasi di atas banner berwarna asli.
+  //
+  // Bidang `surface-container-high` yang pekat berdiri di atas foto gelap sebagai
+  // balok terang yang memutus gambarnya — persis keluhan "terlalu kontras". Di
+  // mode ini kartunya menjadi kaca: hitam 40% + blur, jadi warna banner masih
+  // terbaca menembusnya.
+  //
+  // 40%, bukan 20%: `backdrop-filter` tidak jalan di setiap mesin (Firefox
+  // memerlukan flag sampai belum lama ini, dan mode hemat daya mematikannya).
+  // Tanpa blur, angka itulah satu-satunya yang menjaga teks putih tetap terbaca
+  // di atas bagian banner yang kebetulan terang.
+  const kartuKelas = fotoAsli
+    ? "border-white/25 bg-black/40 text-white backdrop-blur-xl"
+    : "border-[var(--reg-outline-variant)] bg-[var(--reg-panel)] shadow-[var(--md-sys-elevation-level1)]";
+  const kartuMuted = fotoAsli ? "text-white/70" : MUTED;
+  const kartuIkon = fotoAsli ? "text-white" : "text-[var(--reg-primary)]";
+  const kartuTombol = fotoAsli ? "border-white/45" : "border-[var(--reg-outline)]";
 
   return (
     <main className="min-h-dvh" style={theme}>
@@ -278,38 +306,47 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
                     Pendaftaran belum dibuka
                   </span>
                 )}
+
+                {/* Tombol kalender berdiri di sini HANYA saat kartu venue tidak
+                    dirender. Kalau kartunya ada, tombolnya ada di dalam kartu,
+                    bersama tombol peta — dua tombol sejenis di dua tempat
+                    berbeda membuat tamu mengira keduanya melakukan hal berbeda. */}
+                {!adaKartu && event.event_date ? (
+                  <a
+                    // Slug sebagai query, bukan segmen path — alasannya ditulis
+                    // di tombol kembarannya di dalam kartu lokasi.
+                    href={`/kalender.ics?eventSlug=${encodeURIComponent(event.slug)}`}
+                    className={`m3-state inline-flex min-h-14 items-center gap-2 rounded-full border px-6 text-title-medium font-semibold ${
+                      fotoAsli ? "border-white/60" : "border-[var(--reg-outline)]"
+                    }`}
+                  >
+                    <CalendarPlus size={20} />
+                    Tambah ke kalender
+                  </a>
+                ) : null}
               </div>
             </div>
 
-            {adaDetail ? (
-              // Kartu fakta mengisi sisi kanan hero — sisi yang sebelumnya
-              // kosong di layar lebar. Isinya bukan hiasan: tanggal, jam, dan
-              // lokasi adalah tiga hal yang dicari tamu sebelum memutuskan
-              // datang, dan sebelumnya ketiganya tersebar di tiga tempat.
+            {adaKartu ? (
+              // Kartu lokasi mengisi sisi kanan hero — sisi yang sebelumnya
+              // kosong di layar lebar. Isinya bukan hiasan: setelah tahu kapan,
+              // yang dicari tamu berikutnya adalah di mana, dan dua tombol yang
+              // menindaklanjuti keduanya berdiri tepat di bawahnya.
               <aside className="lg:col-span-5 xl:col-span-4 xl:col-start-9">
-                <div className="rounded-[28px] border border-[var(--reg-outline-variant)] bg-[var(--reg-panel)] p-6 shadow-[var(--md-sys-elevation-level1)] sm:p-7">
-                  <div className="divide-y divide-[var(--reg-outline-variant)]">
-                    {tanggal ? (
-                      <DetailRow icon={<CalendarBlank size={22} weight="fill" />} label="Tanggal">
-                        {tanggal}
-                      </DetailRow>
+                <div className={`rounded-[28px] border p-6 sm:p-7 ${kartuKelas}`}>
+                  <DetailRow
+                    icon={<MapPin size={22} weight="fill" />}
+                    label="Lokasi"
+                    muted={kartuMuted}
+                    iconClass={kartuIkon}
+                  >
+                    {event.venue_name ? <p className="font-semibold">{event.venue_name}</p> : null}
+                    {event.venue_address ? (
+                      <p className={`mt-1 whitespace-pre-line text-body-medium leading-6 ${kartuMuted}`}>
+                        {event.venue_address}
+                      </p>
                     ) : null}
-                    {waktu ? (
-                      <DetailRow icon={<Clock size={22} weight="fill" />} label="Waktu">
-                        {waktu}
-                      </DetailRow>
-                    ) : null}
-                    {event.venue_name || event.venue_address ? (
-                      <DetailRow icon={<MapPin size={22} weight="fill" />} label="Lokasi">
-                        {event.venue_name ? <p className="font-semibold">{event.venue_name}</p> : null}
-                        {event.venue_address ? (
-                          <p className={`mt-1 whitespace-pre-line text-body-medium leading-6 ${MUTED}`}>
-                            {event.venue_address}
-                          </p>
-                        ) : null}
-                      </DetailRow>
-                    ) : null}
-                  </div>
+                  </DetailRow>
 
                   <div className="mt-5 flex flex-wrap gap-2">
                     {event.event_date ? (
@@ -324,7 +361,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
                         // berisi Marugame. Proxy melewatkan permintaan yang sudah
                         // membawa `eventSlug` sendiri.
                         href={`/kalender.ics?eventSlug=${encodeURIComponent(event.slug)}`}
-                        className="m3-state inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--reg-outline)] px-5 text-label-large font-semibold"
+                        className={`m3-state inline-flex min-h-11 items-center gap-2 rounded-full border px-5 text-label-large font-semibold ${kartuTombol}`}
                       >
                         <CalendarPlus size={18} />
                         Tambah ke kalender
@@ -335,7 +372,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
                         href={event.venue_map_url}
                         target="_blank"
                         rel="noreferrer noopener"
-                        className="m3-state inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--reg-outline)] px-5 text-label-large font-semibold"
+                        className={`m3-state inline-flex min-h-11 items-center gap-2 rounded-full border px-5 text-label-large font-semibold ${kartuTombol}`}
                       >
                         <MapPin size={18} />
                         Buka peta

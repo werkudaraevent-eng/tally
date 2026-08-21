@@ -26,7 +26,7 @@ const ALLOWED = new Map<string, string>([
 // latar layar dan mempersulit penelusuran saat panitia mencari berkas salah unggah.
 const FOLDERS = new Set(["backgrounds", "logos", "footers", "undian", "vote", "landing"]);
 
-// Admin uploads a Live Display background image; stored in a public-read bucket
+// Admin uploads a Papan peringkat background image; stored in a public-read bucket
 // and returned as a public URL to be saved into display_settings.
 export async function POST(request: Request) {
   const auth = await requireUser(["admin"]);

@@ -5,7 +5,7 @@ import { loadActiveBoothCodes } from "@/lib/display-booths";
 import { DEFAULT_CONFIG, DISPLAY_CONFIG_COLUMNS, type DisplayConfig } from "@/lib/display-config";
 import DisplayClient from "./display-client";
 
-// Live Display dirender di server supaya konfigurasi CMS sudah ikut di HTML pertama.
+// Papan peringkat dirender di server supaya konfigurasi CMS sudah ikut di HTML pertama.
 //
 // Sebelumnya halaman ini murni client component dan ditandai statis saat build, jadi
 // HTML yang dikirim selalu memuat judul, warna, dan latar bawaan. Konfigurasi asli

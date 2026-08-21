@@ -82,8 +82,8 @@ export default function DisplaySettingsPage() {
       return;
     }
     update("background_image_url", data.url);
-    setMessage("Gambar terunggah. Klik Simpan untuk menerapkan ke Live Display.");
-    toast.info("Gambar terunggah", "Klik Simpan tampilan untuk menerapkannya ke Live Display.");
+    setMessage("Gambar terunggah. Klik Simpan untuk menerapkan ke Papan peringkat.");
+    toast.info("Gambar terunggah", "Klik Simpan tampilan untuk menerapkannya ke Papan peringkat.");
   }
 
   async function save() {
@@ -126,8 +126,8 @@ export default function DisplaySettingsPage() {
       toast.error("Sebagian setting gagal disimpan", "Tampilan tersimpan, tetapi setting leaderboard gagal. Coba simpan ulang.");
       return;
     }
-    setSettings(data); setMessage("Setting display tersimpan. Live Display akan menyesuaikan dalam beberapa detik.");
-    toast.success("Tampilan tersimpan", "Live Display menyesuaikan dalam beberapa detik.");
+    setSettings(data); setMessage("Setting display tersimpan. Papan peringkat akan menyesuaikan dalam beberapa detik.");
+    toast.success("Tampilan tersimpan", "Papan peringkat menyesuaikan dalam beberapa detik.");
   }
 
   return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
@@ -136,7 +136,7 @@ export default function DisplaySettingsPage() {
         <div>
           <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">Atur teks, warna, background, dan layout layar leaderboard yang tampil di proyektor.</p>
         </div>
-        <Link href="/display" target="_blank" rel="noreferrer" className="rounded-md flex min-h-12 items-center justify-center gap-2 border border-outline-variant px-4 text-body-medium font-semibold"><MonitorPlay size={19} /> Buka Live Display</Link>
+        <Link href="/display" target="_blank" rel="noreferrer" className="rounded-md flex min-h-12 items-center justify-center gap-2 border border-outline-variant px-4 text-body-medium font-semibold"><MonitorPlay size={19} /> Buka Papan peringkat</Link>
       </div>
 
       {error && <div role="alert" className="rounded-lg mt-6 flex items-center gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={20} />{error}</div>}
@@ -214,7 +214,7 @@ export default function DisplaySettingsPage() {
           <section className="rounded-lg bg-panel p-6">
             <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Leaderboard & privasi</h2>
             {!event ? <p className="mt-4 text-body-medium text-on-surface-variant">Memuat setting leaderboard...</p> : <>
-              <label className="mt-4 flex items-center gap-3 text-body-medium font-semibold"><input type="checkbox" checked={event.leaderboard_enabled} onChange={(e) => updateEvent("leaderboard_enabled", e.target.checked)} className="size-5 accent-primary" /> Tampilkan leaderboard di Live Display</label>
+              <label className="mt-4 flex items-center gap-3 text-body-medium font-semibold"><input type="checkbox" checked={event.leaderboard_enabled} onChange={(e) => updateEvent("leaderboard_enabled", e.target.checked)} className="size-5 accent-primary" /> Tampilkan leaderboard di Papan peringkat</label>
               <p className="mt-2 flex items-start gap-2 text-body-small text-on-surface-variant"><Eye size={16} className="mt-0.5 shrink-0 text-primary" /> Saklar master. Jika dimatikan, leaderboard disembunyikan di semua layar display.</p>
               <p className="mt-5 text-body-medium font-semibold">Nama peserta di leaderboard</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -237,7 +237,7 @@ export default function DisplaySettingsPage() {
                 {reveal === null ? "Memuat status..."
                   : reveal.mode === "staged"
                     ? <>Sedang <span className="font-semibold text-on-surface">aktif</span> — {reveal.stage_label ? `layar menampilkan ${reveal.stage_label.toLowerCase()}` : "layar menunggu tahap pertama dibuka"}.</>
-                    : <>Mati. Live Display menampilkan seluruh top {settings.leaderboard_limit} sekaligus, mengikuti transaksi live.</>}
+                    : <>Mati. Papan peringkat menampilkan seluruh top {settings.leaderboard_limit} sekaligus, mengikuti transaksi live.</>}
               </p>
               <Link href="/admin/display/reveal" className="rounded-lg mt-3 inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-4 text-body-medium font-semibold">Buka kontrol reveal <ArrowRight size={16} /></Link>
             </div>
@@ -259,10 +259,10 @@ export default function DisplaySettingsPage() {
             <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Layout</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block text-body-medium font-semibold">Jumlah top spender
-                <input type="number" min={3} max={50} value={settings.leaderboard_limit} onChange={(event) => update("leaderboard_limit", Math.max(3, Math.min(50, Number(event.target.value) || 10)))} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-lg tabular-nums outline-none focus:border-primary" />
+                <input type="number" min={3} max={50} value={settings.leaderboard_limit} onChange={(event) => update("leaderboard_limit", Math.max(3, Math.min(50, Number(event.target.value) || 10)))} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-large tabular-nums outline-none focus:border-primary" />
               </label>
               <label className="block text-body-medium font-semibold">Refresh (detik)
-                <input type="number" min={5} max={300} value={settings.refresh_seconds} onChange={(event) => update("refresh_seconds", Math.max(5, Math.min(300, Number(event.target.value) || 30)))} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-lg tabular-nums outline-none focus:border-primary" />
+                <input type="number" min={5} max={300} value={settings.refresh_seconds} onChange={(event) => update("refresh_seconds", Math.max(5, Math.min(300, Number(event.target.value) || 30)))} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-large tabular-nums outline-none focus:border-primary" />
               </label>
             </div>
             <div className="mt-4 space-y-3">
@@ -277,7 +277,7 @@ export default function DisplaySettingsPage() {
                 kedua kolom kanan mati sekaligus. Menggabungkannya berarti
                 peringatan itu ikut tampil pada keadaan yang tidak bermasalah. */}
             {!settings.show_amount && <div className="rounded-lg mt-4 space-y-2 border border-outline-variant bg-panel-high p-4 text-body-small leading-5 text-on-surface-variant">
-              <p>Peringkat tetap tampil, nominalnya tidak. Angka juga tidak dikirim ke layar sama sekali, jadi tidak dapat dibaca dari alat pengembang browser oleh siapa pun yang membuka Live Display.</p>
+              <p>Peringkat tetap tampil, nominalnya tidak. Angka juga tidak dikirim ke layar sama sekali, jadi tidak dapat dibaca dari alat pengembang browser oleh siapa pun yang membuka Papan peringkat.</p>
               {!settings.show_booth_progress && <p className="text-warning">Nominal dan progress booth dua-duanya mati, jadi setiap baris hanya berisi nama{settings.show_company ? " dan perusahaan" : ""}. Penonton tidak punya petunjuk apa pun tentang alasan urutannya.</p>}
             </div>}
             {settings.show_ticker && <label className="mt-4 block text-body-medium font-semibold">Teks ticker <span className="font-normal text-on-surface-variant">(kosong = default)</span>
@@ -297,7 +297,7 @@ export default function DisplaySettingsPage() {
             <div className="flex h-full flex-col p-5" style={{ background: settings.background_image_url ? "rgba(0,0,0,0.45)" : "transparent" }}>
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ opacity: 0.6 }}>{settings.event_title}</p>
               <p className="mt-1 text-body-medium font-semibold">{settings.headline}</p>
-              <p className="mt-4 text-xl font-semibold tracking-[-0.03em]" style={{ color: settings.accent_color }}>{settings.tagline}</p>
+              <p className="mt-4 text-title-large font-semibold tracking-[-0.03em]" style={{ color: settings.accent_color }}>{settings.tagline}</p>
               <div className="mt-4 space-y-2">
                 {/* Nominal contoh ikut dipratinjau supaya efek mematikan togglenya
                     terlihat di sini, bukan baru diketahui setelah proyektor menyala.
@@ -313,7 +313,7 @@ export default function DisplaySettingsPage() {
               {settings.show_ticker && <p className="mt-auto border-t pt-2 text-[10px]" style={{ borderColor: "rgba(255,255,255,0.15)", opacity: 0.6 }}>{settings.ticker_text?.trim() || "Leaderboard ter-update dari transaksi live"}</p>}
             </div>
           </div>
-          <p className="mt-3 text-body-small text-on-surface-variant">Preview perkiraan. Buka Live Display untuk tampilan penuh di proyektor.</p>
+          <p className="mt-3 text-body-small text-on-surface-variant">Preview perkiraan. Buka Papan peringkat untuk tampilan penuh di proyektor.</p>
         </section>
       </div>}
     </div>

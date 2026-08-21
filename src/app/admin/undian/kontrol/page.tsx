@@ -295,7 +295,7 @@ export default function UndianControlPage() {
                   ? <p className="mt-2 flex items-center justify-center gap-2 text-headline-small font-semibold tracking-[-0.03em] text-primary-dim">
                       <span className="inline-block size-2.5 animate-pulse rounded-full bg-primary" /> Menunggu aba-aba
                     </p>
-                  : <p className="mt-2 text-5xl font-semibold tabular-nums tracking-[-0.05em] text-primary-dim">{countdown.toFixed(1)}</p>}
+                  : <p className="mt-2 text-display-medium font-semibold tabular-nums tracking-[-0.05em] text-primary-dim">{countdown.toFixed(1)}</p>}
                 <p className="mt-2 text-body-small text-primary-dim/80">
                   {manualSpin
                     ? "Roda berputar sampai Anda menekan Berhenti. Pemenang sudah ditentukan dan tersimpan sejak tombol Undi ditekan — menutup halaman ini tidak menghilangkannya."
@@ -422,7 +422,7 @@ export default function UndianControlPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-lg font-semibold">{winner.name}</span>
+                      <span className="text-title-large font-semibold">{winner.name}</span>
                       {winner.is_backup && <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant">Cadangan {winner.slot_order}</span>}
                       {winner.status === "confirmed" && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">Sah</span>}
                       {winner.status === "rejected" && <span className="rounded-sm border border-error px-1.5 py-0.5 text-[10px] font-semibold uppercase text-error">Dibatalkan</span>}

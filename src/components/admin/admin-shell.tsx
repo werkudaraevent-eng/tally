@@ -1,33 +1,132 @@
 "use client";
 
-import { ArmchairIcon, Browsers, CalendarDots, CaretLeft, ChartBar, ChartBarHorizontal, ClipboardText, GearSix, Gift, List, ListChecks, MonitorPlay, Receipt, ShieldCheck, SignOut, Storefront, Tag, UserPlus, UsersThree, X } from "@phosphor-icons/react";
+import { ArmchairIcon, ArrowSquareOut, BookOpen, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, List, ListChecks, MonitorPlay, Receipt, ShieldCheck, Storefront, UserPlus, UsersThree, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { IconButton, ThemeToggle, TopAppBar } from "@/components/m3";
+import { EventMenu, type EventPilihan } from "@/components/admin/event-menu";
+import { UserMenu } from "@/components/admin/user-menu";
 
+/**
+ * Menu admin, dikelompokkan menurut PEKERJAAN yang sedang dilakukan.
+ *
+ * Sebelumnya enam belas item berdiri datar dalam satu daftar, dan urutannya
+ * mencampur tiga dunia yang tidak pernah dikerjakan bersamaan: jualan di booth,
+ * data peserta, dan layar panggung. Akibatnya terukur di hari-H — papan
+ * peringkat, undian, dan voting adalah tiga menu yang dibuka berurutan saat MC
+ * memegang mikrofon, dan ketiganya terpencar di posisi 10, 13, dan 14.
+ *
+ * Pembagiannya menurut SIAPA YANG MENATAP hasilnya:
+ *
+ *   * Halaman publik — dibuka tamu di ponselnya sendiri, sebelum hari-H.
+ *   * Layar panggung — ditonton seruangan dari proyektor, saat acara berjalan.
+ *
+ * Itu sebabnya Denah kursi masuk ke kelompok pertama meski terasa "peserta":
+ * yang membukanya adalah tamu yang mencari mejanya, lewat /denah.
+ *
+ * Kelompok pertama sengaja tanpa judul. Satu item di bawah judul "Ringkasan"
+ * menambah baris tanpa menambah keterangan apa pun.
+ */
 const navigation = [
-  { href: "/admin", label: "Dashboard", icon: ChartBar, ownerOnly: false },
-  { href: "/admin/orders", label: "Orders", icon: ListChecks, ownerOnly: false },
-  { href: "/admin/reports", label: "Reports", icon: Receipt, ownerOnly: false },
-  { href: "/admin/participants", label: "Peserta", icon: UsersThree, ownerOnly: false },
-  { href: "/admin/registrasi", label: "Registrasi publik", icon: UserPlus, ownerOnly: false },
-  { href: "/admin/landing", label: "Halaman acara", icon: Browsers, ownerOnly: false },
-  { href: "/admin/booths", label: "Booth & item", icon: Storefront, ownerOnly: false },
-  { href: "/admin/offers", label: "Item spesial", icon: Tag, ownerOnly: false },
-  { href: "/admin/users", label: "User & role", icon: ShieldCheck, ownerOnly: false },
-  { href: "/admin/display", label: "Live Display", icon: MonitorPlay, ownerOnly: false },
-  { href: "/admin/seat-map", label: "Denah kursi", icon: ArmchairIcon, ownerOnly: false },
-  { href: "/admin/rundown", label: "Rundown acara", icon: CalendarDots, ownerOnly: false },
-  // Cocok dengan startsWith, jadi /admin/undian/kontrol ikut menyorot entri ini.
-  { href: "/admin/undian", label: "Undian", icon: Gift, ownerOnly: false },
-  { href: "/admin/vote", label: "Voting langsung", icon: ChartBarHorizontal, ownerOnly: false },
-  // Audit trail merekam tindakan klien, jadi hanya pemilik sistem yang melihatnya.
-  // Server juga menolak lewat requireUser(["super_admin"]); menyembunyikan link
-  // agar klien tidak menemui halaman yang pasti gagal.
-  { href: "/admin/audit", label: "Audit trail", icon: ClipboardText, ownerOnly: true },
-  { href: "/admin/settings", label: "Settings", icon: GearSix, ownerOnly: false },
+  {
+    section: null,
+    items: [{ href: "/admin", label: "Dashboard", icon: ChartBar, ownerOnly: false }],
+  },
+  {
+    section: "Penjualan",
+    items: [
+      { href: "/admin/orders", label: "Transaksi", icon: ListChecks, ownerOnly: false },
+      // Item spesial dulu menu tersendiri. Ia katalog barang yang dijual booth
+      // yang sama, dan dua menu untuk satu katalog membuat admin mencari harga
+      // di tempat yang salah lebih dulu. Sekarang tab di dalam Booth & item.
+      { href: "/admin/booths", label: "Booth & item", icon: Storefront, ownerOnly: false },
+      { href: "/admin/reports", label: "Laporan", icon: Receipt, ownerOnly: false },
+    ],
+  },
+  {
+    section: "Peserta",
+    items: [
+      { href: "/admin/participants", label: "Daftar peserta", icon: UsersThree, ownerOnly: false },
+      { href: "/admin/registrasi", label: "Pendaftaran publik", icon: UserPlus, ownerOnly: false },
+    ],
+  },
+  {
+    section: "Halaman publik",
+    items: [
+      { href: "/admin/landing", label: "Halaman acara", icon: Browsers, ownerOnly: false },
+      { href: "/admin/rundown", label: "Rundown acara", icon: CalendarDots, ownerOnly: false },
+      { href: "/admin/seat-map", label: "Denah kursi", icon: ArmchairIcon, ownerOnly: false },
+    ],
+  },
+  {
+    section: "Layar panggung",
+    items: [
+      // Dulu "Live Display". Namanya menjanjikan seluruh layar acara, isinya
+      // papan peringkat transaksi beserta reveal bertahapnya — dan panitia yang
+      // mencari "di mana atur ranking" tidak punya alasan menekan menu itu.
+      { href: "/admin/display", label: "Papan peringkat", icon: MonitorPlay, ownerOnly: false },
+      // Cocok dengan startsWith, jadi /admin/undian/kontrol ikut menyorot entri ini.
+      { href: "/admin/undian", label: "Undian", icon: Gift, ownerOnly: false },
+      { href: "/admin/vote", label: "Voting langsung", icon: ChartBarHorizontal, ownerOnly: false },
+    ],
+  },
 ];
+
+/**
+ * Halaman yang TIDAK ada di sidebar, tetapi tetap butuh judul di bilah atas.
+ *
+ * Pengaturan dicapai lewat menu akun di pojok kanan, dan User & role serta Audit
+ * trail adalah tab di dalamnya. Ketiganya bukan tujuan yang dicari dari daftar
+ * menu — mereka dibuka sekali saat menyiapkan sistem, lalu nyaris tidak disentuh
+ * lagi selama acara berjalan. Sidebar disisakan untuk tujuan yang benar-benar
+ * ditekan panitia sepanjang hari.
+ */
+const halamanSistem = [
+  { href: "/admin/settings", label: "Pengaturan", icon: GearSix, ownerOnly: false },
+  { href: "/admin/users", label: "User & role", icon: ShieldCheck, ownerOnly: false },
+];
+
+/** Daftar rata untuk pencarian judul halaman. Sumbernya tetap satu. */
+const semuaMenu = [...navigation.flatMap((group) => group.items), ...halamanSistem];
+
+/**
+ * Satu tujuan di drawer.
+ *
+ * Tinggi 48px, bukan 56px seperti spesifikasi drawer M3. Angka 56 disusun untuk
+ * aplikasi konsumen dengan lima sampai tujuh tujuan; layar ini punya dua belas
+ * ditambah kaki drawer, dan pada 56px daftarnya melewati tinggi layar laptop
+ * sebelum sampai ke kelompok terakhir. Target sentuhnya tetap di atas 48px yang
+ * dituntut pedoman aksesibilitas.
+ */
+function ItemMenu({
+  href,
+  label,
+  icon: Icon,
+  active,
+  onNavigate,
+}: {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; weight?: "fill" | "regular" }>;
+  active: boolean;
+  onNavigate: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      aria-current={active ? "page" : undefined}
+      // Item aktif memakai bentuk pil penuh — itu cara M3 menandai tujuan saat
+      // ini di navigasi, dan bentuknya tetap terbaca ketika latar terang membuat
+      // perbedaan warnanya menipis.
+      className={`m3-state flex min-h-12 items-center gap-3 rounded-full px-4 text-label-large font-semibold transition-[background-color,color] duration-200 ease-emphasized ${active ? "bg-secondary-container text-on-secondary-container" : "text-on-surface-variant"}`}
+    >
+      <Icon size={22} weight={active ? "fill" : "regular"} />
+      {label}
+    </Link>
+  );
+}
 
 export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
@@ -36,17 +135,21 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [isOwner, setIsOwner] = useState(false);
-  const [eventName, setEventName] = useState<string | null>(null);
+  const [akun, setAkun] = useState<{ username: string; role: string } | null>(null);
+  const [events, setEvents] = useState<EventPilihan[]>([]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void fetch("/api/auth/me", { cache: "no-store" }).then(async (response) => {
-        if (response.ok) setIsOwner((await response.json()).user?.role === "super_admin");
+        if (!response.ok) return;
+        const user = (await response.json()).user as { username: string; role: string } | null;
+        setAkun(user ?? null);
       });
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  const isOwner = akun?.role === "super_admin";
 
   /**
    * Nama event di kepala sidebar. Sebelumnya teks mati "Event Transaction Hub",
@@ -64,16 +167,23 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
     let batal = false;
     void fetch("/api/events", { cache: "no-store" }).then(async (response) => {
       if (!response.ok || batal) return;
-      const events = ((await response.json()).events ?? []) as Array<{ slug: string; name: string; status: string }>;
-      const cocok = eventSlug
-        ? events.find((event) => event.slug === eventSlug)
-        : events.filter((event) => event.status === "active").length === 1
-          ? events.find((event) => event.status === "active")
-          : undefined;
-      if (!batal) setEventName(cocok?.name ?? null);
+      const daftar = ((await response.json()).events ?? []) as EventPilihan[];
+      if (!batal) setEvents(daftar);
     });
     return () => { batal = true; };
-  }, [eventSlug]);
+  }, []);
+
+  /**
+   * Event yang sedang dibuka. Tanpa prefiks slug di URL dipakai aturan yang SAMA
+   * dengan getPublicRequestEvent — hanya aman bila tepat satu event aktif, selain
+   * itu dibiarkan kosong daripada menebak dan menampilkan nama event yang salah.
+   */
+  const eventAktif = eventSlug
+    ? events.find((event) => event.slug === eventSlug)
+    : events.filter((event) => event.status === "active").length === 1
+      ? events.find((event) => event.status === "active")
+      : undefined;
+  const eventName = eventAktif?.name ?? null;
 
   /**
    * Kunci gulir halaman selama menu mobile terbuka.
@@ -113,7 +223,14 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  const visibleNavigation = navigation.filter((item) => !item.ownerOnly || isOwner);
+  // Kelompok yang seluruh isinya tersembunyi ikut dibuang. Tanpa itu, judulnya
+  // menggantung di atas ruang kosong bagi admin yang bukan pemilik sistem.
+  const visibleNavigation = navigation
+    .map((group) => ({ ...group, items: group.items.filter((item) => !item.ownerOnly || isOwner) }))
+    .filter((group) => group.items.length > 0);
+
+  const aktif = (href: string) =>
+    href === "/admin" ? logicalPathname === "/admin" : logicalPathname.startsWith(href);
 
   /**
    * Judul top app bar. Diambil dari tabel `navigation` yang sama dengan
@@ -124,7 +241,7 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
    * Padanan terpanjang menang: /admin/undian/kontrol harus menjadi "Undian",
    * bukan "Dashboard" hanya karena /admin cocok lebih dulu.
    */
-  const currentPage = navigation
+  const currentPage = semuaMenu
     .filter(({ href }) => (href === "/admin" ? logicalPathname === "/admin" : logicalPathname.startsWith(href)))
     .sort((a, b) => b.href.length - a.href.length)[0];
 
@@ -183,20 +300,6 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
           <p className="truncate text-title-medium font-semibold tracking-tight">Tally Control Room</p>
         </div>
 
-        {/* Satu-satunya jalan keluar ke pemilih event. Login mendorong SEMUA role ke
-            /events, jadi tautan ini tidak dibatasi super_admin; /events sendiri yang
-            menyaring event mana yang boleh dilihat.
-
-            Naik ke `surface-container-high` karena drawer-nya sendiri sekarang
-            `surface-container` — pada tier yang sama kartunya lenyap. */}
-        <Link href="/events" className="m3-state mx-3 flex shrink-0 items-center gap-3 rounded-2xl bg-surface-container-high px-4 py-3">
-          <CaretLeft size={16} className="shrink-0 text-on-surface-variant" />
-          <span className="min-w-0">
-            <span className="block truncate text-body-medium font-semibold">{eventName ?? "Semua event"}</span>
-            <span className="mt-0.5 block truncate text-body-small text-on-surface-variant">Ganti event</span>
-          </span>
-        </Link>
-
         {/* `min-h-0` WAJIB. Tanpa itu anak flex menolak menyusut di bawah tinggi
             kontennya, <nav> memanjang melewati sidebar, dan penggulirannya tidak
             pernah aktif — persis kegagalan yang sama seperti pada app-shell /rundown.
@@ -204,41 +307,74 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
             `pr-2`, bukan `px-3`: batang gulir menempel di tepi kanan, dan tanpa
             celah ia menempel rapat pada pil item sehingga terbaca sebagai garis
             vertikal kedua di samping tepi drawer. */}
-        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain py-3 pl-3 pr-2" aria-label="Admin navigation">
-          {visibleNavigation.map(({ href, label, icon: Icon }) => {
-            const active = href === "/admin" ? logicalPathname === "/admin" : logicalPathname.startsWith(href);
+        {/* Kelompok dibungkus <ul> ber-`aria-labelledby` ke judulnya, bukan
+            sekadar teks di antara tautan. Pembaca layar mengumumkan "Layar
+            panggung, daftar, 3 item" — informasi yang sama dengan yang dilihat
+            mata dari jarak judul dan indentasi. */}
+        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 pl-3 pr-2" aria-label="Navigasi admin">
+          {visibleNavigation.map((group, index) => {
+            const judulId = group.section ? `nav-${group.section.replace(/\s+/g, "-").toLowerCase()}` : undefined;
             return (
-              <Link
-                key={href}
-                href={`${eventPrefix}${href}`}
-                onClick={() => setMobileOpen(false)}
-                aria-current={active ? "page" : undefined}
-                // Item aktif memakai bentuk pil penuh — itu cara M3 menandai
-                // tujuan saat ini di navigasi, dan bentuknya tetap terbaca
-                // ketika latar terang membuat perbedaan warnanya menipis.
-                // 56px, tinggi item drawer menurut spesifikasi. Sebelumnya 52px —
-                // selisih kecil, tetapi dikalikan lima belas item ia menggeser
-                // seluruh daftar keluar dari irama vertikal yang sama dengan konten.
-                className={`m3-state flex min-h-14 items-center gap-3 px-4 text-label-large font-semibold transition-[border-radius,background-color,color] duration-200 ease-emphasized ${active ? "rounded-full bg-secondary-container text-on-secondary-container" : "rounded-full text-on-surface-variant"}`}
+              // Garis pemisah, BUKAN sekadar jarak yang lebih lebar.
+              //
+              // Sebelumnya judul kelompok hanya teks kecil ber-warna
+              // `on-surface-variant` — warna yang sama persis dengan label item
+              // yang tidak aktif. Mata membacanya sebagai "menu berhuruf kecil",
+              // bukan sebagai kepala kelompok. Garis mengerjakan pemisahan itu
+              // dengan satu piksel, sehingga judulnya boleh tetap redup dan tidak
+              // bersaing dengan tujuan yang bisa ditekan.
+              <div
+                key={group.section ?? "utama"}
+                className={index === 0 ? "" : "mt-3 border-t border-outline-variant pt-3"}
               >
-                <Icon size={22} weight={active ? "fill" : "regular"} />
-                {label}
-              </Link>
+                {group.section ? (
+                  <h2
+                    id={judulId}
+                    className="px-4 pb-2 text-label-small font-semibold uppercase tracking-[0.16em] text-on-surface-variant"
+                  >
+                    {group.section}
+                  </h2>
+                ) : null}
+                <ul className="space-y-1" aria-labelledby={judulId}>
+                  {group.items.map((item) => (
+                    <li key={item.href}>
+                      <ItemMenu
+                        href={`${eventPrefix}${item.href}`}
+                        label={item.label}
+                        icon={item.icon}
+                        active={aktif(item.href)}
+                        onNavigate={() => setMobileOpen(false)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             );
           })}
         </nav>
 
-        <div className="shrink-0 space-y-1 p-3">
-          <ThemeToggle compact className="w-full bg-surface-container-high" />
-          <button
-            type="button"
-            onClick={logout}
-            disabled={loggingOut}
-            className="m3-state flex min-h-14 w-full items-center gap-3 rounded-full px-4 text-label-large font-semibold text-on-surface-variant disabled:opacity-50"
+        {/* Kaki drawer. Isinya bukan navigasi harian: satu tautan bantuan dan
+            nomor versi.
+            
+            Versinya ada karena ia pertanyaan pertama yang ditanyakan saat panitia
+            melaporkan masalah lewat WhatsApp, dan sebelumnya tidak ada satu pun
+            tempat di layar yang bisa menjawabnya. Panduan dibuka di tab baru:
+            panitia yang membacanya sedang berdiri di meja registrasi dengan
+            halaman kerja yang belum selesai di tab sebelah. */}
+        <div className="shrink-0 border-t border-outline-variant p-3">
+          <a
+            href={`${eventPrefix}/panduan/sistem`}
+            target="_blank"
+            rel="noreferrer"
+            className="m3-state flex min-h-11 items-center gap-3 rounded-full px-4 text-label-large font-semibold text-on-surface-variant"
           >
-            <SignOut size={22} />
-            {loggingOut ? "Keluar..." : "Logout"}
-          </button>
+            <BookOpen size={20} />
+            Panduan sistem
+            <ArrowSquareOut size={14} className="ml-auto shrink-0 opacity-70" />
+          </a>
+          <p className="px-4 pt-2 text-body-small text-on-surface-variant">
+            Tally v{process.env.NEXT_PUBLIC_APP_VERSION ?? "—"}
+          </p>
         </div>
       </aside>
 
@@ -257,13 +393,52 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
       <div className="admin-pane min-h-dvh bg-surface lg:rounded-tl-2xl">
         <TopAppBar
           className="lg:rounded-tl-2xl"
+          // Judul bilah adalah remah roti: <event> / <halaman>.
+          //
+          // Pemilih event pindah ke sini dari kartu besar di kepala drawer —
+          // pola yang sama dipakai Vercel dan Stripe, dan alasannya bukan gaya:
+          // kartu itu memakan 76px tetap dari ruang yang sama dengan daftar menu,
+          // padahal berpindah event terjadi beberapa kali sehari, bukan beberapa
+          // kali semenit.
+          //
+          // Di layar sempit remahnya dilipat: nama event turun menjadi subjudul
+          // (lihat `subtitle`), dan bilah hanya membawa judul halaman. Tiga
+          // elemen teks berjajar di 375px akan terpotong semuanya.
           title={currentPage?.label ?? "Admin"}
-          // Nama event hanya di layar sempit. Di lg ke atas drawer sudah
-          // menampilkannya sebagai kartu besar tepat di sebelah kiri bilah, jadi
-          // menuliskannya lagi di sini berarti teks yang sama muncul dua kali
-          // bersebelahan.
+          // Pemilih event masuk lewat slot `breadcrumb`, BUKAN sebagai bagian
+          // dari `title`. Judul dibungkus `truncate` (overflow: hidden), dan panel
+          // menu yang dirender di dalamnya terpotong habis — tombolnya bisa
+          // ditekan, menunya tidak pernah terlihat.
+          // Disembunyikan di bawah `sm` BESERTA garis miringnya: pada 375px,
+          // remah roti tiga bagian membuat ketiganya terpotong. Nama event tetap
+          // terbaca di sana lewat subjudul.
+          breadcrumb={
+            <span className="hidden min-w-0 items-center gap-2 sm:flex">
+              <EventMenu events={events} activeSlug={eventAktif?.slug ?? null} />
+              <span aria-hidden className="shrink-0 text-title-large text-on-surface-variant">/</span>
+            </span>
+          }
           subtitle={eventName ?? undefined}
-          subtitleClassName="lg:hidden"
+          subtitleClassName="sm:hidden"
+          // Pemilih tema dan menu akun duduk di bilah atas, bukan di kaki drawer.
+          //
+          // Di drawer keduanya memakan ~170px dari ruang yang sama dengan daftar
+          // menu, dan pada jendela pendek itu selisih antara tiga baris menu
+          // terlihat dan enam. Keduanya juga bukan tujuan navigasi: satu
+          // preferensi tampilan, satu tentang akun — dan ujung akhir top app bar
+          // adalah tempat yang disediakan M3 untuk keduanya.
+          actions={
+            <>
+              <ThemeToggle compact className="bg-surface-container-high" />
+              <UserMenu
+                username={akun?.username ?? null}
+                role={akun?.role ?? null}
+                settingsHref={`${eventPrefix}/admin/settings`}
+                onLogout={() => void logout()}
+                loggingOut={loggingOut}
+              />
+            </>
+          }
           leading={
             <IconButton
               label={mobileOpen ? "Tutup menu admin" : "Buka menu admin"}

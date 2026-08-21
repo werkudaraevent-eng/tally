@@ -125,7 +125,7 @@ export default function RundownAdminPage() {
   /**
    * Unggah gambar latar header.
    *
-   * Memakai endpoint yang sama dengan Live Display dan denah
+   * Memakai endpoint yang sama dengan Papan peringkat dan denah
    * (`/api/display/background`). Endpoint itu sudah generik: menerima berkas,
    * memvalidasi jenis dan ukuran, lalu mengembalikan URL publik. Membuat endpoint
    * ketiga hanya menyalin aturan yang sama, dan salinan selalu berakhir berbeda.

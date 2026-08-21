@@ -112,7 +112,7 @@ export default function SeatMapAdminPage() {
   /**
    * Unggah gambar latar agenda.
    *
-   * Memakai endpoint yang sama dengan Live Display (`/api/display/background`).
+   * Memakai endpoint yang sama dengan Papan peringkat (`/api/display/background`).
    * Endpoint itu sudah generik: ia menerima berkas, memvalidasi jenis dan ukuran,
    * lalu mengembalikan URL publik. Membuat endpoint kedua hanya akan menduplikasi
    * aturan ukuran dan format, dan begitu salah satu diubah keduanya akan berbeda.

@@ -1,4 +1,4 @@
-// Bentuk dan nilai bawaan konfigurasi Live Display.
+// Bentuk dan nilai bawaan konfigurasi Papan peringkat.
 //
 // Sengaja dipisah ke modul sendiri, bukan dibiarkan di dalam komponen layar:
 // halaman `/display` kini dirender di server supaya konfigurasi CMS sudah ikut di

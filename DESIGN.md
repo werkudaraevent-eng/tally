@@ -18,7 +18,7 @@ M3 Expressive dipakai **berlapis**, bukan rata:
 
 | Lapisan | Layar | Gerak | Bentuk |
 | --- | --- | --- | --- |
-| Ekspresif | Undian, Live Display, Voting, layar panggung, onboarding | skema `expressive` (pegas memantul) | radius besar, shape morph |
+| Ekspresif | Undian, Papan peringkat, Voting, layar panggung, onboarding | skema `expressive` (pegas memantul) | radius besar, shape morph |
 | Tenang | Booth, Kasir, Admin | skema `standard` (teredam kritis) | radius sedang, tanpa morph |
 
 Spesifikasi M3 memang menyediakan dua skema gerak dan membolehkan produk
@@ -173,7 +173,7 @@ Skala tipe M3: lima peran × tiga ukuran.
 
 | Peran | Kelas | Ukuran / tinggi baris | Untuk |
 | --- | --- | --- | --- |
-| Display | `text-display-large/medium/small` | 57/45/36 px | Angka besar Live Display, hasil undian |
+| Display | `text-display-large/medium/small` | 57/45/36 px | Angka besar Papan peringkat, hasil undian |
 | Headline | `text-headline-large/medium/small` | 32/28/24 px | Judul halaman |
 | Title | `text-title-large/medium/small` | 22/16/14 px | Judul kartu, label tombol besar |
 | Body | `text-body-large/medium/small` | 16/14/12 px | Isi. Booth dan kasir minimal `body-large` |
@@ -181,6 +181,19 @@ Skala tipe M3: lima peran × tiga ukuran.
 
 - Huruf: Geist, di-self-host lewat `next/font/google`, terpasang sebagai
   `--md-ref-typeface-brand` dan `--md-ref-typeface-plain`.
+- **Ukuran mentah Tailwind (`text-lg`, `text-3xl`, …) tidak dipakai.** Ia bukan
+  bagian dari skala, dan tinggi barisnya berbeda dari M3 — jadi yang meleset
+  bukan hanya ukurannya, tetapi juga irama vertikal halaman. Semua sudah
+  dipindahkan ke peran; yang tersisa hanya di dalam komentar yang membahasnya.
+- **Bobot menyimpang dari spesifikasi, dan itu disengaja.** M3 menetapkan
+  Display/Headline/Body pada Regular 400 dan Title M/S serta Label pada Medium
+  500. Di sini semua peran selain Body memakai 600. Alasannya kondisi pakai:
+  layar ini dibaca sambil berdiri di ruangan temaram, sering dari jarak satu
+  meter, dan 400 pada Title Small 14px hilang di sana. Bobotnya dikunci di
+  `@layer base` per kelas peran, sehingga seragam tanpa perlu ditulis ulang di
+  tiap komponen — dan utilitas `font-normal`/`font-bold` tetap bisa menimpanya.
+- Yang BELUM ada: varian *emphasized* milik M3 Expressive. Penekanan sekarang
+  dikerjakan dengan menaikkan bobot, bukan dengan pasangan gaya tersendiri.
 - Ukuran ditulis dalam `rem` supaya ikut membesar saat pengguna menaikkan ukuran
   huruf peramban.
 - Angka memakai `font-variant-numeric: tabular-nums` (sudah global di `body`).
@@ -381,7 +394,7 @@ jenis konten:
 
 Kolom baca dipasang lewat `[&>*]:max-w-3xl` pada containernya — menyempitkan
 anak-anak langsungnya tanpa memindahkan containernya, jadi tepi kirinya tetap
-di grid yang sama. Settings memakai `3xl`, panel kontrol Live Display `900px`.
+di grid yang sama. Settings memakai `3xl`, panel kontrol Papan peringkat `900px`.
 
 Angkanya bukan selera: paragraf `body-medium` di 768px sudah ~100 karakter per
 baris. Dipaksa ke 1440px ia menjadi ~190 karakter, dan mata kehilangan awal
@@ -480,7 +493,7 @@ penyaring padat. Mobile melipat penyaring ke dalam laci. Sediakan keadaan kosong
 memuat, dan galat; jaga keterbacaan tabel tanpa menaruh setiap baris di dalam
 kartunya sendiri.
 
-### Live Display
+### Papan peringkat
 
 Lanskap 1920×1080. Kanvas gelap tetap, teks terang, angka besar, hierarki
 kiri/kanan kuat. Animasi terbatas pada perubahan peringkat dan gerak ticker.

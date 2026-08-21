@@ -2,7 +2,8 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { withDerivedRoles } from "@/lib/registration-theme";
+import type { RegistrationFormConfig } from "@/lib/domain";
+import { DEFAULT_REGISTRATION_SEED, withDerivedRoles } from "@/lib/registration-theme";
 
 /**
  * Konten landing page publik.
@@ -67,6 +68,20 @@ const bodySchema = z.object({
     })).max(40).optional(),
     theme: z.object({ seed: z.string().regex(/^#[0-9a-fA-F]{6}$/) }).optional(),
   }),
+
+  // ---- Warna formulir pendaftaran -----------------------------------------
+  // Disunting di layar ini, tetapi disimpan di kolom lain
+  // (`registration_form_config.theme`) karena di sanalah seluruh konfigurasi
+  // formulir tinggal. Yang disatukan adalah TEMPAT MENGATURNYA, bukan tempat
+  // menyimpannya: kontrol warna yang tersebar di dua layar akan berbeda isinya,
+  // dan tidak ada yang tahu mana yang menang.
+  form_theme: z
+    .object({
+      /** true = formulir memakai warna halaman acara. */
+      inherit: z.boolean(),
+      seed: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    })
+    .optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -76,7 +91,7 @@ export async function PATCH(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
-  const { landing, ...facts } = parsed.data;
+  const { landing, form_theme: formTheme, ...facts } = parsed.data;
 
   // Jam selesai sebelum jam mulai pada acara SEHARI. Untuk acara lebih dari
   // satu hari perbandingan ini tidak berlaku — acara yang mulai 20.00 dan
@@ -87,11 +102,33 @@ export async function PATCH(request: Request) {
     });
   }
 
+  // Konfigurasi formulir dibaca dari event yang SUDAH dimuat oleh
+  // requireRequestEvent, bukan dari permintaan. Klien layar ini tidak mengirim
+  // susunan field, dan menulis ulang seluruh kolomnya dari permintaan akan
+  // menghapus setiap field tambahan yang dibuat di CMS Registrasi.
+  const formConfig = (auth.scope.event.registration_form_config ?? {}) as RegistrationFormConfig;
+  const formThemeBaru: RegistrationFormConfig | null = formTheme
+    ? {
+        ...formConfig,
+        theme: formTheme.inherit
+          // Warna sendiri TIDAK dihapus saat saklarnya dimatikan. Admin yang
+          // menyalakannya lagi mendapatkan warnanya kembali, bukan warna bawaan
+          // yang harus dipilih ulang dari ingatan.
+          ? { ...(formConfig.theme ?? { seed: DEFAULT_REGISTRATION_SEED }), inherit: true }
+          : withDerivedRoles({
+              ...(formConfig.theme ?? {}),
+              seed: formTheme.seed ?? formConfig.theme?.seed ?? DEFAULT_REGISTRATION_SEED,
+              inherit: false,
+            }),
+      }
+    : null;
+
   const client = getSupabaseServiceClient();
   const { data, error } = await client
     .from("events")
     .update({
       ...facts,
+      ...(formThemeBaru ? { registration_form_config: formThemeBaru } : {}),
       landing_config: {
         ...landing,
         // Peran warna diturunkan di server, sama seperti tema form pendaftaran.
@@ -101,7 +138,7 @@ export async function PATCH(request: Request) {
       updated_at: new Date().toISOString(),
     } as never)
     .eq("id", auth.scope.event.id)
-    .select("description,tagline,start_time,end_time,end_date,venue_name,venue_address,venue_map_url,landing_config")
+    .select("description,tagline,start_time,end_time,end_date,venue_name,venue_address,venue_map_url,landing_config,registration_form_config")
     .single();
 
   if (error) return apiError("INTERNAL_ERROR", 500);

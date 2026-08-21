@@ -362,6 +362,50 @@ body {
 	text-rendering: optimizeLegibility;
 }
 
+
+/* ---- Bobot huruf per peran ------------------------------------------------
+ *
+ * PENYIMPANGAN SADAR dari spesifikasi. M3 menetapkan Display, Headline, dan Body
+ * pada Regular 400, Title Medium/Small dan Label pada Medium 500. Di sini judul
+ * memakai 600 dan label 600 — lebih tegas, dan itu keputusan merek: layar ini
+ * dibaca sambil berdiri di ruangan temaram, sering dari jarak satu meter, dan
+ * bobot 400 pada Title Small 14px hilang di kondisi itu.
+ *
+ * Ditulis di `@layer base`, BUKAN sebagai token `--text-*--font-weight`.
+ * Alasannya sama dengan yang tercatat di skala tipe di atas: token akan membuat
+ * kelas ukuran ikut menulis `font-weight`, dan pada elemen yang juga memakai
+ * `font-normal` yang menang ditentukan urutan Tailwind menulis CSS. Di lapisan
+ * base, utilitas Tailwind SELALU menang — jadi `font-normal` dan `font-bold`
+ * yang ditulis di komponen tetap berlaku, dan yang tidak menuliskan apa pun
+ * mendapat bobot merek yang seragam.
+ *
+ * Sebelum aturan ini ada, bobot ditulis tangan di setiap pemakaian dan tidak ada
+ * yang menjamin dua headline di dua halaman punya bobot yang sama.
+ */
+@layer base {
+
+	.text-display-large,
+	.text-display-medium,
+	.text-display-small,
+	.text-headline-large,
+	.text-headline-medium,
+	.text-headline-small,
+	.text-title-large,
+	.text-title-medium,
+	.text-title-small,
+	.text-label-large,
+	.text-label-medium,
+	.text-label-small {
+		font-weight: 600;
+	}
+
+	.text-body-large,
+	.text-body-medium,
+	.text-body-small {
+		font-weight: 400;
+	}
+}
+
 /* Panel konten admin digeser melewati rel navigasi yang `fixed`.
  *
  * Aturannya di sini, bukan sebagai kelas Tailwind di komponennya, karena

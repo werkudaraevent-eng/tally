@@ -4,9 +4,11 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { isEmailConfigured } from "@/lib/email/client";
 import { sendRegistrationCode } from "@/lib/email/registration-code";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
+import type { EventLandingConfig, RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "@/lib/registration-fields";
-import { withDerivedRoles } from "@/lib/registration-theme";
+import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
+import { registrationCodeUrl } from "@/lib/registration-code-url";
+import { resolveFormTheme } from "@/lib/registration-theme-css";
 
 const querySchema = z.object({
   status: z.enum(["pending", "approved", "rejected", "all"]).default("pending"),
@@ -46,14 +48,9 @@ const configSchema = z.object({
       require_phone: z.boolean().optional(),
       require_company: z.boolean().optional(),
       require_job_title: z.boolean().optional(),
-      theme: z
-        .object({
-          seed: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-          dark_mode: z.enum(["auto", "light"]).optional(),
-          logo_url: z.string().url().max(600).nullable().optional(),
-          background_image_url: z.string().url().max(600).nullable().optional(),
-        })
-        .optional(),
+      // `theme` sengaja TIDAK diterima di sini. Warna acara diatur di CMS
+      // halaman acara — satu tempat untuk halaman acara dan formulirnya — dan
+      // endpoint ini mempertahankan tema yang sudah tersimpan apa adanya.
     })
     .optional(),
 });
@@ -120,6 +117,15 @@ export async function GET(request: Request) {
       // sama persis dengan yang dipakai halaman publik — bukan hasil rekaan
       // ulang dari beberapa medan terpisah.
       registration_form_config: auth.scope.event.registration_form_config ?? {},
+      // Warna yang BENAR-BENAR dipakai halaman pendaftaran, sudah memperhitungkan
+      // saklar "ikut warna halaman acara". Dihitung di sini supaya pratinjau di
+      // CMS tidak menebaknya sendiri — pratinjau yang menebak berhenti menjadi
+      // pratinjau begitu tebakannya meleset.
+      form_theme_seed:
+        resolveFormTheme(
+          (auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.theme,
+          (auth.scope.event.landing_config as EventLandingConfig | null)?.theme,
+        )?.seed ?? DEFAULT_REGISTRATION_SEED,
     },
     // Dibaca dari env, bukan dari data. Layar moderasi memakainya untuk memilih
     // antara "belum terkirim, coba lagi" (yang menyuruh panitia bertindak) dan
@@ -168,9 +174,11 @@ export async function PATCH(request: Request) {
     formConfig = {
       ...parsed.data.form,
       fields: parsed.data.form.fields as RegistrationField[],
-      // Peran warna diturunkan di server, sekali, saat disimpan. Halaman publik
-      // menerima hex jadi dan tidak perlu memuat pustaka warna apa pun.
-      theme: parsed.data.form.theme ? withDerivedRoles(parsed.data.form.theme) : undefined,
+      // Tema DIPERTAHANKAN dari yang sudah tersimpan, bukan dikirim ulang dari
+      // layar ini. Tanpa baris ini, menyimpan susunan field akan menghapus warna
+      // formulir yang dipilih di CMS halaman acara — dan tidak ada apa pun di
+      // layar ini yang memberi tahu bahwa itu terjadi.
+      theme: (event.registration_form_config as RegistrationFormConfig | null)?.theme,
     };
   }
 
@@ -231,11 +239,11 @@ export async function POST(request: Request) {
   if (hasil.status === "approved" && hasil.qr_code) {
     const { data: baris } = await getSupabaseServiceClient()
       .from("event_registrations")
-      .select("name,email")
+      .select("name,email,access_token")
       .eq("id", parsed.data.id)
       .eq("event_id", auth.scope.event.id)
       .maybeSingle();
-    const reg = baris as { name: string; email: string } | null;
+    const reg = baris as { name: string; email: string; access_token: string | null } | null;
     if (reg) {
       kirim = await sendRegistrationCode({
         eventId: auth.scope.event.id,
@@ -246,6 +254,7 @@ export async function POST(request: Request) {
         to: reg.email,
         name: reg.name,
         qrCode: hasil.qr_code,
+        codeUrl: registrationCodeUrl(request.url, auth.scope.event.slug, reg.access_token),
         actorId: auth.user.id,
       });
     }

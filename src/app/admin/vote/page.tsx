@@ -356,7 +356,7 @@ export default function VoteAdminPage() {
         <div className="rounded-lg mt-5 flex flex-wrap items-center gap-4 border border-outline-variant bg-panel-high p-4">
           <div>
             <p className={labelClass}>Kode gabung acara</p>
-            <p className="mt-1 font-mono text-3xl font-bold tabular-nums tracking-[0.14em]">
+            <p className="mt-1 font-mono text-headline-medium font-bold tabular-nums tracking-[0.14em]">
               {joinCode ? `${joinCode.slice(0, 3)} ${joinCode.slice(3)}` : "—"}
             </p>
           </div>
@@ -470,7 +470,7 @@ export default function VoteAdminPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-outline-variant p-5">
                   <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-2">
-                      <span className="text-lg font-semibold">{poll.question}</span>
+                      <span className="text-title-large font-semibold">{poll.question}</span>
                       {onScreen && <span className="rounded-sm inline-flex items-center gap-1 bg-primary-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary-dim"><Monitor size={12} /> Di layar</span>}
                       <span className={`px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${poll.status === "open" ? "bg-success-soft text-primary-dim" : poll.status === "closed" ? "bg-panel-high text-on-surface-variant" : "bg-warning-soft text-warning"}`}>
                         {VOTE_STATUS_LABEL[poll.status]}
@@ -695,7 +695,7 @@ export default function VoteAdminPage() {
         adalah cara tercepat menghapus hal yang salah. */}
     {confirmReset && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmReset(null); }}>
       <div className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-6">
-        <h2 className="text-xl font-semibold text-error">Kosongkan suara</h2>
+        <h2 className="text-title-large font-semibold text-error">Kosongkan suara</h2>
         <p className="mt-3 text-body-medium leading-6">
           <span className="font-semibold">{confirmReset.ballots} suara</span> pada &ldquo;{confirmReset.question}&rdquo; akan dihapus permanen dan penghitungnya kembali ke nol.
         </p>
@@ -714,7 +714,7 @@ export default function VoteAdminPage() {
         ulang dalam sepuluh detik. */}
     {confirmDelete && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmDelete(null); }}>
       <div className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-6">
-        <h2 className="text-xl font-semibold text-error">Hapus pertanyaan</h2>
+        <h2 className="text-title-large font-semibold text-error">Hapus pertanyaan</h2>
         <p className="mt-3 text-body-medium leading-6">
           &ldquo;{confirmDelete.question}&rdquo; akan dihapus{confirmDelete.ballots > 0 ? <> beserta <span className="font-semibold">{confirmDelete.ballots} suara</span> yang sudah masuk</> : ""}. Tidak dapat dikembalikan.
         </p>

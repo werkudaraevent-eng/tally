@@ -90,7 +90,7 @@ export default function EventAccessPage() {
       <Link href="/events" className="inline-flex items-center gap-2 text-body-medium font-semibold text-on-surface-variant"><ArrowLeft size={16} /> Daftar event</Link>
       <header className="mt-4 border-b border-outline-variant pb-6">
         <p className="text-body-small font-semibold uppercase tracking-[0.18em] text-primary">Hak akses event</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">{event?.name ?? "Memuat…"}</h1>
+        <h1 className="mt-2 text-headline-medium font-semibold tracking-[-0.04em]">{event?.name ?? "Memuat…"}</h1>
         <p className="mt-2 text-body-medium text-on-surface-variant">Tanpa baris di sini, hanya super admin yang bisa membuka event ini. Peran disimpan per event — seseorang bisa jadi kasir di sini dan admin booth di event lain.</p>
       </header>
 

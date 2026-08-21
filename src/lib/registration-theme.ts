@@ -38,10 +38,22 @@ export type RegistrationThemeRoles = {
 export type RegistrationFormTheme = {
 	/** Warna brand pilihan admin. Satu-satunya nilai yang diisi manusia. */
 	seed: string;
+	/**
+	 * Formulir mengikuti warna halaman acara, mengabaikan `seed` di atas.
+	 *
+	 * Warna acara punya SATU sumber: pengaturan di CMS halaman acara. Formulir
+	 * pendaftaran adalah ketukan berikutnya setelah tombol "Daftar sekarang", dan
+	 * dua warna berbeda dalam dua ketukan berurutan terbaca sebagai berpindah ke
+	 * situs lain — pada halaman yang meminta nama, email, dan nomor telepon.
+	 *
+	 * `undefined` berarti konfigurasi yang dibuat SEBELUM saklar ini ada.
+	 * Diperlakukan sebagai `false`, yaitu warna formulirnya dipertahankan: acara
+	 * yang sedang berjalan tidak boleh berganti warna karena sebuah pembaruan.
+	 * Acara baru menyimpan `true`.
+	 */
+	inherit?: boolean;
 	/** Ikut mode gelap perangkat pendaftar, atau kunci ke terang. */
 	dark_mode?: "auto" | "light";
-	logo_url?: string | null;
-	background_image_url?: string | null;
 	/**
 	 * Peran turunan. Dihitung server saat disimpan lalu disimpan sebagai hex.
 	 *

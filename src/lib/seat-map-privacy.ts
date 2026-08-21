@@ -30,7 +30,7 @@ function toInitials(name: string) {
  * Label aman untuk ditampilkan di halaman publik.
  *
  * Selalu diturunkan minimal satu tingkat dari `full`, bahkan ketika admin
- * menyetel mode `full`: mode itu ditujukan untuk Live Display yang diproyeksikan
+ * menyetel mode `full`: mode itu ditujukan untuk Papan peringkat yang diproyeksikan
  * di ruangan tertutup berisi peserta acara, bukan untuk halaman yang bisa
  * dibuka siapa saja dari internet.
  */

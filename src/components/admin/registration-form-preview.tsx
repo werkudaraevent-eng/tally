@@ -19,8 +19,21 @@ import { eventApiPath } from "@/lib/event-url";
  * identik dengan yang dipakai saat menyimpan; dua implementasi yang berbeda
  * hasilnya membuat pratinjau berhenti menjadi pratinjau.
  */
-export function RegistrationFormPreview({ config, eventName }: { config: RegistrationFormConfig; eventName: string }) {
-  const seed = config.theme?.seed ?? DEFAULT_REGISTRATION_SEED;
+export function RegistrationFormPreview({
+  config,
+  eventName,
+  seed = DEFAULT_REGISTRATION_SEED,
+}: {
+  config: RegistrationFormConfig;
+  eventName: string;
+  /**
+   * Warna yang benar-benar dipakai halaman pendaftaran, dihitung server dengan
+   * memperhitungkan saklar "ikut warna halaman acara". Datang sebagai prop,
+   * bukan dibaca dari `config.theme`: sejak warnanya bisa diwarisi, `config`
+   * saja tidak lagi cukup untuk menjawab warna apa yang akan dilihat pendaftar.
+   */
+  seed?: string;
+}) {
   const [roles, setRoles] = useState<RegistrationThemeRoles | null>(config.theme?.roles ?? null);
 
   useEffect(() => {
@@ -81,12 +94,8 @@ export function RegistrationFormPreview({ config, eventName }: { config: Registr
           pendaftaran di satu halaman. */}
       <div className="max-h-[32rem] overflow-y-auto p-5" style={style as React.CSSProperties} inert>
         <div className="pointer-events-none mx-auto w-full max-w-lg select-none">
-          {config.theme?.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={config.theme.logo_url} alt="" className="mb-5 h-10 w-auto object-contain" />
-          ) : null}
           <p className="text-body-small font-semibold uppercase tracking-[0.18em] text-[var(--reg-primary)]">Pendaftaran peserta</p>
-          <h3 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">{eventName}</h3>
+          <h3 className="mt-2 text-headline-medium font-semibold tracking-[-0.04em]">{eventName}</h3>
 
           {config.welcome_text ? (
             <p className="mt-6 rounded-lg border border-[var(--reg-outline-variant)] p-4 text-body-medium leading-6">{config.welcome_text}</p>

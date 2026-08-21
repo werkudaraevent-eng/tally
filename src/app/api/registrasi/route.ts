@@ -5,6 +5,7 @@ import { sendRegistrationCode } from "@/lib/email/registration-code";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { validateAnswers } from "@/lib/registration-fields";
+import { registrationCodeUrl } from "@/lib/registration-code-url";
 
 /**
  * Pendaftaran peserta dari form publik. TANPA login — satu-satunya endpoint
@@ -152,7 +153,12 @@ export async function POST(request: Request) {
     return apiError(code, code === "INTERNAL_ERROR" ? 500 : 422);
   }
 
-  const hasil = data as { registration_id: string; status: string; qr_code: string | null };
+  const hasil = data as {
+    registration_id: string;
+    status: string;
+    qr_code: string | null;
+    access_token: string | null;
+  };
 
   // Email hanya untuk jalur auto-approve: di event bermoderasi belum ada kode
   // yang bisa dikirim, dan email "pendaftaran diterima" tanpa kode hanya
@@ -176,6 +182,7 @@ export async function POST(request: Request) {
         to: parsed.data.email as string,
         name: parsed.data.name,
         qrCode: hasil.qr_code,
+        codeUrl: registrationCodeUrl(request.url, event.slug, hasil.access_token),
       })
     : { state: "not_configured" as const };
 
@@ -185,6 +192,15 @@ export async function POST(request: Request) {
     // menerima null, dan halamannya harus mengatakan "menunggu persetujuan" —
     // bukan menampilkan kotak QR kosong.
     qr_code: hasil.qr_code,
+    // Alamat permanen ke kode ini. Dikirim untuk SETIAP status, termasuk yang
+    // masih menunggu persetujuan: pendaftar di event bermoderasi justru yang
+    // paling butuh alamat yang bisa dibuka lagi, karena kodenya belum ada saat
+    // ia menutup halaman.
+    //
+    // Null hanya bila migrasi tokennya belum dijalankan. Layar sukses harus
+    // memperlakukannya sebagai "tidak ada tautan", bukan merender alamat yang
+    // berakhir di 404.
+    code_url: hasil.access_token ? `/e/${event.slug}/kode/${hasil.access_token}` : null,
     // Layar sukses memakai ini untuk memilih kalimatnya. Hanya `sent` yang boleh
     // menyebut email: menjanjikannya saat pengiriman gagal atau belum disetel
     // membuat pendaftar menutup halaman tanpa menyimpan kode, lalu menunggu
