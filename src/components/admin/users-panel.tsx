@@ -4,18 +4,22 @@ import { CheckCircle, Plus, ShieldCheck, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 
-type Role = "booth" | "cashier" | "admin" | "super_admin";
+type Role = "booth" | "cashier" | "admin" | "super_admin" | "scanner";
 type User = { id: string; username: string; role: Role; booth_id: number | null; is_active: boolean };
 type Booth = { id: number; code: string; name: string };
 type Draft = { id: string | null; username: string; pin: string; role: Role; booth_id: number | null; is_active: boolean };
 
 const blank: Draft = { id: null, username: "", pin: "", role: "booth", booth_id: null, is_active: true };
-const roleLabel: Record<Role, string> = { booth: "Admin Booth", cashier: "Kasir", admin: "Panitia / Admin", super_admin: "Super Admin" };
+const roleLabel: Record<Role, string> = { booth: "Admin Booth", cashier: "Kasir", admin: "Panitia / Admin", super_admin: "Super Admin", scanner: "Petugas scan" };
 const rolePermissions: Record<Role, string[]> = {
   booth: ["Scan peserta & buat order", "Serahkan barang di booth", "Lihat riwayat booth sendiri"],
   cashier: ["Lihat antrean pembayaran", "Tandai lunas", "Void order"],
   admin: ["Kelola booth & item spesial", "Kelola metode pembayaran", "Semua laporan & settings", "Void order apa pun", "Reset PIN operator booth & kasir"],
   super_admin: ["Semua izin Panitia / Admin", "Kelola user & role", "Kosongkan data pencatatan"],
+  // Sengaja sesempit ini. Akun ini dipegang bergantian di pintu masuk, sering di
+  // ponsel yang tidak terkunci; apa pun di luar memindai kehadiran adalah
+  // kewenangan yang tidak dibutuhkan di sana.
+  scanner: ["Buka layar pemindai kehadiran", "Catat kehadiran peserta per sesi"],
 };
 
 export function UsersPanel() {
@@ -144,6 +148,7 @@ export function UsersPanel() {
               <select value={draft.role} onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value as Draft["role"] }))} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary">
                 <option value="booth">Admin Booth</option>
                 <option value="cashier">Kasir</option>
+                <option value="scanner">Petugas scan</option>
                 <option value="admin">Panitia / Admin</option>
                 <option value="super_admin">Super Admin</option>
               </select>

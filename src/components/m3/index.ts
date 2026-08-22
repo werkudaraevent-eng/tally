@@ -28,6 +28,9 @@ export type { SegmentedButtonProps, SegmentedOption } from "./segmented-button";
 export { Switch } from "./switch";
 export type { SwitchProps } from "./switch";
 
+export { Tabs } from "./tabs";
+export type { TabsProps, TabOption } from "./tabs";
+
 export { TextArea, TextField, SelectField } from "./text-field";
 export type { TextFieldProps, TextAreaProps, SelectFieldProps } from "./text-field";
 

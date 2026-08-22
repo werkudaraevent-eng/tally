@@ -13,6 +13,7 @@ export const roleRedirects: Record<UserRole, string> = {
   cashier: "/cashier",
   admin: "/admin",
   super_admin: "/admin",
+  scanner: "/scan",
 };
 
 // Kedua role memakai workspace admin yang sama; yang membedakan hanya kewenangan
@@ -39,6 +40,18 @@ export function canManageUsers(user: CurrentUser) {
 export function canResetOperatorPin(user: CurrentUser, targetRole: UserRole) {
   if (user.role === "super_admin") return true;
   return user.role === "admin" && (targetRole === "booth" || targetRole === "cashier");
+}
+
+/**
+ * Siapa yang boleh memindai kehadiran.
+ *
+ * Petugas scan jelas boleh. Admin ikut boleh karena di acara kecil panitia yang
+ * sama merangkap semuanya, dan memaksa mereka membuat akun kedua hanya untuk
+ * berdiri di pintu masuk berarti akun itu akan dibagi-bagi — persis yang ingin
+ * dihindari role ini.
+ */
+export function canScanAttendance(user: CurrentUser) {
+  return user.role === "scanner" || isAdminLevel(user);
 }
 
 export function canAccessRole(user: CurrentUser, role: UserRole) {

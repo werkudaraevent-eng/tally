@@ -15,7 +15,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 // kolom enum di database sudah memilikinya sejak migrasi 202607300001. Tanpa ini
 // setiap penyimpanan akun super admin (termasuk sekadar ganti PIN, karena PATCH
 // dari UI selalu menyertakan role) ditolak sebagai VALIDATION_ERROR.
-const roleSchema = z.enum(["booth", "cashier", "admin", "super_admin"]);
+const roleSchema = z.enum(["booth", "cashier", "admin", "super_admin", "scanner"]);
 
 const createSchema = z.object({
   username: z.string().trim().min(3).max(50).regex(/^[a-z0-9._-]+$/i, "Username hanya huruf, angka, titik, garis."),

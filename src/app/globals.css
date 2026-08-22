@@ -639,6 +639,60 @@ body {
 	}
 }
 
+/* Kedipan hasil pemindaian (lihat src/app/scan/scan-client.tsx).
+ *
+ * Dua tamu berturut-turut yang sama-sama "tercatat hadir" menghasilkan bidang
+ * hijau yang identik. Tanpa satu kedipan, petugas tidak punya cara membedakan
+ * "pemindaian kedua berhasil" dari "layar belum berubah sejak tadi" — dan yang
+ * ia lakukan kemudian adalah memindai orang yang sama sekali lagi.
+ *
+ * Terang lalu redam, bukan geser atau ubah ukuran: bidang ini duduk di atas
+ * konten yang tingginya berubah-ubah, dan gerak yang menggeser tetangganya
+ * membuat tombol di bawahnya berpindah tepat saat jempol turun. Aturan
+ * `prefers-reduced-motion` global sudah memangkasnya menjadi sekali kedip yang
+ * praktis tak terlihat. */
+.scan-flash {
+	animation: scan-flash 420ms var(--md-sys-motion-easing-emphasized-decelerate) 1;
+}
+
+@keyframes scan-flash {
+	from {
+		filter: brightness(1.35);
+		opacity: 0.65;
+	}
+
+	to {
+		filter: brightness(1);
+		opacity: 1;
+	}
+}
+
+/* Masuknya satu nama di Layar sapa (lihat src/app/sapa/sapa-client.tsx).
+ *
+ * Naik sedikit lalu berhenti, bukan meluncur dari tepi layar. Nama di layar
+ * sambutan berganti setiap beberapa detik sepanjang acara, dan gerak yang
+ * menempuh jarak jauh berubah menjadi lalu lintas visual di sudut mata orang
+ * yang sedang mengobrol di lobi.
+ *
+ * `translate` dan `opacity` saja — keduanya dikerjakan kompositor. Layar ini
+ * menyala berjam-jam di TV atau stik HDMI yang tenaganya jauh di bawah laptop
+ * yang dipakai merancangnya. */
+.greet-in {
+	animation: greet-in 460ms var(--md-sys-motion-easing-emphasized-decelerate) 1;
+}
+
+@keyframes greet-in {
+	from {
+		opacity: 0;
+		transform: translateY(2.2vmin);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,

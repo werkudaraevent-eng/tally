@@ -1,6 +1,6 @@
 "use client";
 
-import { ArmchairIcon, ArrowSquareOut, BookOpen, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, List, ListChecks, MonitorPlay, Receipt, ShieldCheck, Storefront, UserPlus, UsersThree, X } from "@phosphor-icons/react";
+import { ArmchairIcon, ArrowSquareOut, BookOpen, Browsers, QrCode, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving, List, ListChecks, MonitorPlay, Receipt, ShieldCheck, Storefront, UserPlus, UsersThree, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -49,6 +49,10 @@ const navigation = [
     items: [
       { href: "/admin/participants", label: "Daftar peserta", icon: UsersThree, ownerOnly: false },
       { href: "/admin/registrasi", label: "Pendaftaran publik", icon: UserPlus, ownerOnly: false },
+      // Kehadiran duduk di kelompok Peserta, bukan Layar panggung: yang dikelola
+      // di sini adalah orang dan catatan hadirnya, bukan sesuatu yang ditonton
+      // seruangan dari proyektor.
+      { href: "/admin/attendance", label: "Kehadiran", icon: QrCode, ownerOnly: false },
     ],
   },
   {
@@ -66,6 +70,10 @@ const navigation = [
       // papan peringkat transaksi beserta reveal bertahapnya — dan panitia yang
       // mencari "di mana atur ranking" tidak punya alasan menekan menu itu.
       { href: "/admin/display", label: "Papan peringkat", icon: MonitorPlay, ownerOnly: false },
+      // Layar sapa duduk di Layar panggung, bukan di Peserta bersama Kehadiran.
+      // Yang dikelola di sini adalah sesuatu yang DITONTON seruangan; catatan
+      // hadirnya sendiri tetap diurus di menu Kehadiran.
+      { href: "/admin/sapa", label: "Layar sapa", icon: HandWaving, ownerOnly: false },
       // Cocok dengan startsWith, jadi /admin/undian/kontrol ikut menyorot entri ini.
       { href: "/admin/undian", label: "Undian", icon: Gift, ownerOnly: false },
       { href: "/admin/vote", label: "Voting langsung", icon: ChartBarHorizontal, ownerOnly: false },
@@ -450,7 +458,22 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
           }
         />
 
-        {children}
+        {/* `key` berisi slug event, dan itu WAJIB.
+         *
+         * Proxy menulis ulang `/e/<slug>/admin/seat-map` menjadi
+         * `/admin/seat-map?eventSlug=<slug>`, jadi berpindah event tidak
+         * mengganti komponen halamannya — React memakai ulang instance yang sama
+         * dan `useEffect` pengambil data tidak berjalan lagi. Terukur: memilih
+         * event lain dari menu di bilah atas mengganti judul dan remah rotinya,
+         * tetapi isi halaman tetap milik event sebelumnya sampai ditekan reload.
+         *
+         * Mengganti `key` memaksa seluruh subtree dipasang ulang, sehingga setiap
+         * pengambilan data di halaman ikut berjalan lagi. Dipilih daripada
+         * memaksa navigasi keras (`<a href>`) di menunya: navigasi keras memuat
+         * ulang seluruh dokumen — bundel, tema, dan sesi — untuk pekerjaan yang
+         * cukup diselesaikan dengan memasang ulang satu subtree.
+         */}
+        <div key={eventSlug || "event-tunggal"}>{children}</div>
       </div>
     </div>
   );

@@ -144,7 +144,8 @@ akibatnya token bisa berubah tanpa perubahan itu sampai ke layar.
 | `Card`, `CardHeader` | `filled` (elevasi tonal) bawaan; `elevated` hanya untuk yang benar-benar melayang |
 | `TextField`, `TextArea`, `SelectField` | Label di atas kolom, bukan mengambang — lihat catatan di berkasnya |
 | `StatusChip`, `FilterChip` | Chip penyaring menandai terpilih tiga kali: warna, centang, bentuk |
-| `SegmentedButton` | `radiogroup`, jadi panah kiri/kanan bekerja |
+| `SegmentedButton` | `radiogroup`, jadi panah kiri/kanan bekerja. Untuk MEMILIH di dalam tampilan yang sedang dilihat |
+| `Tabs` | `tablist` + indikator 3px, roving tabindex. Untuk MENGGANTI tampilan. Kalau isinya berubah, ia tab — bukan segmented button |
 | `Switch` | Ikon di dalam kenop; kenop membesar saat menyala |
 | `LinearProgress`, `CircularProgress`, `LoadingIndicator` | Yang terakhir hanya untuk layar panggung |
 | `Divider`, `PageHeader`, `EmptyState` | Keadaan kosong selalu menyebutkan langkah berikutnya |
@@ -492,6 +493,34 @@ Tata letak responsif berbasis tabel. Desktop memakai rel navigasi menetap dan
 penyaring padat. Mobile melipat penyaring ke dalam laci. Sediakan keadaan kosong,
 memuat, dan galat; jaga keterbacaan tabel tanpa menaruh setiap baris di dalam
 kartunya sendiri.
+
+### Layar sapa
+
+TV atau proyektor di dekat pintu masuk, **melintang atau berdiri** — orientasinya
+disetel di CMS, bukan ditebak dari lebar viewport (panel yang dipasang berdiri
+sering tetap melaporkan 1920×1080 dan memutar gambarnya di perangkat keras).
+
+Satu nama menempati bidang tengah selama beberapa detik, sebesar yang muat.
+Bukan daftar bergulir: yang menatapnya sedang berjalan masuk sambil membawa tas
+dan hanya mencari satu hal — namanya sendiri. Deretan "baru saja masuk" di
+bawahnya menjaga layar tetap hidup di antara dua kedatangan.
+
+Semua ukuran memakai `vmin` lewat `scaleClamp()`, sama seperti denah LED, supaya
+satu setelan melayani panel 1080×1920 sampai proyektor 1920×1080 tanpa disetel
+ulang saat pemasangan. Muat pertama **tidak pernah** menyapa siapa pun — layar
+yang dibuka ulang di tengah acara akan menyambut orang yang sudah lama duduk.
+
+**Beberapa meja, beberapa layar.** Jalur registrasi (`attendance_lanes`) adalah
+MEJA, sedangkan sesi kehadiran adalah TAHAP — keduanya tegak lurus, dan
+menjadikan lima meja sebagai lima sesi akan memecah jumlah hadir menjadi lima
+angka yang harus dijumlahkan sendiri.
+
+Layar yang belum punya meja menampilkan kode enam angka, dan petugas di meja itu
+mengklaimnya dari `/scan`; token perangkat disimpan di localStorage sehingga TV
+yang dimuat ulang tetap terpasang. Pola dan alasannya sama dengan perangkat lunak
+digital signage: tidak ada alamat panjang yang harus diketik dengan remote TV,
+dan yang berhak memasang adalah orang yang bisa MELIHAT kodenya. Acara satu meja
+tidak pernah melihat lapisan ini — tanpa jalur, layar menyapa semua orang.
 
 ### Papan peringkat
 

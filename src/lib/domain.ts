@@ -3,7 +3,11 @@ import type { RegistrationFormTheme } from "./registration-theme";
 
 // super_admin = pemilik sistem. Memegang operasi yang tidak dapat dibalik (reset
 // data, kelola user/role) yang tidak dibutuhkan klien untuk menjalankan acara.
-export type UserRole = "booth" | "cashier" | "admin" | "super_admin";
+// scanner = petugas pemindai kehadiran. Akun paling sempit di sistem: hanya bisa
+// membuka layar /scan. Ada karena HP di pintu masuk sering dipegang bergantian,
+// dan akun yang juga membuka transaksi serta data peserta adalah risiko yang
+// tidak dibutuhkan di sana.
+export type UserRole = "booth" | "cashier" | "admin" | "super_admin" | "scanner";
 export type OrderStatus = "pending" | "paid" | "void" | "handed_over";
 export type PickupMode = "after_payment" | "immediate";
 
