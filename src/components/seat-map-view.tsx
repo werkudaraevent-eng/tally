@@ -161,27 +161,45 @@ export function SeatMapView({
 
         return (
           <g key={table.number} opacity={dimmed ? 0.28 : 1} style={{ transition: "opacity 200ms" }}>
-            <circle
-              cx={table.x}
-              cy={table.y}
-              r={table.r}
-              fill={tableHighlighted ? accentColor : textColor}
-              stroke={tableHighlighted ? textColor : "transparent"}
-              strokeWidth={2.5}
-              onClick={onTableClick ? () => onTableClick(table.number) : undefined}
-              style={onTableClick ? { cursor: "pointer" } : undefined}
-            />
+            {/* Bentuk meja mengikuti tata ruangnya. `none` dipakai theater:
+                barisnya bukan meja, jadi tidak ada apa pun yang digambar selain
+                label barisnya di pinggir kiri. */}
+            {table.shape === "round" ? (
+              <circle
+                cx={table.x}
+                cy={table.y}
+                r={table.r}
+                fill={tableHighlighted ? accentColor : textColor}
+                stroke={tableHighlighted ? textColor : "transparent"}
+                strokeWidth={2.5}
+                onClick={onTableClick ? () => onTableClick(table.number) : undefined}
+                style={onTableClick ? { cursor: "pointer" } : undefined}
+              />
+            ) : table.shape === "rect" ? (
+              <rect
+                x={table.x - (table.w ?? 0) / 2}
+                y={table.y - (table.h ?? 0) / 2}
+                width={table.w ?? 0}
+                height={table.h ?? 0}
+                rx={table.r}
+                fill={tableHighlighted ? accentColor : textColor}
+                stroke={tableHighlighted ? textColor : "transparent"}
+                strokeWidth={2.5}
+                onClick={onTableClick ? () => onTableClick(table.number) : undefined}
+                style={onTableClick ? { cursor: "pointer" } : undefined}
+              />
+            ) : null}
             <text
               x={table.x}
               y={table.y}
-              textAnchor="middle"
+              textAnchor={table.shape === "none" ? "end" : "middle"}
               dominantBaseline="central"
-              fill={backgroundColor}
+              fill={table.shape === "none" ? textColor : backgroundColor}
               // Label bisa lebih panjang dari satu atau dua angka ("3A"), jadi
               // ukuran huruf mengecil mengikuti panjangnya. Tanpa ini "3A" pada
               // ukuran 26 sudah menyentuh tepi bulatan, dan label yang menyentuh
               // tepi terbaca terpotong dari kursi tamu di seberang meja.
-              fontSize={table.label.length > 3 ? 18 : table.label.length > 2 ? 22 : 26}
+              fontSize={table.shape === "none" ? 19 : table.label.length > 3 ? 18 : table.label.length > 2 ? 22 : 26}
               fontWeight={600}
               pointerEvents="none"
             >

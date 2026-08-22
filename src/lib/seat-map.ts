@@ -1,3 +1,5 @@
+import { generateLayout } from "./seat-map-layouts.ts";
+
 // Geometri denah tempat duduk. Modul murni: tidak menyentuh database, tidak
 // menyentuh React, sehingga editor CMS dan halaman publik memakai hasil hitungan
 // yang sama persis.
@@ -159,7 +161,163 @@ export type SeatMapConfig = {
    * denah cetak, kartu meja, dan penempatan peserta sudah memakai nomor itu.
    */
   table_labels: Record<string, string>;
+  layout_type: SeatMapLayout;
+  layout_params: SeatMapLayoutParams;
 };
+
+
+/**
+ * Jenis tata ruang. Menentukan GAMBAR, bukan identitas kursi.
+ *
+ * Label kursi ("12A") adalah kunci pencocokan dengan penempatan peserta — yang
+ * datang dari scanner API, entri manual di modul Peserta, atau impor berkas.
+ * Karena itu berpindah layout tidak boleh dilakukan diam-diam setelah ada
+ * penempatan masuk: pola labelnya berubah, dan denah akan tampil kosong tanpa
+ * satu pun galat. Penjagaannya ada di route handler CMS.
+ */
+export type SeatMapLayout =
+  | "banquet_round"
+  | "cabaret"
+  | "theater"
+  | "classroom"
+  | "u_shape"
+  | "hollow_square"
+  | "boardroom"
+  | "head_table";
+
+export const SEAT_MAP_LAYOUTS: readonly SeatMapLayout[] = [
+  "banquet_round",
+  "cabaret",
+  "theater",
+  "classroom",
+  "u_shape",
+  "hollow_square",
+  "boardroom",
+  "head_table",
+];
+
+export const LAYOUT_INFO: Record<SeatMapLayout, { name: string; desc: string; labelHint: string }> = {
+  banquet_round: {
+    name: "Banquet (meja bundar)",
+    desc: "Meja bundar berbaris. Kursi mengelilingi meja, menyisakan celah di sisi panggung.",
+    labelHint: "Label kursi: nomor meja + huruf, mis. 12A",
+  },
+  cabaret: {
+    name: "Cabaret (setengah lingkaran)",
+    desc: "Meja bundar dengan kursi hanya di sisi menghadap panggung. Tidak ada tamu yang membelakangi layar.",
+    labelHint: "Label kursi: nomor meja + huruf, mis. 12A",
+  },
+  theater: {
+    name: "Theater",
+    desc: "Baris kursi tanpa meja. Kapasitas terbesar, dipakai untuk seminar dan pembukaan.",
+    labelHint: "Label kursi: huruf baris + nomor, mis. A12",
+  },
+  classroom: {
+    name: "Classroom",
+    desc: "Meja panjang berbaris menghadap panggung, dua sampai tiga kursi per meja.",
+    labelHint: "Label kursi: nomor meja + huruf, mis. 12A",
+  },
+  u_shape: {
+    name: "U-shape",
+    desc: "Meja membentuk huruf U dengan kursi di sisi luar. Untuk rapat 15-30 orang.",
+    labelHint: "Label kursi: nomor sisi + huruf, mis. 1A",
+  },
+  hollow_square: {
+    name: "Hollow square",
+    desc: "Meja membentuk persegi tertutup. Tidak ada kepala meja; semua peserta setara.",
+    labelHint: "Label kursi: nomor sisi + huruf, mis. 1A",
+  },
+  boardroom: {
+    name: "Boardroom",
+    desc: "Satu meja panjang dengan kursi mengelilinginya. Untuk rapat kecil.",
+    labelHint: "Label kursi: nomor meja + huruf, mis. 1A",
+  },
+  head_table: {
+    name: "Head table + banquet",
+    desc: "Meja utama menghadap tamu di depan, meja bundar di belakangnya.",
+    labelHint: "Meja utama bernomor 1, meja bundar melanjutkan nomornya",
+  },
+};
+
+/**
+ * Parameter tata ruang. Satu bentuk untuk semua layout, bukan union.
+ *
+ * Union akan lebih rapi di TypeScript tetapi lebih berbahaya di database: kolom
+ * jsonb yang isinya berganti bentuk mengikuti `layout_type` berarti setiap
+ * pembacaan harus mempercayai bahwa keduanya sinkron. Dengan satu bentuk datar,
+ * mengganti layout hanya mengubah field mana yang DIBACA — nilai yang tidak
+ * dipakai tetap tersimpan, jadi kembali ke layout sebelumnya mengembalikan
+ * setelan lamanya, bukan nilai bawaan.
+ */
+export type SeatMapLayoutParams = {
+  /** Meja bundar: sudut busur kursi dalam derajat. 300 = hampir penuh, 180 = cabaret. */
+  arc_sweep: number;
+  /** Theater & classroom: jumlah baris. */
+  rows: number;
+  /** Theater: kursi per baris. Classroom: meja per baris. */
+  per_row: number;
+  /** Classroom: kursi per meja. */
+  seats_per_table: number;
+  /** Theater: lorong disisipkan SETELAH kursi ke-n. Boleh lebih dari satu. */
+  aisles: number[];
+  /** U-shape, hollow square, boardroom: kursi per sisi memanjang. */
+  seats_per_side: number;
+  /** U-shape & boardroom: kursi di sisi kepala/ujung meja. */
+  seats_head: number;
+  /** Head table: kursi di meja utama. */
+  head_seats: number;
+};
+
+export const DEFAULT_LAYOUT_PARAMS: SeatMapLayoutParams = {
+  arc_sweep: 300,
+  rows: 6,
+  per_row: 12,
+  seats_per_table: 3,
+  aisles: [],
+  seats_per_side: 6,
+  seats_head: 3,
+  head_seats: 6,
+};
+
+/** Nilai bawaan yang berbeda per layout. Sisanya memakai DEFAULT_LAYOUT_PARAMS. */
+const LAYOUT_DEFAULT_OVERRIDES: Partial<Record<SeatMapLayout, Partial<SeatMapLayoutParams>>> = {
+  // 190 derajat, bukan 180: pada tepat setengah lingkaran, kursi pertama dan
+  // terakhir duduk persis di garis tengah meja dan terbaca seperti menghadap ke
+  // samping. Sedikit lebih lebar membuat keduanya jelas menghadap panggung.
+  cabaret: { arc_sweep: 190 },
+};
+
+export function layoutDefaults(layout: SeatMapLayout): SeatMapLayoutParams {
+  return { ...DEFAULT_LAYOUT_PARAMS, ...(LAYOUT_DEFAULT_OVERRIDES[layout] ?? {}) };
+}
+
+export function normalizeLayout(value: unknown): SeatMapLayout {
+  return SEAT_MAP_LAYOUTS.includes(value as SeatMapLayout) ? (value as SeatMapLayout) : "banquet_round";
+}
+
+function angka(value: unknown, fallback: number, min: number, max: number) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+export function normalizeLayoutParams(layout: SeatMapLayout, raw: unknown): SeatMapLayoutParams {
+  const bawaan = layoutDefaults(layout);
+  const data = (raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>;
+  return {
+    arc_sweep: angka(data.arc_sweep, bawaan.arc_sweep, 60, 340),
+    rows: angka(data.rows, bawaan.rows, 1, 40),
+    per_row: angka(data.per_row, bawaan.per_row, 1, 40),
+    seats_per_table: angka(data.seats_per_table, bawaan.seats_per_table, 1, MAX_SEATS_PER_TABLE),
+    aisles: Array.isArray(data.aisles)
+      ? [...new Set(data.aisles.filter((n): n is number => typeof n === "number" && Number.isFinite(n) && n > 0).map(Math.floor))]
+          .sort((a, b) => a - b)
+          .slice(0, 6)
+      : bawaan.aisles,
+    seats_per_side: angka(data.seats_per_side, bawaan.seats_per_side, 1, 40),
+    seats_head: angka(data.seats_head, bawaan.seats_head, 0, 20),
+    head_seats: angka(data.head_seats, bawaan.head_seats, 1, MAX_SEATS_PER_TABLE),
+  };
+}
 
 export type SeatGeometry = {
   /** Huruf kursi di dalam mejanya, misalnya "C". */
@@ -177,6 +335,16 @@ export type SeatGeometry = {
   r: number;
 };
 
+/**
+ * Bentuk meja di kanvas.
+ *
+ * `none` untuk theater: barisnya bukan meja, hanya kumpulan kursi. Ia tetap
+ * berupa "table" di struktur data supaya seluruh konsumen — pencarian nama,
+ * panel "kursi meja ini", pewarnaan, dan LED — tidak perlu mengenal dua bentuk
+ * data yang berbeda.
+ */
+export type TableShape = "round" | "rect" | "none";
+
 export type TableGeometry = {
   /**
    * Nomor posisi, menerus dari baris terdepan. Tetap `number` dengan sengaja:
@@ -191,7 +359,12 @@ export type TableGeometry = {
   label: string;
   x: number;
   y: number;
+  /** Jari-jari untuk meja bundar. Untuk meja persegi dipakai sebagai jari-jari sudut. */
   r: number;
+  shape: TableShape;
+  /** Lebar & tinggi meja persegi. Diabaikan pada bentuk lain. */
+  w?: number;
+  h?: number;
   rowIndex: number;
   seats: SeatGeometry[];
 };
@@ -207,21 +380,21 @@ export type SeatMapGeometry = {
 
 // Ukuran dalam satuan koordinat SVG. Skala akhir diserahkan ke viewBox supaya
 // denah ikut melebar mengikuti lebar layar tanpa perhitungan ulang.
-const TABLE_RADIUS = 33;
-const SEAT_RADIUS = 10.5;
-const SEAT_ORBIT = 47;
-const CELL_WIDTH = 132;
-const CELL_HEIGHT = 126;
-const PADDING_X = 40;
-const STAGE_TOP = 34;
-const STAGE_HEIGHT = 46;
-const STAGE_GAP = 78;
-const PADDING_BOTTOM = 34;
+export const TABLE_RADIUS = 33;
+export const SEAT_RADIUS = 10.5;
+export const SEAT_ORBIT = 47;
+export const CELL_WIDTH = 132;
+export const CELL_HEIGHT = 126;
+export const PADDING_X = 40;
+export const STAGE_TOP = 34;
+export const STAGE_HEIGHT = 46;
+export const STAGE_GAP = 78;
+export const PADDING_BOTTOM = 34;
 
-// Kursi disebar pada busur yang menyisakan celah di sisi panggung, meniru denah
-// asli: tidak ada kursi yang membelakangi layar.
-const SEAT_ARC_SWEEP = 300;
-const SEAT_ARC_CENTER = 90; // 90 derajat = sisi bawah pada koordinat SVG (y ke bawah).
+// Sudut busur kursi kini menjadi parameter tata ruang (layout_params.arc_sweep),
+// bukan konstanta: banquet memakai busur lebar, cabaret memakai busur sempit.
+// Nilai bawaannya ada di DEFAULT_LAYOUT_PARAMS.
+export const SEAT_ARC_CENTER = 90; // 90 derajat = sisi bawah pada koordinat SVG (y ke bawah).
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -351,6 +524,7 @@ function sanitizeTableLabels(labels: unknown): Record<string, string> {
 
 /** Membersihkan konfigurasi mentah dari database menjadi bentuk yang aman dipakai. */
 export function normalizeConfig(raw: Partial<SeatMapConfig> | null | undefined): SeatMapConfig {
+  const layout = normalizeLayout(raw?.layout_type);
   const pattern = typeof raw?.seat_label_pattern === "string" && raw.seat_label_pattern.includes("{table}") && raw.seat_label_pattern.includes("{seat}")
     ? raw.seat_label_pattern
     : "{table}{seat}";
@@ -361,6 +535,8 @@ export function normalizeConfig(raw: Partial<SeatMapConfig> | null | undefined):
     seat_label_pattern: pattern,
     table_overrides: sanitizeOverrides(raw?.table_overrides),
     table_labels: sanitizeTableLabels(raw?.table_labels),
+    layout_type: layout,
+    layout_params: normalizeLayoutParams(layout, raw?.layout_params),
   };
 }
 
@@ -374,75 +550,22 @@ export function normalizeConfig(raw: Partial<SeatMapConfig> | null | undefined):
  */
 export function computeSeatMapGeometry(input: Partial<SeatMapConfig> | null | undefined): SeatMapGeometry {
   const config = normalizeConfig(input);
-  const rows = config.row_table_counts;
-  const widestRow = rows.reduce((max, count) => Math.max(max, count), 0);
-
-  const width = Math.max(widestRow, 1) * CELL_WIDTH + PADDING_X * 2;
-  const height = STAGE_TOP + STAGE_HEIGHT + STAGE_GAP + Math.max(rows.length, 1) * CELL_HEIGHT + PADDING_BOTTOM;
+  const { tables, width, height } = generateLayout(config.layout_type, config, config.layout_params);
 
   // Panggung dibuat selebar dua per tiga kanvas dan dipusatkan: ia acuan arah
   // pandang, jadi harus terbaca lebih dulu sebelum mata mencari nomor meja.
   const stageWidth = Math.round(width * 0.66);
-  const stage = {
-    x: Math.round((width - stageWidth) / 2),
-    y: STAGE_TOP,
-    width: stageWidth,
-    height: STAGE_HEIGHT,
-    label: config.stage_label,
-  };
-
-  const firstRowCenterY = STAGE_TOP + STAGE_HEIGHT + STAGE_GAP + CELL_HEIGHT / 2;
-  const tables: TableGeometry[] = [];
-  let tableNumber = 0;
-
-  rows.forEach((countInRow, rowIndex) => {
-    const rowWidth = countInRow * CELL_WIDTH;
-    const rowStartX = (width - rowWidth) / 2;
-    const centerY = firstRowCenterY + rowIndex * CELL_HEIGHT;
-
-    for (let indexInRow = 0; indexInRow < countInRow; indexInRow += 1) {
-      tableNumber += 1;
-      const offset = config.table_overrides[String(tableNumber)] ?? { dx: 0, dy: 0 };
-      const centerX = rowStartX + indexInRow * CELL_WIDTH + CELL_WIDTH / 2 + offset.dx;
-      const y = centerY + offset.dy;
-
-      // Aturan kursi memakai nomor POSISI, bukan label. Rentang "meja 1-25 enam
-      // kursi" tetap berlaku apa adanya walau salah satu meja di dalamnya
-      // berlabel "3A"; kalau aturan ikut memakai label, mengganti satu tulisan
-      // akan mengubah jumlah kursi di meja itu tanpa ada yang meminta.
-      const seatCount = seatCountForTable(tableNumber, config.seat_rules);
-      const label = tableLabelFor(tableNumber, config.table_labels);
-      const seats: SeatGeometry[] = [];
-
-      // Satu kursi tidak punya jarak antar kursi, jadi dibagi rata pada busur
-      // hanya bila ada lebih dari satu.
-      const step = seatCount > 1 ? SEAT_ARC_SWEEP / (seatCount - 1) : 0;
-      const startAngle = SEAT_ARC_CENTER + SEAT_ARC_SWEEP / 2;
-
-      for (let seatIndex = 0; seatIndex < seatCount; seatIndex += 1) {
-        // Mundur dari sisi kiri, melewati bawah, lalu naik ke sisi kanan.
-        // Hasilnya urutan A di kiri atas sampai huruf terakhir di kanan atas,
-        // sama seperti denah cetak.
-        const angle = ((startAngle - seatIndex * step) * Math.PI) / 180;
-        const code = seatLetter(seatIndex);
-        seats.push({
-          code,
-          label: buildSeatLabel(config.seat_label_pattern, label, code),
-          tableNumber,
-          x: centerX + Math.cos(angle) * SEAT_ORBIT,
-          y: y + Math.sin(angle) * SEAT_ORBIT,
-          r: SEAT_RADIUS,
-        });
-      }
-
-      tables.push({ number: tableNumber, label, x: centerX, y, r: TABLE_RADIUS, rowIndex, seats });
-    }
-  });
 
   return {
     width,
     height,
-    stage,
+    stage: {
+      x: Math.round((width - stageWidth) / 2),
+      y: STAGE_TOP,
+      width: stageWidth,
+      height: STAGE_HEIGHT,
+      label: config.stage_label,
+    },
     tables,
     totalTables: tables.length,
     totalSeats: tables.reduce((sum, table) => sum + table.seats.length, 0),

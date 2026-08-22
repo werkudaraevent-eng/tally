@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "check": "node --experimental-strip-types --no-warnings src/lib/auth/event-slug.check.ts && node --experimental-strip-types --no-warnings src/lib/auth/event-writable.check.ts && node --experimental-strip-types --no-warnings src/lib/event-path.check.ts && node --experimental-strip-types --no-warnings src/lib/undian-readiness.check.ts && node --experimental-strip-types --no-warnings src/lib/vote.check.ts",
+    "check": "node --experimental-strip-types --no-warnings src/lib/auth/event-slug.check.ts && node --experimental-strip-types --no-warnings src/lib/auth/event-writable.check.ts && node --experimental-strip-types --no-warnings src/lib/event-path.check.ts && node --experimental-strip-types --no-warnings src/lib/undian-readiness.check.ts && node --experimental-strip-types --no-warnings src/lib/vote.check.ts && node --experimental-strip-types --no-warnings src/lib/seat-map-layouts.check.ts",
     "theme": "node --import ./scripts/m3/register.mjs scripts/m3/gen-theme.mjs"
   },
   "dependencies": {

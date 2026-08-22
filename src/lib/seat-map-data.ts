@@ -34,8 +34,12 @@ export type SeatMapSession = {
 export const SESSION_COLUMNS =
   `id,slug,name,sub_event_id,title,subtitle,background_color,text_color,accent_color,background_image_url,map_panel_transparent,is_published,sort_order,${BRANDING_COLUMNS},${SEAT_COLOR_COLUMNS}`;
 
-export const CONFIG_COLUMNS =
+/** Kolom konfigurasi sebelum tata ruang dapat dipilih. Lihat selectSeatMapConfig. */
+export const LEGACY_CONFIG_COLUMNS =
   "name,stage_label,row_table_counts,seat_rules,seat_label_pattern,table_overrides,table_labels,public_view_mode,default_session_id,updated_at";
+
+export const CONFIG_COLUMNS =
+  "name,stage_label,row_table_counts,seat_rules,seat_label_pattern,table_overrides,table_labels,layout_type,layout_params,public_view_mode,default_session_id,updated_at";
 
 type ParticipantSeat = { subEventId: string; subEventName: string; label: string };
 
@@ -78,12 +82,27 @@ export type SeatMapConfigRow = SeatMapConfig & {
  * menampilkan denah event lain -- kesalahan yang tidak menimbulkan galat, hanya
  * tamu yang diarahkan ke meja yang tidak ada.
  */
+/**
+ * Membaca baris konfigurasi denah, tahan terhadap kolom tata ruang yang belum ada.
+ *
+ * Kode dan migrasi tidak selalu mendarat bersamaan: build baru bisa hidup
+ * beberapa menit sebelum migrasinya dijalankan, dan pada jendela itu PostgREST
+ * menolak SELECT yang menyebut kolom yang belum ada — seluruh baris gagal
+ * terbaca, bukan hanya kolom barunya. Akibatnya terukur: denah publik jatuh ke
+ * konfigurasi bawaan dan menampilkan satu meja, padahal ruangannya berisi 32.
+ *
+ * Karena itu percobaan kedua tanpa kolom tata ruang. Hasilnya denah lama tampil
+ * apa adanya sampai migrasi dijalankan, alih-alih layar yang terlihat rusak.
+ */
+async function selectSeatMapConfig(eventId: string) {
+  const client = getSupabaseServiceClient();
+  const lengkap = await client.from("seat_maps").select(CONFIG_COLUMNS).eq("event_id", eventId).single();
+  if (!lengkap.error) return lengkap;
+  return client.from("seat_maps").select(LEGACY_CONFIG_COLUMNS).eq("event_id", eventId).single();
+}
+
 export async function loadSeatMapConfig(eventId: string): Promise<SeatMapConfigRow> {
-  const { data } = await getSupabaseServiceClient()
-    .from("seat_maps")
-    .select(CONFIG_COLUMNS)
-    .eq("event_id", eventId)
-    .single();
+  const { data } = await selectSeatMapConfig(eventId);
   const raw = (data ?? {}) as Partial<SeatMapConfig> & { name?: string; public_view_mode?: string; default_session_id?: number | null };
   return {
     ...normalizeConfig(raw),

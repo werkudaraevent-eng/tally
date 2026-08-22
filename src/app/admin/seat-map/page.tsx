@@ -7,7 +7,7 @@ import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
-import { computeSeatMapGeometry, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor, type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatRule } from "@/lib/seat-map";
+import { computeSeatMapGeometry, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor, type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule, LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS } from "@/lib/seat-map";
 
 // CMS denah tempat duduk.
 //
@@ -105,6 +105,11 @@ export default function SeatMapAdminPage() {
     setConfig((current) => current && { ...current, [key]: value });
   }
 
+  /** Mengubah satu parameter tata ruang tanpa menyentuh yang lain. */
+  function updateParam<K extends keyof SeatMapLayoutParams>(key: K, value: SeatMapLayoutParams[K]) {
+    setConfig((current) => current && { ...current, layout_params: { ...current.layout_params, [key]: value } });
+  }
+
   function updateSession(id: number, changes: Partial<Session>) {
     setSessions((current) => current.map((item) => (item.id === id ? { ...item, ...changes } : item)));
   }
@@ -151,6 +156,8 @@ export default function SeatMapAdminPage() {
         seat_label_pattern: config.seat_label_pattern,
         table_overrides: config.table_overrides,
         table_labels: config.table_labels,
+        layout_type: config.layout_type,
+        layout_params: config.layout_params,
         public_view_mode: config.public_view_mode,
         default_session_id: config.default_session_id,
       }),
@@ -324,7 +331,14 @@ export default function SeatMapAdminPage() {
       {error ? <p className="rounded-lg mt-4 border border-error bg-error-soft p-3 text-body-medium text-error">{error}</p> : null}
 
       {!config ? <p className="mt-8 text-body-medium text-on-surface-variant">Memuat…</p> : <>
-        <section className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
+        {/* Pratinjau selebar halaman, kartu setelan di bawahnya.
+            Sebelumnya pratinjau berbagi baris dengan kolom setelan selebar 420px,
+            sehingga denah 32 meja harus digulir mendatar DI DALAM kartunya
+            sendiri — dan menggulir mendatar di dalam halaman yang juga digulir
+            menegak membuat orang kehilangan tempatnya. Denah adalah gambar yang
+            dinilai secara keseluruhan; memotongnya menghapus satu-satunya hal
+            yang membuat pratinjau berguna. */}
+        <section className="mt-6">
           <div className="rounded-lg border border-outline-variant bg-panel p-5">
             <h2 className="text-body-large font-bold">Pratinjau</h2>
             <p className="mt-1 text-body-medium text-on-surface-variant">
@@ -361,12 +375,169 @@ export default function SeatMapAdminPage() {
                 textColor={previewSession?.text_color ?? "#ffffff"}
                 accentColor={previewSession?.accent_color ?? "#f2c14e"}
                 seatColors={previewSession}
-                className="min-w-[760px]"
+                // Tinggi pratinjau DIBATASI, lebarnya yang mengikuti kanvas.
+                //
+                // Kanvas tiap tata ruang punya rasio sendiri: banquet lebar dan
+                // pendek, U-shape sempit dan menjulang. Tanpa batas tinggi, denah
+                // sempit yang dilebarkan ke lebar penuh halaman ikut memanjang ke
+                // bawah sampai layar penuh — pratinjau yang harus digulir berhenti
+                // menjadi pratinjau, karena tidak bisa dinilai sekali lihat.
+                //
+                // SVG ber-viewBox menyusut sendiri saat tingginya dibatasi
+                // (preserveAspectRatio bawaan), jadi yang terjadi bukan pemotongan
+                // melainkan penskalaan — seluruh denah tetap terlihat utuh.
+                maxHeight="clamp(320px, 58vh, 620px)"
+                className="min-w-[560px]"
               />
             </div>
           </div>
 
-          <div className="rounded-lg border border-outline-variant bg-panel p-5">
+        </section>
+
+        {/* Kolom CSS, bukan grid.
+            Grid memaksa setiap baris setinggi kartu tertingginya, sehingga kartu
+            pendek meninggalkan bidang kosong di sebelahnya — persis lubang yang
+            terlihat di kanan bawah sebelum ini. Kolom mengisi ke bawah lalu
+            pindah kolom, jadi kartu setinggi apa pun tersusun rapat.
+
+            `break-inside-avoid` di tiap kartu wajib: tanpa itu satu kartu bisa
+            terpotong di tengah dan separuhnya pindah ke kolom berikutnya. */}
+        <section className="mt-5 gap-5 lg:columns-2 xl:columns-3 [&>*]:mb-5">
+          {/* Tata ruang berdiri sebagai kartu SENDIRI, paling atas di kolom
+              setelan. Ia keputusan yang menentukan arti seluruh setelan lain di
+              bawahnya — jumlah meja per baris hanya berlaku untuk denah bermeja
+              bundar, jumlah baris hanya berlaku untuk theater — dan sebelumnya ia
+              terkubur di bawah dua bagian lain sehingga tidak terlihat sama
+              sekali tanpa menggulir. */}
+          <div className="break-inside-avoid rounded-lg border border-outline-variant bg-panel p-5">
+            <h2 className="text-body-large font-bold">Tata letak ruangan</h2>
+
+            {/* Pemilih tata ruang berdiri PALING ATAS di kartu ini karena ia
+                menentukan setelan mana yang berlaku di bawahnya: jumlah meja per
+                baris hanya berarti untuk denah bermeja bundar, sedangkan jumlah
+                baris dan kursi per baris hanya berarti untuk theater. */}
+            <label className="mt-4 block text-body-medium font-semibold" htmlFor="layout-type">Jenis tata ruang</label>
+            <select
+              id="layout-type"
+              value={config.layout_type}
+              onChange={(event) => {
+                const layout = event.target.value as SeatMapLayout;
+                // Parameter DIKEMBALIKAN ke bawaan layout yang dipilih, bukan
+                // dipertahankan dari layout sebelumnya.
+                //
+                // Sebelumnya nilai lama menimpa bawaan, dan akibatnya terukur:
+                // berpindah dari Banquet ke Cabaret tidak mengubah apa pun di
+                // pratinjau, karena busur 300 derajat milik Banquet ikut terbawa
+                // dan menimpa bawaan Cabaret yang 190. Pilihan yang tidak
+                // mengubah apa pun terbaca sebagai fitur yang rusak.
+                setConfig((current) => current && {
+                  ...current,
+                  layout_type: layout,
+                  layout_params: layoutDefaults(layout),
+                });
+              }}
+              className="rounded-md mt-1 min-h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium"
+            >
+              {SEAT_MAP_LAYOUTS.map((layout) => (
+                <option key={layout} value={layout}>{LAYOUT_INFO[layout].name}</option>
+              ))}
+            </select>
+            <p className="mt-2 text-body-small leading-5 text-on-surface-variant">
+              {LAYOUT_INFO[config.layout_type].desc} {LAYOUT_INFO[config.layout_type].labelHint}.
+            </p>
+            <p className="mt-2 text-body-small leading-5 text-warning">
+              Tata ruang tidak dapat diganti setelah ada peserta yang punya nomor kursi: bentuk label
+              kursinya ikut berubah, dan seluruh penempatan yang sudah masuk akan gugur.
+            </p>
+
+            {/* Setelan yang hanya berlaku untuk sebagian layout DISEMBUNYIKAN,
+                bukan dinonaktifkan: kolom mati yang tetap terlihat membuat admin
+                mengira ada yang rusak. */}
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              {config.layout_type === "banquet_round" || config.layout_type === "cabaret" || config.layout_type === "head_table" ? (
+                <label className="block text-body-medium font-semibold">
+                  Busur kursi (derajat)
+                  <input type="number" min={60} max={340} value={config.layout_params.arc_sweep}
+                    onChange={(event) => updateParam("arc_sweep", Number(event.target.value))}
+                    className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium font-normal" />
+                  <span className="mt-1 block text-body-small font-normal text-on-surface-variant">
+                    300 = kursi hampir mengelilingi meja. 190 = cabaret, tidak ada yang membelakangi panggung.
+                  </span>
+                </label>
+              ) : null}
+
+              {config.layout_type === "theater" || config.layout_type === "classroom" ? (
+                <>
+                  <label className="block text-body-medium font-semibold">
+                    Jumlah baris
+                    <input type="number" min={1} max={40} value={config.layout_params.rows}
+                      onChange={(event) => updateParam("rows", Number(event.target.value))}
+                      className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium font-normal" />
+                  </label>
+                  <label className="block text-body-medium font-semibold">
+                    {config.layout_type === "theater" ? "Kursi per baris" : "Meja per baris"}
+                    <input type="number" min={1} max={40} value={config.layout_params.per_row}
+                      onChange={(event) => updateParam("per_row", Number(event.target.value))}
+                      className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium font-normal" />
+                  </label>
+                </>
+              ) : null}
+
+              {config.layout_type === "classroom" ? (
+                <label className="block text-body-medium font-semibold">
+                  Kursi per meja
+                  <input type="number" min={1} max={12} value={config.layout_params.seats_per_table}
+                    onChange={(event) => updateParam("seats_per_table", Number(event.target.value))}
+                    className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium font-normal" />
+                </label>
+              ) : null}
+
+              {config.layout_type === "theater" ? (
+                <label className="block text-body-medium font-semibold">
+                  Lorong setelah kursi ke-
+                  <input
+                    value={config.layout_params.aisles.join(", ")}
+                    onChange={(event) => updateParam(
+                      "aisles",
+                      event.target.value.split(",").map((bagian) => Number(bagian.trim())).filter((angka) => Number.isFinite(angka) && angka > 0),
+                    )}
+                    placeholder="mis. 5, 10"
+                    className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium font-normal" />
+                  <span className="mt-1 block text-body-small font-normal text-on-surface-variant">
+                    Pisahkan dengan koma. Kosongkan bila tanpa lorong.
+                  </span>
+                </label>
+              ) : null}
+
+              {config.layout_type === "u_shape" || config.layout_type === "hollow_square" || config.layout_type === "boardroom" ? (
+                <>
+                  <label className="block text-body-medium font-semibold">
+                    Kursi per sisi panjang
+                    <input type="number" min={1} max={40} value={config.layout_params.seats_per_side}
+                      onChange={(event) => updateParam("seats_per_side", Number(event.target.value))}
+                      className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium font-normal" />
+                  </label>
+                  <label className="block text-body-medium font-semibold">
+                    {config.layout_type === "boardroom" ? "Kursi di ujung meja" : "Kursi di sisi kepala"}
+                    <input type="number" min={0} max={20} value={config.layout_params.seats_head}
+                      onChange={(event) => updateParam("seats_head", Number(event.target.value))}
+                      className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium font-normal" />
+                  </label>
+                </>
+              ) : null}
+
+              {config.layout_type === "head_table" ? (
+                <label className="block text-body-medium font-semibold">
+                  Kursi meja utama
+                  <input type="number" min={1} max={26} value={config.layout_params.head_seats}
+                    onChange={(event) => updateParam("head_seats", Number(event.target.value))}
+                    className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium font-normal" />
+                </label>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="break-inside-avoid rounded-lg border border-outline-variant bg-panel p-5">
             {/* Pemilih agenda yang tampil di layar publik. Ini yang memindahkan
                 seluruh LED dari sesi pagi ke sesi malam tanpa menyentuh
                 perangkatnya, yang saat acara berjalan bisa sulit dijangkau.
@@ -401,7 +572,10 @@ export default function SeatMapAdminPage() {
               Untuk menjalankan dua layar dengan agenda berbeda sekaligus, sebut agendanya di alamat masing-masing, misalnya <code>/denah?sesi={sessions[0]?.slug ?? "slug-agenda"}</code>. Alamat selalu menang atas setelan ini.
             </p>
 
-            <h2 className="mt-6 border-t border-outline-variant pt-5 text-body-large font-bold">Mode tampilan publik</h2>
+          </div>
+
+          <div className="break-inside-avoid rounded-lg border border-outline-variant bg-panel p-5">
+            <h2 className="text-body-large font-bold">Mode tampilan publik</h2>
             <p className="mt-1 text-body-medium text-on-surface-variant">Pilih sesuai jenis layar yang dipakai.</p>
             <fieldset className="mt-3 space-y-2">
               <legend className="sr-only">Mode tampilan halaman publik</legend>
@@ -419,7 +593,10 @@ export default function SeatMapAdminPage() {
               Ini setelan bawaan semua layar. Satu layar bisa dipaksa ke mode tertentu lewat <code>/denah?mode=qr</code> atau <code>?mode=search</code>, berguna bila LED dan layar sentuh dipakai bersamaan.
             </p>
 
-            <h2 className="mt-6 border-t border-outline-variant pt-5 text-body-large font-bold">Tata letak</h2>
+          </div>
+
+          <div className="break-inside-avoid rounded-lg border border-outline-variant bg-panel p-5">
+            <h2 className="text-body-large font-bold">Ukuran ruangan</h2>
 
             <label className="mt-4 block text-body-medium font-semibold" htmlFor="map-name">Nama denah</label>
             <input id="map-name" value={config.name} onChange={(event) => updateConfig("name", event.target.value)}
@@ -430,7 +607,9 @@ export default function SeatMapAdminPage() {
               className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-3 text-body-medium" />
             <p className="mt-1 text-body-small text-on-surface-variant">Acuan arah tamu saat membaca denah.</p>
 
-            <fieldset className="mt-5">
+            {/* Baris meja hanya berlaku untuk denah bermeja bundar. Pada theater,
+                classroom, dan rapat, jumlah mejanya ditentukan parameter di atas. */}
+            <fieldset className={`mt-5 ${["banquet_round", "cabaret", "head_table"].includes(config.layout_type) ? "" : "hidden"}`}>
               <legend className="text-body-medium font-semibold">Jumlah meja per baris</legend>
               <p className="mt-1 text-body-small text-on-surface-variant">Baris pertama paling dekat panggung. Nomor meja berjalan menerus.</p>
               <div className="mt-2 space-y-2">
@@ -465,8 +644,12 @@ export default function SeatMapAdminPage() {
               </p>
 
               {labeledTables.length > 0 ? <div className="mt-3 space-y-2">
-                {labeledTables.map((position) => <div key={position} className="flex flex-wrap items-center gap-2">
-                  <span className="text-body-medium text-on-surface-variant">Meja ke-{position} ditulis</span>
+                {/* Nama posisi di kiri, kolom isian dan Hapus didorong ke kanan.
+                    Kalimat "Meja ke-4 ditulis" ditambah kolom dan tombol melewati
+                    lebar kolom kartu, dan pada `flex-wrap` ia terbelah sehingga
+                    kolom isiannya turun sendirian ke baris berikutnya. */}
+                {labeledTables.map((position) => <div key={position} className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 shrink text-body-medium text-on-surface-variant">Meja ke-{position}</span>
                   <input value={config.table_labels[String(position)] ?? ""} maxLength={MAX_TABLE_LABEL_LENGTH}
                     aria-label={`Label untuk meja ke-${position}`}
                     onChange={(event) => setTableLabel(position, event.target.value)}
@@ -479,8 +662,8 @@ export default function SeatMapAdminPage() {
               {/* Pemilih posisi, bukan kolom nomor bebas: mengetik "40" pada denah
                   32 meja menyimpan label untuk meja yang tidak ada, dan admin akan
                   menunggu perubahan yang tidak pernah muncul di pratinjau. */}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <label className="text-body-medium text-on-surface-variant" htmlFor="add-table-label">Tambah label untuk meja ke-</label>
+              <div className="mt-3">
+                <label className="block text-body-medium text-on-surface-variant" htmlFor="add-table-label">Tambah label untuk meja ke-</label>
                 <select id="add-table-label" value="" onChange={(event) => {
                   const position = Number(event.target.value);
                   if (!position) return;
@@ -488,7 +671,7 @@ export default function SeatMapAdminPage() {
                   // kosong; label kosong berarti meja tanpa tulisan di layar.
                   setTableLabel(position, String(position));
                 }}
-                  className="rounded-md min-h-11 border border-outline-variant px-3 text-body-medium">
+                  className="rounded-md mt-1 min-h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium">
                   <option value="">Pilih meja</option>
                   {Array.from({ length: totalTablesFromRows }, (_, index) => index + 1)
                     .filter((position) => !(String(position) in config.table_labels))
@@ -508,31 +691,60 @@ export default function SeatMapAdminPage() {
               </p>
             </fieldset>
 
-            <fieldset className="mt-5">
-              <legend className="text-body-medium font-semibold">Kursi per meja</legend>
+            {/* Aturan kursi per rentang meja hanya dibaca oleh tata ruang bermeja
+                bundar. Pada classroom, jumlah kursinya seragam per meja dan diatur
+                di kartu Tata letak ruangan; pada theater dan rapat, kursinya bukan
+                milik meja sama sekali.
+
+                Disembunyikan, bukan dibiarkan tampil: sebelumnya ada DUA setelan
+                bernama "Kursi per meja" di dua kartu berbeda saat classroom
+                dipilih, dan yang satu tidak berpengaruh apa pun. Dua kolom dengan
+                nama sama yang berbeda akibatnya adalah cara tercepat membuat admin
+                berhenti memercayai layar ini. */}
+            <fieldset className={`mt-5 ${["banquet_round", "cabaret", "head_table"].includes(config.layout_type) ? "" : "hidden"}`}>
+              <legend className="text-body-medium font-semibold">Kursi per meja bundar</legend>
               <p className="mt-1 text-body-small text-on-surface-variant">Diatur per rentang nomor meja. Aturan paling bawah menang bila bertumpuk.</p>
-              <div className="mt-2 space-y-2">
-                {config.seat_rules.map((rule, index) => <div key={index} className="flex flex-wrap items-center gap-2">
-                  <span className="text-body-medium text-on-surface-variant">Meja</span>
-                  {(["from", "to"] as const).map((field) => <input key={field} type="number" min={1} max={999} value={rule[field]}
-                    aria-label={field === "from" ? `Nomor meja awal aturan ${index + 1}` : `Nomor meja akhir aturan ${index + 1}`}
-                    onChange={(event) => {
-                      const next: SeatRule[] = [...config.seat_rules];
-                      next[index] = { ...rule, [field]: Math.max(1, Number(event.target.value) || 1) };
-                      updateConfig("seat_rules", next);
-                    }}
-                    className="rounded-md min-h-11 w-20 border border-outline-variant px-2 text-body-medium" />)}
-                  <span className="text-body-medium text-on-surface-variant">=</span>
-                  <input type="number" min={0} max={26} value={rule.seats} aria-label={`Jumlah kursi aturan ${index + 1}`}
-                    onChange={(event) => {
-                      const next: SeatRule[] = [...config.seat_rules];
-                      next[index] = { ...rule, seats: Math.max(0, Number(event.target.value) || 0) };
-                      updateConfig("seat_rules", next);
-                    }}
-                    className="rounded-md min-h-11 w-20 border border-outline-variant px-2 text-body-medium" />
-                  <span className="text-body-medium text-on-surface-variant">kursi</span>
-                  <button type="button" onClick={() => updateConfig("seat_rules", config.seat_rules.filter((_, i) => i !== index))}
-                    className="min-h-11 px-2 text-body-medium font-semibold text-error">Hapus</button>
+              {/* Satu aturan = satu baris kisi berkolom tetap, bukan deretan
+                  kontrol yang dibiarkan membungkus.
+
+                  Sebelumnya baris ini `flex flex-wrap` berisi tujuh elemen:
+                  "Meja", dua kotak angka, "=", satu kotak angka, "kursi", dan
+                  tombol Hapus. Di kolom selebar 400px ia terbelah di tempat yang
+                  berbeda-beda — "Meja [1] [25] =" di baris pertama, "[6] kursi
+                  Hapus" di baris kedua — sehingga angka dan satuannya terpisah
+                  dan tidak ada dua aturan yang sejajar.
+
+                  Kisi tiga kolom membuat setiap kotak angka punya judulnya
+                  sendiri di atasnya, dan kolomnya tetap sejajar antar aturan
+                  berapa pun lebar kartunya. */}
+              <div className="mt-3 space-y-3">
+                {config.seat_rules.map((rule, index) => <div key={index} className="rounded-lg border border-outline-variant p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-body-small font-semibold uppercase tracking-[0.12em] text-on-surface-variant">
+                      Aturan {index + 1}
+                    </span>
+                    <button type="button" onClick={() => updateConfig("seat_rules", config.seat_rules.filter((_, i) => i !== index))}
+                      className="m3-state min-h-9 rounded-full px-3 text-body-small font-semibold text-error">Hapus</button>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {([
+                      { field: "from" as const, label: "Meja dari", min: 1, max: 999 },
+                      { field: "to" as const, label: "sampai", min: 1, max: 999 },
+                      { field: "seats" as const, label: "kursi", min: 0, max: 26 },
+                    ]).map(({ field, label, min, max }) => (
+                      <label key={field} className="block text-body-small text-on-surface-variant">
+                        {label}
+                        <input type="number" min={min} max={max} value={rule[field]}
+                          onChange={(event) => {
+                            const angka = Math.max(min, Number(event.target.value) || min);
+                            const next: SeatRule[] = [...config.seat_rules];
+                            next[index] = { ...rule, [field]: angka };
+                            updateConfig("seat_rules", next);
+                          }}
+                          className="rounded-md mt-1 min-h-11 w-full border border-outline-variant px-2 text-body-medium text-on-surface" />
+                      </label>
+                    ))}
+                  </div>
                 </div>)}
               </div>
               <button type="button" onClick={() => updateConfig("seat_rules", [...config.seat_rules, { from: 1, to: 1, seats: 6 }])}
@@ -546,12 +758,19 @@ export default function SeatMapAdminPage() {
               Wajib memuat <code>{"{table}"}</code> dan <code>{"{seat}"}</code>. Harus sama dengan penulisan label di scanner API, kalau tidak kursi tidak akan cocok.
             </p>
 
-            <button type="button" onClick={() => void saveConfig()} disabled={savingConfig || labelConflicts.length > 0}
-              className="rounded-md mt-5 min-h-12 w-full bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-60">
-              {savingConfig ? "Menyimpan…" : labelConflicts.length > 0 ? "Betulkan label ganda dulu" : "Simpan tata letak"}
-            </button>
           </div>
         </section>
+
+        {/* Simpan berdiri di luar kartu-kartu setelan, bukan di dalam salah
+            satunya. Ia menyimpan SELURUH tata letak — jenis tata ruang, ukuran
+            ruangan, mode tampilan, label meja — dan tombol yang duduk di dalam
+            satu kartu terbaca seolah hanya menyimpan kartu itu. */}
+        <div className="mt-5 flex justify-end">
+          <button type="button" onClick={() => void saveConfig()} disabled={savingConfig || labelConflicts.length > 0}
+            className="rounded-md min-h-12 w-full bg-primary px-6 text-body-medium font-semibold text-on-primary disabled:opacity-60 sm:w-auto">
+            {savingConfig ? "Menyimpan…" : labelConflicts.length > 0 ? "Betulkan label ganda dulu" : "Simpan tata letak"}
+          </button>
+        </div>
 
         <section className="mt-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
