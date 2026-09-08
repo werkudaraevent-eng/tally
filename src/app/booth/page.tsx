@@ -7,7 +7,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { HelpPanel } from "@/components/help-panel";
 import { SearchResultsSkeleton, Spinner } from "@/components/search-loading";
 import { useToast } from "@/components/toast";
-import { Button, Card, EmptyState, StatusChip, TextArea, useScrolledPastTop, type ChipTone } from "@/components/m3";
+import { Button, Card, Dialog, EmptyState, StatusChip, TextArea, useScrolledPastTop, type ChipTone } from "@/components/m3";
 import { formatEventDateTime, formatEventTime } from "@/lib/datetime";
 import { MAX_ORDER_AMOUNT } from "@/lib/domain";
 import { DEFAULT_TIME_ZONE, normalizeTimeZone, type EventTimeZone } from "@/lib/timezone";
@@ -579,7 +579,11 @@ export default function BoothPage() {
         )}
 
         {success ? (
-          <section className="flex min-h-[65dvh] items-center justify-center rounded-2xl bg-success-container p-8 text-center text-on-success-container">
+          // `scan-flash` + `key`: satu kedipan terang per order, sama seperti
+          // layar pemindai. Dua order berturut-turut menghasilkan bidang hijau
+          // yang identik, dan tanpa kedipan staf tidak tahu order keduanya
+          // tersimpan atau layarnya belum berubah sejak tadi.
+          <section key={success} className="scan-flash flex min-h-[65dvh] items-center justify-center rounded-2xl bg-success-container p-8 text-center text-on-success-container">
             <div>
               <CheckCircle size={80} weight="fill" className="mx-auto" />
               <p className="mt-6 text-label-large font-semibold uppercase tracking-[0.2em] opacity-80">Order berhasil dibuat</p>
@@ -871,7 +875,10 @@ export default function BoothPage() {
                         <p aria-live="polite" className="sr-only">{searching ? "Mencari peserta" : results.length > 0 ? `${results.length} peserta ditemukan` : ""}</p>
 
                         {!searching && results.length > 0 && (
-                          <div className="mt-3 divide-y divide-outline-variant overflow-hidden rounded-lg border border-outline-variant">
+                          // `rise-in-fast`: hasil menggantikan kerangka dengan naik-pudar
+                          // singkat, bukan bertukar seketika — pergantian mendadak dua
+                          // blok setinggi sama terbaca sebagai kedipan.
+                          <div className="rise-in-fast mt-3 divide-y divide-outline-variant overflow-hidden rounded-lg border border-outline-variant">
                             {/* Lewat lookupParticipant, bukan setParticipant langsung: hasil pencarian tidak
                                 membawa daftar penawaran spesial, jadi memilih dari sini tanpa lookup akan
                                 menampilkan panel item spesial kosong. */}
@@ -994,33 +1001,32 @@ export default function BoothPage() {
           </div>
         )}
 
-        {voidTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 p-5">
-            <div className="w-full max-w-md rounded-2xl bg-surface-container-high p-6 shadow-level3">
-              <div className="flex items-center gap-2">
-                <XCircle size={22} weight="fill" className="text-error" />
-                <h2 className="text-title-large font-semibold">Void order {voidTarget.code}</h2>
-              </div>
-              <p className="mt-3 text-body-medium text-on-surface-variant">
-                Order dibatalkan dan nilainya keluar dari hitungan top spender. Kuota item diskon peserta kembali tersedia. Alasan wajib diisi dan tercatat di audit log.
-              </p>
-              <TextArea
-                className="mt-5"
-                label="Alasan void"
-                value={voidReason}
-                onChange={(event) => setVoidReason(event.target.value)}
-                rows={3}
-                placeholder="Contoh: salah input nominal, peserta batal"
-              />
-              <div className="mt-6 flex gap-3">
-                <Button variant="outlined" className="flex-1" onClick={() => { setVoidTarget(null); setVoidReason(""); }}>Batal</Button>
-                <Button variant="danger" className="flex-1" loading={pending} disabled={!online || !voidReason.trim()} onClick={confirmVoid}>
-                  {pending ? "Memproses..." : "Void order"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Dialog
+          open={voidTarget !== null}
+          onClose={() => { setVoidTarget(null); setVoidReason(""); }}
+          dismissible={!pending}
+          tone="danger"
+          icon={<XCircle size={22} weight="fill" />}
+          title={`Void order ${voidTarget?.code ?? ""}`}
+          description="Order dibatalkan dan nilainya keluar dari hitungan top spender. Kuota item diskon peserta kembali tersedia. Alasan wajib diisi dan tercatat di audit log."
+          actions={
+            <>
+              <Button variant="outlined" className="flex-1" onClick={() => { setVoidTarget(null); setVoidReason(""); }}>Batal</Button>
+              <Button variant="danger" className="flex-1" loading={pending} disabled={!online || !voidReason.trim()} onClick={confirmVoid}>
+                Void order
+              </Button>
+            </>
+          }
+        >
+          <TextArea
+            className="mt-5"
+            label="Alasan void"
+            value={voidReason}
+            onChange={(event) => setVoidReason(event.target.value)}
+            rows={3}
+            placeholder="Contoh: salah input nominal, peserta batal"
+          />
+        </Dialog>
 
         {scanning && (
           /* Overlay scanner selalu gelap, tidak ikut tema. Pratinjau kamera dibaca

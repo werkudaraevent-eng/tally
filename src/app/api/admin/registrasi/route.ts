@@ -149,15 +149,29 @@ export async function PATCH(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const event = auth.scope.event;
-  // CHECK `events_registration_source` menolak registration_enabled = true saat
-  // sumbernya bukan public_form/hybrid, dan pesan Postgres-nya tidak bisa
-  // ditindaklanjuti admin. Diperiksa di sini supaya jawabannya menyebut apa
-  // yang harus diubah lebih dulu.
-  if (parsed.data.registration_enabled && !["public_form", "hybrid"].includes(event.participant_source)) {
-    return apiError("VALIDATION_ERROR", 422, {
-      message: 'Sumber peserta event ini bukan "Form registrasi publik" atau "Gabungan". Ubah dulu di konfigurasi event sebelum membuka pendaftaran.',
-    });
-  }
+
+  /**
+   * Sumber peserta dinaikkan sendiri saat pendaftaran dibuka, bukan ditolak.
+   *
+   * CHECK `events_registration_source` menuntut sumbernya public_form atau
+   * hybrid sebelum `registration_enabled` boleh true. Versi sebelumnya menolak
+   * permintaannya dan menyuruh admin "ubah dulu di konfigurasi event" -- sebuah
+   * layar yang TIDAK ADA. `participant_source` hanya bisa diisi saat event
+   * dibuat; PATCH event hanya melayani perpindahan status. Jadi pesan itu
+   * mengirim admin ke jalan buntu, dan satu-satunya jalan keluarnya adalah
+   * membuat ulang seluruh acara.
+   *
+   * Menaikkannya di sini bukan menebak maksud admin: menyalakan pendaftaran
+   * publik TIDAK punya arti lain selain "acara ini menerima peserta dari
+   * formulir". Scanner API yang sudah menyala dipertahankan, karena mematikannya
+   * akan menghentikan sinkronisasi yang tidak diminta siapa pun.
+   */
+  const sumberBaru =
+    parsed.data.registration_enabled && !["public_form", "hybrid"].includes(event.participant_source)
+      ? event.participant_source === "scanner_api"
+        ? "hybrid"
+        : "public_form"
+      : null;
 
   // Susunan form diperiksa DI SINI, bukan hanya di penyunting.
   //
@@ -187,6 +201,7 @@ export async function PATCH(request: Request) {
     .from("events")
     .update({
       registration_enabled: parsed.data.registration_enabled,
+      ...(sumberBaru ? { participant_source: sumberBaru } : {}),
       ...(formConfig ? { registration_form_config: formConfig } : {}),
       // Auto-approve tanpa pendaftaran yang dibuka tidak punya arti, dan
       // menyimpannya sebagai true berarti event yang dibuka lagi berbulan
@@ -195,7 +210,7 @@ export async function PATCH(request: Request) {
       updated_at: new Date().toISOString(),
     } as never)
     .eq("id", event.id)
-    .select("registration_enabled,registration_auto_approve,registration_form_config")
+    .select("registration_enabled,registration_auto_approve,registration_form_config,participant_source")
     .single();
   if (error) return apiError("INTERNAL_ERROR", 500);
 
@@ -203,7 +218,10 @@ export async function PATCH(request: Request) {
     event_id: event.id,
     user_id: auth.user.id,
     action: "registration_config_update",
-    payload: { new: data },
+    // Kenaikan sumber peserta dicatat terpisah, bukan tenggelam di dalam `new`.
+    // Ia satu-satunya kolom di sini yang diubah aplikasi atas inisiatifnya
+    // sendiri, dan yang diubah tanpa diminta harus bisa ditelusuri.
+    payload: { new: data, ...(sumberBaru ? { participant_source_promoted_to: sumberBaru } : {}) },
   } as never);
 
   return Response.json(data);

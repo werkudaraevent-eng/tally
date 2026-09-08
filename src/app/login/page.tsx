@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowRight, Eye, EyeSlash, LockKey, QrCode, ShieldCheck, WifiSlash } from "@phosphor-icons/react";
-import { FormEvent, useState } from "react";
+import { ArrowRight, CalendarDots, Eye, EyeSlash, LockKey, QrCode, ShieldCheck, WifiSlash } from "@phosphor-icons/react";
+import { useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
 import { Button, IconButton, TextField, ThemeToggle } from "@/components/m3";
@@ -75,17 +75,35 @@ export default function LoginPage() {
   }
 
   return (
-    // Sebelumnya `main` memakai min-h-dvh DAN anaknya memakai
-    // min-h-[calc(100dvh-2.5rem)] di atas padding py-5 + py-12, jadi tinggi
-    // total selalu melebihi viewport dan memaksa scroll. Sekarang tinggi
-    // dikunci ke layar dan hanya viewport pendek yang boleh scroll.
-    <main className="flex min-h-dvh flex-col bg-surface px-5 text-on-surface sm:px-8 lg:h-dvh lg:overflow-hidden lg:px-12">
+    // TIDAK PERNAH `overflow-hidden` pada halaman ini.
+    //
+    // Versi sebelumnya mengunci `lg:h-dvh lg:overflow-hidden` supaya layar lebar
+    // tidak menggulir. Di laptop 768p dengan skala Windows 150%, viewport-nya
+    // ~600px tinggi: kartu login terpotong di tombol Masuk dan tidak ada cara
+    // menggulirnya. Halaman yang tidak bisa digulir hanya benar bila isinya
+    // DIJAMIN muat, dan tinggi viewport tidak pernah bisa dijamin.
+    //
+    // Sekarang: tinggi minimal satu layar, isi dipusatkan, dan pada viewport
+    // pendek (`short:`) jarak serta padding dipangkas supaya kartu tetap muat
+    // tanpa gulir di sebagian besar laptop. Kalau toh masih kurang, halaman
+    // menggulir — itu keadaan yang bisa dipulihkan pengguna, terpotong tidak.
+    //
+    // Sapuan tonal di latar: warna merek dicampur ke kanvas dari sudut kanan
+    // atas, sama dengan hero halaman acara dan formulir pendaftaran. Statis —
+    // ini layar kerja, dan DESIGN.md menempatkannya di lapisan tenang.
+    <main
+      className="flex min-h-dvh flex-col bg-surface px-5 text-on-surface sm:px-8 lg:px-12"
+      style={{
+        backgroundImage:
+          "radial-gradient(110% 90% at 88% -12%, color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent), transparent 58%), radial-gradient(70% 60% at 0% 100%, color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent), transparent 55%)",
+      }}
+    >
       <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col">
-        <header className="flex shrink-0 items-center gap-3 border-b border-outline-variant py-4">
+        <header className="flex shrink-0 items-center gap-3 border-b border-outline-variant py-4 short:py-3">
           <div className="flex size-11 items-center justify-center rounded-lg bg-primary text-on-primary"><QrCode size={24} weight="bold" /></div>
           <div className="flex-1">
             <p className="text-label-medium font-semibold uppercase tracking-[0.18em] text-on-surface-variant">Tally</p>
-            <p className="text-title-small font-semibold">Event Transaction Hub</p>
+            <p className="text-title-small font-semibold">Pusat operasional acara</p>
           </div>
           {/* Pemilih tema ada di layar login, bukan hanya di admin: staf booth dan
               kasir tidak pernah membuka admin, dan merekalah yang paling sering
@@ -95,32 +113,43 @@ export default function LoginPage() {
 
         {/* py-4 di mobile: pada iPhone SE (375x667) padding 32px membuat kartu
             melebihi viewport 22px dan memunculkan scroll. */}
-        <div className="grid flex-1 items-center gap-8 py-4 sm:py-8 lg:grid-cols-[1fr_minmax(380px,460px)] lg:gap-16 lg:py-6">
+        <div className="grid flex-1 items-center gap-8 py-4 sm:py-8 lg:grid-cols-[1fr_minmax(380px,460px)] lg:gap-16 lg:py-6 short:py-3">
           {/* Disembunyikan di mobile: di layar sempit heading raksasa mendorong
               form ke bawah fold, padahal header sudah membawa identitas produk. */}
-          <section className="hidden max-w-xl lg:block">
-            <p className="text-label-large font-semibold uppercase tracking-[0.18em] text-primary">Operator access</p>
+          {/* `rise-in-fast`: satu gerak masuk pendek dan tenang (skema standard),
+              sekali saat muat. Layar login dibuka puluhan kali semalam; gerak
+              yang lebih dari 300ms di sini adalah gerak yang ditunggu. */}
+          <section className="rise-in-fast hidden max-w-xl lg:block">
+            {/* Satu bahasa. Sebelumnya "Operator access" dan "Keep the room
+                moving." berdiri di antara kalimat Indonesia — dua baris Inggris
+                yang tidak dibaca siapa pun kecuali sebagai hiasan. Isinya pun
+                warisan masa platform ini hanya sistem kasir. */}
+            <p className="text-label-large font-semibold uppercase tracking-[0.18em] text-primary">Akses panitia</p>
             {/* clamp menggantikan skala tetap agar heading menyusut di laptop
                 768px-tinggi, bukan memaksa halaman scroll. Batas atasnya setara
                 display-medium M3. */}
-            <h1 className="mt-4 text-[clamp(2.5rem,4.4vw,3.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">Keep the room moving.</h1>
+            <h1 className="mt-4 text-[clamp(2.5rem,4.4vw,3.5rem)] font-semibold leading-[1.02] tracking-[-0.03em] short:text-[clamp(2rem,3.4vw,2.75rem)]">Dari pendaftaran sampai panggung.</h1>
             <p className="mt-5 max-w-md text-body-large text-on-surface-variant">Login dengan username dan PIN panitia. Sistem otomatis mengarahkan Anda sesuai peran akun.</p>
-            <ul className="mt-8 space-y-3 border-t border-outline-variant pt-6 text-body-medium text-on-surface-variant">
-              <li className="flex items-center gap-3"><ShieldCheck size={20} className="shrink-0 text-primary" /> Role dicek di server pada setiap aksi.</li>
-              <li className="flex items-center gap-3"><WifiSlash size={20} className="shrink-0 text-primary" /> Status koneksi selalu terlihat saat bertransaksi.</li>
+            {/* Butir keterangan dilepas di viewport pendek: kolom kiri tidak
+                boleh lebih tinggi daripada kartu, karena kartulah yang
+                menentukan apakah halaman perlu digulir. */}
+            <ul className="mt-8 space-y-3 border-t border-outline-variant pt-6 text-body-medium text-on-surface-variant short:hidden">
+              <li className="flex items-center gap-3"><CalendarDots size={20} className="shrink-0 text-primary" /> Satu akun untuk semua acara yang diberi akses.</li>
+              <li className="flex items-center gap-3"><ShieldCheck size={20} className="shrink-0 text-primary" /> Peran dicek di server pada setiap aksi.</li>
+              <li className="flex items-center gap-3"><WifiSlash size={20} className="shrink-0 text-primary" /> Status koneksi selalu terlihat di layar kerja.</li>
             </ul>
           </section>
 
-          <div className="w-full rounded-2xl bg-surface-container p-6 sm:p-8">
+          <div className="rise-in-fast w-full rounded-2xl bg-surface-container p-6 sm:p-8 short:p-5" style={{ "--rise-delay": "60ms" } as CSSProperties}>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-label-medium font-semibold uppercase tracking-[0.16em] text-on-surface-variant">Sign in</p>
+                <p className="text-label-medium font-semibold uppercase tracking-[0.16em] text-on-surface-variant">Panitia</p>
                 <h2 className="mt-1.5 text-headline-small font-semibold tracking-tight">Masuk workspace</h2>
               </div>
               <LockKey size={26} weight="duotone" className="mt-1 shrink-0 text-primary" />
             </div>
 
-            <form className="mt-6" onSubmit={handleSubmit} noValidate>
+            <form className="mt-6 short:mt-4" onSubmit={handleSubmit} noValidate>
               <TextField
                 label="Username"
                 name="username"
@@ -160,13 +189,16 @@ export default function LoginPage() {
                 <input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} className="mt-0.5 size-5 shrink-0 accent-[var(--md-sys-color-primary)]" />
                 <span>
                   <span className="block text-body-large font-semibold">Ingat saya di device ini</span>
-                  <span className="mt-0.5 block text-body-small text-on-surface-variant">Sesi bertahan 30 hari. Tanpa dicentang, sesi berlaku 12 jam.</span>
+                  <span className="mt-0.5 block text-body-small text-on-surface-variant short:hidden">Sesi bertahan 30 hari. Tanpa dicentang, sesi berlaku 12 jam.</span>
                 </span>
               </label>
 
+              {/* `short:min-h-14`: target sentuh 64px milik layar operasional
+                  yang dipakai berdiri; login dibuka sambil duduk di laptop, dan
+                  di viewport pendek 8px itu selisih antara muat dan menggulir. */}
               <Button
                 type="submit"
-                className="mt-6"
+                className="mt-6 short:mt-4 short:min-h-14"
                 size="xl"
                 block
                 loading={pending}
@@ -178,7 +210,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <footer className="shrink-0 border-t border-outline-variant py-4 text-body-small text-on-surface-variant">Akses operator terlindungi.</footer>
+        <footer className="shrink-0 border-t border-outline-variant py-4 text-body-small text-on-surface-variant short:py-3">Akses panitia terlindungi.</footer>
       </div>
     </main>
   );

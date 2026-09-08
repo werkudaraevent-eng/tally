@@ -107,6 +107,10 @@ export function SeatMapView({
   );
 
   const hasHighlight = highlighted.size > 0;
+  // Kunci cincin denyut: animasi CSS hanya berjalan ulang bila elemennya
+  // dibuat ulang, jadi pencarian baru menghasilkan kunci baru. Pencarian yang
+  // persis sama tidak mengulang denyutnya — tamu sudah melihat kursinya.
+  const highlightKey = highlightedSeatLabels.join("|");
   const interactive = Boolean(onSeatClick || onTableClick);
 
   if (geometry.tables.length === 0) {
@@ -239,6 +243,22 @@ export function SeatMapView({
 
               return (
                 <g key={seat.label}>
+                  {/* Cincin yang mengembang tiga kali lalu diam (lihat
+                      `.seat-pulse` di globals.css). Kursi yang hanya berganti
+                      warna tenggelam di antara dua ratus kursi lain. */}
+                  {isHighlighted ? (
+                    <circle
+                      key={`pulse-${highlightKey}`}
+                      className="seat-pulse"
+                      cx={seat.x}
+                      cy={seat.y}
+                      r={seat.r}
+                      fill="none"
+                      stroke={accentColor}
+                      strokeWidth={2}
+                      pointerEvents="none"
+                    />
+                  ) : null}
                   <circle
                     cx={seat.x}
                     cy={seat.y}

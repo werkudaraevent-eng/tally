@@ -1,10 +1,26 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BrandFooter, BrandLogo } from "@/components/brand-header-footer";
+import { LoadingIndicator } from "@/components/m3";
 import { DEFAULT_BRANDING, fontStack, normalizeBranding, scaleClamp, type Branding } from "@/lib/branding";
+import { expressive } from "@/lib/m3/motion";
 import type { UndianState } from "@/lib/undian";
 import { CardsAnimation, ConfettiBurst, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList } from "./undian-animations";
+import { AmbientStage, RevealBurst, ShineText } from "./undian-stage-fx";
+
+/**
+ * Pergantian blok di panggung: yang lama menyusut-pudar, yang baru mengembang
+ * masuk. `mode="wait"` supaya dua blok tidak pernah berdiri bertumpuk di
+ * ruang yang tingginya tetap.
+ */
+const TUKAR_PANGGUNG = {
+  initial: { opacity: 0, scale: 0.94, y: "2vh" },
+  animate: { opacity: 1, scale: 1, y: 0 },
+  exit: { opacity: 0, scale: 1.03, transition: { duration: 0.22 } },
+  transition: { ...expressive.spatial.default, opacity: expressive.effects.default },
+} as const;
 
 // Layar panggung undian.
 //
@@ -25,6 +41,10 @@ type Props = { initial: UndianState & { branding: Branding } };
 export default function UndianClient({ initial }: Props) {
   const [state, setState] = useState(initial);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
+  // Kilatan dan cincin saat pemenang tampil. Terpisah dari confetti karena
+  // confetti bisa dimatikan dari CMS, sementara ledakan cahaya adalah bagian
+  // dari momen pengumuman itu sendiri.
+  const [burst, setBurst] = useState(0);
 
   const load = useCallback(async () => {
     const response = await fetch("/api/undian/state", { cache: "no-store" });
@@ -57,6 +77,7 @@ export default function UndianClient({ initial }: Props) {
   if (revealKey !== "" && seenReveal !== revealKey) {
     setSeenReveal(revealKey);
     if (state.settings.confetti_enabled) setConfettiTrigger((value) => value + 1);
+    setBurst((value) => value + 1);
   }
 
   useEffect(() => {
@@ -90,6 +111,12 @@ export default function UndianClient({ initial }: Props) {
   const endsAt = useMemo(() => (state.reveal_at ? new Date(state.reveal_at).getTime() : null), [state.reveal_at]);
   const spinning = state.phase === "spinning";
   const revealed = state.phase === "revealed" && state.winners.length > 0;
+  // Selama undian berjalan, kartu hadiah MENYUSUT: gambarnya dari 14vh ke 8vh,
+  // namanya turun satu tingkat, deskripsinya disembunyikan. Ruang yang
+  // dilepasnya diambil roda dan kartu pemenang — di panggung, yang harus paling
+  // besar adalah yang sedang bergerak, bukan poster hadiah yang sudah dibaca
+  // semua orang selama jeda.
+  const running = state.phase !== "idle";
 
   const animationProps = {
     roster: state.roster,
@@ -113,13 +140,18 @@ export default function UndianClient({ initial }: Props) {
   };
 
   return <main
-    className="flex h-dvh flex-col overflow-hidden"
+    // `relative isolate`: lapisan suasana (`-z-10`) harus jatuh di bawah isi
+    // tetapi di atas latar main, dan itu hanya terjamin di konteks tumpukan
+    // milik main sendiri.
+    className="relative isolate flex h-dvh flex-col overflow-hidden"
     style={{
       background: settings.background_image_url ? `url(${settings.background_image_url}) center/cover no-repeat, ${background}` : background,
       color: text,
     }}
   >
+    <AmbientStage accent={accent} text={text} />
     <ConfettiBurst trigger={confettiTrigger} accent={accent} text={text} />
+    <RevealBurst trigger={burst} accent={accent} />
 
     {/* Penanda LATIHAN.
         Gladi bersih hampir selalu dijalankan dengan layar panggung sungguhan
@@ -132,18 +164,24 @@ export default function UndianClient({ initial }: Props) {
         penanda yang harus dicari tidak menjalankan tugasnya. Warnanya tidak
         mengikuti branding dengan sengaja — justru harus terlihat asing terhadap
         tampilan acara. */}
-    {state.rehearsal && <div
-      className="shrink-0 text-center font-bold uppercase"
-      style={{
-        background: "#b45309",
-        color: "#ffffff",
-        letterSpacing: "0.22em",
-        fontSize: "clamp(10px, 1.6vmin, 22px)",
-        padding: "0.6vh 0",
-      }}
-    >
-      Mode latihan — hasil tidak dicatat
-    </div>}
+    <AnimatePresence initial={false}>
+      {state.rehearsal && <motion.div
+        key="latihan"
+        className="shrink-0 overflow-hidden text-center font-bold uppercase"
+        style={{
+          background: "#b45309",
+          color: "#ffffff",
+          letterSpacing: "0.22em",
+          fontSize: "clamp(10px, 1.6vmin, 22px)",
+        }}
+        initial={{ height: 0 }}
+        animate={{ height: "auto" }}
+        exit={{ height: 0 }}
+        transition={expressive.spatial.default}
+      >
+        <div style={{ padding: "0.6vh 0" }}>Mode latihan — hasil tidak dicatat</div>
+      </motion.div>}
+    </AnimatePresence>
 
     {/* Header: shrink-0 supaya tidak ikut menyusut ketika isi tengah membesar. */}
     <header className="shrink-0 px-[4vw] pt-[3vh] text-center">
@@ -176,38 +214,49 @@ export default function UndianClient({ initial }: Props) {
         isinya, wadahnya melampaui viewport, dan halaman ikut menggulir sehingga
         header terangkat keluar layar. */}
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[2vh] px-[4vw]">
-      {state.mode === "off" || !state.prize ? <div className="text-center">
-        <p style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: 0.35 }}>
+      {/* Menunggu adalah bagian dari acara di layar panggung, jadi ia boleh
+          terasa hidup: indikator morph ekspresif M3, bukan teks diam yang
+          terbaca seperti layar yang gagal memuat. */}
+      {state.mode === "off" || !state.prize ? <div className="flex flex-col items-center gap-[2.4vh] text-center">
+        <LoadingIndicator size="min(9vh, 96px)" color={accent} label="Menunggu sesi undian" />
+        <p aria-hidden style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: 0.35 }}>
           Menunggu sesi undian
         </p>
       </div> : <>
-        {/* Kartu hadiah */}
-        <div className="flex shrink-0 flex-col items-center gap-[1vh] text-center">
-          {state.prize.image_url && (
-            // `img` biasa, bukan next/image: URL-nya dari Supabase Storage dan
-            // bisa berubah kapan saja lewat CMS, sedangkan next/image butuh host
-            // yang didaftarkan lebih dulu di konfigurasi.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={state.prize.image_url}
-              alt=""
-              aria-hidden="true"
-              style={{ height: "min(14vh, 160px)", width: "auto", objectFit: "contain" }}
-            />
-          )}
-          <p
-            className="font-bold uppercase tracking-[-0.02em]"
-            style={{ fontFamily: headingFont, fontSize: "clamp(20px, 4vw, 68px)", color: accent }}
-          >
-            {state.prize.name}
-          </p>
-          {state.prize.sponsor_name && <p style={{ fontFamily: headingFont, fontSize: "clamp(10px, 1.4vw, 20px)", opacity: 0.6, letterSpacing: "0.18em" }}>
-            {state.prize.sponsor_name.toUpperCase()}
-          </p>}
-          {state.prize.description && !revealed && <p style={{ fontFamily: headingFont, fontSize: "clamp(11px, 1.6vw, 24px)", opacity: 0.7 }}>
-            {state.prize.description}
-          </p>}
-        </div>
+        {/* Kartu hadiah. Berganti hadiah = kartu lama menyusut-pudar, kartu
+            baru mengembang masuk; gambar hadiahnya melayang pelan, dan namanya
+            disapu kilau emas. Inilah "poster" yang dilihat ruangan sepanjang
+            jeda antara dua undian. */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={state.prize.id} className="flex shrink-0 flex-col items-center gap-[1vh] text-center" {...TUKAR_PANGGUNG}>
+            {state.prize.image_url && (
+              // `img` biasa, bukan next/image: URL-nya dari Supabase Storage dan
+              // bisa berubah kapan saja lewat CMS, sedangkan next/image butuh host
+              // yang didaftarkan lebih dulu di konfigurasi.
+              <motion.img
+                src={state.prize.image_url}
+                alt=""
+                aria-hidden="true"
+                className="transition-[height] duration-500 ease-emphasized"
+                style={{ height: running ? "min(8vh, 96px)" : "min(14vh, 160px)", width: "auto", objectFit: "contain", filter: "drop-shadow(0 1.2vh 2.4vh rgba(0, 0, 0, 0.35))" }}
+                animate={{ y: ["0vh", "-1.2vh", "0vh"], rotate: [-1, 1, -1] }}
+                transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+              />
+            )}
+            <p
+              className="font-bold uppercase tracking-[-0.02em] transition-[font-size] duration-500 ease-emphasized"
+              style={{ fontFamily: headingFont, fontSize: running ? "clamp(16px, 2.6vw, 44px)" : "clamp(20px, 4vw, 68px)", lineHeight: 1.1 }}
+            >
+              <ShineText color={accent}>{state.prize.name}</ShineText>
+            </p>
+            {state.prize.sponsor_name && !running && <p style={{ fontFamily: headingFont, fontSize: "clamp(10px, 1.4vw, 20px)", opacity: 0.6, letterSpacing: "0.18em" }}>
+              {state.prize.sponsor_name.toUpperCase()}
+            </p>}
+            {state.prize.description && !running && <p style={{ fontFamily: headingFont, fontSize: "clamp(11px, 1.6vw, 24px)", opacity: 0.7 }}>
+              {state.prize.description}
+            </p>}
+          </motion.div>
+        </AnimatePresence>
 
         {/* Panggung animasi.
 
@@ -217,30 +266,51 @@ export default function UndianClient({ initial }: Props) {
             membuat halaman ikut menggulir. Di proyektor tidak ada yang bisa
             menggulirkannya kembali. */}
         <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
-          {state.phase === "idle" ? <div className="text-center">
-            <p style={{ fontFamily: headingFont, fontSize: "clamp(14px, 2.4vw, 34px)", opacity: 0.4 }}>
-              {state.pool_size > 0 ? `${state.pool_size} peserta siap diundi` : "Bersiap"}
-            </p>
-          </div> : state.prize.animation === "wheel" ? <WheelAnimation {...animationProps} />
-            : state.prize.animation === "slot" ? <SlotAnimation {...animationProps} />
-            : state.prize.animation === "cards" ? <CardsAnimation {...animationProps} />
-            : state.prize.animation === "digits" ? <DigitsAnimation {...animationProps} />
-            : state.prize.animation === "dart" ? <DartAnimation {...animationProps} />
-            : spinning
-              ? <p style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: 0.5 }}>Mengundi...</p>
-              : <WinnerList winners={animationProps.winners} accent={accent} text={text} fontFamily={headingFont} />}
+          {/* `key` HANYA berganti antara diam dan berjalan, bukan per fase.
+              Komponen animasi harus tetap terpasang dari `spinning` sampai
+              `revealed`: roda yang melambat dan kartu yang membalik bekerja
+              dari perubahan prop `winners`, dan memasangnya ulang di tengah
+              jalan memotong gerakan tepat pada detik yang ditunggu. */}
+          <AnimatePresence mode="wait" initial={false}>
+            {state.phase === "idle" ? (
+              <motion.div key="diam" className="flex flex-col items-center gap-[2vh] text-center" {...TUKAR_PANGGUNG}>
+                <LoadingIndicator size="min(7vh, 72px)" color={accent} label="Bersiap mengundi" />
+                <p aria-hidden style={{ fontFamily: headingFont, fontSize: "clamp(14px, 2.4vw, 34px)", opacity: 0.4 }}>
+                  {state.pool_size > 0 ? `${state.pool_size} peserta siap diundi` : "Bersiap"}
+                </p>
+              </motion.div>
+            ) : (
+              <motion.div key={`jalan-${state.prize.id}`} className="flex h-full min-h-0 w-full items-center justify-center" {...TUKAR_PANGGUNG}>
+                {state.prize.animation === "wheel" ? <WheelAnimation {...animationProps} />
+                  : state.prize.animation === "slot" ? <SlotAnimation {...animationProps} />
+                  : state.prize.animation === "cards" ? <CardsAnimation {...animationProps} />
+                  : state.prize.animation === "digits" ? <DigitsAnimation {...animationProps} />
+                  : state.prize.animation === "dart" ? <DartAnimation {...animationProps} />
+                  : spinning
+                    ? <p style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: 0.5 }}>Mengundi...</p>
+                    : <WinnerList winners={animationProps.winners} accent={accent} text={text} fontFamily={headingFont} />}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Rekap pemenang yang sudah sah, dibatasi supaya tidak mendorong
             panggung utama keluar layar. */}
-        {state.confirmed.length > 0 && <div className="w-full shrink-0 border-t pt-[1.2vh] text-center" style={{ borderColor: `${text}22` }}>
+        {state.confirmed.length > 0 && <motion.div
+          key={state.confirmed.length}
+          className="w-full shrink-0 border-t pt-[1.2vh] text-center"
+          style={{ borderColor: `${text}22` }}
+          initial={{ opacity: 0, y: "1.5vh" }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={expressive.spatial.default}
+        >
           <p style={{ fontFamily: headingFont, fontSize: "clamp(8px, 1vw, 13px)", letterSpacing: "0.2em", opacity: 0.45 }}>
             PEMENANG SEBELUMNYA
           </p>
           <p className="mt-[0.4vh] line-clamp-2" style={{ fontFamily: headingFont, fontSize: "clamp(10px, 1.3vw, 18px)", opacity: 0.7 }}>
             {state.confirmed.map((winner) => winner.name).join(" · ")}
           </p>
-        </div>}
+        </motion.div>}
       </>}
     </div>
 

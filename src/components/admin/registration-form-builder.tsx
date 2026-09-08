@@ -52,7 +52,18 @@ type Props = {
 
 export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
   const fields = config.fields ?? [];
-  const [openKey, setOpenKey] = useState<string | null>(null);
+  /**
+   * Baris yang sedang terbuka dilacak lewat POSISINYA, bukan lewat kuncinya.
+   *
+   * Sebelumnya ia `openKey === field.key`, dan kolom "Kunci data" di dalam
+   * panel itu MENGUBAH `field.key`. Satu huruf diketik, kuncinya berubah,
+   * perbandingannya berhenti cocok, dan panelnya menutup sendiri. Mengetik
+   * `country` berarti membuka panel tujuh kali.
+   *
+   * Posisi tidak ikut berubah saat isinya diketik. Ia berubah saat baris
+   * dipindah atau dihapus, dan ketiga fungsi di bawah membetulkannya sendiri.
+   */
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
   const groupId = useId();
 
   const issues = validateFieldDefinitions(fields);
@@ -69,10 +80,16 @@ export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
     const next = [...fields];
     [next[index], next[target]] = [next[target], next[index]];
     onChange({ ...config, fields: next });
+    // Panel yang terbuka ikut pindah bersama barisnya. Tanpa ini, menaikkan
+    // sebuah pertanyaan akan membuka panel milik tetangganya.
+    setOpenIndex((current) => (current === index ? target : current === target ? index : current));
   }
 
   function remove(index: number) {
     onChange({ ...config, fields: fields.filter((_, position) => position !== index) });
+    // Baris di bawah yang dihapus naik satu posisi. Panel yang terbuka ikut naik,
+    // dan panel milik baris yang barusan dihapus ditutup.
+    setOpenIndex((current) => (current === null || current === index ? null : current > index ? current - 1 : current));
   }
 
   function add() {
@@ -82,7 +99,7 @@ export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
       ...config,
       fields: [...fields, { key, label: "Pertanyaan baru", type: "text", required: false }],
     });
-    setOpenKey(key);
+    setOpenIndex(fields.length);
   }
 
   return (
@@ -178,16 +195,25 @@ export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
       ) : (
         <ol className="space-y-2">
           {fields.map((field, index) => {
-            const open = openKey === field.key;
+            const open = openIndex === index;
             const problem = issueByKey.get(field.key);
             return (
-              <li key={field.key} className="rounded-lg bg-panel-high">
+              // `key` berupa POSISI, bukan `field.key`.
+              //
+              // Ini penyebab kedua dari panel yang menutup sendiri, dan yang
+              // lebih merusak: React memakai `key` untuk memutuskan apakah
+              // sebuah elemen masih elemen yang sama. Kunci yang berubah setiap
+              // ketukan membuat React membongkar seluruh baris lalu memasangnya
+              // kembali sebagai baris baru, dan kolom teks yang dipasang ulang
+              // kehilangan fokus. Memperbaiki `openIndex` saja tidak cukup:
+              // panelnya tetap terbuka, tetapi kursornya hilang dari kolom.
+              <li key={index} className="rounded-lg bg-panel-high">
                 <div className="flex items-center gap-2 p-3">
                   <button
                     type="button"
-                    onClick={() => setOpenKey(open ? null : field.key)}
+                    onClick={() => setOpenIndex(open ? null : index)}
                     aria-expanded={open}
-                    aria-controls={`${groupId}-${field.key}`}
+                    aria-controls={`${groupId}-${index}`}
                     className="m3-state min-w-0 flex-1 rounded-sm px-2 py-2 text-left"
                   >
                     <span className="block truncate text-body-large font-semibold">{field.label || "(tanpa label)"}</span>
@@ -208,7 +234,7 @@ export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
                 </div>
 
                 {open ? (
-                  <div id={`${groupId}-${field.key}`} className="space-y-4 border-t border-outline-variant p-4">
+                  <div id={`${groupId}-${index}`} className="space-y-4 border-t border-outline-variant p-4">
                     {problem ? (
                       <p role="alert" className="rounded-md bg-error-soft p-3 text-body-small text-on-error-soft">{problem}</p>
                     ) : null}

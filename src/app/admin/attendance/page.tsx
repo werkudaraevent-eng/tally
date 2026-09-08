@@ -57,6 +57,8 @@ const slugify = (teks: string) =>
 export default function AttendanceAdminPage() {
   const [sessions, setSessions] = useState<Sesi[]>([]);
   const [lanes, setLanes] = useState<Jalur[]>([]);
+  const [allowWalkIn, setAllowWalkIn] = useState(false);
+  const [walkInCount, setWalkInCount] = useState(0);
   const [nama, setNama] = useState("");
   const [slug, setSlug] = useState("");
   const [namaJalur, setNamaJalur] = useState("");
@@ -70,10 +72,38 @@ export default function AttendanceAdminPage() {
       fetch(eventApiPath("/api/admin/attendance/lanes"), { cache: "no-store" }).catch(() => null),
     ]);
     if (!sesi?.ok) { setError("Daftar sesi gagal dimuat."); return; }
-    setSessions((await sesi.json()).sessions ?? []);
+    const body = await sesi.json();
+    setSessions(body.sessions ?? []);
+    setAllowWalkIn(Boolean(body.allow_walk_in));
+    setWalkInCount(body.walk_in_count ?? 0);
     if (jalur?.ok) setLanes((await jalur.json()).lanes ?? []);
     setError("");
   }, []);
+
+  async function ubahWalkIn(izinkan: boolean) {
+    // Optimistis: sakelar yang baru bergerak setelah jaringan menjawab terasa
+    // rusak, dan admin menekannya dua kali. Dikembalikan bila server menolak.
+    setAllowWalkIn(izinkan);
+    setBusy(true);
+    const response = await fetch(eventApiPath("/api/admin/attendance/settings"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attendance_allow_walk_in: izinkan }),
+    }).catch(() => null);
+    setBusy(false);
+
+    if (!response?.ok) {
+      setAllowWalkIn(!izinkan);
+      toast.error("Gagal disimpan", "Setelan walk-in tidak berubah. Coba lagi.");
+      return;
+    }
+    toast.success(
+      izinkan ? "Walk-in dinyalakan" : "Walk-in dimatikan",
+      izinkan
+        ? "Petugas scan sudah bisa mendaftarkan tamu yang belum terdaftar."
+        : "Tombolnya hilang dari layar pemindai. Peserta yang sudah terlanjur dibuat tetap ada.",
+    );
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -172,6 +202,48 @@ export default function AttendanceAdminPage() {
         </div>
 
         {error ? <p role="alert" className="rounded-lg mt-5 bg-error-soft p-4 text-body-medium text-error">{error}</p> : null}
+
+        {/* ---------------------------------------------------------------
+            Tamu walk-in.
+
+            Berdiri sendiri di atas, bukan diselipkan ke kolom "Sesi baru":
+            ini satu-satunya setelan di halaman ini yang memberi WEWENANG, bukan
+            mengatur tampilan. Akun petugas scan adalah akun paling sempit di
+            sistem — dibuat justru supaya satu ponsel yang berpindah tangan di
+            pintu masuk tidak bisa membuka data peserta — dan sakelar ini
+            membolehkannya MEMBUAT peserta.
+            --------------------------------------------------------------- */}
+        <section className="mt-8 rounded-[28px] bg-surface-container p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 max-w-2xl">
+              <h2 className="text-title-medium">Tamu walk-in</h2>
+              <p className="mt-2 text-body-medium text-on-surface-variant">
+                Menyalakan ini memberi petugas <strong>/scan</strong> tombol untuk mendaftarkan tamu yang tidak ada di
+                daftar peserta, langsung dari layar pemindai tanpa membuka halaman admin. Kode pesertanya terbit
+                sendiri dan kehadirannya tercatat pada saat yang sama.
+              </p>
+              <p className="mt-2 text-body-small text-on-surface-variant">
+                Tombolnya hanya muncul setelah pencarian nama tidak menemukan siapa pun, dan nama yang kembar ditahan
+                untuk dikonfirmasi petugas. Matikan bila acara ini memang menolak tamu tanpa undangan.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-5">
+              {walkInCount > 0 ? (
+                <p className="text-right">
+                  <span className="block text-headline-small tabular-nums">{walkInCount}</span>
+                  <span className="block text-body-small text-on-surface-variant">didaftarkan di meja</span>
+                </p>
+              ) : null}
+              <Switch
+                checked={allowWalkIn}
+                disabled={busy}
+                onChange={(value) => void ubahWalkIn(value)}
+                label="Izinkan walk-in"
+              />
+            </div>
+          </div>
+        </section>
 
         <div className="mt-8 grid gap-4 lg:grid-cols-[1.4fr_0.6fr] lg:items-start">
           <section className="rounded-[28px] bg-surface-container p-5 sm:p-6">

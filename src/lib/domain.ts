@@ -17,6 +17,21 @@ export type PickupMode = "after_payment" | "immediate";
 
 export type EventStatus = "draft" | "active" | "completed" | "archived";
 
+/**
+ * SATU peta label status untuk seluruh antarmuka.
+ *
+ * Sebelumnya daftar acara menulis "Aktif", halaman workspace menulis "ACTIVE",
+ * dan dashboard menulis "active" — tiga kosakata untuk satu status, di tiga
+ * layar yang dibuka berurutan dalam hitungan detik. Nilai mentah kolom tidak
+ * pernah boleh sampai ke layar.
+ */
+export const EVENT_STATUS_LABEL: Record<EventStatus, string> = {
+  draft: "Draft",
+  active: "Aktif",
+  completed: "Selesai",
+  archived: "Arsip",
+};
+
 export type ParticipantSource =
   | "scanner_api"  // Tarik dari API eksternal
   | "manual"       // Entri atau impor di CMS
@@ -37,6 +52,11 @@ export type EventRow = {
   scanner_api_event_slug: string | null;
   registration_enabled: boolean;
   registration_form_config: RegistrationFormConfig;
+  /**
+   * Boleh tidaknya petugas /scan mendaftarkan tamu yang belum terdaftar.
+   * Default false — lihat migrasi 202609070001 untuk alasannya.
+   */
+  attendance_allow_walk_in: boolean;
   time_zone: EventTimeZoneCode;
 
   // ---- Fakta acara untuk halaman publik ------------------------------------
@@ -499,7 +519,12 @@ export type ApiErrorCode =
   | "PARTICIPANT_QR_TAKEN"
   | "PARTICIPANT_FIELDS_REQUIRED"
   | "PARTICIPANT_RSVP_INVALID"
+  | "PARTICIPANT_EXTRA_INVALID"
   | "PARTICIPANT_IN_USE"
+  // Tamu walk-in. Berdiri sendiri dan bukan FORBIDDEN: petugas yang membacanya
+  // punya peran yang benar dan sedang berada di layar yang benar — yang mematikan
+  // tombolnya adalah setelan acara, dan yang bisa menyalakannya adalah admin.
+  | "WALKIN_DISABLED"
   | "IMPORT_EMPTY"
   | "IMPORT_TOO_LARGE"
   | "IMPORT_UNREADABLE"

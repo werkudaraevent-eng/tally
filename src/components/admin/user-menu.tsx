@@ -1,8 +1,10 @@
 "use client";
 
 import { CaretDown, GearSix, SignOut } from "@phosphor-icons/react";
+import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import { MENU_MOTION } from "@/lib/m3/menu-motion";
 
 /**
  * Menu akun di ujung kanan bilah atas.
@@ -92,12 +94,14 @@ export function UserMenu({
         <CaretDown size={16} weight="bold" className="text-on-surface-variant" />
       </button>
 
+      <AnimatePresence>
       {open ? (
-        <div
+        <motion.div
           id={menuId}
           role="menu"
           aria-label="Menu akun"
-          className="absolute right-0 top-[calc(100%+8px)] z-50 w-64 rounded-2xl border border-outline-variant bg-surface-container-high p-2 shadow-level2"
+          className="absolute right-0 top-[calc(100%+8px)] z-50 w-64 origin-top-right rounded-2xl border border-outline-variant bg-surface-container-high p-2 shadow-level2"
+          {...MENU_MOTION}
         >
           <div className="px-3 py-2">
             <p className="truncate text-body-medium font-semibold">{username ?? "Tidak diketahui"}</p>
@@ -128,8 +132,9 @@ export function UserMenu({
             <SignOut size={20} />
             {loggingOut ? "Keluar…" : "Logout"}
           </button>
-        </div>
+        </motion.div>
       ) : null}
+      </AnimatePresence>
     </div>
   );
 }

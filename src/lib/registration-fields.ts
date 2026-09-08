@@ -82,7 +82,17 @@ export function validateFieldDefinitions(fields: RegistrationField[]): FieldIssu
 export function validateAnswers(
 	fields: RegistrationField[],
 	answers: Record<string, string>,
+	options: {
+		/**
+		 * Field wajib boleh kosong. Untuk jalur PANITIA — tambah manual dan impor:
+		 * pendaftar daring memang harus mengisi semua yang wajib, tetapi panitia
+		 * yang memasukkan tamu undangan dari daftar kantor sering tidak tahu
+		 * jawabannya, dan menolak barisnya hanya membuat tamu itu tidak terdaftar.
+		 */
+		enforceRequired?: boolean;
+	} = {},
 ): { issues: FieldIssue[]; clean: Record<string, string> } {
+	const enforceRequired = options.enforceRequired ?? true;
 	const issues: FieldIssue[] = [];
 	const clean: Record<string, string> = {};
 
@@ -92,7 +102,7 @@ export function validateAnswers(
 		if (!raw) {
 			// Kotak centang wajib berarti persetujuan: kosong sama dengan menolak,
 			// dan itu memang harus menghentikan pengiriman.
-			if (field.required) {
+			if (field.required && enforceRequired) {
 				issues.push({
 					key: field.key,
 					message: field.type === "checkbox" ? `${field.label} harus dicentang.` : `${field.label} wajib diisi.`,

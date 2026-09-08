@@ -1,6 +1,16 @@
 @import "tailwindcss";
 @import "./m3-theme.css";
 
+/* Varian untuk viewport PENDEK, bukan sempit.
+ *
+ * Breakpoint bawaan hanya membaca lebar. Laptop 1366×768 dengan skala tampilan
+ * Windows 150% menyisakan viewport ~1300×600: lebar dianggap `lg`, tetapi
+ * tingginya lebih pendek daripada ponsel yang diputar tegak. Halaman yang
+ * dikunci ke tinggi layar (login) terpotong di sana, dan tidak ada kelas
+ * `lg:` yang bisa menolongnya. Ambang 720px menangkap laptop 768p setelah
+ * dikurangi bilah peramban. */
+@custom-variant short (@media (max-height: 720px));
+
 /* ==========================================================================
    Token sistem Material 3 (Expressive)
    ==========================================================================
@@ -667,24 +677,262 @@ body {
 	}
 }
 
-/* Masuknya satu nama di Layar sapa (lihat src/app/sapa/sapa-client.tsx).
- *
- * Naik sedikit lalu berhenti, bukan meluncur dari tepi layar. Nama di layar
- * sambutan berganti setiap beberapa detik sepanjang acara, dan gerak yang
- * menempuh jarak jauh berubah menjadi lalu lintas visual di sudut mata orang
- * yang sedang mengobrol di lobi.
- *
- * `translate` dan `opacity` saja — keduanya dikerjakan kompositor. Layar ini
- * menyala berjam-jam di TV atau stik HDMI yang tenaganya jauh di bawah laptop
- * yang dipakai merancangnya. */
-.greet-in {
-	animation: greet-in 460ms var(--md-sys-motion-easing-emphasized-decelerate) 1;
+/* ==========================================================================
+   Masuk sekali saat muat
+   ==========================================================================
+
+   Untuk hero halaman acara dan kartu login: satu koreografi masuk yang
+   bertahap, bukan gerak mikro yang tersebar. Dijalankan CSS, bukan Framer
+   Motion, karena halaman acara adalah komponen server — tidak ada JavaScript
+   yang perlu diunduh tamu hanya supaya judulnya naik 14px.
+
+   `both`: elemen sudah tersembunyi SELAMA jeda `--rise-delay`, bukan muncul
+   dulu lalu menghilang lalu naik. Jeda diatur per elemen lewat variabel supaya
+   urutannya tertulis di markup, tempat orang membacanya.
+
+   `translate` dan `opacity` saja — keduanya dikerjakan kompositor.
+   ========================================================================== */
+
+.rise-in {
+	animation: rise-in var(--md-sys-motion-duration-long2) var(--md-sys-motion-easing-emphasized-decelerate) both;
+	animation-delay: var(--rise-delay, 0ms);
 }
 
-@keyframes greet-in {
+/* Versi tenang untuk layar kerja: lebih pendek, tanpa perlambatan dramatis. */
+.rise-in-fast {
+	animation: rise-in var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-standard-decelerate) both;
+	animation-delay: var(--rise-delay, 0ms);
+}
+
+@keyframes rise-in {
 	from {
 		opacity: 0;
-		transform: translateY(2.2vmin);
+		transform: translateY(14px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Banner hero mengendap dari sedikit lebih besar. Hanya `scale`; wadahnya
+   sudah `overflow: hidden`, jadi tepi yang melebihi bingkai tidak terlihat. */
+.settle-in {
+	animation: settle-in 1400ms var(--md-sys-motion-easing-emphasized-decelerate) both;
+}
+
+@keyframes settle-in {
+	from {
+		transform: scale(1.045);
+	}
+
+	to {
+		transform: scale(1);
+	}
+}
+
+/* ==========================================================================
+   Muncul saat digulir masuk (lihat src/components/landing/reveal.tsx)
+   ==========================================================================
+
+   Keadaan tersembunyi HANYA berlaku bila skrip berjalan. Halaman acara dibuka
+   dari jaringan tamu yang tidak diketahui; kalau JavaScript-nya gagal dimuat,
+   isi halaman harus tetap terlihat, bukan tersembunyi selamanya menunggu
+   pengamat yang tidak pernah datang. `@media (scripting)` menjawab itu tanpa
+   kelas `js` di <html>; peramban lama yang tidak mengenalnya cukup menampilkan
+   semuanya apa adanya.
+   ========================================================================== */
+
+@media (scripting: enabled) {
+	.reveal {
+		opacity: 0;
+		transform: translateY(18px);
+		transition:
+			opacity var(--md-sys-motion-duration-long3) var(--md-sys-motion-easing-emphasized-decelerate),
+			transform var(--md-sys-motion-duration-long3) var(--md-sys-motion-easing-emphasized-decelerate);
+		transition-delay: var(--reveal-delay, 0ms);
+	}
+
+	.reveal-in {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* ==========================================================================
+   Isi <details> yang membuka, bukan melompat
+   ==========================================================================
+
+   Satu-satunya tempat `height` dianimasikan, dan itu pengecualian yang
+   disengaja: `::details-content` hanya bisa dibuka lewat tinggi, dan
+   alternatifnya adalah akordeon buatan sendiri yang kehilangan semua yang
+   membuat <details> dipilih (papan ketik, pembaca layar, bekerja tanpa JS).
+   Dibungkus @supports supaya peramban tanpa `interpolate-size` tetap membuka
+   seketika seperti sebelumnya.
+   ========================================================================== */
+
+@supports (interpolate-size: allow-keywords) {
+	details.faq {
+		interpolate-size: allow-keywords;
+	}
+
+	details.faq::details-content {
+		block-size: 0;
+		overflow-y: clip;
+		transition:
+			block-size var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-emphasized),
+			content-visibility var(--md-sys-motion-duration-medium2) allow-discrete;
+	}
+
+	details.faq[open]::details-content {
+		block-size: auto;
+	}
+}
+
+/* ==========================================================================
+   Denyut kursi hasil pencarian (lihat src/components/seat-map-view.tsx)
+   ==========================================================================
+
+   Tiga denyut lalu diam. Kursi yang berganti warna saja tenggelam di antara
+   dua ratus kursi lain; cincin yang mengembang menarik mata ke tempatnya, dan
+   berhenti sebelum menjadi gangguan. `transform-box: fill-box` wajib pada
+   elemen SVG — tanpanya `scale` mengembang dari sudut kanvas, bukan dari pusat
+   kursi.
+   ========================================================================== */
+
+.seat-pulse {
+	transform-box: fill-box;
+	transform-origin: center;
+	opacity: 0;
+	animation: seat-pulse 900ms var(--md-sys-motion-easing-standard) 3;
+}
+
+@keyframes seat-pulse {
+	from {
+		opacity: 0.85;
+		transform: scale(1);
+	}
+
+	to {
+		opacity: 0;
+		transform: scale(2.4);
+	}
+}
+
+/* ==========================================================================
+   Efek layar panggung undian (lihat src/app/undian/undian-stage-fx.tsx)
+   ==========================================================================
+
+   Lapisan ekspresif M3: layar ini DIMAKSUDKAN menarik perhatian seisi ruangan.
+   Yang tetap dijaga adalah biayanya — layar menyala berjam-jam di komputer
+   panggung yang tidak dikenal spesifikasinya, jadi semuanya hanya `transform`,
+   `opacity`, dan `background-position` pada elemen kecil. Tidak ada `filter`
+   yang dianimasikan.
+   ========================================================================== */
+
+/* Dua sapuan warna raksasa yang hanyut perlahan di belakang panggung. */
+.aurora-drift {
+	animation: aurora-drift 38s ease-in-out infinite alternate;
+	will-change: transform;
+}
+
+.aurora-drift-2 {
+	animation: aurora-drift 52s ease-in-out infinite alternate-reverse;
+	will-change: transform;
+}
+
+@keyframes aurora-drift {
+	from {
+		transform: translate3d(-8%, -6%, 0) rotate(0deg) scale(1);
+	}
+
+	to {
+		transform: translate3d(10%, 8%, 0) rotate(25deg) scale(1.15);
+	}
+}
+
+/* Kerlip kecil, tiap titik dengan irama dan jedanya sendiri. */
+.twinkle {
+	animation: twinkle var(--twinkle-duration, 2.4s) ease-in-out infinite;
+	animation-delay: var(--twinkle-delay, 0s);
+}
+
+@keyframes twinkle {
+	0%,
+	100% {
+		opacity: 0;
+		transform: scale(0.4);
+	}
+
+	50% {
+		opacity: 0.9;
+		transform: scale(1);
+	}
+}
+
+/* Kilau emas yang menyapu teks: nama hadiah dan nama pemenang
+   (lihat ShineText di src/app/undian/undian-stage-fx.tsx).
+
+   BUKAN `background-clip: text` yang dianimasikan. Pada teks sebesar judul
+   panggung, Chrome merasterkan lapisan itu per ubin, dan sapuan
+   `background-position` membuat ubinnya tergambar tidak serempak — huruf
+   tampak terpotong bergaris mendatar, persis yang terlihat di proyektor.
+
+   Yang dipakai: salinan teks berwarna putih di atas teks aslinya, dibatasi
+   `mask-image` berbentuk pita miring yang posisinya dianimasikan. Mask
+   dikerjakan kompositor tanpa merasterkan ulang glyph, jadi tidak ada ubin
+   yang bisa tertinggal. */
+.shine-band {
+	-webkit-mask-image: linear-gradient(110deg, transparent 40%, #000 50%, transparent 60%);
+	mask-image: linear-gradient(110deg, transparent 40%, #000 50%, transparent 60%);
+	-webkit-mask-size: 250% 100%;
+	mask-size: 250% 100%;
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+	animation: shine-band 4.5s ease-in-out infinite;
+}
+
+@keyframes shine-band {
+	0%,
+	55% {
+		-webkit-mask-position: 120% 0;
+		mask-position: 120% 0;
+	}
+
+	100% {
+		-webkit-mask-position: -40% 0;
+		mask-position: -40% 0;
+	}
+}
+
+/* Sapuan cahaya di muka kartu yang belum dibuka. */
+.shine-sweep {
+	background-image: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.28) 50%, transparent 62%);
+	background-size: 250% 100%;
+	animation: shine-sweep 2.2s linear infinite;
+}
+
+@keyframes shine-sweep {
+	from {
+		background-position: 130% 0;
+	}
+
+	to {
+		background-position: -30% 0;
+	}
+}
+
+/* Satu nama masuk ke jendela gulungan slot dari bawah, 140ms. Dipasang lewat
+   `key` yang berganti tiap denyut, jadi tiap nama baru memutar ulang animasi. */
+.reel-in {
+	animation: reel-in 140ms var(--md-sys-motion-easing-standard-decelerate) both;
+}
+
+@keyframes reel-in {
+	from {
+		opacity: 0.25;
+		transform: translateY(45%);
 	}
 
 	to {
@@ -701,6 +949,32 @@ body {
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
+	}
+
+	/* Pemintal dan batang tak-tentu adalah STATUS, bukan hiasan. Keduanya
+	   satu-satunya bukti sistem masih bekerja, dan justru orang yang meminta
+	   gerak dikurangi paling butuh kepastian itu — pemintal yang beku terlihat
+	   seperti ikon rusak. WCAG 2.3.3 mengecualikan gerak yang esensial, jadi
+	   lajunya dikembalikan; yang lain tetap dibekukan. */
+	.m3-spin,
+	.animate-spin {
+		animation-duration: 1.4s !important;
+		animation-iteration-count: infinite !important;
+	}
+
+	.m3-indeterminate {
+		animation-duration: 1.6s !important;
+		animation-iteration-count: infinite !important;
+	}
+
+	/* Jeda koreografi ikut dihapus. Durasi 0.01ms dengan jeda 240ms berarti
+	   elemen tetap tersembunyi selama 240ms lalu muncul seketika — sisa
+	   koreografi yang tidak lagi punya gerak untuk diatur. */
+	.rise-in,
+	.rise-in-fast,
+	.reveal {
+		animation-delay: 0ms !important;
+		transition-delay: 0ms !important;
 	}
 
 	/* Aturan di atas mematikan kilau, dan itu memang diinginkan. Tapi tanpa baris

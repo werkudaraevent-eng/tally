@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { participantBodySchema, toRpcArgs } from "@/lib/participant-input";
+import type { RegistrationFormConfig } from "@/lib/domain";
+import { cleanExtra, participantBodySchema, toRpcArgs } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const paramsSchema = z.string().uuid();
@@ -21,10 +22,26 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const body = participantBodySchema.safeParse(await request.json().catch(() => null));
   if (!id.success || !body.success) return apiError("VALIDATION_ERROR", 422, body.success ? undefined : body.error.flatten());
 
-  const { data, error } = await getSupabaseServiceClient().rpc("save_participant" as never, {
+  const client = getSupabaseServiceClient();
+
+  // Jawaban berkas yang sudah tersimpan dibaca dulu supaya tidak ikut terhapus:
+  // modal sunting tidak bisa menuliskannya kembali, dan penyimpanan yang
+  // menghilangkan KTP pendaftar tanpa ada yang menyentuhnya adalah bug yang
+  // baru ketahuan di meja registrasi.
+  let existing: Record<string, string> = {};
+  if (body.data.extra !== undefined) {
+    const { data: row } = await client.from("participants").select("extra").eq("id", id.data).eq("event_id", auth.scope.event.id).maybeSingle();
+    existing = ((row as { extra: Record<string, string> | null } | null)?.extra) ?? {};
+  }
+  const { issues, clean } = cleanExtra(auth.scope.event.registration_form_config as RegistrationFormConfig | null, body.data.extra, existing);
+  if (issues.length > 0) {
+    return apiError("VALIDATION_ERROR", 422, Object.fromEntries(issues.map((issue) => [`extra.${issue.key}`, issue.message])));
+  }
+
+  const { data, error } = await client.rpc("save_participant" as never, {
     p_event_id: auth.scope.event.id,
     p_id: id.data,
-    ...toRpcArgs(body.data),
+    ...toRpcArgs(body.data, clean),
     p_actor: auth.user.id,
   } as never);
   if (error) {

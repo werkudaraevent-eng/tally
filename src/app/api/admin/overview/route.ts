@@ -43,6 +43,7 @@ export async function GET(request: Request) {
     seksiRundown,
     denah,
     orders,
+    pemindaian,
   ] = await Promise.all([
     hitung("participants"),
     hitung("event_registrations").eq("status", "pending"),
@@ -60,7 +61,17 @@ export async function GET(request: Request) {
     // kesiapan yang selalu merah, tanpa satu pun galat yang bisa dilihat.
     hitung("seat_map_sessions"),
     client.from("orders").select("status,total_amount").eq("event_id", event.id),
+    // Kehadiran dihitung per ORANG, bukan per pemindaian: satu tamu yang
+    // dipindai di dua sesi tetap satu orang yang hadir. Karena itu kolomnya
+    // ditarik lalu dihitung uniknya, bukan `head: true` seperti yang lain.
+    client.from("attendance_scans").select("participant_id").eq("event_id", event.id),
   ]);
+
+  const hadir = new Set(
+    ((pemindaian.data ?? []) as Array<{ participant_id: string | null }>)
+      .map((baris) => baris.participant_id)
+      .filter((id): id is string => Boolean(id)),
+  ).size;
 
   // Sesi rundown dihitung dari seksinya, isinya dari itemnya. Seksi tanpa item
   // adalah rundown yang terlihat "sudah diisi" di angka tetapi kosong di layar
@@ -94,6 +105,9 @@ export async function GET(request: Request) {
       menunggu: menunggu.count ?? 0,
       disetujui: disetujui.count ?? 0,
       ditolak: ditolak.count ?? 0,
+    },
+    kehadiran: {
+      hadir,
     },
     transaksi: {
       // Nol order BUKAN kegagalan: acara yang belum berjalan memang belum punya

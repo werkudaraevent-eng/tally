@@ -1,9 +1,11 @@
 "use client";
 
 import { CaretDown, Check, ListDashes } from "@phosphor-icons/react";
+import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import { MENU_MOTION } from "@/lib/m3/menu-motion";
 
 /**
  * Pemilih event di bilah atas.
@@ -63,16 +65,22 @@ export function EventMenu({ events, activeSlug }: { events: EventPilihan[]; acti
         aria-controls={open ? menuId : undefined}
         className="m3-state -mx-2 flex min-h-10 min-w-0 items-center gap-1.5 rounded-lg px-2 text-title-medium font-semibold text-on-surface-variant"
       >
-        <span className="max-w-[22ch] truncate">{label}</span>
+        {/* 22 karakter di layar sempit, 36 di layar lebar. Nama acara adalah
+            bagian remah roti yang paling sering dibaca, dan memotongnya
+            menjadi "Marugame Management Ban…" di layar 1300px hanya menghemat
+            ruang yang tidak dibutuhkan siapa pun. */}
+        <span className="max-w-[22ch] truncate lg:max-w-[36ch]">{label}</span>
         <CaretDown size={14} weight="bold" className="shrink-0" />
       </button>
 
+      <AnimatePresence>
       {open ? (
-        <div
+        <motion.div
           id={menuId}
           role="menu"
           aria-label="Pilih event"
-          className="absolute left-0 top-[calc(100%+8px)] z-50 max-h-[70vh] w-72 overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-high p-2 shadow-level2"
+          className="absolute left-0 top-[calc(100%+8px)] z-50 max-h-[70vh] w-72 origin-top-left overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-high p-2 shadow-level2"
+          {...MENU_MOTION}
         >
           {events.length === 0 ? (
             <p className="px-3 py-2 text-body-medium text-on-surface-variant">Tidak ada event yang bisa dibuka.</p>
@@ -111,8 +119,9 @@ export function EventMenu({ events, activeSlug }: { events: EventPilihan[]; acti
             <ListDashes size={18} />
             Semua event
           </Link>
-        </div>
+        </motion.div>
       ) : null}
+      </AnimatePresence>
     </div>
   );
 }

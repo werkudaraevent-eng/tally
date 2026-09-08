@@ -277,7 +277,7 @@ export default function ParticipantsAdminPage() {
 
         <div className="rounded-lg mt-6 border border-outline-variant bg-panel-high p-4 text-body-medium leading-6">
           <p className="font-semibold">Belum punya berkasnya?</p>
-          <p className="mt-1 text-body-small text-on-surface-variant">Template berisi kedelapan kolom yang dibaca importir dan dua baris contoh. Hapus baris contoh sebelum mengunggah.</p>
+          <p className="mt-1 text-body-small text-on-surface-variant">Template berisi kolom bawaan, satu kolom untuk tiap pertanyaan tambahan di formulir pendaftaran, dan dua baris contoh. Hapus baris contoh sebelum mengunggah.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a href="/api/admin/participants/export?template=1&format=xlsx" className={buttonClass}><DownloadSimple size={16} /> Template XLSX</a>
@@ -287,7 +287,7 @@ export default function ParticipantsAdminPage() {
         </div>
 
         <p className="mt-5 text-body-small leading-5 text-on-surface-variant">
-          Kolom dicocokkan lewat baris pertama, dan nama Indonesia ikut dikenali (<span className="font-mono">nama</span>, <span className="font-mono">perusahaan</span>, <span className="font-mono">jabatan</span>, <span className="font-mono">no_hp</span>). Hanya <span className="font-mono">qr_code</span> dan <span className="font-mono">name</span> yang wajib. Baris dicocokkan dengan peserta lama lewat <span className="font-mono">qr_code</span>: yang sudah ada diperbarui, yang belum ditambahkan. Peserta dari Scanner API hanya diperbarui email dan teleponnya.
+          Kolom dicocokkan lewat baris pertama, dan nama Indonesia ikut dikenali (<span className="font-mono">nama</span>, <span className="font-mono">perusahaan</span>, <span className="font-mono">jabatan</span>, <span className="font-mono">no_hp</span>). Pertanyaan tambahan formulir dikenali lewat kuncinya maupun labelnya persis seperti di formulir. Hanya <span className="font-mono">qr_code</span> dan <span className="font-mono">name</span> yang wajib. Baris dicocokkan dengan peserta lama lewat <span className="font-mono">qr_code</span>: yang sudah ada diperbarui, yang belum ditambahkan. Jawaban yang sudah ada tidak dihapus oleh kolom kosong. Peserta dari Scanner API hanya diperbarui email, telepon, dan jawabannya.
         </p>
 
         <label className="mt-5 block text-body-medium font-semibold">Berkas

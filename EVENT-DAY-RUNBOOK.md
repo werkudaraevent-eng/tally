@@ -25,6 +25,7 @@ Open `http://localhost:3000/login`.
 - Booth: `/booth`
 - Cashier: `/cashier`
 - Admin: `/admin`
+- Attendance scanner: `/scan` — `scanner` or `admin` role
 - Projector: `/display?fullscreen=1`
 - Operator guide (print): `/panduan` — no login required
 
@@ -54,6 +55,9 @@ Open `http://localhost:3000/login`.
 - [ ] Test payment for every active method, plus partial payment, hand-over, void, and export.
 - [ ] Confirm projector URL and fullscreen.
 - [ ] Confirm auto-void scheduler calls `POST /api/cron/auto-void` every 5 minutes with `Authorization: Bearer <CRON_SECRET>`.
+- [ ] Decide the walk-in policy in Admin → Kehadiran. It is **off** by default: switching it on lets the `scanner` account create participant rows, which is the widest permission that account ever gets. Leave it off for events with fixed catering or numbered seating.
+- [ ] For label printing: set size, density, and layout in Admin → Label & printer, then pair the printer at each desk from `/scan` (**Sambungkan printer**) and run one test print. Scan that test label with a booth device before doors open — a label that prints but does not scan is worse than no label.
+- [ ] Confirm each registration desk that owns a printer runs **Chrome or Edge on Android, Windows, or macOS**. Web Bluetooth does not exist on iPhone, iPad, or Firefox; those devices fall back to saving a PNG that must be printed from the NIIMBOT app.
 
 ## Operational rules
 
@@ -70,6 +74,12 @@ Open `http://localhost:3000/login`.
 - Switching cashier confirmation off settles every pending order in the queue. Do it before doors open, or announce it first.
 - Registration emails are best effort. Approval always succeeds; the email is a second copy. Each approved row shows whether the code was sent, and a **Kirim ulang** button retries one registrant at a time. There is deliberately no bulk send: one wrong click would mail hundreds of people irreversibly and get the event domain flagged as spam, so the *next* registrant would receive nothing either. Read the code aloud from `/admin/registrasi` when someone says the email never arrived — that always works, even when email is off.
 - Deleting an event is permanent and `super_admin` only. It is refused for `active`/`completed` events and for any event that has orders, because orders are the only data here that represents money. Archive those instead. The dialog requires typing the event slug — that is the guard against hitting the button on the neighbouring card, not against acting without thinking.
+- Walk-in guests are registered from `/scan`, and the button only appears after a name search comes back empty. That order is the duplicate guard: staff who skip the search create a second row for a guest who was already on the list. The server repeats the check — an identical name is returned as a candidate list and **nothing is written** until staff confirm it is a different person.
+- A walk-in creates the participant and records attendance in one transaction. The code is a normal `REG######`, so booth, undian, and voting accept it immediately. Rows are marked `Walk-in` in the participant list and export `sumber` column, and every creation is in `/admin/audit`.
+- Printer pairing belongs to the device, not the event. Each desk pairs its own printer from `/scan`, and the auto-print switch there is stored on that phone — a desk without a printer never sees a print attempt.
+- Auto-print fires for walk-in guests only. Registered participants already received their code by email; reprinting for all of them wastes the roll and adds seconds per guest at the door.
+- If the printer sleeps, the browser must show its device chooser again and that needs a real tap. Auto-print will report the failure and the guest's result panel keeps a **Cetak label** button — use it, do not re-register the guest.
+- The B21 has never been tested by the authors of the printer library; it is assumed to share the B1 command set. If the first label comes out blank, clipped at the right edge, or too faint, the fix is in Admin → Label & printer — command order, printhead width in px, and density are all editable there on purpose.
 - Never share `SUPABASE_SERVICE_ROLE_KEY`.
 - Reconcile cashier total against EDC settlement, then against any other active method separately.
 - Payment methods are managed in Settings. Disable a method instead of deleting it; at least one must stay active or the cashier cannot settle.

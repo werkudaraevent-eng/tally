@@ -1,9 +1,9 @@
 "use client";
 
 import { Broadcast, ChartLineUp, Crown, DotsSix, EyeSlash, Medal, Storefront, Trophy } from "@phosphor-icons/react";
-import { AnimatePresence, motion } from "framer-motion";
-import { standard } from "@/lib/m3/motion";
-import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, animate, motion, useMotionValue, useTransform } from "framer-motion";
+import { easing, standard } from "@/lib/m3/motion";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { BrandFooter, BrandLogo } from "@/components/brand-header-footer";
 import { fontStack, normalizeBranding, scaleClamp } from "@/lib/branding";
 import { formatEventTimeWithSeconds } from "@/lib/datetime";
@@ -26,6 +26,72 @@ const REVEAL_POLL_MS = 2000;
 type Entry = PublicLeaderboardEntry;
 
 const formatRupiah = (amount: number) => `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
+
+/**
+ * Nominal yang BERGULIR ke nilai barunya, bukan melompat.
+ *
+ * Order masuk setiap beberapa detik sepanjang acara, dan angka yang berganti
+ * seketika tidak terbaca sebagai bertambah — penonton hanya melihat angka yang
+ * berbeda dari yang tadi dan harus membandingkannya sendiri. Gulungan 600ms
+ * memperlihatkan arahnya.
+ *
+ * Nilai awal langsung dipasang tanpa gulungan: papan yang baru dibuka tidak
+ * boleh menghitung dari nol seolah semua orang baru mulai belanja.
+ *
+ * Teks ditulis lewat motion value, jadi tidak ada render React per frame.
+ */
+function AnimatedRupiah({ value, className, style }: { value: number; className?: string; style?: CSSProperties }) {
+  const amount = useMotionValue(value);
+  const text = useTransform(amount, (latest) => formatRupiah(Math.round(latest)));
+  useEffect(() => {
+    const controls = animate(amount, value, { duration: 0.6, ease: easing.standardDecelerate });
+    return () => controls.stop();
+  }, [value, amount]);
+  return <motion.p className={className} style={style}>{text}</motion.p>;
+}
+
+/**
+ * Teks berjalan HANYA bila isinya melebihi lebar yang tersedia.
+ *
+ * Ticker yang selalu berjalan adalah gerak dekoratif abadi di layar yang
+ * menyala berjam-jam; ticker yang berjalan karena teksnya tidak muat adalah
+ * cara membaca teks itu. Lebar diukur lewat ResizeObserver, yang memanggil
+ * balik saat mulai mengamati — jadi tidak ada setState sinkron di badan efek.
+ *
+ * Teks digandakan supaya sambungan gulungannya mulus; salinannya disembunyikan
+ * dari pembaca layar.
+ */
+function Marquee({ text, className }: { text: string; className?: string }) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const item = useRef<HTMLSpanElement>(null);
+  const [distance, setDistance] = useState(0);
+
+  useEffect(() => {
+    const container = wrap.current;
+    const span = item.current;
+    if (!container || !span) return;
+    const observer = new ResizeObserver(() => {
+      const overflow = span.scrollWidth - container.clientWidth;
+      setDistance(overflow > 0 ? span.scrollWidth : 0);
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [text]);
+
+  return (
+    <div ref={wrap} className={`min-w-0 flex-1 overflow-hidden whitespace-nowrap ${className ?? ""}`}>
+      <motion.div
+        className="inline-flex"
+        animate={distance > 0 ? { x: [0, -distance] } : { x: 0 }}
+        // 55px per detik: cukup pelan untuk dibaca dari kursi belakang.
+        transition={distance > 0 ? { duration: distance / 55, ease: "linear", repeat: Infinity } : { duration: 0 }}
+      >
+        <span ref={item} className="pr-12">{text}</span>
+        {distance > 0 ? <span aria-hidden className="pr-12">{text}</span> : null}
+      </motion.div>
+    </div>
+  );
+}
 
 /**
  * Layar Papan peringkat.
@@ -138,6 +204,28 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
   }, [refreshConfig, config.refresh_seconds]);
 
   const leaderboardVisible = enabled && serverEnabled;
+  // Footer tampil bila ticker menyala ATAU ada blok sponsor. Dihitung sekali
+  // karena dipakai dua kali: untuk merender footer-nya, dan untuk menyisakan
+  // ruang di bawah daftar supaya tidak tertutup olehnya.
+  const footerVisible = config.show_ticker || Boolean(config.footer_image_url) || Boolean(config.footer_text);
+
+  /**
+   * Kilatan sekali saat peringkat 1 BERGANTI ORANG.
+   *
+   * Baris teratas sudah bergradien aksen, tetapi gradien yang sama untuk orang
+   * yang berbeda tidak memberi tahu siapa pun bahwa juaranya baru saja
+   * berganti — dan itulah satu-satunya perubahan di papan ini yang membuat
+   * seisi ruangan menoleh. `flash` naik hanya pada pergantian, bukan pada muat
+   * pertama, supaya papan yang baru dibuka tidak berkilat tanpa sebab.
+   *
+   * Perbandingan dilakukan saat render (pola `seenRound` di layar undian),
+   * bukan di dalam effect.
+   */
+  const leader = entries.find((entry) => Number(entry.rank) === 1)?.display_name ?? null;
+  const [leaderSeen, setLeaderSeen] = useState<{ name: string | null; flash: number }>({ name: null, flash: 0 });
+  if (leaderSeen.name !== leader) {
+    setLeaderSeen({ name: leader, flash: leader !== null && leaderSeen.name !== null ? leaderSeen.flash + 1 : leaderSeen.flash });
+  }
   // Tahap 0 berarti reveal sudah aktif tapi belum ada peringkat yang dibuka:
   // header dan tagline tetap tampil, area daftar diganti penanda.
   const awaitingFirstStage = staged && stage === 0;
@@ -262,7 +350,11 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-4">
-          <div className="hidden text-right sm:block"><p className="text-body-small uppercase tracking-[0.15em]" style={{ opacity: 0.45 }}>Refresh {tick}</p><p className="mt-1 font-mono text-body-medium">{lastUpdated ? `Update ${formatEventTimeWithSeconds(lastUpdated, timeZone)} ${timeZoneAbbr(timeZone)}` : "Menghubungkan"}</p></div>
+          {/* Hitungan refresh adalah keterangan operator, bukan isi acara.
+              Disembunyikan bersama kontrol lain saat layar dipasang ke
+              proyektor; jam pembaruan tetap, karena panitia yang menatap
+              proyektor pun perlu tahu papannya masih hidup. */}
+          <div className="hidden text-right sm:block">{!chromeHidden && <p className="text-body-small uppercase tracking-[0.15em]" style={{ opacity: 0.45 }}>Refresh {tick}</p>}<p className="mt-1 font-mono text-body-medium">{lastUpdated ? `Update ${formatEventTimeWithSeconds(lastUpdated, timeZone)} ${timeZoneAbbr(timeZone)}` : "Menghubungkan"}</p></div>
           {!chromeHidden && <button onClick={() => setEnabled((value) => !value)} className="rounded-md flex min-h-12 shrink-0 items-center gap-2 border border-white/20 px-3 text-body-medium font-semibold hover:bg-white/10 sm:px-4">{leaderboardVisible ? <EyeSlash size={20} /> : <Broadcast size={20} />} <span className="hidden sm:inline">{leaderboardVisible ? "Sembunyikan" : "Tampilkan"}</span></button>}
         </div>
       </header>
@@ -278,7 +370,11 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
           sebenarnya. Angka yang salah di layar proyektor lebih buruk daripada
           panel yang absen, dan absennya justru memberi papan lebar penuh untuk
           ceremony. */}
-      {leaderboardVisible ? <div className={`grid gap-6 px-4 py-5 sm:px-8 xl:px-14 xl:py-6 ${asideVisible ? "xl:landscape:grid-cols-[1.4fr_0.6fr]" : ""}`}>
+      {/* `pb-32` saat footer tampil: footer-nya `fixed` di tepi bawah dan
+          menutupi apa pun di belakangnya. Pada layar yang lebih pendek dari
+          1080p, baris peringkat terakhir tenggelam di baliknya tanpa ada cara
+          menggulirnya keluar — dan itu baris yang paling ditunggu orangnya. */}
+      {leaderboardVisible ? <div className={`grid gap-6 px-4 py-5 sm:px-8 xl:px-14 xl:py-6 ${footerVisible ? "pb-32" : ""} ${asideVisible ? "xl:landscape:grid-cols-[1.4fr_0.6fr]" : ""}`}>
         <section>
           {/* Tagline hanya dirender jika benar-benar berisi. Skema mewajibkan
               minimal 1 karakter, jadi admin yang ingin menyembunyikannya
@@ -326,12 +422,23 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
                   // order masuk, sepanjang acara. Pantulan yang menyenangkan sekali
                   // menjadi gangguan pada kali kelima puluh.
                   transition={standard.spatial.default}
-                  className="grid items-center gap-x-2 gap-y-1 sm:gap-x-4 grid-cols-[34px_1fr] sm:grid-cols-[52px_1fr] lg:grid-cols-[64px_1fr_auto]"
+                  className="relative grid items-center gap-x-2 gap-y-1 sm:gap-x-4 grid-cols-[34px_1fr] sm:grid-cols-[52px_1fr] lg:grid-cols-[64px_1fr_auto]"
                   style={{
                     paddingBlock: spotlight ? "clamp(14px, 3.4vw, 40px)" : lead ? "14px" : "12px",
                     ...(lead ? { background: `linear-gradient(90deg, ${config.accent_color}1f, transparent 65%)` } : {}),
                   }}
                 >
+                  {lead && leaderSeen.flash > 0 ? (
+                    <motion.span
+                      key={leaderSeen.flash}
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0"
+                      style={{ background: config.accent_color }}
+                      initial={{ opacity: 0.4 }}
+                      animate={{ opacity: 0 }}
+                      transition={{ duration: 1.4, ease: easing.standardDecelerate }}
+                    />
+                  ) : null}
                   <span className="row-span-2 flex items-center justify-center lg:row-span-1">
                     {medal ? <span className="flex items-center justify-center rounded-full" style={{ backgroundColor: `${medal}26`, border: `2px solid ${medal}`, width: medalBox, height: medalBox }}>
                       <Medal size={spotlight ? 34 : lead ? 24 : 21} weight="fill" style={{ color: medal }} />
@@ -359,7 +466,7 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
                       masih bilang "tampilkan" sementara angkanya sudah tidak ada —
                       dan yang tampil di proyektor adalah "Rp NaN". */}
                   {(amountVisible || boothProgressVisible) && <div className="flex items-center justify-between gap-4 lg:flex-col lg:items-end lg:gap-1">
-                    {amountVisible && <p className="font-mono font-semibold tabular-nums" style={{ fontSize: nameSize(lead), ...(lead ? { color: config.accent_color } : {}) }}>{formatRupiah(entry.total_spent ?? 0)}</p>}
+                    {amountVisible && <AnimatedRupiah value={entry.total_spent ?? 0} className="font-mono font-semibold tabular-nums" style={{ fontSize: nameSize(lead), ...(lead ? { color: config.accent_color } : {}) }} />}
                     {boothProgressVisible && <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5" aria-label={`${entry.booth_count} dari ${boothTotal} booth dikunjungi`}>
                       {boothCodes.map((code, dot) => <span key={code} className="shrink-0 rounded-full transition-colors" style={{ width: dotSize, height: dotSize, backgroundColor: dot < entry.booth_count ? config.accent_color : "rgba(255,255,255,0.15)" }} />)}
                       {entry.booth_count >= boothTotal && <Crown size={spotlight ? 26 : 18} weight="fill" className="ml-1 shrink-0" style={{ color: config.accent_color }} />}
@@ -451,15 +558,15 @@ export default function DisplayClient({ initialConfig }: { initialConfig: Displa
           Sebelumnya syaratnya hanya `show_ticker`; kalau dibiarkan begitu, panitia
           yang mematikan ticker akan kehilangan blok sponsornya tanpa penjelasan,
           padahal keduanya setelan yang tidak berhubungan. */}
-      {(config.show_ticker || config.footer_image_url || config.footer_text) && <footer className="fixed inset-x-0 bottom-0 border-t border-white/15 px-8 py-4 xl:px-14" style={{ backgroundColor: config.background_color }}>
+      {footerVisible && <footer className="fixed inset-x-0 bottom-0 border-t border-white/15 px-8 py-4 xl:px-14" style={{ backgroundColor: config.background_color }}>
         {/* Blok sponsor di ATAS baris ticker: sponsor adalah isi yang dilihat
             penonton, sedangkan baris ticker lebih dekat ke penanda status sistem. */}
         <BrandFooter branding={config} textColor={config.text_color} variant="compact" className={config.show_ticker ? "mb-3" : ""} />
         {config.show_ticker && <div className="flex items-center gap-3 text-body-medium">
-          <Broadcast size={18} style={{ color: config.accent_color }} />
-          <span style={{ opacity: 0.55 }}>Live database</span>
-          <span className="font-semibold">{config.ticker_text?.trim() || "Leaderboard ter-update dari transaksi live"}</span>
-          <span className="ml-auto hidden text-body-small sm:block" style={{ opacity: 0.35 }}>Refresh {tick} · <Storefront className="inline" size={14} /> Live</span>
+          <Broadcast size={18} className="shrink-0" style={{ color: config.accent_color }} />
+          <span className="shrink-0" style={{ opacity: 0.55 }}>Live database</span>
+          <Marquee text={config.ticker_text?.trim() || "Leaderboard ter-update dari transaksi live"} className="font-semibold" />
+          <span className="ml-auto hidden shrink-0 text-body-small sm:block" style={{ opacity: 0.35 }}>{chromeHidden ? null : <>Refresh {tick} · </>}<Storefront className="inline" size={14} /> Live</span>
         </div>}
       </footer>}
     </div>

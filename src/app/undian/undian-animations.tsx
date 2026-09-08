@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { expressive } from "@/lib/m3/motion";
+import { animate, AnimatePresence, motion, useMotionValue } from "framer-motion";
+import { easing, expressive } from "@/lib/m3/motion";
 import { mixHex, readableOn } from "@/lib/color";
+import { ShineText } from "./undian-stage-fx";
 
 // Lapisan animasi layar undian.
 //
@@ -44,6 +45,16 @@ export type AnimationProps = {
 
 /** Nama cadangan saat kolam belum termuat, supaya animasi tidak kosong. */
 const PLACEHOLDER = ["• • •", "• • • •", "• • •"];
+
+/**
+ * Kurva perlambatan roda: cepat di awal, lalu merayap lama sebelum berhenti.
+ *
+ * Bukan pegas M3 — pegas melewati sasaran lalu kembali, dan roda yang mundur
+ * sedikit setelah berhenti terbaca sebagai hasil yang dikoreksi. Bukan pula
+ * `easeOut` bawaan yang berhenti terlalu cepat; ekor panjang di kurva inilah
+ * yang membuat detik terakhir terasa menegangkan.
+ */
+const SPIN_DOWN_EASE = [0.12, 0.8, 0.2, 1] as const;
 
 function useRosterNames(roster: AnimationProps["roster"]): string[] {
   return useMemo(() => (roster.length > 0 ? roster.map((item) => item.name) : PLACEHOLDER), [roster]);
@@ -167,20 +178,35 @@ export function SlotAnimation({ roster, winners, endsAt, accent, text, fontFamil
         // persis pada tiap denyut — tiga gulungan yang seirama terlihat seperti
         // satu gulungan yang digandakan.
         const rolling = names[(names.indexOf(current) + index * 3 + names.length) % names.length] ?? current;
-        return <div
+        return <motion.div
           key={index}
-          className="flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden border-y-2 px-[1.5vw]"
+          className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden border-y-2 px-[1.5vw]"
           style={{
             borderColor: accent,
             height: size.height,
-            background: done ? accent : `${accent}14`,
             // Lebar minimum menjaga tiga gulungan tetap sebaris di layar lebar,
             // dan membiarkannya membungkus di layar sempit.
             minWidth: reels > 1 ? "26%" : undefined,
           }}
+          // Gulungan yang berhenti "mengunci": membesar sekejap, latarnya
+          // menyala penuh, dan bercahaya. Dari kursi belakang inilah yang
+          // terbaca sebagai "yang ini sudah", sebelum namanya sempat dibaca.
+          animate={done
+            ? { scale: [1, 1.05, 1], backgroundColor: accent, boxShadow: `0 0 6vh ${accent}99` }
+            : { scale: 1, backgroundColor: `${accent}14`, boxShadow: `0 0 0vh ${accent}00` }}
+          transition={done ? { duration: 0.45, ease: easing.emphasizedDecelerate } : { duration: 0 }}
         >
+          {/* Bayangan tepi atas-bawah: gulungan terbaca sebagai silinder yang
+              berputar di balik jendela, bukan teks yang sekadar berganti. */}
+          {!done && <>
+            <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[30%]" style={{ background: "linear-gradient(to bottom, rgba(0, 0, 0, 0.42), transparent)" }} />
+            <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[30%]" style={{ background: "linear-gradient(to top, rgba(0, 0, 0, 0.42), transparent)" }} />
+          </>}
+          {/* `key` berganti tiap denyut, jadi tiap nama baru meluncur masuk
+              dari bawah (`reel-in`) — bukan bertukar di tempat. */}
           <span
-            className="w-full truncate text-center font-bold uppercase tracking-[-0.02em]"
+            key={done ? "final" : rolling}
+            className={`w-full truncate text-center font-bold uppercase tracking-[-0.02em] ${done ? "" : "reel-in"}`}
             style={{ fontFamily, fontSize: size.font, color: done ? readableOn(accent) : text }}
           >
             {done ? winner?.name : rolling}
@@ -194,7 +220,7 @@ export function SlotAnimation({ roster, winners, endsAt, accent, text, fontFamil
           >
             {winner.company}
           </span>}
-        </div>;
+        </motion.div>;
       })}
     </div>
 
@@ -230,49 +256,70 @@ export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFami
 
   const [shown, setShown] = useState(0);
   const [frozen, setFrozen] = useState<number | null>(null);
+  const [finished, setFinished] = useState(false);
   const [seenRound, setSeenRound] = useState(round);
   if (seenRound !== round) {
     setSeenRound(round);
     setShown(0);
     setFrozen(null);
+    setFinished(false);
   }
 
-  // Dependency berupa ANGKA, bukan array `main`: halaman menyegarkan data setiap
-  // dua detik dan membangun ulang array pemenang tiap kali, sehingga effect
-  // dengan dependency array akan membatalkan seluruh timer dan mengulang
-  // pengungkapan dari nama pertama — selamanya.
+  /**
+   * Garis waktu per pemenang: roda MELAMBAT dulu, baru namanya sah.
+   *
+   *   t0                    frozen = i    loop linear berhenti; roda meluncur
+   *                                       turun ke segmen pemenang selama
+   *                                       `spinDown`.
+   *   t0 + spinDown         shown = i+1   roda diam; nama tampil di poros dan
+   *                                       di baris bawah.
+   *   t0 + spinDown + hold  frozen = null roda berputar lagi untuk nama
+   *                                       berikutnya, bila masih ada.
+   *
+   * Sebelumnya roda berputar linear lalu langsung berganti ke daftar pemenang,
+   * tanpa perlambatan — momen yang paling ditonton justru terpotong. Untuk satu
+   * pemenang bahkan tidak pernah terlihat berhenti: `shown` dinaikkan pada t=0
+   * dan roda hilang seketika.
+   *
+   * Durasi menyusut mengikuti jumlah pemenang supaya sepuluh nama tidak memakan
+   * hampir satu menit; roda sungguhan pun diputar lebih pendek kalau daftarnya
+   * panjang.
+   *
+   * Dependency berupa ANGKA, bukan array `main`: halaman menyegarkan data setiap
+   * dua detik dan membangun ulang array pemenang tiap kali, sehingga effect
+   * dengan dependency array akan membatalkan seluruh timer dan mengulang
+   * pengungkapan dari nama pertama — selamanya.
+   */
+  const spinDown = Math.max(1400, Math.min(3200, Math.round(9000 / Math.max(1, winnerCount))));
+  const hold = Math.round(spinDown * 0.45);
   useEffect(() => {
     if (winnerCount === 0) return;
-    // Satu pemenang tidak diberi cabang khusus: loop di bawah menjalankannya
-    // pada t=0 tanpa jeda lanjutan, jadi layar langsung berpindah ke daftar
-    // pemenang. Cabang khusus di sini berarti setState sinkron di badan effect,
-    // yang ditolak React Compiler dengan alasan yang sama seperti di useTicker.
-    //
-    // Total pengungkapan dijaga ~6 detik berapa pun jumlah pemenangnya.
-    const step = Math.max(1100, Math.min(2400, Math.round(6000 / winnerCount)));
-    const hold = Math.round(step * 0.62);
+    const step = spinDown + hold;
     const timers: number[] = [];
     for (let index = 0; index < winnerCount; index += 1) {
-      timers.push(window.setTimeout(() => {
-        setFrozen(index);
-        // Hanya boleh maju: nama yang sudah dipanggil tidak boleh hilang lagi
-        // dari layar bila effect ini sempat berjalan ulang.
-        setShown((current) => Math.max(current, index + 1));
-      }, index * step));
-      // Poros kembali berputar di sela dua nama, supaya terbaca sebagai putaran
-      // baru dan bukan sebagai daftar yang berganti sendiri.
+      const t0 = index * step;
+      timers.push(window.setTimeout(() => setFrozen(index), t0));
+      // Hanya boleh maju: nama yang sudah dipanggil tidak boleh hilang lagi
+      // dari layar bila effect ini sempat berjalan ulang.
+      timers.push(window.setTimeout(() => setShown((current) => Math.max(current, index + 1)), t0 + spinDown));
       if (index < winnerCount - 1) {
-        timers.push(window.setTimeout(() => setFrozen(null), index * step + hold));
+        timers.push(window.setTimeout(() => setFrozen(null), t0 + step));
       }
     }
+    // Daftar pemenang penuh baru menggantikan roda setelah nama terakhir sempat
+    // dibaca di porosnya.
+    timers.push(window.setTimeout(() => setFinished(true), winnerCount * step + hold));
     return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [winnerCount, round]);
+  }, [winnerCount, round, spinDown, hold]);
 
-  const revealing = winnerCount > 0 && shown < winnerCount;
+  const revealing = winnerCount > 0 && !finished;
   // Roda tetap tampil selama masih ada nama yang belum dipanggil.
   const spinning = drawing || revealing;
   const current = useTicker(names, drawing ? endsAt : null, spinning, round);
-  const hubName = frozen !== null ? (main[frozen]?.name ?? current) : current;
+  // Poros menampilkan pemenang HANYA setelah roda berhenti. Selama meluncur
+  // turun, nama-nama masih berkedip — itulah ketegangannya.
+  const settled = frozen !== null && shown > frozen;
+  const hubName = settled ? (main[frozen]?.name ?? current) : current;
 
   /**
    * Ukuran roda menyusut bila hadiah ini berpemenang banyak.
@@ -287,7 +334,10 @@ export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFami
    */
   const expected = Math.max(winnerCount, pendingCount ?? 1);
   const multi = expected > 1;
-  const wheelSize = multi ? "min(40vh, 68vw)" : "min(52vh, 90vw)";
+  // Roda mengambil ruang yang DIBERIKAN kartu hadiah: selama undian berjalan,
+  // kartu hadiah di atasnya menyusut (lihat undian-client), jadi roda boleh
+  // jauh lebih besar daripada sebelumnya tanpa mendorong apa pun keluar layar.
+  const wheelSize = multi ? "min(52vh, 80vw)" : "min(60vh, 90vw)";
 
   // Roda hanya menggambar sebagian kolam.
   //
@@ -300,12 +350,43 @@ export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFami
   // ganjil, segmen pertama dan terakhir bersentuhan dengan warna yang sama dan
   // batas di antara keduanya lenyap.
   const segments = Math.max(2, Math.min(names.length, 16) - (Math.min(names.length, 16) % 2));
-  const visible = useMemo(() => {
-    if (names.length <= segments) return names;
-    const start = names.indexOf(current);
-    const from = start < 0 ? 0 : start;
-    return Array.from({ length: segments }, (_, i) => names[(from + i) % names.length]);
-  }, [names, segments, current]);
+
+  /**
+   * Jendela nama DIKUNCI selama roda meluncur turun.
+   *
+   * Jendela biasa mengikuti `current` dari ticker, jadi labelnya bergeser tiap
+   * denyut — benar saat berputar cepat (roda memang buram), salah saat
+   * melambat: tulisan yang berganti di roda yang hampir berhenti terbaca
+   * sebagai roda yang diganti isinya. Saat `frozen` disetel, jangkar jendela
+   * dibekukan dan nama pemenang ditanam di satu segmen; roda lalu diarahkan
+   * berhenti tepat di segmen itu. Pemenangnya sudah ditentukan server — ini
+   * hanya mengatur di mana ia mendarat.
+   *
+   * Penyesuaian saat prop berubah dilakukan SAAT RENDER, pola yang sama dengan
+   * `seenRound` di atas.
+   */
+  const winnerName = frozen !== null ? (main[frozen]?.name ?? null) : null;
+  const [lock, setLock] = useState<{ frozen: number | null; anchor: string; slot: number }>({ frozen: null, anchor: "", slot: 0 });
+  if (lock.frozen !== frozen) {
+    setLock({ frozen, anchor: current, slot: frozen === null ? 0 : frozen * 5 + 3 });
+  }
+  const { visible, landing } = useMemo(() => {
+    const anchor = frozen !== null ? lock.anchor : current;
+    let ring: string[];
+    if (names.length <= segments) {
+      ring = [...names];
+    } else {
+      const start = names.indexOf(anchor);
+      const from = start < 0 ? 0 : start;
+      ring = Array.from({ length: segments }, (_, i) => names[(from + i) % names.length]);
+    }
+    if (frozen === null || !winnerName) return { visible: ring, landing: 0 };
+    const existing = ring.indexOf(winnerName);
+    if (existing >= 0) return { visible: ring, landing: existing };
+    const slot = lock.slot % ring.length;
+    ring[slot] = winnerName;
+    return { visible: ring, landing: slot };
+  }, [names, segments, current, frozen, lock, winnerName]);
 
   // Irisan pai sungguhan, bukan cincin kosong berisi tulisan.
   //
@@ -330,20 +411,92 @@ export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFami
     return `conic-gradient(from ${(-slice / 2).toFixed(3)}deg, ${stops.join(", ")})`;
   }, [visible.length, slice, segmentA, segmentB]);
 
+  /**
+   * Sudut roda sebagai motion value, bukan prop `animate`.
+   *
+   * Dua gerak bergantian pada elemen yang sama: putaran linear tanpa akhir
+   * selama mengundi, lalu luncuran melambat ke segmen pemenang. Keduanya harus
+   * berangkat dari sudut yang sedang tampil — pegangan langsung ke nilainya
+   * membuat peralihan mulus, sementara prop `animate` selalu memulai dari nilai
+   * yang ditulis di markup.
+   */
+  const rotate = useMotionValue(0);
+  useEffect(() => {
+    if (!spinning) return;
+    if (frozen === null) {
+      const from = rotate.get() % 360;
+      const controls = animate(rotate, [from, from + 360], { duration: 1.1, ease: "linear", repeat: Infinity });
+      return () => controls.stop();
+    }
+    // Pusat segmen ke-i berada di slice·i searah jarum jam dari penunjuk, jadi
+    // roda harus berhenti pada -slice·i (mod 360). Ditambah beberapa putaran
+    // penuh supaya perlambatannya terasa, bukan sekadar bergeser sedikit —
+    // lebih sedikit bila durasinya pendek karena pemenangnya banyak.
+    const rest = ((-(slice * landing) % 360) + 360) % 360;
+    const from = rotate.get();
+    const turns = spinDown >= 2500 ? 4 : 2;
+    const target = rest + Math.ceil((from + turns * 360 - rest) / 360) * 360;
+    const controls = animate(rotate, target, { duration: spinDown / 1000, ease: SPIN_DOWN_EASE });
+    return () => controls.stop();
+  }, [spinning, frozen, landing, slice, spinDown, rotate]);
+
   return <div className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-[1.5vh] overflow-hidden">
     {spinning ? <div className="relative flex shrink-0 items-center justify-center" style={{ width: wheelSize, height: wheelSize }}>
-      {/* Penunjuk */}
-      <div
-        className="absolute left-1/2 top-0 z-20 -translate-x-1/2"
-        style={{ borderLeft: "1.4vh solid transparent", borderRight: "1.4vh solid transparent", borderTop: `2.4vh solid ${rim}` }}
+      {/* Penunjuk. Bergetar sekali saat roda berhenti — penanda kedua di
+          samping nama yang berganti di poros, terbaca dari kursi belakang. */}
+      {/* Cahaya di balik penunjuk saat roda berhenti: mengembang lalu
+          mengendap. Penunjuk kecil di atas roda besar butuh pengumuman
+          sendiri. */}
+      <motion.span
+        aria-hidden
+        className="absolute left-1/2 top-0 z-10 rounded-full"
+        style={{ width: "6vh", height: "6vh", background: accent, filter: "blur(1.4vh)", translateX: "-50%", translateY: "-50%" }}
+        animate={settled ? { opacity: [0, 1, 0.55], scale: [0.5, 1.8, 1.2] } : { opacity: 0, scale: 0.5 }}
+        transition={{ duration: 0.8, ease: easing.emphasizedDecelerate }}
       />
       <motion.div
-        key={round}
+        key={settled ? `hit-${round}-${frozen}` : "pointer"}
+        className="absolute left-1/2 top-0 z-20 -translate-x-1/2"
+        style={{ borderLeft: "1.4vh solid transparent", borderRight: "1.4vh solid transparent", borderTop: `2.4vh solid ${rim}`, transformOrigin: "50% 0%" }}
+        animate={settled ? { rotate: [0, -16, 9, -4, 0] } : { rotate: 0 }}
+        transition={{ duration: 0.5, ease: easing.standardDecelerate }}
+      />
+      <motion.div
         className="relative h-full w-full overflow-hidden rounded-full"
-        style={{ border: `0.5vh solid ${rim}`, background: pie }}
-        animate={{ rotate: 360 }}
-        transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }}
+        style={{ border: `0.5vh solid ${rim}`, background: pie, rotate, boxShadow: `0 0 8vh rgba(0, 0, 0, 0.35), inset 0 0 4vh rgba(0, 0, 0, 0.25)` }}
       >
+        {/* Irisan pemenang menyala saat roda berhenti. Berada DI DALAM roda
+            yang berputar, jadi ia ikut mendarat tepat di bawah penunjuk. */}
+        {settled ? (
+          <motion.div
+            key={`wedge-${round}-${frozen}`}
+            aria-hidden
+            className="absolute inset-0 rounded-full"
+            style={{ background: `conic-gradient(from ${(slice * landing - slice / 2).toFixed(3)}deg, rgba(255, 255, 255, 0.6) 0deg ${slice.toFixed(3)}deg, transparent ${slice.toFixed(3)}deg)` }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 0.55] }}
+            transition={{ duration: 0.9, ease: "easeOut" }}
+          />
+        ) : null}
+        {/* Paku pembatas segmen di tepi roda. Bersama kilatan cahaya yang
+            melewatinya saat berputar cepat, inilah yang membuat roda terbaca
+            sebagai benda, bukan cakram warna. */}
+        {visible.map((_, index) => (
+          <span
+            key={`tick-${index}`}
+            aria-hidden
+            className="absolute left-1/2 top-1/2 rounded-full"
+            style={{
+              width: "1.1vh",
+              height: "1.1vh",
+              marginLeft: "-0.55vh",
+              marginTop: "-0.55vh",
+              background: hub,
+              boxShadow: "0 0 0.6vh rgba(0, 0, 0, 0.35)",
+              transform: `rotate(${(slice * index - slice / 2).toFixed(3)}deg) translateY(calc(${wheelSize} / -2 + 1.6vh))`,
+            }}
+          />
+        ))}
         {visible.map((name, index) => {
           // -90 menyelaraskan jari-jari dengan gradien: rotate(0) menunjuk pukul
           // tiga, sedangkan sudut conic-gradient dihitung dari pukul dua belas.
@@ -353,14 +506,16 @@ export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFami
             className="absolute left-1/2 top-1/2 origin-left"
             style={{ transform: `rotate(${angle}deg)`, width: "50%" }}
           >
-            {/* Padding kiri harus MELEWATI poros. Poros lebarnya 46% dari
-                diameter, artinya 46% dari panjang jari-jari ini — nilai lama 24%
-                menaruh tulisan tepat di bawahnya, dan seluruh nama tertimbun. */}
+            {/* Padding kiri harus MELEWATI poros DAN cahayanya. Poros lebarnya
+                38% dari diameter, artinya 38% dari panjang jari-jari ini; nama
+                mulai di 48% supaya ada jarak dari tepi poros dan dari cahaya
+                yang menyala saat roda berhenti. Nilai lama 50% dengan poros 46%
+                menaruh huruf pertama tepat di bawah cahaya itu. */}
             <span
-              className="block truncate pl-[50%] pr-[6%] font-semibold uppercase"
+              className="block truncate pl-[48%] pr-[7%] font-bold uppercase"
               style={{
                 fontFamily,
-                fontSize: "clamp(9px, 1.5vh, 20px)",
+                fontSize: "clamp(10px, 2.1vh, 28px)",
                 color: readableOn(index % 2 === 0 ? segmentA : segmentB),
               }}
             >
@@ -372,14 +527,26 @@ export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFami
       {/* Nama yang sedang lewat, di poros roda: dari kursi belakang inilah yang
           terbaca, bukan tulisan pada segmennya. Porosnya bulat dan berwarna
           terang supaya menonjol di atas irisan, dan tidak ikut berputar. */}
-      <div
+      <motion.div
         className="absolute z-10 flex aspect-square items-center justify-center rounded-full px-[2vh]"
-        style={{ width: "46%", background: hub, border: `0.4vh solid ${rim}` }}
+        style={{ width: "38%", background: hub, border: `0.4vh solid ${rim}` }}
+        // Poros bercahaya saat nama pemenang mendarat di dalamnya.
+        animate={{ boxShadow: settled ? `0 0 7vh ${accent}, 0 0 2vh ${accent}` : `0 0 0vh ${accent}00, 0 0 0vh ${accent}00` }}
+        transition={{ duration: 0.6, ease: easing.emphasizedDecelerate }}
       >
-        <span className="truncate text-center font-bold uppercase" style={{ fontFamily, fontSize: "clamp(16px, 2.8vh, 44px)", color: readableOn(hub) }}>
+        {/* Nama pemenang membesar sekejap saat roda berhenti. Selama berkedip
+            tidak ada gerak tambahan: nama yang berganti 16 kali per detik sudah
+            cukup ramai. */}
+        <motion.span
+          key={settled ? `settled-${round}-${frozen}` : "ticking"}
+          className="truncate text-center font-bold uppercase"
+          style={{ fontFamily, fontSize: "clamp(16px, 3vh, 48px)", color: readableOn(hub) }}
+          animate={settled ? { scale: [0.88, 1.08, 1] } : { scale: 1 }}
+          transition={{ duration: 0.45, ease: easing.emphasizedDecelerate }}
+        >
           {hubName}
-        </span>
-      </div>
+        </motion.span>
+      </motion.div>
     </div> : <WinnerList winners={winners} accent={accent} text={text} fontFamily={fontFamily} />}
 
     {/* Nama yang sudah dipanggil tetap terpampang selama roda memanggil sisanya.
@@ -395,8 +562,8 @@ export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFami
         style={{
           fontFamily,
           fontSize: "clamp(12px, 2vh, 30px)",
-          background: index === frozen ? accent : `${accent}22`,
-          color: index === frozen ? readableOn(accent) : text,
+          background: index === frozen && settled ? accent : `${accent}22`,
+          color: index === frozen && settled ? readableOn(accent) : text,
           border: `0.25vh solid ${accent}`,
         }}
       >
@@ -489,28 +656,51 @@ export function CardsAnimation({ roster, winners, endsAt, accent, text, fontFami
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [winnerCount, round]);
 
+  // Muka kartu dibagi dua elemen yang sama-sama mengisi kartunya: depan
+  // (nama berkedip) dan belakang (pemenang), yang terakhir sudah diputar 180°
+  // sejak awal sehingga baru menghadap penonton setelah kartunya berbalik.
+  // `min-w-0` dan `overflow-hidden` wajib: tanpa keduanya nama panjang
+  // memperlebar kolomnya sendiri dan mendorong kartu lain keluar layar.
+  const face = "absolute inset-0 flex min-w-0 items-center justify-center overflow-hidden border-2 px-[1.5vh] text-center";
+  const onAccent = readableOn(accent);
+
   return <div
     className="grid h-full w-full gap-[1.5vh] overflow-hidden"
-    style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gridAutoRows: cardHeight }}
+    // `perspective` di WADAH, bukan di kartu. Tanpa titik pandang, rotateY
+    // hanya menyempitkan kartu — terbaca sebagai kartu yang diremas, bukan yang
+    // dibalik. Nilainya dalam vh supaya kedalamannya ikut ukuran layar.
+    style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gridAutoRows: cardHeight, perspective: "160vh" }}
   >
     {Array.from({ length: slots }).map((_, index) => {
       const winner = winners[index];
       const open = !spinning && index < revealed;
       return <motion.div
         key={index}
-        // `min-w-0` dan `overflow-hidden` wajib: tanpa keduanya nama panjang
-        // memperlebar kolomnya sendiri dan mendorong kartu lain keluar layar.
-        className="flex min-w-0 items-center justify-center overflow-hidden border-2 px-[1.5vh] text-center"
-        style={{ borderColor: accent, background: open ? accent : `${accent}14` }}
-        animate={open ? { rotateY: [90, 0], scale: [0.9, 1] } : {}}
-        transition={expressive.spatial.default}
+        className="relative min-w-0"
+        style={{ transformStyle: "preserve-3d" }}
+        // Pegas ekspresif: kartu sedikit melewati 180° lalu kembali, seperti
+        // kartu sungguhan yang dibalik dengan satu jentikan. Selama menunggu,
+        // kartu bernapas pelan bergantian — tanda hidup tanpa satu pun kata.
+        // Transisi per-properti: `scale` memakai tween karena tiga keyframe,
+        // dan pegas hanya menerima dua.
+        animate={{ rotateY: open ? 180 : 0, scale: open ? 1 : [1, 0.975, 1] }}
+        transition={{
+          rotateY: expressive.spatial.default,
+          scale: open ? { duration: 0.3 } : { duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: index * 0.15 },
+        }}
       >
-        {open && winner ? <div className="min-w-0">
-          <p className="truncate font-bold uppercase" style={{ fontFamily, fontSize: nameSize, color: "#0B1020" }}>{winner.name}</p>
-          {winner.company && <p className="truncate" style={{ fontFamily, fontSize: subSize, color: "#0B1020", opacity: 0.75 }}>{winner.company}</p>}
-        </div> : <span className="truncate font-semibold uppercase" style={{ fontFamily, fontSize: nameSize, color: text, opacity: 0.5 }}>
-          {spinning ? current : "..."}
-        </span>}
+        <div className={face} style={{ borderColor: accent, background: `${accent}14`, backfaceVisibility: "hidden" }}>
+          {spinning ? <span aria-hidden className="shine-sweep pointer-events-none absolute inset-0" /> : null}
+          <span className="relative truncate font-semibold uppercase" style={{ fontFamily, fontSize: nameSize, color: text, opacity: 0.5 }}>
+            {spinning ? current : "..."}
+          </span>
+        </div>
+        <div className={face} style={{ borderColor: accent, background: accent, backfaceVisibility: "hidden", transform: "rotateY(180deg)", boxShadow: open ? `0 0 5vh ${accent}99` : undefined }}>
+          {winner ? <div className="min-w-0">
+            <p className="truncate font-bold uppercase" style={{ fontFamily, fontSize: nameSize, color: onAccent }}>{winner.name}</p>
+            {winner.company && <p className="truncate" style={{ fontFamily, fontSize: subSize, color: onAccent, opacity: 0.75 }}>{winner.company}</p>}
+          </div> : null}
+        </div>
       </motion.div>;
     })}
   </div>;
@@ -665,15 +855,23 @@ export function DigitsAnimation({ roster, winners, accent, text, fontFamily, rou
             // Offset `strip * 13` membuat deret kedua tidak menampilkan huruf
             // acak yang persis sama dengan deret pertama pada tiap denyut.
             const char = settled ? target[index] : alphabet[(tick + index * 7 + strip * 13) % alphabet.length];
-            return <div
+            // Kotak yang terkunci membesar sekejap lalu kembali, seperti tuas
+            // yang jatuh ke tempatnya. Tanpa itu penguncian hanya pergantian
+            // huruf, dan dari kursi belakang tidak terlihat bedanya dengan huruf
+            // acak yang kebetulan sama.
+            return <motion.div
               key={index}
               className="flex items-center justify-center border-2"
-              style={{ borderColor: accent, background: settled ? accent : "transparent", width: box.width, height: box.height }}
+              style={{ borderColor: accent, width: box.width, height: box.height }}
+              animate={settled ? { scale: [1, 1.16, 1], backgroundColor: accent } : { scale: 1, backgroundColor: `${accent}00` }}
+              transition={settled ? { duration: 0.32, ease: easing.emphasizedDecelerate } : { duration: 0 }}
             >
-              <span className="font-bold tabular-nums" style={{ fontFamily, fontSize: box.font, color: settled ? "#0B1020" : text }}>
+              {/* Huruf acak meluncur masuk dari bawah tiap denyut, seperti
+                  gulungan mekanik; huruf yang terkunci diam di tempatnya. */}
+              <span key={settled ? "final" : char} className={`font-bold tabular-nums ${settled ? "" : "reel-in"}`} style={{ fontFamily, fontSize: box.font, color: settled ? readableOn(accent) : text }}>
                 {char}
               </span>
-            </div>;
+            </motion.div>;
           })}
         </div>
 
@@ -793,11 +991,22 @@ export function DartAnimation({ roster, winners, accent, text, fontFamily, pendi
           // tertancap panah menjadi satu-satunya yang menarik mata.
           opacity: drawing ? 0.9 : 0.25,
         }}
-        animate={{
-          y: [0, -12 - scatter(index, 3) * 16, 0],
+        // Amplitudo dalam vh, bukan belasan piksel. Sebelumnya kertas hanya
+        // naik-turun 12–28px dalam 4–6 detik: di proyektor 1080p itu tidak
+        // terbaca sebagai gerak, dan operator mengira animasinya belum dimulai
+        // — lalu mencari tombol "mulai" yang tidak ada. Selama membidik
+        // (`drawing`) kertas melayang lebar dan lebih cepat; setelah pemenang
+        // tampil ia mereda supaya tidak bersaing dengan kartu yang tertancap.
+        animate={drawing ? {
+          y: [`0vh`, `${(-(5 + scatter(index, 3) * 6)).toFixed(1)}vh`, `0vh`],
+          x: [`0vw`, `${((scatter(index, 7) - 0.5) * 5).toFixed(1)}vw`, `0vw`],
           rotate: [-9 + scatter(index, 4) * 18, 7 - scatter(index, 5) * 16, -9 + scatter(index, 4) * 18],
+        } : {
+          y: [`0vh`, `${(-(1 + scatter(index, 3) * 1.5)).toFixed(1)}vh`, `0vh`],
+          x: `0vw`,
+          rotate: -9 + scatter(index, 4) * 18,
         }}
-        transition={{ duration: 3.6 + scatter(index, 6) * 2.8, repeat: Infinity, ease: "easeInOut" }}
+        transition={{ duration: (drawing ? 2.4 : 4.2) + scatter(index, 6) * 2, repeat: Infinity, ease: "easeInOut" }}
       >
         <span className="max-w-[86%] truncate font-semibold uppercase" style={{ fontFamily, fontSize: "clamp(9px, 1.4vh, 18px)", color: "#6B5B3A" }}>
           {name}
@@ -805,11 +1014,54 @@ export function DartAnimation({ roster, winners, accent, text, fontFamily, pendi
       </motion.div>)}
     </div>
 
+    {/* Panah yang MEMBIDIK selama menunggu aba-aba: melayang di tepi kiri,
+        naik-turun mencari sasaran, ujungnya menghadap kertas. Inilah yang
+        memberi tahu ruangan bahwa undian sudah berjalan dan tinggal menunggu
+        lemparan — tanpa itu, kertas yang melayang terbaca sebagai layar diam.
+        Saat pemenang tiba, panah pembidik ini hilang dan panah sungguhan
+        terbang dari posisi yang sama menuju kartu. */}
+    {drawing ? (
+      <motion.img
+        src="/undian/dart.svg"
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute left-[4vw] top-1/2 z-10"
+        style={{ width: "min(22vw, 26vh)", translateY: "-50%" }}
+        initial={{ x: "-40vw", opacity: 0 }}
+        animate={{ x: 0, opacity: 1, y: ["-9vh", "9vh", "-9vh"], rotate: [-5, 5, -5] }}
+        transition={{
+          x: { ...expressive.spatial.slow },
+          opacity: { duration: 0.4 },
+          y: { duration: 2.6, repeat: Infinity, ease: "easeInOut" },
+          rotate: { duration: 2.6, repeat: Infinity, ease: "easeInOut" },
+        }}
+      />
+    ) : null}
+
     {/* Kartu pemenang. Muncul serentak bersama panahnya. */}
     <div className="relative z-10 flex flex-wrap items-center justify-center px-[3vw]" style={{ columnGap, rowGap: "2.5vh" }}>
       {drawing
-        ? <p style={{ fontFamily, fontSize: "clamp(16px, 3.4vh, 46px)", color: text, opacity: 0.6 }}>
-            {slots > 1 ? `Membidik ${slots} nama…` : "Membidik…"}
+        // Pil gelap tembus pandang di belakang teks, bukan teks telanjang
+        // beropasitas 60%. Warna teks acara bisa putih di atas latar krem
+        // (persis setelan Marugame), dan teks putih 60% di atas krem plus
+        // kertas yang melayang di belakangnya tidak terbaca dari kursi mana pun.
+        ? <p
+            className="rounded-full px-[2.4vw] py-[1vh] font-semibold"
+            style={{ fontFamily, fontSize: "clamp(16px, 3.4vh, 46px)", color: "#FFFFFF", background: "rgba(0, 0, 0, 0.45)", backdropFilter: "blur(6px)" }}
+          >
+            {slots > 1 ? `Membidik ${slots} nama` : "Membidik"}
+            {/* Titik-titik yang berdenyut bergantian: penanda "sedang berjalan"
+                yang terbaca bahkan ketika kertas di belakangnya tidak dilihat. */}
+            {[0, 1, 2].map((dot) => (
+              <motion.span
+                key={dot}
+                aria-hidden
+                animate={{ opacity: [0.2, 1, 0.2] }}
+                transition={{ duration: 1.2, repeat: Infinity, delay: dot * 0.2, ease: "easeInOut" }}
+              >
+                .
+              </motion.span>
+            ))}
           </p>
         : main.map((winner, index) => <motion.div
             key={`${winner.name}-${winner.slot_order}`}
@@ -825,9 +1077,18 @@ export function DartAnimation({ roster, winners, accent, text, fontFamily, pendi
               boxShadow: `0 0 0 0.35vh ${accent}`,
             }}
             // Sentakan saat panah mendarat: kertas terdorong lalu diam.
+            //
+            // DUA keyframe, bukan tiga. Pegas Framer Motion hanya menerima dua
+            // (dari → ke); tiga nilai seperti [0.9, 1.05, 1] melempar galat
+            // "Only two keyframes currently supported with spring" dan
+            // merobohkan seluruh layar undian tepat saat pemenang tiba.
+            // Lewatannya tidak perlu ditulis tangan: pegas `spatial` yang
+            // teredam 0,8 memang melewati sasaran sedikit lalu kembali — itulah
+            // sentakannya. Opasitas memakai pegas `effects` yang teredam kritis
+            // supaya tidak berkedip.
             initial={{ scale: 0.9, opacity: 0, rotate: index % 2 === 0 ? -2.5 : 2.5 }}
-            animate={{ scale: [0.9, 1.05, 1], opacity: 1, rotate: [index % 2 === 0 ? -2.5 : 2.5, 0.8, 0] }}
-            transition={{ ...expressive.effects.default, delay: index * 0.07 + 0.28 }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            transition={{ ...expressive.spatial.default, opacity: expressive.effects.default, delay: index * 0.07 + 0.28 }}
           >
             {/* Isi digeser ke kanan sejauh mata panah masuk, supaya batangnya
                 tidak pernah melintang di atas huruf. */}
@@ -855,6 +1116,18 @@ export function DartAnimation({ roster, winners, accent, text, fontFamily, pendi
               // memang boleh melewati sasaran sedikit lalu kembali — di layar
               // panggung, itulah yang membuat pengumuman terasa hidup.
               transition={{ ...expressive.spatial.default, delay: index * 0.07 }}
+            />
+
+            {/* Gelombang benturan di titik mata panah masuk: satu cincin yang
+                mengembang lalu lenyap, dijadwalkan tepat setelah panah tiba.
+                Tanpa ini panah "muncul" di kartu; dengan ini ia MENANCAP. */}
+            <motion.span
+              aria-hidden
+              className="pointer-events-none absolute rounded-full"
+              style={{ left: "8%", top: "50%", width: "22%", aspectRatio: "1", border: `0.5vh solid ${accent}`, translateX: "-50%", translateY: "-50%" }}
+              initial={{ scale: 0.2, opacity: 0 }}
+              animate={{ scale: [0.2, 3.2], opacity: [0.9, 0] }}
+              transition={{ duration: 0.75, ease: "easeOut", delay: index * 0.07 + 0.34 }}
             />
           </motion.div>)}
     </div>
@@ -908,8 +1181,10 @@ export function WinnerList({
           transition={{ ...expressive.spatial.default, delay: Math.min(index * 0.35, index * (2 / Math.max(1, main.length))) }}
           className="min-w-0 text-center"
         >
-          <p className="truncate font-bold uppercase tracking-[-0.03em]" style={{ fontFamily, fontSize: size, color: accent, lineHeight: 1.1 }}>
-            {winner.name}
+          {/* Kilau emas menyapu nama pemenang. Nama yang diam berwarna aksen
+              sudah benar; nama yang berkilau adalah nama yang baru saja menang. */}
+          <p className="truncate font-bold uppercase tracking-[-0.03em]" style={{ fontFamily, fontSize: size, lineHeight: 1.1 }}>
+            <ShineText color={accent}>{winner.name}</ShineText>
           </p>
           {(winner.company || winner.seat) && <p className="truncate" style={{ fontFamily, fontSize: subSize, color: text, opacity: 0.75 }}>
             {[winner.company, winner.seat && `Kursi ${winner.seat}`].filter(Boolean).join(" · ")}

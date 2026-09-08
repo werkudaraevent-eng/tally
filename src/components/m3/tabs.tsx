@@ -1,7 +1,9 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useRef, type ReactNode } from "react";
 import { cx } from "@/lib/m3/cx";
+import { standard } from "@/lib/m3/motion";
 
 export type TabOption<T extends string> = {
 	value: T;
@@ -122,10 +124,16 @@ export function Tabs<T extends string>({ options, value, onChange, label, idPref
 								{option.badge}
 							</span>
 						) : null}
+						{/* `layoutId`: indikator yang sama MELUNCUR ke tab berikutnya, bukan
+						    dibuat ulang di tempat baru. Itulah gerak indikator tab M3, dan
+						    yang membuat pergantian tab terbaca sebagai berpindah, bukan
+						    berkedip. Skema tenang: tab ada di layar kerja. */}
 						{aktif ? (
-							<span
+							<motion.span
+								layoutId={`${idPrefix}-indicator`}
 								aria-hidden
 								className="absolute inset-x-0 bottom-0 mx-auto h-[3px] w-full rounded-t-full bg-primary"
+								transition={standard.spatial.fast}
 							/>
 						) : null}
 					</button>

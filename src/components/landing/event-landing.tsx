@@ -20,6 +20,7 @@ import type {
 import { LANDING_SECTION_LABELS } from "@/lib/domain";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { LandingNav } from "./landing-nav";
+import { CountUp, Reveal } from "./reveal";
 
 /**
  * Landing page publik acara.
@@ -104,14 +105,33 @@ const HERO_HEIGHT: Record<LandingHeroHeight, string> = {
 /** Kolom baca. Paragraf body-large melewati ~75 karakter per baris di atas ini. */
 const PROSE = "max-w-[68ch]";
 
-function SectionShell({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+/**
+ * Jeda masuk hero, per elemen, dalam milidetik.
+ *
+ * Urutannya urutan membaca: kapan, apa, tentang apa, lalu tindakan; kartu
+ * lokasi terakhir karena ia yang paling jauh dari sudut kiri atas. 60ms antar
+ * elemen cukup untuk terbaca sebagai urutan tanpa terasa menunggu — total di
+ * bawah setengah detik sebelum tombolnya muncul.
+ */
+const HERO_DELAY = (step: number) => ({ "--rise-delay": `${step * 60}ms` }) as CSSProperties;
+
+/**
+ * `reveal` boleh dimatikan oleh bagian yang mengurutkan kartunya sendiri
+ * (sorotan, sponsor). Dua lapis pengungkapan — kolomnya naik DAN kartunya
+ * naik — menghasilkan gerak ganda yang tidak dimaksudkan siapa pun.
+ */
+function SectionShell({ id, title, reveal = true, children }: { id: string; title: string; reveal?: boolean; children: React.ReactNode }) {
+  const kolom = "lg:col-span-8 xl:col-span-9";
   return (
     <section id={id} className="scroll-mt-24 border-t border-[var(--reg-outline-variant)] py-14 sm:py-20">
       <div className="grid gap-8 lg:grid-cols-12 lg:gap-12">
+        {/* Judul tidak ikut naik: ia rel yang menempel saat digulir, dan
+            judul yang bergerak sendiri saat isinya diam terbaca sebagai
+            tata letak yang belum selesai. */}
         <h2 className="text-headline-small font-semibold tracking-tight sm:text-headline-medium lg:sticky lg:top-24 lg:col-span-4 lg:self-start xl:col-span-3">
           {title}
         </h2>
-        <div className="lg:col-span-8 xl:col-span-9">{children}</div>
+        {reveal ? <Reveal className={kolom}>{children}</Reveal> : <div className={kolom}>{children}</div>}
       </div>
     </section>
   );
@@ -225,8 +245,11 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
       <header className="relative isolate overflow-hidden">
         {config.banner_url ? (
           <>
+            {/* `settle-in`: banner mengendap dari sedikit lebih besar saat muat.
+                Satu gerak lambat di latar yang membuat hero terasa hidup tanpa
+                satu pun elemen teks yang harus dikejar mata. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={config.banner_url} alt="" className="absolute inset-0 -z-10 size-full object-cover" />
+            <img src={config.banner_url} alt="" className="settle-in absolute inset-0 -z-10 size-full object-cover" />
             <div
               className="absolute inset-0 -z-10"
               style={{ background: fotoAsli ? BANNER_SCRIM : BANNER_WASH }}
@@ -270,21 +293,24 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
                 // dengan jam dan zona waktu ("6 – 8 Agustus 2026 · 09.00–17.00
                 // WITA") melewati lebar layar 375px dan pil itu menjadi dua
                 // baris; pada kapsul penuh, barisnya lalu menempel di lengkungan.
-                <p className="inline-flex items-start gap-2 rounded-3xl bg-[var(--reg-primary-container)] px-4 py-2 text-label-large font-semibold text-[var(--reg-on-primary-container)]">
+                <p className="rise-in inline-flex items-start gap-2 rounded-3xl bg-[var(--reg-primary-container)] px-4 py-2 text-label-large font-semibold text-[var(--reg-on-primary-container)]" style={HERO_DELAY(0)}>
                   <CalendarBlank size={18} weight="fill" className="mt-0.5 shrink-0" />
                   {schedule}
                 </p>
               ) : null}
 
-              <h1 className="mt-6 text-balance text-display-small font-semibold tracking-[-0.03em] sm:text-display-medium lg:text-display-large">
+              {/* Koreografi masuk hero: tiap baris naik 14px sambil memudar
+                  masuk, berurutan (lihat HERO_DELAY). Satu kali, saat muat —
+                  dan dikerjakan CSS karena berkas ini komponen server. */}
+              <h1 className="rise-in mt-6 text-balance text-display-small font-semibold tracking-[-0.03em] sm:text-display-medium lg:text-display-large" style={HERO_DELAY(1)}>
                 {event.name}
               </h1>
 
               {event.tagline ? (
-                <p className={`mt-5 max-w-[52ch] text-title-large ${heroMuted}`}>{event.tagline}</p>
+                <p className={`rise-in mt-5 max-w-[52ch] text-title-large ${heroMuted}`} style={HERO_DELAY(2)}>{event.tagline}</p>
               ) : null}
 
-              <div className="mt-9 flex flex-wrap items-center gap-3">
+              <div className="rise-in mt-9 flex flex-wrap items-center gap-3" style={HERO_DELAY(3)}>
                 {/* Tombol daftar hanya muncul saat pendaftaran memang terbuka.
                     Tombol yang mengantar ke halaman "pendaftaran ditutup" membuat
                     tamu mengira dirinya terlambat karena salahnya sendiri. */}
@@ -332,7 +358,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
               // kosong di layar lebar. Isinya bukan hiasan: setelah tahu kapan,
               // yang dicari tamu berikutnya adalah di mana, dan dua tombol yang
               // menindaklanjuti keduanya berdiri tepat di bawahnya.
-              <aside className="lg:col-span-5 xl:col-span-4 xl:col-start-9">
+              <aside className="rise-in lg:col-span-5 xl:col-span-4 xl:col-start-9" style={HERO_DELAY(4)}>
                 <div className={`rounded-[28px] border p-6 sm:p-7 ${kartuKelas}`}>
                   <DetailRow
                     icon={<MapPin size={22} weight="fill" />}
@@ -403,18 +429,24 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
 
             case "highlights":
               return (
-                <SectionShell key="highlights" id="highlights" title={LANDING_SECTION_LABELS.highlights}>
+                <SectionShell key="highlights" id="highlights" title={LANDING_SECTION_LABELS.highlights} reveal={false}>
+                  {/* Kartu naik berurutan 70ms, dan angkanya menghitung naik
+                      begitu terlihat. Angka yang bergerak menuju nilainya
+                      dibaca sebagai capaian; angka yang diam dibaca sebagai
+                      label. Wadah <dl> tetap: Reveal merender <div>, dan div di
+                      dalam dl sah menurut HTML. */}
                   <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {(config.highlights ?? []).map((item) => (
-                      <div
+                    {(config.highlights ?? []).map((item, index) => (
+                      <Reveal
                         key={item.label}
+                        delay={index * 70}
                         className="rounded-[28px] border border-[var(--reg-outline-variant)] bg-[var(--reg-field)] p-6"
                       >
                         <dt className={`text-label-large uppercase tracking-[0.14em] ${MUTED}`}>{item.label}</dt>
                         <dd className="mt-3 text-headline-medium font-semibold tabular-nums text-[var(--reg-primary)]">
-                          {item.value}
+                          <CountUp value={item.value} />
                         </dd>
-                      </div>
+                      </Reveal>
                     ))}
                   </dl>
                 </SectionShell>
@@ -498,9 +530,12 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
                       dibuka dengan papan ketik, sudah diumumkan pembaca layar
                       sebagai dapat dilipat, dan tetap bekerja bila JavaScript
                       gagal dimuat di jaringan tamu. */}
+                  {/* `faq`: isinya membuka dengan tinggi yang dianimasikan di
+                      peramban yang mendukung `interpolate-size` — lihat
+                      globals.css. Di peramban lain tetap seketika. */}
                   <div className="divide-y divide-[var(--reg-outline-variant)]">
                     {(config.faq ?? []).map((item) => (
-                      <details key={item.q} className="group py-5">
+                      <details key={item.q} className="faq group py-5">
                         <summary className="m3-state -mx-4 flex cursor-pointer list-none items-start justify-between gap-4 rounded-2xl px-4 py-2 text-title-medium font-semibold">
                           {item.q}
                           <CaretDown size={20} className="mt-1 shrink-0 transition-transform group-open:rotate-180" />
@@ -516,23 +551,26 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
 
             case "sponsors":
               return (
-                <SectionShell key="sponsors" id="sponsors" title={LANDING_SECTION_LABELS.sponsors}>
+                <SectionShell key="sponsors" id="sponsors" title={LANDING_SECTION_LABELS.sponsors} reveal={false}>
                   {/* Grid rata, bukan tingkatan sponsor berukuran berbeda.
                       Ukuran logo yang berbeda-beda adalah janji tentang nilai
                       kontrak, dan itu keputusan komersial yang tidak boleh
-                      diambil oleh urutan unggah. */}
+                      diambil oleh urutan unggah. Jeda masuknya pun seragam
+                      mengikuti urutan grid, bukan sesuatu yang bisa dibeli. */}
                   <ul className="grid grid-cols-2 items-center gap-4 sm:grid-cols-3 xl:grid-cols-4">
-                    {(config.sponsors ?? []).map((sponsor) => (
-                      <li
-                        key={sponsor.logo_url}
-                        className="flex h-24 items-center justify-center rounded-2xl border border-[var(--reg-outline-variant)] bg-[var(--reg-field)] p-5"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={sponsor.logo_url}
-                          alt={sponsor.name ?? ""}
-                          className="max-h-full max-w-full object-contain"
-                        />
+                    {(config.sponsors ?? []).map((sponsor, index) => (
+                      <li key={sponsor.logo_url}>
+                        <Reveal
+                          delay={index * 50}
+                          className="flex h-24 items-center justify-center rounded-2xl border border-[var(--reg-outline-variant)] bg-[var(--reg-field)] p-5"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={sponsor.logo_url}
+                            alt={sponsor.name ?? ""}
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        </Reveal>
                       </li>
                     ))}
                   </ul>
@@ -573,7 +611,8 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
           // tengah tetap benar di sini — ini akhir halaman dan hanya ada satu
           // hal yang bisa dilakukan — tetapi tanpa bidang di belakangnya ia
           // terbaca sebagai teks yang tersesat di ruang kosong.
-          <section className="my-14 rounded-[32px] bg-[var(--reg-panel)] px-6 py-14 text-center sm:my-20 sm:px-10 sm:py-16">
+          <section className="my-14 sm:my-20">
+          <Reveal className="rounded-[32px] bg-[var(--reg-panel)] px-6 py-14 text-center sm:px-10 sm:py-16">
             <ChatCircleText size={40} weight="duotone" className="mx-auto text-[var(--reg-primary)]" />
             <h2 className="mt-5 text-headline-medium font-semibold tracking-tight">Sampai jumpa di acara</h2>
             {schedule ? <p className={`mt-3 text-body-large ${MUTED}`}>{schedule}</p> : null}
@@ -585,6 +624,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
               {ctaLabel}
               <ArrowRight size={20} weight="bold" />
             </Link>
+          </Reveal>
           </section>
         ) : null}
 

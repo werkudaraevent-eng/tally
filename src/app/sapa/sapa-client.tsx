@@ -1,10 +1,40 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrandFooter, BrandHeader } from "@/components/brand-header-footer";
 import { fontStack, scaleClamp } from "@/lib/branding";
 import { eventApiPath } from "@/lib/event-url";
 import type { Greeting, GreetingConfig, Lane, Pairing } from "@/lib/greeting-config";
+import { easing, standard } from "@/lib/m3/motion";
+
+/**
+ * Masuknya satu nama: naik sedikit lalu berhenti, bukan meluncur dari tepi
+ * layar. Nama berganti setiap beberapa detik sepanjang acara, dan gerak yang
+ * menempuh jarak jauh berubah menjadi lalu lintas visual di sudut mata orang
+ * yang sedang mengobrol di lobi.
+ *
+ * Keluarnya lebih cepat dan lebih pendek daripada masuknya. Nama lama sudah
+ * dibaca; yang menunggu adalah nama berikutnya.
+ *
+ * `translate` dan `opacity` saja — keduanya dikerjakan kompositor. Layar ini
+ * menyala berjam-jam di TV atau stik HDMI yang tenaganya jauh di bawah laptop
+ * yang dipakai merancangnya.
+ */
+const NAMA_MASUK = {
+  initial: { opacity: 0, y: "2.2vmin" },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: "-1.4vmin", transition: { duration: 0.2, ease: easing.standardAccelerate } },
+  transition: { duration: 0.46, ease: easing.emphasizedDecelerate },
+} as const;
+
+/** Pesan diam dan kode pemasangan cukup memudar; tidak ada yang perlu disambut. */
+const PUDAR = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0, transition: { duration: 0.2 } },
+  transition: { duration: 0.35 },
+} as const;
 
 /**
  * Layar sapa.
@@ -243,8 +273,12 @@ export default function SapaClient({
           aria-live="polite"
           aria-atomic="true"
         >
+          {/* `mode="wait"`: nama lama selesai keluar dulu, baru yang baru masuk.
+              Dua nama yang bersilang di bidang yang sama tidak terbaca dari
+              lorong — dan bidang tengah hanya cukup untuk satu. */}
+          <AnimatePresence mode="wait" initial={false}>
           {pairing ? (
-            <div className="w-full">
+            <motion.div key="pemasangan" className="w-full" {...PUDAR}>
               <p className="font-semibold opacity-60" style={{ fontSize: "clamp(14px, 2.6vmin, 44px)" }}>
                 Kode pemasangan layar
               </p>
@@ -272,9 +306,9 @@ export default function SapaClient({
               <p className="mt-[1.6vmin] opacity-40" style={{ fontSize: "clamp(11px, 1.7vmin, 26px)" }}>
                 Kode berganti sendiri setiap 15 menit.
               </p>
-            </div>
+            </motion.div>
           ) : current ? (
-            <div key={current.id} className="greet-in w-full">
+            <motion.div key={`nama-${current.id}`} className="w-full" {...NAMA_MASUK}>
               <p
                 className="font-bold leading-[1.05] text-balance"
                 style={{ fontSize: namaUkuran, color: config.title_color ?? config.text_color }}
@@ -285,11 +319,16 @@ export default function SapaClient({
               {/* Garis aksen sebagai penanda kedua di samping ukuran huruf. Ia
                   yang membedakan "ada yang baru saja masuk" dari "layar sedang
                   menampilkan pesan diam" ketika dilihat dari jauh, sebelum satu
-                  pun huruf terbaca. */}
-              <span
+                  pun huruf terbaca. Ia TUMBUH dari tengah sesaat setelah nama
+                  mendarat — gerak kecil kedua yang menegaskan "baru", tanpa
+                  menambah lalu lintas. */}
+              <motion.span
                 aria-hidden
                 className="mx-auto mt-[2.4vmin] block h-[0.7vmin] w-[18vmin] rounded-full"
                 style={{ background: config.accent_color }}
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ delay: 0.16, duration: 0.42, ease: easing.emphasizedDecelerate }}
               />
 
               {current.company ? (
@@ -303,15 +342,18 @@ export default function SapaClient({
                   {current.company}
                 </p>
               ) : null}
-            </div>
+            </motion.div>
           ) : (
-            <p
+            <motion.p
+              key="diam"
               className="text-balance font-semibold opacity-55"
               style={{ fontSize: scaleClamp("clamp(18px, 4vmin, 72px)", config.subtitle_scale) }}
+              {...PUDAR}
             >
               {config.idle_message}
-            </p>
+            </motion.p>
           )}
+          </AnimatePresence>
         </section>
 
         {config.show_recent && !pairing && recent.length > 0 ? (
@@ -329,9 +371,19 @@ export default function SapaClient({
                   : "flex flex-wrap items-center justify-center gap-[1.4vmin]"
               }
             >
+              {/* Chip baru masuk dengan membesar, yang lain BERGESER ke tempat
+                  barunya (`layout`), yang terlempar keluar batas memudar
+                  (`popLayout`). Sebelumnya seluruh deretan melompat satu langkah
+                  tiap ada tamu baru — di sudut mata, itu layar yang berkedip. */}
+              <AnimatePresence initial={false} mode="popLayout">
               {recent.map((sapaan) => (
-                <li
+                <motion.li
                   key={sapaan.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
+                  transition={standard.spatial.default}
                   className={
                     potret
                       ? "flex items-baseline justify-between gap-[2vmin] rounded-full px-[2.4vmin] py-[1.1vmin]"
@@ -350,8 +402,9 @@ export default function SapaClient({
                       {jam(sapaan.scanned_at)}
                     </span>
                   ) : null}
-                </li>
+                </motion.li>
               ))}
+              </AnimatePresence>
             </ul>
           </section>
         ) : null}

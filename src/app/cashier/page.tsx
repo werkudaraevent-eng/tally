@@ -7,7 +7,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { HelpPanel } from "@/components/help-panel";
 import { SearchResultsSkeleton, Spinner } from "@/components/search-loading";
 import { useToast } from "@/components/toast";
-import { Button, Card, IconButton, StatusChip, TextArea, useScrolledPastTop } from "@/components/m3";
+import { Button, Card, Dialog, IconButton, StatusChip, TextArea, useScrolledPastTop } from "@/components/m3";
 import { terbilangRupiah } from "@/lib/terbilang";
 import { useOnline } from "@/lib/use-online";
 
@@ -231,7 +231,7 @@ export default function CashierPage() {
           <p aria-live="polite" className="sr-only">{searching ? "Mencari peserta" : searchHits.length > 0 ? `${searchHits.length} peserta ditemukan` : ""}</p>
 
           {!searching && searchHits.length > 0 && (
-            <div className="divide-y divide-outline-variant overflow-hidden rounded-lg border border-outline-variant bg-surface-container">
+            <div className="rise-in-fast divide-y divide-outline-variant overflow-hidden rounded-lg border border-outline-variant bg-surface-container">
               {searchHits.map((hit) => (
                 <button key={hit.id} onClick={() => lookup(hit.qr_code)} disabled={loading} className="m3-state flex w-full items-center gap-3 p-3 text-left disabled:opacity-50">
                   <UserCircle size={30} weight="duotone" className="shrink-0 text-primary" />
@@ -264,7 +264,10 @@ export default function CashierPage() {
         )}
 
         {success.length > 0 && (
-          <div role="status" className="mb-5 flex items-center justify-between gap-3 rounded-lg bg-success-container p-4 text-body-medium text-on-success-container">
+          // `key` + `scan-flash`: pembayaran kedua berturut-turut menghasilkan
+          // spanduk hijau yang sama persis; satu kedipan membedakan "lunas lagi"
+          // dari "belum berubah".
+          <div key={success.join("|")} role="status" className="scan-flash mb-5 flex items-center justify-between gap-3 rounded-lg bg-success-container p-4 text-body-medium text-on-success-container">
             <span className="flex items-center gap-2"><CheckCircle size={20} weight="fill" /> Lunas: {success.join(" · ")}</span>
             <Button variant="text" size="sm" className="text-current" onClick={() => setSuccess([])}>Tutup</Button>
           </div>
@@ -438,31 +441,32 @@ export default function CashierPage() {
           </div>
         )}
 
-        {voidTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 p-5">
-            <div className="w-full max-w-md rounded-2xl bg-surface-container-high p-6 shadow-level3">
-              <div className="flex items-center gap-2">
-                <WarningCircle size={22} weight="fill" className="text-error" />
-                <h2 className="text-title-large font-semibold">Void order {voidTarget.code}</h2>
-              </div>
-              <p className="mt-3 text-body-medium text-on-surface-variant">Order dibatalkan dan tidak bisa dibayar. Kuota item diskon peserta kembali tersedia. Alasan wajib diisi.</p>
-              <TextArea
-                className="mt-5"
-                label="Alasan void"
-                value={voidReason}
-                onChange={(event) => setVoidReason(event.target.value)}
-                rows={3}
-                placeholder="Contoh: EDC gagal, salah input nominal"
-              />
-              <div className="mt-6 flex gap-3">
-                <Button variant="outlined" className="flex-1" onClick={() => { setVoidTarget(null); setVoidReason(""); }}>Batal</Button>
-                <Button variant="danger" className="flex-1" loading={loading} disabled={!online || !voidReason.trim()} onClick={confirmVoid}>
-                  {loading ? "Memproses..." : "Void order"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Dialog
+          open={voidTarget !== null}
+          onClose={() => { setVoidTarget(null); setVoidReason(""); }}
+          dismissible={!loading}
+          tone="danger"
+          icon={<WarningCircle size={22} weight="fill" />}
+          title={`Void order ${voidTarget?.code ?? ""}`}
+          description="Order dibatalkan dan tidak bisa dibayar. Kuota item diskon peserta kembali tersedia. Alasan wajib diisi."
+          actions={
+            <>
+              <Button variant="outlined" className="flex-1" onClick={() => { setVoidTarget(null); setVoidReason(""); }}>Batal</Button>
+              <Button variant="danger" className="flex-1" loading={loading} disabled={!online || !voidReason.trim()} onClick={confirmVoid}>
+                Void order
+              </Button>
+            </>
+          }
+        >
+          <TextArea
+            className="mt-5"
+            label="Alasan void"
+            value={voidReason}
+            onChange={(event) => setVoidReason(event.target.value)}
+            rows={3}
+            placeholder="Contoh: EDC gagal, salah input nominal"
+          />
+        </Dialog>
       </div>
     </main>
   );

@@ -1,6 +1,9 @@
 "use client";
 
+import { Check, CheckCircle } from "@phosphor-icons/react";
+import { motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
+import { expressive } from "@/lib/m3/motion";
 import { votePercentages, type PublicVoteState } from "@/lib/vote";
 
 // Halaman pemilih. Dibuka di HP lewat QR di layar panggung, tanpa login.
@@ -208,9 +211,16 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
             {poll.voter_mode === "participant_code" ? " Butuh kode peserta di badge Anda." : ""}
           </p>
 
-          {alreadyVoted && <p role="status" className="rounded-lg mt-4 border border-success-soft-outline bg-success-soft p-3 text-body-medium font-semibold text-primary-dim">
+          {alreadyVoted && <motion.p
+            role="status"
+            className="rounded-lg mt-4 flex items-center gap-2 border border-success-soft-outline bg-success-soft p-3 text-body-medium font-semibold text-on-success-soft"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={expressive.spatial.default}
+          >
+            <CheckCircle size={20} weight="fill" className="shrink-0" aria-hidden />
             Suara Anda sudah tercatat. Terima kasih.
-          </p>}
+          </motion.p>}
 
           {poll.status !== "open" && !alreadyVoted && <p className="rounded-lg mt-4 border border-warning-soft-outline bg-warning-soft p-3 text-body-medium text-warning">
             {poll.status === "closed" ? "Voting sudah ditutup." : "Voting belum dibuka. Tunggu aba-aba dari panggung."}
@@ -219,15 +229,22 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
           {/* ---- Rating ---- */}
           {poll.type === "rating" && <div className="mt-4">
             <div className="flex flex-wrap gap-2">
-              {Array.from({ length: poll.rating_max }, (_, index) => index + 1).map((value) => <button
+              {/* Nilai terpilih sedikit membesar dengan pegas ekspresif, dan
+                  tiap ketukan menekan tombolnya: di ponsel, umpan balik sentuh
+                  inilah yang memberi tahu pilihannya masuk sebelum warnanya
+                  sempat terbaca di bawah sinar matahari. */}
+              {Array.from({ length: poll.rating_max }, (_, index) => index + 1).map((value) => <motion.button
                 key={value}
                 type="button"
                 onClick={() => { setRating(value); setError(""); }}
                 disabled={alreadyVoted || poll.status !== "open" || sending}
                 aria-pressed={rating === value}
+                whileTap={{ scale: 0.94 }}
+                animate={{ scale: rating === value ? 1.05 : 1 }}
+                transition={expressive.spatial.fast}
                 className={`rounded-md min-h-14 flex-1 border text-title-large font-bold tabular-nums disabled:opacity-70 ${rating === value ? "border-primary bg-primary text-on-primary" : "border-outline-variant"}`}
                 style={rating === value ? { background: accent } : undefined}
-              >{value}</button>)}
+              >{value}</motion.button>)}
             </div>
             {(poll.rating_min_label || poll.rating_max_label) && <div className="mt-2 flex justify-between text-body-small text-on-surface-variant">
               <span>{poll.rating_min_label}</span><span>{poll.rating_max_label}</span>
@@ -265,12 +282,22 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
                   onClick={() => toggle(option.id)}
                   disabled={disabled}
                   aria-pressed={active}
-                  className={`rounded-md relative flex min-h-14 w-full items-center justify-between gap-3 overflow-hidden border py-2 pl-2 pr-4 text-left text-body-medium font-semibold disabled:opacity-70 ${active ? "border-primary" : "border-outline-variant"}`}
+                  className={`rounded-md relative flex min-h-14 w-full items-center justify-between gap-3 overflow-hidden border py-2 pl-2 pr-4 text-left text-body-medium font-semibold transition-[border-color,scale] duration-150 ease-standard active:scale-[0.985] disabled:opacity-70 ${active ? "border-primary" : "border-outline-variant"}`}
                 >
                   {/* Bar hasil digambar DI DALAM tombol, bukan sebagai elemen
                       terpisah di bawahnya: pada layar HP yang sempit, dua baris
-                      per opsi membuat daftar lima opsi butuh digulir. */}
-                  {poll.results_visible && <span className="absolute inset-y-0 left-0" style={{ width: `${percentages[index]}%`, background: `${accent}26` }} />}
+                      per opsi membuat daftar lima opsi butuh digulir.
+
+                      Panjangnya lewat `scaleX` dari kiri, bukan `width`: bar
+                      berubah tiap 4 detik polling, dan `scaleX` dikerjakan
+                      kompositor tanpa menghitung ulang tata letak daftar. */}
+                  {poll.results_visible && <motion.span
+                    className="absolute inset-y-0 left-0 w-full origin-left"
+                    style={{ background: `${accent}26` }}
+                    initial={false}
+                    animate={{ scaleX: percentages[index] / 100 }}
+                    transition={expressive.spatial.slow}
+                  />}
                   {/* `<img>`, bukan next/image: URL-nya dari storage Supabase dan
                       bisa berubah kapan saja lewat CMS, sedangkan next/image butuh
                       host yang terdaftar lebih dulu di konfigurasi. */}
@@ -279,7 +306,7 @@ export default function VoteClient({ eventName, accent }: { eventName: string; a
                   <span className="relative min-w-0 flex-1 truncate">{option.label}</span>
                   {poll.results_visible
                     ? <span className="relative shrink-0 tabular-nums text-on-surface-variant">{percentages[index]}%</span>
-                    : active && <span className="relative shrink-0" style={{ color: accent }}>✓</span>}
+                    : active && <Check size={20} weight="bold" className="relative shrink-0" style={{ color: accent }} aria-hidden />}
                 </button>
               </li>;
             })}

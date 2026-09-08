@@ -148,6 +148,7 @@ akibatnya token bisa berubah tanpa perubahan itu sampai ke layar.
 | `Tabs` | `tablist` + indikator 3px, roving tabindex. Untuk MENGGANTI tampilan. Kalau isinya berubah, ia tab — bukan segmented button |
 | `Switch` | Ikon di dalam kenop; kenop membesar saat menyala |
 | `LinearProgress`, `CircularProgress`, `LoadingIndicator` | Yang terakhir hanya untuk layar panggung |
+| `Dialog` | Lapisan gelap + panel, fokus terkunci, Escape dan klik luar menutup, fokus kembali ke pembukanya. `dismissible={false}` selama aksi berjalan. Tombol kirim formulir di slot `actions` memakai atribut `form` |
 | `Divider`, `PageHeader`, `EmptyState` | Keadaan kosong selalu menyebutkan langkah berikutnya |
 | `ThemeToggle` | Tiga pilihan sekaligus, bukan satu tombol berputar. `compact` untuk ruang sempit |
 | `TopAppBar`, `useScrolledPastTop` | Selalu sewarna panel; garis rambut muncul saat tergulir |
@@ -260,6 +261,41 @@ Aturan yang tidak berubah:
 - Pakai animasi `layout` hanya untuk penataan ulang leaderboard.
 - Hormati `prefers-reduced-motion: reduce`.
 - Tidak ada gerak dekoratif abadi di Booth, Kasir, atau Admin.
+
+### Yang sudah terpasang, dan di mana
+
+`MotionProvider` di layout akar memasang `reducedMotion="user"` (Framer Motion
+ikut mematikan gerak transform/layout saat sistem memintanya) dan `LazyMotion`
+dengan `domMax` yang dimuat malas — komponen `m.*` di halaman publik tidak
+membawa mesin animasi di muatan awal. Layar panggung tetap memakai `motion.*`.
+
+Utilitas CSS di `globals.css`, untuk komponen server dan layar kerja:
+
+| Kelas | Untuk |
+| --- | --- |
+| `rise-in` + `--rise-delay` | Koreografi masuk sekali saat muat (hero halaman acara). Emphasized-decelerate, 500ms |
+| `rise-in-fast` | Versi tenang 300ms untuk layar kerja: kartu login, hasil pencarian, galat sebaris |
+| `settle-in` | Banner hero mengendap dari skala 1,045 |
+| `reveal` / `reveal-in` | Bagian yang naik saat digulir masuk (`<Reveal>`). Tersembunyi hanya di `@media (scripting: enabled)` |
+| `scan-flash` | Satu kedipan pada hasil yang bisa identik dengan sebelumnya (pindai, order, lunas) |
+| `seat-pulse` | Tiga denyut cincin pada kursi hasil pencarian denah |
+| `details.faq` | Isi `<details>` membuka dengan tinggi teranimasi, hanya di balik `@supports (interpolate-size)` |
+
+Pola Framer Motion yang dipakai berulang:
+
+- `layoutId` untuk indikator yang berpindah: tab (`Tabs`), pil navigasi admin,
+  pil nav halaman acara, batang "sedang berlangsung" di rundown.
+- `AnimatePresence` untuk yang muncul dan hilang: dialog, menu, toast, spanduk
+  luring, nama di layar sapa, chip "baru saja masuk".
+- Motion value + `animate()` untuk gerak yang berganti sumber di elemen yang
+  sama: roda undian (putaran linear → luncuran melambat ke segmen pemenang),
+  nominal papan peringkat (bergulir ke nilai baru).
+- `MENU_MOTION` (`src/lib/m3/menu-motion.ts`) untuk menu: tumbuh dari sudut
+  tombolnya, 120ms, tanpa pegas.
+
+Di balik `prefers-reduced-motion`, pemintal dan batang tak-tentu **tetap
+berputar**. Mereka status, bukan hiasan, dan pemintal yang beku terbaca
+sebagai ikon rusak.
 
 ## Lapisan status
 

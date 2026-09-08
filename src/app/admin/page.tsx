@@ -1,38 +1,43 @@
 "use client";
 
 import {
-  ArrowsClockwise,
   ArrowSquareOut,
   ArrowUpRight,
   CalendarBlank,
   CheckCircle,
   Circle,
+  CreditCard,
   Gift,
   ListChecks,
   MapPin,
   MonitorPlay,
+  QrCode,
   Receipt,
+  Storefront,
   UserPlus,
   UsersThree,
   XCircle,
 } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { ExportMenu } from "@/components/admin/export-menu";
-import { Button, LinearProgress, StatusChip } from "@/components/m3";
+import { LinearProgress, StatusChip } from "@/components/m3";
+import { EVENT_STATUS_LABEL, type EventStatus } from "@/lib/domain";
 import { formatEventSchedule, daysUntil } from "@/lib/event-datetime";
 import { eventApiPath } from "@/lib/event-url";
 
 /**
- * Dashboard acara.
+ * Dashboard acara — SADAR FASE.
  *
- * Dulu isinya omzet booth, jumlah order, dan tabel order per booth — dashboard
- * TRANSAKSI. Itu menjawab pertanyaan kasir, bukan pertanyaan panitia yang baru
- * membuka aplikasi: berapa yang sudah mendaftar, apa yang belum disiapkan, dan
- * adakah yang menunggu dikerjakan. Angka penjualan tetap ada, tetapi sebagai
- * SATU kartu yang menautkan ke modulnya, bukan sebagai isi seluruh halaman —
- * pada acara tanpa booth, tabel itu adalah layar kosong yang menyambut panitia
- * setiap hari.
+ * Pertanyaan panitia berubah mengikuti kalender, dan dashboard yang selalu
+ * menampilkan "kesiapan 60%" untuk acara yang sudah lewat sembilan belas hari
+ * menjawab pertanyaan yang tidak lagi ditanyakan siapa pun.
+ *
+ *   * Persiapan — sebelum hari-H: apa yang belum disiapkan, berapa yang sudah
+ *     mendaftar, adakah yang menunggu dimoderasi.
+ *   * Hari-H — dari tanggal mulai sampai tanggal akhir: berapa yang sudah
+ *     masuk, dan pintasan ke layar yang sedang dipakai di ruangan.
+ *   * Selesai — sesudahnya, atau status completed/archived: rekap dan ekspor.
  *
  * Semua kartu di sini adalah tautan. Dashboard yang hanya menampilkan angka
  * memaksa orang membaca angkanya, lalu mencari sendiri menu mana yang
@@ -44,7 +49,7 @@ type Overview = {
   event: {
     name: string;
     slug: string;
-    status: string;
+    status: EventStatus;
     event_date: string | null;
     end_date: string | null;
     start_time: string | null;
@@ -55,6 +60,7 @@ type Overview = {
     participant_source: string;
   };
   peserta: { total: number; menunggu: number; disetujui: number; ditolak: number };
+  kehadiran: { hadir: number };
   transaksi: { total: number; lunas: number; omzet: number; menunggu: number };
   kesiapan: {
     deskripsi: boolean;
@@ -72,21 +78,62 @@ type Overview = {
   };
 };
 
+type Fase = "persiapan" | "hari-h" | "selesai";
+
+type Metrik = {
+  href: string;
+  label: string;
+  nilai: string;
+  catatan: string;
+  icon: ComponentType<{ size?: number; weight?: "duotone"; className?: string }>;
+  /** Satu-satunya kartu yang boleh berwarna: pekerjaan yang menunggu orang. */
+  tonal?: boolean;
+};
+
 const formatRupiah = (amount: number) => `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
 
+/** Nada chip status. Hanya Aktif yang berwarna; sisanya netral. */
+const NADA_STATUS: Record<EventStatus, "success" | "neutral"> = {
+  active: "success",
+  draft: "neutral",
+  completed: "neutral",
+  archived: "neutral",
+};
+
 /**
- * Hitung mundur menuju hari-H.
+ * Fase ditentukan dari tanggal DAN status. Status completed mengalahkan
+ * tanggal (panitia bisa menutup acara lebih awal); tanpa tanggal, acara
+ * dianggap masih disiapkan.
+ */
+function faseAcara(event: Overview["event"], now: Date): Fase {
+  if (event.status === "completed" || event.status === "archived") return "selesai";
+  const mulai = daysUntil(event.event_date, now);
+  if (mulai === null || mulai > 0) return "persiapan";
+  const akhir = daysUntil(event.end_date ?? event.event_date, now);
+  return akhir !== null && akhir < 0 ? "selesai" : "hari-h";
+}
+
+/**
+ * Judul besar kartu acara per fase.
  *
  * Ditulis sebagai kalimat, bukan angka telanjang. "H-12" tidak berarti apa-apa
  * bagi panitia yang baru bergabung; "12 hari lagi" langsung terbaca.
  */
-function hitungMundur(eventDate: string | null, now: Date) {
-  const selisih = daysUntil(eventDate, now);
-  if (selisih === null) return { utama: "Tanggal belum diisi", detail: "Isi tanggal acara di Pengaturan" };
-  if (selisih > 1) return { utama: `${selisih} hari lagi`, detail: "menuju hari acara" };
-  if (selisih === 1) return { utama: "Besok", detail: "acara berlangsung" };
-  if (selisih === 0) return { utama: "Hari ini", detail: "acara berlangsung" };
-  return { utama: `${Math.abs(selisih)} hari lalu`, detail: "acara sudah berlangsung" };
+function judulFase(fase: Fase, event: Overview["event"], now: Date) {
+  const mulai = daysUntil(event.event_date, now);
+  if (fase === "selesai") {
+    const akhir = daysUntil(event.end_date ?? event.event_date, now);
+    if (akhir === null || akhir >= 0) return { utama: "Selesai", detail: "ditandai selesai oleh panitia" };
+    return { utama: "Selesai", detail: `${Math.abs(akhir)} hari lalu` };
+  }
+  if (fase === "hari-h") {
+    const hariKe = mulai === null ? 1 : Math.abs(mulai) + 1;
+    const multiHari = event.end_date && event.end_date !== event.event_date;
+    return { utama: multiHari ? `Hari ke-${hariKe}` : "Hari ini", detail: "acara berlangsung" };
+  }
+  if (mulai === null) return { utama: "Tanggal belum diisi", detail: "Isi tanggal acara di Halaman acara" };
+  if (mulai === 1) return { utama: "Besok", detail: "acara berlangsung" };
+  return { utama: `${mulai} hari lagi`, detail: "menuju hari acara" };
 }
 
 export default function AdminPage() {
@@ -107,11 +154,16 @@ export default function AdminPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void refresh(); }, 0);
-    // 60 detik, bukan 30 seperti dashboard lama. Isinya bukan angka yang berubah
-    // per detik saat acara berjalan — itu tugas Papan peringkat.
+    // 60 detik: isinya bukan angka yang berubah per detik saat acara berjalan
+    // — itu tugas Papan peringkat. Tombol Refresh manual dihapus; halaman ini
+    // menyegarkan diri, dan tombol yang menjanjikan sesuatu yang sudah terjadi
+    // sendiri hanya menambah keraguan apakah angkanya sudah terbaru.
     const poll = window.setInterval(() => { void refresh(); }, 60_000);
     return () => { window.clearTimeout(timer); window.clearInterval(poll); };
   }, [refresh]);
+
+  const fase: Fase = data && sekarang ? faseAcara(data.event, sekarang) : "persiapan";
+  const judul = data && sekarang ? judulFase(fase, data.event, sekarang) : null;
 
   const jadwal = data ? formatEventSchedule({
     event_date: data.event.event_date,
@@ -121,9 +173,23 @@ export default function AdminPage() {
     time_zone: data.event.time_zone as never,
   }) : null;
 
-  const mundur = data && sekarang ? hitungMundur(data.event.event_date, sekarang) : null;
+  const adaBooth = (data?.kesiapan.booth ?? 0) > 0;
+  // Pendaftaran publik hanya relevan bila sumber pesertanya memang formulir.
+  const pakaiPendaftaran = data ? data.event.registration_enabled || data.event.participant_source === "public_form" || data.event.participant_source === "hybrid" : false;
 
-  const metrik = data ? [
+  /**
+   * Metrik per fase. Yang bukan metrik tidak masuk: "Agenda 0" adalah butir
+   * kesiapan, bukan angka yang dipantau, dan sudah ada di daftar kesiapan.
+   * "Transaksi Rp 0" hanya berarti bila acaranya punya booth.
+   */
+  const metrik: Metrik[] = data ? [
+    ...(fase !== "persiapan" ? [{
+      href: "/admin/attendance",
+      label: "Hadir",
+      nilai: String(data.kehadiran.hadir),
+      catatan: data.peserta.total > 0 ? `${Math.round((data.kehadiran.hadir / data.peserta.total) * 100)}% dari ${data.peserta.total} terdaftar` : "Belum ada peserta",
+      icon: QrCode,
+    }] : []),
     {
       href: "/admin/participants",
       label: "Peserta",
@@ -131,30 +197,28 @@ export default function AdminPage() {
       catatan: data.peserta.total === 0 ? "Belum ada peserta" : "Terdaftar di acara ini",
       icon: UsersThree,
     },
-    {
+    ...(data.peserta.menunggu > 0 ? [{
       href: "/admin/registrasi",
       label: "Menunggu moderasi",
       nilai: String(data.peserta.menunggu),
-      catatan: data.peserta.menunggu > 0 ? "Perlu diperiksa panitia" : "Tidak ada antrean",
+      catatan: "Perlu diperiksa panitia",
       icon: UserPlus,
-      // Satu-satunya kartu yang boleh berubah warna: ia menandai pekerjaan yang
-      // menunggu orang, bukan angka yang sekadar dilaporkan.
-      tonal: data.peserta.menunggu > 0,
-    },
-    {
-      href: "/admin/rundown",
-      label: "Agenda",
-      nilai: String(data.kesiapan.agenda),
-      catatan: data.kesiapan.agenda === 0 ? "Rundown masih kosong" : "Sesi di rundown",
-      icon: CalendarBlank,
-    },
-    {
+      tonal: true,
+    }] : []),
+    ...(fase === "persiapan" && pakaiPendaftaran ? [{
+      href: "/admin/registrasi",
+      label: "Pendaftaran publik",
+      nilai: data.event.registration_enabled ? "Dibuka" : "Ditutup",
+      catatan: `${data.peserta.disetujui} disetujui · ${data.peserta.ditolak} ditolak`,
+      icon: UserPlus,
+    }] : []),
+    ...(adaBooth ? [{
       href: "/admin/orders",
       label: "Transaksi",
       nilai: formatRupiah(data.transaksi.omzet),
       catatan: `${data.transaksi.lunas} lunas · ${data.transaksi.menunggu} menunggu`,
       icon: Receipt,
-    },
+    }] : []),
   ] : [];
 
   /**
@@ -182,86 +246,142 @@ export default function AdminPage() {
   const wajib = kesiapan.filter((baris) => baris.wajib);
   const wajibSiap = wajib.filter((baris) => baris.siap).length;
   const persen = wajib.length ? Math.round((wajibSiap / wajib.length) * 100) : 0;
+  // Yang belum siap di atas: itulah yang dicari orang yang membuka daftar ini.
+  // Di hari-H hanya butir wajib yang belum siap yang tampil; di fase selesai
+  // daftarnya tidak lagi berarti.
+  const daftarKesiapan = fase === "persiapan"
+    ? [...kesiapan].sort((a, b) => Number(a.siap) - Number(b.siap))
+    : fase === "hari-h" ? wajib.filter((baris) => !baris.siap) : [];
 
   const layarPanggung = [
-    { href: "/display", label: "Papan peringkat", desc: "Layar peringkat transaksi untuk proyektor", icon: MonitorPlay },
-    { href: "/undian", label: "Layar undian", desc: "Tampilan pengundian hadiah", icon: Gift },
-    { href: "/vote/layar", label: "Layar voting", desc: "Hasil voting yang bergerak live", icon: ListChecks },
-  ];
+    { href: "/display", label: "Papan peringkat", desc: "Peringkat transaksi untuk proyektor", icon: MonitorPlay, tampil: adaBooth },
+    { href: "/sapa", label: "Layar sapa", desc: "Menyambut tamu yang baru dipindai", icon: UsersThree, tampil: true },
+    { href: "/undian", label: "Layar undian", desc: "Tampilan pengundian hadiah", icon: Gift, tampil: true },
+    { href: "/vote/layar", label: "Layar voting", desc: "Hasil voting yang bergerak live", icon: ListChecks, tampil: true },
+  ].filter((layar) => layar.tampil);
+
+  /**
+   * Layar lapangan: layar yang dipegang petugas, bukan yang ditonton ruangan.
+   * Dulu ini alasan halaman `/workspace` dipertahankan ("bantu booth di
+   * lapangan"); sekarang pintasannya di sini, di tempat admin sudah berada.
+   */
+  const layarLapangan = [
+    { href: "/scan", label: "Pemindai kehadiran", desc: "Catat tamu yang datang", icon: QrCode, tampil: true },
+    { href: "/booth", label: "Booth", desc: "Bantu booth mencatat order", icon: Storefront, tampil: adaBooth },
+    { href: "/cashier", label: "Kasir", desc: "Terima pembayaran order", icon: CreditCard, tampil: adaBooth },
+  ].filter((layar) => layar.tampil);
+
+  const pintasan = (
+    <section className="rounded-[20px] bg-surface-container p-5">
+      <h2 className="text-title-medium">Layar hari-H</h2>
+      <p className="mt-1 text-body-small text-on-surface-variant">Layar panggung dibuka di tab baru untuk dilempar ke proyektor.</p>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+        {layarPanggung.map(({ href, label, desc, icon: Icon }) => (
+          <Link key={href} href={href} target="_blank" rel="noreferrer" className="m3-state flex items-start gap-3 rounded-2xl bg-surface-container-high p-3">
+            <Icon size={22} weight="duotone" className="mt-0.5 shrink-0 text-primary" />
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1.5 text-label-large">{label}<ArrowSquareOut size={13} className="opacity-70" /></span>
+              <span className="mt-0.5 block text-body-small text-on-surface-variant">{desc}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+      <p className="mt-4 text-label-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Layar lapangan</p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+        {layarLapangan.map(({ href, label, desc, icon: Icon }) => (
+          <Link key={href} href={href} className="m3-state flex items-start gap-3 rounded-2xl bg-surface-container-high p-3">
+            <Icon size={22} weight="duotone" className="mt-0.5 shrink-0 text-primary" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-label-large">{label}</span>
+              <span className="mt-0.5 block text-body-small text-on-surface-variant">{desc}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
 
   return (
     <main className="bg-surface text-on-surface">
-      <div className="mx-auto max-w-[1440px] px-5 pb-8 pt-6 sm:px-8 lg:pb-12">
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-          <p className="text-body-medium leading-6 text-on-surface-variant">
-            Kesiapan acara, pendaftar, dan pintasan ke layar yang dipakai saat acara berjalan.
-          </p>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button variant="outlined" onClick={refresh} icon={<ArrowsClockwise size={18} weight="bold" />}>Refresh</Button>
-            <ExportMenu />
+      <div className="mx-auto max-w-[1440px] px-5 pb-8 pt-5 sm:px-8 lg:pb-12">
+        {/* Baris pembuka: fakta acara di kiri, ekspor di kanan. Kalimat
+            penjelasan halaman dihapus — ia menjelaskan dashboard kepada orang
+            yang membukanya setiap hari. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 text-body-medium text-on-surface-variant">
+            <StatusChip tone={data ? NADA_STATUS[data.event.status] : "neutral"}>
+              {data ? EVENT_STATUS_LABEL[data.event.status] : "…"}
+            </StatusChip>
+            {jadwal ? <span className="flex items-center gap-1.5"><CalendarBlank size={16} className="shrink-0" />{jadwal}</span> : null}
+            {data?.event.venue_name ? <span className="flex items-center gap-1.5"><MapPin size={16} className="shrink-0" />{data.event.venue_name}</span> : null}
+            {data && pakaiPendaftaran ? <span>{data.event.registration_enabled ? "Pendaftaran dibuka" : "Pendaftaran ditutup"}</span> : null}
           </div>
+          <ExportMenu />
         </div>
 
         {error ? (
-          <div role="alert" className="rounded-lg mt-5 flex items-center gap-3 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error">
+          <div role="alert" className="rounded-lg mt-4 flex items-center gap-3 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error">
             <XCircle size={20} />{error}
           </div>
         ) : null}
 
-        {/* ---- Kartu acara ------------------------------------------------- */}
-        <section className="mt-8 overflow-hidden rounded-[28px] bg-surface-container-high">
-          <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[1.2fr_1fr] lg:items-center">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusChip tone={data?.event.status === "active" ? "success" : "neutral"}>
-                  {data?.event.status ?? "…"}
-                </StatusChip>
-                <StatusChip tone={data?.event.registration_enabled ? "success" : "neutral"}>
-                  {data?.event.registration_enabled ? "Pendaftaran dibuka" : "Pendaftaran ditutup"}
-                </StatusChip>
-              </div>
+        {/* ---- Kartu acara: dua kolom, tinggi satu blok --------------------- */}
+        <section className="mt-4 grid gap-4 rounded-[20px] bg-surface-container-high p-5 lg:grid-cols-[1fr_1fr] lg:items-center">
+          <div>
+            <p className="text-display-small tabular-nums tracking-[-0.03em]">{judul?.utama ?? "…"}</p>
+            <p className="mt-1 text-body-large text-on-surface-variant">{judul?.detail ?? "Memuat ringkasan acara"}</p>
+          </div>
 
-              <p className="mt-5 text-display-small tabular-nums tracking-[-0.03em]">
-                {mundur?.utama ?? "…"}
-              </p>
-              <p className="mt-1 text-body-large text-on-surface-variant">{mundur?.detail ?? "Memuat ringkasan acara"}</p>
-
-              <div className="mt-5 space-y-1.5 text-body-medium text-on-surface-variant">
-                {jadwal ? (
-                  <p className="flex items-start gap-2"><CalendarBlank size={18} className="mt-0.5 shrink-0" />{jadwal}</p>
-                ) : null}
-                {data?.event.venue_name ? (
-                  <p className="flex items-start gap-2"><MapPin size={18} className="mt-0.5 shrink-0" />{data.event.venue_name}</p>
-                ) : null}
-              </div>
-            </div>
-
-            {/* Kesiapan diletakkan DI DALAM kartu acara, bukan sebagai bagian
-                terpisah di bawah: keduanya menjawab satu pertanyaan yang sama —
-                "apakah acara ini siap dibuka ke tamu". */}
-            <div className="rounded-[20px] bg-surface-container p-5">
+          {fase === "persiapan" ? (
+            // Kesiapan hanya berarti SEBELUM acara.
+            <div className="rounded-2xl bg-surface-container p-4">
               <div className="flex items-end justify-between gap-3">
                 <div>
                   <p className="text-label-medium uppercase tracking-[0.16em] text-on-surface-variant">Kesiapan acara</p>
-                  <p className="mt-1 text-headline-small tabular-nums">{persen}%</p>
+                  <p className="mt-1 text-headline-small tabular-nums">{data ? `${persen}%` : "…"}</p>
                 </div>
                 <p className="text-body-small text-on-surface-variant">{wajibSiap} dari {wajib.length} wajib</p>
               </div>
               <LinearProgress className="mt-3" value={persen} label="Kesiapan acara" />
-              <p className="mt-3 text-body-small leading-5 text-on-surface-variant">
-                Undian dan voting tidak dihitung — banyak acara memang tidak memakainya.
-              </p>
             </div>
-          </div>
+          ) : fase === "hari-h" ? (
+            // Hari-H: satu angka yang ditanyakan seisi ruang panitia.
+            <Link href="/admin/attendance" className="m3-state block rounded-2xl bg-surface-container p-4">
+              <p className="text-label-medium uppercase tracking-[0.16em] text-on-surface-variant">Sudah masuk</p>
+              <p className="mt-1 flex items-baseline gap-2 tabular-nums">
+                <span className="text-headline-large">{data?.kehadiran.hadir ?? 0}</span>
+                <span className="text-body-medium text-on-surface-variant">dari {data?.peserta.total ?? 0} terdaftar</span>
+              </p>
+              <LinearProgress className="mt-3" value={data && data.peserta.total > 0 ? (data.kehadiran.hadir / data.peserta.total) * 100 : 0} label="Kehadiran" />
+            </Link>
+          ) : (
+            // Selesai: rekap dalam satu tatapan.
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl bg-surface-container p-4">
+                <dt className="text-label-medium uppercase tracking-[0.14em] text-on-surface-variant">Hadir</dt>
+                <dd className="mt-1 text-headline-small tabular-nums">{data?.kehadiran.hadir ?? 0}<span className="text-body-medium text-on-surface-variant"> / {data?.peserta.total ?? 0}</span></dd>
+              </div>
+              <div className="rounded-2xl bg-surface-container p-4">
+                <dt className="text-label-medium uppercase tracking-[0.14em] text-on-surface-variant">Peserta</dt>
+                <dd className="mt-1 text-headline-small tabular-nums">{data?.peserta.total ?? 0}</dd>
+              </div>
+              {adaBooth ? (
+                <div className="rounded-2xl bg-surface-container p-4">
+                  <dt className="text-label-medium uppercase tracking-[0.14em] text-on-surface-variant">Transaksi</dt>
+                  <dd className="mt-1 text-headline-small tabular-nums">{formatRupiah(data?.transaksi.omzet ?? 0)}</dd>
+                </div>
+              ) : null}
+            </dl>
+          )}
         </section>
 
         {/* ---- Metrik ------------------------------------------------------ */}
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
           {metrik.length ? metrik.map(({ href, label, nilai, catatan, icon: Icon, tonal }) => (
             <Link
               key={label}
               href={href}
-              className={`m3-state group rounded-[20px] p-5 transition-colors ${
+              className={`m3-state group rounded-2xl p-4 transition-colors ${
                 tonal ? "bg-tertiary-container text-on-tertiary-container" : "bg-surface-container"
               }`}
             >
@@ -269,93 +389,71 @@ export default function AdminPage() {
                 <p className="text-label-medium uppercase tracking-[0.14em] opacity-80">{label}</p>
                 <Icon size={20} weight="duotone" className="opacity-80" />
               </div>
-              <p className="mt-4 text-headline-medium tabular-nums tracking-[-0.02em]">{nilai}</p>
+              <p className="mt-3 text-headline-medium tabular-nums tracking-[-0.02em]">{nilai}</p>
               <p className="mt-1 flex items-center gap-1 text-body-small opacity-80">
                 {catatan}
                 <ArrowUpRight size={14} className="opacity-0 transition-opacity group-hover:opacity-100" />
               </p>
             </Link>
-          )) : [0, 1, 2, 3].map((index) => (
-            <div key={index} className="rounded-[20px] bg-surface-container p-5">
-              <p className="text-body-medium text-on-surface-variant">Memuat…</p>
+          )) : [0, 1, 2].map((index) => (
+            // Kerangka seukuran kartu sungguhan, bukan teks "Memuat…": tinggi
+            // kartu tidak melompat saat angkanya tiba, dan kilau satu arah
+            // terbaca sebagai "sedang datang", bukan sebagai kartu kosong.
+            <div key={index} aria-hidden className="rounded-2xl bg-surface-container p-4">
+              <span className="block h-3 w-24 rounded-xs bg-surface-container-highest shimmer" />
+              <span className="mt-4 block h-8 w-20 rounded-xs bg-surface-container-highest shimmer" />
+              <span className="mt-3 block h-3 w-32 rounded-xs bg-surface-container-highest shimmer" />
             </div>
           ))}
         </div>
 
+        {/* Di hari-H pintasan layar naik ke kolom kiri — itulah yang ditekan
+            sepanjang hari itu. Di fase lain daftar kesiapan yang di kiri. */}
         <div className="mt-4 grid gap-4 lg:grid-cols-[1.3fr_0.7fr] lg:items-start">
-          {/* ---- Daftar kesiapan ------------------------------------------- */}
-          <section className="rounded-[28px] bg-surface-container p-5 sm:p-6">
-            <h2 className="text-title-medium">Yang perlu disiapkan</h2>
-            <p className="mt-1 text-body-small text-on-surface-variant">
-              Setiap baris menuju modul yang mengurusnya.
-            </p>
-
-            <ul className="mt-4 divide-y divide-outline-variant">
-              {kesiapan.length ? kesiapan.map((baris) => (
-                <li key={baris.label}>
-                  <Link
-                    href={baris.href}
-                    className="m3-state group -mx-2 flex min-h-14 items-center gap-3 rounded-2xl px-2 text-body-medium"
-                  >
-                    {baris.siap
-                      ? <CheckCircle size={22} weight="fill" className="shrink-0 text-primary" />
-                      : <Circle size={22} className="shrink-0 text-on-surface-variant" />}
-                    <span className={`min-w-0 flex-1 ${baris.siap ? "text-on-surface-variant" : "font-semibold"}`}>
-                      {baris.label}
-                    </span>
-                    {!baris.wajib ? (
-                      <span className="shrink-0 text-body-small text-on-surface-variant">opsional</span>
-                    ) : null}
-                    <ArrowUpRight size={16} className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
-                  </Link>
-                </li>
-              )) : (
-                <li className="py-6 text-body-medium text-on-surface-variant">Memuat kesiapan acara…</li>
-              )}
-            </ul>
-          </section>
-
-          {/* ---- Layar panggung -------------------------------------------- */}
-          <section className="space-y-4">
-            <div className="rounded-[28px] bg-surface-container p-5 sm:p-6">
-              <h2 className="text-title-medium">Layar panggung</h2>
-              <p className="mt-1 text-body-small text-on-surface-variant">
-                Dibuka di tab baru, lalu dilempar ke proyektor.
-              </p>
-              <div className="mt-4 grid gap-2">
-                {layarPanggung.map(({ href, label, desc, icon: Icon }) => (
-                  <Link
-                    key={href}
-                    href={href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="m3-state flex items-start gap-3 rounded-2xl bg-surface-container-high p-4"
-                  >
-                    <Icon size={22} weight="duotone" className="mt-0.5 shrink-0 text-primary" />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1.5 text-label-large">
-                        {label}
-                        <ArrowSquareOut size={13} className="opacity-70" />
-                      </span>
-                      <span className="mt-0.5 block text-body-small text-on-surface-variant">{desc}</span>
-                    </span>
-                  </Link>
+          {daftarKesiapan.length > 0 ? (
+            <section className={`rounded-[20px] bg-surface-container p-5 ${fase === "hari-h" ? "lg:order-last" : ""}`}>
+              <h2 className="text-title-medium">{fase === "hari-h" ? "Belum siap" : "Yang perlu disiapkan"}</h2>
+              <p className="mt-1 text-body-small text-on-surface-variant">Setiap baris menuju modul yang mengurusnya.</p>
+              <ul className="mt-3 divide-y divide-outline-variant">
+                {daftarKesiapan.map((baris) => (
+                  <li key={baris.label}>
+                    <Link href={baris.href} className="m3-state group -mx-2 flex min-h-12 items-center gap-3 rounded-2xl px-2 text-body-medium">
+                      {baris.siap
+                        ? <CheckCircle size={22} weight="fill" className="shrink-0 text-primary" />
+                        : <Circle size={22} className="shrink-0 text-on-surface-variant" />}
+                      <span className={`min-w-0 flex-1 ${baris.siap ? "text-on-surface-variant" : "font-semibold"}`}>{baris.label}</span>
+                      {!baris.wajib ? <span className="shrink-0 text-body-small text-on-surface-variant">opsional</span> : null}
+                      <ArrowUpRight size={16} className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+                    </Link>
+                  </li>
                 ))}
-              </div>
-            </div>
-
-            {data ? (
-              <Link
-                href={`/e/${data.event.slug}`}
-                target="_blank"
-                rel="noreferrer"
-                className="m3-state flex items-center gap-3 rounded-[28px] bg-primary-container p-5 text-on-primary-container sm:p-6"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5 text-title-medium">
-                    Halaman acara publik
-                    <ArrowSquareOut size={14} className="opacity-80" />
+              </ul>
+            </section>
+          ) : data ? (
+            <div className={fase === "hari-h" ? "lg:order-last" : ""}>
+              {data ? (
+                <Link href={`/e/${data.event.slug}`} target="_blank" rel="noreferrer" className="m3-state flex items-center gap-3 rounded-[20px] bg-primary-container p-5 text-on-primary-container">
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 text-title-medium">Halaman acara publik<ArrowSquareOut size={14} className="opacity-80" /></span>
+                    <span className="mt-1 block break-all text-body-small opacity-80">/e/{data.event.slug}</span>
                   </span>
+                </Link>
+              ) : null}
+            </div>
+          ) : (
+            <div aria-hidden className="rounded-[20px] bg-surface-container p-5">
+              <span className="block h-4 w-40 rounded-xs bg-surface-container-highest shimmer" />
+              <span className="mt-4 block h-3 w-full rounded-xs bg-surface-container-highest shimmer" />
+              <span className="mt-2 block h-3 w-4/5 rounded-xs bg-surface-container-highest shimmer" />
+            </div>
+          )}
+
+          <section className="space-y-4">
+            {pintasan}
+            {data && daftarKesiapan.length > 0 ? (
+              <Link href={`/e/${data.event.slug}`} target="_blank" rel="noreferrer" className="m3-state flex items-center gap-3 rounded-[20px] bg-primary-container p-5 text-on-primary-container">
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-title-medium">Halaman acara publik<ArrowSquareOut size={14} className="opacity-80" /></span>
                   <span className="mt-1 block break-all text-body-small opacity-80">/e/{data.event.slug}</span>
                 </span>
               </Link>

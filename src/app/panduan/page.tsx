@@ -118,7 +118,7 @@ export default async function PanduanPage({
 
     <header className="border-b-2 border-on-surface pb-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Panduan Operator</p>
-      <h1 className="mt-1 text-headline-medium font-bold">Tally — Event Transaction Hub</h1>
+      <h1 className="mt-1 text-headline-medium font-bold">Tally — Pusat operasional acara</h1>
       <p className="mt-2 text-body-medium text-on-surface-variant">
         Alur aktif: {viaCashier ? "pembayaran lewat kasir" : "tanpa kasir, order langsung lunas"} ·{" "}
         {handOverNow ? "barang diserahkan langsung di booth" : "barang diambil setelah lunas"}

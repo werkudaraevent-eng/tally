@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Montserrat, Oswald, Playfair_Display, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import { MotionProvider } from "@/components/motion-provider";
 import { ToastProvider } from "@/components/toast";
 import { OfflineBanner } from "./offline-banner";
 import { THEME_INIT_SCRIPT } from "@/lib/m3/theme";
@@ -45,8 +46,8 @@ const fontVariables = [geist, montserrat, oswald, spaceGrotesk, playfair, geistM
   .join(" ");
 
 export const metadata: Metadata = {
-  title: "Tally — Event Transaction Hub",
-  description: "Booth transaction and live leaderboard system for events.",
+  title: "Tally — Pusat operasional acara",
+  description: "Pendaftaran, kehadiran, layar panggung, dan transaksi booth untuk acara yang berjalan langsung.",
   manifest: "/manifest.webmanifest",
 };
 
@@ -76,11 +77,29 @@ export default function RootLayout({
     // suppressHydrationWarning: skrip di bawah menulis data-theme ke <html>
     // sebelum React sempat menghidrasi, jadi atribut di DOM memang berbeda dari
     // markup server. Itu disengaja, dan hanya atribut ini yang terpengaruh.
-    <html lang="id" className={fontVariables} suppressHydrationWarning>
+    // data-scroll-behavior: sejak Next 16, `scroll-behavior: smooth` di <html>
+    // TIDAK lagi dimatikan otomatis saat pindah rute. Tanpa atribut ini, setiap
+    // navigasi di halaman admin yang panjang ikut menggulir halus ke atas —
+    // gerak yang tidak diminta siapa pun. Atribut ini mengembalikan perilaku
+    // lama: halus untuk jangkar di halaman, seketika untuk pindah halaman.
+    <html lang="id" className={fontVariables} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
+        {/* <script> MENTAH di <head>, sengaja — bukan next/script.
+            `next/script` dengan `beforeInteractive` untuk skrip inline TIDAK
+            menyuntikkan <script> ke <head>: DIUKUR pada HTML hasil build, ia
+            menaruh isinya ke antrean `self.__next_s` di ujung <body>, yang
+            baru dijalankan runtime Next setelah dokumen terparse. Untuk skrip
+            tema itu berarti halaman sempat tergambar terang lalu berkedip
+            gelap — persis yang ingin dihindari.
+
+            Harganya satu peringatan konsol di dev, "Scripts inside React
+            components are never executed", yang hanya muncul bila root layout
+            dirender ulang di klien (pemulihan dari galat). Peringatan itu benar
+            secara harfiah dan tidak berdampak: skrip ini sudah dijalankan oleh
+            peramban dari HTML awal, jauh sebelum React menyentuhnya. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body><ToastProvider>{children}<OfflineBanner /></ToastProvider></body>
+      <body><MotionProvider><ToastProvider>{children}<OfflineBanner /></ToastProvider></MotionProvider></body>
     </html>
   );
 }

@@ -152,6 +152,33 @@ export default function UndianControlPage() {
   // berjalan, bukan dengan setelan terbarunya.
   const manualSpin = spinning && !state?.reveal_at;
   const rehearsal = state?.rehearsal === true;
+  // Kalimat status mengikuti ANIMASI hadiah yang dipilih. Sebelumnya selalu
+  // "Roda berputar…" — pada hadiah berjenis panah, panel mengatakan roda
+  // sementara layar menampilkan kertas melayang, dan operator yang membaca
+  // keduanya menyimpulkan salah satunya rusak.
+  const animasi = ANIMATIONS.find((item) => item.value === activePrize?.animation);
+  const gerakManual: Record<string, string> = {
+    wheel: "Roda berputar",
+    slot: "Gulungan bergulir",
+    cards: "Nama berkedip di kartu",
+    digits: "Digit berputar",
+    dart: "Kertas undian melayang",
+    instant: "Layar menunggu",
+  };
+  // Tombol merah menyebut TINDAKANNYA di layar, bukan "berhenti" yang generik.
+  // Pada panah, yang ditunggu ruangan adalah lemparan; pada kartu, pembukaan.
+  // "Berhenti" pada animasi yang tidak terlihat berputar membuat operator
+  // mencari tombol "mulai" yang tidak pernah ada.
+  const labelAkhiri: Record<string, string> = {
+    wheel: "BERHENTI & TAMPILKAN",
+    slot: "HENTIKAN GULUNGAN",
+    cards: "BUKA KARTU",
+    digits: "KUNCI ANGKA",
+    dart: "LEMPAR PANAH",
+    instant: "TAMPILKAN PEMENANG",
+  };
+  const tombolAkhiri = labelAkhiri[animasi?.value ?? ""] ?? "BERHENTI & TAMPILKAN";
+  const kalimatManual = `${gerakManual[animasi?.value ?? ""] ?? "Animasi berjalan"} di layar panggung sampai Anda menekan ${tombolAkhiri}. Pemenang sudah ditentukan dan tersimpan sejak tombol Undi ditekan — menutup halaman ini tidak menghilangkannya.`;
   // Berapa nama yang akan dibatalkan bila "Undi ulang" ditekan.
   const pendingHere = activePrize ? pendingCounts[activePrize.id] ?? 0 : 0;
   // Pada mode latihan kuota tidak berlaku: tidak ada pemenang yang dicatat,
@@ -284,6 +311,10 @@ export default function UndianControlPage() {
               <p className="mt-1 text-body-medium tabular-nums text-on-surface-variant">
                 {quotaUsed}/{state.prize.winner_quota} pemenang
                 {state.pool_size > 0 && ` · ${state.pool_size} nama di kolam`}
+                {/* Animasi dan mode berhentinya ditulis di sini supaya operator
+                    tahu apa yang akan terjadi di layar SEBELUM menekan Undi. */}
+                {animasi && ` · ${animasi.label}`}
+                {activePrize && ` · ${activePrize.spin_mode === "manual" ? "berhenti manual" : `${activePrize.spin_seconds} detik`}`}
               </p>
 
               {/* Pada mode manual tidak ada angka yang bisa dihitung mundur.
@@ -293,12 +324,12 @@ export default function UndianControlPage() {
                 <p className="text-body-small font-semibold uppercase tracking-[0.15em] text-primary-dim">Sedang mengundi</p>
                 {manualSpin
                   ? <p className="mt-2 flex items-center justify-center gap-2 text-headline-small font-semibold tracking-[-0.03em] text-primary-dim">
-                      <span className="inline-block size-2.5 animate-pulse rounded-full bg-primary" /> Menunggu aba-aba
+                      <span className="inline-block size-2.5 animate-pulse rounded-full bg-primary" /> Berjalan di layar, menunggu aba-aba
                     </p>
                   : <p className="mt-2 text-display-medium font-semibold tabular-nums tracking-[-0.05em] text-primary-dim">{countdown.toFixed(1)}</p>}
                 <p className="mt-2 text-body-small text-primary-dim/80">
                   {manualSpin
-                    ? "Roda berputar sampai Anda menekan Berhenti. Pemenang sudah ditentukan dan tersimpan sejak tombol Undi ditekan — menutup halaman ini tidak menghilangkannya."
+                    ? kalimatManual
                     : "Pemenang sudah ditentukan dan dirahasiakan sampai animasi berhenti."}
                 </p>
               </div>}
@@ -326,7 +357,7 @@ export default function UndianControlPage() {
                     : "flex min-h-14 items-center gap-2 border border-outline-variant px-5 text-body-medium font-semibold disabled:opacity-60"}
                 >
                   {manualSpin
-                    ? <><Stop size={20} weight="fill" /> {busy === "reveal" ? "Menghentikan..." : "BERHENTI & TAMPILKAN"}</>
+                    ? <><Stop size={20} weight="fill" /> {busy === "reveal" ? "Menampilkan..." : tombolAkhiri}</>
                     : <><SkipForward size={18} /> Langsung tampilkan</>}
                 </button>}
               </div>

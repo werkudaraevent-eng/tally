@@ -47,7 +47,12 @@ export function ThemeToggle({ className = "", compact = false }: { className?: s
 			// lewat className tidak dapat diandalkan: yang menang adalah utilitas
 			// yang kebetulan ditulis belakangan oleh Tailwind, bukan yang belakangan
 			// di string. Pemanggil yang menentukan.
-			className={`flex items-center gap-1 rounded-2xl p-1 ${className}`}
+			// `shrink-0`: sebagai anak flex di bilah, grup ini boleh menyusut di
+			// bawah lebar isinya karena tombolnya `min-w-0`. Yang terjadi kemudian
+			// adalah "Tera…" dan "Siste…" di layar 1300px — bukan sempit, hanya
+			// kalah rebutan ruang dengan judul yang `flex-1`. Grup kontrol yang
+			// labelnya terpotong lebih buruk daripada judul yang terpotong.
+			className={`flex shrink-0 items-center gap-1 rounded-2xl p-1 ${className}`}
 		>
 			{OPTIONS.map(({ value, label, Icon }) => {
 				const selected = preference === value;

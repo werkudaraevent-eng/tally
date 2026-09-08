@@ -1,10 +1,12 @@
 "use client";
 
-import { ArmchairIcon, ArrowSquareOut, BookOpen, Browsers, QrCode, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving, List, ListChecks, MonitorPlay, Receipt, ShieldCheck, Storefront, UserPlus, UsersThree, X } from "@phosphor-icons/react";
+import { ArmchairIcon, ArrowSquareOut, BookOpen, Browsers, QrCode, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving, List, ListChecks, MonitorPlay, Printer, Receipt, ShieldCheck, Storefront, UserPlus, UsersThree, X } from "@phosphor-icons/react";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { IconButton, ThemeToggle, TopAppBar } from "@/components/m3";
+import { standard } from "@/lib/m3/motion";
 import { EventMenu, type EventPilihan } from "@/components/admin/event-menu";
 import { UserMenu } from "@/components/admin/user-menu";
 
@@ -33,17 +35,11 @@ const navigation = [
     section: null,
     items: [{ href: "/admin", label: "Dashboard", icon: ChartBar, ownerOnly: false }],
   },
-  {
-    section: "Penjualan",
-    items: [
-      { href: "/admin/orders", label: "Transaksi", icon: ListChecks, ownerOnly: false },
-      // Item spesial dulu menu tersendiri. Ia katalog barang yang dijual booth
-      // yang sama, dan dua menu untuk satu katalog membuat admin mencari harga
-      // di tempat yang salah lebih dulu. Sekarang tab di dalam Booth & item.
-      { href: "/admin/booths", label: "Booth & item", icon: Storefront, ownerOnly: false },
-      { href: "/admin/reports", label: "Laporan", icon: Receipt, ownerOnly: false },
-    ],
-  },
+  // Urutan kelompok mengikuti urutan pekerjaan sebuah acara: orangnya dulu,
+  // lalu apa yang dilihat tamu sebelum hari-H, lalu apa yang ditonton saat
+  // acara berjalan, dan Penjualan terakhir. Dulu Penjualan berdiri paling atas
+  // — warisan masa platform ini hanya sistem kasir, dan banyak acara sama
+  // sekali tidak memakai booth.
   {
     section: "Peserta",
     items: [
@@ -53,6 +49,10 @@ const navigation = [
       // di sini adalah orang dan catatan hadirnya, bukan sesuatu yang ditonton
       // seruangan dari proyektor.
       { href: "/admin/attendance", label: "Kehadiran", icon: QrCode, ownerOnly: false },
+      // Label duduk di sini, bukan di kelompok tersendiri: yang dicetak adalah
+      // badge tamu walk-in, dan walk-in hanya ada karena layar kehadiran. Menu
+      // ini praktis tidak berarti apa-apa bila Kehadiran tidak dipakai.
+      { href: "/admin/label", label: "Label & printer", icon: Printer, ownerOnly: false },
     ],
   },
   {
@@ -77,6 +77,17 @@ const navigation = [
       // Cocok dengan startsWith, jadi /admin/undian/kontrol ikut menyorot entri ini.
       { href: "/admin/undian", label: "Undian", icon: Gift, ownerOnly: false },
       { href: "/admin/vote", label: "Voting langsung", icon: ChartBarHorizontal, ownerOnly: false },
+    ],
+  },
+  {
+    section: "Penjualan",
+    items: [
+      { href: "/admin/orders", label: "Transaksi", icon: ListChecks, ownerOnly: false },
+      // Item spesial dulu menu tersendiri. Ia katalog barang yang dijual booth
+      // yang sama, dan dua menu untuk satu katalog membuat admin mencari harga
+      // di tempat yang salah lebih dulu. Sekarang tab di dalam Booth & item.
+      { href: "/admin/booths", label: "Booth & item", icon: Storefront, ownerOnly: false },
+      { href: "/admin/reports", label: "Laporan", icon: Receipt, ownerOnly: false },
     ],
   },
 ];
@@ -128,8 +139,24 @@ function ItemMenu({
       // Item aktif memakai bentuk pil penuh — itu cara M3 menandai tujuan saat
       // ini di navigasi, dan bentuknya tetap terbaca ketika latar terang membuat
       // perbedaan warnanya menipis.
-      className={`m3-state flex min-h-12 items-center gap-3 rounded-full px-4 text-label-large font-semibold transition-[background-color,color] duration-200 ease-emphasized ${active ? "bg-secondary-container text-on-secondary-container" : "text-on-surface-variant"}`}
+      // `short:min-h-11`: di laptop 768p berskala 150%, dua belas tujuan
+      // setinggi 48px melewati tinggi layar sebelum kelompok terakhir. 44px
+      // masih di atas batas target sentuh, dan menghemat satu kelompok penuh.
+      className={`m3-state flex min-h-12 items-center gap-3 rounded-full px-4 text-label-large font-semibold transition-colors duration-200 ease-emphasized short:min-h-11 ${active ? "text-on-secondary-container" : "text-on-surface-variant"}`}
     >
+      {/* Pil aktif adalah SATU elemen yang meluncur antar tujuan (`layoutId`),
+          bukan latar yang dinyalakan di item baru dan dimatikan di item lama.
+          Itulah indikator navigasi M3: mata mengikuti pilnya ke tujuan baru,
+          jadi tidak perlu mencari lagi di mana ia sekarang. `-z-10` aman
+          karena `m3-state` sudah membuat konteks tumpukan tersendiri. */}
+      {active ? (
+        <motion.span
+          layoutId="admin-nav-active"
+          aria-hidden
+          className="absolute inset-0 -z-10 rounded-full bg-secondary-container"
+          transition={standard.spatial.default}
+        />
+      ) : null}
       <Icon size={22} weight={active ? "fill" : "regular"} />
       {label}
     </Link>
@@ -305,7 +332,7 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
           <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
             <Storefront size={20} weight="duotone" />
           </div>
-          <p className="truncate text-title-medium font-semibold tracking-tight">Tally Control Room</p>
+          <p className="truncate text-title-medium font-semibold tracking-tight">Tally</p>
         </div>
 
         {/* `min-h-0` WAJIB. Tanpa itu anak flex menolak menyusut di bawah tinggi
@@ -319,7 +346,7 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
             sekadar teks di antara tautan. Pembaca layar mengumumkan "Layar
             panggung, daftar, 3 item" — informasi yang sama dengan yang dilihat
             mata dari jarak judul dan indentasi. */}
-        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 pl-3 pr-2" aria-label="Navigasi admin">
+        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 pl-3 pr-2 short:py-2" aria-label="Navigasi admin">
           {visibleNavigation.map((group, index) => {
             const judulId = group.section ? `nav-${group.section.replace(/\s+/g, "-").toLowerCase()}` : undefined;
             return (
@@ -333,7 +360,7 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
               // bersaing dengan tujuan yang bisa ditekan.
               <div
                 key={group.section ?? "utama"}
-                className={index === 0 ? "" : "mt-3 border-t border-outline-variant pt-3"}
+                className={index === 0 ? "" : "mt-3 border-t border-outline-variant pt-3 short:mt-2 short:pt-2"}
               >
                 {group.section ? (
                   <h2
@@ -343,7 +370,7 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
                     {group.section}
                   </h2>
                 ) : null}
-                <ul className="space-y-1" aria-labelledby={judulId}>
+                <ul className="space-y-1 short:space-y-0.5" aria-labelledby={judulId}>
                   {group.items.map((item) => (
                     <li key={item.href}>
                       <ItemMenu
@@ -369,18 +396,20 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
             tempat di layar yang bisa menjawabnya. Panduan dibuka di tab baru:
             panitia yang membacanya sedang berdiri di meja registrasi dengan
             halaman kerja yang belum selesai di tab sebelah. */}
-        <div className="shrink-0 border-t border-outline-variant p-3">
+        {/* Di viewport pendek, tautan panduan dan versi dirapatkan ke satu
+            baris: kaki drawer tidak boleh memakan dua baris menu. */}
+        <div className="shrink-0 border-t border-outline-variant p-3 short:flex short:items-center short:gap-2 short:p-2">
           <a
             href={`${eventPrefix}/panduan/sistem`}
             target="_blank"
             rel="noreferrer"
-            className="m3-state flex min-h-11 items-center gap-3 rounded-full px-4 text-label-large font-semibold text-on-surface-variant"
+            className="m3-state flex min-h-11 items-center gap-3 rounded-full px-4 text-label-large font-semibold text-on-surface-variant short:min-w-0 short:flex-1"
           >
             <BookOpen size={20} />
             Panduan sistem
             <ArrowSquareOut size={14} className="ml-auto shrink-0 opacity-70" />
           </a>
-          <p className="px-4 pt-2 text-body-small text-on-surface-variant">
+          <p className="px-4 pt-2 text-body-small text-on-surface-variant short:shrink-0 short:pt-0">
             Tally v{process.env.NEXT_PUBLIC_APP_VERSION ?? "—"}
           </p>
         </div>

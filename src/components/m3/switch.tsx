@@ -41,15 +41,20 @@ export function Switch({ checked, onChange, label, description, disabled, classN
 					checked ? "border-primary bg-primary" : "border-outline bg-surface-container-highest",
 				)}
 			>
+				{/* Kenop selalu 24px; keadaan mati MENYUSUTKANNYA lewat `scale`, bukan
+				    mengganti `size`. Lebar dan tinggi yang dianimasikan memaksa
+				    perhitungan tata letak tiap frame — aturan DESIGN.md — sedangkan
+				    `scale` dan `translate` dikerjakan kompositor. Posisinya pun lewat
+				    `translate`, bukan `margin-left: auto` yang tidak bisa dianimasikan. */}
 				<span
 					className={cx(
-						"m3-state flex items-center justify-center rounded-full transition-all duration-200 ease-emphasized",
+						"m3-state absolute left-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full transition-[translate,scale,background-color,color] duration-200 ease-emphasized",
 						checked
-							? "ml-auto mr-1 size-6 bg-on-primary text-primary"
-							: "ml-1 size-4 bg-outline text-surface-container-highest",
+							? "translate-x-5 bg-on-primary text-primary"
+							: "-translate-x-1 scale-[0.667] bg-outline text-surface-container-highest",
 					)}
 				>
-					{checked ? <Check size={14} weight="bold" aria-hidden /> : <X size={10} weight="bold" aria-hidden />}
+					{checked ? <Check size={14} weight="bold" aria-hidden /> : <X size={14} weight="bold" aria-hidden />}
 				</span>
 			</button>
 			<label htmlFor={id} className={cx("cursor-pointer select-none", disabled && "opacity-40")}>

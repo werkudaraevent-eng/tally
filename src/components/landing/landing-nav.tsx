@@ -1,7 +1,9 @@
 "use client";
 
+import { m } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
+import { standard } from "@/lib/m3/motion";
 
 /**
  * Navigasi jangkar landing page.
@@ -112,10 +114,23 @@ export function LandingNav({
                 aria-current={aktif === section.id ? "true" : undefined}
                 className={`m3-state inline-flex min-h-10 items-center rounded-full px-4 text-label-large font-semibold transition-colors ${
                   aktif === section.id
-                    ? "bg-[var(--reg-primary-container)] text-[var(--reg-on-primary-container)]"
+                    ? "text-[var(--reg-on-primary-container)]"
                     : "text-[var(--reg-on-surface-variant)] hover:text-[var(--reg-primary)]"
                 }`}
               >
+                {/* Pil aktif MELUNCUR ke bagian berikutnya saat tamu menggulir
+                    (`layoutId`), bukan padam di satu tautan dan menyala di
+                    tautan lain. `m`, bukan `motion`: mesin animasinya dimuat
+                    malas oleh MotionProvider, jadi halaman acara tidak membawa
+                    seluruh Framer Motion di muatan awal. */}
+                {aktif === section.id ? (
+                  <m.span
+                    layoutId="landing-nav-active"
+                    aria-hidden
+                    className="absolute inset-0 -z-10 rounded-full bg-[var(--reg-primary-container)]"
+                    transition={standard.spatial.fast}
+                  />
+                ) : null}
                 {section.label}
               </a>
             </li>

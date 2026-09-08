@@ -128,19 +128,27 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule }: 
     >
       <p className={`text-label-medium uppercase tracking-[0.16em] ${MUTED}`}>Kode peserta</p>
 
-      {qr ? (
-        // Latar putih di belakang QR, apa pun warna temanya. Pemindai membaca
-        // kontras hitam-putih; QR di atas bidang berwarna gagal dipindai pada
-        // sebagian pembaca murah yang dipakai di meja registrasi.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={qr}
-          alt={`Kode QR peserta ${code}`}
-          className="mx-auto mt-4 size-48 rounded-2xl bg-white p-3"
-          width={192}
-          height={192}
-        />
-      ) : null}
+      {/* Ruang QR disediakan SEJAK AWAL, sebelum gambarnya jadi. QR digambar di
+          peramban beberapa ratus milidetik setelah kartu tampil; tanpa kotak
+          penampung, kode teks dan tombol di bawahnya melompat 192px ke bawah
+          tepat ketika pendaftar sedang membacanya. Gambarnya lalu masuk dengan
+          naik-pudar singkat, bukan muncul seketika. */}
+      <div className="relative mx-auto mt-4 size-48">
+        <span aria-hidden className={`absolute inset-0 rounded-2xl bg-white/55 transition-opacity duration-300 ${qr ? "opacity-0" : "opacity-100"}`} />
+        {qr ? (
+          // Latar putih di belakang QR, apa pun warna temanya. Pemindai membaca
+          // kontras hitam-putih; QR di atas bidang berwarna gagal dipindai pada
+          // sebagian pembaca murah yang dipakai di meja registrasi.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={qr}
+            alt={`Kode QR peserta ${code}`}
+            className="rise-in-fast relative size-48 rounded-2xl bg-white p-3"
+            width={192}
+            height={192}
+          />
+        ) : null}
+      </div>
 
       {/* Kode teks tetap tampil BESAR walaupun QR-nya ada. Pemindai bisa mati,
           dan panitia harus bisa mengetiknya manual dari layar pendaftar. */}

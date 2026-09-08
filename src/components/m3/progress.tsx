@@ -83,13 +83,25 @@ export function CircularProgress({ size = 24, label, className }: { size?: numbe
  * dari acara dan boleh terasa hidup. Layar booth dan kasir memakai
  * `CircularProgress`; di sana menunggu adalah gangguan, bukan pertunjukan.
  */
-export function LoadingIndicator({ size = 48, label, className }: { size?: number; label: string; className?: string }) {
+export function LoadingIndicator({
+	size = 48,
+	color,
+	label,
+	className,
+}: {
+	/** Angka piksel, atau string CSS (`min(9vh, 96px)`) untuk layar panggung. */
+	size?: number | string;
+	/** Warna aksen acara dari CMS. Tanpa ini memakai `primary` tema aplikasi. */
+	color?: string;
+	label: string;
+	className?: string;
+}) {
 	return (
 		<div
 			role="progressbar"
 			aria-label={label}
-			className={cx("m3-morph bg-primary", className)}
-			style={{ width: size, height: size }}
+			className={cx("m3-morph", !color && "bg-primary", className)}
+			style={{ width: size, height: size, background: color }}
 		/>
 	);
 }

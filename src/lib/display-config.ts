@@ -60,7 +60,10 @@ export type DisplayConfig = {
  * di sini tidak boleh dianggap sebagai tampilan yang akan dilihat penonton.
  */
 export const DEFAULT_CONFIG: DisplayConfig = {
-  event_title: "Tally Event Transaction Hub",
+  // Netral, bukan nama produk: baris ini tampil KE PENONTON sebagai kelir di
+  // atas judul papan bila konfigurasi gagal dibaca, dan nama sistem kasir di
+  // proyektor tidak menjelaskan apa pun kepada tamu.
+  event_title: "Acara berlangsung",
   headline: "Top spender live",
   tagline: "The room's leaders.",
   background_color: "#101613",

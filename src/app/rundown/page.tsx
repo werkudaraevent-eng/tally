@@ -1,7 +1,9 @@
 "use client";
 
 import { CalendarBlank, Clock, Coffee, DotOutline } from "@phosphor-icons/react";
+import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { standard } from "@/lib/m3/motion";
 import { BrandLogo } from "@/components/brand-header-footer";
 import { fontStack, normalizeBranding, scaleClamp } from "@/lib/branding";
 import { activeItemId, DEFAULT_HEADER, formatClock, formatEventDate, groupSubtitleLines, itemStatus, subtitleLines, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
@@ -348,7 +350,10 @@ export default function RundownPage() {
         </p> : <>
           {/* Garis pemisah antar baris muncul dari gap-px di atas latar --line,
               sesuai DESIGN.md: batas dan jarak lebih dulu, bukan bayangan. */}
-          <ol ref={listRef} className="space-y-2">
+          {/* `key` per bagian + `rise-in-fast`: daftar bagian yang baru dipilih
+              masuk dengan naik-pudar singkat, bukan bertukar seketika di bawah
+              tab yang barusan ditekan. */}
+          <ol ref={listRef} key={section?.slug ?? "bagian"} className="rise-in-fast space-y-2">
             {items.map((item) => <RundownRow
               key={item.id}
               item={item}
@@ -405,7 +410,12 @@ function RundownRow({ item, eventDate, now, zone, isActive }: {
     {/* Batang penanda di tepi kiri. Dipasangkan label teks di bawah, bukan hanya
         warna: DESIGN.md melarang menandai keadaan dengan warna saja, dan tamu
         dengan buta warna tetap harus bisa menemukan acara yang sedang jalan. */}
-    {highlighted ? <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${status === "current" ? "bg-primary" : "bg-outline-variant"}`} /> : null}
+    {/* `layoutId`: batang yang SAMA meluncur ke baris berikutnya ketika jam
+        berganti sesi, bukan padam di satu baris dan menyala di baris lain.
+        Tamu yang membiarkan halaman ini terbuka melihat penandanya berpindah
+        — dan tahu sesinya berganti tanpa membaca ulang. Skema tenang, pelan:
+        ini terjadi paling cepat setiap 30 detik, tidak perlu menarik mata. */}
+    {highlighted ? <motion.span layoutId="rundown-marker" aria-hidden className={`absolute inset-y-0 left-0 w-1 ${status === "current" ? "bg-primary" : "bg-outline-variant"}`} transition={standard.spatial.slow} /> : null}
 
     <div className="grid gap-1.5 sm:grid-cols-[132px_minmax(0,1fr)] sm:gap-4">
       <p className={`font-mono text-body-medium tabular-nums ${status === "current" ? "font-semibold text-primary" : dimmed ? "text-on-surface-variant" : "text-primary"}`}>

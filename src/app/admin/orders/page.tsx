@@ -3,6 +3,7 @@
 import { FunnelSimple, ListChecks, Prohibit, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { ExportMenu } from "@/components/admin/export-menu";
+import { Button, Dialog, TextField } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
@@ -279,41 +280,58 @@ export default function AdminOrdersPage() {
           konfirmasi di dalam baris bisa berada di luar layar saat tombolnya
           ditekan. window.confirm juga tidak dipakai — ia tidak bisa memuat
           kolom alasan yang wajib diisi. */}
-      {voidTarget && <div className="fixed inset-0 z-50 flex items-end justify-center bg-scrim/50 p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="void-title">
-        <div className="rounded-lg w-full max-w-lg border border-outline-variant bg-panel p-6">
-          <p id="void-title" className="flex items-center gap-2 text-title-large font-semibold"><Prohibit size={22} className="shrink-0 text-error" /> Void order {voidTarget.code}?</p>
+      <Dialog
+        open={voidTarget !== null}
+        onClose={() => { setVoidTarget(null); setVoidReason(""); setError(""); }}
+        dismissible={!voiding}
+        size="md"
+        tone="danger"
+        icon={<Prohibit size={22} />}
+        title={`Void order ${voidTarget?.code ?? ""}?`}
+        actions={
+          <>
+            <Button variant="outlined" disabled={voiding} onClick={() => { setVoidTarget(null); setVoidReason(""); setError(""); }}>Batal</Button>
+            <Button variant="danger" icon={<Prohibit size={18} />} loading={voiding} disabled={voidReason.trim().length < 3} onClick={() => void confirmVoid()}>
+              Ya, void order ini
+            </Button>
+          </>
+        }
+      >
+        {voidTarget ? (
+          <>
+            {/* Ringkasan order. Nomor stiker saja tidak cukup untuk memastikan
+                baris yang benar — dua booth bisa punya nomor berdekatan, dan yang
+                dibatalkan adalah transaksi milik orang sungguhan. */}
+            <div className="rounded-lg mt-4 space-y-1 bg-surface-container p-4 text-body-medium">
+              <p className="font-semibold">{voidTarget.participants?.name ?? "—"}</p>
+              {voidTarget.participants?.company && <p className="text-body-small text-on-surface-variant">{voidTarget.participants.company}</p>}
+              <p className="pt-1 tabular-nums">{money(voidTarget.total_amount)} · {booths.find((item) => item.id === voidTarget.booth_id)?.code ?? `#${voidTarget.booth_id}`} · {statusBadge(voidTarget.status).label}</p>
+            </div>
 
-          {/* Ringkasan order. Nomor stiker saja tidak cukup untuk memastikan
-              baris yang benar — dua booth bisa punya nomor berdekatan, dan yang
-              dibatalkan adalah transaksi milik orang sungguhan. */}
-          <div className="rounded-lg mt-4 space-y-1 border border-outline-variant bg-panel-high p-4 text-body-medium">
-            <p className="font-semibold">{voidTarget.participants?.name ?? "—"}</p>
-            {voidTarget.participants?.company && <p className="text-body-small text-on-surface-variant">{voidTarget.participants.company}</p>}
-            <p className="pt-1 tabular-nums">{money(voidTarget.total_amount)} · {booths.find((item) => item.id === voidTarget.booth_id)?.code ?? `#${voidTarget.booth_id}`} · {statusBadge(voidTarget.status).label}</p>
-          </div>
+            {/* Akibatnya ditulis, bukan diringkas jadi "yakin?". Void mengubah
+                angka yang sedang tampil di proyektor, dan itu tidak jelas dari
+                nama tombolnya. */}
+            <ul className="mt-4 space-y-1.5 text-body-small leading-5 text-on-surface-variant">
+              <li>· Nilainya keluar dari leaderboard top spender dan dari Reports.</li>
+              <li>· Kuota item diskon peserta kembali tersedia.</li>
+              <li>· Barisnya TETAP ada dengan status Void — riwayat dan nomor stikernya tidak hilang.</li>
+              {voidTarget.status === "handed_over" && <li className="font-semibold text-warning">· Barang sudah diserahkan ke peserta. Void tidak menariknya kembali, hanya mencatat pembatalannya.</li>}
+            </ul>
+          </>
+        ) : null}
 
-          {/* Akibatnya ditulis, bukan diringkas jadi "yakin?". Void mengubah
-              angka yang sedang tampil di proyektor, dan itu tidak jelas dari
-              nama tombolnya. */}
-          <ul className="mt-4 space-y-1.5 text-body-small leading-5 text-on-surface-variant">
-            <li>· Nilainya keluar dari leaderboard top spender dan dari Reports.</li>
-            <li>· Kuota item diskon peserta kembali tersedia.</li>
-            <li>· Barisnya TETAP ada dengan status Void — riwayat dan nomor stikernya tidak hilang.</li>
-            {voidTarget.status === "handed_over" && <li className="font-semibold text-warning">· Barang sudah diserahkan ke peserta. Void tidak menariknya kembali, hanya mencatat pembatalannya.</li>}
-          </ul>
-
-          <label htmlFor="void-reason" className="mt-4 block text-body-medium font-semibold">Alasan void <span className="font-normal text-on-surface-variant">(wajib)</span></label>
-          <input id="void-reason" value={voidReason} onChange={(event) => setVoidReason(event.target.value)} maxLength={500} autoFocus placeholder="mis. salah input nominal" className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary" />
-          <p className="mt-2 text-body-small text-on-surface-variant">Tersimpan permanen di audit trail bersama nama Anda. Ini satu-satunya keterangan kenapa nomor stiker ini tidak terhitung.</p>
-
-          {error && <p role="alert" className="rounded-lg mt-3 border border-error-soft-outline bg-error-soft p-3 text-body-small text-error">{error}</p>}
-
-          <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
-            <button type="button" onClick={() => void confirmVoid()} disabled={voiding || voidReason.trim().length < 3} className="rounded-md flex min-h-12 items-center justify-center gap-2 bg-error px-5 text-body-medium font-semibold text-on-error disabled:opacity-40"><Prohibit size={18} /> {voiding ? "Membatalkan..." : "Ya, void order ini"}</button>
-            <button type="button" onClick={() => { setVoidTarget(null); setVoidReason(""); setError(""); }} disabled={voiding} className="rounded-md flex min-h-12 items-center justify-center border border-outline-variant px-5 text-body-medium font-semibold disabled:opacity-40">Batal</button>
-          </div>
-        </div>
-      </div>}
+        <TextField
+          className="mt-4"
+          label="Alasan void"
+          value={voidReason}
+          onChange={(event) => setVoidReason(event.target.value)}
+          maxLength={500}
+          autoFocus
+          placeholder="mis. salah input nominal"
+          hint="Tersimpan permanen di audit trail bersama nama Anda. Ini satu-satunya keterangan kenapa nomor stiker ini tidak terhitung."
+          error={error || undefined}
+        />
+      </Dialog>
     </div>
   </main>;
 }

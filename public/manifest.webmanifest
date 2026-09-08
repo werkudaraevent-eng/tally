@@ -1,7 +1,7 @@
 {
-  "name": "Tally — Event Transaction Hub",
+  "name": "Tally — Pusat operasional acara",
   "short_name": "Tally",
-  "description": "Booth transaction and live leaderboard system for events.",
+  "description": "Pendaftaran, kehadiran, layar panggung, dan transaksi booth untuk acara yang berjalan langsung.",
   "start_url": "/login",
   "display": "standalone",
   "background_color": "#F5F4F0",

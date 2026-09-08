@@ -58,6 +58,15 @@ export async function GET(request: Request) {
     if (!sebelumnya || scan.scanned_at > sebelumnya) terakhir.set(scan.session_id, scan.scanned_at);
   }
 
+  // Berapa banyak yang didaftarkan di meja, bukan sebelum hari-H. Dihitung di
+  // sini dan bukan di halaman: satu-satunya cara klien mengetahuinya adalah
+  // menarik seluruh daftar peserta hanya untuk menghitung sebuah kolom.
+  const { count: walkIn } = await client
+    .from("participants")
+    .select("id", { head: true, count: "exact" })
+    .eq("event_id", eventId)
+    .not("walk_in_at", "is", null);
+
   return Response.json({
     sessions: ((sesi.data ?? []) as Array<{ id: number }>).map((row) => ({
       ...row,
@@ -65,6 +74,8 @@ export async function GET(request: Request) {
       total_scan: total.get(row.id) ?? 0,
       terakhir: terakhir.get(row.id) ?? null,
     })),
+    allow_walk_in: auth.scope.event.attendance_allow_walk_in,
+    walk_in_count: walkIn ?? 0,
   });
 }
 

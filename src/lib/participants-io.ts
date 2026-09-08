@@ -1,3 +1,5 @@
+import type { RegistrationField } from "@/lib/domain";
+import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Impor dan ekspor peserta, CSV maupun XLSX.
@@ -7,10 +9,22 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 // diunggah kembali apa adanya. Kalau penulis dan pembaca berdiri di modul
 // terpisah, keduanya akan pelan-pelan berbeda dan "export lalu import" berhenti
 // bekerja tepat saat dipakai untuk menyunting massal.
+//
+// ---- Kolom pertanyaan tambahan ----------------------------------------------
+//
+// Kolom berkas TIDAK statis. Setiap pertanyaan yang ditambahkan admin di form
+// pendaftaran publik menjadi satu kolom di template, importir, dan ekspor —
+// dengan kunci field sebagai header dan labelnya sebagai alias. Tanpa ini form
+// publik dan daftar peserta adalah dua kosakata: pendaftar daring punya
+// "ukuran kaus", peserta yang diimpor tidak, dan tidak ada berkas yang bisa
+// menyamakannya.
+//
+// Berkas unggahan dikecualikan dari impor dan template: nilainya id baris di
+// storage privat yang hanya bisa dibuat pendaftar sendiri.
 
 export type ParticipantFileFormat = "csv" | "xlsx";
 
-/** Kolom yang DIBACA importir. Urutannya juga urutan kolom di berkas contoh. */
+/** Kolom bawaan yang DIBACA importir. Urutannya juga urutan kolom di berkas contoh. */
 export const IMPORT_HEADERS = [
   "qr_code",
   "name",
@@ -24,22 +38,41 @@ export const IMPORT_HEADERS = [
 
 export type ImportField = (typeof IMPORT_HEADERS)[number];
 
-/**
- * Kolom ekspor: seluruh kolom impor, lalu kolom yang hanya bisa dibaca.
- *
- * Kolom baca-saja sengaja diletakkan SESUDAH kolom impor, bukan disisipkan di
- * tengah. Panitia yang menyunting berkas ini bekerja dari kiri; kolom yang
- * suntingannya akan diabaikan tidak boleh menghalangi kolom yang tidak.
- */
-export const EXPORT_HEADERS = [
-  ...IMPORT_HEADERS,
+/** Kolom baca-saja di ujung ekspor. */
+const READONLY_HEADERS = [
   "sumber",
+  // Jam kedatangan tamu yang didaftarkan di meja. Kosong untuk semua peserta
+  // yang sudah ada sebelum hari-H — yaitu hampir semuanya.
+  "walk_in_at",
   "check_in",
   "total_scan",
   "kursi",
   "dihapus_di_sumber",
   "participant_id",
 ] as const;
+
+/** Field tambahan yang bisa lewat berkas: semua kecuali unggahan. */
+export function importableFields(fields: RegistrationField[]): RegistrationField[] {
+  return fields.filter((field) => !FILE_FIELD_TYPES.includes(field.type));
+}
+
+/** Header impor dan template: kolom bawaan, lalu kunci tiap pertanyaan tambahan. */
+export function importHeaders(fields: RegistrationField[]): string[] {
+  return [...IMPORT_HEADERS, ...importableFields(fields).map((field) => field.key)];
+}
+
+/**
+ * Kolom ekspor: seluruh kolom impor, lalu kolom yang hanya bisa dibaca.
+ *
+ * Kolom baca-saja sengaja diletakkan SESUDAH kolom impor, bukan disisipkan di
+ * tengah. Panitia yang menyunting berkas ini bekerja dari kiri; kolom yang
+ * suntingannya akan diabaikan tidak boleh menghalangi kolom yang tidak.
+ * Jawaban berkas ikut di ekspor sebagai penanda ada/tidak, di antara keduanya.
+ */
+export function exportHeaders(fields: RegistrationField[]): string[] {
+  const berkas = fields.filter((field) => FILE_FIELD_TYPES.includes(field.type)).map((field) => field.key);
+  return [...importHeaders(fields), ...berkas, ...READONLY_HEADERS];
+}
 
 /**
  * Nama kolom alternatif yang diterima importir.
@@ -71,7 +104,9 @@ function normalizeHeader(raw: string) {
     .replace(/^_+|_+$/g, "");
 }
 
-export type ImportRow = Partial<Record<ImportField, string>>;
+export type ImportRow = Partial<Record<ImportField, string>> & { extra?: Record<string, string> };
+
+type ColumnTarget = { kind: "base"; field: ImportField } | { kind: "extra"; key: string } | null;
 
 /**
  * Petakan matriks sel (baris pertama = header) menjadi baris impor.
@@ -79,13 +114,31 @@ export type ImportRow = Partial<Record<ImportField, string>>;
  * Kolom yang tidak dikenali DIABAIKAN diam-diam. Berkas panitia lazim memuat
  * kolom catatan, nomor meja, atau ukuran kaus; menolak berkasnya karena ada
  * kolom asing berarti menolak hampir semua berkas nyata.
+ *
+ * Kolom pertanyaan tambahan dikenali lewat KUNCI field-nya maupun LABEL-nya
+ * yang dinormalkan: berkas hasil ekspor membawa kuncinya, spreadsheet buatan
+ * panitia membawa labelnya seperti tampil di formulir.
  */
-export function mapRows(matrix: string[][]) {
+export function mapRows(matrix: string[][], fields: RegistrationField[] = []) {
   const [headerRow, ...bodyRows] = matrix;
-  if (!headerRow) return { rows: [] as ImportRow[], recognized: [] as ImportField[] };
+  if (!headerRow) return { rows: [] as ImportRow[], recognized: [] as string[] };
 
-  const columns = headerRow.map((cell) => HEADER_ALIASES[normalizeHeader(cell ?? "")] ?? null);
-  const recognized = [...new Set(columns.filter((column): column is ImportField => column !== null))];
+  const tambahan = importableFields(fields);
+  const byLabel = new Map<string, string>();
+  for (const field of tambahan) {
+    byLabel.set(field.key, field.key);
+    byLabel.set(normalizeHeader(field.label), field.key);
+  }
+
+  const columns: ColumnTarget[] = headerRow.map((cell) => {
+    const header = normalizeHeader(cell ?? "");
+    const base = HEADER_ALIASES[header];
+    if (base) return { kind: "base", field: base };
+    const key = byLabel.get(header);
+    if (key) return { kind: "extra", key };
+    return null;
+  });
+  const recognized = [...new Set(columns.filter((column): column is NonNullable<ColumnTarget> => column !== null).map((column) => (column.kind === "base" ? column.field : column.key)))];
 
   const rows: ImportRow[] = [];
   for (const cells of bodyRows) {
@@ -95,7 +148,8 @@ export function mapRows(matrix: string[][]) {
       if (!column) return;
       const value = (cells[index] ?? "").trim();
       if (!value) return;
-      row[column] = value;
+      if (column.kind === "base") row[column.field] = value;
+      else (row.extra ??= {})[column.key] = value;
       filled = true;
     });
     // Baris kosong dilewati tanpa dihitung sebagai penolakan. Spreadsheet nyaris
@@ -214,20 +268,25 @@ type ParticipantExportRow = {
   phone: string | null;
   participant_type: string | null;
   rsvp_status: string | null;
+  extra: Record<string, string> | null;
   source_participant_id: string | null;
   source_checked_in: boolean;
   source_total_scans: number;
   source_removed_at: string | null;
+  walk_in_at: string | null;
   seats: Array<{ label: string }> | null;
 };
 
-export async function loadParticipantExportRows(eventId: string) {
+export async function loadParticipantExportRows(eventId: string, fields: RegistrationField[]) {
   const { data, error } = await getSupabaseServiceClient()
     .from("participants")
-    .select("id,qr_code,name,company,title,email,phone,participant_type,rsvp_status,source_participant_id,source_checked_in,source_total_scans,source_removed_at,seats")
+    .select("id,qr_code,name,company,title,email,phone,participant_type,rsvp_status,extra,source_participant_id,source_checked_in,source_total_scans,source_removed_at,walk_in_at,seats")
     .eq("event_id", eventId)
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
+
+  const tambahan = importableFields(fields);
+  const berkas = fields.filter((field) => FILE_FIELD_TYPES.includes(field.type));
 
   return ((data ?? []) as unknown as ParticipantExportRow[]).map((row) => [
     row.qr_code,
@@ -238,7 +297,15 @@ export async function loadParticipantExportRows(eventId: string) {
     row.phone ?? "",
     row.participant_type ?? "",
     row.rsvp_status ?? "",
-    row.source_participant_id ? "scanner" : "manual",
+    ...tambahan.map((field) => row.extra?.[field.key] ?? ""),
+    // Berkas tidak bisa dibawa lewat spreadsheet; yang berguna hanya "ada".
+    ...berkas.map((field) => (row.extra?.[field.key] ? "Y" : "")),
+    // "walk-in" mendahului dua nilai lain, dan bukan menjadi kolom ketiga
+    // bernilai Y/N: peserta yang didaftarkan di meja tidak pernah datang dari
+    // Scanner API maupun diketik panitia di CMS, jadi tiga nilai ini memang
+    // saling meniadakan.
+    row.walk_in_at ? "walk-in" : row.source_participant_id ? "scanner" : "manual",
+    row.walk_in_at ?? "",
     row.source_checked_in ? "Y" : "N",
     row.source_total_scans,
     (row.seats ?? []).map((seat) => seat.label).join(" | "),
@@ -259,18 +326,48 @@ export async function loadParticipantExportRows(eventId: string) {
  * seperti apa isi `rsvp_status` yang sah, dan jawabannya paling cepat dibaca
  * dari contohnya sendiri. Keduanya harus dihapus sebelum diunggah, dan itu
  * disebutkan di layar impor.
+ *
+ * Kolom pertanyaan tambahan ikut diberi contoh yang SAH menurut jenisnya:
+ * dropdown diisi pilihan pertamanya, kotak centang `true`, tanggal ISO. Contoh
+ * yang tidak sah akan ditolak importir — dan template yang contohnya ditolak
+ * adalah template yang mengajarkan hal yang salah.
  */
-export const TEMPLATE_ROWS: string[][] = [
-  ["REG000001", "Budi Santoso", "PT Contoh Sejahtera", "Direktur Utama", "budi@contoh.com", "081234567890", "VIP", "confirmed"],
-  ["REG000002", "Siti Rahayu", "CV Mitra Abadi", "Manajer", "siti@contoh.com", "+6281298765432", "reguler", "invited"],
-];
+export function templateRows(fields: RegistrationField[]): string[][] {
+  const dasar = [
+    ["REG000001", "Budi Santoso", "PT Contoh Sejahtera", "Direktur Utama", "budi@contoh.com", "081234567890", "VIP", "confirmed"],
+    ["REG000002", "Siti Rahayu", "CV Mitra Abadi", "Manajer", "siti@contoh.com", "+6281298765432", "reguler", "invited"],
+  ];
+  const tambahan = importableFields(fields);
+  return dasar.map((row, index) => [...row, ...tambahan.map((field) => contohJawaban(field, index))]);
+}
+
+function contohJawaban(field: RegistrationField, index: number): string {
+  const options = (field.options ?? []).map((option) => option.trim()).filter(Boolean);
+  switch (field.type) {
+    case "select":
+    case "radio":
+      return options[index % Math.max(1, options.length)] ?? "";
+    case "checkbox":
+      return index === 0 ? "true" : "";
+    case "number":
+      return String(field.min ?? 1);
+    case "date":
+      return "2026-08-17";
+    case "email":
+      return index === 0 ? "budi@contoh.com" : "siti@contoh.com";
+    case "tel":
+      return index === 0 ? "081234567890" : "+6281298765432";
+    default:
+      return index === 0 ? `Contoh ${field.label.toLowerCase()}` : "";
+  }
+}
 
 function escapeCsv(value: unknown) {
   const text = value == null ? "" : String(value);
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-export function buildCsv(rows: unknown[][], headers: readonly string[] = EXPORT_HEADERS) {
+export function buildCsv(rows: unknown[][], headers: readonly string[]) {
   const lines = [headers.join(",")];
   for (const row of rows) lines.push(row.map(escapeCsv).join(","));
   // BOM di depan: tanpa itu Excel di Windows membaca berkas sebagai ANSI dan
@@ -278,7 +375,7 @@ export function buildCsv(rows: unknown[][], headers: readonly string[] = EXPORT_
   return `﻿${lines.join("\r\n")}\r\n`;
 }
 
-export async function buildXlsx(rows: unknown[][], headers: readonly string[] = EXPORT_HEADERS) {
+export async function buildXlsx(rows: unknown[][], headers: readonly string[]) {
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Peserta");

@@ -1,5 +1,8 @@
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { apiError } from "@/lib/api";
+import type { RegistrationFormConfig } from "@/lib/domain";
+import { loadLabelSettings } from "@/lib/label/load";
+import { editableFields } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -60,6 +63,20 @@ export async function GET(request: Request) {
     unik.get(scan.session_id)!.add(scan.participant_id);
   }
 
+  // Setelan walk-in ikut di jawaban yang sama, bukan endpoint kedua — alasan
+  // yang sama dengan jalur di atas. Yang dikirim hanya field bertanda WAJIB:
+  // formulir pendaftaran acara bisa berisi dua puluh pertanyaan, dan menaruh
+  // semuanya di dialog yang dibuka di depan antrean berarti tidak ada yang akan
+  // memakainya. Sisanya dilengkapi di halaman peserta setelah antrean surut.
+  const config = auth.scope.event.registration_form_config as RegistrationFormConfig | null;
+  const walkinFields = editableFields(config).filter((field) => field.required);
+
+  // Setelan label ikut di sini juga, dan bukan di endpoint ketiga. Layar
+  // pemindai membutuhkannya pada saat yang persis sama dengan daftar sesi —
+  // saat halaman dibuka — dan setiap permintaan tambahan di jaringan venue yang
+  // padat adalah satu kesempatan lagi untuk gagal sebelum tamu pertama datang.
+  const label = await loadLabelSettings(auth.scope.event.id);
+
   return Response.json({
     sessions: ((sesi.data ?? []) as Array<{ id: number }>).map((row) => ({
       ...row,
@@ -68,5 +85,8 @@ export async function GET(request: Request) {
     lanes: jalur.data ?? [],
     event: { name: auth.scope.event.name, slug: auth.scope.event.slug },
     user: { username: auth.user.username },
+    allow_walk_in: auth.scope.event.attendance_allow_walk_in,
+    walkin_fields: walkinFields,
+    label,
   });
 }

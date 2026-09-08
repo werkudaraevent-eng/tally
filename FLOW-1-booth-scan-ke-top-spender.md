@@ -3,7 +3,7 @@
 > Bahan presentasi. Semua angka di dokumen ini diverifikasi langsung dari database
 > produksi pada 3 Agustus 2026, bukan dari nilai bawaan skema.
 >
-> Aplikasi: **Tally — Event Transaction Hub** · `eventhub.werkudara.group`
+> Aplikasi: **Tally — Pusat operasional acara** · `eventhub.werkudara.group`
 > Acara: **PRIMA Executive Gathering 2026**
 
 ---

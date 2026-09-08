@@ -1,12 +1,30 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, CalendarBlank, CheckCircle, Hourglass, WarningCircle } from "@phosphor-icons/react";
+import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
 import type { RegistrationField } from "@/lib/domain";
 import { REG_CONTROL, REG_LABEL, RegistrationFieldInput } from "@/components/registration-field-input";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
+import { Spinner } from "@/components/search-loading";
 import { eventApiPath } from "@/lib/event-url";
+import { easing, expressive } from "@/lib/m3/motion";
+
+/**
+ * Pergantian formulir → layar sukses di dalam kartu yang sama.
+ *
+ * Formulir turun-pudar singkat, layar sukses naik-pudar menggantikannya.
+ * Sebelumnya isinya bertukar seketika, dan pendaftar yang barusan menekan
+ * tombol tidak punya isyarat bahwa yang di layar adalah HASIL dari
+ * tekanannya, bukan halaman lain yang kebetulan termuat.
+ */
+const TUKAR = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.15, ease: easing.standardAccelerate } },
+  transition: { duration: 0.32, ease: easing.emphasizedDecelerate },
+} as const;
 
 /**
  * Form pendaftaran publik.
@@ -154,19 +172,31 @@ export default function DaftarClient(props: Props) {
     }
   }
 
-  if (hasil) {
-    const disetujui = hasil.status === "approved" && hasil.qr_code;
-    // Dibaca dari JAWABAN server, bukan dari asumsi bahwa email sudah aktif.
-    // Server hanya mengirim true bila penyedia benar-benar menerima kiriman;
-    // kunci API yang belum diisi, alamat yang ditolak, dan penyedia yang sedang
-    // mati semuanya sampai ke sini sebagai false.
-    const lewatEmail = disetujui && hasil.email_sent === true;
-    return (
-      <Bingkai {...props}>
-        <div className="text-center">
-          {disetujui
-            ? <CheckCircle size={56} weight="fill" className="mx-auto text-[var(--reg-primary)]" />
-            : <Hourglass size={56} className={`mx-auto ${MUTED}`} />}
+  const disetujui = hasil !== null && hasil.status === "approved" && Boolean(hasil.qr_code);
+  // Dibaca dari JAWABAN server, bukan dari asumsi bahwa email sudah aktif.
+  // Server hanya mengirim true bila penyedia benar-benar menerima kiriman;
+  // kunci API yang belum diisi, alamat yang ditolak, dan penyedia yang sedang
+  // mati semuanya sampai ke sini sebagai false.
+  const lewatEmail = disetujui && hasil?.email_sent === true;
+
+  return (
+    <Bingkai {...props}>
+      <AnimatePresence mode="wait" initial={false}>
+      {hasil ? (
+        <motion.div key="sukses" className="text-center" {...TUKAR}>
+          {/* Ikon hasil membesar masuk dengan pegas ekspresif, sesaat setelah
+              kartunya mendarat. Ini satu-satunya momen di alur pendaftaran yang
+              boleh terasa seperti perayaan. */}
+          <motion.div
+            className="mx-auto w-fit"
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ ...expressive.spatial.default, delay: 0.12 }}
+          >
+            {disetujui
+              ? <CheckCircle size={56} weight="fill" className="mx-auto text-[var(--reg-primary)]" />
+              : <Hourglass size={56} className={`mx-auto ${MUTED}`} />}
+          </motion.div>
           <h2 className="mt-5 text-headline-small font-semibold tracking-[-0.02em]">
             {disetujui ? "Pendaftaran berhasil" : "Pendaftaran diterima"}
           </h2>
@@ -218,13 +248,9 @@ export default function DaftarClient(props: Props) {
               </p>
             </div>
           ) : null}
-        </div>
-      </Bingkai>
-    );
-  }
-
-  return (
-    <Bingkai {...props}>
+        </motion.div>
+      ) : (
+        <motion.div key="formulir" {...TUKAR}>
       {/* Pendaftar yang membuka formulir ini lagi dari perangkat yang sama
           diingatkan lebih dulu. Tanpa ini ia mengisi ulang seluruh formulir, lalu
           ditolak sebagai email duplikat — dan mengira pendaftarannya gagal. */}
@@ -266,23 +292,34 @@ export default function DaftarClient(props: Props) {
         {props.fields.map((field) => <RegistrationFieldInput key={field.key} field={field} />)}
 
         {error ? (
-          <p role="alert" className="mt-7 flex items-start gap-2 rounded-[20px] bg-[var(--reg-error-soft)] p-4 text-body-medium font-medium leading-6 text-[var(--reg-on-error-soft)]">
+          // Galat naik-pudar masuk, bukan muncul seketika: kotak merah yang
+          // tiba-tiba ada di bawah formulir terbaca sebagai bagian halaman yang
+          // baru termuat, bukan sebagai jawaban atas tombol yang barusan ditekan.
+          <p key={error} role="alert" className="rise-in-fast mt-7 flex items-start gap-2 rounded-[20px] bg-[var(--reg-error-soft)] p-4 text-body-medium font-medium leading-6 text-[var(--reg-on-error-soft)]">
             <WarningCircle size={20} weight="fill" className="mt-0.5 shrink-0" />
             {error}
           </p>
         ) : null}
 
         {/* Kapsul, bukan persegi membulat: bentuknya sama dengan tombol "Daftar
-            sekarang" yang baru saja ditekan tamu di halaman acara. */}
+            sekarang" yang baru saja ditekan tamu di halaman acara.
+
+            Labelnya TIDAK berganti menjadi "Mengirim…": hanya ikonnya yang
+            ditukar dengan pemintal, pola yang sama dengan primitif Button.
+            Label yang berubah membuat lebar tombol melompat tepat saat ditekan. */}
         <button
           disabled={pending}
-          className="m3-state mt-8 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--reg-primary)] px-8 text-title-medium font-semibold text-[var(--reg-on-primary)] shadow-[var(--md-sys-elevation-level1)] disabled:opacity-50"
+          aria-busy={pending || undefined}
+          className="m3-state mt-8 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--reg-primary)] px-8 text-title-medium font-semibold text-[var(--reg-on-primary)] shadow-[var(--md-sys-elevation-level1)] transition-[scale] duration-150 ease-standard active:scale-[0.98] disabled:opacity-50"
           style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
         >
-          {pending ? "Mengirim…" : "Daftar sekarang"}
-          {pending ? null : <ArrowRight size={20} weight="bold" />}
+          Daftar sekarang
+          {pending ? <Spinner size={20} label="Mengirim" /> : <ArrowRight size={20} weight="bold" />}
         </button>
       </form>
+        </motion.div>
+      )}
+      </AnimatePresence>
     </Bingkai>
   );
 }

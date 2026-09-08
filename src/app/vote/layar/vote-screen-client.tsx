@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { expressive } from "@/lib/m3/motion";
 import { BrandFooter, BrandHeader } from "@/components/brand-header-footer";
+import { LoadingIndicator } from "@/components/m3";
 import { fontStack, type Branding } from "@/lib/branding";
 import { readableOn } from "@/lib/color";
 import { votePercentages, type PublicVoteState } from "@/lib/vote";
@@ -214,8 +215,11 @@ export default function VoteScreenClient({ voteUrl, joinHost, joinCode, title, s
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.6vh] p-[2.4vh]"
         style={panelStyle}
       >
-    {!poll ? <div className="flex flex-1 items-center justify-center">
-      <p style={{ fontSize: "clamp(18px, 3.4vh, 44px)", opacity: 0.55 }}>Menunggu voting dimulai…</p>
+    {!poll ? <div className="flex flex-1 flex-col items-center justify-center gap-[2.4vh]">
+      {/* Indikator morph ekspresif, bukan teks diam: di layar panggung
+          menunggu adalah bagian dari acara dan boleh terasa hidup. */}
+      <LoadingIndicator size="min(8vh, 88px)" color={accent} label="Menunggu voting dimulai" />
+      <p aria-hidden style={{ fontSize: "clamp(18px, 3.4vh, 44px)", opacity: 0.55 }}>Menunggu voting dimulai…</p>
     </div> : <>
       <header className="shrink-0 text-center">
         <h1 className="font-bold tracking-[-0.03em]" style={{ fontSize: "clamp(24px, 5vh, 68px)" }}>{poll.question}</h1>

@@ -81,11 +81,16 @@ const messages: Record<ApiErrorCode, string> = {
   EVENT_HAS_ORDERS: "Event ini sudah punya transaksi tercatat, jadi tidak dapat dihapus. Arsipkan saja — datanya hilang dari daftar utama tanpa memusnahkan laporan.",
   // Menyebut APA yang masih boleh diubah, bukan sekadar menolak. Tanpa itu
   // panitia mengira barisnya rusak dan mencoba lagi dengan cara yang sama.
-  PARTICIPANT_SOURCE_LOCKED: "Peserta ini datang dari Scanner API, jadi nama, perusahaan, jabatan, kode QR, tipe, dan RSVP-nya dikelola di sana — suntingan di sini akan tertimpa pada sync berikutnya. Hanya email dan telepon yang bisa diubah dari halaman ini.",
+  PARTICIPANT_SOURCE_LOCKED: "Peserta ini datang dari Scanner API, jadi nama, perusahaan, jabatan, kode QR, tipe, dan RSVP-nya dikelola di sana — suntingan di sini akan tertimpa pada sync berikutnya. Hanya email, telepon, dan jawaban formulir yang bisa diubah dari halaman ini.",
   PARTICIPANT_QR_TAKEN: "Kode QR ini sudah dipakai peserta lain di event ini. Gunakan kode lain.",
   PARTICIPANT_FIELDS_REQUIRED: "Kode QR dan nama wajib diisi.",
   PARTICIPANT_RSVP_INVALID: "RSVP hanya boleh kosong, invited, atau confirmed.",
+  PARTICIPANT_EXTRA_INVALID: "Jawaban formulir tidak berbentuk yang diharapkan. Muat ulang halaman lalu coba lagi.",
   PARTICIPANT_IN_USE: "Peserta ini sudah punya transaksi atau pernah menang undian, jadi tidak dapat dihapus.",
+  // Menyebut SIAPA yang bisa mengubahnya. Petugas di pintu masuk tidak punya
+  // akses ke setelan acara, dan pesan yang hanya menyatakan "tidak diizinkan"
+  // membuatnya mencoba lagi dengan cara yang sama sampai antreannya menumpuk.
+  WALKIN_DISABLED: "Acara ini tidak menerima tamu walk-in. Minta admin menyalakannya di Admin → Kehadiran bila memang boleh.",
   IMPORT_EMPTY: "Berkas tidak memuat satu baris data pun.",
   IMPORT_TOO_LARGE: "Berkas melebihi 5.000 baris. Pecah menjadi beberapa berkas.",
   IMPORT_UNREADABLE: "Berkas tidak terbaca. Pastikan formatnya CSV atau XLSX dan baris pertamanya berisi nama kolom.",
@@ -179,7 +184,10 @@ export function mapDatabaseError(error: { code?: string; message?: string }) {
   if (message.includes("PARTICIPANT_QR_TAKEN")) return "PARTICIPANT_QR_TAKEN" as const;
   if (message.includes("PARTICIPANT_FIELDS_REQUIRED")) return "PARTICIPANT_FIELDS_REQUIRED" as const;
   if (message.includes("PARTICIPANT_RSVP_INVALID")) return "PARTICIPANT_RSVP_INVALID" as const;
+  if (message.includes("PARTICIPANT_EXTRA_INVALID")) return "PARTICIPANT_EXTRA_INVALID" as const;
   if (message.includes("PARTICIPANT_IN_USE")) return "PARTICIPANT_IN_USE" as const;
+  // Dilempar create_walkin_participant.
+  if (message.includes("WALKIN_DISABLED")) return "WALKIN_DISABLED" as const;
   // Diperiksa SEBELUM cabang 23505 di bawah: bentrok kode peserta yang lolos
   // pemeriksaan eksplisit di RPC (balapan dua admin) tetap harus terbaca sebagai
   // kode terpakai, bukan sebagai "sudah mengambil item diskon".

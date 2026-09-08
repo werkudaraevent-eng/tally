@@ -1,6 +1,8 @@
-# PRIMA Executive Gathering 2026
+# Tally — Pusat operasional acara
 
-Booth transaction and live leaderboard system.
+Platform pengelolaan acara multi-event: halaman acara publik, pendaftaran, kehadiran dan layar sapa, rundown, denah kursi, undian, voting langsung, serta transaksi booth dengan papan peringkat.
+
+Akar domain (`/`) hanya gerbang: sesi aktif diarahkan ke `/events`, tanpa sesi ke `/login`. Tamu masuk lewat `/e/<slug>`.
 
 ## Local environment
 
@@ -40,11 +42,10 @@ npm run build
 
 ## Routes
 
-- `/login`
-- `/booth`
-- `/cashier`
-- `/admin`
-- `/display?fullscreen=1`
+- `/login`, lalu `/events` (pemilih acara)
+- `/e/<slug>` — halaman acara publik; `/e/<slug>/daftar`, `/rundown`, `/denah`, `/vote`
+- `/e/<slug>/admin`, `/booth`, `/cashier`, `/scan` — layar kerja panitia
+- `/e/<slug>/display?fullscreen=1`, `/undian`, `/vote/layar`, `/sapa` — layar panggung
 
 Supabase database schema, seed participants, transactional order RPCs, authentication, and protected API routes are connected. UI routes still contain demo presentation data; operational screens will be wired to these APIs in the next implementation increment.
 

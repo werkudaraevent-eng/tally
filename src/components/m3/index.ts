@@ -17,6 +17,9 @@ export type { ChipTone, FilterChipProps } from "./chip";
 export { IconButton, ICON_BUTTON_ICON_SIZE } from "./icon-button";
 export type { IconButtonProps, IconButtonVariant, IconButtonSize } from "./icon-button";
 
+export { Dialog } from "./dialog";
+export type { DialogProps } from "./dialog";
+
 export { Divider, EmptyState, PageHeader } from "./layout";
 export type { EmptyStateProps, PageHeaderProps } from "./layout";
 
