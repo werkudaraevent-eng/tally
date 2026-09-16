@@ -187,13 +187,13 @@ export function ExclusionRuleManager({
   }
 
   const inputClass = "h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
-  const labelClass = "text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant";
+  const labelClass = "text-body-small font-semibold ed-label text-on-surface-variant";
 
   return <div className="space-y-2">
     <div className="rounded-lg bg-panel p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">
+          <h2 className="flex items-center gap-2 text-body-medium font-semibold ed-label text-on-surface-variant">
             <Funnel size={16} /> Aturan pengecualian
           </h2>
           <p className="mt-2 max-w-lg text-body-small leading-relaxed text-on-surface-variant">
@@ -214,7 +214,7 @@ export function ExclusionRuleManager({
         <p className="rounded-lg border border-dashed border-outline-variant p-6 text-center text-body-medium text-on-surface-variant">
           Belum ada aturan. Semua peserta aktif ikut diundi.
         </p>
-        <p className="mt-4 mb-2 text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Mulai cepat</p>
+        <p className="mt-4 mb-2 text-body-small font-semibold ed-label text-on-surface-variant">Mulai cepat</p>
         <div className="grid gap-2 sm:grid-cols-2">
           {TEMPLATES.map((template) => <button
             key={template.label}
@@ -223,7 +223,7 @@ export function ExclusionRuleManager({
             className="rounded-lg border border-outline-variant p-3 text-left hover:border-primary"
           >
             <span className="block text-body-medium font-semibold">{template.label}</span>
-            <span className="mt-1 block text-[11px] leading-snug text-on-surface-variant">{template.hint}</span>
+            <span className="mt-1 block text-label-small leading-snug text-on-surface-variant">{template.hint}</span>
           </button>)}
         </div>
       </div> : rules.length > 0 && <ul className="mt-4 space-y-2">
@@ -234,8 +234,8 @@ export function ExclusionRuleManager({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold">{rule.name}</span>
-                  {!rule.is_active && <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant">Nonaktif</span>}
-                  {rule.prize_id !== null && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">
+                  {!rule.is_active && <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-label-small font-semibold uppercase text-on-surface-variant">Nonaktif</span>}
+                  {rule.prize_id !== null && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-label-small font-semibold uppercase text-primary">
                     {prizes.find((prize) => prize.id === rule.prize_id)?.name ?? "hadiah tertentu"}
                   </span>}
                 </div>
@@ -269,7 +269,7 @@ export function ExclusionRuleManager({
     </div>
 
     {editingId !== null && <div className="rounded-lg bg-panel p-5">
-      <h3 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">
+      <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">
         {editingId === "new" ? "Aturan baru" : "Ubah aturan"}
       </h3>
 

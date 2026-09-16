@@ -2,7 +2,7 @@
 
 import { Storefront, Tag } from "@phosphor-icons/react";
 import { useState } from "react";
-import { SegmentedButton } from "@/components/m3";
+import { PageHeader, SegmentedButton } from "@/components/m3";
 import { BoothsPanel } from "@/components/admin/booths-panel";
 import { OffersPanel } from "@/components/admin/offers-panel";
 
@@ -28,6 +28,7 @@ export default function BoothsPage() {
   return (
     <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
       <div className="mx-auto max-w-[1440px]">
+        <PageHeader />
         <SegmentedButton<Tab>
           className="mb-6"
           label="Bagian halaman booth"

@@ -8,6 +8,7 @@ import { SeatMapView } from "@/components/seat-map-view";
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
 import { computeSeatMapGeometry, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor, type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule, LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS } from "@/lib/seat-map";
+import { PageHeader } from "@/components/m3";
 
 // CMS denah tempat duduk.
 //
@@ -310,6 +311,7 @@ export default function SeatMapAdminPage() {
 
   return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
+      <PageHeader />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="max-w-2xl text-body-medium text-on-surface-variant">
@@ -720,7 +722,7 @@ export default function SeatMapAdminPage() {
               <div className="mt-3 space-y-3">
                 {config.seat_rules.map((rule, index) => <div key={index} className="rounded-lg border border-outline-variant p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-body-small font-semibold uppercase tracking-[0.12em] text-on-surface-variant">
+                    <span className="text-body-small font-semibold ed-label text-on-surface-variant">
                       Aturan {index + 1}
                     </span>
                     <button type="button" onClick={() => updateConfig("seat_rules", config.seat_rules.filter((_, i) => i !== index))}
@@ -883,7 +885,7 @@ export default function SeatMapAdminPage() {
                     terisi memakai warna teks — sehingga warna kursi tidak dapat
                     diubah tanpa ikut mengubah nomor meja dan judul. */}
                 <fieldset className="rounded-lg mt-4 border border-outline-variant p-3">
-                  <legend className="px-1 text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Warna kursi</legend>
+                  <legend className="px-1 text-body-small font-semibold ed-label text-on-surface-variant">Warna kursi</legend>
                   <p className="text-body-small text-on-surface-variant">
                     Kosongkan (tombol Bawaan) untuk mengikuti warna layar seperti sebelumnya.
                   </p>
@@ -923,11 +925,11 @@ export default function SeatMapAdminPage() {
                             disabled={session[key] === null}
                             className="rounded-md min-h-11 shrink-0 border border-outline-variant px-2 text-body-small font-semibold disabled:opacity-40">Bawaan</button>
                         </div>
-                        <p className="mt-1 text-[11px] text-on-surface-variant">{session[key] ? session[key]?.toUpperCase() : hint}</p>
+                        <p className="mt-1 text-label-small text-on-surface-variant">{session[key] ? session[key]?.toUpperCase() : hint}</p>
                       </div>;
                     })}
                   </div>
-                  <p className="mt-3 text-[11px] text-on-surface-variant">
+                  <p className="mt-3 text-label-small text-on-surface-variant">
                     Warna &quot;Sudah check-in&quot; hanya tampil pada layar yang menyalakan tampilan kehadiran.
                     Huruf kursi otomatis memakai hitam atau putih mengikuti terang-gelapnya warna yang dipilih.
                   </p>
@@ -967,7 +969,7 @@ export default function SeatMapAdminPage() {
                   {session.background_image_url
                     ? <div className="mt-2 flex items-center gap-2">
                         <span className="rounded-md h-12 w-20 shrink-0 border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${session.background_image_url})` }} />
-                        <span className="break-all text-[11px] leading-4 text-on-surface-variant">{session.background_image_url}</span>
+                        <span className="break-all text-label-small leading-4 text-on-surface-variant">{session.background_image_url}</span>
                       </div>
                     : null}
 

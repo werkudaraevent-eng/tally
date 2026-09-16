@@ -39,7 +39,7 @@ export function ImagePreview({ url, alt, fit = "contain", className = "h-16 w-24
   if (failed) {
     return <div className={`rounded-lg flex ${className} shrink-0 flex-col items-center justify-center gap-1 border border-dashed border-error bg-error-soft px-2 text-center`}>
       <ImageBroken size={18} className="text-error" />
-      <span className="text-[10px] font-semibold leading-tight text-error">Gambar tidak dapat dimuat</span>
+      <span className="text-label-small font-semibold leading-tight text-error">Gambar tidak dapat dimuat</span>
     </div>;
   }
 
@@ -68,6 +68,6 @@ export function ImagePreview({ url, alt, fit = "contain", className = "h-16 w-24
         className={`h-full w-full ${fit === "cover" ? "object-cover" : "object-contain"}`}
       />
     </span>
-    {showUrl && <span className="min-w-0 break-all text-[11px] leading-4 text-on-surface-variant">{url}</span>}
+    {showUrl && <span className="min-w-0 break-all text-label-small leading-4 text-on-surface-variant">{url}</span>}
   </div>;
 }

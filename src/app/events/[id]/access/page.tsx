@@ -89,8 +89,8 @@ export default function EventAccessPage() {
     <div className="mx-auto max-w-[1100px]">
       <Link href="/events" className="inline-flex items-center gap-2 text-body-medium font-semibold text-on-surface-variant"><ArrowLeft size={16} /> Daftar event</Link>
       <header className="mt-4 border-b border-outline-variant pb-6">
-        <p className="text-body-small font-semibold uppercase tracking-[0.18em] text-primary">Hak akses event</p>
-        <h1 className="mt-2 text-headline-medium font-semibold tracking-[-0.04em]">{event?.name ?? "Memuat…"}</h1>
+        <p className="text-body-small font-semibold ed-label text-primary">Hak akses event</p>
+        <h1 className="mt-2 text-headline-medium font-semibold">{event?.name ?? "Memuat…"}</h1>
         <p className="mt-2 text-body-medium text-on-surface-variant">Tanpa baris di sini, hanya super admin yang bisa membuka event ini. Peran disimpan per event — seseorang bisa jadi kasir di sini dan admin booth di event lain.</p>
       </header>
 
@@ -99,7 +99,7 @@ export default function EventAccessPage() {
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
         <section>
-          <h2 className="text-body-medium font-semibold uppercase tracking-wider">Punya akses ({access.length})</h2>
+          <h2 className="text-body-medium font-semibold uppercase">Punya akses ({access.length})</h2>
           {loading ? <p className="py-10 text-body-medium text-on-surface-variant">Memuat…</p>
             : access.length === 0 ? <p className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-6 text-body-medium text-on-surface-variant">Belum ada. Operator booth dan kasir tidak akan bisa login ke event ini sampai didaftarkan.</p>
             : <ul className="mt-4 grid gap-3">
@@ -114,7 +114,7 @@ export default function EventAccessPage() {
         </section>
 
         <form onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); void grant(new FormData(e.currentTarget)); }} className="rounded-lg h-fit border border-outline-variant bg-panel p-6">
-          <h2 className="flex items-center gap-2 text-body-medium font-semibold uppercase tracking-wider"><ShieldCheck size={18} className="text-primary" /> Beri akses</h2>
+          <h2 className="flex items-center gap-2 text-body-medium font-semibold uppercase"><ShieldCheck size={18} className="text-primary" /> Beri akses</h2>
           <label className="mt-5 block text-body-medium font-semibold">User<select required name="user_id" className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3">
             <option value="">Pilih user…</option>
             {grantable.map((user) => <option key={user.id} value={user.id}>{user.username}</option>)}

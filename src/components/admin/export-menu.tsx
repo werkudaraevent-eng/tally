@@ -25,7 +25,21 @@ const CHOICES: Choice[] = [
   { format: "csv", label: "CSV (.csv)", detail: "Untuk diolah ulang atau diimpor ke sistem lain.", Icon: FileCsv },
 ];
 
-export function ExportMenu({ className }: { className?: string }) {
+export type ExportMenuProps = {
+  /**
+   * Alamat unduhan. Formatnya ditambahkan sebagai `?format=`.
+   *
+   * Ada karena menu ini sekarang dipakai Daftar peserta juga, dan di sana
+   * endpointnya berbeda. Sebelumnya halaman itu memasang DUA tombol terpisah,
+   * "Ekspor XLSX" dan "CSV", dan dua tombol untuk satu keputusan format adalah
+   * dua tombol yang harus dibaca sebelum salah satunya ditekan.
+   */
+  endpoint?: string;
+  label?: string;
+  className?: string;
+};
+
+export function ExportMenu({ endpoint = "/api/admin/export", label = "Export data", className }: ExportMenuProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -52,10 +66,11 @@ export function ExportMenu({ className }: { className?: string }) {
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="rounded-md flex min-h-12 w-full items-center justify-center gap-2 bg-on-surface px-4 text-body-medium font-semibold text-surface"
+        className="m3-btn inline-flex min-h-12 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-label-large font-medium text-on-surface transition-colors duration-150 hover:bg-primary-soft"
+        data-size="md"
       >
-        <Package size={19} /> Export data
-        <CaretDown size={15} weight="bold" className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        <Package size={16} /> {label}
+        <CaretDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open ? (
@@ -64,19 +79,19 @@ export function ExportMenu({ className }: { className?: string }) {
           aria-label="Pilih format export"
           // Menu dibuat melebar minimal selebar tombolnya dan diberi lapisan di
           // atas isi halaman, supaya tidak terpotong kartu di bawahnya.
-          className="absolute right-0 z-30 mt-1 w-72 overflow-hidden rounded-md bg-surface-container-high shadow-level2"
+          className="absolute right-0 z-30 mt-1 w-72 overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-level2"
         >
           {CHOICES.map(({ format, label, detail, Icon }) => (
             <a
               key={format}
               role="menuitem"
-              href={`/api/admin/export?format=${format}`}
+              href={`${endpoint}?format=${format}`}
               onClick={() => setOpen(false)}
-              className="flex items-start gap-3 border-b border-outline-variant p-3 text-left last:border-b-0 hover:bg-panel-high"
+              className="flex items-start gap-3 border-b border-outline-variant p-3 text-left last:border-b-0 hover:bg-primary-soft"
             >
-              <Icon size={20} className="mt-0.5 shrink-0 text-primary" />
+              <Icon size={18} className="mt-0.5 shrink-0 text-on-surface-variant" />
               <span>
-                <span className="block text-body-medium font-semibold">{label}</span>
+                <span className="block text-body-medium font-medium">{label}</span>
                 <span className="mt-0.5 block text-body-small text-on-surface-variant">{detail}</span>
               </span>
             </a>

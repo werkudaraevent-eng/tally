@@ -91,18 +91,17 @@ export default function LoginPage() {
     // Sapuan tonal di latar: warna merek dicampur ke kanvas dari sudut kanan
     // atas, sama dengan hero halaman acara dan formulir pendaftaran. Statis —
     // ini layar kerja, dan DESIGN.md menempatkannya di lapisan tenang.
-    <main
-      className="flex min-h-dvh flex-col bg-surface px-5 text-on-surface sm:px-8 lg:px-12"
-      style={{
-        backgroundImage:
-          "radial-gradient(110% 90% at 88% -12%, color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent), transparent 58%), radial-gradient(70% 60% at 0% 100%, color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent), transparent 55%)",
-      }}
-    >
+    // Sapuan tonal radial dihapus bersama sapuan kembarannya di halaman acara,
+    // formulir pendaftaran, dan kartu kode. Halaman ini pintu masuk ruang kerja,
+    // dan ruang kerja di baliknya tidak punya satu pun bidang berwarna yang
+    // bukan penanda status — pintu yang bercahaya di depan ruangan yang rata
+    // membuat keduanya terbaca sebagai dua aplikasi.
+    <main className="press flex min-h-dvh flex-col bg-surface px-5 text-on-surface sm:px-8 lg:px-12">
       <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col">
         <header className="flex shrink-0 items-center gap-3 border-b border-outline-variant py-4 short:py-3">
           <div className="flex size-11 items-center justify-center rounded-lg bg-primary text-on-primary"><QrCode size={24} weight="bold" /></div>
           <div className="flex-1">
-            <p className="text-label-medium font-semibold uppercase tracking-[0.18em] text-on-surface-variant">Tally</p>
+            <p className="text-label-medium font-semibold ed-label text-on-surface-variant">Tally</p>
             <p className="text-title-small font-semibold">Pusat operasional acara</p>
           </div>
           {/* Pemilih tema ada di layar login, bukan hanya di admin: staf booth dan
@@ -124,11 +123,11 @@ export default function LoginPage() {
                 moving." berdiri di antara kalimat Indonesia — dua baris Inggris
                 yang tidak dibaca siapa pun kecuali sebagai hiasan. Isinya pun
                 warisan masa platform ini hanya sistem kasir. */}
-            <p className="text-label-large font-semibold uppercase tracking-[0.18em] text-primary">Akses panitia</p>
+            <p className="text-label-large font-semibold ed-label text-primary">Akses panitia</p>
             {/* clamp menggantikan skala tetap agar heading menyusut di laptop
                 768px-tinggi, bukan memaksa halaman scroll. Batas atasnya setara
                 display-medium M3. */}
-            <h1 className="mt-4 text-[clamp(2.5rem,4.4vw,3.5rem)] font-semibold leading-[1.02] tracking-[-0.03em] short:text-[clamp(2rem,3.4vw,2.75rem)]">Dari pendaftaran sampai panggung.</h1>
+            <h1 className="mt-4 text-[clamp(2.5rem,4.4vw,3.5rem)] font-semibold leading-[1.02] short:text-[clamp(2rem,3.4vw,2.75rem)]">Dari pendaftaran sampai panggung.</h1>
             <p className="mt-5 max-w-md text-body-large text-on-surface-variant">Login dengan username dan PIN panitia. Sistem otomatis mengarahkan Anda sesuai peran akun.</p>
             {/* Butir keterangan dilepas di viewport pendek: kolom kiri tidak
                 boleh lebih tinggi daripada kartu, karena kartulah yang
@@ -143,8 +142,8 @@ export default function LoginPage() {
           <div className="rise-in-fast w-full rounded-2xl bg-surface-container p-6 sm:p-8 short:p-5" style={{ "--rise-delay": "60ms" } as CSSProperties}>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-label-medium font-semibold uppercase tracking-[0.16em] text-on-surface-variant">Panitia</p>
-                <h2 className="mt-1.5 text-headline-small font-semibold tracking-tight">Masuk workspace</h2>
+                <p className="text-label-medium font-semibold ed-label text-on-surface-variant">Panitia</p>
+                <h2 className="mt-1.5 text-headline-small font-semibold">Masuk workspace</h2>
               </div>
               <LockKey size={26} weight="duotone" className="mt-1 shrink-0 text-primary" />
             </div>

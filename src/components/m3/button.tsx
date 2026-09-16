@@ -22,36 +22,50 @@ export type ButtonVariant = "filled" | "tonal" | "elevated" | "outlined" | "text
  */
 export type ButtonSize = "sm" | "md" | "lg" | "xl";
 
+/**
+ * Gaya tombol, ditulis dengan PERAN warna, bukan hex.
+ *
+ * Itu yang membuat satu tabel ini melayani dua dunia sekaligus. Di ruang kerja
+ * (`.press`) `primary-soft` adalah #F2F2F2 dan `secondary-container` #EDEDED,
+ * jadi `tonal` menjadi tombol abu bertingkat seperti di dasbor acuan. Di layar
+ * booth dan kasir peran yang sama masih membawa nada birunya, dan tombol di sana
+ * tetap terbaca dari jarak satu meter. Menulis #F2F2F2 langsung akan memaksa
+ * ruang kerja dan layar operasional bertukar tempat.
+ *
+ * `filled` bergaris tepi sewarna latarnya. Terdengar percuma, tetapi ia yang
+ * membuat tombol biru duduk pada garis dasar yang sama dengan tombol bergaris di
+ * sebelahnya: tanpa border, tingginya berbeda satu piksel di atas dan di bawah.
+ */
 const VARIANT: Record<ButtonVariant, string> = {
-	filled: "bg-primary text-on-primary",
-	tonal: "bg-secondary-container text-on-secondary-container",
-	elevated: "bg-surface-container-low text-primary shadow-level1 hover:shadow-level2",
-	outlined: "border border-outline text-primary",
-	text: "text-primary",
-	danger: "bg-error text-on-error",
+	filled: "border border-primary bg-primary text-on-primary hover:bg-primary-dim",
+	tonal: "border border-transparent bg-primary-soft text-on-primary-soft hover:bg-secondary-container",
+	elevated: "border border-outline-variant bg-surface-container-lowest text-on-surface shadow-level1 hover:bg-primary-soft",
+	outlined: "border border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-primary-soft",
+	text: "border border-transparent text-on-surface hover:bg-primary-soft",
+	danger: "border border-error bg-error text-on-error",
 };
 
 const SIZE: Record<ButtonSize, string> = {
-	sm: "min-h-10 gap-1.5 px-4 text-label-large",
-	md: "min-h-12 gap-2 px-5 text-label-large",
-	lg: "min-h-14 gap-2.5 px-6 text-title-medium",
-	xl: "min-h-16 gap-3 px-7 text-title-medium",
+	sm: "min-h-10 gap-1.5 px-3 text-label-large",
+	md: "min-h-12 gap-1.5 px-4 text-label-large",
+	lg: "min-h-14 gap-2 px-5 text-title-medium",
+	xl: "min-h-16 gap-2.5 px-6 text-title-medium",
 };
 
 /** Ikon menyusut mengikuti tombol supaya optiknya tetap seimbang dengan teks. */
-const ICON_SIZE: Record<ButtonSize, number> = { sm: 18, md: 20, lg: 22, xl: 24 };
+const ICON_SIZE: Record<ButtonSize, number> = { sm: 16, md: 16, lg: 18, xl: 20 };
 
 type Shape = "round" | "square" | "pill";
 
 const SHAPE: Record<Shape, string> = {
-	round: "rounded-md",
+	round: "rounded-lg",
 	square: "rounded-xs",
 	pill: "rounded-full",
 };
 
 /** Bentuk saat ditekan — shape morph M3 Expressive. */
 const SHAPE_PRESSED: Record<Shape, string> = {
-	round: "active:rounded-xs",
+	round: "active:rounded-md",
 	square: "active:rounded-md",
 	pill: "active:rounded-md",
 };
@@ -70,7 +84,11 @@ type CommonProps = {
 
 function baseClass({ variant = "filled", size = "md", shape = "round", block, className }: CommonProps) {
 	return cx(
-		"m3-state inline-flex select-none items-center justify-center font-semibold",
+		// `m3-btn` kait untuk profil permukaan, bukan gaya. Dipasangkan dengan
+		// atribut `data-size` di elemennya, `.press` memangkas tinggi tiap ukuran
+		// ke kepadatan desktop — lihat globals.css. Layar operasional tidak
+		// ber-`.press`, jadi target sentuh besarnya utuh.
+		"m3-btn m3-state inline-flex select-none items-center justify-center whitespace-nowrap font-medium",
 		// Transisi menyertakan border-radius supaya shape morph ikut bergerak,
 		// bukan melompat. Durasi pendek: ini umpan balik sentuhan, bukan animasi.
 		"transition-[border-radius,background-color,box-shadow,color] duration-150 ease-standard",
@@ -113,6 +131,7 @@ export function Button({ variant, size = "md", shape, block, icon, trailingIcon,
 	return (
 		<button
 			{...rest}
+			data-size={size}
 			disabled={disabled || loading}
 			aria-busy={loading || undefined}
 			className={baseClass({ variant, size, shape, block, className })}
@@ -139,7 +158,7 @@ export type ButtonLinkProps = CommonProps & {
  */
 export function ButtonLink({ href, variant, size = "md", shape, block, icon, trailingIcon, className, children, ...rest }: ButtonLinkProps) {
 	return (
-		<Link {...rest} href={href} className={baseClass({ variant, size, shape, block, className })}>
+		<Link {...rest} href={href} data-size={size} className={baseClass({ variant, size, shape, block, className })}>
 			{content({ icon, trailingIcon, children, size })}
 		</Link>
 	);

@@ -19,6 +19,7 @@ import {
   type ExcludeScope, type PoolBreakdown, type UndianAnimation, type UndianPrize, type WeightVar,
 } from "@/lib/undian";
 import { undianCanRun, undianReadiness, type ReadinessStep, type ReadinessTab } from "@/lib/undian-readiness";
+import { PageHeader } from "@/components/m3";
 
 // CMS Undian.
 //
@@ -356,6 +357,7 @@ export default function UndianAdminPage() {
   return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
 
+      <PageHeader />
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="max-w-2xl text-body-medium text-on-surface-variant">
@@ -404,7 +406,7 @@ export default function UndianAdminPage() {
           onClick={() => setTab(item.key)}
           className={`rounded-md flex min-h-12 flex-1 items-center justify-center gap-2 px-5 text-body-medium font-semibold ${tab === item.key ? "bg-primary text-on-primary" : "bg-panel hover:text-primary"}`}
         >
-          <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] tabular-nums ${tab === item.key ? "bg-white/20" : "bg-panel-high text-on-surface-variant"}`}>{index + 1}</span>
+          <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-label-small tabular-nums ${tab === item.key ? "bg-white/20" : "bg-panel-high text-on-surface-variant"}`}>{index + 1}</span>
           <item.icon size={18} /> {item.label}
         </button>)}
       </div>
@@ -469,7 +471,7 @@ function ReadinessPanel({ steps, canRun, onGo }: {
 
   return <section className="rounded-lg mt-6 border border-outline-variant bg-panel">
     <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-      <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Kesiapan undian</h2>
+      <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Kesiapan undian</h2>
       <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-body-small font-semibold ${canRun ? "bg-success-soft text-primary-dim" : "bg-error-soft text-error"}`}>
         {canRun ? <><Check size={13} weight="bold" /> Siap dijalankan</> : <><LockSimple size={13} weight="bold" /> Belum bisa dijalankan</>}
       </span>
@@ -481,7 +483,7 @@ function ReadinessPanel({ steps, canRun, onGo }: {
 
     {open && <ol className="border-t border-outline-variant">
       {steps.map((step, index) => <li key={step.id} className="flex flex-wrap items-start gap-3 border-b border-outline-variant px-4 py-3 last:border-b-0">
-        <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums ${step.done ? "bg-success-soft text-primary-dim" : step.blocking ? "bg-error-soft text-error" : "bg-warning-soft text-warning"}`}>
+        <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-label-small font-semibold tabular-nums ${step.done ? "bg-success-soft text-primary-dim" : step.blocking ? "bg-error-soft text-error" : "bg-warning-soft text-warning"}`}>
           {step.done ? <Check size={12} weight="bold" /> : index + 1}
         </span>
         <div className="min-w-52 flex-1">
@@ -490,7 +492,7 @@ function ReadinessPanel({ steps, canRun, onGo }: {
             {/* Label wajib/opsional ditulis pada butirnya sendiri, bukan hanya
                 tersirat dari warna: pembaca yang tidak membedakan merah dan
                 kuning tetap harus bisa tahu mana yang mengunci. */}
-            {!step.done && <span className={`px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${step.blocking ? "bg-error-soft text-error" : "bg-warning-soft text-warning"}`}>
+            {!step.done && <span className={`px-1.5 py-0.5 text-label-small font-semibold ed-label ${step.blocking ? "bg-error-soft text-error" : "bg-warning-soft text-warning"}`}>
               {step.blocking ? "Wajib" : "Opsional"}
             </span>}
           </p>
@@ -557,7 +559,7 @@ function PrizesTab({
       </p>}
 
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Daftar hadiah</h2>
+        <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Daftar hadiah</h2>
         <button type="button" onClick={() => onOpen(null)} className="rounded-md flex min-h-11 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
           <Plus size={15} /> Tambah hadiah
         </button>
@@ -585,12 +587,12 @@ function PrizesTab({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold">{prize.name || "(tanpa nama)"}</span>
-                  {!prize.is_active && <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant">Nonaktif</span>}
+                  {!prize.is_active && <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-label-small font-semibold uppercase text-on-surface-variant">Nonaktif</span>}
                   {/* "Penuh di sesi ini", bukan "Kuota penuh".
                       Tanpa keterangan sesi, label ini terbaca sebagai hadiah yang
                       habis selamanya — dan panitia lalu membuat hadiah duplikat
                       untuk sesi berikutnya, padahal cukup menutup sesi. */}
-                  {won >= prize.winner_quota && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">
+                  {won >= prize.winner_quota && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-label-small font-semibold uppercase text-primary">
                     {activeSession ? "Penuh di sesi ini" : "Kuota penuh"}
                   </span>}
                 </div>
@@ -649,11 +651,11 @@ function PrizeEditor({
   onSave: () => void; onClose: () => void; onUpload: (file: File) => void;
 }) {
   const inputClass = "h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
-  const labelClass = "text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant";
+  const labelClass = "text-body-small font-semibold ed-label text-on-surface-variant";
 
-  return <section className="rounded-lg overflow-hidden space-y-px self-start border border-outline-variant bg-outline-variant lg:sticky lg:top-6">
+  return <section className="rounded-lg overflow-hidden space-y-px self-start border border-outline-variant bg-outline-variant">
     <div className="rounded-lg bg-panel p-5">
-      <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Detail hadiah</h2>
+      <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Detail hadiah</h2>
 
       <div className="mt-4 space-y-4">
         <div>
@@ -698,7 +700,7 @@ function PrizeEditor({
 
     {/* --- Cara mengundi --- */}
     <div className="rounded-lg bg-panel p-5">
-      <h3 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Cara mengundi</h3>
+      <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">Cara mengundi</h3>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {ANIMATIONS.map((item) => <button
@@ -708,7 +710,7 @@ function PrizeEditor({
           className={`rounded-lg border p-3 text-left ${draft.animation === item.value ? "border-primary bg-primary-soft" : "border-outline-variant hover:border-primary"}`}
         >
           <span className="block text-body-medium font-semibold">{item.label}</span>
-          <span className="mt-1 block text-[11px] leading-snug text-on-surface-variant">{item.hint}</span>
+          <span className="mt-1 block text-label-small leading-snug text-on-surface-variant">{item.hint}</span>
         </button>)}
       </div>
 
@@ -717,7 +719,7 @@ function PrizeEditor({
         <NumberField id="winner-quota" label="Total kuota" value={draft.winner_quota} min={1} max={500} onChange={(value) => onChange({ winner_quota: value })} />
         <NumberField id="backup-per-draw" label="Cadangan per undi" value={draft.backup_per_draw} min={0} max={20} onChange={(value) => onChange({ backup_per_draw: value })} />
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-on-surface-variant">
+      <p className="mt-2 text-label-small leading-relaxed text-on-surface-variant">
         Kuota lebih besar dari pemenang per undi berarti hadiah ini diundi beberapa kali.
         Cadangan ikut diundi bersamaan, dipakai bila pemenang utama tidak ada di tempat.
       </p>
@@ -735,7 +737,7 @@ function PrizeEditor({
             className={`rounded-lg border p-3 text-left ${draft.spin_mode === item.value ? "border-primary bg-primary-soft" : "border-outline-variant hover:border-primary"}`}
           >
             <span className="block text-body-medium font-semibold">{item.label}</span>
-            <span className="mt-1 block text-[11px] leading-snug text-on-surface-variant">{item.hint}</span>
+            <span className="mt-1 block text-label-small leading-snug text-on-surface-variant">{item.hint}</span>
           </button>)}
         </div>
 
@@ -744,7 +746,7 @@ function PrizeEditor({
               <label htmlFor="spin-seconds" className={labelClass}>Durasi animasi: {draft.spin_seconds.toFixed(1)} detik</label>
               <input id="spin-seconds" type="range" min={1} max={30} step={0.5} value={draft.spin_seconds} onChange={(event) => onChange({ spin_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full accent-primary" />
             </div>
-          : <p className="rounded-lg mt-3 flex items-start gap-2 border border-warning-soft-outline bg-warning-soft p-3 text-[11px] leading-relaxed text-warning">
+          : <p className="rounded-lg mt-3 flex items-start gap-2 border border-warning-soft-outline bg-warning-soft p-3 text-label-small leading-relaxed text-warning">
               <Warning size={14} className="mt-0.5 shrink-0" />
               <span>Undian tidak akan selesai sendiri — operator wajib menekan <span className="font-semibold">Berhenti &amp; tampilkan</span> di halaman kontrol. Pemenang sudah tersimpan sejak tombol Undi ditekan, jadi tidak ada yang hilang bila peramban tertutup: siapa pun bisa menghentikannya dari halaman kontrol. Jeda tampil pemenang tidak berlaku pada mode ini.</span>
             </p>}
@@ -753,7 +755,7 @@ function PrizeEditor({
 
     {/* --- Sumber & syarat --- */}
     <div className="rounded-lg bg-panel p-5">
-      <h3 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Siapa yang diundi</h3>
+      <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">Siapa yang diundi</h3>
 
       <div className="mt-4 flex gap-2">
         {([["participants", "Ikut tab Peserta"], ["entries", "Daftar import"]] as const).map(([key, label]) => <button
@@ -832,7 +834,7 @@ function PrizeEditor({
 
     {/* --- Bobot --- */}
     {draft.source === "participants" && <div className="rounded-lg bg-panel p-5">
-      <h3 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Peluang menang</h3>
+      <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">Peluang menang</h3>
 
       <div className="mt-4 flex gap-2">
         {([["equal", "Semua sama rata"], ["formula", "Berbobot"]] as const).map(([key, label]) => <button
@@ -866,7 +868,7 @@ function PrizeEditor({
             <NumberField id="weight-max" label="Tiket maksimum" value={draft.weight_max} min={1} max={1000} onChange={(value) => onChange({ weight_max: value })} />
           </div>
         </div>
-        <p className="mt-3 text-[11px] leading-relaxed text-on-surface-variant">
+        <p className="mt-3 text-label-small leading-relaxed text-on-surface-variant">
           Tiket = {draft.weight_base} + ({WEIGHT_VAR_LABEL[draft.weight_var].toLowerCase()} ÷ {rupiah(draft.weight_divisor)}), maksimal {draft.weight_max}.
           Batas maksimum menjaga satu peserta dengan angka ekstrem tidak menguasai kolam.
         </p>
@@ -888,7 +890,7 @@ function PrizeEditor({
 
 function NumberField({ id, label, value, min, max, onChange }: { id: string; label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
   return <div>
-    <label htmlFor={id} className="text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">{label}</label>
+    <label htmlFor={id} className="text-body-small font-semibold ed-label text-on-surface-variant">{label}</label>
     <input
       id={id}
       type="number"
@@ -915,11 +917,11 @@ function DisplayTab({
   onChange: (changes: Partial<Settings>) => void; onSave: () => void; onUpload: (file: File) => void;
 }) {
   const inputClass = "h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
-  const labelClass = "text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant";
+  const labelClass = "text-body-small font-semibold ed-label text-on-surface-variant";
 
   return <div className="mt-6 space-y-2">
     <section className="rounded-lg bg-panel p-6">
-      <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Judul layar</h2>
+      <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Judul layar</h2>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="page-title" className={labelClass}>Judul</label>
@@ -933,7 +935,7 @@ function DisplayTab({
     </section>
 
     <section className="rounded-lg bg-panel p-6">
-      <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Nama pemenang</h2>
+      <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Nama pemenang</h2>
 
       <div className="mt-4 flex gap-2">
         {([["full", "Selalu nama lengkap"], ["follow_event", "Ikut aturan privasi acara"]] as const).map(([key, label]) => <button
@@ -962,7 +964,7 @@ function DisplayTab({
     </section>
 
     <section className="rounded-lg bg-panel p-6">
-      <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Efek panggung</h2>
+      <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Efek panggung</h2>
       <div className="mt-4 flex flex-wrap gap-4">
         <label className="flex min-h-11 cursor-pointer items-center gap-2 text-body-medium">
           <input type="checkbox" checked={settings.sound_enabled} onChange={(event) => onChange({ sound_enabled: event.target.checked })} className="h-4 w-4 accent-primary" />
@@ -973,19 +975,19 @@ function DisplayTab({
           <Confetti size={16} /> Confetti
         </label>
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-on-surface-variant">
+      <p className="mt-2 text-label-small leading-relaxed text-on-surface-variant">
         Matikan suara bila sound system venue sudah memutar musik sendiri, dan confetti bila mengganggu kamera live streaming.
       </p>
 
       <div className="mt-4">
         <label htmlFor="reveal-delay" className={labelClass}>Jeda sebelum nama terbaca: {settings.reveal_delay_seconds.toFixed(1)} detik</label>
         <input id="reveal-delay" type="range" min={0} max={5} step={0.5} value={settings.reveal_delay_seconds} onChange={(event) => onChange({ reveal_delay_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full accent-primary" />
-        <p className="mt-1 text-[11px] text-on-surface-variant">Waktu tambahan setelah animasi berhenti, memberi MC kesempatan menarik napas.</p>
+        <p className="mt-1 text-label-small text-on-surface-variant">Waktu tambahan setelah animasi berhenti, memberi MC kesempatan menarik napas.</p>
       </div>
     </section>
 
     <section className="rounded-lg bg-panel p-6">
-      <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Warna & latar</h2>
+      <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Warna & latar</h2>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         {([
           ["background_color", "Latar", FALLBACK.background_color],
@@ -994,7 +996,7 @@ function DisplayTab({
         ] as const).map(([key, label, fallback]) => <div key={key}>
           <div className="flex items-center justify-between">
             <label htmlFor={`color-${key}`} className={labelClass}>{label}</label>
-            {settings[key] && <button type="button" onClick={() => onChange({ [key]: null } as Partial<Settings>)} className="min-h-8 text-[11px] font-semibold text-primary">Reset</button>}
+            {settings[key] && <button type="button" onClick={() => onChange({ [key]: null } as Partial<Settings>)} className="min-h-8 text-label-small font-semibold text-primary">Reset</button>}
           </div>
           <input id={`color-${key}`} type="color" value={settings[key] ?? fallback} onChange={(event) => onChange({ [key]: event.target.value } as Partial<Settings>)} className="rounded-md mt-1.5 h-11 w-full cursor-pointer border border-outline-variant bg-surface px-1" />
         </div>)}
@@ -1080,7 +1082,7 @@ function DataTab({
       <div className="rounded-lg bg-panel p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Import daftar</h2>
+            <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Import daftar</h2>
             <p className="mt-2 max-w-md text-body-small leading-relaxed text-on-surface-variant">
               Untuk yang tidak terdaftar sebagai peserta: kupon fisik, daftar sponsor, atau nomor kursi.
             </p>
@@ -1103,12 +1105,12 @@ function DataTab({
 
         <div className="mt-4 space-y-3">
           <div>
-            <label htmlFor="import-name" className="text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Nama daftar</label>
+            <label htmlFor="import-name" className="text-body-small font-semibold ed-label text-on-surface-variant">Nama daftar</label>
             <input id="import-name" value={importName} onChange={(event) => onImportName(event.target.value)} className={`${inputClass} mt-1.5`} placeholder="Kupon Sesi Siang" />
           </div>
 
           <div>
-            <p className="text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Unggah berkas</p>
+            <p className="text-body-small font-semibold ed-label text-on-surface-variant">Unggah berkas</p>
             <div className="mt-1.5 flex items-center gap-2">
               <label className="rounded-md flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 border border-dashed border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
                 <UploadSimple size={15} />
@@ -1128,19 +1130,19 @@ function DataTab({
               </label>
               {importFile && <button type="button" onClick={() => onImportFile(null)} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-small font-semibold text-error">Hapus</button>}
             </div>
-            {importFile && <p className="mt-1.5 text-[11px] text-on-surface-variant">
+            {importFile && <p className="mt-1.5 text-label-small text-on-surface-variant">
               Berkas dibaca di server saat tombol ditekan. Kotak teks di bawah diabaikan.
             </p>}
           </div>
 
           <div className="flex items-center gap-3">
             <span className="h-px flex-1 bg-outline-variant" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-on-surface-variant">atau tempel</span>
+            <span className="text-label-small font-semibold ed-label text-on-surface-variant">atau tempel</span>
             <span className="h-px flex-1 bg-outline-variant" />
           </div>
 
           <div>
-            <label htmlFor="import-text" className="text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Isi daftar</label>
+            <label htmlFor="import-text" className="text-body-small font-semibold ed-label text-on-surface-variant">Isi daftar</label>
             <textarea
               id="import-text"
               value={importText}
@@ -1150,7 +1152,7 @@ function DataTab({
               className="rounded-lg mt-1.5 w-full border border-outline-variant bg-surface p-3 font-mono text-body-small outline-none focus:border-primary disabled:opacity-45"
               placeholder={"Nama,Perusahaan,Kode,Bobot\nBudi Santoso,PT Maju,K-001,1\nSiti Rahayu,PT Jaya,K-002,3"}
             />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-on-surface-variant">
+            <p className="mt-1.5 text-label-small leading-relaxed text-on-surface-variant">
               Tempel langsung dari Excel, atau satu nama per baris. Kolom yang dikenali: nama, perusahaan, kode, bobot.
               Hanya kolom nama yang wajib.
             </p>
@@ -1163,7 +1165,7 @@ function DataTab({
       </div>
 
       {groups.length > 0 && <div className="rounded-lg bg-panel p-5">
-        <h3 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Daftar tersimpan</h3>
+        <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">Daftar tersimpan</h3>
         <ul className="mt-3 space-y-2">
           {groups.map((group) => <li key={group.id} className="rounded-lg flex items-center justify-between gap-3 border border-outline-variant p-3">
             <div className="min-w-0">
@@ -1180,7 +1182,7 @@ function DataTab({
 
     <section className="rounded-lg overflow-hidden space-y-px self-start border border-outline-variant bg-outline-variant">
       <div className="rounded-lg bg-panel p-5">
-        <h2 className="flex items-center gap-2 text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">
+        <h2 className="flex items-center gap-2 text-body-medium font-semibold ed-label text-on-surface-variant">
           <Prohibit size={16} /> Pengecualian per orang
         </h2>
         <p className="mt-2 text-body-small leading-relaxed text-on-surface-variant">

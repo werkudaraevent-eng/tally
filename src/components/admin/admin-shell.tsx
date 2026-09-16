@@ -1,177 +1,223 @@
 "use client";
 
-import { ArmchairIcon, ArrowSquareOut, BookOpen, Browsers, QrCode, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving, List, ListChecks, MonitorPlay, Printer, Receipt, ShieldCheck, Storefront, UserPlus, UsersThree, X } from "@phosphor-icons/react";
-import { motion } from "framer-motion";
-import Link from "next/link";
+import { ArrowSquareOut, List, SidebarSimple, Storefront, X } from "@phosphor-icons/react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { IconButton, ThemeToggle, TopAppBar } from "@/components/m3";
-import { standard } from "@/lib/m3/motion";
 import { EventMenu, type EventPilihan } from "@/components/admin/event-menu";
+import { cariHalaman, grupDari, navigation } from "@/components/admin/nav-config";
+import { AdminHeaderScrollProvider, AdminPageProvider } from "@/components/admin/page-context";
+import { CommandPalette, QuickSearchButton } from "@/components/admin/quick-search";
+import { SidebarNav } from "@/components/admin/sidebar-nav";
+import { useOpenGroups, usePinnedSidebar, useRecents } from "@/components/admin/sidebar-store";
 import { UserMenu } from "@/components/admin/user-menu";
 
 /**
- * Menu admin, dikelompokkan menurut PEKERJAAN yang sedang dilakukan.
+ * Rangka ruang kerja: rel navigasi, bilah atas, dan konteks halaman.
  *
- * Sebelumnya enam belas item berdiri datar dalam satu daftar, dan urutannya
- * mencampur tiga dunia yang tidak pernah dikerjakan bersamaan: jualan di booth,
- * data peserta, dan layar panggung. Akibatnya terukur di hari-H — papan
- * peringkat, undian, dan voting adalah tiga menu yang dibuka berurutan saat MC
- * memegang mikrofon, dan ketiganya terpencar di posisi 10, 13, dan 14.
+ * Definisi menunya TIDAK di sini — ia tinggal di `nav-config.ts`, karena dipakai
+ * empat tempat sekaligus (daftar menu, palet perintah, judul halaman, dan
+ * riwayat). Yang tersisa di berkas ini adalah perakitan dan keadaan yang hanya
+ * dimengerti rangka: laci ponsel, sematan rel, dan judul yang berpindah ke bilah
+ * saat digulir.
  *
- * Pembagiannya menurut SIAPA YANG MENATAP hasilnya:
+ * ---- Dua keadaan untuk satu rel -------------------------------------------
  *
- *   * Halaman publik — dibuka tamu di ponselnya sendiri, sebelum hari-H.
- *   * Layar panggung — ditonton seruangan dari proyektor, saat acara berjalan.
+ * `pinned` dan `peeking` sengaja dipisah, dan pemisahan itulah seluruh fiturnya:
  *
- * Itu sebabnya Denah kursi masuk ke kelompok pertama meski terasa "peserta":
- * yang membukanya adalah tamu yang mencari mejanya, lewat /denah.
+ *   * `pinned` PERSISTEN, disimpan di cookie, dan ia SATU-SATUNYA yang
+ *     menentukan lebar kolom konten. Selama nilainya tidak berubah, tidak ada
+ *     satu piksel pun di halaman yang bergeser.
+ *   * `peeking` SEMENTARA, lahir dari kursor atau fokus papan ketik, dan hanya
+ *     mengubah lebar rel itu sendiri. Rel melebar DI ATAS konten, seperti panel
+ *     melayang.
  *
- * Kelompok pertama sengaja tanpa judul. Satu item di bawah judul "Ringkasan"
- * menambah baris tanpa menambah keterangan apa pun.
+ * Kalau keduanya digabung jadi satu "collapsed", setiap kali kursor menyerempet
+ * tepi kiri layar seluruh halaman melompat 196px dan mengalir ulang. Itu persis
+ * yang membuat sidebar yang "membantu" menjadi sidebar yang dihindari.
  */
-const navigation = [
-  {
-    section: null,
-    items: [{ href: "/admin", label: "Dashboard", icon: ChartBar, ownerOnly: false }],
-  },
-  // Urutan kelompok mengikuti urutan pekerjaan sebuah acara: orangnya dulu,
-  // lalu apa yang dilihat tamu sebelum hari-H, lalu apa yang ditonton saat
-  // acara berjalan, dan Penjualan terakhir. Dulu Penjualan berdiri paling atas
-  // — warisan masa platform ini hanya sistem kasir, dan banyak acara sama
-  // sekali tidak memakai booth.
-  {
-    section: "Peserta",
-    items: [
-      { href: "/admin/participants", label: "Daftar peserta", icon: UsersThree, ownerOnly: false },
-      { href: "/admin/registrasi", label: "Pendaftaran publik", icon: UserPlus, ownerOnly: false },
-      // Kehadiran duduk di kelompok Peserta, bukan Layar panggung: yang dikelola
-      // di sini adalah orang dan catatan hadirnya, bukan sesuatu yang ditonton
-      // seruangan dari proyektor.
-      { href: "/admin/attendance", label: "Kehadiran", icon: QrCode, ownerOnly: false },
-      // Label duduk di sini, bukan di kelompok tersendiri: yang dicetak adalah
-      // badge tamu walk-in, dan walk-in hanya ada karena layar kehadiran. Menu
-      // ini praktis tidak berarti apa-apa bila Kehadiran tidak dipakai.
-      { href: "/admin/label", label: "Label & printer", icon: Printer, ownerOnly: false },
-    ],
-  },
-  {
-    section: "Halaman publik",
-    items: [
-      { href: "/admin/landing", label: "Halaman acara", icon: Browsers, ownerOnly: false },
-      { href: "/admin/rundown", label: "Rundown acara", icon: CalendarDots, ownerOnly: false },
-      { href: "/admin/seat-map", label: "Denah kursi", icon: ArmchairIcon, ownerOnly: false },
-    ],
-  },
-  {
-    section: "Layar panggung",
-    items: [
-      // Dulu "Live Display". Namanya menjanjikan seluruh layar acara, isinya
-      // papan peringkat transaksi beserta reveal bertahapnya — dan panitia yang
-      // mencari "di mana atur ranking" tidak punya alasan menekan menu itu.
-      { href: "/admin/display", label: "Papan peringkat", icon: MonitorPlay, ownerOnly: false },
-      // Layar sapa duduk di Layar panggung, bukan di Peserta bersama Kehadiran.
-      // Yang dikelola di sini adalah sesuatu yang DITONTON seruangan; catatan
-      // hadirnya sendiri tetap diurus di menu Kehadiran.
-      { href: "/admin/sapa", label: "Layar sapa", icon: HandWaving, ownerOnly: false },
-      // Cocok dengan startsWith, jadi /admin/undian/kontrol ikut menyorot entri ini.
-      { href: "/admin/undian", label: "Undian", icon: Gift, ownerOnly: false },
-      { href: "/admin/vote", label: "Voting langsung", icon: ChartBarHorizontal, ownerOnly: false },
-    ],
-  },
-  {
-    section: "Penjualan",
-    items: [
-      { href: "/admin/orders", label: "Transaksi", icon: ListChecks, ownerOnly: false },
-      // Item spesial dulu menu tersendiri. Ia katalog barang yang dijual booth
-      // yang sama, dan dua menu untuk satu katalog membuat admin mencari harga
-      // di tempat yang salah lebih dulu. Sekarang tab di dalam Booth & item.
-      { href: "/admin/booths", label: "Booth & item", icon: Storefront, ownerOnly: false },
-      { href: "/admin/reports", label: "Laporan", icon: Receipt, ownerOnly: false },
-    ],
-  },
-];
 
-/**
- * Halaman yang TIDAK ada di sidebar, tetapi tetap butuh judul di bilah atas.
- *
- * Pengaturan dicapai lewat menu akun di pojok kanan, dan User & role serta Audit
- * trail adalah tab di dalamnya. Ketiganya bukan tujuan yang dicari dari daftar
- * menu — mereka dibuka sekali saat menyiapkan sistem, lalu nyaris tidak disentuh
- * lagi selama acara berjalan. Sidebar disisakan untuk tujuan yang benar-benar
- * ditekan panitia sepanjang hari.
- */
-const halamanSistem = [
-  { href: "/admin/settings", label: "Pengaturan", icon: GearSix, ownerOnly: false },
-  { href: "/admin/users", label: "User & role", icon: ShieldCheck, ownerOnly: false },
-];
+/** Lebar rel. Dipakai dua kali di berkas ini dan sekali di CSS, lewat `--rail-w`. */
+const LEBAR_PENUH = "260px";
+const LEBAR_REL = "64px";
 
-/** Daftar rata untuk pencarian judul halaman. Sumbernya tetap satu. */
-const semuaMenu = [...navigation.flatMap((group) => group.items), ...halamanSistem];
+/** Kursor yang sekadar lewat ke tepi layar tidak boleh membuka apa pun. */
+const JEDA_BUKA = 150;
+/** Cukup panjang untuk sempat kembali setelah keluar sedikit, cukup pendek untuk tidak menggantung. */
+const JEDA_TUTUP = 280;
 
-/**
- * Satu tujuan di drawer.
- *
- * Tinggi 48px, bukan 56px seperti spesifikasi drawer M3. Angka 56 disusun untuk
- * aplikasi konsumen dengan lima sampai tujuh tujuan; layar ini punya dua belas
- * ditambah kaki drawer, dan pada 56px daftarnya melewati tinggi layar laptop
- * sebelum sampai ke kelompok terakhir. Target sentuhnya tetap di atas 48px yang
- * dituntut pedoman aksesibilitas.
- */
-function ItemMenu({
-  href,
-  label,
-  icon: Icon,
-  active,
-  onNavigate,
-}: {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ size?: number; weight?: "fill" | "regular" }>;
-  active: boolean;
-  onNavigate: () => void;
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onNavigate}
-      aria-current={active ? "page" : undefined}
-      // Item aktif memakai bentuk pil penuh — itu cara M3 menandai tujuan saat
-      // ini di navigasi, dan bentuknya tetap terbaca ketika latar terang membuat
-      // perbedaan warnanya menipis.
-      // `short:min-h-11`: di laptop 768p berskala 150%, dua belas tujuan
-      // setinggi 48px melewati tinggi layar sebelum kelompok terakhir. 44px
-      // masih di atas batas target sentuh, dan menghemat satu kelompok penuh.
-      className={`m3-state flex min-h-12 items-center gap-3 rounded-full px-4 text-label-large font-semibold transition-colors duration-200 ease-emphasized short:min-h-11 ${active ? "text-on-secondary-container" : "text-on-surface-variant"}`}
-    >
-      {/* Pil aktif adalah SATU elemen yang meluncur antar tujuan (`layoutId`),
-          bukan latar yang dinyalakan di item baru dan dimatikan di item lama.
-          Itulah indikator navigasi M3: mata mengikuti pilnya ke tujuan baru,
-          jadi tidak perlu mencari lagi di mana ia sekarang. `-z-10` aman
-          karena `m3-state` sudah membuat konteks tumpukan tersendiri. */}
-      {active ? (
-        <motion.span
-          layoutId="admin-nav-active"
-          aria-hidden
-          className="absolute inset-0 -z-10 rounded-full bg-secondary-container"
-          transition={standard.spatial.default}
-        />
-      ) : null}
-      <Icon size={22} weight={active ? "fill" : "regular"} />
-      {label}
-    </Link>
-  );
+function langganMedia(kueri: string) {
+  return (onChange: () => void) => {
+    const mq = window.matchMedia(kueri);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  };
 }
 
-export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>) {
+/**
+ * Snapshot server untuk keduanya `true`, dan itu tebakan yang disengaja.
+ *
+ * Server tidak tahu lebar layar maupun apakah ada tetikus. Menebak "desktop
+ * dengan tetikus" aman karena kedua konsekuensinya tidak terlihat: di ponsel
+ * lacinya tetap tergeser keluar layar pada cat pertama, dan peek hanya bisa
+ * dipicu oleh peristiwa yang memang tidak pernah datang di layar sentuh.
+ */
+const langganLebar = langganMedia("(min-width: 1024px)");
+const bacaLebar = () => window.matchMedia("(min-width: 1024px)").matches;
+const langganHover = langganMedia("(hover: hover)");
+const bacaHover = () => window.matchMedia("(hover: hover)").matches;
+
+export function AdminShell({
+  children,
+  pinAwal = true,
+}: Readonly<{
+  children: React.ReactNode;
+  /** Dibaca dari cookie oleh komponen server, supaya HTML pertama sudah selebar yang benar. */
+  pinAwal?: boolean;
+}>) {
   const pathname = usePathname();
   const eventPrefix = pathname.match(/^\/e\/[^/]+/)?.[0] ?? "";
   const logicalPathname = eventPrefix ? pathname.slice(eventPrefix.length) || "/" : pathname;
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [paletTerbuka, setPaletTerbuka] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [akun, setAkun] = useState<{ username: string; role: string } | null>(null);
   const [events, setEvents] = useState<EventPilihan[]>([]);
+
+  const desktop = useSyncExternalStore(langganLebar, bacaLebar, () => true);
+  const bisaHover = useSyncExternalStore(langganHover, bacaHover, () => true);
+  const { pinned, toggle: togglePin } = usePinnedSidebar(pinAwal);
+
+  /* ---- Peek ------------------------------------------------------------- */
+
+  const [peeking, setPeeking] = useState(false);
+  const aside = useRef<HTMLElement | null>(null);
+  const timerBuka = useRef<number | null>(null);
+  const timerTutup = useRef<number | null>(null);
+  /** Popover pemilih acara sedang terbuka. Ia lebih lebar daripada rel, jadi kursor ada di luar. */
+  const [popoverTerbuka, setPopoverTerbuka] = useState(false);
+  const kursorDiRel = useRef(false);
+  /**
+   * Menahan peek tepat setelah sematan dilepas.
+   *
+   * Tombol sematan ada DI DALAM rel, jadi melepas sematan meninggalkan kursor di
+   * atas rel yang barusan menyempit — dan tanpa penahan ini ia langsung melebar
+   * lagi 150ms kemudian. Yang terlihat: menekan "lepas sematan" tidak melakukan
+   * apa-apa. Penahannya dilepas begitu kursor benar-benar keluar.
+   */
+  const blokirPeek = useRef(false);
+
+  const batalTimer = useCallback(() => {
+    if (timerBuka.current !== null) window.clearTimeout(timerBuka.current);
+    if (timerTutup.current !== null) window.clearTimeout(timerTutup.current);
+    timerBuka.current = null;
+    timerTutup.current = null;
+  }, []);
+
+  const jadwalTutup = useCallback(() => {
+    batalTimer();
+    timerTutup.current = window.setTimeout(() => setPeeking(false), JEDA_TUTUP);
+  }, [batalTimer]);
+
+  const tutupPeek = useCallback(() => {
+    batalTimer();
+    setPeeking(false);
+  }, [batalTimer]);
+
+  useEffect(() => () => batalTimer(), [batalTimer]);
+
+  /** Rel boleh mengintip: hanya di desktop, dan hanya kalau sematannya dilepas. */
+  const relMenerimaPeek = desktop && !pinned;
+
+  function onPointerEnter() {
+    kursorDiRel.current = true;
+    if (!relMenerimaPeek || !bisaHover || blokirPeek.current) return;
+    batalTimer();
+    timerBuka.current = window.setTimeout(() => setPeeking(true), JEDA_BUKA);
+  }
+
+  function onPointerLeave() {
+    kursorDiRel.current = false;
+    blokirPeek.current = false;
+    if (!relMenerimaPeek) return;
+    // Panel pemilih acara berada di luar kotak rel, jadi kursor yang pindah ke
+    // sana terbaca sebagai "keluar". Menutup rel di bawah panel yang sedang
+    // dipakai adalah cara tercepat membuat fiturnya terasa rusak.
+    if (popoverTerbuka) { batalTimer(); return; }
+    jadwalTutup();
+  }
+
+  function onFocusCapture() {
+    if (!relMenerimaPeek) return;
+    // Fokus papan ketik MEMBUKA peek, bukan sekadar menahannya. Tanpa ini, Tab
+    // dari bilah atas masuk ke lima belas tombol tak berlabel yang tidak
+    // terlihat, tanpa satu pun isyarat bahwa fokus sudah pindah ke sana.
+    batalTimer();
+    setPeeking(true);
+  }
+
+  function onBlurCapture(peristiwa: React.FocusEvent) {
+    if (!relMenerimaPeek) return;
+    const berikutnya = peristiwa.relatedTarget as Node | null;
+    if (berikutnya && aside.current?.contains(berikutnya)) return;
+    if (kursorDiRel.current || popoverTerbuka) return;
+    jadwalTutup();
+  }
+
+  function onPopoverChange(terbuka: boolean) {
+    setPopoverTerbuka(terbuka);
+    if (terbuka) { batalTimer(); return; }
+    if (!relMenerimaPeek) return;
+    if (kursorDiRel.current || aside.current?.contains(document.activeElement)) return;
+    jadwalTutup();
+  }
+
+  /**
+   * Layar sentuh yang cukup lebar untuk punya rel: ketukan PERTAMA membuka rel,
+   * bukan membuka menunya.
+   *
+   * Tanpa ini, rel ikon di tablet adalah lima belas tombol tanpa label yang
+   * langsung memindahkan halaman begitu tersenggol. `onClickCapture` mencegat
+   * sebelum tautannya sempat bekerja; setelah rel terbuka, ketukan berikutnya
+   * lewat seperti biasa.
+   */
+  function onClickCapture(peristiwa: React.MouseEvent) {
+    if (bisaHover || !relMenerimaPeek || peeking) return;
+    // Tombol sematan dikecualikan. Ia satu-satunya kontrol di rel yang tugasnya
+    // memang mengubah rel itu sendiri, dan mencegatnya berarti tablet tidak
+    // punya cara menyematkan kembali sidebarnya.
+    if ((peristiwa.target as Element).closest?.("[data-peek-skip]")) return;
+    peristiwa.preventDefault();
+    peristiwa.stopPropagation();
+    setPeeking(true);
+  }
+
+  // Ketukan di luar rel menutup peek. HANYA di perangkat tanpa hover: di tempat
+  // lain `pointerleave` sudah mengerjakannya, dan pendengar dokumen tambahan
+  // cuma menambah satu jalan lagi untuk menutup rel yang sedang dipakai.
+  useEffect(() => {
+    if (!peeking || bisaHover) return;
+    const onPointerDown = (peristiwa: PointerEvent) => {
+      if (aside.current?.contains(peristiwa.target as Node)) return;
+      setPeeking(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [peeking, bisaHover]);
+
+  // Esc menutup peek. Pendengarnya di dokumen, jadi ia TIDAK berjalan ketika
+  // popover pemilih acara menangani Esc-nya sendiri: penanganan di sana memanggil
+  // `stopPropagation`, yang menghentikan peristiwa nativenya sebelum sampai ke
+  // dokumen. Esc pertama menutup panel, Esc kedua menutup rel.
+  useEffect(() => {
+    if (!peeking) return;
+    const onKey = (peristiwa: KeyboardEvent) => { if (peristiwa.key === "Escape") tutupPeek(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [peeking, tutupPeek]);
+
+  /* ---- Data ------------------------------------------------------------- */
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -187,15 +233,9 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
   const isOwner = akun?.role === "super_admin";
 
   /**
-   * Nama event di kepala sidebar. Sebelumnya teks mati "Event Transaction Hub",
+   * Nama acara di kepala sidebar. Sebelumnya teks mati "Event Transaction Hub",
    * yang berbahaya justru karena terlihat benar: admin dengan akses beberapa
-   * event tidak punya cara membedakan workspace mana yang sedang dibuka.
-   *
-   * Memakai /api/events yang sudah ada, bukan endpoint baru: daftarnya kecil dan
-   * sudah difilter hak akses di server. Slug diambil dari prefiks URL; tanpa
-   * prefiks (link lama) dipakai aturan yang SAMA dengan getPublicRequestEvent —
-   * hanya aman bila tepat satu event aktif, selain itu label dibiarkan kosong
-   * daripada menebak dan menampilkan nama event yang salah.
+   * acara tidak punya cara membedakan workspace mana yang sedang dibuka.
    */
   const eventSlug = eventPrefix.slice(3);
   useEffect(() => {
@@ -209,9 +249,9 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
   }, []);
 
   /**
-   * Event yang sedang dibuka. Tanpa prefiks slug di URL dipakai aturan yang SAMA
-   * dengan getPublicRequestEvent — hanya aman bila tepat satu event aktif, selain
-   * itu dibiarkan kosong daripada menebak dan menampilkan nama event yang salah.
+   * Acara yang sedang dibuka. Tanpa prefiks slug di URL dipakai aturan yang SAMA
+   * dengan getPublicRequestEvent: hanya aman bila tepat satu acara aktif, selain
+   * itu dibiarkan kosong daripada menebak dan menampilkan nama acara yang salah.
    */
   const eventAktif = eventSlug
     ? events.find((event) => event.slug === eventSlug)
@@ -221,64 +261,127 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
   const eventName = eventAktif?.name ?? null;
 
   /**
-   * Kunci gulir halaman selama menu mobile terbuka.
-   *
-   * Ini penyebab utama menu bawah tidak bisa dijangkau di ponsel, dan sempat
-   * terlihat seperti masalah `overflow` pada sidebar-nya. Bukan: sidebar sudah
-   * `overflow-y-auto` dan DIUKUR memang bisa digulir 302px.
-   *
-   * Masalahnya halaman DI BELAKANGNYA bisa digulir 1483px. Angka itu jauh lebih
-   * besar, jadi gerakan jari hampir selalu diambil oleh body — sidebar ikut
-   * bergerak sedikit lalu berhenti, sementara halaman di belakang terus jalan.
-   * Yang terasa oleh pengguna: "menunya tidak bisa di-scroll".
+   * Laci hanya ada di bawah lg. DITURUNKAN dari lebar layar, bukan ditutup oleh
+   * efek yang mengamatinya: keadaan "terbuka" yang tertinggal saat ponsel diputar
+   * ke lanskap mengunci gulir halaman padahal tidak ada menu yang terlihat.
+   */
+  const laciTerbuka = mobileOpen && !desktop;
+
+  /**
+   * Kunci gulir halaman selama laci ponsel terbuka.
    *
    * `position: fixed` pada body TIDAK dipakai walau lebih sering dijumpai: ia
-   * mengembalikan halaman ke atas saat menu ditutup, sehingga admin yang membuka
-   * menu di tengah daftar order kehilangan posisi bacanya. `overflow: hidden`
-   * menahan gulir tanpa memindahkan apa pun.
-   *
-   * Nilai lama dikembalikan saat menutup, bukan diset ke "" — halaman lain bisa
-   * saja sudah mengatur overflow untuk keperluannya sendiri.
+   * mengembalikan halaman ke atas saat laci ditutup, sehingga admin yang membuka
+   * menu di tengah daftar order kehilangan posisi bacanya.
    */
   useEffect(() => {
-    if (!mobileOpen) return;
+    if (!laciTerbuka) return;
     const { body } = document;
     const sebelumnya = body.style.overflow;
     body.style.overflow = "hidden";
     return () => { body.style.overflow = sebelumnya; };
-  }, [mobileOpen]);
+  }, [laciTerbuka]);
 
-  // Tutup menu saat layar melebar ke lg: di sana sidebar selalu tampil, dan
-  // status "terbuka" yang tertinggal akan mengunci gulir halaman padahal tidak
-  // ada menu mengambang yang terlihat. Terjadi saat ponsel diputar ke lanskap.
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const sync = () => { if (mq.matches) setMobileOpen(false); };
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
-
-  // Kelompok yang seluruh isinya tersembunyi ikut dibuang. Tanpa itu, judulnya
-  // menggantung di atas ruang kosong bagi admin yang bukan pemilik sistem.
-  const visibleNavigation = navigation
-    .map((group) => ({ ...group, items: group.items.filter((item) => !item.ownerOnly || isOwner) }))
-    .filter((group) => group.items.length > 0);
-
-  const aktif = (href: string) =>
-    href === "/admin" ? logicalPathname === "/admin" : logicalPathname.startsWith(href);
+  /* ---- Palet ------------------------------------------------------------ */
 
   /**
-   * Judul top app bar. Diambil dari tabel `navigation` yang sama dengan
-   * penyorot menu aktif — daftar judul kedua akan menyimpang pada perubahan
-   * pertama, dan judul yang tidak cocok dengan menu yang tersorot membuat orang
-   * mengira ia salah halaman.
+   * Elemen yang membuka palet, supaya fokus bisa dikembalikan ke sana.
    *
-   * Padanan terpanjang menang: /admin/undian/kontrol harus menjadi "Undian",
-   * bukan "Dashboard" hanya karena /admin cocok lebih dulu.
+   * Tanpa ini, menutup palet dengan Esc membuang fokus ke `<body>`, dan Tab
+   * berikutnya memulai lagi dari awal dokumen — di layar admin itu berarti
+   * menyusuri seluruh rel sebelum kembali ke tempat orang tadi berada.
    */
-  const currentPage = semuaMenu
-    .filter(({ href }) => (href === "/admin" ? logicalPathname === "/admin" : logicalPathname.startsWith(href)))
-    .sort((a, b) => b.href.length - a.href.length)[0];
+  const pembukaPalet = useRef<HTMLElement | null>(null);
+
+  // Fungsi biasa, bukan `useCallback`. Keduanya menulis DAN membaca ref yang
+  // sama, dan React Compiler menolak mengompilasi komponen ini selama memoisasi
+  // seperti itu masih ada ("Existing memoization could not be preserved").
+  // Tidak ada yang hilang: keduanya hanya dipakai sebagai prop dan di dalam efek
+  // di bawah, yang menerima keduanya lewat daftar dependensi.
+  function bukaPalet() {
+    pembukaPalet.current = document.activeElement as HTMLElement | null;
+    setPaletTerbuka(true);
+    // Palet menutupi rel, jadi rel yang sedang mengintip tidak punya alasan
+    // tetap terbuka di belakangnya.
+    tutupPeek();
+  }
+
+  function tutupPalet() {
+    setPaletTerbuka(false);
+    // Fokus dikembalikan ke yang membukanya. Tanpa ini, Esc membuang fokus ke
+    // `<body>` dan Tab berikutnya memulai lagi dari awal dokumen.
+    pembukaPalet.current?.focus();
+  }
+
+  /**
+   * Ctrl/Cmd+K, satu-satunya pintasan yang tetap hidup saat kursor ada di kolom
+   * isian. Itu memang perjanjiannya di mana-mana, dan orang yang menekannya di
+   * tengah mengetik memang sedang mencari halaman lain.
+   *
+   * Isinya ditulis ulang di sini, bukan memanggil kedua fungsi di atas: fungsi
+   * biasa lahir baru pada setiap render, jadi memasukkannya ke daftar dependensi
+   * berarti memasang ulang pendengar papan ketik setiap kali apa pun berubah di
+   * rangka ini.
+   */
+  useEffect(() => {
+    const onKey = (peristiwa: KeyboardEvent) => {
+      if (peristiwa.key.toLowerCase() !== "k" || !(peristiwa.metaKey || peristiwa.ctrlKey)) return;
+      peristiwa.preventDefault();
+      if (paletTerbuka) {
+        setPaletTerbuka(false);
+        pembukaPalet.current?.focus();
+        return;
+      }
+      pembukaPalet.current = document.activeElement as HTMLElement | null;
+      setPaletTerbuka(true);
+      tutupPeek();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [paletTerbuka, tutupPeek]);
+
+  /* ---- Halaman ---------------------------------------------------------- */
+
+  /**
+   * Halaman yang sedang dibuka. Satu pencarian, empat pemakai: judul di kepala
+   * halaman, deskripsi di bawahnya, judul ringkas di bilah saat digulir, dan
+   * entri "terakhir dibuka".
+   */
+  const currentPage = cariHalaman(logicalPathname);
+
+  // Kelompok yang berisi halaman aktif dibuka sendiri. Dihitung dari tabel menu,
+  // bukan disimpan: kalau sub-halaman pindah induk, ini ikut tanpa disentuh.
+  const indukAktif = navigation
+    .flatMap((group) => group.items)
+    .find((item) => item.children?.some((anak) => logicalPathname.startsWith(anak.href)))?.href ?? null;
+
+  const { terbuka: grupTerbuka, toggle: toggleGrup } = useOpenGroups(indukAktif);
+  const [recentsTerbuka, setRecentsTerbuka] = useState(false);
+  const { recents, togglePin: togglePinRecent } = useRecents({
+    username: akun?.username ?? null,
+    path: logicalPathname,
+    label: currentPage?.label,
+    konteks: grupDari.get(currentPage?.href ?? "") ?? eventName ?? "Ruang kerja",
+  });
+
+  // Judul halaman berpindah ke bilah atas begitu kepala halaman tergulir lewat.
+  //
+  // Observer dipasang lewat ref callback, bukan lewat `useRef` + efek: elemen
+  // yang diamati datang dari komponen LAIN (`PageHeader`, di dalam konten) dan
+  // berganti setiap kali rute berganti.
+  const [judulTerlewat, setJudulTerlewat] = useState(false);
+  const amatiJudul = useCallback((el: HTMLElement | null) => {
+    setJudulTerlewat(false);
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setJudulTerlewat(!entry.isIntersecting),
+      // Ambang atas -56px: judul dianggap lewat tepat saat ia masuk ke BAWAH
+      // bilah, bukan saat ia meninggalkan layar.
+      { rootMargin: "-56px 0px 0px 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   async function logout() {
     setLoggingOut(true);
@@ -287,183 +390,178 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
     router.refresh();
   }
 
+  function onNavigate() {
+    setMobileOpen(false);
+    tutupPeek();
+  }
+
+  function onTogglePin() {
+    // Saat sematan DILEPAS, kursor masih di atas tombolnya. Peek diblokir sampai
+    // kursor benar-benar keluar, supaya rel tidak melebar lagi 150ms kemudian
+    // dan membuat tombolnya terlihat tidak berfungsi.
+    if (pinned) {
+      blokirPeek.current = true;
+      tutupPeek();
+    }
+    togglePin();
+  }
+
+  const versi = process.env.NEXT_PUBLIC_APP_VERSION ?? "—";
+
+  /** Lebar VISUAL rel. Peek ikut melebarkannya; lebar kolom konten tidak. */
+  const rail = desktop && !pinned && !peeking;
+
   return (
-    // Latar shell = tone rel navigasi. Ia yang mengintip di takik sudut panel
-    // konten; tanpa itu sudut membulatnya tidak punya apa pun untuk
-    // memperlihatkan lengkungannya.
-    <div className="admin-shell min-h-dvh bg-surface-container text-on-surface">
-      {/* Latar gelap saat menu terbuka.
-
-          Bukan sekadar hiasan: sebelumnya tidak ada apa pun di antara menu dan
-          halaman, sehingga sentuhan yang meleset sedikit dari sidebar langsung
-          menggulir konten di belakangnya. Lapisan ini menangkap sentuhan itu dan
-          menutup menu — perilaku yang sudah diharapkan orang dari drawer.
-
-          Hanya di bawah lg: pada layar besar sidebar bagian dari tata letak, dan
-          menggelapkan halaman di sana justru menghalangi pekerjaan. */}
+    // `press` dipasang di SATU tempat, dan dari sini seluruh layar admin ikut.
+    //
+    // `--rail-w` hanya membaca `pinned`. Itulah yang membuat peek terasa seperti
+    // panel melayang dan bukan seperti tata letak yang berdenyut: kolom konten
+    // tidak pernah tahu rel sedang melebar.
+    <div
+      className="press admin-shell min-h-dvh bg-surface text-on-surface"
+      style={{ "--rail-w": pinned ? LEBAR_PENUH : LEBAR_REL } as React.CSSProperties}
+    >
+      {/* Latar gelap saat laci ponsel terbuka. Bukan hiasan: tanpa itu, sentuhan
+          yang meleset sedikit dari sidebar langsung menggulir konten di belakangnya. */}
       <button
         type="button"
         onClick={() => setMobileOpen(false)}
         aria-label="Tutup menu admin"
-        tabIndex={mobileOpen ? 0 : -1}
-        className={`fixed inset-0 z-30 bg-scrim/50 transition-opacity duration-200 ease-standard lg:hidden ${mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        tabIndex={laciTerbuka ? 0 : -1}
+        className={`fixed inset-0 z-30 bg-scrim/50 transition-opacity duration-200 ease-standard lg:hidden ${laciTerbuka ? "opacity-100" : "pointer-events-none opacity-0"}`}
       />
 
-      {/* `h-dvh`, bukan `inset-y-0`: di browser ponsel bilah alamat menyusut dan
+      {/* `h-dvh`, bukan `inset-y-0`: di peramban ponsel bilah alamat menyusut dan
           memuai, dan dvh mengikutinya sehingga tepi bawah sidebar tidak pernah
-          tertutup bilah navigasi. `overflow-hidden` di sini memaksa penggulirannya
-          terjadi di <nav>, satu-satunya bagian yang memang panjang; kepala dan
-          tombol logout tetap di tempatnya. */}
-      {/* Tone drawer disamakan dengan tone bilah-yang-tergulir (`surface-container`),
-          bukan satu tingkat di bawahnya.
+          tertutup bilah navigasi.
 
-          Sebelumnya drawer `surface-container-low` sementara bilah naik ke
-          `surface-container` begitu halaman digulir. Keduanya bertemu di satu
-          sudut, jadi terbentuk huruf L dari dua warna yang tidak pernah menyatu —
-          itulah yang membuat kiri dan atas terbaca sebagai dua rancangan berbeda.
-          Sekarang keduanya satu bidang yang sama. */}
-      <aside className={`fixed left-0 top-0 z-40 flex h-dvh w-[272px] flex-col overflow-hidden bg-surface-container transition-transform duration-300 ease-emphasized lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        {/* Tinggi dikunci ke tinggi bilah atas (64px) supaya nama produk di sini
-            duduk pada garis dasar yang SAMA dengan judul halaman di sebelahnya.
-            Baris "ADMIN WORKSPACE" dibuang: bilah sudah membawa pasangan
-            judul+subjudul, dan dua pasang yang sejajar dengan ukuran berbeda
-            terbaca sebagai dua header yang bersaing, bukan satu. */}
-        <div className="flex h-16 shrink-0 items-center gap-3 px-5">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary">
-            <Storefront size={20} weight="duotone" />
+          TETAP tanpa `overflow-x-hidden` juga, dan ini yang paling mudah salah:
+          selama transisi lebar, isi rel memang lebih lebar daripada wadahnya, dan
+          memotongnya di sini terasa seperti perbaikan yang benar. Bukan — panel
+          pemilih acara BERLABUH di dalam <aside> dan lebih lebar daripada rel,
+          jadi pemotongan di sini menghabisinya. Jebakan yang sama sudah tercatat
+          dua kali di berkas ini. Pemotongannya dipasang di <nav> dan di pembungkus
+          kolom cari, dua tempat yang tidak berlabuh apa pun. */}
+      <aside
+        ref={aside}
+        data-rail={rail ? "1" : "0"}
+        onPointerEnter={onPointerEnter}
+        onPointerLeave={onPointerLeave}
+        onFocusCapture={onFocusCapture}
+        onBlurCapture={onBlurCapture}
+        onClickCapture={onClickCapture}
+        className={`fixed left-0 top-0 z-40 flex h-dvh w-[260px] flex-col border-r border-outline-variant bg-surface transition-[transform,width,box-shadow] duration-200 ease-out lg:translate-x-0 ${
+          laciTerbuka ? "translate-x-0" : "-translate-x-full"
+        } ${pinned ? "lg:w-[260px]" : peeking ? "lg:w-[260px] lg:shadow-level3" : "lg:w-16"}`}
+      >
+        {/* Kepala: logo terpisah di kiri, pengalih acara di kanannya, dan tinggi
+            yang dikunci ke tinggi baris bilah atas (`m3-drawer-head`, 56px) supaya
+            garis bawah keduanya menyambung menjadi satu garis lurus.
+
+            Blok merek statis "Tally" yang dulu di sini dilepas: nama produk tidak
+            berubah dan tidak bisa ditindak, jadi ia memakan 56px teratas sidebar
+            untuk memberi tahu sesuatu yang sudah diketahui. */}
+        <div className="m3-drawer-head flex shrink-0 items-center gap-2 border-b border-outline-variant px-3">
+          <div className="flex size-6 shrink-0 items-center justify-center text-on-surface-variant">
+            <Storefront size={18} weight="regular" />
           </div>
-          <p className="truncate text-title-medium font-semibold tracking-tight">Tally</p>
+          <div className="m3-rail-hide flex min-w-0 flex-1">
+            <EventMenu
+              events={events}
+              activeSlug={eventAktif?.slug ?? null}
+              isOwner={isOwner}
+              onOpenChange={onPopoverChange}
+            />
+          </div>
+        </div>
+
+        <div className="m3-quick-wrap shrink-0 overflow-hidden px-3 pt-3">
+          <QuickSearchButton onOpen={bukaPalet} collapsed={rail} />
         </div>
 
         {/* `min-h-0` WAJIB. Tanpa itu anak flex menolak menyusut di bawah tinggi
             kontennya, <nav> memanjang melewati sidebar, dan penggulirannya tidak
-            pernah aktif — persis kegagalan yang sama seperti pada app-shell /rundown.
-
-            `pr-2`, bukan `px-3`: batang gulir menempel di tepi kanan, dan tanpa
-            celah ia menempel rapat pada pil item sehingga terbaca sebagai garis
-            vertikal kedua di samping tepi drawer. */}
-        {/* Kelompok dibungkus <ul> ber-`aria-labelledby` ke judulnya, bukan
-            sekadar teks di antara tautan. Pembaca layar mengumumkan "Layar
-            panggung, daftar, 3 item" — informasi yang sama dengan yang dilihat
-            mata dari jarak judul dan indentasi. */}
-        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 pl-3 pr-2 short:py-2" aria-label="Navigasi admin">
-          {visibleNavigation.map((group, index) => {
-            const judulId = group.section ? `nav-${group.section.replace(/\s+/g, "-").toLowerCase()}` : undefined;
-            return (
-              // Garis pemisah, BUKAN sekadar jarak yang lebih lebar.
-              //
-              // Sebelumnya judul kelompok hanya teks kecil ber-warna
-              // `on-surface-variant` — warna yang sama persis dengan label item
-              // yang tidak aktif. Mata membacanya sebagai "menu berhuruf kecil",
-              // bukan sebagai kepala kelompok. Garis mengerjakan pemisahan itu
-              // dengan satu piksel, sehingga judulnya boleh tetap redup dan tidak
-              // bersaing dengan tujuan yang bisa ditekan.
-              <div
-                key={group.section ?? "utama"}
-                className={index === 0 ? "" : "mt-3 border-t border-outline-variant pt-3 short:mt-2 short:pt-2"}
-              >
-                {group.section ? (
-                  <h2
-                    id={judulId}
-                    className="px-4 pb-2 text-label-small font-semibold uppercase tracking-[0.16em] text-on-surface-variant"
-                  >
-                    {group.section}
-                  </h2>
-                ) : null}
-                <ul className="space-y-1 short:space-y-0.5" aria-labelledby={judulId}>
-                  {group.items.map((item) => (
-                    <li key={item.href}>
-                      <ItemMenu
-                        href={`${eventPrefix}${item.href}`}
-                        label={item.label}
-                        icon={item.icon}
-                        active={aktif(item.href)}
-                        onNavigate={() => setMobileOpen(false)}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
+            pernah aktif — persis kegagalan yang sama seperti pada app-shell /rundown. */}
+        <nav
+          className="m3-nav-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain py-3 pl-3 pr-2 short:py-2"
+          aria-label="Navigasi admin"
+        >
+          <SidebarNav
+            eventPrefix={eventPrefix}
+            path={logicalPathname}
+            isOwner={isOwner}
+            onNavigate={onNavigate}
+            grupTerbuka={grupTerbuka}
+            onToggleGrup={toggleGrup}
+            recentsTerbuka={recentsTerbuka}
+            onToggleRecents={() => setRecentsTerbuka((terbuka) => !terbuka)}
+            recents={recents}
+            onTogglePin={togglePinRecent}
+          />
         </nav>
 
-        {/* Kaki drawer. Isinya bukan navigasi harian: satu tautan bantuan dan
-            nomor versi.
-            
-            Versinya ada karena ia pertanyaan pertama yang ditanyakan saat panitia
-            melaporkan masalah lewat WhatsApp, dan sebelumnya tidak ada satu pun
-            tempat di layar yang bisa menjawabnya. Panduan dibuka di tab baru:
-            panitia yang membacanya sedang berdiri di meja registrasi dengan
-            halaman kerja yang belum selesai di tab sebelah. */}
-        {/* Di viewport pendek, tautan panduan dan versi dirapatkan ke satu
-            baris: kaki drawer tidak boleh memakan dua baris menu. */}
-        <div className="shrink-0 border-t border-outline-variant p-3 short:flex short:items-center short:gap-2 short:p-2">
+        {/* Kaki. Satu baris, tanpa pembungkus baris kedua.
+            Sebelumnya tautan panduan berdiri sendiri di atas nomor versi, dan
+            pada rel 260px "Panduan sistem" pecah jadi dua baris tepat di belakang
+            lencana peralatan pengembang. `whitespace-nowrap` menutup itu. */}
+        <div className="m3-drawer-foot flex shrink-0 items-center gap-1 border-t border-outline-variant px-2">
+          <button
+            type="button"
+            onClick={onTogglePin}
+            data-peek-skip
+            // Ia tombol SEMATAN, bukan tombol lipat, dan labelnya harus
+            // mengatakan itu: yang dilepas bukan lebarnya, melainkan haknya untuk
+            // tetap lebar tanpa diminta.
+            aria-label={pinned ? "Lepas sematan sidebar (Ctrl B)" : "Sematkan sidebar (Ctrl B)"}
+            title={pinned ? "Lepas sematan sidebar (Ctrl B)" : "Sematkan sidebar (Ctrl B)"}
+            aria-pressed={pinned}
+            className={`hidden size-8 shrink-0 items-center justify-center rounded-sm transition-colors duration-150 hover:bg-[var(--press-hover)] lg:flex ${
+              pinned ? "text-on-surface" : "text-on-surface-variant"
+            }`}
+          >
+            <SidebarSimple size={18} weight={pinned ? "fill" : "regular"} />
+          </button>
+
           <a
             href={`${eventPrefix}/panduan/sistem`}
             target="_blank"
             rel="noreferrer"
-            className="m3-state flex min-h-11 items-center gap-3 rounded-full px-4 text-label-large font-semibold text-on-surface-variant short:min-w-0 short:flex-1"
+            // Dibuka di tab baru: panitia yang membacanya sedang berdiri di meja
+            // registrasi dengan halaman kerja yang belum selesai di tab sebelah.
+            className="m3-rail-hide flex min-w-0 items-center gap-1 whitespace-nowrap rounded-sm px-1.5 py-1 text-label-medium text-on-surface-variant hover:bg-[var(--press-hover)]"
           >
-            <BookOpen size={20} />
             Panduan sistem
-            <ArrowSquareOut size={14} className="ml-auto shrink-0 opacity-70" />
+            <ArrowSquareOut size={12} className="shrink-0" />
           </a>
-          <p className="px-4 pt-2 text-body-small text-on-surface-variant short:shrink-0 short:pt-0">
-            Tally v{process.env.NEXT_PUBLIC_APP_VERSION ?? "—"}
+          {/* Versinya ada karena ia pertanyaan pertama saat panitia melaporkan
+              masalah lewat WhatsApp, dan sebelumnya tidak ada satu pun tempat di
+              layar yang bisa menjawabnya. */}
+          <p className="m3-rail-hide ml-auto shrink truncate whitespace-nowrap pr-1 text-label-medium text-[var(--press-ink-faint)]">
+            Tally v{versi}
           </p>
         </div>
       </aside>
 
-      {/* Panel konten, bukan sekadar sisa ruang di kanan rel.
-
-          Sudut kiri-atasnya dibulatkan 28px sehingga rel navigasi dan panel
-          terbaca sebagai bingkai dan isi, bukan dua persegi yang ditempelkan.
-          Ini pola pane pada layout adaptif M3, dan ia satu-satunya sudut di
-          seluruh layar admin yang tadinya masih siku 90° padahal semua wadah di
-          dalamnya sudah membulat.
-
-          Bilah atas ikut dibulatkan di sudut yang sama: ia elemen teratas di
-          dalam panel, jadi sudut siku miliknya akan menonjol menutupi lengkungan
-          panel. Membulatkan keduanya lebih murah daripada `overflow: hidden`,
-          yang akan mematahkan `position: sticky` pada bilah. */}
-      <div className="admin-pane min-h-dvh bg-surface lg:rounded-tl-2xl">
+      {/* Panel konten. Dipisahkan dari rel oleh GARIS TEGAK, bukan oleh takik
+          sudut membulat: dasbor yang jadi acuan memisahkan keduanya dengan satu
+          garis lurus, dan garis itu sudah terpasang di tepi kanan rel. */}
+      <div className="admin-pane min-h-dvh bg-surface">
         <TopAppBar
-          className="lg:rounded-tl-2xl"
-          // Judul bilah adalah remah roti: <event> / <halaman>.
-          //
-          // Pemilih event pindah ke sini dari kartu besar di kepala drawer —
-          // pola yang sama dipakai Vercel dan Stripe, dan alasannya bukan gaya:
-          // kartu itu memakan 76px tetap dari ruang yang sama dengan daftar menu,
-          // padahal berpindah event terjadi beberapa kali sehari, bukan beberapa
-          // kali semenit.
-          //
-          // Di layar sempit remahnya dilipat: nama event turun menjadi subjudul
-          // (lihat `subtitle`), dan bilah hanya membawa judul halaman. Tiga
-          // elemen teks berjajar di 375px akan terpotong semuanya.
-          title={currentPage?.label ?? "Admin"}
-          // Pemilih event masuk lewat slot `breadcrumb`, BUKAN sebagai bagian
-          // dari `title`. Judul dibungkus `truncate` (overflow: hidden), dan panel
-          // menu yang dirender di dalamnya terpotong habis — tombolnya bisa
-          // ditekan, menunya tidak pernah terlihat.
-          // Disembunyikan di bawah `sm` BESERTA garis miringnya: pada 375px,
-          // remah roti tiga bagian membuat ketiganya terpotong. Nama event tetap
-          // terbaca di sana lewat subjudul.
-          breadcrumb={
-            <span className="hidden min-w-0 items-center gap-2 sm:flex">
-              <EventMenu events={events} activeSlug={eventAktif?.slug ?? null} />
-              <span aria-hidden className="shrink-0 text-title-large text-on-surface-variant">/</span>
-            </span>
+          // Bilah atas TIDAK membawa judul halaman. Judulnya ada di dalam konten,
+          // besar, dengan ikon dan deskripsi. Judul ringkas muncul hanya setelah
+          // kepala halaman tergulir lewat, dan sebagai `<p>` — `<h1>` halaman
+          // sudah ada di konten, dan ini salinannya untuk orientasi.
+          title={
+            judulTerlewat ? (
+              <span className="flex min-w-0 items-center gap-2">
+                {currentPage?.icon ? <currentPage.icon size={18} /> : null}
+                <span className="truncate">{currentPage?.label}</span>
+              </span>
+            ) : undefined
           }
+          titleAs="p"
           subtitle={eventName ?? undefined}
-          subtitleClassName="sm:hidden"
-          // Pemilih tema dan menu akun duduk di bilah atas, bukan di kaki drawer.
-          //
-          // Di drawer keduanya memakan ~170px dari ruang yang sama dengan daftar
-          // menu, dan pada jendela pendek itu selisih antara tiga baris menu
-          // terlihat dan enam. Keduanya juga bukan tujuan navigasi: satu
-          // preferensi tampilan, satu tentang akun — dan ujung akhir top app bar
-          // adalah tempat yang disediakan M3 untuk keduanya.
+          subtitleClassName="lg:hidden"
           actions={
             <>
               <ThemeToggle compact className="bg-surface-container-high" />
@@ -478,32 +576,47 @@ export function AdminShell({ children }: Readonly<{ children: React.ReactNode }>
           }
           leading={
             <IconButton
-              label={mobileOpen ? "Tutup menu admin" : "Buka menu admin"}
+              label={laciTerbuka ? "Tutup menu admin" : "Buka menu admin"}
               onClick={() => setMobileOpen((open) => !open)}
               className="-ml-2 lg:hidden"
             >
-              {mobileOpen ? <X size={22} weight="bold" /> : <List size={22} weight="bold" />}
+              {laciTerbuka ? <X size={22} weight="bold" /> : <List size={22} weight="bold" />}
             </IconButton>
           }
         />
 
-        {/* `key` berisi slug event, dan itu WAJIB.
+        {/* `key` berisi slug acara, dan itu WAJIB.
          *
          * Proxy menulis ulang `/e/<slug>/admin/seat-map` menjadi
-         * `/admin/seat-map?eventSlug=<slug>`, jadi berpindah event tidak
+         * `/admin/seat-map?eventSlug=<slug>`, jadi berpindah acara tidak
          * mengganti komponen halamannya — React memakai ulang instance yang sama
-         * dan `useEffect` pengambil data tidak berjalan lagi. Terukur: memilih
-         * event lain dari menu di bilah atas mengganti judul dan remah rotinya,
-         * tetapi isi halaman tetap milik event sebelumnya sampai ditekan reload.
-         *
-         * Mengganti `key` memaksa seluruh subtree dipasang ulang, sehingga setiap
-         * pengambilan data di halaman ikut berjalan lagi. Dipilih daripada
-         * memaksa navigasi keras (`<a href>`) di menunya: navigasi keras memuat
-         * ulang seluruh dokumen — bundel, tema, dan sesi — untuk pekerjaan yang
-         * cukup diselesaikan dengan memasang ulang satu subtree.
+         * dan `useEffect` pengambil data tidak berjalan lagi.
          */}
-        <div key={eventSlug || "event-tunggal"}>{children}</div>
+        <AdminPageProvider
+          value={{
+            label: currentPage?.label ?? "Ruang kerja",
+            icon: currentPage?.icon,
+            description: currentPage?.description,
+          }}
+        >
+          <AdminHeaderScrollProvider value={{ terlewat: judulTerlewat, amati: amatiJudul }}>
+            <div key={eventSlug || "event-tunggal"}>{children}</div>
+          </AdminHeaderScrollProvider>
+        </AdminPageProvider>
       </div>
+
+      {/* Dipasang hanya saat terbuka. Membiarkannya terpasang lalu mengosongkan
+          kuerinya lewat efek menghasilkan satu render tambahan pada setiap
+          pembukaan, dan React 19 menandai `setState` di badan efek sebagai
+          kesalahan. Melepasnya mengerjakan hal yang sama dengan lebih sedikit. */}
+      {paletTerbuka ? (
+        <CommandPalette
+          onClose={tutupPalet}
+          eventPrefix={eventPrefix}
+          events={events}
+          recents={recents}
+        />
+      ) : null}
     </div>
   );
 }

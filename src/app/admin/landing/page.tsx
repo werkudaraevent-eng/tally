@@ -2,7 +2,7 @@
 
 import { ArrowDown, ArrowSquareOut, ArrowUp, Plus, Trash } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import { Button, Card, IconButton, SegmentedButton, StatusChip, Switch, TextArea, TextField } from "@/components/m3";
+import { Button, Card, IconButton, PageHeader, SegmentedButton, StatusChip, Switch, TextArea, TextField } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { LandingPreview } from "@/components/admin/landing-preview";
@@ -162,6 +162,7 @@ export default function LandingCmsPage() {
   return (
     <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
       <div className="mx-auto max-w-[1440px]">
+        <PageHeader />
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">
             Halaman publik acara di <code className="select-all">/e/{facts.slug}</code> — alamat yang dicetak di

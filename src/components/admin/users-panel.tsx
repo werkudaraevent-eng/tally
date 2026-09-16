@@ -2,6 +2,19 @@
 
 import { CheckCircle, Plus, ShieldCheck, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
+import {
+  Button,
+  SelectField,
+  StatusChip,
+  Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+  TextField,
+} from "@/components/m3";
 import { useToast } from "@/components/toast";
 
 type Role = "booth" | "cashier" | "admin" | "super_admin" | "scanner";
@@ -101,36 +114,38 @@ export function UsersPanel() {
       <div className="mt-8 grid gap-8 lg:grid-cols-[1.3fr_0.7fr] lg:items-start">
         <section className="rounded-lg border border-outline-variant bg-panel">
           <div className="border-b border-outline-variant px-5 py-4"><h2 className="font-semibold">Panitia terdaftar</h2><p className="mt-1 text-body-small text-on-surface-variant">{users.length} akun</p></div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-body-medium">
-              <thead><tr className="border-b border-outline-variant text-left text-body-small uppercase tracking-[0.12em] text-on-surface-variant">
-                <th className="px-5 py-3 font-semibold">Username</th>
-                <th className="px-5 py-3 font-semibold">Role</th>
-                <th className="px-5 py-3 font-semibold">Booth</th>
-                <th className="px-5 py-3 font-semibold">Status</th>
-                <th className="px-5 py-3" />
-              </tr></thead>
-              <tbody className="divide-y divide-outline-variant">
-                {users.map((user) => <tr key={user.id} className="hover:bg-panel-high">
-                  <td className="px-5 py-3 font-semibold">{user.username}</td>
-                  <td className="px-5 py-3">{roleLabel[user.role]}</td>
-                  {/* Kode booth WAJIB dibaca dari data booth, bukan dibentuk dari
-                      `B` + booth_id. Kode booth bebas huruf/angka (mis. PH), jadi
-                      menyusunnya dari id menampilkan booth PH sebagai "B8" dan
-                      membuat admin ragu apakah user tersambung ke booth yang benar.
-                      Kebetulan cocok untuk B1..B7 karena id-nya sama dengan angka
-                      di kodenya, sehingga salahnya baru terlihat pada booth non-numerik. */}
-                  <td className="px-5 py-3">{user.booth_id
-                    ? booths.find((item) => item.id === user.booth_id)?.code ?? `#${user.booth_id}`
-                    : "—"}</td>
-                  <td className="px-5 py-3">{user.is_active ? <span className="inline-flex rounded-sm bg-success-soft px-2 py-0.5 text-[11px] font-semibold text-primary-dim">Aktif</span> : <span className="inline-flex rounded-sm bg-panel-high px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant">Nonaktif</span>}</td>
-                  <td className="px-5 py-3 text-right">{canEdit(user)
-                    ? <button onClick={() => editUser(user)} className="min-h-11 px-2 text-body-medium font-semibold text-primary">{canManage ? "Edit" : "Reset PIN"}</button>
-                    : <span className="text-body-small text-on-surface-variant">—</span>}</td>
-                </tr>)}
-              </tbody>
-            </table>
-          </div>
+          <Table density="compact" minWidth="640px">
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell>Username</TableHeaderCell>
+                <TableHeaderCell>Role</TableHeaderCell>
+                <TableHeaderCell>Booth</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell><span className="sr-only">Aksi</span></TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {users.map((user) => <TableRow key={user.id} interactive>
+                <TableCell strong>{user.username}</TableCell>
+                <TableCell>{roleLabel[user.role]}</TableCell>
+                {/* Kode booth WAJIB dibaca dari data booth, bukan dibentuk dari
+                    `B` + booth_id. Kode booth bebas huruf/angka (mis. PH), jadi
+                    menyusunnya dari id menampilkan booth PH sebagai "B8" dan
+                    membuat admin ragu apakah user tersambung ke booth yang benar.
+                    Kebetulan cocok untuk B1..B7 karena id-nya sama dengan angka
+                    di kodenya, sehingga salahnya baru terlihat pada booth non-numerik. */}
+                <TableCell>{user.booth_id
+                  ? booths.find((item) => item.id === user.booth_id)?.code ?? `#${user.booth_id}`
+                  : "—"}</TableCell>
+                <TableCell>{user.is_active
+                  ? <StatusChip tone="success">Aktif</StatusChip>
+                  : <StatusChip tone="neutral">Nonaktif</StatusChip>}</TableCell>
+                <TableCell align="end">{canEdit(user)
+                  ? <Button variant="text" size="sm" onClick={() => editUser(user)}>{canManage ? "Edit" : "Reset PIN"}</Button>
+                  : <span className="text-body-small text-on-surface-variant">—</span>}</TableCell>
+              </TableRow>)}
+            </TableBody>
+          </Table>
         </section>
 
         <section className="space-y-6">
@@ -138,35 +153,71 @@ export function UsersPanel() {
             <div className="flex items-center gap-2"><ShieldCheck size={20} className="text-primary" /><h2 className="font-semibold">{!canManage ? "Reset PIN operator" : draft.id ? "Edit user" : "User baru"}</h2></div>
             {/* Tanpa izin kelola user, hanya field PIN yang ditampilkan. Menampilkan
                 username/role/status akan menyesatkan: server menolak perubahannya. */}
-            {canManage ? <label className="mt-5 block text-body-medium font-semibold">Username
-              <input value={draft.username} onChange={(event) => setDraft((current) => ({ ...current, username: event.target.value.toLowerCase() }))} placeholder="mis. ratna.booth3" className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary" />
-            </label> : <p className="mt-5 text-body-medium">{draft.id ? <>Akun <span className="font-semibold">{draft.username}</span> ({roleLabel[draft.role]})</> : "Pilih Reset PIN pada akun operator di tabel."}</p>}
-            <label className="mt-4 block text-body-medium font-semibold">PIN 6 digit {draft.id && <span className="font-normal text-on-surface-variant">(kosongkan bila tidak diubah)</span>}
-              <input value={draft.pin} inputMode="numeric" maxLength={6} onChange={(event) => setDraft((current) => ({ ...current, pin: event.target.value.replace(/\D/g, "").slice(0, 6) }))} placeholder="••••••" className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-large tracking-[0.3em] outline-none focus:border-primary" />
-            </label>
-            {canManage && <label className="mt-4 block text-body-medium font-semibold">Role
-              <select value={draft.role} onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value as Draft["role"] }))} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary">
+            {canManage ? (
+              <TextField
+                className="mt-5"
+                label="Username"
+                value={draft.username}
+                onChange={(event) => setDraft((current) => ({ ...current, username: event.target.value.toLowerCase() }))}
+                placeholder="mis. ratna.booth3"
+              />
+            ) : <p className="mt-5 text-body-medium">{draft.id ? <>Akun <span className="font-semibold">{draft.username}</span> ({roleLabel[draft.role]})</> : "Pilih Reset PIN pada akun operator di tabel."}</p>}
+            <TextField
+              className="mt-4"
+              label="PIN 6 digit"
+              hint={draft.id ? "Kosongkan bila tidak diubah." : undefined}
+              value={draft.pin}
+              inputMode="numeric"
+              maxLength={6}
+              onChange={(event) => setDraft((current) => ({ ...current, pin: event.target.value.replace(/\D/g, "").slice(0, 6) }))}
+              placeholder="••••••"
+              inputClassName="ed-tracked"
+            />
+            {canManage && (
+              <SelectField
+                className="mt-4"
+                label="Role"
+                value={draft.role}
+                onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value as Draft["role"] }))}
+              >
                 <option value="booth">Admin Booth</option>
                 <option value="cashier">Kasir</option>
                 <option value="scanner">Petugas scan</option>
                 <option value="admin">Panitia / Admin</option>
                 <option value="super_admin">Super Admin</option>
-              </select>
-            </label>}
-            {canManage && draft.role === "booth" && <label className="mt-4 block text-body-medium font-semibold">Booth
-              <select value={draft.booth_id ?? ""} onChange={(event) => setDraft((current) => ({ ...current, booth_id: event.target.value ? Number(event.target.value) : null }))} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary">
+              </SelectField>
+            )}
+            {canManage && draft.role === "booth" && (
+              <SelectField
+                className="mt-4"
+                label="Booth"
+                value={draft.booth_id ?? ""}
+                onChange={(event) => setDraft((current) => ({ ...current, booth_id: event.target.value ? Number(event.target.value) : null }))}
+              >
                 <option value="">Pilih booth</option>
                 {booths.map((booth) => <option key={booth.id} value={booth.id}>{booth.code} · {booth.name}</option>)}
-              </select>
-            </label>}
-            {canManage && <label className="mt-4 flex items-center gap-3 text-body-medium font-semibold"><input type="checkbox" checked={draft.is_active} onChange={(event) => setDraft((current) => ({ ...current, is_active: event.target.checked }))} className="size-5 accent-primary" /> Akun aktif</label>}
+              </SelectField>
+            )}
+            {/* Sakelar, bukan kotak centang. Keduanya menyatakan hal yang sama,
+                tetapi sakelar M3 membawa ikon centang/silang di kenopnya — dan
+                salah membaca "akun aktif" berarti panitia mengira operator sudah
+                bisa login padahal belum. */}
+            {canManage && <Switch className="mt-4" checked={draft.is_active} onChange={(is_active) => setDraft((current) => ({ ...current, is_active }))} label="Akun aktif" />}
             {/* Mode reset PIN wajib mengisi PIN: PATCH tanpa perubahan apa pun tidak
                 ada gunanya dan akan ditolak server sebagai VALIDATION_ERROR. */}
-            <button onClick={save} disabled={saving || (canManage ? !draft.username : !draft.id || draft.pin.length !== 6)} className="rounded-md mt-6 flex min-h-12 w-full items-center justify-center gap-2 bg-primary text-body-medium font-semibold text-on-primary hover:bg-primary-dim disabled:opacity-50">{saving ? "Menyimpan..." : canManage ? (draft.id ? "Simpan perubahan" : "Buat user") : "Reset PIN"}</button>
+            <Button
+              className="mt-6"
+              block
+              loading={saving}
+              onClick={save}
+              disabled={canManage ? !draft.username : !draft.id || draft.pin.length !== 6}
+            >
+              {canManage ? (draft.id ? "Simpan perubahan" : "Buat user") : "Reset PIN"}
+            </Button>
           </div>
 
           <div className="rounded-lg border border-outline-variant bg-panel p-5">
-            <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Izin role: {roleLabel[draft.role]}</h2>
+            <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Izin role: {roleLabel[draft.role]}</h2>
             <ul className="mt-4 space-y-2 text-body-medium">
               {rolePermissions[draft.role].map((perm) => <li key={perm} className="flex items-start gap-2"><CheckCircle size={18} weight="fill" className="mt-0.5 shrink-0 text-primary" />{perm}</li>)}
             </ul>

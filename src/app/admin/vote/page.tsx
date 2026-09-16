@@ -11,6 +11,7 @@ import {
   TYPES_WITH_OPTIONS, VOTER_MODES, VOTE_STATUS_LABEL, VOTE_TYPES, votePercentages,
   type VotePoll, type VoteType, type VoterMode,
 } from "@/lib/vote";
+import { PageHeader } from "@/components/m3";
 
 // CMS + kontrol voting dalam SATU halaman.
 //
@@ -88,7 +89,7 @@ function emptySettings(): DisplaySettings {
 }
 
 const inputClass = "mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
-const labelClass = "text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant";
+const labelClass = "text-body-small font-semibold ed-label text-on-surface-variant";
 
 export default function VoteAdminPage() {
   const [polls, setPolls] = useState<VotePoll[]>([]);
@@ -325,6 +326,7 @@ export default function VoteAdminPage() {
   return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
 
+      <PageHeader />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="max-w-2xl text-body-medium text-on-surface-variant">
@@ -345,7 +347,7 @@ export default function VoteAdminPage() {
       {error && <p role="alert" className="rounded-lg mt-5 flex items-start gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</p>}
 
       {settingsOpen && settings && <section className="rounded-lg mt-6 border border-outline-variant bg-panel p-6">
-        <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Tampilan layar panggung</h2>
+        <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Tampilan layar panggung</h2>
         <p className="mt-2 text-body-small text-on-surface-variant">
           Berlaku untuk <span className="font-mono">/vote/layar</span>. Judul di sini adalah judul ACARA yang menetap; pertanyaannya sendiri berganti mengikuti apa yang sedang ditayangkan.
         </p>
@@ -356,7 +358,7 @@ export default function VoteAdminPage() {
         <div className="rounded-lg mt-5 flex flex-wrap items-center gap-4 border border-outline-variant bg-panel-high p-4">
           <div>
             <p className={labelClass}>Kode gabung acara</p>
-            <p className="mt-1 font-mono text-headline-medium font-bold tabular-nums tracking-[0.14em]">
+            <p className="mt-1 font-mono text-headline-medium font-bold tabular-nums">
               {joinCode ? `${joinCode.slice(0, 3)} ${joinCode.slice(3)}` : "—"}
             </p>
           </div>
@@ -369,7 +371,7 @@ export default function VoteAdminPage() {
           {/* Peringatan ditulis di sebelah tombolnya, bukan di dialog konfirmasi:
               satu kalimat yang terbaca sebelum menekan lebih berguna daripada
               dialog yang ditekan "ya" tanpa dibaca. */}
-          <p className="w-full text-[11px] text-on-surface-variant">
+          <p className="w-full text-label-small text-on-surface-variant">
             Mengganti kode memutus peserta yang sudah memegang kode lama — mereka akan mengetik angka yang tidak menemukan apa pun.
           </p>
         </div>
@@ -412,7 +414,7 @@ export default function VoteAdminPage() {
         {/* Panel diberi keterangan sendiri: ia satu-satunya warna yang punya
             perhitungan otomatis, dan tanpa kalimat ini "Bawaan" terbaca seperti
             warna tetap. */}
-        <p className="mt-2 text-[11px] text-on-surface-variant">
+        <p className="mt-2 text-label-small text-on-surface-variant">
           Panel hasil adalah bidang di belakang daftar suara. Dibiarkan bawaan, ia menjadi lapisan gelap tembus pandang sehingga selalu serasi dengan gambar latar apa pun — isi warna hanya bila Anda ingin bidang solid.
         </p>
 
@@ -451,7 +453,7 @@ export default function VoteAdminPage() {
       </section>}
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Pertanyaan</h2>
+        <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Pertanyaan</h2>
         <button type="button" onClick={() => setDraft(emptyDraft())} className="rounded-md inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary hover:bg-primary-dim">
           <Plus size={16} /> Pertanyaan baru
         </button>
@@ -471,8 +473,8 @@ export default function VoteAdminPage() {
                   <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-2">
                       <span className="text-title-large font-semibold">{poll.question}</span>
-                      {onScreen && <span className="rounded-sm inline-flex items-center gap-1 bg-primary-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary-dim"><Monitor size={12} /> Di layar</span>}
-                      <span className={`px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${poll.status === "open" ? "bg-success-soft text-primary-dim" : poll.status === "closed" ? "bg-panel-high text-on-surface-variant" : "bg-warning-soft text-warning"}`}>
+                      {onScreen && <span className="rounded-sm inline-flex items-center gap-1 bg-primary-soft px-2 py-0.5 text-label-small font-semibold ed-label text-primary-dim"><Monitor size={12} /> Di layar</span>}
+                      <span className={`px-2 py-0.5 text-label-small font-semibold ed-label ${poll.status === "open" ? "bg-success-soft text-primary-dim" : poll.status === "closed" ? "bg-panel-high text-on-surface-variant" : "bg-warning-soft text-warning"}`}>
                         {VOTE_STATUS_LABEL[poll.status]}
                       </span>
                     </p>
@@ -508,7 +510,7 @@ export default function VoteAdminPage() {
                       {pending.length === 0 ? <li className="p-2 text-body-small text-on-surface-variant">Tidak ada kata menunggu.</li>
                         : pending.map((row) => <li key={row.id} className="flex items-center gap-2 border-b border-outline-variant p-2 last:border-b-0">
                           <span className="min-w-0 flex-1 truncate font-mono text-body-small">{row.text_value}</span>
-                          {row.display_name && <span className="shrink-0 text-[10px] text-on-surface-variant">{row.display_name}</span>}
+                          {row.display_name && <span className="shrink-0 text-label-small text-on-surface-variant">{row.display_name}</span>}
                           <button type="button" onClick={() => void moderate(row.id, true)} className="rounded-sm min-h-9 shrink-0 border border-outline-variant px-2 text-body-small font-semibold text-primary-dim hover:border-primary">Setujui</button>
                           <button type="button" onClick={() => void moderate(row.id, false)} className="rounded-sm min-h-9 shrink-0 border border-outline-variant px-2 text-body-small font-semibold text-error hover:border-error">Tolak</button>
                         </li>)}
@@ -584,7 +586,7 @@ export default function VoteAdminPage() {
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           {VOTE_TYPES.map((item) => <button key={item.value} type="button" onClick={() => setDraft({ ...draft, type: item.value })} className={`rounded-lg border p-3 text-left ${draft.type === item.value ? "border-primary bg-primary-soft" : "border-outline-variant hover:border-primary"}`}>
             <span className="block text-body-medium font-semibold">{item.label}</span>
-            <span className="mt-1 block text-[11px] leading-snug text-on-surface-variant">{item.hint}</span>
+            <span className="mt-1 block text-label-small leading-snug text-on-surface-variant">{item.hint}</span>
           </button>)}
         </div>
 
@@ -612,7 +614,7 @@ export default function VoteAdminPage() {
                   sudah terdaftar; nama orang dan sindiran tidak akan pernah ada
                   di daftar mana pun, dan yang tampil di layar besar di depan
                   klien tidak bisa ditarik kembali. */}
-              <span className="mt-1 block text-[11px] leading-relaxed text-on-surface-variant">
+              <span className="mt-1 block text-label-small leading-relaxed text-on-surface-variant">
                 Sangat disarankan. Kata baru masuk antrean dan baru tampil di layar setelah Anda setujui. Dimatikan, apa pun yang diketik peserta langsung terpampang.
               </span>
             </span>
@@ -627,13 +629,13 @@ export default function VoteAdminPage() {
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           {VOTER_MODES.map((item) => <button key={item.value} type="button" onClick={() => setDraft({ ...draft, voter_mode: item.value })} className={`rounded-lg border p-3 text-left ${draft.voter_mode === item.value ? "border-primary bg-primary-soft" : "border-outline-variant hover:border-primary"}`}>
             <span className="block text-body-medium font-semibold">{item.label}</span>
-            <span className="mt-1 block text-[11px] leading-snug text-on-surface-variant">{item.hint}</span>
+            <span className="mt-1 block text-label-small leading-snug text-on-surface-variant">{item.hint}</span>
           </button>)}
         </div>
         {/* Peringatan kekuatan mode ditampilkan DI SEBELAH pilihannya, bukan di
             dokumentasi: panitia yang memilih anonim untuk voting berhadiah perlu
             membacanya sebelum acara, bukan sesudah. */}
-        <p className="mt-2 text-[11px] leading-relaxed text-on-surface-variant">
+        <p className="mt-2 text-label-small leading-relaxed text-on-surface-variant">
           {VOTER_MODES.find((item) => item.value === draft.voter_mode)?.warning}
         </p>
 
@@ -664,7 +666,7 @@ export default function VoteAdminPage() {
             {option.image_url && <button
               type="button"
               onClick={() => setDraft({ ...draft, options: draft.options.map((item, position) => position === index ? { ...item, image_url: null } : item) })}
-              className="rounded-md min-h-11 shrink-0 border border-outline-variant px-2 text-[10px] font-semibold text-on-surface-variant hover:border-error hover:text-error"
+              className="rounded-md min-h-11 shrink-0 border border-outline-variant px-2 text-label-small font-semibold text-on-surface-variant hover:border-error hover:text-error"
             >Hapus gambar</button>}
             <button
               type="button"

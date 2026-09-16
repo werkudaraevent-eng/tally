@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { useToast } from "@/components/toast";
 import { ANIMATIONS, type UndianPrize, normalizePrize } from "@/lib/undian";
+import { PageHeader } from "@/components/m3";
 
 // Kontrol undian, dipakai di atas panggung.
 //
@@ -189,6 +190,7 @@ export default function UndianControlPage() {
 
   return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
+      <PageHeader />
       <Link href="/admin/undian" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary">
         <ArrowLeft size={18} /> Kembali ke CMS Undian
       </Link>
@@ -197,7 +199,7 @@ export default function UndianControlPage() {
         <div>
           {/* Subhalaman: judulnya lebih spesifik daripada label nav induknya
               ("Undian" di bilah), dan itu memang perannya. */}
-          <h2 className="text-headline-small font-semibold tracking-tight">Panel operator</h2>
+          <h2 className="text-headline-small font-semibold">Panel operator</h2>
         </div>
         <Link href="/undian?fullscreen=1" target="_blank" className="rounded-md flex min-h-12 items-center gap-2 border border-outline-variant px-5 text-body-medium font-semibold hover:border-primary hover:text-primary">
           <ArrowSquareOut size={18} /> Buka layar panggung
@@ -262,7 +264,7 @@ export default function UndianControlPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
         {/* --- Pilih hadiah --- */}
         <section>
-          <h2 className="mb-3 text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Pilih hadiah</h2>
+          <h2 className="mb-3 text-body-medium font-semibold ed-label text-on-surface-variant">Pilih hadiah</h2>
           {prizes.length === 0 ? <p className="rounded-lg border border-dashed border-outline-variant p-8 text-center text-body-medium text-on-surface-variant">
             Belum ada hadiah aktif. Tambahkan di <Link href="/admin/undian" className="font-semibold text-primary underline">CMS Undian</Link>.
           </p> : <div className="space-y-2">
@@ -289,7 +291,7 @@ export default function UndianControlPage() {
                   </p>
                 </div>
                 {full && <span
-                  className="rounded-sm shrink-0 border border-outline-variant px-1.5 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant"
+                  className="rounded-sm shrink-0 border border-outline-variant px-1.5 py-0.5 text-label-small font-semibold uppercase text-on-surface-variant"
                   // "Penuh" saja terbaca sebagai "hadiah ini habis selamanya",
                   // dan tafsir itulah yang membuat orang membuat hadiah duplikat
                   // atau menghapus hasil undian. Kuota dihitung per SESI.
@@ -306,8 +308,8 @@ export default function UndianControlPage() {
         <section className="rounded-lg overflow-hidden space-y-px self-start border border-outline-variant bg-outline-variant">
           <div className="rounded-lg bg-panel p-6">
             {!state?.prize ? <p className="py-8 text-center text-body-medium text-on-surface-variant">Pilih hadiah untuk mulai mengundi.</p> : <>
-              <p className="text-body-small font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Sedang diundi</p>
-              <p className="mt-2 text-headline-small font-semibold tracking-[-0.03em]">{state.prize.name}</p>
+              <p className="text-body-small font-semibold ed-label text-on-surface-variant">Sedang diundi</p>
+              <p className="mt-2 text-headline-small font-semibold">{state.prize.name}</p>
               <p className="mt-1 text-body-medium tabular-nums text-on-surface-variant">
                 {quotaUsed}/{state.prize.winner_quota} pemenang
                 {state.pool_size > 0 && ` · ${state.pool_size} nama di kolam`}
@@ -321,12 +323,12 @@ export default function UndianControlPage() {
                   Menampilkan "0.0" di sana akan terbaca sebagai animasi yang
                   macet, padahal justru itulah perilaku yang diminta. */}
               {spinning && <div className="rounded-lg mt-5 border border-primary bg-primary-soft p-5 text-center">
-                <p className="text-body-small font-semibold uppercase tracking-[0.15em] text-primary-dim">Sedang mengundi</p>
+                <p className="text-body-small font-semibold ed-label text-primary-dim">Sedang mengundi</p>
                 {manualSpin
-                  ? <p className="mt-2 flex items-center justify-center gap-2 text-headline-small font-semibold tracking-[-0.03em] text-primary-dim">
+                  ? <p className="mt-2 flex items-center justify-center gap-2 text-headline-small font-semibold text-primary-dim">
                       <span className="inline-block size-2.5 animate-pulse rounded-full bg-primary" /> Berjalan di layar, menunggu aba-aba
                     </p>
-                  : <p className="mt-2 text-display-medium font-semibold tabular-nums tracking-[-0.05em] text-primary-dim">{countdown.toFixed(1)}</p>}
+                  : <p className="mt-2 text-display-medium font-semibold tabular-nums text-primary-dim">{countdown.toFixed(1)}</p>}
                 <p className="mt-2 text-body-small text-primary-dim/80">
                   {manualSpin
                     ? kalimatManual
@@ -434,7 +436,7 @@ export default function UndianControlPage() {
 
           {/* --- Pemenang undian terakhir --- */}
           {state && state.winners.length > 0 && <div className="rounded-lg bg-panel p-6">
-            <h3 className="text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Pemenang undian ini</h3>
+            <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">Pemenang undian ini</h3>
             <ul className="mt-3 space-y-2">
               {/* Key memakai `ref`, BUKAN `id`.
 
@@ -454,9 +456,9 @@ export default function UndianControlPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-title-large font-semibold">{winner.name}</span>
-                      {winner.is_backup && <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant">Cadangan {winner.slot_order}</span>}
-                      {winner.status === "confirmed" && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">Sah</span>}
-                      {winner.status === "rejected" && <span className="rounded-sm border border-error px-1.5 py-0.5 text-[10px] font-semibold uppercase text-error">Dibatalkan</span>}
+                      {winner.is_backup && <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-label-small font-semibold uppercase text-on-surface-variant">Cadangan {winner.slot_order}</span>}
+                      {winner.status === "confirmed" && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-label-small font-semibold uppercase text-primary">Sah</span>}
+                      {winner.status === "rejected" && <span className="rounded-sm border border-error px-1.5 py-0.5 text-label-small font-semibold uppercase text-error">Dibatalkan</span>}
                     </div>
                     <p className="mt-1 text-body-small text-on-surface-variant">
                       {[winner.company, winner.seat && `Kursi ${winner.seat}`].filter(Boolean).join(" · ") || "—"}
@@ -485,7 +487,7 @@ export default function UndianControlPage() {
 
                 {/* Konfirmasi ditahan di dalam barisnya, bukan lewat dialog browser. */}
                 {rejecting === winner.id && <div className="mt-3 border-t border-outline-variant pt-3">
-                  <label htmlFor={`reason-${winner.id}`} className="text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Alasan (opsional)</label>
+                  <label htmlFor={`reason-${winner.id}`} className="text-body-small font-semibold ed-label text-on-surface-variant">Alasan (opsional)</label>
                   <input
                     id={`reason-${winner.id}`}
                     value={rejectReason}
@@ -514,7 +516,7 @@ export default function UndianControlPage() {
 
           {/* --- Rekap --- */}
           {state && state.confirmed.length > 0 && <div className="rounded-lg bg-panel p-6">
-            <h3 className="flex items-center gap-2 text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">
+            <h3 className="flex items-center gap-2 text-body-medium font-semibold ed-label text-on-surface-variant">
               <Trophy size={16} /> Sudah sah ({state.confirmed.length})
             </h3>
             <ul className="mt-3 grid gap-1 sm:grid-cols-2">

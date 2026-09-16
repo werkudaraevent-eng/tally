@@ -2,7 +2,7 @@
 
 import { ArrowCounterClockwise, CaretDown, FloppyDisk, Plus, Trash } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, SegmentedButton, SelectField, Switch, TextField } from "@/components/m3";
+import { Button, PageHeader, SegmentedButton, SelectField, Switch, TextField } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { eventApiPath } from "@/lib/event-url";
 import {
@@ -351,6 +351,7 @@ export default function LabelAdminPage() {
   return (
     <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
       <div className="mx-auto max-w-[1440px]">
+        <PageHeader />
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <p className="max-w-xl text-body-medium leading-6 text-on-surface-variant">
             Rupa badge yang dicetak untuk tamu walk-in. Geser isinya langsung di atas gambar labelnya.
@@ -494,7 +495,7 @@ export default function LabelAdminPage() {
               menampilkan semuanya sekaligus: yang tidak sedang dikerjakan tidak
               perlu meminta perhatian.
               ----------------------------------------------------------------- */}
-          <aside className="space-y-4 lg:sticky lg:top-6">
+          <aside className="space-y-4">
             {aktif && terpilih != null ? (
               <section className="rounded-[28px] bg-surface-container p-5 sm:p-6">
                 <div className="flex items-start justify-between gap-3">

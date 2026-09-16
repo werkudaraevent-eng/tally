@@ -67,7 +67,7 @@ function FieldLabel({ htmlFor, children, optional }: { htmlFor: string; children
  * dituntut WCAG untuk elemen antarmuka non-teks.
  */
 const CONTROL_BASE =
-	"w-full rounded-md border bg-surface-container-lowest px-4 text-body-large text-on-surface outline-none transition-colors duration-150 ease-standard placeholder:text-on-surface-variant/70 disabled:opacity-50";
+	"w-full rounded-lg border bg-surface-container-lowest px-3 text-body-large text-on-surface outline-none transition-[border-color,box-shadow] duration-150 ease-standard placeholder:text-on-surface-variant/70 disabled:opacity-50";
 
 function controlClass(error?: string) {
 	return cx(
@@ -84,9 +84,19 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "classN
 		trailing?: ReactNode;
 		/** Tinggi kolom. `lg` untuk kolom utama layar operasional. */
 		size?: "md" | "lg";
+		/**
+		 * Kelas untuk elemen `<input>` itu sendiri, bukan pembungkusnya.
+		 *
+		 * Ada karena `className` menempel di pembungkus — dan sebagian kolom butuh
+		 * perlakuan pada teks yang diketik: jarak huruf lebar untuk PIN dan kode,
+		 * huruf lebar tetap untuk nomor order, rata tengah untuk kolom satu angka.
+		 * Tanpa jalan ini, kolom-kolom itu tetap ditulis tangan hanya karena satu
+		 * kelas — dan itu persis cara markup tangan bertahan.
+		 */
+		inputClassName?: string;
 	};
 
-export function TextField({ label, hint, error, optional, className, leading, trailing, size = "md", ...rest }: TextFieldProps) {
+export function TextField({ label, hint, error, optional, className, inputClassName, leading, trailing, size = "md", ...rest }: TextFieldProps) {
 	const { id, describedBy } = useFieldIds(error, hint);
 	return (
 		<div className={className}>
@@ -95,7 +105,7 @@ export function TextField({ label, hint, error, optional, className, leading, tr
 			</FieldLabel>
 			<div className="relative mt-2">
 				{leading ? (
-					<span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" aria-hidden>
+					<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" aria-hidden>
 						{leading}
 					</span>
 				) : null}
@@ -106,9 +116,10 @@ export function TextField({ label, hint, error, optional, className, leading, tr
 					aria-describedby={describedBy}
 					className={cx(
 						controlClass(error),
-						size === "lg" ? "h-16" : "h-14",
-						!!leading && "pl-12",
-						!!trailing && "pr-12",
+						size === "lg" ? "m3-field-lg h-16" : "m3-field h-14",
+						!!leading && "pl-9",
+						!!trailing && "pr-9",
+						inputClassName,
 					)}
 				/>
 				{trailing ? <span className="absolute right-3 top-1/2 -translate-y-1/2">{trailing}</span> : null}
@@ -158,7 +169,7 @@ export function SelectField({ label, hint, error, optional, className, children,
 				// appearance-none dilepas dengan sengaja: panah bawaan sistem ikut
 				// mengikuti color-scheme, dan menggantinya dengan ikon sendiri berarti
 				// membangun ulang perilaku papan ketik yang sudah benar.
-				className={cx(controlClass(error), "h-14")}
+				className={cx(controlClass(error), "m3-field h-14")}
 			>
 				{children}
 			</select>

@@ -18,6 +18,7 @@ import { ArrowLeft, Buildings, CheckCircle, Info, Prohibit, Snowflake, Trash, Us
 import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
+import { PageHeader } from "@/components/m3";
 
 type Rule = {
   id: number;
@@ -146,10 +147,11 @@ export default function LeaderboardExclusionsPage() {
 
   return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px] [&>*]:max-w-[900px]">
+      <PageHeader />
       <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Papan peringkat</Link>
 
       <div>
-        <h2 className="text-headline-small font-semibold tracking-tight">Pengecualian peserta</h2>
+        <h2 className="text-headline-small font-semibold">Pengecualian peserta</h2>
         <p className="mt-3 max-w-2xl text-body-medium leading-6 text-on-surface-variant">
           Peserta dan perusahaan di daftar ini <span className="font-semibold text-on-surface">tidak berhak</span> masuk top spender.
           Transaksinya tetap tercatat penuh di Reports — yang gugur hanya lombanya.
@@ -170,7 +172,7 @@ export default function LeaderboardExclusionsPage() {
           { label: "Dikecualikan", value: summary.excluded_spenders },
           { label: "Masuk papan", value: summary.remaining_spenders },
         ].map((item) => <div key={item.label} className="rounded-lg bg-panel p-4">
-          <p className="text-body-small uppercase tracking-[0.14em] text-on-surface-variant">{item.label}</p>
+          <p className="ed-label text-on-surface-variant">{item.label}</p>
           <p className="mt-1 text-headline-medium font-semibold tabular-nums">{item.value}</p>
         </div>)}
       </div>}
@@ -180,7 +182,7 @@ export default function LeaderboardExclusionsPage() {
         : tooFew && <div className="rounded-lg mt-4 flex items-start gap-2 border border-outline-variant bg-panel-high p-4 text-body-medium text-on-surface-variant"><Info size={20} className="mt-0.5 shrink-0 text-warning" /><span>Papan disetel {limit} baris, tapi hanya {summary?.remaining_spenders} peserta yang memenuhi syarat. Layar akan menampilkan lebih sedikit dari itu.</span></div>}
 
       <section className="rounded-lg mt-8 border border-outline-variant bg-panel p-6">
-        <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Tambah pengecualian</h2>
+        <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Tambah pengecualian</h2>
 
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {([["company", "Satu perusahaan", Buildings], ["participant", "Satu peserta", User]] as const).map(([value, label, Icon]) => <label key={value} className={`rounded-lg flex cursor-pointer items-center gap-3 border p-3 text-body-medium font-semibold ${mode === value ? "border-primary bg-primary-soft" : "border-outline-variant"}`}>
@@ -220,7 +222,7 @@ export default function LeaderboardExclusionsPage() {
       </section>
 
       <section className="mt-8">
-        <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Daftar pengecualian</h2>
+        <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Daftar pengecualian</h2>
         {rules === null ? <p className="mt-4 text-body-medium text-on-surface-variant">Memuat...</p>
           : rules.length === 0 ? <p className="rounded-lg mt-4 border border-outline-variant bg-panel p-6 text-body-medium text-on-surface-variant">Belum ada pengecualian. Seluruh peserta berhak masuk top spender.</p>
           : <div className="mt-4 space-y-2">
@@ -229,7 +231,7 @@ export default function LeaderboardExclusionsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-2 text-body-medium font-semibold">
                     {rule.company_keyword ? <><Buildings size={18} className="shrink-0 text-primary" /> {rule.company_keyword}</> : <><User size={18} className="shrink-0 text-primary" /> {participantName(rule.participant_id)}</>}
-                    {!rule.is_active && <span className="rounded-sm border border-outline-variant px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-on-surface-variant">Nonaktif</span>}
+                    {!rule.is_active && <span className="rounded-sm border border-outline-variant px-2 py-0.5 ed-label text-on-surface-variant">Nonaktif</span>}
                   </p>
                   {rule.reason && <p className="mt-1 text-body-small text-on-surface-variant">{rule.reason}</p>}
 

@@ -73,11 +73,11 @@ export function ThemeToggle({ className = "", compact = false }: { className?: s
 						// proyektor, penglihatan warna terbatas).
 						className={`m3-state flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 px-2 text-label-large transition-[border-radius,background-color,color] duration-300 ease-emphasized ${
 							selected
-								? "rounded-lg bg-primary text-on-primary"
+								? "rounded-md border border-outline-variant bg-surface-container text-on-surface"
 								: "rounded-2xl text-on-surface-variant"
 						}`}
 					>
-						<Icon size={20} weight={selected ? "fill" : "regular"} className="shrink-0" aria-hidden />
+						<Icon size={18} weight="regular" className="shrink-0" aria-hidden />
 						{/* Ikon saja di ruang sempit. Tiga label penuh butuh ~306px; rel
 						    navigasi admin hanya menyediakan 248px, dan teksnya keluar dari
 						    tepi rel alih-alih terpotong.

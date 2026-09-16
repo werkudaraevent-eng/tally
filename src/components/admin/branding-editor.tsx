@@ -166,7 +166,7 @@ export function BrandingEditor({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={value.logo_url} alt="Pratinjau logo" className="max-h-12 max-w-20 object-contain" />
               </span>
-              <span className="break-all text-[11px] leading-4 text-on-surface-variant">{value.logo_url}</span>
+              <span className="break-all text-label-small leading-4 text-on-surface-variant">{value.logo_url}</span>
             </div>
             <ScaleField
               id={`${idPrefix}-logo-scale`}
@@ -246,7 +246,7 @@ export function BrandingEditor({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={value.footer_image_url} alt="Pratinjau blok sponsor" className="max-h-12 max-w-28 object-contain" />
               </span>
-              <span className="break-all text-[11px] leading-4 text-on-surface-variant">{value.footer_image_url}</span>
+              <span className="break-all text-label-small leading-4 text-on-surface-variant">{value.footer_image_url}</span>
             </div>
             <ScaleField
               id={`${idPrefix}-footer-image-scale`}
@@ -421,9 +421,9 @@ function ColorField({
       <div className="flex items-center justify-between gap-3">
         <label className="text-body-small font-semibold" htmlFor={id}>{label}</label>
         {value === null ? (
-          <span className="text-[11px] text-on-surface-variant">Ikut warna dasar</span>
+          <span className="text-label-small text-on-surface-variant">Ikut warna dasar</span>
         ) : (
-          <button type="button" onClick={() => onChange(null)} className="min-h-8 text-[11px] font-semibold text-primary">
+          <button type="button" onClick={() => onChange(null)} className="min-h-8 text-label-small font-semibold text-primary">
             Kembalikan ke warna dasar
           </button>
         )}
@@ -453,7 +453,7 @@ function ColorField({
         />
       </div>
       {low ? (
-        <p className="mt-1 text-[11px] text-error">
+        <p className="mt-1 text-label-small text-error">
           Kontras {ratio?.toFixed(1)}:1 terhadap latar. Di bawah 4,5:1 teks sulit dibaca
           dari jauh. Tetap bisa disimpan.
         </p>

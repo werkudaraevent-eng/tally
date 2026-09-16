@@ -8,6 +8,7 @@ import { useToast } from "@/components/toast";
 import { normalizeBranding } from "@/lib/branding";
 import { DEFAULT_HEADER, formatClock, formatEventDate, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
+import { PageHeader } from "@/components/m3";
 
 // CMS rundown acara.
 //
@@ -333,6 +334,7 @@ export default function RundownAdminPage() {
   // tertindih sidebar di layar lg ke atas.
   return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px] space-y-8">
+      <PageHeader />
     <header className="space-y-3">
       <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">
         Yang disusun di sini tampil di halaman <code className="font-mono text-body-small">/rundown</code> yang dibuka tamu tanpa login.
@@ -370,7 +372,7 @@ export default function RundownAdminPage() {
     <section className="rounded-lg space-y-4 border border-outline-variant bg-panel p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Header halaman publik</h2>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Header halaman publik</h2>
           <p className="mt-1 max-w-2xl text-body-small leading-5 text-on-surface-variant">
             Berlaku untuk <strong className="font-semibold text-on-surface">semua tab</strong>. Judul dan tampilan header tidak
             lagi berubah saat tamu berpindah agenda. Isian tampilan bersifat opsional; dibiarkan kosong, header memakai tema bawaan.
@@ -437,7 +439,7 @@ export default function RundownAdminPage() {
               <XCircle size={17} weight="bold" />
             </button> : null}
           </div>
-          <p className="mt-1 text-[11px] text-on-surface-variant">
+          <p className="mt-1 text-label-small text-on-surface-variant">
             {header[key] ? header[key] : "Ikut tema bawaan"}
           </p>
         </div>)}
@@ -479,7 +481,7 @@ export default function RundownAdminPage() {
         </div>
         {header.background_image_url ? <div className="mt-2 flex items-center gap-2">
           <span className="rounded-md h-12 w-20 shrink-0 border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${header.background_image_url})` }} />
-          <span className="break-all text-[11px] leading-4 text-on-surface-variant">{header.background_image_url}</span>
+          <span className="break-all text-label-small leading-4 text-on-surface-variant">{header.background_image_url}</span>
         </div> : null}
       </div>
 
@@ -526,7 +528,7 @@ export default function RundownAdminPage() {
 
       <div className="rounded-lg flex flex-wrap items-end gap-3 border border-outline-variant bg-panel p-4">
         <label className="flex min-w-[220px] flex-1 flex-col gap-1.5">
-          <span className="text-body-small font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Bagian baru</span>
+          <span className="text-body-small font-semibold ed-label text-on-surface-variant">Bagian baru</span>
           <input
             value={newSectionName}
             onChange={(event) => setNewSectionName(event.target.value)}
@@ -548,7 +550,7 @@ export default function RundownAdminPage() {
     {active ? <div className="space-y-2">
       {/* Setelan bagian */}
       <section className="rounded-lg space-y-4 bg-panel p-5 sm:p-6">
-        <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Setelan bagian</h2>
+        <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Setelan bagian</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5">
             <span className="text-body-small font-semibold text-on-surface-variant">Label tab</span>
@@ -654,7 +656,7 @@ export default function RundownAdminPage() {
       {/* Baris jadwal */}
       <section className="rounded-lg space-y-4 bg-panel p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">
             Baris jadwal ({activeItems.length})
           </h2>
           <p className="text-body-small text-on-surface-variant">Urutan mengikuti jam mulai. Tidak perlu disusun ulang.</p>
@@ -666,7 +668,7 @@ export default function RundownAdminPage() {
           {activeItems.map((item) => <div key={item.id} className="rounded-lg space-y-3 bg-panel p-4">
             <div className="grid gap-3 sm:grid-cols-[104px_104px_minmax(0,1fr)]">
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Mulai</span>
+                <span className="text-label-small font-semibold ed-label text-on-surface-variant">Mulai</span>
                 <input
                   type="time"
                   value={formatClock(item.start_time)}
@@ -675,7 +677,7 @@ export default function RundownAdminPage() {
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Selesai</span>
+                <span className="text-label-small font-semibold ed-label text-on-surface-variant">Selesai</span>
                 <input
                   type="time"
                   value={item.end_time ? formatClock(item.end_time) : ""}
@@ -684,7 +686,7 @@ export default function RundownAdminPage() {
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Nama acara</span>
+                <span className="text-label-small font-semibold ed-label text-on-surface-variant">Nama acara</span>
                 <input
                   value={item.title}
                   onChange={(event) => updateItem(item.id, { title: event.target.value })}
@@ -697,7 +699,7 @@ export default function RundownAdminPage() {
                 di halaman publik. Tinggi awal 3 baris agar terlihat bahwa kotak
                 ini menerima lebih dari satu baris. */}
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Keterangan</span>
+              <span className="text-label-small font-semibold ed-label text-on-surface-variant">Keterangan</span>
               <textarea
                 value={item.subtitle ?? ""}
                 onChange={(event) => updateItem(item.id, { subtitle: event.target.value })}
@@ -705,7 +707,7 @@ export default function RundownAdminPage() {
                 placeholder={"Panelists:\nSantoso, Chairman - ASPI\nModerator:\nAbraham J. Adriaansz, President Director - PT Rintis Sejahtera"}
                 className="rounded-lg min-h-11 resize-y border border-outline-variant bg-panel px-3 py-2 text-body-medium leading-6"
               />
-              <span className="text-[11px] leading-5 text-on-surface-variant">
+              <span className="text-label-small leading-5 text-on-surface-variant">
                 Satu baris per pembicara. Baris yang diakhiri <strong className="font-semibold text-on-surface">titik dua</strong> jadi judul kelompok (mis. <code className="font-mono">Moderator:</code>) dan tidak diberi bulet.
               </span>
             </label>
@@ -767,12 +769,12 @@ export default function RundownAdminPage() {
 
         {/* Formulir baris baru */}
         <div className="rounded-lg space-y-3 border border-outline-variant bg-panel-high p-4">
-          <h3 className="flex items-center gap-2 text-body-small font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+          <h3 className="flex items-center gap-2 text-body-small font-semibold ed-label text-on-surface-variant">
             <CalendarDots size={16} />Tambah baris
           </h3>
           <div className="grid gap-3 sm:grid-cols-[104px_104px_minmax(0,1fr)]">
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Mulai</span>
+              <span className="text-label-small font-semibold ed-label text-on-surface-variant">Mulai</span>
               <input
                 type="time"
                 value={draft.start_time}
@@ -781,7 +783,7 @@ export default function RundownAdminPage() {
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Selesai</span>
+              <span className="text-label-small font-semibold ed-label text-on-surface-variant">Selesai</span>
               <input
                 type="time"
                 value={draft.end_time}
@@ -790,7 +792,7 @@ export default function RundownAdminPage() {
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Nama acara</span>
+              <span className="text-label-small font-semibold ed-label text-on-surface-variant">Nama acara</span>
               <input
                 value={draft.title}
                 onChange={(event) => updateDraft({ title: event.target.value })}
@@ -800,7 +802,7 @@ export default function RundownAdminPage() {
             </label>
           </div>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Keterangan</span>
+            <span className="text-label-small font-semibold ed-label text-on-surface-variant">Keterangan</span>
             <textarea
               value={draft.subtitle}
               onChange={(event) => updateDraft({ subtitle: event.target.value })}
@@ -808,7 +810,7 @@ export default function RundownAdminPage() {
               placeholder={"Panelists:\nSantoso, Chairman - ASPI\nModerator:\nAbraham J. Adriaansz, President Director - PT Rintis Sejahtera"}
               className="rounded-lg min-h-11 resize-y border border-outline-variant bg-panel px-3 py-2 text-body-medium leading-6"
             />
-            <span className="text-[11px] leading-5 text-on-surface-variant">
+            <span className="text-label-small leading-5 text-on-surface-variant">
               Satu baris per pembicara. Baris berakhiran <strong className="font-semibold text-on-surface">titik dua</strong> jadi judul kelompok. Boleh dikosongkan.
             </span>
           </label>

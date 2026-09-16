@@ -100,7 +100,7 @@ export function SettingsPanel() {
             berlangsung" di rundown. Setelan yang salah di sini membuat semua jam
             tampak wajar tapi geser serentak. */}
         <section className="rounded-lg bg-panel p-6">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Zona waktu acara</h2>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Zona waktu acara</h2>
           <p className="mt-3 text-body-medium text-on-surface-variant">Ikuti zona <span className="font-semibold text-on-surface">lokasi acara</span>, bukan zona kantor atau laptop panitia. Semua jam di app dipaksa ke zona ini agar tidak berbeda antar device.</p>
           <div className="mt-4 space-y-2">
             {EVENT_TIME_ZONES.map((option) => <label key={option.id} className={`rounded-lg flex cursor-pointer gap-3 border p-4 ${settings.time_zone === option.id ? "border-primary bg-primary-soft" : "border-outline-variant"}`}>
@@ -115,7 +115,7 @@ export function SettingsPanel() {
         </section>
 
         <section className="rounded-lg bg-panel p-6">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Penyerahan barang</h2>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Penyerahan barang</h2>
           <div className="mt-4 space-y-2">
             {([["after_payment", "Ambil setelah lunas", "Barang disimpan di booth. Peserta kembali setelah membayar di kasir."], ["immediate", "Serahkan langsung di booth", "Barang diberikan saat order dibuat."]] as const).map(([value, label, desc]) => <label key={value} className={`rounded-lg flex cursor-pointer gap-3 border p-4 ${settings.pickup_mode === value ? "border-primary bg-primary-soft" : "border-outline-variant"}`}>
               <input type="radio" name="pickup" checked={settings.pickup_mode === value} onChange={() => setSettings((current) => current && { ...current, pickup_mode: value })} className="mt-1 size-4 accent-primary" />
@@ -125,12 +125,12 @@ export function SettingsPanel() {
         </section>
 
         <section className="rounded-lg bg-panel p-6">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Item diskon</h2>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Item diskon</h2>
           <p className="mt-4 text-body-medium text-on-surface-variant">Aturan item diskon kini diatur <span className="font-semibold text-on-surface">per booth</span> (aktif/tidak, batas per peserta, dan stok). Atur di halaman <Link href="/admin/booths" className="font-semibold text-primary">Booth &amp; item</Link>.</p>
         </section>
 
         <section className="rounded-lg bg-panel p-6">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Konfirmasi kasir</h2>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Konfirmasi kasir</h2>
           <div className="mt-4 space-y-2">
             {([[true, "Lewat kasir", "Order booth masuk antrean kasir. Kasir menandai lunas dan memilih metode pembayaran. Nilai masuk top spender setelah lunas."], [false, "Tanpa kasir", "Order booth langsung tercatat lunas dan nilainya langsung masuk top spender. Antrean kasir tidak dipakai, metode pembayaran tidak dicatat."]] as const).map(([value, label, desc]) => <label key={String(value)} className={`rounded-lg flex cursor-pointer gap-3 border p-4 ${settings.cashier_confirmation_required === value ? "border-primary bg-primary-soft" : "border-outline-variant"}`}>
               <input type="radio" name="cashier-confirmation" checked={settings.cashier_confirmation_required === value} onChange={() => setSettings((current) => current && { ...current, cashier_confirmation_required: value })} className="mt-1 size-4 accent-primary" />
@@ -146,7 +146,7 @@ export function SettingsPanel() {
         <PaymentMethodManager />
 
         <section className="rounded-lg bg-panel p-6">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Auto-void</h2>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Auto-void</h2>
           <label className="mt-4 block text-body-medium font-semibold">Auto-void order pending setelah (menit)
             <input type="number" min={5} max={1440} value={settings.pending_auto_void_minutes} onChange={(event) => setSettings((current) => current && { ...current, pending_auto_void_minutes: Math.max(5, Math.min(1440, Number(event.target.value) || 5)) })} className="rounded-md mt-2 h-12 w-32 border border-outline-variant bg-surface px-3 text-body-large tabular-nums outline-none focus:border-primary" />
           </label>
@@ -161,7 +161,7 @@ export function SettingsPanel() {
 
       {isOwner && <div className="mt-10 rounded-lg border border-error-soft-outline bg-error-soft">
         <div className="border-b border-error-soft-outline px-6 py-4">
-          <div className="flex items-center gap-2 text-error"><Warning size={20} weight="fill" /><h2 className="text-body-medium font-semibold uppercase tracking-[0.14em]">Danger zone</h2></div>
+          <div className="flex items-center gap-2 text-error"><Warning size={20} weight="fill" /><h2 className="text-body-medium font-semibold ed-label">Danger zone</h2></div>
           <p className="mt-2 text-body-medium text-on-surface-variant">Kosongkan data pencatatan untuk memulai ulang dari nol. Berguna saat masa trial. Konfigurasi booth, user, dan tampilan tetap aman.</p>
         </div>
 

@@ -249,10 +249,10 @@ export default async function PanduanSistemPage({
   const prefix = event ? `/e/${event.slug}` : "";
 
   return (
-    <main className="min-h-dvh bg-surface px-5 pb-16 pt-8 text-on-surface sm:px-8">
+    <main className="press min-h-dvh bg-surface px-5 pb-16 pt-8 text-on-surface sm:px-8">
       <div className="mx-auto max-w-[900px]">
-        <p className="text-label-large font-semibold uppercase tracking-[0.18em] text-primary">Panduan sistem</p>
-        <h1 className="mt-3 text-display-small font-semibold tracking-[-0.03em]">Cara memakai Tally</h1>
+        <p className="ed-label border-b border-outline-variant pb-4 text-on-surface-variant">Panduan sistem</p>
+        <h1 className="mt-6 text-display-small font-bold tracking-tight">Cara memakai Tally</h1>
         <p className="mt-4 max-w-[68ch] text-body-large leading-8 text-on-surface-variant">
           Seluruh modul, disusun mengikuti urutan kerja: apa yang disiapkan lebih dulu, apa yang dipakai saat
           acara berjalan, dan apa yang dibereskan sesudahnya.
@@ -262,7 +262,7 @@ export default async function PanduanSistemPage({
         <div className="mt-7 flex flex-wrap gap-3">
           <Link
             href={`${prefix}/admin`}
-            className="m3-state inline-flex min-h-12 items-center gap-2 rounded-full bg-primary px-6 text-label-large font-semibold text-on-primary"
+            className="inline-flex min-h-12 items-center gap-2 border-2 border-on-surface bg-on-surface px-6 text-label-large font-semibold text-surface transition-colors duration-200 ease-standard hover:bg-transparent hover:text-on-surface"
           >
             Kembali ke aplikasi
           </Link>
@@ -272,7 +272,7 @@ export default async function PanduanSistemPage({
               melayani antrean. */}
           <Link
             href={`${prefix}/panduan`}
-            className="m3-state inline-flex min-h-12 items-center gap-2 rounded-full border border-outline px-6 text-label-large font-semibold"
+            className="inline-flex min-h-12 items-center gap-2 border border-outline px-6 text-label-large font-semibold transition-colors duration-200 ease-standard hover:bg-on-surface hover:text-surface"
           >
             <Printer size={18} />
             Panduan cetak operator booth &amp; kasir
@@ -282,7 +282,7 @@ export default async function PanduanSistemPage({
 
         {/* Daftar isi. Panduan sepanjang ini dibuka untuk mencari satu jawaban,
             bukan dibaca dari atas ke bawah. */}
-        <nav aria-label="Daftar isi" className="mt-10 rounded-[20px] border border-outline-variant bg-panel p-5">
+        <nav aria-label="Daftar isi" className="mt-10 border border-outline-variant bg-panel p-5">
           <p className="text-label-medium font-semibold uppercase tracking-[0.16em] text-on-surface-variant">Daftar isi</p>
           <ul className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
             {BAGIAN.map((bagian) => (
@@ -304,7 +304,7 @@ export default async function PanduanSistemPage({
 
             <div className="mt-6 space-y-6 pb-8">
               {bagian.isi.map((blok) => (
-                <div key={blok.judul} className="rounded-[20px] border border-outline-variant bg-panel p-5">
+                <div key={blok.judul} className="border border-outline-variant bg-panel p-5">
                   <h3 className="text-title-medium font-semibold">{blok.judul}</h3>
                   <ul className="mt-3 space-y-2">
                     {blok.poin.map((poin) => (

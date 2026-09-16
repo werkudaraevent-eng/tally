@@ -139,7 +139,7 @@ function BlokTanggal({ event }: { event: EventRow }) {
       className="flex size-14 shrink-0 flex-col items-center justify-center rounded-lg bg-surface-container-high text-on-surface"
     >
       <span className="text-title-large font-semibold leading-none tabular-nums">{hari}</span>
-      <span className="mt-1 text-label-small uppercase leading-none tracking-[0.08em] text-on-surface-variant">{bulan}</span>
+      <span className="mt-1 text-label-small uppercase leading-none text-on-surface-variant">{bulan}</span>
     </time>
   );
 }
@@ -392,6 +392,27 @@ export default function EventsPage() {
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, []);
 
+  /**
+   * `?buat=1` membuka langsung dialog buat event.
+   *
+   * Ada karena pengalih acara di sidebar ruang kerja menawarkan "Buat event
+   * baru", dan tanpa ini tawaran itu hanya bisa mendaratkan orang di halaman ini
+   * lalu menyuruhnya mencari tombolnya sendiri — aksi yang setengah menepati
+   * janjinya lebih buruk daripada aksi yang tidak ada.
+   *
+   * Dibaca dari `window.location`, bukan `useSearchParams`: hook itu memaksa
+   * seluruh halaman ini masuk ke batas Suspense demi satu parameter yang hanya
+   * dipakai sekali saat dipasang.
+   */
+  useEffect(() => {
+    if (!isOwner) return;
+    if (new URLSearchParams(window.location.search).get("buat") !== "1") return;
+    bukaBuatEvent();
+    // Parameternya dibuang dari URL supaya menyegarkan halaman tidak membuka
+    // dialognya lagi setelah acara tadi selesai dibuat.
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [isOwner]);
+
   /** Dialog dibuka bersih. Sakelar yang tertinggal menyala dari percobaan
    *  sebelumnya akan membuat event berikutnya lahir dengan sumber yang salah. */
   function bukaBuatEvent() {
@@ -433,13 +454,13 @@ export default function EventsPage() {
   const kelompok = URUTAN_STATUS.map((status) => ({ status, daftar: events.filter((item) => item.status === status) }));
   const jumlahArsip = kelompok.find((grup) => grup.status === "archived")?.daftar.length ?? 0;
 
-  return <main className="min-h-dvh bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-8">
+  return <main className="press min-h-dvh bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-8">
     <div className="mx-auto max-w-[1200px]">
       {/* Satu judul, satu baris. Eyebrow dan kalimat penjelasan dihapus: ini
           halaman yang dibuka setiap hari, dan penjelasannya pindah ke keadaan
           kosong — satu-satunya saat orang butuh dijelaskan. */}
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-outline-variant pb-5">
-        <h1 className="text-headline-medium font-semibold tracking-tight">Acara</h1>
+        <h1 className="text-headline-medium font-bold">Acara</h1>
         <div className="flex gap-2">
           {isOwner && <Button onClick={bukaBuatEvent} icon={<Plus size={18} weight="bold" />}>Buat event</Button>}
           <Button variant="outlined" onClick={() => void logout()} icon={<SignOut size={18} />}>Keluar</Button>
@@ -480,7 +501,7 @@ export default function EventsPage() {
             const judulId = `grup-${status}`;
             return (
               <section key={status} className="mt-6" aria-labelledby={judulId}>
-                <h2 id={judulId} className="px-1 text-label-medium font-semibold uppercase tracking-[0.16em] text-on-surface-variant">
+                <h2 id={judulId} className="px-1 text-label-medium font-semibold ed-label text-on-surface-variant">
                   {EVENT_STATUS_LABEL[status]} · {daftar.length}
                 </h2>
                 {/* Tanpa `overflow-hidden` pada <ul>: menu ⋯ tiap baris
@@ -651,8 +672,8 @@ export default function EventsPage() {
             tombol ditekan. Salinan yang ternyata membawa 247 peserta acara lain
             baru ketahuan setelah ada yang memeriksa daftar peserta. */}
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold uppercase tracking-[0.14em]">Ikut disalin</p><p className="mt-2 text-body-medium text-on-surface-variant">Booth, item spesial, pengaturan, tampilan display, rundown, denah, hadiah &amp; aturan undian, diskualifikasi berbasis nama perusahaan.</p></div>
-          <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold uppercase tracking-[0.14em]">Tidak disalin</p><p className="mt-2 text-body-medium text-on-surface-variant">Peserta, transaksi, pemenang undian, hak akses pengguna, dan seluruh riwayat.</p></div>
+          <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold ed-label">Ikut disalin</p><p className="mt-2 text-body-medium text-on-surface-variant">Booth, item spesial, pengaturan, tampilan display, rundown, denah, hadiah &amp; aturan undian, diskualifikasi berbasis nama perusahaan.</p></div>
+          <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold ed-label">Tidak disalin</p><p className="mt-2 text-body-medium text-on-surface-variant">Peserta, transaksi, pemenang undian, hak akses pengguna, dan seluruh riwayat.</p></div>
         </div>
 
         {/* `key`: nilai bawaan nama mengikuti event yang sedang disalin. Tanpa

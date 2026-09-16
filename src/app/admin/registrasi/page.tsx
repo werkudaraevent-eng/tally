@@ -3,7 +3,7 @@
 import { Check, EnvelopeSimple, Hourglass, Link as LinkIcon, PaperPlaneTilt, WarningCircle, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
-import { Button } from "@/components/m3";
+import { Button, PageHeader } from "@/components/m3";
 import { RegistrationFormBuilder } from "@/components/admin/registration-form-builder";
 import { RegistrationFormPreview } from "@/components/admin/registration-form-preview";
 import type { RegistrationFormConfig } from "@/lib/domain";
@@ -232,6 +232,7 @@ export default function RegistrasiAdminPage() {
 
   return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
+      <PageHeader />
       <div>
         <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">Peserta mendaftar sendiri lewat tautan publik. Yang disetujui langsung mendapat kode peserta dan bisa discan booth.</p>
       </div>
@@ -308,7 +309,7 @@ export default function RegistrasiAdminPage() {
             onChange={setDraftForm}
             disabled={simpanForm}
           />
-          <div className="xl:sticky xl:top-20">
+          <div>
             <RegistrationFormPreview config={formDraft} eventName={namaEvent} seed={config.form_theme_seed} />
           </div>
         </div>
@@ -335,7 +336,7 @@ export default function RegistrasiAdminPage() {
             {rows.map((row) => <article key={row.id} className="rounded-lg bg-panel p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h3 className="text-title-large font-semibold tracking-[-0.02em]">{row.name}</h3>
+                  <h3 className="text-title-large font-semibold">{row.name}</h3>
                   <p className="mt-1 break-words text-body-medium text-on-surface-variant">{row.email} · {row.phone}</p>
                   {(row.company || row.job_title) && <p className="mt-1 text-body-medium text-on-surface-variant">{[row.job_title, row.company].filter(Boolean).join(" · ")}</p>}
                   <p className="mt-2 text-body-small text-on-surface-variant">Didaftarkan {formatEventDateTime(row.created_at, zone)} {abbr}</p>

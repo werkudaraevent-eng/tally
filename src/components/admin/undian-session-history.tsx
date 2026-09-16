@@ -5,6 +5,15 @@ import {
   Prohibit, Trash, Trophy, Warning, X,
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
+import {
+  StatusChip,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+} from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { WINNER_STATUS_LABEL, normalizeSessionSummary, type UndianSessionSummary } from "@/lib/undian";
 
@@ -217,7 +226,7 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
     {orphanWinners > 0 && <section className="rounded-lg border border-warning-soft-outline bg-warning-soft p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-2xl">
-          <h2 className="flex items-center gap-2 text-body-medium font-semibold uppercase tracking-[0.15em] text-on-warning-soft">
+          <h2 className="flex items-center gap-2 text-body-medium font-semibold ed-label text-on-warning-soft">
             <Warning size={16} /> {orphanWinners} pemenang belum masuk sesi
           </h2>
           <p className="mt-2 text-body-small leading-relaxed text-on-warning-soft">
@@ -241,10 +250,10 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
     <section className="rounded-lg border border-outline-variant bg-panel p-5">
       {active ? <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="flex items-center gap-2 text-body-small font-semibold uppercase tracking-[0.15em] text-primary">
+          <p className="flex items-center gap-2 text-body-small font-semibold ed-label text-primary">
             <span className="inline-block size-2 animate-pulse rounded-full bg-primary" /> Sesi berjalan
           </p>
-          <p className="mt-2 text-title-large font-semibold tracking-[-0.02em]">{active.name}</p>
+          <p className="mt-2 text-title-large font-semibold">{active.name}</p>
           <p className="mt-1 text-body-small tabular-nums text-on-surface-variant">
             Mulai {clockShort(active.started_at)} · {active.winner_total} pemenang · {active.draw_count} kali undi
           </p>
@@ -258,7 +267,7 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
         </button>
       </div> : <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h2 className="flex items-center gap-2 text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">
+          <h2 className="flex items-center gap-2 text-body-medium font-semibold ed-label text-on-surface-variant">
             <CalendarCheck size={16} /> Mulai sesi baru
           </h2>
           <p className="mt-2 max-w-xl text-body-small leading-relaxed text-on-surface-variant">
@@ -294,7 +303,7 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
     <div className="grid gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
       {/* --- Daftar sesi --- */}
       <section>
-        <h2 className="mb-3 text-body-medium font-semibold uppercase tracking-[0.15em] text-on-surface-variant">Sesi</h2>
+        <h2 className="mb-3 text-body-medium font-semibold ed-label text-on-surface-variant">Sesi</h2>
         <div className="space-y-2">
           <button
             type="button"
@@ -313,8 +322,8 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-body-medium font-semibold">{session.name}</span>
                 {session.status === "active"
-                  ? <span className="rounded-sm border border-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">Berjalan</span>
-                  : <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant">Ditutup</span>}
+                  ? <span className="rounded-sm border border-primary px-1.5 py-0.5 text-label-small font-semibold uppercase text-primary">Berjalan</span>
+                  : <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-label-small font-semibold uppercase text-on-surface-variant">Ditutup</span>}
               </div>
               <p className="mt-1 text-body-small tabular-nums text-on-surface-variant">
                 {clockShort(session.started_at)}
@@ -472,7 +481,7 @@ function Modal({
     <button type="button" onClick={onClose} className="absolute inset-0 cursor-default" aria-label="Tutup dialog" />
     <div className={`rounded-lg relative w-full max-w-lg border-2 bg-panel p-6 ${tone === "danger" ? "border-error" : "border-primary"}`}>
       <div className="mb-4 flex items-start justify-between gap-4">
-        <h2 className={`text-title-large font-semibold tracking-[-0.02em] ${tone === "danger" ? "text-error" : ""}`}>{title}</h2>
+        <h2 className={`text-title-large font-semibold ${tone === "danger" ? "text-error" : ""}`}>{title}</h2>
         <button type="button" onClick={onClose} className="flex min-h-9 items-center px-1 text-on-surface-variant hover:text-on-surface" aria-label="Tutup"><X size={18} /></button>
       </div>
       {children}
@@ -481,54 +490,55 @@ function Modal({
 }
 
 function WinnerTable({ winners, showSession }: { winners: Winner[]; showSession: boolean }) {
-  return <div className="overflow-x-auto">
-    <table className="w-full text-left text-body-medium">
-      <thead className="border-b border-outline-variant text-body-small uppercase tracking-[0.1em] text-on-surface-variant">
-        <tr>
-          {showSession && <th scope="col" className="py-3 pr-4 font-semibold">Sesi</th>}
-          <th scope="col" className="py-3 pr-4 font-semibold">Hadiah</th>
-          <th scope="col" className="py-3 pr-4 font-semibold">Pemenang</th>
-          <th scope="col" className="py-3 pr-4 font-semibold">Status</th>
-          <th scope="col" className="py-3 font-semibold">Waktu</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-outline-variant">
-        {winners.map((winner) => <tr key={winner.id} className={winner.status === "rejected" ? "opacity-55" : ""}>
-          {showSession && <td className="py-3 pr-4 text-body-small text-on-surface-variant">{winner.session_name ?? "(tanpa sesi)"}</td>}
-          <td className="py-3 pr-4">
-            <span className="text-body-small font-semibold">{winner.prize_name}</span>
-            <span className="mt-0.5 block text-[11px] tabular-nums text-on-surface-variant">Undian ke-{winner.draw_round}</span>
-          </td>
-          <td className="py-3 pr-4">
-            <span className="flex flex-wrap items-center gap-1.5 font-semibold">
-              {winner.display_name}
-              {winner.is_backup && <span className="rounded-sm border border-outline-variant px-1 py-0.5 text-[10px] font-semibold uppercase text-on-surface-variant">Cadangan</span>}
-            </span>
-            <span className="mt-0.5 block text-[11px] text-on-surface-variant">
-              {[winner.company, winner.seat_label && `Kursi ${winner.seat_label}`].filter(Boolean).join(" · ") || "—"}
-            </span>
-          </td>
-          <td className="py-3 pr-4">
-            <span className={`inline-flex px-1.5 py-0.5 text-[11px] font-semibold ${
-              winner.status === "confirmed" ? "bg-success-soft text-primary-dim"
-                : winner.status === "rejected" ? "bg-error-soft text-error"
-                : "bg-panel-high text-on-surface-variant"}`}>
-              {WINNER_STATUS_LABEL[winner.status]}
-            </span>
-            {winner.reject_reason && <span className="mt-0.5 block text-[11px] text-on-surface-variant">{winner.reject_reason}</span>}
-          </td>
-          <td className="py-3 text-[11px] tabular-nums text-on-surface-variant">{clock(winner.drawn_at)}</td>
-        </tr>)}
-      </tbody>
-    </table>
-  </div>;
+  return <Table density="flush" minWidth="640px">
+    <TableHead>
+      <TableRow>
+        {showSession && <TableHeaderCell>Sesi</TableHeaderCell>}
+        <TableHeaderCell>Hadiah</TableHeaderCell>
+        <TableHeaderCell>Pemenang</TableHeaderCell>
+        <TableHeaderCell>Status</TableHeaderCell>
+        <TableHeaderCell>Waktu</TableHeaderCell>
+      </TableRow>
+    </TableHead>
+    <TableBody>
+      {/* `muted` untuk pemenang yang ditolak: barisnya tetap terbaca — panitia
+          masih perlu tahu siapa yang ditolak dan alasannya — tetapi ia tidak lagi
+          menuntut perhatian yang sama dengan pemenang yang berlaku. */}
+      {winners.map((winner) => <TableRow key={winner.id} muted={winner.status === "rejected"}>
+        {showSession && <TableCell className="text-body-small text-on-surface-variant">{winner.session_name ?? "(tanpa sesi)"}</TableCell>}
+        <TableCell>
+          <span className="text-body-small font-semibold">{winner.prize_name}</span>
+          <span className="ed-num mt-0.5 block text-label-small text-on-surface-variant">Undian ke-{winner.draw_round}</span>
+        </TableCell>
+        <TableCell>
+          <span className="flex flex-wrap items-center gap-1.5 font-semibold">
+            {winner.display_name}
+            {winner.is_backup && <span className="ed-label rounded-sm border border-outline-variant px-1 py-0.5 text-label-small font-semibold text-on-surface-variant">Cadangan</span>}
+          </span>
+          <span className="mt-0.5 block text-label-small text-on-surface-variant">
+            {[winner.company, winner.seat_label && `Kursi ${winner.seat_label}`].filter(Boolean).join(" · ") || "—"}
+          </span>
+        </TableCell>
+        <TableCell>
+          <StatusChip
+            className="min-h-6 px-2 text-label-small"
+            tone={winner.status === "confirmed" ? "success" : winner.status === "rejected" ? "error" : "neutral"}
+          >
+            {WINNER_STATUS_LABEL[winner.status]}
+          </StatusChip>
+          {winner.reject_reason && <span className="mt-0.5 block text-label-small text-on-surface-variant">{winner.reject_reason}</span>}
+        </TableCell>
+        <TableCell className="ed-num text-label-small text-on-surface-variant">{clock(winner.drawn_at)}</TableCell>
+      </TableRow>)}
+    </TableBody>
+  </Table>;
 }
 
 function TimelineList({ events }: { events: TimelineEvent[] }) {
   return <ol className="space-y-2">
     {events.map((event, index) => <li key={index} className="rounded-lg flex gap-3 bg-panel p-3">
-      <span className="w-28 shrink-0 text-[11px] tabular-nums text-on-surface-variant">{clock(event.at)}</span>
-      <span className={`rounded-sm h-fit shrink-0 border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+      <span className="w-28 shrink-0 text-label-small tabular-nums text-on-surface-variant">{clock(event.at)}</span>
+      <span className={`rounded-sm h-fit shrink-0 border px-1.5 py-0.5 text-label-small font-semibold uppercase ${
         event.kind === "draw" ? "border-primary text-primary"
           : event.kind === "confirm" ? "border-success-soft-outline text-primary-dim"
           : "border-error text-error"}`}>
@@ -538,7 +548,7 @@ function TimelineList({ events }: { events: TimelineEvent[] }) {
         <span className="block text-body-small font-semibold">{event.prize_name}</span>
         <span className="mt-0.5 block text-body-small text-on-surface-variant">{event.detail}</span>
       </span>
-      {event.actor && <span className="hidden shrink-0 text-[11px] text-on-surface-variant sm:block">{event.actor}</span>}
+      {event.actor && <span className="hidden shrink-0 text-label-small text-on-surface-variant sm:block">{event.actor}</span>}
     </li>)}
   </ol>;
 }
@@ -546,7 +556,7 @@ function TimelineList({ events }: { events: TimelineEvent[] }) {
 function RecapTable({ recap }: { recap: Recap[] }) {
   return <div className="overflow-x-auto">
     <table className="w-full text-left text-body-medium">
-      <thead className="border-b border-outline-variant text-body-small uppercase tracking-[0.1em] text-on-surface-variant">
+      <thead className="border-b border-outline-variant ed-label text-on-surface-variant">
         <tr>
           <th scope="col" className="py-3 pr-4 font-semibold">Hadiah</th>
           <th scope="col" className="py-3 pr-4 text-right font-semibold">Diundi</th>

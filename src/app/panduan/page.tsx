@@ -110,15 +110,20 @@ export default async function PanduanPage({
     masalah.splice(4, 0, { q: `Order hilang setelah ${autoVoid} menit`, a: [`Order belum dibayar lebih dari ${autoVoid} menit otomatis dibatalkan sistem.`, "Normal, bukan kerusakan. Kuota item spesial peserta kembali.", "Peserta datang terlambat? Buat order baru."] });
   }
 
-  return <main className="rounded-lg mx-auto max-w-3xl bg-white px-8 py-10 text-on-surface print:px-0 print:py-0">
-    <div className="rounded-lg print:hidden mb-8 flex flex-wrap items-center justify-between gap-3 border border-outline-variant bg-surface p-4">
+  // `press` di halaman ini bukan pilihan gaya, melainkan pengakuan atas apa
+  // yang sudah terjadi: berkas ini dicetak di atas kertas dan ditempel di meja
+  // booth. Ia sudah memakai kertas putih, garis tebal, dan label huruf kapital
+  // jauh sebelum gaya ini ada. Yang ditambahkan hanya menyelaraskannya dengan
+  // sisa terbitan.
+  return <main className="press mx-auto max-w-3xl bg-surface px-8 py-10 text-on-surface print:px-0 print:py-0">
+    <div className="print:hidden mb-8 flex flex-wrap items-center justify-between gap-3 border border-outline bg-panel p-4">
       <p className="text-body-medium">Tekan <span className="font-semibold">Ctrl + P</span> untuk mencetak. Letakkan di meja booth.</p>
-      <a href="/booth" className="rounded-md min-h-11 border border-outline-variant bg-white px-4 text-body-medium font-semibold leading-[2.75rem]">Kembali ke aplikasi</a>
+      <a href="/booth" className="min-h-11 border border-outline bg-surface px-4 text-body-medium font-semibold leading-[2.75rem] transition-colors duration-200 ease-standard hover:bg-on-surface hover:text-surface">Kembali ke aplikasi</a>
     </div>
 
-    <header className="border-b-2 border-on-surface pb-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Panduan Operator</p>
-      <h1 className="mt-1 text-headline-medium font-bold">Tally — Pusat operasional acara</h1>
+    <header className="border-b-4 border-on-surface pb-4">
+      <p className="ed-label text-on-surface-variant">Panduan Operator</p>
+      <h1 className="mt-2 text-headline-large font-bold tracking-tight">Tally — Pusat operasional acara</h1>
       <p className="mt-2 text-body-medium text-on-surface-variant">
         Alur aktif: {viaCashier ? "pembayaran lewat kasir" : "tanpa kasir, order langsung lunas"} ·{" "}
         {handOverNow ? "barang diserahkan langsung di booth" : "barang diambil setelah lunas"}

@@ -1,9 +1,10 @@
 "use client";
 
-import { ClipboardText, GearSix, ShieldCheck } from "@phosphor-icons/react";
+import { ClipboardText, GearSix, PlugsConnected, ShieldCheck } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
-import { SegmentedButton } from "@/components/m3";
+import { PageHeader, SegmentedButton } from "@/components/m3";
 import { AuditPanel } from "@/components/admin/audit-panel";
+import { ScannerPanel } from "@/components/admin/scanner-panel";
 import { SettingsPanel } from "@/components/admin/settings-panel";
 import { UsersPanel } from "@/components/admin/users-panel";
 
@@ -20,7 +21,7 @@ import { UsersPanel } from "@/components/admin/users-panel";
  * navigasi sendiri.
  */
 
-type Tab = "settings" | "users" | "audit";
+type Tab = "settings" | "integrations" | "users" | "audit";
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("settings");
@@ -45,6 +46,7 @@ export default function SettingsPage() {
   return (
     <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
       <div className="mx-auto max-w-[1440px]">
+        <PageHeader />
         <SegmentedButton<Tab>
           className="mb-6"
           label="Bagian pengaturan"
@@ -52,6 +54,11 @@ export default function SettingsPage() {
           onChange={setTab}
           options={[
             { value: "settings", label: "Acara", icon: <GearSix size={18} /> },
+            // Integrasi duduk di sini, bukan sebagai menu sidebar sendiri: ia
+            // diisi sekali saat acara disiapkan, sama seperti dua tab di
+            // sebelahnya, dan sidebar disisakan untuk tujuan yang benar-benar
+            // ditekan panitia sepanjang hari.
+            { value: "integrations", label: "Integrasi", icon: <PlugsConnected size={18} /> },
             { value: "users", label: "User & role", icon: <ShieldCheck size={18} /> },
             ...(isOwner ? [{ value: "audit" as const, label: "Audit trail", icon: <ClipboardText size={18} /> }] : []),
           ]}
@@ -61,7 +68,9 @@ export default function SettingsPage() {
             Masing-masing memuat datanya sendiri saat dipasang; membiarkan yang
             tersembunyi tetap hidup berarti daftar akun dimuat ulang setiap kali
             settings disimpan, tanpa ada yang melihatnya. */}
-        {aktif === "settings" ? <SettingsPanel /> : aktif === "users" ? <UsersPanel /> : <AuditPanel />}
+        {aktif === "settings" ? <SettingsPanel />
+          : aktif === "integrations" ? <ScannerPanel />
+          : aktif === "users" ? <UsersPanel /> : <AuditPanel />}
       </div>
     </main>
   );

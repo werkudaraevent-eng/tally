@@ -1,8 +1,11 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowsDownUp, CaretLeft, CaretRight, Check, LockSimple, MagnifyingGlass, Paperclip, PencilSimple, Plus, Prohibit, Trash, UsersThree, WarningCircle, XCircle } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
-import { Button, Dialog, IconButton } from "@/components/m3";
+import { ArrowDown, ArrowUp, CaretUpDown, Check, LockSimple, MagnifyingGlass, Paperclip, PencilSimple, Prohibit, Trash, UsersThree, WarningCircle, XCircle } from "@phosphor-icons/react";
+import { useCallback, useEffect, useImperativeHandle, useState } from "react";
+import {
+  Banner, Button, Dialog, EmptyCell, EMPTY_VALUE, EmptyState, IconButton, Pagination, PageToolbar,
+  SelectMenu, StatusChip, TableCard, TableSkeleton, type SelectOption,
+} from "@/components/m3";
 import { formatEventDateTime } from "@/lib/datetime";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
@@ -72,7 +75,40 @@ const ASAL: Record<AsalPeserta, { label: string; kelas: string; judul: string }>
   },
 };
 
+/** Bawaan. Bisa diganti 25/50/100 lewat pengendali halaman; batas server 200. */
 const PAGE_SIZE = 25;
+
+/**
+ * Pilihan penyaring. Label diawali "Semua ..." supaya kotaknya sendiri yang
+ * memberi tahu ia penyaring apa — itu yang membuat kata "Filter" di depan
+ * deretannya tidak lagi dibutuhkan.
+ */
+const OPSI_ASAL: SelectOption<string>[] = [
+  { value: "", label: "Semua asal" },
+  { value: "walkin", label: "Walk-in" },
+  { value: "registration", label: "Daftar sendiri" },
+  { value: "manual", label: "Manual" },
+];
+
+/** RSVP dalam bahasa panitia, dengan titik warna yang menandai artinya. */
+const LABEL_RSVP: Record<string, string> = {
+  confirmed: "Konfirmasi",
+  invited: "Menunggu",
+  declined: "Tidak hadir",
+};
+
+const RSVP_TONE: Record<string, "success" | "warning" | "error"> = {
+  confirmed: "success",
+  invited: "warning",
+  declined: "error",
+};
+
+const OPSI_RSVP: SelectOption<string>[] = [
+  { value: "", label: "Semua RSVP" },
+  { value: "confirmed", label: "RSVP: confirmed" },
+  { value: "invited", label: "RSVP: invited" },
+  { value: "none", label: "RSVP: belum diisi" },
+];
 
 // Harus cocok dengan whitelist SORTABLE di /api/admin/participants.
 type SortKey =
@@ -142,8 +178,6 @@ function toDraft(participant: Participant): Draft {
 }
 
 const inputClass = "mt-1.5 h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium outline-none transition-colors focus:border-primary";
-/** Kotak penyaring di bilah atas tabel. Setinggi 44px, batas sentuh minimum M3. */
-const filterClass = "h-11 rounded-md border border-outline-variant bg-surface px-3 text-body-medium outline-none transition-colors focus:border-primary";
 const lockedClass = "mt-1.5 flex min-h-11 items-center rounded-md border border-dashed border-outline-variant bg-surface-container px-3 text-body-medium text-on-surface-variant";
 
 /**
@@ -156,7 +190,18 @@ function teksJawaban(field: RegistrationField, value: string | undefined): strin
   return value;
 }
 
-export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, timeZoneAbbr: abbr, onChanged, toolbar }: {
+/**
+ * Yang bisa diperintahkan halaman kepada daftar ini.
+ *
+ * Ada satu-satunya karena tombol "+ Tambah peserta" duduk di KEPALA HALAMAN,
+ * sementara keadaan penyuntingannya (draft, baris yang sedang dibuka, galat per
+ * kolom) tinggal di dalam komponen ini. Mengangkat seluruh keadaan itu ke
+ * halaman hanya demi satu tombol berarti memindahkan sembilan potong state untuk
+ * memindahkan satu ketukan.
+ */
+export type ParticipantListHandle = { tambah: () => void };
+
+export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, timeZoneAbbr: abbr, onChanged, toolbar, ref }: {
   reloadKey?: number;
   timeZone?: EventTimeZone;
   timeZoneAbbr?: string;
@@ -171,6 +216,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
    * komponen ini berarti tabel peserta ikut memikirkan urusan unggah berkas.
    */
   toolbar?: React.ReactNode;
+  ref?: React.Ref<ParticipantListHandle>;
 }) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -220,16 +266,17 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
   // Baris yang sedang disunting disimpan utuh, bukan hanya id-nya: modal perlu
   // tahu apakah barisnya milik Scanner API, dan mencarinya ulang di `participants`
   // gagal begitu tabel dimuat ulang di belakang modal yang masih terbuka.
+  const [perPage, setPerPage] = useState(PAGE_SIZE);
   const [editingRow, setEditingRow] = useState<Participant | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const load = useCallback(async (search: string, pageIndex: number, sortKey: SortKey, sortDir: "asc" | "desc") => {
+  const load = useCallback(async (search: string, pageIndex: number, sortKey: SortKey, sortDir: "asc" | "desc", perPage: number) => {
     setLoading(true); setError("");
     try {
       const params = new URLSearchParams({
         q: search,
-        limit: String(PAGE_SIZE),
-        offset: String(pageIndex * PAGE_SIZE),
+        limit: String(perPage),
+        offset: String(pageIndex * perPage),
         sort: sortKey,
         dir: sortDir,
       });
@@ -295,7 +342,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
     });
   }
 
-  useEffect(() => { const timer = window.setTimeout(() => { void load(debouncedQuery, page, sort, dir); }, 0); return () => window.clearTimeout(timer); }, [load, debouncedQuery, page, sort, dir, reloadKey]);
+  useEffect(() => { const timer = window.setTimeout(() => { void load(debouncedQuery, page, sort, dir, perPage); }, 0); return () => window.clearTimeout(timer); }, [load, debouncedQuery, page, sort, dir, perPage, reloadKey]);
 
   // Klik kolom yang sama membalik arah; kolom baru mulai dari asc. Selalu balik
   // ke halaman 1 karena urutan baru membuat posisi halaman lama tidak relevan.
@@ -305,8 +352,14 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
   }
 
   function startAdd() {
+    // Tidak melakukan apa-apa kalau sudah ada yang disunting. Sebelumnya tombolnya
+    // yang dinonaktifkan; sejak ia pindah ke kepala halaman, penjaganya harus ada
+    // di sini — halaman tidak tahu apa pun tentang draft yang sedang terbuka.
+    if (editingId !== null) return;
     setEditingId("new"); setEditingRow(null); setDraft(EMPTY_DRAFT); setError(""); setNotice("");
   }
+
+  useImperativeHandle(ref, () => ({ tambah: startAdd }));
 
   function startEdit(participant: Participant) {
     setEditingId(participant.id); setEditingRow(participant); setDraft(toDraft(participant)); setError(""); setNotice("");
@@ -335,7 +388,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
     }
     cancelEdit();
     setNotice(isNew ? `${draft.name} ditambahkan.` : `${draft.name} diperbarui.`);
-    void load(debouncedQuery, page, sort, dir);
+    void load(debouncedQuery, page, sort, dir, perPage);
     onChanged?.();
   }
 
@@ -347,7 +400,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
     const body = await response.json().catch(() => ({}));
     if (!response.ok) { setError(body.error?.details?.message ?? body.error?.message ?? "Peserta gagal dihapus."); return; }
     setNotice(`${participant.name} dihapus.`);
-    void load(debouncedQuery, page, sort, dir);
+    void load(debouncedQuery, page, sort, dir, perPage);
     onChanged?.();
   }
 
@@ -362,9 +415,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
     window.open(body.url, "_blank", "noopener");
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const rangeStart = total === 0 ? 0 : page * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(total, (page + 1) * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
   const adaFilter = Boolean(filterAsal || filterHadir || filterRsvp);
 
   /**
@@ -445,179 +496,242 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
   const editingLocked = editingRow?.source_participant_id != null;
   const headerButton = (column: { key: SortKey; label: string }) => {
     const active = sort === column.key;
-    return <button type="button" onClick={() => toggleSort(column.key)} className={`inline-flex min-h-6 items-center gap-1.5 uppercase tracking-[0.12em] transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${active ? "font-semibold text-on-surface" : ""}`} title={`Urutkan menurut ${column.label}`}>
-      {column.label}
-      {active ? (dir === "asc" ? <ArrowUp size={13} weight="bold" /> : <ArrowDown size={13} weight="bold" />) : <ArrowsDownUp size={13} className="opacity-35" />}
+    // Ikon urut SELALU tergambar, bukan hanya saat kolomnya aktif. Ikon yang
+    // baru muncul saat disentuh tidak pernah memberi tahu kolom mana yang bisa
+    // diurutkan sebelum kursor kebetulan lewat di atasnya. Yang tidak aktif
+    // memakai caret ganda tipis; yang aktif memakai panah berarah warna utama.
+    return <button type="button" onClick={() => toggleSort(column.key)} className={`inline-flex w-full min-h-6 items-center gap-1 whitespace-nowrap transition-colors hover:text-on-surface ${active ? "font-medium text-on-surface" : ""}`} title={`Urutkan menurut ${column.label}`}>
+      <span className="truncate">{column.label}</span>
+      {active
+        ? (dir === "asc" ? <ArrowUp size={14} className="shrink-0" /> : <ArrowDown size={14} className="shrink-0" />)
+        : <CaretUpDown size={14} className="shrink-0 text-outline" />}
     </button>;
   };
 
-  return <section className="rounded-lg mt-8 w-full border border-outline-variant bg-panel">
-    <div className="flex flex-col justify-between gap-4 border-b border-outline-variant p-5 sm:flex-row sm:items-center">
-      <div><h2 className="font-semibold">Daftar peserta</h2><p className="mt-1 text-body-small text-on-surface-variant">{activeTotal} peserta aktif{removedCount > 0 ? ` · ${removedCount} sudah dihapus di sumber` : ""}{lastSyncedAt ? ` · sinkron ${formatEventDateTime(lastSyncedAt, timeZone)} ${abbr ?? timeZoneAbbr(timeZone)}` : ""}</p></div>
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative"><MagnifyingGlass size={18} className="absolute left-3 top-3 text-on-surface-variant" /><input value={query} onChange={(event) => setQuery(event.target.value)} className="rounded-md h-11 w-full border border-outline-variant bg-surface pl-10 pr-3 text-body-medium outline-none focus:border-primary sm:w-56" placeholder="Cari nama, perusahaan, QR" /></div>
-        {toolbar}
-        <Button onClick={startAdd} disabled={editingId !== null} size="sm" className="min-h-11" icon={<Plus size={16} weight="bold" />}>Tambah peserta</Button>
-      </div>
-    </div>
-    {/* ---------------------------------------------------------------------
-        Bilah penyaring.
-
-        Pencarian teks menjawab "di mana orang ini", penyaring menjawab "siapa
-        saja yang begini". Keduanya pertanyaan berbeda, jadi keduanya berdiri
-        sendiri: mengetik nama tidak boleh membatalkan penyaring, dan sebaliknya.
-
-        Setiap penyaring dikerjakan database atas SELURUH peserta acara, bukan
-        atas dua puluh lima baris yang kebetulan tampil. Menyaring halaman akan
-        menjawab pertanyaan yang salah.
-        --------------------------------------------------------------------- */}
-    <div className="flex flex-wrap items-center gap-2 border-b border-outline-variant px-5 py-3">
-      <span className="text-body-small font-semibold uppercase tracking-[0.08em] text-on-surface-variant">Filter</span>
-
-      <select
+  /**
+   * Kolom cari dan penyaring berdiri DI LUAR kartu tabel.
+   *
+   * Sebelumnya judul, pencarian, tiga penyaring, dan tabelnya berbagi satu kartu
+   * bergaris, dipisah dua garis mendatar. Akibatnya bukan sekadar padat: kartu
+   * itu ikut melebar mengikuti tabel dua belas kolom di dalamnya, sehingga yang
+   * bergulir menyamping adalah seluruh isi halaman — termasuk kotak pencarian
+   * yang sedang diketik. Sekarang hanya isi kartu tabel yang bergulir.
+   */
+  return <>
+    <PageToolbar
+      search={
+        <div className="relative">
+          <MagnifyingGlass size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+          {/* Placeholder dipendekkan jadi "Cari peserta...". Yang panjang
+              ("Cari nama, perusahaan, QR") tidak pernah muat di kolom 240px dan
+              selalu berakhir terpotong di tengah kata — keterangan cakupan yang
+              justru tidak pernah terbaca. Cakupannya pindah ke `title`. */}
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            title="Mencari nama, instansi, dan kode QR"
+            aria-label="Cari peserta"
+            className="h-9 w-full rounded-lg border border-outline bg-surface-container-lowest pl-9 pr-3 text-body-medium outline-none transition-[border-color] duration-150 placeholder:text-on-surface-variant focus:border-primary"
+            placeholder="Cari peserta..."
+          />
+        </div>
+      }
+      count={`${activeTotal} peserta aktif${removedCount > 0 ? ` \u00b7 ${removedCount} sudah dihapus di sumber` : ""}${lastSyncedAt ? ` \u00b7 sinkron ${formatEventDateTime(lastSyncedAt, timeZone)} ${abbr ?? timeZoneAbbr(timeZone)}` : ""}`}
+      onReset={adaFilter ? () => { setFilterAsal(""); setFilterHadir(""); setFilterRsvp(""); setPage(0); } : undefined}
+    >
+      {/* Ketiganya selebar 200px, dan itu disengaja. Lebar yang mengikuti isi
+          membuat "Semua kehadiran" dua kali lebih lebar daripada tetangganya, dan
+          tiga kotak berlebar berbeda yang berjajar terbaca sebagai tiga jenis
+          kontrol yang berbeda. */}
+      <SelectMenu
+        label="Saring menurut asal peserta"
         value={filterAsal}
-        onChange={(event) => { setFilterAsal(event.target.value); setPage(0); }}
-        aria-label="Saring menurut asal peserta"
-        className={filterClass}
-      >
-        <option value="">Semua asal</option>
-        <option value="walkin">Walk-in</option>
-        <option value="registration">Daftar sendiri</option>
-        <option value="manual">Manual</option>
-        {scannerColumns ? <option value="scanner">Scanner API</option> : null}
-      </select>
+        onChange={(nilai) => { setFilterAsal(nilai); setPage(0); }}
+        options={scannerColumns ? [...OPSI_ASAL, { value: "scanner", label: "Scanner API" }] : OPSI_ASAL}
+      />
 
       {/* Sesi DAN keadaannya dalam satu pilihan, bukan dua kotak berpasangan.
           Dua kotak menuntut yang kedua dinonaktifkan sampai yang pertama diisi,
           dan kotak mati yang menunggu kotak lain adalah cara paling cepat
           membuat orang mengira penyaringnya rusak. */}
       {sessions.length > 0 ? (
-        <select
+        <SelectMenu
+          label="Saring menurut kehadiran"
           value={filterHadir}
-          onChange={(event) => { setFilterHadir(event.target.value); setPage(0); }}
-          aria-label="Saring menurut kehadiran"
-          className={filterClass}
-        >
-          <option value="">Semua kehadiran</option>
-          {sessions.map((sesi) => <option key={`y-${sesi.id}`} value={`${sesi.id}:yes`}>Sudah hadir: {sesi.name}</option>)}
-          {sessions.map((sesi) => <option key={`n-${sesi.id}`} value={`${sesi.id}:no`}>Belum hadir: {sesi.name}</option>)}
-        </select>
+          onChange={(nilai) => { setFilterHadir(nilai); setPage(0); }}
+          options={[
+            { value: "", label: "Semua kehadiran" },
+            ...sessions.map((sesi) => ({ value: `${sesi.id}:yes`, label: `Sudah hadir: ${sesi.name}` })),
+            ...sessions.map((sesi) => ({ value: `${sesi.id}:no`, label: `Belum hadir: ${sesi.name}` })),
+          ]}
+        />
       ) : null}
 
-      <select
+      <SelectMenu
+        label="Saring menurut RSVP"
         value={filterRsvp}
-        onChange={(event) => { setFilterRsvp(event.target.value); setPage(0); }}
-        aria-label="Saring menurut RSVP"
-        className={filterClass}
-      >
-        <option value="">Semua RSVP</option>
-        <option value="confirmed">RSVP: confirmed</option>
-        <option value="invited">RSVP: invited</option>
-        <option value="none">RSVP: belum diisi</option>
-      </select>
+        onChange={(nilai) => { setFilterRsvp(nilai); setPage(0); }}
+        options={OPSI_RSVP}
+      />
 
-      {adaFilter ? (
-        <button
-          type="button"
-          onClick={() => { setFilterAsal(""); setFilterHadir(""); setFilterRsvp(""); setPage(0); }}
-          className="m3-state rounded-sm inline-flex min-h-9 items-center gap-1.5 px-2.5 text-body-small font-semibold text-primary"
-        >
-          <XCircle size={16} />Hapus filter
-        </button>
-      ) : null}
-    </div>
+      {toolbar}
+    </PageToolbar>
 
-    {error && editingId === null && <div role="alert" className="rounded-lg m-5 flex items-start gap-2 border border-error-soft-outline bg-error-soft p-3 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</div>}
-    {notice && <div key={notice} role="status" className="rise-in-fast rounded-lg m-5 flex items-center gap-2 border border-success-soft-outline bg-success-soft p-3 text-body-medium text-on-success-soft"><Check size={18} />{notice}</div>}
-    {removedCount > 0 && <div className="rounded-lg m-5 flex items-start gap-2 border border-warning-soft-outline bg-warning-soft p-3 text-body-medium text-warning"><WarningCircle size={18} className="mt-0.5 shrink-0" /><span><span className="font-semibold">{removedCount} peserta sudah dihapus di sumber data.</span> Barisnya tetap disimpan di sini untuk audit, tapi tidak muncul lagi di pencarian booth dan kasir serta tidak dihitung di laporan. Karena itu total {total} di sini lebih besar dari angka aktif {activeTotal}.</span></div>}
-    {loading ? <div className="flex min-h-48 items-center justify-center text-body-medium text-on-surface-variant">Memuat peserta...</div> : participants.length === 0 ? <div className="flex min-h-48 flex-col items-center justify-center gap-3 px-5 text-center text-body-medium text-on-surface-variant"><UsersThree size={40} className="opacity-40" />{adaFilter ? "Tidak ada peserta yang cocok dengan filter ini. Longgarkan salah satunya, atau tekan Hapus filter." : "Belum ada peserta cocok."}</div> : <>
+    {error && editingId === null && <div role="alert" className="rounded-lg mb-4 flex items-start gap-2 border border-error-soft-outline bg-error-soft p-3 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</div>}
+    {notice && <div key={notice} role="status" className="rise-in-fast rounded-lg mb-4 flex items-center gap-2 border border-success-soft-outline bg-success-soft p-3 text-body-medium text-on-success-soft"><Check size={18} />{notice}</div>}
+    {removedCount > 0 && <Banner tone="warning" className="mb-4" icon={<WarningCircle size={18} />}><span><span className="font-semibold">{removedCount} peserta sudah dihapus di sumber data.</span> Barisnya tetap disimpan di sini untuk audit, tapi tidak muncul lagi di pencarian booth dan kasir serta tidak dihitung di laporan. Karena itu total {total} di sini lebih besar dari angka aktif {activeTotal}.</span></Banner>}
+    {/* Rangka baris, bukan kalimat "Memuat peserta...". Kalimat setinggi satu
+        baris membuat kartu menciut lalu meregang lagi begitu dua puluh lima baris
+        datang, dan seluruh isi halaman di bawahnya ikut melompat. */}
+    {loading ? <TableCard><TableSkeleton rows={5} cols={5} /></TableCard>
+      : participants.length === 0 ? (
+        <TableCard>
+          <EmptyState
+            plain
+            icon={<UsersThree size={40} />}
+            title={adaFilter ? "Tidak ada peserta yang cocok" : "Belum ada peserta"}
+            description={adaFilter
+              ? "Longgarkan salah satu penyaring, atau kosongkan semuanya."
+              : "Tambahkan peserta satu per satu, atau impor dari berkas CSV atau XLSX."}
+            action={adaFilter
+              ? <Button variant="outlined" size="sm" onClick={() => { setFilterAsal(""); setFilterHadir(""); setFilterRsvp(""); setPage(0); }}>Reset filter</Button>
+              : <Button size="sm" onClick={startAdd}>Tambah peserta</Button>}
+          />
+        </TableCard>
+      ) : <>
+      <TableCard>
       <div className="w-full overflow-x-auto">
-        <table className="w-full text-left text-body-medium">
-          <thead className="border-b border-outline-variant text-body-small uppercase tracking-[0.12em] text-on-surface-variant"><tr>
-            <th scope="col" className="w-12 px-5 py-4 text-right font-semibold">No</th>
+        {/* `table-fixed`: lebar kolom ditentukan KONFIGURASI, bukan isi terpanjang.
+            Dengan layout otomatis, satu nama instansi 60 huruf menarik seluruh
+            ruang kosong ke kolom Nama dan memepetkan sembilan kolom lain sampai
+            berdempetan — persis yang terlihat sebelumnya. Kolom dinamis (sesi
+            kehadiran, pertanyaan tambahan) berbagi sisa ruang secara merata. */}
+        <table className="w-full table-fixed text-left text-body-medium">
+          <thead className="whitespace-nowrap border-b border-outline-variant text-title-small font-medium text-on-surface-variant [&_th]:h-12"><tr>
             {/* Identitas dulu (nama, instansi, jabatan), lalu ASAL barisnya.
                 Itu urutan pertanyaan yang dibawa admin ke tabel ini: siapa ini,
                 dari mana dia, lalu dari mana barisnya. */}
-            {COLUMNS.slice(0, 3).map((column) => <th key={column.key} scope="col" aria-sort={sort === column.key ? (dir === "asc" ? "ascending" : "descending") : "none"} className="px-5 py-4">{headerButton(column)}</th>)}
-            <th scope="col" className="px-5 py-4 font-semibold">Asal</th>
-            {COLUMNS.slice(3, 6).map((column) => <th key={column.key} scope="col" aria-sort={sort === column.key ? (dir === "asc" ? "ascending" : "descending") : "none"} className="px-5 py-4">{headerButton(column)}</th>)}
+            {/* Nama MENEMPEL di kiri saat tabel digulir mendatar. Tabel ini punya
+                dua belas kolom sebelum pertanyaan tambahan dihitung, dan begitu
+                digulir ke kanan setiap baris kehilangan satu-satunya kolom yang
+                memberi tahu baris itu milik siapa. */}
+            <th scope="col" aria-sort={sort === "name" ? (dir === "asc" ? "ascending" : "descending") : "none"} className="sticky left-0 z-10 w-[20rem] bg-surface-container-lowest px-4 shadow-[1px_0_0_var(--md-sys-color-outline-variant)]">{headerButton(COLUMNS[0])}</th>
+            <th scope="col" aria-sort={sort === "title" ? (dir === "asc" ? "ascending" : "descending") : "none"} className="w-[11rem] px-4">{headerButton(COLUMNS[2])}</th>
+            <th scope="col" className="w-[7rem] px-4 font-medium">Asal</th>
+            {COLUMNS.slice(3, 6).map((column) => <th key={column.key} scope="col" aria-sort={sort === column.key ? (dir === "asc" ? "ascending" : "descending") : "none"} className="w-[8.5rem] px-4">{headerButton(column)}</th>)}
             {/* Satu kolom per sesi kehadiran, berisi catatan APLIKASI INI.
                 Sesi yang sudah ditutup tetap punya kolom: kehadiran yang tercatat
                 pagi tadi tidak hilang artinya sore ini. */}
             {sessions.map((sesi) => (
-              <th key={sesi.id} scope="col" className="px-5 py-4 font-semibold normal-case tracking-normal">
+              // Nama sesi datang dari data acara dan bisa sepanjang "Walk in
+              // Registration". Kolomnya ditetapkan 8,5rem dan labelnya dipotong
+              // elipsis dengan nama lengkap di `title`; membiarkannya melipat
+              // menaikkan tinggi SELURUH kepala tabel.
+              <th key={sesi.id} scope="col" title={sesi.name} className="w-[8.5rem] truncate px-4 font-medium ed-plain">
                 {sesi.name}
                 {!sesi.is_active ? <span className="ml-1 font-normal opacity-70">(ditutup)</span> : null}
               </th>
             ))}
-            <th scope="col" className="px-5 py-4 font-semibold">Email</th>
-            <th scope="col" className="px-5 py-4 font-semibold">Telepon</th>
+            <th scope="col" className="w-[13rem] px-4 font-medium">Email</th>
+            <th scope="col" className="w-[9rem] px-4 font-medium">Telepon</th>
             {/* Satu kolom per pertanyaan tambahan, berlabel seperti di formulir.
                 Kolomnya lahir dan hilang mengikuti CMS pendaftaran — tidak ada
                 daftar kolom kedua yang harus diperbarui tangan. */}
-            {fields.map((item) => <th key={item.key} scope="col" className="px-5 py-4 font-semibold normal-case tracking-normal">{item.label}</th>)}
+            {fields.map((item) => <th key={item.key} scope="col" title={item.label} className="w-[10rem] truncate px-4 font-medium ed-plain">{item.label}</th>)}
             {/* Status hanya ada untuk baris Scanner API: penanda "dihapus di
                 sumber" ditulis oleh sinkronisasi, jadi baris manual, walk-in,
                 dan pendaftaran publik tidak akan pernah punya nilainya. */}
-            {scannerColumns ? <th scope="col" className="px-5 py-4 font-semibold">Status</th> : null}
-            {scannerColumns ? COLUMNS.slice(6).map((column) => <th key={column.key} scope="col" aria-sort={sort === column.key ? (dir === "asc" ? "ascending" : "descending") : "none"} className={`px-5 py-4 ${column.align === "right" ? "text-right" : ""}`}>{headerButton(column)}</th>) : null}
-            <th scope="col" className="px-5 py-4 font-semibold">{SEAT_COLUMN_LABEL}</th>
-            <th scope="col" className="px-5 py-4 text-right font-semibold">Undian</th>
-            <th scope="col" className="px-5 py-4 text-right font-semibold">Aksi</th>
+            {scannerColumns ? <th scope="col" className="px-4 font-medium">Status</th> : null}
+            {scannerColumns ? COLUMNS.slice(6).map((column) => <th key={column.key} scope="col" aria-sort={sort === column.key ? (dir === "asc" ? "ascending" : "descending") : "none"} className={`px-4 ${column.align === "right" ? "text-right" : ""}`}>{headerButton(column)}</th>) : null}
+            <th scope="col" className="w-[8rem] px-4 font-medium">{SEAT_COLUMN_LABEL}</th>
+            <th scope="col" className="w-[9rem] px-4 text-right font-medium">Undian</th>
+            <th scope="col" className="w-[6.5rem] px-4 text-right font-medium">Aksi</th>
           </tr></thead>
           <tbody className="divide-y divide-outline-variant">
-            {participants.map((participant, index) => {
+            {participants.map((participant) => {
               const fromSource = participant.source_participant_id != null;
-              return <tr key={participant.id} className="hover:bg-panel-high">
-                {/* Nomor melanjutkan antar-halaman (hal 2 mulai dari 26), bukan reset ke 1. */}
-                <td className="px-5 py-4 text-right text-body-small tabular-nums text-on-surface-variant">{page * PAGE_SIZE + index + 1}</td>
-                <td className="px-5 py-4 font-semibold">{participant.name}</td>
-                <td className="px-5 py-4 text-body-small">{participant.company ?? <span className="text-on-surface-variant">-</span>}</td>
-                <td className="px-5 py-4 text-body-small">{participant.title ?? <span className="text-on-surface-variant">-</span>}</td>
-                <td className="px-5 py-4">
+              // Latar baris ditulis EKSPLISIT, dan sel sticky mewarisinya
+              // (`bg-inherit`). Tanpa latar di barisnya, sel yang menempel di kiri
+              // hanya punya dua pilihan: latar tetap putih — sehingga ia tidak
+              // ikut menyala saat barisnya disentuh, persis yang terlihat di baris
+              // pertama — atau tembus pandang, sehingga kolom yang lewat di
+              // bawahnya terbaca menembusnya.
+              return <tr key={participant.id} className="bg-surface-container-lowest transition-colors duration-150 hover:bg-surface">
+                {/* Nama di atas, instansi di bawahnya, dalam SATU sel.
+                    Berkas ini pernah menolak sel bertingkat, dan alasannya benar
+                    untuk nilai yang dibandingkan antar baris. Instansi bukan
+                    nilai seperti itu: ia keterangan tentang orangnya, dan sebagai
+                    kolom sendiri ia yang paling sering melipat jadi enam baris
+                    ("National Chamber of Commerce and Industry Brunei
+                    Darussalam") sehingga SELURUH baris setinggi 140px. Harganya
+                    dicatat: mengurutkan menurut instansi hilang bersamanya. */}
+                <td className="sticky left-0 z-10 bg-inherit px-4 py-3.5 shadow-[1px_0_0_var(--md-sys-color-outline-variant)]">
+                  <span className="block truncate text-[0.9375rem] font-medium leading-5" title={participant.name}>{participant.name}</span>
+                  <span className="block truncate text-body-small text-on-surface-variant" title={participant.company ?? undefined}>
+                    {participant.company ?? EMPTY_VALUE}
+                  </span>
+                </td>
+                <td className="max-w-[14rem] px-4 py-3 text-body-small">
+                  <span className="block truncate" title={participant.title ?? undefined}>{participant.title ?? <EmptyCell />}</span>
+                </td>
+                <td className="px-4 py-3">
                   {/* Stempel waktu walk-in TIDAK ikut di sel ini. Ia sudah
                       terjawab kolom sesi di sebelah kanan, karena peserta
                       walk-in dibuat dan dicatat hadir pada detik yang sama. */}
                   <span
                     title={ASAL[participant.source].judul}
-                    className={`inline-flex whitespace-nowrap rounded-sm px-2 py-0.5 text-label-small font-semibold uppercase tracking-[0.08em] ${ASAL[participant.source].kelas}`}
+                    className={`inline-flex whitespace-nowrap rounded-full border border-outline-variant px-2 py-0.5 text-label-medium font-medium ${ASAL[participant.source].kelas}`}
                   >
                     {ASAL[participant.source].label}
                   </span>
                 </td>
-                <td className="px-5 py-4 font-mono text-body-small">{participant.qr_code}</td>
-                <td className="px-5 py-4 text-body-small">{participant.participant_type ?? "-"}</td>
-                <td className="px-5 py-4 text-body-small">{participant.rsvp_status ?? "-"}</td>
+                <td className="px-4 py-3 font-mono text-body-small">{participant.qr_code}</td>
+                {/* Tipe dan RSVP jadi pil bergaris, bukan teks abu polos. Teks abu
+                    di tengah kolom teks lain tidak terbaca sebagai nilai berhingga
+                    yang bisa dibandingkan; pil mengatakan "ini salah satu dari
+                    beberapa keadaan". Nilai kosong tetap em-dash, bukan pil
+                    kosong. */}
+                <td className="px-4 py-3">
+                  {participant.participant_type
+                    ? <StatusChip>{participant.participant_type}</StatusChip>
+                    : <EmptyCell />}
+                </td>
+                <td className="px-4 py-3">
+                  {participant.rsvp_status
+                    ? <StatusChip dot tone={RSVP_TONE[participant.rsvp_status] ?? "neutral"}>{LABEL_RSVP[participant.rsvp_status] ?? participant.rsvp_status}</StatusChip>
+                    : <EmptyCell />}
+                </td>
                 {/* Kehadiran per sesi. Jam kedatangan, bukan tanda centang: yang
                     ditanyakan panitia setelah acara hampir selalu "jam berapa dia
                     masuk", dan centang tidak pernah bisa menjawabnya. */}
                 {sessions.map((sesi) => {
                   const catatan = participant.attendance?.[String(sesi.id)];
                   return (
-                    <td key={sesi.id} className="px-5 py-4 text-body-small">
+                    <td key={sesi.id} className="px-4 py-3 text-body-small">
                       {catatan ? (
                         // Jam masuk saja. Jumlah pemindaian ulang pindah ke
                         // tooltip: ia pertanyaan yang berbeda dari "jam berapa
                         // dia datang", dan dua jawaban berbeda di dalam satu sel
                         // membuat keduanya lebih lambat dibaca daripada satu.
-                        <span
+                        <StatusChip
+                          dot
+                          tone="success"
+                          className="tabular-nums"
                           title={catatan.count > 1 ? `Dipindai ${catatan.count} kali di sesi ini` : "Dipindai sekali"}
-                          className="inline-flex items-center gap-1.5 rounded-sm bg-success-soft px-2 py-0.5 font-semibold tabular-nums text-on-success-soft"
                         >
-                          <Check size={14} weight="bold" />
                           {new Date(catatan.first).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone })}
-                        </span>
+                        </StatusChip>
                       ) : (
-                        <span className="text-on-surface-variant">Belum</span>
+                        <StatusChip dot tone="neutral" className="text-on-surface-variant">Belum</StatusChip>
                       )}
                     </td>
                   );
                 })}
-                <td className="px-5 py-4 text-body-small">{participant.email ?? <span className="text-on-surface-variant">-</span>}</td>
-                <td className="px-5 py-4 text-body-small">{participant.phone ?? <span className="text-on-surface-variant">-</span>}</td>
+                <td className="max-w-0 px-4 py-3 text-body-small"><span className="block truncate" title={participant.email ?? undefined}>{participant.email ?? <EmptyCell />}</span></td>
+                <td className="px-4 py-3 text-body-small">{participant.phone ?? <EmptyCell />}</td>
                 {fields.map((item) => {
                   const value = participant.extra?.[item.key];
-                  return <td key={item.key} className="max-w-[24ch] px-5 py-4 text-body-small">
+                  return <td key={item.key} className="max-w-[20rem] px-4 py-3 text-body-small">
                     {FILE_FIELD_TYPES.includes(item.type)
                       ? (value
                           ? <button type="button" onClick={() => void bukaBerkas(value)} className="inline-flex items-center gap-1 font-semibold text-primary underline"><Paperclip size={14} />Buka</button>
@@ -627,26 +741,29 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
                 })}
                 {scannerColumns ? (
                   <>
-                    <td className="px-5 py-4 text-body-small">
+                    <td className="px-4 py-3 text-body-small">
                       {participant.source_removed_at
-                        ? <span className="inline-flex whitespace-nowrap rounded-sm bg-warning-soft px-2 py-0.5 text-label-small font-semibold uppercase tracking-[0.08em] text-warning">Dihapus di sumber</span>
+                        ? <span className="inline-flex whitespace-nowrap rounded-sm bg-warning-soft px-2 py-0.5 text-label-small font-semibold ed-label text-warning">Dihapus di sumber</span>
                         : <span className="text-on-surface-variant">Aktif</span>}
                     </td>
-                    <td className="px-5 py-4 text-body-small">{participant.source_checked_in ? <span className="inline-flex rounded-sm bg-success-soft px-2 py-0.5 font-semibold text-on-success-soft">Sudah</span> : <span className="inline-flex rounded-sm bg-panel-high px-2 py-0.5 font-semibold text-on-surface-variant">Belum</span>}</td>
-                    <td className="px-5 py-4 text-right text-body-small tabular-nums">{participant.source_total_scans}</td>
+                    {/* Nilai boolean digambar ikon, bukan dua kata yang panjangnya
+                        berbeda. Kolom berisi dua puluh lima "Sudah"/"Belum" adalah
+                        kolom teks yang harus dibaca; satu centang dipindai sekilas. */}
+                    <td className="px-4 py-3 text-body-small">{participant.source_checked_in ? <Check size={16} className="text-success" aria-label="Sudah check-in" /> : <EmptyCell />}</td>
+                    <td className="px-4 py-3 text-right text-body-small tabular-nums">{participant.source_total_scans}</td>
                   </>
                 ) : null}
                 {/* Datang dari scanner API dan hanya ditampilkan. Nama sesi ikut
                     ditulis karena satu peserta bisa punya kursi berbeda di sesi
                     pagi dan malam; label saja akan ambigu. */}
-                <td className="px-5 py-4 text-body-small">
+                <td className="px-4 py-3 text-body-small">
                   {participant.seats && participant.seats.length > 0
                     ? <span className="flex flex-wrap gap-1">{participant.seats.map((seat) => <span key={`${seat.subEventId}-${seat.label}`} title={seat.subEventName} className="inline-flex rounded-sm bg-primary-soft px-2 py-0.5 font-mono font-semibold text-on-primary-soft">{seat.label}</span>)}</span>
                     : <span className="text-on-surface-variant">Belum ada</span>}
                 </td>
                 {/* Pengecualian undian: panitia, MC, dan perwakilan sponsor lazimnya
                     tidak boleh menang meski terdaftar dan memenuhi syarat. */}
-                <td className="px-5 py-4 text-right">
+                <td className="px-4 py-3 text-right">
                   <button
                     type="button"
                     onClick={() => void toggleExclusion(participant)}
@@ -657,7 +774,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
                     <Prohibit size={14} />{excluded.has(participant.id) ? "Dikecualikan" : "Ikut"}
                   </button>
                 </td>
-                <td className="px-5 py-4">
+                <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
                     <IconButton size="sm" variant="outlined" label={fromSource ? "Sunting kontak dan jawaban" : "Sunting peserta"} onClick={() => startEdit(participant)} disabled={editingId !== null || saving}><PencilSimple size={16} /></IconButton>
                     {/* Tombol hapus hanya untuk baris manual. Untuk baris scanner ia
@@ -672,20 +789,26 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
           </tbody>
         </table>
       </div>
-      <div className="flex flex-col items-center justify-between gap-3 border-t border-outline-variant p-4 sm:flex-row">
-        {/* Saat menyaring, DUA angka disebut. Satu angka saja membuat admin
-            mengira peserta acaranya berkurang, dan itu kabar yang menakutkan di
-            hari-H. */}
-        <p className="text-body-small text-on-surface-variant">
-          Menampilkan {rangeStart}–{rangeEnd} dari {total} peserta
-          {adaFilter ? ` yang cocok · ${activeTotal} peserta aktif seluruhnya` : ""}
-        </p>
-        <div className="flex items-center gap-2">
-          <Button variant="outlined" size="sm" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading} icon={<CaretLeft size={16} />}>Sebelumnya</Button>
-          <span className="text-body-medium tabular-nums text-on-surface-variant">Hal {page + 1} / {totalPages}</span>
-          <Button variant="outlined" size="sm" onClick={() => setPage((current) => (current + 1 < totalPages ? current + 1 : current))} disabled={page + 1 >= totalPages || loading} trailingIcon={<CaretRight size={16} />}>Berikutnya</Button>
-        </div>
-      </div>
+      </TableCard>
+      {/* Pengendali halaman DI BAWAH kartu, bukan di dalamnya: ia bukan bagian
+          dari data, ia alat untuk berpindah di antaranya. */}
+      <Pagination
+        page={page + 1}
+        pageCount={totalPages}
+        total={total}
+        pageSize={perPage}
+        onChange={(nomor) => setPage(nomor - 1)}
+        // Mengubah jumlah per halaman memulangkan ke halaman pertama. Tanpa itu,
+        // yang sedang di halaman 4 dari 25-per-halaman mendarat di halaman 4 dari
+        // 100-per-halaman, yaitu baris ke-301 yang bisa saja tidak ada.
+        onPageSizeChange={(ukuran) => { setPerPage(ukuran); setPage(0); }}
+      />
+      {adaFilter ? (
+        // Saat menyaring, DUA angka disebut. Satu angka saja membuat admin
+        // mengira peserta acaranya berkurang, dan itu kabar yang menakutkan di
+        // hari-H.
+        <p className="mt-1 text-body-small text-on-surface-variant">{activeTotal} peserta aktif seluruhnya.</p>
+      ) : null}
     </>}
 
     {/* Modal tambah/sunting. Menggantikan penyuntingan di dalam baris: tabel ini
@@ -747,7 +870,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
             tentu diketahui. */}
         {fields.length > 0 ? (
           <div className="mt-8 border-t border-outline-variant pt-6">
-            <p className="text-label-medium font-semibold uppercase tracking-[0.16em] text-on-surface-variant">Jawaban formulir pendaftaran</p>
+            <p className="text-label-medium font-semibold ed-label text-on-surface-variant">Jawaban formulir pendaftaran</p>
             <div className="mt-4 grid gap-5 sm:grid-cols-2">
               {fields.map((item) => <div key={item.key} className={item.type === "textarea" ? "sm:col-span-2" : undefined}>{jawabanField(item)}</div>)}
             </div>
@@ -755,5 +878,5 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
         ) : null}
       </form>
     </Dialog>
-  </section>;
+  </>;
 }

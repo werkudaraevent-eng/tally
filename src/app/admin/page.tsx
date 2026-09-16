@@ -21,7 +21,7 @@ import {
 import Link from "@/components/event-link";
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { ExportMenu } from "@/components/admin/export-menu";
-import { LinearProgress, StatusChip } from "@/components/m3";
+import { LinearProgress, PageHeader, StatusChip } from "@/components/m3";
 import { EVENT_STATUS_LABEL, type EventStatus } from "@/lib/domain";
 import { formatEventSchedule, daysUntil } from "@/lib/event-datetime";
 import { eventApiPath } from "@/lib/event-url";
@@ -272,12 +272,12 @@ export default function AdminPage() {
   ].filter((layar) => layar.tampil);
 
   const pintasan = (
-    <section className="rounded-[20px] bg-surface-container p-5">
+    <section className="rounded-xl border border-outline-variant bg-surface-container p-5">
       <h2 className="text-title-medium">Layar hari-H</h2>
       <p className="mt-1 text-body-small text-on-surface-variant">Layar panggung dibuka di tab baru untuk dilempar ke proyektor.</p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
         {layarPanggung.map(({ href, label, desc, icon: Icon }) => (
-          <Link key={href} href={href} target="_blank" rel="noreferrer" className="m3-state flex items-start gap-3 rounded-2xl bg-surface-container-high p-3">
+          <Link key={href} href={href} target="_blank" rel="noreferrer" className="m3-state flex items-start gap-3 rounded-2xl border border-outline-variant bg-surface-container-high p-3">
             <Icon size={22} weight="duotone" className="mt-0.5 shrink-0 text-primary" />
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5 text-label-large">{label}<ArrowSquareOut size={13} className="opacity-70" /></span>
@@ -286,10 +286,10 @@ export default function AdminPage() {
           </Link>
         ))}
       </div>
-      <p className="mt-4 text-label-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Layar lapangan</p>
+      <p className="mt-4 text-label-medium font-semibold ed-label text-on-surface-variant">Layar lapangan</p>
       <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
         {layarLapangan.map(({ href, label, desc, icon: Icon }) => (
-          <Link key={href} href={href} className="m3-state flex items-start gap-3 rounded-2xl bg-surface-container-high p-3">
+          <Link key={href} href={href} className="m3-state flex items-start gap-3 rounded-2xl border border-outline-variant bg-surface-container-high p-3">
             <Icon size={22} weight="duotone" className="mt-0.5 shrink-0 text-primary" />
             <span className="min-w-0 flex-1">
               <span className="block text-label-large">{label}</span>
@@ -304,6 +304,7 @@ export default function AdminPage() {
   return (
     <main className="bg-surface text-on-surface">
       <div className="mx-auto max-w-[1440px] px-5 pb-8 pt-5 sm:px-8 lg:pb-12">
+        <PageHeader />
         {/* Baris pembuka: fakta acara di kiri, ekspor di kanan. Kalimat
             penjelasan halaman dihapus — ia menjelaskan dashboard kepada orang
             yang membukanya setiap hari. */}
@@ -326,9 +327,9 @@ export default function AdminPage() {
         ) : null}
 
         {/* ---- Kartu acara: dua kolom, tinggi satu blok --------------------- */}
-        <section className="mt-4 grid gap-4 rounded-[20px] bg-surface-container-high p-5 lg:grid-cols-[1fr_1fr] lg:items-center">
+        <section className="mt-4 grid gap-4 rounded-xl border border-outline-variant bg-surface-container-high p-5 lg:grid-cols-[1fr_1fr] lg:items-center">
           <div>
-            <p className="text-display-small tabular-nums tracking-[-0.03em]">{judul?.utama ?? "…"}</p>
+            <p className="text-display-small tabular-nums">{judul?.utama ?? "…"}</p>
             <p className="mt-1 text-body-large text-on-surface-variant">{judul?.detail ?? "Memuat ringkasan acara"}</p>
           </div>
 
@@ -337,7 +338,7 @@ export default function AdminPage() {
             <div className="rounded-2xl bg-surface-container p-4">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-label-medium uppercase tracking-[0.16em] text-on-surface-variant">Kesiapan acara</p>
+                  <p className="ed-label text-on-surface-variant">Kesiapan acara</p>
                   <p className="mt-1 text-headline-small tabular-nums">{data ? `${persen}%` : "…"}</p>
                 </div>
                 <p className="text-body-small text-on-surface-variant">{wajibSiap} dari {wajib.length} wajib</p>
@@ -347,7 +348,7 @@ export default function AdminPage() {
           ) : fase === "hari-h" ? (
             // Hari-H: satu angka yang ditanyakan seisi ruang panitia.
             <Link href="/admin/attendance" className="m3-state block rounded-2xl bg-surface-container p-4">
-              <p className="text-label-medium uppercase tracking-[0.16em] text-on-surface-variant">Sudah masuk</p>
+              <p className="ed-label text-on-surface-variant">Sudah masuk</p>
               <p className="mt-1 flex items-baseline gap-2 tabular-nums">
                 <span className="text-headline-large">{data?.kehadiran.hadir ?? 0}</span>
                 <span className="text-body-medium text-on-surface-variant">dari {data?.peserta.total ?? 0} terdaftar</span>
@@ -358,16 +359,16 @@ export default function AdminPage() {
             // Selesai: rekap dalam satu tatapan.
             <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <div className="rounded-2xl bg-surface-container p-4">
-                <dt className="text-label-medium uppercase tracking-[0.14em] text-on-surface-variant">Hadir</dt>
+                <dt className="ed-label text-on-surface-variant">Hadir</dt>
                 <dd className="mt-1 text-headline-small tabular-nums">{data?.kehadiran.hadir ?? 0}<span className="text-body-medium text-on-surface-variant"> / {data?.peserta.total ?? 0}</span></dd>
               </div>
               <div className="rounded-2xl bg-surface-container p-4">
-                <dt className="text-label-medium uppercase tracking-[0.14em] text-on-surface-variant">Peserta</dt>
+                <dt className="ed-label text-on-surface-variant">Peserta</dt>
                 <dd className="mt-1 text-headline-small tabular-nums">{data?.peserta.total ?? 0}</dd>
               </div>
               {adaBooth ? (
                 <div className="rounded-2xl bg-surface-container p-4">
-                  <dt className="text-label-medium uppercase tracking-[0.14em] text-on-surface-variant">Transaksi</dt>
+                  <dt className="ed-label text-on-surface-variant">Transaksi</dt>
                   <dd className="mt-1 text-headline-small tabular-nums">{formatRupiah(data?.transaksi.omzet ?? 0)}</dd>
                 </div>
               ) : null}
@@ -386,10 +387,10 @@ export default function AdminPage() {
               }`}
             >
               <div className="flex items-center justify-between">
-                <p className="text-label-medium uppercase tracking-[0.14em] opacity-80">{label}</p>
+                <p className="ed-label opacity-80">{label}</p>
                 <Icon size={20} weight="duotone" className="opacity-80" />
               </div>
-              <p className="mt-3 text-headline-medium tabular-nums tracking-[-0.02em]">{nilai}</p>
+              <p className="mt-3 text-headline-medium tabular-nums">{nilai}</p>
               <p className="mt-1 flex items-center gap-1 text-body-small opacity-80">
                 {catatan}
                 <ArrowUpRight size={14} className="opacity-0 transition-opacity group-hover:opacity-100" />
@@ -411,7 +412,7 @@ export default function AdminPage() {
             sepanjang hari itu. Di fase lain daftar kesiapan yang di kiri. */}
         <div className="mt-4 grid gap-4 lg:grid-cols-[1.3fr_0.7fr] lg:items-start">
           {daftarKesiapan.length > 0 ? (
-            <section className={`rounded-[20px] bg-surface-container p-5 ${fase === "hari-h" ? "lg:order-last" : ""}`}>
+            <section className={`rounded-xl border border-outline-variant bg-surface-container p-5 ${fase === "hari-h" ? "lg:order-last" : ""}`}>
               <h2 className="text-title-medium">{fase === "hari-h" ? "Belum siap" : "Yang perlu disiapkan"}</h2>
               <p className="mt-1 text-body-small text-on-surface-variant">Setiap baris menuju modul yang mengurusnya.</p>
               <ul className="mt-3 divide-y divide-outline-variant">
@@ -432,7 +433,7 @@ export default function AdminPage() {
           ) : data ? (
             <div className={fase === "hari-h" ? "lg:order-last" : ""}>
               {data ? (
-                <Link href={`/e/${data.event.slug}`} target="_blank" rel="noreferrer" className="m3-state flex items-center gap-3 rounded-[20px] bg-primary-container p-5 text-on-primary-container">
+                <Link href={`/e/${data.event.slug}`} target="_blank" rel="noreferrer" className="m3-state flex items-center gap-3 rounded-xl bg-primary-container p-5 text-on-primary-container">
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5 text-title-medium">Halaman acara publik<ArrowSquareOut size={14} className="opacity-80" /></span>
                     <span className="mt-1 block break-all text-body-small opacity-80">/e/{data.event.slug}</span>
@@ -441,7 +442,7 @@ export default function AdminPage() {
               ) : null}
             </div>
           ) : (
-            <div aria-hidden className="rounded-[20px] bg-surface-container p-5">
+            <div aria-hidden className="rounded-xl border border-outline-variant bg-surface-container p-5">
               <span className="block h-4 w-40 rounded-xs bg-surface-container-highest shimmer" />
               <span className="mt-4 block h-3 w-full rounded-xs bg-surface-container-highest shimmer" />
               <span className="mt-2 block h-3 w-4/5 rounded-xs bg-surface-container-highest shimmer" />
@@ -451,7 +452,7 @@ export default function AdminPage() {
           <section className="space-y-4">
             {pintasan}
             {data && daftarKesiapan.length > 0 ? (
-              <Link href={`/e/${data.event.slug}`} target="_blank" rel="noreferrer" className="m3-state flex items-center gap-3 rounded-[20px] bg-primary-container p-5 text-on-primary-container">
+              <Link href={`/e/${data.event.slug}`} target="_blank" rel="noreferrer" className="m3-state flex items-center gap-3 rounded-xl bg-primary-container p-5 text-on-primary-container">
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5 text-title-medium">Halaman acara publik<ArrowSquareOut size={14} className="opacity-80" /></span>
                   <span className="mt-1 block break-all text-body-small opacity-80">/e/{data.event.slug}</span>

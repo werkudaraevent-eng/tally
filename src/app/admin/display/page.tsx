@@ -8,6 +8,7 @@ import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
 import { formatEventDateTime } from "@/lib/datetime";
 import { DEFAULT_TIME_ZONE, normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
+import { ButtonLink, PageHeader } from "@/components/m3";
 
 type NameDisplayMode = "full" | "initials" | "company_only" | "hidden";
 type EventSettings = {
@@ -132,12 +133,13 @@ export default function DisplaySettingsPage() {
 
   return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
-      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-        <div>
-          <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">Atur teks, warna, background, dan layout layar leaderboard yang tampil di proyektor.</p>
-        </div>
-        <Link href="/display" target="_blank" rel="noreferrer" className="rounded-md flex min-h-12 items-center justify-center gap-2 border border-outline-variant px-4 text-body-medium font-semibold"><MonitorPlay size={19} /> Buka Papan peringkat</Link>
-      </div>
+      <PageHeader
+        actions={
+          <ButtonLink href="/display" target="_blank" rel="noreferrer" variant="outlined" icon={<MonitorPlay size={18} />}>
+            Buka Papan peringkat
+          </ButtonLink>
+        }
+      />
 
       {error && <div role="alert" className="rounded-lg mt-6 flex items-center gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={20} />{error}</div>}
       {message && <div role="status" className="rounded-lg mt-6 flex items-center gap-2 border border-success-soft-outline bg-success-soft p-4 text-body-medium text-primary-dim"><CheckCircle size={20} />{message}</div>}
@@ -145,7 +147,7 @@ export default function DisplaySettingsPage() {
       {!settings ? <p className="mt-8 text-body-medium text-on-surface-variant">Memuat setting...</p> : <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-start">
         <div className="space-y-2">
           <section className="rounded-lg bg-panel p-6">
-            <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Teks</h2>
+            <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Teks</h2>
             <label className="mt-4 block text-body-medium font-semibold">Judul acara
               <input value={settings.event_title} onChange={(event) => update("event_title", event.target.value)} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary" />
             </label>
@@ -158,7 +160,7 @@ export default function DisplaySettingsPage() {
           </section>
 
           <section className="rounded-lg bg-panel p-6">
-            <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Warna</h2>
+            <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Warna</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               {([["background_color", "Background"], ["text_color", "Teks"], ["accent_color", "Aksen"]] as const).map(([key, label]) => <label key={key} className="block text-body-medium font-semibold">{label}
                 <span className="mt-2 flex items-center gap-2">
@@ -198,7 +200,7 @@ export default function DisplaySettingsPage() {
               propnya wajib, dan nilai yang bermakna lebih mudah dilacak daripada
               string kosong bila kelak ada editor kedua di halaman ini. */}
           <section className="rounded-lg bg-panel p-6">
-            <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Header &amp; footer</h2>
+            <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Header &amp; footer</h2>
             <div className="mt-4">
               <BrandingEditor
                 idPrefix="display"
@@ -212,7 +214,7 @@ export default function DisplaySettingsPage() {
           </section>
 
           <section className="rounded-lg bg-panel p-6">
-            <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Leaderboard & privasi</h2>
+            <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Leaderboard & privasi</h2>
             {!event ? <p className="mt-4 text-body-medium text-on-surface-variant">Memuat setting leaderboard...</p> : <>
               <label className="mt-4 flex items-center gap-3 text-body-medium font-semibold"><input type="checkbox" checked={event.leaderboard_enabled} onChange={(e) => updateEvent("leaderboard_enabled", e.target.checked)} className="size-5 accent-primary" /> Tampilkan leaderboard di Papan peringkat</label>
               <p className="mt-2 flex items-start gap-2 text-body-small text-on-surface-variant"><Eye size={16} className="mt-0.5 shrink-0 text-primary" /> Saklar master. Jika dimatikan, leaderboard disembunyikan di semua layar display.</p>
@@ -256,7 +258,7 @@ export default function DisplaySettingsPage() {
           </section>
 
           <section className="rounded-lg bg-panel p-6">
-            <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Layout</h2>
+            <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Layout</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block text-body-medium font-semibold">Jumlah top spender
                 <input type="number" min={3} max={50} value={settings.leaderboard_limit} onChange={(event) => update("leaderboard_limit", Math.max(3, Math.min(50, Number(event.target.value) || 10)))} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-large tabular-nums outline-none focus:border-primary" />
@@ -291,13 +293,18 @@ export default function DisplaySettingsPage() {
           </section>
         </div>
 
-        <section className="lg:sticky lg:top-6">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Preview</h2>
+        <section>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Preview</h2>
           <div className="mt-4 aspect-video w-full overflow-hidden rounded-lg border border-outline-variant" style={{ backgroundColor: settings.background_color, color: settings.text_color, backgroundImage: settings.background_image_url ? `url(${settings.background_image_url})` : undefined, backgroundSize: "cover", backgroundPosition: "center" }}>
             <div className="flex h-full flex-col p-5" style={{ background: settings.background_image_url ? "rgba(0,0,0,0.45)" : "transparent" }}>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ opacity: 0.6 }}>{settings.event_title}</p>
+              {/* `ed-label` SENGAJA tidak dipakai di tiga baris berikut. Ini pratinjau
+                  papan peringkat: hurufnya, warnanya, dan latarnya diwarisi dari
+                  pilihan panitia. Pratinjau yang memakai huruf lain dari layar
+                  aslinya adalah pratinjau yang berbohong, dan admin akan menekan
+                  Simpan dengan yakin. */}
+              <p className="text-label-small font-semibold uppercase" style={{ opacity: 0.6 }}>{settings.event_title}</p>
               <p className="mt-1 text-body-medium font-semibold">{settings.headline}</p>
-              <p className="mt-4 text-title-large font-semibold tracking-[-0.03em]" style={{ color: settings.accent_color }}>{settings.tagline}</p>
+              <p className="mt-4 text-title-large font-semibold" style={{ color: settings.accent_color }}>{settings.tagline}</p>
               <div className="mt-4 space-y-2">
                 {/* Nominal contoh ikut dipratinjau supaya efek mematikan togglenya
                     terlihat di sini, bukan baru diketahui setelah proyektor menyala.
@@ -310,7 +317,7 @@ export default function DisplaySettingsPage() {
                   {settings.show_booth_progress && <span className="shrink-0" style={{ color: settings.accent_color }}>●●●</span>}
                 </div>)}
               </div>
-              {settings.show_ticker && <p className="mt-auto border-t pt-2 text-[10px]" style={{ borderColor: "rgba(255,255,255,0.15)", opacity: 0.6 }}>{settings.ticker_text?.trim() || "Leaderboard ter-update dari transaksi live"}</p>}
+              {settings.show_ticker && <p className="mt-auto border-t pt-2 text-label-small" style={{ borderColor: "rgba(255,255,255,0.15)", opacity: 0.6 }}>{settings.ticker_text?.trim() || "Leaderboard ter-update dari transaksi live"}</p>}
             </div>
           </div>
           <p className="mt-3 text-body-small text-on-surface-variant">Preview perkiraan. Buka Papan peringkat untuk tampilan penuh di proyektor.</p>

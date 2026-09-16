@@ -360,6 +360,14 @@ html {
 	scrollbar-gutter: stable;
 }
 
+/* `cv01` dan `ss03` milik Inter tidak menyala sendiri. `cv01` membuat angka 1
+ * tanpa ekor — penting di layar yang penuh angka — dan `ss03` memperbaiki bentuk
+ * huruf kecil beraksen. Dipasang di <html> supaya berlaku juga pada teks di
+ * dalam portal dan dialog. */
+html {
+	font-feature-settings: "cv01" 1, "ss03" 1;
+}
+
 body {
 	margin: 0;
 	background: var(--md-sys-color-surface);
@@ -418,13 +426,19 @@ body {
 
 /* Panel konten admin digeser melewati rel navigasi yang `fixed`.
  *
- * Aturannya di sini, bukan sebagai kelas Tailwind di komponennya, karena
- * lebarnya harus cocok dengan lebar <aside> — dan dua angka yang harus sama
- * tetapi ditulis di dua tempat akan berpisah pada perubahan pertama. */
+ * Angkanya datang dari `--rail-w`, yang dipasang AdminShell di elemen yang sama,
+ * karena rel bisa dilipat: 260px lebar, 64px terlipat. Sebelumnya 272 ditulis di
+ * sini dan sekali lagi sebagai `w-[272px]` di TSX, dan dua angka yang wajib sama
+ * tetapi ditulis di dua tempat berpisah pada perubahan pertama.
+ *
+ * Nilai cadangan 260px dipakai kalau variabelnya belum sempat terpasang, jadi
+ * kegagalan terburuknya adalah rel selebar bawaan — bukan konten yang menumpuk
+ * di atas navigasi. */
 @media (min-width: 1024px) {
 
 	.admin-shell > .admin-pane {
-		margin-left: 272px;
+		margin-left: var(--rail-w, 260px);
+		transition: margin-left 200ms var(--md-sys-motion-easing-emphasized);
 	}
 }
 
@@ -435,12 +449,43 @@ body {
 
 /* Cincin fokus tunggal untuk seluruh aplikasi.
  *
- * M3 menggambar fokus sebagai garis luar tebal berwarna `primary` dengan celah,
- * bukan bayangan halus. Dipasang di `:focus-visible` saja supaya tidak muncul
- * saat disentuh atau diklik, hanya saat berpindah dengan papan ketik. */
+ * Dipasang di `:focus-visible` saja supaya tidak muncul saat disentuh atau
+ * diklik, hanya saat berpindah dengan papan ketik.
+ *
+ * 2px pekat, BUKAN 2px pada opasitas 40%. Permintaannya opasitas 40%, dan itu
+ * terukur ~1,9:1 terhadap kertas — di bawah 3:1 yang dituntut WCAG 2.4.11 untuk
+ * penanda fokus, artinya cincinnya menghilang bagi orang yang paling
+ * membutuhkannya. Rasa "lembut" yang dicari tetap didapat lewat lingkaran kedua
+ * di bawah: bayangan tipis 18% di luar cincin, hiasan yang tidak menanggung
+ * keterbacaan apa pun. */
 :focus-visible {
-	outline: 3px solid var(--md-sys-color-primary);
+	outline: 2px solid var(--md-sys-color-primary);
 	outline-offset: 2px;
+	box-shadow: 0 0 0 4px color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
+}
+
+/* Satu pengecualian, dan hanya satu: kolom cari yang MEMILIKI fokus sejak
+ * permukaannya dibuka.
+ *
+ * Cincin di atas adalah cincin yang benar untuk tombol dan tautan, dan ia tidak
+ * disentuh. Tetapi kolom cari di dalam menu pemilih acara dan palet perintah
+ * menerima fokus secara otomatis pada saat dibuka — bukan karena seseorang
+ * menekan Tab — sehingga cincinnya muncul sebagai kotak biru 3px yang menjadi
+ * hal paling mencolok di layar, mengelilingi satu-satunya elemen yang memang
+ * sudah pasti aktif. Ia tidak memberi tahu apa pun yang belum diketahui.
+ *
+ * Yang menandai fokus di sana tetap ada, dan lebih tepat: kursor teks yang
+ * berkedip di dalamnya. WCAG 2.4.7 menuntut penanda fokus yang terlihat, dan
+ * caret pada kolom teks adalah penanda bawaan peramban untuk keadaan itu.
+ *
+ * Kelasnya ditulis eksplisit, bukan `dialog input` atau sejenisnya: kolom isian
+ * BIASA di dalam dialog — nama acara, harga item, PIN — tetap butuh cincinnya,
+ * karena di sana fokus berpindah antar kolom dan orang perlu tahu ia di mana. */
+.m3-search-field:focus-visible,
+.m3-search-field:focus {
+	outline: none;
+	box-shadow: none;
+	border: 0;
 }
 
 /* ==========================================================================
@@ -939,6 +984,752 @@ body {
 		opacity: 1;
 		transform: translateY(0);
 	}
+}
+
+/* ==========================================================================
+   Press — profil permukaan untuk layar yang DIKERJAKAN sambil duduk
+   ==========================================================================
+
+   Dipakai di ruang kerja
+   panitia: `/admin/*`, `/workspace`, `/events`, `/login`.
+
+   Yang DIAMBIL dari gaya cetak: sudut siku dan garis sebagai struktur. Itu saja.
+
+   Yang TIDAK diambil, dan alasannya bukan kehati-hatian:
+
+     * Kertas dan tinta. Layar ini dipakai berjam-jam, sering di ruang panitia
+       yang lampunya diredupkan. Mode gelapnya bukan hiasan, dan mengunci layar
+       kerja ke kanvas terang berarti mencabut satu-satunya penyesuaian yang
+       benar-benar dipakai orang di sini. Peran warna M3 tidak disentuh sama
+       sekali — terang, gelap, dan kontras tinggi ketiganya tetap berjalan.
+     * Huruf berkait. DESIGN.md melarangnya di layar operasional, dan alasan itu
+       masih berlaku: yang dibaca di sini nama peserta, nominal, dan jam, bukan
+       paragraf.
+
+   Karena profil ini hanya menyentuh bentuk, memasangnya di shell membuat
+   seluruh layar di dalamnya ikut siku tanpa satu komponen pun ditulis ulang —
+   772 pemakaian `rounded-lg`/`md`/`sm`/`2xl` yang sudah ada semuanya lewat
+   token yang ditimpa di bawah ini.
+   ========================================================================== */
+.press {
+	/* ---- Kertas dan tinta, DUA MODE -----------------------------------------
+	 *
+	 * Nilai terang ada di sini; mode gelap dan kontras tinggi menimpanya di blok-
+	 * blok setelah aturan ini, memakai selektor yang persis sama dengan
+	 * m3-theme.css. Yang ditimpa hanya enam variabel `--press-*`; pemetaannya ke
+	 * peran M3 ditulis SEKALI di bawah, jadi menambah mode tidak berarti menyalin
+	 * tiga puluh baris pemetaan.
+	 *
+	 * Hex, BUKAN `--md-ref-palette-neutral-*`. Terukur: pada varian VIBRANT yang
+	 * dipakai aplikasi ini, palet "neutral" masih berkroma 8.4 — `neutral-6`
+	 * menghasilkan `#0f0e34`, biru tua pekat, praktis kanvas gelap yang sudah ada.
+	 * Memakainya berarti profil ini tidak mengubah apa pun.
+	 *
+	 * Nilai di bawah diturunkan dari HUE yang sama dengan warna sumber aplikasi
+	 * tetapi dengan kroma ditekan ke 4–8. Itu yang
+	 * membedakan "kertas" dari "abu-abu": hue-nya masih ada, kejenuhannya tidak.
+	 *
+	 * Bangkitkan ulang bila warna sumber aplikasi diganti:
+	 *   TonalPalette.fromHueAndChroma(Hct.fromInt(argbFromHex(SUMBER)).hue, kroma).tone(nada)
+	 * dengan pasangan (kroma, nada) yang tercatat di komentar tiap baris. */
+	/* ---- Palet netral -------------------------------------------------------
+	 *
+	 * Kroma NOL. Sebelumnya kertas ruang kerja membawa hue warna merek (kroma
+	 * 4-8) supaya terasa milik produk ini; hasilnya kartu statistik berlatar
+	 * lavender, dan itu terbaca sebagai warna kotor, bukan sebagai merek. Warna
+	 * merek sekarang tersisa di satu tempat saja: biru aksi.
+	 *
+	 * Kartu lebih TERANG daripada halaman, bukan lebih gelap. Ini kebalikan dari
+	 * susunan sebelumnya dan kebalikan dari elevasi tonal M3 di mode terang. Yang
+	 * mengangkat kartu di sini bukan nadanya melainkan garis tepinya; nada hanya
+	 * memberi halaman sedikit kedalaman supaya kartu putih punya tempat berdiri.
+	 *
+	 * Tiga nilai MENYIMPANG dari yang diminta, semuanya karena ambang kontras:
+	 *
+	 *   tersier  #9A9A9A -> #737373   2.70:1 gagal; ini teks (label kelompok
+	 *                                 sidebar), jadi ia menuntut 4.5:1. 4.54:1.
+	 *   biru     #2F6FEB -> #1A56C4   4.38:1 terhadap latar halaman, sedikit di
+	 *                                 bawah ambang teks. 6.34:1.
+	 *   garis kontrol      -> #8A8A8A #E5E5E5 hanya 1.21:1. Untuk garis KARTU dan
+	 *                                 pemisah itu tidak apa-apa — keduanya dekorasi.
+	 *                                 Untuk tepi kolom isian ia satu-satunya tanda
+	 *                                 bahwa ada kolom di sana, dan WCAG 1.4.11
+	 *                                 menuntut 3:1. 3.31:1.
+	 *
+	 * Pembedaan garis dekoratif versus garis yang membawa arti sudah ada di sistem
+	 * ini sejak awal sebagai `outline-variant` versus `outline`. */
+	--press-paper: #fafafa;
+	--press-plate: #ffffff;
+	--press-ink: #262626;
+	--press-ink-muted: #6b6b6b;
+	--press-ink-faint: #737373;
+	--press-rule: #8a8a8a;
+	--press-rule-faint: #e5e5e5;
+	--press-hover: #f2f2f2;
+	--press-active: #ededed;
+	--press-accent: #1a56c4;
+	--press-on-accent: #ffffff;
+
+	/* ---- Bentuk ------------------------------------------------------------
+	 *
+	 * Skala M3 diperkecil, bukan dinolkan. Nilainya dipilih dari dua langkah yang
+	 * benar-benar dipakai di ruang kerja: 6px untuk kontrol dan 8px untuk kartu.
+	 * Delapan baris ini mengubah 648 pemakaian `rounded-*` tanpa satu berkas
+	 * komponen disentuh — leverage yang sama yang membuatnya murah juga membuat
+	 * kesalahan menyebar diam-diam, jadi perubahannya diperiksa sendirian sebelum
+	 * apa pun yang lain.
+	 *
+	 * Sebelum ini seluruh skala dinolkan. Sudut siku benar untuk gaya cetak, dan
+	 * ruang kerja bukan gaya cetak. */
+	--md-sys-shape-corner-extra-small: 4px;
+	--md-sys-shape-corner-small: 6px;
+	--md-sys-shape-corner-medium: 6px;
+	--md-sys-shape-corner-large: 8px;
+	--md-sys-shape-corner-large-increased: 8px;
+	--md-sys-shape-corner-extra-large: 12px;
+	--md-sys-shape-corner-extra-large-increased: 12px;
+	--md-sys-shape-corner-extra-extra-large: 16px;
+
+	/* `full` tidak ditimpa. Tujuh belas pemakaiannya memang harus bulat: thumb
+	 * saklar, batang progres, pemintal, avatar.
+	 *
+	 * Shape morph pada tombol (`active:rounded-*`) hidup kembali bersama skalanya,
+	 * dan di sini ia cukup halus untuk tidak mengganggu — 6px ke 4px saat ditekan. */
+
+	/* Elevasi 1 dan 2 runtuh menjadi garis, 3 ke atas dipertahankan.
+	 *
+	 * Level 1–2 dipakai kartu dan panel yang duduk DI DALAM halaman; di sana M3
+	 * sendiri sudah menyarankan menaikkan tier permukaan lebih dulu, dan tepi
+	 * bergaris mengerjakan hal yang sama tanpa membuat setiap kotak tampak
+	 * mengambang. Level 3 ke atas dipakai dialog, menu, dan sheet — benda yang
+	 * benar-benar melayang di atas konten, dan yang tanpa bayangan akan menyatu
+	 * dengan halaman di baliknya justru saat perlu paling jelas terpisah. */
+	--md-sys-elevation-level1: none;
+	--md-sys-elevation-level2: none;
+
+	/* ---- Pemetaan ke peran M3, ditulis SEKALI --------------------------------
+	 *
+	 * Yang berganti arti adalah tokennya,
+	 * sehingga `bg-surface`, `text-on-surface-variant`, dan `border-outline` yang
+	 * sudah tertulis di 50 berkas admin ikut berubah tanpa disentuh.
+	 *
+	 * Lima tier `surface-container` runtuh jadi satu, dengan alasan yang sama:
+	 * hierarki M3 dibangun dengan menaikkan nada permukaan, hierarki cetak
+	 * dibangun dengan garis. Membiarkan lima tier hidup berarti layar yang
+	 * diam-diam masih menumpuk lima abu-abu yang nyaris sama. */
+	--md-sys-color-surface: var(--press-paper);
+	--md-sys-color-surface-dim: var(--press-paper);
+	--md-sys-color-surface-bright: var(--press-plate);
+	--md-sys-color-surface-container-lowest: var(--press-plate);
+	--md-sys-color-surface-container-low: var(--press-plate);
+	--md-sys-color-surface-container: var(--press-plate);
+	--md-sys-color-surface-container-high: var(--press-plate);
+	--md-sys-color-surface-container-highest: var(--press-plate);
+	--md-sys-color-on-surface: var(--press-ink);
+	--md-sys-color-on-surface-variant: var(--press-ink-muted);
+	--md-sys-color-outline: var(--press-rule);
+	--md-sys-color-outline-variant: var(--press-rule-faint);
+	--md-sys-color-inverse-surface: var(--press-ink);
+	--md-sys-color-inverse-on-surface: var(--press-paper);
+
+	/* ---- Biru dicabut dari peran wadah -------------------------------------
+	 *
+	 * `primary` tetap biru, tetapi hanya untuk tiga hal: satu tombol aksi utama
+	 * per layar, tautan, dan cincin fokus. Seluruh peran WADAH yang dulu membawa
+	 * warna — `primary-container`, `secondary-container`, `tertiary-container`,
+	 * `*-soft` — dipetakan ke abu netral.
+	 *
+	 * Itu yang menghapus biru dari penanda navigasi aktif, chip terpilih, dan
+	 * belasan blok tonal lain tanpa menyentuh satu berkas komponen pun. Yang
+	 * tersisa harus dicabut per layar adalah `bg-primary` yang ditulis langsung. */
+	--md-sys-color-primary: var(--press-accent);
+	--md-sys-color-on-primary: var(--press-on-accent);
+	--md-sys-color-primary-dim: var(--press-accent);
+	--md-sys-color-primary-container: var(--press-active);
+	--md-sys-color-on-primary-container: var(--press-ink);
+	--md-sys-color-secondary: var(--press-ink);
+	--md-sys-color-on-secondary: var(--press-plate);
+	--md-sys-color-secondary-container: var(--press-active);
+	--md-sys-color-on-secondary-container: var(--press-ink);
+	--md-sys-color-tertiary: var(--press-ink);
+	--md-sys-color-on-tertiary: var(--press-plate);
+	--md-sys-color-tertiary-container: var(--press-active);
+	--md-sys-color-on-tertiary-container: var(--press-ink);
+	--md-sys-color-primary-soft: var(--press-hover);
+	--md-sys-color-on-primary-soft: var(--press-ink);
+	--md-sys-color-primary-soft-outline: var(--press-rule-faint);
+	--md-sys-color-inverse-primary: var(--press-accent);
+
+	/* `bg-panel` dan `bg-panel-high`: keduanya kartu. */
+	--surface: var(--press-plate);
+	--surface-muted: var(--press-plate);
+
+	/* Batang gulir memakai `outline-variant`, bukan `outline`.
+	 *
+	 * Aturan global memilih `outline` karena batang gulir adalah kontrol dan WCAG
+	 * 1.4.11 menuntut 3:1 — dan di tema M3, `outline-variant` hanya ~2:1. Di
+	 * profil ini alasan itu tidak berlaku: `rule-faint` terukur 4.27:1 di terang
+	 * dan 4.12:1 di gelap, jauh di atas ambang.
+	 *
+	 * Yang diperbaiki nyata: `outline` di sini bernilai tone 20, nyaris hitam.
+	 * Batang gulir rel navigasi lalu tergambar sebagai batang tegak pekat di
+	 * tengah layar, dan terbaca sebagai pembatas — di tempat yang bukan batas. */
+	scrollbar-color: var(--press-rule-faint) transparent;
+
+	/* TIDAK dipetakan, dan masing-masing punya alasannya:
+	 *
+	 *   primary / on-primary — ini aksennya, satu-satunya warna yang tersisa.
+	 *     Nilai M3 sudah ikut tema (gelap di terang, terang di gelap), jadi
+	 *     menimpanya justru akan mematikan hal yang benar.
+	 *   error / success / warning — status bukan hiasan. "Order gagal tersimpan"
+	 *     harus terbaca sebagai galat sebelum kalimatnya selesai dibaca, dan
+	 *     inilah layar tempat kalimat seperti itu muncul.
+	 *   scrim — lapisan gelap di balik dialog; ia hitam transparan di kedua
+	 *     mode dan tidak punya padanan kertas. */
+}
+
+/* Mode gelap. Kertas menjadi tinta dan sebaliknya — bukan kertas yang diredupkan.
+ *
+ * Urutan aturan mengikuti m3-theme.css, dan alasannya sama: `prefers-color-scheme`
+ * lebih dulu supaya halaman sudah benar sebelum JavaScript jalan, lalu
+ * `[data-theme]` yang kekhususannya lebih tinggi supaya pilihan eksplisit
+ * pengguna menang atas preferensi sistem. */
+@media (prefers-color-scheme: dark) {
+	.press {
+		--press-paper: #111111;
+		--press-plate: #1a1a1a;
+		--press-ink: #ededed;
+		--press-ink-muted: #a1a1a1;
+		--press-ink-faint: #8a8a8a;
+		--press-rule: #6e6e6e;
+		--press-rule-faint: #2a2a2a;
+		--press-hover: #202020;
+		--press-active: #262626;
+		--press-accent: #6699ff;
+		--press-on-accent: #10233f;
+	}
+}
+
+[data-theme="light"] .press {
+	--press-paper: #fafafa;
+	--press-plate: #ffffff;
+	--press-ink: #262626;
+	--press-ink-muted: #6b6b6b;
+	--press-ink-faint: #737373;
+	--press-rule: #8a8a8a;
+	--press-rule-faint: #e5e5e5;
+	--press-hover: #f2f2f2;
+	--press-active: #ededed;
+	--press-accent: #1a56c4;
+	--press-on-accent: #ffffff;
+}
+
+[data-theme="dark"] .press {
+	--press-paper: #111111;
+	--press-plate: #1a1a1a;
+	--press-ink: #ededed;
+	--press-ink-muted: #a1a1a1;
+	--press-ink-faint: #8a8a8a;
+	--press-rule: #6e6e6e;
+	--press-rule-faint: #2a2a2a;
+	--press-hover: #202020;
+	--press-active: #262626;
+	--press-accent: #6699ff;
+	--press-on-accent: #10233f;
+}
+
+/* Kontras tinggi. Ditulis SETELAH aturan tema karena kekhususannya sama (0,2,0)
+ * untuk varian terang — yang menang ditentukan urutan. Varian gelapnya (0,3,0)
+ * menang atas keduanya, jadi gelap + kontras tinggi tidak jatuh ke nilai terang.
+ *
+ * Yang dinaikkan hanya dua peran yang memang paling tipis: teks pendukung dan
+ * garis pemisah. Tinta dan kertas sudah 16:1 dan tidak ada ruang tersisa. */
+[data-contrast="high"] .press {
+	--press-ink-muted: #4f4f4f;
+	--press-ink-faint: #595959;
+	--press-rule-faint: #c4c4c4;
+}
+
+[data-contrast="high"][data-theme="dark"] .press,
+[data-theme="dark"] [data-contrast="high"] .press {
+	--press-ink-muted: #c4c4c4;
+	--press-ink-faint: #ababab;
+	--press-rule-faint: #444444;
+}
+
+/* ---- Ramp tipe padat untuk ruang kerja ----------------------------------
+ *
+ * Skala M3 di `@theme inline` adalah ramp Compact — ukuran yang ditetapkan
+ * spesifikasi untuk jendela PONSEL. Ruang kerja adalah jendela Expanded/Large
+ * yang dipakai duduk dengan tetikus, dan panduan adaptif M3 sendiri menyuruh
+ * menyesuaikan ukuran teks serta kepadatan per window size class. Ramp di bawah
+ * adalah penyesuaian itu, bukan penyimpangan darinya.
+ *
+ * ---- Kenapa menimpa KELAS, bukan token ----------------------------------
+ *
+ * Terukur di CSS hasil build: `@theme inline` MENYALIN nilai literal untuk
+ * tipografi —
+ *
+ *     .text-body-medium { font-size: .875rem; ... }        <- literal
+ *     .bg-surface       { background-color: var(--...) }   <- var
+ *
+ * jadi menimpa `--text-*` di dalam `.press` tidak berpengaruh sama sekali. Cara
+ * yang bekerja adalah menimpa kelas utilitasnya langsung. Aturan ini tidak
+ * berlapis sedangkan utilitas Tailwind ada di `@layer utilities`, jadi ia menang
+ * tanpa perlu menaikkan kekhususan.
+ *
+ * Di seluruh admin hanya ada SATU varian responsif tipe (`sm:text-headline-large`),
+ * jadi tidak ada ledakan kombinasi yang harus ikut ditimpa.
+ *
+ * ---- Konsekuensi yang disengaja -----------------------------------------
+ *
+ * Aturan ini ikut menetapkan `letter-spacing`, sehingga ia MENIMPA `tracking-*`
+ * yang ditulis tangan pada elemen yang sama. Itu memang tujuannya: sebelum ini
+ * ada dua belas nilai jarak huruf tangan yang tidak seorang pun memilihnya
+ * secara sadar. Jarak huruf sekarang milik peran, bukan milik tempat pemakaian.
+ *
+ * `body-medium` SENGAJA tidak diubah. Ia 49% dari seluruh teks admin dan 14px
+ * memang ukuran yang benar untuk isi tabel. Yang membuat layar terasa besar
+ * adalah `body-large` di kolom isian dan `title`/`headline` di kepala. */
+.press .text-display-large { font-size: 2.5rem; line-height: 2.75rem; letter-spacing: -0.02em; }
+.press .text-display-medium { font-size: 2rem; line-height: 2.375rem; letter-spacing: -0.02em; }
+.press .text-display-small { font-size: 1.75rem; line-height: 2.125rem; letter-spacing: -0.01em; }
+
+.press .text-headline-large { font-size: 1.5rem; line-height: 1.875rem; letter-spacing: -0.01em; }
+
+/* Varian responsifnya HARUS ikut dibungkus media query yang sama dengan
+ * aslinya. Tanpa itu `sm:text-headline-large` berlaku di semua lebar, dan
+ * langkah responsif yang dimaksud penulisnya justru hilang. */
+@media (min-width: 40rem) {
+	.press .sm\:text-headline-large { font-size: 1.5rem; line-height: 1.875rem; letter-spacing: -0.01em; }
+}
+.press .text-headline-medium { font-size: 1.25rem; line-height: 1.625rem; letter-spacing: -0.01em; }
+.press .text-headline-small { font-size: 1.125rem; line-height: 1.5rem; letter-spacing: normal; }
+
+.press .text-title-large { font-size: 1rem; line-height: 1.375rem; letter-spacing: normal; }
+.press .text-title-medium { font-size: 0.875rem; line-height: 1.25rem; letter-spacing: normal; }
+.press .text-title-small { font-size: 0.8125rem; line-height: 1.125rem; letter-spacing: normal; }
+
+.press .text-body-large { font-size: 0.875rem; line-height: 1.25rem; letter-spacing: normal; }
+.press .text-body-medium { font-size: 0.875rem; line-height: 1.25rem; letter-spacing: normal; }
+.press .text-body-small { font-size: 0.75rem; line-height: 1rem; letter-spacing: normal; }
+
+.press .text-label-large { font-size: 0.8125rem; line-height: 1.125rem; letter-spacing: normal; }
+.press .text-label-medium { font-size: 0.75rem; line-height: 1rem; letter-spacing: normal; }
+.press .text-label-small { font-size: 0.6875rem; line-height: 0.875rem; letter-spacing: normal; }
+
+/* ---- Bobot huruf ruang kerja --------------------------------------------
+ *
+ * Tiga bobot, bukan satu: 400 untuk yang dibaca, 600 untuk yang ditekankan,
+ * 700 untuk judul halaman. 500 tidak dipakai sama sekali.
+ *
+ * Sebelum ini `@layer base` memaksa 600 untuk DUA BELAS dari lima belas peran,
+ * dan 682 tempat di ruang kerja menambahkan `font-semibold` di atasnya. Hasilnya
+ * praktis satu bobot untuk segalanya — dan sesuatu yang seluruhnya tebal tidak
+ * punya penekanan, ia cuma berat. Enam ratus delapan puluh dua itu juga bukan
+ * enam ratus delapan puluh dua keputusan; ia salin-tempel, sama seperti dua
+ * belas nilai jarak huruf yang sudah dibereskan.
+ *
+ * Aturan ini tidak berlapis, jadi ia mengalahkan `font-semibold` di tempat
+ * pemakaian — itu memang tujuannya. Yang MEMANG butuh penekanan dikembalikan di
+ * bawah lewat kait komponennya, yang ditulis SESUDAH blok ini dan karena itu
+ * menang pada kekhususan yang sama. */
+.press .text-label-large,
+.press .text-label-medium,
+.press .text-label-small {
+	font-weight: 400;
+}
+
+.press .text-title-small,
+.press .text-title-medium,
+.press .text-title-large {
+	font-weight: 600;
+}
+
+.press .text-headline-small,
+.press .text-headline-medium,
+.press .text-headline-large,
+.press .text-display-small,
+.press .text-display-medium,
+.press .text-display-large {
+	font-weight: 700;
+}
+
+/* Yang dikembalikan ke 600, dan alasannya masing-masing.
+ *
+ * Ditulis sesudah blok peran di atas, jadi ia menang karena urutan. */
+
+/* Chip status dibaca sekilas oleh orang yang sedang mengerjakan hal lain; ia
+ * satu-dua kata yang harus menonjol dari baris di sekitarnya. */
+.press .m3-status-chip,
+.press .m3-filter-chip {
+	font-weight: 600;
+}
+
+/* Label tombol 500, bukan 600.
+ *
+ * 600 dipilih dulu supaya tombol tidak terbaca sebagai keterangan, dan itu benar
+ * ketika tombolnya berdiri sendiri. Di kepala halaman ia berdiri di sebelah judul
+ * 28px/600, dan dua bobot yang sama pada dua ukuran yang berbeda membuat keduanya
+ * saling menuntut. Yang membedakan tombol dari teks biasa sudah ada: bidangnya,
+ * garisnya, dan warnanya. */
+.press .m3-btn {
+	font-weight: 500;
+}
+
+/* Chip status turun ke 500 dengan alasan yang sama: ia penanda di dalam baris
+ * tabel 14px/400, dan 600 membuat kolom status menjadi kolom paling tebal di
+ * layar. */
+.press .m3-status-chip {
+	font-weight: 500;
+}
+
+/* Bobot item navigasi diserahkan ke utilitas, tidak dikunci di sini.
+ *
+ * Dulu baris ini memaksa 400 pada SEMUA item, dan itu benar selama tidak ada
+ * yang perlu lebih tebal. Sekarang ada: item yang sedang dibuka naik ke 500,
+ * dan aturan tak berlapis seperti ini mengalahkan `font-medium` dari utilitas
+ * tanpa suara — penyorot yang hilang tanpa jejak di CSS. Bawaannya sudah 400
+ * dari peran `body-medium` di @layer base, jadi menghapusnya tidak mengubah
+ * apa pun kecuali membiarkan pengecualian bekerja. */
+
+/* Jalan keluar untuk kolom yang jarak hurufnya memang punya alasan: PIN enam
+ * digit, kode peserta, nomor order. Ramp di atas menyetel `letter-spacing` per
+ * peran dan karena tidak berlapis ia mengalahkan `tracking-*` dari utilitas,
+ * jadi pengecualian harus ditulis dengan kekhususan yang sama dan ditaruh
+ * SESUDAHNYA. Hanya itu yang membuatnya menang.
+ *
+ * Dipakai sangat jarang. Kalau daftar ini tumbuh, yang salah rampnya. */
+.press .ed-tracked {
+	letter-spacing: 0.3em;
+}
+
+/* Teks tanpa kelas peran apa pun. Bawaan <body> adalah `body-large` 16px, dan
+ * di ruang kerja itu satu langkah terlalu besar untuk teks yang tidak cukup
+ * penting sampai diberi peran. */
+.press {
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+}
+
+/* ---- Kepadatan kontrol ruang kerja --------------------------------------
+ *
+ * Tinggi kontrol M3 adalah target SENTUH: 48px untuk tombol biasa, 56px untuk
+ * kolom isian. Itu benar di booth dan kasir, yang dipakai sambil berdiri dengan
+ * ibu jari. Ruang kerja dipakai duduk dengan tetikus, dan pada layar sepadat itu
+ * tinggi sentuh berarti separuh layar habis sebelum ada satu baris data.
+ *
+ * PENYIMPANGAN TERCATAT dari aturan "semua target interaktif minimal 48px" di
+ * DESIGN.md. Aturan itu ditulis untuk layar operasional dan tetap berlaku di
+ * sana; profil ini tidak menyentuh mereka. WCAG 2.5.8 menuntut 24x24px, jadi
+ * 36px masih jauh di atas ambang.
+ *
+ * Mekanismenya sama dengan `.m3-card`: kait kelas di
+ * primitif, nilainya di sini. Atribut `data-size` dipakai karena satu primitif
+ * punya beberapa ukuran, dan menimpa kelas `min-h-12` secara langsung akan ikut
+ * mengenai puluhan elemen lain yang kebetulan memakainya untuk hal lain. */
+.press .m3-btn[data-size="sm"] { min-height: 1.875rem; padding-inline: 0.625rem; font-size: 0.8125rem; }
+.press .m3-btn[data-size="md"] { min-height: 2.25rem; padding-inline: 0.875rem; }
+.press .m3-icon-btn[data-size="sm"] { block-size: 1.875rem; inline-size: 1.875rem; }
+.press .m3-btn[data-size="lg"] { min-height: 2.5rem; padding-inline: 1rem; }
+.press .m3-btn[data-size="xl"] { min-height: 3rem; padding-inline: 1.25rem; }
+
+.press .m3-icon-btn[data-size="sm"] { block-size: 2rem; inline-size: 2rem; }
+.press .m3-icon-btn[data-size="md"] { block-size: 2.25rem; inline-size: 2.25rem; }
+.press .m3-icon-btn[data-size="lg"] { block-size: 2.5rem; inline-size: 2.5rem; }
+
+/* Kolom isian: 36px. Teksnya ikut turun ke 14px lewat ramp tipe di atas, jadi
+ * yang tersisa hanya tingginya. */
+.press .m3-field { block-size: 2.25rem; }
+.press .m3-field-lg { block-size: 2.5rem; }
+
+.press .m3-tab { min-block-size: 2.5rem; }
+.press .m3-segmented { min-block-size: 2.25rem; }
+.press .m3-filter-chip { min-block-size: 2rem; padding-inline: 0.75rem; }
+
+/* Chip status bukan kontrol — ia penanda, tidak pernah ditekan. Jadi ambang
+ * target sentuh tidak berlaku padanya, dan 24px membuatnya duduk di dalam baris
+ * tabel 40px tanpa mendorong tingginya. */
+.press .m3-status-chip { min-block-size: 1.5rem; padding-inline: 0.5rem; }
+
+/* Item navigasi dan bilah atas. Keduanya dipakai di SETIAP layar, jadi tinggi
+ * mereka menentukan berapa banyak data yang muat sebelum orang harus menggulir.
+ * Bilah turun 64 -> 56; kepala drawer ikut supaya nama produk dan judul halaman
+ * tetap duduk di garis dasar yang sama — dua angka yang harus sama. */
+.press .m3-nav-item { min-block-size: 2.25rem; }
+
+/* Batang gulir tipis untuk rel navigasi dan daftar palet perintah.
+ *
+ * Batang bawaan memakai `--md-sys-color-outline` (#8A8A8A), dan itu benar untuk
+ * panel data: WCAG 1.4.11 menuntut 3:1 karena di sana batangnya kontrol yang
+ * dicari orang. Dua daftar ini berbeda — keduanya digulir dengan roda tetikus
+ * atau panah, bukan dengan menyeret batangnya — jadi yang dibutuhkan hanya
+ * PETUNJUK posisi, dan #E5E5E5 sudah cukup untuk itu tanpa menambah garis tegak
+ * pekat di sebelah daftar menu.
+ *
+ * Menggelap saat disentuh, dan di sini `:hover` aman justru karena kelasnya
+ * spesifik: ia cocok ke satu elemen, bukan ke setiap leluhur seperti pada
+ * selektor `*` di bab Batang gulir di atas.
+ *
+ * `focus-within` ikut, supaya yang berpindah dengan papan ketik tetap melihat
+ * posisinya di dalam daftar. */
+.press .m3-nav-scroll,
+.press .m3-thin-scroll {
+	scrollbar-width: thin;
+	scrollbar-color: var(--press-rule-faint) transparent;
+	transition: scrollbar-color 150ms var(--md-sys-motion-easing-standard);
+}
+
+.press .m3-nav-scroll:hover,
+.press .m3-nav-scroll:focus-within,
+.press .m3-thin-scroll:hover,
+.press .m3-thin-scroll:focus-within {
+	scrollbar-color: var(--press-rule) transparent;
+}
+
+@supports not (scrollbar-color: auto) {
+	.press .m3-nav-scroll::-webkit-scrollbar,
+	.press .m3-thin-scroll::-webkit-scrollbar {
+		width: 6px;
+		height: 6px;
+	}
+
+	.press .m3-nav-scroll::-webkit-scrollbar-thumb,
+	.press .m3-thin-scroll::-webkit-scrollbar-thumb {
+		background: var(--press-rule-faint);
+		border-radius: 999px;
+	}
+
+	.press .m3-nav-scroll::-webkit-scrollbar-track,
+	.press .m3-thin-scroll::-webkit-scrollbar-track {
+		background: transparent;
+	}
+}
+.press .m3-topbar-row { min-block-size: 3.5rem; }
+.press .m3-drawer-head { block-size: 3.5rem; }
+.press .m3-drawer-foot { block-size: 3rem; }
+
+/* Tajuk kelompok navigasi: 13px, bobot 500, abu tersier, tanpa garis pemisah.
+ *
+ * Ramp menyetel `title-small` ke 600 dan aturannya tak berlapis, jadi utilitas
+ * `font-medium` tidak bisa menurunkannya. Pengecualiannya ditulis dengan
+ * kekhususan yang sama dan ditaruh SESUDAHNYA; hanya itu yang membuatnya menang.
+ *
+ * 500, bukan 600: tajuk ini tidak bisa ditekan, dan tajuk yang lebih tebal
+ * daripada tujuan di bawahnya membuat mata berhenti di label, bukan di menu. */
+.press .m3-nav-section { font-weight: 500; }
+
+/* ---- Rel: satu pohon, dua lebar ----------------------------------------
+ *
+ * Rel ikon dan rel lebar merender DOM yang sama persis. Sebelumnya keduanya
+ * pohon React yang berbeda, dan itu punya harga yang baru terasa setelah hover
+ * peek ada: setiap kali rel melebar, daftar menu dipasang ulang — posisi
+ * gulirnya kembali ke atas dan akordeonnya berkedip tutup lalu buka. Rel yang
+ * "melebar" seharusnya tidak kehilangan apa pun.
+ *
+ * Jadi yang berubah hanya lebar wadahnya, dan aturan di bawah ini menyembunyikan
+ * label. Label tetap ada di DOM (dan tetap dibacakan pembaca layar lewat
+ * `aria-label` tombolnya), hanya lebarnya dinolkan supaya ikon benar-benar duduk
+ * di tengah 64px, bukan di tengah teks yang tak terlihat.
+ *
+ * `width: 0` DAN `flex: 0 0 0`. Yang pertama saja tidak cukup: label adalah
+ * anak flex yang boleh tumbuh, dan `flex-grow` mengembalikan lebarnya sebelum
+ * `width` sempat berlaku. */
+.press [data-rail="1"] .m3-nav-item {
+	justify-content: center;
+	padding-inline: 0;
+	gap: 0;
+	/* 40x40, target yang sama dengan tombol ikon di bilah atas. Lebarnya
+	 * ditetapkan, bukan dibiarkan memenuhi rel: tombol selebar 48px yang isinya
+	 * satu ikon 18px membuat sorotnya terbaca sebagai bilah, bukan sebagai
+	 * tombol. */
+	block-size: 2.5rem;
+	inline-size: 2.5rem;
+	margin-inline: auto;
+}
+
+/* Kepala, kaki, dan talang ikut merapat. Nilainya ditulis di sini, bukan sebagai
+ * kelas bersyarat di TSX, karena semuanya konsekuensi dari satu keadaan yang
+ * sama — dan keadaan itu sudah dinyatakan sekali lewat `data-rail`. */
+.press [data-rail="1"] .m3-drawer-head,
+.press [data-rail="1"] .m3-drawer-foot {
+	justify-content: center;
+	padding-inline: 0.5rem;
+}
+
+.press [data-rail="1"] .m3-nav-scroll,
+.press [data-rail="1"] .m3-quick-wrap {
+	padding-inline: 0.5rem;
+}
+
+.press [data-rail="1"] .m3-nav-label {
+	flex: 0 0 0;
+	inline-size: 0;
+	opacity: 0;
+}
+
+.press [data-rail="1"] .m3-nav-chev,
+.press [data-rail="1"] .m3-nav-sub,
+.press [data-rail="1"] .m3-rail-hide {
+	display: none;
+}
+
+/* Label memudar MASUK dengan jeda, dan langsung hilang saat menyempit.
+ *
+ * Jeda 90ms kira-kira setengah durasi animasi lebar, jadi teksnya baru muncul
+ * setelah ada ruang untuknya. Tanpa itu, yang terlihat selama 200ms adalah
+ * label terjepit di kolom 64px. Ke arah sebaliknya jedanya nol: teks yang masih
+ * terbaca sementara wadahnya menyempit adalah teks yang terpotong di tengah. */
+.press .m3-nav-label {
+	transition: opacity 140ms 90ms var(--md-sys-motion-easing-standard);
+}
+
+.press [data-rail="1"] .m3-nav-label {
+	transition-delay: 0ms;
+}
+
+/* Tajuk kelompok menjadi garis pendek. Yang tersisa dari tajuk adalah tugasnya —
+ * memisahkan — dan tiga huruf singkatan hanya menghasilkan teka-teki. */
+.press [data-rail="1"] .m3-nav-section {
+	block-size: 1px;
+	inline-size: 2rem;
+	margin: 0.75rem auto;
+	padding: 0;
+	overflow: hidden;
+	color: transparent;
+	background: var(--md-sys-color-outline-variant);
+}
+
+/* ---- Palet perintah -----------------------------------------------------
+ *
+ * Latarnya MEMUDARKAN, bukan menggelapkan. Lapisan hitam transparan adalah
+ * bawaan dialog M3 dan benar untuk dialog yang menuntut keputusan; palet ini
+ * justru sebaliknya — ia dibuka untuk pergi ke tempat lain, dan halaman di
+ * belakangnya masih dipakai mata sebagai konteks.
+ *
+ * `--press-paper` menukar dirinya sendiri di tema gelap (#FAFAFA -> #111111),
+ * jadi satu aturan ini memberi kabut putih di terang dan kabut gelap di gelap
+ * tanpa blok tema kedua. */
+.press .m3-palette-scrim {
+	background: color-mix(in srgb, var(--press-paper) 62%, transparent);
+	backdrop-filter: blur(2px);
+}
+
+/* Kaki palet: satu tingkat lebih redup daripada badannya, hubungan yang sama
+ * dengan kanvas halaman terhadap kartunya. */
+.press .m3-palette-foot {
+	background: var(--press-paper);
+}
+
+/* Lencana tombol papan ketik. Dipakai di kanan kolom cari ("Esc") dan di kaki
+ * palet, dan keduanya harus terlihat sebagai benda yang sama. */
+.press .m3-kbd {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-inline-size: 1.375rem;
+	block-size: 1.25rem;
+	padding-inline: 0.375rem;
+	border: 1px solid var(--md-sys-color-outline-variant);
+	border-radius: var(--md-sys-shape-corner-small);
+	background: var(--md-sys-color-surface-container-lowest);
+	color: var(--press-ink-muted);
+	font-size: 0.75rem;
+	line-height: 1;
+	font-weight: 400;
+}
+
+/* Kartu di profil kertas selalu bergaris.
+ *
+ * M3 memisahkan permukaan dari kanvasnya dengan salah satu dari dua hal:
+ * elevasi (tonal atau bayangan) atau garis tepi. Profil ini membuang bayangan,
+ * dan langkah nadanya hanya 1,07:1 di terang — di bawah ambang yang bisa
+ * dilihat mata pada bidang sebesar kartu. Tanpa garis, `Card variant="filled"`
+ * adalah janji yang tidak ditepati: ia mengaku terangkat, tetapi tidak terlihat
+ * terangkat.
+ *
+ * Diikat ke kait `.m3-card` DI DALAM `.press`, bukan dipasang di primitifnya,
+ * karena kartu yang sama dipakai booth dan kasir — di sana elevasi tonal M3
+ * masih utuh dan garis tambahan hanya menambah tepi yang tidak perlu. */
+.press .m3-card {
+	border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+/* Label: nama kolom, judul kelompok, keterangan singkat.
+ *
+ * Kelas ini MENGUNCI UKURANNYA, dan itu inti perbaikannya. Pendahulunya
+ * (`ed-meta`, kelas pendahulunya) hanya menyetel keluarga huruf, huruf kapital, dan jarak huruf,
+ * sehingga ukurannya datang dari kelas yang kebetulan menempel di sebelahnya —
+ * terukur 136 pemakaian di TUJUH ukuran berbeda, dari 10px sampai 14px. Satu
+ * suara yang dirender tujuh ukuran bukan suara, ia kebisingan.
+ *
+ * Huruf kapital dan jarak huruf lebar dilepas. Rujukan tabel data sepakat:
+ * kepala kolom dibedakan lewat BOBOT dan WARNA, bukan huruf kapital, yang justru
+ * memperlambat pembacaan. Huruf lebar-tetap juga dilepas — ia disisakan untuk
+ * angka, kode, dan jam lewat `ed-num`.
+ *
+ * Bobot ditetapkan di sini, berbeda dengan pendahulunya. Aturan ini tidak
+ * berlapis sehingga ia mengalahkan `font-semibold`, tetapi 600 memang nilai yang
+ * dipakai hampir seluruh pemakaian sebelumnya, jadi yang dihilangkan adalah
+ * perbedaan yang tidak disengaja. */
+.ed-label {
+	font-size: var(--text-label-medium);
+	line-height: var(--text-label-medium--line-height);
+	font-weight: 600;
+	letter-spacing: normal;
+}
+
+/* Suara label BERHENTI di kontrolnya.
+ *
+ * `<label className="ed-label">Nama<input /></label>` adalah pola yang dipakai di
+ * seluruh layar admin, dan tanpa aturan ini huruf lebar-tetap berkapital ikut
+ * turun ke teks yang DIKETIK orang. Terukur di layar Reveal papan peringkat:
+ * nama tahap yang diketik panitia muncul sebagai "PEMBUKAAN" berjarak lebar,
+ * padahal yang ia ketik "Pembukaan".
+ *
+ * Label menerangkan kolomnya; ia tidak pernah menerangkan isinya. Tidak ada
+ * kasus di mana nilai yang diketik harus mewarisi suara labelnya.
+ *
+ * `:where()` sengaja, bukan `:is()`: kekhususannya nol, sehingga total aturan
+ * ini sama dengan `.ed-label` sendiri. Konsekuensinya kolom yang MEMANG harus
+ * lebar-tetap — kode, PIN, nomor order — tinggal ditandai `ed-num` atau
+ * `ed-plain`, dan karena keduanya ditulis setelah aturan ini, keduanya menang.
+ * Dengan `:is()` kekhususannya naik dan penanda eksplisit itu justru kalah. */
+.ed-label :where(input, select, textarea) {
+	font-family: var(--md-ref-typeface-plain);
+	text-transform: none;
+	letter-spacing: normal;
+}
+
+/* Kebalikan `ed-label`, untuk label yang datang dari DATA, bukan dari kode.
+ *
+ * Nama sesi kehadiran, label kolom isian buatan admin, nama hadiah. Ketiganya
+ * berdiri berdampingan dengan nama kolom yang kita tulis sendiri, dan bedanya
+ * harus terlihat: mono berjarak lebar berarti "ini nama dari kami", huruf
+ * antarmuka berarti "ini yang Anda ketik".
+ *
+ * Sebelumnya label seperti ini hanya melepas huruf kapital dan jarak hurufnya,
+ * tetapi tetap mewarisi huruf lebar-tetap dari kepala tabel — hasilnya setengah
+ * jalan: bukan kapital, tetapi juga bukan huruf isi.
+ *
+ * Ditulis SETELAH `.ed-label` dan sama-sama tidak berlapis, jadi ia menang karena
+ * urutan. Utilitas Tailwind seperti `font-sans` tidak bisa dipakai di sini: ia
+ * ada di `@layer utilities` dan selalu kalah dari aturan tak berlapis. */
+.ed-plain {
+	font-family: var(--md-ref-typeface-plain);
+	text-transform: none;
+	letter-spacing: normal;
+}
+
+/* Angka yang berdiri di kolomnya sendiri: jam di susunan acara, angka penting.
+ *
+ * Huruf lebar tetap, TANPA jarak huruf lebar. 0.16em pada
+ * "09.00–17.00" mendorongnya melewati lebar kolomnya di ponsel. Yang dibutuhkan
+ * di sini hanya satu: digit yang lebarnya sama, sehingga jam-jam di bawahnya
+ * berbaris rata tanpa tabel. */
+.ed-num {
+	font-family: var(--font-mono), ui-monospace, "Courier New", monospace;
+	font-variant-numeric: tabular-nums;
 }
 
 @media (prefers-reduced-motion: reduce) {

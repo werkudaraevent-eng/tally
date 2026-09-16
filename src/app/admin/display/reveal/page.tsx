@@ -18,6 +18,7 @@ import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
 import { DEFAULT_REVEAL_STAGES, normalizeStages, type RevealAction, type RevealMode, type RevealStage } from "@/lib/reveal";
 import { DEFAULT_TIME_ZONE, normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
+import { PageHeader } from "@/components/m3";
 
 type RevealRow = {
   mode: RevealMode;
@@ -102,6 +103,7 @@ export default function RevealControlPage() {
 
   if (!row) return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px] [&>*]:max-w-[900px]">
+      <PageHeader />
       <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Papan peringkat</Link>
       <p className="mt-6 text-body-medium text-on-surface-variant">{error || "Memuat status reveal..."}</p>
     </div>
@@ -130,7 +132,7 @@ export default function RevealControlPage() {
       <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Papan peringkat</Link>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-headline-small font-semibold tracking-tight">Reveal bertahap</h2>
+          <h2 className="text-headline-small font-semibold">Reveal bertahap</h2>
           <p className="mt-3 max-w-2xl text-body-medium leading-6 text-on-surface-variant">Umumkan peringkat sedikit-sedikit di layar proyektor. Setiap tombol di halaman ini berlaku seketika, tanpa perlu disimpan.</p>
         </div>
         <Link href="/display?fullscreen=1" target="_blank" rel="noreferrer" className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-4 text-body-medium font-semibold"><MonitorPlay size={18} /> Buka Papan peringkat</Link>
@@ -153,7 +155,7 @@ export default function RevealControlPage() {
       <div className="mt-8 space-y-2">
         {/* --- Saklar mode --- */}
         <section className="rounded-lg bg-panel p-6">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Mode</h2>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Mode</h2>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {([
               { value: "off" as const, icon: Rows, title: "Papan penuh", desc: "Seperti biasa: semua top spender tampil live sekaligus." },
@@ -177,8 +179,8 @@ export default function RevealControlPage() {
 
         {/* --- Status sekarang --- */}
         <section className="rounded-lg bg-panel p-6">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Sedang di layar</h2>
-          <p className="mt-3 text-headline-small font-semibold tracking-[-0.02em]">{onScreen}</p>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Sedang di layar</h2>
+          <p className="mt-3 text-headline-small font-semibold">{onScreen}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-body-small">
             {staged && <span className="rounded-lg border border-outline-variant bg-panel-high px-2 py-1 font-semibold tabular-nums">Tahap {Math.min(row.stage, showAllStageNumber)} / {showAllStageNumber}</span>}
             <span className={`rounded-sm flex items-center gap-1.5 border px-2 py-1 font-semibold ${row.frozen_at ? "border-primary text-primary" : "border-outline-variant text-on-surface-variant"}`}>
@@ -201,7 +203,7 @@ export default function RevealControlPage() {
                 return <li key={item.key} className={`flex items-center gap-3 p-3 text-body-medium ${active ? "bg-primary-soft" : "bg-panel"}`}>
                   <span className={`flex size-7 shrink-0 items-center justify-center text-body-small font-bold ${done ? "bg-primary text-on-primary" : "bg-panel-high text-on-surface-variant"}`}>{item.number}</span>
                   <span className="min-w-0 flex-1"><span className="font-semibold">{item.label}</span> <span className="text-on-surface-variant">— {item.detail}</span></span>
-                  {active && <span className="shrink-0 text-body-small font-bold uppercase tracking-[0.14em] text-primary">Di layar</span>}
+                  {active && <span className="shrink-0 text-body-small font-bold ed-label text-primary">Di layar</span>}
                 </li>;
               })}
           </ol>}
@@ -209,7 +211,7 @@ export default function RevealControlPage() {
 
         {/* --- Kontrol tahap --- */}
         {staged && <section className="rounded-lg bg-panel p-6">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Kontrol</h2>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Kontrol</h2>
 
           <button
             onClick={() => { void act("start").then((ok) => { if (ok) toast.success("Reveal dimulai", row.freeze_on_start ? "Angka dibekukan. Tekan Tahap berikutnya saat MC siap." : "Tekan Tahap berikutnya saat MC siap."); }); }}
@@ -251,7 +253,7 @@ export default function RevealControlPage() {
 
         {/* --- Pembekuan angka --- */}
         <section className="rounded-lg bg-panel p-6">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Angka selama pengumuman</h2>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Angka selama pengumuman</h2>
           <div className="mt-4 space-y-2">
             {([
               {
@@ -279,7 +281,7 @@ export default function RevealControlPage() {
               >
                 <Icon size={20} className={`mt-0.5 shrink-0 ${active ? "text-primary" : "text-on-surface-variant"}`} />
                 <span className="min-w-0">
-                  <span className="flex flex-wrap items-center gap-2 text-body-medium font-semibold">{option.title}{option.badge && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-[10px] uppercase tracking-[0.1em] text-primary">{option.badge}</span>}</span>
+                  <span className="flex flex-wrap items-center gap-2 text-body-medium font-semibold">{option.title}{option.badge && <span className="rounded-sm border border-primary px-1.5 py-0.5 ed-label text-primary">{option.badge}</span>}</span>
                   <span className="mt-1 block text-body-small leading-5 text-on-surface-variant">{option.desc}</span>
                 </span>
               </button>;
@@ -290,36 +292,36 @@ export default function RevealControlPage() {
 
         {/* --- Susunan tahap --- */}
         <section className="rounded-lg bg-panel p-6">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Susunan tahap</h2>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Susunan tahap</h2>
           <p className="mt-3 text-body-medium text-on-surface-variant">Setiap tahap adalah rentang peringkat. Bawaan: peringkat 1-3 tampil besar, lalu diganti peringkat 4-10.</p>
           <div className="mt-4 space-y-2">
             {editing.map((item, index) => <div key={index} className="rounded-lg grid gap-3 bg-panel p-4 sm:grid-cols-[1fr_auto_auto_auto]">
-              <label className="block text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Label
+              <label className="block text-body-small font-semibold ed-label text-on-surface-variant">Label
                 <input
                   value={item.label}
                   onChange={(event) => setDraft(editing.map((entry, position) => position === index ? { ...entry, label: event.target.value } : entry))}
-                  className="rounded-md mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium font-normal normal-case tracking-normal text-on-surface outline-none focus:border-primary"
+                  className="rounded-md mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium font-normal text-on-surface outline-none focus:border-primary"
                 />
               </label>
-              <label className="block text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Dari
+              <label className="block text-body-small font-semibold ed-label text-on-surface-variant">Dari
                 <input
                   type="number" min={1} max={50} value={item.from}
                   onChange={(event) => setDraft(editing.map((entry, position) => position === index ? { ...entry, from: Math.max(1, Math.min(50, Number(event.target.value) || 1)) } : entry))}
                   className="rounded-md mt-1.5 h-11 w-20 border border-outline-variant bg-surface px-3 text-body-medium tabular-nums text-on-surface outline-none focus:border-primary"
                 />
               </label>
-              <label className="block text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Sampai
+              <label className="block text-body-small font-semibold ed-label text-on-surface-variant">Sampai
                 <input
                   type="number" min={1} max={50} value={item.to}
                   onChange={(event) => setDraft(editing.map((entry, position) => position === index ? { ...entry, to: Math.max(1, Math.min(50, Number(event.target.value) || 1)) } : entry))}
                   className="rounded-md mt-1.5 h-11 w-20 border border-outline-variant bg-surface px-3 text-body-medium tabular-nums text-on-surface outline-none focus:border-primary"
                 />
               </label>
-              <label className="block text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Tampilan
+              <label className="block text-body-small font-semibold ed-label text-on-surface-variant">Tampilan
                 <select
                   value={item.layout}
                   onChange={(event) => setDraft(editing.map((entry, position) => position === index ? { ...entry, layout: event.target.value === "spotlight" ? "spotlight" : "list" } : entry))}
-                  className="rounded-md mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium font-normal normal-case tracking-normal text-on-surface outline-none focus:border-primary sm:w-32"
+                  className="rounded-md mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium font-normal text-on-surface outline-none focus:border-primary sm:w-32"
                 >
                   <option value="spotlight">Besar</option>
                   <option value="list">Daftar</option>

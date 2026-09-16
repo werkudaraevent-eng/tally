@@ -3,7 +3,7 @@
 import { ArrowSquareOut, Plus, QrCode, Trash } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
-import { Button, StatusChip, Switch, TextField } from "@/components/m3";
+import { Button, PageHeader, StatusChip, Switch, TextField } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { eventApiPath } from "@/lib/event-url";
 
@@ -180,6 +180,7 @@ export default function AttendanceAdminPage() {
   return (
     <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
       <div className="mx-auto max-w-[1440px]">
+        <PageHeader />
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">
             Titik-titik pemindaian sepanjang acara. Petugas membukanya di <code>/scan</code> dengan akun

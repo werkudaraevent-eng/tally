@@ -109,7 +109,7 @@ export function Tabs<T extends string>({ options, value, onChange, label, idPref
 							else if (event.key === "End") { event.preventDefault(); pindah("akhir"); }
 						}}
 						className={cx(
-							"m3-state relative flex min-h-12 flex-1 items-center justify-center gap-2 px-4 text-title-small",
+							"m3-tab m3-state relative flex min-h-12 flex-1 items-center justify-center gap-2 px-4 text-title-small",
 							"transition-colors duration-150 ease-standard",
 							"disabled:pointer-events-none disabled:opacity-40",
 							aktif ? "text-primary" : "text-on-surface-variant",

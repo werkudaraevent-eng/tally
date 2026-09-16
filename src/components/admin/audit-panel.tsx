@@ -242,7 +242,7 @@ export function AuditPanel() {
       {error && <div role="alert" className="rounded-lg mt-6 flex items-center gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={20} />{error}</div>}
 
       <div className="rounded-lg mt-8 flex flex-wrap items-end gap-4 border border-outline-variant bg-panel p-5">
-        <div className="flex items-center gap-2 text-body-small font-semibold uppercase tracking-[0.14em] text-on-surface-variant"><Funnel size={16} /> Filter</div>
+        <div className="flex items-center gap-2 text-body-small font-semibold ed-label text-on-surface-variant"><Funnel size={16} /> Filter</div>
         <label className="block text-body-medium font-semibold">Kategori
           <select value={category} onChange={(event) => { setCategory(event.target.value); setPage(0); }} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary sm:w-64">
             {CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
@@ -290,7 +290,7 @@ export function AuditPanel() {
                 </div>
                 {entry.payload && <button type="button" onClick={() => setExpanded(open ? null : entry.id)} className="rounded-md min-h-11 shrink-0 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">{open ? "Tutup detail" : "Detail"}</button>}
               </div>
-              {open && <pre className="overflow-x-auto border-t border-outline-variant bg-panel-high p-4 text-[11px] leading-5">{JSON.stringify(entry.payload, null, 2)}</pre>}
+              {open && <pre className="overflow-x-auto border-t border-outline-variant bg-panel-high p-4 text-label-small leading-5">{JSON.stringify(entry.payload, null, 2)}</pre>}
             </section>;
           })}
         </div>

@@ -50,8 +50,9 @@ export function IconButton({ label, children, variant = "standard", size = "md",
 			aria-label={label}
 			title={label}
 			aria-pressed={selected === undefined ? undefined : selected}
+			data-size={size}
 			className={cx(
-				"m3-state inline-flex shrink-0 items-center justify-center",
+				"m3-icon-btn m3-state inline-flex shrink-0 items-center justify-center",
 				"transition-[border-radius,background-color,color] duration-150 ease-standard",
 				"disabled:pointer-events-none disabled:opacity-40",
 				SIZE[size],

@@ -27,8 +27,12 @@ export type CardProps = HTMLAttributes<HTMLDivElement> & {
 };
 
 export function Card({ variant = "filled", padded = true, className, children, ...rest }: CardProps) {
+	// `m3-card` adalah kait untuk profil permukaan, bukan gaya. Di `.press` kartu
+	// mendapat garis tepi karena profil itu tidak punya bayangan dan langkah
+	// nadanya terlalu kecil untuk memisahkan kartu dari kanvas sendirian —
+	// lihat globals.css.
 	return (
-		<div {...rest} className={cx("rounded-lg", VARIANT[variant], padded && "p-5", className)}>
+		<div {...rest} className={cx("m3-card rounded-lg", VARIANT[variant], padded && "p-5", className)}>
 			{children}
 		</div>
 	);

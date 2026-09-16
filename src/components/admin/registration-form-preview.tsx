@@ -85,7 +85,7 @@ export function RegistrationFormPreview({
 
   return (
     <div className="overflow-hidden rounded-lg border border-outline-variant">
-      <p className="border-b border-outline-variant bg-panel-high px-4 py-2 text-label-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+      <p className="border-b border-outline-variant bg-panel-high px-4 py-2 text-label-medium font-semibold ed-label text-on-surface-variant">
         Pratinjau · seperti yang dilihat pendaftar
       </p>
       {/* `pointer-events-none` dan `inert`: ini gambar, bukan formulir.
@@ -94,8 +94,8 @@ export function RegistrationFormPreview({
           pendaftaran di satu halaman. */}
       <div className="max-h-[32rem] overflow-y-auto p-5" style={style as React.CSSProperties} inert>
         <div className="pointer-events-none mx-auto w-full max-w-lg select-none">
-          <p className="text-body-small font-semibold uppercase tracking-[0.18em] text-[var(--reg-primary)]">Pendaftaran peserta</p>
-          <h3 className="mt-2 text-headline-medium font-semibold tracking-[-0.04em]">{eventName}</h3>
+          <p className="text-body-small font-semibold ed-label text-[var(--reg-primary)]">Pendaftaran peserta</p>
+          <h3 className="mt-2 text-headline-medium font-semibold">{eventName}</h3>
 
           {config.welcome_text ? (
             <p className="mt-6 rounded-lg border border-[var(--reg-outline-variant)] p-4 text-body-medium leading-6">{config.welcome_text}</p>

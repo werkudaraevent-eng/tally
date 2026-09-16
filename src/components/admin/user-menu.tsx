@@ -88,7 +88,7 @@ export function UserMenu({
         aria-label={username ? `Menu akun ${username}` : "Menu akun"}
         className="m3-state flex min-h-11 items-center gap-2 rounded-full bg-surface-container-high pl-1 pr-2 text-label-large font-semibold"
       >
-        <span className="flex size-9 items-center justify-center rounded-full bg-primary text-label-large text-on-primary">
+        <span className="flex size-7 items-center justify-center rounded-full bg-secondary-container text-body-small font-medium text-on-surface">
           {inisial}
         </span>
         <CaretDown size={16} weight="bold" className="text-on-surface-variant" />

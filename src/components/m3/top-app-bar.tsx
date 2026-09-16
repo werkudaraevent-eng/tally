@@ -6,7 +6,27 @@ import { cx } from "@/lib/m3/cx";
 export type TopAppBarProps = {
 	/** Tombol navigasi atau kembali. Duduk di ujung awal bilah. */
 	leading?: ReactNode;
-	title: ReactNode;
+	/**
+	 * Judul halaman.
+	 *
+	 * Opsional, dan itu disengaja: ruang kerja memindahkan judulnya ke dalam
+	 * konten, sehingga bilahnya hanya membawa yang global. Layar operasional
+	 * (/scan) tetap mengisinya — di sana tidak ada kepala halaman di konten.
+	 *
+	 * Kalau kosong, `<h1>` TIDAK dirender sama sekali. Membiarkannya kosong
+	 * sebagai elemen tetap akan menghasilkan dua `<h1>` per halaman begitu konten
+	 * membawa judulnya sendiri.
+	 */
+	title?: ReactNode;
+	/**
+	 * Elemen judul. `h1` bawaan.
+	 *
+	 * Ruang kerja mengisinya `p`: di sana `<h1>` halaman sudah ada di dalam konten,
+	 * dan yang muncul di bilah saat digulir adalah SALINANNYA untuk orientasi. Dua
+	 * `<h1>` per halaman akan membuat daftar heading pembaca layar menyebut judul
+	 * yang sama dua kali.
+	 */
+	titleAs?: "h1" | "p";
 	/** Baris kecil di bawah judul. Konteks, bukan kalimat kedua. */
 	subtitle?: ReactNode;
 	/**
@@ -82,7 +102,7 @@ export function useScrolledPastTop() {
 	return { sentinel, scrolled };
 }
 
-export function TopAppBar({ leading, title, subtitle, subtitleClassName, breadcrumb, actions, maxWidth = "1440px", className }: TopAppBarProps) {
+export function TopAppBar({ leading, title, titleAs = "h1", subtitle, subtitleClassName, breadcrumb, actions, maxWidth = "1440px", className }: TopAppBarProps) {
 	const { sentinel, scrolled } = useScrolledPastTop();
 
 	return (
@@ -107,10 +127,16 @@ export function TopAppBar({ leading, title, subtitle, subtitleClassName, breadcr
 					// tak terlihat sama sekali.
 					"bg-surface",
 					scrolled ? "border-b-outline-variant" : "border-b-transparent",
+					// Di profil kertas garisnya PERMANEN, dan alasan aslinya memang
+					// gugur di sana: garis ini disembunyikan supaya tidak memutus
+					// lengkungan sudut panel, dan di `.press` panelnya tidak lagi
+					// melengkung. Yang tersisa adalah kepala bertanggal yang selalu
+					// berbatas — pola yang sama dengan halaman publik.
+					"[.press_&]:border-b-outline-variant",
 					className,
 				)}
 			>
-				<div className="mx-auto flex min-h-16 items-center gap-3" style={{ maxWidth }}>
+				<div className="m3-topbar-row mx-auto flex min-h-16 items-center gap-3" style={{ maxWidth }}>
 					{leading}
 					{breadcrumb}
 					{/* Ini SATU-SATUNYA judul halaman — halaman di bawahnya langsung
@@ -120,9 +146,15 @@ export function TopAppBar({ leading, title, subtitle, subtitleClassName, breadcr
 					    `<h1>`, bukan `<p>`: pembaca layar dan daftar heading peramban
 					    memakainya untuk melompat ke isi utama. */}
 					<div className="min-w-0 flex-1">
-						<h1 className="truncate text-title-large font-semibold text-on-surface">{title}</h1>
+						{title ? (
+							titleAs === "p" ? (
+								<p className="truncate text-title-medium font-semibold text-on-surface">{title}</p>
+							) : (
+								<h1 className="truncate text-title-large font-semibold text-on-surface">{title}</h1>
+							)
+						) : null}
 						{subtitle ? (
-							<p className={cx("truncate text-label-medium uppercase tracking-[0.16em] text-on-surface-variant", subtitleClassName)}>{subtitle}</p>
+							<p className={cx("truncate text-label-medium text-on-surface-variant", subtitleClassName)}>{subtitle}</p>
 						) : null}
 					</div>
 					{actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}

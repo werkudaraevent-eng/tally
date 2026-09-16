@@ -20,16 +20,25 @@ export type { IconButtonProps, IconButtonVariant, IconButtonSize } from "./icon-
 export { Dialog } from "./dialog";
 export type { DialogProps } from "./dialog";
 
-export { Divider, EmptyState, PageHeader } from "./layout";
-export type { EmptyStateProps, PageHeaderProps } from "./layout";
+export { Banner, Divider, EmptyState, PageHeader, PageSection, PageToolbar } from "./layout";
+export type { BannerProps, BannerTone, EmptyStateProps, PageHeaderProps, PageSectionProps, PageToolbarProps } from "./layout";
+
+export { PageShell } from "./page-shell";
+export type { PageShellProps } from "./page-shell";
 
 export { CircularProgress, LinearProgress, LoadingIndicator } from "./progress";
+
+export { SelectMenu } from "./select-menu";
+export type { SelectMenuProps, SelectOption } from "./select-menu";
 
 export { SegmentedButton } from "./segmented-button";
 export type { SegmentedButtonProps, SegmentedOption } from "./segmented-button";
 
 export { Switch } from "./switch";
 export type { SwitchProps } from "./switch";
+
+export { EmptyCell, EMPTY_VALUE, Pagination, Table, TableBody, TableCard, TableCell, TableHead, TableHeaderCell, TableRow, TableSkeleton } from "./table";
+export type { PaginationProps, TableProps, TableDensity, TableRowProps, TableCellProps, TableHeaderCellProps } from "./table";
 
 export { Tabs } from "./tabs";
 export type { TabsProps, TabOption } from "./tabs";

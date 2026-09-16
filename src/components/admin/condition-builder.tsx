@@ -82,7 +82,7 @@ export function ConditionBuilder({
       {value.children.map((child, index) => <div key={index} className="rounded-lg border border-outline-variant bg-panel p-3">
         {isGroup(child) ? <div>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-body-small font-semibold uppercase tracking-[0.1em] text-on-surface-variant">Grup syarat</span>
+            <span className="text-body-small font-semibold ed-label text-on-surface-variant">Grup syarat</span>
             <button type="button" onClick={() => removeChild(index)} className="flex min-h-9 items-center px-2 text-error" aria-label="Hapus grup"><X size={15} /></button>
           </div>
           <ConditionBuilder value={child} booths={booths} depth={depth + 1} onChange={(next) => updateChild(index, next)} />

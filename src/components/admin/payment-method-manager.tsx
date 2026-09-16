@@ -98,7 +98,7 @@ export function PaymentMethodManager() {
   return <section className="rounded-lg bg-panel p-6">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Metode pembayaran</h2>
+        <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Metode pembayaran</h2>
         <p className="mt-2 text-body-medium text-on-surface-variant">Nyalakan atau matikan metode yang muncul di kasir. Minimal satu metode harus tetap aktif.</p>
       </div>
       {!formOpen && <button type="button" onClick={() => { setFormOpen(true); setError(""); }} className="rounded-md flex min-h-11 shrink-0 items-center gap-2 border border-outline-variant px-4 text-body-medium font-semibold hover:border-primary hover:text-primary"><Plus size={16} weight="bold" /> Tambah metode</button>}
@@ -114,8 +114,8 @@ export function PaymentMethodManager() {
           <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-center gap-2 text-body-medium font-semibold">
               {method.label}
-              <span className="font-mono text-[11px] font-normal text-on-surface-variant">{method.code}</span>
-              {method.is_builtin && <span className="rounded-sm bg-panel-high px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant">Bawaan</span>}
+              <span className="font-mono text-label-small font-normal text-on-surface-variant">{method.code}</span>
+              {method.is_builtin && <span className="rounded-sm bg-panel-high px-2 py-0.5 text-label-small font-semibold ed-label text-on-surface-variant">Bawaan</span>}
             </p>
             <p className="mt-1 text-body-small text-on-surface-variant">
               {method.requires_reference ? `Butuh ${method.reference_label ?? "nomor referensi"} ${method.reference_digits} digit.` : "Tanpa nomor referensi."}

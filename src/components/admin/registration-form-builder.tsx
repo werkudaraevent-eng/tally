@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowDown, ArrowUp, LockSimple, Plus, Trash } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, LockSimple, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
 import { useId, useState } from "react";
-import { Button, IconButton, SelectField, StatusChip, Switch, TextArea, TextField } from "@/components/m3";
+import { Banner, Button, IconButton, PageSection, SelectField, StatusChip, Switch, TextArea, TextField } from "@/components/m3";
 import {
   CHOICE_FIELD_TYPES,
   REGISTRATION_FIELD_TYPE_LABELS,
@@ -107,7 +107,7 @@ export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
       {/* Kolom bawaan lebih dulu, dalam urutan yang sama dengan form publik.
           Admin harus melihat form apa adanya, bukan hanya bagian yang bisa ia ubah. */}
       <div className="rounded-lg bg-panel-high p-4">
-        <p className="text-label-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Kolom bawaan</p>
+        <p className="text-label-medium font-semibold ed-label text-on-surface-variant">Kolom bawaan</p>
         <ul className="mt-3 space-y-2">
           <li className="flex items-center gap-2 text-body-medium">
             <LockSimple size={16} weight="fill" className="shrink-0 text-on-surface-variant" />
@@ -129,63 +129,77 @@ export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
         </p>
       </div>
 
-      <div className="space-y-3">
-        <Switch
-          checked={config.require_email !== false}
-          onChange={(value) => onChange({ ...config, require_email: value })}
-          disabled={disabled}
-          label="Email wajib diisi"
-          description="Kode peserta dikirim ke email ini."
-        />
-        {/* Peringatan hanya muncul saat dimatikan, dan menyebut akibatnya, bukan
-            nama setelannya. Admin yang mematikannya tanpa membaca baru sadar saat
-            ada pendaftar berdiri di meja registrasi tanpa kode. */}
-        {config.require_email === false ? (
-          <p className="rounded-md bg-warning-soft p-3 text-body-small leading-5 text-on-warning-soft">
-            <strong>Kode peserta tidak akan terkirim ke mana pun.</strong> Pendaftar hanya melihatnya
-            sekali di layar; yang menutup halaman kehilangannya dan harus dicari panitia di daftar ini.
-            Satu orang juga bisa mendaftar berkali-kali — pencegahan ganda memakai email.
-          </p>
-        ) : null}
-        <Switch
-          checked={config.require_phone !== false}
-          onChange={(value) => onChange({ ...config, require_phone: value })}
-          disabled={disabled}
-          label="Nomor telepon wajib diisi"
-          description="Satu-satunya jalan menghubungi pendaftar bila emailnya salah ketik."
-        />
-        <Switch
-          checked={config.require_company === true}
-          onChange={(value) => onChange({ ...config, require_company: value })}
-          disabled={disabled}
-          label="Perusahaan wajib diisi"
-          description="Kolomnya selalu ada. Ini hanya menentukan boleh dikosongkan atau tidak."
-        />
-        <Switch
-          checked={config.require_job_title === true}
-          onChange={(value) => onChange({ ...config, require_job_title: value })}
-          disabled={disabled}
-          label="Jabatan wajib diisi"
-          description="Kolomnya selalu ada. Ini hanya menentukan boleh dikosongkan atau tidak."
-        />
+      {/* Empat setelan ini SATU kartu, dibagi garis per baris — bukan empat kartu
+          terpisah dan bukan empat baris melayang di atas kanvas.
+          Keempatnya menjawab pertanyaan yang sama ("kolom mana yang wajib"), dan
+          setelan yang sekerabat di dalam satu bidang bisa dibandingkan dengan
+          sekali lihat. Kartu per setelan disimpan untuk setelan yang berdiri
+          sendiri dan punya akibat besar. */}
+      <div className="divide-y divide-outline-variant rounded-[10px] border border-outline-variant bg-surface-container-lowest">
+        <div className="px-5 py-4">
+          <Switch
+            checked={config.require_email !== false}
+            onChange={(value) => onChange({ ...config, require_email: value })}
+            disabled={disabled}
+            label="Email wajib diisi"
+            description="Kode peserta dikirim ke email ini."
+            // Peringatan hanya muncul saat DIMATIKAN, menyebut akibatnya, bukan
+            // nama setelannya, dan duduk di dalam baris yang sama. Admin yang
+            // mematikannya tanpa membaca baru sadar saat ada pendaftar berdiri di
+            // meja registrasi tanpa kode.
+            note={config.require_email === false ? (
+              <Banner tone="warning" icon={<WarningCircle size={16} />} className="text-body-small">
+                <strong className="font-medium">Kode peserta tidak akan terkirim ke mana pun.</strong> Pendaftar hanya
+                melihatnya sekali di layar; yang menutup halaman kehilangannya dan harus dicari panitia di daftar ini.
+                Satu orang juga bisa mendaftar berkali-kali, karena pencegahan ganda memakai email.
+              </Banner>
+            ) : null}
+          />
+        </div>
+        <div className="px-5 py-4">
+          <Switch
+            checked={config.require_phone !== false}
+            onChange={(value) => onChange({ ...config, require_phone: value })}
+            disabled={disabled}
+            label="Nomor telepon wajib diisi"
+            description="Satu-satunya jalan menghubungi pendaftar bila emailnya salah ketik."
+          />
+        </div>
+        <div className="px-5 py-4">
+          <Switch
+            checked={config.require_company === true}
+            onChange={(value) => onChange({ ...config, require_company: value })}
+            disabled={disabled}
+            label="Perusahaan wajib diisi"
+            description="Kolomnya selalu ada. Ini hanya menentukan boleh dikosongkan atau tidak."
+          />
+        </div>
+        <div className="px-5 py-4">
+          <Switch
+            checked={config.require_job_title === true}
+            onChange={(value) => onChange({ ...config, require_job_title: value })}
+            disabled={disabled}
+            label="Jabatan wajib diisi"
+            description="Kolomnya selalu ada. Ini hanya menentukan boleh dikosongkan atau tidak."
+          />
+        </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-title-medium font-semibold">Pertanyaan tambahan</p>
-          <p className="mt-0.5 text-body-small text-on-surface-variant">
-            {fields.length} dari {MAX_CUSTOM_FIELDS}. Jawabannya ikut tersimpan ke data peserta.
-          </p>
-        </div>
-        <Button
-          variant="tonal"
-          onClick={add}
-          disabled={disabled || fields.length >= MAX_CUSTOM_FIELDS}
-          icon={<Plus size={18} weight="bold" />}
-        >
-          Tambah
-        </Button>
-      </div>
+      <PageSection
+        title="Pertanyaan tambahan"
+        description={`${fields.length} dari ${MAX_CUSTOM_FIELDS}. Jawabannya ikut tersimpan ke data peserta.`}
+        action={
+          <Button
+            variant="tonal"
+            size="sm"
+            onClick={add}
+            disabled={disabled || fields.length >= MAX_CUSTOM_FIELDS}
+            icon={<Plus size={16} weight="bold" />}
+          >
+            Tambah
+          </Button>
+        }
+      />
 
       {fields.length === 0 ? (
         <p className="rounded-lg border border-dashed border-outline-variant p-6 text-center text-body-medium text-on-surface-variant">

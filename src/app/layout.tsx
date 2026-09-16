@@ -1,14 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Montserrat, Oswald, Playfair_Display, Space_Grotesk } from "next/font/google";
+import { Geist_Mono, Inter, Montserrat, Oswald, Playfair_Display, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { MotionProvider } from "@/components/motion-provider";
 import { ToastProvider } from "@/components/toast";
 import { OfflineBanner } from "./offline-banner";
 import { THEME_INIT_SCRIPT } from "@/lib/m3/theme";
 
-// Sebelumnya body memakai Arial. Geist di-self-host oleh next/font sehingga
-// tidak ada request eksternal dan tidak ada layout shift saat font dimuat.
-const geist = Geist({
+// Inter sebagai huruf antarmuka, di-self-host oleh next/font sehingga tidak ada
+// permintaan ke server luar dan tidak ada pergeseran tata letak saat ia dimuat.
+//
+// Menggantikan Geist, yang metriknya nyaris identik — keduanya neo-grotesque
+// dengan x-height tinggi. Diganti karena dasbor yang jadi acuan memakai Inter,
+// dan `cv01`/`ss03` di bawah adalah bagian dari kenapa ia terbaca tenang pada
+// ukuran kecil: `cv01` memberi angka 1 tanpa ekor, `ss03` memperbaiki bentuk
+// huruf kecil beraksen. Keduanya tidak menyala sendiri.
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
@@ -41,7 +47,7 @@ const geistMono = Geist_Mono({ subsets: ["latin"], weight: ["500", "700"], varia
 // (booth, kasir, admin) tetap memakai Geist. Font pilihan admin hanya dipasang
 // per elemen di layar publik, sehingga menambah pilihan di sini tidak pernah
 // mengubah tampilan halaman yang sudah rapi.
-const fontVariables = [geist, montserrat, oswald, spaceGrotesk, playfair, geistMono]
+const fontVariables = [inter, montserrat, oswald, spaceGrotesk, playfair, geistMono]
   .map((font) => font.variable)
   .join(" ");
 

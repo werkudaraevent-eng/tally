@@ -137,7 +137,7 @@ export function BoothsPanel({ onBukaItemSpesial }: { onBukaItemSpesial: () => vo
               dan halaman ini tidak punya kontrol untuk syarat akumulasi maupun flag
               top spender. Satu editor menghilangkan pertanyaan "mana yang dipakai". */}
           <div className="rounded-lg mt-6 border border-outline-variant bg-panel-high p-5">
-            <h3 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Item spesial booth ini</h3>
+            <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">Item spesial booth ini</h3>
             {selected.id ? <>
               <p className="mt-3 text-body-medium">{selected.discount_enabled && selected.discount_limit_per_participant > 0
                 ? <><span className="font-semibold">{selected.discount_item_name}</span> · maks {selected.discount_limit_per_participant}x/peserta · stok {selected.discount_item_stock ?? "tak terbatas"}</>

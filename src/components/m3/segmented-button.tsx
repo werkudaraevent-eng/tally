@@ -1,6 +1,5 @@
 "use client";
 
-import { Check } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { cx } from "@/lib/m3/cx";
 
@@ -35,7 +34,7 @@ export type SegmentedButtonProps<T extends string> = {
  */
 export function SegmentedButton<T extends string>({ options, value, onChange, label, compact, className }: SegmentedButtonProps<T>) {
 	return (
-		<div role="radiogroup" aria-label={label} className={cx("inline-flex items-center gap-1 rounded-2xl bg-surface-container p-1", className)}>
+		<div role="radiogroup" aria-label={label} className={cx("m3-segment-group inline-flex items-center gap-0.5 rounded-lg bg-primary-soft p-[3px]", className)}>
 			{options.map((option) => {
 				const selected = option.value === value;
 				return (
@@ -52,13 +51,19 @@ export function SegmentedButton<T extends string>({ options, value, onChange, la
 							// "Audit trail". Tanpa ini flexbox menyusutkan tombolnya sampai
 							// selebar kata terpanjang lalu memecah labelnya jadi dua baris —
 							// grup tombol setinggi dua baris di tengah ruang yang masih lapang.
-							"m3-state flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap px-4 text-label-large font-semibold",
-							"transition-[border-radius,background-color,color] duration-200 ease-emphasized",
+							"m3-segmented m3-state flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 text-label-large",
+							"transition-[background-color,color,box-shadow] duration-150 ease-standard",
 							"disabled:pointer-events-none disabled:opacity-40",
-							selected ? "rounded-lg bg-primary text-on-primary" : "rounded-2xl text-on-surface-variant",
+							// Tab terpilih adalah kepingan PUTIH yang terangkat dari alas abu,
+							// bukan bidang biru. Biru di sini bersaing dengan satu-satunya
+							// tombol biru yang boleh ada per layar, dan tab bukan aksi — ia
+							// penanda tempat.
+							selected
+								? "border border-outline-variant bg-surface-container-lowest font-medium text-on-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+								: "border border-transparent text-on-surface-variant hover:text-on-surface",
 						)}
 					>
-						{option.icon ?? (selected ? <Check size={18} weight="bold" aria-hidden /> : null)}
+						{option.icon}
 						<span className={cx(compact && "sr-only sm:not-sr-only")}>{option.label}</span>
 					</button>
 				);

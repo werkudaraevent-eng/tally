@@ -202,7 +202,7 @@ export function OffersPanel() {
 
       {formOpen && <section className="rounded-lg mt-8 border border-outline-variant bg-panel p-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-body-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Penawaran baru</h2>
+          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Penawaran baru</h2>
           <button type="button" onClick={() => { setFormOpen(false); setForm(EMPTY_FORM); setError(""); }} className="flex min-h-10 items-center px-2 text-on-surface-variant hover:text-on-surface" aria-label="Tutup form"><X size={18} /></button>
         </div>
 
@@ -272,9 +272,9 @@ export function OffersPanel() {
               <p className="flex flex-wrap items-center gap-2 font-semibold">
                 {offer.scope === "global" ? <Tag size={18} className="shrink-0 text-primary" /> : <Storefront size={18} className="shrink-0 text-primary" />}
                 {offer.name}
-                <span className="font-mono text-[11px] font-normal text-on-surface-variant">{offer.code}</span>
-                {offer.is_builtin && <span className="rounded-sm bg-panel-high px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant">Bawaan booth</span>}
-                {offer.counts_toward_leaderboard && <span className="inline-flex items-center gap-1 rounded-sm bg-primary-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary-dim"><TrendUp size={11} weight="bold" />Top spender</span>}
+                <span className="font-mono text-label-small font-normal text-on-surface-variant">{offer.code}</span>
+                {offer.is_builtin && <span className="rounded-sm bg-panel-high px-2 py-0.5 text-label-small font-semibold ed-label text-on-surface-variant">Bawaan booth</span>}
+                {offer.counts_toward_leaderboard && <span className="inline-flex items-center gap-1 rounded-sm bg-primary-soft px-2 py-0.5 text-label-small font-semibold ed-label text-primary-dim"><TrendUp size={11} weight="bold" />Top spender</span>}
               </p>
               <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-body-small text-on-surface-variant">
                 <div><dt className="inline">Harga </dt><dd className="inline font-semibold tabular-nums text-on-surface">{formatRupiah(offer.price)}</dd></div>

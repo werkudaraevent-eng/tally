@@ -3,7 +3,7 @@
 import { FunnelSimple, ListChecks, Prohibit, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { ExportMenu } from "@/components/admin/export-menu";
-import { Button, Dialog, TextField } from "@/components/m3";
+import { Button, Dialog, PageHeader, TextField } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
@@ -129,15 +129,10 @@ export default function AdminOrdersPage() {
 
   return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
     <div className="mx-auto max-w-[1440px]">
-      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-body-medium leading-6 text-on-surface-variant">Pantau seluruh transaksi dengan filter status, booth, dan pencarian nomor stiker.</p>
-        </div>
-        <ExportMenu />
-      </div>
+      <PageHeader actions={<ExportMenu />} />
 
       <div className="rounded-lg mt-8 flex flex-wrap items-end gap-3 border border-outline-variant bg-panel p-4">
-        <div className="flex items-center gap-2 text-body-small font-semibold uppercase tracking-[0.14em] text-on-surface-variant"><FunnelSimple size={18} /> Filter</div>
+        <div className="flex items-center gap-2 text-body-small font-semibold ed-label text-on-surface-variant"><FunnelSimple size={18} /> Filter</div>
         <label className="text-body-medium">Status
           <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-md mt-1 block h-11 w-44 border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary">
             <option value="">Semua status</option>
@@ -173,17 +168,17 @@ export default function AdminOrdersPage() {
             {/* Nilai transaksi lebih dulu dan paling besar: itu satu-satunya
                 angka yang dicari saat merekonsiliasi uang. */}
             <div className="rounded-lg bg-panel p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-on-surface-variant">Nilai transaksi</p>
+              <p className="ed-label text-on-surface-variant">Nilai transaksi</p>
               <p className="mt-1 text-headline-small font-semibold tabular-nums">{money(summary.total_amount)}</p>
               <p className="mt-1 text-body-small text-on-surface-variant">{summary.order_count} order dihitung</p>
             </div>
             <div className="rounded-lg bg-panel p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-on-surface-variant">Belanja reguler</p>
+              <p className="ed-label text-on-surface-variant">Belanja reguler</p>
               <p className="mt-1 text-headline-small font-semibold tabular-nums">{money(summary.regular_amount)}</p>
               <p className="mt-1 text-body-small text-on-surface-variant">Angka inilah yang masuk leaderboard</p>
             </div>
             <div className="rounded-lg bg-panel p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-on-surface-variant">Item spesial</p>
+              <p className="ed-label text-on-surface-variant">Item spesial</p>
               <p className="mt-1 text-headline-small font-semibold tabular-nums">{money(summary.special_amount)}</p>
               <p className="mt-1 text-body-small text-on-surface-variant">{summary.discount_item_count} order pakai item diskon</p>
             </div>
@@ -192,7 +187,7 @@ export default function AdminOrdersPage() {
                 hanya menghitung paid/handed_over — dan satu angka yang tidak bisa
                 dijelaskan asalnya menghentikan seluruh rekonsiliasi. */}
             <div className="rounded-lg bg-panel p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-on-surface-variant">Void (tidak dihitung)</p>
+              <p className="ed-label text-on-surface-variant">Void (tidak dihitung)</p>
               <p className={`mt-1 text-headline-small font-semibold tabular-nums ${summary.void_count > 0 ? "text-error" : "text-on-surface-variant"}`}>{summary.void_count}</p>
               <p className="mt-1 text-body-small text-on-surface-variant">{summary.void_count > 0 ? `Senilai ${money(summary.void_amount)}` : "Tidak ada order dibatalkan"}</p>
             </div>
@@ -208,7 +203,7 @@ export default function AdminOrdersPage() {
       <section className="rounded-lg mt-6 border border-outline-variant bg-panel">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1040px] text-body-medium">
-            <thead><tr className="border-b border-outline-variant text-left text-body-small uppercase tracking-[0.12em] text-on-surface-variant">
+            <thead><tr className="border-b border-outline-variant text-left ed-label text-on-surface-variant">
               <th className="px-4 py-3 font-semibold">Order</th>
               <th className="px-4 py-3 font-semibold">Peserta</th>
               <th className="px-4 py-3 font-semibold">Booth</th>
@@ -254,7 +249,7 @@ export default function AdminOrdersPage() {
                       ? <span className="text-on-surface-variant">—</span>
                       : null}
                   </td>
-                  <td className="px-4 py-3">{order.status === "void" && order.void_reason ? <span title={order.void_reason} className={`inline-flex rounded-sm px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>{badge.label}</span> : <span className={`inline-flex rounded-sm px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>{badge.label}</span>}</td>
+                  <td className="px-4 py-3">{order.status === "void" && order.void_reason ? <span title={order.void_reason} className={`inline-flex rounded-sm px-2 py-0.5 text-label-small font-semibold ${badge.className}`}>{badge.label}</span> : <span className={`inline-flex rounded-sm px-2 py-0.5 text-label-small font-semibold ${badge.className}`}>{badge.label}</span>}</td>
                   <td className="px-4 py-3 text-right font-semibold tabular-nums">{money(order.total_amount)}</td>
                   <td className="px-4 py-3 text-body-small tabular-nums text-on-surface-variant">{dateTime(order.created_at)}</td>
                   <td className="px-4 py-3 text-body-small tabular-nums text-on-surface-variant">{dateTime(order.paid_at)}</td>

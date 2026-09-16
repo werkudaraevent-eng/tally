@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { ImagePreview } from "@/components/admin/image-preview";
-import { Button, Card, CardHeader, SegmentedButton, SelectField, Switch, TextField } from "@/components/m3";
+import { Button, Card, CardHeader, PageHeader, SegmentedButton, SelectField, Switch, TextField } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { fontStack } from "@/lib/branding";
 import { eventApiPath } from "@/lib/event-url";
@@ -144,6 +144,7 @@ export default function SapaAdminPage() {
   return (
     <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
       <div className="mx-auto max-w-[1440px]">
+        <PageHeader />
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">
             Layar di dekat pintu masuk yang menyapa tamu dengan namanya begitu QR-nya dipindai di{" "}
@@ -348,7 +349,7 @@ export default function SapaAdminPage() {
             </Card>
           </div>
 
-          <aside className="space-y-4 lg:sticky lg:top-[88px]">
+          <aside className="space-y-4">
             <Card>
               <CardHeader title="Status" />
               <div className="mt-4">
