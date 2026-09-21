@@ -1,7 +1,8 @@
 "use client";
 
 import { CaretDown, FileCsv, FileXls, Package } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useId, useState } from "react";
+import { Popover, usePopoverAnchor } from "@/components/m3";
 
 // Tombol export dengan pilihan format.
 //
@@ -40,53 +41,37 @@ export type ExportMenuProps = {
 };
 
 export function ExportMenu({ endpoint = "/api/admin/export", label = "Export data", className }: ExportMenuProps) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  // Menu ditutup saat klik di luar atau menekan Esc. Tanpa keduanya, menu yang
-  // terbuka tidak sengaja akan menutupi kontrol lain dan terasa macet.
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  const [pemicu, setPemicu] = useState<HTMLElement | null>(null);
+  const menu = usePopoverAnchor(pemicu);
+  const menuId = useId();
 
   return (
-    <div ref={containerRef} className={`relative ${className ?? ""}`}>
+    <div className={`relative ${className ?? ""}`}>
       <button
+        ref={setPemicu}
         type="button"
-        onClick={() => setOpen((current) => !current)}
-        aria-expanded={open}
+        onClick={menu.toggle}
+        aria-expanded={menu.open}
+        aria-controls={menu.open ? menuId : undefined}
         aria-haspopup="menu"
         className="m3-btn inline-flex min-h-12 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-label-large font-medium text-on-surface transition-colors duration-150 hover:bg-primary-soft"
         data-size="md"
       >
         <Package size={16} /> {label}
-        <CaretDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        <CaretDown size={14} className={`transition-transform ${menu.open ? "rotate-180" : ""}`} />
       </button>
 
-      {open ? (
-        <div
-          role="menu"
-          aria-label="Pilih format export"
-          // Menu dibuat melebar minimal selebar tombolnya dan diberi lapisan di
-          // atas isi halaman, supaya tidak terpotong kartu di bawahnya.
-          className="absolute right-0 z-30 mt-1 w-72 overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-level2"
-        >
+      {/* Portal, sama seperti menu lain: tombol ini duduk di kepala halaman
+          sekarang, tapi ia juga dipakai di dalam kartu, dan kartu yang memotong
+          isinya akan memotong menunya. */}
+      {menu.open ? (
+        <Popover anchor={menu} id={menuId} label="Pilih format export" width={288} className="p-0">
           {CHOICES.map(({ format, label, detail, Icon }) => (
             <a
               key={format}
               role="menuitem"
               href={`${endpoint}?format=${format}`}
-              onClick={() => setOpen(false)}
+              onClick={menu.tutup}
               className="flex items-start gap-3 border-b border-outline-variant p-3 text-left last:border-b-0 hover:bg-primary-soft"
             >
               <Icon size={18} className="mt-0.5 shrink-0 text-on-surface-variant" />
@@ -96,7 +81,7 @@ export function ExportMenu({ endpoint = "/api/admin/export", label = "Export dat
               </span>
             </a>
           ))}
-        </div>
+        </Popover>
       ) : null}
     </div>
   );

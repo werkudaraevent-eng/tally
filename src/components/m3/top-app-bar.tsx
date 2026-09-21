@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cx } from "@/lib/m3/cx";
+import { CONTAINER_PADDING } from "./page-shell";
 
 export type TopAppBarProps = {
 	/** Tombol navigasi atau kembali. Duduk di ujung awal bilah. */
@@ -102,7 +103,7 @@ export function useScrolledPastTop() {
 	return { sentinel, scrolled };
 }
 
-export function TopAppBar({ leading, title, titleAs = "h1", subtitle, subtitleClassName, breadcrumb, actions, maxWidth = "1440px", className }: TopAppBarProps) {
+export function TopAppBar({ leading, title, titleAs = "h1", subtitle, subtitleClassName, breadcrumb, actions, maxWidth = "1280px", className }: TopAppBarProps) {
 	const { sentinel, scrolled } = useScrolledPastTop();
 
 	return (
@@ -111,7 +112,10 @@ export function TopAppBar({ leading, title, titleAs = "h1", subtitle, subtitleCl
 			<header
 				className={cx(
 					// z-20, di bawah laci navigasi (z-40) dan latar gelapnya (z-30).
-					"sticky top-0 z-20 border-b px-5 transition-colors duration-200 ease-standard sm:px-8",
+					// Padding dan lebar SAMA dengan `PageContainer`, supaya judul di bilah
+					// dan judul halaman di bawahnya berbagi satu tepi kiri di setiap lebar.
+					"sticky top-0 z-topbar border-b transition-colors duration-200 ease-standard",
+					CONTAINER_PADDING,
 					// Bilah SELALU setone dengan panel konten, tidak pernah berubah warna.
 					//
 					// Spesifikasi M3 menaikkan tone bilah begitu ada yang tergulir di

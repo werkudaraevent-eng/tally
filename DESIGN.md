@@ -31,6 +31,23 @@ pembacaan transaksi.
 
 ## Warna
 
+### Palet netral berkroma nol
+
+`Variant.VIBRANT` memberi kroma pada palet netralnya supaya permukaan "terasa
+sekeluarga" dengan warna sumber. Diukur di keluaran generator, harganya nyata:
+`surface` #F9F5FF (hue 264), `outline-variant` #ABA9D7 (hue 243, saturasi 37%),
+dan **38 dari 73 token terang** duduk di hue 220-300. Yang terlihat bukan
+"sekeluarga", melainkan lavender.
+
+Generator sekarang memaksa `neutralPalette` dan `neutralVariantPalette` ke
+kroma 0. Seluruh peran permukaan, garis, dan teks jadi abu murni; `primary`,
+`secondary`, `tertiary`, dan `error` tidak disentuh karena mereka memang warna.
+
+Masalah ini tersembunyi selama semua yang dirender berada di dalam
+`<div class="press">`, yang menimpanya. Ia muncul kembali begitu menu pindah ke
+portal `document.body` dan keluar dari jangkauan penimpaan itu. Itu yang
+membuat pelajarannya penting: **penimpaan bukan perbaikan.**
+
 ### Dari mana warnanya datang
 
 Seluruh warna **dibangkitkan**, tidak ditulis tangan:

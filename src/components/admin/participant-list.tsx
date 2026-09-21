@@ -7,6 +7,7 @@ import {
   SelectMenu, StatusChip, TableCard, TableSkeleton, type SelectOption,
 } from "@/components/m3";
 import { formatEventDateTime } from "@/lib/datetime";
+import { gabungMeta } from "@/lib/typography";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
 import { DEFAULT_TIME_ZONE, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
@@ -536,7 +537,11 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, t
           />
         </div>
       }
-      count={`${activeTotal} peserta aktif${removedCount > 0 ? ` \u00b7 ${removedCount} sudah dihapus di sumber` : ""}${lastSyncedAt ? ` \u00b7 sinkron ${formatEventDateTime(lastSyncedAt, timeZone)} ${abbr ?? timeZoneAbbr(timeZone)}` : ""}`}
+      count={gabungMeta([
+        `${activeTotal} peserta aktif`,
+        removedCount > 0 && `${removedCount} sudah dihapus di sumber`,
+        lastSyncedAt && `sinkron ${formatEventDateTime(lastSyncedAt, timeZone)} ${abbr ?? timeZoneAbbr(timeZone)}`,
+      ])}
       onReset={adaFilter ? () => { setFilterAsal(""); setFilterHadir(""); setFilterRsvp(""); setPage(0); } : undefined}
     >
       {/* Ketiganya selebar 200px, dan itu disengaja. Lebar yang mengikuti isi

@@ -4,6 +4,7 @@ import { ArrowLeft, ShieldCheck, Trash } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { ROLE_LABEL } from "@/lib/domain";
 
 type Role = "booth" | "cashier" | "admin";
 type AccessRow = { user_id: string; role: Role; booth_id: number | null; granted_at: string };
@@ -11,7 +12,6 @@ type UserRow = { id: string; username: string; role: string; is_active: boolean 
 type BoothRow = { id: number; code: string; name: string };
 type EventInfo = { id: string; name: string; slug: string; status: string };
 
-const roleLabel: Record<Role, string> = { booth: "Admin Booth", cashier: "Kasir", admin: "Panitia / Admin" };
 
 export default function EventAccessPage() {
   const eventId = String(useParams().id ?? "");
@@ -106,7 +106,7 @@ export default function EventAccessPage() {
               {access.map((row) => <li key={row.user_id} className="rounded-lg flex flex-wrap items-center justify-between gap-3 bg-panel p-4">
                 <div>
                   <p className="font-semibold">{named(row.user_id)}</p>
-                  <p className="mt-1 text-body-medium text-on-surface-variant">{roleLabel[row.role]}{row.role === "booth" && ` · ${boothLabel(row.booth_id)}`}</p>
+                  <p className="mt-1 text-body-medium text-on-surface-variant">{ROLE_LABEL[row.role]}{row.role === "booth" && ` · ${boothLabel(row.booth_id)}`}</p>
                 </div>
                 <button type="button" disabled={pending} onClick={() => void revoke(row, named(row.user_id))} className="rounded-md flex min-h-11 items-center gap-2 border border-error/40 px-3 text-body-medium font-semibold text-error disabled:opacity-50"><Trash size={16} /> Cabut</button>
               </li>)}

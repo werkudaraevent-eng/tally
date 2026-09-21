@@ -206,7 +206,7 @@ export function HelpPanel({ role }: { role: "booth" | "cashier" }) {
       <Question size={18} weight="bold" aria-hidden="true" />Panduan
     </button>
 
-    {open && <div className="fixed inset-0 z-[60] flex justify-end bg-scrim/50" role="dialog" aria-modal="true" aria-label="Panduan operator">
+    {open && <div className="fixed inset-0 z-overlay flex justify-end bg-scrim/50" role="dialog" aria-modal="true" aria-label="Panduan operator">
       {/* Klik area gelap ikut menutup: jalan keluar paling mudah ditemukan. */}
       <button type="button" className="flex-1 cursor-default" onClick={() => setOpen(false)} aria-label="Tutup panduan" />
       {/* Sudut membulat hanya di tepi yang menghadap halaman. Side sheet M3

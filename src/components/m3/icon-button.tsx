@@ -43,9 +43,20 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "cla
 	className?: string;
 };
 
-export function IconButton({ label, children, variant = "standard", size = "md", selected, className, ...rest }: IconButtonProps) {
+/**
+ * `ref` diteruskan ke `<button>`-nya.
+ *
+ * Dibutuhkan sejak menu dan popover dirender lewat portal: posisinya dihitung
+ * dari rect pemicunya, dan pemicunya hampir selalu tombol ikon ini. Tanpa ref,
+ * setiap pemanggil harus membungkusnya dengan `<span>` hanya untuk bisa diukur
+ * — dan span tambahan di dalam baris flex mengubah perataannya.
+ *
+ * React 19 memperlakukan `ref` sebagai prop biasa, jadi tidak perlu `forwardRef`.
+ */
+export function IconButton({ label, children, variant = "standard", size = "md", selected, className, ref, ...rest }: IconButtonProps & { ref?: React.Ref<HTMLButtonElement> }) {
 	return (
 		<button
+			ref={ref}
 			{...rest}
 			aria-label={label}
 			title={label}

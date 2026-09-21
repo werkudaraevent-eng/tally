@@ -23,10 +23,15 @@ export type { DialogProps } from "./dialog";
 export { Banner, Divider, EmptyState, PageHeader, PageSection, PageToolbar } from "./layout";
 export type { BannerProps, BannerTone, EmptyStateProps, PageHeaderProps, PageSectionProps, PageToolbarProps } from "./layout";
 
-export { PageShell } from "./page-shell";
-export type { PageShellProps } from "./page-shell";
+export { CONTAINER_PADDING, PageContainer, PageShell } from "./page-shell";
+export type { PageContainerProps, PageShellProps } from "./page-shell";
+
+export { PageLoading } from "./page-loading";
 
 export { CircularProgress, LinearProgress, LoadingIndicator } from "./progress";
+
+export { Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, usePopoverAnchor } from "./popover";
+export type { PopoverAnchor, PopoverProps } from "./popover";
 
 export { SelectMenu } from "./select-menu";
 export type { SelectMenuProps, SelectOption } from "./select-menu";

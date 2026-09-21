@@ -2,6 +2,7 @@
 
 import { CheckCircle, Plus, ShieldCheck, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
+import { ROLE_LABEL } from "@/lib/domain";
 import {
   Button,
   SelectField,
@@ -23,7 +24,6 @@ type Booth = { id: number; code: string; name: string };
 type Draft = { id: string | null; username: string; pin: string; role: Role; booth_id: number | null; is_active: boolean };
 
 const blank: Draft = { id: null, username: "", pin: "", role: "booth", booth_id: null, is_active: true };
-const roleLabel: Record<Role, string> = { booth: "Admin Booth", cashier: "Kasir", admin: "Panitia / Admin", super_admin: "Super Admin", scanner: "Petugas scan" };
 const rolePermissions: Record<Role, string[]> = {
   booth: ["Scan peserta & buat order", "Serahkan barang di booth", "Lihat riwayat booth sendiri"],
   cashier: ["Lihat antrean pembayaran", "Tandai lunas", "Void order"],
@@ -127,7 +127,7 @@ export function UsersPanel() {
             <TableBody>
               {users.map((user) => <TableRow key={user.id} interactive>
                 <TableCell strong>{user.username}</TableCell>
-                <TableCell>{roleLabel[user.role]}</TableCell>
+                <TableCell>{ROLE_LABEL[user.role]}</TableCell>
                 {/* Kode booth WAJIB dibaca dari data booth, bukan dibentuk dari
                     `B` + booth_id. Kode booth bebas huruf/angka (mis. PH), jadi
                     menyusunnya dari id menampilkan booth PH sebagai "B8" dan
@@ -161,7 +161,7 @@ export function UsersPanel() {
                 onChange={(event) => setDraft((current) => ({ ...current, username: event.target.value.toLowerCase() }))}
                 placeholder="mis. ratna.booth3"
               />
-            ) : <p className="mt-5 text-body-medium">{draft.id ? <>Akun <span className="font-semibold">{draft.username}</span> ({roleLabel[draft.role]})</> : "Pilih Reset PIN pada akun operator di tabel."}</p>}
+            ) : <p className="mt-5 text-body-medium">{draft.id ? <>Akun <span className="font-semibold">{draft.username}</span> ({ROLE_LABEL[draft.role]})</> : "Pilih Reset PIN pada akun operator di tabel."}</p>}
             <TextField
               className="mt-4"
               label="PIN 6 digit"
@@ -217,7 +217,7 @@ export function UsersPanel() {
           </div>
 
           <div className="rounded-lg border border-outline-variant bg-panel p-5">
-            <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Izin role: {roleLabel[draft.role]}</h2>
+            <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Izin role: {ROLE_LABEL[draft.role]}</h2>
             <ul className="mt-4 space-y-2 text-body-medium">
               {rolePermissions[draft.role].map((perm) => <li key={perm} className="flex items-start gap-2"><CheckCircle size={18} weight="fill" className="mt-0.5 shrink-0 text-primary" />{perm}</li>)}
             </ul>

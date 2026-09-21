@@ -11,14 +11,17 @@
 // - Toast HANYA untuk konfirmasi transien hasil aksi pengguna.
 // - Error validasi yang perlu diperbaiki di tempat tetap inline, bukan toast.
 // - Status persisten (mis. offline) tetap banner, bukan toast.
-// - Mobile: bottom-center (jangkauan jempol, tidak menutupi header sticky).
-//   Desktop: top-right.
+// - Mobile: bottom-center (jangkauan jempol). Desktop: BOTTOM-right.
+//
+//   Bukan top-right, dan itu perbaikan dari kegagalan yang terlihat: di pojok
+//   kanan atas ia duduk persis di atas tombol aksi utama halaman ("Buat event",
+//   "Tambah peserta") dan menutupinya selama empat detik pertama — tepat detik
+//   ketika orang baru sampai di halaman dan hendak menekannya.
 // - Sukses auto-hilang cepat; error bertahan lebih lama karena perlu dibaca.
 
 import { CheckCircle, Info, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import { standard } from "@/lib/m3/motion";
 
 type ToastVariant = "success" | "error" | "warning" | "info";
 
@@ -46,14 +49,23 @@ const DURATION: Record<ToastVariant, number> = {
   error: 7000,
 };
 
-// Pita warna DAN ikon, bukan salah satu. Toast muncul di tepi layar tempat mata
-// belum tentu tertuju; pita memberi tahu jenisnya sebelum teksnya terbaca, dan
-// ikon menanggung arti yang sama untuk siapa pun yang tidak membedakan warnanya.
-const STYLE: Record<ToastVariant, { icon: typeof CheckCircle; bar: string; iconColor: string }> = {
-  success: { icon: CheckCircle, bar: "bg-success", iconColor: "text-success" },
-  error: { icon: XCircle, bar: "bg-error", iconColor: "text-error" },
-  warning: { icon: WarningCircle, bar: "bg-warning", iconColor: "text-warning" },
-  info: { icon: Info, bar: "bg-primary", iconColor: "text-primary" },
+// IKON saja yang berwarna. Pita 6px di tepi kiri dibuang.
+//
+// Ia dipasang sebagai anak flex di dalam wadah `overflow-hidden rounded-2xl`,
+// dan itu cukup selama wadahnya diam. Tidak diam: `motion.div` di bawah memakai
+// `layout` dan animasi `scale`, dan framer-motion mengoreksi skala anak-anaknya
+// satu per satu. Pita yang bukan anak `layout` ikut teregang, lalu muncul
+// sebagai balok hijau yang menjulur keluar sudut membulat kartunya. Terlihat
+// persis begitu di layar.
+//
+// Yang dikerjakan pita tetap dikerjakan: ikon memberi tahu jenisnya sebelum
+// teksnya terbaca, dan bentuknya berbeda per jenis, jadi ia tetap terbaca oleh
+// siapa pun yang tidak membedakan warna.
+const STYLE: Record<ToastVariant, { icon: typeof CheckCircle; iconColor: string }> = {
+  success: { icon: CheckCircle, iconColor: "text-success" },
+  error: { icon: XCircle, iconColor: "text-error" },
+  warning: { icon: WarningCircle, iconColor: "text-warning" },
+  info: { icon: Info, iconColor: "text-on-surface-variant" },
 };
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -98,42 +110,40 @@ export function ToastProvider({ children }: Readonly<{ children: React.ReactNode
     {children}
     {/* aria-live agar pembaca layar mengumumkan hasil aksi. */}
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-[100] flex flex-col items-center gap-2 p-4 sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:items-end"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-toast flex flex-col items-center gap-2 p-4 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:items-end"
       aria-live="polite"
       aria-atomic="false"
     >
       <AnimatePresence initial={false}>
         {toasts.map((toast) => {
-          const { icon: Icon, bar, iconColor } = STYLE[toast.variant];
+          const { icon: Icon, iconColor } = STYLE[toast.variant];
           return <motion.div
             key={toast.id}
             layout
-            initial={{ opacity: 0, y: 24, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.97 }}
-            // Pegas M3 skema tenang, bukan angka pegas yang ditebak. Toast muncul
-            // saat operator sedang mengerjakan hal lain; pantulan menarik mata
-            // ke tepi layar tepat ketika ia tidak boleh berpaling.
-            transition={standard.spatial.default}
+            // Geser + pudar 150ms, tanpa `scale`. Skala pada kartu yang punya
+            // sudut membulat dan garis tepi membuat keduanya ikut mengecil lalu
+            // membesar, dan itu terbaca sebagai kartu yang "bernapas" di sudut
+            // layar. Geser sudah cukup memberi tahu ia datang dari mana.
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.15, ease: [0.2, 0, 0, 1] }}
             role={toast.variant === "error" ? "alert" : "status"}
-            className="pointer-events-auto flex w-full max-w-md overflow-hidden rounded-2xl bg-surface-container-high text-on-surface shadow-level3"
+            className="pointer-events-auto flex w-full max-w-[380px] items-start gap-2.5 rounded-[10px] border border-outline-variant bg-surface-container-lowest px-3.5 py-3 text-on-surface shadow-[0_4px_16px_rgb(0_0_0/0.08)]"
           >
-            <span className={`w-1.5 shrink-0 ${bar}`} aria-hidden="true" />
-            <div className="flex flex-1 items-start gap-3 p-4">
-              <Icon size={22} weight="fill" className={`mt-0.5 shrink-0 ${iconColor}`} aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <p className="text-body-large font-semibold leading-snug">{toast.title}</p>
-                {toast.description && <p className="mt-1 text-body-small leading-relaxed text-on-surface-variant">{toast.description}</p>}
-              </div>
-              <button
-                type="button"
-                onClick={() => dismiss(toast.id)}
-                className="m3-state -m-1 flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
-                aria-label="Tutup notifikasi"
-              >
-                <X size={16} weight="bold" />
-              </button>
+            <Icon size={16} weight="fill" className={`mt-0.5 shrink-0 ${iconColor}`} aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="text-body-medium font-medium leading-snug">{toast.title}</p>
+              {toast.description && <p className="mt-0.5 text-body-small leading-relaxed text-on-surface-variant">{toast.description}</p>}
             </div>
+            <button
+              type="button"
+              onClick={() => dismiss(toast.id)}
+              className="-mr-1 -mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm text-on-surface-variant transition-colors duration-150 hover:bg-primary-soft"
+              aria-label="Tutup notifikasi"
+            >
+              <X size={14} />
+            </button>
           </motion.div>;
         })}
       </AnimatePresence>

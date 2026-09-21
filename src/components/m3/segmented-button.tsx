@@ -7,6 +7,14 @@ export type SegmentedOption<T extends string> = {
 	value: T;
 	label: string;
 	icon?: ReactNode;
+	/**
+	 * Angka di belakang label: "Semua 3", "Draft 1".
+	 *
+	 * Slot tersendiri, bukan disambung ke `label`, karena ia diberi warna yang
+	 * lebih redup. Angka setebal labelnya terbaca sebagai bagian dari nama tab,
+	 * dan "Selesai 1" jadi terlihat seperti nama tab yang bernomor.
+	 */
+	badge?: ReactNode;
 	disabled?: boolean;
 };
 
@@ -65,6 +73,9 @@ export function SegmentedButton<T extends string>({ options, value, onChange, la
 					>
 						{option.icon}
 						<span className={cx(compact && "sr-only sm:not-sr-only")}>{option.label}</span>
+						{option.badge != null ? (
+							<span className={cx("tabular-nums", selected ? "text-on-surface-variant" : "text-outline")}>{option.badge}</span>
+						) : null}
 					</button>
 				);
 			})}

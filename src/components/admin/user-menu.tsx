@@ -1,34 +1,105 @@
 "use client";
 
-import { CaretDown, GearSix, SignOut } from "@phosphor-icons/react";
-import { AnimatePresence, motion } from "framer-motion";
+import { CaretRight, Check } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
-import { MENU_MOTION } from "@/lib/m3/menu-motion";
+import { useId, useState, useSyncExternalStore } from "react";
+import { Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, usePopoverAnchor } from "@/components/m3";
+import { applyTheme, readTheme, type ThemePreference } from "@/lib/m3/theme";
+import { ROLE_LABEL, type UserRole } from "@/lib/domain";
+import { cx } from "@/lib/m3/cx";
 
 /**
  * Menu akun di ujung kanan bilah atas.
  *
- * Menampung hal-hal yang BUKAN tujuan navigasi: siapa yang sedang login,
- * pengaturan sistem, dan keluar. Sebelumnya ketiganya tinggal di kaki drawer dan
- * memakan ~170px dari ruang yang sama dengan daftar menu — pada jendela pendek,
- * itu selisih antara tiga baris menu terlihat dan enam.
+ * Menampung hal-hal yang BUKAN tujuan navigasi: siapa yang sedang login, tema,
+ * pengaturan, dan keluar. Sebelumnya ketiganya tinggal di kaki drawer dan
+ * memakan ~170px dari ruang yang sama dengan daftar menu.
  *
  * Nama akun yang sedang login sebelumnya TIDAK ADA di mana pun di layar admin.
  * Di sistem yang dipakai bergantian oleh panitia dari satu laptop di meja
  * registrasi, itu masalah nyata: tidak ada cara memastikan tindakan yang tercatat
  * di audit trail akan atas nama siapa.
  *
- * Pola menunya mengikuti yang dipakai Linear, Vercel, dan Stripe: satu tombol
- * avatar, satu menu, tidak ada yang tersembunyi di tempat lain.
+ * ---- Kenapa tanpa ikon di itemnya -----------------------------------------
+ *
+ * Menu ini berisi empat baris, dan keempatnya sudah dibedakan oleh kata. Ikon
+ * roda gigi di sebelah "Pengaturan akun" tidak menambah satu pun informasi;
+ * yang ia tambahkan adalah kolom 24px di kiri yang memundurkan semua teks, dan
+ * satu bentuk lagi untuk dipindai mata sebelum sampai ke katanya.
  */
 
-const LABEL_ROLE: Record<string, string> = {
-  booth: "Admin Booth",
-  cashier: "Kasir",
-  admin: "Panitia / Admin",
-  super_admin: "Super Admin",
-};
+const TEMA: { value: ThemePreference; label: string }[] = [
+  { value: "light", label: "Terang" },
+  { value: "dark", label: "Gelap" },
+  { value: "system", label: "Ikut sistem" },
+];
+
+/**
+ * Sumber kebenaran tema adalah atribut `data-theme` di `<html>`, bukan state.
+ *
+ * Atribut itu sudah ditulis skrip di `<head>` sebelum React jalan, dan CSS
+ * membacanya langsung. Menyalinnya ke `useState` berarti ada dua sumber yang
+ * bisa berbeda.
+ */
+function subscribeTema(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributeFilter: ["data-theme"] });
+  return () => observer.disconnect();
+}
+
+/** Submenu tema. Popover kedua, berlabuh pada barisnya sendiri. */
+function SubmenuTampilan({ tutupInduk }: { tutupInduk: () => void }) {
+  const [pemicu, setPemicu] = useState<HTMLElement | null>(null);
+  const sub = usePopoverAnchor(pemicu);
+  const subId = useId();
+  const tema = useSyncExternalStore(subscribeTema, readTheme, () => "system" as ThemePreference);
+
+  return (
+    <>
+      <button
+        ref={setPemicu}
+        type="button"
+        role="menuitem"
+        aria-haspopup="menu"
+        aria-expanded={sub.open}
+        aria-controls={sub.open ? subId : undefined}
+        onClick={sub.toggle}
+        // Panah kanan membuka submenu, sesuai pola menu di mana pun. Panah kiri
+        // menutupnya kembali tanpa memindahkan fokus keluar dari menu induk.
+        onKeyDown={(peristiwa) => {
+          if (peristiwa.key === "ArrowRight") { peristiwa.preventDefault(); sub.buka(); }
+          if (peristiwa.key === "ArrowLeft") { peristiwa.preventDefault(); sub.tutup(); }
+        }}
+        className={cx(POPOVER_ITEM, sub.open && "bg-primary-soft")}
+      >
+        <span className="flex-1">Tampilan</span>
+        <CaretRight size={14} className="shrink-0 text-on-surface-variant" />
+      </button>
+
+      {sub.open ? (
+        // `align="start"` dan lebarnya sendiri: panel ini berlabuh pada BARIS,
+        // bukan pada tombol di bilah atas, jadi ia tumbuh ke bawah dari baris itu.
+        // Penjepitan ke dalam jendela ditangani `Popover`, termasuk saat ruang di
+        // kanan habis.
+        <Popover anchor={sub} id={subId} label="Pilih tema" width={180} align="start">
+          {TEMA.map((pilihan) => (
+            <button
+              key={pilihan.value}
+              type="button"
+              role="menuitemradio"
+              aria-checked={tema === pilihan.value}
+              onClick={() => { applyTheme(pilihan.value); sub.tutup(); tutupInduk(); }}
+              className={POPOVER_ITEM}
+            >
+              <span className="flex-1">{pilihan.label}</span>
+              {tema === pilihan.value ? <Check size={14} weight="bold" className="shrink-0" /> : null}
+            </button>
+          ))}
+        </Popover>
+      ) : null}
+    </>
+  );
+}
 
 export function UserMenu({
   username,
@@ -41,100 +112,70 @@ export function UserMenu({
   role: string | null;
   settingsHref: string;
   onLogout: () => void;
-  loggingOut: boolean;
+  loggingOut?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const wadah = useRef<HTMLDivElement | null>(null);
-  const tombol = useRef<HTMLButtonElement | null>(null);
+  const [pemicu, setPemicu] = useState<HTMLElement | null>(null);
+  const menu = usePopoverAnchor(pemicu);
   const menuId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-
-    // Dua jalan menutup, keduanya wajib: Escape untuk papan ketik, dan ketukan
-    // di luar untuk tetikus/sentuh. Menu yang hanya bisa ditutup dengan menekan
-    // tombolnya lagi adalah jebakan di layar sempit, tempat menu menutupi hal
-    // yang ingin ditekan berikutnya.
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setOpen(false);
-      // Fokus dikembalikan ke tombolnya. Tanpa ini fokus jatuh ke <body> dan
-      // Tab berikutnya memulai lagi dari awal halaman.
-      tombol.current?.focus();
-    };
-    const onPointer = (event: PointerEvent) => {
-      if (!wadah.current?.contains(event.target as Node)) setOpen(false);
-    };
-
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointer);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointer);
-    };
-  }, [open]);
 
   const inisial = (username ?? "?").slice(0, 1).toUpperCase();
 
   return (
-    <div ref={wadah} className="relative">
+    <>
+      {/* Avatar 32px saja, tanpa pil abu dan tanpa caret di sebelahnya.
+          Pil itu membuat satu-satunya kontrol bundar di bilah atas jadi bidang
+          abu selebar 64px — di sudut yang seharusnya paling tenang di layar. */}
       <button
-        ref={tombol}
+        ref={setPemicu}
         type="button"
-        onClick={() => setOpen((current) => !current)}
+        onClick={menu.toggle}
         aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
+        aria-expanded={menu.open}
+        aria-controls={menu.open ? menuId : undefined}
         aria-label={username ? `Menu akun ${username}` : "Menu akun"}
-        className="m3-state flex min-h-11 items-center gap-2 rounded-full bg-surface-container-high pl-1 pr-2 text-label-large font-semibold"
+        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-body-small font-medium text-on-surface transition-colors duration-150 hover:bg-secondary-container"
       >
-        <span className="flex size-7 items-center justify-center rounded-full bg-secondary-container text-body-small font-medium text-on-surface">
-          {inisial}
-        </span>
-        <CaretDown size={16} weight="bold" className="text-on-surface-variant" />
+        {inisial}
       </button>
 
-      <AnimatePresence>
-      {open ? (
-        <motion.div
-          id={menuId}
-          role="menu"
-          aria-label="Menu akun"
-          className="absolute right-0 top-[calc(100%+8px)] z-50 w-64 origin-top-right rounded-2xl border border-outline-variant bg-surface-container-high p-2 shadow-level2"
-          {...MENU_MOTION}
-        >
+      {menu.open ? (
+        <Popover anchor={menu} id={menuId} label="Menu akun" width={240}>
+          {/* Kepala menu bukan item: ia tidak bisa ditekan, jadi ia tidak boleh
+              terlihat seperti yang bisa. Nama akun 13px abu, bukan judul tebal —
+              yang dicari orang di menu ini adalah aksinya, dan nama hanya
+              memastikan ia sedang bertindak atas nama siapa. */}
           <div className="px-3 py-2">
-            <p className="truncate text-body-medium font-semibold">{username ?? "Tidak diketahui"}</p>
-            <p className="mt-0.5 text-body-small text-on-surface-variant">
-              {role ? LABEL_ROLE[role] ?? role : "Sesi tidak terbaca"}
+            <p className="truncate text-body-small text-on-surface-variant" title={username ?? undefined}>
+              {username ?? "Tidak diketahui"}
             </p>
+            {role ? (
+              <p className="mt-0.5 truncate text-label-medium text-on-surface-variant">{ROLE_LABEL[role as UserRole] ?? role}</p>
+            ) : null}
           </div>
 
-          <div className="my-2 border-t border-outline-variant" />
+          <div className="my-1 border-t border-outline-variant" />
 
-          <Link
-            href={settingsHref}
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className="m3-state flex min-h-11 items-center gap-3 rounded-xl px-3 text-label-large font-semibold"
-          >
-            <GearSix size={20} />
-            Pengaturan
+          <Link href={settingsHref} role="menuitem" onClick={menu.tutup} className={POPOVER_ITEM}>
+            Pengaturan akun
           </Link>
 
+          <SubmenuTampilan tutupInduk={menu.tutup} />
+
+          <div className="my-1 border-t border-outline-variant" />
+
+          {/* Merah, dan hanya di sini. Keluar adalah satu-satunya aksi di menu ini
+              yang membuang pekerjaan yang sedang berjalan. */}
           <button
             type="button"
             role="menuitem"
             onClick={onLogout}
             disabled={loggingOut}
-            className="m3-state flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-label-large font-semibold text-error disabled:opacity-50"
+            className={cx(POPOVER_ITEM_DANGER, "disabled:opacity-50")}
           >
-            <SignOut size={20} />
-            {loggingOut ? "Keluar…" : "Logout"}
+            {loggingOut ? "Keluar…" : "Keluar"}
           </button>
-        </motion.div>
+        </Popover>
       ) : null}
-      </AnimatePresence>
-    </div>
+    </>
   );
 }

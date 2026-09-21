@@ -1,14 +1,16 @@
 "use client";
 
-import { ArrowRight, CalendarDots, CopySimple, DotsThreeVertical, Plus, SignOut, Trash, UsersThree } from "@phosphor-icons/react";
-import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, ArrowSquareOut, CalendarDots, CalendarPlus, CopySimple, DotsThree, MagnifyingGlass, Plus, Storefront, Trash, UsersThree } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { Button, ButtonLink, Dialog, EmptyState, IconButton, SelectField, Switch, TextArea, TextField } from "@/components/m3";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { Button, CONTAINER_PADDING, Dialog, EmptyState, IconButton, PageContainer, PageHeader, Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, SegmentedButton, SelectField, SelectMenu, Switch, TextArea, TextField, usePopoverAnchor } from "@/components/m3";
+import { EventStatusBadge, URUTAN_STATUS } from "@/components/admin/event-status";
+import { UserMenu } from "@/components/admin/user-menu";
 import { EVENT_STATUS_LABEL, type EventRow, type EventStatus, type ParticipantSource, type UserRole } from "@/lib/domain";
 import { daysUntil } from "@/lib/event-datetime";
 import { cx } from "@/lib/m3/cx";
-import { MENU_MOTION } from "@/lib/m3/menu-motion";
+import { useQueryState } from "@/lib/url-state";
+import { EN_DASH, SEPARATOR, gabungMeta } from "@/lib/typography";
 import { alasanTidakBisaBuka, roleHome } from "@/lib/role-home";
 
 /**
@@ -41,17 +43,6 @@ import { alasanTidakBisaBuka, roleHome } from "@/lib/role-home";
  */
 
 type Action = "activate" | "deactivate" | "complete" | "archive";
-
-/** Urutan kelompok di layar. Arsip terakhir dan tersembunyi secara bawaan. */
-const URUTAN_STATUS: EventStatus[] = ["active", "draft", "completed", "archived"];
-
-/** Warna teks status di baris meta. Selalu berpasangan dengan labelnya. */
-const WARNA_STATUS: Record<EventStatus, string> = {
-  active: "text-success",
-  draft: "text-on-surface-variant",
-  completed: "text-primary",
-  archived: "text-on-surface-variant",
-};
 
 /**
  * Aksi yang tersedia per status. Menyembunyikan aksi yang tidak berlaku lebih
@@ -123,121 +114,140 @@ function hitungMundur(eventDate: string | null, now: Date | null): string | null
  * mendapat bentuk yang bisa ditemukan tanpa dibaca dulu.
  */
 function BlokTanggal({ event }: { event: EventRow }) {
+  const bingkai = "flex h-[52px] w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-outline-variant";
   if (!event.event_date) {
     return (
-      <div className="flex size-14 shrink-0 flex-col items-center justify-center rounded-lg border border-dashed border-outline-variant text-on-surface-variant" aria-hidden>
-        <CalendarDots size={22} />
+      <div className={cx(bingkai, "border-dashed text-on-surface-variant")} aria-hidden>
+        <CalendarDots size={20} />
       </div>
     );
   }
   const tanggal = new Date(`${event.event_date}T12:00:00Z`);
   const hari = new Intl.DateTimeFormat("id-ID", { day: "numeric", timeZone: event.time_zone }).format(tanggal);
-  const bulan = new Intl.DateTimeFormat("id-ID", { month: "short", year: "2-digit", timeZone: event.time_zone }).format(tanggal);
+  // Bulan SAJA, tanpa tahun. "AGU 26" terbaca sebagai tanggal 26 Agustus oleh
+  // siapa pun yang tidak diberi tahu bahwa 26 adalah tahunnya — dua angka di
+  // satu tile, keduanya bisa jadi tanggal. Tahunnya tetap ada, satu baris di
+  // sebelah kanan, di dalam tanggal lengkap yang tidak bisa disalahbaca.
+  const bulan = new Intl.DateTimeFormat("id-ID", { month: "short", timeZone: event.time_zone }).format(tanggal);
   return (
     <time
       dateTime={event.event_date}
-      className="flex size-14 shrink-0 flex-col items-center justify-center rounded-lg bg-surface-container-high text-on-surface"
+      className={cx(bingkai, event.status === "completed" ? "bg-surface" : "bg-surface-container-lowest", "text-on-surface")}
     >
-      <span className="text-title-large font-semibold leading-none tabular-nums">{hari}</span>
-      <span className="mt-1 text-label-small uppercase leading-none text-on-surface-variant">{bulan}</span>
+      <span className="text-label-small uppercase leading-none text-on-surface-variant">{bulan}</span>
+      <span className="mt-1 text-title-medium font-semibold leading-none tabular-nums">{hari}</span>
     </time>
   );
 }
+
+/** Tanggal lengkap di baris kedua: hari, tanggal, bulan, TAHUN. */
+function tanggalPanjang(event: EventRow): string | null {
+  if (!event.event_date) return null;
+  return new Intl.DateTimeFormat("id-ID", {
+    weekday: "long", day: "numeric", month: "short", year: "numeric", timeZone: event.time_zone,
+  }).format(new Date(`${event.event_date}T12:00:00Z`));
+}
+
+/** Urutan yang bisa dipilih di toolbar. Semuanya dikerjakan di klien: daftar acara puluhan baris, bukan ribuan. */
+const OPSI_URUT = [
+  { value: "terdekat", label: "Tanggal acara terdekat" },
+  { value: "terbaru", label: "Tanggal terbaru" },
+  { value: "nama", label: `Nama A${EN_DASH}Z` },
+  { value: "diperbarui", label: "Terakhir diperbarui" },
+];
 
 /** Menu ⋯ per baris. Hanya super_admin yang melihatnya. */
 function MenuAcara({
   event,
   disabled,
+  tujuan,
   onAction,
   onDuplicate,
   onDelete,
+  onSalinTautan,
 }: {
   event: EventRow;
   disabled: boolean;
+  /** Tujuan "Buka dashboard". Null kalau peran ini tidak boleh masuk. */
+  tujuan: string | null;
   onAction: (action: Action, label: string) => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onSalinTautan: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const wadah = useRef<HTMLDivElement | null>(null);
+  const [pemicu, setPemicu] = useState<HTMLElement | null>(null);
+  const menu = usePopoverAnchor(pemicu);
   const menuId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      setOpen(false);
-      wadah.current?.querySelector<HTMLButtonElement>("button")?.focus();
-    };
-    const onPointer = (e: PointerEvent) => {
-      if (!wadah.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointer);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointer);
-    };
-  }, [open]);
-
-  const item = "m3-state flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-label-large font-semibold";
+  const item = POPOVER_ITEM;
+  const setOpen = (nilai: boolean) => (nilai ? menu.buka() : menu.tutup());
 
   return (
-    <div ref={wadah} className="relative">
+    <>
       <IconButton
+        ref={setPemicu}
         label={`Aksi untuk ${event.name}`}
         size="sm"
         disabled={disabled}
         aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        onClick={() => setOpen((current) => !current)}
+        aria-expanded={menu.open}
+        aria-controls={menu.open ? menuId : undefined}
+        onClick={menu.toggle}
       >
-        <DotsThreeVertical size={20} weight="bold" />
+        <DotsThree size={20} weight="bold" />
       </IconButton>
 
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            id={menuId}
-            role="menu"
-            aria-label={`Aksi untuk ${event.name}`}
-            className="absolute right-0 top-[calc(100%+4px)] z-50 w-60 origin-top-right rounded-2xl border border-outline-variant bg-surface-container-high p-2 shadow-level2"
-            {...MENU_MOTION}
-          >
+      {menu.open ? (
+          <Popover anchor={menu} id={menuId} label={`Aksi untuk ${event.name}`} width={240}>
+            {/* Tujuan yang sama dengan klik baris, diulang di sini karena menu
+                yang tidak memuat aksi utamanya memaksa orang menutupnya dulu
+                sebelum bisa melakukan hal yang paling sering dilakukan. */}
+            {tujuan ? (
+              <Link href={tujuan} role="menuitem" className={item} onClick={() => setOpen(false)}>
+                <ArrowRight size={16} className="text-on-surface-variant" /> Buka dashboard
+              </Link>
+            ) : null}
+            <a href={`/e/${event.slug}`} target="_blank" rel="noreferrer" role="menuitem" className={item} onClick={() => setOpen(false)}>
+              <ArrowSquareOut size={16} className="text-on-surface-variant" /> Lihat halaman publik
+            </a>
+            {/* Hanya saat pendaftaran memang terbuka. Menyalin tautan ke formulir
+                yang tertutup berarti mengirim tamu ke halaman yang menolaknya. */}
+            {event.registration_enabled ? (
+              <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onSalinTautan(); }}>
+                <CopySimple size={16} className="text-on-surface-variant" /> Salin tautan pendaftaran
+              </button>
+            ) : null}
+            <div className="my-1.5 border-t border-outline-variant" />
             {ACTIONS[event.status].map((entry) => (
               <button
                 key={entry.action}
                 type="button"
                 role="menuitem"
-                className={cx(item, entry.danger && "text-error")}
+                className={entry.danger ? POPOVER_ITEM_DANGER : item}
                 onClick={() => { setOpen(false); onAction(entry.action, entry.label); }}
               >
                 {entry.label}
               </button>
             ))}
-            <div className="my-2 border-t border-outline-variant" />
             <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onDuplicate(); }}>
-              <CopySimple size={18} /> Duplikat
+              <CopySimple size={16} className="text-on-surface-variant" /> Duplikat acara
             </button>
             <Link href={`/events/${event.id}/access`} role="menuitem" className={item} onClick={() => setOpen(false)}>
-              <UsersThree size={18} /> Hak akses
+              <UsersThree size={16} className="text-on-surface-variant" /> Hak akses
             </Link>
             {/* Hanya muncul untuk status yang memang bisa dihapus. Menampilkannya
                 selalu lalu menolak dengan 422 membuat aturannya terbaca sebagai
                 kerusakan, bukan sebagai batas yang disengaja. */}
             {DELETABLE.includes(event.status) ? (
               <>
-                <div className="my-2 border-t border-outline-variant" />
-                <button type="button" role="menuitem" className={cx(item, "text-error")} onClick={() => { setOpen(false); onDelete(); }}>
-                  <Trash size={18} /> Hapus permanen
+                <div className="my-1.5 border-t border-outline-variant" />
+                <button type="button" role="menuitem" className={POPOVER_ITEM_DANGER} onClick={() => { setOpen(false); onDelete(); }}>
+                  <Trash size={16} /> Hapus permanen
                 </button>
               </>
             ) : null}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
+          </Popover>
+      ) : null}
+    </>
   );
 }
 
@@ -248,6 +258,30 @@ export default function EventsPage() {
   // adalah kewenangan super_admin saja — endpoint-nya memakai
   // requireUser(["super_admin"]), jadi tombolnya pun hanya untuk mereka.
   const [role, setRole] = useState<UserRole | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+  /** Tab, kata cari, dan urutan hidup di URL. Lihat `lib/url-state`. */
+  const { params, set: setQuery } = useQueryState();
+  const kolomCari = useRef<HTMLInputElement | null>(null);
+
+  /**
+   * Ctrl/Cmd+K memfokuskan kolom cari, bukan membuka palet perintah.
+   *
+   * Palet di ruang kerja berisi lima belas tujuan yang semuanya menuntut acara
+   * sudah dipilih; membukanya di halaman SEBELUM memilih acara berarti menawarkan
+   * lima belas tautan yang belum punya tujuan. Yang dicari orang di sini cuma
+   * satu hal, dan kolomnya sudah ada di layar. Labelnya menjanjikan Ctrl K, jadi
+   * pintasannya harus benar-benar ada.
+   */
+  useEffect(() => {
+    const onKey = (peristiwa: KeyboardEvent) => {
+      if (peristiwa.key.toLowerCase() !== "k" || !(peristiwa.metaKey || peristiwa.ctrlKey)) return;
+      peristiwa.preventDefault();
+      kolomCari.current?.focus();
+      kolomCari.current?.select();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -280,7 +314,6 @@ export default function EventsPage() {
   const [deleting, setDeleting] = useState<EventRow | null>(null);
   const [confirmSlug, setConfirmSlug] = useState("");
   const [pending, setPending] = useState(false);
-  const [tampilArsip, setTampilArsip] = useState(false);
   // Tanggal dibaca saat data tiba, bukan pada setiap render: `new Date()` di
   // badan komponen membuat markup server dan klien berbeda saat tengah malam
   // terlewati di antara keduanya.
@@ -295,7 +328,12 @@ export default function EventsPage() {
 
   async function load() {
     void fetch("/api/auth/me", { cache: "no-store" })
-      .then(async (r) => { if (r.ok) setRole(((await r.json()).user?.role as UserRole | undefined) ?? null); })
+      .then(async (r) => {
+        if (!r.ok) return;
+        const akun = (await r.json()).user as { username?: string; role?: UserRole } | null;
+        setRole(akun?.role ?? null);
+        setUsername(akun?.username ?? null);
+      })
       .catch(() => null);
     const response = await fetch("/api/events").catch(() => null);
     if (!response) { setError("Koneksi gagal. Muat ulang halaman."); setLoading(false); return; }
@@ -451,141 +489,268 @@ export default function EventsPage() {
   // halaman belakang tidak terlihat oleh orang yang sedang menatap dialog.
   const dialogTerbuka = confirming !== null || deleting !== null || duplicating !== null || creating;
 
-  const kelompok = URUTAN_STATUS.map((status) => ({ status, daftar: events.filter((item) => item.status === status) }));
-  const jumlahArsip = kelompok.find((grup) => grup.status === "archived")?.daftar.length ?? 0;
 
-  return <main className="press min-h-dvh bg-surface px-5 py-6 text-on-surface sm:px-8 lg:py-8">
-    <div className="mx-auto max-w-[1200px]">
-      {/* Satu judul, satu baris. Eyebrow dan kalimat penjelasan dihapus: ini
-          halaman yang dibuka setiap hari, dan penjelasannya pindah ke keadaan
-          kosong — satu-satunya saat orang butuh dijelaskan. */}
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-outline-variant pb-5">
-        <h1 className="text-headline-medium font-bold">Acara</h1>
-        <div className="flex gap-2">
-          {isOwner && <Button onClick={bukaBuatEvent} icon={<Plus size={18} weight="bold" />}>Buat event</Button>}
-          <Button variant="outlined" onClick={() => void logout()} icon={<SignOut size={18} />}>Keluar</Button>
+  const tab = params.get("tab") ?? "semua";
+  const cari = params.get("q") ?? "";
+  const urut = params.get("sort") ?? "terdekat";
+
+  /**
+   * Penyaringan dan pengurutan dikerjakan di KLIEN, dan itu keputusan yang sadar.
+   *
+   * Daftar acara adalah puluhan baris, bukan ribuan, dan `/api/events` sudah
+   * mengirim seluruhnya dalam satu permintaan. Memindahkannya ke server berarti
+   * satu perjalanan jaringan per huruf yang diketik, untuk menyaring data yang
+   * sudah ada di memori tab ini.
+   */
+  const terlihat = useMemo(() => {
+    const kata = cari.trim().toLowerCase();
+    const cocok = events.filter((item) => {
+      if (tab !== "semua" && item.status !== tab) return false;
+      // Arsip tidak pernah ikut di "Semua": ia disingkirkan dengan sengaja, dan
+      // memunculkannya kembali di daftar utama membatalkan arti mengarsipkan.
+      if (tab === "semua" && item.status === "archived") return false;
+      if (!kata) return true;
+      return item.name.toLowerCase().includes(kata) || (item.venue_name ?? "").toLowerCase().includes(kata);
+    });
+
+    const waktu = (item: EventRow) => (item.event_date ? new Date(item.event_date).getTime() : null);
+    return [...cocok].sort((a, b) => {
+      if (urut === "nama") return a.name.localeCompare(b.name, "id");
+      if (urut === "diperbarui") return new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime();
+      const wa = waktu(a);
+      const wb = waktu(b);
+      // Acara tanpa tanggal selalu di bawah, apa pun arah urutannya. Ia tidak
+      // punya posisi di garis waktu, dan menempatkannya di puncak membuat daftar
+      // terbaca seperti salah urut.
+      if (wa === null && wb === null) return a.name.localeCompare(b.name, "id");
+      if (wa === null) return 1;
+      if (wb === null) return -1;
+      return urut === "terbaru" ? wb - wa : wa - wb;
+    });
+  }, [events, tab, cari, urut]);
+
+  /** Jumlah per tab dihitung dari SELURUH acara, bukan dari yang sedang tersaring. */
+  const hitung = useMemo(() => {
+    const tanpaArsip = events.filter((item) => item.status !== "archived");
+    return {
+      semua: tanpaArsip.length,
+      active: events.filter((item) => item.status === "active").length,
+      draft: events.filter((item) => item.status === "draft").length,
+      completed: events.filter((item) => item.status === "completed").length,
+      archived: events.filter((item) => item.status === "archived").length,
+    };
+  }, [events]);
+
+  /**
+   * Di tab "Semua", baris dikelompokkan menurut status. Di tab lain tidak: judul
+   * kelompok yang isinya sama dengan nama tabnya hanya mengulang.
+   */
+  const kelompokTampil = tab === "semua"
+    ? URUTAN_STATUS.filter((status) => status !== "archived")
+        .map((status) => ({ status, daftar: terlihat.filter((item) => item.status === status) }))
+        .filter((grup) => grup.daftar.length > 0)
+    : [{ status: null, daftar: terlihat }];
+
+  async function salinTautan(item: EventRow) {
+    await navigator.clipboard.writeText(`${window.location.origin}/e/${item.slug}/daftar`).catch(() => null);
+    setNotice(`Tautan pendaftaran ${item.name} disalin.`);
+  }
+
+  const baris = "group relative flex items-center gap-4 px-5 py-4 transition-colors duration-150 hover:bg-surface";
+
+  return <div className="press min-h-dvh bg-surface text-on-surface">
+    {/* Bilah atas milik halaman di LUAR acara: tidak ada rel navigasi di sini,
+        karena belum ada acara yang dipilih untuk dinavigasi. Yang tersisa hanya
+        identitas produk dan menu akun.
+
+        "Keluar" turun ke menu avatar. Sebelumnya ia tombol bergaris sejajar
+        dengan "Buat event" di kepala halaman — dua aksi dengan bobot visual yang
+        sama padahal satu dipakai tiap hari dan satu dipakai untuk pergi. */}
+    <header className={`sticky top-0 z-topbar border-b border-outline-variant bg-surface ${CONTAINER_PADDING}`}>
+      {/* Lebar dan padding yang sama persis dengan konten di bawahnya, jadi logo
+          "Tally" sejajar dengan judul "Acara" dan avatar sejajar dengan tepi
+          kanan kartu daftar. Tingginya 56px, sama dengan bilah atas ruang kerja
+          (`m3-topbar-row`), supaya berpindah antar keduanya tidak menggeser apa
+          pun secara vertikal. */}
+      <div className="m3-topbar-row mx-auto flex min-h-14 w-full max-w-[1280px] items-center gap-2">
+        <Storefront size={18} className="shrink-0 text-on-surface-variant" />
+        <span className="text-body-medium font-medium">Tally</span>
+        <div className="ml-auto flex items-center gap-1">
+          <IconButton label="Cari acara (Ctrl K)" size="sm" onClick={() => kolomCari.current?.focus()}>
+            <MagnifyingGlass size={18} />
+          </IconButton>
+          <UserMenu
+            username={username}
+            role={role}
+            settingsHref="/admin/settings"
+            onLogout={() => void logout()}
+            loggingOut={pending}
+          />
         </div>
-      </header>
+      </div>
+    </header>
 
-      {error && !dialogTerbuka && <p role="alert" className="rounded-lg mt-5 border border-error-soft-outline bg-error-soft p-4 text-body-medium font-medium text-on-error-soft">{error}</p>}
-      {notice && <p key={notice} role="status" className="rise-in-fast rounded-lg mt-5 bg-surface-container p-4 text-body-medium font-medium">{notice}</p>}
+    <PageContainer center>
+      <PageHeader
+        title="Acara"
+        description="Kelola semua acara dan buka dashboard masing-masing."
+        actions={isOwner ? <Button onClick={bukaBuatEvent} icon={<Plus size={16} weight="bold" />} className="max-sm:w-full">Buat event</Button> : undefined}
+      />
+
+      {error && !dialogTerbuka && <p role="alert" className="rounded-lg mb-4 border border-error-soft-outline bg-error-soft p-4 text-body-medium font-medium text-on-error-soft">{error}</p>}
+      {notice && <p key={notice} role="status" className="rise-in-fast rounded-lg mb-4 border border-outline-variant bg-surface-container-lowest p-3 text-body-medium">{notice}</p>}
+
+      {/* Toolbar: tab di kiri, cari dan urutan di kanan. Di layar sempit tab
+          bergulir mendatar dan dua kontrol kanan turun ke baris kedua. */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="m3-nav-scroll -mx-1 max-w-full overflow-x-auto px-1">
+          <SegmentedButton<string>
+            label="Saring menurut status acara"
+            value={tab}
+            onChange={(nilai) => setQuery({ tab: nilai === "semua" ? null : nilai })}
+            options={[
+              { value: "semua", label: "Semua", badge: hitung.semua },
+              { value: "active", label: "Aktif", badge: hitung.active },
+              { value: "draft", label: "Draft", badge: hitung.draft },
+              { value: "completed", label: "Selesai", badge: hitung.completed },
+              ...(hitung.archived > 0 ? [{ value: "archived", label: "Arsip", badge: hitung.archived }] : []),
+            ]}
+          />
+        </div>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-[17.5rem]">
+            <MagnifyingGlass size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+            <input
+              ref={kolomCari}
+              value={cari}
+              onChange={(peristiwa) => setQuery({ q: peristiwa.target.value })}
+              placeholder="Cari acara..."
+              aria-label="Cari acara"
+              title="Mencari nama acara dan lokasinya"
+              className="h-9 w-full rounded-lg border border-outline bg-surface-container-lowest pl-9 pr-3 text-body-medium outline-none transition-[border-color] duration-150 placeholder:text-on-surface-variant focus:border-primary"
+            />
+          </div>
+          <SelectMenu
+            kind="sort"
+            label="Urutkan acara"
+            value={urut}
+            onChange={(nilai) => setQuery({ sort: nilai === "terdekat" ? null : nilai })}
+            options={OPSI_URUT}
+            width="14rem"
+          />
+        </div>
+      </div>
 
       {loading ? (
-        // Kerangka seukuran baris sungguhan, bukan teks "Memuat…": daftar
-        // tidak melompat tingginya saat data tiba.
-        <ul className="mt-6 divide-y divide-outline-variant rounded-lg bg-panel" aria-busy="true" aria-label="Memuat acara">
-          {[0, 1, 2].map((index) => <li key={index} aria-hidden className="flex items-center gap-4 p-4">
-            <span className="size-14 shrink-0 rounded-lg bg-surface-container-highest shimmer" />
+        // Kerangka seukuran baris sungguhan, bukan teks "Memuat...": daftar tidak
+        // melompat tingginya saat data tiba.
+        <div className="overflow-hidden rounded-[10px] border border-outline-variant bg-surface-container-lowest" aria-busy="true" aria-label="Memuat acara">
+          {[0, 1, 2].map((index) => <div key={index} aria-hidden className="flex items-center gap-4 border-b border-outline-variant px-5 py-4 last:border-b-0">
+            <span className="h-[52px] w-12 shrink-0 rounded-lg bg-primary-soft shimmer" />
             <span className="min-w-0 flex-1 space-y-2">
-              <span className="block h-4 w-2/5 rounded-xs bg-surface-container-highest shimmer" />
-              <span className="block h-3 w-3/5 rounded-xs bg-surface-container-highest shimmer" />
+              <span className="block h-4 w-2/5 rounded-xs bg-primary-soft shimmer" />
+              <span className="block h-3 w-3/5 rounded-xs bg-primary-soft shimmer" />
             </span>
-            <span className="h-10 w-20 shrink-0 rounded-md bg-surface-container-highest shimmer" />
-          </li>)}
-        </ul>
+          </div>)}
+        </div>
       ) : events.length === 0 ? (
         <EmptyState
-          className="mt-6"
-          icon={<CalendarDots size={48} />}
+          icon={<CalendarPlus size={40} />}
           title="Belum ada acara"
           description={isOwner
-            ? "Setiap acara punya peserta, halaman acara, layar panggung, transaksi booth, dan konfigurasi terpisah. Buat acara pertama untuk mulai menyiapkannya."
+            ? "Buat acara pertama untuk mulai mengelola peserta."
             : "Belum ada acara yang bisa Anda buka. Minta pemilik sistem memberi hak akses."}
-          action={isOwner ? <Button onClick={bukaBuatEvent} icon={<Plus size={18} weight="bold" />}>Buat event</Button> : undefined}
+          action={isOwner ? <Button onClick={bukaBuatEvent} icon={<Plus size={16} weight="bold" />}>Buat event</Button> : undefined}
+        />
+      ) : terlihat.length === 0 ? (
+        <EmptyState
+          icon={<MagnifyingGlass size={40} />}
+          title={cari ? `Tidak ada acara yang cocok dengan "${cari}"` : "Tidak ada acara di tab ini"}
+          description="Coba kata lain, atau pilih tab yang berbeda."
+          action={<Button variant="outlined" size="sm" onClick={() => setQuery({ q: null, tab: null })}>Reset pencarian</Button>}
         />
       ) : (
-        <>
-          {kelompok.map(({ status, daftar }) => {
-            if (daftar.length === 0) return null;
-            if (status === "archived" && !tampilArsip) return null;
-            const judulId = `grup-${status}`;
-            return (
-              <section key={status} className="mt-6" aria-labelledby={judulId}>
-                <h2 id={judulId} className="px-1 text-label-medium font-semibold ed-label text-on-surface-variant">
-                  {EVENT_STATUS_LABEL[status]} · {daftar.length}
-                </h2>
-                {/* Tanpa `overflow-hidden` pada <ul>: menu ⋯ tiap baris
-                    menjulur keluar barisnya, dan pembungkus yang memotong
-                    akan menyembunyikan menunya. Sudut membulat baris pertama
-                    dan terakhir diatur lewat selektor anak. */}
-                <ul className="mt-2 divide-y divide-outline-variant rounded-lg bg-panel [&>li:first-child]:rounded-t-lg [&>li:last-child]:rounded-b-lg">
-                  {daftar.map((item) => {
-                    const alasan = role ? alasanTidakBisaBuka(role, item.status) : null;
-                    const bisaBuka = role !== null && alasan === null;
-                    const tujuan = role ? roleHome(role, item.slug) : "#";
-                    const mundur = item.status === "active" ? hitungMundur(item.event_date, sekarang) : null;
-                    return (
-                      <li key={item.id} className="relative flex items-center gap-4 p-4 transition-colors duration-150 ease-standard hover:bg-panel-high sm:px-5">
-                        <BlokTanggal event={item} />
+        <div className="overflow-hidden rounded-[10px] border border-outline-variant bg-surface-container-lowest">
+          {kelompokTampil.map(({ status, daftar }) => (
+            <div key={status ?? "semua"}>
+              {/* Judul kelompok DI DALAM kartu, bukan melayang di atasnya.
+                  Sebelumnya tiap kelompok punya kartunya sendiri dengan judul di
+                  luar, dan hasilnya tiga kartu terpisah yang membuat daftar
+                  terbaca sebagai tiga daftar. */}
+              {status ? (
+                <p className="border-b border-outline-variant bg-surface px-5 py-2 text-label-medium font-medium text-on-surface-variant">
+                  {EVENT_STATUS_LABEL[status]} {SEPARATOR} {daftar.length}
+                </p>
+              ) : null}
+              {daftar.map((item) => {
+                const alasan = role ? alasanTidakBisaBuka(role, item.status) : null;
+                const bisaBuka = role !== null && alasan === null;
+                const tujuan = bisaBuka && role ? roleHome(role, item.slug) : null;
+                const mundur = item.status === "active" ? hitungMundur(item.event_date, sekarang) : null;
+                const keterangan = [
+                  tanggalPanjang(item),
+                  item.venue_name,
+                  mundur,
+                  item.status === "active" ? (item.registration_enabled ? "Pendaftaran dibuka" : "Pendaftaran ditutup") : null,
+                  alasan,
+                ];
+                return (
+                  <div key={item.id} className={cx(baris, "border-b border-outline-variant last:border-b-0")}>
+                    <BlokTanggal event={item} />
 
-                        <div className="min-w-0 flex-1">
-                          {/* Nama adalah tautan yang DIREGANGKAN menutupi seluruh
-                              baris (`after:absolute after:inset-0`), jadi klik di
-                              mana pun membuka acaranya. Tombol di kanan duduk di
-                              atasnya lewat `z-10`. Tanpa peran, atau bila peran
-                              lapangan tidak boleh masuk, nama tetap teks. */}
-                          {bisaBuka ? (
-                            <Link
-                              href={tujuan}
-                              className="text-title-medium font-semibold text-on-surface after:absolute after:inset-0 after:rounded-lg after:content-['']"
-                            >
-                              {item.name}
-                            </Link>
-                          ) : (
-                            <p className="text-title-medium font-semibold text-on-surface">{item.name}</p>
-                          )}
-                          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-body-small text-on-surface-variant">
-                            <span className={cx("inline-flex items-center gap-1.5 font-semibold", WARNA_STATUS[item.status])}>
-                              <span aria-hidden className="size-1.5 rounded-full bg-current" />
-                              {EVENT_STATUS_LABEL[item.status]}
-                            </span>
-                            {mundur ? <span>· {mundur}</span> : null}
-                            {item.venue_name ? <span className="truncate">· {item.venue_name}</span> : null}
-                            {item.status === "active" ? <span>· {item.registration_enabled ? "Pendaftaran dibuka" : "Pendaftaran ditutup"}</span> : null}
-                          </p>
-                        </div>
+                    <div className="min-w-0 flex-1">
+                      {/* Seluruh BARIS adalah tautan, lewat `after:absolute` yang
+                          meregang ke tepi. `<Link>`, bukan `onClick`: Ctrl+klik
+                          harus membuka tab baru, dan itu satu-satunya cara
+                          membandingkan dua acara. */}
+                      {tujuan ? (
+                        <Link
+                          href={tujuan}
+                          title={item.name}
+                          className="block truncate text-[0.9375rem] font-medium text-on-surface after:absolute after:inset-0 after:content-['']"
+                        >
+                          {item.name}
+                        </Link>
+                      ) : (
+                        <p title={item.name} className="truncate text-[0.9375rem] font-medium text-on-surface">{item.name}</p>
+                      )}
+                      <p className="mt-0.5 truncate text-body-small text-on-surface-variant">
+                        {gabungMeta(keterangan)}
+                      </p>
+                    </div>
 
-                        <div className="relative z-10 flex shrink-0 items-center gap-1">
-                          {bisaBuka ? (
-                            <ButtonLink
-                              href={tujuan}
-                              variant={item.status === "active" ? "tonal" : "outlined"}
-                              size="sm"
-                              trailingIcon={<ArrowRight size={16} weight="bold" />}
-                            >
-                              Buka
-                            </ButtonLink>
-                          ) : alasan ? (
-                            <span className="px-2 text-label-large font-semibold text-on-surface-variant">{alasan}</span>
-                          ) : null}
-                          {isOwner ? (
-                            <MenuAcara
-                              event={item}
-                              disabled={pending}
-                              onAction={(action, label) => setConfirming({ event: item, action, label })}
-                              onDuplicate={() => { setDuplicating(item); setError(""); setNotice(""); }}
-                              onDelete={() => { setDeleting(item); setConfirmSlug(""); setError(""); setNotice(""); }}
-                            />
-                          ) : null}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            );
-          })}
+                    {/* Status di kolomnya sendiri, bukan disisipkan ke baris
+                        keterangan. Kolom tetap membuat empat status berbaris pada
+                        satu sumbu tegak dan bisa dipindai tanpa dibaca. */}
+                    <div className="hidden w-[7.5rem] shrink-0 sm:block">
+                      <EventStatusBadge status={item.status} />
+                    </div>
 
-          {jumlahArsip > 0 ? (
-            <div className="mt-6">
-              <Button variant="text" size="sm" onClick={() => setTampilArsip((current) => !current)}>
-                {tampilArsip ? "Sembunyikan arsip" : `Tampilkan arsip (${jumlahArsip})`}
-              </Button>
+                    <div className="relative z-10 flex shrink-0 items-center gap-1">
+                      {/* Panah muncul saat baris disentuh: isyarat bahwa seluruh
+                          baris bisa ditekan, tanpa tombol "Buka" permanen yang
+                          diulang di setiap baris. */}
+                      <ArrowRight size={16} aria-hidden className="text-on-surface-variant opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+                      {isOwner ? (
+                        <MenuAcara
+                          event={item}
+                          disabled={pending}
+                          tujuan={tujuan}
+                          onAction={(action, label) => setConfirming({ event: item, action, label })}
+                          onDuplicate={() => { setDuplicating(item); setError(""); setNotice(""); }}
+                          onDelete={() => { setDeleting(item); setConfirmSlug(""); setError(""); setNotice(""); }}
+                          onSalinTautan={() => void salinTautan(item)}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ) : null}
-        </>
+          ))}
+        </div>
       )}
-    </div>
+    </PageContainer>
 
     <Dialog
       open={confirming !== null}
@@ -755,5 +920,5 @@ export default function EventsPage() {
         {error ? <p role="alert" className="rounded-lg mt-3 border border-error-soft-outline bg-error-soft p-3 text-body-small text-on-error-soft">{error}</p> : null}
       </form>
     </Dialog>
-  </main>;
+  </div>;
 }

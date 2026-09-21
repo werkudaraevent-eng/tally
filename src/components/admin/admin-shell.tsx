@@ -3,7 +3,7 @@
 import { ArrowSquareOut, List, SidebarSimple, Storefront, X } from "@phosphor-icons/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { IconButton, ThemeToggle, TopAppBar } from "@/components/m3";
+import { IconButton, TopAppBar } from "@/components/m3";
 import { EventMenu, type EventPilihan } from "@/components/admin/event-menu";
 import { cariHalaman, grupDari, navigation } from "@/components/admin/nav-config";
 import { AdminHeaderScrollProvider, AdminPageProvider } from "@/components/admin/page-context";
@@ -428,7 +428,7 @@ export function AdminShell({
         onClick={() => setMobileOpen(false)}
         aria-label="Tutup menu admin"
         tabIndex={laciTerbuka ? 0 : -1}
-        className={`fixed inset-0 z-30 bg-scrim/50 transition-opacity duration-200 ease-standard lg:hidden ${laciTerbuka ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        className={`fixed inset-0 z-peek bg-scrim/50 transition-opacity duration-200 ease-standard lg:hidden ${laciTerbuka ? "opacity-100" : "pointer-events-none opacity-0"}`}
       />
 
       {/* `h-dvh`, bukan `inset-y-0`: di peramban ponsel bilah alamat menyusut dan
@@ -450,7 +450,7 @@ export function AdminShell({
         onFocusCapture={onFocusCapture}
         onBlurCapture={onBlurCapture}
         onClickCapture={onClickCapture}
-        className={`fixed left-0 top-0 z-40 flex h-dvh w-[260px] flex-col border-r border-outline-variant bg-surface transition-[transform,width,box-shadow] duration-200 ease-out lg:translate-x-0 ${
+        className={`fixed left-0 top-0 z-sidebar flex h-dvh w-[260px] flex-col border-r border-outline-variant bg-surface transition-[transform,width,box-shadow] duration-200 ease-out lg:translate-x-0 ${
           laciTerbuka ? "translate-x-0" : "-translate-x-full"
         } ${pinned ? "lg:w-[260px]" : peeking ? "lg:w-[260px] lg:shadow-level3" : "lg:w-16"}`}
       >
@@ -564,7 +564,6 @@ export function AdminShell({
           subtitleClassName="lg:hidden"
           actions={
             <>
-              <ThemeToggle compact className="bg-surface-container-high" />
               <UserMenu
                 username={akun?.username ?? null}
                 role={akun?.role ?? null}

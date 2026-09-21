@@ -8,6 +8,26 @@ import type { RegistrationFormTheme } from "./registration-theme";
 // dan akun yang juga membuka transaksi serta data peserta adalah risiko yang
 // tidak dibutuhkan di sana.
 export type UserRole = "booth" | "cashier" | "admin" | "super_admin" | "scanner";
+
+/**
+ * Nama peran yang boleh dilihat orang. SATU sumber.
+ *
+ * Sebelumnya ada empat peta terpisah di empat berkas, dan tiga di antaranya
+ * tidak lengkap — `super_admin` dan `scanner` tidak ada di sana. Konsekuensinya
+ * bukan sekadar teori: pola `LABEL[role] ?? role` di layar masuk jatuh ke nilai
+ * cadangan dan menampilkan "Masuk sebagai super_admin" kepada panitia. Nilai
+ * kolom database, lengkap dengan garis bawahnya, di dalam kalimat sambutan.
+ *
+ * `Record<UserRole, string>`, bukan `Record<string, string>`: menambah peran
+ * baru tanpa menamainya di sini sekarang gagal di typecheck, bukan di layar.
+ */
+export const ROLE_LABEL: Record<UserRole, string> = {
+  booth: "Admin Booth",
+  cashier: "Kasir",
+  admin: "Panitia / Admin",
+  super_admin: "Super Admin",
+  scanner: "Petugas Scan",
+};
 export type OrderStatus = "pending" | "paid" | "void" | "handed_over";
 export type PickupMode = "after_payment" | "immediate";
 

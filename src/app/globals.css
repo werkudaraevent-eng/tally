@@ -251,6 +251,31 @@
 	--radius-3xl: var(--md-sys-shape-corner-extra-large-increased);
 	--radius-4xl: var(--md-sys-shape-corner-extra-extra-large);
 
+	/* ---- Lapisan -------------------------------------------------------------
+	 *
+	 * Satu tangga, ditulis sekali. Sebelumnya setiap komponen memilih angkanya
+	 * sendiri, dan yang lahir dari itu adalah `z-[100]`, `z-[60]`, dan tiga
+	 * komponen berbeda yang sama-sama memakai `z-50` lalu saling menimbun
+	 * tergantung urutan DOM.
+	 *
+	 * Jaraknya sepuluh, bukan satu: menyisipkan lapisan baru di antara dua yang
+	 * ada tidak boleh memaksa seluruh tangga digeser.
+	 *
+	 * Yang perlu diingat saat memakainya: angka HANYA berlaku di dalam stacking
+	 * context yang sama. `z-popover` pada panel yang masih punya leluhur
+	 * `relative z-10` tidak akan pernah menang atas tetangga leluhur itu — lihat
+	 * catatan di `m3/popover.tsx`. Tangga ini menyelesaikan urutan, bukan
+	 * pengurungan. */
+	--z-index-sticky: 10;
+	--z-index-sidebar: 20;
+	--z-index-peek: 30;
+	--z-index-topbar: 40;
+	--z-index-popover: 50;
+	--z-index-overlay: 60;
+	--z-index-modal: 70;
+	--z-index-toast: 80;
+	--z-index-tooltip: 90;
+
 	/* ---- Elevasi ------------------------------------------------------------ */
 	--shadow-level1: var(--md-sys-elevation-level1);
 	--shadow-level2: var(--md-sys-elevation-level2);
@@ -358,6 +383,11 @@ html {
 	 * tinggi halaman berubah karena aksi pengguna (menyaring, membuka daftar, memuat
 	 * data). Tidak berpengaruh di browser dengan scrollbar mengapung seperti iOS. */
 	scrollbar-gutter: stable;
+	/* Memberi tahu peramban tema mana yang berlaku, supaya kontrol bawaannya —
+	 * batang gulir, pemilih tanggal, menu `<select>` asli — ikut netral alih-alih
+	 * selalu digambar terang. Ditimpa oleh dua aturan `[data-theme]` di bawah,
+	 * karena pilihan eksplisit pengguna harus menang atas preferensi sistem. */
+	color-scheme: light;
 }
 
 /* `cv01` dan `ss03` milik Inter tidak menyala sendiri. `cv01` membuat angka 1
@@ -442,6 +472,20 @@ body {
 	}
 }
 
+/* Isian otomatis peramban memaksa latar kuning atau biru muda dan teks hitam,
+ * dan tidak ada properti `background-color` yang bisa menimpanya. Yang bisa:
+ * bayangan dalam setebal seluruh kolom, plus `-webkit-text-fill-color` yang
+ * memang dirancang untuk kasus ini. `transition` panjang itu trik lama yang
+ * masih dibutuhkan Chrome: ia menunda pengecatan latar bawaannya tanpa batas. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+	-webkit-text-fill-color: var(--md-sys-color-on-surface);
+	-webkit-box-shadow: 0 0 0 1000px var(--md-sys-color-surface-container-lowest) inset;
+	caret-color: var(--md-sys-color-on-surface);
+	transition: background-color 9999s ease-in-out 0s;
+}
+
 ::selection {
 	background: var(--md-sys-color-primary);
 	color: var(--md-sys-color-on-primary);
@@ -497,20 +541,88 @@ body {
    biru, dan di mode gelap Chrome menggambar jalur abu terang yang justru lebih
    mencolok daripada isinya.
 
-   Memakai properti standar (`scrollbar-width`/`scrollbar-color`), bukan
-   `::-webkit-scrollbar`. Sejak Chrome 121 keduanya tidak bisa dipakai bersama —
-   begitu properti standar ada, seluruh aturan `::-webkit-scrollbar` diabaikan.
-   Jadi versi webkit-nya diletakkan di balik `@supports not`, sebagai cadangan
-   untuk Safari lama saja.
+   ---- Kenapa batang halaman sempat berwarna keunguan ----------------------
 
-   Warnanya `outline`, bukan `outline-variant`. Batang gulir adalah kontrol,
-   dan WCAG 1.4.11 menuntut 3:1 terhadap latarnya; `outline-variant` hanya
-   mencapai ~2:1 dan batangnya nyaris tidak terlihat di layar yang diredupkan.
+   Aturan ini dulu memakai `var(--md-sys-color-outline)`, dan itu benar DI DALAM
+   ruang kerja: di sana `.press` memetakannya ke abu netral #8A8A8A. Batang gulir
+   HALAMAN bukan milik ruang kerja, melainkan milik `<html>` — yang berdiri di
+   luar `.press`. Di sana `outline` masih nilai asli dari palet M3 varian
+   VIBRANT, dan "neutral-variant" varian itu berkroma: ungu kebiruan. Satu token
+   yang benar di satu tempat dan salah satu tingkat di atasnya.
+
+   Sekarang batang gulir punya tokennya SENDIRI, dinyatakan di `:root` dan
+   ditukar oleh tema. Ia tidak lagi meminjam token yang artinya bisa berubah.
+
+   ---- Kenapa properti standar, bukan `::-webkit-scrollbar` ----------------
+
+   Sejak Chrome 121 keduanya tidak bisa dipakai bersama — begitu properti
+   standar ada, seluruh aturan `::-webkit-scrollbar` diabaikan. Jadi versi
+   webkit-nya diletakkan di balik `@supports not`, sebagai cadangan untuk Safari
+   lama saja. Konsekuensinya lebar persisnya (10px, 6px) hanya berlaku di sana;
+   di peramban modern yang berlaku `thin`, dan lebarnya ditentukan peramban.
    ========================================================================== */
+
+:root {
+	--scrollbar-thumb: #d4d4d4;
+	--scrollbar-thumb-hover: #a3a3a3;
+
+	/* Panel merek di layar masuk.
+	 *
+	 * Token tersendiri, bukan `--md-sys-color-primary`. Di tema gelap, `primary`
+	 * menjadi biru TERANG (#6699ff) supaya tetap terbaca sebagai teks dan tombol
+	 * di atas kanvas gelap — dan bidang selebar setengah layar dengan warna itu
+	 * berubah menjadi blok biru muda yang menyilaukan di ruangan yang sedang
+	 * digelapkan. Panel ini butuh arah yang berlawanan: makin gelap temanya,
+	 * makin dalam birunya.
+	 *
+	 * Putih di atas #1A56C4 terukur 6,62:1; di atas #12306E, 11,6:1. */
+	--auth-brand: #1a56c4;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) { --auth-brand: #12306e; }
+}
+
+[data-theme="dark"] { --auth-brand: #12306e; }
+[data-theme="light"] { --auth-brand: #1a56c4; }
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--scrollbar-thumb: #3a3a3a;
+		--scrollbar-thumb-hover: #525252;
+	}
+}
+
+[data-theme="dark"] {
+	--scrollbar-thumb: #3a3a3a;
+	--scrollbar-thumb-hover: #525252;
+}
+
+[data-theme="light"] {
+	--scrollbar-thumb: #d4d4d4;
+	--scrollbar-thumb-hover: #a3a3a3;
+}
+
+@media (prefers-color-scheme: dark) {
+	html:not([data-theme="light"]) { color-scheme: dark; }
+}
+
+html[data-theme="dark"] { color-scheme: dark; }
+html[data-theme="light"] { color-scheme: light; }
 
 * {
 	scrollbar-width: thin;
-	scrollbar-color: var(--md-sys-color-outline) transparent;
+	scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+/* Batang gulir HALAMAN ikut menggelap saat kursor ada di dokumen.
+ *
+ * Ditulis pada `html:hover`, bukan pada `*:hover`. `scrollbar-color` diwariskan
+ * dan `:hover` cocok ke setiap leluhur elemen yang disentuh, jadi `*:hover`
+ * berarti kursor di mana pun akan menyalakan SEMUA batang gulir sekaligus —
+ * tidak pernah ada keadaan istirahat untuk dibandingkan. */
+html:hover {
+	scrollbar-color: var(--scrollbar-thumb-hover) transparent;
 }
 
 /* Jalur dibiarkan transparan, bukan diberi warna. Jalur yang terlihat membagi
@@ -533,8 +645,19 @@ body {
 		background: transparent;
 	}
 
+	/* Tombol panah di ujung batang gulir dibuang. Ia sisa antarmuka desktop tahun
+	 * 2001 yang tidak pernah ditekan siapa pun, dan memakan 2x16px dari batang
+	 * yang memang sudah tipis. */
+	::-webkit-scrollbar-button {
+		display: none;
+	}
+
+	::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+
 	::-webkit-scrollbar-thumb {
-		background: var(--md-sys-color-outline);
+		background: var(--scrollbar-thumb);
 		/* Sudut penuh, dengan jalur transparan di sekelilingnya lewat border yang
 		 * memotong latar. Tanpa ini batangnya menempel rapat ke tepi konten. */
 		border: 2px solid transparent;
@@ -607,6 +730,36 @@ body {
 
 .m3-spin {
 	animation: m3-spin 1.4s linear infinite;
+}
+
+/* Pemintal layar penuh: lingkaran bergaris, satu sisi lebih pekat, diputar.
+ *
+ * `animation-delay` pada opasitasnya yang membuatnya TERLAMBAT muncul. Sebagian
+ * besar perpindahan halaman selesai di bawah 200ms, dan pemintal yang muncul
+ * lalu hilang lagi terbaca sebagai kedipan — yang terasa lebih lambat daripada
+ * jeda diam sepanjang itu. Putarannya tetap jalan sejak awal, jadi begitu ia
+ * terlihat ia sudah berada di tengah putaran, bukan mulai dari nol.
+ *
+ * Yang mematikan gerak juga mematikan putarannya; yang tersisa lingkaran diam
+ * yang tetap mengatakan "sedang menunggu". */
+.m3-spinner {
+	inline-size: 2rem;
+	block-size: 2rem;
+	border-radius: 9999px;
+	border: 2px solid var(--md-sys-color-outline-variant);
+	border-top-color: var(--md-sys-color-on-surface-variant);
+	opacity: 0;
+	animation: m3-spin 0.8s linear infinite, m3-muncul 1ms linear 200ms forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.m3-spinner {
+		animation: m3-muncul 1ms linear 200ms forwards;
+	}
+}
+
+@keyframes m3-muncul {
+	to { opacity: 1; }
 }
 
 @keyframes m3-spin {
@@ -1442,6 +1595,32 @@ body {
  * yang tersisa hanya tingginya. */
 .press .m3-field { block-size: 2.25rem; }
 .press .m3-field-lg { block-size: 2.5rem; }
+/* Kolom isian layar masuk: 44px, teks 15px.
+ *
+ * Lebih tinggi daripada kolom ruang kerja (36px), dan itu disengaja. Kepadatan
+ * di ruang kerja dibayar oleh tabel yang harus memuat dua puluh lima baris;
+ * layar masuk hanya punya dua kolom, dan yang mengisinya sering staf booth yang
+ * sedang berdiri dengan satu tangan memegang pemindai. */
+.press .m3-field-auth {
+	block-size: 2.75rem;
+	font-size: 0.9375rem;
+	padding-inline: 0.875rem;
+}
+
+/* Fokus pada kolom isian: tepi berubah ke primary, ditambah lingkaran tipis.
+ *
+ * BUKAN cincin 2px pekat milik aturan global. Kolom teks selalu cocok dengan
+ * `:focus-visible` — termasuk saat diklik tetikus — jadi cincin tebal muncul di
+ * setiap kali orang mulai mengetik, bukan hanya saat berpindah dengan papan
+ * ketik. Yang menandai fokus di sini adalah PERUBAHAN warna tepinya, dari
+ * #8A8A8A ke #1A56C4: terukur 6,34:1, jauh di atas 3:1 yang dituntut WCAG
+ * 2.4.11 untuk penanda fokus. Lingkarannya hiasan, bukan penanggung jawab. */
+.press .m3-field:focus-visible,
+.press .m3-field-lg:focus-visible,
+.press .m3-field-auth:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 15%, transparent);
+}
 
 .press .m3-tab { min-block-size: 2.5rem; }
 .press .m3-segmented { min-block-size: 2.25rem; }
@@ -1476,7 +1655,7 @@ body {
 .press .m3-nav-scroll,
 .press .m3-thin-scroll {
 	scrollbar-width: thin;
-	scrollbar-color: var(--press-rule-faint) transparent;
+	scrollbar-color: var(--scrollbar-thumb) transparent;
 	transition: scrollbar-color 150ms var(--md-sys-motion-easing-standard);
 }
 
@@ -1484,7 +1663,7 @@ body {
 .press .m3-nav-scroll:focus-within,
 .press .m3-thin-scroll:hover,
 .press .m3-thin-scroll:focus-within {
-	scrollbar-color: var(--press-rule) transparent;
+	scrollbar-color: var(--scrollbar-thumb-hover) transparent;
 }
 
 @supports not (scrollbar-color: auto) {
@@ -1496,7 +1675,7 @@ body {
 
 	.press .m3-nav-scroll::-webkit-scrollbar-thumb,
 	.press .m3-thin-scroll::-webkit-scrollbar-thumb {
-		background: var(--press-rule-faint);
+		background: var(--scrollbar-thumb);
 		border-radius: 999px;
 	}
 

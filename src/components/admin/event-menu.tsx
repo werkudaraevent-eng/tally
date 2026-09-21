@@ -1,12 +1,13 @@
 "use client";
 
 import { CaretUpDown, Check, ListDashes, MagnifyingGlass, Plus } from "@phosphor-icons/react";
-import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { MENU_MOTION } from "@/lib/m3/menu-motion";
+import { Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
 import { cariHalaman } from "@/components/admin/nav-config";
+import { EventStatusBadge, URUTAN_STATUS } from "@/components/admin/event-status";
+import type { EventStatus } from "@/lib/domain";
 
 /**
  * Pengalih acara di puncak sidebar.
@@ -34,12 +35,18 @@ import { cariHalaman } from "@/components/admin/nav-config";
 
 export type EventPilihan = { slug: string; name: string; status: string };
 
-/** Status acara dalam bahasa yang dipakai panitia, bukan nilai kolom database. */
-const LABEL_STATUS: Record<string, string> = {
-  draft: "Draft",
-  completed: "Selesai",
-  archived: "Arsip",
-};
+/**
+ * Urutan yang SAMA dengan daftar acara: aktif dulu, lalu draft, selesai, arsip.
+ *
+ * Sebelumnya menu ini memakai urutan apa adanya dari API dan lencana buatannya
+ * sendiri, sementara halaman Acara memakai urutan status dan teks berwarna. Dua
+ * daftar acara yang sama dengan dua urutan berbeda, dibuka oleh orang yang sama
+ * dalam satu menit.
+ */
+function peringkat(status: string) {
+  const posisi = URUTAN_STATUS.indexOf(status as EventStatus);
+  return posisi === -1 ? URUTAN_STATUS.length : posisi;
+}
 
 export function EventMenu({
   events,
@@ -61,11 +68,11 @@ export function EventMenu({
    */
   onOpenChange?: (terbuka: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [pemicu, setPemicu] = useState<HTMLElement | null>(null);
+  const menu = usePopoverAnchor(pemicu, onOpenChange);
+  const open = menu.open;
   const [kueri, setKueri] = useState("");
   const [sorot, setSorot] = useState(0);
-  const wadah = useRef<HTMLDivElement | null>(null);
-  const tombol = useRef<HTMLButtonElement | null>(null);
   const kolom = useRef<HTMLInputElement | null>(null);
   const menuId = useId();
   const pathname = usePathname();
@@ -76,7 +83,8 @@ export function EventMenu({
 
   const hasil = useMemo(() => {
     const cari = kueri.trim().toLowerCase();
-    return cari ? events.filter((event) => event.name.toLowerCase().includes(cari)) : events;
+    const cocok = cari ? events.filter((event) => event.name.toLowerCase().includes(cari)) : events;
+    return [...cocok].sort((a, b) => peringkat(a.status) - peringkat(b.status) || a.name.localeCompare(b.name, "id"));
   }, [events, kueri]);
 
   /**
@@ -86,12 +94,13 @@ export function EventMenu({
    * sebagai kesalahan. Yang tahu menu baru saja dibuka adalah yang membukanya.
    */
   function ubahTerbuka(nilai: boolean) {
-    setOpen(nilai);
-    onOpenChange?.(nilai);
     if (nilai) {
       setKueri("");
       setSorot(0);
+      menu.buka();
+      return;
     }
+    menu.tutup();
   }
 
   function ubahKueri(nilai: string) {
@@ -102,25 +111,14 @@ export function EventMenu({
     setSorot(0);
   }
 
+  // Klik di luar dan Esc ditangani `Popover`. Yang tersisa di sini hanya fokus:
+  // panelnya baru terpasang satu frame sebelumnya, jadi kolom carinya belum ada
+  // di dokumen saat efek ini pertama jalan.
   useEffect(() => {
     if (!open) return;
-    // Fokus ditunda satu frame: panelnya baru saja dipasang oleh AnimatePresence
-    // dan elemennya belum ada di dokumen saat efek ini jalan.
     const fokus = requestAnimationFrame(() => kolom.current?.focus());
-    const onPointer = (event: PointerEvent) => {
-      if (wadah.current?.contains(event.target as Node)) return;
-      // `setOpen` + kabar, bukan `ubahTerbuka`: fungsi itu lahir baru pada setiap
-      // render, dan memasukkannya ke daftar dependensi memasang ulang pendengar
-      // dokumen setiap kali satu huruf diketik di kolom cari.
-      setOpen(false);
-      onOpenChange?.(false);
-    };
-    document.addEventListener("pointerdown", onPointer);
-    return () => {
-      cancelAnimationFrame(fokus);
-      document.removeEventListener("pointerdown", onPointer);
-    };
-  }, [open, onOpenChange]);
+    return () => cancelAnimationFrame(fokus);
+  }, [open]);
 
   /**
    * Alamat acara lain untuk halaman yang SEDANG dibuka.
@@ -144,8 +142,8 @@ export function EventMenu({
   function onKeyDown(peristiwa: React.KeyboardEvent) {
     if (peristiwa.key === "Escape") {
       peristiwa.stopPropagation();
-      ubahTerbuka(false);
-      tombol.current?.focus();
+      menu.tutup();
+      menu.fokus();
       return;
     }
     if (peristiwa.key === "ArrowDown" || peristiwa.key === "ArrowUp") {
@@ -172,9 +170,9 @@ export function EventMenu({
      * sepanjang "ILO ASEAN Regional Meeting" menyusut persis sampai kehabisan
      * ruang lalu berhenti — dan chevron-nya berakhir menempel di garis tepi rel.
      */
-    <div ref={wadah} className="relative min-w-0 flex-1">
+    <div className="relative min-w-0 flex-1">
       <button
-        ref={tombol}
+        ref={setPemicu}
         type="button"
         onClick={() => ubahTerbuka(!open)}
         aria-haspopup="dialog"
@@ -194,15 +192,20 @@ export function EventMenu({
         <CaretUpDown size={14} className="ml-auto shrink-0 text-on-surface-variant" />
       </button>
 
-      <AnimatePresence>
-        {open ? (
-          <motion.div
+      {/* Portal. Panel ini 300px sementara relnya 260px, jadi selama ia `absolute`
+          di dalam rel, satu-satunya yang mencegahnya terpotong adalah janji bahwa
+          tidak ada leluhurnya yang memakai `overflow: hidden` — janji yang sudah
+          sekali dilanggar dan harus dicatat di dua tempat. */}
+      {open ? (
+          <Popover
+            anchor={menu}
             id={menuId}
             role="dialog"
-            aria-label="Pilih acara"
+            label="Pilih acara"
+            align="start"
+            width={300}
+            className="p-0"
             onKeyDown={onKeyDown}
-            className="absolute left-0 top-[calc(100%+6px)] z-50 w-[300px] origin-top-left overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-level2"
-            {...MENU_MOTION}
           >
             {/* Kolom cari tanpa garis sendiri. Kotak di dalam kotak, keduanya
                 bergaris, menghasilkan dua bingkai berjarak 8px yang saling
@@ -227,7 +230,6 @@ export function EventMenu({
               ) : (
                 hasil.map((event, indeks) => {
                   const terpilih = event.slug === activeSlug;
-                  const status = LABEL_STATUS[event.status];
                   return (
                     <button
                       key={event.slug}
@@ -240,15 +242,11 @@ export function EventMenu({
                       } ${indeks === sorot && !terpilih ? "bg-[var(--press-hover)]" : ""}`}
                     >
                       <span className="min-w-0 flex-1 truncate">{event.name}</span>
-                      {/* Status jadi pil bergaris, bukan kata lepas abu. Kata lepas
-                          di ujung baris terbaca sebagai bagian nama acara yang
+                      {/* Lencana yang SAMA dengan daftar acara. Kata lepas abu di
+                          ujung baris terbaca sebagai bagian nama acara yang
                           terpotong, dan "Marugame Banquet completed" bukan nama
                           acara siapa pun. */}
-                      {status ? (
-                        <span className="shrink-0 rounded-full border border-outline-variant px-1.5 py-px text-label-small font-normal text-on-surface-variant">
-                          {status}
-                        </span>
-                      ) : null}
+                      {event.status !== "active" ? <EventStatusBadge status={event.status as EventStatus} className="shrink-0" /> : null}
                       {terpilih ? <Check size={14} weight="bold" className="shrink-0" /> : null}
                     </button>
                   );
@@ -260,7 +258,7 @@ export function EventMenu({
               {isOwner ? (
                 <Link
                   href="/events?buat=1"
-                  className="flex min-h-8 items-center gap-2 rounded-sm px-2.5 py-1.5 text-body-medium hover:bg-[var(--press-hover)]"
+                  className={POPOVER_ITEM}
                 >
                   <Plus size={16} className="shrink-0 text-on-surface-variant" />
                   Buat event baru
@@ -268,15 +266,14 @@ export function EventMenu({
               ) : null}
               <Link
                 href="/events"
-                className="flex min-h-8 items-center gap-2 rounded-sm px-2.5 py-1.5 text-body-medium hover:bg-[var(--press-hover)]"
+                className={POPOVER_ITEM}
               >
                 <ListDashes size={16} className="shrink-0 text-on-surface-variant" />
                 Semua event
               </Link>
             </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+          </Popover>
+      ) : null}
     </div>
   );
 }

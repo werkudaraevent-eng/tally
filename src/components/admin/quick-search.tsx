@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { grupDari, halamanSistem, navigation, type NavIcon } from "@/components/admin/nav-config";
 import type { EventPilihan } from "@/components/admin/event-menu";
+import { EVENT_STATUS_LABEL, type EventStatus } from "@/lib/domain";
 import type { Recent } from "@/components/admin/sidebar-store";
+import { SEPARATOR } from "@/lib/typography";
 
 /**
  * Pencarian cepat: tombol di sidebar, dan palet perintah yang dibukanya.
@@ -171,7 +173,9 @@ export function CommandPalette({
     const acara: Hasil[] = events.map((event) => ({
       kunci: `e:${event.slug}`,
       label: event.name,
-      konteks: event.status === "active" ? "Event" : `Event, ${event.status}`,
+      // Label berbahasa manusia, bukan nilai kolom. "Event, completed" adalah
+      // dua bahasa dalam satu baris, dan yang kedua bahasa database.
+      konteks: event.status === "active" ? "Event" : `Event ${SEPARATOR} ${EVENT_STATUS_LABEL[event.status as EventStatus] ?? event.status}`,
       icon: Storefront,
       href: `/e/${event.slug}/admin`,
       path: `/e/${event.slug}/admin`,
@@ -258,7 +262,7 @@ export function CommandPalette({
         // Latar MEMUDARKAN halaman, tidak menggelapkannya. Palet ini dibuka untuk
         // pergi ke tempat lain, bukan untuk menuntut keputusan, dan halaman di
         // belakangnya masih dipakai mata sebagai konteks. Aturannya di globals.css.
-        className="m3-palette-scrim fixed inset-0 z-50 flex justify-center p-4 pt-[12vh]"
+        className="m3-palette-scrim fixed inset-0 z-modal flex justify-center p-4 pt-[12vh]"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

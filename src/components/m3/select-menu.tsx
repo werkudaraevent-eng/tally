@@ -1,9 +1,8 @@
 "use client";
 
 import { CaretDown, CaretUpDown, Check } from "@phosphor-icons/react";
-import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useId, useRef, useState } from "react";
-import { MENU_MOTION } from "@/lib/m3/menu-motion";
+import { useId, useState } from "react";
+import { Popover, usePopoverAnchor } from "./popover";
 import { cx } from "@/lib/m3/cx";
 
 /**
@@ -56,22 +55,13 @@ export type SelectMenuProps<T extends string> = {
 export function SelectMenu<T extends string>({
 	options, value, onChange, label, kind = "filter", width = "12.5rem", className, disabled,
 }: SelectMenuProps<T>) {
-	const [open, setOpen] = useState(false);
+	const [pemicu, setPemicu] = useState<HTMLElement | null>(null);
+	const menu = usePopoverAnchor(pemicu);
 	const [sorot, setSorot] = useState(0);
-	const wadah = useRef<HTMLDivElement | null>(null);
-	const tombol = useRef<HTMLButtonElement | null>(null);
 	const id = useId();
+	const open = menu.open;
 
 	const terpilih = options.find((option) => option.value === value);
-
-	useEffect(() => {
-		if (!open) return;
-		const onPointer = (peristiwa: PointerEvent) => {
-			if (!wadah.current?.contains(peristiwa.target as Node)) setOpen(false);
-		};
-		document.addEventListener("pointerdown", onPointer);
-		return () => document.removeEventListener("pointerdown", onPointer);
-	}, [open]);
 
 	function buka() {
 		if (disabled) return;
@@ -79,13 +69,13 @@ export function SelectMenu<T extends string>({
 		// opsi teratas di daftar yang pilihannya ada di nomor tujuh berarti tujuh
 		// ketukan hanya untuk kembali ke tempat semula.
 		setSorot(Math.max(0, options.findIndex((option) => option.value === value)));
-		setOpen(true);
+		menu.buka();
 	}
 
 	function pilih(option: SelectOption<T>) {
 		onChange(option.value);
-		setOpen(false);
-		tombol.current?.focus();
+		menu.tutup();
+		menu.fokus();
 	}
 
 	function onKeyDown(peristiwa: React.KeyboardEvent) {
@@ -96,7 +86,7 @@ export function SelectMenu<T extends string>({
 			}
 			return;
 		}
-		if (peristiwa.key === "Escape") { peristiwa.stopPropagation(); setOpen(false); tombol.current?.focus(); return; }
+		if (peristiwa.key === "Escape") { peristiwa.stopPropagation(); menu.tutup(); menu.fokus(); return; }
 		if (peristiwa.key === "ArrowDown" || peristiwa.key === "ArrowUp") {
 			peristiwa.preventDefault();
 			const arah = peristiwa.key === "ArrowDown" ? 1 : -1;
@@ -114,9 +104,9 @@ export function SelectMenu<T extends string>({
 	const Ikon = kind === "sort" ? CaretUpDown : CaretDown;
 
 	return (
-		<div ref={wadah} className={cx("relative", className)} style={{ width }}>
+		<div className={cx("relative", className)} style={{ width }}>
 			<button
-				ref={tombol}
+				ref={setPemicu}
 				type="button"
 				disabled={disabled}
 				// `role="combobox"`, bukan tombol biasa. `aria-activedescendant` hanya
@@ -132,7 +122,7 @@ export function SelectMenu<T extends string>({
 				// pengguna papan ketik kehilangan tempatnya di deretan penyaring.
 				aria-activedescendant={open && options[sorot] ? `${id}-${options[sorot].value}` : undefined}
 				aria-label={label}
-				onClick={() => (open ? setOpen(false) : buka())}
+				onClick={() => (open ? menu.tutup() : buka())}
 				onKeyDown={onKeyDown}
 				className={cx(
 					"m3-field flex h-9 w-full items-center gap-2 rounded-lg border bg-surface-container-lowest px-3 text-left text-body-medium text-on-surface",
@@ -147,16 +137,13 @@ export function SelectMenu<T extends string>({
 				<Ikon size={14} className="shrink-0 text-on-surface-variant" aria-hidden />
 			</button>
 
-			<AnimatePresence>
-				{open ? (
-					<motion.ul
-						role="listbox"
-						id={id}
-						aria-label={label}
-						tabIndex={-1}
-						className="absolute left-0 top-[calc(100%+4px)] z-40 max-h-72 w-full origin-top overflow-y-auto rounded-lg border border-outline-variant bg-surface-container-lowest p-1 shadow-level2"
-						{...MENU_MOTION}
-					>
+			{/* Daftar dirender lewat PORTAL, bukan `absolute` di dalam pembungkus ini.
+			    Penyaring sering berdiri di dalam kartu ber-`overflow: hidden`, dan di
+			    sana daftar yang lebih panjang daripada sisa kartu akan terpotong di
+			    tepinya. Lihat catatan di `m3/popover.tsx`. */}
+			{open ? (
+				<Popover anchor={menu} id={id} label={label} role="listbox" align="start" width={width} className="p-1">
+					<ul>
 						{options.map((option, indeks) => {
 							const aktif = option.value === value;
 							return (
@@ -179,9 +166,9 @@ export function SelectMenu<T extends string>({
 								</li>
 							);
 						})}
-					</motion.ul>
-				) : null}
-			</AnimatePresence>
+					</ul>
+				</Popover>
+			) : null}
 		</div>
 	);
 }

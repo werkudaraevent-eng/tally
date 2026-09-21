@@ -119,6 +119,28 @@ function scheme({ isDark, contrastLevel }) {
 		// Palet lain dibiarkan diturunkan algoritma supaya secondary/tertiary
 		// tetap harmonis, bukan tebakan.
 		primaryPalette: TonalPalette.fromHct(sourceColorHct),
+		/**
+		 * Palet netral dipaksa KROMA NOL: abu murni, bukan abu berhue.
+		 *
+		 * Vibrant sengaja memberi kroma pada palet netralnya supaya permukaan
+		 * "terasa sekeluarga" dengan warna sumber. Diukur di keluaran sebelumnya,
+		 * harganya: `surface` #F9F5FF (hue 264), `outline-variant` #ABA9D7
+		 * (hue 243, saturasi 37%), dan 38 dari 73 token terang duduk di hue
+		 * 220-300. Yang terlihat bukan "sekeluarga", melainkan lavender — di
+		 * garis popover, pemisah menu, teks sekunder, dan ikon.
+		 *
+		 * Ruang kerja sudah menimpanya lewat `.press`, dan itu menyembunyikan
+		 * masalahnya selama semua yang dirender berada di dalam div itu. Begitu
+		 * menu pindah ke portal `document.body`, ia keluar dari jangkauan `.press`
+		 * dan nilai aslinya muncul lagi. Jadi yang diperbaiki sumbernya, bukan
+		 * penimpaannya.
+		 *
+		 * `primary`, `secondary`, `tertiary`, dan `error` TIDAK disentuh: mereka
+		 * memang warna, dan layar booth serta kasir memakainya sebagai pembeda
+		 * yang dibaca dari jarak satu meter.
+		 */
+		neutralPalette: TonalPalette.fromHueAndChroma(sourceColorHct.hue, 0),
+		neutralVariantPalette: TonalPalette.fromHueAndChroma(sourceColorHct.hue, 0),
 	});
 }
 
