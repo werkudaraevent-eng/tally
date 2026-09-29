@@ -21,9 +21,9 @@ import {
   type LandingSectionId,
   type RegistrationFormConfig,
 } from "@/lib/domain";
-import { cx } from "@/lib/m3/cx";
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { eventApiPath } from "@/lib/event-url";
+import { Kelompok } from "@/components/admin/compact-form";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -47,18 +47,6 @@ type Bagian = "isi" | "tampilan" | "bagian";
 
 /** "09:00:00" → "09:00". Kolom <input type="time"> menolak bentuk berdetik. */
 const jamInput = (value: string | null) => (value ? value.slice(0, 5) : "");
-
-function Kelompok({ title, children, first, note }: { title: string; children: ReactNode; first?: boolean; note?: ReactNode }) {
-  return (
-    <section className={cx("flex flex-col gap-4", !first && "border-t border-outline-variant pt-5")}>
-      <div>
-        <h3 className="text-body-medium font-semibold text-on-surface">{title}</h3>
-        {note ? <p className="mt-1 text-body-medium text-on-surface-variant">{note}</p> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 function PilihWarna({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (

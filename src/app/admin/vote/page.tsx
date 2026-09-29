@@ -3,7 +3,7 @@
 import {
   ArrowSquareOut, CheckCircle, DotsThree, DownloadSimple, Plus, Trash, UploadSimple, Warning, X, XCircle,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { useToast } from "@/components/toast";
@@ -18,6 +18,7 @@ import {
   Pane, PaneBody, PaneFooter, PaneHeader, POPOVER_ITEM, POPOVER_ITEM_DANGER, PageLoading, Popover, StatusChip,
   Switch, Tabs, TextField, usePopoverAnchor, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
+import { Kelompok } from "@/components/admin/compact-form";
 
 // CMS + kontrol voting dalam SATU halaman.
 //
@@ -178,15 +179,6 @@ function ringkasTipe(poll: VotePoll) {
   if (poll.type === "wordcloud") bagian.push(`maks ${poll.max_words} kata`);
   bagian.push(VOTER_MODES.find((item) => item.value === poll.voter_mode)?.label ?? poll.voter_mode);
   return bagian.join(" · ");
-}
-
-function Kelompok({ title, children, first }: { title: string; children: ReactNode; first?: boolean }) {
-  return (
-    <section className={cx("flex flex-col gap-4", !first && "border-t border-outline-variant pt-5")}>
-      <h3 className="text-body-medium font-semibold text-on-surface">{title}</h3>
-      {children}
-    </section>
-  );
 }
 
 /** Menu aksi jarang dipakai untuk satu pertanyaan. */

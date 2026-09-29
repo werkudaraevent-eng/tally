@@ -10,6 +10,7 @@ import {
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { WINNER_STATUS_LABEL, normalizeSessionSummary, type UndianSessionSummary } from "@/lib/undian";
+import { INPUT } from "@/components/admin/compact-form";
 
 // Riwayat hasil undian per sesi, beserta arsip dan hapus permanen.
 //
@@ -49,7 +50,6 @@ type View = "winners" | "timeline" | "recap";
 const KIND_LABEL = { draw: "Diundi", confirm: "Hadir", reject: "Dibatalkan" } as const;
 const KIND_TONE = { draw: "primary", confirm: "success", reject: "error" } as const;
 
-const INPUT = "mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
 
 /**
  * Waktu selalu ditampilkan dalam zona Asia/Jakarta, bukan zona peramban.

@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowCounterClockwise, Plus, Trash, Warning } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Banner, Button, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
   SegmentedButton, SelectField, SupportingPane, Switch, TextField, WorkspaceHeader, WorkspacePage,
@@ -20,6 +20,7 @@ import {
   type LabelSettings,
 } from "@/lib/label/layout";
 import { renderLabelToCanvas } from "@/lib/label/render";
+import { Kelompok } from "@/components/admin/compact-form";
 
 /**
  * Penyunting label peserta.
@@ -89,15 +90,6 @@ const TOMBOL_TAMBAH: Array<{ label: string; buat: ElemenBaru }> = [
 ];
 
 type Bagian = "isi" | "gulungan" | "printer";
-
-function Kelompok({ title, children, first }: { title?: string; children: ReactNode; first?: boolean }) {
-  return (
-    <section className={cx("flex flex-col gap-4", !first && "border-t border-outline-variant pt-5")}>
-      {title ? <h3 className="text-body-medium font-semibold text-on-surface">{title}</h3> : null}
-      {children}
-    </section>
-  );
-}
 
 export default function LabelAdminPage() {
   const [settings, setSettings] = useState<LabelSettings | null>(null);

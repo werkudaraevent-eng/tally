@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ExportMenu } from "@/components/admin/export-menu";
 import { Banner, Button, EmptyState, StatusChip, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { cx } from "@/lib/m3/cx";
+import { Skeleton } from "@/components/m3/skeleton";
 
 type Report = {
   summary: { total_revenue: number; gross_regular: number; total_orders: number; paid_orders: number; pending_orders: number; void_orders: number; discount_claims: number };
@@ -14,10 +15,6 @@ type Report = {
 
 const angka = (value: number) => new Intl.NumberFormat("id-ID").format(value);
 const money = (value: number) => `Rp ${angka(value)}`;
-
-function Rangka({ className }: { className?: string }) {
-  return <span aria-hidden className={cx("block rounded bg-surface-container-high shimmer", className)} />;
-}
 
 function Kartu({ label, value, note, chip }: { label: string; value: ReactNode; note: ReactNode; chip?: ReactNode }) {
   return (
@@ -92,7 +89,7 @@ export default function ReportsPage() {
           </>
         ) : !error ? [0, 1, 2, 3].map((index) => (
           <div key={index} aria-hidden className="flex flex-col gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-5 py-4">
-            <Rangka className="h-3.5 w-24" /><Rangka className="h-7 w-36" /><Rangka className="h-3.5 w-32" />
+            <Skeleton className="h-3.5 w-24" /><Skeleton className="h-7 w-36" /><Skeleton className="h-3.5 w-32" />
           </div>
         )) : null}
       </section>
@@ -108,7 +105,7 @@ export default function ReportsPage() {
             <div aria-label="Memuat rekonsiliasi" className="flex flex-col">
               {Array.from({ length: 5 }, (_, i) => (
                 <div key={i} className="flex items-center gap-6 border-b border-outline-variant px-5 py-4 last:border-b-0">
-                  <Rangka className="h-3 w-40" /><Rangka className="ml-auto h-3 w-24" />
+                  <Skeleton className="h-3 w-40" /><Skeleton className="ml-auto h-3 w-24" />
                 </div>
               ))}
             </div>

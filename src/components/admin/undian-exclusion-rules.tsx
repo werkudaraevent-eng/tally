@@ -14,6 +14,7 @@ import {
   EMPTY_CONDITIONS, describeConditions, isTrulyEmpty, normalizeExclusionRule,
   type UndianConditionGroup, type UndianExclusionRule,
 } from "@/lib/undian";
+import { INPUT } from "@/components/admin/compact-form";
 
 // Pengelola aturan pengecualian undian.
 //
@@ -46,7 +47,6 @@ type Draft = { name: string; note: string; conditions: UndianConditionGroup; pri
 
 const EMPTY_DRAFT: Draft = { name: "", note: "", conditions: EMPTY_CONDITIONS, prize_id: null, is_active: true };
 
-const INPUT = "mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
 
 /** Titik awal yang paling sering dibutuhkan, supaya aturan pertama tidak dimulai dari layar kosong. */
 const TEMPLATES: { label: string; hint: string; draft: () => Draft }[] = [

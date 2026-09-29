@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, LockSimple, Plus, Tag, Trash, X, XCircle } from "@phosphor-icons/react";
-import { useCallback, useEffect, useImperativeHandle, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
   Button, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, Pane, PaneBody, PaneFooter, StatusChip, Switch,
 } from "@/components/m3";
@@ -9,6 +9,7 @@ import { useToast } from "@/components/toast";
 import { ConditionBuilder, describeConditions } from "@/components/admin/condition-builder";
 import { cx } from "@/lib/m3/cx";
 import type { OfferConditionGroup } from "@/lib/domain";
+import { INPUT, Field } from "@/components/admin/compact-form";
 
 type Offer = {
   id: number;
@@ -36,7 +37,6 @@ const formatRupiah = (amount: number) => `Rp ${new Intl.NumberFormat("id-ID").fo
 const digitsOnly = (value: string) => value.replace(/\D/g, "");
 const grouped = (digits: string) => (digits ? new Intl.NumberFormat("id-ID").format(Number(digits)) : "");
 
-const INPUT = "mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
 
 const EMPTY_CONDITIONS: OfferConditionGroup = {
   op: "and",
@@ -56,16 +56,6 @@ const EMPTY_FORM = {
 };
 
 type EditForm = { name: string; price: string; stock: string; max_per_participant: string; scope: "global" | "per_booth"; booth_id: number; conditions: OfferConditionGroup };
-
-function Field({ label, htmlFor, hint, children }: { label: ReactNode; htmlFor: string; hint?: ReactNode; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <label htmlFor={htmlFor} className="block text-body-medium font-medium text-on-surface">{label}</label>
-      {children}
-      {hint ? <p className="mt-1 text-body-medium text-on-surface-variant">{hint}</p> : null}
-    </div>
-  );
-}
 
 /** Pilihan cakupan: dua kartu radio bernama, dipakai form baru dan form sunting. */
 function PilihCakupan({ name, value, onChange, booths, boothId, onBooth, detail }: {
@@ -95,7 +85,7 @@ function PilihCakupan({ name, value, onChange, booths, boothId, onBooth, detail 
         })}
       </fieldset>
       {value === "per_booth" ? (
-        <Field label="Booth" htmlFor={`${name}-booth`}>
+        <Field className="min-w-0" label="Booth" htmlFor={`${name}-booth`}>
           <select id={`${name}-booth`} value={boothId} onChange={(event) => onBooth(Number(event.target.value))} className={INPUT}>
             <option value={0}>Pilih booth</option>
             {booths.map((booth) => <option key={booth.id} value={booth.id}>{booth.code} · {booth.name}</option>)}
@@ -360,19 +350,19 @@ export function OffersPanel({ onStats, ref }: { onStats?: (stats: OfferStats) =>
           {galat}
           <DetailSection>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Nama item" htmlFor="offer-new-name">
+              <Field className="min-w-0" label="Nama item" htmlFor="offer-new-name">
                 <input id="offer-new-name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Tebus Murah" className={INPUT} />
               </Field>
-              <Field label="Kode sistem" htmlFor="offer-new-code">
+              <Field className="min-w-0" label="Kode sistem" htmlFor="offer-new-code">
                 <input id="offer-new-code" value={form.code} onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} placeholder="tebus_murah" className={INPUT} />
               </Field>
-              <Field label="Harga (Rp)" htmlFor="offer-new-price">
+              <Field className="min-w-0" label="Harga (Rp)" htmlFor="offer-new-price">
                 <input id="offer-new-price" value={grouped(form.price)} onChange={(event) => setForm((current) => ({ ...current, price: digitsOnly(event.target.value) }))} inputMode="numeric" className={cx(INPUT, "tabular-nums")} />
               </Field>
-              <Field label="Stok" htmlFor="offer-new-stock">
+              <Field className="min-w-0" label="Stok" htmlFor="offer-new-stock">
                 <input id="offer-new-stock" value={grouped(form.stock)} onChange={(event) => setForm((current) => ({ ...current, stock: digitsOnly(event.target.value) }))} inputMode="numeric" placeholder="Tak terbatas" className={cx(INPUT, "tabular-nums")} />
               </Field>
-              <Field label="Maksimal per peserta" htmlFor="offer-new-max">
+              <Field className="min-w-0" label="Maksimal per peserta" htmlFor="offer-new-max">
                 <input id="offer-new-max" value={form.max_per_participant} onChange={(event) => setForm((current) => ({ ...current, max_per_participant: digitsOnly(event.target.value) }))} inputMode="numeric" className={cx(INPUT, "tabular-nums")} />
               </Field>
             </div>
@@ -452,16 +442,16 @@ export function OffersPanel({ onStats, ref }: { onStats?: (stats: OfferStats) =>
           <form id="form-item-sunting" onSubmit={(event) => { event.preventDefault(); void saveEdit(); }}>
             <DetailSection title="Detail">
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Nama item" htmlFor="offer-edit-name">
+                <Field className="min-w-0" label="Nama item" htmlFor="offer-edit-name">
                   <input id="offer-edit-name" value={editForm.name} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} className={INPUT} />
                 </Field>
-                <Field label="Harga (Rp)" htmlFor="offer-edit-price">
+                <Field className="min-w-0" label="Harga (Rp)" htmlFor="offer-edit-price">
                   <input id="offer-edit-price" value={grouped(editForm.price)} onChange={(event) => setEditForm((current) => ({ ...current, price: digitsOnly(event.target.value) }))} inputMode="numeric" className={cx(INPUT, "tabular-nums")} />
                 </Field>
-                <Field label="Stok" htmlFor="offer-edit-stock">
+                <Field className="min-w-0" label="Stok" htmlFor="offer-edit-stock">
                   <input id="offer-edit-stock" value={grouped(editForm.stock)} onChange={(event) => setEditForm((current) => ({ ...current, stock: digitsOnly(event.target.value) }))} inputMode="numeric" placeholder="Tak terbatas" className={cx(INPUT, "tabular-nums")} />
                 </Field>
-                <Field label="Maksimal per peserta" htmlFor="offer-edit-max">
+                <Field className="min-w-0" label="Maksimal per peserta" htmlFor="offer-edit-max">
                   <input id="offer-edit-max" value={editForm.max_per_participant} onChange={(event) => setEditForm((current) => ({ ...current, max_per_participant: digitsOnly(event.target.value) }))} inputMode="numeric" className={cx(INPUT, "tabular-nums")} />
                 </Field>
               </div>

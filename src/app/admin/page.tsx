@@ -12,6 +12,7 @@ import { cx } from "@/lib/m3/cx";
 import { EVENT_STATUS_LABEL, type EventStatus } from "@/lib/domain";
 import { formatEventSchedule, daysUntil } from "@/lib/event-datetime";
 import { eventApiPath } from "@/lib/event-url";
+import { Skeleton } from "@/components/m3/skeleton";
 
 type Overview = {
   event: {
@@ -104,10 +105,6 @@ function KepalaKartu({ title, trailing }: { title: string; trailing?: ReactNode 
       {trailing}
     </div>
   );
-}
-
-function Rangka({ className }: { className?: string }) {
-  return <span aria-hidden className={cx("block rounded bg-surface-container-high shimmer", className)} />;
 }
 
 export default function AdminPage() {
@@ -211,7 +208,7 @@ export default function AdminPage() {
             {jadwal ? <span className="inline-flex items-center gap-1.5"><CalendarBlank size={16} aria-hidden />{jadwal}</span> : null}
             {data.event.venue_name ? <span className="inline-flex items-center gap-1.5"><MapPin size={16} aria-hidden />{data.event.venue_name}</span> : null}
           </>
-        ) : <Rangka className="h-4 w-72" />}
+        ) : <Skeleton className="h-4 w-72" />}
         actions={
           <>
             {data ? <ButtonLink native variant="outlined" href={`/e/${data.event.slug}`} target="_blank" rel="noreferrer" icon={<ArrowSquareOut size={16} />}>Halaman acara</ButtonLink> : null}
@@ -228,7 +225,7 @@ export default function AdminPage() {
           <div className="flex flex-1 flex-col gap-6 px-6 py-6 sm:flex-row sm:items-center">
             <div className="shrink-0 sm:min-w-[200px]">
               <p className="text-body-medium font-medium text-on-surface-variant">{judul?.detail ?? "Memuat ringkasan acara"}</p>
-              {judul ? <p className="text-[1.875rem] font-semibold leading-10 tabular-nums">{judul.utama}</p> : <Rangka className="mt-2 h-8 w-40" />}
+              {judul ? <p className="text-[1.875rem] font-semibold leading-10 tabular-nums">{judul.utama}</p> : <Skeleton className="mt-2 h-8 w-40" />}
             </div>
             {!data ? null : fase === "persiapan" ? (
               <div className="min-w-0 flex-1">
@@ -275,7 +272,7 @@ export default function AdminPage() {
         <Kartu label="Perlu tindakan" className="col-span-12 lg:col-span-4">
           <KepalaKartu title="Perlu tindakan" trailing={tindakan.length ? <StatusChip tone="warning">{tindakan.length}</StatusChip> : null} />
           {!data ? (
-            <div className="flex flex-col gap-3 px-5 py-4"><Rangka className="h-4 w-full" /><Rangka className="h-4 w-4/5" /></div>
+            <div className="flex flex-col gap-3 px-5 py-4"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-4/5" /></div>
           ) : tindakan.length === 0 ? (
             <p className="flex flex-1 items-center gap-2 px-5 py-6 text-body-medium text-on-surface-variant"><CheckCircle size={18} className="shrink-0 text-success" />Tidak ada yang menunggu panitia.</p>
           ) : (
@@ -312,7 +309,7 @@ export default function AdminPage() {
           </Link>
         )) : [0, 1, 2, 3].map((index) => (
           <div key={index} aria-hidden className="col-span-12 flex flex-col gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-5 py-4 sm:col-span-6 xl:col-span-3">
-            <Rangka className="h-3.5 w-24" /><Rangka className="h-7 w-20" /><Rangka className="h-3.5 w-32" />
+            <Skeleton className="h-3.5 w-24" /><Skeleton className="h-7 w-20" /><Skeleton className="h-3.5 w-32" />
           </div>
         ))}
 
@@ -321,7 +318,7 @@ export default function AdminPage() {
           <Kartu label="Kesiapan" className="col-span-12 lg:col-span-6">
             <KepalaKartu title={fase === "hari-h" ? "Wajib yang belum siap" : "Belum siap"} trailing={data ? <span className="text-body-medium text-on-surface-variant">{belumSiap.length} butir</span> : null} />
             {!data ? (
-              <div className="flex flex-col gap-3 px-5 py-4"><Rangka className="h-4 w-full" /><Rangka className="h-4 w-3/4" /><Rangka className="h-4 w-4/5" /></div>
+              <div className="flex flex-col gap-3 px-5 py-4"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /><Skeleton className="h-4 w-4/5" /></div>
             ) : (
               <ul>
                 {belumSiap.length === 0 ? (

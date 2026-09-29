@@ -24,6 +24,7 @@ import {
   SegmentedButton, StatusChip, SupportingPane, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { DisplayTabs } from "../display-tabs";
+import { INPUT } from "@/components/admin/compact-form";
 
 type RevealRow = {
   mode: RevealMode;
@@ -43,7 +44,6 @@ type Konfirmasi = "off" | "reset" | "restart";
 // dan satu baris audit setiap dua detik selama tab ini terbuka.
 const POLL_MS = 2000;
 
-const INPUT = "mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
 
 export default function RevealControlPage() {
   const [row, setRow] = useState<RevealRow | null>(null);

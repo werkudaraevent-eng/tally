@@ -1,12 +1,13 @@
 "use client";
 
 import { CaretRight, Check, Storefront, X, XCircle } from "@phosphor-icons/react";
-import { useCallback, useEffect, useImperativeHandle, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
   Button, DetailSection, EmptyCell, EmptyState, IconButton, ListDetail, Pane, PaneBody, PaneFooter, StatusChip, Switch,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
+import { INPUT, Field } from "@/components/admin/compact-form";
 
 type Booth = { id: number; code: string; name: string; discount_item_name: string; discount_item_stock: number | null; is_active: boolean; discount_enabled: boolean; discount_limit_per_participant: number; transactions_enabled: boolean };
 
@@ -22,7 +23,6 @@ const blank: Booth = { id: 0, code: "", name: "Booth baru", discount_item_name: 
 
 const BOOTH_CODE_PATTERN = /^[A-Z][A-Z0-9]{0,7}$/;
 
-const INPUT = "mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
 
 export type BoothsPanelHandle = { tambah: () => void };
 export type BoothStats = { total: number; aktif: number };
@@ -30,16 +30,6 @@ export type BoothStats = { total: number; aktif: number };
 function ringkasItem(booth: Booth) {
   if (!(booth.discount_enabled && booth.discount_limit_per_participant > 0)) return null;
   return `${booth.discount_item_name} · ${booth.discount_limit_per_participant}x/peserta · stok ${booth.discount_item_stock ?? "tak terbatas"}`;
-}
-
-function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: string; hint?: ReactNode; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <label htmlFor={htmlFor} className="block text-body-medium font-medium text-on-surface">{label}</label>
-      {children}
-      {hint ? <div className="mt-1 text-body-medium text-on-surface-variant">{hint}</div> : null}
-    </div>
-  );
 }
 
 function sama(a: Booth, b: Booth) {
@@ -180,7 +170,7 @@ export function BoothsPanel({ onBukaItemSpesial, onStats, ref }: {
           {saveError ? <p role="alert" className="mx-5 mt-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{saveError}</p> : null}
           <DetailSection>
             <div className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-3">
-              <Field label="Kode booth" htmlFor="booth-code">
+              <Field className="min-w-0" label="Kode booth" htmlFor="booth-code">
                 <input
                   id="booth-code"
                   value={selected.code}
@@ -192,7 +182,7 @@ export function BoothsPanel({ onBukaItemSpesial, onStats, ref }: {
                   className={cx(INPUT, "tabular-nums", kodeSalah && "border-error focus:border-error")}
                 />
               </Field>
-              <Field label="Nama booth" htmlFor="booth-name">
+              <Field className="min-w-0" label="Nama booth" htmlFor="booth-name">
                 <input id="booth-name" value={selected.name} onChange={(event) => setSelected({ ...selected, name: event.target.value })} className={INPUT} />
               </Field>
             </div>
@@ -249,7 +239,7 @@ export function BoothsPanel({ onBukaItemSpesial, onStats, ref }: {
               </button>
             ) : (
               <>
-                <Field label="Nama item diskon" htmlFor="booth-discount-name">
+                <Field className="min-w-0" label="Nama item diskon" htmlFor="booth-discount-name">
                   <input id="booth-discount-name" value={selected.discount_item_name} onChange={(event) => setSelected({ ...selected, discount_item_name: event.target.value })} className={INPUT} />
                 </Field>
                 <p className="text-body-medium text-on-surface-variant">Booth baru otomatis mendapat item diskon Rp 1, maks 1x per peserta, stok tak terbatas. Setelah disimpan, atur detailnya di tab Item spesial.</p>

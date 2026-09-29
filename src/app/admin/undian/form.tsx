@@ -3,24 +3,12 @@
 import { Warning } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { cx } from "@/lib/m3/cx";
+import { Field, INPUT } from "@/components/admin/compact-form";
 
-// Potongan formulir yang dipakai bersama oleh panel-panel CMS Undian.
-//
-// Kolom setinggi 36px dan label di atasnya, sama dengan panel setelan denah
-// kursi: panel detail di sini padat oleh isian, dan kolom setinggi 56px milik
-// `TextField` membuat satu hadiah butuh tiga layar untuk digulir.
+export { Field, INPUT };
 
-export const INPUT = "mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
-
-export function Field({ label, hint, htmlFor, children, className }: { label: ReactNode; hint?: ReactNode; htmlFor?: string; children: ReactNode; className?: string }) {
-  return (
-    <div className={className}>
-      <label htmlFor={htmlFor} className="block text-body-medium font-medium text-on-surface">{label}</label>
-      {children}
-      {hint ? <p className="mt-1 text-body-medium text-on-surface-variant">{hint}</p> : null}
-    </div>
-  );
-}
+// Potongan formulir yang dipakai bersama oleh panel-panel CMS Undian. `Field`
+// dan `INPUT` berasal dari formulir padat admin; sisanya khusus Undian.
 
 export function NumberField({ id, label, value, min, max, onChange }: { id: string; label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
   return (

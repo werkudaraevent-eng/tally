@@ -16,6 +16,7 @@ import {
   Banner, Button, ButtonLink, Dialog, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter,
   SegmentedButton, StatusChip, SupportingPane, Switch, Tabs, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
+import { INPUT, Field, Kelompok } from "@/components/admin/compact-form";
 
 // Pratinjau memakai renderer yang sama dengan halaman publik, jadi yang ditata
 // admin persis yang dilihat tamu.
@@ -67,27 +68,7 @@ type Payload = {
 
 type Bagian = "ruangan" | "agenda" | "layar";
 
-const INPUT = "mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
 const BULAT = ["banquet_round", "cabaret", "head_table"];
-
-function Field({ label, hint, children, htmlFor }: { label: string; hint?: ReactNode; children: ReactNode; htmlFor?: string }) {
-  return (
-    <div>
-      <label htmlFor={htmlFor} className="block text-body-medium font-medium text-on-surface">{label}</label>
-      {children}
-      {hint ? <p className="mt-1 text-body-medium text-on-surface-variant">{hint}</p> : null}
-    </div>
-  );
-}
-
-function Kelompok({ title, children, first }: { title: string; children: ReactNode; first?: boolean }) {
-  return (
-    <section className={cx("flex flex-col gap-4", !first && "border-t border-outline-variant pt-5")}>
-      <h3 className="text-body-medium font-semibold text-on-surface">{title}</h3>
-      {children}
-    </section>
-  );
-}
 
 function Lipatan({ title, detail, children }: { title: string; detail: string; children: ReactNode }) {
   return (

@@ -12,6 +12,7 @@ import {
   Banner, Button, ButtonLink, Dialog, EmptyState, ListRow, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
   SegmentedButton, StatusChip, SupportingPane, Switch, Tabs, TextArea, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
+import { Kelompok } from "@/components/admin/compact-form";
 
 // CMS rundown acara. Supporting pane: jadwal bagian aktif di panel utama,
 // penyunting di panel kanan (baris terpilih, setelan bagian, header publik).
@@ -44,18 +45,6 @@ const BRANDING_FALLBACK = {
   text_color: "#1a1a1a",
   accent_color: "#2649d0",
 } as const;
-
-function Kelompok({ title, children, first, note }: { title: string; children: ReactNode; first?: boolean; note?: ReactNode }) {
-  return (
-    <section className={cx("flex flex-col gap-4", !first && "border-t border-outline-variant pt-5")}>
-      <div>
-        <h3 className="text-body-medium font-semibold text-on-surface">{title}</h3>
-        {note ? <p className="mt-1 text-body-medium text-on-surface-variant">{note}</p> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 function fokusJudulBaru() {
   window.setTimeout(() => document.querySelector<HTMLInputElement>("[data-draft-title]")?.focus(), 0);

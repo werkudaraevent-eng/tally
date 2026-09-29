@@ -11,6 +11,7 @@ import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
 import { cx } from "@/lib/m3/cx";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
+import { Skeleton } from "@/components/m3/skeleton";
 
 type OrderRow = {
   id: string;
@@ -64,10 +65,6 @@ const STATUS_OPTIONS = [
   { value: "handed_over", label: "Diserahkan" },
   { value: "void", label: "Void" },
 ];
-
-function Rangka({ className }: { className?: string }) {
-  return <span aria-hidden className={cx("block rounded bg-surface-container-high shimmer", className)} />;
-}
 
 /** Satu sel strip ringkasan. Garis antarsel berasal dari `gap-px` di wadahnya. */
 function Angka({ label, value, note, tone }: { label: string; value: ReactNode; note: ReactNode; tone?: "error" | "muted" }) {
@@ -243,7 +240,7 @@ export default function AdminOrdersPage() {
           <div aria-label="Memuat order" className="flex flex-col">
             {Array.from({ length: 8 }, (_, i) => (
               <div key={i} className="flex items-center gap-6 border-b border-outline-variant px-4 py-4">
-                <Rangka className="h-3 w-20" /><Rangka className="h-3 w-40" /><Rangka className="ml-auto h-3 w-24" />
+                <Skeleton className="h-3 w-20" /><Skeleton className="h-3 w-40" /><Skeleton className="ml-auto h-3 w-24" />
               </div>
             ))}
           </div>
@@ -402,7 +399,7 @@ export default function AdminOrdersPage() {
       ) : (
         <section aria-label="Ringkasan hasil saringan" className="grid shrink-0 gap-px overflow-hidden rounded-lg border border-outline-variant bg-outline-variant sm:grid-cols-2 xl:grid-cols-4">
           {summary === undefined ? [0, 1, 2, 3].map((index) => (
-            <div key={index} aria-hidden className="flex flex-col gap-2 bg-surface-container-lowest px-5 py-4"><Rangka className="h-3.5 w-24" /><Rangka className="h-7 w-36" /><Rangka className="h-3.5 w-32" /></div>
+            <div key={index} aria-hidden className="flex flex-col gap-2 bg-surface-container-lowest px-5 py-4"><Skeleton className="h-3.5 w-24" /><Skeleton className="h-7 w-36" /><Skeleton className="h-3.5 w-32" /></div>
           )) : (
             <>
               <Angka label="Nilai transaksi" value={money(summary.total_amount)} note={`${summary.order_count} order dihitung, di luar void`} />

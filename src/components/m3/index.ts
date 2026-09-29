@@ -48,6 +48,11 @@ export type { PaginationProps, TableProps, TableDensity, TableRowProps, TableCel
 export { Tabs } from "./tabs";
 export type { TabsProps, TabOption } from "./tabs";
 
+export { LinkTabs } from "./link-tabs";
+export type { LinkTab } from "./link-tabs";
+
+export { Skeleton } from "./skeleton";
+
 export { TextArea, TextField, SelectField } from "./text-field";
 export type { TextFieldProps, TextAreaProps, SelectFieldProps } from "./text-field";
 
