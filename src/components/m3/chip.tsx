@@ -60,17 +60,28 @@ export function StatusChip({ tone = "neutral", icon, dot, children, className, t
 	/** Keterangan lengkap saat teksnya sudah dipotong, atau angka di baliknya. */
 	title?: string;
 }) {
+	// `title` diisi sendiri dari teksnya bila pemanggil tidak memberi satu. Chip
+	// ini memotong isinya di 224px, dan teks terpotong yang tidak punya jalan
+	// untuk dibaca utuh adalah teks yang hilang.
+	const judul = title ?? (typeof children === "string" ? children : undefined);
+
 	return (
 		<span
-			title={title}
+			title={judul}
 			className={cx(
-				"m3-status-chip inline-flex min-h-8 max-w-[14rem] items-center gap-1.5 truncate whitespace-nowrap rounded-full px-2 text-label-medium font-medium",
+				"m3-status-chip inline-flex min-h-8 max-w-[14rem] items-center gap-1.5 rounded-full px-2 text-label-medium font-medium",
 				dot ? "border border-outline-variant text-on-surface" : TONE[tone],
 				className,
 			)}
 		>
 			{dot ? <span aria-hidden className={cx("size-1.5 shrink-0 rounded-full", DOT[tone])} /> : icon}
-			{children}
+			{/* `truncate` pada span DI DALAM, bukan pada chip-nya.
+			    Chip ini `inline-flex`, dan `text-overflow` tidak berlaku pada teks
+			    yang sudah menjadi anak flex anonim; yang muncul bukan elipsis
+			    melainkan potongan keras di tengah kata. Terlihat persis begitu di
+			    kepala layar booth, tempat penanda mode terputus tanpa tanda bahwa
+			    ada lanjutannya. */}
+			<span className="min-w-0 truncate">{children}</span>
 		</span>
 	);
 }

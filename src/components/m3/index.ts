@@ -8,7 +8,7 @@
 export { Button, ButtonLink } from "./button";
 export type { ButtonProps, ButtonLinkProps, ButtonVariant, ButtonSize } from "./button";
 
-export { Card, CardHeader } from "./card";
+export { Card, CardFooter, CardHeader } from "./card";
 export type { CardProps, CardVariant } from "./card";
 
 export { FilterChip, StatusChip } from "./chip";
@@ -23,7 +23,7 @@ export type { DialogProps } from "./dialog";
 export { Banner, Divider, EmptyState, PageHeader, PageSection, PageToolbar } from "./layout";
 export type { BannerProps, BannerTone, EmptyStateProps, PageHeaderProps, PageSectionProps, PageToolbarProps } from "./layout";
 
-export { CONTAINER_PADDING, PageContainer, PageShell } from "./page-shell";
+export { CONTAINER_PADDING, PageBody, PageContainer, PageShell } from "./page-shell";
 export type { PageContainerProps, PageShellProps } from "./page-shell";
 
 export { PageLoading } from "./page-loading";

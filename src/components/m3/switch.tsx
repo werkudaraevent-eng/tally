@@ -74,8 +74,15 @@ export function Switch({ checked, onChange, label, description, disabled, note, 
 				aria-describedby={descId}
 				disabled={disabled}
 				onClick={() => onChange(!checked)}
+				// Ukurannya ada di CSS (`m3-switch`), bukan di kelas Tailwind, dengan
+				// alasan yang sama seperti warna tombol: jawabannya berbeda di dua
+				// dunia. Ruang kerja memakai 36x20 mengikuti kepadatan dasbor. Layar
+				// pemindai memakai 44x24; di sana SETIAP kolom centang formulir tamu
+				// walk-in dirender sebagai sakelar ini, dan yang menekannya petugas
+				// yang berdiri memegang iPad dengan satu tangan. 20px tingginya di
+				// bawah ambang 24x24 yang dituntut WCAG 2.5.8.
 				className={cx(
-					"relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150 ease-standard",
+					"m3-switch relative mt-0.5 inline-flex shrink-0 items-center rounded-full transition-colors duration-150 ease-standard",
 					"disabled:cursor-not-allowed disabled:opacity-50",
 					checked ? "bg-primary" : "bg-outline-variant",
 				)}
@@ -83,13 +90,7 @@ export function Switch({ checked, onChange, label, description, disabled, note, 
 				{/* Kenop digerakkan `translate`, bukan `left`. Properti tata letak
 				    dianimasikan di thread utama dan menghitung ulang posisi tiap frame;
 				    `translate` dikerjakan kompositor. Aturannya ada di DESIGN.md. */}
-				<span
-					aria-hidden
-					className={cx(
-						"absolute left-0.5 size-4 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] transition-transform duration-150 ease-standard",
-						checked ? "translate-x-4" : "translate-x-0",
-					)}
-				/>
+				<span aria-hidden className="m3-switch-knob" />
 			</button>
 		</div>
 	);

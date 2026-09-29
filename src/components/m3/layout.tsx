@@ -47,13 +47,30 @@ export type PageHeaderProps = {
 	className?: string;
 };
 
+/**
+ * Judul halaman: 30px/600.
+ *
+ * Ditulis sebagai nilai arbitrer, bukan kelas peran, karena skala peran tidak
+ * punya anak tangga 30px -- `headline-large` 24px terlalu kecil untuk memimpin
+ * satu layar penuh, `display-small` 28px satu langkah di bawah acuan.
+ *
+ * TANPA `tracking`. Versi sebelumnya merapatkan -0.01em, dan itu satu-satunya
+ * tempat di ruang kerja yang masih melakukannya: ramp `.press` menyetel
+ * `letter-spacing` per KELAS PERAN, jadi ia tidak menjangkau nilai arbitrer ini
+ * dan rapatannya benar-benar hidup di layar. Acuan melarangnya mutlak.
+ */
+const JUDUL_HALAMAN = "min-w-0 text-[1.875rem] font-semibold leading-10 text-on-surface";
+
 export function PageHeader({ eyebrow, title, description, icon, meta, actions, className }: PageHeaderProps) {
 	const page = useAdminPage();
 	const gulir = useAdminHeaderScroll();
 	const judul = title ?? page?.label;
 	const keterangan = description ?? page?.description;
 	const Ikon = page?.icon;
-	const ikon = icon ?? (Ikon ? <Ikon size={24} weight="regular" /> : null);
+	// 28px, dicocokkan secara optik dengan judul 30px. Acuan memakai glyph 32px
+	// untuk judul yang sama; ikon Phosphor `regular` menggambar lebih penuh di
+	// dalam kotaknya daripada set yang dipakai di sana, jadi 28 yang seimbang.
+	const ikon = icon ?? (Ikon ? <Ikon size={28} weight="regular" /> : null);
 
 	return (
 		// Tanpa garis bawah, dan tanpa kartu. Kepala halaman berdiri LANGSUNG di
@@ -65,31 +82,28 @@ export function PageHeader({ eyebrow, title, description, icon, meta, actions, c
 		// `items-start`: tombol sejajar dengan BARIS JUDUL, bukan dengan bagian
 		// bawah blok teks. Deskripsi bisa satu atau tiga baris, dan tombol yang
 		// mengikuti tepi bawahnya akan duduk di ketinggian berbeda di tiap halaman.
-		<header className={cx("flex flex-wrap items-start justify-between gap-x-4 gap-y-4 pb-8", className)}>
+		<header className={cx("flex flex-wrap items-start justify-between gap-x-4 gap-y-4 pb-6", className)}>
 			<div className="min-w-0">
 				{eyebrow ? <p className="ed-label mb-2 text-on-surface-variant">{eyebrow}</p> : null}
-				<div className="flex items-center gap-2.5">
+				<div className="flex items-center gap-1.5">
 					{/* Ikon sebaris dengan judul, bukan di atasnya: ia penanda halaman,
 					    bukan hiasan tersendiri. Warnanya ikut teks — satu aksen per layar
 					    disimpan untuk tombolnya. */}
 					{ikon ? <span className="shrink-0 text-on-surface" aria-hidden>{ikon}</span> : null}
-					{/* 28px/600, turun dari 40px/700.
-					    Empat puluh piksel benar ketika judul adalah satu-satunya hal besar
-					    di layar yang lapang. Di layar daftar ia berdiri 32px di atas tabel
-					    berisi dua belas kolom, dan yang terjadi bukan hierarki melainkan
-					    dua blok yang sama-sama menuntut. `tracking` dirapatkan karena pada
-					    ukuran ini jarak huruf bawaan Inter terlihat renggang.
-					    `ref` diserahkan ke shell, yang mengamati kapan judul tergulir lewat
-					    dan mengambil alih ke bilah atas. */}
-					<h1
-						ref={gulir?.amati}
-						className="min-w-0 text-[1.75rem] font-semibold leading-9 tracking-[-0.01em] text-on-surface"
-					>
-						{judul}
-					</h1>
+					{/* `ref` diserahkan ke shell, yang mengamati kapan judul tergulir
+					    lewat dan mengambil alih ke bilah atas. */}
+					<h1 ref={gulir?.amati} className={JUDUL_HALAMAN}>{judul}</h1>
 				</div>
+				{/* 14px, dibatasi 65 karakter.
+				    Sebelumnya 15px -- ukuran yang tidak ada di skala empat langkah
+				    acuan, dan yang membuat deskripsi terbaca sepadat judul bagian
+				    di bawahnya. Batas 65ch bukan gaya: kalimat sepanjang 1400px
+				    memaksa mata melompat balik mencari awal baris berikutnya.
+				    Jaraknya ke judul 6px, bukan 8px, karena judul dan deskripsi
+				    adalah SATU pasangan; yang 24px adalah jarak dari pasangan itu
+				    ke isi halaman. */}
 				{keterangan ? (
-					<p className="mt-1.5 max-w-[40rem] text-[0.9375rem] leading-6 text-on-surface-variant">{keterangan}</p>
+					<p className="mt-1.5 max-w-[65ch] text-body-medium leading-6 text-on-surface-variant">{keterangan}</p>
 				) : null}
 				{meta ? <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-body-small text-on-surface-variant">{meta}</div> : null}
 			</div>
@@ -149,28 +163,57 @@ export type PageSectionProps = {
 	description?: ReactNode;
 	/** Aksi bagian ini. Sekunder, bukan primer — yang primer milik kepala halaman. */
 	action?: ReactNode;
+	/**
+	 * Angka atau status di ujung kanan baris judul: "12 agenda", "Tersinkron".
+	 *
+	 * Terpisah dari `action` karena ia tidak bisa ditekan, dan menaruh keduanya di
+	 * satu slot berarti tinggi baris judul berubah-ubah tergantung mana yang diisi.
+	 */
+	meta?: ReactNode;
 	children?: ReactNode;
 	className?: string;
 };
 
 /**
- * Bagian di dalam halaman: judul 16px, deskripsi, aksi di kanan.
+ * Bagian di dalam halaman: judul 16px, deskripsi, aksi atau angka di kanan.
  *
  * Tingkat kedua di bawah `PageHeader`, dan ukurannya sengaja jauh lebih kecil
- * daripada judul halaman (16 lawan 28). Dua judul yang berdekatan ukurannya
+ * daripada judul halaman (16 lawan 30). Dua judul yang berdekatan ukurannya
  * membuat halaman terbaca sebagai dua halaman yang ditempel.
+ *
+ * ---- Judulnya DI LUAR kartu, dan itu aturan, bukan selera ----------------
+ *
+ * Aturan yang sama yang melarang kartu di dalam kartu. Judul yang duduk sebagai
+ * baris pertama kartunya sendiri membuat kartu itu punya dua peran sekaligus:
+ * pengumuman dan wadah. Yang terjadi di layar, dan terlihat di halaman denah
+ * sebelum ini, adalah empat kartu yang masing-masing berjudul sendiri sehingga
+ * tidak ada satu pun yang terbaca sebagai bagian dari sesuatu yang lebih besar
+ * -- dan tombol Simpan yang menyimpan keempatnya jadi tidak punya tempat untuk
+ * berdiri.
+ *
+ * ---- Jaraknya mengkodekan kedekatan -------------------------------------
+ *
+ * 6px di dalam pasangan judul + deskripsi, 24px dari pasangan itu ke isinya.
+ * Satu jarak seragam untuk ketiganya adalah kesalahan yang disebut namanya di
+ * acuan, dan alasannya terbaca: dengan jarak yang sama, deskripsi tampak milik
+ * isi di bawahnya, bukan milik judul di atasnya.
  */
-export function PageSection({ title, description, action, children, className }: PageSectionProps) {
+export function PageSection({ title, description, action, meta, children, className }: PageSectionProps) {
 	return (
 		<section className={className}>
-			<div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+			<div className="mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
 				<div className="min-w-0">
-					<h2 className="text-title-medium font-semibold text-on-surface">{title}</h2>
+					<h2 className="text-title-large font-semibold text-on-surface">{title}</h2>
 					{description ? (
-						<p className="mt-0.5 max-w-[40rem] text-body-medium text-on-surface-variant">{description}</p>
+						<p className="mt-1.5 max-w-[65ch] text-body-medium text-on-surface-variant">{description}</p>
 					) : null}
 				</div>
-				{action ? <div className="shrink-0">{action}</div> : null}
+				{action || meta ? (
+					<div className="flex shrink-0 items-center gap-3">
+						{meta ? <span className="text-body-small text-on-surface-variant">{meta}</span> : null}
+						{action}
+					</div>
+				) : null}
 			</div>
 			{children}
 		</section>
@@ -239,20 +282,50 @@ export type EmptyStateProps = {
  * "Belum ada data" memberi tahu apa yang terjadi tetapi tidak apa yang harus
  * dilakukan, dan di tengah acara tidak ada waktu menebak apakah itu berarti
  * salah saring, salah event, atau memang belum ada yang datang.
+ *
+ * ---- Ia MENGGANTIKAN kartunya, bukan duduk di dalamnya ------------------
+ *
+ * Bentuknya sengaja berbeda dari kartu: radius 12px, bukan 8px, dan garis tepi
+ * sungguhan alih-alih ring. Perbedaan itu yang memberi tahu bahwa yang dilihat
+ * bukan wadah yang kebetulan kosong melainkan keadaan tersendiri. Varian
+ * `plain` untuk yang duduk di dalam badan tabel, tempat bingkai kedua hanya
+ * menggambar kotak di dalam kotak.
+ *
+ * ---- Bobot judulnya bersyarat -------------------------------------------
+ *
+ * DENGAN deskripsi ia judul 16px/600. TANPA deskripsi ia 14px abu biasa, karena
+ * keadaan kosong satu baris ("Belum ada label khusus") adalah keterangan, bukan
+ * pengumuman -- dan mencetaknya setebal judul bagian membuat layar yang kosong
+ * berteriak lebih keras daripada layar yang penuh.
+ *
+ * ---- Aksinya ada DI SINI ------------------------------------------------
+ *
+ * Bukan di kartu terpisah di atasnya. Halaman denah sebelum ini memasang
+ * formulir "Tambah agenda" sebagai kartu sendiri, lalu di bawahnya kotak abu
+ * bertuliskan "Tambahkan satu di atas" -- dua tempat untuk satu perbuatan,
+ * berurutan terbalik, dan yang kedua hanya menunjuk ke yang pertama.
  */
 export function EmptyState({ icon, title, description, action, plain, className }: EmptyStateProps) {
 	return (
 		<div
 			className={cx(
-				"flex flex-col items-center px-6 py-14 text-center",
-				!plain && "rounded-lg border border-outline-variant bg-surface-container-lowest",
+				"flex w-full flex-col items-center gap-6 px-10 py-16 text-center",
+				!plain && "rounded-xl border border-outline-variant bg-surface-container-lowest",
 				className,
 			)}
 		>
-			{icon ? <div className="mb-4 text-outline" aria-hidden>{icon}</div> : null}
-			<p className="text-body-large font-semibold text-on-surface">{title}</p>
-			{description ? <p className="mt-1.5 max-w-md text-body-medium text-on-surface-variant">{description}</p> : null}
-			{action ? <div className="mt-5">{action}</div> : null}
+			{icon ? <div className="text-outline" aria-hidden>{icon}</div> : null}
+			<div className="flex flex-col items-center gap-2.5">
+				{description ? (
+					<h2 className="text-title-large font-semibold text-on-surface">{title}</h2>
+				) : (
+					<p className="text-body-medium text-on-surface-variant">{title}</p>
+				)}
+				{description ? (
+					<p className="max-w-[35rem] text-pretty text-body-medium leading-relaxed text-on-surface-variant">{description}</p>
+				) : null}
+			</div>
+			{action ? <div className="flex flex-wrap items-center justify-center gap-2">{action}</div> : null}
 		</div>
 	);
 }

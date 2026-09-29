@@ -52,7 +52,7 @@ function FieldMessages({ id, error, hint }: { id: string; error?: string; hint?:
 
 function FieldLabel({ htmlFor, children, optional }: { htmlFor: string; children: ReactNode; optional?: boolean }) {
 	return (
-		<label htmlFor={htmlFor} className="flex items-baseline gap-2 text-label-large font-semibold text-on-surface">
+		<label htmlFor={htmlFor} className="m3-field-label flex items-baseline gap-2 text-label-large font-semibold text-on-surface">
 			{children}
 			{optional ? <span className="text-body-small font-normal text-on-surface-variant">opsional</span> : null}
 		</label>

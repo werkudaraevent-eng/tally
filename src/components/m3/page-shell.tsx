@@ -21,8 +21,16 @@ import { cx } from "@/lib/m3/cx";
  * cukup untuk terlihat salah, terlalu kecil untuk ketahuan sebabnya.
  */
 
-/** Dipakai bilah atas maupun isi halaman, supaya keduanya berbagi satu tepi kiri. */
-export const CONTAINER_PADDING = "px-4 md:px-6 lg:px-8";
+/**
+ * Dipakai bilah atas maupun isi halaman, supaya keduanya berbagi satu tepi kiri.
+ *
+ * 24 / 32 / 40px. Naik dari 16 / 24 / 32 mengikuti ramp dasbor acuan, yang
+ * menaruh lantainya di 40px pada desktop. Yang membuat perbedaan 8px itu terasa
+ * bukan kelapangannya melainkan tepi kanannya: aksi kepala halaman dan tombol
+ * simpan di dasar formulir keduanya rata ke tepi ini, dan pada 32px keduanya
+ * nyaris menempel ke sisi jendela.
+ */
+export const CONTAINER_PADDING = "px-6 md:px-8 lg:px-10";
 
 export type PageContainerProps = {
 	children: ReactNode;
@@ -46,8 +54,13 @@ export function PageContainer({ children, center, flush, className }: PageContai
 		<div
 			className={cx(
 				CONTAINER_PADDING,
-				"w-full max-w-[1280px]",
-				flush ? "" : "pb-12 pt-8",
+				// 1400px, angka dasbor acuan. Sebelumnya 1280 di sini sementara
+				// tujuh belas halaman menulis sendiri 1440 di `<main>`-nya, jadi
+				// judul di bilah atas dan judul di halaman TIDAK PERNAH berbagi
+				// satu tepi kiri -- 12px meleset, cukup terlihat untuk terasa
+				// salah dan terlalu kecil untuk ketahuan sebabnya.
+				"w-full max-w-[1400px]",
+				flush ? "" : "py-6 md:py-8 lg:py-9",
 				center && "mx-auto",
 				className,
 			)}
@@ -82,4 +95,20 @@ export function PageShell({ children, reading, className }: PageShellProps) {
 			<PageContainer className={cx(reading && "[&>*]:max-w-3xl")}>{children}</PageContainer>
 		</main>
 	);
+}
+
+/**
+ * Irama menegak antar bagian halaman: 16px, naik ke 24px di layar lebar.
+ *
+ * Satu tempat, bukan `mt-4`/`mt-5`/`mt-6`/`mt-8`/`mt-10` yang ditulis ulang di
+ * tiap bagian. Yang terlihat panitia dari lima angka itu bukan variasi melainkan
+ * ketidakhadiran irama: kalau jarak antar bagian berubah-ubah, tidak ada satu
+ * pun jarak yang berarti "bagian baru dimulai di sini".
+ *
+ * Dipasang pada PEMBUNGKUS dengan `gap`, bukan sebagai margin tiap anak. Margin
+ * runtuh, bertumpuk, dan menempel pada anak pertama dan terakhir; `gap` hanya
+ * ada di antara.
+ */
+export function PageBody({ children, className }: { children: ReactNode; className?: string }) {
+	return <div className={cx("flex flex-col gap-4 xl:gap-6", className)}>{children}</div>;
 }

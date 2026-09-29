@@ -2,7 +2,12 @@
 
 import { CircleNotch } from "@phosphor-icons/react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import Link from "next/link";
+// `event-link`, BUKAN `next/link`. Ia pembungkus tipis yang mempertahankan
+// `/e/<slug>` di URL, dan setiap tautan admin yang melewatinya kehilangan scope
+// acara: "Halaman publik" dari `/e/prima-.../admin/seat-map` akan mendarat di
+// `/denah` tanpa slug, yaitu denah acara lain. Halaman di luar acara tidak
+// terpengaruh -- tanpa `/e/` di path, pembungkusnya tidak menambahkan apa pun.
+import Link from "@/components/event-link";
 import { cx } from "@/lib/m3/cx";
 
 /**
@@ -39,9 +44,24 @@ export type ButtonSize = "sm" | "md" | "lg" | "xl";
 const VARIANT: Record<ButtonVariant, string> = {
 	filled: "border border-primary bg-primary text-on-primary hover:bg-primary-dim",
 	tonal: "border border-transparent bg-primary-soft text-on-primary-soft hover:bg-secondary-container",
-	elevated: "border border-outline-variant bg-surface-container-lowest text-on-surface shadow-level1 hover:bg-primary-soft",
-	outlined: "border border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-primary-soft",
-	text: "border border-transparent text-on-surface hover:bg-primary-soft",
+	// Warna TEKS ketiga varian di bawah sengaja TIDAK ditulis di sini. Ia
+	// ditentukan CSS lewat `data-variant`, karena jawabannya berbeda di dua dunia
+	// yang dilayani tabel ini:
+	//
+	//   * Ruang kerja (`.press`) ingin aksi sekunder netral, supaya satu tombol
+	//     biru per layar benar-benar memimpin mata.
+	//   * Booth, kasir, dan pemindai ingin aksi sekunder TETAP BIRU. Layar itu
+	//     dibaca dari jarak satu meter sambil berdiri, sering di bawah lampu
+	//     panggung, dan teks gelap di atas bidang putih di sana tidak terbaca
+	//     sebagai sesuatu yang bisa ditekan.
+	//
+	// Menulisnya sebagai kelas Tailwind memaksa satu jawaban untuk keduanya.
+	// Jawaban yang sempat dipilih, `text-on-surface`, mencabut warna dari
+	// sembilan tombol di layar lapangan tanpa ada yang memintanya. Aturannya di
+	// globals.css, di bawah judul "Aksi sekunder".
+	elevated: "border border-outline-variant bg-surface-container-lowest shadow-level1 hover:bg-primary-soft",
+	outlined: "border border-outline-variant bg-surface-container-lowest hover:bg-primary-soft",
+	text: "border border-transparent hover:bg-primary-soft",
 	danger: "border border-error bg-error text-on-error",
 };
 
@@ -52,8 +72,17 @@ const SIZE: Record<ButtonSize, string> = {
 	xl: "min-h-16 gap-2.5 px-6 text-title-medium",
 };
 
-/** Ikon menyusut mengikuti tombol supaya optiknya tetap seimbang dengan teks. */
-const ICON_SIZE: Record<ButtonSize, number> = { sm: 16, md: 16, lg: 18, xl: 20 };
+/**
+ * Ikon mengikuti tombol supaya optiknya seimbang dengan teks, tetapi TIDAK dalam
+ * satu tangga yang mulus, dan itu disengaja.
+ *
+ * `sm`/`md` praktis hanya dipakai di ruang kerja, `lg`/`xl` hampir hanya di
+ * booth, kasir, dan pemindai. Saat kepadatan ruang kerja disetel, keempatnya
+ * ikut diturunkan bersama-sama; yang terjadi ikon di layar lapangan menyusut ke
+ * 18px tanpa satu pun layar admin ikut membaik, karena admin tidak memakai dua
+ * ukuran itu.
+ */
+const ICON_SIZE: Record<ButtonSize, number> = { sm: 16, md: 16, lg: 20, xl: 24 };
 
 type Shape = "round" | "square" | "pill";
 
@@ -127,11 +156,12 @@ export type ButtonProps = CommonProps &
 		loading?: boolean;
 	};
 
-export function Button({ variant, size = "md", shape, block, icon, trailingIcon, className, loading, children, disabled, ...rest }: ButtonProps) {
+export function Button({ variant = "filled", size = "md", shape, block, icon, trailingIcon, className, loading, children, disabled, ...rest }: ButtonProps) {
 	return (
 		<button
 			{...rest}
 			data-size={size}
+			data-variant={variant}
 			disabled={disabled || loading}
 			aria-busy={loading || undefined}
 			className={baseClass({ variant, size, shape, block, className })}
@@ -156,9 +186,9 @@ export type ButtonLinkProps = CommonProps & {
  * menekan Ctrl+klik, dan menyamarkannya di balik satu komponen membuat perbedaan
  * itu mudah hilang.
  */
-export function ButtonLink({ href, variant, size = "md", shape, block, icon, trailingIcon, className, children, ...rest }: ButtonLinkProps) {
+export function ButtonLink({ href, variant = "filled", size = "md", shape, block, icon, trailingIcon, className, children, ...rest }: ButtonLinkProps) {
 	return (
-		<Link {...rest} href={href} data-size={size} className={baseClass({ variant, size, shape, block, className })}>
+		<Link {...rest} href={href} data-size={size} data-variant={variant} className={baseClass({ variant, size, shape, block, className })}>
 			{content({ icon, trailingIcon, children, size })}
 		</Link>
 	);

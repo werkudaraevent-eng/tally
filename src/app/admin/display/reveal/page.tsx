@@ -45,7 +45,22 @@ export default function RevealControlPage() {
   // tidak langsung dikirim. Aksi tahap (next/prev) tetap seketika.
   const [draft, setDraft] = useState<RevealStage[] | null>(null);
   const [busy, setBusy] = useState<RevealAction | null>(null);
-  const [error, setError] = useState("");
+  /**
+   * DUA saluran galat, bukan satu.
+   *
+   * Halaman ini menarik status tiap dua detik. Satu saluran bersama berarti
+   * `load()` yang berhasil akan menghapus pesan kegagalan aksi yang baru saja
+   * ditulis `act()` -- dalam dua detik, di tengah acara, tepat saat panitia
+   * sedang mencari tahu kenapa tahap tidak mau maju. Pesan yang hilang
+   * sebelum sempat dibaca sama saja dengan tidak pernah ada.
+   *
+   * `galatMuat` milik polling: ia yang menghapusnya sendiri saat status
+   * kembali terbaca. `galatAksi` milik tombol: ia bertahan sampai tombol
+   * berikutnya ditekan, karena hanya panitia yang boleh memutuskan pesan itu
+   * sudah selesai dibaca.
+   */
+  const [galatMuat, setGalatMuat] = useState("");
+  const [galatAksi, setGalatAksi] = useState("");
   const toast = useToast();
 
   const apply = useCallback((data: Record<string, unknown>) => {
@@ -60,18 +75,23 @@ export default function RevealControlPage() {
   }, []);
 
   const load = useCallback(async () => {
+    // `.catch` di kedua permintaan: jaringan panggung putus-nyambung, dan
+    // fetch yang ditolak di dalam `void load()` hanya menjadi unhandled
+    // rejection di konsol -- layar tetap memajang angka lama seolah masih
+    // hidup.
     const [revealResponse, settingsResponse] = await Promise.all([
-      fetch("/api/display/reveal", { cache: "no-store" }),
-      fetch("/api/settings", { cache: "no-store" }),
+      fetch("/api/display/reveal", { cache: "no-store" }).catch(() => null),
+      fetch("/api/settings", { cache: "no-store" }).catch(() => null),
     ]);
-    if (settingsResponse.ok) {
+    if (settingsResponse?.ok) {
       const data = await settingsResponse.json();
       setEnabled(data.leaderboard_enabled !== false);
       setTimeZone(normalizeTimeZone(data.time_zone));
     }
-    if (!revealResponse.ok) { setError("Status reveal gagal dimuat."); return; }
+    if (!revealResponse) { setGalatMuat("Koneksi terputus. Status di layar mungkin sudah tidak akurat."); return; }
+    if (!revealResponse.ok) { setGalatMuat("Status reveal gagal dimuat."); return; }
     apply(await revealResponse.json());
-    setError("");
+    setGalatMuat("");
   }, [apply]);
 
   // React Compiler melarang setState di badan effect, jadi pemuatan awal
@@ -83,7 +103,7 @@ export default function RevealControlPage() {
   }, [load]);
 
   async function act(action: RevealAction, body: Record<string, unknown> = {}) {
-    setBusy(action); setError("");
+    setBusy(action); setGalatAksi("");
     const response = await fetch("/api/display/reveal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -93,7 +113,7 @@ export default function RevealControlPage() {
     setBusy(null);
     if (!response.ok) {
       const failure = data?.error?.message ?? "Aksi reveal gagal.";
-      setError(failure);
+      setGalatAksi(failure);
       toast.error("Aksi reveal gagal", failure);
       return false;
     }
@@ -105,7 +125,7 @@ export default function RevealControlPage() {
     <div className="mx-auto max-w-[1440px] [&>*]:max-w-[900px]">
       <PageHeader />
       <Link href="/admin/display" className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-primary"><ArrowLeft size={18} /> Kembali ke Papan peringkat</Link>
-      <p className="mt-6 text-body-medium text-on-surface-variant">{error || "Memuat status reveal..."}</p>
+      <p className="mt-6 text-body-medium text-on-surface-variant">{galatMuat || "Memuat status reveal..."}</p>
     </div>
   </main>;
 
@@ -138,7 +158,7 @@ export default function RevealControlPage() {
         <Link href="/display?fullscreen=1" target="_blank" rel="noreferrer" className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-4 text-body-medium font-semibold"><MonitorPlay size={18} /> Buka Papan peringkat</Link>
       </div>
 
-      {error && <p className="rounded-lg mt-6 flex items-start gap-2 border border-error bg-panel p-3 text-body-medium text-error"><WarningCircle size={18} className="mt-0.5 shrink-0" /> {error}</p>}
+      {(galatAksi || galatMuat) && <p className="rounded-lg mt-6 flex items-start gap-2 border border-error bg-panel p-3 text-body-medium text-error"><WarningCircle size={18} className="mt-0.5 shrink-0" /> {galatAksi || galatMuat}</p>}
 
       {/* Peringatan saklar master. Tanpa ini, operator yang menekan "tahap
           berikutnya" pada layar yang sedang dimatikan akan menyimpulkan tombolnya

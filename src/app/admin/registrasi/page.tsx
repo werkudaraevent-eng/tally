@@ -89,10 +89,12 @@ export default function RegistrasiAdminPage() {
     const response = await fetch(eventApiPath("/api/admin/registrasi"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        registration_enabled: next.registration_enabled ?? config.registration_enabled,
-        registration_auto_approve: next.registration_auto_approve ?? config.registration_auto_approve,
-      }),
+      // HANYA sakelar yang benar-benar diubah. Mengirim yang satunya lagi
+      // "supaya lengkap" berarti mengirim nilai yang dibaca layar ini saat
+      // dibuka, dan itu bisa sudah berumur satu jam.
+      body: JSON.stringify(next.registration_enabled !== undefined
+        ? { registration_enabled: next.registration_enabled }
+        : { registration_auto_approve: next.registration_auto_approve }),
     }).catch(() => null);
     setBusy(false);
     if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat status sebenarnya."); return; }
@@ -102,7 +104,16 @@ export default function RegistrasiAdminPage() {
       return;
     }
     setConfig({ ...config, ...body });
-    toast.success("Tersimpan", body.registration_enabled ? "Pendaftaran dibuka." : "Pendaftaran ditutup.");
+    // Pesannya mengikuti sakelar yang DITEKAN, bukan keadaan pendaftaran. Sejak
+    // PATCH ini hanya mengirim satu sakelar, mengabarkan "Pendaftaran ditutup"
+    // setelah seseorang mengubah mode persetujuan adalah kabar tentang hal yang
+    // tidak ia sentuh.
+    toast.success(
+      "Tersimpan",
+      next.registration_enabled !== undefined
+        ? body.registration_enabled ? "Pendaftaran dibuka." : "Pendaftaran ditutup."
+        : body.registration_auto_approve ? "Pendaftar baru langsung disetujui." : "Pendaftar baru menunggu ditinjau.",
+    );
   }
 
   /**
@@ -118,9 +129,10 @@ export default function RegistrasiAdminPage() {
     const response = await fetch(eventApiPath("/api/admin/registrasi"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
+      // Sakelar pendaftaran TIDAK ikut dikirim. Menyimpan susunan form bukan
+      // pernyataan apa pun tentang pendaftaran dibuka atau tidak, dan nilai yang
+      // dipegang layar ini bisa sudah didahului panitia lain.
       body: JSON.stringify({
-        registration_enabled: config.registration_enabled,
-        registration_auto_approve: config.registration_auto_approve,
         form: {
           fields: next.fields ?? [],
           welcome_text: next.welcome_text,

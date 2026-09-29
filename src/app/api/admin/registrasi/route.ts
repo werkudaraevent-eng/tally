@@ -34,9 +34,20 @@ const fieldSchema = z.object({
   max: z.number().optional(),
 });
 
+/**
+ * Kedua sakelar OPSIONAL. Yang tidak dikirim tidak diubah.
+ *
+ * Dulu keduanya wajib, dan itu memaksa setiap pemanggil mengirim ulang nilai
+ * yang sedang ada di layarnya. Layar penyunting formulir memuat nilainya sekali
+ * saat halaman dibuka lalu tidak pernah menyegarkannya; menekan "Simpan form"
+ * satu jam kemudian akan mengirim ulang sakelar sebagaimana keadaannya SATU JAM
+ * LALU. Kalau di antaranya ada panitia lain yang membuka pendaftaran, simpan
+ * form itu menutupnya kembali -- tanpa menyentuh sakelarnya, tanpa pesan apa
+ * pun, dan tanpa jejak selain satu baris audit yang terbaca seolah sengaja.
+ */
 const configSchema = z.object({
-  registration_enabled: z.boolean(),
-  registration_auto_approve: z.boolean(),
+  registration_enabled: z.boolean().optional(),
+  registration_auto_approve: z.boolean().optional(),
   // Opsional supaya pemanggil lama yang hanya menyalakan/mematikan pendaftaran
   // tidak ikut mengosongkan seluruh susunan form.
   form: z
@@ -167,7 +178,7 @@ export async function PATCH(request: Request) {
    * akan menghentikan sinkronisasi yang tidak diminta siapa pun.
    */
   const sumberBaru =
-    parsed.data.registration_enabled && !["public_form", "hybrid"].includes(event.participant_source)
+    parsed.data.registration_enabled === true && !["public_form", "hybrid"].includes(event.participant_source)
       ? event.participant_source === "scanner_api"
         ? "hybrid"
         : "public_form"
@@ -196,17 +207,43 @@ export async function PATCH(request: Request) {
     };
   }
 
+  /**
+   * Nilai efektif sakelar pendaftaran: yang dikirim kalau ada, kalau tidak yang
+   * sedang tersimpan. `event` berasal dari requireRequestEvent, jadi ia dibaca
+   * pada permintaan ini juga -- bukan salinan yang dibawa peramban.
+   */
+  const pendaftaranAktif = parsed.data.registration_enabled ?? event.registration_enabled;
+
+  /**
+   * Auto-approve hanya ditulis ketika ada yang perlu ditulis.
+   *
+   *   * Dikirim  -> pakai nilainya, tetap tunduk pada invarian "tidak boleh
+   *                true selama pendaftaran tertutup".
+   *   * Tidak dikirim tetapi pendaftaran sedang DITUTUP -> dipaksa false, karena
+   *                invarian itu harus tetap berlaku sesudah perubahan ini.
+   *   * Tidak dikirim dan pendaftaran tidak ditutup -> tidak disentuh sama
+   *                sekali. Nilainya tidak ada di EVENT_COLUMNS, jadi menebaknya
+   *                di sini berarti menebak.
+   *
+   * Auto-approve tanpa pendaftaran yang dibuka tidak punya arti, dan
+   * menyimpannya sebagai true berarti event yang dibuka lagi berbulan kemudian
+   * langsung menerbitkan QR tanpa ada yang memutuskan begitu.
+   */
+  const autoApprove =
+    parsed.data.registration_auto_approve !== undefined
+      ? { registration_auto_approve: pendaftaranAktif && parsed.data.registration_auto_approve }
+      : pendaftaranAktif === false
+        ? { registration_auto_approve: false }
+        : {};
+
   const client = getSupabaseServiceClient();
   const { data, error } = await client
     .from("events")
     .update({
-      registration_enabled: parsed.data.registration_enabled,
+      ...(parsed.data.registration_enabled !== undefined ? { registration_enabled: parsed.data.registration_enabled } : {}),
       ...(sumberBaru ? { participant_source: sumberBaru } : {}),
       ...(formConfig ? { registration_form_config: formConfig } : {}),
-      // Auto-approve tanpa pendaftaran yang dibuka tidak punya arti, dan
-      // menyimpannya sebagai true berarti event yang dibuka lagi berbulan
-      // kemudian langsung menerbitkan QR tanpa ada yang memutuskan begitu.
-      registration_auto_approve: parsed.data.registration_enabled && parsed.data.registration_auto_approve,
+      ...autoApprove,
       updated_at: new Date().toISOString(),
     } as never)
     .eq("id", event.id)

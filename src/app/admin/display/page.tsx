@@ -49,6 +49,24 @@ export default function DisplaySettingsPage() {
   const [event, setEvent] = useState<EventSettings | null>(null);
   // Status reveal hanya DIBACA di sini; kontrolnya ada di /admin/display/reveal.
   const [reveal, setReveal] = useState<{ mode: string; stage_label: string | null } | null>(null);
+  // Terpisah dari `reveal === null`. Tanpa penanda ini, permintaan yang gagal
+  // meninggalkan panel pada teks "Memuat status..." selamanya -- keadaan yang
+  // terbaca sebagai "sebentar lagi", padahal tidak ada lagi yang ditunggu.
+  const [revealGagal, setRevealGagal] = useState(false);
+  /**
+   * Draf mentah untuk dua kolom angka.
+   *
+   * Kolom itu dulu menjepit nilainya pada SETIAP ketukan. Mengetik "25" di
+   * batas peringkat berarti "2" lebih dulu sampai, dijepit ke batas bawah 3,
+   * dan kolomnya melompat ke 3 sebelum digit kedua ditekan; yang tertinggal
+   * "35". Mengosongkan kolom untuk mengetik ulang langsung menjadi 10. Praktis
+   * hanya angka dua digit yang digit pertamanya sudah sah yang bisa diketik.
+   *
+   * Jadi teks mentahnya ditahan di sini selama kolom masih disunting, dan
+   * penjepitan baru dikerjakan saat fokus lepas -- saat orangnya memang sudah
+   * selesai mengetik.
+   */
+  const [draftAngka, setDraftAngka] = useState<{ leaderboard_limit?: string; refresh_seconds?: string }>({});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -57,12 +75,44 @@ export default function DisplaySettingsPage() {
 
   useEffect(() => { const timer = window.setTimeout(() => {
     void fetch("/api/display/settings", { cache: "no-store" }).then(async (response) => { if (response.ok) setSettings(await response.json()); else setError("Setting display gagal dimuat."); });
-    void fetch("/api/settings", { cache: "no-store" }).then(async (response) => { if (response.ok) { const data = await response.json(); setEvent({ leaderboard_enabled: data.leaderboard_enabled, name_display_mode: data.name_display_mode, time_zone: normalizeTimeZone(data.time_zone) }); } });
-    void fetch("/api/display/reveal", { cache: "no-store" }).then(async (response) => { if (response.ok) { const data = await response.json(); setReveal({ mode: data.mode, stage_label: data.stage_label ?? null }); } });
+    // Cabang gagal untuk keduanya. Sebelumnya hanya `response.ok` yang
+    // ditangani, jadi kegagalan berakhir sebagai bagian layar yang diam:
+    // kartu leaderboard tidak pernah muncul dan Simpan melewatinya tanpa
+    // sepatah kata (`event ? fetch(...) : Promise.resolve(null)` di bawah).
+    void fetch("/api/settings", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) { setError("Setting leaderboard gagal dimuat. Muat ulang sebelum menyimpan, atau perubahan di kartu itu tidak akan ikut tersimpan."); return; }
+        const data = await response.json();
+        setEvent({ leaderboard_enabled: data.leaderboard_enabled, name_display_mode: data.name_display_mode, time_zone: normalizeTimeZone(data.time_zone) });
+      })
+      .catch(() => setError("Koneksi terputus saat memuat setting leaderboard. Muat ulang sebelum menyimpan."));
+    void fetch("/api/display/reveal", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) { setRevealGagal(true); return; }
+        const data = await response.json();
+        setReveal({ mode: data.mode, stage_label: data.stage_label ?? null });
+      })
+      .catch(() => setRevealGagal(true));
   }, 0); return () => window.clearTimeout(timer); }, []);
 
   function update<K extends keyof DisplaySettings>(key: K, value: DisplaySettings[K]) {
     setSettings((current) => current && { ...current, [key]: value });
+  }
+
+  type KunciAngka = "leaderboard_limit" | "refresh_seconds";
+
+  /** Menjepit teks yang diketik menjadi angka yang sah. Dipakai saat fokus lepas dan saat menyimpan. */
+  function jepit(key: KunciAngka, raw: string | undefined, current: number) {
+    if (raw === undefined) return current;
+    const batas = key === "leaderboard_limit" ? { min: 3, max: 50, bawaan: 10 } : { min: 5, max: 300, bawaan: 30 };
+    const angka = Math.round(Number(raw));
+    if (raw.trim() === "" || !Number.isFinite(angka)) return batas.bawaan;
+    return Math.max(batas.min, Math.min(batas.max, angka));
+  }
+
+  function lepasFokusAngka(key: KunciAngka) {
+    setSettings((current) => current && { ...current, [key]: jepit(key, draftAngka[key], current[key]) });
+    setDraftAngka((current) => ({ ...current, [key]: undefined }));
   }
 
   function updateEvent<K extends keyof EventSettings>(key: K, value: EventSettings[K]) {
@@ -98,13 +148,17 @@ export default function DisplaySettingsPage() {
       text_color: settings.text_color,
       accent_color: settings.accent_color,
       background_image_url: settings.background_image_url?.trim() ? settings.background_image_url.trim() : null,
-      leaderboard_limit: settings.leaderboard_limit,
+      // Draf yang belum kehilangan fokus tetap ikut tersimpan. Menekan Simpan
+      // lewat papan ketik tidak selalu melepas fokus kolom, dan angka yang
+      // diketik lalu diam-diam tidak tersimpan lebih buruk daripada angka yang
+      // ditolak.
+      leaderboard_limit: jepit("leaderboard_limit", draftAngka.leaderboard_limit, settings.leaderboard_limit),
       show_company: settings.show_company,
       show_booth_progress: settings.show_booth_progress,
       show_ticker: settings.show_ticker,
       show_amount: settings.show_amount,
       ticker_text: settings.ticker_text?.trim() ? settings.ticker_text.trim() : null,
-      refresh_seconds: settings.refresh_seconds,
+      refresh_seconds: jepit("refresh_seconds", draftAngka.refresh_seconds, settings.refresh_seconds),
       // Branding header dan footer. Dilewatkan `normalizeBranding` supaya hanya
       // kolom milik branding yang ikut dan skalanya sudah berupa angka, bukan
       // string seperti yang dikirim driver Postgres untuk kolom `numeric`.
@@ -127,7 +181,11 @@ export default function DisplaySettingsPage() {
       toast.error("Sebagian setting gagal disimpan", "Tampilan tersimpan, tetapi setting leaderboard gagal. Coba simpan ulang.");
       return;
     }
-    setSettings(data); setMessage("Setting display tersimpan. Papan peringkat akan menyesuaikan dalam beberapa detik.");
+    setSettings(data);
+    // Draf dibuang setelah tersimpan: nilai yang berlaku sekarang datang dari
+    // server, dan draf yang tertinggal akan menutupinya di layar.
+    setDraftAngka({});
+    setMessage("Setting display tersimpan. Papan peringkat akan menyesuaikan dalam beberapa detik.");
     toast.success("Tampilan tersimpan", "Papan peringkat menyesuaikan dalam beberapa detik.");
   }
 
@@ -236,7 +294,7 @@ export default function DisplaySettingsPage() {
             <div className="rounded-lg mt-6 border border-outline-variant bg-panel-high p-4">
               <p className="flex items-center gap-2 text-body-medium font-semibold"><ListNumbers size={18} className="shrink-0 text-primary" /> Reveal bertahap</p>
               <p className="mt-2 text-body-small leading-5 text-on-surface-variant">
-                {reveal === null ? "Memuat status..."
+                {reveal === null ? (revealGagal ? "Status reveal tidak terbaca. Buka kontrol reveal untuk memastikan." : "Memuat status...")
                   : reveal.mode === "staged"
                     ? <>Sedang <span className="font-semibold text-on-surface">aktif</span> — {reveal.stage_label ? `layar menampilkan ${reveal.stage_label.toLowerCase()}` : "layar menunggu tahap pertama dibuka"}.</>
                     : <>Mati. Papan peringkat menampilkan seluruh top {settings.leaderboard_limit} sekaligus, mengikuti transaksi live.</>}
@@ -261,10 +319,10 @@ export default function DisplaySettingsPage() {
             <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Layout</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block text-body-medium font-semibold">Jumlah top spender
-                <input type="number" min={3} max={50} value={settings.leaderboard_limit} onChange={(event) => update("leaderboard_limit", Math.max(3, Math.min(50, Number(event.target.value) || 10)))} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-large tabular-nums outline-none focus:border-primary" />
+                <input type="number" min={3} max={50} value={draftAngka.leaderboard_limit ?? String(settings.leaderboard_limit)} onChange={(event) => { const raw = event.target.value; setDraftAngka((current) => ({ ...current, leaderboard_limit: raw })); }} onBlur={() => lepasFokusAngka("leaderboard_limit")} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-large tabular-nums outline-none focus:border-primary" />
               </label>
               <label className="block text-body-medium font-semibold">Refresh (detik)
-                <input type="number" min={5} max={300} value={settings.refresh_seconds} onChange={(event) => update("refresh_seconds", Math.max(5, Math.min(300, Number(event.target.value) || 30)))} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-large tabular-nums outline-none focus:border-primary" />
+                <input type="number" min={5} max={300} value={draftAngka.refresh_seconds ?? String(settings.refresh_seconds)} onChange={(event) => { const raw = event.target.value; setDraftAngka((current) => ({ ...current, refresh_seconds: raw })); }} onBlur={() => lepasFokusAngka("refresh_seconds")} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-large tabular-nums outline-none focus:border-primary" />
               </label>
             </div>
             <div className="mt-4 space-y-3">

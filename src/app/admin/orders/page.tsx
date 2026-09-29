@@ -86,10 +86,30 @@ export default function AdminOrdersPage() {
     if (status) params.set("status", status);
     if (boothId) params.set("booth_id", boothId);
     if (q.trim()) params.set("q", q.trim());
-    const response = await fetch(`/api/admin/orders?${params.toString()}`, { cache: "no-store" });
-    const data = await response.json();
+    const response = await fetch(`/api/admin/orders?${params.toString()}`, { cache: "no-store" }).catch(() => null);
+    const data = response ? await response.json().catch(() => ({})) : {};
     setLoading(false);
-    if (!response.ok) { setError(data.error?.message ?? "Order gagal dimuat."); return; }
+    if (!response || !response.ok) {
+      /**
+       * Hasil lama DIBUANG, bukan dibiarkan di layar bersama pita galat.
+       *
+       * Yang ada di `orders` adalah hasil penyaring SEBELUMNYA, sedangkan bilah
+       * di atas tabel sudah memajang penyaring yang baru -- termasuk kotak
+       * ringkasan dengan angka rupiah. Membiarkannya berarti menampilkan total
+       * belanja satu booth di bawah label booth yang lain, dan pita galat di
+       * atasnya terbaca sebagai "sebagian gagal", bukan "angka ini bukan milik
+       * penyaring yang Anda pilih".
+       *
+       * `summary` ke null, bukan undefined: null berarti "gagal dihitung" dan
+       * layar memajang tanda strip, sedangkan undefined berarti "belum dimuat"
+       * dan memajang kerangka yang tidak akan pernah terisi.
+       */
+      setOrders([]);
+      setTotal(0);
+      setSummary(null);
+      setError(response ? (data.error?.message ?? "Order gagal dimuat.") : "Koneksi terputus. Daftar order tidak bisa dimuat.");
+      return;
+    }
     setOrders(data.orders ?? []);
     setTotal(data.total ?? 0);
     setSummary(data.summary ?? null);
