@@ -1,6 +1,8 @@
 "use client";
 
-import { ClipboardText, Funnel, Warning, XCircle } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, ClipboardText, Warning, XCircle } from "@phosphor-icons/react";
+import { Button, ChipMenu, EmptyState, IconButton, Pane, PaneBody, PaneFooter, PaneHeader, SelectMenu } from "@/components/m3";
+import { cx } from "@/lib/m3/cx";
 import { useCallback, useEffect, useState } from "react";
 import { formatEventDateTime } from "@/lib/datetime";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
@@ -222,7 +224,7 @@ export function AuditPanel() {
       if (nextActor) params.set("actor", nextActor);
       const response = await fetch(`/api/admin/audit?${params}`, { cache: "no-store" });
       const data = await response.json();
-      if (!response.ok) { setError(data.error?.message ?? "Audit trail gagal dimuat."); return; }
+      if (!response.ok) { setError(data.error?.message ?? "Jejak audit gagal dimuat."); return; }
       setEntries(data.entries ?? []);
       setActors(data.actors ?? []);
       setTotal(data.total ?? 0);
@@ -232,77 +234,110 @@ export function AuditPanel() {
   useEffect(() => { const timer = window.setTimeout(() => { void load(category, actor, page); }, 0); return () => window.clearTimeout(timer); }, [load, category, actor, page]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const adaSaringan = category !== "config" || actor !== "";
+  const resetSaringan = () => { setCategory("config"); setActor(""); setPage(0); };
 
-  return <div>
-    <div className="mx-auto max-w-[1440px]">
-      <div>
-        <p className="max-w-3xl text-body-medium leading-6 text-on-surface-variant">Siapa mengubah apa dan kapan. Tercatat otomatis untuk settings, item spesial, booth, metode pembayaran, akun, dan pengosongan data. Halaman ini hanya dapat dibuka super admin.</p>
-      </div>
+  return (
+    <Pane aria-label="Jejak audit">
+      <PaneHeader className="flex-wrap gap-2 px-3 py-3">
+        <SelectMenu
+          label="Kategori"
+          value={category}
+          onChange={(value) => { setCategory(value); setPage(0); }}
+          options={CATEGORIES}
+          width="15rem"
+        />
+        <ChipMenu
+          label="Pelaku"
+          searchable
+          options={actors.map((item) => ({ value: item.id, label: item.username }))}
+          selected={actor ? [actor] : []}
+          onChange={(next) => { setActor(next[0] ?? ""); setPage(0); }}
+        />
+        <span className="ml-auto text-body-medium tabular-nums text-on-surface-variant">{total} catatan</span>
+      </PaneHeader>
 
-      {error && <div role="alert" className="rounded-lg mt-6 flex items-center gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={20} />{error}</div>}
-
-      <div className="rounded-lg mt-8 flex flex-wrap items-end gap-4 border border-outline-variant bg-panel p-5">
-        <div className="flex items-center gap-2 text-body-small font-semibold ed-label text-on-surface-variant"><Funnel size={16} /> Filter</div>
-        <label className="block text-body-medium font-semibold">Kategori
-          <select value={category} onChange={(event) => { setCategory(event.target.value); setPage(0); }} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary sm:w-64">
-            {CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </select>
-        </label>
-        <label className="block text-body-medium font-semibold">Pelaku
-          <select value={actor} onChange={(event) => { setActor(event.target.value); setPage(0); }} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary sm:w-56">
-            <option value="">Semua pelaku</option>
-            {actors.map((item) => <option key={item.id} value={item.id}>{item.username}</option>)}
-          </select>
-        </label>
-        <p className="ml-auto text-body-small text-on-surface-variant">{total} catatan</p>
-      </div>
-
-      {loading ? <p className="mt-8 text-body-medium text-on-surface-variant">Memuat audit trail...</p> : entries.length === 0 ? <div className="rounded-lg mt-8 flex min-h-48 flex-col items-center justify-center gap-3 border border-outline-variant bg-panel text-center text-body-medium text-on-surface-variant"><ClipboardText size={40} className="opacity-40" />Belum ada catatan untuk filter ini.</div> : <>
-        <div className="mt-6 space-y-2">
-          {entries.map((entry) => {
-            const changes = diffFields(entry.payload);
-            const summary = summarise(entry);
-            const isDanger = entry.action === "admin_reset_records";
-            const open = expanded === entry.id;
-            return <section key={entry.id} className={`rounded-lg border bg-panel ${isDanger ? "border-error-soft-outline" : "border-outline-variant"}`}>
-              <div className="flex flex-wrap items-start justify-between gap-3 p-4">
-                <div className="min-w-0 flex-1">
-                  <p className="flex flex-wrap items-center gap-2 text-body-medium font-semibold">
-                    {isDanger && <Warning size={16} weight="fill" className="shrink-0 text-error" />}
-                    {ACTION_LABEL[entry.action] ?? entry.action}
-                    {summary && <span className="font-normal text-on-surface-variant">· {summary}</span>}
-                  </p>
-                  <p className="mt-1 text-body-small text-on-surface-variant">
-                    <span className="font-semibold text-on-surface">{entry.actor_username}</span>
-                    {entry.actor_role && <span> ({entry.actor_role})</span>}
-                    {" · "}{formatEventDateTime(entry.created_at, zone)} {abbr}
-                  </p>
-
-                  {/* Hanya field yang berubah, bukan seluruh payload. */}
-                  {changes.length > 0 && <ul className="mt-3 space-y-1 border-t border-outline-variant pt-3 text-body-small">
-                    {changes.map((change) => <li key={change.field} className="flex flex-wrap items-baseline gap-1.5">
-                      <span className="font-semibold">{change.field}:</span>
-                      <span className="text-on-surface-variant line-through">{change.from}</span>
-                      <span aria-hidden="true">→</span>
-                      <span className="font-semibold text-primary-dim">{change.to}</span>
-                    </li>)}
-                  </ul>}
-                </div>
-                {entry.payload && <button type="button" onClick={() => setExpanded(open ? null : entry.id)} className="rounded-md min-h-11 shrink-0 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">{open ? "Tutup detail" : "Detail"}</button>}
-              </div>
-              {open && <pre className="overflow-x-auto border-t border-outline-variant bg-panel-high p-4 text-label-small leading-5">{JSON.stringify(entry.payload, null, 2)}</pre>}
-            </section>;
-          })}
-        </div>
-
-        <div className="rounded-lg mt-6 flex flex-col items-center justify-between gap-3 border border-outline-variant bg-panel p-4 sm:flex-row">
-          <p className="text-body-small text-on-surface-variant">Halaman {page + 1} dari {totalPages}</p>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || loading} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-medium font-semibold disabled:opacity-40">Sebelumnya</button>
-            <button onClick={() => setPage((current) => (current + 1 < totalPages ? current + 1 : current))} disabled={page + 1 >= totalPages || loading} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-medium font-semibold disabled:opacity-40">Berikutnya</button>
+      <PaneBody>
+        {error ? (
+          <div className="flex flex-wrap items-center gap-3 px-5 py-4">
+            <p role="alert" className="flex min-w-0 flex-1 items-start gap-2 text-body-medium text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{error}</p>
+            <Button variant="outlined" size="sm" onClick={() => void load(category, actor, page)}>Coba lagi</Button>
           </div>
-        </div>
-      </>}
-    </div>
-  </div>;
+        ) : loading && entries.length === 0 ? (
+          <div aria-label="Memuat jejak audit">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="flex flex-col gap-2 border-b border-outline-variant px-5 py-4">
+                <div className="h-3 w-64 animate-pulse rounded bg-surface-container-high" />
+                <div className="h-3 w-40 animate-pulse rounded bg-surface-container-high" />
+              </div>
+            ))}
+          </div>
+        ) : entries.length === 0 ? (
+          <EmptyState
+            plain
+            icon={<ClipboardText size={40} />}
+            title="Belum ada catatan untuk saringan ini"
+            description="Pilih kategori lain atau hapus saringan pelaku."
+            action={adaSaringan ? <Button variant="outlined" size="sm" onClick={resetSaringan}>Kembalikan saringan</Button> : undefined}
+          />
+        ) : (
+          <ul className={cx(loading && "opacity-60")}>
+            {entries.map((entry) => {
+              const changes = diffFields(entry.payload);
+              const summary = summarise(entry);
+              const isDanger = entry.action === "admin_reset_records";
+              const open = expanded === entry.id;
+              return (
+                <li key={entry.id} className="border-b border-outline-variant last:border-b-0">
+                  <div className="flex items-start gap-3 px-5 py-3.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-medium font-medium text-on-surface">
+                        {isDanger ? <Warning size={16} weight="fill" className="shrink-0 text-error" aria-hidden /> : null}
+                        {ACTION_LABEL[entry.action] ?? entry.action}
+                        {summary ? <span className="font-normal text-on-surface-variant">· {summary}</span> : null}
+                      </p>
+                      <p className="mt-0.5 text-body-medium text-on-surface-variant">
+                        <span className="text-on-surface">{entry.actor_username}</span>
+                        {entry.actor_role ? <span> ({entry.actor_role})</span> : null}
+                        {" · "}<span className="tabular-nums">{formatEventDateTime(entry.created_at, zone)} {abbr}</span>
+                      </p>
+
+                      {/* Hanya field yang berubah, bukan seluruh payload. */}
+                      {changes.length > 0 ? (
+                        <ul className="mt-2 flex flex-col gap-1 rounded-md bg-surface-container-high px-3 py-2 text-body-medium">
+                          {changes.map((change) => (
+                            <li key={change.field} className="flex flex-wrap items-baseline gap-1.5">
+                              <span className="font-medium">{change.field}:</span>
+                              <span className="text-on-surface-variant line-through">{change.from}</span>
+                              <span aria-hidden="true">→</span>
+                              <span className="font-medium text-on-surface">{change.to}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                    {entry.payload ? (
+                      <Button variant="text" size="sm" aria-expanded={open} onClick={() => setExpanded(open ? null : entry.id)}>
+                        {open ? "Tutup detail" : "Detail"}
+                      </Button>
+                    ) : null}
+                  </div>
+                  {open ? <pre className="overflow-x-auto whitespace-pre-wrap break-words border-t border-outline-variant bg-surface-container-high px-5 py-3 font-sans text-body-small leading-5">{JSON.stringify(entry.payload, null, 2)}</pre> : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </PaneBody>
+
+      <PaneFooter
+        className="bg-surface-container-lowest py-2"
+        note="Tercatat otomatis untuk pengaturan, item spesial, booth, metode pembayaran, akun, dan pengosongan data."
+      >
+        <IconButton size="sm" variant="outlined" label="Halaman sebelumnya" disabled={page === 0 || loading} onClick={() => setPage((current) => Math.max(0, current - 1))}><CaretLeft size={16} /></IconButton>
+        <span className="min-w-14 text-center text-body-medium tabular-nums text-on-surface-variant">{page + 1} / {totalPages}</span>
+        <IconButton size="sm" variant="outlined" label="Halaman berikutnya" disabled={page + 1 >= totalPages || loading || Boolean(error)} onClick={() => setPage((current) => (current + 1 < totalPages ? current + 1 : current))}><CaretRight size={16} /></IconButton>
+      </PaneFooter>
+    </Pane>
+  );
 }

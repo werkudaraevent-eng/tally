@@ -123,7 +123,7 @@ export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
           ))}
         </ul>
         <p className="mt-3 text-body-small leading-5 text-on-surface-variant">
-          Kelimanya tidak bisa dihapus atau diurutkan ulang — masing-masing punya kolom sendiri di
+          Kelimanya tidak bisa dihapus atau diurutkan ulang. Masing-masing punya kolom sendiri di
           data peserta. Nama selalu wajib: pendaftaran tanpa nama tidak bisa dicocokkan dengan
           siapa pun di meja registrasi.
         </p>
@@ -203,7 +203,7 @@ export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
 
       {fields.length === 0 ? (
         <p className="rounded-lg border border-dashed border-outline-variant p-6 text-center text-body-medium text-on-surface-variant">
-          Belum ada pertanyaan tambahan. Form tetap bisa dipakai — pendaftar mengisi nama, email, telepon,
+          Belum ada pertanyaan tambahan. Form tetap bisa dipakai: pendaftar mengisi nama, email, telepon,
           perusahaan, dan jabatan.
         </p>
       ) : (
@@ -319,7 +319,7 @@ export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
                     {field.type === "file" ? (
                       <p className="rounded-md bg-panel p-3 text-body-small leading-5 text-on-surface-variant">
                         Pendaftar dapat mengunggah PNG, JPG, WebP, atau PDF maksimal 5 MB. Berkasnya disimpan
-                        <strong> tidak publik</strong> — hanya panitia yang bisa membukanya, lewat tautan yang
+                        <strong> tidak publik</strong>. Hanya panitia yang bisa membukanya, lewat tautan yang
                         kedaluwarsa dalam lima menit.
                       </p>
                     ) : null}

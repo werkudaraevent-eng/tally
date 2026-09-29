@@ -193,6 +193,9 @@
 	/* Peran "soft": tint pucat untuk bidang lebar. Lihat catatan di
 	   scripts/m3/gen-theme.mjs tentang kapan memakai ini alih-alih `*-container`. */
 	--color-primary-soft: var(--md-sys-color-primary-soft);
+	/* Tint biru muda untuk lencana info dan chip saring aktif. Di luar ruang kerja
+	   jatuh ke primary-container supaya layar lapangan tidak kehilangan warnanya. */
+	--color-accent-soft: var(--press-accent-soft, var(--md-sys-color-primary-container));
 	--color-primary-soft-outline: var(--md-sys-color-primary-soft-outline);
 	--color-on-primary-soft: var(--md-sys-color-on-primary-soft);
 	--color-error-soft: var(--md-sys-color-error-soft);
@@ -1341,6 +1344,7 @@ html:hover {
 	--press-accent-dim: #154aa8;
 	--press-accent: #1a56c4;
 	--press-on-accent: #ffffff;
+	--press-accent-soft: #eaf1fc;
 
 	/* ---- Bentuk ------------------------------------------------------------
 	 *
@@ -1495,6 +1499,7 @@ html:hover {
 		--press-accent-dim: #85adff;
 		--press-accent: #6699ff;
 		--press-on-accent: #10233f;
+		--press-accent-soft: #13213a;
 	}
 }
 
@@ -1512,6 +1517,7 @@ html:hover {
 	--press-accent-dim: #154aa8;
 	--press-accent: #1a56c4;
 	--press-on-accent: #ffffff;
+	--press-accent-soft: #eaf1fc;
 }
 
 [data-theme="dark"] .press {
@@ -1528,6 +1534,7 @@ html:hover {
 	--press-accent-dim: #85adff;
 	--press-accent: #6699ff;
 	--press-on-accent: #10233f;
+	--press-accent-soft: #13213a;
 }
 
 /* Kontras tinggi. Ditulis SETELAH aturan tema karena kekhususannya sama (0,2,0)
@@ -1819,7 +1826,7 @@ html:hover {
 /* Chip status bukan kontrol — ia penanda, tidak pernah ditekan. Jadi ambang
  * target sentuh tidak berlaku padanya, dan 24px membuatnya duduk di dalam baris
  * tabel 40px tanpa mendorong tingginya. */
-.press .m3-status-chip { min-block-size: 1.5rem; padding-inline: 0.5rem; }
+.press .m3-status-chip { min-block-size: 1.25rem; padding-inline: 0.375rem; }
 
 /* Item navigasi dan bilah atas. Keduanya dipakai di SETIAP layar, jadi tinggi
  * mereka menentukan berapa banyak data yang muat sebelum orang harus menggulir.

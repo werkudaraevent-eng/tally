@@ -1,9 +1,13 @@
 "use client";
 
-import { Check, EnvelopeSimple, Hourglass, Link as LinkIcon, PaperPlaneTilt, WarningCircle, X } from "@phosphor-icons/react";
+import { ArrowLeft, Check, EnvelopeSimple, Hourglass, PaperPlaneTilt, PencilSimple, Tray, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
-import { Button, PageHeader } from "@/components/m3";
+import {
+  Banner, Button, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, ListRow, MetaSeparator, PageLoading,
+  Pane, PaneBody, PaneFooter, StatusChip, StatusDot, SupportingPane, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
+  type ChipTone,
+} from "@/components/m3";
 import { RegistrationFormBuilder } from "@/components/admin/registration-form-builder";
 import { RegistrationFormPreview } from "@/components/admin/registration-form-preview";
 import type { RegistrationFormConfig } from "@/lib/domain";
@@ -40,23 +44,32 @@ type EventConfig = {
   form_theme_seed: string;
 };
 
-const TABS = [
-  { key: "pending", label: "Menunggu" },
-  { key: "approved", label: "Disetujui" },
-  { key: "rejected", label: "Ditolak" },
-] as const;
+type Status = Row["status"];
+
+const STATUS: Record<Status, { label: string; tone: ChipTone; kosong: string }> = {
+  pending: { label: "Menunggu", tone: "warning", kosong: "Tidak ada pendaftar yang menunggu" },
+  approved: { label: "Disetujui", tone: "success", kosong: "Belum ada pendaftar yang disetujui" },
+  rejected: { label: "Ditolak", tone: "error", kosong: "Belum ada pendaftar yang ditolak" },
+};
+
+/** Moderasi pendaftar, atau penyunting susunan formulir. */
+type Tampilan = "moderasi" | "formulir";
 
 export default function RegistrasiAdminPage() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [total, setTotal] = useState(0);
   const [config, setConfig] = useState<EventConfig | null>(null);
   const [pending, setPending] = useState(0);
-  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("pending");
+  const [tab, setTab] = useState<Status>("pending");
+  const [tampilan, setTampilan] = useState<Tampilan>("moderasi");
+  const [pilihId, setPilihId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [menolak, setMenolak] = useState<Row | null>(null);
-  // Terpisah dari `busy`: tombol kirim ulang ada di setiap baris, dan `busy`
-  // global akan mematikan ketiga puluh tombol sekaligus saat satu ditekan.
+  const [setelanOpen, setSetelanOpen] = useState(false);
+  // Terpisah dari `busy`: `busy` global ikut mematikan tombol setujui/tolak dan
+  // sakelar pendaftaran, padahal mengirim ulang email tidak menyentuh keduanya.
   const [mengirim, setMengirim] = useState<string | null>(null);
   const [emailAktif, setEmailAktif] = useState(false);
   // Susunan form disunting di state lokal, bukan disimpan pada setiap ketukan.
@@ -77,11 +90,17 @@ export default function RegistrasiAdminPage() {
     if (response.status === 401) { window.location.href = "/login"; return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) setError(body.error?.details?.message ?? body.error?.message ?? "Daftar pendaftaran gagal dimuat.");
-    else { setRows(body.registrations ?? []); setConfig(body.event); setPending(body.pending ?? 0); setEmailAktif(body.email_configured === true); setError(""); }
+    else { setRows(body.registrations ?? []); setTotal(body.total ?? 0); setConfig(body.event); setPending(body.pending ?? 0); setEmailAktif(body.email_configured === true); setError(""); }
     setLoading(false);
   }, [tab]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+
+  function gantiTab(next: Status) {
+    setTab(next);
+    setLoading(true);
+    setPilihId(null);
+  }
 
   async function simpanKonfigurasi(next: Partial<EventConfig>) {
     if (!config) return;
@@ -192,17 +211,18 @@ export default function RegistrasiAdminPage() {
     }
     setMenolak(null);
     setRows((current) => current.filter((entry) => entry.id !== row.id));
+    setTotal((count) => Math.max(0, count - 1));
     setPending((count) => Math.max(0, count - 1));
     // Kode peserta tetap disebut lebih dulu, apa pun nasib emailnya. Panitia
     // sering membacakannya langsung ke orang yang berdiri di depan meja, dan
-    // status pengiriman adalah keterangan kedua — bukan penggantinya.
+    // status pengiriman adalah keterangan kedua, bukan penggantinya.
     const email = (body.email ?? {}) as { state?: string; error?: string };
     toast.success(
       approve ? `${row.name} disetujui` : `${row.name} ditolak`,
       approve
-        ? `Kode peserta: ${body.qr_code}${
-            email.state === "sent" ? ` — email terkirim ke ${row.email}.`
-            : email.state === "failed" ? " — EMAIL GAGAL terkirim. Bacakan kodenya, lalu coba Kirim ulang di tab Disetujui."
+        ? `Kode peserta: ${body.qr_code}.${
+            email.state === "sent" ? ` Email terkirim ke ${row.email}.`
+            : email.state === "failed" ? " Email gagal terkirim. Bacakan kodenya, lalu coba Kirim ulang di tab Disetujui."
             : ""
           }`
         : "Pendaftar tidak dibuatkan kode peserta.",
@@ -242,187 +262,307 @@ export default function RegistrasiAdminPage() {
   // pratinjau bertuliskan "undefined" lebih membingungkan daripada slug mentah.
   const namaEvent = config?.slug ?? "Acara";
 
-  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
-    <div className="mx-auto max-w-[1440px]">
-      <PageHeader />
-      <div>
-        <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">Peserta mendaftar sendiri lewat tautan publik. Yang disetujui langsung mendapat kode peserta dan bisa discan booth.</p>
-      </div>
+  function salinTautan() {
+    void navigator.clipboard.writeText(new URL(tautan, window.location.origin).toString());
+    toast.success("Tautan disalin", "Sebarkan ke calon peserta.");
+  }
 
-      {config && <section className="rounded-lg mt-8 border border-outline-variant bg-panel p-6">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div>
-            <h2 className="font-semibold">Status pendaftaran</h2>
-            <p className="mt-1 text-body-medium text-on-surface-variant">
-              {config.registration_enabled
-                ? "Terbuka. Siapa pun yang punya tautan bisa mendaftar."
-                : "Tertutup. Halaman pendaftaran menolak semua pengiriman."}
-            </p>
-          </div>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void simpanKonfigurasi({ registration_enabled: !config.registration_enabled })}
-            className={`rounded-md min-h-11 border px-4 text-body-medium font-semibold disabled:opacity-50 ${config.registration_enabled ? "border-error/40 text-error" : "border-transparent bg-primary text-on-primary"}`}
-          >{config.registration_enabled ? "Tutup pendaftaran" : "Buka pendaftaran"}</button>
-        </div>
-
-        {config.registration_enabled && <>
-          <label className="mt-6 flex items-start gap-3 border-t border-outline-variant pt-5 text-body-medium">
-            <input
-              type="checkbox"
-              checked={config.registration_auto_approve}
-              disabled={busy}
-              onChange={(e) => void simpanKonfigurasi({ registration_auto_approve: e.target.checked })}
-              className="mt-1 size-5 shrink-0"
-            />
-            <span>
-              <strong className="font-semibold">Setujui otomatis</strong>
-              {/* Akibatnya ditulis, bukan sekadar nama setelannya. Dicentang
-                  tanpa membaca, panitia baru sadar ada 40 peserta asing di
-                  leaderboard saat acara sudah berjalan. */}
-              <span className="mt-1 block text-on-surface-variant">Pendaftar langsung jadi peserta dan kode terbit seketika, tanpa diperiksa siapa pun. Tanpa ini, setiap pendaftaran menunggu persetujuan di daftar bawah.</span>
-            </span>
-          </label>
-
-          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-outline-variant pt-5">
-            <LinkIcon size={18} className="text-on-surface-variant" />
-            <code className="select-all text-body-medium">{tautan}</code>
-            <button
-              type="button"
-              onClick={() => { void navigator.clipboard.writeText(new URL(tautan, window.location.origin).toString()); toast.success("Tautan disalin", "Sebarkan ke calon peserta."); }}
-              className="rounded-md min-h-11 border border-outline-variant px-3 text-body-medium font-semibold"
-            >Salin tautan</button>
-          </div>
-        </>}
-      </section>}
-
-      {config && <section className="rounded-lg mt-6 border border-outline-variant bg-panel p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="font-semibold">Susunan form</h2>
-            <p className="mt-1 max-w-2xl text-body-medium text-on-surface-variant">
-              Apa yang ditanyakan ke pendaftar, dan seperti apa halamannya terlihat.
-              Perubahan baru berlaku setelah ditekan Simpan.
-            </p>
-          </div>
-          <Button onClick={() => void kirimForm(formDraft)} loading={simpanForm} disabled={busy}>
-            Simpan form
-          </Button>
-        </div>
-
-        {/* Penyunting dan pratinjau bersebelahan di layar lebar, bertumpuk di
-            layar sempit. Pratinjau di bawah lipatan sama saja dengan tidak ada:
-            yang membuatnya berguna adalah melihat akibat suntingan tanpa
-            memalingkan mata. */}
-        <div className="mt-6 grid gap-6 border-t border-outline-variant pt-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] xl:items-start">
-          <RegistrationFormBuilder
-            config={formDraft}
-            onChange={setDraftForm}
-            disabled={simpanForm}
+  // ---- Tampilan penyunting formulir ----------------------------------------
+  if (tampilan === "formulir") {
+    return (
+      <WorkspacePage fill>
+        <WorkspaceHeader
+          title="Atur formulir"
+          back={
+            <button type="button" onClick={() => setTampilan("moderasi")} className="inline-flex items-center gap-1.5 rounded-sm text-body-medium font-medium text-primary hover:underline">
+              <ArrowLeft size={14} aria-hidden />Pendaftaran publik
+            </button>
+          }
+          meta={<span>Apa yang ditanyakan ke pendaftar. Perubahan baru berlaku setelah disimpan.</span>}
+        />
+        {!config ? (
+          error ? <Banner tone="error" icon={<XCircle size={18} />}>{error}</Banner> : <PageLoading />
+        ) : (
+          // Penyunting dan pratinjau bersebelahan: yang membuat pratinjau berguna
+          // adalah melihat akibat suntingan tanpa memalingkan mata.
+          <SupportingPane
+            paneWidth={440}
+            main={
+              <Pane aria-label="Penyunting formulir">
+                <PaneBody className="px-5 py-5">
+                  <RegistrationFormBuilder config={formDraft} onChange={setDraftForm} disabled={simpanForm} />
+                </PaneBody>
+                <PaneFooter note={draftForm ? "Ada perubahan yang belum disimpan" : "Sama dengan yang tayang di halaman pendaftaran"}>
+                  <Button size="sm" onClick={() => void kirimForm(formDraft)} loading={simpanForm} disabled={busy} icon={<Check size={16} weight="bold" />}>
+                    Simpan formulir
+                  </Button>
+                </PaneFooter>
+              </Pane>
+            }
+            pane={
+              <Pane as="aside" aria-label="Pratinjau formulir">
+                <PaneBody className="p-4">
+                  <RegistrationFormPreview config={formDraft} eventName={namaEvent} seed={config.form_theme_seed} />
+                </PaneBody>
+              </Pane>
+            }
           />
-          <div>
-            <RegistrationFormPreview config={formDraft} eventName={namaEvent} seed={config.form_theme_seed} />
+        )}
+      </WorkspacePage>
+    );
+  }
+
+  // ---- Tampilan moderasi -----------------------------------------------------
+  const terpilih = rows.find((row) => row.id === pilihId) ?? null;
+
+  const list = (
+    <Pane aria-label="Daftar pendaftar">
+      <div className="flex shrink-0 items-center gap-3 border-b border-outline-variant bg-surface-container-high px-4 py-2.5 text-body-medium font-medium text-on-surface-variant">
+        <span className="min-w-0 flex-1">Pendaftar</span>
+        <span className="shrink-0">Masuk</span>
+      </div>
+      <PaneBody>
+        {error ? (
+          <p role="alert" className="m-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</p>
+        ) : loading ? (
+          <div role="status" aria-label="Memuat pendaftar" className="flex flex-col">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="flex flex-col gap-2 border-b border-outline-variant px-4 py-3.5">
+                <div className="h-3 w-44 animate-pulse rounded bg-surface-container-high" />
+                <div className="h-3 w-64 animate-pulse rounded bg-surface-container-high" />
+              </div>
+            ))}
           </div>
+        ) : rows.length === 0 ? (
+          <EmptyState
+            plain
+            icon={<Tray size={40} />}
+            title={STATUS[tab].kosong}
+            description={tab !== "pending" ? undefined
+              : !config?.registration_enabled ? "Pendaftaran sedang ditutup. Halaman pendaftaran menolak semua pengiriman."
+              : config.registration_auto_approve ? "Setujui otomatis menyala, jadi pendaftar baru langsung masuk ke tab Disetujui."
+              : "Pendaftar baru muncul di sini sampai disetujui atau ditolak."}
+          />
+        ) : (
+          rows.map((row) => {
+            const sub = [row.job_title, row.company].filter(Boolean).join(" · ");
+            return (
+              <ListRow key={row.id} selected={row.id === pilihId} onSelect={() => setPilihId(row.id)}>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium text-on-surface">{row.name}</span>
+                  <span className="block truncate text-on-surface-variant">{sub || row.email}</span>
+                </span>
+                {row.status === "approved" && row.email_error ? <StatusChip dot tone="error">Email gagal</StatusChip> : null}
+                <span className="shrink-0 tabular-nums text-on-surface-variant">{formatEventDateTime(row.created_at, zone)}</span>
+              </ListRow>
+            );
+          })
+        )}
+      </PaneBody>
+      {!loading && !error && rows.length > 0 ? (
+        <PaneFooter
+          className="bg-surface-container-lowest py-2"
+          note={<span className="tabular-nums">{total > rows.length ? `${rows.length} dari ${total} ditampilkan, terlama di atas` : `${rows.length} pendaftar, terlama di atas`}</span>}
+        />
+      ) : null}
+    </Pane>
+  );
+
+  const detail = terpilih ? (() => {
+    const row = terpilih;
+    const sub = [row.job_title, row.company].filter(Boolean).join(" · ");
+    const jawaban = Object.entries(row.extra ?? {});
+    return (
+      <Pane as="aside" aria-label={`Detail ${row.name}`}>
+        <div className="flex shrink-0 flex-col gap-2 border-b border-outline-variant px-5 py-4">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-title-medium font-semibold leading-6">{row.name}</h2>
+              {sub ? <p className="text-body-medium text-on-surface-variant">{sub}</p> : null}
+            </div>
+            <IconButton size="sm" label="Tutup detail" onClick={() => setPilihId(null)}><X size={16} /></IconButton>
+          </div>
+          <p className="flex flex-wrap items-center gap-2 text-body-medium text-on-surface-variant">
+            <StatusChip dot tone={STATUS[row.status].tone}>{STATUS[row.status].label}</StatusChip>
+            <span>Didaftarkan {formatEventDateTime(row.created_at, zone)} {abbr}</span>
+          </p>
         </div>
+        <PaneBody>
+          <DetailSection title="Kontak">
+            <dl className="flex flex-col gap-2">
+              <KeyValue label="Email">{row.email}</KeyValue>
+              <KeyValue label="Telepon">{row.phone}</KeyValue>
+            </dl>
+          </DetailSection>
+          {row.qr_code ? (
+            // Kode tetap ditampilkan meski email sudah aktif: email bisa masuk
+            // spam atau ditolak server penerima, dan panitia harus bisa
+            // membacakannya lewat telepon tanpa membuka database.
+            <DetailSection title="Kode peserta">
+              <p className="select-all text-title-medium font-semibold tabular-nums">{row.qr_code}</p>
+              {row.status === "approved" ? <StatusEmail row={row} emailAktif={emailAktif} zone={zone} abbr={abbr} /> : null}
+            </DetailSection>
+          ) : null}
+          {jawaban.length > 0 ? (
+            <DetailSection title="Jawaban formulir">
+              <dl className="flex flex-col gap-2">
+                {jawaban.map(([key, value]) => {
+                  // Label pertanyaan, bukan kunci datanya. Kuncinya dibuat
+                  // otomatis dari label dan tidak dimaksudkan untuk dibaca
+                  // panitia yang sedang memeriksa pendaftar.
+                  const field = (formDraft.fields ?? []).find((entry) => entry.key === key);
+                  return (
+                    <KeyValue key={key} label={field?.label ?? key}>
+                      {field?.type === "file"
+                        // Berkasnya di bucket privat: tautannya diminta ke server
+                        // saat ditekan dan berlaku lima menit.
+                        ? <button type="button" onClick={() => void bukaBerkas(value)} className="rounded-sm font-medium text-primary hover:underline">Buka berkas</button>
+                        : field?.type === "checkbox" ? (value === "true" ? "Ya" : "Tidak")
+                        : value}
+                    </KeyValue>
+                  );
+                })}
+              </dl>
+            </DetailSection>
+          ) : null}
+          {row.reject_reason ? (
+            <DetailSection title="Alasan penolakan">
+              <p className="text-body-medium text-on-surface">{row.reject_reason}</p>
+            </DetailSection>
+          ) : null}
+        </PaneBody>
+        {row.status === "pending" ? (
+          <PaneFooter note="Kode peserta terbit saat disetujui">
+            <Button variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setMenolak(row)}>Tolak</Button>
+            <Button size="sm" disabled={busy} icon={<Check size={16} weight="bold" />} onClick={() => void review(row, true)}>Setujui</Button>
+          </PaneFooter>
+        ) : row.status === "approved" && row.qr_code && emailAktif ? (
+          // Tombol disembunyikan, bukan diredupkan, saat email belum diaktifkan
+          // di server: tombol mati tanpa keterangan terbaca sebagai kerusakan.
+          // Sebabnya ditulis di StatusEmail.
+          <PaneFooter>
+            <Button
+              size="sm"
+              variant={row.email_sent_at ? "outlined" : "filled"}
+              loading={mengirim === row.id}
+              icon={<PaperPlaneTilt size={16} />}
+              onClick={() => void kirimUlang(row)}
+            >
+              {row.email_sent_at ? "Kirim ulang" : "Kirim kode"}
+            </Button>
+          </PaneFooter>
+        ) : null}
+      </Pane>
+    );
+  })() : null;
 
-      </section>}
+  return (
+    <WorkspacePage fill>
+      <WorkspaceHeader
+        meta={config ? (
+          <>
+            <span className="inline-flex items-center gap-1.5">
+              <StatusDot tone={config.registration_enabled ? "success" : "neutral"} />
+              {config.registration_enabled ? "Dibuka" : "Ditutup"}
+            </span>
+            {config.registration_enabled ? (
+              <>
+                <MetaSeparator />
+                <span>Setujui otomatis: {config.registration_auto_approve ? "nyala" : "mati"}</span>
+                <button type="button" onClick={() => setSetelanOpen(true)} className="rounded-sm font-medium text-primary hover:underline">Ubah</button>
+                <MetaSeparator />
+                <span className="min-w-0 break-all">{tautan}</span>
+                <button type="button" onClick={salinTautan} className="rounded-sm font-medium text-primary hover:underline">Salin tautan</button>
+              </>
+            ) : null}
+          </>
+        ) : null}
+        actions={
+          <>
+            <Button variant="outlined" disabled={!config} icon={<PencilSimple size={16} />} onClick={() => setTampilan("formulir")}>Atur formulir</Button>
+            {config ? (
+              <Button
+                variant="outlined"
+                className={config.registration_enabled ? "text-error" : undefined}
+                disabled={busy}
+                onClick={() => void simpanKonfigurasi({ registration_enabled: !config.registration_enabled })}
+              >
+                {config.registration_enabled ? "Tutup pendaftaran" : "Buka pendaftaran"}
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
-      {error && <p role="alert" className="rounded-lg mt-6 border border-error/30 bg-error/5 p-4 text-body-medium font-medium text-error">{error}</p>}
+      <Tabs<Status>
+        label="Status pendaftaran"
+        idPrefix="registrasi"
+        value={tab}
+        onChange={gantiTab}
+        options={[
+          { value: "pending", label: "Menunggu", badge: pending > 0 ? pending : undefined },
+          { value: "approved", label: "Disetujui" },
+          { value: "rejected", label: "Ditolak" },
+        ]}
+      />
 
-      <div className="mt-8 flex flex-wrap gap-2">
-        {TABS.map((entry) => <button
-          key={entry.key}
-          type="button"
-          onClick={() => { setTab(entry.key); setLoading(true); }}
-          className={`rounded-md min-h-11 border px-4 text-body-medium font-semibold ${tab === entry.key ? "border-primary text-primary" : "border-outline-variant"}`}
-        >{entry.label}{entry.key === "pending" && pending > 0 ? ` (${pending})` : ""}</button>)}
+      <div role="tabpanel" id={`registrasi-panel-${tab}`} aria-labelledby={`registrasi-tab-${tab}`} className="flex min-h-0 flex-1 flex-col">
+        <ListDetail list={list} detail={detail} />
       </div>
 
-      {loading ? <p className="py-16 text-body-medium text-on-surface-variant">Memuat…</p>
-        : rows.length === 0 ? <section className="py-20 text-center">
-            <Hourglass size={44} className="mx-auto text-on-surface-variant" />
-            <p className="mt-4 text-body-medium text-on-surface-variant">Belum ada pendaftaran pada status ini.</p>
-          </section>
-        : <section className="mt-6 grid gap-3">
-            {rows.map((row) => <article key={row.id} className="rounded-lg bg-panel p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h3 className="text-title-large font-semibold">{row.name}</h3>
-                  <p className="mt-1 break-words text-body-medium text-on-surface-variant">{row.email} · {row.phone}</p>
-                  {(row.company || row.job_title) && <p className="mt-1 text-body-medium text-on-surface-variant">{[row.job_title, row.company].filter(Boolean).join(" · ")}</p>}
-                  <p className="mt-2 text-body-small text-on-surface-variant">Didaftarkan {formatEventDateTime(row.created_at, zone)} {abbr}</p>
-                  {/* Kode tetap ditampilkan meski email sudah aktif: email bisa
-                      masuk spam atau ditolak server penerima, dan panitia harus
-                      bisa membacakannya lewat telepon tanpa membuka database. */}
-                  {row.qr_code && <p className="mt-2 text-body-medium">Kode peserta: <span className="select-all font-mono font-semibold">{row.qr_code}</span></p>}
-                  {row.status === "approved" && row.qr_code && <StatusEmail row={row} emailAktif={emailAktif} zone={zone} abbr={abbr} />}
-                  {row.reject_reason && <p className="mt-2 text-body-medium text-error">Alasan penolakan: {row.reject_reason}</p>}
-                  {Object.keys(row.extra ?? {}).length > 0 && <dl className="mt-3 grid gap-1 text-body-medium">
-                    {Object.entries(row.extra).map(([key, value]) => {
-                      // Label pertanyaan, bukan kunci datanya. Kuncinya dibuat
-                      // otomatis dari label dan tidak dimaksudkan untuk dibaca
-                      // panitia yang sedang memeriksa pendaftar.
-                      const field = (formDraft.fields ?? []).find((entry) => entry.key === key);
-                      return <div key={key} className="flex gap-2">
-                        <dt className="font-semibold">{field?.label ?? key}:</dt>
-                        <dd className="min-w-0 text-on-surface-variant">
-                          {field?.type === "file"
-                            // Berkasnya di bucket privat: tidak ada URL yang bisa
-                            // ditaruh di sini. Tautannya diminta ke server saat
-                            // ditekan dan berlaku lima menit.
-                            ? <button type="button" onClick={() => void bukaBerkas(value)} className="font-semibold text-primary underline">Buka berkas</button>
-                            : field?.type === "checkbox" ? (value === "true" ? "Ya" : "Tidak")
-                            : value}
-                        </dd>
-                      </div>;
-                    })}
-                  </dl>}
-                </div>
-
-                {row.status === "pending" && <div className="flex gap-2">
-                  <button type="button" disabled={busy} onClick={() => void review(row, true)} className="rounded-md flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-50"><Check size={16} weight="bold" /> Setujui</button>
-                  <button type="button" disabled={busy} onClick={() => setMenolak(row)} className="rounded-md flex min-h-11 items-center gap-2 border border-error/40 px-4 text-body-medium font-semibold text-error disabled:opacity-50"><X size={16} weight="bold" /> Tolak</button>
-                </div>}
-
-                {/* Tombol disembunyikan, bukan diredupkan, saat email belum
-                    diaktifkan di server: tombol mati tanpa keterangan terbaca
-                    sebagai kerusakan. Sebabnya ditulis di StatusEmail. */}
-                {row.status === "approved" && row.qr_code && emailAktif && <button
-                  type="button"
-                  disabled={mengirim === row.id}
-                  onClick={() => void kirimUlang(row)}
-                  className="rounded-md flex min-h-11 shrink-0 items-center gap-2 border border-outline-variant px-4 text-body-medium font-semibold disabled:opacity-50"
-                ><PaperPlaneTilt size={16} /> {mengirim === row.id ? "Mengirim…" : row.email_sent_at ? "Kirim ulang" : "Kirim kode"}</button>}
-              </div>
-            </article>)}
-          </section>}
-    </div>
-
-    {menolak && <div className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setMenolak(null); }}>
-      <form
-        onSubmit={(e) => { e.preventDefault(); void review(menolak, false, String(new FormData(e.currentTarget).get("reason") ?? "")); }}
-        className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-6"
+      <Dialog
+        open={setelanOpen}
+        onClose={() => setSetelanOpen(false)}
+        title="Mode persetujuan"
+        actions={<Button variant="outlined" onClick={() => setSetelanOpen(false)}>Tutup</Button>}
       >
-        <h2 className="text-title-large font-semibold">Tolak pendaftaran</h2>
-        <p className="mt-2 text-body-medium text-on-surface-variant">{menolak.name} · {menolak.email}</p>
-        <p className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-4 text-body-medium">Pendaftar tidak dibuatkan kode peserta. Catatannya tetap tersimpan, dan orang ini boleh mendaftar ulang dengan email yang sama.</p>
-        <label className="mt-5 block text-body-medium font-semibold">Alasan <span className="font-normal text-on-surface-variant">(opsional, untuk catatan panitia)</span>
-          <input name="reason" maxLength={300} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-4" />
-        </label>
-        <div className="mt-6 flex gap-2">
-          <button disabled={busy} className="rounded-md min-h-12 flex-1 border border-error/40 px-4 font-semibold text-error disabled:opacity-50">{busy ? "Memproses…" : "Tolak"}</button>
-          <button type="button" onClick={() => setMenolak(null)} className="rounded-md min-h-12 border border-outline-variant px-4 font-semibold">Batal</button>
-        </div>
-      </form>
-    </div>}
-  </main>;
+        {config ? (
+          <Switch
+            checked={config.registration_auto_approve}
+            disabled={busy}
+            onChange={(value) => void simpanKonfigurasi({ registration_auto_approve: value })}
+            label="Setujui otomatis"
+            // Akibatnya ditulis, bukan sekadar nama setelannya. Dicentang tanpa
+            // membaca, panitia baru sadar ada 40 peserta asing di leaderboard
+            // saat acara sudah berjalan.
+            description="Pendaftar langsung jadi peserta dan kode terbit seketika, tanpa diperiksa siapa pun. Tanpa ini, setiap pendaftaran menunggu persetujuan di tab Menunggu."
+          />
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={menolak !== null}
+        onClose={() => setMenolak(null)}
+        dismissible={!busy}
+        tone="danger"
+        title={`Tolak pendaftaran ${menolak?.name ?? ""}?`}
+        description="Pendaftar tidak dibuatkan kode peserta. Catatannya tetap tersimpan, dan orang ini boleh mendaftar ulang dengan email yang sama."
+        actions={
+          <>
+            <Button variant="outlined" disabled={busy} onClick={() => setMenolak(null)}>Batal</Button>
+            <Button variant="danger" type="submit" form="form-tolak" loading={busy}>Tolak</Button>
+          </>
+        }
+      >
+        <form
+          id="form-tolak"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (menolak) void review(menolak, false, String(new FormData(event.currentTarget).get("reason") ?? ""));
+          }}
+        >
+          <p className="mb-4 text-body-medium text-on-surface-variant">{menolak?.email}</p>
+          <TextField name="reason" label="Alasan" optional maxLength={300} hint="Untuk catatan panitia." />
+        </form>
+      </Dialog>
+    </WorkspacePage>
+  );
 }
 
 /**
  * Nasib email kode peserta untuk satu baris.
  *
- * Empat keadaan, dan masing-masing menuntut tindakan berbeda dari panitia —
+ * Empat keadaan, dan masing-masing menuntut tindakan berbeda dari panitia,
  * itulah sebabnya keempatnya dibedakan alih-alih diringkas jadi "terkirim /
  * tidak":
  *
@@ -440,25 +580,25 @@ function StatusEmail({ row, emailAktif, zone, abbr }: {
   abbr: string;
 }) {
   if (!emailAktif) {
-    return <p className="mt-2 flex items-start gap-2 text-body-medium text-on-surface-variant">
-      <EnvelopeSimple size={16} className="mt-0.5 shrink-0" />
+    return <p className="flex items-start gap-2 text-body-medium text-on-surface-variant">
+      <EnvelopeSimple size={16} className="mt-0.5 shrink-0" aria-hidden />
       <span>Pengiriman email belum diaktifkan di server. Bacakan kode di atas ke pendaftar.</span>
     </p>;
   }
   if (row.email_error) {
-    return <p className="mt-2 flex items-start gap-2 text-body-medium text-error">
-      <WarningCircle size={16} weight="fill" className="mt-0.5 shrink-0" />
+    return <p className="flex items-start gap-2 text-body-medium text-error">
+      <WarningCircle size={16} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
       <span>Email gagal terkirim setelah {row.email_attempts}× percobaan: {row.email_error}</span>
     </p>;
   }
   if (row.email_sent_at) {
-    return <p className="mt-2 flex items-start gap-2 text-body-medium text-success">
-      <Check size={16} weight="bold" className="mt-0.5 shrink-0" />
+    return <p className="flex items-start gap-2 text-body-medium text-on-success-container">
+      <Check size={16} weight="bold" className="mt-0.5 shrink-0" aria-hidden />
       <span>Email terkirim {formatEventDateTime(row.email_sent_at, zone)} {abbr}</span>
     </p>;
   }
-  return <p className="mt-2 flex items-start gap-2 text-body-medium text-warning">
-    <Hourglass size={16} className="mt-0.5 shrink-0" />
+  return <p className="flex items-start gap-2 text-body-medium text-warning">
+    <Hourglass size={16} className="mt-0.5 shrink-0" aria-hidden />
     <span>Kode belum pernah dikirim lewat email.</span>
   </p>;
 }

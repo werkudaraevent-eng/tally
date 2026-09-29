@@ -84,7 +84,7 @@ export function Tabs<T extends string>({ options, value, onChange, label, idPref
 	};
 
 	return (
-		<div ref={stripRef} role="tablist" aria-label={label} className={cx("flex border-b border-outline-variant", className)}>
+		<div ref={stripRef} role="tablist" aria-label={label} className={cx("flex shrink-0 gap-1 overflow-x-auto border-b border-outline-variant", className)}>
 			{options.map((option) => {
 				const aktif = option.value === value;
 				return (
@@ -109,18 +109,15 @@ export function Tabs<T extends string>({ options, value, onChange, label, idPref
 							else if (event.key === "End") { event.preventDefault(); pindah("akhir"); }
 						}}
 						className={cx(
-							"m3-tab m3-state relative flex min-h-12 flex-1 items-center justify-center gap-2 px-4 text-title-small",
-							"transition-colors duration-150 ease-standard",
+							"relative flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-t-md px-3 text-body-medium",
 							"disabled:pointer-events-none disabled:opacity-40",
-							aktif ? "text-primary" : "text-on-surface-variant",
+							aktif ? "font-medium text-on-surface" : "text-on-surface-variant hover:text-on-surface",
 						)}
 					>
 						{option.icon}
-						{/* `truncate` di dalam span, bukan di tombol: `overflow:hidden` pada
-						    tombol akan ikut memotong indikator yang duduk di tepi bawahnya. */}
-						<span className="truncate">{option.label}</span>
+						<span>{option.label}</span>
 						{option.badge != null ? (
-							<span className="rounded-full bg-surface-container-highest px-2 text-label-small text-on-surface-variant">
+							<span className={cx("rounded-full px-1.5 text-label-medium font-medium tabular-nums", aktif ? "bg-primary-soft text-primary" : "bg-surface-container-high text-on-surface-variant")}>
 								{option.badge}
 							</span>
 						) : null}
@@ -132,7 +129,7 @@ export function Tabs<T extends string>({ options, value, onChange, label, idPref
 							<motion.span
 								layoutId={`${idPrefix}-indicator`}
 								aria-hidden
-								className="absolute inset-x-0 bottom-0 mx-auto h-[3px] w-full rounded-t-full bg-primary"
+								className="absolute inset-x-0 bottom-0 h-0.5 bg-primary"
 								transition={standard.spatial.fast}
 							/>
 						) : null}

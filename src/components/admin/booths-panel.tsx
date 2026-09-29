@@ -1,8 +1,12 @@
 "use client";
 
-import { CheckCircle, FloppyDisk, Plus, Storefront, Tag, XCircle } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { CaretRight, Check, Storefront, X, XCircle } from "@phosphor-icons/react";
+import { useCallback, useEffect, useImperativeHandle, useState, type ReactNode } from "react";
+import {
+  Button, DetailSection, EmptyCell, EmptyState, IconButton, ListDetail, Pane, PaneBody, PaneFooter, StatusChip, Switch,
+} from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { cx } from "@/lib/m3/cx";
 
 type Booth = { id: number; code: string; name: string; discount_item_name: string; discount_item_stock: number | null; is_active: boolean; discount_enabled: boolean; discount_limit_per_participant: number; transactions_enabled: boolean };
 
@@ -18,142 +22,259 @@ const blank: Booth = { id: 0, code: "", name: "Booth baru", discount_item_name: 
 
 const BOOTH_CODE_PATTERN = /^[A-Z][A-Z0-9]{0,7}$/;
 
-export function BoothsPanel({ onBukaItemSpesial }: { onBukaItemSpesial: () => void }) {
+const INPUT = "mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
+
+export type BoothsPanelHandle = { tambah: () => void };
+export type BoothStats = { total: number; aktif: number };
+
+function ringkasItem(booth: Booth) {
+  if (!(booth.discount_enabled && booth.discount_limit_per_participant > 0)) return null;
+  return `${booth.discount_item_name} · ${booth.discount_limit_per_participant}x/peserta · stok ${booth.discount_item_stock ?? "tak terbatas"}`;
+}
+
+function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: string; hint?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <label htmlFor={htmlFor} className="block text-body-medium font-medium text-on-surface">{label}</label>
+      {children}
+      {hint ? <div className="mt-1 text-body-medium text-on-surface-variant">{hint}</div> : null}
+    </div>
+  );
+}
+
+function sama(a: Booth, b: Booth) {
+  return a.code === b.code && a.name === b.name && a.is_active === b.is_active && a.transactions_enabled === b.transactions_enabled && a.discount_item_name === b.discount_item_name;
+}
+
+export function BoothsPanel({ onBukaItemSpesial, onStats, ref }: {
+  onBukaItemSpesial: () => void;
+  onStats?: (stats: BoothStats) => void;
+  ref?: React.Ref<BoothsPanelHandle>;
+}) {
   const [booths, setBooths] = useState<Booth[]>([]);
-  const [selected, setSelected] = useState<Booth>(blank);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  // null = panel detail tertutup; id 0 = booth baru.
+  const [selected, setSelected] = useState<Booth | null>(null);
+  const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
   const toast = useToast();
 
-  async function load() {
-    const response = await fetch("/api/admin/booths", { cache: "no-store" });
-    const data = await response.json();
-    if (response.ok) setBooths(data.booths ?? []);
-    else setError(data.error?.message ?? "Booth gagal dimuat.");
+  const load = useCallback(async () => {
+    const response = await fetch("/api/admin/booths", { cache: "no-store" }).catch(() => null);
+    setLoading(false);
+    if (!response) { setLoadError("Koneksi terputus. Daftar booth tidak bisa dimuat."); return; }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) { setLoadError(data.error?.message ?? "Booth gagal dimuat."); return; }
+    const rows = (data.booths ?? []) as Booth[];
+    setLoadError("");
+    setBooths(rows);
+    onStats?.({ total: rows.length, aktif: rows.filter((booth) => booth.is_active).length });
+  }, [onStats]);
+
+  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
+
+  function tambah() { setSaveError(""); setSelected({ ...blank, id: 0 }); }
+  useImperativeHandle(ref, () => ({ tambah }));
+
+  function pilih(booth: Booth) {
+    setSaveError("");
+    setSelected(selected?.id === booth.id ? null : booth);
   }
 
-  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, []);
-
   async function save() {
-    setSaving(true); setError(""); setMessage("");
-    const response = await fetch("/api/admin/booths", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...selected, id: selected.id || null }) });
-    const data = await response.json();
+    if (!selected) return;
+    setSaving(true); setSaveError("");
+    const response = await fetch("/api/admin/booths", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...selected, id: selected.id || null }) }).catch(() => null);
     setSaving(false);
+    if (!response) { setSaveError("Koneksi terputus. Booth belum tentu tersimpan; muat ulang halaman untuk memastikan."); return; }
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const failure = data.error?.message ?? "Booth gagal disimpan.";
-      setError(failure);
+      setSaveError(failure);
       toast.error("Booth gagal disimpan", failure);
       return;
     }
-    setMessage(`${data.booth.code} berhasil disimpan.`);
     toast.success(`${data.booth.code} tersimpan`, `${data.booth.name} diperbarui.`);
     setSelected(data.booth);
     void load();
   }
 
-  return <div>
-    <div className="mx-auto max-w-[1440px]">
-      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-body-medium leading-6 text-on-surface-variant">Edit nama, kode, item diskon, stok, dan status. Histori order tetap aman.</p>
+  // ---- Panel daftar --------------------------------------------------------
+  const list = (
+    <Pane aria-label="Daftar booth">
+      <PaneBody>
+        {loadError ? (
+          <p role="alert" className="m-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{loadError}</p>
+        ) : loading ? (
+          <div aria-label="Memuat booth" className="flex flex-col">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="flex items-center gap-6 border-b border-outline-variant px-4 py-4">
+                <div className="h-3 w-40 animate-pulse rounded bg-surface-container-high" />
+                <div className="h-3 w-48 animate-pulse rounded bg-surface-container-high" />
+              </div>
+            ))}
+          </div>
+        ) : booths.length === 0 ? (
+          <EmptyState
+            plain
+            icon={<Storefront size={40} />}
+            title="Belum ada booth"
+            description="Booth menentukan kode nomor order dan akun operator yang berjualan."
+            action={<Button variant="outlined" size="sm" onClick={tambah}>Tambah booth</Button>}
+          />
+        ) : (
+          <table className="w-full min-w-[520px] border-separate border-spacing-0 text-left text-body-medium">
+            <thead className="sticky top-0 z-10 bg-surface-container-high text-on-surface-variant">
+              <tr>
+                <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Booth</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Item diskon</th>
+                <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {booths.map((booth) => {
+                const aktif = selected?.id === booth.id;
+                const item = ringkasItem(booth);
+                return (
+                  <tr key={booth.id} onClick={() => pilih(booth)} className={cx("cursor-pointer", aktif ? "bg-secondary-container" : "bg-surface-container-lowest hover:bg-primary-soft")}>
+                    <td className="border-b border-outline-variant px-4 py-2.5">
+                      <button type="button" aria-pressed={aktif} onClick={(event) => { event.stopPropagation(); pilih(booth); }} className="block rounded-sm text-left">
+                        <span className="block font-medium text-on-surface">{booth.code} · {booth.name}</span>
+                        <span className="block text-on-surface-variant">{booth.transactions_enabled ? "Dengan transaksi" : "Tanpa transaksi, serah terima barang"}</span>
+                      </button>
+                    </td>
+                    <td className="border-b border-outline-variant px-3 py-2.5">{item ?? <EmptyCell />}</td>
+                    <td className="border-b border-outline-variant px-4 py-2.5">
+                      <StatusChip dot tone={booth.is_active ? "success" : "neutral"}>{booth.is_active ? "Aktif" : "Nonaktif"}</StatusChip>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </PaneBody>
+    </Pane>
+  );
+
+  // ---- Panel editor --------------------------------------------------------
+  const asli = selected?.id ? booths.find((booth) => booth.id === selected.id) ?? null : null;
+  const kodeSalah = selected ? selected.code.length > 0 && !BOOTH_CODE_PATTERN.test(selected.code) : false;
+  const berubah = selected ? (selected.id === 0 || !asli || !sama(selected, asli)) : false;
+
+  const editor = selected ? (
+    <Pane as="aside" aria-label={selected.id ? `Sunting booth ${selected.code}` : "Booth baru"}>
+      <div className="flex shrink-0 items-start gap-3 border-b border-outline-variant px-5 py-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-title-medium font-semibold">{selected.id ? `${asli?.code ?? selected.code} · ${asli?.name ?? selected.name}` : "Booth baru"}</h2>
+            {asli ? <StatusChip dot tone={asli.is_active ? "success" : "neutral"}>{asli.is_active ? "Aktif" : "Nonaktif"}</StatusChip> : null}
+          </div>
+          <p className="text-body-medium text-on-surface-variant">Histori order tetap aman saat booth disunting.</p>
         </div>
-        <button onClick={() => setSelected({ ...blank, id: 0 })} className="rounded-md flex min-h-12 items-center justify-center gap-2 bg-on-surface px-4 text-body-medium font-semibold text-surface"><Plus size={19} /> Booth baru</button>
+        <IconButton size="sm" label="Tutup editor" onClick={() => setSelected(null)} disabled={saving}><X size={16} /></IconButton>
       </div>
+      <PaneBody>
+        <form id="form-booth" onSubmit={(event) => { event.preventDefault(); void save(); }}>
+          {saveError ? <p role="alert" className="mx-5 mt-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{saveError}</p> : null}
+          <DetailSection>
+            <div className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-3">
+              <Field label="Kode booth" htmlFor="booth-code">
+                <input
+                  id="booth-code"
+                  value={selected.code}
+                  onChange={(event) => setSelected({ ...selected, code: event.target.value.toUpperCase() })}
+                  maxLength={8}
+                  placeholder="B1 atau PH"
+                  aria-describedby="booth-code-help"
+                  aria-invalid={kodeSalah}
+                  className={cx(INPUT, "tabular-nums", kodeSalah && "border-error focus:border-error")}
+                />
+              </Field>
+              <Field label="Nama booth" htmlFor="booth-name">
+                <input id="booth-name" value={selected.name} onChange={(event) => setSelected({ ...selected, name: event.target.value })} className={INPUT} />
+              </Field>
+            </div>
+            {/* Aturan format ditulis di sini, bukan hanya dijadikan pesan galat
+                setelah gagal simpan: admin baru tidak bisa menebak batasannya. */}
+            <p id="booth-code-help" className="text-body-medium text-on-surface-variant">
+              1–8 karakter, dimulai huruf, hanya huruf dan angka. Nomor order dibentuk sebagai {selected.code || "KODE"}-001, {selected.code || "KODE"}-002, dan seterusnya.
+            </p>
+            {kodeSalah ? <p className="text-body-medium font-medium text-error">Format kode belum sesuai.</p> : null}
+          </DetailSection>
 
-      {error && <div role="alert" className="rounded-lg mt-6 flex items-center gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={20} />{error}</div>}
-      {message && <div role="status" className="rounded-lg mt-6 flex items-center gap-2 border border-success-soft-outline bg-success-soft p-4 text-body-medium text-primary-dim"><CheckCircle size={20} />{message}</div>}
-
-      <div className="mt-8 grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
-        <section className="rounded-lg border border-outline-variant bg-panel">
-          <div className="border-b border-outline-variant p-5"><h2 className="font-semibold">Booth terdaftar</h2></div>
-          <div className="divide-y divide-outline-variant">
-            {booths.map((booth) => <button key={booth.id} onClick={() => setSelected(booth)} className={`flex w-full items-center gap-3 p-5 text-left hover:bg-panel-high ${selected.id === booth.id ? "bg-primary-soft" : ""}`}>
-              <Storefront size={23} className={booth.is_active ? "text-primary" : "text-on-surface-variant"} />
-              <span className="flex-1">
-                <span className="block font-semibold">{booth.code} - {booth.name}</span>
-                <span className="mt-1 block text-body-small text-on-surface-variant">{booth.transactions_enabled
-                  ? (booth.discount_enabled && booth.discount_limit_per_participant > 0 ? `Diskon: ${booth.discount_limit_per_participant}x/peserta - stok ${booth.discount_item_stock ?? "tak terbatas"}` : "Tanpa item diskon")
-                  : "Tanpa transaksi - hanya serah terima barang"}</span>
-              </span>
-              <span className={`text-body-small font-semibold ${booth.is_active ? "text-success" : "text-on-surface-variant"}`}>{booth.is_active ? "Aktif" : "Nonaktif"}</span>
-            </button>)}
-            {booths.length === 0 && <p className="p-6 text-body-medium text-on-surface-variant">Memuat booth...</p>}
-          </div>
-        </section>
-
-        <section className="rounded-lg border border-outline-variant bg-panel p-6 sm:p-8">
-          <h2 className="text-title-large font-semibold">{selected.id ? `Kustomisasi ${selected.code}` : "Booth baru"}</h2>
-          <div className="mt-7 grid gap-5 sm:grid-cols-2">
-            {/* Aturan format ditulis di sini, bukan hanya dijadikan pesan error
-                setelah gagal simpan: admin baru tidak bisa menebak batasannya, dan
-                sebelumnya kode seperti PH ditolak tanpa penjelasan apa pun. */}
-            <label className="text-body-medium font-semibold">Kode booth
-              <input value={selected.code} onChange={(event) => setSelected({ ...selected, code: event.target.value.toUpperCase() })}
-                maxLength={8} placeholder="Misalnya B1 atau PH" aria-describedby="booth-code-help" aria-invalid={selected.code.length > 0 && !BOOTH_CODE_PATTERN.test(selected.code)}
-                className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 outline-none focus:border-primary" />
-              <span id="booth-code-help" className="mt-1.5 block text-body-small font-normal leading-5 text-on-surface-variant">
-                1-8 karakter, dimulai huruf, hanya huruf dan angka. Tanpa spasi atau tanda hubung, karena nomor order dibentuk sebagai <code>{selected.code || "KODE"}-001</code>.
-              </span>
-              {selected.code.length > 0 && !BOOTH_CODE_PATTERN.test(selected.code)
-                ? <span className="mt-1 block text-body-small font-semibold text-error">Format kode belum sesuai.</span>
-                : null}
-            </label>
-            <label className="text-body-medium font-semibold">Nama booth
-              <input value={selected.name} onChange={(event) => setSelected({ ...selected, name: event.target.value })} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 outline-none focus:border-primary" />
-            </label>
-            <label className="flex items-end gap-3 pb-3 text-body-medium font-semibold sm:col-span-2"><input type="checkbox" checked={selected.is_active} onChange={(event) => setSelected({ ...selected, is_active: event.target.checked })} className="size-5 accent-primary" /> Booth aktif</label>
-          </div>
-
-          {/* Sifat booth, bukan sekadar preferensi tampilan. Ditampilkan sebagai dua
-              pilihan bernama, bukan satu checkbox negatif ("tanpa transaksi"), karena
-              checkbox yang tidak dicentang tidak menjelaskan apa yang berlaku.
-              Radio dipakai supaya kedua kemungkinan terbaca sekaligus beserta akibatnya. */}
-          <fieldset className="rounded-lg mt-6 border border-outline-variant p-5">
-            <legend className="px-2 text-body-medium font-semibold">Sifat booth</legend>
-            <div className="grid gap-3">
+          {/* Dua pilihan bernama, bukan satu checkbox negatif ("tanpa transaksi"):
+              checkbox yang tidak dicentang tidak menjelaskan apa yang berlaku. */}
+          <DetailSection title="Sifat booth">
+            <fieldset className="flex flex-col gap-2">
+              <legend className="sr-only">Sifat booth</legend>
               {([
                 { value: true, title: "Dengan transaksi", detail: "Booth berjualan. Operator mengisi nominal item reguler dan order masuk hitungan top spender." },
-                { value: false, title: "Tanpa transaksi", detail: "Hanya serah terima barang, misalnya tas belanja. Kolom nominal disembunyikan dan ditolak server, jadi tidak bisa terisi karena lupa." },
-              ] as const).map((option) => <label key={String(option.value)} className={`rounded-lg flex cursor-pointer gap-3 border p-4 ${selected.transactions_enabled === option.value ? "border-primary bg-primary-soft" : "border-outline-variant"}`}>
-                <input type="radio" name="booth-transactions" checked={selected.transactions_enabled === option.value}
-                  onChange={() => setSelected({ ...selected, transactions_enabled: option.value })}
-                  className="mt-0.5 size-5 shrink-0 accent-primary" />
-                <span>
-                  <span className="block text-body-medium font-semibold">{option.title}</span>
-                  <span className="mt-1 block text-body-small leading-5 text-on-surface-variant">{option.detail}</span>
-                </span>
-              </label>)}
-            </div>
-            {/* Batas kemampuannya disebut terus terang: item spesial tetap jalan di booth
-                tanpa transaksi, dan itulah cara membatasi tas menjadi 1x per peserta. */}
-            {!selected.transactions_enabled
-              ? <p className="mt-3 text-body-small leading-5 text-on-surface-variant">Batas 1x per peserta diatur lewat item spesial booth ini di <button type="button" onClick={onBukaItemSpesial} className="font-semibold text-primary underline">Item spesial</button>: harga Rp 0, kuota 1x per peserta, dan matikan hitungan top spender.</p>
-              : null}
-          </fieldset>
+                { value: false, title: "Tanpa transaksi", detail: "Hanya serah terima barang, misalnya tas belanja. Kolom nominal disembunyikan dan ditolak server." },
+              ] as const).map((option) => {
+                const on = selected.transactions_enabled === option.value;
+                return (
+                  <label key={String(option.value)} className={cx("flex cursor-pointer gap-3 rounded-lg border p-3 text-body-medium", on ? "border-2 border-primary" : "border-outline")}>
+                    <input type="radio" name="booth-transactions" checked={on} onChange={() => setSelected({ ...selected, transactions_enabled: option.value })} className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
+                    <span>
+                      <span className="block font-medium">{option.title}</span>
+                      <span className="block text-on-surface-variant">{option.detail}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </fieldset>
+            {/* Item spesial tetap jalan di booth tanpa transaksi, dan itulah cara
+                membatasi tas menjadi 1x per peserta. */}
+            {!selected.transactions_enabled ? (
+              <p className="text-body-medium text-on-surface-variant">
+                Batas 1x per peserta diatur lewat item spesial booth ini: harga Rp 0, kuota 1x per peserta, dan matikan hitungan top spender.{" "}
+                <button type="button" onClick={onBukaItemSpesial} className="rounded-sm font-medium text-primary hover:underline">Buka Item spesial</button>
+              </p>
+            ) : null}
+          </DetailSection>
 
-          {/* Editor item diskon dipindah ke tab Item spesial. Sebelumnya harga, kuota,
-              dan stok dapat diubah dari dua halaman berbeda untuk data yang sama,
-              dan halaman ini tidak punya kontrol untuk syarat akumulasi maupun flag
-              top spender. Satu editor menghilangkan pertanyaan "mana yang dipakai". */}
-          <div className="rounded-lg mt-6 border border-outline-variant bg-panel-high p-5">
-            <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">Item spesial booth ini</h3>
-            {selected.id ? <>
-              <p className="mt-3 text-body-medium">{selected.discount_enabled && selected.discount_limit_per_participant > 0
-                ? <><span className="font-semibold">{selected.discount_item_name}</span> · maks {selected.discount_limit_per_participant}x/peserta · stok {selected.discount_item_stock ?? "tak terbatas"}</>
-                : "Booth ini tidak menawarkan item diskon."}</p>
-              <p className="mt-2 text-body-small leading-5 text-on-surface-variant">Harga, kuota, stok, syarat minimum total transaksi, dan pengaturan top spender kini diatur di satu tempat.</p>
-              <button type="button" onClick={onBukaItemSpesial} className="rounded-md mt-4 inline-flex min-h-12 items-center gap-2 border border-primary px-4 text-body-medium font-semibold text-primary hover:bg-primary-soft"><Tag size={17} /> Atur di Item spesial</button>
-            </> : <>
-              <label className="mt-3 block text-body-medium font-semibold">Nama item diskon
-                <input value={selected.discount_item_name} onChange={(event) => setSelected({ ...selected, discount_item_name: event.target.value })} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 outline-none focus:border-primary" />
-              </label>
-              <p className="mt-3 text-body-small leading-5 text-on-surface-variant">Booth baru otomatis mendapat item diskon Rp 1, maks 1x per peserta, stok tak terbatas. Setelah disimpan, atur detailnya di <button type="button" onClick={onBukaItemSpesial} className="font-semibold text-primary underline">Item spesial</button>.</p>
-            </>}
-          </div>
-          <button onClick={save} disabled={saving || !BOOTH_CODE_PATTERN.test(selected.code) || !selected.name.trim()} className="rounded-md mt-8 flex min-h-14 w-full items-center justify-center gap-2 bg-primary text-body-medium font-semibold text-on-primary hover:bg-primary-dim disabled:opacity-50"><FloppyDisk size={19} />{saving ? "Menyimpan..." : "Simpan booth"}</button>
-        </section>
-      </div>
-    </div>
-  </div>;
+          {/* Editor item diskon ada di tab Item spesial: harga, kuota, dan stok
+              pernah bisa diubah dari dua tempat untuk data yang sama. */}
+          <DetailSection title="Item spesial">
+            {selected.id ? (
+              <button type="button" onClick={onBukaItemSpesial} className="flex w-full items-center gap-3 rounded-md bg-surface-container-high px-3 py-2.5 text-left text-body-medium hover:bg-primary-soft">
+                <span className="min-w-0 flex-1">
+                  {asli && ringkasItem(asli)
+                    ? <><span className="block font-medium">{asli.discount_item_name}</span><span className="block text-on-surface-variant">Maks {asli.discount_limit_per_participant}x/peserta · stok {asli.discount_item_stock ?? "tak terbatas"}</span></>
+                    : <span className="block text-on-surface-variant">Booth ini tidak menawarkan item diskon.</span>}
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1 font-medium text-primary">Atur di Item spesial<CaretRight size={14} aria-hidden /></span>
+              </button>
+            ) : (
+              <>
+                <Field label="Nama item diskon" htmlFor="booth-discount-name">
+                  <input id="booth-discount-name" value={selected.discount_item_name} onChange={(event) => setSelected({ ...selected, discount_item_name: event.target.value })} className={INPUT} />
+                </Field>
+                <p className="text-body-medium text-on-surface-variant">Booth baru otomatis mendapat item diskon Rp 1, maks 1x per peserta, stok tak terbatas. Setelah disimpan, atur detailnya di tab Item spesial.</p>
+              </>
+            )}
+          </DetailSection>
+
+          <DetailSection>
+            <Switch
+              checked={selected.is_active}
+              onChange={(checked) => setSelected({ ...selected, is_active: checked })}
+              label="Booth aktif"
+              description="Booth nonaktif tidak muncul di daftar pilihan booth. Histori ordernya tetap."
+            />
+          </DetailSection>
+        </form>
+      </PaneBody>
+      <PaneFooter note={berubah ? (selected.id ? "Perubahan belum disimpan" : "Booth baru belum disimpan") : "Semua perubahan tersimpan"}>
+        <Button type="button" variant="outlined" size="sm" disabled={saving} onClick={() => setSelected(null)}>Tutup</Button>
+        <Button type="submit" form="form-booth" size="sm" loading={saving} disabled={!BOOTH_CODE_PATTERN.test(selected.code) || !selected.name.trim() || !berubah} icon={<Check size={16} weight="bold" />}>
+          Simpan booth
+        </Button>
+      </PaneFooter>
+    </Pane>
+  ) : null;
+
+  return <ListDetail list={list} detail={editor} detailWidth={440} />;
 }

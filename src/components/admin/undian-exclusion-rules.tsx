@@ -1,9 +1,15 @@
 "use client";
 
-import { CheckCircle, FloppyDisk, Funnel, Plus, Prohibit, Trash, Warning } from "@phosphor-icons/react";
+import { FloppyDisk, Funnel, Plus, Prohibit, Trash, Warning, X } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
+import Link from "@/components/event-link";
+import {
+  Button, DetailSection, Dialog, EmptyState, IconButton, ListDetail, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
+  StatusChip, Switch,
+} from "@/components/m3";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import { useToast } from "@/components/toast";
+import { cx } from "@/lib/m3/cx";
 import {
   EMPTY_CONDITIONS, describeConditions, isTrulyEmpty, normalizeExclusionRule,
   type UndianConditionGroup, type UndianExclusionRule,
@@ -12,16 +18,20 @@ import {
 // Pengelola aturan pengecualian undian.
 //
 // Peserta yang MEMENUHI aturan justru DIKECUALIKAN. Arah itu diulang berkali-kali
-// di layar — pada judul, pada teks bantuan, dan pada label hasil pratinjau — karena
-// ia berlawanan dengan syarat hadiah yang ada di tab sebelah, dan kekeliruan
-// membacanya baru ketahuan ketika kolamnya sudah salah.
+// di layar (pada judul, pada teks bantuan, dan pada label hasil pratinjau) karena
+// ia berlawanan dengan syarat hadiah di tab sebelah, dan kekeliruan membacanya
+// baru ketahuan ketika kolamnya sudah salah.
 //
 // Bagian terpenting komponen ini adalah PRATINJAU, bukan formulirnya. Aturan yang
 // salah tulis ("perusahaan sama dengan PRIMA" padahal datanya "PT PRIMA Indonesia")
 // tampak sepenuhnya wajar, dan satu-satunya cara mengetahuinya sebelum acara adalah
 // melihat daftar nama yang akan tersaring.
+//
+// Susunannya list-detail: aturan dan pengecualian per orang di kiri, penyunting
+// aturan di kanan hanya saat satu aturan dibuka.
 
 type Prize = { id: number; name: string };
+type Exclusion = { participant_id: string; name: string; company: string | null; reason: string | null };
 
 type Preview = {
   total_participants: number;
@@ -35,6 +45,8 @@ type Preview = {
 type Draft = { name: string; note: string; conditions: UndianConditionGroup; prize_id: number | null; is_active: boolean };
 
 const EMPTY_DRAFT: Draft = { name: "", note: "", conditions: EMPTY_CONDITIONS, prize_id: null, is_active: true };
+
+const INPUT = "mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
 
 /** Titik awal yang paling sering dibutuhkan, supaya aturan pertama tidak dimulai dari layar kosong. */
 const TEMPLATES: { label: string; hint: string; draft: () => Draft }[] = [
@@ -61,9 +73,12 @@ const TEMPLATES: { label: string; hint: string; draft: () => Draft }[] = [
 ];
 
 export function ExclusionRuleManager({
-  prizes, onChanged,
+  prizes, exclusions, onRemoveExclusion, onChanged,
 }: {
   prizes: Prize[];
+  /** Pengecualian per orang, dimuat oleh halaman induk. */
+  exclusions: Exclusion[];
+  onRemoveExclusion: (participantId: string) => Promise<void>;
   /** Dipanggil setelah aturan berubah, supaya angka kolam di tab hadiah ikut segar. */
   onChanged: () => void;
 }) {
@@ -72,22 +87,29 @@ export function ExclusionRuleManager({
   const [totalParticipants, setTotalParticipants] = useState(0);
   // Pilihan untuk rule builder ikut di response yang sama dengan jumlah terkena.
   // Diambil di sini, bukan diteruskan dari halaman induk, supaya nilainya sudah
-  // tersedia sebelum ada hadiah yang dibuka untuk diedit — aturan pengecualian
+  // tersedia sebelum ada hadiah yang dibuka untuk diedit: aturan pengecualian
   // sering disusun lebih dulu, saat daftar hadiah masih kosong.
   const [participantTypes, setParticipantTypes] = useState<string[]>([]);
   const [rsvpStatuses, setRsvpStatuses] = useState<string[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [toggling, setToggling] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<UndianExclusionRule | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
   const [error, setError] = useState("");
   const toast = useToast();
 
   async function load() {
-    const response = await fetch("/api/admin/undian/rules?counts=1", { cache: "no-store" });
-    if (!response.ok) { setError("Aturan pengecualian gagal dimuat."); return; }
+    const response = await fetch("/api/admin/undian/rules?counts=1", { cache: "no-store" }).catch(() => null);
+    setLoaded(true);
+    if (!response?.ok) { setLoadFailed(true); setError("Aturan pengecualian gagal dimuat."); return; }
+    setLoadFailed(false);
     const data = await response.json();
     setRules((data.rules as Record<string, unknown>[]).map(normalizeExclusionRule));
     setCounts(data.counts ?? {});
@@ -167,182 +189,248 @@ export function ExclusionRuleManager({
   }
 
   async function remove(id: number) {
+    setDeleting(true);
     const response = await fetch(`/api/admin/undian/rules/${id}`, { method: "DELETE" });
+    setDeleting(false);
     setConfirmDelete(null);
     if (!response.ok) { toast.error("Aturan gagal dihapus"); return; }
+    if (editingId === id) setEditingId(null);
     await load();
     onChanged();
     toast.success("Aturan dihapus", "Peserta yang tadinya tersaring kembali ikut undian.");
   }
 
   async function toggleActive(rule: UndianExclusionRule) {
+    setToggling(rule.id);
     const response = await fetch(`/api/admin/undian/rules/${rule.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_active: !rule.is_active }),
     });
+    setToggling(null);
     if (!response.ok) { toast.error("Status aturan gagal diubah"); return; }
     await load();
     onChanged();
   }
 
-  const inputClass = "h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
-  const labelClass = "text-body-small font-semibold ed-label text-on-surface-variant";
+  async function restore(participantId: string) {
+    setRestoring(participantId);
+    await onRemoveExclusion(participantId);
+    setRestoring(null);
+  }
 
-  return <div className="space-y-2">
-    <div className="rounded-lg bg-panel p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-body-medium font-semibold ed-label text-on-surface-variant">
-            <Funnel size={16} /> Aturan pengecualian
-          </h2>
-          <p className="mt-2 max-w-lg text-body-small leading-relaxed text-on-surface-variant">
-            Peserta yang <span className="font-semibold text-on-surface">memenuhi</span> aturan justru dikeluarkan dari undian.
-            Aturan dievaluasi ulang setiap kali mengundi, jadi peserta baru hasil sinkronisasi ikut tersaring otomatis.
-          </p>
-        </div>
-        {editingId === null && <button type="button" onClick={() => openEditor(null)} className="rounded-md flex min-h-11 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
-          <Plus size={15} /> Buat aturan
-        </button>}
-      </div>
+  const editing = editingId !== null;
 
-      {error && <p className="rounded-lg mt-4 flex items-start gap-2 border border-error bg-error-soft p-3 text-body-small text-error">
-        <Warning size={15} className="mt-0.5 shrink-0" /> {error}
-      </p>}
-
-      {rules.length === 0 && editingId === null ? <div className="mt-4">
-        <p className="rounded-lg border border-dashed border-outline-variant p-6 text-center text-body-medium text-on-surface-variant">
-          Belum ada aturan. Semua peserta aktif ikut diundi.
+  const list = (
+    <Pane aria-label="Aturan pengecualian">
+      <PaneHeader>
+        <h2 className="min-w-0 flex-1 text-body-medium font-semibold">Aturan pengecualian</h2>
+        <Button variant="outlined" size="sm" icon={<Plus size={16} />} disabled={editing} onClick={() => openEditor(null)}>Aturan baru</Button>
+      </PaneHeader>
+      <PaneBody>
+        <p className="border-b border-outline-variant px-4 py-3 text-body-medium text-on-surface-variant">
+          Peserta yang <span className="font-medium text-on-surface">memenuhi</span> aturan justru dikeluarkan dari undian.
+          Aturan dievaluasi ulang setiap kali mengundi, jadi peserta baru hasil sinkronisasi ikut tersaring otomatis.
         </p>
-        <p className="mt-4 mb-2 text-body-small font-semibold ed-label text-on-surface-variant">Mulai cepat</p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {TEMPLATES.map((template) => <button
-            key={template.label}
-            type="button"
-            onClick={() => { setEditingId("new"); setDraft(template.draft()); setPreview(null); setError(""); }}
-            className="rounded-lg border border-outline-variant p-3 text-left hover:border-primary"
-          >
-            <span className="block text-body-medium font-semibold">{template.label}</span>
-            <span className="mt-1 block text-label-small leading-snug text-on-surface-variant">{template.hint}</span>
-          </button>)}
-        </div>
-      </div> : rules.length > 0 && <ul className="mt-4 space-y-2">
-        {rules.map((rule) => {
-          const hit = counts[rule.id] ?? 0;
-          return <li key={rule.id} className={`rounded-lg border p-3 ${rule.is_active ? "border-outline-variant" : "border-outline-variant opacity-55"} ${editingId === rule.id ? "ring-2 ring-inset ring-primary" : ""}`}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">{rule.name}</span>
-                  {!rule.is_active && <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-label-small font-semibold uppercase text-on-surface-variant">Nonaktif</span>}
-                  {rule.prize_id !== null && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-label-small font-semibold uppercase text-primary">
-                    {prizes.find((prize) => prize.id === rule.prize_id)?.name ?? "hadiah tertentu"}
-                  </span>}
-                </div>
-                <p className="mt-1 text-body-small text-on-surface-variant">Kecualikan bila: {describeConditions(rule.conditions)}</p>
-                {rule.note && <p className="mt-1 text-body-small italic text-on-surface-variant">{rule.note}</p>}
-                {/* Angka nol ditandai, bukan disembunyikan. Aturan yang tidak
-                    mengenai siapa pun hampir selalu salah tulis, dan itu satu-satunya
-                    petunjuk yang tersedia sebelum acara. */}
-                <p className={`mt-1.5 text-body-small font-semibold tabular-nums ${hit === 0 ? "text-warning" : "text-primary"}`}>
-                  {hit === 0
-                    ? "Tidak mengenai satu peserta pun — periksa lagi ejaan nilainya."
-                    : `${hit} dari ${totalParticipants} peserta dikecualikan`}
-                </p>
-              </div>
-              <div className="flex shrink-0 flex-wrap gap-2">
-                <button type="button" onClick={() => openEditor(rule)} className="rounded-md min-h-10 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">Ubah</button>
-                <button type="button" onClick={() => void toggleActive(rule)} className="rounded-md min-h-10 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
-                  {rule.is_active ? "Matikan" : "Aktifkan"}
+
+        {error && !editing ? <div className="border-b border-outline-variant p-4"><ErrorLine>{error}</ErrorLine></div> : null}
+
+        {!loaded ? <PageLoading /> : loadFailed ? null : rules.length === 0 ? (
+          <div className="border-b border-outline-variant px-4 py-4">
+            <p className="text-body-medium text-on-surface-variant">Belum ada aturan. Semua peserta aktif ikut diundi. Mulai dari salah satu pola ini:</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {TEMPLATES.map((template) => (
+                <button
+                  key={template.label}
+                  type="button"
+                  disabled={editing}
+                  onClick={() => { setEditingId("new"); setDraft(template.draft()); setPreview(null); setError(""); }}
+                  className="rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-left text-body-medium hover:bg-primary-soft disabled:opacity-50"
+                >
+                  <span className="block font-medium">{template.label}</span>
+                  <span className="mt-0.5 block text-on-surface-variant">{template.hint}</span>
                 </button>
-                {confirmDelete === rule.id
-                  ? <>
-                    <button type="button" onClick={() => void remove(rule.id)} className="rounded-md min-h-10 border border-error bg-error px-3 text-body-small font-semibold text-on-error">Ya, hapus</button>
-                    <button type="button" onClick={() => setConfirmDelete(null)} className="rounded-md min-h-10 border border-outline-variant px-3 text-body-small font-semibold">Batal</button>
-                  </>
-                  : <button type="button" onClick={() => setConfirmDelete(rule.id)} className="rounded-md flex min-h-10 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold text-error hover:border-error"><Trash size={14} /></button>}
-              </div>
+              ))}
             </div>
-          </li>;
-        })}
-      </ul>}
-    </div>
-
-    {editingId !== null && <div className="rounded-lg bg-panel p-5">
-      <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">
-        {editingId === "new" ? "Aturan baru" : "Ubah aturan"}
-      </h3>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div>
-          <label htmlFor="rule-name" className={labelClass}>Nama aturan</label>
-          <input id="rule-name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} className={`${inputClass} mt-1.5`} placeholder="Panitia & MC" />
-        </div>
-        <div>
-          <label htmlFor="rule-prize" className={labelClass}>Berlaku untuk</label>
-          <select id="rule-prize" value={draft.prize_id ?? 0} onChange={(event) => setDraft({ ...draft, prize_id: Number(event.target.value) || null })} className={`${inputClass} mt-1.5`}>
-            <option value={0}>Semua hadiah</option>
-            {prizes.map((prize) => <option key={prize.id} value={prize.id}>Hanya: {prize.name}</option>)}
-          </select>
-        </div>
-      </div>
-
-      <div className="mt-3">
-        <label htmlFor="rule-note" className={labelClass}>Catatan</label>
-        <input id="rule-note" value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} className={`${inputClass} mt-1.5`} placeholder="Opsional — alasan aturan ini dibuat" />
-      </div>
-
-      <div className="mt-4">
-        <p className={labelClass}>Kecualikan peserta yang memenuhi</p>
-        <div className="mt-2">
-          <UndianConditionBuilder
-            value={draft.conditions}
-            participantTypes={participantTypes}
-            rsvpStatuses={rsvpStatuses}
-            companies={companies}
-            tone="exclude"
-            onChange={(next) => setDraft({ ...draft, conditions: next })}
-          />
-        </div>
-      </div>
-
-      {/* Pratinjau. Daftar nama, bukan sekadar jumlah: angka nol masih bisa
-          diabaikan sebagai kebetulan, daftar kosong di sebelah kolom yang baru
-          diketik jauh lebih sulit dilewatkan. */}
-      {visiblePreview && !visiblePreview.incomplete && <div className={`rounded-lg mt-4 border p-3 ${visiblePreview.matched === 0 ? "border-warning-soft-outline bg-warning-soft" : "border-primary/40 bg-primary-soft"}`}>
-        {visiblePreview.matched === 0 ? <p className="flex items-start gap-2 text-body-medium font-semibold text-warning">
-          <Warning size={16} className="mt-0.5 shrink-0" />
-          {visiblePreview.has_invalid
-            // Dua sebab berbeda untuk angka nol yang sama, dan tindakannya berbeda
-            // pula: syarat yang belum lengkap harus dilengkapi, sedangkan syarat
-            // yang lengkap tapi tidak mengenai siapa pun berarti ejaannya keliru.
-            ? "Ada syarat yang belum lengkap. Lengkapi nilainya — selama masih kosong, aturan ini tidak akan pernah berlaku."
-            : "Tidak ada peserta yang cocok. Periksa ejaan nilainya, atau coba pembanding “mengandung”."}
-        </p> : <>
-          <p className="flex items-center gap-2 text-body-medium font-semibold text-primary-dim">
-            <Prohibit size={16} /> {visiblePreview.matched} dari {visiblePreview.total_participants} peserta akan dikecualikan
-          </p>
-          <ul className="mt-2 grid gap-0.5 text-body-small text-primary-dim/85 sm:grid-cols-2">
-            {visiblePreview.sample.map((row) => <li key={row.participant_id} className="truncate">
-              {row.name}{row.company ? ` — ${row.company}` : ""}
-            </li>)}
+          </div>
+        ) : (
+          <ul>
+            {rules.map((rule) => {
+              const hit = counts[rule.id] ?? 0;
+              const selected = editingId === rule.id;
+              return (
+                <li key={rule.id} className={cx("flex items-start gap-2 border-b border-outline-variant pr-3", selected ? "bg-secondary-container" : "hover:bg-primary-soft")}>
+                  <button
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => { if (selected) setEditingId(null); else openEditor(rule); }}
+                    className={cx("min-w-0 flex-1 rounded-sm px-4 py-2.5 text-left text-body-medium", !rule.is_active && "text-on-surface-variant")}
+                  >
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-medium">{rule.name}</span>
+                      {!rule.is_active ? <StatusChip>Nonaktif</StatusChip> : null}
+                      {rule.prize_id !== null ? <StatusChip tone="primary">{prizes.find((prize) => prize.id === rule.prize_id)?.name ?? "Hadiah tertentu"}</StatusChip> : null}
+                    </span>
+                    <span className="mt-0.5 block text-on-surface-variant">Kecualikan bila: {describeConditions(rule.conditions)}</span>
+                    {rule.note ? <span className="mt-0.5 block text-on-surface-variant">{rule.note}</span> : null}
+                    {/* Angka nol ditandai, bukan disembunyikan. Aturan yang tidak
+                        mengenai siapa pun hampir selalu salah tulis, dan itu
+                        satu-satunya petunjuk yang tersedia sebelum acara. */}
+                    <span className={cx("mt-0.5 block tabular-nums", hit === 0 ? "font-medium text-warning" : "text-on-surface")}>
+                      {hit === 0 ? "Tidak mengenai satu peserta pun. Periksa lagi ejaan nilainya." : `${hit} dari ${totalParticipants} peserta dikecualikan`}
+                    </span>
+                  </button>
+                  <Button variant="text" size="sm" className="mt-1.5 shrink-0" loading={toggling === rule.id} onClick={() => void toggleActive(rule)}>
+                    {rule.is_active ? "Matikan" : "Aktifkan"}
+                  </Button>
+                </li>
+              );
+            })}
           </ul>
-          {visiblePreview.matched > visiblePreview.sample.length && <p className="mt-1.5 text-body-small text-primary-dim/70">
-            dan {visiblePreview.matched - visiblePreview.sample.length} lainnya
-          </p>}
-        </>}
-      </div>}
+        )}
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" onClick={() => void save()} disabled={saving} className="rounded-md flex min-h-12 items-center gap-2 border border-primary bg-primary px-5 text-body-medium font-semibold text-on-primary disabled:opacity-60">
-          <FloppyDisk size={18} /> {saving ? "Menyimpan..." : "Simpan aturan"}
-        </button>
-        <button type="button" onClick={() => setEditingId(null)} className="rounded-md min-h-12 border border-outline-variant px-5 text-body-medium font-semibold">Batal</button>
-        <label className="rounded-md flex min-h-12 cursor-pointer items-center gap-2 border border-outline-variant px-4 text-body-medium">
-          <input type="checkbox" checked={draft.is_active} onChange={(event) => setDraft({ ...draft, is_active: event.target.checked })} className="h-4 w-4 accent-primary" />
-          <CheckCircle size={16} /> Aktif
-        </label>
-      </div>
-    </div>}
-  </div>;
+        <section aria-labelledby="pengecualian-per-orang" className="px-4 py-4">
+          <h3 id="pengecualian-per-orang" className="flex items-center gap-2 text-body-medium font-semibold">
+            <Prohibit size={16} aria-hidden /> Pengecualian per orang
+            <span className="font-normal tabular-nums text-on-surface-variant">{exclusions.length}</span>
+          </h3>
+          <p className="mt-1 text-body-medium text-on-surface-variant">
+            Untuk kasus tanpa pola, mis. satu orang yang kebetulan jadi MC malam ini. Yang punya pola sebaiknya dibuat sebagai aturan di atas, supaya peserta baru hasil sinkronisasi ikut tersaring.
+            Tambahkan lewat panel detail di halaman <Link href="/admin/participants" className="rounded-sm font-medium text-primary hover:underline">Daftar peserta</Link>.
+          </p>
+        </section>
+        {exclusions.length === 0 ? (
+          <p className="px-4 pb-4 text-body-medium text-on-surface-variant">Belum ada peserta yang dikecualikan satu per satu.</p>
+        ) : (
+          <ul className="border-t border-outline-variant">
+            {exclusions.map((item) => (
+              <li key={item.participant_id} className="flex items-center gap-3 border-b border-outline-variant px-4 py-2.5 text-body-medium">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{item.name}</p>
+                  <p className="truncate text-on-surface-variant">{[item.company, item.reason].filter(Boolean).join(" · ") || "Tanpa perusahaan"}</p>
+                </div>
+                <Button variant="text" size="sm" loading={restoring === item.participant_id} onClick={() => void restore(item.participant_id)}>Ikutkan lagi</Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </PaneBody>
+    </Pane>
+  );
+
+  const existing = typeof editingId === "number" ? rules.find((rule) => rule.id === editingId) ?? null : null;
+
+  const detail = editing ? (
+    <Pane as="aside" aria-label={editingId === "new" ? "Aturan baru" : "Ubah aturan"}>
+      <PaneHeader className="px-5 py-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-title-medium font-semibold">{editingId === "new" ? "Aturan baru" : draft.name || "Ubah aturan"}</h2>
+          <p className="text-body-medium text-on-surface-variant">Peserta yang memenuhi syarat di bawah dikecualikan.</p>
+        </div>
+        <IconButton size="sm" label="Tutup penyunting aturan" onClick={() => setEditingId(null)} disabled={saving}><X size={16} /></IconButton>
+      </PaneHeader>
+      <PaneBody>
+        <form id="form-aturan" onSubmit={(event) => { event.preventDefault(); void save(); }}>
+          {error ? <div className="px-5 pt-4"><ErrorLine>{error}</ErrorLine></div> : null}
+          <DetailSection title="Aturan">
+            <Switch checked={draft.is_active} onChange={(checked) => setDraft({ ...draft, is_active: checked })} label="Aktif" description="Aturan nonaktif tidak menyaring siapa pun." />
+            <div>
+              <label htmlFor="rule-name" className="block text-body-medium font-medium">Nama aturan</label>
+              <input id="rule-name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} className={INPUT} placeholder="Panitia dan MC" />
+            </div>
+            <div>
+              <label htmlFor="rule-prize" className="block text-body-medium font-medium">Berlaku untuk</label>
+              <select id="rule-prize" value={draft.prize_id ?? 0} onChange={(event) => setDraft({ ...draft, prize_id: Number(event.target.value) || null })} className={INPUT}>
+                <option value={0}>Semua hadiah</option>
+                {prizes.map((prize) => <option key={prize.id} value={prize.id}>Hanya: {prize.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="rule-note" className="block text-body-medium font-medium">Catatan</label>
+              <input id="rule-note" value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} className={INPUT} placeholder="Opsional, alasan aturan ini dibuat" />
+            </div>
+          </DetailSection>
+
+          <DetailSection title="Kecualikan peserta yang memenuhi">
+            <UndianConditionBuilder
+              value={draft.conditions}
+              participantTypes={participantTypes}
+              rsvpStatuses={rsvpStatuses}
+              companies={companies}
+              tone="exclude"
+              onChange={(next) => setDraft({ ...draft, conditions: next })}
+            />
+
+            {/* Pratinjau. Daftar nama, bukan sekadar jumlah: angka nol masih bisa
+                diabaikan sebagai kebetulan, daftar kosong di sebelah kolom yang
+                baru diketik jauh lebih sulit dilewatkan. */}
+            {visiblePreview && !visiblePreview.incomplete ? (
+              <div className={cx("rounded-md p-3 text-body-medium", visiblePreview.matched === 0 ? "bg-warning-soft" : "bg-surface-container-high")} aria-live="polite">
+                {visiblePreview.matched === 0 ? (
+                  <p className="flex items-start gap-2 font-medium text-on-surface">
+                    <Warning size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+                    {visiblePreview.has_invalid
+                      // Dua sebab berbeda untuk angka nol yang sama, dan tindakannya
+                      // berbeda pula: syarat yang belum lengkap harus dilengkapi,
+                      // sedangkan syarat yang lengkap tapi tidak mengenai siapa pun
+                      // berarti ejaannya keliru.
+                      ? "Ada syarat yang belum lengkap. Selama nilainya masih kosong, aturan ini tidak akan pernah berlaku."
+                      : "Tidak ada peserta yang cocok. Periksa ejaan nilainya, atau coba pembanding “mengandung”."}
+                  </p>
+                ) : (
+                  <>
+                    <p className="flex items-center gap-2 font-medium tabular-nums">
+                      <Funnel size={16} aria-hidden /> {visiblePreview.matched} dari {visiblePreview.total_participants} peserta akan dikecualikan
+                    </p>
+                    <ul className="mt-1.5 grid gap-0.5 text-on-surface-variant sm:grid-cols-2">
+                      {visiblePreview.sample.map((row) => (
+                        <li key={row.participant_id} className="truncate">{row.name}{row.company ? `, ${row.company}` : ""}</li>
+                      ))}
+                    </ul>
+                    {visiblePreview.matched > visiblePreview.sample.length ? (
+                      <p className="mt-1 text-on-surface-variant">dan {visiblePreview.matched - visiblePreview.sample.length} lainnya</p>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            ) : null}
+          </DetailSection>
+        </form>
+      </PaneBody>
+      <PaneFooter note={existing ? <Button variant="text" size="sm" className="-ml-3 text-error" icon={<Trash size={16} />} disabled={saving} onClick={() => setConfirmDelete(existing)}>Hapus aturan</Button> : undefined}>
+        <Button type="submit" form="form-aturan" size="sm" loading={saving} icon={<FloppyDisk size={16} />}>Simpan aturan</Button>
+      </PaneFooter>
+    </Pane>
+  ) : null;
+
+  return (
+    <>
+      {loadFailed ? (
+        <EmptyState
+          icon={<Warning size={40} />}
+          title="Aturan pengecualian gagal dimuat"
+          description="Periksa koneksi, lalu coba lagi."
+          action={<Button variant="outlined" size="sm" onClick={() => void load()}>Coba lagi</Button>}
+        />
+      ) : <ListDetail list={list} detail={detail} detailWidth={560} />}
+      <Dialog
+        open={confirmDelete !== null}
+        onClose={() => setConfirmDelete(null)}
+        dismissible={!deleting}
+        tone="danger"
+        title={`Hapus aturan ${confirmDelete?.name ?? ""}?`}
+        description="Peserta yang tadinya tersaring kembali ikut undian berikutnya. Pemenang yang sudah keluar tidak berubah. Penghapusan tercatat di jejak audit."
+        actions={
+          <>
+            <Button variant="outlined" disabled={deleting} onClick={() => setConfirmDelete(null)}>Batal</Button>
+            <Button variant="danger" loading={deleting} onClick={() => { if (confirmDelete) void remove(confirmDelete.id); }}>Hapus aturan</Button>
+          </>
+        }
+      />
+    </>
+  );
+}
+
+function ErrorLine({ children }: { children: React.ReactNode }) {
+  return <p role="alert" className="flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><Warning size={16} className="mt-0.5 shrink-0" aria-hidden />{children}</p>;
 }

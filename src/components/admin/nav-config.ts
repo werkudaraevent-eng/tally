@@ -119,7 +119,8 @@ export const navigation: NavGroup[] = [
       // Item spesial dulu menu tersendiri. Ia katalog barang yang dijual booth
       // yang sama, dan dua menu untuk satu katalog membuat admin mencari harga
       // di tempat yang salah lebih dulu. Sekarang tab di dalam Booth & item.
-      { href: "/admin/booths", label: "Booth & item", icon: Storefront, description: "Booth, item spesial, dan metode pembayaran." },
+      // Metode pembayaran tidak di sini: ia tab Pembayaran di Pengaturan.
+      { href: "/admin/booths", label: "Booth & item", icon: Storefront, description: "Booth dan item spesial yang dijual di tiap booth." },
       { href: "/admin/reports", label: "Laporan", icon: Receipt, description: "Angka rekonsiliasi acara untuk dicocokkan dengan kasir." },
     ],
   },
@@ -129,12 +130,13 @@ export const navigation: NavGroup[] = [
  * Halaman yang TIDAK ada di sidebar, tetapi tetap butuh judul dan tetap harus
  * bisa ditemukan lewat palet perintah.
  *
- * Pengaturan dicapai lewat menu akun di pojok kanan. Keduanya dibuka sekali saat
+ * Pengaturan dicapai lewat menu akun di pojok kanan; User & role lewat palet
+ * perintah dan tautan di kepala halaman Pengaturan. Keduanya dibuka sekali saat
  * menyiapkan sistem lalu nyaris tidak disentuh lagi selama acara berjalan;
  * sidebar disisakan untuk tujuan yang benar-benar ditekan panitia sepanjang hari.
  */
 export const halamanSistem: NavItem[] = [
-  { href: "/admin/settings", label: "Pengaturan", icon: GearSix, description: "Zona waktu, alur order, akun panitia, dan jejak audit." },
+  { href: "/admin/settings", label: "Pengaturan", icon: GearSix, description: "Zona waktu, alur order, metode pembayaran, integrasi, dan jejak audit." },
   { href: "/admin/users", label: "User & role", icon: ShieldCheck, description: "Akun panitia, perannya, dan reset PIN." },
 ];
 

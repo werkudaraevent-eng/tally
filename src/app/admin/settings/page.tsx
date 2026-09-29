@@ -1,77 +1,83 @@
 "use client";
 
-import { ClipboardText, GearSix, PlugsConnected, ShieldCheck } from "@phosphor-icons/react";
+import Link from "@/components/event-link";
 import { useEffect, useState } from "react";
-import { PageHeader, SegmentedButton } from "@/components/m3";
+import { MetaSeparator, Tabs, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { AuditPanel } from "@/components/admin/audit-panel";
+import { PaymentMethodManager } from "@/components/admin/payment-method-manager";
 import { ScannerPanel } from "@/components/admin/scanner-panel";
-import { SettingsPanel } from "@/components/admin/settings-panel";
-import { UsersPanel } from "@/components/admin/users-panel";
+import { DangerZonePanel, SettingsPanel } from "@/components/admin/settings-panel";
 
 /**
- * Pengaturan sistem: preferensi acara, akun, dan riwayat perubahannya.
+ * Pengaturan sistem, satu panel bertab. Isinya hal-hal yang disiapkan sekali
+ * sebelum acara lalu nyaris tidak disentuh: preferensi acara, metode
+ * pembayaran, integrasi, dan riwayat perubahannya.
  *
- * Ketiganya dulu menu tersendiri di sidebar. Ketiganya juga dibuka pada momen
- * yang sama — saat menyiapkan sistem sebelum acara, atau saat memeriksa siapa
- * mengubah apa — bukan sebagai tujuan yang dicari terpisah di tengah hari-H.
- * Menyatukannya mengosongkan tiga baris dari daftar menu yang dipakai panitia
- * sepanjang acara, dan menempatkan riwayat tepat di sebelah hal yang diubahnya.
- *
- * Pola yang sama dipakai Stripe dan Shopify: "Settings" satu entri, isinya punya
- * navigasi sendiri.
+ * Akun panitia sudah bukan tab di sini. Ia halaman sendiri di /admin/users
+ * (list-detail), karena yang dikerjakan di sana memilih satu akun dari daftar,
+ * bukan mengisi formulir setelan.
  */
 
-type Tab = "settings" | "integrations" | "users" | "audit";
+type Tab = "acara" | "pembayaran" | "integrasi" | "audit" | "bahaya";
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>("settings");
+  const [tab, setTab] = useState<Tab>("acara");
   const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
-    // Tab audit hanya ada untuk pemilik sistem. Servernya tetap menolak lewat
-    // requireUser(["super_admin"]) — ini semata agar klien tidak menekan tab yang
-    // pasti membalas galat.
+    // Jejak audit dan Zona bahaya hanya untuk pemilik sistem. Servernya tetap
+    // menolak lewat requireRequestEvent(["super_admin"]); ini semata agar klien
+    // tidak menekan tab yang pasti membalas galat.
     const timer = window.setTimeout(() => {
       void fetch("/api/auth/me", { cache: "no-store" }).then(async (response) => {
         if (response.ok) setIsOwner((await response.json()).user?.role === "super_admin");
-      });
+      }).catch(() => {});
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
-  // Tab yang tidak berhak dibuka dipulangkan ke Pengaturan. Terjadi bila status
-  // pemilik baru diketahui setelah tab audit sempat dipilih.
-  const aktif: Tab = tab === "audit" && !isOwner ? "settings" : tab;
+  // Tab yang tidak berhak dibuka dipulangkan ke Acara. Terjadi bila status
+  // pemilik baru diketahui setelah tab khusus pemilik sempat dipilih.
+  const aktif: Tab = (tab === "audit" || tab === "bahaya") && !isOwner ? "acara" : tab;
 
   return (
-    <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
-      <div className="mx-auto max-w-[1440px]">
-        <PageHeader />
-        <SegmentedButton<Tab>
-          className="mb-6"
-          label="Bagian pengaturan"
-          value={aktif}
-          onChange={setTab}
-          options={[
-            { value: "settings", label: "Acara", icon: <GearSix size={18} /> },
-            // Integrasi duduk di sini, bukan sebagai menu sidebar sendiri: ia
-            // diisi sekali saat acara disiapkan, sama seperti dua tab di
-            // sebelahnya, dan sidebar disisakan untuk tujuan yang benar-benar
-            // ditekan panitia sepanjang hari.
-            { value: "integrations", label: "Integrasi", icon: <PlugsConnected size={18} /> },
-            { value: "users", label: "User & role", icon: <ShieldCheck size={18} /> },
-            ...(isOwner ? [{ value: "audit" as const, label: "Audit trail", icon: <ClipboardText size={18} /> }] : []),
-          ]}
-        />
+    <WorkspacePage width="form">
+      <WorkspaceHeader
+        meta={
+          <>
+            <span>Berlaku di semua perangkat dalam 30 detik</span>
+            <MetaSeparator />
+            <span>Setiap perubahan tercatat di jejak audit</span>
+            <MetaSeparator />
+            <span>Akun panitia ada di <Link href="/admin/users" className="rounded-sm font-medium text-primary hover:underline">User &amp; role</Link></span>
+          </>
+        }
+      />
 
-        {/* Panel yang tidak aktif DILEPAS, bukan disembunyikan dengan CSS.
-            Masing-masing memuat datanya sendiri saat dipasang; membiarkan yang
-            tersembunyi tetap hidup berarti daftar akun dimuat ulang setiap kali
-            settings disimpan, tanpa ada yang melihatnya. */}
-        {aktif === "settings" ? <SettingsPanel />
-          : aktif === "integrations" ? <ScannerPanel />
-          : aktif === "users" ? <UsersPanel /> : <AuditPanel />}
+      <Tabs<Tab>
+        label="Bagian pengaturan"
+        idPrefix="pengaturan"
+        value={aktif}
+        onChange={setTab}
+        options={[
+          { value: "acara", label: "Acara" },
+          { value: "pembayaran", label: "Pembayaran" },
+          // Integrasi duduk di sini, bukan sebagai menu sidebar sendiri: ia diisi
+          // sekali saat acara disiapkan, sama seperti tab di sebelahnya.
+          { value: "integrasi", label: "Integrasi" },
+          ...(isOwner ? [{ value: "audit" as const, label: "Jejak audit" }, { value: "bahaya" as const, label: "Zona bahaya" }] : []),
+        ]}
+      />
+
+      {/* Panel yang tidak aktif DILEPAS, bukan disembunyikan dengan CSS.
+          Masing-masing memuat datanya sendiri saat dipasang. */}
+      <div role="tabpanel" id={`pengaturan-panel-${aktif}`} aria-labelledby={`pengaturan-tab-${aktif}`} className="flex flex-col gap-4">
+        {aktif === "acara" ? <SettingsPanel />
+          : aktif === "pembayaran" ? <PaymentMethodManager />
+          : aktif === "integrasi" ? <ScannerPanel />
+          : aktif === "audit" ? <AuditPanel />
+          : <DangerZonePanel />}
       </div>
-    </main>
+    </WorkspacePage>
   );
 }

@@ -106,7 +106,7 @@ export function ConditionBuilder({
       </button>}
     </div>
 
-    {value.children.length === 0 && depth === 0 && <p className="mt-2 text-body-small text-on-surface-variant">Tanpa syarat — penawaran terbuka untuk semua peserta.</p>}
+    {value.children.length === 0 && depth === 0 && <p className="mt-2 text-body-small text-on-surface-variant">Tanpa syarat: penawaran terbuka untuk semua peserta.</p>}
   </div>;
 }
 

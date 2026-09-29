@@ -53,5 +53,11 @@ export type { TextFieldProps, TextAreaProps, SelectFieldProps } from "./text-fie
 
 export { ThemeToggle } from "./theme-toggle";
 
+export {
+	ChipMenu, ColumnMenu, DetailSection, KeyValue, ListDetail, ListRow, MetaSeparator, Pane, PaneBody, PaneFooter, PaneHeader,
+	StatusDot, SupportingPane, useColumnPrefs, WorkspaceHeader, WorkspacePage,
+} from "./workspace";
+export type { ChipMenuOption, ChipMenuProps, ColumnOption, ListDetailProps, WorkspaceHeaderProps, WorkspacePageProps } from "./workspace";
+
 export { TopAppBar, useScrolledPastTop } from "./top-app-bar";
 export type { TopAppBarProps } from "./top-app-bar";

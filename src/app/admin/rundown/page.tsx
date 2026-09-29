@@ -1,20 +1,24 @@
 "use client";
 
-import { ArrowSquareOut, CalendarDots, Coffee, Eye, EyeSlash, FloppyDisk, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
-import Link from "@/components/event-link";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowSquareOut, Info, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { useToast } from "@/components/toast";
 import { normalizeBranding } from "@/lib/branding";
+import { cx } from "@/lib/m3/cx";
 import { DEFAULT_HEADER, formatClock, formatEventDate, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
-import { PageHeader } from "@/components/m3";
+import {
+  Banner, Button, ButtonLink, Dialog, EmptyState, ListRow, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
+  SegmentedButton, StatusChip, SupportingPane, Switch, Tabs, TextArea, TextField, WorkspaceHeader, WorkspacePage,
+} from "@/components/m3";
 
-// CMS rundown acara.
+// CMS rundown acara. Supporting pane: jadwal bagian aktif di panel utama,
+// penyunting di panel kanan (baris terpilih, setelan bagian, header publik).
 //
 // Bentuknya daftar, bukan kanvas: rundown adalah urutan waktu, dan satu-satunya
 // tata letak yang benar adalah dari jam paling awal ke paling akhir. Karena itu
-// tidak ada drag-and-drop di sini — urutan dihitung dari jam mulai, sehingga
+// tidak ada drag-and-drop di sini: urutan dihitung dari jam mulai, sehingga
 // admin yang mengetik jam yang benar tidak perlu lagi menyusun ulang barisnya.
 // Kolom `sort_order` tetap ada untuk memisahkan dua butir berjam sama.
 
@@ -23,7 +27,11 @@ type Payload = { sections: RundownSection[]; items: RundownItem[] };
 /** Baris baru yang sedang diisi, per bagian. */
 type Draft = { start_time: string; end_time: string; title: string; subtitle: string; is_break: boolean };
 
+type Panel = "baris" | "bagian" | "header";
+
 const EMPTY_DRAFT: Draft = { start_time: "", end_time: "", title: "", subtitle: "", is_break: false };
+
+const CONTOH_KETERANGAN = "Panelists:\nSantoso, Chairman - ASPI\nModerator:\nAbraham J. Adriaansz, President Director - PT Rintis Sejahtera";
 
 // Nilai yang ditampilkan <input type="color"> ketika kolomnya masih null.
 //
@@ -37,14 +45,35 @@ const BRANDING_FALLBACK = {
   accent_color: "#2649d0",
 } as const;
 
+function Kelompok({ title, children, first, note }: { title: string; children: ReactNode; first?: boolean; note?: ReactNode }) {
+  return (
+    <section className={cx("flex flex-col gap-4", !first && "border-t border-outline-variant pt-5")}>
+      <div>
+        <h3 className="text-body-medium font-semibold text-on-surface">{title}</h3>
+        {note ? <p className="mt-1 text-body-medium text-on-surface-variant">{note}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function fokusJudulBaru() {
+  window.setTimeout(() => document.querySelector<HTMLInputElement>("[data-draft-title]")?.focus(), 0);
+}
+
 export default function RundownAdminPage() {
   const [sections, setSections] = useState<RundownSection[]>([]);
   const [items, setItems] = useState<RundownItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  const [panel, setPanel] = useState<Panel>("baris");
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
+  const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
   const [creatingSection, setCreatingSection] = useState(false);
   const [savingSection, setSavingSection] = useState(false);
+  const [deletingSection, setDeletingSection] = useState(false);
   const [uploadingBackground, setUploadingBackground] = useState(false);
   // Header berdiri sendiri dari bagian: satu setelan untuk seluruh acara, dengan
   // tombol Simpan sendiri. Digabung ke tombol Simpan bagian, admin yang hanya ingin
@@ -57,10 +86,10 @@ export default function RundownAdminPage() {
   // yang sedang bekerja.
   const [savingItem, setSavingItem] = useState<number | null>(null);
   const [deletingItem, setDeletingItem] = useState<number | null>(null);
-  // Konfirmasi hapus ditahan di dalam barisnya sendiri, bukan lewat dialog
-  // browser: satu klik tak sengaja tidak boleh langsung membuang data.
-  const [confirmItem, setConfirmItem] = useState<number | null>(null);
-  const [confirmSection, setConfirmSection] = useState<number | null>(null);
+  // Konfirmasi hapus lewat dialog: satu klik tak sengaja tidak boleh langsung
+  // membuang data.
+  const [confirmItem, setConfirmItem] = useState<RundownItem | null>(null);
+  const [confirmSection, setConfirmSection] = useState<RundownSection | null>(null);
   const [error, setError] = useState("");
   // Zona acara dipakai supaya tanggal yang diecho di bawah kolom tanggal dihitung
   // dengan zona yang sama dengan halaman publik. Kalau tidak, admin bisa membaca
@@ -71,10 +100,12 @@ export default function RundownAdminPage() {
   async function load() {
     // Bagian dan header dimuat bersamaan: keduanya dibutuhkan sebelum halaman ini
     // berguna, dan memuatnya berurutan hanya menambah satu perjalanan jaringan.
-    const [sectionResponse, headerResponse] = await Promise.all([
+    const hasil = await Promise.all([
       fetch("/api/admin/rundown/sections", { cache: "no-store" }),
       fetch("/api/admin/rundown/header", { cache: "no-store" }),
-    ]);
+    ]).catch(() => null);
+    if (!hasil) { setError("Koneksi terputus. Data rundown tidak bisa dimuat."); return; }
+    const [sectionResponse, headerResponse] = hasil;
     if (!sectionResponse.ok) { setError("Data rundown gagal dimuat."); return; }
     const data = (await sectionResponse.json()) as Payload;
     setSections(data.sections);
@@ -83,6 +114,7 @@ export default function RundownAdminPage() {
     // Header yang gagal dimuat tidak menggagalkan seluruh halaman: jadwalnya tetap
     // bisa disusun, dan nilai bawaan tetap aman disimpan.
     if (headerResponse.ok) setHeader((await headerResponse.json()) as RundownHeader);
+    setLoaded(true);
   }
 
   // setState langsung di badan effect ditolak React Compiler, jadi pemuatan awal
@@ -104,6 +136,8 @@ export default function RundownAdminPage() {
       .sort((a, b) => a.start_time.localeCompare(b.start_time) || a.sort_order - b.sort_order);
   }, [items, activeId]);
 
+  const selectedItem = activeItems.find((item) => item.id === selectedItemId) ?? null;
+
   // Branding dinormalisasi sebelum diserahkan ke <BrandingEditor>.
   //
   // Kolom skala bertipe `numeric` dan datang dari driver sebagai string; editor
@@ -123,6 +157,17 @@ export default function RundownAdminPage() {
     setHeader((current) => ({ ...current, ...changes }));
   }
 
+  function pilihBagian(id: number) {
+    setActiveId(id);
+    setSelectedItemId(null);
+  }
+
+  function mulaiTambahBaris() {
+    setSelectedItemId(null);
+    setPanel("baris");
+    fokusJudulBaru();
+  }
+
   /**
    * Unggah gambar latar header.
    *
@@ -131,8 +176,8 @@ export default function RundownAdminPage() {
    * memvalidasi jenis dan ukuran, lalu mengembalikan URL publik. Membuat endpoint
    * ketiga hanya menyalin aturan yang sama, dan salinan selalu berakhir berbeda.
    *
-   * Hasilnya hanya masuk state; admin tetap harus menekan Simpan, sama seperti
-   * perubahan warna dan judul di kartu ini.
+   * Hasilnya hanya masuk state; admin tetap harus menekan Simpan header, sama
+   * seperti perubahan warna dan judul.
    */
   async function uploadHeaderBackground(file: File) {
     setUploadingBackground(true); setError("");
@@ -200,7 +245,9 @@ export default function RundownAdminPage() {
       return;
     }
     setNewSectionName("");
-    setActiveId((data as RundownSection).id);
+    setAddSectionOpen(false);
+    pilihBagian((data as RundownSection).id);
+    setPanel("bagian");
     toast.success("Bagian ditambahkan", "Masih draf. Isi tanggal dan jadwalnya lalu publikasikan.");
     await load();
   }
@@ -220,7 +267,7 @@ export default function RundownAdminPage() {
         is_published: section.is_published,
         sort_order: section.sort_order,
         // Branding TIDAK dikirim dari sini. Ia setelan global dengan tombol Simpan
-        // sendiri di kartu Header, karena header adalah identitas acara.
+        // sendiri di panel Header publik, karena header adalah identitas acara.
       }),
     });
     const data = await response.json();
@@ -236,7 +283,9 @@ export default function RundownAdminPage() {
 
   async function deleteSection(section: RundownSection) {
     setError("");
+    setDeletingSection(true);
     const response = await fetch(`/api/admin/rundown/sections?id=${section.id}`, { method: "DELETE" });
+    setDeletingSection(false);
     setConfirmSection(null);
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
@@ -245,6 +294,7 @@ export default function RundownAdminPage() {
       return;
     }
     setActiveId(null);
+    setSelectedItemId(null);
     toast.success("Bagian dihapus", "Seluruh baris jadwalnya ikut terhapus.");
     await load();
   }
@@ -323,145 +373,271 @@ export default function RundownAdminPage() {
       setError(failure); toast.error("Baris gagal dihapus", failure);
       return;
     }
+    setSelectedItemId((current) => (current === item.id ? null : current));
     toast.success("Baris dihapus");
     await load();
   }
 
   const publishedCount = sections.filter((row) => row.is_published).length;
+  // Tanpa bagian, hanya header yang bisa disunting.
+  const panelAktif: Panel = active ? panel : "header";
 
-  // Elemen akar harus <main>: aturan offset sidebar di globals.css memakai
-  // selektor `.admin-shell > main`, jadi <div> di posisi ini membuat halaman
-  // tertindih sidebar di layar lg ke atas.
-  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
-    <div className="mx-auto max-w-[1440px] space-y-8">
-      <PageHeader />
-    <header className="space-y-3">
-      <p className="max-w-2xl text-body-medium leading-6 text-on-surface-variant">
-        Yang disusun di sini tampil di halaman <code className="font-mono text-body-small">/rundown</code> yang dibuka tamu tanpa login.
-        Halaman itu menandai acara yang sedang berlangsung memakai tanggal bagian dan jam tiap baris, jadi tanggal yang salah membuat penanda ikut salah.
-      </p>
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          href="/rundown"
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-4 text-body-medium font-semibold text-on-surface hover:bg-panel-high"
-        >
-          <ArrowSquareOut size={18} />Buka halaman publik
-        </Link>
-        <p className="text-body-small text-on-surface-variant">
-          {publishedCount === 0
-            ? "Belum ada bagian yang dipublikasikan, jadi halaman publik masih menampilkan pesan tunggu."
-            : `${publishedCount} dari ${sections.length} bagian tampil di publik.`}
-        </p>
+  // ---- Panel utama: jadwal bagian aktif -------------------------------------------
+  const jadwal = active ? (
+    <Pane aria-label={`Jadwal ${active.name}`}>
+      <PaneHeader>
+        <h2 className="text-body-medium font-semibold text-on-surface">Jadwal</h2>
+        <span className="tabular-nums text-body-medium text-on-surface-variant">{activeItems.length} baris</span>
+        <span className="min-w-0 flex-1 truncate text-body-medium text-on-surface-variant max-sm:hidden">Urut otomatis menurut jam mulai</span>
+        <Button variant="outlined" size="sm" className="ml-auto" icon={<Plus size={16} />} onClick={mulaiTambahBaris}>Tambah baris</Button>
+      </PaneHeader>
+      <PaneBody>
+        {activeItems.length === 0 ? (
+          <EmptyState
+            plain
+            title="Belum ada baris jadwal"
+            description="Isi formulir Baris baru di panel samping. Urutan mengikuti jam mulai, jadi tidak perlu disusun ulang."
+          />
+        ) : (
+          <div>
+            {activeItems.map((item) => {
+              const keterangan = (item.subtitle ?? "").split("\n").map((line) => line.trim()).filter(Boolean).join(" · ");
+              return (
+                <ListRow
+                  key={item.id}
+                  selected={item.id === selectedItemId}
+                  onSelect={() => { setSelectedItemId(item.id); setPanel("baris"); }}
+                  className="items-start py-3"
+                >
+                  <span className="w-28 shrink-0 tabular-nums text-on-surface">
+                    {formatClock(item.start_time)}{item.end_time ? `–${formatClock(item.end_time)}` : ""}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className={cx("min-w-0 truncate", item.is_break ? "text-on-surface-variant" : "font-medium text-on-surface")}>
+                        {item.title.trim() || "Tanpa nama"}
+                      </span>
+                      {item.is_break ? <StatusChip>Jeda</StatusChip> : null}
+                      {item.is_published ? null : <StatusChip tone="warning">Tidak tampil</StatusChip>}
+                    </span>
+                    {keterangan ? <span className="mt-0.5 block truncate text-on-surface-variant">{keterangan}</span> : null}
+                  </span>
+                </ListRow>
+              );
+            })}
+          </div>
+        )}
+      </PaneBody>
+    </Pane>
+  ) : (
+    <Pane aria-label="Jadwal">
+      <EmptyState
+        plain
+        title="Belum ada bagian rundown"
+        description="Bagian adalah tab di halaman publik, biasanya satu per hari atau per acara. Bagian baru dibuat sebagai draf."
+        action={<Button size="sm" icon={<Plus size={16} />} onClick={() => setAddSectionOpen(true)}>Tambah bagian</Button>}
+      />
+    </Pane>
+  );
+
+  // ---- Panel samping: baris --------------------------------------------------------
+  const isiBaris = selectedItem ? (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <h3 className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Sunting baris</h3>
+        <Button variant="text" size="sm" onClick={() => setSelectedItemId(null)}>Tutup</Button>
       </div>
-    </header>
+      <div className="grid grid-cols-2 gap-3">
+        <TextField
+          label="Mulai"
+          type="time"
+          inputClassName="tabular-nums"
+          value={formatClock(selectedItem.start_time)}
+          onChange={(event) => updateItem(selectedItem.id, { start_time: event.target.value })}
+        />
+        <TextField
+          label="Selesai"
+          optional
+          type="time"
+          inputClassName="tabular-nums"
+          value={selectedItem.end_time ? formatClock(selectedItem.end_time) : ""}
+          onChange={(event) => updateItem(selectedItem.id, { end_time: event.target.value || null })}
+        />
+      </div>
+      <TextField label="Nama acara" value={selectedItem.title} onChange={(event) => updateItem(selectedItem.id, { title: event.target.value })} />
+      {/* textarea, bukan input satu baris: satu butir acara bisa memuat beberapa
+          pembicara, dan tiap baris tampil sebagai butir terpisah di halaman publik. */}
+      <TextArea
+        label="Keterangan"
+        optional
+        rows={5}
+        placeholder={CONTOH_KETERANGAN}
+        hint="Satu baris per pembicara. Baris berakhiran titik dua jadi judul kelompok (mis. Moderator:) dan tidak diberi bulet."
+        value={selectedItem.subtitle ?? ""}
+        onChange={(event) => updateItem(selectedItem.id, { subtitle: event.target.value })}
+      />
+      <Switch
+        checked={selectedItem.is_break}
+        onChange={(checked) => updateItem(selectedItem.id, { is_break: checked })}
+        label="Jeda"
+        description="Tampil lebih redup di halaman publik."
+      />
+      <Switch
+        checked={selectedItem.is_published}
+        onChange={(checked) => updateItem(selectedItem.id, { is_published: checked })}
+        label="Tampil di publik"
+      />
+    </div>
+  ) : active ? (
+    <div className="flex flex-col gap-4">
+      <h3 className="text-body-medium font-semibold text-on-surface">Baris baru</h3>
+      <div className="grid grid-cols-2 gap-3">
+        <TextField label="Mulai" type="time" inputClassName="tabular-nums" value={draft.start_time} onChange={(event) => updateDraft({ start_time: event.target.value })} />
+        <TextField label="Selesai" optional type="time" inputClassName="tabular-nums" value={draft.end_time} onChange={(event) => updateDraft({ end_time: event.target.value })} />
+      </div>
+      <TextField
+        label="Nama acara"
+        placeholder="Mis. Opening Keynote Speech"
+        data-draft-title=""
+        value={draft.title}
+        onChange={(event) => updateDraft({ title: event.target.value })}
+      />
+      <TextArea
+        label="Keterangan"
+        optional
+        rows={5}
+        placeholder={CONTOH_KETERANGAN}
+        hint="Satu baris per pembicara. Baris berakhiran titik dua jadi judul kelompok."
+        value={draft.subtitle}
+        onChange={(event) => updateDraft({ subtitle: event.target.value })}
+      />
+      <Switch checked={draft.is_break} onChange={(checked) => updateDraft({ is_break: checked })} label="Jeda" description="Tampil lebih redup di halaman publik." />
+      <p className="text-body-medium text-on-surface-variant">Jam selesai boleh dikosongkan untuk penanda momen. Pilih baris di jadwal untuk menyuntingnya.</p>
+    </div>
+  ) : null;
 
-    {error ? <p role="alert" className="rounded-lg flex items-start gap-2 border border-error bg-panel px-4 py-3 text-body-medium text-error">
-      <Warning size={18} className="mt-0.5 shrink-0" />{error}
-    </p> : null}
-
-    {/* ------------------------------------------------------------------ */}
-    {/* Header halaman publik — SATU untuk seluruh acara                    */}
-    {/* ------------------------------------------------------------------ */}
-    {/* Ditaruh DI ATAS tab bagian, dan itu disengaja: posisinya di form harus
-        mencerminkan cakupannya. Selama kartu ini berada di dalam kartu bagian,
-        admin wajar menyimpulkan isinya berlaku untuk tab yang sedang dipilih —
-        dan dugaan itu memang benar sebelum perubahan ini, yang justru jadi
-        masalahnya. */}
-    <section className="rounded-lg space-y-4 border border-outline-variant bg-panel p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Header halaman publik</h2>
-          <p className="mt-1 max-w-2xl text-body-small leading-5 text-on-surface-variant">
-            Berlaku untuk <strong className="font-semibold text-on-surface">semua tab</strong>. Judul dan tampilan header tidak
-            lagi berubah saat tamu berpindah agenda. Isian tampilan bersifat opsional; dibiarkan kosong, header memakai tema bawaan.
-          </p>
+  // ---- Panel samping: bagian -------------------------------------------------------
+  const isiBagian = active ? (
+    <div className="flex flex-col gap-5">
+      <Kelompok title="Bagian ini" first>
+        <TextField
+          label="Label tab"
+          hint="Pendek, agar beberapa tab muat di layar ponsel."
+          value={active.name}
+          onChange={(event) => updateSection(active.id, { name: event.target.value })}
+        />
+        <TextField
+          label="Tanggal acara"
+          type="date"
+          hint={`Dipakai penanda sedang berlangsung. ${formatEventDate(active.event_date, zone)} (${abbr})`}
+          value={active.event_date}
+          onChange={(event) => updateSection(active.id, { event_date: event.target.value })}
+        />
+        {/* Kolom "Judul di halaman publik" dan "Sub judul" per bagian sengaja
+            tidak ada: judul header kini satu untuk seluruh acara (panel Header
+            publik). Kolomnya tetap ada di database supaya data lama tidak rusak. */}
+      </Kelompok>
+      <Kelompok title="Di halaman publik">
+        {/* Sakelar penanda ditaruh bersama tanggal karena keduanya satu urusan:
+            penanda hanya benar bila tanggalnya benar. */}
+        <Switch
+          checked={active.highlight_current}
+          onChange={(checked) => updateSection(active.id, { highlight_current: checked })}
+          label="Tandai acara yang sedang berlangsung"
+          description={active.highlight_current
+            ? "Halaman publik menyorot acara berjalan, menandai acara berikutnya, meredupkan yang sudah selesai, dan menggulir otomatis ke baris tersebut. Butuh tanggal di atas benar."
+            : "Jadwal tampil sebagai daftar biasa tanpa sorotan dan tanpa gulir otomatis. Pakai ini bila tanggal acara belum tiba."}
+        />
+        <Switch
+          checked={active.is_published}
+          onChange={(checked) => updateSection(active.id, { is_published: checked })}
+          label="Tampilkan di halaman publik"
+          description={`/rundown?sesi=${active.slug}`}
+        />
+      </Kelompok>
+      <section className="flex items-center gap-3 border-t border-outline-variant pt-5">
+        <div className="min-w-0 flex-1">
+          <p className="text-body-medium font-medium text-on-surface">Hapus bagian</p>
+          <p className="text-body-medium text-on-surface-variant">Seluruh baris jadwalnya ikut terhapus.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => void saveHeader()}
-          disabled={savingHeader}
-          className="rounded-md inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-50"
-        >
-          <FloppyDisk size={18} />{savingHeader ? "Menyimpan…" : "Simpan header"}
-        </button>
-      </div>
+        <Button variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmSection(active)}>Hapus</Button>
+      </section>
+    </div>
+  ) : null;
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-body-small font-semibold text-on-surface-variant">Judul acara</span>
-          <input
-            value={header.event_title}
-            onChange={(event) => updateHeader({ event_title: event.target.value })}
-            placeholder="Mis. PRIMA EXECUTIVE GATHERING"
-            className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium font-semibold"
-          />
-          <span className="text-body-small text-on-surface-variant">Tampil sama di semua tab.</span>
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-body-small font-semibold text-on-surface-variant">Sub judul acara</span>
-          <input
-            value={header.event_subtitle ?? ""}
-            onChange={(event) => updateHeader({ event_subtitle: event.target.value })}
-            placeholder="Mis. Beyond Tomorrow: Securing Progress"
-            className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium"
-          />
-          <span className="text-body-small text-on-surface-variant">Boleh dikosongkan. Maksimal dua baris di halaman publik.</span>
-        </label>
-      </div>
+  // ---- Panel samping: header publik -------------------------------------------------
+  // Header ditaruh di segmen tersendiri, bukan di dalam setelan bagian: posisinya
+  // harus mencerminkan cakupannya. Di dalam setelan bagian, admin wajar
+  // menyimpulkan isinya hanya berlaku untuk tab yang sedang dipilih.
+  const isiHeader = (
+    <div className="flex flex-col gap-5">
+      <p className="flex items-start gap-2 rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant">
+        <Info size={16} className="mt-0.5 shrink-0" aria-hidden />
+        Berlaku untuk semua tab. Isian tampilan opsional; bila dikosongkan, header memakai tema bawaan.
+      </p>
+      <Kelompok title="Judul" first>
+        <TextField
+          label="Judul acara"
+          hint="Tampil sama di semua tab."
+          placeholder="Mis. PRIMA EXECUTIVE GATHERING"
+          value={header.event_title}
+          onChange={(event) => updateHeader({ event_title: event.target.value })}
+        />
+        <TextField
+          label="Sub judul acara"
+          optional
+          hint="Maksimal dua baris di halaman publik."
+          placeholder="Mis. Beyond Tomorrow: Securing Progress"
+          value={header.event_subtitle ?? ""}
+          onChange={(event) => updateHeader({ event_subtitle: event.target.value })}
+        />
+      </Kelompok>
 
       {/* Warna boleh dikosongkan, dan itu tidak bisa dilakukan <input type="color">
-          yang selalu punya nilai. Jadi tiap warna dipasangkan tombol reset ke null.
-          Tanpa itu, admin yang sekali mencoba warna tidak punya cara kembali ke tema
-          bawaan selain menebak kode hex aslinya. */}
-      <div className="grid gap-3 border-t border-outline-variant pt-4 sm:grid-cols-3">
+          yang selalu punya nilai. Jadi tiap warna dipasangkan tombol kembali ke
+          bawaan (null). */}
+      <Kelompok title="Warna">
         {([
           ["background_color", "Latar header"],
           ["text_color", "Warna tulisan"],
           ["accent_color", "Aksen (garis tab)"],
-        ] as const).map(([key, label]) => <div key={key}>
-          <label className="block text-body-small font-semibold" htmlFor={`header-${key}`}>{label}</label>
-          <div className="mt-1 flex items-center gap-2">
+        ] as const).map(([key, label]) => (
+          <div key={key} className="flex items-center gap-3">
             <input
               id={`header-${key}`}
               type="color"
               value={header[key] ?? BRANDING_FALLBACK[key]}
               onChange={(event) => updateHeader({ [key]: event.target.value })}
-              className="rounded-md h-11 w-full border border-outline-variant"
+              className="h-9 w-12 shrink-0 cursor-pointer rounded-md border border-outline-variant bg-transparent"
             />
-            {header[key] ? <button
-              type="button"
-              onClick={() => updateHeader({ [key]: null })}
-              aria-label={`Kembalikan ${label} ke bawaan`}
-              className="rounded-md inline-flex size-11 shrink-0 items-center justify-center border border-outline-variant text-on-surface-variant hover:border-error hover:text-error"
-            >
-              <XCircle size={17} weight="bold" />
-            </button> : null}
+            <label htmlFor={`header-${key}`} className="min-w-0 flex-1">
+              <span className="block text-body-medium font-medium text-on-surface">{label}</span>
+              <span className="block text-body-medium text-on-surface-variant">{header[key] ? header[key]?.toUpperCase() : "Ikut tema bawaan"}</span>
+            </label>
+            <Button variant="outlined" size="sm" disabled={!header[key]} onClick={() => updateHeader({ [key]: null })} aria-label={`Kembalikan ${label} ke bawaan`}>
+              Bawaan
+            </Button>
           </div>
-          <p className="mt-1 text-label-small text-on-surface-variant">
-            {header[key] ? header[key] : "Ikut tema bawaan"}
-          </p>
-        </div>)}
-      </div>
+        ))}
+      </Kelompok>
 
       {/* Gambar latar berdiri DI ATAS warna, bukan menggantikannya. Warna tetap
-          dipakai di belakangnya supaya teks tidak hilang bila gambar gagal dimuat di
-          jaringan lokasi. Keterangan ini ditulis di layar karena admin tidak dapat
-          menebaknya dari form. */}
-      <div className="border-t border-outline-variant pt-4">
-        <p className="text-body-medium font-semibold">Gambar latar header <span className="font-normal text-on-surface-variant">(opsional)</span></p>
-        <p className="mt-1 text-body-small leading-5 text-on-surface-variant">
-          Gambar diberi lapisan gelap otomatis dan tulisan dipaksa putih agar tetap terbaca. PNG, JPG, atau WebP, maksimal 5 MB.
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <label className={`rounded-md inline-flex min-h-11 cursor-pointer items-center gap-2 border border-outline-variant bg-surface px-3 text-body-medium font-semibold hover:border-primary ${uploadingBackground ? "pointer-events-none opacity-60" : ""}`}>
-            <UploadSimple size={17} weight="bold" />
-            {uploadingBackground ? "Mengunggah…" : "Upload gambar"}
+          dipakai di belakangnya supaya teks tidak hilang bila gambar gagal dimuat. */}
+      <Kelompok title="Gambar latar" note="Diberi lapisan gelap otomatis dan tulisan dipaksa putih agar tetap terbaca. PNG, JPG, atau WebP, maks 5 MB.">
+        <div className="flex flex-wrap items-center gap-2">
+          {header.background_image_url ? (
+            <span className="h-12 w-20 shrink-0 rounded-md border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${header.background_image_url})` }} />
+          ) : null}
+          <label className={cx(
+            "inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-body-medium font-medium text-on-surface hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary",
+            uploadingBackground && "pointer-events-none opacity-60",
+          )}>
+            <UploadSimple size={16} aria-hidden />
+            {uploadingBackground ? "Mengunggah..." : header.background_image_url ? "Ganti gambar" : "Unggah gambar"}
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
-              className="hidden"
+              className="sr-only"
               disabled={uploadingBackground}
               onChange={(event) => {
                 const file = event.target.files?.[0];
@@ -471,24 +647,15 @@ export default function RundownAdminPage() {
               }}
             />
           </label>
-          {header.background_image_url ? <button
-            type="button"
-            onClick={() => updateHeader({ background_image_url: null })}
-            className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-3 text-body-medium font-semibold text-error hover:border-error"
-          >
-            <XCircle size={17} weight="bold" /> Hapus gambar
-          </button> : null}
+          {header.background_image_url ? (
+            <Button variant="text" size="sm" className="text-error" onClick={() => updateHeader({ background_image_url: null })}>Hapus gambar</Button>
+          ) : null}
         </div>
-        {header.background_image_url ? <div className="mt-2 flex items-center gap-2">
-          <span className="rounded-md h-12 w-20 shrink-0 border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${header.background_image_url})` }} />
-          <span className="break-all text-label-small leading-4 text-on-surface-variant">{header.background_image_url}</span>
-        </div> : null}
-      </div>
+      </Kelompok>
 
       {/* Editor logo, jenis huruf, ukuran, dan warna per elemen. Komponen yang sama
-          dipakai /admin/seat-map dan /admin/display, jadi ketiga CMS menawarkan
-          setelan yang identik tanpa satu pun disalin. */}
-      <div className="border-t border-outline-variant pt-4">
+          dipakai /admin/seat-map dan /admin/display. */}
+      <Kelompok title="Logo dan huruf">
         <BrandingEditor
           value={headerBranding}
           onChange={(changes) => updateHeader(changes)}
@@ -497,348 +664,151 @@ export default function RundownAdminPage() {
           baseBackgroundColor={header.background_color ?? "#ffffff"}
           baseAccentColor={header.accent_color ?? "#2649d0"}
         />
-      </div>
-    </section>
+      </Kelompok>
+    </div>
+  );
 
-    {/* Tab bagian. Bentuknya sama dengan tab di halaman publik supaya admin
-        mengenali apa yang sedang ia sunting tanpa membuka halaman itu. */}
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Bagian rundown">
-        {sections.map((section) => {
-          const isActive = section.id === activeId;
-          return <button
-            key={section.id}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            onClick={() => setActiveId(section.id)}
-            className={`rounded-lg inline-flex min-h-11 items-center gap-2 border px-4 text-body-medium font-semibold transition-colors ${isActive
-              ? "border-primary bg-primary text-on-primary"
-              : "border-outline-variant bg-panel text-on-surface-variant hover:bg-panel-high hover:text-on-surface"}`}
+  const draftLengkap = Boolean(draft.title.trim() && draft.start_time);
+  const kaki: Record<Panel, { note: ReactNode; aksi: ReactNode }> = {
+    baris: selectedItem
+      ? {
+        note: null,
+        aksi: (
+          <>
+            <Button variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmItem(selectedItem)}>Hapus</Button>
+            <Button size="sm" onClick={() => void saveItem(selectedItem)} loading={savingItem === selectedItem.id}>Simpan baris</Button>
+          </>
+        ),
+      }
+      : {
+        note: draftLengkap ? null : "Jam mulai dan nama acara wajib",
+        aksi: active ? <Button size="sm" icon={<Plus size={16} />} onClick={() => void addItem()} loading={addingItem} disabled={!draftLengkap}>Tambah baris</Button> : null,
+      },
+    bagian: {
+      note: "Hanya bagian ini",
+      aksi: active ? <Button size="sm" onClick={() => void saveSection(active)} loading={savingSection}>Simpan bagian</Button> : null,
+    },
+    header: {
+      note: "Berlaku untuk semua tab",
+      aksi: <Button size="sm" onClick={() => void saveHeader()} loading={savingHeader}>Simpan header</Button>,
+    },
+  };
+
+  const samping = (
+    <Pane as="aside" aria-label="Penyunting rundown">
+      <div className="shrink-0 border-b border-outline-variant px-4 py-3">
+        <SegmentedButton<Panel>
+          label="Yang disunting"
+          value={panelAktif}
+          onChange={setPanel}
+          className="w-full"
+          options={[
+            { value: "baris", label: "Baris", disabled: !active },
+            { value: "bagian", label: "Bagian", disabled: !active },
+            { value: "header", label: "Header publik" },
+          ]}
+        />
+      </div>
+      <PaneBody className="px-4 py-4">{panelAktif === "baris" ? isiBaris : panelAktif === "bagian" ? isiBagian : isiHeader}</PaneBody>
+      <PaneFooter note={kaki[panelAktif].note}>{kaki[panelAktif].aksi}</PaneFooter>
+    </Pane>
+  );
+
+  return (
+    <WorkspacePage fill>
+      <WorkspaceHeader
+        meta={loaded ? (
+          <>
+            <span>
+              {publishedCount === 0
+                ? "Belum ada bagian yang tampil, jadi halaman publik masih menampilkan pesan tunggu"
+                : `${publishedCount} dari ${sections.length} bagian tampil di publik`}
+            </span>
+            <MetaSeparator />
+            <span>Penanda sedang berlangsung memakai tanggal bagian dan jam baris</span>
+          </>
+        ) : null}
+        actions={<ButtonLink href="/rundown" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Buka halaman publik</ButtonLink>}
+      />
+
+      {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
+
+      {!loaded ? (error ? null : <PageLoading />) : (
+        <>
+          <div className="flex shrink-0 items-end gap-2 border-b border-outline-variant">
+            {sections.length > 0 ? (
+              <Tabs
+                label="Bagian rundown"
+                idPrefix="bagian"
+                value={String(activeId ?? "")}
+                onChange={(value) => pilihBagian(Number(value))}
+                className="min-w-0 border-b-0"
+                options={sections.map((section) => ({ value: String(section.id), label: section.name, badge: section.is_published ? undefined : "Draf" }))}
+              />
+            ) : <span className="py-2.5 text-body-medium text-on-surface-variant">Belum ada bagian</span>}
+            <button type="button" onClick={() => setAddSectionOpen(true)} className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body-medium font-medium text-primary hover:bg-primary-soft">
+              <Plus size={14} aria-hidden />Bagian
+            </button>
+          </div>
+          <div
+            role={active ? "tabpanel" : undefined}
+            id={active ? `bagian-panel-${active.id}` : undefined}
+            aria-labelledby={active ? `bagian-tab-${active.id}` : undefined}
+            className="flex min-h-0 flex-1 flex-col"
           >
-            {section.name}
-            {/* Status publish dipasangkan ikon dan teks, tidak hanya warna:
-                DESIGN.md melarang menandai keadaan dengan warna saja. */}
-            {section.is_published
-              ? <Eye size={16} aria-label="Tampil di publik" />
-              : <EyeSlash size={16} aria-label="Masih draf" />}
-          </button>;
-        })}
-      </div>
-
-      <div className="rounded-lg flex flex-wrap items-end gap-3 border border-outline-variant bg-panel p-4">
-        <label className="flex min-w-[220px] flex-1 flex-col gap-1.5">
-          <span className="text-body-small font-semibold ed-label text-on-surface-variant">Bagian baru</span>
-          <input
-            value={newSectionName}
-            onChange={(event) => setNewSectionName(event.target.value)}
-            placeholder="Mis. Prima Awards"
-            className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={() => void createSection()}
-          disabled={creatingSection || !newSectionName.trim()}
-          className="rounded-md inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-50"
-        >
-          <Plus size={18} />{creatingSection ? "Menambahkan…" : "Tambah bagian"}
-        </button>
-      </div>
-    </div>
-
-    {active ? <div className="space-y-2">
-      {/* Setelan bagian */}
-      <section className="rounded-lg space-y-4 bg-panel p-5 sm:p-6">
-        <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Setelan bagian</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-body-small font-semibold text-on-surface-variant">Label tab</span>
-            <input
-              value={active.name}
-              onChange={(event) => updateSection(active.id, { name: event.target.value })}
-              className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium"
-            />
-            <span className="text-body-small text-on-surface-variant">Pendek, agar beberapa tab muat di layar ponsel.</span>
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-body-small font-semibold text-on-surface-variant">Tanggal acara</span>
-            <input
-              type="date"
-              value={active.event_date}
-              onChange={(event) => updateSection(active.id, { event_date: event.target.value })}
-              className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium"
-            />
-            <span className="text-body-small text-on-surface-variant">
-              Dipakai penanda &ldquo;sedang berlangsung&rdquo;. {formatEventDate(active.event_date, zone)} ({abbr})
-            </span>
-          </label>
-        </div>
-
-        {/* Kolom "Judul di halaman publik" dan "Sub judul" per bagian sengaja
-            DIHILANGKAN dari form ini. Keduanya tidak lagi dirender di mana pun:
-            judul header kini satu untuk seluruh acara (lihat kartu Header di atas).
-            Membiarkannya tampil berarti admin mengisi kolom yang tidak mengubah
-            apa pun, dan itu jenis kebingungan yang paling lama tidak terdeteksi.
-            Kolomnya tetap ada di database supaya migrasi ini tidak merusak data. */}
-
-        {/* Sakelar penanda. Ditaruh bersama tanggal karena keduanya satu urusan:
-            penanda hanya benar bila tanggalnya benar, jadi admin yang mematikan
-            penanda tidak perlu lagi memikirkan tanggal, dan sebaliknya. */}
-        <label className="flex items-start gap-3 border-t border-outline-variant pt-4">
-          <input
-            type="checkbox"
-            checked={active.highlight_current}
-            onChange={(event) => updateSection(active.id, { highlight_current: event.target.checked })}
-            className="mt-0.5 size-4"
-          />
-          <span className="space-y-1">
-            <span className="block text-body-medium font-semibold">Tandai acara yang sedang berlangsung</span>
-            <span className="block text-body-small leading-5 text-on-surface-variant">
-              {active.highlight_current
-                ? "Halaman publik menyorot acara berjalan, menandai acara berikutnya, meredupkan yang sudah selesai, dan menggulir otomatis ke baris tersebut. Butuh tanggal di atas benar."
-                : "Jadwal tampil sebagai daftar biasa tanpa sorotan dan tanpa gulir otomatis. Pakai ini bila tanggal acara belum tiba, agar tamu tidak melihat penanda pada acara yang belum jalan."}
-            </span>
-          </span>
-        </label>
-
-        <div className="flex flex-wrap items-center gap-3 border-t border-outline-variant pt-4">
-          <label className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold">
-            <input
-              type="checkbox"
-              checked={active.is_published}
-              onChange={(event) => updateSection(active.id, { is_published: event.target.checked })}
-              className="size-4"
-            />
-            Tampilkan di halaman publik
-          </label>
-          <span className="text-body-small text-on-surface-variant">
-            Slug URL: <code className="font-mono">/rundown?sesi={active.slug}</code>
-          </span>
-          <div className="ml-auto flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void saveSection(active)}
-              disabled={savingSection}
-              className="rounded-md inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-50"
-            >
-              <FloppyDisk size={18} />{savingSection ? "Menyimpan…" : "Simpan bagian"}
-            </button>
-            {confirmSection === active.id ? <>
-              <button
-                type="button"
-                onClick={() => void deleteSection(active)}
-                className="rounded-md inline-flex min-h-11 items-center gap-2 bg-error px-4 text-body-medium font-semibold text-on-error"
-              >
-                <Trash size={18} />Ya, hapus bagian
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmSection(null)}
-                className="inline-flex min-h-11 items-center px-4 text-body-medium font-semibold text-on-surface-variant"
-              >
-                Batal
-              </button>
-            </> : <button
-              type="button"
-              onClick={() => setConfirmSection(active.id)}
-              className="rounded-md inline-flex min-h-11 items-center gap-2 border border-error px-4 text-body-medium font-semibold text-error"
-            >
-              <Trash size={18} />Hapus bagian
-            </button>}
+            <SupportingPane main={jadwal} pane={samping} paneWidth={420} />
           </div>
-        </div>
-        {confirmSection === active.id ? <p role="alert" className="text-body-small text-error">
-          Seluruh {activeItems.length} baris jadwal di bagian ini ikut terhapus. Salinannya tersimpan di audit trail.
-        </p> : null}
-      </section>
+        </>
+      )}
 
-      {/* Baris jadwal */}
-      <section className="rounded-lg space-y-4 bg-panel p-5 sm:p-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">
-            Baris jadwal ({activeItems.length})
-          </h2>
-          <p className="text-body-small text-on-surface-variant">Urutan mengikuti jam mulai. Tidak perlu disusun ulang.</p>
-        </div>
+      <Dialog
+        open={addSectionOpen}
+        onClose={() => { setAddSectionOpen(false); setNewSectionName(""); }}
+        dismissible={!creatingSection}
+        size="sm"
+        title="Tambah bagian"
+        description="Bagian baru dibuat sebagai draf, jadi belum tampil di halaman publik."
+        actions={
+          <>
+            <Button variant="outlined" disabled={creatingSection} onClick={() => { setAddSectionOpen(false); setNewSectionName(""); }}>Batal</Button>
+            <Button type="submit" form="form-bagian" loading={creatingSection} disabled={!newSectionName.trim()}>Tambah bagian</Button>
+          </>
+        }
+      >
+        <form id="form-bagian" className="mt-4" onSubmit={(event) => { event.preventDefault(); void createSection(); }}>
+          <TextField label="Nama bagian" autoFocus placeholder="Mis. Prima Awards" value={newSectionName} onChange={(event) => setNewSectionName(event.target.value)} />
+        </form>
+      </Dialog>
 
-        {activeItems.length === 0 ? <p className="rounded-lg border border-dashed border-outline-variant px-4 py-6 text-center text-body-medium text-on-surface-variant">
-          Belum ada baris jadwal. Tambahkan lewat formulir di bawah.
-        </p> : <div className="space-y-2">
-          {activeItems.map((item) => <div key={item.id} className="rounded-lg space-y-3 bg-panel p-4">
-            <div className="grid gap-3 sm:grid-cols-[104px_104px_minmax(0,1fr)]">
-              <label className="flex flex-col gap-1">
-                <span className="text-label-small font-semibold ed-label text-on-surface-variant">Mulai</span>
-                <input
-                  type="time"
-                  value={formatClock(item.start_time)}
-                  onChange={(event) => updateItem(item.id, { start_time: event.target.value })}
-                  className="rounded-lg min-h-11 border border-outline-variant bg-panel px-2 font-mono text-body-medium"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-label-small font-semibold ed-label text-on-surface-variant">Selesai</span>
-                <input
-                  type="time"
-                  value={item.end_time ? formatClock(item.end_time) : ""}
-                  onChange={(event) => updateItem(item.id, { end_time: event.target.value || null })}
-                  className="rounded-lg min-h-11 border border-outline-variant bg-panel px-2 font-mono text-body-medium"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-label-small font-semibold ed-label text-on-surface-variant">Nama acara</span>
-                <input
-                  value={item.title}
-                  onChange={(event) => updateItem(item.id, { title: event.target.value })}
-                  className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium font-semibold"
-                />
-              </label>
-            </div>
-            {/* textarea, bukan input satu baris: satu butir acara bisa memuat
-                beberapa pembicara, dan tiap baris tampil sebagai butir terpisah
-                di halaman publik. Tinggi awal 3 baris agar terlihat bahwa kotak
-                ini menerima lebih dari satu baris. */}
-            <label className="flex flex-col gap-1">
-              <span className="text-label-small font-semibold ed-label text-on-surface-variant">Keterangan</span>
-              <textarea
-                value={item.subtitle ?? ""}
-                onChange={(event) => updateItem(item.id, { subtitle: event.target.value })}
-                rows={4}
-                placeholder={"Panelists:\nSantoso, Chairman - ASPI\nModerator:\nAbraham J. Adriaansz, President Director - PT Rintis Sejahtera"}
-                className="rounded-lg min-h-11 resize-y border border-outline-variant bg-panel px-3 py-2 text-body-medium leading-6"
-              />
-              <span className="text-label-small leading-5 text-on-surface-variant">
-                Satu baris per pembicara. Baris yang diakhiri <strong className="font-semibold text-on-surface">titik dua</strong> jadi judul kelompok (mis. <code className="font-mono">Moderator:</code>) dan tidak diberi bulet.
-              </span>
-            </label>
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="inline-flex min-h-11 items-center gap-2 text-body-small font-semibold">
-                <input
-                  type="checkbox"
-                  checked={item.is_break}
-                  onChange={(event) => updateItem(item.id, { is_break: event.target.checked })}
-                  className="size-4"
-                />
-                <Coffee size={16} />Jeda (tampil lebih redup)
-              </label>
-              <label className="inline-flex min-h-11 items-center gap-2 text-body-small font-semibold">
-                <input
-                  type="checkbox"
-                  checked={item.is_published}
-                  onChange={(event) => updateItem(item.id, { is_published: event.target.checked })}
-                  className="size-4"
-                />
-                {item.is_published ? <Eye size={16} /> : <EyeSlash size={16} />}Tampil
-              </label>
-              <div className="ml-auto flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void saveItem(item)}
-                  disabled={savingItem === item.id}
-                  className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant px-3 text-body-small font-semibold hover:bg-panel-high disabled:opacity-50"
-                >
-                  <FloppyDisk size={16} />{savingItem === item.id ? "Menyimpan…" : "Simpan"}
-                </button>
-                {confirmItem === item.id ? <>
-                  <button
-                    type="button"
-                    onClick={() => void deleteItem(item)}
-                    disabled={deletingItem === item.id}
-                    className="rounded-md inline-flex min-h-11 items-center gap-2 bg-error px-3 text-body-small font-semibold text-on-error disabled:opacity-50"
-                  >
-                    <Trash size={16} />{deletingItem === item.id ? "Menghapus…" : "Ya, hapus"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmItem(null)}
-                    className="inline-flex min-h-11 items-center px-3 text-body-small font-semibold text-on-surface-variant"
-                  >
-                    Batal
-                  </button>
-                </> : <button
-                  type="button"
-                  onClick={() => setConfirmItem(item.id)}
-                  className="rounded-md inline-flex min-h-11 items-center gap-2 border border-error px-3 text-body-small font-semibold text-error"
-                >
-                  <Trash size={16} />Hapus
-                </button>}
-              </div>
-            </div>
-          </div>)}
-        </div>}
+      <Dialog
+        open={confirmItem !== null}
+        onClose={() => setConfirmItem(null)}
+        dismissible={deletingItem === null}
+        tone="danger"
+        title={`Hapus baris ${confirmItem?.title.trim() || ""}?`}
+        description="Baris ini hilang dari rundown dan halaman publik. Salinannya dicatat di jejak audit."
+        actions={
+          <>
+            <Button variant="outlined" disabled={deletingItem !== null} onClick={() => setConfirmItem(null)}>Batal</Button>
+            <Button variant="danger" loading={deletingItem !== null} onClick={() => { if (confirmItem) void deleteItem(confirmItem); }}>Hapus baris</Button>
+          </>
+        }
+      />
 
-        {/* Formulir baris baru */}
-        <div className="rounded-lg space-y-3 border border-outline-variant bg-panel-high p-4">
-          <h3 className="flex items-center gap-2 text-body-small font-semibold ed-label text-on-surface-variant">
-            <CalendarDots size={16} />Tambah baris
-          </h3>
-          <div className="grid gap-3 sm:grid-cols-[104px_104px_minmax(0,1fr)]">
-            <label className="flex flex-col gap-1">
-              <span className="text-label-small font-semibold ed-label text-on-surface-variant">Mulai</span>
-              <input
-                type="time"
-                value={draft.start_time}
-                onChange={(event) => updateDraft({ start_time: event.target.value })}
-                className="rounded-lg min-h-11 border border-outline-variant bg-panel px-2 font-mono text-body-medium"
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-label-small font-semibold ed-label text-on-surface-variant">Selesai</span>
-              <input
-                type="time"
-                value={draft.end_time}
-                onChange={(event) => updateDraft({ end_time: event.target.value })}
-                className="rounded-lg min-h-11 border border-outline-variant bg-panel px-2 font-mono text-body-medium"
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-label-small font-semibold ed-label text-on-surface-variant">Nama acara</span>
-              <input
-                value={draft.title}
-                onChange={(event) => updateDraft({ title: event.target.value })}
-                placeholder="Mis. Opening Keynote Speech"
-                className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-medium"
-              />
-            </label>
-          </div>
-          <label className="flex flex-col gap-1">
-            <span className="text-label-small font-semibold ed-label text-on-surface-variant">Keterangan</span>
-            <textarea
-              value={draft.subtitle}
-              onChange={(event) => updateDraft({ subtitle: event.target.value })}
-              rows={4}
-              placeholder={"Panelists:\nSantoso, Chairman - ASPI\nModerator:\nAbraham J. Adriaansz, President Director - PT Rintis Sejahtera"}
-              className="rounded-lg min-h-11 resize-y border border-outline-variant bg-panel px-3 py-2 text-body-medium leading-6"
-            />
-            <span className="text-label-small leading-5 text-on-surface-variant">
-              Satu baris per pembicara. Baris berakhiran <strong className="font-semibold text-on-surface">titik dua</strong> jadi judul kelompok. Boleh dikosongkan.
-            </span>
-          </label>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="inline-flex min-h-11 items-center gap-2 text-body-small font-semibold">
-              <input
-                type="checkbox"
-                checked={draft.is_break}
-                onChange={(event) => updateDraft({ is_break: event.target.checked })}
-                className="size-4"
-              />
-              <Coffee size={16} />Jeda
-            </label>
-            <p className="text-body-small text-on-surface-variant">Jam selesai boleh dikosongkan untuk penanda momen.</p>
-            <button
-              type="button"
-              onClick={() => void addItem()}
-              disabled={addingItem || !draft.title.trim() || !draft.start_time}
-              className="rounded-md ml-auto inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary disabled:opacity-50"
-            >
-              <Plus size={18} />{addingItem ? "Menambahkan…" : "Tambah baris"}
-            </button>
-          </div>
-        </div>
-      </section>
-    </div> : <p className="rounded-lg border border-dashed border-outline-variant px-4 py-10 text-center text-body-medium text-on-surface-variant">
-      Belum ada bagian rundown. Tambahkan satu untuk mulai menyusun jadwal.
-    </p>}
-    </div>
-  </main>;
+      <Dialog
+        open={confirmSection !== null}
+        onClose={() => setConfirmSection(null)}
+        dismissible={!deletingSection}
+        tone="danger"
+        title={`Hapus bagian ${confirmSection?.name ?? ""}?`}
+        description={`${confirmSection?.is_published ? "Bagian ini sedang tampil di publik. " : ""}Seluruh ${activeItems.length} baris jadwal di bagian ini ikut terhapus. Salinannya dicatat di jejak audit.`}
+        actions={
+          <>
+            <Button variant="outlined" disabled={deletingSection} onClick={() => setConfirmSection(null)}>Batal</Button>
+            <Button variant="danger" loading={deletingSection} onClick={() => { if (confirmSection) void deleteSection(confirmSection); }}>Hapus bagian</Button>
+          </>
+        }
+      />
+    </WorkspacePage>
+  );
 }

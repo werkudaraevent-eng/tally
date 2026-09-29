@@ -26,11 +26,11 @@ export type ChipTone = "neutral" | "primary" | "success" | "warning" | "error";
  * Kalau semua status berwarna, tidak ada yang berwarna.
  */
 const TONE: Record<ChipTone, string> = {
-	neutral: "border border-outline-variant text-on-surface-variant",
-	primary: "bg-primary-container text-on-primary-container",
-	success: "bg-success-container text-on-success-container",
-	warning: "bg-warning-container text-on-warning-container",
-	error: "bg-error-container text-on-error-container",
+	neutral: "bg-surface-container-high text-on-surface-variant",
+	primary: "bg-accent-soft text-primary",
+	success: "bg-success-soft text-on-success-container",
+	warning: "bg-warning-soft text-warning",
+	error: "bg-error-soft text-error",
 };
 
 /** Warna titik per nada. Dipakai varian `dot`, dan hanya di sana. */
@@ -69,8 +69,8 @@ export function StatusChip({ tone = "neutral", icon, dot, children, className, t
 		<span
 			title={judul}
 			className={cx(
-				"m3-status-chip inline-flex min-h-8 max-w-[14rem] items-center gap-1.5 rounded-full px-2 text-label-medium font-medium",
-				dot ? "border border-outline-variant text-on-surface" : TONE[tone],
+				"m3-status-chip inline-flex h-5 max-w-[14rem] shrink-0 items-center gap-1.5 rounded px-1.5 text-label-medium font-medium",
+				TONE[tone],
 				className,
 			)}
 		>

@@ -1,8 +1,8 @@
 "use client";
 
 import { ArrowClockwise, DeviceMobile, Monitor } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { IconButton, SegmentedButton } from "@/components/m3";
+import { useEffect, useRef, useState } from "react";
+import { IconButton, Pane, SegmentedButton } from "@/components/m3";
 
 /**
  * Pratinjau halaman acara di dalam CMS.
@@ -10,12 +10,12 @@ import { IconButton, SegmentedButton } from "@/components/m3";
  * Memuat halaman publiknya yang SUNGGUHAN di dalam iframe, bukan menyusun ulang
  * tampilannya dengan komponen tiruan. Tiruan akan menyimpang dari halaman asli
  * pada perubahan pertama yang lupa disalin ke dalamnya, dan pratinjau yang
- * berbohong lebih buruk daripada tidak ada pratinjau — admin akan menekan Simpan
+ * berbohong lebih buruk daripada tidak ada pratinjau: admin akan menekan Simpan
  * dengan yakin, lalu tamu melihat halaman yang lain.
  *
  * Konsekuensinya jujur dan disebutkan di layar: yang tampil adalah versi
  * TERSIMPAN. Menampilkan perubahan yang belum disimpan berarti mengirim seluruh
- * draf ke halaman publik lewat URL dan membuat halaman itu mau merendernya —
+ * draf ke halaman publik lewat URL dan membuat halaman itu mau merendernya,
  * jalur yang sama persis dengan yang dipakai penyerang untuk menyuntikkan isi ke
  * halaman orang lain.
  *
@@ -35,51 +35,46 @@ const UKURAN: Record<Device, { width: number; height: number }> = {
   desktop: { width: 1440, height: 900 },
 };
 
+/** Jarak bidang pratinjau ke tepi panel, kiri + kanan. Sama dengan `p-6`. */
+const TEPI = 48;
+
 export function LandingPreview({ slug, reloadKey }: { slug: string; reloadKey: number }) {
   const [device, setDevice] = useState<Device>("desktop");
-  const [skala, setSkala] = useState(0.5);
+  const [lebarWadah, setLebarWadah] = useState(0);
   const [nonce, setNonce] = useState(0);
   const wadah = useRef<HTMLDivElement | null>(null);
   const { width, height } = UKURAN[device];
-
-  const ukur = useCallback(() => {
-    const lebar = wadah.current?.clientWidth ?? 0;
-    if (lebar > 0) setSkala(Math.min(1, lebar / width));
-  }, [width]);
+  // Diukur dari lebar panel, bukan jendela: panel utama menyempit saat panel
+  // setelan di sebelahnya muncul, tanpa jendelanya berubah ukuran.
+  const skala = lebarWadah > 0 ? Math.min(1, Math.max(0.1, (lebarWadah - TEPI) / width)) : 0.5;
 
   useEffect(() => {
-    ukur();
-    window.addEventListener("resize", ukur);
-    return () => window.removeEventListener("resize", ukur);
-  }, [ukur]);
+    const element = wadah.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setLebarWadah(entry.contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-title-medium font-semibold">Pratinjau</h2>
-          <p className="mt-1 text-body-small text-on-surface-variant">
-            Menampilkan versi tersimpan di <code className="select-all">/e/{slug}</code>. Tekan Simpan lalu
-            pratinjau ini ikut menyegarkan.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <SegmentedButton<Device>
-            label="Ukuran layar pratinjau"
-            value={device}
-            onChange={setDevice}
-            options={[
-              { value: "desktop", label: "Desktop", icon: <Monitor size={18} /> },
-              { value: "mobile", label: "Ponsel", icon: <DeviceMobile size={18} /> },
-            ]}
-          />
-          <IconButton label="Muat ulang pratinjau" onClick={() => setNonce((current) => current + 1)}>
-            <ArrowClockwise size={18} />
-          </IconButton>
-        </div>
+    <Pane aria-label="Pratinjau halaman acara">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant px-4 py-2.5">
+        <p className="min-w-0 flex-1 text-body-medium text-on-surface-variant">Pratinjau versi tersimpan</p>
+        <SegmentedButton<Device>
+          label="Ukuran layar pratinjau"
+          value={device}
+          onChange={setDevice}
+          options={[
+            { value: "desktop", label: "Desktop", icon: <Monitor size={16} /> },
+            { value: "mobile", label: "Ponsel", icon: <DeviceMobile size={16} /> },
+          ]}
+        />
+        <IconButton size="sm" label="Muat ulang pratinjau" onClick={() => setNonce((current) => current + 1)}>
+          <ArrowClockwise size={16} />
+        </IconButton>
       </div>
 
-      <div ref={wadah} className="mt-4 w-full">
+      <div ref={wadah} className="min-h-0 flex-1 overflow-y-auto bg-surface-container-high p-6">
         <div
           className="mx-auto overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest"
           style={{ width: width * skala, height: height * skala }}
@@ -107,6 +102,6 @@ export function LandingPreview({ slug, reloadKey }: { slug: string; reloadKey: n
           />
         </div>
       </div>
-    </div>
+    </Pane>
   );
 }

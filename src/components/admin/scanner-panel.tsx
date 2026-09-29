@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowsClockwise, Info } from "@phosphor-icons/react";
+import { ArrowsClockwise, Info, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { Banner, Button, SelectMenu, TextField } from "@/components/m3";
+import { Banner, Button, Dialog, KeyValue, Pane, PaneBody, PaneFooter, PaneHeader, SelectMenu, StatusDot, TextField } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { bacaLokal, langgananLokal, tulisLokal } from "@/lib/local-store";
 
@@ -19,7 +19,7 @@ import { bacaLokal, langgananLokal, tulisLokal } from "@/lib/local-store";
  * Tempat barunya tab "Integrasi" di dalam Pengaturan, bukan halaman sidebar
  * baru. Sidebar disisakan untuk tujuan yang ditekan panitia sepanjang hari, dan
  * Pengaturan sudah menjadi rumah bagi hal-hal yang disiapkan sekali lalu
- * ditinggalkan: preferensi acara, akun, jejak audit.
+ * ditinggalkan: preferensi acara, metode pembayaran, jejak audit.
  *
  * ---- Yang TIDAK ikut pindah ----------------------------------------------
  *
@@ -78,10 +78,14 @@ const LABEL_SUMBER: Record<string, string> = {
 
 export function useScannerConfig() {
   const [config, setConfig] = useState<ScannerConfig | null>(null);
+  // Tambahan untuk panel Integrasi: tanpa ini, gagal memuat terlihat sama
+  // dengan "masih memuat" selamanya. Pemakai lama cukup membaca `config`.
+  const [galat, setGalat] = useState(false);
 
   const muat = useCallback(async () => {
+    setGalat(false);
     const response = await fetch("/api/admin/participants/scanner-config", { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) return;
+    if (!response?.ok) { setGalat(true); return; }
     setConfig((await response.json()) as ScannerConfig);
   }, []);
 
@@ -90,7 +94,7 @@ export function useScannerConfig() {
     return () => window.clearTimeout(timer);
   }, [muat]);
 
-  return { config, muat };
+  return { config, muat, galat };
 }
 
 /**
@@ -130,23 +134,17 @@ export function useScannerSync(onSynced?: () => void) {
   return { syncing, sync, gagal };
 }
 
-/** Satu baris label-nilai. Label abu di kiri, nilai di kanan, sejajar di grid. */
-function Baris({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[10rem_1fr] items-baseline gap-4 px-5 py-3">
-      <dt className="text-body-small text-on-surface-variant">{label}</dt>
-      <dd className="min-w-0 break-words text-body-medium text-on-surface">{children}</dd>
-    </div>
-  );
-}
-
 /** Nilai yang belum diisi. "Belum diatur", bukan garis: garis berarti "tidak berlaku". */
 function BelumDiatur() {
   return <span className="text-on-surface-variant">Belum diatur</span>;
 }
 
+function DariEnv() {
+  return <span className="text-on-surface-variant">Dari variabel lingkungan</span>;
+}
+
 export function ScannerPanel() {
-  const { config, muat } = useScannerConfig();
+  const { config, muat, galat: galatMuat } = useScannerConfig();
   const { menit, setMenit } = useAutoSync();
   const { syncing, sync } = useScannerSync();
   const toast = useToast();
@@ -157,6 +155,7 @@ export function ScannerPanel() {
   const [apiKey, setApiKey] = useState("");
   const [menyimpan, setMenyimpan] = useState(false);
   const [galat, setGalat] = useState("");
+  const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
 
   function bukaUbah() {
     setBaseUrl(config?.base_url ?? "");
@@ -204,6 +203,7 @@ export function ScannerPanel() {
       body: JSON.stringify({ base_url: baseUrl.trim() || null, event_slug: eventSlug.trim() || null, api_key: null }),
     }).catch(() => null);
     setMenyimpan(false);
+    setKonfirmasiHapus(false);
     if (!response?.ok) { setGalat("Kunci gagal dihapus."); return; }
     toast.success("Kunci API dihapus", "Sinkronisasi akan memakai env sebagai cadangan bila tersedia.");
     void muat();
@@ -213,104 +213,130 @@ export function ScannerPanel() {
   const dipakai = ["scanner_api", "hybrid"].includes(sumber);
 
   return (
-    <section className="max-w-3xl rounded-[10px] border border-outline-variant bg-surface-container-lowest">
-      <div className="border-b border-outline-variant px-5 py-4">
-        <h2 className="text-title-medium font-semibold text-on-surface">Scanner API</h2>
-        <p className="mt-0.5 text-body-medium text-on-surface-variant">
-          Menarik daftar peserta dari sistem pemindai eksternal. Kredensialnya disimpan per acara.
-        </p>
-      </div>
-
-      {/* Pita ini dulu peringatan oranye selebar halaman di atas tabel peserta.
-          Ia bukan peringatan: ia keterangan tentang setelan di kartu ini, dan
-          warnanya sendiri yang membuat orang mengira ada yang rusak. */}
-      {config && !dipakai ? (
-        <div className="px-5 pt-4">
-          <Banner tone="info" icon={<Info size={16} />} className="text-body-small">
-            Sumber peserta acara ini <span className="font-medium">{LABEL_SUMBER[sumber] ?? sumber}</span>{" "}
-            <span className="font-mono text-label-medium">({sumber})</span>, jadi sinkronisasi terjadwal melewatinya.
-            Setelan di bawah tetap tersimpan bila diisi.
-          </Banner>
-        </div>
-      ) : null}
-
-      <dl className="divide-y divide-outline-variant">
-        <Baris label="Status sync">
-          {dipakai
-            ? <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-1.5 rounded-full bg-success" />Aktif</span>
-            : <span className="inline-flex items-center gap-1.5 text-on-surface-variant"><span aria-hidden className="size-1.5 rounded-full bg-outline" />Tidak dipakai acara ini</span>}
-        </Baris>
-        <Baris label="Base URL">
-          {config?.base_url
-            ? <span className="font-mono text-body-small">{config.base_url}</span>
-            : config?.env_fallback.base_url ? <span className="text-on-surface-variant">Dari variabel lingkungan</span> : <BelumDiatur />}
-        </Baris>
-        <Baris label="Slug acara">
-          {config?.event_slug
-            ? <span className="font-mono text-body-small">{config.event_slug}</span>
-            : config?.env_fallback.event_slug ? <span className="text-on-surface-variant">Dari variabel lingkungan</span> : <BelumDiatur />}
-        </Baris>
-        <Baris label="Sumber kunci">
-          {config?.key_masked
-            ? <span className="font-mono text-body-small">{config.key_masked}</span>
-            : config?.env_fallback.key ? <span className="text-on-surface-variant">Dari variabel lingkungan</span> : <BelumDiatur />}
-        </Baris>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-          <div className="min-w-0">
-            <p className="text-body-medium font-medium text-on-surface">Sync otomatis</p>
-            <p className="mt-0.5 text-body-small text-on-surface-variant">
-              Berjalan selama halaman Daftar peserta terbuka.
+    <>
+      <Pane aria-label="Scanner API">
+        <PaneHeader className="px-5 py-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-body-medium font-semibold text-on-surface">Scanner API</h2>
+            <p className="mt-0.5 text-body-medium text-on-surface-variant">
+              Menarik daftar peserta dari sistem pemindai eksternal. Kredensialnya disimpan per acara.
             </p>
           </div>
-          <SelectMenu
-            label="Interval sync otomatis"
-            value={String(menit)}
-            onChange={(nilai) => setMenit(Number(nilai))}
-            options={OPSI_AUTO}
-            width="12.5rem"
-          />
-        </div>
-      </dl>
+        </PaneHeader>
 
-      {ubah ? (
-        <div className="space-y-4 border-t border-outline-variant px-5 py-4">
-          <TextField label="Base URL" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://scanner.contoh.com/api/v1" inputClassName="font-mono" />
-          <TextField label="Slug acara di Scanner API" value={eventSlug} onChange={(event) => setEventSlug(event.target.value)} placeholder="nama-acara-2026" inputClassName="font-mono" />
-          <TextField
-            label="Kunci API"
-            type="password"
-            autoComplete="off"
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-            placeholder={config?.key_set ? "Kosongkan untuk mempertahankan kunci sekarang" : "Tempel kunci di sini"}
-            // Kunci yang sudah tersimpan tidak pernah dikirim balik ke layar ini,
-            // jadi kolomnya SELALU mulai kosong. Kalimat ini yang mencegahnya
-            // terbaca sebagai setelan yang hilang.
-            hint="Kunci tersimpan tidak pernah ditampilkan ulang; yang terlihat hanya empat karakter terakhirnya."
-          />
-          {galat ? <Banner tone="error">{galat}</Banner> : null}
-        </div>
-      ) : null}
+        <PaneBody>
+          {!config && galatMuat ? (
+            <div className="flex flex-wrap items-center gap-3 px-5 py-4">
+              <p role="alert" className="flex min-w-0 flex-1 items-start gap-2 text-body-medium text-error"><XCircle size={16} className="mt-0.5 shrink-0" />Setelan Scanner API gagal dimuat.</p>
+              <Button variant="outlined" size="sm" onClick={() => void muat()}>Coba lagi</Button>
+            </div>
+          ) : !config ? (
+            <div aria-label="Memuat setelan Scanner API">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="flex items-center gap-4 border-b border-outline-variant px-5 py-4">
+                  <div className="h-3 w-28 animate-pulse rounded bg-surface-container-high" />
+                  <div className="h-3 w-48 animate-pulse rounded bg-surface-container-high" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              {/* Keterangan, bukan peringatan: warnanya sendiri dulu membuat orang
+                  mengira ada yang rusak. */}
+              {!dipakai ? (
+                <div className="px-5 pt-4">
+                  <Banner tone="info" icon={<Info size={16} />}>
+                    Sumber peserta acara ini {LABEL_SUMBER[sumber] ?? sumber}, jadi sinkronisasi terjadwal melewatinya. Setelan di bawah tetap tersimpan bila diisi.
+                  </Banner>
+                </div>
+              ) : null}
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-outline-variant px-5 py-3">
-        {ubah ? (
-          <>
-            <Button size="sm" onClick={() => void simpan()} loading={menyimpan}>Simpan setelan</Button>
-            <Button variant="text" size="sm" onClick={() => setUbah(false)} disabled={menyimpan}>Batal</Button>
-            {config?.key_set ? (
-              <Button variant="outlined" size="sm" onClick={() => void hapusKunci()} disabled={menyimpan} className="ml-auto text-error">Hapus kunci</Button>
+              <dl className="flex flex-col gap-3 px-5 py-4">
+                <KeyValue label="Status sync">
+                  <span className="inline-flex items-center gap-1.5">
+                    <StatusDot tone={dipakai ? "success" : "neutral"} />
+                    {dipakai ? "Aktif" : <span className="text-on-surface-variant">Tidak dipakai acara ini</span>}
+                  </span>
+                </KeyValue>
+                <KeyValue label="Base URL">{config.base_url ?? (config.env_fallback.base_url ? <DariEnv /> : <BelumDiatur />)}</KeyValue>
+                <KeyValue label="Slug acara">{config.event_slug ?? (config.env_fallback.event_slug ? <DariEnv /> : <BelumDiatur />)}</KeyValue>
+                <KeyValue label="Kunci API">{config.key_masked ?? (config.env_fallback.key ? <DariEnv /> : <BelumDiatur />)}</KeyValue>
+              </dl>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant px-5 py-4">
+                <div className="min-w-0">
+                  <p className="text-body-medium font-medium text-on-surface">Sync otomatis</p>
+                  <p className="mt-0.5 text-body-medium text-on-surface-variant">Berjalan selama halaman Daftar peserta terbuka.</p>
+                </div>
+                <SelectMenu
+                  label="Interval sync otomatis"
+                  value={String(menit)}
+                  onChange={(nilai) => setMenit(Number(nilai))}
+                  options={OPSI_AUTO}
+                  width="12.5rem"
+                />
+              </div>
+
+              {ubah ? (
+                <div className="flex flex-col gap-4 border-t border-outline-variant px-5 py-4">
+                  <TextField label="Base URL" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://scanner.contoh.com/api/v1" />
+                  <TextField label="Slug acara di Scanner API" value={eventSlug} onChange={(event) => setEventSlug(event.target.value)} placeholder="nama-acara-2026" />
+                  <TextField
+                    label="Kunci API"
+                    type="password"
+                    autoComplete="off"
+                    value={apiKey}
+                    onChange={(event) => setApiKey(event.target.value)}
+                    placeholder={config.key_set ? "Kosongkan untuk mempertahankan kunci sekarang" : "Tempel kunci di sini"}
+                    // Kunci yang sudah tersimpan tidak pernah dikirim balik ke layar ini,
+                    // jadi kolomnya SELALU mulai kosong. Kalimat ini yang mencegahnya
+                    // terbaca sebagai setelan yang hilang.
+                    hint="Kunci tersimpan tidak pernah ditampilkan ulang; yang terlihat hanya empat karakter terakhirnya."
+                  />
+                  {galat ? <Banner tone="error" icon={<XCircle size={16} />}>{galat}</Banner> : null}
+                </div>
+              ) : null}
+            </>
+          )}
+        </PaneBody>
+
+        {config ? (
+          <PaneFooter
+            note={ubah && config.key_set ? (
+              <button type="button" onClick={() => setKonfirmasiHapus(true)} disabled={menyimpan} className="rounded-sm font-medium text-error hover:underline disabled:opacity-50">
+                Hapus kunci tersimpan
+              </button>
             ) : null}
-          </>
-        ) : (
+          >
+            {ubah ? (
+              <>
+                <Button variant="outlined" size="sm" onClick={() => setUbah(false)} disabled={menyimpan}>Batal</Button>
+                <Button size="sm" onClick={() => void simpan()} loading={menyimpan}>Simpan setelan</Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outlined" size="sm" onClick={() => void sync()} loading={syncing} icon={<ArrowsClockwise size={16} />}>Sync sekarang</Button>
+                <Button variant="outlined" size="sm" onClick={bukaUbah}>Ubah setelan</Button>
+              </>
+            )}
+          </PaneFooter>
+        ) : null}
+      </Pane>
+
+      <Dialog
+        open={konfirmasiHapus}
+        onClose={() => setKonfirmasiHapus(false)}
+        dismissible={!menyimpan}
+        tone="danger"
+        title="Hapus kunci API tersimpan?"
+        description="Kunci Scanner API acara ini dihapus dari database. Sinkronisasi lalu memakai kunci dari variabel lingkungan bila ada; tanpa itu sinkronisasi tidak bisa berjalan sampai kunci baru disimpan."
+        actions={
           <>
-            <Button variant="outlined" size="sm" onClick={() => void sync()} loading={syncing} icon={<ArrowsClockwise size={16} />}>
-              {syncing ? "Menyinkron..." : "Sync sekarang"}
-            </Button>
-            <Button variant="outlined" size="sm" onClick={bukaUbah}>Ubah setelan</Button>
+            <Button variant="outlined" disabled={menyimpan} onClick={() => setKonfirmasiHapus(false)}>Batal</Button>
+            <Button variant="danger" loading={menyimpan} onClick={() => void hapusKunci()}>Hapus kunci</Button>
           </>
-        )}
-      </div>
-    </section>
+        }
+      />
+    </>
   );
 }

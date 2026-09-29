@@ -1,17 +1,23 @@
 "use client";
 
-import { ArrowCounterClockwise, ArrowSquareOut, Check, DownloadSimple, Eye, EyeSlash, Lock, LockOpen, Monitor, Palette, Plus, Trash, UploadSimple, X, XCircle } from "@phosphor-icons/react";
-import Link from "@/components/event-link";
-import { useCallback, useEffect, useState } from "react";
+import {
+  ArrowSquareOut, CheckCircle, DotsThree, DownloadSimple, Plus, Trash, UploadSimple, Warning, X, XCircle,
+} from "@phosphor-icons/react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { useToast } from "@/components/toast";
 import { DEFAULT_BRANDING, normalizeBranding, type Branding } from "@/lib/branding";
+import { cx } from "@/lib/m3/cx";
 import {
   TYPES_WITH_OPTIONS, VOTER_MODES, VOTE_STATUS_LABEL, VOTE_TYPES, votePercentages,
   type VotePoll, type VoteType, type VoterMode,
 } from "@/lib/vote";
-import { PageHeader } from "@/components/m3";
+import {
+  Banner, Button, ButtonLink, DetailSection, Dialog, EmptyState, IconButton, ListDetail, ListRow, MetaSeparator,
+  Pane, PaneBody, PaneFooter, PaneHeader, POPOVER_ITEM, POPOVER_ITEM_DANGER, PageLoading, Popover, StatusChip,
+  Switch, Tabs, TextField, usePopoverAnchor, WorkspaceHeader, WorkspacePage,
+} from "@/components/m3";
 
 // CMS + kontrol voting dalam SATU halaman.
 //
@@ -21,6 +27,10 @@ import { PageHeader } from "@/components/m3";
 // operatornya berdiri di samping MC, sementara voting dijalankan sambil duduk
 // dan tombolnya cuma empat. Memisahkannya hanya menambah satu halaman yang
 // harus dibuka bergantian dengan tempat pertanyaannya disusun.
+//
+// Tata letaknya list-detail: yang dikerjakan saat acara adalah mengendalikan
+// SATU pertanyaan. Panel detail menaruh empat langkah panggung berurutan, dan
+// langkah berikutnya selalu menjadi satu tombol utama di kaki panel.
 
 const POLL_MS = 3000;
 
@@ -88,37 +98,173 @@ function emptySettings(): DisplaySettings {
   };
 }
 
-const inputClass = "mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
-const labelClass = "text-body-small font-semibold ed-label text-on-surface-variant";
+const INPUT = "h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary";
+
+type Tab = "pertanyaan" | "tampilan";
+
+/* --------------------------------------------------------- Langkah panggung */
+
+type Langkah = "show" | "open" | "close" | "reveal";
+
+/** Aksi `/api/admin/vote/control` yang menjalankan tiap langkah. */
+const AKSI_LANGKAH: Record<Langkah, string> = { show: "show", open: "open", close: "close", reveal: "reveal_results" };
+const TOMBOL_LANGKAH: Record<Langkah, string> = { show: "Tayangkan", open: "Buka voting", close: "Tutup voting", reveal: "Perlihatkan hasil" };
+
+type BarisLangkah = {
+  key: Langkah;
+  judul: string;
+  ket: string;
+  selesai: boolean;
+  /** Aksi di luar urutan, untuk langkah yang bukan langkah berikutnya. */
+  lain?: { label: string; action: string };
+};
+
+/**
+ * Empat langkah dalam urutan pemakaian di panggung. "Selesai" dibaca dari
+ * keadaan pertanyaannya sendiri, bukan dari riwayat klik, jadi urutannya tetap
+ * benar meski operator melompati satu langkah atau membukanya dari perangkat lain.
+ */
+function langkahPanggung(poll: VotePoll, onScreen: boolean): { daftar: BarisLangkah[]; berikut: Langkah | null } {
+  const daftar: BarisLangkah[] = [
+    {
+      key: "show",
+      judul: "Tayangkan pertanyaan",
+      ket: onScreen ? "Sedang tampil di layar panggung" : "Belum tampil di layar panggung",
+      selesai: onScreen,
+    },
+    {
+      key: "open",
+      judul: "Buka voting",
+      ket: poll.status === "draft" ? "Peserta belum bisa memilih" : `${poll.ballots} orang sudah memilih`,
+      selesai: poll.status !== "draft",
+    },
+    {
+      key: "close",
+      judul: "Tutup voting",
+      ket: poll.status === "closed" ? "Ditutup, suara tidak lagi diterima" : "Suara berhenti diterima",
+      selesai: poll.status === "closed",
+    },
+    {
+      key: "reveal",
+      judul: "Perlihatkan hasil",
+      ket: poll.results_visible ? "Hasil diperlihatkan" : "Saat MC siap",
+      selesai: poll.results_visible,
+    },
+  ];
+  const berikut = daftar.find((baris) => !baris.selesai)?.key ?? null;
+
+  for (const baris of daftar) {
+    if (baris.key === berikut) continue;
+    if (baris.key === "open" && !baris.selesai) baris.lain = { label: "Buka sekarang", action: "open" };
+    if (baris.key === "close") {
+      if (poll.status === "closed") baris.lain = { label: "Buka lagi", action: "open" };
+      else if (poll.status === "open") baris.lain = { label: "Tutup sekarang", action: "close" };
+    }
+    if (baris.key === "reveal") {
+      baris.lain = poll.results_visible
+        ? { label: "Sembunyikan", action: "hide_results" }
+        : { label: "Perlihatkan sekarang", action: "reveal_results" };
+    }
+  }
+  return { daftar, berikut };
+}
+
+const NADA_STATUS = { draft: "warning", open: "success", closed: "neutral" } as const;
+
+function ringkasTipe(poll: VotePoll) {
+  const bagian = [VOTE_TYPES.find((item) => item.value === poll.type)?.label ?? poll.type];
+  if (poll.type === "multi") bagian.push(`maks ${poll.max_choices}`);
+  if (poll.type === "rating") bagian[0] = `Skala 1–${poll.rating_max}`;
+  if (poll.type === "wordcloud") bagian.push(`maks ${poll.max_words} kata`);
+  bagian.push(VOTER_MODES.find((item) => item.value === poll.voter_mode)?.label ?? poll.voter_mode);
+  return bagian.join(" · ");
+}
+
+function Kelompok({ title, children, first }: { title: string; children: ReactNode; first?: boolean }) {
+  return (
+    <section className={cx("flex flex-col gap-4", !first && "border-t border-outline-variant pt-5")}>
+      <h3 className="text-body-medium font-semibold text-on-surface">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+/** Menu aksi jarang dipakai untuk satu pertanyaan. */
+function MenuPertanyaan({ poll, disabled, onEdit, onRecount, onReset, onDelete }: {
+  poll: VotePoll;
+  disabled: boolean;
+  onEdit: () => void;
+  onRecount: () => void;
+  onReset: () => void;
+  onDelete: () => void;
+}) {
+  const [pemicu, setPemicu] = useState<HTMLButtonElement | null>(null);
+  const anchor = usePopoverAnchor(pemicu);
+  const jalankan = (aksi: () => void) => () => { anchor.tutup(); aksi(); };
+  return (
+    <>
+      <IconButton ref={setPemicu} size="sm" label="Aksi lain" aria-haspopup="menu" aria-expanded={anchor.open} onClick={anchor.toggle}>
+        <DotsThree size={18} weight="bold" />
+      </IconButton>
+      <Popover anchor={anchor} label="Aksi pertanyaan" align="end" width={248}>
+        <button type="button" role="menuitem" className={POPOVER_ITEM} onClick={jalankan(onEdit)}>Sunting pertanyaan</button>
+        {/* `<a>` biasa, bukan tautan router: alamatnya route handler yang membalas
+            Content-Disposition attachment. Ekspor selalu tersedia, termasuk saat
+            voting masih dibuka: panitia sering mengambil angka sementara. */}
+        <a role="menuitem" className={POPOVER_ITEM} href={`/api/admin/vote/polls/${poll.id}/export?format=xlsx`} onClick={() => anchor.tutup()}>
+          <DownloadSimple size={16} className="text-on-surface-variant" />Unduh XLSX, per pemilih
+        </a>
+        <a role="menuitem" className={POPOVER_ITEM} href={`/api/admin/vote/polls/${poll.id}/export?format=csv`} onClick={() => anchor.tutup()}>
+          <DownloadSimple size={16} className="text-on-surface-variant" />Unduh CSV, rekap saja
+        </a>
+        {/* Hitung ulang hanya berguna bila angkanya diragukan. */}
+        <button type="button" role="menuitem" disabled={disabled} className={cx(POPOVER_ITEM, "disabled:opacity-40")} onClick={jalankan(onRecount)}>Hitung ulang suara</button>
+        <div className="my-1 border-t border-outline-variant" role="separator" />
+        {/* Kosongkan hanya muncul bila memang ada yang bisa dikosongkan. */}
+        {poll.ballots > 0 ? (
+          <button type="button" role="menuitem" disabled={disabled} className={cx(POPOVER_ITEM_DANGER, "disabled:opacity-40")} onClick={jalankan(onReset)}>Kosongkan suara</button>
+        ) : null}
+        <button type="button" role="menuitem" disabled={disabled} className={cx(POPOVER_ITEM_DANGER, "disabled:opacity-40")} onClick={jalankan(onDelete)}>
+          <Trash size={16} />Hapus pertanyaan
+        </button>
+      </Popover>
+    </>
+  );
+}
 
 export default function VoteAdminPage() {
   const [polls, setPolls] = useState<VotePoll[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [gagalMuat, setGagalMuat] = useState(false);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<Tab>("pertanyaan");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<VotePoll | null>(null);
   const [confirmReset, setConfirmReset] = useState<VotePoll | null>(null);
-  // Antrean moderasi hanya dimuat untuk pertanyaan yang panelnya dibuka:
+  // Antrean moderasi hanya dimuat untuk pertanyaan yang antreannya dibuka:
   // memuat seluruh antrean untuk setiap pertanyaan di tiap polling tiga detik
   // membaca tabel suara berulang tanpa ada yang melihatnya.
   const [moderating, setModerating] = useState<number | null>(null);
   const [settings, setSettings] = useState<DisplaySettings | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsGagal, setSettingsGagal] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [rotating, setRotating] = useState(false);
+  const [confirmRotate, setConfirmRotate] = useState(false);
   const [pending, setPending] = useState<Array<{ id: number; text_value: string; display_name: string | null }>>([]);
   const toast = useToast();
 
   const load = useCallback(async () => {
     const response = await fetch("/api/admin/vote/polls", { cache: "no-store" }).catch(() => null);
     setLoading(false);
-    if (!response?.ok) { setError("Daftar voting gagal dimuat."); return; }
+    if (!response?.ok) { setGagalMuat(true); setError("Daftar voting gagal dimuat."); return; }
     const data = await response.json();
+    setGagalMuat(false);
     setPolls(data.polls ?? []);
     setActiveId(data.active_poll_id ?? null);
   }, []);
@@ -192,9 +338,10 @@ export default function VoteAdminPage() {
 
   const loadSettings = useCallback(async () => {
     const response = await fetch("/api/admin/vote/settings", { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) return;
+    if (!response?.ok) { setSettingsGagal(true); return; }
     const data = await response.json();
     const raw = data.settings as Record<string, unknown> | null;
+    setSettingsGagal(false);
     setSettings(raw
       ? {
           page_title: (raw.page_title as string) || "Voting",
@@ -227,6 +374,7 @@ export default function VoteAdminPage() {
     setRotating(true); setError("");
     const response = await fetch("/api/admin/vote/join-code", { method: "POST" }).catch(() => null);
     setRotating(false);
+    setConfirmRotate(false);
     if (!response?.ok) { setError("Kode gagal diganti."); return; }
     const data = await response.json();
     setJoinCode(data.join_code ?? null);
@@ -320,411 +468,647 @@ export default function VoteAdminPage() {
     setBusy(null); setConfirmDelete(null);
     if (!response?.ok) { setError("Pertanyaan gagal dihapus."); return; }
     toast.success("Pertanyaan dihapus");
+    setSelectedId((current) => (current === poll.id ? null : current));
     void load();
   }
 
-  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
-    <div className="mx-auto max-w-[1440px]">
+  function pilih(poll: VotePoll) {
+    if (draft) return;
+    setModerating(null);
+    setSelectedId((current) => (current === poll.id ? null : poll.id));
+  }
 
-      <PageHeader />
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="max-w-2xl text-body-medium text-on-surface-variant">
-            Susun pertanyaan, tayangkan ke layar, buka voting, lalu perlihatkan hasilnya saat MC siap.
-            Peserta memilih dari HP lewat QR yang muncul di layar.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setSettingsOpen((open) => !open)} className="rounded-md flex min-h-12 items-center gap-2 border border-outline-variant px-5 text-body-medium font-semibold hover:border-primary hover:text-primary">
-            <Palette size={18} /> {settingsOpen ? "Tutup tampilan" : "Tampilan layar"}
-          </button>
-          <Link href="/vote/layar" target="_blank" className="rounded-md flex min-h-12 items-center gap-2 border border-outline-variant px-5 text-body-medium font-semibold hover:border-primary hover:text-primary">
-            <ArrowSquareOut size={18} /> Layar panggung
-          </Link>
-        </div>
-      </div>
+  const terpilih = selectedId != null ? polls.find((poll) => poll.id === selectedId) ?? null : null;
+  const kode = joinCode ? `${joinCode.slice(0, 3)} ${joinCode.slice(3)}` : null;
 
-      {error && <p role="alert" className="rounded-lg mt-5 flex items-start gap-2 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</p>}
-
-      {settingsOpen && settings && <section className="rounded-lg mt-6 border border-outline-variant bg-panel p-6">
-        <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Tampilan layar panggung</h2>
-        <p className="mt-2 text-body-small text-on-surface-variant">
-          Berlaku untuk <span className="font-mono">/vote/layar</span>. Judul di sini adalah judul ACARA yang menetap; pertanyaannya sendiri berganti mengikuti apa yang sedang ditayangkan.
-        </p>
-
-        {/* Kode gabung berdiri di paling atas panel: inilah satu-satunya bagian
-            yang dibacakan MC dari panggung, dan yang paling sering dicari
-            operator saat peserta bertanya "caranya ikut bagaimana". */}
-        <div className="rounded-lg mt-5 flex flex-wrap items-center gap-4 border border-outline-variant bg-panel-high p-4">
-          <div>
-            <p className={labelClass}>Kode gabung acara</p>
-            <p className="mt-1 font-mono text-headline-medium font-bold tabular-nums">
-              {joinCode ? `${joinCode.slice(0, 3)} ${joinCode.slice(3)}` : "—"}
-            </p>
+  // ---- Panel daftar ------------------------------------------------------------
+  const daftar = (
+    <Pane aria-label="Daftar pertanyaan">
+      <PaneBody>
+        {loading ? (
+          <div aria-label="Memuat pertanyaan" className="flex flex-col">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="flex flex-col gap-2 border-b border-outline-variant px-4 py-4">
+                <div className="h-3 w-56 animate-pulse rounded bg-surface-container-high" />
+                <div className="h-3 w-40 animate-pulse rounded bg-surface-container-high" />
+              </div>
+            ))}
           </div>
-          <p className="min-w-48 flex-1 text-body-small leading-relaxed text-on-surface-variant">
-            Peserta membuka <span className="font-mono">/join</span> lalu mengetik angka ini. Berlaku untuk seluruh acara, bukan per pertanyaan — cukup sekali di awal sesi.
-          </p>
-          <button type="button" onClick={() => void rotateJoinCode()} disabled={rotating} className="rounded-lg min-h-11 border border-outline-variant bg-panel px-3 text-body-small font-semibold hover:border-error hover:text-error disabled:opacity-50">
-            {rotating ? "Menerbitkan…" : "Ganti kode"}
-          </button>
-          {/* Peringatan ditulis di sebelah tombolnya, bukan di dialog konfirmasi:
-              satu kalimat yang terbaca sebelum menekan lebih berguna daripada
-              dialog yang ditekan "ya" tanpa dibaca. */}
-          <p className="w-full text-label-small text-on-surface-variant">
-            Mengganti kode memutus peserta yang sudah memegang kode lama — mereka akan mengetik angka yang tidak menemukan apa pun.
-          </p>
-        </div>
-
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="block text-body-medium font-semibold">Judul layar
-            <input value={settings.page_title} onChange={(event) => setSettings({ ...settings, page_title: event.target.value })} className={inputClass} />
-          </label>
-          <label className="block text-body-medium font-semibold">Sub judul
-            <input value={settings.page_subtitle} onChange={(event) => setSettings({ ...settings, page_subtitle: event.target.value })} className={inputClass} placeholder="Opsional" />
-          </label>
-        </div>
-
-        <p className={`mt-5 ${labelClass}`}>Warna</p>
-        <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {([
-            ["background_color", "Latar"],
-            ["text_color", "Teks"],
-            ["accent_color", "Aksen"],
-            ["panel_color", "Panel hasil"],
-          ] as const).map(([key, label]) => <div key={key}>
-            <label className="block text-body-medium font-semibold">{label}
-              <span className="mt-1.5 flex items-center gap-2">
-                <input
-                  type="color"
-                  value={settings[key] ?? COLOR_FALLBACK[key]}
-                  onChange={(event) => setSettings({ ...settings, [key]: event.target.value })}
-                  className="rounded-md h-11 w-16 border border-outline-variant bg-surface"
-                />
-                {/* Tombol ini mengembalikan kolomnya ke NULL, bukan mengetik warna
-                    bawaan: keduanya terlihat sama di layar, tetapi hanya NULL yang
-                    ikut berubah bila bawaannya kelak diubah. */}
-                <button type="button" onClick={() => setSettings({ ...settings, [key]: null })} disabled={settings[key] === null} className="rounded-md min-h-11 border border-outline-variant px-2 text-body-small font-semibold disabled:opacity-40">
-                  {settings[key] === null ? "Bawaan" : "Pakai bawaan"}
-                </button>
-              </span>
-            </label>
-          </div>)}
-        </div>
-        {/* Panel diberi keterangan sendiri: ia satu-satunya warna yang punya
-            perhitungan otomatis, dan tanpa kalimat ini "Bawaan" terbaca seperti
-            warna tetap. */}
-        <p className="mt-2 text-label-small text-on-surface-variant">
-          Panel hasil adalah bidang di belakang daftar suara. Dibiarkan bawaan, ia menjadi lapisan gelap tembus pandang sehingga selalu serasi dengan gambar latar apa pun — isi warna hanya bila Anda ingin bidang solid.
-        </p>
-
-        <p className={`mt-5 ${labelClass}`}>Gambar latar</p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <label className="rounded-md flex min-h-11 cursor-pointer items-center gap-2 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
-            <UploadSimple size={15} /> {uploading === "background" ? "Mengunggah…" : settings.background_image_url ? "Ganti" : "Unggah"}
-            <input type="file" accept="image/*" className="hidden" onChange={async (event) => {
-              const file = event.target.files?.[0];
-              event.target.value = "";
-              if (!file) return;
-              const url = await upload(file, "background");
-              if (url) setSettings((current) => current && { ...current, background_image_url: url });
-            }} />
-          </label>
-          {settings.background_image_url && <>
-            <ImagePreview url={settings.background_image_url} alt="Pratinjau latar" className="h-16 w-28" />
-            <button type="button" onClick={() => setSettings({ ...settings, background_image_url: null })} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-small font-semibold text-error">Hapus</button>
-          </>}
-        </div>
-
-        <div className="mt-6 border-t border-outline-variant pt-5">
-          <BrandingEditor
-            value={settings}
-            onChange={(changes) => setSettings((current) => current && { ...current, ...changes })}
-            idPrefix="vote"
-            baseTextColor={settings.text_color ?? COLOR_FALLBACK.text_color}
-            baseBackgroundColor={settings.background_color ?? COLOR_FALLBACK.background_color}
-            baseAccentColor={settings.accent_color ?? COLOR_FALLBACK.accent_color}
+        ) : polls.length === 0 && gagalMuat ? (
+          <EmptyState
+            plain
+            icon={<XCircle size={40} />}
+            title="Daftar voting gagal dimuat"
+            description="Halaman mencoba lagi tiap 3 detik. Periksa koneksi bila tidak kunjung muncul."
           />
+        ) : polls.length === 0 ? (
+          <EmptyState
+            plain
+            title="Belum ada pertanyaan"
+            description="Susun pertanyaan, tayangkan ke layar, buka voting, lalu perlihatkan hasilnya saat MC siap. Peserta memilih dari HP."
+            action={<Button size="sm" icon={<Plus size={16} />} onClick={() => setDraft(emptyDraft())}>Pertanyaan baru</Button>}
+          />
+        ) : (
+          <div role="list">
+            {polls.map((poll) => {
+              const onScreen = activeId === poll.id;
+              return (
+                <div role="listitem" key={poll.id}>
+                  <ListRow selected={selectedId === poll.id} onSelect={() => pilih(poll)}>
+                    <span className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="truncate font-medium text-on-surface">{poll.question}</span>
+                      <span className="truncate text-on-surface-variant">
+                        {ringkasTipe(poll)}
+                        {poll.type === "wordcloud" && poll.moderation && poll.pending_words > 0 ? ` · ${poll.pending_words} menunggu moderasi` : ""}
+                      </span>
+                      <span className="mt-0.5 flex flex-wrap gap-1.5">
+                        {onScreen ? <StatusChip dot tone="primary">Di layar</StatusChip> : null}
+                        <StatusChip dot tone={NADA_STATUS[poll.status]}>{VOTE_STATUS_LABEL[poll.status]}</StatusChip>
+                        {poll.results_visible ? <StatusChip>Hasil diperlihatkan</StatusChip> : null}
+                      </span>
+                    </span>
+                    <span className="shrink-0 tabular-nums text-on-surface-variant">{poll.ballots} pemilih</span>
+                  </ListRow>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </PaneBody>
+    </Pane>
+  );
+
+  // ---- Panel detail: kendali satu pertanyaan -----------------------------------
+  const kendali = terpilih && !draft ? (() => {
+    const poll = terpilih;
+    const onScreen = activeId === poll.id;
+    const percentages = votePercentages(poll.options.map((option) => option.vote_count));
+    const { daftar: langkah, berikut } = langkahPanggung(poll, onScreen);
+    const nomorBerikut = berikut ? langkah.findIndex((baris) => baris.key === berikut) + 1 : null;
+    return (
+      <Pane as="aside" aria-label={`Kendali ${poll.question}`}>
+        <div className="flex shrink-0 flex-col gap-1 border-b border-outline-variant px-5 py-4">
+          <div className="flex items-start gap-1">
+            <h2 className="min-w-0 flex-1 pt-2 text-title-medium font-semibold leading-6">{poll.question}</h2>
+            <MenuPertanyaan
+              poll={poll}
+              disabled={busy !== null}
+              onEdit={() => setDraft(toDraft(poll))}
+              onRecount={() => void control("recount", poll.id)}
+              onReset={() => setConfirmReset(poll)}
+              onDelete={() => setConfirmDelete(poll)}
+            />
+            <IconButton size="sm" label="Tutup detail" onClick={() => setSelectedId(null)}><X size={16} /></IconButton>
+          </div>
+          <p className="text-body-medium text-on-surface-variant">{ringkasTipe(poll)} · <span className="tabular-nums">{poll.ballots}</span> orang memilih</p>
+          {poll.description ? <p className="text-body-medium text-on-surface-variant">{poll.description}</p> : null}
         </div>
 
-        <button type="button" onClick={() => void saveSettings()} disabled={savingSettings} className="rounded-md mt-6 min-h-12 bg-primary px-5 font-semibold text-on-primary hover:bg-primary-dim disabled:opacity-50">
-          {savingSettings ? "Menyimpan…" : "Simpan tampilan"}
-        </button>
-      </section>}
-
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Pertanyaan</h2>
-        <button type="button" onClick={() => setDraft(emptyDraft())} className="rounded-md inline-flex min-h-11 items-center gap-2 bg-primary px-4 text-body-medium font-semibold text-on-primary hover:bg-primary-dim">
-          <Plus size={16} /> Pertanyaan baru
-        </button>
-      </div>
-
-      {loading ? <p className="mt-6 text-body-medium text-on-surface-variant">Memuat…</p>
-        : polls.length === 0 ? <p className="rounded-lg mt-6 border border-outline-variant bg-panel p-6 text-body-medium text-on-surface-variant">
-            Belum ada pertanyaan. Tekan <span className="font-semibold">Pertanyaan baru</span> untuk membuat yang pertama.
-          </p>
-        : <ul className="mt-4 space-y-4">
-            {polls.map((poll) => {
-              const counts = poll.options.map((option) => option.vote_count);
-              const percentages = votePercentages(counts);
-              const onScreen = activeId === poll.id;
-              return <li key={poll.id} className="rounded-lg border border-outline-variant bg-panel">
-                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-outline-variant p-5">
-                  <div className="min-w-0 flex-1">
-                    <p className="flex flex-wrap items-center gap-2">
-                      <span className="text-title-large font-semibold">{poll.question}</span>
-                      {onScreen && <span className="rounded-sm inline-flex items-center gap-1 bg-primary-soft px-2 py-0.5 text-label-small font-semibold ed-label text-primary-dim"><Monitor size={12} /> Di layar</span>}
-                      <span className={`px-2 py-0.5 text-label-small font-semibold ed-label ${poll.status === "open" ? "bg-success-soft text-primary-dim" : poll.status === "closed" ? "bg-panel-high text-on-surface-variant" : "bg-warning-soft text-warning"}`}>
-                        {VOTE_STATUS_LABEL[poll.status]}
-                      </span>
-                    </p>
-                    <p className="mt-1 text-body-small text-on-surface-variant">
-                      {VOTE_TYPES.find((item) => item.value === poll.type)?.label}
-                      {poll.type === "multi" ? ` · maks ${poll.max_choices}` : ""}
-                      {" · "}{VOTER_MODES.find((item) => item.value === poll.voter_mode)?.label}
-                      {" · "}<span className="font-semibold text-on-surface">{poll.ballots}</span> orang memilih
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => setDraft(toDraft(poll))} className="rounded-md min-h-10 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">Sunting</button>
-                    <button type="button" onClick={() => setConfirmDelete(poll)} className="rounded-md inline-flex min-h-10 items-center border border-outline-variant px-2 text-body-small font-semibold text-on-surface-variant hover:border-error hover:text-error" aria-label="Hapus"><Trash size={14} /></button>
-                  </div>
-                </div>
-
-                <div className="space-y-2 p-5">
-                  {poll.type === "rating" && <p className="text-body-medium text-on-surface-variant">
-                    Skala 1–{poll.rating_max}. Rata-rata dan sebaran tampil di layar panggung saat hasil diperlihatkan.
-                  </p>}
-                  {poll.type === "wordcloud" && <div className="text-body-medium">
-                    <p className="text-on-surface-variant">
-                      Maksimal {poll.max_words} kata per peserta. Moderasi {poll.moderation ? "menyala" : "mati"}.
-                    </p>
-                    {poll.moderation && <button
-                      type="button"
+        <PaneBody>
+          <DetailSection
+            title="Hasil langsung"
+            action={<span className="text-body-medium text-on-surface-variant">{poll.results_visible ? "Diperlihatkan di layar" : "Belum diperlihatkan"}</span>}
+          >
+            {poll.type === "rating" ? (
+              <p className="text-body-medium text-on-surface-variant">
+                Skala 1–{poll.rating_max}. Rata-rata dan sebaran tampil di layar panggung saat hasil diperlihatkan.
+              </p>
+            ) : null}
+            {poll.type === "wordcloud" ? (
+              <div className="flex flex-col gap-2 text-body-medium">
+                <p className="text-on-surface-variant">Maksimal {poll.max_words} kata per peserta. Moderasi {poll.moderation ? "menyala" : "mati"}.</p>
+                {poll.moderation ? (
+                  <div>
+                    <Button
+                      variant="outlined"
+                      size="sm"
+                      aria-expanded={moderating === poll.id}
+                      className={poll.pending_words > 0 ? "text-warning" : undefined}
                       onClick={() => setModerating(moderating === poll.id ? null : poll.id)}
-                      className={`rounded-md mt-2 inline-flex min-h-10 items-center gap-2 border px-3 text-body-small font-semibold ${poll.pending_words > 0 ? "border-warning bg-warning-soft text-warning" : "border-outline-variant"}`}
                     >
                       {poll.pending_words > 0 ? `${poll.pending_words} kata menunggu persetujuan` : "Antrean moderasi kosong"}
-                    </button>}
-                    {moderating === poll.id && <ul className="mt-3 max-h-64 space-y-1 overflow-y-auto rounded-md border border-outline-variant p-2">
-                      {pending.length === 0 ? <li className="p-2 text-body-small text-on-surface-variant">Tidak ada kata menunggu.</li>
-                        : pending.map((row) => <li key={row.id} className="flex items-center gap-2 border-b border-outline-variant p-2 last:border-b-0">
-                          <span className="min-w-0 flex-1 truncate font-mono text-body-small">{row.text_value}</span>
-                          {row.display_name && <span className="shrink-0 text-label-small text-on-surface-variant">{row.display_name}</span>}
-                          <button type="button" onClick={() => void moderate(row.id, true)} className="rounded-sm min-h-9 shrink-0 border border-outline-variant px-2 text-body-small font-semibold text-primary-dim hover:border-primary">Setujui</button>
-                          <button type="button" onClick={() => void moderate(row.id, false)} className="rounded-sm min-h-9 shrink-0 border border-outline-variant px-2 text-body-small font-semibold text-error hover:border-error">Tolak</button>
-                        </li>)}
-                    </ul>}
-                  </div>}
-                  {poll.options.map((option, index) => <div key={option.id} className="relative overflow-hidden rounded-full border border-outline-variant">
-                    <div className="absolute inset-y-0 left-0 bg-primary-soft" style={{ width: `${percentages[index]}%` }} />
-                    <div className="relative flex items-center justify-between gap-3 px-3 py-2 text-body-medium">
-                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                      <span className="shrink-0 tabular-nums text-on-surface-variant">{percentages[index]}% · {option.vote_count}</span>
-                    </div>
-                  </div>)}
-                </div>
-
-                {/* Empat tombol, urutannya urutan pemakaian di panggung. */}
-                <div className="flex flex-wrap gap-2 border-t border-outline-variant p-4">
-                  <button type="button" disabled={busy !== null} onClick={() => void control(onScreen ? "hide" : "show", poll.id)} className="rounded-md inline-flex min-h-11 items-center gap-2 border border-outline-variant px-3 text-body-medium font-semibold disabled:opacity-50">
-                    <Monitor size={16} /> {onScreen ? "Turunkan dari layar" : "Tayangkan"}
-                  </button>
-                  <button type="button" disabled={busy !== null} onClick={() => void control(poll.status === "open" ? "close" : "open", poll.id)} className={`rounded-md inline-flex min-h-11 items-center gap-2 px-3 text-body-medium font-semibold disabled:opacity-50 ${poll.status === "open" ? "bg-error text-on-error" : "bg-primary text-on-primary"}`}>
-                    {poll.status === "open" ? <><Lock size={16} /> Tutup voting</> : <><LockOpen size={16} /> Buka voting</>}
-                  </button>
-                  <button type="button" disabled={busy !== null} onClick={() => void control(poll.results_visible ? "hide_results" : "reveal_results", poll.id)} className="rounded-md inline-flex min-h-11 items-center gap-2 border border-outline-variant px-3 text-body-medium font-semibold disabled:opacity-50">
-                    {poll.results_visible ? <><EyeSlash size={16} /> Sembunyikan hasil</> : <><Eye size={16} /> Perlihatkan hasil</>}
-                  </button>
-                  {/* Ekspor selalu tersedia, termasuk saat voting masih dibuka:
-                      panitia sering mengambil angka sementara untuk dibacakan MC.
-                      `<a>` biasa, bukan <Link>: alamatnya route handler yang
-                      membalas Content-Disposition attachment, dan navigasi klien
-                      Next akan mencoba me-render balasannya sebagai halaman. */}
-                  <a href={`/api/admin/vote/polls/${poll.id}/export?format=xlsx`} className="rounded-md inline-flex min-h-11 items-center gap-2 border border-outline-variant px-3 text-body-medium font-semibold hover:border-primary hover:text-primary">
-                    <DownloadSimple size={16} /> XLSX
-                  </a>
-                  <a href={`/api/admin/vote/polls/${poll.id}/export?format=csv`} className="rounded-md inline-flex min-h-11 items-center gap-2 border border-outline-variant px-3 text-body-medium font-semibold hover:border-primary hover:text-primary" title="Rekap saja; detail per pemilih ada di XLSX">
-                    <DownloadSimple size={16} /> CSV
-                  </a>
-
-                  <div className="ml-auto flex items-center gap-3">
-                    {/* Reset hanya muncul bila memang ada yang bisa dikosongkan.
-                        Tombol yang selalu tampil tapi tidak pernah berguna pada
-                        pertanyaan kosong hanya menambah satu cara salah tekan. */}
-                    {poll.ballots > 0 && <button type="button" disabled={busy !== null} onClick={() => setConfirmReset(poll)} className="inline-flex min-h-11 items-center gap-1.5 px-2 text-body-small font-semibold text-error underline disabled:opacity-50">
-                      <ArrowCounterClockwise size={14} /> Kosongkan suara
-                    </button>}
-                    {/* Hitung ulang jarang dipakai, dan memang harus terlihat
-                        begitu: ia hanya berguna bila angkanya diragukan. */}
-                    <button type="button" disabled={busy !== null} onClick={() => void control("recount", poll.id)} className="min-h-11 px-2 text-body-small font-semibold text-on-surface-variant underline disabled:opacity-50">
-                      Hitung ulang
-                    </button>
+                    </Button>
                   </div>
-                </div>
-              </li>;
+                ) : null}
+                {moderating === poll.id ? (
+                  <ul className="max-h-64 overflow-y-auto rounded-md border border-outline-variant">
+                    {pending.length === 0 ? <li className="px-3 py-2.5 text-on-surface-variant">Tidak ada kata menunggu.</li>
+                      : pending.map((row) => (
+                        <li key={row.id} className="flex items-center gap-2 border-b border-outline-variant px-3 py-1.5 last:border-b-0">
+                          <span className="min-w-0 flex-1 truncate text-on-surface">{row.text_value}</span>
+                          {row.display_name ? <span className="shrink-0 text-on-surface-variant">{row.display_name}</span> : null}
+                          <Button variant="text" size="sm" onClick={() => void moderate(row.id, true)}>Setujui</Button>
+                          <Button variant="text" size="sm" className="text-error" onClick={() => void moderate(row.id, false)}>Tolak</Button>
+                        </li>
+                      ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+            {poll.options.length > 0 ? (
+              <ul className="flex flex-col gap-3">
+                {poll.options.map((option, index) => (
+                  <li key={option.id} className="flex flex-col gap-1.5 text-body-medium">
+                    <span className="flex items-center gap-3">
+                      <span className="min-w-0 flex-1 truncate text-on-surface">{option.label}</span>
+                      <span className="shrink-0 tabular-nums text-on-surface-variant">{percentages[index]}% · {option.vote_count}</span>
+                    </span>
+                    <span aria-hidden className="h-1.5 overflow-hidden rounded-full bg-surface-container-high">
+                      <span className="block h-full rounded-full bg-primary" style={{ width: `${percentages[index]}%` }} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </DetailSection>
+
+          <DetailSection title="Langkah di panggung">
+            <ol className="flex flex-col gap-3">
+              {langkah.map((baris, index) => {
+                const sekarang = baris.key === berikut;
+                const lain = baris.lain;
+                return (
+                  <li key={baris.key} aria-current={sekarang ? "step" : undefined} className="flex items-start gap-3 text-body-medium">
+                    {baris.selesai ? (
+                      <CheckCircle size={22} aria-label="Selesai" className="mt-px shrink-0 text-success" />
+                    ) : (
+                      <span
+                        aria-hidden
+                        className={cx(
+                          "mt-px grid size-[22px] shrink-0 place-items-center rounded-full text-label-medium font-medium tabular-nums",
+                          sekarang ? "bg-primary text-on-primary" : "border border-outline text-on-surface-variant",
+                        )}
+                      >
+                        {index + 1}
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className={cx("block", sekarang ? "font-semibold text-on-surface" : baris.selesai ? "text-on-surface" : "text-on-surface-variant")}>{baris.judul}</span>
+                      <span className="block text-on-surface-variant">{baris.ket}</span>
+                    </span>
+                    {lain ? (
+                      <Button
+                        variant="text"
+                        size="sm"
+                        disabled={busy !== null}
+                        loading={busy === `${lain.action}-${poll.id}`}
+                        onClick={() => void control(lain.action, poll.id)}
+                      >
+                        {lain.label}
+                      </Button>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ol>
+          </DetailSection>
+        </PaneBody>
+
+        <PaneFooter note={nomorBerikut ? `Langkah ${nomorBerikut} dari 4` : "Semua langkah selesai"}>
+          {onScreen ? (
+            <Button variant="outlined" size="sm" disabled={busy !== null} loading={busy === `hide-${poll.id}`} onClick={() => void control("hide", poll.id)}>
+              Turunkan dari layar
+            </Button>
+          ) : null}
+          {berikut ? (
+            <Button
+              size="sm"
+              variant={berikut === "close" ? "danger" : "filled"}
+              disabled={busy !== null}
+              loading={busy === `${AKSI_LANGKAH[berikut]}-${poll.id}`}
+              onClick={() => void control(AKSI_LANGKAH[berikut], poll.id)}
+            >
+              {TOMBOL_LANGKAH[berikut]}
+            </Button>
+          ) : null}
+        </PaneFooter>
+      </Pane>
+    );
+  })() : null;
+
+  // ---- Panel detail: penyunting pertanyaan -------------------------------------
+  const opsiValid = draft ? draft.options.filter((option) => option.label.trim()).length >= 2 : false;
+  const bisaSimpan = draft ? Boolean(draft.question.trim()) && (!TYPES_WITH_OPTIONS.includes(draft.type) || opsiValid) : false;
+
+  const penyunting = draft ? (
+    <Pane as="aside" aria-label={draft.id ? "Sunting pertanyaan" : "Pertanyaan baru"}>
+      <PaneHeader className="px-5 py-4">
+        <h2 className="min-w-0 flex-1 truncate text-title-medium font-semibold">{draft.id ? "Sunting pertanyaan" : "Pertanyaan baru"}</h2>
+        <IconButton size="sm" label="Batal" disabled={saving} onClick={() => setDraft(null)}><X size={16} /></IconButton>
+      </PaneHeader>
+      <PaneBody>
+        <form id="form-pertanyaan" onSubmit={(event) => { event.preventDefault(); void save(); }} className="flex flex-col gap-5 px-5 py-4">
+          <TextField
+            label="Pertanyaan"
+            value={draft.question}
+            onChange={(event) => setDraft({ ...draft, question: event.target.value })}
+            placeholder="Siapa karyawan terbaik tahun ini?"
+            required
+          />
+          <TextField
+            label="Keterangan"
+            optional
+            hint="Tampil di bawah pertanyaan."
+            value={draft.description}
+            onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+          />
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-2 text-body-medium font-semibold text-on-surface">Tipe</legend>
+            {VOTE_TYPES.map((item) => {
+              const on = draft.type === item.value;
+              return (
+                <label key={item.value} className={cx("flex cursor-pointer gap-3 rounded-lg border p-3 text-body-medium", on ? "border-primary bg-accent-soft" : "border-outline-variant hover:bg-primary-soft")}>
+                  <input type="radio" name="vote-type" value={item.value} checked={on} onChange={() => setDraft({ ...draft, type: item.value })} className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
+                  <span>
+                    <span className="block font-medium text-on-surface">{item.label}</span>
+                    <span className="block text-on-surface-variant">{item.hint}</span>
+                  </span>
+                </label>
+              );
             })}
-          </ul>}
-    </div>
+          </fieldset>
 
-    {/* Editor pertanyaan */}
-    {draft && <div role="dialog" aria-modal="true" aria-label="Editor pertanyaan" className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setDraft(null); }}>
-      <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="rounded-lg max-h-[90dvh] w-full max-w-2xl overflow-y-auto border border-outline-variant bg-panel p-6 sm:p-8">
-        <div className="flex items-start justify-between gap-4">
-          <h2 className="text-headline-small font-semibold">{draft.id ? "Sunting pertanyaan" : "Pertanyaan baru"}</h2>
-          <button type="button" onClick={() => setDraft(null)} disabled={saving} className="min-h-11 px-2 disabled:opacity-40" aria-label="Tutup"><X size={18} /></button>
-        </div>
+          {draft.type === "rating" ? (
+            <div className="flex flex-col gap-4">
+              <TextField
+                label="Nilai tertinggi"
+                type="number"
+                min={2}
+                max={10}
+                value={draft.rating_max}
+                onChange={(event) => setDraft({ ...draft, rating_max: Math.min(10, Math.max(2, Number(event.target.value) || 5)) })}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <TextField label="Label nilai 1" value={draft.rating_min_label} onChange={(event) => setDraft({ ...draft, rating_min_label: event.target.value })} placeholder="Sangat kurang" />
+                <TextField label="Label nilai tertinggi" value={draft.rating_max_label} onChange={(event) => setDraft({ ...draft, rating_max_label: event.target.value })} placeholder="Sangat baik" />
+              </div>
+            </div>
+          ) : null}
 
-        <label className="mt-6 block text-body-medium font-semibold">Pertanyaan
-          <input value={draft.question} onChange={(event) => setDraft({ ...draft, question: event.target.value })} className={inputClass} placeholder="Siapa karyawan terbaik tahun ini?" required />
-        </label>
-        <label className="mt-4 block text-body-medium font-semibold">Keterangan
-          <input value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} className={inputClass} placeholder="Opsional, tampil di bawah pertanyaan" />
-        </label>
-
-        <p className={`mt-5 ${labelClass}`}>Tipe</p>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {VOTE_TYPES.map((item) => <button key={item.value} type="button" onClick={() => setDraft({ ...draft, type: item.value })} className={`rounded-lg border p-3 text-left ${draft.type === item.value ? "border-primary bg-primary-soft" : "border-outline-variant hover:border-primary"}`}>
-            <span className="block text-body-medium font-semibold">{item.label}</span>
-            <span className="mt-1 block text-label-small leading-snug text-on-surface-variant">{item.hint}</span>
-          </button>)}
-        </div>
-
-        {draft.type === "rating" && <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <label className="block text-body-medium font-semibold">Nilai tertinggi
-            <input type="number" min={2} max={10} value={draft.rating_max} onChange={(event) => setDraft({ ...draft, rating_max: Math.min(10, Math.max(2, Number(event.target.value) || 5)) })} className={inputClass} />
-          </label>
-          <label className="block text-body-medium font-semibold">Label nilai 1
-            <input value={draft.rating_min_label} onChange={(event) => setDraft({ ...draft, rating_min_label: event.target.value })} className={inputClass} placeholder="Sangat kurang" />
-          </label>
-          <label className="block text-body-medium font-semibold">Label nilai tertinggi
-            <input value={draft.rating_max_label} onChange={(event) => setDraft({ ...draft, rating_max_label: event.target.value })} className={inputClass} placeholder="Sangat baik" />
-          </label>
-        </div>}
-
-        {draft.type === "wordcloud" && <div className="mt-4 space-y-3">
-          <label className="block text-body-medium font-semibold">Maksimal kata per peserta
-            <input type="number" min={1} max={5} value={draft.max_words} onChange={(event) => setDraft({ ...draft, max_words: Math.min(5, Math.max(1, Number(event.target.value) || 3)) })} className={inputClass} />
-          </label>
-          <label className="flex items-start gap-2 text-body-medium">
-            <input type="checkbox" checked={draft.moderation} onChange={(event) => setDraft({ ...draft, moderation: event.target.checked })} className="mt-1 size-4" />
-            <span>
-              <span className="font-semibold">Tahan kata sampai disetujui</span>
+          {draft.type === "wordcloud" ? (
+            <div className="flex flex-col gap-4">
+              <TextField
+                label="Maksimal kata per peserta"
+                type="number"
+                min={1}
+                max={5}
+                value={draft.max_words}
+                onChange={(event) => setDraft({ ...draft, max_words: Math.min(5, Math.max(1, Number(event.target.value) || 3)) })}
+              />
               {/* Bawaan MENYALA. Penyaring kata di database hanya menangkap yang
                   sudah terdaftar; nama orang dan sindiran tidak akan pernah ada
                   di daftar mana pun, dan yang tampil di layar besar di depan
                   klien tidak bisa ditarik kembali. */}
-              <span className="mt-1 block text-label-small leading-relaxed text-on-surface-variant">
-                Sangat disarankan. Kata baru masuk antrean dan baru tampil di layar setelah Anda setujui. Dimatikan, apa pun yang diketik peserta langsung terpampang.
-              </span>
-            </span>
-          </label>
-        </div>}
+              <Switch
+                checked={draft.moderation}
+                onChange={(checked) => setDraft({ ...draft, moderation: checked })}
+                label="Tahan kata sampai disetujui"
+                description="Sangat disarankan. Kata baru masuk antrean dan baru tampil di layar setelah Anda setujui. Dimatikan, apa pun yang diketik peserta langsung terpampang."
+              />
+            </div>
+          ) : null}
 
-        {draft.type === "multi" && <label className="mt-4 block text-body-medium font-semibold">Maksimal pilihan
-          <input type="number" min={2} max={20} value={draft.max_choices} onChange={(event) => setDraft({ ...draft, max_choices: Math.max(2, Number(event.target.value) || 2) })} className={inputClass} />
-        </label>}
-
-        <p className={`mt-5 ${labelClass}`}>Siapa yang boleh memilih</p>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {VOTER_MODES.map((item) => <button key={item.value} type="button" onClick={() => setDraft({ ...draft, voter_mode: item.value })} className={`rounded-lg border p-3 text-left ${draft.voter_mode === item.value ? "border-primary bg-primary-soft" : "border-outline-variant hover:border-primary"}`}>
-            <span className="block text-body-medium font-semibold">{item.label}</span>
-            <span className="mt-1 block text-label-small leading-snug text-on-surface-variant">{item.hint}</span>
-          </button>)}
-        </div>
-        {/* Peringatan kekuatan mode ditampilkan DI SEBELAH pilihannya, bukan di
-            dokumentasi: panitia yang memilih anonim untuk voting berhadiah perlu
-            membacanya sebelum acara, bukan sesudah. */}
-        <p className="mt-2 text-label-small leading-relaxed text-on-surface-variant">
-          {VOTER_MODES.find((item) => item.value === draft.voter_mode)?.warning}
-        </p>
-
-        {TYPES_WITH_OPTIONS.includes(draft.type) && <>
-        <p className={`mt-5 ${labelClass}`}>Opsi jawaban</p>
-        <ul className="mt-2 space-y-2">
-          {draft.options.map((option, index) => <li key={index} className="flex gap-2">
-            {/* Gambar opsi. Opsional dan berdampingan dengan labelnya: voting
-                "pilih desain" butuh gambar, sebagian besar pertanyaan tidak. */}
-            <label className="rounded-md flex size-11 shrink-0 cursor-pointer items-center justify-center overflow-hidden border border-outline-variant hover:border-primary" title={option.image_url ? "Ganti gambar opsi" : "Unggah gambar opsi"}>
-              {option.image_url
-                ? <ImagePreview url={option.image_url} alt={`Gambar opsi ${index + 1}`} className="size-11" />
-                : <UploadSimple size={16} className={uploading === `option-${index}` ? "animate-pulse" : "text-on-surface-variant"} />}
-              <input type="file" accept="image/*" className="hidden" onChange={async (event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                if (!file) return;
-                const url = await upload(file, `option-${index}`);
-                if (url) setDraft((current) => current && { ...current, options: current.options.map((item, position) => position === index ? { ...item, image_url: url } : item) });
-              }} />
-            </label>
-            <input
-              value={option.label}
-              onChange={(event) => setDraft({ ...draft, options: draft.options.map((item, position) => position === index ? { ...item, label: event.target.value } : item) })}
-              className="rounded-md h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary"
-              placeholder={`Opsi ${index + 1}`}
+          {draft.type === "multi" ? (
+            <TextField
+              label="Maksimal pilihan"
+              type="number"
+              min={2}
+              max={20}
+              value={draft.max_choices}
+              onChange={(event) => setDraft({ ...draft, max_choices: Math.max(2, Number(event.target.value) || 2) })}
             />
-            {option.image_url && <button
-              type="button"
-              onClick={() => setDraft({ ...draft, options: draft.options.map((item, position) => position === index ? { ...item, image_url: null } : item) })}
-              className="rounded-md min-h-11 shrink-0 border border-outline-variant px-2 text-label-small font-semibold text-on-surface-variant hover:border-error hover:text-error"
-            >Hapus gambar</button>}
-            <button
-              type="button"
-              onClick={() => setDraft({ ...draft, options: draft.options.filter((_, position) => position !== index) })}
-              disabled={draft.options.length <= 2}
-              className="rounded-md min-h-11 shrink-0 border border-outline-variant px-3 text-body-small font-semibold text-on-surface-variant hover:border-error hover:text-error disabled:opacity-30"
-              aria-label={`Hapus opsi ${index + 1}`}
-            ><Trash size={14} /></button>
-          </li>)}
-        </ul>
-        <button type="button" onClick={() => setDraft({ ...draft, options: [...draft.options, { id: null, label: "", image_url: null }] })} disabled={draft.options.length >= 30} className="rounded-md mt-2 inline-flex min-h-10 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold disabled:opacity-40">
-          <Plus size={14} /> Tambah opsi
-        </button>
-        </>}
+          ) : null}
 
-        <div className="mt-8 flex flex-wrap gap-2">
-          <button type="submit" disabled={saving || !draft.question.trim() || (TYPES_WITH_OPTIONS.includes(draft.type) && draft.options.filter((option) => option.label.trim()).length < 2)} className="rounded-md inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-primary px-4 font-semibold text-on-primary disabled:opacity-40">
-            <Check size={18} /> {saving ? "Menyimpan…" : "Simpan"}
-          </button>
-          <button type="button" onClick={() => setDraft(null)} disabled={saving} className="rounded-md min-h-12 border border-outline-variant px-4 font-semibold disabled:opacity-40">Batal</button>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-2 text-body-medium font-semibold text-on-surface">Siapa yang boleh memilih</legend>
+            {VOTER_MODES.map((item) => {
+              const on = draft.voter_mode === item.value;
+              return (
+                <label key={item.value} className={cx("flex cursor-pointer gap-3 rounded-lg border p-3 text-body-medium", on ? "border-primary bg-accent-soft" : "border-outline-variant hover:bg-primary-soft")}>
+                  <input type="radio" name="voter-mode" value={item.value} checked={on} onChange={() => setDraft({ ...draft, voter_mode: item.value })} className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
+                  <span>
+                    <span className="block font-medium text-on-surface">{item.label}</span>
+                    <span className="block text-on-surface-variant">{item.hint}</span>
+                  </span>
+                </label>
+              );
+            })}
+            {/* Peringatan kekuatan mode ditampilkan DI SEBELAH pilihannya: panitia
+                yang memilih anonim untuk voting berhadiah perlu membacanya
+                sebelum acara, bukan sesudah. */}
+            {VOTER_MODES.find((item) => item.value === draft.voter_mode)?.warning ? (
+              <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
+                <Warning size={16} className="mt-0.5 shrink-0 text-warning" />
+                {VOTER_MODES.find((item) => item.value === draft.voter_mode)?.warning}
+              </p>
+            ) : null}
+          </fieldset>
+
+          {TYPES_WITH_OPTIONS.includes(draft.type) ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-body-medium font-semibold text-on-surface">Opsi jawaban</p>
+              <ul className="flex flex-col gap-2">
+                {draft.options.map((option, index) => (
+                  <li key={index} className="flex items-center gap-2">
+                    {/* Gambar opsi. Opsional dan berdampingan dengan labelnya: voting
+                        "pilih desain" butuh gambar, sebagian besar pertanyaan tidak. */}
+                    <label
+                      className="flex size-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-outline hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary"
+                      title={option.image_url ? "Ganti gambar opsi" : "Unggah gambar opsi"}
+                    >
+                      <span className="sr-only">{option.image_url ? `Ganti gambar opsi ${index + 1}` : `Unggah gambar opsi ${index + 1}`}</span>
+                      {option.image_url
+                        ? <ImagePreview url={option.image_url} alt={`Gambar opsi ${index + 1}`} className="size-9" />
+                        : <UploadSimple size={16} className={uploading === `option-${index}` ? "animate-pulse text-primary" : "text-on-surface-variant"} />}
+                      <input type="file" accept="image/*" className="sr-only" onChange={async (event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = "";
+                        if (!file) return;
+                        const url = await upload(file, `option-${index}`);
+                        if (url) setDraft((current) => current && { ...current, options: current.options.map((item, position) => position === index ? { ...item, image_url: url } : item) });
+                      }} />
+                    </label>
+                    <input
+                      value={option.label}
+                      aria-label={`Opsi ${index + 1}`}
+                      onChange={(event) => setDraft({ ...draft, options: draft.options.map((item, position) => position === index ? { ...item, label: event.target.value } : item) })}
+                      className={INPUT}
+                      placeholder={`Opsi ${index + 1}`}
+                    />
+                    {option.image_url ? (
+                      <Button
+                        variant="text"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => setDraft({ ...draft, options: draft.options.map((item, position) => position === index ? { ...item, image_url: null } : item) })}
+                      >
+                        Hapus gambar
+                      </Button>
+                    ) : null}
+                    <IconButton
+                      size="sm"
+                      label={`Hapus opsi ${index + 1}`}
+                      disabled={draft.options.length <= 2}
+                      onClick={() => setDraft({ ...draft, options: draft.options.filter((_, position) => position !== index) })}
+                    >
+                      <Trash size={16} />
+                    </IconButton>
+                  </li>
+                ))}
+              </ul>
+              <div>
+                <Button
+                  variant="outlined"
+                  size="sm"
+                  icon={<Plus size={16} />}
+                  disabled={draft.options.length >= 30}
+                  onClick={() => setDraft({ ...draft, options: [...draft.options, { id: null, label: "", image_url: null }] })}
+                >
+                  Tambah opsi
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </form>
+      </PaneBody>
+      <PaneFooter note={TYPES_WITH_OPTIONS.includes(draft.type) && !opsiValid ? "Isi minimal dua opsi" : null}>
+        <Button variant="outlined" size="sm" disabled={saving} onClick={() => setDraft(null)}>Batal</Button>
+        <Button type="submit" form="form-pertanyaan" size="sm" loading={saving} disabled={!bisaSimpan}>
+          {draft.id ? "Simpan perubahan" : "Simpan pertanyaan"}
+        </Button>
+      </PaneFooter>
+    </Pane>
+  ) : null;
+
+  // ---- Tab tampilan layar ------------------------------------------------------
+  const tampilan = settings ? (
+    <Pane aria-label="Tampilan layar panggung">
+      <PaneBody>
+        <div className="flex max-w-[720px] flex-col gap-5 px-5 py-5">
+          <p className="text-body-medium text-on-surface-variant">
+            Berlaku untuk /vote/layar. Judul di sini adalah judul acara yang menetap; pertanyaannya sendiri berganti
+            mengikuti apa yang sedang ditayangkan.
+          </p>
+
+          {/* Kode gabung paling atas: inilah yang dibacakan MC dari panggung, dan
+              yang paling sering dicari operator saat peserta bertanya caranya ikut. */}
+          <Kelompok title="Kode gabung acara" first>
+            <div className="flex flex-wrap items-center gap-4">
+              <p className="text-[1.5rem] font-semibold leading-8 tabular-nums text-on-surface">{kode ?? "Belum ada kode"}</p>
+              <p className="min-w-48 flex-1 text-body-medium text-on-surface-variant">
+                Peserta membuka /join lalu mengetik angka ini. Berlaku untuk seluruh acara, bukan per pertanyaan, jadi
+                cukup diumumkan sekali di awal sesi.
+              </p>
+              <Button variant="outlined" size="sm" loading={rotating} onClick={() => setConfirmRotate(true)}>
+                {joinCode ? "Ganti kode" : "Terbitkan kode"}
+              </Button>
+            </div>
+          </Kelompok>
+
+          <Kelompok title="Judul">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField label="Judul layar" value={settings.page_title} onChange={(event) => setSettings({ ...settings, page_title: event.target.value })} />
+              <TextField label="Sub judul" optional value={settings.page_subtitle} onChange={(event) => setSettings({ ...settings, page_subtitle: event.target.value })} />
+            </div>
+          </Kelompok>
+
+          <Kelompok title="Warna">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {([
+                ["background_color", "Latar"],
+                ["text_color", "Teks"],
+                ["accent_color", "Aksen"],
+                ["panel_color", "Panel hasil"],
+              ] as const).map(([key, label]) => (
+                <div key={key}>
+                  <label htmlFor={`vote-${key}`} className="block text-body-medium font-medium text-on-surface">{label}</label>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <input
+                      id={`vote-${key}`}
+                      type="color"
+                      value={settings[key] ?? COLOR_FALLBACK[key]}
+                      onChange={(event) => setSettings({ ...settings, [key]: event.target.value })}
+                      className="h-9 w-16 rounded-md border border-outline bg-surface-container-lowest"
+                    />
+                    {/* Tombol ini mengembalikan kolomnya ke NULL, bukan mengetik warna
+                        bawaan: keduanya terlihat sama di layar, tetapi hanya NULL yang
+                        ikut berubah bila bawaannya kelak diubah. */}
+                    <Button variant="outlined" size="sm" disabled={settings[key] === null} onClick={() => setSettings({ ...settings, [key]: null })}>
+                      {settings[key] === null ? "Bawaan" : "Pakai bawaan"}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Panel diberi keterangan sendiri: ia satu-satunya warna yang punya
+                perhitungan otomatis, dan tanpa kalimat ini "Bawaan" terbaca seperti
+                warna tetap. */}
+            <p className="text-body-medium text-on-surface-variant">
+              Panel hasil adalah bidang di belakang daftar suara. Dibiarkan bawaan, ia menjadi lapisan gelap tembus pandang
+              sehingga serasi dengan gambar latar apa pun. Isi warna hanya bila ingin bidang solid.
+            </p>
+          </Kelompok>
+
+          <Kelompok title="Gambar latar">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className={cx("inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium font-medium hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary", uploading === "background" && "pointer-events-none opacity-60")}>
+                <UploadSimple size={16} />
+                {uploading === "background" ? "Mengunggah..." : settings.background_image_url ? "Ganti gambar" : "Unggah gambar"}
+                <input type="file" accept="image/*" className="sr-only" onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (!file) return;
+                  const url = await upload(file, "background");
+                  if (url) setSettings((current) => current && { ...current, background_image_url: url });
+                }} />
+              </label>
+              {settings.background_image_url ? (
+                <Button variant="text" size="sm" className="text-error" onClick={() => setSettings({ ...settings, background_image_url: null })}>Hapus gambar</Button>
+              ) : null}
+            </div>
+            {settings.background_image_url ? <ImagePreview url={settings.background_image_url} alt="Pratinjau latar" className="h-16 w-28" /> : null}
+          </Kelompok>
+
+          <Kelompok title="Header & footer">
+            <BrandingEditor
+              value={settings}
+              onChange={(changes) => setSettings((current) => current && { ...current, ...changes })}
+              idPrefix="vote"
+              baseTextColor={settings.text_color ?? COLOR_FALLBACK.text_color}
+              baseBackgroundColor={settings.background_color ?? COLOR_FALLBACK.background_color}
+              baseAccentColor={settings.accent_color ?? COLOR_FALLBACK.accent_color}
+            />
+          </Kelompok>
         </div>
-      </form>
-    </div>}
+      </PaneBody>
+      <PaneFooter note="Berlaku untuk semua layar yang membuka /vote/layar">
+        <Button size="sm" loading={savingSettings} onClick={() => void saveSettings()}>Simpan tampilan</Button>
+      </PaneFooter>
+    </Pane>
+  ) : settingsGagal ? (
+    <EmptyState
+      icon={<XCircle size={40} />}
+      title="Setelan tampilan gagal dimuat"
+      description="Periksa koneksi lalu coba lagi."
+      action={<Button variant="outlined" size="sm" onClick={() => void loadSettings()}>Coba lagi</Button>}
+    />
+  ) : <PageLoading />;
 
-    {/* Konfirmasi kosongkan. Dipisah dari dialog hapus karena akibatnya berbeda:
-        yang ini membuang SUARA dan menyisakan pertanyaannya, yang itu membuang
-        keduanya. Satu dialog dengan kalimat samar untuk dua akibat yang berbeda
-        adalah cara tercepat menghapus hal yang salah. */}
-    {confirmReset && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmReset(null); }}>
-      <div className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-6">
-        <h2 className="text-title-large font-semibold text-error">Kosongkan suara</h2>
-        <p className="mt-3 text-body-medium leading-6">
-          <span className="font-semibold">{confirmReset.ballots} suara</span> pada &ldquo;{confirmReset.question}&rdquo; akan dihapus permanen dan penghitungnya kembali ke nol.
-        </p>
+  return (
+    <WorkspacePage fill>
+      <WorkspaceHeader
+        meta={
+          <>
+            {kode ? (
+              <span>Kode gabung <span className="font-semibold tabular-nums text-on-surface">{kode}</span></span>
+            ) : <span>Belum ada kode gabung</span>}
+            <MetaSeparator />
+            <span>Peserta membuka /join lalu mengetik kode ini</span>
+            <MetaSeparator />
+            <span>Diperbarui tiap 3 detik</span>
+          </>
+        }
+        actions={
+          <>
+            <ButtonLink href="/vote/layar" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Layar panggung</ButtonLink>
+            <Button
+              variant="outlined"
+              icon={<Plus size={16} />}
+              disabled={draft !== null}
+              onClick={() => { setTab("pertanyaan"); setDraft(emptyDraft()); }}
+            >
+              Pertanyaan baru
+            </Button>
+          </>
+        }
+      />
+
+      {error ? (
+        <Banner
+          tone="error"
+          icon={<XCircle size={18} />}
+          actions={<IconButton size="sm" label="Tutup pesan" onClick={() => setError("")}><X size={16} /></IconButton>}
+        >
+          {error}
+        </Banner>
+      ) : null}
+
+      <Tabs<Tab>
+        label="Bagian voting"
+        idPrefix="voting"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: "pertanyaan", label: "Pertanyaan", badge: loading ? undefined : polls.length },
+          { value: "tampilan", label: "Tampilan layar" },
+        ]}
+      />
+
+      <div role="tabpanel" id={`voting-panel-${tab}`} aria-labelledby={`voting-tab-${tab}`} className="flex min-h-0 flex-1 flex-col">
+        {tab === "pertanyaan" ? <ListDetail list={daftar} detail={penyunting ?? kendali} detailWidth={460} /> : tampilan}
+      </div>
+
+      {/* Konfirmasi kosongkan. Dipisah dari dialog hapus karena akibatnya berbeda:
+          yang ini membuang SUARA dan menyisakan pertanyaannya, yang itu membuang
+          keduanya. */}
+      <Dialog
+        open={confirmReset !== null}
+        onClose={() => setConfirmReset(null)}
+        dismissible={busy === null}
+        tone="danger"
+        title="Kosongkan suara?"
+        description={confirmReset ? `${confirmReset.ballots} suara pada "${confirmReset.question}" dihapus permanen dan penghitungnya kembali ke nol.` : undefined}
+        actions={
+          <>
+            <Button variant="outlined" disabled={busy !== null} onClick={() => setConfirmReset(null)}>Batal</Button>
+            <Button variant="danger" loading={busy === `reset-${confirmReset?.id}`} disabled={busy !== null} onClick={() => { if (confirmReset) void reset(confirmReset); }}>Kosongkan suara</Button>
+          </>
+        }
+      >
         <p className="mt-3 text-body-medium leading-6 text-on-surface-variant">
-          Pertanyaan, opsi, gambar, dan setelannya tetap utuh — begitu juga status buka/tutup dan tampil/sembunyi. Unduh hasilnya lebih dulu bila masih dibutuhkan.
+          Pertanyaan, opsi, gambar, dan setelannya tetap utuh, begitu juga status buka/tutup dan tampil/sembunyi.
+          Unduh hasilnya lebih dulu bila masih dibutuhkan.
         </p>
-        <div className="mt-6 flex gap-2">
-          <button type="button" onClick={() => void reset(confirmReset)} disabled={busy !== null} className="rounded-md min-h-12 flex-1 bg-error px-4 font-semibold text-on-error disabled:opacity-50">Kosongkan</button>
-          <button type="button" onClick={() => setConfirmReset(null)} className="rounded-md min-h-12 border border-outline-variant px-4 font-semibold">Batal</button>
-        </div>
-      </div>
-    </div>}
+      </Dialog>
 
-    {/* Konfirmasi hapus. Menyebut jumlah suara yang ikut hilang, karena itulah
-        yang sebenarnya dipertaruhkan — bukan pertanyaannya, yang bisa diketik
-        ulang dalam sepuluh detik. */}
-    {confirmDelete && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-scrim/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmDelete(null); }}>
-      <div className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-6">
-        <h2 className="text-title-large font-semibold text-error">Hapus pertanyaan</h2>
-        <p className="mt-3 text-body-medium leading-6">
-          &ldquo;{confirmDelete.question}&rdquo; akan dihapus{confirmDelete.ballots > 0 ? <> beserta <span className="font-semibold">{confirmDelete.ballots} suara</span> yang sudah masuk</> : ""}. Tidak dapat dikembalikan.
-        </p>
-        <div className="mt-6 flex gap-2">
-          <button type="button" onClick={() => void remove(confirmDelete)} disabled={busy !== null} className="rounded-md min-h-12 flex-1 bg-error px-4 font-semibold text-on-error disabled:opacity-50">Hapus</button>
-          <button type="button" onClick={() => setConfirmDelete(null)} className="rounded-md min-h-12 border border-outline-variant px-4 font-semibold">Batal</button>
-        </div>
-      </div>
-    </div>}
-  </main>;
+      {/* Konfirmasi hapus. Menyebut jumlah suara yang ikut hilang, karena itulah
+          yang sebenarnya dipertaruhkan. */}
+      <Dialog
+        open={confirmDelete !== null}
+        onClose={() => setConfirmDelete(null)}
+        dismissible={busy === null}
+        tone="danger"
+        title="Hapus pertanyaan?"
+        description={confirmDelete
+          ? `"${confirmDelete.question}" akan dihapus${confirmDelete.ballots > 0 ? ` beserta ${confirmDelete.ballots} suara yang sudah masuk` : ""}. Tidak dapat dikembalikan.`
+          : undefined}
+        actions={
+          <>
+            <Button variant="outlined" disabled={busy !== null} onClick={() => setConfirmDelete(null)}>Batal</Button>
+            <Button variant="danger" loading={busy === `delete-${confirmDelete?.id}`} disabled={busy !== null} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus pertanyaan</Button>
+          </>
+        }
+      />
+
+      <Dialog
+        open={confirmRotate}
+        onClose={() => setConfirmRotate(false)}
+        dismissible={!rotating}
+        tone={joinCode ? "danger" : "neutral"}
+        title={joinCode ? "Ganti kode gabung?" : "Terbitkan kode gabung?"}
+        description={joinCode
+          ? "Kode lama langsung tidak berlaku. Peserta yang masih memegangnya akan mengetik angka yang tidak menemukan apa pun, jadi umumkan kode baru dari panggung."
+          : "Kode dibuat otomatis dan berlaku untuk seluruh acara."}
+        actions={
+          <>
+            <Button variant="outlined" disabled={rotating} onClick={() => setConfirmRotate(false)}>Batal</Button>
+            <Button variant={joinCode ? "danger" : "filled"} loading={rotating} onClick={() => void rotateJoinCode()}>
+              {joinCode ? "Ganti kode" : "Terbitkan kode"}
+            </Button>
+          </>
+        }
+      />
+    </WorkspacePage>
+  );
 }

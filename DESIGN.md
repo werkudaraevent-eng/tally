@@ -833,6 +833,61 @@ globals.css. Atribut `data-size` dipakai karena satu primitif punya beberapa
 ukuran — menimpa kelas `min-h-12` langsung akan ikut mengenai puluhan elemen
 lain yang memakainya untuk hal lain.
 
+### Tata letak M3, tampilan Cloudflare (rombak September 2026)
+
+Bab ini **menggantikan** "Satu suara huruf", "Kepala halaman", dan "Bingkai
+halaman" di bawah untuk layar `/admin/*`. Bagian itu dibiarkan sebagai catatan
+sejarah; bila bertentangan, bab ini yang berlaku.
+
+Dua sumber, masing-masing untuk hal yang berbeda:
+
+| Dari | Diambil | Tidak diambil |
+| --- | --- | --- |
+| Material Design 3 | Canonical layout, margin 24px, satu aksi utama per tampilan, aturan kapan memakai tabs / segmented / chip / dialog | Komponen dan tampilan M3 |
+| Dasbor Cloudflare (Kumo) | Tampilan: panel putih bergaris tipis di kanvas abu sangat muda, teks isi 14px, tanpa bold dan tanpa tracking, sentence case, tanpa border + bayangan sekaligus, tanpa transisi warna saat hover | Tata letak dan navigasinya |
+
+**Huruf: Inter untuk semua**, termasuk angka, kode QR, dan jam. Tanpa huruf
+lebar-tetap; kolom angka memakai `tabular-nums`.
+
+**Setiap layar memilih satu canonical layout**, lewat primitif di
+`src/components/m3/workspace.tsx`:
+
+| Layout | Primitif | Dipakai di |
+| --- | --- | --- |
+| Feed | `WorkspacePage width="wide"` + grid 12 kolom | Dashboard, Laporan |
+| List-detail | `ListDetail` | Daftar peserta, Pendaftaran publik, Kehadiran, Transaksi, Booth & item, User & role, Undian, Voting |
+| Supporting pane | `SupportingPane` | Denah kursi, Halaman acara, Rundown, Layar sapa, Papan peringkat, Label & printer |
+| Satu panel | `Pane` tunggal + `Tabs` | Pengaturan, Panel operator undian |
+
+Aturan yang mengikat semuanya:
+
+- `WorkspaceHeader` membawa `<h1>` halaman (30px/600, judul dari
+  `nav-config.ts`), satu baris meta, dan aksi halaman di kanan. Aksi utama
+  (filled) paling banyak satu.
+- Halaman list-detail dan supporting pane memakai `WorkspacePage fill`: setinggi
+  layar di `lg`, panelnya bergulir sendiri, dan `PaneFooter` menempel di bawah
+  dengan aksi simpan panel itu.
+- Panel detail **hanya muncul saat baris dipilih**. Tanpa pilihan, daftar
+  memakai seluruh lebar. Di bawah `lg` detail menggantikan daftar dan membawa
+  tombol tutup.
+- Tabs memisahkan kumpulan konten setara; SegmentedButton memilih bagian di
+  dalam satu panel; chip untuk saringan (`ChipMenu`, pilih banyak dengan cari
+  dan hitungan); Dialog untuk tugas pendek dan konfirmasi berbahaya.
+- Kolom tabel bisa disembunyikan lewat `ColumnMenu`. Pilihannya disimpan per
+  akun per acara di `localStorage` perangkat itu (`useColumnPrefs`), jadi tidak
+  ikut pindah ke perangkat lain.
+- Warna: kanvas `surface`, panel `surface-container-lowest` (putih), kepala
+  tabel dan kaki panel `surface-container-high`, baris hover `primary-soft`
+  (abu), baris terpilih `secondary-container`, penanda aktif/terpilih
+  `accent-soft` + `primary`. `primary` biru `#1a56c4` adalah satu-satunya
+  warna aksen.
+- Status: `StatusChip` setinggi 20px, radius 4px, bertitik.
+- Tanpa em dash di teks antarmuka. Sel kosong memakai en dash (`EMPTY_VALUE`).
+
+Desain per halaman ada di Figma berkas `OTb4jMVVF0rVEHRoSrhCEG`, halaman
+"Rombak · M3 × Cloudflare", lengkap dengan frame "Catatan" yang menjelaskan
+alasan tata letaknya.
+
 ### Satu suara huruf
 
 Ruang kerja memakai **satu keluarga huruf**, Geist. Huruf lebar-tetap disisakan

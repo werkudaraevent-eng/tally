@@ -1,25 +1,25 @@
 "use client";
 
 import {
-  ArrowSquareOut, Check, ClockCounterClockwise, Confetti, DownloadSimple, FloppyDisk, Gift,
-  LockSimple, Plus, Prohibit, SlidersHorizontal, SpeakerHigh, Trash, UploadSimple, Users, Warning,
+  ArrowSquareOut, CaretDown, CheckCircle, Gift, LockSimple, Plus, SlidersHorizontal, Warning, X,
 } from "@phosphor-icons/react";
-import Link from "@/components/event-link";
 import { useEffect, useMemo, useState } from "react";
-import { BrandingEditor } from "@/components/admin/branding-editor";
 import { ImagePreview } from "@/components/admin/image-preview";
-import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import { ExclusionRuleManager } from "@/components/admin/undian-exclusion-rules";
 import { SessionHistory } from "@/components/admin/undian-session-history";
 import { useToast } from "@/components/toast";
-import { normalizeBranding, type Branding } from "@/lib/branding";
-import {
-  ANIMATIONS, EMPTY_CONDITIONS, EXCLUDE_SCOPE_LABEL, SPIN_MODES, WEIGHT_VAR_LABEL,
-  describeConditions, normalizePrize,
-  type ExcludeScope, type PoolBreakdown, type UndianAnimation, type UndianPrize, type WeightVar,
-} from "@/lib/undian";
+import { normalizeBranding } from "@/lib/branding";
+import { cx } from "@/lib/m3/cx";
+import { ANIMATIONS, EMPTY_CONDITIONS, describeConditions, normalizePrize, type UndianPrize } from "@/lib/undian";
 import { undianCanRun, undianReadiness, type ReadinessStep, type ReadinessTab } from "@/lib/undian-readiness";
-import { PageHeader } from "@/components/m3";
+import {
+  Banner, Button, ButtonLink, Dialog, EmptyState, IconButton, ListDetail, ListRow, MetaSeparator, PageLoading, Pane, PaneBody,
+  PaneFooter, PaneHeader, StatusChip, StatusDot, Tabs, WorkspaceHeader, WorkspacePage,
+} from "@/components/m3";
+import { DisplaySettings } from "./display-settings";
+import { EntryLists } from "./entry-lists";
+import { PrizeEditor } from "./prize-editor";
+import type { EntryGroup, Exclusion, PoolStat, Preview, Settings } from "./types";
 
 // CMS Undian.
 //
@@ -27,34 +27,14 @@ import { PageHeader } from "@/components/m3";
 // /admin/undian/kontrol, dan pemisahan itu disengaja: halaman ini padat oleh form
 // dan mudah tergeser saat digulir, sementara halaman kontrol harus bisa dioperasikan
 // tanpa melihat layar terlalu lama karena operatornya sedang berdiri di samping MC.
+//
+// Susunan: kepala halaman dengan satu aksi utama (buka panel operator), baris
+// kesiapan yang terlipat, lalu tab untuk lima kumpulan konten yang setara. Tab
+// hadiah, aturan, daftar import, dan sesi memakai list-detail: daftar selebar
+// halaman, panel detail muncul di kanan hanya saat satu baris dibuka.
 
-type PoolStat = { eligible: number; candidates: number; tickets: number };
-type EntryGroup = { id: number; name: string; note: string | null; entry_count: number };
-type Exclusion = { participant_id: string; name: string; company: string | null; reason: string | null };
-type Preview = {
-  total_participants: number; eligible: number; available: number;
-  total_tickets: number; max_tickets: number; top_share: number;
-  breakdown: PoolBreakdown;
-  sample: { name: string; company: string | null; checked_in: boolean; total_spend: number; tickets: number }[];
-  participant_types: string[]; rsvp_statuses: string[]; companies: string[];
-};
-
-type Settings = {
-  page_title: string; page_subtitle: string | null;
-  name_display: "full" | "follow_event";
-  show_company: boolean; show_seat: boolean;
-  sound_enabled: boolean; confetti_enabled: boolean;
-  reveal_delay_seconds: number;
-  background_color: string | null; text_color: string | null; accent_color: string | null;
-  background_image_url: string | null;
-} & Branding;
-
-// Nilai yang ditampilkan <input type="color"> ketika kolomnya masih null. Bukan
-// nilai yang disimpan: kolomnya tetap null sampai admin benar-benar memilih warna.
-const FALLBACK = { background_color: "#0B1020", text_color: "#FFFFFF", accent_color: "#F5C451" } as const;
-
-const rupiah = (value: number) => new Intl.NumberFormat("id-ID").format(value);
-const digitsOnly = (value: string) => value.replace(/\D/g, "");
+/** Tab halaman. Empat di antaranya sama dengan tab yang ditunjuk daftar kesiapan. */
+type Tab = ReadinessTab | "rules";
 
 function newPrizeDraft(): Omit<UndianPrize, "id"> {
   return {
@@ -69,11 +49,7 @@ function newPrizeDraft(): Omit<UndianPrize, "id"> {
 }
 
 export default function UndianAdminPage() {
-  // Mulai dari "data", bukan "prizes". Urutan tab kini mengikuti arah
-  // ketergantungan: hadiah bersumber daftar entri butuh daftarnya ada lebih
-  // dulu, jadi membuka halaman ini di tab hadiah berarti menyuruh orang mulai
-  // dari langkah yang paling bergantung pada langkah lain.
-  const [tab, setTab] = useState<ReadinessTab>("data");
+  const [tab, setTab] = useState<Tab>("prizes");
   const [prizes, setPrizes] = useState<UndianPrize[]>([]);
   const [winnerCounts, setWinnerCounts] = useState<Record<number, number>>({});
   const [pools, setPools] = useState<Record<number, PoolStat>>({});
@@ -81,14 +57,19 @@ export default function UndianAdminPage() {
   const [groups, setGroups] = useState<EntryGroup[]>([]);
   const [exclusions, setExclusions] = useState<Exclusion[]>([]);
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
   const [draft, setDraft] = useState<Omit<UndianPrize, "id">>(newPrizeDraft);
   const [savingPrize, setSavingPrize] = useState(false);
-  const [confirmPrize, setConfirmPrize] = useState<number | null>(null);
+  const [confirmPrize, setConfirmPrize] = useState<UndianPrize | null>(null);
+  const [deletingPrize, setDeletingPrize] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [uploadingBackground, setUploadingBackground] = useState(false);
   const [uploadingPrizeImage, setUploadingPrizeImage] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [importName, setImportName] = useState("");
   const [importText, setImportText] = useState("");
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -98,7 +79,7 @@ export default function UndianAdminPage() {
   // Dipakai tab hadiah untuk menjelaskan label kuota. Tanpa itu, "kuota penuh"
   // pada hadiah yang ingin diundi lagi di sesi baru terbaca sebagai buntu, dan
   // tidak ada apa pun di layar yang memberi tahu bahwa jawabannya adalah menutup
-  // sesi — bukan membuat hadiah baru.
+  // sesi, bukan membuat hadiah baru.
   const [activeSession, setActiveSession] = useState<{ id: number; name: string } | null>(null);
   const [orphanWinners, setOrphanWinners] = useState(0);
   // Hapus permanen hanya untuk pemilik sistem. Server juga menolaknya lewat
@@ -109,30 +90,37 @@ export default function UndianAdminPage() {
   const toast = useToast();
 
   async function load() {
-    const [prizeResponse, settingsResponse, groupResponse, exclusionResponse, sessionResponse] = await Promise.all([
-      fetch("/api/admin/undian/prizes?pool=1", { cache: "no-store" }),
-      fetch("/api/admin/undian/settings", { cache: "no-store" }),
-      fetch("/api/admin/undian/entries", { cache: "no-store" }),
-      fetch("/api/admin/undian/exclusions", { cache: "no-store" }),
-      fetch("/api/admin/undian/sessions", { cache: "no-store" }),
-    ]);
-    if (!prizeResponse.ok) { setError("Data undian gagal dimuat."); return; }
-    const data = await prizeResponse.json();
-    setPrizes((data.prizes as Record<string, unknown>[]).map(normalizePrize));
-    setWinnerCounts(data.winner_counts ?? {});
-    setPools(data.pools ?? {});
-    // Kegagalan pada bagian pendukung tidak menggagalkan seluruh halaman: daftar
-    // hadiah tetap dapat disusun tanpa daftar entri dan daftar pengecualian.
-    if (settingsResponse.ok) {
-      const raw = (await settingsResponse.json()) as Record<string, unknown>;
-      setSettings({ ...(raw as unknown as Settings), ...normalizeBranding(raw), reveal_delay_seconds: Number(raw.reveal_delay_seconds ?? 0) });
-    }
-    if (groupResponse.ok) setGroups((await groupResponse.json()).groups ?? []);
-    if (exclusionResponse.ok) setExclusions((await exclusionResponse.json()).exclusions ?? []);
-    if (sessionResponse.ok) {
-      const sessionData = await sessionResponse.json();
-      setActiveSession(sessionData.active ? { id: sessionData.active.id, name: sessionData.active.name } : null);
-      setOrphanWinners(sessionData.orphan_winners ?? 0);
+    try {
+      const [prizeResponse, settingsResponse, groupResponse, exclusionResponse, sessionResponse] = await Promise.all([
+        fetch("/api/admin/undian/prizes?pool=1", { cache: "no-store" }),
+        fetch("/api/admin/undian/settings", { cache: "no-store" }),
+        fetch("/api/admin/undian/entries", { cache: "no-store" }),
+        fetch("/api/admin/undian/exclusions", { cache: "no-store" }),
+        fetch("/api/admin/undian/sessions", { cache: "no-store" }),
+      ]);
+      if (!prizeResponse.ok) { setLoadFailed(true); setError("Data undian gagal dimuat."); return; }
+      setLoadFailed(false);
+      const data = await prizeResponse.json();
+      setPrizes((data.prizes as Record<string, unknown>[]).map(normalizePrize));
+      setWinnerCounts(data.winner_counts ?? {});
+      setPools(data.pools ?? {});
+      // Kegagalan pada bagian pendukung tidak menggagalkan seluruh halaman: daftar
+      // hadiah tetap dapat disusun tanpa daftar entri dan daftar pengecualian.
+      if (settingsResponse.ok) {
+        const raw = (await settingsResponse.json()) as Record<string, unknown>;
+        setSettings({ ...(raw as unknown as Settings), ...normalizeBranding(raw), reveal_delay_seconds: Number(raw.reveal_delay_seconds ?? 0) });
+      }
+      if (groupResponse.ok) setGroups((await groupResponse.json()).groups ?? []);
+      if (exclusionResponse.ok) setExclusions((await exclusionResponse.json()).exclusions ?? []);
+      if (sessionResponse.ok) {
+        const sessionData = await sessionResponse.json();
+        setActiveSession(sessionData.active ? { id: sessionData.active.id, name: sessionData.active.name } : null);
+        setOrphanWinners(sessionData.orphan_winners ?? 0);
+      }
+    } catch {
+      setLoadFailed(true); setError("Koneksi terputus. Data undian gagal dimuat.");
+    } finally {
+      setLoaded(true);
     }
   }
 
@@ -169,8 +157,9 @@ export default function UndianAdminPage() {
             // lebih besar daripada yang benar-benar akan diundi.
             prize_id: editingId === "new" ? null : editingId,
           }),
-        });
-        if (response.ok) setPreview((await response.json()) as Preview);
+        }).catch(() => null);
+        if (response?.ok) { setPreview((await response.json()) as Preview); setPreviewFailed(false); }
+        else setPreviewFailed(true);
       })();
     }, 400);
     return () => window.clearTimeout(timer);
@@ -193,6 +182,7 @@ export default function UndianAdminPage() {
     setEditingId(prize ? prize.id : "new");
     setDraft(prize ? { ...prize } : newPrizeDraft());
     setPreview(null);
+    setPreviewFailed(false);
     setError("");
   }
 
@@ -223,13 +213,16 @@ export default function UndianAdminPage() {
   }
 
   async function deletePrize(id: number) {
+    setDeletingPrize(true);
     const response = await fetch(`/api/admin/undian/prizes/${id}`, { method: "DELETE" });
     const data = await response.json().catch(() => ({}));
+    setDeletingPrize(false);
     setConfirmPrize(null);
     if (!response.ok) {
       const failure = failureMessage(data, "Hadiah gagal dihapus.");
       setError(failure); toast.error("Hadiah gagal dihapus", failure); return;
     }
+    if (editingId === id) setEditingId(null);
     await load();
     toast.success("Hadiah dihapus");
   }
@@ -322,7 +315,7 @@ export default function UndianAdminPage() {
       const failure = failureMessage(data, "Import gagal.");
       setError(failure); toast.error("Import gagal", failure); return;
     }
-    setImportName(""); setImportText(""); setImportFile(null);
+    setImportName(""); setImportText(""); setImportFile(null); setImportOpen(false);
     await load();
     toast.success("Daftar terimpor", `${data.entry_count} baris terbaca.`);
   }
@@ -334,10 +327,8 @@ export default function UndianAdminPage() {
     toast.success("Daftar dihapus");
   }
 
-  // Dihitung dari data yang SUDAH dimuat halaman ini -- tidak ada permintaan
-  // tambahan. `pools` datang dari /prizes?pool=1 dan sudah memuat jumlah
-  // kandidat per hadiah; sebelumnya angka itu hanya ditampilkan sebagai
-  // keterangan dan tidak pernah menghalangi apa pun.
+  // Dihitung dari data yang SUDAH dimuat halaman ini, tanpa permintaan tambahan.
+  // `pools` datang dari /prizes?pool=1 dan sudah memuat jumlah kandidat per hadiah.
   const readiness = useMemo(() => undianReadiness({
     prizes: prizes.map((prize) => ({
       id: prize.id, name: prize.name, is_active: prize.is_active,
@@ -345,7 +336,7 @@ export default function UndianAdminPage() {
     })),
     pools, groups, activeSession, pageTitle: settings?.page_title ?? null,
   }), [prizes, pools, groups, activeSession, settings?.page_title]);
-  const canRun = undianCanRun(readiness);
+  const canRun = loaded && !loadFailed && undianCanRun(readiness);
 
   async function removeExclusion(participantId: string) {
     const response = await fetch(`/api/admin/undian/exclusions?participant_id=${participantId}`, { method: "DELETE" });
@@ -354,858 +345,334 @@ export default function UndianAdminPage() {
     toast.success("Peserta kembali ikut undian");
   }
 
-  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
-    <div className="mx-auto max-w-[1440px]">
+  function goTo(next: Tab) {
+    setTab(next);
+    setError("");
+  }
 
-      <PageHeader />
-      <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="max-w-2xl text-body-medium text-on-surface-variant">
-            Atur hadiah, siapa yang berhak diundi, dan bagaimana namanya tampil di panggung.
-            Menjalankan undiannya ada di halaman kontrol.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {/* Tombol berubah jadi teks mati saat undian belum bisa dijalankan.
-              Bukan Link yang dinonaktifkan lewat CSS: <a> tetap bisa diklik dan
-              tetap bisa dibuka lewat papan ketik, dan halaman kontrol yang
-              terbuka pada undian tanpa kandidat justru gagal di layar yang
-              paling tidak boleh gagal. */}
-          {canRun
-            ? <Link href="/admin/undian/kontrol" className="rounded-md flex min-h-12 items-center gap-2 border border-primary bg-primary px-5 text-body-medium font-semibold text-on-primary">
-                <SlidersHorizontal size={18} /> Buka kontrol undian
-              </Link>
-            : <span title="Selesaikan dulu butir bertanda wajib di daftar kesiapan" className="rounded-lg flex min-h-12 cursor-not-allowed items-center gap-2 border border-outline-variant bg-panel-high px-5 text-body-medium font-semibold text-on-surface-variant">
-                <LockSimple size={18} /> Buka kontrol undian
-              </span>}
-          <Link href="/undian" target="_blank" className="rounded-md flex min-h-12 items-center gap-2 border border-outline-variant px-5 text-body-medium font-semibold hover:border-primary hover:text-primary">
-            <ArrowSquareOut size={18} /> Layar panggung
-          </Link>
-        </div>
-      </div>
+  // Galat formulir tampil di dalam panel yang sedang terbuka, bukan di pita
+  // halaman yang jauh dari tombol yang baru ditekan.
+  const errorInPane = (tab === "prizes" && editingId !== null) || (tab === "data" && importOpen);
 
-      <ReadinessPanel steps={readiness} canRun={canRun} onGo={setTab} />
-
-      {error && <p className="rounded-lg mt-5 flex items-start gap-2 border border-error bg-error-soft p-4 text-body-medium text-error">
-        <Warning size={18} className="mt-0.5 shrink-0" /> {error}
-      </p>}
-
-      {/* Tab dinomori dan diurutkan menurut ketergantungan data, bukan menurut
-          seberapa sering dipakai. Nomornya bukan gerbang -- tab mana pun tetap
-          bisa dibuka -- melainkan jawaban atas satu pertanyaan yang berulang:
-          mulai dari mana. */}
-      <div className="mt-8 flex flex-wrap gap-3">
-        {([
-          { key: "data", label: "Sumber data", icon: Users },
-          { key: "prizes", label: "Hadiah & syarat", icon: Gift },
-          { key: "display", label: "Tampilan panggung", icon: Confetti },
-          { key: "history", label: "Sesi, hasil & riwayat", icon: ClockCounterClockwise },
-        ] as const).map((item, index) => <button
-          key={item.key}
-          type="button"
-          onClick={() => setTab(item.key)}
-          className={`rounded-md flex min-h-12 flex-1 items-center justify-center gap-2 px-5 text-body-medium font-semibold ${tab === item.key ? "bg-primary text-on-primary" : "bg-panel hover:text-primary"}`}
-        >
-          <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-label-small tabular-nums ${tab === item.key ? "bg-white/20" : "bg-panel-high text-on-surface-variant"}`}>{index + 1}</span>
-          <item.icon size={18} /> {item.label}
-        </button>)}
-      </div>
-
-      {tab === "prizes" && <PrizesTab
-        prizes={prizes} pools={pools} winnerCounts={winnerCounts} groups={groups} preview={preview}
-        activeSession={activeSession} orphanWinners={orphanWinners}
-        editingId={editingId} draft={draft} savingPrize={savingPrize} confirmPrize={confirmPrize}
-        uploadingPrizeImage={uploadingPrizeImage}
-        onOpen={openEditor} onClose={() => setEditingId(null)} onDraft={updateDraft}
-        onSave={savePrize} onDelete={deletePrize} onConfirm={setConfirmPrize}
-        onUpload={(file) => uploadImage(file, "prize")}
-        onGoToHistory={() => setTab("history")}
-      />}
-
-      {tab === "display" && settings && branding && <DisplayTab
-        settings={settings} branding={branding} saving={savingSettings} uploading={uploadingBackground}
-        onChange={updateSettings} onSave={saveSettings} onUpload={(file) => uploadImage(file, "background")}
-      />}
-
-      {tab === "data" && <DataTab
-        groups={groups} exclusions={exclusions} prizes={prizes}
-        importName={importName} importText={importText} importFile={importFile} importing={importing}
-        onImportName={setImportName} onImportText={setImportText} onImportFile={setImportFile}
-        onImport={importEntries} onDeleteGroup={deleteGroup} onRemoveExclusion={removeExclusion}
-        onRulesChanged={() => { void load(); }}
-      />}
-
-      {/* Kuota hadiah dihitung per sesi aktif, jadi daftar hadiah harus dimuat
-          ulang setiap kali sesi dibuka atau ditutup — kalau tidak, label "kuota
-          penuh" tertinggal pada keadaan sesi sebelumnya. */}
-      {tab === "history" && <SessionHistory isOwner={isOwner} onChanged={() => { void load(); }} />}
-    </div>
-  </main>;
-}
-
-// ===========================================================================
-// Panel kesiapan
-// ===========================================================================
-
-/**
- * Daftar periksa sebelum mengundi.
- *
- * Dipilih ketimbang wizard bertahap. Wizard membantu sekali, pada penyiapan
- * pertama; sesudah itu ia menghalangi -- panitia yang kembali lima menit sebelum
- * acara untuk menaikkan satu kuota harus melewati tiga layar pengantar. Panel
- * ini memberi urutan yang sama tanpa memenjarakan kunjungan berikutnya, dan
- * memaksa hanya di satu titik yang benar-benar penting: pintu ke halaman
- * kontrol.
- *
- * Melipat sendiri saat semua beres. Daftar centang hijau yang menetap di atas
- * layar berhenti dibaca, lalu ikut tidak terbaca ketika salah satunya berubah
- * merah.
- */
-function ReadinessPanel({ steps, canRun, onGo }: {
-  steps: ReadinessStep[];
-  canRun: boolean;
-  onGo: (tab: ReadinessTab) => void;
-}) {
-  const pending = steps.filter((step) => !step.done);
-  const [open, setOpen] = useState(pending.length > 0);
-
-  return <section className="rounded-lg mt-6 border border-outline-variant bg-panel">
-    <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-      <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Kesiapan undian</h2>
-      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-body-small font-semibold ${canRun ? "bg-success-soft text-primary-dim" : "bg-error-soft text-error"}`}>
-        {canRun ? <><Check size={13} weight="bold" /> Siap dijalankan</> : <><LockSimple size={13} weight="bold" /> Belum bisa dijalankan</>}
-      </span>
-      <span className="text-body-small text-on-surface-variant">{steps.length - pending.length} dari {steps.length} butir beres</span>
-      <button type="button" onClick={() => setOpen((value) => !value)} className="ml-auto min-h-8 text-body-small font-semibold text-primary underline">
-        {open ? "Sembunyikan" : "Lihat daftar"}
-      </button>
-    </div>
-
-    {open && <ol className="border-t border-outline-variant">
-      {steps.map((step, index) => <li key={step.id} className="flex flex-wrap items-start gap-3 border-b border-outline-variant px-4 py-3 last:border-b-0">
-        <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-label-small font-semibold tabular-nums ${step.done ? "bg-success-soft text-primary-dim" : step.blocking ? "bg-error-soft text-error" : "bg-warning-soft text-warning"}`}>
-          {step.done ? <Check size={12} weight="bold" /> : index + 1}
-        </span>
-        <div className="min-w-52 flex-1">
-          <p className="flex flex-wrap items-center gap-2 text-body-medium font-semibold">
-            {step.label}
-            {/* Label wajib/opsional ditulis pada butirnya sendiri, bukan hanya
-                tersirat dari warna: pembaca yang tidak membedakan merah dan
-                kuning tetap harus bisa tahu mana yang mengunci. */}
-            {!step.done && <span className={`px-1.5 py-0.5 text-label-small font-semibold ed-label ${step.blocking ? "bg-error-soft text-error" : "bg-warning-soft text-warning"}`}>
-              {step.blocking ? "Wajib" : "Opsional"}
-            </span>}
-          </p>
-          {step.detail && <p className="mt-1 text-body-small leading-5 text-on-surface-variant">{step.detail}</p>}
-        </div>
-        {!step.done && <button type="button" onClick={() => onGo(step.tab)} className="rounded-sm min-h-9 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
-          Bereskan
-        </button>}
-      </li>)}
-    </ol>}
-  </section>;
-}
-
-// ===========================================================================
-// Tab hadiah
-// ===========================================================================
-
-function PrizesTab({
-  prizes, pools, winnerCounts, groups, preview, activeSession, orphanWinners,
-  editingId, draft, savingPrize, confirmPrize,
-  uploadingPrizeImage, onOpen, onClose, onDraft, onSave, onDelete, onConfirm, onUpload, onGoToHistory,
-}: {
-  prizes: UndianPrize[]; pools: Record<number, PoolStat>; winnerCounts: Record<number, number>;
-  groups: EntryGroup[]; preview: Preview | null;
-  activeSession: { id: number; name: string } | null; orphanWinners: number;
-  editingId: number | "new" | null; draft: Omit<UndianPrize, "id">; savingPrize: boolean; confirmPrize: number | null;
-  uploadingPrizeImage: boolean;
-  onOpen: (prize: UndianPrize | null) => void; onClose: () => void;
-  onDraft: (changes: Partial<Omit<UndianPrize, "id">>) => void;
-  onSave: () => void; onDelete: (id: number) => void; onConfirm: (id: number | null) => void;
-  onUpload: (file: File) => void;
-  onGoToHistory: () => void;
-}) {
   const anyQuotaFull = prizes.some((prize) => (winnerCounts[prize.id] ?? 0) >= prize.winner_quota);
 
-  return <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-    <section>
-      {/* Konteks sesi. Angka pemenang selalu dihitung dalam lingkup sesi yang
-          sedang berjalan, dan tanpa keterangan ini "kuota penuh" terbaca sebagai
-          buntu permanen — padahal jalan keluarnya adalah menutup sesi, bukan
-          membuat hadiah baru. */}
-      <div className="rounded-lg mb-3 flex flex-wrap items-center gap-2 border border-outline-variant bg-panel px-3 py-2 text-body-small">
-        {activeSession
-          ? <><span className="inline-block size-2 shrink-0 animate-pulse rounded-full bg-primary" />
-            <span>Menghitung untuk sesi <span className="font-semibold">{activeSession.name}</span></span></>
-          : <><Warning size={14} className="shrink-0 text-on-surface-variant" />
-            <span className="text-on-surface-variant">Belum ada sesi berjalan. Undian tetap bisa dijalankan, hasilnya saja yang tidak terkelompok.</span></>}
-        <button type="button" onClick={onGoToHistory} className="ml-auto min-h-8 font-semibold text-primary underline">
-          {activeSession ? "Kelola sesi" : "Mulai sesi"}
-        </button>
-      </div>
-
-      {/* Hasil yang belum bersesi tidak akan pernah lepas dari kolam: tidak ada
-          sesi yang bisa ditutup untuk membebaskannya. Keadaan ini mustahil
-          ditemukan sendiri oleh panitia — yang terlihat hanya hadiah yang terus
-          menolak diundi. */}
-      {orphanWinners > 0 && <p className="rounded-lg mb-3 flex items-start gap-2 border border-warning-soft-outline bg-warning-soft p-3 text-body-small leading-relaxed text-on-warning-soft">
-        <Warning size={15} className="mt-0.5 shrink-0" />
-        <span>
-          Ada <span className="font-semibold">{orphanWinners} pemenang lama</span> yang belum masuk sesi mana pun, jadi mereka
-          tidak bisa dibebaskan lewat tutup sesi. Arsipkan di tab{" "}
-          <button type="button" onClick={onGoToHistory} className="font-semibold underline">Hasil &amp; riwayat</button>.
-        </span>
-      </p>}
-
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Daftar hadiah</h2>
-        <button type="button" onClick={() => onOpen(null)} className="rounded-md flex min-h-11 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
-          <Plus size={15} /> Tambah hadiah
-        </button>
-      </div>
-
-      {/* Petunjuk hanya muncul ketika keadaannya benar-benar terjadi. Menampilkannya
-          terus-menerus membuatnya jadi latar yang tidak dibaca siapa pun. */}
-      {anyQuotaFull && <p className="rounded-lg mb-3 border border-primary/40 bg-primary-soft p-3 text-body-small leading-relaxed text-primary-dim">
-        Untuk mengundi hadiah yang kuotanya penuh pada sesi berikutnya,
-        <span className="font-semibold"> tutup sesi sekarang lalu mulai sesi baru</span> — hadiah yang sama dipakai lagi, tidak perlu dibuat ulang.
-        Kuota dan daftar pemenang dihitung ulang per sesi.
-      </p>}
-
-      {prizes.length === 0 ? <p className="rounded-lg border border-dashed border-outline-variant p-8 text-center text-body-medium text-on-surface-variant">
-        Belum ada hadiah. Tambahkan hadiah pertama untuk mulai.
-      </p> : <div className="space-y-2">
-        {prizes.map((prize) => {
+  // ---- Tab hadiah -----------------------------------------------------------
+  const prizeList = (
+    <Pane aria-label="Daftar hadiah">
+      <PaneHeader>
+        <h2 className="min-w-0 flex-1 text-body-medium font-semibold">Hadiah</h2>
+        <Button variant="outlined" size="sm" icon={<Plus size={16} />} disabled={editingId === "new"} onClick={() => openEditor(null)}>Hadiah baru</Button>
+      </PaneHeader>
+      <PaneBody>
+        {!loaded ? <PageLoading /> : loadFailed ? (
+          <EmptyState
+            plain
+            icon={<Warning size={40} />}
+            title="Data undian gagal dimuat"
+            description="Periksa koneksi, lalu coba lagi."
+            action={<Button variant="outlined" size="sm" onClick={() => void load()}>Coba lagi</Button>}
+          />
+        ) : prizes.length === 0 ? (
+          <EmptyState
+            plain
+            icon={<Gift size={40} />}
+            title="Belum ada hadiah"
+            description="Tambahkan hadiah pertama, lalu atur siapa yang berhak diundi untuknya."
+            action={editingId === "new" ? undefined : <Button size="sm" icon={<Plus size={16} />} onClick={() => openEditor(null)}>Hadiah baru</Button>}
+          />
+        ) : prizes.map((prize) => {
           const pool = pools[prize.id];
           const won = winnerCounts[prize.id] ?? 0;
-          return <div key={prize.id} className={`rounded-lg bg-panel p-4 ${editingId === prize.id ? "ring-2 ring-inset ring-primary" : ""}`}>
-            <div className="flex items-start gap-3">
+          const full = won >= prize.winner_quota;
+          const selected = editingId === prize.id;
+          const syarat = prize.source === "entries"
+            ? `daftar "${groups.find((group) => group.id === prize.entry_group_id)?.name ?? "belum dipilih"}"`
+            : describeConditions(prize.conditions);
+          return (
+            <ListRow
+              key={prize.id}
+              selected={selected}
+              onSelect={() => { if (selected) setEditingId(null); else openEditor(prize); }}
+              className="items-start"
+            >
               {prize.image_url
-                ? <ImagePreview url={prize.image_url} alt="" className="h-14 w-14" />
-                : <div className="rounded-md flex h-14 w-14 shrink-0 items-center justify-center border border-dashed border-outline-variant text-on-surface-variant"><Gift size={20} /></div>}
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">{prize.name || "(tanpa nama)"}</span>
-                  {!prize.is_active && <span className="rounded-sm border border-outline-variant px-1.5 py-0.5 text-label-small font-semibold uppercase text-on-surface-variant">Nonaktif</span>}
-                  {/* "Penuh di sesi ini", bukan "Kuota penuh".
-                      Tanpa keterangan sesi, label ini terbaca sebagai hadiah yang
-                      habis selamanya — dan panitia lalu membuat hadiah duplikat
-                      untuk sesi berikutnya, padahal cukup menutup sesi. */}
-                  {won >= prize.winner_quota && <span className="rounded-sm border border-primary px-1.5 py-0.5 text-label-small font-semibold uppercase text-primary">
-                    {activeSession ? "Penuh di sesi ini" : "Kuota penuh"}
-                  </span>}
-                </div>
-                <p className="mt-1 text-body-small text-on-surface-variant">
-                  {ANIMATIONS.find((item) => item.value === prize.animation)?.label}
-                  {" · "}{prize.winners_per_draw} pemenang/undi
-                  {prize.backup_per_draw > 0 && ` + ${prize.backup_per_draw} cadangan`}
-                  {" · kuota "}{won}/{prize.winner_quota}
-                </p>
+                ? <ImagePreview url={prize.image_url} alt="" className="h-10 w-10 shrink-0" />
+                : <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-md bg-surface-container-high text-on-surface-variant"><Gift size={18} /></span>}
+              <span className="min-w-0 flex-1">
+                <span className={cx("block truncate font-medium", !prize.is_active && "text-on-surface-variant")}>{prize.name || "Tanpa nama"}</span>
+                <span className="block truncate text-on-surface-variant">
+                  {[
+                    prize.sponsor_name,
+                    ANIMATIONS.find((item) => item.value === prize.animation)?.label,
+                    `${prize.winners_per_draw} per undi${prize.backup_per_draw > 0 ? ` + ${prize.backup_per_draw} cadangan` : ""}`,
+                  ].filter(Boolean).join(" · ")}
+                </span>
+                <span className="block truncate text-on-surface-variant" title={`Syarat: ${syarat}`}>Syarat: {syarat}</span>
                 {/* Kesalahan konfigurasi yang paling mudah terlewat: pemenang per
                     undi lebih besar dari kuotanya. Sistem menjepitnya saat mengundi,
                     tapi tanpa peringatan panitia mengira akan keluar sepuluh nama
                     dan hanya satu yang muncul di panggung. */}
-                {prize.winners_per_draw > prize.winner_quota && <p className="mt-1 flex items-start gap-1 text-body-small font-semibold text-warning">
-                  <Warning size={13} className="mt-0.5 shrink-0" />
-                  {prize.winners_per_draw} pemenang/undi melebihi kuota {prize.winner_quota}. Hanya {prize.winner_quota} nama yang akan keluar.
-                </p>}
-                <p className="mt-1 text-body-small text-on-surface-variant">
-                  Syarat: {prize.source === "entries"
-                    ? `daftar "${groups.find((group) => group.id === prize.entry_group_id)?.name ?? "?"}"`
-                    : describeConditions(prize.conditions)}
-                </p>
-                {pool && <p className="mt-1 text-body-small tabular-nums text-primary">
-                  {pool.candidates} nama siap diundi
-                  {pool.eligible !== pool.candidates && ` (${pool.eligible - pool.candidates} sudah menang di sesi yang masih terbuka)`}
-                </p>}
-              </div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" onClick={() => onOpen(prize)} className="rounded-md min-h-10 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">Ubah</button>
-              {confirmPrize === prize.id
-                ? <>
-                  <button type="button" onClick={() => onDelete(prize.id)} className="rounded-md min-h-10 border border-error bg-error px-3 text-body-small font-semibold text-on-error">Ya, hapus</button>
-                  <button type="button" onClick={() => onConfirm(null)} className="rounded-md min-h-10 border border-outline-variant px-3 text-body-small font-semibold">Batal</button>
-                </>
-                : <button type="button" onClick={() => onConfirm(prize.id)} className="rounded-md flex min-h-10 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold text-error hover:border-error"><Trash size={14} /> Hapus</button>}
-            </div>
-          </div>;
+                {prize.winners_per_draw > prize.winner_quota ? (
+                  <span className="mt-0.5 flex items-start gap-1 font-medium text-warning">
+                    <Warning size={14} className="mt-1 shrink-0" aria-hidden />
+                    {prize.winners_per_draw} per undi melebihi kuota {prize.winner_quota}. Hanya {prize.winner_quota} nama yang akan keluar.
+                  </span>
+                ) : null}
+              </span>
+              <span className="hidden w-32 shrink-0 text-right tabular-nums sm:block">
+                <span className="block">{won} / {prize.winner_quota}</span>
+                <span
+                  className="block text-on-surface-variant"
+                  title={pool && pool.eligible !== pool.candidates ? `${pool.eligible - pool.candidates} sudah menang di sesi yang masih terbuka` : undefined}
+                >
+                  {pool ? `${pool.candidates} nama siap` : "Kolam belum dihitung"}
+                </span>
+              </span>
+              <span className="flex shrink-0 justify-end sm:w-36">
+                {!prize.is_active ? <StatusChip>Nonaktif</StatusChip>
+                  // "Penuh di sesi ini", bukan "Kuota penuh". Tanpa keterangan
+                  // sesi, label ini terbaca sebagai hadiah yang habis selamanya,
+                  // lalu panitia membuat hadiah duplikat padahal cukup menutup sesi.
+                  : full ? <StatusChip dot>{activeSession ? "Penuh di sesi ini" : "Kuota penuh"}</StatusChip>
+                    : pool && pool.candidates === 0 ? <StatusChip dot tone="error">Kolam kosong</StatusChip>
+                      : pool ? <StatusChip dot tone="success">Siap</StatusChip> : null}
+              </span>
+            </ListRow>
+          );
         })}
-      </div>}
-    </section>
-
-    {editingId !== null && <PrizeEditor
-      draft={draft} groups={groups} preview={preview} saving={savingPrize} uploading={uploadingPrizeImage}
-      onChange={onDraft} onSave={onSave} onClose={onClose} onUpload={onUpload}
-    />}
-  </div>;
-}
-
-function PrizeEditor({
-  draft, groups, preview, saving, uploading, onChange, onSave, onClose, onUpload,
-}: {
-  draft: Omit<UndianPrize, "id">; groups: EntryGroup[]; preview: Preview | null;
-  saving: boolean; uploading: boolean;
-  onChange: (changes: Partial<Omit<UndianPrize, "id">>) => void;
-  onSave: () => void; onClose: () => void; onUpload: (file: File) => void;
-}) {
-  const inputClass = "h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
-  const labelClass = "text-body-small font-semibold ed-label text-on-surface-variant";
-
-  return <section className="rounded-lg overflow-hidden space-y-px self-start border border-outline-variant bg-outline-variant">
-    <div className="rounded-lg bg-panel p-5">
-      <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Detail hadiah</h2>
-
-      <div className="mt-4 space-y-4">
-        <div>
-          <label htmlFor="prize-name" className={labelClass}>Nama hadiah</label>
-          <input id="prize-name" value={draft.name} onChange={(event) => onChange({ name: event.target.value })} className={`${inputClass} mt-1.5`} placeholder="Sepeda Listrik" />
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label htmlFor="prize-sponsor" className={labelClass}>Sponsor</label>
-            <input id="prize-sponsor" value={draft.sponsor_name ?? ""} onChange={(event) => onChange({ sponsor_name: event.target.value || null })} className={`${inputClass} mt-1.5`} placeholder="Opsional" />
-          </div>
-          <div>
-            <label htmlFor="prize-image" className={labelClass}>Gambar hadiah</label>
-            <div className="mt-1.5 flex items-center gap-2">
-              <label className="rounded-md flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
-                <UploadSimple size={15} /> {uploading ? "Mengunggah..." : draft.image_url ? "Ganti" : "Unggah"}
-                <input id="prize-image" type="file" accept="image/*" className="hidden" onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  // Nilai input dikosongkan supaya memilih berkas yang sama dua
-                  // kali berturut-turut tetap memicu onChange.
-                  event.target.value = "";
-                  if (file) onUpload(file);
-                }} />
-              </label>
-              {draft.image_url && <button type="button" onClick={() => onChange({ image_url: null })} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-small font-semibold text-error">Hapus</button>}
-            </div>
-            {/* Pratinjau, bukan sekadar tombol yang berubah menjadi "Ganti".
-                Tombol memberi tahu bahwa ADA gambar, bukan gambar YANG MANA. */}
-            {draft.image_url && <div className="mt-2">
-              <ImagePreview url={draft.image_url} alt="Pratinjau gambar hadiah" className="h-20 w-20" />
-            </div>}
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="prize-description" className={labelClass}>Keterangan</label>
-          <input id="prize-description" value={draft.description ?? ""} onChange={(event) => onChange({ description: event.target.value || null })} className={`${inputClass} mt-1.5`} placeholder="Tampil di bawah nama hadiah" />
-        </div>
-      </div>
-    </div>
-
-    {/* --- Cara mengundi --- */}
-    <div className="rounded-lg bg-panel p-5">
-      <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">Cara mengundi</h3>
-
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {ANIMATIONS.map((item) => <button
-          key={item.value}
-          type="button"
-          onClick={() => onChange({ animation: item.value as UndianAnimation })}
-          className={`rounded-lg border p-3 text-left ${draft.animation === item.value ? "border-primary bg-primary-soft" : "border-outline-variant hover:border-primary"}`}
-        >
-          <span className="block text-body-medium font-semibold">{item.label}</span>
-          <span className="mt-1 block text-label-small leading-snug text-on-surface-variant">{item.hint}</span>
-        </button>)}
-      </div>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <NumberField id="winners-per-draw" label="Pemenang per undi" value={draft.winners_per_draw} min={1} max={50} onChange={(value) => onChange({ winners_per_draw: value })} />
-        <NumberField id="winner-quota" label="Total kuota" value={draft.winner_quota} min={1} max={500} onChange={(value) => onChange({ winner_quota: value })} />
-        <NumberField id="backup-per-draw" label="Cadangan per undi" value={draft.backup_per_draw} min={0} max={20} onChange={(value) => onChange({ backup_per_draw: value })} />
-      </div>
-      <p className="mt-2 text-label-small leading-relaxed text-on-surface-variant">
-        Kuota lebih besar dari pemenang per undi berarti hadiah ini diundi beberapa kali.
-        Cadangan ikut diundi bersamaan, dipakai bila pemenang utama tidak ada di tempat.
-      </p>
-
-      {/* Pilihan berhenti hanya berarti bila ADA animasi. Mode `instant`
-          menampilkan pemenang seketika, jadi tidak ada apa pun untuk
-          dihentikan. */}
-      {draft.animation !== "instant" && <div className="mt-4">
-        <p className={labelClass}>Kapan animasi berhenti</p>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {SPIN_MODES.map((item) => <button
-            key={item.value}
-            type="button"
-            onClick={() => onChange({ spin_mode: item.value })}
-            className={`rounded-lg border p-3 text-left ${draft.spin_mode === item.value ? "border-primary bg-primary-soft" : "border-outline-variant hover:border-primary"}`}
-          >
-            <span className="block text-body-medium font-semibold">{item.label}</span>
-            <span className="mt-1 block text-label-small leading-snug text-on-surface-variant">{item.hint}</span>
-          </button>)}
-        </div>
-
-        {draft.spin_mode === "timed"
-          ? <div className="mt-4">
-              <label htmlFor="spin-seconds" className={labelClass}>Durasi animasi: {draft.spin_seconds.toFixed(1)} detik</label>
-              <input id="spin-seconds" type="range" min={1} max={30} step={0.5} value={draft.spin_seconds} onChange={(event) => onChange({ spin_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full accent-primary" />
-            </div>
-          : <p className="rounded-lg mt-3 flex items-start gap-2 border border-warning-soft-outline bg-warning-soft p-3 text-label-small leading-relaxed text-warning">
-              <Warning size={14} className="mt-0.5 shrink-0" />
-              <span>Undian tidak akan selesai sendiri — operator wajib menekan <span className="font-semibold">Berhenti &amp; tampilkan</span> di halaman kontrol. Pemenang sudah tersimpan sejak tombol Undi ditekan, jadi tidak ada yang hilang bila peramban tertutup: siapa pun bisa menghentikannya dari halaman kontrol. Jeda tampil pemenang tidak berlaku pada mode ini.</span>
-            </p>}
-      </div>}
-    </div>
-
-    {/* --- Sumber & syarat --- */}
-    <div className="rounded-lg bg-panel p-5">
-      <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">Siapa yang diundi</h3>
-
-      <div className="mt-4 flex gap-2">
-        {([["participants", "Ikut tab Peserta"], ["entries", "Daftar import"]] as const).map(([key, label]) => <button
-          key={key}
-          type="button"
-          onClick={() => onChange({ source: key })}
-          className={`rounded-md min-h-11 flex-1 border px-3 text-body-small font-semibold ${draft.source === key ? "border-primary bg-primary-soft text-primary-dim" : "border-outline-variant"}`}
-        >{label}</button>)}
-      </div>
-
-      {draft.source === "entries" ? <div className="mt-4">
-        <label htmlFor="entry-group" className={labelClass}>Daftar yang diundi</label>
-        <select id="entry-group" value={draft.entry_group_id ?? 0} onChange={(event) => onChange({ entry_group_id: Number(event.target.value) || null })} className={`${inputClass} mt-1.5`}>
-          <option value={0}>Pilih daftar</option>
-          {groups.map((group) => <option key={group.id} value={group.id}>{group.name} ({group.entry_count} baris)</option>)}
-        </select>
-        {groups.length === 0 && <p className="mt-2 text-body-small text-on-surface-variant">Belum ada daftar. Buat di tab &ldquo;Sumber data&rdquo;.</p>}
-      </div> : <>
-        <div className="mt-4">
-          <p className={labelClass}>Syarat kelayakan</p>
-          <div className="mt-2">
-            <UndianConditionBuilder
-              value={draft.conditions}
-              participantTypes={preview?.participant_types ?? []}
-              rsvpStatuses={preview?.rsvp_statuses ?? []}
-              companies={preview?.companies ?? []}
-              onChange={(next) => onChange({ conditions: next })}
-            />
-          </div>
-        </div>
-
-        {preview && <div className="rounded-lg mt-4 border border-primary/40 bg-primary-soft p-3">
-          <p className="text-body-medium font-semibold tabular-nums text-primary-dim">
-            {preview.available} nama siap diundi
-          </p>
-          {/* Rincian penyusutan kolam. Satu angka akhir tidak dapat diperiksa
-              siapa pun; selisih yang terurai bisa — dan kalau salah satunya
-              mengejutkan, panitia tahu persis di mana harus melihat. */}
-          <ul className="mt-2 space-y-0.5 text-body-small tabular-nums text-primary-dim/80">
-            <li>{preview.total_participants} peserta aktif</li>
-            {preview.breakdown.failed_conditions > 0 && <li>− {preview.breakdown.failed_conditions} tidak memenuhi syarat</li>}
-            {preview.breakdown.by_rules > 0 && <li>
-              − {preview.breakdown.by_rules} kena aturan pengecualian
-              {preview.breakdown.rule_hits.length > 0 && <span className="text-primary-dim/60">
-                {" "}({preview.breakdown.rule_hits.map((hit) => `${hit.rule_name}: ${hit.count}`).join(", ")})
-              </span>}
-            </li>}
-            {preview.breakdown.by_manual > 0 && <li>− {preview.breakdown.by_manual} dikecualikan per orang</li>}
-            {preview.breakdown.by_previous_wins > 0 && <li>− {preview.breakdown.by_previous_wins} sudah pernah menang</li>}
-          </ul>
-          {preview.max_tickets > 1 && <p className="mt-2 text-body-small tabular-nums text-primary-dim/80">
-            {preview.total_tickets} total tiket · peluang tertinggi {(preview.top_share * 100).toFixed(1)}%
-          </p>}
-          {preview.available === 0 && <p className="mt-2 flex items-start gap-1.5 text-body-small font-semibold text-error">
-            <Warning size={14} className="mt-0.5 shrink-0" /> Kolam kosong. Tombol undi akan ditolak.
-          </p>}
-          {preview.sample.length > 0 && <details className="mt-2">
-            <summary className="cursor-pointer text-body-small font-semibold text-primary-dim">Lihat contoh nama</summary>
-            <ul className="mt-2 space-y-1 text-body-small text-primary-dim/80">
-              {preview.sample.map((row, index) => <li key={index} className="tabular-nums">
-                {row.name}{row.company ? ` — ${row.company}` : ""}
-                {row.tickets > 1 && ` (${row.tickets} tiket)`}
-              </li>)}
-            </ul>
-          </details>}
-        </div>}
-      </>}
-
-      <div className="mt-4">
-        <label htmlFor="exclude-scope" className={labelClass}>Boleh menang lagi?</label>
-        <select id="exclude-scope" value={draft.exclude_scope} onChange={(event) => onChange({ exclude_scope: event.target.value as ExcludeScope })} className={`${inputClass} mt-1.5`}>
-          {Object.entries(EXCLUDE_SCOPE_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-        </select>
-      </div>
-    </div>
-
-    {/* --- Bobot --- */}
-    {draft.source === "participants" && <div className="rounded-lg bg-panel p-5">
-      <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">Peluang menang</h3>
-
-      <div className="mt-4 flex gap-2">
-        {([["equal", "Semua sama rata"], ["formula", "Berbobot"]] as const).map(([key, label]) => <button
-          key={key}
-          type="button"
-          onClick={() => onChange({ weight_mode: key })}
-          className={`rounded-md min-h-11 flex-1 border px-3 text-body-small font-semibold ${draft.weight_mode === key ? "border-primary bg-primary-soft text-primary-dim" : "border-outline-variant"}`}
-        >{label}</button>)}
-      </div>
-
-      {draft.weight_mode === "formula" && <>
-        <div className="mt-4 space-y-3">
-          <div>
-            <label htmlFor="weight-var" className={labelClass}>Dasar bobot</label>
-            <select id="weight-var" value={draft.weight_var} onChange={(event) => onChange({ weight_var: event.target.value as WeightVar })} className={`${inputClass} mt-1.5`}>
-              {Object.entries(WEIGHT_VAR_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="weight-divisor" className={labelClass}>Setiap berapa dapat 1 tiket tambahan</label>
-            <input
-              id="weight-divisor"
-              value={rupiah(draft.weight_divisor)}
-              onChange={(event) => onChange({ weight_divisor: Number(digitsOnly(event.target.value)) || 1 })}
-              inputMode="numeric"
-              className={`${inputClass} mt-1.5 tabular-nums`}
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <NumberField id="weight-base" label="Tiket dasar" value={draft.weight_base} min={0} max={100} onChange={(value) => onChange({ weight_base: value })} />
-            <NumberField id="weight-max" label="Tiket maksimum" value={draft.weight_max} min={1} max={1000} onChange={(value) => onChange({ weight_max: value })} />
-          </div>
-        </div>
-        <p className="mt-3 text-label-small leading-relaxed text-on-surface-variant">
-          Tiket = {draft.weight_base} + ({WEIGHT_VAR_LABEL[draft.weight_var].toLowerCase()} ÷ {rupiah(draft.weight_divisor)}), maksimal {draft.weight_max}.
-          Batas maksimum menjaga satu peserta dengan angka ekstrem tidak menguasai kolam.
-        </p>
-      </>}
-    </div>}
-
-    <div className="rounded-lg flex flex-wrap gap-2 bg-panel p-5">
-      <button type="button" onClick={onSave} disabled={saving} className="rounded-md flex min-h-12 flex-1 items-center justify-center gap-2 border border-primary bg-primary px-5 text-body-medium font-semibold text-on-primary disabled:opacity-60">
-        <FloppyDisk size={18} /> {saving ? "Menyimpan..." : "Simpan hadiah"}
-      </button>
-      <button type="button" onClick={onClose} className="rounded-md min-h-12 border border-outline-variant px-5 text-body-medium font-semibold">Tutup</button>
-      <label className="rounded-md flex min-h-12 cursor-pointer items-center gap-2 border border-outline-variant px-4 text-body-medium">
-        <input type="checkbox" checked={draft.is_active} onChange={(event) => onChange({ is_active: event.target.checked })} className="h-4 w-4 accent-primary" />
-        Aktif
-      </label>
-    </div>
-  </section>;
-}
-
-function NumberField({ id, label, value, min, max, onChange }: { id: string; label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
-  return <div>
-    <label htmlFor={id} className="text-body-small font-semibold ed-label text-on-surface-variant">{label}</label>
-    <input
-      id={id}
-      type="number"
-      min={min}
-      max={max}
-      value={value}
-      onChange={(event) => {
-        const next = Number(event.target.value);
-        onChange(Number.isFinite(next) ? Math.max(min, Math.min(max, next)) : min);
-      }}
-      className="rounded-md mt-1.5 h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium tabular-nums outline-none focus:border-primary"
-    />
-  </div>;
-}
-
-// ===========================================================================
-// Tab tampilan
-// ===========================================================================
-
-function DisplayTab({
-  settings, branding, saving, uploading, onChange, onSave, onUpload,
-}: {
-  settings: Settings; branding: Branding; saving: boolean; uploading: boolean;
-  onChange: (changes: Partial<Settings>) => void; onSave: () => void; onUpload: (file: File) => void;
-}) {
-  const inputClass = "h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
-  const labelClass = "text-body-small font-semibold ed-label text-on-surface-variant";
-
-  return <div className="mt-6 space-y-2">
-    <section className="rounded-lg bg-panel p-6">
-      <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Judul layar</h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="page-title" className={labelClass}>Judul</label>
-          <input id="page-title" value={settings.page_title} onChange={(event) => onChange({ page_title: event.target.value })} className={`${inputClass} mt-1.5`} />
-        </div>
-        <div>
-          <label htmlFor="page-subtitle" className={labelClass}>Sub judul</label>
-          <input id="page-subtitle" value={settings.page_subtitle ?? ""} onChange={(event) => onChange({ page_subtitle: event.target.value || null })} className={`${inputClass} mt-1.5`} placeholder="Opsional" />
-        </div>
-      </div>
-    </section>
-
-    <section className="rounded-lg bg-panel p-6">
-      <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Nama pemenang</h2>
-
-      <div className="mt-4 flex gap-2">
-        {([["full", "Selalu nama lengkap"], ["follow_event", "Ikut aturan privasi acara"]] as const).map(([key, label]) => <button
-          key={key}
-          type="button"
-          onClick={() => onChange({ name_display: key })}
-          className={`rounded-md min-h-11 flex-1 border px-3 text-body-small font-semibold ${settings.name_display === key ? "border-primary bg-primary-soft text-primary-dim" : "border-outline-variant"}`}
-        >{label}</button>)}
-      </div>
-
-      {settings.name_display === "follow_event" && <p className="rounded-lg mt-3 flex items-start gap-2 border border-warning-soft-outline bg-warning-soft p-3 text-body-small leading-relaxed text-on-warning-soft">
-        <Warning size={16} className="mt-0.5 shrink-0" />
-        Aturan privasi acara dapat menyamarkan nama menjadi inisial atau nama perusahaan saja.
-        Untuk undian, MC biasanya perlu memanggil nama lengkap ke atas panggung — pastikan ini memang yang diinginkan.
-      </p>}
-
-      <div className="mt-4 flex flex-wrap gap-4">
-        {([
-          ["show_company", "Tampilkan perusahaan"],
-          ["show_seat", "Tampilkan nomor kursi"],
-        ] as const).map(([key, label]) => <label key={key} className="flex min-h-11 cursor-pointer items-center gap-2 text-body-medium">
-          <input type="checkbox" checked={settings[key]} onChange={(event) => onChange({ [key]: event.target.checked } as Partial<Settings>)} className="h-4 w-4 accent-primary" />
-          {label}
-        </label>)}
-      </div>
-    </section>
-
-    <section className="rounded-lg bg-panel p-6">
-      <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Efek panggung</h2>
-      <div className="mt-4 flex flex-wrap gap-4">
-        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-body-medium">
-          <input type="checkbox" checked={settings.sound_enabled} onChange={(event) => onChange({ sound_enabled: event.target.checked })} className="h-4 w-4 accent-primary" />
-          <SpeakerHigh size={16} /> Suara
-        </label>
-        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-body-medium">
-          <input type="checkbox" checked={settings.confetti_enabled} onChange={(event) => onChange({ confetti_enabled: event.target.checked })} className="h-4 w-4 accent-primary" />
-          <Confetti size={16} /> Confetti
-        </label>
-      </div>
-      <p className="mt-2 text-label-small leading-relaxed text-on-surface-variant">
-        Matikan suara bila sound system venue sudah memutar musik sendiri, dan confetti bila mengganggu kamera live streaming.
-      </p>
-
-      <div className="mt-4">
-        <label htmlFor="reveal-delay" className={labelClass}>Jeda sebelum nama terbaca: {settings.reveal_delay_seconds.toFixed(1)} detik</label>
-        <input id="reveal-delay" type="range" min={0} max={5} step={0.5} value={settings.reveal_delay_seconds} onChange={(event) => onChange({ reveal_delay_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full accent-primary" />
-        <p className="mt-1 text-label-small text-on-surface-variant">Waktu tambahan setelah animasi berhenti, memberi MC kesempatan menarik napas.</p>
-      </div>
-    </section>
-
-    <section className="rounded-lg bg-panel p-6">
-      <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Warna & latar</h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
-        {([
-          ["background_color", "Latar", FALLBACK.background_color],
-          ["text_color", "Teks", FALLBACK.text_color],
-          ["accent_color", "Aksen", FALLBACK.accent_color],
-        ] as const).map(([key, label, fallback]) => <div key={key}>
-          <div className="flex items-center justify-between">
-            <label htmlFor={`color-${key}`} className={labelClass}>{label}</label>
-            {settings[key] && <button type="button" onClick={() => onChange({ [key]: null } as Partial<Settings>)} className="min-h-8 text-label-small font-semibold text-primary">Reset</button>}
-          </div>
-          <input id={`color-${key}`} type="color" value={settings[key] ?? fallback} onChange={(event) => onChange({ [key]: event.target.value } as Partial<Settings>)} className="rounded-md mt-1.5 h-11 w-full cursor-pointer border border-outline-variant bg-surface px-1" />
-        </div>)}
-      </div>
-
-      <div className="mt-4">
-        <p className={labelClass}>Gambar latar</p>
-        <div className="mt-1.5 flex items-center gap-2">
-          <label className="rounded-md flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
-            <UploadSimple size={15} /> {uploading ? "Mengunggah..." : settings.background_image_url ? "Ganti gambar" : "Unggah gambar"}
-            <input type="file" accept="image/*" className="hidden" onChange={(event) => {
-              const file = event.target.files?.[0];
-              event.target.value = "";
-              if (file) onUpload(file);
-            }} />
-          </label>
-          {settings.background_image_url && <button type="button" onClick={() => onChange({ background_image_url: null })} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-small font-semibold text-error">Hapus</button>}
-        </div>
-
-        {/* Pratinjau latar dibuat lebar dan memakai `cover`, meniru cara gambar
-            ini benar-benar dipakai di layar panggung. Kotak kecil `contain` akan
-            menyembunyikan bagian yang justru akan terpotong di proyektor. */}
-        {settings.background_image_url && <div className="mt-3">
-          <ImagePreview
-            url={settings.background_image_url}
-            alt="Pratinjau gambar latar"
-            fit="cover"
-            className="aspect-video h-auto w-full max-w-md"
-            showUrl
-          />
-        </div>}
-      </div>
-    </section>
-
-    <section className="rounded-lg bg-panel p-6">
-      <BrandingEditor
-        value={branding}
-        onChange={(changes) => onChange(changes as Partial<Settings>)}
-        idPrefix="undian"
-        baseTextColor={settings.text_color ?? FALLBACK.text_color}
-        baseBackgroundColor={settings.background_color ?? FALLBACK.background_color}
-        baseAccentColor={settings.accent_color ?? FALLBACK.accent_color}
+      </PaneBody>
+      {/* Konteks sesi. Angka pemenang selalu dihitung dalam lingkup sesi yang
+          sedang berjalan, dan tanpa keterangan ini "kuota penuh" terbaca sebagai
+          buntu permanen, padahal jalan keluarnya adalah menutup sesi. */}
+      <PaneFooter
+        className="bg-surface-container-lowest py-2"
+        note={
+          <span className="inline-flex flex-wrap items-center gap-x-2">
+            <StatusDot tone={activeSession ? "success" : "neutral"} />
+            {activeSession ? <>Kuota dihitung untuk sesi {activeSession.name}</> : "Belum ada sesi berjalan; hasil tidak terkelompok"}
+            <button type="button" onClick={() => goTo("history")} className="rounded-sm font-medium text-primary hover:underline">
+              {activeSession ? "Kelola sesi" : "Mulai sesi"}
+            </button>
+          </span>
+        }
       />
-    </section>
+    </Pane>
+  );
 
-    <div className="rounded-lg bg-panel p-6">
-      <button type="button" onClick={onSave} disabled={saving} className="rounded-md flex min-h-12 items-center gap-2 border border-primary bg-primary px-6 text-body-medium font-semibold text-on-primary disabled:opacity-60">
-        <FloppyDisk size={18} /> {saving ? "Menyimpan..." : "Simpan tampilan"}
-      </button>
-    </div>
-  </div>;
+  const prizeDetail = editingId !== null ? (
+    <PrizeEditor
+      draft={draft}
+      isNew={editingId === "new"}
+      groups={groups}
+      preview={preview}
+      previewFailed={previewFailed}
+      saving={savingPrize}
+      uploading={uploadingPrizeImage}
+      error={errorInPane ? error : ""}
+      onChange={updateDraft}
+      onSave={() => void savePrize()}
+      onClose={() => { setEditingId(null); setError(""); }}
+      onUpload={(file) => void uploadImage(file, "prize")}
+      onDelete={typeof editingId === "number" ? () => setConfirmPrize(prizes.find((prize) => prize.id === editingId) ?? null) : undefined}
+    />
+  ) : null;
+
+  const tabs: { value: Tab; label: string; badge?: number }[] = [
+    { value: "prizes", label: "Hadiah", badge: loaded && !loadFailed ? prizes.length : undefined },
+    { value: "rules", label: "Aturan pengecualian" },
+    { value: "data", label: "Daftar import", badge: loaded && !loadFailed ? groups.length : undefined },
+    { value: "display", label: "Tampilan panggung" },
+    { value: "history", label: "Sesi & hasil" },
+  ];
+
+  return (
+    <WorkspacePage fill>
+      <WorkspaceHeader
+        meta={loaded ? (
+          <>
+            <span className="inline-flex items-center gap-1.5">
+              <StatusDot tone={canRun ? "success" : "error"} />
+              {canRun ? "Siap dijalankan" : "Belum bisa dijalankan"}
+            </span>
+            <MetaSeparator />
+            <span>{activeSession ? `Sesi berjalan: ${activeSession.name}` : "Belum ada sesi berjalan"}</span>
+          </>
+        ) : <span>Memuat undian</span>}
+        actions={
+          <>
+            <ButtonLink href="/undian" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Layar panggung</ButtonLink>
+            {/* Tombol mati, bukan tautan yang dinonaktifkan lewat CSS: <a> tetap
+                bisa diklik dan dibuka lewat papan ketik, dan panel operator yang
+                terbuka pada undian tanpa kandidat justru gagal di layar yang paling
+                tidak boleh gagal. Alasannya tertulis di baris kesiapan. */}
+            {canRun
+              ? <ButtonLink href="/admin/undian/kontrol" icon={<SlidersHorizontal size={16} />}>Buka panel operator</ButtonLink>
+              : <Button disabled icon={<LockSimple size={16} />}>Buka panel operator</Button>}
+          </>
+        }
+      />
+
+      {loaded && !loadFailed ? <ReadinessBar steps={readiness} canRun={canRun} onGo={goTo} /> : null}
+
+      {error && !errorInPane && !loadFailed ? (
+        <Banner tone="error" icon={<Warning size={18} />} className="shrink-0" actions={<IconButton size="sm" label="Tutup pesan" onClick={() => setError("")}><X size={16} /></IconButton>}>{error}</Banner>
+      ) : null}
+
+      <Tabs<Tab> label="Bagian undian" idPrefix="undian" value={tab} onChange={goTo} options={tabs} />
+
+      <div role="tabpanel" id={`undian-panel-${tab}`} aria-labelledby={`undian-tab-${tab}`} className="flex min-h-0 flex-1 flex-col gap-4">
+        {tab === "prizes" ? (
+          <>
+            {/* Hasil yang belum bersesi tidak akan pernah lepas dari kolam: tidak
+                ada sesi yang bisa ditutup untuk membebaskannya. */}
+            {orphanWinners > 0 ? (
+              <Banner tone="warning" icon={<Warning size={18} />} className="shrink-0" actions={<Button variant="outlined" size="sm" onClick={() => goTo("history")}>Buka Sesi & hasil</Button>}>
+                Ada <span className="font-medium">{orphanWinners} pemenang lama</span> yang belum masuk sesi mana pun, jadi mereka tidak bisa dibebaskan lewat tutup sesi. Arsipkan di tab Sesi & hasil.
+              </Banner>
+            ) : null}
+            {/* Petunjuk hanya muncul ketika keadaannya benar-benar terjadi.
+                Menampilkannya terus-menerus membuatnya jadi latar yang tidak
+                dibaca siapa pun. */}
+            {anyQuotaFull ? (
+              <Banner tone="info" className="shrink-0">
+                Untuk mengundi hadiah yang kuotanya penuh pada sesi berikutnya, <span className="font-medium">tutup sesi sekarang lalu mulai sesi baru</span>. Hadiah yang sama dipakai lagi, tidak perlu dibuat ulang; kuota dan daftar pemenang dihitung ulang per sesi.
+              </Banner>
+            ) : null}
+            <ListDetail list={prizeList} detail={prizeDetail} detailWidth={560} />
+          </>
+        ) : null}
+
+        {tab === "rules" ? (
+          <ExclusionRuleManager
+            prizes={prizes.map((prize) => ({ id: prize.id, name: prize.name }))}
+            exclusions={exclusions}
+            onRemoveExclusion={removeExclusion}
+            onChanged={() => { void load(); }}
+          />
+        ) : null}
+
+        {tab === "data" ? (
+          <EntryLists
+            groups={groups} loaded={loaded} loadFailed={loadFailed}
+            open={importOpen} onOpen={() => { setImportOpen(true); setError(""); }} onClose={() => { setImportOpen(false); setError(""); }}
+            importName={importName} importText={importText} importFile={importFile} importing={importing} error={errorInPane ? error : ""}
+            onImportName={setImportName} onImportText={setImportText} onImportFile={setImportFile}
+            onImport={() => void importEntries()} onDeleteGroup={deleteGroup}
+          />
+        ) : null}
+
+        {tab === "display" ? (
+          settings && branding ? (
+            <DisplaySettings
+              settings={settings} branding={branding} saving={savingSettings} uploading={uploadingBackground}
+              onChange={updateSettings} onSave={() => void saveSettings()} onUpload={(file) => void uploadImage(file, "background")}
+            />
+          ) : !loaded ? <PageLoading /> : (
+            <EmptyState
+              icon={<Warning size={40} />}
+              title="Setelan layar gagal dimuat"
+              description="Periksa koneksi, lalu coba lagi."
+              action={<Button variant="outlined" size="sm" onClick={() => void load()}>Coba lagi</Button>}
+            />
+          )
+        ) : null}
+
+        {/* Kuota hadiah dihitung per sesi aktif, jadi daftar hadiah harus dimuat
+            ulang setiap kali sesi dibuka atau ditutup. Kalau tidak, label "kuota
+            penuh" tertinggal pada keadaan sesi sebelumnya. */}
+        {tab === "history" ? <SessionHistory isOwner={isOwner} onChanged={() => { void load(); }} /> : null}
+      </div>
+
+      <Dialog
+        open={confirmPrize !== null}
+        onClose={() => setConfirmPrize(null)}
+        dismissible={!deletingPrize}
+        tone="danger"
+        title={`Hapus hadiah ${confirmPrize?.name || ""}?`}
+        description="Hadiah yang masih punya pemenang (sah atau belum dikonfirmasi) tidak bisa dihapus. Catatan pemenang yang sudah dibatalkan untuk hadiah ini ikut terhapus. Penghapusan tercatat di jejak audit."
+        actions={
+          <>
+            <Button variant="outlined" disabled={deletingPrize} onClick={() => setConfirmPrize(null)}>Batal</Button>
+            <Button variant="danger" loading={deletingPrize} onClick={() => { if (confirmPrize) void deletePrize(confirmPrize.id); }}>Hapus hadiah</Button>
+          </>
+        }
+      />
+    </WorkspacePage>
+  );
 }
 
 // ===========================================================================
-// Tab sumber data
+// Baris kesiapan
 // ===========================================================================
 
-function DataTab({
-  groups, exclusions, prizes, importName, importText, importFile, importing,
-  onImportName, onImportText, onImportFile, onImport, onDeleteGroup, onRemoveExclusion, onRulesChanged,
-}: {
-  groups: EntryGroup[]; exclusions: Exclusion[]; prizes: UndianPrize[];
-  importName: string; importText: string; importFile: File | null; importing: boolean;
-  onImportName: (value: string) => void; onImportText: (value: string) => void;
-  onImportFile: (file: File | null) => void;
-  onImport: () => void; onDeleteGroup: (id: number) => void; onRemoveExclusion: (id: string) => void;
-  onRulesChanged: () => void;
+/**
+ * Daftar periksa sebelum mengundi, terlipat menjadi satu baris.
+ *
+ * Dipilih ketimbang wizard bertahap. Wizard membantu sekali, pada penyiapan
+ * pertama; sesudah itu ia menghalangi. Baris ini memberi urutan yang sama tanpa
+ * memenjarakan kunjungan berikutnya, dan memaksa hanya di satu titik yang
+ * benar-benar penting: pintu ke panel operator.
+ *
+ * Satu baris yang menyebut butir pertama yang belum beres cukup untuk kunjungan
+ * sehari-hari; daftar lengkapnya dibuka bila perlu.
+ */
+function ReadinessBar({ steps, canRun, onGo }: {
+  steps: ReadinessStep[];
+  canRun: boolean;
+  onGo: (tab: ReadinessTab) => void;
 }) {
-  const inputClass = "h-11 w-full border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary";
+  const [open, setOpen] = useState(false);
+  const pending = steps.filter((step) => !step.done);
+  // Butir yang mengunci didahulukan: itulah yang membuat tombol panel operator mati.
+  const pertama = pending.find((step) => step.blocking) ?? pending[0];
 
-  return <div className="mt-6 space-y-6">
-    {/* Aturan diletakkan paling atas dan selebar halaman.
-        Ia menyaring puluhan orang sekaligus, sementara dua kartu di bawahnya
-        menangani kasus satuan. Menaruhnya berdampingan dalam dua kolom membuat
-        keduanya terbaca setara, padahal yang satu berdampak jauh lebih luas. */}
-    <ExclusionRuleManager
-      prizes={prizes.map((prize) => ({ id: prize.id, name: prize.name }))}
-      onChanged={onRulesChanged}
-    />
-
-    <div className="grid gap-6 lg:grid-cols-2">
-    <section className="rounded-lg overflow-hidden space-y-px self-start border border-outline-variant bg-outline-variant">
-      <div className="rounded-lg bg-panel p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Import daftar</h2>
-            <p className="mt-2 max-w-md text-body-small leading-relaxed text-on-surface-variant">
-              Untuk yang tidak terdaftar sebagai peserta: kupon fisik, daftar sponsor, atau nomor kursi.
-            </p>
-          </div>
-          {/* Templat ditaruh di ATAS form, bukan di bawah.
-              Panitia yang belum punya berkas harus menemukannya sebelum mulai
-              mengetik, bukan setelah selesai menyusun format sendiri.
-
-              `<a download>` biasa, bukan next/link: ini unduhan berkas, bukan
-              navigasi halaman. next/link akan melakukan navigasi sisi klien dan
-              berkasnya tidak pernah tersimpan. */}
-          <a
-            href="/api/admin/undian/entries/template"
-            download
-            className="rounded-md flex min-h-11 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary"
-          >
-            <DownloadSimple size={15} /> Unduh templat
-          </a>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <div>
-            <label htmlFor="import-name" className="text-body-small font-semibold ed-label text-on-surface-variant">Nama daftar</label>
-            <input id="import-name" value={importName} onChange={(event) => onImportName(event.target.value)} className={`${inputClass} mt-1.5`} placeholder="Kupon Sesi Siang" />
-          </div>
-
-          <div>
-            <p className="text-body-small font-semibold ed-label text-on-surface-variant">Unggah berkas</p>
-            <div className="mt-1.5 flex items-center gap-2">
-              <label className="rounded-md flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 border border-dashed border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
-                <UploadSimple size={15} />
-                {importFile ? importFile.name : "Pilih berkas .xlsx, .csv, atau .txt"}
-                <input
-                  type="file"
-                  accept=".xlsx,.xlsm,.csv,.txt,.tsv"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0] ?? null;
-                    // Nilai input dikosongkan supaya memilih berkas yang sama dua
-                    // kali berturut-turut tetap memicu onChange.
-                    event.target.value = "";
-                    onImportFile(file);
-                  }}
-                />
-              </label>
-              {importFile && <button type="button" onClick={() => onImportFile(null)} className="rounded-md min-h-11 border border-outline-variant px-3 text-body-small font-semibold text-error">Hapus</button>}
-            </div>
-            {importFile && <p className="mt-1.5 text-label-small text-on-surface-variant">
-              Berkas dibaca di server saat tombol ditekan. Kotak teks di bawah diabaikan.
-            </p>}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="h-px flex-1 bg-outline-variant" />
-            <span className="text-label-small font-semibold ed-label text-on-surface-variant">atau tempel</span>
-            <span className="h-px flex-1 bg-outline-variant" />
-          </div>
-
-          <div>
-            <label htmlFor="import-text" className="text-body-small font-semibold ed-label text-on-surface-variant">Isi daftar</label>
-            <textarea
-              id="import-text"
-              value={importText}
-              onChange={(event) => onImportText(event.target.value)}
-              rows={6}
-              disabled={importFile !== null}
-              className="rounded-lg mt-1.5 w-full border border-outline-variant bg-surface p-3 font-mono text-body-small outline-none focus:border-primary disabled:opacity-45"
-              placeholder={"Nama,Perusahaan,Kode,Bobot\nBudi Santoso,PT Maju,K-001,1\nSiti Rahayu,PT Jaya,K-002,3"}
-            />
-            <p className="mt-1.5 text-label-small leading-relaxed text-on-surface-variant">
-              Tempel langsung dari Excel, atau satu nama per baris. Kolom yang dikenali: nama, perusahaan, kode, bobot.
-              Hanya kolom nama yang wajib.
-            </p>
-          </div>
-
-          <button type="button" onClick={onImport} disabled={importing} className="rounded-md flex min-h-12 items-center gap-2 border border-primary bg-primary px-5 text-body-medium font-semibold text-on-primary disabled:opacity-60">
-            <Plus size={18} /> {importing ? "Mengimpor..." : "Buat daftar"}
-          </button>
-        </div>
+  return (
+    <section aria-label="Kesiapan undian" className="shrink-0 rounded-lg border border-outline-variant bg-surface-container-lowest">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-body-medium">
+        {canRun
+          ? <CheckCircle size={18} className="shrink-0 text-success" aria-hidden />
+          : <LockSimple size={18} className="shrink-0 text-error" aria-hidden />}
+        <span className="font-medium tabular-nums">Kesiapan {steps.length - pending.length} dari {steps.length}</span>
+        <span className="min-w-0 flex-1 truncate text-on-surface-variant">
+          {pertama ? `${pertama.blocking ? "Wajib" : "Opsional"}: ${pertama.label.charAt(0).toLowerCase()}${pertama.label.slice(1)}` : "Semua butir beres"}
+        </span>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls="daftar-kesiapan"
+          onClick={() => setOpen((value) => !value)}
+          className="inline-flex items-center gap-1 rounded-sm font-medium text-primary hover:underline"
+        >
+          {open ? "Sembunyikan" : "Lihat daftar"}
+          <CaretDown size={14} aria-hidden className={cx(open && "rotate-180")} />
+        </button>
       </div>
 
-      {groups.length > 0 && <div className="rounded-lg bg-panel p-5">
-        <h3 className="text-body-medium font-semibold ed-label text-on-surface-variant">Daftar tersimpan</h3>
-        <ul className="mt-3 space-y-2">
-          {groups.map((group) => <li key={group.id} className="rounded-lg flex items-center justify-between gap-3 border border-outline-variant p-3">
-            <div className="min-w-0">
-              <p className="truncate text-body-medium font-semibold">{group.name}</p>
-              <p className="text-body-small tabular-nums text-on-surface-variant">{group.entry_count} baris</p>
-            </div>
-            <button type="button" onClick={() => onDeleteGroup(group.id)} className="rounded-md flex min-h-10 shrink-0 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold text-error hover:border-error">
-              <Trash size={14} /> Hapus
-            </button>
-          </li>)}
-        </ul>
-      </div>}
+      {open ? (
+        <ol id="daftar-kesiapan" className="max-h-72 overflow-y-auto border-t border-outline-variant">
+          {steps.map((step, index) => (
+            <li key={step.id} className="flex flex-wrap items-start gap-3 border-b border-outline-variant px-4 py-2.5 text-body-medium last:border-b-0">
+              <span className={cx(
+                "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-label-medium font-medium tabular-nums",
+                step.done ? "bg-success-soft text-on-success-container" : step.blocking ? "bg-error-soft text-error" : "bg-warning-soft text-warning",
+              )}>
+                {step.done ? <CheckCircle size={14} aria-label="Beres" /> : index + 1}
+              </span>
+              <div className="min-w-52 flex-1">
+                <p className="flex flex-wrap items-center gap-2 font-medium">
+                  {step.label}
+                  {/* Label wajib/opsional ditulis pada butirnya sendiri, bukan hanya
+                      tersirat dari warna: pembaca yang tidak membedakan merah dan
+                      kuning tetap harus bisa tahu mana yang mengunci. */}
+                  {!step.done ? <StatusChip tone={step.blocking ? "error" : "warning"}>{step.blocking ? "Wajib" : "Opsional"}</StatusChip> : null}
+                </p>
+                {step.detail ? <p className="text-on-surface-variant">{step.detail}</p> : null}
+              </div>
+              {!step.done ? <Button variant="outlined" size="sm" onClick={() => { onGo(step.tab); setOpen(false); }}>Bereskan</Button> : null}
+            </li>
+          ))}
+        </ol>
+      ) : null}
     </section>
-
-    <section className="rounded-lg overflow-hidden space-y-px self-start border border-outline-variant bg-outline-variant">
-      <div className="rounded-lg bg-panel p-5">
-        <h2 className="flex items-center gap-2 text-body-medium font-semibold ed-label text-on-surface-variant">
-          <Prohibit size={16} /> Pengecualian per orang
-        </h2>
-        <p className="mt-2 text-body-small leading-relaxed text-on-surface-variant">
-          Untuk kasus yang tidak punya pola — mis. satu orang yang kebetulan jadi MC malam ini.
-          Yang punya pola sebaiknya dibuat sebagai aturan di atas, supaya peserta baru hasil sinkronisasi ikut tersaring.
-          Tambahkan lewat tombol di halaman <Link href="/admin/participants" className="font-semibold text-primary underline">Peserta</Link>.
-        </p>
-
-        {exclusions.length === 0 ? <p className="rounded-lg mt-4 border border-dashed border-outline-variant p-6 text-center text-body-medium text-on-surface-variant">
-          Belum ada peserta yang dikecualikan satu per satu.
-        </p> : <ul className="mt-4 space-y-2">
-          {exclusions.map((item) => <li key={item.participant_id} className="rounded-lg flex items-center justify-between gap-3 border border-outline-variant p-3">
-            <div className="min-w-0">
-              <p className="truncate text-body-medium font-semibold">{item.name}</p>
-              <p className="truncate text-body-small text-on-surface-variant">{item.company ?? "—"}{item.reason ? ` · ${item.reason}` : ""}</p>
-            </div>
-            <button type="button" onClick={() => onRemoveExclusion(item.participant_id)} className="rounded-md min-h-10 shrink-0 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
-              Ikutkan lagi
-            </button>
-          </li>)}
-        </ul>}
-      </div>
-    </section>
-    </div>
-  </div>;
+  );
 }

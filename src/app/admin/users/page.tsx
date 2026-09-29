@@ -1,16 +1,19 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { WorkspacePage } from "@/components/m3";
+import { UsersPanel } from "@/components/admin/users-panel";
 
 /**
- * Alamat lama "User & role". Isinya sekarang tab di dalam Pengaturan.
- * Lihat src/app/admin/offers/page.tsx untuk alasan rutenya dipertahankan.
+ * User & role: halaman list-detail sendiri, tidak lagi tab di Pengaturan.
+ *
+ * Akses halaman dijaga layout admin (hanya role admin dan super admin), dan
+ * kewenangan di dalamnya dijaga /api/admin/users: klien `admin` hanya melihat
+ * daftar dan mereset PIN operator booth & kasir.
  */
-export default async function UserPindah({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const params = await searchParams;
-  const raw = params.eventSlug;
-  const slug = Array.isArray(raw) ? raw[0] : raw;
-  redirect(slug ? `/e/${slug}/admin/settings` : "/admin/settings");
+export default function UsersPage() {
+  return (
+    <WorkspacePage fill>
+      <UsersPanel />
+    </WorkspacePage>
+  );
 }

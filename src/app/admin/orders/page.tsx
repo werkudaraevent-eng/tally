@@ -1,11 +1,15 @@
 "use client";
 
-import { FunnelSimple, ListChecks, Prohibit, XCircle } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
+import { ArrowClockwise, CheckCircle, Circle, MagnifyingGlass, Prohibit, Receipt, X, XCircle } from "@phosphor-icons/react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ExportMenu } from "@/components/admin/export-menu";
-import { Button, Dialog, PageHeader, TextField } from "@/components/m3";
+import {
+  Banner, Button, ChipMenu, DetailSection, Dialog, EmptyCell, EmptyState, IconButton, KeyValue, ListDetail, MetaSeparator,
+  Pane, PaneBody, PaneFooter, PaneHeader, StatusChip, TextField, WorkspaceHeader, WorkspacePage, type ChipTone,
+} from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
+import { cx } from "@/lib/m3/cx";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 
 type OrderRow = {
@@ -45,14 +49,51 @@ type Summary = {
 };
 
 const money = (value: number) => `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
-const statusBadge = (status: string): { label: string; className: string } => {
-  switch (status) {
-    case "paid": return { label: "Lunas", className: "bg-success-soft text-primary-dim" };
-    case "handed_over": return { label: "Diserahkan", className: "bg-panel-high text-on-surface-variant" };
-    case "void": return { label: "Void", className: "bg-error-soft text-error" };
-    default: return { label: "Pending", className: "bg-warning-soft text-on-warning-soft" };
-  }
+
+const STATUS: Record<string, { label: string; tone: ChipTone }> = {
+  pending: { label: "Pending", tone: "warning" },
+  paid: { label: "Lunas", tone: "success" },
+  handed_over: { label: "Diserahkan", tone: "neutral" },
+  void: { label: "Void", tone: "error" },
 };
+const statusOf = (status: string) => STATUS[status] ?? STATUS.pending;
+
+const STATUS_OPTIONS = [
+  { value: "pending", label: "Pending" },
+  { value: "paid", label: "Lunas" },
+  { value: "handed_over", label: "Diserahkan" },
+  { value: "void", label: "Void" },
+];
+
+function Rangka({ className }: { className?: string }) {
+  return <span aria-hidden className={cx("block rounded bg-surface-container-high shimmer", className)} />;
+}
+
+/** Satu sel strip ringkasan. Garis antarsel berasal dari `gap-px` di wadahnya. */
+function Angka({ label, value, note, tone }: { label: string; value: ReactNode; note: ReactNode; tone?: "error" | "muted" }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 bg-surface-container-lowest px-5 py-4">
+      <span className="text-body-medium text-on-surface-variant">{label}</span>
+      <span className={cx("text-headline-small font-semibold tabular-nums", tone === "error" && "text-error", tone === "muted" && "text-on-surface-variant")}>{value}</span>
+      <span className="text-body-medium text-on-surface-variant">{note}</span>
+    </div>
+  );
+}
+
+/** Satu langkah riwayat order: selesai (centang) atau belum (lingkaran kosong). */
+function Langkah({ done, title, detail }: { done: boolean; title: string; detail?: ReactNode }) {
+  return (
+    <li className="flex items-start gap-2.5 text-body-medium">
+      {done
+        ? <CheckCircle size={16} className="mt-0.5 shrink-0 text-success" aria-label="Selesai" />
+        : <Circle size={16} className="mt-0.5 shrink-0 text-on-surface-variant" aria-label="Belum" />}
+      <span className="min-w-0">
+        <span className="block font-medium text-on-surface">{title}</span>
+        {detail ? <span className="block text-on-surface-variant">{detail}</span> : null}
+      </span>
+    </li>
+  );
+}
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
@@ -63,24 +104,35 @@ export default function AdminOrdersPage() {
   const [summary, setSummary] = useState<Summary | null | undefined>(undefined);
   const [status, setStatus] = useState("");
   const [boothId, setBoothId] = useState("");
+  const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   // Void hanya untuk super_admin. Server juga menolak lewat
   // requireUser(["super_admin"]); tombolnya disembunyikan supaya admin biasa
-  // tidak menemui aksi yang pasti gagal. Pola sama dengan link Audit trail di
-  // admin-shell dan tombol hapus sesi undian.
+  // tidak menemui aksi yang pasti gagal.
   const [isOwner, setIsOwner] = useState(false);
   const [voidTarget, setVoidTarget] = useState<OrderRow | null>(null);
   const [voidReason, setVoidReason] = useState("");
+  const [voidError, setVoidError] = useState("");
   const [voiding, setVoiding] = useState(false);
   const { zone, abbr } = useEventTimeZone();
   const toast = useToast();
-  // Dipindah ke dalam komponen karena kini bergantung pada zona acara. Sebagai
-  // fungsi modul ia tidak punya akses ke setelan.
-  const dateTime = (value: string | null) => formatEventDateTime(value, zone);
+  const dateTime = (value: string | null) => `${formatEventDateTime(value, zone)} ${abbr}`;
 
+  // Kata cari ditunda sebentar: dulu daftar dimuat ulang pada setiap ketukan.
+  useEffect(() => {
+    const timer = window.setTimeout(() => { setQ(qInput); }, 250);
+    return () => window.clearTimeout(timer);
+  }, [qInput]);
+
+  // Hanya respons dari permintaan terakhir yang boleh mengisi layar. Chip saring
+  // bisa berganti lebih cepat daripada server menjawab.
+  const urutanMuat = useRef(0);
   const load = useCallback(async () => {
+    const nomor = ++urutanMuat.current;
     setLoading(true); setError("");
     const params = new URLSearchParams({ limit: "100" });
     if (status) params.set("status", status);
@@ -88,20 +140,20 @@ export default function AdminOrdersPage() {
     if (q.trim()) params.set("q", q.trim());
     const response = await fetch(`/api/admin/orders?${params.toString()}`, { cache: "no-store" }).catch(() => null);
     const data = response ? await response.json().catch(() => ({})) : {};
+    if (nomor !== urutanMuat.current) return;
     setLoading(false);
+    setLoaded(true);
     if (!response || !response.ok) {
       /**
        * Hasil lama DIBUANG, bukan dibiarkan di layar bersama pita galat.
        *
-       * Yang ada di `orders` adalah hasil penyaring SEBELUMNYA, sedangkan bilah
-       * di atas tabel sudah memajang penyaring yang baru -- termasuk kotak
+       * Yang ada di `orders` adalah hasil penyaring SEBELUMNYA, sedangkan chip
+       * di atas daftar sudah memajang penyaring yang baru, termasuk strip
        * ringkasan dengan angka rupiah. Membiarkannya berarti menampilkan total
-       * belanja satu booth di bawah label booth yang lain, dan pita galat di
-       * atasnya terbaca sebagai "sebagian gagal", bukan "angka ini bukan milik
-       * penyaring yang Anda pilih".
+       * belanja satu booth di bawah label booth yang lain.
        *
        * `summary` ke null, bukan undefined: null berarti "gagal dihitung" dan
-       * layar memajang tanda strip, sedangkan undefined berarti "belum dimuat"
+       * layar memajang keterangan, sedangkan undefined berarti "belum dimuat"
        * dan memajang kerangka yang tidak akan pernah terisi.
        */
       setOrders([]);
@@ -119,11 +171,13 @@ export default function AdminOrdersPage() {
   useEffect(() => { const timer = window.setTimeout(() => { void fetch("/api/admin/booths", { cache: "no-store" }).then(async (r) => { if (r.ok) setBooths((await r.json()).booths ?? []); }); }, 0); return () => window.clearTimeout(timer); }, []);
   useEffect(() => { const timer = window.setTimeout(() => { void fetch("/api/auth/me", { cache: "no-store" }).then(async (r) => { if (r.ok) setIsOwner((await r.json()).user?.role === "super_admin"); }); }, 0); return () => window.clearTimeout(timer); }, []);
 
+  function closeVoid() { setVoidTarget(null); setVoidReason(""); setVoidError(""); }
+
   async function confirmVoid() {
     if (!voidTarget) return;
     const reason = voidReason.trim();
-    if (reason.length < 3) { setError("Alasan void minimal 3 huruf."); return; }
-    setVoiding(true); setError("");
+    if (reason.length < 3) { setVoidError("Alasan void minimal 3 huruf."); return; }
+    setVoiding(true); setVoidError("");
     const response = await fetch(`/api/admin/orders/${voidTarget.id}/void`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -133,171 +187,247 @@ export default function AdminOrdersPage() {
     // `fetch` yang gagal berarti permintaannya mungkin SUDAH sampai ke server.
     // Menyuruh "coba lagi" tanpa syarat bisa membuat order yang sudah batal
     // di-void dua kali; yang benar adalah memuat ulang daftarnya dulu.
-    if (!response) { setError("Koneksi terputus. Muat ulang daftar untuk memastikan statusnya sebelum mencoba lagi."); return; }
+    if (!response) { setVoidError("Koneksi terputus. Muat ulang daftar untuk memastikan statusnya sebelum mencoba lagi."); return; }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const failure = data.error?.details?.reason?.[0] ?? data.error?.message ?? `Void gagal (${response.status}).`;
-      setError(failure);
+      setVoidError(failure);
       toast.error("Void gagal", failure);
       return;
     }
     const code = voidTarget.code;
-    setVoidTarget(null); setVoidReason("");
+    closeVoid();
     toast.warning(`Order ${code} dibatalkan`, "Kuota item diskon peserta kembali tersedia dan nilainya keluar dari leaderboard.");
     await load();
   }
 
-  return <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
-    <div className="mx-auto max-w-[1440px]">
-      <PageHeader actions={<ExportMenu />} />
+  const boothOf = (id: number) => booths.find((item) => item.id === id);
+  // Kode booth dibaca dari data booth, BUKAN dibentuk dari `B` + booth_id: kode
+  // booth bebas huruf (mis. PH), dan menyusunnya dari id menampilkan PH sebagai "B8".
+  const boothCode = (id: number) => boothOf(id)?.code ?? `#${id}`;
 
-      <div className="rounded-lg mt-8 flex flex-wrap items-end gap-3 border border-outline-variant bg-panel p-4">
-        <div className="flex items-center gap-2 text-body-small font-semibold ed-label text-on-surface-variant"><FunnelSimple size={18} /> Filter</div>
-        <label className="text-body-medium">Status
-          <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-md mt-1 block h-11 w-44 border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary">
-            <option value="">Semua status</option>
-            <option value="pending">Pending</option>
-            <option value="paid">Lunas</option>
-            <option value="handed_over">Diserahkan</option>
-            <option value="void">Void</option>
-          </select>
-        </label>
-        <label className="text-body-medium">Booth
-          <select value={boothId} onChange={(event) => setBoothId(event.target.value)} className="rounded-md mt-1 block h-11 w-44 border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary">
-            <option value="">Semua booth</option>
-            {booths.map((booth) => <option key={booth.id} value={booth.id}>{booth.code} · {booth.name}</option>)}
-          </select>
-        </label>
-        <label className="text-body-medium">Nomor stiker
-          <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Contoh: B3-014" className="rounded-md mt-1 block h-11 w-48 border border-outline-variant bg-surface px-3 text-body-medium outline-none focus:border-primary" />
-        </label>
-        <button onClick={() => void load()} disabled={loading} className="rounded-md min-h-11 bg-primary px-4 text-body-medium font-semibold text-on-primary hover:bg-primary-dim disabled:opacity-50">{loading ? "Memuat..." : "Terapkan"}</button>
-        <span className="ml-auto text-body-medium text-on-surface-variant">{total} order</span>
-      </div>
+  const adaSaringan = Boolean(status || boothId || q.trim());
+  const hapusSaringan = () => { setStatus(""); setBoothId(""); setQInput(""); setQ(""); };
+  const terpilih = selectedId ? orders.find((order) => order.id === selectedId) ?? null : null;
 
-      {error && <div role="alert" className="rounded-lg mt-5 flex items-center gap-3 border border-error-soft-outline bg-error-soft p-4 text-body-medium text-error"><XCircle size={20} />{error}</div>}
+  // ---- Panel daftar --------------------------------------------------------
+  const list = (
+    <Pane aria-label="Daftar order">
+      <PaneHeader className="flex-wrap gap-2 px-3 py-3">
+        <label className="relative min-w-[200px] flex-1">
+          <span className="sr-only">Cari nomor stiker</span>
+          <MagnifyingGlass size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+          <input
+            value={qInput}
+            onChange={(event) => setQInput(event.target.value)}
+            placeholder="Nomor stiker, mis. B3-014"
+            className="h-8 w-full rounded-md border border-outline bg-surface-container-lowest pl-9 pr-3 text-body-medium outline-none placeholder:text-on-surface-variant focus:border-primary"
+          />
+        </label>
+        <ChipMenu label="Status" options={STATUS_OPTIONS} selected={status ? [status] : []} onChange={(next) => setStatus(next[0] ?? "")} />
+        <ChipMenu
+          label="Booth"
+          searchable={booths.length > 8}
+          options={booths.map((booth) => ({ value: String(booth.id), label: `${booth.code} · ${booth.name}` }))}
+          selected={boothId ? [boothId] : []}
+          onChange={(next) => setBoothId(next[0] ?? "")}
+          summary={(pilihan) => `Booth: ${boothCode(Number(pilihan[0]?.value))}`}
+        />
+        <IconButton size="sm" variant="outlined" label="Muat ulang daftar" disabled={loading} onClick={() => void load()}><ArrowClockwise size={16} /></IconButton>
+      </PaneHeader>
 
-      {/* Ringkasan hasil filter.
-          Ditaruh DI ANTARA filter dan tabel supaya terbaca sebagai akibat dari
-          filter di atasnya. Di bawah tabel ia akan terlewat, karena dengan 100
-          baris tidak ada yang menggulir sampai dasar untuk memeriksa total. */}
-      {summary === null
-        ? <p className="rounded-lg mt-6 border border-outline-variant bg-panel-high p-4 text-body-medium text-on-surface-variant">Ringkasan gagal dihitung. Angka sengaja tidak ditampilkan daripada menampilkan nilai yang belum tentu benar.</p>
-        : summary && <section className="mt-6" aria-label="Ringkasan hasil filter">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {/* Nilai transaksi lebih dulu dan paling besar: itu satu-satunya
-                angka yang dicari saat merekonsiliasi uang. */}
-            <div className="rounded-lg bg-panel p-4">
-              <p className="ed-label text-on-surface-variant">Nilai transaksi</p>
-              <p className="mt-1 text-headline-small font-semibold tabular-nums">{money(summary.total_amount)}</p>
-              <p className="mt-1 text-body-small text-on-surface-variant">{summary.order_count} order dihitung</p>
-            </div>
-            <div className="rounded-lg bg-panel p-4">
-              <p className="ed-label text-on-surface-variant">Belanja reguler</p>
-              <p className="mt-1 text-headline-small font-semibold tabular-nums">{money(summary.regular_amount)}</p>
-              <p className="mt-1 text-body-small text-on-surface-variant">Angka inilah yang masuk leaderboard</p>
-            </div>
-            <div className="rounded-lg bg-panel p-4">
-              <p className="ed-label text-on-surface-variant">Item spesial</p>
-              <p className="mt-1 text-headline-small font-semibold tabular-nums">{money(summary.special_amount)}</p>
-              <p className="mt-1 text-body-small text-on-surface-variant">{summary.discount_item_count} order pakai item diskon</p>
-            </div>
-            {/* Void dipisah, TIDAK dicampur ke total. Mencampurnya membuat angka
-                di sini tidak cocok dengan Reports dan leaderboard, yang keduanya
-                hanya menghitung paid/handed_over — dan satu angka yang tidak bisa
-                dijelaskan asalnya menghentikan seluruh rekonsiliasi. */}
-            <div className="rounded-lg bg-panel p-4">
-              <p className="ed-label text-on-surface-variant">Void (tidak dihitung)</p>
-              <p className={`mt-1 text-headline-small font-semibold tabular-nums ${summary.void_count > 0 ? "text-error" : "text-on-surface-variant"}`}>{summary.void_count}</p>
-              <p className="mt-1 text-body-small text-on-surface-variant">{summary.void_count > 0 ? `Senilai ${money(summary.void_amount)}` : "Tidak ada order dibatalkan"}</p>
-            </div>
+      <PaneBody>
+        {error ? (
+          <p role="alert" className="m-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</p>
+        ) : !loaded ? (
+          <div aria-label="Memuat order" className="flex flex-col">
+            {Array.from({ length: 8 }, (_, i) => (
+              <div key={i} className="flex items-center gap-6 border-b border-outline-variant px-4 py-4">
+                <Rangka className="h-3 w-20" /><Rangka className="h-3 w-40" /><Rangka className="ml-auto h-3 w-24" />
+              </div>
+            ))}
           </div>
-          {/* Cakupan ditulis eksplisit. Tabel hanya memuat 100 baris pertama,
-              jadi tanpa keterangan ini orang wajar menyangka totalnya berasal
-              dari yang terlihat saja. */}
-          <p className="mt-2 text-body-small text-on-surface-variant">
-            Dihitung dari seluruh {total} order yang cocok dengan filter, bukan hanya {orders.length} baris yang tampil di tabel.
-          </p>
-        </section>}
-
-      <section className="rounded-lg mt-6 border border-outline-variant bg-panel">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1040px] text-body-medium">
-            <thead><tr className="border-b border-outline-variant text-left ed-label text-on-surface-variant">
-              <th className="px-4 py-3 font-semibold">Order</th>
-              <th className="px-4 py-3 font-semibold">Peserta</th>
-              <th className="px-4 py-3 font-semibold">Booth</th>
-              {/* Kolom terpisah, bukan disisipkan ke kolom Order: isi keranjang adalah
-                  pertanyaan pertama saat merekonsiliasi serah terima barang, jadi harus
-                  dapat dibaca sekolom dari atas ke bawah. */}
-              <th className="px-4 py-3 font-semibold">Item</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 text-right font-semibold">Total</th>
-              {/* Zona ditulis di judul kolom, bukan diulang di tiap sel: jam yang
-                  dipakai rekonsiliasi harus jelas zonanya, tapi mengulangnya 100
-                  kali per halaman hanya menambah lebar tabel. */}
-              <th className="px-4 py-3 font-semibold">Dibuat ({abbr})</th>
-              <th className="px-4 py-3 font-semibold">Lunas ({abbr})</th>
-              <th className="px-4 py-3 font-semibold">Bayar</th>
-              {/* Kolom aksi hanya ada untuk super_admin, jadi lebar tabel tidak
-                  bertambah bagi admin biasa yang tidak punya tombol apa pun. */}
-              {isOwner && <th className="px-4 py-3 text-right font-semibold">Aksi</th>}
-            </tr></thead>
-            <tbody className="divide-y divide-outline-variant">
-              {orders.length === 0 ? <tr><td colSpan={isOwner ? 10 : 9} className="px-4 py-12 text-center text-on-surface-variant"><ListChecks size={38} className="mx-auto mb-3 opacity-40" />Tidak ada order cocok.</td></tr> : orders.map((order) => {
-                const badge = statusBadge(order.status);
-                const items = order.order_special_items ?? [];
-                return <tr key={order.id} className="align-top hover:bg-panel-high">
-                  <td className="px-4 py-3"><p className="font-semibold">{order.code}</p><p className="text-body-small text-on-surface-variant">{order.has_discount_item ? "Item diskon" : "Reguler"}</p></td>
-                  <td className="px-4 py-3"><p className="font-medium">{order.participants?.name ?? "—"}</p><p className="text-body-small text-on-surface-variant">{order.participants?.company ?? ""}</p></td>
-                  {/* Kode booth dibaca dari data booth, BUKAN dibentuk dari `B` + booth_id.
-                      Kode booth bebas huruf (mis. PH), jadi menyusunnya dari id menampilkan
-                      booth PH sebagai "B8". Kebetulan cocok untuk B1..B7 karena id-nya sama
-                      dengan angka di kodenya, sehingga salahnya baru terlihat pada booth
-                      berkode non-numerik. Bug yang sama pernah terjadi di daftar user. */}
-                  <td className="px-4 py-3">{booths.find((item) => item.id === order.booth_id)?.code ?? `#${order.booth_id}`}</td>
-                  {/* Nominal reguler ikut dirinci: tanpa itu order Rp 75.000 tanpa item spesial
-                      terlihat kosong, padahal isinya belanja reguler. */}
-                  <td className="px-4 py-3 text-body-small">
-                    {order.regular_amount > 0
-                      ? <p>Item reguler <span className="tabular-nums text-on-surface-variant">{money(order.regular_amount)}</span></p>
-                      : null}
-                    {items.map((item, index) => <p key={`${item.special_offers?.code ?? "item"}-${index}`}>
-                      {item.special_offers?.name ?? "Item dihapus"} <span className="tabular-nums text-on-surface-variant">{money(item.price_at_claim)}</span>
-                    </p>)}
-                    {order.regular_amount === 0 && items.length === 0
-                      ? <span className="text-on-surface-variant">—</span>
-                      : null}
-                  </td>
-                  <td className="px-4 py-3">{order.status === "void" && order.void_reason ? <span title={order.void_reason} className={`inline-flex rounded-sm px-2 py-0.5 text-label-small font-semibold ${badge.className}`}>{badge.label}</span> : <span className={`inline-flex rounded-sm px-2 py-0.5 text-label-small font-semibold ${badge.className}`}>{badge.label}</span>}</td>
-                  <td className="px-4 py-3 text-right font-semibold tabular-nums">{money(order.total_amount)}</td>
-                  <td className="px-4 py-3 text-body-small tabular-nums text-on-surface-variant">{dateTime(order.created_at)}</td>
-                  <td className="px-4 py-3 text-body-small tabular-nums text-on-surface-variant">{dateTime(order.paid_at)}</td>
-                  <td className="px-4 py-3 text-body-small text-on-surface-variant">{order.payment_method ? order.payment_method.toUpperCase() : "—"}{order.approval_code ? ` · ${order.approval_code}` : ""}</td>
-                  {/* Order yang sudah void tidak punya tombol: mem-void ulang
-                      tidak melakukan apa-apa, dan tombol yang selalu gagal
-                      membuat staf mengira sistemnya rusak. */}
-                  {isOwner && <td className="px-4 py-3 text-right">
-                    {order.status === "void"
-                      ? <span className="text-body-small text-on-surface-variant">—</span>
-                      : <button type="button" onClick={() => { setVoidTarget(order); setVoidReason(""); setError(""); }} className="rounded-sm inline-flex min-h-9 items-center gap-1.5 border border-outline-variant px-2.5 text-body-small font-semibold text-error hover:border-error"><Prohibit size={15} /> Void</button>}
-                  </td>}
-                </tr>;
+        ) : orders.length === 0 ? (
+          <EmptyState
+            plain
+            icon={<Receipt size={40} />}
+            title={adaSaringan ? "Tidak ada order yang cocok" : "Belum ada order"}
+            description={adaSaringan ? "Longgarkan salah satu saringan atau ubah nomor stiker." : "Order muncul di sini begitu booth mencatat transaksi pertama."}
+            action={adaSaringan ? <Button variant="outlined" size="sm" onClick={hapusSaringan}>Hapus semua saringan</Button> : undefined}
+          />
+        ) : (
+          <table className={cx("w-full min-w-[560px] border-separate border-spacing-0 text-left text-body-medium", loading && "opacity-60")}>
+            <thead className="sticky top-0 z-10 bg-surface-container-high text-on-surface-variant">
+              <tr>
+                <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Order</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Peserta</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Status</th>
+                <th scope="col" className="border-b border-outline-variant px-4 py-2.5 text-right font-medium">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => {
+                const aktif = order.id === selectedId;
+                const badge = statusOf(order.status);
+                return (
+                  <tr
+                    key={order.id}
+                    onClick={() => setSelectedId(aktif ? null : order.id)}
+                    className={cx("cursor-pointer", aktif ? "bg-secondary-container" : "bg-surface-container-lowest hover:bg-primary-soft")}
+                  >
+                    <td className="border-b border-outline-variant px-4 py-2.5">
+                      <button
+                        type="button"
+                        aria-pressed={aktif}
+                        onClick={(event) => { event.stopPropagation(); setSelectedId(aktif ? null : order.id); }}
+                        className="block rounded-sm text-left"
+                      >
+                        <span className="block font-medium tabular-nums text-on-surface">{order.code}</span>
+                        <span className="block text-on-surface-variant">{order.has_discount_item ? "Item diskon" : "Reguler"}</span>
+                      </button>
+                    </td>
+                    <td className="max-w-0 border-b border-outline-variant px-3 py-2.5">
+                      <span className="block truncate text-on-surface">{order.participants?.name ?? <EmptyCell />}</span>
+                      <span className="block truncate text-on-surface-variant">{order.participants?.company ?? " "}</span>
+                    </td>
+                    <td className="border-b border-outline-variant px-3 py-2.5"><StatusChip dot tone={badge.tone}>{badge.label}</StatusChip></td>
+                    <td className={cx("border-b border-outline-variant px-4 py-2.5 text-right font-medium tabular-nums", order.status === "void" && "font-normal text-on-surface-variant")}>{money(order.total_amount)}</td>
+                  </tr>
+                );
               })}
             </tbody>
           </table>
-        </div>
-      </section>
+        )}
+      </PaneBody>
 
-      {/* Konfirmasi void.
-          Dialog, bukan konfirmasi inline seperti di kartu lain: barisnya berada
-          di tabel selebar 1040px yang digulir mendatar, sehingga kotak
-          konfirmasi di dalam baris bisa berada di luar layar saat tombolnya
-          ditekan. window.confirm juga tidak dipakai — ia tidak bisa memuat
-          kolom alasan yang wajib diisi. */}
+      {/* Tanpa halaman berikutnya: daftar ini memang hanya memuat 100 order
+          terbaru. Keterangannya ditulis supaya tidak dikira sudah semuanya. */}
+      <PaneFooter
+        className="bg-surface-container-lowest py-2.5"
+        note={
+          <span className="flex flex-wrap items-center gap-x-2">
+            <span className="tabular-nums">{error ? "Daftar tidak dimuat" : total > orders.length ? `${orders.length} order terbaru dari ${total}` : `${total} order`}</span>
+            {!error && total > orders.length ? <span>Persempit saringan untuk melihat sisanya.</span> : null}
+            {adaSaringan ? <button type="button" onClick={hapusSaringan} className="rounded-sm font-medium text-primary hover:underline">Hapus semua saringan</button> : null}
+          </span>
+        }
+      />
+    </Pane>
+  );
+
+  // ---- Panel detail --------------------------------------------------------
+  const detail = terpilih ? (() => {
+    const order = terpilih;
+    const badge = statusOf(order.status);
+    const booth = boothOf(order.booth_id);
+    const items = order.order_special_items ?? [];
+    const subjudul = [order.participants?.name, order.participants?.company, booth ? `Booth ${booth.code} ${booth.name}` : `Booth ${boothCode(order.booth_id)}`].filter(Boolean).join(" · ");
+    const bisaVoid = isOwner && order.status !== "void";
+    return (
+      <Pane as="aside" aria-label={`Detail order ${order.code}`}>
+        <div className="flex shrink-0 flex-col gap-1 border-b border-outline-variant px-5 py-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-title-medium font-semibold tabular-nums">{order.code}</h2>
+            <StatusChip dot tone={badge.tone}>{badge.label}</StatusChip>
+            <IconButton size="sm" label="Tutup detail" className="ml-auto" onClick={() => setSelectedId(null)}><X size={16} /></IconButton>
+          </div>
+          <p className={cx("text-headline-small font-semibold tabular-nums", order.status === "void" && "text-on-surface-variant")}>{money(order.total_amount)}</p>
+          <p className="text-body-medium text-on-surface-variant">{subjudul}</p>
+        </div>
+        <PaneBody>
+          <dl>
+            {order.status === "void" ? (
+              <DetailSection title="Alasan void">
+                <p className="text-body-medium">{order.void_reason ?? <EmptyCell />}</p>
+              </DetailSection>
+            ) : null}
+            {/* Nominal reguler ikut dirinci: tanpa itu order tanpa item spesial
+                terlihat kosong, padahal isinya belanja reguler. */}
+            <DetailSection title="Item">
+              {order.regular_amount > 0 ? <KeyValue label="Item reguler"><span className="block text-right tabular-nums">{money(order.regular_amount)}</span></KeyValue> : null}
+              {items.map((item, index) => (
+                <KeyValue key={`${item.special_offers?.code ?? "item"}-${index}`} label={item.special_offers?.name ?? "Item dihapus"}>
+                  <span className="block text-right tabular-nums">{money(item.price_at_claim)}</span>
+                </KeyValue>
+              ))}
+              {order.regular_amount === 0 && items.length === 0 ? <p className="text-body-medium text-on-surface-variant">Tidak ada item tercatat.</p> : null}
+            </DetailSection>
+            <DetailSection title="Pembayaran">
+              <KeyValue label="Metode">{order.payment_method ? `${order.payment_method.toUpperCase()}${order.approval_code ? ` · approval ${order.approval_code}` : ""}` : <EmptyCell />}</KeyValue>
+              <KeyValue label="Pengambilan">{order.pickup_mode === "immediate" ? "Serahkan langsung di booth" : "Ambil setelah lunas"}</KeyValue>
+              <KeyValue label="Kode QR peserta"><span className="tabular-nums">{order.participants?.qr_code ?? <EmptyCell />}</span></KeyValue>
+            </DetailSection>
+            <DetailSection title="Riwayat">
+              <ol className="flex flex-col gap-3">
+                <Langkah done title={`Dibuat di booth ${boothCode(order.booth_id)}`} detail={dateTime(order.created_at)} />
+                {order.paid_at
+                  ? <Langkah done title="Lunas di kasir" detail={dateTime(order.paid_at)} />
+                  : order.status !== "void" ? <Langkah done={false} title="Belum lunas" /> : null}
+                {order.handed_over_at
+                  ? <Langkah done title="Diserahkan" detail={dateTime(order.handed_over_at)} />
+                  : order.status === "paid" && order.pickup_mode === "after_payment" ? <Langkah done={false} title="Belum diserahkan" detail="Ambil setelah lunas" /> : null}
+                {order.status === "void" ? <Langkah done title="Dibatalkan (void)" /> : null}
+              </ol>
+            </DetailSection>
+          </dl>
+        </PaneBody>
+        <PaneFooter note={order.status === "void" ? "Order ini sudah void" : isOwner ? "Void mengeluarkan nilainya dari hitungan" : "Void hanya untuk super admin"}>
+          {bisaVoid ? (
+            <Button variant="outlined" size="sm" className="text-error" icon={<Prohibit size={16} />} onClick={() => { setVoidTarget(order); setVoidReason(""); setVoidError(""); }}>
+              Void order
+            </Button>
+          ) : null}
+        </PaneFooter>
+      </Pane>
+    );
+  })() : null;
+
+  return (
+    <WorkspacePage fill>
+      <WorkspaceHeader
+        meta={
+          <>
+            <span className="tabular-nums">{loaded ? `${total} order` : "Memuat order"}</span>
+            <MetaSeparator />
+            <span>Ringkasan mengikuti saringan, dihitung dari semua order yang cocok</span>
+          </>
+        }
+        actions={<ExportMenu />}
+      />
+
+      {/* Ringkasan hasil filter, di ANTARA judul dan daftar supaya terbaca sebagai
+          akibat dari saringan di bawahnya. */}
+      {summary === null ? (
+        <Banner tone="warning" icon={<XCircle size={18} />}>Ringkasan gagal dihitung. Angka sengaja tidak ditampilkan daripada menampilkan nilai yang belum tentu benar.</Banner>
+      ) : (
+        <section aria-label="Ringkasan hasil saringan" className="grid shrink-0 gap-px overflow-hidden rounded-lg border border-outline-variant bg-outline-variant sm:grid-cols-2 xl:grid-cols-4">
+          {summary === undefined ? [0, 1, 2, 3].map((index) => (
+            <div key={index} aria-hidden className="flex flex-col gap-2 bg-surface-container-lowest px-5 py-4"><Rangka className="h-3.5 w-24" /><Rangka className="h-7 w-36" /><Rangka className="h-3.5 w-32" /></div>
+          )) : (
+            <>
+              <Angka label="Nilai transaksi" value={money(summary.total_amount)} note={`${summary.order_count} order dihitung, di luar void`} />
+              <Angka label="Belanja reguler" value={money(summary.regular_amount)} note="Tanpa nilai item spesial" />
+              <Angka label="Item spesial" value={money(summary.special_amount)} note={`${summary.discount_item_count} order pakai item diskon`} />
+              {/* Void dipisah, TIDAK dicampur ke total, supaya angka di sini cocok
+                  dengan Laporan dan leaderboard yang hanya menghitung lunas. */}
+              <Angka
+                label="Void"
+                value={`${summary.void_count} order`}
+                tone={summary.void_count > 0 ? "error" : "muted"}
+                note={summary.void_count > 0 ? `Senilai ${money(summary.void_amount)}, tidak dihitung` : "Tidak ada order dibatalkan"}
+              />
+            </>
+          )}
+        </section>
+      )}
+
+      <ListDetail list={list} detail={detail} detailWidth={420} />
+
+      {/* Konfirmasi void. Dialog, bukan window.confirm: ia harus memuat kolom
+          alasan yang wajib diisi. */}
       <Dialog
         open={voidTarget !== null}
-        onClose={() => { setVoidTarget(null); setVoidReason(""); setError(""); }}
+        onClose={closeVoid}
         dismissible={!voiding}
         size="md"
         tone="danger"
@@ -305,9 +435,9 @@ export default function AdminOrdersPage() {
         title={`Void order ${voidTarget?.code ?? ""}?`}
         actions={
           <>
-            <Button variant="outlined" disabled={voiding} onClick={() => { setVoidTarget(null); setVoidReason(""); setError(""); }}>Batal</Button>
+            <Button variant="outlined" disabled={voiding} onClick={closeVoid}>Batal</Button>
             <Button variant="danger" icon={<Prohibit size={18} />} loading={voiding} disabled={voidReason.trim().length < 3} onClick={() => void confirmVoid()}>
-              Ya, void order ini
+              Void order ini
             </Button>
           </>
         }
@@ -315,22 +445,20 @@ export default function AdminOrdersPage() {
         {voidTarget ? (
           <>
             {/* Ringkasan order. Nomor stiker saja tidak cukup untuk memastikan
-                baris yang benar — dua booth bisa punya nomor berdekatan, dan yang
-                dibatalkan adalah transaksi milik orang sungguhan. */}
-            <div className="rounded-lg mt-4 space-y-1 bg-surface-container p-4 text-body-medium">
-              <p className="font-semibold">{voidTarget.participants?.name ?? "—"}</p>
-              {voidTarget.participants?.company && <p className="text-body-small text-on-surface-variant">{voidTarget.participants.company}</p>}
-              <p className="pt-1 tabular-nums">{money(voidTarget.total_amount)} · {booths.find((item) => item.id === voidTarget.booth_id)?.code ?? `#${voidTarget.booth_id}`} · {statusBadge(voidTarget.status).label}</p>
+                baris yang benar: yang dibatalkan adalah transaksi orang sungguhan. */}
+            <div className="mt-4 flex flex-col gap-0.5 rounded-md bg-surface-container-high p-4 text-body-medium">
+              <p className="font-medium">{voidTarget.participants?.name ?? <EmptyCell />}</p>
+              {voidTarget.participants?.company ? <p className="text-on-surface-variant">{voidTarget.participants.company}</p> : null}
+              <p className="pt-1 tabular-nums">{money(voidTarget.total_amount)} · Booth {boothCode(voidTarget.booth_id)} · {statusOf(voidTarget.status).label}</p>
             </div>
 
-            {/* Akibatnya ditulis, bukan diringkas jadi "yakin?". Void mengubah
-                angka yang sedang tampil di proyektor, dan itu tidak jelas dari
-                nama tombolnya. */}
-            <ul className="mt-4 space-y-1.5 text-body-small leading-5 text-on-surface-variant">
-              <li>· Nilainya keluar dari leaderboard top spender dan dari Reports.</li>
-              <li>· Kuota item diskon peserta kembali tersedia.</li>
-              <li>· Barisnya TETAP ada dengan status Void — riwayat dan nomor stikernya tidak hilang.</li>
-              {voidTarget.status === "handed_over" && <li className="font-semibold text-warning">· Barang sudah diserahkan ke peserta. Void tidak menariknya kembali, hanya mencatat pembatalannya.</li>}
+            {/* Akibatnya ditulis sesuai RPC void_order_transaction, bukan
+                diringkas jadi "yakin?". */}
+            <ul className="mt-4 flex list-disc flex-col gap-1.5 pl-5 text-body-medium text-on-surface-variant">
+              <li>Nilainya keluar dari leaderboard top spender dan dari Laporan.</li>
+              <li>Kuota item diskon peserta kembali tersedia, dan stok item spesial yang terbatas bertambah lagi.</li>
+              <li>Barisnya tetap ada dengan status Void. Riwayat dan nomor stikernya tidak hilang.</li>
+              {voidTarget.status === "handed_over" ? <li className="font-medium text-warning">Barang sudah diserahkan ke peserta. Void tidak menariknya kembali, hanya mencatat pembatalannya.</li> : null}
             </ul>
           </>
         ) : null}
@@ -344,9 +472,9 @@ export default function AdminOrdersPage() {
           autoFocus
           placeholder="mis. salah input nominal"
           hint="Tersimpan permanen di audit trail bersama nama Anda. Ini satu-satunya keterangan kenapa nomor stiker ini tidak terhitung."
-          error={error || undefined}
+          error={voidError || undefined}
         />
       </Dialog>
-    </div>
-  </main>;
+    </WorkspacePage>
+  );
 }

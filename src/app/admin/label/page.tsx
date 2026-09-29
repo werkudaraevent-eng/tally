@@ -1,10 +1,14 @@
 "use client";
 
-import { ArrowCounterClockwise, CaretDown, FloppyDisk, Plus, Trash } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, PageHeader, SegmentedButton, SelectField, Switch, TextField } from "@/components/m3";
+import { ArrowCounterClockwise, Plus, Trash, Warning } from "@phosphor-icons/react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Banner, Button, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
+  SegmentedButton, SelectField, SupportingPane, Switch, TextField, WorkspaceHeader, WorkspacePage,
+} from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { eventApiPath } from "@/lib/event-url";
+import { cx } from "@/lib/m3/cx";
 import {
   DEFAULT_LABEL_SETTINGS,
   LABEL_PREVIEW_DATA,
@@ -39,9 +43,17 @@ import { renderLabelToCanvas } from "@/lib/label/render";
  * kotak gulungan. Pikselnya dihitung dari dpi printer.
  *
  * Yang benar-benar milik protokol (urutan perintah, kerapatan panas, lebar
- * kepala cetak) tidak dihapus, hanya dilipat ke bagian "Setelan printer". Ia
- * dibutuhkan tepat sekali, saat label pertama keluar salah, dan tidak pernah
- * lagi sesudahnya.
+ * kepala cetak) tidak dihapus, hanya dipindah ke bagian "Printer" di panel
+ * kanan. Ia dibutuhkan tepat sekali, saat label pertama keluar salah.
+ *
+ * ---- Tata letak -----------------------------------------------------------
+ *
+ * Supporting pane: labelnya di panel utama, setelannya di panel kanan yang
+ * dipilah menjadi Isi terpilih, Gulungan, dan Printer. Simpan menempel di kaki
+ * panel kanan karena satu tombol itu menyimpan ketiganya sekaligus.
+ *
+ * Koneksi dan pencetakan ke printer (Web Bluetooth dan jalur lainnya) TIDAK ada
+ * di halaman ini; itu milik layar pemindai. Halaman ini hanya menyimpan setelan.
  *
  * ---- Papan ketik ----------------------------------------------------------
  *
@@ -68,7 +80,7 @@ const NAMA_ISI: Record<LabelField, string> = {
 type ElemenBaru = { kind: "text"; field: LabelField } | { kind: "qr" };
 
 const TOMBOL_TAMBAH: Array<{ label: string; buat: ElemenBaru }> = [
-  { label: "Nama peserta", buat: { kind: "text", field: "name" } },
+  { label: "Nama", buat: { kind: "text", field: "name" } },
   { label: "Instansi", buat: { kind: "text", field: "company" } },
   { label: "Jabatan", buat: { kind: "text", field: "title" } },
   { label: "Kode peserta", buat: { kind: "text", field: "qr_code" } },
@@ -76,10 +88,22 @@ const TOMBOL_TAMBAH: Array<{ label: string; buat: ElemenBaru }> = [
   { label: "Teks bebas", buat: { kind: "text", field: "static" } },
 ];
 
+type Bagian = "isi" | "gulungan" | "printer";
+
+function Kelompok({ title, children, first }: { title?: string; children: ReactNode; first?: boolean }) {
+  return (
+    <section className={cx("flex flex-col gap-4", !first && "border-t border-outline-variant pt-5")}>
+      {title ? <h3 className="text-body-medium font-semibold text-on-surface">{title}</h3> : null}
+      {children}
+    </section>
+  );
+}
+
 export default function LabelAdminPage() {
   const [settings, setSettings] = useState<LabelSettings | null>(null);
   const [prefixText, setPrefixText] = useState("");
   const [terpilih, setTerpilih] = useState<number | null>(null);
+  const [bagian, setBagian] = useState<Bagian>("isi");
   const [busy, setBusy] = useState(false);
   const [kotor, setKotor] = useState(false);
   const [error, setError] = useState("");
@@ -128,10 +152,16 @@ export default function LabelAdminPage() {
     if (!settings || !kanvas.current) return;
     let batal = false;
     void renderLabelToCanvas(kanvas.current, settings, LABEL_PREVIEW_DATA).catch(() => {
-      if (!batal) setError("Pratinjau gagal digambar. Periksa ukuran label di Setelan printer.");
+      if (!batal) setError("Pratinjau gagal digambar. Periksa ukuran label di bagian Printer.");
     });
     return () => { batal = true; };
   }, [settings]);
+
+  /** Memilih satu isi label sekaligus membuka setelannya di panel kanan. */
+  function pilih(index: number) {
+    setTerpilih(index);
+    setBagian("isi");
+  }
 
   function ubah<K extends keyof LabelSettings>(kunci: K, nilai: LabelSettings[K]) {
     setSettings((current) => (current ? { ...current, [kunci]: nilai } : current));
@@ -224,6 +254,7 @@ export default function LabelAdminPage() {
       return { ...current, layout: { ...current.layout, elements: [...current.layout.elements, element] } };
     });
     setTerpilih(settings ? settings.layout.elements.length : null);
+    setBagian("isi");
     setKotor(true);
   }
 
@@ -254,7 +285,7 @@ export default function LabelAdminPage() {
 
   function mulaiGeser(event: React.PointerEvent<HTMLElement>, index: number) {
     if (!settings || skala === 0) return;
-    setTerpilih(index);
+    pilih(index);
     const element = settings.layout.elements[index];
     const awal = { x: event.clientX, y: event.clientY, ex: element.x, ey: element.y };
     const target = event.currentTarget;
@@ -326,7 +357,7 @@ export default function LabelAdminPage() {
     if (!response) { toast.error("Koneksi gagal", "Setelan belum tersimpan."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      toast.error("Gagal disimpan", "Ada angka di luar batas yang diizinkan. Periksa Setelan printer.");
+      toast.error("Gagal disimpan", "Ada angka di luar batas yang diizinkan. Periksa bagian Printer.");
       return;
     }
     const tersimpan = body.settings as LabelSettings;
@@ -338,425 +369,405 @@ export default function LabelAdminPage() {
 
   if (!settings) {
     return (
-      <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8">
-        <p className="text-body-medium text-on-surface-variant">{error || "Memuat setelan label..."}</p>
-      </main>
+      <WorkspacePage fill>
+        <WorkspaceHeader />
+        {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : <PageLoading />}
+      </WorkspacePage>
     );
   }
 
   const elements = settings.layout.elements;
   const aktif = terpilih != null ? elements[terpilih] : undefined;
   const ukuranCocok = UKURAN_LABEL.find((u) => u.w === settings.width_mm && u.h === settings.height_mm);
+  const penuh = elements.length >= 12;
+  const tanpaQr = !elements.some((element) => element.type === "qr");
 
-  return (
-    <main className="bg-surface px-5 pb-8 pt-6 text-on-surface sm:px-8 lg:pb-10">
-      <div className="mx-auto max-w-[1440px]">
-        <PageHeader />
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <p className="max-w-xl text-body-medium leading-6 text-on-surface-variant">
-            Rupa badge yang dicetak untuk tamu walk-in. Geser isinya langsung di atas gambar labelnya.
-          </p>
+  // ---- Panel utama: labelnya sendiri ------------------------------------------
+  const utama = (
+    <Pane aria-label="Pratinjau label">
+      <PaneHeader className="flex-wrap gap-2 px-4 py-3">
+        <span className="text-body-medium text-on-surface-variant">Tambahkan:</span>
+        {TOMBOL_TAMBAH.map((tombol) => (
           <Button
-            className="shrink-0"
-            loading={busy}
-            disabled={!kotor}
-            onClick={() => void simpan()}
-            icon={<FloppyDisk size={18} weight="bold" />}
+            key={tombol.label}
+            variant="outlined"
+            size="sm"
+            disabled={penuh}
+            onClick={() => tambahElemen(tombol.buat)}
+            icon={<Plus size={16} />}
           >
-            {kotor ? "Simpan perubahan" : "Tersimpan"}
+            {tombol.label}
           </Button>
-        </div>
+        ))}
+      </PaneHeader>
 
-        {error ? <p role="alert" className="mt-5 rounded-lg bg-error-soft p-4 text-body-medium text-error">{error}</p> : null}
+      {/* Alas netral, bukan warna merek: yang harus menonjol adalah kertas
+          putihnya, dan warna apa pun di belakangnya akan bersaing dengan isi
+          label yang seluruhnya hitam putih. */}
+      <PaneBody className="flex flex-col bg-surface-container-highest">
+        <div className="flex flex-1 items-center justify-center p-6 sm:p-10">
+          <div
+            ref={panggung}
+            className="relative w-full shadow-level2"
+            style={{ maxWidth: settings.width_px, aspectRatio: `${settings.width_px} / ${settings.height_px}` }}
+          >
+            <canvas ref={kanvas} aria-hidden className="block h-full w-full rounded-sm bg-white" />
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-          {/* -----------------------------------------------------------------
-              Panggung. Titik fokus halaman ini, dan satu-satunya tempat yang
-              perlu dipahami untuk memakai layar ini sama sekali.
-              ----------------------------------------------------------------- */}
-          <section className="rounded-[28px] bg-surface-container p-5 sm:p-6">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-title-medium">Label</h2>
-              <p className="text-body-small text-on-surface-variant">
-                {settings.width_mm} x {settings.height_mm} mm
-              </p>
-            </div>
-
-            {/* Alas gelap netral, bukan warna merek: yang harus menonjol adalah
-                kertas putihnya, dan warna apa pun di belakangnya akan bersaing
-                dengan isi label yang seluruhnya hitam putih. */}
-            <div className="mt-4 flex justify-center rounded-2xl bg-surface-container-highest p-4 sm:p-6">
-              <div
-                ref={panggung}
-                className="relative w-full shadow-level2"
-                style={{ maxWidth: settings.width_px, aspectRatio: `${settings.width_px} / ${settings.height_px}` }}
-              >
-                <canvas
-                  ref={kanvas}
-                  aria-hidden
-                  className="block h-full w-full rounded-sm bg-white"
-                />
-
-                {/* Lapisan sentuh di atas kanvas. Kanvas tidak bisa menerima
-                    fokus papan ketik maupun menyebut namanya sendiri ke pembaca
-                    layar, jadi setiap elemen punya tombol sungguhan di sini. */}
-                {skala > 0
-                  ? elements.map((element, index) => {
-                      const { w, h } = kotak(element);
-                      const dipilih = terpilih === index;
-                      const nama = element.type === "qr" ? "Kode QR" : NAMA_ISI[element.field];
-                      return (
-                        <div
-                          key={index}
-                          className="absolute"
-                          style={{ left: element.x * skala, top: element.y * skala, width: w * skala, height: h * skala }}
-                        >
-                          <button
-                            type="button"
-                            aria-pressed={dipilih}
-                            aria-label={`${nama}, posisi ${element.x} ${element.y}. Panah untuk menggeser.`}
-                            onPointerDown={(event) => mulaiGeser(event, index)}
-                            onKeyDown={(event) => panah(event, index)}
-                            onFocus={() => setTerpilih(index)}
-                            className={`h-full w-full cursor-grab touch-none rounded-xs transition-colors active:cursor-grabbing ${
-                              dipilih
-                                ? "outline outline-2 outline-offset-2 outline-primary"
-                                : "outline outline-1 outline-offset-2 outline-transparent hover:outline-outline focus-visible:outline-primary"
-                            }`}
-                          />
-                          {dipilih ? (
-                            <span
-                              role="slider"
-                              tabIndex={0}
-                              aria-label={`Lebar ${nama}`}
-                              aria-valuenow={element.type === "qr" ? element.size : element.w}
-                              aria-valuemin={24}
-                              aria-valuemax={settings.width_px}
-                              onPointerDown={(event) => mulaiUbahUkuran(event, index)}
-                              onKeyDown={(event) => {
-                                const arah = event.key === "ArrowRight" ? 4 : event.key === "ArrowLeft" ? -4 : 0;
-                                if (!arah) return;
-                                event.preventDefault();
-                                const asal = element.type === "qr" ? element.size : element.w;
-                                const maks = settings.width_px - element.x;
-                                const nilai = jepit(asal + arah, 24, Math.max(24, maks));
-                                ubahElemen(index, element.type === "qr" ? { size: nilai } : { w: nilai });
-                              }}
-                              className="absolute -bottom-2 -right-2 size-4 cursor-ew-resize touch-none rounded-full border-2 border-surface bg-primary"
-                            />
-                          ) : null}
-                        </div>
-                      );
-                    })
-                  : null}
-              </div>
-            </div>
-
-            <p className="mt-3 text-body-small text-on-surface-variant">
-              Klik isinya lalu geser. Titik biru di sudut mengatur lebarnya. Dengan papan ketik: Tab untuk berpindah,
-              panah untuk menggeser, Shift dan panah untuk lompat sepuluh.
-            </p>
-
-            <div className="mt-5">
-              <p className="text-label-large text-on-surface-variant">Tambahkan ke label</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {TOMBOL_TAMBAH.map((tombol) => (
-                  <Button
-                    key={tombol.label}
-                    variant="outlined"
-                    size="sm"
-                    disabled={elements.length >= 12}
-                    onClick={() => tambahElemen(tombol.buat)}
-                    icon={<Plus size={16} weight="bold" />}
-                  >
-                    {tombol.label}
-                  </Button>
-                ))}
-              </div>
-              {elements.length >= 12 ? (
-                <p className="mt-2 text-body-small text-on-surface-variant">
-                  Sudah dua belas isi. Hapus salah satu sebelum menambah lagi.
-                </p>
-              ) : null}
-
-              {/* Label tanpa QR tetap tercetak rapi dan tetap tidak berguna:
-                  tamu membawanya ke booth, dipindai, dan tidak terbaca. Lebih
-                  baik diketahui sekarang daripada dari antrean yang macet. */}
-              {!elements.some((element) => element.type === "qr") ? (
-                <p className="mt-3 rounded-lg bg-warning-soft p-3 text-body-small text-on-warning-soft">
-                  Belum ada kode QR di label ini. Tanpa QR, badge-nya tidak bisa dipindai di booth maupun undian.
-                </p>
-              ) : null}
-            </div>
-          </section>
-
-          {/* -----------------------------------------------------------------
-              Panel kanan. Berganti isi menurut apa yang sedang dipilih, bukan
-              menampilkan semuanya sekaligus: yang tidak sedang dikerjakan tidak
-              perlu meminta perhatian.
-              ----------------------------------------------------------------- */}
-          <aside className="space-y-4">
-            {aktif && terpilih != null ? (
-              <section className="rounded-[28px] bg-surface-container p-5 sm:p-6">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-title-medium">
-                      {aktif.type === "qr" ? "Kode QR" : NAMA_ISI[aktif.field]}
-                    </h2>
-                    <p className="mt-1 text-body-small text-on-surface-variant">
-                      Posisi {aktif.x}, {aktif.y}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => hapusElemen(terpilih)}
-                    aria-label="Hapus dari label"
-                    className="m3-state min-h-11 rounded-full px-3 text-error"
-                  >
-                    <Trash size={18} />
-                  </button>
-                </div>
-
-                {aktif.type === "text" ? (
-                  <div className="mt-4 space-y-4">
-                    {aktif.field === "static" ? (
-                      <TextField
-                        label="Tulisannya"
-                        maxLength={120}
-                        value={aktif.text ?? ""}
-                        onChange={(event) => ubahElemen(terpilih, { text: event.target.value })}
-                      />
-                    ) : null}
-
-                    <TextField
-                      label="Ukuran huruf"
-                      type="number"
-                      min={6}
-                      max={200}
-                      hint="Teks yang kepanjangan mengecil sendiri agar muat, tidak dipotong."
-                      value={aktif.size}
-                      onChange={(event) => ubahElemen(terpilih, { size: jepit(Number(event.target.value) || 6, 6, 200) })}
-                    />
-
-                    <div>
-                      <p className="text-label-large text-on-surface-variant">Rata</p>
-                      <SegmentedButton
-                        className="mt-2"
-                        label="Perataan teks"
-                        value={aktif.align}
-                        onChange={(nilai) => ubahElemen(terpilih, { align: nilai })}
-                        options={[
-                          { value: "left" as const, label: "Kiri" },
-                          { value: "center" as const, label: "Tengah" },
-                          { value: "right" as const, label: "Kanan" },
-                        ]}
-                      />
-                    </div>
-
-                    <Switch
-                      checked={aktif.weight === "bold"}
-                      onChange={(nilai) => ubahElemen(terpilih, { weight: nilai ? "bold" : "normal" })}
-                      label="Tebal"
-                    />
-                    <Switch
-                      checked={Boolean(aktif.uppercase)}
-                      onChange={(nilai) => ubahElemen(terpilih, { uppercase: nilai })}
-                      label="Huruf besar semua"
-                    />
-                  </div>
-                ) : (
-                  <div className="mt-4">
-                    <TextField
-                      label="Ukuran kotak QR"
-                      type="number"
-                      min={24}
-                      hint="Terlalu kecil membuatnya gagal dipindai di booth. Di bawah 70 sebaiknya diuji dulu."
-                      value={aktif.size}
-                      onChange={(event) => ubahElemen(terpilih, { size: jepit(Number(event.target.value) || 24, 24, 1000) })}
-                    />
-                  </div>
-                )}
-              </section>
-            ) : (
-              <section className="rounded-[28px] bg-surface-container p-5 sm:p-6">
-                <h2 className="text-title-medium">Ukuran gulungan</h2>
-                <p className="mt-2 text-body-medium text-on-surface-variant">
-                  Pilih yang tertulis di kotak gulungan labelmu.
-                </p>
-
-                <div className="mt-4 space-y-2">
-                  {UKURAN_LABEL.map((ukuran) => {
-                    const dipakai = ukuran.w === settings.width_mm && ukuran.h === settings.height_mm;
-                    return (
+            {/* Lapisan sentuh di atas kanvas. Kanvas tidak bisa menerima
+                fokus papan ketik maupun menyebut namanya sendiri ke pembaca
+                layar, jadi setiap elemen punya tombol sungguhan di sini. */}
+            {skala > 0
+              ? elements.map((element, index) => {
+                  const { w, h } = kotak(element);
+                  const dipilih = terpilih === index;
+                  const nama = element.type === "qr" ? "Kode QR" : NAMA_ISI[element.field];
+                  return (
+                    <div
+                      key={index}
+                      className="absolute"
+                      style={{ left: element.x * skala, top: element.y * skala, width: w * skala, height: h * skala }}
+                    >
                       <button
-                        key={ukuran.label}
                         type="button"
-                        aria-pressed={dipakai}
-                        onClick={() => ubahUkuran(ukuran.w, ukuran.h)}
-                        className={`m3-state flex w-full items-center justify-between gap-3 rounded-lg px-4 py-3 text-left ${
-                          dipakai ? "bg-primary-container text-on-primary-container" : "bg-surface"
-                        }`}
-                      >
-                        <span className="text-body-large">{ukuran.label}</span>
-                        {ukuran.catatan ? <span className="text-body-small opacity-80">{ukuran.catatan}</span> : null}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {!ukuranCocok ? (
-                  <p className="mt-3 text-body-small text-on-surface-variant">
-                    Sekarang memakai ukuran khusus {settings.width_mm} x {settings.height_mm} mm, diatur di Setelan
-                    printer.
-                  </p>
-                ) : null}
-
-                <p className="mt-4 text-body-small text-on-surface-variant">
-                  Klik salah satu isi label di sebelah kiri untuk mengaturnya.
-                </p>
-              </section>
-            )}
-
-            <section className="rounded-[28px] bg-surface-container p-5 sm:p-6">
-              <Switch
-                checked={settings.enabled}
-                onChange={(value) => ubah("enabled", value)}
-                label="Pakai printer label"
-                description="Dimatikan, seluruh bagian printer hilang dari layar pemindai."
-              />
-              <Button
-                className="mt-4"
-                variant="text"
-                size="sm"
-                icon={<ArrowCounterClockwise size={16} />}
-                onClick={() => {
-                  setSettings((current) => (current ? { ...current, layout: DEFAULT_LABEL_SETTINGS.layout } : current));
-                  setTerpilih(null);
-                  setKotor(true);
-                }}
-              >
-                Kembalikan susunan bawaan
-              </Button>
-            </section>
-          </aside>
+                        aria-pressed={dipilih}
+                        aria-label={`${nama}, posisi ${element.x} ${element.y}. Panah untuk menggeser.`}
+                        onPointerDown={(event) => mulaiGeser(event, index)}
+                        onKeyDown={(event) => panah(event, index)}
+                        onFocus={() => pilih(index)}
+                        className={cx(
+                          "h-full w-full cursor-grab touch-none rounded-xs active:cursor-grabbing",
+                          dipilih
+                            ? "outline outline-2 outline-offset-2 outline-primary"
+                            : "outline outline-1 outline-offset-2 outline-transparent hover:outline-outline focus-visible:outline-primary",
+                        )}
+                      />
+                      {dipilih ? (
+                        <span
+                          role="slider"
+                          tabIndex={0}
+                          aria-label={`Lebar ${nama}`}
+                          aria-valuenow={element.type === "qr" ? element.size : element.w}
+                          aria-valuemin={24}
+                          aria-valuemax={settings.width_px}
+                          onPointerDown={(event) => mulaiUbahUkuran(event, index)}
+                          onKeyDown={(event) => {
+                            const arah = event.key === "ArrowRight" ? 4 : event.key === "ArrowLeft" ? -4 : 0;
+                            if (!arah) return;
+                            event.preventDefault();
+                            const asal = element.type === "qr" ? element.size : element.w;
+                            const maks = settings.width_px - element.x;
+                            const nilai = jepit(asal + arah, 24, Math.max(24, maks));
+                            ubahElemen(index, element.type === "qr" ? { size: nilai } : { w: nilai });
+                          }}
+                          className="absolute -bottom-2 -right-2 size-4 cursor-ew-resize touch-none rounded-full border-2 border-surface bg-primary"
+                        />
+                      ) : null}
+                    </div>
+                  );
+                })
+              : null}
+          </div>
         </div>
+        <p className="shrink-0 px-6 pb-5 text-center text-body-medium text-on-surface-variant">
+          Klik isi label lalu geser. Titik biru di sudut mengatur lebarnya. Dengan papan ketik: Tab untuk berpindah,
+          panah untuk menggeser, Shift dan panah untuk lompat sepuluh.
+        </p>
+      </PaneBody>
 
-        {/* -------------------------------------------------------------------
-            Setelan printer, terlipat.
+      {penuh || tanpaQr ? (
+        <div className="flex shrink-0 flex-col gap-2 border-t border-outline-variant px-4 py-3 text-body-medium">
+          {penuh ? <p className="text-on-surface-variant">Sudah dua belas isi. Hapus salah satu sebelum menambah lagi.</p> : null}
+          {/* Label tanpa QR tetap tercetak rapi dan tetap tidak berguna: tamu
+              membawanya ke booth, dipindai, dan tidak terbaca. Lebih baik
+              diketahui sekarang daripada dari antrean yang macet. */}
+          {tanpaQr ? (
+            <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-on-surface">
+              <Warning size={16} className="mt-0.5 shrink-0 text-warning" />
+              Belum ada kode QR di label ini. Tanpa QR, badge-nya tidak bisa dipindai di booth maupun undian.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </Pane>
+  );
 
-            Dibutuhkan tepat sekali, saat label pertama keluar salah, dan tidak
-            pernah lagi sesudahnya. Terbuka permanen, ia menjadi enam kolom angka
-            protokol yang menyambut setiap orang yang membuka halaman ini dan
-            membuat bagian yang benar-benar perlu diatur terlihat seperti detail.
-
-            <details> bawaan, bukan buka-tutup sendiri: ia sudah bisa dijangkau
-            papan ketik, sudah diumumkan pembaca layar, dan sudah bisa dicari
-            dengan Ctrl+F saat tertutup di sebagian peramban.
-            ------------------------------------------------------------------- */}
-        <details className="mt-4 rounded-[28px] bg-surface-container p-5 sm:p-6">
-          <summary className="m3-state flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg">
-            <span>
-              <span className="text-title-medium">Setelan printer</span>
-              <span className="mt-1 block text-body-small text-on-surface-variant">
-                Buka hanya kalau label pertama keluar kosong, terpotong, atau pucat.
-              </span>
-            </span>
-            <CaretDown size={20} aria-hidden className="shrink-0" />
-          </summary>
-
-          <p className="mt-5 max-w-3xl text-body-medium leading-6 text-on-surface-variant">
-            Protokol NIIMBOT tidak diterbitkan vendornya, dan B21 belum pernah diuji oleh penulis pustaka yang dipakai
-            di sini. Karena itu angkanya bisa dibetulkan sendiri, bukan lewat rilis baru.
-          </p>
-
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <TextField
-              label="Kerapatan panas (1 sampai 5)"
-              type="number"
-              min={1}
-              max={5}
-              hint="Naikkan kalau cetakan pucat. Makin tinggi makin lambat."
-              value={settings.density}
-              onChange={(event) => ubah("density", jepit(Number(event.target.value) || 3, 1, 5))}
-            />
-            <TextField
-              label="Lebar kepala cetak (px)"
-              type="number"
-              hint="Turunkan kalau tepi kanan hilang. Printer melaporkan angkanya di layar pemindai setelah tersambung. B1 terukur 384."
-              value={settings.head_px}
-              onChange={(event) => hitungUlang({ head_px: jepit(Number(event.target.value) || 384, 32, 1200) })}
-            />
-            <TextField
-              label="Geser vertikal (px)"
-              type="number"
-              hint="Positif menurunkan cetakan pada kertasnya."
-              value={settings.offset_y_px}
-              onChange={(event) => ubah("offset_y_px", jepit(Number(event.target.value) || 0, -200, 200))}
-            />
-            <SelectField
-              label="Urutan perintah"
-              hint="b1 untuk B21, B1, D11, D110. v4 untuk B21 Pro dan B1 Pro."
-              value={settings.task}
-              onChange={(event) => ubah("task", event.target.value === "v4" ? "v4" : "b1")}
-            >
-              <option value="b1">b1 (B21, B1, D11, D110)</option>
-              <option value="v4">v4 (B21 Pro, B1 Pro)</option>
-            </SelectField>
-            <TextField
-              label="DPI"
-              type="number"
-              hint="203 untuk B21. Harus cocok dengan urutan perintah."
-              value={settings.dpi}
-              onChange={(event) => hitungUlang({ dpi: jepit(Number(event.target.value) || 203, 100, 600) })}
-            />
-            <TextField
-              label="Awalan nama Bluetooth"
-              hint="Dipisah koma, untuk menyaring daftar perangkat. Kosongkan bila nama printernya belum diketahui."
-              value={prefixText}
-              onChange={(event) => { setPrefixText(event.target.value); setKotor(true); }}
-              placeholder="B21, B1"
-            />
-            <TextField
-              label="Jenis gulungan"
-              type="number"
-              min={1}
-              max={5}
-              hint="1 untuk label terpisah bercelah. Ubah hanya untuk kertas menerus atau bertanda hitam."
-              value={settings.label_type}
-              onChange={(event) => ubah("label_type", jepit(Number(event.target.value) || 1, 1, 5))}
-            />
-            <TextField
-              label="Kecepatan"
-              type="number"
-              min={1}
-              max={5}
-              value={settings.speed}
-              onChange={(event) => ubah("speed", jepit(Number(event.target.value) || 1, 1, 5))}
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <TextField
-                label="Lebar label (mm)"
-                type="number"
-                value={settings.width_mm}
-                onChange={(event) => ubahUkuran(jepit(Number(event.target.value) || 1, 1, 300), settings.height_mm)}
-              />
-              <TextField
-                label="Tinggi label (mm)"
-                type="number"
-                value={settings.height_mm}
-                onChange={(event) => ubahUkuran(settings.width_mm, jepit(Number(event.target.value) || 1, 1, 300))}
-              />
+  // ---- Panel pendukung ----------------------------------------------------------
+  const isiTerpilih = (
+    <div className="flex flex-col gap-5">
+      {aktif && terpilih != null ? (
+        <Kelompok first>
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-body-medium font-semibold text-on-surface">{aktif.type === "qr" ? "Kode QR" : NAMA_ISI[aktif.field]}</h3>
+              <p className="text-body-medium tabular-nums text-on-surface-variant">Posisi {aktif.x}, {aktif.y}</p>
             </div>
+            <IconButton size="sm" label="Hapus dari label" onClick={() => hapusElemen(terpilih)}>
+              <Trash size={16} className="text-error" />
+            </IconButton>
           </div>
 
-          <p className="mt-5 text-body-small text-on-surface-variant">
-            Yang dikirim ke printer: {settings.width_px} x {settings.height_px} px pada {settings.dpi} dpi.
-            {mmKePx(settings.width_mm, settings.dpi) > settings.head_px
-              ? ` Label ${settings.width_mm} mm sebenarnya ${mmKePx(settings.width_mm, settings.dpi)} px, tetapi kepala cetak berhenti di ${settings.head_px}.`
-              : ""}
-          </p>
-        </details>
+          {aktif.type === "text" ? (
+            <>
+              {aktif.field === "static" ? (
+                <TextField
+                  label="Tulisannya"
+                  maxLength={120}
+                  value={aktif.text ?? ""}
+                  onChange={(event) => ubahElemen(terpilih, { text: event.target.value })}
+                />
+              ) : null}
+              <TextField
+                label="Ukuran huruf"
+                type="number"
+                min={6}
+                max={200}
+                hint="Teks yang kepanjangan mengecil sendiri agar muat, tidak dipotong."
+                value={aktif.size}
+                onChange={(event) => ubahElemen(terpilih, { size: jepit(Number(event.target.value) || 6, 6, 200) })}
+              />
+              <div>
+                <p className="text-body-medium font-medium text-on-surface">Rata</p>
+                <SegmentedButton
+                  className="mt-2 w-full"
+                  label="Perataan teks"
+                  value={aktif.align}
+                  onChange={(nilai) => ubahElemen(terpilih, { align: nilai })}
+                  options={[
+                    { value: "left" as const, label: "Kiri" },
+                    { value: "center" as const, label: "Tengah" },
+                    { value: "right" as const, label: "Kanan" },
+                  ]}
+                />
+              </div>
+              <Switch
+                checked={aktif.weight === "bold"}
+                onChange={(nilai) => ubahElemen(terpilih, { weight: nilai ? "bold" : "normal" })}
+                label="Tebal"
+              />
+              <Switch
+                checked={Boolean(aktif.uppercase)}
+                onChange={(nilai) => ubahElemen(terpilih, { uppercase: nilai })}
+                label="Huruf besar semua"
+              />
+            </>
+          ) : (
+            <TextField
+              label="Ukuran kotak QR"
+              type="number"
+              min={24}
+              hint="Terlalu kecil membuatnya gagal dipindai di booth. Di bawah 70 sebaiknya diuji dulu."
+              value={aktif.size}
+              onChange={(event) => ubahElemen(terpilih, { size: jepit(Number(event.target.value) || 24, 24, 1000) })}
+            />
+          )}
+        </Kelompok>
+      ) : (
+        <EmptyState
+          plain
+          className="px-4 py-10"
+          title="Belum ada isi yang dipilih"
+          description="Klik salah satu isi di label untuk mengatur ukuran huruf, rata, dan tebalnya."
+        />
+      )}
+
+      <Kelompok title="Susunan">
+        <p className="text-body-medium text-on-surface-variant">Mengganti seluruh isi label dengan susunan bawaan. Baru berlaku setelah disimpan.</p>
+        <div>
+          <Button
+            variant="outlined"
+            size="sm"
+            icon={<ArrowCounterClockwise size={16} />}
+            onClick={() => {
+              setSettings((current) => (current ? { ...current, layout: DEFAULT_LABEL_SETTINGS.layout } : current));
+              setTerpilih(null);
+              setKotor(true);
+            }}
+          >
+            Kembalikan susunan bawaan
+          </Button>
+        </div>
+      </Kelompok>
+    </div>
+  );
+
+  const isiGulungan = (
+    <div className="flex flex-col gap-5">
+      <Kelompok title="Ukuran gulungan" first>
+        <p className="text-body-medium text-on-surface-variant">Pilih yang tertulis di kotak gulungan labelmu.</p>
+        <div className="overflow-hidden rounded-md border border-outline-variant">
+          {UKURAN_LABEL.map((ukuran) => {
+            const dipakai = ukuran.w === settings.width_mm && ukuran.h === settings.height_mm;
+            return (
+              <button
+                key={ukuran.label}
+                type="button"
+                aria-pressed={dipakai}
+                onClick={() => ubahUkuran(ukuran.w, ukuran.h)}
+                className={cx(
+                  "flex w-full items-center justify-between gap-3 border-b border-outline-variant px-3 py-2.5 text-left text-body-medium last:border-b-0",
+                  dipakai ? "bg-secondary-container" : "hover:bg-primary-soft",
+                )}
+              >
+                <span className={cx("tabular-nums text-on-surface", dipakai && "font-medium")}>{ukuran.label}</span>
+                {ukuran.catatan ? <span className="text-on-surface-variant">{ukuran.catatan}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      </Kelompok>
+      <Kelompok title="Ukuran khusus">
+        {!ukuranCocok ? (
+          <p className="text-body-medium text-on-surface-variant">Sekarang memakai ukuran khusus {settings.width_mm} x {settings.height_mm} mm.</p>
+        ) : null}
+        <div className="grid grid-cols-2 gap-3">
+          <TextField
+            label="Lebar (mm)"
+            type="number"
+            value={settings.width_mm}
+            onChange={(event) => ubahUkuran(jepit(Number(event.target.value) || 1, 1, 300), settings.height_mm)}
+          />
+          <TextField
+            label="Tinggi (mm)"
+            type="number"
+            value={settings.height_mm}
+            onChange={(event) => ubahUkuran(settings.width_mm, jepit(Number(event.target.value) || 1, 1, 300))}
+          />
+        </div>
+      </Kelompok>
+    </div>
+  );
+
+  const isiPrinter = (
+    <div className="flex flex-col gap-5">
+      <Kelompok first>
+        <p className="text-body-medium text-on-surface-variant">
+          Ubah hanya kalau label pertama keluar kosong, terpotong, atau pucat. Protokol NIIMBOT tidak diterbitkan
+          vendornya, dan B21 belum pernah diuji oleh penulis pustaka yang dipakai di sini, jadi angkanya bisa
+          dibetulkan sendiri.
+        </p>
+        <TextField
+          label="Kerapatan panas (1 sampai 5)"
+          type="number"
+          min={1}
+          max={5}
+          hint="Naikkan kalau cetakan pucat. Makin tinggi makin lambat."
+          value={settings.density}
+          onChange={(event) => ubah("density", jepit(Number(event.target.value) || 3, 1, 5))}
+        />
+        <TextField
+          label="Lebar kepala cetak (px)"
+          type="number"
+          hint="Turunkan kalau tepi kanan hilang. Printer melaporkan angkanya di layar pemindai setelah tersambung. B1 terukur 384."
+          value={settings.head_px}
+          onChange={(event) => hitungUlang({ head_px: jepit(Number(event.target.value) || 384, 32, 1200) })}
+        />
+        <TextField
+          label="Geser vertikal (px)"
+          type="number"
+          hint="Positif menurunkan cetakan pada kertasnya."
+          value={settings.offset_y_px}
+          onChange={(event) => ubah("offset_y_px", jepit(Number(event.target.value) || 0, -200, 200))}
+        />
+      </Kelompok>
+      <Kelompok title="Model printer">
+        <SelectField
+          label="Urutan perintah"
+          hint="b1 untuk B21, B1, D11, D110. v4 untuk B21 Pro dan B1 Pro."
+          value={settings.task}
+          onChange={(event) => ubah("task", event.target.value === "v4" ? "v4" : "b1")}
+        >
+          <option value="b1">b1 (B21, B1, D11, D110)</option>
+          <option value="v4">v4 (B21 Pro, B1 Pro)</option>
+        </SelectField>
+        <TextField
+          label="DPI"
+          type="number"
+          hint="203 untuk B21. Harus cocok dengan urutan perintah."
+          value={settings.dpi}
+          onChange={(event) => hitungUlang({ dpi: jepit(Number(event.target.value) || 203, 100, 600) })}
+        />
+        <TextField
+          label="Awalan nama Bluetooth"
+          hint="Dipisah koma, untuk menyaring daftar perangkat. Kosongkan bila nama printernya belum diketahui."
+          value={prefixText}
+          onChange={(event) => { setPrefixText(event.target.value); setKotor(true); }}
+          placeholder="B21, B1"
+        />
+      </Kelompok>
+      <Kelompok title="Kertas">
+        <TextField
+          label="Jenis gulungan"
+          type="number"
+          min={1}
+          max={5}
+          hint="1 untuk label terpisah bercelah. Ubah hanya untuk kertas menerus atau bertanda hitam."
+          value={settings.label_type}
+          onChange={(event) => ubah("label_type", jepit(Number(event.target.value) || 1, 1, 5))}
+        />
+        <TextField
+          label="Kecepatan"
+          type="number"
+          min={1}
+          max={5}
+          value={settings.speed}
+          onChange={(event) => ubah("speed", jepit(Number(event.target.value) || 1, 1, 5))}
+        />
+        <p className="text-body-medium text-on-surface-variant">
+          Yang dikirim ke printer: <span className="tabular-nums">{settings.width_px} x {settings.height_px} px</span> pada {settings.dpi} dpi.
+          {mmKePx(settings.width_mm, settings.dpi) > settings.head_px
+            ? ` Label ${settings.width_mm} mm sebenarnya ${mmKePx(settings.width_mm, settings.dpi)} px, tetapi kepala cetak berhenti di ${settings.head_px}.`
+            : ""}
+        </p>
+      </Kelompok>
+    </div>
+  );
+
+  const panel = (
+    <Pane as="aside" aria-label="Setelan label">
+      <div className="shrink-0 border-b border-outline-variant px-4 py-3">
+        <SegmentedButton<Bagian>
+          label="Bagian setelan"
+          value={bagian}
+          onChange={setBagian}
+          className="w-full"
+          options={[{ value: "isi", label: "Isi terpilih" }, { value: "gulungan", label: "Gulungan" }, { value: "printer", label: "Printer" }]}
+        />
       </div>
-    </main>
+      <PaneBody className="px-4 py-4">{bagian === "isi" ? isiTerpilih : bagian === "gulungan" ? isiGulungan : isiPrinter}</PaneBody>
+      <PaneFooter note={kotor ? "Ada perubahan belum disimpan" : "Semua perubahan tersimpan"}>
+        <Button size="sm" loading={busy} disabled={!kotor} onClick={() => void simpan()}>Simpan</Button>
+      </PaneFooter>
+    </Pane>
+  );
+
+  return (
+    <WorkspacePage fill>
+      <WorkspaceHeader
+        meta={
+          <>
+            <span>Badge tamu walk-in</span>
+            <MetaSeparator />
+            <span className="tabular-nums">{settings.width_mm} x {settings.height_mm} mm</span>
+            {!settings.enabled ? (
+              <>
+                <MetaSeparator />
+                <span>Printer label mati, jadi bagian printer tidak tampil di layar pemindai</span>
+              </>
+            ) : null}
+          </>
+        }
+        actions={
+          <Switch
+            checked={settings.enabled}
+            onChange={(value) => ubah("enabled", value)}
+            label="Pakai printer label"
+          />
+        }
+      />
+
+      {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
+
+      <SupportingPane main={utama} pane={panel} />
+    </WorkspacePage>
   );
 }

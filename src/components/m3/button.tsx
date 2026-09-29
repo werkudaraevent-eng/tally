@@ -178,6 +178,8 @@ export type ButtonLinkProps = CommonProps & {
 	rel?: string;
 	onClick?: () => void;
 	"aria-label"?: string;
+	/** `<a>` biasa tanpa router, untuk unduhan dari `/api/...`. */
+	native?: boolean;
 };
 
 /**
@@ -186,9 +188,16 @@ export type ButtonLinkProps = CommonProps & {
  * menekan Ctrl+klik, dan menyamarkannya di balik satu komponen membuat perbedaan
  * itu mudah hilang.
  */
-export function ButtonLink({ href, variant = "filled", size = "md", shape, block, icon, trailingIcon, className, children, ...rest }: ButtonLinkProps) {
+export function ButtonLink({ href, variant = "filled", size = "md", shape, block, icon, trailingIcon, className, children, native, prefetch, ...rest }: ButtonLinkProps) {
+	if (native) {
+		return (
+			<a {...rest} href={href} data-size={size} data-variant={variant} className={baseClass({ variant, size, shape, block, className })}>
+				{content({ icon, trailingIcon, children, size })}
+			</a>
+		);
+	}
 	return (
-		<Link {...rest} href={href} data-size={size} data-variant={variant} className={baseClass({ variant, size, shape, block, className })}>
+		<Link {...rest} prefetch={prefetch} href={href} data-size={size} data-variant={variant} className={baseClass({ variant, size, shape, block, className })}>
 			{content({ icon, trailingIcon, children, size })}
 		</Link>
 	);

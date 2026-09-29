@@ -1,8 +1,9 @@
 "use client";
 
-import { CheckCircle, CreditCard, Money, Plus, Trash, WarningCircle, X, XCircle } from "@phosphor-icons/react";
+import { CreditCard, Money, Plus, Trash, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
+import { Button, Dialog, EmptyState, IconButton, Pane, PaneBody, PaneFooter, PaneHeader, StatusChip, Switch, TextField } from "@/components/m3";
 
 type PaymentMethod = {
   code: string;
@@ -17,24 +18,28 @@ type PaymentMethod = {
 
 const EMPTY_FORM = { code: "", label: "", requires_reference: false, reference_label: "", reference_digits: 6 };
 
+/** Tab "Pembayaran" di Pengaturan: metode yang muncul di layar kasir. */
 export function PaymentMethodManager() {
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [busyCode, setBusyCode] = useState("");
   const [error, setError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [formError, setFormError] = useState("");
   const [creating, setCreating] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<PaymentMethod | null>(null);
   const toast = useToast();
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
+    setLoading(true); setLoadError("");
     try {
       const response = await fetch("/api/admin/payment-methods", { cache: "no-store" });
       const data = await response.json();
-      if (!response.ok) { setError(data.error?.message ?? "Metode pembayaran gagal dimuat."); return; }
+      if (!response.ok) { setLoadError(data.error?.message ?? "Metode pembayaran gagal dimuat."); return; }
       setMethods(data.payment_methods ?? []);
-    } catch { setError("Koneksi terputus. Coba lagi."); } finally { setLoading(false); }
+    } catch { setLoadError("Koneksi terputus. Coba lagi."); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
@@ -60,6 +65,7 @@ export function PaymentMethodManager() {
     const response = await fetch(`/api/admin/payment-methods?code=${encodeURIComponent(method.code)}`, { method: "DELETE" });
     const data = await response.json();
     setBusyCode("");
+    setConfirmDelete(null);
     if (!response.ok) {
       const failure = data.error?.message ?? "Metode gagal dihapus.";
       setError(failure); toast.error("Gagal menghapus metode", failure);
@@ -69,8 +75,10 @@ export function PaymentMethodManager() {
     toast.warning(`${method.label} dihapus`, "Metode tidak lagi tersedia di kasir.");
   }
 
+  function closeForm() { setFormOpen(false); setForm(EMPTY_FORM); setFormError(""); }
+
   async function create() {
-    setCreating(true); setError("");
+    setCreating(true); setFormError("");
     const response = await fetch("/api/admin/payment-methods", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -87,88 +95,152 @@ export function PaymentMethodManager() {
     setCreating(false);
     if (!response.ok) {
       const failure = data.error?.details?.message ?? data.error?.message ?? "Metode gagal dibuat.";
-      setError(failure); toast.error("Gagal menambah metode", failure);
+      setFormError(failure); toast.error("Gagal menambah metode", failure);
       return;
     }
     setMethods((current) => [...current, data].sort((a, b) => a.sort_order - b.sort_order));
-    setForm(EMPTY_FORM); setFormOpen(false);
+    closeForm();
     toast.success(`${data.label} ditambahkan`, "Metode langsung tersedia di kasir.");
   }
 
-  return <section className="rounded-lg bg-panel p-6">
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h2 className="text-body-medium font-semibold ed-label text-on-surface-variant">Metode pembayaran</h2>
-        <p className="mt-2 text-body-medium text-on-surface-variant">Nyalakan atau matikan metode yang muncul di kasir. Minimal satu metode harus tetap aktif.</p>
-      </div>
-      {!formOpen && <button type="button" onClick={() => { setFormOpen(true); setError(""); }} className="rounded-md flex min-h-11 shrink-0 items-center gap-2 border border-outline-variant px-4 text-body-medium font-semibold hover:border-primary hover:text-primary"><Plus size={16} weight="bold" /> Tambah metode</button>}
-    </div>
-
-    {error && <div role="alert" className="rounded-lg mt-4 flex items-center gap-2 border border-error-soft-outline bg-error-soft p-3 text-body-medium text-error"><XCircle size={18} />{error}</div>}
-
-    {loading ? <p className="mt-4 text-body-medium text-on-surface-variant">Memuat metode pembayaran...</p> : <ul className="mt-4 space-y-2">
-      {methods.map((method) => {
-        const lastActive = method.is_active && activeCount <= 1;
-        return <li key={method.code} className={`rounded-lg flex flex-wrap items-center gap-3 border p-4 ${method.is_active ? "border-primary bg-primary-soft" : "border-outline-variant"}`}>
-          {method.requires_reference ? <CreditCard size={20} className="shrink-0 text-primary" /> : <Money size={20} className="shrink-0 text-primary" />}
+  return (
+    <>
+      <Pane aria-label="Metode pembayaran">
+        <PaneHeader className="px-5 py-4">
           <div className="min-w-0 flex-1">
-            <p className="flex flex-wrap items-center gap-2 text-body-medium font-semibold">
-              {method.label}
-              <span className="font-mono text-label-small font-normal text-on-surface-variant">{method.code}</span>
-              {method.is_builtin && <span className="rounded-sm bg-panel-high px-2 py-0.5 text-label-small font-semibold ed-label text-on-surface-variant">Bawaan</span>}
-            </p>
-            <p className="mt-1 text-body-small text-on-surface-variant">
-              {method.requires_reference ? `Butuh ${method.reference_label ?? "nomor referensi"} ${method.reference_digits} digit.` : "Tanpa nomor referensi."}
-              {" "}
-              {method.is_active ? "Aktif di kasir." : "Tidak muncul di kasir."}
-            </p>
+            <h2 className="text-body-medium font-semibold text-on-surface">Metode pembayaran</h2>
+            <p className="mt-0.5 text-body-medium text-on-surface-variant">Nyalakan atau matikan metode yang muncul di kasir. Minimal satu metode harus tetap aktif.</p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {/* Tombol dimatikan saat ini satu-satunya metode aktif: kasir tidak boleh
-                kehabisan opsi pembayaran di tengah acara. */}
-            <button type="button" onClick={() => void toggle(method)} disabled={busyCode === method.code || lastActive} title={lastActive ? "Minimal satu metode harus aktif." : undefined} className={`rounded-md flex min-h-11 items-center gap-2 border px-3 text-body-small font-semibold disabled:cursor-not-allowed disabled:opacity-45 ${method.is_active ? "border-primary text-primary-dim" : "border-outline-variant"}`}>
-              {method.is_active ? <><CheckCircle size={15} weight="fill" /> Aktif</> : <>Nonaktif</>}
-            </button>
-            {!method.is_builtin && <button type="button" onClick={() => void remove(method)} disabled={busyCode === method.code} className="rounded-md flex min-h-11 items-center border border-outline-variant px-3 text-body-small font-semibold text-error hover:border-error disabled:opacity-45" aria-label={`Hapus ${method.label}`}><Trash size={15} /></button>}
+          <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => { setFormOpen(true); setFormError(""); }}>Tambah metode</Button>
+        </PaneHeader>
+
+        <PaneBody>
+          {error ? <p role="alert" className="mx-5 mt-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{error}</p> : null}
+          {loadError ? (
+            <div className="flex flex-wrap items-center gap-3 px-5 py-4">
+              <p role="alert" className="flex min-w-0 flex-1 items-start gap-2 text-body-medium text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{loadError}</p>
+              <Button variant="outlined" size="sm" onClick={() => void load()}>Coba lagi</Button>
+            </div>
+          ) : loading ? (
+            <div aria-label="Memuat metode pembayaran">
+              {Array.from({ length: 3 }, (_, i) => (
+                <div key={i} className="flex items-center gap-4 border-b border-outline-variant px-5 py-4 last:border-b-0">
+                  <div className="h-3 w-40 animate-pulse rounded bg-surface-container-high" />
+                  <div className="ml-auto h-5 w-9 animate-pulse rounded-full bg-surface-container-high" />
+                </div>
+              ))}
+            </div>
+          ) : methods.length === 0 ? (
+            <EmptyState plain icon={<CreditCard size={40} />} title="Belum ada metode pembayaran" description="Tambahkan metode agar kasir bisa menandai order lunas." />
+          ) : (
+            <ul>
+              {methods.map((method) => {
+                const lastActive = method.is_active && activeCount <= 1;
+                const busy = busyCode === method.code;
+                return (
+                  <li key={method.code} className="flex items-start gap-3 border-b border-outline-variant px-5 py-3.5 last:border-b-0">
+                    {method.requires_reference
+                      ? <CreditCard size={20} aria-hidden className="mt-0.5 shrink-0 text-on-surface-variant" />
+                      : <Money size={20} aria-hidden className="mt-0.5 shrink-0 text-on-surface-variant" />}
+                    {/* Sakelar dimatikan saat ini satu-satunya metode aktif: kasir
+                        tidak boleh kehabisan opsi pembayaran di tengah acara. */}
+                    <Switch
+                      className="min-w-0 flex-1"
+                      checked={method.is_active}
+                      disabled={busy || lastActive}
+                      onChange={() => void toggle(method)}
+                      label={
+                        <span className="inline-flex flex-wrap items-center gap-2">
+                          {method.label}
+                          {method.is_builtin ? <StatusChip>Bawaan</StatusChip> : null}
+                        </span>
+                      }
+                      description={
+                        <>
+                          Kode {method.code}.{" "}
+                          {method.requires_reference ? `Butuh ${method.reference_label ?? "nomor referensi"} ${method.reference_digits} digit.` : "Tanpa nomor referensi."}
+                          {lastActive ? " Satu-satunya metode aktif, jadi tidak bisa dimatikan." : ""}
+                        </>
+                      }
+                    />
+                    {!method.is_builtin ? (
+                      <IconButton size="sm" label={`Hapus ${method.label}`} disabled={busy} onClick={() => setConfirmDelete(method)}>
+                        <Trash size={16} className="text-error" />
+                      </IconButton>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </PaneBody>
+
+        <PaneFooter note="Metode yang sudah dipakai order tidak dapat dihapus, hanya dimatikan, agar laporan tetap utuh. Kasir memuat ulang daftar metode tiap 30 detik." />
+      </Pane>
+
+      <Dialog
+        open={formOpen}
+        onClose={closeForm}
+        dismissible={!creating}
+        title="Tambah metode pembayaran"
+        description="Metode baru langsung aktif dan muncul di layar kasir."
+        actions={
+          <>
+            <Button variant="outlined" disabled={creating} onClick={closeForm}>Batal</Button>
+            <Button loading={creating} disabled={!form.code.trim() || !form.label.trim()} onClick={() => void create()}>Tambah metode</Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4 text-body-medium">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField label="Nama tampilan" value={form.label} onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))} placeholder="QRIS" />
+            <TextField
+              label="Kode sistem"
+              value={form.code}
+              onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))}
+              placeholder="qris"
+            />
           </div>
-        </li>;
-      })}
-    </ul>}
+          <p className="text-on-surface-variant">Kode dipakai di database dan laporan, tidak bisa diubah setelah dibuat. Huruf kecil, angka, dan garis bawah saja.</p>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input type="checkbox" checked={form.requires_reference} onChange={(event) => setForm((current) => ({ ...current, requires_reference: event.target.checked }))} className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
+            <span>
+              <span className="block font-medium">Butuh nomor referensi</span>
+              <span className="mt-0.5 block text-on-surface-variant">Kasir wajib mengisi nomor referensi sebelum menandai lunas, seperti approval code EDC.</span>
+            </span>
+          </label>
+          {form.requires_reference ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField label="Label referensi" value={form.reference_label} onChange={(event) => setForm((current) => ({ ...current, reference_label: event.target.value }))} placeholder="Nomor referensi QRIS" />
+              <TextField
+                label="Jumlah digit"
+                type="number"
+                min={4}
+                max={32}
+                value={form.reference_digits}
+                onChange={(event) => setForm((current) => ({ ...current, reference_digits: Math.max(4, Math.min(32, Number(event.target.value) || 4)) }))}
+                inputClassName="tabular-nums"
+              />
+            </div>
+          ) : null}
+          {formError ? <p role="alert" className="flex items-start gap-2 rounded-md bg-error-soft p-3 text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{formError}</p> : null}
+        </div>
+      </Dialog>
 
-    {formOpen && <div className="rounded-lg mt-4 border border-outline-variant bg-surface p-4">
-      <div className="flex items-center justify-between">
-        <p className="text-body-medium font-semibold">Metode baru</p>
-        <button type="button" onClick={() => { setFormOpen(false); setForm(EMPTY_FORM); setError(""); }} className="flex min-h-9 items-center px-2 text-on-surface-variant hover:text-on-surface" aria-label="Tutup form"><X size={16} /></button>
-      </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <label className="block text-body-small font-semibold">Nama tampilan
-          <input value={form.label} onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))} placeholder="QRIS" className="rounded-lg mt-1 h-12 w-full border border-outline-variant bg-panel px-3 text-body-medium outline-none focus:border-primary" />
-        </label>
-        <label className="block text-body-small font-semibold">Kode sistem
-          <input value={form.code} onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} placeholder="qris" className="rounded-lg mt-1 h-12 w-full border border-outline-variant bg-panel px-3 font-mono text-body-medium outline-none focus:border-primary" />
-        </label>
-      </div>
-      <p className="mt-2 text-body-small text-on-surface-variant">Kode dipakai di database dan laporan, tidak bisa diubah setelah dibuat. Huruf kecil, angka, dan underscore saja.</p>
-
-      <label className="mt-4 flex cursor-pointer items-start gap-3 text-body-medium">
-        <input type="checkbox" checked={form.requires_reference} onChange={(event) => setForm((current) => ({ ...current, requires_reference: event.target.checked }))} className="mt-0.5 size-5 shrink-0 accent-primary" />
-        <span><span className="block font-semibold">Butuh nomor referensi</span><span className="mt-0.5 block text-body-small text-on-surface-variant">Kasir wajib mengisi nomor referensi sebelum menandai lunas, seperti approval code EDC.</span></span>
-      </label>
-
-      {form.requires_reference && <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <label className="block text-body-small font-semibold">Label referensi
-          <input value={form.reference_label} onChange={(event) => setForm((current) => ({ ...current, reference_label: event.target.value }))} placeholder="Nomor referensi QRIS" className="rounded-lg mt-1 h-12 w-full border border-outline-variant bg-panel px-3 text-body-medium outline-none focus:border-primary" />
-        </label>
-        <label className="block text-body-small font-semibold">Jumlah digit
-          <input type="number" min={4} max={32} value={form.reference_digits} onChange={(event) => setForm((current) => ({ ...current, reference_digits: Math.max(4, Math.min(32, Number(event.target.value) || 4)) }))} className="rounded-lg mt-1 h-12 w-full border border-outline-variant bg-panel px-3 text-body-medium tabular-nums outline-none focus:border-primary" />
-        </label>
-      </div>}
-
-      <button type="button" onClick={() => void create()} disabled={creating || !form.code.trim() || !form.label.trim()} className="rounded-md mt-4 flex min-h-12 w-full items-center justify-center gap-2 bg-primary text-body-medium font-semibold text-on-primary hover:bg-primary-dim disabled:cursor-not-allowed disabled:bg-panel-high disabled:text-on-surface-variant">
-        <Plus size={16} weight="bold" />{creating ? "Menyimpan..." : "Tambah metode"}
-      </button>
-    </div>}
-
-    <p className="mt-4 flex items-start gap-2 text-body-small text-on-surface-variant"><WarningCircle size={15} className="mt-0.5 shrink-0" /> Metode yang sudah dipakai order tidak dapat dihapus, hanya dimatikan, agar laporan tetap utuh. Kasir memuat ulang daftar metode tiap 30 detik.</p>
-  </section>;
+      <Dialog
+        open={confirmDelete !== null}
+        onClose={() => setConfirmDelete(null)}
+        dismissible={busyCode === ""}
+        tone="danger"
+        title={`Hapus ${confirmDelete?.label ?? "metode"}?`}
+        description="Metode hilang dari layar kasir dan penghapusannya tercatat di jejak audit. Bila metode ini sudah dipakai order, server menolak penghapusan; matikan saja sakelarnya."
+        actions={
+          <>
+            <Button variant="outlined" disabled={busyCode !== ""} onClick={() => setConfirmDelete(null)}>Batal</Button>
+            <Button variant="danger" loading={busyCode !== "" && busyCode === confirmDelete?.code} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus metode</Button>
+          </>
+        }
+      />
+    </>
+  );
 }

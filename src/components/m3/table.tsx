@@ -182,9 +182,10 @@ const STICKY = "sticky left-0 z-10 bg-inherit shadow-[1px_0_0_var(--md-sys-color
  * JavaScript escape itu bekerja, di dalam teks JSX tidak, dan bedanya tidak
  * terlihat saat menulis. Satu konstanta menghapus seluruh kelas kesalahan itu.
  */
-export const EMPTY_VALUE = "—";
+// En dash, bukan em dash: aturan antislop R-02 melarang em dash di teks UI.
+export const EMPTY_VALUE = "–";
 
-/** Sel kosong: em-dash abu tersier. Dipakai di mana pun nilainya null. */
+/** Sel kosong abu tersier. Dipakai di mana pun nilainya null. */
 export function EmptyCell({ className }: { className?: string }) {
 	return <span className={cx("text-on-surface-variant", className)} aria-label="tidak ada nilai">{EMPTY_VALUE}</span>;
 }

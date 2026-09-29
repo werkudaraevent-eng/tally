@@ -1,14 +1,16 @@
 "use client";
 
 import { Plus, Trash, Warning, X } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 import type { UndianConditionGroup, UndianConditionNode, UndianCmp, UndianTextCmp, UndianTextVar } from "@/lib/undian";
 import { TEXT_CMP_LABEL, TEXT_CMP_WITHOUT_VALUE, TEXT_VAR_LABEL, isConditionGroup, isTextLeaf } from "@/lib/undian";
+import { cx } from "@/lib/m3/cx";
 
 // Rule builder syarat undian.
 //
 // Dipakai dua arah dengan komponen yang SAMA:
-//   * syarat hadiah        — memenuhi berarti BOLEH ikut
-//   * aturan pengecualian  — memenuhi berarti DIKECUALIKAN
+//   * syarat hadiah        : memenuhi berarti BOLEH ikut
+//   * aturan pengecualian  : memenuhi berarti DIKECUALIKAN
 // Prop `tone` hanya mengubah kata-kata pada teks bantuan; logikanya identik.
 // Menyalin komponennya menjadi dua akan berakhir dengan dua daftar variabel yang
 // perlahan berbeda, dan syarat yang bisa ditulis di satu tempat tapi tidak di
@@ -19,7 +21,7 @@ import { TEXT_CMP_LABEL, TEXT_CMP_WITHOUT_VALUE, TEXT_VAR_LABEL, isConditionGrou
 // daftar variabelnya, dan itu memang harus berbeda:
 //
 //   * Item spesial dievaluasi DI DALAM konteks sebuah booth, jadi punya cakupan
-//     "di booth ini". Undian tidak punya konteks booth sama sekali — menyediakan
+//     "di booth ini". Undian tidak punya konteks booth sama sekali; menyediakan
 //     pilihan itu di sini menghasilkan syarat yang tidak punya arti dan diam-diam
 //     meloloskan atau menggugurkan semua orang.
 //   * Undian justru butuh check-in, kursi, dan pencocokan teks pada nama serta
@@ -74,6 +76,8 @@ const UNIT: Record<string, string> = { total_spend: "rupiah", booth_count: "boot
 const digitsOnly = (value: string) => value.replace(/\D/g, "");
 const grouped = (value: number) => new Intl.NumberFormat("id-ID").format(value);
 
+const CONTROL = "h-9 rounded-md border border-outline bg-surface-container-lowest px-2 text-body-medium text-on-surface outline-none focus:border-primary";
+
 function defaultLeaf(variable: string): UndianConditionNode {
   switch (variable) {
     case "checked_in": return { var: "checked_in", is: true };
@@ -84,11 +88,28 @@ function defaultLeaf(variable: string): UndianConditionNode {
     case "has_seat": return { var: "has_seat", is: true };
     case "total_spend": return { var: "total_spend", cmp: "gte", value: 500000 };
     // Teks bawaannya `contains`, bukan `eq`. Nama perusahaan hampir tidak pernah
-    // diketik sama persis oleh pesertanya — "PT PRIMA", "PT. Prima Indonesia",
-    // dan "Prima" adalah satu perusahaan yang sama — sehingga `eq` sebagai bawaan
+    // diketik sama persis oleh pesertanya ("PT PRIMA", "PT. Prima Indonesia",
+    // dan "Prima" adalah satu perusahaan yang sama), sehingga `eq` sebagai bawaan
     // akan menghasilkan nol hasil pada percobaan pertama hampir setiap kali.
     default: return { var: variable as UndianTextVar, cmp: "contains", text: "" };
   }
+}
+
+/** Tombol pilihan kecil di dalam syarat. `aria-pressed` membawa keadaannya, bukan warna saja. */
+function Pilihan({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
+  return <button
+    type="button"
+    aria-pressed={on}
+    onClick={onClick}
+    className={cx(
+      "inline-flex h-9 items-center rounded-md border px-3 text-body-medium font-medium",
+      on ? "border-primary bg-accent-soft text-primary" : "border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-primary-soft",
+    )}
+  >{children}</button>;
+}
+
+function TombolHapus({ label, onClick, icon }: { label: string; onClick: () => void; icon: ReactNode }) {
+  return <button type="button" onClick={onClick} aria-label={label} title={label} className="ml-auto grid size-8 shrink-0 place-items-center rounded-md text-error hover:bg-error-soft">{icon}</button>;
 }
 
 export function UndianConditionBuilder({ value, onChange, participantTypes, rsvpStatuses, companies = [], tone = "include", depth = 0 }: Props) {
@@ -100,20 +121,20 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
     onChange({ ...value, children: value.children.filter((_, i) => i !== index) });
   }
 
-  return <div className={depth > 0 ? "border-l-2 border-primary/30 pl-4" : ""}>
-    {value.children.length > 1 && <div className="mb-3 flex items-center gap-2">
-      <span className="text-body-small text-on-surface-variant">Gabungan:</span>
-      {(["and", "or"] as const).map((op) => <button key={op} type="button" onClick={() => onChange({ ...value, op })} className={`rounded-sm min-h-9 border px-3 text-body-small font-semibold ${value.op === op ? "border-primary bg-primary-soft text-primary-dim" : "border-outline-variant"}`}>
-        {op === "and" ? "SEMUA harus terpenuhi" : "SALAH SATU cukup"}
-      </button>)}
+  return <div className={depth > 0 ? "border-l border-outline pl-3" : ""}>
+    {value.children.length > 1 && <div className="mb-2 flex flex-wrap items-center gap-2 text-body-medium">
+      <span className="text-on-surface-variant">Gabungan:</span>
+      {(["and", "or"] as const).map((op) => <Pilihan key={op} on={value.op === op} onClick={() => onChange({ ...value, op })}>
+        {op === "and" ? "Semua harus terpenuhi" : "Salah satu cukup"}
+      </Pilihan>)}
     </div>}
 
     <div className="space-y-2">
-      {value.children.map((child, index) => <div key={index} className="rounded-lg border border-outline-variant bg-panel p-3">
+      {value.children.map((child, index) => <div key={index} className="rounded-md border border-outline-variant bg-surface-container-lowest p-3">
         {isConditionGroup(child) ? <div>
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-body-small font-semibold ed-label text-on-surface-variant">Grup syarat</span>
-            <button type="button" onClick={() => removeChild(index)} className="flex min-h-9 items-center px-2 text-error" aria-label="Hapus grup"><X size={15} /></button>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-body-medium font-medium text-on-surface-variant">Grup syarat</span>
+            <TombolHapus label="Hapus grup" onClick={() => removeChild(index)} icon={<X size={16} />} />
           </div>
           <UndianConditionBuilder value={child} participantTypes={participantTypes} rsvpStatuses={rsvpStatuses} companies={companies} tone={tone} depth={depth + 1} onChange={(next) => updateChild(index, next)} />
         </div> : <LeafEditor
@@ -127,11 +148,12 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
       </div>)}
     </div>
 
-    <div className="mt-3 flex flex-wrap gap-2">
+    <div className="mt-2 flex flex-wrap gap-2">
       <select
         value=""
+        aria-label="Tambah syarat"
         onChange={(event) => { if (event.target.value) onChange({ ...value, children: [...value.children, defaultLeaf(event.target.value)] }); }}
-        className="rounded-md min-h-11 border border-outline-variant bg-surface px-3 text-body-small font-semibold outline-none focus:border-primary"
+        className={cx(CONTROL, "font-medium")}
       >
         <option value="">+ Tambah syarat</option>
         {VAR_GROUPS.map((group) => <optgroup key={group.label} label={group.label}>
@@ -140,8 +162,8 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
       </select>
       {/* Kedalaman dibatasi 2 agar aturan tetap terbaca. Lebih dalam dari itu
           hampir selalu tanda aturannya perlu dipecah jadi hadiah terpisah. */}
-      {depth < 2 && <button type="button" onClick={() => onChange({ ...value, children: [...value.children, { op: "or", children: [] }] })} className="rounded-md flex min-h-11 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
-        <Plus size={14} /> Grup ATAU
+      {depth < 2 && <button type="button" onClick={() => onChange({ ...value, children: [...value.children, { op: "or", children: [] }] })} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-body-medium font-medium hover:bg-primary-soft">
+        <Plus size={14} aria-hidden /> Tambah grup
       </button>}
     </div>
 
@@ -150,8 +172,8 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
       // bernilai benar untuk semua orang, sehingga seluruh ruangan gugur. Database
       // menolaknya lewat CHECK, tapi pesan itu harus terbaca sebelum tombol Simpan
       // ditekan, bukan sesudahnya.
-      ? <p className="mt-2 text-body-small font-semibold text-error">Tambahkan minimal satu syarat. Aturan tanpa syarat akan mengecualikan semua peserta.</p>
-      : <p className="mt-2 text-body-small text-on-surface-variant">Tanpa syarat — semua peserta aktif ikut diundi.</p>)}
+      ? <p className="mt-2 text-body-medium font-medium text-error">Tambahkan minimal satu syarat. Aturan tanpa syarat akan mengecualikan semua peserta.</p>
+      : <p className="mt-2 text-body-medium text-on-surface-variant">Tanpa syarat, semua peserta aktif ikut diundi.</p>)}
   </div>;
 }
 
@@ -181,20 +203,20 @@ function LeafEditor({
   // bukan disembunyikan: ia membuat seluruh aturan tidak pernah terpenuhi, dan
   // satu-satunya jalan keluar adalah membuangnya lalu menyusun ulang.
   if (leaf.var === "__invalid") {
-    return <div className="flex flex-wrap items-center gap-2">
-      <span className="flex items-center gap-1.5 text-body-medium font-semibold text-error">
-        <Warning size={15} /> Syarat ini tidak terbaca
+    return <div className="flex flex-wrap items-center gap-2 text-body-medium">
+      <span className="flex items-center gap-1.5 font-medium text-error">
+        <Warning size={16} aria-hidden /> Syarat ini tidak terbaca
       </span>
-      <span className="text-body-small text-on-surface-variant">Nilainya belum lengkap atau formatnya berubah. Hapus lalu susun ulang.</span>
-      <button type="button" onClick={onRemove} className="ml-auto flex min-h-10 items-center px-2 text-error hover:underline" aria-label="Hapus syarat"><Trash size={15} /></button>
+      <span className="text-on-surface-variant">Nilainya belum lengkap atau formatnya berubah. Hapus lalu susun ulang.</span>
+      <TombolHapus label="Hapus syarat" onClick={onRemove} icon={<Trash size={16} />} />
     </div>;
   }
 
-  return <div className="flex flex-wrap items-center gap-2">
-    <span className="text-body-medium font-semibold">{VAR_LABEL[leaf.var]}</span>
+  return <div className="flex flex-wrap items-center gap-2 text-body-medium">
+    <span className="font-medium">{VAR_LABEL[leaf.var]}</span>
 
     {numeric && <>
-      <select value={leaf.cmp} onChange={(event) => onChange({ ...leaf, cmp: event.target.value as UndianCmp })} className="rounded-md min-h-10 border border-outline-variant bg-surface px-2 text-body-small outline-none focus:border-primary">
+      <select value={leaf.cmp} onChange={(event) => onChange({ ...leaf, cmp: event.target.value as UndianCmp })} aria-label="Pembanding" className={CONTROL}>
         {Object.entries(CMP_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
       </select>
       <input
@@ -202,9 +224,9 @@ function LeafEditor({
         onChange={(event) => onChange({ ...leaf, value: Number(digitsOnly(event.target.value)) || 0 })}
         inputMode="numeric"
         aria-label={VAR_LABEL[leaf.var]}
-        className="rounded-md min-h-10 w-32 border border-outline-variant bg-surface px-2 text-body-medium tabular-nums outline-none focus:border-primary"
+        className={cx(CONTROL, "w-32 tabular-nums")}
       />
-      <span className="text-body-small text-on-surface-variant">{UNIT[leaf.var]}</span>
+      <span className="text-on-surface-variant">{UNIT[leaf.var]}</span>
     </>}
 
     {isTextLeaf(leaf) && <>
@@ -212,12 +234,12 @@ function LeafEditor({
         value={leaf.cmp}
         onChange={(event) => onChange({ ...leaf, cmp: event.target.value as UndianTextCmp })}
         aria-label="Pembanding"
-        className="rounded-md min-h-10 border border-outline-variant bg-surface px-2 text-body-small outline-none focus:border-primary"
+        className={CONTROL}
       >
         {(Object.keys(TEXT_CMP_LABEL) as UndianTextCmp[]).map((key) => <option key={key} value={key}>{TEXT_CMP_LABEL[key]}</option>)}
       </select>
-      {/* `kosong` dan `tidak kosong` tidak butuh nilai. Menyembunyikan kolomnya —
-          bukan sekadar menonaktifkan — menghilangkan pertanyaan "ini harus diisi
+      {/* `kosong` dan `tidak kosong` tidak butuh nilai. Menyembunyikan kolomnya,
+          bukan sekadar menonaktifkan, menghilangkan pertanyaan "ini harus diisi
           apa" yang pasti muncul kalau kolomnya tetap terlihat. */}
       {!TEXT_CMP_WITHOUT_VALUE.includes(leaf.cmp) && <>
         <input
@@ -226,7 +248,7 @@ function LeafEditor({
           aria-label={`Nilai ${VAR_LABEL[leaf.var]}`}
           list={leaf.var === "company" ? "undian-company-options" : undefined}
           placeholder={leaf.var === "company" ? "PT PRIMA" : "ketik nilainya"}
-          className="rounded-md min-h-10 w-52 border border-outline-variant bg-surface px-2 text-body-medium outline-none focus:border-primary"
+          className={cx(CONTROL, "w-52 max-w-full")}
         />
         {/* Saran ketik dari nilai yang benar-benar ada di data. Ini yang mencegah
             kesalahan paling mahal di fitur ini: mengetik "PRIMA" padahal datanya
@@ -238,34 +260,29 @@ function LeafEditor({
     </>}
 
     {list && <>
-      <select value={leaf.cmp} onChange={(event) => onChange({ ...leaf, cmp: event.target.value as "in" | "not_in" })} className="rounded-md min-h-10 border border-outline-variant bg-surface px-2 text-body-small outline-none focus:border-primary">
+      <select value={leaf.cmp} onChange={(event) => onChange({ ...leaf, cmp: event.target.value as "in" | "not_in" })} aria-label="Pembanding" className={CONTROL}>
         <option value="in">adalah salah satu</option>
         <option value="not_in">bukan salah satu</option>
       </select>
       <div className="flex flex-wrap gap-1">
         {options.length === 0
-          ? <span className="text-body-small text-on-surface-variant">Belum ada nilai di data peserta.</span>
+          ? <span className="text-on-surface-variant">Belum ada nilai di data peserta.</span>
           : options.map((option) => {
             const chosen = leaf.values.includes(option);
-            return <button key={option} type="button" onClick={() => onChange({ ...leaf, values: chosen ? leaf.values.filter((item) => item !== option) : [...leaf.values, option] })} className={`rounded-md min-h-10 border px-2 text-body-small font-semibold ${chosen ? "border-primary bg-primary-soft text-primary-dim" : "border-outline-variant"}`}>{option}</button>;
+            return <Pilihan key={option} on={chosen} onClick={() => onChange({ ...leaf, values: chosen ? leaf.values.filter((item) => item !== option) : [...leaf.values, option] })}>{option}</Pilihan>;
           })}
       </div>
     </>}
 
     {(leaf.var === "checked_in" || leaf.var === "has_seat") && <div className="flex gap-1">
-      {[true, false].map((option) => <button
-        key={String(option)}
-        type="button"
-        onClick={() => onChange({ ...leaf, is: option })}
-        className={`rounded-md min-h-10 border px-3 text-body-small font-semibold ${leaf.is === option ? "border-primary bg-primary-soft text-primary-dim" : "border-outline-variant"}`}
-      >
+      {[true, false].map((option) => <Pilihan key={String(option)} on={leaf.is === option} onClick={() => onChange({ ...leaf, is: option })}>
         {leaf.var === "checked_in"
           ? (option ? "Sudah check-in" : "Belum check-in")
           : (option ? "Punya kursi" : "Tanpa kursi")}
-      </button>)}
+      </Pilihan>)}
     </div>}
 
-    <button type="button" onClick={onRemove} className="ml-auto flex min-h-10 items-center px-2 text-error hover:underline" aria-label="Hapus syarat"><Trash size={15} /></button>
+    <TombolHapus label="Hapus syarat" onClick={onRemove} icon={<Trash size={16} />} />
   </div>;
 }
 

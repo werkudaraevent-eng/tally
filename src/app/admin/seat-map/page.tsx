@@ -1,21 +1,24 @@
 "use client";
 
-import { Armchair, ArrowSquareOut, CheckCircle, Eye, EyeSlash, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowSquareOut, CaretDown, Info, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
-import { computeSeatMapGeometry, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor, type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule, LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS } from "@/lib/seat-map";
-import { Banner, Button, ButtonLink, Card, CardFooter, EmptyState, PageBody, PageHeader, PageLoading, PageSection, PageShell } from "@/components/m3";
+import { cx } from "@/lib/m3/cx";
+import {
+  computeSeatMapGeometry, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor,
+  type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule,
+  LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS,
+} from "@/lib/seat-map";
+import {
+  Banner, Button, ButtonLink, Dialog, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter,
+  SegmentedButton, StatusChip, SupportingPane, Switch, Tabs, WorkspaceHeader, WorkspacePage,
+} from "@/components/m3";
 
-// CMS denah tempat duduk.
-//
-// Editornya mengisi konfigurasi, bukan menggambar bebas. Denah acara ini sangat
-// teratur, jadi kanvas drag-and-drop hanya menambah cara untuk membuat denah
-// rusak (meja tumpang tindih, keluar kanvas) tanpa memberi kemampuan yang
-// benar-benar dibutuhkan. Pratinjau memakai renderer yang sama dengan halaman
-// publik, sehingga yang ditata admin persis yang dilihat tamu.
+// Pratinjau memakai renderer yang sama dengan halaman publik, jadi yang ditata
+// admin persis yang dilihat tamu.
 
 type Session = {
   id: number;
@@ -27,9 +30,7 @@ type Session = {
   background_color: string;
   text_color: string;
   accent_color: string;
-  /** Null berarti agenda ini memakai warna solid. */
   background_image_url: string | null;
-  /** True berarti kanvas denah tembus pandang di atas gambar latar. */
   map_panel_transparent: boolean;
   is_published: boolean;
   sort_order: number;
@@ -49,8 +50,6 @@ type MatchReport = {
   total_active_participants: number;
 };
 
-// Penjelasan tiap mode ditaruh berdampingan supaya admin memilih berdasarkan
-// jenis layarnya, bukan menebak dari nama modenya.
 const VIEW_MODES: { value: PublicViewMode; label: string; detail: string }[] = [
   { value: "search", label: "Pencarian nama", detail: "Untuk HP tamu dan layar sentuh. Tamu mengetik namanya, kursinya disorot." },
   { value: "qr", label: "QR untuk LED", detail: "Untuk LED tanpa sentuh. Layar menampilkan QR besar; nama peserta tidak ditampilkan." },
@@ -66,6 +65,45 @@ type Payload = {
   reports: MatchReport[];
 };
 
+type Bagian = "ruangan" | "agenda" | "layar";
+
+const INPUT = "mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
+const BULAT = ["banquet_round", "cabaret", "head_table"];
+
+function Field({ label, hint, children, htmlFor }: { label: string; hint?: ReactNode; children: ReactNode; htmlFor?: string }) {
+  return (
+    <div>
+      <label htmlFor={htmlFor} className="block text-body-medium font-medium text-on-surface">{label}</label>
+      {children}
+      {hint ? <p className="mt-1 text-body-medium text-on-surface-variant">{hint}</p> : null}
+    </div>
+  );
+}
+
+function Kelompok({ title, children, first }: { title: string; children: ReactNode; first?: boolean }) {
+  return (
+    <section className={cx("flex flex-col gap-4", !first && "border-t border-outline-variant pt-5")}>
+      <h3 className="text-body-medium font-semibold text-on-surface">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function Lipatan({ title, detail, children }: { title: string; detail: string; children: ReactNode }) {
+  return (
+    <details className="group border-t border-outline-variant">
+      <summary className="flex cursor-pointer list-none items-center gap-3 py-3 [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0 flex-1">
+          <span className="block text-body-medium font-medium text-on-surface">{title}</span>
+          <span className="block text-body-medium text-on-surface-variant">{detail}</span>
+        </span>
+        <CaretDown size={16} aria-hidden className="shrink-0 text-on-surface-variant transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="pb-4">{children}</div>
+    </details>
+  );
+}
+
 export default function SeatMapAdminPage() {
   const [payload, setPayload] = useState<Payload | null>(null);
   const [config, setConfig] = useState<ConfigState | null>(null);
@@ -73,31 +111,19 @@ export default function SeatMapAdminPage() {
   const [savingConfig, setSavingConfig] = useState(false);
   const [savingSession, setSavingSession] = useState<number | null>(null);
   const [previewSlug, setPreviewSlug] = useState<string | null>(null);
+  const [bagian, setBagian] = useState<Bagian>("ruangan");
+  const [addOpen, setAddOpen] = useState(false);
   const [newAgendaName, setNewAgendaName] = useState("");
   const [creating, setCreating] = useState(false);
-  const [deleting, setDeleting] = useState<number | null>(null);
-  // Konfirmasi hapus ditahan di dalam kartunya sendiri, bukan lewat dialog
-  // browser: satu klik tak sengaja tidak boleh langsung membuang agenda.
-  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
-  // Unggahan dilacak per agenda, bukan satu penanda global: tiap kartu punya
-  // tombolnya sendiri, dan penanda global akan menonaktifkan semua tombol
-  // sekaligus padahal hanya satu yang sedang bekerja.
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<Session | null>(null);
   const [uploadingBackground, setUploadingBackground] = useState<number | null>(null);
   const [error, setError] = useState("");
   const toast = useToast();
 
   /**
-   * Memuat ulang seluruh data denah.
-   *
-   * `pertahankanSuntingan` dipakai oleh aksi yang hanya mengubah DAFTAR agenda
-   * -- tambah dan hapus -- dan bukan tata letaknya.
-   *
-   * Tanpa opsi itu, menambahkan satu agenda akan memanggil `load()` polos, dan
-   * `setConfig(data.config)` menimpa seluruh penyunting tata ruang dengan isi
-   * database. Jumlah meja per baris, aturan kursi, pola label, override meja:
-   * semuanya kembali ke keadaan terakhir yang disimpan. Tidak ada peringatan,
-   * tidak ada cara membatalkan, dan tidak ada yang menghubungkan hilangnya
-   * pekerjaan itu dengan tombol "Tambah agenda" yang baru saja ditekan.
+   * `pertahankanSuntingan`: tambah/hapus agenda hanya menyegarkan DAFTAR agenda.
+   * Tanpa ini, suntingan tata ruang yang belum disimpan tertimpa isi database.
    */
   async function load(pertahankanSuntingan = false) {
     const response = await fetch("/api/admin/seat-map", { cache: "no-store" }).catch(() => null);
@@ -106,11 +132,7 @@ export default function SeatMapAdminPage() {
     const data = (await response.json()) as Payload;
     setPayload(data);
     if (pertahankanSuntingan) {
-      // Daftar agendanya disegarkan, isi kartunya tidak: baris yang sudah ada
-      // dipertahankan sebagaimana disunting, baris baru diambil dari server.
       setSessions((current) => data.sessions.map((row) => current.find((item) => item.id === row.id) ?? row));
-      // Satu-satunya bagian `config` yang boleh ikut berubah: agenda bawaan
-      // yang menunjuk agenda terhapus tidak lagi punya rujukan.
       setConfig((current) =>
         current && current.default_session_id !== null && !data.sessions.some((row) => row.id === current.default_session_id)
           ? { ...current, default_session_id: null }
@@ -120,7 +142,7 @@ export default function SeatMapAdminPage() {
       setConfig(data.config);
       setSessions(data.sessions);
     }
-    setPreviewSlug((current) => current ?? data.sessions[0]?.slug ?? null);
+    setPreviewSlug((current) => (current && data.sessions.some((row) => row.slug === current) ? current : data.sessions[0]?.slug ?? null));
   }
 
   useEffect(() => {
@@ -132,7 +154,6 @@ export default function SeatMapAdminPage() {
     setConfig((current) => current && { ...current, [key]: value });
   }
 
-  /** Mengubah satu parameter tata ruang tanpa menyentuh yang lain. */
   function updateParam<K extends keyof SeatMapLayoutParams>(key: K, value: SeatMapLayoutParams[K]) {
     setConfig((current) => current && { ...current, layout_params: { ...current.layout_params, [key]: value } });
   }
@@ -141,32 +162,21 @@ export default function SeatMapAdminPage() {
     setSessions((current) => current.map((item) => (item.id === id ? { ...item, ...changes } : item)));
   }
 
-  /**
-   * Unggah gambar latar agenda.
-   *
-   * Memakai endpoint yang sama dengan Papan peringkat (`/api/display/background`).
-   * Endpoint itu sudah generik: ia menerima berkas, memvalidasi jenis dan ukuran,
-   * lalu mengembalikan URL publik. Membuat endpoint kedua hanya akan menduplikasi
-   * aturan ukuran dan format, dan begitu salah satu diubah keduanya akan berbeda.
-   *
-   * Hasil unggahan hanya masuk ke state, BELUM tersimpan. Admin tetap harus
-   * menekan Simpan, sama seperti perubahan warna dan judul di kartu ini.
-   */
+  // Hasil unggahan hanya masuk ke state; tetap perlu Simpan agenda.
   async function uploadSessionBackground(session: Session, file: File) {
     setUploadingBackground(session.id); setError("");
     const form = new FormData();
     form.append("file", file);
-    const response = await fetch("/api/display/background", { method: "POST", body: form });
-    const data = await response.json().catch(() => null);
+    const response = await fetch("/api/display/background", { method: "POST", body: form }).catch(() => null);
+    const data = await response?.json().catch(() => null);
     setUploadingBackground(null);
-    if (!response.ok) {
+    if (!response?.ok) {
       const failure = data?.error?.details?.file ?? data?.error?.message ?? "Upload gambar gagal.";
-      setError(failure);
       toast.error("Upload gambar gagal", failure);
       return;
     }
     updateSession(session.id, { background_image_url: data.url });
-    toast.info("Gambar terunggah", "Klik Simpan agenda untuk menerapkannya ke halaman denah.");
+    toast.info("Gambar terunggah", "Tekan Simpan agenda untuk menerapkannya.");
   }
 
   async function saveConfig() {
@@ -188,62 +198,58 @@ export default function SeatMapAdminPage() {
         public_view_mode: config.public_view_mode,
         default_session_id: config.default_session_id,
       }),
-    });
-    const data = await response.json();
+    }).catch(() => null);
+    const data = await response?.json().catch(() => ({}));
     setSavingConfig(false);
-    if (!response.ok) {
-      const failure = data.error?.details?.message ?? data.error?.message ?? "Denah gagal disimpan.";
-      setError(failure);
+    if (!response?.ok) {
+      const failure = data?.error?.details?.message ?? data?.error?.message ?? "Denah gagal disimpan.";
       toast.error("Denah gagal disimpan", failure);
       return;
     }
-    toast.success("Denah tersimpan", "Tata letak diperbarui untuk semua sesi.");
+    toast.success("Denah tersimpan", "Berlaku untuk semua agenda.");
     await load();
   }
 
   async function createAgenda() {
     const name = newAgendaName.trim();
     if (!name) return;
-    setCreating(true); setError("");
+    setCreating(true);
     const response = await fetch("/api/admin/seat-map/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
-    });
-    const data = await response.json();
+    }).catch(() => null);
+    const data = await response?.json().catch(() => ({}));
     setCreating(false);
-    if (!response.ok) {
-      const failure = data.error?.details?.message ?? data.error?.message ?? "Agenda gagal ditambahkan.";
-      setError(failure);
+    if (!response?.ok) {
+      const failure = data?.error?.details?.message ?? data?.error?.message ?? "Agenda gagal ditambahkan.";
       toast.error("Agenda gagal ditambahkan", failure);
       return;
     }
     setNewAgendaName("");
-    toast.success("Agenda ditambahkan", "Masih draf. Pilih sumber penempatan lalu publikasikan.");
+    setAddOpen(false);
+    toast.success("Agenda ditambahkan", "Masih draf. Pilih sumber penempatan lalu tampilkan ke tamu.");
     await load(true);
+    if (data?.slug) { setPreviewSlug(data.slug); setBagian("agenda"); }
   }
 
   async function deleteAgenda(session: Session) {
-    setDeleting(session.id); setError("");
-    const response = await fetch(`/api/admin/seat-map/sessions?id=${session.id}`, { method: "DELETE" });
-    setDeleting(null);
+    setDeleting(true);
+    const response = await fetch(`/api/admin/seat-map/sessions?id=${session.id}`, { method: "DELETE" }).catch(() => null);
+    setDeleting(false);
     setConfirmDelete(null);
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      const failure = data.error?.message ?? "Agenda gagal dihapus.";
-      setError(failure);
-      toast.error("Agenda gagal dihapus", failure);
+    if (!response?.ok) {
+      const data = await response?.json().catch(() => ({}));
+      toast.error("Agenda gagal dihapus", data?.error?.message ?? "Coba lagi.");
       return;
     }
-    // Pratinjau bisa sedang menunjuk agenda yang baru dihapus; dikosongkan agar
-    // jatuh ke agenda pertama yang masih ada.
     setPreviewSlug((current) => (current === session.slug ? null : current));
-    toast.success("Agenda dihapus", "Data peserta tidak terpengaruh karena penempatan tersimpan di scanner API.");
+    toast.success("Agenda dihapus", "Data peserta tidak terpengaruh.");
     await load(true);
   }
 
   async function saveSession(session: Session) {
-    setSavingSession(session.id); setError("");
+    setSavingSession(session.id);
     const response = await fetch("/api/admin/seat-map/sessions", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -260,51 +266,33 @@ export default function SeatMapAdminPage() {
         map_panel_transparent: session.map_panel_transparent,
         is_published: session.is_published,
         sort_order: session.sort_order,
-        // Warna kursi. Dikirim satu per satu, bukan lewat spread, supaya null
-        // benar-benar terkirim: itulah cara admin mengembalikan satu warna ke
-        // bawaan, dan field yang hilang berarti "tidak diubah", bukan "kosongkan".
+        // Null dikirim apa adanya: itu cara mengembalikan satu warna ke bawaan.
         seat_available_color: session.seat_available_color,
         seat_occupied_color: session.seat_occupied_color,
         seat_checked_in_color: session.seat_checked_in_color,
         seat_outline_color: session.seat_outline_color,
-        // Branding header dan footer. Dikirim lewat `normalizeBranding` supaya
-        // hanya kolom yang memang milik branding yang ikut, dan skalanya sudah
-        // berupa angka. Menyalin field satu per satu di sini berarti setiap
-        // penambahan kolom kelak harus diingat di dua tempat.
         ...normalizeBranding(session as unknown as Record<string, unknown>),
       }),
-    });
-    const data = await response.json();
+    }).catch(() => null);
+    const data = await response?.json().catch(() => ({}));
     setSavingSession(null);
-    if (!response.ok) {
-      const failure = data.error?.message ?? "Sesi gagal disimpan.";
-      setError(failure);
-      toast.error("Sesi gagal disimpan", failure);
+    if (!response?.ok) {
+      toast.error("Agenda gagal disimpan", data?.error?.message ?? "Coba lagi.");
       return;
     }
-    toast.success("Sesi tersimpan", session.is_published ? "Sesi ini tampil di halaman publik." : "Sesi ini belum tampil di publik.");
+    toast.success("Agenda tersimpan", session.is_published ? "Agenda ini tampil di halaman publik." : "Agenda ini belum tampil ke tamu.");
     await load();
   }
 
-  const previewSession = sessions.find((item) => item.slug === previewSlug) ?? sessions[0] ?? null;
+  const aktif = sessions.find((item) => item.slug === previewSlug) ?? sessions[0] ?? null;
+  const report = aktif ? payload?.reports.find((item) => item.session_id === aktif.id) : undefined;
   const totalTablesFromRows = (config?.row_table_counts ?? []).reduce((sum, count) => sum + count, 0);
-
-  // Label meja yang bentrok. Dihitung dari konfigurasi yang sedang diedit, bukan
-  // dari yang tersimpan, supaya admin melihatnya sebelum menekan Simpan. Server
-  // tetap menolaknya juga: peringatan di layar dapat dilewati, penolakan tidak.
   const labelConflicts = config ? duplicateTableLabels(config) : [];
-
-  // Meja yang sudah diberi label menyimpang. Hanya ini yang ditampilkan sebagai
-  // baris, bukan seluruh 32 meja: daftar 32 kolom isian membuat admin harus
-  // menggulir jauh untuk mengubah satu meja, dan kolom kosong berjejer 31 baris
-  // terbaca seperti pekerjaan yang belum selesai padahal justru itu keadaan yang
-  // benar.
   const labeledTables = Object.keys(config?.table_labels ?? {})
     .map(Number)
     .filter((position) => Number.isFinite(position) && position >= 1 && position <= totalTablesFromRows)
     .sort((a, b) => a - b);
 
-  /** Menyetel label satu meja. String kosong berarti kembali ke nomor posisinya. */
   function setTableLabel(position: number, label: string) {
     if (!config) return;
     const next = { ...config.table_labels };
@@ -313,792 +301,511 @@ export default function SeatMapAdminPage() {
     updateConfig("table_labels", next);
   }
 
-  // Keterisian CONTOH untuk pratinjau.
-  //
-  // Tanpa ini seluruh kursi di pratinjau tampak kosong, sehingga admin memilih
-  // warna "kursi terisi" dan "sudah check-in" tanpa pernah melihat hasilnya —
-  // pertama kali warna itu terlihat adalah di layar tamu. Datanya dibuat, bukan
-  // diambil dari peserta sungguhan: CMS tidak perlu memuat 194 penempatan hanya
-  // untuk menunjukkan sebuah warna, dan pratinjau harus tetap bermakna pada
-  // agenda yang penempatannya memang belum ada.
-  //
-  // Meja 1 terisi + sudah check-in, meja 2 terisi tanpa check-in, sisanya kosong.
-  // Ketiga keadaan tampil berdampingan sehingga bisa dibandingkan sekaligus.
+  // Keterisian CONTOH: meja 1 terisi + check-in, meja 2 terisi, sisanya kosong,
+  // supaya ketiga warna kursi terlihat berdampingan di pratinjau.
   const previewSeatStates = useMemo(() => {
     if (!config) return {};
     const states: Record<string, { occupied: boolean; checkedIn: boolean }> = {};
     for (const table of computeSeatMapGeometry(config).tables.slice(0, 2)) {
-      for (const seat of table.seats) {
-        states[normalizeSeatLabel(seat.label)] = { occupied: true, checkedIn: table.number === 1 };
-      }
+      for (const seat of table.seats) states[normalizeSeatLabel(seat.label)] = { occupied: true, checkedIn: table.number === 1 };
     }
     return states;
   }, [config]);
 
-  const formTambahAgenda = (
-    <div className="w-full max-w-lg text-left">
-      <label className="m3-field-label block text-label-large font-medium text-on-surface" htmlFor="new-agenda">Tambah agenda</label>
-      <div className="mt-1.5 flex flex-wrap gap-2">
-        <input id="new-agenda" value={newAgendaName} maxLength={120}
-          onChange={(event) => setNewAgendaName(event.target.value)}
-          onKeyDown={(event) => { if (event.key === "Enter" && newAgendaName.trim() && !creating) { event.preventDefault(); void createAgenda(); } }}
-          placeholder="Misalnya: Coffee Break Siang"
-          className="m3-field min-w-0 flex-1 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-body-medium sm:min-w-64" />
-        <Button onClick={() => void createAgenda()} disabled={!newAgendaName.trim()} loading={creating} icon={<Plus size={16} />}>
-          Tambah
-        </Button>
+  const warnaEfektif = aktif ? resolveSeatColors(aktif, { backgroundColor: aktif.background_color, textColor: aktif.text_color }) : null;
+  const orphanSubEvent = aktif?.sub_event_id != null && payload !== null && !payload.available_sub_events.some((item) => item.subEventId === aktif.sub_event_id);
+  const publik = sessions.filter((item) => item.is_published);
+
+  // ---- Panel utama: denah hidup --------------------------------------------
+  const peta = config ? (
+    <Pane aria-label="Pratinjau denah">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-outline-variant px-4 py-2.5 text-body-medium text-on-surface-variant">
+        {warnaEfektif ? (
+          <>
+            {([["Kosong", warnaEfektif.available], ["Terisi", warnaEfektif.occupied], ["Sudah check-in", warnaEfektif.checkedIn]] as const).map(([label, warna]) => (
+              <span key={label} className="inline-flex items-center gap-1.5">
+                <span aria-hidden className="size-2.5 rounded-full border border-outline-variant" style={{ background: warna }} />{label}
+              </span>
+            ))}
+          </>
+        ) : <span>Contoh keterisian: meja 1 sudah check-in, meja 2 terisi.</span>}
+        <span className="ml-auto">Tampilan: {VIEW_MODES.find((mode) => mode.value === config.public_view_mode)?.label}</span>
       </div>
-      <p className="mt-1.5 text-body-small text-on-surface-variant">Agenda baru selalu dibuat sebagai draf, jadi tidak langsung tampil ke tamu.</p>
-    </div>
-  );
+      <div
+        className="min-h-0 flex-1 overflow-auto bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundColor: aktif?.background_color ?? "#111a63",
+          backgroundImage: aktif?.background_image_url ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${aktif.background_image_url})` : undefined,
+        }}
+      >
+        <SeatMapView
+          config={config}
+          seatStates={previewSeatStates}
+          showAttendance
+          backgroundColor={aktif?.background_color ?? "#111a63"}
+          canvasColor={aktif?.map_panel_transparent && aktif.background_image_url ? "transparent" : undefined}
+          textColor={aktif?.text_color ?? "#ffffff"}
+          accentColor={aktif?.accent_color ?? "#f2c14e"}
+          seatColors={aktif ?? undefined}
+          maxHeight="100%"
+          className="mx-auto min-w-[480px]"
+        />
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant px-4 py-2.5 text-body-medium">
+        {report ? (
+          <>
+            <span className="text-on-surface-variant">{report.matched_seats} terisi, {report.empty_seats} kosong, {report.participants_without_seat} peserta belum punya kursi</span>
+            <span className="ml-auto">
+              {report.unmatched_count > 0
+                ? <StatusChip tone="warning" title={`Contoh: ${report.unmatched_labels.slice(0, 6).join(", ")}`}>{report.unmatched_count} label tidak ada di denah</StatusChip>
+                : report.total_assignments > 0 ? <StatusChip dot tone="success">Semua label cocok</StatusChip> : null}
+            </span>
+          </>
+        ) : (
+          <span className="text-on-surface-variant">{payload?.geometry.total_tables ?? 0} meja, {payload?.geometry.total_seats ?? 0} kursi. Pencocokan data muncul setelah agenda punya sumber penempatan.</span>
+        )}
+      </div>
+    </Pane>
+  ) : null;
 
-  return <PageShell>
-    <PageHeader
-      description="Tata letak ruangan diatur di sini. Penempatan peserta datang dari scanner API dan tidak diubah dari halaman ini."
-      actions={<>
-        <ButtonLink href="/denah" target="_blank" rel="noreferrer" variant="outlined" size="sm" icon={<ArrowSquareOut size={16} />}>Halaman publik</ButtonLink>
-        {/* Tautan langsung ke mode LED. Panitia yang memasang layar cukup
-            menyalin alamat ini, tanpa perlu mengubah setelan bawaan. */}
-        <ButtonLink href="/denah?mode=qr" target="_blank" rel="noreferrer" variant="outlined" size="sm" icon={<Monitor size={16} />}>Pratinjau LED</ButtonLink>
-      </>}
-    />
-
-    {!config ? <PageLoading /> : <PageBody>
-      {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
-
-      {/* Pratinjau selebar halaman, setelan di bawahnya.
-          Sebelumnya pratinjau berbagi baris dengan kolom setelan selebar 420px,
-          sehingga denah 32 meja harus digulir mendatar DI DALAM kartunya
-          sendiri, dan menggulir mendatar di dalam halaman yang juga digulir
-          menegak membuat orang kehilangan tempatnya. Denah adalah gambar yang
-          dinilai secara keseluruhan; memotongnya menghapus satu-satunya hal
-          yang membuat pratinjau berguna. */}
-      <PageSection
-        title="Pratinjau"
-        description={`Persis seperti yang dilihat tamu. ${payload?.geometry.total_tables ?? 0} meja, ${payload?.geometry.total_seats ?? 0} kursi.`}
-        action={sessions.length > 1 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {sessions.map((item) => <button key={item.id} type="button" onClick={() => setPreviewSlug(item.slug)} aria-pressed={item.slug === previewSession?.slug}
-              className={`m3-btn m3-state rounded-md inline-flex items-center border px-3 text-label-large font-medium ${item.slug === previewSession?.slug ? "border-primary bg-primary-soft text-on-primary-soft" : "border-outline-variant bg-surface-container-lowest text-on-surface"}`}
-              data-size="sm">{item.name}</button>)}
+  // ---- Panel pendukung ---------------------------------------------------------
+  const isiRuangan = config ? (
+    <div className="flex flex-col gap-5">
+      <p className="flex items-start gap-2 rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant"><Info size={16} className="mt-0.5 shrink-0" />Berlaku untuk semua agenda.</p>
+      <Kelompok title="Bentuk ruangan" first>
+        <Field label="Jenis tata ruang" htmlFor="layout-type" hint={`${LAYOUT_INFO[config.layout_type].desc} ${LAYOUT_INFO[config.layout_type].labelHint}.`}>
+          <select
+            id="layout-type"
+            value={config.layout_type}
+            onChange={(event) => {
+              const layout = event.target.value as SeatMapLayout;
+              // Parameter kembali ke bawaan layout baru; nilai lama menimpa bawaan dan pilihannya tampak tidak berpengaruh.
+              setConfig((current) => current && { ...current, layout_type: layout, layout_params: layoutDefaults(layout) });
+            }}
+            className={INPUT}
+          >
+            {SEAT_MAP_LAYOUTS.map((layout) => <option key={layout} value={layout}>{LAYOUT_INFO[layout].name}</option>)}
+          </select>
+        </Field>
+        <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
+          <Warning size={16} className="mt-0.5 shrink-0 text-warning" />
+          Jangan ganti tata ruang setelah peserta punya nomor kursi: label kursi ikut berubah dan penempatan yang sudah masuk gugur.
+        </p>
+        {BULAT.includes(config.layout_type) ? (
+          <Field label="Busur kursi (derajat)" hint="300 = hampir mengelilingi meja. 190 = cabaret.">
+            <input type="number" min={60} max={340} value={config.layout_params.arc_sweep} onChange={(event) => updateParam("arc_sweep", Number(event.target.value))} className={cx(INPUT, "w-32")} />
+          </Field>
+        ) : null}
+        {config.layout_type === "theater" || config.layout_type === "classroom" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Jumlah baris"><input type="number" min={1} max={40} value={config.layout_params.rows} onChange={(event) => updateParam("rows", Number(event.target.value))} className={INPUT} /></Field>
+            <Field label={config.layout_type === "theater" ? "Kursi per baris" : "Meja per baris"}><input type="number" min={1} max={40} value={config.layout_params.per_row} onChange={(event) => updateParam("per_row", Number(event.target.value))} className={INPUT} /></Field>
           </div>
-        ) : undefined}
-      >
-        {/* Gambar latar dipasang di pembungkus, bukan diteruskan ke SeatMapView.
-            Komponen itu dipakai bersama halaman publik dan hanya mengenal warna;
-            menambah properti gambar ke sana berarti mengubah kontraknya hanya
-            untuk kebutuhan pratinjau.
+        ) : null}
+        {config.layout_type === "classroom" ? (
+          <Field label="Kursi per meja"><input type="number" min={1} max={12} value={config.layout_params.seats_per_table} onChange={(event) => updateParam("seats_per_table", Number(event.target.value))} className={cx(INPUT, "w-32")} /></Field>
+        ) : null}
+        {config.layout_type === "theater" ? (
+          <Field label="Lorong setelah kursi ke-" hint="Pisahkan dengan koma. Kosongkan bila tanpa lorong.">
+            <input
+              value={config.layout_params.aisles.join(", ")}
+              onChange={(event) => updateParam("aisles", event.target.value.split(",").map((bagian) => Number(bagian.trim())).filter((angka) => Number.isFinite(angka) && angka > 0))}
+              placeholder="mis. 5, 10"
+              className={INPUT}
+            />
+          </Field>
+        ) : null}
+        {config.layout_type === "u_shape" || config.layout_type === "hollow_square" || config.layout_type === "boardroom" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Kursi per sisi panjang"><input type="number" min={1} max={40} value={config.layout_params.seats_per_side} onChange={(event) => updateParam("seats_per_side", Number(event.target.value))} className={INPUT} /></Field>
+            <Field label={config.layout_type === "boardroom" ? "Kursi di ujung meja" : "Kursi di sisi kepala"}><input type="number" min={0} max={20} value={config.layout_params.seats_head} onChange={(event) => updateParam("seats_head", Number(event.target.value))} className={INPUT} /></Field>
+          </div>
+        ) : null}
+        {config.layout_type === "head_table" ? (
+          <Field label="Kursi meja utama"><input type="number" min={1} max={26} value={config.layout_params.head_seats} onChange={(event) => updateParam("head_seats", Number(event.target.value))} className={cx(INPUT, "w-32")} /></Field>
+        ) : null}
+      </Kelompok>
 
-            Transparansi kanvas diatur lewat `canvasColor`, BUKAN dengan
-            mengoper "transparent" sebagai `backgroundColor`. Warna itu juga
-            dipakai sebagai warna teks nomor meja dan label panggung, jadi
-            "transparent" membuat nomor mejanya ikut hilang. */}
-        <Card
-          padded={false}
-          className="overflow-x-auto bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundColor: previewSession?.background_color ?? "#111a63",
-            backgroundImage: previewSession?.background_image_url
-              ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${previewSession.background_image_url})`
-              : undefined,
-          }}
-        >
-          <SeatMapView
-            config={config}
-            seatStates={previewSeatStates}
-            showAttendance
-            backgroundColor={previewSession?.background_color ?? "#111a63"}
-            canvasColor={previewSession?.map_panel_transparent && previewSession.background_image_url ? "transparent" : undefined}
-            textColor={previewSession?.text_color ?? "#ffffff"}
-            accentColor={previewSession?.accent_color ?? "#f2c14e"}
-            seatColors={previewSession}
-            // Tinggi pratinjau DIBATASI, lebarnya yang mengikuti kanvas.
-            //
-            // Kanvas tiap tata ruang punya rasio sendiri: banquet lebar dan
-            // pendek, U-shape sempit dan menjulang. Tanpa batas tinggi, denah
-            // sempit yang dilebarkan ke lebar penuh halaman ikut memanjang ke
-            // bawah sampai layar penuh, dan pratinjau yang harus digulir
-            // berhenti menjadi pratinjau karena tidak bisa dinilai sekali lihat.
-            //
-            // SVG ber-viewBox menyusut sendiri saat tingginya dibatasi
-            // (preserveAspectRatio bawaan), jadi yang terjadi bukan pemotongan
-            // melainkan penskalaan: seluruh denah tetap terlihat utuh.
-            maxHeight="clamp(320px, 58vh, 620px)"
-            className="min-w-[560px]"
-          />
-        </Card>
-      </PageSection>
-
-      {/* SATU kartu, bukan empat kartu yang disusun berkolom.
-          Keempat kelompok di dalamnya disimpan oleh SATU tombol, dan selama
-          mereka berdiri sebagai empat kartu terpisah tombol itu tidak punya
-          tempat untuk berdiri: ia melayang di kanvas di bawahnya, rata ke tepi
-          kanan halaman, bukan ke tepi kanan apa pun yang disimpannya. Susunan
-          berkolom juga membuat urutan baca tidak sama dengan urutan DOM, jadi
-          "bentuk ruangan menentukan arti setelan di bawahnya" tidak lagi benar
-          begitu kolom kedua dimulai.
-
-          `divide-y` menggambar garis antar kelompok. Kelompok, bukan kartu:
-          yang memisahkan mereka satu garis, dan yang menyatukan mereka satu
-          tombol simpan di dasar. */}
-      <PageSection
-        title="Tata letak ruangan"
-        description="Berlaku untuk semua agenda sekaligus. Satu Simpan di dasar kartu menyimpan seluruh bagian ini."
-      >
-        <Card>
-          <div className="divide-y divide-outline-variant">
-          <div className="pb-6">
-            <h3 className="text-title-medium font-semibold text-on-surface">Bentuk ruangan</h3>
-
-            {/* Pemilih tata ruang berdiri PALING ATAS di kartu ini karena ia
-                menentukan setelan mana yang berlaku di bawahnya: jumlah meja per
-                baris hanya berarti untuk denah bermeja bundar, sedangkan jumlah
-                baris dan kursi per baris hanya berarti untuk theater. */}
-            <label className="mt-4 block text-body-medium font-semibold" htmlFor="layout-type">Jenis tata ruang</label>
-            <select
-              id="layout-type"
-              value={config.layout_type}
-              onChange={(event) => {
-                const layout = event.target.value as SeatMapLayout;
-                // Parameter DIKEMBALIKAN ke bawaan layout yang dipilih, bukan
-                // dipertahankan dari layout sebelumnya.
-                //
-                // Sebelumnya nilai lama menimpa bawaan, dan akibatnya terukur:
-                // berpindah dari Banquet ke Cabaret tidak mengubah apa pun di
-                // pratinjau, karena busur 300 derajat milik Banquet ikut terbawa
-                // dan menimpa bawaan Cabaret yang 190. Pilihan yang tidak
-                // mengubah apa pun terbaca sebagai fitur yang rusak.
-                setConfig((current) => current && {
-                  ...current,
-                  layout_type: layout,
-                  layout_params: layoutDefaults(layout),
-                });
-              }}
-              className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1"
-            >
-              {SEAT_MAP_LAYOUTS.map((layout) => (
-                <option key={layout} value={layout}>{LAYOUT_INFO[layout].name}</option>
-              ))}
-            </select>
-            <p className="mt-2 text-body-small leading-5 text-on-surface-variant">
-              {LAYOUT_INFO[config.layout_type].desc} {LAYOUT_INFO[config.layout_type].labelHint}.
-            </p>
-            <p className="mt-2 text-body-small leading-5 text-warning">
-              Tata ruang tidak dapat diganti setelah ada peserta yang punya nomor kursi: bentuk label
-              kursinya ikut berubah, dan seluruh penempatan yang sudah masuk akan gugur.
-            </p>
-
-            {/* Setelan yang hanya berlaku untuk sebagian layout DISEMBUNYIKAN,
-                bukan dinonaktifkan: kolom mati yang tetap terlihat membuat admin
-                mengira ada yang rusak. */}
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {config.layout_type === "banquet_round" || config.layout_type === "cabaret" || config.layout_type === "head_table" ? (
-                <label className="block text-body-medium font-semibold">
-                  Busur kursi (derajat)
-                  <input type="number" min={60} max={340} value={config.layout_params.arc_sweep}
-                    onChange={(event) => updateParam("arc_sweep", Number(event.target.value))}
-                    className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1 font-normal" />
-                  <span className="mt-1 block text-body-small font-normal text-on-surface-variant">
-                    300 = kursi hampir mengelilingi meja. 190 = cabaret, tidak ada yang membelakangi panggung.
-                  </span>
-                </label>
-              ) : null}
-
-              {config.layout_type === "theater" || config.layout_type === "classroom" ? (
-                <>
-                  <label className="block text-body-medium font-semibold">
-                    Jumlah baris
-                    <input type="number" min={1} max={40} value={config.layout_params.rows}
-                      onChange={(event) => updateParam("rows", Number(event.target.value))}
-                      className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1 font-normal" />
-                  </label>
-                  <label className="block text-body-medium font-semibold">
-                    {config.layout_type === "theater" ? "Kursi per baris" : "Meja per baris"}
-                    <input type="number" min={1} max={40} value={config.layout_params.per_row}
-                      onChange={(event) => updateParam("per_row", Number(event.target.value))}
-                      className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1 font-normal" />
-                  </label>
-                </>
-              ) : null}
-
-              {config.layout_type === "classroom" ? (
-                <label className="block text-body-medium font-semibold">
-                  Kursi per meja
-                  <input type="number" min={1} max={12} value={config.layout_params.seats_per_table}
-                    onChange={(event) => updateParam("seats_per_table", Number(event.target.value))}
-                    className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1 font-normal" />
-                </label>
-              ) : null}
-
-              {config.layout_type === "theater" ? (
-                <label className="block text-body-medium font-semibold">
-                  Lorong setelah kursi ke-
+      <Kelompok title="Meja dan label">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Nama denah" htmlFor="map-name"><input id="map-name" value={config.name} onChange={(event) => updateConfig("name", event.target.value)} className={INPUT} /></Field>
+          <Field label="Label panggung" htmlFor="stage-label"><input id="stage-label" value={config.stage_label} onChange={(event) => updateConfig("stage_label", event.target.value)} className={INPUT} /></Field>
+        </div>
+        {BULAT.includes(config.layout_type) ? (
+          <Field label="Meja per baris, dari panggung" hint={`Total ${totalTablesFromRows} meja. Nomor meja berjalan menerus.`}>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              {config.row_table_counts.map((count, index) => (
+                <span key={index} className="inline-flex items-center rounded-md border border-outline bg-surface-container-lowest">
                   <input
-                    value={config.layout_params.aisles.join(", ")}
-                    onChange={(event) => updateParam(
-                      "aisles",
-                      event.target.value.split(",").map((bagian) => Number(bagian.trim())).filter((angka) => Number.isFinite(angka) && angka > 0),
-                    )}
-                    placeholder="mis. 5, 10"
-                    className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1 font-normal" />
-                  <span className="mt-1 block text-body-small font-normal text-on-surface-variant">
-                    Pisahkan dengan koma. Kosongkan bila tanpa lorong.
-                  </span>
-                </label>
-              ) : null}
-
-              {config.layout_type === "u_shape" || config.layout_type === "hollow_square" || config.layout_type === "boardroom" ? (
-                <>
-                  <label className="block text-body-medium font-semibold">
-                    Kursi per sisi panjang
-                    <input type="number" min={1} max={40} value={config.layout_params.seats_per_side}
-                      onChange={(event) => updateParam("seats_per_side", Number(event.target.value))}
-                      className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1 font-normal" />
-                  </label>
-                  <label className="block text-body-medium font-semibold">
-                    {config.layout_type === "boardroom" ? "Kursi di ujung meja" : "Kursi di sisi kepala"}
-                    <input type="number" min={0} max={20} value={config.layout_params.seats_head}
-                      onChange={(event) => updateParam("seats_head", Number(event.target.value))}
-                      className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1 font-normal" />
-                  </label>
-                </>
-              ) : null}
-
-              {config.layout_type === "head_table" ? (
-                <label className="block text-body-medium font-semibold">
-                  Kursi meja utama
-                  <input type="number" min={1} max={26} value={config.layout_params.head_seats}
-                    onChange={(event) => updateParam("head_seats", Number(event.target.value))}
-                    className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1 font-normal" />
-                </label>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="py-6">
-            <h3 className="text-title-medium font-semibold text-on-surface">Ukuran dan label</h3>
-
-            <label className="mt-4 block text-body-medium font-semibold" htmlFor="map-name">Nama denah</label>
-            <input id="map-name" value={config.name} onChange={(event) => updateConfig("name", event.target.value)}
-              className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1" />
-
-            <label className="mt-4 block text-body-medium font-semibold" htmlFor="stage-label">Label panggung</label>
-            <input id="stage-label" value={config.stage_label} onChange={(event) => updateConfig("stage_label", event.target.value)}
-              className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1" />
-            <p className="mt-1 text-body-small text-on-surface-variant">Acuan arah tamu saat membaca denah.</p>
-
-            {/* Baris meja hanya berlaku untuk denah bermeja bundar. Pada theater,
-                classroom, dan rapat, jumlah mejanya ditentukan parameter di atas. */}
-            <fieldset className={`mt-5 ${["banquet_round", "cabaret", "head_table"].includes(config.layout_type) ? "" : "hidden"}`}>
-              <legend className="text-body-medium font-semibold">Jumlah meja per baris</legend>
-              <p className="mt-1 text-body-small text-on-surface-variant">Baris pertama paling dekat panggung. Nomor meja berjalan menerus.</p>
-              <div className="mt-2 space-y-2">
-                {config.row_table_counts.map((count, index) => <div key={index} className="flex items-center gap-2">
-                  <span className="w-16 text-body-medium text-on-surface-variant">Baris {index + 1}</span>
-                  <input type="number" min={1} max={40} value={count} aria-label={`Jumlah meja baris ${index + 1}`}
+                    type="number" min={1} max={40} value={count}
+                    aria-label={`Jumlah meja baris ${index + 1}`}
                     onChange={(event) => {
                       const next = [...config.row_table_counts];
                       next[index] = Math.max(1, Number(event.target.value) || 1);
                       updateConfig("row_table_counts", next);
                     }}
-                    className="m3-field h-11 w-24 rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium" />
-                  <button type="button" onClick={() => updateConfig("row_table_counts", config.row_table_counts.filter((_, i) => i !== index))}
+                    className="h-9 w-14 rounded-l-md bg-transparent px-2 text-body-medium outline-none"
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Hapus baris ${index + 1}`}
                     disabled={config.row_table_counts.length <= 1}
-                    className="m3-btn m3-state inline-flex min-h-11 items-center rounded-md px-2 text-label-large font-medium text-error disabled:opacity-40" data-size="sm">Hapus</button>
-                </div>)}
-              </div>
-              <button type="button" onClick={() => updateConfig("row_table_counts", [...config.row_table_counts, 8])}
-                className="m3-btn m3-state mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-label-large font-medium text-on-surface hover:bg-primary-soft" data-size="sm" data-variant="outlined">Tambah baris</button>
-              <p className="mt-2 text-body-small text-on-surface-variant">Total {totalTablesFromRows} meja.</p>
-            </fieldset>
-
-            {/* Label meja yang menyimpang dari nomornya.
-                Ditaruh tepat di bawah "Jumlah meja per baris" karena di situlah
-                nomor meja terbentuk; menaruhnya di kartu lain akan membuat admin
-                mencari-cari hubungan antara "meja ke-4" dan angka yang diubahnya. */}
-            <fieldset className="mt-5">
-              <legend className="text-body-medium font-semibold">Label meja khusus</legend>
-              <p className="mt-1 text-body-small text-on-surface-variant">
-                Untuk meja yang tulisannya berbeda dari nomor urutnya, misalnya meja ke-4 ditulis <strong>3A</strong> karena
-                nomor 4 dihindari. Posisi meja TIDAK bergeser: meja ke-5 tetap bernomor 5.
-              </p>
-
-              {labeledTables.length > 0 ? <div className="mt-3 space-y-2">
-                {/* Nama posisi di kiri, kolom isian dan Hapus didorong ke kanan.
-                    Kalimat "Meja ke-4 ditulis" ditambah kolom dan tombol melewati
-                    lebar kolom kartu, dan pada `flex-wrap` ia terbelah sehingga
-                    kolom isiannya turun sendirian ke baris berikutnya. */}
-                {labeledTables.map((position) => <div key={position} className="flex items-center justify-between gap-2">
-                  <span className="min-w-0 shrink text-body-medium text-on-surface-variant">Meja ke-{position}</span>
-                  <input value={config.table_labels[String(position)] ?? ""} maxLength={MAX_TABLE_LABEL_LENGTH}
-                    aria-label={`Label untuk meja ke-${position}`}
-                    onChange={(event) => setTableLabel(position, event.target.value)}
-                    className="m3-field h-11 w-24 rounded-md border border-outline bg-surface-container-lowest px-3 font-mono text-body-medium" />
-                  <button type="button" onClick={() => setTableLabel(position, "")}
-                    className="m3-btn m3-state inline-flex min-h-11 items-center rounded-md px-2 text-label-large font-medium text-error" data-size="sm">Hapus</button>
-                </div>)}
-              </div> : <p className="mt-3 text-body-small text-on-surface-variant">Belum ada label khusus. Semua meja memakai nomor urutnya.</p>}
-
-              {/* Pemilih posisi, bukan kolom nomor bebas: mengetik "40" pada denah
-                  32 meja menyimpan label untuk meja yang tidak ada, dan admin akan
-                  menunggu perubahan yang tidak pernah muncul di pratinjau. */}
-              <div className="mt-3">
-                <label className="block text-body-medium text-on-surface-variant" htmlFor="add-table-label">Tambah label untuk meja ke-</label>
-                <select id="add-table-label" value="" onChange={(event) => {
-                  const position = Number(event.target.value);
-                  if (!position) return;
-                  // Nilai awal = nomornya sendiri supaya kolomnya tidak pernah
-                  // kosong; label kosong berarti meja tanpa tulisan di layar.
-                  setTableLabel(position, String(position));
-                }}
-                  className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1">
-                  <option value="">Pilih meja</option>
-                  {Array.from({ length: totalTablesFromRows }, (_, index) => index + 1)
-                    .filter((position) => !(String(position) in config.table_labels))
-                    .map((position) => <option key={position} value={position}>Meja ke-{position} (sekarang {tableLabelFor(position, config.table_labels)})</option>)}
-                </select>
-              </div>
-
-              {labelConflicts.length > 0 ? <p className="rounded-lg mt-3 flex items-start gap-2 border border-error bg-error-soft p-3 text-body-small text-error">
-                <Warning size={16} className="mt-0.5 shrink-0" />
-                <span>Label <strong>{labelConflicts.join(", ")}</strong> dipakai lebih dari satu meja. Dua meja bernama sama membuat satu label kursi ada di dua tempat, sehingga tamu diarahkan ke meja yang salah. Denah tidak dapat disimpan sebelum ini dibetulkan.</span>
-              </p> : null}
-
-              <p className="mt-3 text-body-small text-on-surface-variant">
-                Label ini ikut menyusun label kursi lewat pola di bawah, jadi meja <strong>3A</strong> memberi kursi <strong>A3A</strong>,
-                <strong> B3A</strong>, dan seterusnya. Penulisannya harus sama dengan yang dipakai scanner API, kalau tidak peserta di meja
-                itu tidak akan muncul di denah.
-              </p>
-            </fieldset>
-
-            {/* Aturan kursi per rentang meja hanya dibaca oleh tata ruang bermeja
-                bundar. Pada classroom, jumlah kursinya seragam per meja dan diatur
-                di kartu Tata letak ruangan; pada theater dan rapat, kursinya bukan
-                milik meja sama sekali.
-
-                Disembunyikan, bukan dibiarkan tampil: sebelumnya ada DUA setelan
-                bernama "Kursi per meja" di dua kartu berbeda saat classroom
-                dipilih, dan yang satu tidak berpengaruh apa pun. Dua kolom dengan
-                nama sama yang berbeda akibatnya adalah cara tercepat membuat admin
-                berhenti memercayai layar ini. */}
-            <fieldset className={`mt-5 ${["banquet_round", "cabaret", "head_table"].includes(config.layout_type) ? "" : "hidden"}`}>
-              <legend className="text-body-medium font-semibold">Kursi per meja bundar</legend>
-              <p className="mt-1 text-body-small text-on-surface-variant">Diatur per rentang nomor meja. Aturan paling bawah menang bila bertumpuk.</p>
-              {/* Satu aturan = satu baris kisi berkolom tetap, bukan deretan
-                  kontrol yang dibiarkan membungkus.
-
-                  Sebelumnya baris ini `flex flex-wrap` berisi tujuh elemen:
-                  "Meja", dua kotak angka, "=", satu kotak angka, "kursi", dan
-                  tombol Hapus. Di kolom selebar 400px ia terbelah di tempat yang
-                  berbeda-beda — "Meja [1] [25] =" di baris pertama, "[6] kursi
-                  Hapus" di baris kedua — sehingga angka dan satuannya terpisah
-                  dan tidak ada dua aturan yang sejajar.
-
-                  Kisi tiga kolom membuat setiap kotak angka punya judulnya
-                  sendiri di atasnya, dan kolomnya tetap sejajar antar aturan
-                  berapa pun lebar kartunya. */}
-              <div className="mt-3 space-y-3">
-                {config.seat_rules.map((rule, index) => <div key={index} className="rounded-lg border border-outline-variant p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-body-small font-semibold ed-label text-on-surface-variant">
-                      Aturan {index + 1}
-                    </span>
-                    <button type="button" onClick={() => updateConfig("seat_rules", config.seat_rules.filter((_, i) => i !== index))}
-                      className="m3-state min-h-9 rounded-full px-3 text-body-small font-semibold text-error">Hapus</button>
-                  </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    {([
-                      { field: "from" as const, label: "Meja dari", min: 1, max: 999 },
-                      { field: "to" as const, label: "sampai", min: 1, max: 999 },
-                      { field: "seats" as const, label: "kursi", min: 0, max: 26 },
-                    ]).map(({ field, label, min, max }) => (
-                      <label key={field} className="block text-body-small text-on-surface-variant">
-                        {label}
-                        <input type="number" min={min} max={max} value={rule[field]}
-                          onChange={(event) => {
-                            const angka = Math.max(min, Number(event.target.value) || min);
-                            const next: SeatRule[] = [...config.seat_rules];
-                            next[index] = { ...rule, [field]: angka };
-                            updateConfig("seat_rules", next);
-                          }}
-                          className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1 !px-2" />
-                      </label>
-                    ))}
-                  </div>
-                </div>)}
-              </div>
-              <button type="button" onClick={() => updateConfig("seat_rules", [...config.seat_rules, { from: 1, to: 1, seats: 6 }])}
-                className="m3-btn m3-state mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-label-large font-medium text-on-surface hover:bg-primary-soft" data-size="sm" data-variant="outlined">Tambah aturan</button>
-            </fieldset>
-
-            <label className="mt-5 block text-body-medium font-semibold" htmlFor="label-pattern">Pola label kursi</label>
-            <input id="label-pattern" value={config.seat_label_pattern} onChange={(event) => updateConfig("seat_label_pattern", event.target.value)}
-              className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1 font-mono" />
-            <p className="mt-1 text-body-small text-on-surface-variant">
-              Wajib memuat <code>{"{table}"}</code> dan <code>{"{seat}"}</code>. Harus sama dengan penulisan label di scanner API, kalau tidak kursi tidak akan cocok.
-            </p>
-
-          </div>
-
-          <div className="py-6">
-            {/* Pemilih agenda yang tampil di layar publik. Ini yang memindahkan
-                seluruh LED dari sesi pagi ke sesi malam tanpa menyentuh
-                perangkatnya, yang saat acara berjalan bisa sulit dijangkau.
-
-                Hanya agenda terpublikasi yang bisa dipilih: agenda draf yang
-                disetel sebagai bawaan akan membuat layar diam-diam jatuh ke
-                agenda lain, sehingga admin merasa pilihannya tidak tersimpan. */}
-            <h3 className="text-title-medium font-semibold text-on-surface">Agenda yang tampil</h3>
-            <p className="mt-1 text-body-medium text-on-surface-variant">Menentukan agenda mana yang muncul di layar publik dan LED.</p>
-
-            <label className="mt-3 block text-body-medium font-semibold" htmlFor="default-session">Agenda aktif</label>
-            <select id="default-session" value={config.default_session_id ?? ""}
-              onChange={(event) => updateConfig("default_session_id", event.target.value ? Number(event.target.value) : null)}
-              className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1">
-              <option value="">Agenda publik pertama (otomatis)</option>
-              {sessions.filter((item) => item.is_published).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-
-            {sessions.filter((item) => item.is_published).length === 0
-              ? <p className="mt-1 text-body-small text-warning">Belum ada agenda yang dipublikasikan. Publikasikan salah satu agenda di bawah lebih dulu.</p>
-              : null}
-
-            {config.default_session_id
-              ? <p className="mt-2 text-body-small text-on-surface-variant">
-                  Semua layar yang membuka <code>/denah</code> tanpa menyebut agenda akan menampilkan agenda ini.
-                </p>
-              : <p className="mt-2 text-body-small text-on-surface-variant">
-                  Saat otomatis, layar mengikuti agenda publik yang urutannya paling awal.
-                </p>}
-
-            <p className="mt-2 text-body-small text-on-surface-variant">
-              Untuk menjalankan dua layar dengan agenda berbeda sekaligus, sebut agendanya di alamat masing-masing, misalnya <code>/denah?sesi={sessions[0]?.slug ?? "slug-agenda"}</code>. Alamat selalu menang atas setelan ini.
-            </p>
-
-          </div>
-
-          <div className="pt-6">
-            <h3 className="text-title-medium font-semibold text-on-surface">Mode tampilan publik</h3>
-            <p className="mt-1 text-body-medium text-on-surface-variant">Pilih sesuai jenis layar yang dipakai.</p>
-            <fieldset className="mt-3 space-y-2">
-              <legend className="sr-only">Mode tampilan halaman publik</legend>
-              {VIEW_MODES.map((mode) => <label key={mode.value}
-                className={`rounded-lg flex cursor-pointer gap-3 border p-3 text-body-medium ${config.public_view_mode === mode.value ? "border-primary bg-primary-soft" : "border-outline-variant"}`}>
-                <input type="radio" name="public-view-mode" value={mode.value} checked={config.public_view_mode === mode.value}
-                  onChange={() => updateConfig("public_view_mode", mode.value)} className="mt-0.5 size-4 shrink-0 accent-primary" />
-                <span>
-                  <span className="font-semibold">{mode.label}</span>
-                  <span className="mt-0.5 block text-body-small text-on-surface-variant">{mode.detail}</span>
+                    onClick={() => updateConfig("row_table_counts", config.row_table_counts.filter((_, i) => i !== index))}
+                    className="grid h-9 w-7 place-items-center rounded-r-md text-on-surface-variant hover:bg-primary-soft disabled:opacity-40"
+                  >
+                    <XCircle size={14} />
+                  </button>
                 </span>
-              </label>)}
-            </fieldset>
-            <p className="mt-2 text-body-small text-on-surface-variant">
-              Ini setelan bawaan semua layar. Satu layar bisa dipaksa ke mode tertentu lewat <code>/denah?mode=qr</code> atau <code>?mode=search</code>, berguna bila LED dan layar sentuh dipakai bersamaan.
-            </p>
-
-          </div>
-          </div>
-
-          <CardFooter>
+              ))}
+              <IconButton size="sm" variant="outlined" label="Tambah baris meja" onClick={() => updateConfig("row_table_counts", [...config.row_table_counts, 8])}><Plus size={16} /></IconButton>
+            </div>
+          </Field>
+        ) : null}
+        {BULAT.includes(config.layout_type) ? (
+          <Field label="Kursi per meja bundar" hint="Diatur per rentang nomor meja. Aturan paling bawah menang bila bertumpuk.">
+            <div className="mt-1.5 flex flex-col gap-2">
+              {config.seat_rules.map((rule, index) => (
+                <div key={index} className="flex items-center gap-2 text-body-medium">
+                  <span className="text-on-surface-variant">Meja</span>
+                  {(["from", "to"] as const).map((field, i) => (
+                    <span key={field} className="contents">
+                      {i === 1 ? <span className="text-on-surface-variant">sampai</span> : null}
+                      <input
+                        type="number" min={1} max={999} value={rule[field]}
+                        aria-label={field === "from" ? `Aturan ${index + 1}: meja dari` : `Aturan ${index + 1}: meja sampai`}
+                        onChange={(event) => {
+                          const next: SeatRule[] = [...config.seat_rules];
+                          next[index] = { ...rule, [field]: Math.max(1, Number(event.target.value) || 1) };
+                          updateConfig("seat_rules", next);
+                        }}
+                        className="h-9 w-14 rounded-md border border-outline bg-surface-container-lowest px-2 outline-none focus:border-primary"
+                      />
+                    </span>
+                  ))}
+                  <input
+                    type="number" min={0} max={26} value={rule.seats}
+                    aria-label={`Aturan ${index + 1}: jumlah kursi`}
+                    onChange={(event) => {
+                      const next: SeatRule[] = [...config.seat_rules];
+                      next[index] = { ...rule, seats: Math.max(0, Number(event.target.value) || 0) };
+                      updateConfig("seat_rules", next);
+                    }}
+                    className="h-9 w-14 rounded-md border border-outline bg-surface-container-lowest px-2 outline-none focus:border-primary"
+                  />
+                  <span className="text-on-surface-variant">kursi</span>
+                  <IconButton size="sm" label={`Hapus aturan ${index + 1}`} onClick={() => updateConfig("seat_rules", config.seat_rules.filter((_, i) => i !== index))}><Trash size={14} /></IconButton>
+                </div>
+              ))}
+              <div><Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => updateConfig("seat_rules", [...config.seat_rules, { from: 1, to: 1, seats: 6 }])}>Tambah aturan</Button></div>
+            </div>
+          </Field>
+        ) : null}
+        <Field label="Pola label kursi" htmlFor="label-pattern" hint="Wajib memuat {table} dan {seat}, dan harus sama dengan penulisan label di scanner API.">
+          <input id="label-pattern" value={config.seat_label_pattern} onChange={(event) => updateConfig("seat_label_pattern", event.target.value)} className={INPUT} />
+        </Field>
+        <Field label="Label meja khusus" hint="Untuk meja yang tulisannya berbeda dari nomor urutnya, mis. meja ke-4 ditulis 3A. Posisi meja tidak bergeser.">
+          <div className="mt-1.5 flex flex-col gap-2">
+            {labeledTables.length === 0 ? <p className="text-body-medium text-on-surface-variant">Belum ada. Semua meja memakai nomor urutnya.</p> : null}
+            {labeledTables.map((position) => (
+              <div key={position} className="flex items-center gap-2 text-body-medium">
+                <span className="w-24 shrink-0 text-on-surface-variant">Meja ke-{position}</span>
+                <input
+                  value={config.table_labels[String(position)] ?? ""}
+                  maxLength={MAX_TABLE_LABEL_LENGTH}
+                  aria-label={`Label untuk meja ke-${position}`}
+                  onChange={(event) => setTableLabel(position, event.target.value)}
+                  className="h-9 w-24 rounded-md border border-outline bg-surface-container-lowest px-2 outline-none focus:border-primary"
+                />
+                <IconButton size="sm" label={`Hapus label meja ke-${position}`} onClick={() => setTableLabel(position, "")}><Trash size={14} /></IconButton>
+              </div>
+            ))}
+            <select
+              value=""
+              aria-label="Tambah label untuk meja"
+              onChange={(event) => { const position = Number(event.target.value); if (position) setTableLabel(position, String(position)); }}
+              className={cx(INPUT, "mt-0")}
+            >
+              <option value="">Tambah label untuk meja...</option>
+              {Array.from({ length: totalTablesFromRows }, (_, index) => index + 1)
+                .filter((position) => !(String(position) in config.table_labels))
+                .map((position) => <option key={position} value={position}>Meja ke-{position} (sekarang {tableLabelFor(position, config.table_labels)})</option>)}
+            </select>
             {labelConflicts.length > 0 ? (
-              <p className="mr-auto flex items-center gap-2 text-body-small text-warning">
-                <Warning size={16} className="shrink-0" /> Betulkan label meja yang ganda sebelum menyimpan.
+              <p className="flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error">
+                <Warning size={16} className="mt-0.5 shrink-0" />
+                Label {labelConflicts.join(", ")} dipakai lebih dari satu meja, jadi tamu bisa diarahkan ke meja yang salah. Betulkan sebelum menyimpan.
               </p>
             ) : null}
-            <Button onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>
-              Simpan tata letak
-            </Button>
-          </CardFooter>
-        </Card>
-      </PageSection>
+          </div>
+        </Field>
+      </Kelompok>
+    </div>
+  ) : null;
 
-      <PageSection
-        title="Agenda"
-        description="Jumlah agenda tidak dibatasi. Tata letak dipakai bersama semua agenda; yang berbeda hanya tampilan dan penempatan pesertanya."
-        meta={sessions.length > 0 ? `${sessions.length} agenda` : undefined}
-      >
-        {sessions.length === 0 ? (
-          <EmptyState
-            icon={<Armchair size={48} />}
-            title="Belum ada agenda"
-            description="Agenda menentukan apa yang dilihat tamu di halaman denah. Buat satu untuk mulai; ia selalu dibuat sebagai draf, jadi tidak langsung tampil."
-            action={formTambahAgenda}
-          />
-        ) : (
-          <div className="flex flex-col gap-4">
-            <Card>{formTambahAgenda}</Card>
+  const isiLayar = config ? (
+    <div className="flex flex-col gap-5">
+      <p className="flex items-start gap-2 rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant"><Info size={16} className="mt-0.5 shrink-0" />Berlaku untuk semua layar yang membuka /denah.</p>
+      <Kelompok title="Agenda yang tampil" first>
+        <Field label="Agenda aktif" htmlFor="default-session" hint={config.default_session_id ? "Layar tanpa agenda di alamatnya menampilkan agenda ini." : "Saat otomatis, layar mengikuti agenda publik yang urutannya paling awal."}>
+          <select id="default-session" value={config.default_session_id ?? ""} onChange={(event) => updateConfig("default_session_id", event.target.value ? Number(event.target.value) : null)} className={INPUT}>
+            <option value="">Agenda publik pertama (otomatis)</option>
+            {publik.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </Field>
+        {publik.length === 0 ? <p className="text-body-medium text-warning">Belum ada agenda yang tampil ke tamu. Nyalakan &quot;Tampil ke tamu&quot; di salah satu agenda.</p> : null}
+        <p className="text-body-medium text-on-surface-variant">Dua layar dengan agenda berbeda: sebut agendanya di alamat, mis. /denah?sesi={sessions[0]?.slug ?? "slug-agenda"}. Alamat selalu menang atas setelan ini.</p>
+      </Kelompok>
+      <Kelompok title="Mode tampilan">
+        <fieldset className="flex flex-col gap-2">
+          <legend className="sr-only">Mode tampilan halaman publik</legend>
+          {VIEW_MODES.map((mode) => {
+            const on = config.public_view_mode === mode.value;
+            return (
+              <label key={mode.value} className={cx("flex cursor-pointer gap-3 rounded-lg border p-3 text-body-medium", on ? "border-2 border-primary" : "border-outline")}>
+                <input type="radio" name="public-view-mode" value={mode.value} checked={on} onChange={() => updateConfig("public_view_mode", mode.value)} className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
+                <span>
+                  <span className="block font-medium">{mode.label}</span>
+                  <span className="block text-on-surface-variant">{mode.detail}</span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+        <p className="text-body-medium text-on-surface-variant">Satu layar bisa dipaksa lewat /denah?mode=qr atau ?mode=search.</p>
+      </Kelompok>
+    </div>
+  ) : null;
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            {sessions.map((session) => {
-              const report = payload?.reports.find((item) => item.session_id === session.id);
-              // Pilihan tersimpan yang sudah tidak ada lagi di data scanner API.
-              // Dampaknya sama dengan belum memilih sama sekali (semua kursi kosong),
-              // tapi dropdown tampak terisi sehingga mudah disalahartikan sebagai beres.
-              // `payload !== null` menahan flag ini selama data belum termuat, supaya
-              // peringatan tidak berkedip saat halaman pertama kali dibuka.
-              const orphanSubEvent = session.sub_event_id !== null && payload !== null
-                && !payload.available_sub_events.some((item) => item.subEventId === session.sub_event_id);
-              return <article key={session.id} className="rounded-lg border border-outline-variant bg-panel p-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-title-medium font-semibold text-on-surface">{session.name}</h3>
-                  <span className={`rounded-sm inline-flex items-center gap-1 border px-2 py-1 text-body-small font-semibold ${session.is_published ? "border-success text-success" : "border-outline-variant text-on-surface-variant"}`}>
-                    {session.is_published ? <><Eye size={14} /> Publik</> : <><EyeSlash size={14} /> Draf</>}
-                  </span>
-                </div>
-                <p className="mt-1 text-body-small text-on-surface-variant">URL publik: /denah?sesi={session.slug}</p>
-
-                <label className="mt-4 block text-body-medium font-semibold" htmlFor={`name-${session.id}`}>Nama agenda</label>
-                <input id={`name-${session.id}`} value={session.name} maxLength={120} onChange={(event) => updateSession(session.id, { name: event.target.value })}
-                  className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1" />
-                <p className="mt-1 text-body-small text-on-surface-variant">Dipakai di tombol pemilih agenda, bukan di judul besar.</p>
-
-                <label className="mt-3 block text-body-medium font-semibold" htmlFor={`title-${session.id}`}>Judul di halaman publik</label>
-                <input id={`title-${session.id}`} value={session.title} onChange={(event) => updateSession(session.id, { title: event.target.value })}
-                  className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1" />
-
-                <label className="mt-3 block text-body-medium font-semibold" htmlFor={`subtitle-${session.id}`}>Sub judul</label>
-                <input id={`subtitle-${session.id}`} value={session.subtitle ?? ""} onChange={(event) => updateSession(session.id, { subtitle: event.target.value })}
-                  className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1" />
-
-                <label className="mt-3 block text-body-medium font-semibold" htmlFor={`subevent-${session.id}`}>Sumber penempatan (sub-event scanner API)</label>
-                <select id={`subevent-${session.id}`} value={session.sub_event_id ?? ""} onChange={(event) => updateSession(session.id, { sub_event_id: event.target.value || null })}
-                  className="m3-field h-11 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium mt-1">
-                  <option value="">— Belum dipilih —</option>
-                  {payload?.available_sub_events.map((item) => <option key={item.subEventId} value={item.subEventId}>{item.subEventName} ({item.seatCount} kursi)</option>)}
-                  {/* Pilihan tersimpan yang sudah tidak ada di data tetap ditampilkan,
-                      supaya tidak berubah diam-diam menjadi "belum dipilih". */}
-                  {orphanSubEvent && session.sub_event_id
-                    ? <option value={session.sub_event_id}>{session.sub_event_id} (tidak ada di data terbaru)</option>
-                    : null}
-                </select>
-                {payload?.available_sub_events.length === 0
-                  ? <p className="mt-1 text-body-small text-warning">Scanner API belum mengirim data kursi. Pilihan akan muncul setelah panitia mengisinya.</p>
-                  : null}
-                {/* Perangkap yang paling mudah terjadi: sesi sudah dipublikasikan
-                    tapi penempatannya tidak dapat dipetakan. Denahnya tampil rapi dan
-                    seolah benar, padahal semua kursi kosong, sehingga terlihat
-                    seperti data peserta yang tidak terbaca. Dua penyebabnya dibedakan
-                    karena tindakan pemulihannya berbeda: yang satu perlu dipilih di
-                    sini, yang satu perlu diisi panitia di sisi scanner API. */}
-                {session.is_published && (!session.sub_event_id || orphanSubEvent)
-                  ? <p className="mt-2 flex gap-2 rounded-md border border-warning bg-warning-soft p-2 text-body-small text-warning">
-                      <Warning size={16} className="mt-0.5 shrink-0" />
-                      <span>{session.sub_event_id
-                        ? <>Sesi ini sudah publik tapi <strong>sumber penempatannya tidak ada lagi di data scanner API</strong>, jadi semua kursi tampak kosong. Pilihan tetap disimpan. Kursi akan muncul kembali setelah panitia mengisi data kursi untuk sub-event ini di sisi klien.</>
-                        : <>Sesi ini sudah publik tapi <strong>sumber penempatan belum dipilih</strong>, jadi semua kursi tampak kosong. Pilih sub-event di atas lalu simpan.</>}</span>
-                    </p>
-                  : null}
-
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {([["background_color", "Latar"], ["text_color", "Teks"], ["accent_color", "Aksen"]] as const).map(([key, label]) => <div key={key}>
-                    <label className="block text-body-small font-semibold" htmlFor={`${key}-${session.id}`}>{label}</label>
-                    <input id={`${key}-${session.id}`} type="color" value={session[key]} onChange={(event) => updateSession(session.id, { [key]: event.target.value })}
-                      className="rounded-md mt-1 h-11 w-full border border-outline-variant" />
-                  </div>)}
-                </div>
-
-                {/* Warna kursi.
-                    Terpisah dari tiga warna dasar di atas karena maknanya berbeda:
-                    yang di atas adalah warna LAYAR, yang di sini adalah KEADAAN
-                    kursi. Sebelum ada kolom ini kursi meminjam warna layar — kursi
-                    terisi memakai warna teks — sehingga warna kursi tidak dapat
-                    diubah tanpa ikut mengubah nomor meja dan judul. */}
-                <fieldset className="rounded-lg mt-4 border border-outline-variant p-3">
-                  <legend className="px-1 text-body-small font-semibold ed-label text-on-surface-variant">Warna kursi</legend>
-                  <p className="text-body-small text-on-surface-variant">
-                    Kosongkan (tombol Bawaan) untuk mengikuti warna layar seperti sebelumnya.
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    {([
-                      ["seat_available_color", "Kursi kosong", "Bawaan: warna Latar"],
-                      ["seat_occupied_color", "Kursi terisi", "Bawaan: warna Teks"],
-                      ["seat_checked_in_color", "Sudah check-in", "Bawaan: hijau"],
-                      ["seat_outline_color", "Garis tepi kursi", "Bawaan: warna Teks"],
-                    ] as const).map(([key, label, hint]) => {
-                      // Warna EFEKTIF, yaitu yang benar-benar tampil di denah.
-                      // `<input type="color">` tidak bisa kosong, jadi tanpa ini
-                      // kolom yang belum disetel akan menampilkan hitam dan admin
-                      // mengira kursinya memang hitam.
-                      const effective = resolveSeatColors(session, {
-                        backgroundColor: session.background_color,
-                        textColor: session.text_color,
-                      });
-                      const shown = session[key] ?? (
-                        key === "seat_available_color" ? effective.available
-                          : key === "seat_occupied_color" ? effective.occupied
-                            : key === "seat_checked_in_color" ? effective.checkedIn
-                              : effective.outline
-                      );
-                      return <div key={key}>
-                        <label className="block text-body-small font-semibold" htmlFor={`${key}-${session.id}`}>{label}</label>
-                        <div className="mt-1 flex items-center gap-2">
-                          <input id={`${key}-${session.id}`} type="color" value={shown}
-                            onChange={(event) => updateSession(session.id, { [key]: event.target.value })}
-                            className="rounded-md h-11 w-full border border-outline-variant" />
-                          {/* Tombol reset wajib ada: `<input type="color">` tidak
-                              punya keadaan kosong, jadi tanpa tombol ini sebuah
-                              warna tidak akan pernah bisa dikembalikan ke bawaan
-                              setelah sekali disentuh. Idiom yang sama dipakai
-                              BrandingEditor. */}
-                          <button type="button" onClick={() => updateSession(session.id, { [key]: null })}
-                            disabled={session[key] === null}
-                            className="rounded-md min-h-11 shrink-0 border border-outline-variant px-2 text-body-small font-semibold disabled:opacity-40">Bawaan</button>
-                        </div>
-                        <p className="mt-1 text-label-small text-on-surface-variant">{session[key] ? session[key]?.toUpperCase() : hint}</p>
-                      </div>;
-                    })}
+  const isiAgenda = aktif ? (
+    <div className="flex flex-col gap-5">
+      <Switch
+        checked={aktif.is_published}
+        onChange={(checked) => updateSession(aktif.id, { is_published: checked })}
+        label="Tampil ke tamu"
+        description={`/denah?sesi=${aktif.slug}`}
+      />
+      <Kelompok title="Isi">
+        <Field label="Nama agenda" htmlFor="agenda-name" hint="Dipakai di tab dan tombol pemilih agenda.">
+          <input id="agenda-name" value={aktif.name} maxLength={120} onChange={(event) => updateSession(aktif.id, { name: event.target.value })} className={INPUT} />
+        </Field>
+        <Field label="Judul di halaman publik" htmlFor="agenda-title"><input id="agenda-title" value={aktif.title} onChange={(event) => updateSession(aktif.id, { title: event.target.value })} className={INPUT} /></Field>
+        <Field label="Sub judul" htmlFor="agenda-subtitle"><input id="agenda-subtitle" value={aktif.subtitle ?? ""} onChange={(event) => updateSession(aktif.id, { subtitle: event.target.value })} className={INPUT} /></Field>
+        <Field label="Sumber penempatan" htmlFor="agenda-source" hint="Sub-event scanner API yang mengisi nomor kursi peserta.">
+          <select id="agenda-source" value={aktif.sub_event_id ?? ""} onChange={(event) => updateSession(aktif.id, { sub_event_id: event.target.value || null })} className={INPUT}>
+            <option value="">Belum dipilih</option>
+            {payload?.available_sub_events.map((item) => <option key={item.subEventId} value={item.subEventId}>{item.subEventName} ({item.seatCount} kursi)</option>)}
+            {orphanSubEvent && aktif.sub_event_id ? <option value={aktif.sub_event_id}>{aktif.sub_event_id} (tidak ada di data terbaru)</option> : null}
+          </select>
+        </Field>
+        {payload?.available_sub_events.length === 0 ? <p className="text-body-medium text-warning">Scanner API belum mengirim data kursi. Pilihan muncul setelah panitia mengisinya.</p> : null}
+        {aktif.is_published && (!aktif.sub_event_id || orphanSubEvent) ? (
+          <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
+            <Warning size={16} className="mt-0.5 shrink-0 text-warning" />
+            {aktif.sub_event_id
+              ? "Agenda ini tampil ke tamu, tapi sumber penempatannya tidak ada lagi di data scanner API, jadi semua kursi tampak kosong."
+              : "Agenda ini tampil ke tamu, tapi sumber penempatan belum dipilih, jadi semua kursi tampak kosong."}
+          </p>
+        ) : null}
+      </Kelompok>
+      <Kelompok title="Tampilan">
+        <div className="grid grid-cols-3 gap-2">
+          {([["background_color", "Latar"], ["text_color", "Teks"], ["accent_color", "Aksen"]] as const).map(([key, label]) => (
+            <Field key={key} label={label} htmlFor={`${key}-${aktif.id}`}>
+              <input id={`${key}-${aktif.id}`} type="color" value={aktif[key]} onChange={(event) => updateSession(aktif.id, { [key]: event.target.value })} className="mt-1.5 h-9 w-full rounded-md border border-outline" />
+            </Field>
+          ))}
+        </div>
+        <div>
+          <Lipatan title="Warna kursi" detail="Kosong, terisi, sudah check-in, garis tepi">
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                ["seat_available_color", "Kursi kosong", "Bawaan: warna latar"],
+                ["seat_occupied_color", "Kursi terisi", "Bawaan: warna teks"],
+                ["seat_checked_in_color", "Sudah check-in", "Bawaan: hijau"],
+                ["seat_outline_color", "Garis tepi", "Bawaan: warna teks"],
+              ] as const).map(([key, label, hint]) => {
+                const shown = aktif[key] ?? (
+                  key === "seat_available_color" ? warnaEfektif?.available
+                    : key === "seat_occupied_color" ? warnaEfektif?.occupied
+                      : key === "seat_checked_in_color" ? warnaEfektif?.checkedIn
+                        : warnaEfektif?.outline
+                ) ?? "#000000";
+                return (
+                  <div key={key}>
+                    <label className="block text-body-medium font-medium" htmlFor={`${key}-${aktif.id}`}>{label}</label>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <input id={`${key}-${aktif.id}`} type="color" value={shown} onChange={(event) => updateSession(aktif.id, { [key]: event.target.value })} className="h-9 w-full rounded-md border border-outline" />
+                      <Button variant="outlined" size="sm" disabled={aktif[key] === null} onClick={() => updateSession(aktif.id, { [key]: null })}>Bawaan</Button>
+                    </div>
+                    <p className="mt-1 text-body-medium text-on-surface-variant">{aktif[key] ? aktif[key]?.toUpperCase() : hint}</p>
                   </div>
-                  <p className="mt-3 text-label-small text-on-surface-variant">
-                    Warna &quot;Sudah check-in&quot; hanya tampil pada layar yang menyalakan tampilan kehadiran.
-                    Huruf kursi otomatis memakai hitam atau putih mengikuti terang-gelapnya warna yang dipilih.
-                  </p>
-                </fieldset>
-
-                {/* Gambar latar bersifat opsional dan berdiri di atas warna, bukan
-                    menggantikannya. Warna latar tetap dipakai di belakang gambar
-                    supaya teks tidak hilang bila gambar gagal dimuat di LED.
-                    Keterangan itu ditulis di layar, bukan hanya di komentar kode,
-                    karena admin tidak dapat menebaknya dari tampilan form. */}
-                <div className="mt-4">
-                  <p className="text-body-medium font-semibold">Gambar latar <span className="font-normal text-on-surface-variant">(opsional)</span></p>
-                  <p className="mt-1 text-body-small leading-5 text-on-surface-variant">
-                    Kosongkan untuk memakai warna latar saja. Gambar diberi lapisan gelap otomatis agar nomor meja dan QR tetap terbaca. PNG, JPG, atau WebP, maksimal 5 MB.
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <label className={`rounded-md inline-flex min-h-11 cursor-pointer items-center gap-2 border border-outline-variant bg-surface px-3 text-body-medium font-semibold hover:border-primary ${uploadingBackground === session.id ? "pointer-events-none opacity-60" : ""}`}>
-                      <UploadSimple size={17} weight="bold" />
-                      {uploadingBackground === session.id ? "Mengunggah…" : "Upload gambar"}
-                      <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-                        disabled={uploadingBackground === session.id}
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (file) void uploadSessionBackground(session, file);
-                          // Direset supaya memilih berkas yang sama dua kali tetap
-                          // memicu onChange.
-                          event.target.value = "";
-                        }} />
-                    </label>
-                    {session.background_image_url
-                      ? <button type="button" onClick={() => updateSession(session.id, { background_image_url: null })}
-                          className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-3 text-body-medium font-semibold text-error hover:border-error">
-                          <XCircle size={17} weight="bold" /> Hapus gambar
-                        </button>
-                      : null}
-                  </div>
-                  {session.background_image_url
-                    ? <div className="mt-2 flex items-center gap-2">
-                        <span className="rounded-md h-12 w-20 shrink-0 border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${session.background_image_url})` }} />
-                        <span className="break-all text-label-small leading-4 text-on-surface-variant">{session.background_image_url}</span>
-                      </div>
-                    : null}
-
-                  {/* Tanpa pilihan ini, denah selalu digambar sebagai kotak warna
-                      solid di tengah halaman, sehingga gambar latar hanya terlihat
-                      di pinggirnya. Itu bagian layar yang paling luas, jadi gambar
-                      terasa tidak terpakai.
-
-                      Hanya muncul saat ada gambar latar. Kanvas tembus pandang tanpa
-                      gambar di belakangnya menampilkan warna yang sama persis, jadi
-                      pilihan yang selalu tampil akan terlihat seperti setelan rusak.
-
-                      Warna latar TIDAK diganti menjadi "transparan" untuk tujuan ini.
-                      Warna itu juga menjadi warna teks nomor meja dan label panggung,
-                      jadi menembuskannya akan menghilangkan nomor mejanya. */}
-                  {session.background_image_url
-                    ? <label className="mt-3 flex min-h-11 cursor-pointer items-start gap-3 text-body-medium">
-                        <input type="checkbox" checked={session.map_panel_transparent}
-                          onChange={(event) => updateSession(session.id, { map_panel_transparent: event.target.checked })}
-                          className="mt-1 size-4 shrink-0 accent-primary" />
-                        <span>
-                          <span className="font-semibold">Denah tembus pandang</span>
-                          <span className="mt-0.5 block text-body-small leading-5 text-on-surface-variant">
-                            Menghilangkan kotak warna di belakang meja supaya gambar latar terlihat penuh. Nomor meja tetap memakai warna latar agar terbaca.
-                          </span>
-                        </span>
-                      </label>
-                    : null}
-                </div>
-
-                {/* Header dan footer branding. Memakai editor yang sama dengan
-                    /admin/display supaya field di kedua CMS tidak pernah berbeda.
-
-                    `idPrefix` memakai id agenda: setiap agenda punya kartunya
-                    sendiri di halaman ini, dan tanpa pembeda seluruh label akan
-                    menunjuk ke input pada kartu pertama. */}
-                <div className="mt-5 border-t border-outline-variant pt-5">
-                  <p className="text-title-medium font-semibold text-on-surface">Header &amp; footer</p>
-                  <div className="mt-3">
-                    <BrandingEditor
-                      idPrefix={`session-${session.id}`}
-                      value={normalizeBranding(session as unknown as Record<string, unknown>)}
-                      onChange={(changes) => updateSession(session.id, changes)}
-                      baseTextColor={session.text_color}
-                      baseBackgroundColor={session.background_color}
-                      baseAccentColor={session.accent_color}
-                    />
-                  </div>
-                </div>
-
-                <label className="mt-5 flex min-h-11 cursor-pointer items-center gap-3 border-t border-outline-variant pt-5 text-body-medium font-semibold">
-                  <input type="checkbox" checked={session.is_published} onChange={(event) => updateSession(session.id, { is_published: event.target.checked })}
-                    className="size-4 accent-primary" />
-                  Tampilkan di halaman publik
+                );
+              })}
+            </div>
+          </Lipatan>
+          <Lipatan title="Gambar latar" detail={aktif.background_image_url ? "Terpasang" : "Belum ada, PNG/JPG/WebP maks 5 MB"}>
+            <div className="flex flex-col gap-3">
+              <p className="text-body-medium text-on-surface-variant">Gambar diberi lapisan gelap otomatis agar nomor meja dan QR tetap terbaca.</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className={cx("inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium font-medium hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary", uploadingBackground === aktif.id && "pointer-events-none opacity-60")}>
+                  <UploadSimple size={16} />
+                  {uploadingBackground === aktif.id ? "Mengunggah..." : "Unggah gambar"}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={uploadingBackground === aktif.id}
+                    onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadSessionBackground(aktif, file); event.target.value = ""; }} />
                 </label>
+                {aktif.background_image_url ? <Button variant="text" size="sm" className="text-error" onClick={() => updateSession(aktif.id, { background_image_url: null })}>Hapus gambar</Button> : null}
+              </div>
+              {aktif.background_image_url ? (
+                <>
+                  <span className="h-16 w-28 rounded-md border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${aktif.background_image_url})` }} />
+                  <label className="flex cursor-pointer items-start gap-3 text-body-medium">
+                    <input type="checkbox" checked={aktif.map_panel_transparent} onChange={(event) => updateSession(aktif.id, { map_panel_transparent: event.target.checked })} className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
+                    <span><span className="block font-medium">Denah tembus pandang</span><span className="block text-on-surface-variant">Gambar latar terlihat penuh di belakang meja.</span></span>
+                  </label>
+                </>
+              ) : null}
+            </div>
+          </Lipatan>
+          <Lipatan title="Header & footer" detail="Logo, blok sponsor, jenis dan ukuran huruf">
+            <BrandingEditor
+              idPrefix={`session-${aktif.id}`}
+              value={normalizeBranding(aktif as unknown as Record<string, unknown>)}
+              onChange={(changes) => updateSession(aktif.id, changes)}
+              baseTextColor={aktif.text_color}
+              baseBackgroundColor={aktif.background_color}
+              baseAccentColor={aktif.accent_color}
+            />
+          </Lipatan>
+        </div>
+      </Kelompok>
+      <section className="flex items-center gap-3 border-t border-outline-variant pt-5">
+        <div className="min-w-0 flex-1">
+          <p className="text-body-medium font-medium">Hapus agenda</p>
+          <p className="text-body-medium text-on-surface-variant">Tampilan dan sumbernya hilang; data peserta tetap.</p>
+        </div>
+        <Button variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmDelete(aktif)}>Hapus</Button>
+      </section>
+    </div>
+  ) : (
+    <EmptyState
+      plain
+      title="Belum ada agenda"
+      description="Agenda menentukan apa yang dilihat tamu di halaman denah. Agenda baru selalu dibuat sebagai draf."
+      action={<Button size="sm" icon={<Plus size={16} />} onClick={() => setAddOpen(true)}>Tambah agenda</Button>}
+    />
+  );
 
-                {report ? <div className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-3 text-body-medium">
-                  <p className="font-semibold">Pencocokan data</p>
-                  <ul className="mt-1 space-y-1 text-on-surface-variant">
-                    <li>{report.matched_seats} kursi terisi, {report.empty_seats} kosong.</li>
-                    <li>{report.participants_without_seat} dari {report.total_active_participants} peserta aktif belum punya kursi di sesi ini.</li>
-                  </ul>
-                  {report.unmatched_count > 0
-                    ? <p className="mt-2 flex gap-2 rounded-md border border-error bg-error-soft p-2 text-body-small text-error">
-                        <Warning size={16} className="mt-0.5 shrink-0" />
-                        <span>
-                          <strong>{report.unmatched_count} label tidak ada di denah</strong>, jadi peserta tersebut tidak muncul di mana pun.
-                          Contoh: <code>{report.unmatched_labels.slice(0, 6).join(", ")}</code>. Sesuaikan pola label kursi di atas.
-                        </span>
-                      </p>
-                    : report.total_assignments > 0
-                      ? <p className="mt-2 flex items-center gap-2 text-body-small text-success"><CheckCircle size={16} /> Semua label cocok dengan denah.</p>
-                      : null}
-                </div> : null}
+  const kaki: Record<Bagian, { note: ReactNode; aksi: ReactNode }> = {
+    ruangan: {
+      note: labelConflicts.length > 0 ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Betulkan label meja ganda dulu</span> : "Semua agenda ikut berubah",
+      aksi: <Button size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>Simpan tata letak</Button>,
+    },
+    layar: {
+      note: "Berlaku untuk semua layar",
+      aksi: <Button size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>Simpan</Button>,
+    },
+    agenda: {
+      note: aktif ? "Hanya agenda ini" : null,
+      aksi: aktif ? <Button size="sm" onClick={() => void saveSession(aktif)} loading={savingSession === aktif.id}>Simpan agenda</Button> : null,
+    },
+  };
 
-                <div className="mt-5 flex justify-end border-t border-outline-variant pt-4">
-                  <Button onClick={() => void saveSession(session)} loading={savingSession === session.id}>Simpan agenda</Button>
-                </div>
+  const panel = (
+    <Pane as="aside" aria-label="Setelan denah">
+      <div className="shrink-0 border-b border-outline-variant px-4 py-3">
+        <SegmentedButton<Bagian>
+          label="Bagian setelan"
+          value={bagian}
+          onChange={setBagian}
+          className="w-full"
+          options={[{ value: "ruangan", label: "Ruangan" }, { value: "agenda", label: "Agenda ini" }, { value: "layar", label: "Layar publik" }]}
+        />
+      </div>
+      <PaneBody className="px-4 py-4">{bagian === "ruangan" ? isiRuangan : bagian === "layar" ? isiLayar : isiAgenda}</PaneBody>
+      <PaneFooter note={kaki[bagian].note}>{kaki[bagian].aksi}</PaneFooter>
+    </Pane>
+  );
 
-                {/* Hapus dipisah di bawah garis dan butuh satu langkah konfirmasi.
-                    Agenda yang dipublikasikan disebut khusus karena menghapusnya
-                    langsung mengubah apa yang dilihat tamu saat itu. */}
-                <div className="mt-4 border-t border-outline-variant pt-4">
-                  {confirmDelete === session.id
-                    ? <div className="rounded-lg border border-error bg-error-soft p-3">
-                        <p className="text-body-small text-error">
-                          Hapus <strong>{session.name}</strong>?{session.is_published ? " Agenda ini sedang tampil ke tamu." : ""} Tampilan dan pilihan sumbernya hilang; data peserta tidak terpengaruh karena penempatan tersimpan di scanner API.
-                        </p>
-                        <div className="mt-3 flex gap-2">
-                          <button type="button" onClick={() => void deleteAgenda(session)} disabled={deleting === session.id}
-                            className="rounded-md min-h-11 flex-1 bg-error px-3 text-body-medium font-semibold text-on-error disabled:opacity-60">
-                            {deleting === session.id ? "Menghapus…" : "Ya, hapus"}
-                          </button>
-                          <button type="button" onClick={() => setConfirmDelete(null)}
-                            className="rounded-lg min-h-11 flex-1 border border-outline-variant bg-panel px-3 text-body-medium font-semibold">
-                            Batal
-                          </button>
-                        </div>
-                      </div>
-                    : <button type="button" onClick={() => setConfirmDelete(session.id)}
-                        className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold text-error">
-                        <Trash size={16} /> Hapus agenda
-                      </button>}
-                </div>
-              </article>;
-            })}
+  return (
+    <WorkspacePage fill>
+      <WorkspaceHeader
+        meta={config ? (
+          <>
+            <span>{LAYOUT_INFO[config.layout_type].name}</span>
+            <MetaSeparator />
+            <span>{payload?.geometry.total_tables ?? 0} meja, {payload?.geometry.total_seats ?? 0} kursi</span>
+            <MetaSeparator />
+            <span>Penempatan peserta dari scanner API</span>
+          </>
+        ) : null}
+        actions={
+          <>
+            <ButtonLink href="/denah?mode=qr" target="_blank" rel="noreferrer" variant="outlined" icon={<Monitor size={16} />}>Pratinjau LED</ButtonLink>
+            <ButtonLink href="/denah" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Halaman publik</ButtonLink>
+          </>
+        }
+      />
+
+      {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
+
+      {!config ? <PageLoading /> : (
+        <>
+          <div className="flex shrink-0 items-end gap-2 border-b border-outline-variant">
+            {sessions.length > 0 ? (
+              <Tabs
+                label="Agenda"
+                idPrefix="agenda"
+                value={aktif?.slug ?? ""}
+                onChange={(slug) => setPreviewSlug(slug)}
+                className="min-w-0 border-b-0"
+                options={sessions.map((item) => ({ value: item.slug, label: item.name, badge: item.is_published ? undefined : "Draf" }))}
+              />
+            ) : <span className="py-2.5 text-body-medium text-on-surface-variant">Belum ada agenda</span>}
+            <button type="button" onClick={() => setAddOpen(true)} className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body-medium font-medium text-primary hover:bg-primary-soft">
+              <Plus size={14} />Agenda
+            </button>
           </div>
+          <div role="tabpanel" id={`agenda-panel-${aktif?.slug ?? ""}`} aria-labelledby={aktif ? `agenda-tab-${aktif.slug}` : undefined} className="flex min-h-0 flex-1 flex-col">
+            <SupportingPane main={peta} pane={panel} />
           </div>
-        )}
-      </PageSection>
-    </PageBody>}
-  </PageShell>;
+        </>
+      )}
+
+      <Dialog
+        open={addOpen}
+        onClose={() => { setAddOpen(false); setNewAgendaName(""); }}
+        dismissible={!creating}
+        size="sm"
+        title="Tambah agenda"
+        description="Agenda baru dibuat sebagai draf, jadi belum tampil ke tamu."
+        actions={
+          <>
+            <Button variant="outlined" disabled={creating} onClick={() => { setAddOpen(false); setNewAgendaName(""); }}>Batal</Button>
+            <Button type="submit" form="form-agenda" loading={creating} disabled={!newAgendaName.trim()}>Tambah agenda</Button>
+          </>
+        }
+      >
+        <form id="form-agenda" onSubmit={(event) => { event.preventDefault(); void createAgenda(); }}>
+          <Field label="Nama agenda" htmlFor="new-agenda">
+            <input id="new-agenda" autoFocus value={newAgendaName} maxLength={120} onChange={(event) => setNewAgendaName(event.target.value)} placeholder="Misalnya: Coffee Break Siang" className={INPUT} />
+          </Field>
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={confirmDelete !== null}
+        onClose={() => setConfirmDelete(null)}
+        dismissible={!deleting}
+        tone="danger"
+        title={`Hapus agenda ${confirmDelete?.name ?? ""}?`}
+        description={`${confirmDelete?.is_published ? "Agenda ini sedang tampil ke tamu. " : ""}Tampilan dan pilihan sumbernya hilang. Data peserta tidak terpengaruh karena penempatan tersimpan di scanner API.`}
+        actions={
+          <>
+            <Button variant="outlined" disabled={deleting} onClick={() => setConfirmDelete(null)}>Batal</Button>
+            <Button variant="danger" loading={deleting} onClick={() => { if (confirmDelete) void deleteAgenda(confirmDelete); }}>Hapus agenda</Button>
+          </>
+        }
+      />
+    </WorkspacePage>
+  );
 }

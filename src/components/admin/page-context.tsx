@@ -28,6 +28,10 @@ export type AdminPageMeta = {
 	icon?: ComponentType<{ size?: number; weight?: "fill" | "regular" | "duotone" }>;
 	/** Satu kalimat: apa yang dikerjakan di layar ini. */
 	description?: string;
+	/** Akun yang sedang masuk. Kunci untuk preferensi per akun, mis. kolom tabel. */
+	username?: string | null;
+	/** Slug acara yang sedang dibuka. Bagian kunci preferensi yang sama. */
+	eventSlug?: string | null;
 };
 
 const AdminPageContext = createContext<AdminPageMeta | null>(null);

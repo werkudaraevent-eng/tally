@@ -89,7 +89,7 @@ export function undianReadiness(input: ReadinessInput): ReadinessStep[] {
       label: "Sumber peserta tersedia",
       detail: sumberDone
         ? ""
-        : `Hadiah ${nameList(brokenGroup.map((prize) => prize.name))} diundi dari daftar entri, tetapi daftarnya belum dipilih atau masih kosong. Impor daftarnya di tab Sumber data.`,
+        : `Hadiah ${nameList(brokenGroup.map((prize) => prize.name))} diundi dari daftar entri, tetapi daftarnya belum dipilih atau masih kosong. Impor daftarnya di tab Daftar import.`,
       done: sumberDone,
       // Tidak mengunci: pemeriksaan kandidat di bawah pasti ikut gagal untuk
       // hadiah yang sama, dan dua gembok untuk satu sebab hanya membingungkan.
@@ -99,7 +99,7 @@ export function undianReadiness(input: ReadinessInput): ReadinessStep[] {
     {
       id: "hadiah",
       label: "Ada hadiah siap diundi",
-      detail: hadiahDone ? "" : "Belum ada hadiah aktif dengan kuota pemenang minimal satu. Tambahkan di tab Hadiah & syarat.",
+      detail: hadiahDone ? "" : "Belum ada hadiah aktif dengan kuota pemenang minimal satu. Tambahkan di tab Hadiah.",
       done: hadiahDone,
       blocking: true,
       tab: "prizes",
@@ -121,7 +121,7 @@ export function undianReadiness(input: ReadinessInput): ReadinessStep[] {
       label: "Sesi undian dibuka",
       detail: input.activeSession
         ? ""
-        : "Belum ada sesi berjalan. Undian tetap bisa dijalankan — hasilnya saja yang tidak terkelompok, dan bisa dirapikan belakangan lewat adopsi sesi.",
+        : "Belum ada sesi berjalan. Undian tetap bisa dijalankan, hasilnya saja yang tidak terkelompok, dan bisa dirapikan belakangan lewat adopsi sesi.",
       done: input.activeSession !== null,
       blocking: false,
       tab: "history",

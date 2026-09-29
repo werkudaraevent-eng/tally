@@ -43,6 +43,34 @@ const querySchema = z.object({
   rsvp: z.enum(["invited", "confirmed", "none"]).optional(),
 });
 
+/**
+ * Perusahaan peserta aktif beserta jumlahnya, untuk chip saring "Perusahaan".
+ * Dibaca per 1000 baris karena PostgREST memotong satu jawaban di 1000.
+ * Nilai "" = peserta tanpa perusahaan.
+ */
+async function daftarPerusahaan(eventId: string): Promise<Array<{ company: string; count: number }>> {
+  const client = getSupabaseServiceClient();
+  const hitung = new Map<string, number>();
+  for (let dari = 0; dari < 20000; dari += 1000) {
+    const { data, error } = await client
+      .from("participants")
+      .select("company")
+      .eq("event_id", eventId)
+      .is("source_removed_at", null)
+      .order("id")
+      .range(dari, dari + 999);
+    if (error || !data) break;
+    for (const baris of data as Array<{ company: string | null }>) {
+      const nama = baris.company?.trim() ?? "";
+      hitung.set(nama, (hitung.get(nama) ?? 0) + 1);
+    }
+    if (data.length < 1000) break;
+  }
+  return [...hitung.entries()]
+    .map(([company, count]) => ({ company, count }))
+    .sort((a, b) => (a.company === "" ? 1 : b.company === "" ? -1 : a.company.localeCompare(b.company, "id")));
+}
+
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
@@ -51,8 +79,10 @@ export async function GET(request: Request) {
 
   const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
+  // Nama perusahaan bisa mengandung koma, jadi dikirim sebagai parameter berulang.
+  const companies = new URL(request.url).searchParams.getAll("company").map((nama) => nama.trim()).slice(0, 50);
 
-  const [halaman, sesi, semua, dihapus, dariScanner, terakhir] = await Promise.all([
+  const [halaman, sesi, semua, dihapus, dariScanner, terakhir, perusahaan] = await Promise.all([
     client.rpc("list_event_participants" as never, {
       p_event_id: eventId,
       p_q: parsed.data.q,
@@ -67,6 +97,9 @@ export async function GET(request: Request) {
       p_dir: parsed.data.dir,
       p_limit: parsed.data.limit,
       p_offset: parsed.data.offset,
+      // Hanya dikirim bila dipakai: fungsi versi lama (sebelum migrasi
+      // 202609290001) tidak mengenal parameter ini dan akan menolak panggilannya.
+      ...(companies.length > 0 ? { p_companies: companies } : {}),
     } as never),
     client
       .from("attendance_sessions")
@@ -90,9 +123,13 @@ export async function GET(request: Request) {
      */
     client.from("participants").select("id", { count: "exact", head: true }).eq("event_id", eventId).not("source_participant_id", "is", null),
     client.from("participants").select("source_synced_at").eq("event_id", eventId).order("source_synced_at", { ascending: false }).limit(1).maybeSingle(),
+    daftarPerusahaan(eventId),
   ]);
 
-  if (halaman.error) return apiError("INTERNAL_ERROR", 500);
+  if (halaman.error) {
+    if (companies.length > 0) return apiError("VALIDATION_ERROR", 422, { message: "Saringan perusahaan belum aktif: migrasi 202609290001 belum diterapkan." });
+    return apiError("INTERNAL_ERROR", 500);
+  }
 
   const hasil = (halaman.data ?? { rows: [], total: 0 }) as { rows: unknown[]; total: number };
   const totalSemua = semua.count ?? 0;
@@ -114,6 +151,7 @@ export async function GET(request: Request) {
     // ditutup akan terbaca sebagai data yang lenyap.
     sessions: sesi.data ?? [],
     scanner_columns: (dariScanner.count ?? 0) > 0,
+    companies: perusahaan,
     // Susunan field tambahan dikirim bersama daftarnya, bukan diambil terpisah
     // dari endpoint pendaftaran: kolom tabel dan isinya harus datang dari satu
     // jawaban, supaya tidak ada satu putaran render dengan kolom yang belum

@@ -406,7 +406,7 @@ export function AdminShell({
     togglePin();
   }
 
-  const versi = process.env.NEXT_PUBLIC_APP_VERSION ?? "—";
+  const versi = process.env.NEXT_PUBLIC_APP_VERSION ?? "–";
 
   /** Lebar VISUAL rel. Peek ikut melebarkannya; lebar kolom konten tidak. */
   const rail = desktop && !pinned && !peeking;
@@ -596,6 +596,8 @@ export function AdminShell({
             label: currentPage?.label ?? "Ruang kerja",
             icon: currentPage?.icon,
             description: currentPage?.description,
+            username: akun?.username ?? null,
+            eventSlug: eventSlug || null,
           }}
         >
           <AdminHeaderScrollProvider value={{ terlewat: judulTerlewat, amati: amatiJudul }}>
