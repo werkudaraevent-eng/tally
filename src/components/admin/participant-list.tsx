@@ -129,6 +129,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [filterRsvp, setFilterRsvp] = useState("");
   const [filterPerusahaan, setFilterPerusahaan] = useState<string[]>([]);
   const [total, setTotal] = useState(0);
+  const [removedCount, setRemovedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -166,6 +167,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       setSessions((data.sessions ?? []) as SesiKehadiran[]);
       setCompanies((data.companies ?? []) as FacetPerusahaan[]);
       setScannerColumns(Boolean(data.scanner_columns));
+      setRemovedCount(data.removed_count ?? 0);
       onStats?.({ total: data.total ?? 0, activeTotal: data.active_total ?? data.total ?? 0, removedCount: data.removed_count ?? 0, lastSyncedAt: data.last_synced_at ?? null });
     } catch {
       if (nomor === urutanMuat.current) setError("Koneksi terputus. Coba lagi.");
@@ -489,7 +491,10 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                         aria-pressed={aktif}
                         className="block w-full min-w-0 rounded-sm text-left"
                       >
-                        <span className="block truncate font-medium text-on-surface" title={participant.name}>{participant.name}</span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate font-medium text-on-surface" title={participant.name}>{participant.name}</span>
+                          {participant.source_removed_at ? <StatusChip tone="warning" className="shrink-0">Dihapus di sumber</StatusChip> : null}
+                        </span>
                         {jabatanDiBawahNama ? <span className="block truncate text-on-surface-variant">{participant.title || " "}</span> : null}
                       </button>
                     </td>
@@ -511,6 +516,13 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         note={
           <span className="flex flex-wrap items-center gap-x-2">
             <span className="tabular-nums">{error ? "Daftar tidak dimuat" : `${dari}–${sampai} dari ${total}`}</span>
+            {/* Menjelaskan selisih "dari 278" dengan "247 peserta aktif" di kepala halaman.
+                removed_count dihitung tanpa saringan, jadi hanya benar saat tidak ada saringan. */}
+            {!error && removedCount > 0 && !adaFilter && !query.trim() ? (
+              <span className="tabular-nums" title="Tetap disimpan untuk audit, tapi tidak muncul di pencarian booth dan kasir serta tidak dihitung di laporan.">
+                termasuk {removedCount} dihapus di sumber
+              </span>
+            ) : null}
             {adaFilter ? <button type="button" onClick={resetFilter} className="rounded-sm font-medium text-primary hover:underline">Hapus semua saringan</button> : null}
           </span>
         }

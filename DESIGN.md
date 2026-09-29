@@ -864,9 +864,16 @@ Aturan yang mengikat semuanya:
 - `WorkspaceHeader` membawa `<h1>` halaman (30px/600, judul dari
   `nav-config.ts`), satu baris meta, dan aksi halaman di kanan. Aksi utama
   (filled) paling banyak satu.
+- Baris meta memuat **fakta**, bukan aksi, dan harus muat satu baris. Tautan
+  aksi (sync, kelola) pindah ke tombol di area aksi; keterangan yang hanya
+  relevan saat menelusuri (mis. peserta dihapus di sumber) ditaruh di tempat
+  kebingungannya muncul, seperti kaki tabel atau baris itu sendiri.
 - Halaman list-detail dan supporting pane memakai `WorkspacePage fill`: setinggi
   layar di `lg`, panelnya bergulir sendiri, dan `PaneFooter` menempel di bawah
-  dengan aksi simpan panel itu.
+  dengan aksi simpan panel itu. Di layar pendek (`short:`, tinggi ≤ 720px)
+  halaman bergulir biasa: panel daftar setinggi layar dengan kepala tabel
+  menempel, panel kanan menempel di bawah bilah atas, dan roda menggulir
+  halaman dulu sampai judul pindah ke bilah atas.
 - Panel detail **hanya muncul saat baris dipilih**. Tanpa pilihan, daftar
   memakai seluruh lebar. Di bawah `lg` detail menggantikan daftar dan membawa
   tombol tutup.
