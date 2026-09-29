@@ -371,7 +371,7 @@ export function ChipMenu({ label, options, selected, onChange, multiple, searcha
 			) : null}
 			<Popover anchor={anchor} label={label} role="listbox" id={id} align="start" width={multiple || searchable ? 300 : undefined}>
 				{searchable ? (
-					<div className="flex items-center gap-2 border-b border-outline-variant px-2 pb-1.5 pt-0.5">
+					<div className="sticky -top-1 z-10 -mt-1 flex items-center gap-2 border-b border-outline-variant bg-surface-container-lowest px-2 pb-1.5 pt-1.5">
 						<MagnifyingGlass size={16} aria-hidden className="text-on-surface-variant" />
 						<input
 							value={cari}
@@ -393,7 +393,8 @@ export function ChipMenu({ label, options, selected, onChange, multiple, searcha
 								role="option"
 								aria-selected={on}
 								onClick={() => pilih(option.value)}
-								className="flex min-h-[34px] w-full items-center gap-2.5 rounded-md px-3 text-left text-body-medium text-on-surface hover:bg-primary-soft"
+								title={option.label}
+								className="flex min-h-[34px] w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-body-medium text-on-surface hover:bg-primary-soft"
 							>
 								{multiple ? (
 									<span aria-hidden className={cx("grid size-4 shrink-0 place-items-center rounded-[4px] border", on ? "border-primary bg-primary text-on-primary" : "border-outline bg-surface-container-lowest")}>
@@ -402,14 +403,15 @@ export function ChipMenu({ label, options, selected, onChange, multiple, searcha
 								) : (
 									<Check size={16} aria-hidden className={cx("shrink-0", on ? "text-primary" : "invisible")} />
 								)}
-								<span className="min-w-0 flex-1 truncate">{option.label}</span>
+								{/* Dua baris, bukan satu: nama perusahaan panjang sering berawalan sama dan tak terbedakan bila dipotong. */}
+								<span className="line-clamp-2 min-w-0 flex-1 break-words">{option.label}</span>
 								{option.count != null ? <span className="tabular-nums text-on-surface-variant">{option.count}</span> : null}
 							</button>
 						);
 					})}
 				</div>
 				{multiple && aktif ? (
-					<div className="flex items-center justify-between border-t border-outline-variant px-3 pb-1 pt-2 text-body-medium">
+					<div className="sticky -bottom-1 z-10 -mb-1 flex items-center justify-between border-t border-outline-variant bg-surface-container-lowest px-3 pb-2 pt-2 text-body-medium">
 						<span className="text-on-surface-variant">{terpilih.length} dipilih</span>
 						<button type="button" onClick={() => onChange([])} className="rounded-sm font-medium text-primary hover:underline">Hapus pilihan</button>
 					</div>

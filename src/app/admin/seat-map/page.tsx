@@ -446,7 +446,7 @@ export default function SeatMapAdminPage() {
           <Field label="Kursi per meja bundar" hint="Diatur per rentang nomor meja. Aturan paling bawah menang bila bertumpuk.">
             <div className="mt-1.5 flex flex-col gap-2">
               {config.seat_rules.map((rule, index) => (
-                <div key={index} className="flex items-center gap-2 text-body-medium">
+                <div key={index} className="flex flex-wrap items-center gap-2 text-body-medium">
                   <span className="text-on-surface-variant">Meja</span>
                   {(["from", "to"] as const).map((field, i) => (
                     <span key={field} className="contents">
@@ -733,15 +733,18 @@ export default function SeatMapAdminPage() {
         <>
           <div className="flex shrink-0 items-end gap-2 border-b border-outline-variant">
             {sessions.length > 0 ? (
-              <Tabs
-                label="Agenda"
-                idPrefix="agenda"
-                value={aktif?.slug ?? ""}
-                onChange={(slug) => setPreviewSlug(slug)}
-                className="min-w-0 border-b-0"
-                options={sessions.map((item) => ({ value: item.slug, label: item.name, badge: item.is_published ? undefined : "Draf" }))}
-              />
-            ) : <span className="py-2.5 text-body-medium text-on-surface-variant">Belum ada agenda</span>}
+              // Tabs membawa shrink-0; pembungkus ini yang menyempit agar tombol + Agenda tetap di layar.
+              <div className="min-w-0">
+                <Tabs
+                  label="Agenda"
+                  idPrefix="agenda"
+                  value={aktif?.slug ?? ""}
+                  onChange={(slug) => setPreviewSlug(slug)}
+                  className="border-b-0"
+                  options={sessions.map((item) => ({ value: item.slug, label: item.name, badge: item.is_published ? undefined : "Draf" }))}
+                />
+              </div>
+            ) :<span className="py-2.5 text-body-medium text-on-surface-variant">Belum ada agenda</span>}
             <button type="button" onClick={() => setAddOpen(true)} className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body-medium font-medium text-primary hover:bg-primary-soft">
               <Plus size={14} />Agenda
             </button>

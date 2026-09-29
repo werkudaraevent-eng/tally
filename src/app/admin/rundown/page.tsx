@@ -726,15 +726,18 @@ export default function RundownAdminPage() {
         <>
           <div className="flex shrink-0 items-end gap-2 border-b border-outline-variant">
             {sections.length > 0 ? (
-              <Tabs
-                label="Bagian rundown"
-                idPrefix="bagian"
-                value={String(activeId ?? "")}
-                onChange={(value) => pilihBagian(Number(value))}
-                className="min-w-0 border-b-0"
-                options={sections.map((section) => ({ value: String(section.id), label: section.name, badge: section.is_published ? undefined : "Draf" }))}
-              />
-            ) : <span className="py-2.5 text-body-medium text-on-surface-variant">Belum ada bagian</span>}
+              // Tabs membawa shrink-0; pembungkus ini yang menyempit agar tombol + Bagian tetap di layar.
+              <div className="min-w-0">
+                <Tabs
+                  label="Bagian rundown"
+                  idPrefix="bagian"
+                  value={String(activeId ?? "")}
+                  onChange={(value) => pilihBagian(Number(value))}
+                  className="border-b-0"
+                  options={sections.map((section) => ({ value: String(section.id), label: section.name, badge: section.is_published ? undefined : "Draf" }))}
+                />
+              </div>
+            ) :<span className="py-2.5 text-body-medium text-on-surface-variant">Belum ada bagian</span>}
             <button type="button" onClick={() => setAddSectionOpen(true)} className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body-medium font-medium text-primary hover:bg-primary-soft">
               <Plus size={14} aria-hidden />Bagian
             </button>
