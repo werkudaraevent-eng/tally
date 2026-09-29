@@ -115,7 +115,11 @@ export default function AdminPage() {
 
   const refresh = useCallback(async () => {
     const response = await fetch(eventApiPath("/api/admin/overview"), { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) { setError("Ringkasan acara gagal dimuat. Halaman mencoba lagi setiap menit."); return; }
+    if (!response?.ok) {
+      const body = await response?.json().catch(() => null);
+      setError(`${body?.error?.message ?? "Ringkasan acara gagal dimuat."} Halaman mencoba lagi setiap menit.`);
+      return;
+    }
     setData(await response.json());
     setSekarang(new Date());
     setError("");
@@ -208,7 +212,7 @@ export default function AdminPage() {
             {jadwal ? <span className="inline-flex items-center gap-1.5"><CalendarBlank size={16} aria-hidden />{jadwal}</span> : null}
             {data.event.venue_name ? <span className="inline-flex items-center gap-1.5"><MapPin size={16} aria-hidden />{data.event.venue_name}</span> : null}
           </>
-        ) : <Skeleton className="h-4 w-72" />}
+        ) : error ? null : <Skeleton className="h-4 w-72" />}
         actions={
           <>
             {data ? <ButtonLink native variant="outlined" href={`/e/${data.event.slug}`} target="_blank" rel="noreferrer" icon={<ArrowSquareOut size={16} />}>Halaman acara</ButtonLink> : null}
@@ -219,7 +223,8 @@ export default function AdminPage() {
 
       {error ? <Banner tone="error" icon={<XCircle size={18} />}>{error}</Banner> : null}
 
-      <div className="grid grid-cols-12 gap-4 xl:gap-6">
+      {/* Gagal sejak pemuatan pertama: tanpa kerangka "memuat" yang tidak akan pernah terisi. */}
+      {error && !data ? null : <div className="grid grid-cols-12 gap-4 xl:gap-6">
         {/* Status dan satu aksi utama */}
         <Kartu label="Status acara" className="col-span-12 lg:col-span-8">
           <div className="flex flex-1 flex-col gap-6 px-6 py-6 sm:flex-row sm:items-center">
@@ -388,7 +393,7 @@ export default function AdminPage() {
             ))}
           </div>
         </Kartu>
-      </div>
+      </div>}
     </WorkspacePage>
   );
 }

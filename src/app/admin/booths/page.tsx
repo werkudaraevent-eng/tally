@@ -37,7 +37,7 @@ export default function BoothsPage() {
       <WorkspaceHeader
         meta={meta.length ? meta.map((teks, index) => (
           <span key={teks} className="inline-flex items-center gap-2 tabular-nums">{index > 0 ? <MetaSeparator /> : null}{teks}</span>
-        )) : <span>Memuat booth</span>}
+        )) : null /* Kosong, bukan "Memuat booth": saat daftar gagal dimuat, tulisan memuat itu tidak pernah hilang. Panelnya sendiri sudah punya kerangka pemuatan. */}
         actions={tab === "booth"
           ? <Button variant="outlined" icon={<Plus size={16} />} onClick={() => booth.current?.tambah()}>Booth baru</Button>
           : <Button variant="outlined" icon={<Plus size={16} />} onClick={() => item.current?.tambah()}>Item baru</Button>}

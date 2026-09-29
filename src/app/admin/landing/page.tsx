@@ -97,7 +97,9 @@ export default function LandingCmsPage() {
       registration_form_config?: RegistrationFormConfig;
     })[];
     const found = slug ? list.find((item) => item.slug === slug) : list[0];
-    if (!found) { setError("Acara tidak ditemukan."); return; }
+    // /api/events hanya memuat acara yang boleh dibuka akun ini, jadi "tidak ada
+    // di daftar" bisa berarti acaranya tidak ada ATAU aksesnya belum diberikan.
+    if (!found) { setError("Acara ini tidak ada di daftar acara yang bisa Anda buka. Minta super admin memberi akses."); return; }
     const nextLanding = found.landing_config ?? {};
     // `inherit` yang belum pernah disimpan berarti konfigurasi dibuat sebelum
     // saklar ini ada. Acara yang sudah punya warna formulir sendiri dianggap

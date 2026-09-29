@@ -279,7 +279,15 @@ export function AdminShell({
     const { body } = document;
     const sebelumnya = body.style.overflow;
     body.style.overflow = "hidden";
-    return () => { body.style.overflow = sebelumnya; };
+    // Esc menutup laci, kecuali fokus sedang di menu atau dialog di dalamnya
+    // (pemilih acara, palet): Esc itu milik panel tersebut.
+    const onKey = (peristiwa: KeyboardEvent) => {
+      if (peristiwa.key !== "Escape") return;
+      if ((peristiwa.target as Element | null)?.closest?.("[role=menu],[role=listbox],[role=dialog]")) return;
+      setMobileOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => { body.style.overflow = sebelumnya; document.removeEventListener("keydown", onKey); };
   }, [laciTerbuka]);
 
   /* ---- Palet ------------------------------------------------------------ */
@@ -450,7 +458,12 @@ export function AdminShell({
         onFocusCapture={onFocusCapture}
         onBlurCapture={onBlurCapture}
         onClickCapture={onClickCapture}
-        className={`fixed left-0 top-0 z-sidebar flex h-dvh w-[260px] flex-col border-r border-outline-variant bg-surface transition-[transform,width,box-shadow] duration-200 ease-out lg:translate-x-0 ${
+        // Laci terbuka naik tepat di atas bilah atas: di z-sidebar ia berada DI
+        // BAWAH scrim (z-peek) dan bilah atas, sehingga setiap ketukan di tautannya
+        // mengenai scrim dan hanya menutup laci, dan kepala laci (pemilih acara)
+        // tertutup bilah. Tidak sampai z-overlay: panel pemilih acara (z-popover)
+        // harus tetap di atas laci.
+        className={`fixed left-0 top-0 ${laciTerbuka ? "z-[calc(var(--z-index-topbar)+1)]" : "z-sidebar"} flex h-dvh w-[260px] flex-col border-r border-outline-variant bg-surface transition-[transform,width,box-shadow] duration-200 ease-out lg:translate-x-0 ${
           laciTerbuka ? "translate-x-0" : "-translate-x-full"
         } ${pinned ? "lg:w-[260px]" : peeking ? "lg:w-[260px] lg:shadow-level3" : "lg:w-16"}`}
       >

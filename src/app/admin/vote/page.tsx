@@ -1032,7 +1032,7 @@ export default function VoteAdminPage() {
         value={tab}
         onChange={setTab}
         options={[
-          { value: "pertanyaan", label: "Pertanyaan", badge: loading ? undefined : polls.length },
+          { value: "pertanyaan", label: "Pertanyaan", badge: loading || (gagalMuat && polls.length === 0) ? undefined : polls.length },
           { value: "tampilan", label: "Tampilan layar" },
         ]}
       />

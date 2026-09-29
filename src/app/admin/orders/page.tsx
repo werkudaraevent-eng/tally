@@ -384,7 +384,7 @@ export default function AdminOrdersPage() {
       <WorkspaceHeader
         meta={
           <>
-            <span className="tabular-nums">{loaded ? `${total} order` : "Memuat order"}</span>
+            <span className="tabular-nums">{!loaded ? "Memuat order" : error ? "Jumlah order tidak diketahui" : `${total} order`}</span>
             <MetaSeparator />
             <span>Ringkasan mengikuti saringan, dihitung dari semua order yang cocok</span>
           </>

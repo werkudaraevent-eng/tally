@@ -98,7 +98,13 @@ export default function UndianAdminPage() {
         fetch("/api/admin/undian/exclusions", { cache: "no-store" }),
         fetch("/api/admin/undian/sessions", { cache: "no-store" }),
       ]);
-      if (!prizeResponse.ok) { setLoadFailed(true); setError("Data undian gagal dimuat."); return; }
+      if (!prizeResponse.ok) {
+        // Pesan server dibawa apa adanya: 403 "tidak punya akses" bukan masalah
+        // koneksi, dan menyuruh memeriksa koneksi membuat orang mencari di tempat salah.
+        const body = await prizeResponse.json().catch(() => null);
+        setLoadFailed(true); setError(body?.error?.message ?? "Data undian gagal dimuat.");
+        return;
+      }
       setLoadFailed(false);
       const data = await prizeResponse.json();
       setPrizes((data.prizes as Record<string, unknown>[]).map(normalizePrize));
@@ -369,7 +375,7 @@ export default function UndianAdminPage() {
             plain
             icon={<Warning size={40} />}
             title="Data undian gagal dimuat"
-            description="Periksa koneksi, lalu coba lagi."
+            description={error || "Periksa koneksi, lalu coba lagi."}
             action={<Button variant="outlined" size="sm" onClick={() => void load()}>Coba lagi</Button>}
           />
         ) : prizes.length === 0 ? (
@@ -444,18 +450,23 @@ export default function UndianAdminPage() {
       {/* Konteks sesi. Angka pemenang selalu dihitung dalam lingkup sesi yang
           sedang berjalan, dan tanpa keterangan ini "kuota penuh" terbaca sebagai
           buntu permanen, padahal jalan keluarnya adalah menutup sesi. */}
-      <PaneFooter
+      {/* Saat data gagal dimuat, status sesi tidak diketahui: jangan klaim "belum ada sesi". */}
+      {loadFailed ? null : <PaneFooter
         className="bg-surface-container-lowest py-2"
         note={
-          <span className="inline-flex flex-wrap items-center gap-x-2">
-            <StatusDot tone={activeSession ? "success" : "neutral"} />
-            {activeSession ? <>Kuota dihitung untuk sesi {activeSession.name}</> : "Belum ada sesi berjalan; hasil tidak terkelompok"}
-            <button type="button" onClick={() => goTo("history")} className="rounded-sm font-medium text-primary hover:underline">
-              {activeSession ? "Kelola sesi" : "Mulai sesi"}
-            </button>
+          // Titik di kolomnya sendiri, teks dan tautan mengalir di sebelahnya: dengan
+          // flex-wrap, di layar sempit titiknya tertinggal sendirian di baris atas.
+          <span className="flex items-baseline gap-2">
+            <span className="flex h-[1lh] items-center"><StatusDot tone={activeSession ? "success" : "neutral"} /></span>
+            <span className="min-w-0">
+              {activeSession ? <>Kuota dihitung untuk sesi {activeSession.name}</> : "Belum ada sesi berjalan; hasil tidak terkelompok"}{" "}
+              <button type="button" onClick={() => goTo("history")} className="rounded-sm font-medium text-primary hover:underline">
+                {activeSession ? "Kelola sesi" : "Mulai sesi"}
+              </button>
+            </span>
           </span>
         }
-      />
+      />}
     </Pane>
   );
 
@@ -488,7 +499,7 @@ export default function UndianAdminPage() {
   return (
     <WorkspacePage fill>
       <WorkspaceHeader
-        meta={loaded ? (
+        meta={loadFailed ? <span>Status undian tidak diketahui</span> : loaded ? (
           <>
             <span className="inline-flex items-center gap-1.5">
               <StatusDot tone={canRun ? "success" : "error"} />

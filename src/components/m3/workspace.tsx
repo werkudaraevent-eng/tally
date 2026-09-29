@@ -105,7 +105,9 @@ export function PaneBody({ children, className }: { children: ReactNode; classNa
 export function PaneFooter({ note, children, className }: { note?: ReactNode; children?: ReactNode; className?: string }) {
 	return (
 		<div className={cx("flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant bg-surface-container-high px-4 py-3", className)}>
-			<div className="min-w-0 flex-1 text-body-medium text-on-surface-variant">{note}</div>
+			{/* min-w-40, bukan min-w-0: di panel sempit catatannya harus mendorong
+			    tombol ke baris berikut, bukan diperas jadi satu kata per baris. */}
+			<div className="min-w-40 flex-1 text-body-medium text-on-surface-variant">{note}</div>
 			{children ? <div className="flex shrink-0 items-center gap-2">{children}</div> : null}
 		</div>
 	);

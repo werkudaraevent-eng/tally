@@ -158,6 +158,11 @@ export type PopoverProps = {
 
 export function Popover({ anchor, label, role = "menu", id, align = "end", width, children, className, onKeyDown }: PopoverProps) {
 	const panel = useRef<HTMLDivElement | null>(null);
+	// Ditandai oleh onPointerDown React di panel, yang menggelembung menembus
+	// portal: klik di submenu (portal lain, di luar DOM panel ini) tetap terhitung
+	// "di dalam". Tanpanya menu induk menutup diri saat pointerdown di submenu, dan
+	// submenu ikut hilang sebelum click-nya sempat terjadi.
+	const dariDalam = useRef(false);
 	const { rect, open, tutup, fokus, berisi, profil } = anchor;
 
 	useEffect(() => {
@@ -169,7 +174,9 @@ export function Popover({ anchor, label, role = "menu", id, align = "end", width
 		};
 		const onPointer = (peristiwa: PointerEvent) => {
 			const target = peristiwa.target as Node;
-			if (panel.current?.contains(target) || berisi(target)) return;
+			const internal = dariDalam.current;
+			dariDalam.current = false;
+			if (internal || panel.current?.contains(target) || berisi(target)) return;
 			tutup();
 		};
 		document.addEventListener("keydown", onKey);
@@ -216,6 +223,9 @@ export function Popover({ anchor, label, role = "menu", id, align = "end", width
 				role={role}
 				aria-label={label}
 				onKeyDown={onKeyDown}
+				// setTimeout, bukan microtask: microtask jalan di antara dua listener dan
+				// akan menghapus tanda sebelum listener dokumen sempat membacanya.
+				onPointerDown={() => { dariDalam.current = true; window.setTimeout(() => { dariDalam.current = false; }, 0); }}
 				style={gaya}
 				className={cx(
 					"z-popover overflow-y-auto rounded-[10px] border border-outline-variant bg-surface-container-lowest p-1 shadow-level2",
