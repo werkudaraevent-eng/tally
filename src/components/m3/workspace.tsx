@@ -1,7 +1,7 @@
 "use client";
 
 import { CaretDown, Check, Columns, MagnifyingGlass, X } from "@phosphor-icons/react";
-import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useAdminHeaderScroll, useAdminPage } from "@/components/admin/page-context";
 import { cx } from "@/lib/m3/cx";
 import { Popover, usePopoverAnchor } from "./popover";
@@ -127,6 +127,46 @@ export function PaneFooter({ note, children, className }: { note?: ReactNode; ch
 const PANEL_MENEMPEL =
 	"lg:short:sticky lg:short:top-[calc(var(--workspace-top,58px)+16px)] lg:short:self-start lg:short:max-h-[calc(100dvh-var(--workspace-top,58px)-32px)]";
 
+/**
+ * Panel daftar di layar pendek: setinggi layar dan bergulir sendiri. Halaman
+ * bergulir dulu sampai judul pindah ke bilah atas, lalu daftar mengisi layar.
+ * Tanpa batas tinggi, panelnya memanjang mengikuti isi dan kepala tabel yang
+ * `sticky top-0` di dalamnya ikut tergulir hilang.
+ */
+const DAFTAR_SETINGGI_LAYAR = "lg:short:h-[calc(100dvh-var(--workspace-top,58px)-32px)]";
+
+/** Sama dengan `lg` + `short` di globals.css. */
+const MQ_PENDEK = "(min-width: 64rem) and (max-height: 720px)";
+
+/**
+ * Roda di atas daftar menggulir HALAMAN dulu sampai panel daftar mencapai bilah
+ * atas, baru kemudian isi daftar. Peramban melakukan kebalikannya (isi dulu),
+ * sehingga di layar pendek daftar tertahan di bawah judul dan hanya dua baris
+ * yang terlihat. Menggulir ke atas tidak perlu diatur: saat isi daftar sudah di
+ * puncak, peramban meneruskannya ke halaman.
+ */
+function useGulirHalamanDulu() {
+	const ref = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const el = ref.current;
+		if (!el) return;
+		const mq = window.matchMedia(MQ_PENDEK);
+		const onWheel = (event: WheelEvent) => {
+			if (!mq.matches || event.deltaY <= 0 || event.ctrlKey) return;
+			const batas = el.getBoundingClientRect().top - 16 - (parseFloat(getComputedStyle(el).getPropertyValue("--workspace-top")) || 58);
+			const sisaHalaman = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+			// Halaman yang sudah mentok tidak boleh menahan gulir daftar.
+			if (batas <= 1 || sisaHalaman <= 1) return;
+			event.preventDefault();
+			window.scrollBy({ top: Math.min(event.deltaY, batas, sisaHalaman) });
+		};
+		// passive: false wajib agar preventDefault menahan gulir isi daftar.
+		el.addEventListener("wheel", onWheel, { passive: false });
+		return () => el.removeEventListener("wheel", onWheel);
+	}, []);
+	return ref;
+}
+
 export type ListDetailProps = {
 	list: ReactNode;
 	/** Null = belum ada yang dipilih; daftar memakai seluruh lebar. */
@@ -140,9 +180,10 @@ export type ListDetailProps = {
  */
 export function ListDetail({ list, detail, detailWidth = 440 }: ListDetailProps) {
 	const terbuka = detail != null;
+	const daftarRef = useGulirHalamanDulu();
 	return (
 		<div className="flex min-h-0 flex-1 gap-6">
-			<div className={cx("flex min-h-0 min-w-0 flex-1 flex-col *:flex-1", terbuka && "max-lg:hidden")}>{list}</div>
+			<div ref={daftarRef} className={cx("flex min-h-0 min-w-0 flex-1 flex-col *:flex-1", DAFTAR_SETINGGI_LAYAR, terbuka && "max-lg:hidden")}>{list}</div>
 			{terbuka ? (
 				<div className={cx("flex min-h-0 w-full flex-col *:flex-1 lg:w-[var(--detail-w)] lg:shrink-0", PANEL_MENEMPEL)} style={{ "--detail-w": `${detailWidth}px` } as React.CSSProperties}>
 					{detail}
