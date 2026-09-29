@@ -16,7 +16,8 @@ export type WorkspacePageProps = {
 	children: ReactNode;
 	/**
 	 * Halaman setinggi jendela; panel di dalamnya bergulir sendiri.
-	 * Dipakai list-detail dan supporting pane. Di bawah `lg` kembali bergulir biasa.
+	 * Dipakai list-detail dan supporting pane. Di bawah `lg` dan di layar pendek
+	 * (`short:`) kembali bergulir biasa.
 	 */
 	fill?: boolean;
 	/** Lebar isi. `full` untuk halaman berpanel, `wide` untuk feed, `form` untuk satu kolom. */
@@ -31,7 +32,10 @@ export function WorkspacePage({ children, fill, width = "full", className }: Wor
 		<main
 			className={cx(
 				"flex w-full flex-col gap-4 bg-surface p-4 text-on-surface sm:p-6",
-				fill && "lg:h-[calc(100dvh-var(--workspace-top,58px))] lg:overflow-hidden",
+				// Di layar pendek (laptop berskala 150%) tinggi tidak dikunci: tabel yang
+				// diperas ke sisa ruang hanya muat dua baris, dan judul tidak pernah
+				// tergulir ke bilah atas. Halaman bergulir biasa seperti di bawah `lg`.
+				fill && "lg:h-[calc(100dvh-var(--workspace-top,58px))] lg:overflow-hidden short:h-auto short:overflow-visible",
 				WIDTH[width],
 				className,
 			)}
@@ -115,6 +119,14 @@ export function PaneFooter({ note, children, className }: { note?: ReactNode; ch
 
 /* ------------------------------------------------------- Canonical layout */
 
+/**
+ * Panel kanan di layar pendek, saat halaman tidak dikunci setinggi jendela.
+ * Tanpa ini, memilih baris di bawah daftar yang panjang membuka detail di atas,
+ * di luar layar. Panel menempel di bawah bilah atas dan bergulir sendiri.
+ */
+const PANEL_MENEMPEL =
+	"lg:short:sticky lg:short:top-[calc(var(--workspace-top,58px)+16px)] lg:short:self-start lg:short:max-h-[calc(100dvh-var(--workspace-top,58px)-32px)]";
+
 export type ListDetailProps = {
 	list: ReactNode;
 	/** Null = belum ada yang dipilih; daftar memakai seluruh lebar. */
@@ -132,7 +144,7 @@ export function ListDetail({ list, detail, detailWidth = 440 }: ListDetailProps)
 		<div className="flex min-h-0 flex-1 gap-6">
 			<div className={cx("flex min-h-0 min-w-0 flex-1 flex-col *:flex-1", terbuka && "max-lg:hidden")}>{list}</div>
 			{terbuka ? (
-				<div className="flex min-h-0 w-full flex-col *:flex-1 lg:w-[var(--detail-w)] lg:shrink-0" style={{ "--detail-w": `${detailWidth}px` } as React.CSSProperties}>
+				<div className={cx("flex min-h-0 w-full flex-col *:flex-1 lg:w-[var(--detail-w)] lg:shrink-0", PANEL_MENEMPEL)} style={{ "--detail-w": `${detailWidth}px` } as React.CSSProperties}>
 					{detail}
 				</div>
 			) : null}
@@ -145,7 +157,7 @@ export function SupportingPane({ main, pane, paneWidth = 400 }: { main: ReactNod
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
 			<div className="flex min-h-0 min-w-0 flex-1 flex-col *:flex-1">{main}</div>
-			<div className="flex min-h-0 w-full flex-col *:flex-1 lg:w-[var(--pane-w)] lg:shrink-0" style={{ "--pane-w": `${paneWidth}px` } as React.CSSProperties}>
+			<div className={cx("flex min-h-0 w-full flex-col *:flex-1 lg:w-[var(--pane-w)] lg:shrink-0", PANEL_MENEMPEL)} style={{ "--pane-w": `${paneWidth}px` } as React.CSSProperties}>
 				{pane}
 			</div>
 		</div>

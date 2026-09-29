@@ -82,6 +82,16 @@ export default function ParticipantsAdminPage() {
         meta={
           <>
             <span>{stats ? `${stats.activeTotal} peserta aktif` : "Memuat peserta"}</span>
+            {stats && stats.removedCount > 0 ? (
+              <>
+                <MetaSeparator />
+                {/* Dulu banner penuh; di layar pendek ia memakan ruang tabel. Penjelasan lengkapnya ada di panel detail peserta yang terhapus. */}
+                <span className="inline-flex items-center gap-1.5" title="Tetap disimpan untuk audit, tapi tidak muncul di pencarian booth dan kasir serta tidak dihitung di laporan.">
+                  <StatusDot tone="warning" />
+                  {stats.removedCount} dihapus di sumber, tidak dihitung
+                </span>
+              </>
+            ) : null}
             {config && usesScanner ? (
               <>
                 <MetaSeparator />

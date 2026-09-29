@@ -2,7 +2,7 @@
 
 import {
   ArrowDown, ArrowUp, CaretLeft, CaretRight, CaretUpDown, Check, Copy, LockSimple, MagnifyingGlass, Paperclip,
-  PencilSimple, Trash, UsersThree, WarningCircle, X, XCircle,
+  PencilSimple, Trash, UsersThree, X, XCircle,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import {
@@ -129,7 +129,6 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [filterRsvp, setFilterRsvp] = useState("");
   const [filterPerusahaan, setFilterPerusahaan] = useState<string[]>([]);
   const [total, setTotal] = useState(0);
-  const [removedCount, setRemovedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -167,7 +166,6 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       setSessions((data.sessions ?? []) as SesiKehadiran[]);
       setCompanies((data.companies ?? []) as FacetPerusahaan[]);
       setScannerColumns(Boolean(data.scanner_columns));
-      setRemovedCount(data.removed_count ?? 0);
       onStats?.({ total: data.total ?? 0, activeTotal: data.active_total ?? data.total ?? 0, removedCount: data.removed_count ?? 0, lastSyncedAt: data.last_synced_at ?? null });
     } catch {
       if (nomor === urutanMuat.current) setError("Koneksi terputus. Coba lagi.");
@@ -735,7 +733,14 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             ) : null}
             {fromSource ? (
               <DetailSection title="Scanner API">
-                <KeyValue label="Status">{p.source_removed_at ? "Dihapus di sumber" : "Aktif"}</KeyValue>
+                <KeyValue label="Status">
+                  {p.source_removed_at ? (
+                    <>
+                      Dihapus di sumber
+                      <span className="mt-0.5 block text-on-surface-variant">Disimpan untuk audit. Tidak muncul di pencarian booth dan kasir, tidak dihitung di laporan.</span>
+                    </>
+                  ) : "Aktif"}
+                </KeyValue>
                 <KeyValue label="Check-in">{p.source_checked_in ? "Sudah" : "Belum"}</KeyValue>
                 <KeyValue label="Pemindaian">{p.source_total_scans}</KeyValue>
               </DetailSection>
@@ -750,11 +755,6 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     <>
       {notice ? (
         <Banner tone="success" icon={<Check size={18} />} actions={<IconButton size="sm" label="Tutup" onClick={() => setNotice("")}><X size={16} /></IconButton>}>{notice}</Banner>
-      ) : null}
-      {removedCount > 0 ? (
-        <Banner tone="warning" icon={<WarningCircle size={18} />}>
-          {removedCount} peserta sudah dihapus di sumber data. Barisnya tetap disimpan untuk audit, tapi tidak muncul di pencarian booth dan kasir serta tidak dihitung di laporan.
-        </Banner>
       ) : null}
       <ListDetail list={list} detail={editor ?? viewer} />
       <Dialog
