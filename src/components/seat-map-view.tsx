@@ -292,7 +292,7 @@ export function SeatMapView({
                       {seat.code}
                     </text>
                   ) : null}
-                  <title>{`Kursi ${seat.label}${state?.occupied ? " — terisi" : " — kosong"}`}</title>
+                  <title>{`Kursi ${seat.label}, ${state?.occupied ? "terisi" : "kosong"}`}</title>
                 </g>
               );
             })}

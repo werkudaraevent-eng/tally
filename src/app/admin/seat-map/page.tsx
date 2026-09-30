@@ -744,7 +744,7 @@ export default function SeatMapAdminPage() {
                   options={sessions.map((item) => ({ value: item.slug, label: item.name, badge: item.is_published ? undefined : "Draf" }))}
                 />
               </div>
-            ) :<span className="py-2.5 text-body-medium text-on-surface-variant">Belum ada agenda</span>}
+            ) : <span className="py-2.5 text-body-medium text-on-surface-variant">Belum ada agenda</span>}
             <button type="button" onClick={() => setAddOpen(true)} className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body-medium font-medium text-primary hover:bg-primary-soft">
               <Plus size={14} />Agenda
             </button>

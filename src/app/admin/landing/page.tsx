@@ -1,5 +1,6 @@
 "use client";
 
+import { pesanGalatApi } from "@/lib/api-message";
 import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, Info, Plus, Trash, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "@/components/event-link";
@@ -159,6 +160,18 @@ export default function LandingCmsPage() {
 
   async function save() {
     if (!facts) return;
+    // Diperiksa di sini, bukan diserahkan ke server: server menolak baris kosong
+    // (min 1) tetapi galatnya hanya menyebut "landing", tanpa bagian dan baris mana.
+    const angkaKosong = (landing.highlights ?? []).findIndex((item) => !item.label.trim() || !item.value.trim());
+    if (angkaKosong >= 0) {
+      toast.error("Angka penting belum lengkap", `Baris ${angkaKosong + 1}: isi keterangan dan angkanya, atau hapus baris itu.`);
+      return;
+    }
+    const tanyaKosong = (landing.faq ?? []).findIndex((item) => !item.q.trim() || !item.a.trim());
+    if (tanyaKosong >= 0) {
+      toast.error("Pertanyaan umum belum lengkap", `Pertanyaan ${tanyaKosong + 1}: isi pertanyaan dan jawabannya, atau hapus pertanyaan itu.`);
+      return;
+    }
     const kirim = cuplikan;
     setBusy(true);
     const response = await fetch(eventApiPath("/api/admin/landing"), {
@@ -185,9 +198,7 @@ export default function LandingCmsPage() {
     if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const rincian = body.error?.details as Record<string, string | string[]> | undefined;
-      const pesan = rincian ? String(Object.values(rincian)[0]) : undefined;
-      toast.error("Gagal disimpan", pesan ?? "Coba lagi.");
+      toast.error("Gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
       return;
     }
     setTersimpan(kirim);

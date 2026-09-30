@@ -1,5 +1,6 @@
 "use client";
 
+import { pesanGalatApi } from "@/lib/api-message";
 import { ArrowClockwise, ArrowSquareOut, Info, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
@@ -201,8 +202,7 @@ export default function SapaAdminPage() {
     setBusy(false);
     if (!response?.ok) {
       const body = await response?.json().catch(() => ({}));
-      const rincian = body?.error?.details as Record<string, unknown> | undefined;
-      toast.error("Gagal disimpan", rincian ? String(Object.values(rincian)[0]) : "Coba lagi.");
+      toast.error("Gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
       return;
     }
     setKotor(false);

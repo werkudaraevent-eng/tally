@@ -259,7 +259,7 @@ export default function LabelAdminPage() {
       : { w: element.w, h: tinggiTeks(element.size) };
   }
 
-  function pindah(index: number, x: number, y: number) {
+  function pindah(index: number, x: number, y: number, tempel = true) {
     if (!settings) return;
     const element = settings.layout.elements[index];
     const { w, h } = kotak(element);
@@ -267,12 +267,19 @@ export default function LabelAdminPage() {
     // Menempel ke sumbu tengah bila sudah dekat. Menengahkan sesuatu dengan
     // menyeret nyaris mustahil dilakukan tepat, dan tengah adalah posisi yang
     // paling sering dituju di label selebar lima sentimeter.
+    //
+    // Hanya saat menyeret: untuk tombol panah, tempelan ini menarik setiap
+    // langkah 1px di dekat tengah kembali ke tengah, sehingga elemen tidak bisa
+    // digeser mendatar sama sekali dari papan ketik.
     const tengah = Math.round((settings.width_px - w) / 2);
-    if (Math.abs(nx - tengah) <= 6) nx = tengah;
-    ubahElemen(index, {
+    if (tempel && Math.abs(nx - tengah) <= 6) nx = tengah;
+    const berikut = {
       x: jepit(nx, 0, Math.max(0, settings.width_px - w)),
       y: jepit(Math.round(y), 0, Math.max(0, settings.height_px - h)),
-    });
+    };
+    // Mentok di tepi bukan perubahan; jangan menandai "belum disimpan".
+    if (berikut.x === element.x && berikut.y === element.y) return;
+    ubahElemen(index, berikut);
   }
 
   function mulaiGeser(event: React.PointerEvent<HTMLElement>, index: number) {
@@ -330,7 +337,7 @@ export default function LabelAdminPage() {
     const gerak = arah[event.key];
     if (!gerak) return;
     event.preventDefault();
-    pindah(index, element.x + gerak[0], element.y + gerak[1]);
+    pindah(index, element.x + gerak[0], element.y + gerak[1], false);
   }
 
   async function simpan() {

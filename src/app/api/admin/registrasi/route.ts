@@ -124,6 +124,7 @@ export async function GET(request: Request) {
       registration_auto_approve: (konfigurasi.data as { registration_auto_approve: boolean } | null)?.registration_auto_approve ?? false,
       participant_source: auth.scope.event.participant_source,
       slug: auth.scope.event.slug,
+      name: auth.scope.event.name,
       // Susunan form dikirim apa adanya supaya penyunting memuat keadaan yang
       // sama persis dengan yang dipakai halaman publik — bukan hasil rekaan
       // ulang dari beberapa medan terpisah.

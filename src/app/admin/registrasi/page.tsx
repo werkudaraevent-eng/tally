@@ -1,5 +1,6 @@
 "use client";
 
+import { pesanGalatApi } from "@/lib/api-message";
 import { ArrowLeft, Check, EnvelopeSimple, Hourglass, PaperPlaneTilt, PencilSimple, Tray, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
@@ -39,6 +40,7 @@ type EventConfig = {
   registration_auto_approve: boolean;
   participant_source: string;
   slug: string;
+  name?: string;
   registration_form_config: RegistrationFormConfig;
   /** Warna halaman pendaftaran, sudah memperhitungkan saklar di CMS halaman acara. */
   form_theme_seed: string;
@@ -165,9 +167,7 @@ export default function RegistrasiAdminPage() {
     if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat status sebenarnya."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const rincian = body.error?.details as Record<string, string> | undefined;
-      const pesan = rincian ? Object.values(rincian)[0] : undefined;
-      toast.error("Form gagal disimpan", pesan ?? body.error?.message ?? "Coba lagi.");
+      toast.error("Form gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
       return;
     }
     setConfig({ ...config, ...body });
@@ -258,9 +258,9 @@ export default function RegistrasiAdminPage() {
   // di dalam effect menambah satu render setiap kali data dimuat ulang, dan
   // pemuatan berkala akan menimpa suntingan yang sedang berjalan.
   const formDraft = draftForm ?? config?.registration_form_config ?? {};
-  // Nama acara hanya untuk pratinjau. Diambil dari slug bila belum termuat:
-  // pratinjau bertuliskan "undefined" lebih membingungkan daripada slug mentah.
-  const namaEvent = config?.slug ?? "Acara";
+  // Nama acara hanya untuk pratinjau. Slug hanya cadangan: pratinjau bertuliskan
+  // "undefined" lebih membingungkan daripada slug mentah.
+  const namaEvent = config?.name ?? config?.slug ?? "Acara";
 
   function salinTautan() {
     void navigator.clipboard.writeText(new URL(tautan, window.location.origin).toString());
@@ -301,9 +301,7 @@ export default function RegistrasiAdminPage() {
             }
             pane={
               <Pane as="aside" aria-label="Pratinjau formulir">
-                <PaneBody className="p-4">
-                  <RegistrationFormPreview config={formDraft} eventName={namaEvent} seed={config.form_theme_seed} />
-                </PaneBody>
+                <RegistrationFormPreview config={formDraft} eventName={namaEvent} seed={config.form_theme_seed} bingkai={false} />
               </Pane>
             }
           />

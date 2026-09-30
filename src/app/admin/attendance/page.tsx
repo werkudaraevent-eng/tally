@@ -1,5 +1,6 @@
 "use client";
 
+import { pesanGalatApi } from "@/lib/api-message";
 import { ArrowSquareOut, Plus, QrCode, Television, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
@@ -148,8 +149,7 @@ export default function AttendanceAdminPage() {
     if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return false; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const rincian = body.error?.details as Record<string, string> | undefined;
-      toast.error("Gagal disimpan", rincian ? String(Object.values(rincian)[0]) : "Coba lagi.");
+      toast.error("Gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
       return false;
     }
     await load();
@@ -167,8 +167,7 @@ export default function AttendanceAdminPage() {
     if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return false; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const rincian = body.error?.details as Record<string, string> | undefined;
-      toast.error("Gagal disimpan", rincian ? String(Object.values(rincian)[0]) : "Coba lagi.");
+      toast.error("Gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
       return false;
     }
     await load();
@@ -182,7 +181,7 @@ export default function AttendanceAdminPage() {
     setHapusMeja(null);
     const body = await response?.json().catch(() => ({}));
     if (!response?.ok) {
-      toast.error("Tidak bisa dihapus", body?.error?.details?.message ?? "Coba lagi.");
+      toast.error("Tidak bisa dihapus", pesanGalatApi(body) ?? "Coba lagi.");
       return;
     }
     setPilihJalur(null);
@@ -197,7 +196,7 @@ export default function AttendanceAdminPage() {
     setHapusSesi(null);
     const body = await response?.json().catch(() => ({}));
     if (!response?.ok) {
-      toast.error("Tidak bisa dihapus", body?.error?.details?.message ?? "Coba lagi.");
+      toast.error("Tidak bisa dihapus", pesanGalatApi(body) ?? "Coba lagi.");
       return;
     }
     setPilihSesi(null);
