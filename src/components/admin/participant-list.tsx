@@ -6,7 +6,7 @@ import {
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Banner, Button, ChipMenu, ColumnMenu, DetailSection, Dialog, EmptyCell, EmptyState, IconButton, KeyValue,
+  Banner, Button, ButtonLink, ChipMenu, ColumnMenu, DetailSection, Dialog, EmptyCell, EmptyState, IconButton, KeyValue,
   ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, StatusChip, useColumnPrefs, type ColumnOption,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
@@ -37,6 +37,8 @@ type Participant = {
   source: AsalPeserta;
   attendance: Record<string, { count: number; first: string }>;
   seats: ParticipantSeat[] | null;
+  /** Kamar dan bus bawaan dari Logistik. Null bila belum ditempatkan di keduanya. */
+  logistik: { kamar: string | null; bus: string | null } | null;
 };
 type SesiKehadiran = { id: number; name: string; is_active: boolean };
 type FacetPerusahaan = { company: string; count: number };
@@ -198,6 +200,26 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     return () => window.clearTimeout(timer);
   }, [load, debouncedQuery, page, sort, dir, perPage, reloadKey]);
 
+  // Tautan dari halaman lain, mis. nama di Logistik: `?peserta=<kode QR>`
+  // mencari kode itu lalu membuka orangnya begitu barisnya termuat. Kode QR,
+  // bukan id, karena pencarian daftar ini sudah mengenalnya.
+  const bukaKode = useRef<string | null>(null);
+  useEffect(() => {
+    const kode = new URLSearchParams(window.location.search).get("peserta")?.trim();
+    if (!kode) return;
+    bukaKode.current = kode;
+    const timer = window.setTimeout(() => setQuery(kode), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    const kode = bukaKode.current;
+    const orang = kode && !loading ? participants.find((baris) => baris.qr_code === kode) : undefined;
+    if (!orang) return;
+    bukaKode.current = null;
+    const timer = window.setTimeout(() => { setLastViewed(orang); setMode({ kind: "view", id: orang.id }); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [participants, loading]);
+
   async function toggleExclusion(participant: Participant) {
     const isExcluded = excluded.has(participant.id);
     setTogglingExclusion(participant.id);
@@ -317,6 +339,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         },
       })),
       { key: "rsvp", label: "RSVP", sort: "rsvp_status", width: 128, cell: (p) => p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell /> },
+      { key: "kamar", label: "Kamar", width: 120, cell: (p) => p.logistik?.kamar ? <span className="block truncate" title={p.logistik.kamar}>{p.logistik.kamar}</span> : <EmptyCell /> },
+      { key: "bus", label: "Bus", width: 96, cell: (p) => p.logistik?.bus ?? <EmptyCell /> },
       { key: "seat", label: "Kursi", width: 168, cell: (p) => p.seats?.length ? <span className="block truncate" title={p.seats.map((s) => `${s.subEventName}: ${s.label}`).join(", ")}>{p.seats.map((s) => s.label).join(", ")}</span> : <EmptyCell /> },
       { key: "source", label: "Asal", width: 128, cell: (p) => <span title={ASAL[p.source].judul}>{ASAL[p.source].label}</span> },
       { key: "type", label: "Tipe", sort: "participant_type", width: 112, cell: (p) => p.participant_type ?? <EmptyCell /> },
@@ -710,6 +734,10 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                 })}
               </DetailSection>
             ) : null}
+            <DetailSection title="Logistik" action={<ButtonLink href="/admin/logistik" variant="text" size="sm">Atur di Logistik</ButtonLink>}>
+              <KeyValue label="Kamar">{p.logistik?.kamar ?? <span className="text-on-surface-variant">Belum dapat kamar</span>}</KeyValue>
+              <KeyValue label="Bus bawaan">{p.logistik?.bus ?? <span className="text-on-surface-variant">Belum punya bus</span>}</KeyValue>
+            </DetailSection>
             <DetailSection title="Tempat duduk">
               {p.seats?.length ? p.seats.map((seat) => <KeyValue key={`${seat.subEventId}-${seat.label}`} label={seat.subEventName}>{seat.label}</KeyValue>) : <p className="text-body-medium text-on-surface-variant">Belum ada kursi.</p>}
             </DetailSection>

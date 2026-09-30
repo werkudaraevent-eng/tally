@@ -80,3 +80,53 @@ export function idDariQuery(request: Request): number | null {
 export function klien() {
   return getSupabaseServiceClient();
 }
+
+export type LogistikRingkas = { kamar: string | null; bus: string | null };
+
+/**
+ * Kamar dan bus bawaan untuk sekumpulan peserta, dipakai kolom Kamar dan Bus
+ * di Daftar peserta.
+ *
+ * Empat kueri kecil, bukan satu embed PostgREST: tabel logistik memakai kunci
+ * asing komposit (event_id, id), dan embed di atasnya bergantung pada nama
+ * relasi yang dipilih PostgREST sendiri. Daftar peserta memuat paling banyak
+ * satu halaman (ratusan baris), jadi `.in()` cukup.
+ *
+ * Galat ditelan dan menghasilkan peta kosong: kolom ini pelengkap, dan acara
+ * di database yang belum punya tabel logistik tetap harus bisa membuka
+ * daftar pesertanya.
+ */
+export async function logistikPeserta(eventId: string, ids: string[]): Promise<Map<string, LogistikRingkas>> {
+  const hasil = new Map<string, LogistikRingkas>();
+  if (ids.length === 0) return hasil;
+  const db = klien();
+  const [inap, angkut] = await Promise.all([
+    db.from("lodging_assignments").select("participant_id,room_id").eq("event_id", eventId).in("participant_id", ids),
+    db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).in("participant_id", ids),
+  ]);
+  const barisInap = (inap.error ? [] : inap.data ?? []) as Array<{ participant_id: string; room_id: number }>;
+  const barisAngkut = (angkut.error ? [] : angkut.data ?? []) as Array<{ participant_id: string; vehicle_id: number | null }>;
+
+  const idKamar = [...new Set(barisInap.map((b) => b.room_id))];
+  const idBus = [...new Set(barisAngkut.map((b) => b.vehicle_id).filter((id): id is number => id !== null))];
+  const [kamar, bus] = await Promise.all([
+    idKamar.length ? db.from("lodging_rooms").select("id,room_number,hotel_id").eq("event_id", eventId).in("id", idKamar) : null,
+    idBus.length ? db.from("transport_vehicles").select("id,code").eq("event_id", eventId).in("id", idBus) : null,
+  ]);
+  const barisKamar = (kamar && !kamar.error ? kamar.data ?? [] : []) as Array<{ id: number; room_number: string; hotel_id: number }>;
+  const idHotel = [...new Set(barisKamar.map((k) => k.hotel_id))];
+  const hotel = idHotel.length ? await db.from("lodging_hotels").select("id,name").eq("event_id", eventId).in("id", idHotel) : null;
+  const namaHotel = new Map(((hotel && !hotel.error ? hotel.data ?? [] : []) as Array<{ id: number; name: string }>).map((h) => [h.id, h.name]));
+  // Nama hotel hanya disebut bila acaranya punya lebih dari satu hotel di
+  // halaman ini; "1208" lebih mudah dipindai daripada "Mulia · 1208" berulang.
+  const banyakHotel = idHotel.length > 1;
+  const labelKamar = new Map(barisKamar.map((k) => [k.id, banyakHotel ? `${k.room_number} · ${namaHotel.get(k.hotel_id) ?? ""}` : k.room_number]));
+  const kodeBus = new Map(((bus && !bus.error ? bus.data ?? [] : []) as Array<{ id: number; code: string }>).map((b) => [b.id, b.code]));
+
+  for (const b of barisInap) hasil.set(b.participant_id, { kamar: labelKamar.get(b.room_id) ?? null, bus: null });
+  for (const b of barisAngkut) {
+    const lama = hasil.get(b.participant_id) ?? { kamar: null, bus: null };
+    hasil.set(b.participant_id, { ...lama, bus: b.vehicle_id !== null ? kodeBus.get(b.vehicle_id) ?? null : null });
+  }
+  return hasil;
+}
