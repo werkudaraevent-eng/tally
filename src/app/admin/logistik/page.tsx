@@ -1,9 +1,10 @@
 "use client";
 
-import { Plus } from "@phosphor-icons/react";
+import { Plus, UploadSimple } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { Button, MetaSeparator, Pane, SegmentedButton, Tabs, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { Galat, Kerangka, type Kirim } from "@/components/admin/logistik/bersama";
+import { DialogImpor } from "@/components/admin/logistik/dialog-impor";
 import { TabBarang } from "@/components/admin/logistik/tab-barang";
 import { TabAgenda, TabBus } from "@/components/admin/logistik/tab-bus";
 import { TabKamar } from "@/components/admin/logistik/tab-kamar";
@@ -43,6 +44,7 @@ export default function LogistikPage() {
   const [bagianBus, setBagianBus] = useState<BagianBus>("bus");
   const [baru, setBaru] = useState<Baru | null>(null);
   const [hotelBaru, setHotelBaru] = useState(false);
+  const [impor, setImpor] = useState(false);
   const toast = useToast();
 
   const muat = useCallback(async () => {
@@ -132,17 +134,22 @@ export default function LogistikPage() {
             ) : null}
           </>
         ) : null}
-        actions={data && aktifBaru ? (
-          aktifBaru === "kamar" && data.hotels.length === 0 ? (
-            // Tanpa hotel, "Kamar baru" hanya bisa ditolak. Satu tombol yang
-            // bisa ditekan lebih jelas daripada dua dengan salah satunya mati.
-            <Button icon={<Plus size={16} />} onClick={() => setHotelBaru(true)}>Hotel baru</Button>
-          ) : (
-            <>
-              {aktifBaru === "kamar" ? <Button variant="outlined" onClick={() => setHotelBaru(true)}>Hotel baru</Button> : null}
-              <Button variant="outlined" icon={<Plus size={16} />} onClick={() => setBaru(aktifBaru)}>{LABEL_BARU[aktifBaru]}</Button>
-            </>
-          )
+        actions={data && bagian !== "barang" && !(bagian === "bus" && bagianBus === "agenda") ? (
+          <>
+            <Button variant="outlined" icon={<UploadSimple size={16} />} onClick={() => setImpor(true)}>Impor Excel</Button>
+            {aktifBaru === "kamar" && data.hotels.length === 0 ? (
+              // Tanpa hotel, "Kamar baru" hanya bisa ditolak. Satu tombol yang
+              // bisa ditekan lebih jelas daripada dua dengan salah satunya mati.
+              <Button icon={<Plus size={16} />} onClick={() => setHotelBaru(true)}>Hotel baru</Button>
+            ) : aktifBaru ? (
+              <>
+                {aktifBaru === "kamar" ? <Button variant="outlined" onClick={() => setHotelBaru(true)}>Hotel baru</Button> : null}
+                <Button variant="outlined" icon={<Plus size={16} />} onClick={() => setBaru(aktifBaru)}>{LABEL_BARU[aktifBaru]}</Button>
+              </>
+            ) : null}
+          </>
+        ) : data && aktifBaru ? (
+          <Button variant="outlined" icon={<Plus size={16} />} onClick={() => setBaru(aktifBaru)}>{LABEL_BARU[aktifBaru]}</Button>
         ) : null}
       />
 
@@ -174,6 +181,8 @@ export default function LogistikPage() {
           <TabBarang {...tabProps} />
         )}
       </div>
+
+      <DialogImpor open={impor} jenisAwal={bagian === "bus" ? "bus" : "kamar"} onClose={() => setImpor(false)} onSelesai={muat} />
     </WorkspacePage>
   );
 }
