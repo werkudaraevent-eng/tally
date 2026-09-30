@@ -6,13 +6,11 @@ import { ToastProvider } from "@/components/toast";
 import { OfflineBanner } from "./offline-banner";
 import { THEME_INIT_SCRIPT } from "@/lib/m3/theme";
 
-// Inter sebagai huruf antarmuka halaman tamu, di-self-host oleh next/font sehingga tidak ada
+// Inter sebagai huruf antarmuka, di-self-host oleh next/font sehingga tidak ada
 // permintaan ke server luar dan tidak ada pergeseran tata letak saat ia dimuat.
 //
 // Menggantikan Geist, yang metriknya nyaris identik — keduanya neo-grotesque
-// dengan x-height tinggi. Ruang kerja admin (`.press`) tidak memakainya lagi:
-// ia memakai huruf sistem seperti Kumo, lihat globals.css. Inter dipilih dulu
-// karena dasbor acuan dikira memakainya,
+// dengan x-height tinggi. Diganti karena dasbor yang jadi acuan memakai Inter,
 // dan `cv01`/`ss03` di bawah adalah bagian dari kenapa ia terbaca tenang pada
 // ukuran kecil: `cv01` memberi angka 1 tanpa ekor, `ss03` memperbaiki bentuk
 // huruf kecil beraksen. Keduanya tidak menyala sendiri.

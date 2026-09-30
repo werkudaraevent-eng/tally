@@ -1853,25 +1853,6 @@ html:hover {
 		background: transparent;
 	}
 }
-/* Huruf ruang kerja: huruf sistem, sama dengan Kumo (dasbor Cloudflare).
- *
- * Diukur dari paket @cloudflare/kumo 2.14: `--font-sans` adalah tumpukan huruf
- * sistem (Segoe UI di Windows, San Francisco di Mac, Roboto di Android), dengan
- * teks dasar 14px dan 13px untuk yang kecil. Ukuran kita sudah sama. Yang
- * membuat layar kita terasa lebih besar pada zoom yang sama adalah Inter:
- * x-height-nya sekitar 0,55 em, Segoe UI sekitar 0,50, jadi Inter 14px terbaca
- * seperti Segoe UI 15px. Halaman tamu tetap Inter dan huruf pilihan CMS.
- *
- * Popover yang di-portal ke body ikut karena ia menempelkan kelas `press` pada
- * wadahnya sendiri. */
-.press {
-	--md-ref-typeface-plain: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif;
-	--md-ref-typeface-brand: var(--md-ref-typeface-plain);
-	font-family: var(--md-ref-typeface-plain);
-	/* cv01/ss03 milik Inter; di huruf sistem fitur itu tidak ada artinya. */
-	font-feature-settings: normal;
-}
-
 .press .m3-topbar-row { min-block-size: 3.5rem; }
 /* Kepala menu samping setinggi bilah atas TERMASUK garis bawahnya: bilah
  * 56px + garis 1px di luar baris, kepala 56px dengan garis di dalam kotaknya.
