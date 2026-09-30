@@ -92,7 +92,7 @@ export function TableHead({ children, className, ...rest }: HTMLAttributes<HTMLT
 			// Registration" sendirian pernah membuat kepala setinggi 72px di atas
 			// baris data setinggi 40px. Kolom yang namanya tidak muat dipendekkan
 			// namanya, bukan dibiarkan melipat.
-			className={cx("whitespace-nowrap border-b border-outline-variant text-title-small font-medium text-on-surface-variant", className)}
+			className={cx("whitespace-nowrap border-b border-outline-variant text-label-large text-on-surface-variant", className)}
 		>
 			{children}
 		</thead>
@@ -195,7 +195,7 @@ export function TableHeaderCell({ align = "start", plain, sticky, children, clas
 		<th
 			scope="col"
 			{...rest}
-			className={cx("font-medium", ALIGN[align], plain && "ed-plain", sticky && STICKY, className)}
+			className={cx("font-normal", ALIGN[align], plain && "ed-plain", sticky && STICKY, className)}
 		>
 			{children}
 		</th>

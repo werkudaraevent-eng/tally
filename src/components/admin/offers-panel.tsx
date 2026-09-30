@@ -290,13 +290,13 @@ export function OffersPanel({ onStats, ref }: { onStats?: (stats: OfferStats) =>
           />
         ) : (
           <table className={cx("w-full min-w-[620px] border-separate border-spacing-0 text-left text-body-medium", loading && "opacity-60")}>
-            <thead className="sticky top-0 z-10 bg-surface-container-high text-on-surface-variant">
+            <thead className="sticky top-0 z-10 bg-surface-container-lowest text-on-surface-variant">
               <tr>
-                <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Item</th>
-                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Berlaku</th>
-                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 text-right font-medium">Harga</th>
-                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 text-right font-medium">Diklaim</th>
-                <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Status</th>
+                <th scope="col" className="border-b border-outline-variant px-4 py-2 font-normal">Item</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2 font-normal">Berlaku</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2 text-right font-normal">Harga</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2 text-right font-normal">Diklaim</th>
+                <th scope="col" className="border-b border-outline-variant px-4 py-2 font-normal">Status</th>
               </tr>
             </thead>
             <tbody>

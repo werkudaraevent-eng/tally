@@ -34,9 +34,9 @@ import type { Recent } from "@/components/admin/sidebar-store";
  * hampir sama tetapi tidak sama terbaca sebagai daftar yang kotor.
  */
 const HOVER = "hover:bg-[var(--press-hover)]";
-const AKTIF = "bg-[var(--press-active)] font-medium";
+const AKTIF = "bg-[var(--press-active)] font-medium text-on-surface";
 
-const ITEM_DASAR = "m3-nav-item flex min-h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-body-medium text-on-surface transition-colors duration-150";
+const ITEM_DASAR = "m3-nav-item flex min-h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-body-medium text-on-surface-variant transition-colors duration-150 hover:text-on-surface";
 
 /* ---- Satu tujuan --------------------------------------------------------- */
 
