@@ -28,7 +28,7 @@ import {
  * kelamin yang diubah setelah penempatan.
  */
 
-type Pilihan = { jenis: "kamar"; id: number } | { jenis: "hotel"; id: number } | { jenis: "tanpa-kamar" } | null;
+type Pilihan = { jenis: "kamar"; id: number } | { jenis: "hotel"; id: number } | null;
 type Keadaan = "kosong" | "ada-tempat" | "penuh" | "perlu-dicek";
 type DialogKamar = { mode: "baru"; hotelId?: number } | { mode: "ubah"; kamar: Kamar } | null;
 type DialogHotel = { mode: "baru" } | { mode: "ubah"; hotel: Hotel } | null;
@@ -67,7 +67,6 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
   const kamarPeserta = useMemo(() => new Map(data.lodging.map((baris) => [baris.participant_id, baris.room_id])), [data.lodging]);
   const kamarById = useMemo(() => new Map(data.rooms.map((kamar) => [kamar.id, kamar])), [data.rooms]);
   const hotelById = useMemo(() => new Map(data.hotels.map((hotel) => [hotel.id, hotel])), [data.hotels]);
-  const tanpaKamar = data.participants.filter((orang) => !kamarPeserta.has(orang.id));
 
   function masalah(kamar: Kamar) {
     const isi = penghuniKamar.get(kamar.id) ?? [];
@@ -111,50 +110,48 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
 
   // ---- Daftar --------------------------------------------------------------
   const aturanTerpasang = !wajibSama || Boolean(kunciField);
-  const kepalaAturan = (
-    <PaneHeader className="flex-wrap text-body-medium">
-      <span className="flex min-w-0 flex-1 items-center gap-2">
-        <StatusDot tone={aturanTerpasang ? "success" : "warning"} />
-        <span className="min-w-0">
-          {!wajibSama ? "Kamar boleh campuran jenis kelamin."
-            : kunciField ? <>Sesama jenis kelamin, dibaca dari field <span className="font-medium">{namaField}</span>.</>
-            : "Field jenis kelamin belum dipilih, jadi penempatan akan ditolak."}
-        </span>
-      </span>
-      <Button variant="outlined" size="sm" onClick={() => setAturan(true)}>{aturanTerpasang ? "Ubah aturan" : "Pilih field"}</Button>
+  // Aturan kamar duduk di ujung bilah saringan, bukan pita sendiri: ia dibaca
+  // sekali saat menyiapkan acara, lalu hanya perlu terlihat, bukan menonjol.
+  const tombolAturan = (
+    <Button variant="text" size="sm" className="ml-auto" icon={<StatusDot tone={aturanTerpasang ? "success" : "warning"} />} onClick={() => setAturan(true)}>
+      {!wajibSama ? "Aturan: boleh campuran" : kunciField ? `Aturan: sesama ${namaField}` : "Aturan belum lengkap"}
+    </Button>
+  );
+
+  const saringan = (
+    <PaneHeader className="flex-wrap gap-2 px-3 py-2.5">
+      {data.rooms.length > 0 ? (
+        <>
+          <KolomCari className="max-w-80" label="Cari kamar atau penghuni" placeholder="Cari nomor kamar atau nama penghuni" value={cari} onChange={setCari} />
+          {data.hotels.length > 1 ? (
+            <ChipMenu
+              label="Hotel"
+              multiple
+              options={data.hotels.map((hotel) => ({ value: String(hotel.id), label: hotel.name, count: data.rooms.filter((kamar) => kamar.hotel_id === hotel.id).length }))}
+              selected={saringHotel}
+              onChange={setSaringHotel}
+            />
+          ) : null}
+          <ChipMenu
+            label="Keadaan"
+            multiple
+            options={[
+              { value: "kosong", label: "Kosong" },
+              { value: "ada-tempat", label: "Masih ada tempat" },
+              { value: "penuh", label: "Penuh" },
+              { value: "perlu-dicek", label: "Perlu dicek", count: perluDicek },
+            ]}
+            selected={saringKeadaan}
+            onChange={setSaringKeadaan}
+          />
+        </>
+      ) : null}
+      {tombolAturan}
     </PaneHeader>
   );
 
-  const saringan = data.rooms.length > 0 ? (
-    <PaneHeader className="flex-wrap gap-2 px-3 py-3">
-      <KolomCari label="Cari kamar atau penghuni" placeholder="Cari nomor kamar atau nama penghuni" value={cari} onChange={setCari} />
-      {data.hotels.length > 1 ? (
-        <ChipMenu
-          label="Hotel"
-          multiple
-          options={data.hotels.map((hotel) => ({ value: String(hotel.id), label: hotel.name, count: data.rooms.filter((kamar) => kamar.hotel_id === hotel.id).length }))}
-          selected={saringHotel}
-          onChange={setSaringHotel}
-        />
-      ) : null}
-      <ChipMenu
-        label="Keadaan"
-        multiple
-        options={[
-          { value: "kosong", label: "Kosong" },
-          { value: "ada-tempat", label: "Masih ada tempat" },
-          { value: "penuh", label: "Penuh" },
-          { value: "perlu-dicek", label: "Perlu dicek", count: perluDicek },
-        ]}
-        selected={saringKeadaan}
-        onChange={setSaringKeadaan}
-      />
-    </PaneHeader>
-  ) : null;
-
   const daftar = (
     <Pane aria-label="Daftar kamar">
-      {kepalaAturan}
       {saringan}
       <PaneBody>
         {data.hotels.length === 0 ? (
@@ -166,7 +163,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
           />
         ) : (
           <>
-            <KepalaKolom kolom={[["Kamar", "min-w-0 flex-1"], ["Tipe", "w-28 max-sm:hidden"], ["Isi", "w-16 text-right"]]} />
+            <KepalaKolom kolom={[["Kamar", "w-24"], ["Penghuni", "min-w-0 flex-1"], ["Tipe", "w-28 max-sm:hidden"], ["Isi", "w-16 text-right"]]} />
             {menyaring && kamarTampil.length === 0 ? (
               <EmptyState
                 plain
@@ -189,7 +186,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
                     onSelect={() => setPilihan({ jenis: "hotel", id: hotel.id })}
                   >
                     <Buildings size={16} className="shrink-0 text-on-surface-variant" aria-hidden />
-                    <span className="min-w-0 flex-1 truncate font-medium text-on-surface">{hotel.name}</span>
+                    <span className="min-w-0 flex-1 truncate text-on-surface">{hotel.name}</span>
                     <span className="shrink-0 tabular-nums text-on-surface-variant">{semuaKamar.length} kamar · {terisi}/{tempat} tempat</span>
                   </BarisKelompok>
                   {semuaKamar.length === 0 ? (
@@ -207,22 +204,20 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
                         aria-pressed={dipilih}
                         onClick={() => setPilihan({ jenis: "kamar", id: kamar.id })}
                         className={cx(
-                          "flex w-full items-center gap-3 border-b border-outline-variant px-4 py-2.5 text-left text-body-medium",
-                          dipilih ? "bg-secondary-container" : "hover:bg-primary-soft",
+                          "flex w-full items-center gap-3 border-b border-outline-variant px-4 py-2 text-left text-body-medium",
+                          dipilih ? "bg-accent-soft" : "hover:bg-panel-high",
                         )}
                       >
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-on-surface">{kamar.room_number}</span>
-                            {lebih ? <StatusChip dot tone="error">Melebihi kapasitas</StatusChip> : null}
-                            {campuran ? <StatusChip dot tone="warning">Jenis kelamin campuran</StatusChip> : null}
-                          </span>
-                          <span className="block truncate text-on-surface-variant">
+                        <span className="w-24 shrink-0 truncate tabular-nums text-on-surface">{kamar.room_number}</span>
+                        <span className="flex min-w-0 flex-1 items-center gap-2">
+                          {lebih ? <StatusChip dot tone="error">Melebihi kapasitas</StatusChip> : null}
+                          {campuran ? <StatusChip dot tone="warning">Jenis kelamin campuran</StatusChip> : null}
+                          <span className="min-w-0 truncate text-on-surface-variant">
                             {isi.length > 0 ? isi.map((orang) => orang.name).join(", ") : "Kosong"}
                           </span>
                         </span>
                         <span className="w-28 shrink-0 truncate text-on-surface-variant max-sm:hidden">{kamar.room_type ?? EMPTY_VALUE}</span>
-                        <span className={cx("w-16 shrink-0 text-right tabular-nums", lebih ? "font-semibold text-error" : "text-on-surface")}>
+                        <span className={cx("w-16 shrink-0 text-right tabular-nums", lebih ? "text-error" : "text-on-surface")}>
                           {isi.length}/{kamar.capacity}
                         </span>
                       </button>
@@ -234,13 +229,6 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
           </>
         )}
       </PaneBody>
-      {data.hotels.length > 0 ? (
-        <PaneFooter note={tanpaKamar.length === 0 ? "Semua peserta sudah dapat kamar." : `${tanpaKamar.length} dari ${data.participants.length} peserta belum dapat kamar.`}>
-          {tanpaKamar.length > 0 ? (
-            <Button variant="outlined" size="sm" onClick={() => setPilihan({ jenis: "tanpa-kamar" })}>Lihat daftarnya</Button>
-          ) : null}
-        </PaneFooter>
-      ) : null}
     </Pane>
   );
 
@@ -342,28 +330,6 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
           <Button variant="outlined" size="sm" onClick={() => setDialogHotel({ mode: "ubah", hotel: hotelDipilih })}>Ubah</Button>
           <Button simpan size="sm" onClick={() => setDialogKamar({ mode: "baru", hotelId: hotelDipilih.id })}>Tambah kamar</Button>
         </PaneFooter>
-      </Pane>
-    );
-  } else if (pilihan?.jenis === "tanpa-kamar") {
-    detail = (
-      <Pane as="aside" aria-label="Peserta tanpa kamar">
-        <KepalaDetail
-          nama="Belum dapat kamar"
-          angka={tanpaKamar.length}
-          keterangan="peserta"
-          onClose={() => setPilihan(null)}
-        />
-        <PaneBody>
-          <DetailSection>
-            <p className="text-body-medium text-on-surface-variant">Pilih kamar di daftar, lalu Tambah penghuni untuk menempatkan mereka.</p>
-            <ul className="flex flex-col">
-              {tanpaKamar.slice(0, 300).map((orang) => (
-                <BarisOrang key={orang.id} orang={orang} keterangan={kunciField ? orang.gender ?? "Jenis kelamin kosong" : null} />
-              ))}
-            </ul>
-            {tanpaKamar.length > 300 ? <p className="text-body-small text-on-surface-variant">Dan {tanpaKamar.length - 300} lainnya.</p> : null}
-          </DetailSection>
-        </PaneBody>
       </Pane>
     );
   }

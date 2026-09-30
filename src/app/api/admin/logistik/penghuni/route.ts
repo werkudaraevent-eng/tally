@@ -49,14 +49,20 @@ export async function DELETE(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
-  const participantId = z.string().uuid().safeParse(new URL(request.url).searchParams.get("participant_id"));
-  if (!participantId.success) return apiError("VALIDATION_ERROR", 422);
+  // Satu atau beberapa `participant_id`: tab Peserta melepas banyak orang
+  // sekaligus, panel kamar melepas satu.
+  const ids = z.array(z.string().uuid()).min(1).max(200).safeParse(new URL(request.url).searchParams.getAll("participant_id"));
+  if (!ids.success) return apiError("VALIDATION_ERROR", 422);
 
-  const { data, error } = await klien().rpc("unassign_room" as never, {
-    p_event_id: auth.scope.event.id,
-    p_participant_id: participantId.data,
-    p_actor: auth.user.id,
-  } as never);
-  if (error) return galatRpc(error);
-  return Response.json({ removed: Boolean(data) });
+  let lepas = 0;
+  for (const participantId of ids.data) {
+    const { data, error } = await klien().rpc("unassign_room" as never, {
+      p_event_id: auth.scope.event.id,
+      p_participant_id: participantId,
+      p_actor: auth.user.id,
+    } as never);
+    if (error) return galatRpc(error);
+    if (data) lepas += 1;
+  }
+  return Response.json({ removed: lepas });
 }

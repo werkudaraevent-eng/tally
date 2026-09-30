@@ -30,7 +30,7 @@ export type TabProps = {
 
 export function KepalaKolom({ kolom }: { kolom: Array<[string, string]> }) {
   return (
-    <div className="sticky top-0 z-[1] flex shrink-0 items-center gap-3 border-b border-outline-variant bg-surface-container-high px-4 py-2.5 text-body-medium font-medium text-on-surface-variant">
+    <div className="sticky top-0 z-[1] flex h-9 shrink-0 items-center gap-3 border-b border-outline-variant bg-surface-container-lowest px-4 text-body-medium font-normal text-on-surface-variant">
       {kolom.map(([label, lebar]) => <span key={label} className={cx("shrink-0", lebar)}>{label}</span>)}
     </div>
   );
@@ -45,8 +45,8 @@ export function BarisKelompok({ children, selected, onSelect, label }: { childre
       aria-label={label}
       onClick={onSelect}
       className={cx(
-        "flex w-full items-center gap-3 border-b border-outline-variant bg-surface-container px-4 py-2 text-left text-body-medium",
-        selected ? "bg-secondary-container" : "hover:bg-primary-soft",
+        "flex h-9 w-full items-center gap-3 border-b border-outline-variant px-4 text-left text-body-medium",
+        selected ? "bg-accent-soft" : "bg-surface hover:bg-primary-soft",
       )}
     >
       {children}
@@ -55,9 +55,9 @@ export function BarisKelompok({ children, selected, onSelect, label }: { childre
 }
 
 /** Kolom cari di kepala panel daftar, sama dengan Daftar peserta. */
-export function KolomCari({ label, placeholder, value, onChange }: { label: string; placeholder: string; value: string; onChange: (nilai: string) => void }) {
+export function KolomCari({ label, placeholder, value, onChange, className }: { label: string; placeholder: string; value: string; onChange: (nilai: string) => void; className?: string }) {
   return (
-    <label className="relative min-w-[200px] flex-1">
+    <label className={cx("relative min-w-[200px] flex-1", className)}>
       <span className="sr-only">{label}</span>
       <MagnifyingGlass size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
       <input
@@ -91,7 +91,14 @@ export function Kerangka() {
   );
 }
 
-/** Kepala panel detail: nama, chip keadaan, tombol tutup, angka besar. */
+/**
+ * Kepala panel detail: nama, chip keadaan, tombol tutup, lalu satu baris
+ * keterangan yang memuat angka isinya ("Mulia · Twin · 1 dari 2 terisi").
+ *
+ * Angkanya dulu tampil 32px di bawah judul. Di layar yang diperbesar 150%
+ * angka itu menjadi hal paling besar di halaman, padahal ia hanya pelengkap
+ * judul; daftar penghuni di bawahnya sudah menunjukkan hal yang sama.
+ */
 export function KepalaDetail({ nama, chip, sub, angka, keterangan, onClose }: {
   nama: string;
   chip?: { tone: ChipTone; teks: string } | null;
@@ -100,24 +107,21 @@ export function KepalaDetail({ nama, chip, sub, angka, keterangan, onClose }: {
   keterangan?: string;
   onClose: () => void;
 }) {
+  const bagian = [sub, angka !== undefined ? <span key="angka" className="tabular-nums">{angka}{keterangan ? ` ${keterangan}` : ""}</span> : null].filter(Boolean);
   return (
-    <div className="flex shrink-0 flex-col gap-3 border-b border-outline-variant px-5 py-4">
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <h2 className="flex flex-wrap items-center gap-2 text-title-medium font-semibold leading-6">
-            <span className="min-w-0 break-words">{nama}</span>
-            {chip ? <StatusChip dot tone={chip.tone}>{chip.teks}</StatusChip> : null}
-          </h2>
-          {sub ? <p className="mt-0.5 text-body-medium text-on-surface-variant">{sub}</p> : null}
-        </div>
-        <IconButton size="sm" label="Tutup detail" onClick={onClose}><X size={16} /></IconButton>
+    <div className="flex shrink-0 items-start gap-3 border-b border-outline-variant px-5 py-4">
+      <div className="min-w-0 flex-1">
+        <h2 className="flex flex-wrap items-center gap-2 text-title-large text-on-surface">
+          <span className="min-w-0 break-words">{nama}</span>
+          {chip ? <StatusChip dot tone={chip.tone}>{chip.teks}</StatusChip> : null}
+        </h2>
+        {bagian.length > 0 ? (
+          <p className="mt-0.5 text-body-medium text-on-surface-variant">
+            {bagian.map((isi, i) => <span key={i}>{i > 0 ? " · " : ""}{isi}</span>)}
+          </p>
+        ) : null}
       </div>
-      {angka !== undefined ? (
-        <p className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-[2rem] font-semibold leading-10 tabular-nums text-on-surface">{angka}</span>
-          {keterangan ? <span className="text-body-medium text-on-surface-variant">{keterangan}</span> : null}
-        </p>
-      ) : null}
+      <IconButton size="sm" label="Tutup detail" onClick={onClose}><X size={16} /></IconButton>
     </div>
   );
 }
@@ -127,7 +131,7 @@ export function BarisOrang({ orang, keterangan, aksi }: { orang: LogistikPeserta
   return (
     <li className="flex items-center gap-3 py-1.5">
       <div className="min-w-0 flex-1 text-body-medium">
-        <p className="truncate font-medium text-on-surface">{orang.name}</p>
+        <p className="truncate text-on-surface">{orang.name}</p>
         <p className="truncate text-on-surface-variant">
           {[orang.company, keterangan].filter(Boolean).map((bagian, i) => (
             <span key={i}>{i > 0 ? " · " : ""}{bagian}</span>
@@ -260,7 +264,7 @@ export function PilihPeserta({ open, onClose, title, description, peserta, utama
                     className="size-4 shrink-0 accent-[var(--md-sys-color-primary)]"
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-on-surface">{orang.name}</span>
+                    <span className="block truncate text-on-surface">{orang.name}</span>
                     {ket ? <span className="block truncate text-on-surface-variant">{ket}</span> : null}
                   </span>
                 </label>

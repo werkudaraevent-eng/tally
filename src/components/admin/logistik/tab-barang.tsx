@@ -58,11 +58,11 @@ export function TabBarang({ data, kirim, busy, baru, tutupBaru }: TabProps) {
                   aria-pressed={pilih === barang.id}
                   onClick={() => setPilih(barang.id)}
                   className={cx("flex w-full items-center gap-3 border-b border-outline-variant px-4 py-2.5 text-left text-body-medium",
-                    pilih === barang.id ? "bg-secondary-container" : "hover:bg-primary-soft")}
+                    pilih === barang.id ? "bg-accent-soft" : "hover:bg-primary-soft")}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-on-surface">{barang.name}</span>
+                      <span className="text-on-surface">{barang.name}</span>
                       {diSesi.length === 0 ? <StatusChip dot tone="warning">Belum di sesi scan</StatusChip> : null}
                     </span>
                     <span className="block truncate text-on-surface-variant">
@@ -102,9 +102,9 @@ export function TabBarang({ data, kirim, busy, baru, tutupBaru }: TabProps) {
               <table className="w-full text-body-medium">
                 <thead>
                   <tr className="text-left text-on-surface-variant">
-                    <th scope="col" className="py-1 font-medium">Ukuran</th>
-                    <th scope="col" className="py-1 text-right font-medium">Peserta</th>
-                    <th scope="col" className="py-1 text-right font-medium">Diambil</th>
+                    <th scope="col" className="py-1 font-normal">Ukuran</th>
+                    <th scope="col" className="py-1 text-right font-normal">Peserta</th>
+                    <th scope="col" className="py-1 text-right font-normal">Diambil</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowCounterClockwise, Bus as IkonBus, CalendarDots, SignOut, Warning } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   Banner, Button, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, Pane, PaneBody, PaneFooter,
   PaneHeader, SelectField, StatusChip, Switch, TextField, EMPTY_VALUE,
@@ -15,14 +15,14 @@ import {
 } from "./bersama";
 
 /**
- * Tab Bus dan Agenda bus.
+ * Tab Bus, dengan dua bagian: Daftar bus dan Agenda.
  *
  * Model yang dipegang panitia (keputusan 30 Sep 2026): tiap peserta punya
  * SATU bus bawaan, dan agenda (berangkat ke venue, gala dinner, pulang)
  * memakainya kecuali diganti untuk orang tertentu. Agenda yang tidak mengikuti
  * bus bawaan disusun ulang seluruhnya: hanya pengganti yang berlaku.
  *
- * Tab Bus menjawab "siapa naik bus ini biasanya", tab Agenda bus menjawab
+ * Daftar bus menjawab "siapa naik bus ini biasanya", bagian Agenda menjawab
  * "siapa naik bus apa di perjalanan ini". Angka isi per agenda datang dari
  * `transport_overview`, bukan dihitung ulang di sini, supaya layar dan
  * pemeriksa kapasitas di database tidak pernah berbeda pendapat.
@@ -57,7 +57,7 @@ const isiTeks = (isi: number, kapasitas: number | null) => (kapasitas === null ?
 
 /* ================================================================ Bus */
 
-export function TabBus({ data, kirim, busy, baru, tutupBaru }: TabProps) {
+export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & { atas?: ReactNode }) {
   const { orangById, busById, bawaan } = usePetaBus(data);
   const [pilih, setPilih] = useState<number | null>(null);
   const [ubah, setUbah] = useState<Bus | null>(null);
@@ -79,6 +79,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru }: TabProps) {
 
   const daftar = (
     <Pane aria-label="Daftar bus">
+      {atas ? <PaneHeader className="px-3 py-2.5">{atas}</PaneHeader> : null}
       <PaneBody>
         {data.vehicles.length === 0 ? (
           <EmptyState
@@ -100,14 +101,14 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru }: TabProps) {
                   aria-pressed={pilih === bus.id}
                   onClick={() => setPilih(bus.id)}
                   className={cx("flex w-full items-center gap-3 border-b border-outline-variant px-4 py-2.5 text-left text-body-medium",
-                    pilih === bus.id ? "bg-secondary-container" : "hover:bg-primary-soft")}
+                    pilih === bus.id ? "bg-accent-soft" : "hover:bg-primary-soft")}
                 >
                   <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                    <span className="font-medium text-on-surface">{bus.code}</span>
+                    <span className="text-on-surface">{bus.code}</span>
                     {lebih ? <StatusChip dot tone="error">Melebihi kapasitas</StatusChip> : null}
                   </span>
                   <span className="w-28 shrink-0 truncate text-on-surface-variant max-sm:hidden">{bus.plate_number ?? EMPTY_VALUE}</span>
-                  <span className={cx("w-36 shrink-0 text-right tabular-nums", lebih ? "font-semibold text-error" : "text-on-surface")}>{isiTeks(isi, bus.capacity)}</span>
+                  <span className={cx("w-36 shrink-0 text-right tabular-nums", lebih ? "text-error" : "text-on-surface")}>{isiTeks(isi, bus.capacity)}</span>
                 </button>
               );
             })}
@@ -139,7 +140,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru }: TabProps) {
       <PaneBody>
         <DetailSection title="Di tiap agenda">
           {data.trips.length === 0 ? (
-            <p className="text-body-medium text-on-surface-variant">Belum ada agenda. Buat di tab Agenda bus supaya peserta melihat jadwal busnya.</p>
+            <p className="text-body-medium text-on-surface-variant">Belum ada agenda. Buat di bagian Agenda supaya peserta melihat jadwal busnya.</p>
           ) : (
             <ul className="flex flex-col">
               {data.trips.map((agenda) => {
@@ -149,7 +150,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru }: TabProps) {
                   <li key={agenda.id} className="flex items-center gap-3 py-1.5 text-body-medium">
                     <span className="min-w-0 flex-1 truncate text-on-surface">{agenda.name}</span>
                     {baris?.over_capacity ? <StatusChip dot tone="error">Melebihi</StatusChip> : null}
-                    <span className={cx("shrink-0 tabular-nums", baris?.over_capacity ? "font-semibold text-error" : "text-on-surface-variant")}>{isiTeks(isi, bus.capacity)}</span>
+                    <span className={cx("shrink-0 tabular-nums", baris?.over_capacity ? "text-error" : "text-on-surface-variant")}>{isiTeks(isi, bus.capacity)}</span>
                   </li>
                 );
               })}
@@ -203,7 +204,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru }: TabProps) {
           open={tambah}
           onClose={() => setTambah(false)}
           title={`Tambah penumpang ${bus.code}`}
-          description="Bus bawaan dipakai di setiap agenda yang mengikutinya. Pengganti per agenda diatur di tab Agenda bus."
+          description="Bus bawaan dipakai di setiap agenda yang mengikutinya. Pengganti per agenda diatur di bagian Agenda."
           peserta={data.participants}
           utama={(orang) => !bawaan.has(orang.id)}
           labelUtama="Peserta yang belum punya bus bawaan."
@@ -306,7 +307,7 @@ function FormBus({ bus, busy, onClose, simpan }: {
 
 /* ========================================================= Agenda bus */
 
-export function TabAgenda({ data, kirim, busy, baru, tutupBaru }: TabProps) {
+export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & { atas?: ReactNode }) {
   const { zone, abbr } = useEventTimeZone();
   const { orangById, busById, bawaan, pengganti, busDi } = usePetaBus(data);
   const [pilih, setPilih] = useState<number | null>(null);
@@ -320,8 +321,9 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru }: TabProps) {
 
   const daftar = (
     <Pane aria-label="Daftar agenda bus">
+      {atas ? <PaneHeader className="px-3 py-2.5">{atas}</PaneHeader> : null}
       {data.trips.length > 0 && data.vehicles.length === 0 ? (
-        <PaneHeader className="text-body-medium text-on-surface-variant">Belum ada bus. Tambahkan di tab Bus sebelum menempatkan peserta.</PaneHeader>
+        <PaneHeader className="text-body-medium text-on-surface-variant">Belum ada bus. Tambahkan di bagian Daftar bus sebelum menempatkan peserta.</PaneHeader>
       ) : null}
       <PaneBody>
         {data.trips.length === 0 ? (
@@ -345,11 +347,11 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru }: TabProps) {
                   aria-pressed={pilih === agenda.id}
                   onClick={() => setPilih(agenda.id)}
                   className={cx("flex w-full items-center gap-3 border-b border-outline-variant px-4 py-2.5 text-left text-body-medium",
-                    pilih === agenda.id ? "bg-secondary-container" : "hover:bg-primary-soft")}
+                    pilih === agenda.id ? "bg-accent-soft" : "hover:bg-primary-soft")}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-on-surface">{agenda.name}</span>
+                      <span className="text-on-surface">{agenda.name}</span>
                       {!agenda.follows_default ? <StatusChip tone="neutral">Disusun ulang</StatusChip> : null}
                       {lebih ? <StatusChip dot tone="error">Bus melebihi kapasitas</StatusChip> : null}
                     </span>
@@ -408,7 +410,7 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru }: TabProps) {
           </DetailSection>
           <DetailSection title="Isi bus">
             {data.vehicles.length === 0 ? (
-              <p className="text-body-medium text-on-surface-variant">Belum ada bus. Tambahkan di tab Bus.</p>
+              <p className="text-body-medium text-on-surface-variant">Belum ada bus. Tambahkan di bagian Daftar bus.</p>
             ) : (
               <ul className="flex flex-col">
                 {isi.map((baris) => {
@@ -418,7 +420,7 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru }: TabProps) {
                     <li key={baris.vehicle_id} className="flex items-center gap-3 py-1.5 text-body-medium">
                       <span className="min-w-0 flex-1 truncate text-on-surface">{bus.code}</span>
                       {baris.over_capacity ? <StatusChip dot tone="error">Melebihi</StatusChip> : null}
-                      <span className={cx("shrink-0 tabular-nums", baris.over_capacity ? "font-semibold text-error" : "text-on-surface-variant")}>{isiTeks(baris.load, bus.capacity)}</span>
+                      <span className={cx("shrink-0 tabular-nums", baris.over_capacity ? "text-error" : "text-on-surface-variant")}>{isiTeks(baris.load, bus.capacity)}</span>
                     </li>
                   );
                 })}

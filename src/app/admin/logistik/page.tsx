@@ -2,11 +2,12 @@
 
 import { Plus } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import { Button, MetaSeparator, Pane, Tabs, WorkspaceHeader, WorkspacePage } from "@/components/m3";
+import { Button, MetaSeparator, Pane, SegmentedButton, Tabs, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { Galat, Kerangka, type Kirim } from "@/components/admin/logistik/bersama";
 import { TabBarang } from "@/components/admin/logistik/tab-barang";
 import { TabAgenda, TabBus } from "@/components/admin/logistik/tab-bus";
 import { TabKamar } from "@/components/admin/logistik/tab-kamar";
+import { TabPenempatan } from "@/components/admin/logistik/tab-penempatan";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { eventApiPath } from "@/lib/event-url";
@@ -20,21 +21,27 @@ import type { LogistikData } from "@/lib/logistik/types";
  * bersinggungan: rombongan satu perusahaan biasanya sekamar berdua dan satu
  * bus.
  *
+ * Tab pertama, Penempatan, adalah tempat kerja sehari-hari: satu tabel seluruh
+ * peserta, dicentang banyak lalu dimasukkan ke kamar atau bus. Tab lainnya
+ * mengatur isi gudangnya (hotel dan kamar, bus dan agenda, barang).
+ *
  * Keempat tab membaca satu muatan data. Tidak ada polling: berbeda dengan
  * Kehadiran, angka di sini hanya bergerak karena panitia di layar ini sendiri,
  * dan setiap perubahan memuat ulang datanya.
  */
 
-type Bagian = "kamar" | "bus" | "agenda" | "barang";
-
-const TOMBOL_BARU: Record<Bagian, string> = { kamar: "Kamar baru", bus: "Bus baru", agenda: "Agenda baru", barang: "Barang baru" };
+type Bagian = "penempatan" | "kamar" | "bus" | "barang";
+type BagianBus = "bus" | "agenda";
+/** Dialog "baru" yang dibuka dari kepala halaman. */
+type Baru = "kamar" | "bus" | "agenda" | "barang";
 
 export default function LogistikPage() {
   const [data, setData] = useState<LogistikData | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [bagian, setBagian] = useState<Bagian>("kamar");
-  const [baru, setBaru] = useState<Bagian | null>(null);
+  const [bagian, setBagian] = useState<Bagian>("penempatan");
+  const [bagianBus, setBagianBus] = useState<BagianBus>("bus");
+  const [baru, setBaru] = useState<Baru | null>(null);
   const [hotelBaru, setHotelBaru] = useState(false);
   const toast = useToast();
 
@@ -87,7 +94,23 @@ export default function LogistikPage() {
     ? data.participants.length - new Set(data.transport.filter((b) => b.trip_id === null && b.vehicle_id !== null).map((b) => b.participant_id).filter((id) => aktif.has(id))).size
     : 0;
 
-  const tabProps = data ? { data, kirim, busy, baru: baru === bagian, tutupBaru: () => setBaru(null) } : null;
+  // Dialog "baru" milik bagian yang sedang tampil: Bus baru di Daftar bus,
+  // Agenda baru di bagian Agenda.
+  const aktifBaru: Baru | null = bagian === "penempatan" ? null : bagian === "bus" ? bagianBus : bagian;
+  const tabProps = data ? { data, kirim, busy, baru: baru !== null && baru === aktifBaru, tutupBaru: () => setBaru(null) } : null;
+  const LABEL_BARU: Record<Baru, string> = { kamar: "Kamar baru", bus: "Bus baru", agenda: "Agenda baru", barang: "Barang baru" };
+
+  const pilihBus = (
+    <SegmentedButton<BagianBus>
+      label="Bagian bus"
+      value={bagianBus}
+      onChange={(nilai) => { setBagianBus(nilai); setBaru(null); }}
+      options={[
+        { value: "bus", label: "Daftar bus", badge: data?.vehicles.length || undefined },
+        { value: "agenda", label: "Agenda", badge: data?.trips.length || undefined },
+      ]}
+    />
+  );
 
   return (
     <WorkspacePage fill>
@@ -109,15 +132,15 @@ export default function LogistikPage() {
             ) : null}
           </>
         ) : null}
-        actions={data ? (
-          bagian === "kamar" && data.hotels.length === 0 ? (
+        actions={data && aktifBaru ? (
+          aktifBaru === "kamar" && data.hotels.length === 0 ? (
             // Tanpa hotel, "Kamar baru" hanya bisa ditolak. Satu tombol yang
             // bisa ditekan lebih jelas daripada dua dengan salah satunya mati.
-            <Button icon={<Plus size={16} weight="bold" />} onClick={() => setHotelBaru(true)}>Hotel baru</Button>
+            <Button icon={<Plus size={16} />} onClick={() => setHotelBaru(true)}>Hotel baru</Button>
           ) : (
             <>
-              {bagian === "kamar" ? <Button variant="outlined" onClick={() => setHotelBaru(true)}>Hotel baru</Button> : null}
-              <Button icon={<Plus size={16} weight="bold" />} onClick={() => setBaru(bagian)}>{TOMBOL_BARU[bagian]}</Button>
+              {aktifBaru === "kamar" ? <Button variant="outlined" onClick={() => setHotelBaru(true)}>Hotel baru</Button> : null}
+              <Button variant="outlined" icon={<Plus size={16} />} onClick={() => setBaru(aktifBaru)}>{LABEL_BARU[aktifBaru]}</Button>
             </>
           )
         ) : null}
@@ -129,9 +152,9 @@ export default function LogistikPage() {
         value={bagian}
         onChange={(nilai) => { setBagian(nilai); setBaru(null); }}
         options={[
+          { value: "penempatan", label: "Penempatan" },
           { value: "kamar", label: "Kamar", badge: data?.rooms.length || undefined },
           { value: "bus", label: "Bus", badge: data?.vehicles.length || undefined },
-          { value: "agenda", label: "Agenda bus", badge: data?.trips.length || undefined },
           { value: "barang", label: "Barang", badge: data?.items.length || undefined },
         ]}
       />
@@ -141,12 +164,12 @@ export default function LogistikPage() {
           <Pane aria-label="Galat"><Galat pesan={error} /></Pane>
         ) : !tabProps ? (
           <Pane aria-label="Memuat"><Kerangka /></Pane>
+        ) : bagian === "penempatan" ? (
+          <TabPenempatan data={tabProps.data} kirim={kirim} busy={busy} keTab={(tab) => { setBagian(tab); setBaru(null); }} />
         ) : bagian === "kamar" ? (
           <TabKamar {...tabProps} hotelBaru={hotelBaru} tutupHotelBaru={() => setHotelBaru(false)} />
         ) : bagian === "bus" ? (
-          <TabBus {...tabProps} />
-        ) : bagian === "agenda" ? (
-          <TabAgenda {...tabProps} />
+          bagianBus === "bus" ? <TabBus {...tabProps} atas={pilihBus} /> : <TabAgenda {...tabProps} atas={pilihBus} />
         ) : (
           <TabBarang {...tabProps} />
         )}
