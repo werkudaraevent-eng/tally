@@ -665,21 +665,21 @@ export default function RundownAdminPage() {
         aksi: (
           <>
             <Button variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmItem(selectedItem)}>Hapus</Button>
-            <Button size="sm" onClick={() => void saveItem(selectedItem)} loading={savingItem === selectedItem.id}>Simpan baris</Button>
+            <Button simpan size="sm" onClick={() => void saveItem(selectedItem)} loading={savingItem === selectedItem.id}>Simpan baris</Button>
           </>
         ),
       }
       : {
         note: draftLengkap ? null : "Jam mulai dan nama acara wajib",
-        aksi: active ? <Button size="sm" icon={<Plus size={16} />} onClick={() => void addItem()} loading={addingItem} disabled={!draftLengkap}>Tambah baris</Button> : null,
+        aksi: active ? <Button simpan size="sm" icon={<Plus size={16} />} onClick={() => void addItem()} loading={addingItem} disabled={!draftLengkap}>Tambah baris</Button> : null,
       },
     bagian: {
       note: "Hanya bagian ini",
-      aksi: active ? <Button size="sm" onClick={() => void saveSection(active)} loading={savingSection}>Simpan bagian</Button> : null,
+      aksi: active ? <Button simpan size="sm" onClick={() => void saveSection(active)} loading={savingSection}>Simpan bagian</Button> : null,
     },
     header: {
       note: "Berlaku untuk semua tab",
-      aksi: <Button size="sm" onClick={() => void saveHeader()} loading={savingHeader}>Simpan header</Button>,
+      aksi: <Button simpan size="sm" onClick={() => void saveHeader()} loading={savingHeader}>Simpan header</Button>,
     },
   };
 

@@ -293,7 +293,7 @@ export default function RegistrasiAdminPage() {
                   <RegistrationFormBuilder config={formDraft} onChange={setDraftForm} disabled={simpanForm} />
                 </PaneBody>
                 <PaneFooter note={draftForm ? "Ada perubahan yang belum disimpan" : "Sama dengan yang tayang di halaman pendaftaran"}>
-                  <Button size="sm" onClick={() => void kirimForm(formDraft)} loading={simpanForm} disabled={busy} icon={<Check size={16} weight="bold" />}>
+                  <Button simpan size="sm" onClick={() => void kirimForm(formDraft)} loading={simpanForm} disabled={busy} icon={<Check size={16} weight="bold" />}>
                     Simpan formulir
                   </Button>
                 </PaneFooter>

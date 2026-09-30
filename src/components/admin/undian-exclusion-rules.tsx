@@ -398,7 +398,7 @@ export function ExclusionRuleManager({
         </form>
       </PaneBody>
       <PaneFooter note={existing ? <Button variant="text" size="sm" className="-ml-3 text-error" icon={<Trash size={16} />} disabled={saving} onClick={() => setConfirmDelete(existing)}>Hapus aturan</Button> : undefined}>
-        <Button type="submit" form="form-aturan" size="sm" loading={saving} icon={<FloppyDisk size={16} />}>Simpan aturan</Button>
+        <Button simpan type="submit" form="form-aturan" size="sm" loading={saving} icon={<FloppyDisk size={16} />}>Simpan aturan</Button>
       </PaneFooter>
     </Pane>
   ) : null;

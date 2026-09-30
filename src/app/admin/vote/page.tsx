@@ -866,7 +866,7 @@ export default function VoteAdminPage() {
       </PaneBody>
       <PaneFooter note={TYPES_WITH_OPTIONS.includes(draft.type) && !opsiValid ? "Isi minimal dua opsi" : null}>
         <Button variant="outlined" size="sm" disabled={saving} onClick={() => setDraft(null)}>Batal</Button>
-        <Button type="submit" form="form-pertanyaan" size="sm" loading={saving} disabled={!bisaSimpan}>
+        <Button simpan type="submit" form="form-pertanyaan" size="sm" loading={saving} disabled={!bisaSimpan}>
           {draft.id ? "Simpan perubahan" : "Simpan pertanyaan"}
         </Button>
       </PaneFooter>
@@ -975,7 +975,7 @@ export default function VoteAdminPage() {
         </div>
       </PaneBody>
       <PaneFooter note="Berlaku untuk semua layar yang membuka /vote/layar">
-        <Button size="sm" loading={savingSettings} onClick={() => void saveSettings()}>Simpan tampilan</Button>
+        <Button simpan size="sm" loading={savingSettings} onClick={() => void saveSettings()}>Simpan tampilan</Button>
       </PaneFooter>
     </Pane>
   ) : settingsGagal ? (

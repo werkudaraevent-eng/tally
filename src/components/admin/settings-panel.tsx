@@ -214,7 +214,7 @@ export function SettingsPanel() {
             : waktuUbah ? `Terakhir diubah ${waktuUbah}` : null}
         >
           {jumlahUbah > 0 ? <Button variant="outlined" size="sm" disabled={saving} onClick={() => { setSettings(saved); setError(""); }}>Batalkan</Button> : null}
-          <Button size="sm" loading={saving} disabled={jumlahUbah === 0} onClick={() => void save()}>Simpan perubahan</Button>
+          <Button simpan size="sm" loading={saving} disabled={jumlahUbah === 0} onClick={() => void save()}>Simpan perubahan</Button>
         </PaneFooter>
       </Pane>
     </div>

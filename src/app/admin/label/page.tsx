@@ -734,7 +734,7 @@ export default function LabelAdminPage() {
       </div>
       <PaneBody className="px-4 py-4">{bagian === "isi" ? isiTerpilih : bagian === "gulungan" ? isiGulungan : isiPrinter}</PaneBody>
       <PaneFooter note={kotor ? "Ada perubahan belum disimpan" : "Semua perubahan tersimpan"}>
-        <Button size="sm" loading={busy} disabled={!kotor} onClick={() => void simpan()}>Simpan</Button>
+        <Button simpan size="sm" loading={busy} disabled={!kotor} onClick={() => void simpan()}>Simpan</Button>
       </PaneFooter>
     </Pane>
   );

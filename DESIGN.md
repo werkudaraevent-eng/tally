@@ -894,7 +894,9 @@ Aturan yang mengikat semuanya:
   setiap halaman (`kunci` di konteks halaman admin): `Banner` info untuk admin
   ("hanya bisa dilihat dan diekspor"), `Banner` warning untuk super_admin, yang
   tetap bisa menyimpan (`isWriteBlocked`). Satu penanda per halaman, bukan per
-  tombol: yang terkunci acaranya, bukan satu formulir.
+  tombol: yang terkunci acaranya, bukan satu formulir. Tombol yang menyimpan ke
+  server diberi prop `simpan` pada `Button`; di acara terkunci tombol itu
+  nonaktif sendiri untuk admin biasa, tanpa halaman membaca status acara.
 
 Desain per halaman ada di Figma berkas `OTb4jMVVF0rVEHRoSrhCEG`, halaman
 "Rombak · M3 × Cloudflare", lengkap dengan frame "Catatan" yang menjelaskan

@@ -461,7 +461,7 @@ export default function AttendanceAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={tutupSesiBaru}>Batal</Button>
-            <Button type="submit" form="form-sesi" loading={busy} disabled={!nama.trim() || !slug}>Tambah sesi</Button>
+            <Button simpan type="submit" form="form-sesi" loading={busy} disabled={!nama.trim() || !slug}>Tambah sesi</Button>
           </>
         }
       >

@@ -509,7 +509,7 @@ export function OffersPanel({ onStats, ref }: { onStats?: (stats: OfferStats) =>
         </PaneBody>
         <PaneFooter note={offer.claim_count > 0 ? "Klaim lama tetap memakai harga saat diklaim" : "Berlaku untuk klaim berikutnya"}>
           <Button type="button" variant="outlined" size="sm" disabled={savingEdit} onClick={tutup}>Tutup</Button>
-          <Button type="submit" form="form-item-sunting" size="sm" loading={savingEdit} disabled={!editForm.name.trim()} icon={<Check size={16} weight="bold" />}>
+          <Button simpan type="submit" form="form-item-sunting" size="sm" loading={savingEdit} disabled={!editForm.name.trim()} icon={<Check size={16} weight="bold" />}>
             Simpan perubahan
           </Button>
         </PaneFooter>

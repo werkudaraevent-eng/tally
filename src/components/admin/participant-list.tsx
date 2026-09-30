@@ -652,7 +652,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       </PaneBody>
       <PaneFooter>
         <Button type="button" variant="outlined" size="sm" disabled={saving} onClick={cancelEdit}>Batal</Button>
-        <Button type="submit" form="form-peserta" size="sm" loading={saving} disabled={!draft.name.trim() || !draft.qr_code.trim()} icon={<Check size={16} weight="bold" />}>
+        <Button simpan type="submit" form="form-peserta" size="sm" loading={saving} disabled={!draft.name.trim() || !draft.qr_code.trim()} icon={<Check size={16} weight="bold" />}>
           {mode?.kind === "new" ? "Tambah peserta" : "Simpan perubahan"}
         </Button>
       </PaneFooter>

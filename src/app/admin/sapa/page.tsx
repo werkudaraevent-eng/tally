@@ -432,7 +432,7 @@ export default function SapaAdminPage() {
       </div>
       <PaneBody>{bagian === "isi" ? isi : tampilan}</PaneBody>
       <PaneFooter note={kotor ? "Ada perubahan yang belum disimpan" : "Layar yang menyala ikut berubah"}>
-        <Button size="sm" loading={busy} disabled={!kotor} onClick={() => void simpan()}>Simpan</Button>
+        <Button simpan size="sm" loading={busy} disabled={!kotor} onClick={() => void simpan()}>Simpan</Button>
       </PaneFooter>
     </Pane>
   );

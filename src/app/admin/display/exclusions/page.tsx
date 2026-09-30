@@ -270,7 +270,7 @@ export default function LeaderboardExclusionsPage() {
         </form>
       </PaneBody>
       <PaneFooter note="Berlaku seketika">
-        <Button type="submit" form="form-pengecualian" size="sm" icon={<Prohibit size={16} />} loading={menambah} disabled={busy || !siapTambah}>Kecualikan</Button>
+        <Button simpan type="submit" form="form-pengecualian" size="sm" icon={<Prohibit size={16} />} loading={menambah} disabled={busy || !siapTambah}>Kecualikan</Button>
       </PaneFooter>
     </Pane>
   );

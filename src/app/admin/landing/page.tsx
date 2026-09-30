@@ -588,7 +588,7 @@ export default function LandingCmsPage() {
       </div>
       <PaneBody className="px-4 py-4">{bagian === "isi" ? isiFakta : bagian === "tampilan" ? isiTampilan : isiBagian}</PaneBody>
       <PaneFooter note={berubah ? "Ada perubahan yang belum disimpan" : "Semua perubahan tersimpan"}>
-        <Button size="sm" onClick={() => void save()} loading={busy}>Simpan</Button>
+        <Button simpan size="sm" onClick={() => void save()} loading={busy}>Simpan</Button>
       </PaneFooter>
     </Pane>
   );

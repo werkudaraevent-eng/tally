@@ -311,7 +311,7 @@ export function ScannerPanel() {
             {ubah ? (
               <>
                 <Button variant="outlined" size="sm" onClick={() => setUbah(false)} disabled={menyimpan}>Batal</Button>
-                <Button size="sm" onClick={() => void simpan()} loading={menyimpan}>Simpan setelan</Button>
+                <Button simpan size="sm" onClick={() => void simpan()} loading={menyimpan}>Simpan setelan</Button>
               </>
             ) : (
               <>

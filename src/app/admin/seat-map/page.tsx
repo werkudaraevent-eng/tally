@@ -679,15 +679,15 @@ export default function SeatMapAdminPage() {
   const kaki: Record<Bagian, { note: ReactNode; aksi: ReactNode }> = {
     ruangan: {
       note: labelConflicts.length > 0 ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Betulkan label meja ganda dulu</span> : "Semua agenda ikut berubah",
-      aksi: <Button size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>Simpan tata letak</Button>,
+      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>Simpan tata letak</Button>,
     },
     layar: {
       note: "Berlaku untuk semua layar",
-      aksi: <Button size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>Simpan</Button>,
+      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>Simpan</Button>,
     },
     agenda: {
       note: aktif ? "Hanya agenda ini" : null,
-      aksi: aktif ? <Button size="sm" onClick={() => void saveSession(aktif)} loading={savingSession === aktif.id}>Simpan agenda</Button> : null,
+      aksi: aktif ? <Button simpan size="sm" onClick={() => void saveSession(aktif)} loading={savingSession === aktif.id}>Simpan agenda</Button> : null,
     },
   };
 
