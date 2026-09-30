@@ -36,7 +36,7 @@ export function WorkspacePage({ children, fill, width = "full", className }: Wor
 				// Di layar pendek (laptop berskala 150%) tinggi tidak dikunci: tabel yang
 				// diperas ke sisa ruang hanya muat dua baris, dan judul tidak pernah
 				// tergulir ke bilah atas. Halaman bergulir biasa seperti di bawah `lg`.
-				fill && "lg:h-[calc(100dvh-var(--workspace-top,58px))] lg:overflow-hidden short:h-auto short:overflow-visible",
+				fill && "lg:h-[calc(100dvh-var(--workspace-top,57px))] lg:overflow-hidden short:h-auto short:overflow-visible",
 				WIDTH[width],
 				className,
 			)}
@@ -150,7 +150,7 @@ export function PaneFooter({ note, children, className }: { note?: ReactNode; ch
  * di luar layar. Panel menempel di bawah bilah atas dan bergulir sendiri.
  */
 const PANEL_MENEMPEL =
-	"lg:short:sticky lg:short:top-[calc(var(--workspace-top,58px)+16px)] lg:short:self-start lg:short:max-h-[calc(100dvh-var(--workspace-top,58px)-32px)]";
+	"lg:short:sticky lg:short:top-[calc(var(--workspace-top,57px)+16px)] lg:short:self-start lg:short:max-h-[calc(100dvh-var(--workspace-top,57px)-32px)]";
 
 /**
  * Panel daftar di layar pendek: setinggi layar dan bergulir sendiri. Halaman
@@ -158,7 +158,7 @@ const PANEL_MENEMPEL =
  * Tanpa batas tinggi, panelnya memanjang mengikuti isi dan kepala tabel yang
  * `sticky top-0` di dalamnya ikut tergulir hilang.
  */
-const DAFTAR_SETINGGI_LAYAR = "lg:short:h-[calc(100dvh-var(--workspace-top,58px)-32px)]";
+const DAFTAR_SETINGGI_LAYAR = "lg:short:h-[calc(100dvh-var(--workspace-top,57px)-32px)]";
 
 /** Sama dengan `lg` + `short` di globals.css. */
 const MQ_PENDEK = "(min-width: 64rem) and (max-height: 720px)";
@@ -178,7 +178,7 @@ function useGulirHalamanDulu() {
 		const mq = window.matchMedia(MQ_PENDEK);
 		const onWheel = (event: WheelEvent) => {
 			if (!mq.matches || event.deltaY <= 0 || event.ctrlKey) return;
-			const batas = el.getBoundingClientRect().top - 16 - (parseFloat(getComputedStyle(el).getPropertyValue("--workspace-top")) || 58);
+			const batas = el.getBoundingClientRect().top - 16 - (parseFloat(getComputedStyle(el).getPropertyValue("--workspace-top")) || 57);
 			const sisaHalaman = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
 			// Halaman yang sudah mentok tidak boleh menahan gulir daftar.
 			if (batas <= 1 || sisaHalaman <= 1) return;
