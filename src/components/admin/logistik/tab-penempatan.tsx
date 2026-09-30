@@ -2,7 +2,7 @@
 
 import { Bed, Bus as IkonBus, MagnifyingGlass, Users, Warning, X } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
-import { Banner, Button, ChipMenu, Dialog, EmptyState, Pane, PaneBody, PaneFooter, PaneHeader, EMPTY_VALUE } from "@/components/m3";
+import { Banner, Button, ChipMenu, Dialog, EmptyState, ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, EMPTY_VALUE } from "@/components/m3";
 import { kunciGender, type Bus, type Kamar, type LogistikPeserta } from "@/lib/logistik/types";
 import Link from "@/components/event-link";
 import { cx } from "@/lib/m3/cx";
@@ -155,7 +155,12 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
 
   return (
     <>
-      <Pane aria-label="Penempatan peserta" className="flex-1">
+      {/* Lewat ListDetail meski tanpa panel detail: di layar pendek (zoom 150%)
+          ia yang membuat daftar setinggi layar dan kepala tabelnya menempel,
+          sama dengan Daftar peserta. Pane biasa memanjang mengikuti isinya dan
+          kepala tabel ikut tergulir hilang. */}
+      <ListDetail detail={null} list={
+      <Pane aria-label="Penempatan peserta">
         {toolbar}
         <PaneBody className="overflow-x-auto">
           {data.participants.length === 0 ? (
@@ -249,6 +254,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
           note={<span className="tabular-nums">{adaSaringan ? `${tampil.length} dari ${data.participants.length} peserta` : `${data.participants.length} peserta`}</span>}
         />
       </Pane>
+      } />
 
       <DialogKamar
         open={dialog === "kamar"}
