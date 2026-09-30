@@ -1,334 +1,182 @@
-# Rencana Logistik Peserta: kamar, bus, dan merchandise (PLAN, belum diimplementasikan)
+# Rencana Logistik Peserta: kamar, bus, dan item yang diambil
 
-Status: **DRAFT**, menunggu keputusan di bagian "Pertanyaan terbuka".
+Status: **skema dan RPC sudah jadi migrasi** (`202609300002` s.d.
+`202609300005`), diuji di Postgres 16 lokal di atas seluruh migrasi yang ada.
+Belum diterapkan ke produksi. Halaman admin, impor Excel, layar scan, dan
+kartu area peserta belum dibuat.
+
 Tujuan: peserta melihat di area peserta (`/e/<slug>/peserta`) nomor kamar dan
-teman sekamarnya, bus yang ia naiki, dan ukuran baju yang ia pilih. Panitia
-mengisi semuanya lewat impor Excel atau CMS, per acara.
+teman sekamarnya, bus yang ia naiki di tiap agenda, dan barang yang menjadi
+haknya (kaos dengan ukurannya, goodie bag) beserta status sudah diambil.
+Panitia mengisi semuanya per acara, lewat CMS atau impor Excel.
 
 Desain layar: Figma "Tally, Halaman acara PRIMA 2026", halaman "Area peserta
 (member)".
 
-SQL di dokumen ini adalah draf untuk ditinjau, **bukan** file migrasi.
-Migrasinya dibuat terpisah setelah keputusan di bawah diambil.
+---
+
+## Keputusan panitia (30 Sep 2026)
+
+| # | Pertanyaan | Jawaban | Akibatnya pada model |
+|---|---|---|---|
+| 1 | Teman sekamar harus sesama jenis kelamin? | Ya | `assign_room` menolak kamar campuran (`ROOM_GENDER_MISMATCH`). Jenis kelamin dibaca dari field formulir di `participants.extra`, key-nya disetel per acara. |
+| 2 | Teman sekamar tampil ke peserta? | Ya, dan panitia bisa menyembunyikan | Tampil secara bawaan; `landing_config.member.show_roommates = false` menyembunyikan. |
+| 3 | Ukuran kaos dipilih di mana? | Sudah ada di data peserta | Tidak ada tabel pilihan ukuran. Item menyebut key field ukurannya di `participants.extra`. |
+| 4 | Satu bus untuk semua perjalanan? | Nama umum ("Bus 3"); bus biasanya tetap, tapi bisa diganti per agenda | Bus bawaan per peserta + pengganti per agenda, di satu tabel. |
+| 5 | Siapa menandai kaos sudah diambil? | Scan operator, lewat sesi scan | Sesi scan (`attendance_sessions`) kini bisa memuat daftar item yang diperiksa. |
 
 ---
 
-## Keadaan sekarang
+## Keadaan sebelum ini
 
-- Kursi sudah ada: `participants.seats` (jsonb `[{subEventId, subEventName, label}]`),
-  diisi sinkron Scanner. Prima: 207 dari 278 peserta punya kursi. **Tidak
-  dimodelkan ulang.**
-- Ukuran baju sudah *bisa* ditanyakan lewat pembuat formulir pendaftaran:
-  jawaban field kustom tersimpan di `participants.extra` (kode impor menyebut
-  "ukuran kaus" sebagai contoh). Prima: `extra` kosong untuk semua peserta.
-- Kamar, teman sekamar, dan bus belum ada sama sekali.
-- Konvensi yang diikuti (dari migrasi yang ada):
-  - `event_id uuid not null references events(id) on delete cascade` di setiap tabel.
-  - FK komposit `(event_id, participant_id) references participants(event_id, id)`
-    supaya baris anak tidak bisa menunjuk peserta acara lain
-    (`202608070002`, `vote_ballots`).
-  - Tabel konfigurasi memakai `id bigint generated always as identity`.
-  - RLS aktif, `revoke all ... from public, anon, authenticated`, tanpa
-    policy. Semua akses lewat service role. RPC `security definer` +
-    `grant execute ... to service_role`.
-  - `updated_at` / `updated_by` diisi aplikasi atau RPC, tanpa trigger.
-  - Tulis ke `audit_logs` dari route atau RPC.
-  - Kunci acara selesai otomatis lewat `requireRequestEvent` (409
-    `EVENT_NOT_WRITABLE`).
+- Kursi sudah ada di `participants.seats`, diisi sinkron Scanner. Tidak
+  dimodelkan ulang.
+- Jawaban field formulir (ukuran kaos, jenis kelamin) tersimpan di
+  `participants.extra`, dan ketiga jalur masuk peserta (pendaftaran, tambah
+  manual, impor) sudah mengisinya sejak `202609050001`.
+- Sesi scan dan jalur (meja) sudah ada: `attendance_sessions`,
+  `attendance_scans`, `attendance_lanes`.
+- Konvensi yang diikuti: `event_id` + FK komposit `(event_id, x_id)` supaya
+  baris anak tidak bisa menunjuk data acara lain; RLS aktif tanpa policy,
+  akses hanya service role; RPC `security definer` dengan execute hanya untuk
+  `service_role`; tulis `audit_logs` dari RPC.
 
 ---
 
-## Keputusan desain
-
-### 1. Kamar: hotel → kamar → penempatan
-
-Teman sekamar **tidak disimpan**, melainkan diturunkan: siapa pun yang
-ditempatkan di kamar yang sama. Menyimpannya dua kali (A sekamar B, B sekamar
-A) pasti suatu saat tidak cocok, dan peserta akan melihat nama yang salah.
-
-Kapasitas kamar dijaga di database (RPC dengan kunci baris), bukan di
-formulir: dua admin yang mengisi bersamaan tidak boleh menaruh tiga orang di
-kamar twin.
-
-Satu peserta satu kamar per acara. Tanggal check-in/out ada di kamar sebagai
-bawaan, dan bisa ditimpa per peserta (tamu yang datang sehari lebih lambat).
-
-### 2. Bus: perjalanan → kendaraan → penempatan per perjalanan
-
-Satu acara bisa punya beberapa perjalanan (berangkat pagi, ke Awards, pulang
-malam), dan peserta tidak selalu di bus yang sama untuk semuanya. Penempatan
-per perjalanan menangani kasus itu; CMS menyediakan "pakai bus yang sama untuk
-semua perjalanan" supaya kasus umum tetap satu klik.
-
-Kendaraan (Bus 1, Bus 2, ...) didefinisikan sekali per acara lalu dipakai di
-semua perjalanan, dengan kapasitas yang dijaga per perjalanan.
-
-### 3. Merchandise: item → pilihan ukuran per peserta
-
-Tidak memakai `participants.extra`. Alasannya:
-
-- Panitia butuh **rekap per ukuran** untuk vendor. Menghitung dari jsonb
-  bebas rapuh, dan label pilihan bisa berubah setelah ada jawaban.
-- Butuh **batas waktu ubah** yang ditegakkan server, dan status **sudah
-  diambil** di meja registrasi (scan QR → tandai diambil).
-- Satu acara bisa punya lebih dari satu item (kemeja, jaket, kaus).
-
-Pilihan dari formulir pendaftaran tetap bisa dipakai: item merchandise bisa
-ditautkan ke key field formulir, dan jawaban pendaftaran disalin jadi
-pilihan awal.
-
-### 4. Privasi teman sekamar
-
-Peserta hanya melihat **nama dan perusahaan** teman sekamarnya, tidak email
-atau telepon. Bisa dimatikan per acara (`member.show_roommates`); untuk acara
-yang sensitif panitia cukup menampilkan nomor kamar.
-
-### 5. Yang boleh mengubah apa
-
-| Data | Panitia (admin) | Peserta |
-|---|---|---|
-| Hotel, kamar, penempatan kamar | ya | tidak, lihat saja |
-| Kendaraan, perjalanan, penempatan bus | ya | tidak, lihat saja |
-| Item merchandise dan ukurannya | ya | tidak |
-| Pilihan ukuran | ya, kapan saja sebelum acara ditutup | ya, sampai `edit_deadline` item dan selama belum diambil |
-| Tandai sudah diambil | admin dan scanner (meja registrasi) | tidak |
-
----
-
-## Skema (draf)
+## 1. Kamar (`202609300002`)
 
 ```
+events 1─1 lodging_settings
 events 1─* lodging_hotels 1─* lodging_rooms 1─* lodging_assignments *─1 participants
-events 1─* transport_vehicles ─┐
-events 1─* transport_trips 1─* transport_assignments *─1 participants
-                                └──────────────┘ (vehicle_id)
-events 1─* merch_items 1─* merch_selections *─1 participants
 ```
 
-```sql
--- ---------------------------------------------------------------- Kamar
-create table if not exists public.lodging_hotels (
-  id bigint generated always as identity primary key,
-  event_id uuid not null references public.events(id) on delete cascade,
-  name text not null,
-  address text,
-  map_url text,
-  -- Bawaan untuk kamar-kamarnya; bisa ditimpa per kamar dan per peserta.
-  check_in_at timestamptz,
-  check_out_at timestamptz,
-  sort_order int not null default 0,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint lodging_hotels_event_id_unique unique (event_id, id)
-);
+- **Teman sekamar tidak disimpan**, diturunkan dari penghuni kamar yang sama.
+- **Jenis kelamin** tidak jadi kolom baru di `participants`. Panitia membuat
+  field "Jenis kelamin" di formulir (atau kolom impor), lalu memilih key
+  field itu di pengaturan Kamar (`lodging_settings.gender_field_key`).
+  Perbandingan tidak peka huruf besar dan spasi tepi ("Pria" = "pria ").
+  Kolom baru berarti mengubah sinkron Scanner, `save_participant`, dan
+  `import_participants` sekaligus untuk data yang jalurnya sudah ada.
+- `enforce_same_gender` bawaannya menyala. Selama menyala, penempatan
+  ditolak bila key field belum disetel (`LODGING_GENDER_FIELD_NOT_SET`) atau
+  peserta belum punya jawaban (`PARTICIPANT_GENDER_UNKNOWN`).
+- Tanggal check-in/out: peserta, lalu kamar, lalu hotel.
 
-create table if not exists public.lodging_rooms (
-  id bigint generated always as identity primary key,
-  event_id uuid not null references public.events(id) on delete cascade,
-  hotel_id bigint not null,
-  -- Teks, bukan angka: "1208", "1208A", "Villa 3".
-  room_number text not null,
-  room_type text,                                  -- bebas: twin, double, suite
-  capacity smallint not null default 2 check (capacity between 1 and 20),
-  floor text,
-  check_in_at timestamptz,
-  check_out_at timestamptz,
-  notes text,                                      -- hanya untuk panitia
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint lodging_rooms_event_id_unique unique (event_id, id),
-  constraint lodging_rooms_number_unique unique (event_id, hotel_id, room_number),
-  foreign key (event_id, hotel_id) references public.lodging_hotels(event_id, id) on delete cascade
-);
+| RPC | Penjaga |
+|---|---|
+| `assign_room(event, room, participant, actor, check_in?, check_out?)` | Kamar dikunci `for update`; `ROOM_FULL`, `ROOM_GENDER_MISMATCH`; peserta yang dihapus di sumber tidak dihitung penghuni. Audit `lodging_assigned`. |
+| `unassign_room(event, participant, actor)` | Audit `lodging_unassigned`. |
 
-create table if not exists public.lodging_assignments (
-  id bigint generated always as identity primary key,
-  event_id uuid not null references public.events(id) on delete cascade,
-  room_id bigint not null,
-  participant_id uuid not null,
-  -- Null = pakai tanggal kamar/hotel.
-  check_in_at timestamptz,
-  check_out_at timestamptz,
-  created_at timestamptz not null default now(),
-  created_by uuid references public.users(id) on delete set null,
-  -- Satu kamar per peserta per acara.
-  constraint lodging_assignments_participant_unique unique (event_id, participant_id),
-  foreign key (event_id, room_id) references public.lodging_rooms(event_id, id) on delete cascade,
-  foreign key (event_id, participant_id) references public.participants(event_id, id) on delete cascade
-);
-create index if not exists lodging_assignments_room_idx on public.lodging_assignments (room_id);
+## 2. Bus (`202609300003`)
 
--- ---------------------------------------------------------------- Bus
-create table if not exists public.transport_vehicles (
-  id bigint generated always as identity primary key,
-  event_id uuid not null references public.events(id) on delete cascade,
-  code text not null,                              -- "Bus 3"
-  capacity smallint check (capacity between 1 and 200),
-  plate_number text,
-  crew_contact text,                               -- hanya untuk panitia
-  sort_order int not null default 0,
-  created_at timestamptz not null default now(),
-  constraint transport_vehicles_event_id_unique unique (event_id, id),
-  constraint transport_vehicles_code_unique unique (event_id, code)
-);
-
-create table if not exists public.transport_trips (
-  id bigint generated always as identity primary key,
-  event_id uuid not null references public.events(id) on delete cascade,
-  name text not null,                              -- "Berangkat ke venue"
-  depart_at timestamptz not null,
-  origin text not null,                            -- "Lobi hotel"
-  destination text not null,
-  meeting_point text,                              -- titik kumpul, tampil ke peserta
-  sort_order int not null default 0,
-  created_at timestamptz not null default now(),
-  constraint transport_trips_event_id_unique unique (event_id, id)
-);
-
-create table if not exists public.transport_assignments (
-  id bigint generated always as identity primary key,
-  event_id uuid not null references public.events(id) on delete cascade,
-  trip_id bigint not null,
-  vehicle_id bigint not null,
-  participant_id uuid not null,
-  created_at timestamptz not null default now(),
-  created_by uuid references public.users(id) on delete set null,
-  -- Satu kendaraan per peserta per perjalanan.
-  constraint transport_assignments_unique unique (trip_id, participant_id),
-  foreign key (event_id, trip_id) references public.transport_trips(event_id, id) on delete cascade,
-  foreign key (event_id, vehicle_id) references public.transport_vehicles(event_id, id) on delete cascade,
-  foreign key (event_id, participant_id) references public.participants(event_id, id) on delete cascade
-);
-create index if not exists transport_assignments_participant_idx on public.transport_assignments (event_id, participant_id);
-create index if not exists transport_assignments_trip_vehicle_idx on public.transport_assignments (trip_id, vehicle_id);
-
--- ---------------------------------------------------------------- Merchandise
-create table if not exists public.merch_items (
-  id bigint generated always as identity primary key,
-  event_id uuid not null references public.events(id) on delete cascade,
-  name text not null,                              -- "Kemeja batik PRIMA 2026"
-  -- Urutan tampil = urutan array. Minimal satu ukuran.
-  sizes text[] not null check (cardinality(sizes) between 1 and 12),
-  size_guide text,                                 -- teks atau URL tabel ukuran vendor
-  pickup_note text,                                -- "Ambil di meja registrasi"
-  -- Peserta boleh mengubah sampai waktu ini. Null = tidak boleh sama sekali.
-  edit_deadline timestamptz,
-  -- Key field formulir pendaftaran yang jawabannya disalin jadi pilihan awal.
-  registration_field_key text,
-  sort_order int not null default 0,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint merch_items_event_id_unique unique (event_id, id)
-);
-
-create table if not exists public.merch_selections (
-  id bigint generated always as identity primary key,
-  event_id uuid not null references public.events(id) on delete cascade,
-  item_id bigint not null,
-  participant_id uuid not null,
-  size text not null,
-  source text not null check (source in ('registrasi', 'peserta', 'panitia', 'impor')),
-  selected_at timestamptz not null default now(),
-  picked_up_at timestamptz,
-  picked_up_by uuid references public.users(id) on delete set null,
-  constraint merch_selections_unique unique (item_id, participant_id),
-  foreign key (event_id, item_id) references public.merch_items(event_id, id) on delete cascade,
-  foreign key (event_id, participant_id) references public.participants(event_id, id) on delete cascade
-);
--- `size` harus salah satu `merch_items.sizes`: dijaga di RPC simpan, karena
--- check constraint tidak bisa membaca tabel lain.
-
--- ---------------------------------------------------------------- Akses
--- Sama seperti tabel lain: tanpa policy, hanya service role.
-alter table public.lodging_hotels enable row level security;
-revoke all on table public.lodging_hotels from public, anon, authenticated;
--- (ulangi untuk ketujuh tabel)
+```
+events 1─* transport_vehicles   ("Bus 1", kapasitas)
+events 1─* transport_trips      (agenda yang memakai bus, follows_default)
+transport_assignments: trip_id null = bus bawaan, trip_id terisi = pengganti
 ```
 
-### RPC
+- Bus peserta di satu agenda = **penggantinya bila ada, selain itu bus
+  bawaan** (bila agenda itu `follows_default`).
+- Agenda dengan `follows_default = false` disusun ulang seluruhnya: hanya
+  pengganti yang berlaku (mis. pulang ke dua tujuan berbeda).
+- Pengganti dengan `vehicle_id` null = "tidak naik bus di agenda ini".
+- Aturan di atas ditulis sekali di `transport_effective(event)`; grid admin,
+  pemeriksaan kapasitas, dan area peserta semuanya membacanya.
 
-| RPC | Guna | Penjaga |
-|---|---|---|
-| `assign_room(p_event_id, p_room_id, p_participant_id, p_actor)` | Tempatkan atau pindahkan peserta | `select ... for update` pada kamar; tolak `ROOM_FULL` bila penghuni ≥ `capacity`; audit `lodging_assigned` |
-| `assign_vehicle(p_event_id, p_trip_id, p_vehicle_id, p_participant_ids uuid[], p_actor)` | Tempatkan banyak peserta sekaligus | kapasitas per (perjalanan, kendaraan); audit `transport_assigned` |
-| `save_merch_selection(p_event_id, p_item_id, p_participant_id, p_size, p_source, p_actor)` | Simpan ukuran | ukuran ada di `sizes`; peserta hanya sebelum `edit_deadline` dan bila `picked_up_at is null` |
-| `import_logistics(p_event_id, p_rows jsonb, p_dry_run, p_actor)` | Impor Excel | pola `import_participants`: dry run dan terapkan satu jalur, cocokkan lewat `qr_code`, isu dibatasi 50 |
-| `member_logistics(p_event_id, p_participant_id)` | Satu panggilan untuk area peserta | kembalikan jsonb: kamar (+ nama dan perusahaan teman sekamar bila diizinkan), perjalanan dan bus, pilihan merchandise |
+| RPC | Guna |
+|---|---|
+| `assign_bus(event, trip?, vehicle?, participant_ids[], actor)` | Set/hapus bus bawaan, atau set pengganti per agenda. Kapasitas diperiksa di semua agenda yang terdampak (`VEHICLE_FULL` dengan detail agenda). Semua tulis bus satu acara diserialkan dengan kunci advisory. |
+| `reset_bus_override(event, trip, participant_ids[], actor)` | Kembalikan ke bus bawaan di satu agenda. |
+| `transport_overview(event)` | Grid agenda × bus: isi, kapasitas, `over_capacity`. Kapasitas bisa terlampaui dari luar RPC (kapasitas diturunkan, agenda diubah jadi mengikuti bawaan); grid menandainya alih-alih mengunci panitia. |
 
-Semua `security definer set search_path = public`, execute hanya
-`service_role`.
+## 3. Item yang diambil di sesi scan (`202609300004`)
+
+```
+events 1─* pickup_items (nama, size_field_key)
+attendance_sessions *─* pickup_items   lewat attendance_session_items
+item_pickups: satu baris per (item, peserta), dengan sesi, jalur, petugas, ukuran saat diambil
+```
+
+- Admin membuat sesi scan seperti biasa ("Registrasi"), lalu memilih item
+  yang diperiksa di sesi itu (Kaos, Goodie bag). Satu item bisa dibagikan
+  di lebih dari satu sesi; tetap hanya bisa diambil sekali per peserta.
+- Ukuran dibaca dari `participants.extra[size_field_key]`, dan **disalin**
+  ke `item_pickups.size` saat diserahkan.
+- Pencatatan kehadiran (`record_attendance_scan`) tidak diubah. Layar scan
+  memanggil `pickup_checklist` setelah memindai, lalu `record_item_pickup`
+  untuk item yang dicentang. Kedatangan dan penyerahan barang bisa terjadi
+  terpisah (stok habis, datang terlambat).
+
+| RPC | Guna |
+|---|---|
+| `pickup_checklist(event, session, participant)` | Item sesi ini + ukuran peserta + sudah diambil atau belum. |
+| `record_item_pickup(event, session, participant, item_ids[], actor, lane?)` | `SESSION_CLOSED`, `ITEM_NOT_IN_SESSION`, `PARTICIPANT_NOT_FOUND`. Yang sudah diambil tidak ditimpa, dilaporkan di `already`. Audit `item_picked_up`. |
+| `undo_item_pickup(event, item, participant, actor)` | Untuk admin saja, bukan layar scan. Audit `item_pickup_undone`. |
+| `pickup_item_recap(event)` | Jumlah per item per ukuran dan yang sudah diambil. Untuk pesanan vendor dan stok hari-H. Peserta tanpa ukuran muncul sebagai baris ukuran kosong. |
+
+## 4. Area peserta dan duplikasi (`202609300005`)
+
+- `member_logistics(event, participant)` mengembalikan `lodging` (hotel,
+  nomor kamar, tanggal, teman sekamar: nama dan perusahaan saja, atau null
+  bila disembunyikan), `transport` (bus bawaan dan tiap agenda dengan
+  busnya, plus penanda bila berbeda dari biasanya), dan `items`. Tidak
+  pernah mengirim catatan kamar, kontak kru, atau pelat nomor.
+  `show_roommates` dibaca di dalam RPC supaya data yang disembunyikan tidak
+  pernah keluar dari database.
+- `duplicate_event` kini memanggil `copy_logistics_config`: pengaturan kamar,
+  hotel, kamar, bus, agenda bus, dan item disalin dengan waktu digeser sejauh
+  selisih tanggal acara. Penempatan dan catatan pengambilan tidak disalin.
+- `delete_event` tidak perlu diubah: semua tabel baru `on delete cascade`
+  lewat acara dan peserta. Diuji.
 
 ---
 
-## Alur panitia
+## Alur panitia (belum dibuat)
 
-Menu admin baru **Logistik** (di grup Peserta), halaman supporting-pane
-dengan tab **Kamar**, **Transportasi**, **Merchandise**:
+Menu admin **Logistik** (grup Peserta), tab **Kamar** dan **Transportasi**;
+item diatur di halaman sesi scan.
 
-- **Kamar:** daftar hotel dan kamarnya, penghuni per kamar, penanda kamar
-  penuh/kosong, peserta yang belum dapat kamar. Seret atau pilih peserta ke
-  kamar.
-- **Transportasi:** perjalanan (baris) × kendaraan (kolom) dengan jumlah
-  terisi/kapasitas; pilih banyak peserta lalu "Tempatkan di Bus 3", opsi
-  "untuk semua perjalanan".
-- **Merchandise:** item dan ukurannya, rekap jumlah per ukuran (untuk vendor,
-  bisa diekspor), batas waktu ubah, daftar yang belum memilih.
-- **Impor Excel satu lembar**, satu baris per peserta, pakai parser
-  `src/lib/participants-io.ts` dan pratinjau dry run seperti impor peserta:
+- **Kamar:** pengaturan field jenis kelamin; hotel dan kamarnya, penghuni,
+  penanda penuh/kosong/campuran; peserta yang belum dapat kamar.
+- **Transportasi:** daftar bus; bus bawaan per peserta (pilih banyak lalu
+  "Tempatkan di Bus 3"); grid agenda × bus dari `transport_overview`; per
+  agenda: ikuti bus bawaan atau susun ulang, dan pengganti per peserta.
+- **Sesi scan:** tiap sesi bisa memilih item yang diperiksa; rekap per
+  ukuran dari `pickup_item_recap`, bisa diekspor.
+- **Impor Excel satu lembar** (pola `import_participants`: dry run lalu
+  terapkan, cocokkan lewat `qr_code`):
 
-  | qr_code | hotel | kamar | tipe_kamar | kapasitas | bus_berangkat | bus_pulang | ukuran_kemeja |
-  |---|---|---|---|---|---|---|---|
+  | qr_code | hotel | kamar | tipe_kamar | kapasitas | bus |
+  |---|---|---|---|---|---|
 
-  Hotel, kamar, dan kendaraan yang belum ada dibuat otomatis saat impor
-  (ditampilkan di pratinjau sebagai "akan dibuat"), supaya panitia tidak
-  harus mengisi master data dulu.
-- **Meja registrasi:** layar pemindai menampilkan ukuran baju peserta dan
-  tombol "Tandai sudah diambil".
+  Hotel, kamar, dan bus yang belum ada dibuat otomatis saat impor. Kolom
+  `bus` mengisi bus bawaan; pengganti per agenda diatur di CMS. Jenis kelamin
+  dan ukuran kaos lewat impor peserta biasa (field `extra`).
 
-## Alur peserta
+## Alur scan operator (belum dibuat)
 
-`/e/<slug>/peserta` memanggil `member_logistics` sekali dan menampilkan
-kartu Kamar, Bus, Tempat duduk (dari `seats` yang sudah ada), dan Ukuran
-baju, masing-masing hanya bila datanya ada dan bagiannya dinyalakan di CMS
-(`member.show_lodging`, `show_transport`, `show_merch`, `show_roommates`).
-Profil menampilkan pilihan ukuran yang bisa diubah sampai batas waktunya.
+Setelah memindai di sesi yang punya item, layar menampilkan daftar centang
+(Kaos L, Goodie bag) dan peringatan bila item sudah diambil sebelumnya.
+Petugas mencentang yang diserahkan.
 
-## Integrasi yang tidak boleh terlupa
+## Alur peserta (belum dibuat)
 
-- **`delete_event`** (`202608180001`): ketujuh tabel `on delete cascade` ke
-  events, tetapi FK komposit ke `participants` juga cascade, jadi tidak ada
-  jalur `set null` yang memicu 23502. Tetap diuji di migrasi.
-- **`duplicate_event`** (`202608070016`): salin konfigurasi (hotel, kamar,
-  kendaraan, perjalanan dengan tanggal digeser, item merchandise), **jangan**
-  salin penempatan dan pilihan, sama seperti peserta tidak disalin.
-- **Kunci acara selesai:** route admin memakai `requireRequestEvent`, jadi
-  terkunci otomatis. RPC `save_merch_selection` dari peserta memeriksa status
-  acara sendiri, karena jalur peserta tidak lewat `requireRequestEvent`.
-- **Peserta dihapus di sumber** (`source_removed_at`): penempatannya tetap
-  ada untuk audit, tetapi tidak dihitung ke kapasitas dan tidak muncul
-  sebagai teman sekamar.
+`/e/<slug>/peserta` memanggil `member_logistics` sekali dan menampilkan kartu
+Kamar, Bus, Tempat duduk (dari `seats`), dan Barang, masing-masing hanya bila
+datanya ada. Ukuran kaos tidak diubah dari area peserta.
 
----
+## Catatan
 
-## Pertanyaan terbuka (perlu keputusan)
-
-1. **Pasangan sekamar berdasarkan jenis kelamin?** `participants` tidak punya
-   kolom jenis kelamin. Bila perlu peringatan "kamar campuran", butuh kolom
-   baru atau field formulir.
-2. **Teman sekamar tampil ke peserta secara bawaan, atau harus dinyalakan?**
-   Rekomendasi: bawaan menyala untuk nama dan perusahaan saja.
-3. **Ukuran baju dipilih saat pendaftaran, di area peserta, atau keduanya?**
-   Rekomendasi: keduanya, dengan batas waktu.
-4. **Satu bus untuk semua perjalanan cukup untuk acara-acara ke depan?** Bila
-   ya, `transport_trips` bisa dibuang dan penempatan langsung ke kendaraan
-   (lebih sederhana, satu tabel lebih sedikit).
-5. **Siapa yang menandai merchandise sudah diambil:** petugas scanner di meja
-   registrasi, atau hanya admin?
+- Peserta yang dihapus di sumber lalu dipulihkan bisa membuat kamar
+  melebihi kapasitas (tempatnya sudah diisi orang lain). Halaman Kamar perlu
+  menandai kamar seperti itu.
+- Mengubah jawaban jenis kelamin setelah penempatan tidak memindahkan
+  peserta; halaman Kamar perlu menandai kamar campuran.
 
 ## Tahapan
 
-1. Migrasi tujuh tabel + RPC, `delete_event` dan `duplicate_event`
-   diperbarui. Uji di database lokal/cabang sebelum produksi.
-2. Impor Excel + halaman admin Logistik (tab Kamar dulu).
-3. Area peserta: kartu Kamar, Bus, Tempat duduk, Ukuran baju.
-4. Transportasi dan Merchandise di admin, penanda "sudah diambil" di pemindai.
+1. ~~Migrasi tabel + RPC, `duplicate_event` diperbarui.~~ Selesai, belum di
+   produksi.
+2. Halaman admin Logistik (Kamar dulu) + impor Excel.
+3. Area peserta: kartu Kamar, Bus, Tempat duduk, Barang.
+4. Item di sesi scan: pengaturan di admin, daftar centang di layar scan.
