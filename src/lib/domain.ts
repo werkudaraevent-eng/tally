@@ -292,7 +292,37 @@ export type LandingSpeaker = {
   featured?: boolean;
 };
 
+/**
+ * Area peserta: peserta masuk dengan email pendaftaran + kata sandi di halaman
+ * acara, lalu melihat kode QR, kursi, susunan acara, dan tautan voting miliknya.
+ *
+ * `audience`:
+ *   - `approved` (bawaan): hanya peserta dari pendaftaran publik yang disetujui.
+ *   - `all`: semua baris di Daftar peserta yang punya email, termasuk impor.
+ *
+ * Tiap `show_*` bawaan menyala; `feedback_url` kosong berarti kartu umpan balik
+ * tidak tampil.
+ */
+export type LandingMemberAudience = "approved" | "all";
+
+export type LandingMemberConfig = {
+  enabled: boolean;
+  audience?: LandingMemberAudience;
+  show_code?: boolean;
+  show_seat?: boolean;
+  show_schedule?: boolean;
+  show_vote?: boolean;
+  feedback_url?: string | null;
+};
+
+export const LANDING_MEMBER_AUDIENCE_LABELS: Record<LandingMemberAudience, string> = {
+  approved: "Peserta yang pendaftarannya disetujui",
+  all: "Semua peserta di Daftar peserta",
+};
+
 export type EventLandingConfig = {
+  /** Area peserta. Tanpa nilai = mati. */
+  member?: LandingMemberConfig;
   banner_url?: string | null;
   /** Bawaan `theme` — perilaku sebelum pilihan ini ada. */
   banner_style?: LandingBannerStyle;

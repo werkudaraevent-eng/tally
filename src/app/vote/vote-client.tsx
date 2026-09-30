@@ -44,11 +44,20 @@ function rememberVoted(pollId: number) {
   } catch { /* diabaikan, lihat readVoted */ }
 }
 
-export default function VoteClient({ eventName, accent }: { eventName: string; accent: string }) {
+export default function VoteClient({
+  eventName,
+  accent,
+  memberCode = null,
+}: {
+  eventName: string;
+  accent: string;
+  /** Kode peserta dari area peserta yang sedang masuk; mengisi kolom kode otomatis. */
+  memberCode?: string | null;
+}) {
   const [state, setState] = useState<PublicVoteState>({ poll: null });
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number[]>([]);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(memberCode ?? "");
   const [rating, setRating] = useState<number | null>(null);
   const [words, setWords] = useState<string[]>([""]);
   const [name, setName] = useState("");

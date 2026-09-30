@@ -18,12 +18,15 @@ export function LandingNav({
   ctaLabel,
   daftarUrl,
   registrationOpen,
+  memberLink = null,
   sections,
 }: {
   eventName: string;
   ctaLabel: string;
   daftarUrl: string;
   registrationOpen: boolean;
+  /** Tautan area peserta; null bila area peserta dimatikan. */
+  memberLink?: { href: string; label: string } | null;
   sections: { id: string; label: string }[];
 }) {
   const [aktif, setAktif] = useState<string | null>(null);
@@ -100,6 +103,15 @@ export function LandingNav({
             </li>
           ))}
         </ul>
+
+        {memberLink ? (
+          <Link
+            href={memberLink.href}
+            className="m3-state inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-label-large font-semibold text-[var(--reg-on-surface)]"
+          >
+            {memberLink.label}
+          </Link>
+        ) : null}
 
         {registrationOpen ? (
           <Link

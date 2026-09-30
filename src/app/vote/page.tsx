@@ -1,5 +1,6 @@
 import { getPublicPageEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { getMemberSession } from "@/lib/member/account";
 import VoteClient from "./vote-client";
 
 // Halaman pemilih. Publik, dibuka di HP lewat QR di layar panggung.
@@ -30,5 +31,8 @@ export default async function VotePage({ searchParams }: {
     .from("undian_settings").select("accent_color").eq("event_id", event.id).maybeSingle();
   const accent = (data as { accent_color: string | null } | null)?.accent_color ?? "#2C3FD6";
 
-  return <VoteClient eventName={event.name} accent={accent} />;
+  // Peserta yang masuk lewat area peserta tidak perlu mengetik kode di badge.
+  const sesi = await getMemberSession(event);
+
+  return <VoteClient eventName={event.name} accent={accent} memberCode={sesi?.participant.qr_code ?? null} />;
 }

@@ -604,6 +604,21 @@ tipografi yang membawa halaman, bukan kartu, bayangan, atau gerak.
 - Warna tetap dari tema acara (`--reg-*`). Tidak ada animasi saat digulir; gerak
   satu-satunya adalah `rise-in` hero saat muat dan `settle-in` pada KV.
 
+### Area peserta
+
+`/e/<slug>/masuk` dan `/e/<slug>/peserta`, dinyalakan di CMS Halaman acara, tab
+Peserta. Memakai tema dan huruf judul halaman acara, jadi bagi tamu ia bagian
+dari halaman yang sama.
+
+- Masuk dengan email pendaftaran + kata sandi. Kata sandi dibuat sendiri dengan
+  email + kode peserta (jalur yang sama untuk lupa kata sandi). Belum ada email
+  aktivasi.
+- Isi diambil dari data yang sudah ada: kode QR (`participants.qr_code`), kursi
+  (`participants.seats`), rundown, dan halaman voting dengan kode terisi.
+  Disebut "Susunan acara", bukan "Jadwal Anda": tidak ada data jadwal pribadi.
+- Akun peserta terpisah dari akun panitia (`participant_accounts`,
+  `participant_sessions`); tidak ada jalur dari sesi peserta ke layar admin.
+
 ### Papan peringkat
 
 Lanskap 1920×1080. Kanvas gelap tetap, teks terang, angka besar, hierarki

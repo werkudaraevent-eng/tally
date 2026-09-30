@@ -13,6 +13,7 @@ import type {
 import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS } from "@/lib/domain";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
+import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { AgendaTabs } from "./agenda-tabs";
 import { LandingNav } from "./landing-nav";
 
@@ -167,6 +168,14 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
   // dan bagian Susunan acara.
   const agenda = await loadAgendaPreview(event.id);
 
+  // Area peserta: tautan "Masuk", atau "Area peserta" bila sudah masuk.
+  const member = memberConfig(event);
+  const memberLink = member
+    ? (await getMemberSession(event))
+      ? { href: `/e/${event.slug}/peserta`, label: "Area peserta" }
+      : { href: `/e/${event.slug}/masuk`, label: "Masuk" }
+    : null;
+
   // Bagian tanpa isi dibuang di sini, sekali, termasuk dari navigasi jangkar.
   // Nav yang menunjuk ke bagian yang tidak ada adalah tautan yang tidak
   // melakukan apa-apa.
@@ -224,6 +233,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
         ctaLabel={ctaLabel}
         daftarUrl={daftarUrl}
         registrationOpen={event.registration_enabled}
+        memberLink={memberLink}
         sections={tampil.map((section) => ({ id: section.id, label: LANDING_SECTION_LABELS[section.id] }))}
       />
 

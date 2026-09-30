@@ -18,7 +18,16 @@ import { rentangAkhir } from "@/lib/landing-agenda-range";
  * ponsel. Papan ketik mengikuti pola tab WAI-ARIA: panah berpindah tab, Home
  * dan End ke ujung.
  */
-export function AgendaTabs({ agenda }: { agenda: AgendaPreview[] }) {
+export function AgendaTabs({
+  agenda,
+  stacked = false,
+}: {
+  agenda: AgendaPreview[];
+  /** Tab selalu mendatar di atas daftar, untuk kolom sempit (area peserta). */
+  stacked?: boolean;
+}) {
+  /** Kelas tata letak layar lebar; dibuang saat `stacked`. */
+  const lebar = (kelas: string) => (stacked ? "" : kelas);
   const [aktif, setAktif] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const dasar = useId();
@@ -40,13 +49,13 @@ export function AgendaTabs({ agenda }: { agenda: AgendaPreview[] }) {
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-12 lg:gap-12">
+    <div className={`grid gap-8 ${lebar("lg:grid-cols-12 lg:gap-12")}`}>
       {multi ? (
         <div
           role="tablist"
           aria-label="Bagian acara"
           onKeyDown={pindah}
-          className="-mx-1 flex gap-1 overflow-x-auto border-b border-[var(--reg-outline-variant)] px-1 lg:col-span-4 lg:mx-0 lg:flex-col lg:self-start lg:overflow-visible lg:border-b-0 lg:px-0 xl:col-span-3"
+          className={`-mx-1 flex gap-1 overflow-x-auto border-b border-[var(--reg-outline-variant)] px-1 ${lebar("lg:col-span-4 lg:mx-0 lg:flex-col lg:self-start lg:overflow-visible lg:border-b-0 lg:px-0 xl:col-span-3")}`}
         >
           {agenda.map((bagian, index) => {
             const pilih = index === aktif;
@@ -65,7 +74,7 @@ export function AgendaTabs({ agenda }: { agenda: AgendaPreview[] }) {
                 aria-controls={`${dasar}-panel`}
                 tabIndex={pilih ? 0 : -1}
                 onClick={() => setAktif(index)}
-                className={`m3-state flex min-h-12 shrink-0 flex-col justify-center border-b-2 px-4 py-2 text-left lg:rounded-md lg:border-b-0 lg:border-l-2 lg:py-3 ${
+                className={`m3-state flex min-h-12 shrink-0 flex-col justify-center border-b-2 px-4 py-2 text-left ${lebar("lg:rounded-md lg:border-b-0 lg:border-l-2 lg:py-3")} ${
                   pilih
                     ? "border-[var(--reg-primary)] text-[var(--reg-on-surface)]"
                     : "border-transparent text-[var(--reg-on-surface-variant)]"
@@ -73,7 +82,7 @@ export function AgendaTabs({ agenda }: { agenda: AgendaPreview[] }) {
               >
                 <span className="text-title-small font-semibold">{bagian.sectionTitle || `Bagian ${index + 1}`}</span>
                 {awal ? (
-                  <span className="hidden text-body-small tabular-nums text-[var(--reg-on-surface-variant)] lg:block">
+                  <span className={`hidden text-body-small tabular-nums text-[var(--reg-on-surface-variant)] ${lebar("lg:block")}`}>
                     {akhir && akhir !== awal ? `${awal} hingga ${akhir}` : awal}
                   </span>
                 ) : null}
@@ -90,7 +99,7 @@ export function AgendaTabs({ agenda }: { agenda: AgendaPreview[] }) {
         // Tanpa tab, daftar mengambil posisi yang sama dengan kolom isi bagian
         // lain, jadi tepi kirinya tetap lurus dengan paragraf di atasnya.
         className={`divide-y divide-[var(--reg-outline-variant)] border-y border-[var(--reg-outline-variant)] ${
-          multi ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12"
+          lebar(multi ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12")
         }`}
       >
         {blok?.items.map((item, index) => (

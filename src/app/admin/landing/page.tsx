@@ -15,12 +15,15 @@ import {
   LANDING_BANNER_STYLE_LABELS,
   LANDING_HEADING_FONTS,
   LANDING_HEADING_SCALE_LABELS,
+  LANDING_MEMBER_AUDIENCE_LABELS,
   LANDING_HERO_HEIGHT_LABELS,
   LANDING_SECTION_LABELS,
   LANDING_SECTION_SOURCES,
   normalizeLandingSections,
   type EventLandingConfig,
   type LandingHeadingFont,
+  type LandingMemberConfig,
+  type LandingMemberAudience,
   type LandingSection,
   type LandingSectionId,
   type RegistrationFormConfig,
@@ -47,7 +50,7 @@ type Facts = {
   venue_map_url: string | null;
 };
 
-type Bagian = "isi" | "tampilan" | "bagian";
+type Bagian = "isi" | "tampilan" | "bagian" | "peserta";
 
 /** "09:00:00" → "09:00". Kolom <input type="time"> menolak bentuk berdetik. */
 const jamInput = (value: string | null) => (value ? value.slice(0, 5) : "");
@@ -176,6 +179,11 @@ export default function LandingCmsPage() {
       toast.error("Pertanyaan umum belum lengkap", `Pertanyaan ${tanyaKosong + 1}: isi pertanyaan dan jawabannya, atau hapus pertanyaan itu.`);
       return;
     }
+    const umpanBalik = landing.member?.feedback_url?.trim();
+    if (landing.member?.enabled && umpanBalik && !/^https?:\/\/\S+\.\S+/.test(umpanBalik)) {
+      toast.error("Tautan umpan balik belum valid", "Tulis alamat lengkap yang diawali https://, atau kosongkan.");
+      return;
+    }
     const pembicaraKosong = (landing.speakers ?? []).findIndex((item) => !item.name.trim());
     if (pembicaraKosong >= 0) {
       toast.error("Pembicara belum lengkap", `Pembicara ${pembicaraKosong + 1}: isi namanya, atau hapus baris itu.`);
@@ -199,6 +207,9 @@ export default function LandingCmsPage() {
           ...landing,
           sections,
           theme: { seed: landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
+          member: landing.member
+            ? { ...landing.member, feedback_url: landing.member.feedback_url?.trim() || null }
+            : undefined,
         },
         form_theme: { inherit: formInherit, seed: formSeed },
       }),
@@ -624,6 +635,71 @@ export default function LandingCmsPage() {
     sponsors: (landing.sponsors ?? []).length,
   };
 
+  // ---- Peserta (area peserta) -------------------------------------------------
+  const anggota: LandingMemberConfig = landing.member ?? { enabled: false };
+  const setAnggota = (patch: Partial<LandingMemberConfig>) =>
+    setLanding({ ...landing, member: { ...anggota, ...patch } });
+  const isiPeserta = (
+    <div className="flex flex-col gap-5">
+      <Kelompok title="Area peserta" first>
+        <Switch
+          checked={anggota.enabled}
+          onChange={(value) => setAnggota({ enabled: value })}
+          label="Buka area peserta"
+          description="Tombol Masuk tampil di halaman acara. Peserta masuk dengan email pendaftaran dan kata sandi yang mereka buat sendiri dengan kode peserta."
+        />
+      </Kelompok>
+      {anggota.enabled ? (
+        <>
+          <Kelompok title="Siapa yang bisa masuk">
+            <div role="radiogroup" aria-label="Siapa yang bisa masuk" className="flex flex-col gap-2">
+              {(Object.keys(LANDING_MEMBER_AUDIENCE_LABELS) as LandingMemberAudience[]).map((key) => {
+                const pilih = (anggota.audience ?? "approved") === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="radio"
+                    aria-checked={pilih}
+                    onClick={() => setAnggota({ audience: key })}
+                    className={`m3-state flex min-h-12 flex-col items-start gap-0.5 rounded-md border px-4 py-2.5 text-left ${
+                      pilih ? "border-primary bg-primary-container/40 ring-1 ring-primary" : "border-outline-variant"
+                    }`}
+                  >
+                    <span className="text-body-medium font-medium text-on-surface">{LANDING_MEMBER_AUDIENCE_LABELS[key]}</span>
+                    <span className="text-body-small text-on-surface-variant">
+                      {key === "approved"
+                        ? "Dari Pendaftaran publik dengan status disetujui."
+                        : "Termasuk peserta impor, selama datanya punya email."}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Kelompok>
+          <Kelompok title="Yang tampil di area peserta">
+            <Switch checked={anggota.show_code !== false} onChange={(value) => setAnggota({ show_code: value })} label="Kode QR dan kode peserta" description="Untuk registrasi di pintu masuk." />
+            <Switch checked={anggota.show_seat !== false} onChange={(value) => setAnggota({ show_seat: value })} label="Kursi" description="Dari Denah kursi." />
+            <Switch checked={anggota.show_schedule !== false} onChange={(value) => setAnggota({ show_schedule: value })} label="Susunan acara" description="Dari Rundown acara." />
+            <Switch checked={anggota.show_vote !== false} onChange={(value) => setAnggota({ show_vote: value })} label="Voting langsung" description="Kode peserta terisi otomatis di halaman voting." />
+            <TextField
+              label="Tautan formulir umpan balik"
+              optional
+              type="url"
+              placeholder="https://"
+              hint="Kosongkan bila tidak ada. Dibuka di tab baru."
+              value={anggota.feedback_url ?? ""}
+              onChange={(event) => setAnggota({ feedback_url: event.target.value })}
+            />
+          </Kelompok>
+          <Banner tone="info" icon={<Info size={18} />}>
+            Belum ada email aktivasi. Peserta membuat kata sandi sendiri di halaman Masuk dengan email pendaftaran dan kode peserta dari email konfirmasi atau undangan. Peserta tanpa email di datanya belum bisa masuk.
+          </Banner>
+        </>
+      ) : null}
+    </div>
+  );
+
   const isiBagian = facts ? (
     <div className="flex flex-col gap-3">
       <p className="text-body-medium text-on-surface-variant">
@@ -709,10 +785,10 @@ export default function LandingCmsPage() {
           value={bagian}
           onChange={setBagian}
           className="w-full"
-          options={[{ value: "isi", label: "Isi" }, { value: "tampilan", label: "Tampilan" }, { value: "bagian", label: "Bagian" }]}
+          options={[{ value: "isi", label: "Isi" }, { value: "tampilan", label: "Tampilan" }, { value: "bagian", label: "Bagian" }, { value: "peserta", label: "Peserta" }]}
         />
       </div>
-      <PaneBody className="px-4 py-4">{bagian === "isi" ? isiFakta : bagian === "tampilan" ? isiTampilan : isiBagian}</PaneBody>
+      <PaneBody className="px-4 py-4">{bagian === "isi" ? isiFakta : bagian === "tampilan" ? isiTampilan : bagian === "bagian" ? isiBagian : isiPeserta}</PaneBody>
       <PaneFooter note={berubah ? "Ada perubahan yang belum disimpan" : "Semua perubahan tersimpan"}>
         <Button simpan size="sm" onClick={() => void save()} loading={busy}>Simpan</Button>
       </PaneFooter>

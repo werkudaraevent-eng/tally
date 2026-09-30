@@ -76,6 +76,15 @@ const bodySchema = z.object({
       logo_url: z.string().url().max(600),
     })).max(40).optional(),
     theme: z.object({ seed: z.string().regex(/^#[0-9a-fA-F]{6}$/) }).optional(),
+    member: z.object({
+      enabled: z.boolean(),
+      audience: z.enum(["approved", "all"]).optional(),
+      show_code: z.boolean().optional(),
+      show_seat: z.boolean().optional(),
+      show_schedule: z.boolean().optional(),
+      show_vote: z.boolean().optional(),
+      feedback_url: z.string().trim().url().max(600).nullable().optional(),
+    }).optional(),
   }),
 
   // ---- Warna formulir pendaftaran -----------------------------------------
