@@ -618,6 +618,16 @@ dari halaman yang sama.
   Disebut "Susunan acara", bukan "Jadwal Anda": tidak ada data jadwal pribadi.
 - Akun peserta terpisah dari akun panitia (`participant_accounts`,
   `participant_sessions`); tidak ada jalur dari sesi peserta ke layar admin.
+- Tata letak dari Figma "Area peserta (member)" (Sep 2026): bilah atas bertab
+  (Beranda, Jadwal, Voting, Profil) di layar lebar, bilah tab bawah di ponsel.
+  Jadwal dan Voting membuka `/rundown` dan `/vote`, bukan salinan.
+- Beranda: sapaan di bidang gradasi primer (penanda "Hari ini" dan sesi
+  berikutnya hanya di hari acara), kartu kode QR di bidang primer, lalu kartu
+  Kamar, Bus, Tempat duduk, dan barang (ukuran) dari RPC `member_logistics`.
+  Kartu logistik tampil hanya bila datanya ada; kursi tetap tampil dengan
+  keadaan kosong.
+- Profil (`/e/<slug>/peserta/profil`): data diri, akomodasi dan transportasi,
+  barang, dan akun. Semuanya hanya baca; ukuran baju tidak bisa diubah peserta.
 
 ### Papan peringkat
 

@@ -20,6 +20,7 @@ export function MasukClient({ slug, modeAwal, minPassword }: { slug: string; mod
   const [code, setCode] = useState("");
   const [galat, setGalat] = useState("");
   const [sibuk, setSibuk] = useState(false);
+  const [lihat, setLihat] = useState(false);
 
   function ganti(next: Mode) {
     setMode(next);
@@ -52,15 +53,41 @@ export function MasukClient({ slug, modeAwal, minPassword }: { slug: string; mod
 
   return (
     <form onSubmit={kirim} className="flex w-full max-w-[440px] flex-col gap-6">
-      <h2 className="text-[32px] font-semibold leading-tight [font-family:var(--landing-heading)] sm:text-[36px]">
-        {mode === "masuk" ? "Masuk" : "Buat kata sandi"}
-      </h2>
-      {mode === "aktifkan" ? (
-        <p className="-mt-2 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">
-          Pakai email yang Anda isi saat mendaftar dan kode peserta dari email konfirmasi atau undangan. Cara ini juga
-          dipakai bila Anda lupa kata sandi.
+      <div>
+        <h2 className="text-[32px] font-semibold leading-tight [font-family:var(--landing-heading)] sm:text-[40px]">
+          Masuk area peserta
+        </h2>
+        <p className="mt-3 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">
+          {mode === "masuk"
+            ? "Pakai email yang Anda daftarkan dan kata sandi Anda."
+            : "Pakai email pendaftaran dan kode peserta dari email konfirmasi atau undangan. Cara ini juga dipakai bila Anda lupa kata sandi."}
         </p>
-      ) : null}
+      </div>
+
+      {/* Dua tombol biasa dengan aria-pressed, bukan tablist: yang berganti
+          adalah isi formulir yang sama, bukan panel terpisah. */}
+      <div className="flex self-start rounded-full bg-[var(--reg-panel)] p-1">
+        {(
+          [
+            ["masuk", "Masuk"],
+            ["aktifkan", "Buat kata sandi"],
+          ] as const
+        ).map(([nilai, label]) => (
+          <button
+            key={nilai}
+            type="button"
+            aria-pressed={mode === nilai}
+            onClick={() => ganti(nilai)}
+            className={`min-h-10 rounded-full px-5 text-label-large font-semibold ${
+              mode === nilai
+                ? "bg-[var(--reg-surface)] text-[var(--reg-on-surface)] shadow-sm"
+                : "text-[var(--reg-on-surface-variant)]"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {galat ? (
         <p role="alert" className="rounded-md bg-[var(--reg-error-soft)] px-4 py-3 text-body-large leading-6 text-[var(--reg-on-error-soft)]">
@@ -115,17 +142,27 @@ export function MasukClient({ slug, modeAwal, minPassword }: { slug: string; mod
             </button>
           ) : null}
         </div>
-        <input
-          id="kata-sandi"
-          type="password"
-          required
-          minLength={mode === "aktifkan" ? minPassword : undefined}
-          autoComplete={mode === "masuk" ? "current-password" : "new-password"}
-          aria-describedby={mode === "aktifkan" ? "kata-sandi-catatan" : undefined}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className={FIELD}
-        />
+        <div className="relative">
+          <input
+            id="kata-sandi"
+            type={lihat ? "text" : "password"}
+            required
+            minLength={mode === "aktifkan" ? minPassword : undefined}
+            autoComplete={mode === "masuk" ? "current-password" : "new-password"}
+            aria-describedby={mode === "aktifkan" ? "kata-sandi-catatan" : undefined}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className={`${FIELD} pr-28`}
+          />
+          <button
+            type="button"
+            onClick={() => setLihat((v) => !v)}
+            aria-controls="kata-sandi"
+            className="absolute inset-y-0 right-1 my-1 min-w-11 rounded-md px-3 text-label-large font-semibold text-[var(--reg-on-surface-variant)]"
+          >
+            {lihat ? "Sembunyikan" : "Tampilkan"}
+          </button>
+        </div>
         {mode === "aktifkan" ? (
           <span id="kata-sandi-catatan" className="text-body-medium text-[var(--reg-on-surface-variant)]">
             Minimal {minPassword} karakter.
@@ -136,7 +173,7 @@ export function MasukClient({ slug, modeAwal, minPassword }: { slug: string; mod
       <button
         type="submit"
         disabled={sibuk}
-        className="m3-state h-[52px] rounded-md bg-[var(--reg-primary)] text-title-medium font-semibold text-[var(--reg-on-primary)] disabled:opacity-60"
+        className="m3-state h-[52px] rounded-full bg-[var(--reg-primary)] text-title-medium font-semibold text-[var(--reg-on-primary)] disabled:opacity-60"
       >
         {sibuk ? "Memproses..." : mode === "masuk" ? "Masuk" : "Simpan kata sandi dan masuk"}
       </button>
