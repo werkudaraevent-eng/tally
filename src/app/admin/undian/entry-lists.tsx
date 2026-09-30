@@ -61,7 +61,7 @@ export function EntryLists({
                   <p className="truncate font-medium">{group.name}</p>
                   <p className="tabular-nums text-on-surface-variant">{group.entry_count} baris</p>
                 </div>
-                <IconButton size="sm" label={`Hapus daftar ${group.name}`} onClick={() => setHapus(group)}><Trash size={16} /></IconButton>
+                <IconButton simpan size="sm" label={`Hapus daftar ${group.name}`} onClick={() => setHapus(group)}><Trash size={16} /></IconButton>
               </li>
             ))}
           </ul>
@@ -136,7 +136,7 @@ export function EntryLists({
         </form>
       </PaneBody>
       <PaneFooter>
-        <Button type="submit" form="form-daftar" size="sm" loading={importing} icon={<Plus size={16} />}>Buat daftar</Button>
+        <Button simpan type="submit" form="form-daftar" size="sm" loading={importing} icon={<Plus size={16} />}>Buat daftar</Button>
       </PaneFooter>
     </Pane>
   ) : null;
@@ -154,7 +154,7 @@ export function EntryLists({
         actions={
           <>
             <Button variant="outlined" disabled={menghapus} onClick={() => setHapus(null)}>Batal</Button>
-            <Button
+            <Button simpan
               variant="danger"
               loading={menghapus}
               onClick={async () => {

@@ -139,11 +139,21 @@ function luminance(hex: string): number {
  * gelap, dan aturan tetap itu membuat huruf gelap di atas kursi gelap: hilang
  * tanpa ada yang menyadarinya sampai denah tampil di layar.
  *
- * Ambang 0.5 memakai luminansi WCAG, bukan rata-rata RGB: mata jauh lebih peka
- * pada hijau, sehingga #00ff00 terbaca terang walau rata-rata RGB-nya hanya 85.
+ * Dipilih kandidat dengan RASIO KONTRAS WCAG tertinggi terhadap isian, bukan
+ * lewat ambang luminansi tetap. Ambang 0.5 yang dulu dipakai memberi huruf putih
+ * di atas oranye #db8d06 (2.68:1), padahal warna latar denah di atas oranye yang
+ * sama jauh lebih terbaca: warna menengah jatuh di sisi ambang yang salah.
  */
 export function readableOn(fill: string, darkText: string, lightText: string): string {
-  return luminance(fill) > 0.5 ? darkText : lightText;
+  const kontras = (a: string, b: string) => {
+    const [terang, gelap] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (terang + 0.05) / (gelap + 0.05);
+  };
+  const terbaik = kontras(fill, darkText) > kontras(fill, lightText) ? darkText : lightText;
+  if (kontras(fill, terbaik) >= 4.5) return terbaik;
+  // Kedua warna palet bisa sama-sama lemah di atas warna menengah (putih dan biru
+  // di atas oranye). Huruf kursi 9px, jadi jatuh ke hitam atau putih murni.
+  return [terbaik, "#0B1020", "#FFFFFF"].reduce((a, b) => (kontras(fill, b) > kontras(fill, a) ? b : a));
 }
 
 export type SeatMapConfig = {

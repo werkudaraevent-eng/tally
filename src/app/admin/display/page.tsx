@@ -435,7 +435,7 @@ export default function DisplaySettingsPage() {
       </div>
       <PaneBody>{isiPanel[bagian]}</PaneBody>
       <PaneFooter note={message || (settings.updated_at ? `Terakhir diubah ${formatEventDateTime(settings.updated_at, zona)} ${timeZoneAbbr(zona)}` : null)}>
-        <Button size="sm" loading={saving} onClick={() => void save()}>Simpan tampilan</Button>
+        <Button simpan size="sm" loading={saving} onClick={() => void save()}>Simpan tampilan</Button>
       </PaneFooter>
     </Pane>
   ) : null;

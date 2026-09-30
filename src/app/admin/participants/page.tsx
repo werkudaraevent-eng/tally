@@ -1,15 +1,15 @@
 "use client";
 
 import { ArrowsClockwise, CheckCircle, DownloadSimple, FileArrowUp, Plus, XCircle } from "@phosphor-icons/react";
-import Link from "@/components/event-link";
 import { useEffect, useRef, useState } from "react";
 import { ParticipantList, type ParticipantListHandle, type ParticipantStats } from "@/components/admin/participant-list";
 import { ExportMenu } from "@/components/admin/export-menu";
+import { SyncMenu } from "@/components/admin/sync-menu";
 import { useAutoSync, useScannerConfig, useScannerSync } from "@/components/admin/scanner-panel";
 import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
-import { Banner, Button, ButtonLink, Dialog, MetaSeparator, StatusDot, WorkspaceHeader, WorkspacePage } from "@/components/m3";
+import { Banner, Button, ButtonLink, Dialog, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 
 type ImportPreview = {
   dry_run: boolean;
@@ -79,28 +79,21 @@ export default function ParticipantsAdminPage() {
   return (
     <WorkspacePage fill>
       <WorkspaceHeader
-        meta={
-          <>
-            <span>{stats ? `${stats.activeTotal} peserta aktif` : "Memuat peserta"}</span>
-            {config && usesScanner ? (
-              <>
-                <MetaSeparator />
-                <span className="inline-flex items-center gap-1.5">
-                  <StatusDot tone={gagal ? "error" : menit > 0 ? "success" : "neutral"} />
-                  {gagal ? "Sync terakhir gagal" : menit > 0 ? `Sync otomatis tiap ${menit} menit` : "Sync otomatis mati"}
-                  {stats?.lastSyncedAt ? `, terakhir ${formatEventDateTime(stats.lastSyncedAt, zone)} ${abbr}` : ""}
-                </span>
-                <button type="button" onClick={() => void sync()} disabled={syncing} className="rounded-sm font-medium text-primary hover:underline disabled:opacity-50">
-                  {syncing ? "Menyinkron..." : "Sync sekarang"}
-                </button>
-                <Link href="/admin/settings" className="rounded-sm font-medium text-primary hover:underline">Kelola</Link>
-              </>
-            ) : null}
-          </>
-        }
+        // Satu baris meta, satu fakta. Peserta yang dihapus di sumber dijelaskan
+        // di kaki tabel dan di barisnya; status sinkron ada di menu Sinkron.
+        meta={<span>{stats ? `${stats.activeTotal} peserta aktif` : "Memuat peserta"}</span>}
         actions={
           <>
-            <Button variant="outlined" onClick={() => setImportOpen(true)} icon={<FileArrowUp size={16} />}>Impor</Button>
+            {config && usesScanner ? (
+              <SyncMenu
+                menit={menit}
+                gagal={gagal}
+                terakhir={stats?.lastSyncedAt ? `${formatEventDateTime(stats.lastSyncedAt, zone)} ${abbr}` : null}
+                syncing={syncing}
+                onSync={() => void sync()}
+              />
+            ) : null}
+            <Button simpan variant="outlined" onClick={() => setImportOpen(true)} icon={<FileArrowUp size={16} />}>Impor</Button>
             <ExportMenu endpoint="/api/admin/participants/export" label="Ekspor" />
             <Button onClick={() => daftar.current?.tambah()} icon={<Plus size={16} weight="bold" />}>Tambah peserta</Button>
           </>
@@ -129,7 +122,7 @@ export default function ParticipantsAdminPage() {
           <>
             <Button variant="outlined" disabled={importing} onClick={closeImport}>Batal</Button>
             {preview
-              ? <Button loading={importing} disabled={barisDiterapkan === 0} onClick={() => void runImport(false)}>Terapkan ke {barisDiterapkan} baris</Button>
+              ? <Button simpan loading={importing} disabled={barisDiterapkan === 0} onClick={() => void runImport(false)}>Terapkan ke {barisDiterapkan} baris</Button>
               : <Button loading={importing} disabled={!importFile} onClick={() => void runImport(true)}>Pratinjau impor</Button>}
           </>
         }

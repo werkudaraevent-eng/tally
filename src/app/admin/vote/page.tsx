@@ -866,7 +866,7 @@ export default function VoteAdminPage() {
       </PaneBody>
       <PaneFooter note={TYPES_WITH_OPTIONS.includes(draft.type) && !opsiValid ? "Isi minimal dua opsi" : null}>
         <Button variant="outlined" size="sm" disabled={saving} onClick={() => setDraft(null)}>Batal</Button>
-        <Button type="submit" form="form-pertanyaan" size="sm" loading={saving} disabled={!bisaSimpan}>
+        <Button simpan type="submit" form="form-pertanyaan" size="sm" loading={saving} disabled={!bisaSimpan}>
           {draft.id ? "Simpan perubahan" : "Simpan pertanyaan"}
         </Button>
       </PaneFooter>
@@ -975,7 +975,7 @@ export default function VoteAdminPage() {
         </div>
       </PaneBody>
       <PaneFooter note="Berlaku untuk semua layar yang membuka /vote/layar">
-        <Button size="sm" loading={savingSettings} onClick={() => void saveSettings()}>Simpan tampilan</Button>
+        <Button simpan size="sm" loading={savingSettings} onClick={() => void saveSettings()}>Simpan tampilan</Button>
       </PaneFooter>
     </Pane>
   ) : settingsGagal ? (
@@ -1054,7 +1054,7 @@ export default function VoteAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy !== null} onClick={() => setConfirmReset(null)}>Batal</Button>
-            <Button variant="danger" loading={busy === `reset-${confirmReset?.id}`} disabled={busy !== null} onClick={() => { if (confirmReset) void reset(confirmReset); }}>Kosongkan suara</Button>
+            <Button simpan variant="danger" loading={busy === `reset-${confirmReset?.id}`} disabled={busy !== null} onClick={() => { if (confirmReset) void reset(confirmReset); }}>Kosongkan suara</Button>
           </>
         }
       >
@@ -1078,7 +1078,7 @@ export default function VoteAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy !== null} onClick={() => setConfirmDelete(null)}>Batal</Button>
-            <Button variant="danger" loading={busy === `delete-${confirmDelete?.id}`} disabled={busy !== null} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus pertanyaan</Button>
+            <Button simpan variant="danger" loading={busy === `delete-${confirmDelete?.id}`} disabled={busy !== null} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus pertanyaan</Button>
           </>
         }
       />

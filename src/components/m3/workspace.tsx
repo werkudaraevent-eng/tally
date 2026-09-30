@@ -1,9 +1,10 @@
 "use client";
 
-import { CaretDown, Check, Columns, MagnifyingGlass, X } from "@phosphor-icons/react";
-import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
+import { CaretDown, Check, Columns, LockSimple, MagnifyingGlass, Warning, X } from "@phosphor-icons/react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useAdminHeaderScroll, useAdminPage } from "@/components/admin/page-context";
 import { cx } from "@/lib/m3/cx";
+import { Banner } from "./layout";
 import { Popover, usePopoverAnchor } from "./popover";
 
 /**
@@ -16,7 +17,8 @@ export type WorkspacePageProps = {
 	children: ReactNode;
 	/**
 	 * Halaman setinggi jendela; panel di dalamnya bergulir sendiri.
-	 * Dipakai list-detail dan supporting pane. Di bawah `lg` kembali bergulir biasa.
+	 * Dipakai list-detail dan supporting pane. Di bawah `lg` dan di layar pendek
+	 * (`short:`) kembali bergulir biasa.
 	 */
 	fill?: boolean;
 	/** Lebar isi. `full` untuk halaman berpanel, `wide` untuk feed, `form` untuk satu kolom. */
@@ -31,7 +33,10 @@ export function WorkspacePage({ children, fill, width = "full", className }: Wor
 		<main
 			className={cx(
 				"flex w-full flex-col gap-4 bg-surface p-4 text-on-surface sm:p-6",
-				fill && "lg:h-[calc(100dvh-var(--workspace-top,58px))] lg:overflow-hidden",
+				// Di layar pendek (laptop berskala 150%) tinggi tidak dikunci: tabel yang
+				// diperas ke sisa ruang hanya muat dua baris, dan judul tidak pernah
+				// tergulir ke bilah atas. Halaman bergulir biasa seperti di bawah `lg`.
+				fill && "lg:h-[calc(100dvh-var(--workspace-top,58px))] lg:overflow-hidden short:h-auto short:overflow-visible",
 				WIDTH[width],
 				className,
 			)}
@@ -55,6 +60,7 @@ export function WorkspaceHeader({ title, meta, actions, back }: WorkspaceHeaderP
 	const page = useAdminPage();
 	const gulir = useAdminHeaderScroll();
 	return (
+		<>
 		<header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
 			<div className="min-w-[240px] flex-1">
 				{back ? <div className="mb-1">{back}</div> : null}
@@ -63,6 +69,29 @@ export function WorkspaceHeader({ title, meta, actions, back }: WorkspaceHeaderP
 			</div>
 			{actions ? <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div> : null}
 		</header>
+		{page?.kunci ? <PenandaKunci {...page.kunci} /> : null}
+		</>
+	);
+}
+
+/**
+ * Penanda acara yang sudah ditutup, di bawah judul setiap halaman.
+ *
+ * Tanpa ini semua halaman tetap terlihat bisa disunting, dan admin baru tahu
+ * acaranya terkunci setelah menekan Simpan dan ditolak server, sekali per
+ * halaman. Satu tempat di kepala halaman, bukan per tombol: yang terkunci adalah
+ * acaranya, bukan satu formulir.
+ */
+function PenandaKunci({ status, pemilik }: { status: "completed" | "archived"; pemilik: boolean }) {
+	const kata = status === "archived" ? "diarsipkan" : "selesai";
+	return pemilik ? (
+		<Banner tone="warning" icon={<Warning size={18} />}>
+			<span className="font-medium">Acara ini sudah {kata}.</span> Sebagai super admin, perubahan Anda tetap tersimpan dan mengubah angka yang sudah diserahkan.
+		</Banner>
+	) : (
+		<Banner tone="info" icon={<LockSimple size={18} />}>
+			<span className="font-medium">Acara ini sudah {kata}, jadi hanya bisa dilihat dan diekspor.</span> Perubahan tidak akan tersimpan. Untuk mengoreksi, minta super admin membuka kembali acaranya.
+		</Banner>
 	);
 }
 
@@ -115,6 +144,54 @@ export function PaneFooter({ note, children, className }: { note?: ReactNode; ch
 
 /* ------------------------------------------------------- Canonical layout */
 
+/**
+ * Panel kanan di layar pendek, saat halaman tidak dikunci setinggi jendela.
+ * Tanpa ini, memilih baris di bawah daftar yang panjang membuka detail di atas,
+ * di luar layar. Panel menempel di bawah bilah atas dan bergulir sendiri.
+ */
+const PANEL_MENEMPEL =
+	"lg:short:sticky lg:short:top-[calc(var(--workspace-top,58px)+16px)] lg:short:self-start lg:short:max-h-[calc(100dvh-var(--workspace-top,58px)-32px)]";
+
+/**
+ * Panel daftar di layar pendek: setinggi layar dan bergulir sendiri. Halaman
+ * bergulir dulu sampai judul pindah ke bilah atas, lalu daftar mengisi layar.
+ * Tanpa batas tinggi, panelnya memanjang mengikuti isi dan kepala tabel yang
+ * `sticky top-0` di dalamnya ikut tergulir hilang.
+ */
+const DAFTAR_SETINGGI_LAYAR = "lg:short:h-[calc(100dvh-var(--workspace-top,58px)-32px)]";
+
+/** Sama dengan `lg` + `short` di globals.css. */
+const MQ_PENDEK = "(min-width: 64rem) and (max-height: 720px)";
+
+/**
+ * Roda di atas daftar menggulir HALAMAN dulu sampai panel daftar mencapai bilah
+ * atas, baru kemudian isi daftar. Peramban melakukan kebalikannya (isi dulu),
+ * sehingga di layar pendek daftar tertahan di bawah judul dan hanya dua baris
+ * yang terlihat. Menggulir ke atas tidak perlu diatur: saat isi daftar sudah di
+ * puncak, peramban meneruskannya ke halaman.
+ */
+function useGulirHalamanDulu() {
+	const ref = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const el = ref.current;
+		if (!el) return;
+		const mq = window.matchMedia(MQ_PENDEK);
+		const onWheel = (event: WheelEvent) => {
+			if (!mq.matches || event.deltaY <= 0 || event.ctrlKey) return;
+			const batas = el.getBoundingClientRect().top - 16 - (parseFloat(getComputedStyle(el).getPropertyValue("--workspace-top")) || 58);
+			const sisaHalaman = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+			// Halaman yang sudah mentok tidak boleh menahan gulir daftar.
+			if (batas <= 1 || sisaHalaman <= 1) return;
+			event.preventDefault();
+			window.scrollBy({ top: Math.min(event.deltaY, batas, sisaHalaman) });
+		};
+		// passive: false wajib agar preventDefault menahan gulir isi daftar.
+		el.addEventListener("wheel", onWheel, { passive: false });
+		return () => el.removeEventListener("wheel", onWheel);
+	}, []);
+	return ref;
+}
+
 export type ListDetailProps = {
 	list: ReactNode;
 	/** Null = belum ada yang dipilih; daftar memakai seluruh lebar. */
@@ -128,11 +205,12 @@ export type ListDetailProps = {
  */
 export function ListDetail({ list, detail, detailWidth = 440 }: ListDetailProps) {
 	const terbuka = detail != null;
+	const daftarRef = useGulirHalamanDulu();
 	return (
 		<div className="flex min-h-0 flex-1 gap-6">
-			<div className={cx("flex min-h-0 min-w-0 flex-1 flex-col *:flex-1", terbuka && "max-lg:hidden")}>{list}</div>
+			<div ref={daftarRef} className={cx("flex min-h-0 min-w-0 flex-1 flex-col *:flex-1", DAFTAR_SETINGGI_LAYAR, terbuka && "max-lg:hidden")}>{list}</div>
 			{terbuka ? (
-				<div className="flex min-h-0 w-full flex-col *:flex-1 lg:w-[var(--detail-w)] lg:shrink-0" style={{ "--detail-w": `${detailWidth}px` } as React.CSSProperties}>
+				<div className={cx("flex min-h-0 w-full flex-col *:flex-1 lg:w-[var(--detail-w)] lg:shrink-0", PANEL_MENEMPEL)} style={{ "--detail-w": `${detailWidth}px` } as React.CSSProperties}>
 					{detail}
 				</div>
 			) : null}
@@ -145,7 +223,7 @@ export function SupportingPane({ main, pane, paneWidth = 400 }: { main: ReactNod
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
 			<div className="flex min-h-0 min-w-0 flex-1 flex-col *:flex-1">{main}</div>
-			<div className="flex min-h-0 w-full flex-col *:flex-1 lg:w-[var(--pane-w)] lg:shrink-0" style={{ "--pane-w": `${paneWidth}px` } as React.CSSProperties}>
+			<div className={cx("flex min-h-0 w-full flex-col *:flex-1 lg:w-[var(--pane-w)] lg:shrink-0", PANEL_MENEMPEL)} style={{ "--pane-w": `${paneWidth}px` } as React.CSSProperties}>
 				{pane}
 			</div>
 		</div>

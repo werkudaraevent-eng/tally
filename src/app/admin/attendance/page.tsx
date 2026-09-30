@@ -1,5 +1,6 @@
 "use client";
 
+import { pesanGalatApi } from "@/lib/api-message";
 import { ArrowSquareOut, Plus, QrCode, Television, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
@@ -148,8 +149,7 @@ export default function AttendanceAdminPage() {
     if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return false; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const rincian = body.error?.details as Record<string, string> | undefined;
-      toast.error("Gagal disimpan", rincian ? String(Object.values(rincian)[0]) : "Coba lagi.");
+      toast.error("Gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
       return false;
     }
     await load();
@@ -167,8 +167,7 @@ export default function AttendanceAdminPage() {
     if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return false; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const rincian = body.error?.details as Record<string, string> | undefined;
-      toast.error("Gagal disimpan", rincian ? String(Object.values(rincian)[0]) : "Coba lagi.");
+      toast.error("Gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
       return false;
     }
     await load();
@@ -182,7 +181,7 @@ export default function AttendanceAdminPage() {
     setHapusMeja(null);
     const body = await response?.json().catch(() => ({}));
     if (!response?.ok) {
-      toast.error("Tidak bisa dihapus", body?.error?.details?.message ?? "Coba lagi.");
+      toast.error("Tidak bisa dihapus", pesanGalatApi(body) ?? "Coba lagi.");
       return;
     }
     setPilihJalur(null);
@@ -197,7 +196,7 @@ export default function AttendanceAdminPage() {
     setHapusSesi(null);
     const body = await response?.json().catch(() => ({}));
     if (!response?.ok) {
-      toast.error("Tidak bisa dihapus", body?.error?.details?.message ?? "Coba lagi.");
+      toast.error("Tidak bisa dihapus", pesanGalatApi(body) ?? "Coba lagi.");
       return;
     }
     setPilihSesi(null);
@@ -247,7 +246,7 @@ export default function AttendanceAdminPage() {
                 <span className="block tabular-nums text-on-surface-variant">{sesi.total_scan} scan</span>
               </>}
               sakelar={
-                <Switch
+                <Switch simpan
                   checked={sesi.is_active}
                   onChange={(value) => void kirim("PATCH", { id: sesi.id, is_active: value })}
                   label={<span className="sr-only">Sesi {sesi.name} dibuka</span>}
@@ -291,7 +290,7 @@ export default function AttendanceAdminPage() {
         <PaneFooter note="Sudah ada catatan kehadiran, jadi sesi ini hanya bisa ditutup, tidak dihapus." />
       ) : (
         <PaneFooter note="Belum ada catatan kehadiran">
-          <Button variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusSesi(sesiTerpilih)}>Hapus sesi</Button>
+          <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusSesi(sesiTerpilih)}>Hapus sesi</Button>
         </PaneFooter>
       )}
     </Pane>
@@ -323,7 +322,7 @@ export default function AttendanceAdminPage() {
               alamat={`/sapa?jalur=${jalur.slug}`}
               angka={<span className="block font-semibold tabular-nums text-on-surface">{jalur.total_scan}</span>}
               sakelar={
-                <Switch
+                <Switch simpan
                   checked={jalur.is_active}
                   onChange={(value) => void kirimJalur("PATCH", { id: jalur.id, is_active: value })}
                   label={<span className="sr-only">Meja {jalur.name} dibuka</span>}
@@ -361,7 +360,7 @@ export default function AttendanceAdminPage() {
         <PaneFooter note="Sudah dipakai memindai, jadi meja ini hanya bisa ditutup, tidak dihapus." />
       ) : (
         <PaneFooter note="Belum dipakai memindai">
-          <Button variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusMeja(jalurTerpilih)}>Hapus meja</Button>
+          <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusMeja(jalurTerpilih)}>Hapus meja</Button>
         </PaneFooter>
       )}
     </Pane>
@@ -378,7 +377,7 @@ export default function AttendanceAdminPage() {
       {error ? <Galat pesan={error} /> : (
         <>
           <DetailSection>
-            <Switch
+            <Switch simpan
               checked={allowWalkIn}
               disabled={busy || !dimuat}
               onChange={(value) => void ubahWalkIn(value)}
@@ -462,7 +461,7 @@ export default function AttendanceAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={tutupSesiBaru}>Batal</Button>
-            <Button type="submit" form="form-sesi" loading={busy} disabled={!nama.trim() || !slug}>Tambah sesi</Button>
+            <Button simpan type="submit" form="form-sesi" loading={busy} disabled={!nama.trim() || !slug}>Tambah sesi</Button>
           </>
         }
       >
@@ -496,7 +495,7 @@ export default function AttendanceAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={tutupJalurBaru}>Batal</Button>
-            <Button type="submit" form="form-jalur" loading={busy} disabled={!namaJalur.trim() || !slugify(namaJalur)}>Tambah meja</Button>
+            <Button simpan type="submit" form="form-jalur" loading={busy} disabled={!namaJalur.trim() || !slugify(namaJalur)}>Tambah meja</Button>
           </>
         }
       >
@@ -522,7 +521,7 @@ export default function AttendanceAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={() => setHapusSesi(null)}>Batal</Button>
-            <Button variant="danger" loading={busy} onClick={() => { if (hapusSesi) void hapus(hapusSesi); }}>Hapus sesi</Button>
+            <Button simpan variant="danger" loading={busy} onClick={() => { if (hapusSesi) void hapus(hapusSesi); }}>Hapus sesi</Button>
           </>
         }
       />
@@ -537,7 +536,7 @@ export default function AttendanceAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={() => setHapusMeja(null)}>Batal</Button>
-            <Button variant="danger" loading={busy} onClick={() => { if (hapusMeja) void hapusJalur(hapusMeja); }}>Hapus meja</Button>
+            <Button simpan variant="danger" loading={busy} onClick={() => { if (hapusMeja) void hapusJalur(hapusMeja); }}>Hapus meja</Button>
           </>
         }
       />

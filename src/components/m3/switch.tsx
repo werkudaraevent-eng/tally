@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
+import { useTerkunci } from "@/components/admin/page-context";
 import { cx } from "@/lib/m3/cx";
 
 export type SwitchProps = {
@@ -12,6 +13,8 @@ export type SwitchProps = {
 	/** Peringatan atau catatan di bawah deskripsi, di dalam baris yang sama. */
 	note?: ReactNode;
 	className?: string;
+	/** Sakelar yang langsung menyimpan ke server; nonaktif sendiri di acara terkunci. */
+	simpan?: boolean;
 };
 
 /**
@@ -39,7 +42,9 @@ export type SwitchProps = {
  * adalah keadaannya, dan kolom teks yang mulai rata kiri kalau yang dicari
  * adalah artinya.
  */
-export function Switch({ checked, onChange, label, description, disabled, note, className }: SwitchProps) {
+export function Switch({ checked, onChange, label, description, disabled: nonaktif, note, className, simpan }: SwitchProps) {
+	const terkunci = useTerkunci(simpan);
+	const disabled = nonaktif || terkunci;
 	const id = useId();
 	const labelId = `${id}-label`;
 	const descId = description ? `${id}-desc` : undefined;

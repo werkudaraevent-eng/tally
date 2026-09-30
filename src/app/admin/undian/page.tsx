@@ -604,7 +604,7 @@ export default function UndianAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={deletingPrize} onClick={() => setConfirmPrize(null)}>Batal</Button>
-            <Button variant="danger" loading={deletingPrize} onClick={() => { if (confirmPrize) void deletePrize(confirmPrize.id); }}>Hapus hadiah</Button>
+            <Button simpan variant="danger" loading={deletingPrize} onClick={() => { if (confirmPrize) void deletePrize(confirmPrize.id); }}>Hapus hadiah</Button>
           </>
         }
       />

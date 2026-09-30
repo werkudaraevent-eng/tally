@@ -424,14 +424,14 @@ export function OffersPanel({ onStats, ref }: { onStats?: (stats: OfferStats) =>
           {/* Dua sakelar ini langsung tersimpan saat diubah, seperti sebelumnya.
               Dipisah dari form di bawah yang baru tersimpan lewat tombol Simpan. */}
           <DetailSection title="Langsung tersimpan">
-            <Switch
+            <Switch simpan
               checked={offer.is_active}
               disabled={sibuk}
               onChange={() => void patch(offer, { is_active: !offer.is_active }, offer.is_active ? "Penawaran dimatikan" : "Penawaran dinyalakan")}
               label="Tersedia di booth"
               description="Item nonaktif tidak bisa diklaim sampai dinyalakan lagi."
             />
-            <Switch
+            <Switch simpan
               checked={offer.counts_toward_leaderboard}
               disabled={sibuk}
               onChange={() => void patch(offer, { counts_toward_leaderboard: !offer.counts_toward_leaderboard }, "Pengaturan top spender diperbarui")}
@@ -509,7 +509,7 @@ export function OffersPanel({ onStats, ref }: { onStats?: (stats: OfferStats) =>
         </PaneBody>
         <PaneFooter note={offer.claim_count > 0 ? "Klaim lama tetap memakai harga saat diklaim" : "Berlaku untuk klaim berikutnya"}>
           <Button type="button" variant="outlined" size="sm" disabled={savingEdit} onClick={tutup}>Tutup</Button>
-          <Button type="submit" form="form-item-sunting" size="sm" loading={savingEdit} disabled={!editForm.name.trim()} icon={<Check size={16} weight="bold" />}>
+          <Button simpan type="submit" form="form-item-sunting" size="sm" loading={savingEdit} disabled={!editForm.name.trim()} icon={<Check size={16} weight="bold" />}>
             Simpan perubahan
           </Button>
         </PaneFooter>
@@ -530,7 +530,7 @@ export function OffersPanel({ onStats, ref }: { onStats?: (stats: OfferStats) =>
         actions={
           <>
             <Button variant="outlined" disabled={busyId !== 0} onClick={() => setConfirmDelete(null)}>Batal</Button>
-            <Button variant="danger" loading={confirmDelete !== null && busyId === confirmDelete.id} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus item</Button>
+            <Button simpan variant="danger" loading={confirmDelete !== null && busyId === confirmDelete.id} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus item</Button>
           </>
         }
       />

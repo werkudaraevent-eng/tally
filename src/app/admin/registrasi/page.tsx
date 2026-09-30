@@ -1,5 +1,6 @@
 "use client";
 
+import { pesanGalatApi } from "@/lib/api-message";
 import { ArrowLeft, Check, EnvelopeSimple, Hourglass, PaperPlaneTilt, PencilSimple, Tray, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
@@ -39,6 +40,7 @@ type EventConfig = {
   registration_auto_approve: boolean;
   participant_source: string;
   slug: string;
+  name?: string;
   registration_form_config: RegistrationFormConfig;
   /** Warna halaman pendaftaran, sudah memperhitungkan saklar di CMS halaman acara. */
   form_theme_seed: string;
@@ -165,9 +167,7 @@ export default function RegistrasiAdminPage() {
     if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat status sebenarnya."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const rincian = body.error?.details as Record<string, string> | undefined;
-      const pesan = rincian ? Object.values(rincian)[0] : undefined;
-      toast.error("Form gagal disimpan", pesan ?? body.error?.message ?? "Coba lagi.");
+      toast.error("Form gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
       return;
     }
     setConfig({ ...config, ...body });
@@ -258,9 +258,9 @@ export default function RegistrasiAdminPage() {
   // di dalam effect menambah satu render setiap kali data dimuat ulang, dan
   // pemuatan berkala akan menimpa suntingan yang sedang berjalan.
   const formDraft = draftForm ?? config?.registration_form_config ?? {};
-  // Nama acara hanya untuk pratinjau. Diambil dari slug bila belum termuat:
-  // pratinjau bertuliskan "undefined" lebih membingungkan daripada slug mentah.
-  const namaEvent = config?.slug ?? "Acara";
+  // Nama acara hanya untuk pratinjau. Slug hanya cadangan: pratinjau bertuliskan
+  // "undefined" lebih membingungkan daripada slug mentah.
+  const namaEvent = config?.name ?? config?.slug ?? "Acara";
 
   function salinTautan() {
     void navigator.clipboard.writeText(new URL(tautan, window.location.origin).toString());
@@ -293,7 +293,7 @@ export default function RegistrasiAdminPage() {
                   <RegistrationFormBuilder config={formDraft} onChange={setDraftForm} disabled={simpanForm} />
                 </PaneBody>
                 <PaneFooter note={draftForm ? "Ada perubahan yang belum disimpan" : "Sama dengan yang tayang di halaman pendaftaran"}>
-                  <Button size="sm" onClick={() => void kirimForm(formDraft)} loading={simpanForm} disabled={busy} icon={<Check size={16} weight="bold" />}>
+                  <Button simpan size="sm" onClick={() => void kirimForm(formDraft)} loading={simpanForm} disabled={busy} icon={<Check size={16} weight="bold" />}>
                     Simpan formulir
                   </Button>
                 </PaneFooter>
@@ -301,9 +301,7 @@ export default function RegistrasiAdminPage() {
             }
             pane={
               <Pane as="aside" aria-label="Pratinjau formulir">
-                <PaneBody className="p-4">
-                  <RegistrationFormPreview config={formDraft} eventName={namaEvent} seed={config.form_theme_seed} />
-                </PaneBody>
+                <RegistrationFormPreview config={formDraft} eventName={namaEvent} seed={config.form_theme_seed} bingkai={false} />
               </Pane>
             }
           />
@@ -433,8 +431,8 @@ export default function RegistrasiAdminPage() {
         </PaneBody>
         {row.status === "pending" ? (
           <PaneFooter note="Kode peserta terbit saat disetujui">
-            <Button variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setMenolak(row)}>Tolak</Button>
-            <Button size="sm" disabled={busy} icon={<Check size={16} weight="bold" />} onClick={() => void review(row, true)}>Setujui</Button>
+            <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setMenolak(row)}>Tolak</Button>
+            <Button simpan size="sm" disabled={busy} icon={<Check size={16} weight="bold" />} onClick={() => void review(row, true)}>Setujui</Button>
           </PaneFooter>
         ) : row.status === "approved" && row.qr_code && emailAktif ? (
           // Tombol disembunyikan, bukan diredupkan, saat email belum diaktifkan
@@ -517,7 +515,7 @@ export default function RegistrasiAdminPage() {
         actions={<Button variant="outlined" onClick={() => setSetelanOpen(false)}>Tutup</Button>}
       >
         {config ? (
-          <Switch
+          <Switch simpan
             checked={config.registration_auto_approve}
             disabled={busy}
             onChange={(value) => void simpanKonfigurasi({ registration_auto_approve: value })}
@@ -540,7 +538,7 @@ export default function RegistrasiAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={() => setMenolak(null)}>Batal</Button>
-            <Button variant="danger" type="submit" form="form-tolak" loading={busy}>Tolak</Button>
+            <Button simpan variant="danger" type="submit" form="form-tolak" loading={busy}>Tolak</Button>
           </>
         }
       >

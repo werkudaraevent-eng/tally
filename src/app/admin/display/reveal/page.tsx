@@ -414,7 +414,7 @@ export default function RevealControlPage() {
         <Button variant="text" size="sm" disabled={busy !== null} onClick={() => setDraft(DEFAULT_REVEAL_STAGES)}>Bawaan</Button>
         <Button variant="text" size="sm" disabled={draft === null} onClick={() => setDraft(null)}>Batalkan</Button>
         {/* Outlined, bukan filled: aksi utama halaman ini tombol tahap di panel kendali. */}
-        <Button
+        <Button simpan
           variant="outlined"
           size="sm"
           loading={busy === "config" && draft !== null}

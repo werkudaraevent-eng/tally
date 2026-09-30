@@ -29,6 +29,10 @@ export default function SettingsPage() {
     // menolak lewat requireRequestEvent(["super_admin"]); ini semata agar klien
     // tidak menekan tab yang pasti membalas galat.
     const timer = window.setTimeout(() => {
+      // `?tab=integrasi` dari menu Sinkron di Daftar peserta: langsung ke panel
+      // yang dituju, bukan ke Acara lalu mencari tabnya sendiri.
+      const dariUrl = new URLSearchParams(window.location.search).get("tab");
+      if (dariUrl === "integrasi" || dariUrl === "pembayaran") setTab(dariUrl);
       void fetch("/api/auth/me", { cache: "no-store" }).then(async (response) => {
         if (response.ok) setIsOwner((await response.json()).user?.role === "super_admin");
       }).catch(() => {});

@@ -259,7 +259,7 @@ export function BoothsPanel({ onBukaItemSpesial, onStats, ref }: {
       </PaneBody>
       <PaneFooter note={berubah ? (selected.id ? "Perubahan belum disimpan" : "Booth baru belum disimpan") : "Semua perubahan tersimpan"}>
         <Button type="button" variant="outlined" size="sm" disabled={saving} onClick={() => setSelected(null)}>Tutup</Button>
-        <Button type="submit" form="form-booth" size="sm" loading={saving} disabled={!BOOTH_CODE_PATTERN.test(selected.code) || !selected.name.trim() || !berubah} icon={<Check size={16} weight="bold" />}>
+        <Button simpan type="submit" form="form-booth" size="sm" loading={saving} disabled={!BOOTH_CODE_PATTERN.test(selected.code) || !selected.name.trim() || !berubah} icon={<Check size={16} weight="bold" />}>
           Simpan booth
         </Button>
       </PaneFooter>

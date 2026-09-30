@@ -864,9 +864,16 @@ Aturan yang mengikat semuanya:
 - `WorkspaceHeader` membawa `<h1>` halaman (30px/600, judul dari
   `nav-config.ts`), satu baris meta, dan aksi halaman di kanan. Aksi utama
   (filled) paling banyak satu.
+- Baris meta memuat **fakta**, bukan aksi, dan harus muat satu baris. Tautan
+  aksi (sync, kelola) pindah ke tombol di area aksi; keterangan yang hanya
+  relevan saat menelusuri (mis. peserta dihapus di sumber) ditaruh di tempat
+  kebingungannya muncul, seperti kaki tabel atau baris itu sendiri.
 - Halaman list-detail dan supporting pane memakai `WorkspacePage fill`: setinggi
   layar di `lg`, panelnya bergulir sendiri, dan `PaneFooter` menempel di bawah
-  dengan aksi simpan panel itu.
+  dengan aksi simpan panel itu. Di layar pendek (`short:`, tinggi ≤ 720px)
+  halaman bergulir biasa: panel daftar setinggi layar dengan kepala tabel
+  menempel, panel kanan menempel di bawah bilah atas, dan roda menggulir
+  halaman dulu sampai judul pindah ke bilah atas.
 - Panel detail **hanya muncul saat baris dipilih**. Tanpa pilihan, daftar
   memakai seluruh lebar. Di bawah `lg` detail menggantikan daftar dan membawa
   tombol tutup.
@@ -883,6 +890,17 @@ Aturan yang mengikat semuanya:
   warna aksen.
 - Status: `StatusChip` setinggi 20px, radius 4px, bertitik.
 - Tanpa em dash di teks antarmuka. Sel kosong memakai en dash (`EMPTY_VALUE`).
+- Acara berstatus selesai atau arsip memasang penanda di bawah `WorkspaceHeader`
+  setiap halaman (`kunci` di konteks halaman admin): `Banner` info untuk admin
+  ("hanya bisa dilihat dan diekspor"), `Banner` warning untuk super_admin, yang
+  tetap bisa menyimpan (`isWriteBlocked`). Satu penanda per halaman, bukan per
+  tombol: yang terkunci acaranya, bukan satu formulir. Tombol yang menyimpan ke
+  server diberi prop `simpan` (`Button`, `IconButton`, `Switch`; kontrol mentah
+  memakai `useTerkunci`); di acara terkunci kontrol itu nonaktif sendiri untuk
+  admin biasa, tanpa halaman membaca status acara. Yang ditandai hanya kontrol
+  yang langsung menulis, bukan yang mengubah draf lokal. Kontrol panggung
+  (panel operator undian, sesi undian, reveal, moderasi dan hitung ulang voting)
+  sengaja tidak ditandai.
 
 Desain per halaman ada di Figma berkas `OTb4jMVVF0rVEHRoSrhCEG`, halaman
 "Rombak · M3 × Cloudflare", lengkap dengan frame "Catatan" yang menjelaskan

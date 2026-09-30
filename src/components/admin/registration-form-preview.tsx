@@ -23,9 +23,16 @@ export function RegistrationFormPreview({
   config,
   eventName,
   seed = DEFAULT_REGISTRATION_SEED,
+  bingkai = true,
 }: {
   config: RegistrationFormConfig;
   eventName: string;
+  /**
+   * false = tanpa garis tepi dan gulir sendiri, untuk dipasang langsung di dalam
+   * Pane. Dengan bingkai di dalam Pane, hasilnya kotak di dalam kotak dengan dua
+   * gulir bertumpuk.
+   */
+  bingkai?: boolean;
   /**
    * Warna yang benar-benar dipakai halaman pendaftaran, dihitung server dengan
    * memperhitungkan saklar "ikut warna halaman acara". Datang sebagai prop,
@@ -84,15 +91,15 @@ export function RegistrationFormPreview({
     "font-normal text-[var(--reg-on-surface)]";
 
   return (
-    <div className="overflow-hidden rounded-lg border border-outline-variant">
-      <p className="border-b border-outline-variant bg-panel-high px-4 py-2 text-label-medium font-semibold ed-label text-on-surface-variant">
+    <div className={bingkai ? "overflow-hidden rounded-lg border border-outline-variant" : "flex min-h-0 flex-1 flex-col"}>
+      <p className="shrink-0 border-b border-outline-variant bg-panel-high px-4 py-2 text-label-medium font-semibold ed-label text-on-surface-variant">
         Pratinjau · seperti yang dilihat pendaftar
       </p>
       {/* `pointer-events-none` dan `inert`: ini gambar, bukan formulir.
           Tanpa keduanya, admin dapat mengetik ke dalam pratinjau lalu mengira
           isiannya tersimpan, dan pembaca layar akan menemukan dua formulir
           pendaftaran di satu halaman. */}
-      <div className="max-h-[32rem] overflow-y-auto p-5" style={style as React.CSSProperties} inert>
+      <div className={bingkai ? "max-h-[32rem] overflow-y-auto p-5" : "min-h-0 flex-1 overflow-y-auto p-5"} style={style as React.CSSProperties} inert>
         <div className="pointer-events-none mx-auto w-full max-w-lg select-none">
           <p className="text-body-small font-semibold ed-label text-[var(--reg-primary)]">Pendaftaran peserta</p>
           <h3 className="mt-2 text-headline-medium font-semibold">{eventName}</h3>

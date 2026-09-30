@@ -664,7 +664,7 @@ export default function SeatMapAdminPage() {
           <p className="text-body-medium font-medium">Hapus agenda</p>
           <p className="text-body-medium text-on-surface-variant">Tampilan dan sumbernya hilang; data peserta tetap.</p>
         </div>
-        <Button variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmDelete(aktif)}>Hapus</Button>
+        <Button simpan variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmDelete(aktif)}>Hapus</Button>
       </section>
     </div>
   ) : (
@@ -679,15 +679,15 @@ export default function SeatMapAdminPage() {
   const kaki: Record<Bagian, { note: ReactNode; aksi: ReactNode }> = {
     ruangan: {
       note: labelConflicts.length > 0 ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Betulkan label meja ganda dulu</span> : "Semua agenda ikut berubah",
-      aksi: <Button size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>Simpan tata letak</Button>,
+      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>Simpan tata letak</Button>,
     },
     layar: {
       note: "Berlaku untuk semua layar",
-      aksi: <Button size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>Simpan</Button>,
+      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>Simpan</Button>,
     },
     agenda: {
       note: aktif ? "Hanya agenda ini" : null,
-      aksi: aktif ? <Button size="sm" onClick={() => void saveSession(aktif)} loading={savingSession === aktif.id}>Simpan agenda</Button> : null,
+      aksi: aktif ? <Button simpan size="sm" onClick={() => void saveSession(aktif)} loading={savingSession === aktif.id}>Simpan agenda</Button> : null,
     },
   };
 
@@ -744,7 +744,7 @@ export default function SeatMapAdminPage() {
                   options={sessions.map((item) => ({ value: item.slug, label: item.name, badge: item.is_published ? undefined : "Draf" }))}
                 />
               </div>
-            ) :<span className="py-2.5 text-body-medium text-on-surface-variant">Belum ada agenda</span>}
+            ) : <span className="py-2.5 text-body-medium text-on-surface-variant">Belum ada agenda</span>}
             <button type="button" onClick={() => setAddOpen(true)} className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body-medium font-medium text-primary hover:bg-primary-soft">
               <Plus size={14} />Agenda
             </button>
@@ -765,7 +765,7 @@ export default function SeatMapAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={creating} onClick={() => { setAddOpen(false); setNewAgendaName(""); }}>Batal</Button>
-            <Button type="submit" form="form-agenda" loading={creating} disabled={!newAgendaName.trim()}>Tambah agenda</Button>
+            <Button simpan type="submit" form="form-agenda" loading={creating} disabled={!newAgendaName.trim()}>Tambah agenda</Button>
           </>
         }
       >
@@ -786,7 +786,7 @@ export default function SeatMapAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={deleting} onClick={() => setConfirmDelete(null)}>Batal</Button>
-            <Button variant="danger" loading={deleting} onClick={() => { if (confirmDelete) void deleteAgenda(confirmDelete); }}>Hapus agenda</Button>
+            <Button simpan variant="danger" loading={deleting} onClick={() => { if (confirmDelete) void deleteAgenda(confirmDelete); }}>Hapus agenda</Button>
           </>
         }
       />

@@ -32,6 +32,11 @@ export type AdminPageMeta = {
 	username?: string | null;
 	/** Slug acara yang sedang dibuka. Bagian kunci preferensi yang sama. */
 	eventSlug?: string | null;
+	/**
+	 * Acara berstatus selesai atau arsip. Server menolak setiap perubahan, kecuali
+	 * dari super_admin (`isWriteBlocked`), jadi `pemilik` membedakan penandanya.
+	 */
+	kunci?: { status: "completed" | "archived"; pemilik: boolean } | null;
 };
 
 const AdminPageContext = createContext<AdminPageMeta | null>(null);
@@ -46,6 +51,20 @@ export const AdminPageProvider = AdminPageContext.Provider;
 export function useAdminPage() {
 	return useContext(AdminPageContext);
 }
+
+/**
+ * Apakah kontrol yang menyimpan ke server harus nonaktif di sini: acara terkunci
+ * dan pemakainya bukan super_admin (sama dengan `isWriteBlocked` di server).
+ * Dipakai `Button`, `IconButton`, dan `Switch` lewat prop `simpan`; di luar ruang
+ * kerja admin konteksnya tidak ada dan hasilnya selalu false.
+ */
+export function useTerkunci(simpan?: boolean) {
+	const kunci = useContext(AdminPageContext)?.kunci;
+	return Boolean(simpan && kunci && !kunci.pemilik);
+}
+
+/** Keterangan pada kontrol yang nonaktif karena acaranya terkunci. */
+export const KETERANGAN_KUNCI = "Acara sudah ditutup; perubahan tidak disimpan.";
 
 
 /**

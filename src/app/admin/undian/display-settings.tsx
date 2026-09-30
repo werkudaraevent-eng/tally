@@ -117,7 +117,7 @@ export function DisplaySettings({
         </DetailSection>
       </PaneBody>
       <PaneFooter note="Layar undian menyesuaikan dalam beberapa detik setelah disimpan.">
-        <Button size="sm" loading={saving} onClick={onSave} icon={<FloppyDisk size={16} />}>Simpan tampilan</Button>
+        <Button simpan size="sm" loading={saving} onClick={onSave} icon={<FloppyDisk size={16} />}>Simpan tampilan</Button>
       </PaneFooter>
     </Pane>
   );

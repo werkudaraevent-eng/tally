@@ -7,6 +7,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 // acara: "Halaman publik" dari `/e/prima-.../admin/seat-map` akan mendarat di
 // `/denah` tanpa slug, yaitu denah acara lain. Halaman di luar acara tidak
 // terpengaruh -- tanpa `/e/` di path, pembungkusnya tidak menambahkan apa pun.
+import { KETERANGAN_KUNCI, useTerkunci } from "@/components/admin/page-context";
 import Link from "@/components/event-link";
 import { cx } from "@/lib/m3/cx";
 
@@ -154,15 +155,24 @@ export type ButtonProps = CommonProps &
 		 * tentang apa yang sedang terjadi.
 		 */
 		loading?: boolean;
+		/**
+		 * Tombol ini menyimpan ke server. Di acara yang sudah ditutup ia nonaktif
+		 * sendiri untuk admin biasa (super_admin tetap boleh, sama dengan
+		 * `isWriteBlocked`), jadi setiap halaman tidak perlu membaca status acara.
+		 * Di luar ruang kerja admin tidak ada konteksnya dan prop ini tidak berefek.
+		 */
+		simpan?: boolean;
 	};
 
-export function Button({ variant = "filled", size = "md", shape, block, icon, trailingIcon, className, loading, children, disabled, ...rest }: ButtonProps) {
+export function Button({ variant = "filled", size = "md", shape, block, icon, trailingIcon, className, loading, simpan, children, disabled, ...rest }: ButtonProps) {
+	const terkunci = useTerkunci(simpan);
 	return (
 		<button
 			{...rest}
+			title={terkunci ? KETERANGAN_KUNCI : rest.title}
 			data-size={size}
 			data-variant={variant}
-			disabled={disabled || loading}
+			disabled={disabled || loading || terkunci}
 			aria-busy={loading || undefined}
 			className={baseClass({ variant, size, shape, block, className })}
 		>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { KETERANGAN_KUNCI, useTerkunci } from "@/components/admin/page-context";
 import { cx } from "@/lib/m3/cx";
 
 export type IconButtonVariant = "standard" | "filled" | "tonal" | "outlined";
@@ -41,6 +42,8 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "cla
 	 */
 	selected?: boolean;
 	className?: string;
+	/** Menyimpan ke server; nonaktif sendiri di acara terkunci. Lihat `Button`. */
+	simpan?: boolean;
 };
 
 /**
@@ -53,13 +56,15 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "cla
  *
  * React 19 memperlakukan `ref` sebagai prop biasa, jadi tidak perlu `forwardRef`.
  */
-export function IconButton({ label, children, variant = "standard", size = "md", selected, className, ref, ...rest }: IconButtonProps & { ref?: React.Ref<HTMLButtonElement> }) {
+export function IconButton({ label, children, variant = "standard", size = "md", selected, className, ref, simpan, ...rest }: IconButtonProps & { ref?: React.Ref<HTMLButtonElement> }) {
+	const terkunci = useTerkunci(simpan);
 	return (
 		<button
 			ref={ref}
 			{...rest}
+			disabled={rest.disabled || terkunci}
 			aria-label={label}
-			title={label}
+			title={terkunci ? `${label}. ${KETERANGAN_KUNCI}` : label}
 			aria-pressed={selected === undefined ? undefined : selected}
 			data-size={size}
 			className={cx(

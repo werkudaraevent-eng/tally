@@ -2,7 +2,7 @@
 
 import {
   ArrowDown, ArrowUp, CaretLeft, CaretRight, CaretUpDown, Check, Copy, LockSimple, MagnifyingGlass, Paperclip,
-  PencilSimple, Trash, UsersThree, WarningCircle, X, XCircle,
+  PencilSimple, Trash, UsersThree, X, XCircle,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import {
@@ -491,7 +491,10 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                         aria-pressed={aktif}
                         className="block w-full min-w-0 rounded-sm text-left"
                       >
-                        <span className="block truncate font-medium text-on-surface" title={participant.name}>{participant.name}</span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate font-medium text-on-surface" title={participant.name}>{participant.name}</span>
+                          {participant.source_removed_at ? <StatusChip tone="warning" className="shrink-0">Dihapus di sumber</StatusChip> : null}
+                        </span>
                         {jabatanDiBawahNama ? <span className="block truncate text-on-surface-variant">{participant.title || " "}</span> : null}
                       </button>
                     </td>
@@ -513,6 +516,13 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         note={
           <span className="flex flex-wrap items-center gap-x-2">
             <span className="tabular-nums">{error ? "Daftar tidak dimuat" : `${dari}–${sampai} dari ${total}`}</span>
+            {/* Menjelaskan selisih "dari 278" dengan "247 peserta aktif" di kepala halaman.
+                removed_count dihitung tanpa saringan, jadi hanya benar saat tidak ada saringan. */}
+            {!error && removedCount > 0 && !adaFilter && !query.trim() ? (
+              <span className="tabular-nums" title="Tetap disimpan untuk audit, tapi tidak muncul di pencarian booth dan kasir serta tidak dihitung di laporan.">
+                termasuk {removedCount} dihapus di sumber
+              </span>
+            ) : null}
             {adaFilter ? <button type="button" onClick={resetFilter} className="rounded-sm font-medium text-primary hover:underline">Hapus semua saringan</button> : null}
           </span>
         }
@@ -642,7 +652,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       </PaneBody>
       <PaneFooter>
         <Button type="button" variant="outlined" size="sm" disabled={saving} onClick={cancelEdit}>Batal</Button>
-        <Button type="submit" form="form-peserta" size="sm" loading={saving} disabled={!draft.name.trim() || !draft.qr_code.trim()} icon={<Check size={16} weight="bold" />}>
+        <Button simpan type="submit" form="form-peserta" size="sm" loading={saving} disabled={!draft.name.trim() || !draft.qr_code.trim()} icon={<Check size={16} weight="bold" />}>
           {mode?.kind === "new" ? "Tambah peserta" : "Simpan perubahan"}
         </Button>
       </PaneFooter>
@@ -673,7 +683,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outlined" size="sm" icon={<PencilSimple size={16} />} onClick={() => startEdit(p)}>{fromSource ? "Sunting kontak" : "Sunting"}</Button>
-            {!fromSource ? <Button variant="text" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmDelete(p)}>Hapus</Button> : null}
+            {!fromSource ? <Button simpan variant="text" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmDelete(p)}>Hapus</Button> : null}
           </div>
         </div>
         <PaneBody>
@@ -706,7 +716,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             <DetailSection
               title="Undian"
               action={
-                <Button variant="text" size="sm" loading={togglingExclusion === p.id} onClick={() => void toggleExclusion(p)}>
+                <Button simpan variant="text" size="sm" loading={togglingExclusion === p.id} onClick={() => void toggleExclusion(p)}>
                   {excluded.has(p.id) ? "Ikutkan lagi" : "Kecualikan"}
                 </Button>
               }
@@ -735,7 +745,14 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             ) : null}
             {fromSource ? (
               <DetailSection title="Scanner API">
-                <KeyValue label="Status">{p.source_removed_at ? "Dihapus di sumber" : "Aktif"}</KeyValue>
+                <KeyValue label="Status">
+                  {p.source_removed_at ? (
+                    <>
+                      Dihapus di sumber
+                      <span className="mt-0.5 block text-on-surface-variant">Disimpan untuk audit. Tidak muncul di pencarian booth dan kasir, tidak dihitung di laporan.</span>
+                    </>
+                  ) : "Aktif"}
+                </KeyValue>
                 <KeyValue label="Check-in">{p.source_checked_in ? "Sudah" : "Belum"}</KeyValue>
                 <KeyValue label="Pemindaian">{p.source_total_scans}</KeyValue>
               </DetailSection>
@@ -751,11 +768,6 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       {notice ? (
         <Banner tone="success" icon={<Check size={18} />} actions={<IconButton size="sm" label="Tutup" onClick={() => setNotice("")}><X size={16} /></IconButton>}>{notice}</Banner>
       ) : null}
-      {removedCount > 0 ? (
-        <Banner tone="warning" icon={<WarningCircle size={18} />}>
-          {removedCount} peserta sudah dihapus di sumber data. Barisnya tetap disimpan untuk audit, tapi tidak muncul di pencarian booth dan kasir serta tidak dihitung di laporan.
-        </Banner>
-      ) : null}
       <ListDetail list={list} detail={editor ?? viewer} />
       <Dialog
         open={confirmDelete !== null}
@@ -767,7 +779,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         actions={
           <>
             <Button type="button" variant="outlined" disabled={saving} onClick={() => setConfirmDelete(null)}>Batal</Button>
-            <Button variant="danger" loading={saving} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus peserta</Button>
+            <Button simpan variant="danger" loading={saving} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus peserta</Button>
           </>
         }
       />
