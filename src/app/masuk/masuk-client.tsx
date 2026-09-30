@@ -66,7 +66,7 @@ export function MasukClient({ slug, modeAwal, minPassword }: { slug: string; mod
 
       {/* Dua tombol biasa dengan aria-pressed, bukan tablist: yang berganti
           adalah isi formulir yang sama, bukan panel terpisah. */}
-      <div className="flex self-start rounded-full bg-[var(--reg-panel)] p-1">
+      <div className="flex self-start rounded-lg bg-[var(--reg-panel)] p-1">
         {(
           [
             ["masuk", "Masuk"],
@@ -78,7 +78,7 @@ export function MasukClient({ slug, modeAwal, minPassword }: { slug: string; mod
             type="button"
             aria-pressed={mode === nilai}
             onClick={() => ganti(nilai)}
-            className={`min-h-10 rounded-full px-5 text-label-large font-semibold ${
+            className={`min-h-10 rounded-md px-5 text-label-large font-semibold ${
               mode === nilai
                 ? "bg-[var(--reg-surface)] text-[var(--reg-on-surface)] shadow-sm"
                 : "text-[var(--reg-on-surface-variant)]"
@@ -173,7 +173,7 @@ export function MasukClient({ slug, modeAwal, minPassword }: { slug: string; mod
       <button
         type="submit"
         disabled={sibuk}
-        className="m3-state h-[52px] rounded-full bg-[var(--reg-primary)] text-title-medium font-semibold text-[var(--reg-on-primary)] disabled:opacity-60"
+        className="m3-state h-[52px] rounded-md bg-[var(--reg-primary)] text-title-medium font-semibold text-[var(--reg-on-primary)] disabled:opacity-60"
       >
         {sibuk ? "Memproses..." : mode === "masuk" ? "Masuk" : "Simpan kata sandi dan masuk"}
       </button>

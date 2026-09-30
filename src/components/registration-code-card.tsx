@@ -131,7 +131,7 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
       ref={kartu}
       className={inverse ? "" : "mt-7 rounded-[20px] border border-[var(--reg-outline-variant)] bg-[var(--reg-field)] p-6"}
     >
-      <p className={`text-label-medium uppercase tracking-[0.16em] ${inverse ? "text-center opacity-80" : MUTED}`}>Kode peserta</p>
+      <p className={inverse ? "text-center text-label-large opacity-85" : `text-label-medium uppercase tracking-[0.16em] ${MUTED}`}>Kode peserta</p>
 
       {/* Ruang QR disediakan SEJAK AWAL, sebelum gambarnya jadi. QR digambar di
           peramban beberapa ratus milidetik setelah kartu tampil; tanpa kotak
@@ -165,7 +165,8 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
         type="button"
         onClick={() => void simpan()}
         disabled={!qr || sibuk}
-        className={`m3-state mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full px-6 text-label-large font-semibold disabled:opacity-50 ${
+        className={`m3-state mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 px-6 text-label-large font-semibold disabled:opacity-50 ${
+          inverse ? "rounded-md " : "rounded-full "}${
           inverse ? "bg-white/15" : "border border-[var(--reg-outline)]"
         }`}
       >

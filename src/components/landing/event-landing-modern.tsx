@@ -33,7 +33,7 @@ import { SpeakerGrid } from "./modern/speaker-grid";
  *   tampil/sembunyi dari CMS tetap berlaku; urutannya tidak.
  * - Hero selalu KV warna asli dengan bayangan gelap. Tanpa KV, hero adalah
  *   bidang warna primary dengan teks on-primary.
- * - Bentuk pil (`rounded-full`) untuk tombol dan chip, kartu `rounded-lg`.
+ * - Tombol `rounded-md` (DESIGN.md), chip fakta pil, kartu `rounded-lg`.
  *
  * ---- Aturan yang sama -----------------------------------------------------
  *
@@ -61,8 +61,12 @@ const HEAD = "[font-family:var(--landing-heading)]";
 const JUDUL = `${HEAD} text-balance text-[32px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[48px] sm:leading-[1.25]`;
 const SECTION = "scroll-mt-24 py-16 sm:py-24";
 
-/** Tombol pil. Tinggi 52px, sama dengan tombol hero Editorial. */
-const PIL = "m3-state inline-flex min-h-[52px] items-center gap-2 rounded-full px-5 text-title-medium";
+/**
+ * Tombol. Tinggi 52px dan `rounded-md`, sama dengan tombol hero Editorial
+ * (DESIGN.md). Pil hanya untuk chip fakta, supaya tidak semua elemen berbentuk
+ * pil (antislop R-11).
+ */
+const PIL = "m3-state inline-flex min-h-[52px] items-center gap-2 rounded-md px-5 text-title-medium";
 const PIL_PENUH = `${PIL} bg-[var(--reg-primary)] font-semibold text-[var(--reg-on-primary)]`;
 const PIL_GARIS = `${PIL} border border-[var(--reg-on-surface)] font-medium text-[var(--reg-on-surface)]`;
 const STATE_ON_PRIMARY = { "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties;
@@ -293,7 +297,6 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
               {event.registration_enabled ? (
                 <Link href={daftarUrl} className={PIL_INK}>
                   {ctaLabel}
-                  <ArrowUpRight size={16} weight="bold" aria-hidden />
                 </Link>
               ) : (
                 <span className={`${CHIP_INK} min-h-[52px] px-5 text-title-medium font-medium`}>Pendaftaran belum dibuka</span>
@@ -304,30 +307,6 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
       </header>
 
       <div className={SHELL}>
-        {/* ---- Didukung oleh ------------------------------------------------ */}
-        {tampil("sponsors") ? (
-          <section className="pt-16 sm:pt-24">
-            <h2 className={`${HEAD} text-[24px] font-semibold leading-[1.25] tracking-[-0.02em] ${MUTED}`}>Didukung oleh</h2>
-            {/* Rata dan sama tinggi: ukuran logo bukan keputusan urutan unggah
-                (lihat Editorial). */}
-            <ul className="mt-8 flex flex-wrap items-center gap-x-10 gap-y-6">
-              {(config.sponsors ?? [])
-                .filter((sponsor) => sponsor.logo_url)
-                .map((sponsor) => (
-                  <li key={sponsor.logo_url} className="flex h-10 items-center sm:h-12">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={sponsor.logo_url}
-                      alt={sponsor.name ?? ""}
-                      loading="lazy"
-                      className="max-h-full w-auto max-w-[160px] object-contain"
-                    />
-                  </li>
-                ))}
-            </ul>
-          </section>
-        ) : null}
-
         {/* ---- Sekilas acara ------------------------------------------------ */}
         {tampil("about") ? (
           <Section id="about">
@@ -367,7 +346,6 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                 {tampil("agenda") ? (
                   <a href="#agenda" className={PIL_PENUH} style={STATE_ON_PRIMARY}>
                     Lihat susunan acara
-                    <ArrowRight size={16} weight="bold" aria-hidden />
                   </a>
                 ) : null}
               </div>
@@ -416,7 +394,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         {/* ---- Pembicara ---------------------------------------------------- */}
         {tampil("speakers") ? (
           <Section id="speakers">
-            <SpeakerGrid speakers={urutPembicara} heading={<h2 className={JUDUL}>{LANDING_SECTION_LABELS.speakers}</h2>} />
+            <SpeakerGrid speakers={urutPembicara} heading={LANDING_SECTION_LABELS.speakers} headingClassName={JUDUL} />
           </Section>
         ) : null}
 
@@ -427,7 +405,6 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
               <h2 className={JUDUL}>{LANDING_SECTION_LABELS.agenda}</h2>
               <Link href={`/e/${event.slug}/rundown`} className={PIL_GARIS}>
                 Susunan lengkap
-                <ArrowUpRight size={16} weight="bold" aria-hidden />
               </Link>
             </div>
             <AgendaPills agenda={agenda} />
@@ -529,6 +506,32 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
           </Section>
         ) : null}
 
+        {/* ---- Didukung oleh ------------------------------------------------ */}
+        {/* Mitra di bawah FAQ, bukan tepat di bawah hero: logo di situ terbaca
+            sebagai bilah "Trusted by" templat (antislop R-05). */}
+        {tampil("sponsors") ? (
+          <section className="py-16 sm:py-24">
+            <h2 className={`${HEAD} text-[24px] font-semibold leading-[1.25] tracking-[-0.02em] ${MUTED}`}>Didukung oleh</h2>
+            {/* Rata dan sama tinggi: ukuran logo bukan keputusan urutan unggah
+                (lihat Editorial). */}
+            <ul className="mt-8 flex flex-wrap items-center gap-x-10 gap-y-6">
+              {(config.sponsors ?? [])
+                .filter((sponsor) => sponsor.logo_url)
+                .map((sponsor) => (
+                  <li key={sponsor.logo_url} className="flex h-10 items-center sm:h-12">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={sponsor.logo_url}
+                      alt={sponsor.name ?? ""}
+                      loading="lazy"
+                      className="max-h-full w-auto max-w-[160px] object-contain"
+                    />
+                  </li>
+                ))}
+            </ul>
+          </section>
+        ) : null}
+
         {/* ---- Banner ajakan ------------------------------------------------ */}
         {event.registration_enabled ? (
           <section className="pb-16 sm:pb-24">
@@ -551,7 +554,6 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
               ) : null}
               <Link href={daftarUrl} className={PIL_INK}>
                 {ctaLabel}
-                <ArrowUpRight size={16} weight="bold" aria-hidden />
               </Link>
             </div>
           </section>
@@ -569,7 +571,6 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
               <div style={tinta(true)} className="shrink-0">
                 <Link href={daftarUrl} className={PIL_INK}>
                   {ctaLabel}
-                  <ArrowUpRight size={16} weight="bold" aria-hidden />
                 </Link>
               </div>
             ) : null}

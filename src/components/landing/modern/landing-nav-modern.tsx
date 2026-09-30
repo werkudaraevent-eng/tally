@@ -91,7 +91,7 @@ export function LandingNavModern({
           {registrationOpen ? (
             <Link
               href={daftarUrl}
-              className="m3-state inline-flex min-h-11 items-center rounded-full bg-white px-4 text-label-large font-semibold text-black"
+              className="m3-state inline-flex min-h-11 items-center rounded-md bg-white px-4 text-label-large font-semibold text-black"
             >
               {/* Label pendek di nav, sesuai rancangan. Teks tombol pilihan admin
                   dipakai di hero dan banner ajakan; dua tombol berlabel sama

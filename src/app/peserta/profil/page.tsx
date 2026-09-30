@@ -177,14 +177,14 @@ export default async function ProfilPesertaPage({
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link
                   href={`/e/${event.slug}/masuk?mode=aktifkan&ganti=1`}
-                  className="m3-state inline-flex min-h-11 items-center rounded-full border border-[var(--reg-on-surface)] px-5 text-label-large font-semibold"
+                  className="m3-state inline-flex min-h-11 items-center rounded-md border border-[var(--reg-on-surface)] px-5 text-label-large font-semibold"
                 >
                   Ganti kata sandi
                 </Link>
                 <form method="post" action={`/e/${event.slug}/api/peserta/keluar`}>
                   <button
                     type="submit"
-                    className="m3-state inline-flex min-h-11 items-center rounded-full border border-[var(--reg-error)] px-5 text-label-large font-semibold text-[var(--reg-error)]"
+                    className="m3-state inline-flex min-h-11 items-center rounded-md border border-[var(--reg-error)] px-5 text-label-large font-semibold text-[var(--reg-error)]"
                   >
                     Keluar
                   </button>

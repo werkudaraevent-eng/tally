@@ -41,7 +41,7 @@ export default async function MasukPage({
     <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={memberPageStyle(event)}>
       <div className="mx-auto grid min-h-dvh w-full max-w-[1440px] lg:grid-cols-2 lg:gap-6 lg:p-4">
         {/* Panel KV. Tanpa gambar KV, bidangnya gradasi warna primer tema. */}
-        <div className="relative flex min-h-[300px] flex-col justify-between gap-10 overflow-hidden bg-[linear-gradient(180deg,var(--reg-primary)_0%,color-mix(in_oklab,var(--reg-primary)_72%,white)_100%)] px-5 pb-12 pt-6 text-[var(--reg-on-primary)] sm:px-8 lg:rounded-2xl lg:p-12">
+        <div className="relative flex min-h-[300px] flex-col justify-between gap-10 overflow-hidden bg-[linear-gradient(180deg,var(--reg-primary)_0%,color-mix(in_oklab,var(--reg-primary)_90%,white)_100%)] px-5 pb-12 pt-6 text-[var(--reg-on-primary)] sm:px-8 lg:rounded-2xl lg:p-12">
           {kv ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -51,10 +51,9 @@ export default async function MasukPage({
           ) : null}
           <Link
             href={`/e/${event.slug}`}
-            className="relative inline-flex min-h-11 items-center gap-3 self-start text-title-medium font-semibold [font-family:var(--landing-heading)]"
+            className="relative inline-flex min-h-11 items-center self-start text-title-medium font-semibold [font-family:var(--landing-heading)]"
           >
-            <span aria-hidden className="size-6 rounded-full bg-[var(--reg-on-primary)] opacity-90" />
-            Halaman acara
+            Kembali ke halaman acara
           </Link>
           <div className="relative">
             {fakta.length > 0 ? (

@@ -141,6 +141,10 @@ export default async function AreaPesertaPage({
   );
 }
 
+/**
+ * Gradasi tipis dari warna primer tema, pengganti KV di Figma. Hanya turun ke
+ * 90% supaya teks on-primary tetap lolos kontras di seluruh bidang (R-25).
+ */
 function Sapaan({ nama, fakta, hariIni }: { nama: string; fakta: string[]; hariIni: TodaySummary }) {
   const sisi = hariIni.isEventDay
     ? {
@@ -156,7 +160,7 @@ function Sapaan({ nama, fakta, hariIni }: { nama: string; fakta: string[]; hariI
   return (
     <section
       aria-label="Sapaan"
-      className="flex flex-col gap-6 rounded-2xl bg-[linear-gradient(180deg,var(--reg-primary)_0%,color-mix(in_oklab,var(--reg-primary)_72%,white)_100%)] px-6 py-7 text-[var(--reg-on-primary)] sm:px-10 sm:py-10 lg:flex-row lg:items-center lg:justify-between lg:px-12"
+      className="flex flex-col gap-6 rounded-2xl bg-[linear-gradient(180deg,var(--reg-primary)_0%,color-mix(in_oklab,var(--reg-primary)_90%,white)_100%)] px-6 py-7 text-[var(--reg-on-primary)] sm:px-10 sm:py-10 lg:flex-row lg:items-center lg:justify-between lg:px-12"
     >
       <div className="min-w-0">
         <p className="text-body-large opacity-85">Selamat datang,</p>
@@ -211,7 +215,9 @@ function Kartu({
 
 function TombolGaris({ href, children, eksternal = false }: { href: string; children: ReactNode; eksternal?: boolean }) {
   const kelas =
-    "m3-state mt-5 inline-flex min-h-11 items-center gap-2 self-start rounded-full border border-[var(--reg-on-surface)] px-4 text-label-large font-semibold";
+    "m3-state mt-5 inline-flex min-h-11 items-center gap-2 self-start rounded-md border border-[var(--reg-on-surface)] px-4 text-label-large font-semibold";
+  // Panah hanya pada tautan yang membuka situs lain: itu satu-satunya
+  // informasi yang dibawanya (antislop R-08).
   return eksternal ? (
     <a href={href} target="_blank" rel="noreferrer noopener" className={kelas}>
       {children}
@@ -220,7 +226,6 @@ function TombolGaris({ href, children, eksternal = false }: { href: string; chil
   ) : (
     <Link href={href} className={kelas}>
       {children}
-      <ArrowUpRight size={16} weight="bold" aria-hidden />
     </Link>
   );
 }
@@ -352,10 +357,9 @@ function TombolGarisKecil({ href, children }: { href: string; children: ReactNod
   return (
     <Link
       href={href}
-      className="m3-state inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--reg-on-surface)] px-4 text-label-large font-semibold"
+      className="m3-state inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--reg-on-surface)] px-4 text-label-large font-semibold"
     >
       {children}
-      <ArrowUpRight size={16} weight="bold" aria-hidden />
     </Link>
   );
 }
@@ -375,7 +379,7 @@ function AksiKartu({
   utama?: boolean;
   eksternal?: boolean;
 }) {
-  const tombol = `m3-state inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-label-large font-semibold ${
+  const tombol = `m3-state inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md px-4 text-label-large font-semibold ${
     utama ? "bg-[var(--reg-on-primary)] text-[var(--reg-primary)]" : "border border-[var(--reg-on-surface)]"
   }`;
   return (
@@ -396,7 +400,6 @@ function AksiKartu({
       ) : (
         <Link href={href} className={tombol}>
           {label}
-          <ArrowUpRight size={16} weight="bold" aria-hidden />
         </Link>
       )}
     </div>

@@ -39,8 +39,7 @@ export function MemberShell({
     <>
       <header className="sticky top-0 z-20 border-b border-[var(--reg-outline-variant)] bg-[var(--reg-surface)]">
         <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center gap-4 px-5 sm:px-8 lg:min-h-20 lg:px-20">
-          <Link href={`/e/${slug}`} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 md:flex-none md:basis-1/4">
-            <span aria-hidden className="size-6 shrink-0 rounded-full bg-[var(--reg-primary)] lg:size-7" />
+          <Link href={`/e/${slug}`} className="flex min-h-11 min-w-0 flex-1 items-center md:flex-none md:basis-1/4">
             <span className="truncate text-title-medium font-semibold [font-family:var(--landing-heading)] lg:text-title-large">
               {eventName}
             </span>
@@ -54,7 +53,7 @@ export function MemberShell({
                   key={tab.key}
                   href={tab.href}
                   aria-current={aktif ? "page" : undefined}
-                  className={`m3-state inline-flex min-h-10 items-center rounded-full px-4 text-title-small ${
+                  className={`m3-state inline-flex min-h-10 items-center rounded-md px-4 text-title-small ${
                     aktif ? "bg-[var(--reg-panel)] font-semibold" : "font-medium text-[var(--reg-on-surface-variant)]"
                   }`}
                 >

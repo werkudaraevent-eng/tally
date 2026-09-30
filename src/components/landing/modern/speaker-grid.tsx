@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { ArrowDown } from "@phosphor-icons/react";
 import type { LandingSpeaker } from "@/lib/domain";
 
@@ -66,7 +66,19 @@ function Kartu({ speaker }: { speaker: LandingSpeaker }) {
   );
 }
 
-export function SpeakerGrid({ speakers, heading }: { speakers: LandingSpeaker[]; heading: ReactNode }) {
+/**
+ * Judul dikirim sebagai teks + kelas, bukan elemen: elemen dari komponen
+ * server yang dirender di sini memicu peringatan `key` React di mode dev.
+ */
+export function SpeakerGrid({
+  speakers,
+  heading,
+  headingClassName,
+}: {
+  speakers: LandingSpeaker[];
+  heading: string;
+  headingClassName: string;
+}) {
   const [semua, setSemua] = useState(false);
   const lebih = speakers.length > AWAL;
   const tampil = semua ? speakers : speakers.slice(0, AWAL);
@@ -74,12 +86,12 @@ export function SpeakerGrid({ speakers, heading }: { speakers: LandingSpeaker[];
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        {heading}
+        <h2 className={headingClassName}>{heading}</h2>
         {lebih && !semua ? (
           <button
             type="button"
             onClick={() => setSemua(true)}
-            className="m3-state inline-flex min-h-[52px] items-center gap-2 rounded-full border border-[var(--reg-on-surface)] px-5 text-title-medium font-medium"
+            className="m3-state inline-flex min-h-[52px] items-center gap-2 rounded-md border border-[var(--reg-on-surface)] px-5 text-title-medium font-medium"
           >
             Semua pembicara
             <span className="tabular-nums text-[var(--reg-on-surface-variant)]">{speakers.length}</span>
