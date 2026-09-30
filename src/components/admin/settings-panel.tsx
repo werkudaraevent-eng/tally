@@ -266,7 +266,7 @@ export function DangerZonePanel() {
             <li>Catatan audit yang menempel pada order. Catatan perubahan konfigurasi tetap disimpan.</li>
             <li>Daftar peserta hanya bila Anda memilihnya di langkah berikut.</li>
           </ul>
-          <Button variant="outlined" size="sm" className="mt-4 text-error" icon={<Trash size={16} />} onClick={() => { setResetOpen(true); setResetMessage(""); setResetError(""); }}>
+          <Button simpan variant="outlined" size="sm" className="mt-4 text-error" icon={<Trash size={16} />} onClick={() => { setResetOpen(true); setResetMessage(""); setResetError(""); }}>
             Kosongkan data pencatatan
           </Button>
         </SettingRow>

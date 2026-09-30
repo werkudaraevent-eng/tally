@@ -549,7 +549,7 @@ export default function RundownAdminPage() {
           <p className="text-body-medium font-medium text-on-surface">Hapus bagian</p>
           <p className="text-body-medium text-on-surface-variant">Seluruh baris jadwalnya ikut terhapus.</p>
         </div>
-        <Button variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmSection(active)}>Hapus</Button>
+        <Button simpan variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmSection(active)}>Hapus</Button>
       </section>
     </div>
   ) : null;
@@ -664,7 +664,7 @@ export default function RundownAdminPage() {
         note: null,
         aksi: (
           <>
-            <Button variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmItem(selectedItem)}>Hapus</Button>
+            <Button simpan variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmItem(selectedItem)}>Hapus</Button>
             <Button simpan size="sm" onClick={() => void saveItem(selectedItem)} loading={savingItem === selectedItem.id}>Simpan baris</Button>
           </>
         ),
@@ -763,7 +763,7 @@ export default function RundownAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={creatingSection} onClick={() => { setAddSectionOpen(false); setNewSectionName(""); }}>Batal</Button>
-            <Button type="submit" form="form-bagian" loading={creatingSection} disabled={!newSectionName.trim()}>Tambah bagian</Button>
+            <Button simpan type="submit" form="form-bagian" loading={creatingSection} disabled={!newSectionName.trim()}>Tambah bagian</Button>
           </>
         }
       >
@@ -782,7 +782,7 @@ export default function RundownAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={deletingItem !== null} onClick={() => setConfirmItem(null)}>Batal</Button>
-            <Button variant="danger" loading={deletingItem !== null} onClick={() => { if (confirmItem) void deleteItem(confirmItem); }}>Hapus baris</Button>
+            <Button simpan variant="danger" loading={deletingItem !== null} onClick={() => { if (confirmItem) void deleteItem(confirmItem); }}>Hapus baris</Button>
           </>
         }
       />
@@ -797,7 +797,7 @@ export default function RundownAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={deletingSection} onClick={() => setConfirmSection(null)}>Batal</Button>
-            <Button variant="danger" loading={deletingSection} onClick={() => { if (confirmSection) void deleteSection(confirmSection); }}>Hapus bagian</Button>
+            <Button simpan variant="danger" loading={deletingSection} onClick={() => { if (confirmSection) void deleteSection(confirmSection); }}>Hapus bagian</Button>
           </>
         }
       />

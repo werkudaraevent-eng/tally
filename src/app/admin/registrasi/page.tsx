@@ -431,8 +431,8 @@ export default function RegistrasiAdminPage() {
         </PaneBody>
         {row.status === "pending" ? (
           <PaneFooter note="Kode peserta terbit saat disetujui">
-            <Button variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setMenolak(row)}>Tolak</Button>
-            <Button size="sm" disabled={busy} icon={<Check size={16} weight="bold" />} onClick={() => void review(row, true)}>Setujui</Button>
+            <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setMenolak(row)}>Tolak</Button>
+            <Button simpan size="sm" disabled={busy} icon={<Check size={16} weight="bold" />} onClick={() => void review(row, true)}>Setujui</Button>
           </PaneFooter>
         ) : row.status === "approved" && row.qr_code && emailAktif ? (
           // Tombol disembunyikan, bukan diredupkan, saat email belum diaktifkan
@@ -515,7 +515,7 @@ export default function RegistrasiAdminPage() {
         actions={<Button variant="outlined" onClick={() => setSetelanOpen(false)}>Tutup</Button>}
       >
         {config ? (
-          <Switch
+          <Switch simpan
             checked={config.registration_auto_approve}
             disabled={busy}
             onChange={(value) => void simpanKonfigurasi({ registration_auto_approve: value })}
@@ -538,7 +538,7 @@ export default function RegistrasiAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={() => setMenolak(null)}>Batal</Button>
-            <Button variant="danger" type="submit" form="form-tolak" loading={busy}>Tolak</Button>
+            <Button simpan variant="danger" type="submit" form="form-tolak" loading={busy}>Tolak</Button>
           </>
         }
       >

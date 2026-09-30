@@ -7,7 +7,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 // acara: "Halaman publik" dari `/e/prima-.../admin/seat-map` akan mendarat di
 // `/denah` tanpa slug, yaitu denah acara lain. Halaman di luar acara tidak
 // terpengaruh -- tanpa `/e/` di path, pembungkusnya tidak menambahkan apa pun.
-import { useAdminPage } from "@/components/admin/page-context";
+import { KETERANGAN_KUNCI, useTerkunci } from "@/components/admin/page-context";
 import Link from "@/components/event-link";
 import { cx } from "@/lib/m3/cx";
 
@@ -165,12 +165,11 @@ export type ButtonProps = CommonProps &
 	};
 
 export function Button({ variant = "filled", size = "md", shape, block, icon, trailingIcon, className, loading, simpan, children, disabled, ...rest }: ButtonProps) {
-	const kunci = useAdminPage()?.kunci;
-	const terkunci = Boolean(simpan && kunci && !kunci.pemilik);
+	const terkunci = useTerkunci(simpan);
 	return (
 		<button
 			{...rest}
-			title={terkunci ? "Acara sudah ditutup; perubahan tidak disimpan." : rest.title}
+			title={terkunci ? KETERANGAN_KUNCI : rest.title}
 			data-size={size}
 			data-variant={variant}
 			disabled={disabled || loading || terkunci}

@@ -246,7 +246,7 @@ export default function AttendanceAdminPage() {
                 <span className="block tabular-nums text-on-surface-variant">{sesi.total_scan} scan</span>
               </>}
               sakelar={
-                <Switch
+                <Switch simpan
                   checked={sesi.is_active}
                   onChange={(value) => void kirim("PATCH", { id: sesi.id, is_active: value })}
                   label={<span className="sr-only">Sesi {sesi.name} dibuka</span>}
@@ -290,7 +290,7 @@ export default function AttendanceAdminPage() {
         <PaneFooter note="Sudah ada catatan kehadiran, jadi sesi ini hanya bisa ditutup, tidak dihapus." />
       ) : (
         <PaneFooter note="Belum ada catatan kehadiran">
-          <Button variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusSesi(sesiTerpilih)}>Hapus sesi</Button>
+          <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusSesi(sesiTerpilih)}>Hapus sesi</Button>
         </PaneFooter>
       )}
     </Pane>
@@ -322,7 +322,7 @@ export default function AttendanceAdminPage() {
               alamat={`/sapa?jalur=${jalur.slug}`}
               angka={<span className="block font-semibold tabular-nums text-on-surface">{jalur.total_scan}</span>}
               sakelar={
-                <Switch
+                <Switch simpan
                   checked={jalur.is_active}
                   onChange={(value) => void kirimJalur("PATCH", { id: jalur.id, is_active: value })}
                   label={<span className="sr-only">Meja {jalur.name} dibuka</span>}
@@ -360,7 +360,7 @@ export default function AttendanceAdminPage() {
         <PaneFooter note="Sudah dipakai memindai, jadi meja ini hanya bisa ditutup, tidak dihapus." />
       ) : (
         <PaneFooter note="Belum dipakai memindai">
-          <Button variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusMeja(jalurTerpilih)}>Hapus meja</Button>
+          <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusMeja(jalurTerpilih)}>Hapus meja</Button>
         </PaneFooter>
       )}
     </Pane>
@@ -377,7 +377,7 @@ export default function AttendanceAdminPage() {
       {error ? <Galat pesan={error} /> : (
         <>
           <DetailSection>
-            <Switch
+            <Switch simpan
               checked={allowWalkIn}
               disabled={busy || !dimuat}
               onChange={(value) => void ubahWalkIn(value)}
@@ -495,7 +495,7 @@ export default function AttendanceAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={tutupJalurBaru}>Batal</Button>
-            <Button type="submit" form="form-jalur" loading={busy} disabled={!namaJalur.trim() || !slugify(namaJalur)}>Tambah meja</Button>
+            <Button simpan type="submit" form="form-jalur" loading={busy} disabled={!namaJalur.trim() || !slugify(namaJalur)}>Tambah meja</Button>
           </>
         }
       >
@@ -521,7 +521,7 @@ export default function AttendanceAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={() => setHapusSesi(null)}>Batal</Button>
-            <Button variant="danger" loading={busy} onClick={() => { if (hapusSesi) void hapus(hapusSesi); }}>Hapus sesi</Button>
+            <Button simpan variant="danger" loading={busy} onClick={() => { if (hapusSesi) void hapus(hapusSesi); }}>Hapus sesi</Button>
           </>
         }
       />
@@ -536,7 +536,7 @@ export default function AttendanceAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={() => setHapusMeja(null)}>Batal</Button>
-            <Button variant="danger" loading={busy} onClick={() => { if (hapusMeja) void hapusJalur(hapusMeja); }}>Hapus meja</Button>
+            <Button simpan variant="danger" loading={busy} onClick={() => { if (hapusMeja) void hapusJalur(hapusMeja); }}>Hapus meja</Button>
           </>
         }
       />

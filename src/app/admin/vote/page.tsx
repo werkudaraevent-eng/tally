@@ -1054,7 +1054,7 @@ export default function VoteAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy !== null} onClick={() => setConfirmReset(null)}>Batal</Button>
-            <Button variant="danger" loading={busy === `reset-${confirmReset?.id}`} disabled={busy !== null} onClick={() => { if (confirmReset) void reset(confirmReset); }}>Kosongkan suara</Button>
+            <Button simpan variant="danger" loading={busy === `reset-${confirmReset?.id}`} disabled={busy !== null} onClick={() => { if (confirmReset) void reset(confirmReset); }}>Kosongkan suara</Button>
           </>
         }
       >
@@ -1078,7 +1078,7 @@ export default function VoteAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy !== null} onClick={() => setConfirmDelete(null)}>Batal</Button>
-            <Button variant="danger" loading={busy === `delete-${confirmDelete?.id}`} disabled={busy !== null} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus pertanyaan</Button>
+            <Button simpan variant="danger" loading={busy === `delete-${confirmDelete?.id}`} disabled={busy !== null} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus pertanyaan</Button>
           </>
         }
       />

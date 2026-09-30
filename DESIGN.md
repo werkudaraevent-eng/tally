@@ -895,8 +895,12 @@ Aturan yang mengikat semuanya:
   ("hanya bisa dilihat dan diekspor"), `Banner` warning untuk super_admin, yang
   tetap bisa menyimpan (`isWriteBlocked`). Satu penanda per halaman, bukan per
   tombol: yang terkunci acaranya, bukan satu formulir. Tombol yang menyimpan ke
-  server diberi prop `simpan` pada `Button`; di acara terkunci tombol itu
-  nonaktif sendiri untuk admin biasa, tanpa halaman membaca status acara.
+  server diberi prop `simpan` (`Button`, `IconButton`, `Switch`; kontrol mentah
+  memakai `useTerkunci`); di acara terkunci kontrol itu nonaktif sendiri untuk
+  admin biasa, tanpa halaman membaca status acara. Yang ditandai hanya kontrol
+  yang langsung menulis, bukan yang mengubah draf lokal. Kontrol panggung
+  (panel operator undian, sesi undian, reveal, moderasi dan hitung ulang voting)
+  sengaja tidak ditandai.
 
 Desain per halaman ada di Figma berkas `OTb4jMVVF0rVEHRoSrhCEG`, halaman
 "Rombak · M3 × Cloudflare", lengkap dengan frame "Catatan" yang menjelaskan

@@ -683,7 +683,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outlined" size="sm" icon={<PencilSimple size={16} />} onClick={() => startEdit(p)}>{fromSource ? "Sunting kontak" : "Sunting"}</Button>
-            {!fromSource ? <Button variant="text" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmDelete(p)}>Hapus</Button> : null}
+            {!fromSource ? <Button simpan variant="text" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmDelete(p)}>Hapus</Button> : null}
           </div>
         </div>
         <PaneBody>
@@ -716,7 +716,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             <DetailSection
               title="Undian"
               action={
-                <Button variant="text" size="sm" loading={togglingExclusion === p.id} onClick={() => void toggleExclusion(p)}>
+                <Button simpan variant="text" size="sm" loading={togglingExclusion === p.id} onClick={() => void toggleExclusion(p)}>
                   {excluded.has(p.id) ? "Ikutkan lagi" : "Kecualikan"}
                 </Button>
               }
@@ -779,7 +779,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         actions={
           <>
             <Button type="button" variant="outlined" disabled={saving} onClick={() => setConfirmDelete(null)}>Batal</Button>
-            <Button variant="danger" loading={saving} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus peserta</Button>
+            <Button simpan variant="danger" loading={saving} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus peserta</Button>
           </>
         }
       />

@@ -93,7 +93,7 @@ export default function ParticipantsAdminPage() {
                 onSync={() => void sync()}
               />
             ) : null}
-            <Button variant="outlined" onClick={() => setImportOpen(true)} icon={<FileArrowUp size={16} />}>Impor</Button>
+            <Button simpan variant="outlined" onClick={() => setImportOpen(true)} icon={<FileArrowUp size={16} />}>Impor</Button>
             <ExportMenu endpoint="/api/admin/participants/export" label="Ekspor" />
             <Button onClick={() => daftar.current?.tambah()} icon={<Plus size={16} weight="bold" />}>Tambah peserta</Button>
           </>
@@ -122,7 +122,7 @@ export default function ParticipantsAdminPage() {
           <>
             <Button variant="outlined" disabled={importing} onClick={closeImport}>Batal</Button>
             {preview
-              ? <Button loading={importing} disabled={barisDiterapkan === 0} onClick={() => void runImport(false)}>Terapkan ke {barisDiterapkan} baris</Button>
+              ? <Button simpan loading={importing} disabled={barisDiterapkan === 0} onClick={() => void runImport(false)}>Terapkan ke {barisDiterapkan} baris</Button>
               : <Button loading={importing} disabled={!importFile} onClick={() => void runImport(true)}>Pratinjau impor</Button>}
           </>
         }

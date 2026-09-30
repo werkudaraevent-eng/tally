@@ -144,7 +144,7 @@ export function PaymentMethodManager() {
                       : <Money size={20} aria-hidden className="mt-0.5 shrink-0 text-on-surface-variant" />}
                     {/* Sakelar dimatikan saat ini satu-satunya metode aktif: kasir
                         tidak boleh kehabisan opsi pembayaran di tengah acara. */}
-                    <Switch
+                    <Switch simpan
                       className="min-w-0 flex-1"
                       checked={method.is_active}
                       disabled={busy || lastActive}
@@ -187,7 +187,7 @@ export function PaymentMethodManager() {
         actions={
           <>
             <Button variant="outlined" disabled={creating} onClick={closeForm}>Batal</Button>
-            <Button loading={creating} disabled={!form.code.trim() || !form.label.trim()} onClick={() => void create()}>Tambah metode</Button>
+            <Button simpan loading={creating} disabled={!form.code.trim() || !form.label.trim()} onClick={() => void create()}>Tambah metode</Button>
           </>
         }
       >
@@ -237,7 +237,7 @@ export function PaymentMethodManager() {
         actions={
           <>
             <Button variant="outlined" disabled={busyCode !== ""} onClick={() => setConfirmDelete(null)}>Batal</Button>
-            <Button variant="danger" loading={busyCode !== "" && busyCode === confirmDelete?.code} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus metode</Button>
+            <Button simpan variant="danger" loading={busyCode !== "" && busyCode === confirmDelete?.code} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus metode</Button>
           </>
         }
       />

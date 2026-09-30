@@ -315,7 +315,7 @@ export function ScannerPanel() {
               </>
             ) : (
               <>
-                <Button variant="outlined" size="sm" onClick={() => void sync()} loading={syncing} icon={<ArrowsClockwise size={16} />}>Sync sekarang</Button>
+                <Button simpan variant="outlined" size="sm" onClick={() => void sync()} loading={syncing} icon={<ArrowsClockwise size={16} />}>Sync sekarang</Button>
                 <Button variant="outlined" size="sm" onClick={bukaUbah}>Ubah setelan</Button>
               </>
             )}
@@ -333,7 +333,7 @@ export function ScannerPanel() {
         actions={
           <>
             <Button variant="outlined" disabled={menyimpan} onClick={() => setKonfirmasiHapus(false)}>Batal</Button>
-            <Button variant="danger" loading={menyimpan} onClick={() => void hapusKunci()}>Hapus kunci</Button>
+            <Button simpan variant="danger" loading={menyimpan} onClick={() => void hapusKunci()}>Hapus kunci</Button>
           </>
         }
       />

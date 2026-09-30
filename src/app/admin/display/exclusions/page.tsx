@@ -216,7 +216,7 @@ export default function LeaderboardExclusionsPage() {
                   <Button variant="outlined" size="sm" disabled={busy} onClick={() => void toggle(rule)}>
                     {rule.is_active ? "Nonaktifkan" : "Aktifkan"}
                   </Button>
-                  <IconButton size="sm" label={`Hapus aturan ${namaAturan(rule)}`} disabled={busy} onClick={() => setConfirmId(rule.id)}>
+                  <IconButton simpan size="sm" label={`Hapus aturan ${namaAturan(rule)}`} disabled={busy} onClick={() => setConfirmId(rule.id)}>
                     <Trash size={18} />
                   </IconButton>
                 </div>

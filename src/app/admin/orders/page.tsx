@@ -370,7 +370,7 @@ export default function AdminOrdersPage() {
         </PaneBody>
         <PaneFooter note={order.status === "void" ? "Order ini sudah void" : isOwner ? "Void mengeluarkan nilainya dari hitungan" : "Void hanya untuk super admin"}>
           {bisaVoid ? (
-            <Button variant="outlined" size="sm" className="text-error" icon={<Prohibit size={16} />} onClick={() => { setVoidTarget(order); setVoidReason(""); setVoidError(""); }}>
+            <Button simpan variant="outlined" size="sm" className="text-error" icon={<Prohibit size={16} />} onClick={() => { setVoidTarget(order); setVoidReason(""); setVoidError(""); }}>
               Void order
             </Button>
           ) : null}
@@ -433,7 +433,7 @@ export default function AdminOrdersPage() {
         actions={
           <>
             <Button variant="outlined" disabled={voiding} onClick={closeVoid}>Batal</Button>
-            <Button variant="danger" icon={<Prohibit size={18} />} loading={voiding} disabled={voidReason.trim().length < 3} onClick={() => void confirmVoid()}>
+            <Button simpan variant="danger" icon={<Prohibit size={18} />} loading={voiding} disabled={voidReason.trim().length < 3} onClick={() => void confirmVoid()}>
               Void order ini
             </Button>
           </>

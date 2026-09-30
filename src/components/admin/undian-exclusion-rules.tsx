@@ -309,7 +309,7 @@ export function ExclusionRuleManager({
                   <p className="truncate font-medium">{item.name}</p>
                   <p className="truncate text-on-surface-variant">{[item.company, item.reason].filter(Boolean).join(" · ") || "Tanpa perusahaan"}</p>
                 </div>
-                <Button variant="text" size="sm" loading={restoring === item.participant_id} onClick={() => void restore(item.participant_id)}>Ikutkan lagi</Button>
+                <Button simpan variant="text" size="sm" loading={restoring === item.participant_id} onClick={() => void restore(item.participant_id)}>Ikutkan lagi</Button>
               </li>
             ))}
           </ul>
@@ -397,7 +397,7 @@ export function ExclusionRuleManager({
           </DetailSection>
         </form>
       </PaneBody>
-      <PaneFooter note={existing ? <Button variant="text" size="sm" className="-ml-3 text-error" icon={<Trash size={16} />} disabled={saving} onClick={() => setConfirmDelete(existing)}>Hapus aturan</Button> : undefined}>
+      <PaneFooter note={existing ? <Button simpan variant="text" size="sm" className="-ml-3 text-error" icon={<Trash size={16} />} disabled={saving} onClick={() => setConfirmDelete(existing)}>Hapus aturan</Button> : undefined}>
         <Button simpan type="submit" form="form-aturan" size="sm" loading={saving} icon={<FloppyDisk size={16} />}>Simpan aturan</Button>
       </PaneFooter>
     </Pane>
@@ -423,7 +423,7 @@ export function ExclusionRuleManager({
         actions={
           <>
             <Button variant="outlined" disabled={deleting} onClick={() => setConfirmDelete(null)}>Batal</Button>
-            <Button variant="danger" loading={deleting} onClick={() => { if (confirmDelete) void remove(confirmDelete.id); }}>Hapus aturan</Button>
+            <Button simpan variant="danger" loading={deleting} onClick={() => { if (confirmDelete) void remove(confirmDelete.id); }}>Hapus aturan</Button>
           </>
         }
       />

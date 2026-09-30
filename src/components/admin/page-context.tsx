@@ -52,6 +52,20 @@ export function useAdminPage() {
 	return useContext(AdminPageContext);
 }
 
+/**
+ * Apakah kontrol yang menyimpan ke server harus nonaktif di sini: acara terkunci
+ * dan pemakainya bukan super_admin (sama dengan `isWriteBlocked` di server).
+ * Dipakai `Button`, `IconButton`, dan `Switch` lewat prop `simpan`; di luar ruang
+ * kerja admin konteksnya tidak ada dan hasilnya selalu false.
+ */
+export function useTerkunci(simpan?: boolean) {
+	const kunci = useContext(AdminPageContext)?.kunci;
+	return Boolean(simpan && kunci && !kunci.pemilik);
+}
+
+/** Keterangan pada kontrol yang nonaktif karena acaranya terkunci. */
+export const KETERANGAN_KUNCI = "Acara sudah ditutup; perubahan tidak disimpan.";
+
 
 /**
  * Judul halaman yang berpindah ke bilah atas saat kepala halaman tergulir lewat.

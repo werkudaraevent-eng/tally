@@ -206,7 +206,7 @@ export function PrizeEditor({
         </form>
       </PaneBody>
 
-      <PaneFooter note={onDelete ? <Button variant="text" size="sm" className="-ml-3 text-error" icon={<Trash size={16} />} disabled={saving} onClick={onDelete}>Hapus hadiah</Button> : undefined}>
+      <PaneFooter note={onDelete ? <Button simpan variant="text" size="sm" className="-ml-3 text-error" icon={<Trash size={16} />} disabled={saving} onClick={onDelete}>Hapus hadiah</Button> : undefined}>
         <Button simpan type="submit" form="form-hadiah" size="sm" loading={saving} icon={<FloppyDisk size={16} />}>Simpan hadiah</Button>
       </PaneFooter>
     </Pane>

@@ -664,7 +664,7 @@ export default function SeatMapAdminPage() {
           <p className="text-body-medium font-medium">Hapus agenda</p>
           <p className="text-body-medium text-on-surface-variant">Tampilan dan sumbernya hilang; data peserta tetap.</p>
         </div>
-        <Button variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmDelete(aktif)}>Hapus</Button>
+        <Button simpan variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmDelete(aktif)}>Hapus</Button>
       </section>
     </div>
   ) : (
@@ -765,7 +765,7 @@ export default function SeatMapAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={creating} onClick={() => { setAddOpen(false); setNewAgendaName(""); }}>Batal</Button>
-            <Button type="submit" form="form-agenda" loading={creating} disabled={!newAgendaName.trim()}>Tambah agenda</Button>
+            <Button simpan type="submit" form="form-agenda" loading={creating} disabled={!newAgendaName.trim()}>Tambah agenda</Button>
           </>
         }
       >
@@ -786,7 +786,7 @@ export default function SeatMapAdminPage() {
         actions={
           <>
             <Button variant="outlined" disabled={deleting} onClick={() => setConfirmDelete(null)}>Batal</Button>
-            <Button variant="danger" loading={deleting} onClick={() => { if (confirmDelete) void deleteAgenda(confirmDelete); }}>Hapus agenda</Button>
+            <Button simpan variant="danger" loading={deleting} onClick={() => { if (confirmDelete) void deleteAgenda(confirmDelete); }}>Hapus agenda</Button>
           </>
         }
       />
