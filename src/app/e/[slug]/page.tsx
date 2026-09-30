@@ -4,6 +4,7 @@ import { normalizeLandingSections, type EventLandingConfig } from "@/lib/domain"
 import { registrationThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventSchedule } from "@/lib/event-datetime";
 import { EventLanding } from "@/components/landing/event-landing";
+import { EventLandingModern } from "@/components/landing/event-landing-modern";
 
 /**
  * Landing page publik satu acara.
@@ -54,13 +55,20 @@ export default async function EventLandingPage({ params }: { params: Promise<{ s
 
   const config = (event.landing_config ?? {}) as EventLandingConfig;
   const sections = normalizeLandingSections(config.sections);
+  const theme = registrationThemeStyle(config.theme);
+
+  // Dua tata letak, satu sumber data. Editorial tetap bawaan: acara yang tidak
+  // pernah memilih tidak berubah tampilannya karena pembaruan ini.
+  if (config.layout === "modern") {
+    return <EventLandingModern event={event} config={config} sections={sections} theme={theme} />;
+  }
 
   return (
     <EventLanding
       event={event}
       config={config}
       sections={sections}
-      theme={registrationThemeStyle(config.theme)}
+      theme={theme}
       schedule={formatEventSchedule(event)}
     />
   );

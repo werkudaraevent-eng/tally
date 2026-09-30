@@ -17,11 +17,13 @@ import {
   LANDING_HEADING_SCALE_LABELS,
   LANDING_MEMBER_AUDIENCE_LABELS,
   LANDING_HERO_HEIGHT_LABELS,
+  LANDING_LAYOUT_LABELS,
   LANDING_SECTION_LABELS,
   LANDING_SECTION_SOURCES,
   normalizeLandingSections,
   type EventLandingConfig,
   type LandingHeadingFont,
+  type LandingLayout,
   type LandingMemberConfig,
   type LandingMemberAudience,
   type LandingSection,
@@ -300,10 +302,109 @@ export default function LandingCmsPage() {
 
   // ---- Tampilan ------------------------------------------------------------------
   const gayaBanner = landing.banner_style ?? "theme";
-  const hurufJudul: LandingHeadingFont = landing.heading_font ?? "serif";
+  const tataLetak: LandingLayout = landing.layout ?? "editorial";
+  const modern = tataLetak === "modern";
+  // Bawaan huruf judul mengikuti tata letak; harus sama dengan halaman publik.
+  const hurufJudul: LandingHeadingFont = landing.heading_font ?? (modern ? "source" : "serif");
+  const catatanProgram = landing.program_notes ?? [];
+  const setCatatanProgram = (next: string[]) => setLanding({ ...landing, program_notes: next });
   const isiTampilan = (
     <div className="flex flex-col gap-5">
-      <Kelompok title="Hero" first>
+      <Kelompok title="Tata letak" first>
+        <SegmentedButton<LandingLayout>
+          className="w-full"
+          label="Tata letak"
+          value={tataLetak}
+          onChange={(value) =>
+            // Huruf judul yang belum pernah dipilih ikut disimpan saat pindah ke
+            // Modern, supaya area peserta (yang membaca `heading_font`) memakai
+            // huruf yang sama dengan halaman acara.
+            setLanding({
+              ...landing,
+              layout: value,
+              heading_font: landing.heading_font ?? (value === "modern" ? "source" : undefined),
+            })
+          }
+          options={[
+            { value: "editorial", label: LANDING_LAYOUT_LABELS.editorial },
+            { value: "modern", label: LANDING_LAYOUT_LABELS.modern },
+          ]}
+        />
+        <p className="text-body-medium text-on-surface-variant">
+          {modern
+            ? "KV selebar layar dengan nav gelap, kartu program dari Rundown, kartu pembicara tinggi, dan banner ajakan. Urutan bagian tetap; saklar di tab Bagian tetap berlaku."
+            : "Tenang dan tipografis: judul bagian di rel kiri, garis rambut sebagai pemisah. Urutan bagian mengikuti tab Bagian."}
+        </p>
+      </Kelompok>
+
+      {modern ? (
+        <Kelompok title="Teks tata letak Modern" note="Semua opsional. Yang kosong memakai judul bawaan atau tidak ditampilkan.">
+          <TextField
+            label="Judul bagian Tentang"
+            optional
+            placeholder="Tentang acara"
+            hint="Kalimat besar di samping deskripsi acara."
+            value={landing.about_heading ?? ""}
+            onChange={(event) => setLanding({ ...landing, about_heading: event.target.value })}
+          />
+          <TextField
+            label="Judul bagian Program"
+            optional
+            placeholder="Program"
+            hint="Bagian Program tampil bila Rundown punya dua bagian atau lebih."
+            value={landing.program_heading ?? ""}
+            onChange={(event) => setLanding({ ...landing, program_heading: event.target.value })}
+          />
+          <TextArea
+            label="Pengantar Program"
+            optional
+            rows={2}
+            value={landing.program_intro ?? ""}
+            onChange={(event) => setLanding({ ...landing, program_intro: event.target.value })}
+          />
+          <div className="flex flex-col gap-3">
+            <p className="text-body-medium font-medium text-on-surface">Keterangan kartu program</p>
+            <p className="text-body-medium text-on-surface-variant">
+              Urut sesuai bagian di Rundown: keterangan 1 untuk bagian pertama, dan seterusnya. Jam dan jumlah sesi diisi otomatis.
+            </p>
+            {catatanProgram.map((item, index) => (
+              <div key={index} className="flex items-start gap-2">
+                <TextArea
+                  className="min-w-0 flex-1"
+                  label={`Keterangan program ${index + 1}`}
+                  rows={2}
+                  value={item}
+                  onChange={(event) => { const next = [...catatanProgram]; next[index] = event.target.value; setCatatanProgram(next); }}
+                />
+                <IconButton size="sm" label={`Hapus keterangan ${index + 1}`} className="mt-6 text-error" onClick={() => setCatatanProgram(catatanProgram.filter((_, position) => position !== index))}>
+                  <Trash size={16} />
+                </IconButton>
+              </div>
+            ))}
+            <div>
+              <Button variant="outlined" size="sm" icon={<Plus size={16} />} disabled={catatanProgram.length >= 10} onClick={() => setCatatanProgram([...catatanProgram, ""])}>Tambah keterangan</Button>
+            </div>
+          </div>
+          <TextField
+            label="Judul banner ajakan"
+            optional
+            placeholder="Amankan tempat Anda"
+            hint="Banner di bawah halaman, tampil selama pendaftaran terbuka."
+            value={landing.cta_heading ?? ""}
+            onChange={(event) => setLanding({ ...landing, cta_heading: event.target.value })}
+          />
+          <TextArea
+            label="Kalimat banner ajakan"
+            optional
+            rows={2}
+            placeholder="mis. Pendaftaran perlu persetujuan panitia. Kode QR dikirim setelah disetujui."
+            value={landing.cta_note ?? ""}
+            onChange={(event) => setLanding({ ...landing, cta_note: event.target.value })}
+          />
+        </Kelompok>
+      ) : null}
+
+      <Kelompok title="Hero">
         <ImageUploadField
           label="Gambar hero (KV)"
           kind="landing"
@@ -540,6 +641,14 @@ export default function LandingCmsPage() {
                   onChange={(event) => ubah(index, { title: event.target.value })}
                 />
                 <TextField
+                  label="Instansi"
+                  optional
+                  placeholder="mis. Bank Indonesia"
+                  hint="Tampil sebagai chip di kartu tata letak Modern."
+                  value={speaker.company ?? ""}
+                  onChange={(event) => ubah(index, { company: event.target.value })}
+                />
+                <TextField
                   label="Peran"
                   optional
                   placeholder="mis. Opening Keynote"
@@ -703,7 +812,9 @@ export default function LandingCmsPage() {
   const isiBagian = facts ? (
     <div className="flex flex-col gap-3">
       <p className="text-body-medium text-on-surface-variant">
-        Urutan di sini adalah urutan di halaman publik. Bagian yang menyala tapi belum ada isinya tetap tidak muncul.
+        {landing.layout === "modern"
+          ? "Tata letak Modern memakai urutan tetap; saklar di sini tetap menentukan bagian mana yang tampil. Bagian yang menyala tapi belum ada isinya tetap tidak muncul."
+          : "Urutan di sini adalah urutan di halaman publik. Bagian yang menyala tapi belum ada isinya tetap tidak muncul."}
       </p>
       <ol className="flex flex-col">
         {sections.map((section, index) => {
