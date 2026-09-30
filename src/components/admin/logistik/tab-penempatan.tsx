@@ -1,8 +1,8 @@
 "use client";
 
-import { Bed, Bus as IkonBus, MagnifyingGlass, Users, Warning, X } from "@phosphor-icons/react";
+import { Bed, Bus as IkonBus, CaretLeft, CaretRight, MagnifyingGlass, Users, Warning, X } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
-import { Banner, Button, ChipMenu, Dialog, EmptyState, ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, EMPTY_VALUE } from "@/components/m3";
+import { Banner, Button, ChipMenu, Dialog, EmptyState, IconButton, ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, EMPTY_VALUE } from "@/components/m3";
 import { kunciGender, type Bus, type Kamar, type LogistikPeserta } from "@/lib/logistik/types";
 import Link from "@/components/event-link";
 import { cx } from "@/lib/m3/cx";
@@ -25,9 +25,10 @@ import { KolomCari, type TabProps } from "./bersama";
 
 type Dialogs = "kamar" | "bus" | "lepas-kamar" | "lepas-bus" | null;
 
-// Tabel memuat seluruh baris dari satu GET, jadi tidak dipaginasi. Batas ini
-// hanya menjaga acara ribuan peserta tetap cepat; pencarian menemukan sisanya.
-const BATAS_RENDER = 500;
+// Sama dengan Daftar peserta. Datanya tetap satu GET (saringan, hitungan, dan
+// "pilih semua hasil saringan" butuh seluruh peserta), yang dipotong hanya
+// baris yang digambar.
+const PER_HALAMAN = 25;
 /** Sama dengan batas `participant_ids` di route penghuni. */
 const BATAS_KAMAR = 20;
 
@@ -38,6 +39,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
   const [saringPerusahaan, setSaringPerusahaan] = useState<string[]>([]);
   const [pilih, setPilih] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<Dialogs>(null);
+  const [halaman, setHalaman] = useState({ kunci: "", nomor: 0 });
 
   const kunciField = data.settings.gender_field_key;
   const satuHotel = data.hotels.length <= 1;
@@ -70,10 +72,20 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
     });
   }, [data.participants, cari, saringKamar, saringBus, saringPerusahaan, kamarPeserta, busPeserta]);
 
+  // Saringan berubah, halaman kembali ke 1. Disetel saat render, bukan di efek,
+  // supaya tidak ada satu bingkai yang menampilkan halaman 5 dari hasil baru.
+  const kunciSaringan = JSON.stringify([cari.trim(), saringKamar, saringBus, saringPerusahaan]);
+  if (halaman.kunci !== kunciSaringan) setHalaman({ kunci: kunciSaringan, nomor: 0 });
+  const jumlahHalaman = Math.max(1, Math.ceil(tampil.length / PER_HALAMAN));
+  const nomorHalaman = Math.min(halaman.kunci === kunciSaringan ? halaman.nomor : 0, jumlahHalaman - 1);
+  const barisHalaman = tampil.slice(nomorHalaman * PER_HALAMAN, (nomorHalaman + 1) * PER_HALAMAN);
+  const keHalaman = (nomor: number) => setHalaman({ kunci: kunciSaringan, nomor });
+
   const adaSaringan = Boolean(cari.trim()) || saringKamar.length + saringBus.length + saringPerusahaan.length > 0;
   const dipilih = data.participants.filter((orang) => pilih.has(orang.id));
+  const semuaHalamanDipilih = barisHalaman.length > 0 && barisHalaman.every((orang) => pilih.has(orang.id));
+  const sebagianDipilih = !semuaHalamanDipilih && barisHalaman.some((orang) => pilih.has(orang.id));
   const semuaTampilDipilih = tampil.length > 0 && tampil.every((orang) => pilih.has(orang.id));
-  const sebagianDipilih = !semuaTampilDipilih && tampil.some((orang) => pilih.has(orang.id));
   const belumKamar = data.participants.filter((orang) => !kamarPeserta.has(orang.id)).length;
   const belumBus = data.participants.filter((orang) => !busPeserta.has(orang.id)).length;
 
@@ -85,10 +97,10 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
     });
   }
 
-  function pilihSemuaTampil(centang: boolean) {
+  function pilihBanyak(orang: typeof tampil, centang: boolean) {
     setPilih((lama) => {
       const baru = new Set(lama);
-      for (const orang of tampil) if (centang) baru.add(orang.id); else baru.delete(orang.id);
+      for (const o of orang) if (centang) baru.add(o.id); else baru.delete(o.id);
       return baru;
     });
   }
@@ -113,6 +125,14 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
   const toolbar = pilih.size > 0 ? (
     <PaneHeader className="flex-wrap gap-2 px-3 py-2.5">
       <span className="mr-1 text-body-medium tabular-nums text-on-surface" aria-live="polite">{pilih.size} dipilih</span>
+      {/* Centang di kepala tabel memilih satu halaman. Rombongan satu perusahaan
+          bisa lebih dari 25 orang, jadi sisanya dipilih dari sini, bukan dengan
+          membuka halaman demi halaman. */}
+      {semuaHalamanDipilih && !semuaTampilDipilih ? (
+        <Button variant="text" size="sm" onClick={() => pilihBanyak(tampil, true)}>
+          {adaSaringan ? `Pilih semua ${tampil.length} hasil saringan` : `Pilih semua ${tampil.length} peserta`}
+        </Button>
+      ) : null}
       <Button variant="tonal" size="sm" icon={<Bed size={16} />} onClick={() => setDialog("kamar")}>Masukkan ke kamar</Button>
       <Button variant="tonal" size="sm" icon={<IkonBus size={16} />} onClick={() => setDialog("bus")}>Masukkan ke bus</Button>
       {dipilih.some((orang) => kamarPeserta.has(orang.id)) ? (
@@ -180,10 +200,10 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                   <th scope="col" className={cx(th, "w-10 pl-4 pr-0")}>
                     <input
                       type="checkbox"
-                      aria-label={`Pilih semua ${tampil.length} peserta yang tampil`}
-                      checked={semuaTampilDipilih}
+                      aria-label={`Pilih ${barisHalaman.length} peserta di halaman ini`}
+                      checked={semuaHalamanDipilih}
                       ref={(el) => { if (el) el.indeterminate = sebagianDipilih; }}
-                      onChange={(event) => pilihSemuaTampil(event.target.checked)}
+                      onChange={(event) => pilihBanyak(barisHalaman, event.target.checked)}
                       className="size-4 align-middle accent-[var(--md-sys-color-primary)]"
                     />
                   </th>
@@ -195,7 +215,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                 </tr>
               </thead>
               <tbody>
-                {tampil.slice(0, BATAS_RENDER).map((orang) => {
+                {barisHalaman.map((orang) => {
                   const centang = pilih.has(orang.id);
                   const kamar = labelKamar(kamarPeserta.get(orang.id));
                   const bus = busById.get(busPeserta.get(orang.id) ?? -1);
@@ -243,16 +263,24 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
               </tbody>
             </table>
           )}
-          {tampil.length > BATAS_RENDER ? (
-            <p className="px-4 py-3 text-body-small text-on-surface-variant">
-              {tampil.length - BATAS_RENDER} peserta lain tidak ditampilkan. Ketik nama atau pakai saringan untuk menemukannya.
-            </p>
-          ) : null}
         </PaneBody>
         <PaneFooter
           className="bg-surface-container-lowest py-2"
-          note={<span className="tabular-nums">{adaSaringan ? `${tampil.length} dari ${data.participants.length} peserta` : `${data.participants.length} peserta`}</span>}
-        />
+          note={
+            <span className="tabular-nums">
+              {tampil.length === 0 ? "0 peserta" : `${nomorHalaman * PER_HALAMAN + 1}–${nomorHalaman * PER_HALAMAN + barisHalaman.length} dari ${tampil.length}`}
+              {adaSaringan ? ` (${data.participants.length} peserta seluruhnya)` : ""}
+            </span>
+          }
+        >
+          {jumlahHalaman > 1 ? (
+            <>
+              <IconButton size="sm" variant="outlined" label="Halaman sebelumnya" disabled={nomorHalaman === 0} onClick={() => keHalaman(nomorHalaman - 1)}><CaretLeft size={16} /></IconButton>
+              <span className="min-w-14 text-center text-body-medium tabular-nums text-on-surface-variant">{nomorHalaman + 1} / {jumlahHalaman}</span>
+              <IconButton size="sm" variant="outlined" label="Halaman berikutnya" disabled={nomorHalaman + 1 >= jumlahHalaman} onClick={() => keHalaman(nomorHalaman + 1)}><CaretRight size={16} /></IconButton>
+            </>
+          ) : null}
+        </PaneFooter>
       </Pane>
       } />
 
