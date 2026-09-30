@@ -85,6 +85,14 @@ export function rowsToEntries(cells: string[][]): ParsedEntry[] {
  * src/lib/export-orders.ts.
  */
 export function parseEntryText(text: string): ParsedEntry[] {
+  return rowsToEntries(textToCells(text));
+}
+
+/**
+ * Teks tempelan atau CSV menjadi matriks sel. Dipakai juga oleh impor Logistik,
+ * supaya kedua impor mengenali pemisah dan BOM dengan cara yang sama.
+ */
+export function textToCells(text: string): string[][] {
   // BOM dibuang. Berkas CSV yang diekspor Excel di Windows hampir selalu punya BOM,
   // dan tanpa ini karakter itu menempel pada nama pertama sehingga baris pertama
   // tampil dengan karakter aneh di layar panggung.
@@ -98,7 +106,7 @@ export function parseEntryText(text: string): ParsedEntry[] {
   const first = lines[0];
   const delimiter = first.includes("\t") ? "\t" : first.includes(";") ? ";" : first.includes(",") ? "," : "";
 
-  return rowsToEntries(lines.map((line) => (delimiter ? splitLine(line, delimiter) : [line])));
+  return lines.map((line) => (delimiter ? splitLine(line, delimiter) : [line]));
 }
 
 /**
@@ -113,13 +121,19 @@ export function parseEntryText(text: string): ParsedEntry[] {
  * memasukkan nama yang sudah tidak berlaku ke dalam undian.
  */
 export async function parseEntryXlsx(buffer: ArrayBuffer): Promise<ParsedEntry[] | { error: "UNREADABLE" }> {
+  const cells = await xlsxToCells(buffer);
+  return cells ? rowsToEntries(cells) : { error: "UNREADABLE" };
+}
+
+/** Sheet pertama XLSX menjadi matriks sel, atau null bila berkasnya tidak terbaca. */
+export async function xlsxToCells(buffer: ArrayBuffer): Promise<string[][] | null> {
   try {
     const ExcelJS = (await import("exceljs")).default;
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer);
 
     const sheet = workbook.worksheets[0];
-    if (!sheet) return { error: "UNREADABLE" };
+    if (!sheet) return null;
 
     const cells: string[][] = [];
     sheet.eachRow({ includeEmpty: false }, (row) => {
@@ -136,11 +150,11 @@ export async function parseEntryXlsx(buffer: ArrayBuffer): Promise<ParsedEntry[]
       cells.push(values);
     });
 
-    return rowsToEntries(cells);
+    return cells;
   } catch {
     // Berkas rusak atau bukan XLSX sungguhan. Dilaporkan sebagai galat yang bisa
     // ditindaklanjuti, bukan dilempar sebagai 500 tanpa penjelasan.
-    return { error: "UNREADABLE" };
+    return null;
   }
 }
 

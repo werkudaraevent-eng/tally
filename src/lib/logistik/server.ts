@@ -40,14 +40,19 @@ const PESAN_RPC: Record<string, string> = {
  * bisa ditindaklanjuti ketika satu bus dipakai di lima agenda.
  */
 export function galatRpc(error: { message?: string; details?: string | null }) {
+  const pesan = pesanRpc(error);
+  return pesan ? apiError("VALIDATION_ERROR", 422, { message: pesan }) : apiError("INTERNAL_ERROR", 500);
+}
+
+/** Kalimat untuk galat RPC yang dikenal, atau null. Dipakai juga impor Excel, yang melaporkan per orang. */
+export function pesanRpc(error: { message?: string; details?: string | null }): string | null {
   const pesan = String(error.message ?? "");
   if (pesan.includes("VEHICLE_FULL")) {
     const rincian = error.details ? ` ${error.details}.` : "";
-    return apiError("VALIDATION_ERROR", 422, { message: `Bus melebihi kapasitas.${rincian} Pilih bus lain atau naikkan kapasitasnya.` });
+    return `Bus melebihi kapasitas.${rincian} Pilih bus lain atau naikkan kapasitasnya.`;
   }
   const kode = Object.keys(PESAN_RPC).find((nama) => pesan.includes(nama));
-  if (kode) return apiError("VALIDATION_ERROR", 422, { message: PESAN_RPC[kode] });
-  return apiError("INTERNAL_ERROR", 500);
+  return kode ? PESAN_RPC[kode] : null;
 }
 
 /**
