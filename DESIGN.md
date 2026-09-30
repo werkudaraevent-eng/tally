@@ -890,8 +890,13 @@ Dua sumber, masing-masing untuk hal yang berbeda:
 | Material Design 3 | Canonical layout, margin 24px, satu aksi utama per tampilan, aturan kapan memakai tabs / segmented / chip / dialog | Komponen dan tampilan M3 |
 | Dasbor Cloudflare (Kumo) | Tampilan: panel putih bergaris tipis di kanvas abu sangat muda, teks isi 14px, tanpa bold dan tanpa tracking, sentence case, tanpa border + bayangan sekaligus, tanpa transisi warna saat hover | Tata letak dan navigasinya |
 
-**Huruf: Inter untuk semua**, termasuk angka, kode QR, dan jam. Tanpa huruf
-lebar-tetap; kolom angka memakai `tabular-nums`.
+**Huruf: huruf sistem, sama dengan Kumo** (Segoe UI di Windows, San Francisco
+di Mac, Roboto di Android), termasuk angka, kode QR, dan jam. Tanpa huruf
+lebar-tetap; kolom angka memakai `tabular-nums`. Sampai September 2026 ruang
+kerja memakai Inter; pada 14px Inter terbaca kira-kira satu piksel lebih besar
+daripada Segoe UI karena x-height-nya lebih tinggi, dan itu yang membuat layar
+terasa lebih besar daripada Cloudflare pada zoom yang sama. Halaman tamu tetap
+Inter dan huruf pilihan CMS.
 
 **Setiap layar memilih satu canonical layout**, lewat primitif di
 `src/components/m3/workspace.tsx`:
