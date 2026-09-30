@@ -35,9 +35,32 @@ export type RegistrationThemeRoles = {
 	on_error_soft: string;
 };
 
+/**
+ * Seberapa kuat warna merek mewarnai latar dan teks.
+ *
+ * - `neutral`: latar hampir putih, teks hampir hitam. Warna merek hanya di
+ *   tombol, tautan, dan penanda.
+ * - `soft`: latar sedikit bernuansa warna merek.
+ * - `vibrant`: latar dan teks ikut berwarna. Pada warna biru di sekitar hue HCT
+ *   280, hasilnya condong ungu (#002EE6 memberi latar #F9F5FF) — alasan pilihan
+ *   ini ada.
+ *
+ * `undefined` = konfigurasi sebelum pilihan ini ada, diperlakukan `vibrant`.
+ * Peran disimpan sebagai hex saat Simpan, jadi default lain akan mengubah warna
+ * acara yang sedang berjalan begitu admin menyimpan hal lain yang tak terkait.
+ */
+export type RegistrationThemeTone = "neutral" | "soft" | "vibrant";
+
+export const REGISTRATION_THEME_TONES: Record<RegistrationThemeTone, { label: string; note: string }> = {
+	neutral: { label: "Netral", note: "Latar hampir putih. Warna merek hanya di tombol dan tautan." },
+	soft: { label: "Lembut", note: "Latar sedikit bernuansa warna merek." },
+	vibrant: { label: "Berwarna", note: "Latar dan teks ikut berwarna. Warna biru bisa condong ungu." },
+};
+
 export type RegistrationFormTheme = {
 	/** Warna brand pilihan admin. Satu-satunya nilai yang diisi manusia. */
 	seed: string;
+	tone?: RegistrationThemeTone;
 	/**
 	 * Formulir mengikuti warna halaman acara, mengabaikan `seed` di atas.
 	 *
@@ -67,11 +90,17 @@ export type RegistrationFormTheme = {
 
 export const DEFAULT_REGISTRATION_SEED = "#2649D0";
 
-function scheme(seed: string, isDark: boolean) {
+const VARIANT: Record<RegistrationThemeTone, Variant> = {
+	neutral: Variant.NEUTRAL,
+	soft: Variant.TONAL_SPOT,
+	vibrant: Variant.VIBRANT,
+};
+
+function scheme(seed: string, isDark: boolean, tone: RegistrationThemeTone) {
 	const sourceColorHct = Hct.fromInt(argbFromHex(seed));
 	return new DynamicScheme({
 		sourceColorHct,
-		variant: Variant.VIBRANT,
+		variant: VARIANT[tone],
 		contrastLevel: 0,
 		isDark,
 		specVersion: "2025",
@@ -99,8 +128,8 @@ function softError(seed: string, isDark: boolean) {
 	};
 }
 
-export function buildRegistrationThemeRoles(seed: string, isDark: boolean): RegistrationThemeRoles {
-	const target = scheme(seed, isDark);
+export function buildRegistrationThemeRoles(seed: string, isDark: boolean, tone: RegistrationThemeTone = "vibrant"): RegistrationThemeRoles {
+	const target = scheme(seed, isDark, tone);
 	const mdc = new MaterialDynamicColors();
 	const hex = (color: { getArgb: (s: DynamicScheme) => number }) => hexFromArgb(color.getArgb(target));
 
@@ -134,10 +163,11 @@ export function isHexColor(value: unknown): value is string {
  */
 export function withDerivedRoles(theme: RegistrationFormTheme): RegistrationFormTheme {
 	const seed = isHexColor(theme.seed) ? theme.seed : DEFAULT_REGISTRATION_SEED;
+	const tone = theme.tone ?? "vibrant";
 	return {
 		...theme,
 		seed,
-		roles: buildRegistrationThemeRoles(seed, false),
-		roles_dark: buildRegistrationThemeRoles(seed, true),
+		roles: buildRegistrationThemeRoles(seed, false, tone),
+		roles_dark: buildRegistrationThemeRoles(seed, true, tone),
 	};
 }

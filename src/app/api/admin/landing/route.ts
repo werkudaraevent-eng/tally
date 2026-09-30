@@ -75,7 +75,10 @@ const bodySchema = z.object({
       name: z.string().trim().max(120).optional(),
       logo_url: z.string().url().max(600),
     })).max(40).optional(),
-    theme: z.object({ seed: z.string().regex(/^#[0-9a-fA-F]{6}$/) }).optional(),
+    theme: z.object({
+      seed: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+      tone: z.enum(["neutral", "soft", "vibrant"]).optional(),
+    }).optional(),
     member: z.object({
       enabled: z.boolean(),
       audience: z.enum(["approved", "all"]).optional(),

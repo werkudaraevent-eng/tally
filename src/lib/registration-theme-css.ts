@@ -30,7 +30,7 @@ export function registrationThemeStyle(theme: RegistrationFormTheme | undefined)
   // Event yang disimpan sebelum fitur tema ada tidak punya `roles`, dan halaman
   // publiknya tetap harus tampil — bukan gagal render.
   const roles: RegistrationThemeRoles =
-    theme?.roles ?? buildRegistrationThemeRoles(theme?.seed ?? DEFAULT_REGISTRATION_SEED, false);
+    theme?.roles ?? buildRegistrationThemeRoles(theme?.seed ?? DEFAULT_REGISTRATION_SEED, false, theme?.tone);
 
   return {
     "--reg-surface": roles.surface,

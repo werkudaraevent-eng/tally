@@ -603,6 +603,15 @@ tipografi yang membawa halaman, bukan kartu, bayangan, atau gerak.
   jangkar bagian hanya di `xl` ke atas.
 - Warna tetap dari tema acara (`--reg-*`). Tidak ada animasi saat digulir; gerak
   satu-satunya adalah `rise-in` hero saat muat dan `settle-in` pada KV.
+- **Tema** = warna merek + nada latar + huruf judul. Nada latar (`theme.tone`)
+  memilih varian skema Material: Netral (NEUTRAL, latar hampir putih), Lembut
+  (TONAL_SPOT), Berwarna (VIBRANT). Tanpa `tone` diperlakukan Berwarna agar acara
+  lama tidak berganti warna saat disimpan ulang. Berwarna pada biru sekitar hue
+  HCT 280 condong ungu (#002EE6 → latar #F9F5FF).
+- **Preset tema** (`src/lib/landing-theme-presets.ts`) hanya mengisi ketiga nilai
+  itu; yang disimpan nilainya, bukan nama preset. Warna merek preset tidak boleh
+  terlalu gelap: tombol memakai nada tengah hue-nya, jadi navy pekat keluar pucat
+  dan hitam keluar abu-abu.
 
 ### Area peserta
 

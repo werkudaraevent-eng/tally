@@ -28,7 +28,8 @@ import {
   type LandingSectionId,
   type RegistrationFormConfig,
 } from "@/lib/domain";
-import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
+import { DEFAULT_REGISTRATION_SEED, REGISTRATION_THEME_TONES, buildRegistrationThemeRoles, type RegistrationThemeTone } from "@/lib/registration-theme";
+import { LANDING_THEME_PRESETS } from "@/lib/landing-theme-presets";
 import { eventApiPath } from "@/lib/event-url";
 import { Kelompok } from "@/components/admin/compact-form";
 
@@ -54,6 +55,16 @@ type Bagian = "isi" | "tampilan" | "bagian" | "peserta";
 
 /** "09:00:00" → "09:00". Kolom <input type="time"> menolak bentuk berdetik. */
 const jamInput = (value: string | null) => (value ? value.slice(0, 5) : "");
+
+/**
+ * Contoh warna tiap preset, dihitung dengan fungsi yang SAMA dengan server saat
+ * menyimpan. Angka yang ditulis tangan di daftar preset akan pelan-pelan tidak
+ * cocok dengan halaman yang benar-benar tampil.
+ */
+const CONTOH_PRESET = LANDING_THEME_PRESETS.map((preset) => ({
+  ...preset,
+  roles: buildRegistrationThemeRoles(preset.seed, false, preset.tone),
+}));
 
 function PilihWarna({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
@@ -206,7 +217,7 @@ export default function LandingCmsPage() {
         landing: {
           ...landing,
           sections,
-          theme: { seed: landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
+          theme: { seed: landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED, tone: landing.theme?.tone ?? "vibrant" },
           member: landing.member
             ? { ...landing.member, feedback_url: landing.member.feedback_url?.trim() || null }
             : undefined,
@@ -301,9 +312,43 @@ export default function LandingCmsPage() {
   // ---- Tampilan ------------------------------------------------------------------
   const gayaBanner = landing.banner_style ?? "theme";
   const hurufJudul: LandingHeadingFont = landing.heading_font ?? "serif";
+  const warnaMerek = landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED;
+  const nada: RegistrationThemeTone = landing.theme?.tone ?? "vibrant";
   const isiTampilan = (
     <div className="flex flex-col gap-5">
-      <Kelompok title="Hero" first>
+      <Kelompok title="Tema" first note="Titik awal. Warna, nada latar, dan huruf judul tetap bisa diubah satu per satu di bawah.">
+        <div role="radiogroup" aria-label="Preset tema" className="grid grid-cols-2 gap-2">
+          {CONTOH_PRESET.map((preset) => {
+            const pilih = preset.seed.toLowerCase() === warnaMerek.toLowerCase() && preset.tone === nada && preset.heading_font === hurufJudul;
+            return (
+              <button
+                key={preset.key}
+                type="button"
+                role="radio"
+                aria-checked={pilih}
+                onClick={() => setLanding({ ...landing, theme: { seed: preset.seed, tone: preset.tone }, heading_font: preset.heading_font })}
+                className={`m3-state flex flex-col overflow-hidden rounded-md border text-left ${
+                  pilih ? "border-primary ring-1 ring-primary" : "border-outline-variant"
+                }`}
+              >
+                {/* Cuplikan halaman: latar, judul, dan tombol dengan warna turunan sebenarnya. */}
+                <span aria-hidden className="flex h-16 flex-col justify-between px-3 py-2.5" style={{ background: preset.roles.surface }}>
+                  <span className="truncate text-title-medium font-semibold leading-5" style={{ color: preset.roles.on_surface, fontFamily: LANDING_HEADING_FONTS[preset.heading_font].cssVar }}>
+                    {facts?.name || "Nama acara"}
+                  </span>
+                  <span className="h-2.5 w-12 rounded-sm" style={{ background: preset.roles.primary }} />
+                </span>
+                <span className="border-t border-outline-variant px-3 py-2">
+                  <span className="block text-body-medium font-medium text-on-surface">{preset.label}</span>
+                  <span className="block text-body-small text-on-surface-variant">{preset.note}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Kelompok>
+
+      <Kelompok title="Hero">
         <ImageUploadField
           label="Gambar hero (KV)"
           kind="landing"
@@ -411,9 +456,20 @@ export default function LandingCmsPage() {
       <Kelompok title="Warna" note="Satu warna; sisanya diturunkan otomatis supaya teks tetap terbaca.">
         <PilihWarna
           label="Warna merek"
-          value={landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED}
-          onChange={(value) => setLanding({ ...landing, theme: { seed: value } })}
+          value={warnaMerek}
+          onChange={(value) => setLanding({ ...landing, theme: { seed: value, tone: nada } })}
         />
+        <div>
+          <p className="text-body-medium font-medium text-on-surface">Nada latar</p>
+          <SegmentedButton
+            className="mt-1.5 w-full"
+            label="Nada latar"
+            value={nada}
+            onChange={(value) => setLanding({ ...landing, theme: { seed: warnaMerek, tone: value } })}
+            options={(Object.keys(REGISTRATION_THEME_TONES) as RegistrationThemeTone[]).map((key) => ({ value: key, label: REGISTRATION_THEME_TONES[key].label }))}
+          />
+          <p className="mt-1.5 text-body-medium text-on-surface-variant">{REGISTRATION_THEME_TONES[nada].note}</p>
+        </div>
         {/* Saklar warna formulir tinggal DI SINI, bukan di CMS Registrasi.
             Warna acara punya satu sumber; kontrol yang tersebar di dua layar
             akan berbeda isinya dan tidak ada yang tahu mana yang menang. */}
