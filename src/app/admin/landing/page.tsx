@@ -12,12 +12,15 @@ import { useToast } from "@/components/toast";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { LandingPreview } from "@/components/admin/landing-preview";
 import {
-  DEFAULT_LANDING_SECTIONS,
   LANDING_BANNER_STYLE_LABELS,
+  LANDING_HEADING_FONTS,
+  LANDING_HEADING_SCALE_LABELS,
   LANDING_HERO_HEIGHT_LABELS,
   LANDING_SECTION_LABELS,
   LANDING_SECTION_SOURCES,
+  normalizeLandingSections,
   type EventLandingConfig,
+  type LandingHeadingFont,
   type LandingSection,
   type LandingSectionId,
   type RegistrationFormConfig,
@@ -118,7 +121,7 @@ export default function LandingCmsPage() {
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
 
-  const sections: LandingSection[] = landing.sections?.length ? landing.sections : DEFAULT_LANDING_SECTIONS;
+  const sections: LandingSection[] = normalizeLandingSections(landing.sections);
   const cuplikan = facts ? JSON.stringify({ facts, landing, formInherit, formSeed }) : null;
   const berubah = tersimpan !== null && cuplikan !== tersimpan;
 
@@ -142,6 +145,7 @@ export default function LandingCmsPage() {
     switch (id) {
       case "about": return Boolean(facts?.description?.trim());
       case "highlights": return (landing.highlights ?? []).length > 0;
+      case "speakers": return (landing.speakers ?? []).some((speaker) => speaker.name.trim());
       case "venue": return Boolean(facts?.venue_name?.trim() || facts?.venue_address?.trim());
       case "faq": return (landing.faq ?? []).length > 0;
       case "sponsors": return (landing.sponsors ?? []).length > 0;
@@ -170,6 +174,11 @@ export default function LandingCmsPage() {
     const tanyaKosong = (landing.faq ?? []).findIndex((item) => !item.q.trim() || !item.a.trim());
     if (tanyaKosong >= 0) {
       toast.error("Pertanyaan umum belum lengkap", `Pertanyaan ${tanyaKosong + 1}: isi pertanyaan dan jawabannya, atau hapus pertanyaan itu.`);
+      return;
+    }
+    const pembicaraKosong = (landing.speakers ?? []).findIndex((item) => !item.name.trim());
+    if (pembicaraKosong >= 0) {
+      toast.error("Pembicara belum lengkap", `Pembicara ${pembicaraKosong + 1}: isi namanya, atau hapus baris itu.`);
       return;
     }
     const kirim = cuplikan;
@@ -280,15 +289,16 @@ export default function LandingCmsPage() {
 
   // ---- Tampilan ------------------------------------------------------------------
   const gayaBanner = landing.banner_style ?? "theme";
+  const hurufJudul: LandingHeadingFont = landing.heading_font ?? "serif";
   const isiTampilan = (
     <div className="flex flex-col gap-5">
       <Kelompok title="Hero" first>
         <ImageUploadField
-          label="Gambar banner"
+          label="Gambar hero (KV)"
           kind="landing"
           fit="cover"
           previewClassName="h-20 w-36"
-          hint="Rasio 16:9, minimal 1920×1080. Dipasang di belakang judul acara. PNG, JPG, atau WebP, maks 5 MB."
+          hint="Key visual acara, dipasang sebagai latar di belakang judul. Rasio 16:9, minimal 1920×1080. Taruh bagian penting gambar di sisi atas atau kanan: judul berdiri di kiri bawah. PNG, JPG, atau WebP, maks 5 MB."
           value={landing.banner_url ?? null}
           onChange={(url) => setLanding({ ...landing, banner_url: url })}
           disabled={busy}
@@ -298,10 +308,10 @@ export default function LandingCmsPage() {
             mengubah apa pun membuat admin ragu apakah dirinya salah pakai. */}
         {landing.banner_url ? (
           <div>
-            <p className="text-body-medium font-medium text-on-surface">Tampilan banner</p>
+            <p className="text-body-medium font-medium text-on-surface">Tampilan KV</p>
             <SegmentedButton
               className="mt-1.5 w-full"
-              label="Tampilan banner"
+              label="Tampilan KV"
               value={gayaBanner}
               onChange={(value) => setLanding({ ...landing, banner_style: value })}
               options={[
@@ -311,8 +321,8 @@ export default function LandingCmsPage() {
             />
             <p className="mt-1.5 text-body-medium text-on-surface-variant">
               {gayaBanner === "theme"
-                ? "Warna banner dilebur ke warna halaman. Senada, tapi gambar berwarna pekat jadi pucat."
-                : "Warna gambar tampil apa adanya. Sudut tempat judul diberi bayangan gelap dan teks hero jadi putih agar tetap terbaca."}
+                ? "Gambar dilebur ke warna halaman. Senada, tapi gambar berwarna pekat jadi pucat."
+                : "Gambar tampil dengan warna aslinya. Bagian bawah diberi bayangan gelap dan teks hero jadi putih agar tetap terbaca."}
             </p>
           </div>
         ) : null}
@@ -330,7 +340,7 @@ export default function LandingCmsPage() {
             ]}
           />
           <p className="mt-1.5 text-body-medium text-on-surface-variant">
-            Tinggi minimum bidang judul di layar lebar: ringkas 400px, standar 540px, tinggi 680px. Di ponsel ketiganya lebih pendek. Makin tinggi, makin jauh isi halaman terdorong ke bawah.
+            Tinggi minimum bidang judul di layar lebar: ringkas 440px, standar 600px, tinggi 720px. Di ponsel ketiganya lebih pendek. Makin tinggi, makin jauh isi halaman terdorong ke bawah.
           </p>
         </div>
         <TextField
@@ -340,6 +350,51 @@ export default function LandingCmsPage() {
           value={landing.cta_label ?? ""}
           onChange={(event) => setLanding({ ...landing, cta_label: event.target.value })}
         />
+      </Kelompok>
+
+      <Kelompok title="Huruf judul" note="Dipakai untuk nama acara dan judul bagian. Isi halaman tetap memakai huruf yang mudah dibaca.">
+        <div role="radiogroup" aria-label="Huruf judul" className="flex flex-col gap-2">
+          {(Object.keys(LANDING_HEADING_FONTS) as LandingHeadingFont[]).map((key) => {
+            const font = LANDING_HEADING_FONTS[key];
+            const pilih = hurufJudul === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                role="radio"
+                aria-checked={pilih}
+                onClick={() => setLanding({ ...landing, heading_font: key })}
+                className={`m3-state flex min-h-16 flex-col items-start gap-0.5 rounded-md border px-4 py-3 text-left ${
+                  pilih ? "border-primary bg-primary-container/40 ring-1 ring-primary" : "border-outline-variant"
+                }`}
+              >
+                <span className="text-title-large font-semibold text-on-surface" style={{ fontFamily: font.cssVar }}>
+                  {facts?.name || "Nama acara"}
+                </span>
+                <span className="text-body-small text-on-surface-variant">
+                  {font.label} <MetaSeparator /> {font.note}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div>
+          <p className="text-body-medium font-medium text-on-surface">Ukuran judul</p>
+          <SegmentedButton
+            className="mt-1.5 w-full"
+            label="Ukuran judul"
+            value={landing.heading_scale ?? "lg"}
+            onChange={(value) => setLanding({ ...landing, heading_scale: value })}
+            options={[
+              { value: "md", label: LANDING_HEADING_SCALE_LABELS.md },
+              { value: "lg", label: LANDING_HEADING_SCALE_LABELS.lg },
+              { value: "xl", label: LANDING_HEADING_SCALE_LABELS.xl },
+            ]}
+          />
+          <p className="mt-1.5 text-body-medium text-on-surface-variant">
+            Ukuran nama acara di hero. Nama yang panjang lebih rapi di Sedang; Sangat besar cocok untuk nama dua sampai tiga kata.
+          </p>
+        </div>
       </Kelompok>
 
       <Kelompok title="Warna" note="Satu warna; sisanya diturunkan otomatis supaya teks tetap terbaca.">
@@ -432,6 +487,76 @@ export default function LandingCmsPage() {
           </div>
         );
       }
+      case "speakers": {
+        const list = landing.speakers ?? [];
+        const setList = (next: typeof list) => setLanding({ ...landing, speakers: next });
+        const ubah = (index: number, patch: Partial<(typeof list)[number]>) => {
+          const next = [...list];
+          next[index] = { ...next[index], ...patch };
+          setList(next);
+        };
+        return (
+          <div className="flex flex-col gap-3">
+            <p className="text-body-medium text-on-surface-variant">
+              Pembicara yang ditonjolkan tampil sebagai kartu besar di atas. Tanpa foto, inisial nama dipakai.
+            </p>
+            {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">Belum ada pembicara.</p> : null}
+            {list.map((speaker, index) => (
+              <div key={index} className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                  <ImageUploadField
+                    label={`Foto pembicara ${index + 1}`}
+                    kind="landing"
+                    fit="cover"
+                    previewClassName="size-16 rounded-full"
+                    hint="Persegi, minimal 400×400."
+                    value={speaker.photo_url ?? null}
+                    disabled={busy}
+                    onChange={(url) => ubah(index, { photo_url: url })}
+                  />
+                  </div>
+                  <IconButton size="sm" label={`Hapus pembicara ${index + 1}`} className="text-error" onClick={() => setList(list.filter((_, position) => position !== index))}>
+                    <Trash size={16} />
+                  </IconButton>
+                </div>
+                <TextField label="Nama" value={speaker.name} onChange={(event) => ubah(index, { name: event.target.value })} />
+                <TextField
+                  label="Jabatan dan instansi"
+                  optional
+                  placeholder="mis. Direktur Utama, PT Contoh"
+                  value={speaker.title ?? ""}
+                  onChange={(event) => ubah(index, { title: event.target.value })}
+                />
+                <TextField
+                  label="Peran"
+                  optional
+                  placeholder="mis. Opening Keynote"
+                  value={speaker.role ?? ""}
+                  onChange={(event) => ubah(index, { role: event.target.value })}
+                />
+                <Switch
+                  checked={Boolean(speaker.featured)}
+                  onChange={(value) => ubah(index, { featured: value })}
+                  label="Tonjolkan"
+                  description="Kartu besar di baris atas, untuk keynote atau tamu utama."
+                />
+                <div className="flex gap-1">
+                  <IconButton size="sm" label={`Naikkan pembicara ${index + 1}`} disabled={index === 0} onClick={() => { const next = [...list]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setList(next); }}>
+                    <ArrowUp size={16} />
+                  </IconButton>
+                  <IconButton size="sm" label={`Turunkan pembicara ${index + 1}`} disabled={index === list.length - 1} onClick={() => { const next = [...list]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; setList(next); }}>
+                    <ArrowDown size={16} />
+                  </IconButton>
+                </div>
+              </div>
+            ))}
+            <div>
+              <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setList([...list, { name: "" }])}>Tambah pembicara</Button>
+            </div>
+          </div>
+        );
+      }
       case "sponsors": {
         const list = landing.sponsors ?? [];
         return (
@@ -494,6 +619,7 @@ export default function LandingCmsPage() {
 
   const JUMLAH: Partial<Record<LandingSectionId, number>> = {
     highlights: (landing.highlights ?? []).length,
+    speakers: (landing.speakers ?? []).length,
     faq: (landing.faq ?? []).length,
     sponsors: (landing.sponsors ?? []).length,
   };

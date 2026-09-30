@@ -143,7 +143,7 @@ export type RegistrationFormConfig = {
  * `hero` sengaja TIDAK ada di sini. Ia selalu tampil dan selalu pertama —
  * halaman acara tanpa nama acara di bagian atas bukan pilihan gaya.
  */
-export type LandingSectionId = "about" | "highlights" | "agenda" | "venue" | "faq" | "sponsors" | "contact";
+export type LandingSectionId = "about" | "highlights" | "agenda" | "speakers" | "venue" | "faq" | "sponsors" | "contact";
 
 export type LandingSection = { id: LandingSectionId; enabled: boolean };
 
@@ -151,6 +151,7 @@ export const LANDING_SECTION_LABELS: Record<LandingSectionId, string> = {
   about: "Tentang acara",
   highlights: "Angka penting",
   agenda: "Susunan acara",
+  speakers: "Pembicara",
   venue: "Lokasi",
   faq: "Pertanyaan umum",
   sponsors: "Sponsor & mitra",
@@ -169,13 +170,14 @@ export const LANDING_SECTION_LABELS: Record<LandingSectionId, string> = {
 export type LandingSectionSource = { text: string; href?: string; linkLabel?: string };
 
 export const LANDING_SECTION_SOURCES: Record<LandingSectionId, LandingSectionSource> = {
-  about: { text: "Deskripsi acara — diisi di halaman ini" },
+  about: { text: "Deskripsi acara, diisi di halaman ini" },
   highlights: { text: "Diisi di halaman ini" },
   agenda: {
     text: "Ditarik otomatis dari modul Rundown acara",
     href: "/admin/rundown",
     linkLabel: "Buka Rundown",
   },
+  speakers: { text: "Diisi di halaman ini" },
   venue: {
     text: "Nama, alamat, dan peta diisi di halaman ini. Tombol denah menuju modul Denah kursi",
     href: "/admin/seat-map",
@@ -191,11 +193,29 @@ export const DEFAULT_LANDING_SECTIONS: LandingSection[] = [
   { id: "about", enabled: true },
   { id: "highlights", enabled: false },
   { id: "agenda", enabled: true },
+  { id: "speakers", enabled: true },
   { id: "venue", enabled: true },
   { id: "faq", enabled: false },
   { id: "sponsors", enabled: true },
   { id: "contact", enabled: false },
 ];
+
+/**
+ * Susunan tersimpan, dilengkapi bagian yang ditambahkan SETELAH acara menyimpan
+ * susunannya (mis. Pembicara). Tanpa ini, bagian baru tidak pernah muncul di
+ * acara lama: ia tidak ada di daftar tersimpan, jadi tidak bisa dinyalakan.
+ * Bagian yang tertinggal ditambahkan di posisi bawaannya dengan keadaan
+ * bawaannya; susunan yang sudah diatur admin tidak diubah.
+ */
+export function normalizeLandingSections(saved: LandingSection[] | undefined): LandingSection[] {
+  if (!saved?.length) return DEFAULT_LANDING_SECTIONS;
+  const next = saved.filter((section) => DEFAULT_LANDING_SECTIONS.some((item) => item.id === section.id));
+  DEFAULT_LANDING_SECTIONS.forEach((item, index) => {
+    if (next.some((section) => section.id === item.id)) return;
+    next.splice(Math.min(index, next.length), 0, item);
+  });
+  return next;
+}
 
 /**
  * Perlakuan gambar banner di hero.
@@ -235,6 +255,43 @@ export const LANDING_HERO_HEIGHT_LABELS: Record<LandingHeroHeight, string> = {
   tall: "Tinggi",
 };
 
+/**
+ * Huruf judul halaman acara: nama acara dan judul bagian. Isi halaman tetap
+ * memakai huruf antarmuka supaya mudah dibaca.
+ *
+ * Pilihannya lima huruf yang SUDAH dimuat aplikasi untuk layar publik lain
+ * (lihat layout.tsx), bukan huruf bebas: huruf yang diambil dari server luar bisa
+ * gagal dimuat di jaringan tamu, dan tiap huruf tambahan adalah berkas yang
+ * diunduh setiap tamu.
+ */
+export type LandingHeadingFont = "serif" | "sans" | "geometric" | "condensed" | "grotesk";
+
+export const LANDING_HEADING_FONTS: Record<LandingHeadingFont, { label: string; note: string; cssVar: string }> = {
+  serif: { label: "Playfair Display", note: "Klasik, cocok untuk undangan resmi", cssVar: "var(--font-serif)" },
+  sans: { label: "Inter", note: "Netral dan modern", cssVar: "var(--font-sans)" },
+  geometric: { label: "Montserrat", note: "Geometris, tegas", cssVar: "var(--font-geometric)" },
+  condensed: { label: "Oswald", note: "Rapat, cocok untuk judul panjang", cssVar: "var(--font-condensed)" },
+  grotesk: { label: "Space Grotesk", note: "Teknis, untuk acara teknologi", cssVar: "var(--font-grotesk)" },
+};
+
+/** Ukuran judul hero. Tiga patokan, alasannya sama dengan tinggi hero. */
+export type LandingHeadingScale = "md" | "lg" | "xl";
+
+export const LANDING_HEADING_SCALE_LABELS: Record<LandingHeadingScale, string> = {
+  md: "Sedang",
+  lg: "Besar",
+  xl: "Sangat besar",
+};
+
+/** Satu pembicara di bagian Pembicara. `featured` = kartu besar (keynote). */
+export type LandingSpeaker = {
+  name: string;
+  title?: string;
+  role?: string;
+  photo_url?: string | null;
+  featured?: boolean;
+};
+
 export type EventLandingConfig = {
   banner_url?: string | null;
   /** Bawaan `theme` — perilaku sebelum pilihan ini ada. */
@@ -242,7 +299,12 @@ export type EventLandingConfig = {
   /** Bawaan `standard`. */
   hero_height?: LandingHeroHeight;
   cta_label?: string;
+  /** Bawaan `serif`. */
+  heading_font?: LandingHeadingFont;
+  /** Bawaan `lg`. */
+  heading_scale?: LandingHeadingScale;
   sections?: LandingSection[];
+  speakers?: LandingSpeaker[];
   /** Angka yang ingin ditonjolkan: "300+ peserta", "12 booth". */
   highlights?: { label: string; value: string }[];
   faq?: { q: string; a: string }[];

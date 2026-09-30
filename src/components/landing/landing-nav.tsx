@@ -6,16 +6,12 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { standard } from "@/lib/m3/motion";
 
 /**
- * Navigasi jangkar landing page.
+ * Kepala halaman acara: nama acara, jangkar bagian, dan tombol daftar.
  *
- * Tidak terlihat saat halaman di posisi teratas — hero sudah membawa nama acara
- * dan tombol daftarnya, dan bilah kedua di atasnya hanya menutupi gambar.
- * Muncul setelah hero tergulir lewat, membawa nama acara dan tombol daftar
- * supaya keduanya tetap terjangkau di halaman yang panjang.
- *
- * Pola yang sama dipakai halaman acara Apple dan Google I/O, dan alasannya
- * praktis: pada halaman satu-gulungan, satu-satunya cara kembali ke aksi utama
- * tanpa nav ini adalah menggulir balik ke atas.
+ * Selalu terlihat dan menempel di atas, bukan muncul setelah hero lewat. Hero
+ * sekarang bisa berupa KV berwarna asli, dan nama acara di hero berdiri di atas
+ * gambar; bilah yang tetap di atasnya memberi halaman tepi atas yang tenang dan
+ * membuat tombol daftar terjangkau dari posisi gulir mana pun.
  */
 export function LandingNav({
   eventName,
@@ -30,33 +26,12 @@ export function LandingNav({
   registrationOpen: boolean;
   sections: { id: string; label: string }[];
 }) {
-  const [terlihat, setTerlihat] = useState(false);
   const [aktif, setAktif] = useState<string | null>(null);
 
   useEffect(() => {
-    // Penanda ditaruh di 70vh, bukan pendengar scroll. Observer hanya terbangun
-    // dua kali; pendengar scroll berjalan pada setiap frame sepanjang halaman
-    // digulir, dan ini halaman yang memang dibuat untuk digulir jauh.
-    const penanda = document.createElement("div");
-    penanda.style.cssText = "position:absolute;top:70vh;height:1px;width:1px;pointer-events:none";
-    document.body.appendChild(penanda);
-    const observer = new IntersectionObserver(([entry]) => setTerlihat(!entry.isIntersecting));
-    observer.observe(penanda);
-    return () => {
-      observer.disconnect();
-      penanda.remove();
-    };
-  }, []);
-
-  useEffect(() => {
-    // Bagian yang sedang dibaca ditandai di nav. Tanpa penanda ini, enam tautan
-    // yang tampilannya sama persis tidak memberi tahu tamu ia sedang di mana —
-    // dan pada halaman satu-gulungan yang panjang, itu satu-satunya petunjuk
-    // posisi yang tersisa setelah hero lewat.
-    //
-    // Ambang atas -45% memilih bagian yang menempati paruh atas layar, jadi
-    // penandanya berpindah saat judul bagian berikutnya sampai di sana, bukan
-    // saat piksel pertamanya baru muncul dari tepi bawah.
+    // Bagian yang sedang dibaca ditandai di nav. Ambang atas -45% memilih
+    // bagian yang menempati paruh atas layar, jadi penandanya berpindah saat
+    // judul bagian berikutnya sampai di sana.
     const elemen = sections
       .map((section) => document.getElementById(section.id))
       .filter((el): el is HTMLElement => el !== null);
@@ -66,9 +41,8 @@ export function LandingNav({
       (entries) => {
         const masuk = entries.filter((entry) => entry.isIntersecting);
         if (masuk.length === 0) return;
-        // Yang paling atas di antara yang terlihat, bukan yang terakhir memicu:
-        // menggulir ke atas melewati dua bagian sekaligus memicu keduanya, dan
-        // urutan entri tidak dijamin mengikuti urutan halaman.
+        // Yang paling atas di antara yang terlihat: urutan entri tidak dijamin
+        // mengikuti urutan halaman.
         const teratas = masuk.reduce((a, b) =>
           a.boundingClientRect.top <= b.boundingClientRect.top ? a : b,
         );
@@ -83,51 +57,41 @@ export function LandingNav({
   return (
     <nav
       aria-label="Navigasi acara"
-      className={`fixed inset-x-0 top-0 z-30 border-b transition-all duration-300 ease-standard ${
-        terlihat
-          ? "translate-y-0 border-[var(--reg-outline-variant)] opacity-100"
-          : "-translate-y-full border-transparent opacity-0"
-      }`}
-      style={{ backgroundColor: "color-mix(in srgb, var(--reg-surface) 92%, transparent)", backdropFilter: "blur(12px)" }}
-      // Disembunyikan dari papan ketik dan pembaca layar selama ia belum
-      // terlihat. Tanpa ini, Tab dari hero melompat ke tautan yang sedang
-      // berada di luar layar.
-      inert={!terlihat}
+      className="sticky top-0 z-30 border-b border-[var(--reg-outline-variant)]"
+      style={{ backgroundColor: "color-mix(in srgb, var(--reg-surface) 94%, transparent)", backdropFilter: "blur(12px)" }}
     >
-      {/* Lebar dan pinggirnya sama persis dengan grid isi halaman
-          (`max-w-[1440px]`, px 20/32/40). Bilah yang lebih sempit dari isinya
-          membuat nama acara di nav dan judul di hero berdiri di dua tepi kiri
-          yang berbeda — persis keluhan "tiap halaman punya grid sendiri" yang
-          sudah diselesaikan di layar admin. */}
-      <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center gap-6 px-5 sm:px-8 lg:px-10">
-        <p className="min-w-0 flex-1 truncate text-title-medium font-semibold text-[var(--reg-on-surface)]">{eventName}</p>
+      {/* Lebar dan pinggirnya sama dengan grid isi halaman, jadi nama acara di
+          sini dan judul di hero berdiri di satu tepi kiri. */}
+      <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center gap-6 px-5 sm:px-8 lg:min-h-[72px] lg:px-10">
+        <a
+          href="#"
+          className="flex min-h-11 min-w-0 flex-1 items-center text-title-large font-semibold text-[var(--reg-on-surface)] [font-family:var(--landing-heading)] xl:max-w-[20rem] xl:flex-none"
+        >
+          <span className="truncate">{eventName}</span>
+        </a>
 
-        {/* Tautan bagian disembunyikan di ponsel. Enam jangkar di layar 375px
-            menjadi baris yang harus digulir menyamping, dan halaman ini sudah
-            digulir ke bawah — dua arah gulir di satu layar membuat orang
-            kehilangan tempatnya. */}
-        <ul className="hidden items-center gap-1 lg:flex">
+        {/* Jangkar disembunyikan di bawah xl: delapan tautan di layar sempit
+            menjadi baris yang terlipat atau harus digulir menyamping. */}
+        <ul className="hidden flex-1 items-center justify-end gap-1 xl:flex">
           {sections.map((section) => (
             <li key={section.id}>
               <a
                 href={`#${section.id}`}
                 aria-current={aktif === section.id ? "true" : undefined}
-                className={`m3-state inline-flex min-h-10 items-center rounded-full px-4 text-label-large font-semibold transition-colors ${
+                className={`m3-state relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 text-label-large font-medium transition-colors ${
                   aktif === section.id
-                    ? "text-[var(--reg-on-primary-container)]"
-                    : "text-[var(--reg-on-surface-variant)] hover:text-[var(--reg-primary)]"
+                    ? "text-[var(--reg-on-surface)]"
+                    : "text-[var(--reg-on-surface-variant)] hover:text-[var(--reg-on-surface)]"
                 }`}
               >
-                {/* Pil aktif MELUNCUR ke bagian berikutnya saat tamu menggulir
-                    (`layoutId`), bukan padam di satu tautan dan menyala di
-                    tautan lain. `m`, bukan `motion`: mesin animasinya dimuat
-                    malas oleh MotionProvider, jadi halaman acara tidak membawa
-                    seluruh Framer Motion di muatan awal. */}
+                {/* Garis penanda MELUNCUR ke bagian berikutnya (`layoutId`).
+                    `m`, bukan `motion`: mesin animasinya dimuat malas oleh
+                    MotionProvider. */}
                 {aktif === section.id ? (
                   <m.span
                     layoutId="landing-nav-active"
                     aria-hidden
-                    className="absolute inset-0 -z-10 rounded-full bg-[var(--reg-primary-container)]"
+                    className="absolute inset-x-3 bottom-1.5 h-0.5 rounded-full bg-[var(--reg-primary)]"
                     transition={standard.spatial.fast}
                   />
                 ) : null}
@@ -140,7 +104,7 @@ export function LandingNav({
         {registrationOpen ? (
           <Link
             href={daftarUrl}
-            className="m3-state inline-flex min-h-11 shrink-0 items-center rounded-full bg-[var(--reg-primary)] px-5 text-label-large font-semibold text-[var(--reg-on-primary)]"
+            className="m3-state inline-flex min-h-11 shrink-0 items-center rounded-md bg-[var(--reg-primary)] px-5 text-label-large font-semibold text-[var(--reg-on-primary)]"
             style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
           >
             {ctaLabel}
