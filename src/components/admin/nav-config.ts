@@ -1,6 +1,6 @@
 import {
   ArmchairIcon, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving,
-  ListChecks, MonitorPlay, Printer, QrCode, Receipt, ShieldCheck, Storefront, UserPlus, UsersThree,
+  ListChecks, MonitorPlay, Printer, QrCode, Receipt, ShieldCheck, Storefront, SuitcaseRolling, UserPlus, UsersThree,
 } from "@phosphor-icons/react";
 import type { ComponentType } from "react";
 
@@ -68,6 +68,7 @@ export const navigation: NavGroup[] = [
       { href: "/admin/participants", label: "Daftar peserta", icon: UsersThree, description: "Daftar hadirin, sumber datanya, dan penyuntingan per baris." },
       { href: "/admin/registrasi", label: "Pendaftaran publik", icon: UserPlus, description: "Formulir pendaftaran publik dan moderasi pendaftar yang masuk." },
       { href: "/admin/attendance", label: "Kehadiran", icon: QrCode, description: "Catatan kehadiran per jalur registrasi dan per sesi." },
+      { href: "/admin/logistik", label: "Logistik", icon: SuitcaseRolling, description: "Kamar hotel, bus di tiap agenda, dan barang yang dibagikan ke peserta." },
       // Label duduk di sini, bukan di kelompok tersendiri: yang dicetak adalah
       // badge tamu walk-in, dan walk-in hanya ada karena layar kehadiran.
       { href: "/admin/label", label: "Label & printer", icon: Printer, description: "Cetak label nama lewat printer NIIMBOT." },

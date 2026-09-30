@@ -1,0 +1,62 @@
+import { z } from "zod";
+import { apiError } from "@/lib/api";
+import { requireRequestEvent } from "@/lib/auth/request-event";
+import { galatRpc, klien } from "@/lib/logistik/server";
+
+/**
+ * Menempatkan peserta di kamar, dan mengeluarkannya.
+ *
+ * Satu panggilan `assign_room` per orang, berurutan. RPC itu mengunci kamar dan
+ * memeriksa kapasitas serta jenis kelamin di transaksinya sendiri; memanggilnya
+ * satu per satu berarti penempatan yang sudah berhasil tetap tersimpan ketika
+ * orang ketiga ditolak, dan jawaban menyebut berapa yang masuk.
+ */
+const tempatkan = z.object({
+  room_id: z.number().int().positive(),
+  participant_ids: z.array(z.string().uuid()).min(1).max(20),
+});
+
+export async function POST(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"]);
+  if (auth.response) return auth.response;
+
+  const parsed = tempatkan.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+
+  let masuk = 0;
+  for (const participantId of parsed.data.participant_ids) {
+    const { error } = await klien().rpc("assign_room" as never, {
+      p_event_id: auth.scope.event.id,
+      p_room_id: parsed.data.room_id,
+      p_participant_id: participantId,
+      p_actor: auth.user.id,
+    } as never);
+    if (error) {
+      const galat = galatRpc(error);
+      if (masuk === 0) return galat;
+      // Sebagian sudah masuk: kalimatnya menyebut itu, supaya panitia tidak
+      // mengulang seluruh pilihan dan mengira semuanya gagal.
+      const body = await galat.json();
+      const alasan = body?.error?.details?.message ?? "Sisanya gagal.";
+      return apiError("VALIDATION_ERROR", 422, { message: `${masuk} orang sudah masuk kamar. Sisanya ditolak: ${alasan}` });
+    }
+    masuk += 1;
+  }
+  return Response.json({ assigned: masuk });
+}
+
+export async function DELETE(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"]);
+  if (auth.response) return auth.response;
+
+  const participantId = z.string().uuid().safeParse(new URL(request.url).searchParams.get("participant_id"));
+  if (!participantId.success) return apiError("VALIDATION_ERROR", 422);
+
+  const { data, error } = await klien().rpc("unassign_room" as never, {
+    p_event_id: auth.scope.event.id,
+    p_participant_id: participantId.data,
+    p_actor: auth.user.id,
+  } as never);
+  if (error) return galatRpc(error);
+  return Response.json({ removed: Boolean(data) });
+}

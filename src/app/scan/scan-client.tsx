@@ -1187,6 +1187,7 @@ export default function ScanClient() {
         onCetak={() => { if (hasil?.participant) void cetakLabel(hasil.participant); }}
         bolehWalkIn={allowWalkIn}
         onWalkIn={() => { setHasil(null); bukaWalkIn(""); }}
+        barang={sessionId !== null && (sesiAktif?.jumlah_barang ?? 0) > 0 ? { sessionId, laneId } : null}
       />
 
       <WalkinDialog

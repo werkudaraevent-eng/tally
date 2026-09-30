@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   const client = getSupabaseServiceClient();
   const eventId = auth.scope.event.id;
 
-  const [sesi, jalur, scans] = await Promise.all([
+  const [sesi, jalur, scans, barang] = await Promise.all([
     client
       .from("attendance_sessions")
       .select("id,name,slug,sort_order")
@@ -50,6 +50,10 @@ export async function GET(request: Request) {
     // Dua kolom saja: tabel ini yang tumbuh paling cepat di hari-H, dan yang
     // dibutuhkan di sini hanya menghitung orang unik per sesi.
     client.from("attendance_scans").select("session_id,participant_id").eq("event_id", eventId),
+    // Berapa barang yang diperiksa di tiap sesi. Layar pemindai hanya memuat
+    // daftar centang barang untuk sesi yang memang punya barang, jadi sesi
+    // Gala dinner tidak menunggu satu permintaan kosong di setiap pemindaian.
+    client.from("attendance_session_items").select("session_id").eq("event_id", eventId),
   ]);
 
   if (sesi.error) return apiError("INTERNAL_ERROR", 500);
@@ -77,10 +81,16 @@ export async function GET(request: Request) {
   // padat adalah satu kesempatan lagi untuk gagal sebelum tamu pertama datang.
   const label = await loadLabelSettings(auth.scope.event.id);
 
+  const jumlahBarang = new Map<number, number>();
+  for (const baris of (barang.data ?? []) as Array<{ session_id: number }>) {
+    jumlahBarang.set(baris.session_id, (jumlahBarang.get(baris.session_id) ?? 0) + 1);
+  }
+
   return Response.json({
     sessions: ((sesi.data ?? []) as Array<{ id: number }>).map((row) => ({
       ...row,
       hadir: unik.get(row.id)?.size ?? 0,
+      jumlah_barang: jumlahBarang.get(row.id) ?? 0,
     })),
     lanes: jalur.data ?? [],
     event: { name: auth.scope.event.name, slug: auth.scope.event.slug },

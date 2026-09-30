@@ -4,6 +4,7 @@ import { CheckCircle, Clock, Printer, UserPlus, X, XCircle } from "@phosphor-ico
 import { motion } from "framer-motion";
 import { Button, Dialog } from "@/components/m3";
 import { standard } from "@/lib/m3/motion";
+import { ItemChecklist } from "./item-checklist";
 import type { Hasil, StatusCetak, StatusHasil } from "./types";
 
 /**
@@ -96,6 +97,8 @@ type Props = {
   onCetak: () => void;
   bolehWalkIn: boolean;
   onWalkIn: () => void;
+  /** Sesi yang memeriksa barang. Null = sesi ini tidak membagikan apa pun. */
+  barang: { sessionId: number; laneId: number | null } | null;
 };
 
 export function ResultSheet({
@@ -108,6 +111,7 @@ export function ResultSheet({
   onCetak,
   bolehWalkIn,
   onWalkIn,
+  barang,
 }: Props) {
   const tampilan = hasil ? TAMPILAN[hasil.status] : null;
   const peserta = hasil?.participant;
@@ -203,6 +207,13 @@ export function ResultSheet({
                 atau oranye. Memisahkannya juga membuat batas antara "apa yang
                 terjadi" dan "apa yang bisa saya lakukan" terlihat tanpa dijelaskan. */}
             <div className="bg-surface-container-high p-4 text-on-surface sm:p-5">
+              {/* Barang di atas tombol cetak: kaos diserahkan sambil badge
+                  dicetak, dan petugas membaca dari atas ke bawah. Dipasang
+                  ulang per pemindaian lewat `key` supaya centang tamu
+                  sebelumnya tidak terbawa ke tamu berikutnya. */}
+              {barang && peserta && hasil.status !== "not_found" ? (
+                <ItemChecklist key={`${kedip}-${peserta.id}`} sessionId={barang.sessionId} laneId={barang.laneId} participantId={peserta.id} />
+              ) : null}
               {/* Kegagalan printer muncul DI SINI, bukan di panel sebelah. Label
                   yang tidak keluar adalah kabar tentang tamu yang sedang berdiri
                   di depan petugas, dan panduan vendor badge printing menyebut
