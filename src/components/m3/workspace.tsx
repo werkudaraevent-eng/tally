@@ -1,9 +1,10 @@
 "use client";
 
-import { CaretDown, Check, Columns, MagnifyingGlass, X } from "@phosphor-icons/react";
+import { CaretDown, Check, Columns, LockSimple, MagnifyingGlass, Warning, X } from "@phosphor-icons/react";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useAdminHeaderScroll, useAdminPage } from "@/components/admin/page-context";
 import { cx } from "@/lib/m3/cx";
+import { Banner } from "./layout";
 import { Popover, usePopoverAnchor } from "./popover";
 
 /**
@@ -59,6 +60,7 @@ export function WorkspaceHeader({ title, meta, actions, back }: WorkspaceHeaderP
 	const page = useAdminPage();
 	const gulir = useAdminHeaderScroll();
 	return (
+		<>
 		<header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
 			<div className="min-w-[240px] flex-1">
 				{back ? <div className="mb-1">{back}</div> : null}
@@ -67,6 +69,29 @@ export function WorkspaceHeader({ title, meta, actions, back }: WorkspaceHeaderP
 			</div>
 			{actions ? <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div> : null}
 		</header>
+		{page?.kunci ? <PenandaKunci {...page.kunci} /> : null}
+		</>
+	);
+}
+
+/**
+ * Penanda acara yang sudah ditutup, di bawah judul setiap halaman.
+ *
+ * Tanpa ini semua halaman tetap terlihat bisa disunting, dan admin baru tahu
+ * acaranya terkunci setelah menekan Simpan dan ditolak server, sekali per
+ * halaman. Satu tempat di kepala halaman, bukan per tombol: yang terkunci adalah
+ * acaranya, bukan satu formulir.
+ */
+function PenandaKunci({ status, pemilik }: { status: "completed" | "archived"; pemilik: boolean }) {
+	const kata = status === "archived" ? "diarsipkan" : "selesai";
+	return pemilik ? (
+		<Banner tone="warning" icon={<Warning size={18} />}>
+			<span className="font-medium">Acara ini sudah {kata}.</span> Sebagai super admin, perubahan Anda tetap tersimpan dan mengubah angka yang sudah diserahkan.
+		</Banner>
+	) : (
+		<Banner tone="info" icon={<LockSimple size={18} />}>
+			<span className="font-medium">Acara ini sudah {kata}, jadi hanya bisa dilihat dan diekspor.</span> Perubahan tidak akan tersimpan. Untuk mengoreksi, minta super admin membuka kembali acaranya.
+		</Banner>
 	);
 }
 

@@ -32,6 +32,11 @@ export type AdminPageMeta = {
 	username?: string | null;
 	/** Slug acara yang sedang dibuka. Bagian kunci preferensi yang sama. */
 	eventSlug?: string | null;
+	/**
+	 * Acara berstatus selesai atau arsip. Server menolak setiap perubahan, kecuali
+	 * dari super_admin (`isWriteBlocked`), jadi `pemilik` membedakan penandanya.
+	 */
+	kunci?: { status: "completed" | "archived"; pemilik: boolean } | null;
 };
 
 const AdminPageContext = createContext<AdminPageMeta | null>(null);

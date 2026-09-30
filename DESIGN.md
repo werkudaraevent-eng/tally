@@ -890,6 +890,11 @@ Aturan yang mengikat semuanya:
   warna aksen.
 - Status: `StatusChip` setinggi 20px, radius 4px, bertitik.
 - Tanpa em dash di teks antarmuka. Sel kosong memakai en dash (`EMPTY_VALUE`).
+- Acara berstatus selesai atau arsip memasang penanda di bawah `WorkspaceHeader`
+  setiap halaman (`kunci` di konteks halaman admin): `Banner` info untuk admin
+  ("hanya bisa dilihat dan diekspor"), `Banner` warning untuk super_admin, yang
+  tetap bisa menyimpan (`isWriteBlocked`). Satu penanda per halaman, bukan per
+  tombol: yang terkunci acaranya, bukan satu formulir.
 
 Desain per halaman ada di Figma berkas `OTb4jMVVF0rVEHRoSrhCEG`, halaman
 "Rombak · M3 × Cloudflare", lengkap dengan frame "Catatan" yang menjelaskan

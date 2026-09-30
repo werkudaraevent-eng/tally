@@ -611,6 +611,9 @@ export function AdminShell({
             description: currentPage?.description,
             username: akun?.username ?? null,
             eventSlug: eventSlug || null,
+            kunci: eventAktif && (eventAktif.status === "completed" || eventAktif.status === "archived")
+              ? { status: eventAktif.status, pemilik: isOwner }
+              : null,
           }}
         >
           <AdminHeaderScrollProvider value={{ terlewat: judulTerlewat, amati: amatiJudul }}>
