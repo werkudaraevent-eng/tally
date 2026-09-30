@@ -1,9 +1,9 @@
 # Rencana Logistik Peserta: kamar, bus, dan item yang diambil
 
-Status: **skema dan RPC sudah jadi migrasi** (`202609300002` s.d.
-`202609300005`), diuji di Postgres 16 lokal di atas seluruh migrasi yang ada.
-Belum diterapkan ke produksi. Halaman admin, impor Excel, layar scan, dan
-kartu area peserta belum dibuat.
+Status: migrasi `202609300002` s.d. `202609300005` **sudah di produksi**
+(30 Sep 2026). Halaman admin Logistik (`/admin/logistik`: Kamar, Bus, Agenda
+bus, Barang), pilihan barang per sesi di Kehadiran, dan daftar centang barang
+di layar scan sudah dibuat. Impor Excel dan kartu area peserta belum.
 
 Tujuan: peserta melihat di area peserta (`/e/<slug>/peserta`) nomor kamar dan
 teman sekamarnya, bus yang ia naiki di tiap agenda, dan barang yang menjadi
@@ -131,7 +131,7 @@ item_pickups: satu baris per (item, peserta), dengan sesi, jalur, petugas, ukura
 
 ---
 
-## Alur panitia (belum dibuat)
+## Alur panitia
 
 Menu admin **Logistik** (grup Peserta), tab **Kamar** dan **Transportasi**;
 item diatur di halaman sesi scan.
@@ -153,7 +153,7 @@ item diatur di halaman sesi scan.
   `bus` mengisi bus bawaan; pengganti per agenda diatur di CMS. Jenis kelamin
   dan ukuran kaos lewat impor peserta biasa (field `extra`).
 
-## Alur scan operator (belum dibuat)
+## Alur scan operator
 
 Setelah memindai di sesi yang punya item, layar menampilkan daftar centang
 (Kaos L, Goodie bag) dan peringatan bila item sudah diambil sebelumnya.
@@ -175,8 +175,8 @@ datanya ada. Ukuran kaos tidak diubah dari area peserta.
 
 ## Tahapan
 
-1. ~~Migrasi tabel + RPC, `duplicate_event` diperbarui.~~ Selesai, belum di
-   produksi.
-2. Halaman admin Logistik (Kamar dulu) + impor Excel.
+1. ~~Migrasi tabel + RPC, `duplicate_event` diperbarui.~~ Selesai, di produksi.
+2. ~~Halaman admin Logistik.~~ Selesai. Impor Excel belum.
 3. Area peserta: kartu Kamar, Bus, Tempat duduk, Barang.
-4. Item di sesi scan: pengaturan di admin, daftar centang di layar scan.
+4. ~~Item di sesi scan: pengaturan di admin, daftar centang di layar scan.~~
+   Selesai. Pembatalan penyerahan (`undo_item_pickup`) belum punya layar.
