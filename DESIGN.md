@@ -292,8 +292,7 @@ Utilitas CSS di `globals.css`, untuk komponen server dan layar kerja:
 | --- | --- |
 | `rise-in` + `--rise-delay` | Koreografi masuk sekali saat muat (hero halaman acara). Emphasized-decelerate, 500ms |
 | `rise-in-fast` | Versi tenang 300ms untuk layar kerja: kartu login, hasil pencarian, galat sebaris |
-| `settle-in` | Banner hero mengendap dari skala 1,045 |
-| `reveal` / `reveal-in` | Bagian yang naik saat digulir masuk (`<Reveal>`). Tersembunyi hanya di `@media (scripting: enabled)` |
+| `settle-in` | Gambar hero (KV) mengendap dari skala 1,045 |
 | `scan-flash` | Satu kedipan pada hasil yang bisa identik dengan sebelumnya (pindai, order, lunas) |
 | `seat-pulse` | Tiga denyut cincin pada kursi hasil pencarian denah |
 | `details.faq` | Isi `<details>` membuka dengan tinggi teranimasi, hanya di balik `@supports (interpolate-size)` |
@@ -301,7 +300,7 @@ Utilitas CSS di `globals.css`, untuk komponen server dan layar kerja:
 Pola Framer Motion yang dipakai berulang:
 
 - `layoutId` untuk indikator yang berpindah: tab (`Tabs`), pil navigasi admin,
-  pil nav halaman acara, batang "sedang berlangsung" di rundown.
+  garis penanda nav halaman acara, batang "sedang berlangsung" di rundown.
 - `AnimatePresence` untuk yang muncul dan hilang: dialog, menu, toast, spanduk
   luring, nama di layar sapa, chip "baru saja masuk".
 - Motion value + `animate()` untuk gerak yang berganti sumber di elemen yang
@@ -574,6 +573,36 @@ yang dimuat ulang tetap terpasang. Pola dan alasannya sama dengan perangkat luna
 digital signage: tidak ada alamat panjang yang harus diketik dengan remote TV,
 dan yang berhak memasang adalah orang yang bisa MELIHAT kodenya. Acara satu meja
 tidak pernah melihat lapisan ini — tanpa jalur, layar menyapa semua orang.
+
+### Halaman acara (publik)
+
+`/e/<slug>`, dibuka tamu dari undangan dan QR. Nuansa **tenang dan editorial**:
+tipografi yang membawa halaman, bukan kartu, bayangan, atau gerak.
+
+- **Huruf judul dipilih admin** (`heading_font`, bawaan Playfair Display) dari
+  lima huruf yang sudah dimuat aplikasi: Playfair Display, Inter, Montserrat,
+  Oswald, Space Grotesk. Dipakai untuk nama acara, judul bagian, nama pembicara,
+  dan angka penting lewat `--landing-heading`. Isi dan kontrol tetap Inter.
+  Tidak ada huruf bebas atau unggahan huruf: tiap huruf tambahan diunduh setiap
+  tamu dan bisa gagal dimuat di jaringan venue.
+- **Ukuran judul** tiga patokan (`heading_scale`): Sedang 64px, Besar 80px,
+  Sangat besar 104px di layar lebar; 40/44/48px di ponsel.
+- **Gambar hero (KV).** "Warna asli" memasang KV selebar layar dengan bayangan
+  hitam dari bawah (82% ke 30%) dan teks putih, isi hero rata bawah. "Menyatu
+  tema" melebur KV ke warna halaman dan teks tetap warna tema. Tanpa KV, hero
+  adalah bidang warna halaman.
+- **Hero:** baris tanggal, nama acara, tagline, tombol (daftar, lihat susunan
+  acara, tambah ke kalender), dan kolom fakta di kanan: jam tiap bagian rundown
+  lalu tempat, dipisah garis rambut. Tanggal tidak diulang di kolom fakta.
+- **Bagian:** judul di rel kiri yang menempel, isi di kanan, garis rambut
+  sebagai pemisah. Susunan acara dan Pembicara memakai judul di atas isi selebar
+  grid. Susunan acara bertab per bagian rundown (vertikal di layar lebar,
+  mendatar di ponsel). Pembicara: yang ditonjolkan jadi kartu besar, sisanya
+  kisi dengan inisial bila tanpa foto.
+- Tombol bersudut `rounded-md`, tinggi 52px di hero. Nav selalu menempel di atas;
+  jangkar bagian hanya di `xl` ke atas.
+- Warna tetap dari tema acara (`--reg-*`). Tidak ada animasi saat digulir; gerak
+  satu-satunya adalah `rise-in` hero saat muat dan `settle-in` pada KV.
 
 ### Papan peringkat
 

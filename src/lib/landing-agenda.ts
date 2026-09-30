@@ -9,15 +9,22 @@ import { formatClock } from "./rundown";
  * layar rundown menampilkan jam yang berbeda di hari-H — dan yang dipercaya tamu
  * adalah yang ia baca lebih dulu.
  *
- * Yang diambil hanya judul dan jamnya. Rincian per sesi tetap di `/rundown`,
- * tempat panitia memang mengelolanya; landing page menautkan ke sana.
+ * Yang diambil jam, judul, dan keterangan (pembicara) tiap sesi. Rincian lain
+ * tetap di `/rundown`, tempat panitia memang mengelolanya.
  */
+export type AgendaItem = { time: string; end: string | null; title: string; subtitle: string | null };
+
 export type AgendaPreview = {
   sectionTitle: string | null;
-  items: { time: string; title: string }[];
+  items: AgendaItem[];
 };
 
-const MAX_ITEMS = 8;
+/**
+ * Batas per bagian. Halaman acara menampilkan susunan lengkap satu bagian
+ * sekaligus (lewat tab), jadi batasnya hanya pengaman terhadap rundown yang
+ * tidak wajar panjangnya, bukan ringkasan.
+ */
+const MAX_ITEMS = 40;
 
 export async function loadAgendaPreview(eventId: string): Promise<AgendaPreview[]> {
   const client = getSupabaseServiceClient();
@@ -33,14 +40,16 @@ export async function loadAgendaPreview(eventId: string): Promise<AgendaPreview[
 
   const { data: items } = await client
     .from("rundown_items")
-    .select("section_id,title,start_time,sort_order")
+    .select("section_id,title,subtitle,start_time,end_time,sort_order")
     .in("section_id", daftarSeksi.map((section) => section.id))
     .order("sort_order", { ascending: true });
 
   const daftarItem = (items ?? []) as unknown as Array<{
     section_id: number;
     title: string | null;
+    subtitle: string | null;
     start_time: string | null;
+    end_time: string | null;
   }>;
 
   return daftarSeksi
@@ -49,7 +58,12 @@ export async function loadAgendaPreview(eventId: string): Promise<AgendaPreview[
       items: daftarItem
         .filter((item) => item.section_id === section.id)
         .slice(0, MAX_ITEMS)
-        .map((item) => ({ time: formatClock(item.start_time), title: item.title ?? "" }))
+        .map((item) => ({
+          time: formatClock(item.start_time),
+          end: item.end_time ? formatClock(item.end_time) : null,
+          title: item.title ?? "",
+          subtitle: item.subtitle?.trim() || null,
+        }))
         // Baris tanpa judul adalah pemisah visual di layar rundown. Di ringkasan
         // ia hanya menjadi baris kosong yang terbaca sebagai data yang hilang.
         .filter((item) => item.title.trim().length > 0),

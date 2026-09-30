@@ -947,34 +947,6 @@ html:hover {
 }
 
 /* ==========================================================================
-   Muncul saat digulir masuk (lihat src/components/landing/reveal.tsx)
-   ==========================================================================
-
-   Keadaan tersembunyi HANYA berlaku bila skrip berjalan. Halaman acara dibuka
-   dari jaringan tamu yang tidak diketahui; kalau JavaScript-nya gagal dimuat,
-   isi halaman harus tetap terlihat, bukan tersembunyi selamanya menunggu
-   pengamat yang tidak pernah datang. `@media (scripting)` menjawab itu tanpa
-   kelas `js` di <html>; peramban lama yang tidak mengenalnya cukup menampilkan
-   semuanya apa adanya.
-   ========================================================================== */
-
-@media (scripting: enabled) {
-	.reveal {
-		opacity: 0;
-		transform: translateY(18px);
-		transition:
-			opacity var(--md-sys-motion-duration-long3) var(--md-sys-motion-easing-emphasized-decelerate),
-			transform var(--md-sys-motion-duration-long3) var(--md-sys-motion-easing-emphasized-decelerate);
-		transition-delay: var(--reveal-delay, 0ms);
-	}
-
-	.reveal-in {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-/* ==========================================================================
    Isi <details> yang membuka, bukan melompat
    ==========================================================================
 
@@ -2138,8 +2110,7 @@ html:hover {
 	   elemen tetap tersembunyi selama 240ms lalu muncul seketika — sisa
 	   koreografi yang tidak lagi punya gerak untuk diatur. */
 	.rise-in,
-	.rise-in-fast,
-	.reveal {
+	.rise-in-fast {
 		animation-delay: 0ms !important;
 		transition-delay: 0ms !important;
 	}

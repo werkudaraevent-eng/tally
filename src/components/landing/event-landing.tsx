@@ -1,52 +1,49 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  CalendarBlank,
-  CalendarPlus,
-  CaretDown,
-  ChatCircleText,
-  Envelope,
-  MapPin,
-  Phone,
-} from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, CalendarPlus, CaretDown, MapPin } from "@phosphor-icons/react/dist/ssr";
 import type {
   EventLandingConfig,
   EventRow,
+  LandingHeadingScale,
   LandingHeroHeight,
   LandingSection,
   LandingSectionId,
+  LandingSpeaker,
 } from "@/lib/domain";
-import { LANDING_SECTION_LABELS } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS } from "@/lib/domain";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
+import { rentangAkhir } from "@/lib/landing-agenda-range";
+import { AgendaTabs } from "./agenda-tabs";
 import { LandingNav } from "./landing-nav";
-import { CountUp, Reveal } from "./reveal";
 
 /**
  * Landing page publik acara.
  *
  * Template tetap dengan slot, BUKAN penyusun blok bebas. Admin mengatur bagian
- * mana yang tampil dan urutannya; markup, tipografi, dan jaraknya ditentukan di
- * sini. Alasannya sama dengan alasan warna form hanya menerima satu warna
- * merek: halaman ini dilihat tamu sebelum mereka memutuskan datang, dan
- * kualitasnya tidak boleh bergantung pada seberapa teliti admin menyusun blok.
+ * mana yang tampil, urutannya, huruf judul, dan gambar hero; markup, jarak, dan
+ * hierarkinya ditentukan di sini. Halaman ini dilihat tamu sebelum mereka
+ * memutuskan datang, dan kualitasnya tidak boleh bergantung pada seberapa teliti
+ * admin menyusun blok.
  *
- * Bagian yang kosong TIDAK dirender sama sekali — acara tanpa sponsor tidak
+ * Bagian yang kosong TIDAK dirender sama sekali: acara tanpa sponsor tidak
  * menampilkan judul "Sponsor & mitra" di atas ruang kosong.
+ *
+ * ---- Gaya: tenang dan editorial ------------------------------------------
+ *
+ * Tipografi yang membawa halaman, bukan kartu dan bayangan. Judul memakai huruf
+ * yang dipilih admin (`heading_font`), isi tetap huruf antarmuka. Pemisah antar
+ * bagian adalah garis rambut, bukan bidang berwarna. Tidak ada animasi saat
+ * digulir: satu-satunya gerak adalah hero yang masuk sekali saat halaman dimuat.
+ *
+ * Warna datang dari tema acara (`--reg-*`), jadi tiap acara tetap membawa warna
+ * mereknya sendiri di atas kerangka yang sama.
  *
  * ---- Tata letak ----------------------------------------------------------
  *
  * Grid halaman sama dengan grid layar admin (DESIGN.md "Grid halaman"):
- * `max-w-[1440px]` dengan pinggir yang melebar mengikuti kelas jendela M3
- * (compact 20px, medium 32px, expanded ke atas 40px). Sebelumnya halaman ini
- * memakai `max-w-5xl` — satu kolom 1024px yang dipusatkan, sehingga di layar
- * lebar seluruh isinya terbaca sebagai balok mengambang di tengah dengan ruang
- * kosong selebar layar di kanan-kirinya.
- *
- * Lebarnya melebar, tetapi teksnya TIDAK ikut melebar. Isi tiap bagian berdiri
- * di kolom kanan dengan judul bagian sebagai rel kiri yang menempel saat
- * digulir — pola supporting pane M3. Judul jadi penanda posisi sepanjang bagian
- * itu dibaca, dan panjang barisnya tetap di kisaran 65–75 karakter.
+ * `max-w-[1440px]`, pinggir 20/32/40px. Judul bagian berdiri di rel kiri yang
+ * menempel saat digulir, isinya di kolom kanan dengan panjang baris 65–75
+ * karakter.
  */
 
 type Props = {
@@ -59,107 +56,104 @@ type Props = {
 
 const SHELL = "mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-10";
 const MUTED = "text-[var(--reg-on-surface-variant)]";
-
-/**
- * Banner dilebur ke warna halaman. Gradien, bukan lapisan rata: banner dipilih
- * admin dan bisa terang di bagian bawah tempat teks berada, dan gradien menjaga
- * kontras teks tanpa memudarkan seluruh gambar.
- */
-const BANNER_WASH =
-  "linear-gradient(to bottom, color-mix(in srgb, var(--reg-surface) 55%, transparent), color-mix(in srgb, var(--reg-surface) 92%, transparent))";
-
-/**
- * Banner tampil dengan warna aslinya.
- *
- * Dua lapisan, dan urutannya penting — yang ditulis lebih dulu berada di ATAS:
- *
- *   1. Pudar ke warna halaman di 12% terbawah, supaya hero tidak berakhir dengan
- *      garis potong mendadak di batas bagian berikutnya.
- *   2. Bayangan diagonal ke sudut kiri-bawah, tempat pil tanggal, judul, dan
- *      tombol berdiri di semua lebar layar. Sudut kanan-atas dibiarkan bersih,
- *      jadi gambarnya tetap terbaca sebagai gambar.
- *
- * Tanpa lapisan kedua, teks hero berdiri langsung di atas gambar yang isinya
- * tidak diketahui siapa pun saat kode ini ditulis.
- */
-const BANNER_SCRIM = [
-  "linear-gradient(to top, var(--reg-surface), transparent 12%)",
-  "linear-gradient(to top right, rgb(0 0 0 / 0.72), rgb(0 0 0 / 0.32) 46%, rgb(0 0 0 / 0) 78%)",
-].join(", ");
-
-/**
- * Tinggi minimum hero per kelas jendela M3 (compact / medium / expanded).
- *
- * Ditulis sebagai kelas lengkap, bukan disusun dari potongan string: Tailwind
- * memindai berkas sumber sebagai teks, dan kelas yang baru terbentuk saat
- * runtime tidak pernah ikut ke dalam CSS yang dihasilkan.
- *
- * `standard` adalah patokan yang dipakai sebelum pilihan ini ada, jadi acara
- * yang belum pernah menyentuh pengaturannya tidak berubah tampilannya.
- */
-const HERO_HEIGHT: Record<LandingHeroHeight, string> = {
-  compact: "min-h-[320px] sm:min-h-[360px] lg:min-h-[400px]",
-  standard: "min-h-[420px] sm:min-h-[480px] lg:min-h-[540px]",
-  tall: "min-h-[520px] sm:min-h-[600px] lg:min-h-[680px]",
-};
-/** Kolom baca. Paragraf body-large melewati ~75 karakter per baris di atas ini. */
+/** Huruf judul pilihan admin. Variabelnya dipasang di <main>. */
+const HEAD = "[font-family:var(--landing-heading)]";
 const PROSE = "max-w-[68ch]";
 
 /**
- * Jeda masuk hero, per elemen, dalam milidetik.
- *
- * Urutannya urutan membaca: kapan, apa, tentang apa, lalu tindakan; kartu
- * lokasi terakhir karena ia yang paling jauh dari sudut kiri atas. 60ms antar
- * elemen cukup untuk terbaca sebagai urutan tanpa terasa menunggu — total di
- * bawah setengah detik sebelum tombolnya muncul.
+ * Tinggi minimum hero. Ditulis sebagai kelas lengkap, bukan disusun dari
+ * potongan string: Tailwind memindai berkas sumber sebagai teks, dan kelas yang
+ * baru terbentuk saat runtime tidak pernah ikut ke CSS.
  */
-const HERO_DELAY = (step: number) => ({ "--rise-delay": `${step * 60}ms` }) as CSSProperties;
+const HERO_HEIGHT: Record<LandingHeroHeight, string> = {
+  compact: "min-h-[360px] lg:min-h-[440px]",
+  standard: "min-h-[440px] sm:min-h-[520px] lg:min-h-[600px]",
+  tall: "min-h-[540px] sm:min-h-[620px] lg:min-h-[720px]",
+};
+
+/** Ukuran nama acara di hero, per kelas jendela. */
+const HEADING_SCALE: Record<LandingHeadingScale, string> = {
+  md: "text-[40px] sm:text-[52px] lg:text-[64px]",
+  lg: "text-[44px] sm:text-[60px] lg:text-[80px]",
+  xl: "text-[48px] sm:text-[72px] lg:text-[104px]",
+};
 
 /**
- * `reveal` boleh dimatikan oleh bagian yang mengurutkan kartunya sendiri
- * (sorotan, sponsor). Dua lapis pengungkapan — kolomnya naik DAN kartunya
- * naik — menghasilkan gerak ganda yang tidak dimaksudkan siapa pun.
+ * KV mode "Warna asli": gambar tampil apa adanya, dengan bayangan gelap dari
+ * bawah ke atas. Teks hero berdiri di paruh bawah, tempat bayangannya paling
+ * pekat. 55% hitam di titik teks tertinggi menjaga teks putih di atas 4.5:1
+ * bahkan bila bagian gambar itu putih polos.
  */
-function SectionShell({ id, title, reveal = true, children }: { id: string; title: string; reveal?: boolean; children: React.ReactNode }) {
-  const kolom = "lg:col-span-8 xl:col-span-9";
+const KV_SCRIM =
+  "linear-gradient(to top, rgb(0 0 0 / 0.82), rgb(0 0 0 / 0.58) 55%, rgb(0 0 0 / 0.3))";
+
+/** KV mode "Menyatu tema": gambar dilebur ke warna halaman. */
+const KV_WASH =
+  "linear-gradient(to bottom, color-mix(in srgb, var(--reg-surface) 70%, transparent), color-mix(in srgb, var(--reg-surface) 94%, transparent))";
+
+/** Jeda masuk hero per elemen: kapan, apa, tentang apa, tindakan, fakta. */
+const HERO_DELAY = (step: number) => ({ "--rise-delay": `${step * 60}ms` }) as CSSProperties;
+
+function SectionShell({
+  id,
+  title,
+  stacked = false,
+  children,
+}: {
+  id: string;
+  title: string;
+  /** Judul di atas isi selebar grid, untuk isi yang punya grid sendiri. */
+  stacked?: boolean;
+  children: ReactNode;
+}) {
+  const judul = `${HEAD} text-balance text-[32px] font-semibold leading-[1.1] sm:text-[40px]`;
+  if (stacked) {
+    return (
+      <section id={id} className="scroll-mt-24 border-t border-[var(--reg-outline-variant)] py-16 sm:py-24">
+        <h2 className={judul}>{title}</h2>
+        <div className="mt-10 sm:mt-12">{children}</div>
+      </section>
+    );
+  }
   return (
-    <section id={id} className="scroll-mt-24 border-t border-[var(--reg-outline-variant)] py-14 sm:py-20">
+    <section id={id} className="scroll-mt-24 border-t border-[var(--reg-outline-variant)] py-16 sm:py-24">
       <div className="grid gap-8 lg:grid-cols-12 lg:gap-12">
-        {/* Judul tidak ikut naik: ia rel yang menempel saat digulir, dan
-            judul yang bergerak sendiri saat isinya diam terbaca sebagai
-            tata letak yang belum selesai. */}
-        <h2 className="text-headline-small font-semibold tracking-tight sm:text-headline-medium lg:sticky lg:top-24 lg:col-span-4 lg:self-start xl:col-span-3">
-          {title}
-        </h2>
-        {reveal ? <Reveal className={kolom}>{children}</Reveal> : <div className={kolom}>{children}</div>}
+        <h2 className={`${judul} lg:sticky lg:top-28 lg:col-span-4 lg:self-start xl:col-span-3`}>{title}</h2>
+        <div className="lg:col-span-8 xl:col-span-9">{children}</div>
       </div>
     </section>
   );
 }
 
-/** Satu baris fakta di kartu detail hero: ikon, label kecil, nilai. */
-function DetailRow({
-  icon,
-  label,
-  muted,
-  iconClass,
-  children,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  /** Kelas warna label. Berbeda di kartu kaca, tempat latarnya gelap. */
-  muted: string;
-  iconClass: string;
-  children: React.ReactNode;
-}) {
+/** Dua huruf awal nama, untuk pembicara tanpa foto. */
+function inisial(nama: string): string {
+  return nama
+    .split(/\s+/)
+    .filter((kata) => /^\p{L}/u.test(kata))
+    .slice(0, 2)
+    .map((kata) => kata[0]!.toUpperCase())
+    .join("");
+}
+
+function Wajah({ speaker, size }: { speaker: LandingSpeaker; size: "lg" | "sm" }) {
+  const ukuran = size === "lg" ? "size-24 sm:size-28 text-[32px]" : "size-12 text-title-small";
+  if (speaker.photo_url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={speaker.photo_url} alt="" className={`${ukuran} shrink-0 rounded-full object-cover`} />
+    );
+  }
   return (
-    <div className="flex gap-4 py-4">
-      <span className={`mt-0.5 shrink-0 ${iconClass}`}>{icon}</span>
-      <div className="min-w-0">
-        <p className={`text-label-medium uppercase tracking-[0.14em] ${muted}`}>{label}</p>
-        <div className="mt-1 text-body-large">{children}</div>
-      </div>
-    </div>
+    <span
+      aria-hidden
+      className={`${ukuran} flex shrink-0 items-center justify-center rounded-full font-semibold ${
+        size === "lg"
+          ? `${HEAD} bg-[var(--reg-on-surface)] text-[var(--reg-surface)]`
+          : "bg-[var(--reg-outline-variant)] text-[var(--reg-on-surface)]"
+      }`}
+    >
+      {inisial(speaker.name)}
+    </span>
   );
 }
 
@@ -167,72 +161,64 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
   const aktif = sections.filter((section) => section.enabled);
   const daftarUrl = `/e/${event.slug}/daftar`;
   const ctaLabel = config.cta_label?.trim() || "Daftar sekarang";
+  const speakers = (config.speakers ?? []).filter((speaker) => speaker.name?.trim());
 
-  // Agenda hanya diambil bila bagiannya memang dinyalakan. Query rundown pada
-  // halaman yang tidak menampilkannya adalah biaya yang dibayar setiap tamu.
-  const agenda = aktif.some((section) => section.id === "agenda")
-    ? await loadAgendaPreview(event.id)
-    : [];
+  // Rundown diambil sekali untuk dua pemakai: kolom fakta hero (jam tiap bagian)
+  // dan bagian Susunan acara.
+  const agenda = await loadAgendaPreview(event.id);
 
-  // Bagian yang tidak punya isi dibuang di sini, sekali, sebelum apa pun
-  // dirender — termasuk dari navigasi jangkar di atas. Nav yang menunjuk ke
-  // bagian yang tidak ada adalah tautan yang tidak melakukan apa-apa.
+  // Bagian tanpa isi dibuang di sini, sekali, termasuk dari navigasi jangkar.
+  // Nav yang menunjuk ke bagian yang tidak ada adalah tautan yang tidak
+  // melakukan apa-apa.
   const isi: Record<LandingSectionId, boolean> = {
     about: Boolean(event.description?.trim()),
     highlights: (config.highlights ?? []).length > 0,
     agenda: agenda.length > 0,
+    speakers: speakers.length > 0,
     venue: Boolean(event.venue_name?.trim() || event.venue_address?.trim()),
     faq: (config.faq ?? []).length > 0,
     sponsors: (config.sponsors ?? []).length > 0,
     contact: Boolean(config.contact_name || config.contact_phone || config.contact_email),
   };
   const tampil = aktif.filter((section) => isi[section.id]);
+  const agendaTampil = tampil.some((section) => section.id === "agenda");
 
-  // Pembagian isi hero, dan aturannya satu fakta satu tempat:
-  //
-  //   pil kiri atas → KAPAN (tanggal dan jam, lewat `schedule`)
-  //   kartu kanan   → DI MANA (nama tempat, alamat) beserta tindakannya
-  //
-  // Sebelumnya kartu ikut menampilkan baris "Tanggal", jadi acara tanpa jam dan
-  // tanpa venue memunculkan tanggal yang sama persis dua kali di satu layar —
-  // dan tamu yang membaca dua penyebutan cenderung mencari bedanya, bukan
-  // menganggapnya penegasan.
-  //
-  // Kartu tidak dirender tanpa venue. Kartu berisi satu tombol di sebelah judul
-  // raksasa terbaca sebagai kotak yang lupa diisi; tombol kalendernya pindah ke
-  // baris tombol di kiri.
-  const adaKartu = Boolean(event.venue_name?.trim() || event.venue_address?.trim());
+  // KV sebagai latar hero. "Warna asli" hanya berlaku bila gambarnya memang
+  // ada: tanpa gambar, teks putih akan berdiri di atas latar terang.
+  const kv = config.banner_url ?? null;
+  const kvFoto = Boolean(kv) && config.banner_style === "photo";
+  const heroTeks = kvFoto ? "text-white" : "";
+  const heroMuted = kvFoto ? "text-white/85" : MUTED;
+  const garisFakta = kvFoto ? "border-white/70" : "border-[var(--reg-on-surface)]";
+  const tombolSekunder = kvFoto
+    ? "border-white/70 text-white"
+    : "border-[var(--reg-outline)] text-[var(--reg-on-surface)]";
 
-  // Banner tampil apa adanya. Berlaku hanya kalau bannernya memang ada — tanpa
-  // gambar, "warna asli" tidak menggambarkan apa pun dan teks putih akan berdiri
-  // di atas latar terang.
-  const fotoAsli = Boolean(config.banner_url) && config.banner_style === "photo";
-  // Di atas bayangan gelap, warna teks tema (gelap di atas terang) tidak lagi
-  // berlaku. Yang dipakai putih, bukan `on-primary` milik tema: `on-primary`
-  // mengikuti warna merek dan bisa gelap.
-  const heroTeks = fotoAsli ? "text-white" : "";
-  const heroMuted = fotoAsli ? "text-white/85" : MUTED;
+  // Fakta di kanan hero: jam tiap bagian rundown, lalu tempat. Tanggal TIDAK
+  // diulang di sini; ia sudah menjadi baris pertama di atas judul.
+  const fakta: { label: string; nilai: string }[] = [
+    ...agenda.slice(0, 3).flatMap((bagian) => {
+      const awal = bagian.items[0]?.time;
+      if (!awal) return [];
+      const akhir = rentangAkhir(bagian);
+      return [
+        {
+          label: bagian.sectionTitle || "Susunan acara",
+          nilai: akhir && akhir !== awal ? `${awal} hingga ${akhir}` : awal,
+        },
+      ];
+    }),
+    ...(event.venue_name?.trim() ? [{ label: "Tempat", nilai: event.venue_name.trim() }] : []),
+  ];
 
-  // Kartu lokasi di atas banner berwarna asli.
-  //
-  // Bidang `surface-container-high` yang pekat berdiri di atas foto gelap sebagai
-  // balok terang yang memutus gambarnya — persis keluhan "terlalu kontras". Di
-  // mode ini kartunya menjadi kaca: hitam 40% + blur, jadi warna banner masih
-  // terbaca menembusnya.
-  //
-  // 40%, bukan 20%: `backdrop-filter` tidak jalan di setiap mesin (Firefox
-  // memerlukan flag sampai belum lama ini, dan mode hemat daya mematikannya).
-  // Tanpa blur, angka itulah satu-satunya yang menjaga teks putih tetap terbaca
-  // di atas bagian banner yang kebetulan terang.
-  const kartuKelas = fotoAsli
-    ? "border-white/25 bg-black/40 text-white backdrop-blur-xl"
-    : "border-[var(--reg-outline-variant)] bg-[var(--reg-panel)] shadow-[var(--md-sys-elevation-level1)]";
-  const kartuMuted = fotoAsli ? "text-white/70" : MUTED;
-  const kartuIkon = fotoAsli ? "text-white" : "text-[var(--reg-primary)]";
-  const kartuTombol = fotoAsli ? "border-white/45" : "border-[var(--reg-outline)]";
+  const headingFont = LANDING_HEADING_FONTS[config.heading_font ?? "serif"] ?? LANDING_HEADING_FONTS.serif;
+  const mainStyle = { ...theme, "--landing-heading": headingFont.cssVar } as CSSProperties;
+
+  const featured = speakers.filter((speaker) => speaker.featured);
+  const lainnya = speakers.filter((speaker) => !speaker.featured);
 
   return (
-    <main className="min-h-dvh" style={theme}>
+    <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={mainStyle}>
       <LandingNav
         eventName={event.name}
         ctaLabel={ctaLabel}
@@ -242,108 +228,79 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
       />
 
       {/* ---- Hero -------------------------------------------------------- */}
-      <header className="relative isolate overflow-hidden">
-        {config.banner_url ? (
+      <header className={`relative isolate overflow-hidden ${kvFoto ? "bg-black" : ""}`}>
+        {kv ? (
           <>
-            {/* `settle-in`: banner mengendap dari sedikit lebih besar saat muat.
-                Satu gerak lambat di latar yang membuat hero terasa hidup tanpa
-                satu pun elemen teks yang harus dikejar mata. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={config.banner_url} alt="" className="settle-in absolute inset-0 -z-10 size-full object-cover" />
-            <div
-              className="absolute inset-0 -z-10"
-              style={{ background: fotoAsli ? BANNER_SCRIM : BANNER_WASH }}
-            />
+            <img src={kv} alt="" className="settle-in absolute inset-0 -z-10 size-full object-cover" />
+            <div aria-hidden className="absolute inset-0 -z-10" style={{ background: kvFoto ? KV_SCRIM : KV_WASH }} />
           </>
-        ) : (
-          // Tanpa banner, hero dulunya bidang rata seluas layar. Sapuan tonal
-          // dari warna merek memberi hero tepi atas yang terlihat tanpa menuntut
-          // admin mengunggah gambar — dan karena ia gradien CSS, tidak ada satu
-          // pun bita tambahan yang diunduh tamu.
-          <div
-            aria-hidden
-            className="absolute inset-0 -z-10"
-            style={{
-              background:
-                "radial-gradient(120% 100% at 82% -10%, color-mix(in srgb, var(--reg-primary) 22%, transparent), transparent 60%), radial-gradient(90% 80% at 0% 0%, color-mix(in srgb, var(--reg-primary) 10%, transparent), transparent 55%)",
-            }}
-          />
-        )}
+        ) : null}
 
         <div
-          // Pinggir bawah lebih besar daripada pinggir atas: isi hero diletakkan
-          // sedikit di ATAS titik tengah geometris. Blok yang dipusatkan persis
-          // selalu terbaca jatuh ke bawah, dan pinggir atas juga sudah menanggung
-          // ruang bebas untuk bilah navigasi setinggi 64px yang muncul saat
-          // halaman digulir.
-          // Tinggi hero dipatok, dan isinya DIPUSATKAN di dalam patokan itu.
-          // Sebelumnya patokannya 620px dengan isi rata bawah, jadi seluruh sisa
-          // tinggi menumpuk menjadi satu bidang kosong di atas judul.
-          className={`${SHELL} relative flex flex-col justify-center pb-16 pt-20 sm:pb-20 sm:pt-24 lg:pb-24 ${
-            HERO_HEIGHT[config.hero_height ?? "standard"]
-          }`}
+          className={`${SHELL} flex flex-col pb-16 pt-16 sm:pb-20 sm:pt-24 lg:pb-24 ${
+            kvFoto ? "justify-end" : "justify-center"
+          } ${HERO_HEIGHT[config.hero_height ?? "standard"]}`}
         >
-          <div className="grid items-end gap-10 lg:grid-cols-12 lg:gap-12">
-            <div className={`lg:col-span-7 ${heroTeks}`}>
+          <div className={`grid gap-12 lg:grid-cols-12 lg:gap-6 ${heroTeks}`}>
+            <div className="lg:col-span-8">
               {schedule ? (
-                // Pil tonal, bukan teks huruf besar yang melayang. Ia fakta
-                // pertama yang dicari tamu, dan pil memberinya bentuk yang bisa
-                // ditemukan mata tanpa dibaca dulu.
-                // Radius 24px, bukan `rounded-full`. Jadwal acara dua hari
-                // dengan jam dan zona waktu ("6 – 8 Agustus 2026 · 09.00–17.00
-                // WITA") melewati lebar layar 375px dan pil itu menjadi dua
-                // baris; pada kapsul penuh, barisnya lalu menempel di lengkungan.
-                <p className="rise-in inline-flex items-start gap-2 rounded-3xl bg-[var(--reg-primary-container)] px-4 py-2 text-label-large font-semibold text-[var(--reg-on-primary-container)]" style={HERO_DELAY(0)}>
-                  <CalendarBlank size={18} weight="fill" className="mt-0.5 shrink-0" />
+                <p className={`rise-in text-body-large font-medium ${heroMuted}`} style={HERO_DELAY(0)}>
                   {schedule}
                 </p>
               ) : null}
 
-              {/* Koreografi masuk hero: tiap baris naik 14px sambil memudar
-                  masuk, berurutan (lihat HERO_DELAY). Satu kali, saat muat —
-                  dan dikerjakan CSS karena berkas ini komponen server. */}
-              <h1 className="rise-in mt-6 text-balance text-display-small font-semibold tracking-[-0.03em] sm:text-display-medium lg:text-display-large" style={HERO_DELAY(1)}>
+              <h1
+                className={`rise-in mt-6 text-balance font-semibold leading-[1.02] tracking-[-0.01em] ${HEAD} ${
+                  HEADING_SCALE[config.heading_scale ?? "lg"]
+                }`}
+                style={HERO_DELAY(1)}
+              >
                 {event.name}
               </h1>
 
               {event.tagline ? (
-                <p className={`rise-in mt-5 max-w-[52ch] text-title-large ${heroMuted}`} style={HERO_DELAY(2)}>{event.tagline}</p>
+                <p className={`rise-in mt-6 max-w-[40ch] text-title-large leading-8 ${heroMuted}`} style={HERO_DELAY(2)}>
+                  {event.tagline}
+                </p>
               ) : null}
 
-              <div className="rise-in mt-9 flex flex-wrap items-center gap-3" style={HERO_DELAY(3)}>
+              <div className="rise-in mt-10 flex flex-wrap items-center gap-3" style={HERO_DELAY(3)}>
                 {/* Tombol daftar hanya muncul saat pendaftaran memang terbuka.
                     Tombol yang mengantar ke halaman "pendaftaran ditutup" membuat
                     tamu mengira dirinya terlambat karena salahnya sendiri. */}
                 {event.registration_enabled ? (
                   <Link
                     href={daftarUrl}
-                    className="m3-state inline-flex min-h-14 items-center gap-2 rounded-full bg-[var(--reg-primary)] px-8 text-title-medium font-semibold text-[var(--reg-on-primary)] shadow-[var(--md-sys-elevation-level1)]"
+                    className="m3-state inline-flex min-h-[52px] items-center gap-2 rounded-md bg-[var(--reg-primary)] px-7 text-title-medium font-semibold text-[var(--reg-on-primary)]"
                     style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
                   >
                     {ctaLabel}
-                    <ArrowRight size={20} weight="bold" />
+                    <ArrowRight size={18} weight="bold" />
                   </Link>
                 ) : (
-                  <span
-                    className={`inline-flex min-h-14 items-center rounded-full border px-8 text-title-medium font-semibold ${
-                      fotoAsli ? "border-white/60" : "border-[var(--reg-outline)]"
-                    }`}
-                  >
+                  <span className={`inline-flex min-h-[52px] items-center rounded-md border px-7 text-title-medium font-semibold ${tombolSekunder}`}>
                     Pendaftaran belum dibuka
                   </span>
                 )}
-
-                {/* Tombol kalender berdiri di sini HANYA saat kartu venue tidak
-                    dirender. Kalau kartunya ada, tombolnya ada di dalam kartu,
-                    bersama tombol peta — dua tombol sejenis di dua tempat
-                    berbeda membuat tamu mengira keduanya melakukan hal berbeda. */}
-                {!adaKartu && event.event_date ? (
+                {agendaTampil ? (
                   <a
-                    // Slug sebagai query, bukan segmen path — alasannya ditulis
-                    // di tombol kembarannya di dalam kartu lokasi.
+                    href="#agenda"
+                    className={`m3-state inline-flex min-h-[52px] items-center rounded-md border px-6 text-title-medium font-medium ${tombolSekunder}`}
+                  >
+                    Lihat susunan acara
+                  </a>
+                ) : null}
+                {event.event_date ? (
+                  <a
+                    // Slug sebagai query, BUKAN segmen path. `/e/<slug>/kalender.ics`
+                    // di-rewrite proxy, dan parameter yang ditambahkan saat rewrite
+                    // tidak sampai ke route handler: tamu lalu mengunduh jadwal
+                    // acara lain. Proxy melewatkan permintaan yang sudah membawa
+                    // `eventSlug` sendiri.
                     href={`/kalender.ics?eventSlug=${encodeURIComponent(event.slug)}`}
-                    className={`m3-state inline-flex min-h-14 items-center gap-2 rounded-full border px-6 text-title-medium font-semibold ${
-                      fotoAsli ? "border-white/60" : "border-[var(--reg-outline)]"
+                    className={`m3-state inline-flex min-h-[52px] items-center gap-2 rounded-md px-4 text-title-medium font-medium ${
+                      kvFoto ? "text-white" : "text-[var(--reg-on-surface)]"
                     }`}
                   >
                     <CalendarPlus size={20} />
@@ -353,60 +310,18 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
               </div>
             </div>
 
-            {adaKartu ? (
-              // Kartu lokasi mengisi sisi kanan hero — sisi yang sebelumnya
-              // kosong di layar lebar. Isinya bukan hiasan: setelah tahu kapan,
-              // yang dicari tamu berikutnya adalah di mana, dan dua tombol yang
-              // menindaklanjuti keduanya berdiri tepat di bawahnya.
-              <aside className="rise-in lg:col-span-5 xl:col-span-4 xl:col-start-9" style={HERO_DELAY(4)}>
-                <div className={`rounded-[28px] border p-6 sm:p-7 ${kartuKelas}`}>
-                  <DetailRow
-                    icon={<MapPin size={22} weight="fill" />}
-                    label="Lokasi"
-                    muted={kartuMuted}
-                    iconClass={kartuIkon}
-                  >
-                    {event.venue_name ? <p className="font-semibold">{event.venue_name}</p> : null}
-                    {event.venue_address ? (
-                      <p className={`mt-1 whitespace-pre-line text-body-medium leading-6 ${kartuMuted}`}>
-                        {event.venue_address}
-                      </p>
-                    ) : null}
-                  </DetailRow>
-
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {event.event_date ? (
-                      <a
-                        // Slug ditulis sebagai query, BUKAN sebagai segmen path.
-                        //
-                        // `/e/<slug>/kalender.ics` akan di-rewrite proxy, dan parameter
-                        // yang DITAMBAHKAN saat rewrite tidak pernah sampai ke route
-                        // handler — berkasnya lalu jatuh ke "event aktif tunggal" dan
-                        // tamu mengunduh jadwal acara yang sama sekali lain. Terukur:
-                        // sebelum perbaikan ini, halaman Prima menghasilkan berkas
-                        // berisi Marugame. Proxy melewatkan permintaan yang sudah
-                        // membawa `eventSlug` sendiri.
-                        href={`/kalender.ics?eventSlug=${encodeURIComponent(event.slug)}`}
-                        className={`m3-state inline-flex min-h-11 items-center gap-2 rounded-full border px-5 text-label-large font-semibold ${kartuTombol}`}
-                      >
-                        <CalendarPlus size={18} />
-                        Tambah ke kalender
-                      </a>
-                    ) : null}
-                    {event.venue_map_url ? (
-                      <a
-                        href={event.venue_map_url}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className={`m3-state inline-flex min-h-11 items-center gap-2 rounded-full border px-5 text-label-large font-semibold ${kartuTombol}`}
-                      >
-                        <MapPin size={18} />
-                        Buka peta
-                      </a>
-                    ) : null}
+            {fakta.length > 0 ? (
+              <dl
+                className="rise-in grid grid-cols-2 gap-x-6 gap-y-5 self-end text-body-large lg:col-span-3 lg:col-start-10 lg:grid-cols-1"
+                style={HERO_DELAY(4)}
+              >
+                {fakta.map((item) => (
+                  <div key={item.label} className={`border-t pt-4 ${garisFakta}`}>
+                    <dt className={`text-body-medium ${heroMuted}`}>{item.label}</dt>
+                    <dd className="mt-1 font-semibold tabular-nums">{item.nilai}</dd>
                   </div>
-                </div>
-              </aside>
+                ))}
+              </dl>
             ) : null}
           </div>
         </div>
@@ -418,9 +333,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
             case "about":
               return (
                 <SectionShell key="about" id="about" title={LANDING_SECTION_LABELS.about}>
-                  {/* whitespace-pre-line: deskripsi diketik admin di textarea, dan
-                      paragrafnya dipisah dengan enter. Tanpa ini seluruhnya
-                      menyatu jadi satu blok tanpa jeda. */}
+                  {/* whitespace-pre-line: paragraf deskripsi dipisah enter di textarea admin. */}
                   <p className={`${PROSE} whitespace-pre-line text-body-large leading-8 ${MUTED}`}>
                     {event.description}
                   </p>
@@ -429,24 +342,17 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
 
             case "highlights":
               return (
-                <SectionShell key="highlights" id="highlights" title={LANDING_SECTION_LABELS.highlights} reveal={false}>
-                  {/* Kartu naik berurutan 70ms, dan angkanya menghitung naik
-                      begitu terlihat. Angka yang bergerak menuju nilainya
-                      dibaca sebagai capaian; angka yang diam dibaca sebagai
-                      label. Wadah <dl> tetap: Reveal merender <div>, dan div di
-                      dalam dl sah menurut HTML. */}
-                  <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {(config.highlights ?? []).map((item, index) => (
-                      <Reveal
-                        key={item.label}
-                        delay={index * 70}
-                        className="rounded-[28px] border border-[var(--reg-outline-variant)] bg-[var(--reg-field)] p-6"
-                      >
-                        <dt className={`text-label-large uppercase tracking-[0.14em] ${MUTED}`}>{item.label}</dt>
-                        <dd className="mt-3 text-headline-medium font-semibold tabular-nums text-[var(--reg-primary)]">
-                          <CountUp value={item.value} />
+                <SectionShell key="highlights" id="highlights" title={LANDING_SECTION_LABELS.highlights}>
+                  <dl className="grid gap-x-6 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
+                    {(config.highlights ?? []).map((item) => (
+                      // dt harus mendahului dd di dalam <dl>; angkanya dinaikkan
+                      // ke atas secara visual lewat flex-col-reverse.
+                      <div key={item.label} className="flex flex-col-reverse border-t border-[var(--reg-on-surface)] pt-4">
+                        <dt className={`mt-3 text-body-large ${MUTED}`}>{item.label}</dt>
+                        <dd className={`${HEAD} text-[40px] font-semibold leading-none tabular-nums sm:text-[48px]`}>
+                          {item.value}
                         </dd>
-                      </Reveal>
+                      </div>
                     ))}
                   </dl>
                 </SectionShell>
@@ -454,71 +360,98 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
 
             case "agenda":
               return (
-                <SectionShell key="agenda" id="agenda" title={LANDING_SECTION_LABELS.agenda}>
-                  <div className="space-y-10">
-                    {agenda.map((blok, index) => (
-                      <div key={blok.sectionTitle ?? index}>
-                        {blok.sectionTitle ? (
-                          <h3 className="text-title-large font-semibold">{blok.sectionTitle}</h3>
-                        ) : null}
-                        <ol className="mt-4 divide-y divide-[var(--reg-outline-variant)]">
-                          {blok.items.map((item) => (
-                            <li key={`${item.time}-${item.title}`} className="flex gap-5 py-4 sm:gap-8">
-                              <span className="w-16 shrink-0 text-body-large font-semibold tabular-nums text-[var(--reg-primary)]">
-                                {item.time}
-                              </span>
-                              <span className="text-body-large">{item.title}</span>
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-                    ))}
-                  </div>
+                <SectionShell key="agenda" id="agenda" title={LANDING_SECTION_LABELS.agenda} stacked>
+                  <AgendaTabs agenda={agenda} />
                   <Link
                     href={`/e/${event.slug}/rundown`}
-                    className="m3-state mt-8 inline-flex min-h-12 items-center gap-2 rounded-full border border-[var(--reg-outline)] px-6 text-label-large font-semibold"
+                    className="m3-state mt-8 inline-flex min-h-12 items-center gap-2 rounded-md text-title-small font-semibold text-[var(--reg-primary)]"
                   >
-                    Lihat susunan acara lengkap
+                    Buka susunan acara di layar penuh
                     <ArrowRight size={18} weight="bold" />
                   </Link>
+                </SectionShell>
+              );
+
+            case "speakers":
+              return (
+                <SectionShell key="speakers" id="speakers" title={LANDING_SECTION_LABELS.speakers} stacked>
+                  {featured.length > 0 ? (
+                    <ul className="grid gap-4 md:grid-cols-2">
+                      {featured.map((speaker, index) => (
+                        <li
+                          key={`${speaker.name}-${index}`}
+                          className="flex flex-col items-start gap-5 rounded-md bg-[var(--reg-panel)] p-6 sm:flex-row sm:items-center sm:gap-7 sm:p-8"
+                        >
+                          <Wajah speaker={speaker} size="lg" />
+                          <div className="min-w-0">
+                            {speaker.role ? (
+                              <p className="text-label-large font-semibold text-[var(--reg-primary)]">{speaker.role}</p>
+                            ) : null}
+                            <p className={`${HEAD} mt-1 text-balance text-[24px] font-semibold leading-tight sm:text-[28px]`}>
+                              {speaker.name}
+                            </p>
+                            {speaker.title ? (
+                              <p className={`mt-2 text-body-large ${MUTED}`}>{speaker.title}</p>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {lainnya.length > 0 ? (
+                    <ul className={`grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${featured.length ? "mt-12" : ""}`}>
+                      {lainnya.map((speaker, index) => (
+                        <li
+                          key={`${speaker.name}-${index}`}
+                          className="flex items-start gap-4 border-t border-[var(--reg-outline-variant)] pt-5"
+                        >
+                          <Wajah speaker={speaker} size="sm" />
+                          <div className="min-w-0">
+                            <p className="text-title-medium font-semibold">{speaker.name}</p>
+                            {speaker.title ? <p className={`mt-1 text-body-medium ${MUTED}`}>{speaker.title}</p> : null}
+                            {speaker.role ? (
+                              <p className="mt-1 text-body-small font-semibold text-[var(--reg-primary)]">{speaker.role}</p>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </SectionShell>
               );
 
             case "venue":
               return (
                 <SectionShell key="venue" id="venue" title={LANDING_SECTION_LABELS.venue}>
-                  <div className="rounded-[28px] border border-[var(--reg-outline-variant)] bg-[var(--reg-field)] p-6 sm:p-8">
-                    {event.venue_name ? <p className="text-title-large font-semibold">{event.venue_name}</p> : null}
-                    {event.venue_address ? (
-                      <p className={`mt-3 max-w-[46ch] whitespace-pre-line text-body-large leading-7 ${MUTED}`}>
-                        {event.venue_address}
-                      </p>
-                    ) : null}
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      {/* Peta dibuka sebagai TAUTAN, tidak disematkan sebagai
-                          iframe. Penyemat peta memuat skrip pihak ketiga ke
-                          halaman yang dibuka tamu, dan itu harga yang tidak
-                          sebanding untuk sebuah kotak yang tetap harus diketuk
-                          untuk berguna. */}
-                      {event.venue_map_url ? (
-                        <a
-                          href={event.venue_map_url}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="m3-state inline-flex min-h-12 items-center gap-2 rounded-full bg-[var(--reg-primary)] px-6 text-label-large font-semibold text-[var(--reg-on-primary)]"
-                          style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
-                        >
-                          <MapPin size={18} weight="fill" />
-                          Buka peta
-                        </a>
-                      ) : null}
-                      <Link
-                        href={`/e/${event.slug}/denah`}
-                        className="m3-state inline-flex min-h-12 items-center gap-2 rounded-full border border-[var(--reg-outline)] px-6 text-label-large font-semibold"
+                  {event.venue_name ? (
+                    <p className={`${HEAD} text-[24px] font-semibold leading-tight sm:text-[28px]`}>{event.venue_name}</p>
+                  ) : null}
+                  {event.venue_address ? (
+                    <p className={`mt-3 max-w-[46ch] whitespace-pre-line text-body-large leading-7 ${MUTED}`}>
+                      {event.venue_address}
+                    </p>
+                  ) : null}
+                  <div className="mt-6 flex flex-wrap gap-x-6 gap-y-1">
+                    {/* Peta dibuka sebagai TAUTAN, tidak disematkan sebagai iframe:
+                        penyemat peta memuat skrip pihak ketiga ke halaman tamu. */}
+                    {event.venue_map_url ? (
+                      <a
+                        href={event.venue_map_url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="m3-state -mx-2 inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-title-small font-semibold text-[var(--reg-primary)]"
                       >
-                        Denah tempat duduk
-                      </Link>
-                    </div>
+                        <MapPin size={18} weight="fill" />
+                        Buka peta
+                      </a>
+                    ) : null}
+                    <Link
+                      href={`/e/${event.slug}/denah`}
+                      className="m3-state -mx-2 inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-title-small font-semibold text-[var(--reg-primary)]"
+                    >
+                      Cari kursi Anda di denah
+                      <ArrowRight size={18} weight="bold" />
+                    </Link>
                   </div>
                 </SectionShell>
               );
@@ -526,21 +459,16 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
             case "faq":
               return (
                 <SectionShell key="faq" id="faq" title={LANDING_SECTION_LABELS.faq}>
-                  {/* <details>, bukan akordeon buatan sendiri. Ia sudah bisa
-                      dibuka dengan papan ketik, sudah diumumkan pembaca layar
-                      sebagai dapat dilipat, dan tetap bekerja bila JavaScript
-                      gagal dimuat di jaringan tamu. */}
-                  {/* `faq`: isinya membuka dengan tinggi yang dianimasikan di
-                      peramban yang mendukung `interpolate-size` — lihat
-                      globals.css. Di peramban lain tetap seketika. */}
-                  <div className="divide-y divide-[var(--reg-outline-variant)]">
+                  {/* <details>: bisa dibuka papan ketik, diumumkan pembaca layar
+                      sebagai dapat dilipat, dan tetap bekerja tanpa JavaScript. */}
+                  <div className="divide-y divide-[var(--reg-outline-variant)] border-y border-[var(--reg-outline-variant)]">
                     {(config.faq ?? []).map((item) => (
-                      <details key={item.q} className="faq group py-5">
-                        <summary className="m3-state -mx-4 flex cursor-pointer list-none items-start justify-between gap-4 rounded-2xl px-4 py-2 text-title-medium font-semibold">
+                      <details key={item.q} className="faq group py-3">
+                        <summary className="m3-state -mx-3 flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-md px-3 py-2 text-title-medium font-semibold">
                           {item.q}
-                          <CaretDown size={20} className="mt-1 shrink-0 transition-transform group-open:rotate-180" />
+                          <CaretDown size={20} className="shrink-0 transition-transform group-open:rotate-180" />
                         </summary>
-                        <p className={`mt-4 ${PROSE} whitespace-pre-line text-body-large leading-7 ${MUTED}`}>
+                        <p className={`mb-3 mt-2 ${PROSE} whitespace-pre-line text-body-large leading-7 ${MUTED}`}>
                           {item.a}
                         </p>
                       </details>
@@ -551,26 +479,18 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
 
             case "sponsors":
               return (
-                <SectionShell key="sponsors" id="sponsors" title={LANDING_SECTION_LABELS.sponsors} reveal={false}>
-                  {/* Grid rata, bukan tingkatan sponsor berukuran berbeda.
-                      Ukuran logo yang berbeda-beda adalah janji tentang nilai
-                      kontrak, dan itu keputusan komersial yang tidak boleh
-                      diambil oleh urutan unggah. Jeda masuknya pun seragam
-                      mengikuti urutan grid, bukan sesuatu yang bisa dibeli. */}
-                  <ul className="grid grid-cols-2 items-center gap-4 sm:grid-cols-3 xl:grid-cols-4">
-                    {(config.sponsors ?? []).map((sponsor, index) => (
-                      <li key={sponsor.logo_url}>
-                        <Reveal
-                          delay={index * 50}
-                          className="flex h-24 items-center justify-center rounded-2xl border border-[var(--reg-outline-variant)] bg-[var(--reg-field)] p-5"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={sponsor.logo_url}
-                            alt={sponsor.name ?? ""}
-                            className="max-h-full max-w-full object-contain"
-                          />
-                        </Reveal>
+                <SectionShell key="sponsors" id="sponsors" title={LANDING_SECTION_LABELS.sponsors}>
+                  {/* Grid rata, bukan tingkatan berukuran berbeda. Ukuran logo
+                      adalah janji tentang nilai kontrak, dan itu keputusan
+                      komersial yang tidak boleh diambil oleh urutan unggah. */}
+                  <ul className="grid grid-cols-2 border-l border-t border-[var(--reg-outline-variant)] sm:grid-cols-3 xl:grid-cols-4">
+                    {(config.sponsors ?? []).map((sponsor) => (
+                      <li
+                        key={sponsor.logo_url}
+                        className="flex h-28 items-center justify-center border-b border-r border-[var(--reg-outline-variant)] p-6"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={sponsor.logo_url} alt={sponsor.name ?? ""} className="max-h-full max-w-full object-contain" />
                       </li>
                     ))}
                   </ul>
@@ -580,23 +500,40 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
             case "contact":
               return (
                 <SectionShell key="contact" id="contact" title={LANDING_SECTION_LABELS.contact}>
-                  <div className="rounded-[28px] border border-[var(--reg-outline-variant)] bg-[var(--reg-field)] p-6 sm:p-8">
-                    {config.contact_name ? <p className="text-title-large font-semibold">{config.contact_name}</p> : null}
-                    <div className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
-                      {config.contact_phone ? (
-                        <a href={`tel:${config.contact_phone}`} className="inline-flex items-center gap-2 text-body-large font-semibold text-[var(--reg-primary)]">
-                          <Phone size={18} weight="fill" />
-                          {config.contact_phone}
-                        </a>
-                      ) : null}
-                      {config.contact_email ? (
-                        <a href={`mailto:${config.contact_email}`} className="inline-flex items-center gap-2 text-body-large font-semibold text-[var(--reg-primary)]">
-                          <Envelope size={18} weight="fill" />
-                          {config.contact_email}
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
+                  <dl className="grid gap-x-12 gap-y-6 text-body-large sm:grid-cols-3">
+                    {config.contact_name ? (
+                      <div>
+                        <dt className={`text-body-medium ${MUTED}`}>Nama</dt>
+                        <dd className="mt-1 font-semibold">{config.contact_name}</dd>
+                      </div>
+                    ) : null}
+                    {config.contact_phone ? (
+                      <div>
+                        <dt className={`text-body-medium ${MUTED}`}>Telepon</dt>
+                        <dd className="mt-1">
+                          <a
+                            href={`tel:${config.contact_phone}`}
+                            className="inline-flex min-h-11 items-center font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline"
+                          >
+                            {config.contact_phone}
+                          </a>
+                        </dd>
+                      </div>
+                    ) : null}
+                    {config.contact_email ? (
+                      <div className="min-w-0">
+                        <dt className={`text-body-medium ${MUTED}`}>Email</dt>
+                        <dd className="mt-1">
+                          <a
+                            href={`mailto:${config.contact_email}`}
+                            className="inline-flex min-h-11 items-center break-all font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline"
+                          >
+                            {config.contact_email}
+                          </a>
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
                 </SectionShell>
               );
 
@@ -607,29 +544,28 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
 
         {/* ---- Penutup ---------------------------------------------------- */}
         {event.registration_enabled ? (
-          // Pita tonal, bukan blok rata tengah di atas latar halaman. Rata
-          // tengah tetap benar di sini — ini akhir halaman dan hanya ada satu
-          // hal yang bisa dilakukan — tetapi tanpa bidang di belakangnya ia
-          // terbaca sebagai teks yang tersesat di ruang kosong.
-          <section className="my-14 sm:my-20">
-          <Reveal className="rounded-[32px] bg-[var(--reg-panel)] px-6 py-14 text-center sm:px-10 sm:py-16">
-            <ChatCircleText size={40} weight="duotone" className="mx-auto text-[var(--reg-primary)]" />
-            <h2 className="mt-5 text-headline-medium font-semibold tracking-tight">Sampai jumpa di acara</h2>
-            {schedule ? <p className={`mt-3 text-body-large ${MUTED}`}>{schedule}</p> : null}
-            <Link
-              href={daftarUrl}
-              className="m3-state mt-8 inline-flex min-h-14 items-center gap-2 rounded-full bg-[var(--reg-primary)] px-8 text-title-medium font-semibold text-[var(--reg-on-primary)] shadow-[var(--md-sys-elevation-level1)]"
-              style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
-            >
-              {ctaLabel}
-              <ArrowRight size={20} weight="bold" />
-            </Link>
-          </Reveal>
+          <section className="grid gap-8 border-t border-[var(--reg-on-surface)] py-16 sm:py-24 lg:grid-cols-12 lg:gap-12">
+            <div className="lg:col-span-8">
+              <h2 className={`${HEAD} text-balance text-[32px] font-semibold leading-[1.1] sm:text-[48px]`}>
+                Sampai jumpa di acara
+              </h2>
+              {schedule ? <p className={`mt-4 text-body-large ${MUTED}`}>{schedule}</p> : null}
+            </div>
+            <div className="lg:col-span-4 lg:self-end lg:justify-self-end">
+              <Link
+                href={daftarUrl}
+                className="m3-state inline-flex min-h-[52px] items-center gap-2 rounded-md bg-[var(--reg-primary)] px-7 text-title-medium font-semibold text-[var(--reg-on-primary)]"
+                style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
+              >
+                {ctaLabel}
+                <ArrowRight size={18} weight="bold" />
+              </Link>
+            </div>
           </section>
         ) : null}
 
         <footer
-          className={`flex flex-wrap items-center justify-between gap-3 border-t border-[var(--reg-outline-variant)] py-10 text-body-small ${MUTED}`}
+          className={`flex flex-wrap items-center justify-between gap-3 border-t border-[var(--reg-outline-variant)] py-8 text-body-small ${MUTED}`}
         >
           <span>{event.name}</span>
           {schedule ? <span>{schedule}</span> : null}

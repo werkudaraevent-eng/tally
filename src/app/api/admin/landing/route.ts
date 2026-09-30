@@ -45,9 +45,11 @@ const bodySchema = z.object({
     banner_style: z.enum(["theme", "photo"]).optional(),
     hero_height: z.enum(["compact", "standard", "tall"]).optional(),
     cta_label: z.string().trim().max(60).optional(),
+    heading_font: z.enum(["serif", "sans", "geometric", "condensed", "grotesk"]).optional(),
+    heading_scale: z.enum(["md", "lg", "xl"]).optional(),
     sections: z
       .array(z.object({
-        id: z.enum(["about", "highlights", "agenda", "venue", "faq", "sponsors", "contact"]),
+        id: z.enum(["about", "highlights", "agenda", "speakers", "venue", "faq", "sponsors", "contact"]),
         enabled: z.boolean(),
       }))
       .max(10),
@@ -55,6 +57,13 @@ const bodySchema = z.object({
       label: z.string().trim().min(1).max(60),
       value: z.string().trim().min(1).max(30),
     })).max(8).optional(),
+    speakers: z.array(z.object({
+      name: z.string().trim().min(1).max(120),
+      title: z.string().trim().max(200).optional(),
+      role: z.string().trim().max(60).optional(),
+      photo_url: z.string().url().max(600).nullable().optional(),
+      featured: z.boolean().optional(),
+    })).max(60).optional(),
     faq: z.array(z.object({
       q: z.string().trim().min(1).max(200),
       a: z.string().trim().min(1).max(2000),
