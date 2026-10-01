@@ -9,16 +9,17 @@ import type {
   LandingSection,
   LandingSectionId,
 } from "@/lib/domain";
-import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, LANDING_NAV_DEFAULTS, LANDING_SECTION_LABELS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
 import { heroCtaColors, modernNavStyle, modernThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
+import { jumlahLembaga, speakerTabs } from "@/lib/landing-speaker-tabs";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { timeZoneAbbr } from "@/lib/timezone";
 import { AgendaPills } from "./modern/agenda-pills";
 import { LandingNavModern } from "./modern/landing-nav-modern";
-import { SpeakerGrid } from "./modern/speaker-grid";
+import { SpeakerTabs } from "./modern/speaker-tabs";
 import { HEAD, JUDUL, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
 import { LandingBlockView } from "./modern/landing-blocks";
 
@@ -105,8 +106,11 @@ const KV_SCRIM =
 /** Bayangan rata untuk banner ajakan, yang teksnya di tengah. */
 const KV_SCRIM_RATA = "linear-gradient(to bottom, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0.7))";
 
-/** Latar kaki: primary dicampur hitam pekat. Teks putih aman di warna tema apa pun. */
-const LATAR_KAKI = "color-mix(in srgb, var(--reg-primary) 22%, black)";
+/**
+ * Latar kaki: primary dicampur hitam separuh, jadi navy merek (bukan hampir
+ * hitam) yang senada dengan hero. Teks putih tetap aman di warna tema apa pun.
+ */
+const LATAR_KAKI = "color-mix(in srgb, var(--reg-primary) 55%, black)";
 
 const HERO_DELAY = (step: number) => ({ "--rise-delay": `${step * 60}ms` }) as CSSProperties;
 
@@ -247,6 +251,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   const venue = event.venue_name?.trim() || null;
   // Tanpa tautan peta dari admin, tombol peta mencari nama dan alamat tempat
   // di Google Maps: tamu hampir selalu membuka peta, dan nama hotel cukup.
+  const petaKueri = [venue, event.venue_address?.trim()].filter(Boolean).join(", ");
   const petaUrl =
     event.venue_map_url ||
     (venue || event.venue_address?.trim()
@@ -292,8 +297,11 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
     "--landing-heading": headingFont.cssVar,
   } as CSSProperties;
 
-  // Tertonjol lebih dulu; urutan admin dipertahankan di dalam tiap kelompok.
-  const urutPembicara = [...speakers.filter((s) => s.featured), ...speakers.filter((s) => !s.featured)];
+  // Paling banyak 8 kartu sekaligus; sisanya per sesi lewat tab (lihat
+  // landing-speaker-tabs.ts, dipakai juga tata letak lain).
+  const tabPembicara = speakerTabs(speakers, agenda);
+  const lembaga = jumlahLembaga(speakers);
+  const mitra = aktif.has("sponsors") ? (config.sponsors ?? []).filter((sponsor) => sponsor.logo_url) : [];
 
   const kalenderUrl = event.event_date ? `/kalender.ics?eventSlug=${encodeURIComponent(event.slug)}` : null;
   const tahun = (event.event_date ?? new Date().toISOString()).slice(0, 4);
@@ -415,7 +423,10 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
           <Section id="agenda">
             {/* Rancangan FHF: tanggal dan catatan di kiri, baris sesi di kanan. */}
             <div className="grid gap-10 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:gap-20">
-              <div className="flex flex-col items-start gap-5 lg:sticky lg:top-28 lg:self-start">
+              {/* Kolom kiri diam di tempat, tidak menempel saat digulir: rundown
+                  pendek (7 baris) tidak butuh penanda yang ikut turun, dan
+                  tanggal yang melayang terbaca seperti elemen yang tertinggal. */}
+              <div className="flex flex-col items-start gap-5 lg:self-start">
                 <p className={ALIS}>{LANDING_SECTION_LABELS.agenda}</p>
                 <h2 className={JUDUL}>
                   {/* Nama hari di baris sendiri: "Kamis, 15 / Oktober 2026" memisahkan tanggal dari bulannya. */}
@@ -427,9 +438,6 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                   ) : (tanggal ?? LANDING_SECTION_LABELS.agenda)}
                 </h2>
                 {config.agenda_note?.trim() ? <p className={`text-body-large leading-[1.6] ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
-                <Link href={`/e/${event.slug}/rundown`} className={`${PIL_GARIS} mt-2`}>
-                  Susunan lengkap
-                </Link>
               </div>
               <AgendaPills agenda={agenda} />
             </div>
@@ -441,9 +449,22 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
       <>
         {/* ---- Pembicara ---------------------------------------------------- */}
         {tampil("speakers") ? (
-          <Section id="speakers">
-            <SpeakerGrid speakers={urutPembicara} heading={LANDING_SECTION_LABELS.speakers} headingClassName={JUDUL} />
-          </Section>
+          // Satu-satunya bagian berlatar panel: memberi ritme pada halaman yang
+          // seluruhnya putih. Latar dibentangkan selebar layar dengan bayangan
+          // lebar yang dipotong clip-path, tanpa menambah gulir menyamping.
+          <section
+            id="speakers"
+            className={`${SECTION} bg-[var(--landing-panel)] [clip-path:inset(0_-100vmax)] [box-shadow:0_0_0_100vmax_var(--landing-panel)]`}
+            style={{ "--landing-panel": "color-mix(in srgb, var(--reg-on-surface) 4%, var(--reg-surface))" } as CSSProperties}
+          >
+            <SpeakerTabs
+              tabs={tabPembicara}
+              eyebrow={lembaga >= 3 ? LANDING_SECTION_LABELS.speakers : null}
+              heading={lembaga >= 3 ? `${speakers.length} pembicara dari ${lembaga} lembaga` : LANDING_SECTION_LABELS.speakers}
+              eyebrowClassName={ALIS}
+              headingClassName={JUDUL}
+            />
+          </section>
         ) : null}
       </>
     ),
@@ -452,7 +473,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         {/* ---- Lokasi ------------------------------------------------------- */}
         {tampil("venue") ? (
           <Section id="venue">
-            <div className={`grid items-center gap-10 lg:gap-20 ${petaUrl ? "lg:grid-cols-2" : ""}`}>
+            <div className={`grid items-center gap-10 lg:gap-20 ${petaKueri ? "lg:grid-cols-2" : ""}`}>
               <div className="flex max-w-[572px] flex-col items-start gap-8 sm:gap-10">
                 <div className="flex flex-col gap-5">
                   {venue ? <p className={ALIS}>{LANDING_SECTION_LABELS.venue}</p> : null}
@@ -462,8 +483,6 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                   ) : null}
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  {/* Peta sebagai TAUTAN, tidak disematkan: penyemat peta
-                      memuat skrip pihak ketiga ke halaman tamu. */}
                   {petaUrl ? (
                     <a
                       href={petaUrl}
@@ -493,24 +512,19 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                 </Link>
               </div>
 
-              {petaUrl ? (
-                // Bidang peta: tautan besar ke peta, bukan peta tersemat.
-                <a
-                  href={petaUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  aria-label={`${tautanPeta(petaUrl)}: ${venue ?? event.venue_address ?? "lokasi acara"}`}
-                  className="m3-state flex aspect-[4/3] flex-col items-center justify-center gap-4 rounded-lg bg-[var(--reg-panel)] p-8 text-center sm:aspect-[625/460]"
-                >
-                  <span className="flex size-20 items-center justify-center rounded-full bg-[var(--reg-primary)] text-[var(--reg-on-primary)]">
-                    <MapPin size={36} weight="fill" aria-hidden />
-                  </span>
-                  <span className={`${HEAD} text-balance text-headline-small`}>{venue ?? LANDING_SECTION_LABELS.venue}</span>
-                  <span className="inline-flex items-center gap-1.5 text-title-small font-semibold text-[var(--reg-primary)]">
-                    {tautanPeta(petaUrl)}
-                    <ArrowUpRight size={14} weight="bold" aria-hidden />
-                  </span>
-                </a>
+              {petaKueri ? (
+                // Peta tersemat dari nama dan alamat tempat (tanpa kunci API).
+                // Dimuat malas: tamu yang tidak menggulir sampai sini tidak
+                // memuat apa pun dari Google.
+                <div className="overflow-hidden rounded-lg bg-[var(--reg-panel)] [aspect-ratio:4/3] sm:[aspect-ratio:625/460]">
+                  <iframe
+                    title={`Peta ${venue ?? "lokasi acara"}`}
+                    src={`https://www.google.com/maps?q=${encodeURIComponent(petaKueri)}&output=embed`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="size-full border-0"
+                  />
+                </div>
               ) : null}
             </div>
           </Section>
@@ -523,7 +537,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         {tampil("faq") ? (
           <Section id="faq">
             <div className="grid gap-10 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-20">
-              <div className="flex flex-col gap-5 lg:sticky lg:top-32 lg:self-start">
+              <div className="flex flex-col gap-5 lg:self-start">
                 <p className={ALIS}>{LANDING_SECTION_LABELS.faq}</p>
                 <h2 className={JUDUL}>Sebelum Anda datang</h2>
                 <p className={`text-body-large ${MUTED}`}>
@@ -550,39 +564,13 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         ) : null}
       </>
     ),
-    sponsors: (
-      <>
-        {/* ---- Didukung oleh ------------------------------------------------ */}
-        {/* Mitra di bawah FAQ, bukan tepat di bawah hero: logo di situ terbaca
-            sebagai bilah "Trusted by" templat (antislop R-05). */}
-        {tampil("sponsors") ? (
-          <section className="py-16 sm:py-24">
-            <h2 className={`${HEAD} text-[24px] font-semibold leading-[1.25] tracking-[-0.02em] ${MUTED}`}>Didukung oleh</h2>
-            {/* Rata dan sama tinggi: ukuran logo bukan keputusan urutan unggah
-                (lihat Editorial). */}
-            <ul className="mt-8 flex flex-wrap items-center gap-x-10 gap-y-6">
-              {(config.sponsors ?? [])
-                .filter((sponsor) => sponsor.logo_url)
-                .map((sponsor) => (
-                  <li key={sponsor.logo_url} className="flex h-10 items-center sm:h-12">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={sponsor.logo_url}
-                      alt={sponsor.name ?? ""}
-                      loading="lazy"
-                      className="max-h-full w-auto max-w-[160px] object-contain"
-                    />
-                  </li>
-                ))}
-            </ul>
-          </section>
-        ) : null}
-      </>
-    ),
+    // Logo mitra tinggal di kaki halaman ("Diselenggarakan oleh"), bukan
+    // bagian sendiri di tengah halaman.
+    sponsors: null,
   };
 
   return (
-    <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={mainStyle}>
+    <main data-halaman-publik className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={mainStyle}>
       <LandingNavModern
         eventName={nama}
         daftarUrl={daftarUrl}
@@ -591,6 +579,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         sections={navSections}
         width={config.nav?.width ?? "full"}
         logoUrl={config.nav?.logo_url ?? null}
+        logoOnDark={Boolean(kv) && (config.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50}
       />
 
       {/* ---- Hero ---------------------------------------------------------
@@ -725,33 +714,47 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         ) : null}
       </div>
 
+      {/* ---- Penyelenggara ---------------------------------------------------
+          Pita terang tepat di atas kaki halaman, bukan di atas navy: logo
+          lembaga dibuat untuk latar terang, dan versi putihnya jarang ada.
+          Satu deret rata tengah, sama tinggi, tanpa petak per logo. */}
+      {mitra.length > 0 ? (
+        <section aria-labelledby="penyelenggara" className="border-t border-[var(--reg-outline-variant)]">
+          <div className={`${SHELL} flex flex-col items-center gap-6 py-10 sm:py-12`}>
+            <h2 id="penyelenggara" className={`text-title-small font-semibold ${MUTED}`}>
+              Diselenggarakan oleh
+            </h2>
+            <ul className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
+              {mitra.map((sponsor) => (
+                <li key={sponsor.logo_url} className="flex h-10 items-center sm:h-12">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={sponsor.logo_url} alt={sponsor.name ?? ""} loading="lazy" className="max-h-full w-auto max-w-[160px] object-contain" />
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      ) : null}
+
       {/* ---- Kaki halaman ---------------------------------------------------- */}
       <footer data-bagian="kaki" className="text-white" style={{ backgroundColor: LATAR_KAKI }}>
-        <div className={`${SHELL} flex flex-col gap-12 pb-12 pt-16 sm:gap-[72px] sm:pt-24`}>
-          <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-            <p className={`${HEAD} max-w-[700px] text-balance text-[28px] font-semibold leading-[1.25] tracking-[-0.03em] sm:text-[40px]`}>
-              {tanggal ? `Sampai jumpa pada ${tanggal}.` : "Sampai jumpa di acara."}
-            </p>
-            {event.registration_enabled ? (
-              <div style={tinta(true)} className="shrink-0">
-                <Link href={daftarUrl} className={PIL_INK}>
-                  {ctaLabel}
-                </Link>
-              </div>
-            ) : null}
-          </div>
-
-          <div aria-hidden className="h-px bg-white/15" />
-
+        <div className={`${SHELL} flex flex-col gap-10 pb-8 pt-12 sm:pt-16`}>
           <div className="flex flex-col gap-10 lg:flex-row lg:justify-between">
-            <div className="flex max-w-[420px] flex-col gap-4">
+            <div className="flex max-w-[420px] flex-col gap-3">
               <p className={`${HEAD} text-title-large font-semibold`}>{nama}</p>
               {config.footer_note?.trim() ? (
                 <p className="text-body-medium leading-[1.6] text-white/70">{config.footer_note.trim()}</p>
-              ) : event.tagline || venue ? (
-                <div className="text-body-medium text-white/70">
-                  {event.tagline ? <p>{event.tagline}</p> : null}
+              ) : (
+                <div className="text-body-medium leading-[1.6] text-white/70">
+                  {tanggal ? <p>{tanggal}</p> : null}
                   {venue ? <p>{venue}</p> : null}
+                </div>
+              )}
+              {event.registration_enabled ? (
+                <div style={tinta(true)} className="mt-3">
+                  <Link href={daftarUrl} className={PIL_INK}>
+                    {ctaLabel}
+                  </Link>
                 </div>
               ) : null}
             </div>
@@ -765,7 +768,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
             </div>
           </div>
 
-          <div className="flex flex-wrap justify-between gap-3 text-body-medium text-white/60">
+          <div className="flex flex-wrap justify-between gap-3 border-t border-white/15 pt-6 text-body-small text-white/60">
             <p>
               © {tahun} {nama}
             </p>
