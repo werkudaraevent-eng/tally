@@ -43,6 +43,7 @@ import { Kelompok } from "@/components/admin/compact-form";
 import { cx } from "@/lib/m3/cx";
 import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 import { ForumSusunan, ForumTema, forumTautanSalah, halamanBagianForum } from "./forum-editor";
+import { PresetTema } from "./theme-presets";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -742,7 +743,9 @@ export default function LandingCmsPage() {
   // ---- Tema ----------------------------------------------------------------------
   const isiTema = (
     <div className="flex flex-col gap-5">
-      <Kelompok title="Tata letak" first>
+      <PresetTema landing={landing} setLanding={setLanding} nama={landing.public_name?.trim() || facts?.name || "Nama acara"} />
+
+      <Kelompok title="Tata letak">
         <SegmentedButton<LandingLayout>
           className="w-full"
           label="Tata letak"
