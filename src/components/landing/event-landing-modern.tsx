@@ -423,7 +423,10 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
           <Section id="agenda">
             {/* Rancangan FHF: tanggal dan catatan di kiri, baris sesi di kanan. */}
             <div className="grid gap-10 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:gap-20">
-              <div className="flex flex-col items-start gap-5 lg:sticky lg:top-28 lg:self-start">
+              {/* Kolom kiri diam di tempat, tidak menempel saat digulir: rundown
+                  pendek (7 baris) tidak butuh penanda yang ikut turun, dan
+                  tanggal yang melayang terbaca seperti elemen yang tertinggal. */}
+              <div className="flex flex-col items-start gap-5 lg:self-start">
                 <p className={ALIS}>{LANDING_SECTION_LABELS.agenda}</p>
                 <h2 className={JUDUL}>
                   {/* Nama hari di baris sendiri: "Kamis, 15 / Oktober 2026" memisahkan tanggal dari bulannya. */}
