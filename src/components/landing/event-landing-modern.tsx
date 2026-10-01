@@ -197,6 +197,21 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
 
   // Menu atas mengikuti urutan halaman: bagian bawaan yang tampil, plus blok
   // yang diberi label menu di CMS. Dibatasi enam supaya tetap satu baris.
+  // Id bagian yang benar-benar dirender: tombol jangkar di blok ke bagian yang
+  // tidak tampil (mis. "Lihat susunan acara" tanpa rundown) disembunyikan.
+  const jangkar = new Set<string>(["isi-acara"]);
+  sections
+    .filter((section) => section.enabled)
+    .forEach((section) => {
+      if (isLandingBlockId(section.id)) {
+        const block = blokById.get(section.id);
+        if (block && landingBlockHasContent(block)) jangkar.add(block.id);
+      } else if (tampil(section.id)) {
+        jangkar.add(section.id);
+      }
+    });
+  if (tampilProgram) jangkar.add("program");
+
   const navSections: { id: string; label: string }[] = [];
   const tambahNav = (id: string, label: string) => {
     if (!navSections.some((item) => item.id === id)) navSections.push({ id, label });
@@ -230,6 +245,15 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   const tanggal = formatEventDate(event);
   const jam = formatEventTime(event);
   const venue = event.venue_name?.trim() || null;
+  // Tanpa tautan peta dari admin, tombol peta mencari nama dan alamat tempat
+  // di Google Maps: tamu hampir selalu membuka peta, dan nama hotel cukup.
+  const petaUrl =
+    event.venue_map_url ||
+    (venue || event.venue_address?.trim()
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          [venue, event.venue_address?.trim()].filter(Boolean).join(", "),
+        )}`
+      : null);
 
   // Angka di kartu Sekilas: angka penting pertama dari CMS bila bagian itu
   // menyala, atau jumlah sesi di rundown. Tidak ada angka = kartu tanpa angka.
@@ -417,7 +441,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         {/* ---- Lokasi ------------------------------------------------------- */}
         {tampil("venue") ? (
           <Section id="venue">
-            <div className={`grid items-center gap-10 lg:gap-20 ${event.venue_map_url ? "lg:grid-cols-2" : ""}`}>
+            <div className={`grid items-center gap-10 lg:gap-20 ${petaUrl ? "lg:grid-cols-2" : ""}`}>
               <div className="flex max-w-[572px] flex-col items-start gap-8 sm:gap-10">
                 <div className="flex flex-col gap-5">
                   {venue ? <p className={ALIS}>{LANDING_SECTION_LABELS.venue}</p> : null}
@@ -429,15 +453,15 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                 <div className="flex flex-wrap gap-3">
                   {/* Peta sebagai TAUTAN, tidak disematkan: penyemat peta
                       memuat skrip pihak ketiga ke halaman tamu. */}
-                  {event.venue_map_url ? (
+                  {petaUrl ? (
                     <a
-                      href={event.venue_map_url}
+                      href={petaUrl}
                       target="_blank"
                       rel="noreferrer noopener"
                       className={PIL_PENUH}
                       style={STATE_ON_PRIMARY}
                     >
-                      {tautanPeta(event.venue_map_url)}
+                      {tautanPeta(petaUrl)}
                       <ArrowUpRight size={16} weight="bold" aria-hidden />
                     </a>
                   ) : null}
@@ -458,13 +482,13 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                 </Link>
               </div>
 
-              {event.venue_map_url ? (
+              {petaUrl ? (
                 // Bidang peta: tautan besar ke peta, bukan peta tersemat.
                 <a
-                  href={event.venue_map_url}
+                  href={petaUrl}
                   target="_blank"
                   rel="noreferrer noopener"
-                  aria-label={`${tautanPeta(event.venue_map_url)}: ${venue ?? event.venue_address ?? "lokasi acara"}`}
+                  aria-label={`${tautanPeta(petaUrl)}: ${venue ?? event.venue_address ?? "lokasi acara"}`}
                   className="m3-state flex aspect-[4/3] flex-col items-center justify-center gap-4 rounded-lg bg-[var(--reg-panel)] p-8 text-center sm:aspect-[625/460]"
                 >
                   <span className="flex size-20 items-center justify-center rounded-full bg-[var(--reg-primary)] text-[var(--reg-on-primary)]">
@@ -472,7 +496,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                   </span>
                   <span className={`${HEAD} text-balance text-headline-small`}>{venue ?? LANDING_SECTION_LABELS.venue}</span>
                   <span className="inline-flex items-center gap-1.5 text-title-small font-semibold text-[var(--reg-primary)]">
-                    {tautanPeta(event.venue_map_url)}
+                    {tautanPeta(petaUrl)}
                     <ArrowUpRight size={14} weight="bold" aria-hidden />
                   </span>
                 </a>
@@ -646,7 +670,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
           if (isLandingBlockId(section.id)) {
             const block = blokById.get(section.id);
             return block ? (
-              <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled ? daftarUrl : null} daftarLabel={ctaLabel} />
+              <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled ? daftarUrl : null} daftarLabel={ctaLabel} jangkar={jangkar} />
             ) : null;
           }
           const konten = bawaan[section.id];
@@ -721,7 +745,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
               {tautanAcara.length > 0 ? (
                 <KolomKaki judul="Acara" tautan={tautanAcara.map((item) => ({ label: item.label, href: `#${item.id}` }))} />
               ) : null}
-              {tautanTamu.length > 0 ? <KolomKaki judul="Tamu" tautan={tautanTamu} /> : null}
+              {tautanTamu.length > 0 ? <KolomKaki judul="Peserta" tautan={tautanTamu} /> : null}
               {kontak.length > 0 ? <KolomKaki judul="Kontak panitia" tautan={kontak} /> : null}
             </div>
           </div>
