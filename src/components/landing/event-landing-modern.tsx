@@ -125,9 +125,16 @@ function tinta(adaKv: boolean): CSSProperties {
   } as CSSProperties;
 }
 
-/** Chip pil di atas bidang bergambar (hero, kartu). */
+/**
+ * Chip fakta di hero (tanggal, jam, tempat). Ukuran chip M3: tinggi 32dp,
+ * sudut 8dp, label-large 14/20, jarak tepi 16dp. Bentuk kapsul sebelumnya
+ * terbaca sebagai tombol.
+ */
 const CHIP_INK =
-  "inline-flex items-center rounded-full border border-[color-mix(in_srgb,var(--ink)_30%,transparent)] bg-[color-mix(in_srgb,var(--ink)_14%,transparent)] px-3.5 py-1.5 text-label-large font-normal";
+  "inline-flex h-8 items-center rounded-[8px] border border-[color-mix(in_srgb,var(--ink)_30%,transparent)] bg-[color-mix(in_srgb,var(--ink)_14%,transparent)] px-4 text-label-large font-normal";
+
+/** Pengganti tombol daftar saat pendaftaran belum dibuka: bentuk tombol, isi redup. */
+const PIL_INK_MATI = `${PIL} cursor-default border border-[color-mix(in_srgb,var(--ink)_30%,transparent)] bg-[color-mix(in_srgb,var(--ink)_14%,transparent)] font-medium text-[var(--ink)]`;
 
 /** Chip pil di atas permukaan terang (kartu program). */
 const CHIP =
@@ -559,11 +566,11 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         {kv ? <Kv src={kv} scrim={KV_SCRIM} /> : null}
         <div
           style={config.hero_min_height ? ({ "--hero-h": `${config.hero_min_height}px` } as CSSProperties) : undefined}
-          className={`${SHELL} flex flex-col pb-12 text-[var(--ink)] sm:pb-16 lg:pb-20 ${
-            // Dengan KV, judul berdiri di bawah supaya gambarnya terlihat.
-            // Tanpa KV tidak ada yang perlu diperlihatkan di atas judul, jadi
-            // judul di tengah bidang warna, bukan jatuh ke dasar hero.
-            kv ? "justify-end pt-32" : "justify-center pt-28"
+          className={`${SHELL} flex flex-col text-[var(--ink)] ${
+            // Dengan KV, isi hero berdiri di bawah supaya gambarnya terlihat,
+            // dengan jarak bawah 40/64dp (kelipatan 8dp M3). Tanpa KV tidak ada
+            // yang perlu diperlihatkan di atas judul, jadi isinya di tengah.
+            kv ? "justify-end pb-10 pt-28 lg:pb-16" : "justify-center pb-12 pt-28 lg:pb-16"
           } ${
             config.hero_min_height ? HERO_HEIGHT_ANGKA : HERO_HEIGHT[config.hero_height ?? "standard"]
           }`}
@@ -571,9 +578,13 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
           {/* Rancangan FHF: chip, nama, subjudul, lalu tombol di bawahnya, semua
               rata kiri. Tombol tidak lagi di kanan: di layar lebar ia jauh dari
               mata yang baru selesai membaca nama acara. */}
-          <div className="flex min-w-0 max-w-[1040px] flex-col gap-6 sm:gap-8">
+          {/* Ritme vertikal M3 (kelipatan 8dp): fakta 24 ke nama, nama 16 ke
+              subjudul (keduanya satu kelompok), subjudul 32 ke tombol. Jarak
+              yang sama rata di semua celah membuat chip terlepas dari judulnya
+              dan terbaca melayang di tengah gambar. */}
+          <div className="flex min-w-0 max-w-[1040px] flex-col">
             {fakta.length > 0 ? (
-              <ul className="rise-in flex flex-wrap gap-2" style={HERO_DELAY(0)}>
+              <ul className="rise-in mb-6 flex flex-wrap gap-2" style={HERO_DELAY(0)}>
                 {fakta.map((item) => (
                   <li key={item} className={`${CHIP_INK} tabular-nums`}>
                     {item}
@@ -582,7 +593,8 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
               </ul>
             ) : null}
             <h1
-              className={`rise-in text-balance font-semibold leading-[1.05] tracking-[-0.03em] ${HEAD} ${
+              // Tinggi baris display M3: 64/57 = 1.12.
+              className={`rise-in text-balance font-semibold leading-[1.12] tracking-[-0.02em] ${HEAD} ${
                 config.heading_size ? "" : HEADING_SCALE[config.heading_scale ?? "lg"]
               }`}
               style={{ ...HERO_DELAY(1), ...(config.heading_size ? { fontSize: landingHeadingFontSize(config.heading_size) } : null) }}
@@ -590,18 +602,19 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
               {nama}
             </h1>
             {event.tagline ? (
-              <p className="rise-in max-w-[640px] text-body-large leading-[1.6] opacity-90 sm:text-title-large sm:font-normal sm:leading-[1.55]" style={HERO_DELAY(2)}>
+              // body-large 16/24 di ponsel, title-large 22/28 di layar lebar (skala tipe M3).
+              <p className="rise-in mt-4 max-w-[720px] text-body-large opacity-90 sm:text-title-large sm:font-normal" style={HERO_DELAY(2)}>
                 {event.tagline}
               </p>
             ) : null}
-            <div className="rise-in flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap" style={HERO_DELAY(3)}>
+            <div className="rise-in mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap" style={HERO_DELAY(3)}>
               {/* Tombol daftar hanya saat pendaftaran terbuka; lihat Editorial. */}
               {event.registration_enabled ? (
                 <Link href={daftarUrl} className={`${PIL_INK} justify-center`}>
                   {ctaLabel}
                 </Link>
               ) : (
-                <span className={`${CHIP_INK} min-h-[52px] justify-center px-5 text-title-medium font-medium`}>Pendaftaran belum dibuka</span>
+                <span className={`${PIL_INK_MATI} justify-center`}>Pendaftaran belum dibuka</span>
               )}
               {tampil("agenda") ? (
                 <a href="#agenda" className={`${PIL_INK_GARIS} justify-center`}>
