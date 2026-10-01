@@ -10,7 +10,7 @@ import type {
   LandingSectionId,
 } from "@/lib/domain";
 import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS } from "@/lib/domain";
-import { MODERN_NEUTRAL_SURFACES } from "@/lib/registration-theme-css";
+import { modernThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
@@ -116,12 +116,15 @@ const HERO_DELAY = (step: number) => ({ "--rise-delay": `${step * 60}ms` }) as C
 
 /**
  * Warna teks di atas bidang bergambar: putih di atas KV yang dibayangi, atau
- * on-primary di atas bidang primary polos. Dipasang sebagai `--ink` supaya chip
- * dan tombol di dalamnya cukup menulis satu kelas.
+ * on-brand di atas bidang warna merek polos. Dipasang sebagai `--ink` supaya
+ * chip dan tombol di dalamnya cukup menulis satu kelas. `--ink-accent` adalah
+ * teks tombol berlatar `--ink`: warna merek di atas bidang merek (pasangan yang
+ * sama dibalik), primary di atas KV karena tombolnya putih dan merek bisa putih.
  */
 function tinta(adaKv: boolean): CSSProperties {
   return {
-    "--ink": adaKv ? "#fff" : "var(--reg-on-primary)",
+    "--ink": adaKv ? "#fff" : "var(--reg-on-brand)",
+    "--ink-accent": adaKv ? "var(--reg-primary)" : "var(--reg-brand)",
     "--m3-state-color": "var(--ink)",
   } as CSSProperties;
 }
@@ -135,11 +138,10 @@ const CHIP =
   "inline-flex items-center rounded-full border border-[color-mix(in_srgb,var(--reg-on-surface)_12%,transparent)] bg-[color-mix(in_srgb,var(--reg-on-surface)_5%,transparent)] px-3.5 py-1.5 text-label-large font-normal tabular-nums";
 
 /**
- * Tombol di atas bidang bergambar: latar `--ink`, teks primary. Di atas KV itu
- * putih dengan teks primary; di atas bidang primary itu on-primary dengan teks
- * primary, pasangan yang sama dibalik, jadi kontrasnya tetap dijamin tema.
+ * Tombol di atas bidang bergambar: latar `--ink`, teks `--ink-accent`. Lihat
+ * `tinta` untuk pasangannya.
  */
-const PIL_INK = `${PIL} bg-[var(--ink)] font-semibold text-[var(--reg-primary)]`;
+const PIL_INK = `${PIL} bg-[var(--ink)] font-semibold text-[var(--ink-accent)]`;
 
 function Kv({ src, scrim }: { src: string; scrim: string }) {
   return (
@@ -222,7 +224,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   // Tanpa pilihan admin, Modern memakai Source Sans 3 (huruf rancangannya),
   // Editorial tetap Playfair Display.
   const headingFont = LANDING_HEADING_FONTS[config.heading_font ?? "source"] ?? LANDING_HEADING_FONTS.source;
-  const mainStyle = { ...theme, ...MODERN_NEUTRAL_SURFACES, "--landing-heading": headingFont.cssVar } as CSSProperties;
+  const mainStyle = { ...theme, ...modernThemeStyle(config.theme?.seed), "--landing-heading": headingFont.cssVar } as CSSProperties;
 
   // Tertonjol lebih dulu; urutan admin dipertahankan di dalam tiap kelompok.
   const urutPembicara = [...speakers.filter((s) => s.featured), ...speakers.filter((s) => !s.featured)];
@@ -258,7 +260,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
           Ditarik ke bawah bilah nav (margin negatif setinggi nav) supaya KV
           mulai dari tepi atas layar, seperti di rancangan. */}
       <header
-        className={`relative isolate -mt-16 overflow-hidden lg:-mt-[88px] ${kv ? "bg-black" : "bg-[var(--reg-primary)]"}`}
+        className={`relative isolate -mt-16 overflow-hidden lg:-mt-[88px] ${kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
         style={tinta(Boolean(kv))}
       >
         {kv ? <Kv src={kv} scrim={KV_SCRIM} /> : null}
@@ -315,7 +317,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
               {kv || stat ? (
                 <div
                   className={`relative isolate flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg p-6 sm:aspect-[625/550] ${
-                    kv ? "bg-black" : "bg-[var(--reg-primary)]"
+                    kv ? "bg-black" : "bg-[var(--reg-brand)]"
                   }`}
                   style={tinta(Boolean(kv))}
                 >
@@ -538,7 +540,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
           <section className="pb-16 sm:pb-24">
             <div
               className={`relative isolate flex flex-col items-center gap-6 overflow-hidden rounded-lg px-6 py-16 text-center text-[var(--ink)] sm:py-24 ${
-                kv ? "bg-black" : "bg-[var(--reg-primary)]"
+                kv ? "bg-black" : "bg-[var(--reg-brand)]"
               }`}
               style={tinta(Boolean(kv))}
             >

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { mixHex, parseHex } from "./color";
 import { DEFAULT_REGISTRATION_SEED, buildRegistrationThemeRoles, type RegistrationFormTheme, type RegistrationThemeRoles } from "./registration-theme";
 
 /**
@@ -56,24 +57,66 @@ export function registrationThemeStyle(theme: RegistrationFormTheme | undefined)
   } as CSSProperties;
 }
 
+/** Rasio kontras WCAG antara dua warna hex. */
+function kontras(a: string, b: string) {
+  const lum = (hex: string) => {
+    const { r, g, b: bl } = parseHex(hex);
+    const kanal = (v: number) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * kanal(r) + 0.7152 * kanal(g) + 0.0722 * kanal(bl);
+  };
+  const [terang, gelap] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (terang + 0.05) / (gelap + 0.05);
+}
+
+const TINTA_GELAP = "#181d27";
+
+/** Putih atau tinta gelap, mana yang kontrasnya lebih tinggi di atas `hex`. */
+function tintaDiAtas(hex: string) {
+  return kontras(hex, "#ffffff") >= kontras(hex, TINTA_GELAP) ? "#ffffff" : TINTA_GELAP;
+}
+
 /**
- * Permukaan netral untuk tata letak Modern (halaman acara v2 dan formulirnya).
+ * Warna untuk tata letak Modern (halaman acara v2 dan formulirnya).
  *
- * Peran permukaan M3 diturunkan dari warna merek, jadi warna biru seperti
- * PRIMA menghasilkan kartu dan teks redup bernuansa ungu muda: palet netral M3
- * membawa sedikit hue warna sumber, dan pada biru hue itu condong ke violet.
- * Rancangan v2 di Figma memakai abu-abu netral, dan Hanung menolak nuansa ungu
- * itu. Yang ditimpa hanya permukaan, teks, dan garis; warna merek (primary dan
- * pasangannya) tetap dari tema acara.
+ * Permukaan, teks, dan garis memakai abu-abu netral. Peran permukaan M3
+ * diturunkan dari warna merek dan pada biru condong ke ungu muda; Hanung menolak
+ * nuansa itu.
+ *
+ * Warna merek dipakai PERSIS seperti yang dipilih admin, bukan peran `primary`
+ * M3. `primary` M3 adalah nada 40 dari palet merek: putih jadi abu-abu gelap,
+ * biru terang jadi biru tua yang terbaca ungu. Admin yang memilih putih lalu
+ * melihat hero abu-abu tidak punya cara mengerti kenapa.
+ *
+ * Dua pasangan:
+ * - `--reg-brand` / `--reg-on-brand`: bidang lebar (hero tanpa KV, kartu
+ *   Sekilas, banner ajakan, kepala formulir). Selalu warna merek apa adanya,
+ *   termasuk putih; teksnya putih atau gelap menurut kontras.
+ * - `--reg-primary` / `--reg-on-primary`: tombol, tautan, dan ikon di atas
+ *   permukaan putih. Warna merek bila cukup kontras dengan putih (3:1); merek
+ *   yang terlalu terang (putih, kuning muda) jatuh ke tinta gelap supaya tombol
+ *   tidak hilang di atas latar putih.
  */
-export const MODERN_NEUTRAL_SURFACES = {
-  "--reg-surface": "#ffffff",
-  "--reg-field": "#ffffff",
-  "--reg-panel": "#f5f5f5",
-  "--reg-on-surface": "#181d27",
-  "--reg-on-surface-variant": "#414651",
-  "--reg-outline": "#a4a7ae",
-  "--reg-outline-variant": "#e9eaeb",
-  backgroundColor: "#ffffff",
-  color: "#181d27",
-} as CSSProperties;
+export function modernThemeStyle(seed: string | undefined): CSSProperties {
+  const merek = /^#[0-9a-f]{6}$/i.test(seed ?? "") ? seed! : DEFAULT_REGISTRATION_SEED;
+  const aksen = kontras(merek, "#ffffff") >= 3 ? merek : TINTA_GELAP;
+  return {
+    "--reg-surface": "#ffffff",
+    "--reg-field": "#ffffff",
+    "--reg-panel": "#f5f5f5",
+    "--reg-on-surface": TINTA_GELAP,
+    "--reg-on-surface-variant": "#414651",
+    "--reg-outline": "#a4a7ae",
+    "--reg-outline-variant": "#e9eaeb",
+    "--reg-brand": merek,
+    "--reg-on-brand": tintaDiAtas(merek),
+    "--reg-primary": aksen,
+    "--reg-on-primary": tintaDiAtas(aksen),
+    "--reg-primary-container": mixHex(aksen, "#ffffff", 0.9),
+    "--reg-on-primary-container": TINTA_GELAP,
+    backgroundColor: "#ffffff",
+    color: TINTA_GELAP,
+  } as CSSProperties;
+}
