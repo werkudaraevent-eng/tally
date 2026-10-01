@@ -18,6 +18,8 @@ import {
   LANDING_HERO_HEIGHT_PX,
   LANDING_MEMBER_AUDIENCE_LABELS,
   LANDING_LAYOUT_LABELS,
+  LANDING_NAV_HEIGHT_MAX,
+  LANDING_NAV_HEIGHT_MIN,
   LANDING_SECTION_LABELS,
   LANDING_SECTION_SOURCES,
   LANDING_BLOCK_LABELS,
@@ -40,6 +42,7 @@ import {
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { eventApiPath } from "@/lib/event-url";
 import { Kelompok } from "@/components/admin/compact-form";
+import { BilahAtasEditor } from "@/components/admin/landing-nav-editor";
 import { cx } from "@/lib/m3/cx";
 import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 import { ForumSusunan, ForumTema, forumTautanSalah, halamanBagianForum } from "./forum-editor";
@@ -437,6 +440,14 @@ export default function LandingCmsPage() {
       toast.error("Tautan belum valid", `${forumSalah.pesan} Bagiannya sudah dibuka.`);
       return;
     }
+    const tinggiBilah = landing.nav?.height;
+    if (tinggiBilah != null && (tinggiBilah < LANDING_NAV_HEIGHT_MIN || tinggiBilah > LANDING_NAV_HEIGHT_MAX)) {
+      setBagian("susunan");
+      setTerbuka("pembuka");
+      gulirKeBaris("pembuka");
+      toast.error("Tinggi bilah atas di luar batas", `Pembuka, Bilah atas: isi ${LANDING_NAV_HEIGHT_MIN} sampai ${LANDING_NAV_HEIGHT_MAX} px. Bagiannya sudah dibuka.`);
+      return;
+    }
     const kirim = cuplikan;
     setBusy(true);
     const response = await fetch(eventApiPath("/api/admin/landing"), {
@@ -489,6 +500,16 @@ export default function LandingCmsPage() {
           onChange={(event) => patchFacts({ tagline: event.target.value })}
         />
       </Kelompok>
+
+      {/* Bilah atas hanya ada di tata letak Modern; Editorial punya nav sendiri. */}
+      {modern ? (
+        <BilahAtasEditor
+          value={landing.nav ?? {}}
+          onChange={(nav) => setLanding({ ...landing, nav })}
+          eventName={landing.public_name?.trim() || facts.name || "Nama acara"}
+          disabled={busy}
+        />
+      ) : null}
 
       <Kelompok title="Ukuran" note="Dalam px, untuk layar lebar. Di ponsel mengecil otomatis.">
         <AngkaPx
@@ -1313,7 +1334,7 @@ export default function LandingCmsPage() {
         <Banner tone="info">Blok tambahan hanya tampil di tata letak Modern. Pilih Modern di tab Tema untuk memakainya.</Banner>
       ) : null}
       <ol className="flex flex-col gap-2">
-        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Pembuka", sub: "Nama acara, tagline, KV, tombol daftar", isi: isiPembuka })}
+        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Pembuka", sub: modern ? "Bilah atas, nama acara, tagline, KV, tombol daftar" : "Nama acara, tagline, KV, tombol daftar", isi: isiPembuka })}
         {sections.map((section, index) => {
           const setSaklar = (value: boolean) =>
             setLanding({ ...landing, sections: sections.map((item, position) => (position === index ? { ...item, enabled: value } : item)) });

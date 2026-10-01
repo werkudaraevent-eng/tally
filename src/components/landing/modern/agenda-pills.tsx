@@ -101,7 +101,9 @@ export function AgendaPills({ agenda }: { agenda: AgendaPreview[] }) {
             <div className="min-w-0 sm:pt-0.5">
               <p className="text-title-medium font-semibold leading-[1.4] sm:text-title-large">{item.title}</p>
               {item.subtitle ? (
-                <p className="mt-1.5 text-body-large text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
+                // pre-line: satu sesi bisa punya beberapa pilihan, satu per baris
+                // (mis. tiga kelompok diskusi di jam yang sama).
+                <p className="mt-1.5 whitespace-pre-line text-body-large text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
               ) : null}
             </div>
           </li>

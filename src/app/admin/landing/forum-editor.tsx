@@ -210,7 +210,13 @@ export function ForumSusunan({
   const isiPembuka = (
     <div className="flex flex-col gap-5">
       <Kelompok title="Logo" first note="Kosong = nama acara ditulis di kiri atas.">
-        {gambar("Logo berwarna", "Untuk bilah putih di halaman Program dan Informasi. PNG transparan, tinggi minimal 120 px.", forum.logo_url, (url) => ubah({ logo_url: url }), "h-14 w-36")}
+        {gambar(
+          "Logo acara",
+          "Logo berwarna untuk bilah putih di halaman Program dan Informasi. Sama dengan logo bilah atas tata letak Modern, jadi cukup diunggah sekali. PNG transparan, tinggi minimal 120 px.",
+          landing.nav?.logo_url,
+          (url) => setLanding({ ...landing, nav: { ...landing.nav, logo_url: url } }),
+          "h-14 w-36",
+        )}
         {gambar("Logo putih", "Untuk bilah di atas KV Beranda. Kosong = logo berwarna dipakai juga di sana.", forum.logo_light_url, (url) => ubah({ logo_light_url: url }), "h-14 w-36 bg-neutral-800")}
       </Kelompok>
       <Kelompok title="Isi hero">

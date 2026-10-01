@@ -6,6 +6,7 @@ import { formatEventDate } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { timeZoneAbbr } from "@/lib/timezone";
+import { MapPin } from "@phosphor-icons/react/dist/ssr";
 import { FORUM_ICONS } from "./icons";
 import { FORUM_LABELS } from "./labels";
 import { BagianPembicara, Foto, KartuFoto, PanelSusunan, Paragraf, PitaTanggal } from "./forum-parts";
@@ -94,9 +95,16 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
 
   const kv = config.banner_url ?? null;
   const daftarUrl = event.registration_enabled ? `/e/${event.slug}/daftar` : null;
+  // Sama dengan tata letak Modern: tanpa tautan peta dari admin, tombol peta
+  // mencari nama dan alamat tempat di Google Maps.
+  const petaUrl =
+    event.venue_map_url ||
+    (venue || event.venue_address?.trim()
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([venue, event.venue_address?.trim()].filter(Boolean).join(", "))}`
+      : null);
 
   const header = (diAtasKv: boolean) => (
-    <ForumHeader halaman={halaman} diAtasKv={diAtasKv} config={forum} nama={nama} label={label} tautan={tautan} tombol={tombol} sekunder={Boolean(member && daftarUrl)} />
+    <ForumHeader logoAcara={config.nav?.logo_url ?? null} halaman={halaman} diAtasKv={diAtasKv} config={forum} nama={nama} label={label} tautan={tautan} tombol={tombol} sekunder={Boolean(member && daftarUrl)} />
   );
   const footer = <ForumFooter config={forum} nama={nama} catatan={config.footer_note?.trim() || null} />;
 
@@ -339,15 +347,18 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
                     {event.venue_address?.trim()}
                   </p>
                 ) : null}
-                {event.venue_map_url ? (
-                  <p className="text-left">
-                    {label.tautanTempat}{" "}
-                    <a href={event.venue_map_url} target="_blank" rel="noopener noreferrer" className="font-medium underline">
-                      {venue ?? label.buatPeta}
-                    </a>
-                  </p>
-                ) : null}
               </div>
+              {petaUrl ? (
+                <a
+                  href={petaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${TOMBOL} self-start gap-2 bg-[var(--f-primary)] px-[clamp(20px,1.77vw,34px)] py-[clamp(12px,0.94vw,18px)] ${TEKS_MENU} text-[var(--f-on-primary)] outline-[var(--f-primary)]`}
+                >
+                  <MapPin aria-hidden weight="fill" className="size-5" />
+                  {/google\.|goo\.gl/i.test(petaUrl) ? label.bukaGoogleMaps : label.buatPeta}
+                </a>
+              ) : null}
             </div>
             {forum.venue_image_url ? (
               <div className="relative aspect-[760/567] overflow-hidden">

@@ -41,6 +41,7 @@ function Logo({ src, nama, terang }: { src: string | null; nama: string; terang:
  * navy) dan teks gelap di atasnya hilang.
  */
 export function ForumHeader({
+  logoAcara,
   halaman,
   diAtasKv,
   config,
@@ -50,6 +51,8 @@ export function ForumHeader({
   tombol,
   sekunder = false,
 }: {
+  /** Logo acara dari CMS (Pembuka, sama dengan logo bilah atas Modern). */
+  logoAcara: string | null;
   halaman: LandingForumPage;
   diAtasKv: boolean;
   config: LandingForumConfig;
@@ -68,7 +71,7 @@ export function ForumHeader({
     { halaman: "program", label: label.program },
     ...((config.info ?? []).length > 0 && !(config.hidden ?? []).includes("info") ? [{ halaman: "info" as const, label: label.info }] : []),
   ];
-  const logo = diAtasKv ? (config.logo_light_url ?? config.logo_url ?? null) : (config.logo_url ?? null);
+  const logo = diAtasKv ? (config.logo_light_url || logoAcara) : logoAcara;
   const warnaMenu = (aktif: boolean) =>
     diAtasKv ? (aktif ? "text-white" : "text-white/75 hover:text-white") : aktif ? "text-black/[0.63]" : "text-[#9a9a9a] hover:text-black/[0.63]";
 

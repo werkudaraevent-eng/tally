@@ -611,8 +611,34 @@ function Ajakan({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftar
   );
 }
 
-export function LandingBlockView({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftarUrl: string | null; daftarLabel: string }) {
-  if (!landingBlockHasContent(block)) return null;
+/**
+ * Tautan jangkar (#agenda) ke bagian yang tidak tampil di halaman adalah tombol
+ * mati: tombolnya disembunyikan. `jangkar` = id bagian yang benar-benar dirender.
+ */
+function tanpaJangkarMati(block: LandingBlock, jangkar: ReadonlySet<string> | undefined): LandingBlock {
+  if (!jangkar) return block;
+  const mati = (url: string | null | undefined) => Boolean(url?.trim().startsWith("#") && !jangkar.has(url.trim().slice(1)));
+  if (!mati(block.link_url) && !mati(block.link2_url)) return block;
+  return {
+    ...block,
+    ...(mati(block.link_url) ? { link_url: undefined } : null),
+    ...(mati(block.link2_url) ? { link2_url: undefined } : null),
+  };
+}
+
+export function LandingBlockView({
+  block: asli,
+  daftarUrl,
+  daftarLabel,
+  jangkar,
+}: {
+  block: LandingBlock;
+  daftarUrl: string | null;
+  daftarLabel: string;
+  jangkar?: ReadonlySet<string>;
+}) {
+  if (!landingBlockHasContent(asli)) return null;
+  const block = tanpaJangkarMati(asli, jangkar);
   switch (block.type) {
     case "text_image": return <TeksGambar block={block} />;
     case "cards": return <KartuBergambar block={block} />;

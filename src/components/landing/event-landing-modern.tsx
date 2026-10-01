@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, CalendarPlus, MapPin, Minus, Plus } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, ArrowUpRight, CalendarBlank, CalendarPlus, Clock, MapPin, Minus, Plus } from "@phosphor-icons/react/dist/ssr";
 import type {
   EventLandingConfig,
   EventRow,
@@ -10,7 +10,7 @@ import type {
   LandingSectionId,
 } from "@/lib/domain";
 import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
-import { modernThemeStyle } from "@/lib/registration-theme-css";
+import { heroCtaColors, modernNavStyle, modernThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
@@ -36,7 +36,7 @@ import { LandingBlockView } from "./modern/landing-blocks";
  *   selalu terakhir. Program menempel pada Tentang acara.
  * - Hero selalu KV warna asli dengan bayangan gelap. Tanpa KV, hero adalah
  *   bidang warna primary dengan teks on-primary.
- * - Tombol `rounded-md` (DESIGN.md), chip fakta pil, kartu `rounded-lg`.
+ * - Tombol `rounded-md` (DESIGN.md), info hero berikon tanpa bingkai, kartu `rounded-lg`.
  *
  * ---- Aturan yang sama -----------------------------------------------------
  *
@@ -125,10 +125,6 @@ function tinta(adaKv: boolean): CSSProperties {
   } as CSSProperties;
 }
 
-/** Chip pil di atas bidang bergambar (hero, kartu). */
-const CHIP_INK =
-  "inline-flex items-center rounded-full border border-[color-mix(in_srgb,var(--ink)_30%,transparent)] bg-[color-mix(in_srgb,var(--ink)_14%,transparent)] px-3.5 py-1.5 text-label-large font-normal";
-
 /** Chip pil di atas permukaan terang (kartu program). */
 const CHIP =
   "inline-flex items-center rounded-full border border-[color-mix(in_srgb,var(--reg-on-surface)_12%,transparent)] bg-[color-mix(in_srgb,var(--reg-on-surface)_5%,transparent)] px-3.5 py-1.5 text-label-large font-normal tabular-nums";
@@ -138,6 +134,8 @@ const CHIP =
  * `tinta` untuk pasangannya.
  */
 const PIL_INK = `${PIL} bg-[var(--ink)] font-semibold text-[var(--ink-accent)]`;
+/** Tombol utama di atas KV: warna dari heroCtaColors lewat `--cta-bg`/`--cta-fg`. */
+const PIL_CTA_KV = `${PIL} bg-[var(--cta-bg)] font-semibold text-[var(--cta-fg)] shadow-[0_1px_3px_rgb(0_0_0/0.3)]`;
 /** Tombol kedua di atas bidang bergambar: garis `--ink`, tanpa isi. */
 const PIL_INK_GARIS = `${PIL} border border-[color-mix(in_srgb,var(--ink)_60%,transparent)] font-semibold text-[var(--ink)]`;
 
@@ -199,6 +197,21 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
 
   // Menu atas mengikuti urutan halaman: bagian bawaan yang tampil, plus blok
   // yang diberi label menu di CMS. Dibatasi enam supaya tetap satu baris.
+  // Id bagian yang benar-benar dirender: tombol jangkar di blok ke bagian yang
+  // tidak tampil (mis. "Lihat susunan acara" tanpa rundown) disembunyikan.
+  const jangkar = new Set<string>(["isi-acara"]);
+  sections
+    .filter((section) => section.enabled)
+    .forEach((section) => {
+      if (isLandingBlockId(section.id)) {
+        const block = blokById.get(section.id);
+        if (block && landingBlockHasContent(block)) jangkar.add(block.id);
+      } else if (tampil(section.id)) {
+        jangkar.add(section.id);
+      }
+    });
+  if (tampilProgram) jangkar.add("program");
+
   const navSections: { id: string; label: string }[] = [];
   const tambahNav = (id: string, label: string) => {
     if (!navSections.some((item) => item.id === id)) navSections.push({ id, label });
@@ -232,7 +245,15 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   const tanggal = formatEventDate(event);
   const jam = formatEventTime(event);
   const venue = event.venue_name?.trim() || null;
-  const fakta = [tanggal, jam, venue].filter((item): item is string => Boolean(item));
+  // Tanpa tautan peta dari admin, tombol peta mencari nama dan alamat tempat
+  // di Google Maps: tamu hampir selalu membuka peta, dan nama hotel cukup.
+  const petaUrl =
+    event.venue_map_url ||
+    (venue || event.venue_address?.trim()
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          [venue, event.venue_address?.trim()].filter(Boolean).join(", "),
+        )}`
+      : null);
 
   // Angka di kartu Sekilas: angka penting pertama dari CMS bila bagian itu
   // menyala, atau jumlah sesi di rundown. Tidak ada angka = kartu tanpa angka.
@@ -247,7 +268,29 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   // Tanpa pilihan admin, Modern memakai Source Sans 3 (huruf rancangannya),
   // Editorial tetap Playfair Display.
   const headingFont = LANDING_HEADING_FONTS[config.heading_font ?? "source"] ?? LANDING_HEADING_FONTS.source;
-  const mainStyle = { ...theme, ...modernThemeStyle(config.theme?.seed), "--landing-heading": headingFont.cssVar } as CSSProperties;
+  const infoHero = [
+    tanggal ? { ikon: CalendarBlank, teks: tanggal } : null,
+    jam ? { ikon: Clock, teks: jam } : null,
+    venue ? { ikon: MapPin, teks: venue } : null,
+  ].filter((item): item is NonNullable<typeof item> => item !== null);
+  const cta = heroCtaColors(config.theme?.seed);
+  // Aksi utama saat pendaftaran tertutup: yang memang bisa dilakukan tamu.
+  const aksiTertutup = tampil("agenda")
+    ? { href: "#agenda", label: "Lihat susunan acara" }
+    : { href: "#isi-acara", label: "Pelajari acaranya" };
+  const ctaKv = { "--cta-bg": cta.bg, "--cta-fg": cta.fg } as CSSProperties;
+  // Variabel bilah atas dipasang di <main>, bukan di <nav>: hero juga
+  // membacanya (`--nav-h` untuk margin negatifnya).
+  const navStyle = modernNavStyle(
+    config.nav,
+    kv ? { ink: "#ffffff", onInk: "#181d27" } : { ink: "var(--reg-on-brand)", onInk: "var(--reg-brand)" },
+  );
+  const mainStyle = {
+    ...theme,
+    ...modernThemeStyle(config.theme?.seed),
+    ...navStyle,
+    "--landing-heading": headingFont.cssVar,
+  } as CSSProperties;
 
   // Tertonjol lebih dulu; urutan admin dipertahankan di dalam tiap kelompok.
   const urutPembicara = [...speakers.filter((s) => s.featured), ...speakers.filter((s) => !s.featured)];
@@ -409,7 +452,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         {/* ---- Lokasi ------------------------------------------------------- */}
         {tampil("venue") ? (
           <Section id="venue">
-            <div className={`grid items-center gap-10 lg:gap-20 ${event.venue_map_url ? "lg:grid-cols-2" : ""}`}>
+            <div className={`grid items-center gap-10 lg:gap-20 ${petaUrl ? "lg:grid-cols-2" : ""}`}>
               <div className="flex max-w-[572px] flex-col items-start gap-8 sm:gap-10">
                 <div className="flex flex-col gap-5">
                   {venue ? <p className={ALIS}>{LANDING_SECTION_LABELS.venue}</p> : null}
@@ -421,15 +464,15 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                 <div className="flex flex-wrap gap-3">
                   {/* Peta sebagai TAUTAN, tidak disematkan: penyemat peta
                       memuat skrip pihak ketiga ke halaman tamu. */}
-                  {event.venue_map_url ? (
+                  {petaUrl ? (
                     <a
-                      href={event.venue_map_url}
+                      href={petaUrl}
                       target="_blank"
                       rel="noreferrer noopener"
                       className={PIL_PENUH}
                       style={STATE_ON_PRIMARY}
                     >
-                      {tautanPeta(event.venue_map_url)}
+                      {tautanPeta(petaUrl)}
                       <ArrowUpRight size={16} weight="bold" aria-hidden />
                     </a>
                   ) : null}
@@ -450,13 +493,13 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                 </Link>
               </div>
 
-              {event.venue_map_url ? (
+              {petaUrl ? (
                 // Bidang peta: tautan besar ke peta, bukan peta tersemat.
                 <a
-                  href={event.venue_map_url}
+                  href={petaUrl}
                   target="_blank"
                   rel="noreferrer noopener"
-                  aria-label={`${tautanPeta(event.venue_map_url)}: ${venue ?? event.venue_address ?? "lokasi acara"}`}
+                  aria-label={`${tautanPeta(petaUrl)}: ${venue ?? event.venue_address ?? "lokasi acara"}`}
                   className="m3-state flex aspect-[4/3] flex-col items-center justify-center gap-4 rounded-lg bg-[var(--reg-panel)] p-8 text-center sm:aspect-[625/460]"
                 >
                   <span className="flex size-20 items-center justify-center rounded-full bg-[var(--reg-primary)] text-[var(--reg-on-primary)]">
@@ -464,7 +507,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                   </span>
                   <span className={`${HEAD} text-balance text-headline-small`}>{venue ?? LANDING_SECTION_LABELS.venue}</span>
                   <span className="inline-flex items-center gap-1.5 text-title-small font-semibold text-[var(--reg-primary)]">
-                    {tautanPeta(event.venue_map_url)}
+                    {tautanPeta(petaUrl)}
                     <ArrowUpRight size={14} weight="bold" aria-hidden />
                   </span>
                 </a>
@@ -546,72 +589,95 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         registrationOpen={event.registration_enabled}
         memberLink={memberLink}
         sections={navSections}
+        width={config.nav?.width ?? "full"}
+        logoUrl={config.nav?.logo_url ?? null}
       />
 
       {/* ---- Hero ---------------------------------------------------------
-          Ditarik ke bawah bilah nav (margin negatif setinggi nav) supaya KV
+          Ditarik ke bawah bilah nav (margin negatif setinggi nav, `--nav-h`
+          dari modernNavStyle) supaya KV
           mulai dari tepi atas layar, seperti di rancangan. */}
       <header
         data-bagian="pembuka"
-        className={`relative isolate -mt-16 overflow-hidden ${kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
+        data-landing-hero
+        className={`relative isolate -mt-[var(--nav-h)] overflow-hidden ${kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
         style={tinta(Boolean(kv))}
       >
         {kv ? <Kv src={kv} scrim={KV_SCRIM} /> : null}
         <div
           style={config.hero_min_height ? ({ "--hero-h": `${config.hero_min_height}px` } as CSSProperties) : undefined}
-          className={`${SHELL} flex flex-col pb-12 text-[var(--ink)] sm:pb-16 lg:pb-20 ${
-            // Dengan KV, judul berdiri di bawah supaya gambarnya terlihat.
-            // Tanpa KV tidak ada yang perlu diperlihatkan di atas judul, jadi
-            // judul di tengah bidang warna, bukan jatuh ke dasar hero.
-            kv ? "justify-end pt-32" : "justify-center pt-28"
+          className={`${SHELL} flex flex-col text-[var(--ink)] ${
+            // Dengan KV, isi hero berdiri di bawah supaya gambarnya terlihat,
+            // dengan jarak bawah 40/64dp (kelipatan 8dp M3). Tanpa KV tidak ada
+            // yang perlu diperlihatkan di atas judul, jadi isinya di tengah.
+            kv ? "justify-end pb-10 pt-28 lg:pb-16" : "justify-center pb-12 pt-28 lg:pb-16"
           } ${
             config.hero_min_height ? HERO_HEIGHT_ANGKA : HERO_HEIGHT[config.hero_height ?? "standard"]
           }`}
         >
-          {/* Rancangan FHF: chip, nama, subjudul, lalu tombol di bawahnya, semua
-              rata kiri. Tombol tidak lagi di kanan: di layar lebar ia jauh dari
-              mata yang baru selesai membaca nama acara. */}
-          <div className="flex min-w-0 max-w-[1040px] flex-col gap-6 sm:gap-8">
-            {fakta.length > 0 ? (
-              <ul className="rise-in flex flex-wrap gap-2" style={HERO_DELAY(0)}>
-                {fakta.map((item) => (
-                  <li key={item} className={`${CHIP_INK} tabular-nums`}>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+          {/* Urutan: nama acara, subjudul (satu kelompok, jarak 16), info
+              acara (24), tombol (32). Ritme M3 kelipatan 8dp. */}
+          <div className="flex min-w-0 max-w-[1040px] flex-col">
             <h1
-              className={`rise-in text-balance font-semibold leading-[1.05] tracking-[-0.03em] ${HEAD} ${
+              // Tinggi baris display M3: 64/57 = 1.12.
+              className={`rise-in text-balance font-semibold leading-[1.12] tracking-[-0.02em] ${HEAD} ${
                 config.heading_size ? "" : HEADING_SCALE[config.heading_scale ?? "lg"]
               }`}
-              style={{ ...HERO_DELAY(1), ...(config.heading_size ? { fontSize: landingHeadingFontSize(config.heading_size) } : null) }}
+              style={{ ...HERO_DELAY(0), ...(config.heading_size ? { fontSize: landingHeadingFontSize(config.heading_size) } : null) }}
             >
               {nama}
             </h1>
             {event.tagline ? (
-              <p className="rise-in max-w-[640px] text-body-large leading-[1.6] opacity-90 sm:text-title-large sm:font-normal sm:leading-[1.55]" style={HERO_DELAY(2)}>
+              // body-large 16/24 di ponsel, title-large 22/28 di layar lebar (skala tipe M3).
+              <p className="rise-in mt-4 max-w-[720px] text-body-large opacity-90 sm:text-title-large sm:font-normal" style={HERO_DELAY(2)}>
                 {event.tagline}
               </p>
             ) : null}
-            <div className="rise-in flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap" style={HERO_DELAY(3)}>
-              {/* Tombol daftar hanya saat pendaftaran terbuka; lihat Editorial. */}
+            {/* Info acara sebagai teks berikon, bukan chip: di M3 chip adalah
+                elemen yang bisa diklik, dan bingkainya menambah ramai di atas
+                foto. Letaknya tepat di atas tombol karena tanggal dan tempat
+                adalah yang dibaca orang sebelum memutuskan mendaftar. */}
+            {infoHero.length > 0 ? (
+              <ul className="rise-in mt-6 flex flex-wrap gap-x-6 gap-y-2 text-body-large font-medium" style={HERO_DELAY(2)}>
+                {infoHero.map(({ ikon: Ikon, teks }) => (
+                  <li key={teks} className="inline-flex items-center gap-2 tabular-nums">
+                    <Ikon size={20} weight="regular" aria-hidden className="shrink-0 opacity-80" />
+                    {teks}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {/* Satu tombol filled M3, aksi berpenekanan tertinggi di layar ini.
+                Saat pendaftaran tertutup tidak ada tombol palsu: tombol utamanya
+                menjadi aksi yang memang bisa dilakukan (lihat susunan acara),
+                dan statusnya ditulis sebagai teks. */}
+            <div className="rise-in mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center" style={HERO_DELAY(3)}>
               {event.registration_enabled ? (
-                <Link href={daftarUrl} className={`${PIL_INK} justify-center`}>
-                  {ctaLabel}
-                </Link>
+                <>
+                  <Link href={daftarUrl} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
+                    {ctaLabel}
+                  </Link>
+                  {tampil("agenda") ? (
+                    <a href="#agenda" className={`${PIL_INK_GARIS} justify-center`}>
+                      Lihat susunan acara
+                    </a>
+                  ) : null}
+                </>
               ) : (
-                <span className={`${CHIP_INK} min-h-[52px] justify-center px-5 text-title-medium font-medium`}>Pendaftaran belum dibuka</span>
+                <>
+                  <a href={aksiTertutup.href} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
+                    {aksiTertutup.label}
+                  </a>
+                  <p className="text-body-large opacity-90">Pendaftaran dibuka segera.</p>
+                </>
               )}
-              {tampil("agenda") ? (
-                <a href="#agenda" className={`${PIL_INK_GARIS} justify-center`}>
-                  Lihat susunan acara
-                </a>
-              ) : null}
             </div>
           </div>
         </div>
       </header>
+
+      {/* Jangkar tombol "Pelajari acaranya" saat pendaftaran tertutup. */}
+      <div id="isi-acara" aria-hidden className="scroll-mt-16" />
 
       {sections
         .filter((section) => section.enabled)
@@ -619,7 +685,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
           if (isLandingBlockId(section.id)) {
             const block = blokById.get(section.id);
             return block ? (
-              <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled ? daftarUrl : null} daftarLabel={ctaLabel} />
+              <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled ? daftarUrl : null} daftarLabel={ctaLabel} jangkar={jangkar} />
             ) : null;
           }
           const konten = bawaan[section.id];
@@ -694,7 +760,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
               {tautanAcara.length > 0 ? (
                 <KolomKaki judul="Acara" tautan={tautanAcara.map((item) => ({ label: item.label, href: `#${item.id}` }))} />
               ) : null}
-              {tautanTamu.length > 0 ? <KolomKaki judul="Tamu" tautan={tautanTamu} /> : null}
+              {tautanTamu.length > 0 ? <KolomKaki judul="Peserta" tautan={tautanTamu} /> : null}
               {kontak.length > 0 ? <KolomKaki judul="Kontak panitia" tautan={kontak} /> : null}
             </div>
           </div>
