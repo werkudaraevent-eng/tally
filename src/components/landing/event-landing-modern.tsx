@@ -10,7 +10,7 @@ import type {
   LandingSectionId,
 } from "@/lib/domain";
 import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
-import { heroCtaColors, modernThemeStyle } from "@/lib/registration-theme-css";
+import { heroCtaColors, modernNavStyle, modernThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
@@ -279,7 +279,18 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
     ? { href: "#agenda", label: "Lihat susunan acara" }
     : { href: "#isi-acara", label: "Pelajari acaranya" };
   const ctaKv = { "--cta-bg": cta.bg, "--cta-fg": cta.fg } as CSSProperties;
-  const mainStyle = { ...theme, ...modernThemeStyle(config.theme?.seed), "--landing-heading": headingFont.cssVar } as CSSProperties;
+  // Variabel bilah atas dipasang di <main>, bukan di <nav>: hero juga
+  // membacanya (`--nav-h` untuk margin negatifnya).
+  const navStyle = modernNavStyle(
+    config.nav,
+    kv ? { ink: "#ffffff", onInk: "#181d27" } : { ink: "var(--reg-on-brand)", onInk: "var(--reg-brand)" },
+  );
+  const mainStyle = {
+    ...theme,
+    ...modernThemeStyle(config.theme?.seed),
+    ...navStyle,
+    "--landing-heading": headingFont.cssVar,
+  } as CSSProperties;
 
   // Tertonjol lebih dulu; urutan admin dipertahankan di dalam tiap kelompok.
   const urutPembicara = [...speakers.filter((s) => s.featured), ...speakers.filter((s) => !s.featured)];
@@ -578,14 +589,18 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         registrationOpen={event.registration_enabled}
         memberLink={memberLink}
         sections={navSections}
+        width={config.nav?.width ?? "full"}
+        logoUrl={config.nav?.logo_url ?? null}
       />
 
       {/* ---- Hero ---------------------------------------------------------
-          Ditarik ke bawah bilah nav (margin negatif setinggi nav) supaya KV
+          Ditarik ke bawah bilah nav (margin negatif setinggi nav, `--nav-h`
+          dari modernNavStyle) supaya KV
           mulai dari tepi atas layar, seperti di rancangan. */}
       <header
         data-bagian="pembuka"
-        className={`relative isolate -mt-16 overflow-hidden ${kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
+        data-landing-hero
+        className={`relative isolate -mt-[var(--nav-h)] overflow-hidden ${kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
         style={tinta(Boolean(kv))}
       >
         {kv ? <Kv src={kv} scrim={KV_SCRIM} /> : null}

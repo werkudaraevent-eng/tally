@@ -616,6 +616,36 @@ export const LANDING_MEMBER_AUDIENCE_LABELS: Record<LandingMemberAudience, strin
   all: "Semua peserta di Daftar peserta",
 };
 
+/**
+ * Bilah atas tata letak Modern. Semua opsional; yang kosong memakai
+ * LANDING_NAV_DEFAULTS (bilah hitam 72%, selebar layar, 64px), tampilan
+ * sebelum pengaturan ini ada.
+ */
+export type LandingNavConfig = {
+  /** Warna bilah, hex 6 digit. */
+  color?: string;
+  /** Ketidaktembusan 0-100 (%). 0 = bening, 100 = pekat. */
+  opacity?: number;
+  /** `full` = selebar layar; `content` = selebar isi halaman, sudut membulat. */
+  width?: LandingNavWidth;
+  /** Tinggi bilah dalam px. */
+  height?: number;
+  /** Logo acara di pojok kiri, menggantikan nama acara. Kosong = nama acara. */
+  logo_url?: string | null;
+};
+
+export type LandingNavWidth = "full" | "content";
+
+export const LANDING_NAV_WIDTH_LABELS: Record<LandingNavWidth, string> = {
+  full: "Selebar layar",
+  content: "Selebar isi",
+};
+
+export const LANDING_NAV_DEFAULTS = { color: "#121212", opacity: 72, width: "full", height: 64 } as const;
+/** Batas tinggi bilah. Di bawah 48px tombol Masuk/Daftar tidak muat (target sentuh 44px). */
+export const LANDING_NAV_HEIGHT_MIN = 48;
+export const LANDING_NAV_HEIGHT_MAX = 120;
+
 export type EventLandingConfig = {
   /** Bawaan `editorial`. */
   layout?: LandingLayout;
@@ -625,6 +655,8 @@ export type EventLandingConfig = {
    * dan tidak selalu cocok tampil di hero. Kosong = pakai `events.name`.
    */
   public_name?: string;
+  /** Bilah atas tata letak Modern: warna, transparansi, lebar, tinggi. */
+  nav?: LandingNavConfig;
   // ---- Teks tambahan tata letak Modern --------------------------------------
   // Semuanya opsional; yang kosong jatuh ke judul bawaan atau tidak dirender
   // sama sekali, tidak pernah ke teks contoh.
