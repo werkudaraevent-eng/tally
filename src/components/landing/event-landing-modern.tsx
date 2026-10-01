@@ -72,19 +72,23 @@ const NAV_LABEL = {
 
 /**
  * Tinggi minimum hero, termasuk bilah nav yang menumpang di atasnya. Patokan
- * `tall` = 850px, tinggi hero di rancangan.
+ * `tall` = 850px, tinggi hero di rancangan, tapi tidak pernah lebih dari
+ * tinggi layar: tombol daftar harus terlihat tanpa menggulir.
  */
 const HERO_HEIGHT: Record<LandingHeroHeight, string> = {
-  compact: "min-h-[480px] lg:min-h-[600px]",
-  standard: "min-h-[560px] sm:min-h-[640px] lg:min-h-[760px]",
-  tall: "min-h-[620px] sm:min-h-[720px] lg:min-h-[850px]",
+  compact: "min-h-[480px] lg:min-h-[min(600px,100svh)]",
+  standard: "min-h-[560px] sm:min-h-[min(640px,100svh)] lg:min-h-[min(760px,100svh)]",
+  tall: "min-h-[620px] sm:min-h-[min(720px,100svh)] lg:min-h-[min(850px,100svh)]",
 };
 
-/** Ukuran nama acara. `lg` = 72px, ukuran di rancangan. */
+/**
+ * Ukuran nama acara. Paling besar 72px: di atas itu nama acara yang panjang
+ * memakan dua baris dan mendorong tombol ke bawah lipatan layar.
+ */
 const HEADING_SCALE: Record<LandingHeadingScale, string> = {
-  md: "text-[40px] sm:text-[52px] lg:text-[64px]",
-  lg: "text-[44px] sm:text-[60px] lg:text-[72px]",
-  xl: "text-[48px] sm:text-[72px] lg:text-[96px]",
+  md: "text-[36px] sm:text-[44px] lg:text-[52px]",
+  lg: "text-[40px] sm:text-[52px] lg:text-[64px]",
+  xl: "text-[44px] sm:text-[60px] lg:text-[72px]",
 };
 
 /**
@@ -188,16 +192,33 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   // perlu kartu: susunan acara di bawahnya sudah mengatakan hal yang sama.
   const tampilProgram = tampil("agenda") && agenda.length >= 2 && !config.program_hidden;
 
-  const navSections = [
-    ...(tampilProgram ? [{ id: "program", label: NAV_LABEL.program }] : []),
-    ...(tampil("speakers") ? [{ id: "speakers", label: NAV_LABEL.speakers }] : []),
-    ...(tampil("agenda") ? [{ id: "agenda", label: NAV_LABEL.agenda }] : []),
-    ...(tampil("venue") ? [{ id: "venue", label: NAV_LABEL.venue }] : []),
-    ...(tampil("faq") ? [{ id: "faq", label: NAV_LABEL.faq }] : []),
-  ];
+  const blokById = new Map((config.blocks ?? []).map((block) => [block.id, block]));
+
+  // Menu atas mengikuti urutan halaman: bagian bawaan yang tampil, plus blok
+  // yang diberi label menu di CMS. Dibatasi enam supaya tetap satu baris.
+  const navSections: { id: string; label: string }[] = [];
+  const tambahNav = (id: string, label: string) => {
+    if (!navSections.some((item) => item.id === id)) navSections.push({ id, label });
+  };
+  sections
+    .filter((section) => section.enabled)
+    .forEach((section) => {
+      if (isLandingBlockId(section.id)) {
+        const block = blokById.get(section.id);
+        const label = block?.nav_label?.trim();
+        if (block && label && landingBlockHasContent(block)) tambahNav(block.id, label);
+        return;
+      }
+      // Kartu program menempel pada Tentang acara, atau pada Susunan acara bila
+      // Tentang acara tidak tampil (lihat `program` di bawah).
+      if (tampilProgram && (section.id === "about" ? tampil("about") : section.id === "agenda" && !tampil("about"))) {
+        tambahNav("program", NAV_LABEL.program);
+      }
+      if (section.id in NAV_LABEL && tampil(section.id)) tambahNav(section.id, NAV_LABEL[section.id as keyof typeof NAV_LABEL]);
+    });
+  navSections.splice(6);
 
   const kv = config.banner_url ?? null;
-  const blokById = new Map((config.blocks ?? []).map((block) => [block.id, block]));
   // Pita ajakan dari pustaka blok menggantikan banner ajakan bawaan, supaya
   // halaman tidak punya dua ajakan mendaftar yang sama berturut-turut.
   const adaBlokAjakan = sections.some((section) => {

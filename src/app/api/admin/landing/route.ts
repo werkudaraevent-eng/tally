@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { LANDING_HEADING_FONT_KEYS, landingBlockLimits, type LandingTextLimit, type RegistrationFormConfig } from "@/lib/domain";
+import { LANDING_HEADING_FONT_KEYS, LANDING_NAV_LABEL_MAX, landingBlockLimits, type LandingTextLimit, type RegistrationFormConfig } from "@/lib/domain";
 import { DEFAULT_REGISTRATION_SEED, withDerivedRoles } from "@/lib/registration-theme";
 
 // ---- Pustaka blok (lihat LandingBlock di domain.ts) ---------------------------
@@ -43,6 +43,7 @@ const blockSchema = z.object({
   fact_title: teks(60),
   fact_body: teks(120),
   source: teks(300),
+  nav_label: teks(LANDING_NAV_LABEL_MAX),
 }).superRefine((block, ctx) => {
   const batas = landingBlockLimits(block);
   const periksa = (nilai: string | undefined, limit: LandingTextLimit | undefined, path: (string | number)[]) => {

@@ -10,6 +10,7 @@ import {
   LANDING_BLOCK_LABELS,
   LANDING_BLOCK_LAYOUTS,
   LANDING_BLOCK_TONE_LABELS,
+  LANDING_NAV_LABEL_MAX,
   landingBlockLayout,
   landingBlockLimits,
   type LandingBlock,
@@ -222,7 +223,20 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
   );
   const alis = teks("eyebrow", "Label kecil", { optional: true, hint: "Satu sampai tiga kata di atas judul." });
   const judul = (label = "Judul", hint?: string) => teks("heading", label, { hint });
+  const menuAtas = (
+    <TextField
+      label="Label di menu atas"
+      optional
+      hint="Isi supaya blok ini muncul di menu atas pada layar lebar, mis. Tentang atau Program. Kosongkan bila tidak perlu."
+      maxLength={LANDING_NAV_LABEL_MAX}
+      counter
+      value={block.nav_label ?? ""}
+      onChange={(event) => ubah({ nav_label: event.target.value })}
+    />
+  );
   const latar = block.type === "cta" ? null : (
+    <>
+    {menuAtas}
     <div className="flex flex-col gap-1.5">
       <p className="text-body-medium font-medium text-on-surface">Latar</p>
       <SegmentedButton<LandingBlockTone>
@@ -232,6 +246,7 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
         options={(["light", "panel", "dark"] as const).map((tone) => ({ value: tone, label: LANDING_BLOCK_TONE_LABELS[tone] }))}
       />
     </div>
+    </>
   );
   const pilihanTataLetak = LANDING_BLOCK_LAYOUTS[block.type];
   const tataLetak = pilihanTataLetak && layout ? (

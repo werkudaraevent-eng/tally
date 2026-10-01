@@ -221,7 +221,12 @@ export type LandingBlock = {
   fact_body?: string;
   /** Sumber data di bawah Pita angka. Wajib bila ada angka. */
   source?: string;
+  /** Bila diisi, blok ini muncul di menu atas dengan label ini. */
+  nav_label?: string;
 };
+
+/** Panjang label menu atas: satu atau dua kata pendek, supaya menu muat satu baris. */
+export const LANDING_NAV_LABEL_MAX = 16;
 
 export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
   text_image: "Teks + gambar",
