@@ -2,11 +2,11 @@
 
 import { pesanGalatApi } from "@/lib/api-message";
 import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, DotsSixVertical, DownloadSimple, Info, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
   Banner, Button, ButtonLink, IconButton, MetaSeparator, PageLoading, PaneBody, PaneFooter, Pane, SegmentedButton,
-  StatusChip, SupportingPane, Switch, TextArea, TextField, WorkspaceHeader, WorkspacePage,
+  StatusChip, Switch, TextArea, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
@@ -263,6 +263,9 @@ export default function LandingCmsPage() {
   const sections: LandingSection[] = normalizeLandingSections(landing.sections, landing.blocks);
   const cuplikan = facts ? JSON.stringify({ facts, landing, formInherit, formSeed }) : null;
   const berubah = tersimpan !== null && cuplikan !== tersimpan;
+  // Draf untuk pratinjau langsung. Dibuat ulang hanya saat isinya berubah,
+  // supaya pratinjau tidak dirender ulang di setiap render CMS.
+  const drafPratinjau = useMemo(() => (cuplikan && facts ? isiKirim(facts) : null), [cuplikan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function patchFacts(patch: Partial<Facts>) {
     setFacts((current) => (current ? { ...current, ...patch } : current));
@@ -344,6 +347,29 @@ export default function LandingCmsPage() {
     setLanding({ ...landing, sections: next });
   }
 
+  /** Isi yang dikirim saat Simpan, dan yang dirender pratinjau langsung. */
+  function isiKirim(facts: Facts) {
+    return {
+      description: facts.description?.trim() || null,
+      tagline: facts.tagline?.trim() || null,
+      start_time: facts.start_time || null,
+      end_time: facts.end_time || null,
+      end_date: facts.end_date || null,
+      venue_name: facts.venue_name?.trim() || null,
+      venue_address: facts.venue_address?.trim() || null,
+      venue_map_url: facts.venue_map_url?.trim() || null,
+      landing: {
+        ...landing,
+        sections,
+        theme: { seed: landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
+        member: landing.member
+          ? { ...landing.member, feedback_url: landing.member.feedback_url?.trim() || null }
+          : undefined,
+      },
+      form_theme: { inherit: formInherit, seed: formSeed },
+    };
+  }
+
   async function save() {
     if (!facts) return;
     // Diperiksa di sini, bukan diserahkan ke server: server menolak baris kosong
@@ -403,25 +429,7 @@ export default function LandingCmsPage() {
     const response = await fetch(eventApiPath("/api/admin/landing"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        description: facts.description?.trim() || null,
-        tagline: facts.tagline?.trim() || null,
-        start_time: facts.start_time || null,
-        end_time: facts.end_time || null,
-        end_date: facts.end_date || null,
-        venue_name: facts.venue_name?.trim() || null,
-        venue_address: facts.venue_address?.trim() || null,
-        venue_map_url: facts.venue_map_url?.trim() || null,
-        landing: {
-          ...landing,
-          sections,
-          theme: { seed: landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
-          member: landing.member
-            ? { ...landing.member, feedback_url: landing.member.feedback_url?.trim() || null }
-            : undefined,
-        },
-        form_theme: { inherit: formInherit, seed: formSeed },
-      }),
+      body: JSON.stringify(isiKirim(facts)),
     }).catch(() => null);
     setBusy(false);
     if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return; }
@@ -1353,7 +1361,11 @@ export default function LandingCmsPage() {
   );
 
   return (
-    <WorkspacePage fill>
+    // Tidak memakai `fill`: pada layar pendek (laptop berskala 150%) `fill`
+    // melepas kunci tinggi dan halaman bergulir, sehingga tombol Simpan di kaki
+    // panel jatuh di bawah layar. Editor ini selalu setinggi layar; pratinjau
+    // dan panel setelan masing-masing bergulir sendiri.
+    <WorkspacePage className="lg:h-[calc(100dvh-var(--workspace-top,58px))] lg:overflow-hidden">
       <WorkspaceHeader
         meta={facts ? (
           <>
@@ -1381,7 +1393,12 @@ export default function LandingCmsPage() {
       {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
 
       {facts ? (
-        <SupportingPane main={<LandingPreview slug={facts.slug} reloadKey={previewKey} sorot={sorot} />} pane={panel} paneWidth={420} />
+        <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
+          <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0">
+            <LandingPreview slug={facts.slug} reloadKey={previewKey} sorot={sorot} draf={drafPratinjau} />
+          </div>
+          <div className="flex min-h-[70vh] w-full flex-col *:flex-1 lg:min-h-0 lg:w-[420px] lg:shrink-0">{panel}</div>
+        </div>
       ) : error ? null : <PageLoading />}
     </WorkspacePage>
   );

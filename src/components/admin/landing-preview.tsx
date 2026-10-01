@@ -13,11 +13,11 @@ import { IconButton, Pane, SegmentedButton } from "@/components/m3";
  * berbohong lebih buruk daripada tidak ada pratinjau: admin akan menekan Simpan
  * dengan yakin, lalu tamu melihat halaman yang lain.
  *
- * Konsekuensinya jujur dan disebutkan di layar: yang tampil adalah versi
- * TERSIMPAN. Menampilkan perubahan yang belum disimpan berarti mengirim seluruh
- * draf ke halaman publik lewat URL dan membuat halaman itu mau merendernya,
- * jalur yang sama persis dengan yang dipakai penyerang untuk menyuntikkan isi ke
- * halaman orang lain.
+ * Yang dimuat adalah `/e/<slug>/pratinjau`: halaman yang sama, tetapi hanya
+ * untuk admin, dan menerima draf yang belum disimpan dari layar ini lewat
+ * postMessage (bukan lewat URL), lalu merendernya ulang di server dengan
+ * komponen halaman publik yang sama. Halaman publik `/e/<slug>` sendiri tetap
+ * hanya membaca isi tersimpan.
  *
  * Iframe dirender pada lebar perangkat sungguhan (390 atau 1440) lalu
  * DIPERKECIL dengan transform. Menyempitkan iframe-nya sendiri akan memicu
@@ -53,11 +53,14 @@ export function LandingPreview({
   slug,
   reloadKey,
   sorot,
+  draf,
 }: {
   slug: string;
   reloadKey: number;
   /** Bagian yang dipilih di Susunan halaman: digulir ke sana dan diberi garis. */
   sorot?: { id: string; n: number } | null;
+  /** Isi CMS yang belum disimpan; dirender di pratinjau sambil mengetik. */
+  draf?: object | null;
 }) {
   const [device, setDevice] = useState<Device>("desktop");
   const [wadahUkuran, setWadahUkuran] = useState({ lebar: 0, tinggi: 0 });
@@ -65,10 +68,17 @@ export function LandingPreview({
   const wadah = useRef<HTMLDivElement | null>(null);
   const bingkai = useRef<HTMLIFrameElement | null>(null);
   const tersorot = useRef<HTMLElement | null>(null);
+  // null = pratinjau sejalan dengan draf; teks = alasan pratinjau tertinggal.
+  const [tertinggal, setTertinggal] = useState<string | null>(null);
+
+  const kirimDraf = useCallback(() => {
+    if (!draf) return;
+    bingkai.current?.contentWindow?.postMessage({ jenis: "tally-pratinjau-draf", draf }, window.location.origin);
+  }, [draf]);
 
   // Menyentuh DOM halaman di dalam iframe, bukan keadaan React: halaman itu
   // asal-yang-sama, dan garisnya hanya ada di pratinjau ini, tidak tersimpan.
-  const terapkanSorot = useCallback(() => {
+  const terapkanSorot = useCallback((gulir = true) => {
     const jendela = bingkai.current?.contentWindow;
     const doc = bingkai.current?.contentDocument;
     if (!jendela || !doc || !sorot) return;
@@ -81,11 +91,30 @@ export function LandingPreview({
     elemen.style.outlineOffset = "-3px";
     // scrollTo pada jendela iframe, bukan scrollIntoView: yang terakhir ikut
     // menggulir halaman CMS di luarnya.
+    if (!gulir) return;
     const atas = sorot.id === "pembuka" ? 0 : elemen.getBoundingClientRect().top + jendela.scrollY - BILAH_ATAS;
     jendela.scrollTo({ top: Math.max(0, atas), behavior: "smooth" });
   }, [sorot]);
 
   useEffect(() => { terapkanSorot(); }, [terapkanSorot]);
+
+  useEffect(() => { kirimDraf(); }, [kirimDraf]);
+
+  // Pesan dari halaman di dalam iframe: siap menerima draf (setelah dimuat),
+  // dan hasil render tiap draf.
+  useEffect(() => {
+    function terima(event: MessageEvent) {
+      if (event.origin !== window.location.origin || event.source !== bingkai.current?.contentWindow) return;
+      if (event.data?.jenis === "tally-pratinjau-siap") kirimDraf();
+      if (event.data?.jenis === "tally-pratinjau-hasil") {
+        setTertinggal(event.data.pesan ? String(event.data.pesan) : event.data.ok ? null : "Pratinjau belum diperbarui.");
+        // Halaman dirender ulang: pasang lagi garis sorot tanpa menggulir.
+        if (event.data.ok) window.requestAnimationFrame(() => terapkanSorot(false));
+      }
+    }
+    window.addEventListener("message", terima);
+    return () => window.removeEventListener("message", terima);
+  }, [kirimDraf, terapkanSorot]);
   const { width, height: tinggiPerangkat } = UKURAN[device];
   // Diukur dari panel, bukan jendela: panel utama menyempit saat panel setelan
   // di sebelahnya muncul, tanpa jendelanya berubah ukuran.
@@ -116,7 +145,9 @@ export function LandingPreview({
   return (
     <Pane aria-label="Pratinjau halaman acara">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant px-4 py-2.5">
-        <p className="min-w-0 flex-1 text-body-medium text-on-surface-variant">Pratinjau versi tersimpan</p>
+        <p className={`line-clamp-2 min-w-0 flex-1 ${tertinggal ? "text-body-small text-error" : "text-body-medium text-on-surface-variant"}`} role="status" title={tertinggal ?? undefined}>
+          {tertinggal ?? "Pratinjau langsung, belum disimpan"}
+        </p>
         <SegmentedButton<Device>
           label="Ukuran layar pratinjau"
           value={device}
@@ -143,8 +174,8 @@ export function LandingPreview({
             // menelusuri riwayat pratinjau alih-alih meninggalkan layar ini.
             key={`${reloadKey}-${nonce}`}
             ref={bingkai}
-            onLoad={terapkanSorot}
-            src={`/e/${slug}`}
+            onLoad={() => terapkanSorot()}
+            src={`/e/${slug}/pratinjau`}
             title="Pratinjau halaman acara"
             // Pratinjau tidak boleh ikut merekam riwayat maupun mengambil alih
             // halaman induk. Sandbox tetap mengizinkan skrip dan asal-yang-sama,

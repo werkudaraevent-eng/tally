@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
 import { getEventBySlugPublic } from "@/lib/auth/event-scope";
-import { normalizeLandingSections, publicEventName, type EventLandingConfig } from "@/lib/domain";
-import { registrationThemeStyle } from "@/lib/registration-theme-css";
+import { publicEventName, type EventLandingConfig } from "@/lib/domain";
 import { formatEventSchedule } from "@/lib/event-datetime";
-import { EventLanding } from "@/components/landing/event-landing";
-import { EventLandingModern } from "@/components/landing/event-landing-modern";
+import { renderLanding } from "@/components/landing/render-landing";
 
 /**
  * Landing page publik satu acara.
@@ -53,23 +51,5 @@ export default async function EventLandingPage({ params }: { params: Promise<{ s
   // lebih jujur daripada halaman acara yang sudah tidak berlaku.
   if (!event || event.status === "archived") notFound();
 
-  const config = (event.landing_config ?? {}) as EventLandingConfig;
-  const sections = normalizeLandingSections(config.sections, config.blocks);
-  const theme = registrationThemeStyle(config.theme);
-
-  // Dua tata letak, satu sumber data. Editorial tetap bawaan: acara yang tidak
-  // pernah memilih tidak berubah tampilannya karena pembaruan ini.
-  if (config.layout === "modern") {
-    return <EventLandingModern event={event} config={config} sections={sections} theme={theme} />;
-  }
-
-  return (
-    <EventLanding
-      event={event}
-      config={config}
-      sections={sections}
-      theme={theme}
-      schedule={formatEventSchedule(event)}
-    />
-  );
+  return renderLanding(event);
 }
