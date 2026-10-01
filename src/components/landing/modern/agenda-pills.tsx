@@ -88,22 +88,25 @@ export function AgendaPills({ agenda }: { agenda: AgendaPreview[] }) {
         {blok?.items.map((item, index) => (
           <li
             key={`${item.time}-${item.title}-${index}`}
-            className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-5 border-t border-[var(--reg-outline-variant)] py-5 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-x-8 sm:py-6"
+            className="grid grid-cols-[4rem_minmax(0,1fr)] gap-x-5 border-t border-[var(--reg-outline-variant)] py-5 sm:grid-cols-[5rem_minmax(0,1fr)] sm:gap-x-8"
           >
             <span className="flex flex-col gap-0.5">
-              <span className="text-[22px] font-semibold leading-[1.25] tracking-[-0.02em] tabular-nums [font-family:var(--landing-heading)] sm:text-[26px]">
+              {/* Ukuran baris rundown setara teks isi (18/17/15px), bukan judul:
+                  daftar untuk dipindai, dan jam 26px + judul 22px bersaing
+                  dengan judul bagian dan terlihat lebih besar dari menu. */}
+              <span className="text-[17px] font-semibold leading-[1.4] tabular-nums sm:text-[18px]">
                 {item.time}
               </span>
               {item.end && item.end !== item.time ? (
-                <span className="text-body-small tabular-nums text-[var(--reg-on-surface-variant)]">s.d. {item.end}</span>
+                <span className="text-body-medium tabular-nums text-[var(--reg-on-surface-variant)]">s.d. {item.end}</span>
               ) : null}
             </span>
-            <div className="min-w-0 sm:pt-0.5">
-              <p className="text-title-medium font-semibold leading-[1.4] sm:text-title-large">{item.title}</p>
+            <div className="min-w-0">
+              <p className="text-[17px] font-semibold leading-[1.4] sm:text-[18px]">{item.title}</p>
               {item.subtitle ? (
                 // pre-line: satu sesi bisa punya beberapa pilihan, satu per baris
                 // (mis. tiga kelompok diskusi di jam yang sama).
-                <p className="mt-1.5 whitespace-pre-line text-body-large text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
+                <p className="mt-1 whitespace-pre-line text-[15px] leading-[1.55] text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
               ) : null}
             </div>
           </li>
