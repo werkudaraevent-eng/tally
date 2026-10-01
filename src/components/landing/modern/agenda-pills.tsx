@@ -15,6 +15,8 @@ import { rentangAkhir } from "@/lib/landing-agenda-range";
  * punya satu bagian. Berkas terpisah karena bentuk tab dan barisnya berbeda
  * seluruhnya; satu komponen dengan dua gaya akan membuat keduanya sulit diubah.
  */
+const JEDA = /\b(registrasi|daftar ulang|makan siang|makan pagi|ishoma|istirahat|rehat|coffee break|rehat kopi|penutupan|registration|lunch|break|closing)\b/i;
+
 export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]; speakers?: LandingSpeaker[] }) {
   const [aktif, setAktif] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -89,10 +91,11 @@ export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]
       >
         {blok?.items.map((item, index) => {
           const orang = pembicaraSesi(speakers, item.title);
-          // Jeda (registrasi, makan siang): tanpa keterangan dan tanpa
-          // pembicara. Ditulis tenang supaya sesi inti menonjol sendiri dan
-          // rundown terbaca sebagai alur acara, bukan daftar rata.
-          const jeda = !item.subtitle && orang.length === 0;
+          // Jeda (registrasi, makan siang, penutupan) ditulis tenang supaya
+          // sesi inti menonjol sendiri dan rundown terbaca sebagai alur acara.
+          // Dikenali dari kata kuncinya, bukan dari keterangan yang kosong:
+          // sesi inti tanpa keterangan tetap tampil sebagai sesi inti.
+          const jeda = orang.length === 0 && JEDA.test(item.title);
           return (
             // Hierarki M3 lewat peran warna, satu penekanan per baris: judul
             // on-surface 16px/600; jam sesi inti satu-satunya aksen warna.
