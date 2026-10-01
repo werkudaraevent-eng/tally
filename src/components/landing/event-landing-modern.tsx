@@ -9,7 +9,7 @@ import type {
   LandingSection,
   LandingSectionId,
 } from "@/lib/domain";
-import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, publicEventName } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
 import { modernThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
@@ -19,6 +19,8 @@ import { timeZoneAbbr } from "@/lib/timezone";
 import { AgendaPills } from "./modern/agenda-pills";
 import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerGrid } from "./modern/speaker-grid";
+import { HEAD, JUDUL, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
+import { LandingBlockView } from "./modern/landing-blocks";
 
 /**
  * Landing page publik acara, tata letak Modern (`landing_config.layout`).
@@ -29,9 +31,9 @@ import { SpeakerGrid } from "./modern/speaker-grid";
  *
  * ---- Beda dengan Editorial ------------------------------------------------
  *
- * - Urutan bagian TETAP, mengikuti rancangan: mitra, tentang, program,
- *   pembicara, susunan acara, lokasi, FAQ, banner ajakan, kaki. Saklar
- *   tampil/sembunyi dari CMS tetap berlaku; urutannya tidak.
+ * - Urutan bagian mengikuti susunan di CMS, termasuk blok dari pustaka blok
+ *   (modern/landing-blocks.tsx). Hero selalu pertama; banner ajakan dan kaki
+ *   selalu terakhir. Program menempel pada Tentang acara.
  * - Hero selalu KV warna asli dengan bayangan gelap. Tanpa KV, hero adalah
  *   bidang warna primary dengan teks on-primary.
  * - Tombol `rounded-md` (DESIGN.md), chip fakta pil, kartu `rounded-lg`.
@@ -54,22 +56,9 @@ type Props = {
   theme: CSSProperties;
 };
 
-/** Grid halaman: 1440, pinggir 80px di layar lebar seperti rancangan. */
-const SHELL = "mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-10 xl:px-20";
-const MUTED = "text-[var(--reg-on-surface-variant)]";
-const HEAD = "[font-family:var(--landing-heading)]";
-/** Judul bagian: 48px di layar lebar, 32px di ponsel. */
-const JUDUL = `${HEAD} text-balance text-[32px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[48px] sm:leading-[1.25]`;
-const SECTION = "scroll-mt-24 py-16 sm:py-24";
+/** Label kecil di atas judul bagian, sama dengan blok dari pustaka blok. */
+const ALIS = "text-title-small font-semibold text-[var(--reg-primary)]";
 
-/**
- * Tombol. Tinggi 52px dan `rounded-md`, sama dengan tombol hero Editorial
- * (DESIGN.md). Pil hanya untuk chip fakta, supaya tidak semua elemen berbentuk
- * pil (antislop R-11).
- */
-const PIL = "m3-state inline-flex min-h-[52px] items-center gap-2 rounded-md px-5 text-title-medium";
-const PIL_PENUH = `${PIL} bg-[var(--reg-primary)] font-semibold text-[var(--reg-on-primary)]`;
-const PIL_GARIS = `${PIL} border border-[var(--reg-on-surface)] font-medium text-[var(--reg-on-surface)]`;
 const STATE_ON_PRIMARY = { "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties;
 
 /** Label jangkar nav, sesuai rancangan (lebih pendek dari label CMS). */
@@ -83,19 +72,26 @@ const NAV_LABEL = {
 
 /**
  * Tinggi minimum hero, termasuk bilah nav yang menumpang di atasnya. Patokan
- * `tall` = 850px, tinggi hero di rancangan.
+ * `tall` = 850px, tinggi hero di rancangan, tapi tidak pernah lebih dari
+ * tinggi layar: tombol daftar harus terlihat tanpa menggulir.
  */
 const HERO_HEIGHT: Record<LandingHeroHeight, string> = {
-  compact: "min-h-[480px] lg:min-h-[600px]",
-  standard: "min-h-[560px] sm:min-h-[640px] lg:min-h-[760px]",
-  tall: "min-h-[620px] sm:min-h-[720px] lg:min-h-[850px]",
+  compact: "min-h-[480px] lg:min-h-[min(600px,100svh)]",
+  standard: "min-h-[560px] sm:min-h-[min(640px,100svh)] lg:min-h-[min(760px,100svh)]",
+  tall: "min-h-[620px] sm:min-h-[min(720px,100svh)] lg:min-h-[min(850px,100svh)]",
 };
 
-/** Ukuran nama acara. `lg` = 72px, ukuran di rancangan. */
+/** Tinggi hero dari angka di CMS (`--hero-h`), ponsel 75% darinya, tidak pernah melebihi layar. */
+const HERO_HEIGHT_ANGKA = "min-h-[min(calc(var(--hero-h)*0.75),100svh)] lg:min-h-[min(var(--hero-h),100svh)]";
+
+/**
+ * Ukuran nama acara. Paling besar 72px: di atas itu nama acara yang panjang
+ * memakan dua baris dan mendorong tombol ke bawah lipatan layar.
+ */
 const HEADING_SCALE: Record<LandingHeadingScale, string> = {
-  md: "text-[40px] sm:text-[52px] lg:text-[64px]",
-  lg: "text-[44px] sm:text-[60px] lg:text-[72px]",
-  xl: "text-[48px] sm:text-[72px] lg:text-[96px]",
+  md: "text-[36px] sm:text-[44px] lg:text-[52px]",
+  lg: "text-[40px] sm:text-[52px] lg:text-[64px]",
+  xl: "text-[44px] sm:text-[60px] lg:text-[72px]",
 };
 
 /**
@@ -142,6 +138,8 @@ const CHIP =
  * `tinta` untuk pasangannya.
  */
 const PIL_INK = `${PIL} bg-[var(--ink)] font-semibold text-[var(--ink-accent)]`;
+/** Tombol kedua di atas bidang bergambar: garis `--ink`, tanpa isi. */
+const PIL_INK_GARIS = `${PIL} border border-[color-mix(in_srgb,var(--ink)_60%,transparent)] font-semibold text-[var(--ink)]`;
 
 function Kv({ src, scrim }: { src: string; scrim: string }) {
   return (
@@ -195,17 +193,41 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   const tampil = (id: LandingSectionId) => aktif.has(id) && isi[id];
   // Program = bagian-bagian rundown sebagai kartu. Satu bagian saja tidak
   // perlu kartu: susunan acara di bawahnya sudah mengatakan hal yang sama.
-  const tampilProgram = tampil("agenda") && agenda.length >= 2;
+  const tampilProgram = tampil("agenda") && agenda.length >= 2 && !config.program_hidden;
 
-  const navSections = [
-    ...(tampilProgram ? [{ id: "program", label: NAV_LABEL.program }] : []),
-    ...(tampil("speakers") ? [{ id: "speakers", label: NAV_LABEL.speakers }] : []),
-    ...(tampil("agenda") ? [{ id: "agenda", label: NAV_LABEL.agenda }] : []),
-    ...(tampil("venue") ? [{ id: "venue", label: NAV_LABEL.venue }] : []),
-    ...(tampil("faq") ? [{ id: "faq", label: NAV_LABEL.faq }] : []),
-  ];
+  const blokById = new Map((config.blocks ?? []).map((block) => [block.id, block]));
+
+  // Menu atas mengikuti urutan halaman: bagian bawaan yang tampil, plus blok
+  // yang diberi label menu di CMS. Dibatasi enam supaya tetap satu baris.
+  const navSections: { id: string; label: string }[] = [];
+  const tambahNav = (id: string, label: string) => {
+    if (!navSections.some((item) => item.id === id)) navSections.push({ id, label });
+  };
+  sections
+    .filter((section) => section.enabled)
+    .forEach((section) => {
+      if (isLandingBlockId(section.id)) {
+        const block = blokById.get(section.id);
+        const label = block?.nav_label?.trim();
+        if (block && label && landingBlockHasContent(block)) tambahNav(block.id, label);
+        return;
+      }
+      // Kartu program menempel pada Tentang acara, atau pada Susunan acara bila
+      // Tentang acara tidak tampil (lihat `program` di bawah).
+      if (tampilProgram && (section.id === "about" ? tampil("about") : section.id === "agenda" && !tampil("about"))) {
+        tambahNav("program", NAV_LABEL.program);
+      }
+      if (section.id in NAV_LABEL && tampil(section.id)) tambahNav(section.id, NAV_LABEL[section.id as keyof typeof NAV_LABEL]);
+    });
+  navSections.splice(6);
 
   const kv = config.banner_url ?? null;
+  // Pita ajakan dari pustaka blok menggantikan banner ajakan bawaan, supaya
+  // halaman tidak punya dua ajakan mendaftar yang sama berturut-turut.
+  const adaBlokAjakan = sections.some((section) => {
+    const block = section.enabled && isLandingBlockId(section.id) ? blokById.get(section.id) : undefined;
+    return block?.type === "cta" && landingBlockHasContent(block);
+  });
   const nama = publicEventName(event);
   const tanggal = formatEventDate(event);
   const jam = formatEventTime(event);
@@ -247,75 +269,53 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   ];
   const tautanAcara = navSections.filter((section) => section.id !== "faq");
 
-  return (
-    <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={mainStyle}>
-      <LandingNavModern
-        eventName={nama}
-        daftarUrl={daftarUrl}
-        registrationOpen={event.registration_enabled}
-        memberLink={memberLink}
-        sections={navSections}
-      />
-
-      {/* ---- Hero ---------------------------------------------------------
-          Ditarik ke bawah bilah nav (margin negatif setinggi nav) supaya KV
-          mulai dari tepi atas layar, seperti di rancangan. */}
-      <header
-        className={`relative isolate -mt-16 overflow-hidden ${kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
-        style={tinta(Boolean(kv))}
-      >
-        {kv ? <Kv src={kv} scrim={KV_SCRIM} /> : null}
-        <div
-          className={`${SHELL} flex flex-col pb-12 text-[var(--ink)] sm:pb-16 lg:pb-20 ${
-            // Dengan KV, judul berdiri di bawah supaya gambarnya terlihat.
-            // Tanpa KV tidak ada yang perlu diperlihatkan di atas judul, jadi
-            // judul di tengah bidang warna, bukan jatuh ke dasar hero.
-            kv ? "justify-end pt-32" : "justify-center pt-28"
-          } ${
-            HERO_HEIGHT[config.hero_height ?? "standard"]
-          }`}
-        >
-          <div className="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
-            <div className="flex min-w-0 max-w-[760px] flex-col gap-6 sm:gap-8">
-              {fakta.length > 0 ? (
-                <ul className="rise-in flex flex-wrap gap-2" style={HERO_DELAY(0)}>
-                  {fakta.map((item) => (
-                    <li key={item} className={`${CHIP_INK} tabular-nums`}>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              <h1
-                className={`rise-in text-balance font-semibold leading-[1.1] tracking-[-0.03em] ${HEAD} ${
-                  HEADING_SCALE[config.heading_scale ?? "lg"]
-                }`}
-                style={HERO_DELAY(1)}
-              >
-                {nama}
-              </h1>
-              {event.tagline ? (
-                <p className="rise-in max-w-[628px] text-body-large opacity-90" style={HERO_DELAY(2)}>
-                  {event.tagline}
-                </p>
+  // Bagian bawaan, dirender menurut susunan dari CMS bersama blok dari pustaka
+  // blok. Program (kartu dari bagian rundown) menempel pada Tentang acara, atau
+  // pada Susunan acara bila Tentang acara tidak tampil.
+  const program = (
+    <>
+        {/* ---- Program ------------------------------------------------------ */}
+        {tampilProgram ? (
+          <Section id="program">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
+              <h2 className={`${JUDUL} max-w-[640px] whitespace-pre-line`}>{config.program_heading?.trim() || "Program"}</h2>
+              {config.program_intro?.trim() ? (
+                <p className={`max-w-[520px] text-body-large ${MUTED}`}>{config.program_intro.trim()}</p>
               ) : null}
             </div>
-
-            <div className="rise-in shrink-0" style={HERO_DELAY(3)}>
-              {/* Tombol daftar hanya saat pendaftaran terbuka; lihat Editorial. */}
-              {event.registration_enabled ? (
-                <Link href={daftarUrl} className={PIL_INK}>
-                  {ctaLabel}
-                </Link>
-              ) : (
-                <span className={`${CHIP_INK} min-h-[52px] px-5 text-title-medium font-medium`}>Pendaftaran belum dibuka</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className={SHELL}>
+            <ul className="mt-10 grid gap-4 sm:mt-14 sm:gap-6 md:grid-cols-2">
+              {agenda.map((bagian, index) => {
+                const awal = bagian.items[0]?.time;
+                const akhir = rentangAkhir(bagian);
+                const catatan = config.program_notes?.[index]?.trim();
+                return (
+                  <li
+                    key={bagian.sectionTitle ?? index}
+                    className="flex flex-col gap-5 rounded-md bg-[var(--reg-panel)] p-6 sm:p-10"
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      {awal ? (
+                        <span className={CHIP}>
+                          {akhir && akhir !== awal ? `${awal} – ${akhir}` : awal} {zona}
+                        </span>
+                      ) : null}
+                      <span className={CHIP}>{bagian.items.length} sesi</span>
+                    </div>
+                    <h3 className="text-balance text-headline-medium font-medium">
+                      {bagian.sectionTitle || `Bagian ${index + 1}`}
+                    </h3>
+                    {catatan ? <p className={`whitespace-pre-line text-body-large ${MUTED}`}>{catatan}</p> : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+        ) : null}
+    </>
+  );
+  const bawaan: Partial<Record<LandingSectionId, ReactNode>> = {
+    about: (
+      <>
         {/* ---- Sekilas acara ------------------------------------------------ */}
         {tampil("about") ? (
           <Section id="about">
@@ -361,71 +361,58 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
             </div>
           </Section>
         ) : null}
-
-        {/* ---- Program ------------------------------------------------------ */}
-        {tampilProgram ? (
-          <Section id="program">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
-              <h2 className={`${JUDUL} max-w-[640px] whitespace-pre-line`}>{config.program_heading?.trim() || "Program"}</h2>
-              {config.program_intro?.trim() ? (
-                <p className={`max-w-[520px] text-body-large ${MUTED}`}>{config.program_intro.trim()}</p>
-              ) : null}
+        {tampil("about") ? program : null}
+      </>
+    ),
+    agenda: (
+      <>
+        {tampil("about") ? null : program}
+        {/* ---- Susunan acara ------------------------------------------------ */}
+        {tampil("agenda") ? (
+          <Section id="agenda">
+            {/* Rancangan FHF: tanggal dan catatan di kiri, baris sesi di kanan. */}
+            <div className="grid gap-10 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:gap-20">
+              <div className="flex flex-col items-start gap-5 lg:sticky lg:top-28 lg:self-start">
+                <p className={ALIS}>{LANDING_SECTION_LABELS.agenda}</p>
+                <h2 className={JUDUL}>
+                  {/* Nama hari di baris sendiri: "Kamis, 15 / Oktober 2026" memisahkan tanggal dari bulannya. */}
+                  {tanggal && /^[^,]+, /.test(tanggal) ? (
+                    <>
+                      <span className="block">{tanggal.slice(0, tanggal.indexOf(",") + 1)}</span>
+                      {tanggal.slice(tanggal.indexOf(",") + 2)}
+                    </>
+                  ) : (tanggal ?? LANDING_SECTION_LABELS.agenda)}
+                </h2>
+                {config.agenda_note?.trim() ? <p className={`text-body-large leading-[1.6] ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
+                <Link href={`/e/${event.slug}/rundown`} className={`${PIL_GARIS} mt-2`}>
+                  Susunan lengkap
+                </Link>
+              </div>
+              <AgendaPills agenda={agenda} />
             </div>
-            <ul className="mt-10 grid gap-4 sm:mt-14 sm:gap-6 md:grid-cols-2">
-              {agenda.map((bagian, index) => {
-                const awal = bagian.items[0]?.time;
-                const akhir = rentangAkhir(bagian);
-                const catatan = config.program_notes?.[index]?.trim();
-                return (
-                  <li
-                    key={bagian.sectionTitle ?? index}
-                    className="flex flex-col gap-5 rounded-md bg-[var(--reg-panel)] p-6 sm:p-10"
-                  >
-                    <div className="flex flex-wrap gap-2">
-                      {awal ? (
-                        <span className={CHIP}>
-                          {akhir && akhir !== awal ? `${awal} – ${akhir}` : awal} {zona}
-                        </span>
-                      ) : null}
-                      <span className={CHIP}>{bagian.items.length} sesi</span>
-                    </div>
-                    <h3 className="text-balance text-headline-medium font-medium">
-                      {bagian.sectionTitle || `Bagian ${index + 1}`}
-                    </h3>
-                    {catatan ? <p className={`whitespace-pre-line text-body-large ${MUTED}`}>{catatan}</p> : null}
-                  </li>
-                );
-              })}
-            </ul>
           </Section>
         ) : null}
-
+      </>
+    ),
+    speakers: (
+      <>
         {/* ---- Pembicara ---------------------------------------------------- */}
         {tampil("speakers") ? (
           <Section id="speakers">
             <SpeakerGrid speakers={urutPembicara} heading={LANDING_SECTION_LABELS.speakers} headingClassName={JUDUL} />
           </Section>
         ) : null}
-
-        {/* ---- Susunan acara ------------------------------------------------ */}
-        {tampil("agenda") ? (
-          <Section id="agenda">
-            <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
-              <h2 className={JUDUL}>{LANDING_SECTION_LABELS.agenda}</h2>
-              <Link href={`/e/${event.slug}/rundown`} className={PIL_GARIS}>
-                Susunan lengkap
-              </Link>
-            </div>
-            <AgendaPills agenda={agenda} />
-          </Section>
-        ) : null}
-
+      </>
+    ),
+    venue: (
+      <>
         {/* ---- Lokasi ------------------------------------------------------- */}
         {tampil("venue") ? (
           <Section id="venue">
             <div className={`grid items-center gap-10 lg:gap-20 ${event.venue_map_url ? "lg:grid-cols-2" : ""}`}>
               <div className="flex max-w-[572px] flex-col items-start gap-8 sm:gap-10">
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-5">
+                  {venue ? <p className={ALIS}>{LANDING_SECTION_LABELS.venue}</p> : null}
                   <h2 className={JUDUL}>{venue ?? LANDING_SECTION_LABELS.venue}</h2>
                   {event.venue_address ? (
                     <p className={`whitespace-pre-line text-body-large ${MUTED}`}>{event.venue_address}</p>
@@ -485,12 +472,16 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
             </div>
           </Section>
         ) : null}
-
+      </>
+    ),
+    faq: (
+      <>
         {/* ---- FAQ ---------------------------------------------------------- */}
         {tampil("faq") ? (
           <Section id="faq">
             <div className="grid gap-10 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-20">
-              <div className="flex flex-col gap-6 lg:sticky lg:top-32 lg:self-start">
+              <div className="flex flex-col gap-5 lg:sticky lg:top-32 lg:self-start">
+                <p className={ALIS}>{LANDING_SECTION_LABELS.faq}</p>
                 <h2 className={JUDUL}>Sebelum Anda datang</h2>
                 <p className={`text-body-large ${MUTED}`}>
                   Pertanyaan yang paling sering ditanyakan tamu.
@@ -514,7 +505,10 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
             </div>
           </Section>
         ) : null}
-
+      </>
+    ),
+    sponsors: (
+      <>
         {/* ---- Didukung oleh ------------------------------------------------ */}
         {/* Mitra di bawah FAQ, bukan tepat di bawah hero: logo di situ terbaca
             sebagai bilah "Trusted by" templat (antislop R-05). */}
@@ -540,9 +534,105 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
             </ul>
           </section>
         ) : null}
+      </>
+    ),
+  };
 
+  return (
+    <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={mainStyle}>
+      <LandingNavModern
+        eventName={nama}
+        daftarUrl={daftarUrl}
+        registrationOpen={event.registration_enabled}
+        memberLink={memberLink}
+        sections={navSections}
+      />
+
+      {/* ---- Hero ---------------------------------------------------------
+          Ditarik ke bawah bilah nav (margin negatif setinggi nav) supaya KV
+          mulai dari tepi atas layar, seperti di rancangan. */}
+      <header
+        data-bagian="pembuka"
+        className={`relative isolate -mt-16 overflow-hidden ${kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
+        style={tinta(Boolean(kv))}
+      >
+        {kv ? <Kv src={kv} scrim={KV_SCRIM} /> : null}
+        <div
+          style={config.hero_min_height ? ({ "--hero-h": `${config.hero_min_height}px` } as CSSProperties) : undefined}
+          className={`${SHELL} flex flex-col pb-12 text-[var(--ink)] sm:pb-16 lg:pb-20 ${
+            // Dengan KV, judul berdiri di bawah supaya gambarnya terlihat.
+            // Tanpa KV tidak ada yang perlu diperlihatkan di atas judul, jadi
+            // judul di tengah bidang warna, bukan jatuh ke dasar hero.
+            kv ? "justify-end pt-32" : "justify-center pt-28"
+          } ${
+            config.hero_min_height ? HERO_HEIGHT_ANGKA : HERO_HEIGHT[config.hero_height ?? "standard"]
+          }`}
+        >
+          {/* Rancangan FHF: chip, nama, subjudul, lalu tombol di bawahnya, semua
+              rata kiri. Tombol tidak lagi di kanan: di layar lebar ia jauh dari
+              mata yang baru selesai membaca nama acara. */}
+          <div className="flex min-w-0 max-w-[1040px] flex-col gap-6 sm:gap-8">
+            {fakta.length > 0 ? (
+              <ul className="rise-in flex flex-wrap gap-2" style={HERO_DELAY(0)}>
+                {fakta.map((item) => (
+                  <li key={item} className={`${CHIP_INK} tabular-nums`}>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <h1
+              className={`rise-in text-balance font-semibold leading-[1.05] tracking-[-0.03em] ${HEAD} ${
+                config.heading_size ? "" : HEADING_SCALE[config.heading_scale ?? "lg"]
+              }`}
+              style={{ ...HERO_DELAY(1), ...(config.heading_size ? { fontSize: landingHeadingFontSize(config.heading_size) } : null) }}
+            >
+              {nama}
+            </h1>
+            {event.tagline ? (
+              <p className="rise-in max-w-[640px] text-body-large leading-[1.6] opacity-90 sm:text-title-large sm:font-normal sm:leading-[1.55]" style={HERO_DELAY(2)}>
+                {event.tagline}
+              </p>
+            ) : null}
+            <div className="rise-in flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap" style={HERO_DELAY(3)}>
+              {/* Tombol daftar hanya saat pendaftaran terbuka; lihat Editorial. */}
+              {event.registration_enabled ? (
+                <Link href={daftarUrl} className={`${PIL_INK} justify-center`}>
+                  {ctaLabel}
+                </Link>
+              ) : (
+                <span className={`${CHIP_INK} min-h-[52px] justify-center px-5 text-title-medium font-medium`}>Pendaftaran belum dibuka</span>
+              )}
+              {tampil("agenda") ? (
+                <a href="#agenda" className={`${PIL_INK_GARIS} justify-center`}>
+                  Lihat susunan acara
+                </a>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {sections
+        .filter((section) => section.enabled)
+        .map((section) => {
+          if (isLandingBlockId(section.id)) {
+            const block = blokById.get(section.id);
+            return block ? (
+              <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled ? daftarUrl : null} daftarLabel={ctaLabel} />
+            ) : null;
+          }
+          const konten = bawaan[section.id];
+          return konten ? (
+            <div key={section.id} data-bagian={section.id} className={SHELL}>
+              {konten}
+            </div>
+          ) : null;
+        })}
+
+      <div className={SHELL}>
         {/* ---- Banner ajakan ------------------------------------------------ */}
-        {event.registration_enabled ? (
+        {event.registration_enabled && !adaBlokAjakan ? (
           <section className="pb-16 sm:pb-24">
             <div
               className={`relative isolate flex flex-col items-center gap-6 overflow-hidden rounded-lg px-6 py-16 text-center text-[var(--ink)] sm:py-24 ${
@@ -570,7 +660,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
       </div>
 
       {/* ---- Kaki halaman ---------------------------------------------------- */}
-      <footer className="text-white" style={{ backgroundColor: LATAR_KAKI }}>
+      <footer data-bagian="kaki" className="text-white" style={{ backgroundColor: LATAR_KAKI }}>
         <div className={`${SHELL} flex flex-col gap-12 pb-12 pt-16 sm:gap-[72px] sm:pt-24`}>
           <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <p className={`${HEAD} max-w-[700px] text-balance text-[28px] font-semibold leading-[1.25] tracking-[-0.03em] sm:text-[40px]`}>
@@ -590,7 +680,9 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
           <div className="flex flex-col gap-10 lg:flex-row lg:justify-between">
             <div className="flex max-w-[420px] flex-col gap-4">
               <p className={`${HEAD} text-title-large font-semibold`}>{nama}</p>
-              {event.tagline || venue ? (
+              {config.footer_note?.trim() ? (
+                <p className="text-body-medium leading-[1.6] text-white/70">{config.footer_note.trim()}</p>
+              ) : event.tagline || venue ? (
                 <div className="text-body-medium text-white/70">
                   {event.tagline ? <p>{event.tagline}</p> : null}
                   {venue ? <p>{venue}</p> : null}

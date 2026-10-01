@@ -25,13 +25,55 @@ type FieldShellProps = {
 	className?: string;
 };
 
+type CounterProps = {
+	/**
+	 * Penghitung karakter di kanan bawah, mis. "312/480". Butuh `maxLength`.
+	 * Melewati `ideal`, penghitung berubah kuning dan menyebut angka idealnya,
+	 * jadi artinya tidak bergantung pada warna saja.
+	 */
+	counter?: boolean | { ideal?: number };
+};
+
+type Hitungan = { length: number; max: number; ideal?: number };
+
+function hitungan(counter: CounterProps["counter"], value: unknown, maxLength: number | undefined): Hitungan | null {
+	if (!counter || !maxLength) return null;
+	return { length: typeof value === "string" ? value.length : 0, max: maxLength, ideal: typeof counter === "object" ? counter.ideal : undefined };
+}
+
 function useFieldIds(error?: string, hint?: ReactNode) {
 	const id = useId();
 	const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
 	return { id, describedBy };
 }
 
-function FieldMessages({ id, error, hint }: { id: string; error?: string; hint?: ReactNode }) {
+function Penghitung({ count }: { count: Hitungan }) {
+	const lewat = count.ideal !== undefined && count.length > count.ideal;
+	const penuh = count.length >= count.max;
+	return (
+		<span
+			className={cx(
+				"shrink-0 text-body-small tabular-nums",
+				penuh ? "font-medium text-error" : lewat ? "font-medium text-on-warning-soft" : "text-on-surface-variant",
+			)}
+		>
+			{count.length}/{count.max}
+			{penuh ? " · batas" : lewat ? ` · ideal ${count.ideal}` : null}
+		</span>
+	);
+}
+
+function FieldMessages({ id, error, hint, count }: { id: string; error?: string; hint?: ReactNode; count?: Hitungan | null }) {
+	if (count) {
+		return (
+			<div className="mt-2 flex items-start justify-between gap-3">
+				<div className="min-w-0 [&>p]:mt-0">
+					<FieldMessages id={id} error={error} hint={hint} />
+				</div>
+				<Penghitung count={count} />
+			</div>
+		);
+	}
 	if (error) {
 		return (
 			<p id={`${id}-error`} role="alert" className="mt-2 flex items-start gap-1.5 text-body-small font-medium text-error">
@@ -79,7 +121,7 @@ function controlClass(error?: string) {
 }
 
 export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "className" | "id" | "size"> &
-	FieldShellProps & {
+	FieldShellProps & CounterProps & {
 		leading?: ReactNode;
 		trailing?: ReactNode;
 		/** Tinggi kolom. `lg` untuk kolom utama layar operasional. */
@@ -96,7 +138,7 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "classN
 		inputClassName?: string;
 	};
 
-export function TextField({ label, hint, error, optional, className, inputClassName, leading, trailing, size = "md", ...rest }: TextFieldProps) {
+export function TextField({ label, hint, error, optional, className, inputClassName, leading, trailing, size = "md", counter, ...rest }: TextFieldProps) {
 	const { id, describedBy } = useFieldIds(error, hint);
 	return (
 		<div className={className}>
@@ -124,14 +166,14 @@ export function TextField({ label, hint, error, optional, className, inputClassN
 				/>
 				{trailing ? <span className="absolute right-3 top-1/2 -translate-y-1/2">{trailing}</span> : null}
 			</div>
-			<FieldMessages id={id} error={error} hint={hint} />
+			<FieldMessages id={id} error={error} hint={hint} count={hitungan(counter, rest.value, rest.maxLength)} />
 		</div>
 	);
 }
 
-export type TextAreaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "className" | "id"> & FieldShellProps;
+export type TextAreaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "className" | "id"> & FieldShellProps & CounterProps;
 
-export function TextArea({ label, hint, error, optional, className, rows = 4, ...rest }: TextAreaProps) {
+export function TextArea({ label, hint, error, optional, className, rows = 4, counter, ...rest }: TextAreaProps) {
 	const { id, describedBy } = useFieldIds(error, hint);
 	return (
 		<div className={className}>
@@ -146,7 +188,7 @@ export function TextArea({ label, hint, error, optional, className, rows = 4, ..
 				aria-describedby={describedBy}
 				className={cx(controlClass(error), "mt-2 resize-y py-3 leading-6")}
 			/>
-			<FieldMessages id={id} error={error} hint={hint} />
+			<FieldMessages id={id} error={error} hint={hint} count={hitungan(counter, rest.value, rest.maxLength)} />
 		</div>
 	);
 }

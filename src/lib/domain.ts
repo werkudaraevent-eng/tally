@@ -145,7 +145,275 @@ export type RegistrationFormConfig = {
  */
 export type LandingSectionId = "about" | "highlights" | "agenda" | "speakers" | "venue" | "faq" | "sponsors" | "contact";
 
-export type LandingSection = { id: LandingSectionId; enabled: boolean };
+/**
+ * Satu entri susunan halaman: bagian bawaan, atau blok dari pustaka blok
+ * (`blk_...`, isinya di `landing_config.blocks`). Blok hanya dirender tata letak
+ * Modern; Editorial melewatinya.
+ */
+export type LandingSection = { id: LandingSectionId | LandingBlockId; enabled: boolean };
+
+export type LandingBlockId = `blk_${string}`;
+
+export function isLandingBlockId(id: string): id is LandingBlockId {
+  return id.startsWith("blk_");
+}
+
+/**
+ * Pustaka blok halaman acara (tata letak Modern).
+ *
+ * Admin memilih jenis blok, mengurutkannya bersama bagian bawaan, lalu mengisi
+ * teks dan gambarnya. Susunan, jarak, dan versi ponsel tiap blok dikunci di
+ * kode: kebebasannya ada di isi, bukan di tata letak, supaya halaman yang diisi
+ * siapa pun tetap rapi. Rancangan: Figma "Pustaka blok (usulan)".
+ *
+ * Satu bentuk data untuk semua jenis, dengan kolom opsional. Tiap jenis hanya
+ * membaca kolom miliknya; editor CMS hanya menampilkan kolom itu.
+ */
+export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta";
+
+/** Latar blok. `dark` = warna merek dicampur hitam, teks putih. */
+export type LandingBlockTone = "light" | "panel" | "dark";
+
+/**
+ * Tata letak di dalam satu jenis blok. Hanya Kartu bergambar dan Kartu poin
+ * yang punya pilihan; jenis lain mengabaikannya.
+ *
+ * - Kartu bergambar: `featured` (kartu pertama besar), `overlay` (teks di atas
+ *   foto), `columns` (tiga kolom setara, teks di bawah foto).
+ * - Kartu poin: `cards` (kartu bernomor sebaris), `numbered` (daftar bernomor
+ *   di samping judul), `list` (daftar dua kolom tanpa nomor).
+ */
+export type LandingBlockLayout = "featured" | "overlay" | "columns" | "cards" | "numbered" | "list";
+
+export type LandingBlockItem = {
+  image_url?: string | null;
+  /** Label kecil di atas judul kartu, chip pertama di kartu foto, atau nama mitra pada logo. */
+  label?: string;
+  title?: string;
+  body?: string;
+  /** Angka pada Pita angka, atau chip kedua (mis. jam) di kartu foto. */
+  value?: string;
+  href?: string;
+};
+
+export type LandingBlock = {
+  id: LandingBlockId;
+  type: LandingBlockType;
+  tone?: LandingBlockTone;
+  layout?: LandingBlockLayout;
+  eyebrow?: string;
+  heading?: string;
+  body?: string;
+  /** Teks + gambar: gambar samping. Pita ajakan: foto latar. Unduhan: sampul. Kutipan: foto. */
+  image_url?: string | null;
+  image_side?: "left" | "right";
+  items?: LandingBlockItem[];
+  quote?: string;
+  name?: string;
+  role?: string;
+  link_url?: string;
+  link_label?: string;
+  /** Tombol kedua (garis) di Teks + gambar. */
+  link2_url?: string;
+  link2_label?: string;
+  /** Kartu fakta di atas gambar Teks + gambar, mis. "15 Okt 2026" / nama tempat. */
+  fact_title?: string;
+  fact_body?: string;
+  /** Sumber data di bawah Pita angka. Wajib bila ada angka. */
+  source?: string;
+  /** Bila diisi, blok ini muncul di menu atas dengan label ini. */
+  nav_label?: string;
+};
+
+/** Panjang label menu atas: satu atau dua kata pendek, supaya menu muat satu baris. */
+export const LANDING_NAV_LABEL_MAX = 16;
+
+export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
+  text_image: "Teks + gambar",
+  cards: "Kartu bergambar",
+  points: "Kartu poin",
+  gallery: "Galeri foto",
+  stats: "Pita angka",
+  quote: "Kutipan",
+  logos: "Logo mitra",
+  download: "Unduhan materi",
+  cta: "Pita ajakan",
+};
+
+export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
+  text_image: "Cerita singkat dengan satu foto di kiri atau kanan.",
+  cards: "Sesi, topik, atau bacaan, masing-masing dengan foto.",
+  points: "Poin tanpa foto: pengertian, tujuan, atau daftar peserta.",
+  gallery: "3 sampai 12 foto suasana acara.",
+  stats: "2 sampai 4 angka asli dengan sumbernya, latar gelap.",
+  quote: "Satu kutipan asli dengan nama dan jabatan.",
+  logos: "Logo penyelenggara, mitra, atau sponsor.",
+  download: "Tautan ke kerangka acuan, brosur, atau materi PDF.",
+  cta: "Ajakan mendaftar, dengan atau tanpa foto latar.",
+};
+
+export const LANDING_BLOCK_TONE_LABELS: Record<LandingBlockTone, string> = {
+  light: "Terang",
+  panel: "Abu-abu",
+  dark: "Merek gelap",
+};
+
+/** Latar bawaan tiap jenis blok saat baru ditambahkan. */
+export const LANDING_BLOCK_DEFAULT_TONE: Record<LandingBlockType, LandingBlockTone> = {
+  text_image: "light",
+  cards: "light",
+  points: "light",
+  gallery: "panel",
+  stats: "dark",
+  quote: "light",
+  logos: "light",
+  download: "panel",
+  cta: "light",
+};
+
+export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: LandingBlockLayout; label: string; hint: string }[]>> = {
+  cards: [
+    { value: "overlay", label: "Foto bertulisan", hint: "Judul di atas foto, 2 atau 3 kartu sebaris. Cocok untuk sesi utama." },
+    { value: "columns", label: "Tiga kolom", hint: "Foto di atas, teks di bawah, 3 atau 6 kartu. Cocok untuk diskusi kelompok atau bacaan." },
+    { value: "featured", label: "Utama besar", hint: "Kartu pertama besar, dua kartu kecil di sampingnya." },
+  ],
+  points: [
+    { value: "cards", label: "Kartu", hint: "3 atau 4 kartu bernomor sebaris." },
+    { value: "numbered", label: "Daftar bernomor", hint: "Judul di kiri, 3 sampai 7 baris bernomor di kanan." },
+    { value: "list", label: "Daftar dua kolom", hint: "Judul di kiri, butir pendek dalam dua kolom." },
+  ],
+};
+
+export function landingBlockLayout(block: Pick<LandingBlock, "type" | "layout">): LandingBlockLayout | null {
+  const pilihan = LANDING_BLOCK_LAYOUTS[block.type];
+  if (!pilihan) return null;
+  return pilihan.some((item) => item.value === block.layout) ? block.layout! : pilihan[0].value;
+}
+
+/**
+ * Batas isi tiap kolom blok, per jenis dan tata letak. Rancangan: Figma
+ * "Halaman acara FHF (desain dulu)", kartu "ISI DI CMS".
+ *
+ * `max` adalah batas keras (kolom berhenti menerima ketikan, server menolak).
+ * `ideal` hanya saran: penghitung di CMS berubah kuning.
+ *
+ * Angkanya dihitung dari lebar kolom di layar lebar (60 sampai 75 karakter per
+ * baris untuk paragraf) dan dari tinggi pasangannya: isi Teks + gambar dibatasi
+ * supaya kolom teksnya tidak pernah lebih tinggi dari gambar 14:13 di
+ * sampingnya. Judul dan tombol tidak pernah dipotong dengan titik-titik di
+ * halaman, jadi batas inilah yang menjaga panjangnya.
+ */
+export type LandingTextLimit = { max: number; ideal?: number };
+
+export type LandingBlockLimits = {
+  eyebrow?: LandingTextLimit;
+  heading?: LandingTextLimit;
+  body?: LandingTextLimit;
+  link_label?: LandingTextLimit;
+  link2_label?: LandingTextLimit;
+  fact_title?: LandingTextLimit;
+  fact_body?: LandingTextLimit;
+  source?: LandingTextLimit;
+  quote?: LandingTextLimit;
+  name?: LandingTextLimit;
+  role?: LandingTextLimit;
+  item?: { label?: LandingTextLimit; title?: LandingTextLimit; body?: LandingTextLimit; value?: LandingTextLimit };
+  /** Jumlah butir. `full` = jumlah yang membuat baris penuh; selain itu CMS memberi peringatan. */
+  items?: { max: number; full?: number[] };
+};
+
+const ALIS_BATAS: LandingTextLimit = { max: 24 };
+const PENGANTAR_BATAS: LandingTextLimit = { max: 140 };
+const TOMBOL_BATAS: LandingTextLimit = { max: 24 };
+
+export function landingBlockLimits(block: Pick<LandingBlock, "type" | "layout">): LandingBlockLimits {
+  switch (block.type) {
+    case "text_image":
+      return {
+        eyebrow: ALIS_BATAS,
+        heading: { max: 50, ideal: 44 },
+        body: { max: 480, ideal: 420 },
+        link_label: TOMBOL_BATAS,
+        link2_label: TOMBOL_BATAS,
+        fact_title: { max: 14 },
+        fact_body: { max: 40 },
+      };
+    case "cards": {
+      const layout = landingBlockLayout(block);
+      if (layout === "overlay") {
+        return {
+          eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: PENGANTAR_BATAS, link_label: TOMBOL_BATAS,
+          item: { label: { max: 16 }, value: { max: 16 }, title: { max: 80, ideal: 64 }, body: { max: 140, ideal: 120 } },
+          items: { max: 4, full: [2, 3, 4] },
+        };
+      }
+      if (layout === "columns") {
+        return {
+          eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: PENGANTAR_BATAS, link_label: TOMBOL_BATAS,
+          item: { label: { max: 20 }, title: { max: 72, ideal: 56 }, body: { max: 150, ideal: 120 } },
+          items: { max: 6, full: [3, 6] },
+        };
+      }
+      return {
+        eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: PENGANTAR_BATAS, link_label: TOMBOL_BATAS,
+        item: { label: { max: 20 }, title: { max: 72, ideal: 56 }, body: { max: 150, ideal: 120 } },
+        items: { max: 6 },
+      };
+    }
+    case "points": {
+      const layout = landingBlockLayout(block);
+      if (layout === "numbered") {
+        return { eyebrow: ALIS_BATAS, heading: { max: 50 }, body: PENGANTAR_BATAS, item: { body: { max: 160, ideal: 140 } }, items: { max: 7 } };
+      }
+      if (layout === "list") {
+        return { eyebrow: ALIS_BATAS, heading: { max: 40 }, body: PENGANTAR_BATAS, item: { title: { max: 70, ideal: 60 } }, items: { max: 10 } };
+      }
+      return {
+        eyebrow: ALIS_BATAS, heading: { max: 50 }, body: PENGANTAR_BATAS,
+        item: { title: { max: 36 }, body: { max: 90, ideal: 75 } },
+        items: { max: 4, full: [2, 3, 4] },
+      };
+    }
+    case "gallery":
+      return { eyebrow: ALIS_BATAS, heading: { max: 60 }, body: PENGANTAR_BATAS, item: { label: { max: 125 } }, items: { max: 12 } };
+    case "stats":
+      return { heading: { max: 60, ideal: 50 }, item: { value: { max: 8 }, label: { max: 70, ideal: 60 } }, source: { max: 160 }, items: { max: 4 } };
+    case "quote":
+      return { quote: { max: 280, ideal: 200 }, name: { max: 60 }, role: { max: 80 } };
+    case "logos":
+      return { heading: { max: 32 }, item: { label: { max: 80 } }, items: { max: 8 } };
+    case "download":
+      return { eyebrow: ALIS_BATAS, heading: { max: 50 }, body: { max: 200, ideal: 160 }, link_label: { max: 40 } };
+    case "cta":
+      return { heading: { max: 44, ideal: 36 }, body: { max: 140 }, link_label: TOMBOL_BATAS };
+  }
+}
+
+/** Batas jumlah butir per jenis blok. Sama di CMS dan validasi server. */
+export function landingBlockMaxItems(block: Pick<LandingBlock, "type" | "layout">): number {
+  return landingBlockLimits(block).items?.max ?? 0;
+}
+
+/**
+ * Apakah blok punya isi untuk dirender. Sama di halaman publik dan CMS: blok
+ * kosong tidak tampil, dan CMS menandainya "Belum ada isinya".
+ */
+export function landingBlockHasContent(block: LandingBlock): boolean {
+  const items = block.items ?? [];
+  switch (block.type) {
+    case "text_image": return Boolean(block.heading?.trim() || block.body?.trim());
+    case "cards": return items.some((item) => item.title?.trim());
+    case "points": return items.some((item) => item.title?.trim() || item.body?.trim());
+    case "gallery": return items.some((item) => item.image_url);
+    // Angka tanpa sumber tidak tampil: angka yang disajikan sebagai fakta harus
+    // bisa diperiksa (antislop C-5).
+    case "stats": return Boolean(block.source?.trim()) && items.some((item) => item.value?.trim() && item.label?.trim());
+    case "quote": return Boolean(block.quote?.trim() && block.name?.trim());
+    case "logos": return items.some((item) => item.image_url);
+    case "download": return Boolean(block.heading?.trim() && block.link_url?.trim());
+    case "cta": return Boolean(block.heading?.trim());
+  }
+}
 
 export const LANDING_SECTION_LABELS: Record<LandingSectionId, string> = {
   about: "Tentang acara",
@@ -207,14 +475,20 @@ export const DEFAULT_LANDING_SECTIONS: LandingSection[] = [
  * Bagian yang tertinggal ditambahkan di posisi bawaannya dengan keadaan
  * bawaannya; susunan yang sudah diatur admin tidak diubah.
  */
-export function normalizeLandingSections(saved: LandingSection[] | undefined): LandingSection[] {
-  if (!saved?.length) return DEFAULT_LANDING_SECTIONS;
-  const next = saved.filter((section) => DEFAULT_LANDING_SECTIONS.some((item) => item.id === section.id));
+export function normalizeLandingSections(saved: LandingSection[] | undefined, blocks: LandingBlock[] = []): LandingSection[] {
+  const ids = new Set(blocks.map((block) => block.id));
+  // Blok yang tersimpan di `blocks` tapi belum ada di susunan masuk di akhir;
+  // entri susunan yang bloknya sudah dihapus dibuang.
+  const yatim = blocks.filter((block) => !saved?.some((section) => section.id === block.id)).map((block) => ({ id: block.id, enabled: true }));
+  if (!saved?.length) return [...DEFAULT_LANDING_SECTIONS, ...yatim];
+  const next = saved.filter((section) =>
+    isLandingBlockId(section.id) ? ids.has(section.id) : DEFAULT_LANDING_SECTIONS.some((item) => item.id === section.id),
+  );
   DEFAULT_LANDING_SECTIONS.forEach((item, index) => {
     if (next.some((section) => section.id === item.id)) return;
     next.splice(Math.min(index, next.length), 0, item);
   });
-  return next;
+  return [...next, ...yatim];
 }
 
 /**
@@ -362,22 +636,34 @@ export type EventLandingConfig = {
   program_intro?: string;
   /** Keterangan tiap kartu program, urut sesuai bagian di Rundown. */
   program_notes?: string[];
+  /** true = kartu Program dari Rundown tidak tampil (mis. sesi sudah ditulis di blok Kartu bergambar). */
+  program_hidden?: boolean;
+  /** Catatan di kiri Susunan acara, mis. "Registrasi dibuka pukul 08.00 WIB." */
+  agenda_note?: string;
+  /** Kalimat penyelenggara di kaki halaman, mis. "Diselenggarakan oleh ...". */
+  footer_note?: string;
   /** Judul banner ajakan di bawah halaman. */
   cta_heading?: string;
   /** Kalimat di bawah judul banner ajakan. */
   cta_note?: string;
   /** Area peserta. Tanpa nilai = mati. */
   member?: LandingMemberConfig;
+  /** Isi blok dari pustaka blok; urutannya ada di `sections`. */
+  blocks?: LandingBlock[];
   banner_url?: string | null;
   /** Bawaan `theme` — perilaku sebelum pilihan ini ada. */
   banner_style?: LandingBannerStyle;
-  /** Bawaan `standard`. */
+  /** Bawaan `standard`. Diabaikan bila `hero_min_height` diisi. */
   hero_height?: LandingHeroHeight;
+  /** Tinggi minimum hero di layar lebar, dalam px. Tidak pernah melebihi tinggi layar. */
+  hero_min_height?: number;
   cta_label?: string;
   /** Bawaan `serif`. */
   heading_font?: LandingHeadingFont;
-  /** Bawaan `lg`. */
+  /** Bawaan `lg`. Diabaikan bila `heading_size` diisi. */
   heading_scale?: LandingHeadingScale;
+  /** Ukuran nama acara di layar lebar, dalam px. Di layar sempit mengecil otomatis. */
+  heading_size?: number;
   sections?: LandingSection[];
   speakers?: LandingSpeaker[];
   /** Angka yang ingin ditonjolkan: "300+ peserta", "12 booth". */
@@ -720,4 +1006,19 @@ export type ApiError = {
 export function publicEventName(event: { name: string; landing_config?: unknown }) {
   const nama = (event.landing_config as EventLandingConfig | null | undefined)?.public_name?.trim();
   return nama || event.name;
+}
+
+/** Rentang ukuran nama acara (px) yang bisa diisi admin. */
+export const LANDING_HEADING_SIZE = { min: 32, max: 96, step: 2 } as const;
+/** Rentang tinggi minimum hero (px) yang bisa diisi admin. */
+export const LANDING_HERO_HEIGHT_PX = { min: 360, max: 900, step: 20 } as const;
+
+/**
+ * `font-size` nama acara untuk ukuran pilihan admin: penuh mulai lebar 1280px,
+ * mengecil sebanding lebar layar, dan berhenti di sekitar 60% ukurannya di
+ * ponsel supaya nama yang panjang tetap muat.
+ */
+export function landingHeadingFontSize(px: number): string {
+  const kecil = Math.min(px, Math.max(28, Math.round(px * 0.6)));
+  return `clamp(${kecil}px, ${((px / 1280) * 100).toFixed(2)}vw, ${px}px)`;
 }

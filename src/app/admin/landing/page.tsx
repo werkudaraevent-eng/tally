@@ -1,12 +1,12 @@
 "use client";
 
 import { pesanGalatApi } from "@/lib/api-message";
-import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, Info, Plus, Trash, Warning } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, DotsSixVertical, DownloadSimple, Info, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
   Banner, Button, ButtonLink, IconButton, MetaSeparator, PageLoading, PaneBody, PaneFooter, Pane, SegmentedButton,
-  StatusChip, SupportingPane, Switch, TextArea, TextField, WorkspaceHeader, WorkspacePage,
+  StatusChip, Switch, TextArea, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
@@ -14,13 +14,19 @@ import { LandingPreview } from "@/components/admin/landing-preview";
 import {
   LANDING_BANNER_STYLE_LABELS,
   LANDING_HEADING_FONTS,
-  LANDING_HEADING_SCALE_LABELS,
+  LANDING_HEADING_SIZE,
+  LANDING_HERO_HEIGHT_PX,
   LANDING_MEMBER_AUDIENCE_LABELS,
-  LANDING_HERO_HEIGHT_LABELS,
   LANDING_LAYOUT_LABELS,
   LANDING_SECTION_LABELS,
   LANDING_SECTION_SOURCES,
+  LANDING_BLOCK_LABELS,
+  isLandingBlockId,
+  landingBlockHasContent,
+  landingBlockLimits,
   normalizeLandingSections,
+  type LandingBlock,
+  type LandingBlockType,
   type EventLandingConfig,
   type LandingHeadingFont,
   type LandingLayout,
@@ -33,10 +39,23 @@ import {
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { eventApiPath } from "@/lib/event-url";
 import { Kelompok } from "@/components/admin/compact-form";
+import { cx } from "@/lib/m3/cx";
+import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
 // jadi kaki panel menyebut kapan ada perubahan yang belum terlihat di sana.
+
+// Berkas isi halaman (Ekspor/Impor). Hanya kolom yang disunting di layar ini:
+// tanggal acara, rundown, dan peserta tetap di tempatnya masing-masing.
+const BERKAS_FORMAT = "tally-landing";
+const KOLOM_FAKTA = ["description", "tagline", "start_time", "end_time", "end_date", "venue_name", "venue_address", "venue_map_url"] as const;
+type BerkasIsi = {
+  format: typeof BERKAS_FORMAT;
+  version: 1;
+  facts?: Partial<Pick<Facts, (typeof KOLOM_FAKTA)[number]>>;
+  landing?: EventLandingConfig;
+};
 
 type Facts = {
   slug: string;
@@ -52,7 +71,7 @@ type Facts = {
   venue_map_url: string | null;
 };
 
-type Bagian = "isi" | "tampilan" | "bagian" | "peserta";
+type Bagian = "susunan" | "tema" | "peserta";
 
 /** "09:00:00" → "09:00". Kolom <input type="time"> menolak bentuk berdetik. */
 const jamInput = (value: string | null) => (value ? value.slice(0, 5) : "");
@@ -75,12 +94,122 @@ function PilihWarna({ label, value, onChange }: { label: string; value: string; 
   );
 }
 
+const NAMA_KOLOM: Record<string, string> = {
+  eyebrow: "label kecil", heading: "judul", body: "isi", link_label: "teks tombol", link2_label: "teks tombol kedua",
+  fact_title: "judul fakta", fact_body: "isi fakta", source: "sumber", quote: "kutipan", name: "nama", role: "peran",
+  label: "label butir", title: "judul butir", value: "angka",
+};
+
+/** Kolom pertama yang melewati batas karakter blok, atau null. */
+function kolomKepanjangan(blok: LandingBlock): { kolom: string; max: number } | null {
+  const batas = landingBlockLimits(blok);
+  for (const [kunci, limit] of Object.entries(batas)) {
+    if (kunci === "item" || kunci === "items" || !limit || !("max" in limit)) continue;
+    const nilai = blok[kunci as keyof LandingBlock];
+    if (typeof nilai === "string" && nilai.length > limit.max) return { kolom: NAMA_KOLOM[kunci] ?? kunci, max: limit.max };
+  }
+  for (const [nomor, butir] of (blok.items ?? []).entries()) {
+    for (const [kunci, limit] of Object.entries(batas.item ?? {})) {
+      const nilai = butir[kunci as keyof typeof butir];
+      if (limit && typeof nilai === "string" && nilai.length > limit.max) return { kolom: `${NAMA_KOLOM[kunci] ?? kunci} ${nomor + 1}`, max: limit.max };
+    }
+  }
+  return null;
+}
+
+/**
+ * Gulir panel setelan sampai baris ini di atasnya, setelah React merendernya:
+ * bagian yang terbuka sebelumnya ikut menutup dan menggeser daftar. Yang digulir
+ * hanya wadah panelnya; scrollIntoView ikut menggeser seluruh halaman CMS.
+ */
+function gulirKeBaris(id: string) {
+  window.requestAnimationFrame(() => {
+    const baris = document.getElementById(`baris-${id}`);
+    const wadah = baris?.closest<HTMLElement>(".overflow-y-auto");
+    if (!baris || !wadah) return;
+    const atas = baris.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop - 12;
+    wadah.scrollTo({ top: Math.max(0, atas), behavior: "smooth" });
+  });
+}
+
+/** Angka yang setara dengan pilihan lama, supaya kolom angka tidak mulai kosong. */
+const JUDUL_PRESET_PX: Record<"md" | "lg" | "xl", number> = { md: 52, lg: 64, xl: 72 };
+const HERO_PRESET_PX: Record<"compact" | "standard" | "tall", number> = { compact: 600, standard: 760, tall: 850 };
+
+/** Ukuran dalam px: penggeser untuk mencoba-coba, kolom angka untuk nilai pasti. */
+function AngkaPx({
+  label,
+  hint,
+  rentang,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  rentang: { min: number; max: number; step: number };
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  // Teks yang sedang diketik; null = ikuti nilai tersimpan (mis. dari penggeser).
+  const [draf, setDraf] = useState<string | null>(null);
+  const jepit = (angka: number) => Math.min(rentang.max, Math.max(rentang.min, Math.round(angka)));
+  return (
+    <div className="flex flex-col gap-1.5">
+      <TextField
+          className="w-32"
+          label={label}
+          type="number"
+          inputMode="numeric"
+          min={rentang.min}
+          max={rentang.max}
+          step={rentang.step}
+          trailing={<span className="text-body-medium text-on-surface-variant">px</span>}
+          value={draf ?? String(value)}
+          onChange={(event) => {
+            setDraf(event.target.value);
+            const angka = Number(event.target.value);
+            if (event.target.value !== "" && angka >= rentang.min && angka <= rentang.max) onChange(Math.round(angka));
+          }}
+          onBlur={() => {
+            const angka = Number(draf);
+            const sah = draf === null || draf === "" || Number.isNaN(angka) ? value : jepit(angka);
+            setDraf(null);
+            if (sah !== value) onChange(sah);
+          }}
+        />
+        <input
+          type="range"
+          aria-label={`${label}, penggeser`}
+          min={rentang.min}
+          max={rentang.max}
+          step={rentang.step}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          className="h-11 w-full accent-primary"
+        />
+      <p className="text-body-medium text-on-surface-variant">
+        {hint} Rentang {rentang.min} sampai {rentang.max} px.
+      </p>
+    </div>
+  );
+}
+
 export default function LandingCmsPage() {
   const [facts, setFacts] = useState<Facts | null>(null);
   const [landing, setLanding] = useState<EventLandingConfig>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [bagian, setBagian] = useState<Bagian>("isi");
+  const [bagian, setBagian] = useState<Bagian>("susunan");
+  // Baris Susunan halaman yang sedang terbuka ("pembuka", id bagian, atau "kaki").
+  const [terbuka, setTerbuka] = useState<string | null>(null);
+  // Bagian yang disorot di pratinjau; `n` naik di setiap klik supaya klik ulang
+  // pada baris yang sama tetap menggulir pratinjau ke sana.
+  const [sorot, setSorot] = useState<{ id: string; n: number } | null>(null);
+  // null = belum diketahui (gagal dimuat); lencana hanya muncul bila pasti kosong.
+  const [rundownKosong, setRundownKosong] = useState<boolean | null>(null);
+  const [tambahTerbuka, setTambahTerbuka] = useState(false);
+  const [seret, setSeret] = useState<number | null>(null);
+  const [sasaran, setSasaran] = useState<number | null>(null);
   // Dinaikkan setiap kali penyimpanan BERHASIL. Pratinjau memuat halaman publik
   // yang sungguhan, jadi ia hanya boleh disegarkan ketika ada yang benar-benar
   // berubah di sana. Menyegarkannya di setiap ketikan berarti memuat ulang satu
@@ -122,16 +251,67 @@ export default function LandingCmsPage() {
     setFormSeed(nextSeed);
     setTersimpan(JSON.stringify({ facts: found, landing: nextLanding, formInherit: nextInherit, formSeed: nextSeed }));
     setError("");
+    // Rundown hanya dibaca untuk lencana "Rundown kosong": bagian Susunan acara
+    // tidak tampil di halaman publik selama belum ada sesi yang diterbitkan.
+    const rundown = await fetch(eventApiPath("/api/rundown"), { cache: "no-store" }).catch(() => null);
+    const isiRundown = rundown?.ok ? await rundown.json().catch(() => null) : null;
+    setRundownKosong(isiRundown ? !isiRundown.published : null);
   }, []);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
 
-  const sections: LandingSection[] = normalizeLandingSections(landing.sections);
+  const sections: LandingSection[] = normalizeLandingSections(landing.sections, landing.blocks);
   const cuplikan = facts ? JSON.stringify({ facts, landing, formInherit, formSeed }) : null;
   const berubah = tersimpan !== null && cuplikan !== tersimpan;
+  // Draf untuk pratinjau langsung. Dibuat ulang hanya saat isinya berubah,
+  // supaya pratinjau tidak dirender ulang di setiap render CMS.
+  const drafPratinjau = useMemo(() => (cuplikan && facts ? isiKirim(facts) : null), [cuplikan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function patchFacts(patch: Partial<Facts>) {
     setFacts((current) => (current ? { ...current, ...patch } : current));
+  }
+
+  // ---- Ekspor/Impor isi ----------------------------------------------------------
+  // Ekspor mengambil isi yang sedang tampil di layar (termasuk yang belum
+  // disimpan). Impor hanya mengisi layar: tidak ada yang berubah di halaman
+  // publik sampai admin menekan Simpan, jadi isi lama masih bisa dikembalikan
+  // dengan memuat ulang halaman.
+  const pilihBerkas = useRef<HTMLInputElement>(null);
+
+  function ekspor() {
+    if (!facts) return;
+    const berkas: BerkasIsi = {
+      format: BERKAS_FORMAT,
+      version: 1,
+      facts: Object.fromEntries(KOLOM_FAKTA.map((kolom) => [kolom, facts[kolom]])),
+      landing: { ...landing, sections },
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(berkas, null, 2)], { type: "application/json" }));
+    const tautan = document.createElement("a");
+    tautan.href = url;
+    tautan.download = `isi-halaman-${facts.slug}-${new Date().toISOString().slice(0, 10)}.json`;
+    tautan.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function impor(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const isi = await file.text().then((teks) => JSON.parse(teks) as Partial<BerkasIsi>).catch(() => null);
+    if (!isi || isi.format !== BERKAS_FORMAT || typeof isi.landing !== "object" || isi.landing === null) {
+      toast.error("Berkas tidak dikenali", "Pilih berkas .json hasil Ekspor isi dari halaman ini.");
+      return;
+    }
+    const fakta = Object.fromEntries(
+      KOLOM_FAKTA.filter((kolom) => isi.facts && kolom in isi.facts).map((kolom) => [kolom, isi.facts?.[kolom] ?? null]),
+    ) as Partial<Facts>;
+    patchFacts(fakta);
+    // Kunci yang tidak ada di berkas (gambar sampul, warna, dsb.) tetap memakai
+    // isi yang sekarang, jadi berkas tanpa gambar tidak menghapus gambar yang ada.
+    setLanding((current) => ({ ...current, ...isi.landing }));
+    setBagian("susunan");
+    toast.success("Isi dimuat", "Periksa isinya, lalu tekan Simpan. Muat ulang halaman untuk membatalkan.");
   }
 
   /**
@@ -167,6 +347,29 @@ export default function LandingCmsPage() {
     setLanding({ ...landing, sections: next });
   }
 
+  /** Isi yang dikirim saat Simpan, dan yang dirender pratinjau langsung. */
+  function isiKirim(facts: Facts) {
+    return {
+      description: facts.description?.trim() || null,
+      tagline: facts.tagline?.trim() || null,
+      start_time: facts.start_time || null,
+      end_time: facts.end_time || null,
+      end_date: facts.end_date || null,
+      venue_name: facts.venue_name?.trim() || null,
+      venue_address: facts.venue_address?.trim() || null,
+      venue_map_url: facts.venue_map_url?.trim() || null,
+      landing: {
+        ...landing,
+        sections,
+        theme: { seed: landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
+        member: landing.member
+          ? { ...landing.member, feedback_url: landing.member.feedback_url?.trim() || null }
+          : undefined,
+      },
+      form_theme: { inherit: formInherit, seed: formSeed },
+    };
+  }
+
   async function save() {
     if (!facts) return;
     // Diperiksa di sini, bukan diserahkan ke server: server menolak baris kosong
@@ -191,30 +394,42 @@ export default function LandingCmsPage() {
       toast.error("Pembicara belum lengkap", `Pembicara ${pembicaraKosong + 1}: isi namanya, atau hapus baris itu.`);
       return;
     }
+    const blokSalah = sections.findIndex((section) => {
+      const blok = isLandingBlockId(section.id) ? (landing.blocks ?? []).find((item) => item.id === section.id) : undefined;
+      return blok ? tautanBlokSalah(blok) : false;
+    });
+    if (blokSalah >= 0) {
+      toast.error("Tautan di blok belum valid", `Bagian ${blokSalah + 1}: tulis alamat lengkap yang diawali https://, # untuk bagian di halaman ini, atau kosongkan.`);
+      return;
+    }
+    const blokPenuh = sections.findIndex((section) => {
+      const blok = isLandingBlockId(section.id) ? (landing.blocks ?? []).find((item) => item.id === section.id) : undefined;
+      return blok ? butirBerlebih(blok) > 0 : false;
+    });
+    if (blokPenuh >= 0) {
+      toast.error("Butir blok terlalu banyak", `Bagian ${blokPenuh + 1}: tata letak yang dipilih menampung lebih sedikit butir. Hapus butir yang berlebih atau pilih tata letak lain.`);
+      return;
+    }
+    // Batas karakter juga diperiksa server, tetapi galatnya hanya "Maksimal 24
+    // karakter" tanpa menyebut blok mana. Di sini blok itu dibuka dan disebut.
+    for (const [index, section] of sections.entries()) {
+      const blok = isLandingBlockId(section.id) ? (landing.blocks ?? []).find((item) => item.id === section.id) : undefined;
+      const lewat = blok ? kolomKepanjangan(blok) : null;
+      if (blok && lewat) {
+        setBagian("susunan");
+        setTerbuka(blok.id);
+        setSorot((current) => ({ id: blok.id, n: (current?.n ?? 0) + 1 }));
+        gulirKeBaris(blok.id);
+        toast.error("Teks terlalu panjang", `Bagian ${index + 2}, ${lewat.kolom}: maksimal ${lewat.max} karakter. Bagiannya sudah dibuka.`);
+        return;
+      }
+    }
     const kirim = cuplikan;
     setBusy(true);
     const response = await fetch(eventApiPath("/api/admin/landing"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        description: facts.description?.trim() || null,
-        tagline: facts.tagline?.trim() || null,
-        start_time: facts.start_time || null,
-        end_time: facts.end_time || null,
-        end_date: facts.end_date || null,
-        venue_name: facts.venue_name?.trim() || null,
-        venue_address: facts.venue_address?.trim() || null,
-        venue_map_url: facts.venue_map_url?.trim() || null,
-        landing: {
-          ...landing,
-          sections,
-          theme: { seed: landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
-          member: landing.member
-            ? { ...landing.member, feedback_url: landing.member.feedback_url?.trim() || null }
-            : undefined,
-        },
-        form_theme: { inherit: formInherit, seed: formSeed },
-      }),
+      body: JSON.stringify(isiKirim(facts)),
     }).catch(() => null);
     setBusy(false);
     if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return; }
@@ -228,87 +443,10 @@ export default function LandingCmsPage() {
     toast.success("Tersimpan", "Halaman acara publik langsung memakai isi baru.");
   }
 
-  // ---- Isi: fakta acara --------------------------------------------------------
-  const isiFakta = facts ? (
-    <div className="flex flex-col gap-4">
-      <p className="flex items-start gap-2 rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant">
-        <Info size={16} className="mt-0.5 shrink-0" aria-hidden />
-        Waktu dan tempat juga dipakai berkas kalender dan email, bukan hanya halaman ini.
-      </p>
-      <TextField
-        label="Nama acara di halaman publik"
-        optional
-        hint="Judul besar di hero, bilah atas, formulir, dan kartu tautan. Kosongkan untuk memakai nama acara di admin."
-        maxLength={120}
-        value={landing.public_name ?? ""}
-        onChange={(event) => setLanding({ ...landing, public_name: event.target.value })}
-      />
-      <TextField
-        label="Tagline"
-        optional
-        hint="Satu kalimat di bawah nama acara."
-        value={facts.tagline ?? ""}
-        onChange={(event) => patchFacts({ tagline: event.target.value })}
-      />
-      <TextArea
-        label="Deskripsi acara"
-        optional
-        rows={5}
-        hint="Mengisi bagian Tentang acara. Pisahkan paragraf dengan enter; jedanya ikut tampil."
-        value={facts.description ?? ""}
-        onChange={(event) => patchFacts({ description: event.target.value })}
-      />
-      <div className="grid grid-cols-2 gap-3">
-        <TextField
-          label="Jam mulai"
-          optional
-          type="time"
-          value={jamInput(facts.start_time)}
-          onChange={(event) => patchFacts({ start_time: event.target.value || null })}
-        />
-        <TextField
-          label="Jam selesai"
-          optional
-          type="time"
-          value={jamInput(facts.end_time)}
-          onChange={(event) => patchFacts({ end_time: event.target.value || null })}
-        />
-      </div>
-      <TextField
-        label="Tanggal selesai"
-        optional
-        type="date"
-        hint={`Isi hanya bila acara lebih dari satu hari. Tanggal mulai (${facts.event_date ?? "belum diisi"}) diatur di Pengaturan.`}
-        value={facts.end_date ?? ""}
-        onChange={(event) => patchFacts({ end_date: event.target.value || null })}
-      />
-      <TextField
-        label="Nama tempat"
-        optional
-        placeholder="mis. Grand Ballroom, Hotel Mulia"
-        value={facts.venue_name ?? ""}
-        onChange={(event) => patchFacts({ venue_name: event.target.value })}
-      />
-      <TextArea
-        label="Alamat"
-        optional
-        rows={3}
-        value={facts.venue_address ?? ""}
-        onChange={(event) => patchFacts({ venue_address: event.target.value })}
-      />
-      <TextField
-        label="Tautan peta"
-        optional
-        type="url"
-        hint="Google Maps atau sejenisnya. Dibuka sebagai tautan, tidak disematkan, supaya halaman tamu tidak memuat skrip pihak ketiga."
-        placeholder="https://maps.app.goo.gl/..."
-        value={facts.venue_map_url ?? ""}
-        onChange={(event) => patchFacts({ venue_map_url: event.target.value })}
-      />
-    </div>
-  ) : null;
-
-  // ---- Tampilan ------------------------------------------------------------------
+  // ---- Isian per bagian ------------------------------------------------------------
+  // Setiap bagian halaman punya isiannya sendiri, dibuka di bawah barisnya di
+  // Susunan halaman. Kolom yang dulu tersebar di tab Isi dan Tampilan pindah ke
+  // bagian tempat ia tampil, supaya admin mencari isian di tempat ia melihatnya.
   const gayaBanner = landing.banner_style ?? "theme";
   const tataLetak: LandingLayout = landing.layout ?? "editorial";
   const modern = tataLetak === "modern";
@@ -316,109 +454,52 @@ export default function LandingCmsPage() {
   const hurufJudul: LandingHeadingFont = landing.heading_font ?? (modern ? "source" : "serif");
   const catatanProgram = landing.program_notes ?? [];
   const setCatatanProgram = (next: string[]) => setLanding({ ...landing, program_notes: next });
-  const isiTampilan = (
+
+  const isiPembuka = facts ? (
     <div className="flex flex-col gap-5">
-      <Kelompok title="Tata letak" first>
-        <SegmentedButton<LandingLayout>
-          className="w-full"
-          label="Tata letak"
-          value={tataLetak}
-          onChange={(value) =>
-            // Huruf judul yang belum pernah dipilih ikut disimpan saat pindah ke
-            // Modern, supaya area peserta (yang membaca `heading_font`) memakai
-            // huruf yang sama dengan halaman acara.
-            setLanding({
-              ...landing,
-              layout: value,
-              heading_font: landing.heading_font ?? (value === "modern" ? "source" : undefined),
-            })
-          }
-          options={[
-            { value: "editorial", label: LANDING_LAYOUT_LABELS.editorial },
-            { value: "modern", label: LANDING_LAYOUT_LABELS.modern },
-          ]}
+      <Kelompok title="Isi" first>
+        <TextField
+          label="Nama acara di halaman publik"
+          optional
+          hint="Judul besar di hero, bilah atas, formulir, dan kartu tautan. Kosongkan untuk memakai nama acara di admin."
+          maxLength={120}
+          value={landing.public_name ?? ""}
+          onChange={(event) => setLanding({ ...landing, public_name: event.target.value })}
         />
-        <p className="text-body-medium text-on-surface-variant">
-          {modern
-            ? "KV selebar layar dengan nav gelap, kartu program dari Rundown, kartu pembicara tinggi, dan banner ajakan. Urutan bagian tetap; saklar di tab Bagian tetap berlaku."
-            : "Tenang dan tipografis: judul bagian di rel kiri, garis rambut sebagai pemisah. Urutan bagian mengikuti tab Bagian."}
-        </p>
+        <TextArea
+          label="Tagline"
+          optional
+          rows={2}
+          hint="Satu kalimat di bawah nama acara."
+          value={facts.tagline ?? ""}
+          onChange={(event) => patchFacts({ tagline: event.target.value })}
+        />
       </Kelompok>
 
-      {modern ? (
-        <Kelompok title="Teks tata letak Modern" note="Semua opsional. Yang kosong memakai judul bawaan atau tidak ditampilkan.">
-          <TextField
-            label="Judul bagian Tentang"
-            optional
-            placeholder="Tentang acara"
-            hint="Kalimat besar di samping deskripsi acara."
-            value={landing.about_heading ?? ""}
-            onChange={(event) => setLanding({ ...landing, about_heading: event.target.value })}
-          />
-          <TextField
-            label="Judul bagian Program"
-            optional
-            placeholder="Program"
-            hint="Bagian Program tampil bila Rundown punya dua bagian atau lebih."
-            value={landing.program_heading ?? ""}
-            onChange={(event) => setLanding({ ...landing, program_heading: event.target.value })}
-          />
-          <TextArea
-            label="Pengantar Program"
-            optional
-            rows={2}
-            value={landing.program_intro ?? ""}
-            onChange={(event) => setLanding({ ...landing, program_intro: event.target.value })}
-          />
-          <div className="flex flex-col gap-3">
-            <p className="text-body-medium font-medium text-on-surface">Keterangan kartu program</p>
-            <p className="text-body-medium text-on-surface-variant">
-              Urut sesuai bagian di Rundown: keterangan 1 untuk bagian pertama, dan seterusnya. Jam dan jumlah sesi diisi otomatis.
-            </p>
-            {catatanProgram.map((item, index) => (
-              <div key={index} className="flex items-start gap-2">
-                <TextArea
-                  className="min-w-0 flex-1"
-                  label={`Keterangan program ${index + 1}`}
-                  rows={2}
-                  value={item}
-                  onChange={(event) => { const next = [...catatanProgram]; next[index] = event.target.value; setCatatanProgram(next); }}
-                />
-                <IconButton size="sm" label={`Hapus keterangan ${index + 1}`} className="mt-6 text-error" onClick={() => setCatatanProgram(catatanProgram.filter((_, position) => position !== index))}>
-                  <Trash size={16} />
-                </IconButton>
-              </div>
-            ))}
-            <div>
-              <Button variant="outlined" size="sm" icon={<Plus size={16} />} disabled={catatanProgram.length >= 10} onClick={() => setCatatanProgram([...catatanProgram, ""])}>Tambah keterangan</Button>
-            </div>
-          </div>
-          <TextField
-            label="Judul banner ajakan"
-            optional
-            placeholder="Amankan tempat Anda"
-            hint="Banner di bawah halaman, tampil selama pendaftaran terbuka."
-            value={landing.cta_heading ?? ""}
-            onChange={(event) => setLanding({ ...landing, cta_heading: event.target.value })}
-          />
-          <TextArea
-            label="Kalimat banner ajakan"
-            optional
-            rows={2}
-            placeholder="mis. Pendaftaran perlu persetujuan panitia. Kode QR dikirim setelah disetujui."
-            value={landing.cta_note ?? ""}
-            onChange={(event) => setLanding({ ...landing, cta_note: event.target.value })}
-          />
-        </Kelompok>
-      ) : null}
+      <Kelompok title="Ukuran" note="Dalam px, untuk layar lebar. Di ponsel mengecil otomatis.">
+        <AngkaPx
+          label="Ukuran nama acara"
+          rentang={LANDING_HEADING_SIZE}
+          value={landing.heading_size ?? JUDUL_PRESET_PX[landing.heading_scale ?? "lg"]}
+          onChange={(value) => setLanding({ ...landing, heading_size: value })}
+          hint="Nama yang panjang lebih rapi di 48 sampai 64. Di ponsel sekitar 60% dari angka ini."
+        />
+        <AngkaPx
+          label="Tinggi hero"
+          rentang={LANDING_HERO_HEIGHT_PX}
+          value={landing.hero_min_height ?? HERO_PRESET_PX[landing.hero_height ?? "standard"]}
+          onChange={(value) => setLanding({ ...landing, hero_min_height: value })}
+          hint="Tidak pernah melebihi tinggi layar tamu, jadi tombol daftar tetap terlihat. Di ponsel 75% dari angka ini."
+        />
+      </Kelompok>
 
-      <Kelompok title="Hero">
+      <Kelompok title="Gambar latar (KV)">
         <ImageUploadField
           label="Gambar hero (KV)"
           kind="landing"
           fit="cover"
           previewClassName="h-20 w-36"
-          hint="Key visual acara, dipasang sebagai latar di belakang judul. Rasio 16:9, minimal 1920×1080. Taruh bagian penting gambar di sisi atas atau kanan: judul berdiri di kiri bawah. PNG, JPG, atau WebP, maks 5 MB."
+          hint="Rasio 16:9, minimal 1920×1080. Taruh bagian penting gambar di sisi atas atau kanan: judul berdiri di kiri bawah. PNG, JPG, atau WebP, maks 5 MB."
           value={landing.banner_url ?? null}
           onChange={(url) => setLanding({ ...landing, banner_url: url })}
           disabled={busy}
@@ -446,30 +527,233 @@ export default function LandingCmsPage() {
             </p>
           </div>
         ) : null}
-        <div>
-          <p className="text-body-medium font-medium text-on-surface">Tinggi hero</p>
-          <SegmentedButton
-            className="mt-1.5 w-full"
-            label="Tinggi hero"
-            value={landing.hero_height ?? "standard"}
-            onChange={(value) => setLanding({ ...landing, hero_height: value })}
-            options={[
-              { value: "compact", label: LANDING_HERO_HEIGHT_LABELS.compact },
-              { value: "standard", label: LANDING_HERO_HEIGHT_LABELS.standard },
-              { value: "tall", label: LANDING_HERO_HEIGHT_LABELS.tall },
-            ]}
-          />
-          <p className="mt-1.5 text-body-medium text-on-surface-variant">
-            Tinggi minimum bidang judul di layar lebar: ringkas 440px, standar 600px, tinggi 720px. Di ponsel ketiganya lebih pendek. Makin tinggi, makin jauh isi halaman terdorong ke bawah.
-          </p>
-        </div>
+      </Kelompok>
+
+      <Kelompok title="Tombol">
         <TextField
           label="Teks tombol daftar"
           optional
           placeholder="Daftar sekarang"
+          maxLength={40}
+          counter
           value={landing.cta_label ?? ""}
           onChange={(event) => setLanding({ ...landing, cta_label: event.target.value })}
         />
+      </Kelompok>
+
+      <Kelompok title="Waktu" note="Juga dipakai berkas kalender dan email, bukan hanya halaman ini.">
+        <div className="grid grid-cols-2 gap-3">
+          <TextField
+            label="Jam mulai"
+            optional
+            type="time"
+            value={jamInput(facts.start_time)}
+            onChange={(event) => patchFacts({ start_time: event.target.value || null })}
+          />
+          <TextField
+            label="Jam selesai"
+            optional
+            type="time"
+            value={jamInput(facts.end_time)}
+            onChange={(event) => patchFacts({ end_time: event.target.value || null })}
+          />
+        </div>
+        <TextField
+          label="Tanggal selesai"
+          optional
+          type="date"
+          hint={`Isi hanya bila acara lebih dari satu hari. Tanggal mulai (${facts.event_date ?? "belum diisi"}) diatur di Pengaturan.`}
+          value={facts.end_date ?? ""}
+          onChange={(event) => patchFacts({ end_date: event.target.value || null })}
+        />
+      </Kelompok>
+    </div>
+  ) : null;
+
+  const isiTentang = facts ? (
+    <div className="flex flex-col gap-4">
+      {modern ? (
+        <TextField
+          label="Judul bagian"
+          optional
+          placeholder="Tentang acara"
+          hint="Kalimat besar di samping deskripsi acara."
+          value={landing.about_heading ?? ""}
+          onChange={(event) => setLanding({ ...landing, about_heading: event.target.value })}
+        />
+      ) : null}
+      <TextArea
+        label="Deskripsi acara"
+        optional
+        rows={6}
+        hint="Pisahkan paragraf dengan enter; jedanya ikut tampil."
+        value={facts.description ?? ""}
+        onChange={(event) => patchFacts({ description: event.target.value })}
+      />
+    </div>
+  ) : null;
+
+  const isiLokasi = facts ? (
+    <div className="flex flex-col gap-4">
+      <TextField
+        label="Nama tempat"
+        optional
+        placeholder="mis. Grand Ballroom, Hotel Mulia"
+        hint="Juga dipakai berkas kalender dan email."
+        value={facts.venue_name ?? ""}
+        onChange={(event) => patchFacts({ venue_name: event.target.value })}
+      />
+      <TextArea
+        label="Alamat"
+        optional
+        rows={3}
+        value={facts.venue_address ?? ""}
+        onChange={(event) => patchFacts({ venue_address: event.target.value })}
+      />
+      <TextField
+        label="Tautan peta"
+        optional
+        type="url"
+        hint="Google Maps atau sejenisnya. Dibuka sebagai tautan, tidak disematkan, supaya halaman tamu tidak memuat skrip pihak ketiga."
+        placeholder="https://maps.app.goo.gl/..."
+        value={facts.venue_map_url ?? ""}
+        onChange={(event) => patchFacts({ venue_map_url: event.target.value })}
+      />
+    </div>
+  ) : null;
+
+  const isiAgenda = modern ? (
+    <div className="flex flex-col gap-5">
+      <Kelompok first>
+        <TextField
+          label="Catatan Susunan acara"
+          optional
+          placeholder="Registrasi dibuka pukul 08.00 WIB."
+          hint="Di bawah tanggal, di kiri daftar sesi."
+          maxLength={140}
+          counter
+          value={landing.agenda_note ?? ""}
+          onChange={(event) => setLanding({ ...landing, agenda_note: event.target.value })}
+        />
+      </Kelompok>
+      <Kelompok title="Kartu program" note="Kartu besar dari bagian-bagian Rundown, tampil di bawah Tentang.">
+        <Switch
+          checked={!landing.program_hidden}
+          onChange={(value) => setLanding({ ...landing, program_hidden: !value })}
+          label="Tampilkan kartu program"
+          description="Matikan bila sesi utama sudah ditulis di blok Kartu bergambar, supaya tidak tampil dua kali."
+        />
+        {!landing.program_hidden ? (
+          <>
+            <TextField
+              label="Judul bagian Program"
+              optional
+              placeholder="Program"
+              hint="Bagian Program tampil bila Rundown punya dua bagian atau lebih."
+              value={landing.program_heading ?? ""}
+              onChange={(event) => setLanding({ ...landing, program_heading: event.target.value })}
+            />
+            <TextArea
+              label="Pengantar Program"
+              optional
+              rows={2}
+              value={landing.program_intro ?? ""}
+              onChange={(event) => setLanding({ ...landing, program_intro: event.target.value })}
+            />
+            <div className="flex flex-col gap-3">
+              <p className="text-body-medium font-medium text-on-surface">Keterangan kartu program</p>
+              <p className="text-body-medium text-on-surface-variant">
+                Urut sesuai bagian di Rundown: keterangan 1 untuk bagian pertama, dan seterusnya. Jam dan jumlah sesi diisi otomatis.
+              </p>
+              {catatanProgram.map((item, index) => (
+                <div key={index} className="flex items-start gap-2">
+                  <TextArea
+                    className="min-w-0 flex-1"
+                    label={`Keterangan program ${index + 1}`}
+                    rows={2}
+                    value={item}
+                    onChange={(event) => { const next = [...catatanProgram]; next[index] = event.target.value; setCatatanProgram(next); }}
+                  />
+                  <IconButton size="sm" label={`Hapus keterangan ${index + 1}`} className="mt-6 text-error" onClick={() => setCatatanProgram(catatanProgram.filter((_, position) => position !== index))}>
+                    <Trash size={16} />
+                  </IconButton>
+                </div>
+              ))}
+              <div>
+                <Button variant="outlined" size="sm" icon={<Plus size={16} />} disabled={catatanProgram.length >= 10} onClick={() => setCatatanProgram([...catatanProgram, ""])}>Tambah keterangan</Button>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </Kelompok>
+    </div>
+  ) : null;
+
+  const isiKaki = (
+    <div className="flex flex-col gap-5">
+      <Kelompok first>
+        <TextArea
+          label="Kalimat penyelenggara"
+          optional
+          rows={2}
+          placeholder="Diselenggarakan oleh ..."
+          hint={modern ? "Di bawah nama acara di kaki halaman. Kosong = tagline dan nama tempat." : "Tampil di tata letak Modern."}
+          maxLength={180}
+          counter
+          value={landing.footer_note ?? ""}
+          onChange={(event) => setLanding({ ...landing, footer_note: event.target.value })}
+        />
+      </Kelompok>
+      {modern ? (
+        <Kelompok title="Banner ajakan" note="Di atas kaki halaman, tampil selama pendaftaran terbuka dan tidak ada blok Pita ajakan.">
+          <TextField
+            label="Judul banner"
+            optional
+            placeholder="Amankan tempat Anda"
+            value={landing.cta_heading ?? ""}
+            onChange={(event) => setLanding({ ...landing, cta_heading: event.target.value })}
+          />
+          <TextArea
+            label="Kalimat banner"
+            optional
+            rows={2}
+            placeholder="mis. Pendaftaran perlu persetujuan panitia. Kode QR dikirim setelah disetujui."
+            value={landing.cta_note ?? ""}
+            onChange={(event) => setLanding({ ...landing, cta_note: event.target.value })}
+          />
+        </Kelompok>
+      ) : null}
+    </div>
+  );
+
+  // ---- Tema ----------------------------------------------------------------------
+  const isiTema = (
+    <div className="flex flex-col gap-5">
+      <Kelompok title="Tata letak" first>
+        <SegmentedButton<LandingLayout>
+          className="w-full"
+          label="Tata letak"
+          value={tataLetak}
+          onChange={(value) =>
+            // Huruf judul yang belum pernah dipilih ikut disimpan saat pindah ke
+            // Modern, supaya area peserta (yang membaca `heading_font`) memakai
+            // huruf yang sama dengan halaman acara.
+            setLanding({
+              ...landing,
+              layout: value,
+              heading_font: landing.heading_font ?? (value === "modern" ? "source" : undefined),
+            })
+          }
+          options={[
+            { value: "editorial", label: LANDING_LAYOUT_LABELS.editorial },
+            { value: "modern", label: LANDING_LAYOUT_LABELS.modern },
+          ]}
+        />
+        <p className="text-body-medium text-on-surface-variant">
+          {modern
+            ? "KV selebar layar dengan nav gelap, kartu program dari Rundown, kartu pembicara tinggi, dan blok tambahan."
+            : "Tenang dan tipografis: judul bagian di rel kiri, garis rambut sebagai pemisah. Blok tambahan tidak tampil di sini."}
+        </p>
       </Kelompok>
 
       <Kelompok title="Huruf judul" note="Dipakai untuk nama acara dan judul bagian. Isi halaman tetap memakai huruf yang mudah dibaca.">
@@ -489,7 +773,7 @@ export default function LandingCmsPage() {
                 }`}
               >
                 <span className="text-title-large font-semibold text-on-surface" style={{ fontFamily: font.cssVar }}>
-                  {facts?.name || "Nama acara"}
+                  {landing.public_name?.trim() || facts?.name || "Nama acara"}
                 </span>
                 <span className="text-body-small text-on-surface-variant">
                   {font.label} <MetaSeparator /> {font.note}
@@ -497,23 +781,6 @@ export default function LandingCmsPage() {
               </button>
             );
           })}
-        </div>
-        <div>
-          <p className="text-body-medium font-medium text-on-surface">Ukuran judul</p>
-          <SegmentedButton
-            className="mt-1.5 w-full"
-            label="Ukuran judul"
-            value={landing.heading_scale ?? "lg"}
-            onChange={(value) => setLanding({ ...landing, heading_scale: value })}
-            options={[
-              { value: "md", label: LANDING_HEADING_SCALE_LABELS.md },
-              { value: "lg", label: LANDING_HEADING_SCALE_LABELS.lg },
-              { value: "xl", label: LANDING_HEADING_SCALE_LABELS.xl },
-            ]}
-          />
-          <p className="mt-1.5 text-body-medium text-on-surface-variant">
-            Ukuran nama acara di hero. Nama yang panjang lebih rapi di Sedang; Sangat besar cocok untuk nama dua sampai tiga kata.
-          </p>
         </div>
       </Kelompok>
 
@@ -817,82 +1084,261 @@ export default function LandingCmsPage() {
     </div>
   );
 
-  const isiBagian = facts ? (
+  function hapusBlok(id: string) {
+    setLanding({
+      ...landing,
+      sections: sections.filter((item) => item.id !== id),
+      blocks: (landing.blocks ?? []).filter((item) => item.id !== id),
+    });
+  }
+
+  function ubahBlok(next: LandingBlock) {
+    setLanding({ ...landing, blocks: (landing.blocks ?? []).map((item) => (item.id === next.id ? next : item)) });
+  }
+
+  function tambahBlok(type: LandingBlockType) {
+    const blok = buatBlok(type);
+    setLanding({ ...landing, sections: [...sections, { id: blok.id, enabled: true }], blocks: [...(landing.blocks ?? []), blok] });
+    setTambahTerbuka(false);
+    setBagian("susunan");
+    setTerbuka(blok.id);
+  }
+
+  /** Seret-lepas di daftar susunan. Tombol panah tetap ada untuk papan ketik. */
+  function lepas(target: number) {
+    if (seret === null || seret === target) { setSeret(null); setSasaran(null); return; }
+    const next = [...sections];
+    const [pindah] = next.splice(seret, 1);
+    next.splice(target, 0, pindah);
+    setLanding({ ...landing, sections: next });
+    setSeret(null);
+    setSasaran(null);
+  }
+
+
+  // ---- Susunan halaman -----------------------------------------------------------
+  // Satu daftar dengan urutan yang sama dengan halaman publik: Pembuka di atas,
+  // bagian dan blok di tengah (bisa diseret), Kaki di bawah. Hanya satu bagian
+  // terbuka sekaligus, supaya daftarnya tetap terbaca sebagai peta halaman.
+  function bukaTutup(id: string) {
+    const buka = terbuka !== id;
+    setTerbuka(buka ? id : null);
+    if (!buka) return;
+    setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }));
+    gulirKeBaris(id);
+  }
+
+  function barisSusunan({
+    id,
+    nomor,
+    judul,
+    sub,
+    lencana,
+    saklar,
+    indeks,
+    isi,
+    redup,
+  }: {
+    id: string;
+    nomor: number;
+    judul: string;
+    sub?: string | null;
+    lencana?: string | null;
+    saklar?: { checked: boolean; onChange: (value: boolean) => void };
+    /** Posisi di `sections`; kosong untuk Pembuka dan Kaki yang tidak bisa dipindah. */
+    indeks?: number;
+    isi: ReactNode;
+    redup?: boolean;
+  }) {
+    const buka = terbuka === id;
+    // Yang bisa diseret hanya pegangannya: kalau seluruh baris draggable,
+    // memblok teks di kolom isian ikut memulai seretan.
+    const bisaSeret = indeks !== undefined;
+    return (
+      <li
+        key={id}
+        id={`baris-${id}`}
+        className={cx(
+          "rounded-md border bg-surface-container-lowest",
+          buka ? "border-primary" : "border-outline-variant",
+          bisaSeret && seret === indeks && "opacity-50",
+          bisaSeret && sasaran === indeks && seret !== null && seret !== indeks && (seret < indeks ? "border-b-2 border-b-primary" : "border-t-2 border-t-primary"),
+        )}
+        onDragOver={bisaSeret ? (event: DragEvent<HTMLLIElement>) => { if (seret === null) return; event.preventDefault(); setSasaran(indeks); } : undefined}
+        onDrop={bisaSeret ? (event: DragEvent<HTMLLIElement>) => { event.preventDefault(); lepas(indeks); } : undefined}
+      >
+        <div className={cx("flex items-center gap-2 rounded-md py-2 pl-1.5 pr-2", buka && "rounded-b-none bg-primary-soft")}>
+          {bisaSeret ? (
+            <span
+              draggable
+              onDragStart={(event) => { setSeret(indeks); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", judul); }}
+              onDragEnd={() => { setSeret(null); setSasaran(null); }}
+              className="flex h-8 w-5 shrink-0 cursor-grab items-center justify-center text-on-surface-variant"
+              title="Seret untuk memindah"
+            >
+              <DotsSixVertical size={16} aria-hidden />
+            </span>
+          ) : <span className="w-5 shrink-0" aria-hidden />}
+          <span
+            className={cx(
+              "grid size-6 shrink-0 place-items-center rounded-sm text-body-small font-medium tabular-nums",
+              buka ? "bg-primary text-on-primary" : "bg-surface-container-high text-on-surface-variant",
+            )}
+            aria-hidden
+          >
+            {nomor}
+          </span>
+          <button
+            type="button"
+            aria-expanded={buka}
+            aria-controls={`isi-${id}`}
+            onClick={() => bukaTutup(id)}
+            className={cx("min-w-0 flex-1 rounded-sm py-0.5 text-left", redup && "opacity-60")}
+          >
+            <span className="line-clamp-2 block text-body-medium font-medium text-on-surface">{judul}</span>
+            {sub ? <span className="block truncate text-body-small text-on-surface-variant">{sub}</span> : null}
+          </button>
+          {lencana ? <StatusChip tone="warning" className="shrink-0">{lencana}</StatusChip> : null}
+          {saklar ? (
+            <Switch labelHidden className="shrink-0" checked={saklar.checked} onChange={saklar.onChange} label={`Tampilkan ${judul}`} />
+          ) : null}
+          <IconButton size="sm" label={buka ? `Tutup ${judul}` : `Buka ${judul}`} onClick={() => bukaTutup(id)}>
+            <CaretDown size={16} className={cx("transition-transform", buka && "rotate-180")} />
+          </IconButton>
+        </div>
+        {buka ? (
+          <div id={`isi-${id}`} className="flex flex-col gap-4 border-t border-outline-variant px-4 py-4">
+            {isi}
+          </div>
+        ) : null}
+      </li>
+    );
+  }
+
+  /** Naik, turun, dan (untuk blok) hapus. Pengganti seret bagi papan ketik. */
+  function kendaliUrutan(index: number, nama: string, hapus?: () => void) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 border-t border-outline-variant pt-4">
+        <Button variant="text" size="sm" icon={<ArrowUp size={16} />} disabled={index === 0} onClick={() => moveSection(index, -1)}>
+          Naikkan
+        </Button>
+        <Button variant="text" size="sm" icon={<ArrowDown size={16} />} disabled={index === sections.length - 1} onClick={() => moveSection(index, 1)}>
+          Turunkan
+        </Button>
+        {hapus ? (
+          <Button variant="text" size="sm" className="ml-auto text-error" icon={<Trash size={16} />} onClick={hapus}>
+            Hapus {nama.toLowerCase()}
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
+  const blokById = new Map((landing.blocks ?? []).map((block) => [block.id, block]));
+
+  function subBawaan(id: LandingSectionId): string {
+    switch (id) {
+      case "about": return "Teks · dari deskripsi acara";
+      case "agenda": return "Bawaan · dari Rundown acara";
+      case "venue": return "Nama tempat, alamat, peta";
+      case "speakers": return `Bawaan · ${JUMLAH.speakers ?? 0} pembicara`;
+      case "faq": return `Bawaan · ${JUMLAH.faq ?? 0} pertanyaan`;
+      case "highlights": return `Bawaan · ${JUMLAH.highlights ?? 0} angka`;
+      case "sponsors": return `Bawaan · ${JUMLAH.sponsors ?? 0} logo`;
+      case "contact": return "Nama, telepon, email";
+    }
+  }
+
+  function isiBawaan(id: LandingSectionId): ReactNode {
+    const sumber = LANDING_SECTION_SOURCES[id];
+    const tautanSumber = sumber.href && facts ? (
+      <Link href={`/e/${facts.slug}${sumber.href}`} className="inline-flex items-center gap-1 self-start rounded-sm text-body-medium font-medium text-primary hover:underline">
+        {sumber.linkLabel}
+        <ArrowSquareOut size={14} aria-hidden />
+      </Link>
+    ) : null;
+    const isi = id === "about" ? isiTentang : id === "venue" ? isiLokasi : id === "agenda" ? isiAgenda : editorBagian(id);
+    return (
+      <>
+        {id === "agenda" ? <p className="text-body-medium text-on-surface-variant">Sesi diambil otomatis dari Rundown acara. Bagian ini tidak tampil selama Rundown kosong.</p> : null}
+        {tautanSumber}
+        {isi}
+      </>
+    );
+  }
+
+  const isiSusunan = facts ? (
     <div className="flex flex-col gap-3">
       <p className="text-body-medium text-on-surface-variant">
-        {landing.layout === "modern"
-          ? "Tata letak Modern memakai urutan tetap; saklar di sini tetap menentukan bagian mana yang tampil. Bagian yang menyala tapi belum ada isinya tetap tidak muncul."
-          : "Urutan di sini adalah urutan di halaman publik. Bagian yang menyala tapi belum ada isinya tetap tidak muncul."}
+        Urutan di sini sama dengan urutan di halaman, dari atas ke bawah. Klik baris untuk menyunting; pratinjau melompat ke bagian itu. Seret pegangan di kiri untuk memindah.
       </p>
-      <ol className="flex flex-col">
+      {!modern ? (
+        <Banner tone="info">Blok tambahan hanya tampil di tata letak Modern. Pilih Modern di tab Tema untuk memakainya.</Banner>
+      ) : null}
+      <ol className="flex flex-col gap-2">
+        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Pembuka", sub: "Nama acara, tagline, KV, tombol daftar", isi: isiPembuka })}
         {sections.map((section, index) => {
-          const berisi = sectionHasContent(section.id);
-          const sumber = LANDING_SECTION_SOURCES[section.id];
-          const editor = editorBagian(section.id);
-          const dariIsi = section.id === "about" || section.id === "venue";
-          const keterangan = section.id === "about"
-            ? "Dari deskripsi acara di tab Isi."
-            : section.id === "venue"
-              ? "Nama, alamat, dan peta dari tab Isi. Tombol denah menuju Denah kursi."
-              : section.id === "agenda"
-                ? "Ditarik otomatis dari Rundown acara."
-                : null;
-          return (
-            <li key={section.id} className="flex flex-col gap-2 border-t border-outline-variant py-3">
-              <div className="flex items-start gap-1">
-                <Switch
-                  className="min-w-0 flex-1"
-                  checked={section.enabled}
-                  onChange={(value) => {
-                    const next = sections.map((item, position) => (position === index ? { ...item, enabled: value } : item));
-                    setLanding({ ...landing, sections: next });
-                  }}
-                  label={LANDING_SECTION_LABELS[section.id]}
-                  description={keterangan ?? undefined}
-                />
-                <IconButton size="sm" label={`Naikkan ${LANDING_SECTION_LABELS[section.id]}`} onClick={() => moveSection(index, -1)} disabled={index === 0}>
-                  <ArrowUp size={16} />
-                </IconButton>
-                <IconButton size="sm" label={`Turunkan ${LANDING_SECTION_LABELS[section.id]}`} onClick={() => moveSection(index, 1)} disabled={index === sections.length - 1}>
-                  <ArrowDown size={16} />
-                </IconButton>
-              </div>
+          const setSaklar = (value: boolean) =>
+            setLanding({ ...landing, sections: sections.map((item, position) => (position === index ? { ...item, enabled: value } : item)) });
 
-              {/* Lencana hanya muncul saat saklarnya menyala TAPI isinya kosong,
-                  satu-satunya keadaan yang membingungkan. */}
-              {(section.enabled && berisi === false) || dariIsi || sumber.href ? (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  {section.enabled && berisi === false ? <StatusChip tone="warning">Belum ada isinya</StatusChip> : null}
-                  {dariIsi ? (
-                    <button type="button" onClick={() => setBagian("isi")} className="rounded-sm text-body-medium font-medium text-primary hover:underline">
-                      Sunting di Isi
-                    </button>
-                  ) : null}
-                  {sumber.href ? (
-                    <Link href={`/e/${facts.slug}${sumber.href}`} className="inline-flex items-center gap-1 rounded-sm text-body-medium font-medium text-primary hover:underline">
-                      {sumber.linkLabel}
-                      <ArrowSquareOut size={14} aria-hidden />
-                    </Link>
-                  ) : null}
-                </div>
-              ) : null}
+          if (isLandingBlockId(section.id)) {
+            const blok = blokById.get(section.id);
+            if (!blok) return null;
+            const jenis = LANDING_BLOCK_LABELS[blok.type];
+            const ringkas = ringkasanBlok(blok);
+            const judul = blok.heading?.trim() || blok.name?.trim() || jenis;
+            return barisSusunan({
+              id: section.id,
+              nomor: index + 2,
+              judul,
+              sub: ringkas && ringkas !== judul ? `${jenis} · ${ringkas}` : jenis,
+              lencana: section.enabled && !landingBlockHasContent(blok) ? "Belum ada isinya" : null,
+              saklar: { checked: section.enabled, onChange: setSaklar },
+              indeks: index,
+              redup: !section.enabled,
+              isi: (
+                <>
+                  <BlockEditor block={blok} onChange={ubahBlok} />
+                  {kendaliUrutan(index, "blok", () => hapusBlok(section.id))}
+                </>
+              ),
+            });
+          }
 
-              {editor ? (
-                <details className="group rounded-md border border-outline-variant">
-                  <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-3 py-2 text-body-medium font-medium text-on-surface hover:bg-primary-soft [&::-webkit-details-marker]:hidden">
-                    <span className="min-w-0 flex-1">
-                      Sunting isi
-                      {JUMLAH[section.id] != null ? <span className="ml-1.5 font-normal tabular-nums text-on-surface-variant">{JUMLAH[section.id]}</span> : null}
-                    </span>
-                    <CaretDown size={16} aria-hidden className="shrink-0 text-on-surface-variant transition-transform group-open:rotate-180" />
-                  </summary>
-                  <div className="border-t border-outline-variant p-3">{editor}</div>
-                </details>
-              ) : null}
-            </li>
-          );
+          const id: LandingSectionId = section.id;
+          const berisi = sectionHasContent(id);
+          const kosong = section.enabled && (berisi === false || (id === "agenda" && rundownKosong));
+          return barisSusunan({
+            id,
+            nomor: index + 2,
+            judul: LANDING_SECTION_LABELS[id],
+            sub: subBawaan(id),
+            lencana: kosong ? (id === "agenda" ? "Rundown kosong" : "Belum ada isinya") : null,
+            saklar: { checked: section.enabled, onChange: setSaklar },
+            indeks: index,
+            redup: !section.enabled,
+            isi: (
+              <>
+                {isiBawaan(id)}
+                {kendaliUrutan(index, LANDING_SECTION_LABELS[id])}
+              </>
+            ),
+          });
+        })}
+        {barisSusunan({
+          id: "kaki",
+          nomor: sections.length + 2,
+          judul: "Kaki halaman",
+          sub: modern ? "Kalimat penyelenggara, banner ajakan" : "Kalimat penyelenggara",
+          isi: isiKaki,
         })}
       </ol>
+      <div>
+        <Button variant="outlined" icon={<Plus size={18} />} onClick={() => setTambahTerbuka(true)} disabled={(landing.blocks ?? []).length >= 30}>
+          Tambah blok
+        </Button>
+      </div>
+      <TambahBlokDialog open={tambahTerbuka} onClose={() => setTambahTerbuka(false)} onPick={tambahBlok} />
     </div>
   ) : null;
 
@@ -904,10 +1350,10 @@ export default function LandingCmsPage() {
           value={bagian}
           onChange={setBagian}
           className="w-full"
-          options={[{ value: "isi", label: "Isi" }, { value: "tampilan", label: "Tampilan" }, { value: "bagian", label: "Bagian" }, { value: "peserta", label: "Peserta" }]}
+          options={[{ value: "susunan", label: "Susunan halaman" }, { value: "tema", label: "Tema" }, { value: "peserta", label: "Peserta" }]}
         />
       </div>
-      <PaneBody className="px-4 py-4">{bagian === "isi" ? isiFakta : bagian === "tampilan" ? isiTampilan : bagian === "bagian" ? isiBagian : isiPeserta}</PaneBody>
+      <PaneBody key={bagian} className="px-4 py-4">{bagian === "susunan" ? isiSusunan : bagian === "tema" ? isiTema : isiPeserta}</PaneBody>
       <PaneFooter note={berubah ? "Ada perubahan yang belum disimpan" : "Semua perubahan tersimpan"}>
         <Button simpan size="sm" onClick={() => void save()} loading={busy}>Simpan</Button>
       </PaneFooter>
@@ -915,7 +1361,11 @@ export default function LandingCmsPage() {
   );
 
   return (
-    <WorkspacePage fill>
+    // Tidak memakai `fill`: pada layar pendek (laptop berskala 150%) `fill`
+    // melepas kunci tinggi dan halaman bergulir, sehingga tombol Simpan di kaki
+    // panel jatuh di bawah layar. Editor ini selalu setinggi layar; pratinjau
+    // dan panel setelan masing-masing bergulir sendiri.
+    <WorkspacePage className="lg:h-[calc(100dvh-var(--workspace-top,58px))] lg:overflow-hidden">
       <WorkspaceHeader
         meta={facts ? (
           <>
@@ -925,16 +1375,30 @@ export default function LandingCmsPage() {
           </>
         ) : null}
         actions={facts ? (
-          <ButtonLink href={`/e/${facts.slug}`} target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>
-            Lihat halaman
-          </ButtonLink>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="text" icon={<DownloadSimple size={16} />} onClick={ekspor}>
+              Ekspor isi
+            </Button>
+            <Button variant="text" icon={<UploadSimple size={16} />} onClick={() => pilihBerkas.current?.click()}>
+              Impor isi
+            </Button>
+            <input ref={pilihBerkas} type="file" accept="application/json,.json" className="hidden" onChange={(event) => void impor(event)} />
+            <ButtonLink href={`/e/${facts.slug}`} target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>
+              Lihat halaman
+            </ButtonLink>
+          </div>
         ) : null}
       />
 
       {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
 
       {facts ? (
-        <SupportingPane main={<LandingPreview slug={facts.slug} reloadKey={previewKey} />} pane={panel} paneWidth={420} />
+        <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
+          <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0">
+            <LandingPreview slug={facts.slug} reloadKey={previewKey} sorot={sorot} draf={drafPratinjau} />
+          </div>
+          <div className="flex min-h-[70vh] w-full flex-col *:flex-1 lg:min-h-0 lg:w-[420px] lg:shrink-0">{panel}</div>
+        </div>
       ) : error ? null : <PageLoading />}
     </WorkspacePage>
   );
