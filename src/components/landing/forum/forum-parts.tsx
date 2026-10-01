@@ -1,6 +1,8 @@
 import { CaretDown, Plus } from "@phosphor-icons/react/dist/ssr";
 import type { AgendaPreview } from "@/lib/landing-agenda";
-import type { SpeakerTab } from "@/lib/landing-speaker-tabs";
+import type { LandingSpeaker } from "@/lib/domain";
+import { barisJeda, pembicaraSesi, type SpeakerTab } from "@/lib/landing-speaker-tabs";
+import { DeretPembicara } from "@/components/landing/modern/agenda-pills";
 import { SpeakerTabs } from "@/components/landing/modern/speaker-tabs";
 import type { ForumLabels } from "./labels";
 import { BAYANGAN_KARTU, H_BAGIAN, H_KARTU, H_PANEL, TEKS_BESAR, TEKS_MENU, WADAH } from "./styles";
@@ -44,17 +46,25 @@ function jamSesi(item: AgendaPreview["items"][number], zona: string) {
  * Susunan acara per bagian Rundown (di Figma: per hari). Beranda: semua bagian
  * tertutup dengan tanda +, Program acara: terbuka dengan panah. Pakai
  * <details> supaya bisa dibuka tanpa skrip.
+ *
+ * Isi baris mengikuti Susunan acara Modern: judul sesi inti satu-satunya teks
+ * tebal, jeda ditulis abu-abu, jam sesi inti berwarna primer, dan wajah
+ * pembicara sesi di bawah judul (dicocokkan lewat kolom Sesi pembicara).
  */
 export function PanelSusunan({
   agenda,
   zona,
   label,
   terbuka,
+  speakers,
+  catatan,
 }: {
   agenda: AgendaPreview[];
   zona: string;
   label: ForumLabels;
   terbuka: boolean;
+  speakers: LandingSpeaker[];
+  catatan: string | null;
 }) {
   return (
     <div
@@ -63,6 +73,7 @@ export function PanelSusunan({
       }`}
     >
       <h3 className={`${H_PANEL} text-center text-[var(--f-title)]`}>{label.susunan}</h3>
+      {catatan ? <p className="mx-auto mt-3 max-w-[560px] text-center text-body-large text-[var(--reg-on-surface-variant)]">{catatan}</p> : null}
       <div className="mt-[clamp(24px,2.71vw,52px)] border-t border-[#2e2e2e]/60">
         {agenda.map((bagian, index) => (
           <details key={`${bagian.sectionTitle}-${index}`} open={terbuka} className="group border-b border-[#2e2e2e]/60">
@@ -80,20 +91,31 @@ export function PanelSusunan({
               <table className={`w-full border-collapse bg-white text-left ${TEKS_MENU}`}>
                 <thead>
                   <tr className="bg-[var(--f-primary)] text-[var(--f-on-primary)]">
-                    <th scope="col" className="w-[29%] py-[clamp(10px,0.94vw,18px)] pl-[clamp(12px,2.29vw,44px)] pr-3 font-medium">{label.waktu}</th>
-                    <th scope="col" className="py-[clamp(10px,0.94vw,18px)] pr-[clamp(12px,2.29vw,44px)] font-medium">{label.sesi}</th>
+                    {/* Ponsel: satu kolom, jam di atas judul. Kolom jam selebar 29% membuat
+                        "08.00 – 09.00 WIB" terlipat tiga baris di layar 390px. */}
+                    <th scope="col" className="hidden w-[29%] py-[clamp(10px,0.94vw,18px)] pl-[clamp(12px,2.29vw,44px)] pr-3 font-medium sm:table-cell">{label.waktu}</th>
+                    <th scope="col" className="py-[clamp(10px,0.94vw,18px)] pl-[clamp(12px,2.29vw,44px)] pr-[clamp(12px,2.29vw,44px)] font-medium sm:pl-0">{label.sesi}</th>
                   </tr>
                 </thead>
                 <tbody className="text-[var(--f-title)]">
-                  {bagian.items.map((item, nomor) => (
-                    <tr key={nomor} className={nomor % 2 === 0 ? "bg-[#f3f3f3]" : "bg-[#fafafa]"}>
-                      <td className="py-[clamp(10px,0.94vw,18px)] pl-[clamp(12px,2.29vw,44px)] pr-3 align-top tabular-nums">{jamSesi(item, zona)}</td>
-                      <td className="py-[clamp(10px,0.94vw,18px)] pr-[clamp(12px,2.29vw,44px)] align-top">
-                        {item.title}
-                        {item.subtitle ? <span className="block text-[0.85em] font-normal opacity-75">{item.subtitle}</span> : null}
-                      </td>
-                    </tr>
-                  ))}
+                  {bagian.items.map((item, nomor) => {
+                    const orang = pembicaraSesi(speakers, item.title);
+                    const jeda = barisJeda(item.title, orang.length);
+                    const redup = "text-[var(--reg-on-surface-variant)]";
+                    const warnaJam = jeda ? redup : "text-[var(--f-primary-text)]";
+                    const jam = jamSesi(item, zona);
+                    return (
+                      <tr key={nomor} className={nomor % 2 === 0 ? "bg-[#f3f3f3]" : "bg-[#fafafa]"}>
+                        <td className={`hidden py-[clamp(10px,0.94vw,18px)] pl-[clamp(12px,2.29vw,44px)] pr-3 align-top tabular-nums sm:table-cell ${warnaJam}`}>{jam}</td>
+                        <td className="py-[clamp(10px,0.94vw,18px)] pl-[clamp(12px,2.29vw,44px)] pr-[clamp(12px,2.29vw,44px)] align-top sm:pl-0">
+                          {jam ? <span className={`mb-1 block tabular-nums sm:hidden ${warnaJam}`}>{jam}</span> : null}
+                          <span className={`block ${jeda ? `font-normal ${redup}` : "font-semibold"}`}>{item.title}</span>
+                          {item.subtitle ? <span className={`mt-1 block whitespace-pre-line text-[0.85em] font-normal ${redup}`}>{item.subtitle}</span> : null}
+                          {orang.length > 0 ? <DeretPembicara orang={orang} namaTampil /> : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

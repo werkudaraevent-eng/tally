@@ -3,7 +3,7 @@
 import { useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import type { LandingSpeaker } from "@/lib/domain";
 import type { AgendaPreview } from "@/lib/landing-agenda";
-import { pembicaraSesi } from "@/lib/landing-speaker-tabs";
+import { barisJeda, pembicaraSesi } from "@/lib/landing-speaker-tabs";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 
 /**
@@ -15,7 +15,6 @@ import { rentangAkhir } from "@/lib/landing-agenda-range";
  * punya satu bagian. Berkas terpisah karena bentuk tab dan barisnya berbeda
  * seluruhnya; satu komponen dengan dua gaya akan membuat keduanya sulit diubah.
  */
-const JEDA = /\b(registrasi|daftar ulang|makan siang|makan pagi|ishoma|istirahat|rehat|coffee break|rehat kopi|penutupan|registration|lunch|break|closing)\b/i;
 
 export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]; speakers?: LandingSpeaker[] }) {
   const [aktif, setAktif] = useState(0);
@@ -95,7 +94,7 @@ export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]
           // sesi inti menonjol sendiri dan rundown terbaca sebagai alur acara.
           // Dikenali dari kata kuncinya, bukan dari keterangan yang kosong:
           // sesi inti tanpa keterangan tetap tampil sebagai sesi inti.
-          const jeda = orang.length === 0 && JEDA.test(item.title);
+          const jeda = barisJeda(item.title, orang.length);
           return (
             // Garis dasar jam dan judul sejajar (items-baseline); tinggi baris
             // kelipatan 4px (judul 24px, keterangan 20px, padding 12px).
@@ -159,13 +158,15 @@ function inisial(nama: string): string {
  * tooltip dan di bagian Pembicara. Layar sempit: di bawah judul dengan nama
  * singkat.
  */
-function DeretPembicara({ orang }: { orang: LandingSpeaker[] }) {
+export function DeretPembicara({ orang, namaTampil = false }: { orang: LandingSpeaker[]; namaTampil?: boolean }) {
   const tampil = orang.slice(0, MAKS_FOTO);
   const sisa = orang.length - tampil.length;
   const nama = orang.slice(0, 2).map((speaker) => speaker.name.trim());
   const keterangan = orang.length > 2 ? `${nama.join(", ")}, dan ${orang.length - 2} lainnya` : nama.join(" dan ");
   return (
-    <div className="mt-3 flex items-center gap-3 sm:col-start-2 lg:col-start-3 lg:row-start-1 lg:-mt-1 lg:self-start" title={orang.map((speaker) => speaker.name.trim()).join(", ")}>
+    // namaTampil: di bawah judul dengan nama di semua lebar layar (tabel
+    // Susunan acara tata letak Forum tidak punya kolom kanan untuk foto).
+    <div className={namaTampil ? "mt-2 flex items-center gap-3" : "mt-3 flex items-center gap-3 sm:col-start-2 lg:col-start-3 lg:row-start-1 lg:-mt-1 lg:self-start"} title={orang.map((speaker) => speaker.name.trim()).join(", ")}>
       <ul aria-hidden className="flex shrink-0">
         {tampil.map((speaker, index) => (
           <li
@@ -186,7 +187,7 @@ function DeretPembicara({ orang }: { orang: LandingSpeaker[] }) {
           </li>
         ) : null}
       </ul>
-      <p className="line-clamp-2 min-w-0 text-body-small text-[var(--reg-on-surface-variant)] sm:text-body-medium lg:sr-only">{keterangan}</p>
+      <p className={`line-clamp-2 min-w-0 text-body-small text-[var(--reg-on-surface-variant)] sm:text-body-medium ${namaTampil ? "" : "lg:sr-only"}`}>{keterangan}</p>
     </div>
   );
 }

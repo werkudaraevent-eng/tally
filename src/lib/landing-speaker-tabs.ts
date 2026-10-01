@@ -65,6 +65,17 @@ export function pembicaraSesi(all: LandingSpeaker[], judulRundown: string): Land
   return all.filter((speaker) => speaker.name?.trim() && speaker.session?.trim() && cocok(speaker.session, judulRundown));
 }
 
+const JEDA = /\b(registrasi|daftar ulang|makan siang|makan pagi|ishoma|istirahat|rehat|coffee break|rehat kopi|penutupan|registration|lunch|break|closing)\b/i;
+
+/**
+ * Baris jeda rundown (registrasi, makan siang, penutupan): ditulis tenang di
+ * Susunan acara supaya sesi inti menonjol. Dikenali dari kata kuncinya dan
+ * tanpa pembicara, bukan dari keterangan yang kosong.
+ */
+export function barisJeda(judulRundown: string, jumlahPembicara: number): boolean {
+  return jumlahPembicara === 0 && JEDA.test(judulRundown);
+}
+
 export function speakerTabs(all: LandingSpeaker[], agenda: AgendaPreview[] = []): SpeakerTab[] {
   const speakers = all.filter((speaker) => speaker.name?.trim());
   if (speakers.length === 0) return [];

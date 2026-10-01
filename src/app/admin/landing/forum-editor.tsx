@@ -326,6 +326,16 @@ export function ForumSusunan({
           value={landing.program_intro ?? ""}
           onChange={(event) => setLanding({ ...landing, program_intro: event.target.value })}
         />
+        <TextField
+          label="Catatan Susunan acara"
+          optional
+          placeholder="Susunan acara dan pembicara masih dapat berubah."
+          hint="Di bawah judul Susunan acara, di Beranda dan halaman Program."
+          maxLength={140}
+          counter
+          value={landing.agenda_note ?? ""}
+          onChange={(event) => setLanding({ ...landing, agenda_note: event.target.value })}
+        />
       </Kelompok>
       <Kelompok title="Banner halaman Program">
         <TextField

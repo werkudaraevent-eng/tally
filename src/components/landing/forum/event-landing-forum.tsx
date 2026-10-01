@@ -110,7 +110,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
   const footer = <ForumFooter config={forum} nama={nama} catatan={config.footer_note?.trim() || null} />;
 
   const susunan = (terbuka: boolean) =>
-    agenda.length > 0 ? <PanelSusunan agenda={agenda} zona={zona} label={label} terbuka={terbuka} /> : null;
+    agenda.length > 0 ? <PanelSusunan agenda={agenda} zona={zona} label={label} terbuka={terbuka} speakers={tampil("speakers") ? speakers : []} catatan={config.agenda_note?.trim() || null} /> : null;
 
   const pembicara = tampil("speakers") ? (
     <div className={JARAK}>
