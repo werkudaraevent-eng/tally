@@ -47,17 +47,25 @@ export function LandingNavModern({
   const [menuBuka, setMenuBuka] = useState(false);
   const menuId = useId();
   const navRef = useRef<HTMLElement>(null);
+  const tombolMenuRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!menuBuka) return;
-    const tutup = (event: Event) => {
-      if (event instanceof KeyboardEvent ? event.key === "Escape" : !navRef.current?.contains(event.target as Node)) setMenuBuka(false);
+    // Esc menutup dan mengembalikan fokus ke tombol Menu; ketukan di luar
+    // bilah menutup tanpa memindahkan fokus.
+    const tekan = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setMenuBuka(false);
+      tombolMenuRef.current?.focus();
     };
-    document.addEventListener("keydown", tutup);
-    document.addEventListener("pointerdown", tutup);
+    const ketuk = (event: PointerEvent) => {
+      if (!navRef.current?.contains(event.target as Node)) setMenuBuka(false);
+    };
+    document.addEventListener("keydown", tekan);
+    document.addEventListener("pointerdown", ketuk);
     return () => {
-      document.removeEventListener("keydown", tutup);
-      document.removeEventListener("pointerdown", tutup);
+      document.removeEventListener("keydown", tekan);
+      document.removeEventListener("pointerdown", ketuk);
     };
   }, [menuBuka]);
   const [lewatHero, setLewatHero] = useState(false);
@@ -194,6 +202,7 @@ export function LandingNavModern({
           ) : null}
           {sections.length > 0 ? (
             <button
+              ref={tombolMenuRef}
               type="button"
               aria-expanded={menuBuka}
               aria-controls={menuId}
