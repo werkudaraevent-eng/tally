@@ -10,6 +10,7 @@ import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { Spinner } from "@/components/search-loading";
 import { eventApiPath } from "@/lib/event-url";
 import { easing, expressive } from "@/lib/m3/motion";
+import { MODERN_NEUTRAL_SURFACES } from "@/lib/registration-theme-css";
 
 /**
  * Pergantian formulir → layar sukses di dalam kartu yang sama.
@@ -547,7 +548,7 @@ function BingkaiModern({
   return (
     <main
       className="flex min-h-dvh flex-col bg-[var(--reg-surface)] text-[var(--reg-on-surface)]"
-      style={{ ...theme, "--landing-heading": modern.headingFont } as CSSProperties}
+      style={{ ...theme, ...MODERN_NEUTRAL_SURFACES, "--landing-heading": modern.headingFont } as CSSProperties}
     >
       <header
         className={`relative isolate overflow-hidden ${modern.kv ? "bg-black" : "bg-[var(--reg-primary)]"}`}

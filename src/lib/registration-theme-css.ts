@@ -55,3 +55,25 @@ export function registrationThemeStyle(theme: RegistrationFormTheme | undefined)
     color: roles.on_surface,
   } as CSSProperties;
 }
+
+/**
+ * Permukaan netral untuk tata letak Modern (halaman acara v2 dan formulirnya).
+ *
+ * Peran permukaan M3 diturunkan dari warna merek, jadi warna biru seperti
+ * PRIMA menghasilkan kartu dan teks redup bernuansa ungu muda: palet netral M3
+ * membawa sedikit hue warna sumber, dan pada biru hue itu condong ke violet.
+ * Rancangan v2 di Figma memakai abu-abu netral, dan Hanung menolak nuansa ungu
+ * itu. Yang ditimpa hanya permukaan, teks, dan garis; warna merek (primary dan
+ * pasangannya) tetap dari tema acara.
+ */
+export const MODERN_NEUTRAL_SURFACES = {
+  "--reg-surface": "#ffffff",
+  "--reg-field": "#ffffff",
+  "--reg-panel": "#f5f5f5",
+  "--reg-on-surface": "#181d27",
+  "--reg-on-surface-variant": "#414651",
+  "--reg-outline": "#a4a7ae",
+  "--reg-outline-variant": "#e9eaeb",
+  backgroundColor: "#ffffff",
+  color: "#181d27",
+} as CSSProperties;

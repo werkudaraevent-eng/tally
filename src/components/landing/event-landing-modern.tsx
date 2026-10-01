@@ -10,6 +10,7 @@ import type {
   LandingSectionId,
 } from "@/lib/domain";
 import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS } from "@/lib/domain";
+import { MODERN_NEUTRAL_SURFACES } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
@@ -221,7 +222,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   // Tanpa pilihan admin, Modern memakai Source Sans 3 (huruf rancangannya),
   // Editorial tetap Playfair Display.
   const headingFont = LANDING_HEADING_FONTS[config.heading_font ?? "source"] ?? LANDING_HEADING_FONTS.source;
-  const mainStyle = { ...theme, "--landing-heading": headingFont.cssVar } as CSSProperties;
+  const mainStyle = { ...theme, ...MODERN_NEUTRAL_SURFACES, "--landing-heading": headingFont.cssVar } as CSSProperties;
 
   // Tertonjol lebih dulu; urutan admin dipertahankan di dalam tiap kelompok.
   const urutPembicara = [...speakers.filter((s) => s.featured), ...speakers.filter((s) => !s.featured)];
