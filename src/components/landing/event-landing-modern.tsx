@@ -552,6 +552,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
           Ditarik ke bawah bilah nav (margin negatif setinggi nav) supaya KV
           mulai dari tepi atas layar, seperti di rancangan. */}
       <header
+        data-bagian="pembuka"
         className={`relative isolate -mt-16 overflow-hidden ${kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
         style={tinta(Boolean(kv))}
       >
@@ -623,7 +624,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
           }
           const konten = bawaan[section.id];
           return konten ? (
-            <div key={section.id} className={SHELL}>
+            <div key={section.id} data-bagian={section.id} className={SHELL}>
               {konten}
             </div>
           ) : null;
@@ -659,7 +660,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
       </div>
 
       {/* ---- Kaki halaman ---------------------------------------------------- */}
-      <footer className="text-white" style={{ backgroundColor: LATAR_KAKI }}>
+      <footer data-bagian="kaki" className="text-white" style={{ backgroundColor: LATAR_KAKI }}>
         <div className={`${SHELL} flex flex-col gap-12 pb-12 pt-16 sm:gap-[72px] sm:pt-24`}>
           <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <p className={`${HEAD} max-w-[700px] text-balance text-[28px] font-semibold leading-[1.25] tracking-[-0.03em] sm:text-[40px]`}>

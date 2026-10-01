@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowClockwise, DeviceMobile, Monitor } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { IconButton, Pane, SegmentedButton } from "@/components/m3";
 
 /**
@@ -38,11 +38,54 @@ const UKURAN: Record<Device, { width: number; height: number }> = {
 /** Jarak bidang pratinjau ke tepi panel, kiri + kanan. Sama dengan `p-4`. */
 const TEPI = 32;
 
-export function LandingPreview({ slug, reloadKey }: { slug: string; reloadKey: number }) {
+/** Tinggi bilah atas halaman publik, supaya bagian yang disorot tidak tertutup. */
+const BILAH_ATAS = 72;
+
+/**
+ * Cari bagian di halaman pratinjau: `data-bagian` untuk Pembuka, Kaki, dan
+ * bagian bawaan; id elemen untuk blok (`blk_...`) dan bagian tata letak Editorial.
+ */
+function cariBagian(doc: Document, id: string): HTMLElement | null {
+  return doc.querySelector<HTMLElement>(`[data-bagian="${CSS.escape(id)}"]`) ?? doc.getElementById(id);
+}
+
+export function LandingPreview({
+  slug,
+  reloadKey,
+  sorot,
+}: {
+  slug: string;
+  reloadKey: number;
+  /** Bagian yang dipilih di Susunan halaman: digulir ke sana dan diberi garis. */
+  sorot?: { id: string; n: number } | null;
+}) {
   const [device, setDevice] = useState<Device>("desktop");
   const [wadahUkuran, setWadahUkuran] = useState({ lebar: 0, tinggi: 0 });
   const [nonce, setNonce] = useState(0);
   const wadah = useRef<HTMLDivElement | null>(null);
+  const bingkai = useRef<HTMLIFrameElement | null>(null);
+  const tersorot = useRef<HTMLElement | null>(null);
+
+  // Menyentuh DOM halaman di dalam iframe, bukan keadaan React: halaman itu
+  // asal-yang-sama, dan garisnya hanya ada di pratinjau ini, tidak tersimpan.
+  const terapkanSorot = useCallback(() => {
+    const jendela = bingkai.current?.contentWindow;
+    const doc = bingkai.current?.contentDocument;
+    if (!jendela || !doc || !sorot) return;
+    tersorot.current?.style.removeProperty("outline");
+    tersorot.current?.style.removeProperty("outline-offset");
+    const elemen = cariBagian(doc, sorot.id);
+    tersorot.current = elemen;
+    if (!elemen) return;
+    elemen.style.outline = "3px dashed #2563eb";
+    elemen.style.outlineOffset = "-3px";
+    // scrollTo pada jendela iframe, bukan scrollIntoView: yang terakhir ikut
+    // menggulir halaman CMS di luarnya.
+    const atas = sorot.id === "pembuka" ? 0 : elemen.getBoundingClientRect().top + jendela.scrollY - BILAH_ATAS;
+    jendela.scrollTo({ top: Math.max(0, atas), behavior: "smooth" });
+  }, [sorot]);
+
+  useEffect(() => { terapkanSorot(); }, [terapkanSorot]);
   const { width, height: tinggiPerangkat } = UKURAN[device];
   // Diukur dari panel, bukan jendela: panel utama menyempit saat panel setelan
   // di sebelahnya muncul, tanpa jendelanya berubah ukuran.
@@ -99,6 +142,8 @@ export function LandingPreview({ slug, reloadKey }: { slug: string; reloadKey: n
             // di dalam iframe sebagai riwayat, dan tombol Back halaman CMS lalu
             // menelusuri riwayat pratinjau alih-alih meninggalkan layar ini.
             key={`${reloadKey}-${nonce}`}
+            ref={bingkai}
+            onLoad={terapkanSorot}
             src={`/e/${slug}`}
             title="Pratinjau halaman acara"
             // Pratinjau tidak boleh ikut merekam riwayat maupun mengambil alih

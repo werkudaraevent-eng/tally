@@ -244,7 +244,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
       />
 
       {/* ---- Hero -------------------------------------------------------- */}
-      <header className={`relative isolate overflow-hidden ${kvFoto ? "bg-black" : ""}`}>
+      <header data-bagian="pembuka" className={`relative isolate overflow-hidden ${kvFoto ? "bg-black" : ""}`}>
         {kv ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -582,6 +582,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
         ) : null}
 
         <footer
+          data-bagian="kaki"
           className={`flex flex-wrap items-center justify-between gap-3 border-t border-[var(--reg-outline-variant)] py-8 text-body-small ${MUTED}`}
         >
           <span>{publicEventName(event)}</span>

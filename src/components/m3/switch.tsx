@@ -15,6 +15,8 @@ export type SwitchProps = {
 	className?: string;
 	/** Sakelar yang langsung menyimpan ke server; nonaktif sendiri di acara terkunci. */
 	simpan?: boolean;
+	/** Label hanya untuk pembaca layar, mis. sakelar di baris yang sudah berjudul. */
+	labelHidden?: boolean;
 };
 
 /**
@@ -42,7 +44,7 @@ export type SwitchProps = {
  * adalah keadaannya, dan kolom teks yang mulai rata kiri kalau yang dicari
  * adalah artinya.
  */
-export function Switch({ checked, onChange, label, description, disabled: nonaktif, note, className, simpan }: SwitchProps) {
+export function Switch({ checked, onChange, label, description, disabled: nonaktif, note, className, simpan, labelHidden }: SwitchProps) {
 	const terkunci = useTerkunci(simpan);
 	const disabled = nonaktif || terkunci;
 	const id = useId();
@@ -56,7 +58,7 @@ export function Switch({ checked, onChange, label, description, disabled: nonakt
 			    mudah dikenai, dan orang memang mengarahkan ke sana lebih dulu. */}
 			<div
 				onClick={() => { if (!disabled) onChange(!checked); }}
-				className={cx("min-w-0 flex-1", disabled ? "opacity-50" : "cursor-pointer")}
+				className={cx("min-w-0 flex-1", labelHidden && "sr-only", disabled ? "opacity-50" : "cursor-pointer")}
 			>
 				{/* `<div>`, bukan `<button>` kedua. Dua tombol untuk satu sakelar berarti
 				    papan ketik berhenti dua kali di baris yang sama dan pembaca layar
