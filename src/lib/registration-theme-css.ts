@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { mixHex, parseHex } from "./color";
 import { DEFAULT_REGISTRATION_SEED, buildRegistrationThemeRoles, type RegistrationFormTheme, type RegistrationThemeRoles } from "./registration-theme";
+import { LANDING_NAV_DEFAULTS, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, type LandingNavConfig } from "./domain";
 
 /**
  * Tema mana yang dipakai halaman pendaftaran sebuah acara.
@@ -131,4 +132,41 @@ export function heroCtaColors(seed: string | undefined): { bg: string; fg: strin
   const merek = /^#[0-9a-f]{6}$/i.test(seed ?? "") ? seed! : DEFAULT_REGISTRATION_SEED;
   const bg = kontras(merek, "#000000") >= 3 ? merek : "#ffffff";
   return { bg, fg: tintaDiAtas(bg) };
+}
+
+/**
+ * Warna bilah atas tata letak Modern dari pengaturan CMS.
+ *
+ * `--nav-bg` dipakai saat bilah berdiri di atas hero (transparansi persis
+ * pilihan admin). Setelah hero lewat, bilah menempel di atas permukaan putih:
+ * bilah bening dengan teks putih akan hilang di sana, jadi `--nav-bg-scrolled`
+ * menaikkan ketidaktembusannya ke paling sedikit 90%.
+ *
+ * Teks: bila bilah cukup pekat (>= 50%), putih atau gelap menurut kontras
+ * warna bilah. Bila lebih bening, yang terlihat di belakang teks adalah hero,
+ * jadi teks mengikuti tinta hero. `--nav-on-ink*` adalah warna teks tombol
+ * Daftar, yang latarnya tinta itu sendiri.
+ */
+export function modernNavStyle(
+  nav: LandingNavConfig | undefined,
+  hero: { ink: string; onInk: string },
+): CSSProperties {
+  const warna = /^#[0-9a-f]{6}$/i.test(nav?.color ?? "") ? nav!.color! : LANDING_NAV_DEFAULTS.color;
+  const opasitas = Math.min(100, Math.max(0, Math.round(nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity)));
+  const tinggi = Math.min(LANDING_NAV_HEIGHT_MAX, Math.max(LANDING_NAV_HEIGHT_MIN, Math.round(nav?.height ?? LANDING_NAV_DEFAULTS.height)));
+  const { r, g, b } = parseHex(warna);
+  const tintaBilah = tintaDiAtas(warna);
+  const lawan = (tinta: string) => (tinta === "#ffffff" ? TINTA_GELAP : "#ffffff");
+  const pekat = opasitas >= 50;
+  return {
+    "--nav-h": `${tinggi}px`,
+    "--nav-bg": `rgb(${r} ${g} ${b} / ${opasitas / 100})`,
+    "--nav-bg-scrolled": `rgb(${r} ${g} ${b} / ${Math.max(opasitas, 90) / 100})`,
+    "--nav-ink": pekat ? tintaBilah : hero.ink,
+    "--nav-on-ink": pekat ? lawan(tintaBilah) : hero.onInk,
+    // Bilah 0% benar-benar bening: tanpa kaburan, yang di belakangnya tetap tajam.
+    "--nav-blur": opasitas > 0 ? "blur(12px)" : "none",
+    "--nav-ink-scrolled": tintaBilah,
+    "--nav-on-ink-scrolled": lawan(tintaBilah),
+  } as CSSProperties;
 }
