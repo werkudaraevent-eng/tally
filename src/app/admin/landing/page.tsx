@@ -1,8 +1,8 @@
 "use client";
 
 import { pesanGalatApi } from "@/lib/api-message";
-import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, Info, Plus, Trash, Warning } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, DotsSixVertical, Info, Plus, Trash, Warning } from "@phosphor-icons/react";
+import { useCallback, useEffect, useState, type DragEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
   Banner, Button, ButtonLink, IconButton, MetaSeparator, PageLoading, PaneBody, PaneFooter, Pane, SegmentedButton,
@@ -20,7 +20,12 @@ import {
   LANDING_LAYOUT_LABELS,
   LANDING_SECTION_LABELS,
   LANDING_SECTION_SOURCES,
+  LANDING_BLOCK_LABELS,
+  isLandingBlockId,
+  landingBlockHasContent,
   normalizeLandingSections,
+  type LandingBlock,
+  type LandingBlockType,
   type EventLandingConfig,
   type LandingHeadingFont,
   type LandingLayout,
@@ -33,6 +38,8 @@ import {
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { eventApiPath } from "@/lib/event-url";
 import { Kelompok } from "@/components/admin/compact-form";
+import { cx } from "@/lib/m3/cx";
+import { BlockEditor, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -81,6 +88,10 @@ export default function LandingCmsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [bagian, setBagian] = useState<Bagian>("isi");
+  const [tambahTerbuka, setTambahTerbuka] = useState(false);
+  const [blokBaru, setBlokBaru] = useState<string | null>(null);
+  const [seret, setSeret] = useState<number | null>(null);
+  const [sasaran, setSasaran] = useState<number | null>(null);
   // Dinaikkan setiap kali penyimpanan BERHASIL. Pratinjau memuat halaman publik
   // yang sungguhan, jadi ia hanya boleh disegarkan ketika ada yang benar-benar
   // berubah di sana. Menyegarkannya di setiap ketikan berarti memuat ulang satu
@@ -126,7 +137,7 @@ export default function LandingCmsPage() {
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
 
-  const sections: LandingSection[] = normalizeLandingSections(landing.sections);
+  const sections: LandingSection[] = normalizeLandingSections(landing.sections, landing.blocks);
   const cuplikan = facts ? JSON.stringify({ facts, landing, formInherit, formSeed }) : null;
   const berubah = tersimpan !== null && cuplikan !== tersimpan;
 
@@ -189,6 +200,14 @@ export default function LandingCmsPage() {
     const pembicaraKosong = (landing.speakers ?? []).findIndex((item) => !item.name.trim());
     if (pembicaraKosong >= 0) {
       toast.error("Pembicara belum lengkap", `Pembicara ${pembicaraKosong + 1}: isi namanya, atau hapus baris itu.`);
+      return;
+    }
+    const blokSalah = sections.findIndex((section) => {
+      const blok = isLandingBlockId(section.id) ? (landing.blocks ?? []).find((item) => item.id === section.id) : undefined;
+      return blok ? tautanBlokSalah(blok) : false;
+    });
+    if (blokSalah >= 0) {
+      toast.error("Tautan di blok belum valid", `Bagian ${blokSalah + 1}: tulis alamat lengkap yang diawali https://, atau kosongkan.`);
       return;
     }
     const kirim = cuplikan;
@@ -817,45 +836,141 @@ export default function LandingCmsPage() {
     </div>
   );
 
+  function hapusBlok(id: string) {
+    setLanding({
+      ...landing,
+      sections: sections.filter((item) => item.id !== id),
+      blocks: (landing.blocks ?? []).filter((item) => item.id !== id),
+    });
+  }
+
+  function ubahBlok(next: LandingBlock) {
+    setLanding({ ...landing, blocks: (landing.blocks ?? []).map((item) => (item.id === next.id ? next : item)) });
+  }
+
+  function tambahBlok(type: LandingBlockType) {
+    const blok = buatBlok(type);
+    setLanding({ ...landing, sections: [...sections, { id: blok.id, enabled: true }], blocks: [...(landing.blocks ?? []), blok] });
+    setTambahTerbuka(false);
+    setBlokBaru(blok.id);
+  }
+
+  /** Seret-lepas di daftar susunan. Tombol panah tetap ada untuk papan ketik. */
+  function lepas(target: number) {
+    if (seret === null || seret === target) { setSeret(null); setSasaran(null); return; }
+    const next = [...sections];
+    const [pindah] = next.splice(seret, 1);
+    next.splice(target, 0, pindah);
+    setLanding({ ...landing, sections: next });
+    setSeret(null);
+    setSasaran(null);
+  }
+
+  const blokById = new Map((landing.blocks ?? []).map((block) => [block.id, block]));
   const isiBagian = facts ? (
     <div className="flex flex-col gap-3">
       <p className="text-body-medium text-on-surface-variant">
-        {landing.layout === "modern"
-          ? "Tata letak Modern memakai urutan tetap; saklar di sini tetap menentukan bagian mana yang tampil. Bagian yang menyala tapi belum ada isinya tetap tidak muncul."
-          : "Urutan di sini adalah urutan di halaman publik. Bagian yang menyala tapi belum ada isinya tetap tidak muncul."}
+        Urutan di sini adalah urutan di halaman publik. Seret baris atau pakai tombol panah. Bagian yang menyala tapi belum ada isinya tetap tidak muncul.
       </p>
+      {landing.layout !== "modern" ? (
+        <Banner tone="info">Blok tambahan hanya tampil di tata letak Modern. Pilih Modern di tab Tampilan untuk memakainya.</Banner>
+      ) : null}
       <ol className="flex flex-col">
         {sections.map((section, index) => {
-          const berisi = sectionHasContent(section.id);
-          const sumber = LANDING_SECTION_SOURCES[section.id];
-          const editor = editorBagian(section.id);
-          const dariIsi = section.id === "about" || section.id === "venue";
-          const keterangan = section.id === "about"
+          const blok = isLandingBlockId(section.id) ? blokById.get(section.id) : undefined;
+          const nama = blok ? LANDING_BLOCK_LABELS[blok.type] : isLandingBlockId(section.id) ? "Blok" : LANDING_SECTION_LABELS[section.id];
+          // Yang bisa diseret hanya baris judulnya: kalau seluruh <li> draggable,
+          // memblok teks di kolom isian editor ikut memulai seretan.
+          const pegangSeret = {
+            draggable: true,
+            onDragStart: (event: DragEvent<HTMLDivElement>) => {
+              setSeret(index);
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", nama);
+            },
+            onDragEnd: () => { setSeret(null); setSasaran(null); },
+          };
+          const seretProps = {
+            onDragOver: (event: DragEvent<HTMLLIElement>) => { if (seret === null) return; event.preventDefault(); setSasaran(index); },
+            onDrop: (event: DragEvent<HTMLLIElement>) => { event.preventDefault(); lepas(index); },
+          };
+          const baris = cx(
+            "flex flex-col gap-2 border-t border-outline-variant py-3",
+            seret === index && "opacity-50",
+            sasaran === index && seret !== null && seret !== index && (seret < index ? "border-b-2 border-b-primary" : "border-t-2 border-t-primary"),
+          );
+          const kendali = (
+            <>
+              <IconButton size="sm" label={`Naikkan ${nama}`} onClick={() => moveSection(index, -1)} disabled={index === 0}>
+                <ArrowUp size={16} />
+              </IconButton>
+              <IconButton size="sm" label={`Turunkan ${nama}`} onClick={() => moveSection(index, 1)} disabled={index === sections.length - 1}>
+                <ArrowDown size={16} />
+              </IconButton>
+            </>
+          );
+          const pegangan = <DotsSixVertical size={16} aria-hidden className="mt-1 shrink-0 cursor-grab text-on-surface-variant" />;
+          const setSaklar = (value: boolean) => {
+            const next = sections.map((item, position) => (position === index ? { ...item, enabled: value } : item));
+            setLanding({ ...landing, sections: next });
+          };
+
+          if (isLandingBlockId(section.id)) {
+            if (!blok) return null;
+            const ringkas = ringkasanBlok(blok);
+            const berisi = landingBlockHasContent(blok);
+            return (
+              <li key={section.id} className={baris} {...seretProps}>
+                <div className="flex items-start gap-1" {...pegangSeret}>
+                  {pegangan}
+                  <Switch
+                    className="min-w-0 flex-1"
+                    checked={section.enabled}
+                    onChange={setSaklar}
+                    label={nama}
+                    description={ringkas ?? undefined}
+                  />
+                  {kendali}
+                  <IconButton size="sm" label={`Hapus blok ${nama}`} className="text-error" onClick={() => hapusBlok(section.id)}>
+                    <Trash size={16} />
+                  </IconButton>
+                </div>
+                {section.enabled && !berisi ? <div><StatusChip tone="warning">Belum ada isinya</StatusChip></div> : null}
+                <details open={blokBaru === section.id || undefined} className="group rounded-md border border-outline-variant">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-3 py-2 text-body-medium font-medium text-on-surface hover:bg-primary-soft [&::-webkit-details-marker]:hidden">
+                    <span className="min-w-0 flex-1">Sunting isi</span>
+                    <CaretDown size={16} aria-hidden className="shrink-0 text-on-surface-variant transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="border-t border-outline-variant p-3"><BlockEditor block={blok} onChange={ubahBlok} /></div>
+                </details>
+              </li>
+            );
+          }
+
+          const id: LandingSectionId = section.id;
+          const berisi = sectionHasContent(id);
+          const sumber = LANDING_SECTION_SOURCES[id];
+          const editor = editorBagian(id);
+          const dariIsi = id === "about" || id === "venue";
+          const keterangan = id === "about"
             ? "Dari deskripsi acara di tab Isi."
-            : section.id === "venue"
+            : id === "venue"
               ? "Nama, alamat, dan peta dari tab Isi. Tombol denah menuju Denah kursi."
-              : section.id === "agenda"
+              : id === "agenda"
                 ? "Ditarik otomatis dari Rundown acara."
                 : null;
           return (
-            <li key={section.id} className="flex flex-col gap-2 border-t border-outline-variant py-3">
-              <div className="flex items-start gap-1">
+            <li key={id} className={baris} {...seretProps}>
+              <div className="flex items-start gap-1" {...pegangSeret}>
+                {pegangan}
                 <Switch
                   className="min-w-0 flex-1"
                   checked={section.enabled}
-                  onChange={(value) => {
-                    const next = sections.map((item, position) => (position === index ? { ...item, enabled: value } : item));
-                    setLanding({ ...landing, sections: next });
-                  }}
-                  label={LANDING_SECTION_LABELS[section.id]}
+                  onChange={setSaklar}
+                  label={nama}
                   description={keterangan ?? undefined}
                 />
-                <IconButton size="sm" label={`Naikkan ${LANDING_SECTION_LABELS[section.id]}`} onClick={() => moveSection(index, -1)} disabled={index === 0}>
-                  <ArrowUp size={16} />
-                </IconButton>
-                <IconButton size="sm" label={`Turunkan ${LANDING_SECTION_LABELS[section.id]}`} onClick={() => moveSection(index, 1)} disabled={index === sections.length - 1}>
-                  <ArrowDown size={16} />
-                </IconButton>
+                {kendali}
               </div>
 
               {/* Lencana hanya muncul saat saklarnya menyala TAPI isinya kosong,
@@ -882,7 +997,7 @@ export default function LandingCmsPage() {
                   <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-3 py-2 text-body-medium font-medium text-on-surface hover:bg-primary-soft [&::-webkit-details-marker]:hidden">
                     <span className="min-w-0 flex-1">
                       Sunting isi
-                      {JUMLAH[section.id] != null ? <span className="ml-1.5 font-normal tabular-nums text-on-surface-variant">{JUMLAH[section.id]}</span> : null}
+                      {JUMLAH[id] != null ? <span className="ml-1.5 font-normal tabular-nums text-on-surface-variant">{JUMLAH[id]}</span> : null}
                     </span>
                     <CaretDown size={16} aria-hidden className="shrink-0 text-on-surface-variant transition-transform group-open:rotate-180" />
                   </summary>
@@ -893,6 +1008,12 @@ export default function LandingCmsPage() {
           );
         })}
       </ol>
+      <div className="border-t border-outline-variant pt-3">
+        <Button variant="outlined" icon={<Plus size={18} />} onClick={() => setTambahTerbuka(true)} disabled={(landing.blocks ?? []).length >= 30}>
+          Tambah blok
+        </Button>
+      </div>
+      <TambahBlokDialog open={tambahTerbuka} onClose={() => setTambahTerbuka(false)} onPick={tambahBlok} />
     </div>
   ) : null;
 

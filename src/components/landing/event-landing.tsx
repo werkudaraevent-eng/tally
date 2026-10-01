@@ -10,7 +10,7 @@ import type {
   LandingSectionId,
   LandingSpeaker,
 } from "@/lib/domain";
-import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, publicEventName } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, publicEventName } from "@/lib/domain";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
@@ -159,7 +159,10 @@ function Wajah({ speaker, size }: { speaker: LandingSpeaker; size: "lg" | "sm" }
 }
 
 export async function EventLanding({ event, config, sections, theme, schedule }: Props) {
-  const aktif = sections.filter((section) => section.enabled);
+  // Blok dari pustaka blok hanya untuk tata letak Modern.
+  const aktif = sections.filter(
+    (section): section is { id: LandingSectionId; enabled: boolean } => section.enabled && !isLandingBlockId(section.id),
+  );
   const daftarUrl = `/e/${event.slug}/daftar`;
   const ctaLabel = config.cta_label?.trim() || "Daftar sekarang";
   const speakers = (config.speakers ?? []).filter((speaker) => speaker.name?.trim());

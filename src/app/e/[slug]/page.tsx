@@ -54,7 +54,7 @@ export default async function EventLandingPage({ params }: { params: Promise<{ s
   if (!event || event.status === "archived") notFound();
 
   const config = (event.landing_config ?? {}) as EventLandingConfig;
-  const sections = normalizeLandingSections(config.sections);
+  const sections = normalizeLandingSections(config.sections, config.blocks);
   const theme = registrationThemeStyle(config.theme);
 
   // Dua tata letak, satu sumber data. Editorial tetap bawaan: acara yang tidak

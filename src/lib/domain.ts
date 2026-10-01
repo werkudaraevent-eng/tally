@@ -145,7 +145,128 @@ export type RegistrationFormConfig = {
  */
 export type LandingSectionId = "about" | "highlights" | "agenda" | "speakers" | "venue" | "faq" | "sponsors" | "contact";
 
-export type LandingSection = { id: LandingSectionId; enabled: boolean };
+/**
+ * Satu entri susunan halaman: bagian bawaan, atau blok dari pustaka blok
+ * (`blk_...`, isinya di `landing_config.blocks`). Blok hanya dirender tata letak
+ * Modern; Editorial melewatinya.
+ */
+export type LandingSection = { id: LandingSectionId | LandingBlockId; enabled: boolean };
+
+export type LandingBlockId = `blk_${string}`;
+
+export function isLandingBlockId(id: string): id is LandingBlockId {
+  return id.startsWith("blk_");
+}
+
+/**
+ * Pustaka blok halaman acara (tata letak Modern).
+ *
+ * Admin memilih jenis blok, mengurutkannya bersama bagian bawaan, lalu mengisi
+ * teks dan gambarnya. Susunan, jarak, dan versi ponsel tiap blok dikunci di
+ * kode: kebebasannya ada di isi, bukan di tata letak, supaya halaman yang diisi
+ * siapa pun tetap rapi. Rancangan: Figma "Pustaka blok (usulan)".
+ *
+ * Satu bentuk data untuk semua jenis, dengan kolom opsional. Tiap jenis hanya
+ * membaca kolom miliknya; editor CMS hanya menampilkan kolom itu.
+ */
+export type LandingBlockType = "text_image" | "cards" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta";
+
+/** Latar blok. `dark` = warna merek dicampur hitam, teks putih. */
+export type LandingBlockTone = "light" | "panel" | "dark";
+
+export type LandingBlockItem = {
+  image_url?: string | null;
+  /** Label kecil di atas judul kartu, atau nama mitra pada logo. */
+  label?: string;
+  title?: string;
+  body?: string;
+  /** Angka pada blok Angka penting. */
+  value?: string;
+  href?: string;
+};
+
+export type LandingBlock = {
+  id: LandingBlockId;
+  type: LandingBlockType;
+  tone?: LandingBlockTone;
+  eyebrow?: string;
+  heading?: string;
+  body?: string;
+  image_url?: string | null;
+  image_side?: "left" | "right";
+  items?: LandingBlockItem[];
+  quote?: string;
+  name?: string;
+  role?: string;
+  link_url?: string;
+  link_label?: string;
+};
+
+export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
+  text_image: "Teks + gambar",
+  cards: "Kartu bergambar",
+  gallery: "Galeri foto",
+  stats: "Pita angka",
+  quote: "Kutipan",
+  logos: "Logo mitra",
+  download: "Unduhan materi",
+  cta: "Pita ajakan",
+};
+
+export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
+  text_image: "Cerita singkat dengan satu foto di kiri atau kanan.",
+  cards: "Topik, sesi, atau program. Kartu pertama dibuat besar.",
+  gallery: "3 sampai 12 foto suasana acara.",
+  stats: "2 sampai 4 angka asli dari panitia, latar gelap.",
+  quote: "Satu kutipan asli dengan nama dan jabatan.",
+  logos: "Logo penyelenggara, mitra, atau sponsor.",
+  download: "Tautan ke kerangka acuan, brosur, atau materi PDF.",
+  cta: "Ajakan mendaftar dengan warna merek.",
+};
+
+export const LANDING_BLOCK_TONE_LABELS: Record<LandingBlockTone, string> = {
+  light: "Terang",
+  panel: "Abu-abu",
+  dark: "Merek gelap",
+};
+
+/** Latar bawaan tiap jenis blok saat baru ditambahkan. */
+export const LANDING_BLOCK_DEFAULT_TONE: Record<LandingBlockType, LandingBlockTone> = {
+  text_image: "light",
+  cards: "light",
+  gallery: "panel",
+  stats: "dark",
+  quote: "light",
+  logos: "light",
+  download: "light",
+  cta: "light",
+};
+
+/** Batas jumlah butir per jenis blok. Sama di CMS dan validasi server. */
+export const LANDING_BLOCK_MAX_ITEMS: Partial<Record<LandingBlockType, number>> = {
+  cards: 6,
+  gallery: 12,
+  stats: 4,
+  logos: 16,
+};
+
+/**
+ * Apakah blok punya isi untuk dirender. Sama di halaman publik dan CMS: blok
+ * kosong tidak tampil, dan CMS menandainya "Belum ada isinya".
+ */
+export function landingBlockHasContent(block: LandingBlock): boolean {
+  const items = block.items ?? [];
+  switch (block.type) {
+    case "text_image": return Boolean(block.heading?.trim() || block.body?.trim());
+    case "cards": return items.some((item) => item.title?.trim());
+    case "gallery": return items.some((item) => item.image_url);
+    case "stats": return items.some((item) => item.value?.trim() && item.label?.trim());
+    case "quote": return Boolean(block.quote?.trim() && block.name?.trim());
+    case "logos": return items.some((item) => item.image_url);
+    case "download": return Boolean(block.heading?.trim() && block.link_url?.trim());
+    case "cta": return Boolean(block.heading?.trim());
+  }
+}
 
 export const LANDING_SECTION_LABELS: Record<LandingSectionId, string> = {
   about: "Tentang acara",
@@ -207,14 +328,20 @@ export const DEFAULT_LANDING_SECTIONS: LandingSection[] = [
  * Bagian yang tertinggal ditambahkan di posisi bawaannya dengan keadaan
  * bawaannya; susunan yang sudah diatur admin tidak diubah.
  */
-export function normalizeLandingSections(saved: LandingSection[] | undefined): LandingSection[] {
-  if (!saved?.length) return DEFAULT_LANDING_SECTIONS;
-  const next = saved.filter((section) => DEFAULT_LANDING_SECTIONS.some((item) => item.id === section.id));
+export function normalizeLandingSections(saved: LandingSection[] | undefined, blocks: LandingBlock[] = []): LandingSection[] {
+  const ids = new Set(blocks.map((block) => block.id));
+  // Blok yang tersimpan di `blocks` tapi belum ada di susunan masuk di akhir;
+  // entri susunan yang bloknya sudah dihapus dibuang.
+  const yatim = blocks.filter((block) => !saved?.some((section) => section.id === block.id)).map((block) => ({ id: block.id, enabled: true }));
+  if (!saved?.length) return [...DEFAULT_LANDING_SECTIONS, ...yatim];
+  const next = saved.filter((section) =>
+    isLandingBlockId(section.id) ? ids.has(section.id) : DEFAULT_LANDING_SECTIONS.some((item) => item.id === section.id),
+  );
   DEFAULT_LANDING_SECTIONS.forEach((item, index) => {
     if (next.some((section) => section.id === item.id)) return;
     next.splice(Math.min(index, next.length), 0, item);
   });
-  return next;
+  return [...next, ...yatim];
 }
 
 /**
@@ -368,6 +495,8 @@ export type EventLandingConfig = {
   cta_note?: string;
   /** Area peserta. Tanpa nilai = mati. */
   member?: LandingMemberConfig;
+  /** Isi blok dari pustaka blok; urutannya ada di `sections`. */
+  blocks?: LandingBlock[];
   banner_url?: string | null;
   /** Bawaan `theme` — perilaku sebelum pilihan ini ada. */
   banner_style?: LandingBannerStyle;

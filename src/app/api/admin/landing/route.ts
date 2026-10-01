@@ -5,6 +5,37 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { LANDING_HEADING_FONT_KEYS, type RegistrationFormConfig } from "@/lib/domain";
 import { DEFAULT_REGISTRATION_SEED, withDerivedRoles } from "@/lib/registration-theme";
 
+// ---- Pustaka blok (lihat LandingBlock di domain.ts) ---------------------------
+const MAX_BLOCKS = 30;
+const blockId = z.string().regex(/^blk_[a-z0-9]{6,24}$/) as z.ZodType<`blk_${string}`>;
+// Tautan opsional: kosong boleh, selain itu harus http(s). Bukan `z.string().url()`
+// saja karena kolom yang dikosongkan admin terkirim sebagai "".
+const tautan = z.string().trim().max(600).refine((value) => value === "" || /^https?:\/\/\S+$/.test(value), "Tautan harus diawali http:// atau https://");
+const teks = (max: number) => z.string().trim().max(max).optional();
+const blockSchema = z.object({
+  id: blockId,
+  type: z.enum(["text_image", "cards", "gallery", "stats", "quote", "logos", "download", "cta"]),
+  tone: z.enum(["light", "panel", "dark"]).optional(),
+  eyebrow: teks(60),
+  heading: teks(160),
+  body: teks(1200),
+  image_url: z.string().url().max(600).nullable().optional(),
+  image_side: z.enum(["left", "right"]).optional(),
+  items: z.array(z.object({
+    image_url: z.string().url().max(600).nullable().optional(),
+    label: teks(80),
+    title: teks(160),
+    body: teks(400),
+    value: teks(30),
+    href: tautan.optional(),
+  })).max(16).optional(),
+  quote: teks(600),
+  name: teks(120),
+  role: teks(160),
+  link_url: tautan.optional(),
+  link_label: teks(60),
+});
+
 /**
  * Konten landing page publik.
  *
@@ -57,10 +88,14 @@ const bodySchema = z.object({
     heading_scale: z.enum(["md", "lg", "xl"]).optional(),
     sections: z
       .array(z.object({
-        id: z.enum(["about", "highlights", "agenda", "speakers", "venue", "faq", "sponsors", "contact"]),
+        id: z.union([
+          z.enum(["about", "highlights", "agenda", "speakers", "venue", "faq", "sponsors", "contact"]),
+          blockId,
+        ]),
         enabled: z.boolean(),
       }))
-      .max(10),
+      .max(10 + MAX_BLOCKS),
+    blocks: z.array(blockSchema).max(MAX_BLOCKS).optional(),
     highlights: z.array(z.object({
       label: z.string().trim().min(1).max(60),
       value: z.string().trim().min(1).max(30),
