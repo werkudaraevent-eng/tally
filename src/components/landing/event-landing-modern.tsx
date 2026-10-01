@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, CalendarPlus, MapPin, Minus, Plus } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, ArrowUpRight, CalendarBlank, CalendarPlus, Clock, MapPin, Minus, Plus } from "@phosphor-icons/react/dist/ssr";
 import type {
   EventLandingConfig,
   EventRow,
@@ -10,7 +10,7 @@ import type {
   LandingSectionId,
 } from "@/lib/domain";
 import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
-import { modernThemeStyle } from "@/lib/registration-theme-css";
+import { heroCtaColors, modernThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
@@ -36,7 +36,7 @@ import { LandingBlockView } from "./modern/landing-blocks";
  *   selalu terakhir. Program menempel pada Tentang acara.
  * - Hero selalu KV warna asli dengan bayangan gelap. Tanpa KV, hero adalah
  *   bidang warna primary dengan teks on-primary.
- * - Tombol `rounded-md` (DESIGN.md), chip fakta pil, kartu `rounded-lg`.
+ * - Tombol `rounded-md` (DESIGN.md), info hero berikon tanpa bingkai, kartu `rounded-lg`.
  *
  * ---- Aturan yang sama -----------------------------------------------------
  *
@@ -125,17 +125,6 @@ function tinta(adaKv: boolean): CSSProperties {
   } as CSSProperties;
 }
 
-/**
- * Chip fakta di hero (tanggal, jam, tempat). Ukuran chip M3: tinggi 32dp,
- * sudut 8dp, label-large 14/20, jarak tepi 16dp. Bentuk kapsul sebelumnya
- * terbaca sebagai tombol.
- */
-const CHIP_INK =
-  "inline-flex h-8 items-center rounded-[8px] border border-[color-mix(in_srgb,var(--ink)_30%,transparent)] bg-[color-mix(in_srgb,var(--ink)_14%,transparent)] px-4 text-label-large font-normal";
-
-/** Pengganti tombol daftar saat pendaftaran belum dibuka: bentuk tombol, isi redup. */
-const PIL_INK_MATI = `${PIL} cursor-default border border-[color-mix(in_srgb,var(--ink)_30%,transparent)] bg-[color-mix(in_srgb,var(--ink)_14%,transparent)] font-medium text-[var(--ink)]`;
-
 /** Chip pil di atas permukaan terang (kartu program). */
 const CHIP =
   "inline-flex items-center rounded-full border border-[color-mix(in_srgb,var(--reg-on-surface)_12%,transparent)] bg-[color-mix(in_srgb,var(--reg-on-surface)_5%,transparent)] px-3.5 py-1.5 text-label-large font-normal tabular-nums";
@@ -145,6 +134,8 @@ const CHIP =
  * `tinta` untuk pasangannya.
  */
 const PIL_INK = `${PIL} bg-[var(--ink)] font-semibold text-[var(--ink-accent)]`;
+/** Tombol utama di atas KV: warna dari heroCtaColors lewat `--cta-bg`/`--cta-fg`. */
+const PIL_CTA_KV = `${PIL} bg-[var(--cta-bg)] font-semibold text-[var(--cta-fg)] shadow-[0_1px_3px_rgb(0_0_0/0.3)]`;
 /** Tombol kedua di atas bidang bergambar: garis `--ink`, tanpa isi. */
 const PIL_INK_GARIS = `${PIL} border border-[color-mix(in_srgb,var(--ink)_60%,transparent)] font-semibold text-[var(--ink)]`;
 
@@ -239,7 +230,6 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   const tanggal = formatEventDate(event);
   const jam = formatEventTime(event);
   const venue = event.venue_name?.trim() || null;
-  const fakta = [tanggal, jam, venue].filter((item): item is string => Boolean(item));
 
   // Angka di kartu Sekilas: angka penting pertama dari CMS bila bagian itu
   // menyala, atau jumlah sesi di rundown. Tidak ada angka = kartu tanpa angka.
@@ -254,6 +244,17 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   // Tanpa pilihan admin, Modern memakai Source Sans 3 (huruf rancangannya),
   // Editorial tetap Playfair Display.
   const headingFont = LANDING_HEADING_FONTS[config.heading_font ?? "source"] ?? LANDING_HEADING_FONTS.source;
+  const infoHero = [
+    tanggal ? { ikon: CalendarBlank, teks: tanggal } : null,
+    jam ? { ikon: Clock, teks: jam } : null,
+    venue ? { ikon: MapPin, teks: venue } : null,
+  ].filter((item): item is NonNullable<typeof item> => item !== null);
+  const cta = heroCtaColors(config.theme?.seed);
+  // Aksi utama saat pendaftaran tertutup: yang memang bisa dilakukan tamu.
+  const aksiTertutup = tampil("agenda")
+    ? { href: "#agenda", label: "Lihat susunan acara" }
+    : { href: "#isi-acara", label: "Pelajari acaranya" };
+  const ctaKv = { "--cta-bg": cta.bg, "--cta-fg": cta.fg } as CSSProperties;
   const mainStyle = { ...theme, ...modernThemeStyle(config.theme?.seed), "--landing-heading": headingFont.cssVar } as CSSProperties;
 
   // Tertonjol lebih dulu; urutan admin dipertahankan di dalam tiap kelompok.
@@ -575,29 +576,15 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
             config.hero_min_height ? HERO_HEIGHT_ANGKA : HERO_HEIGHT[config.hero_height ?? "standard"]
           }`}
         >
-          {/* Rancangan FHF: chip, nama, subjudul, lalu tombol di bawahnya, semua
-              rata kiri. Tombol tidak lagi di kanan: di layar lebar ia jauh dari
-              mata yang baru selesai membaca nama acara. */}
-          {/* Ritme vertikal M3 (kelipatan 8dp): fakta 24 ke nama, nama 16 ke
-              subjudul (keduanya satu kelompok), subjudul 32 ke tombol. Jarak
-              yang sama rata di semua celah membuat chip terlepas dari judulnya
-              dan terbaca melayang di tengah gambar. */}
+          {/* Urutan: nama acara, subjudul (satu kelompok, jarak 16), info
+              acara (24), tombol (32). Ritme M3 kelipatan 8dp. */}
           <div className="flex min-w-0 max-w-[1040px] flex-col">
-            {fakta.length > 0 ? (
-              <ul className="rise-in mb-6 flex flex-wrap gap-2" style={HERO_DELAY(0)}>
-                {fakta.map((item) => (
-                  <li key={item} className={`${CHIP_INK} tabular-nums`}>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
             <h1
               // Tinggi baris display M3: 64/57 = 1.12.
               className={`rise-in text-balance font-semibold leading-[1.12] tracking-[-0.02em] ${HEAD} ${
                 config.heading_size ? "" : HEADING_SCALE[config.heading_scale ?? "lg"]
               }`}
-              style={{ ...HERO_DELAY(1), ...(config.heading_size ? { fontSize: landingHeadingFontSize(config.heading_size) } : null) }}
+              style={{ ...HERO_DELAY(0), ...(config.heading_size ? { fontSize: landingHeadingFontSize(config.heading_size) } : null) }}
             >
               {nama}
             </h1>
@@ -607,24 +594,51 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                 {event.tagline}
               </p>
             ) : null}
-            <div className="rise-in mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap" style={HERO_DELAY(3)}>
-              {/* Tombol daftar hanya saat pendaftaran terbuka; lihat Editorial. */}
+            {/* Info acara sebagai teks berikon, bukan chip: di M3 chip adalah
+                elemen yang bisa diklik, dan bingkainya menambah ramai di atas
+                foto. Letaknya tepat di atas tombol karena tanggal dan tempat
+                adalah yang dibaca orang sebelum memutuskan mendaftar. */}
+            {infoHero.length > 0 ? (
+              <ul className="rise-in mt-6 flex flex-wrap gap-x-6 gap-y-2 text-body-large font-medium" style={HERO_DELAY(2)}>
+                {infoHero.map(({ ikon: Ikon, teks }) => (
+                  <li key={teks} className="inline-flex items-center gap-2 tabular-nums">
+                    <Ikon size={20} weight="regular" aria-hidden className="shrink-0 opacity-80" />
+                    {teks}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {/* Satu tombol filled M3, aksi berpenekanan tertinggi di layar ini.
+                Saat pendaftaran tertutup tidak ada tombol palsu: tombol utamanya
+                menjadi aksi yang memang bisa dilakukan (lihat susunan acara),
+                dan statusnya ditulis sebagai teks. */}
+            <div className="rise-in mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center" style={HERO_DELAY(3)}>
               {event.registration_enabled ? (
-                <Link href={daftarUrl} className={`${PIL_INK} justify-center`}>
-                  {ctaLabel}
-                </Link>
+                <>
+                  <Link href={daftarUrl} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
+                    {ctaLabel}
+                  </Link>
+                  {tampil("agenda") ? (
+                    <a href="#agenda" className={`${PIL_INK_GARIS} justify-center`}>
+                      Lihat susunan acara
+                    </a>
+                  ) : null}
+                </>
               ) : (
-                <span className={`${PIL_INK_MATI} justify-center`}>Pendaftaran belum dibuka</span>
+                <>
+                  <a href={aksiTertutup.href} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
+                    {aksiTertutup.label}
+                  </a>
+                  <p className="text-body-large opacity-90">Pendaftaran dibuka segera.</p>
+                </>
               )}
-              {tampil("agenda") ? (
-                <a href="#agenda" className={`${PIL_INK_GARIS} justify-center`}>
-                  Lihat susunan acara
-                </a>
-              ) : null}
             </div>
           </div>
         </div>
       </header>
+
+      {/* Jangkar tombol "Pelajari acaranya" saat pendaftaran tertutup. */}
+      <div id="isi-acara" aria-hidden className="scroll-mt-16" />
 
       {sections
         .filter((section) => section.enabled)

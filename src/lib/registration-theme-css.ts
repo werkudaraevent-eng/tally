@@ -120,3 +120,15 @@ export function modernThemeStyle(seed: string | undefined): CSSProperties {
     color: TINTA_GELAP,
   } as CSSProperties;
 }
+
+/**
+ * Warna tombol utama (filled M3) di atas KV hero yang sudah dibayangi gelap.
+ * M3: aksi utama = tombol filled berwarna primary/merek. Merek yang terlalu
+ * gelap untuk berdiri di atas foto yang digelapkan (kontras < 3:1 terhadap
+ * hitam) jatuh ke putih supaya tombolnya tetap terlihat.
+ */
+export function heroCtaColors(seed: string | undefined): { bg: string; fg: string } {
+  const merek = /^#[0-9a-f]{6}$/i.test(seed ?? "") ? seed! : DEFAULT_REGISTRATION_SEED;
+  const bg = kontras(merek, "#000000") >= 3 ? merek : "#ffffff";
+  return { bg, fg: tintaDiAtas(bg) };
+}
