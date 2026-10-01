@@ -136,10 +136,10 @@ export function ForumTema({
     <>
       <Kelompok title="Warna pendamping" note="Warna merek di atas dipakai untuk bilah, tombol utama, panel, dan kaki halaman.">
         <PilihWarna label="Warna aksen" value={forum.accent ?? KUNING} onChange={(value) => ubah({ accent: value })} />
-        <p className="-mt-2 text-body-medium text-on-surface-variant">Lencana di hero dan tombol Selengkapnya.</p>
+        <p className="-mt-2 text-body-medium text-on-surface-variant">Tombol Daftar di hero, garis lencana, dan tombol Selengkapnya.</p>
         <PilihWarna label="Warna sekunder" value={forum.secondary ?? LANGIT} onChange={(value) => ubah({ secondary: value })} />
         <p className="-mt-2 text-body-medium text-on-surface-variant">
-          Tombol Masuk dan latar panel Susunan acara (diencerkan). Warna teks di atasnya dipilih otomatis supaya terbaca.
+          Tombol Masuk saat pendaftaran ditutup, dan latar panel Susunan acara (diencerkan). Warna teks di atasnya dipilih otomatis supaya terbaca.
         </p>
       </Kelompok>
       <Kelompok title="Bahasa label" note="Untuk menu, judul bagian, dan tombol bawaan. Isi yang Anda tulis tampil apa adanya.">
@@ -218,7 +218,7 @@ export function ForumSusunan({
           label="Lencana"
           optional
           placeholder="mis. Sesi Utama"
-          hint="Kotak kecil berwarna aksen di atas nama acara."
+          hint="Label pendek dengan garis aksen di atas nama acara."
           maxLength={60}
           counter
           value={forum.hero_badge ?? ""}

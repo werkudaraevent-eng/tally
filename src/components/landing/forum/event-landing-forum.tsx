@@ -96,7 +96,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
   const daftarUrl = event.registration_enabled ? `/e/${event.slug}/daftar` : null;
 
   const header = (diAtasKv: boolean) => (
-    <ForumHeader halaman={halaman} diAtasKv={diAtasKv} config={forum} nama={nama} label={label} tautan={tautan} tombol={tombol} />
+    <ForumHeader halaman={halaman} diAtasKv={diAtasKv} config={forum} nama={nama} label={label} tautan={tautan} tombol={tombol} sekunder={Boolean(member && daftarUrl)} />
   );
   const footer = <ForumFooter config={forum} nama={nama} catatan={config.footer_note?.trim() || null} />;
 
@@ -134,7 +134,9 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
               }`}
             >
               {badge ? (
-                <p className={`bg-[var(--f-accent)] px-4 py-2.5 ${TEKS_MENU} text-[var(--f-on-accent)]`}>{badge}</p>
+                // Label, bukan tombol: garis aksen di kiri, tanpa blok kuning,
+                // supaya tidak terbaca sebagai tombol kedua di samping Daftar.
+                <p className={`border-l-4 border-[var(--f-accent)] pl-3 ${TEKS_MENU}`}>{badge}</p>
               ) : null}
               <h1 className={`${H_HERO} w-full text-balance`}>{nama}</h1>
               {event.tagline?.trim() ? (
@@ -143,9 +145,10 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
               {daftarUrl ? (
                 <a
                   href={daftarUrl}
-                  className={`${TOMBOL} mt-1 h-[clamp(48px,3.13vw,60px)] px-[clamp(24px,1.77vw,34px)] ${TEKS_MENU} ${
-                    kv ? "bg-[var(--f-primary)] text-[var(--f-on-primary)]" : "bg-[var(--f-accent)] text-[var(--f-on-accent)]"
-                  }`}
+                  // Kuning aksen, bukan primer: di Figma tombol navy berdiri di
+                  // atas foto terang, tetapi di atas KV gelap (seperti KV ILO)
+                  // tombol navy hampir hilang, padahal ini aksi utama halaman.
+                  className={`${TOMBOL} mt-1 h-[clamp(48px,3.13vw,60px)] bg-[var(--f-accent)] px-[clamp(24px,1.77vw,34px)] ${TEKS_MENU} text-[var(--f-on-accent)] outline-[var(--f-accent)]`}
                 >
                   {config.cta_label?.trim() || label.daftar}
                 </a>

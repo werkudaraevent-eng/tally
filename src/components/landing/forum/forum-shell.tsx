@@ -48,6 +48,7 @@ export function ForumHeader({
   label,
   tautan,
   tombol,
+  sekunder = false,
 }: {
   halaman: LandingForumPage;
   diAtasKv: boolean;
@@ -56,6 +57,11 @@ export function ForumHeader({
   label: ForumLabels;
   tautan: ForumTautan;
   tombol: TombolAtas;
+  /**
+   * Pendaftaran masih dibuka: tombol Daftar di hero yang utama, jadi Masuk
+   * tampil bergaris supaya tidak bersaing dengannya.
+   */
+  sekunder?: boolean;
 }) {
   const menu: { halaman: LandingForumPage; label: string }[] = [
     { halaman: "beranda", label: label.beranda },
@@ -69,7 +75,11 @@ export function ForumHeader({
   const tombolMasuk = tombol ? (
     <a
       href={tombol.href}
-      className={`${TOMBOL} h-[clamp(44px,3.13vw,60px)] min-w-[clamp(120px,8.85vw,170px)] bg-[var(--f-secondary)] px-[clamp(20px,1.77vw,34px)] text-[clamp(15px,0.84vw,16px)] text-[var(--f-on-secondary)] outline-[var(--f-secondary)]`}
+      className={`${TOMBOL} h-[clamp(44px,3.13vw,60px)] min-w-[clamp(120px,8.85vw,170px)] px-[clamp(20px,1.77vw,34px)] text-[clamp(15px,0.84vw,16px)] ${
+        sekunder
+          ? `border-2 ${diAtasKv ? "border-white text-white outline-white" : "border-[var(--f-primary-text)] text-[var(--f-primary-text)] outline-[var(--f-primary-text)]"}`
+          : "bg-[var(--f-secondary)] text-[var(--f-on-secondary)] outline-[var(--f-secondary)]"
+      }`}
     >
       {tombol.label}
     </a>
