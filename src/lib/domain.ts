@@ -653,13 +653,17 @@ export type EventLandingConfig = {
   banner_url?: string | null;
   /** Bawaan `theme` — perilaku sebelum pilihan ini ada. */
   banner_style?: LandingBannerStyle;
-  /** Bawaan `standard`. */
+  /** Bawaan `standard`. Diabaikan bila `hero_min_height` diisi. */
   hero_height?: LandingHeroHeight;
+  /** Tinggi minimum hero di layar lebar, dalam px. Tidak pernah melebihi tinggi layar. */
+  hero_min_height?: number;
   cta_label?: string;
   /** Bawaan `serif`. */
   heading_font?: LandingHeadingFont;
-  /** Bawaan `lg`. */
+  /** Bawaan `lg`. Diabaikan bila `heading_size` diisi. */
   heading_scale?: LandingHeadingScale;
+  /** Ukuran nama acara di layar lebar, dalam px. Di layar sempit mengecil otomatis. */
+  heading_size?: number;
   sections?: LandingSection[];
   speakers?: LandingSpeaker[];
   /** Angka yang ingin ditonjolkan: "300+ peserta", "12 booth". */
@@ -1002,4 +1006,19 @@ export type ApiError = {
 export function publicEventName(event: { name: string; landing_config?: unknown }) {
   const nama = (event.landing_config as EventLandingConfig | null | undefined)?.public_name?.trim();
   return nama || event.name;
+}
+
+/** Rentang ukuran nama acara (px) yang bisa diisi admin. */
+export const LANDING_HEADING_SIZE = { min: 32, max: 96, step: 2 } as const;
+/** Rentang tinggi minimum hero (px) yang bisa diisi admin. */
+export const LANDING_HERO_HEIGHT_PX = { min: 360, max: 900, step: 20 } as const;
+
+/**
+ * `font-size` nama acara untuk ukuran pilihan admin: penuh mulai lebar 1280px,
+ * mengecil sebanding lebar layar, dan berhenti di sekitar 60% ukurannya di
+ * ponsel supaya nama yang panjang tetap muat.
+ */
+export function landingHeadingFontSize(px: number): string {
+  const kecil = Math.min(px, Math.max(28, Math.round(px * 0.6)));
+  return `clamp(${kecil}px, ${((px / 1280) * 100).toFixed(2)}vw, ${px}px)`;
 }

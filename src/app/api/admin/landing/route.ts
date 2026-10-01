@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { LANDING_HEADING_FONT_KEYS, LANDING_NAV_LABEL_MAX, landingBlockLimits, type LandingTextLimit, type RegistrationFormConfig } from "@/lib/domain";
+import { LANDING_HEADING_FONT_KEYS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_LABEL_MAX, landingBlockLimits, type LandingTextLimit, type RegistrationFormConfig } from "@/lib/domain";
 import { DEFAULT_REGISTRATION_SEED, withDerivedRoles } from "@/lib/registration-theme";
 
 // ---- Pustaka blok (lihat LandingBlock di domain.ts) ---------------------------
@@ -102,6 +102,7 @@ const bodySchema = z.object({
     banner_url: z.string().url().max(600).nullable().optional(),
     banner_style: z.enum(["theme", "photo"]).optional(),
     hero_height: z.enum(["compact", "standard", "tall"]).optional(),
+    hero_min_height: z.number().int().min(LANDING_HERO_HEIGHT_PX.min).max(LANDING_HERO_HEIGHT_PX.max).optional(),
     cta_label: z.string().trim().max(60).optional(),
     heading_font: z.enum(LANDING_HEADING_FONT_KEYS).optional(),
     layout: z.enum(["editorial", "modern"]).optional(),
@@ -116,6 +117,7 @@ const bodySchema = z.object({
     cta_heading: z.string().trim().max(120).optional(),
     cta_note: z.string().trim().max(300).optional(),
     heading_scale: z.enum(["md", "lg", "xl"]).optional(),
+    heading_size: z.number().int().min(LANDING_HEADING_SIZE.min).max(LANDING_HEADING_SIZE.max).optional(),
     sections: z
       .array(z.object({
         id: z.union([

@@ -14,9 +14,9 @@ import { LandingPreview } from "@/components/admin/landing-preview";
 import {
   LANDING_BANNER_STYLE_LABELS,
   LANDING_HEADING_FONTS,
-  LANDING_HEADING_SCALE_LABELS,
+  LANDING_HEADING_SIZE,
+  LANDING_HERO_HEIGHT_PX,
   LANDING_MEMBER_AUDIENCE_LABELS,
-  LANDING_HERO_HEIGHT_LABELS,
   LANDING_LAYOUT_LABELS,
   LANDING_SECTION_LABELS,
   LANDING_SECTION_SOURCES,
@@ -90,6 +90,68 @@ function PilihWarna({ label, value, onChange }: { label: string; value: string; 
         <span className="block text-body-medium text-on-surface-variant">{value.toUpperCase()}</span>
       </span>
     </label>
+  );
+}
+
+/** Angka yang setara dengan pilihan lama, supaya kolom angka tidak mulai kosong. */
+const JUDUL_PRESET_PX: Record<"md" | "lg" | "xl", number> = { md: 52, lg: 64, xl: 72 };
+const HERO_PRESET_PX: Record<"compact" | "standard" | "tall", number> = { compact: 600, standard: 760, tall: 850 };
+
+/** Ukuran dalam px: penggeser untuk mencoba-coba, kolom angka untuk nilai pasti. */
+function AngkaPx({
+  label,
+  hint,
+  rentang,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  rentang: { min: number; max: number; step: number };
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  // Teks yang sedang diketik; null = ikuti nilai tersimpan (mis. dari penggeser).
+  const [draf, setDraf] = useState<string | null>(null);
+  const jepit = (angka: number) => Math.min(rentang.max, Math.max(rentang.min, Math.round(angka)));
+  return (
+    <div className="flex flex-col gap-1.5">
+      <TextField
+          className="w-32"
+          label={label}
+          type="number"
+          inputMode="numeric"
+          min={rentang.min}
+          max={rentang.max}
+          step={rentang.step}
+          trailing={<span className="text-body-medium text-on-surface-variant">px</span>}
+          value={draf ?? String(value)}
+          onChange={(event) => {
+            setDraf(event.target.value);
+            const angka = Number(event.target.value);
+            if (event.target.value !== "" && angka >= rentang.min && angka <= rentang.max) onChange(Math.round(angka));
+          }}
+          onBlur={() => {
+            const angka = Number(draf);
+            const sah = draf === null || draf === "" || Number.isNaN(angka) ? value : jepit(angka);
+            setDraf(null);
+            if (sah !== value) onChange(sah);
+          }}
+        />
+        <input
+          type="range"
+          aria-label={`${label}, penggeser`}
+          min={rentang.min}
+          max={rentang.max}
+          step={rentang.step}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          className="h-11 w-full accent-primary"
+        />
+      <p className="text-body-medium text-on-surface-variant">
+        {hint} Rentang {rentang.min} sampai {rentang.max} px.
+      </p>
+    </div>
   );
 }
 
@@ -554,23 +616,13 @@ export default function LandingCmsPage() {
             </p>
           </div>
         ) : null}
-        <div>
-          <p className="text-body-medium font-medium text-on-surface">Tinggi hero</p>
-          <SegmentedButton
-            className="mt-1.5 w-full"
-            label="Tinggi hero"
-            value={landing.hero_height ?? "standard"}
-            onChange={(value) => setLanding({ ...landing, hero_height: value })}
-            options={[
-              { value: "compact", label: LANDING_HERO_HEIGHT_LABELS.compact },
-              { value: "standard", label: LANDING_HERO_HEIGHT_LABELS.standard },
-              { value: "tall", label: LANDING_HERO_HEIGHT_LABELS.tall },
-            ]}
-          />
-          <p className="mt-1.5 text-body-medium text-on-surface-variant">
-            Tinggi minimum bidang judul di layar lebar: ringkas 440px, standar 600px, tinggi 720px. Di ponsel ketiganya lebih pendek. Makin tinggi, makin jauh isi halaman terdorong ke bawah.
-          </p>
-        </div>
+        <AngkaPx
+          label="Tinggi hero"
+          rentang={LANDING_HERO_HEIGHT_PX}
+          value={landing.hero_min_height ?? HERO_PRESET_PX[landing.hero_height ?? "standard"]}
+          onChange={(value) => setLanding({ ...landing, hero_min_height: value })}
+          hint="Tinggi bidang judul di layar lebar. Tidak pernah melebihi tinggi layar tamu, jadi tombol daftar tetap terlihat. Di ponsel 75% dari angka ini."
+        />
         <TextField
           label="Teks tombol daftar"
           optional
@@ -606,23 +658,13 @@ export default function LandingCmsPage() {
             );
           })}
         </div>
-        <div>
-          <p className="text-body-medium font-medium text-on-surface">Ukuran judul</p>
-          <SegmentedButton
-            className="mt-1.5 w-full"
-            label="Ukuran judul"
-            value={landing.heading_scale ?? "lg"}
-            onChange={(value) => setLanding({ ...landing, heading_scale: value })}
-            options={[
-              { value: "md", label: LANDING_HEADING_SCALE_LABELS.md },
-              { value: "lg", label: LANDING_HEADING_SCALE_LABELS.lg },
-              { value: "xl", label: LANDING_HEADING_SCALE_LABELS.xl },
-            ]}
-          />
-          <p className="mt-1.5 text-body-medium text-on-surface-variant">
-            Ukuran nama acara di hero. Nama yang panjang lebih rapi di Sedang; Sangat besar cocok untuk nama dua sampai tiga kata.
-          </p>
-        </div>
+        <AngkaPx
+          label="Ukuran nama acara"
+          rentang={LANDING_HEADING_SIZE}
+          value={landing.heading_size ?? JUDUL_PRESET_PX[landing.heading_scale ?? "lg"]}
+          onChange={(value) => setLanding({ ...landing, heading_size: value })}
+          hint="Ukuran huruf nama acara di hero pada layar lebar. Di ponsel mengecil otomatis sampai sekitar 60%. Nama yang panjang lebih rapi di 48 sampai 64."
+        />
       </Kelompok>
 
       <Kelompok title="Warna" note="Satu warna; sisanya diturunkan otomatis supaya teks tetap terbaca.">

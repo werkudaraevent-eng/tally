@@ -9,7 +9,7 @@ import type {
   LandingSection,
   LandingSectionId,
 } from "@/lib/domain";
-import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, landingBlockHasContent, publicEventName } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
 import { modernThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
@@ -80,6 +80,9 @@ const HERO_HEIGHT: Record<LandingHeroHeight, string> = {
   standard: "min-h-[560px] sm:min-h-[min(640px,100svh)] lg:min-h-[min(760px,100svh)]",
   tall: "min-h-[620px] sm:min-h-[min(720px,100svh)] lg:min-h-[min(850px,100svh)]",
 };
+
+/** Tinggi hero dari angka di CMS (`--hero-h`), ponsel 75% darinya, tidak pernah melebihi layar. */
+const HERO_HEIGHT_ANGKA = "min-h-[min(calc(var(--hero-h)*0.75),100svh)] lg:min-h-[min(var(--hero-h),100svh)]";
 
 /**
  * Ukuran nama acara. Paling besar 72px: di atas itu nama acara yang panjang
@@ -554,13 +557,14 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
       >
         {kv ? <Kv src={kv} scrim={KV_SCRIM} /> : null}
         <div
+          style={config.hero_min_height ? ({ "--hero-h": `${config.hero_min_height}px` } as CSSProperties) : undefined}
           className={`${SHELL} flex flex-col pb-12 text-[var(--ink)] sm:pb-16 lg:pb-20 ${
             // Dengan KV, judul berdiri di bawah supaya gambarnya terlihat.
             // Tanpa KV tidak ada yang perlu diperlihatkan di atas judul, jadi
             // judul di tengah bidang warna, bukan jatuh ke dasar hero.
             kv ? "justify-end pt-32" : "justify-center pt-28"
           } ${
-            HERO_HEIGHT[config.hero_height ?? "standard"]
+            config.hero_min_height ? HERO_HEIGHT_ANGKA : HERO_HEIGHT[config.hero_height ?? "standard"]
           }`}
         >
           {/* Rancangan FHF: chip, nama, subjudul, lalu tombol di bawahnya, semua
@@ -578,9 +582,9 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
             ) : null}
             <h1
               className={`rise-in text-balance font-semibold leading-[1.05] tracking-[-0.03em] ${HEAD} ${
-                HEADING_SCALE[config.heading_scale ?? "lg"]
+                config.heading_size ? "" : HEADING_SCALE[config.heading_scale ?? "lg"]
               }`}
-              style={HERO_DELAY(1)}
+              style={{ ...HERO_DELAY(1), ...(config.heading_size ? { fontSize: landingHeadingFontSize(config.heading_size) } : null) }}
             >
               {nama}
             </h1>

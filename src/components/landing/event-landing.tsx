@@ -10,7 +10,7 @@ import type {
   LandingSectionId,
   LandingSpeaker,
 } from "@/lib/domain";
-import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, publicEventName } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, landingHeadingFontSize, publicEventName } from "@/lib/domain";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
@@ -73,6 +73,9 @@ const HERO_HEIGHT: Record<LandingHeroHeight, string> = {
 };
 
 /** Ukuran nama acara di hero, per kelas jendela. */
+/** Tinggi hero dari angka di CMS (`--hero-h`), ponsel 75% darinya, tidak pernah melebihi layar. */
+const HERO_HEIGHT_ANGKA = "min-h-[min(calc(var(--hero-h)*0.75),100svh)] lg:min-h-[min(var(--hero-h),100svh)]";
+
 const HEADING_SCALE: Record<LandingHeadingScale, string> = {
   md: "text-[40px] sm:text-[52px] lg:text-[64px]",
   lg: "text-[44px] sm:text-[60px] lg:text-[80px]",
@@ -253,7 +256,8 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
         <div
           className={`${SHELL} flex flex-col pb-16 pt-16 sm:pb-20 sm:pt-24 lg:pb-24 ${
             kvFoto ? "justify-end" : "justify-center"
-          } ${HERO_HEIGHT[config.hero_height ?? "standard"]}`}
+          } ${config.hero_min_height ? HERO_HEIGHT_ANGKA : HERO_HEIGHT[config.hero_height ?? "standard"]}`}
+          style={config.hero_min_height ? ({ "--hero-h": `${config.hero_min_height}px` } as CSSProperties) : undefined}
         >
           <div className={`grid gap-12 lg:grid-cols-12 lg:gap-6 ${heroTeks}`}>
             <div className="lg:col-span-8">
@@ -265,9 +269,9 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
 
               <h1
                 className={`rise-in mt-6 text-balance font-semibold leading-[1.02] tracking-[-0.01em] ${HEAD} ${
-                  HEADING_SCALE[config.heading_scale ?? "lg"]
+                  config.heading_size ? "" : HEADING_SCALE[config.heading_scale ?? "lg"]
                 }`}
-                style={HERO_DELAY(1)}
+                style={{ ...HERO_DELAY(1), ...(config.heading_size ? { fontSize: landingHeadingFontSize(config.heading_size) } : null) }}
               >
                 {publicEventName(event)}
               </h1>
