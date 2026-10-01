@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useId, useRef, useState, type KeyboardEvent } from "react";
 import type { LandingSpeaker } from "@/lib/domain";
 import type { SpeakerTab } from "@/lib/landing-speaker-tabs";
 
@@ -38,8 +38,10 @@ function Kartu({ speaker }: { speaker: LandingSpeaker }) {
     <li className="flex min-w-0 flex-col gap-3 sm:gap-4">
       <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-[var(--reg-outline-variant)]">
         {speaker.photo_url ? (
+          // Dipotong dari sepertiga atas: foto pejabat setengah badan atau
+          // lanskap tidak kehilangan dahi.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={speaker.photo_url} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" />
+          <img src={speaker.photo_url} alt="" loading="lazy" className="absolute inset-0 size-full object-cover object-[50%_20%]" />
         ) : (
           <div aria-hidden className="absolute inset-0 flex items-center justify-center" style={{ background: LATAR_INISIAL }}>
             <span className="text-[48px] font-semibold text-[var(--reg-primary)] opacity-60 [font-family:var(--landing-heading)] sm:text-[72px]">
@@ -52,7 +54,8 @@ function Kartu({ speaker }: { speaker: LandingSpeaker }) {
         <p className="text-title-medium font-semibold sm:text-title-large sm:font-semibold">{speaker.name}</p>
         {keterangan ? <p className="text-body-medium text-[var(--reg-on-surface-variant)]">{keterangan}</p> : null}
         {speaker.company?.trim() ? (
-          <p className="text-label-large font-semibold text-[var(--reg-primary)]">{speaker.company.trim()}</p>
+          // Warna teks, bukan warna utama: teks biru tebal terbaca sebagai tautan.
+          <p className="text-label-large font-semibold text-[var(--reg-on-surface)]">{speaker.company.trim()}</p>
         ) : null}
       </div>
     </li>
@@ -124,12 +127,13 @@ export function SpeakerTabs({
                 aria-controls={`${dasar}-panel`}
                 tabIndex={pilih ? 0 : -1}
                 onClick={() => setAktif(index)}
-                className={`m3-state inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-md border px-4 text-label-large font-medium ${
+                // Terpilih = tonal (M3 filter chip), bukan isi penuh warna utama:
+                // ini pemilih tampilan, tidak boleh bersaing dengan tombol utama.
+                className={`m3-state inline-flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-md border px-4 text-label-large font-medium text-[var(--reg-on-surface)] ${
                   pilih
-                    ? "border-[var(--reg-primary)] bg-[var(--reg-primary)] text-[var(--reg-on-primary)]"
-                    : "border-[var(--reg-outline-variant)] bg-[var(--reg-surface)] text-[var(--reg-on-surface)]"
+                    ? "border-transparent bg-[color-mix(in_srgb,var(--reg-primary)_14%,var(--reg-surface))] font-semibold"
+                    : "border-[var(--reg-outline-variant)] bg-[var(--reg-surface)]"
                 }`}
-                style={pilih ? ({ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties) : undefined}
               >
                 {item.label}
               </button>

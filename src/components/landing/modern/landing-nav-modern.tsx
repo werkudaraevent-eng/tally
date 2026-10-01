@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { List, X } from "@phosphor-icons/react";
 import type { LandingNavWidth } from "@/lib/domain";
 
 /**
@@ -15,8 +16,13 @@ import type { LandingNavWidth } from "@/lib/domain";
  * Setelah hero lewat, bilah memakai `--nav-bg-scrolled` (paling sedikit 90%
  * pekat) supaya teksnya tetap terbaca di atas permukaan putih.
  *
- * Jangkar bagian hanya di `xl` ke atas (DESIGN.md "Halaman acara"): lima tautan
- * di layar sempit menjadi baris yang terlipat. Masuk dan Daftar selalu ada.
+ * Jangkar bagian tampil sebaris di `xl` ke atas. Di bawahnya tombol Menu
+ * membuka daftar tarik-turun tepat di bawah bilah (bukan panel dari samping):
+ * halaman ponsel ~7.000px butuh cara melompat ke Susunan acara dan Lokasi.
+ * Masuk dan Daftar selalu ada.
+ *
+ * `logoOnDark`: bilah bening di atas KV, jadi logo berwarna diputihkan
+ * (filter) sampai hero lewat. Logo satu warna seperti ILO tetap utuh bentuknya.
  */
 export function LandingNavModern({
   eventName,
@@ -26,6 +32,7 @@ export function LandingNavModern({
   sections,
   width = "full",
   logoUrl = null,
+  logoOnDark = false,
 }: {
   eventName: string;
   daftarUrl: string;
@@ -34,8 +41,25 @@ export function LandingNavModern({
   sections: { id: string; label: string }[];
   width?: LandingNavWidth;
   logoUrl?: string | null;
+  logoOnDark?: boolean;
 }) {
   const [aktif, setAktif] = useState<string | null>(null);
+  const [menuBuka, setMenuBuka] = useState(false);
+  const menuId = useId();
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!menuBuka) return;
+    const tutup = (event: Event) => {
+      if (event instanceof KeyboardEvent ? event.key === "Escape" : !navRef.current?.contains(event.target as Node)) setMenuBuka(false);
+    };
+    document.addEventListener("keydown", tutup);
+    document.addEventListener("pointerdown", tutup);
+    return () => {
+      document.removeEventListener("keydown", tutup);
+      document.removeEventListener("pointerdown", tutup);
+    };
+  }, [menuBuka]);
   const [lewatHero, setLewatHero] = useState(false);
 
   useEffect(() => {
@@ -74,9 +98,9 @@ export function LandingNavModern({
   }, [sections]);
 
   const isi = {
-    "--nav-fill": lewatHero ? "var(--nav-bg-scrolled)" : "var(--nav-bg)",
-    "--nav-text": lewatHero ? "var(--nav-ink-scrolled)" : "var(--nav-ink)",
-    "--nav-on-text": lewatHero ? "var(--nav-on-ink-scrolled)" : "var(--nav-on-ink)",
+    "--nav-fill": lewatHero || menuBuka ? "var(--nav-bg-scrolled)" : "var(--nav-bg)",
+    "--nav-text": lewatHero || menuBuka ? "var(--nav-ink-scrolled)" : "var(--nav-ink)",
+    "--nav-on-text": lewatHero || menuBuka ? "var(--nav-on-ink-scrolled)" : "var(--nav-on-ink)",
     "--m3-state-color": "var(--nav-text)",
   } as CSSProperties;
   // Garis rambut di bawah bilah setelah hero lewat: bilah putih di atas isi
@@ -90,6 +114,7 @@ export function LandingNavModern({
     <nav
       aria-label="Navigasi acara"
       data-landing-nav
+      ref={navRef}
       className={`sticky top-0 z-30 ${selebarIsi ? "" : bilah}`}
       style={{ ...isi, ...(selebarIsi ? {} : { backdropFilter: lewatHero ? "blur(12px)" : "var(--nav-blur)" }) }}
     >
@@ -112,7 +137,12 @@ export function LandingNavModern({
             // Tingginya mengikuti bilah (sisa 12px atas-bawah), lebarnya dibatasi
             // supaya logo melebar tidak mendorong Masuk/Daftar.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt={eventName} className="block max-h-[calc(var(--nav-h)-24px)] w-auto max-w-[min(240px,50vw)] object-contain object-left" />
+            <img
+              src={logoUrl}
+              alt={eventName}
+              className="block max-h-[calc(var(--nav-h)-24px)] w-auto max-w-[min(240px,50vw)] object-contain object-left transition-[filter] duration-200"
+              style={logoOnDark && !lewatHero && !menuBuka ? { filter: "brightness(0) invert(1)" } : undefined}
+            />
           ) : (
             <span className="truncate">{eventName}</span>
           )}
@@ -126,9 +156,7 @@ export function LandingNavModern({
                 aria-current={aktif === section.id ? "true" : undefined}
                 // Tebal sama untuk semua tautan, bagian aktif ditandai garis
                 // bawah: tautan yang menebal menggeser tetangganya saat digulir.
-                className={`m3-state relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 text-body-large font-medium transition-opacity ${
-                  aktif === section.id ? "opacity-100" : "opacity-75 hover:opacity-100"
-                }`}
+                className="m3-state relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 text-[15px] font-medium"
               >
                 {section.label}
                 <span
@@ -148,7 +176,7 @@ export function LandingNavModern({
               href={memberLink.href}
               // Tombol bergaris kecil, bukan teks: tanpa bingkai "Masuk" terbaca
               // sebagai tautan menu ketujuh.
-              className="m3-state inline-flex min-h-10 items-center rounded-md border border-[color-mix(in_srgb,var(--nav-text)_45%,transparent)] px-4 text-label-large font-semibold"
+              className="m3-state inline-flex min-h-10 items-center rounded-md border border-current px-4 text-label-large font-semibold"
             >
               {memberLink.label}
             </Link>
@@ -164,8 +192,40 @@ export function LandingNavModern({
               Daftar
             </Link>
           ) : null}
+          {sections.length > 0 ? (
+            <button
+              type="button"
+              aria-expanded={menuBuka}
+              aria-controls={menuId}
+              aria-label={menuBuka ? "Tutup menu" : "Buka menu"}
+              onClick={() => setMenuBuka((buka) => !buka)}
+              className="m3-state -mr-2 inline-flex size-11 items-center justify-center rounded-md xl:hidden"
+            >
+              {menuBuka ? <X size={22} aria-hidden /> : <List size={22} aria-hidden />}
+            </button>
+          ) : null}
         </div>
       </div>
+
+      {menuBuka ? (
+        <ul
+          id={menuId}
+          className="absolute inset-x-0 top-full flex flex-col border-t border-[color-mix(in_srgb,var(--nav-text)_12%,transparent)] bg-[var(--nav-fill)] px-3 pb-3 pt-2 text-[var(--nav-text)] shadow-[0_8px_16px_rgb(0_0_0/0.08)] backdrop-blur-md xl:hidden"
+        >
+          {sections.map((section) => (
+            <li key={section.id}>
+              <a
+                href={`#${section.id}`}
+                onClick={() => setMenuBuka(false)}
+                aria-current={aktif === section.id ? "true" : undefined}
+                className={`m3-state flex min-h-12 items-center rounded-md px-4 text-[17px] ${aktif === section.id ? "font-semibold" : "font-medium"}`}
+              >
+                {section.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </nav>
   );
 }

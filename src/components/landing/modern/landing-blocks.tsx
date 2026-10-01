@@ -110,7 +110,7 @@ function IkonTaut({ href, size = 18 }: { href: string; size?: number }) {
 
 function Wadah({ block, children, className = "py-12 sm:py-16 lg:py-[72px]" }: { block: LandingBlock; children: ReactNode; className?: string }) {
   return (
-    <section id={block.id} className={`scroll-mt-24 text-[var(--reg-on-surface)] ${className}`} style={NADA[block.tone ?? "light"]}>
+    <section id={block.id} className={`scroll-mt-[var(--nav-h)] text-[var(--reg-on-surface)] ${className}`} style={NADA[block.tone ?? "light"]}>
       <div className={SHELL}>{children}</div>
     </section>
   );
@@ -567,7 +567,7 @@ function Unduhan({ block }: { block: LandingBlock }) {
 function Ajakan({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftarUrl: string | null; daftarLabel: string }) {
   if (block.image_url) {
     return (
-      <section id={block.id} className="scroll-mt-24 py-12 sm:py-16">
+      <section id={block.id} className="scroll-mt-[var(--nav-h)] py-12 sm:py-16">
         <div className={SHELL}>
           <div className="relative isolate flex min-h-[440px] flex-col items-center justify-center gap-4 overflow-hidden rounded-lg px-6 py-16 text-center text-white sm:px-16 lg:min-h-[420px]">
             <Gambar src={block.image_url} alt="" className="absolute inset-0 -z-10 size-full" />
@@ -590,7 +590,7 @@ function Ajakan({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftar
   }
 
   return (
-    <section id={block.id} className="scroll-mt-24 py-12 sm:py-16">
+    <section id={block.id} className="scroll-mt-[var(--nav-h)] py-12 sm:py-16">
       <div className={SHELL}>
         <div
           className="flex flex-col gap-8 rounded-lg bg-[var(--reg-brand)] px-6 py-12 text-[var(--reg-on-brand)] sm:px-16 sm:py-16 lg:flex-row lg:items-center lg:justify-between"

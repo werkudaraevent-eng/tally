@@ -11,7 +11,7 @@ import type { AgendaPreview } from "./landing-agenda";
  *   8 pembicara pertama.
  * - Satu tab per sesi (`speaker.session`), urut seperti di rundown bila namanya
  *   cocok dengan awal judul sesi rundown, selain itu urut kemunculan.
- * - "Lainnya": pembicara tanpa sesi yang tidak masuk Sorotan.
+ * - "Pembicara lain": pembicara tanpa sesi yang tidak masuk Sorotan.
  *
  * Tanpa sesi sama sekali dan paling banyak 8 pembicara, hasilnya satu tab saja
  * dan tampilan tidak perlu menggambar baris tab.
@@ -88,7 +88,7 @@ export function speakerTabs(all: LandingSpeaker[], agenda: AgendaPreview[] = [])
     });
   }
   const lainnya = speakers.filter((speaker) => !speaker.session?.trim() && !sorotan.includes(speaker));
-  if (lainnya.length > 0) tabs.push({ key: "lainnya", label: "Lainnya", note: null, speakers: lainnya });
+  if (lainnya.length > 0) tabs.push({ key: "lainnya", label: "Pembicara lain", note: null, speakers: lainnya });
   return tabs;
 }
 

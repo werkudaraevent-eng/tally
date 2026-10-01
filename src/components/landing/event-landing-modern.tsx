@@ -9,7 +9,7 @@ import type {
   LandingSection,
   LandingSectionId,
 } from "@/lib/domain";
-import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, LANDING_NAV_DEFAULTS, LANDING_SECTION_LABELS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
 import { heroCtaColors, modernNavStyle, modernThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
@@ -251,6 +251,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   const venue = event.venue_name?.trim() || null;
   // Tanpa tautan peta dari admin, tombol peta mencari nama dan alamat tempat
   // di Google Maps: tamu hampir selalu membuka peta, dan nama hotel cukup.
+  const petaKueri = [venue, event.venue_address?.trim()].filter(Boolean).join(", ");
   const petaUrl =
     event.venue_map_url ||
     (venue || event.venue_address?.trim()
@@ -469,7 +470,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         {/* ---- Lokasi ------------------------------------------------------- */}
         {tampil("venue") ? (
           <Section id="venue">
-            <div className={`grid items-center gap-10 lg:gap-20 ${petaUrl ? "lg:grid-cols-2" : ""}`}>
+            <div className={`grid items-center gap-10 lg:gap-20 ${petaKueri ? "lg:grid-cols-2" : ""}`}>
               <div className="flex max-w-[572px] flex-col items-start gap-8 sm:gap-10">
                 <div className="flex flex-col gap-5">
                   {venue ? <p className={ALIS}>{LANDING_SECTION_LABELS.venue}</p> : null}
@@ -479,8 +480,6 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                   ) : null}
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  {/* Peta sebagai TAUTAN, tidak disematkan: penyemat peta
-                      memuat skrip pihak ketiga ke halaman tamu. */}
                   {petaUrl ? (
                     <a
                       href={petaUrl}
@@ -510,24 +509,19 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                 </Link>
               </div>
 
-              {petaUrl ? (
-                // Bidang peta: tautan besar ke peta, bukan peta tersemat.
-                <a
-                  href={petaUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  aria-label={`${tautanPeta(petaUrl)}: ${venue ?? event.venue_address ?? "lokasi acara"}`}
-                  className="m3-state flex aspect-[4/3] flex-col items-center justify-center gap-4 rounded-lg bg-[var(--reg-panel)] p-8 text-center sm:aspect-[625/460]"
-                >
-                  <span className="flex size-20 items-center justify-center rounded-full bg-[var(--reg-primary)] text-[var(--reg-on-primary)]">
-                    <MapPin size={36} weight="fill" aria-hidden />
-                  </span>
-                  <span className={`${HEAD} text-balance text-headline-small`}>{venue ?? LANDING_SECTION_LABELS.venue}</span>
-                  <span className="inline-flex items-center gap-1.5 text-title-small font-semibold text-[var(--reg-primary)]">
-                    {tautanPeta(petaUrl)}
-                    <ArrowUpRight size={14} weight="bold" aria-hidden />
-                  </span>
-                </a>
+              {petaKueri ? (
+                // Peta tersemat dari nama dan alamat tempat (tanpa kunci API).
+                // Dimuat malas: tamu yang tidak menggulir sampai sini tidak
+                // memuat apa pun dari Google.
+                <div className="overflow-hidden rounded-lg bg-[var(--reg-panel)] [aspect-ratio:4/3] sm:[aspect-ratio:625/460]">
+                  <iframe
+                    title={`Peta ${venue ?? "lokasi acara"}`}
+                    src={`https://www.google.com/maps?q=${encodeURIComponent(petaKueri)}&output=embed`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="size-full border-0"
+                  />
+                </div>
               ) : null}
             </div>
           </Section>
@@ -573,7 +567,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   };
 
   return (
-    <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={mainStyle}>
+    <main data-halaman-publik className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={mainStyle}>
       <LandingNavModern
         eventName={nama}
         daftarUrl={daftarUrl}
@@ -582,6 +576,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         sections={navSections}
         width={config.nav?.width ?? "full"}
         logoUrl={config.nav?.logo_url ?? null}
+        logoOnDark={Boolean(kv) && (config.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50}
       />
 
       {/* ---- Hero ---------------------------------------------------------
@@ -716,25 +711,31 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         ) : null}
       </div>
 
+      {/* ---- Penyelenggara ---------------------------------------------------
+          Pita terang tepat di atas kaki halaman, bukan di atas navy: logo
+          lembaga dibuat untuk latar terang, dan versi putihnya jarang ada.
+          Satu deret rata tengah, sama tinggi, tanpa petak per logo. */}
+      {mitra.length > 0 ? (
+        <section aria-labelledby="penyelenggara" className="border-t border-[var(--reg-outline-variant)]">
+          <div className={`${SHELL} flex flex-col items-center gap-6 py-10 sm:py-12`}>
+            <h2 id="penyelenggara" className={`text-title-small font-semibold ${MUTED}`}>
+              Diselenggarakan oleh
+            </h2>
+            <ul className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
+              {mitra.map((sponsor) => (
+                <li key={sponsor.logo_url} className="flex h-10 items-center sm:h-12">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={sponsor.logo_url} alt={sponsor.name ?? ""} loading="lazy" className="max-h-full w-auto max-w-[160px] object-contain" />
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      ) : null}
+
       {/* ---- Kaki halaman ---------------------------------------------------- */}
       <footer data-bagian="kaki" className="text-white" style={{ backgroundColor: LATAR_KAKI }}>
         <div className={`${SHELL} flex flex-col gap-10 pb-8 pt-12 sm:pt-16`}>
-          {/* Logo mitra di petak putih: logo lembaga dibuat untuk latar terang,
-              dan versi putihnya jarang tersedia. Sama tinggi, urut unggahan. */}
-          {mitra.length > 0 ? (
-            <div className="flex flex-col gap-4">
-              <p className="text-title-small font-semibold text-white/70">Diselenggarakan oleh</p>
-              <ul className="flex flex-wrap gap-3">
-                {mitra.map((sponsor) => (
-                  <li key={sponsor.logo_url} className="flex h-16 items-center rounded-md bg-white px-5 sm:h-[72px]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={sponsor.logo_url} alt={sponsor.name ?? ""} loading="lazy" className="max-h-9 w-auto max-w-[140px] object-contain sm:max-h-10" />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
           <div className="flex flex-col gap-10 lg:flex-row lg:justify-between">
             <div className="flex max-w-[420px] flex-col gap-3">
               <p className={`${HEAD} text-title-large font-semibold`}>{nama}</p>

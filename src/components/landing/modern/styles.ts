@@ -9,7 +9,7 @@ export const HEAD = "[font-family:var(--landing-heading)]";
 /** Judul bagian: 48px di layar lebar, 32px di ponsel. */
 export const JUDUL = `${HEAD} text-balance text-[32px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[48px] sm:leading-[1.25]`;
 /** Jarak antarbagian 144px di layar lebar (dulu ~200px): bagian terbaca berkelompok, bukan satu lembar panjang. */
-export const SECTION = "scroll-mt-24 py-12 sm:py-16 lg:py-[72px]";
+export const SECTION = "scroll-mt-[var(--nav-h)] py-12 sm:py-16 lg:py-[72px]";
 
 /**
  * Tombol. Tinggi 52px dan `rounded-md`, sama dengan tombol hero Editorial
