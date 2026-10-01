@@ -1,6 +1,7 @@
 import { getPublicPageEvent } from "@/lib/auth/request-event";
-import type { EventLandingConfig } from "@/lib/domain";
-import { formatEventSchedule } from "@/lib/event-datetime";
+import { LANDING_HEADING_FONTS, type EventLandingConfig } from "@/lib/domain";
+import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
+import { memberConfig } from "@/lib/member/account";
 import { registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
 import DaftarClient from "./daftar-client";
 
@@ -29,7 +30,21 @@ export default async function DaftarPage({
   const config = event.registration_form_config ?? {};
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
 
+  // Acara bertata letak Modern (halaman acara v2) mendapat formulir v2: kepala
+  // selebar layar yang sama dengan hero, lalu kartu formulir selebar grid.
+  // Acara lain tetap memakai formulir yang sudah ada.
+  const modern = landing.layout === "modern"
+    ? {
+        kv: landing.banner_url ?? null,
+        fakta: [formatEventDate(event), formatEventTime(event), event.venue_name?.trim() || null]
+          .filter((item): item is string => Boolean(item)),
+        headingFont: (LANDING_HEADING_FONTS[landing.heading_font ?? "source"] ?? LANDING_HEADING_FONTS.source).cssVar,
+        masukUrl: memberConfig(event) ? `/e/${event.slug}/masuk` : null,
+      }
+    : null;
+
   return <DaftarClient
+    modern={modern}
     theme={registrationThemeStyle(resolveFormTheme(config.theme, landing.theme))}
     eventName={event.name}
     eventSlug={event.slug}
