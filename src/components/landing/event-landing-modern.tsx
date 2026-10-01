@@ -421,24 +421,19 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         {/* ---- Susunan acara ------------------------------------------------ */}
         {tampil("agenda") ? (
           <Section id="agenda">
-            {/* Rancangan FHF: tanggal dan catatan di kiri, baris sesi di kanan. */}
-            <div className="grid gap-10 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:gap-20">
-              {/* Kolom kiri diam di tempat, tidak menempel saat digulir: rundown
-                  pendek (7 baris) tidak butuh penanda yang ikut turun, dan
-                  tanggal yang melayang terbaca seperti elemen yang tertinggal. */}
-              <div className="flex flex-col items-start gap-5 lg:self-start">
+            {/* Satu kolom: tanggal adalah judul bagian di atas daftar, bukan
+                kolom kiri yang 60% kosong. Acara satu hari tidak butuh penanda
+                yang ikut turun; daftar yang padat muat satu layar laptop. */}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-20">
+              <div className="flex flex-col gap-3">
                 <p className={ALIS}>{LANDING_SECTION_LABELS.agenda}</p>
-                <h2 className={JUDUL}>
-                  {/* Nama hari di baris sendiri: "Kamis, 15 / Oktober 2026" memisahkan tanggal dari bulannya. */}
-                  {tanggal && /^[^,]+, /.test(tanggal) ? (
-                    <>
-                      <span className="block">{tanggal.slice(0, tanggal.indexOf(",") + 1)}</span>
-                      {tanggal.slice(tanggal.indexOf(",") + 2)}
-                    </>
-                  ) : (tanggal ?? LANDING_SECTION_LABELS.agenda)}
-                </h2>
-                {config.agenda_note?.trim() ? <p className={`text-body-large leading-[1.6] ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
+                <h2 className={JUDUL}>{tanggal ?? LANDING_SECTION_LABELS.agenda}</h2>
               </div>
+              {config.agenda_note?.trim() ? (
+                <p className={`max-w-[420px] text-body-large leading-[1.6] lg:pb-1.5 lg:text-right ${MUTED}`}>{config.agenda_note.trim()}</p>
+              ) : null}
+            </div>
+            <div className="mt-6 sm:mt-8">
               <AgendaPills agenda={agenda} />
             </div>
           </Section>

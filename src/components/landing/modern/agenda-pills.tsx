@@ -6,7 +6,7 @@ import { rentangAkhir } from "@/lib/landing-agenda-range";
 
 /**
  * Susunan acara tata letak Modern: tab pil per bagian rundown di atas daftar
- * sesi, jam besar di kiri tiap baris.
+ * sesi, jam di kiri tiap baris (di atas judul pada ponsel).
  *
  * Perilakunya sama dengan AgendaTabs (Editorial): satu bagian tampil utuh,
  * papan ketik mengikuti pola tab WAI-ARIA, dan tanpa tab bila rundown hanya
@@ -83,30 +83,27 @@ export function AgendaPills({ agenda }: { agenda: AgendaPreview[] }) {
         id={`${dasar}-panel`}
         role={multi ? "tabpanel" : undefined}
         aria-labelledby={multi ? `${dasar}-tab-${aktif}` : undefined}
-        className="border-b border-[var(--reg-outline-variant)]"
+        className="border-b border-[color-mix(in_srgb,var(--reg-outline-variant)_70%,transparent)]"
       >
         {blok?.items.map((item, index) => (
+          // Hierarki M3 lewat peran warna, satu penekanan per baris: judul
+          // on-surface 16px/600, jam dan keterangan on-surface-variant.
+          // Jam satu baris ("08.00–09.00"): dua baris jam membuat tiap baris
+          // setinggi 140-180px dan rundown tidak muat satu layar.
           <li
             key={`${item.time}-${item.title}-${index}`}
-            className="grid grid-cols-[4rem_minmax(0,1fr)] gap-x-5 border-t border-[var(--reg-outline-variant)] py-5 sm:grid-cols-[5rem_minmax(0,1fr)] sm:gap-x-8"
+            className="flex flex-col gap-1 border-t border-[color-mix(in_srgb,var(--reg-outline-variant)_70%,transparent)] py-4 sm:grid sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:gap-x-8 sm:py-4"
           >
-            <span className="flex flex-col gap-0.5">
-              {/* Ukuran baris rundown setara teks isi (18/17/15px), bukan judul:
-                  daftar untuk dipindai, dan jam 26px + judul 22px bersaing
-                  dengan judul bagian dan terlihat lebih besar dari menu. */}
-              <span className="text-[17px] font-semibold leading-[1.4] tabular-nums sm:text-[18px]">
-                {item.time}
-              </span>
-              {item.end && item.end !== item.time ? (
-                <span className="text-body-medium tabular-nums text-[var(--reg-on-surface-variant)]">s.d. {item.end}</span>
-              ) : null}
+            <span className="text-body-medium font-medium tabular-nums text-[var(--reg-on-surface-variant)] sm:pt-px sm:text-[15px]">
+              {item.time}
+              {item.end && item.end !== item.time ? `–${item.end}` : null}
             </span>
-            <div className="min-w-0">
-              <p className="text-[17px] font-semibold leading-[1.4] sm:text-[18px]">{item.title}</p>
+            <div className="min-w-0 max-w-[760px]">
+              <p className="text-[16px] font-semibold leading-[1.45] text-[var(--reg-on-surface)]">{item.title}</p>
               {item.subtitle ? (
                 // pre-line: satu sesi bisa punya beberapa pilihan, satu per baris
                 // (mis. tiga kelompok diskusi di jam yang sama).
-                <p className="mt-1 whitespace-pre-line text-[15px] leading-[1.55] text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
+                <p className="mt-1 whitespace-pre-line text-body-medium leading-[1.55] text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
               ) : null}
             </div>
           </li>
