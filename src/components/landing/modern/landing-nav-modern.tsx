@@ -55,7 +55,7 @@ export function LandingNavModern({
       className="sticky top-0 z-30 text-white"
       style={{ backgroundColor: "rgb(18 18 18 / 0.72)", backdropFilter: "blur(12px)" }}
     >
-      <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center gap-6 px-5 sm:px-8 lg:h-[88px] lg:px-10 xl:px-20">
+      <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center gap-6 px-5 sm:px-8 lg:px-10 xl:px-20">
         <a
           href="#"
           className="flex min-h-11 min-w-0 flex-1 items-center text-title-large font-semibold [font-family:var(--landing-heading)]"

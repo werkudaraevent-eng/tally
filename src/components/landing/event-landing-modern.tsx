@@ -9,7 +9,7 @@ import type {
   LandingSection,
   LandingSectionId,
 } from "@/lib/domain";
-import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, publicEventName } from "@/lib/domain";
 import { modernThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
@@ -206,6 +206,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   ];
 
   const kv = config.banner_url ?? null;
+  const nama = publicEventName(event);
   const tanggal = formatEventDate(event);
   const jam = formatEventTime(event);
   const venue = event.venue_name?.trim() || null;
@@ -249,7 +250,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
   return (
     <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={mainStyle}>
       <LandingNavModern
-        eventName={event.name}
+        eventName={nama}
         daftarUrl={daftarUrl}
         registrationOpen={event.registration_enabled}
         memberLink={memberLink}
@@ -260,12 +261,17 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
           Ditarik ke bawah bilah nav (margin negatif setinggi nav) supaya KV
           mulai dari tepi atas layar, seperti di rancangan. */}
       <header
-        className={`relative isolate -mt-16 overflow-hidden lg:-mt-[88px] ${kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
+        className={`relative isolate -mt-16 overflow-hidden ${kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
         style={tinta(Boolean(kv))}
       >
         {kv ? <Kv src={kv} scrim={KV_SCRIM} /> : null}
         <div
-          className={`${SHELL} flex flex-col justify-end pb-12 pt-32 text-[var(--ink)] sm:pb-16 lg:pb-20 ${
+          className={`${SHELL} flex flex-col pb-12 text-[var(--ink)] sm:pb-16 lg:pb-20 ${
+            // Dengan KV, judul berdiri di bawah supaya gambarnya terlihat.
+            // Tanpa KV tidak ada yang perlu diperlihatkan di atas judul, jadi
+            // judul di tengah bidang warna, bukan jatuh ke dasar hero.
+            kv ? "justify-end pt-32" : "justify-center pt-28"
+          } ${
             HERO_HEIGHT[config.hero_height ?? "standard"]
           }`}
         >
@@ -286,7 +292,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                 }`}
                 style={HERO_DELAY(1)}
               >
-                {event.name}
+                {nama}
               </h1>
               {event.tagline ? (
                 <p className="rise-in max-w-[628px] text-body-large opacity-90" style={HERO_DELAY(2)}>
@@ -583,7 +589,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
 
           <div className="flex flex-col gap-10 lg:flex-row lg:justify-between">
             <div className="flex max-w-[420px] flex-col gap-4">
-              <p className={`${HEAD} text-title-large font-semibold`}>{event.name}</p>
+              <p className={`${HEAD} text-title-large font-semibold`}>{nama}</p>
               {event.tagline || venue ? (
                 <div className="text-body-medium text-white/70">
                   {event.tagline ? <p>{event.tagline}</p> : null}
@@ -603,7 +609,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
 
           <div className="flex flex-wrap justify-between gap-3 text-body-medium text-white/60">
             <p>
-              © {tahun} {event.name}
+              © {tahun} {nama}
             </p>
             <p>Dikelola dengan Tally</p>
           </div>
