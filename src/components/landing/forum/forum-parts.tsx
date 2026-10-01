@@ -1,6 +1,7 @@
 import { CaretDown, Plus } from "@phosphor-icons/react/dist/ssr";
 import type { AgendaPreview } from "@/lib/landing-agenda";
-import type { LandingSpeaker } from "@/lib/domain";
+import type { SpeakerTab } from "@/lib/landing-speaker-tabs";
+import { SpeakerTabs } from "@/components/landing/modern/speaker-tabs";
 import type { ForumLabels } from "./labels";
 import { BAYANGAN_KARTU, H_BAGIAN, H_KARTU, H_PANEL, TEKS_BESAR, TEKS_MENU, WADAH } from "./styles";
 
@@ -133,21 +134,25 @@ export function KartuFoto({ gambar, judul, teks, sisaInisial }: { gambar: string
   );
 }
 
-export function BagianPembicara({ speakers, label }: { speakers: LandingSpeaker[]; label: ForumLabels }) {
+/**
+ * Bagian Pembicara: komponen tab sesi yang sama dengan tata letak Modern
+ * (disetujui Hanung pada 2026-10-01), bukan versi sendiri. Warnanya datang
+ * dari peran --reg-* yang juga dipasang tata letak Forum; yang diatur di sini
+ * hanya judul bagian (gaya Forum, rata tengah) dan label tab bawaan.
+ */
+export function BagianPembicara({ tabs, label }: { tabs: SpeakerTab[]; label: ForumLabels }) {
+  const tabBerlabel = tabs.map((tab) =>
+    tab.key === "sorotan" ? { ...tab, label: label.sorotanPembicara } : tab.key === "lainnya" ? { ...tab, label: label.pembicaraLain } : tab,
+  );
   return (
-    <section id="pembicara" data-bagian="speakers" className={`${WADAH} scroll-mt-28`}>
-      <h2 className={`${H_BAGIAN} text-center text-[var(--f-ink)]`}>{label.pembicara}</h2>
-      <ul className="mt-[clamp(28px,2.6vw,50px)] grid gap-x-[clamp(20px,2.08vw,40px)] gap-y-[clamp(40px,3.13vw,60px)] sm:grid-cols-2 lg:grid-cols-3">
-        {speakers.map((speaker, index) => (
-          <KartuFoto
-            key={`${speaker.name}-${index}`}
-            gambar={speaker.photo_url ?? null}
-            judul={speaker.name}
-            teks={[speaker.role, speaker.title, speaker.company].filter((item) => item?.trim()).join("\n") || null}
-            sisaInisial
-          />
-        ))}
-      </ul>
+    <section id="pembicara" data-bagian="speakers" className={`${WADAH} scroll-mt-28 sm:[&_[role=tablist]]:justify-center`}>
+      <SpeakerTabs
+        tabs={tabBerlabel}
+        eyebrow={null}
+        heading={label.pembicara}
+        eyebrowClassName=""
+        headingClassName={`${H_BAGIAN} text-center text-[var(--f-ink)]`}
+      />
     </section>
   );
 }

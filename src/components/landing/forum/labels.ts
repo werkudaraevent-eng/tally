@@ -5,7 +5,7 @@
  */
 export type ForumLabels = Record<
   | "beranda" | "program" | "info" | "masuk" | "areaPeserta" | "daftar" | "tentang" | "tentangSingkat" | "selengkapnya"
-  | "lihatSelengkapnya" | "susunan" | "waktu" | "sesi" | "pembicara" | "lokasi" | "buatPeta" | "galeri"
+  | "lihatSelengkapnya" | "susunan" | "waktu" | "sesi" | "pembicara" | "sorotanPembicara" | "pembicaraLain" | "lokasi" | "buatPeta" | "galeri"
   | "dresscode" | "bukaGoogleMaps" | "menu" | "subjudulProgram" | "remah",
   string
 >;
@@ -26,6 +26,8 @@ export const FORUM_LABELS: Record<"id" | "en", ForumLabels> = {
     waktu: "Waktu",
     sesi: "Program",
     pembicara: "Pembicara",
+    sorotanPembicara: "Sorotan",
+    pembicaraLain: "Pembicara lain",
     lokasi: "Lokasi",
     buatPeta: "Buka peta",
     bukaGoogleMaps: "Buka di Google Maps",
@@ -50,6 +52,8 @@ export const FORUM_LABELS: Record<"id" | "en", ForumLabels> = {
     waktu: "Time",
     sesi: "Program",
     pembicara: "Speakers",
+    sorotanPembicara: "Highlights",
+    pembicaraLain: "Other speakers",
     lokasi: "Location",
     buatPeta: "Open map",
     bukaGoogleMaps: "Open in Google Maps",

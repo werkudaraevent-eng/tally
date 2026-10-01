@@ -229,6 +229,7 @@ export function ForumFooter({ config, nama, catatan }: { config: LandingForumCon
 export function ForumMain({ style, children }: { style: CSSProperties; children: ReactNode }) {
   return (
     <main
+      data-halaman-publik
       className="min-h-dvh overflow-x-clip bg-white text-black [font-family:var(--font-ubuntu)] [&_:is(h1,h2,h3)]:[font-family:var(--landing-heading)]"
       style={style}
     >

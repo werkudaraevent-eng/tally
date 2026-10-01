@@ -4,6 +4,7 @@ import { LANDING_HEADING_FONTS, publicEventName } from "@/lib/domain";
 import { forumThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventDate } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
+import { speakerTabs } from "@/lib/landing-speaker-tabs";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { timeZoneAbbr } from "@/lib/timezone";
 import { MapPin } from "@phosphor-icons/react/dist/ssr";
@@ -113,7 +114,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
 
   const pembicara = tampil("speakers") ? (
     <div className={JARAK}>
-      <BagianPembicara speakers={[...speakers.filter((s) => s.featured), ...speakers.filter((s) => !s.featured)]} label={label} />
+      <BagianPembicara tabs={speakerTabs(speakers, agenda)} label={label} />
     </div>
   ) : null;
 
