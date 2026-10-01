@@ -39,7 +39,7 @@ import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { eventApiPath } from "@/lib/event-url";
 import { Kelompok } from "@/components/admin/compact-form";
 import { cx } from "@/lib/m3/cx";
-import { BlockEditor, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
+import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -207,7 +207,15 @@ export default function LandingCmsPage() {
       return blok ? tautanBlokSalah(blok) : false;
     });
     if (blokSalah >= 0) {
-      toast.error("Tautan di blok belum valid", `Bagian ${blokSalah + 1}: tulis alamat lengkap yang diawali https://, atau kosongkan.`);
+      toast.error("Tautan di blok belum valid", `Bagian ${blokSalah + 1}: tulis alamat lengkap yang diawali https://, # untuk bagian di halaman ini, atau kosongkan.`);
+      return;
+    }
+    const blokPenuh = sections.findIndex((section) => {
+      const blok = isLandingBlockId(section.id) ? (landing.blocks ?? []).find((item) => item.id === section.id) : undefined;
+      return blok ? butirBerlebih(blok) > 0 : false;
+    });
+    if (blokPenuh >= 0) {
+      toast.error("Butir blok terlalu banyak", `Bagian ${blokPenuh + 1}: tata letak yang dipilih menampung lebih sedikit butir. Hapus butir yang berlebih atau pilih tata letak lain.`);
       return;
     }
     const kirim = cuplikan;
@@ -374,6 +382,12 @@ export default function LandingCmsPage() {
             value={landing.about_heading ?? ""}
             onChange={(event) => setLanding({ ...landing, about_heading: event.target.value })}
           />
+          <Switch
+            checked={!landing.program_hidden}
+            onChange={(value) => setLanding({ ...landing, program_hidden: !value })}
+            label="Kartu program dari Rundown"
+            description="Matikan bila sesi utama sudah ditulis di blok Kartu bergambar, supaya tidak tampil dua kali."
+          />
           <TextField
             label="Judul bagian Program"
             optional
@@ -413,10 +427,31 @@ export default function LandingCmsPage() {
             </div>
           </div>
           <TextField
+            label="Catatan Susunan acara"
+            optional
+            placeholder="Registrasi dibuka pukul 08.00 WIB."
+            hint="Di bawah tanggal, di kiri daftar sesi."
+            maxLength={140}
+            counter
+            value={landing.agenda_note ?? ""}
+            onChange={(event) => setLanding({ ...landing, agenda_note: event.target.value })}
+          />
+          <TextArea
+            label="Kalimat penyelenggara di kaki halaman"
+            optional
+            rows={2}
+            placeholder="Diselenggarakan oleh ..."
+            hint="Di bawah nama acara di kaki halaman. Kosong = tagline dan nama tempat."
+            maxLength={180}
+            counter
+            value={landing.footer_note ?? ""}
+            onChange={(event) => setLanding({ ...landing, footer_note: event.target.value })}
+          />
+          <TextField
             label="Judul banner ajakan"
             optional
             placeholder="Amankan tempat Anda"
-            hint="Banner di bawah halaman, tampil selama pendaftaran terbuka."
+            hint="Banner di bawah halaman, tampil selama pendaftaran terbuka dan tidak ada blok Pita ajakan."
             value={landing.cta_heading ?? ""}
             onChange={(event) => setLanding({ ...landing, cta_heading: event.target.value })}
           />

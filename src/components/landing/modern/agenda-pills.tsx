@@ -88,13 +88,18 @@ export function AgendaPills({ agenda }: { agenda: AgendaPreview[] }) {
         {blok?.items.map((item, index) => (
           <li
             key={`${item.time}-${item.title}-${index}`}
-            className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-5 border-t border-[var(--reg-outline-variant)] py-6 sm:grid-cols-[7.5rem_minmax(0,1fr)] sm:gap-x-12 sm:py-7"
+            className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-5 border-t border-[var(--reg-outline-variant)] py-5 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-x-8 sm:py-6"
           >
-            <span className="text-[24px] font-semibold leading-[1.25] tracking-[-0.02em] tabular-nums [font-family:var(--landing-heading)] sm:text-[32px]">
-              {item.time}
+            <span className="flex flex-col gap-0.5">
+              <span className="text-[22px] font-semibold leading-[1.25] tracking-[-0.02em] tabular-nums [font-family:var(--landing-heading)] sm:text-[26px]">
+                {item.time}
+              </span>
+              {item.end && item.end !== item.time ? (
+                <span className="text-body-small tabular-nums text-[var(--reg-on-surface-variant)]">s.d. {item.end}</span>
+              ) : null}
             </span>
             <div className="min-w-0 sm:pt-0.5">
-              <p className="text-balance text-title-large font-medium">{item.title}</p>
+              <p className="text-title-medium font-semibold leading-[1.4] sm:text-title-large">{item.title}</p>
               {item.subtitle ? (
                 <p className="mt-1.5 text-body-large text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
               ) : null}

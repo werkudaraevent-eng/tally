@@ -2,20 +2,24 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { LANDING_HEADING_FONT_KEYS, type RegistrationFormConfig } from "@/lib/domain";
+import { LANDING_HEADING_FONT_KEYS, landingBlockLimits, type LandingTextLimit, type RegistrationFormConfig } from "@/lib/domain";
 import { DEFAULT_REGISTRATION_SEED, withDerivedRoles } from "@/lib/registration-theme";
 
 // ---- Pustaka blok (lihat LandingBlock di domain.ts) ---------------------------
 const MAX_BLOCKS = 30;
 const blockId = z.string().regex(/^blk_[a-z0-9]{6,24}$/) as z.ZodType<`blk_${string}`>;
-// Tautan opsional: kosong boleh, selain itu harus http(s). Bukan `z.string().url()`
-// saja karena kolom yang dikosongkan admin terkirim sebagai "".
-const tautan = z.string().trim().max(600).refine((value) => value === "" || /^https?:\/\/\S+$/.test(value), "Tautan harus diawali http:// atau https://");
+// Tautan opsional: kosong boleh, selain itu http(s) atau jangkar di halaman yang
+// sama (#agenda). Bukan `z.string().url()` saja karena kolom yang dikosongkan
+// admin terkirim sebagai "".
+const tautan = z.string().trim().max(600).refine((value) => value === "" || /^(https?:\/\/\S+|#[A-Za-z][\w-]*)$/.test(value), "Tautan harus diawali http://, https://, atau # untuk bagian di halaman ini");
+// Batas luar. Batas per jenis blok (lebih ketat) diperiksa di superRefine dengan
+// landingBlockLimits, sumber yang sama dengan penghitung di CMS.
 const teks = (max: number) => z.string().trim().max(max).optional();
 const blockSchema = z.object({
   id: blockId,
-  type: z.enum(["text_image", "cards", "gallery", "stats", "quote", "logos", "download", "cta"]),
+  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta"]),
   tone: z.enum(["light", "panel", "dark"]).optional(),
+  layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list"]).optional(),
   eyebrow: teks(60),
   heading: teks(160),
   body: teks(1200),
@@ -23,7 +27,7 @@ const blockSchema = z.object({
   image_side: z.enum(["left", "right"]).optional(),
   items: z.array(z.object({
     image_url: z.string().url().max(600).nullable().optional(),
-    label: teks(80),
+    label: teks(160),
     title: teks(160),
     body: teks(400),
     value: teks(30),
@@ -34,6 +38,28 @@ const blockSchema = z.object({
   role: teks(160),
   link_url: tautan.optional(),
   link_label: teks(60),
+  link2_url: tautan.optional(),
+  link2_label: teks(60),
+  fact_title: teks(60),
+  fact_body: teks(120),
+  source: teks(300),
+}).superRefine((block, ctx) => {
+  const batas = landingBlockLimits(block);
+  const periksa = (nilai: string | undefined, limit: LandingTextLimit | undefined, path: (string | number)[]) => {
+    if (nilai && limit && nilai.length > limit.max) {
+      ctx.addIssue({ code: "custom", path, message: `Maksimal ${limit.max} karakter` });
+    }
+  };
+  (["eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role"] as const).forEach((key) =>
+    periksa(block[key], batas[key], [key]),
+  );
+  const items = block.items ?? [];
+  if (items.length > (batas.items?.max ?? 0)) {
+    ctx.addIssue({ code: "custom", path: ["items"], message: `Maksimal ${batas.items?.max ?? 0} butir` });
+  }
+  items.forEach((item, index) =>
+    (["label", "title", "body", "value"] as const).forEach((key) => periksa(item[key], batas.item?.[key], ["items", index, key])),
+  );
 });
 
 /**
@@ -83,6 +109,9 @@ const bodySchema = z.object({
     program_heading: z.string().trim().max(120).optional(),
     program_intro: z.string().trim().max(400).optional(),
     program_notes: z.array(z.string().trim().max(600)).max(10).optional(),
+    program_hidden: z.boolean().optional(),
+    agenda_note: z.string().trim().max(140).optional(),
+    footer_note: z.string().trim().max(180).optional(),
     cta_heading: z.string().trim().max(120).optional(),
     cta_note: z.string().trim().max(300).optional(),
     heading_scale: z.enum(["md", "lg", "xl"]).optional(),
