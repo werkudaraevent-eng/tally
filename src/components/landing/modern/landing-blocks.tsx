@@ -108,9 +108,9 @@ function IkonTaut({ href, size = 18 }: { href: string; size?: number }) {
   return /^https?:\/\//.test(href) ? <ArrowUpRight size={size} aria-hidden /> : <ArrowDown size={size} aria-hidden />;
 }
 
-function Wadah({ block, children, className = "py-16 sm:py-24 lg:py-28" }: { block: LandingBlock; children: ReactNode; className?: string }) {
+function Wadah({ block, children, className = "py-12 sm:py-16 lg:py-[72px]" }: { block: LandingBlock; children: ReactNode; className?: string }) {
   return (
-    <section id={block.id} className={`scroll-mt-24 text-[var(--reg-on-surface)] ${className}`} style={NADA[block.tone ?? "light"]}>
+    <section id={block.id} className={`scroll-mt-[var(--nav-h)] text-[var(--reg-on-surface)] ${className}`} style={NADA[block.tone ?? "light"]}>
       <div className={SHELL}>{children}</div>
     </section>
   );
@@ -529,7 +529,7 @@ function Logo({ block }: { block: LandingBlock }) {
 function Unduhan({ block }: { block: LandingBlock }) {
   const url = block.link_url?.trim() ?? "";
   return (
-    <Wadah block={block} className="py-16 sm:py-24">
+    <Wadah block={block} className="py-12 sm:py-16">
       <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-20">
         <div className="flex max-w-[600px] flex-col gap-5">
           {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
@@ -567,7 +567,7 @@ function Unduhan({ block }: { block: LandingBlock }) {
 function Ajakan({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftarUrl: string | null; daftarLabel: string }) {
   if (block.image_url) {
     return (
-      <section id={block.id} className="scroll-mt-24 py-12 sm:py-16">
+      <section id={block.id} className="scroll-mt-[var(--nav-h)] py-12 sm:py-16">
         <div className={SHELL}>
           <div className="relative isolate flex min-h-[440px] flex-col items-center justify-center gap-4 overflow-hidden rounded-lg px-6 py-16 text-center text-white sm:px-16 lg:min-h-[420px]">
             <Gambar src={block.image_url} alt="" className="absolute inset-0 -z-10 size-full" />
@@ -590,7 +590,7 @@ function Ajakan({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftar
   }
 
   return (
-    <section id={block.id} className="scroll-mt-24 py-12 sm:py-16">
+    <section id={block.id} className="scroll-mt-[var(--nav-h)] py-12 sm:py-16">
       <div className={SHELL}>
         <div
           className="flex flex-col gap-8 rounded-lg bg-[var(--reg-brand)] px-6 py-12 text-[var(--reg-on-brand)] sm:px-16 sm:py-16 lg:flex-row lg:items-center lg:justify-between"

@@ -906,7 +906,7 @@ export default function LandingCmsPage() {
         return (
           <div className="flex flex-col gap-3">
             <p className="text-body-medium text-on-surface-variant">
-              Pembicara yang ditonjolkan tampil sebagai kartu besar di atas. Tanpa foto, inisial nama dipakai.
+              Paling banyak 8 pembicara tampil sekaligus di tab Sorotan (yang ditonjolkan lebih dulu). Sisanya dibuka per sesi lewat tab. Tanpa foto, inisial nama dipakai.
             </p>
             {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">Belum ada pembicara.</p> : null}
             {list.map((speaker, index) => (
@@ -930,9 +930,9 @@ export default function LandingCmsPage() {
                 </div>
                 <TextField label="Nama" value={speaker.name} onChange={(event) => ubah(index, { name: event.target.value })} />
                 <TextField
-                  label="Jabatan dan instansi"
+                  label="Jabatan"
                   optional
-                  placeholder="mis. Direktur Utama, PT Contoh"
+                  placeholder="mis. Direktur Utama"
                   value={speaker.title ?? ""}
                   onChange={(event) => ubah(index, { title: event.target.value })}
                 />
@@ -940,22 +940,30 @@ export default function LandingCmsPage() {
                   label="Instansi"
                   optional
                   placeholder="mis. Bank Indonesia"
-                  hint="Tampil sebagai chip di kartu tata letak Modern."
+                  hint="Tampil di bawah jabatan, berwarna utama."
                   value={speaker.company ?? ""}
                   onChange={(event) => ubah(index, { company: event.target.value })}
                 />
                 <TextField
                   label="Peran"
                   optional
-                  placeholder="mis. Opening Keynote"
+                  placeholder="mis. Moderator"
                   value={speaker.role ?? ""}
                   onChange={(event) => ubah(index, { role: event.target.value })}
+                />
+                <TextField
+                  label="Sesi"
+                  optional
+                  placeholder="mis. Sesi 1"
+                  hint="Pembicara bersesi sama menjadi satu tab. Tulis sama dengan awal judul sesi di rundown supaya jam sesinya ikut tampil."
+                  value={speaker.session ?? ""}
+                  onChange={(event) => ubah(index, { session: event.target.value })}
                 />
                 <Switch
                   checked={Boolean(speaker.featured)}
                   onChange={(value) => ubah(index, { featured: value })}
                   label="Tonjolkan"
-                  description="Kartu besar di baris atas, untuk keynote atau tamu utama."
+                  description="Masuk tab Sorotan (paling banyak 8), untuk pejabat sambutan atau pembicara utama."
                 />
                 <div className="flex gap-1">
                   <IconButton size="sm" label={`Naikkan pembicara ${index + 1}`} disabled={index === 0} onClick={() => { const next = [...list]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setList(next); }}>

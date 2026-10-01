@@ -586,6 +586,13 @@ export type LandingSpeaker = {
   role?: string;
   photo_url?: string | null;
   featured?: boolean;
+  /**
+   * Sesi tempat pembicara tampil, teks bebas pendek ("Sambutan", "Sesi 1",
+   * "Diskusi 2"). Pembicara dengan sesi yang sama dikelompokkan dalam satu tab
+   * di bagian Pembicara (lihat landing-speaker-tabs.ts). Dipakai bersama oleh
+   * semua tata letak, jadi bukan bagian dari tata letak mana pun.
+   */
+  session?: string;
 };
 
 /**

@@ -1,6 +1,11 @@
 import { getSupabaseServiceClient } from "./supabase/service";
 import { formatClock } from "./rundown";
 
+/** Jam ejaan Indonesia untuk halaman publik: "08.00", sama dengan baris jam di hero. */
+function jamTitik(jam: string): string {
+  return jam.replace(":", ".");
+}
+
 /**
  * Ringkasan susunan acara untuk landing page.
  *
@@ -59,8 +64,8 @@ export async function loadAgendaPreview(eventId: string): Promise<AgendaPreview[
         .filter((item) => item.section_id === section.id)
         .slice(0, MAX_ITEMS)
         .map((item) => ({
-          time: formatClock(item.start_time),
-          end: item.end_time ? formatClock(item.end_time) : null,
+          time: jamTitik(formatClock(item.start_time)),
+          end: item.end_time ? jamTitik(formatClock(item.end_time)) : null,
           title: item.title ?? "",
           subtitle: item.subtitle?.trim() || null,
         }))

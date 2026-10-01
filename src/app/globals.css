@@ -2123,3 +2123,13 @@ html:hover {
 		background-image: none !important;
 	}
 }
+
+/* ---- Halaman acara publik: jarak huruf ------------------------------------
+ * Token jarak huruf M3 (body-large 0,5px, dst.) dibuat untuk Roboto. Inter
+ * sudah renggang dari sananya, jadi di halaman acara teks badan, menu, dan
+ * baris info terbaca longgar. Admin menetralkannya lewat `.press`; halaman
+ * acara (`data-halaman-publik` di <main>) melakukannya di sini.
+ * `:where()` menjaga kekhususan setara satu kelas. */
+:where([data-halaman-publik]) :is(.text-body-large, .text-body-medium, .text-body-small, .text-label-large, .text-title-medium, .text-title-small) {
+	letter-spacing: normal;
+}
