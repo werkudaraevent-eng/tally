@@ -30,15 +30,17 @@ function normal(teks: string): string {
   return teks.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-/** Sesi rundown yang judulnya diawali label tab, mis. "Sesi 1" cocok dengan "Sesi 1. Kerangka global ...". */
-function cariSesi(label: string, agenda: AgendaPreview[]) {
+/** Label sesi pembicara cocok dengan judul baris rundown bila judulnya diawali label itu, mis. "Sesi 1" dengan "Sesi 1. Kerangka global ...". */
+function cocok(label: string, judulRundown: string): boolean {
   const kunci = normal(label);
+  const judul = normal(judulRundown);
+  return judul === kunci || judul.startsWith(`${kunci}.`) || judul.startsWith(`${kunci}:`) || judul.startsWith(`${kunci},`) || judul.startsWith(`${kunci} `);
+}
+
+function cariSesi(label: string, agenda: AgendaPreview[]) {
   for (const bagian of agenda) {
     for (const item of bagian.items) {
-      const judul = normal(item.title);
-      if (judul === kunci || judul.startsWith(`${kunci}.`) || judul.startsWith(`${kunci}:`) || judul.startsWith(`${kunci} `)) {
-        return item;
-      }
+      if (cocok(label, item.title)) return item;
     }
   }
   return null;
@@ -46,15 +48,21 @@ function cariSesi(label: string, agenda: AgendaPreview[]) {
 
 function urutanRundown(label: string, agenda: AgendaPreview[]): number {
   let posisi = 0;
-  const kunci = normal(label);
   for (const bagian of agenda) {
     for (const item of bagian.items) {
-      const judul = normal(item.title);
-      if (judul === kunci || judul.startsWith(`${kunci}.`) || judul.startsWith(`${kunci}:`) || judul.startsWith(`${kunci} `)) return posisi;
+      if (cocok(label, item.title)) return posisi;
       posisi += 1;
     }
   }
   return 1_000_000;
+}
+
+/**
+ * Pembicara satu baris rundown, untuk deret foto di bawah judul sesi. Aturan
+ * cocoknya sama dengan tab Pembicara, jadi kedua bagian selalu sepakat.
+ */
+export function pembicaraSesi(all: LandingSpeaker[], judulRundown: string): LandingSpeaker[] {
+  return all.filter((speaker) => speaker.name?.trim() && speaker.session?.trim() && cocok(speaker.session, judulRundown));
 }
 
 export function speakerTabs(all: LandingSpeaker[], agenda: AgendaPreview[] = []): SpeakerTab[] {
