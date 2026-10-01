@@ -159,7 +159,8 @@ function inisial(nama: string): string {
  * tooltip dan di bagian Pembicara. Layar sempit: di bawah judul dengan nama
  * singkat.
  */
-// Tepi foto: garis 1px hitam 12% lalu cincin warna permukaan 2px. Tanpa garis,
+// Tepi foto: garis 1px abu (on-surface 24%, sekitar 1,7:1 di atas putih;
+// outline-variant tema terlalu pucat) lalu cincin warna permukaan 2px. Tanpa garis,
 // foto berlatar terang larut ke halaman putih (kontras tepi ~1,2:1).
 function DeretPembicara({ orang }: { orang: LandingSpeaker[] }) {
   const tampil = orang.slice(0, MAKS_FOTO);
@@ -168,11 +169,11 @@ function DeretPembicara({ orang }: { orang: LandingSpeaker[] }) {
   const keterangan = orang.length > 2 ? `${nama.join(", ")}, dan ${orang.length - 2} lainnya` : nama.join(" dan ");
   return (
     <div className="mt-3 flex items-center gap-3 sm:col-start-2 lg:col-start-3 lg:row-start-1 lg:-mt-1 lg:self-start" title={orang.map((speaker) => speaker.name.trim()).join(", ")}>
-      <ul aria-hidden className="flex shrink-0">
+      <ul aria-hidden className="flex shrink-0 pl-px">
         {tampil.map((speaker, index) => (
           <li
             key={`${speaker.name}-${index}`}
-            className="-ml-2 flex size-8 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--reg-primary)_14%,var(--reg-surface))] text-[11px] font-semibold text-[var(--reg-primary)] shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_0_0_3px_var(--reg-surface)] first:ml-0"
+            className="-ml-2 flex size-8 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--reg-primary)_14%,var(--reg-surface))] text-[11px] font-semibold text-[var(--reg-primary)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--reg-on-surface)_24%,var(--reg-surface)),0_0_0_3px_var(--reg-surface)] first:ml-0"
           >
             {speaker.photo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -183,7 +184,7 @@ function DeretPembicara({ orang }: { orang: LandingSpeaker[] }) {
           </li>
         ))}
         {sisa > 0 ? (
-          <li className="-ml-2 flex size-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--reg-outline-variant)_45%,var(--reg-surface))] text-[12px] font-medium text-[var(--reg-on-surface-variant)] shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_0_0_3px_var(--reg-surface)]">
+          <li className="-ml-2 flex size-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--reg-outline-variant)_45%,var(--reg-surface))] text-[12px] font-medium text-[var(--reg-on-surface-variant)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--reg-on-surface)_24%,var(--reg-surface)),0_0_0_3px_var(--reg-surface)]">
             +{sisa}
           </li>
         ) : null}
