@@ -10,7 +10,6 @@ import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { Spinner } from "@/components/search-loading";
 import { eventApiPath } from "@/lib/event-url";
 import { easing, expressive } from "@/lib/m3/motion";
-import { MODERN_NEUTRAL_SURFACES } from "@/lib/registration-theme-css";
 
 /**
  * Pergantian formulir → layar sukses di dalam kartu yang sama.
@@ -544,14 +543,14 @@ function BingkaiModern({
   modern,
   children,
 }: Props & { modern: FormModern; children: React.ReactNode }) {
-  const tinta = modern.kv ? "#fff" : "var(--reg-on-primary)";
+  const tinta = modern.kv ? "#fff" : "var(--reg-on-brand)";
   return (
     <main
       className="flex min-h-dvh flex-col bg-[var(--reg-surface)] text-[var(--reg-on-surface)]"
-      style={{ ...theme, ...MODERN_NEUTRAL_SURFACES, "--landing-heading": modern.headingFont } as CSSProperties}
+      style={{ ...theme, "--landing-heading": modern.headingFont } as CSSProperties}
     >
       <header
-        className={`relative isolate overflow-hidden ${modern.kv ? "bg-black" : "bg-[var(--reg-primary)]"}`}
+        className={`relative isolate overflow-hidden ${modern.kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
         style={{ color: tinta, "--m3-state-color": tinta } as CSSProperties}
       >
         {modern.kv ? (

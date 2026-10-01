@@ -2,7 +2,7 @@ import { getPublicPageEvent } from "@/lib/auth/request-event";
 import { LANDING_HEADING_FONTS, type EventLandingConfig } from "@/lib/domain";
 import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { memberConfig } from "@/lib/member/account";
-import { registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
+import { modernThemeStyle, registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
 import DaftarClient from "./daftar-client";
 
 // Sama alasannya dengan /display: tanpa ini Next.js mem-prerender halaman saat
@@ -43,9 +43,11 @@ export default async function DaftarPage({
       }
     : null;
 
+  const formTheme = resolveFormTheme(config.theme, landing.theme);
+
   return <DaftarClient
     modern={modern}
-    theme={registrationThemeStyle(resolveFormTheme(config.theme, landing.theme))}
+    theme={modern ? { ...registrationThemeStyle(formTheme), ...modernThemeStyle(formTheme?.seed) } : registrationThemeStyle(formTheme)}
     eventName={event.name}
     eventSlug={event.slug}
     schedule={formatEventSchedule(event)}
