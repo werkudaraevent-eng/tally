@@ -147,6 +147,7 @@ export const landingBodySchema = z.object({
       role: z.string().trim().max(60).optional(),
       photo_url: z.string().url().max(600).nullable().optional(),
       featured: z.boolean().optional(),
+      session: z.string().trim().max(40).optional(),
     })).max(60).optional(),
     faq: z.array(z.object({
       q: z.string().trim().min(1).max(200),

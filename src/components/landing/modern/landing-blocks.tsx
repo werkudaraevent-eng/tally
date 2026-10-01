@@ -108,7 +108,7 @@ function IkonTaut({ href, size = 18 }: { href: string; size?: number }) {
   return /^https?:\/\//.test(href) ? <ArrowUpRight size={size} aria-hidden /> : <ArrowDown size={size} aria-hidden />;
 }
 
-function Wadah({ block, children, className = "py-16 sm:py-24 lg:py-28" }: { block: LandingBlock; children: ReactNode; className?: string }) {
+function Wadah({ block, children, className = "py-12 sm:py-16 lg:py-[72px]" }: { block: LandingBlock; children: ReactNode; className?: string }) {
   return (
     <section id={block.id} className={`scroll-mt-24 text-[var(--reg-on-surface)] ${className}`} style={NADA[block.tone ?? "light"]}>
       <div className={SHELL}>{children}</div>
@@ -529,7 +529,7 @@ function Logo({ block }: { block: LandingBlock }) {
 function Unduhan({ block }: { block: LandingBlock }) {
   const url = block.link_url?.trim() ?? "";
   return (
-    <Wadah block={block} className="py-16 sm:py-24">
+    <Wadah block={block} className="py-12 sm:py-16">
       <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-20">
         <div className="flex max-w-[600px] flex-col gap-5">
           {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}

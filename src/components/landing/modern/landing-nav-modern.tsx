@@ -79,7 +79,11 @@ export function LandingNavModern({
     "--nav-on-text": lewatHero ? "var(--nav-on-ink-scrolled)" : "var(--nav-on-ink)",
     "--m3-state-color": "var(--nav-text)",
   } as CSSProperties;
-  const bilah = "bg-[var(--nav-fill)] text-[var(--nav-text)] transition-colors duration-200";
+  // Garis rambut di bawah bilah setelah hero lewat: bilah putih di atas isi
+  // putih tanpa garis terlihat seperti teks yang mengambang.
+  const bilah = `bg-[var(--nav-fill)] text-[var(--nav-text)] transition-[background-color,box-shadow] duration-200 ${
+    lewatHero ? "shadow-[0_1px_0_color-mix(in_srgb,var(--nav-text)_12%,transparent)]" : ""
+  }`;
   const selebarIsi = width === "content";
 
   return (
@@ -120,11 +124,19 @@ export function LandingNavModern({
               <a
                 href={`#${section.id}`}
                 aria-current={aktif === section.id ? "true" : undefined}
-                className={`m3-state inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 text-body-large transition-colors ${
-                  aktif === section.id ? "font-semibold" : "opacity-85 hover:opacity-100"
+                // Tebal sama untuk semua tautan, bagian aktif ditandai garis
+                // bawah: tautan yang menebal menggeser tetangganya saat digulir.
+                className={`m3-state relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 text-body-large font-medium transition-opacity ${
+                  aktif === section.id ? "opacity-100" : "opacity-75 hover:opacity-100"
                 }`}
               >
                 {section.label}
+                <span
+                  aria-hidden
+                  className={`absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-current transition-transform duration-200 ${
+                    aktif === section.id ? "scale-x-100" : "scale-x-0"
+                  }`}
+                />
               </a>
             </li>
           ))}
@@ -134,7 +146,9 @@ export function LandingNavModern({
           {memberLink ? (
             <Link
               href={memberLink.href}
-              className="m3-state inline-flex min-h-11 items-center rounded-md px-3 text-body-large opacity-85 hover:opacity-100"
+              // Tombol bergaris kecil, bukan teks: tanpa bingkai "Masuk" terbaca
+              // sebagai tautan menu ketujuh.
+              className="m3-state inline-flex min-h-10 items-center rounded-md border border-[color-mix(in_srgb,var(--nav-text)_45%,transparent)] px-4 text-label-large font-semibold"
             >
               {memberLink.label}
             </Link>

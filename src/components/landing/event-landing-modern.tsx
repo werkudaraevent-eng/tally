@@ -13,12 +13,13 @@ import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, landin
 import { heroCtaColors, modernNavStyle, modernThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
+import { jumlahLembaga, speakerTabs } from "@/lib/landing-speaker-tabs";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { timeZoneAbbr } from "@/lib/timezone";
 import { AgendaPills } from "./modern/agenda-pills";
 import { LandingNavModern } from "./modern/landing-nav-modern";
-import { SpeakerGrid } from "./modern/speaker-grid";
+import { SpeakerTabs } from "./modern/speaker-tabs";
 import { HEAD, JUDUL, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
 import { LandingBlockView } from "./modern/landing-blocks";
 
@@ -105,8 +106,11 @@ const KV_SCRIM =
 /** Bayangan rata untuk banner ajakan, yang teksnya di tengah. */
 const KV_SCRIM_RATA = "linear-gradient(to bottom, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0.7))";
 
-/** Latar kaki: primary dicampur hitam pekat. Teks putih aman di warna tema apa pun. */
-const LATAR_KAKI = "color-mix(in srgb, var(--reg-primary) 22%, black)";
+/**
+ * Latar kaki: primary dicampur hitam separuh, jadi navy merek (bukan hampir
+ * hitam) yang senada dengan hero. Teks putih tetap aman di warna tema apa pun.
+ */
+const LATAR_KAKI = "color-mix(in srgb, var(--reg-primary) 55%, black)";
 
 const HERO_DELAY = (step: number) => ({ "--rise-delay": `${step * 60}ms` }) as CSSProperties;
 
@@ -292,8 +296,11 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
     "--landing-heading": headingFont.cssVar,
   } as CSSProperties;
 
-  // Tertonjol lebih dulu; urutan admin dipertahankan di dalam tiap kelompok.
-  const urutPembicara = [...speakers.filter((s) => s.featured), ...speakers.filter((s) => !s.featured)];
+  // Paling banyak 8 kartu sekaligus; sisanya per sesi lewat tab (lihat
+  // landing-speaker-tabs.ts, dipakai juga tata letak lain).
+  const tabPembicara = speakerTabs(speakers, agenda);
+  const lembaga = jumlahLembaga(speakers);
+  const mitra = aktif.has("sponsors") ? (config.sponsors ?? []).filter((sponsor) => sponsor.logo_url) : [];
 
   const kalenderUrl = event.event_date ? `/kalender.ics?eventSlug=${encodeURIComponent(event.slug)}` : null;
   const tahun = (event.event_date ?? new Date().toISOString()).slice(0, 4);
@@ -427,9 +434,6 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
                   ) : (tanggal ?? LANDING_SECTION_LABELS.agenda)}
                 </h2>
                 {config.agenda_note?.trim() ? <p className={`text-body-large leading-[1.6] ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
-                <Link href={`/e/${event.slug}/rundown`} className={`${PIL_GARIS} mt-2`}>
-                  Susunan lengkap
-                </Link>
               </div>
               <AgendaPills agenda={agenda} />
             </div>
@@ -441,9 +445,22 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
       <>
         {/* ---- Pembicara ---------------------------------------------------- */}
         {tampil("speakers") ? (
-          <Section id="speakers">
-            <SpeakerGrid speakers={urutPembicara} heading={LANDING_SECTION_LABELS.speakers} headingClassName={JUDUL} />
-          </Section>
+          // Satu-satunya bagian berlatar panel: memberi ritme pada halaman yang
+          // seluruhnya putih. Latar dibentangkan selebar layar dengan bayangan
+          // lebar yang dipotong clip-path, tanpa menambah gulir menyamping.
+          <section
+            id="speakers"
+            className={`${SECTION} bg-[var(--landing-panel)] [clip-path:inset(0_-100vmax)] [box-shadow:0_0_0_100vmax_var(--landing-panel)]`}
+            style={{ "--landing-panel": "color-mix(in srgb, var(--reg-on-surface) 4%, var(--reg-surface))" } as CSSProperties}
+          >
+            <SpeakerTabs
+              tabs={tabPembicara}
+              eyebrow={lembaga >= 3 ? LANDING_SECTION_LABELS.speakers : null}
+              heading={lembaga >= 3 ? `${speakers.length} pembicara dari ${lembaga} lembaga` : LANDING_SECTION_LABELS.speakers}
+              eyebrowClassName={ALIS}
+              headingClassName={JUDUL}
+            />
+          </section>
         ) : null}
       </>
     ),
@@ -550,35 +567,9 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         ) : null}
       </>
     ),
-    sponsors: (
-      <>
-        {/* ---- Didukung oleh ------------------------------------------------ */}
-        {/* Mitra di bawah FAQ, bukan tepat di bawah hero: logo di situ terbaca
-            sebagai bilah "Trusted by" templat (antislop R-05). */}
-        {tampil("sponsors") ? (
-          <section className="py-16 sm:py-24">
-            <h2 className={`${HEAD} text-[24px] font-semibold leading-[1.25] tracking-[-0.02em] ${MUTED}`}>Didukung oleh</h2>
-            {/* Rata dan sama tinggi: ukuran logo bukan keputusan urutan unggah
-                (lihat Editorial). */}
-            <ul className="mt-8 flex flex-wrap items-center gap-x-10 gap-y-6">
-              {(config.sponsors ?? [])
-                .filter((sponsor) => sponsor.logo_url)
-                .map((sponsor) => (
-                  <li key={sponsor.logo_url} className="flex h-10 items-center sm:h-12">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={sponsor.logo_url}
-                      alt={sponsor.name ?? ""}
-                      loading="lazy"
-                      className="max-h-full w-auto max-w-[160px] object-contain"
-                    />
-                  </li>
-                ))}
-            </ul>
-          </section>
-        ) : null}
-      </>
-    ),
+    // Logo mitra tinggal di kaki halaman ("Diselenggarakan oleh"), bukan
+    // bagian sendiri di tengah halaman.
+    sponsors: null,
   };
 
   return (
@@ -727,31 +718,39 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
 
       {/* ---- Kaki halaman ---------------------------------------------------- */}
       <footer data-bagian="kaki" className="text-white" style={{ backgroundColor: LATAR_KAKI }}>
-        <div className={`${SHELL} flex flex-col gap-12 pb-12 pt-16 sm:gap-[72px] sm:pt-24`}>
-          <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-            <p className={`${HEAD} max-w-[700px] text-balance text-[28px] font-semibold leading-[1.25] tracking-[-0.03em] sm:text-[40px]`}>
-              {tanggal ? `Sampai jumpa pada ${tanggal}.` : "Sampai jumpa di acara."}
-            </p>
-            {event.registration_enabled ? (
-              <div style={tinta(true)} className="shrink-0">
-                <Link href={daftarUrl} className={PIL_INK}>
-                  {ctaLabel}
-                </Link>
-              </div>
-            ) : null}
-          </div>
-
-          <div aria-hidden className="h-px bg-white/15" />
+        <div className={`${SHELL} flex flex-col gap-10 pb-8 pt-12 sm:pt-16`}>
+          {/* Logo mitra di petak putih: logo lembaga dibuat untuk latar terang,
+              dan versi putihnya jarang tersedia. Sama tinggi, urut unggahan. */}
+          {mitra.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              <p className="text-title-small font-semibold text-white/70">Diselenggarakan oleh</p>
+              <ul className="flex flex-wrap gap-3">
+                {mitra.map((sponsor) => (
+                  <li key={sponsor.logo_url} className="flex h-16 items-center rounded-md bg-white px-5 sm:h-[72px]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={sponsor.logo_url} alt={sponsor.name ?? ""} loading="lazy" className="max-h-9 w-auto max-w-[140px] object-contain sm:max-h-10" />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           <div className="flex flex-col gap-10 lg:flex-row lg:justify-between">
-            <div className="flex max-w-[420px] flex-col gap-4">
+            <div className="flex max-w-[420px] flex-col gap-3">
               <p className={`${HEAD} text-title-large font-semibold`}>{nama}</p>
               {config.footer_note?.trim() ? (
                 <p className="text-body-medium leading-[1.6] text-white/70">{config.footer_note.trim()}</p>
-              ) : event.tagline || venue ? (
-                <div className="text-body-medium text-white/70">
-                  {event.tagline ? <p>{event.tagline}</p> : null}
+              ) : (
+                <div className="text-body-medium leading-[1.6] text-white/70">
+                  {tanggal ? <p>{tanggal}</p> : null}
                   {venue ? <p>{venue}</p> : null}
+                </div>
+              )}
+              {event.registration_enabled ? (
+                <div style={tinta(true)} className="mt-3">
+                  <Link href={daftarUrl} className={PIL_INK}>
+                    {ctaLabel}
+                  </Link>
                 </div>
               ) : null}
             </div>
@@ -765,7 +764,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
             </div>
           </div>
 
-          <div className="flex flex-wrap justify-between gap-3 text-body-medium text-white/60">
+          <div className="flex flex-wrap justify-between gap-3 border-t border-white/15 pt-6 text-body-small text-white/60">
             <p>
               © {tahun} {nama}
             </p>
