@@ -4,6 +4,7 @@ import { getPublicPageEvent } from "@/lib/auth/request-event";
 import { formatEventSchedule } from "@/lib/event-datetime";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { memberPageStyle } from "@/lib/member/page-theme";
+import type { EventLandingConfig } from "@/lib/domain";
 import { MasukClient } from "./masuk-client";
 
 /**
@@ -25,39 +26,55 @@ export default async function MasukPage({
   const params = await searchParams;
   const event = await getPublicPageEvent(Promise.resolve(params));
   if (!event || event.status === "archived" || !memberConfig(event)) notFound();
-  if (await getMemberSession(event)) redirect(`/e/${event.slug}/peserta`);
+  // `ganti=1`: peserta yang sudah masuk membuka jalur buat kata sandi dari
+  // Profil untuk mengganti kata sandinya. Tanpa itu ia langsung diantar masuk.
+  const ganti = params.ganti === "1" && params.mode === "aktifkan";
+  if (!ganti && (await getMemberSession(event))) redirect(`/e/${event.slug}/peserta`);
 
   const schedule = formatEventSchedule(event);
+  const fakta = [...(schedule?.split(" · ") ?? []).slice(0, 1), event.venue_name?.trim()].filter(Boolean) as string[];
   const modeAwal = params.mode === "aktifkan" ? "aktifkan" : "masuk";
+  const config = (event.landing_config ?? {}) as EventLandingConfig;
+  const kv = config.banner_url?.trim() || null;
 
   return (
     <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={memberPageStyle(event)}>
-      <div className="mx-auto grid min-h-dvh w-full max-w-[1440px] px-5 sm:px-8 lg:grid-cols-12 lg:gap-6 lg:px-10">
-        <div className="flex flex-col justify-between gap-10 border-b border-[var(--reg-outline-variant)] py-8 lg:col-span-5 lg:border-b-0 lg:border-r lg:py-12 lg:pr-12">
+      <div className="mx-auto grid min-h-dvh w-full max-w-[1440px] lg:grid-cols-2 lg:gap-6 lg:p-4">
+        {/* Panel KV. Tanpa gambar KV, bidangnya gradasi warna primer tema. */}
+        <div className="relative flex min-h-[300px] flex-col justify-between gap-10 overflow-hidden bg-[linear-gradient(180deg,var(--reg-primary)_0%,color-mix(in_oklab,var(--reg-primary)_90%,white)_100%)] px-5 pb-12 pt-6 text-[var(--reg-on-primary)] sm:px-8 lg:rounded-2xl lg:p-12">
+          {kv ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={kv} alt="" className="absolute inset-0 size-full object-cover" />
+              <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
+            </>
+          ) : null}
           <Link
             href={`/e/${event.slug}`}
-            className="inline-flex min-h-11 items-center self-start text-title-large font-semibold [font-family:var(--landing-heading)]"
-          >
-            {event.name}
-          </Link>
-          <div>
-            {schedule ? <p className="text-body-large font-medium text-[var(--reg-on-surface-variant)]">{schedule}</p> : null}
-            <h1 className="mt-4 text-balance text-[36px] font-semibold leading-[1.05] [font-family:var(--landing-heading)] sm:text-[48px] lg:text-[56px]">
-              Area peserta
-            </h1>
-            <p className="mt-5 max-w-[42ch] text-body-large leading-7 text-[var(--reg-on-surface-variant)]">
-              Lihat kode masuk, kursi, dan susunan acara Anda di satu tempat.
-            </p>
-          </div>
-          <Link
-            href={`/e/${event.slug}`}
-            className="hidden min-h-11 items-center self-start text-title-small font-semibold text-[var(--reg-primary)] lg:inline-flex"
+            className="relative inline-flex min-h-11 items-center self-start text-title-medium font-semibold [font-family:var(--landing-heading)]"
           >
             Kembali ke halaman acara
           </Link>
+          <div className="relative">
+            {fakta.length > 0 ? (
+              <ul className="flex flex-wrap gap-2">
+                {fakta.map((isi) => (
+                  <li key={isi} className="rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-label-large font-medium">
+                    {isi}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <h1 className="mt-5 text-balance text-[36px] font-semibold leading-[1.1] [font-family:var(--landing-heading)] sm:text-[48px] lg:text-[56px]">
+              {event.name}
+            </h1>
+            <p className="mt-4 max-w-[44ch] text-body-large leading-7 opacity-90">
+              Area peserta: kode QR, tempat duduk, dan susunan acara Anda di satu tempat.
+            </p>
+          </div>
         </div>
 
-        <div className="flex flex-col justify-center py-10 lg:col-span-5 lg:col-start-7 lg:py-12">
+        <div className="-mt-6 flex justify-center rounded-t-3xl bg-[var(--reg-surface)] px-5 py-8 sm:px-8 lg:mt-0 lg:items-center lg:rounded-none lg:py-12">
           <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} />
         </div>
       </div>

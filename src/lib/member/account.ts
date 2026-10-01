@@ -32,7 +32,12 @@ export type MemberParticipant = {
   company: string | null;
   title: string | null;
   email: string | null;
+  phone: string | null;
   qr_code: string;
+  /** "confirmed" = konfirmasi hadir. */
+  rsvp_status: string | null;
+  /** Jenis undangan bebas isi panitia, mis. "VIP". */
+  participant_type: string | null;
   seats: { subEventId?: string | number; subEventName?: string | null; label?: string | null }[] | null;
 };
 
@@ -50,7 +55,7 @@ export type MemberOutcome =
   | { status: "rate_limited"; retryAfterSeconds: number }
   | { status: "conflict" };
 
-const PARTICIPANT_COLUMNS = "id,name,company,title,email,qr_code,seats";
+const PARTICIPANT_COLUMNS = "id,name,company,title,email,phone,qr_code,rsvp_status,participant_type,seats";
 
 export function memberConfig(event: Pick<EventRow, "landing_config">): LandingMemberConfig | null {
   const member = ((event.landing_config ?? {}) as EventLandingConfig).member;

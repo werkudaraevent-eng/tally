@@ -580,8 +580,8 @@ tidak pernah melihat lapisan ini — tanpa jalur, layar menyapa semua orang.
 tipografi yang membawa halaman, bukan kartu, bayangan, atau gerak.
 
 - **Huruf judul dipilih admin** (`heading_font`, bawaan Playfair Display) dari
-  lima huruf yang sudah dimuat aplikasi: Playfair Display, Inter, Montserrat,
-  Oswald, Space Grotesk. Dipakai untuk nama acara, judul bagian, nama pembicara,
+  enam huruf yang sudah dimuat aplikasi: Playfair Display, Inter, Montserrat,
+  Oswald, Space Grotesk, Source Sans 3. Dipakai untuk nama acara, judul bagian, nama pembicara,
   dan angka penting lewat `--landing-heading`. Isi dan kontrol tetap Inter.
   Tidak ada huruf bebas atau unggahan huruf: tiap huruf tambahan diunduh setiap
   tamu dan bisa gagal dimuat di jaringan venue.
@@ -603,6 +603,16 @@ tipografi yang membawa halaman, bukan kartu, bayangan, atau gerak.
   jangkar bagian hanya di `xl` ke atas.
 - Warna tetap dari tema acara (`--reg-*`). Tidak ada animasi saat digulir; gerak
   satu-satunya adalah `rise-in` hero saat muat dan `settle-in` pada KV.
+- **Tata letak Modern** (`landing_config.layout = "modern"`, pilihan di CMS tab
+  Tampilan; Editorial tetap bawaan). Dari Figma "Desktop — PRIMA 2026 (v2)":
+  nav gelap netral menumpang di atas KV selebar layar, chip fakta (tanggal, jam,
+  tempat), kartu Program dari bagian rundown (jam + jumlah sesi), kartu
+  pembicara 3:4 dengan bayangan hitam, susunan acara bertab pil, FAQ berkartu,
+  banner ajakan, kaki gelap (primary dicampur hitam). Tombol dan chip
+  `rounded-full`, kartu `rounded-lg`/`rounded-md`. Urutan bagian tetap; saklar
+  bagian tetap berlaku. Tanpa KV, bidang hero dan banner memakai `primary` dengan
+  teks `on-primary`; teks putih hanya di atas gambar yang dibayangi hitam. Huruf
+  judul bawaannya Source Sans 3 (pilihan keenam `heading_font`).
 
 ### Area peserta
 
@@ -618,6 +628,16 @@ dari halaman yang sama.
   Disebut "Susunan acara", bukan "Jadwal Anda": tidak ada data jadwal pribadi.
 - Akun peserta terpisah dari akun panitia (`participant_accounts`,
   `participant_sessions`); tidak ada jalur dari sesi peserta ke layar admin.
+- Tata letak dari Figma "Area peserta (member)" (Sep 2026): bilah atas bertab
+  (Beranda, Jadwal, Voting, Profil) di layar lebar, bilah tab bawah di ponsel.
+  Jadwal dan Voting membuka `/rundown` dan `/vote`, bukan salinan.
+- Beranda: sapaan di bidang gradasi primer (penanda "Hari ini" dan sesi
+  berikutnya hanya di hari acara), kartu kode QR di bidang primer, lalu kartu
+  Kamar, Bus, Tempat duduk, dan barang (ukuran) dari RPC `member_logistics`.
+  Kartu logistik tampil hanya bila datanya ada; kursi tetap tampil dengan
+  keadaan kosong.
+- Profil (`/e/<slug>/peserta/profil`): data diri, akomodasi dan transportasi,
+  barang, dan akun. Semuanya hanya baca; ukuran baju tidak bisa diubah peserta.
 
 ### Papan peringkat
 

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import type { RegistrationFormConfig } from "@/lib/domain";
+import { LANDING_HEADING_FONT_KEYS, type RegistrationFormConfig } from "@/lib/domain";
 import { DEFAULT_REGISTRATION_SEED, withDerivedRoles } from "@/lib/registration-theme";
 
 /**
@@ -45,7 +45,14 @@ const bodySchema = z.object({
     banner_style: z.enum(["theme", "photo"]).optional(),
     hero_height: z.enum(["compact", "standard", "tall"]).optional(),
     cta_label: z.string().trim().max(60).optional(),
-    heading_font: z.enum(["serif", "sans", "geometric", "condensed", "grotesk"]).optional(),
+    heading_font: z.enum(LANDING_HEADING_FONT_KEYS).optional(),
+    layout: z.enum(["editorial", "modern"]).optional(),
+    about_heading: z.string().trim().max(160).optional(),
+    program_heading: z.string().trim().max(120).optional(),
+    program_intro: z.string().trim().max(400).optional(),
+    program_notes: z.array(z.string().trim().max(600)).max(10).optional(),
+    cta_heading: z.string().trim().max(120).optional(),
+    cta_note: z.string().trim().max(300).optional(),
     heading_scale: z.enum(["md", "lg", "xl"]).optional(),
     sections: z
       .array(z.object({
@@ -60,6 +67,7 @@ const bodySchema = z.object({
     speakers: z.array(z.object({
       name: z.string().trim().min(1).max(120),
       title: z.string().trim().max(200).optional(),
+      company: z.string().trim().max(120).optional(),
       role: z.string().trim().max(60).optional(),
       photo_url: z.string().url().max(600).nullable().optional(),
       featured: z.boolean().optional(),
