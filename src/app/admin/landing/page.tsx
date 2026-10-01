@@ -236,6 +236,14 @@ export default function LandingCmsPage() {
         Waktu dan tempat juga dipakai berkas kalender dan email, bukan hanya halaman ini.
       </p>
       <TextField
+        label="Nama acara di halaman publik"
+        optional
+        hint="Judul besar di hero, bilah atas, formulir, dan kartu tautan. Kosongkan untuk memakai nama acara di admin."
+        maxLength={120}
+        value={landing.public_name ?? ""}
+        onChange={(event) => setLanding({ ...landing, public_name: event.target.value })}
+      />
+      <TextField
         label="Tagline"
         optional
         hint="Satu kalimat di bawah nama acara."

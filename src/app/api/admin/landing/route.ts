@@ -47,6 +47,7 @@ const bodySchema = z.object({
     cta_label: z.string().trim().max(60).optional(),
     heading_font: z.enum(LANDING_HEADING_FONT_KEYS).optional(),
     layout: z.enum(["editorial", "modern"]).optional(),
+    public_name: z.string().trim().max(120).optional(),
     about_heading: z.string().trim().max(160).optional(),
     program_heading: z.string().trim().max(120).optional(),
     program_intro: z.string().trim().max(400).optional(),

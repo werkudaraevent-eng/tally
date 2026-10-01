@@ -569,7 +569,7 @@ function BingkaiModern({
           aria-label="Halaman acara"
           className={`${modern.kv ? "bg-black/40 backdrop-blur-[10px]" : "bg-[color-mix(in_srgb,currentColor_8%,transparent)]"}`}
         >
-          <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 lg:min-h-[88px] lg:px-20">
+          <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-20">
             <Link href={`/e/${eventSlug}`} className={`min-w-0 truncate text-title-large font-semibold ${HEAD}`}>
               {eventName}
             </Link>

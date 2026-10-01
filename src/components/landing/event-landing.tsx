@@ -10,7 +10,7 @@ import type {
   LandingSectionId,
   LandingSpeaker,
 } from "@/lib/domain";
-import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, publicEventName } from "@/lib/domain";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
@@ -229,7 +229,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
   return (
     <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={mainStyle}>
       <LandingNav
-        eventName={event.name}
+        eventName={publicEventName(event)}
         ctaLabel={ctaLabel}
         daftarUrl={daftarUrl}
         registrationOpen={event.registration_enabled}
@@ -266,7 +266,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
                 }`}
                 style={HERO_DELAY(1)}
               >
-                {event.name}
+                {publicEventName(event)}
               </h1>
 
               {event.tagline ? (
@@ -577,7 +577,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
         <footer
           className={`flex flex-wrap items-center justify-between gap-3 border-t border-[var(--reg-outline-variant)] py-8 text-body-small ${MUTED}`}
         >
-          <span>{event.name}</span>
+          <span>{publicEventName(event)}</span>
           {schedule ? <span>{schedule}</span> : null}
         </footer>
       </div>

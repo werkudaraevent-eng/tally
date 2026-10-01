@@ -345,6 +345,12 @@ export const LANDING_MEMBER_AUDIENCE_LABELS: Record<LandingMemberAudience, strin
 export type EventLandingConfig = {
   /** Bawaan `editorial`. */
   layout?: LandingLayout;
+  /**
+   * Nama acara yang dilihat tamu. Nama di kolom `events.name` dipakai admin
+   * untuk membedakan acara di daftar (sering memuat nama klien, mis. "ILO ..."),
+   * dan tidak selalu cocok tampil di hero. Kosong = pakai `events.name`.
+   */
+  public_name?: string;
   // ---- Teks tambahan tata letak Modern --------------------------------------
   // Semuanya opsional; yang kosong jatuh ke judul bawaan atau tidak dirender
   // sama sekali, tidak pernah ke teks contoh.
@@ -709,3 +715,9 @@ export type ApiError = {
     details?: unknown;
   };
 };
+
+/** Nama acara untuk halaman publik: `public_name` dari CMS, atau nama acara. */
+export function publicEventName(event: { name: string; landing_config?: unknown }) {
+  const nama = (event.landing_config as EventLandingConfig | null | undefined)?.public_name?.trim();
+  return nama || event.name;
+}

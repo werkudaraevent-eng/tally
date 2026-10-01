@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getEventBySlugPublic } from "@/lib/auth/event-scope";
-import { normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
+import { normalizeLandingSections, publicEventName, type EventLandingConfig } from "@/lib/domain";
 import { registrationThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventSchedule } from "@/lib/event-datetime";
 import { EventLanding } from "@/components/landing/event-landing";
@@ -33,10 +33,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // WhatsApp dan LinkedIn, dan tautan tanpa kartu pratinjau terbaca seperti
   // tautan yang tidak jelas asalnya — persis yang membuat orang tidak menekannya.
   return {
-    title: `${event.name}${event.tagline ? ` · ${event.tagline}` : ""}`,
+    title: `${publicEventName(event)}${event.tagline ? ` · ${event.tagline}` : ""}`,
     description: event.description ?? jadwal ?? undefined,
     openGraph: {
-      title: event.name,
+      title: publicEventName(event),
       description: event.tagline ?? event.description ?? undefined,
       images: banner ? [banner] : undefined,
       type: "website",

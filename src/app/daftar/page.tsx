@@ -1,5 +1,5 @@
 import { getPublicPageEvent } from "@/lib/auth/request-event";
-import { LANDING_HEADING_FONTS, type EventLandingConfig } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, publicEventName, type EventLandingConfig } from "@/lib/domain";
 import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { memberConfig } from "@/lib/member/account";
 import { modernThemeStyle, registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
@@ -24,7 +24,7 @@ export default async function DaftarPage({
     return <Pesan judul="Acara tidak ditemukan" isi="Tautan pendaftaran ini tidak menunjuk ke acara mana pun. Periksa kembali alamat yang Anda terima dari panitia." />;
   }
   if (!event.registration_enabled) {
-    return <Pesan judul="Pendaftaran ditutup" isi={`Pendaftaran untuk "${event.name}" sedang tidak dibuka. Hubungi panitia bila Anda merasa ini keliru.`} />;
+    return <Pesan judul="Pendaftaran ditutup" isi={`Pendaftaran untuk "${publicEventName(event)}" sedang tidak dibuka. Hubungi panitia bila Anda merasa ini keliru.`} />;
   }
 
   const config = event.registration_form_config ?? {};
@@ -48,7 +48,7 @@ export default async function DaftarPage({
   return <DaftarClient
     modern={modern}
     theme={modern ? { ...registrationThemeStyle(formTheme), ...modernThemeStyle(formTheme?.seed) } : registrationThemeStyle(formTheme)}
-    eventName={event.name}
+    eventName={publicEventName(event)}
     eventSlug={event.slug}
     schedule={formatEventSchedule(event)}
     fields={config.fields ?? []}

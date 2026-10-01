@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CalendarBlank, CheckCircle, Hourglass, XCircle } from "@phosphor-icons/react/dist/ssr";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
-import type { EventLandingConfig, EventRow } from "@/lib/domain";
+import { publicEventName, type EventLandingConfig, type EventRow } from "@/lib/domain";
 import { formatEventSchedule } from "@/lib/event-datetime";
 import { registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -94,7 +94,7 @@ export default async function KodePesertaPage({ params }: { params: Promise<{ to
           Halaman acara
         </Link>
 
-        <h1 className="mt-6 text-balance text-headline-large font-semibold tracking-[-0.02em]">{event.name}</h1>
+        <h1 className="mt-6 text-balance text-headline-large font-semibold tracking-[-0.02em]">{publicEventName(event)}</h1>
 
         {schedule ? (
           <p className="mt-4 inline-flex items-start gap-2 rounded-3xl bg-[var(--reg-primary-container)] px-4 py-2 text-label-large font-semibold text-[var(--reg-on-primary-container)]">
@@ -111,7 +111,7 @@ export default async function KodePesertaPage({ params }: { params: Promise<{ to
               <p className="mt-1 text-body-medium text-[var(--reg-on-surface-variant)]">Terdaftar</p>
               <RegistrationCodeCard
                 code={kode}
-                eventName={event.name}
+                eventName={publicEventName(event)}
                 personName={registrasi.name}
                 schedule={schedule}
               />
