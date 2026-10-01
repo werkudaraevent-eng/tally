@@ -434,7 +434,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
               ) : null}
             </div>
             <div className="mt-6 sm:mt-8">
-              <AgendaPills agenda={agenda} />
+              <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} />
             </div>
           </Section>
         ) : null}
