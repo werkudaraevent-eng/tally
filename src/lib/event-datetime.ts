@@ -52,7 +52,7 @@ export function formatEventSchedule(schedule: EventSchedule): string | null {
 }
 
 /** Baris tanggal saja, tanpa jam. */
-function formatEventDate(schedule: EventSchedule): string | null {
+export function formatEventDate(schedule: EventSchedule): string | null {
   if (!schedule.event_date) return null;
   return schedule.end_date && schedule.end_date !== schedule.event_date
     ? `${tanggal(schedule.event_date, schedule.time_zone, false)} – ${tanggal(schedule.end_date, schedule.time_zone, false)}`
@@ -60,7 +60,7 @@ function formatEventDate(schedule: EventSchedule): string | null {
 }
 
 /** Baris jam saja: "09.00–17.00 WITA" atau "mulai 09.00 WITA". */
-function formatEventTime(schedule: EventSchedule): string | null {
+export function formatEventTime(schedule: EventSchedule): string | null {
   const mulai = jam(schedule.start_time);
   if (!mulai) return null;
   const selesai = jam(schedule.end_time);

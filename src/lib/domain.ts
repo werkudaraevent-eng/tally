@@ -259,12 +259,12 @@ export const LANDING_HERO_HEIGHT_LABELS: Record<LandingHeroHeight, string> = {
  * Huruf judul halaman acara: nama acara dan judul bagian. Isi halaman tetap
  * memakai huruf antarmuka supaya mudah dibaca.
  *
- * Pilihannya lima huruf yang SUDAH dimuat aplikasi untuk layar publik lain
- * (lihat layout.tsx), bukan huruf bebas: huruf yang diambil dari server luar bisa
- * gagal dimuat di jaringan tamu, dan tiap huruf tambahan adalah berkas yang
- * diunduh setiap tamu.
+ * Pilihannya huruf yang SUDAH dimuat aplikasi (lihat layout.tsx), bukan huruf
+ * bebas: huruf yang diambil dari server luar bisa gagal dimuat di jaringan tamu,
+ * dan tiap huruf tambahan adalah berkas yang diunduh setiap tamu. Source Sans 3
+ * ditambahkan untuk tata letak Modern; admin tetap bebas memilih.
  */
-export type LandingHeadingFont = "serif" | "sans" | "geometric" | "condensed" | "grotesk";
+export type LandingHeadingFont = "serif" | "sans" | "geometric" | "condensed" | "grotesk" | "source";
 
 export const LANDING_HEADING_FONTS: Record<LandingHeadingFont, { label: string; note: string; cssVar: string }> = {
   serif: { label: "Playfair Display", note: "Klasik, cocok untuk undangan resmi", cssVar: "var(--font-serif)" },
@@ -272,6 +272,26 @@ export const LANDING_HEADING_FONTS: Record<LandingHeadingFont, { label: string; 
   geometric: { label: "Montserrat", note: "Geometris, tegas", cssVar: "var(--font-geometric)" },
   condensed: { label: "Oswald", note: "Rapat, cocok untuk judul panjang", cssVar: "var(--font-condensed)" },
   grotesk: { label: "Space Grotesk", note: "Teknis, untuk acara teknologi", cssVar: "var(--font-grotesk)" },
+  source: { label: "Source Sans 3", note: "Humanis dan lapang, pasangan tata letak Modern", cssVar: "var(--font-source)" },
+};
+
+/** Kunci huruf judul, untuk validasi di API. Urutannya urutan pilihan di CMS. */
+export const LANDING_HEADING_FONT_KEYS = Object.keys(LANDING_HEADING_FONTS) as [LandingHeadingFont, ...LandingHeadingFont[]];
+
+/**
+ * Tata letak halaman acara.
+ *
+ * `editorial` (bawaan): tipografi dan garis rambut, judul bagian di rel kiri.
+ * `modern`: hero KV selebar layar dengan nav gelap di atasnya, kartu program,
+ * kartu pembicara tinggi, dan banner ajakan. Keduanya membaca data yang sama;
+ * yang berbeda hanya susunannya. Di Modern urutan bagian tetap (mengikuti
+ * rancangannya), tetapi saklar tampil/sembunyi tetap berlaku.
+ */
+export type LandingLayout = "editorial" | "modern";
+
+export const LANDING_LAYOUT_LABELS: Record<LandingLayout, string> = {
+  editorial: "Editorial",
+  modern: "Modern",
 };
 
 /** Ukuran judul hero. Tiga patokan, alasannya sama dengan tinggi hero. */
@@ -287,6 +307,8 @@ export const LANDING_HEADING_SCALE_LABELS: Record<LandingHeadingScale, string> =
 export type LandingSpeaker = {
   name: string;
   title?: string;
+  /** Instansi, tampil sebagai chip di kartu tata letak Modern. Opsional. */
+  company?: string;
   role?: string;
   photo_url?: string | null;
   featured?: boolean;
@@ -321,6 +343,23 @@ export const LANDING_MEMBER_AUDIENCE_LABELS: Record<LandingMemberAudience, strin
 };
 
 export type EventLandingConfig = {
+  /** Bawaan `editorial`. */
+  layout?: LandingLayout;
+  // ---- Teks tambahan tata letak Modern --------------------------------------
+  // Semuanya opsional; yang kosong jatuh ke judul bawaan atau tidak dirender
+  // sama sekali, tidak pernah ke teks contoh.
+  /** Judul besar di samping deskripsi (bagian Tentang). */
+  about_heading?: string;
+  /** Judul bagian Program, mis. "Dua program, satu hari". */
+  program_heading?: string;
+  /** Kalimat pengantar di kanan judul Program. */
+  program_intro?: string;
+  /** Keterangan tiap kartu program, urut sesuai bagian di Rundown. */
+  program_notes?: string[];
+  /** Judul banner ajakan di bawah halaman. */
+  cta_heading?: string;
+  /** Kalimat di bawah judul banner ajakan. */
+  cta_note?: string;
   /** Area peserta. Tanpa nilai = mati. */
   member?: LandingMemberConfig;
   banner_url?: string | null;

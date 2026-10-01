@@ -10,6 +10,7 @@ import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { Spinner } from "@/components/search-loading";
 import { eventApiPath } from "@/lib/event-url";
 import { easing, expressive } from "@/lib/m3/motion";
+import { MODERN_NEUTRAL_SURFACES } from "@/lib/registration-theme-css";
 
 /**
  * Pergantian formulir → layar sukses di dalam kartu yang sama.
@@ -67,6 +68,19 @@ type Props = {
   requireJobTitle: boolean;
   /** Variabel warna --reg-*, diturunkan di server dari warna merek acara. */
   theme: CSSProperties;
+  /** Diisi bila halaman acaranya bertata letak Modern: formulir v2. */
+  modern: FormModern | null;
+};
+
+type FormModern = {
+  /** Gambar KV acara. Tanpa KV, kepala memakai bidang warna primer. */
+  kv: string | null;
+  /** Tanggal, jam, tempat: chip yang sama dengan hero halaman acara. */
+  fakta: string[];
+  /** Variabel CSS huruf judul pilihan admin. */
+  headingFont: string;
+  /** Alamat masuk area peserta, atau null bila area peserta tidak dibuka. */
+  masukUrl: string | null;
 };
 
 type Hasil = {
@@ -99,6 +113,10 @@ function bacaKodeTersimpan(slug: string) {
 const MUTED = "text-[var(--reg-on-surface-variant)]";
 const KARTU = "rounded-[28px] border border-[var(--reg-outline-variant)] bg-[var(--reg-panel)] p-6 sm:p-8";
 const OPSIONAL = `font-normal ${MUTED}`;
+const HEAD = "[font-family:var(--landing-heading)]";
+
+/** Kolom tambahan yang selalu selebar kartu di formulir v2 dua lajur. */
+const LEBAR_PENUH = new Set<RegistrationField["type"]>(["textarea", "checkbox", "radio", "file"]);
 
 export default function DaftarClient(props: Props) {
   const [pending, setPending] = useState(false);
@@ -154,7 +172,7 @@ export default function DaftarClient(props: Props) {
       // TIDAK menyuruh "periksa email": pengiriman email bisa saja belum
       // diaktifkan di server, dan menyuruh menunggu sesuatu yang tidak akan
       // datang membuat pendaftar berdiri di meja registrasi tanpa kode.
-      setError("Koneksi terputus. Pendaftaran Anda mungkin sudah tersimpan. Jangan mengisi ulang — hubungi panitia untuk memastikan.");
+      setError("Koneksi terputus. Pendaftaran Anda mungkin sudah tersimpan. Jangan mengisi ulang. Hubungi panitia untuk memastikan.");
       return;
     }
     const body = await response.json().catch(() => ({}));
@@ -172,6 +190,84 @@ export default function DaftarClient(props: Props) {
     }
   }
 
+  const m = props.modern;
+
+  // Kolom bawaan dan kolom tambahan. Di formulir v2 kolomnya dua lajur supaya
+  // kartu selebar grid tidak menghasilkan kotak isian sepanjang 1200px; kolom
+  // yang isinya panjang (paragraf, centang, berkas, pilihan ganda) tetap selebar
+  // kartu.
+  const kolom = (
+    <>
+      {/* `mt-6` pertama dari REG_LABEL dibatalkan di formulir lama: kolom
+          pertama menempel di tepi atas kartu. Di v2 ada kepala kartu di atasnya. */}
+      <label className={`${REG_LABEL} ${m ? "" : "!mt-0"}`}>Nama lengkap
+        <input required minLength={2} maxLength={120} name="name" autoComplete="name" className={`${REG_CONTROL} font-normal`} />
+      </label>
+
+      <label className={REG_LABEL}>Email {!props.requireEmail && <span className={OPSIONAL}>(opsional)</span>}
+        <input required={props.requireEmail} type="email" maxLength={160} name="email" autoComplete="email" inputMode="email" className={`${REG_CONTROL} font-normal`} />
+        <span className={`mt-2 block text-body-medium font-normal leading-6 ${MUTED}`}>
+          {props.requireEmail
+            ? "Dipakai panitia untuk menghubungi Anda. Satu email hanya bisa mendaftar sekali."
+            : "Dikosongkan berarti kode peserta TIDAK dikirim ke mana pun. Potret layar setelah mendaftar."}
+        </span>
+      </label>
+
+      <label className={REG_LABEL}>Nomor telepon {!props.requirePhone && <span className={OPSIONAL}>(opsional)</span>}
+        <input required={props.requirePhone} type="tel" minLength={6} maxLength={30} name="phone" autoComplete="tel" inputMode="tel" className={`${REG_CONTROL} font-normal`} />
+      </label>
+
+      <label className={REG_LABEL}>Perusahaan {!props.requireCompany && <span className={OPSIONAL}>(opsional)</span>}
+        <input required={props.requireCompany} maxLength={160} name="company" autoComplete="organization" className={`${REG_CONTROL} font-normal`} />
+      </label>
+
+      <label className={REG_LABEL}>Jabatan {!props.requireJobTitle && <span className={OPSIONAL}>(opsional)</span>}
+        <input required={props.requireJobTitle} maxLength={160} name="job_title" autoComplete="organization-title" className={`${REG_CONTROL} font-normal`} />
+      </label>
+
+      {props.fields.map((field) => m ? (
+        <div key={field.key} className={LEBAR_PENUH.has(field.type) ? "sm:col-span-2" : undefined}>
+          <RegistrationFieldInput field={field} />
+        </div>
+      ) : <RegistrationFieldInput key={field.key} field={field} />)}
+    </>
+  );
+
+  const galat = error ? (
+    // Galat naik-pudar masuk, bukan muncul seketika: kotak merah yang
+    // tiba-tiba ada di bawah formulir terbaca sebagai bagian halaman yang
+    // baru termuat, bukan sebagai jawaban atas tombol yang barusan ditekan.
+    <p key={error} role="alert" className="rise-in-fast mt-7 flex items-start gap-2 rounded-[20px] bg-[var(--reg-error-soft)] p-4 text-body-medium font-medium leading-6 text-[var(--reg-on-error-soft)]">
+      <WarningCircle size={20} weight="fill" className="mt-0.5 shrink-0" />
+      {error}
+    </p>
+  ) : null;
+
+  // Pendaftar yang membuka formulir ini lagi dari perangkat yang sama
+  // diingatkan lebih dulu. Tanpa ini ia mengisi ulang seluruh formulir, lalu
+  // ditolak sebagai email duplikat — dan mengira pendaftarannya gagal.
+  const pengingat = kodeTersimpan ? (
+    <p className={`mb-6 bg-[var(--reg-primary-container)] p-4 text-body-medium leading-6 text-[var(--reg-on-primary-container)] ${m ? "rounded-lg" : "rounded-[20px]"}`}>
+      Perangkat ini pernah dipakai mendaftar di acara ini.{" "}
+      <a href={kodeTersimpan} className="font-semibold underline">Buka kode pendaftarannya</a>.
+    </p>
+  ) : null;
+
+  /* Labelnya TIDAK berganti menjadi "Mengirim…": hanya ikonnya yang ditukar
+     dengan pemintal, pola yang sama dengan primitif Button. Label yang berubah
+     membuat lebar tombol melompat tepat saat ditekan. */
+  const tombolKirim = (bentuk: string) => (
+    <button
+      disabled={pending}
+      aria-busy={pending || undefined}
+      className={`m3-state inline-flex items-center justify-center gap-2 bg-[var(--reg-primary)] px-8 font-semibold text-[var(--reg-on-primary)] transition-[scale] duration-150 ease-standard active:scale-[0.98] disabled:opacity-50 ${bentuk}`}
+      style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
+    >
+      Daftar sekarang
+      {pending ? <Spinner size={20} label="Mengirim" /> : m ? null : <ArrowRight size={20} weight="bold" />}
+    </button>
+  );
+
   const disetujui = hasil !== null && hasil.status === "approved" && Boolean(hasil.qr_code);
   // Dibaca dari JAWABAN server, bukan dari asumsi bahwa email sudah aktif.
   // Server hanya mengirim true bila penyedia benar-benar menerima kiriman;
@@ -179,39 +275,162 @@ export default function DaftarClient(props: Props) {
   // mati semuanya sampai ke sini sebagai false.
   const lewatEmail = disetujui && hasil?.email_sent === true;
 
+  const judulSukses = disetujui ? "Pendaftaran berhasil" : "Pendaftaran diterima";
+  // Email disebut HANYA bila benar-benar terkirim. Menjanjikannya lebih dulu
+  // membuat pendaftar menutup halaman ini tanpa menyimpan kodenya, lalu
+  // menunggu email yang tidak akan pernah datang -- dan baru sadar di meja
+  // registrasi, saat antrean sudah panjang.
+  const pesanSukses = props.successText ?? (disetujui
+    ? "Simpan kode peserta Anda. Tunjukkan kode itu di meja registrasi saat hari acara."
+    : "Panitia akan memeriksa pendaftaran Anda, lalu menghubungi Anda lewat kontak yang diisi di atas.");
+  const catatanEmail = disetujui ? (
+    <p className={`mt-5 text-body-medium leading-6 ${lewatEmail ? MUTED : "font-semibold text-[var(--reg-error)]"}`}>
+      {lewatEmail
+        ? "Kode ini juga sudah dikirim ke email Anda, lengkap dengan QR-nya. Email bisa masuk folder spam, jadi simpan juga gambarnya."
+        : "Kode tidak dikirim lewat email. Simpan gambarnya sekarang, atau simpan tautan di bawah."}
+    </p>
+  ) : null;
+  // Tautan permanen. Ini yang menghapus kalimat "halaman ini tidak bisa
+  // dibuka lagi": pendaftar yang menutup halaman terlalu cepat punya jalan
+  // kembali, dan pendaftar di event bermoderasi punya alamat untuk memeriksa
+  // apakah kodenya sudah terbit.
+  const tautanKode = hasil?.code_url ? (
+    <div className={`mt-6 border border-dashed border-[var(--reg-outline)] p-5 text-left ${m ? "rounded-lg bg-[var(--reg-field)]" : "rounded-[20px]"}`}>
+      <p className={m ? "text-label-large font-semibold" : `text-label-medium uppercase tracking-[0.16em] ${MUTED}`}>Tautan pendaftaran Anda</p>
+      <a
+        href={hasil.code_url}
+        className="mt-2 block break-all text-body-medium font-semibold text-[var(--reg-primary)] underline"
+      >
+        {typeof window === "undefined" ? hasil.code_url : `${window.location.origin}${hasil.code_url}`}
+      </a>
+      <p className={`mt-2 text-body-medium leading-6 ${MUTED}`}>
+        Simpan atau kirim ke diri sendiri lewat WhatsApp. Alamat ini bisa dibuka kapan saja.
+        {disetujui ? "" : " Kode peserta muncul di sana begitu pendaftaran Anda disetujui."}
+      </p>
+    </div>
+  ) : null;
+
+  /* Ikon hasil membesar masuk dengan pegas ekspresif, sesaat setelah kartunya
+     mendarat. Ini satu-satunya momen di alur pendaftaran yang boleh terasa
+     seperti perayaan. */
+  const ikonSukses = (kelas: string) => (
+    <motion.div
+      className={kelas}
+      initial={{ scale: 0.5, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ ...expressive.spatial.default, delay: 0.12 }}
+    >
+      {disetujui
+        ? <CheckCircle size={56} weight="fill" className="text-[var(--reg-primary)]" />
+        : <Hourglass size={56} className={MUTED} />}
+    </motion.div>
+  );
+
+  if (m) {
+    return (
+      <BingkaiModern {...props} modern={m}>
+        <AnimatePresence mode="wait" initial={false}>
+          {hasil ? (
+            <motion.div
+              key="sukses"
+              className={`grid gap-x-16 gap-y-8 ${disetujui ? "lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start" : ""}`}
+              {...TUKAR}
+            >
+              {/* Tiga blok, bukan dua kolom: di ponsel kartu kode langsung di
+                  bawah judul (yang paling penting disimpan), di layar lebar ia
+                  berdiri di kolom kanan setinggi dua blok kiri. */}
+              <div className="min-w-0">
+                {ikonSukses("w-fit")}
+                <h2 className={`mt-5 text-[32px] font-semibold leading-tight tracking-[-0.02em] sm:text-[36px] ${HEAD}`}>{judulSukses}</h2>
+                <p className={`mt-3 max-w-[60ch] text-body-large leading-7 ${MUTED}`}>{pesanSukses}</p>
+              </div>
+
+              {/* Kode tetap ditampilkan BESAR walau emailnya terkirim. Email
+                  bisa masuk spam, tertunda, atau salah ketik; kode di layar
+                  adalah satu-satunya salinan yang pasti sampai pada detik ini. */}
+              {disetujui && hasil.qr_code ? (
+                <div
+                  className="rounded-lg bg-[var(--reg-primary)] p-6 text-[var(--reg-on-primary)] sm:p-8 lg:col-start-2 lg:row-span-2 lg:row-start-1"
+                  style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
+                >
+                  <RegistrationCodeCard
+                    inverse
+                    code={hasil.qr_code}
+                    eventName={props.eventName}
+                    personName={nama}
+                    schedule={props.schedule}
+                  />
+                  <p className="mt-4 text-center text-body-medium opacity-85">
+                    {[nama, props.eventName].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="min-w-0 [&>*:first-child]:mt-0">
+                {catatanEmail}
+                {tautanKode}
+                <div className="mt-6 flex flex-wrap gap-3">
+                  {m.masukUrl ? (
+                    <Link
+                      href={m.masukUrl}
+                      className="m3-state inline-flex min-h-12 items-center rounded-md bg-[var(--reg-primary)] px-5 text-label-large font-semibold text-[var(--reg-on-primary)]"
+                      style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
+                    >
+                      Masuk area peserta
+                    </Link>
+                  ) : null}
+                  <Link
+                    href={`/e/${props.eventSlug}`}
+                    className="m3-state inline-flex min-h-12 items-center rounded-md border border-[var(--reg-on-surface)] px-5 text-label-large font-semibold"
+                  >
+                    Kembali ke halaman acara
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div key="formulir" {...TUKAR}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-title-large font-medium">Data diri</h2>
+                  <p className={`mt-1 text-body-medium ${MUTED}`}>Kolom bertanda (opsional) boleh dikosongkan.</p>
+                </div>
+                {m.masukUrl ? (
+                  <p className={`text-body-large ${MUTED}`}>
+                    Sudah terdaftar?{" "}
+                    <Link href={m.masukUrl} className="font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline">
+                      Masuk area peserta
+                    </Link>
+                  </p>
+                ) : null}
+              </div>
+
+              <form onSubmit={submit} noValidate={false} className="mt-2">
+                {pengingat ? <div className="mt-6">{pengingat}</div> : null}
+                <div className="grid gap-x-6 sm:grid-cols-2">{kolom}</div>
+                {galat}
+                <div className="mt-8 flex flex-col gap-4 border-t border-[var(--reg-outline-variant)] pt-7 sm:flex-row sm:items-center sm:gap-6">
+                  {tombolKirim("min-h-[52px] w-full rounded-md text-title-small sm:w-auto sm:min-w-64")}
+                  <p className={`text-body-medium ${MUTED}`}>
+                    Dengan mendaftar, Anda setuju data ini dipakai panitia untuk keperluan acara.
+                  </p>
+                </div>
+              </form>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </BingkaiModern>
+    );
+  }
+
   return (
     <Bingkai {...props}>
       <AnimatePresence mode="wait" initial={false}>
       {hasil ? (
         <motion.div key="sukses" className="text-center" {...TUKAR}>
-          {/* Ikon hasil membesar masuk dengan pegas ekspresif, sesaat setelah
-              kartunya mendarat. Ini satu-satunya momen di alur pendaftaran yang
-              boleh terasa seperti perayaan. */}
-          <motion.div
-            className="mx-auto w-fit"
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ ...expressive.spatial.default, delay: 0.12 }}
-          >
-            {disetujui
-              ? <CheckCircle size={56} weight="fill" className="mx-auto text-[var(--reg-primary)]" />
-              : <Hourglass size={56} className={`mx-auto ${MUTED}`} />}
-          </motion.div>
-          <h2 className="mt-5 text-headline-small font-semibold tracking-[-0.02em]">
-            {disetujui ? "Pendaftaran berhasil" : "Pendaftaran diterima"}
-          </h2>
-          {/* Email disebut HANYA bila benar-benar terkirim. Menjanjikannya lebih
-              dulu membuat pendaftar menutup halaman ini tanpa menyimpan kodenya,
-              lalu menunggu email yang tidak akan pernah datang -- dan baru sadar
-              di meja registrasi, saat antrean sudah panjang. */}
-          <p className={`mx-auto mt-3 max-w-[52ch] text-body-large leading-7 ${MUTED}`}>
-            {props.successText ?? (disetujui
-              ? "Simpan kode di bawah ini. Tunjukkan kode itu di meja registrasi saat hari acara."
-              : "Panitia akan memeriksa pendaftaran Anda, lalu menghubungi Anda lewat kontak yang diisi di atas.")}
-          </p>
-          {/* Kode tetap ditampilkan BESAR walau emailnya terkirim. Email bisa
-              masuk spam, tertunda, atau salah ketik; kode di layar adalah satu-
-              satunya salinan yang pasti sampai pada detik ini. */}
+          {ikonSukses("mx-auto w-fit")}
+          <h2 className="mt-5 text-headline-small font-semibold tracking-[-0.02em]">{judulSukses}</h2>
+          <p className={`mx-auto mt-3 max-w-[52ch] text-body-large leading-7 ${MUTED}`}>{pesanSukses}</p>
           {disetujui && hasil.qr_code ? (
             <RegistrationCodeCard
               code={hasil.qr_code}
@@ -220,103 +439,19 @@ export default function DaftarClient(props: Props) {
               schedule={props.schedule}
             />
           ) : null}
-
-          {disetujui ? (
-            <p className={`mt-5 text-body-medium leading-6 ${lewatEmail ? MUTED : "font-semibold text-[var(--reg-error)]"}`}>
-              {lewatEmail
-                ? "Kode ini juga sudah dikirim ke email Anda, lengkap dengan QR-nya. Email bisa masuk folder spam — simpan juga gambarnya."
-                : "Kode tidak dikirim lewat email. Simpan gambarnya sekarang, atau simpan tautan di bawah."}
-            </p>
-          ) : null}
-
-          {/* Tautan permanen. Ini yang menghapus kalimat "halaman ini tidak bisa
-              dibuka lagi": pendaftar yang menutup halaman terlalu cepat punya
-              jalan kembali, dan pendaftar di event bermoderasi punya alamat untuk
-              memeriksa apakah kodenya sudah terbit. */}
-          {hasil.code_url ? (
-            <div className="mt-6 rounded-[20px] border border-dashed border-[var(--reg-outline)] p-5 text-left">
-              <p className={`text-label-medium uppercase tracking-[0.16em] ${MUTED}`}>Tautan pendaftaran Anda</p>
-              <a
-                href={hasil.code_url}
-                className="mt-2 block break-all text-body-medium font-semibold text-[var(--reg-primary)] underline"
-              >
-                {typeof window === "undefined" ? hasil.code_url : `${window.location.origin}${hasil.code_url}`}
-              </a>
-              <p className={`mt-2 text-body-medium leading-6 ${MUTED}`}>
-                Simpan atau kirim ke diri sendiri lewat WhatsApp. Alamat ini bisa dibuka kapan saja
-                {disetujui ? "" : " — kode peserta muncul di sana begitu pendaftaran Anda disetujui"}.
-              </p>
-            </div>
-          ) : null}
+          {catatanEmail}
+          {tautanKode}
         </motion.div>
       ) : (
         <motion.div key="formulir" {...TUKAR}>
-      {/* Pendaftar yang membuka formulir ini lagi dari perangkat yang sama
-          diingatkan lebih dulu. Tanpa ini ia mengisi ulang seluruh formulir, lalu
-          ditolak sebagai email duplikat — dan mengira pendaftarannya gagal. */}
-      {kodeTersimpan ? (
-        <p className="mb-6 rounded-[20px] bg-[var(--reg-primary-container)] p-4 text-body-medium leading-6 text-[var(--reg-on-primary-container)]">
-          Perangkat ini pernah dipakai mendaftar di acara ini.{" "}
-          <a href={kodeTersimpan} className="font-semibold underline">Buka kode pendaftarannya</a>.
-        </p>
-      ) : null}
-
-      <form onSubmit={submit} noValidate={false}>
-        {/* `mt-6` pertama dari REG_LABEL dibatalkan: kolom pertama menempel di
-            tepi atas kartu, bukan menggantung dengan jarak dua kali lipat. */}
-        <label className={`${REG_LABEL} !mt-0`}>Nama lengkap
-          <input required minLength={2} maxLength={120} name="name" autoComplete="name" className={`${REG_CONTROL} font-normal`} />
-        </label>
-
-        <label className={REG_LABEL}>Email {!props.requireEmail && <span className={OPSIONAL}>(opsional)</span>}
-          <input required={props.requireEmail} type="email" maxLength={160} name="email" autoComplete="email" inputMode="email" className={`${REG_CONTROL} font-normal`} />
-          <span className={`mt-2 block text-body-medium font-normal leading-6 ${MUTED}`}>
-            {props.requireEmail
-              ? "Dipakai panitia untuk menghubungi Anda. Satu email hanya bisa mendaftar sekali."
-              : "Dikosongkan berarti kode peserta TIDAK dikirim ke mana pun — potret layar setelah mendaftar."}
-          </span>
-        </label>
-
-        <label className={REG_LABEL}>Nomor telepon {!props.requirePhone && <span className={OPSIONAL}>(opsional)</span>}
-          <input required={props.requirePhone} type="tel" minLength={6} maxLength={30} name="phone" autoComplete="tel" inputMode="tel" className={`${REG_CONTROL} font-normal`} />
-        </label>
-
-        <label className={REG_LABEL}>Perusahaan {!props.requireCompany && <span className={OPSIONAL}>(opsional)</span>}
-          <input required={props.requireCompany} maxLength={160} name="company" autoComplete="organization" className={`${REG_CONTROL} font-normal`} />
-        </label>
-
-        <label className={REG_LABEL}>Jabatan {!props.requireJobTitle && <span className={OPSIONAL}>(opsional)</span>}
-          <input required={props.requireJobTitle} maxLength={160} name="job_title" autoComplete="organization-title" className={`${REG_CONTROL} font-normal`} />
-        </label>
-
-        {props.fields.map((field) => <RegistrationFieldInput key={field.key} field={field} />)}
-
-        {error ? (
-          // Galat naik-pudar masuk, bukan muncul seketika: kotak merah yang
-          // tiba-tiba ada di bawah formulir terbaca sebagai bagian halaman yang
-          // baru termuat, bukan sebagai jawaban atas tombol yang barusan ditekan.
-          <p key={error} role="alert" className="rise-in-fast mt-7 flex items-start gap-2 rounded-[20px] bg-[var(--reg-error-soft)] p-4 text-body-medium font-medium leading-6 text-[var(--reg-on-error-soft)]">
-            <WarningCircle size={20} weight="fill" className="mt-0.5 shrink-0" />
-            {error}
-          </p>
-        ) : null}
-
-        {/* Kapsul, bukan persegi membulat: bentuknya sama dengan tombol "Daftar
-            sekarang" yang baru saja ditekan tamu di halaman acara.
-
-            Labelnya TIDAK berganti menjadi "Mengirim…": hanya ikonnya yang
-            ditukar dengan pemintal, pola yang sama dengan primitif Button.
-            Label yang berubah membuat lebar tombol melompat tepat saat ditekan. */}
-        <button
-          disabled={pending}
-          aria-busy={pending || undefined}
-          className="m3-state mt-8 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--reg-primary)] px-8 text-title-medium font-semibold text-[var(--reg-on-primary)] shadow-[var(--md-sys-elevation-level1)] transition-[scale] duration-150 ease-standard active:scale-[0.98] disabled:opacity-50"
-          style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
-        >
-          Daftar sekarang
-          {pending ? <Spinner size={20} label="Mengirim" /> : <ArrowRight size={20} weight="bold" />}
-        </button>
-      </form>
+          {pengingat}
+          <form onSubmit={submit} noValidate={false}>
+            {kolom}
+            {galat}
+            {/* Kapsul, bukan persegi membulat: bentuknya sama dengan tombol
+                "Daftar sekarang" yang baru saja ditekan tamu di halaman acara. */}
+            {tombolKirim("mt-8 min-h-14 w-full rounded-full text-title-medium shadow-[var(--md-sys-elevation-level1)]")}
+          </form>
         </motion.div>
       )}
       </AnimatePresence>
@@ -387,6 +522,108 @@ function Bingkai({
           </div>
         </div>
       </div>
+    </main>
+  );
+}
+
+
+/**
+ * Bingkai formulir v2 (Figma "Daftar — PRIMA 2026 (v2)", 37:2).
+ *
+ * Kepala memakai bahasa hero halaman acara Modern: KV dengan bayangan, atau
+ * bidang primer bila acara tidak punya KV, lalu nama acara dan chip fakta yang
+ * sama. Kartu formulir di bawahnya selebar grid 1280, sejajar dengan judul di
+ * kepala; Hanung menolak versi sempit di tengah karena sisi kiri-kanannya
+ * kosong di layar lebar.
+ */
+function BingkaiModern({
+  eventName,
+  eventSlug,
+  welcomeText,
+  theme,
+  modern,
+  children,
+}: Props & { modern: FormModern; children: React.ReactNode }) {
+  const tinta = modern.kv ? "#fff" : "var(--reg-on-primary)";
+  return (
+    <main
+      className="flex min-h-dvh flex-col bg-[var(--reg-surface)] text-[var(--reg-on-surface)]"
+      style={{ ...theme, ...MODERN_NEUTRAL_SURFACES, "--landing-heading": modern.headingFont } as CSSProperties}
+    >
+      <header
+        className={`relative isolate overflow-hidden ${modern.kv ? "bg-black" : "bg-[var(--reg-primary)]"}`}
+        style={{ color: tinta, "--m3-state-color": tinta } as CSSProperties}
+      >
+        {modern.kv ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={modern.kv} alt="" className="absolute inset-0 -z-10 size-full object-cover" />
+            <div
+              aria-hidden
+              className="absolute inset-0 -z-10"
+              style={{ background: "linear-gradient(to bottom, rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.35) 40%, rgb(0 0 0 / 0.7))" }}
+            />
+          </>
+        ) : null}
+
+        <nav
+          aria-label="Halaman acara"
+          className={`${modern.kv ? "bg-black/40 backdrop-blur-[10px]" : "bg-[color-mix(in_srgb,currentColor_8%,transparent)]"}`}
+        >
+          <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 lg:min-h-[88px] lg:px-20">
+            <Link href={`/e/${eventSlug}`} className={`min-w-0 truncate text-title-large font-semibold ${HEAD}`}>
+              {eventName}
+            </Link>
+            <div className="flex shrink-0 items-center gap-1 sm:gap-4">
+              <Link href={`/e/${eventSlug}`} className="m3-state hidden min-h-11 items-center rounded-md px-3 text-body-large font-medium sm:inline-flex">
+                Kembali ke halaman acara
+              </Link>
+              {modern.masukUrl ? (
+                <Link href={modern.masukUrl} className="m3-state inline-flex min-h-11 items-center rounded-md px-3 text-body-large font-medium">
+                  Masuk
+                </Link>
+              ) : null}
+            </div>
+          </div>
+        </nav>
+
+        <div className="mx-auto w-full max-w-[1440px] px-5 pb-10 pt-8 sm:px-8 sm:pb-14 sm:pt-14 lg:px-20 lg:pb-20 lg:pt-20">
+          <Link href={`/e/${eventSlug}`} className="mb-4 inline-flex min-h-11 items-center gap-2 text-label-large font-medium opacity-85 sm:hidden">
+            <ArrowLeft size={16} weight="bold" />
+            Halaman acara
+          </Link>
+          <p className="text-label-large font-semibold uppercase tracking-[0.12em] opacity-85">Pendaftaran peserta</p>
+          <h1 className={`mt-4 max-w-[900px] text-balance text-[34px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[44px] lg:text-[56px] ${HEAD}`}>
+            {eventName}
+          </h1>
+          {modern.fakta.length > 0 ? (
+            <ul className="mt-6 flex flex-wrap gap-2">
+              {modern.fakta.map((item) => (
+                <li
+                  key={item}
+                  className="inline-flex items-center rounded-full border border-[color-mix(in_srgb,currentColor_30%,transparent)] bg-[color-mix(in_srgb,currentColor_14%,transparent)] px-3.5 py-1.5 text-label-large tabular-nums"
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {welcomeText ? (
+            <p className="mt-6 max-w-[640px] whitespace-pre-line text-body-large opacity-90">{welcomeText}</p>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-8 sm:py-12 lg:px-20 lg:py-16">
+        <div className="rounded-xl bg-[var(--reg-panel)] p-5 sm:p-8 lg:p-12">{children}</div>
+      </div>
+
+      <footer className="bg-[color-mix(in_srgb,var(--reg-primary)_22%,black)] text-white">
+        <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-1 px-5 py-6 text-body-medium opacity-75 sm:flex-row sm:justify-between sm:px-8 lg:px-20">
+          <span>{eventName}</span>
+          <span>Dikelola dengan Tally</span>
+        </div>
+      </footer>
     </main>
   );
 }

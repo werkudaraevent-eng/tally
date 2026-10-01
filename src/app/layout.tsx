@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist_Mono, Inter, Montserrat, Oswald, Playfair_Display, Space_Grotesk } from "next/font/google";
+import { Geist_Mono, Inter, Montserrat, Oswald, Playfair_Display, Source_Sans_3, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { MotionProvider } from "@/components/motion-provider";
 import { ToastProvider } from "@/components/toast";
@@ -39,6 +39,9 @@ const montserrat = Montserrat({ subsets: ["latin"], weight: ["600", "700", "800"
 const oswald = Oswald({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-condensed", display: "swap" });
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["500", "700"], variable: "--font-grotesk", display: "swap" });
 const playfair = Playfair_Display({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-serif", display: "swap" });
+// Source Sans 3: huruf judul tata letak Modern halaman acara. Dimuat dengan cara
+// yang sama seperti lima huruf judul lainnya.
+const sourceSans = Source_Sans_3({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-source", display: "swap" });
 const geistMono = Geist_Mono({ subsets: ["latin"], weight: ["500", "700"], variable: "--font-mono", display: "swap" });
 
 // Variabel font tambahan digabung ke <html> supaya tersedia di seluruh halaman.
@@ -47,7 +50,7 @@ const geistMono = Geist_Mono({ subsets: ["latin"], weight: ["500", "700"], varia
 // (booth, kasir, admin) tetap memakai Geist. Font pilihan admin hanya dipasang
 // per elemen di layar publik, sehingga menambah pilihan di sini tidak pernah
 // mengubah tampilan halaman yang sudah rapi.
-const fontVariables = [inter, montserrat, oswald, spaceGrotesk, playfair, geistMono]
+const fontVariables = [inter, montserrat, oswald, spaceGrotesk, playfair, sourceSans, geistMono]
   .map((font) => font.variable)
   .join(" ");
 
