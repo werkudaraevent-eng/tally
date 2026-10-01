@@ -537,7 +537,7 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
         {tampil("faq") ? (
           <Section id="faq">
             <div className="grid gap-10 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-20">
-              <div className="flex flex-col gap-5 lg:sticky lg:top-32 lg:self-start">
+              <div className="flex flex-col gap-5 lg:self-start">
                 <p className={ALIS}>{LANDING_SECTION_LABELS.faq}</p>
                 <h2 className={JUDUL}>Sebelum Anda datang</h2>
                 <p className={`text-body-large ${MUTED}`}>
