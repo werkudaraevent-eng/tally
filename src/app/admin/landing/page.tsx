@@ -1,8 +1,8 @@
 "use client";
 
 import { pesanGalatApi } from "@/lib/api-message";
-import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, DotsSixVertical, Info, Plus, Trash, Warning } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState, type DragEvent, type ReactNode } from "react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, DotsSixVertical, DownloadSimple, Info, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
   Banner, Button, ButtonLink, IconButton, MetaSeparator, PageLoading, PaneBody, PaneFooter, Pane, SegmentedButton,
@@ -44,6 +44,17 @@ import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlok
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
 // jadi kaki panel menyebut kapan ada perubahan yang belum terlihat di sana.
+
+// Berkas isi halaman (Ekspor/Impor). Hanya kolom yang disunting di layar ini:
+// tanggal acara, rundown, dan peserta tetap di tempatnya masing-masing.
+const BERKAS_FORMAT = "tally-landing";
+const KOLOM_FAKTA = ["description", "tagline", "start_time", "end_time", "end_date", "venue_name", "venue_address", "venue_map_url"] as const;
+type BerkasIsi = {
+  format: typeof BERKAS_FORMAT;
+  version: 1;
+  facts?: Partial<Pick<Facts, (typeof KOLOM_FAKTA)[number]>>;
+  landing?: EventLandingConfig;
+};
 
 type Facts = {
   slug: string;
@@ -143,6 +154,49 @@ export default function LandingCmsPage() {
 
   function patchFacts(patch: Partial<Facts>) {
     setFacts((current) => (current ? { ...current, ...patch } : current));
+  }
+
+  // ---- Ekspor/Impor isi ----------------------------------------------------------
+  // Ekspor mengambil isi yang sedang tampil di layar (termasuk yang belum
+  // disimpan). Impor hanya mengisi layar: tidak ada yang berubah di halaman
+  // publik sampai admin menekan Simpan, jadi isi lama masih bisa dikembalikan
+  // dengan memuat ulang halaman.
+  const pilihBerkas = useRef<HTMLInputElement>(null);
+
+  function ekspor() {
+    if (!facts) return;
+    const berkas: BerkasIsi = {
+      format: BERKAS_FORMAT,
+      version: 1,
+      facts: Object.fromEntries(KOLOM_FAKTA.map((kolom) => [kolom, facts[kolom]])),
+      landing: { ...landing, sections },
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(berkas, null, 2)], { type: "application/json" }));
+    const tautan = document.createElement("a");
+    tautan.href = url;
+    tautan.download = `isi-halaman-${facts.slug}-${new Date().toISOString().slice(0, 10)}.json`;
+    tautan.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function impor(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const isi = await file.text().then((teks) => JSON.parse(teks) as Partial<BerkasIsi>).catch(() => null);
+    if (!isi || isi.format !== BERKAS_FORMAT || typeof isi.landing !== "object" || isi.landing === null) {
+      toast.error("Berkas tidak dikenali", "Pilih berkas .json hasil Ekspor isi dari halaman ini.");
+      return;
+    }
+    const fakta = Object.fromEntries(
+      KOLOM_FAKTA.filter((kolom) => isi.facts && kolom in isi.facts).map((kolom) => [kolom, isi.facts?.[kolom] ?? null]),
+    ) as Partial<Facts>;
+    patchFacts(fakta);
+    // Kunci yang tidak ada di berkas (gambar sampul, warna, dsb.) tetap memakai
+    // isi yang sekarang, jadi berkas tanpa gambar tidak menghapus gambar yang ada.
+    setLanding((current) => ({ ...current, ...isi.landing }));
+    setBagian("bagian");
+    toast.success("Isi dimuat", "Periksa isinya, lalu tekan Simpan. Muat ulang halaman untuk membatalkan.");
   }
 
   /**
@@ -1081,9 +1135,18 @@ export default function LandingCmsPage() {
           </>
         ) : null}
         actions={facts ? (
-          <ButtonLink href={`/e/${facts.slug}`} target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>
-            Lihat halaman
-          </ButtonLink>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="text" icon={<DownloadSimple size={16} />} onClick={ekspor}>
+              Ekspor isi
+            </Button>
+            <Button variant="text" icon={<UploadSimple size={16} />} onClick={() => pilihBerkas.current?.click()}>
+              Impor isi
+            </Button>
+            <input ref={pilihBerkas} type="file" accept="application/json,.json" className="hidden" onChange={(event) => void impor(event)} />
+            <ButtonLink href={`/e/${facts.slug}`} target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>
+              Lihat halaman
+            </ButtonLink>
+          </div>
         ) : null}
       />
 
