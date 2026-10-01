@@ -424,14 +424,11 @@ export async function EventLandingModern({ event, config, sections, theme }: Pro
             {/* Satu kolom: tanggal adalah judul bagian di atas daftar, bukan
                 kolom kiri yang 60% kosong. Acara satu hari tidak butuh penanda
                 yang ikut turun; daftar yang padat muat satu layar laptop. */}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-20">
-              <div className="flex flex-col gap-3">
-                <p className={ALIS}>{LANDING_SECTION_LABELS.agenda}</p>
-                <h2 className={JUDUL}>{tanggal ?? LANDING_SECTION_LABELS.agenda}</h2>
-              </div>
-              {config.agenda_note?.trim() ? (
-                <p className={`max-w-[420px] text-body-large leading-[1.6] lg:pb-1.5 lg:text-right ${MUTED}`}>{config.agenda_note.trim()}</p>
-              ) : null}
+            <div className="flex flex-col gap-3">
+              <p className={ALIS}>{LANDING_SECTION_LABELS.agenda}</p>
+              <h2 className={JUDUL}>{tanggal ?? LANDING_SECTION_LABELS.agenda}</h2>
+              {/* Catatan di bawah judul, sama seperti bagian lain. */}
+              {config.agenda_note?.trim() ? <p className={`max-w-[520px] text-body-large ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
             </div>
             <div className="mt-6 sm:mt-8">
               <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} />

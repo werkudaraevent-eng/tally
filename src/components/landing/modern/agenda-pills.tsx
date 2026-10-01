@@ -97,16 +97,18 @@ export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]
           // sesi inti tanpa keterangan tetap tampil sebagai sesi inti.
           const jeda = orang.length === 0 && JEDA.test(item.title);
           return (
+            // Garis dasar jam dan judul sejajar (items-baseline); tinggi baris
+            // kelipatan 4px (judul 24px, keterangan 20px, padding 12px).
             // Hierarki M3 lewat peran warna, satu penekanan per baris: judul
             // on-surface 16px/600; jam sesi inti satu-satunya aksen warna.
             // Jam satu baris ("08.00–09.00"): dua baris jam membuat tiap baris
             // setinggi 140-180px dan rundown tidak muat satu layar.
             <li
               key={`${item.time}-${item.title}-${index}`}
-              className="flex flex-col gap-1 border-t border-[color-mix(in_srgb,var(--reg-outline-variant)_70%,transparent)] py-4 sm:grid sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:gap-x-8 lg:grid-cols-[8.5rem_minmax(0,1fr)_auto]"
+              className="flex flex-col gap-1 border-t border-[color-mix(in_srgb,var(--reg-outline-variant)_70%,transparent)] py-3 sm:grid sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-baseline sm:gap-x-8 lg:grid-cols-[8.5rem_minmax(0,1fr)_auto]"
             >
               <span
-                className={`text-body-medium font-medium tabular-nums sm:pt-px sm:text-[15px] ${
+                className={`text-body-medium font-medium tabular-nums sm:text-[15px] ${
                   jeda ? "text-[var(--reg-on-surface-variant)]" : "text-[var(--reg-primary)]"
                 }`}
               >
@@ -115,7 +117,7 @@ export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]
               </span>
               <div className="min-w-0 max-w-[760px]">
                 <p
-                  className={`text-[16px] leading-[1.45] ${
+                  className={`text-[16px] leading-6 ${
                     jeda ? "font-normal text-[var(--reg-on-surface-variant)]" : "font-semibold text-[var(--reg-on-surface)]"
                   }`}
                 >
@@ -124,7 +126,7 @@ export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]
                 {item.subtitle ? (
                   // pre-line: satu sesi bisa punya beberapa pilihan, satu per baris
                   // (mis. tiga kelompok diskusi di jam yang sama).
-                  <p className="mt-1 whitespace-pre-line text-body-medium leading-[1.55] text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
+                  <p className="mt-1 whitespace-pre-line text-body-medium leading-5 text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
                 ) : null}
               </div>
               {orang.length > 0 ? <DeretPembicara orang={orang} /> : null}
@@ -163,12 +165,12 @@ function DeretPembicara({ orang }: { orang: LandingSpeaker[] }) {
   const nama = orang.slice(0, 2).map((speaker) => speaker.name.trim());
   const keterangan = orang.length > 2 ? `${nama.join(", ")}, dan ${orang.length - 2} lainnya` : nama.join(" dan ");
   return (
-    <div className="mt-3 flex items-center gap-3 sm:col-start-2 lg:col-start-3 lg:row-start-1 lg:mt-0 lg:self-start lg:pt-0.5" title={orang.map((speaker) => speaker.name.trim()).join(", ")}>
+    <div className="mt-3 flex items-center gap-3 sm:col-start-2 lg:col-start-3 lg:row-start-1 lg:-mt-1 lg:self-start" title={orang.map((speaker) => speaker.name.trim()).join(", ")}>
       <ul aria-hidden className="flex shrink-0">
         {tampil.map((speaker, index) => (
           <li
             key={`${speaker.name}-${index}`}
-            className="-ml-2 flex size-8 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--reg-primary)_14%,var(--reg-surface))] text-[11px] font-semibold text-[var(--reg-primary)] ring-2 ring-[var(--reg-surface)] first:ml-0"
+            className="-ml-2 flex size-8 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--reg-primary)_14%,var(--reg-surface))] text-[11px] font-semibold text-[var(--reg-primary)] ring-2 ring-[var(--reg-surface)] outline outline-1 -outline-offset-1 outline-[color-mix(in_srgb,var(--reg-outline-variant)_80%,transparent)] first:ml-0"
           >
             {speaker.photo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -179,12 +181,12 @@ function DeretPembicara({ orang }: { orang: LandingSpeaker[] }) {
           </li>
         ))}
         {sisa > 0 ? (
-          <li className="-ml-2 flex size-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--reg-outline-variant)_45%,var(--reg-surface))] text-[11px] font-semibold text-[var(--reg-on-surface-variant)] ring-2 ring-[var(--reg-surface)]">
+          <li className="-ml-2 flex size-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--reg-outline-variant)_45%,var(--reg-surface))] text-[12px] font-medium text-[var(--reg-on-surface-variant)] ring-2 ring-[var(--reg-surface)]">
             +{sisa}
           </li>
         ) : null}
       </ul>
-      <p className="min-w-0 text-body-small text-[var(--reg-on-surface-variant)] sm:text-body-medium lg:sr-only">{keterangan}</p>
+      <p className="line-clamp-2 min-w-0 text-body-small text-[var(--reg-on-surface-variant)] sm:text-body-medium lg:sr-only">{keterangan}</p>
     </div>
   );
 }
