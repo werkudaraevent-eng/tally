@@ -28,6 +28,7 @@ import {
   type LandingBlock,
   type LandingBlockType,
   type EventLandingConfig,
+  type LandingForumPage,
   type LandingHeadingFont,
   type LandingLayout,
   type LandingMemberConfig,
@@ -41,6 +42,7 @@ import { eventApiPath } from "@/lib/event-url";
 import { Kelompok } from "@/components/admin/compact-form";
 import { cx } from "@/lib/m3/cx";
 import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
+import { ForumSusunan, ForumTema, forumTautanSalah, halamanBagianForum } from "./forum-editor";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -205,6 +207,8 @@ export default function LandingCmsPage() {
   // Bagian yang disorot di pratinjau; `n` naik di setiap klik supaya klik ulang
   // pada baris yang sama tetap menggulir pratinjau ke sana.
   const [sorot, setSorot] = useState<{ id: string; n: number } | null>(null);
+  // Halaman tata letak Forum yang sedang dipratinjau (Beranda, Program, Info).
+  const [halamanPratinjau, setHalamanPratinjau] = useState<LandingForumPage>("beranda");
   // null = belum diketahui (gagal dimuat); lencana hanya muncul bila pasti kosong.
   const [rundownKosong, setRundownKosong] = useState<boolean | null>(null);
   const [tambahTerbuka, setTambahTerbuka] = useState(false);
@@ -424,6 +428,14 @@ export default function LandingCmsPage() {
         return;
       }
     }
+    const forumSalah = landing.layout === "forum" ? forumTautanSalah(landing.forum) : null;
+    if (forumSalah) {
+      setBagian("susunan");
+      setTerbuka(forumSalah.baris);
+      gulirKeBaris(forumSalah.baris);
+      toast.error("Tautan belum valid", `${forumSalah.pesan} Bagiannya sudah dibuka.`);
+      return;
+    }
     const kirim = cuplikan;
     setBusy(true);
     const response = await fetch(eventApiPath("/api/admin/landing"), {
@@ -450,8 +462,9 @@ export default function LandingCmsPage() {
   const gayaBanner = landing.banner_style ?? "theme";
   const tataLetak: LandingLayout = landing.layout ?? "editorial";
   const modern = tataLetak === "modern";
+  const forum = tataLetak === "forum";
   // Bawaan huruf judul mengikuti tata letak; harus sama dengan halaman publik.
-  const hurufJudul: LandingHeadingFont = landing.heading_font ?? (modern ? "source" : "serif");
+  const hurufJudul: LandingHeadingFont = landing.heading_font ?? (forum ? "ubuntu" : modern ? "source" : "serif");
   const catatanProgram = landing.program_notes ?? [];
   const setCatatanProgram = (next: string[]) => setLanding({ ...landing, program_notes: next });
 
@@ -741,18 +754,21 @@ export default function LandingCmsPage() {
             setLanding({
               ...landing,
               layout: value,
-              heading_font: landing.heading_font ?? (value === "modern" ? "source" : undefined),
+              heading_font: landing.heading_font ?? (value === "modern" ? "source" : value === "forum" ? "ubuntu" : undefined),
             })
           }
           options={[
             { value: "editorial", label: LANDING_LAYOUT_LABELS.editorial },
             { value: "modern", label: LANDING_LAYOUT_LABELS.modern },
+            { value: "forum", label: LANDING_LAYOUT_LABELS.forum },
           ]}
         />
         <p className="text-body-medium text-on-surface-variant">
-          {modern
-            ? "KV selebar layar dengan nav gelap, kartu program dari Rundown, kartu pembicara tinggi, dan blok tambahan."
-            : "Tenang dan tipografis: judul bagian di rel kiri, garis rambut sebagai pemisah. Blok tambahan tidak tampil di sini."}
+          {forum
+            ? "Tiga halaman sederhana: Beranda, Program acara, dan Informasi praktis, dengan tombol Masuk ke area peserta. Susunan bagiannya tetap; blok tambahan tidak tampil."
+            : modern
+              ? "KV selebar layar dengan nav gelap, kartu program dari Rundown, kartu pembicara tinggi, dan blok tambahan."
+              : "Tenang dan tipografis: judul bagian di rel kiri, garis rambut sebagai pemisah. Blok tambahan tidak tampil di sini."}
         </p>
       </Kelompok>
 
@@ -803,6 +819,7 @@ export default function LandingCmsPage() {
         />
         {!formInherit ? <PilihWarna label="Warna formulir" value={formSeed} onChange={setFormSeed} /> : null}
       </Kelompok>
+      {forum ? <ForumTema landing={landing} setLanding={setLanding} PilihWarna={PilihWarna} /> : null}
     </div>
   );
 
@@ -1124,6 +1141,7 @@ export default function LandingCmsPage() {
     const buka = terbuka !== id;
     setTerbuka(buka ? id : null);
     if (!buka) return;
+    if (forum) setHalamanPratinjau((current) => halamanBagianForum(id, current));
     setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }));
     gulirKeBaris(id);
   }
@@ -1267,7 +1285,23 @@ export default function LandingCmsPage() {
     );
   }
 
-  const isiSusunan = facts ? (
+  const isiSusunan = facts && forum ? (
+    <div className="flex flex-col gap-3">
+      <p className="text-body-medium text-on-surface-variant">
+        Urutan bagian tata letak Forum tetap. Klik baris untuk menyunting; pratinjau pindah ke halaman yang memuat bagian itu. Saklar menyembunyikan bagian tanpa menghapus isinya.
+      </p>
+      <ForumSusunan
+        landing={landing}
+        setLanding={setLanding}
+        facts={facts}
+        patchFacts={patchFacts}
+        busy={busy}
+        baris={barisSusunan}
+        isiPembicara={editorBagian("speakers")}
+        rundownKosong={rundownKosong}
+      />
+    </div>
+  ) : facts ? (
     <div className="flex flex-col gap-3">
       <p className="text-body-medium text-on-surface-variant">
         Urutan di sini sama dengan urutan di halaman, dari atas ke bawah. Klik baris untuk menyunting; pratinjau melompat ke bagian itu. Seret pegangan di kiri untuk memindah.
@@ -1395,7 +1429,14 @@ export default function LandingCmsPage() {
       {facts ? (
         <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
           <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0">
-            <LandingPreview slug={facts.slug} reloadKey={previewKey} sorot={sorot} draf={drafPratinjau} />
+            <LandingPreview
+              slug={facts.slug}
+              reloadKey={previewKey}
+              sorot={sorot}
+              draf={drafPratinjau}
+              halaman={forum ? halamanPratinjau : null}
+              onHalaman={setHalamanPratinjau}
+            />
           </div>
           <div className="flex min-h-[70vh] w-full flex-col *:flex-1 lg:min-h-0 lg:w-[420px] lg:shrink-0">{panel}</div>
         </div>

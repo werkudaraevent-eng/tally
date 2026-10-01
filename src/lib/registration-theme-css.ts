@@ -120,3 +120,42 @@ export function modernThemeStyle(seed: string | undefined): CSSProperties {
     color: TINTA_GELAP,
   } as CSSProperties;
 }
+
+/**
+ * Warna tata letak Forum (Figma IFC). Tiga warna dari CMS, dipakai apa adanya:
+ *
+ * - primer (warna merek): hero tanpa KV, kartu Tentang, kepala tabel rundown,
+ *   banner Program acara, kaki halaman, tombol daftar.
+ * - aksen (bawaan kuning #FFC72C): lencana hero dan tombol "Selengkapnya".
+ * - sekunder (bawaan biru #00AEEF): tombol Masuk, dan panel Susunan acara yang
+ *   memakai warna ini diencerkan hampir putih.
+ *
+ * Teks di atas tiap warna putih atau gelap menurut kontras, sama seperti tata
+ * letak Modern. Akibatnya teks tombol Masuk di atas biru muda bawaan berwarna
+ * gelap, bukan putih seperti di Figma: putih di atas #00AEEF kontrasnya 2,5:1.
+ */
+export const FORUM_DEFAULTS = { primary: "#002f54", accent: "#ffc72c", secondary: "#00aeef" } as const;
+
+export function forumThemeStyle(seed: string | undefined, accent: string | undefined, secondary: string | undefined): CSSProperties {
+  const hex = (value: string | undefined, fallback: string) => (/^#[0-9a-f]{6}$/i.test(value ?? "") ? value! : fallback);
+  const primer = hex(seed, FORUM_DEFAULTS.primary);
+  const aksen = hex(accent, FORUM_DEFAULTS.accent);
+  const sekunder = hex(secondary, FORUM_DEFAULTS.secondary);
+  // Primer sebagai teks di atas putih (judul tab Info praktis, tautan): merek
+  // yang terlalu terang jatuh ke tinta gelap supaya tetap terbaca.
+  const primerTeks = kontras(primer, "#ffffff") >= 3 ? primer : TINTA_GELAP;
+  return {
+    "--f-primary": primer,
+    "--f-on-primary": tintaDiAtas(primer),
+    "--f-primary-text": primerTeks,
+    "--f-accent": aksen,
+    "--f-on-accent": kontras(aksen, primer) >= 4.5 ? primer : tintaDiAtas(aksen),
+    "--f-secondary": sekunder,
+    "--f-on-secondary": tintaDiAtas(sekunder),
+    "--f-panel": mixHex(sekunder, "#ffffff", 0.91),
+    "--f-title": "#2e2e2e",
+    "--f-ink": "#292e3d",
+    // Peran --reg-* untuk komponen bersama (formulir, area peserta).
+    ...modernThemeStyle(primer),
+  } as CSSProperties;
+}

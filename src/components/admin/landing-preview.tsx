@@ -3,6 +3,7 @@
 import { ArrowClockwise, DeviceMobile, Monitor } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IconButton, Pane, SegmentedButton } from "@/components/m3";
+import type { LandingForumPage } from "@/lib/domain";
 
 /**
  * Pratinjau halaman acara di dalam CMS.
@@ -54,6 +55,8 @@ export function LandingPreview({
   reloadKey,
   sorot,
   draf,
+  halaman = null,
+  onHalaman,
 }: {
   slug: string;
   reloadKey: number;
@@ -61,6 +64,10 @@ export function LandingPreview({
   sorot?: { id: string; n: number } | null;
   /** Isi CMS yang belum disimpan; dirender di pratinjau sambil mengetik. */
   draf?: object | null;
+  /** Halaman tata letak Forum yang dipratinjau; null = tata letak satu halaman. */
+  halaman?: LandingForumPage | null;
+  /** Tautan antarhalaman diklik di dalam pratinjau. */
+  onHalaman?: (halaman: LandingForumPage) => void;
 }) {
   const [device, setDevice] = useState<Device>("desktop");
   const [wadahUkuran, setWadahUkuran] = useState({ lebar: 0, tinggi: 0 });
@@ -105,7 +112,16 @@ export function LandingPreview({
   useEffect(() => {
     function terima(event: MessageEvent) {
       if (event.origin !== window.location.origin || event.source !== bingkai.current?.contentWindow) return;
-      if (event.data?.jenis === "tally-pratinjau-siap") kirimDraf();
+      // Garis sorot dipasang setelah halaman di dalamnya selesai hidrasi
+      // (pesan "siap"), bukan saat onLoad: gaya yang ditempel sebelum hidrasi
+      // membuat React melaporkan atribut yang tidak cocok.
+      if (event.data?.jenis === "tally-pratinjau-siap") {
+        kirimDraf();
+        terapkanSorot();
+      }
+      if (event.data?.jenis === "tally-pratinjau-halaman" && ["beranda", "program", "info"].includes(event.data.halaman)) {
+        onHalaman?.(event.data.halaman);
+      }
       if (event.data?.jenis === "tally-pratinjau-hasil") {
         setTertinggal(event.data.pesan ? String(event.data.pesan) : event.data.ok ? null : "Pratinjau belum diperbarui.");
         // Halaman dirender ulang: pasang lagi garis sorot tanpa menggulir.
@@ -114,7 +130,7 @@ export function LandingPreview({
     }
     window.addEventListener("message", terima);
     return () => window.removeEventListener("message", terima);
-  }, [kirimDraf, terapkanSorot]);
+  }, [kirimDraf, terapkanSorot, onHalaman]);
   const { width, height: tinggiPerangkat } = UKURAN[device];
   // Diukur dari panel, bukan jendela: panel utama menyempit saat panel setelan
   // di sebelahnya muncul, tanpa jendelanya berubah ukuran.
@@ -148,6 +164,18 @@ export function LandingPreview({
         <p className={`line-clamp-2 min-w-0 flex-1 ${tertinggal ? "text-body-small text-error" : "text-body-medium text-on-surface-variant"}`} role="status" title={tertinggal ?? undefined}>
           {tertinggal ?? "Pratinjau langsung, belum disimpan"}
         </p>
+        {halaman && onHalaman ? (
+          <SegmentedButton<LandingForumPage>
+            label="Halaman yang dipratinjau"
+            value={halaman}
+            onChange={onHalaman}
+            options={[
+              { value: "beranda", label: "Beranda" },
+              { value: "program", label: "Program" },
+              { value: "info", label: "Info" },
+            ]}
+          />
+        ) : null}
         <SegmentedButton<Device>
           label="Ukuran layar pratinjau"
           value={device}
@@ -172,10 +200,9 @@ export function LandingPreview({
             // Mengganti `src` saja tidak cukup: browser memperlakukan navigasi
             // di dalam iframe sebagai riwayat, dan tombol Back halaman CMS lalu
             // menelusuri riwayat pratinjau alih-alih meninggalkan layar ini.
-            key={`${reloadKey}-${nonce}`}
+            key={`${reloadKey}-${nonce}-${halaman ?? ""}`}
             ref={bingkai}
-            onLoad={() => terapkanSorot()}
-            src={`/e/${slug}/pratinjau`}
+            src={`/e/${slug}/pratinjau${halaman && halaman !== "beranda" ? `?halaman=${halaman}` : ""}`}
             title="Pratinjau halaman acara"
             // Pratinjau tidak boleh ikut merekam riwayat maupun mengambil alih
             // halaman induk. Sandbox tetap mengizinkan skrip dan asal-yang-sama,

@@ -5,7 +5,7 @@ import type { z } from "zod";
 import { getEventBySlugPublic, requireEventScope } from "@/lib/auth/event-scope";
 import { landingBodySchema } from "@/lib/landing-body-schema";
 import { withDerivedRoles } from "@/lib/registration-theme";
-import type { EventRow } from "@/lib/domain";
+import type { EventRow, LandingForumPage } from "@/lib/domain";
 import { renderLanding } from "@/components/landing/render-landing";
 
 export type HasilPratinjau = { ok: true; isi: ReactNode; peringatan: string | null } | { ok: false; pesan: string };
@@ -23,6 +23,10 @@ const NAMA_KOLOM: Record<string, string> = {
 
 /** "Label kecil di "Pilih satu dari tiga diskusi" terlalu panjang. ..." */
 function pesanBatas(isi: LandingBody, issue: z.ZodIssue | undefined): string {
+  // Aturan `refine` lain (mis. tautan harus https://) juga berkode "custom".
+  if (issue?.code === "custom" && !issue.message.startsWith("Maksimal")) {
+    return `${issue.message}. Tetap tampil di sini, tapi belum bisa disimpan.`;
+  }
   const jalur = issue?.path ?? [];
   const indeksBlok = jalur[0] === "landing" && jalur[1] === "blocks" ? Number(jalur[2]) : NaN;
   const blok = Number.isInteger(indeksBlok) ? isi.landing.blocks?.[indeksBlok] : undefined;
@@ -39,7 +43,7 @@ function pesanBatas(isi: LandingBody, issue: z.ZodIssue | undefined): string {
  * dengan skema yang sama dengan Simpan, jadi yang tampil di pratinjau adalah
  * yang memang akan diterima saat disimpan.
  */
-export async function renderPratinjau(slug: string, draf: unknown): Promise<HasilPratinjau> {
+export async function renderPratinjau(slug: string, draf: unknown, halaman: LandingForumPage = "beranda"): Promise<HasilPratinjau> {
   const auth = await requireEventScope(slug, ["admin"]);
   if (auth.response) return { ok: false, pesan: "Sesi login berakhir. Muat ulang halaman ini." };
 
@@ -69,5 +73,7 @@ export async function renderPratinjau(slug: string, draf: unknown): Promise<Hasi
     ...facts,
     landing_config: { ...landing, theme: landing.theme ? withDerivedRoles(landing.theme) : undefined },
   } as EventRow;
-  return { ok: true, isi: renderLanding(draft), peringatan };
+  // Draf yang baru berganti dari Forum ke tata letak lain tidak punya halaman dalam.
+  const isi = renderLanding(draft, halaman, true) ?? renderLanding(draft, "beranda", true);
+  return { ok: true, isi, peringatan };
 }

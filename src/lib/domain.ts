@@ -538,7 +538,7 @@ export const LANDING_HERO_HEIGHT_LABELS: Record<LandingHeroHeight, string> = {
  * dan tiap huruf tambahan adalah berkas yang diunduh setiap tamu. Source Sans 3
  * ditambahkan untuk tata letak Modern; admin tetap bebas memilih.
  */
-export type LandingHeadingFont = "serif" | "sans" | "geometric" | "condensed" | "grotesk" | "source";
+export type LandingHeadingFont = "serif" | "sans" | "geometric" | "condensed" | "grotesk" | "source" | "ubuntu";
 
 export const LANDING_HEADING_FONTS: Record<LandingHeadingFont, { label: string; note: string; cssVar: string }> = {
   serif: { label: "Playfair Display", note: "Klasik, cocok untuk undangan resmi", cssVar: "var(--font-serif)" },
@@ -547,6 +547,7 @@ export const LANDING_HEADING_FONTS: Record<LandingHeadingFont, { label: string; 
   condensed: { label: "Oswald", note: "Rapat, cocok untuk judul panjang", cssVar: "var(--font-condensed)" },
   grotesk: { label: "Space Grotesk", note: "Teknis, untuk acara teknologi", cssVar: "var(--font-grotesk)" },
   source: { label: "Source Sans 3", note: "Humanis dan lapang, pasangan tata letak Modern", cssVar: "var(--font-source)" },
+  ubuntu: { label: "Ubuntu", note: "Bulat dan ramah, pasangan tata letak Forum", cssVar: "var(--font-ubuntu)" },
 };
 
 /** Kunci huruf judul, untuk validasi di API. Urutannya urutan pilihan di CMS. */
@@ -561,11 +562,110 @@ export const LANDING_HEADING_FONT_KEYS = Object.keys(LANDING_HEADING_FONTS) as [
  * yang berbeda hanya susunannya. Di Modern urutan bagian tetap (mengikuti
  * rancangannya), tetapi saklar tampil/sembunyi tetap berlaku.
  */
-export type LandingLayout = "editorial" | "modern";
+export type LandingLayout = "editorial" | "modern" | "forum";
 
 export const LANDING_LAYOUT_LABELS: Record<LandingLayout, string> = {
   editorial: "Editorial",
   modern: "Modern",
+  forum: "Forum",
+};
+
+// ---- Tata letak Forum ---------------------------------------------------------
+// Diterjemahkan dari Figma "IFC Website" (file VP08ev7nB80JGumJEngYQU) yang
+// dipilih Hanung pada 2026-10-01: tiga halaman (Beranda, Program acara,
+// Informasi praktis) dengan susunan tetap. Admin mengisi dan menyalakan atau
+// mematikan bagian, tidak menyusun ulang.
+
+/** Bagian tata letak Forum yang bisa disembunyikan dari CMS. */
+export type LandingForumPart =
+  | "tanggal"
+  | "about"
+  | "program"
+  | "speakers"
+  | "sorotan"
+  | "info"
+  | "venue"
+  | "galeri"
+  | "dresscode";
+
+/** Halaman tata letak Forum. `beranda` = /e/<slug>. */
+export type LandingForumPage = "beranda" | "program" | "info";
+
+export const LANDING_FORUM_PAGE_PATHS: Record<LandingForumPage, string> = {
+  beranda: "",
+  program: "/program",
+  info: "/info",
+};
+
+/** Ikon ubin Informasi praktis. Kuncinya disimpan; gambarnya di komponen. */
+export const LANDING_FORUM_ICONS = {
+  plane: "Pesawat",
+  visa: "Kartu identitas",
+  tax: "Pajak",
+  venue: "Lokasi",
+  list: "Daftar",
+  health: "Kesehatan",
+  info: "Informasi",
+  shirt: "Pakaian",
+  bus: "Transportasi",
+  hotel: "Hotel",
+  wifi: "Internet",
+  phone: "Telepon",
+} as const;
+export type LandingForumIcon = keyof typeof LANDING_FORUM_ICONS;
+export const LANDING_FORUM_ICON_KEYS = Object.keys(LANDING_FORUM_ICONS) as [LandingForumIcon, ...LandingForumIcon[]];
+
+/** Tujuan tautan baris Sorotan di Beranda. */
+export type LandingForumLink = "program" | "info" | "daftar" | "url";
+
+export type LandingForumConfig = {
+  /** Bahasa label bawaan (menu, judul bagian, tombol). Isi dari CMS tidak diterjemahkan. */
+  language?: "id" | "en";
+  /** Warna lencana hero dan tombol "Selengkapnya". Bawaan kuning #FFC72C. */
+  accent?: string;
+  /** Warna tombol Masuk dan latar panel Susunan acara (diencerkan). Bawaan #00AEEF. */
+  secondary?: string;
+  /** Logo berwarna di bilah atas halaman dalam dan halaman masuk. */
+  logo_url?: string | null;
+  /** Logo putih untuk bilah atas di atas KV Beranda. Kosong = logo berwarna. */
+  logo_light_url?: string | null;
+  hero_badge?: string;
+  /** Gambar di belakang pita tanggal dan tempat. */
+  date_banner_url?: string | null;
+  /** Kalimat pita, mis. "Bali, Indonesia, 12 - 14 February 2025". Kosong = tempat dan tanggal acara. */
+  date_banner_text?: string;
+  about_image_url?: string | null;
+  program_banner_url?: string | null;
+  /** Kalimat di bawah judul banner Program acara. */
+  program_subtitle?: string;
+  /** Baris teks dan gambar bergantian di Beranda (rancangan: Agenda Event, Dresscode Event). */
+  highlights?: {
+    title: string;
+    body?: string;
+    image_url?: string | null;
+    link?: LandingForumLink;
+    link_url?: string;
+    link_label?: string;
+  }[];
+  venue_note?: string;
+  venue_image_url?: string | null;
+  gallery?: string[];
+  dresscode_intro?: string;
+  dresscode?: { title: string; body?: string; image_url?: string | null }[];
+  info_title?: string;
+  info_intro?: string;
+  info?: {
+    id: string;
+    title: string;
+    icon?: LandingForumIcon;
+    image_url?: string | null;
+    items: { heading?: string; body: string }[];
+  }[];
+  footer_logo_url?: string | null;
+  socials?: Partial<Record<"facebook" | "x" | "linkedin" | "instagram" | "youtube" | "whatsapp", string>>;
+  footer_links?: { label: string; url: string }[];
+  /** Bagian yang dimatikan admin. Bagian tanpa isi tidak tampil walau tidak ada di sini. */
+  hidden?: LandingForumPart[];
 };
 
 /** Ukuran judul hero. Tiga patokan, alasannya sama dengan tinggi hero. */
@@ -619,6 +719,8 @@ export const LANDING_MEMBER_AUDIENCE_LABELS: Record<LandingMemberAudience, strin
 export type EventLandingConfig = {
   /** Bawaan `editorial`. */
   layout?: LandingLayout;
+  /** Isi khusus tata letak Forum. */
+  forum?: LandingForumConfig;
   /**
    * Nama acara yang dilihat tamu. Nama di kolom `events.name` dipakai admin
    * untuk membedakan acara di daftar (sering memuat nama klien, mis. "ILO ..."),
