@@ -1,7 +1,7 @@
 "use client";
 
 import { pesanGalatApi } from "@/lib/api-message";
-import { ArrowDown, ArrowSquareOut, ArrowUp, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Info, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Info, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
@@ -24,6 +24,7 @@ import {
   LANDING_NAV_HEIGHT_MIN,
   LANDING_SECTION_LABELS,
   LANDING_SECTION_SOURCES,
+  LANDING_SECTION_TEXT_MAX,
   LANDING_BLOCK_LABELS,
   isLandingBlockId,
   landingBlockHasContent,
@@ -36,10 +37,14 @@ import {
   type LandingLayout,
   type LandingMemberConfig,
   type LandingMemberAudience,
+  type LandingHeadedSection,
   type LandingSection,
   type LandingSectionId,
   type RegistrationFormConfig,
 } from "@/lib/domain";
+import { formatEventDate } from "@/lib/event-datetime";
+import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
+import { jumlahLembaga } from "@/lib/landing-speaker-tabs";
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { eventApiPath } from "@/lib/event-url";
 import { Kelompok } from "@/components/admin/compact-form";
@@ -48,7 +53,7 @@ import { cx } from "@/lib/m3/cx";
 import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
 import { BagianEn, BlockEditorEn } from "./editor-en";
-import { landingSessionEn, landingUntranslated } from "@/lib/landing-i18n";
+import { LANDING_UI, landingEyebrowShown, landingSessionEn, landingUntranslated } from "@/lib/landing-i18n";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -233,6 +238,8 @@ export default function LandingCmsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [bagian, setBagian] = useState<Bagian>("susunan");
+  // Lipatan "Judul bagian" yang terbuka (satu bagian), awalnya tertutup.
+  const [judulTerbuka, setJudulTerbuka] = useState<LandingHeadedSection | null>(null);
   // Baris Susunan halaman yang sedang terbuka ("pembuka", id bagian, atau "kaki").
   const [terbuka, setTerbuka] = useState<string | null>(null);
   // Bagian yang disorot di pratinjau; `n` naik di setiap klik supaya klik ulang
@@ -687,18 +694,75 @@ export default function LandingCmsPage() {
     </div>
   ) : null;
 
+  // ---- Judul bagian (Modern) ----------------------------------------------------
+  // Label kecil dan judul bagian bawaan, terlipat di bawah isi bagian supaya
+  // daftar pertanyaan dan rundown tetap terlihat. Kolom mulai kosong: teks
+  // abu-abunya adalah yang tampil bila dibiarkan kosong, jadi judul otomatis
+  // (tanggal, nama tempat, jumlah pembicara) tetap ikut data acara.
+  function judulBagian(id: LandingHeadedSection, otomatis: { judul: string; jenis: string; hint: string }, tambahan?: ReactNode): ReactNode {
+    if (!modern) return null;
+    const nyala = landingEyebrowShown(landing, id);
+    const alis = landing[`${id}_eyebrow`] ?? "";
+    const kunciJudul = id === "about" ? "about_heading" : (`${id}_heading` as const);
+    const judul = landing[kunciJudul] ?? "";
+    const buka = judulTerbuka === id;
+    const ringkasan = `Label: ${nyala ? alis.trim() || LANDING_SECTION_LABELS[id] : "mati"} · Judul: ${judul.trim() || otomatis.jenis}`;
+    return (
+      <div className="flex flex-col gap-4 border-t border-outline-variant pt-2">
+        <button
+          type="button"
+          aria-expanded={buka}
+          onClick={() => setJudulTerbuka(buka ? null : id)}
+          className="m3-state -mx-2 flex min-h-12 items-center gap-2 rounded-sm px-2 text-left"
+        >
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-body-medium font-semibold text-on-surface">Judul bagian</span>
+            <span className="truncate text-body-small text-on-surface-variant">{ringkasan}</span>
+          </span>
+          <CaretDown size={14} aria-hidden className={cx("shrink-0 text-on-surface-variant transition-transform", buka && "rotate-180")} />
+        </button>
+        {buka ? (
+          <>
+            <Switch
+              checked={nyala}
+              onChange={(value) => setLanding({ ...landing, eyebrow_shown: { ...landing.eyebrow_shown, [id]: value } })}
+              label="Label kecil di atas judul"
+            />
+            {/* Dimatikan: kolomnya disembunyikan, isinya tetap tersimpan. */}
+            {nyala ? (
+              <TextField
+                label="Label kecil"
+                optional
+                placeholder={LANDING_SECTION_LABELS[id]}
+                hint="Satu sampai tiga kata di atas judul."
+                maxLength={LANDING_SECTION_TEXT_MAX.eyebrow}
+                counter
+                value={alis}
+                onChange={(event) => setLanding({ ...landing, [`${id}_eyebrow`]: event.target.value })}
+              />
+            ) : null}
+            <TextField
+              label="Judul"
+              placeholder={otomatis.judul}
+              hint={otomatis.hint}
+              maxLength={LANDING_SECTION_TEXT_MAX.heading}
+              counter={{ ideal: 48 }}
+              value={judul}
+              onChange={(event) => setLanding({ ...landing, [kunciJudul]: event.target.value })}
+            />
+            {tambahan}
+          </>
+        ) : null}
+      </div>
+    );
+  }
+  const tanggalAcara = facts ? formatEventDate({ ...facts, time_zone: DEFAULT_TIME_ZONE }) : null;
+  const pembicaraIsi = (landing.speakers ?? []).filter((speaker) => speaker.name?.trim());
+  const lembaga = jumlahLembaga(pembicaraIsi);
+  const KOSONG_BAWAAN = "Kosongkan untuk teks bawaan.";
+
   const isiTentang = facts ? (
     <div className="flex flex-col gap-4">
-      {modern ? (
-        <TextField
-          label="Judul bagian"
-          optional
-          placeholder="Tentang acara"
-          hint="Kalimat besar di samping deskripsi acara."
-          value={landing.about_heading ?? ""}
-          onChange={(event) => setLanding({ ...landing, about_heading: event.target.value })}
-        />
-      ) : null}
       <TextArea
         label="Deskripsi acara"
         optional
@@ -707,6 +771,7 @@ export default function LandingCmsPage() {
         value={facts.description ?? ""}
         onChange={(event) => patchFacts({ description: event.target.value })}
       />
+      {judulBagian("about", { judul: LANDING_SECTION_LABELS.about, jenis: "bawaan", hint: "Kalimat besar di samping deskripsi acara." })}
     </div>
   ) : null;
 
@@ -736,23 +801,33 @@ export default function LandingCmsPage() {
         value={facts.venue_map_url ?? ""}
         onChange={(event) => patchFacts({ venue_map_url: event.target.value })}
       />
+      {judulBagian(
+        "venue",
+        facts.venue_name?.trim()
+          ? { judul: facts.venue_name.trim(), jenis: "otomatis (nama tempat)", hint: "Kosongkan untuk memakai nama tempat." }
+          : { judul: LANDING_SECTION_LABELS.venue, jenis: "bawaan", hint: "Kosongkan untuk memakai nama tempat setelah diisi." },
+      )}
     </div>
   ) : null;
 
   const isiAgenda = modern ? (
     <div className="flex flex-col gap-5">
-      <Kelompok first>
+      {judulBagian(
+        "agenda",
+        tanggalAcara
+          ? { judul: tanggalAcara, jenis: "otomatis (tanggal)", hint: "Kosongkan untuk memakai tanggal acara." }
+          : { judul: LANDING_SECTION_LABELS.agenda, jenis: "bawaan", hint: "Kosongkan untuk memakai tanggal acara setelah diisi." },
         <TextField
-          label="Catatan Susunan acara"
+          label="Catatan"
           optional
           placeholder="Registrasi dibuka pukul 08.00 WIB."
-          hint="Di bawah tanggal, di kiri daftar sesi."
-          maxLength={140}
+          hint="Di bawah judul, di atas daftar sesi."
+          maxLength={LANDING_SECTION_TEXT_MAX.intro}
           counter
           value={landing.agenda_note ?? ""}
           onChange={(event) => setLanding({ ...landing, agenda_note: event.target.value })}
-        />
-      </Kelompok>
+        />,
+      )}
       <Kelompok title="Kartu program" note="Kartu besar dari bagian-bagian Rundown, tampil di bawah Tentang.">
         <Switch
           checked={!landing.program_hidden}
@@ -1039,6 +1114,21 @@ export default function LandingCmsPage() {
             <div>
               <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setList([...list, { q: "", a: "" }])}>Tambah pertanyaan</Button>
             </div>
+            {judulBagian(
+              "faq",
+              { judul: LANDING_UI.id.faqHeading, jenis: "bawaan", hint: KOSONG_BAWAAN },
+              <TextArea
+                label="Pengantar"
+                optional
+                rows={2}
+                placeholder={LANDING_UI.id.faqIntro}
+                hint="Bila bagian Kontak tampil, kalimat “Hubungi panitia…” ditambahkan di belakangnya."
+                maxLength={LANDING_SECTION_TEXT_MAX.intro}
+                counter
+                value={landing.faq_intro ?? ""}
+                onChange={(event) => setLanding({ ...landing, faq_intro: event.target.value })}
+              />,
+            )}
           </div>
         );
       }
@@ -1143,6 +1233,12 @@ export default function LandingCmsPage() {
             <div>
               <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setList([...list, { name: "" }])}>Tambah pembicara</Button>
             </div>
+            {judulBagian(
+              "speakers",
+              lembaga >= 3
+                ? { judul: LANDING_UI.id.speakersFrom(pembicaraIsi.length, lembaga), jenis: "otomatis (jumlah)", hint: "Kosongkan untuk memakai jumlah pembicara dan lembaga." }
+                : { judul: LANDING_SECTION_LABELS.speakers, jenis: "bawaan", hint: "Kosongkan untuk teks bawaan. Dari tiga lembaga, jumlah pembicara dipakai." },
+            )}
           </div>
         );
       }

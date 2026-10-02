@@ -3,10 +3,12 @@ import {
   LANDING_CONFIG_EN_KEYS,
   LANDING_EVENT_EN_KEYS,
   LANDING_ITEM_EN_KEYS,
+  LANDING_EYEBROW_DEFAULT,
   LANDING_SPEAKER_EN_KEYS,
   normalizeLandingSections,
   type EventLandingConfig,
   type EventRow,
+  type LandingHeadedSection,
   type LandingSectionId,
 } from "./domain";
 
@@ -138,6 +140,11 @@ export function landingSessionLabels(config: EventLandingConfig, lang: LandingLa
   return peta;
 }
 
+/** Label kecil di atas judul bagian bawaan tampil atau tidak; satu saklar untuk kedua bahasa. */
+export function landingEyebrowShown(config: EventLandingConfig, id: LandingHeadedSection): boolean {
+  return config.eyebrow_shown?.[id] ?? LANDING_EYEBROW_DEFAULT[id];
+}
+
 // ---- Kolom yang belum diterjemahkan ---------------------------------------------
 
 /**
@@ -193,6 +200,14 @@ export function landingUntranslated(event: {
   periksa(config.footer_note, en.footer_note, "footer_note", "kaki");
   periksa(config.cta_heading, en.cta_heading, "cta_heading", "kaki");
   periksa(config.cta_note, en.cta_note, "cta_note", "kaki");
+  // Judul bagian bawaan. Label kecil yang dimatikan tidak tampil, jadi tidak ditagih.
+  (Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSection[]).forEach((id) => {
+    if (!bagian(id)) return;
+    const alis = `${id}_eyebrow` as const;
+    if (landingEyebrowShown(config, id)) periksa(config[alis], en[alis], alis, id);
+    if (id !== "about") periksa(config[`${id}_heading`], en[`${id}_heading`], `${id}_heading`, id);
+  });
+  if (bagian("faq")) periksa(config.faq_intro, en.faq_intro, "faq_intro", "faq");
   if (bagian("about")) {
     periksa(config.about_heading, en.about_heading, "about_heading", "about");
     periksa(event.description, en.description, "event.description", "about");

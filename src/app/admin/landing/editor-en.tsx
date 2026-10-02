@@ -2,17 +2,19 @@
 
 import type { ReactNode } from "react";
 import { TextArea, TextField } from "@/components/m3";
-import { landingSessionEn } from "@/lib/landing-i18n";
+import { landingEyebrowShown, landingSessionEn } from "@/lib/landing-i18n";
 import {
   LANDING_BLOCK_LABELS,
   LANDING_NAV_LABEL_MAX,
   LANDING_SECTION_LABELS,
+  LANDING_SECTION_TEXT_MAX,
   landingBlockLimits,
   type EventLandingConfig,
   type LandingBlock,
   type LandingBlockEn,
   type LandingBlockItem,
   type LandingConfigEn,
+  type LandingHeadedSection,
   type LandingSectionId,
   type LandingTextLimit,
 } from "@/lib/domain";
@@ -202,6 +204,19 @@ export function BagianEn({
   const kolom = (key: KunciEn, label: string, sumber: string | null | undefined, max: number, area = false) =>
     ada(sumber) ? <KolomEn key={key} label={label} sumber={sumber} value={en[key]} onChange={(value) => ubahEn({ [key]: value })} max={max} area={area} /> : null;
 
+  // Judul bagian bawaan: hanya yang diubah di versi Indonesia; yang kosong
+  // memakai teks bawaan English. Label kecil yang dimatikan tidak ditanya.
+  const judulBagian = (bagian: LandingHeadedSection, pengantar = false) => {
+    const isian = [
+      landingEyebrowShown(landing, bagian) ? kolom(`${bagian}_eyebrow`, "Label kecil", landing[`${bagian}_eyebrow`], LANDING_SECTION_TEXT_MAX.eyebrow) : null,
+      bagian === "about"
+        ? kolom("about_heading", "Judul", landing.about_heading, LANDING_SECTION_TEXT_MAX.heading)
+        : kolom(`${bagian}_heading`, "Judul", landing[`${bagian}_heading`], LANDING_SECTION_TEXT_MAX.heading),
+      pengantar ? kolom("faq_intro", "Pengantar", landing.faq_intro, LANDING_SECTION_TEXT_MAX.intro, true) : null,
+    ].filter(Boolean);
+    return isian.length ? <Kartu key="judul-bagian" judul="Judul bagian">{isian}</Kartu> : null;
+  };
+
   const hasil = ((): ReactNode[] => {
     switch (id) {
       case "pembuka":
@@ -217,12 +232,13 @@ export function BagianEn({
           kolom("cta_note", "Kalimat banner", landing.cta_note, 300, true),
         ];
       case "about":
-        return [kolom("about_heading", "Judul bagian", landing.about_heading, 160), kolom("description", "Deskripsi acara", facts.description, 5000, true)];
+        return [kolom("description", "Deskripsi acara", facts.description, 5000, true), judulBagian("about")];
       case "venue":
-        return [kolom("venue_name", "Nama tempat", facts.venue_name, 200), kolom("venue_address", "Alamat", facts.venue_address, 600, true)];
+        return [kolom("venue_name", "Nama tempat", facts.venue_name, 200), kolom("venue_address", "Alamat", facts.venue_address, 600, true), judulBagian("venue")];
       case "agenda": {
         const catatan = landing.program_notes ?? [];
         return [
+          judulBagian("agenda"),
           kolom("agenda_note", "Catatan Susunan acara", landing.agenda_note, 140),
           kolom("program_heading", "Judul bagian Program", landing.program_heading, 120),
           kolom("program_intro", "Pengantar Program", landing.program_intro, 400, true),
@@ -282,11 +298,11 @@ export function BagianEn({
               ))}
             </Kartu>
           );
-        })];
+        }), judulBagian("speakers")];
       }
       case "faq": {
         const daftar = landing.faq ?? [];
-        return daftar.map((item, index) => {
+        return [...daftar.map((item, index) => {
           const ubah = (key: "q" | "a", value: string) =>
             setLanding({ ...landing, faq: daftar.map((f, posisi) => (posisi === index ? { ...f, en: { ...f.en, [key]: value } } : f)) });
           return (
@@ -295,7 +311,7 @@ export function BagianEn({
               <KolomEn label="Jawaban" sumber={item.a} value={item.en?.a} onChange={(value) => ubah("a", value)} max={2000} area />
             </Kartu>
           );
-        });
+        }), judulBagian("faq", true)];
       }
       case "highlights": {
         const daftar = landing.highlights ?? [];
