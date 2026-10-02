@@ -137,12 +137,14 @@ function kolomKepanjangan(blok: LandingBlock): { kolom: string; max: number; bah
  * bagian yang terbuka sebelumnya ikut menutup dan menggeser daftar. Yang digulir
  * hanya wadah panelnya; scrollIntoView ikut menggeser seluruh halaman CMS.
  */
-function gulirKeBaris(id: string) {
+function gulirKeBaris(id: string, bilaDiAtas = false) {
   window.requestAnimationFrame(() => {
     const baris = document.getElementById(`baris-${id}`);
     const wadah = baris?.closest<HTMLElement>(".overflow-y-auto");
     if (!baris || !wadah) return;
     const atas = baris.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop;
+    // `bilaDiAtas`: gulir hanya kalau baris sudah lewat ke atas panel.
+    if (bilaDiAtas && atas >= wadah.scrollTop) return;
     wadah.scrollTo({ top: Math.max(0, atas), behavior: "smooth" });
   });
 }
@@ -1333,7 +1335,12 @@ export default function LandingCmsPage() {
   function bukaTutup(id: string) {
     const buka = terbuka !== id;
     setTerbuka(buka ? id : null);
-    if (!buka) return;
+    if (!buka) {
+      // Ditutup dari kepala yang menempel: kembalikan barisnya ke pandangan,
+      // bukan menyisakan panel di tengah blok-blok sesudahnya.
+      gulirKeBaris(id, true);
+      return;
+    }
     setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }));
     gulirKeBaris(id);
   }
@@ -1384,7 +1391,9 @@ export default function LandingCmsPage() {
         <div
           className={cx(
             "flex items-center gap-2 pr-2",
-            buka ? "min-h-14 bg-primary-soft py-2 shadow-[inset_3px_0_0_var(--color-primary)]" : "h-14",
+            // Terbuka: kepala menempel di atas panel, supaya blok yang panjang
+            // bisa ditutup tanpa menggulir balik ke atas.
+            buka ? "sticky top-0 z-10 min-h-14 bg-primary-soft py-2 shadow-[inset_3px_0_0_var(--color-primary)]" : "h-14",
           )}
         >
           {bisaSeret ? (
@@ -1689,7 +1698,8 @@ export default function LandingCmsPage() {
         />
       </div>
       {saringan}
-      <PaneBody key={`${bagian}-${modeEn ? "en" : "id"}`} className={bagian === "susunan" ? undefined : "px-4 py-4"}>
+      {/* scroll-pt: field yang difokus dengan Tab tidak boleh tertutup kepala baris yang menempel (72px). */}
+      <PaneBody key={`${bagian}-${modeEn ? "en" : "id"}`} className={bagian === "susunan" ? "scroll-pt-22" : "px-4 py-4"}>
         {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : bagian === "tema" ? isiTema : isiPeserta}
       </PaneBody>
     </Pane>
