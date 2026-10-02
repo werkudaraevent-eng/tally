@@ -40,7 +40,7 @@ function cocok(label: string, judulRundown: string): boolean {
 function cariSesi(label: string, agenda: AgendaPreview[]) {
   for (const bagian of agenda) {
     for (const item of bagian.items) {
-      if (cocok(label, item.title)) return item;
+      if (cocok(label, item.key)) return item;
     }
   }
   return null;
@@ -50,7 +50,7 @@ function urutanRundown(label: string, agenda: AgendaPreview[]): number {
   let posisi = 0;
   for (const bagian of agenda) {
     for (const item of bagian.items) {
-      if (cocok(label, item.title)) return posisi;
+      if (cocok(label, item.key)) return posisi;
       posisi += 1;
     }
   }
