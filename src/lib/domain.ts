@@ -492,7 +492,8 @@ export function landingBlockHasContent(block: LandingBlock): boolean {
     case "logos": return items.some((item) => item.image_url);
     case "download": return Boolean(block.heading?.trim() && block.link_url?.trim());
     case "cta": return Boolean(block.heading?.trim());
-    case "multicolumn": return items.some((item) => item.title?.trim() || item.body?.trim() || item.image_url);
+    // Gambar saja tidak cukup: kolomnya kosong bagi pembaca layar.
+    case "multicolumn": return items.some((item) => item.title?.trim() || item.body?.trim());
   }
 }
 

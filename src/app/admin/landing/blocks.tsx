@@ -168,6 +168,15 @@ function rasioGambarButir(block: LandingBlock): string {
   return "Rasio 16:9 untuk kartu pertama, 3:2 untuk yang lain. Dipotong otomatis.";
 }
 
+/** Ada teks butir yang melewati batas (mis. setelah impor, atau kolom ditambah sehingga batasnya turun). */
+function butirKepanjangan(item: LandingBlockItem, batas: Partial<Record<KolomButir, LandingTextLimit>> | undefined): boolean {
+  if (!batas) return false;
+  return (Object.keys(batas) as KolomButir[]).some((key) => {
+    const max = batas[key]?.max;
+    return max !== undefined && (item[key]?.length ?? 0) > max;
+  });
+}
+
 function Kelompok({ judul, catatan, children }: { judul: string; catatan?: string; children: ReactNode }) {
   return (
     <div role="group" aria-label={judul} className="flex flex-col gap-4 border-t border-outline-variant pt-4">
@@ -211,8 +220,15 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
   const Butir = butir ? butir[0].toUpperCase() + butir.slice(1) : "";
   // Kolom: satu isi terbuka sekaligus, sisanya satu baris ringkas. Delapan
   // formulir terbuka akan mendorong baris blok berikutnya jauh dari layar.
+  // Semua mulai terlipat supaya baris blok berikutnya tetap terlihat.
   const ringkas = block.type === "multicolumn";
-  const [butirTerbuka, setButirTerbuka] = useState(0);
+  const [butirTerbuka, setButirTerbuka] = useState(-1);
+  const [tampilanTerbuka, setTampilanTerbuka] = useState(false);
+  const hapusButir = (index: number) => {
+    setItems(items.filter((_, position) => position !== index));
+    // Isi yang sedang terbuka tetap terbuka walau urutannya bergeser.
+    setButirTerbuka((terbuka) => (terbuka === index ? -1 : terbuka > index ? terbuka - 1 : terbuka));
+  };
 
   // ---- Kolom tingkat blok ------------------------------------------------------
   const teks = (key: KolomTeks, label: string, opsi: { hint?: string; optional?: boolean; placeholder?: string } = {}) => (
@@ -301,7 +317,20 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
       />
     );
     const tautanButir = (hint: string) => (
-      <TextField label="Tautan" optional hint={hint} placeholder="https://" maxLength={600} value={item.href ?? ""} onChange={(event) => ubahItem(index, { href: event.target.value })} />
+      <TextField
+        label="Tautan"
+        optional
+        hint={hint}
+        placeholder="https://"
+        maxLength={600}
+        value={item.href ?? ""}
+        onChange={(event) => {
+          const href = event.target.value;
+          // Kolom: teks tautan tanpa tautan tidak tampil, jadi ikut dikosongkan
+          // supaya tidak dihitung sebagai teks yang belum diterjemahkan.
+          ubahItem(index, block.type === "multicolumn" && !href.trim() ? { href, label: undefined } : { href });
+        }}
+      />
     );
     switch (block.type) {
       case "stats":
@@ -349,7 +378,7 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
         return (
           <>
             {gambar}
-            {isian("title", "Judul", { optional: true })}
+            {isian("title", "Judul", { optional: true, hint: "Isi judul atau teks. Kolom berisi gambar saja tidak tampil." })}
             {isian("body", "Teks", { area: true, optional: true })}
             {tautanButir("Tautan di bawah teks, mis. ke halaman pembicara atau #agenda.")}
             {item.href?.trim() ? isian("label", "Teks tautan", { optional: true, hint: "Bawaan: Selengkapnya." }) : null}
@@ -377,27 +406,34 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
       {items.map((item, index) => {
         const buka = !ringkas || butirTerbuka === index;
         const nama = ringkas && item.title?.trim() ? item.title.trim() : `${Butir} ${index + 1}`;
+        const kepanjangan = ringkas && !buka && butirKepanjangan(item, batas.item);
         return (
-          <div key={index} className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
+          <div key={index} className={cx("flex flex-col gap-3 rounded-md border border-outline-variant", ringkas && !buka ? "px-3 py-1" : "p-3")}>
             <div className="flex items-center justify-between gap-2">
               {ringkas ? (
                 <button
                   type="button"
                   aria-expanded={buka}
                   onClick={() => setButirTerbuka(buka ? -1 : index)}
-                  className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left"
+                  className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-sm text-left"
                 >
                   {item.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={item.image_url} alt="" className="size-8 shrink-0 rounded-sm object-cover" />
                   ) : null}
                   <span className="truncate text-body-medium font-medium text-on-surface" title={nama}>{nama}</span>
+                  {kepanjangan ? (
+                    <span className="flex shrink-0 items-center gap-1 text-body-small text-error">
+                      <WarningCircle size={14} weight="fill" aria-hidden />
+                      Terlalu panjang
+                    </span>
+                  ) : null}
                   <CaretDown size={14} aria-hidden className={cx("shrink-0 text-on-surface-variant transition-transform", buka && "rotate-180")} />
                 </button>
               ) : (
                 <p className="text-body-medium font-medium text-on-surface">{Butir} {index + 1}</p>
               )}
-              <IconButton size="sm" label={`Hapus ${nama}`} className="text-error" onClick={() => setItems(items.filter((_, position) => position !== index))}>
+              <IconButton size="sm" label={`Hapus ${nama}`} className="text-error" onClick={() => hapusButir(index)}>
                 <Trash size={16} />
               </IconButton>
             </div>
@@ -466,46 +502,66 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
           {latar}
         </div>
       );
-    case "multicolumn":
+    case "multicolumn": {
+      const ringkasanTampilan = `${landingColumnCount(block)} kolom · ${LANDING_IMAGE_SHAPE_LABELS[block.image_shape ?? "wide"]} · ${block.align === "center" ? "Tengah" : "Kiri"} · ${LANDING_BLOCK_TONE_LABELS[block.tone ?? LANDING_BLOCK_DEFAULT_TONE.multicolumn]}`;
       return (
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <p className="text-body-medium font-medium text-on-surface">Kolom di layar lebar</p>
-            <SegmentedButton<`${LandingColumnCount}`>
-              label="Jumlah kolom"
-              value={`${landingColumnCount(block)}`}
-              onChange={(value) => ubah({ columns: Number(value) as LandingColumnCount })}
-              options={(["1", "2", "3", "4"] as const).map((value) => ({ value, label: value }))}
-            />
-            <p className="text-body-small text-on-surface-variant">Tablet paling banyak 2 kolom, ponsel selalu 1.</p>
-          </div>
-          <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3">
-            <div className="flex flex-col gap-1.5">
-              <p className="text-body-medium font-medium text-on-surface">Bentuk gambar</p>
-              <SegmentedButton<LandingImageShape>
-                label="Bentuk gambar"
-                value={block.image_shape ?? "wide"}
-                onChange={(image_shape) => ubah({ image_shape })}
-                options={(["wide", "square", "circle"] as const).map((value) => ({ value, label: LANDING_IMAGE_SHAPE_LABELS[value] }))}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <p className="text-body-medium font-medium text-on-surface">Rata</p>
-              <SegmentedButton<"left" | "center">
-                label="Perataan isi kolom"
-                value={block.align ?? "left"}
-                onChange={(align) => ubah({ align })}
-                options={[{ value: "left", label: "Kiri" }, { value: "center", label: "Tengah" }]}
-              />
-            </div>
-          </div>
           {alis}
           {judul()}
           {area("body", "Pengantar", { optional: true, rows: 2 })}
           {daftarButir}
-          {latar}
+          <div className="flex flex-col gap-4 border-t border-outline-variant pt-2">
+            <button
+              type="button"
+              aria-expanded={tampilanTerbuka}
+              onClick={() => setTampilanTerbuka((buka) => !buka)}
+              className="m3-state -mx-2 flex min-h-12 items-center gap-2 rounded-sm px-2 text-left"
+            >
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-body-medium font-semibold text-on-surface">Tampilan</span>
+                <span className="truncate text-body-small text-on-surface-variant">{ringkasanTampilan}</span>
+              </span>
+              <CaretDown size={14} aria-hidden className={cx("shrink-0 text-on-surface-variant transition-transform", tampilanTerbuka && "rotate-180")} />
+            </button>
+            {tampilanTerbuka ? (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-body-medium font-medium text-on-surface">Kolom di layar lebar</p>
+                  <SegmentedButton<`${LandingColumnCount}`>
+                    label="Jumlah kolom"
+                    value={`${landingColumnCount(block)}`}
+                    onChange={(value) => ubah({ columns: Number(value) as LandingColumnCount })}
+                    options={(["1", "2", "3", "4"] as const).map((value) => ({ value, label: value }))}
+                  />
+                  <p className="text-body-small text-on-surface-variant">Tablet paling banyak 2 kolom, ponsel selalu 1.</p>
+                </div>
+                <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-body-medium font-medium text-on-surface">Bentuk gambar</p>
+                    <SegmentedButton<LandingImageShape>
+                      label="Bentuk gambar"
+                      value={block.image_shape ?? "wide"}
+                      onChange={(image_shape) => ubah({ image_shape })}
+                      options={(["wide", "square", "circle"] as const).map((value) => ({ value, label: LANDING_IMAGE_SHAPE_LABELS[value] }))}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-body-medium font-medium text-on-surface">Rata</p>
+                    <SegmentedButton<"left" | "center">
+                      label="Perataan isi kolom"
+                      value={block.align ?? "left"}
+                      onChange={(align) => ubah({ align })}
+                      options={[{ value: "left", label: "Kiri" }, { value: "center", label: "Tengah" }]}
+                    />
+                  </div>
+                </div>
+                {latar}
+              </>
+            ) : null}
+          </div>
         </div>
       );
+    }
     case "stats":
       return (
         <div className="flex flex-col gap-4">

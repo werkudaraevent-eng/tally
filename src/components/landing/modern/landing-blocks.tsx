@@ -552,11 +552,12 @@ function Kolom({ block, lang }: { block: LandingBlock; lang: LandingLang }) {
   const kolom = landingColumnCount(block);
   const tengah = block.align === "center";
   const bentuk = BENTUK_GAMBAR[block.image_shape ?? "wide"];
-  const items = (block.items ?? []).filter((item) => item.title?.trim() || item.body?.trim() || item.image_url);
+  // Kolom berisi gambar saja tidak punya teks untuk pembaca layar: tidak dihitung.
+  const items = (block.items ?? []).filter((item) => item.title?.trim() || item.body?.trim());
   return (
     <Wadah block={block}>
       <Kepala block={block} />
-      <ul className={`grid gap-x-8 gap-y-12 ${GRID_KOLOM[kolom]} ${kolom === 1 && tengah ? "mx-auto" : ""}`}>
+      <ul className={`grid gap-x-6 gap-y-12 ${GRID_KOLOM[kolom]} ${kolom === 1 && tengah ? "mx-auto" : ""}`}>
         {items.map((item, index) => {
           const href = item.href?.trim();
           return (
@@ -567,7 +568,7 @@ function Kolom({ block, lang }: { block: LandingBlock; lang: LandingLang }) {
               ) : null}
               <Paragraf teks={item.body} className={`${ISI} ${PATAH}`} />
               {href ? (
-                <Taut href={href} className="m3-state -mx-1 inline-flex items-center gap-1.5 rounded-sm px-1 py-0.5 text-title-medium font-semibold text-[var(--blok-aksen)] underline-offset-4 hover:underline">
+                <Taut href={href} className={`m3-state -mx-1 inline-flex min-h-12 items-center gap-1.5 ${tengah ? "self-center" : "self-start"} rounded-sm px-1 text-title-medium font-semibold text-[var(--blok-aksen)] underline-offset-4 hover:underline`}>
                   {item.label?.trim() || LANDING_UI[lang].readMore}
                   <IkonTaut href={href} size={16} />
                 </Taut>
@@ -675,11 +676,13 @@ function Ajakan({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftar
 function tanpaJangkarMati(block: LandingBlock, jangkar: ReadonlySet<string> | undefined): LandingBlock {
   if (!jangkar) return block;
   const mati = (url: string | null | undefined) => Boolean(url?.trim().startsWith("#") && !jangkar.has(url.trim().slice(1)));
-  if (!mati(block.link_url) && !mati(block.link2_url)) return block;
+  const butirMati = (block.items ?? []).some((item) => mati(item.href));
+  if (!mati(block.link_url) && !mati(block.link2_url) && !butirMati) return block;
   return {
     ...block,
     ...(mati(block.link_url) ? { link_url: undefined } : null),
     ...(mati(block.link2_url) ? { link2_url: undefined } : null),
+    ...(butirMati ? { items: block.items?.map((item) => (mati(item.href) ? { ...item, href: undefined } : item)) } : null),
   };
 }
 
