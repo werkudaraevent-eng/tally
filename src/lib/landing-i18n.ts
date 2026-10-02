@@ -11,6 +11,8 @@ import {
   type LandingHeadedSection,
   type LandingSectionId,
 } from "./domain";
+import { formatEventDate } from "./event-datetime";
+import { jumlahLembaga } from "./landing-speaker-tabs";
 
 /**
  * Halaman acara dwibahasa: Indonesia (bahasa utama, `/e/<slug>`) dan English
@@ -130,15 +132,13 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
     en,
     LANDING_EVENT_EN_KEYS,
   );
-  // Label kecil yang sama dengan judulnya tidak dirender (event-landing-modern).
-  // Bila di versi Indonesia keduanya sama, label English mengikuti judul
-  // English-nya, supaya label Indonesia tidak muncul sendiri di /en.
+  // Label kecil yang sama dengan judulnya tidak dirender. Bila di versi
+  // Indonesia label itu tersembunyi karena sama, di /en juga dimatikan: kalau
+  // tidak, label Indonesia yang belum diterjemahkan muncul sendiri di sana.
   for (const id of Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSection[]) {
-    const kunciJudul = id === "about" ? "about_heading" : (`${id}_heading` as const);
-    const judulId = asli[kunciJudul]?.trim() || (id === "venue" ? event.venue_name?.trim() : undefined);
-    const judulEn = config[kunciJudul]?.trim() || (id === "venue" ? fakta.venue_name?.trim() : undefined);
-    const alisId = asli[`${id}_eyebrow`]?.trim();
-    if (alisId && judulId && judulEn && alisId.toLowerCase() === judulId.toLowerCase()) config[`${id}_eyebrow`] = judulEn;
+    if (landingEyebrowShown(asli, id) && landingSectionHeading(event, asli, "id", id).alis === null) {
+      config.eyebrow_shown = { ...config.eyebrow_shown, [id]: false };
+    }
   }
   return { event: { ...event, ...fakta, landing_config: config }, config };
 }
@@ -158,6 +158,39 @@ export function landingSessionLabels(config: EventLandingConfig, lang: LandingLa
 /** Label kecil di atas judul bagian bawaan tampil atau tidak; satu saklar untuk kedua bahasa. */
 export function landingEyebrowShown(config: EventLandingConfig, id: LandingHeadedSection): boolean {
   return config.eyebrow_shown?.[id] ?? LANDING_EYEBROW_DEFAULT[id];
+}
+
+/**
+ * Judul dan label kecil satu bagian bawaan Modern dalam satu bahasa: teks dari
+ * CMS, atau judul otomatis (tanggal, nama tempat, jumlah pembicara) dan teks
+ * bawaan bila kosong. `alis` null bila dimatikan atau sama dengan judulnya
+ * (mis. "Lokasi" saat nama tempat belum diisi). `event` dan `config` sudah
+ * dalam bahasa itu (resolveLanding).
+ */
+export function landingSectionHeading(
+  event: EventRow,
+  config: EventLandingConfig,
+  lang: LandingLang,
+  id: LandingHeadedSection,
+): { judul: string; alis: string | null } {
+  const t = LANDING_UI[lang];
+  const nama = t.sectionLabels[id];
+  const otomatis = (() => {
+    switch (id) {
+      case "agenda": return formatEventDate(event, lang) ?? nama;
+      case "venue": return event.venue_name?.trim() || nama;
+      case "faq": return t.faqHeading;
+      case "speakers": {
+        const pembicara = (config.speakers ?? []).filter((speaker) => speaker.name?.trim());
+        const lembaga = jumlahLembaga(pembicara);
+        return lembaga >= 3 ? t.speakersFrom(pembicara.length, lembaga) : nama;
+      }
+      default: return nama;
+    }
+  })();
+  const judul = (id === "about" ? config.about_heading : config[`${id}_heading`])?.trim() || otomatis;
+  const alis = config[`${id}_eyebrow`]?.trim() || nama;
+  return { judul, alis: landingEyebrowShown(config, id) && alis.toLowerCase() !== judul.toLowerCase() ? alis : null };
 }
 
 // ---- Kolom yang belum diterjemahkan ---------------------------------------------

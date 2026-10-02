@@ -46,6 +46,7 @@ function KolomEn({
   ideal,
   area = false,
   rows,
+  kunci,
 }: {
   label: string;
   sumber: string;
@@ -55,6 +56,8 @@ function KolomEn({
   ideal?: number;
   area?: boolean;
   rows?: number;
+  /** `data-kolom`: dipakai Simpan untuk membawa kolom yang salah ke layar. */
+  kunci?: string;
 }) {
   // Kolom panjang menampilkan sampai empat baris sumber: menerjemahkan paragraf
   // dari satu baris terpotong tidak mungkin. Teks utuhnya di `title`.
@@ -67,6 +70,7 @@ function KolomEn({
     // Placeholder penuh on-surface-variant (5,33:1), bukan /70 bawaan: di sini ia
     // satu-satunya penjelasan bahwa kolom kosong jatuh ke teks Indonesia.
     className: "[&_input::placeholder]:text-on-surface-variant [&_textarea::placeholder]:text-on-surface-variant",
+    "data-kolom": kunci,
     label,
     hint,
     placeholder: KOSONG,
@@ -224,7 +228,7 @@ export function BagianEn({
   const en = landing.en ?? {};
   const ubahEn = (patch: LandingConfigEn) => setLanding({ ...landing, en: { ...en, ...patch } });
   const kolom = (key: KunciEn, label: string, sumber: string | null | undefined, max: number, area = false, ideal?: number) =>
-    ada(sumber) ? <KolomEn key={key} label={label} sumber={sumber} value={en[key]} onChange={(value) => ubahEn({ [key]: value })} max={max} ideal={ideal} area={area} /> : null;
+    ada(sumber) ? <KolomEn key={key} kunci={key} label={label} sumber={sumber} value={en[key]} onChange={(value) => ubahEn({ [key]: value })} max={max} ideal={ideal} area={area} /> : null;
 
   // Judul bagian bawaan: hanya yang diubah di versi Indonesia; yang kosong
   // memakai teks bawaan English. Label kecil yang dimatikan tidak ditanya.
