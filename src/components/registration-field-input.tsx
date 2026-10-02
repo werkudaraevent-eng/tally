@@ -65,7 +65,7 @@ export function RegistrationFieldInput({ field, lang = "id" }: { field: Registra
       setUploadError(
         lang === "id"
           ? (pesan ?? t.uploadRejected)
-          : pesan?.includes("5 MB") ? t.fileTooLarge : pesan?.startsWith("Format") ? t.fileFormat : t.uploadRejected,
+          : response.status === 429 ? DAFTAR_UI.en.errors.RATE_LIMITED ?? t.uploadRejected : pesan?.includes("5 MB") ? t.fileTooLarge : pesan?.startsWith("Format") ? t.fileFormat : t.uploadRejected,
       );
       return;
     }

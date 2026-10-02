@@ -408,7 +408,7 @@ export default function DaftarClient(props: Props) {
                 {m.masukUrl ? (
                   <p className={`text-body-large ${MUTED}`}>
                     {t.alreadyRegistered}{" "}
-                    <Link href={m.masukUrl} className="font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline">
+                    <Link href={m.masukUrl} className="whitespace-nowrap font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline">
                       {t.signInMemberArea}
                     </Link>
                   </p>
