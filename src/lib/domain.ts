@@ -169,7 +169,18 @@ export function isLandingBlockId(id: string): id is LandingBlockId {
  * Satu bentuk data untuk semua jenis, dengan kolom opsional. Tiap jenis hanya
  * membaca kolom miliknya; editor CMS hanya menampilkan kolom itu.
  */
-export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta";
+export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn";
+
+/**
+ * Blok Kolom: pola multicolumn Shopify Dawn (columns_desktop 1 sampai 6,
+ * image_ratio, column_alignment). Di sini dibatasi 1 sampai 4 kolom dan tiga
+ * bentuk gambar bernama. Ukuran piksel, posisi bebas, dan warna per teks
+ * sengaja tidak ada: halaman yang diisi siapa pun harus tetap rapi.
+ */
+export type LandingColumnCount = 1 | 2 | 3 | 4;
+export type LandingImageShape = "wide" | "square" | "circle";
+export const LANDING_IMAGE_SHAPE_LABELS: Record<LandingImageShape, string> = { wide: "Lebar", square: "Persegi", circle: "Bulat" };
+export const LANDING_COLUMNS_DEFAULT: LandingColumnCount = 3;
 
 /** Latar blok. `dark` = warna merek dicampur hitam, teks putih. */
 export type LandingBlockTone = "light" | "panel" | "dark";
@@ -187,7 +198,10 @@ export type LandingBlockLayout = "featured" | "overlay" | "columns" | "cards" | 
 
 export type LandingBlockItem = {
   image_url?: string | null;
-  /** Label kecil di atas judul kartu, chip pertama di kartu foto, atau nama mitra pada logo. */
+  /**
+   * Label kecil di atas judul kartu, chip pertama di kartu foto, nama mitra pada
+   * logo, atau teks tautan di bawah satu kolom blok Kolom.
+   */
   label?: string;
   title?: string;
   body?: string;
@@ -225,6 +239,12 @@ export type LandingBlock = {
   source?: string;
   /** Bila diisi, blok ini muncul di menu atas dengan label ini. */
   nav_label?: string;
+  /** Kolom: jumlah kolom di layar lebar. Tablet paling banyak 2, ponsel selalu 1. */
+  columns?: LandingColumnCount;
+  /** Kolom: bentuk gambar tiap kolom. */
+  image_shape?: LandingImageShape;
+  /** Kolom: perataan teks dan gambar di dalam kolom. */
+  align?: "left" | "center";
   /** Teks English blok ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingBlockEn;
 };
@@ -279,6 +299,7 @@ export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
   logos: "Logo mitra",
   download: "Unduhan materi",
   cta: "Pita ajakan",
+  multicolumn: "Kolom",
 };
 
 export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
@@ -291,6 +312,7 @@ export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
   logos: "Logo penyelenggara, mitra, atau sponsor.",
   download: "Tautan ke kerangka acuan, brosur, atau materi PDF.",
   cta: "Ajakan mendaftar, dengan atau tanpa foto latar.",
+  multicolumn: "1 sampai 4 kolom, masing-masing dengan gambar, judul, teks, dan tautan.",
 };
 
 export const LANDING_BLOCK_TONE_LABELS: Record<LandingBlockTone, string> = {
@@ -310,6 +332,7 @@ export const LANDING_BLOCK_DEFAULT_TONE: Record<LandingBlockType, LandingBlockTo
   logos: "light",
   download: "panel",
   cta: "light",
+  multicolumn: "light",
 };
 
 export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: LandingBlockLayout; label: string; hint: string }[]>> = {
@@ -367,7 +390,7 @@ const ALIS_BATAS: LandingTextLimit = { max: 24 };
 const PENGANTAR_BATAS: LandingTextLimit = { max: 140 };
 const TOMBOL_BATAS: LandingTextLimit = { max: 24 };
 
-export function landingBlockLimits(block: Pick<LandingBlock, "type" | "layout">): LandingBlockLimits {
+export function landingBlockLimits(block: Pick<LandingBlock, "type" | "layout" | "columns">): LandingBlockLimits {
   switch (block.type) {
     case "text_image":
       return {
@@ -427,11 +450,27 @@ export function landingBlockLimits(block: Pick<LandingBlock, "type" | "layout">)
       return { eyebrow: ALIS_BATAS, heading: { max: 50 }, body: { max: 200, ideal: 160 }, link_label: { max: 40 } };
     case "cta":
       return { heading: { max: 44, ideal: 36 }, body: { max: 140 }, link_label: TOMBOL_BATAS };
+    case "multicolumn": {
+      // Kolom makin sempit, teks makin pendek: 4 kolom di grid 1280 tinggal
+      // ~280px, 180 karakter di sana sudah tujuh baris.
+      const kolom = landingColumnCount(block);
+      const isi = kolom >= 4 ? { max: 180, ideal: 140 } : kolom === 3 ? { max: 240, ideal: 200 } : { max: 360, ideal: 300 };
+      return {
+        eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: PENGANTAR_BATAS, link_label: TOMBOL_BATAS,
+        item: { title: { max: 60, ideal: 48 }, body: isi, label: TOMBOL_BATAS },
+        items: { max: 8, full: kolom === 1 ? undefined : [kolom, kolom * 2].filter((n) => n <= 8) },
+      };
+    }
   }
 }
 
+/** Jumlah kolom blok Kolom, dengan bawaan untuk data lama atau rusak. */
+export function landingColumnCount(block: Pick<LandingBlock, "columns">): LandingColumnCount {
+  return block.columns && [1, 2, 3, 4].includes(block.columns) ? block.columns : LANDING_COLUMNS_DEFAULT;
+}
+
 /** Batas jumlah butir per jenis blok. Sama di CMS dan validasi server. */
-export function landingBlockMaxItems(block: Pick<LandingBlock, "type" | "layout">): number {
+export function landingBlockMaxItems(block: Pick<LandingBlock, "type" | "layout" | "columns">): number {
   return landingBlockLimits(block).items?.max ?? 0;
 }
 
@@ -453,6 +492,7 @@ export function landingBlockHasContent(block: LandingBlock): boolean {
     case "logos": return items.some((item) => item.image_url);
     case "download": return Boolean(block.heading?.trim() && block.link_url?.trim());
     case "cta": return Boolean(block.heading?.trim());
+    case "multicolumn": return items.some((item) => item.title?.trim() || item.body?.trim() || item.image_url);
   }
 }
 
