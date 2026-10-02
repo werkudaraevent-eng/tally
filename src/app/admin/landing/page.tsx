@@ -1321,7 +1321,7 @@ export default function LandingCmsPage() {
               draggable
               onDragStart={(event) => { setSeret(indeks); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", judul); }}
               onDragEnd={() => { setSeret(null); setSasaran(null); }}
-              className="flex h-14 w-6 shrink-0 cursor-grab items-center justify-center self-stretch text-on-surface-variant opacity-70 hover:opacity-100"
+              className="flex h-14 w-6 shrink-0 cursor-grab items-center justify-center self-stretch text-on-surface-variant opacity-80 hover:opacity-100"
               title="Seret untuk memindah"
             >
               <DotsSixVertical size={16} aria-hidden />
@@ -1369,6 +1369,7 @@ export default function LandingCmsPage() {
           {saklar ? (
             <IconButton
               size="sm"
+              className="size-10!"
               label={saklar.checked ? `Sembunyikan ${judul}` : `Tampilkan ${judul}`}
               onClick={() => saklar.onChange(!saklar.checked)}
             >
@@ -1526,8 +1527,9 @@ export default function LandingCmsPage() {
           </FilterChip>
           <MenuBlok
             label="Menu blok tersembunyi"
+            width={272}
             items={[{
-              label: blokTersembunyi.length > 0 ? `Hapus ${blokTersembunyi.length} blok tersembunyi…` : "Tidak ada blok tambahan tersembunyi",
+              label: blokTersembunyi.length > 0 ? `Hapus ${blokTersembunyi.length} blok tersembunyi…` : "Tak ada blok untuk dihapus",
               icon: <Trash size={18} />,
               bahaya: true,
               disabled: blokTersembunyi.length === 0,
@@ -1681,7 +1683,7 @@ export default function LandingCmsPage() {
             title="Seret untuk mengubah lebar panel. Klik dua kali untuk lebar bawaan."
             className="group hidden w-4 shrink-0 cursor-col-resize touch-none items-center justify-center rounded-sm outline-none lg:flex"
           >
-            <span className="h-10 w-1 rounded-full bg-outline-variant transition-colors group-hover:bg-outline group-focus-visible:h-16 group-focus-visible:bg-primary group-active:bg-primary" />
+            <span className="h-10 w-1 rounded-full bg-outline transition-colors group-hover:bg-on-surface-variant group-focus-visible:h-16 group-focus-visible:bg-primary group-active:bg-primary" />
           </div>
           <div
             className="flex min-h-[70vh] w-full flex-col *:flex-1 lg:min-h-0 lg:w-[var(--panel-w)] lg:shrink-0"
