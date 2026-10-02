@@ -835,10 +835,11 @@ export default function LandingCmsPage() {
         />
         {modern && landing.en_enabled ? (
           <div className="flex flex-col gap-2">
-            <p className="text-label-large text-on-surface">Bahasa utama</p>
+            <p id="label-bahasa-utama" className="text-body-medium font-medium text-on-surface">Bahasa utama</p>
             <SegmentedButton<"id" | "en">
               className="w-full"
               label="Bahasa utama"
+              labelledBy="label-bahasa-utama"
               value={landing.default_lang ?? "id"}
               onChange={(value) => setLanding({ ...landing, default_lang: value })}
               options={[
@@ -851,6 +852,9 @@ export default function LandingCmsPage() {
                 ? `/e/${facts?.slug ?? "slug"} tampil dalam English. Versi Indonesia di /e/${facts?.slug ?? "slug"}/id.`
                 : `/e/${facts?.slug ?? "slug"} tampil dalam Bahasa Indonesia. Versi English di /e/${facts?.slug ?? "slug"}/en.`}{" "}
               Alamat di undangan dan QR tidak berubah.
+              {(landing.default_lang ?? "id") === "en"
+                ? " Tamu yang memindai QR atau membuka tautan undangan melihat versi English lebih dulu. Tautan /en yang sudah dibagikan dialihkan ke alamat utama."
+                : null}
             </p>
           </div>
         ) : null}
