@@ -3,10 +3,12 @@ import {
   LANDING_CONFIG_EN_KEYS,
   LANDING_EVENT_EN_KEYS,
   LANDING_ITEM_EN_KEYS,
+  LANDING_EYEBROW_DEFAULT,
   LANDING_SPEAKER_EN_KEYS,
   normalizeLandingSections,
   type EventLandingConfig,
   type EventRow,
+  type LandingHeadedSection,
   type LandingSectionId,
 } from "./domain";
 
@@ -78,12 +80,17 @@ function isi(teks: unknown): teks is string {
   return typeof teks === "string" && teks.trim().length > 0;
 }
 
-/** Salin `asli`, lalu timpa tiap kolom di `keys` dengan versi English bila terisi. */
+/**
+ * Salin `asli`, lalu timpa tiap kolom di `keys` dengan versi English bila
+ * keduanya terisi. Teks Indonesia yang dikosongkan berarti kembali ke teks
+ * bawaan di kedua bahasa: terjemahan lama yang tertinggal (kolomnya sudah
+ * tidak tampil di editor EN) tidak boleh tetap tampil di halaman English.
+ */
 function tumpuk<T extends object>(asli: T, en: Partial<Record<string, unknown>> | undefined, keys: readonly string[]): T {
   if (!en) return asli;
   const hasil = { ...asli } as Record<string, unknown>;
   for (const key of keys) {
-    if (isi(en[key])) hasil[key] = en[key];
+    if (isi(en[key]) && isi(hasil[key])) hasil[key] = en[key];
   }
   return hasil as T;
 }
@@ -108,7 +115,7 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
   const en = asli.en ?? {};
   const config: EventLandingConfig = {
     ...tumpuk(asli, en, LANDING_CONFIG_EN_KEYS),
-    program_notes: asli.program_notes?.map((catatan, index) => (isi(en.program_notes?.[index]) ? en.program_notes![index]! : catatan)),
+    program_notes: asli.program_notes?.map((catatan, index) => (isi(en.program_notes?.[index]) && isi(catatan) ? en.program_notes![index]! : catatan)),
     blocks: asli.blocks?.map((block) => ({
       ...tumpuk(block, block.en, LANDING_BLOCK_EN_KEYS),
       items: block.items?.map((item) => tumpuk(item, item.en, LANDING_ITEM_EN_KEYS)),
@@ -123,6 +130,16 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
     en,
     LANDING_EVENT_EN_KEYS,
   );
+  // Label kecil yang sama dengan judulnya tidak dirender (event-landing-modern).
+  // Bila di versi Indonesia keduanya sama, label English mengikuti judul
+  // English-nya, supaya label Indonesia tidak muncul sendiri di /en.
+  for (const id of Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSection[]) {
+    const kunciJudul = id === "about" ? "about_heading" : (`${id}_heading` as const);
+    const judulId = asli[kunciJudul]?.trim() || (id === "venue" ? event.venue_name?.trim() : undefined);
+    const judulEn = config[kunciJudul]?.trim() || (id === "venue" ? fakta.venue_name?.trim() : undefined);
+    const alisId = asli[`${id}_eyebrow`]?.trim();
+    if (alisId && judulId && judulEn && alisId.toLowerCase() === judulId.toLowerCase()) config[`${id}_eyebrow`] = judulEn;
+  }
   return { event: { ...event, ...fakta, landing_config: config }, config };
 }
 
@@ -136,6 +153,11 @@ export function landingSessionLabels(config: EventLandingConfig, lang: LandingLa
     if (kunci && label && !peta.has(kunci.toLowerCase())) peta.set(kunci.toLowerCase(), label);
   }
   return peta;
+}
+
+/** Label kecil di atas judul bagian bawaan tampil atau tidak; satu saklar untuk kedua bahasa. */
+export function landingEyebrowShown(config: EventLandingConfig, id: LandingHeadedSection): boolean {
+  return config.eyebrow_shown?.[id] ?? LANDING_EYEBROW_DEFAULT[id];
 }
 
 // ---- Kolom yang belum diterjemahkan ---------------------------------------------
@@ -193,6 +215,14 @@ export function landingUntranslated(event: {
   periksa(config.footer_note, en.footer_note, "footer_note", "kaki");
   periksa(config.cta_heading, en.cta_heading, "cta_heading", "kaki");
   periksa(config.cta_note, en.cta_note, "cta_note", "kaki");
+  // Judul bagian bawaan. Label kecil yang dimatikan tidak tampil, jadi tidak ditagih.
+  (Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSection[]).forEach((id) => {
+    if (!bagian(id)) return;
+    const alis = `${id}_eyebrow` as const;
+    if (landingEyebrowShown(config, id)) periksa(config[alis], en[alis], alis, id);
+    if (id !== "about") periksa(config[`${id}_heading`], en[`${id}_heading`], `${id}_heading`, id);
+  });
+  if (bagian("faq")) periksa(config.faq_intro, en.faq_intro, "faq_intro", "faq");
   if (bagian("about")) {
     periksa(config.about_heading, en.about_heading, "about_heading", "about");
     periksa(event.description, en.description, "event.description", "about");

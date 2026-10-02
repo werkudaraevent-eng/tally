@@ -7,6 +7,7 @@ import type {
   LandingHeadingScale,
   LandingHeroHeight,
   LandingSection,
+  LandingHeadedSection,
   LandingSectionId,
 } from "@/lib/domain";
 import { LANDING_HEADING_FONTS, LANDING_NAV_DEFAULTS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
@@ -14,7 +15,7 @@ import { heroCtaColors, modernNavStyle, modernThemeStyle } from "@/lib/registrat
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { jumlahLembaga, speakerTabs } from "@/lib/landing-speaker-tabs";
-import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingPath, landingSessionLabels, type LandingLang } from "@/lib/landing-i18n";
+import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingEyebrowShown, landingPath, landingSessionLabels, type LandingLang } from "@/lib/landing-i18n";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { timeZoneAbbr } from "@/lib/timezone";
@@ -151,6 +152,22 @@ function Kv({ src, scrim }: { src: string; scrim: string }) {
   );
 }
 
+/** Pengantar FAQ; diberi titik bila kalimat kontak ("Hubungi panitia ...") ditempel di belakangnya. */
+function pengantarFaq(teks: string, adaKontak: boolean): string {
+  return adaKontak && !/[.!?…]$/.test(teks) ? `${teks}.` : teks;
+}
+
+/** Label kecil (opsional) dan judul bagian, 12px di antaranya. */
+function JudulBagian({ alis, judul }: { alis: string | null; judul: string }) {
+  if (!alis) return <h2 className={JUDUL}>{judul}</h2>;
+  return (
+    <div className="flex flex-col gap-3">
+      <p className={ALIS}>{alis}</p>
+      <h2 className={JUDUL}>{judul}</h2>
+    </div>
+  );
+}
+
 function Section({ id, children }: { id?: string; children: ReactNode }) {
   return (
     <section id={id} className={SECTION}>
@@ -169,6 +186,14 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const t = LANDING_UI[lang];
   const NAV_LABEL = t.nav;
   const LANDING_SECTION_LABELS = t.sectionLabels;
+  // Judul bagian bawaan: teks dari CMS, atau judul otomatis/bawaan bila kosong.
+  // Label kecil tidak dirender bila sama dengan judulnya (mis. "Lokasi" saat
+  // nama tempat belum diisi).
+  const judulBagian = (id: LandingHeadedSection, bawaan: string) => {
+    const judul = (id === "about" ? config.about_heading : config[`${id}_heading`])?.trim() || bawaan;
+    const alis = config[`${id}_eyebrow`]?.trim() || LANDING_SECTION_LABELS[id];
+    return { judul, alis: landingEyebrowShown(config, id) && alis.toLowerCase() !== judul.toLowerCase() ? alis : null };
+  };
   const aktif = new Set(sections.filter((section) => section.enabled).map((section) => section.id));
   // Formulir pendaftaran dalam bahasa halaman (src/app/daftar). Area peserta
   // belum dwibahasa.
@@ -310,6 +335,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     sesi: landingSessionLabels(config, lang),
   });
   const lembaga = jumlahLembaga(speakers);
+  const judulPembicara = judulBagian("speakers", lembaga >= 3 ? t.speakersFrom(speakers.length, lembaga) : LANDING_SECTION_LABELS.speakers);
   const mitra = aktif.has("sponsors") ? (config.sponsors ?? []).filter((sponsor) => sponsor.logo_url) : [];
 
   const kalenderUrl = event.event_date ? `/kalender.ics?eventSlug=${encodeURIComponent(event.slug)}` : null;
@@ -408,7 +434,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
 
               <div className="flex max-w-[572px] flex-col items-start gap-8 sm:gap-10">
                 <div className="flex flex-col gap-6">
-                  <h2 className={JUDUL}>{config.about_heading?.trim() || LANDING_SECTION_LABELS.about}</h2>
+                  <JudulBagian {...judulBagian("about", LANDING_SECTION_LABELS.about)} />
                   {/* whitespace-pre-line: paragraf dipisah enter di CMS. */}
                   <p className={`${LEBAR_BACA} whitespace-pre-line text-isi ${MUTED}`}>{event.description}</p>
                 </div>
@@ -434,8 +460,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 kolom kiri yang 60% kosong. Acara satu hari tidak butuh penanda
                 yang ikut turun; daftar yang padat muat satu layar laptop. */}
             <div className="flex flex-col gap-3">
-              <p className={ALIS}>{LANDING_SECTION_LABELS.agenda}</p>
-              <h2 className={JUDUL}>{tanggal ?? LANDING_SECTION_LABELS.agenda}</h2>
+              <JudulBagian {...judulBagian("agenda", tanggal ?? LANDING_SECTION_LABELS.agenda)} />
               {/* Catatan di bawah judul, sama seperti bagian lain. */}
               {config.agenda_note?.trim() ? <p className={`max-w-[520px] text-isi ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
             </div>
@@ -460,9 +485,9 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           >
             <SpeakerTabs
               tabs={tabPembicara}
-              // Tanpa label: "Pembicara" hanya mengulang judul "N pembicara dari M lembaga".
-              eyebrow={null}
-              heading={lembaga >= 3 ? t.speakersFrom(speakers.length, lembaga) : LANDING_SECTION_LABELS.speakers}
+              // Label kecil mati secara bawaan: "Pembicara" hanya mengulang judul "N pembicara dari M lembaga".
+              eyebrow={judulPembicara.alis}
+              heading={judulPembicara.judul}
               eyebrowClassName={ALIS}
               headingClassName={JUDUL}
               tablistLabel={t.speakersBySession}
@@ -479,10 +504,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             <div className={`grid items-center gap-10 lg:gap-20 ${petaKueri ? "lg:grid-cols-2" : ""}`}>
               <div className="flex max-w-[572px] flex-col items-start gap-8 sm:gap-10">
                 <div className="flex flex-col gap-5">
-                  <div className="flex flex-col gap-3">
-                    {venue ? <p className={ALIS}>{LANDING_SECTION_LABELS.venue}</p> : null}
-                    <h2 className={JUDUL}>{venue ?? LANDING_SECTION_LABELS.venue}</h2>
-                  </div>
+                  <JudulBagian {...judulBagian("venue", venue ?? LANDING_SECTION_LABELS.venue)} />
                   {event.venue_address ? (
                     <p className={`whitespace-pre-line text-isi ${MUTED}`}>{event.venue_address}</p>
                   ) : null}
@@ -543,9 +565,9 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           <Section id="faq">
             <div className="grid gap-10 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-20">
               <div className="flex flex-col gap-5 lg:self-start">
-                <h2 className={JUDUL}>{t.faqHeading}</h2>
+                <JudulBagian {...judulBagian("faq", t.faqHeading)} />
                 <p className={`text-isi ${MUTED}`}>
-                  {t.faqIntro}
+                  {pengantarFaq(config.faq_intro?.trim() || t.faqIntro, kontak.length > 0)}
                   {kontak.length > 0 ? t.faqContact : null}
                 </p>
               </div>
