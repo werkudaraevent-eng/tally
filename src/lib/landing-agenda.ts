@@ -16,6 +16,10 @@ function jamTitik(jam: string, bahasa: "id" | "en"): string {
  *
  * Yang diambil jam, judul, dan keterangan (pembicara) tiap sesi. Rincian lain
  * tetap di `/rundown`, tempat panitia memang mengelolanya.
+ *
+ * Hanya bagian dan baris yang diterbitkan, sama dengan layar `/rundown`
+ * (api/rundown): yang disembunyikan panitia di Rundown tidak boleh bocor lewat
+ * halaman acara. Pratinjau admin memakai fungsi ini juga, jadi ikut sama.
  */
 export type AgendaItem = { time: string; end: string | null; title: string; subtitle: string | null };
 
@@ -38,6 +42,7 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
     .from("rundown_sections")
     .select("id,title,sort_order")
     .eq("event_id", eventId)
+    .eq("is_published", true)
     .order("sort_order", { ascending: true });
 
   const daftarSeksi = (sections ?? []) as unknown as Array<{ id: number; title: string | null }>;
@@ -47,6 +52,7 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
     .from("rundown_items")
     .select("section_id,title,subtitle,start_time,end_time,sort_order")
     .in("section_id", daftarSeksi.map((section) => section.id))
+    .eq("is_published", true)
     .order("sort_order", { ascending: true });
 
   const daftarItem = (items ?? []) as unknown as Array<{
