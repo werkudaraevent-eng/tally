@@ -292,7 +292,7 @@ export type LandingConfigEn = Partial<Record<(typeof LANDING_CONFIG_EN_KEYS)[num
 export const LANDING_EYEBROW_DEFAULT = { about: false, agenda: true, speakers: false, venue: true, faq: false } as const satisfies Partial<Record<LandingSectionId, boolean>>;
 export type LandingHeadedSection = keyof typeof LANDING_EYEBROW_DEFAULT;
 /** Batas judul bagian: sama dengan blok tambahan (label 24, judul 60, pengantar 140). */
-export const LANDING_SECTION_TEXT_MAX = { eyebrow: 24, heading: 60, intro: 140 } as const;
+export const LANDING_SECTION_TEXT_MAX = { eyebrow: 24, heading: 60, headingIdeal: 48, intro: 140 } as const;
 
 /** Panjang label menu atas: satu atau dua kata pendek, supaya menu muat satu baris. */
 export const LANDING_NAV_LABEL_MAX = 16;

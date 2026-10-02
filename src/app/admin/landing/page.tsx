@@ -25,6 +25,7 @@ import {
   LANDING_SECTION_LABELS,
   LANDING_SECTION_SOURCES,
   LANDING_SECTION_TEXT_MAX,
+  LANDING_EYEBROW_DEFAULT,
   LANDING_BLOCK_LABELS,
   isLandingBlockId,
   landingBlockHasContent,
@@ -39,6 +40,7 @@ import {
   type LandingMemberConfig,
   type LandingMemberAudience,
   type LandingHeadedSection,
+  type LandingConfigEn,
   type LandingSection,
   type LandingSpeaker,
   type LandingSectionId,
@@ -235,6 +237,32 @@ const KUNCI_BAHASA = "tally:landing-bahasa:v1";
 const jepitPanel = (lebar: number) => Math.round(Math.min(PANEL_MAX, Math.max(PANEL_MIN, lebar)));
 
 /** Hapus yang bisa diurungkan. Berlaku di draf; baru permanen saat Simpan. */
+/**
+ * Judul bagian bawaan yang melewati batas skema (mis. dari Impor atau data
+ * lama). Server menolaknya dengan galat mentah tanpa nama bagian; di sini
+ * bagian dan kolomnya disebut, lalu dibuka.
+ */
+type KunciTeksEn = Exclude<keyof LandingConfigEn, "program_notes">;
+function judulBagianKepanjangan(landing: EventLandingConfig): { id: LandingHeadedSection; kolom: string; bahasa: "id" | "en"; max: number } | null {
+  const { eyebrow, heading, intro } = LANDING_SECTION_TEXT_MAX;
+  for (const id of Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSection[]) {
+    const kolom: [KunciTeksEn, string, number][] = [
+      [`${id}_eyebrow`, "label kecil", eyebrow],
+      // Judul Tentang: skema tetap 160 supaya judul lama tetap bisa disimpan.
+      id === "about" ? ["about_heading", "judul", 160] : [`${id}_heading`, "judul", heading],
+      ...(id === "faq" ? [["faq_intro", "pengantar", intro] as [KunciTeksEn, string, number]] : []),
+      ...(id === "agenda" ? [["agenda_note", "catatan", intro] as [KunciTeksEn, string, number]] : []),
+    ];
+    for (const bahasa of ["id", "en"] as const) {
+      const sumber: LandingConfigEn = bahasa === "id" ? landing : (landing.en ?? {});
+      for (const [kunci, nama, max] of kolom) {
+        if ((sumber[kunci]?.trim().length ?? 0) > max) return { id, kolom: nama, bahasa, max };
+      }
+    }
+  }
+  return null;
+}
+
 type Urungan = { pesan: string; sections: LandingSection[]; blocks: LandingBlock[] };
 
 export default function LandingCmsPage() {
@@ -553,6 +581,19 @@ export default function LandingCmsPage() {
         return;
       }
     }
+    const judulLewat = modern ? judulBagianKepanjangan(landing) : null;
+    if (judulLewat) {
+      setBagian("susunan");
+      setBahasa(judulLewat.bahasa);
+      setTerbuka(judulLewat.id);
+      if (judulLewat.bahasa === "id") setJudulTerbuka(judulLewat.id);
+      gulirKeBaris(judulLewat.id);
+      toast.error(
+        "Teks terlalu panjang",
+        `${LANDING_SECTION_LABELS[judulLewat.id]}, ${judulLewat.kolom}${judulLewat.bahasa === "en" ? " (English)" : ""}: maksimal ${judulLewat.max} karakter. Bagiannya sudah dibuka.`,
+      );
+      return;
+    }
     const forumSalah = landing.layout === "forum" ? forumTautanSalah(landing.forum) : null;
     if (forumSalah) {
       setBagian("susunan");
@@ -800,7 +841,8 @@ export default function LandingCmsPage() {
     const kunciJudul = id === "about" ? "about_heading" : (`${id}_heading` as const);
     const judul = landing[kunciJudul] ?? "";
     const buka = judulTerbuka === id;
-    const ringkasan = `Label: ${nyala ? alis.trim() || LANDING_SECTION_LABELS[id] : "mati"} · Judul: ${judul.trim() || otomatis.jenis}`;
+    const catatan = id === "agenda" && landing.agenda_note?.trim() ? " · Catatan terisi" : "";
+    const ringkasan = `Label: ${nyala ? alis.trim() || LANDING_SECTION_LABELS[id] : "mati"} · Judul: ${judul.trim() || otomatis.jenis}${catatan}`;
     return (
       <div className="flex flex-col gap-4 border-t border-outline-variant pt-2">
         <button
@@ -822,9 +864,11 @@ export default function LandingCmsPage() {
               onChange={(value) => setLanding({ ...landing, eyebrow_shown: { ...landing.eyebrow_shown, [id]: value } })}
               label="Label kecil di atas judul"
             />
-            {/* Dimatikan: kolomnya disembunyikan, isinya tetap tersimpan. */}
-            {nyala ? (
+            {/* Dimatikan: kolomnya disembunyikan, isinya tetap tersimpan (kecuali
+                terlalu panjang: Simpan menolaknya, jadi harus terlihat). */}
+            {nyala || alis.trim().length > LANDING_SECTION_TEXT_MAX.eyebrow ? (
               <TextField
+                className={TEKS_BAWAAN}
                 label="Label kecil"
                 optional
                 placeholder={LANDING_SECTION_LABELS[id]}
@@ -836,11 +880,12 @@ export default function LandingCmsPage() {
               />
             ) : null}
             <TextField
+              className={TEKS_BAWAAN}
               label="Judul"
               placeholder={otomatis.judul}
               hint={otomatis.hint}
               maxLength={LANDING_SECTION_TEXT_MAX.heading}
-              counter={{ ideal: 48 }}
+              counter={{ ideal: LANDING_SECTION_TEXT_MAX.headingIdeal }}
               value={judul}
               onChange={(event) => setLanding({ ...landing, [kunciJudul]: event.target.value })}
             />
@@ -854,6 +899,9 @@ export default function LandingCmsPage() {
   const pembicaraIsi = (landing.speakers ?? []).filter((speaker) => speaker.name?.trim());
   const lembaga = jumlahLembaga(pembicaraIsi);
   const KOSONG_BAWAAN = "Kosongkan untuk teks bawaan.";
+  // Placeholder judul bagian adalah teks yang benar-benar tampil bila kolom
+  // kosong, jadi warnanya penuh on-surface-variant (5,33:1), bukan /70 contoh.
+  const TEKS_BAWAAN = "[&_input::placeholder]:text-on-surface-variant [&_textarea::placeholder]:text-on-surface-variant";
 
   const isiTentang = facts ? (
     <div className="flex flex-col gap-4">
@@ -1245,6 +1293,7 @@ export default function LandingCmsPage() {
               "faq",
               { judul: LANDING_UI.id.faqHeading, jenis: "bawaan", hint: KOSONG_BAWAAN },
               <TextArea
+                className={TEKS_BAWAAN}
                 label="Pengantar"
                 optional
                 rows={2}

@@ -223,17 +223,18 @@ export function BagianEn({
 }) {
   const en = landing.en ?? {};
   const ubahEn = (patch: LandingConfigEn) => setLanding({ ...landing, en: { ...en, ...patch } });
-  const kolom = (key: KunciEn, label: string, sumber: string | null | undefined, max: number, area = false) =>
-    ada(sumber) ? <KolomEn key={key} label={label} sumber={sumber} value={en[key]} onChange={(value) => ubahEn({ [key]: value })} max={max} area={area} /> : null;
+  const kolom = (key: KunciEn, label: string, sumber: string | null | undefined, max: number, area = false, ideal?: number) =>
+    ada(sumber) ? <KolomEn key={key} label={label} sumber={sumber} value={en[key]} onChange={(value) => ubahEn({ [key]: value })} max={max} ideal={ideal} area={area} /> : null;
 
   // Judul bagian bawaan: hanya yang diubah di versi Indonesia; yang kosong
   // memakai teks bawaan English. Label kecil yang dimatikan tidak ditanya.
   const judulBagian = (bagian: LandingHeadedSection, pengantar = false) => {
     const isian = [
-      landingEyebrowShown(landing, bagian) ? kolom(`${bagian}_eyebrow`, "Label kecil", landing[`${bagian}_eyebrow`], LANDING_SECTION_TEXT_MAX.eyebrow) : null,
+      // Label yang dimatikan tetap ditampilkan bila terlalu panjang: Simpan menolaknya.
+      landingEyebrowShown(landing, bagian) || (en[`${bagian}_eyebrow`]?.trim().length ?? 0) > LANDING_SECTION_TEXT_MAX.eyebrow ? kolom(`${bagian}_eyebrow`, "Label kecil", landing[`${bagian}_eyebrow`], LANDING_SECTION_TEXT_MAX.eyebrow) : null,
       bagian === "about"
-        ? kolom("about_heading", "Judul", landing.about_heading, LANDING_SECTION_TEXT_MAX.heading)
-        : kolom(`${bagian}_heading`, "Judul", landing[`${bagian}_heading`], LANDING_SECTION_TEXT_MAX.heading),
+        ? kolom("about_heading", "Judul", landing.about_heading, LANDING_SECTION_TEXT_MAX.heading, false, LANDING_SECTION_TEXT_MAX.headingIdeal)
+        : kolom(`${bagian}_heading`, "Judul", landing[`${bagian}_heading`], LANDING_SECTION_TEXT_MAX.heading, false, LANDING_SECTION_TEXT_MAX.headingIdeal),
       pengantar ? kolom("faq_intro", "Pengantar", landing.faq_intro, LANDING_SECTION_TEXT_MAX.intro, true) : null,
     ].filter(Boolean);
     return isian.length ? <Kartu key="judul-bagian" judul="Judul bagian">{isian}</Kartu> : null;

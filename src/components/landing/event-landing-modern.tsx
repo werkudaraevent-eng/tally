@@ -152,6 +152,11 @@ function Kv({ src, scrim }: { src: string; scrim: string }) {
   );
 }
 
+/** Pengantar FAQ; diberi titik bila kalimat kontak ("Hubungi panitia ...") ditempel di belakangnya. */
+function pengantarFaq(teks: string, adaKontak: boolean): string {
+  return adaKontak && !/[.!?…]$/.test(teks) ? `${teks}.` : teks;
+}
+
 /** Label kecil (opsional) dan judul bagian, 12px di antaranya. */
 function JudulBagian({ alis, judul }: { alis: string | null; judul: string }) {
   if (!alis) return <h2 className={JUDUL}>{judul}</h2>;
@@ -562,7 +567,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               <div className="flex flex-col gap-5 lg:self-start">
                 <JudulBagian {...judulBagian("faq", t.faqHeading)} />
                 <p className={`text-isi ${MUTED}`}>
-                  {config.faq_intro?.trim() || t.faqIntro}
+                  {pengantarFaq(config.faq_intro?.trim() || t.faqIntro, kontak.length > 0)}
                   {kontak.length > 0 ? t.faqContact : null}
                 </p>
               </div>
