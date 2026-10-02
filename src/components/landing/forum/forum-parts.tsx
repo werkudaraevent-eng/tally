@@ -103,7 +103,7 @@ export function PanelSusunan({
                 <tbody className="text-[var(--f-title)]">
                   {bagian.items.map((item, nomor) => {
                     // `key`: judul Indonesia baris, juga saat judulnya diterjemahkan.
-                    const orang = pembicaraSesi(speakers, item.key);
+                    const orang = pembicaraSesi(speakers, item);
                     const jeda = barisJeda(item.key, orang.length) || barisJeda(item.title, orang.length);
                     const redup = "text-[var(--reg-on-surface-variant)]";
                     const warnaJam = jeda ? redup : "text-[var(--f-primary-text)]";
