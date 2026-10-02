@@ -47,6 +47,7 @@ import { BilahAtasEditor } from "@/components/admin/landing-nav-editor";
 import { cx } from "@/lib/m3/cx";
 import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
+import { landingUntranslated } from "@/lib/landing-i18n";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -493,6 +494,13 @@ export default function LandingCmsPage() {
   const gayaBanner = landing.banner_style ?? "theme";
   const tataLetak: LandingLayout = landing.layout ?? "editorial";
   const modern = tataLetak === "modern";
+  // Teks yang tampil di halaman Indonesia tetapi belum punya versi English.
+  const belumDiterjemahkan = landingUntranslated({
+    landing_config: { ...landing, sections },
+    tagline: facts?.tagline,
+    description: facts?.description,
+    venue_address: facts?.venue_address,
+  }).length;
   // Bawaan huruf judul mengikuti tata letak; harus sama dengan halaman publik.
   const hurufJudul: LandingHeadingFont = landing.heading_font ?? (modern ? "source" : "serif");
   const catatanProgram = landing.program_notes ?? [];
@@ -807,6 +815,29 @@ export default function LandingCmsPage() {
             ? "KV selebar layar dengan nav gelap, kartu program dari Rundown, kartu pembicara tinggi, dan blok tambahan."
             : "Tenang dan tipografis: judul bagian di rel kiri, garis rambut sebagai pemisah. Blok tambahan tidak tampil di sini."}
         </p>
+      </Kelompok>
+
+      {/* Versi English. Teks English-nya diisi per kolom; sampai mode EN di
+          editor ada, lewat Ekspor/Impor (kunci `en`, lihat landing-i18n.ts). */}
+      <Kelompok title="Bahasa">
+        <Switch
+          checked={Boolean(landing.en_enabled)}
+          onChange={(value) => setLanding({ ...landing, en_enabled: value })}
+          disabled={!modern}
+          label="Tampilkan versi English"
+          description={
+            !modern
+              ? "Hanya untuk tata letak Modern."
+              : landing.en_enabled
+                ? `Tombol English tampil di bilah atas, dan halaman English ada di /e/${facts?.slug ?? "slug"}/en.`
+                : "Selama mati, halaman hanya berbahasa Indonesia dan alamat /en tidak bisa dibuka."
+          }
+        />
+        {modern && belumDiterjemahkan > 0 ? (
+          <p className="text-body-medium text-on-surface-variant">
+            {belumDiterjemahkan} teks belum diterjemahkan. Halaman English menampilkan teks Indonesianya.
+          </p>
+        ) : null}
       </Kelompok>
 
       <Kelompok title="Huruf judul" note="Dipakai untuk nama acara dan judul bagian. Isi halaman tetap memakai huruf yang mudah dibaca.">
