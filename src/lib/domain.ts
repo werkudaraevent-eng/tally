@@ -766,6 +766,11 @@ export type EventLandingConfig = {
    * mati: selama mati, alamat English 404 dan halaman Indonesia tidak berubah.
    */
   en_enabled?: boolean;
+  /**
+   * Bahasa di alamat utama `/e/<slug>` (bawaan "id"). "en" hanya berlaku
+   * selama versi English menyala; lihat landingDefaultLang.
+   */
+  default_lang?: "id" | "en";
   /** Teks English tingkat halaman. Lihat src/lib/landing-i18n.ts. */
   en?: LandingConfigEn;
 };

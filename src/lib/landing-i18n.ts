@@ -35,14 +35,26 @@ export const LANDING_LANG_LABELS: Record<LandingLang, { name: string; short: str
   en: { name: "English", short: "EN", htmlLang: "en", locale: "en-GB" },
 };
 
-/** Alamat halaman acara dalam satu bahasa. Indonesia tanpa akhiran, supaya QR dan undangan lama tetap berlaku. */
-export function landingPath(slug: string, lang: LandingLang): string {
-  return lang === "en" ? `/e/${slug}/en` : `/e/${slug}`;
-}
-
 /** Versi English boleh tampil: dinyalakan admin, dan tata letaknya sudah punya terjemahan teks bawaan (Modern). */
 export function landingEnAvailable(config: EventLandingConfig | null | undefined): boolean {
   return Boolean(config?.en_enabled) && config?.layout === "modern";
+}
+
+/**
+ * Bahasa utama: bahasa di alamat tanpa akhiran (`/e/<slug>`), yang dicetak di
+ * undangan dan QR. Pilihan admin (`default_lang`), tetapi English hanya bila
+ * versi English menyala; selain itu selalu Indonesia.
+ */
+export function landingDefaultLang(config: EventLandingConfig | null | undefined): LandingLang {
+  return config?.default_lang === "en" && landingEnAvailable(config) ? "en" : "id";
+}
+
+/**
+ * Alamat halaman acara dalam satu bahasa. Bahasa utama tanpa akhiran, supaya QR
+ * dan undangan lama tetap berlaku; bahasa lainnya di `/id` atau `/en`.
+ */
+export function landingPath(slug: string, lang: LandingLang, utama: LandingLang = "id"): string {
+  return lang === utama ? `/e/${slug}` : `/e/${slug}/${lang}`;
 }
 
 // ---- Penumpukan teks -------------------------------------------------------------

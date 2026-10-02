@@ -14,7 +14,7 @@ import { heroCtaColors, modernNavStyle, modernThemeStyle } from "@/lib/registrat
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { jumlahLembaga, speakerTabs } from "@/lib/landing-speaker-tabs";
-import { LANDING_LANG_LABELS, LANDING_UI, landingPath, landingSessionLabels, type LandingLang } from "@/lib/landing-i18n";
+import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingPath, landingSessionLabels, type LandingLang } from "@/lib/landing-i18n";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { timeZoneAbbr } from "@/lib/timezone";
@@ -586,7 +586,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         logoUrl={config.nav?.logo_url ?? null}
         logoOnDark={Boolean(kv) && (config.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50}
         lang={lang}
-        langSwitch={otherLang ? { href: landingPath(event.slug, otherLang), lang: otherLang } : null}
+        langSwitch={otherLang ? { href: landingPath(event.slug, otherLang, landingDefaultLang(config)), lang: otherLang } : null}
       />
 
       {/* ---- Hero ---------------------------------------------------------

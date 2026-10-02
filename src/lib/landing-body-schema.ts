@@ -162,6 +162,7 @@ export const landingBodySchema = z.object({
       .max(10 + MAX_BLOCKS),
     blocks: z.array(blockSchema).max(MAX_BLOCKS).optional(),
     en_enabled: z.boolean().optional(),
+    default_lang: z.enum(["id", "en"]).optional(),
     en: z.object({
       public_name: teks(120),
       cta_label: teks(60),
