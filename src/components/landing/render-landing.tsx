@@ -4,6 +4,7 @@ import { formatEventSchedule } from "@/lib/event-datetime";
 import { landingDefaultLang, landingEnAvailable, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
 import { EventLanding } from "@/components/landing/event-landing";
 import { EventLandingModern } from "@/components/landing/event-landing-modern";
+import type { MasukMode } from "@/app/masuk/masuk-client";
 import { EventLandingForum } from "@/components/landing/forum/event-landing-forum";
 
 /**
@@ -25,7 +26,7 @@ import { EventLandingForum } from "@/components/landing/forum/event-landing-foru
 export function renderLanding(
   asli: EventRow,
   lang: LandingLang = landingDefaultLang(asli.landing_config as EventLandingConfig),
-  opsi: { halaman?: LandingForumPage; pratinjau?: boolean } = {},
+  opsi: { halaman?: LandingForumPage; pratinjau?: boolean; masukAwal?: MasukMode | null } = {},
 ) {
   const halaman = opsi.halaman ?? "beranda";
   if ((asli.landing_config as EventLandingConfig | null)?.layout === "forum") {
@@ -45,6 +46,7 @@ export function renderLanding(
         theme={theme}
         lang={lang}
         otherLang={adaEnglish ? (lang === "en" ? "id" : "en") : null}
+        masukAwal={opsi.masukAwal ?? null}
       />
     );
   }
