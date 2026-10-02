@@ -20,7 +20,7 @@ import type { LandingForumPage } from "@/lib/domain";
  * komponen halaman publik yang sama. Halaman publik `/e/<slug>` sendiri tetap
  * hanya membaca isi tersimpan.
  *
- * Iframe dirender pada lebar perangkat sungguhan (390 atau 1440) lalu
+ * Iframe dirender pada lebar perangkat sungguhan (390 atau 1280) lalu
  * DIPERKECIL dengan transform. Menyempitkan iframe-nya sendiri akan memicu
  * breakpoint ponsel di layar desktop, jadi yang terlihat bukan tata letak yang
  * akan dilihat tamu.
@@ -31,9 +31,10 @@ type Device = "mobile" | "desktop";
 const UKURAN: Record<Device, { width: number; height: number }> = {
   // 390×844: iPhone 14/15, ukuran yang paling banyak dipakai tamu.
   mobile: { width: 390, height: 844 },
-  // 1440: sama dengan lebar grid halaman publik, jadi pratinjau desktop
-  // menunjukkan tata letak pada lebar penuhnya, bukan versi yang terpotong.
-  desktop: { width: 1440, height: 900 },
+  // 1280: lebar kontainer halaman publik dan lebar laptop yang paling banyak
+  // dipakai. Pada 1440 pratinjaunya diperkecil sampai ~0,47 di panel 680px dan
+  // teks isinya tidak lagi terbaca; 1280 memberi ~0,53 tanpa mengubah tata letak.
+  desktop: { width: 1280, height: 800 },
 };
 
 /** Jarak bidang pratinjau ke tepi panel, kiri + kanan. Sama dengan `p-4`. */
@@ -162,7 +163,7 @@ export function LandingPreview({
     <Pane aria-label="Pratinjau halaman acara">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant px-4 py-2.5">
         <p className={`line-clamp-2 min-w-0 flex-1 ${tertinggal ? "text-body-small text-error" : "text-body-medium text-on-surface-variant"}`} role="status" title={tertinggal ?? undefined}>
-          {tertinggal ?? "Pratinjau langsung, belum disimpan"}
+          {tertinggal ?? `Pratinjau langsung · ${width} px`}
         </p>
         {halaman && onHalaman ? (
           <SegmentedButton<LandingForumPage>

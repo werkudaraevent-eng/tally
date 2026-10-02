@@ -42,7 +42,6 @@ export type BarisForum = (opsi: {
   lencana?: string | null;
   saklar?: { checked: boolean; onChange: (value: boolean) => void };
   isi: ReactNode;
-  redup?: boolean;
 }) => ReactNode;
 
 /**
@@ -167,6 +166,7 @@ export function ForumSusunan({
   baris,
   isiPembicara,
   rundownKosong,
+  tampilTersembunyi,
 }: {
   landing: EventLandingConfig;
   setLanding: (next: EventLandingConfig) => void;
@@ -177,6 +177,8 @@ export function ForumSusunan({
   /** Isian pembicara yang sama dengan tata letak lain. */
   isiPembicara: ReactNode;
   rundownKosong: boolean | null;
+  /** Penyaring "Tampilkan N tersembunyi" di atas daftar. */
+  tampilTersembunyi: boolean;
 }) {
   const forum: LandingForumConfig = landing.forum ?? {};
   const ubah = (patch: Partial<LandingForumConfig>) => setLanding({ ...landing, forum: { ...forum, ...patch } });
@@ -623,9 +625,9 @@ export function ForumSusunan({
   ] as { id: string; part?: LandingForumPart; judul: string; sub: string; isi: ReactNode; berisi?: boolean; lencana?: string }[];
 
   return (
-    <ol className="flex flex-col gap-2">
+    <ol className="flex flex-col">
       {baris1.map((item, index) =>
-        baris({
+        item.part && hidden.has(item.part) && !tampilTersembunyi ? null : baris({
           id: item.id,
           nomor: index + 1,
           judul: item.judul,
@@ -633,7 +635,6 @@ export function ForumSusunan({
           isi: item.isi,
           lencana: item.part ? (item.lencana ?? kosong(item.part, item.berisi ?? true)) : null,
           saklar: item.part ? saklar(item.part) : undefined,
-          redup: item.part ? hidden.has(item.part) : false,
         }),
       )}
     </ol>
