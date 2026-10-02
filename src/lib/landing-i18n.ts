@@ -161,6 +161,9 @@ export function landingEyebrowShown(config: EventLandingConfig, id: LandingHeade
   return config.eyebrow_shown?.[id] ?? LANDING_EYEBROW_DEFAULT[id];
 }
 
+/** Bagian acara yang dibaca judul otomatis: tanggal dan nama tempat. */
+export type LandingHeadingFacts = Pick<EventRow, "event_date" | "end_date" | "venue_name"> & { time_zone?: EventRow["time_zone"] | null };
+
 /**
  * Judul dan label kecil satu bagian bawaan Modern dalam satu bahasa: teks dari
  * CMS, atau judul otomatis (tanggal, nama tempat, jumlah pembicara) dan teks
@@ -168,9 +171,6 @@ export function landingEyebrowShown(config: EventLandingConfig, id: LandingHeade
  * (mis. "Lokasi" saat nama tempat belum diisi). `event` dan `config` sudah
  * dalam bahasa itu (resolveLanding).
  */
-/** Bagian acara yang dibaca judul otomatis: tanggal dan nama tempat. */
-export type LandingHeadingFacts = Pick<EventRow, "event_date" | "end_date" | "venue_name"> & { time_zone?: EventRow["time_zone"] | null };
-
 export function landingSectionHeading(
   event: LandingHeadingFacts,
   config: EventLandingConfig,

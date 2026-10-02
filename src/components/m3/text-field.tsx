@@ -53,9 +53,13 @@ function useFieldIds(error?: string, hint?: ReactNode) {
  * pembaca layar (WCAG 3.3.1, 4.1.2). Isi bisa melewati maxLength bila diisi
  * dari data (Impor, data lama), bukan diketik.
  */
+function melewati(count: Hitungan | null) {
+	return !!count && count.length > count.max;
+}
+
 function ariaKolom(id: string, describedBy: string | undefined, error: string | undefined, count: Hitungan | null) {
 	return {
-		"aria-invalid": error || (count && count.length > count.max) ? true : undefined,
+		"aria-invalid": error || melewati(count) ? true : undefined,
 		"aria-describedby": [describedBy, count ? `${id}-count` : null].filter(Boolean).join(" ") || undefined,
 	} as const;
 }
@@ -125,7 +129,7 @@ function FieldLabel({ htmlFor, children, optional }: { htmlFor: string; children
 const CONTROL_BASE =
 	"w-full rounded-lg border bg-surface-container-lowest px-3 text-body-large text-on-surface outline-none transition-[border-color,box-shadow] duration-150 ease-standard placeholder:text-on-surface-variant/70 disabled:opacity-50";
 
-function controlClass(error?: string) {
+function controlClass(error?: string | boolean) {
 	return cx(
 		CONTROL_BASE,
 		error
@@ -171,7 +175,7 @@ export function TextField({ label, hint, error, optional, className, inputClassN
 					id={id}
 					{...ariaKolom(id, describedBy, error, count)}
 					className={cx(
-						controlClass(error),
+						controlClass(error || melewati(count)),
 						size === "lg" ? "m3-field-lg h-16" : "m3-field h-14",
 						!!leading && "pl-9",
 						!!trailing && "pr-9",
@@ -200,7 +204,7 @@ export function TextArea({ label, hint, error, optional, className, rows = 4, co
 				id={id}
 				rows={rows}
 				{...ariaKolom(id, describedBy, error, count)}
-				className={cx(controlClass(error), "mt-2 resize-y py-3 leading-6")}
+				className={cx(controlClass(error || melewati(count)), "mt-2 resize-y py-3 leading-6")}
 			/>
 			<FieldMessages id={id} error={error} hint={hint} count={count} />
 		</div>
