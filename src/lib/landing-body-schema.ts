@@ -16,6 +16,25 @@ const tautan = z.string().trim().max(600).refine((value) => value === "" || /^(h
 // Batas luar. Batas per jenis blok (lebih ketat) diperiksa di superRefine dengan
 // landingBlockLimits, sumber yang sama dengan penghitung di CMS.
 const teks = (max: number) => z.string().trim().max(max).optional();
+
+// Teks English disimpan di `en` di samping teks Indonesianya (LandingConfigEn
+// dan kawan-kawan di domain.ts), dengan batas yang sama. Tanpa skema ini Zod
+// membuang kunci `en` saat Simpan.
+const itemEnSchema = z.object({ label: teks(160), title: teks(160), body: teks(400), value: teks(30) });
+const blockEnSchema = z.object({
+  eyebrow: teks(60),
+  heading: teks(160),
+  body: teks(1200),
+  link_label: teks(60),
+  link2_label: teks(60),
+  fact_title: teks(60),
+  fact_body: teks(120),
+  source: teks(300),
+  quote: teks(600),
+  name: teks(120),
+  role: teks(160),
+  nav_label: teks(LANDING_NAV_LABEL_MAX),
+});
 const blockSchema = z.object({
   id: blockId,
   type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta"]),
@@ -33,6 +52,7 @@ const blockSchema = z.object({
     body: teks(400),
     value: teks(30),
     href: tautan.optional(),
+    en: itemEnSchema.optional(),
   })).max(16).optional(),
   quote: teks(600),
   name: teks(120),
@@ -45,6 +65,7 @@ const blockSchema = z.object({
   fact_body: teks(120),
   source: teks(300),
   nav_label: teks(LANDING_NAV_LABEL_MAX),
+  en: blockEnSchema.optional(),
 }).superRefine((block, ctx) => {
   const batas = landingBlockLimits(block);
   const periksa = (nilai: string | undefined, limit: LandingTextLimit | undefined, path: (string | number)[]) => {
@@ -52,15 +73,19 @@ const blockSchema = z.object({
       ctx.addIssue({ code: "custom", path, message: `Maksimal ${limit.max} karakter` });
     }
   };
-  (["eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role"] as const).forEach((key) =>
-    periksa(block[key], batas[key], [key]),
-  );
+  (["eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role"] as const).forEach((key) => {
+    periksa(block[key], batas[key], [key]);
+    periksa(block.en?.[key], batas[key], ["en", key]);
+  });
   const items = block.items ?? [];
   if (items.length > (batas.items?.max ?? 0)) {
     ctx.addIssue({ code: "custom", path: ["items"], message: `Maksimal ${batas.items?.max ?? 0} butir` });
   }
   items.forEach((item, index) =>
-    (["label", "title", "body", "value"] as const).forEach((key) => periksa(item[key], batas.item?.[key], ["items", index, key])),
+    (["label", "title", "body", "value"] as const).forEach((key) => {
+      periksa(item[key], batas.item?.[key], ["items", index, key]);
+      periksa(item.en?.[key], batas.item?.[key], ["items", index, "en", key]);
+    }),
   );
 });
 
@@ -192,9 +217,29 @@ export const landingBodySchema = z.object({
       }))
       .max(10 + MAX_BLOCKS),
     blocks: z.array(blockSchema).max(MAX_BLOCKS).optional(),
+    en_enabled: z.boolean().optional(),
+    en: z.object({
+      public_name: teks(120),
+      cta_label: teks(60),
+      about_heading: teks(160),
+      program_heading: teks(120),
+      program_intro: teks(400),
+      program_notes: z.array(z.string().trim().max(600)).max(10).optional(),
+      agenda_note: teks(140),
+      footer_note: teks(180),
+      cta_heading: teks(120),
+      cta_note: teks(300),
+      contact_name: teks(120),
+      // Versi English kolom `events` (lihat LANDING_EVENT_EN_KEYS), batas sama dengan kolomnya.
+      tagline: teks(200),
+      description: teks(5000),
+      venue_name: teks(200),
+      venue_address: teks(600),
+    }).optional(),
     highlights: z.array(z.object({
       label: z.string().trim().min(1).max(60),
       value: z.string().trim().min(1).max(30),
+      en: z.object({ label: teks(60), value: teks(30) }).optional(),
     })).max(8).optional(),
     speakers: z.array(z.object({
       name: z.string().trim().min(1).max(120),
@@ -204,10 +249,12 @@ export const landingBodySchema = z.object({
       photo_url: z.string().url().max(600).nullable().optional(),
       featured: z.boolean().optional(),
       session: z.string().trim().max(40).optional(),
+      en: z.object({ title: teks(200), company: teks(120), role: teks(60), session: teks(40) }).optional(),
     })).max(60).optional(),
     faq: z.array(z.object({
       q: z.string().trim().min(1).max(200),
       a: z.string().trim().min(1).max(2000),
+      en: z.object({ q: teks(200), a: teks(2000) }).optional(),
     })).max(20).optional(),
     contact_name: z.string().trim().max(120).optional(),
     contact_phone: z.string().trim().max(40).optional(),
@@ -215,6 +262,7 @@ export const landingBodySchema = z.object({
     sponsors: z.array(z.object({
       name: z.string().trim().max(120).optional(),
       logo_url: z.string().url().max(600),
+      en: z.object({ name: teks(120) }).optional(),
     })).max(40).optional(),
     theme: z.object({ seed: z.string().regex(/^#[0-9a-fA-F]{6}$/) }).optional(),
     member: z.object({

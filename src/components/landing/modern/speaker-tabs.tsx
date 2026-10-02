@@ -68,12 +68,15 @@ export function SpeakerTabs({
   heading,
   eyebrowClassName,
   headingClassName,
+  tablistLabel = "Pembicara per sesi",
 }: {
   tabs: SpeakerTab[];
   eyebrow: string | null;
   heading: string;
   eyebrowClassName: string;
   headingClassName: string;
+  /** Nama baris tab untuk pembaca layar, dalam bahasa halaman. */
+  tablistLabel?: string;
 }) {
   const [aktif, setAktif] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -106,7 +109,7 @@ export function SpeakerTabs({
       {multi ? (
         <div
           role="tablist"
-          aria-label="Pembicara per sesi"
+          aria-label={tablistLabel}
           onKeyDown={pindah}
           // Menggeser menyamping di ponsel, bukan terlipat: dua baris chip
           // terbaca sebagai dua kelompok pilihan yang berbeda.

@@ -5,6 +5,7 @@ import type { LandingSpeaker } from "@/lib/domain";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { barisJeda, pembicaraSesi } from "@/lib/landing-speaker-tabs";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
+import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 
 /**
  * Susunan acara tata letak Modern: tab pil per bagian rundown di atas daftar
@@ -16,7 +17,8 @@ import { rentangAkhir } from "@/lib/landing-agenda-range";
  * seluruhnya; satu komponen dengan dua gaya akan membuat keduanya sulit diubah.
  */
 
-export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]; speakers?: LandingSpeaker[] }) {
+export function AgendaPills({ agenda, speakers = [], lang = "id" }: { agenda: AgendaPreview[]; speakers?: LandingSpeaker[]; lang?: LandingLang }) {
+  const t = LANDING_UI[lang];
   const [aktif, setAktif] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const dasar = useId();
@@ -42,7 +44,7 @@ export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]
       {multi ? (
         <div
           role="tablist"
-          aria-label="Bagian acara"
+          aria-label={t.agendaParts}
           onKeyDown={pindah}
           // Menggulir menyamping di ponsel, bukan terlipat: dua baris pil
           // terbaca seperti dua kelompok pilihan yang berbeda.
@@ -73,7 +75,7 @@ export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]
                 }`}
                 style={pilih ? ({ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties) : undefined}
               >
-                {bagian.sectionTitle || `Bagian ${index + 1}`}
+                {bagian.sectionTitle || t.part(index + 1)}
                 {rentang ? <span aria-hidden> · </span> : null}
                 {rentang ? <span>{rentang}</span> : null}
               </button>
@@ -128,7 +130,7 @@ export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]
                   <p className="mt-1 whitespace-pre-line text-body-medium leading-5 text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
                 ) : null}
               </div>
-              {orang.length > 0 ? <DeretPembicara orang={orang} /> : null}
+              {orang.length > 0 ? <DeretPembicara orang={orang} lang={lang} /> : null}
             </li>
           );
         })}
@@ -158,11 +160,11 @@ function inisial(nama: string): string {
  * tooltip dan di bagian Pembicara. Layar sempit: di bawah judul dengan nama
  * singkat.
  */
-export function DeretPembicara({ orang, namaTampil = false }: { orang: LandingSpeaker[]; namaTampil?: boolean }) {
+export function DeretPembicara({ orang, lang, namaTampil = false }: { orang: LandingSpeaker[]; lang: LandingLang; namaTampil?: boolean }) {
   const tampil = orang.slice(0, MAKS_FOTO);
   const sisa = orang.length - tampil.length;
   const nama = orang.slice(0, 2).map((speaker) => speaker.name.trim());
-  const keterangan = orang.length > 2 ? `${nama.join(", ")}, dan ${orang.length - 2} lainnya` : nama.join(" dan ");
+  const keterangan = LANDING_UI[lang].andOthers(nama, orang.length);
   return (
     // namaTampil: di bawah judul dengan nama di semua lebar layar (tabel
     // Susunan acara tata letak Forum tidak punya kolom kanan untuk foto).

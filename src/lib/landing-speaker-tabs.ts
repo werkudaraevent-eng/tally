@@ -76,7 +76,15 @@ export function barisJeda(judulRundown: string, jumlahPembicara: number): boolea
   return jumlahPembicara === 0 && JEDA.test(judulRundown);
 }
 
-export function speakerTabs(all: LandingSpeaker[], agenda: AgendaPreview[] = []): SpeakerTab[] {
+/**
+ * Label tab dalam bahasa halaman. `sesi` memetakan kunci sesi Indonesia (huruf
+ * kecil) ke labelnya; kuncinya sendiri tetap dipakai untuk mencocokkan rundown.
+ */
+export type SpeakerTabLabels = { highlights: string; others: string; sesi?: ReadonlyMap<string, string> };
+
+const LABEL_BAWAAN: SpeakerTabLabels = { highlights: "Sorotan", others: "Pembicara lain" };
+
+export function speakerTabs(all: LandingSpeaker[], agenda: AgendaPreview[] = [], labels: SpeakerTabLabels = LABEL_BAWAAN): SpeakerTab[] {
   const speakers = all.filter((speaker) => speaker.name?.trim());
   if (speakers.length === 0) return [];
 
@@ -94,20 +102,20 @@ export function speakerTabs(all: LandingSpeaker[], agenda: AgendaPreview[] = [])
     return selisih !== 0 ? selisih : (kemunculan.get(a) ?? 0) - (kemunculan.get(b) ?? 0);
   });
 
-  const tabs: SpeakerTab[] = [{ key: "sorotan", label: "Sorotan", note: null, speakers: sorotan }];
+  const tabs: SpeakerTab[] = [{ key: "sorotan", label: labels.highlights, note: null, speakers: sorotan }];
   for (const label of sesi) {
     const item = cariSesi(label, agenda);
     const jam = item ? (item.end && item.end !== item.time ? `${item.time}–${item.end}` : item.time) : null;
     const judul = item ? item.title.replace(/^[^.:]+[.:]\s*/, "").trim() : null;
     tabs.push({
       key: `sesi-${normal(label)}`,
-      label,
+      label: labels.sesi?.get(label.toLowerCase()) ?? label,
       note: item ? [jam, judul && judul !== item.title ? judul : item.title].filter(Boolean).join(" · ") : null,
       speakers: speakers.filter((speaker) => normal(speaker.session ?? "") === normal(label)),
     });
   }
   const lainnya = speakers.filter((speaker) => !speaker.session?.trim() && !sorotan.includes(speaker));
-  if (lainnya.length > 0) tabs.push({ key: "lainnya", label: "Pembicara lain", note: null, speakers: lainnya });
+  if (lainnya.length > 0) tabs.push({ key: "lainnya", label: labels.others, note: null, speakers: lainnya });
   return tabs;
 }
 

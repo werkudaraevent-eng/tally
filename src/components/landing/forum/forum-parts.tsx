@@ -1,6 +1,7 @@
 import { CaretDown, Plus } from "@phosphor-icons/react/dist/ssr";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import type { LandingSpeaker } from "@/lib/domain";
+import type { LandingLang } from "@/lib/landing-i18n";
 import { barisJeda, pembicaraSesi, type SpeakerTab } from "@/lib/landing-speaker-tabs";
 import { DeretPembicara } from "@/components/landing/modern/agenda-pills";
 import { SpeakerTabs } from "@/components/landing/modern/speaker-tabs";
@@ -58,6 +59,7 @@ export function PanelSusunan({
   terbuka,
   speakers,
   catatan,
+  lang,
 }: {
   agenda: AgendaPreview[];
   zona: string;
@@ -65,6 +67,7 @@ export function PanelSusunan({
   terbuka: boolean;
   speakers: LandingSpeaker[];
   catatan: string | null;
+  lang: LandingLang;
 }) {
   return (
     <div
@@ -111,7 +114,7 @@ export function PanelSusunan({
                           {jam ? <span className={`mb-1 block tabular-nums sm:hidden ${warnaJam}`}>{jam}</span> : null}
                           <span className={`block ${jeda ? `font-normal ${redup}` : "font-semibold"}`}>{item.title}</span>
                           {item.subtitle ? <span className={`mt-1 block whitespace-pre-line text-[0.85em] font-normal ${redup}`}>{item.subtitle}</span> : null}
-                          {orang.length > 0 ? <DeretPembicara orang={orang} namaTampil /> : null}
+                          {orang.length > 0 ? <DeretPembicara orang={orang} lang={lang} namaTampil /> : null}
                         </td>
                       </tr>
                     );
@@ -163,13 +166,10 @@ export function KartuFoto({ gambar, judul, teks, sisaInisial }: { gambar: string
  * hanya judul bagian (gaya Forum, rata tengah) dan label tab bawaan.
  */
 export function BagianPembicara({ tabs, label }: { tabs: SpeakerTab[]; label: ForumLabels }) {
-  const tabBerlabel = tabs.map((tab) =>
-    tab.key === "sorotan" ? { ...tab, label: label.sorotanPembicara } : tab.key === "lainnya" ? { ...tab, label: label.pembicaraLain } : tab,
-  );
   return (
     <section id="pembicara" data-bagian="speakers" className={`${WADAH} scroll-mt-28 sm:[&_[role=tablist]]:justify-center`}>
       <SpeakerTabs
-        tabs={tabBerlabel}
+        tabs={tabs}
         eyebrow={null}
         heading={label.pembicara}
         eyebrowClassName=""

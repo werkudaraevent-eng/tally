@@ -8,6 +8,7 @@ import {
   type LandingBlockItem,
   type LandingBlockTone,
 } from "@/lib/domain";
+import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { HEAD, JUDUL, MUTED, PIL, SHELL } from "./styles";
 
 /**
@@ -122,7 +123,7 @@ function TombolKepala({ block }: { block: LandingBlock }) {
   if (!url) return null;
   return (
     <Taut href={url} className={`${TOMBOL_GARIS} shrink-0 self-start lg:self-auto`}>
-      {block.link_label?.trim() || "Selengkapnya"}
+      {block.link_label?.trim()}
       <IkonTaut href={url} />
     </Taut>
   );
@@ -189,13 +190,13 @@ function TeksGambar({ block }: { block: LandingBlock }) {
             <div className="flex flex-wrap gap-3 pt-3">
               {url1 ? (
                 <Taut href={url1} className={TOMBOL}>
-                  {block.link_label?.trim() || "Selengkapnya"}
+                  {block.link_label?.trim()}
                   <IkonTaut href={url1} />
                 </Taut>
               ) : null}
               {url2 ? (
                 <Taut href={url2} className={TOMBOL_GARIS}>
-                  {block.link2_label?.trim() || "Selengkapnya"}
+                  {block.link2_label?.trim()}
                   <IkonTaut href={url2} />
                 </Taut>
               ) : null}
@@ -526,7 +527,8 @@ function Logo({ block }: { block: LandingBlock }) {
 
 // ---- Unduhan dan ajakan ----------------------------------------------------------
 
-function Unduhan({ block }: { block: LandingBlock }) {
+function Unduhan({ block, lang }: { block: LandingBlock; lang: LandingLang }) {
+  const t = LANDING_UI[lang];
   const url = block.link_url?.trim() ?? "";
   return (
     <Wadah block={block} className="py-12 sm:py-16">
@@ -536,7 +538,7 @@ function Unduhan({ block }: { block: LandingBlock }) {
           <h2 className={JUDUL}>{block.heading?.trim()}</h2>
           {block.body?.trim() ? <p className={ISI}>{block.body.trim()}</p> : null}
           <Taut href={url} className={`${TOMBOL} mt-3 self-start`}>
-            {block.link_label?.trim() || "Unduh materi"}
+            {block.link_label?.trim() || t.downloadMaterial}
             <DownloadSimple size={18} aria-hidden />
           </Taut>
         </div>
@@ -549,7 +551,7 @@ function Unduhan({ block }: { block: LandingBlock }) {
             <Gambar src={block.image_url} alt="" className="relative aspect-[3/4] w-full rounded-md shadow-[0_12px_32px_rgb(13_20_51/0.18)]" />
           ) : (
             <div className="relative flex aspect-[3/4] w-full flex-col gap-2.5 rounded-md bg-white p-6 text-[#12161f] shadow-[0_12px_32px_rgb(13_20_51/0.18)]">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#5b6476]">{block.eyebrow?.trim() || "Dokumen"}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#5b6476]">{block.eyebrow?.trim() || t.document}</p>
               <p className={`${HEAD} text-[20px] font-semibold leading-[1.15] tracking-[-0.01em]`}>{block.heading?.trim()}</p>
               <span className="mt-2 flex flex-col gap-1.5">
                 {["w-full", "w-11/12", "w-4/5", "w-full", "w-2/3"].map((lebar, index) => (
@@ -626,19 +628,37 @@ function tanpaJangkarMati(block: LandingBlock, jangkar: ReadonlySet<string> | un
   };
 }
 
+/**
+ * Tombol bertautan tanpa label memakai label bawaan dalam bahasa halaman
+ * ("Selengkapnya" / "Learn more"). Unduhan dan Pita ajakan punya bawaannya
+ * sendiri, jadi tidak diisi di sini.
+ */
+function denganLabelBawaan(block: LandingBlock, lang: LandingLang): LandingBlock {
+  if (block.type === "download" || block.type === "cta") return block;
+  const bawaan = LANDING_UI[lang].readMore;
+  return {
+    ...block,
+    link_label: block.link_label?.trim() || bawaan,
+    link2_label: block.link2_label?.trim() || bawaan,
+  };
+}
+
 export function LandingBlockView({
   block: asli,
   daftarUrl,
   daftarLabel,
   jangkar,
+  lang = "id",
 }: {
   block: LandingBlock;
   daftarUrl: string | null;
   daftarLabel: string;
   jangkar?: ReadonlySet<string>;
+  /** Bahasa halaman, untuk label tombol bawaan. Teks blok sudah dalam bahasa ini (resolveLanding). */
+  lang?: LandingLang;
 }) {
   if (!landingBlockHasContent(asli)) return null;
-  const block = tanpaJangkarMati(asli, jangkar);
+  const block = denganLabelBawaan(tanpaJangkarMati(asli, jangkar), lang);
   switch (block.type) {
     case "text_image": return <TeksGambar block={block} />;
     case "cards": return <KartuBergambar block={block} />;
@@ -647,7 +667,7 @@ export function LandingBlockView({
     case "stats": return <Angka block={block} />;
     case "quote": return <Kutipan block={block} />;
     case "logos": return <Logo block={block} />;
-    case "download": return <Unduhan block={block} />;
+    case "download": return <Unduhan block={block} lang={lang} />;
     case "cta": return <Ajakan block={block} daftarUrl={daftarUrl} daftarLabel={daftarLabel} />;
   }
 }
