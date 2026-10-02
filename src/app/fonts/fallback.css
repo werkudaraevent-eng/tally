@@ -64,3 +64,12 @@
 	line-gap-override: 0.0%;
 	size-adjust: 134.59%;
 }
+
+@font-face {
+	font-family: "ubuntu Fallback";
+	src: local(Arial);
+	ascent-override: 91.32%;
+	descent-override: 18.52%;
+	line-gap-override: 2.74%;
+	size-adjust: 102.06%;
+}

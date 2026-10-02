@@ -18,5 +18,9 @@ export default async function PratinjauPage({ searchParams }: { searchParams: Pr
   if (!event) notFound();
   const auth = await requireEventScope(event.slug, ["admin"]);
   if (auth.response) notFound();
-  return <PratinjauLangsung slug={event.slug}>{renderLanding(event, "id")}</PratinjauLangsung>;
+  const params = await searchParams;
+  const halaman = params.halaman === "program" || params.halaman === "info" ? params.halaman : "beranda";
+  // Halaman dalam hanya ada di tata letak Forum; tata letak lain jatuh ke Beranda.
+  const isi = renderLanding(event, "id", { halaman, pratinjau: true }) ?? renderLanding(event, "id", { pratinjau: true });
+  return <PratinjauLangsung slug={event.slug} halaman={halaman}>{isi}</PratinjauLangsung>;
 }

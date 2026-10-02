@@ -88,6 +88,17 @@ function hariPendek(judulBagian: string | null): string {
   return [hari, tanggal].filter(Boolean).join(" ");
 }
 
+const JEDA = /\b(registrasi|daftar ulang|makan siang|makan pagi|ishoma|istirahat|rehat|coffee break|rehat kopi|penutupan|registration|lunch|break|closing)\b/i;
+
+/**
+ * Baris jeda rundown (registrasi, makan siang, penutupan): ditulis tenang di
+ * Susunan acara supaya sesi inti menonjol. Dikenali dari kata kuncinya dan
+ * tanpa pembicara, bukan dari keterangan yang kosong.
+ */
+export function barisJeda(judulRundown: string, jumlahPembicara: number): boolean {
+  return jumlahPembicara === 0 && JEDA.test(judulRundown);
+}
+
 /**
  * Pembicara satu baris rundown, untuk deret foto di baris itu. Aturannya sama
  * dengan tab Pembicara (barisPembicara), jadi kedua bagian selalu sepakat.

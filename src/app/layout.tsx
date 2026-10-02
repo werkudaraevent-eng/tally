@@ -8,7 +8,8 @@ import { THEME_INIT_SCRIPT } from "@/lib/m3/theme";
 
 // Huruf: Inter untuk antarmuka (--font-sans), lima huruf judul layar publik
 // yang dipilih admin lewat CMS (--font-geometric, --font-condensed,
-// --font-grotesk, --font-serif, --font-source) dan Geist Mono (--font-mono).
+// --font-grotesk, --font-serif, --font-source), Ubuntu untuk tata letak Forum
+// (--font-ubuntu) dan Geist Mono (--font-mono).
 // Semuanya disimpan di repo dan dimuat lewat next/font/local di ./fonts.ts,
 // jadi tidak ada permintaan ke server luar, baik saat build maupun saat acara.
 //
