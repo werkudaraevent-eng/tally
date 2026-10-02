@@ -21,7 +21,7 @@ import { timeZoneAbbr } from "@/lib/timezone";
 import { AgendaPills } from "./modern/agenda-pills";
 import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
-import { HEAD, JUDUL, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
+import { HEAD, JUDUL, JUDUL_BUTIR, LEBAR_BACA, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
 import { LandingBlockView } from "./modern/landing-blocks";
 
 /**
@@ -410,7 +410,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 <div className="flex flex-col gap-6">
                   <h2 className={JUDUL}>{config.about_heading?.trim() || LANDING_SECTION_LABELS.about}</h2>
                   {/* whitespace-pre-line: paragraf dipisah enter di CMS. */}
-                  <p className={`whitespace-pre-line text-isi ${MUTED}`}>{event.description}</p>
+                  <p className={`${LEBAR_BACA} whitespace-pre-line text-isi ${MUTED}`}>{event.description}</p>
                 </div>
                 {tampil("agenda") ? (
                   <a href="#agenda" className={PIL_PENUH} style={STATE_ON_PRIMARY}>
@@ -552,12 +552,12 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               <div className="flex flex-col gap-3">
                 {(config.faq ?? []).map((item, index) => (
                   <details key={item.q} open={index === 0} className="faq group rounded-md bg-[var(--reg-panel)]">
-                    <summary className="m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-md px-5 py-5 text-title-medium font-semibold sm:px-7 sm:py-6 sm:text-[18px] sm:leading-[26px] [&::-webkit-details-marker]:hidden">
+                    <summary className={`m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-md px-5 py-5 sm:px-7 sm:py-6 ${JUDUL_BUTIR} [&::-webkit-details-marker]:hidden`}>
                       {item.q}
                       <Plus size={22} aria-hidden className={`shrink-0 group-open:hidden ${MUTED}`} />
                       <Minus size={22} aria-hidden className={`hidden shrink-0 group-open:block ${MUTED}`} />
                     </summary>
-                    <p className={`whitespace-pre-line px-5 pb-6 text-isi sm:px-7 ${MUTED}`}>{item.a}</p>
+                    <p className={`max-w-[38.5rem] whitespace-pre-line px-5 pb-6 text-isi sm:px-7 ${MUTED}`}>{item.a}</p>
                   </details>
                 ))}
               </div>

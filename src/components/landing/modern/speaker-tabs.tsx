@@ -3,6 +3,7 @@
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import type { LandingSpeaker } from "@/lib/domain";
 import type { SpeakerTab } from "@/lib/landing-speaker-tabs";
+import { JUDUL_BUTIR } from "./styles";
 
 /**
  * Bagian Pembicara tata letak Modern: tab sesi di atas kisi kartu.
@@ -51,7 +52,7 @@ function Kartu({ speaker }: { speaker: LandingSpeaker }) {
         )}
       </div>
       <div className="flex min-w-0 flex-col gap-1">
-        <p className="text-title-medium font-semibold sm:text-[18px] sm:leading-[26px]">{speaker.name}</p>
+        <p className={JUDUL_BUTIR}>{speaker.name}</p>
         {keterangan ? <p className="text-body-medium text-[var(--reg-on-surface-variant)]">{keterangan}</p> : null}
         {speaker.company?.trim() ? (
           // Warna teks, bukan warna utama: teks biru tebal terbaca sebagai tautan.

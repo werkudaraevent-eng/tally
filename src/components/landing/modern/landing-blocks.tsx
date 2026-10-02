@@ -64,8 +64,8 @@ const NADA: Record<LandingBlockTone, CSSProperties> = {
 const TOMBOL = `${PIL} bg-[var(--blok-tombol)] font-semibold text-[var(--blok-tombol-ink)]`;
 const TOMBOL_GARIS = `${PIL} border border-[color-mix(in_srgb,currentColor_35%,transparent)] font-semibold`;
 const ALIS = "text-title-small font-semibold text-[var(--blok-aksen)]";
-/** Paragraf: 17px, tinggi baris 1.6. Lebar kolom pemakainya menjaga 60 sampai 75 karakter per baris. */
-const ISI = `text-isi ${MUTED}`;
+/** Paragraf: 16/24, paling lebar 35rem (60-75 karakter per baris). */
+const ISI = `text-isi max-w-[35rem] ${MUTED}`;
 /** Teks panjang dari admin (tautan, nama berkas) boleh patah di mana saja, bukan menggeser halaman. */
 const PATAH = "[overflow-wrap:anywhere]";
 
@@ -139,7 +139,7 @@ function Kepala({ block, aksi }: { block: LandingBlock; aksi?: ReactNode }) {
         {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
         {block.heading?.trim() ? <h2 className={JUDUL}>{block.heading.trim()}</h2> : null}
       </div>
-      {pengantar ? <p className={`max-w-[440px] ${ISI}`}>{pengantar}</p> : null}
+      {pengantar ? <p className={`max-w-[440px] text-isi ${MUTED}`}>{pengantar}</p> : null}
       {aksi}
     </div>
   );

@@ -2135,11 +2135,11 @@ html:hover {
 }
 
 /* ---- Halaman acara publik: teks paragraf ---------------------------------
- * Satu ukuran untuk semua paragraf isi (Tentang, catatan bagian, alamat,
- * jawaban FAQ): 15/24. body-large M3 (16) dibuat untuk Roboto; Inter dengan
- * x-height tinggi terbaca lebih besar, dan paragraf panjang di 16/25,6 terasa
- * berat. Bukan pengganti body-large global supaya admin tidak ikut berubah. */
+ * Satu gaya untuk semua paragraf isi (Tentang, catatan bagian, alamat,
+ * jawaban FAQ): 16/24, body-large M3 tanpa jarak huruf. Paragraf terasa besar
+ * karena barisnya terlalu panjang, bukan karena ukurannya; lebar baris dijaga
+ * 60-75 karakter oleh pemakainya (max-w 35rem). */
 @utility text-isi {
-	font-size: 0.9375rem;
+	font-size: 1rem;
 	line-height: 1.5rem;
 }
