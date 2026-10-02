@@ -1,5 +1,7 @@
 "use client";
 
+import { DAFTAR_UI } from "@/lib/daftar-i18n";
+import type { LandingLang } from "@/lib/landing-i18n";
 import { DownloadSimple, ShareNetwork } from "@phosphor-icons/react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
@@ -41,6 +43,8 @@ type Props = {
    * bingkai dan warnanya mengikuti induk; QR tetap di atas putih.
    */
   inverse?: boolean;
+  /** Bahasa teks bawaan kartu dan gambarnya. */
+  lang?: LandingLang;
 };
 
 const MUTED = "text-[var(--reg-on-surface-variant)]";
@@ -64,7 +68,8 @@ function bacaBisaBagikan() {
   return cacheBagikan;
 }
 
-export function RegistrationCodeCard({ code, eventName, personName, schedule, inverse = false }: Props) {
+export function RegistrationCodeCard({ code, eventName, personName, schedule, inverse = false, lang = "id" }: Props) {
+  const t = DAFTAR_UI[lang].code;
   const [qr, setQr] = useState<string | null>(null);
   const [sibuk, setSibuk] = useState(false);
   const [galat, setGalat] = useState("");
@@ -100,11 +105,11 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
     setSibuk(true);
     setGalat("");
     try {
-      const blob = await gambarKartu({ qr, code, eventName, personName, schedule });
+      const blob = await gambarKartu({ qr, code, eventName, personName, schedule, catatan: t.showAtDesk });
       const file = new File([blob], `kode-${code}.png`, { type: "image/png" });
 
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `Kode peserta ${eventName}` });
+        await navigator.share({ files: [file], title: `${t.participantCode} ${eventName}` });
         return;
       }
 
@@ -120,7 +125,7 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
       // Pembatalan oleh pengguna (menutup lembar berbagi) BUKAN galat, dan
       // menampilkannya sebagai galat membuat orang mengira kodenya hilang.
       if ((error as Error)?.name === "AbortError") return;
-      setGalat("Gambar gagal dibuat. Potret layar ini sebagai gantinya.");
+      setGalat(t.imageFailed);
     } finally {
       setSibuk(false);
     }
@@ -131,7 +136,7 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
       ref={kartu}
       className={inverse ? "" : "mt-7 rounded-[20px] border border-[var(--reg-outline-variant)] bg-[var(--reg-field)] p-6"}
     >
-      <p className={inverse ? "text-center text-label-large opacity-85" : `text-label-medium uppercase tracking-[0.16em] ${MUTED}`}>Kode peserta</p>
+      <p className={inverse ? "text-center text-label-large opacity-85" : `text-label-medium uppercase tracking-[0.16em] ${MUTED}`}>{t.participantCode}</p>
 
       {/* Ruang QR disediakan SEJAK AWAL, sebelum gambarnya jadi. QR digambar di
           peramban beberapa ratus milidetik setelah kartu tampil; tanpa kotak
@@ -147,7 +152,7 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={qr}
-            alt={`Kode QR peserta ${code}`}
+            alt={t.qrAlt(code)}
             className="rise-in-fast relative size-48 rounded-2xl bg-white p-3"
             width={192}
             height={192}
@@ -171,7 +176,7 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
         }`}
       >
         {bisaBagikan ? <ShareNetwork size={18} weight="fill" /> : <DownloadSimple size={18} weight="fill" />}
-        {sibuk ? "Menyiapkan…" : bisaBagikan ? "Simpan atau bagikan kode" : "Unduh kode"}
+        {sibuk ? t.preparing : bisaBagikan ? t.saveOrShare : t.download}
       </button>
 
       {galat ? (
@@ -198,7 +203,9 @@ async function gambarKartu({
   eventName,
   personName,
   schedule,
+  catatan,
 }: {
+  catatan: string;
   qr: string;
   code: string;
   eventName: string;
@@ -241,7 +248,7 @@ async function gambarKartu({
 
   ctx.fillStyle = "#777777";
   ctx.font = "400 30px system-ui, sans-serif";
-  ctx.fillText("Tunjukkan kode ini di meja registrasi", W / 2, 1200);
+  ctx.fillText(catatan, W / 2, 1200);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("blob-failed"))), "image/png");

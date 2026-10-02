@@ -6,6 +6,9 @@ import Link from "next/link";
 import { useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
 import type { RegistrationField } from "@/lib/domain";
 import { REG_CONTROL, REG_LABEL, RegistrationFieldInput } from "@/components/registration-field-input";
+import { DAFTAR_UI } from "@/lib/daftar-i18n";
+import { HtmlLang } from "@/components/html-lang";
+import { LANDING_LANG_LABELS, type LandingLang } from "@/lib/landing-i18n";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { Spinner } from "@/components/search-loading";
 import { eventApiPath } from "@/lib/event-url";
@@ -54,6 +57,10 @@ const TUKAR = {
  */
 
 type Props = {
+  /** Bahasa formulir, mengikuti alamatnya (lihat src/lib/daftar-i18n.ts). */
+  lang: LandingLang;
+  /** Halaman acara dalam bahasa yang sama. */
+  halamanUrl: string;
   eventName: string;
   eventSlug: string;
   /** "Senin, 17 Agustus 2026 · 09.00–17.00 WITA". Sumbernya sama dengan halaman acara. */
@@ -118,6 +125,7 @@ const HEAD = "[font-family:var(--landing-heading)]";
 const LEBAR_PENUH = new Set<RegistrationField["type"]>(["textarea", "checkbox", "radio", "file"]);
 
 export default function DaftarClient(props: Props) {
+  const t = DAFTAR_UI[props.lang];
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [hasil, setHasil] = useState<Hasil | null>(null);
@@ -171,12 +179,14 @@ export default function DaftarClient(props: Props) {
       // TIDAK menyuruh "periksa email": pengiriman email bisa saja belum
       // diaktifkan di server, dan menyuruh menunggu sesuatu yang tidak akan
       // datang membuat pendaftar berdiri di meja registrasi tanpa kode.
-      setError("Koneksi terputus. Pendaftaran Anda mungkin sudah tersimpan. Jangan mengisi ulang. Hubungi panitia untuk memastikan.");
+      setError(t.connectionLost);
       return;
     }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setError(body.error?.details?.message ?? body.error?.message ?? "Pendaftaran gagal. Coba lagi.");
+      // Pesan server berbahasa Indonesia. Halaman English memakai kodenya.
+      const kode = response.status === 429 ? "RATE_LIMITED" : body.error?.code;
+      setError(props.lang === "id" ? (body.error?.details?.message ?? body.error?.message ?? t.failed) : (t.errors[kode as keyof typeof t.errors] ?? t.failed));
       return;
     }
     setNama(String(form.get("name") ?? "").trim());
@@ -199,36 +209,36 @@ export default function DaftarClient(props: Props) {
     <>
       {/* `mt-6` pertama dari REG_LABEL dibatalkan di formulir lama: kolom
           pertama menempel di tepi atas kartu. Di v2 ada kepala kartu di atasnya. */}
-      <label className={`${REG_LABEL} ${m ? "" : "!mt-0"}`}>Nama lengkap
+      <label className={`${REG_LABEL} ${m ? "" : "!mt-0"}`}>{t.fullName}
         <input required minLength={2} maxLength={120} name="name" autoComplete="name" className={`${REG_CONTROL} font-normal`} />
       </label>
 
-      <label className={REG_LABEL}>Email {!props.requireEmail && <span className={OPSIONAL}>(opsional)</span>}
+      <label className={REG_LABEL}>{`${t.email} `}{!props.requireEmail && <span className={OPSIONAL}>{t.optional}</span>}
         <input required={props.requireEmail} type="email" maxLength={160} name="email" autoComplete="email" inputMode="email" className={`${REG_CONTROL} font-normal`} />
         <span className={`mt-2 block text-body-medium font-normal leading-6 ${MUTED}`}>
           {props.requireEmail
-            ? "Dipakai panitia untuk menghubungi Anda. Satu email hanya bisa mendaftar sekali."
-            : "Dikosongkan berarti kode peserta TIDAK dikirim ke mana pun. Potret layar setelah mendaftar."}
+            ? t.emailHelpRequired
+            : t.emailHelpOptional}
         </span>
       </label>
 
-      <label className={REG_LABEL}>Nomor telepon {!props.requirePhone && <span className={OPSIONAL}>(opsional)</span>}
+      <label className={REG_LABEL}>{`${t.phone} `}{!props.requirePhone && <span className={OPSIONAL}>{t.optional}</span>}
         <input required={props.requirePhone} type="tel" minLength={6} maxLength={30} name="phone" autoComplete="tel" inputMode="tel" className={`${REG_CONTROL} font-normal`} />
       </label>
 
-      <label className={REG_LABEL}>Perusahaan {!props.requireCompany && <span className={OPSIONAL}>(opsional)</span>}
+      <label className={REG_LABEL}>{`${t.company} `}{!props.requireCompany && <span className={OPSIONAL}>{t.optional}</span>}
         <input required={props.requireCompany} maxLength={160} name="company" autoComplete="organization" className={`${REG_CONTROL} font-normal`} />
       </label>
 
-      <label className={REG_LABEL}>Jabatan {!props.requireJobTitle && <span className={OPSIONAL}>(opsional)</span>}
+      <label className={REG_LABEL}>{`${t.jobTitle} `}{!props.requireJobTitle && <span className={OPSIONAL}>{t.optional}</span>}
         <input required={props.requireJobTitle} maxLength={160} name="job_title" autoComplete="organization-title" className={`${REG_CONTROL} font-normal`} />
       </label>
 
       {props.fields.map((field) => m ? (
         <div key={field.key} className={LEBAR_PENUH.has(field.type) ? "sm:col-span-2" : undefined}>
-          <RegistrationFieldInput field={field} />
+          <RegistrationFieldInput field={field} lang={props.lang} />
         </div>
-      ) : <RegistrationFieldInput key={field.key} field={field} />)}
+      ) : <RegistrationFieldInput key={field.key} field={field} lang={props.lang} />)}
     </>
   );
 
@@ -247,8 +257,8 @@ export default function DaftarClient(props: Props) {
   // ditolak sebagai email duplikat — dan mengira pendaftarannya gagal.
   const pengingat = kodeTersimpan ? (
     <p className={`mb-6 bg-[var(--reg-primary-container)] p-4 text-body-medium leading-6 text-[var(--reg-on-primary-container)] ${m ? "rounded-lg" : "rounded-[20px]"}`}>
-      Perangkat ini pernah dipakai mendaftar di acara ini.{" "}
-      <a href={kodeTersimpan} className="font-semibold underline">Buka kode pendaftarannya</a>.
+      {t.deviceUsed}{" "}
+      <a href={kodeTersimpan} className="font-semibold underline">{t.openCode}</a>.
     </p>
   ) : null;
 
@@ -262,8 +272,8 @@ export default function DaftarClient(props: Props) {
       className={`m3-state inline-flex items-center justify-center gap-2 bg-[var(--reg-primary)] px-8 font-semibold text-[var(--reg-on-primary)] transition-[scale] duration-150 ease-standard active:scale-[0.98] disabled:opacity-50 ${bentuk}`}
       style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
     >
-      Daftar sekarang
-      {pending ? <Spinner size={20} label="Mengirim" /> : m ? null : <ArrowRight size={20} weight="bold" />}
+      {t.registerNow}
+      {pending ? <Spinner size={20} label={t.sending} /> : m ? null : <ArrowRight size={20} weight="bold" />}
     </button>
   );
 
@@ -274,19 +284,19 @@ export default function DaftarClient(props: Props) {
   // mati semuanya sampai ke sini sebagai false.
   const lewatEmail = disetujui && hasil?.email_sent === true;
 
-  const judulSukses = disetujui ? "Pendaftaran berhasil" : "Pendaftaran diterima";
+  const judulSukses = disetujui ? t.successApproved : t.successPending;
   // Email disebut HANYA bila benar-benar terkirim. Menjanjikannya lebih dulu
   // membuat pendaftar menutup halaman ini tanpa menyimpan kodenya, lalu
   // menunggu email yang tidak akan pernah datang -- dan baru sadar di meja
   // registrasi, saat antrean sudah panjang.
   const pesanSukses = props.successText ?? (disetujui
-    ? "Simpan kode peserta Anda. Tunjukkan kode itu di meja registrasi saat hari acara."
-    : "Panitia akan memeriksa pendaftaran Anda, lalu menghubungi Anda lewat kontak yang diisi di atas.");
+    ? t.messageApproved
+    : t.messagePending);
   const catatanEmail = disetujui ? (
     <p className={`mt-5 text-body-medium leading-6 ${lewatEmail ? MUTED : "font-semibold text-[var(--reg-error)]"}`}>
       {lewatEmail
-        ? "Kode ini juga sudah dikirim ke email Anda, lengkap dengan QR-nya. Email bisa masuk folder spam, jadi simpan juga gambarnya."
-        : "Kode tidak dikirim lewat email. Simpan gambarnya sekarang, atau simpan tautan di bawah."}
+        ? t.emailSent
+        : t.emailNotSent}
     </p>
   ) : null;
   // Tautan permanen. Ini yang menghapus kalimat "halaman ini tidak bisa
@@ -295,7 +305,7 @@ export default function DaftarClient(props: Props) {
   // apakah kodenya sudah terbit.
   const tautanKode = hasil?.code_url ? (
     <div className={`mt-6 border border-dashed border-[var(--reg-outline)] p-5 text-left ${m ? "rounded-lg bg-[var(--reg-field)]" : "rounded-[20px]"}`}>
-      <p className={m ? "text-label-large font-semibold" : `text-label-medium uppercase tracking-[0.16em] ${MUTED}`}>Tautan pendaftaran Anda</p>
+      <p className={m ? "text-label-large font-semibold" : `text-label-medium uppercase tracking-[0.16em] ${MUTED}`}>{t.yourLink}</p>
       <a
         href={hasil.code_url}
         className="mt-2 block break-all text-body-medium font-semibold text-[var(--reg-primary)] underline"
@@ -303,8 +313,8 @@ export default function DaftarClient(props: Props) {
         {typeof window === "undefined" ? hasil.code_url : `${window.location.origin}${hasil.code_url}`}
       </a>
       <p className={`mt-2 text-body-medium leading-6 ${MUTED}`}>
-        Simpan atau kirim ke diri sendiri lewat WhatsApp. Alamat ini bisa dibuka kapan saja.
-        {disetujui ? "" : " Kode peserta muncul di sana begitu pendaftaran Anda disetujui."}
+        {t.linkHelp}
+        {disetujui ? "" : t.linkHelpPending}
       </p>
     </div>
   ) : null;
@@ -358,6 +368,7 @@ export default function DaftarClient(props: Props) {
                     eventName={props.eventName}
                     personName={nama}
                     schedule={props.schedule}
+                    lang={props.lang}
                   />
                   <p className="mt-4 text-center text-body-medium opacity-85">
                     {[nama, props.eventName].filter(Boolean).join(" · ")}
@@ -375,14 +386,14 @@ export default function DaftarClient(props: Props) {
                       className="m3-state inline-flex min-h-12 items-center rounded-md bg-[var(--reg-primary)] px-5 text-label-large font-semibold text-[var(--reg-on-primary)]"
                       style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
                     >
-                      Masuk area peserta
+                      {t.signInMemberArea}
                     </Link>
                   ) : null}
                   <Link
-                    href={`/e/${props.eventSlug}`}
+                    href={props.halamanUrl}
                     className="m3-state inline-flex min-h-12 items-center rounded-md border border-[var(--reg-on-surface)] px-5 text-label-large font-semibold"
                   >
-                    Kembali ke halaman acara
+                    {t.backToEvent}
                   </Link>
                 </div>
               </div>
@@ -391,14 +402,14 @@ export default function DaftarClient(props: Props) {
             <motion.div key="formulir" {...TUKAR}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-title-large font-medium">Data diri</h2>
-                  <p className={`mt-1 text-body-medium ${MUTED}`}>Kolom bertanda (opsional) boleh dikosongkan.</p>
+                  <h2 className="text-title-large font-medium">{t.personalData}</h2>
+                  <p className={`mt-1 text-body-medium ${MUTED}`}>{t.optionalNote}</p>
                 </div>
                 {m.masukUrl ? (
                   <p className={`text-body-large ${MUTED}`}>
-                    Sudah terdaftar?{" "}
-                    <Link href={m.masukUrl} className="font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline">
-                      Masuk area peserta
+                    {t.alreadyRegistered}{" "}
+                    <Link href={m.masukUrl} className="whitespace-nowrap font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline">
+                      {t.signInMemberArea}
                     </Link>
                   </p>
                 ) : null}
@@ -411,7 +422,7 @@ export default function DaftarClient(props: Props) {
                 <div className="mt-8 flex flex-col gap-4 border-t border-[var(--reg-outline-variant)] pt-7 sm:flex-row sm:items-center sm:gap-6">
                   {tombolKirim("min-h-[52px] w-full rounded-md text-title-small sm:w-auto sm:min-w-64")}
                   <p className={`text-body-medium ${MUTED}`}>
-                    Dengan mendaftar, Anda setuju data ini dipakai panitia untuk keperluan acara.
+                    {t.consent}
                   </p>
                 </div>
               </form>
@@ -436,6 +447,7 @@ export default function DaftarClient(props: Props) {
               eventName={props.eventName}
               personName={nama}
               schedule={props.schedule}
+              lang={props.lang}
             />
           ) : null}
           {catatanEmail}
@@ -459,15 +471,18 @@ export default function DaftarClient(props: Props) {
 }
 
 function Bingkai({
+  lang,
+  halamanUrl,
   eventName,
-  eventSlug,
   schedule,
   welcomeText,
   theme,
   children,
 }: Props & { children: React.ReactNode }) {
+  const t = DAFTAR_UI[lang];
   return (
     <main
+      lang={LANDING_LANG_LABELS[lang].htmlLang}
       className="min-h-dvh bg-cover bg-center bg-no-repeat"
       style={{
         ...theme,
@@ -482,6 +497,7 @@ function Bingkai({
           "radial-gradient(120% 100% at 82% -10%, color-mix(in srgb, var(--reg-primary) 22%, transparent), transparent 60%), radial-gradient(90% 80% at 0% 0%, color-mix(in srgb, var(--reg-primary) 10%, transparent), transparent 55%)",
       }}
     >
+      <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
       <div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
           {/* Kolom identitas. Menempel saat digulir di layar lebar: formulir ini
@@ -491,15 +507,15 @@ function Bingkai({
           <div className="lg:col-span-5 xl:col-span-4">
             <div className="lg:sticky lg:top-12">
               <Link
-                href={`/e/${eventSlug}`}
+                href={halamanUrl}
                 className={`m3-state -ml-3 inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-label-large font-semibold ${MUTED}`}
               >
                 <ArrowLeft size={18} weight="bold" />
-                Halaman acara
+                {t.eventPage}
               </Link>
 
               <p className="mt-6 text-label-large font-semibold uppercase tracking-[0.18em] text-[var(--reg-primary)]">
-                Pendaftaran peserta
+                {t.registration}
               </p>
               <h1 className="mt-3 text-balance text-display-small font-semibold tracking-[-0.03em]">{eventName}</h1>
 
@@ -536,19 +552,23 @@ function Bingkai({
  * kosong di layar lebar.
  */
 function BingkaiModern({
+  lang,
+  halamanUrl,
   eventName,
-  eventSlug,
   welcomeText,
   theme,
   modern,
   children,
 }: Props & { modern: FormModern; children: React.ReactNode }) {
   const tinta = modern.kv ? "#fff" : "var(--reg-on-brand)";
+  const t = DAFTAR_UI[lang];
   return (
     <main
+      lang={LANDING_LANG_LABELS[lang].htmlLang}
       className="flex min-h-dvh flex-col bg-[var(--reg-surface)] text-[var(--reg-on-surface)]"
       style={{ ...theme, "--landing-heading": modern.headingFont } as CSSProperties}
     >
+      <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
       <header
         className={`relative isolate overflow-hidden ${modern.kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
         style={{ color: tinta, "--m3-state-color": tinta } as CSSProperties}
@@ -566,20 +586,20 @@ function BingkaiModern({
         ) : null}
 
         <nav
-          aria-label="Halaman acara"
+          aria-label={t.navAria}
           className={`${modern.kv ? "bg-black/40 backdrop-blur-[10px]" : "bg-[color-mix(in_srgb,currentColor_8%,transparent)]"}`}
         >
           <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-20">
-            <Link href={`/e/${eventSlug}`} className={`min-w-0 truncate text-title-large font-semibold ${HEAD}`}>
+            <Link href={halamanUrl} className={`min-w-0 truncate text-title-large font-semibold ${HEAD}`}>
               {eventName}
             </Link>
             <div className="flex shrink-0 items-center gap-1 sm:gap-4">
-              <Link href={`/e/${eventSlug}`} className="m3-state hidden min-h-11 items-center rounded-md px-3 text-body-large font-medium sm:inline-flex">
-                Kembali ke halaman acara
+              <Link href={halamanUrl} className="m3-state hidden min-h-11 items-center rounded-md px-3 text-body-large font-medium sm:inline-flex">
+                {t.backToEvent}
               </Link>
               {modern.masukUrl ? (
                 <Link href={modern.masukUrl} className="m3-state inline-flex min-h-11 items-center rounded-md px-3 text-body-large font-medium">
-                  Masuk
+                  {t.signIn}
                 </Link>
               ) : null}
             </div>
@@ -587,11 +607,11 @@ function BingkaiModern({
         </nav>
 
         <div className="mx-auto w-full max-w-[1440px] px-5 pb-10 pt-8 sm:px-8 sm:pb-14 sm:pt-14 lg:px-20 lg:pb-20 lg:pt-20">
-          <Link href={`/e/${eventSlug}`} className="mb-4 inline-flex min-h-11 items-center gap-2 text-label-large font-medium opacity-85 sm:hidden">
+          <Link href={halamanUrl} className="mb-4 inline-flex min-h-11 items-center gap-2 text-label-large font-medium opacity-85 sm:hidden">
             <ArrowLeft size={16} weight="bold" />
-            Halaman acara
+            {t.eventPage}
           </Link>
-          <p className="text-label-large font-semibold uppercase tracking-[0.12em] opacity-85">Pendaftaran peserta</p>
+          <p className="text-label-large font-semibold uppercase tracking-[0.12em] opacity-85">{t.registration}</p>
           <h1 className={`mt-4 max-w-[900px] text-balance text-[34px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[44px] lg:text-[56px] ${HEAD}`}>
             {eventName}
           </h1>
@@ -620,7 +640,7 @@ function BingkaiModern({
       <footer className="bg-[color-mix(in_srgb,var(--reg-primary)_22%,black)] text-white">
         <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-1 px-5 py-6 text-body-medium opacity-75 sm:flex-row sm:justify-between sm:px-8 lg:px-20">
           <span>{eventName}</span>
-          <span>Dikelola dengan Tally</span>
+          <span>{t.managedBy}</span>
         </div>
       </footer>
     </main>
