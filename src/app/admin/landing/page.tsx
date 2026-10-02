@@ -47,7 +47,8 @@ import { BilahAtasEditor } from "@/components/admin/landing-nav-editor";
 import { cx } from "@/lib/m3/cx";
 import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
-import { BagianEn, BlockEditorEn } from "./editor-en";
+import { BagianEn, BlockEditorEn, rundownBelumDiterjemahkan, type BarisRundownEn } from "./editor-en";
+import { formatClock, type RundownItem } from "@/lib/rundown";
 import { landingSessionEn, landingUntranslated } from "@/lib/landing-i18n";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
@@ -240,6 +241,10 @@ export default function LandingCmsPage() {
   const [sorot, setSorot] = useState<{ id: string; n: number } | null>(null);
   // null = belum diketahui (gagal dimuat); lencana hanya muncul bila pasti kosong.
   const [rundownKosong, setRundownKosong] = useState<boolean | null>(null);
+  // Teks English baris Rundown. Disimpan ke tabel rundown, bukan landing_config,
+  // jadi keadaan tersimpannya dicatat terpisah.
+  const [rundownEn, setRundownEn] = useState<BarisRundownEn[]>([]);
+  const [rundownEnTersimpan, setRundownEnTersimpan] = useState<BarisRundownEn[]>([]);
   const [tambahTerbuka, setTambahTerbuka] = useState(false);
   // Baris tersembunyi tetap di tempatnya; penyaring ini hanya menyembunyikannya dari daftar.
   const [tampilTersembunyi, setTampilTersembunyi] = useState(true);
@@ -323,13 +328,36 @@ export default function LandingCmsPage() {
     const rundown = await fetch(eventApiPath("/api/rundown"), { cache: "no-store" }).catch(() => null);
     const isiRundown = rundown?.ok ? await rundown.json().catch(() => null) : null;
     setRundownKosong(isiRundown ? !isiRundown.published : null);
+    // Baris yang sama dengan yang dibaca halaman acara (loadAgendaPreview):
+    // semua baris berjudul, urut bagian lalu urutan baris.
+    const admin = await fetch(eventApiPath("/api/admin/rundown/sections"), { cache: "no-store" }).catch(() => null);
+    const isiAdmin = admin?.ok ? await admin.json().catch(() => null) : null;
+    if (isiAdmin) {
+      const urutBagian = new Map<number, number>((isiAdmin.sections ?? []).map((bagian: { id: number }, index: number) => [bagian.id, index]));
+      const baris: BarisRundownEn[] = ((isiAdmin.items ?? []) as RundownItem[])
+        .filter((item) => item.title?.trim() && urutBagian.has(item.section_id))
+        .sort((a, b) => (urutBagian.get(a.section_id) ?? 0) - (urutBagian.get(b.section_id) ?? 0))
+        .map((item) => ({
+          id: item.id,
+          jam: formatClock(item.start_time).replace(":", "."),
+          title: item.title,
+          subtitle: item.subtitle,
+          title_en: item.title_en ?? "",
+          subtitle_en: item.subtitle_en ?? "",
+        }));
+      setRundownEn(baris);
+      setRundownEnTersimpan(baris);
+    }
   }, []);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
 
   const sections: LandingSection[] = normalizeLandingSections(landing.sections, landing.blocks);
   const cuplikan = facts ? JSON.stringify({ facts, landing, formInherit, formSeed }) : null;
-  const berubah = tersimpan !== null && cuplikan !== tersimpan;
+  const rundownBerubah = rundownEn.filter((baris, index) => baris.title_en !== rundownEnTersimpan[index]?.title_en || baris.subtitle_en !== rundownEnTersimpan[index]?.subtitle_en);
+  const berubah = tersimpan !== null && (cuplikan !== tersimpan || rundownBerubah.length > 0);
+  const ubahRundown = (id: number, patch: Partial<Pick<BarisRundownEn, "title_en" | "subtitle_en">>) =>
+    setRundownEn((current) => current.map((baris) => (baris.id === id ? { ...baris, ...patch } : baris)));
   // Draf untuk pratinjau langsung. Dibuat ulang hanya saat isinya berubah,
   // supaya pratinjau tidak dirender ulang di setiap render CMS.
   const drafPratinjau = useMemo(() => (cuplikan && facts ? isiKirim(facts) : null), [cuplikan]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -513,6 +541,21 @@ export default function LandingCmsPage() {
     }
     const kirim = cuplikan;
     setBusy(true);
+    // Teks English Rundown lebih dulu: bila gagal, isi halaman belum disimpan dan
+    // admin bisa mencoba lagi dengan satu tombol yang sama.
+    for (const baris of rundownBerubah) {
+      const hasil = await fetch(eventApiPath("/api/admin/rundown/items"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: baris.id, title_en: baris.title_en.trim() || null, subtitle_en: baris.subtitle_en.trim() || null }),
+      }).catch(() => null);
+      if (!hasil?.ok) {
+        setBusy(false);
+        toast.error("Gagal disimpan", `Susunan acara, sesi ${baris.jam} (English): ${(hasil && pesanGalatApi(await hasil.json().catch(() => ({})))) ?? "coba lagi."}`);
+        return;
+      }
+      setRundownEnTersimpan((current) => current.map((lama) => (lama.id === baris.id ? baris : lama)));
+    }
     const response = await fetch(eventApiPath("/api/admin/landing"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -544,8 +587,11 @@ export default function LandingCmsPage() {
     description: facts?.description,
     venue_address: facts?.venue_address,
   });
-  const belumDiterjemahkan = kurangEn.length;
+  // Baris Rundown dihitung hanya bila Susunan acara tampil, sama dengan teks lain.
+  const rundownKurangEn = sections.some((section) => section.id === "agenda" && section.enabled) ? rundownBelumDiterjemahkan(rundownEn) : 0;
+  const belumDiterjemahkan = kurangEn.length + rundownKurangEn;
   const barisKurangEn = new Set(kurangEn.map((teks) => teks.section));
+  if (rundownKurangEn > 0) barisKurangEn.add("agenda");
   const modeEn = modern && bahasa === "en";
   // Bawaan huruf judul mengikuti tata letak; harus sama dengan halaman publik.
   const hurufJudul: LandingHeadingFont = landing.heading_font ?? (modern ? "source" : "serif");
@@ -1572,7 +1618,7 @@ export default function LandingCmsPage() {
             judul: LANDING_SECTION_LABELS[id],
             sub: subBawaan(id),
             titik: barisKurangEn.has(id),
-            isi: <BagianEn id={id} landing={landing} facts={facts} setLanding={setLanding} />,
+            isi: <BagianEn id={id} landing={landing} facts={facts} setLanding={setLanding} rundown={rundownEn} ubahRundown={ubahRundown} />,
           });
         })}
         {barisSusunan({ id: "kaki", nomor: sections.length + 2, judul: "Kaki halaman", sub: "Kalimat penyelenggara, banner ajakan", titik: barisKurangEn.has("kaki"), isi: <BagianEn id="kaki" landing={landing} facts={facts} setLanding={setLanding} /> })}

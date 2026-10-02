@@ -180,6 +180,17 @@ export function BlockEditorEn({ block, onChange }: { block: LandingBlock; onChan
 /** Kolom `events` yang versi English-nya disimpan di `landing_config.en`. */
 export type FaktaEn = { tagline: string | null; description: string | null; venue_name: string | null; venue_address: string | null };
 
+/**
+ * Satu baris Rundown yang tampil di Susunan acara, dengan teks English-nya.
+ * Disimpan ke tabel rundown (bukan ke landing_config) saat Simpan.
+ */
+export type BarisRundownEn = { id: number; jam: string; title: string; subtitle: string | null; title_en: string; subtitle_en: string };
+
+/** Baris rundown yang tampil di halaman Indonesia tetapi belum punya teks English. */
+export function rundownBelumDiterjemahkan(baris: BarisRundownEn[]): number {
+  return baris.reduce((jumlah, item) => jumlah + (ada(item.title) && !ada(item.title_en) ? 1 : 0) + (ada(item.subtitle) && !ada(item.subtitle_en) ? 1 : 0), 0);
+}
+
 type KunciEn = Exclude<keyof LandingConfigEn, "program_notes">;
 
 /**
@@ -191,11 +202,16 @@ export function BagianEn({
   landing,
   facts,
   setLanding,
+  rundown = [],
+  ubahRundown,
 }: {
   id: LandingSectionId | "pembuka" | "kaki";
   landing: EventLandingConfig;
   facts: FaktaEn;
   setLanding: (next: EventLandingConfig) => void;
+  /** Baris Rundown untuk bagian Susunan acara. */
+  rundown?: BarisRundownEn[];
+  ubahRundown?: (id: number, patch: Partial<Pick<BarisRundownEn, "title_en" | "subtitle_en">>) => void;
 }) {
   const en = landing.en ?? {};
   const ubahEn = (patch: LandingConfigEn) => setLanding({ ...landing, en: { ...en, ...patch } });
@@ -243,7 +259,16 @@ export function BagianEn({
               />
             ) : null,
           ),
-          <Kosong key="rundown">Judul sesi diambil dari Rundown acara dan diterjemahkan di sana pada tahap berikutnya.</Kosong>,
+          ...(rundown.length === 0
+            ? [<Kosong key="rundown">Rundown acara belum punya sesi.</Kosong>]
+            : rundown.map((baris) => (
+                <Kartu key={`rundown-${baris.id}`} judul={`Sesi ${baris.jam}`}>
+                  <KolomEn label="Judul" sumber={baris.title} value={baris.title_en} onChange={(value) => ubahRundown?.(baris.id, { title_en: value })} max={200} />
+                  {ada(baris.subtitle) ? (
+                    <KolomEn label="Keterangan" sumber={baris.subtitle} value={baris.subtitle_en} onChange={(value) => ubahRundown?.(baris.id, { subtitle_en: value })} max={800} area />
+                  ) : null}
+                </Kartu>
+              ))),
         ];
       }
       case "contact":

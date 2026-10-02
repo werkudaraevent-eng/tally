@@ -45,7 +45,7 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
 
   const { data: items } = await client
     .from("rundown_items")
-    .select("section_id,title,subtitle,start_time,end_time,sort_order")
+    .select("section_id,title,subtitle,title_en,subtitle_en,start_time,end_time,sort_order")
     .in("section_id", daftarSeksi.map((section) => section.id))
     .order("sort_order", { ascending: true });
 
@@ -53,6 +53,8 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
     section_id: number;
     title: string | null;
     subtitle: string | null;
+    title_en: string | null;
+    subtitle_en: string | null;
     start_time: string | null;
     end_time: string | null;
   }>;
@@ -66,8 +68,9 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
         .map((item) => ({
           time: jamTitik(formatClock(item.start_time), bahasa),
           end: item.end_time ? jamTitik(formatClock(item.end_time), bahasa) : null,
-          title: item.title ?? "",
-          subtitle: item.subtitle?.trim() || null,
+          // English jatuh ke teks Indonesia per kolom, sama dengan isi halaman lainnya.
+          title: (bahasa === "en" && item.title_en?.trim()) || item.title || "",
+          subtitle: ((bahasa === "en" && item.subtitle_en?.trim()) || item.subtitle)?.trim() || null,
         }))
         // Baris tanpa judul adalah pemisah visual di layar rundown. Di ringkasan
         // ia hanya menjadi baris kosong yang terbaca sebagai data yang hilang.

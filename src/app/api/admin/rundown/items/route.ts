@@ -62,6 +62,10 @@ const updateSchema = z.object({
   end_time: clock.nullable().optional(),
   title: z.string().trim().min(1).max(200).optional(),
   subtitle: subtitleField,
+  // Teks halaman acara English, diisi dari editor Halaman acara. Kosong = null:
+  // halaman English lalu memakai teks Indonesianya.
+  title_en: z.string().trim().max(200).nullable().optional(),
+  subtitle_en: subtitleField,
   is_break: z.boolean().optional(),
   is_published: z.boolean().optional(),
   sort_order: z.number().int().min(0).max(9999).optional(),
@@ -182,6 +186,8 @@ export async function PATCH(request: Request) {
       // field yang tidak dikirim berarti tidak ada perubahan.
       ...(changes.end_time !== undefined ? { end_time: changes.end_time ? toDbTime(changes.end_time) : null } : {}),
       ...(changes.subtitle !== undefined ? { subtitle: normalizeSubtitle(changes.subtitle) } : {}),
+      ...(changes.title_en !== undefined ? { title_en: changes.title_en || null } : {}),
+      ...(changes.subtitle_en !== undefined ? { subtitle_en: normalizeSubtitle(changes.subtitle_en) } : {}),
       updated_at: new Date().toISOString(),
       updated_by: auth.user.id,
     } as never)
