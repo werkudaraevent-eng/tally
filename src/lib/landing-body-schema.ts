@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LANDING_HEADING_FONT_KEYS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_FORUM_ICON_KEYS, LANDING_HEADING_FONT_KEYS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 // Skema isi CMS Halaman acara. Dipakai PATCH /api/admin/landing saat menyimpan
 // dan pratinjau langsung saat merender draf, supaya pratinjau menolak hal yang
@@ -92,6 +92,61 @@ const blockSchema = z.object({
   );
 });
 
+// ---- Tata letak Forum (lihat LandingForumConfig di domain.ts) ----------------
+const gambar = z.string().url().max(600).nullable().optional();
+const warna = z.string().regex(/^#[0-9a-fA-F]{6}$/).optional();
+// Tautan penuh saja: tautan Forum keluar dari halaman (sosmed, situs tempat).
+const tautanLuar = z.string().trim().max(600).refine((value) => value === "" || /^https?:\/\/\S+\.\S+/.test(value), "Tautan harus diawali http:// atau https://");
+const forumSchema = z.object({
+  language: z.enum(["id", "en"]).optional(),
+  accent: warna,
+  secondary: warna,
+  logo_light_url: gambar,
+  hero_badge: teks(60),
+  date_banner_url: gambar,
+  date_banner_text: teks(90),
+  about_image_url: gambar,
+  program_banner_url: gambar,
+  program_subtitle: teks(160),
+  highlights: z.array(z.object({
+    title: z.string().trim().max(60),
+    body: teks(1500),
+    image_url: gambar,
+    link: z.enum(["program", "info", "daftar", "url"]).optional(),
+    link_url: tautanLuar.optional(),
+    link_label: teks(40),
+  })).max(4).optional(),
+  venue_note: teks(1200),
+  venue_image_url: gambar,
+  gallery: z.array(z.string().url().max(600)).max(6).optional(),
+  dresscode_intro: teks(400),
+  dresscode: z.array(z.object({
+    title: z.string().trim().max(40),
+    body: teks(400),
+    image_url: gambar,
+  })).max(6).optional(),
+  info_title: teks(60),
+  info_intro: teks(400),
+  info: z.array(z.object({
+    id: z.string().regex(/^[a-z][a-z0-9-]{1,40}$/),
+    title: z.string().trim().max(40),
+    icon: z.enum(LANDING_FORUM_ICON_KEYS).optional(),
+    image_url: gambar,
+    items: z.array(z.object({ heading: teks(120), body: z.string().trim().max(2000) })).max(20),
+  })).max(9).optional(),
+  footer_logo_url: gambar,
+  socials: z.object({
+    facebook: tautanLuar.optional(),
+    x: tautanLuar.optional(),
+    linkedin: tautanLuar.optional(),
+    instagram: tautanLuar.optional(),
+    youtube: tautanLuar.optional(),
+    whatsapp: tautanLuar.optional(),
+  }).optional(),
+  footer_links: z.array(z.object({ label: z.string().trim().max(40), url: tautanLuar })).max(8).optional(),
+  hidden: z.array(z.enum(["tanggal", "about", "program", "speakers", "sorotan", "info", "venue", "galeri", "dresscode"])).max(9).optional(),
+});
+
 /**
  * Konten landing page publik.
  *
@@ -134,7 +189,8 @@ export const landingBodySchema = z.object({
     hero_min_height: z.number().int().min(LANDING_HERO_HEIGHT_PX.min).max(LANDING_HERO_HEIGHT_PX.max).optional(),
     cta_label: z.string().trim().max(60).optional(),
     heading_font: z.enum(LANDING_HEADING_FONT_KEYS).optional(),
-    layout: z.enum(["editorial", "modern"]).optional(),
+    layout: z.enum(["editorial", "modern", "forum"]).optional(),
+    forum: forumSchema.optional(),
     public_name: z.string().trim().max(120).optional(),
     nav: z.object({
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
