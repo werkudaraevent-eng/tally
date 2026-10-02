@@ -835,10 +835,11 @@ export default function LandingCmsPage() {
         />
         {modern && landing.en_enabled ? (
           <div className="flex flex-col gap-2">
-            <p className="text-label-large text-on-surface">Bahasa utama</p>
+            <p id="label-bahasa-utama" className="text-body-medium font-medium text-on-surface">Bahasa utama</p>
             <SegmentedButton<"id" | "en">
               className="w-full"
               label="Bahasa utama"
+              labelledBy="label-bahasa-utama"
               value={landing.default_lang ?? "id"}
               onChange={(value) => setLanding({ ...landing, default_lang: value })}
               options={[
@@ -851,6 +852,9 @@ export default function LandingCmsPage() {
                 ? `/e/${facts?.slug ?? "slug"} tampil dalam English. Versi Indonesia di /e/${facts?.slug ?? "slug"}/id.`
                 : `/e/${facts?.slug ?? "slug"} tampil dalam Bahasa Indonesia. Versi English di /e/${facts?.slug ?? "slug"}/en.`}{" "}
               Alamat di undangan dan QR tidak berubah.
+              {(landing.default_lang ?? "id") === "en"
+                ? " Tamu yang memindai QR atau membuka tautan undangan melihat versi English lebih dulu. Tautan /en yang sudah dibagikan dialihkan ke alamat utama."
+                : null}
             </p>
           </div>
         ) : null}
@@ -1321,7 +1325,7 @@ export default function LandingCmsPage() {
               draggable
               onDragStart={(event) => { setSeret(indeks); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", judul); }}
               onDragEnd={() => { setSeret(null); setSasaran(null); }}
-              className="flex h-14 w-6 shrink-0 cursor-grab items-center justify-center self-stretch text-on-surface-variant opacity-70 hover:opacity-100"
+              className="flex h-14 w-6 shrink-0 cursor-grab items-center justify-center self-stretch text-on-surface-variant opacity-80 hover:opacity-100"
               title="Seret untuk memindah"
             >
               <DotsSixVertical size={16} aria-hidden />
@@ -1369,6 +1373,7 @@ export default function LandingCmsPage() {
           {saklar ? (
             <IconButton
               size="sm"
+              className="size-10!"
               label={saklar.checked ? `Sembunyikan ${judul}` : `Tampilkan ${judul}`}
               onClick={() => saklar.onChange(!saklar.checked)}
             >
@@ -1526,8 +1531,9 @@ export default function LandingCmsPage() {
           </FilterChip>
           <MenuBlok
             label="Menu blok tersembunyi"
+            width={272}
             items={[{
-              label: blokTersembunyi.length > 0 ? `Hapus ${blokTersembunyi.length} blok tersembunyi…` : "Tidak ada blok tambahan tersembunyi",
+              label: blokTersembunyi.length > 0 ? `Hapus ${blokTersembunyi.length} blok tersembunyi…` : "Tak ada blok untuk dihapus",
               icon: <Trash size={18} />,
               bahaya: true,
               disabled: blokTersembunyi.length === 0,
@@ -1681,7 +1687,7 @@ export default function LandingCmsPage() {
             title="Seret untuk mengubah lebar panel. Klik dua kali untuk lebar bawaan."
             className="group hidden w-4 shrink-0 cursor-col-resize touch-none items-center justify-center rounded-sm outline-none lg:flex"
           >
-            <span className="h-10 w-1 rounded-full bg-outline-variant transition-colors group-hover:bg-outline group-focus-visible:h-16 group-focus-visible:bg-primary group-active:bg-primary" />
+            <span className="h-10 w-1 rounded-full bg-outline transition-colors group-hover:bg-on-surface-variant group-focus-visible:h-16 group-focus-visible:bg-primary group-active:bg-primary" />
           </div>
           <div
             className="flex min-h-[70vh] w-full flex-col *:flex-1 lg:min-h-0 lg:w-[var(--panel-w)] lg:shrink-0"

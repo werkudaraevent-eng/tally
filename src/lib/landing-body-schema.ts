@@ -37,7 +37,7 @@ const blockEnSchema = z.object({
 });
 const blockSchema = z.object({
   id: blockId,
-  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta"]),
+  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn"]),
   tone: z.enum(["light", "panel", "dark"]).optional(),
   layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list"]).optional(),
   eyebrow: teks(60),
@@ -65,6 +65,9 @@ const blockSchema = z.object({
   fact_body: teks(120),
   source: teks(300),
   nav_label: teks(LANDING_NAV_LABEL_MAX),
+  columns: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
+  image_shape: z.enum(["wide", "square", "circle"]).optional(),
+  align: z.enum(["left", "center"]).optional(),
   en: blockEnSchema.optional(),
 }).superRefine((block, ctx) => {
   const batas = landingBlockLimits(block);

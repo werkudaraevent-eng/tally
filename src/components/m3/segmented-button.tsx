@@ -24,6 +24,11 @@ export type SegmentedButtonProps<T extends string> = {
 	onChange: (value: T) => void;
 	/** Nama grup untuk pembaca layar. Wajib — grup tanpa nama tidak punya konteks. */
 	label: string;
+	/**
+	 * Id label yang terlihat di atas grup. Bila ada, grup dinamai lewat label itu
+	 * (aria-labelledby), bukan `label`, supaya namanya tidak dibacakan dua kali.
+	 */
+	labelledBy?: string;
 	/** Sembunyikan teks di layar sempit, sisakan ikon. Butuh `icon` di tiap opsi. */
 	compact?: boolean;
 	className?: string;
@@ -40,9 +45,9 @@ export type SegmentedButtonProps<T extends string> = {
  * Memakai `radiogroup`, bukan sekumpulan tombol: panah kiri/kanan berpindah
  * antar opsi, dan pembaca layar mengumumkan "1 dari 3".
  */
-export function SegmentedButton<T extends string>({ options, value, onChange, label, compact, className }: SegmentedButtonProps<T>) {
+export function SegmentedButton<T extends string>({ options, value, onChange, label, labelledBy, compact, className }: SegmentedButtonProps<T>) {
 	return (
-		<div role="radiogroup" aria-label={label} className={cx("m3-segment-group inline-flex items-center gap-0.5 rounded-lg bg-primary-soft p-[3px]", className)}>
+		<div role="radiogroup" aria-label={labelledBy ? undefined : label} aria-labelledby={labelledBy} className={cx("m3-segment-group inline-flex items-center gap-0.5 rounded-lg bg-primary-soft p-[3px]", className)}>
 			{options.map((option) => {
 				const selected = option.value === value;
 				return (

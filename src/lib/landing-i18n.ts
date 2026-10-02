@@ -57,6 +57,21 @@ export function landingPath(slug: string, lang: LandingLang, utama: LandingLang 
   return lang === utama ? `/e/${slug}` : `/e/${slug}/${lang}`;
 }
 
+type Kueri = Record<string, string | string[] | undefined>;
+
+/**
+ * `alamat` dengan kueri permintaan asalnya, untuk pengalihan antarbahasa:
+ * `/en?utm_source=x` yang dialihkan tetap membawa `utm_source` ke alamat utama.
+ */
+export function withQuery(alamat: string, kueri: Kueri): string {
+  const hasil = new URLSearchParams();
+  for (const [kunci, nilai] of Object.entries(kueri)) {
+    for (const satu of Array.isArray(nilai) ? nilai : nilai === undefined ? [] : [nilai]) hasil.append(kunci, satu);
+  }
+  const teks = hasil.toString();
+  return teks ? `${alamat}?${teks}` : alamat;
+}
+
 // ---- Penumpukan teks -------------------------------------------------------------
 
 function isi(teks: unknown): teks is string {
@@ -359,11 +374,3 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     languageGroup: "Page language",
   },
 };
-
-/**
- * Jam "HH.MM" (ejaan Indonesia) dalam bahasa halaman: English memakai titik dua,
- * "09:00". Teks lain dibiarkan.
- */
-export function landingClock(teks: string, lang: LandingLang): string {
-  return lang === "en" ? teks.replace(/\b(\d{2})\.(\d{2})\b/g, "$1:$2") : teks;
-}
