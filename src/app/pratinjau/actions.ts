@@ -69,5 +69,6 @@ export async function renderPratinjau(slug: string, draf: unknown): Promise<Hasi
     ...facts,
     landing_config: { ...landing, theme: landing.theme ? withDerivedRoles(landing.theme) : undefined },
   } as EventRow;
-  return { ok: true, isi: renderLanding(draft), peringatan };
+  // Selalu Indonesia, apa pun bahasa utamanya: yang diedit adalah teks Indonesia.
+  return { ok: true, isi: renderLanding(draft, "id"), peringatan };
 }

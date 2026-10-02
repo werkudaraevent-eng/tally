@@ -41,6 +41,9 @@ function eventRewrite(request: NextRequest) {
     // (src/app/e/[slug]/page.tsx). Sebelumnya pola catch-all ikut menelannya dan
     // URL tersebut merender halaman landing.
     if (rest === "/") return null;
+    // `/e/<slug>/en` dan `/e/<slug>/id` juga halaman acara (versi bahasa
+    // lain, src/app/e/[slug]/en dan /id), bukan rute lama lewat rewrite.
+    if (/^\/(en|id)\/?$/.test(rest)) return null;
     const destination = request.nextUrl.clone();
     destination.pathname = rest;
     destination.searchParams.set("eventSlug", slug);
