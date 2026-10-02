@@ -5,7 +5,7 @@ import { ArrowDown, ArrowSquareOut, ArrowUp, CopySimple, DotsSixVertical, Downlo
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
-  Banner, Button, ButtonLink, Dialog, FilterChip, IconButton, MetaSeparator, PageLoading, PaneBody, Pane, SegmentedButton,
+  Banner, Button, ButtonLink, Dialog, FilterChip, IconButton, MetaSeparator, PageLoading, PaneBody, Pane, SegmentedButton, segmentTabId,
   StatusChip, Switch, TextArea, TextField,
 } from "@/components/m3";
 import { AdminBarPortal, useAdminPage } from "@/components/admin/page-context";
@@ -284,9 +284,14 @@ export default function LandingCmsPage() {
   // Potret keadaan terakhir yang tersimpan, untuk memberi tahu bahwa pratinjau
   // belum memuat perubahan yang sedang diketik.
   const [tersimpan, setTersimpan] = useState<string | null>(null);
+  // Terjemahan sesi yang ditinggalkan saat nama sesi Indonesia diubah, menurut
+  // nama sesinya. Mengetik nama itu kembali memulihkan terjemahannya, walau
+  // sesinya sempat tidak dipakai pembicara mana pun.
+  const terjemahanSesi = useRef(new Map<string, string>());
   const toast = useToast();
 
   const load = useCallback(async () => {
+    terjemahanSesi.current.clear();
     const response = await fetch(eventApiPath("/api/events"), { cache: "no-store" }).catch(() => null);
     if (!response?.ok) { setError("Data acara gagal dimuat."); return; }
     const body = await response.json().catch(() => null);
@@ -380,6 +385,7 @@ export default function LandingCmsPage() {
     patchFacts(fakta);
     // Kunci yang tidak ada di berkas (gambar sampul, warna, dsb.) tetap memakai
     // isi yang sekarang, jadi berkas tanpa gambar tidak menghapus gambar yang ada.
+    terjemahanSesi.current.clear();
     setLanding((current) => ({ ...current, ...isi.landing }));
     setBagian("susunan");
     toast.success("Isi dimuat", "Periksa isinya, lalu tekan Simpan. Muat ulang halaman untuk membatalkan.");
@@ -1098,20 +1104,25 @@ export default function LandingCmsPage() {
                   placeholder="mis. Sesi 1"
                   hint="Pembicara bersesi sama menjadi satu tab. Tulis sama dengan awal judul sesi di rundown supaya jam sesinya ikut tampil."
                   value={speaker.session ?? ""}
-                  onChange={(event) =>
+                  onChange={(event) => {
                     // Terjemahan ikut nama sesinya: pindah sesi berarti memakai
                     // terjemahan sesi tujuan (kalau sudah ada), bukan membawa yang lama.
+                    // Sesi yang masih dipakai pembicara lain memakai terjemahan yang
+                    // tampil di editor sekarang. Ingatan hanya untuk nama yang sempat
+                    // tidak dipakai siapa pun, dan ikut mengingat terjemahan kosong.
+                    const lama = speaker.session?.trim();
+                    if (lama) terjemahanSesi.current.set(lama, speaker.en?.session ?? "");
+                    const baru = event.target.value.trim();
+                    const lain = list.filter((_, posisi) => posisi !== index);
+                    const dipakai = lain.some((s) => s.session?.trim() === baru);
                     ubah(index, {
                       session: event.target.value,
                       en: {
                         ...speaker.en,
-                        session: landingSessionEn(
-                          list.filter((_, posisi) => posisi !== index),
-                          event.target.value.trim(),
-                        ),
+                        session: dipakai ? landingSessionEn(lain, baru) : terjemahanSesi.current.get(baru) || undefined,
                       },
-                    })
-                  }
+                    });
+                  }}
                 />
                 <Switch
                   checked={Boolean(speaker.featured)}
@@ -1691,17 +1702,30 @@ export default function LandingCmsPage() {
       <div className="flex h-12 shrink-0 items-center border-b border-outline-variant px-3">
         <SegmentedButton<Bagian>
           label="Bagian setelan"
+          panel="isi-setelan"
           value={bagian}
           onChange={setBagian}
           className="w-full"
           options={[{ value: "susunan", label: "Susunan halaman" }, { value: "tema", label: "Tema" }, { value: "peserta", label: "Peserta" }]}
         />
       </div>
-      {saringan}
-      {/* scroll-pt: field yang difokus dengan Tab tidak boleh tertutup kepala baris yang menempel (72px). */}
-      <PaneBody key={`${bagian}-${modeEn ? "en" : "id"}`} className={bagian === "susunan" ? "scroll-pt-22" : "px-4 py-4"}>
-        {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : bagian === "tema" ? isiTema : isiPeserta}
-      </PaneBody>
+      {/* Satu tabpanel memuat baris saringan dan isinya, supaya Tab sesudah
+          daftar tab langsung masuk ke panel yang dipilih (pola tabs WAI-ARIA). */}
+      <div id="isi-setelan" role="tabpanel" aria-labelledby={segmentTabId("isi-setelan", bagian)} className="flex min-h-0 flex-1 flex-col">
+        {saringan}
+        {/* scroll-pt: field yang difokus dengan Tab tidak boleh tertutup kepala baris yang menempel (72px).
+            Tema dan Peserta bisa dimulai dengan teks biasa, jadi bidang gulirnya sendiri
+            ikut menerima fokus agar bisa digulir dengan papan ketik. */}
+        <PaneBody
+          key={`${bagian}-${modeEn ? "en" : "id"}`}
+          tabIndex={bagian === "susunan" ? undefined : 0}
+          role={bagian === "susunan" ? undefined : "group"}
+          aria-labelledby={bagian === "susunan" ? undefined : segmentTabId("isi-setelan", bagian)}
+          // `!`: aturan :focus-visible global tidak berlapis, jadi mengalahkan utilitas biasa.
+          className={bagian === "susunan" ? "scroll-pt-22" : "px-4 py-4 focus-visible:shadow-none! focus-visible:-outline-offset-2!"}>
+          {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : bagian === "tema" ? isiTema : isiPeserta}
+        </PaneBody>
+      </div>
     </Pane>
   );
 

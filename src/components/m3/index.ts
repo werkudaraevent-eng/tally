@@ -36,7 +36,7 @@ export type { PopoverAnchor, PopoverProps } from "./popover";
 export { SelectMenu } from "./select-menu";
 export type { SelectMenuProps, SelectOption } from "./select-menu";
 
-export { SegmentedButton } from "./segmented-button";
+export { SegmentedButton, segmentTabId } from "./segmented-button";
 export type { SegmentedButtonProps, SegmentedOption } from "./segmented-button";
 
 export { Switch } from "./switch";
