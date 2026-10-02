@@ -12,6 +12,7 @@ import {
   type LandingSectionId,
 } from "./domain";
 import { formatEventDate } from "./event-datetime";
+import { DEFAULT_TIME_ZONE } from "./timezone";
 import { jumlahLembaga } from "./landing-speaker-tabs";
 
 /**
@@ -167,8 +168,11 @@ export function landingEyebrowShown(config: EventLandingConfig, id: LandingHeade
  * (mis. "Lokasi" saat nama tempat belum diisi). `event` dan `config` sudah
  * dalam bahasa itu (resolveLanding).
  */
+/** Bagian acara yang dibaca judul otomatis: tanggal dan nama tempat. */
+export type LandingHeadingFacts = Pick<EventRow, "event_date" | "end_date" | "venue_name"> & { time_zone?: EventRow["time_zone"] | null };
+
 export function landingSectionHeading(
-  event: EventRow,
+  event: LandingHeadingFacts,
   config: EventLandingConfig,
   lang: LandingLang,
   id: LandingHeadedSection,
@@ -177,7 +181,10 @@ export function landingSectionHeading(
   const nama = t.sectionLabels[id];
   const otomatis = (() => {
     switch (id) {
-      case "agenda": return formatEventDate(event, lang) ?? nama;
+      case "agenda": {
+        const jadwal = { event_date: event.event_date, end_date: event.end_date, start_time: null, end_time: null, time_zone: event.time_zone ?? DEFAULT_TIME_ZONE };
+        return formatEventDate(jadwal, lang) ?? nama;
+      }
       case "venue": return event.venue_name?.trim() || nama;
       case "faq": return t.faqHeading;
       case "speakers": {
@@ -227,7 +234,7 @@ export type LandingUntranslated = { path: string; section: string; id: string };
  * tidak dihitung: biasanya nama diri yang sama di kedua bahasa. Kolomnya tetap
  * bisa diterjemahkan.
  */
-export function landingUntranslated(event: {
+export function landingUntranslated(event: Partial<LandingHeadingFacts> & {
   landing_config: EventLandingConfig | null | undefined;
   tagline?: string | null;
   description?: string | null;
@@ -252,7 +259,9 @@ export function landingUntranslated(event: {
   (Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSection[]).forEach((id) => {
     if (!bagian(id)) return;
     const alis = `${id}_eyebrow` as const;
-    if (landingEyebrowShown(config, id)) periksa(config[alis], en[alis], alis, id);
+    // Label yang tersembunyi karena sama dengan judulnya juga tidak ditagih.
+    const fakta = { event_date: event.event_date ?? null, end_date: event.end_date ?? null, venue_name: event.venue_name ?? null, time_zone: event.time_zone };
+    if (landingSectionHeading(fakta, config, "id", id).alis !== null) periksa(config[alis], en[alis], alis, id);
     if (id !== "about") periksa(config[`${id}_heading`], en[`${id}_heading`], `${id}_heading`, id);
   });
   if (bagian("faq")) periksa(config.faq_intro, en.faq_intro, "faq_intro", "faq");

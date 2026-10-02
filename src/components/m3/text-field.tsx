@@ -47,11 +47,25 @@ function useFieldIds(error?: string, hint?: ReactNode) {
 	return { id, describedBy };
 }
 
-function Penghitung({ count }: { count: Hitungan }) {
+/**
+ * Penghitung ikut dibacakan (aria-describedby), dan kolom yang isinya melewati
+ * batas ditandai aria-invalid: warna merah "· batas" saja tidak sampai ke
+ * pembaca layar (WCAG 3.3.1, 4.1.2). Isi bisa melewati maxLength bila diisi
+ * dari data (Impor, data lama), bukan diketik.
+ */
+function ariaKolom(id: string, describedBy: string | undefined, error: string | undefined, count: Hitungan | null) {
+	return {
+		"aria-invalid": error || (count && count.length > count.max) ? true : undefined,
+		"aria-describedby": [describedBy, count ? `${id}-count` : null].filter(Boolean).join(" ") || undefined,
+	} as const;
+}
+
+function Penghitung({ id, count }: { id: string; count: Hitungan }) {
 	const lewat = count.ideal !== undefined && count.length > count.ideal;
 	const penuh = count.length >= count.max;
 	return (
 		<span
+			id={`${id}-count`}
 			className={cx(
 				"shrink-0 text-body-small tabular-nums",
 				penuh ? "font-medium text-error" : lewat ? "font-medium text-on-warning-soft" : "text-on-surface-variant",
@@ -70,7 +84,7 @@ function FieldMessages({ id, error, hint, count }: { id: string; error?: string;
 				<div className="min-w-0 [&>p]:mt-0">
 					<FieldMessages id={id} error={error} hint={hint} />
 				</div>
-				<Penghitung count={count} />
+				<Penghitung id={id} count={count} />
 			</div>
 		);
 	}
@@ -140,6 +154,7 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "classN
 
 export function TextField({ label, hint, error, optional, className, inputClassName, leading, trailing, size = "md", counter, ...rest }: TextFieldProps) {
 	const { id, describedBy } = useFieldIds(error, hint);
+	const count = hitungan(counter, rest.value, rest.maxLength);
 	return (
 		<div className={className}>
 			<FieldLabel htmlFor={id} optional={optional}>
@@ -154,8 +169,7 @@ export function TextField({ label, hint, error, optional, className, inputClassN
 				<input
 					{...rest}
 					id={id}
-					aria-invalid={error ? true : undefined}
-					aria-describedby={describedBy}
+					{...ariaKolom(id, describedBy, error, count)}
 					className={cx(
 						controlClass(error),
 						size === "lg" ? "m3-field-lg h-16" : "m3-field h-14",
@@ -166,7 +180,7 @@ export function TextField({ label, hint, error, optional, className, inputClassN
 				/>
 				{trailing ? <span className="absolute right-3 top-1/2 -translate-y-1/2">{trailing}</span> : null}
 			</div>
-			<FieldMessages id={id} error={error} hint={hint} count={hitungan(counter, rest.value, rest.maxLength)} />
+			<FieldMessages id={id} error={error} hint={hint} count={count} />
 		</div>
 	);
 }
@@ -175,6 +189,7 @@ export type TextAreaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "c
 
 export function TextArea({ label, hint, error, optional, className, rows = 4, counter, ...rest }: TextAreaProps) {
 	const { id, describedBy } = useFieldIds(error, hint);
+	const count = hitungan(counter, rest.value, rest.maxLength);
 	return (
 		<div className={className}>
 			<FieldLabel htmlFor={id} optional={optional}>
@@ -184,11 +199,10 @@ export function TextArea({ label, hint, error, optional, className, rows = 4, co
 				{...rest}
 				id={id}
 				rows={rows}
-				aria-invalid={error ? true : undefined}
-				aria-describedby={describedBy}
+				{...ariaKolom(id, describedBy, error, count)}
 				className={cx(controlClass(error), "mt-2 resize-y py-3 leading-6")}
 			/>
-			<FieldMessages id={id} error={error} hint={hint} count={hitungan(counter, rest.value, rest.maxLength)} />
+			<FieldMessages id={id} error={error} hint={hint} count={count} />
 		</div>
 	);
 }

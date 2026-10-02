@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { TextArea, TextField } from "@/components/m3";
-import { landingEyebrowShown, landingSessionEn } from "@/lib/landing-i18n";
+import { landingSectionHeading, landingSessionEn } from "@/lib/landing-i18n";
 import {
   LANDING_BLOCK_LABELS,
   LANDING_NAV_LABEL_MAX,
@@ -185,7 +185,15 @@ export function BlockEditorEn({ block, onChange }: { block: LandingBlock; onChan
 // ---- Pembuka, bagian bawaan, kaki ------------------------------------------------
 
 /** Kolom `events` yang versi English-nya disimpan di `landing_config.en`. */
-export type FaktaEn = { tagline: string | null; description: string | null; venue_name: string | null; venue_address: string | null };
+export type FaktaEn = {
+  tagline: string | null;
+  description: string | null;
+  venue_name: string | null;
+  venue_address: string | null;
+  /** Untuk judul otomatis Susunan acara: label yang sama dengan tanggal tidak tampil. */
+  event_date: string | null;
+  end_date: string | null;
+};
 
 /**
  * Satu baris Rundown yang tampil di Susunan acara, dengan teks English-nya.
@@ -231,11 +239,12 @@ export function BagianEn({
     ada(sumber) ? <KolomEn key={key} kunci={key} label={label} sumber={sumber} value={en[key]} onChange={(value) => ubahEn({ [key]: value })} max={max} ideal={ideal} area={area} /> : null;
 
   // Judul bagian bawaan: hanya yang diubah di versi Indonesia; yang kosong
-  // memakai teks bawaan English. Label kecil yang dimatikan tidak ditanya.
+  // memakai teks bawaan English. Label kecil yang tidak tampil di halaman
+  // Indonesia (dimatikan, atau sama dengan judulnya) tidak ditanya.
   const judulBagian = (bagian: LandingHeadedSection, pengantar = false) => {
     const isian = [
       // Label yang dimatikan tetap ditampilkan bila terlalu panjang: Simpan menolaknya.
-      landingEyebrowShown(landing, bagian) || (en[`${bagian}_eyebrow`]?.trim().length ?? 0) > LANDING_SECTION_TEXT_MAX.eyebrow ? kolom(`${bagian}_eyebrow`, "Label kecil", landing[`${bagian}_eyebrow`], LANDING_SECTION_TEXT_MAX.eyebrow) : null,
+      landingSectionHeading(facts, landing, "id", bagian).alis !== null || (en[`${bagian}_eyebrow`]?.trim().length ?? 0) > LANDING_SECTION_TEXT_MAX.eyebrow ? kolom(`${bagian}_eyebrow`, "Label kecil", landing[`${bagian}_eyebrow`], LANDING_SECTION_TEXT_MAX.eyebrow) : null,
       bagian === "about"
         ? kolom("about_heading", "Judul", landing.about_heading, LANDING_SECTION_TEXT_MAX.heading, false, LANDING_SECTION_TEXT_MAX.headingIdeal)
         : kolom(`${bagian}_heading`, "Judul", landing[`${bagian}_heading`], LANDING_SECTION_TEXT_MAX.heading, false, LANDING_SECTION_TEXT_MAX.headingIdeal),
