@@ -1807,6 +1807,13 @@ html:hover {
 	box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 15%, transparent);
 }
 
+/* Kolom galat sudah bertepi merah sebelum difokus, jadi perubahan warna tepi
+ * tidak bisa jadi penanda fokus di sana. Gantinya tepi merah 2px (1px border +
+ * 1px bayangan) dan lingkaran merah, seperti keadaan galat terfokus M3. */
+.press :is(.m3-field, .m3-field-lg)[aria-invalid="true"]:focus-visible {
+	box-shadow: 0 0 0 1px var(--md-sys-color-error), 0 0 0 4px color-mix(in srgb, var(--md-sys-color-error) 18%, transparent);
+}
+
 .press .m3-tab { min-block-size: 2.5rem; }
 .press .m3-segmented { min-block-size: 2.25rem; }
 .press .m3-filter-chip { min-block-size: 2rem; padding-inline: 0.75rem; }

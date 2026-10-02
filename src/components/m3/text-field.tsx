@@ -134,7 +134,7 @@ function controlClass(error?: string | boolean) {
 	return cx(
 		CONTROL_BASE,
 		error
-			? "border-error focus:border-error focus-visible:outline-error"
+			? "border-error focus:border-error"
 			: "border-outline focus:border-primary",
 	);
 }
