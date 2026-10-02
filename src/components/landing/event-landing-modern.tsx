@@ -553,13 +553,16 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                   Yang pertama terbuka, seperti di rancangan. */}
               <div className="flex flex-col gap-3">
                 {(config.faq ?? []).map((item, index) => (
+                  // Lapisan hover hanya menutup pertanyaan (M3 state layer). Saat
+                  // terbuka, ruang bawah pertanyaan 16px dan jawaban diberi
+                  // 16px di atasnya: tepi lapisan tidak lagi menempel di teks.
                   <details key={item.q} open={index === 0} className="faq group rounded-md bg-[var(--reg-panel)]">
-                    <summary className={`m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-md px-5 py-5 sm:px-7 sm:py-6 ${JUDUL_BUTIR} [&::-webkit-details-marker]:hidden`}>
+                    <summary className={`m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-md px-5 py-5 group-open:pb-4 sm:px-7 sm:py-6 sm:group-open:pb-4 ${JUDUL_BUTIR} [&::-webkit-details-marker]:hidden`}>
                       {item.q}
                       <Plus size={22} aria-hidden className={`shrink-0 group-open:hidden ${MUTED}`} />
                       <Minus size={22} aria-hidden className={`hidden shrink-0 group-open:block ${MUTED}`} />
                     </summary>
-                    <p className={`max-w-[38.5rem] whitespace-pre-line px-5 pb-6 text-isi sm:px-7 ${MUTED}`}>{item.a}</p>
+                    <p className={`max-w-[38.5rem] whitespace-pre-line px-5 pb-6 pt-4 text-isi sm:px-7 ${MUTED}`}>{item.a}</p>
                   </details>
                 ))}
               </div>
