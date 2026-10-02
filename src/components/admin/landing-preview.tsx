@@ -170,7 +170,9 @@ export function LandingPreview({
     <Pane aria-label="Pratinjau halaman acara">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant px-4 py-2.5">
         <p className={`line-clamp-2 min-w-0 flex-1 ${tertinggal ? "text-body-small text-error" : "text-body-medium text-on-surface-variant"}`} role="status" title={tertinggal ?? undefined}>
-          {tertinggal ?? `Pratinjau langsung · ${width} px${bahasa === "en" ? " · English" : ""}`}
+          {/* Forum: pilihan halaman ikut di baris ini, jadi labelnya dipendekkan
+              supaya tidak terlipat di layar 1440. */}
+          {tertinggal ?? `${halaman && onHalaman ? "Pratinjau" : "Pratinjau langsung"} · ${width} px${bahasa === "en" ? " · English" : ""}`}
         </p>
         {halaman && onHalaman ? (
           <SegmentedButton<LandingForumPage>

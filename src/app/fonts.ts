@@ -418,6 +418,10 @@ const ubuntu = localFont({
     { path: "./fonts/ubuntu/ubuntu-latin-700.woff2", weight: "700", style: "normal" },
   ],
   display: "swap",
+  // Tidak di-preload, beda dengan subset latin keluarga lain: Ubuntu hanya
+  // dipakai tata letak Forum, dan preload memasang ~95 KB di setiap halaman
+  // aplikasi (admin, pemindai, Modern). Fallback berukuran menahan geseran.
+  preload: false,
   variable: "--font-ubuntu",
   fallback: ["ubuntu Fallback"],
   adjustFontFallback: false,

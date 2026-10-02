@@ -154,7 +154,7 @@ export function KartuFoto({ gambar, judul, teks, sisaInisial }: { gambar: string
       </div>
       <div className="flex flex-col gap-[clamp(8px,1.04vw,20px)] pt-[clamp(8px,1.6vw,30px)]">
         <h3 className={H_KARTU}>{judul}</h3>
-        {teks ? <p className={`${TEKS_BESAR} whitespace-pre-line text-justify hyphens-auto`}>{teks}</p> : null}
+        {teks ? <p className={`${TEKS_BESAR} max-w-[70ch] whitespace-pre-line`}>{teks}</p> : null}
       </div>
     </li>
   );

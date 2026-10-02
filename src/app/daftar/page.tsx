@@ -38,7 +38,8 @@ export default async function DaftarPage({
         kv: landing.banner_url ?? null,
         fakta: [formatEventDate(event), formatEventTime(event), event.venue_name?.trim() || null]
           .filter((item): item is string => Boolean(item)),
-        headingFont: (LANDING_HEADING_FONTS[landing.heading_font ?? "source"] ?? LANDING_HEADING_FONTS.source).cssVar,
+        // Huruf judul bawaan mengikuti tata letaknya: Ubuntu untuk Forum, Source Sans 3 untuk Modern.
+        headingFont: (LANDING_HEADING_FONTS[landing.heading_font ?? (landing.layout === "forum" ? "ubuntu" : "source")] ?? LANDING_HEADING_FONTS.source).cssVar,
         masukUrl: memberConfig(event) ? `/e/${event.slug}/masuk` : null,
       }
     : null;

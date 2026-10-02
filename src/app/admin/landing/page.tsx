@@ -984,7 +984,9 @@ export default function LandingCmsPage() {
           label="Tampilkan versi English"
           description={
             !modern
-              ? "Hanya untuk tata letak Modern."
+              ? landing.en_enabled
+                ? `Hanya untuk tata letak Modern. Versi English tersimpan dan aktif lagi bila Modern dipilih kembali${landing.default_lang === "en" ? ", termasuk English sebagai bahasa utama" : ""}.`
+                : "Hanya untuk tata letak Modern."
               : landing.en_enabled
                 ? "Pilihan ID | EN tampil di bilah atas halaman."
                 : "Selama mati, halaman hanya berbahasa Indonesia dan alamat /en tidak bisa dibuka."

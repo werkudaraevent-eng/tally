@@ -26,4 +26,12 @@ export const JARAK = "mt-[clamp(56px,6.25vw,120px)]";
 export const BAYANGAN_KARTU = "shadow-[0_12px_20px_rgba(0,0,0,0.25)]";
 
 /** Tombol persegi seperti Figma (tanpa sudut membulat). */
-export const TOMBOL = "inline-flex items-center justify-center whitespace-nowrap transition-[filter] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
+/** Cincin fokus dari aturan global :focus-visible (globals.css); di bidang biru
+ * tua warnanya dibalik lewat CINCIN_TERANG pada wadahnya. */
+export const TOMBOL = "inline-flex items-center justify-center whitespace-nowrap transition-[filter] hover:brightness-110";
+/**
+ * Bidang gelap (hero di atas KV, kartu Tentang, kaki halaman): cincin fokus
+ * global memakai --md-sys-color-primary, biru yang hanya 2:1 di atas biru tua.
+ * Di wadah ini warnanya diganti warna teks di atas primer, supaya tetap ≥3:1.
+ */
+export const CINCIN_TERANG = "[--md-sys-color-primary:var(--f-on-primary)]";

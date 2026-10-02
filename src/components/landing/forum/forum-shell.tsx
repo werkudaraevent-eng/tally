@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { CaretRight, FacebookLogo, InstagramLogo, LinkedinLogo, List, WhatsappLogo, XLogo, YoutubeLogo } from "@phosphor-icons/react/dist/ssr";
 import type { LandingForumConfig, LandingForumPage } from "@/lib/domain";
 import type { ForumLabels } from "./labels";
-import { TEKS_MENU, TOMBOL, WADAH } from "./styles";
+import { CINCIN_TERANG, TEKS_MENU, TOMBOL, WADAH } from "./styles";
 
 /**
  * Alamat antarhalaman Forum. Di pratinjau CMS tautannya menuju halaman
@@ -80,8 +80,8 @@ export function ForumHeader({
       href={tombol.href}
       className={`${TOMBOL} h-[clamp(44px,3.13vw,60px)] min-w-[clamp(120px,8.85vw,170px)] px-[clamp(20px,1.77vw,34px)] text-[clamp(15px,0.84vw,16px)] ${
         sekunder
-          ? `border-2 ${diAtasKv ? "border-white text-white outline-white" : "border-[var(--f-primary-text)] text-[var(--f-primary-text)] outline-[var(--f-primary-text)]"}`
-          : "bg-[var(--f-secondary)] text-[var(--f-on-secondary)] outline-[var(--f-secondary)]"
+          ? `border-2 ${diAtasKv ? "border-white text-white" : "border-[var(--f-primary-text)] text-[var(--f-primary-text)]"}`
+          : "bg-[var(--f-secondary)] text-[var(--f-on-secondary)]"
       }`}
     >
       {tombol.label}
@@ -180,7 +180,7 @@ export function ForumFooter({ config, nama, catatan }: { config: LandingForumCon
   const sosmed = SOSMED.filter((item) => config.socials?.[item.key]?.trim());
   const tautan = (config.footer_links ?? []).filter((item) => item.label.trim() && item.url.trim());
   return (
-    <footer data-bagian="kaki" className="mt-[clamp(64px,10.9vw,210px)] bg-[var(--f-primary)] text-[var(--f-on-primary)]">
+    <footer data-bagian="kaki" className={`mt-[clamp(64px,10.9vw,210px)] bg-[var(--f-primary)] text-[var(--f-on-primary)] ${CINCIN_TERANG}`}>
       <div className="mx-auto w-[calc(100%-2*clamp(16px,3.7vw,71px))]">
         <div className="flex flex-col gap-8 px-[clamp(0px,2.66vw,51px)] pb-[clamp(32px,5.94vw,114px)] pt-[clamp(40px,3.6vw,69px)] md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-3">
@@ -226,9 +226,12 @@ export function ForumFooter({ config, nama, catatan }: { config: LandingForumCon
 }
 
 /** Pembungkus halaman Forum: huruf Ubuntu untuk isi, huruf judul pilihan CMS (bawaan Ubuntu). */
-export function ForumMain({ style, children }: { style: CSSProperties; children: ReactNode }) {
+export function ForumMain({ style, lang, children }: { style: CSSProperties; lang: "id" | "en"; children: ReactNode }) {
   return (
+    // `lang` di <main>: <html> milik layout bersama tetap "id", dan Forum
+    // berbahasa Inggris (forum.language) harus dibaca pembaca layar sebagai Inggris.
     <main
+      lang={lang}
       data-halaman-publik
       className="min-h-dvh overflow-x-clip bg-white text-black [font-family:var(--font-ubuntu)] [&_:is(h1,h2,h3)]:[font-family:var(--landing-heading)]"
       style={style}

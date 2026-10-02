@@ -12,7 +12,7 @@ import { FORUM_ICONS } from "./icons";
 import { FORUM_LABELS } from "./labels";
 import { BagianPembicara, Foto, KartuFoto, PanelSusunan, Paragraf, PitaTanggal } from "./forum-parts";
 import { buatTautan, ForumFooter, ForumHeader, ForumMain, Remah, type TombolAtas } from "./forum-shell";
-import { H_BAGIAN, H_HERO, H_PANEL, JARAK, TEKS_BESAR, TEKS_MENU, TOMBOL, WADAH } from "./styles";
+import { CINCIN_TERANG, H_BAGIAN, H_HERO, H_PANEL, JARAK, TEKS_BESAR, TEKS_MENU, TOMBOL, WADAH } from "./styles";
 
 /**
  * Halaman acara tata letak Forum (`landing_config.layout = "forum"`).
@@ -68,7 +68,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
 
   const deskripsi = event.description?.trim() ?? "";
   const venue = event.venue_name?.trim() || null;
-  const tanggal = formatEventDate(event);
+  const tanggal = formatEventDate(event, forum.language ?? "id");
   const teksPita = forum.date_banner_text?.trim() || [venue, tanggal].filter(Boolean).join(", ");
   const sorotan = (forum.highlights ?? []).filter((item) => item.title?.trim());
   const info = (forum.info ?? []).filter((item) => item.title?.trim());
@@ -122,8 +122,8 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
   if (halaman === "beranda") {
     const badge = forum.hero_badge?.trim();
     return (
-      <ForumMain style={style}>
-        <div className="relative" data-bagian="pembuka">
+      <ForumMain style={style} lang={forum.language ?? "id"}>
+        <div className={`relative ${CINCIN_TERANG}`} data-bagian="pembuka">
           {header(true)}
           <section
             className={`relative isolate flex min-h-[max(560px,min(100svh,56.25vw))] items-center overflow-hidden ${kv ? "bg-black" : "bg-[var(--f-primary)]"}`}
@@ -157,7 +157,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
                   // Kuning aksen, bukan primer: di Figma tombol navy berdiri di
                   // atas foto terang, tetapi di atas KV gelap (seperti KV ILO)
                   // tombol navy hampir hilang, padahal ini aksi utama halaman.
-                  className={`${TOMBOL} mt-1 h-[clamp(48px,3.13vw,60px)] bg-[var(--f-accent)] px-[clamp(24px,1.77vw,34px)] ${TEKS_MENU} text-[var(--f-on-accent)] outline-[var(--f-accent)]`}
+                  className={`${TOMBOL} mt-1 h-[clamp(48px,3.13vw,60px)] bg-[var(--f-accent)] px-[clamp(24px,1.77vw,34px)] ${TEKS_MENU} text-[var(--f-on-accent)]`}
                 >
                   {config.cta_label?.trim() || label.daftar}
                 </a>
@@ -182,7 +182,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
                 </div>
               ) : null}
               <div
-                className={`flex flex-col items-start gap-[clamp(20px,2.08vw,40px)] bg-[var(--f-primary)] p-[clamp(24px,2.08vw,40px)] text-[var(--f-on-primary)] ${
+                className={`flex flex-col items-start gap-[clamp(20px,2.08vw,40px)] bg-[var(--f-primary)] p-[clamp(24px,2.08vw,40px)] text-[var(--f-on-primary)] ${CINCIN_TERANG} ${
                   forum.about_image_url ? "lg:absolute lg:right-0 lg:top-[19.7%] lg:w-[44.7%]" : "mx-auto max-w-[900px]"
                 }`}
               >
@@ -292,7 +292,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
   // ---- Program acara -------------------------------------------------------------
   if (halaman === "program") {
     return (
-      <ForumMain style={style}>
+      <ForumMain style={style} lang={forum.language ?? "id"}>
         {header(false)}
         <Remah label={label} tautan={tautan} saatIni={label.program} />
 
@@ -314,7 +314,10 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
         {tampil("about") ? (
           <section id="tentang" data-bagian="about" className={`${WADAH} mt-[clamp(40px,4.06vw,78px)] flex scroll-mt-28 flex-col gap-[clamp(20px,1.88vw,36px)]`}>
             <h2 className={`${H_PANEL} text-center text-[var(--f-title)]`}>{config.about_heading?.trim() || label.tentang}</h2>
-            <div className={`${TEKS_BESAR} flex flex-col gap-[1.5em] text-justify text-[var(--f-title)] hyphens-auto`}>
+            {/* Rata kiri, maksimal ~70 karakter per baris (sama dengan Modern, #29).
+                Figma IFC rata kanan-kiri selebar wadah: di 1440 itu ~133 karakter
+                per baris, dan di ponsel meninggalkan celah antarkata. */}
+            <div className={`${TEKS_BESAR} mx-auto flex w-full max-w-[70ch] flex-col gap-[1.5em] text-[var(--f-title)]`}>
               <Paragraf teks={deskripsi} />
             </div>
           </section>
@@ -339,7 +342,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
           <section id="lokasi" data-bagian="venue" className={`${WADAH} ${JARAK} grid scroll-mt-28 items-center gap-[clamp(28px,4.2vw,80px)] ${forum.venue_image_url ? "lg:grid-cols-[minmax(0,705fr)_minmax(0,760fr)]" : ""}`}>
             <div className="flex flex-col gap-[clamp(20px,2.08vw,40px)]">
               <h2 className={H_BAGIAN}>{label.lokasi}</h2>
-              <div className={`${TEKS_BESAR} flex flex-col gap-[1.5em] text-justify hyphens-auto`}>
+              <div className={`${TEKS_BESAR} flex max-w-[70ch] flex-col gap-[1.5em]`}>
                 {forum.venue_note?.trim() ? <Paragraf teks={forum.venue_note.trim()} /> : null}
                 {venue || event.venue_address?.trim() ? (
                   <p className="whitespace-pre-line text-left">
@@ -354,7 +357,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
                   href={petaUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`${TOMBOL} self-start gap-2 bg-[var(--f-primary)] px-[clamp(20px,1.77vw,34px)] py-[clamp(12px,0.94vw,18px)] ${TEKS_MENU} text-[var(--f-on-primary)] outline-[var(--f-primary)]`}
+                  className={`${TOMBOL} self-start gap-2 bg-[var(--f-primary)] px-[clamp(20px,1.77vw,34px)] py-[clamp(12px,0.94vw,18px)] ${TEKS_MENU} text-[var(--f-on-primary)]`}
                 >
                   <MapPin aria-hidden weight="fill" className="size-5" />
                   {/google\.|goo\.gl/i.test(petaUrl) ? label.bukaGoogleMaps : label.buatPeta}
@@ -405,7 +408,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
 
   // ---- Informasi praktis ------------------------------------------------------------
   return (
-    <ForumMain style={style}>
+    <ForumMain style={style} lang={forum.language ?? "id"}>
       {header(false)}
       <Remah label={label} tautan={tautan} saatIni={forum.info_title?.trim() || label.info} />
       <h1 className="sr-only">{forum.info_title?.trim() || label.info}</h1>
@@ -426,7 +429,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
                 <path d="M3 3l12 12L27 3" />
               </svg>
             </summary>
-            <div className={`mt-[clamp(20px,1.51vw,29px)] flex flex-col gap-[1.5em] px-[clamp(16px,1.51vw,29px)] ${TEKS_BESAR} text-justify text-[var(--f-title)] hyphens-auto`}>
+            <div className={`mt-[clamp(20px,1.51vw,29px)] flex max-w-[70ch] flex-col gap-[1.5em] px-[clamp(16px,1.51vw,29px)] ${TEKS_BESAR} text-[var(--f-title)]`}>
               {kelompok.items.filter((butir) => butir.body?.trim() || butir.heading?.trim()).map((butir, index) => (
                 <div key={index}>
                   {butir.heading?.trim() ? <h3 className="text-left text-[clamp(18px,1.46vw,28px)] font-bold leading-[1.3]">{butir.heading.trim()}</h3> : null}
