@@ -75,12 +75,13 @@ export function ForumHeader({
   const warnaMenu = (aktif: boolean) =>
     diAtasKv ? (aktif ? "text-white" : "text-white/75 hover:text-white") : aktif ? "text-black/[0.63]" : "text-[#9a9a9a] hover:text-black/[0.63]";
 
-  const tombolMasuk = tombol ? (
+  // Laci ponsel berlatar putih, jadi tombolnya selalu memakai warna di luar KV.
+  const tombolMasuk = (atasKv: boolean) => tombol ? (
     <a
       href={tombol.href}
       className={`${TOMBOL} h-[clamp(44px,3.13vw,60px)] min-w-[clamp(120px,8.85vw,170px)] px-[clamp(20px,1.77vw,34px)] text-[clamp(15px,0.84vw,16px)] ${
         sekunder
-          ? `border-2 ${diAtasKv ? "border-white text-white" : "border-[var(--f-primary-text)] text-[var(--f-primary-text)]"}`
+          ? `border-2 ${atasKv ? "border-white text-white" : "border-[var(--f-primary-text)] text-[var(--f-primary-text)]"}`
           : "bg-[var(--f-secondary)] text-[var(--f-on-secondary)]"
       }`}
     >
@@ -115,7 +116,7 @@ export function ForumHeader({
             </a>
           ))}
         </nav>
-        <div className="hidden lg:block">{tombolMasuk}</div>
+        <div className="hidden lg:block">{tombolMasuk(diAtasKv)}</div>
 
         {/* Ponsel: menu di laci <details>, tanpa skrip. */}
         <details className="group relative lg:hidden">
@@ -125,7 +126,8 @@ export function ForumHeader({
           >
             <List size={28} aria-hidden />
           </summary>
-          <div className="absolute right-0 top-full mt-2 flex w-64 flex-col gap-1 bg-white p-3 text-[16px] font-medium text-[var(--f-ink)] shadow-[0_8px_40px_rgba(0,0,0,0.25)]">
+          {/* Cincin fokus kembali gelap: wadah hero di atasnya memasang cincin putih. */}
+          <div className="absolute right-0 top-full mt-2 flex w-64 [--md-sys-color-primary:var(--f-primary-text)] flex-col gap-1 bg-white p-3 text-[16px] font-medium text-[var(--f-ink)] shadow-[0_8px_40px_rgba(0,0,0,0.25)]">
             {menu.map((item) => (
               <a
                 key={item.halaman}
@@ -137,7 +139,7 @@ export function ForumHeader({
                 {item.label}
               </a>
             ))}
-            {tombolMasuk ? <div className="mt-2 [&>a]:w-full">{tombolMasuk}</div> : null}
+            {tombol ? <div className="mt-2 [&>a]:w-full">{tombolMasuk(false)}</div> : null}
           </div>
         </details>
       </div>
