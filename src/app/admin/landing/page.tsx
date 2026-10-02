@@ -30,8 +30,10 @@ import {
   isLandingBlockId,
   landingBlockHasContent,
   landingBlockLimits,
+  type LandingTextLimit,
   normalizeLandingSections,
   type LandingBlock,
+  type LandingBlockItem,
   type LandingBlockType,
   type EventLandingConfig,
   type LandingForumPage,
@@ -53,11 +55,11 @@ import { eventApiPath } from "@/lib/event-url";
 import { Kelompok } from "@/components/admin/compact-form";
 import { BilahAtasEditor } from "@/components/admin/landing-nav-editor";
 import { cx } from "@/lib/m3/cx";
-import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
+import { BlockEditor, butirBerlebih, isianButirTampil, kolomBlokTampil, labelIsianButir, labelKolomBlok, namaButirBlok, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok, type KolomButir } from "./blocks";
 import { ForumSusunan, ForumTema, forumTautanSalah, halamanBagianForum } from "./forum-editor";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
 import { PresetTema } from "./theme-presets";
-import { BagianEn, BlockEditorEn, kartuRundownId, rundownBelumDiterjemahkan, type BarisRundownEn } from "./editor-en";
+import { BagianEn, BlockEditorEn, kartuRundownId, labelIsianButirEn, labelKolomBlokEn, namaButirBlokEn, rundownBelumDiterjemahkan, type BarisRundownEn } from "./editor-en";
 import { barisSesiDariAdmin, petakanSesiLama, PilihSesi, sesiHilang, type BarisSesi, type HasilPetakan } from "./pilih-sesi";
 import { formatClock, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { LANDING_UI, landingEyebrowShown, landingUntranslated } from "@/lib/landing-i18n";
@@ -115,47 +117,59 @@ function PilihWarna({ label, value, onChange }: { label: string; value: string; 
   );
 }
 
-const NAMA_KOLOM: Record<string, string> = {
-  eyebrow: "label kecil", heading: "judul", body: "isi", link_label: "teks tombol", link2_label: "teks tombol kedua",
-  fact_title: "judul fakta", fact_body: "isi fakta", source: "sumber", quote: "kutipan", name: "nama", role: "peran",
-  label: "label butir", title: "judul butir", value: "angka",
-};
-
 /**
- * Kolom pertama yang melewati batas karakter blok, atau null. Teks English
- * (`en`) memakai batas yang sama; `bahasa` menyebut mode editor tempat kolom itu.
+ * Kolom pertama yang melewati batas karakter blok, atau null, dengan nama
+ * seperti tertulis di editor. Teks English (`en`) memakai batas yang sama;
+ * `bahasa` menyebut mode editor tempat kolom itu. Kolom yang tidak dirender
+ * editor dilewati (teks tombol tanpa tautan, teks English tanpa teks ID): galat
+ * tidak bisa menunjuknya, dan halaman publik juga tidak menampilkannya.
  */
 function kolomKepanjangan(blok: LandingBlock): { kolom: string; max: number; bahasa: "id" | "en" } | null {
   const batas = landingBlockLimits(blok);
+  const asal = blok as unknown as Record<string, unknown>;
   for (const bahasa of ["id", "en"] as const) {
     const sumber = (bahasa === "id" ? blok : blok.en ?? {}) as Record<string, unknown>;
     for (const [kunci, limit] of Object.entries(batas)) {
       if (kunci === "item" || kunci === "items" || !limit || !("max" in limit)) continue;
+      const tampil = bahasa === "id" ? kolomBlokTampil(blok, kunci) : ada(asal[kunci]);
       const nilai = sumber[kunci];
-      if (typeof nilai === "string" && nilai.length > limit.max) return { kolom: NAMA_KOLOM[kunci] ?? kunci, max: limit.max, bahasa };
+      if (tampil && typeof nilai === "string" && nilai.length > limit.max) {
+        return { kolom: bahasa === "id" ? labelKolomBlok(blok, kunci) : labelKolomBlokEn(kunci), max: limit.max, bahasa };
+      }
     }
     for (const [nomor, butir] of (blok.items ?? []).entries()) {
       const isiButir = (bahasa === "id" ? butir : butir.en ?? {}) as Record<string, unknown>;
-      for (const [kunci, limit] of Object.entries(batas.item ?? {})) {
+      for (const [kunci, limit] of Object.entries(batas.item ?? {}) as [KolomButir, LandingTextLimit | undefined][]) {
+        const tampil = bahasa === "id" ? isianButirTampil(blok, butir, kunci) : ada(butir[kunci]);
         const nilai = isiButir[kunci];
-        if (limit && typeof nilai === "string" && nilai.length > limit.max) return { kolom: `${NAMA_KOLOM[kunci] ?? kunci} ${nomor + 1}`, max: limit.max, bahasa };
+        if (tampil && limit && typeof nilai === "string" && nilai.length > limit.max) {
+          const kolom = bahasa === "id" ? `${namaButirBlok(blok, nomor)}, ${labelIsianButir(blok, kunci)}` : `${namaButirBlokEn(blok, nomor)}, ${labelIsianButirEn(blok, kunci)}`;
+          return { kolom, max: limit.max, bahasa };
+        }
       }
     }
   }
   return null;
 }
 
+const ada = (nilai: unknown) => typeof nilai === "string" && nilai.trim().length > 0;
+
+/** Ruang di bawah panel yang tertutup toast galat (terukur ~110px), plus jarak. */
+const RUANG_TOAST = 140;
+
 /**
  * Bawa kolom yang ditolak Simpan ke sepertiga atas panel dan beri fokus.
  * Sepertiga atas, bukan tengah: toast galat di bawah layar menutupi
- * penghitung kolom yang terletak di bawah. Tanpa `kunci`, dicari kolom pertama
- * di baris itu yang isinya melewati maxLength; butir blok yang terlipat dan
- * bertanda "Terlalu panjang" dibuka dulu.
+ * penghitung kolom yang terletak di bawah; kolom tinggi diletakkan lebih ke
+ * atas lagi supaya penghitungnya tetap di atas toast. Tanpa `kunci`, dicari
+ * kolom pertama di baris itu yang isinya melewati maxLength; butir blok yang
+ * terlipat dan bertanda "Terlalu panjang" dibuka dulu. `kabar` menerima
+ * apakah kolomnya ketemu, supaya toast tidak menjanjikan kolom yang tidak ada.
  */
-function fokusKolomLewat(barisId: string, kunci?: string, ulang = true) {
+function fokusKolomLewat(barisId: string, kunci: string | undefined, kabar: (ketemu: boolean) => void, ulang = true) {
   window.setTimeout(() => {
     const baris = document.getElementById(`baris-${barisId}`);
-    if (!baris) return;
+    if (!baris) return kabar(false);
     const kolom = kunci
       ? baris.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-kolom="${kunci}"]`)
       : [...baris.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")].find((el) => el.maxLength > 0 && el.value.length > el.maxLength);
@@ -163,16 +177,24 @@ function fokusKolomLewat(barisId: string, kunci?: string, ulang = true) {
       const terlipat = [...baris.querySelectorAll<HTMLButtonElement>('button[aria-expanded="false"]')].find((tombol) => tombol.textContent?.includes("Terlalu panjang"));
       if (terlipat && ulang) {
         terlipat.click();
-        fokusKolomLewat(barisId, kunci, false);
+        fokusKolomLewat(barisId, kunci, kabar, false);
+      } else {
+        kabar(false);
       }
       return;
     }
     const wadah = kolom.closest<HTMLElement>(".overflow-y-auto");
     if (wadah) {
       const atas = kolom.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop;
-      wadah.scrollTo({ top: Math.max(0, atas - 96), behavior: "smooth" });
+      // Kolom plus penghitung (~28px) harus selesai sebelum ruang toast.
+      // Kolom tinggi boleh naik melewati tepi atas panel: yang harus terlihat
+      // adalah penghitungnya, bukan awal kolom.
+      const ruang = wadah.clientHeight - RUANG_TOAST - kolom.offsetHeight - 28;
+      const jarak = Math.min(96, ruang >= 16 ? ruang : Math.max(ruang, 64 - kolom.offsetHeight));
+      wadah.scrollTo({ top: Math.max(0, atas - jarak), behavior: "smooth" });
     }
     kolom.focus({ preventScroll: true });
+    kabar(true);
   }, ulang ? 350 : 150);
 }
 
@@ -314,6 +336,50 @@ function tanpaEnYatim(landing: EventLandingConfig): EventLandingConfig {
     for (const [kunci] of kolomJudulBagian(id)) if (!landing[kunci]?.trim()) delete en[kunci];
   }
   return { ...landing, en };
+}
+
+/** Batas luar skema server untuk teks butir (landing-body-schema), ID dan English. */
+const BATAS_SKEMA_BUTIR: Record<KolomButir, LandingTextLimit> = { label: { max: 160 }, title: { max: 160 }, body: { max: 400 }, value: { max: 30 } };
+
+/**
+ * Buang teks blok yang editor tidak tampilkan dan melewati batas: teks tombol
+ * tanpa tautan, Chip 2 di luar tata letak overlay, teks tautan Kolom tanpa
+ * tautan, teks English yang Indonesianya kosong. Halaman publik juga tidak
+ * menampilkannya, tetapi server tetap menolaknya, dengan galat yang tidak
+ * menyebut kolom mana. Yang masih dalam batas dibiarkan, supaya pindah tata
+ * letak tidak menghapus isi.
+ */
+function tanpaTersembunyiKepanjangan(blocks: LandingBlock[] | undefined): LandingBlock[] | undefined {
+  if (!blocks) return blocks;
+  return blocks.map((blok) => {
+    const batas = landingBlockLimits(blok);
+    const lewat = (nilai: unknown, limit: unknown) =>
+      typeof nilai === "string" && !!limit && typeof limit === "object" && "max" in limit && nilai.length > (limit as LandingTextLimit).max;
+    const hasil = { ...blok } as Record<string, unknown>;
+    const en = blok.en ? ({ ...blok.en } as Record<string, unknown>) : undefined;
+    for (const [kunci, limit] of Object.entries(batas)) {
+      if (kunci === "item" || kunci === "items") continue;
+      if (!kolomBlokTampil(blok, kunci) && lewat(hasil[kunci], limit)) delete hasil[kunci];
+      if (en && !ada(blok[kunci as keyof LandingBlock]) && lewat(en[kunci], limit)) delete en[kunci];
+    }
+    if (en) hasil.en = en;
+    if (blok.items) {
+      hasil.items = blok.items.map((butir) => {
+        const baru = { ...butir } as Record<string, unknown>;
+        const enButir = butir.en ? ({ ...butir.en } as Record<string, unknown>) : undefined;
+        // Semua kunci butir, bukan hanya yang dibatasi tata letak: mis. Chip 2
+        // di luar overlay tidak punya batas tata letak, tetapi skema tetap 30.
+        for (const kunci of Object.keys(BATAS_SKEMA_BUTIR) as KolomButir[]) {
+          const limit = batas.item?.[kunci] ?? BATAS_SKEMA_BUTIR[kunci];
+          if (!isianButirTampil(blok, butir, kunci) && lewat(baru[kunci], limit)) delete baru[kunci];
+          if (enButir && !ada(butir[kunci]) && lewat(enButir[kunci], limit)) delete enButir[kunci];
+        }
+        if (enButir) baru.en = enButir;
+        return baru as LandingBlockItem;
+      });
+    }
+    return hasil as LandingBlock;
+  });
 }
 
 /** Hapus yang bisa diurungkan. Berlaku di draf; baru permanen saat Simpan. */
@@ -630,6 +696,7 @@ export default function LandingCmsPage() {
       venue_map_url: facts.venue_map_url?.trim() || null,
       landing: {
         ...tanpaEnYatim(landing),
+        blocks: tanpaTersembunyiKepanjangan(landing.blocks),
         sections,
         theme: { seed: landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
         member: landing.member
@@ -691,8 +758,13 @@ export default function LandingCmsPage() {
         setTerbuka(blok.id);
         setSorot((current) => ({ id: blok.id, n: (current?.n ?? 0) + 1 }));
         gulirKeBaris(blok.id);
-        fokusKolomLewat(blok.id);
-        toast.error("Teks terlalu panjang", `Bagian ${index + 2}, ${lewat.kolom}${lewat.bahasa === "en" ? " (English)" : ""}: maksimal ${lewat.max} karakter. Kolomnya sudah ditampilkan.`);
+        // Toast langsung; fokus menyusul setelah baris terbuka. Bila kolomnya
+        // ternyata tidak ada, toast kedua menyusul (toast tidak bisa diganti).
+        const pesan = (akhir: string) => `Bagian ${index + 2}, ${lewat.kolom}${lewat.bahasa === "en" ? " (English)" : ""}: maksimal ${lewat.max} karakter. ${akhir}`;
+        toast.error("Teks terlalu panjang", pesan("Kolomnya sudah ditampilkan."));
+        fokusKolomLewat(blok.id, undefined, (ketemu) => {
+          if (!ketemu) toast.error("Teks terlalu panjang", pesan("Bagiannya sudah dibuka."));
+        });
         return;
       }
     }
@@ -704,11 +776,12 @@ export default function LandingCmsPage() {
       if (judulLewat.bahasa === "id") setJudulTerbuka(judulLewat.id);
       gulirKeBaris(judulLewat.id);
       // Kolomnya bisa jauh di bawah baris (mis. judul FAQ di bawah semua pertanyaan).
-      fokusKolomLewat(judulLewat.id, judulLewat.kunci);
-      toast.error(
-        "Teks terlalu panjang",
-        `${LANDING_SECTION_LABELS[judulLewat.id]}, ${judulLewat.kolom}${judulLewat.bahasa === "en" ? " (English)" : ""}: maksimal ${judulLewat.max} karakter. Kolomnya sudah ditampilkan.`,
-      );
+      const pesan = (akhir: string) =>
+        `${LANDING_SECTION_LABELS[judulLewat.id]}, ${judulLewat.kolom}${judulLewat.bahasa === "en" ? " (English)" : ""}: maksimal ${judulLewat.max} karakter. ${akhir}`;
+      toast.error("Teks terlalu panjang", pesan("Kolomnya sudah ditampilkan."));
+      fokusKolomLewat(judulLewat.id, judulLewat.kunci, (ketemu) => {
+        if (!ketemu) toast.error("Teks terlalu panjang", pesan("Bagiannya sudah dibuka."));
+      });
       return;
     }
     const forumSalah = landing.layout === "forum" ? forumTautanSalah(landing.forum) : null;
@@ -1816,7 +1889,7 @@ export default function LandingCmsPage() {
           <button
             type="button"
             aria-expanded={buka}
-            aria-controls={`isi-${id}`}
+            aria-controls={buka ? `isi-${id}` : undefined}
             onClick={() => bukaTutup(id)}
             className="min-w-0 flex-1 self-stretch rounded-sm text-left"
           >

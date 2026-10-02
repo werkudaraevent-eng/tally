@@ -122,6 +122,20 @@ const URUT_BLOK: (keyof LandingBlockEn)[] = ["eyebrow", "heading", "body", "quot
 
 const LABEL_BUTIR: Record<"label" | "title" | "body" | "value", string> = { label: "Label", title: "Judul", body: "Isi", value: "Angka" };
 
+/** Label kolom blok di editor English, untuk galat Simpan yang menyebut kolomnya. */
+export function labelKolomBlokEn(key: string): string {
+  return LABEL_BLOK[key as keyof LandingBlockEn] ?? key;
+}
+
+export function labelIsianButirEn(block: LandingBlock, key: "label" | "title" | "body" | "value"): string {
+  return key === "label" && block.type === "logos" ? "Nama lembaga" : key === "label" && block.type === "multicolumn" ? "Teks tautan" : LABEL_BUTIR[key];
+}
+
+/** "Kolom 2", "Butir 3": judul kartu butir di editor English. */
+export function namaButirBlokEn(block: LandingBlock, index: number): string {
+  return `${block.type === "multicolumn" ? "Kolom" : "Butir"} ${index + 1}`;
+}
+
 export function BlockEditorEn({ block, onChange }: { block: LandingBlock; onChange: (next: LandingBlock) => void }) {
   const batas = landingBlockLimits(block);
   const en = block.en ?? {};
@@ -150,13 +164,13 @@ export function BlockEditorEn({ block, onChange }: { block: LandingBlock; onChan
       const isian = (["label", "title", "value", "body"] as const).filter((key) => ada(item[key]));
       if (isian.length === 0) return null;
       return (
-        <Kartu key={index} judul={`${block.type === "multicolumn" ? "Kolom" : "Butir"} ${index + 1}`}>
+        <Kartu key={index} judul={namaButirBlokEn(block, index)}>
           {isian.map((key) => {
             const limit = batas.item?.[key];
             return (
               <KolomEn
                 key={key}
-                label={key === "label" && block.type === "logos" ? "Nama lembaga" : key === "label" && block.type === "multicolumn" ? "Teks tautan" : LABEL_BUTIR[key]}
+                label={labelIsianButirEn(block, key)}
                 sumber={item[key] ?? ""}
                 value={item.en?.[key]}
                 onChange={(value) => ubahItem(index, key, value)}

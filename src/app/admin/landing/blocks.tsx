@@ -169,9 +169,12 @@ function rasioGambarButir(block: LandingBlock): string {
 }
 
 /** Ada teks butir yang melewati batas (mis. setelah impor, atau kolom ditambah sehingga batasnya turun). */
-function butirKepanjangan(item: LandingBlockItem, batas: Partial<Record<KolomButir, LandingTextLimit>> | undefined): boolean {
+function butirKepanjangan(block: LandingBlock, item: LandingBlockItem, batas: Partial<Record<KolomButir, LandingTextLimit>> | undefined): boolean {
   if (!batas) return false;
+  // Isian yang tidak dirender tidak dihitung: lencananya akan membuka butir
+  // yang tidak punya kolom untuk diperbaiki.
   return (Object.keys(batas) as KolomButir[]).some((key) => {
+    if (!isianButirTampil(block, item, key)) return false;
     const max = batas[key]?.max;
     return max !== undefined && (item[key]?.length ?? 0) > max;
   });
@@ -205,8 +208,78 @@ function daftarAngka(angka: number[]): string {
   return angka.length <= 2 ? angka.join(" atau ") : `${angka.slice(0, -1).join(", ")}, atau ${angka[angka.length - 1]}`;
 }
 
+/**
+ * Nama kolom blok seperti tertulis di editor ID di bawah, untuk galat Simpan
+ * yang menyebut kolomnya. Ubah bersama label kolom di BlockEditor.
+ */
+export function labelKolomBlok(block: LandingBlock, key: string): string {
+  switch (key) {
+    case "eyebrow": return "Label kecil";
+    case "heading": return block.type === "logos" ? "Label" : "Judul";
+    case "body": return block.type === "text_image" ? "Isi" : block.type === "download" ? "Keterangan" : block.type === "cta" ? "Kalimat" : "Pengantar";
+    case "link_label": return block.type === "text_image" ? "Teks tombol utama" : "Teks tombol";
+    case "link2_label": return "Teks tombol kedua";
+    case "fact_title": return "Kartu fakta";
+    case "fact_body": return "Keterangan";
+    case "source": return "Sumber";
+    case "quote": return "Kutipan";
+    case "name": return "Nama";
+    case "role": return "Jabatan dan lembaga";
+    default: return key;
+  }
+}
+
+/**
+ * Kolom blok yang dirender editor ID. Teks tombol tanpa tautannya tidak tampil
+ * di halaman maupun di editor, jadi galat Simpan tidak bisa menunjuknya.
+ */
+export function kolomBlokTampil(block: LandingBlock, key: string): boolean {
+  if (key === "link_label") {
+    if (block.type === "download" || block.type === "cta") return true;
+    return (block.type === "text_image" || block.type === "cards") && Boolean(block.link_url?.trim());
+  }
+  if (key === "link2_label") return block.type === "text_image" && Boolean(block.link2_url?.trim());
+  return true;
+}
+
+/** Label isian butir per jenis dan tata letak; satu sumber untuk editor dan galat Simpan. */
+export function labelIsianButir(block: LandingBlock, key: KolomButir): string {
+  const layout = landingBlockLayout(block);
+  switch (block.type) {
+    case "stats": return key === "value" ? "Angka" : "Keterangan";
+    case "points": return layout === "numbered" ? "Isi baris" : layout === "list" ? "Butir" : key === "title" ? "Judul kartu" : "Isi kartu";
+    case "cards":
+      if (key === "label") return layout === "overlay" ? "Chip 1" : "Label kecil";
+      if (key === "value") return "Chip 2";
+      if (key === "title") return "Judul";
+      return layout === "columns" ? "Keterangan atau penerbit" : "Keterangan";
+    case "logos": return "Nama lembaga";
+    case "multicolumn": return key === "title" ? "Judul" : key === "body" ? "Teks" : "Teks tautan";
+    default: return "Keterangan foto";
+  }
+}
+
+/** Isian butir yang dirender editor ID: Chip 2 hanya di tata letak overlay, teks tautan Kolom hanya bila tautannya diisi. */
+export function isianButirTampil(block: LandingBlock, item: LandingBlockItem, key: KolomButir): boolean {
+  const layout = landingBlockLayout(block);
+  switch (block.type) {
+    case "stats": return key === "value" || key === "label";
+    case "points": return layout === "numbered" ? key === "body" : layout === "list" ? key === "title" : key === "title" || key === "body";
+    case "cards": return key !== "value" || layout === "overlay";
+    case "logos": return key === "label";
+    case "multicolumn": return key !== "label" || Boolean(item.href?.trim());
+    default: return key === "label";
+  }
+}
+
+/** "Kartu 2", "Isi kolom 3": nama butir seperti di judul barisnya. */
+export function namaButirBlok(block: LandingBlock, index: number): string {
+  const butir = LABEL_BUTIR[block.type] ?? "butir";
+  return `${butir[0].toUpperCase()}${butir.slice(1)} ${index + 1}`;
+}
+
 type KolomTeks = "eyebrow" | "heading" | "body" | "link_label" | "link2_label" | "fact_title" | "fact_body" | "source" | "quote" | "name" | "role";
-type KolomButir = "label" | "title" | "body" | "value";
+export type KolomButir = "label" | "title" | "body" | "value";
 
 export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange: (next: LandingBlock) => void }) {
   const ubah = (patch: Partial<LandingBlock>) => onChange({ ...block, ...patch });
@@ -300,12 +373,14 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
   // ---- Butir -----------------------------------------------------------------
   const kolomButir = (item: LandingBlockItem, index: number) => {
     const b = batas.item ?? {};
-    const isian = (key: KolomButir, label: string, opsi: { hint?: string; optional?: boolean; area?: boolean } = {}) =>
-      opsi.area ? (
+    const isian = (key: KolomButir, opsi: { hint?: string; optional?: boolean; area?: boolean } = {}) => {
+      const label = labelIsianButir(block, key);
+      return opsi.area ? (
         <TextArea label={label} optional={opsi.optional} hint={opsi.hint} rows={2} {...hitung(b[key])} value={item[key] ?? ""} onChange={(event) => ubahItem(index, { [key]: event.target.value })} />
       ) : (
         <TextField label={label} optional={opsi.optional} hint={opsi.hint} {...hitung(b[key])} value={item[key] ?? ""} onChange={(event) => ubahItem(index, { [key]: event.target.value })} />
       );
+    };
     const gambar = (
       <ImageUploadField
         label={block.type === "logos" ? "Logo" : "Gambar"}
@@ -336,17 +411,17 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
       case "stats":
         return (
           <>
-            {isian("value", "Angka", { hint: "Mis. 93,61%" })}
-            {isian("label", "Keterangan", { area: true, hint: "Mis. Indeks inklusi keuangan 2026, naik dari 76,19% pada 2019" })}
+            {isian("value", { hint: "Mis. 93,61%" })}
+            {isian("label", { area: true, hint: "Mis. Indeks inklusi keuangan 2026, naik dari 76,19% pada 2019" })}
           </>
         );
       case "points":
-        if (layout === "numbered") return isian("body", "Isi baris", { area: true });
-        if (layout === "list") return isian("title", "Butir");
+        if (layout === "numbered") return isian("body", { area: true });
+        if (layout === "list") return isian("title");
         return (
           <>
-            {isian("title", "Judul kartu")}
-            {isian("body", "Isi kartu", { area: true, optional: true })}
+            {isian("title")}
+            {isian("body", { area: true, optional: true })}
           </>
         );
       case "cards":
@@ -355,14 +430,14 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
             {gambar}
             {layout === "overlay" ? (
               <div className="grid grid-cols-2 gap-3">
-                {isian("label", "Chip 1", { optional: true, hint: "Mis. Sesi 1" })}
-                {isian("value", "Chip 2", { optional: true, hint: "Mis. 09.45–10.30" })}
+                {isian("label", { optional: true, hint: "Mis. Sesi 1" })}
+                {isian("value", { optional: true, hint: "Mis. 09.45–10.30" })}
               </div>
             ) : (
-              isian("label", "Label kecil", { optional: true, hint: "Mis. Kelompok 1" })
+              isian("label", { optional: true, hint: "Mis. Kelompok 1" })
             )}
-            {isian("title", "Judul")}
-            {isian("body", layout === "columns" ? "Keterangan atau penerbit" : "Keterangan", { area: true, optional: true })}
+            {isian("title")}
+            {isian("body", { area: true, optional: true })}
             {tautanButir("Kartu bisa dibuka bila diisi.")}
           </>
         );
@@ -370,7 +445,7 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
         return (
           <>
             {gambar}
-            {isian("label", "Nama lembaga", { optional: true, hint: "Dibacakan pembaca layar." })}
+            {isian("label", { optional: true, hint: "Dibacakan pembaca layar." })}
             {tautanButir("Situs lembaga, opsional.")}
           </>
         );
@@ -378,17 +453,17 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
         return (
           <>
             {gambar}
-            {isian("title", "Judul", { optional: true, hint: "Isi judul atau teks. Kolom berisi gambar saja tidak tampil." })}
-            {isian("body", "Teks", { area: true, optional: true })}
+            {isian("title", { optional: true, hint: "Isi judul atau teks. Kolom berisi gambar saja tidak tampil." })}
+            {isian("body", { area: true, optional: true })}
             {tautanButir("Tautan di bawah teks, mis. ke halaman pembicara atau #agenda.")}
-            {item.href?.trim() ? isian("label", "Teks tautan", { optional: true, hint: "Bawaan: Selengkapnya." }) : null}
+            {item.href?.trim() ? isian("label", { optional: true, hint: "Bawaan: Selengkapnya." }) : null}
           </>
         );
       default:
         return (
           <>
             {gambar}
-            {isian("label", "Keterangan foto", { optional: true, hint: "Dibacakan pembaca layar; tidak tampil di halaman." })}
+            {isian("label", { optional: true, hint: "Dibacakan pembaca layar; tidak tampil di halaman." })}
           </>
         );
     }
@@ -406,7 +481,7 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
       {items.map((item, index) => {
         const buka = !ringkas || butirTerbuka === index;
         const nama = ringkas && item.title?.trim() ? item.title.trim() : `${Butir} ${index + 1}`;
-        const kepanjangan = ringkas && !buka && butirKepanjangan(item, batas.item);
+        const kepanjangan = ringkas && !buka && butirKepanjangan(block, item, batas.item);
         return (
           <div key={index} className={cx("flex flex-col gap-3 rounded-md border border-outline-variant", ringkas && !buka ? "px-3 py-1" : "p-3")}>
             <div className="flex items-center justify-between gap-2">

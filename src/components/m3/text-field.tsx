@@ -1,7 +1,7 @@
 "use client";
 
 import { WarningCircle } from "@phosphor-icons/react";
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useId, type AriaAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { cx } from "@/lib/m3/cx";
 
 /**
@@ -57,9 +57,10 @@ function melewati(count: Hitungan | null) {
 	return !!count && count.length > count.max;
 }
 
-function ariaKolom(id: string, describedBy: string | undefined, error: string | undefined, count: Hitungan | null) {
+function ariaKolom(id: string, describedBy: string | undefined, error: string | undefined, count: Hitungan | null, invalid: AriaAttributes["aria-invalid"]) {
 	return {
-		"aria-invalid": error || melewati(count) ? true : undefined,
+		// `invalid` dari pemanggil, mis. login gagal tanpa `error` per kolom.
+		"aria-invalid": error || melewati(count) ? true : invalid,
 		"aria-describedby": [describedBy, count ? `${id}-count` : null].filter(Boolean).join(" ") || undefined,
 	} as const;
 }
@@ -133,7 +134,7 @@ function controlClass(error?: string | boolean) {
 	return cx(
 		CONTROL_BASE,
 		error
-			? "border-error focus:border-error focus-visible:outline-error"
+			? "border-error focus:border-error"
 			: "border-outline focus:border-primary",
 	);
 }
@@ -173,7 +174,7 @@ export function TextField({ label, hint, error, optional, className, inputClassN
 				<input
 					{...rest}
 					id={id}
-					{...ariaKolom(id, describedBy, error, count)}
+					{...ariaKolom(id, describedBy, error, count, rest["aria-invalid"])}
 					className={cx(
 						controlClass(error || melewati(count)),
 						size === "lg" ? "m3-field-lg h-16" : "m3-field h-14",
@@ -203,7 +204,7 @@ export function TextArea({ label, hint, error, optional, className, rows = 4, co
 				{...rest}
 				id={id}
 				rows={rows}
-				{...ariaKolom(id, describedBy, error, count)}
+				{...ariaKolom(id, describedBy, error, count, rest["aria-invalid"])}
 				className={cx(controlClass(error || melewati(count)), "mt-2 resize-y py-3 leading-6")}
 			/>
 			<FieldMessages id={id} error={error} hint={hint} count={count} />
