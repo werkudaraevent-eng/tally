@@ -601,9 +601,9 @@ export function AdminShell({
           }
           titleAs="p"
           // Halaman lebar mengisi bilah dengan judul dan aksinya sendiri, jadi
-          // isinya selebar halaman dan tepinya sama dengan tepi editor.
+          // isinya selebar halaman dan tepinya sama dengan tepi editor (keduanya 16px).
           maxWidth={halamanLebar ? "none" : undefined}
-          className={halamanLebar ? "lg:px-6!" : undefined}
+          className={halamanLebar ? "lg:px-4!" : undefined}
           // `contents`: anak portal menjadi anggota flex baris bilah itu sendiri.
           breadcrumb={<div ref={setSlotJudul} className="contents" />}
           subtitle={eventName ?? undefined}
