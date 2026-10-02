@@ -10,8 +10,9 @@ import { cx } from "@/lib/m3/cx";
 
 /**
  * Satu baris rundown yang bisa dipilih sebagai sesi pembicara. Barisnya sama
- * dengan yang dibaca halaman acara (loadAgendaPreview): urut bagian lalu urutan
- * baris, paling banyak 40 per bagian, tanpa baris tak berjudul. Baris jeda
+ * dengan yang dibaca halaman acara (loadAgendaPreview): hanya bagian dan baris
+ * yang diterbitkan, urut bagian lalu urutan baris, paling banyak 40 per bagian,
+ * tanpa baris tak berjudul. Baris jeda
  * (`is_break`) tidak ditawarkan; penutupan atau registrasi tetap bisa dipilih.
  */
 export type BarisSesi = { id: number; jam: string; title: string; title_en: string; bagian: string | null };
@@ -24,10 +25,11 @@ const CARI_MULAI = 10;
 const CHIP_MAKS = 2;
 
 export function barisSesiDariAdmin(isi: { sections?: RundownSection[]; items?: RundownItem[] }): BarisSesi[] {
-  const bagian = [...(isi.sections ?? [])].sort((a, b) => a.sort_order - b.sort_order);
+  // Hanya yang tampil di halaman acara: bagian dan baris yang diterbitkan.
+  const bagian = [...(isi.sections ?? [])].filter((seksi) => seksi.is_published).sort((a, b) => a.sort_order - b.sort_order);
   return bagian.flatMap((seksi) =>
     (isi.items ?? [])
-      .filter((item) => item.section_id === seksi.id)
+      .filter((item) => item.section_id === seksi.id && item.is_published)
       .sort((a, b) => a.sort_order - b.sort_order)
       // Potong dulu, baru buang yang tak berjudul: urutannya sama dengan
       // loadAgendaPreview, jadi tidak ada pilihan yang tak pernah tampil.
@@ -246,10 +248,10 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
   }
 
   const ringkasan = chip.length
-    ? `${chip.length} dipilih: ${chip.map((c) => (c.jam ? `${c.ref.label} ${c.jam}` : `${c.ref.label}${c.hilang ? ", dihapus dari rundown" : ""}`)).join(", ")}`
-    : lama ? `Sesi lama "${lama}", belum terhubung ke rundown` : baris === null ? (memuat ? "Memuat rundown" : "Rundown gagal dimuat") : dikenal.length === 0 ? "Rundown belum punya sesi" : "Pilih sesi";
+    ? `${chip.length} dipilih: ${chip.map((c) => (c.jam ? `${c.ref.label} ${c.jam}` : `${c.ref.label}${c.hilang ? ", tidak tampil di rundown" : ""}`)).join(", ")}`
+    : lama ? `Sesi lama "${lama}", belum terhubung ke rundown` : baris === null ? (memuat ? "Memuat rundown" : "Rundown gagal dimuat") : dikenal.length === 0 ? "Belum ada sesi yang diterbitkan" : "Pilih sesi";
   const aktif = menu.open && pilihan.length ? pilihan[Math.min(sorot, pilihan.length - 1)] : undefined;
-  const galat = hilang.length ? `${hilang.length} sesi tidak ada lagi di rundown. Pilih ulang atau lepas.` : null;
+  const galat = hilang.length ? `${hilang.length} sesi tidak ada lagi di rundown, belum diterbitkan, atau menjadi jeda. Pilih ulang atau lepas.` : null;
   // Teks lama hanya peringatan, dan hanya bila rundown sudah dimuat: selama
   // rundown gagal dimuat, cocok tidaknya belum diketahui.
   const peringatan = !galat && lama && baris ? "Sesi lama ini tidak cocok dengan satu baris rundown. Pilih barisnya supaya foto dan jamnya tampil." : null;
@@ -280,7 +282,7 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
         {tampilChip.map((c, posisi) => (
           <span
             key={c.ref.id}
-            title={c.hilang ? `${c.ref.label} sudah dihapus dari rundown` : dikenal.find((b) => b.id === c.ref.id)?.title}
+            title={c.hilang ? `${c.ref.label} tidak tampil: dihapus, belum diterbitkan, atau menjadi jeda di rundown` : dikenal.find((b) => b.id === c.ref.id)?.title}
             className={cx(
               "inline-flex h-6 max-w-[8.25rem] shrink-0 items-center rounded-md pl-1.5 text-[13px] font-medium leading-4",
               c.hilang ? "bg-error-soft text-error" : "bg-accent-soft text-primary",
@@ -385,7 +387,7 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
               <button type="button" onClick={() => { onMuatUlang(); pemicu?.focus(); }} className="font-medium text-primary underline">Muat ulang</button>
             </div>
           ) : dikenal.length === 0 ? (
-            <p className="px-3 py-2 text-body-medium text-on-surface-variant">Rundown acara belum punya sesi. Tambahkan di Rundown.</p>
+            <p className="px-3 py-2 text-body-medium text-on-surface-variant">Belum ada sesi yang diterbitkan di Rundown.</p>
           ) : pilihan.length === 0 ? (
             <p className="px-3 py-2 text-body-medium text-on-surface-variant">Tidak ada yang cocok.</p>
           ) : (
