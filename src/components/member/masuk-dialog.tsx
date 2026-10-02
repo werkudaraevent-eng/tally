@@ -64,6 +64,11 @@ export function MasukDialog({
   const kodeRef = useRef<HTMLInputElement>(null);
   const pemicuRef = useRef<HTMLElement | null>(null);
   const galatRef = useRef<HTMLParagraphElement>(null);
+  const isiRef = useRef<HTMLDivElement>(null);
+  // Fokus dikembalikan ke pemicu hanya setelah dialog benar-benar pernah
+  // terbuka. Tanpa ini efek tutup di bawah ikut jalan saat halaman dimuat dan
+  // menaruh fokus di tombol Masuk.
+  const pernahTerbuka = useRef(false);
 
   const [terbuka, setTerbuka] = useState(awal !== null);
   const [mode, setMode] = useState<MasukMode>(awal ?? "masuk");
@@ -72,6 +77,11 @@ export function MasukDialog({
   const [code, setCode] = useState("");
   const [galat, setGalat] = useState("");
   const [sibuk, setSibuk] = useState(false);
+  // Judul baru dibacakan pembaca layar saat mode berganti (fokus pindah ke
+  // kolom, bukan ke judul).
+  const [pengumuman, setPengumuman] = useState("");
+  // Isi lebih tinggi dari ruangnya: garis di bawah kepala menandai ada lanjutan.
+  const [meluap, setMeluap] = useState(false);
 
   const buka = useCallback((dengan: MasukMode) => {
     setMode(dengan);
@@ -136,21 +146,40 @@ export function MasukDialog({
     const akar = document.documentElement;
     if (terbuka) {
       if (!dialog.open) dialog.showModal();
-      // Kunci gulir. <html> sudah memakai scrollbar-gutter: stable (globals.css),
-      // jadi halaman di belakang tidak bergeser saat batang gulirnya hilang.
-      const sebelum = akar.style.overflow;
+      pernahTerbuka.current = true;
+      // Kunci gulir. <html> memakai scrollbar-gutter: stable (globals.css);
+      // celah kosongnya tidak ikut digelapkan lapisan latar. Selama terkunci
+      // celah itu dilepas dan diganti padding <body> selebar celah, jadi
+      // halaman di belakang tidak bergeser dan lapisan latar menutup penuh.
+      const celah = Math.round(window.innerWidth - akar.getBoundingClientRect().width);
+      const sebelum = { overflow: akar.style.overflow, gutter: akar.style.scrollbarGutter, padding: document.body.style.paddingRight };
+      akar.style.scrollbarGutter = "auto";
       akar.style.overflow = "hidden";
+      if (celah > 0) document.body.style.paddingRight = `${celah}px`;
       emailRef.current?.focus();
       return () => {
-        akar.style.overflow = sebelum;
+        akar.style.overflow = sebelum.overflow;
+        akar.style.scrollbarGutter = sebelum.gutter;
+        document.body.style.paddingRight = sebelum.padding;
       };
     }
     if (dialog.open) dialog.close();
+    if (!pernahTerbuka.current) return undefined;
     const pemicu = pemicuRef.current ?? document.querySelector<HTMLElement>(`a[href="${masukUrl}"]`);
     pemicu?.focus();
     pemicuRef.current = null;
     return undefined;
   }, [terbuka, masukUrl]);
+
+  useEffect(() => {
+    const isi = isiRef.current;
+    if (!terbuka || !isi) return;
+    const ukur = () => setMeluap(isi.scrollHeight > isi.clientHeight + 1);
+    const pengamat = new ResizeObserver(ukur);
+    pengamat.observe(isi);
+    Array.from(isi.children).forEach((anak) => pengamat.observe(anak));
+    return () => pengamat.disconnect();
+  }, [terbuka, mode, galat]);
 
   // Pesan galat di atas formulir; di layar pendek isi bisa sudah tergulir ke
   // tombol, jadi pesannya digulir ke tampilan.
@@ -162,6 +191,7 @@ export function MasukDialog({
     setMode(next);
     setGalat("");
     setPassword("");
+    setPengumuman(next === "aktifkan" ? "Buat kata sandi" : "Masuk area peserta");
     // Mode ikut di alamat, supaya muat ulang dan salin tautan mendarat di mode
     // yang sama. Diganti, bukan ditumpuk: Kembali tetap menutup dialog.
     if (window.location.pathname === masukUrl) {
@@ -174,6 +204,7 @@ export function MasukDialog({
 
   async function kirim(event: FormEvent) {
     event.preventDefault();
+    if (sibuk) return;
     setGalat("");
     setSibuk(true);
     const hasil = await kirimMasuk(slug, mode, { email, password, code });
@@ -218,6 +249,8 @@ export function MasukDialog({
   return (
     <dialog
       ref={dialogRef}
+      // Area peserta belum dwibahasa; di /en dialog ini tetap berbahasa Indonesia.
+      lang="id"
       aria-modal="true"
       aria-labelledby={judulId}
       onCancel={(event) => {
@@ -232,7 +265,7 @@ export function MasukDialog({
       // tetap, isi bergulir bila layar pendek.
       className="m-0 h-dvh max-h-none w-full max-w-none flex-col overflow-hidden bg-[var(--reg-surface)] p-0 text-[var(--reg-on-surface)] backdrop:bg-black/50 open:flex min-[600px]:m-auto min-[600px]:h-fit min-[600px]:max-h-[calc(100dvh-32px)] min-[600px]:w-[440px] min-[600px]:rounded-lg min-[600px]:shadow-[0_8px_24px_rgb(0_0_0/0.2)]"
     >
-      <div className="flex h-16 shrink-0 items-center gap-1 px-2 min-[600px]:h-auto min-[600px]:items-start min-[600px]:justify-between min-[600px]:gap-2 min-[600px]:pl-8 min-[600px]:pr-4 min-[600px]:pt-5">
+      <div className={`flex h-16 shrink-0 items-center gap-1 border-b px-2 ${meluap ? "border-[var(--reg-outline-variant)]" : "border-transparent"} min-[600px]:h-auto min-[600px]:pb-2 min-[600px]:items-start min-[600px]:justify-between min-[600px]:gap-2 min-[600px]:pl-8 min-[600px]:pr-4 min-[600px]:pt-5`}>
         <h2
           id={judulId}
           className="order-last min-w-0 text-[22px] font-semibold leading-7 [font-family:var(--landing-heading)] min-[600px]:order-first min-[600px]:pt-2 min-[600px]:text-[28px] min-[600px]:leading-9 min-[600px]:tracking-[-0.02em]"
@@ -250,7 +283,10 @@ export function MasukDialog({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 scroll-pb-8 overflow-y-auto overscroll-contain px-5 pb-8 min-[600px]:px-8 min-[600px]:pb-7">
+      <div ref={isiRef} className="min-h-0 flex-1 scroll-pb-8 overflow-y-auto overscroll-contain px-5 pb-8 pt-2 min-[600px]:px-8 min-[600px]:pb-7">
+        <p aria-live="polite" className="sr-only">
+          {pengumuman}
+        </p>
         <p className="text-body-medium text-[var(--reg-on-surface-variant)]">{keterangan}</p>
         {mode === "aktifkan" ? (
           <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">
@@ -306,8 +342,8 @@ export function MasukDialog({
           {/* "Lupa kata sandi?" di LUAR label: tombol di dalam <label> ikut
               menjadi nama kolom bagi pembaca layar. Baris label setinggi
               tombolnya (44px), jadi jaraknya dari kolom di atas lebih kecil. */}
-          <div className="mt-1">
-            <div className="flex min-h-11 items-end justify-between gap-4">
+          <div className={mode === "masuk" ? "mt-1" : "mt-4"}>
+            <div className={`flex justify-between gap-4 ${mode === "masuk" ? "min-h-11 items-end" : ""}`}>
               <label htmlFor={`${judulId}-sandi`} className={LABEL}>
                 {mode === "masuk" ? "Kata sandi" : "Kata sandi baru"}
               </label>
@@ -340,8 +376,10 @@ export function MasukDialog({
 
           <button
             type="submit"
-            disabled={sibuk}
-            className="m3-state mt-6 min-h-[52px] rounded-md bg-[var(--reg-primary)] px-5 text-title-medium font-semibold text-[var(--reg-on-primary)] disabled:opacity-60"
+            // aria-disabled, bukan disabled: tombol yang dinonaktifkan selagi
+            // berfokus menjatuhkan fokus ke <body> saat kiriman gagal.
+            aria-disabled={sibuk || undefined}
+            className="m3-state mt-6 min-h-[52px] rounded-md bg-[var(--reg-primary)] px-5 text-title-medium font-semibold text-[var(--reg-on-primary)] aria-disabled:opacity-60"
             style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
           >
             {sibuk ? "Memproses..." : mode === "masuk" ? "Masuk" : "Simpan kata sandi dan masuk"}
