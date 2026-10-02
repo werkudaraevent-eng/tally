@@ -340,7 +340,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
               <h2 className={`${JUDUL} max-w-[640px] whitespace-pre-line`}>{config.program_heading?.trim() || t.program}</h2>
               {config.program_intro?.trim() ? (
-                <p className={`max-w-[520px] text-body-large ${MUTED}`}>{config.program_intro.trim()}</p>
+                <p className={`max-w-[520px] text-isi ${MUTED}`}>{config.program_intro.trim()}</p>
               ) : null}
             </div>
             <ul className="mt-10 grid gap-4 sm:mt-14 sm:gap-6 md:grid-cols-2">
@@ -364,7 +364,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                     <h3 className="text-balance text-headline-medium font-medium">
                       {bagian.sectionTitle || t.part(index + 1)}
                     </h3>
-                    {catatan ? <p className={`whitespace-pre-line text-body-large ${MUTED}`}>{catatan}</p> : null}
+                    {catatan ? <p className={`whitespace-pre-line text-isi ${MUTED}`}>{catatan}</p> : null}
                   </li>
                 );
               })}
@@ -410,7 +410,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 <div className="flex flex-col gap-6">
                   <h2 className={JUDUL}>{config.about_heading?.trim() || LANDING_SECTION_LABELS.about}</h2>
                   {/* whitespace-pre-line: paragraf dipisah enter di CMS. */}
-                  <p className={`whitespace-pre-line text-body-large ${MUTED}`}>{event.description}</p>
+                  <p className={`whitespace-pre-line text-isi ${MUTED}`}>{event.description}</p>
                 </div>
                 {tampil("agenda") ? (
                   <a href="#agenda" className={PIL_PENUH} style={STATE_ON_PRIMARY}>
@@ -437,7 +437,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               <p className={ALIS}>{LANDING_SECTION_LABELS.agenda}</p>
               <h2 className={JUDUL}>{tanggal ?? LANDING_SECTION_LABELS.agenda}</h2>
               {/* Catatan di bawah judul, sama seperti bagian lain. */}
-              {config.agenda_note?.trim() ? <p className={`max-w-[520px] text-body-large ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
+              {config.agenda_note?.trim() ? <p className={`max-w-[520px] text-isi ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
             </div>
             <div className="mt-6 sm:mt-8">
               <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} />
@@ -481,7 +481,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                   {venue ? <p className={ALIS}>{LANDING_SECTION_LABELS.venue}</p> : null}
                   <h2 className={JUDUL}>{venue ?? LANDING_SECTION_LABELS.venue}</h2>
                   {event.venue_address ? (
-                    <p className={`whitespace-pre-line text-body-large ${MUTED}`}>{event.venue_address}</p>
+                    <p className={`whitespace-pre-line text-isi ${MUTED}`}>{event.venue_address}</p>
                   ) : null}
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -542,7 +542,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               <div className="flex flex-col gap-5 lg:self-start">
                 <p className={ALIS}>{LANDING_SECTION_LABELS.faq}</p>
                 <h2 className={JUDUL}>{t.faqHeading}</h2>
-                <p className={`text-body-large ${MUTED}`}>
+                <p className={`text-isi ${MUTED}`}>
                   {t.faqIntro}
                   {kontak.length > 0 ? t.faqContact : null}
                 </p>
@@ -552,12 +552,12 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               <div className="flex flex-col gap-3">
                 {(config.faq ?? []).map((item, index) => (
                   <details key={item.q} open={index === 0} className="faq group rounded-md bg-[var(--reg-panel)]">
-                    <summary className="m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-md px-5 py-5 text-title-large font-medium sm:px-7 sm:py-6 [&::-webkit-details-marker]:hidden">
+                    <summary className="m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-md px-5 py-5 text-title-medium font-semibold sm:px-7 sm:py-6 sm:text-[18px] sm:leading-[26px] [&::-webkit-details-marker]:hidden">
                       {item.q}
                       <Plus size={22} aria-hidden className={`shrink-0 group-open:hidden ${MUTED}`} />
                       <Minus size={22} aria-hidden className={`hidden shrink-0 group-open:block ${MUTED}`} />
                     </summary>
-                    <p className={`whitespace-pre-line px-5 pb-6 text-body-large sm:px-7 ${MUTED}`}>{item.a}</p>
+                    <p className={`whitespace-pre-line px-5 pb-6 text-isi sm:px-7 ${MUTED}`}>{item.a}</p>
                   </details>
                 ))}
               </div>
@@ -664,7 +664,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                   <a href={aksiTertutup.href} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
                     {aksiTertutup.label}
                   </a>
-                  <p className="text-body-large opacity-90">{t.registrationSoon}</p>
+                  <p className="text-isi opacity-90">{t.registrationSoon}</p>
                 </>
               )}
             </div>

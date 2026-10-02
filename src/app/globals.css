@@ -2133,3 +2133,13 @@ html:hover {
 :where([data-halaman-publik]) :is(.text-body-large, .text-body-medium, .text-body-small, .text-label-large, .text-title-medium, .text-title-small) {
 	letter-spacing: normal;
 }
+
+/* ---- Halaman acara publik: teks paragraf ---------------------------------
+ * Satu ukuran untuk semua paragraf isi (Tentang, catatan bagian, alamat,
+ * jawaban FAQ): 15/24. body-large M3 (16) dibuat untuk Roboto; Inter dengan
+ * x-height tinggi terbaca lebih besar, dan paragraf panjang di 16/25,6 terasa
+ * berat. Bukan pengganti body-large global supaya admin tidak ikut berubah. */
+@utility text-isi {
+	font-size: 0.9375rem;
+	line-height: 1.5rem;
+}
