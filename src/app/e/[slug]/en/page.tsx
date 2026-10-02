@@ -9,9 +9,11 @@ import { landingMetadata } from "../landing-metadata";
  * Halaman acara versi English: `/e/<slug>/en`.
  *
  * Isinya sama dengan versi Indonesia (src/app/e/[slug]/page.tsx); yang berbeda
- * hanya teksnya (lihat src/lib/landing-i18n.ts). 404 selama admin belum
- * menyalakan "Tampilkan versi English" di Halaman acara > Tema, supaya halaman
- * setengah diterjemahkan tidak terbuka atau terindeks lebih dulu.
+ * hanya teksnya (lihat src/lib/landing-i18n.ts). Selama admin belum menyalakan
+ * "Tampilkan versi English" di Halaman acara > Tema, alamat ini dialihkan
+ * sementara (307) ke halaman acara: tautan /en yang terlanjur dibagikan tetap
+ * sampai ke acaranya, bukan ke 404 kosong. Tanpa isi English yang dirender,
+ * tidak ada halaman setengah jadi yang bisa terindeks.
  *
  * Bila English bahasa utama, versi English ada di `/e/<slug>` dan alamat ini
  * dialihkan ke sana: satu versi, satu alamat.
@@ -31,7 +33,6 @@ export default async function EventLandingEnglishPage({ params }: { params: Prom
   const event = await getEventBySlugPublic(slug);
   if (!event || event.status === "archived") notFound();
   const config = event.landing_config as EventLandingConfig;
-  if (!landingEnAvailable(config)) notFound();
-  if (landingDefaultLang(config) === "en") redirect(`/e/${event.slug}`);
+  if (!landingEnAvailable(config) || landingDefaultLang(config) === "en") redirect(`/e/${event.slug}`);
   return renderLanding(event, "en");
 }

@@ -359,11 +359,3 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     languageGroup: "Page language",
   },
 };
-
-/**
- * Jam "HH.MM" (ejaan Indonesia) dalam bahasa halaman: English memakai titik dua,
- * "09:00". Teks lain dibiarkan.
- */
-export function landingClock(teks: string, lang: LandingLang): string {
-  return lang === "en" ? teks.replace(/\b(\d{2})\.(\d{2})\b/g, "$1:$2") : teks;
-}

@@ -170,16 +170,31 @@ export function LandingNavModern({
   }, [menuBuka]);
   const [lewatHero, setLewatHero] = useState(false);
 
+  const alamatBahasaLain = langSwitch?.href;
   useEffect(() => {
-    if (langSwitch) pulihkanPosisi();
-  }, [langSwitch]);
+    if (alamatBahasaLain) pulihkanPosisi();
+  }, [alamatBahasaLain]);
+
+  useEffect(() => {
+    // Tata letak akar menulis <html lang="id">; halaman English membetulkannya
+    // supaya judul dan meta dibacakan dengan lafal yang benar.
+    const akar = document.documentElement;
+    const semula = akar.lang;
+    akar.lang = LANDING_LANG_LABELS[lang].htmlLang;
+    return () => {
+      akar.lang = semula;
+    };
+  }, [lang]);
 
   useEffect(() => {
     const hero = document.querySelector<HTMLElement>("[data-landing-hero]");
     if (!hero) return;
     const periksa = () => {
       const nav = document.querySelector<HTMLElement>("[data-landing-nav]");
-      setLewatHero(hero.getBoundingClientRect().bottom <= (nav?.offsetHeight ?? 64));
+      const lewat = hero.getBoundingClientRect().bottom <= (nav?.offsetHeight ?? 64);
+      setLewatHero(lewat);
+      // Kembali ke hero: tidak ada bagian yang sedang dibaca, jadi garis bawah menu hilang.
+      if (hero.getBoundingClientRect().top >= 0) setAktif(null);
     };
     periksa();
     window.addEventListener("scroll", periksa, { passive: true });
@@ -285,34 +300,34 @@ export function LandingNavModern({
         <div className="flex shrink-0 items-center gap-2 sm:gap-4">
           {langSwitch ? (
             // Dua pilihan yang selalu tampil, bahasa aktif terlihat tanpa menebak.
-            // Gayanya sama persis dengan tautan bagian di sebelahnya (huruf,
-            // tebal, area ketuk, garis bawah penanda aktif), dipisah garis
+            // Hurufnya sama dengan tautan bagian di sebelahnya, dipisah garis
             // tipis: pengaturan tampilan, tidak bersaing dengan Masuk dan Daftar.
+            // Bahasa aktif ditandai tebal, bukan garis bawah: garis bawah sudah
+            // berarti "bagian yang sedang dibaca" di bilah yang sama.
             // Kode pendek, karena "ID" di samping "EN" jelas terbaca sebagai
             // bahasa; nama lengkapnya untuk pembaca layar.
             <div role="group" aria-label={t.languageGroup} className="flex shrink-0 items-center">
               {(["id", "en"] as const).map((kode, i) => {
                 const label = LANDING_LANG_LABELS[kode];
                 const aktifBahasa = kode === lang;
+                // Kode terlihat ikut terbaca ("EN English"), supaya kendali suara
+                // yang menyebut "EN" cocok dengan nama tombolnya (WCAG 2.5.3).
                 const isi = (
                   <>
-                    <span aria-hidden>{label.short}</span>
-                    <span className="sr-only">{label.name}</span>
-                    <span
-                      aria-hidden
-                      className={`absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-current ${aktifBahasa ? "" : "hidden"}`}
-                    />
+                    {label.short}
+                    <span className="sr-only"> {label.name}</span>
                   </>
                 );
+                // Area ketuk 48px (M3) tanpa mengubah tampilan: butirnya tanpa kotak.
                 const kelas =
-                  "relative inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-md px-3 text-[15px] font-medium";
+                  "inline-flex min-h-12 min-w-12 items-center justify-center whitespace-nowrap rounded-md px-3 text-[15px]";
                 return (
                   <span key={kode} className="flex items-center">
                     {i > 0 ? (
                       <span aria-hidden className="h-4 w-px bg-[color-mix(in_srgb,var(--nav-text)_30%,transparent)]" />
                     ) : null}
                     {aktifBahasa ? (
-                      <span aria-current="true" lang={label.htmlLang} className={kelas}>
+                      <span aria-current="true" lang={label.htmlLang} className={`${kelas} font-semibold`}>
                         {isi}
                       </span>
                     ) : (
@@ -321,7 +336,7 @@ export function LandingNavModern({
                         hrefLang={label.htmlLang}
                         lang={label.htmlLang}
                         onClick={(event) => pindahBahasa(event, langSwitch.href)}
-                        className={`m3-state ${kelas}`}
+                        className={`m3-state ${kelas} font-medium opacity-70 hover:opacity-100 focus-visible:opacity-100`}
                       >
                         {isi}
                       </a>
