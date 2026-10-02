@@ -166,6 +166,7 @@ export function ForumSusunan({
   baris,
   isiPembicara,
   rundownKosong,
+  lencanaRundown = "Rundown kosong",
   tampilTersembunyi,
 }: {
   landing: EventLandingConfig;
@@ -177,6 +178,8 @@ export function ForumSusunan({
   /** Isian pembicara yang sama dengan tata letak lain. */
   isiPembicara: ReactNode;
   rundownKosong: boolean | null;
+  /** "Rundown kosong" atau "Belum diterbitkan". */
+  lencanaRundown?: string;
   /** Penyaring "Tampilkan N tersembunyi" di atas daftar. */
   tampilTersembunyi: boolean;
 }) {
@@ -613,7 +616,7 @@ export function ForumSusunan({
       sub: "Beranda, Program · dari Rundown acara",
       isi: isiProgram,
       berisi: programAda,
-      lencana: !hidden.has("program") && rundownKosong && !landing.program_intro?.trim() ? "Rundown kosong" : undefined,
+      lencana: !hidden.has("program") && rundownKosong && !landing.program_intro?.trim() ? lencanaRundown : undefined,
     },
     { id: "speakers", part: "speakers", judul: "Pembicara", sub: `Beranda, Program · ${speakers.length} pembicara`, isi: isiPembicara, berisi: speakers.length > 0 },
     { id: "sorotan", part: "sorotan", judul: "Sorotan", sub: `Beranda · ${sorotan.length} baris`, isi: isiSorotan, berisi: sorotan.some((item) => item.title.trim()) },
