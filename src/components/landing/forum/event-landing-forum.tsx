@@ -317,7 +317,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
             {/* Rata kiri, maksimal ~70 karakter per baris (sama dengan Modern, #29).
                 Figma IFC rata kanan-kiri selebar wadah: di 1440 itu ~133 karakter
                 per baris, dan di ponsel meninggalkan celah antarkata. */}
-            <div className={`${TEKS_BESAR} mx-auto flex w-full max-w-[70ch] flex-col gap-[1.5em] text-[var(--f-title)]`}>
+            <div className={`${TEKS_BESAR} mx-auto flex w-full max-w-[60ch] flex-col gap-[1.5em] text-[var(--f-title)]`}>
               <Paragraf teks={deskripsi} />
             </div>
           </section>
@@ -342,7 +342,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
           <section id="lokasi" data-bagian="venue" className={`${WADAH} ${JARAK} grid scroll-mt-28 items-center gap-[clamp(28px,4.2vw,80px)] ${forum.venue_image_url ? "lg:grid-cols-[minmax(0,705fr)_minmax(0,760fr)]" : ""}`}>
             <div className="flex flex-col gap-[clamp(20px,2.08vw,40px)]">
               <h2 className={H_BAGIAN}>{label.lokasi}</h2>
-              <div className={`${TEKS_BESAR} flex max-w-[70ch] flex-col gap-[1.5em]`}>
+              <div className={`${TEKS_BESAR} flex max-w-[60ch] flex-col gap-[1.5em]`}>
                 {forum.venue_note?.trim() ? <Paragraf teks={forum.venue_note.trim()} /> : null}
                 {venue || event.venue_address?.trim() ? (
                   <p className="whitespace-pre-line text-left">
@@ -429,7 +429,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
                 <path d="M3 3l12 12L27 3" />
               </svg>
             </summary>
-            <div className={`mt-[clamp(20px,1.51vw,29px)] flex max-w-[70ch] flex-col gap-[1.5em] px-[clamp(16px,1.51vw,29px)] ${TEKS_BESAR} text-[var(--f-title)]`}>
+            <div className={`mt-[clamp(20px,1.51vw,29px)] flex max-w-[60ch] flex-col gap-[1.5em] px-[clamp(16px,1.51vw,29px)] ${TEKS_BESAR} text-[var(--f-title)]`}>
               {kelompok.items.filter((butir) => butir.body?.trim() || butir.heading?.trim()).map((butir, index) => (
                 <div key={index}>
                   {butir.heading?.trim() ? <h3 className="text-left text-[clamp(18px,1.46vw,28px)] font-bold leading-[1.3]">{butir.heading.trim()}</h3> : null}
