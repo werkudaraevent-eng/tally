@@ -65,8 +65,8 @@ const NADA: Record<LandingBlockTone, CSSProperties> = {
 const TOMBOL = `${PIL} bg-[var(--blok-tombol)] font-semibold text-[var(--blok-tombol-ink)]`;
 const TOMBOL_GARIS = `${PIL} border border-[color-mix(in_srgb,currentColor_35%,transparent)] font-semibold`;
 const ALIS = "text-title-small font-semibold text-[var(--blok-aksen)]";
-/** Paragraf: 17px, tinggi baris 1.6. Lebar kolom pemakainya menjaga 60 sampai 75 karakter per baris. */
-const ISI = `text-body-large leading-[1.6] ${MUTED}`;
+/** Paragraf: 16/24, paling lebar 35rem (60-75 karakter per baris). */
+const ISI = `text-isi max-w-[35rem] ${MUTED}`;
 /** Teks panjang dari admin (tautan, nama berkas) boleh patah di mana saja, bukan menggeser halaman. */
 const PATAH = "[overflow-wrap:anywhere]";
 
@@ -140,7 +140,7 @@ function Kepala({ block, aksi }: { block: LandingBlock; aksi?: ReactNode }) {
         {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
         {block.heading?.trim() ? <h2 className={JUDUL}>{block.heading.trim()}</h2> : null}
       </div>
-      {pengantar ? <p className={`max-w-[440px] ${ISI}`}>{pengantar}</p> : null}
+      {pengantar ? <p className={`max-w-[440px] text-isi ${MUTED}`}>{pengantar}</p> : null}
       {aksi}
     </div>
   );
@@ -253,7 +253,7 @@ function KartuFoto({ block, items }: { block: LandingBlock; items: LandingBlockI
                 </div>
               ) : null}
               <h3 className={`${HEAD} text-balance text-[24px] font-semibold leading-[1.2] tracking-[-0.02em] sm:text-[28px]`}>{item.title?.trim()}</h3>
-              {item.body?.trim() ? <p className="max-w-[560px] text-body-medium leading-[1.55] text-white/85 sm:text-body-large">{item.body.trim()}</p> : null}
+              {item.body?.trim() ? <p className="max-w-[560px] text-body-medium leading-[1.55] text-white/85 sm:text-isi">{item.body.trim()}</p> : null}
             </Kartu>
           </li>
         ))}
@@ -397,7 +397,7 @@ function KartuPoin({ block }: { block: LandingBlock }) {
                 </span>
                 <div className="flex min-w-0 max-w-[680px] flex-col gap-1.5">
                   {item.title?.trim() ? <h3 className="text-title-large font-semibold">{item.title.trim()}</h3> : null}
-                  {item.body?.trim() ? <p className="text-body-large leading-[1.6]">{item.body.trim()}</p> : null}
+                  {item.body?.trim() ? <p className="text-isi">{item.body.trim()}</p> : null}
                 </div>
               </li>
             ))}
@@ -407,7 +407,7 @@ function KartuPoin({ block }: { block: LandingBlock }) {
             {items.map((item, index) => (
               <li key={index} className="flex gap-3.5 border-t border-[var(--reg-outline-variant)] py-4 sm:py-5">
                 <span aria-hidden className="mt-2 size-2 shrink-0 rounded-[2px] bg-[var(--blok-aksen)]" />
-                <span className="text-body-large leading-[1.55]">{item.title?.trim() || item.body?.trim()}</span>
+                <span className="text-isi">{item.title?.trim() || item.body?.trim()}</span>
               </li>
             ))}
           </ul>
@@ -457,7 +457,7 @@ function Angka({ block }: { block: LandingBlock }) {
             // Keterangan (dt) lebih dulu di DOM sesuai aturan <dl>; angkanya
             // tampil di atas lewat flex-col-reverse.
             <div key={index} className="flex flex-col-reverse justify-end gap-2 border-t border-[var(--reg-outline-variant)] pt-4 lg:flex-1 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-              <dt className={`text-body-medium leading-[1.55] sm:text-body-large ${MUTED}`}>{item.label?.trim()}</dt>
+              <dt className={`text-body-medium leading-[1.55] sm:text-isi ${MUTED}`}>{item.label?.trim()}</dt>
               <dd className={`${HEAD} whitespace-nowrap text-[44px] font-semibold leading-none tracking-[-0.02em] tabular-nums sm:text-[56px]`}>{item.value?.trim()}</dd>
             </div>
           ))}
@@ -490,7 +490,7 @@ function Kutipan({ block }: { block: LandingBlock }) {
           )}
           <span className="flex flex-col">
             <span className="text-title-medium font-semibold">{nama}</span>
-            {block.role?.trim() ? <span className={`text-body-large ${MUTED}`}>{block.role.trim()}</span> : null}
+            {block.role?.trim() ? <span className={`text-isi ${MUTED}`}>{block.role.trim()}</span> : null}
           </span>
         </figcaption>
       </figure>
@@ -631,7 +631,7 @@ function Ajakan({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftar
             <Gambar src={block.image_url} alt="" className="absolute inset-0 -z-10 size-full" />
             <div aria-hidden className="absolute inset-0 -z-10" style={{ background: LAPISAN_AJAKAN }} />
             <h2 className={`${HEAD} max-w-[720px] text-balance text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] sm:text-[48px]`}>{block.heading?.trim()}</h2>
-            {block.body?.trim() ? <p className="max-w-[560px] text-body-large leading-[1.6] text-white/90">{block.body.trim()}</p> : null}
+            {block.body?.trim() ? <p className="max-w-[560px] text-isi text-white/90">{block.body.trim()}</p> : null}
             {daftarUrl ? (
               <Link
                 href={daftarUrl}
@@ -656,7 +656,7 @@ function Ajakan({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftar
         >
           <div className="flex max-w-[720px] flex-col gap-3">
             <h2 className={`${HEAD} text-balance text-[28px] font-semibold leading-[1.2] tracking-[-0.02em] sm:text-[44px]`}>{block.heading?.trim()}</h2>
-            {block.body?.trim() ? <p className="text-body-large opacity-90">{block.body.trim()}</p> : null}
+            {block.body?.trim() ? <p className="text-isi opacity-90">{block.body.trim()}</p> : null}
           </div>
           {daftarUrl ? (
             <Link href={daftarUrl} className={`${PIL} shrink-0 self-start bg-[var(--reg-on-brand)] font-semibold text-[var(--reg-brand)] lg:self-auto`}>

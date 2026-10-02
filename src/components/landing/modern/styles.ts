@@ -9,6 +9,13 @@ export const HEAD = "[font-family:var(--landing-heading)]";
 /** Judul bagian: 48px di layar lebar, 32px di ponsel. */
 export const JUDUL = `${HEAD} text-balance text-[32px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[48px] sm:leading-[1.25]`;
 /** Jarak antarbagian 144px di layar lebar (dulu ~200px): bagian terbaca berkelompok, bukan satu lembar panjang. */
+/**
+ * Judul butir: pertanyaan FAQ dan nama pembicara. 18/24 di layar lebar, 16/24
+ * di ponsel. Satu langkah di atas paragraf 16, jauh di bawah judul bagian 48.
+ */
+export const JUDUL_BUTIR = "text-title-medium font-semibold sm:text-[18px] sm:leading-6";
+/** Lebar paragraf isi: 35rem teks, 60-75 karakter per baris. */
+export const LEBAR_BACA = "max-w-[35rem]";
 export const SECTION = "scroll-mt-[var(--nav-h)] py-12 sm:py-16 lg:py-[72px]";
 
 /**
