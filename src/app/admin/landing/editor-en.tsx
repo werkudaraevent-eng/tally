@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { TextArea, TextField } from "@/components/m3";
 import { landingSectionHeading, landingSessionEn } from "@/lib/landing-i18n";
+import { sesiDariRundown } from "@/lib/landing-speaker-tabs";
 import {
   LANDING_BLOCK_LABELS,
   LANDING_NAV_LABEL_MAX,
@@ -223,6 +224,7 @@ export function BagianEn({
   setLanding,
   rundown = [],
   ubahRundown,
+  sesiRundown = [],
 }: {
   id: LandingSectionId | "pembuka" | "kaki";
   landing: EventLandingConfig;
@@ -232,6 +234,12 @@ export function BagianEn({
   /** null: rundown gagal dimuat. */
   rundown?: BarisRundownEn[] | null;
   ubahRundown?: (id: number, patch: Partial<Pick<BarisRundownEn, "title_en" | "subtitle_en">>) => void;
+  /**
+   * Bagian Pembicara: baris rundown yang dipegang pembicara, bila Susunan acara
+   * disembunyikan. Judulnya menjadi label tab sesi English, dan tanpa Susunan
+   * acara tidak ada tempat lain untuk menerjemahkannya.
+   */
+  sesiRundown?: BarisRundownEn[];
 }) {
   const en = landing.en ?? {};
   const ubahEn = (patch: LandingConfigEn) => setLanding({ ...landing, en: { ...en, ...patch } });
@@ -318,10 +326,12 @@ export function BagianEn({
         const daftar = landing.speakers ?? [];
         // Sesi diterjemahkan sekali per nama sesi, bukan per pembicara: satu
         // sesi dipakai beberapa pembicara, dan terjemahan yang berbeda-beda
-        // akan memecah tab sesinya di halaman English.
-        const sesi = [...new Set(daftar.map((s) => s.session?.trim()).filter(ada))];
+        // akan memecah tab sesinya di halaman English. Hanya sesi teks lama yang
+        // tidak ada di rundown: sesi dari rundown memakai judul English rundown.
+        const lama = (s: (typeof daftar)[number]) => !sesiDariRundown(s);
+        const sesi = [...new Set(daftar.filter(lama).map((s) => s.session?.trim()).filter(ada))];
         const ubahSesi = (nama: string, value: string) =>
-          setLanding({ ...landing, speakers: daftar.map((s) => (s.session?.trim() === nama ? { ...s, en: { ...s.en, session: value } } : s)) });
+          setLanding({ ...landing, speakers: daftar.map((s) => (lama(s) && s.session?.trim() === nama ? { ...s, en: { ...s.en, session: value } } : s)) });
         const kartuSesi = sesi.length ? (
           <Kartu key="sesi" judul="Sesi">
             {sesi.map((nama) => (
@@ -336,7 +346,14 @@ export function BagianEn({
             ))}
           </Kartu>
         ) : null;
-        return [kartuSesi, ...daftar.map((speaker, index) => {
+        const kartuSesiRundown = sesiRundown.length ? (
+          <Kartu key="sesi-rundown" judul="Judul sesi dari rundown">
+            {sesiRundown.map((baris) => (
+              <KolomEn key={baris.id} label={`Sesi ${baris.jam}`} sumber={baris.title} value={baris.title_en} onChange={(value) => ubahRundown?.(baris.id, { title_en: value })} max={200} />
+            ))}
+          </Kartu>
+        ) : null;
+        return [kartuSesiRundown, kartuSesi, ...daftar.map((speaker, index) => {
           const ubah = (key: "title" | "company" | "role", value: string) =>
             setLanding({ ...landing, speakers: daftar.map((s, posisi) => (posisi === index ? { ...s, en: { ...s.en, [key]: value } } : s)) });
           const isian = ([["title", "Jabatan", 200], ["company", "Instansi", 120], ["role", "Peran", 60]] as const).filter(([key]) => ada(speaker[key]));

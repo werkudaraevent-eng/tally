@@ -765,6 +765,9 @@ export const LANDING_HEADING_SCALE_LABELS: Record<LandingHeadingScale, string> =
   xl: "Sangat besar",
 };
 
+/** Satu baris rundown yang dipegang pembicara. */
+export type LandingSessionRef = { id: number; label: string };
+
 /** Satu pembicara di bagian Pembicara. `featured` = kartu besar (keynote). */
 export type LandingSpeaker = {
   name: string;
@@ -775,10 +778,19 @@ export type LandingSpeaker = {
   photo_url?: string | null;
   featured?: boolean;
   /**
-   * Sesi tempat pembicara tampil, teks bebas pendek ("Sambutan", "Sesi 1",
-   * "Diskusi 2"). Pembicara dengan sesi yang sama dikelompokkan dalam satu tab
-   * di bagian Pembicara (lihat landing-speaker-tabs.ts). Dipakai bersama oleh
-   * semua tata letak, jadi bukan bagian dari tata letak mana pun.
+   * Baris rundown tempat pembicara tampil, satu atau lebih: id `rundown_items`
+   * plus label pendek saat dipilih ("Sesi 1"), supaya baris yang kemudian
+   * dihapus dari rundown masih bisa disebut namanya di editor. Pembicara
+   * dikelompokkan per baris itu dalam tab bagian Pembicara dan fotonya tampil di
+   * baris rundown-nya (lihat landing-speaker-tabs.ts). Bila ada (walau kosong),
+   * `session` diabaikan.
+   */
+  session_refs?: LandingSessionRef[];
+  /**
+   * Sesi teks bebas versi lama ("Sesi 1"), dicocokkan ke awal judul rundown.
+   * Dipakai hanya selama `session_refs` belum ada. Editor mengisi
+   * `session_refs` saat dibuka bila tepat satu baris cocok; teks lama dan
+   * `en.session` tetap disimpan untuk jaga-jaga.
    */
   session?: string;
   /** Teks English pembicara ini. Lihat src/lib/landing-i18n.ts. */

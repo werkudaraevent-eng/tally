@@ -1,3 +1,4 @@
+import { sesiDariRundown } from "./landing-speaker-tabs";
 import {
   LANDING_BLOCK_EN_KEYS,
   LANDING_CONFIG_EN_KEYS,
@@ -106,10 +107,11 @@ function tumpuk<T extends object>(asli: T, en: Partial<Record<string, unknown>> 
  * disentuh. `landing_config` di event hasil adalah config hasil, supaya
  * publicEventName() dan pembaca lain melihat nama English.
  *
- * Pengecualian: `speakers[i].session` TIDAK diganti, karena ia kunci yang
- * mencocokkan pembicara dengan baris rundown (landing-speaker-tabs.ts), dan
- * judul rundown belum punya versi English. Label sesi English dibaca lewat
- * landingSessionLabels().
+ * Pengecualian: `speakers[i].session` (sesi teks lama) TIDAK diganti, karena ia
+ * kunci yang mencocokkan pembicara dengan judul Indonesia baris rundown
+ * (landing-speaker-tabs.ts). Label English-nya dibaca lewat
+ * landingSessionLabels(). Sesi dari `session_refs` memakai judul rundown
+ * English langsung.
  */
 export function resolveLanding(event: EventRow, lang: LandingLang): { event: EventRow; config: EventLandingConfig } {
   const asli = (event.landing_config ?? {}) as EventLandingConfig;
@@ -148,6 +150,8 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
 export function landingSessionLabels(config: EventLandingConfig, lang: LandingLang): Map<string, string> {
   const peta = new Map<string, string>();
   if (lang === "id") return peta;
+  // Termasuk pembicara yang sudah memilih sesi dari rundown: label English
+  // lamanya dipakai tab baris rundown yang belum punya judul English.
   for (const speaker of config.speakers ?? []) {
     const kunci = speaker.session?.trim();
     const label = speaker.en?.session?.trim();
@@ -210,7 +214,7 @@ export function landingSectionHeading(
  * "belum diterjemahkan" sama-sama membaca dari sini.
  */
 export function landingSessionEn(speakers: EventLandingConfig["speakers"], nama: string): string | undefined {
-  const sesi = (speakers ?? []).filter((s) => s.session?.trim() === nama);
+  const sesi = (speakers ?? []).filter((s) => !sesiDariRundown(s) && s.session?.trim() === nama);
   const teks = sesi[0]?.en?.session?.trim();
   if (!teks || sesi.some((s) => s.en?.session?.trim() !== teks)) return undefined;
   return sesi[0].en?.session;
@@ -281,8 +285,9 @@ export function landingUntranslated(event: Partial<LandingHeadingFacts> & {
     config.speakers?.forEach((speaker, index) => {
       (["title", "role"] as const).forEach((key) => periksa(speaker[key], speaker.en?.[key], `speakers.${index}.${key}`, "speakers"));
     });
-    // Satu sesi dihitung sekali, berapa pun pembicaranya.
-    new Set(config.speakers?.map((s) => s.session?.trim()).filter((nama): nama is string => !!nama)).forEach((nama) =>
+    // Satu sesi dihitung sekali, berapa pun pembicaranya. Hanya sesi teks lama:
+    // sesi dari rundown diterjemahkan di kartu rundown English.
+    new Set(config.speakers?.filter((s) => !sesiDariRundown(s)).map((s) => s.session?.trim()).filter((nama): nama is string => !!nama)).forEach((nama) =>
       periksa(nama, landingSessionEn(config.speakers, nama), `speakers.session.${nama}`, "speakers"),
     );
   }

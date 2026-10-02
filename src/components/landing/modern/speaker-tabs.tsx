@@ -129,6 +129,7 @@ export function SpeakerTabs({
                 role="tab"
                 aria-selected={pilih}
                 aria-controls={`${dasar}-panel`}
+                title={item.fullTitle}
                 tabIndex={pilih ? 0 : -1}
                 onClick={() => setAktif(index)}
                 // Terpilih = tonal (M3 filter chip), bukan isi penuh warna utama:
