@@ -284,45 +284,49 @@ export function LandingNavModern({
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-4">
           {langSwitch ? (
-            // Dua pilihan yang selalu tampil (pola segmented button M3): bahasa
-            // yang aktif terlihat tanpa menebak. Kode pendek, karena "ID" di
-            // samping "EN" jelas terbaca sebagai bahasa; nama lengkapnya untuk
-            // pembaca layar. Garis tipis, bukan tombol isi: ini pengaturan
-            // tampilan, tidak boleh bersaing dengan Masuk dan Daftar.
-            <div
-              role="group"
-              aria-label={t.languageGroup}
-              className="inline-flex h-10 shrink-0 items-stretch overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--nav-text)_45%,transparent)] text-label-large"
-            >
+            // Dua pilihan yang selalu tampil, bahasa aktif terlihat tanpa menebak.
+            // Gayanya sama persis dengan tautan bagian di sebelahnya (huruf,
+            // tebal, area ketuk, garis bawah penanda aktif), dipisah garis
+            // tipis: pengaturan tampilan, tidak bersaing dengan Masuk dan Daftar.
+            // Kode pendek, karena "ID" di samping "EN" jelas terbaca sebagai
+            // bahasa; nama lengkapnya untuk pembaca layar.
+            <div role="group" aria-label={t.languageGroup} className="flex shrink-0 items-center">
               {(["id", "en"] as const).map((kode, i) => {
                 const label = LANDING_LANG_LABELS[kode];
-                const garis = i > 0 ? "border-l border-[color-mix(in_srgb,var(--nav-text)_45%,transparent)]" : "";
+                const aktifBahasa = kode === lang;
                 const isi = (
                   <>
                     <span aria-hidden>{label.short}</span>
                     <span className="sr-only">{label.name}</span>
+                    <span
+                      aria-hidden
+                      className={`absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-current ${aktifBahasa ? "" : "hidden"}`}
+                    />
                   </>
                 );
-                return kode === lang ? (
-                  <span
-                    key={kode}
-                    aria-current="true"
-                    lang={label.htmlLang}
-                    className={`inline-flex min-w-11 items-center justify-center bg-[color-mix(in_srgb,var(--nav-text)_18%,transparent)] px-2.5 font-bold sm:min-w-12 sm:px-3 ${garis}`}
-                  >
-                    {isi}
+                const kelas =
+                  "relative inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-md px-3 text-[15px] font-medium";
+                return (
+                  <span key={kode} className="flex items-center">
+                    {i > 0 ? (
+                      <span aria-hidden className="h-4 w-px bg-[color-mix(in_srgb,var(--nav-text)_30%,transparent)]" />
+                    ) : null}
+                    {aktifBahasa ? (
+                      <span aria-current="true" lang={label.htmlLang} className={kelas}>
+                        {isi}
+                      </span>
+                    ) : (
+                      <a
+                        href={langSwitch.href}
+                        hrefLang={label.htmlLang}
+                        lang={label.htmlLang}
+                        onClick={(event) => pindahBahasa(event, langSwitch.href)}
+                        className={`m3-state ${kelas}`}
+                      >
+                        {isi}
+                      </a>
+                    )}
                   </span>
-                ) : (
-                  <a
-                    key={kode}
-                    href={langSwitch.href}
-                    hrefLang={label.htmlLang}
-                    lang={label.htmlLang}
-                    onClick={(event) => pindahBahasa(event, langSwitch.href)}
-                    className={`m3-state inline-flex min-w-11 items-center justify-center px-2.5 font-medium sm:min-w-12 sm:px-3 opacity-85 hover:opacity-100 ${garis}`}
-                  >
-                    {isi}
-                  </a>
                 );
               })}
             </div>
