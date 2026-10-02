@@ -21,7 +21,7 @@ import { timeZoneAbbr } from "@/lib/timezone";
 import { AgendaPills } from "./modern/agenda-pills";
 import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
-import { HEAD, JUDUL, JUDUL_BUTIR, LEBAR_BACA, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
+import { HEAD, JUDUL, JUDUL_BUTIR, LABEL_BAGIAN, LEBAR_BACA, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
 import { LandingBlockView } from "./modern/landing-blocks";
 
 /**
@@ -64,7 +64,7 @@ type Props = {
 };
 
 /** Label kecil di atas judul bagian, sama dengan blok dari pustaka blok. */
-const ALIS = "text-title-small font-semibold text-[var(--reg-primary)]";
+const ALIS = `${LABEL_BAGIAN} text-[var(--reg-primary)]`;
 
 const STATE_ON_PRIMARY = { "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties;
 
@@ -460,7 +460,8 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           >
             <SpeakerTabs
               tabs={tabPembicara}
-              eyebrow={lembaga >= 3 ? LANDING_SECTION_LABELS.speakers : null}
+              // Tanpa label: "Pembicara" hanya mengulang judul "N pembicara dari M lembaga".
+              eyebrow={null}
               heading={lembaga >= 3 ? t.speakersFrom(speakers.length, lembaga) : LANDING_SECTION_LABELS.speakers}
               eyebrowClassName={ALIS}
               headingClassName={JUDUL}
@@ -478,8 +479,10 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             <div className={`grid items-center gap-10 lg:gap-20 ${petaKueri ? "lg:grid-cols-2" : ""}`}>
               <div className="flex max-w-[572px] flex-col items-start gap-8 sm:gap-10">
                 <div className="flex flex-col gap-5">
-                  {venue ? <p className={ALIS}>{LANDING_SECTION_LABELS.venue}</p> : null}
-                  <h2 className={JUDUL}>{venue ?? LANDING_SECTION_LABELS.venue}</h2>
+                  <div className="flex flex-col gap-3">
+                    {venue ? <p className={ALIS}>{LANDING_SECTION_LABELS.venue}</p> : null}
+                    <h2 className={JUDUL}>{venue ?? LANDING_SECTION_LABELS.venue}</h2>
+                  </div>
                   {event.venue_address ? (
                     <p className={`whitespace-pre-line text-isi ${MUTED}`}>{event.venue_address}</p>
                   ) : null}
@@ -540,7 +543,6 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           <Section id="faq">
             <div className="grid gap-10 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-20">
               <div className="flex flex-col gap-5 lg:self-start">
-                <p className={ALIS}>{LANDING_SECTION_LABELS.faq}</p>
                 <h2 className={JUDUL}>{t.faqHeading}</h2>
                 <p className={`text-isi ${MUTED}`}>
                   {t.faqIntro}
