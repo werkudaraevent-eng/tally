@@ -47,7 +47,7 @@ import { BilahAtasEditor } from "@/components/admin/landing-nav-editor";
 import { cx } from "@/lib/m3/cx";
 import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
-import { BagianEn, BlockEditorEn, rundownBelumDiterjemahkan, type BarisRundownEn } from "./editor-en";
+import { BagianEn, BlockEditorEn, kartuRundownId, rundownBelumDiterjemahkan, type BarisRundownEn } from "./editor-en";
 import { formatClock, type RundownItem } from "@/lib/rundown";
 import { landingSessionEn, landingUntranslated } from "@/lib/landing-i18n";
 
@@ -243,7 +243,8 @@ export default function LandingCmsPage() {
   const [rundownKosong, setRundownKosong] = useState<boolean | null>(null);
   // Teks English baris Rundown. Disimpan ke tabel rundown, bukan landing_config,
   // jadi keadaan tersimpannya dicatat terpisah.
-  const [rundownEn, setRundownEn] = useState<BarisRundownEn[]>([]);
+  // null: rundown gagal dimuat, beda dengan rundown tanpa sesi.
+  const [rundownEn, setRundownEn] = useState<BarisRundownEn[] | null>([]);
   const [rundownEnTersimpan, setRundownEnTersimpan] = useState<BarisRundownEn[]>([]);
   const [tambahTerbuka, setTambahTerbuka] = useState(false);
   // Baris tersembunyi tetap di tempatnya; penyaring ini hanya menyembunyikannya dari daftar.
@@ -332,14 +333,20 @@ export default function LandingCmsPage() {
     // semua baris berjudul, urut bagian lalu urutan baris.
     const admin = await fetch(eventApiPath("/api/admin/rundown/sections"), { cache: "no-store" }).catch(() => null);
     const isiAdmin = admin?.ok ? await admin.json().catch(() => null) : null;
-    if (isiAdmin) {
-      const urutBagian = new Map<number, number>((isiAdmin.sections ?? []).map((bagian: { id: number }, index: number) => [bagian.id, index]));
+    if (!isiAdmin) {
+      setRundownEn(null);
+      setRundownEnTersimpan([]);
+    } else {
+      const daftarBagian = (isiAdmin.sections ?? []) as Array<{ id: number; name?: string | null; title?: string | null }>;
+      const urutBagian = new Map<number, number>(daftarBagian.map((bagian, index) => [bagian.id, index]));
+      const namaBagian = new Map(daftarBagian.map((bagian) => [bagian.id, bagian.name?.trim() || bagian.title?.trim() || "Bagian"]));
       const baris: BarisRundownEn[] = ((isiAdmin.items ?? []) as RundownItem[])
         .filter((item) => item.title?.trim() && urutBagian.has(item.section_id))
         .sort((a, b) => (urutBagian.get(a.section_id) ?? 0) - (urutBagian.get(b.section_id) ?? 0))
         .map((item) => ({
           id: item.id,
           jam: formatClock(item.start_time).replace(":", "."),
+          bagian: daftarBagian.length > 1 ? namaBagian.get(item.section_id) ?? null : null,
           title: item.title,
           subtitle: item.subtitle,
           title_en: item.title_en ?? "",
@@ -354,10 +361,13 @@ export default function LandingCmsPage() {
 
   const sections: LandingSection[] = normalizeLandingSections(landing.sections, landing.blocks);
   const cuplikan = facts ? JSON.stringify({ facts, landing, formInherit, formSeed }) : null;
-  const rundownBerubah = rundownEn.filter((baris, index) => baris.title_en !== rundownEnTersimpan[index]?.title_en || baris.subtitle_en !== rundownEnTersimpan[index]?.subtitle_en);
+  // Dibandingkan setelah trim: spasi saja tidak dihitung perubahan, sama dengan yang dikirim.
+  const rundownBerubah = (rundownEn ?? []).filter(
+    (baris, index) => baris.title_en.trim() !== (rundownEnTersimpan[index]?.title_en ?? "").trim() || baris.subtitle_en.trim() !== (rundownEnTersimpan[index]?.subtitle_en ?? "").trim(),
+  );
   const berubah = tersimpan !== null && (cuplikan !== tersimpan || rundownBerubah.length > 0);
   const ubahRundown = (id: number, patch: Partial<Pick<BarisRundownEn, "title_en" | "subtitle_en">>) =>
-    setRundownEn((current) => current.map((baris) => (baris.id === id ? { ...baris, ...patch } : baris)));
+    setRundownEn((current) => current && current.map((baris) => (baris.id === id ? { ...baris, ...patch } : baris)));
   // Draf untuk pratinjau langsung. Dibuat ulang hanya saat isinya berubah,
   // supaya pratinjau tidak dirender ulang di setiap render CMS.
   const drafPratinjau = useMemo(() => (cuplikan && facts ? isiKirim(facts) : null), [cuplikan]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -543,6 +553,7 @@ export default function LandingCmsPage() {
     setBusy(true);
     // Teks English Rundown lebih dulu: bila gagal, isi halaman belum disimpan dan
     // admin bisa mencoba lagi dengan satu tombol yang sama.
+    let rundownTerkirim = 0;
     for (const baris of rundownBerubah) {
       const hasil = await fetch(eventApiPath("/api/admin/rundown/items"), {
         method: "PATCH",
@@ -551,11 +562,31 @@ export default function LandingCmsPage() {
       }).catch(() => null);
       if (!hasil?.ok) {
         setBusy(false);
-        toast.error("Gagal disimpan", `Susunan acara, sesi ${baris.jam} (English): ${(hasil && pesanGalatApi(await hasil.json().catch(() => ({})))) ?? "coba lagi."}`);
+        if (rundownTerkirim > 0) setPreviewKey((current) => current + 1);
+        // Buka dan tunjukkan kartunya, sama dengan galat Simpan lainnya.
+        setBagian("susunan");
+        setBahasa("en");
+        setTerbuka("agenda");
+        gulirKeBaris("agenda");
+        window.setTimeout(() => {
+          const kartu = document.getElementById(kartuRundownId(baris.id));
+          const wadah = kartu?.closest<HTMLElement>(".overflow-y-auto");
+          if (kartu && wadah) {
+            const atas = kartu.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop;
+            wadah.scrollTo({ top: Math.max(0, atas - 96), behavior: "smooth" });
+          }
+          kartu?.querySelector<HTMLElement>("input, textarea")?.focus({ preventScroll: true });
+        }, 300);
+        const sudah = rundownTerkirim > 0 ? ` ${rundownTerkirim} sesi sebelumnya sudah tayang.` : "";
+        toast.error("Gagal disimpan", `Susunan acara, sesi ${baris.jam} (English): ${(hasil && pesanGalatApi(await hasil.json().catch(() => ({})))) ?? "coba lagi."}${sudah} Kartunya sudah dibuka.`);
         return;
       }
+      rundownTerkirim += 1;
       setRundownEnTersimpan((current) => current.map((lama) => (lama.id === baris.id ? baris : lama)));
     }
+    // Pratinjau membaca rundown dari database: muat ulang begitu teks English
+    // sesi tersimpan, juga bila isi halaman di bawah ini gagal disimpan.
+    if (rundownTerkirim > 0) setPreviewKey((current) => current + 1);
     const response = await fetch(eventApiPath("/api/admin/landing"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -588,7 +619,7 @@ export default function LandingCmsPage() {
     venue_address: facts?.venue_address,
   });
   // Baris Rundown dihitung hanya bila Susunan acara tampil, sama dengan teks lain.
-  const rundownKurangEn = sections.some((section) => section.id === "agenda" && section.enabled) ? rundownBelumDiterjemahkan(rundownEn) : 0;
+  const rundownKurangEn = sections.some((section) => section.id === "agenda" && section.enabled) ? rundownBelumDiterjemahkan(rundownEn ?? []) : 0;
   const belumDiterjemahkan = kurangEn.length + rundownKurangEn;
   const barisKurangEn = new Set(kurangEn.map((teks) => teks.section));
   if (rundownKurangEn > 0) barisKurangEn.add("agenda");

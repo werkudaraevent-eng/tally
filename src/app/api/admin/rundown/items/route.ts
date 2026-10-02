@@ -188,6 +188,9 @@ export async function PATCH(request: Request) {
       ...(changes.subtitle !== undefined ? { subtitle: normalizeSubtitle(changes.subtitle) } : {}),
       ...(changes.title_en !== undefined ? { title_en: changes.title_en || null } : {}),
       ...(changes.subtitle_en !== undefined ? { subtitle_en: normalizeSubtitle(changes.subtitle_en) } : {}),
+      // Keterangan Indonesia dihapus: terjemahannya ikut terhapus, karena editor
+      // English tidak lagi menampilkan kolomnya.
+      ...(changes.subtitle !== undefined && !normalizeSubtitle(changes.subtitle) ? { subtitle_en: null } : {}),
       updated_at: new Date().toISOString(),
       updated_by: auth.user.id,
     } as never)

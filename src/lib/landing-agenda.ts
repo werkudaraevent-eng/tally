@@ -17,7 +17,12 @@ function jamTitik(jam: string, bahasa: "id" | "en"): string {
  * Yang diambil jam, judul, dan keterangan (pembicara) tiap sesi. Rincian lain
  * tetap di `/rundown`, tempat panitia memang mengelolanya.
  */
-export type AgendaItem = { time: string; end: string | null; title: string; subtitle: string | null };
+/**
+ * `key` adalah judul Indonesia baris itu, juga di halaman English. Pembicara
+ * dan jeda dicocokkan lewat kunci ini, karena label sesi pembicara tetap
+ * berbahasa Indonesia ("Sesi 1") walau judul barisnya sudah diterjemahkan.
+ */
+export type AgendaItem = { time: string; end: string | null; title: string; subtitle: string | null; key: string };
 
 export type AgendaPreview = {
   sectionTitle: string | null;
@@ -70,7 +75,10 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
           end: item.end_time ? jamTitik(formatClock(item.end_time), bahasa) : null,
           // English jatuh ke teks Indonesia per kolom, sama dengan isi halaman lainnya.
           title: (bahasa === "en" && item.title_en?.trim()) || item.title || "",
-          subtitle: ((bahasa === "en" && item.subtitle_en?.trim()) || item.subtitle)?.trim() || null,
+          // Keterangan English hanya tampil bila baris Indonesianya punya
+          // keterangan: terjemahan yang tertinggal tidak bisa dilihat di editor.
+          subtitle: item.subtitle?.trim() ? (bahasa === "en" && item.subtitle_en?.trim()) || item.subtitle.trim() : null,
+          key: item.title ?? "",
         }))
         // Baris tanpa judul adalah pemisah visual di layar rundown. Di ringkasan
         // ia hanya menjadi baris kosong yang terbaca sebagai data yang hilang.
