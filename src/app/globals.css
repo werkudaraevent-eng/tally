@@ -980,6 +980,16 @@ html:hover {
 	details.faq > summary {
 		transition: padding-bottom var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-emphasized);
 	}
+
+	/* Aturan gerak-dikurangi global hanya menyentuh *, ::before dan ::after,
+	   tidak ::details-content. Tanpa ini panel jawaban tetap beranimasi
+	   sementara padding pertanyaan sudah melompat, jadi kartu sempat bergerak
+	   ke arah yang salah. */
+	@media (prefers-reduced-motion: reduce) {
+		details.faq::details-content {
+			transition-duration: 0.01ms !important;
+		}
+	}
 }
 
 /* ==========================================================================

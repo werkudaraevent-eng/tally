@@ -103,7 +103,7 @@ export function PanelSusunan({
                 <tbody className="text-[var(--f-title)]">
                   {bagian.items.map((item, nomor) => {
                     // `key`: judul Indonesia baris, juga saat judulnya diterjemahkan.
-                    const orang = pembicaraSesi(speakers, item.key);
+                    const orang = pembicaraSesi(speakers, item);
                     const jeda = barisJeda(item.key, orang.length) || barisJeda(item.title, orang.length);
                     const redup = "text-[var(--reg-on-surface-variant)]";
                     const warnaJam = jeda ? redup : "text-[var(--f-primary-text)]";
@@ -154,7 +154,7 @@ export function KartuFoto({ gambar, judul, teks, sisaInisial }: { gambar: string
       </div>
       <div className="flex flex-col gap-[clamp(8px,1.04vw,20px)] pt-[clamp(8px,1.6vw,30px)]">
         <h3 className={H_KARTU}>{judul}</h3>
-        {teks ? <p className={`${TEKS_BESAR} max-w-[70ch] whitespace-pre-line`}>{teks}</p> : null}
+        {teks ? <p className={`${TEKS_BESAR} max-w-[60ch] whitespace-pre-line`}>{teks}</p> : null}
       </div>
     </li>
   );

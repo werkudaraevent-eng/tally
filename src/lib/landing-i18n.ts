@@ -1,14 +1,20 @@
+import { sesiDariRundown } from "./landing-speaker-tabs";
 import {
   LANDING_BLOCK_EN_KEYS,
   LANDING_CONFIG_EN_KEYS,
   LANDING_EVENT_EN_KEYS,
   LANDING_ITEM_EN_KEYS,
+  LANDING_EYEBROW_DEFAULT,
   LANDING_SPEAKER_EN_KEYS,
   normalizeLandingSections,
   type EventLandingConfig,
   type EventRow,
+  type LandingHeadedSection,
   type LandingSectionId,
 } from "./domain";
+import { formatEventDate } from "./event-datetime";
+import { DEFAULT_TIME_ZONE } from "./timezone";
+import { jumlahLembaga } from "./landing-speaker-tabs";
 
 /**
  * Halaman acara dwibahasa: Indonesia (bahasa utama, `/e/<slug>`) dan English
@@ -78,12 +84,17 @@ function isi(teks: unknown): teks is string {
   return typeof teks === "string" && teks.trim().length > 0;
 }
 
-/** Salin `asli`, lalu timpa tiap kolom di `keys` dengan versi English bila terisi. */
+/**
+ * Salin `asli`, lalu timpa tiap kolom di `keys` dengan versi English bila
+ * keduanya terisi. Teks Indonesia yang dikosongkan berarti kembali ke teks
+ * bawaan di kedua bahasa: terjemahan lama yang tertinggal (kolomnya sudah
+ * tidak tampil di editor EN) tidak boleh tetap tampil di halaman English.
+ */
 function tumpuk<T extends object>(asli: T, en: Partial<Record<string, unknown>> | undefined, keys: readonly string[]): T {
   if (!en) return asli;
   const hasil = { ...asli } as Record<string, unknown>;
   for (const key of keys) {
-    if (isi(en[key])) hasil[key] = en[key];
+    if (isi(en[key]) && isi(hasil[key])) hasil[key] = en[key];
   }
   return hasil as T;
 }
@@ -96,10 +107,11 @@ function tumpuk<T extends object>(asli: T, en: Partial<Record<string, unknown>> 
  * disentuh. `landing_config` di event hasil adalah config hasil, supaya
  * publicEventName() dan pembaca lain melihat nama English.
  *
- * Pengecualian: `speakers[i].session` TIDAK diganti, karena ia kunci yang
- * mencocokkan pembicara dengan baris rundown (landing-speaker-tabs.ts), dan
- * judul rundown belum punya versi English. Label sesi English dibaca lewat
- * landingSessionLabels().
+ * Pengecualian: `speakers[i].session` (sesi teks lama) TIDAK diganti, karena ia
+ * kunci yang mencocokkan pembicara dengan judul Indonesia baris rundown
+ * (landing-speaker-tabs.ts). Label English-nya dibaca lewat
+ * landingSessionLabels(). Sesi dari `session_refs` memakai judul rundown
+ * English langsung.
  */
 export function resolveLanding(event: EventRow, lang: LandingLang): { event: EventRow; config: EventLandingConfig } {
   const asli = (event.landing_config ?? {}) as EventLandingConfig;
@@ -108,7 +120,7 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
   const en = asli.en ?? {};
   const config: EventLandingConfig = {
     ...tumpuk(asli, en, LANDING_CONFIG_EN_KEYS),
-    program_notes: asli.program_notes?.map((catatan, index) => (isi(en.program_notes?.[index]) ? en.program_notes![index]! : catatan)),
+    program_notes: asli.program_notes?.map((catatan, index) => (isi(en.program_notes?.[index]) && isi(catatan) ? en.program_notes![index]! : catatan)),
     blocks: asli.blocks?.map((block) => ({
       ...tumpuk(block, block.en, LANDING_BLOCK_EN_KEYS),
       items: block.items?.map((item) => tumpuk(item, item.en, LANDING_ITEM_EN_KEYS)),
@@ -123,6 +135,14 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
     en,
     LANDING_EVENT_EN_KEYS,
   );
+  // Label kecil yang sama dengan judulnya tidak dirender. Bila di versi
+  // Indonesia label itu tersembunyi karena sama, di /en juga dimatikan: kalau
+  // tidak, label Indonesia yang belum diterjemahkan muncul sendiri di sana.
+  for (const id of Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSection[]) {
+    if (landingEyebrowShown(asli, id) && landingSectionHeading(event, asli, "id", id).alis === null) {
+      config.eyebrow_shown = { ...config.eyebrow_shown, [id]: false };
+    }
+  }
   return { event: { ...event, ...fakta, landing_config: config }, config };
 }
 
@@ -130,12 +150,58 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
 export function landingSessionLabels(config: EventLandingConfig, lang: LandingLang): Map<string, string> {
   const peta = new Map<string, string>();
   if (lang === "id") return peta;
+  // Termasuk pembicara yang sudah memilih sesi dari rundown: label English
+  // lamanya dipakai tab baris rundown yang belum punya judul English.
   for (const speaker of config.speakers ?? []) {
     const kunci = speaker.session?.trim();
     const label = speaker.en?.session?.trim();
     if (kunci && label && !peta.has(kunci.toLowerCase())) peta.set(kunci.toLowerCase(), label);
   }
   return peta;
+}
+
+/** Label kecil di atas judul bagian bawaan tampil atau tidak; satu saklar untuk kedua bahasa. */
+export function landingEyebrowShown(config: EventLandingConfig, id: LandingHeadedSection): boolean {
+  return config.eyebrow_shown?.[id] ?? LANDING_EYEBROW_DEFAULT[id];
+}
+
+/** Bagian acara yang dibaca judul otomatis: tanggal dan nama tempat. */
+export type LandingHeadingFacts = Pick<EventRow, "event_date" | "end_date" | "venue_name"> & { time_zone?: EventRow["time_zone"] | null };
+
+/**
+ * Judul dan label kecil satu bagian bawaan Modern dalam satu bahasa: teks dari
+ * CMS, atau judul otomatis (tanggal, nama tempat, jumlah pembicara) dan teks
+ * bawaan bila kosong. `alis` null bila dimatikan atau sama dengan judulnya
+ * (mis. "Lokasi" saat nama tempat belum diisi). `event` dan `config` sudah
+ * dalam bahasa itu (resolveLanding).
+ */
+export function landingSectionHeading(
+  event: LandingHeadingFacts,
+  config: EventLandingConfig,
+  lang: LandingLang,
+  id: LandingHeadedSection,
+): { judul: string; alis: string | null } {
+  const t = LANDING_UI[lang];
+  const nama = t.sectionLabels[id];
+  const otomatis = (() => {
+    switch (id) {
+      case "agenda": {
+        const jadwal = { event_date: event.event_date, end_date: event.end_date, start_time: null, end_time: null, time_zone: event.time_zone ?? DEFAULT_TIME_ZONE };
+        return formatEventDate(jadwal, lang) ?? nama;
+      }
+      case "venue": return event.venue_name?.trim() || nama;
+      case "faq": return t.faqHeading;
+      case "speakers": {
+        const pembicara = (config.speakers ?? []).filter((speaker) => speaker.name?.trim());
+        const lembaga = jumlahLembaga(pembicara);
+        return lembaga >= 3 ? t.speakersFrom(pembicara.length, lembaga) : nama;
+      }
+      default: return nama;
+    }
+  })();
+  const judul = (id === "about" ? config.about_heading : config[`${id}_heading`])?.trim() || otomatis;
+  const alis = config[`${id}_eyebrow`]?.trim() || nama;
+  return { judul, alis: landingEyebrowShown(config, id) && alis.toLowerCase() !== judul.toLowerCase() ? alis : null };
 }
 
 // ---- Kolom yang belum diterjemahkan ---------------------------------------------
@@ -148,7 +214,7 @@ export function landingSessionLabels(config: EventLandingConfig, lang: LandingLa
  * "belum diterjemahkan" sama-sama membaca dari sini.
  */
 export function landingSessionEn(speakers: EventLandingConfig["speakers"], nama: string): string | undefined {
-  const sesi = (speakers ?? []).filter((s) => s.session?.trim() === nama);
+  const sesi = (speakers ?? []).filter((s) => !sesiDariRundown(s) && s.session?.trim() === nama);
   const teks = sesi[0]?.en?.session?.trim();
   if (!teks || sesi.some((s) => s.en?.session?.trim() !== teks)) return undefined;
   return sesi[0].en?.session;
@@ -172,7 +238,7 @@ export type LandingUntranslated = { path: string; section: string; id: string };
  * tidak dihitung: biasanya nama diri yang sama di kedua bahasa. Kolomnya tetap
  * bisa diterjemahkan.
  */
-export function landingUntranslated(event: {
+export function landingUntranslated(event: Partial<LandingHeadingFacts> & {
   landing_config: EventLandingConfig | null | undefined;
   tagline?: string | null;
   description?: string | null;
@@ -193,6 +259,16 @@ export function landingUntranslated(event: {
   periksa(config.footer_note, en.footer_note, "footer_note", "kaki");
   periksa(config.cta_heading, en.cta_heading, "cta_heading", "kaki");
   periksa(config.cta_note, en.cta_note, "cta_note", "kaki");
+  // Judul bagian bawaan. Label kecil yang dimatikan tidak tampil, jadi tidak ditagih.
+  (Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSection[]).forEach((id) => {
+    if (!bagian(id)) return;
+    const alis = `${id}_eyebrow` as const;
+    // Label yang tersembunyi karena sama dengan judulnya juga tidak ditagih.
+    const fakta = { event_date: event.event_date ?? null, end_date: event.end_date ?? null, venue_name: event.venue_name ?? null, time_zone: event.time_zone };
+    if (landingSectionHeading(fakta, config, "id", id).alis !== null) periksa(config[alis], en[alis], alis, id);
+    if (id !== "about") periksa(config[`${id}_heading`], en[`${id}_heading`], `${id}_heading`, id);
+  });
+  if (bagian("faq")) periksa(config.faq_intro, en.faq_intro, "faq_intro", "faq");
   if (bagian("about")) {
     periksa(config.about_heading, en.about_heading, "about_heading", "about");
     periksa(event.description, en.description, "event.description", "about");
@@ -209,8 +285,9 @@ export function landingUntranslated(event: {
     config.speakers?.forEach((speaker, index) => {
       (["title", "role"] as const).forEach((key) => periksa(speaker[key], speaker.en?.[key], `speakers.${index}.${key}`, "speakers"));
     });
-    // Satu sesi dihitung sekali, berapa pun pembicaranya.
-    new Set(config.speakers?.map((s) => s.session?.trim()).filter((nama): nama is string => !!nama)).forEach((nama) =>
+    // Satu sesi dihitung sekali, berapa pun pembicaranya. Hanya sesi teks lama:
+    // sesi dari rundown diterjemahkan di kartu rundown English.
+    new Set(config.speakers?.filter((s) => !sesiDariRundown(s)).map((s) => s.session?.trim()).filter((nama): nama is string => !!nama)).forEach((nama) =>
       periksa(nama, landingSessionEn(config.speakers, nama), `speakers.session.${nama}`, "speakers"),
     );
   }

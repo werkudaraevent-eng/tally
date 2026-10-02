@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LANDING_FORUM_ICON_KEYS, LANDING_HEADING_FONT_KEYS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_FORUM_ICON_KEYS, LANDING_HEADING_FONT_KEYS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 // Skema isi CMS Halaman acara. Dipakai PATCH /api/admin/landing saat menyimpan
 // dan pratinjau langsung saat merender draf, supaya pratinjau menolak hal yang
@@ -16,6 +16,21 @@ const tautan = z.string().trim().max(600).refine((value) => value === "" || /^(h
 // Batas luar. Batas per jenis blok (lebih ketat) diperiksa di superRefine dengan
 // landingBlockLimits, sumber yang sama dengan penghitung di CMS.
 const teks = (max: number) => z.string().trim().max(max).optional();
+
+const { eyebrow: ALIS_MAX, heading: JUDUL_MAX, intro: PENGANTAR_MAX } = LANDING_SECTION_TEXT_MAX;
+/** Judul bagian bawaan; bentuk yang sama di Indonesia dan di `en`. */
+const JUDUL_BAGIAN = {
+  about_eyebrow: teks(ALIS_MAX),
+  agenda_eyebrow: teks(ALIS_MAX),
+  speakers_eyebrow: teks(ALIS_MAX),
+  venue_eyebrow: teks(ALIS_MAX),
+  faq_eyebrow: teks(ALIS_MAX),
+  agenda_heading: teks(JUDUL_MAX),
+  speakers_heading: teks(JUDUL_MAX),
+  venue_heading: teks(JUDUL_MAX),
+  faq_heading: teks(JUDUL_MAX),
+  faq_intro: teks(PENGANTAR_MAX),
+};
 
 // Teks English disimpan di `en` di samping teks Indonesianya (LandingConfigEn
 // dan kawan-kawan di domain.ts), dengan batas yang sama. Tanpa skema ini Zod
@@ -205,6 +220,8 @@ export const landingBodySchema = z.object({
     program_notes: z.array(z.string().trim().max(600)).max(10).optional(),
     program_hidden: z.boolean().optional(),
     agenda_note: z.string().trim().max(140).optional(),
+    ...JUDUL_BAGIAN,
+    eyebrow_shown: z.object({ about: z.boolean(), agenda: z.boolean(), speakers: z.boolean(), venue: z.boolean(), faq: z.boolean() }).partial().optional(),
     footer_note: z.string().trim().max(180).optional(),
     cta_heading: z.string().trim().max(120).optional(),
     cta_note: z.string().trim().max(300).optional(),
@@ -230,6 +247,7 @@ export const landingBodySchema = z.object({
       program_intro: teks(400),
       program_notes: z.array(z.string().trim().max(600)).max(10).optional(),
       agenda_note: teks(140),
+      ...JUDUL_BAGIAN,
       footer_note: teks(180),
       cta_heading: teks(120),
       cta_note: teks(300),
@@ -252,6 +270,7 @@ export const landingBodySchema = z.object({
       role: z.string().trim().max(60).optional(),
       photo_url: z.string().url().max(600).nullable().optional(),
       featured: z.boolean().optional(),
+      session_refs: z.array(z.object({ id: z.number().int().positive(), label: z.string().trim().max(80) })).max(40).optional(),
       session: z.string().trim().max(40).optional(),
       en: z.object({ title: teks(200), company: teks(120), role: teks(60), session: teks(40) }).optional(),
     })).max(60).optional(),

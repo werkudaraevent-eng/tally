@@ -279,12 +279,20 @@ export type LandingSpeakerEn = Partial<Record<(typeof LANDING_SPEAKER_EN_KEYS)[n
  */
 export const LANDING_CONFIG_EN_KEYS = [
   "public_name", "cta_label", "about_heading", "program_heading", "program_intro", "agenda_note", "footer_note", "cta_heading", "cta_note", "contact_name",
+  "about_eyebrow", "agenda_eyebrow", "speakers_eyebrow", "venue_eyebrow", "faq_eyebrow",
+  "agenda_heading", "speakers_heading", "venue_heading", "faq_heading", "faq_intro",
 ] as const;
 export const LANDING_EVENT_EN_KEYS = ["tagline", "description", "venue_name", "venue_address"] as const;
 export type LandingConfigEn = Partial<Record<(typeof LANDING_CONFIG_EN_KEYS)[number] | (typeof LANDING_EVENT_EN_KEYS)[number], string>> & {
   /** Urut sesuai `program_notes`. */
   program_notes?: string[];
 };
+
+/** Bagian bawaan yang judulnya bisa disunting, dan label kecilnya menyala atau tidak bila belum diatur. */
+export const LANDING_EYEBROW_DEFAULT = { about: false, agenda: true, speakers: false, venue: true, faq: false } as const satisfies Partial<Record<LandingSectionId, boolean>>;
+export type LandingHeadedSection = keyof typeof LANDING_EYEBROW_DEFAULT;
+/** Batas judul bagian: sama dengan blok tambahan (label 24, judul 60, pengantar 140). */
+export const LANDING_SECTION_TEXT_MAX = { eyebrow: 24, heading: 60, headingIdeal: 48, intro: 140 } as const;
 
 /** Panjang label menu atas: satu atau dua kata pendek, supaya menu muat satu baris. */
 export const LANDING_NAV_LABEL_MAX = 16;
@@ -757,6 +765,9 @@ export const LANDING_HEADING_SCALE_LABELS: Record<LandingHeadingScale, string> =
   xl: "Sangat besar",
 };
 
+/** Satu baris rundown yang dipegang pembicara. */
+export type LandingSessionRef = { id: number; label: string };
+
 /** Satu pembicara di bagian Pembicara. `featured` = kartu besar (keynote). */
 export type LandingSpeaker = {
   name: string;
@@ -767,10 +778,19 @@ export type LandingSpeaker = {
   photo_url?: string | null;
   featured?: boolean;
   /**
-   * Sesi tempat pembicara tampil, teks bebas pendek ("Sambutan", "Sesi 1",
-   * "Diskusi 2"). Pembicara dengan sesi yang sama dikelompokkan dalam satu tab
-   * di bagian Pembicara (lihat landing-speaker-tabs.ts). Dipakai bersama oleh
-   * semua tata letak, jadi bukan bagian dari tata letak mana pun.
+   * Baris rundown tempat pembicara tampil, satu atau lebih: id `rundown_items`
+   * plus label pendek saat dipilih ("Sesi 1"), supaya baris yang kemudian
+   * dihapus dari rundown masih bisa disebut namanya di editor. Pembicara
+   * dikelompokkan per baris itu dalam tab bagian Pembicara dan fotonya tampil di
+   * baris rundown-nya (lihat landing-speaker-tabs.ts). Bila ada (walau kosong),
+   * `session` diabaikan.
+   */
+  session_refs?: LandingSessionRef[];
+  /**
+   * Sesi teks bebas versi lama ("Sesi 1"), dicocokkan ke awal judul rundown.
+   * Dipakai hanya selama `session_refs` belum ada. Editor mengisi
+   * `session_refs` saat dibuka bila tepat satu baris cocok; teks lama dan
+   * `en.session` tetap disimpan untuk jaga-jaga.
    */
   session?: string;
   /** Teks English pembicara ini. Lihat src/lib/landing-i18n.ts. */
@@ -863,6 +883,24 @@ export type EventLandingConfig = {
   program_hidden?: boolean;
   /** Catatan di kiri Susunan acara, mis. "Registrasi dibuka pukul 08.00 WIB." */
   agenda_note?: string;
+  /**
+   * Judul bagian bawaan. Kosong = judul otomatis (tanggal, nama tempat,
+   * jumlah pembicara) atau teks bawaan per bahasa.
+   */
+  agenda_heading?: string;
+  speakers_heading?: string;
+  venue_heading?: string;
+  faq_heading?: string;
+  /** Kalimat di bawah judul Pertanyaan umum. */
+  faq_intro?: string;
+  /** Label kecil di atas judul bagian. Kosong = nama bagian. */
+  about_eyebrow?: string;
+  agenda_eyebrow?: string;
+  speakers_eyebrow?: string;
+  venue_eyebrow?: string;
+  faq_eyebrow?: string;
+  /** Label kecil tampil atau tidak per bagian; dipakai bersama oleh ID dan EN. Default di LANDING_EYEBROW_DEFAULT. */
+  eyebrow_shown?: Partial<Record<LandingSectionId, boolean>>;
   /** Kalimat penyelenggara di kaki halaman, mis. "Diselenggarakan oleh ...". */
   footer_note?: string;
   /** Judul banner ajakan di bawah halaman. */
