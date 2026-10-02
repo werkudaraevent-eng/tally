@@ -1269,7 +1269,7 @@ export default function LandingCmsPage() {
               draggable
               onDragStart={(event) => { setSeret(indeks); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", judul); }}
               onDragEnd={() => { setSeret(null); setSasaran(null); }}
-              className="flex h-14 w-6 shrink-0 cursor-grab items-center justify-center self-stretch text-on-surface-variant opacity-70 hover:opacity-100"
+              className="flex h-14 w-6 shrink-0 cursor-grab items-center justify-center self-stretch text-on-surface-variant opacity-80 hover:opacity-100"
               title="Seret untuk memindah"
             >
               <DotsSixVertical size={16} aria-hidden />
@@ -1317,6 +1317,7 @@ export default function LandingCmsPage() {
           {saklar ? (
             <IconButton
               size="sm"
+              className="size-10!"
               label={saklar.checked ? `Sembunyikan ${judul}` : `Tampilkan ${judul}`}
               onClick={() => saklar.onChange(!saklar.checked)}
             >
@@ -1474,6 +1475,7 @@ export default function LandingCmsPage() {
           </FilterChip>
           <MenuBlok
             label="Menu blok tersembunyi"
+            width={272}
             items={[{
               label: blokTersembunyi.length > 0 ? `Hapus ${blokTersembunyi.length} blok tersembunyi…` : "Tidak ada blok tambahan tersembunyi",
               icon: <Trash size={18} />,
