@@ -146,6 +146,37 @@ function kolomKepanjangan(blok: LandingBlock): { kolom: string; max: number; bah
 }
 
 /**
+ * Bawa kolom yang ditolak Simpan ke sepertiga atas panel dan beri fokus.
+ * Sepertiga atas, bukan tengah: toast galat di bawah layar menutupi
+ * penghitung kolom yang terletak di bawah. Tanpa `kunci`, dicari kolom pertama
+ * di baris itu yang isinya melewati maxLength; butir blok yang terlipat dan
+ * bertanda "Terlalu panjang" dibuka dulu.
+ */
+function fokusKolomLewat(barisId: string, kunci?: string, ulang = true) {
+  window.setTimeout(() => {
+    const baris = document.getElementById(`baris-${barisId}`);
+    if (!baris) return;
+    const kolom = kunci
+      ? baris.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-kolom="${kunci}"]`)
+      : [...baris.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")].find((el) => el.maxLength > 0 && el.value.length > el.maxLength);
+    if (!kolom) {
+      const terlipat = [...baris.querySelectorAll<HTMLButtonElement>('button[aria-expanded="false"]')].find((tombol) => tombol.textContent?.includes("Terlalu panjang"));
+      if (terlipat && ulang) {
+        terlipat.click();
+        fokusKolomLewat(barisId, kunci, false);
+      }
+      return;
+    }
+    const wadah = kolom.closest<HTMLElement>(".overflow-y-auto");
+    if (wadah) {
+      const atas = kolom.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop;
+      wadah.scrollTo({ top: Math.max(0, atas - 96), behavior: "smooth" });
+    }
+    kolom.focus({ preventScroll: true });
+  }, ulang ? 350 : 150);
+}
+
+/**
  * Gulir panel setelan sampai baris ini di atasnya, setelah React merendernya:
  * bagian yang terbuka sebelumnya ikut menutup dan menggeser daftar. Yang digulir
  * hanya wadah panelnya; scrollIntoView ikut menggeser seluruh halaman CMS.
@@ -651,7 +682,8 @@ export default function LandingCmsPage() {
         setTerbuka(blok.id);
         setSorot((current) => ({ id: blok.id, n: (current?.n ?? 0) + 1 }));
         gulirKeBaris(blok.id);
-        toast.error("Teks terlalu panjang", `Bagian ${index + 2}, ${lewat.kolom}${lewat.bahasa === "en" ? " (English)" : ""}: maksimal ${lewat.max} karakter. Bagiannya sudah dibuka.`);
+        fokusKolomLewat(blok.id);
+        toast.error("Teks terlalu panjang", `Bagian ${index + 2}, ${lewat.kolom}${lewat.bahasa === "en" ? " (English)" : ""}: maksimal ${lewat.max} karakter. Kolomnya sudah ditampilkan.`);
         return;
       }
     }
@@ -662,14 +694,8 @@ export default function LandingCmsPage() {
       setTerbuka(judulLewat.id);
       if (judulLewat.bahasa === "id") setJudulTerbuka(judulLewat.id);
       gulirKeBaris(judulLewat.id);
-      // Kolomnya bisa jauh di bawah baris (mis. judul FAQ di bawah semua
-      // pertanyaan): tunggu lipatan dirender, lalu bawa kolomnya ke tengah.
-      const kunci = judulLewat.kunci;
-      window.setTimeout(() => {
-        const kolom = document.querySelector<HTMLElement>(`#panel-setelan [data-kolom="${kunci}"]`);
-        kolom?.scrollIntoView({ block: "center" });
-        kolom?.focus({ preventScroll: true });
-      }, 350);
+      // Kolomnya bisa jauh di bawah baris (mis. judul FAQ di bawah semua pertanyaan).
+      fokusKolomLewat(judulLewat.id, judulLewat.kunci);
       toast.error(
         "Teks terlalu panjang",
         `${LANDING_SECTION_LABELS[judulLewat.id]}, ${judulLewat.kolom}${judulLewat.bahasa === "en" ? " (English)" : ""}: maksimal ${judulLewat.max} karakter. Kolomnya sudah ditampilkan.`,
@@ -759,6 +785,9 @@ export default function LandingCmsPage() {
   // Teks yang tampil di halaman Indonesia tetapi belum punya versi English.
   const kurangEn = landingUntranslated({
     landing_config: { ...landing, sections },
+    event_date: facts?.event_date,
+    end_date: facts?.end_date,
+    venue_name: facts?.venue_name,
     tagline: facts?.tagline,
     description: facts?.description,
     venue_address: facts?.venue_address,
@@ -2086,7 +2115,8 @@ export default function LandingCmsPage() {
           role={bagian === "susunan" ? undefined : "group"}
           aria-labelledby={bagian === "susunan" ? undefined : segmentTabId("isi-setelan", bagian)}
           // `!`: aturan :focus-visible global tidak berlapis, jadi mengalahkan utilitas biasa.
-          className={bagian === "susunan" ? "scroll-pt-22" : "px-4 py-4 focus-visible:shadow-none! focus-visible:-outline-offset-2!"}>
+          // pb-40 di Susunan: kolom terbawah tetap bisa digulir ke atas toast galat.
+          className={bagian === "susunan" ? "scroll-pt-22 pb-40" : "px-4 py-4 focus-visible:shadow-none! focus-visible:-outline-offset-2!"}>
           {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : bagian === "tema" ? isiTema : isiPeserta}
         </PaneBody>
       </div>
