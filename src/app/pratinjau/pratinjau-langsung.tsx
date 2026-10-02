@@ -25,10 +25,11 @@ export function PratinjauLangsung({ slug, children }: { slug: string; children: 
       if (event.origin !== window.location.origin || event.source !== window.parent) return;
       if (event.data?.jenis !== "tally-pratinjau-draf") return;
       const draf = event.data.draf;
+      const bahasa = event.data.bahasa === "en" ? "en" : "id";
       window.clearTimeout(timer);
       timer = window.setTimeout(async () => {
         const nomor = ++urutan;
-        const hasil = await renderPratinjau(slug, draf).catch(() => null);
+        const hasil = await renderPratinjau(slug, draf, bahasa).catch(() => null);
         // Draf yang lebih baru sudah dikirim: hasil ini sudah basi.
         if (nomor !== urutan) return;
         if (hasil?.ok) setIsi(hasil.isi);
@@ -37,10 +38,22 @@ export function PratinjauLangsung({ slug, children }: { slug: string; children: 
       }, JEDA_MS);
     }
 
+    // Pilihan ID | EN di bilah atas pratinjau tidak membuka halaman publik:
+    // ia memindah mode bahasa editor, dan pratinjau ikut.
+    function pindahBahasa(event: MouseEvent) {
+      const tautan = (event.target as Element | null)?.closest?.("a[hreflang]");
+      if (!tautan) return;
+      event.preventDefault();
+      event.stopPropagation();
+      lapor({ jenis: "tally-pratinjau-bahasa", bahasa: tautan.getAttribute("hreflang") === "en" ? "en" : "id" });
+    }
+
     window.addEventListener("message", terima);
+    document.addEventListener("click", pindahBahasa, true);
     lapor({ jenis: "tally-pratinjau-siap" });
     return () => {
       window.removeEventListener("message", terima);
+      document.removeEventListener("click", pindahBahasa, true);
       window.clearTimeout(timer);
     };
   }, [slug]);

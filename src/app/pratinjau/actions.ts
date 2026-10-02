@@ -7,6 +7,7 @@ import { landingBodySchema } from "@/lib/landing-body-schema";
 import { withDerivedRoles } from "@/lib/registration-theme";
 import type { EventRow } from "@/lib/domain";
 import { renderLanding } from "@/components/landing/render-landing";
+import type { LandingLang } from "@/lib/landing-i18n";
 
 export type HasilPratinjau = { ok: true; isi: ReactNode; peringatan: string | null } | { ok: false; pesan: string };
 
@@ -38,8 +39,11 @@ function pesanBatas(isi: LandingBody, issue: z.ZodIssue | undefined): string {
  * itu sendiri: halaman publik tetap hanya membaca isi tersimpan. Draf diperiksa
  * dengan skema yang sama dengan Simpan, jadi yang tampil di pratinjau adalah
  * yang memang akan diterima saat disimpan.
+ *
+ * `bahasa` "en" merender versi English draf, juga sebelum versi English
+ * dinyalakan di Tema: admin boleh menerjemahkan dulu, baru menyalakannya.
  */
-export async function renderPratinjau(slug: string, draf: unknown): Promise<HasilPratinjau> {
+export async function renderPratinjau(slug: string, draf: unknown, bahasa: LandingLang = "id"): Promise<HasilPratinjau> {
   const auth = await requireEventScope(slug, ["admin"]);
   if (auth.response) return { ok: false, pesan: "Sesi login berakhir. Muat ulang halaman ini." };
 
@@ -69,6 +73,7 @@ export async function renderPratinjau(slug: string, draf: unknown): Promise<Hasi
     ...facts,
     landing_config: { ...landing, theme: landing.theme ? withDerivedRoles(landing.theme) : undefined },
   } as EventRow;
-  // Selalu Indonesia, apa pun bahasa utamanya: yang diedit adalah teks Indonesia.
-  return { ok: true, isi: renderLanding(draft, "id"), peringatan };
+  // Bahasa mengikuti mode editor, bukan bahasa utama: mode ID menyunting teks
+  // Indonesia, mode EN teks English.
+  return { ok: true, isi: renderLanding(draft, bahasa === "en" ? "en" : "id"), peringatan };
 }
