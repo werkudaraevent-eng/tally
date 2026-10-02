@@ -29,8 +29,10 @@ export function barisSesiDariAdmin(isi: { sections?: RundownSection[]; items?: R
     (isi.items ?? [])
       .filter((item) => item.section_id === seksi.id)
       .sort((a, b) => a.sort_order - b.sort_order)
-      .filter((item) => item.title?.trim())
+      // Potong dulu, baru buang yang tak berjudul: urutannya sama dengan
+      // loadAgendaPreview, jadi tidak ada pilihan yang tak pernah tampil.
       .slice(0, BARIS_MAKS_PER_BAGIAN)
+      .filter((item) => item.title?.trim())
       .filter((item) => !item.is_break)
       .map((item) => ({
         id: item.id,
@@ -190,6 +192,22 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
       return;
     }
     if (peristiwa.key === "Home") { peristiwa.preventDefault(); setSorot(0); return; }
+    // Tanpa kolom cari: satu huruf melompat ke baris berikut yang jam atau
+    // judulnya diawali huruf itu (APG listbox, type-ahead).
+    if (!pakaiCari && peristiwa.key.length === 1 && peristiwa.key !== " " && !peristiwa.ctrlKey && !peristiwa.metaKey && !peristiwa.altKey) {
+      const huruf = peristiwa.key.toLowerCase();
+      const mulai = Math.min(sorot, n - 1);
+      for (let langkah = 1; langkah <= n; langkah += 1) {
+        const indeks = (mulai + langkah) % n;
+        const item = pilihan[indeks];
+        if (item.title.toLowerCase().startsWith(huruf) || item.jam.startsWith(huruf)) {
+          peristiwa.preventDefault();
+          setSorot(indeks);
+          break;
+        }
+      }
+      return;
+    }
     if (peristiwa.key === "End") { peristiwa.preventDefault(); setSorot(n - 1); return; }
     // Di kolom cari, Spasi adalah huruf; Enter yang mencentang.
     if (peristiwa.key === "Enter" || (peristiwa.key === " " && peristiwa.currentTarget === pemicu)) {
@@ -199,13 +217,43 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
     }
   }
 
+  function opsi(item: BarisSesi) {
+    const indeks = pilihan.indexOf(item);
+    const on = ids.includes(item.id);
+    return (
+      <li key={item.id} role="none">
+        <div
+          id={`${id}-${item.id}`}
+          role="option"
+          aria-selected={on}
+          title={item.title}
+          onPointerDown={(peristiwa) => peristiwa.preventDefault()}
+          onClick={() => { setSorot(indeks); ganti(item); }}
+          onPointerMove={() => setSorot(indeks)}
+          className={cx(
+            "flex min-h-[34px] cursor-pointer items-start gap-2.5 rounded-md px-3 py-[7px] text-body-medium text-on-surface",
+            aktif?.id === item.id ? "bg-primary-soft" : "",
+          )}
+        >
+          <span aria-hidden className={cx("mt-0.5 grid size-4 shrink-0 place-items-center rounded border", on ? "border-primary bg-primary text-on-primary" : "border-on-surface-variant")}>
+            {on ? <Check size={12} weight="bold" /> : null}
+          </span>
+          <span className="w-10 shrink-0 tabular-nums text-on-surface-variant">{item.jam}</span>
+          <span className="line-clamp-2 min-w-0 flex-1">{item.title}</span>
+        </div>
+      </li>
+    );
+  }
+
   const ringkasan = chip.length
     ? `${chip.length} dipilih: ${chip.map((c) => (c.jam ? `${c.ref.label} ${c.jam}` : `${c.ref.label}${c.hilang ? ", dihapus dari rundown" : ""}`)).join(", ")}`
     : lama ? `Sesi lama "${lama}", belum terhubung ke rundown` : baris === null ? (memuat ? "Memuat rundown" : "Rundown gagal dimuat") : dikenal.length === 0 ? "Rundown belum punya sesi" : "Pilih sesi";
   const aktif = menu.open && pilihan.length ? pilihan[Math.min(sorot, pilihan.length - 1)] : undefined;
-  const galat = hilang.length
-    ? `${hilang.length} sesi tidak ada lagi di rundown. Pilih ulang atau lepas.`
-    : lama ? "Sesi lama ini tidak cocok dengan satu baris rundown. Pilih barisnya supaya foto dan jamnya tampil." : null;
+  const galat = hilang.length ? `${hilang.length} sesi tidak ada lagi di rundown. Pilih ulang atau lepas.` : null;
+  // Teks lama hanya peringatan, dan hanya bila rundown sudah dimuat: selama
+  // rundown gagal dimuat, cocok tidaknya belum diketahui.
+  const peringatan = !galat && lama && baris ? "Sesi lama ini tidak cocok dengan satu baris rundown. Pilih barisnya supaya foto dan jamnya tampil." : null;
+  const pesan = galat ?? peringatan;
 
   return (
     <div>
@@ -213,14 +261,20 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
         Sesi
         <span className="text-body-small font-normal text-on-surface-variant">opsional</span>
       </label>
-      {/* Klik di ruang kosong kolom membuka menu, sama dengan kolom isian. */}
+      {/* Klik di mana pun di kolom (ruang kosong, chip, "+N") membuka menu,
+          kecuali tombol lepas chip. */}
       <div
         ref={kerangka}
-        onClick={(peristiwa) => { if (peristiwa.target === peristiwa.currentTarget && !menu.open) { buka(); pemicu?.focus(); } }}
+        onClick={(peristiwa) => {
+          const target = peristiwa.target as HTMLElement;
+          if (menu.open || target.closest("[data-lepas]") || pemicu?.contains(target)) return;
+          buka();
+          pemicu?.focus();
+        }}
         className={cx(
           "relative mt-2 flex h-9 min-w-0 cursor-pointer items-center gap-1 overflow-hidden rounded-lg border bg-surface-container-lowest pl-1.5 transition-[border-color,box-shadow] duration-150 ease-standard",
           "focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--md-sys-color-primary)_15%,transparent)]",
-          menu.open ? "border-primary" : galat ? "border-error focus-within:border-error" : "border-outline focus-within:border-primary",
+          menu.open ? "border-primary" : galat ? "border-error focus-within:border-error" : peringatan ? "border-warning focus-within:border-warning" : "border-outline focus-within:border-primary",
         )}
       >
         {tampilChip.map((c, posisi) => (
@@ -254,9 +308,16 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
           </span>
         ) : null}
         {lama ? (
-          <span title={`"${lama}" belum terhubung ke rundown`} className="inline-flex h-6 max-w-[11rem] shrink-0 items-center rounded-md bg-warning-soft pl-1.5 text-[13px] font-medium leading-4 text-warning">
-            <WarningCircle size={14} weight="fill" className="mr-1 shrink-0" aria-hidden />
-            <span className="min-w-0 truncate">{lama} · belum terhubung</span>
+          <span
+            title={baris ? `"${lama}" belum terhubung ke rundown` : lama}
+            className={cx(
+              "inline-flex h-6 max-w-[15rem] shrink-0 items-center rounded-md pl-1.5 text-[13px] font-medium leading-4",
+              // Selama rundown gagal dimuat, cocok tidaknya belum diketahui: netral.
+              baris ? "bg-warning-soft text-warning" : "bg-surface-container-high text-on-surface",
+            )}
+          >
+            {baris ? <WarningCircle size={14} weight="fill" className="mr-1 shrink-0" aria-hidden /> : null}
+            <span className="min-w-0 truncate">{baris ? `${lama} · belum terhubung` : lama}</span>
             <button
               type="button"
               data-lepas
@@ -273,7 +334,7 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
           id={`${id}-cb`}
           type="button"
           role="combobox"
-          aria-haspopup="listbox"
+          aria-haspopup="dialog"
           aria-expanded={menu.open}
           aria-controls={menu.open ? `${id}-daftar` : undefined}
           aria-activedescendant={aktif && !pakaiCari ? `${id}-${aktif.id}` : undefined}
@@ -290,10 +351,10 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
         id={`${id}-pesan`}
         // Diumumkan hanya bila muncul karena suntingan, bukan saat halaman dibuka.
         role={galat && diubah ? "alert" : undefined}
-        className={cx("mt-2 flex items-start gap-1.5 text-body-small", galat ? "font-medium text-error" : "text-on-surface-variant")}
+        className={cx("mt-2 flex items-start gap-1.5 text-body-small", galat ? "font-medium text-error" : peringatan ? "font-medium text-warning" : "text-on-surface-variant")}
       >
-        {galat ? <WarningCircle size={16} weight="fill" className="mt-px shrink-0" aria-hidden /> : null}
-        {galat ?? (baris === null ? (memuat ? "Memuat rundown…" : "Rundown gagal dimuat. Sesi yang sudah dipilih tetap tersimpan.") : "Pembicara tampil di tab dan baris rundown setiap sesi yang dipilih.")}
+        {pesan ? <WarningCircle size={16} weight="fill" className="mt-px shrink-0" aria-hidden /> : null}
+        {pesan ?? (baris === null ? (memuat ? "Memuat rundown…" : "Rundown gagal dimuat. Sesi yang sudah dipilih tetap tersimpan.") : "Pembicara tampil di tab dan baris rundown setiap sesi yang dipilih.")}
       </p>
       <span className="sr-only" aria-live="polite">{kabar}</span>
 
@@ -321,7 +382,7 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
           ) : baris === null ? (
             <div className="px-3 py-2 text-body-medium text-on-surface-variant">
               Rundown gagal dimuat.{" "}
-              <button type="button" onClick={onMuatUlang} className="font-medium text-primary underline">Muat ulang</button>
+              <button type="button" onClick={() => { onMuatUlang(); pemicu?.focus(); }} className="font-medium text-primary underline">Muat ulang</button>
             </div>
           ) : dikenal.length === 0 ? (
             <p className="px-3 py-2 text-body-medium text-on-surface-variant">Rundown acara belum punya sesi. Tambahkan di Rundown.</p>
@@ -329,36 +390,19 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
             <p className="px-3 py-2 text-body-medium text-on-surface-variant">Tidak ada yang cocok.</p>
           ) : (
             <ul id={`${id}-daftar`} role="listbox" aria-multiselectable="true" aria-label="Sesi dari rundown">
-              {pilihan.map((item, indeks) => {
-                const on = ids.includes(item.id);
-                const kepala = beberapaBagian && item.bagian !== pilihan[indeks - 1]?.bagian;
-                return (
-                  <li key={item.id} role="none">
-                    {kepala ? (
-                      <p role="presentation" className="px-3 pb-1 pt-2 text-label-medium font-semibold text-on-surface-variant">{item.bagian ?? "Tanpa judul"}</p>
-                    ) : null}
-                    <div
-                      id={`${id}-${item.id}`}
-                      role="option"
-                      aria-selected={on}
-                      title={item.title}
-                      onPointerDown={(peristiwa) => peristiwa.preventDefault()}
-                      onClick={() => { setSorot(indeks); ganti(item); }}
-                      onPointerMove={() => setSorot(indeks)}
-                      className={cx(
-                        "flex min-h-[34px] cursor-pointer items-start gap-2.5 rounded-md px-3 py-[7px] text-body-medium text-on-surface",
-                        aktif?.id === item.id ? "bg-primary-soft" : "",
-                      )}
-                    >
-                      <span aria-hidden className={cx("mt-0.5 grid size-4 shrink-0 place-items-center rounded border", on ? "border-primary bg-primary text-on-primary" : "border-on-surface-variant")}>
-                        {on ? <Check size={12} weight="bold" /> : null}
-                      </span>
-                      <span className="w-10 shrink-0 tabular-nums text-on-surface-variant">{item.jam}</span>
-                      <span className="line-clamp-2 min-w-0 flex-1">{item.title}</span>
-                    </div>
-                  </li>
-                );
-              })}
+              {beberapaBagian
+                ? kelompok(pilihan).map(({ bagian, isi }, urutan) => (
+                    // APG listbox berkelompok: tiap hari satu group berlabel judul bagiannya.
+                    <li key={`${bagian}-${urutan}`} role="none">
+                      <ul role="group" aria-labelledby={`${id}-g${urutan}`}>
+                        <li id={`${id}-g${urutan}`} role="presentation" className="px-3 pb-1 pt-2 text-label-medium font-semibold text-on-surface-variant">
+                          {bagian ?? "Tanpa judul"}
+                        </li>
+                        {isi.map(opsi)}
+                      </ul>
+                    </li>
+                  ))
+                : pilihan.map(opsi)}
             </ul>
           )}
         </div>
@@ -373,6 +417,17 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
       </Popover>
     </div>
   );
+}
+
+/** Baris berurutan dikelompokkan per bagian (hari), urutan tetap. */
+function kelompok(baris: BarisSesi[]): Array<{ bagian: string | null; isi: BarisSesi[] }> {
+  const hasil: Array<{ bagian: string | null; isi: BarisSesi[] }> = [];
+  for (const item of baris) {
+    const akhir = hasil[hasil.length - 1];
+    if (akhir && akhir.bagian === item.bagian) akhir.isi.push(item);
+    else hasil.push({ bagian: item.bagian, isi: [item] });
+  }
+  return hasil;
 }
 
 /** Rundown acara ini, dibuka di tab baru supaya suntingan halaman yang belum disimpan tidak hilang. */

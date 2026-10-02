@@ -677,11 +677,12 @@ export default function LandingCmsPage() {
   if (sesiKurangEn > 0) barisKurangEn.add("speakers");
   const modeEn = modern && bahasa === "en";
   // Pembicara yang sesinya hilang dari rundown atau masih teks lama yang belum
-  // terhubung: ditandai titik di baris Pembicara.
-  const sesiPerluDipilih = (landing.speakers ?? []).filter(
-    (speaker) => speaker.name?.trim() && (sesiHilang(speaker, barisSesi).length > 0 || (!sesiDariRundown(speaker) && !!speaker.session?.trim())),
-  ).length;
-  const sesiLamaBelumTerhubung = (landing.speakers ?? []).filter((speaker) => speaker.name?.trim() && !sesiDariRundown(speaker) && !!speaker.session?.trim()).length;
+  // terhubung: ditandai titik di baris Pembicara. Selama rundown belum dimuat
+  // (atau gagal) teks lama tidak dihitung: cocok tidaknya belum diketahui.
+  const sesiLamaBelumTerhubung =
+    barisSesi === null ? 0 : (landing.speakers ?? []).filter((speaker) => speaker.name?.trim() && !sesiDariRundown(speaker) && !!speaker.session?.trim()).length;
+  const sesiPerluDipilih =
+    (landing.speakers ?? []).filter((speaker) => speaker.name?.trim() && sesiHilang(speaker, barisSesi).length > 0).length + sesiLamaBelumTerhubung;
   // Bawaan huruf judul mengikuti tata letak; harus sama dengan halaman publik.
   const hurufJudul: LandingHeadingFont = landing.heading_font ?? (forum ? "ubuntu" : modern ? "source" : "serif");
   const catatanProgram = landing.program_notes ?? [];

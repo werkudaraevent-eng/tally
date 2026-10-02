@@ -132,8 +132,9 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
 export function landingSessionLabels(config: EventLandingConfig, lang: LandingLang): Map<string, string> {
   const peta = new Map<string, string>();
   if (lang === "id") return peta;
+  // Termasuk pembicara yang sudah memilih sesi dari rundown: label English
+  // lamanya dipakai tab baris rundown yang belum punya judul English.
   for (const speaker of config.speakers ?? []) {
-    if (sesiDariRundown(speaker)) continue;
     const kunci = speaker.session?.trim();
     const label = speaker.en?.session?.trim();
     if (kunci && label && !peta.has(kunci.toLowerCase())) peta.set(kunci.toLowerCase(), label);
