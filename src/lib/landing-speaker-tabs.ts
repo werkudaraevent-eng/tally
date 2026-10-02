@@ -156,7 +156,10 @@ export function speakerTabs(all: LandingSpeaker[], agenda: AgendaPreview[] = [],
     const label = daftarLabel[urutan];
     const jam = item.end && item.end !== item.time ? `${item.time}–${item.end}` : item.time;
     // Judul tanpa awalan yang sudah jadi label; judul yang dipotong ditulis utuh.
-    const sisa = item.title.trim().startsWith(label) ? item.title.trim().slice(label.length).replace(/^[.:]\s*/, "").trim() : item.title.trim();
+    // Awalan judul baris itu sendiri, bukan label tab: label bisa "Session 1"
+    // (en.session lama) sementara judulnya masih "Sesi 1. ...".
+    const awal = labelSesi(item.title);
+    const sisa = item.title.trim().startsWith(awal) ? item.title.trim().slice(awal.length).replace(/^[.:]\s*/, "").trim() : item.title.trim();
     tabs.push({
       key: `sesi-${item.id}`,
       label: kembar.has(label) && bagian.hari ? `${label} · ${bagian.hari}` : label,

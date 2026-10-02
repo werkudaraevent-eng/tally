@@ -256,6 +256,11 @@ export default function LandingCmsPage() {
   // Baris rundown yang bisa dipilih sebagai sesi pembicara. null = belum ada
   // atau gagal dimuat (lihat sesiMemuat): pilihan tersimpan tidak disentuh.
   const [barisSesi, setBarisSesi] = useState<BarisSesi[] | null>(null);
+  /** Rundown gagal dimuat saat editor dibuka: pemetaan sesi lama menunggu muat ulang yang berhasil. */
+  const petakanTertunda = useRef(false);
+  const terkini = useRef<{ facts: Facts | null; landing: EventLandingConfig; formInherit: boolean; formSeed: string; tersimpan: string | null }>({
+    facts: null, landing: {}, formInherit: true, formSeed: DEFAULT_REGISTRATION_SEED, tersimpan: null,
+  });
   const [sesiMemuat, setSesiMemuat] = useState(true);
   const [hasilPetakan, setHasilPetakan] = useState<HasilPetakan | null>(null);
   const [tambahTerbuka, setTambahTerbuka] = useState(false);
@@ -344,6 +349,7 @@ export default function LandingCmsPage() {
       setRundownEn(null);
       setRundownEnTersimpan([]);
       setBarisSesi(null);
+      petakanTertunda.current = true;
     } else {
       const daftarBagian = (isiAdmin.sections ?? []) as Array<{ id: number; name?: string | null; title?: string | null }>;
       const urutBagian = new Map<number, number>(daftarBagian.map((bagian, index) => [bagian.id, index]));
@@ -383,7 +389,22 @@ export default function LandingCmsPage() {
     const admin = await fetch(eventApiPath("/api/admin/rundown/sections"), { cache: "no-store" }).catch(() => null);
     const isiAdmin = admin?.ok ? await admin.json().catch(() => null) : null;
     // Gagal memuat ulang tidak menghapus daftar yang sudah ada.
-    if (isiAdmin) setBarisSesi(barisSesiDariAdmin(isiAdmin));
+    if (!isiAdmin) return;
+    const sesi = barisSesiDariAdmin(isiAdmin);
+    setBarisSesi(sesi);
+    // Rundown gagal dimuat saat editor dibuka: sesi teks lama dihubungkan
+    // sekarang, sekali, sama dengan saat memuat. Tercatat tersimpan hanya bila
+    // belum ada suntingan, supaya suntingan yang belum disimpan tetap terlihat.
+    if (!petakanTertunda.current) return;
+    petakanTertunda.current = false;
+    const kini = terkini.current;
+    const { landing: terpetakan, hasil } = petakanSesiLama(kini.landing, sesi);
+    setHasilPetakan(hasil.terhubung || hasil.perluDipilih ? hasil : null);
+    if (terpetakan === kini.landing) return;
+    const snapshot = (isi: EventLandingConfig) => JSON.stringify({ facts: kini.facts, landing: isi, formInherit: kini.formInherit, formSeed: kini.formSeed });
+    const bersih = kini.tersimpan === snapshot(kini.landing);
+    setLanding(terpetakan);
+    if (bersih) setTersimpan(snapshot(terpetakan));
   }, []);
   useEffect(() => {
     const onFocus = () => void muatBarisSesi();
@@ -395,6 +416,10 @@ export default function LandingCmsPage() {
 
   const sections: LandingSection[] = normalizeLandingSections(landing.sections, landing.blocks);
   const cuplikan = facts ? JSON.stringify({ facts, landing, formInherit, formSeed }) : null;
+  // Nilai terbaru untuk muatBarisSesi, yang juga dipanggil dari pendengar fokus jendela.
+  useEffect(() => {
+    terkini.current = { facts, landing, formInherit, formSeed, tersimpan };
+  });
   // Dibandingkan setelah trim: spasi saja tidak dihitung perubahan, sama dengan yang dikirim.
   const rundownBerubah = (rundownEn ?? []).filter(
     (baris, index) => baris.title_en.trim() !== (rundownEnTersimpan[index]?.title_en ?? "").trim() || baris.subtitle_en.trim() !== (rundownEnTersimpan[index]?.subtitle_en ?? "").trim(),

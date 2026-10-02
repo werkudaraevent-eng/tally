@@ -336,7 +336,7 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
           role="combobox"
           aria-haspopup="dialog"
           aria-expanded={menu.open}
-          aria-controls={menu.open ? `${id}-daftar` : undefined}
+          aria-controls={menu.open ? `${id}-menu` : undefined}
           aria-activedescendant={aktif && !pakaiCari ? `${id}-${aktif.id}` : undefined}
           aria-describedby={`${id}-pesan`}
           onClick={() => (menu.open ? menu.tutup() : buka())}
@@ -358,7 +358,7 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
       </p>
       <span className="sr-only" aria-live="polite">{kabar}</span>
 
-      <Popover anchor={menu} label="Pilih sesi" role="dialog" align="end" width={lebar} className="flex max-h-[min(24rem,60vh)] flex-col p-1">
+      <Popover anchor={menu} id={`${id}-menu`} label="Pilih sesi" role="dialog" align="end" width={lebar} className="flex max-h-[min(24rem,60vh)] flex-col p-1">
         {pakaiCari ? (
           <div className="relative shrink-0 px-1 pb-1 pt-0.5">
             <MagnifyingGlass size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" aria-hidden />
@@ -370,7 +370,7 @@ export function PilihSesi({ speaker, baris, memuat, onChange, onMuatUlang }: {
               onKeyDown={onKeyDown}
               placeholder="Cari jam atau judul"
               aria-label="Cari sesi"
-              aria-controls={`${id}-daftar`}
+              aria-controls={pilihan.length ? `${id}-daftar` : undefined}
               aria-activedescendant={aktif ? `${id}-${aktif.id}` : undefined}
               className="h-8 w-full rounded-md border border-outline bg-surface-container-lowest pl-8 pr-2 text-body-medium text-on-surface outline-none focus:border-primary"
             />
