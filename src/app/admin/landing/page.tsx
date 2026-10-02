@@ -137,12 +137,14 @@ function kolomKepanjangan(blok: LandingBlock): { kolom: string; max: number; bah
  * bagian yang terbuka sebelumnya ikut menutup dan menggeser daftar. Yang digulir
  * hanya wadah panelnya; scrollIntoView ikut menggeser seluruh halaman CMS.
  */
-function gulirKeBaris(id: string) {
+function gulirKeBaris(id: string, bilaDiAtas = false) {
   window.requestAnimationFrame(() => {
     const baris = document.getElementById(`baris-${id}`);
     const wadah = baris?.closest<HTMLElement>(".overflow-y-auto");
     if (!baris || !wadah) return;
     const atas = baris.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop;
+    // `bilaDiAtas`: gulir hanya kalau baris sudah lewat ke atas panel.
+    if (bilaDiAtas && atas >= wadah.scrollTop) return;
     wadah.scrollTo({ top: Math.max(0, atas), behavior: "smooth" });
   });
 }
@@ -289,6 +291,7 @@ export default function LandingCmsPage() {
   const toast = useToast();
 
   const load = useCallback(async () => {
+    terjemahanSesi.current.clear();
     const response = await fetch(eventApiPath("/api/events"), { cache: "no-store" }).catch(() => null);
     if (!response?.ok) { setError("Data acara gagal dimuat."); return; }
     const body = await response.json().catch(() => null);
@@ -382,6 +385,7 @@ export default function LandingCmsPage() {
     patchFacts(fakta);
     // Kunci yang tidak ada di berkas (gambar sampul, warna, dsb.) tetap memakai
     // isi yang sekarang, jadi berkas tanpa gambar tidak menghapus gambar yang ada.
+    terjemahanSesi.current.clear();
     setLanding((current) => ({ ...current, ...isi.landing }));
     setBagian("susunan");
     toast.success("Isi dimuat", "Periksa isinya, lalu tekan Simpan. Muat ulang halaman untuk membatalkan.");
@@ -1103,14 +1107,19 @@ export default function LandingCmsPage() {
                   onChange={(event) => {
                     // Terjemahan ikut nama sesinya: pindah sesi berarti memakai
                     // terjemahan sesi tujuan (kalau sudah ada), bukan membawa yang lama.
+                    // Sesi yang masih dipakai pembicara lain memakai terjemahan yang
+                    // tampil di editor sekarang. Ingatan hanya untuk nama yang sempat
+                    // tidak dipakai siapa pun, dan ikut mengingat terjemahan kosong.
                     const lama = speaker.session?.trim();
-                    if (lama && speaker.en?.session) terjemahanSesi.current.set(lama, speaker.en.session);
+                    if (lama) terjemahanSesi.current.set(lama, speaker.en?.session ?? "");
                     const baru = event.target.value.trim();
+                    const lain = list.filter((_, posisi) => posisi !== index);
+                    const dipakai = lain.some((s) => s.session?.trim() === baru);
                     ubah(index, {
                       session: event.target.value,
                       en: {
                         ...speaker.en,
-                        session: landingSessionEn(list.filter((_, posisi) => posisi !== index), baru) ?? terjemahanSesi.current.get(baru),
+                        session: dipakai ? landingSessionEn(lain, baru) : terjemahanSesi.current.get(baru) || undefined,
                       },
                     });
                   }}
@@ -1337,7 +1346,12 @@ export default function LandingCmsPage() {
   function bukaTutup(id: string) {
     const buka = terbuka !== id;
     setTerbuka(buka ? id : null);
-    if (!buka) return;
+    if (!buka) {
+      // Ditutup dari kepala yang menempel: kembalikan barisnya ke pandangan,
+      // bukan menyisakan panel di tengah blok-blok sesudahnya.
+      gulirKeBaris(id, true);
+      return;
+    }
     setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }));
     gulirKeBaris(id);
   }
@@ -1388,7 +1402,9 @@ export default function LandingCmsPage() {
         <div
           className={cx(
             "flex items-center gap-2 pr-2",
-            buka ? "min-h-14 bg-primary-soft py-2 shadow-[inset_3px_0_0_var(--color-primary)]" : "h-14",
+            // Terbuka: kepala menempel di atas panel, supaya blok yang panjang
+            // bisa ditutup tanpa menggulir balik ke atas.
+            buka ? "sticky top-0 z-10 min-h-14 bg-primary-soft py-2 shadow-[inset_3px_0_0_var(--color-primary)]" : "h-14",
           )}
         >
           {bisaSeret ? (
@@ -1693,15 +1709,20 @@ export default function LandingCmsPage() {
           options={[{ value: "susunan", label: "Susunan halaman" }, { value: "tema", label: "Tema" }, { value: "peserta", label: "Peserta" }]}
         />
       </div>
-      {saringan}
-      <PaneBody
-        key={`${bagian}-${modeEn ? "en" : "id"}`}
-        id="isi-setelan"
-        role="tabpanel"
-        aria-labelledby={segmentTabId("isi-setelan", bagian)}
-        className={bagian === "susunan" ? undefined : "px-4 py-4"}>
-        {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : bagian === "tema" ? isiTema : isiPeserta}
-      </PaneBody>
+      {/* Satu tabpanel memuat baris saringan dan isinya, supaya Tab sesudah
+          daftar tab langsung masuk ke panel yang dipilih (pola tabs WAI-ARIA). */}
+      <div id="isi-setelan" role="tabpanel" aria-labelledby={segmentTabId("isi-setelan", bagian)} className="flex min-h-0 flex-1 flex-col">
+        {saringan}
+        {/* scroll-pt: field yang difokus dengan Tab tidak boleh tertutup kepala baris yang menempel (72px).
+            Tema dan Peserta bisa dimulai dengan teks biasa, jadi bidang gulirnya sendiri
+            ikut menerima fokus agar bisa digulir dengan papan ketik. */}
+        <PaneBody
+          key={`${bagian}-${modeEn ? "en" : "id"}`}
+          tabIndex={bagian === "susunan" ? undefined : 0}
+          className={bagian === "susunan" ? "scroll-pt-22" : "px-4 py-4 focus-visible:shadow-none focus-visible:-outline-offset-2"}>
+          {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : bagian === "tema" ? isiTema : isiPeserta}
+        </PaneBody>
+      </div>
     </Pane>
   );
 

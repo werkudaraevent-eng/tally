@@ -574,7 +574,7 @@ function Kolom({ block, lang }: { block: LandingBlock; lang: LandingLang }) {
               ) : null}
               <Paragraf teks={item.body} className={`${ISI} ${PATAH}`} />
               {href ? (
-                <Taut href={href} className={`m3-state -mx-1 inline-flex min-h-12 items-center gap-1.5 ${tengah ? "self-center" : "self-start"} rounded-sm px-1 text-title-medium font-semibold text-[var(--blok-aksen)] underline-offset-4 hover:underline`}>
+                <Taut href={href} className={`m3-state -mx-1 -my-3 inline-flex min-h-12 items-center gap-1.5 ${tengah ? "self-center" : "self-start"} rounded-sm px-1 text-title-medium font-semibold text-[var(--blok-aksen)] underline-offset-4 hover:underline`}>
                   {item.label?.trim() || LANDING_UI[lang].readMore}
                   <IkonTaut href={href} size={16} />
                 </Taut>
