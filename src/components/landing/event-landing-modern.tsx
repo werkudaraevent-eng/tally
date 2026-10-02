@@ -479,8 +479,10 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             <div className={`grid items-center gap-10 lg:gap-20 ${petaKueri ? "lg:grid-cols-2" : ""}`}>
               <div className="flex max-w-[572px] flex-col items-start gap-8 sm:gap-10">
                 <div className="flex flex-col gap-5">
-                  {venue ? <p className={ALIS}>{LANDING_SECTION_LABELS.venue}</p> : null}
-                  <h2 className={JUDUL}>{venue ?? LANDING_SECTION_LABELS.venue}</h2>
+                  <div className="flex flex-col gap-3">
+                    {venue ? <p className={ALIS}>{LANDING_SECTION_LABELS.venue}</p> : null}
+                    <h2 className={JUDUL}>{venue ?? LANDING_SECTION_LABELS.venue}</h2>
+                  </div>
                   {event.venue_address ? (
                     <p className={`whitespace-pre-line text-isi ${MUTED}`}>{event.venue_address}</p>
                   ) : null}

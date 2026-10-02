@@ -151,8 +151,10 @@ function Kepala({ block, aksi }: { block: LandingBlock; aksi?: ReactNode }) {
 function KepalaKiri({ block }: { block: LandingBlock }) {
   return (
     <div className="flex flex-col gap-4">
-      {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
-      {block.heading?.trim() ? <h2 className={JUDUL}>{block.heading.trim()}</h2> : null}
+      <div className="flex flex-col gap-3">
+        {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
+        {block.heading?.trim() ? <h2 className={JUDUL}>{block.heading.trim()}</h2> : null}
+      </div>
       {block.body?.trim() ? <p className={ISI}>{block.body.trim()}</p> : null}
     </div>
   );
@@ -185,8 +187,10 @@ function TeksGambar({ block }: { block: LandingBlock }) {
           </div>
         ) : null}
         <div className={`flex max-w-[600px] flex-col gap-5 ${kiri ? "" : "lg:order-1"}`}>
-          {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
-          {block.heading?.trim() ? <h2 className={JUDUL}>{block.heading.trim()}</h2> : null}
+          <div className="flex flex-col gap-3">
+            {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
+            {block.heading?.trim() ? <h2 className={JUDUL}>{block.heading.trim()}</h2> : null}
+          </div>
           <Paragraf teks={block.body} className={ISI} />
           {url1 || url2 ? (
             <div className="flex flex-wrap gap-3 pt-3">
@@ -536,8 +540,10 @@ function Unduhan({ block, lang }: { block: LandingBlock; lang: LandingLang }) {
     <Wadah block={block} className="py-12 sm:py-16">
       <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-20">
         <div className="flex max-w-[600px] flex-col gap-5">
-          {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
-          <h2 className={JUDUL}>{block.heading?.trim()}</h2>
+          <div className="flex flex-col gap-3">
+            {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
+            <h2 className={JUDUL}>{block.heading?.trim()}</h2>
+          </div>
           {block.body?.trim() ? <p className={ISI}>{block.body.trim()}</p> : null}
           <Taut href={url} className={`${TOMBOL} mt-3 self-start`}>
             {block.link_label?.trim() || t.downloadMaterial}
