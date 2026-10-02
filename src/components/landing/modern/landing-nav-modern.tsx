@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
-import { List, X } from "@phosphor-icons/react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { Globe, List, X } from "@phosphor-icons/react";
 import type { LandingNavWidth } from "@/lib/domain";
+import { LANDING_LANG_LABELS, LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 
 /**
  * Kepala halaman acara tata letak Modern.
@@ -23,7 +24,100 @@ import type { LandingNavWidth } from "@/lib/domain";
  *
  * `logoOnDark`: bilah bening di atas KV, jadi logo berwarna diputihkan
  * (filter) sampai hero lewat. Logo satu warna seperti ILO tetap utuh bentuknya.
+ *
+ * `langSwitch`: tombol bahasa (globe + nama bahasa TUJUAN) sebelum Masuk, hanya
+ * bila versi English dinyalakan admin. Di ponsel tetap di bilah, berlabel kode
+ * ("EN"/"ID"), tidak di dalam menu: tamu asing harus menemukannya tanpa membuka
+ * apa pun. Pindah bahasa mempertahankan bagian yang sedang dibaca (lihat
+ * pindahBahasa).
  */
+
+/** Kunci sessionStorage posisi baca saat pindah bahasa. */
+const KUNCI_POSISI = "tally:landing-lang-pos";
+
+/**
+ * Bagian yang sedang dibaca: `section[id]` terakhir yang tepinya sudah lewat di
+ * bawah bilah atas, dan jarak gulir di dalamnya.
+ */
+function posisiBaca(navH: number): { id: string | null; offset: number } {
+  let id: string | null = null;
+  let offset = window.scrollY;
+  document.querySelectorAll<HTMLElement>("main[data-halaman-publik] section[id]").forEach((el) => {
+    const atas = el.getBoundingClientRect().top - navH;
+    if (atas <= 1) {
+      id = el.id;
+      offset = -atas;
+    }
+  });
+  return { id, offset };
+}
+
+/**
+ * Pindah ke versi bahasa lain di bagian yang sama. Kedua versi punya bagian dan
+ * id yang sama, tetapi tingginya berbeda karena panjang teksnya berbeda, jadi
+ * yang dibawa adalah jangkar bagian (`#agenda`) plus jarak di dalamnya, bukan
+ * angka scrollY. Tanpa JavaScript tautan biasa tetap bekerja (ke atas halaman).
+ */
+function pindahBahasa(event: MouseEvent<HTMLAnchorElement>, href: string) {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+  event.preventDefault();
+  const navH = document.querySelector<HTMLElement>("[data-landing-nav]")?.offsetHeight ?? 64;
+  const posisi = posisiBaca(navH);
+  try {
+    sessionStorage.setItem(KUNCI_POSISI, JSON.stringify({ ...posisi, waktu: Date.now() }));
+  } catch {
+    // Penyimpanan diblokir: tetap pindah, dengan jangkar saja.
+  }
+  window.location.assign(posisi.id ? `${href}#${posisi.id}` : href);
+}
+
+/**
+ * Dipanggil sekali saat halaman dimuat: kembalikan posisi baca dari pindahBahasa.
+ *
+ * Posisi dipasang ulang tiap frame selama ~1 detik, karena tinggi bagian di atas
+ * masih bisa bergeser sesaat setelah hidrasi (huruf, gambar, tab). Berhenti
+ * begitu tamu menggulir sendiri.
+ */
+function pulihkanPosisi() {
+  let simpan: { id: string | null; offset: number; waktu: number } | null = null;
+  try {
+    const mentah = sessionStorage.getItem(KUNCI_POSISI);
+    sessionStorage.removeItem(KUNCI_POSISI);
+    simpan = mentah ? JSON.parse(mentah) : null;
+  } catch {
+    return;
+  }
+  // Hanya pindah bahasa yang baru saja terjadi; posisi lama tidak ikut ke kunjungan berikutnya.
+  if (!simpan || Date.now() - simpan.waktu > 15_000) return;
+  const { id, offset } = simpan;
+  const akar = document.documentElement;
+  const gulirAwal = akar.style.scrollBehavior;
+  // Lompatan jangkar bawaan peramban ikut `scroll-behavior: smooth`; dimatikan selama memulihkan.
+  akar.style.scrollBehavior = "auto";
+  const mulai = performance.now();
+  let berhenti = false;
+  const hentikan = () => {
+    berhenti = true;
+  };
+  const sentuhan = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+  sentuhan.forEach((jenis) => window.addEventListener(jenis, hentikan, { once: true, passive: true }));
+  const pasang = () => {
+    if (!berhenti) {
+      const navH = document.querySelector<HTMLElement>("[data-landing-nav]")?.offsetHeight ?? 64;
+      const el = id ? document.getElementById(id) : null;
+      const tujuan = el ? el.getBoundingClientRect().top + window.scrollY - navH + offset : offset;
+      window.scrollTo({ top: Math.max(0, tujuan), behavior: "instant" });
+    }
+    if (!berhenti && performance.now() - mulai < 1000) {
+      requestAnimationFrame(pasang);
+      return;
+    }
+    sentuhan.forEach((jenis) => window.removeEventListener(jenis, hentikan));
+    akar.style.scrollBehavior = gulirAwal;
+  };
+  pasang();
+}
+
 export function LandingNavModern({
   eventName,
   daftarUrl,
@@ -33,6 +127,8 @@ export function LandingNavModern({
   width = "full",
   logoUrl = null,
   logoOnDark = false,
+  lang = "id",
+  langSwitch = null,
 }: {
   eventName: string;
   daftarUrl: string;
@@ -42,7 +138,12 @@ export function LandingNavModern({
   width?: LandingNavWidth;
   logoUrl?: string | null;
   logoOnDark?: boolean;
+  /** Bahasa halaman ini. */
+  lang?: LandingLang;
+  /** Alamat versi bahasa lain dan bahasanya; null = tombol bahasa tidak tampil. */
+  langSwitch?: { href: string; lang: LandingLang } | null;
 }) {
+  const t = LANDING_UI[lang];
   const [aktif, setAktif] = useState<string | null>(null);
   const [menuBuka, setMenuBuka] = useState(false);
   const menuId = useId();
@@ -69,6 +170,10 @@ export function LandingNavModern({
     };
   }, [menuBuka]);
   const [lewatHero, setLewatHero] = useState(false);
+
+  useEffect(() => {
+    if (langSwitch) pulihkanPosisi();
+  }, [langSwitch]);
 
   useEffect(() => {
     const hero = document.querySelector<HTMLElement>("[data-landing-hero]");
@@ -120,7 +225,7 @@ export function LandingNavModern({
 
   return (
     <nav
-      aria-label="Navigasi acara"
+      aria-label={t.navAria}
       data-landing-nav
       ref={navRef}
       className={`sticky top-0 z-30 ${selebarIsi ? "" : bilah}`}
@@ -179,6 +284,22 @@ export function LandingNavModern({
         </ul>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+          {langSwitch ? (
+            // Tombol teks setara tautan menu, bukan tombol bergaris: ini
+            // pengaturan tampilan, tidak boleh bersaing dengan Masuk dan Daftar.
+            <a
+              href={langSwitch.href}
+              hrefLang={LANDING_LANG_LABELS[langSwitch.lang].htmlLang}
+              lang={LANDING_LANG_LABELS[langSwitch.lang].htmlLang}
+              aria-label={LANDING_UI[langSwitch.lang].switchTo}
+              onClick={(event) => pindahBahasa(event, langSwitch.href)}
+              className="m3-state -mx-1 inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-[15px] font-medium sm:mx-0 sm:px-3"
+            >
+              <Globe size={20} aria-hidden className="shrink-0" />
+              <span className="sm:hidden">{LANDING_LANG_LABELS[langSwitch.lang].short}</span>
+              <span className="hidden sm:inline">{LANDING_LANG_LABELS[langSwitch.lang].name}</span>
+            </a>
+          ) : null}
           {memberLink ? (
             <Link
               href={memberLink.href}
@@ -197,7 +318,7 @@ export function LandingNavModern({
               {/* Label pendek di nav, sesuai rancangan. Teks tombol pilihan admin
                   dipakai di hero dan banner ajakan; dua tombol berlabel sama
                   di layar yang sama terbaca seperti desakan. */}
-              Daftar
+              {t.register}
             </Link>
           ) : null}
           {sections.length > 0 ? (
@@ -206,7 +327,7 @@ export function LandingNavModern({
               type="button"
               aria-expanded={menuBuka}
               aria-controls={menuId}
-              aria-label={menuBuka ? "Tutup menu" : "Buka menu"}
+              aria-label={menuBuka ? t.closeMenu : t.openMenu}
               onClick={() => setMenuBuka((buka) => !buka)}
               className="m3-state -mr-2 inline-flex size-11 items-center justify-center rounded-md xl:hidden"
             >

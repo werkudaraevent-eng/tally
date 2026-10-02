@@ -20,17 +20,20 @@ export type EventSchedule = {
 };
 
 /** "HH:MM:SS" atau "HH:MM" menjadi "HH.MM". Nilai tak terbaca dibuang. */
-function jam(value: string | null): string | null {
+function jam(value: string | null, bahasa: TanggalBahasa = "id"): string | null {
   if (!value) return null;
   const cocok = value.match(/^(\d{2}):(\d{2})/);
-  return cocok ? `${cocok[1]}.${cocok[2]}` : null;
+  return cocok ? `${cocok[1]}${bahasa === "en" ? ":" : "."}${cocok[2]}` : null;
 }
 
-function tanggal(iso: string, zona: EventTimeZone, panjang = true): string {
+/** Bahasa halaman acara (lihat src/lib/landing-i18n.ts). Bawaan Indonesia. */
+type TanggalBahasa = "id" | "en";
+
+function tanggal(iso: string, zona: EventTimeZone, panjang = true, bahasa: TanggalBahasa = "id"): string {
   // T12:00:00Z, bukan tengah malam. Tanggal murni yang diurai sebagai UTC lalu
   // ditampilkan di zona WIB/WITA/WIT dapat mundur satu hari; tengah hari
   // menyisakan jarak aman ke kedua arah.
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat(bahasa === "en" ? "en-GB" : "id-ID", {
     dateStyle: panjang ? "full" : "long",
     timeZone: zona,
   }).format(new Date(`${iso}T12:00:00Z`));
@@ -52,22 +55,22 @@ export function formatEventSchedule(schedule: EventSchedule): string | null {
 }
 
 /** Baris tanggal saja, tanpa jam. */
-export function formatEventDate(schedule: EventSchedule): string | null {
+export function formatEventDate(schedule: EventSchedule, bahasa: TanggalBahasa = "id"): string | null {
   if (!schedule.event_date) return null;
   return schedule.end_date && schedule.end_date !== schedule.event_date
-    ? `${tanggal(schedule.event_date, schedule.time_zone, false)} – ${tanggal(schedule.end_date, schedule.time_zone, false)}`
-    : tanggal(schedule.event_date, schedule.time_zone);
+    ? `${tanggal(schedule.event_date, schedule.time_zone, false, bahasa)} – ${tanggal(schedule.end_date, schedule.time_zone, false, bahasa)}`
+    : tanggal(schedule.event_date, schedule.time_zone, true, bahasa);
 }
 
-/** Baris jam saja: "09.00–17.00 WITA" atau "mulai 09.00 WITA". */
-export function formatEventTime(schedule: EventSchedule): string | null {
-  const mulai = jam(schedule.start_time);
+/** Baris jam saja: "09.00–17.00 WITA" atau "mulai 09.00 WITA" (English: "09:00–17:00 WITA", "from 09:00 WITA"). */
+export function formatEventTime(schedule: EventSchedule, bahasa: TanggalBahasa = "id"): string | null {
+  const mulai = jam(schedule.start_time, bahasa);
   if (!mulai) return null;
-  const selesai = jam(schedule.end_time);
+  const selesai = jam(schedule.end_time, bahasa);
   const abbr = timeZoneAbbr(schedule.time_zone);
   // Jam selesai disebut hanya bila ada. "09.00–" yang menggantung terbaca
   // sebagai data yang belum diisi, dan tamu tidak tahu itu salah siapa.
-  return selesai ? `${mulai}–${selesai} ${abbr}` : `mulai ${mulai} ${abbr}`;
+  return selesai ? `${mulai}–${selesai} ${abbr}` : `${bahasa === "en" ? "from" : "mulai"} ${mulai} ${abbr}`;
 }
 
 /** Hitungan hari menuju acara. Negatif berarti sudah lewat. */

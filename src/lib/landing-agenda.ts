@@ -1,9 +1,9 @@
 import { getSupabaseServiceClient } from "./supabase/service";
 import { formatClock } from "./rundown";
 
-/** Jam ejaan Indonesia untuk halaman publik: "08.00", sama dengan baris jam di hero. */
-function jamTitik(jam: string): string {
-  return jam.replace(":", ".");
+/** Jam halaman publik, sama dengan baris jam di hero: "08.00" (Indonesia) atau "08:00" (English). */
+function jamTitik(jam: string, bahasa: "id" | "en"): string {
+  return bahasa === "en" ? jam : jam.replace(":", ".");
 }
 
 /**
@@ -31,7 +31,7 @@ export type AgendaPreview = {
  */
 const MAX_ITEMS = 40;
 
-export async function loadAgendaPreview(eventId: string): Promise<AgendaPreview[]> {
+export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "id"): Promise<AgendaPreview[]> {
   const client = getSupabaseServiceClient();
 
   const { data: sections } = await client
@@ -64,8 +64,8 @@ export async function loadAgendaPreview(eventId: string): Promise<AgendaPreview[
         .filter((item) => item.section_id === section.id)
         .slice(0, MAX_ITEMS)
         .map((item) => ({
-          time: jamTitik(formatClock(item.start_time)),
-          end: item.end_time ? jamTitik(formatClock(item.end_time)) : null,
+          time: jamTitik(formatClock(item.start_time), bahasa),
+          end: item.end_time ? jamTitik(formatClock(item.end_time), bahasa) : null,
           title: item.title ?? "",
           subtitle: item.subtitle?.trim() || null,
         }))

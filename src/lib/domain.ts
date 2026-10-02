@@ -194,6 +194,8 @@ export type LandingBlockItem = {
   /** Angka pada Pita angka, atau chip kedua (mis. jam) di kartu foto. */
   value?: string;
   href?: string;
+  /** Teks English butir ini. Lihat src/lib/landing-i18n.ts. */
+  en?: LandingItemEn;
 };
 
 export type LandingBlock = {
@@ -223,6 +225,45 @@ export type LandingBlock = {
   source?: string;
   /** Bila diisi, blok ini muncul di menu atas dengan label ini. */
   nav_label?: string;
+  /** Teks English blok ini. Lihat src/lib/landing-i18n.ts. */
+  en?: LandingBlockEn;
+};
+
+// ---- Teks English (halaman dwibahasa) -------------------------------------------
+//
+// Setiap objek yang punya teks mendapat satu kunci `en` dengan nama kolom yang
+// SAMA dengan kolom Indonesianya. Kolom Indonesia tidak berubah dan tetap bahasa
+// utama; gambar, warna, urutan, dan tampil/sembunyi tidak punya versi English.
+// Kolom English yang kosong jatuh ke teks Indonesia kolom itu. Penumpukannya ada
+// di satu tempat: resolveLanding() di src/lib/landing-i18n.ts.
+
+/** Kolom teks blok yang punya versi English. */
+export const LANDING_BLOCK_EN_KEYS = [
+  "eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role", "nav_label",
+] as const;
+export type LandingBlockEn = Partial<Record<(typeof LANDING_BLOCK_EN_KEYS)[number], string>>;
+
+/** Kolom teks butir blok yang punya versi English. */
+export const LANDING_ITEM_EN_KEYS = ["label", "title", "body", "value"] as const;
+export type LandingItemEn = Partial<Record<(typeof LANDING_ITEM_EN_KEYS)[number], string>>;
+
+/** Kolom teks pembicara yang punya versi English. Nama orang tidak diterjemahkan. */
+export const LANDING_SPEAKER_EN_KEYS = ["title", "company", "role", "session"] as const;
+export type LandingSpeakerEn = Partial<Record<(typeof LANDING_SPEAKER_EN_KEYS)[number], string>>;
+
+/**
+ * Teks English tingkat halaman. Empat kolom terakhir (`tagline`, `description`,
+ * `venue_name`, `venue_address`) versi English dari kolom tabel `events`:
+ * kolom itu tetap satu sumber untuk email, kalender, dan ekspor, jadi
+ * terjemahannya tinggal di sini.
+ */
+export const LANDING_CONFIG_EN_KEYS = [
+  "public_name", "cta_label", "about_heading", "program_heading", "program_intro", "agenda_note", "footer_note", "cta_heading", "cta_note", "contact_name",
+] as const;
+export const LANDING_EVENT_EN_KEYS = ["tagline", "description", "venue_name", "venue_address"] as const;
+export type LandingConfigEn = Partial<Record<(typeof LANDING_CONFIG_EN_KEYS)[number] | (typeof LANDING_EVENT_EN_KEYS)[number], string>> & {
+  /** Urut sesuai `program_notes`. */
+  program_notes?: string[];
 };
 
 /** Panjang label menu atas: satu atau dua kata pendek, supaya menu muat satu baris. */
@@ -593,6 +634,8 @@ export type LandingSpeaker = {
    * semua tata letak, jadi bukan bagian dari tata letak mana pun.
    */
   session?: string;
+  /** Teks English pembicara ini. Lihat src/lib/landing-i18n.ts. */
+  en?: LandingSpeakerEn;
 };
 
 /**
@@ -706,10 +749,10 @@ export type EventLandingConfig = {
   sections?: LandingSection[];
   speakers?: LandingSpeaker[];
   /** Angka yang ingin ditonjolkan: "300+ peserta", "12 booth". */
-  highlights?: { label: string; value: string }[];
-  faq?: { q: string; a: string }[];
+  highlights?: { label: string; value: string; en?: { label?: string; value?: string } }[];
+  faq?: { q: string; a: string; en?: { q?: string; a?: string } }[];
   /** Logo sponsor dan mitra. Diunggah di CMS halaman acara, bukan ditarik dari layar lain. */
-  sponsors?: { name?: string; logo_url: string }[];
+  sponsors?: { name?: string; logo_url: string; en?: { name?: string } }[];
   contact_name?: string;
   contact_phone?: string;
   contact_email?: string;
@@ -718,6 +761,13 @@ export type EventLandingConfig = {
    * memang disengaja: satu acara punya satu warna, dua permukaan.
    */
   theme?: RegistrationFormTheme;
+  /**
+   * Versi English halaman (`/e/<slug>/en`) dan tombol bahasanya tampil. Bawaan
+   * mati: selama mati, alamat English 404 dan halaman Indonesia tidak berubah.
+   */
+  en_enabled?: boolean;
+  /** Teks English tingkat halaman. Lihat src/lib/landing-i18n.ts. */
+  en?: LandingConfigEn;
 };
 
 /**
