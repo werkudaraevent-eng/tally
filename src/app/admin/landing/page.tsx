@@ -47,6 +47,7 @@ import { BilahAtasEditor } from "@/components/admin/landing-nav-editor";
 import { cx } from "@/lib/m3/cx";
 import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
+import { BagianEn, BlockEditorEn } from "./editor-en";
 import { landingUntranslated } from "@/lib/landing-i18n";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
@@ -107,18 +108,25 @@ const NAMA_KOLOM: Record<string, string> = {
   label: "label butir", title: "judul butir", value: "angka",
 };
 
-/** Kolom pertama yang melewati batas karakter blok, atau null. */
-function kolomKepanjangan(blok: LandingBlock): { kolom: string; max: number } | null {
+/**
+ * Kolom pertama yang melewati batas karakter blok, atau null. Teks English
+ * (`en`) memakai batas yang sama; `bahasa` menyebut mode editor tempat kolom itu.
+ */
+function kolomKepanjangan(blok: LandingBlock): { kolom: string; max: number; bahasa: "id" | "en" } | null {
   const batas = landingBlockLimits(blok);
-  for (const [kunci, limit] of Object.entries(batas)) {
-    if (kunci === "item" || kunci === "items" || !limit || !("max" in limit)) continue;
-    const nilai = blok[kunci as keyof LandingBlock];
-    if (typeof nilai === "string" && nilai.length > limit.max) return { kolom: NAMA_KOLOM[kunci] ?? kunci, max: limit.max };
-  }
-  for (const [nomor, butir] of (blok.items ?? []).entries()) {
-    for (const [kunci, limit] of Object.entries(batas.item ?? {})) {
-      const nilai = butir[kunci as keyof typeof butir];
-      if (limit && typeof nilai === "string" && nilai.length > limit.max) return { kolom: `${NAMA_KOLOM[kunci] ?? kunci} ${nomor + 1}`, max: limit.max };
+  for (const bahasa of ["id", "en"] as const) {
+    const sumber = (bahasa === "id" ? blok : blok.en ?? {}) as Record<string, unknown>;
+    for (const [kunci, limit] of Object.entries(batas)) {
+      if (kunci === "item" || kunci === "items" || !limit || !("max" in limit)) continue;
+      const nilai = sumber[kunci];
+      if (typeof nilai === "string" && nilai.length > limit.max) return { kolom: NAMA_KOLOM[kunci] ?? kunci, max: limit.max, bahasa };
+    }
+    for (const [nomor, butir] of (blok.items ?? []).entries()) {
+      const isiButir = (bahasa === "id" ? butir : butir.en ?? {}) as Record<string, unknown>;
+      for (const [kunci, limit] of Object.entries(batas.item ?? {})) {
+        const nilai = isiButir[kunci];
+        if (limit && typeof nilai === "string" && nilai.length > limit.max) return { kolom: `${NAMA_KOLOM[kunci] ?? kunci} ${nomor + 1}`, max: limit.max, bahasa };
+      }
     }
   }
   return null;
@@ -224,6 +232,8 @@ export default function LandingCmsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [bagian, setBagian] = useState<Bagian>("susunan");
+  // Mode bahasa Susunan halaman: ID menyunting halaman, EN hanya teks English-nya.
+  const [bahasa, setBahasa] = useState<"id" | "en">("id");
   // Baris Susunan halaman yang sedang terbuka ("pembuka", id bagian, atau "kaki").
   const [terbuka, setTerbuka] = useState<string | null>(null);
   // Bagian yang disorot di pratinjau; `n` naik di setiap klik supaya klik ulang
@@ -304,6 +314,15 @@ export default function LandingCmsPage() {
   // Draf untuk pratinjau langsung. Dibuat ulang hanya saat isinya berubah,
   // supaya pratinjau tidak dirender ulang di setiap render CMS.
   const drafPratinjau = useMemo(() => (cuplikan && facts ? isiKirim(facts) : null), [cuplikan]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pilihan ID | EN yang diklik di pratinjau memindah mode editor.
+  // Baris yang terbuka tetap terbuka di mode lain; daftarnya dirender ulang,
+  // jadi panel digulir kembali ke baris itu.
+  const pilihBahasa = useCallback((pilihan: "id" | "en") => {
+    setBagian("susunan");
+    setBahasa(pilihan);
+    if (terbuka) gulirKeBaris(terbuka);
+  }, [terbuka]);
 
   function patchFacts(patch: Partial<Facts>) {
     setFacts((current) => (current ? { ...current, ...patch } : current));
@@ -455,16 +474,18 @@ export default function LandingCmsPage() {
       const lewat = blok ? kolomKepanjangan(blok) : null;
       if (blok && lewat) {
         setBagian("susunan");
+        setBahasa(lewat.bahasa);
         setTerbuka(blok.id);
         setSorot((current) => ({ id: blok.id, n: (current?.n ?? 0) + 1 }));
         gulirKeBaris(blok.id);
-        toast.error("Teks terlalu panjang", `Bagian ${index + 2}, ${lewat.kolom}: maksimal ${lewat.max} karakter. Bagiannya sudah dibuka.`);
+        toast.error("Teks terlalu panjang", `Bagian ${index + 2}, ${lewat.kolom}${lewat.bahasa === "en" ? " (English)" : ""}: maksimal ${lewat.max} karakter. Bagiannya sudah dibuka.`);
         return;
       }
     }
     const tinggiBilah = landing.nav?.height;
     if (tinggiBilah != null && (tinggiBilah < LANDING_NAV_HEIGHT_MIN || tinggiBilah > LANDING_NAV_HEIGHT_MAX)) {
       setBagian("susunan");
+      setBahasa("id");
       setTerbuka("pembuka");
       gulirKeBaris("pembuka");
       toast.error("Tinggi bilah atas di luar batas", `Pembuka, Bilah atas: isi ${LANDING_NAV_HEIGHT_MIN} sampai ${LANDING_NAV_HEIGHT_MAX} px. Bagiannya sudah dibuka.`);
@@ -497,16 +518,29 @@ export default function LandingCmsPage() {
   const tataLetak: LandingLayout = landing.layout ?? "editorial";
   const modern = tataLetak === "modern";
   // Teks yang tampil di halaman Indonesia tetapi belum punya versi English.
-  const belumDiterjemahkan = landingUntranslated({
+  const kurangEn = landingUntranslated({
     landing_config: { ...landing, sections },
     tagline: facts?.tagline,
     description: facts?.description,
     venue_address: facts?.venue_address,
-  }).length;
+  });
+  const belumDiterjemahkan = kurangEn.length;
+  const barisKurangEn = new Set(kurangEn.map((teks) => teks.section));
+  const modeEn = modern && bahasa === "en";
   // Bawaan huruf judul mengikuti tata letak; harus sama dengan halaman publik.
   const hurufJudul: LandingHeadingFont = landing.heading_font ?? (modern ? "source" : "serif");
   const catatanProgram = landing.program_notes ?? [];
   const setCatatanProgram = (next: string[]) => setLanding({ ...landing, program_notes: next });
+  // Terjemahannya ikut terhapus, supaya terjemahan keterangan berikutnya tidak
+  // bergeser ke kartu yang salah (en.program_notes diurutkan sama).
+  const hapusCatatanProgram = (index: number) => {
+    const buang = (daftar: string[]) => daftar.filter((_, position) => position !== index);
+    setLanding({
+      ...landing,
+      program_notes: buang(catatanProgram),
+      en: landing.en?.program_notes ? { ...landing.en, program_notes: buang(landing.en.program_notes) } : landing.en,
+    });
+  };
 
   const isiPembuka = facts ? (
     <div className="flex flex-col gap-5">
@@ -737,7 +771,7 @@ export default function LandingCmsPage() {
                     value={item}
                     onChange={(event) => { const next = [...catatanProgram]; next[index] = event.target.value; setCatatanProgram(next); }}
                   />
-                  <IconButton size="sm" label={`Hapus keterangan ${index + 1}`} className="mt-6 text-error" onClick={() => setCatatanProgram(catatanProgram.filter((_, position) => position !== index))}>
+                  <IconButton size="sm" label={`Hapus keterangan ${index + 1}`} className="mt-6 text-error" onClick={() => hapusCatatanProgram(index)}>
                     <Trash size={16} />
                   </IconButton>
                 </div>
@@ -862,7 +896,10 @@ export default function LandingCmsPage() {
         ) : null}
         {modern && belumDiterjemahkan > 0 ? (
           <p className="text-body-medium text-on-surface-variant">
-            {belumDiterjemahkan} teks belum diterjemahkan. Halaman English menampilkan teks Indonesianya.
+            {belumDiterjemahkan} teks belum diterjemahkan. Halaman English menampilkan teks Indonesianya.{" "}
+            <button type="button" onClick={() => pilihBahasa("en")} className="rounded-sm font-medium text-primary hover:underline">
+              Terjemahkan di Susunan halaman
+            </button>
           </p>
         ) : null}
       </Kelompok>
@@ -1291,6 +1328,7 @@ export default function LandingCmsPage() {
     indeks,
     isi,
     menu,
+    titik = false,
   }: {
     id: string;
     nomor: number;
@@ -1302,6 +1340,8 @@ export default function LandingCmsPage() {
     indeks?: number;
     isi: ReactNode;
     menu?: ItemMenuBlok[];
+    /** Mode EN: baris ini masih punya teks yang belum diterjemahkan. */
+    titik?: boolean;
   }) {
     const buka = terbuka === id;
     const tersembunyi = saklar ? !saklar.checked : false;
@@ -1372,12 +1412,16 @@ export default function LandingCmsPage() {
             >
               {judul}
             </span>
+            {titik ? <span className="sr-only">Ada teks yang belum diterjemahkan.</span> : null}
             {sub ? (
               <span title={sub} className="block truncate text-body-small text-on-surface-variant">
                 {tersembunyi ? `${sub} · tersembunyi` : sub}
               </span>
             ) : null}
           </button>
+          {titik ? (
+            <span className="mr-2 size-2 shrink-0 rounded-full bg-warning" title="Ada teks yang belum diterjemahkan" aria-hidden />
+          ) : null}
           {lencana ? <StatusChip tone="warning" className="shrink-0">{lencana}</StatusChip> : null}
           {saklar ? (
             <IconButton
@@ -1459,6 +1503,42 @@ export default function LandingCmsPage() {
   const tersembunyi = sections.filter((section) => !section.enabled);
   const blokTersembunyi = tersembunyi.filter((section) => isLandingBlockId(section.id) && blokById.has(section.id)).map((section) => section.id);
 
+  // Mode EN: baris yang sama dalam urutan yang sama, tetapi hanya yang tampil di
+  // halaman, tanpa seret, mata, dan menu; isinya kolom English (editor-en.tsx).
+  const isiSusunanEn = facts ? (
+    <div className="flex flex-col">
+      <ol className="flex flex-col">
+        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Pembuka", sub: "Nama acara, tagline, tombol daftar", titik: barisKurangEn.has("pembuka"), isi: <BagianEn id="pembuka" landing={landing} facts={facts} setLanding={setLanding} /> })}
+        {sections.map((section, index) => {
+          if (!section.enabled) return null;
+          if (isLandingBlockId(section.id)) {
+            const blok = blokById.get(section.id);
+            if (!blok) return null;
+            const jenis = LANDING_BLOCK_LABELS[blok.type];
+            return barisSusunan({
+              id: section.id,
+              nomor: index + 2,
+              judul: blok.heading?.trim() || blok.name?.trim() || jenis,
+              sub: jenis,
+              titik: barisKurangEn.has(section.id),
+              isi: <BlockEditorEn block={blok} onChange={ubahBlok} />,
+            });
+          }
+          const id: LandingSectionId = section.id;
+          return barisSusunan({
+            id,
+            nomor: index + 2,
+            judul: LANDING_SECTION_LABELS[id],
+            sub: subBawaan(id),
+            titik: barisKurangEn.has(id),
+            isi: <BagianEn id={id} landing={landing} facts={facts} setLanding={setLanding} />,
+          });
+        })}
+        {barisSusunan({ id: "kaki", nomor: sections.length + 2, judul: "Kaki halaman", sub: "Kalimat penyelenggara, banner ajakan", titik: barisKurangEn.has("kaki"), isi: <BagianEn id="kaki" landing={landing} facts={facts} setLanding={setLanding} /> })}
+      </ol>
+    </div>
+  ) : null;
+
   const isiSusunan = facts ? (
     <div className="flex flex-col">
       {!modern ? (
@@ -1525,10 +1605,32 @@ export default function LandingCmsPage() {
 
   // Satu baris di atas daftar: petunjuk singkat, lalu penyaring tersembunyi bila
   // memang ada yang tersembunyi. Tidak bergulir, supaya penyaringnya selalu terjangkau.
-  const saringan = bagian === "susunan" ? (
-    <div className="flex h-12 shrink-0 items-center gap-1 border-b border-outline-variant pl-4 pr-2">
+  // Modern: pilihan ID | EN di depan. Mode EN tidak punya penyaring tersembunyi
+  // (hanya bagian yang tampil yang perlu diterjemahkan); gantinya jumlah teks
+  // yang belum diterjemahkan.
+  const pilihanBahasa = modern ? (
+    <SegmentedButton<"id" | "en">
+      label="Bahasa yang disunting"
+      value={bahasa}
+      onChange={pilihBahasa}
+      className="w-24 shrink-0"
+      options={[{ value: "id", label: "ID" }, { value: "en", label: "EN" }]}
+    />
+  ) : null;
+  const saringan = bagian !== "susunan" ? null : modeEn ? (
+    <div className="flex h-12 shrink-0 items-center gap-3 border-b border-outline-variant pl-3 pr-2">
+      {pilihanBahasa}
+      <p role="status" className={cx("min-w-0 flex-1 truncate text-body-small", belumDiterjemahkan > 0 ? "font-medium text-on-warning-soft" : "text-on-surface-variant")}>
+        {belumDiterjemahkan > 0 ? `${belumDiterjemahkan} teks belum diterjemahkan` : "Semua teks sudah diterjemahkan"}
+      </p>
+    </div>
+  ) : (
+    <div className={cx("flex h-12 shrink-0 items-center gap-1 border-b border-outline-variant pr-2", pilihanBahasa ? "pl-3" : "pl-4")}>
+      {pilihanBahasa}
+      {/* Dengan pilihan ID | EN, petunjuknya tidak muat di panel 440: ia
+          disembunyikan, dan ruangnya hanya mendorong penyaring ke kanan. */}
       <p
-        className="min-w-0 flex-1 truncate text-body-small text-on-surface-variant max-sm:hidden"
+        className={cx("min-w-0 flex-1 truncate text-body-small text-on-surface-variant max-sm:hidden", pilihanBahasa && "invisible")}
         title="Urutan di sini sama dengan urutan di halaman, dari atas ke bawah. Klik baris untuk menyunting; pratinjau melompat ke bagian itu. Seret pegangan di kiri baris untuk memindah."
       >
         Klik untuk menyunting
@@ -1552,7 +1654,7 @@ export default function LandingCmsPage() {
         </>
       ) : null}
     </div>
-  ) : null;
+  );
 
   const panel = (
     <Pane as="aside" id="panel-setelan" aria-label="Setelan halaman acara">
@@ -1567,8 +1669,8 @@ export default function LandingCmsPage() {
       </div>
       {saringan}
       {/* scroll-pt: field yang difokus dengan Tab tidak boleh tertutup kepala baris yang menempel (72px). */}
-      <PaneBody key={bagian} className={bagian === "susunan" ? "scroll-pt-22" : "px-4 py-4"}>
-        {bagian === "susunan" ? isiSusunan : bagian === "tema" ? isiTema : isiPeserta}
+      <PaneBody key={`${bagian}-${modeEn ? "en" : "id"}`} className={bagian === "susunan" ? "scroll-pt-22" : "px-4 py-4"}>
+        {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : bagian === "tema" ? isiTema : isiPeserta}
       </PaneBody>
     </Pane>
   );
@@ -1677,7 +1779,7 @@ export default function LandingCmsPage() {
       {facts ? (
         <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:gap-0">
           <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0">
-            <LandingPreview slug={facts.slug} reloadKey={previewKey} sorot={sorot} draf={drafPratinjau} />
+            <LandingPreview slug={facts.slug} reloadKey={previewKey} sorot={sorot} draf={drafPratinjau} bahasa={modeEn && bagian === "susunan" ? "en" : "id"} onBahasa={pilihBahasa} />
           </div>
           <div
             role="separator"

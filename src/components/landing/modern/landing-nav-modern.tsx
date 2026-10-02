@@ -214,7 +214,13 @@ export function LandingNavModern({
     const observer = new IntersectionObserver(
       (entries) => {
         const masuk = entries.filter((entry) => entry.isIntersecting);
-        if (masuk.length === 0) return;
+        if (masuk.length === 0) {
+          // Bagian menu pertama turun di bawah tengah layar: yang dibaca hero
+          // atau isi di atas bagian menu, jadi tidak ada menu yang ditandai.
+          // Tanpa ini garis bawahnya baru hilang saat hero menyentuh atas layar.
+          if (elemen[0].getBoundingClientRect().top > window.innerHeight / 2) setAktif(null);
+          return;
+        }
         const teratas = masuk.reduce((a, b) => (a.boundingClientRect.top <= b.boundingClientRect.top ? a : b));
         setAktif(teratas.target.id);
       },
@@ -318,9 +324,10 @@ export function LandingNavModern({
                     <span className="sr-only"> {label.name}</span>
                   </>
                 );
-                // Area ketuk 48px (M3) tanpa mengubah tampilan: butirnya tanpa kotak.
+                // Area ketuk 48px (M3) tanpa mengubah tampilan: butirnya tanpa kotak. Di
+                // ponsel 44px (WCAG 2.5.5), supaya logo di sebelahnya tidak menyusut.
                 const kelas =
-                  "inline-flex min-h-12 min-w-12 items-center justify-center whitespace-nowrap rounded-md px-3 text-[15px]";
+                  "inline-flex min-h-12 min-w-11 sm:min-w-12 items-center justify-center whitespace-nowrap rounded-md px-3 text-[15px]";
                 return (
                   <span key={kode} className="flex items-center">
                     {i > 0 ? (
