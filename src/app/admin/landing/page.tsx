@@ -619,10 +619,12 @@ export default function LandingCmsPage() {
     venue_address: facts?.venue_address,
   });
   // Baris Rundown dihitung hanya bila Susunan acara tampil, sama dengan teks lain.
-  const rundownKurangEn = sections.some((section) => section.id === "agenda" && section.enabled) ? rundownBelumDiterjemahkan(rundownEn ?? []) : 0;
+  const agendaAktif = sections.some((section) => section.id === "agenda" && section.enabled);
+  const rundownKurangEn = agendaAktif ? rundownBelumDiterjemahkan(rundownEn ?? []) : 0;
   const belumDiterjemahkan = kurangEn.length + rundownKurangEn;
   const barisKurangEn = new Set(kurangEn.map((teks) => teks.section));
-  if (rundownKurangEn > 0) barisKurangEn.add("agenda");
+  // Rundown gagal dimuat: jumlahnya tidak diketahui, jadi barisnya tetap ditandai.
+  if (rundownKurangEn > 0 || (agendaAktif && rundownEn === null)) barisKurangEn.add("agenda");
   const modeEn = modern && bahasa === "en";
   // Bawaan huruf judul mengikuti tata letak; harus sama dengan halaman publik.
   const hurufJudul: LandingHeadingFont = landing.heading_font ?? (modern ? "source" : "serif");
