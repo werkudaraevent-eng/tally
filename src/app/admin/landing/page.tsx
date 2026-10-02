@@ -1719,7 +1719,10 @@ export default function LandingCmsPage() {
         <PaneBody
           key={`${bagian}-${modeEn ? "en" : "id"}`}
           tabIndex={bagian === "susunan" ? undefined : 0}
-          className={bagian === "susunan" ? "scroll-pt-22" : "px-4 py-4 focus-visible:shadow-none focus-visible:-outline-offset-2"}>
+          role={bagian === "susunan" ? undefined : "group"}
+          aria-labelledby={bagian === "susunan" ? undefined : segmentTabId("isi-setelan", bagian)}
+          // `!`: aturan :focus-visible global tidak berlapis, jadi mengalahkan utilitas biasa.
+          className={bagian === "susunan" ? "scroll-pt-22" : "px-4 py-4 focus-visible:shadow-none! focus-visible:-outline-offset-2!"}>
           {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : bagian === "tema" ? isiTema : isiPeserta}
         </PaneBody>
       </div>
