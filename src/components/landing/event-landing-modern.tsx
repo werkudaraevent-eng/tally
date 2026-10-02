@@ -195,9 +195,9 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     return { judul, alis: landingEyebrowShown(config, id) && alis.toLowerCase() !== judul.toLowerCase() ? alis : null };
   };
   const aktif = new Set(sections.filter((section) => section.enabled).map((section) => section.id));
-  // Formulir pendaftaran dan area peserta belum dwibahasa (langkah berikutnya),
-  // jadi tautannya tetap ke versi Indonesia.
-  const daftarUrl = `/e/${event.slug}/daftar`;
+  // Formulir pendaftaran dalam bahasa halaman (src/app/daftar). Area peserta
+  // belum dwibahasa.
+  const daftarUrl = `${landingPath(event.slug, lang, landingDefaultLang(config))}/daftar`;
   const ctaLabel = config.cta_label?.trim() || t.registerNow;
   const speakers = (config.speakers ?? []).filter((speaker) => speaker.name?.trim());
   const agenda = await loadAgendaPreview(event.id, lang);

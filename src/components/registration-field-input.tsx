@@ -1,5 +1,7 @@
 "use client";
 
+import { DAFTAR_UI } from "@/lib/daftar-i18n";
+import type { LandingLang } from "@/lib/landing-i18n";
 import { CheckCircle, Paperclip, WarningCircle } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { RegistrationField } from "@/lib/domain";
@@ -36,7 +38,9 @@ export const REG_LABEL = "mt-6 block text-label-large font-semibold";
 
 type UploadState = { id: string; name: string } | null;
 
-export function RegistrationFieldInput({ field }: { field: RegistrationField }) {
+/** `lang` hanya untuk teks bawaan kolom; label dan pilihan dari panitia tampil apa adanya. */
+export function RegistrationFieldInput({ field, lang = "id" }: { field: RegistrationField; lang?: LandingLang }) {
+  const t = DAFTAR_UI[lang].field;
   const [upload, setUpload] = useState<UploadState>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -50,12 +54,19 @@ export function RegistrationFieldInput({ field }: { field: RegistrationField }) 
     const response = await fetch(eventApiPath("/api/registrasi/upload"), { method: "POST", body }).catch(() => null);
     setUploading(false);
     if (!response) {
-      setUploadError("Koneksi terputus saat mengunggah. Coba lagi.");
+      setUploadError(t.uploadLost);
       return;
     }
     const data = await response.json().catch(() => null);
     if (!response.ok) {
-      setUploadError(data?.error?.details?.file ?? data?.error?.details?.message ?? "Berkas ditolak. Coba berkas lain.");
+      const pesan: string | undefined = data?.error?.details?.file ?? data?.error?.details?.message;
+      // Pesan server berbahasa Indonesia: di halaman English, dua alasan yang
+      // bisa diperbaiki pendaftar (ukuran, format) diterjemahkan, sisanya umum.
+      setUploadError(
+        lang === "id"
+          ? (pesan ?? t.uploadRejected)
+          : response.status === 429 ? DAFTAR_UI.en.errors.RATE_LIMITED ?? t.uploadRejected : pesan?.includes("5 MB") ? t.fileTooLarge : pesan?.startsWith("Format") ? t.fileFormat : t.uploadRejected,
+      );
       return;
     }
     setUpload({ id: data.id, name: data.name });
@@ -85,7 +96,7 @@ export function RegistrationFieldInput({ field }: { field: RegistrationField }) 
   }
 
   const optional = !field.required ? (
-    <span className="font-normal text-[var(--reg-on-surface-variant)]">(opsional)</span>
+    <span className="font-normal text-[var(--reg-on-surface-variant)]">{DAFTAR_UI[lang].optional}</span>
   ) : null;
 
   if (field.type === "radio") {
@@ -124,7 +135,7 @@ export function RegistrationFieldInput({ field }: { field: RegistrationField }) 
         <input type="hidden" name={`extra.${field.key}`} value={upload?.id ?? ""} />
         <label className="mt-2 flex min-h-12 w-full cursor-pointer items-center gap-2 rounded-md border border-dashed border-[var(--reg-outline)] px-4 py-3 text-body-medium">
           <Paperclip size={18} className="shrink-0" />
-          {uploading ? "Mengunggah…" : upload ? "Ganti berkas" : "Pilih berkas"}
+          {uploading ? t.uploading : upload ? t.replaceFile : t.chooseFile}
           <input
             type="file"
             className="sr-only"
@@ -152,7 +163,7 @@ export function RegistrationFieldInput({ field }: { field: RegistrationField }) 
         ) : null}
 
         <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">
-          {field.help_text ? `${field.help_text} ` : ""}PNG, JPG, WebP, atau PDF. Maksimal 5 MB.
+          {field.help_text ? `${field.help_text} ` : ""}{t.fileHelp}
         </p>
       </div>
     );
@@ -172,7 +183,7 @@ export function RegistrationFieldInput({ field }: { field: RegistrationField }) 
         />
       ) : field.type === "select" ? (
         <select required={field.required} name={`extra.${field.key}`} defaultValue="" className={`${REG_CONTROL} font-normal`}>
-          <option value="" disabled>Pilih…</option>
+          <option value="" disabled>{t.choose}</option>
           {(field.options ?? []).map((option) => (
             <option key={option} value={option}>{option}</option>
           ))}

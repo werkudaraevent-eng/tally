@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent
 import { List, X } from "@phosphor-icons/react";
 import type { LandingNavWidth } from "@/lib/domain";
 import { LANDING_LANG_LABELS, LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
+import { HtmlLang } from "@/components/html-lang";
 
 /**
  * Kepala halaman acara tata letak Modern.
@@ -176,17 +177,6 @@ export function LandingNavModern({
   }, [alamatBahasaLain]);
 
   useEffect(() => {
-    // Tata letak akar menulis <html lang="id">; halaman English membetulkannya
-    // supaya judul dan meta dibacakan dengan lafal yang benar.
-    const akar = document.documentElement;
-    const semula = akar.lang;
-    akar.lang = LANDING_LANG_LABELS[lang].htmlLang;
-    return () => {
-      akar.lang = semula;
-    };
-  }, [lang]);
-
-  useEffect(() => {
     const hero = document.querySelector<HTMLElement>("[data-landing-hero]");
     if (!hero) return;
     const periksa = () => {
@@ -251,6 +241,8 @@ export function LandingNavModern({
       className={`sticky top-0 z-30 ${selebarIsi ? "" : bilah}`}
       style={{ ...isi, ...(selebarIsi ? {} : { backdropFilter: lewatHero ? "blur(12px)" : "var(--nav-blur)" }) }}
     >
+      {/* Tata letak akar menulis <html lang="id">; halaman English membetulkannya. */}
+      <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
       <div
         className={`mx-auto flex h-[var(--nav-h)] w-full max-w-[1440px] items-center gap-6 ${
           // Selebar isi: bilahnya sendiri yang mengikuti kolom isi halaman, jadi

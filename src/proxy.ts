@@ -45,8 +45,13 @@ function eventRewrite(request: NextRequest) {
     // lain, src/app/e/[slug]/en dan /id), bukan rute lama lewat rewrite.
     if (/^\/(en|id)\/?$/.test(rest)) return null;
     const destination = request.nextUrl.clone();
-    destination.pathname = rest;
+    // Formulir pendaftaran dalam bahasa lain: `/e/<slug>/en/daftar` ->
+    // `/daftar?eventSlug=<slug>&bahasa=en`. Halamannya memeriksa sendiri apakah
+    // bahasa itu berlaku untuk acara ini.
+    const daftarBahasa = rest.match(/^\/(en|id)\/daftar\/?$/);
+    destination.pathname = daftarBahasa ? "/daftar" : rest;
     destination.searchParams.set("eventSlug", slug);
+    if (daftarBahasa) destination.searchParams.set("bahasa", daftarBahasa[1]);
     return destination;
   }
 
