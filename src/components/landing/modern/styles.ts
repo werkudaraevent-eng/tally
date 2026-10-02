@@ -16,6 +16,12 @@ export const JUDUL = `${HEAD} text-balance text-[32px] font-semibold leading-[1.
 export const JUDUL_BUTIR = "text-title-medium font-semibold sm:text-[18px] sm:leading-6";
 /** Lebar paragraf isi: 35rem teks, 60-75 karakter per baris. */
 export const LEBAR_BACA = "max-w-[35rem]";
+/**
+ * Label bagian di atas judul: kapital 13/16 600, jarak huruf 0,08em, warna
+ * aksen dari pemakainya. Sengaja terbaca sebagai label, bukan teks kecil
+ * yang nyasar. Hanya dipasang bila menambah konteks yang tidak ada di judul.
+ */
+export const LABEL_BAGIAN = "text-[13px] font-semibold uppercase leading-4 tracking-[0.08em]";
 export const SECTION = "scroll-mt-[var(--nav-h)] py-12 sm:py-16 lg:py-[72px]";
 
 /**

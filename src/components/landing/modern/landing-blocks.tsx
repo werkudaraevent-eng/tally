@@ -9,7 +9,7 @@ import {
   type LandingBlockTone,
 } from "@/lib/domain";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
-import { HEAD, JUDUL, MUTED, PIL, SHELL } from "./styles";
+import { HEAD, JUDUL, LABEL_BAGIAN, MUTED, PIL, SHELL } from "./styles";
 
 /**
  * Blok dari pustaka blok, tata letak Modern. Rancangan: Figma "Halaman acara
@@ -63,7 +63,9 @@ const NADA: Record<LandingBlockTone, CSSProperties> = {
 
 const TOMBOL = `${PIL} bg-[var(--blok-tombol)] font-semibold text-[var(--blok-tombol-ink)]`;
 const TOMBOL_GARIS = `${PIL} border border-[color-mix(in_srgb,currentColor_35%,transparent)] font-semibold`;
-const ALIS = "text-title-small font-semibold text-[var(--blok-aksen)]";
+const ALIS = `${LABEL_BAGIAN} text-[var(--blok-aksen)]`;
+/** Label di dalam butir (bukan label bagian): tetap huruf biasa. */
+const ALIS_BUTIR = "text-title-small font-semibold text-[var(--blok-aksen)]";
 /** Paragraf: 16/24, paling lebar 35rem (60-75 karakter per baris). */
 const ISI = `text-isi max-w-[35rem] ${MUTED}`;
 /** Teks panjang dari admin (tautan, nama berkas) boleh patah di mana saja, bukan menggeser halaman. */
@@ -273,7 +275,7 @@ function KartuKolom({ block, items }: { block: LandingBlock; items: LandingBlock
             <li key={index} className="flex">
               <Kartu item={item} className="flex w-full flex-col gap-3.5 rounded-lg">
                 {item.image_url ? <Gambar src={item.image_url} alt="" className="aspect-[3/2] w-full rounded-lg" /> : null}
-                {item.label?.trim() ? <p className={`${ALIS} pt-1`}>{item.label.trim()}</p> : null}
+                {item.label?.trim() ? <p className={`${ALIS_BUTIR} pt-1`}>{item.label.trim()}</p> : null}
                 <h3 className={`${HEAD} text-balance text-[22px] font-semibold leading-[1.25] tracking-[-0.01em] sm:text-[24px]`}>{item.title?.trim()}</h3>
                 {item.body?.trim() || href ? (
                   <p className={`${ISI} ${PATAH}`}>
@@ -305,7 +307,7 @@ function KartuUtama({ block, items }: { block: LandingBlock; items: LandingBlock
       <div className={`grid gap-6 ${samping.length ? "lg:grid-cols-12" : ""}`}>
         <Kartu item={utama} className={`flex flex-col gap-4 rounded-lg ${samping.length ? "lg:col-span-7" : ""}`}>
           {utama.image_url ? <Gambar src={utama.image_url} alt="" className="aspect-[16/9] w-full rounded-lg" /> : null}
-          {utama.label?.trim() ? <p className={ALIS}>{utama.label.trim()}</p> : null}
+          {utama.label?.trim() ? <p className={ALIS_BUTIR}>{utama.label.trim()}</p> : null}
           <h3 className={`${HEAD} text-balance text-[24px] font-semibold leading-[1.2] tracking-[-0.02em] sm:text-[32px]`}>{utama.title?.trim()}</h3>
           {utama.body?.trim() ? <p className={ISI}>{utama.body.trim()}</p> : null}
         </Kartu>
@@ -315,7 +317,7 @@ function KartuUtama({ block, items }: { block: LandingBlock; items: LandingBlock
               <Kartu key={index} item={item} className="flex items-center gap-5 rounded-lg bg-[var(--blok-kartu)] p-4">
                 {item.image_url ? <Gambar src={item.image_url} alt="" className="size-24 shrink-0 rounded-md sm:size-40" /> : null}
                 <div className="flex min-w-0 flex-col gap-2">
-                  {item.label?.trim() ? <p className={ALIS}>{item.label.trim()}</p> : null}
+                  {item.label?.trim() ? <p className={ALIS_BUTIR}>{item.label.trim()}</p> : null}
                   <h3 className={`${HEAD} text-balance text-[19px] font-semibold leading-[1.25] tracking-[-0.01em] sm:text-[24px]`}>{item.title?.trim()}</h3>
                   {item.body?.trim() ? <p className={`text-body-medium ${MUTED}`}>{item.body.trim()}</p> : null}
                 </div>
@@ -329,7 +331,7 @@ function KartuUtama({ block, items }: { block: LandingBlock; items: LandingBlock
           {sisa.map((item, index) => (
             <Kartu key={index} item={item} className="flex flex-col gap-3 rounded-lg bg-[var(--blok-kartu)] p-4">
               {item.image_url ? <Gambar src={item.image_url} alt="" className="aspect-[3/2] w-full rounded-md" /> : null}
-              {item.label?.trim() ? <p className={ALIS}>{item.label.trim()}</p> : null}
+              {item.label?.trim() ? <p className={ALIS_BUTIR}>{item.label.trim()}</p> : null}
               <h3 className={`${HEAD} text-balance text-[22px] font-semibold leading-[1.25] tracking-[-0.01em]`}>{item.title?.trim()}</h3>
               {item.body?.trim() ? <p className={`text-body-medium ${MUTED}`}>{item.body.trim()}</p> : null}
             </Kartu>
