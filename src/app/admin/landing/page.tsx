@@ -1566,7 +1566,8 @@ export default function LandingCmsPage() {
         />
       </div>
       {saringan}
-      <PaneBody key={bagian} className={bagian === "susunan" ? undefined : "px-4 py-4"}>
+      {/* scroll-pt: field yang difokus dengan Tab tidak boleh tertutup kepala baris yang menempel (72px). */}
+      <PaneBody key={bagian} className={bagian === "susunan" ? "scroll-pt-22" : "px-4 py-4"}>
         {bagian === "susunan" ? isiSusunan : bagian === "tema" ? isiTema : isiPeserta}
       </PaneBody>
     </Pane>
