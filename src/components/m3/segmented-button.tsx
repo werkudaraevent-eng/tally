@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { cx } from "@/lib/m3/cx";
 
 export type SegmentedOption<T extends string> = {
@@ -42,12 +42,34 @@ export type SegmentedButtonProps<T extends string> = {
  * tidak pernah memberi tahu apa saja yang tersedia — mahal di layar yang
  * dioperasikan sambil berdiri.
  *
- * Memakai `radiogroup`, bukan sekumpulan tombol: panah kiri/kanan berpindah
- * antar opsi, dan pembaca layar mengumumkan "1 dari 3".
+ * Memakai `radiogroup`, bukan sekumpulan tombol: pembaca layar mengumumkan
+ * "1 dari 3". Papan ketik mengikuti pola radio group WAI-ARIA: satu perhentian
+ * Tab (opsi terpilih, roving tabindex); panah kiri/atas dan kanan/bawah
+ * berpindah sekaligus memilih, memutar di ujung; Home dan End ke opsi pertama
+ * dan terakhir. Opsi yang nonaktif dilewati.
  */
 export function SegmentedButton<T extends string>({ options, value, onChange, label, labelledBy, compact, className }: SegmentedButtonProps<T>) {
+	const aktif = options.filter((option) => !option.disabled);
+	// Perhentian Tab: opsi terpilih, atau opsi aktif pertama bila tidak ada yang terpilih.
+	const perhentian = aktif.some((option) => option.value === value) ? value : aktif[0]?.value;
+
+	function tekan(event: KeyboardEvent<HTMLDivElement>) {
+		if (aktif.length === 0) return;
+		const sekarang = aktif.findIndex((option) => option.value === value);
+		const langkah: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+		let tujuan: number;
+		if (event.key in langkah) tujuan = (Math.max(sekarang, 0) + langkah[event.key] + aktif.length) % aktif.length;
+		else if (event.key === "Home") tujuan = 0;
+		else if (event.key === "End") tujuan = aktif.length - 1;
+		else return;
+		event.preventDefault();
+		const pilihan = aktif[tujuan].value;
+		onChange(pilihan);
+		event.currentTarget.querySelector<HTMLButtonElement>(`[data-nilai="${CSS.escape(pilihan)}"]`)?.focus();
+	}
+
 	return (
-		<div role="radiogroup" aria-label={labelledBy ? undefined : label} aria-labelledby={labelledBy} className={cx("m3-segment-group inline-flex items-center gap-0.5 rounded-lg bg-primary-soft p-[3px]", className)}>
+		<div role="radiogroup" aria-label={labelledBy ? undefined : label} aria-labelledby={labelledBy} onKeyDown={tekan} className={cx("m3-segment-group inline-flex items-center gap-0.5 rounded-lg bg-primary-soft p-[3px]", className)}>
 			{options.map((option) => {
 				const selected = option.value === value;
 				return (
@@ -56,6 +78,8 @@ export function SegmentedButton<T extends string>({ options, value, onChange, la
 						type="button"
 						role="radio"
 						aria-checked={selected}
+						data-nilai={option.value}
+						tabIndex={option.value === perhentian ? 0 : -1}
 						disabled={option.disabled}
 						onClick={() => onChange(option.value)}
 						title={compact ? option.label : undefined}

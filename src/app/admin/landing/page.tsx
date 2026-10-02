@@ -48,7 +48,7 @@ import { cx } from "@/lib/m3/cx";
 import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
 import { BagianEn, BlockEditorEn } from "./editor-en";
-import { landingUntranslated } from "@/lib/landing-i18n";
+import { landingSessionEn, landingUntranslated } from "@/lib/landing-i18n";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -219,6 +219,7 @@ const PANEL_MIN = 400;
 const PANEL_MAX = 640;
 const PANEL_BAWAAN = 440;
 const KUNCI_PANEL = "tally:landing-panel:v1";
+const KUNCI_BAHASA = "tally:landing-bahasa:v1";
 const jepitPanel = (lebar: number) => Math.round(Math.min(PANEL_MAX, Math.max(PANEL_MIN, lebar)));
 
 /** Hapus yang bisa diurungkan. Berlaku di draf; baru permanen saat Simpan. */
@@ -230,8 +231,6 @@ export default function LandingCmsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [bagian, setBagian] = useState<Bagian>("susunan");
-  // Mode bahasa Susunan halaman: ID menyunting halaman, EN hanya teks English-nya.
-  const [bahasa, setBahasa] = useState<"id" | "en">("id");
   // Baris Susunan halaman yang sedang terbuka ("pembuka", id bagian, atau "kaki").
   const [terbuka, setTerbuka] = useState<string | null>(null);
   // Bagian yang disorot di pratinjau; `n` naik di setiap klik supaya klik ulang
@@ -246,6 +245,21 @@ export default function LandingCmsPage() {
   const [urungan, setUrungan] = useState<Urungan | null>(null);
   const akun = useAdminPage()?.username ?? null;
   const kunciPanel = akun ? `${KUNCI_PANEL}:${akun}` : null;
+  // Mode bahasa Susunan halaman: ID menyunting halaman, EN hanya teks English-nya.
+  // Disimpan per akun seperti lebar panel: penerjemah yang memuat ulang halaman
+  // kembali ke mode EN, bukan ke ID lalu mencari pilihannya lagi.
+  const kunciBahasa = akun ? `${KUNCI_BAHASA}:${akun}` : null;
+  const bahasaTersimpan = useSyncExternalStore(
+    langgananLokal,
+    () => (kunciBahasa ? bacaLokal<"id" | "en">(kunciBahasa, "id") : "id"),
+    () => "id" as const,
+  );
+  const [bahasaSesi, setBahasaSesi] = useState<"id" | "en" | null>(null);
+  const bahasa: "id" | "en" = (bahasaSesi ?? bahasaTersimpan) === "en" ? "en" : "id";
+  const setBahasa = useCallback((pilihan: "id" | "en") => {
+    setBahasaSesi(pilihan);
+    if (kunciBahasa) tulisLokal(kunciBahasa, pilihan);
+  }, [kunciBahasa]);
   const lebarTersimpan = useSyncExternalStore(
     langgananLokal,
     () => (kunciPanel ? bacaLokal(kunciPanel, PANEL_BAWAAN) : PANEL_BAWAAN),
@@ -320,7 +334,7 @@ export default function LandingCmsPage() {
     setBagian("susunan");
     setBahasa(pilihan);
     if (terbuka) gulirKeBaris(terbuka);
-  }, [terbuka]);
+  }, [terbuka, setBahasa]);
 
   function patchFacts(patch: Partial<Facts>) {
     setFacts((current) => (current ? { ...current, ...patch } : current));
@@ -1082,7 +1096,20 @@ export default function LandingCmsPage() {
                   placeholder="mis. Sesi 1"
                   hint="Pembicara bersesi sama menjadi satu tab. Tulis sama dengan awal judul sesi di rundown supaya jam sesinya ikut tampil."
                   value={speaker.session ?? ""}
-                  onChange={(event) => ubah(index, { session: event.target.value })}
+                  onChange={(event) =>
+                    // Terjemahan ikut nama sesinya: pindah sesi berarti memakai
+                    // terjemahan sesi tujuan (kalau sudah ada), bukan membawa yang lama.
+                    ubah(index, {
+                      session: event.target.value,
+                      en: {
+                        ...speaker.en,
+                        session: landingSessionEn(
+                          list.filter((_, posisi) => posisi !== index),
+                          event.target.value.trim(),
+                        ),
+                      },
+                    })
+                  }
                 />
                 <Switch
                   checked={Boolean(speaker.featured)}
@@ -1501,7 +1528,10 @@ export default function LandingCmsPage() {
       <ol className="flex flex-col">
         {barisSusunan({ id: "pembuka", nomor: 1, judul: "Pembuka", sub: "Nama acara, tagline, tombol daftar", titik: barisKurangEn.has("pembuka"), isi: <BagianEn id="pembuka" landing={landing} facts={facts} setLanding={setLanding} /> })}
         {sections.map((section, index) => {
-          if (!section.enabled) return null;
+          // Bagian tersembunyi tidak perlu diterjemahkan, kecuali yang sedang
+          // dibuka: Simpan membukanya bila teks English-nya melewati batas
+          // (hanya bisa terjadi lewat Impor).
+          if (!section.enabled && terbuka !== section.id) return null;
           if (isLandingBlockId(section.id)) {
             const blok = blokById.get(section.id);
             if (!blok) return null;
