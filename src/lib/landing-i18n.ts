@@ -31,7 +31,7 @@ import {
 export type LandingLang = "id" | "en";
 
 export const LANDING_LANG_LABELS: Record<LandingLang, { name: string; short: string; htmlLang: string; locale: string }> = {
-  id: { name: "Indonesia", short: "ID", htmlLang: "id", locale: "id-ID" },
+  id: { name: "Bahasa Indonesia", short: "ID", htmlLang: "id", locale: "id-ID" },
   en: { name: "English", short: "EN", htmlLang: "en", locale: "en-GB" },
 };
 
@@ -237,8 +237,8 @@ export type LandingUiText = {
   readMore: string;
   downloadMaterial: string;
   document: string;
-  /** Tombol bahasa: nama bahasa TUJUAN dan label untuk pembaca layar. */
-  switchTo: string;
+  /** Label kelompok pilihan bahasa "ID | EN" untuk pembaca layar. */
+  languageGroup: string;
 };
 
 export const LANDING_UI: Record<LandingLang, LandingUiText> = {
@@ -292,7 +292,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     readMore: "Selengkapnya",
     downloadMaterial: "Unduh materi",
     document: "Dokumen",
-    switchTo: "Baca halaman ini dalam Bahasa Indonesia",
+    languageGroup: "Bahasa halaman",
   },
   en: {
     sectionLabels: {
@@ -344,7 +344,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     readMore: "Learn more",
     downloadMaterial: "Download",
     document: "Document",
-    switchTo: "Read this page in English",
+    languageGroup: "Page language",
   },
 };
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent } from "react";
-import { Globe, List, X } from "@phosphor-icons/react";
+import { List, X } from "@phosphor-icons/react";
 import type { LandingNavWidth } from "@/lib/domain";
 import { LANDING_LANG_LABELS, LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 
@@ -25,10 +25,9 @@ import { LANDING_LANG_LABELS, LANDING_UI, type LandingLang } from "@/lib/landing
  * `logoOnDark`: bilah bening di atas KV, jadi logo berwarna diputihkan
  * (filter) sampai hero lewat. Logo satu warna seperti ILO tetap utuh bentuknya.
  *
- * `langSwitch`: tombol bahasa (globe + nama bahasa TUJUAN) sebelum Masuk, hanya
- * bila versi English dinyalakan admin. Di ponsel tetap di bilah, berlabel kode
- * ("EN"/"ID"), tidak di dalam menu: tamu asing harus menemukannya tanpa membuka
- * apa pun. Pindah bahasa mempertahankan bagian yang sedang dibaca (lihat
+ * `langSwitch`: pilihan bahasa "ID | EN" sebelum Masuk, hanya bila versi English
+ * dinyalakan admin. Di ponsel tetap di bilah, tidak di dalam menu: tamu asing
+ * harus menemukannya tanpa membuka apa pun. Pindah bahasa mempertahankan bagian yang sedang dibaca (lihat
  * pindahBahasa).
  */
 
@@ -253,7 +252,7 @@ export function LandingNavModern({
             <img
               src={logoUrl}
               alt={eventName}
-              className="block max-h-[calc(var(--nav-h)-24px)] w-auto max-w-[min(240px,50vw)] object-contain object-left transition-[filter] duration-200"
+              className="block max-h-[calc(var(--nav-h)-24px)] w-auto max-w-[min(240px,50vw,100%)] object-contain object-left transition-[filter] duration-200"
               style={logoOnDark && !lewatHero && !menuBuka ? { filter: "brightness(0) invert(1)" } : undefined}
             />
           ) : (
@@ -285,20 +284,48 @@ export function LandingNavModern({
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-4">
           {langSwitch ? (
-            // Tombol teks setara tautan menu, bukan tombol bergaris: ini
-            // pengaturan tampilan, tidak boleh bersaing dengan Masuk dan Daftar.
-            <a
-              href={langSwitch.href}
-              hrefLang={LANDING_LANG_LABELS[langSwitch.lang].htmlLang}
-              lang={LANDING_LANG_LABELS[langSwitch.lang].htmlLang}
-              aria-label={LANDING_UI[langSwitch.lang].switchTo}
-              onClick={(event) => pindahBahasa(event, langSwitch.href)}
-              className="m3-state -mx-1 inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-[15px] font-medium sm:mx-0 sm:px-3"
+            // Dua pilihan yang selalu tampil (pola segmented button M3): bahasa
+            // yang aktif terlihat tanpa menebak. Kode pendek, karena "ID" di
+            // samping "EN" jelas terbaca sebagai bahasa; nama lengkapnya untuk
+            // pembaca layar. Garis tipis, bukan tombol isi: ini pengaturan
+            // tampilan, tidak boleh bersaing dengan Masuk dan Daftar.
+            <div
+              role="group"
+              aria-label={t.languageGroup}
+              className="inline-flex h-10 shrink-0 items-stretch overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--nav-text)_45%,transparent)] text-label-large"
             >
-              <Globe size={20} aria-hidden className="shrink-0" />
-              <span className="sm:hidden">{LANDING_LANG_LABELS[langSwitch.lang].short}</span>
-              <span className="hidden sm:inline">{LANDING_LANG_LABELS[langSwitch.lang].name}</span>
-            </a>
+              {(["id", "en"] as const).map((kode, i) => {
+                const label = LANDING_LANG_LABELS[kode];
+                const garis = i > 0 ? "border-l border-[color-mix(in_srgb,var(--nav-text)_45%,transparent)]" : "";
+                const isi = (
+                  <>
+                    <span aria-hidden>{label.short}</span>
+                    <span className="sr-only">{label.name}</span>
+                  </>
+                );
+                return kode === lang ? (
+                  <span
+                    key={kode}
+                    aria-current="true"
+                    lang={label.htmlLang}
+                    className={`inline-flex min-w-11 items-center justify-center bg-[color-mix(in_srgb,var(--nav-text)_18%,transparent)] px-2.5 font-bold sm:min-w-12 sm:px-3 ${garis}`}
+                  >
+                    {isi}
+                  </span>
+                ) : (
+                  <a
+                    key={kode}
+                    href={langSwitch.href}
+                    hrefLang={label.htmlLang}
+                    lang={label.htmlLang}
+                    onClick={(event) => pindahBahasa(event, langSwitch.href)}
+                    className={`m3-state inline-flex min-w-11 items-center justify-center px-2.5 font-medium sm:min-w-12 sm:px-3 opacity-85 hover:opacity-100 ${garis}`}
+                  >
+                    {isi}
+                  </a>
+                );
+              })}
+            </div>
           ) : null}
           {memberLink ? (
             <Link
