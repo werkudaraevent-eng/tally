@@ -2,7 +2,28 @@
 
 import { useState, type FormEvent } from "react";
 
-type Mode = "masuk" | "aktifkan";
+export type MasukMode = "masuk" | "aktifkan";
+
+/**
+ * Kirim formulir masuk atau buat kata sandi. Dipakai halaman ini dan dialog
+ * masuk di halaman acara Modern (components/member/masuk-dialog.tsx).
+ */
+export async function kirimMasuk(
+  slug: string,
+  mode: MasukMode,
+  isian: { email: string; password: string; code: string },
+): Promise<{ ok: true } | { ok: false; pesan: string }> {
+  const { email, password, code } = isian;
+  const response = await fetch(`/e/${encodeURIComponent(slug)}/api/peserta/${mode}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(mode === "masuk" ? { email, password } : { email, code, password }),
+  }).catch(() => null);
+  if (!response) return { ok: false, pesan: "Koneksi terputus. Periksa jaringan Anda, lalu coba lagi." };
+  if (response.ok) return { ok: true };
+  const body = await response.json().catch(() => null);
+  return { ok: false, pesan: body?.error?.message ?? "Belum berhasil. Coba lagi." };
+}
 
 const FIELD =
   "h-[52px] w-full rounded-md border border-[var(--reg-outline)] bg-[var(--reg-field)] px-4 text-body-large text-[var(--reg-on-surface)] outline-none focus-visible:border-[var(--reg-primary)] focus-visible:ring-2 focus-visible:ring-[var(--reg-primary)]";
@@ -13,15 +34,15 @@ const LABEL = "flex flex-col gap-2 text-body-large font-medium";
  * karena peserta yang gagal masuk hampir selalu butuh mode kedua, dan
  * berpindah halaman di titik itu membuat email yang sudah diketik hilang.
  */
-export function MasukClient({ slug, modeAwal, minPassword }: { slug: string; modeAwal: Mode; minPassword: number }) {
-  const [mode, setMode] = useState<Mode>(modeAwal);
+export function MasukClient({ slug, modeAwal, minPassword }: { slug: string; modeAwal: MasukMode; minPassword: number }) {
+  const [mode, setMode] = useState<MasukMode>(modeAwal);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [galat, setGalat] = useState("");
   const [sibuk, setSibuk] = useState(false);
 
-  function ganti(next: Mode) {
+  function ganti(next: MasukMode) {
     setMode(next);
     setGalat("");
     setPassword("");
@@ -31,23 +52,13 @@ export function MasukClient({ slug, modeAwal, minPassword }: { slug: string; mod
     event.preventDefault();
     setGalat("");
     setSibuk(true);
-    const response = await fetch(`/e/${encodeURIComponent(slug)}/api/peserta/${mode}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(mode === "masuk" ? { email, password } : { email, code, password }),
-    }).catch(() => null);
-    if (!response) {
-      setSibuk(false);
-      setGalat("Koneksi terputus. Periksa jaringan Anda, lalu coba lagi.");
-      return;
-    }
-    if (response.ok) {
+    const hasil = await kirimMasuk(slug, mode, { email, password, code });
+    if (hasil.ok) {
       window.location.assign(`/e/${slug}/peserta`);
       return;
     }
-    const body = await response.json().catch(() => null);
     setSibuk(false);
-    setGalat(body?.error?.message ?? "Belum berhasil. Coba lagi.");
+    setGalat(hasil.pesan);
   }
 
   return (

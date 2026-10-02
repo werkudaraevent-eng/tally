@@ -4,6 +4,9 @@ import { getPublicPageEvent } from "@/lib/auth/request-event";
 import { formatEventSchedule } from "@/lib/event-datetime";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { memberPageStyle } from "@/lib/member/page-theme";
+import type { EventLandingConfig } from "@/lib/domain";
+import { renderLanding } from "@/components/landing/render-landing";
+import { asalSitus } from "@/app/e/[slug]/landing-metadata";
 import { MasukClient } from "./masuk-client";
 
 /**
@@ -12,10 +15,30 @@ import { MasukClient } from "./masuk-client";
  * Dua mode di satu halaman: masuk dengan kata sandi, dan membuat kata sandi
  * dengan kode peserta (dipakai juga saat lupa kata sandi). Peserta yang sudah
  * masuk langsung diantar ke area peserta.
+ *
+ * Acara bertata letak Modern tidak punya halaman masuk sendiri: alamat ini
+ * merender halaman acaranya dengan dialog masuk sudah terbuka
+ * (components/member/masuk-dialog.tsx). Tata letak lain tetap memakai halaman
+ * di bawah.
  */
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Masuk area peserta", robots: { index: false, follow: false } };
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // Tidak diindeks; canonical ke halaman acara, karena di tata letak Modern isi
+  // alamat ini adalah halaman acara itu sendiri dengan dialog terbuka.
+  const raw = (await searchParams).eventSlug;
+  const slug = Array.isArray(raw) ? raw[0] : raw;
+  const asal = slug ? await asalSitus() : null;
+  return {
+    title: "Masuk area peserta",
+    robots: { index: false, follow: false },
+    ...(slug && asal ? { alternates: { canonical: `${asal}/e/${encodeURIComponent(slug)}` } } : null),
+  };
+}
 
 export default async function MasukPage({
   searchParams,
@@ -27,8 +50,12 @@ export default async function MasukPage({
   if (!event || event.status === "archived" || !memberConfig(event)) notFound();
   if (await getMemberSession(event)) redirect(`/e/${event.slug}/peserta`);
 
-  const schedule = formatEventSchedule(event);
   const modeAwal = params.mode === "aktifkan" ? "aktifkan" : "masuk";
+  if ((event.landing_config as EventLandingConfig | null)?.layout === "modern") {
+    return renderLanding(event, undefined, { masukAwal: modeAwal });
+  }
+
+  const schedule = formatEventSchedule(event);
 
   return (
     <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={memberPageStyle(event)}>

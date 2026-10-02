@@ -5,8 +5,8 @@ import { publicEventName, type EventLandingConfig } from "@/lib/domain";
 import { formatEventSchedule } from "@/lib/event-datetime";
 import { landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
 
-/** Asal situs dari permintaan ini, untuk alamat hreflang yang harus absolut. */
-async function asalSitus(): Promise<string | null> {
+/** Asal situs dari permintaan ini, untuk alamat hreflang dan canonical yang harus absolut. */
+export async function asalSitus(): Promise<string | null> {
   const daftar = await headers();
   const host = daftar.get("x-forwarded-host") ?? daftar.get("host");
   if (!host) return null;

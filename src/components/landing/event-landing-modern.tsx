@@ -17,7 +17,9 @@ import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { speakerTabs } from "@/lib/landing-speaker-tabs";
 import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingPath, landingSectionHeading, landingSessionLabels, type LandingLang } from "@/lib/landing-i18n";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
-import { getMemberSession, memberConfig } from "@/lib/member/account";
+import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
+import { MasukDialog } from "@/components/member/masuk-dialog";
+import type { MasukMode } from "@/app/masuk/masuk-client";
 import { timeZoneAbbr } from "@/lib/timezone";
 import { AgendaPills } from "./modern/agenda-pills";
 import { LandingNavModern } from "./modern/landing-nav-modern";
@@ -62,6 +64,8 @@ type Props = {
   lang?: LandingLang;
   /** Versi bahasa lain tersedia: tombol bahasa tampil di bilah atas. */
   otherLang?: LandingLang | null;
+  /** Dialog masuk peserta terbuka sejak dimuat (alamat `/e/<slug>/masuk`), dengan mode ini. */
+  masukAwal?: MasukMode | null;
 };
 
 /** Label kecil di atas judul bagian, sama dengan blok dari pustaka blok. */
@@ -180,7 +184,7 @@ function tautanPeta(url: string, lang: LandingLang): string {
   return /google\.|goo\.gl/i.test(url) ? LANDING_UI[lang].openGoogleMaps : LANDING_UI[lang].openMap;
 }
 
-export async function EventLandingModern({ event, config, sections, theme, lang = "id", otherLang = null }: Props) {
+export async function EventLandingModern({ event, config, sections, theme, lang = "id", otherLang = null, masukAwal = null }: Props) {
   // Teks bawaan halaman dalam bahasa halaman. Teks dari CMS sudah diterjemahkan
   // sebelum sampai di sini (resolveLanding).
   const t = LANDING_UI[lang];
@@ -197,10 +201,12 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const zona = timeZoneAbbr(event.time_zone);
 
   const member = memberConfig(event);
+  const masukUrl = `/e/${event.slug}/masuk`;
+  const sudahMasuk = member ? Boolean(await getMemberSession(event)) : false;
   const memberLink = member
-    ? (await getMemberSession(event))
+    ? sudahMasuk
       ? { href: `/e/${event.slug}/peserta`, label: t.memberArea }
-      : { href: `/e/${event.slug}/masuk`, label: t.signIn }
+      : { href: masukUrl, label: t.signIn }
     : null;
 
   // Bagian yang tampil: saklar CMS DAN ada isinya. Dihitung sekali, dipakai
@@ -802,6 +808,20 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           </div>
         </div>
       </footer>
+
+      {/* Masuk area peserta: dialog di atas halaman ini, dibuka tautan Masuk di
+          bilah atas dan kaki. Area peserta belum dwibahasa, jadi dialognya
+          berbahasa Indonesia di kedua versi halaman. */}
+      {member && !sudahMasuk ? (
+        <MasukDialog
+          slug={event.slug}
+          masukUrl={masukUrl}
+          halamanUrl={landingPath(event.slug, lang, landingDefaultLang(config))}
+          keterangan={[nama, formatEventDate(event, "id")].filter(Boolean).join(" · ")}
+          minPassword={PASSWORD_MIN}
+          awal={masukAwal}
+        />
+      ) : null}
     </main>
   );
 }
