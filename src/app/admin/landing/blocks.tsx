@@ -98,7 +98,7 @@ export function TambahBlokDialog({ open, onClose, onPick }: { open: boolean; onC
       onClose={onClose}
       size="xl"
       title="Tambah blok"
-      description="Blok baru masuk di akhir susunan. Seret atau pakai tombol panah untuk memindahkannya."
+      description="Blok baru masuk di akhir susunan. Seret pegangannya atau pakai menu ⋯ untuk memindahkannya."
       actions={
         <>
           <Button variant="text" onClick={onClose}>Batal</Button>

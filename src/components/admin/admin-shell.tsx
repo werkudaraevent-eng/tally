@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { IconButton, TopAppBar } from "@/components/m3";
 import { EventMenu, type EventPilihan } from "@/components/admin/event-menu";
 import { cariHalaman, grupDari, navigation } from "@/components/admin/nav-config";
-import { AdminHeaderScrollProvider, AdminPageProvider } from "@/components/admin/page-context";
+import { AdminBarSlotsProvider, AdminHeaderScrollProvider, AdminPageProvider } from "@/components/admin/page-context";
 import { CommandPalette, QuickSearchButton } from "@/components/admin/quick-search";
 import { SidebarNav } from "@/components/admin/sidebar-nav";
 import { useOpenGroups, usePinnedSidebar, useRecents } from "@/components/admin/sidebar-store";
@@ -67,13 +67,32 @@ const bacaLebar = () => window.matchMedia("(min-width: 1024px)").matches;
 const langganHover = langganMedia("(hover: hover)");
 const bacaHover = () => window.matchMedia("(hover: hover)").matches;
 
+/**
+ * Layar yang terlalu pendek atau terlalu sempit untuk rel 260px DAN editor
+ * dua kolom: laptop berskala 150% (588px tinggi) dan lebar di bawah 1366.
+ * Server menebak tidak; rel menyempit sesudah hidrasi, hanya di halaman di bawah.
+ */
+const KUERI_SESAK = "(max-height: 720px), (max-width: 1365px)";
+const langganSesak = langganMedia(KUERI_SESAK);
+const bacaSesak = () => window.matchMedia(KUERI_SESAK).matches;
+
+/**
+ * Halaman kerja yang butuh seluruh lebar: pratinjau 1280px di kiri, panel
+ * setelan di kanan. Di sini rel menyempit sendiri di layar sesak, selama
+ * orangnya belum pernah memilih lewat tombol sematan.
+ */
+const HALAMAN_LEBAR = new Set(["/admin/landing"]);
+
 export function AdminShell({
   children,
   pinAwal = true,
+  pinTersimpan = true,
 }: Readonly<{
   children: React.ReactNode;
   /** Dibaca dari cookie oleh komponen server, supaya HTML pertama sudah selebar yang benar. */
   pinAwal?: boolean;
+  /** Cookie sematan memang ada; tanpanya `pinAwal` hanya bawaan. */
+  pinTersimpan?: boolean;
 }>) {
   const pathname = usePathname();
   const eventPrefix = pathname.match(/^\/e\/[^/]+/)?.[0] ?? "";
@@ -87,7 +106,15 @@ export function AdminShell({
 
   const desktop = useSyncExternalStore(langganLebar, bacaLebar, () => true);
   const bisaHover = useSyncExternalStore(langganHover, bacaHover, () => true);
-  const { pinned, toggle: togglePin } = usePinnedSidebar(pinAwal);
+  const sesak = useSyncExternalStore(langganSesak, bacaSesak, () => false);
+  const halamanLebar = HALAMAN_LEBAR.has(logicalPathname);
+  const { pinned, toggle: togglePin } = usePinnedSidebar(pinAwal, {
+    tersimpanAwal: pinTersimpan,
+    lipatOtomatis: desktop && sesak && halamanLebar,
+  });
+  // Tempat di bilah atas yang boleh diisi halaman (lihat `AdminBarPortal`).
+  const [slotJudul, setSlotJudul] = useState<HTMLElement | null>(null);
+  const [slotAksi, setSlotAksi] = useState<HTMLElement | null>(null);
 
   /* ---- Peek ------------------------------------------------------------- */
 
@@ -573,10 +600,17 @@ export function AdminShell({
             ) : undefined
           }
           titleAs="p"
+          // Halaman lebar mengisi bilah dengan judul dan aksinya sendiri, jadi
+          // isinya selebar halaman dan tepinya sama dengan tepi editor.
+          maxWidth={halamanLebar ? "none" : undefined}
+          className={halamanLebar ? "lg:px-6!" : undefined}
+          // `contents`: anak portal menjadi anggota flex baris bilah itu sendiri.
+          breadcrumb={<div ref={setSlotJudul} className="contents" />}
           subtitle={eventName ?? undefined}
           subtitleClassName="lg:hidden"
           actions={
             <>
+              <div ref={setSlotAksi} className="contents" />
               <UserMenu
                 username={akun?.username ?? null}
                 role={akun?.role ?? null}
@@ -617,7 +651,9 @@ export function AdminShell({
           }}
         >
           <AdminHeaderScrollProvider value={{ terlewat: judulTerlewat, amati: amatiJudul }}>
-            <div key={eventSlug || "event-tunggal"}>{children}</div>
+            <AdminBarSlotsProvider value={{ judul: slotJudul, aksi: slotAksi }}>
+              <div key={eventSlug || "event-tunggal"}>{children}</div>
+            </AdminBarSlotsProvider>
           </AdminHeaderScrollProvider>
         </AdminPageProvider>
       </div>
