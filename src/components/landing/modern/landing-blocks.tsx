@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUpRight, DownloadSimple } from "@phosphor-icons/react/d
 import {
   landingBlockHasContent,
   landingBlockLayout,
+  landingColumnCount,
   type LandingBlock,
   type LandingBlockItem,
   type LandingBlockTone,
@@ -525,6 +526,61 @@ function Logo({ block }: { block: LandingBlock }) {
   );
 }
 
+// ---- Kolom -------------------------------------------------------------------------
+
+/** Grid per jumlah kolom. Tablet paling banyak 2, ponsel selalu 1. Ditulis utuh supaya Tailwind menemukannya. */
+const GRID_KOLOM: Record<1 | 2 | 3 | 4, string> = {
+  1: "max-w-[720px]",
+  2: "sm:grid-cols-2",
+  3: "sm:grid-cols-2 lg:grid-cols-3",
+  4: "sm:grid-cols-2 lg:grid-cols-4",
+};
+
+/** Rasio dikunci per bentuk; gambar dipotong `object-cover`, bukan direntangkan. */
+const BENTUK_GAMBAR = {
+  wide: "aspect-[3/2] w-full rounded-lg",
+  square: "aspect-square w-full rounded-lg",
+  circle: "aspect-square w-full max-w-[160px] rounded-full",
+} as const;
+
+/**
+ * Kolom: 1 sampai 4 kolom setara, tiap kolom gambar (opsional), judul, teks,
+ * dan tautan. Pola multicolumn Shopify Dawn; jumlah kolom, bentuk gambar, dan
+ * perataan dipilih admin, ukuran dan jarak dikunci di sini.
+ */
+function Kolom({ block, lang }: { block: LandingBlock; lang: LandingLang }) {
+  const kolom = landingColumnCount(block);
+  const tengah = block.align === "center";
+  const bentuk = BENTUK_GAMBAR[block.image_shape ?? "wide"];
+  // Kolom berisi gambar saja tidak punya teks untuk pembaca layar: tidak dihitung.
+  const items = (block.items ?? []).filter((item) => item.title?.trim() || item.body?.trim());
+  return (
+    <Wadah block={block}>
+      <Kepala block={block} />
+      <ul className={`grid gap-x-6 gap-y-12 ${GRID_KOLOM[kolom]} ${kolom === 1 && tengah ? "mx-auto" : ""}`}>
+        {items.map((item, index) => {
+          const href = item.href?.trim();
+          return (
+            <li key={index} className={`flex flex-col gap-3.5 ${tengah ? "items-center text-center" : ""}`}>
+              {item.image_url ? <Gambar src={item.image_url} alt="" className={bentuk} /> : null}
+              {item.title?.trim() ? (
+                <h3 className={`${HEAD} text-balance pt-1 text-[22px] font-semibold leading-[1.25] tracking-[-0.01em] sm:text-[24px]`}>{item.title.trim()}</h3>
+              ) : null}
+              <Paragraf teks={item.body} className={`${ISI} ${PATAH}`} />
+              {href ? (
+                <Taut href={href} className={`m3-state -mx-1 inline-flex min-h-12 items-center gap-1.5 ${tengah ? "self-center" : "self-start"} rounded-sm px-1 text-title-medium font-semibold text-[var(--blok-aksen)] underline-offset-4 hover:underline`}>
+                  {item.label?.trim() || LANDING_UI[lang].readMore}
+                  <IkonTaut href={href} size={16} />
+                </Taut>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </Wadah>
+  );
+}
+
 // ---- Unduhan dan ajakan ----------------------------------------------------------
 
 function Unduhan({ block, lang }: { block: LandingBlock; lang: LandingLang }) {
@@ -620,11 +676,13 @@ function Ajakan({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftar
 function tanpaJangkarMati(block: LandingBlock, jangkar: ReadonlySet<string> | undefined): LandingBlock {
   if (!jangkar) return block;
   const mati = (url: string | null | undefined) => Boolean(url?.trim().startsWith("#") && !jangkar.has(url.trim().slice(1)));
-  if (!mati(block.link_url) && !mati(block.link2_url)) return block;
+  const butirMati = (block.items ?? []).some((item) => mati(item.href));
+  if (!mati(block.link_url) && !mati(block.link2_url) && !butirMati) return block;
   return {
     ...block,
     ...(mati(block.link_url) ? { link_url: undefined } : null),
     ...(mati(block.link2_url) ? { link2_url: undefined } : null),
+    ...(butirMati ? { items: block.items?.map((item) => (mati(item.href) ? { ...item, href: undefined } : item)) } : null),
   };
 }
 
@@ -669,5 +727,6 @@ export function LandingBlockView({
     case "logos": return <Logo block={block} />;
     case "download": return <Unduhan block={block} lang={lang} />;
     case "cta": return <Ajakan block={block} daftarUrl={daftarUrl} daftarLabel={daftarLabel} />;
+    case "multicolumn": return <Kolom block={block} lang={lang} />;
   }
 }
