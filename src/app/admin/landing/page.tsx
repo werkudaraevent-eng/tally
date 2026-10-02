@@ -48,7 +48,7 @@ import { cx } from "@/lib/m3/cx";
 import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
 import { BagianEn, BlockEditorEn } from "./editor-en";
-import { landingUntranslated } from "@/lib/landing-i18n";
+import { landingSessionEn, landingUntranslated } from "@/lib/landing-i18n";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -1096,7 +1096,20 @@ export default function LandingCmsPage() {
                   placeholder="mis. Sesi 1"
                   hint="Pembicara bersesi sama menjadi satu tab. Tulis sama dengan awal judul sesi di rundown supaya jam sesinya ikut tampil."
                   value={speaker.session ?? ""}
-                  onChange={(event) => ubah(index, { session: event.target.value })}
+                  onChange={(event) =>
+                    // Terjemahan ikut nama sesinya: pindah sesi berarti memakai
+                    // terjemahan sesi tujuan (kalau sudah ada), bukan membawa yang lama.
+                    ubah(index, {
+                      session: event.target.value,
+                      en: {
+                        ...speaker.en,
+                        session: landingSessionEn(
+                          list.filter((_, posisi) => posisi !== index),
+                          event.target.value.trim(),
+                        ),
+                      },
+                    })
+                  }
                 />
                 <Switch
                   checked={Boolean(speaker.featured)}

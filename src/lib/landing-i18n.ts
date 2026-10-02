@@ -141,6 +141,20 @@ export function landingSessionLabels(config: EventLandingConfig, lang: LandingLa
 // ---- Kolom yang belum diterjemahkan ---------------------------------------------
 
 /**
+ * Terjemahan satu nama sesi. Sesi diterjemahkan sekali per nama, tetapi
+ * disimpan di `en.session` tiap pembicara bersesi itu. Dianggap terjemahan
+ * hanya bila semua pembicara sesi itu memegang teks English yang sama; kalau
+ * tidak, tab sesinya terpecah di halaman English. Editor dan penghitung
+ * "belum diterjemahkan" sama-sama membaca dari sini.
+ */
+export function landingSessionEn(speakers: EventLandingConfig["speakers"], nama: string): string | undefined {
+  const sesi = (speakers ?? []).filter((s) => s.session?.trim() === nama);
+  const teks = sesi[0]?.en?.session?.trim();
+  if (!teks || sesi.some((s) => s.en?.session?.trim() !== teks)) return undefined;
+  return sesi[0].en?.session;
+}
+
+/**
  * Satu kolom teks Indonesia terisi yang versi English-nya kosong. `path` ditulis
  * menurut letak kolom English yang perlu diisi, mis.
  * `blocks.blk_tentang0001.items.2.title` berarti
@@ -193,8 +207,12 @@ export function landingUntranslated(event: {
   if (bagian("contact")) periksa(config.contact_name, en.contact_name, "contact_name", "contact");
   if (bagian("speakers")) {
     config.speakers?.forEach((speaker, index) => {
-      (["title", "role", "session"] as const).forEach((key) => periksa(speaker[key], speaker.en?.[key], `speakers.${index}.${key}`, "speakers"));
+      (["title", "role"] as const).forEach((key) => periksa(speaker[key], speaker.en?.[key], `speakers.${index}.${key}`, "speakers"));
     });
+    // Satu sesi dihitung sekali, berapa pun pembicaranya.
+    new Set(config.speakers?.map((s) => s.session?.trim()).filter((nama): nama is string => !!nama)).forEach((nama) =>
+      periksa(nama, landingSessionEn(config.speakers, nama), `speakers.session.${nama}`, "speakers"),
+    );
   }
   if (bagian("faq")) {
     config.faq?.forEach((item, index) => {

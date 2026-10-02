@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { TextArea, TextField } from "@/components/m3";
+import { landingSessionEn } from "@/lib/landing-i18n";
 import {
   LANDING_BLOCK_LABELS,
   LANDING_NAV_LABEL_MAX,
@@ -262,7 +263,7 @@ export function BagianEn({
                 key={nama}
                 label={`Sesi "${nama}"`}
                 sumber={nama}
-                value={daftar.find((s) => s.session?.trim() === nama && ada(s.en?.session))?.en?.session}
+                value={landingSessionEn(daftar, nama)}
                 onChange={(value) => ubahSesi(nama, value)}
                 max={40}
               />
