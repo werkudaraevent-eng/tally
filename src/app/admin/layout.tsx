@@ -18,5 +18,5 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
   // ketika orang mulai membaca.
   const cookie = (await cookies()).get(NAMA_COOKIE_PIN)?.value;
   const pinAwal = cookie === undefined ? PIN_BAWAAN : cookie === "1";
-  return <AdminShell pinAwal={pinAwal}>{children}</AdminShell>;
+  return <AdminShell pinAwal={pinAwal} pinTersimpan={cookie !== undefined}>{children}</AdminShell>;
 }

@@ -107,7 +107,7 @@ export function StatusDot({ tone = "neutral" }: { tone?: "neutral" | "success" |
 
 /* ------------------------------------------------------------------ Panel */
 
-export function Pane({ children, className, as: Tag = "section", ...rest }: { children: ReactNode; className?: string; as?: "section" | "aside" | "div"; "aria-label"?: string }) {
+export function Pane({ children, className, as: Tag = "section", ...rest }: { children: ReactNode; className?: string; as?: "section" | "aside" | "div"; "aria-label"?: string; id?: string }) {
 	return (
 		<Tag
 			{...rest}
