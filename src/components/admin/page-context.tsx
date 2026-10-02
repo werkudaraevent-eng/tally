@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, type ComponentType, type RefCallback } from "react";
+import { createContext, useContext, type ComponentType, type ReactNode, type RefCallback } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * Identitas halaman ruang kerja yang sedang dibuka.
@@ -94,4 +95,31 @@ export const AdminHeaderScrollProvider = AdminHeaderScrollContext.Provider;
 
 export function useAdminHeaderScroll() {
 	return useContext(AdminHeaderScrollContext);
+}
+
+/**
+ * Dua tempat di bilah atas yang boleh diisi halaman: sesudah tombol menu (judul
+ * dan keterangannya) dan sebelum menu akun (aksi halaman).
+ *
+ * Untuk layar yang tingginya habis dipakai kerja, seperti editor Halaman acara:
+ * kepala halaman sendiri di bawah bilah memakan satu baris penuh di layar
+ * laptop 588px, padahal bilah atas yang 58px itu hampir kosong. Elemennya
+ * dipegang shell; halamannya mengisi lewat portal, jadi bilah tidak perlu tahu
+ * apa pun tentang halaman yang sedang dibuka.
+ */
+export type AdminBarSlots = { judul: HTMLElement | null; aksi: HTMLElement | null };
+
+const AdminBarSlotsContext = createContext<AdminBarSlots>({ judul: null, aksi: null });
+
+export const AdminBarSlotsProvider = AdminBarSlotsContext.Provider;
+
+/** Mengisi bilah atas. Di luar shell (atau sebelum shell terpasang) tidak merender apa pun. */
+export function AdminBarPortal({ judul, aksi }: { judul?: ReactNode; aksi?: ReactNode }) {
+	const slot = useContext(AdminBarSlotsContext);
+	return (
+		<>
+			{slot.judul && judul ? createPortal(judul, slot.judul) : null}
+			{slot.aksi && aksi ? createPortal(aksi, slot.aksi) : null}
+		</>
+	);
 }

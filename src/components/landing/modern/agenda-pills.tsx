@@ -5,6 +5,7 @@ import type { LandingSpeaker } from "@/lib/domain";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { pembicaraSesi } from "@/lib/landing-speaker-tabs";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
+import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 
 /**
  * Susunan acara tata letak Modern: tab pil per bagian rundown di atas daftar
@@ -17,7 +18,8 @@ import { rentangAkhir } from "@/lib/landing-agenda-range";
  */
 const JEDA = /\b(registrasi|daftar ulang|makan siang|makan pagi|ishoma|istirahat|rehat|coffee break|rehat kopi|penutupan|registration|lunch|break|closing)\b/i;
 
-export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]; speakers?: LandingSpeaker[] }) {
+export function AgendaPills({ agenda, speakers = [], lang = "id" }: { agenda: AgendaPreview[]; speakers?: LandingSpeaker[]; lang?: LandingLang }) {
+  const t = LANDING_UI[lang];
   const [aktif, setAktif] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const dasar = useId();
@@ -43,7 +45,7 @@ export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]
       {multi ? (
         <div
           role="tablist"
-          aria-label="Bagian acara"
+          aria-label={t.agendaParts}
           onKeyDown={pindah}
           // Menggulir menyamping di ponsel, bukan terlipat: dua baris pil
           // terbaca seperti dua kelompok pilihan yang berbeda.
@@ -74,7 +76,7 @@ export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]
                 }`}
                 style={pilih ? ({ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties) : undefined}
               >
-                {bagian.sectionTitle || `Bagian ${index + 1}`}
+                {bagian.sectionTitle || t.part(index + 1)}
                 {rentang ? <span aria-hidden> · </span> : null}
                 {rentang ? <span>{rentang}</span> : null}
               </button>
@@ -129,7 +131,7 @@ export function AgendaPills({ agenda, speakers = [] }: { agenda: AgendaPreview[]
                   <p className="mt-1 whitespace-pre-line text-body-medium leading-5 text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
                 ) : null}
               </div>
-              {orang.length > 0 ? <DeretPembicara orang={orang} /> : null}
+              {orang.length > 0 ? <DeretPembicara orang={orang} lang={lang} /> : null}
             </li>
           );
         })}
@@ -162,11 +164,11 @@ function inisial(nama: string): string {
 // Tepi foto: garis 1px abu (on-surface 24%, sekitar 1,7:1 di atas putih;
 // outline-variant tema terlalu pucat) lalu cincin warna permukaan 2px. Tanpa garis,
 // foto berlatar terang larut ke halaman putih (kontras tepi ~1,2:1).
-function DeretPembicara({ orang }: { orang: LandingSpeaker[] }) {
+function DeretPembicara({ orang, lang }: { orang: LandingSpeaker[]; lang: LandingLang }) {
   const tampil = orang.slice(0, MAKS_FOTO);
   const sisa = orang.length - tampil.length;
   const nama = orang.slice(0, 2).map((speaker) => speaker.name.trim());
-  const keterangan = orang.length > 2 ? `${nama.join(", ")}, dan ${orang.length - 2} lainnya` : nama.join(" dan ");
+  const keterangan = LANDING_UI[lang].andOthers(nama, orang.length);
   return (
     <div className="mt-3 flex items-center gap-3 sm:col-start-2 lg:col-start-3 lg:row-start-1 lg:-mt-1 lg:self-start" title={orang.map((speaker) => speaker.name.trim()).join(", ")}>
       <ul aria-hidden className="flex shrink-0 pl-px">

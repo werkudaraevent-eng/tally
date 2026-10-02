@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import { getEventBySlugPublic } from "@/lib/auth/event-scope";
-import { publicEventName, type EventLandingConfig } from "@/lib/domain";
-import { formatEventSchedule } from "@/lib/event-datetime";
 import { renderLanding } from "@/components/landing/render-landing";
+import { landingMetadata } from "./landing-metadata";
 
 /**
  * Landing page publik satu acara.
@@ -13,6 +12,9 @@ import { renderLanding } from "@/components/landing/render-landing";
  * login. Sekarang setiap pemotongan berakhir di halaman ini, dan tidak ada
  * satu pun jalan dari sini ke layar internal.
  *
+ * Bahasa utama pilihan admin (Indonesia bila tidak dipilih); bahasa lainnya di
+ * `/e/<slug>/en` atau `/e/<slug>/id` (en/page.tsx, id/page.tsx).
+ *
  * `force-dynamic` dengan alasan yang sama seperti /display dan /daftar: tanpa
  * itu Next.js merender halaman saat build dan isinya membeku pada acara yang
  * kebetulan aktif saat itu.
@@ -21,25 +23,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const event = await getEventBySlugPublic(slug);
-  if (!event) return { title: "Acara tidak ditemukan" };
-
-  const jadwal = formatEventSchedule(event);
-  const banner = (event.landing_config as EventLandingConfig)?.banner_url ?? undefined;
-
-  // Metadata ditulis lengkap, bukan hanya judul. Alamat ini disebar lewat
-  // WhatsApp dan LinkedIn, dan tautan tanpa kartu pratinjau terbaca seperti
-  // tautan yang tidak jelas asalnya — persis yang membuat orang tidak menekannya.
-  return {
-    title: `${publicEventName(event)}${event.tagline ? ` · ${event.tagline}` : ""}`,
-    description: event.description ?? jadwal ?? undefined,
-    openGraph: {
-      title: publicEventName(event),
-      description: event.tagline ?? event.description ?? undefined,
-      images: banner ? [banner] : undefined,
-      type: "website",
-    },
-  };
+  return landingMetadata(slug);
 }
 
 export default async function EventLandingPage({ params }: { params: Promise<{ slug: string }> }) {

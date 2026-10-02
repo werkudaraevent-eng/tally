@@ -50,20 +50,38 @@ const RECENTS_KOSONG: Recent[] = [];
  * Hanya nilai ini yang menentukan pergeseran konten, dan hanya nilai ini yang
  * disimpan.
  */
-export function usePinnedSidebar(awal: boolean) {
+export function usePinnedSidebar(
+  awal: boolean,
+  {
+    tersimpanAwal = true,
+    lipatOtomatis = false,
+  }: {
+    /** Cookie sematan sudah ada, artinya orangnya pernah memilih sendiri. */
+    tersimpanAwal?: boolean;
+    /**
+     * Halaman yang butuh lebar (editor Halaman acara) di layar pendek atau
+     * sempit. Rel menyempit HANYA bila orangnya belum pernah memilih: pilihan
+     * yang tersimpan di cookie selalu menang, di halaman mana pun.
+     */
+    lipatOtomatis?: boolean;
+  } = {},
+) {
   // Cookie tidak punya mekanisme langganan, dan tidak membutuhkannya: yang bisa
   // mengubahnya hanya tombol sematan. Nilai awalnya datang dari server.
-  const [pinned, setPinned] = useState(awal);
+  const [disematkan, setDisematkan] = useState(awal);
+  const [tersimpan, setTersimpan] = useState(tersimpanAwal);
+  const pinned = disematkan && !(lipatOtomatis && !tersimpan);
 
   const toggle = useCallback(() => {
-    setPinned((sebelumnya) => {
-      const berikutnya = !sebelumnya;
-      // `max-age` setahun, bukan cookie sesi: orang yang melepas sematan
-      // melakukannya karena layarnya sempit, dan layarnya tidak melebar besok pagi.
-      document.cookie = `${COOKIE_PIN}=${berikutnya ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
-      return berikutnya;
-    });
-  }, []);
+    // Membalik keadaan yang TERLIHAT, bukan nilai mentahnya: rel yang menyempit
+    // otomatis lalu ditekan "sematkan" harus melebar, dan pilihan itu tersimpan.
+    const berikutnya = !pinned;
+    // `max-age` setahun, bukan cookie sesi: orang yang melepas sematan
+    // melakukannya karena layarnya sempit, dan layarnya tidak melebar besok pagi.
+    document.cookie = `${COOKIE_PIN}=${berikutnya ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
+    setDisematkan(berikutnya);
+    setTersimpan(true);
+  }, [pinned]);
 
   /**
    * Ctrl/Cmd+B, pintasan yang sama dengan yang dipakai editor dan dasbor lain

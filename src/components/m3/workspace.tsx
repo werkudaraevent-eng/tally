@@ -107,7 +107,7 @@ export function StatusDot({ tone = "neutral" }: { tone?: "neutral" | "success" |
 
 /* ------------------------------------------------------------------ Panel */
 
-export function Pane({ children, className, as: Tag = "section", ...rest }: { children: ReactNode; className?: string; as?: "section" | "aside" | "div"; "aria-label"?: string }) {
+export function Pane({ children, className, as: Tag = "section", ...rest }: { children: ReactNode; className?: string; as?: "section" | "aside" | "div"; "aria-label"?: string; id?: string }) {
 	return (
 		<Tag
 			{...rest}
@@ -127,7 +127,12 @@ export function PaneHeader({ children, className }: { children: ReactNode; class
 
 /** Isi panel yang bergulir sendiri. `min-h-0` wajib supaya anak flex mau menyusut. */
 export function PaneBody({ children, className }: { children: ReactNode; className?: string }) {
-	return <div className={cx("min-h-0 flex-1 overflow-y-auto", className)}>{children}</div>;
+	// `relative` wajib. Tanpanya, elemen `position: absolute` di dalam isi yang
+	// bergulir (label `sr-only` saklar, misalnya) tidak punya leluhur ber-posisi,
+	// lolos dari potongan `overflow`, dan ikut memanjangkan HALAMAN setinggi isi
+	// panel. Akibatnya editor yang dikunci setinggi layar tetap bisa digulir ke
+	// bidang kosong di bawahnya (diukur di Halaman acara: 1690px pada layar 588px).
+	return <div className={cx("relative min-h-0 flex-1 overflow-y-auto", className)}>{children}</div>;
 }
 
 /** Kaki panel yang menempel: keterangan di kiri, aksi di kanan. Satu aksi utama per panel. */

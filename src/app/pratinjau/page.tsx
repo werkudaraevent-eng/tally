@@ -18,5 +18,5 @@ export default async function PratinjauPage({ searchParams }: { searchParams: Pr
   if (!event) notFound();
   const auth = await requireEventScope(event.slug, ["admin"]);
   if (auth.response) notFound();
-  return <PratinjauLangsung slug={event.slug}>{renderLanding(event)}</PratinjauLangsung>;
+  return <PratinjauLangsung slug={event.slug}>{renderLanding(event, "id")}</PratinjauLangsung>;
 }

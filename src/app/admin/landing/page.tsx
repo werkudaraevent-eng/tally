@@ -1,13 +1,15 @@
 "use client";
 
 import { pesanGalatApi } from "@/lib/api-message";
-import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, DotsSixVertical, DownloadSimple, Info, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Info, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
-  Banner, Button, ButtonLink, IconButton, MetaSeparator, PageLoading, PaneBody, PaneFooter, Pane, SegmentedButton,
-  StatusChip, Switch, TextArea, TextField, WorkspaceHeader, WorkspacePage,
+  Banner, Button, ButtonLink, Dialog, FilterChip, IconButton, MetaSeparator, PageLoading, PaneBody, Pane, SegmentedButton,
+  StatusChip, Switch, TextArea, TextField,
 } from "@/components/m3";
+import { AdminBarPortal, useAdminPage } from "@/components/admin/page-context";
+import { bacaLokal, langgananLokal, tulisLokal } from "@/lib/local-store";
 import { useToast } from "@/components/toast";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { LandingPreview } from "@/components/admin/landing-preview";
@@ -44,6 +46,8 @@ import { Kelompok } from "@/components/admin/compact-form";
 import { BilahAtasEditor } from "@/components/admin/landing-nav-editor";
 import { cx } from "@/lib/m3/cx";
 import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
+import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
+import { landingUntranslated } from "@/lib/landing-i18n";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -130,7 +134,7 @@ function gulirKeBaris(id: string) {
     const baris = document.getElementById(`baris-${id}`);
     const wadah = baris?.closest<HTMLElement>(".overflow-y-auto");
     if (!baris || !wadah) return;
-    const atas = baris.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop - 12;
+    const atas = baris.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop;
     wadah.scrollTo({ top: Math.max(0, atas), behavior: "smooth" });
   });
 }
@@ -197,6 +201,21 @@ function AngkaPx({
   );
 }
 
+/**
+ * Lebar panel setelan. 440 bawaan memberi kolom isian ~270px dan pratinjau
+ * 1280px pada skala ~0,53 di layar 1280. Batas 400: di bawahnya dua kolom
+ * isian berdampingan tidak muat. Batas 640: di atasnya pratinjau terlalu kecil
+ * untuk dibaca. Disimpan per akun, karena satu laptop panitia dipakai bergantian.
+ */
+const PANEL_MIN = 400;
+const PANEL_MAX = 640;
+const PANEL_BAWAAN = 440;
+const KUNCI_PANEL = "tally:landing-panel:v1";
+const jepitPanel = (lebar: number) => Math.round(Math.min(PANEL_MAX, Math.max(PANEL_MIN, lebar)));
+
+/** Hapus yang bisa diurungkan. Berlaku di draf; baru permanen saat Simpan. */
+type Urungan = { pesan: string; sections: LandingSection[]; blocks: LandingBlock[] };
+
 export default function LandingCmsPage() {
   const [facts, setFacts] = useState<Facts | null>(null);
   const [landing, setLanding] = useState<EventLandingConfig>({});
@@ -211,6 +230,20 @@ export default function LandingCmsPage() {
   // null = belum diketahui (gagal dimuat); lencana hanya muncul bila pasti kosong.
   const [rundownKosong, setRundownKosong] = useState<boolean | null>(null);
   const [tambahTerbuka, setTambahTerbuka] = useState(false);
+  // Baris tersembunyi tetap di tempatnya; penyaring ini hanya menyembunyikannya dari daftar.
+  const [tampilTersembunyi, setTampilTersembunyi] = useState(true);
+  const [konfirmasiHapus, setKonfirmasiHapus] = useState<{ ids: string[]; judul: string } | null>(null);
+  const [urungan, setUrungan] = useState<Urungan | null>(null);
+  const akun = useAdminPage()?.username ?? null;
+  const kunciPanel = akun ? `${KUNCI_PANEL}:${akun}` : null;
+  const lebarTersimpan = useSyncExternalStore(
+    langgananLokal,
+    () => (kunciPanel ? bacaLokal(kunciPanel, PANEL_BAWAAN) : PANEL_BAWAAN),
+    () => PANEL_BAWAAN,
+  );
+  // Selama diseret lebarnya hidup di state; baru ditulis ke penyimpanan saat dilepas.
+  const [lebarSeret, setLebarSeret] = useState<number | null>(null);
+  const lebarPanel = jepitPanel(lebarSeret ?? lebarTersimpan);
   const [seret, setSeret] = useState<number | null>(null);
   const [sasaran, setSasaran] = useState<number | null>(null);
   // Dinaikkan setiap kali penyimpanan BERHASIL. Pratinjau memuat halaman publik
@@ -461,6 +494,13 @@ export default function LandingCmsPage() {
   const gayaBanner = landing.banner_style ?? "theme";
   const tataLetak: LandingLayout = landing.layout ?? "editorial";
   const modern = tataLetak === "modern";
+  // Teks yang tampil di halaman Indonesia tetapi belum punya versi English.
+  const belumDiterjemahkan = landingUntranslated({
+    landing_config: { ...landing, sections },
+    tagline: facts?.tagline,
+    description: facts?.description,
+    venue_address: facts?.venue_address,
+  }).length;
   // Bawaan huruf judul mengikuti tata letak; harus sama dengan halaman publik.
   const hurufJudul: LandingHeadingFont = landing.heading_font ?? (modern ? "source" : "serif");
   const catatanProgram = landing.program_notes ?? [];
@@ -775,6 +815,50 @@ export default function LandingCmsPage() {
             ? "KV selebar layar dengan nav gelap, kartu program dari Rundown, kartu pembicara tinggi, dan blok tambahan."
             : "Tenang dan tipografis: judul bagian di rel kiri, garis rambut sebagai pemisah. Blok tambahan tidak tampil di sini."}
         </p>
+      </Kelompok>
+
+      {/* Versi English. Teks English-nya diisi per kolom; sampai mode EN di
+          editor ada, lewat Ekspor/Impor (kunci `en`, lihat landing-i18n.ts). */}
+      <Kelompok title="Bahasa">
+        <Switch
+          checked={Boolean(landing.en_enabled)}
+          onChange={(value) => setLanding({ ...landing, en_enabled: value })}
+          disabled={!modern}
+          label="Tampilkan versi English"
+          description={
+            !modern
+              ? "Hanya untuk tata letak Modern."
+              : landing.en_enabled
+                ? "Pilihan ID | EN tampil di bilah atas halaman."
+                : "Selama mati, halaman hanya berbahasa Indonesia dan alamat /en tidak bisa dibuka."
+          }
+        />
+        {modern && landing.en_enabled ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-label-large text-on-surface">Bahasa utama</p>
+            <SegmentedButton<"id" | "en">
+              className="w-full"
+              label="Bahasa utama"
+              value={landing.default_lang ?? "id"}
+              onChange={(value) => setLanding({ ...landing, default_lang: value })}
+              options={[
+                { value: "id", label: "Indonesia" },
+                { value: "en", label: "English" },
+              ]}
+            />
+            <p className="text-body-medium text-on-surface-variant">
+              {(landing.default_lang ?? "id") === "en"
+                ? `/e/${facts?.slug ?? "slug"} tampil dalam English. Versi Indonesia di /e/${facts?.slug ?? "slug"}/id.`
+                : `/e/${facts?.slug ?? "slug"} tampil dalam Bahasa Indonesia. Versi English di /e/${facts?.slug ?? "slug"}/en.`}{" "}
+              Alamat di undangan dan QR tidak berubah.
+            </p>
+          </div>
+        ) : null}
+        {modern && belumDiterjemahkan > 0 ? (
+          <p className="text-body-medium text-on-surface-variant">
+            {belumDiterjemahkan} teks belum diterjemahkan. Halaman English menampilkan teks Indonesianya.
+          </p>
+        ) : null}
       </Kelompok>
 
       <Kelompok title="Huruf judul" note="Dipakai untuk nama acara dan judul bagian. Isi halaman tetap memakai huruf yang mudah dibaca.">
@@ -1113,12 +1197,41 @@ export default function LandingCmsPage() {
     </div>
   );
 
-  function hapusBlok(id: string) {
+  /**
+   * Menghapus blok dari DRAF. Belum ada yang hilang dari server sampai Simpan,
+   * dan sampai saat itu "Urungkan" mengembalikan blok di posisi semula.
+   */
+  function hapusBlok(ids: string[]) {
+    const buang = new Set(ids);
+    setUrungan({
+      pesan: ids.length === 1 ? "Blok dihapus. Berlaku saat Simpan." : `${ids.length} blok dihapus. Berlaku saat Simpan.`,
+      sections,
+      blocks: landing.blocks ?? [],
+    });
     setLanding({
       ...landing,
-      sections: sections.filter((item) => item.id !== id),
-      blocks: (landing.blocks ?? []).filter((item) => item.id !== id),
+      sections: sections.filter((item) => !buang.has(item.id)),
+      blocks: (landing.blocks ?? []).filter((item) => !buang.has(item.id)),
     });
+    if (terbuka && buang.has(terbuka)) setTerbuka(null);
+  }
+
+  function urungkan() {
+    if (!urungan) return;
+    setLanding({ ...landing, sections: urungan.sections, blocks: urungan.blocks });
+    setUrungan(null);
+  }
+
+  /** Salinan tepat di bawah aslinya, dengan id baru. */
+  function duplikatBlok(index: number, blok: LandingBlock) {
+    const salinan: LandingBlock = { ...structuredClone(blok), id: buatBlok(blok.type).id };
+    const next = [...sections];
+    next.splice(index + 1, 0, { id: salinan.id, enabled: sections[index].enabled });
+    setLanding({ ...landing, sections: next, blocks: [...(landing.blocks ?? []), salinan] });
+  }
+
+  function setTampil(index: number, value: boolean) {
+    setLanding({ ...landing, sections: sections.map((item, position) => (position === index ? { ...item, enabled: value } : item)) });
   }
 
   function ubahBlok(next: LandingBlock) {
@@ -1166,7 +1279,7 @@ export default function LandingCmsPage() {
     saklar,
     indeks,
     isi,
-    redup,
+    menu,
   }: {
     id: string;
     nomor: number;
@@ -1177,41 +1290,51 @@ export default function LandingCmsPage() {
     /** Posisi di `sections`; kosong untuk Pembuka dan Kaki yang tidak bisa dipindah. */
     indeks?: number;
     isi: ReactNode;
-    redup?: boolean;
+    menu?: ItemMenuBlok[];
   }) {
     const buka = terbuka === id;
+    const tersembunyi = saklar ? !saklar.checked : false;
     // Yang bisa diseret hanya pegangannya: kalau seluruh baris draggable,
-    // memblok teks di kolom isian ikut memulai seretan.
+    // memblok teks di kolom isian ikut memulai seretan. Pegangannya selebar
+    // seluruh tinggi baris (24x56), bukan ikon 16px.
     const bisaSeret = indeks !== undefined;
     return (
       <li
         key={id}
         id={`baris-${id}`}
         className={cx(
-          "rounded-md border bg-surface-container-lowest",
-          buka ? "border-primary" : "border-outline-variant",
+          "border-b border-outline-variant",
           bisaSeret && seret === indeks && "opacity-50",
           bisaSeret && sasaran === indeks && seret !== null && seret !== indeks && (seret < indeks ? "border-b-2 border-b-primary" : "border-t-2 border-t-primary"),
         )}
         onDragOver={bisaSeret ? (event: DragEvent<HTMLLIElement>) => { if (seret === null) return; event.preventDefault(); setSasaran(indeks); } : undefined}
         onDrop={bisaSeret ? (event: DragEvent<HTMLLIElement>) => { event.preventDefault(); lepas(indeks); } : undefined}
       >
-        <div className={cx("flex items-center gap-2 rounded-md py-2 pl-1.5 pr-2", buka && "rounded-b-none bg-primary-soft")}>
+        <div
+          className={cx(
+            "flex items-center gap-2 pr-2",
+            buka ? "min-h-14 bg-primary-soft py-2 shadow-[inset_3px_0_0_var(--color-primary)]" : "h-14",
+          )}
+        >
           {bisaSeret ? (
             <span
               draggable
               onDragStart={(event) => { setSeret(indeks); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", judul); }}
               onDragEnd={() => { setSeret(null); setSasaran(null); }}
-              className="flex h-8 w-5 shrink-0 cursor-grab items-center justify-center text-on-surface-variant"
+              className="flex h-14 w-6 shrink-0 cursor-grab items-center justify-center self-stretch text-on-surface-variant opacity-70 hover:opacity-100"
               title="Seret untuk memindah"
             >
               <DotsSixVertical size={16} aria-hidden />
             </span>
-          ) : <span className="w-5 shrink-0" aria-hidden />}
+          ) : <span className="w-6 shrink-0" aria-hidden />}
           <span
             className={cx(
-              "grid size-6 shrink-0 place-items-center rounded-sm text-body-small font-medium tabular-nums",
-              buka ? "bg-primary text-on-primary" : "bg-surface-container-high text-on-surface-variant",
+              "grid size-7 shrink-0 place-items-center rounded-sm text-body-small font-medium tabular-nums",
+              buka
+                ? "bg-primary text-on-primary"
+                : tersembunyi
+                  ? "border border-dashed border-outline-variant text-on-surface-variant"
+                  : "bg-surface-container-high text-on-surface-variant",
             )}
             aria-hidden
           >
@@ -1222,21 +1345,40 @@ export default function LandingCmsPage() {
             aria-expanded={buka}
             aria-controls={`isi-${id}`}
             onClick={() => bukaTutup(id)}
-            className={cx("min-w-0 flex-1 rounded-sm py-0.5 text-left", redup && "opacity-60")}
+            className="min-w-0 flex-1 self-stretch rounded-sm text-left"
           >
-            <span className="line-clamp-2 block text-body-medium font-medium text-on-surface">{judul}</span>
-            {sub ? <span className="block truncate text-body-small text-on-surface-variant">{sub}</span> : null}
+            {/* Terbuka: judul utuh, karena di situlah orang membaca apa yang
+                sedang ia sunting. Tertutup: satu baris, judul utuh di `title`. */}
+            <span
+              title={buka ? undefined : judul}
+              className={cx(
+                "block text-body-medium",
+                buka ? "font-medium text-on-surface" : "truncate",
+                !buka && (tersembunyi ? "text-on-surface-variant" : "font-medium text-on-surface"),
+              )}
+            >
+              {judul}
+            </span>
+            {sub ? (
+              <span title={sub} className="block truncate text-body-small text-on-surface-variant">
+                {tersembunyi ? `${sub} · tersembunyi` : sub}
+              </span>
+            ) : null}
           </button>
           {lencana ? <StatusChip tone="warning" className="shrink-0">{lencana}</StatusChip> : null}
           {saklar ? (
-            <Switch labelHidden className="shrink-0" checked={saklar.checked} onChange={saklar.onChange} label={`Tampilkan ${judul}`} />
+            <IconButton
+              size="sm"
+              label={saklar.checked ? `Sembunyikan ${judul}` : `Tampilkan ${judul}`}
+              onClick={() => saklar.onChange(!saklar.checked)}
+            >
+              {saklar.checked ? <Eye size={20} /> : <EyeSlash size={20} />}
+            </IconButton>
           ) : null}
-          <IconButton size="sm" label={buka ? `Tutup ${judul}` : `Buka ${judul}`} onClick={() => bukaTutup(id)}>
-            <CaretDown size={16} className={cx("transition-transform", buka && "rotate-180")} />
-          </IconButton>
+          {menu ? <MenuBlok label={`Menu blok: ${judul}`} items={menu} /> : null}
         </div>
         {buka ? (
-          <div id={`isi-${id}`} className="flex flex-col gap-4 border-t border-outline-variant px-4 py-4">
+          <div id={`isi-${id}`} className="flex flex-col gap-4 bg-primary-soft/40 px-4 pb-4 pt-2">
             {isi}
           </div>
         ) : null}
@@ -1244,23 +1386,25 @@ export default function LandingCmsPage() {
     );
   }
 
-  /** Naik, turun, dan (untuk blok) hapus. Pengganti seret bagi papan ketik. */
-  function kendaliUrutan(index: number, nama: string, hapus?: () => void) {
-    return (
-      <div className="flex flex-wrap items-center gap-2 border-t border-outline-variant pt-4">
-        <Button variant="text" size="sm" icon={<ArrowUp size={16} />} disabled={index === 0} onClick={() => moveSection(index, -1)}>
-          Naikkan
-        </Button>
-        <Button variant="text" size="sm" icon={<ArrowDown size={16} />} disabled={index === sections.length - 1} onClick={() => moveSection(index, 1)}>
-          Turunkan
-        </Button>
-        {hapus ? (
-          <Button variant="text" size="sm" className="ml-auto text-error" icon={<Trash size={16} />} onClick={hapus}>
-            Hapus {nama.toLowerCase()}
-          </Button>
-        ) : null}
-      </div>
-    );
+  /** Isi menu ⋯ sebuah baris. Naik/turun juga jalan papan ketik pengganti seret. */
+  function menuBaris(index: number, judul: string, blok?: LandingBlock): ItemMenuBlok[] {
+    const tampil = sections[index].enabled;
+    const items: ItemMenuBlok[] = [
+      { label: "Naikkan", icon: <ArrowUp size={18} />, disabled: index === 0, onSelect: () => moveSection(index, -1) },
+      { label: "Turunkan", icon: <ArrowDown size={18} />, disabled: index === sections.length - 1, onSelect: () => moveSection(index, 1) },
+    ];
+    if (blok) {
+      items.push({ label: "Duplikat", icon: <CopySimple size={18} />, disabled: (landing.blocks ?? []).length >= 30, onSelect: () => duplikatBlok(index, blok) });
+    }
+    items.push({
+      label: tampil ? "Sembunyikan" : "Tampilkan",
+      icon: tampil ? <EyeSlash size={18} /> : <Eye size={18} />,
+      onSelect: () => setTampil(index, !tampil),
+    });
+    if (blok) {
+      items.push({ label: "Hapus blok…", icon: <Trash size={18} />, bahaya: true, onSelect: () => setKonfirmasiHapus({ ids: [blok.id], judul }) });
+    }
+    return items;
   }
 
   const blokById = new Map((landing.blocks ?? []).map((block) => [block.id, block]));
@@ -1296,19 +1440,23 @@ export default function LandingCmsPage() {
     );
   }
 
+  // Blok tambahan yang tersembunyi: satu-satunya yang bisa dihapus massal.
+  // Bagian bawaan (Pembicara, FAQ, ...) hanya bisa disembunyikan.
+  const tersembunyi = sections.filter((section) => !section.enabled);
+  const blokTersembunyi = tersembunyi.filter((section) => isLandingBlockId(section.id) && blokById.has(section.id)).map((section) => section.id);
+
   const isiSusunan = facts ? (
-    <div className="flex flex-col gap-3">
-      <p className="text-body-medium text-on-surface-variant">
-        Urutan di sini sama dengan urutan di halaman, dari atas ke bawah. Klik baris untuk menyunting; pratinjau melompat ke bagian itu. Seret pegangan di kiri untuk memindah.
-      </p>
+    <div className="flex flex-col">
       {!modern ? (
-        <Banner tone="info">Blok tambahan hanya tampil di tata letak Modern. Pilih Modern di tab Tema untuk memakainya.</Banner>
+        <div className="px-4 py-2">
+          <Banner tone="info">Blok tambahan hanya tampil di tata letak Modern. Pilih Modern di tab Tema untuk memakainya.</Banner>
+        </div>
       ) : null}
-      <ol className="flex flex-col gap-2">
+      <ol className="flex flex-col">
         {barisSusunan({ id: "pembuka", nomor: 1, judul: "Pembuka", sub: modern ? "Bilah atas, nama acara, tagline, KV, tombol daftar" : "Nama acara, tagline, KV, tombol daftar", isi: isiPembuka })}
         {sections.map((section, index) => {
-          const setSaklar = (value: boolean) =>
-            setLanding({ ...landing, sections: sections.map((item, position) => (position === index ? { ...item, enabled: value } : item)) });
+          if (!section.enabled && !tampilTersembunyi) return null;
+          const saklar = { checked: section.enabled, onChange: (value: boolean) => setTampil(index, value) };
 
           if (isLandingBlockId(section.id)) {
             const blok = blokById.get(section.id);
@@ -1322,15 +1470,10 @@ export default function LandingCmsPage() {
               judul,
               sub: ringkas && ringkas !== judul ? `${jenis} · ${ringkas}` : jenis,
               lencana: section.enabled && !landingBlockHasContent(blok) ? "Belum ada isinya" : null,
-              saklar: { checked: section.enabled, onChange: setSaklar },
+              saklar,
               indeks: index,
-              redup: !section.enabled,
-              isi: (
-                <>
-                  <BlockEditor block={blok} onChange={ubahBlok} />
-                  {kendaliUrutan(index, "blok", () => hapusBlok(section.id))}
-                </>
-              ),
+              menu: menuBaris(index, judul, blok),
+              isi: <BlockEditor block={blok} onChange={ubahBlok} />,
             });
           }
 
@@ -1343,15 +1486,10 @@ export default function LandingCmsPage() {
             judul: LANDING_SECTION_LABELS[id],
             sub: subBawaan(id),
             lencana: kosong ? (id === "agenda" ? "Rundown kosong" : "Belum ada isinya") : null,
-            saklar: { checked: section.enabled, onChange: setSaklar },
+            saklar,
             indeks: index,
-            redup: !section.enabled,
-            isi: (
-              <>
-                {isiBawaan(id)}
-                {kendaliUrutan(index, LANDING_SECTION_LABELS[id])}
-              </>
-            ),
+            menu: menuBaris(index, LANDING_SECTION_LABELS[id]),
+            isi: isiBawaan(id),
           });
         })}
         {barisSusunan({
@@ -1362,7 +1500,7 @@ export default function LandingCmsPage() {
           isi: isiKaki,
         })}
       </ol>
-      <div>
+      <div className="px-4 py-4">
         <Button variant="outlined" icon={<Plus size={18} />} onClick={() => setTambahTerbuka(true)} disabled={(landing.blocks ?? []).length >= 30}>
           Tambah blok
         </Button>
@@ -1371,9 +1509,39 @@ export default function LandingCmsPage() {
     </div>
   ) : null;
 
+  // Satu baris di atas daftar: petunjuk singkat, lalu penyaring tersembunyi bila
+  // memang ada yang tersembunyi. Tidak bergulir, supaya penyaringnya selalu terjangkau.
+  const saringan = bagian === "susunan" ? (
+    <div className="flex h-12 shrink-0 items-center gap-1 border-b border-outline-variant pl-4 pr-2">
+      <p
+        className="min-w-0 flex-1 truncate text-body-small text-on-surface-variant max-sm:hidden"
+        title="Urutan di sini sama dengan urutan di halaman, dari atas ke bawah. Klik baris untuk menyunting; pratinjau melompat ke bagian itu. Seret pegangan di kiri baris untuk memindah."
+      >
+        Klik untuk menyunting
+      </p>
+      {tersembunyi.length > 0 ? (
+        <>
+          <FilterChip selected={tampilTersembunyi} onClick={() => setTampilTersembunyi((nilai) => !nilai)} className="shrink-0">
+            Tampilkan {tersembunyi.length} tersembunyi
+          </FilterChip>
+          <MenuBlok
+            label="Menu blok tersembunyi"
+            items={[{
+              label: blokTersembunyi.length > 0 ? `Hapus ${blokTersembunyi.length} blok tersembunyi…` : "Tidak ada blok tambahan tersembunyi",
+              icon: <Trash size={18} />,
+              bahaya: true,
+              disabled: blokTersembunyi.length === 0,
+              onSelect: () => setKonfirmasiHapus({ ids: blokTersembunyi, judul: "" }),
+            }]}
+          />
+        </>
+      ) : null}
+    </div>
+  ) : null;
+
   const panel = (
-    <Pane as="aside" aria-label="Setelan halaman acara">
-      <div className="shrink-0 border-b border-outline-variant px-4 py-3">
+    <Pane as="aside" id="panel-setelan" aria-label="Setelan halaman acara">
+      <div className="flex h-12 shrink-0 items-center border-b border-outline-variant px-3">
         <SegmentedButton<Bagian>
           label="Bagian setelan"
           value={bagian}
@@ -1382,53 +1550,183 @@ export default function LandingCmsPage() {
           options={[{ value: "susunan", label: "Susunan halaman" }, { value: "tema", label: "Tema" }, { value: "peserta", label: "Peserta" }]}
         />
       </div>
-      <PaneBody key={bagian} className="px-4 py-4">{bagian === "susunan" ? isiSusunan : bagian === "tema" ? isiTema : isiPeserta}</PaneBody>
-      <PaneFooter note={berubah ? "Ada perubahan yang belum disimpan" : "Semua perubahan tersimpan"}>
-        <Button simpan size="sm" onClick={() => void save()} loading={busy}>Simpan</Button>
-      </PaneFooter>
+      {saringan}
+      <PaneBody key={bagian} className={bagian === "susunan" ? undefined : "px-4 py-4"}>
+        {bagian === "susunan" ? isiSusunan : bagian === "tema" ? isiTema : isiPeserta}
+      </PaneBody>
     </Pane>
   );
 
+  /* ---- Pembatas panel ---------------------------------------------------- */
+  // Diseret dengan penunjuk atau digeser dengan panah. Nilainya lebar PANEL
+  // setelan, jadi panah kiri (pembatas bergerak ke kiri) melebarkannya.
+  const awalSeret = useRef<{ x: number; lebar: number } | null>(null);
+
+  function simpanLebar(lebar: number) {
+    const nilai = jepitPanel(lebar);
+    if (kunciPanel) {
+      tulisLokal(kunciPanel, nilai);
+      setLebarSeret(null);
+    } else {
+      setLebarSeret(nilai);
+    }
+  }
+
+  function mulaiSeretPanel(event: PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    awalSeret.current = { x: event.clientX, lebar: lebarPanel };
+  }
+
+  function seretPanel(event: PointerEvent<HTMLDivElement>) {
+    const awal = awalSeret.current;
+    if (!awal) return;
+    setLebarSeret(jepitPanel(awal.lebar + (awal.x - event.clientX)));
+  }
+
+  function lepasPanel() {
+    if (!awalSeret.current) return;
+    awalSeret.current = null;
+    simpanLebar(lebarPanel);
+  }
+
+  function tombolPanel(event: KeyboardEvent<HTMLDivElement>) {
+    const langkah = event.shiftKey ? 64 : 16;
+    const target =
+      event.key === "ArrowLeft" ? lebarPanel + langkah
+        : event.key === "ArrowRight" ? lebarPanel - langkah
+          : event.key === "Home" ? PANEL_MIN
+            : event.key === "End" ? PANEL_MAX
+              : null;
+    if (target === null) return;
+    event.preventDefault();
+    simpanLebar(target);
+  }
+
+  // Snackbar "Urungkan" hilang sendiri. 8 detik: cukup untuk membaca dan menekan,
+  // tidak cukup lama untuk menutupi baris terbawah panel sepanjang sesi.
+  useEffect(() => {
+    if (!urungan) return;
+    const timer = window.setTimeout(() => setUrungan(null), 8000);
+    return () => window.clearTimeout(timer);
+  }, [urungan]);
+
+  const jumlahHapus = konfirmasiHapus?.ids.length ?? 0;
+
   return (
-    // Tidak memakai `fill`: pada layar pendek (laptop berskala 150%) `fill`
-    // melepas kunci tinggi dan halaman bergulir, sehingga tombol Simpan di kaki
-    // panel jatuh di bawah layar. Editor ini selalu setinggi layar; pratinjau
-    // dan panel setelan masing-masing bergulir sendiri.
-    <WorkspacePage className="lg:h-[calc(100dvh-var(--workspace-top,58px))] lg:overflow-hidden">
-      <WorkspaceHeader
-        meta={facts ? (
-          <>
-            <span>/e/{facts.slug}</span>
-            <MetaSeparator />
-            <span>Alamat yang dicetak di undangan dan QR</span>
-          </>
-        ) : null}
-        actions={facts ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="text" icon={<DownloadSimple size={16} />} onClick={ekspor}>
-              Ekspor isi
-            </Button>
-            <Button variant="text" icon={<UploadSimple size={16} />} onClick={() => pilihBerkas.current?.click()}>
-              Impor isi
-            </Button>
-            <input ref={pilihBerkas} type="file" accept="application/json,.json" className="hidden" onChange={(event) => void impor(event)} />
-            <ButtonLink href={`/e/${facts.slug}`} target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>
-              Lihat halaman
-            </ButtonLink>
+    // Tidak memakai `WorkspacePage fill`: pada layar pendek (laptop berskala
+    // 150%) `fill` melepas kunci tinggi dan halaman bergulir. Editor ini selalu
+    // setinggi layar; pratinjau dan panel setelan masing-masing bergulir sendiri.
+    // Judul, aksi, dan Simpan ada di bilah atas, jadi tidak ada kepala halaman
+    // yang memakan tinggi di sini.
+    <main className="flex w-full flex-col gap-4 bg-surface p-4 text-on-surface lg:h-[calc(100dvh-var(--workspace-top,58px))] lg:overflow-hidden">
+      <AdminBarPortal
+        judul={
+          <div className="flex min-w-0 shrink items-baseline gap-3">
+            <h1 className="truncate text-title-medium font-semibold text-on-surface">Halaman acara</h1>
+            {facts ? (
+              <span className="hidden truncate text-body-small text-on-surface-variant xl:inline" title="Alamat yang dicetak di undangan dan QR">
+                /e/{facts.slug}
+              </span>
+            ) : null}
           </div>
+        }
+        aksi={facts ? (
+          <>
+            {/* Di ponsel bilahnya hanya muat judul dan Simpan; Ekspor/Impor jarang dipakai di sana. */}
+            <span className="hidden md:contents">
+              <Button variant="text" size="sm" icon={<DownloadSimple size={16} />} onClick={ekspor}>
+                Ekspor
+              </Button>
+              <Button variant="text" size="sm" icon={<UploadSimple size={16} />} onClick={() => pilihBerkas.current?.click()}>
+                Impor
+              </Button>
+              <input ref={pilihBerkas} type="file" accept="application/json,.json" className="hidden" onChange={(event) => void impor(event)} />
+              <ButtonLink href={`/e/${facts.slug}`} target="_blank" rel="noreferrer" variant="outlined" size="sm" icon={<ArrowSquareOut size={16} />}>
+                Lihat halaman
+              </ButtonLink>
+            </span>
+            <span aria-hidden className="mx-1 hidden h-7 w-px bg-outline-variant md:block" />
+            <span role="status" className="hidden min-w-[7.5rem] items-center justify-end gap-1.5 whitespace-nowrap text-body-small text-on-surface-variant md:inline-flex">
+              <span aria-hidden className={cx("size-2 rounded-full", berubah ? "bg-warning" : "bg-success")} />
+              {berubah ? "Belum disimpan" : "Tersimpan"}
+            </span>
+            <Button simpan size="sm" onClick={() => void save()} loading={busy}>Simpan</Button>
+          </>
         ) : null}
       />
 
       {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
 
       {facts ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:gap-0">
           <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0">
             <LandingPreview slug={facts.slug} reloadKey={previewKey} sorot={sorot} draf={drafPratinjau} />
           </div>
-          <div className="flex min-h-[70vh] w-full flex-col *:flex-1 lg:min-h-0 lg:w-[420px] lg:shrink-0">{panel}</div>
+          <div
+            role="separator"
+            tabIndex={0}
+            aria-orientation="vertical"
+            aria-label="Lebar panel setelan"
+            aria-controls="panel-setelan"
+            aria-valuemin={PANEL_MIN}
+            aria-valuemax={PANEL_MAX}
+            aria-valuenow={lebarPanel}
+            onPointerDown={mulaiSeretPanel}
+            onPointerMove={seretPanel}
+            onPointerUp={lepasPanel}
+            onPointerCancel={lepasPanel}
+            onKeyDown={tombolPanel}
+            onDoubleClick={() => simpanLebar(PANEL_BAWAAN)}
+            title="Seret untuk mengubah lebar panel. Klik dua kali untuk lebar bawaan."
+            className="group hidden w-4 shrink-0 cursor-col-resize touch-none items-center justify-center rounded-sm outline-none lg:flex"
+          >
+            <span className="h-10 w-1 rounded-full bg-outline-variant transition-colors group-hover:bg-outline group-focus-visible:h-16 group-focus-visible:bg-primary group-active:bg-primary" />
+          </div>
+          <div
+            className="flex min-h-[70vh] w-full flex-col *:flex-1 lg:min-h-0 lg:w-[var(--panel-w)] lg:shrink-0"
+            style={{ "--panel-w": `${lebarPanel}px` } as React.CSSProperties}
+          >
+            {panel}
+          </div>
         </div>
       ) : error ? null : <PageLoading />}
-    </WorkspacePage>
+
+      <Dialog
+        open={konfirmasiHapus !== null}
+        onClose={() => setKonfirmasiHapus(null)}
+        tone="danger"
+        icon={<Trash size={20} />}
+        title={jumlahHapus > 1 ? `Hapus ${jumlahHapus} blok tersembunyi?` : `Hapus “${konfirmasiHapus?.judul || "blok ini"}”?`}
+        description={
+          jumlahHapus > 1
+            ? `Isi ${jumlahHapus} blok ini ikut terhapus. Bagian bawaan yang tersembunyi tetap ada. Baru berlaku saat Anda menekan Simpan, dan sebelum itu masih bisa diurungkan.`
+            : "Isi blok ini ikut terhapus. Baru berlaku saat Anda menekan Simpan, dan sebelum itu masih bisa diurungkan."
+        }
+        actions={
+          <>
+            <Button variant="text" onClick={() => setKonfirmasiHapus(null)}>Batal</Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (konfirmasiHapus) hapusBlok(konfirmasiHapus.ids);
+                setKonfirmasiHapus(null);
+              }}
+            >
+              {jumlahHapus > 1 ? `Hapus ${jumlahHapus} blok` : "Hapus blok"}
+            </Button>
+          </>
+        }
+      />
+
+      {urungan ? (
+        <div role="status" className="fixed bottom-4 left-1/2 z-popover flex -translate-x-1/2 items-center gap-2 rounded-sm bg-inverse-surface py-1.5 pl-4 pr-1.5 text-body-medium text-inverse-on-surface shadow-level3">
+          <span>{urungan.pesan}</span>
+          <button type="button" onClick={urungkan} className="h-9 rounded-sm px-3 font-medium text-inverse-primary hover:bg-white/10">
+            Urungkan
+          </button>
+        </div>
+      ) : null}
+    </main>
   );
 }
