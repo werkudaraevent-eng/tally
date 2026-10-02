@@ -78,12 +78,13 @@ export default async function DaftarPage({
   // Acara bertata letak Modern (halaman acara v2) mendapat formulir v2: kepala
   // selebar layar yang sama dengan hero, lalu kartu formulir selebar grid.
   // Acara lain tetap memakai formulir yang sudah ada.
-  const modern = landing.layout === "modern"
+  const modern = landing.layout === "modern" || landing.layout === "forum"
     ? {
         kv: landing.banner_url ?? null,
         fakta: [formatEventDate(event, lang), formatEventTime(event, lang), event.venue_name?.trim() || null]
           .filter((item): item is string => Boolean(item)),
-        headingFont: (LANDING_HEADING_FONTS[landing.heading_font ?? "source"] ?? LANDING_HEADING_FONTS.source).cssVar,
+        // Huruf judul bawaan mengikuti tata letaknya: Ubuntu untuk Forum, Source Sans 3 untuk Modern.
+        headingFont: (LANDING_HEADING_FONTS[landing.heading_font ?? (landing.layout === "forum" ? "ubuntu" : "source")] ?? LANDING_HEADING_FONTS.source).cssVar,
         // Area peserta belum dwibahasa, jadi tautannya tetap ke versi utamanya.
         masukUrl: memberConfig(event) ? `/e/${event.slug}/masuk` : null,
       }

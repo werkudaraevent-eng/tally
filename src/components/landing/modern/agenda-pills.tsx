@@ -3,7 +3,7 @@
 import { useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import type { LandingSpeaker } from "@/lib/domain";
 import type { AgendaPreview } from "@/lib/landing-agenda";
-import { pembicaraSesi } from "@/lib/landing-speaker-tabs";
+import { barisJeda, pembicaraSesi } from "@/lib/landing-speaker-tabs";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 
@@ -16,7 +16,6 @@ import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
  * punya satu bagian. Berkas terpisah karena bentuk tab dan barisnya berbeda
  * seluruhnya; satu komponen dengan dua gaya akan membuat keduanya sulit diubah.
  */
-const JEDA = /\b(registrasi|daftar ulang|makan siang|makan pagi|ishoma|istirahat|rehat|coffee break|rehat kopi|penutupan|registration|lunch|break|closing)\b/i;
 
 export function AgendaPills({ agenda, speakers = [], lang = "id" }: { agenda: AgendaPreview[]; speakers?: LandingSpeaker[]; lang?: LandingLang }) {
   const t = LANDING_UI[lang];
@@ -92,12 +91,12 @@ export function AgendaPills({ agenda, speakers = [], lang = "id" }: { agenda: Ag
         className="border-b border-[color-mix(in_srgb,var(--reg-outline-variant)_70%,transparent)]"
       >
         {blok?.items.map((item, index) => {
-          const orang = pembicaraSesi(speakers, item.title);
+          const orang = pembicaraSesi(speakers, item.key);
           // Jeda (registrasi, makan siang, penutupan) ditulis tenang supaya
           // sesi inti menonjol sendiri dan rundown terbaca sebagai alur acara.
           // Dikenali dari kata kuncinya, bukan dari keterangan yang kosong:
           // sesi inti tanpa keterangan tetap tampil sebagai sesi inti.
-          const jeda = orang.length === 0 && JEDA.test(item.title);
+          const jeda = barisJeda(item.key, orang.length) || barisJeda(item.title, orang.length);
           return (
             // Garis dasar jam dan judul sejajar (items-baseline); tinggi baris
             // kelipatan 4px (judul 24px, keterangan 20px, padding 12px).
@@ -164,13 +163,15 @@ function inisial(nama: string): string {
 // Tepi foto: garis 1px abu (on-surface 24%, sekitar 1,7:1 di atas putih;
 // outline-variant tema terlalu pucat) lalu cincin warna permukaan 2px. Tanpa garis,
 // foto berlatar terang larut ke halaman putih (kontras tepi ~1,2:1).
-function DeretPembicara({ orang, lang }: { orang: LandingSpeaker[]; lang: LandingLang }) {
+export function DeretPembicara({ orang, lang, namaTampil = false }: { orang: LandingSpeaker[]; lang: LandingLang; namaTampil?: boolean }) {
   const tampil = orang.slice(0, MAKS_FOTO);
   const sisa = orang.length - tampil.length;
   const nama = orang.slice(0, 2).map((speaker) => speaker.name.trim());
   const keterangan = LANDING_UI[lang].andOthers(nama, orang.length);
   return (
-    <div className="mt-3 flex items-center gap-3 sm:col-start-2 lg:col-start-3 lg:row-start-1 lg:-mt-1 lg:self-start" title={orang.map((speaker) => speaker.name.trim()).join(", ")}>
+    // namaTampil: di bawah judul dengan nama di semua lebar layar (tabel
+    // Susunan acara tata letak Forum tidak punya kolom kanan untuk foto).
+    <div className={namaTampil ? "mt-2 flex items-center gap-3" : "mt-3 flex items-center gap-3 sm:col-start-2 lg:col-start-3 lg:row-start-1 lg:-mt-1 lg:self-start"} title={orang.map((speaker) => speaker.name.trim()).join(", ")}>
       <ul aria-hidden className="flex shrink-0 pl-px">
         {tampil.map((speaker, index) => (
           <li
@@ -191,7 +192,7 @@ function DeretPembicara({ orang, lang }: { orang: LandingSpeaker[]; lang: Landin
           </li>
         ) : null}
       </ul>
-      <p className="line-clamp-2 min-w-0 text-body-small text-[var(--reg-on-surface-variant)] sm:text-body-medium lg:sr-only">{keterangan}</p>
+      <p className={`line-clamp-2 min-w-0 text-body-small text-[var(--reg-on-surface-variant)] sm:text-body-medium ${namaTampil ? "" : "lg:sr-only"}`}>{keterangan}</p>
     </div>
   );
 }

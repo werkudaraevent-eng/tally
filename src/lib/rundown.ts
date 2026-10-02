@@ -73,6 +73,9 @@ export type RundownItem = {
   end_time: string | null;
   title: string;
   subtitle: string | null;
+  /** Teks halaman acara English. Kosong = halaman English memakai `title`/`subtitle`. */
+  title_en?: string | null;
+  subtitle_en?: string | null;
   is_break: boolean;
   is_published: boolean;
   sort_order: number;
@@ -85,7 +88,7 @@ export const HEADER_COLUMNS =
   "event_title,event_subtitle,background_color,text_color,accent_color,background_image_url," +
   BRANDING_COLUMNS;
 export const ITEM_COLUMNS =
-  "id,section_id,start_time,end_time,title,subtitle,is_break,is_published,sort_order";
+  "id,section_id,start_time,end_time,title,subtitle,title_en,subtitle_en,is_break,is_published,sort_order";
 
 // Zona acara diterima sebagai argumen, bukan dibaca dari konstanta.
 //
