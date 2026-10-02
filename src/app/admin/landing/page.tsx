@@ -5,7 +5,7 @@ import { ArrowDown, ArrowSquareOut, ArrowUp, CopySimple, DotsSixVertical, Downlo
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
-  Banner, Button, ButtonLink, Dialog, FilterChip, IconButton, MetaSeparator, PageLoading, PaneBody, Pane, SegmentedButton,
+  Banner, Button, ButtonLink, Dialog, FilterChip, IconButton, MetaSeparator, PageLoading, PaneBody, Pane, SegmentedButton, segmentTabId,
   StatusChip, Switch, TextArea, TextField,
 } from "@/components/m3";
 import { AdminBarPortal, useAdminPage } from "@/components/admin/page-context";
@@ -282,6 +282,10 @@ export default function LandingCmsPage() {
   // Potret keadaan terakhir yang tersimpan, untuk memberi tahu bahwa pratinjau
   // belum memuat perubahan yang sedang diketik.
   const [tersimpan, setTersimpan] = useState<string | null>(null);
+  // Terjemahan sesi yang ditinggalkan saat nama sesi Indonesia diubah, menurut
+  // nama sesinya. Mengetik nama itu kembali memulihkan terjemahannya, walau
+  // sesinya sempat tidak dipakai pembicara mana pun.
+  const terjemahanSesi = useRef(new Map<string, string>());
   const toast = useToast();
 
   const load = useCallback(async () => {
@@ -1096,20 +1100,20 @@ export default function LandingCmsPage() {
                   placeholder="mis. Sesi 1"
                   hint="Pembicara bersesi sama menjadi satu tab. Tulis sama dengan awal judul sesi di rundown supaya jam sesinya ikut tampil."
                   value={speaker.session ?? ""}
-                  onChange={(event) =>
+                  onChange={(event) => {
                     // Terjemahan ikut nama sesinya: pindah sesi berarti memakai
                     // terjemahan sesi tujuan (kalau sudah ada), bukan membawa yang lama.
+                    const lama = speaker.session?.trim();
+                    if (lama && speaker.en?.session) terjemahanSesi.current.set(lama, speaker.en.session);
+                    const baru = event.target.value.trim();
                     ubah(index, {
                       session: event.target.value,
                       en: {
                         ...speaker.en,
-                        session: landingSessionEn(
-                          list.filter((_, posisi) => posisi !== index),
-                          event.target.value.trim(),
-                        ),
+                        session: landingSessionEn(list.filter((_, posisi) => posisi !== index), baru) ?? terjemahanSesi.current.get(baru),
                       },
-                    })
-                  }
+                    });
+                  }}
                 />
                 <Switch
                   checked={Boolean(speaker.featured)}
@@ -1682,6 +1686,7 @@ export default function LandingCmsPage() {
       <div className="flex h-12 shrink-0 items-center border-b border-outline-variant px-3">
         <SegmentedButton<Bagian>
           label="Bagian setelan"
+          panel="isi-setelan"
           value={bagian}
           onChange={setBagian}
           className="w-full"
@@ -1689,7 +1694,12 @@ export default function LandingCmsPage() {
         />
       </div>
       {saringan}
-      <PaneBody key={`${bagian}-${modeEn ? "en" : "id"}`} className={bagian === "susunan" ? undefined : "px-4 py-4"}>
+      <PaneBody
+        key={`${bagian}-${modeEn ? "en" : "id"}`}
+        id="isi-setelan"
+        role="tabpanel"
+        aria-labelledby={segmentTabId("isi-setelan", bagian)}
+        className={bagian === "susunan" ? undefined : "px-4 py-4"}>
         {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : bagian === "tema" ? isiTema : isiPeserta}
       </PaneBody>
     </Pane>
