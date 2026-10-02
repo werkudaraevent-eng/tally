@@ -1,7 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getEventBySlugPublic } from "@/lib/auth/event-scope";
 import type { EventLandingConfig } from "@/lib/domain";
-import { landingEnAvailable } from "@/lib/landing-i18n";
+import { landingDefaultLang, landingEnAvailable } from "@/lib/landing-i18n";
 import { renderLanding } from "@/components/landing/render-landing";
 import { landingMetadata } from "../landing-metadata";
 
@@ -12,6 +12,9 @@ import { landingMetadata } from "../landing-metadata";
  * hanya teksnya (lihat src/lib/landing-i18n.ts). 404 selama admin belum
  * menyalakan "Tampilkan versi English" di Halaman acara > Tema, supaya halaman
  * setengah diterjemahkan tidak terbuka atau terindeks lebih dulu.
+ *
+ * Bila English bahasa utama, versi English ada di `/e/<slug>` dan alamat ini
+ * dialihkan ke sana: satu versi, satu alamat.
  *
  * `/e/<slug>/en` sengaja dikecualikan dari rewrite ber-scope event di
  * src/proxy.ts; tanpa itu ia ditulis ulang ke `/en?eventSlug=`.
@@ -27,6 +30,8 @@ export default async function EventLandingEnglishPage({ params }: { params: Prom
   const { slug } = await params;
   const event = await getEventBySlugPublic(slug);
   if (!event || event.status === "archived") notFound();
-  if (!landingEnAvailable(event.landing_config as EventLandingConfig)) notFound();
+  const config = event.landing_config as EventLandingConfig;
+  if (!landingEnAvailable(config)) notFound();
+  if (landingDefaultLang(config) === "en") redirect(`/e/${event.slug}`);
   return renderLanding(event, "en");
 }

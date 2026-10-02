@@ -829,10 +829,31 @@ export default function LandingCmsPage() {
             !modern
               ? "Hanya untuk tata letak Modern."
               : landing.en_enabled
-                ? `Tombol English tampil di bilah atas, dan halaman English ada di /e/${facts?.slug ?? "slug"}/en.`
+                ? "Pilihan ID | EN tampil di bilah atas halaman."
                 : "Selama mati, halaman hanya berbahasa Indonesia dan alamat /en tidak bisa dibuka."
           }
         />
+        {modern && landing.en_enabled ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-label-large text-on-surface">Bahasa utama</p>
+            <SegmentedButton<"id" | "en">
+              className="w-full"
+              label="Bahasa utama"
+              value={landing.default_lang ?? "id"}
+              onChange={(value) => setLanding({ ...landing, default_lang: value })}
+              options={[
+                { value: "id", label: "Indonesia" },
+                { value: "en", label: "English" },
+              ]}
+            />
+            <p className="text-body-medium text-on-surface-variant">
+              {(landing.default_lang ?? "id") === "en"
+                ? `/e/${facts?.slug ?? "slug"} tampil dalam English. Versi Indonesia di /e/${facts?.slug ?? "slug"}/id.`
+                : `/e/${facts?.slug ?? "slug"} tampil dalam Bahasa Indonesia. Versi English di /e/${facts?.slug ?? "slug"}/en.`}{" "}
+              Alamat di undangan dan QR tidak berubah.
+            </p>
+          </div>
+        ) : null}
         {modern && belumDiterjemahkan > 0 ? (
           <p className="text-body-medium text-on-surface-variant">
             {belumDiterjemahkan} teks belum diterjemahkan. Halaman English menampilkan teks Indonesianya.

@@ -1,7 +1,7 @@
-import { normalizeLandingSections, type EventRow } from "@/lib/domain";
+import { normalizeLandingSections, type EventLandingConfig, type EventRow } from "@/lib/domain";
 import { registrationThemeStyle } from "@/lib/registration-theme-css";
 import { formatEventSchedule } from "@/lib/event-datetime";
-import { landingEnAvailable, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
+import { landingDefaultLang, landingEnAvailable, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
 import { EventLanding } from "@/components/landing/event-landing";
 import { EventLandingModern } from "@/components/landing/event-landing-modern";
 
@@ -15,8 +15,9 @@ import { EventLandingModern } from "@/components/landing/event-landing-modern";
  * `lang`: bahasa halaman. Teks English ditumpuk di atas teks Indonesia di sini
  * (resolveLanding), sekali, sebelum sampai ke tata letak. Hanya Modern yang
  * punya versi English; pemanggil `/en` memastikannya lewat landingEnAvailable.
+ * Tanpa `lang`: bahasa utama pilihan admin (landingDefaultLang).
  */
-export function renderLanding(asli: EventRow, lang: LandingLang = "id") {
+export function renderLanding(asli: EventRow, lang: LandingLang = landingDefaultLang(asli.landing_config as EventLandingConfig)) {
   const { event, config } = resolveLanding(asli, lang);
   const sections = normalizeLandingSections(config.sections, config.blocks);
   const theme = registrationThemeStyle(config.theme);
