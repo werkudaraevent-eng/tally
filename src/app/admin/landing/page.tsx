@@ -1631,7 +1631,7 @@ export default function LandingCmsPage() {
             title="Seret untuk mengubah lebar panel. Klik dua kali untuk lebar bawaan."
             className="group hidden w-4 shrink-0 cursor-col-resize touch-none items-center justify-center rounded-sm outline-none lg:flex"
           >
-            <span className="h-10 w-1 rounded-full bg-outline-variant transition-colors group-hover:bg-outline group-focus-visible:h-16 group-focus-visible:bg-primary group-active:bg-primary" />
+            <span className="h-10 w-1 rounded-full bg-outline transition-colors group-hover:bg-on-surface-variant group-focus-visible:h-16 group-focus-visible:bg-primary group-active:bg-primary" />
           </div>
           <div
             className="flex min-h-[70vh] w-full flex-col *:flex-1 lg:min-h-0 lg:w-[var(--panel-w)] lg:shrink-0"
