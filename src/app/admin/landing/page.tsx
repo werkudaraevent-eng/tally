@@ -1477,7 +1477,7 @@ export default function LandingCmsPage() {
             label="Menu blok tersembunyi"
             width={272}
             items={[{
-              label: blokTersembunyi.length > 0 ? `Hapus ${blokTersembunyi.length} blok tersembunyi…` : "Tidak ada blok tambahan tersembunyi",
+              label: blokTersembunyi.length > 0 ? `Hapus ${blokTersembunyi.length} blok tersembunyi…` : "Tak ada blok untuk dihapus",
               icon: <Trash size={18} />,
               bahaya: true,
               disabled: blokTersembunyi.length === 0,

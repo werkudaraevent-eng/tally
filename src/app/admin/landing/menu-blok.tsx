@@ -37,6 +37,9 @@ export function MenuBlok({ label, items, width = 224 }: { label: string; items: 
   /** Panah, Home, End berpindah antar butir; Tab menutup menu (pola menu WAI-ARIA). */
   function tombol(event: KeyboardEvent) {
     if (event.key === "Tab") {
+      // Fokus dulu ke pemicu: Tab bawaan lalu melanjutkan dari tombol ⋯, bukan
+      // dari portal di ujung <body> yang membuang fokus keluar halaman.
+      menu.fokus();
       menu.tutup();
       return;
     }
@@ -63,6 +66,8 @@ export function MenuBlok({ label, items, width = 224 }: { label: string; items: 
         // target sentuh 40px yang dijanjikan desain editor ini.
         className={cx("size-10!", menu.open && "bg-surface-container-high text-on-surface")}
         onClick={menu.toggle}
+        // Kalau semua butir nonaktif, fokus tetap di pemicu; Tab menutup menunya.
+        onKeyDown={(event) => { if (event.key === "Tab" && menu.open) menu.tutup(); }}
         aria-haspopup="menu"
         aria-expanded={menu.open}
         aria-controls={menu.open ? menuId : undefined}
