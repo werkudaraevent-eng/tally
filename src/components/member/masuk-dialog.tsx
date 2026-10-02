@@ -97,6 +97,8 @@ export function MasukDialog({
     setPassword("");
     setGalat("");
     setSibuk(false);
+    // Kosongkan agar pergantian mode setelah dibuka ulang tetap dibacakan.
+    setPengumuman("");
   }, []);
   const tutup = useCallback(() => {
     if (window.location.pathname === masukUrl) window.history.back();
