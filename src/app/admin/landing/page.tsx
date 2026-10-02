@@ -237,33 +237,55 @@ const KUNCI_PANEL = "tally:landing-panel:v1";
 const KUNCI_BAHASA = "tally:landing-bahasa:v1";
 const jepitPanel = (lebar: number) => Math.round(Math.min(PANEL_MAX, Math.max(PANEL_MIN, lebar)));
 
-/** Hapus yang bisa diurungkan. Berlaku di draf; baru permanen saat Simpan. */
+type KunciTeksEn = Extract<Exclude<keyof LandingConfigEn, "program_notes">, keyof EventLandingConfig>;
+const BAGIAN_BERJUDUL = Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSection[];
+
+/** Kolom teks di lipatan "Judul bagian" satu bagian: kunci, nama untuk pesan, batas skema. */
+function kolomJudulBagian(id: LandingHeadedSection): [KunciTeksEn, string, number][] {
+  const { eyebrow, heading, intro } = LANDING_SECTION_TEXT_MAX;
+  return [
+    [`${id}_eyebrow`, "label kecil", eyebrow],
+    // Judul Tentang: skema tetap 160 supaya judul lama tetap bisa disimpan.
+    id === "about" ? ["about_heading", "judul", 160] : [`${id}_heading`, "judul", heading],
+    ...(id === "faq" ? [["faq_intro", "pengantar", intro] as [KunciTeksEn, string, number]] : []),
+    ...(id === "agenda" ? [["agenda_note", "catatan", intro] as [KunciTeksEn, string, number]] : []),
+  ];
+}
+
 /**
  * Judul bagian bawaan yang melewati batas skema (mis. dari Impor atau data
  * lama). Server menolaknya dengan galat mentah tanpa nama bagian; di sini
- * bagian dan kolomnya disebut, lalu dibuka.
+ * bagian dan kolomnya disebut, lalu dibuka. Teks English yang Indonesianya
+ * kosong tidak diperiksa: kolomnya tidak tampil dan tidak ikut dikirim
+ * (tanpaEnYatim).
  */
-type KunciTeksEn = Exclude<keyof LandingConfigEn, "program_notes">;
-function judulBagianKepanjangan(landing: EventLandingConfig): { id: LandingHeadedSection; kolom: string; bahasa: "id" | "en"; max: number } | null {
-  const { eyebrow, heading, intro } = LANDING_SECTION_TEXT_MAX;
-  for (const id of Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSection[]) {
-    const kolom: [KunciTeksEn, string, number][] = [
-      [`${id}_eyebrow`, "label kecil", eyebrow],
-      // Judul Tentang: skema tetap 160 supaya judul lama tetap bisa disimpan.
-      id === "about" ? ["about_heading", "judul", 160] : [`${id}_heading`, "judul", heading],
-      ...(id === "faq" ? [["faq_intro", "pengantar", intro] as [KunciTeksEn, string, number]] : []),
-      ...(id === "agenda" ? [["agenda_note", "catatan", intro] as [KunciTeksEn, string, number]] : []),
-    ];
+function judulBagianKepanjangan(landing: EventLandingConfig): { id: LandingHeadedSection; kunci: KunciTeksEn; kolom: string; bahasa: "id" | "en"; max: number } | null {
+  for (const id of BAGIAN_BERJUDUL) {
     for (const bahasa of ["id", "en"] as const) {
-      const sumber: LandingConfigEn = bahasa === "id" ? landing : (landing.en ?? {});
-      for (const [kunci, nama, max] of kolom) {
-        if ((sumber[kunci]?.trim().length ?? 0) > max) return { id, kolom: nama, bahasa, max };
+      for (const [kunci, kolom, max] of kolomJudulBagian(id)) {
+        const teks = bahasa === "id" ? landing[kunci] : landing[kunci]?.trim() ? landing.en?.[kunci] : undefined;
+        if ((teks?.trim().length ?? 0) > max) return { id, kunci, kolom, bahasa, max };
       }
     }
   }
   return null;
 }
 
+/**
+ * Buang teks English judul bagian yang Indonesianya kosong. Halaman English
+ * tidak memakainya (resolveLanding), editor EN tidak menampilkannya, jadi
+ * tanpa ini sisa Impor bisa menolak Simpan tanpa kolom yang bisa diperbaiki.
+ */
+function tanpaEnYatim(landing: EventLandingConfig): EventLandingConfig {
+  if (!landing.en) return landing;
+  const en = { ...landing.en };
+  for (const id of BAGIAN_BERJUDUL) {
+    for (const [kunci] of kolomJudulBagian(id)) if (!landing[kunci]?.trim()) delete en[kunci];
+  }
+  return { ...landing, en };
+}
+
+/** Hapus yang bisa diurungkan. Berlaku di draf; baru permanen saat Simpan. */
 type Urungan = { pesan: string; sections: LandingSection[]; blocks: LandingBlock[] };
 
 export default function LandingCmsPage() {
@@ -567,7 +589,7 @@ export default function LandingCmsPage() {
       venue_address: facts.venue_address?.trim() || null,
       venue_map_url: facts.venue_map_url?.trim() || null,
       landing: {
-        ...landing,
+        ...tanpaEnYatim(landing),
         sections,
         theme: { seed: landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
         member: landing.member
@@ -640,9 +662,17 @@ export default function LandingCmsPage() {
       setTerbuka(judulLewat.id);
       if (judulLewat.bahasa === "id") setJudulTerbuka(judulLewat.id);
       gulirKeBaris(judulLewat.id);
+      // Kolomnya bisa jauh di bawah baris (mis. judul FAQ di bawah semua
+      // pertanyaan): tunggu lipatan dirender, lalu bawa kolomnya ke tengah.
+      const kunci = judulLewat.kunci;
+      window.setTimeout(() => {
+        const kolom = document.querySelector<HTMLElement>(`#panel-setelan [data-kolom="${kunci}"]`);
+        kolom?.scrollIntoView({ block: "center" });
+        kolom?.focus({ preventScroll: true });
+      }, 350);
       toast.error(
         "Teks terlalu panjang",
-        `${LANDING_SECTION_LABELS[judulLewat.id]}, ${judulLewat.kolom}${judulLewat.bahasa === "en" ? " (English)" : ""}: maksimal ${judulLewat.max} karakter. Bagiannya sudah dibuka.`,
+        `${LANDING_SECTION_LABELS[judulLewat.id]}, ${judulLewat.kolom}${judulLewat.bahasa === "en" ? " (English)" : ""}: maksimal ${judulLewat.max} karakter. Kolomnya sudah ditampilkan.`,
       );
       return;
     }
@@ -935,6 +965,7 @@ export default function LandingCmsPage() {
                 terlalu panjang: Simpan menolaknya, jadi harus terlihat). */}
             {nyala || alis.trim().length > LANDING_SECTION_TEXT_MAX.eyebrow ? (
               <TextField
+                data-kolom={`${id}_eyebrow`}
                 className={TEKS_BAWAAN}
                 label="Label kecil"
                 optional
@@ -947,6 +978,7 @@ export default function LandingCmsPage() {
               />
             ) : null}
             <TextField
+              data-kolom={kunciJudul}
               className={TEKS_BAWAAN}
               label="Judul"
               placeholder={otomatis.judul}
@@ -1027,6 +1059,7 @@ export default function LandingCmsPage() {
           ? { judul: tanggalAcara, jenis: "otomatis (tanggal)", hint: "Kosongkan untuk memakai tanggal acara." }
           : { judul: LANDING_SECTION_LABELS.agenda, jenis: "bawaan", hint: "Kosongkan untuk memakai tanggal acara setelah diisi." },
         <TextField
+          data-kolom="agenda_note"
           label="Catatan"
           optional
           placeholder="Registrasi dibuka pukul 08.00 WIB."
@@ -1337,6 +1370,7 @@ export default function LandingCmsPage() {
               "faq",
               { judul: LANDING_UI.id.faqHeading, jenis: "bawaan", hint: KOSONG_BAWAAN },
               <TextArea
+                data-kolom="faq_intro"
                 className={TEKS_BAWAAN}
                 label="Pengantar"
                 optional
