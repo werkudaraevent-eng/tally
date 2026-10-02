@@ -1810,7 +1810,11 @@ html:hover {
 /* Kolom galat sudah bertepi merah sebelum difokus, jadi perubahan warna tepi
  * tidak bisa jadi penanda fokus di sana. Gantinya tepi merah 2px (1px border +
  * 1px bayangan) dan lingkaran merah, seperti keadaan galat terfokus M3. */
-.press :is(.m3-field, .m3-field-lg)[aria-invalid="true"]:focus-visible {
+.press :is(.m3-field, .m3-field-lg)[aria-invalid="true"]:focus-visible,
+.press textarea[aria-invalid="true"]:focus-visible {
+	outline: none;
+	/* Login memberi aria-invalid tanpa `error`, jadi tepinya bisa masih primary. */
+	border-color: var(--md-sys-color-error);
 	box-shadow: 0 0 0 1px var(--md-sys-color-error), 0 0 0 4px color-mix(in srgb, var(--md-sys-color-error) 18%, transparent);
 }
 

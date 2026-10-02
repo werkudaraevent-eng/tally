@@ -337,6 +337,9 @@ function tanpaEnYatim(landing: EventLandingConfig): EventLandingConfig {
   return { ...landing, en };
 }
 
+/** Batas luar skema server untuk teks butir (landing-body-schema), ID dan English. */
+const BATAS_SKEMA_BUTIR: Record<KolomButir, LandingTextLimit> = { label: { max: 160 }, title: { max: 160 }, body: { max: 400 }, value: { max: 30 } };
+
 /**
  * Buang teks blok yang editor tidak tampilkan dan melewati batas: teks tombol
  * tanpa tautan, Chip 2 di luar tata letak overlay, teks tautan Kolom tanpa
@@ -363,7 +366,10 @@ function tanpaTersembunyiKepanjangan(blocks: LandingBlock[] | undefined): Landin
       hasil.items = blok.items.map((butir) => {
         const baru = { ...butir } as Record<string, unknown>;
         const enButir = butir.en ? ({ ...butir.en } as Record<string, unknown>) : undefined;
-        for (const [kunci, limit] of Object.entries(batas.item ?? {}) as [KolomButir, LandingTextLimit | undefined][]) {
+        // Semua kunci butir, bukan hanya yang dibatasi tata letak: mis. Chip 2
+        // di luar overlay tidak punya batas tata letak, tetapi skema tetap 30.
+        for (const kunci of Object.keys(BATAS_SKEMA_BUTIR) as KolomButir[]) {
+          const limit = batas.item?.[kunci] ?? BATAS_SKEMA_BUTIR[kunci];
           if (!isianButirTampil(blok, butir, kunci) && lewat(baru[kunci], limit)) delete baru[kunci];
           if (enButir && !ada(butir[kunci]) && lewat(enButir[kunci], limit)) delete enButir[kunci];
         }
@@ -692,7 +698,7 @@ export default function LandingCmsPage() {
         setSorot((current) => ({ id: blok.id, n: (current?.n ?? 0) + 1 }));
         gulirKeBaris(blok.id);
         // Toast langsung; fokus menyusul setelah baris terbuka. Bila kolomnya
-        // ternyata tidak ada, toast diganti supaya tidak menjanjikannya.
+        // ternyata tidak ada, toast kedua menyusul (toast tidak bisa diganti).
         const pesan = (akhir: string) => `Bagian ${index + 2}, ${lewat.kolom}${lewat.bahasa === "en" ? " (English)" : ""}: maksimal ${lewat.max} karakter. ${akhir}`;
         toast.error("Teks terlalu panjang", pesan("Kolomnya sudah ditampilkan."));
         fokusKolomLewat(blok.id, undefined, (ketemu) => {

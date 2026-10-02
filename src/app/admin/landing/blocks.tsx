@@ -169,9 +169,12 @@ function rasioGambarButir(block: LandingBlock): string {
 }
 
 /** Ada teks butir yang melewati batas (mis. setelah impor, atau kolom ditambah sehingga batasnya turun). */
-function butirKepanjangan(item: LandingBlockItem, batas: Partial<Record<KolomButir, LandingTextLimit>> | undefined): boolean {
+function butirKepanjangan(block: LandingBlock, item: LandingBlockItem, batas: Partial<Record<KolomButir, LandingTextLimit>> | undefined): boolean {
   if (!batas) return false;
+  // Isian yang tidak dirender tidak dihitung: lencananya akan membuka butir
+  // yang tidak punya kolom untuk diperbaiki.
   return (Object.keys(batas) as KolomButir[]).some((key) => {
+    if (!isianButirTampil(block, item, key)) return false;
     const max = batas[key]?.max;
     return max !== undefined && (item[key]?.length ?? 0) > max;
   });
@@ -478,7 +481,7 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
       {items.map((item, index) => {
         const buka = !ringkas || butirTerbuka === index;
         const nama = ringkas && item.title?.trim() ? item.title.trim() : `${Butir} ${index + 1}`;
-        const kepanjangan = ringkas && !buka && butirKepanjangan(item, batas.item);
+        const kepanjangan = ringkas && !buka && butirKepanjangan(block, item, batas.item);
         return (
           <div key={index} className={cx("flex flex-col gap-3 rounded-md border border-outline-variant", ringkas && !buka ? "px-3 py-1" : "p-3")}>
             <div className="flex items-center justify-between gap-2">
