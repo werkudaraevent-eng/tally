@@ -61,6 +61,9 @@ function KolomEn({
     </span>
   );
   const umum = {
+    // Placeholder penuh on-surface-variant (5,33:1), bukan /70 bawaan: di sini ia
+    // satu-satunya penjelasan bahwa kolom kosong jatuh ke teks Indonesia.
+    className: "[&_input::placeholder]:text-on-surface-variant [&_textarea::placeholder]:text-on-surface-variant",
     label,
     hint,
     placeholder: KOSONG,
@@ -71,6 +74,9 @@ function KolomEn({
   } as const;
   return area ? <TextArea {...umum} rows={rows ?? Math.min(6, Math.max(2, Math.ceil(sumber.length / 60)))} /> : <TextField {...umum} />;
 }
+
+/** Di dalam baris yang terbuka, bukan di atas daftar: tidak memakan satu baris daftar. */
+const CATATAN = <p key="catatan" className="text-body-small text-on-surface-variant">Gambar dan tata letak diubah di mode ID.</p>;
 
 function Kosong({ children }: { children: ReactNode }) {
   return <p className="text-body-medium text-on-surface-variant">{children}</p>;
@@ -161,6 +167,7 @@ export function BlockEditorEn({ block, onChange }: { block: LandingBlock; onChan
   }
   return (
     <div className="flex flex-col gap-4">
+      {CATATAN}
       {kolom}
       {butir}
     </div>
@@ -200,7 +207,7 @@ export function BagianEn({
         return [
           kolom("public_name", "Nama acara di halaman publik", landing.public_name, 120),
           kolom("tagline", "Tagline", facts.tagline, 200, true),
-          kolom("cta_label", "Teks tombol daftar", landing.cta_label, 60),
+          kolom("cta_label", "Teks tombol daftar", landing.cta_label, 40),
         ];
       case "kaki":
         return [
@@ -304,5 +311,10 @@ export function BagianEn({
     const nama = id === "pembuka" ? "Pembuka" : id === "kaki" ? "Kaki halaman" : LANDING_SECTION_LABELS[id];
     return <Kosong>{nama} belum punya teks Indonesia untuk diterjemahkan.</Kosong>;
   }
-  return <div className="flex flex-col gap-4">{hasil}</div>;
+  return (
+    <div className="flex flex-col gap-4">
+      {CATATAN}
+      {hasil}
+    </div>
+  );
 }
