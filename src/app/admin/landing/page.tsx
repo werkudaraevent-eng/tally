@@ -129,12 +129,14 @@ function kolomKepanjangan(blok: LandingBlock): { kolom: string; max: number } | 
  * bagian yang terbuka sebelumnya ikut menutup dan menggeser daftar. Yang digulir
  * hanya wadah panelnya; scrollIntoView ikut menggeser seluruh halaman CMS.
  */
-function gulirKeBaris(id: string) {
+function gulirKeBaris(id: string, bilaDiAtas = false) {
   window.requestAnimationFrame(() => {
     const baris = document.getElementById(`baris-${id}`);
     const wadah = baris?.closest<HTMLElement>(".overflow-y-auto");
     if (!baris || !wadah) return;
     const atas = baris.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop;
+    // `bilaDiAtas`: gulir hanya kalau baris sudah lewat ke atas panel.
+    if (bilaDiAtas && atas >= wadah.scrollTop) return;
     wadah.scrollTo({ top: Math.max(0, atas), behavior: "smooth" });
   });
 }
@@ -1269,7 +1271,12 @@ export default function LandingCmsPage() {
   function bukaTutup(id: string) {
     const buka = terbuka !== id;
     setTerbuka(buka ? id : null);
-    if (!buka) return;
+    if (!buka) {
+      // Ditutup dari kepala yang menempel: kembalikan barisnya ke pandangan,
+      // bukan menyisakan panel di tengah blok-blok sesudahnya.
+      gulirKeBaris(id, true);
+      return;
+    }
     setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }));
     gulirKeBaris(id);
   }
@@ -1317,7 +1324,9 @@ export default function LandingCmsPage() {
         <div
           className={cx(
             "flex items-center gap-2 pr-2",
-            buka ? "min-h-14 bg-primary-soft py-2 shadow-[inset_3px_0_0_var(--color-primary)]" : "h-14",
+            // Terbuka: kepala menempel di atas panel, supaya blok yang panjang
+            // bisa ditutup tanpa menggulir balik ke atas.
+            buka ? "sticky top-0 z-10 min-h-14 bg-primary-soft py-2 shadow-[inset_3px_0_0_var(--color-primary)]" : "h-14",
           )}
         >
           {bisaSeret ? (

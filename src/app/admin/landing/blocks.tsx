@@ -328,7 +328,7 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
           const href = event.target.value;
           // Kolom: teks tautan tanpa tautan tidak tampil, jadi ikut dikosongkan
           // supaya tidak dihitung sebagai teks yang belum diterjemahkan.
-          ubahItem(index, block.type === "multicolumn" && !href.trim() ? { href, label: undefined } : { href });
+          ubahItem(index, block.type === "multicolumn" && !href.trim() ? { href, label: undefined, en: item.en ? { ...item.en, label: undefined } : undefined } : { href });
         }}
       />
     );
