@@ -230,6 +230,7 @@ ${refPaletteBlock(light)}
 		color-scheme: dark;
 ${roleBlock(dark).replace(/^/gm, "\t")}
 ${customColorBlock(true).replace(/^/gm, "\t")}
+${softBlock(dark, true).replace(/^/gm, "\t")}
 ${refPaletteBlock(dark).replace(/^/gm, "\t")}
 	}
 }
