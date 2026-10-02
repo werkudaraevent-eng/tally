@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash, WarningCircle } from "@phosphor-icons/react";
+import { CaretDown, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
 import { useState, type ReactNode } from "react";
 import { Button, Dialog, IconButton, SegmentedButton, TextArea, TextField } from "@/components/m3";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
@@ -10,7 +10,10 @@ import {
   LANDING_BLOCK_LABELS,
   LANDING_BLOCK_LAYOUTS,
   LANDING_BLOCK_TONE_LABELS,
+  LANDING_COLUMNS_DEFAULT,
+  LANDING_IMAGE_SHAPE_LABELS,
   LANDING_NAV_LABEL_MAX,
+  landingColumnCount,
   landingBlockLayout,
   landingBlockLimits,
   type LandingBlock,
@@ -19,6 +22,8 @@ import {
   type LandingBlockLayout,
   type LandingBlockTone,
   type LandingBlockType,
+  type LandingColumnCount,
+  type LandingImageShape,
   type LandingTextLimit,
 } from "@/lib/domain";
 import { cx } from "@/lib/m3/cx";
@@ -34,13 +39,14 @@ import { cx } from "@/lib/m3/cx";
  * menyebut rasio slotnya, karena gambar dipotong otomatis ke rasio itu.
  */
 
-const URUTAN_JENIS: LandingBlockType[] = ["text_image", "cards", "points", "stats", "logos", "download", "cta", "gallery", "quote"];
+const URUTAN_JENIS: LandingBlockType[] = ["text_image", "multicolumn", "cards", "points", "stats", "logos", "download", "cta", "gallery", "quote"];
 
 export function buatBlok(type: LandingBlockType): LandingBlock {
   const acak = Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) => byte.toString(36).padStart(2, "0")).join("").slice(0, 10);
   const id = `blk_${acak}` as LandingBlockId;
   const layout = LANDING_BLOCK_LAYOUTS[type]?.[0]?.value;
-  return { id, type, tone: LANDING_BLOCK_DEFAULT_TONE[type], ...(layout ? { layout } : {}), items: [] };
+  const kolom = type === "multicolumn" ? { columns: LANDING_COLUMNS_DEFAULT, image_shape: "wide" as const, align: "left" as const } : {};
+  return { id, type, tone: LANDING_BLOCK_DEFAULT_TONE[type], ...(layout ? { layout } : {}), ...kolom, items: [] };
 }
 
 const TAUTAN_SAH = /^(https?:\/\/\S+|#[A-Za-z][\w-]*)$/;
@@ -65,6 +71,7 @@ export function ringkasanBlok(block: LandingBlock): string | null {
     case "gallery": return jumlah ? `${jumlah} foto` : null;
     case "stats": return jumlah ? `${jumlah} angka` : null;
     case "logos": return jumlah ? `${jumlah} logo` : null;
+    case "multicolumn": return jumlah ? `${jumlah} isi · ${landingColumnCount(block)} kolom` : null;
     case "quote": return block.name?.trim() || null;
     default: return block.heading?.trim() || null;
   }
@@ -85,6 +92,7 @@ function Sketsa({ type }: { type: LandingBlockType }) {
       {type === "quote" ? (<span className="flex flex-1 flex-col justify-center gap-1.5">{garis("w-full", "h-1.5")}{garis("w-4/5", "h-1.5")}<span className="mt-1 flex items-center gap-1"><span className="size-3 rounded-full bg-outline-variant" />{garis("w-8")}</span></span>) : null}
       {type === "logos" ? (<span className="flex flex-1 items-center gap-1.5">{[0, 1, 2].map((key) => <span key={key} className={cx(kotak, "h-5 flex-1")} />)}</span>) : null}
       {type === "download" ? (<span className="flex flex-1 items-center gap-2 rounded-[3px] bg-surface-container-lowest p-1.5"><span className="flex flex-1 flex-col gap-1">{garis("w-full", "h-1.5")}{garis("w-3/4")}<span className="h-2 w-8 rounded-[2px] bg-primary" /></span><span className={cx(kotak, "h-10 w-7 -rotate-6")} /></span>) : null}
+      {type === "multicolumn" ? (<span className="flex flex-1 gap-1.5">{[0, 1, 2].map((key) => <span key={key} className="flex flex-1 flex-col gap-1"><span className={cx(kotak, "h-6")} />{garis("w-full", "h-1.5")}{garis("w-3/4")}</span>)}</span>) : null}
       {type === "cta" ? (<span className="flex flex-1 items-center gap-2"><span className="flex flex-1 flex-col gap-1">{garis("w-full", "h-1.5")}{garis("w-2/3")}</span><span className="h-3 w-8 rounded-[2px] bg-white" /></span>) : null}
     </span>
   );
@@ -141,16 +149,32 @@ const LABEL_BUTIR: Partial<Record<LandingBlockType, string>> = {
   gallery: "foto",
   stats: "angka",
   logos: "logo",
+  multicolumn: "isi kolom",
 };
 
 /** Rasio slot gambar per jenis dan tata letak. Hint menyebutnya karena gambar dipotong ke rasio ini. */
 function rasioGambarButir(block: LandingBlock): string {
   if (block.type === "logos") return "PNG atau SVG berlatar transparan. Tampil setinggi 40 px, lebar paling banyak 160 px.";
   if (block.type === "gallery") return "Rasio 4:3, minimal 1200×900. Dipotong otomatis.";
+  if (block.type === "multicolumn") {
+    const bentuk = block.image_shape ?? "wide";
+    if (bentuk === "circle") return "Dipotong bulat, minimal 400×400. Wajah atau ikon di tengah foto.";
+    if (bentuk === "square") return "Rasio 1:1, minimal 800×800. Dipotong otomatis.";
+    return "Rasio 3:2, minimal 960×640. Isi semua kolom dengan gambar, atau kosongkan semuanya, supaya sejajar.";
+  }
   const layout = landingBlockLayout(block);
   if (layout === "overlay") return "Rasio 3:2, minimal 1200×800. Bagian bawah foto tertutup bayangan gelap tempat judul berdiri.";
   if (layout === "columns") return "Rasio 3:2, minimal 768×512. Isi semua kartu dengan gambar, atau kosongkan semuanya, supaya sejajar.";
   return "Rasio 16:9 untuk kartu pertama, 3:2 untuk yang lain. Dipotong otomatis.";
+}
+
+/** Ada teks butir yang melewati batas (mis. setelah impor, atau kolom ditambah sehingga batasnya turun). */
+function butirKepanjangan(item: LandingBlockItem, batas: Partial<Record<KolomButir, LandingTextLimit>> | undefined): boolean {
+  if (!batas) return false;
+  return (Object.keys(batas) as KolomButir[]).some((key) => {
+    const max = batas[key]?.max;
+    return max !== undefined && (item[key]?.length ?? 0) > max;
+  });
 }
 
 function Kelompok({ judul, catatan, children }: { judul: string; catatan?: string; children: ReactNode }) {
@@ -194,6 +218,17 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
   const maks = batas.items?.max ?? 0;
   const butir = LABEL_BUTIR[block.type];
   const Butir = butir ? butir[0].toUpperCase() + butir.slice(1) : "";
+  // Kolom: satu isi terbuka sekaligus, sisanya satu baris ringkas. Delapan
+  // formulir terbuka akan mendorong baris blok berikutnya jauh dari layar.
+  // Semua mulai terlipat supaya baris blok berikutnya tetap terlihat.
+  const ringkas = block.type === "multicolumn";
+  const [butirTerbuka, setButirTerbuka] = useState(-1);
+  const [tampilanTerbuka, setTampilanTerbuka] = useState(false);
+  const hapusButir = (index: number) => {
+    setItems(items.filter((_, position) => position !== index));
+    // Isi yang sedang terbuka tetap terbuka walau urutannya bergeser.
+    setButirTerbuka((terbuka) => (terbuka === index ? -1 : terbuka > index ? terbuka - 1 : terbuka));
+  };
 
   // ---- Kolom tingkat blok ------------------------------------------------------
   const teks = (key: KolomTeks, label: string, opsi: { hint?: string; optional?: boolean; placeholder?: string } = {}) => (
@@ -282,7 +317,20 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
       />
     );
     const tautanButir = (hint: string) => (
-      <TextField label="Tautan" optional hint={hint} placeholder="https://" maxLength={600} value={item.href ?? ""} onChange={(event) => ubahItem(index, { href: event.target.value })} />
+      <TextField
+        label="Tautan"
+        optional
+        hint={hint}
+        placeholder="https://"
+        maxLength={600}
+        value={item.href ?? ""}
+        onChange={(event) => {
+          const href = event.target.value;
+          // Kolom: teks tautan tanpa tautan tidak tampil, jadi ikut dikosongkan
+          // supaya tidak dihitung sebagai teks yang belum diterjemahkan.
+          ubahItem(index, block.type === "multicolumn" && !href.trim() ? { href, label: undefined, en: item.en ? { ...item.en, label: undefined } : undefined } : { href });
+        }}
+      />
     );
     switch (block.type) {
       case "stats":
@@ -326,6 +374,16 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
             {tautanButir("Situs lembaga, opsional.")}
           </>
         );
+      case "multicolumn":
+        return (
+          <>
+            {gambar}
+            {isian("title", "Judul", { optional: true, hint: "Isi judul atau teks. Kolom berisi gambar saja tidak tampil." })}
+            {isian("body", "Teks", { area: true, optional: true })}
+            {tautanButir("Tautan di bawah teks, mis. ke halaman pembicara atau #agenda.")}
+            {item.href?.trim() ? isian("label", "Teks tautan", { optional: true, hint: "Bawaan: Selengkapnya." }) : null}
+          </>
+        );
       default:
         return (
           <>
@@ -345,20 +403,47 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
         <Peringatan>Dengan {items.length} {butir}, baris terakhir tidak penuh.</Peringatan>
       ) : null}
       {items.length === 0 ? <p className="text-body-medium text-on-surface-variant">Belum ada {butir}.</p> : null}
-      {items.map((item, index) => (
-        <div key={index} className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-body-medium font-medium text-on-surface">{Butir} {index + 1}</p>
-            <IconButton size="sm" label={`Hapus ${butir} ${index + 1}`} className="text-error" onClick={() => setItems(items.filter((_, position) => position !== index))}>
-              <Trash size={16} />
-            </IconButton>
+      {items.map((item, index) => {
+        const buka = !ringkas || butirTerbuka === index;
+        const nama = ringkas && item.title?.trim() ? item.title.trim() : `${Butir} ${index + 1}`;
+        const kepanjangan = ringkas && !buka && butirKepanjangan(item, batas.item);
+        return (
+          <div key={index} className={cx("flex flex-col gap-3 rounded-md border border-outline-variant", ringkas && !buka ? "px-3 py-1" : "p-3")}>
+            <div className="flex items-center justify-between gap-2">
+              {ringkas ? (
+                <button
+                  type="button"
+                  aria-expanded={buka}
+                  onClick={() => setButirTerbuka(buka ? -1 : index)}
+                  className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-sm text-left"
+                >
+                  {item.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.image_url} alt="" className="size-8 shrink-0 rounded-sm object-cover" />
+                  ) : null}
+                  <span className="truncate text-body-medium font-medium text-on-surface" title={nama}>{nama}</span>
+                  {kepanjangan ? (
+                    <span className="flex shrink-0 items-center gap-1 text-body-small text-error">
+                      <WarningCircle size={14} weight="fill" aria-hidden />
+                      Terlalu panjang
+                    </span>
+                  ) : null}
+                  <CaretDown size={14} aria-hidden className={cx("shrink-0 text-on-surface-variant transition-transform", buka && "rotate-180")} />
+                </button>
+              ) : (
+                <p className="text-body-medium font-medium text-on-surface">{Butir} {index + 1}</p>
+              )}
+              <IconButton size="sm" label={`Hapus ${nama}`} className="text-error" onClick={() => hapusButir(index)}>
+                <Trash size={16} />
+              </IconButton>
+            </div>
+            {buka ? kolomButir(item, index) : null}
           </div>
-          {kolomButir(item, index)}
-        </div>
-      ))}
+        );
+      })}
       {items.length < maks ? (
         <div>
-          <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setItems([...items, {}])}>
+          <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => { setItems([...items, {}]); setButirTerbuka(items.length); }}>
             Tambah {butir}
           </Button>
         </div>
@@ -417,6 +502,66 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
           {latar}
         </div>
       );
+    case "multicolumn": {
+      const ringkasanTampilan = `${landingColumnCount(block)} kolom · ${LANDING_IMAGE_SHAPE_LABELS[block.image_shape ?? "wide"]} · ${block.align === "center" ? "Tengah" : "Kiri"} · ${LANDING_BLOCK_TONE_LABELS[block.tone ?? LANDING_BLOCK_DEFAULT_TONE.multicolumn]}`;
+      return (
+        <div className="flex flex-col gap-4">
+          {alis}
+          {judul()}
+          {area("body", "Pengantar", { optional: true, rows: 2 })}
+          {daftarButir}
+          <div className="flex flex-col gap-4 border-t border-outline-variant pt-2">
+            <button
+              type="button"
+              aria-expanded={tampilanTerbuka}
+              onClick={() => setTampilanTerbuka((buka) => !buka)}
+              className="m3-state -mx-2 flex min-h-12 items-center gap-2 rounded-sm px-2 text-left"
+            >
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-body-medium font-semibold text-on-surface">Tampilan</span>
+                <span className="truncate text-body-small text-on-surface-variant">{ringkasanTampilan}</span>
+              </span>
+              <CaretDown size={14} aria-hidden className={cx("shrink-0 text-on-surface-variant transition-transform", tampilanTerbuka && "rotate-180")} />
+            </button>
+            {tampilanTerbuka ? (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-body-medium font-medium text-on-surface">Kolom di layar lebar</p>
+                  <SegmentedButton<`${LandingColumnCount}`>
+                    label="Jumlah kolom"
+                    value={`${landingColumnCount(block)}`}
+                    onChange={(value) => ubah({ columns: Number(value) as LandingColumnCount })}
+                    options={(["1", "2", "3", "4"] as const).map((value) => ({ value, label: value }))}
+                  />
+                  <p className="text-body-small text-on-surface-variant">Tablet paling banyak 2 kolom, ponsel selalu 1.</p>
+                </div>
+                <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-body-medium font-medium text-on-surface">Bentuk gambar</p>
+                    <SegmentedButton<LandingImageShape>
+                      label="Bentuk gambar"
+                      value={block.image_shape ?? "wide"}
+                      onChange={(image_shape) => ubah({ image_shape })}
+                      options={(["wide", "square", "circle"] as const).map((value) => ({ value, label: LANDING_IMAGE_SHAPE_LABELS[value] }))}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-body-medium font-medium text-on-surface">Rata</p>
+                    <SegmentedButton<"left" | "center">
+                      label="Perataan isi kolom"
+                      value={block.align ?? "left"}
+                      onChange={(align) => ubah({ align })}
+                      options={[{ value: "left", label: "Kiri" }, { value: "center", label: "Tengah" }]}
+                    />
+                  </div>
+                </div>
+                {latar}
+              </>
+            ) : null}
+          </div>
+        </div>
+      );
+    }
     case "stats":
       return (
         <div className="flex flex-col gap-4">

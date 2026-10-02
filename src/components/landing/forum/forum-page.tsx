@@ -13,7 +13,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 export async function forumPage(halaman: Exclude<LandingForumPage, "beranda">, searchParams: SearchParams) {
   const event = await getPublicPageEvent(searchParams);
   if (!event || event.status === "archived") notFound();
-  const isi = renderLanding(event, halaman);
+  const isi = renderLanding(event, undefined, { halaman });
   if (!isi) notFound();
   return isi;
 }

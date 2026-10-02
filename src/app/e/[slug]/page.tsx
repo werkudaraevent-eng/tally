@@ -12,8 +12,8 @@ import { landingMetadata } from "./landing-metadata";
  * login. Sekarang setiap pemotongan berakhir di halaman ini, dan tidak ada
  * satu pun jalan dari sini ke layar internal.
  *
- * Bahasa Indonesia, bahasa utama. Versi English di `/e/<slug>/en`
- * (en/page.tsx).
+ * Bahasa utama pilihan admin (Indonesia bila tidak dipilih); bahasa lainnya di
+ * `/e/<slug>/en` atau `/e/<slug>/id` (en/page.tsx, id/page.tsx).
  *
  * `force-dynamic` dengan alasan yang sama seperti /display dan /daftar: tanpa
  * itu Next.js merender halaman saat build dan isinya membeku pada acara yang
@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  return landingMetadata(slug, "id");
+  return landingMetadata(slug);
 }
 
 export default async function EventLandingPage({ params }: { params: Promise<{ slug: string }> }) {

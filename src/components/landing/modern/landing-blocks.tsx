@@ -4,12 +4,13 @@ import { ArrowDown, ArrowUpRight, DownloadSimple } from "@phosphor-icons/react/d
 import {
   landingBlockHasContent,
   landingBlockLayout,
+  landingColumnCount,
   type LandingBlock,
   type LandingBlockItem,
   type LandingBlockTone,
 } from "@/lib/domain";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
-import { HEAD, JUDUL, MUTED, PIL, SHELL } from "./styles";
+import { HEAD, JUDUL, LABEL_BAGIAN, MUTED, PIL, SHELL } from "./styles";
 
 /**
  * Blok dari pustaka blok, tata letak Modern. Rancangan: Figma "Halaman acara
@@ -63,9 +64,11 @@ const NADA: Record<LandingBlockTone, CSSProperties> = {
 
 const TOMBOL = `${PIL} bg-[var(--blok-tombol)] font-semibold text-[var(--blok-tombol-ink)]`;
 const TOMBOL_GARIS = `${PIL} border border-[color-mix(in_srgb,currentColor_35%,transparent)] font-semibold`;
-const ALIS = "text-title-small font-semibold text-[var(--blok-aksen)]";
-/** Paragraf: 17px, tinggi baris 1.6. Lebar kolom pemakainya menjaga 60 sampai 75 karakter per baris. */
-const ISI = `text-body-large leading-[1.6] ${MUTED}`;
+const ALIS = `${LABEL_BAGIAN} text-[var(--blok-aksen)]`;
+/** Label di dalam butir (bukan label bagian): tetap huruf biasa. */
+const ALIS_BUTIR = "text-title-small font-semibold text-[var(--blok-aksen)]";
+/** Paragraf: 16/24, paling lebar 35rem (60-75 karakter per baris). */
+const ISI = `text-isi max-w-[35rem] ${MUTED}`;
 /** Teks panjang dari admin (tautan, nama berkas) boleh patah di mana saja, bukan menggeser halaman. */
 const PATAH = "[overflow-wrap:anywhere]";
 
@@ -139,7 +142,7 @@ function Kepala({ block, aksi }: { block: LandingBlock; aksi?: ReactNode }) {
         {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
         {block.heading?.trim() ? <h2 className={JUDUL}>{block.heading.trim()}</h2> : null}
       </div>
-      {pengantar ? <p className={`max-w-[440px] ${ISI}`}>{pengantar}</p> : null}
+      {pengantar ? <p className={`max-w-[440px] text-isi ${MUTED}`}>{pengantar}</p> : null}
       {aksi}
     </div>
   );
@@ -149,8 +152,10 @@ function Kepala({ block, aksi }: { block: LandingBlock; aksi?: ReactNode }) {
 function KepalaKiri({ block }: { block: LandingBlock }) {
   return (
     <div className="flex flex-col gap-4">
-      {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
-      {block.heading?.trim() ? <h2 className={JUDUL}>{block.heading.trim()}</h2> : null}
+      <div className="flex flex-col gap-3">
+        {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
+        {block.heading?.trim() ? <h2 className={JUDUL}>{block.heading.trim()}</h2> : null}
+      </div>
       {block.body?.trim() ? <p className={ISI}>{block.body.trim()}</p> : null}
     </div>
   );
@@ -183,8 +188,10 @@ function TeksGambar({ block }: { block: LandingBlock }) {
           </div>
         ) : null}
         <div className={`flex max-w-[600px] flex-col gap-5 ${kiri ? "" : "lg:order-1"}`}>
-          {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
-          {block.heading?.trim() ? <h2 className={JUDUL}>{block.heading.trim()}</h2> : null}
+          <div className="flex flex-col gap-3">
+            {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
+            {block.heading?.trim() ? <h2 className={JUDUL}>{block.heading.trim()}</h2> : null}
+          </div>
           <Paragraf teks={block.body} className={ISI} />
           {url1 || url2 ? (
             <div className="flex flex-wrap gap-3 pt-3">
@@ -252,7 +259,7 @@ function KartuFoto({ block, items }: { block: LandingBlock; items: LandingBlockI
                 </div>
               ) : null}
               <h3 className={`${HEAD} text-balance text-[24px] font-semibold leading-[1.2] tracking-[-0.02em] sm:text-[28px]`}>{item.title?.trim()}</h3>
-              {item.body?.trim() ? <p className="max-w-[560px] text-body-medium leading-[1.55] text-white/85 sm:text-body-large">{item.body.trim()}</p> : null}
+              {item.body?.trim() ? <p className="max-w-[560px] text-body-medium leading-[1.55] text-white/85 sm:text-isi">{item.body.trim()}</p> : null}
             </Kartu>
           </li>
         ))}
@@ -273,7 +280,7 @@ function KartuKolom({ block, items }: { block: LandingBlock; items: LandingBlock
             <li key={index} className="flex">
               <Kartu item={item} className="flex w-full flex-col gap-3.5 rounded-lg">
                 {item.image_url ? <Gambar src={item.image_url} alt="" className="aspect-[3/2] w-full rounded-lg" /> : null}
-                {item.label?.trim() ? <p className={`${ALIS} pt-1`}>{item.label.trim()}</p> : null}
+                {item.label?.trim() ? <p className={`${ALIS_BUTIR} pt-1`}>{item.label.trim()}</p> : null}
                 <h3 className={`${HEAD} text-balance text-[22px] font-semibold leading-[1.25] tracking-[-0.01em] sm:text-[24px]`}>{item.title?.trim()}</h3>
                 {item.body?.trim() || href ? (
                   <p className={`${ISI} ${PATAH}`}>
@@ -305,7 +312,7 @@ function KartuUtama({ block, items }: { block: LandingBlock; items: LandingBlock
       <div className={`grid gap-6 ${samping.length ? "lg:grid-cols-12" : ""}`}>
         <Kartu item={utama} className={`flex flex-col gap-4 rounded-lg ${samping.length ? "lg:col-span-7" : ""}`}>
           {utama.image_url ? <Gambar src={utama.image_url} alt="" className="aspect-[16/9] w-full rounded-lg" /> : null}
-          {utama.label?.trim() ? <p className={ALIS}>{utama.label.trim()}</p> : null}
+          {utama.label?.trim() ? <p className={ALIS_BUTIR}>{utama.label.trim()}</p> : null}
           <h3 className={`${HEAD} text-balance text-[24px] font-semibold leading-[1.2] tracking-[-0.02em] sm:text-[32px]`}>{utama.title?.trim()}</h3>
           {utama.body?.trim() ? <p className={ISI}>{utama.body.trim()}</p> : null}
         </Kartu>
@@ -315,7 +322,7 @@ function KartuUtama({ block, items }: { block: LandingBlock; items: LandingBlock
               <Kartu key={index} item={item} className="flex items-center gap-5 rounded-lg bg-[var(--blok-kartu)] p-4">
                 {item.image_url ? <Gambar src={item.image_url} alt="" className="size-24 shrink-0 rounded-md sm:size-40" /> : null}
                 <div className="flex min-w-0 flex-col gap-2">
-                  {item.label?.trim() ? <p className={ALIS}>{item.label.trim()}</p> : null}
+                  {item.label?.trim() ? <p className={ALIS_BUTIR}>{item.label.trim()}</p> : null}
                   <h3 className={`${HEAD} text-balance text-[19px] font-semibold leading-[1.25] tracking-[-0.01em] sm:text-[24px]`}>{item.title?.trim()}</h3>
                   {item.body?.trim() ? <p className={`text-body-medium ${MUTED}`}>{item.body.trim()}</p> : null}
                 </div>
@@ -329,7 +336,7 @@ function KartuUtama({ block, items }: { block: LandingBlock; items: LandingBlock
           {sisa.map((item, index) => (
             <Kartu key={index} item={item} className="flex flex-col gap-3 rounded-lg bg-[var(--blok-kartu)] p-4">
               {item.image_url ? <Gambar src={item.image_url} alt="" className="aspect-[3/2] w-full rounded-md" /> : null}
-              {item.label?.trim() ? <p className={ALIS}>{item.label.trim()}</p> : null}
+              {item.label?.trim() ? <p className={ALIS_BUTIR}>{item.label.trim()}</p> : null}
               <h3 className={`${HEAD} text-balance text-[22px] font-semibold leading-[1.25] tracking-[-0.01em]`}>{item.title?.trim()}</h3>
               {item.body?.trim() ? <p className={`text-body-medium ${MUTED}`}>{item.body.trim()}</p> : null}
             </Kartu>
@@ -396,7 +403,7 @@ function KartuPoin({ block }: { block: LandingBlock }) {
                 </span>
                 <div className="flex min-w-0 max-w-[680px] flex-col gap-1.5">
                   {item.title?.trim() ? <h3 className="text-title-large font-semibold">{item.title.trim()}</h3> : null}
-                  {item.body?.trim() ? <p className="text-body-large leading-[1.6]">{item.body.trim()}</p> : null}
+                  {item.body?.trim() ? <p className="text-isi">{item.body.trim()}</p> : null}
                 </div>
               </li>
             ))}
@@ -406,7 +413,7 @@ function KartuPoin({ block }: { block: LandingBlock }) {
             {items.map((item, index) => (
               <li key={index} className="flex gap-3.5 border-t border-[var(--reg-outline-variant)] py-4 sm:py-5">
                 <span aria-hidden className="mt-2 size-2 shrink-0 rounded-[2px] bg-[var(--blok-aksen)]" />
-                <span className="text-body-large leading-[1.55]">{item.title?.trim() || item.body?.trim()}</span>
+                <span className="text-isi">{item.title?.trim() || item.body?.trim()}</span>
               </li>
             ))}
           </ul>
@@ -456,7 +463,7 @@ function Angka({ block }: { block: LandingBlock }) {
             // Keterangan (dt) lebih dulu di DOM sesuai aturan <dl>; angkanya
             // tampil di atas lewat flex-col-reverse.
             <div key={index} className="flex flex-col-reverse justify-end gap-2 border-t border-[var(--reg-outline-variant)] pt-4 lg:flex-1 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-              <dt className={`text-body-medium leading-[1.55] sm:text-body-large ${MUTED}`}>{item.label?.trim()}</dt>
+              <dt className={`text-body-medium leading-[1.55] sm:text-isi ${MUTED}`}>{item.label?.trim()}</dt>
               <dd className={`${HEAD} whitespace-nowrap text-[44px] font-semibold leading-none tracking-[-0.02em] tabular-nums sm:text-[56px]`}>{item.value?.trim()}</dd>
             </div>
           ))}
@@ -489,7 +496,7 @@ function Kutipan({ block }: { block: LandingBlock }) {
           )}
           <span className="flex flex-col">
             <span className="text-title-medium font-semibold">{nama}</span>
-            {block.role?.trim() ? <span className={`text-body-large ${MUTED}`}>{block.role.trim()}</span> : null}
+            {block.role?.trim() ? <span className={`text-isi ${MUTED}`}>{block.role.trim()}</span> : null}
           </span>
         </figcaption>
       </figure>
@@ -525,6 +532,61 @@ function Logo({ block }: { block: LandingBlock }) {
   );
 }
 
+// ---- Kolom -------------------------------------------------------------------------
+
+/** Grid per jumlah kolom. Tablet paling banyak 2, ponsel selalu 1. Ditulis utuh supaya Tailwind menemukannya. */
+const GRID_KOLOM: Record<1 | 2 | 3 | 4, string> = {
+  1: "max-w-[720px]",
+  2: "sm:grid-cols-2",
+  3: "sm:grid-cols-2 lg:grid-cols-3",
+  4: "sm:grid-cols-2 lg:grid-cols-4",
+};
+
+/** Rasio dikunci per bentuk; gambar dipotong `object-cover`, bukan direntangkan. */
+const BENTUK_GAMBAR = {
+  wide: "aspect-[3/2] w-full rounded-lg",
+  square: "aspect-square w-full rounded-lg",
+  circle: "aspect-square w-full max-w-[160px] rounded-full",
+} as const;
+
+/**
+ * Kolom: 1 sampai 4 kolom setara, tiap kolom gambar (opsional), judul, teks,
+ * dan tautan. Pola multicolumn Shopify Dawn; jumlah kolom, bentuk gambar, dan
+ * perataan dipilih admin, ukuran dan jarak dikunci di sini.
+ */
+function Kolom({ block, lang }: { block: LandingBlock; lang: LandingLang }) {
+  const kolom = landingColumnCount(block);
+  const tengah = block.align === "center";
+  const bentuk = BENTUK_GAMBAR[block.image_shape ?? "wide"];
+  // Kolom berisi gambar saja tidak punya teks untuk pembaca layar: tidak dihitung.
+  const items = (block.items ?? []).filter((item) => item.title?.trim() || item.body?.trim());
+  return (
+    <Wadah block={block}>
+      <Kepala block={block} />
+      <ul className={`grid gap-x-6 gap-y-12 ${GRID_KOLOM[kolom]} ${kolom === 1 && tengah ? "mx-auto" : ""}`}>
+        {items.map((item, index) => {
+          const href = item.href?.trim();
+          return (
+            <li key={index} className={`flex flex-col gap-3.5 ${tengah ? "items-center text-center" : ""}`}>
+              {item.image_url ? <Gambar src={item.image_url} alt="" className={bentuk} /> : null}
+              {item.title?.trim() ? (
+                <h3 className={`${HEAD} text-balance pt-1 text-[22px] font-semibold leading-[1.25] tracking-[-0.01em] sm:text-[24px]`}>{item.title.trim()}</h3>
+              ) : null}
+              <Paragraf teks={item.body} className={`${ISI} ${PATAH}`} />
+              {href ? (
+                <Taut href={href} className={`m3-state -mx-1 -my-3 inline-flex min-h-12 items-center gap-1.5 ${tengah ? "self-center" : "self-start"} rounded-sm px-1 text-title-medium font-semibold text-[var(--blok-aksen)] underline-offset-4 hover:underline`}>
+                  {item.label?.trim() || LANDING_UI[lang].readMore}
+                  <IkonTaut href={href} size={16} />
+                </Taut>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </Wadah>
+  );
+}
+
 // ---- Unduhan dan ajakan ----------------------------------------------------------
 
 function Unduhan({ block, lang }: { block: LandingBlock; lang: LandingLang }) {
@@ -534,8 +596,10 @@ function Unduhan({ block, lang }: { block: LandingBlock; lang: LandingLang }) {
     <Wadah block={block} className="py-12 sm:py-16">
       <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-20">
         <div className="flex max-w-[600px] flex-col gap-5">
-          {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
-          <h2 className={JUDUL}>{block.heading?.trim()}</h2>
+          <div className="flex flex-col gap-3">
+            {block.eyebrow?.trim() ? <p className={ALIS}>{block.eyebrow.trim()}</p> : null}
+            <h2 className={JUDUL}>{block.heading?.trim()}</h2>
+          </div>
           {block.body?.trim() ? <p className={ISI}>{block.body.trim()}</p> : null}
           <Taut href={url} className={`${TOMBOL} mt-3 self-start`}>
             {block.link_label?.trim() || t.downloadMaterial}
@@ -575,7 +639,7 @@ function Ajakan({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftar
             <Gambar src={block.image_url} alt="" className="absolute inset-0 -z-10 size-full" />
             <div aria-hidden className="absolute inset-0 -z-10" style={{ background: LAPISAN_AJAKAN }} />
             <h2 className={`${HEAD} max-w-[720px] text-balance text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] sm:text-[48px]`}>{block.heading?.trim()}</h2>
-            {block.body?.trim() ? <p className="max-w-[560px] text-body-large leading-[1.6] text-white/90">{block.body.trim()}</p> : null}
+            {block.body?.trim() ? <p className="max-w-[560px] text-isi text-white/90">{block.body.trim()}</p> : null}
             {daftarUrl ? (
               <Link
                 href={daftarUrl}
@@ -600,7 +664,7 @@ function Ajakan({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftar
         >
           <div className="flex max-w-[720px] flex-col gap-3">
             <h2 className={`${HEAD} text-balance text-[28px] font-semibold leading-[1.2] tracking-[-0.02em] sm:text-[44px]`}>{block.heading?.trim()}</h2>
-            {block.body?.trim() ? <p className="text-body-large opacity-90">{block.body.trim()}</p> : null}
+            {block.body?.trim() ? <p className="text-isi opacity-90">{block.body.trim()}</p> : null}
           </div>
           {daftarUrl ? (
             <Link href={daftarUrl} className={`${PIL} shrink-0 self-start bg-[var(--reg-on-brand)] font-semibold text-[var(--reg-brand)] lg:self-auto`}>
@@ -620,11 +684,13 @@ function Ajakan({ block, daftarUrl, daftarLabel }: { block: LandingBlock; daftar
 function tanpaJangkarMati(block: LandingBlock, jangkar: ReadonlySet<string> | undefined): LandingBlock {
   if (!jangkar) return block;
   const mati = (url: string | null | undefined) => Boolean(url?.trim().startsWith("#") && !jangkar.has(url.trim().slice(1)));
-  if (!mati(block.link_url) && !mati(block.link2_url)) return block;
+  const butirMati = (block.items ?? []).some((item) => mati(item.href));
+  if (!mati(block.link_url) && !mati(block.link2_url) && !butirMati) return block;
   return {
     ...block,
     ...(mati(block.link_url) ? { link_url: undefined } : null),
     ...(mati(block.link2_url) ? { link2_url: undefined } : null),
+    ...(butirMati ? { items: block.items?.map((item) => (mati(item.href) ? { ...item, href: undefined } : item)) } : null),
   };
 }
 
@@ -669,5 +735,6 @@ export function LandingBlockView({
     case "logos": return <Logo block={block} />;
     case "download": return <Unduhan block={block} lang={lang} />;
     case "cta": return <Ajakan block={block} daftarUrl={daftarUrl} daftarLabel={daftarLabel} />;
+    case "multicolumn": return <Kolom block={block} lang={lang} />;
   }
 }

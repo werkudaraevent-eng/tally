@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { getEventBySlugPublic } from "@/lib/auth/event-scope";
 import { publicEventName, type EventLandingConfig } from "@/lib/domain";
 import { formatEventSchedule } from "@/lib/event-datetime";
-import { landingEnAvailable, landingPath, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
+import { landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
 
 /** Asal situs dari permintaan ini, untuk alamat hreflang yang harus absolut. */
 async function asalSitus(): Promise<string | null> {
@@ -22,12 +22,16 @@ async function asalSitus(): Promise<string | null> {
  * jelas asalnya — persis yang membuat orang tidak menekannya.
  *
  * Bila versi English menyala, kedua versi saling menunjuk lewat hreflang
- * (Google: Localized versions of your pages), dengan Indonesia sebagai
- * x-default karena alamat itulah yang dicetak di undangan dan QR.
+ * (Google: Localized versions of your pages), dengan bahasa utama sebagai
+ * x-default karena alamat tanpa akhiran itulah yang dicetak di undangan dan QR.
+ *
+ * `lang` kosong = bahasa utama (halaman /e/<slug>).
  */
-export async function landingMetadata(slug: string, lang: LandingLang): Promise<Metadata> {
+export async function landingMetadata(slug: string, langDiminta?: LandingLang): Promise<Metadata> {
   const asli = await getEventBySlugPublic(slug);
-  if (!asli) return { title: lang === "en" ? "Event not found" : "Acara tidak ditemukan" };
+  if (!asli) return { title: langDiminta === "en" ? "Event not found" : "Acara tidak ditemukan" };
+  const utama = landingDefaultLang(asli.landing_config as EventLandingConfig);
+  const lang = langDiminta ?? utama;
   const { event, config } = resolveLanding(asli, lang);
 
   const jadwal = formatEventSchedule(event);
@@ -46,11 +50,11 @@ export async function landingMetadata(slug: string, lang: LandingLang): Promise<
     },
     alternates: asal
       ? {
-          canonical: `${asal}${landingPath(event.slug, lang)}`,
+          canonical: `${asal}${landingPath(event.slug, lang, utama)}`,
           languages: {
-            id: `${asal}${landingPath(event.slug, "id")}`,
-            en: `${asal}${landingPath(event.slug, "en")}`,
-            "x-default": `${asal}${landingPath(event.slug, "id")}`,
+            id: `${asal}${landingPath(event.slug, "id", utama)}`,
+            en: `${asal}${landingPath(event.slug, "en", utama)}`,
+            "x-default": `${asal}${landingPath(event.slug, utama, utama)}`,
           },
         }
       : undefined,

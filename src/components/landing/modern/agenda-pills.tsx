@@ -160,6 +160,9 @@ function inisial(nama: string): string {
  * tooltip dan di bagian Pembicara. Layar sempit: di bawah judul dengan nama
  * singkat.
  */
+// Tepi foto: garis 1px abu (on-surface 24%, sekitar 1,7:1 di atas putih;
+// outline-variant tema terlalu pucat) lalu cincin warna permukaan 2px. Tanpa garis,
+// foto berlatar terang larut ke halaman putih (kontras tepi ~1,2:1).
 export function DeretPembicara({ orang, lang, namaTampil = false }: { orang: LandingSpeaker[]; lang: LandingLang; namaTampil?: boolean }) {
   const tampil = orang.slice(0, MAKS_FOTO);
   const sisa = orang.length - tampil.length;
@@ -169,11 +172,11 @@ export function DeretPembicara({ orang, lang, namaTampil = false }: { orang: Lan
     // namaTampil: di bawah judul dengan nama di semua lebar layar (tabel
     // Susunan acara tata letak Forum tidak punya kolom kanan untuk foto).
     <div className={namaTampil ? "mt-2 flex items-center gap-3" : "mt-3 flex items-center gap-3 sm:col-start-2 lg:col-start-3 lg:row-start-1 lg:-mt-1 lg:self-start"} title={orang.map((speaker) => speaker.name.trim()).join(", ")}>
-      <ul aria-hidden className="flex shrink-0">
+      <ul aria-hidden className="flex shrink-0 pl-px">
         {tampil.map((speaker, index) => (
           <li
             key={`${speaker.name}-${index}`}
-            className="-ml-2 flex size-8 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--reg-primary)_14%,var(--reg-surface))] text-[11px] font-semibold text-[var(--reg-primary)] ring-2 ring-[var(--reg-surface)] outline outline-1 -outline-offset-1 outline-[color-mix(in_srgb,var(--reg-outline-variant)_80%,transparent)] first:ml-0"
+            className="-ml-2 flex size-8 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--reg-primary)_14%,var(--reg-surface))] text-[11px] font-semibold text-[var(--reg-primary)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--reg-on-surface)_24%,var(--reg-surface)),0_0_0_3px_var(--reg-surface)] first:ml-0"
           >
             {speaker.photo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -184,7 +187,7 @@ export function DeretPembicara({ orang, lang, namaTampil = false }: { orang: Lan
           </li>
         ))}
         {sisa > 0 ? (
-          <li className="-ml-2 flex size-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--reg-outline-variant)_45%,var(--reg-surface))] text-[12px] font-medium text-[var(--reg-on-surface-variant)] ring-2 ring-[var(--reg-surface)]">
+          <li className="-ml-2 flex size-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--reg-outline-variant)_45%,var(--reg-surface))] text-[12px] font-medium text-[var(--reg-on-surface-variant)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--reg-on-surface)_24%,var(--reg-surface)),0_0_0_3px_var(--reg-surface)]">
             +{sisa}
           </li>
         ) : null}

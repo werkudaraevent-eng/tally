@@ -26,10 +26,11 @@ export function PratinjauLangsung({ slug, halaman, children }: { slug: string; h
       if (event.origin !== window.location.origin || event.source !== window.parent) return;
       if (event.data?.jenis !== "tally-pratinjau-draf") return;
       const draf = event.data.draf;
+      const bahasa = event.data.bahasa === "en" ? "en" : "id";
       window.clearTimeout(timer);
       timer = window.setTimeout(async () => {
         const nomor = ++urutan;
-        const hasil = await renderPratinjau(slug, draf, halaman).catch(() => null);
+        const hasil = await renderPratinjau(slug, draf, bahasa, halaman).catch(() => null);
         // Draf yang lebih baru sudah dikirim: hasil ini sudah basi.
         if (nomor !== urutan) return;
         if (hasil?.ok) setIsi(hasil.isi);
@@ -38,7 +39,17 @@ export function PratinjauLangsung({ slug, halaman, children }: { slug: string; h
       }, JEDA_MS);
     }
 
-    // Tautan di pratinjau tidak berpindah halaman sendiri. Tautan antarhalaman
+    // Pilihan ID | EN di bilah atas pratinjau tidak membuka halaman publik:
+    // ia memindah mode bahasa editor, dan pratinjau ikut.
+    function pindahBahasa(event: MouseEvent) {
+      const tautan = (event.target as Element | null)?.closest?.("a[hreflang]");
+      if (!tautan) return;
+      event.preventDefault();
+      event.stopPropagation();
+      lapor({ jenis: "tally-pratinjau-bahasa", bahasa: tautan.getAttribute("hreflang") === "en" ? "en" : "id" });
+    }
+
+    // Tautan selain ID | EN tidak berpindah halaman sendiri. Tautan antarhalaman
     // Forum (`data-halaman`) diteruskan ke CMS, yang memuat ulang bingkai pada
     // halaman itu dan mengirim drafnya lagi. Tautan lain (Daftar, Masuk, peta)
     // diabaikan: pratinjau bukan tempat mendaftar, dan halaman di baliknya
@@ -54,10 +65,12 @@ export function PratinjauLangsung({ slug, halaman, children }: { slug: string; h
     }
 
     window.addEventListener("message", terima);
+    document.addEventListener("click", pindahBahasa, true);
     document.addEventListener("click", klik);
     lapor({ jenis: "tally-pratinjau-siap", halaman });
     return () => {
       window.removeEventListener("message", terima);
+      document.removeEventListener("click", pindahBahasa, true);
       document.removeEventListener("click", klik);
       window.clearTimeout(timer);
     };

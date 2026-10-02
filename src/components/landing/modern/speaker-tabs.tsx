@@ -3,6 +3,7 @@
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import type { LandingSpeaker } from "@/lib/domain";
 import type { SpeakerTab } from "@/lib/landing-speaker-tabs";
+import { JUDUL_BUTIR } from "./styles";
 
 /**
  * Bagian Pembicara tata letak Modern: tab sesi di atas kisi kartu.
@@ -51,7 +52,7 @@ function Kartu({ speaker }: { speaker: LandingSpeaker }) {
         )}
       </div>
       <div className="flex min-w-0 flex-col gap-1">
-        <p className="text-title-medium font-semibold sm:text-title-large sm:font-semibold">{speaker.name}</p>
+        <p className={JUDUL_BUTIR}>{speaker.name}</p>
         {keterangan ? <p className="text-body-medium text-[var(--reg-on-surface-variant)]">{keterangan}</p> : null}
         {speaker.company?.trim() ? (
           // Warna teks, bukan warna utama: teks biru tebal terbaca sebagai tautan.
@@ -151,7 +152,7 @@ export function SpeakerTabs({
         aria-labelledby={multi ? `${dasar}-tab-${aktif}` : undefined}
         className={multi ? "mt-6" : "mt-10 sm:mt-12"}
       >
-        {tab.note ? <p className="mb-6 text-body-large text-[var(--reg-on-surface-variant)]">{tab.note}</p> : null}
+        {tab.note ? <p className="mb-6 text-isi text-[var(--reg-on-surface-variant)]">{tab.note}</p> : null}
         <ul className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-3 xl:grid-cols-4">
           {tab.speakers.map((speaker, index) => (
             <Kartu key={`${speaker.name}-${index}`} speaker={speaker} />

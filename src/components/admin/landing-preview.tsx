@@ -58,6 +58,8 @@ export function LandingPreview({
   draf,
   halaman = null,
   onHalaman,
+  bahasa = "id",
+  onBahasa,
 }: {
   slug: string;
   reloadKey: number;
@@ -69,6 +71,10 @@ export function LandingPreview({
   halaman?: LandingForumPage | null;
   /** Tautan antarhalaman diklik di dalam pratinjau. */
   onHalaman?: (halaman: LandingForumPage) => void;
+  /** Bahasa draf yang dirender: mengikuti mode ID | EN editor. */
+  bahasa?: "id" | "en";
+  /** Pilihan ID | EN diklik di dalam pratinjau. */
+  onBahasa?: (bahasa: "id" | "en") => void;
 }) {
   const [device, setDevice] = useState<Device>("desktop");
   const [wadahUkuran, setWadahUkuran] = useState({ lebar: 0, tinggi: 0 });
@@ -81,8 +87,8 @@ export function LandingPreview({
 
   const kirimDraf = useCallback(() => {
     if (!draf) return;
-    bingkai.current?.contentWindow?.postMessage({ jenis: "tally-pratinjau-draf", draf }, window.location.origin);
-  }, [draf]);
+    bingkai.current?.contentWindow?.postMessage({ jenis: "tally-pratinjau-draf", draf, bahasa }, window.location.origin);
+  }, [draf, bahasa]);
 
   // Menyentuh DOM halaman di dalam iframe, bukan keadaan React: halaman itu
   // asal-yang-sama, dan garisnya hanya ada di pratinjau ini, tidak tersimpan.
@@ -123,6 +129,7 @@ export function LandingPreview({
       if (event.data?.jenis === "tally-pratinjau-halaman" && ["beranda", "program", "info"].includes(event.data.halaman)) {
         onHalaman?.(event.data.halaman);
       }
+      if (event.data?.jenis === "tally-pratinjau-bahasa") onBahasa?.(event.data.bahasa === "en" ? "en" : "id");
       if (event.data?.jenis === "tally-pratinjau-hasil") {
         setTertinggal(event.data.pesan ? String(event.data.pesan) : event.data.ok ? null : "Pratinjau belum diperbarui.");
         // Halaman dirender ulang: pasang lagi garis sorot tanpa menggulir.
@@ -131,7 +138,7 @@ export function LandingPreview({
     }
     window.addEventListener("message", terima);
     return () => window.removeEventListener("message", terima);
-  }, [kirimDraf, terapkanSorot, onHalaman]);
+  }, [kirimDraf, terapkanSorot, onHalaman, onBahasa]);
   const { width, height: tinggiPerangkat } = UKURAN[device];
   // Diukur dari panel, bukan jendela: panel utama menyempit saat panel setelan
   // di sebelahnya muncul, tanpa jendelanya berubah ukuran.
@@ -163,7 +170,7 @@ export function LandingPreview({
     <Pane aria-label="Pratinjau halaman acara">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant px-4 py-2.5">
         <p className={`line-clamp-2 min-w-0 flex-1 ${tertinggal ? "text-body-small text-error" : "text-body-medium text-on-surface-variant"}`} role="status" title={tertinggal ?? undefined}>
-          {tertinggal ?? `Pratinjau langsung · ${width} px`}
+          {tertinggal ?? `Pratinjau langsung · ${width} px${bahasa === "en" ? " · English" : ""}`}
         </p>
         {halaman && onHalaman ? (
           <SegmentedButton<LandingForumPage>

@@ -2133,3 +2133,13 @@ html:hover {
 :where([data-halaman-publik]) :is(.text-body-large, .text-body-medium, .text-body-small, .text-label-large, .text-title-medium, .text-title-small) {
 	letter-spacing: normal;
 }
+
+/* ---- Halaman acara publik: teks paragraf ---------------------------------
+ * Satu gaya untuk semua paragraf isi (Tentang, catatan bagian, alamat,
+ * jawaban FAQ): 16/24, body-large M3 tanpa jarak huruf. Paragraf terasa besar
+ * karena barisnya terlalu panjang, bukan karena ukurannya; lebar baris dijaga
+ * 60-75 karakter oleh pemakainya (max-w 35rem). */
+@utility text-isi {
+	font-size: 1rem;
+	line-height: 1.5rem;
+}

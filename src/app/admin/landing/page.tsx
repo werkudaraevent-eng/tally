@@ -5,7 +5,7 @@ import { ArrowDown, ArrowSquareOut, ArrowUp, CopySimple, DotsSixVertical, Downlo
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
-  Banner, Button, ButtonLink, Dialog, FilterChip, IconButton, MetaSeparator, PageLoading, PaneBody, Pane, SegmentedButton,
+  Banner, Button, ButtonLink, Dialog, FilterChip, IconButton, MetaSeparator, PageLoading, PaneBody, Pane, SegmentedButton, segmentTabId,
   StatusChip, Switch, TextArea, TextField,
 } from "@/components/m3";
 import { AdminBarPortal, useAdminPage } from "@/components/admin/page-context";
@@ -38,6 +38,7 @@ import {
   type LandingMemberConfig,
   type LandingMemberAudience,
   type LandingSection,
+  type LandingSpeaker,
   type LandingSectionId,
   type RegistrationFormConfig,
 } from "@/lib/domain";
@@ -50,7 +51,8 @@ import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlok
 import { ForumSusunan, ForumTema, forumTautanSalah, halamanBagianForum } from "./forum-editor";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
 import { PresetTema } from "./theme-presets";
-import { landingUntranslated } from "@/lib/landing-i18n";
+import { BagianEn, BlockEditorEn } from "./editor-en";
+import { landingSessionEn, landingUntranslated } from "@/lib/landing-i18n";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -110,18 +112,25 @@ const NAMA_KOLOM: Record<string, string> = {
   label: "label butir", title: "judul butir", value: "angka",
 };
 
-/** Kolom pertama yang melewati batas karakter blok, atau null. */
-function kolomKepanjangan(blok: LandingBlock): { kolom: string; max: number } | null {
+/**
+ * Kolom pertama yang melewati batas karakter blok, atau null. Teks English
+ * (`en`) memakai batas yang sama; `bahasa` menyebut mode editor tempat kolom itu.
+ */
+function kolomKepanjangan(blok: LandingBlock): { kolom: string; max: number; bahasa: "id" | "en" } | null {
   const batas = landingBlockLimits(blok);
-  for (const [kunci, limit] of Object.entries(batas)) {
-    if (kunci === "item" || kunci === "items" || !limit || !("max" in limit)) continue;
-    const nilai = blok[kunci as keyof LandingBlock];
-    if (typeof nilai === "string" && nilai.length > limit.max) return { kolom: NAMA_KOLOM[kunci] ?? kunci, max: limit.max };
-  }
-  for (const [nomor, butir] of (blok.items ?? []).entries()) {
-    for (const [kunci, limit] of Object.entries(batas.item ?? {})) {
-      const nilai = butir[kunci as keyof typeof butir];
-      if (limit && typeof nilai === "string" && nilai.length > limit.max) return { kolom: `${NAMA_KOLOM[kunci] ?? kunci} ${nomor + 1}`, max: limit.max };
+  for (const bahasa of ["id", "en"] as const) {
+    const sumber = (bahasa === "id" ? blok : blok.en ?? {}) as Record<string, unknown>;
+    for (const [kunci, limit] of Object.entries(batas)) {
+      if (kunci === "item" || kunci === "items" || !limit || !("max" in limit)) continue;
+      const nilai = sumber[kunci];
+      if (typeof nilai === "string" && nilai.length > limit.max) return { kolom: NAMA_KOLOM[kunci] ?? kunci, max: limit.max, bahasa };
+    }
+    for (const [nomor, butir] of (blok.items ?? []).entries()) {
+      const isiButir = (bahasa === "id" ? butir : butir.en ?? {}) as Record<string, unknown>;
+      for (const [kunci, limit] of Object.entries(batas.item ?? {})) {
+        const nilai = isiButir[kunci];
+        if (limit && typeof nilai === "string" && nilai.length > limit.max) return { kolom: `${NAMA_KOLOM[kunci] ?? kunci} ${nomor + 1}`, max: limit.max, bahasa };
+      }
     }
   }
   return null;
@@ -132,12 +141,14 @@ function kolomKepanjangan(blok: LandingBlock): { kolom: string; max: number } | 
  * bagian yang terbuka sebelumnya ikut menutup dan menggeser daftar. Yang digulir
  * hanya wadah panelnya; scrollIntoView ikut menggeser seluruh halaman CMS.
  */
-function gulirKeBaris(id: string) {
+function gulirKeBaris(id: string, bilaDiAtas = false) {
   window.requestAnimationFrame(() => {
     const baris = document.getElementById(`baris-${id}`);
     const wadah = baris?.closest<HTMLElement>(".overflow-y-auto");
     if (!baris || !wadah) return;
     const atas = baris.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop;
+    // `bilaDiAtas`: gulir hanya kalau baris sudah lewat ke atas panel.
+    if (bilaDiAtas && atas >= wadah.scrollTop) return;
     wadah.scrollTo({ top: Math.max(0, atas), behavior: "smooth" });
   });
 }
@@ -214,6 +225,7 @@ const PANEL_MIN = 400;
 const PANEL_MAX = 640;
 const PANEL_BAWAAN = 440;
 const KUNCI_PANEL = "tally:landing-panel:v1";
+const KUNCI_BAHASA = "tally:landing-bahasa:v1";
 const jepitPanel = (lebar: number) => Math.round(Math.min(PANEL_MAX, Math.max(PANEL_MIN, lebar)));
 
 /** Hapus yang bisa diurungkan. Berlaku di draf; baru permanen saat Simpan. */
@@ -241,6 +253,21 @@ export default function LandingCmsPage() {
   const [urungan, setUrungan] = useState<Urungan | null>(null);
   const akun = useAdminPage()?.username ?? null;
   const kunciPanel = akun ? `${KUNCI_PANEL}:${akun}` : null;
+  // Mode bahasa Susunan halaman: ID menyunting halaman, EN hanya teks English-nya.
+  // Disimpan per akun seperti lebar panel: penerjemah yang memuat ulang halaman
+  // kembali ke mode EN, bukan ke ID lalu mencari pilihannya lagi.
+  const kunciBahasa = akun ? `${KUNCI_BAHASA}:${akun}` : null;
+  const bahasaTersimpan = useSyncExternalStore(
+    langgananLokal,
+    () => (kunciBahasa ? bacaLokal<"id" | "en">(kunciBahasa, "id") : "id"),
+    () => "id" as const,
+  );
+  const [bahasaSesi, setBahasaSesi] = useState<"id" | "en" | null>(null);
+  const bahasa: "id" | "en" = (bahasaSesi ?? bahasaTersimpan) === "en" ? "en" : "id";
+  const setBahasa = useCallback((pilihan: "id" | "en") => {
+    setBahasaSesi(pilihan);
+    if (kunciBahasa) tulisLokal(kunciBahasa, pilihan);
+  }, [kunciBahasa]);
   const lebarTersimpan = useSyncExternalStore(
     langgananLokal,
     () => (kunciPanel ? bacaLokal(kunciPanel, PANEL_BAWAAN) : PANEL_BAWAAN),
@@ -263,9 +290,14 @@ export default function LandingCmsPage() {
   // Potret keadaan terakhir yang tersimpan, untuk memberi tahu bahwa pratinjau
   // belum memuat perubahan yang sedang diketik.
   const [tersimpan, setTersimpan] = useState<string | null>(null);
+  // Terjemahan sesi yang ditinggalkan saat nama sesi Indonesia diubah, menurut
+  // nama sesinya. Mengetik nama itu kembali memulihkan terjemahannya, walau
+  // sesinya sempat tidak dipakai pembicara mana pun.
+  const terjemahanSesi = useRef(new Map<string, string>());
   const toast = useToast();
 
   const load = useCallback(async () => {
+    terjemahanSesi.current.clear();
     const response = await fetch(eventApiPath("/api/events"), { cache: "no-store" }).catch(() => null);
     if (!response?.ok) { setError("Data acara gagal dimuat."); return; }
     const body = await response.json().catch(() => null);
@@ -307,6 +339,15 @@ export default function LandingCmsPage() {
   // Draf untuk pratinjau langsung. Dibuat ulang hanya saat isinya berubah,
   // supaya pratinjau tidak dirender ulang di setiap render CMS.
   const drafPratinjau = useMemo(() => (cuplikan && facts ? isiKirim(facts) : null), [cuplikan]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pilihan ID | EN yang diklik di pratinjau memindah mode editor.
+  // Baris yang terbuka tetap terbuka di mode lain; daftarnya dirender ulang,
+  // jadi panel digulir kembali ke baris itu.
+  const pilihBahasa = useCallback((pilihan: "id" | "en") => {
+    setBagian("susunan");
+    setBahasa(pilihan);
+    if (terbuka) gulirKeBaris(terbuka);
+  }, [terbuka, setBahasa]);
 
   function patchFacts(patch: Partial<Facts>) {
     setFacts((current) => (current ? { ...current, ...patch } : current));
@@ -350,6 +391,7 @@ export default function LandingCmsPage() {
     patchFacts(fakta);
     // Kunci yang tidak ada di berkas (gambar sampul, warna, dsb.) tetap memakai
     // isi yang sekarang, jadi berkas tanpa gambar tidak menghapus gambar yang ada.
+    terjemahanSesi.current.clear();
     setLanding((current) => ({ ...current, ...isi.landing }));
     setBagian("susunan");
     toast.success("Isi dimuat", "Periksa isinya, lalu tekan Simpan. Muat ulang halaman untuk membatalkan.");
@@ -458,10 +500,11 @@ export default function LandingCmsPage() {
       const lewat = blok ? kolomKepanjangan(blok) : null;
       if (blok && lewat) {
         setBagian("susunan");
+        setBahasa(lewat.bahasa);
         setTerbuka(blok.id);
         setSorot((current) => ({ id: blok.id, n: (current?.n ?? 0) + 1 }));
         gulirKeBaris(blok.id);
-        toast.error("Teks terlalu panjang", `Bagian ${index + 2}, ${lewat.kolom}: maksimal ${lewat.max} karakter. Bagiannya sudah dibuka.`);
+        toast.error("Teks terlalu panjang", `Bagian ${index + 2}, ${lewat.kolom}${lewat.bahasa === "en" ? " (English)" : ""}: maksimal ${lewat.max} karakter. Bagiannya sudah dibuka.`);
         return;
       }
     }
@@ -476,6 +519,7 @@ export default function LandingCmsPage() {
     const tinggiBilah = landing.nav?.height;
     if (tinggiBilah != null && (tinggiBilah < LANDING_NAV_HEIGHT_MIN || tinggiBilah > LANDING_NAV_HEIGHT_MAX)) {
       setBagian("susunan");
+      setBahasa("id");
       setTerbuka("pembuka");
       gulirKeBaris("pembuka");
       toast.error("Tinggi bilah atas di luar batas", `Pembuka, Bilah atas: isi ${LANDING_NAV_HEIGHT_MIN} sampai ${LANDING_NAV_HEIGHT_MAX} px. Bagiannya sudah dibuka.`);
@@ -509,16 +553,29 @@ export default function LandingCmsPage() {
   const modern = tataLetak === "modern";
   const forum = tataLetak === "forum";
   // Teks yang tampil di halaman Indonesia tetapi belum punya versi English.
-  const belumDiterjemahkan = landingUntranslated({
+  const kurangEn = landingUntranslated({
     landing_config: { ...landing, sections },
     tagline: facts?.tagline,
     description: facts?.description,
     venue_address: facts?.venue_address,
-  }).length;
+  });
+  const belumDiterjemahkan = kurangEn.length;
+  const barisKurangEn = new Set(kurangEn.map((teks) => teks.section));
+  const modeEn = modern && bahasa === "en";
   // Bawaan huruf judul mengikuti tata letak; harus sama dengan halaman publik.
   const hurufJudul: LandingHeadingFont = landing.heading_font ?? (forum ? "ubuntu" : modern ? "source" : "serif");
   const catatanProgram = landing.program_notes ?? [];
   const setCatatanProgram = (next: string[]) => setLanding({ ...landing, program_notes: next });
+  // Terjemahannya ikut terhapus, supaya terjemahan keterangan berikutnya tidak
+  // bergeser ke kartu yang salah (en.program_notes diurutkan sama).
+  const hapusCatatanProgram = (index: number) => {
+    const buang = (daftar: string[]) => daftar.filter((_, position) => position !== index);
+    setLanding({
+      ...landing,
+      program_notes: buang(catatanProgram),
+      en: landing.en?.program_notes ? { ...landing.en, program_notes: buang(landing.en.program_notes) } : landing.en,
+    });
+  };
 
   const isiPembuka = facts ? (
     <div className="flex flex-col gap-5">
@@ -749,7 +806,7 @@ export default function LandingCmsPage() {
                     value={item}
                     onChange={(event) => { const next = [...catatanProgram]; next[index] = event.target.value; setCatatanProgram(next); }}
                   />
-                  <IconButton size="sm" label={`Hapus keterangan ${index + 1}`} className="mt-6 text-error" onClick={() => setCatatanProgram(catatanProgram.filter((_, position) => position !== index))}>
+                  <IconButton size="sm" label={`Hapus keterangan ${index + 1}`} className="mt-6 text-error" onClick={() => hapusCatatanProgram(index)}>
                     <Trash size={16} />
                   </IconButton>
                 </div>
@@ -840,7 +897,9 @@ export default function LandingCmsPage() {
           editor ada, lewat Ekspor/Impor (kunci `en`, lihat landing-i18n.ts). */}
       <Kelompok title="Bahasa">
         <Switch
-          checked={Boolean(landing.en_enabled)}
+          // Di luar Modern tampil mati walau tersimpan menyala: halaman tata
+          // letak lain memang tidak punya versi English (landingEnAvailable).
+          checked={modern && Boolean(landing.en_enabled)}
           onChange={(value) => setLanding({ ...landing, en_enabled: value })}
           disabled={!modern}
           label="Tampilkan versi English"
@@ -848,13 +907,41 @@ export default function LandingCmsPage() {
             !modern
               ? "Hanya untuk tata letak Modern."
               : landing.en_enabled
-                ? `Tombol English tampil di bilah atas, dan halaman English ada di /e/${facts?.slug ?? "slug"}/en.`
+                ? "Pilihan ID | EN tampil di bilah atas halaman."
                 : "Selama mati, halaman hanya berbahasa Indonesia dan alamat /en tidak bisa dibuka."
           }
         />
+        {modern && landing.en_enabled ? (
+          <div className="flex flex-col gap-2">
+            <p id="label-bahasa-utama" className="text-body-medium font-medium text-on-surface">Bahasa utama</p>
+            <SegmentedButton<"id" | "en">
+              className="w-full"
+              label="Bahasa utama"
+              labelledBy="label-bahasa-utama"
+              value={landing.default_lang ?? "id"}
+              onChange={(value) => setLanding({ ...landing, default_lang: value })}
+              options={[
+                { value: "id", label: "Indonesia" },
+                { value: "en", label: "English" },
+              ]}
+            />
+            <p className="text-body-medium text-on-surface-variant">
+              {(landing.default_lang ?? "id") === "en"
+                ? `/e/${facts?.slug ?? "slug"} tampil dalam English. Versi Indonesia di /e/${facts?.slug ?? "slug"}/id.`
+                : `/e/${facts?.slug ?? "slug"} tampil dalam Bahasa Indonesia. Versi English di /e/${facts?.slug ?? "slug"}/en.`}{" "}
+              Alamat di undangan dan QR tidak berubah.
+              {(landing.default_lang ?? "id") === "en"
+                ? " Tamu yang memindai QR atau membuka tautan undangan melihat versi English lebih dulu. Tautan /en yang sudah dibagikan dialihkan ke alamat utama."
+                : null}
+            </p>
+          </div>
+        ) : null}
         {modern && belumDiterjemahkan > 0 ? (
           <p className="text-body-medium text-on-surface-variant">
-            {belumDiterjemahkan} teks belum diterjemahkan. Halaman English menampilkan teks Indonesianya.
+            {belumDiterjemahkan} teks belum diterjemahkan. Halaman English menampilkan teks Indonesianya.{" "}
+            <button type="button" onClick={() => pilihBahasa("en")} className="rounded-sm font-medium text-primary hover:underline">
+              Terjemahkan di Susunan halaman
+            </button>
           </p>
         ) : null}
       </Kelompok>
@@ -911,6 +998,29 @@ export default function LandingCmsPage() {
   );
 
   // ---- Bagian --------------------------------------------------------------------
+  /**
+   * Isian Sesi pembicara yang baru diketik, beserta terjemahannya.
+   *
+   * Terjemahan ikut nama sesinya: pindah sesi berarti memakai terjemahan sesi
+   * tujuan (kalau sudah ada), bukan membawa yang lama. Sesi yang masih dipakai
+   * pembicara lain memakai terjemahan yang tampil di editor sekarang. Ingatan
+   * hanya untuk nama yang sempat tidak dipakai siapa pun, dan ikut mengingat
+   * terjemahan kosong. Fungsi tersendiri (bukan di onChange) supaya ref
+   * terjemahanSesi hanya disentuh dari penangan kejadian.
+   */
+  function sesiBaru(list: LandingSpeaker[], index: number, nilai: string): Partial<LandingSpeaker> {
+    const speaker = list[index];
+    const lama = speaker.session?.trim();
+    if (lama) terjemahanSesi.current.set(lama, speaker.en?.session ?? "");
+    const baru = nilai.trim();
+    const lain = list.filter((_, posisi) => posisi !== index);
+    const dipakai = lain.some((s) => s.session?.trim() === baru);
+    return {
+      session: nilai,
+      en: { ...speaker.en, session: dipakai ? landingSessionEn(lain, baru) : terjemahanSesi.current.get(baru) || undefined },
+    };
+  }
+
   function editorBagian(id: LandingSectionId): ReactNode {
     switch (id) {
       case "highlights": {
@@ -1040,7 +1150,7 @@ export default function LandingCmsPage() {
                   placeholder="mis. Sesi 1"
                   hint="Pembicara bersesi sama menjadi satu tab. Tulis sama dengan awal judul sesi di rundown supaya jam sesinya ikut tampil."
                   value={speaker.session ?? ""}
-                  onChange={(event) => ubah(index, { session: event.target.value })}
+                  onChange={(event) => ubah(index, sesiBaru(list, index, event.target.value))}
                 />
                 <Switch
                   checked={Boolean(speaker.featured)}
@@ -1264,7 +1374,12 @@ export default function LandingCmsPage() {
   function bukaTutup(id: string) {
     const buka = terbuka !== id;
     setTerbuka(buka ? id : null);
-    if (!buka) return;
+    if (!buka) {
+      // Ditutup dari kepala yang menempel: kembalikan barisnya ke pandangan,
+      // bukan menyisakan panel di tengah blok-blok sesudahnya.
+      gulirKeBaris(id, true);
+      return;
+    }
     if (forum) setHalamanPratinjau((current) => halamanBagianForum(id, current));
     setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }));
     gulirKeBaris(id);
@@ -1280,6 +1395,7 @@ export default function LandingCmsPage() {
     indeks,
     isi,
     menu,
+    titik = false,
   }: {
     id: string;
     nomor: number;
@@ -1291,6 +1407,8 @@ export default function LandingCmsPage() {
     indeks?: number;
     isi: ReactNode;
     menu?: ItemMenuBlok[];
+    /** Mode EN: baris ini masih punya teks yang belum diterjemahkan. */
+    titik?: boolean;
   }) {
     const buka = terbuka === id;
     const tersembunyi = saklar ? !saklar.checked : false;
@@ -1313,7 +1431,9 @@ export default function LandingCmsPage() {
         <div
           className={cx(
             "flex items-center gap-2 pr-2",
-            buka ? "min-h-14 bg-primary-soft py-2 shadow-[inset_3px_0_0_var(--color-primary)]" : "h-14",
+            // Terbuka: kepala menempel di atas panel, supaya blok yang panjang
+            // bisa ditutup tanpa menggulir balik ke atas.
+            buka ? "sticky top-0 z-10 min-h-14 bg-primary-soft py-2 shadow-[inset_3px_0_0_var(--color-primary)]" : "h-14",
           )}
         >
           {bisaSeret ? (
@@ -1321,7 +1441,7 @@ export default function LandingCmsPage() {
               draggable
               onDragStart={(event) => { setSeret(indeks); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", judul); }}
               onDragEnd={() => { setSeret(null); setSasaran(null); }}
-              className="flex h-14 w-6 shrink-0 cursor-grab items-center justify-center self-stretch text-on-surface-variant opacity-70 hover:opacity-100"
+              className="flex h-14 w-6 shrink-0 cursor-grab items-center justify-center self-stretch text-on-surface-variant opacity-80 hover:opacity-100"
               title="Seret untuk memindah"
             >
               <DotsSixVertical size={16} aria-hidden />
@@ -1359,16 +1479,21 @@ export default function LandingCmsPage() {
             >
               {judul}
             </span>
+            {titik ? <span className="sr-only">Ada teks yang belum diterjemahkan.</span> : null}
             {sub ? (
               <span title={sub} className="block truncate text-body-small text-on-surface-variant">
                 {tersembunyi ? `${sub} · tersembunyi` : sub}
               </span>
             ) : null}
           </button>
+          {titik ? (
+            <span className="mr-2 size-2 shrink-0 rounded-full bg-warning" title="Ada teks yang belum diterjemahkan" aria-hidden />
+          ) : null}
           {lencana ? <StatusChip tone="warning" className="shrink-0">{lencana}</StatusChip> : null}
           {saklar ? (
             <IconButton
               size="sm"
+              className="size-10!"
               label={saklar.checked ? `Sembunyikan ${judul}` : `Tampilkan ${judul}`}
               onClick={() => saklar.onChange(!saklar.checked)}
             >
@@ -1446,6 +1571,45 @@ export default function LandingCmsPage() {
   const blokTersembunyi = tersembunyi.filter((section) => isLandingBlockId(section.id) && blokById.has(section.id)).map((section) => section.id);
   // Forum menyimpan bagian tersembunyinya sendiri (forum.hidden), urutannya tetap.
   const jumlahTersembunyi = forum ? (landing.forum?.hidden ?? []).length : tersembunyi.length;
+
+  // Mode EN: baris yang sama dalam urutan yang sama, tetapi hanya yang tampil di
+  // halaman, tanpa seret, mata, dan menu; isinya kolom English (editor-en.tsx).
+  const isiSusunanEn = facts ? (
+    <div className="flex flex-col">
+      <ol className="flex flex-col">
+        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Pembuka", sub: "Nama acara, tagline, tombol daftar", titik: barisKurangEn.has("pembuka"), isi: <BagianEn id="pembuka" landing={landing} facts={facts} setLanding={setLanding} /> })}
+        {sections.map((section, index) => {
+          // Bagian tersembunyi tidak perlu diterjemahkan, kecuali yang sedang
+          // dibuka: Simpan membukanya bila teks English-nya melewati batas
+          // (hanya bisa terjadi lewat Impor).
+          if (!section.enabled && terbuka !== section.id) return null;
+          if (isLandingBlockId(section.id)) {
+            const blok = blokById.get(section.id);
+            if (!blok) return null;
+            const jenis = LANDING_BLOCK_LABELS[blok.type];
+            return barisSusunan({
+              id: section.id,
+              nomor: index + 2,
+              judul: blok.heading?.trim() || blok.name?.trim() || jenis,
+              sub: jenis,
+              titik: barisKurangEn.has(section.id),
+              isi: <BlockEditorEn block={blok} onChange={ubahBlok} />,
+            });
+          }
+          const id: LandingSectionId = section.id;
+          return barisSusunan({
+            id,
+            nomor: index + 2,
+            judul: LANDING_SECTION_LABELS[id],
+            sub: subBawaan(id),
+            titik: barisKurangEn.has(id),
+            isi: <BagianEn id={id} landing={landing} facts={facts} setLanding={setLanding} />,
+          });
+        })}
+        {barisSusunan({ id: "kaki", nomor: sections.length + 2, judul: "Kaki halaman", sub: "Kalimat penyelenggara, banner ajakan", titik: barisKurangEn.has("kaki"), isi: <BagianEn id="kaki" landing={landing} facts={facts} setLanding={setLanding} /> })}
+      </ol>
+    </div>
+  ) : null;
 
   const isiSusunan = facts && forum ? (
     <ForumSusunan
@@ -1525,10 +1689,32 @@ export default function LandingCmsPage() {
 
   // Satu baris di atas daftar: petunjuk singkat, lalu penyaring tersembunyi bila
   // memang ada yang tersembunyi. Tidak bergulir, supaya penyaringnya selalu terjangkau.
-  const saringan = bagian === "susunan" ? (
-    <div className="flex h-12 shrink-0 items-center gap-1 border-b border-outline-variant pl-4 pr-2">
+  // Modern: pilihan ID | EN di depan. Mode EN tidak punya penyaring tersembunyi
+  // (hanya bagian yang tampil yang perlu diterjemahkan); gantinya jumlah teks
+  // yang belum diterjemahkan.
+  const pilihanBahasa = modern ? (
+    <SegmentedButton<"id" | "en">
+      label="Bahasa yang disunting"
+      value={bahasa}
+      onChange={pilihBahasa}
+      className="w-24 shrink-0"
+      options={[{ value: "id", label: "ID" }, { value: "en", label: "EN" }]}
+    />
+  ) : null;
+  const saringan = bagian !== "susunan" ? null : modeEn ? (
+    <div className="flex h-12 shrink-0 items-center gap-3 border-b border-outline-variant pl-3 pr-2">
+      {pilihanBahasa}
+      <p role="status" className={cx("min-w-0 flex-1 truncate text-body-small", belumDiterjemahkan > 0 ? "font-medium text-on-warning-soft" : "text-on-surface-variant")}>
+        {belumDiterjemahkan > 0 ? `${belumDiterjemahkan} teks belum diterjemahkan` : "Semua teks sudah diterjemahkan"}
+      </p>
+    </div>
+  ) : (
+    <div className={cx("flex h-12 shrink-0 items-center gap-1 border-b border-outline-variant pr-2", pilihanBahasa ? "pl-3" : "pl-4")}>
+      {pilihanBahasa}
+      {/* Dengan pilihan ID | EN, petunjuknya tidak muat di panel 440: ia
+          disembunyikan, dan ruangnya hanya mendorong penyaring ke kanan. */}
       <p
-        className="min-w-0 flex-1 truncate text-body-small text-on-surface-variant max-sm:hidden"
+        className={cx("min-w-0 flex-1 truncate text-body-small text-on-surface-variant max-sm:hidden", pilihanBahasa && "invisible")}
         title={
           forum
             ? "Urutan bagian tata letak Forum tetap. Klik baris untuk menyunting; pratinjau pindah ke halaman yang memuat bagian itu. Tombol mata menyembunyikan bagian tanpa menghapus isinya."
@@ -1545,8 +1731,9 @@ export default function LandingCmsPage() {
           {/* Forum tidak punya blok tambahan, jadi tidak ada yang bisa dihapus massal. */}
           {forum ? null : <MenuBlok
             label="Menu blok tersembunyi"
+            width={272}
             items={[{
-              label: blokTersembunyi.length > 0 ? `Hapus ${blokTersembunyi.length} blok tersembunyi…` : "Tidak ada blok tambahan tersembunyi",
+              label: blokTersembunyi.length > 0 ? `Hapus ${blokTersembunyi.length} blok tersembunyi…` : "Tak ada blok untuk dihapus",
               icon: <Trash size={18} />,
               bahaya: true,
               disabled: blokTersembunyi.length === 0,
@@ -1556,23 +1743,37 @@ export default function LandingCmsPage() {
         </>
       ) : null}
     </div>
-  ) : null;
+  );
 
   const panel = (
     <Pane as="aside" id="panel-setelan" aria-label="Setelan halaman acara">
       <div className="flex h-12 shrink-0 items-center border-b border-outline-variant px-3">
         <SegmentedButton<Bagian>
           label="Bagian setelan"
+          panel="isi-setelan"
           value={bagian}
           onChange={setBagian}
           className="w-full"
           options={[{ value: "susunan", label: "Susunan halaman" }, { value: "tema", label: "Tema" }, { value: "peserta", label: "Peserta" }]}
         />
       </div>
-      {saringan}
-      <PaneBody key={bagian} className={bagian === "susunan" ? undefined : "px-4 py-4"}>
-        {bagian === "susunan" ? isiSusunan : bagian === "tema" ? isiTema : isiPeserta}
-      </PaneBody>
+      {/* Satu tabpanel memuat baris saringan dan isinya, supaya Tab sesudah
+          daftar tab langsung masuk ke panel yang dipilih (pola tabs WAI-ARIA). */}
+      <div id="isi-setelan" role="tabpanel" aria-labelledby={segmentTabId("isi-setelan", bagian)} className="flex min-h-0 flex-1 flex-col">
+        {saringan}
+        {/* scroll-pt: field yang difokus dengan Tab tidak boleh tertutup kepala baris yang menempel (72px).
+            Tema dan Peserta bisa dimulai dengan teks biasa, jadi bidang gulirnya sendiri
+            ikut menerima fokus agar bisa digulir dengan papan ketik. */}
+        <PaneBody
+          key={`${bagian}-${modeEn ? "en" : "id"}`}
+          tabIndex={bagian === "susunan" ? undefined : 0}
+          role={bagian === "susunan" ? undefined : "group"}
+          aria-labelledby={bagian === "susunan" ? undefined : segmentTabId("isi-setelan", bagian)}
+          // `!`: aturan :focus-visible global tidak berlapis, jadi mengalahkan utilitas biasa.
+          className={bagian === "susunan" ? "scroll-pt-22" : "px-4 py-4 focus-visible:shadow-none! focus-visible:-outline-offset-2!"}>
+          {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : bagian === "tema" ? isiTema : isiPeserta}
+        </PaneBody>
+      </div>
     </Pane>
   );
 
@@ -1687,6 +1888,8 @@ export default function LandingCmsPage() {
               draf={drafPratinjau}
               halaman={forum ? halamanPratinjau : null}
               onHalaman={setHalamanPratinjau}
+              bahasa={modeEn && bagian === "susunan" ? "en" : "id"}
+              onBahasa={pilihBahasa}
             />
           </div>
           <div
@@ -1707,7 +1910,7 @@ export default function LandingCmsPage() {
             title="Seret untuk mengubah lebar panel. Klik dua kali untuk lebar bawaan."
             className="group hidden w-4 shrink-0 cursor-col-resize touch-none items-center justify-center rounded-sm outline-none lg:flex"
           >
-            <span className="h-10 w-1 rounded-full bg-outline-variant transition-colors group-hover:bg-outline group-focus-visible:h-16 group-focus-visible:bg-primary group-active:bg-primary" />
+            <span className="h-10 w-1 rounded-full bg-outline transition-colors group-hover:bg-on-surface-variant group-focus-visible:h-16 group-focus-visible:bg-primary group-active:bg-primary" />
           </div>
           <div
             className="flex min-h-[70vh] w-full flex-col *:flex-1 lg:min-h-0 lg:w-[var(--panel-w)] lg:shrink-0"

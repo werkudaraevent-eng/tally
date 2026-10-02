@@ -1,60 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Geist_Mono, Inter, Montserrat, Oswald, Playfair_Display, Source_Sans_3, Space_Grotesk, Ubuntu } from "next/font/google";
 import "./globals.css";
+import { fontVariables } from "./fonts";
 import { MotionProvider } from "@/components/motion-provider";
 import { ToastProvider } from "@/components/toast";
 import { OfflineBanner } from "./offline-banner";
 import { THEME_INIT_SCRIPT } from "@/lib/m3/theme";
 
-// Inter sebagai huruf antarmuka, di-self-host oleh next/font sehingga tidak ada
-// permintaan ke server luar dan tidak ada pergeseran tata letak saat ia dimuat.
-//
-// Menggantikan Geist, yang metriknya nyaris identik — keduanya neo-grotesque
-// dengan x-height tinggi. Diganti karena dasbor yang jadi acuan memakai Inter,
-// dan `cv01`/`ss03` di bawah adalah bagian dari kenapa ia terbaca tenang pada
-// ukuran kecil: `cv01` memberi angka 1 tanpa ekor, `ss03` memperbaiki bentuk
-// huruf kecil beraksen. Keduanya tidak menyala sendiri.
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap",
-});
-
-// Pilihan jenis huruf untuk judul layar publik (/denah dan /display), dipilih
-// admin lewat CMS. Semuanya di-self-host oleh next/font, sama seperti Geist.
+// Huruf: Inter untuk antarmuka (--font-sans), lima huruf judul layar publik
+// yang dipilih admin lewat CMS (--font-geometric, --font-condensed,
+// --font-grotesk, --font-serif, --font-source), Ubuntu untuk tata letak Forum
+// (--font-ubuntu) dan Geist Mono (--font-mono).
+// Semuanya disimpan di repo dan dimuat lewat next/font/local di ./fonts.ts,
+// jadi tidak ada permintaan ke server luar, baik saat build maupun saat acara.
 //
 // Alasannya operasional, bukan selera: LED di lokasi sering berada di jaringan
-// buruk atau tertutup. Font yang diambil dari server luar bisa gagal dimuat di
-// tengah acara, dan layar akan jatuh ke fallback yang tidak pernah diuji tepat
-// ketika tidak ada yang bisa memperbaikinya.
+// buruk atau tertutup, dan build Vercel pernah gagal berulang kali karena
+// mengunduh huruf dari Google.
 //
-// Hanya bobot yang benar-benar dipakai yang diminta. Judul di layar publik selalu
-// tebal, jadi memuat seluruh rentang bobot hanya menambah berkas yang tidak
-// pernah dirender.
-//
-// `display: "swap"` di semua: teks harus terbaca sejak render pertama. Layar LED
-// tidak punya siapa pun yang menunggu, dan judul yang tertahan beberapa ratus
-// milidetik lebih buruk daripada judul yang berganti font sekejap.
-const montserrat = Montserrat({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-geometric", display: "swap" });
-const oswald = Oswald({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-condensed", display: "swap" });
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["500", "700"], variable: "--font-grotesk", display: "swap" });
-const playfair = Playfair_Display({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-serif", display: "swap" });
-// Source Sans 3: huruf judul tata letak Modern halaman acara. Dimuat dengan cara
-// yang sama seperti lima huruf judul lainnya.
-const sourceSans = Source_Sans_3({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-source", display: "swap" });
-// Ubuntu: huruf tata letak Forum (Figma IFC), untuk judul dan isi halamannya.
-const ubuntu = Ubuntu({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-ubuntu", display: "swap" });
-const geistMono = Geist_Mono({ subsets: ["latin"], weight: ["500", "700"], variable: "--font-mono", display: "swap" });
-
-// Variabel font tambahan digabung ke <html> supaya tersedia di seluruh halaman.
-//
-// Sengaja TIDAK mengubah `font-family` pada body: seluruh layar operasional
-// (booth, kasir, admin) tetap memakai Geist. Font pilihan admin hanya dipasang
-// per elemen di layar publik, sehingga menambah pilihan di sini tidak pernah
-// mengubah tampilan halaman yang sudah rapi.
-const fontVariables = [inter, montserrat, oswald, spaceGrotesk, playfair, sourceSans, ubuntu, geistMono]
-  .map((font) => font.variable)
-  .join(" ");
+// Variabel font digabung ke <html> supaya tersedia di seluruh halaman.
+// Sengaja TIDAK mengubah `font-family` pada body: font pilihan admin hanya
+// dipasang per elemen di layar publik, sehingga menambah pilihan di sini tidak
+// pernah mengubah tampilan halaman yang sudah rapi.
 
 export const metadata: Metadata = {
   title: "Tally — Pusat operasional acara",

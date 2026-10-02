@@ -35,14 +35,41 @@ export const LANDING_LANG_LABELS: Record<LandingLang, { name: string; short: str
   en: { name: "English", short: "EN", htmlLang: "en", locale: "en-GB" },
 };
 
-/** Alamat halaman acara dalam satu bahasa. Indonesia tanpa akhiran, supaya QR dan undangan lama tetap berlaku. */
-export function landingPath(slug: string, lang: LandingLang): string {
-  return lang === "en" ? `/e/${slug}/en` : `/e/${slug}`;
-}
-
 /** Versi English boleh tampil: dinyalakan admin, dan tata letaknya sudah punya terjemahan teks bawaan (Modern). */
 export function landingEnAvailable(config: EventLandingConfig | null | undefined): boolean {
   return Boolean(config?.en_enabled) && config?.layout === "modern";
+}
+
+/**
+ * Bahasa utama: bahasa di alamat tanpa akhiran (`/e/<slug>`), yang dicetak di
+ * undangan dan QR. Pilihan admin (`default_lang`), tetapi English hanya bila
+ * versi English menyala; selain itu selalu Indonesia.
+ */
+export function landingDefaultLang(config: EventLandingConfig | null | undefined): LandingLang {
+  return config?.default_lang === "en" && landingEnAvailable(config) ? "en" : "id";
+}
+
+/**
+ * Alamat halaman acara dalam satu bahasa. Bahasa utama tanpa akhiran, supaya QR
+ * dan undangan lama tetap berlaku; bahasa lainnya di `/id` atau `/en`.
+ */
+export function landingPath(slug: string, lang: LandingLang, utama: LandingLang = "id"): string {
+  return lang === utama ? `/e/${slug}` : `/e/${slug}/${lang}`;
+}
+
+type Kueri = Record<string, string | string[] | undefined>;
+
+/**
+ * `alamat` dengan kueri permintaan asalnya, untuk pengalihan antarbahasa:
+ * `/en?utm_source=x` yang dialihkan tetap membawa `utm_source` ke alamat utama.
+ */
+export function withQuery(alamat: string, kueri: Kueri): string {
+  const hasil = new URLSearchParams();
+  for (const [kunci, nilai] of Object.entries(kueri)) {
+    for (const satu of Array.isArray(nilai) ? nilai : nilai === undefined ? [] : [nilai]) hasil.append(kunci, satu);
+  }
+  const teks = hasil.toString();
+  return teks ? `${alamat}?${teks}` : alamat;
 }
 
 // ---- Penumpukan teks -------------------------------------------------------------
@@ -114,6 +141,20 @@ export function landingSessionLabels(config: EventLandingConfig, lang: LandingLa
 // ---- Kolom yang belum diterjemahkan ---------------------------------------------
 
 /**
+ * Terjemahan satu nama sesi. Sesi diterjemahkan sekali per nama, tetapi
+ * disimpan di `en.session` tiap pembicara bersesi itu. Dianggap terjemahan
+ * hanya bila semua pembicara sesi itu memegang teks English yang sama; kalau
+ * tidak, tab sesinya terpecah di halaman English. Editor dan penghitung
+ * "belum diterjemahkan" sama-sama membaca dari sini.
+ */
+export function landingSessionEn(speakers: EventLandingConfig["speakers"], nama: string): string | undefined {
+  const sesi = (speakers ?? []).filter((s) => s.session?.trim() === nama);
+  const teks = sesi[0]?.en?.session?.trim();
+  if (!teks || sesi.some((s) => s.en?.session?.trim() !== teks)) return undefined;
+  return sesi[0].en?.session;
+}
+
+/**
  * Satu kolom teks Indonesia terisi yang versi English-nya kosong. `path` ditulis
  * menurut letak kolom English yang perlu diisi, mis.
  * `blocks.blk_tentang0001.items.2.title` berarti
@@ -166,8 +207,12 @@ export function landingUntranslated(event: {
   if (bagian("contact")) periksa(config.contact_name, en.contact_name, "contact_name", "contact");
   if (bagian("speakers")) {
     config.speakers?.forEach((speaker, index) => {
-      (["title", "role", "session"] as const).forEach((key) => periksa(speaker[key], speaker.en?.[key], `speakers.${index}.${key}`, "speakers"));
+      (["title", "role"] as const).forEach((key) => periksa(speaker[key], speaker.en?.[key], `speakers.${index}.${key}`, "speakers"));
     });
+    // Satu sesi dihitung sekali, berapa pun pembicaranya.
+    new Set(config.speakers?.map((s) => s.session?.trim()).filter((nama): nama is string => !!nama)).forEach((nama) =>
+      periksa(nama, landingSessionEn(config.speakers, nama), `speakers.session.${nama}`, "speakers"),
+    );
   }
   if (bagian("faq")) {
     config.faq?.forEach((item, index) => {
@@ -347,11 +392,3 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     languageGroup: "Page language",
   },
 };
-
-/**
- * Jam "HH.MM" (ejaan Indonesia) dalam bahasa halaman: English memakai titik dua,
- * "09:00". Teks lain dibiarkan.
- */
-export function landingClock(teks: string, lang: LandingLang): string {
-  return lang === "en" ? teks.replace(/\b(\d{2})\.(\d{2})\b/g, "$1:$2") : teks;
-}
