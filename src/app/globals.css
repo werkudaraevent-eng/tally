@@ -974,6 +974,12 @@ html:hover {
 	details.faq[open]::details-content {
 		block-size: auto;
 	}
+
+	/* Ruang bawah pertanyaan menyusut 24 -> 16 saat terbuka; ikut beranimasi
+	   bersama jawaban supaya kartu tidak meloncat 8px di bingkai pertama. */
+	details.faq > summary {
+		transition: padding-bottom var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-emphasized);
+	}
 }
 
 /* ==========================================================================

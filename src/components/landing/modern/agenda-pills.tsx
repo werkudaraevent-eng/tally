@@ -91,12 +91,12 @@ export function AgendaPills({ agenda, speakers = [], lang = "id" }: { agenda: Ag
         className="border-b border-[color-mix(in_srgb,var(--reg-outline-variant)_70%,transparent)]"
       >
         {blok?.items.map((item, index) => {
-          const orang = pembicaraSesi(speakers, item.title);
+          const orang = pembicaraSesi(speakers, item.key);
           // Jeda (registrasi, makan siang, penutupan) ditulis tenang supaya
           // sesi inti menonjol sendiri dan rundown terbaca sebagai alur acara.
           // Dikenali dari kata kuncinya, bukan dari keterangan yang kosong:
           // sesi inti tanpa keterangan tetap tampil sebagai sesi inti.
-          const jeda = barisJeda(item.title, orang.length);
+          const jeda = barisJeda(item.key, orang.length) || barisJeda(item.title, orang.length);
           return (
             // Garis dasar jam dan judul sejajar (items-baseline); tinggi baris
             // kelipatan 4px (judul 24px, keterangan 20px, padding 12px).

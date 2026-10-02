@@ -102,8 +102,9 @@ export function PanelSusunan({
                 </thead>
                 <tbody className="text-[var(--f-title)]">
                   {bagian.items.map((item, nomor) => {
-                    const orang = pembicaraSesi(speakers, item.title);
-                    const jeda = barisJeda(item.title, orang.length);
+                    // `key`: judul Indonesia baris, juga saat judulnya diterjemahkan.
+                    const orang = pembicaraSesi(speakers, item.key);
+                    const jeda = barisJeda(item.key, orang.length) || barisJeda(item.title, orang.length);
                     const redup = "text-[var(--reg-on-surface-variant)]";
                     const warnaJam = jeda ? redup : "text-[var(--f-primary-text)]";
                     const jam = jamSesi(item, zona);
@@ -113,7 +114,7 @@ export function PanelSusunan({
                         <td className="py-[clamp(10px,0.94vw,18px)] pl-[clamp(12px,2.29vw,44px)] pr-[clamp(12px,2.29vw,44px)] align-top sm:pl-0">
                           {jam ? <span className={`mb-1 block tabular-nums sm:hidden ${warnaJam}`}>{jam}</span> : null}
                           <span className={`block ${jeda ? `font-normal ${redup}` : "font-semibold"}`}>{item.title}</span>
-                          {item.subtitle ? <span className={`mt-1 block whitespace-pre-line text-[0.85em] font-normal ${redup}`}>{item.subtitle}</span> : null}
+                          {item.subtitle ? <span className={`mt-1 block whitespace-pre-line text-[max(14px,0.85em)] font-normal ${redup}`}>{item.subtitle}</span> : null}
                           {orang.length > 0 ? <DeretPembicara orang={orang} lang={lang} namaTampil /> : null}
                         </td>
                       </tr>
