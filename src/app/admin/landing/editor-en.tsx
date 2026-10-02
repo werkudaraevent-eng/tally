@@ -141,13 +141,13 @@ export function BlockEditorEn({ block, onChange }: { block: LandingBlock; onChan
       const isian = (["label", "title", "value", "body"] as const).filter((key) => ada(item[key]));
       if (isian.length === 0) return null;
       return (
-        <Kartu key={index} judul={`Butir ${index + 1}`}>
+        <Kartu key={index} judul={`${block.type === "multicolumn" ? "Kolom" : "Butir"} ${index + 1}`}>
           {isian.map((key) => {
             const limit = batas.item?.[key];
             return (
               <KolomEn
                 key={key}
-                label={block.type === "logos" && key === "label" ? "Nama lembaga" : LABEL_BUTIR[key]}
+                label={key === "label" && block.type === "logos" ? "Nama lembaga" : key === "label" && block.type === "multicolumn" ? "Teks tautan" : LABEL_BUTIR[key]}
                 sumber={item[key] ?? ""}
                 value={item.en?.[key]}
                 onChange={(value) => ubahItem(index, key, value)}
@@ -249,10 +249,30 @@ export function BagianEn({
         return [kolom("contact_name", "Nama", landing.contact_name, 120)];
       case "speakers": {
         const daftar = landing.speakers ?? [];
-        return daftar.map((speaker, index) => {
-          const ubah = (key: "title" | "company" | "role" | "session", value: string) =>
+        // Sesi diterjemahkan sekali per nama sesi, bukan per pembicara: satu
+        // sesi dipakai beberapa pembicara, dan terjemahan yang berbeda-beda
+        // akan memecah tab sesinya di halaman English.
+        const sesi = [...new Set(daftar.map((s) => s.session?.trim()).filter(ada))];
+        const ubahSesi = (nama: string, value: string) =>
+          setLanding({ ...landing, speakers: daftar.map((s) => (s.session?.trim() === nama ? { ...s, en: { ...s.en, session: value } } : s)) });
+        const kartuSesi = sesi.length ? (
+          <Kartu key="sesi" judul="Sesi">
+            {sesi.map((nama) => (
+              <KolomEn
+                key={nama}
+                label={`Sesi "${nama}"`}
+                sumber={nama}
+                value={daftar.find((s) => s.session?.trim() === nama && ada(s.en?.session))?.en?.session}
+                onChange={(value) => ubahSesi(nama, value)}
+                max={40}
+              />
+            ))}
+          </Kartu>
+        ) : null;
+        return [kartuSesi, ...daftar.map((speaker, index) => {
+          const ubah = (key: "title" | "company" | "role", value: string) =>
             setLanding({ ...landing, speakers: daftar.map((s, posisi) => (posisi === index ? { ...s, en: { ...s.en, [key]: value } } : s)) });
-          const isian = ([["title", "Jabatan", 200], ["company", "Instansi", 120], ["role", "Peran", 60], ["session", "Sesi", 40]] as const).filter(([key]) => ada(speaker[key]));
+          const isian = ([["title", "Jabatan", 200], ["company", "Instansi", 120], ["role", "Peran", 60]] as const).filter(([key]) => ada(speaker[key]));
           if (isian.length === 0) return null;
           return (
             <Kartu key={index} judul={speaker.name || `Pembicara ${index + 1}`}>
@@ -261,7 +281,7 @@ export function BagianEn({
               ))}
             </Kartu>
           );
-        });
+        })];
       }
       case "faq": {
         const daftar = landing.faq ?? [];
