@@ -18,11 +18,12 @@ function jamTitik(jam: string, bahasa: "id" | "en"): string {
  * tetap di `/rundown`, tempat panitia memang mengelolanya.
  */
 /**
- * `key` adalah judul Indonesia baris itu, juga di halaman English. Pembicara
- * dan jeda dicocokkan lewat kunci ini, karena label sesi pembicara tetap
- * berbahasa Indonesia ("Sesi 1") walau judul barisnya sudah diterjemahkan.
+ * `id` adalah id baris `rundown_items`, kunci tetap yang dipegang pembicara
+ * (`speaker.session_refs`). `key` adalah judul Indonesia baris itu, juga di
+ * halaman English: sesi teks lama pembicara ("Sesi 1") dan jeda dicocokkan
+ * lewat kunci ini, karena judul barisnya mungkin sudah diterjemahkan.
  */
-export type AgendaItem = { time: string; end: string | null; title: string; subtitle: string | null; key: string };
+export type AgendaItem = { id: number; time: string; end: string | null; title: string; subtitle: string | null; key: string };
 
 export type AgendaPreview = {
   sectionTitle: string | null;
@@ -50,11 +51,12 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
 
   const { data: items } = await client
     .from("rundown_items")
-    .select("section_id,title,subtitle,title_en,subtitle_en,start_time,end_time,sort_order")
+    .select("id,section_id,title,subtitle,title_en,subtitle_en,start_time,end_time,sort_order")
     .in("section_id", daftarSeksi.map((section) => section.id))
     .order("sort_order", { ascending: true });
 
   const daftarItem = (items ?? []) as unknown as Array<{
+    id: number;
     section_id: number;
     title: string | null;
     subtitle: string | null;
@@ -71,6 +73,7 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
         .filter((item) => item.section_id === section.id)
         .slice(0, MAX_ITEMS)
         .map((item) => ({
+          id: item.id,
           time: jamTitik(formatClock(item.start_time), bahasa),
           end: item.end_time ? jamTitik(formatClock(item.end_time), bahasa) : null,
           // English jatuh ke teks Indonesia per kolom, sama dengan isi halaman lainnya.

@@ -92,7 +92,7 @@ export function AgendaPills({ agenda, speakers = [], lang = "id" }: { agenda: Ag
         className="border-b border-[color-mix(in_srgb,var(--reg-outline-variant)_70%,transparent)]"
       >
         {blok?.items.map((item, index) => {
-          const orang = pembicaraSesi(speakers, item.key);
+          const orang = pembicaraSesi(speakers, item);
           // Jeda (registrasi, makan siang, penutupan) ditulis tenang supaya
           // sesi inti menonjol sendiri dan rundown terbaca sebagai alur acara.
           // Dikenali dari kata kuncinya, bukan dari keterangan yang kosong:

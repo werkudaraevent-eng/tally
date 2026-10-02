@@ -1,5 +1,5 @@
 import type { LandingSpeaker } from "./domain";
-import type { AgendaPreview } from "./landing-agenda";
+import type { AgendaItem, AgendaPreview } from "./landing-agenda";
 
 /**
  * Pengelompokan pembicara menjadi tab untuk bagian Pembicara halaman acara.
@@ -9,8 +9,9 @@ import type { AgendaPreview } from "./landing-agenda";
  *
  * - "Sorotan": pembicara yang ditandai Tonjolkan, paling banyak 8. Tanpa tanda,
  *   8 pembicara pertama.
- * - Satu tab per sesi (`speaker.session`), urut seperti di rundown bila namanya
- *   cocok dengan awal judul sesi rundown, selain itu urut kemunculan.
+ * - Satu tab per baris rundown yang dipegang pembicara (`speaker.session_refs`,
+ *   atau sesi teks lama yang cocok dengan awal judulnya), urut rundown. Sesi
+ *   teks lama yang tidak ada di rundown menyusul, urut kemunculan.
  * - "Pembicara lain": pembicara tanpa sesi yang tidak masuk Sorotan.
  *
  * Tanpa sesi sama sekali dan paling banyak 8 pembicara, hasilnya satu tab saja
@@ -31,43 +32,82 @@ function normal(teks: string): string {
 }
 
 /** Label sesi pembicara cocok dengan judul baris rundown bila judulnya diawali label itu, mis. "Sesi 1" dengan "Sesi 1. Kerangka global ...". */
-function cocok(label: string, judulRundown: string): boolean {
+export function cocokSesi(label: string, judulRundown: string): boolean {
   const kunci = normal(label);
   const judul = normal(judulRundown);
+  if (!kunci) return false;
   return judul === kunci || judul.startsWith(`${kunci}.`) || judul.startsWith(`${kunci}:`) || judul.startsWith(`${kunci},`) || judul.startsWith(`${kunci} `);
 }
 
-function cariSesi(label: string, agenda: AgendaPreview[]) {
-  for (const bagian of agenda) {
-    for (const item of bagian.items) {
-      if (cocok(label, item.key)) return item;
-    }
-  }
-  return null;
+/** Pembicara yang sesinya dari rundown (`session_refs`), bukan teks lama. */
+export function sesiDariRundown(speaker: LandingSpeaker): boolean {
+  return speaker.session_refs !== undefined;
 }
 
-function urutanRundown(label: string, agenda: AgendaPreview[]): number {
-  let posisi = 0;
-  for (const bagian of agenda) {
-    for (const item of bagian.items) {
-      if (cocok(label, item.key)) return posisi;
-      posisi += 1;
-    }
-  }
-  return 1_000_000;
+function semuaBaris(agenda: AgendaPreview[]): AgendaItem[] {
+  return agenda.flatMap((bagian) => bagian.items);
 }
 
 /**
- * Pembicara satu baris rundown, untuk deret foto di bawah judul sesi. Aturan
- * cocoknya sama dengan tab Pembicara, jadi kedua bagian selalu sepakat.
+ * Baris rundown seorang pembicara, urut seperti di rundown. `session_refs` bila
+ * ada; selain itu sesi teks lama dicocokkan ke awal judul Indonesia, baris
+ * pertama yang cocok, sama dengan aturan sebelum sesi dipilih dari rundown. Id
+ * yang barisnya tidak ada lagi di rundown diabaikan.
  */
-export function pembicaraSesi(all: LandingSpeaker[], judulRundown: string): LandingSpeaker[] {
-  return all.filter((speaker) => speaker.name?.trim() && speaker.session?.trim() && cocok(speaker.session, judulRundown));
+export function barisPembicara(speaker: LandingSpeaker, agenda: AgendaPreview[]): AgendaItem[] {
+  const baris = semuaBaris(agenda);
+  if (sesiDariRundown(speaker)) {
+    const ids = new Set(speaker.session_refs!.map((ref) => ref.id));
+    return baris.filter((item) => ids.has(item.id));
+  }
+  const label = speaker.session?.trim();
+  const cocok = label ? baris.find((item) => cocokSesi(label, item.key)) : undefined;
+  return cocok ? [cocok] : [];
+}
+
+const LABEL_MAKS = 24;
+
+/**
+ * Label pendek baris rundown untuk tab dan chip: awalan sebelum ". " atau ": "
+ * bila panjangnya 2-24 huruf ("Sesi 1. Kerangka global" menjadi "Sesi 1"),
+ * selain itu judul utuh, dipotong di 24 huruf. Di halaman English judulnya
+ * sudah English, jadi labelnya ikut.
+ */
+export function labelSesi(judul: string): string {
+  const bersih = judul.trim();
+  const awalan = bersih.match(/^([^.:]{2,24})[.:]\s+\S/);
+  if (awalan) return awalan[1].trim();
+  return bersih.length > LABEL_MAKS ? `${bersih.slice(0, LABEL_MAKS - 1).trimEnd()}…` : bersih;
+}
+
+/** "Kamis, 15 Oktober 2026" menjadi "Kam 15": pembeda label sesi yang sama di hari berbeda. */
+function hariPendek(judulBagian: string | null): string {
+  if (!judulBagian) return "";
+  const hari = judulBagian.trim().split(/[\s,]+/)[0]?.slice(0, 3) ?? "";
+  const tanggal = judulBagian.match(/\d{1,2}/)?.[0] ?? "";
+  return [hari, tanggal].filter(Boolean).join(" ");
 }
 
 /**
- * Label tab dalam bahasa halaman. `sesi` memetakan kunci sesi Indonesia (huruf
- * kecil) ke labelnya; kuncinya sendiri tetap dipakai untuk mencocokkan rundown.
+ * Pembicara satu baris rundown, untuk deret foto di baris itu. Aturannya sama
+ * dengan tab Pembicara (barisPembicara), jadi kedua bagian selalu sepakat.
+ * Judul saja (string) hanya mencocokkan sesi teks lama.
+ */
+export function pembicaraSesi(all: LandingSpeaker[], baris: AgendaItem | string): LandingSpeaker[] {
+  const ada = all.filter((speaker) => speaker.name?.trim());
+  if (typeof baris === "string") {
+    return ada.filter((speaker) => !sesiDariRundown(speaker) && speaker.session?.trim() && cocokSesi(speaker.session, baris));
+  }
+  return ada.filter((speaker) =>
+    sesiDariRundown(speaker)
+      ? speaker.session_refs!.some((ref) => ref.id === baris.id)
+      : !!speaker.session?.trim() && cocokSesi(speaker.session, baris.key),
+  );
+}
+
+/**
+ * Label tab dalam bahasa halaman. `sesi` memetakan sesi teks lama (huruf kecil)
+ * ke label English-nya; sesi dari rundown memakai judul rundown bahasa halaman.
  */
 export type SpeakerTabLabels = { highlights: string; others: string; sesi?: ReadonlyMap<string, string> };
 
@@ -80,30 +120,48 @@ export function speakerTabs(all: LandingSpeaker[], agenda: AgendaPreview[] = [],
   const ditonjolkan = speakers.filter((speaker) => speaker.featured);
   const sorotan = (ditonjolkan.length > 0 ? ditonjolkan : speakers).slice(0, SOROTAN_MAKS);
 
-  const sesi: string[] = [];
-  for (const speaker of speakers) {
-    const label = speaker.session?.trim();
-    if (label && !sesi.some((ada) => normal(ada) === normal(label))) sesi.push(label);
-  }
-  const kemunculan = new Map(sesi.map((label, index) => [label, index]));
-  sesi.sort((a, b) => {
-    const selisih = urutanRundown(a, agenda) - urutanRundown(b, agenda);
-    return selisih !== 0 ? selisih : (kemunculan.get(a) ?? 0) - (kemunculan.get(b) ?? 0);
-  });
-
+  const barisnya = new Map(speakers.map((speaker) => [speaker, barisPembicara(speaker, agenda)]));
   const tabs: SpeakerTab[] = [{ key: "sorotan", label: labels.highlights, note: null, speakers: sorotan }];
-  for (const label of sesi) {
-    const item = cariSesi(label, agenda);
-    const jam = item ? (item.end && item.end !== item.time ? `${item.time}–${item.end}` : item.time) : null;
-    const judul = item ? item.title.replace(/^[^.:]+[.:]\s*/, "").trim() : null;
+
+  // Satu tab per baris rundown yang dipegang paling tidak satu pembicara, urut
+  // rundown. Pembicara beberapa sesi tampil di tiap tab sesinya, urut editor.
+  const beberapaHari = agenda.length > 1;
+  const sesi = agenda.flatMap((bagian) =>
+    bagian.items
+      .map((item) => ({ item, bagian, orang: speakers.filter((speaker) => barisnya.get(speaker)!.includes(item)) }))
+      .filter(({ orang }) => orang.length > 0),
+  );
+  const kembar = new Set(sesi.map(({ item }) => labelSesi(item.title)).filter((label, index, semua) => semua.indexOf(label) !== index));
+  for (const { item, bagian, orang } of sesi) {
+    const label = labelSesi(item.title);
+    const jam = item.end && item.end !== item.time ? `${item.time}–${item.end}` : item.time;
+    // Judul tanpa awalan yang sudah jadi label; judul yang dipotong ditulis utuh.
+    const sisa = item.title.trim().startsWith(label) ? item.title.trim().slice(label.length).replace(/^[.:]\s*/, "").trim() : item.title.trim();
     tabs.push({
-      key: `sesi-${normal(label)}`,
-      label: labels.sesi?.get(label.toLowerCase()) ?? label,
-      note: item ? [jam, judul && judul !== item.title ? judul : item.title].filter(Boolean).join(" · ") : null,
-      speakers: speakers.filter((speaker) => normal(speaker.session ?? "") === normal(label)),
+      key: `sesi-${item.id}`,
+      label: kembar.has(label) ? `${label} · ${hariPendek(bagian.sectionTitle)}` : label,
+      note: [beberapaHari ? bagian.sectionTitle : null, jam, sisa].filter(Boolean).join(" · "),
+      speakers: orang,
     });
   }
-  const lainnya = speakers.filter((speaker) => !speaker.session?.trim() && !sorotan.includes(speaker));
+
+  // Sesi teks lama yang tidak cocok dengan rundown: tab sendiri, urut kemunculan.
+  const yatim = speakers.filter((speaker) => barisnya.get(speaker)!.length === 0 && !sesiDariRundown(speaker) && speaker.session?.trim());
+  const namaYatim: string[] = [];
+  for (const speaker of yatim) {
+    const nama = speaker.session!.trim();
+    if (!namaYatim.some((ada) => normal(ada) === normal(nama))) namaYatim.push(nama);
+  }
+  for (const nama of namaYatim) {
+    tabs.push({
+      key: `sesi-${normal(nama)}`,
+      label: labels.sesi?.get(nama.toLowerCase()) ?? nama,
+      note: null,
+      speakers: yatim.filter((speaker) => normal(speaker.session!) === normal(nama)),
+    });
+  }
+
+  const lainnya = speakers.filter((speaker) => barisnya.get(speaker)!.length === 0 && !yatim.includes(speaker) && !sorotan.includes(speaker));
   if (lainnya.length > 0) tabs.push({ key: "lainnya", label: labels.others, note: null, speakers: lainnya });
   return tabs;
 }

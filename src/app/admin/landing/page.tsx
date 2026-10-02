@@ -48,8 +48,10 @@ import { cx } from "@/lib/m3/cx";
 import { BlockEditor, butirBerlebih, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok } from "./blocks";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
 import { BagianEn, BlockEditorEn, kartuRundownId, rundownBelumDiterjemahkan, type BarisRundownEn } from "./editor-en";
+import { barisSesiDariAdmin, petakanSesiLama, PilihSesi, sesiHilang, type BarisSesi, type HasilPetakan } from "./pilih-sesi";
 import { formatClock, type RundownItem } from "@/lib/rundown";
-import { landingSessionEn, landingUntranslated } from "@/lib/landing-i18n";
+import { landingUntranslated } from "@/lib/landing-i18n";
+import { sesiDariRundown } from "@/lib/landing-speaker-tabs";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -246,6 +248,11 @@ export default function LandingCmsPage() {
   // null: rundown gagal dimuat, beda dengan rundown tanpa sesi.
   const [rundownEn, setRundownEn] = useState<BarisRundownEn[] | null>([]);
   const [rundownEnTersimpan, setRundownEnTersimpan] = useState<BarisRundownEn[]>([]);
+  // Baris rundown yang bisa dipilih sebagai sesi pembicara. null = belum ada
+  // atau gagal dimuat (lihat sesiMemuat): pilihan tersimpan tidak disentuh.
+  const [barisSesi, setBarisSesi] = useState<BarisSesi[] | null>(null);
+  const [sesiMemuat, setSesiMemuat] = useState(true);
+  const [hasilPetakan, setHasilPetakan] = useState<HasilPetakan | null>(null);
   const [tambahTerbuka, setTambahTerbuka] = useState(false);
   // Baris tersembunyi tetap di tempatnya; penyaring ini hanya menyembunyikannya dari daftar.
   const [tampilTersembunyi, setTampilTersembunyi] = useState(true);
@@ -290,14 +297,9 @@ export default function LandingCmsPage() {
   // Potret keadaan terakhir yang tersimpan, untuk memberi tahu bahwa pratinjau
   // belum memuat perubahan yang sedang diketik.
   const [tersimpan, setTersimpan] = useState<string | null>(null);
-  // Terjemahan sesi yang ditinggalkan saat nama sesi Indonesia diubah, menurut
-  // nama sesinya. Mengetik nama itu kembali memulihkan terjemahannya, walau
-  // sesinya sempat tidak dipakai pembicara mana pun.
-  const terjemahanSesi = useRef(new Map<string, string>());
   const toast = useToast();
 
   const load = useCallback(async () => {
-    terjemahanSesi.current.clear();
     const response = await fetch(eventApiPath("/api/events"), { cache: "no-store" }).catch(() => null);
     if (!response?.ok) { setError("Data acara gagal dimuat."); return; }
     const body = await response.json().catch(() => null);
@@ -336,6 +338,7 @@ export default function LandingCmsPage() {
     if (!isiAdmin) {
       setRundownEn(null);
       setRundownEnTersimpan([]);
+      setBarisSesi(null);
     } else {
       const daftarBagian = (isiAdmin.sections ?? []) as Array<{ id: number; name?: string | null; title?: string | null }>;
       const urutBagian = new Map<number, number>(daftarBagian.map((bagian, index) => [bagian.id, index]));
@@ -354,8 +357,34 @@ export default function LandingCmsPage() {
         }));
       setRundownEn(baris);
       setRundownEnTersimpan(baris);
+      // Sesi teks lama dihubungkan ke baris rundown begitu barisnya diketahui.
+      // Ikut dicatat sebagai tersimpan: halaman acara sudah menampilkan baris
+      // yang sama persis, jadi ini bukan perubahan yang perlu ditekan Simpan.
+      const sesi = barisSesiDariAdmin(isiAdmin);
+      setBarisSesi(sesi);
+      const { landing: terpetakan, hasil } = petakanSesiLama(nextLanding, sesi);
+      setHasilPetakan(hasil.terhubung || hasil.perluDipilih ? hasil : null);
+      if (terpetakan !== nextLanding) {
+        setLanding(terpetakan);
+        setTersimpan(JSON.stringify({ facts: found, landing: terpetakan, formInherit: nextInherit, formSeed: nextSeed }));
+      }
     }
+    setSesiMemuat(false);
   }, []);
+
+  // Baris sesi dimuat ulang saat tab ini kembali difokus: "Atur rundown" membuka
+  // Rundown di tab baru, dan baris yang baru ditambahkan harus bisa dipilih.
+  const muatBarisSesi = useCallback(async () => {
+    const admin = await fetch(eventApiPath("/api/admin/rundown/sections"), { cache: "no-store" }).catch(() => null);
+    const isiAdmin = admin?.ok ? await admin.json().catch(() => null) : null;
+    // Gagal memuat ulang tidak menghapus daftar yang sudah ada.
+    if (isiAdmin) setBarisSesi(barisSesiDariAdmin(isiAdmin));
+  }, []);
+  useEffect(() => {
+    const onFocus = () => void muatBarisSesi();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [muatBarisSesi]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
 
@@ -423,8 +452,7 @@ export default function LandingCmsPage() {
     patchFacts(fakta);
     // Kunci yang tidak ada di berkas (gambar sampul, warna, dsb.) tetap memakai
     // isi yang sekarang, jadi berkas tanpa gambar tidak menghapus gambar yang ada.
-    terjemahanSesi.current.clear();
-    setLanding((current) => ({ ...current, ...isi.landing }));
+    setLanding((current) => (barisSesi ? petakanSesiLama({ ...current, ...isi.landing }, barisSesi).landing : { ...current, ...isi.landing }));
     setBagian("susunan");
     toast.success("Isi dimuat", "Periksa isinya, lalu tekan Simpan. Muat ulang halaman untuk membatalkan.");
   }
@@ -621,11 +649,25 @@ export default function LandingCmsPage() {
   // Baris Rundown dihitung hanya bila Susunan acara tampil, sama dengan teks lain.
   const agendaAktif = sections.some((section) => section.id === "agenda" && section.enabled);
   const rundownKurangEn = agendaAktif ? rundownBelumDiterjemahkan(rundownEn ?? []) : 0;
-  const belumDiterjemahkan = kurangEn.length + rundownKurangEn;
+  // Judul rundown juga menjadi label tab sesi Pembicara. Tanpa Susunan acara,
+  // baris yang dipegang pembicara tetap dihitung, supaya tab English tidak diam-diam
+  // berbahasa Indonesia. Dengan Susunan acara, barisnya sudah terhitung di atas.
+  const idSesiDipakai = new Set((landing.speakers ?? []).flatMap((speaker) => (speaker.name?.trim() ? speaker.session_refs ?? [] : []).map((item) => item.id)));
+  const sesiKurangEn = !agendaAktif && sections.some((section) => section.id === "speakers" && section.enabled)
+    ? (rundownEn ?? []).filter((baris) => idSesiDipakai.has(baris.id) && baris.title.trim() && !baris.title_en.trim()).length
+    : 0;
+  const belumDiterjemahkan = kurangEn.length + rundownKurangEn + sesiKurangEn;
   const barisKurangEn = new Set(kurangEn.map((teks) => teks.section));
   // Rundown gagal dimuat: jumlahnya tidak diketahui, jadi barisnya tetap ditandai.
   if (rundownKurangEn > 0 || (agendaAktif && rundownEn === null)) barisKurangEn.add("agenda");
+  if (sesiKurangEn > 0) barisKurangEn.add("speakers");
   const modeEn = modern && bahasa === "en";
+  // Pembicara yang sesinya hilang dari rundown atau masih teks lama yang belum
+  // terhubung: ditandai titik di baris Pembicara.
+  const sesiPerluDipilih = (landing.speakers ?? []).filter(
+    (speaker) => speaker.name?.trim() && (sesiHilang(speaker, barisSesi).length > 0 || (!sesiDariRundown(speaker) && !!speaker.session?.trim())),
+  ).length;
+  const sesiLamaBelumTerhubung = (landing.speakers ?? []).filter((speaker) => speaker.name?.trim() && !sesiDariRundown(speaker) && !!speaker.session?.trim()).length;
   // Bawaan huruf judul mengikuti tata letak; harus sama dengan halaman publik.
   const hurufJudul: LandingHeadingFont = landing.heading_font ?? (modern ? "source" : "serif");
   const catatanProgram = landing.program_notes ?? [];
@@ -1135,6 +1177,14 @@ export default function LandingCmsPage() {
               Paling banyak 8 pembicara tampil sekaligus di tab Sorotan (yang ditonjolkan lebih dulu). Sisanya dibuka per sesi lewat tab. Tanpa foto, inisial nama dipakai.
             </p>
             {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">Belum ada pembicara.</p> : null}
+            {hasilPetakan?.terhubung || sesiLamaBelumTerhubung ? (
+              <p className="rounded-md bg-surface-container-high px-3 py-2 text-body-small text-on-surface" role="status">
+                {[
+                  hasilPetakan?.terhubung ? `${hasilPetakan.terhubung} pembicara dihubungkan ke rundown otomatis` : null,
+                  sesiLamaBelumTerhubung ? `${sesiLamaBelumTerhubung} pembicara perlu dipilih sesinya` : null,
+                ].filter(Boolean).join(", ")}.
+              </p>
+            ) : null}
             {list.map((speaker, index) => (
               <div key={index} className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
                 <div className="flex items-start gap-2">
@@ -1177,31 +1227,12 @@ export default function LandingCmsPage() {
                   value={speaker.role ?? ""}
                   onChange={(event) => ubah(index, { role: event.target.value })}
                 />
-                <TextField
-                  label="Sesi"
-                  optional
-                  placeholder="mis. Sesi 1"
-                  hint="Pembicara bersesi sama menjadi satu tab. Tulis sama dengan awal judul sesi di rundown supaya jam sesinya ikut tampil."
-                  value={speaker.session ?? ""}
-                  onChange={(event) => {
-                    // Terjemahan ikut nama sesinya: pindah sesi berarti memakai
-                    // terjemahan sesi tujuan (kalau sudah ada), bukan membawa yang lama.
-                    // Sesi yang masih dipakai pembicara lain memakai terjemahan yang
-                    // tampil di editor sekarang. Ingatan hanya untuk nama yang sempat
-                    // tidak dipakai siapa pun, dan ikut mengingat terjemahan kosong.
-                    const lama = speaker.session?.trim();
-                    if (lama) terjemahanSesi.current.set(lama, speaker.en?.session ?? "");
-                    const baru = event.target.value.trim();
-                    const lain = list.filter((_, posisi) => posisi !== index);
-                    const dipakai = lain.some((s) => s.session?.trim() === baru);
-                    ubah(index, {
-                      session: event.target.value,
-                      en: {
-                        ...speaker.en,
-                        session: dipakai ? landingSessionEn(lain, baru) : terjemahanSesi.current.get(baru) || undefined,
-                      },
-                    });
-                  }}
+                <PilihSesi
+                  speaker={speaker}
+                  baris={barisSesi}
+                  memuat={sesiMemuat}
+                  onMuatUlang={() => void muatBarisSesi()}
+                  onChange={(next) => { const daftar = [...list]; daftar[index] = next; setList(daftar); }}
                 />
                 <Switch
                   checked={Boolean(speaker.featured)}
@@ -1457,11 +1488,15 @@ export default function LandingCmsPage() {
     indeks?: number;
     isi: ReactNode;
     menu?: ItemMenuBlok[];
-    /** Mode EN: baris ini masih punya teks yang belum diterjemahkan. */
-    titik?: boolean;
+    /**
+     * Titik jingga: baris ini perlu dilihat. `true` = mode EN, ada teks yang
+     * belum diterjemahkan; teks = alasan lain, dibacakan apa adanya.
+     */
+    titik?: boolean | string;
   }) {
     const buka = terbuka === id;
     const tersembunyi = saklar ? !saklar.checked : false;
+    const alasanTitik = typeof titik === "string" ? titik : "Ada teks yang belum diterjemahkan.";
     // Yang bisa diseret hanya pegangannya: kalau seluruh baris draggable,
     // memblok teks di kolom isian ikut memulai seretan. Pegangannya selebar
     // seluruh tinggi baris (24x56), bukan ikon 16px.
@@ -1529,7 +1564,7 @@ export default function LandingCmsPage() {
             >
               {judul}
             </span>
-            {titik ? <span className="sr-only">Ada teks yang belum diterjemahkan.</span> : null}
+            {titik ? <span className="sr-only">{alasanTitik}</span> : null}
             {sub ? (
               <span title={sub} className="block truncate text-body-small text-on-surface-variant">
                 {tersembunyi ? `${sub} · tersembunyi` : sub}
@@ -1537,7 +1572,7 @@ export default function LandingCmsPage() {
             ) : null}
           </button>
           {titik ? (
-            <span className="mr-2 size-2 shrink-0 rounded-full bg-warning" title="Ada teks yang belum diterjemahkan" aria-hidden />
+            <span className="mr-2 size-2 shrink-0 rounded-full bg-warning" title={alasanTitik} aria-hidden />
           ) : null}
           {lencana ? <StatusChip tone="warning" className="shrink-0">{lencana}</StatusChip> : null}
           {saklar ? (
@@ -1651,7 +1686,7 @@ export default function LandingCmsPage() {
             judul: LANDING_SECTION_LABELS[id],
             sub: subBawaan(id),
             titik: barisKurangEn.has(id),
-            isi: <BagianEn id={id} landing={landing} facts={facts} setLanding={setLanding} rundown={rundownEn} ubahRundown={ubahRundown} />,
+            isi: <BagianEn id={id} landing={landing} facts={facts} setLanding={setLanding} rundown={rundownEn} ubahRundown={ubahRundown} sesiRundown={agendaAktif ? [] : (rundownEn ?? []).filter((baris) => idSesiDipakai.has(baris.id))} />,
           });
         })}
         {barisSusunan({ id: "kaki", nomor: sections.length + 2, judul: "Kaki halaman", sub: "Kalimat penyelenggara, banner ajakan", titik: barisKurangEn.has("kaki"), isi: <BagianEn id="kaki" landing={landing} facts={facts} setLanding={setLanding} /> })}
@@ -1700,6 +1735,7 @@ export default function LandingCmsPage() {
             judul: LANDING_SECTION_LABELS[id],
             sub: subBawaan(id),
             lencana: kosong ? (id === "agenda" ? "Rundown kosong" : "Belum ada isinya") : null,
+            titik: id === "speakers" && sesiPerluDipilih > 0 ? "Ada sesi pembicara yang perlu dipilih ulang." : false,
             saklar,
             indeks: index,
             menu: menuBaris(index, LANDING_SECTION_LABELS[id]),
