@@ -47,7 +47,16 @@ export type DaftarUiText = {
   notFoundBody: string;
   closedTitle: string;
   closedBody: (eventName: string) => string;
+  /**
+   * Galat server per kode API, untuk halaman English: pesan server ditulis
+   * dalam bahasa Indonesia. Di halaman Indonesia pesan server tampil apa adanya.
+   */
+  errors: Partial<Record<"REGISTRATION_DUPLICATE_EMAIL" | "REGISTRATION_CLOSED" | "RATE_LIMITED" | "VALIDATION_ERROR" | "INTERNAL_ERROR", string>>;
   field: {
+    choose: string;
+    fileHelp: string;
+    fileTooLarge: string;
+    fileFormat: string;
     uploadLost: string;
     uploadRejected: string;
     uploading: string;
@@ -61,6 +70,7 @@ export type DaftarUiText = {
     download: string;
     imageFailed: string;
     showAtDesk: string;
+    qrAlt: (code: string) => string;
   };
 };
 
@@ -104,7 +114,12 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
     notFoundBody: "Tautan pendaftaran ini tidak menunjuk ke acara mana pun. Periksa kembali alamat yang Anda terima dari panitia.",
     closedTitle: "Pendaftaran ditutup",
     closedBody: (eventName) => `Pendaftaran untuk "${eventName}" sedang tidak dibuka. Hubungi panitia bila Anda merasa ini keliru.`,
+    errors: {},
     field: {
+      choose: "Pilih…",
+      fileHelp: "PNG, JPG, WebP, atau PDF. Maksimal 5 MB.",
+      fileTooLarge: "Ukuran berkas maksimal 5 MB.",
+      fileFormat: "Format harus PNG, JPG, WebP, atau PDF.",
       uploadLost: "Koneksi terputus saat mengunggah. Coba lagi.",
       uploadRejected: "Berkas ditolak. Coba berkas lain.",
       uploading: "Mengunggah…",
@@ -118,6 +133,7 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
       download: "Unduh kode",
       imageFailed: "Gambar gagal dibuat. Potret layar ini sebagai gantinya.",
       showAtDesk: "Tunjukkan kode ini di meja registrasi",
+      qrAlt: (code) => `Kode QR peserta ${code}`,
     },
   },
   en: {
@@ -126,7 +142,7 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
     backToEvent: "Back to the event page",
     navAria: "Event page",
     signIn: "Sign in",
-    signInMemberArea: "Sign in to the participant area",
+    signInMemberArea: "Participant sign-in",
     managedBy: "Managed with Tally",
     personalData: "Your details",
     optionalNote: "Fields marked (optional) can be left empty.",
@@ -159,7 +175,18 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
     notFoundBody: "This registration link does not point to any event. Check the address you received from the organisers.",
     closedTitle: "Registration is closed",
     closedBody: (eventName) => `Registration for "${eventName}" is not open. Contact the organisers if you think this is a mistake.`,
+    errors: {
+      REGISTRATION_DUPLICATE_EMAIL: "This email is already registered for this event. Contact the organisers if you have not received your participant code.",
+      REGISTRATION_CLOSED: "Registration for this event has just closed.",
+      RATE_LIMITED: "Too many registrations from this device. Wait 10 minutes, then try again.",
+      VALIDATION_ERROR: "Some details are not valid. Check the form and try again.",
+      INTERNAL_ERROR: "Something went wrong on our side. Please try again.",
+    },
     field: {
+      choose: "Choose…",
+      fileHelp: "PNG, JPG, WebP or PDF. Max 5 MB.",
+      fileTooLarge: "The file must be 5 MB or smaller.",
+      fileFormat: "The file must be PNG, JPG, WebP or PDF.",
       uploadLost: "The connection dropped while uploading. Please try again.",
       uploadRejected: "The file was rejected. Try another file.",
       uploading: "Uploading…",
@@ -173,6 +200,7 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
       download: "Download code",
       imageFailed: "The image could not be created. Take a screenshot of this screen instead.",
       showAtDesk: "Show this code at the registration desk",
+      qrAlt: (code) => `Participant QR code ${code}`,
     },
   },
 };

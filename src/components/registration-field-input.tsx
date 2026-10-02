@@ -59,7 +59,14 @@ export function RegistrationFieldInput({ field, lang = "id" }: { field: Registra
     }
     const data = await response.json().catch(() => null);
     if (!response.ok) {
-      setUploadError(data?.error?.details?.file ?? data?.error?.details?.message ?? t.uploadRejected);
+      const pesan: string | undefined = data?.error?.details?.file ?? data?.error?.details?.message;
+      // Pesan server berbahasa Indonesia: di halaman English, dua alasan yang
+      // bisa diperbaiki pendaftar (ukuran, format) diterjemahkan, sisanya umum.
+      setUploadError(
+        lang === "id"
+          ? (pesan ?? t.uploadRejected)
+          : pesan?.includes("5 MB") ? t.fileTooLarge : pesan?.startsWith("Format") ? t.fileFormat : t.uploadRejected,
+      );
       return;
     }
     setUpload({ id: data.id, name: data.name });
@@ -156,7 +163,7 @@ export function RegistrationFieldInput({ field, lang = "id" }: { field: Registra
         ) : null}
 
         <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">
-          {field.help_text ? `${field.help_text} ` : ""}PNG, JPG, WebP, atau PDF. Maksimal 5 MB.
+          {field.help_text ? `${field.help_text} ` : ""}{t.fileHelp}
         </p>
       </div>
     );
@@ -176,7 +183,7 @@ export function RegistrationFieldInput({ field, lang = "id" }: { field: Registra
         />
       ) : field.type === "select" ? (
         <select required={field.required} name={`extra.${field.key}`} defaultValue="" className={`${REG_CONTROL} font-normal`}>
-          <option value="" disabled>Pilih…</option>
+          <option value="" disabled>{t.choose}</option>
           {(field.options ?? []).map((option) => (
             <option key={option} value={option}>{option}</option>
           ))}

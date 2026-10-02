@@ -152,7 +152,7 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={qr}
-            alt={`Kode QR peserta ${code}`}
+            alt={t.qrAlt(code)}
             className="rise-in-fast relative size-48 rounded-2xl bg-white p-3"
             width={192}
             height={192}

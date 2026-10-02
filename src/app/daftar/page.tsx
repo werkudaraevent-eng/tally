@@ -6,21 +6,47 @@ import { modernThemeStyle, registrationThemeStyle, resolveFormTheme } from "@/li
 import { redirect } from "next/navigation";
 import { DAFTAR_UI } from "@/lib/daftar-i18n";
 import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, LANDING_LANG_LABELS, type LandingLang } from "@/lib/landing-i18n";
+import { HtmlLang } from "@/components/html-lang";
+import type { Metadata } from "next";
 import DaftarClient from "./daftar-client";
 
 // Sama alasannya dengan /display: tanpa ini Next.js mem-prerender halaman saat
 // build, dan nama acara membeku pada event yang kebetulan aktif saat itu.
 export const dynamic = "force-dynamic";
 
+type Kueri = Promise<Record<string, string | string[] | undefined>>;
+
+/** `bahasa` diisi src/proxy.ts dari `/e/<slug>/en/daftar` atau `/id/daftar`. */
+function bahasaDiminta(kueri: Record<string, string | string[] | undefined>): LandingLang | null {
+  return kueri.bahasa === "en" || kueri.bahasa === "id" ? kueri.bahasa : null;
+}
+
+export async function generateMetadata({ searchParams }: { searchParams: Kueri }): Promise<Metadata> {
+  const kueri = await searchParams;
+  const event = await getPublicPageEvent(searchParams);
+  const minta = bahasaDiminta(kueri);
+  if (!event) return { title: DAFTAR_UI[minta ?? "id"].notFoundTitle, robots: { index: false } };
+  const landing = (event.landing_config ?? {}) as EventLandingConfig;
+  const utama = landingDefaultLang(landing);
+  // Sama dengan halaman di bawah: alamat bahasa lain yang tidak berlaku dialihkan.
+  const lang = minta && minta !== utama && landingEnAvailable(landing) ? minta : utama;
+  const judul = `${DAFTAR_UI[lang].registration} · ${publicEventName(event)}`;
+  const deskripsi = lang === "en" ? `Register for ${publicEventName(event)}.` : `Pendaftaran peserta ${publicEventName(event)}.`;
+  return {
+    title: judul,
+    description: deskripsi,
+    openGraph: { title: judul, description: deskripsi, locale: lang === "en" ? "en_GB" : "id_ID" },
+  };
+}
+
 export default async function DaftarPage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Kueri;
 }) {
   const kueri = await searchParams;
   const event = await getPublicPageEvent(searchParams);
-  // `bahasa` diisi src/proxy.ts dari `/e/<slug>/en/daftar` atau `/id/daftar`.
-  const minta: LandingLang | null = kueri.bahasa === "en" || kueri.bahasa === "id" ? kueri.bahasa : null;
+  const minta = bahasaDiminta(kueri);
 
   // Tiga keadaan yang harus DIBEDAKAN, karena tindak lanjutnya berbeda:
   // tidak ada event (tautannya salah), pendaftaran ditutup (tautannya benar,
@@ -87,6 +113,7 @@ export default async function DaftarPage({
 
 function Pesan({ lang, judul, isi }: { lang: LandingLang; judul: string; isi: string }) {
   return <main lang={LANDING_LANG_LABELS[lang].htmlLang} className="grid min-h-dvh place-items-center bg-surface px-5 text-on-surface">
+    <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
     <div className="rounded-lg w-full max-w-md border border-outline-variant bg-panel p-8 text-center">
       <h1 className="text-headline-small font-semibold tracking-[-0.03em]">{judul}</h1>
       <p className="mt-3 text-body-medium leading-6 text-on-surface-variant">{isi}</p>

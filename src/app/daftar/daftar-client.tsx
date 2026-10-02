@@ -7,6 +7,7 @@ import { useState, useSyncExternalStore, type CSSProperties, type FormEvent } fr
 import type { RegistrationField } from "@/lib/domain";
 import { REG_CONTROL, REG_LABEL, RegistrationFieldInput } from "@/components/registration-field-input";
 import { DAFTAR_UI } from "@/lib/daftar-i18n";
+import { HtmlLang } from "@/components/html-lang";
 import { LANDING_LANG_LABELS, type LandingLang } from "@/lib/landing-i18n";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { Spinner } from "@/components/search-loading";
@@ -183,7 +184,9 @@ export default function DaftarClient(props: Props) {
     }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setError(body.error?.details?.message ?? body.error?.message ?? t.failed);
+      // Pesan server berbahasa Indonesia. Halaman English memakai kodenya.
+      const kode = response.status === 429 ? "RATE_LIMITED" : body.error?.code;
+      setError(props.lang === "id" ? (body.error?.details?.message ?? body.error?.message ?? t.failed) : (t.errors[kode as keyof typeof t.errors] ?? t.failed));
       return;
     }
     setNama(String(form.get("name") ?? "").trim());
@@ -210,7 +213,7 @@ export default function DaftarClient(props: Props) {
         <input required minLength={2} maxLength={120} name="name" autoComplete="name" className={`${REG_CONTROL} font-normal`} />
       </label>
 
-      <label className={REG_LABEL}>{t.email} {!props.requireEmail && <span className={OPSIONAL}>{t.optional}</span>}
+      <label className={REG_LABEL}>{`${t.email} `}{!props.requireEmail && <span className={OPSIONAL}>{t.optional}</span>}
         <input required={props.requireEmail} type="email" maxLength={160} name="email" autoComplete="email" inputMode="email" className={`${REG_CONTROL} font-normal`} />
         <span className={`mt-2 block text-body-medium font-normal leading-6 ${MUTED}`}>
           {props.requireEmail
@@ -219,15 +222,15 @@ export default function DaftarClient(props: Props) {
         </span>
       </label>
 
-      <label className={REG_LABEL}>{t.phone} {!props.requirePhone && <span className={OPSIONAL}>{t.optional}</span>}
+      <label className={REG_LABEL}>{`${t.phone} `}{!props.requirePhone && <span className={OPSIONAL}>{t.optional}</span>}
         <input required={props.requirePhone} type="tel" minLength={6} maxLength={30} name="phone" autoComplete="tel" inputMode="tel" className={`${REG_CONTROL} font-normal`} />
       </label>
 
-      <label className={REG_LABEL}>{t.company} {!props.requireCompany && <span className={OPSIONAL}>{t.optional}</span>}
+      <label className={REG_LABEL}>{`${t.company} `}{!props.requireCompany && <span className={OPSIONAL}>{t.optional}</span>}
         <input required={props.requireCompany} maxLength={160} name="company" autoComplete="organization" className={`${REG_CONTROL} font-normal`} />
       </label>
 
-      <label className={REG_LABEL}>{t.jobTitle} {!props.requireJobTitle && <span className={OPSIONAL}>{t.optional}</span>}
+      <label className={REG_LABEL}>{`${t.jobTitle} `}{!props.requireJobTitle && <span className={OPSIONAL}>{t.optional}</span>}
         <input required={props.requireJobTitle} maxLength={160} name="job_title" autoComplete="organization-title" className={`${REG_CONTROL} font-normal`} />
       </label>
 
@@ -494,6 +497,7 @@ function Bingkai({
           "radial-gradient(120% 100% at 82% -10%, color-mix(in srgb, var(--reg-primary) 22%, transparent), transparent 60%), radial-gradient(90% 80% at 0% 0%, color-mix(in srgb, var(--reg-primary) 10%, transparent), transparent 55%)",
       }}
     >
+      <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
       <div className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
           {/* Kolom identitas. Menempel saat digulir di layar lebar: formulir ini
@@ -564,6 +568,7 @@ function BingkaiModern({
       className="flex min-h-dvh flex-col bg-[var(--reg-surface)] text-[var(--reg-on-surface)]"
       style={{ ...theme, "--landing-heading": modern.headingFont } as CSSProperties}
     >
+      <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
       <header
         className={`relative isolate overflow-hidden ${modern.kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
         style={{ color: tinta, "--m3-state-color": tinta } as CSSProperties}
