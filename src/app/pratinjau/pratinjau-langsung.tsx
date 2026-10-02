@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import type { LandingForumPage } from "@/lib/domain";
 import { renderPratinjau } from "./actions";
 
 /** Jeda setelah ketikan terakhir sebelum draf dirender ulang. */
@@ -13,7 +14,7 @@ const JEDA_MS = 350;
  * lewat postMessage. Hanya pesan dari jendela induk dengan asal yang sama yang
  * diterima: halaman ini butuh login admin, dan draf tidak pernah datang dari URL.
  */
-export function PratinjauLangsung({ slug, children }: { slug: string; children: ReactNode }) {
+export function PratinjauLangsung({ slug, halaman, children }: { slug: string; halaman: LandingForumPage; children: ReactNode }) {
   const [isi, setIsi] = useState<ReactNode>(children);
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export function PratinjauLangsung({ slug, children }: { slug: string; children: 
       window.clearTimeout(timer);
       timer = window.setTimeout(async () => {
         const nomor = ++urutan;
-        const hasil = await renderPratinjau(slug, draf, bahasa).catch(() => null);
+        const hasil = await renderPratinjau(slug, draf, bahasa, halaman).catch(() => null);
         // Draf yang lebih baru sudah dikirim: hasil ini sudah basi.
         if (nomor !== urutan) return;
         if (hasil?.ok) setIsi(hasil.isi);
@@ -48,15 +49,32 @@ export function PratinjauLangsung({ slug, children }: { slug: string; children: 
       lapor({ jenis: "tally-pratinjau-bahasa", bahasa: tautan.getAttribute("hreflang") === "en" ? "en" : "id" });
     }
 
+    // Tautan selain ID | EN tidak berpindah halaman sendiri. Tautan antarhalaman
+    // Forum (`data-halaman`) diteruskan ke CMS, yang memuat ulang bingkai pada
+    // halaman itu dan mengirim drafnya lagi. Tautan lain (Daftar, Masuk, peta)
+    // diabaikan: pratinjau bukan tempat mendaftar, dan halaman di baliknya
+    // tidak memuat draf.
+    function klik(event: MouseEvent) {
+      const tautan = (event.target as Element | null)?.closest?.("a");
+      if (!tautan) return;
+      const href = tautan.getAttribute("href") ?? "";
+      if (href.startsWith("#")) return;
+      event.preventDefault();
+      const tujuan = tautan.getAttribute("data-halaman");
+      if (tujuan) lapor({ jenis: "tally-pratinjau-halaman", halaman: tujuan, jangkar: href.split("#")[1] ?? null });
+    }
+
     window.addEventListener("message", terima);
     document.addEventListener("click", pindahBahasa, true);
-    lapor({ jenis: "tally-pratinjau-siap" });
+    document.addEventListener("click", klik);
+    lapor({ jenis: "tally-pratinjau-siap", halaman });
     return () => {
       window.removeEventListener("message", terima);
       document.removeEventListener("click", pindahBahasa, true);
+      document.removeEventListener("click", klik);
       window.clearTimeout(timer);
     };
-  }, [slug]);
+  }, [slug, halaman]);
 
   return <>{isi}</>;
 }
