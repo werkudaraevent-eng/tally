@@ -1235,6 +1235,8 @@ export type ApiErrorCode =
   // dari REGISTRATION_NOT_FOUND karena tindak lanjutnya berbeda: yang ini
   // menyuruh menyetujui dulu, bukan mencari barisnya.
   | "REGISTRATION_NOT_APPROVED"
+  | "ANNOUNCEMENT_NOT_FOUND"
+  | "ANNOUNCEMENTS_NOT_READY"
   | "EMAIL_NOT_CONFIGURED"
   | "EMAIL_SEND_FAILED"
   // Dua penjaga penghapusan event. Dipisah karena jalan keluarnya berbeda:

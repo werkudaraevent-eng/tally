@@ -1,6 +1,6 @@
 import {
   ArmchairIcon, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving,
-  ListChecks, MonitorPlay, Printer, QrCode, Receipt, ShieldCheck, Storefront, UserPlus, UsersThree,
+  ListChecks, Megaphone, MonitorPlay, Printer, QrCode, Receipt, ShieldCheck, Storefront, UserPlus, UsersThree,
 } from "@phosphor-icons/react";
 import type { ComponentType } from "react";
 
@@ -67,6 +67,7 @@ export const navigation: NavGroup[] = [
     items: [
       { href: "/admin/participants", label: "Daftar peserta", icon: UsersThree, description: "Daftar hadirin, sumber datanya, dan penyuntingan per baris." },
       { href: "/admin/registrasi", label: "Pendaftaran publik", icon: UserPlus, description: "Formulir pendaftaran publik dan moderasi pendaftar yang masuk." },
+      { href: "/admin/pengumuman", label: "Pengumuman", icon: Megaphone, description: "Kabar panitia untuk peserta, tampil di lonceng halaman acara dan Dashboard saya." },
       { href: "/admin/attendance", label: "Kehadiran", icon: QrCode, description: "Catatan kehadiran per jalur registrasi dan per sesi." },
       // Label duduk di sini, bukan di kelompok tersendiri: yang dicetak adalah
       // badge tamu walk-in, dan walk-in hanya ada karena layar kehadiran.

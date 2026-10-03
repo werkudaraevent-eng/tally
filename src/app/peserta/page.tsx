@@ -9,6 +9,10 @@ import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { memberPageStyle } from "@/lib/member/page-theme";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
+import { DashboardModern } from "@/components/member/dashboard-modern";
+import { isUnread, loadMemberAnnouncements, markAnnouncementsSeen } from "@/lib/member/pengumuman";
+import { waktuPengumuman } from "@/lib/member/nav";
+import type { EventLandingConfig } from "@/lib/domain";
 
 /**
  * Area peserta: `/e/<slug>/peserta`.
@@ -25,6 +29,13 @@ import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi
  * Akun yang dibuat dari formulir pendaftaran sudah bisa masuk sebelum
  * pendaftarannya disetujui. Selama itu belum ada baris peserta (kode, kursi),
  * jadi halaman ini menampilkan status pendaftarannya di tempat tiket.
+ *
+ * Tata letak Modern memakai Dashboard saya (components/member/dashboard-modern):
+ * bilah atas, warna, dan kaki halaman acara yang sama. Editorial dan Forum
+ * masih memakai halaman di bawah ini, ditambah daftar pengumuman.
+ *
+ * Membuka halaman ini menandai semua pengumuman terbaca. Daftarnya dimuat
+ * DULU, jadi titik "baru" di halaman ini tetap menunjuk yang baru masuk.
  */
 
 export const dynamic = "force-dynamic";
@@ -52,10 +63,16 @@ export default async function AreaPesertaPage({
   const tampilKursi = Boolean(peserta) && member.show_seat !== false;
   const tampilSusunan = member.show_schedule !== false;
   const tampilVote = Boolean(peserta) && member.show_vote !== false;
-  const agenda = tampilSusunan ? await loadAgendaPreview(event.id) : [];
   const kursi = (peserta?.seats ?? []).filter((seat) => seat.label?.trim());
   const kueri = await searchParams;
   const konfirmasi = kueri.konfirmasi === "ok" ? "ok" : kueri.konfirmasi === "gagal" ? "gagal" : null;
+  const pengumuman = await loadMemberAnnouncements(event.id, sesi);
+  if (pengumuman.unread > 0) await markAnnouncementsSeen(sesi.accountId);
+
+  if ((event.landing_config as EventLandingConfig | null)?.layout === "modern") {
+    return <DashboardModern event={event} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} />;
+  }
+  const agenda = tampilSusunan ? await loadAgendaPreview(event.id) : [];
 
   return (
     <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={memberPageStyle(event)}>
@@ -169,6 +186,32 @@ export default async function AreaPesertaPage({
           ) : null}
 
           <div className={`flex flex-col gap-12 ${!peserta || tampilKode || tampilKursi ? "lg:col-span-6 lg:col-start-7" : "lg:col-span-8"}`}>
+            {pengumuman.items.length > 0 ? (
+              <section aria-labelledby="pengumuman-judul">
+                <h2 id="pengumuman-judul" className={`text-[28px] font-semibold leading-tight sm:text-[32px] ${HEAD}`}>
+                  Pengumuman
+                </h2>
+                <ul className="mt-4 divide-y divide-[var(--reg-outline-variant)] rounded-md border border-[var(--reg-outline-variant)]">
+                  {pengumuman.items.map((item) => (
+                    <li key={item.id} className="px-5 py-4">
+                      <h3 className="text-title-medium font-semibold">
+                        {isUnread(item, pengumuman.seenAt) ? <span className="mr-2 inline-block size-2 rounded-full bg-[var(--reg-primary)] align-middle" aria-label="Baru" /> : null}
+                        {item.pinned ? "Disematkan: " : null}
+                        {item.title}
+                      </h3>
+                      {item.body ? <p className={`mt-1 whitespace-pre-line text-body-large ${MUTED}`}>{item.body}</p> : null}
+                      {item.link_url ? (
+                        <a href={item.link_url} target="_blank" rel="noreferrer noopener" className="mt-1 inline-flex min-h-10 items-center text-title-small font-semibold text-[var(--reg-primary)]">
+                          {item.link_label?.trim() || item.link_url}
+                        </a>
+                      ) : null}
+                      <p className={`mt-1 text-body-small ${MUTED}`}>{waktuPengumuman(item.published_at, event.time_zone, "id")}</p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
             {tampilVote || member.feedback_url ? (
               <section aria-label="Tautan acara" className="grid gap-4 sm:grid-cols-2">
                 {tampilVote ? (

@@ -110,3 +110,53 @@ export async function sendEmail(input: {
     return { ok: false, error: error instanceof Error ? error.message.slice(0, 300) : "Gagal menghubungi penyedia email." };
   }
 }
+
+/** Batas Resend per panggilan /emails/batch. */
+export const BATCH_MAX = 100;
+
+/**
+ * Banyak email sekaligus lewat /emails/batch (paling banyak 100 per panggilan),
+ * untuk pengumuman panitia ke semua akun peserta. Satu email per penerima,
+ * jadi alamat penerima lain tidak pernah terlihat. Tidak melempar, sama dengan
+ * sendEmail; yang dikembalikan hitungan terkirim dan gagal.
+ */
+export async function sendEmailBatch(
+  messages: { to: string; subject: string; html: string; text: string }[],
+): Promise<{ sent: number; failed: number; error: string | null } | { notConfigured: true }> {
+  const config = emailConfig();
+  if (!config) return { notConfigured: true };
+  let sent = 0;
+  let failed = 0;
+  let lastError: string | null = null;
+  for (let i = 0; i < messages.length; i += BATCH_MAX) {
+    const potongan = messages.slice(i, i + BATCH_MAX);
+    try {
+      const response = await fetch(`${ENDPOINT}/batch`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          potongan.map((pesan) => ({
+            from: config.from,
+            to: [pesan.to],
+            subject: pesan.subject,
+            html: pesan.html,
+            text: pesan.text,
+            ...(config.replyTo ? { reply_to: config.replyTo } : {}),
+          })),
+        ),
+        signal: AbortSignal.timeout(TIMEOUT_MS * 2),
+      });
+      if (response.ok) {
+        sent += potongan.length;
+      } else {
+        const body = (await response.json().catch(() => null)) as { message?: string; name?: string } | null;
+        failed += potongan.length;
+        lastError = (body?.message ?? body?.name ?? `HTTP ${response.status}`).slice(0, 300);
+      }
+    } catch (error) {
+      failed += potongan.length;
+      lastError = error instanceof Error ? error.message.slice(0, 300) : "Gagal menghubungi penyedia email.";
+    }
+  }
+  return { sent, failed, error: lastError };
+}

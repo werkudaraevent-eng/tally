@@ -72,6 +72,10 @@ const messages: Record<ApiErrorCode, string> = {
   REGISTRATION_NOT_FOUND: "Pendaftaran tidak ditemukan.",
   REGISTRATION_ALREADY_REVIEWED: "Pendaftaran ini sudah diproses admin lain. Muat ulang daftarnya.",
   REGISTRATION_NOT_APPROVED: "Pendaftaran ini belum disetujui, jadi belum ada kode peserta yang bisa dikirim.",
+  ANNOUNCEMENT_NOT_FOUND: "Pengumuman tidak ditemukan. Mungkin sudah dihapus panitia lain; muat ulang halaman.",
+  // Tabel pengumuman dibuat migrasi 202610030002. Sebelum dijalankan, fitur
+  // ini mati dengan pesan yang menyebut langkahnya, bukan galat 500.
+  ANNOUNCEMENTS_NOT_READY: "Fitur pengumuman belum aktif: migrasi database 202610030002 belum dijalankan.",
   // Menyebut SIAPA yang harus bertindak. Panitia yang membaca "gagal terkirim"
   // akan menekan Kirim ulang berkali-kali untuk keadaan yang tidak akan berubah
   // sampai pemilik sistem mengisi kunci API.

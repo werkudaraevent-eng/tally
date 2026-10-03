@@ -10,8 +10,8 @@ import type {
   LandingHeadedSection,
   LandingSectionId,
 } from "@/lib/domain";
-import { LANDING_HEADING_FONTS, LANDING_NAV_DEFAULTS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
-import { heroCtaColors, modernNavStyle, modernThemeStyle } from "@/lib/registration-theme-css";
+import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
+import { heroCtaColors } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { speakerTabs } from "@/lib/landing-speaker-tabs";
@@ -26,6 +26,8 @@ import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
 import { HEAD, JUDUL, JUDUL_BUTIR, LABEL_BAGIAN, LEBAR_BACA, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
 import { LandingBlockView } from "./modern/landing-blocks";
+import { KakiModern, KV_SCRIM, KV_SCRIM_RATA, PitaMitra, bagianModern, gayaModern, tinta } from "./modern/kerangka";
+import { muatNavPeserta } from "@/lib/member/nav";
 
 /**
  * Landing page publik acara, tata letak Modern (`landing_config.layout`).
@@ -100,39 +102,10 @@ const HEADING_SCALE: Record<LandingHeadingScale, string> = {
   xl: "text-[44px] sm:text-[60px] lg:text-[72px]",
 };
 
-/**
- * Bayangan KV di hero: sedikit gelap di atas (bilah nav), paling terang di
- * tengah, paling pekat di bawah tempat judul dan tombol berdiri. Lebih pekat
- * dari rancangan (55%) karena KV asli bisa putih di bagian bawahnya.
- */
-const KV_SCRIM =
-  "linear-gradient(to bottom, rgb(0 0 0 / 0.35), rgb(0 0 0 / 0.12) 40%, rgb(0 0 0 / 0.55) 70%, rgb(0 0 0 / 0.78))";
 
-/** Bayangan rata untuk banner ajakan, yang teksnya di tengah. */
-const KV_SCRIM_RATA = "linear-gradient(to bottom, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0.7))";
-
-/**
- * Latar kaki: primary dicampur hitam separuh, jadi navy merek (bukan hampir
- * hitam) yang senada dengan hero. Teks putih tetap aman di warna tema apa pun.
- */
-const LATAR_KAKI = "color-mix(in srgb, var(--reg-primary) 55%, black)";
 
 const HERO_DELAY = (step: number) => ({ "--rise-delay": `${step * 60}ms` }) as CSSProperties;
 
-/**
- * Warna teks di atas bidang bergambar: putih di atas KV yang dibayangi, atau
- * on-brand di atas bidang warna merek polos. Dipasang sebagai `--ink` supaya
- * chip dan tombol di dalamnya cukup menulis satu kelas. `--ink-accent` adalah
- * teks tombol berlatar `--ink`: warna merek di atas bidang merek (pasangan yang
- * sama dibalik), primary di atas KV karena tombolnya putih dan merek bisa putih.
- */
-function tinta(adaKv: boolean): CSSProperties {
-  return {
-    "--ink": adaKv ? "#fff" : "var(--reg-on-brand)",
-    "--ink-accent": adaKv ? "var(--reg-primary)" : "var(--reg-brand)",
-    "--m3-state-color": "var(--ink)",
-  } as CSSProperties;
-}
 
 /** Chip pil di atas permukaan terang (kartu program). */
 const CHIP =
@@ -190,84 +163,25 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // Teks bawaan halaman dalam bahasa halaman. Teks dari CMS sudah diterjemahkan
   // sebelum sampai di sini (resolveLanding).
   const t = LANDING_UI[lang];
-  const NAV_LABEL = t.nav;
   // Judul bagian bawaan: teks dari CMS, atau judul otomatis/bawaan bila kosong.
   const judulBagian = (id: LandingHeadedSection) => landingSectionHeading(event, config, lang, id);
-  const aktif = new Set(sections.filter((section) => section.enabled).map((section) => section.id));
   // Formulir pendaftaran dalam bahasa halaman (src/app/daftar). Area peserta
   // belum dwibahasa.
   const daftarUrl = `${landingPath(event.slug, lang, landingDefaultLang(config))}/daftar`;
   const ctaLabel = config.cta_label?.trim() || t.registerNow;
-  const speakers = (config.speakers ?? []).filter((speaker) => speaker.name?.trim());
   const agenda = await loadAgendaPreview(event.id, lang);
   const zona = timeZoneAbbr(event.time_zone);
 
   const member = memberConfig(event);
   const masukUrl = `/e/${event.slug}/masuk`;
-  const sudahMasuk = member ? Boolean(await getMemberSession(event)) : false;
-  const memberLink = member
-    ? sudahMasuk
-      ? { href: `/e/${event.slug}/peserta`, label: t.memberArea }
-      : { href: masukUrl, label: t.signIn }
-    : null;
+  // Peserta yang sudah masuk melihat halaman acara yang sama, dengan lonceng
+  // pengumuman dan "Dashboard saya" menggantikan Masuk dan Daftar.
+  const sesi = member ? await getMemberSession(event) : null;
+  const sudahMasuk = Boolean(sesi);
+  const peserta = sesi ? await muatNavPeserta(event, sesi, lang) : null;
+  const memberLink = member && !sesi ? { href: masukUrl, label: t.signIn } : null;
 
-  // Bagian yang tampil: saklar CMS DAN ada isinya. Dihitung sekali, dipakai
-  // untuk bagian itu sendiri, nav, dan kolom tautan di kaki halaman.
-  const isi: Record<LandingSectionId, boolean> = {
-    about: Boolean(event.description?.trim()),
-    highlights: (config.highlights ?? []).length > 0,
-    agenda: agenda.length > 0,
-    speakers: speakers.length > 0,
-    venue: Boolean(event.venue_name?.trim() || event.venue_address?.trim()),
-    faq: (config.faq ?? []).length > 0,
-    sponsors: (config.sponsors ?? []).some((sponsor) => sponsor.logo_url),
-    contact: Boolean(config.contact_name || config.contact_phone || config.contact_email),
-  };
-  const tampil = (id: LandingSectionId) => aktif.has(id) && isi[id];
-  // Program = bagian-bagian rundown sebagai kartu. Satu bagian saja tidak
-  // perlu kartu: susunan acara di bawahnya sudah mengatakan hal yang sama.
-  const tampilProgram = tampil("agenda") && agenda.length >= 2 && !config.program_hidden;
-
-  const blokById = new Map((config.blocks ?? []).map((block) => [block.id, block]));
-
-  // Menu atas mengikuti urutan halaman: bagian bawaan yang tampil, plus blok
-  // yang diberi label menu di CMS. Dibatasi enam supaya tetap satu baris.
-  // Id bagian yang benar-benar dirender: tombol jangkar di blok ke bagian yang
-  // tidak tampil (mis. "Lihat susunan acara" tanpa rundown) disembunyikan.
-  const jangkar = new Set<string>(["isi-acara"]);
-  sections
-    .filter((section) => section.enabled)
-    .forEach((section) => {
-      if (isLandingBlockId(section.id)) {
-        const block = blokById.get(section.id);
-        if (block && landingBlockHasContent(block)) jangkar.add(block.id);
-      } else if (tampil(section.id)) {
-        jangkar.add(section.id);
-      }
-    });
-  if (tampilProgram) jangkar.add("program");
-
-  const navSections: { id: string; label: string }[] = [];
-  const tambahNav = (id: string, label: string) => {
-    if (!navSections.some((item) => item.id === id)) navSections.push({ id, label });
-  };
-  sections
-    .filter((section) => section.enabled)
-    .forEach((section) => {
-      if (isLandingBlockId(section.id)) {
-        const block = blokById.get(section.id);
-        const label = block?.nav_label?.trim();
-        if (block && label && landingBlockHasContent(block)) tambahNav(block.id, label);
-        return;
-      }
-      // Kartu program menempel pada Tentang acara, atau pada Susunan acara bila
-      // Tentang acara tidak tampil (lihat `program` di bawah).
-      if (tampilProgram && (section.id === "about" ? tampil("about") : section.id === "agenda" && !tampil("about"))) {
-        tambahNav("program", NAV_LABEL.program);
-      }
-      if (section.id in NAV_LABEL && tampil(section.id)) tambahNav(section.id, NAV_LABEL[section.id as keyof typeof NAV_LABEL]);
-    });
-  navSections.splice(6);
+  const { tampil, tampilProgram, speakers, blokById, jangkar, navSections, mitra, kontak } = bagianModern(event, config, sections, agenda, lang);
 
   const kv = config.banner_url ?? null;
   // Pita ajakan dari pustaka blok menggantikan banner ajakan bawaan, supaya
@@ -301,9 +215,6 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       ? { nilai: t.sessions(totalSesi), label: agenda.length > 1 ? t.inPrograms(agenda.length) : null }
       : null;
 
-  // Tanpa pilihan admin, Modern memakai Source Sans 3 (huruf rancangannya),
-  // Editorial tetap Playfair Display.
-  const headingFont = LANDING_HEADING_FONTS[config.heading_font ?? "source"] ?? LANDING_HEADING_FONTS.source;
   const infoHero = [
     tanggal ? { ikon: CalendarBlank, teks: tanggal } : null,
     jam ? { ikon: Clock, teks: jam } : null,
@@ -315,18 +226,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     ? { href: "#agenda", label: t.viewAgenda }
     : { href: "#isi-acara", label: t.aboutEvent };
   const ctaKv = { "--cta-bg": cta.bg, "--cta-fg": cta.fg } as CSSProperties;
-  // Variabel bilah atas dipasang di <main>, bukan di <nav>: hero juga
-  // membacanya (`--nav-h` untuk margin negatifnya).
-  const navStyle = modernNavStyle(
-    config.nav,
-    kv ? { ink: "#ffffff", onInk: "#181d27" } : { ink: "var(--reg-on-brand)", onInk: "var(--reg-brand)" },
-  );
-  const mainStyle = {
-    ...theme,
-    ...modernThemeStyle(config.theme?.seed),
-    ...navStyle,
-    "--landing-heading": headingFont.cssVar,
-  } as CSSProperties;
+  const mainStyle = gayaModern(config, theme);
 
   // Paling banyak 8 kartu sekaligus; sisanya per sesi lewat tab (lihat
   // landing-speaker-tabs.ts, dipakai juga tata letak lain).
@@ -336,23 +236,21 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     sesi: landingSessionLabels(config, lang),
   });
   const judulPembicara = judulBagian("speakers");
-  const mitra = aktif.has("sponsors") ? (config.sponsors ?? []).filter((sponsor) => sponsor.logo_url) : [];
 
   const kalenderUrl = event.event_date ? `/kalender.ics?eventSlug=${encodeURIComponent(event.slug)}` : null;
   const tahun = (event.event_date ?? new Date().toISOString()).slice(0, 4);
 
-  const kontak = tampil("contact")
-    ? [
-        config.contact_name ? { label: config.contact_name, href: null } : null,
-        config.contact_email ? { label: config.contact_email, href: `mailto:${config.contact_email}` } : null,
-        config.contact_phone ? { label: config.contact_phone, href: `tel:${config.contact_phone}` } : null,
-      ].filter((item): item is { label: string; href: string | null } => item !== null)
-    : [];
   const tautanTamu = [
-    ...(event.registration_enabled ? [{ label: t.register, href: daftarUrl }] : []),
-    ...(memberLink ? [{ label: memberLink.label === t.signIn ? t.signInMemberArea : memberLink.label, href: memberLink.href }] : []),
+    ...(peserta ? [{ label: t.myDashboard, href: peserta.dashboardHref }] : []),
+    ...(!peserta && event.registration_enabled ? [{ label: t.register, href: daftarUrl }] : []),
+    ...(memberLink ? [{ label: t.signInMemberArea, href: memberLink.href }] : []),
     ...(tampil("faq") ? [{ label: "FAQ", href: "#faq" }] : []),
   ];
+  // Aksi utama peserta yang sudah masuk: tiketnya, atau status pendaftarannya
+  // selama belum disetujui. Menggantikan ajakan mendaftar di hero dan kaki.
+  const aksiPeserta = peserta && sesi
+    ? { href: peserta.dashboardHref, label: sesi.status === "approved" ? t.viewMyTicket : t.viewRegistrationStatus }
+    : null;
   const tautanAcara = navSections.filter((section) => section.id !== "faq");
 
   // Bagian bawaan, dirender menurut susunan dari CMS bersama blok dari pustaka
@@ -614,6 +512,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         logoOnDark={Boolean(kv) && (config.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50}
         lang={lang}
         langSwitch={otherLang ? { href: landingPath(event.slug, otherLang, landingDefaultLang(config)), lang: otherLang } : null}
+        peserta={peserta}
       />
 
       {/* ---- Hero ---------------------------------------------------------
@@ -675,7 +574,18 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 menjadi aksi yang memang bisa dilakukan (lihat susunan acara),
                 dan statusnya ditulis sebagai teks. */}
             <div className="rise-in mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center" style={HERO_DELAY(3)}>
-              {event.registration_enabled ? (
+              {aksiPeserta ? (
+                <>
+                  <Link href={aksiPeserta.href} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
+                    {aksiPeserta.label}
+                  </Link>
+                  {tampil("agenda") ? (
+                    <a href="#agenda" className={`${PIL_INK_GARIS} justify-center`}>
+                      {t.viewAgenda}
+                    </a>
+                  ) : null}
+                </>
+              ) : event.registration_enabled ? (
                 <>
                   <Link href={daftarUrl} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
                     {ctaLabel}
@@ -708,7 +618,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           if (isLandingBlockId(section.id)) {
             const block = blokById.get(section.id);
             return block ? (
-              <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled ? daftarUrl : null} daftarLabel={ctaLabel} jangkar={jangkar} lang={lang} />
+              <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled && !peserta ? daftarUrl : null} daftarLabel={ctaLabel} jangkar={jangkar} lang={lang} />
             ) : null;
           }
           const konten = bawaan[section.id];
@@ -721,7 +631,8 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
 
       <div className={SHELL}>
         {/* ---- Banner ajakan ------------------------------------------------ */}
-        {event.registration_enabled && !adaBlokAjakan ? (
+        {/* Yang sudah terdaftar tidak diajak mendaftar lagi. */}
+        {event.registration_enabled && !adaBlokAjakan && !peserta ? (
           <section className="pb-16 sm:pb-24">
             <div
               className={`relative isolate flex flex-col items-center gap-6 overflow-hidden rounded-lg px-6 py-16 text-center text-[var(--ink)] sm:py-24 ${
@@ -748,68 +659,22 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         ) : null}
       </div>
 
-      {/* ---- Penyelenggara ---------------------------------------------------
-          Pita terang tepat di atas kaki halaman, bukan di atas navy: logo
-          lembaga dibuat untuk latar terang, dan versi putihnya jarang ada.
-          Satu deret rata tengah, sama tinggi, tanpa petak per logo. */}
-      {mitra.length > 0 ? (
-        <section aria-labelledby="penyelenggara" className="border-t border-[var(--reg-outline-variant)]">
-          <div className={`${SHELL} flex flex-col items-center gap-6 py-10 sm:py-12`}>
-            <h2 id="penyelenggara" className={`text-title-small font-semibold ${MUTED}`}>
-              {t.organisedBy}
-            </h2>
-            <ul className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
-              {mitra.map((sponsor) => (
-                <li key={sponsor.logo_url} className="flex h-10 items-center sm:h-12">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={sponsor.logo_url} alt={sponsor.name ?? ""} loading="lazy" className="max-h-full w-auto max-w-[160px] object-contain" />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      ) : null}
+      <PitaMitra mitra={mitra} judul={t.organisedBy} />
 
       {/* ---- Kaki halaman ---------------------------------------------------- */}
-      <footer data-bagian="kaki" className="text-white" style={{ backgroundColor: LATAR_KAKI }}>
-        <div className={`${SHELL} flex flex-col gap-10 pb-8 pt-12 sm:pt-16`}>
-          <div className="flex flex-col gap-10 lg:flex-row lg:justify-between">
-            <div className="flex max-w-[420px] flex-col gap-3">
-              <p className={`${HEAD} text-title-large font-semibold`}>{nama}</p>
-              {config.footer_note?.trim() ? (
-                <p className="text-body-medium leading-[1.6] text-white/70">{config.footer_note.trim()}</p>
-              ) : (
-                <div className="text-body-medium leading-[1.6] text-white/70">
-                  {tanggal ? <p>{tanggal}</p> : null}
-                  {venue ? <p>{venue}</p> : null}
-                </div>
-              )}
-              {event.registration_enabled ? (
-                <div style={tinta(true)} className="mt-3">
-                  <Link href={daftarUrl} className={PIL_INK}>
-                    {ctaLabel}
-                  </Link>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="grid grid-cols-2 gap-x-10 gap-y-8 sm:flex sm:gap-20">
-              {tautanAcara.length > 0 ? (
-                <KolomKaki judul={t.footerEvent} tautan={tautanAcara.map((item) => ({ label: item.label, href: `#${item.id}` }))} />
-              ) : null}
-              {tautanTamu.length > 0 ? <KolomKaki judul={t.footerGuests} tautan={tautanTamu} /> : null}
-              {kontak.length > 0 ? <KolomKaki judul={t.footerContact} tautan={kontak} /> : null}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap justify-between gap-3 border-t border-white/15 pt-6 text-body-small text-white/60">
-            <p>
-              © {tahun} {nama}
-            </p>
-            <p>{t.poweredBy}</p>
-          </div>
-        </div>
-      </footer>
+      <KakiModern
+        nama={nama}
+        keterangan={{ catatan: config.footer_note?.trim() || null, baris: [tanggal, venue].filter((baris): baris is string => Boolean(baris)) }}
+        tombol={aksiPeserta ?? (event.registration_enabled ? { href: daftarUrl, label: ctaLabel } : null)}
+        kolom={[
+          { judul: t.footerEvent, tautan: tautanAcara.map((item) => ({ label: item.label, href: `#${item.id}` })) },
+          { judul: t.footerGuests, tautan: tautanTamu },
+          { judul: t.footerContact, tautan: kontak },
+        ]}
+        tahun={tahun}
+        poweredBy={t.poweredBy}
+        pil={PIL_INK}
+      />
 
       {/* Masuk area peserta: dialog di atas halaman ini, dibuka tautan Masuk di
           bilah atas dan kaki. Area peserta belum dwibahasa, jadi dialognya
@@ -828,32 +693,5 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         />
       ) : null}
     </main>
-  );
-}
-
-function KolomKaki({ judul, tautan }: { judul: string; tautan: { label: string; href: string | null }[] }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <p className="text-title-medium font-semibold">{judul}</p>
-      <ul className="flex flex-col">
-        {tautan.map((item) => (
-          <li key={item.label} className="min-w-0">
-            {item.href ? (
-              item.href.startsWith("/") ? (
-                <Link href={item.href} className="inline-flex min-h-9 items-center break-all text-body-medium text-white/70 hover:text-white">
-                  {item.label}
-                </Link>
-              ) : (
-                <a href={item.href} className="inline-flex min-h-9 items-center break-all text-body-medium text-white/70 hover:text-white">
-                  {item.label}
-                </a>
-              )
-            ) : (
-              <span className="inline-flex min-h-9 items-center text-body-medium text-white/70">{item.label}</span>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
