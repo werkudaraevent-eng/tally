@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationFormConfig } from "@/lib/domain";
+import { logistikPeserta } from "@/lib/logistik/server";
 import { cleanExtra, participantBodySchema, toRpcArgs } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -131,7 +132,8 @@ export async function GET(request: Request) {
     return apiError("INTERNAL_ERROR", 500);
   }
 
-  const hasil = (halaman.data ?? { rows: [], total: 0 }) as { rows: unknown[]; total: number };
+  const hasil = (halaman.data ?? { rows: [], total: 0 }) as { rows: Array<{ id: string }>; total: number };
+  const logistik = await logistikPeserta(eventId, hasil.rows.map((baris) => baris.id));
   const totalSemua = semua.count ?? 0;
   const totalDihapus = dihapus.count ?? 0;
 
@@ -145,7 +147,7 @@ export async function GET(request: Request) {
     last_synced_at: (terakhir.data as { source_synced_at: string | null } | null)?.source_synced_at ?? null,
     limit: parsed.data.limit,
     offset: parsed.data.offset,
-    participants: hasil.rows,
+    participants: hasil.rows.map((baris) => ({ ...baris, logistik: logistik.get(baris.id) ?? null })),
     // Sesi yang SUDAH DITUTUP ikut dikirim. Kehadiran yang tercatat di sesi pagi
     // tidak hilang artinya sore hari, dan kolomnya yang menghilang begitu sesi
     // ditutup akan terbaca sebagai data yang lenyap.
