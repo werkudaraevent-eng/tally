@@ -1,5 +1,5 @@
 import {
-  ArmchairIcon, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving,
+  ArmchairIcon, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving, IdentificationCard,
   ListChecks, Megaphone, MonitorPlay, Printer, QrCode, Receipt, ShieldCheck, Storefront, UserPlus, UsersThree,
 } from "@phosphor-icons/react";
 import type { ComponentType } from "react";
@@ -16,15 +16,16 @@ import type { ComponentType } from "react";
  *
  * ---- Kenapa dikelompokkan begini ------------------------------------------
  *
- * Menurut SIAPA YANG MENATAP hasilnya, bukan menurut kemiripan kata:
+ * Menurut KAPAN PANITIA MENGERJAKANNYA untuk satu acara: siapkan, kelola orang,
+ * jalankan hari-H. Dulu menurut siapa yang menatap hasilnya (tamu di ponsel,
+ * seruangan di proyektor), dan akibatnya panitia meloncat: kelompok "Peserta"
+ * ikut berisi kehadiran dan label (hari-H), Layar sapa terpisah jauh di
+ * kelompok lain, sementara halaman acara, rundown, dan denah yang diisi paling
+ * awal duduk di kelompok kedua, di bawah lipatan layar laptop 1280x588.
  *
- *   * Halaman publik, dibuka tamu di ponselnya sendiri, sebelum hari-H.
- *   * Layar panggung, ditonton seruangan dari proyektor, saat acara berjalan.
- *
- * Itu sebabnya Denah kursi masuk kelompok publik meski terasa "peserta": yang
- * membukanya adalah tamu yang mencari mejanya, lewat /denah. Dan Kehadiran
- * justru TIDAK masuk Layar panggung, karena yang dikelola di sana orang dan
- * catatan hadirnya, bukan sesuatu yang ditayangkan.
+ * Penjualan dan Papan peringkat hanya tampil bila acara punya booth (lihat
+ * `HREF_BOOTH`), aturan yang sama dengan Dashboard. Halamannya tetap ada dan
+ * tetap ditemukan lewat palet perintah.
  *
  * Kelompok pertama sengaja tanpa judul. Satu item di bawah judul "Ringkasan"
  * menambah baris tanpa menambah keterangan apa pun.
@@ -52,43 +53,70 @@ export type NavItem = {
 
 export type NavGroup = { section: string | null; items: NavItem[] };
 
+/**
+ * Menu yang hanya berarti bila acara punya booth: papan peringkat menghitung
+ * transaksi booth, dan seluruh kelompok Penjualan adalah booth. Di acara tanpa
+ * booth (forum, seminar) keempatnya hanya menambah baris yang tidak pernah
+ * ditekan dan mendorong menu hari-H ke bawah lipatan.
+ */
+export const HREF_BOOTH: ReadonlySet<string> = new Set(["/admin/display", "/admin/orders", "/admin/booths", "/admin/reports"]);
+
 export const navigation: NavGroup[] = [
   {
     section: null,
     items: [{ href: "/admin", label: "Dashboard", icon: ChartBar, description: "Ringkasan acara dan pintasan ke layar hari-H." }],
   },
-  // Urutan kelompok mengikuti urutan pekerjaan sebuah acara: orangnya dulu, lalu
-  // apa yang dilihat tamu sebelum hari-H, lalu apa yang ditonton saat acara
-  // berjalan, dan Penjualan terakhir. Dulu Penjualan berdiri paling atas,
-  // warisan masa platform ini hanya sistem kasir, dan banyak acara sama sekali
-  // tidak memakai booth.
   {
-    section: "Peserta",
-    items: [
-      { href: "/admin/participants", label: "Daftar peserta", icon: UsersThree, description: "Daftar hadirin, sumber datanya, dan penyuntingan per baris." },
-      { href: "/admin/registrasi", label: "Pendaftaran publik", icon: UserPlus, description: "Formulir pendaftaran publik dan moderasi pendaftar yang masuk." },
-      { href: "/admin/pengumuman", label: "Pengumuman", icon: Megaphone, description: "Kabar panitia untuk peserta, tampil di lonceng halaman acara dan Dashboard saya." },
-      { href: "/admin/attendance", label: "Kehadiran", icon: QrCode, description: "Catatan kehadiran per jalur registrasi dan per sesi." },
-      // Label duduk di sini, bukan di kelompok tersendiri: yang dicetak adalah
-      // badge tamu walk-in, dan walk-in hanya ada karena layar kehadiran.
-      { href: "/admin/label", label: "Label & printer", icon: Printer, description: "Cetak label nama lewat printer NIIMBOT." },
-    ],
-  },
-  {
-    section: "Halaman publik",
+    section: "Persiapan",
     items: [
       { href: "/admin/landing", label: "Halaman acara", icon: Browsers, description: "Isi dan tampilan halaman acara yang dibuka tamu." },
       { href: "/admin/rundown", label: "Rundown acara", icon: CalendarDots, description: "Susunan acara yang dipakai halaman acara dan layar rundown." },
+      // Di Persiapan: denah disusun sebelum pendaftaran dibuka, bersama halaman
+      // acara dan rundown, meski yang mencarinya nanti tamu.
       { href: "/admin/seat-map", label: "Denah kursi", icon: ArmchairIcon, description: "Denah meja dan kursi yang dicari tamu sebelum duduk." },
     ],
   },
   {
-    section: "Layar panggung",
+    section: "Peserta",
     items: [
+      { href: "/admin/participants", label: "Daftar peserta", icon: UsersThree, description: "Daftar hadirin, sumber datanya, dan penyuntingan per baris." },
+      // Di Peserta, bukan Persiapan: halaman ini terbuka di antrean moderasi,
+      // dan peringatan "menunggu moderasi" di Dashboard menuju ke sini. Ia
+      // juga satu rumah untuk formulir, buka/tutup, dan mode persetujuan. "publik" dibuang dari namanya karena tidak
+      // ada pendaftaran lain yang perlu dibedakan di menu.
+      { href: "/admin/registrasi", label: "Pendaftaran", icon: UserPlus, description: "Formulir pendaftaran publik dan moderasi pendaftar yang masuk." },
+      { href: "/admin/pengumuman", label: "Pengumuman", icon: Megaphone, description: "Kabar panitia untuk peserta, tampil di lonceng halaman acara dan Dashboard saya." },
+      // Paling bawah di Peserta: diatur sekali (siapa yang bisa masuk, apa yang
+      // tampil), sedangkan Pengumuman ditekan berkali-kali. Urutan ini menjaga
+      // Pengumuman tetap di atas lipatan layar 1280x588.
+      { href: "/admin/area-peserta", label: "Area peserta", icon: IdentificationCard, description: "Siapa yang bisa masuk ke Dashboard saya dan apa yang tampil di sana." },
+    ],
+  },
+  {
+    // Semua yang dipegang saat pintu dibuka, dalam satu blok: tidak ada lagi
+    // loncatan dari Kehadiran di atas ke Layar sapa jauh di bawah.
+    section: "Hari-H",
+    items: [
+      { href: "/admin/attendance", label: "Kehadiran", icon: QrCode, description: "Catatan kehadiran per jalur registrasi dan per sesi." },
+      // Label tepat di bawah Kehadiran: yang dicetak adalah badge tamu walk-in,
+      // dan walk-in hanya ada karena layar kehadiran.
+      { href: "/admin/label", label: "Label & printer", icon: Printer, description: "Cetak label nama lewat printer NIIMBOT." },
+      { href: "/admin/sapa", label: "Layar sapa", icon: HandWaving, description: "Layar penyambut yang menyebut nama tamu saat dipindai." },
+      {
+        href: "/admin/undian", label: "Undian", icon: Gift,
+        description: "Hadiah, aturan kelayakan, dan panel operator saat mengundi.",
+        children: [
+          { href: "/admin/undian", label: "Hadiah & aturan", icon: Gift, description: "Daftar hadiah, kelompok peserta, dan aturan kelayakan undian." },
+          { href: "/admin/undian/kontrol", label: "Panel operator", icon: Gift, description: "Panel yang dipegang operator saat undian berjalan di panggung." },
+        ],
+      },
+      { href: "/admin/vote", label: "Voting langsung", icon: ChartBarHorizontal, description: "Pertanyaan voting langsung dan hasilnya di layar panggung." },
       {
         // Dulu "Live Display". Namanya menjanjikan seluruh layar acara, isinya
         // papan peringkat transaksi, dan panitia yang mencari "di mana atur
-        // ranking" tidak punya alasan menekan menu itu.
+        // ranking" tidak punya alasan menekan menu itu. Paling bawah di Hari-H
+        // karena ia ikut hilang di acara tanpa booth: yang hilang tidak
+        // menggeser menu di atasnya.
         href: "/admin/display", label: "Papan peringkat", icon: MonitorPlay,
         description: "Papan peringkat transaksi untuk ditayangkan ke proyektor.",
         children: [
@@ -101,16 +129,6 @@ export const navigation: NavGroup[] = [
           { href: "/admin/display/exclusions", label: "Pengecualian", icon: MonitorPlay, description: "Peserta dan perusahaan yang tidak dihitung sebagai top spender." },
         ],
       },
-      { href: "/admin/sapa", label: "Layar sapa", icon: HandWaving, description: "Layar penyambut yang menyebut nama tamu saat dipindai." },
-      {
-        href: "/admin/undian", label: "Undian", icon: Gift,
-        description: "Hadiah, aturan kelayakan, dan panel operator saat mengundi.",
-        children: [
-          { href: "/admin/undian", label: "Hadiah & aturan", icon: Gift, description: "Daftar hadiah, kelompok peserta, dan aturan kelayakan undian." },
-          { href: "/admin/undian/kontrol", label: "Panel operator", icon: Gift, description: "Panel yang dipegang operator saat undian berjalan di panggung." },
-        ],
-      },
-      { href: "/admin/vote", label: "Voting langsung", icon: ChartBarHorizontal, description: "Pertanyaan voting langsung dan hasilnya di layar panggung." },
     ],
   },
   {

@@ -88,7 +88,7 @@ const NAMA_MODUL: Record<string, string> = {
   "/admin/rundown": "Rundown",
   "/admin/seat-map": "Denah kursi",
   "/admin/booths": "Booth & item",
-  "/admin/registrasi": "Pendaftaran publik",
+  "/admin/registrasi": "Pendaftaran",
   "/admin/settings": "Pengaturan",
   "/admin/undian": "Undian",
   "/admin/vote": "Voting",
@@ -155,7 +155,7 @@ export default function AdminPage() {
     { siap: data.kesiapan.banner, label: "Banner halaman acara", href: "/admin/landing", wajib: false },
     { siap: data.kesiapan.denah > 0, label: "Denah kursi", href: "/admin/seat-map", wajib: false },
     { siap: data.kesiapan.booth_aktif > 0, label: "Booth aktif", href: "/admin/booths", wajib: false },
-    { siap: data.event.registration_enabled, label: "Pendaftaran publik dibuka", href: "/admin/registrasi", wajib: false },
+    { siap: data.event.registration_enabled, label: "Pendaftaran dibuka", href: "/admin/registrasi", wajib: false },
     { siap: data.kesiapan.hadiah_undian > 0, label: "Hadiah undian", href: "/admin/undian", wajib: false },
     { siap: data.kesiapan.pertanyaan_vote > 0, label: "Pertanyaan voting", href: "/admin/vote", wajib: false },
   ] : [];
@@ -184,7 +184,7 @@ export default function AdminPage() {
     { href: "/admin/participants", label: "Peserta", nilai: String(data.peserta.total), catatan: data.peserta.total === 0 ? "Belum ada peserta" : "Terdaftar di acara ini" },
     ...(pakaiPendaftaran ? [{
       href: "/admin/registrasi",
-      label: "Pendaftaran publik",
+      label: "Pendaftaran",
       nilai: String(data.peserta.disetujui),
       catatan: `disetujui, ${data.peserta.ditolak} ditolak`,
       chip: data.event.registration_enabled ? { tone: "success" as const, teks: "Dibuka" } : { tone: "neutral" as const, teks: "Ditutup" },
@@ -392,6 +392,16 @@ export default function AdminPage() {
               </Link>
             ))}
           </div>
+          {/* Satu-satunya pintu yang selalu terlihat ke Booth & item di acara
+              tanpa booth: menunya di sidebar sengaja disembunyikan sampai booth
+              pertama dibuat, dan baris "Booth aktif" di Kesiapan hanya tampil
+              selama persiapan. */}
+          {data && !adaBooth ? (
+            <p className="border-t border-outline-variant px-5 py-3 text-body-medium text-on-surface-variant">
+              Menjual di booth? Layar booth, kasir, dan papan peringkat muncul setelah booth pertama dibuat di{" "}
+              <Link href="/admin/booths" className="rounded-sm font-medium text-primary hover:underline">Booth &amp; item</Link>.
+            </p>
+          ) : null}
         </Kartu>
       </div>}
     </WorkspacePage>

@@ -322,7 +322,7 @@ export default function RegistrasiAdminPage() {
           title="Atur formulir"
           back={
             <button type="button" onClick={() => setTampilan("moderasi")} className="inline-flex items-center gap-1.5 rounded-sm text-body-medium font-medium text-primary hover:underline">
-              <ArrowLeft size={14} aria-hidden />Pendaftaran publik
+              <ArrowLeft size={14} aria-hidden />Pendaftaran
             </button>
           }
           meta={<span>Apa yang ditanyakan ke pendaftar. Tampilannya mengikuti Tema halaman acara.</span>}

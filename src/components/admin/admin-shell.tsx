@@ -4,6 +4,7 @@ import { ArrowSquareOut, List, SidebarSimple, Storefront, X } from "@phosphor-ic
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { IconButton, TopAppBar } from "@/components/m3";
+import { eventApiPath } from "@/lib/event-url";
 import { EventMenu, type EventPilihan } from "@/components/admin/event-menu";
 import { cariHalaman, grupDari, navigation } from "@/components/admin/nav-config";
 import { AdminBarSlotsProvider, AdminHeaderScrollProvider, AdminPageProvider } from "@/components/admin/page-context";
@@ -288,6 +289,30 @@ export function AdminShell({
   const eventName = eventAktif?.name ?? null;
 
   /**
+   * Apakah acara ini punya booth, untuk menyembunyikan Penjualan dan Papan
+   * peringkat di acara tanpa booth. Aturannya sama dengan Dashboard: satu booth
+   * pun cukup. null selama belum diketahui (menu booth tersembunyi); bila
+   * gagal dimuat, menu ditampilkan, karena menu yang hilang lebih merugikan
+   * daripada dua baris yang tidak terpakai.
+   *
+   * Dibaca ulang setiap pindah halaman selama jawabannya belum "ya", supaya
+   * booth pertama yang baru dibuat langsung memunculkan menunya.
+   */
+  const [boothAcara, setBoothAcara] = useState<{ slug: string; ada: boolean } | null>(null);
+  const adaBooth = boothAcara && boothAcara.slug === eventSlug ? boothAcara.ada : null;
+  useEffect(() => {
+    if (adaBooth === true) return;
+    let batal = false;
+    void fetch(eventApiPath("/api/admin/booths"), { cache: "no-store" })
+      .then(async (response) => {
+        const ada = response.ok ? (((await response.json()).booths ?? []) as unknown[]).length > 0 : true;
+        if (!batal) setBoothAcara({ slug: eventSlug, ada });
+      })
+      .catch(() => { if (!batal) setBoothAcara({ slug: eventSlug, ada: true }); });
+    return () => { batal = true; };
+  }, [eventSlug, logicalPathname, adaBooth]);
+
+  /**
    * Laci hanya ada di bawah lg. DITURUNKAN dari lebar layar, bukan ditutup oleh
    * efek yang mengamatinya: keadaan "terbuka" yang tertinggal saat ponsel diputar
    * ke lanskap mengunci gulir halaman padahal tidak ada menu yang terlihat.
@@ -530,6 +555,7 @@ export function AdminShell({
             eventPrefix={eventPrefix}
             path={logicalPathname}
             isOwner={isOwner}
+            adaBooth={adaBooth}
             onNavigate={onNavigate}
             grupTerbuka={grupTerbuka}
             onToggleGrup={toggleGrup}
