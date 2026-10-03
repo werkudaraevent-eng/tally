@@ -41,6 +41,11 @@ export const LANDING_LANG_LABELS: Record<LandingLang, { name: string; short: str
   en: { name: "English", short: "EN", htmlLang: "en", locale: "en-GB" },
 };
 
+/** Acara tanpa halaman acara: `/e/<slug>` langsung membuka formulir pendaftaran. */
+export function landingFormOnly(config: EventLandingConfig | null | undefined): boolean {
+  return config?.tayang === "formulir";
+}
+
 /** Versi English boleh tampil: dinyalakan admin, dan tata letaknya sudah punya terjemahan teks bawaan (Modern). */
 export function landingEnAvailable(config: EventLandingConfig | null | undefined): boolean {
   return Boolean(config?.en_enabled) && config?.layout === "modern";

@@ -5,6 +5,7 @@ import { formatEventSchedule } from "@/lib/event-datetime";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { memberPageStyle } from "@/lib/member/page-theme";
 import type { EventLandingConfig } from "@/lib/domain";
+import { landingFormOnly } from "@/lib/landing-i18n";
 import { renderLanding } from "@/components/landing/render-landing";
 import { asalSitus } from "@/app/e/[slug]/landing-metadata";
 import { peekPasswordToken } from "@/lib/member/links";
@@ -66,7 +67,11 @@ export default async function MasukPage({
     sandi = berlaku ? { token: tokenSandi, email: berlaku.email } : "invalid";
     modeAwal = berlaku ? "sandi" : "tautan";
   }
-  if ((event.landing_config as EventLandingConfig | null)?.layout === "modern") {
+  const landing = event.landing_config as EventLandingConfig | null;
+  // Hanya formulir: tidak ada halaman acara untuk dijadikan latar dialog, jadi
+  // Modern pun memakai halaman masuk penuh di bawah, dengan Tema yang sama.
+  const hanyaFormulir = landingFormOnly(landing);
+  if (landing?.layout === "modern" && !hanyaFormulir) {
     return renderLanding(event, undefined, { masukAwal: modeAwal, sandi });
   }
 
@@ -92,10 +97,10 @@ export default async function MasukPage({
             </p>
           </div>
           <Link
-            href={`/e/${event.slug}`}
+            href={hanyaFormulir ? `/e/${event.slug}/daftar` : `/e/${event.slug}`}
             className="hidden min-h-11 items-center self-start text-title-small font-semibold text-[var(--reg-primary)] lg:inline-flex"
           >
-            Kembali ke halaman acara
+            {hanyaFormulir ? "Kembali ke pendaftaran" : "Kembali ke halaman acara"}
           </Link>
         </div>
 

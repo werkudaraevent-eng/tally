@@ -1,4 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import type { EventLandingConfig } from "@/lib/domain";
+import { landingFormOnly, withQuery } from "@/lib/landing-i18n";
 import { getEventBySlugPublic } from "@/lib/auth/event-scope";
 import { renderLanding } from "@/components/landing/render-landing";
 import { landingMetadata } from "./landing-metadata";
@@ -26,7 +28,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return landingMetadata(slug);
 }
 
-export default async function EventLandingPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function EventLandingPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { slug } = await params;
   const event = await getEventBySlugPublic(slug);
 
@@ -34,6 +42,9 @@ export default async function EventLandingPage({ params }: { params: Promise<{ s
   // ditemukan" bagi panitia, tetapi bagi tamu yang membuka tautan lama, 404
   // lebih jujur daripada halaman acara yang sudah tidak berlaku.
   if (!event || event.status === "archived") notFound();
+  // Acara tanpa halaman acara (Tema > Yang tayang: Hanya formulir): alamat yang
+  // dicetak di undangan langsung membuka formulir, dengan kueri asalnya (UTM).
+  if (landingFormOnly(event.landing_config as EventLandingConfig)) redirect(withQuery(`/e/${event.slug}/daftar`, await searchParams));
 
   return renderLanding(event);
 }

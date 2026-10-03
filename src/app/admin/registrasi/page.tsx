@@ -10,7 +10,8 @@ import {
   type ChipTone,
 } from "@/components/m3";
 import { RegistrationFormBuilder } from "@/components/admin/registration-form-builder";
-import { RegistrationFormPreview } from "@/components/admin/registration-form-preview";
+import { FormPreview } from "@/components/admin/form-preview";
+import Link from "@/components/event-link";
 import type { RegistrationFormConfig } from "@/lib/domain";
 import { formatEventDateTime } from "@/lib/datetime";
 import { eventApiPath } from "@/lib/event-url";
@@ -44,6 +45,8 @@ type EventConfig = {
   registration_form_config: RegistrationFormConfig;
   /** Warna halaman pendaftaran, sudah memperhitungkan saklar di CMS halaman acara. */
   form_theme_seed: string;
+  /** Ringkasan Tema halaman acara yang dipakai formulir. */
+  tampilan?: { logo: boolean; kv: string | null; huruf: string | null; area_peserta: boolean };
 };
 
 type Status = Row["status"];
@@ -158,6 +161,11 @@ export default function RegistrasiAdminPage() {
           fields: next.fields ?? [],
           welcome_text: next.welcome_text,
           success_text: next.success_text,
+          // Email dan telepon IKUT dikirim. Sebelumnya hanya perusahaan dan
+          // jabatan, sehingga saklar "Email wajib" dan "Nomor telepon wajib"
+          // tampak berubah di layar tetapi tidak pernah tersimpan.
+          require_email: next.require_email,
+          require_phone: next.require_phone,
           require_company: next.require_company,
           require_job_title: next.require_job_title,
         },
@@ -258,9 +266,6 @@ export default function RegistrasiAdminPage() {
   // di dalam effect menambah satu render setiap kali data dimuat ulang, dan
   // pemuatan berkala akan menimpa suntingan yang sedang berjalan.
   const formDraft = draftForm ?? config?.registration_form_config ?? {};
-  // Nama acara hanya untuk pratinjau. Slug hanya cadangan: pratinjau bertuliskan
-  // "undefined" lebih membingungkan daripada slug mentah.
-  const namaEvent = config?.name ?? config?.slug ?? "Acara";
 
   function salinTautan() {
     void navigator.clipboard.writeText(new URL(tautan, window.location.origin).toString());
@@ -278,7 +283,7 @@ export default function RegistrasiAdminPage() {
               <ArrowLeft size={14} aria-hidden />Pendaftaran publik
             </button>
           }
-          meta={<span>Apa yang ditanyakan ke pendaftar. Perubahan baru berlaku setelah disimpan.</span>}
+          meta={<span>Apa yang ditanyakan ke pendaftar. Tampilannya mengikuti Tema halaman acara.</span>}
         />
         {!config ? (
           error ? <Banner tone="error" icon={<XCircle size={18} />}>{error}</Banner> : <PageLoading />
@@ -290,7 +295,8 @@ export default function RegistrasiAdminPage() {
             main={
               <Pane aria-label="Penyunting formulir">
                 <PaneBody className="px-5 py-5">
-                  <RegistrationFormBuilder config={formDraft} onChange={setDraftForm} disabled={simpanForm} />
+                  <KartuTampilan tampilan={config.tampilan} seed={config.form_theme_seed} />
+                  <RegistrationFormBuilder config={formDraft} onChange={setDraftForm} disabled={simpanForm} areaPeserta={config.tampilan?.area_peserta ?? false} />
                 </PaneBody>
                 <PaneFooter note={draftForm ? "Ada perubahan yang belum disimpan" : "Sama dengan yang tayang di halaman pendaftaran"}>
                   <Button simpan size="sm" onClick={() => void kirimForm(formDraft)} loading={simpanForm} disabled={busy} icon={<Check size={16} weight="bold" />}>
@@ -301,7 +307,7 @@ export default function RegistrasiAdminPage() {
             }
             pane={
               <Pane as="aside" aria-label="Pratinjau formulir">
-                <RegistrationFormPreview config={formDraft} eventName={namaEvent} seed={config.form_theme_seed} bingkai={false} />
+                <FormPreview slug={config.slug} form={formDraft} />
               </Pane>
             }
           />
@@ -599,4 +605,50 @@ function StatusEmail({ row, emailAktif, zone, abbr }: {
     <Hourglass size={16} className="mt-0.5 shrink-0" aria-hidden />
     <span>Kode belum pernah dikirim lewat email.</span>
   </p>;
+}
+
+/**
+ * Dari mana tampilan formulir datang, dan apa yang membuat formulir meminta
+ * kata sandi. Keduanya diatur di CMS Halaman acara, bukan di sini; kartu ini
+ * hanya menunjukkan keadaannya dan jalan ke sana, supaya admin tidak mencari
+ * pilihan warna di layar yang tidak punya.
+ */
+function KartuTampilan({ tampilan, seed }: { tampilan: EventConfig["tampilan"]; seed: string }) {
+  if (!tampilan) return null;
+  const ringkasan = [
+    tampilan.logo ? "Logo" : "Tanpa logo",
+    tampilan.kv ? "gambar utama" : "tanpa gambar utama",
+    seed.toUpperCase(),
+    tampilan.huruf,
+  ].filter(Boolean).join(" · ");
+  const TAUTAN = "inline-flex min-h-10 shrink-0 items-center rounded-sm text-label-large font-semibold text-primary hover:underline";
+  return (
+    <div className="mb-4 divide-y divide-outline-variant rounded-lg bg-panel-high px-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-4">
+        {tampilan.kv ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={tampilan.kv} alt="" className="hidden h-10 w-16 shrink-0 rounded-sm object-cover sm:block" />
+        ) : (
+          <span aria-hidden className="hidden h-10 w-16 shrink-0 rounded-sm sm:block" style={{ backgroundColor: seed }} />
+        )}
+        {/* Teks paling sedikit 14rem: di ponsel tautannya turun ke bawah, bukan memeras teks. */}
+        <div className="min-w-[14rem] flex-1">
+          <p className="text-title-small font-semibold">
+            Tampilan mengikuti Tema halaman acara
+          </p>
+          <p className="mt-0.5 text-body-medium text-on-surface-variant">{ringkasan}</p>
+        </div>
+        <Link href="/admin/landing?bagian=tema" className={TAUTAN}>Ubah di Tema</Link>
+      </div>
+      {tampilan.area_peserta ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-4">
+          <div className="min-w-[14rem] flex-1">
+            <p className="text-title-small font-semibold">Area peserta aktif</p>
+            <p className="mt-0.5 text-body-medium text-on-surface-variant">Formulir meminta kata sandi; email otomatis wajib.</p>
+          </div>
+          <Link href="/admin/landing?bagian=peserta" className={TAUTAN}>Atur di Peserta</Link>
+        </div>
+      ) : null}
+    </div>
+  );
 }
