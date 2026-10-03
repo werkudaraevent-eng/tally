@@ -244,10 +244,34 @@ async function klaimPotonganKiriman(blastId: string): Promise<RecipientRow[]> {
     .eq("channel", "email")
     .eq("chunk", chunk)
     .or(bisaDiklaim)
-    .select("id,blast_id,event_id,participant_id,address,name,chunk")
+    // Kolom yang dipakai saringan PATCH ikut dipilih: PostgREST 12.2/13.0
+    // menolak (42703) pembaruan bersyarat yang menyaring kolom di luar `select`.
+    .select("id,blast_id,event_id,participant_id,address,name,chunk,status,locked_until")
     .order("id");
   if (error) throw new Error(error.message);
   return (data ?? []) as RecipientRow[];
+}
+
+/**
+ * Pengirim di luar produksi gagal di tengah jalan: baris kiriman itu yang masih
+ * antre menjadi gagal sementara (bisa dikirim ulang dari server yang sama),
+ * dan yang sedang dikirim menjadi tidak pasti (mungkin sudah sampai).
+ */
+async function tutupKarenaGalat(blastId: string, pesan: string) {
+  const client = getSupabaseServiceClient();
+  const alasan = `Pengirim situs uji berhenti: ${pesan}`.slice(0, 300);
+  const sekarang = new Date().toISOString();
+  console.error("[pesan] drain gagal", blastId, pesan);
+  await client
+    .from("message_blast_recipients")
+    .update({ status: "gagal_sementara", reason_code: "pengirim_galat", reason: alasan, locked_until: null, failed_at: sekarang, updated_at: sekarang } as never)
+    .eq("blast_id", blastId)
+    .eq("status", "antre");
+  await client
+    .from("message_blast_recipients")
+    .update({ status: "tidak_pasti", reason_code: "pengirim_galat", reason: alasan, locked_until: null, failed_at: sekarang, updated_at: sekarang } as never)
+    .eq("blast_id", blastId)
+    .eq("status", "mengirim");
 }
 
 /**
@@ -290,6 +314,7 @@ export async function drainQueue(budgetMs = 45_000, options: { onlyBlast?: strin
   if (giliran !== true) return { ran: false, chunks: 0, sent: 0, failed: 0, stoppedBy: "busy" };
 
   const batas = Date.now() + budgetMs;
+  let berhenti = false;
   const hasil: DrainOutcome = { ran: true, chunks: 0, sent: 0, failed: 0, stoppedBy: "empty" };
   const kiriman = new Map<string, BlastRow>();
   const acara = new Map<string, EventForMail>();
@@ -330,14 +355,23 @@ export async function drainQueue(budgetMs = 45_000, options: { onlyBlast?: strin
       const lewati: ResultRow[] = [];
       const kirimKe = baris.filter((r) => {
         const alasan = alasanLewatSekarang(r, r.participant_id ? peserta.get(r.participant_id) : undefined, daftarUji);
-        if (alasan) lewati.push({ id: r.id, status: "dilewati", reason_code: alasan.code, reason: alasan.reason });
+        // Di luar daftar uji SERVER INI bukan keputusan tentang peserta: baris
+        // dikembalikan ke antrean apa adanya, dan putaran berhenti supaya tidak
+        // mengklaimnya lagi.
+        if (alasan?.code === "di_luar_daftar_uji") {
+          lewati.push({ id: r.id, status: "antre" });
+          berhenti = true;
+        } else if (alasan) lewati.push({ id: r.id, status: "dilewati", reason_code: alasan.code, reason: alasan.reason });
         return !alasan;
       });
       if (lewati.length) {
         const { error: galatLewat } = await client.rpc("record_message_results" as never, { p_rows: lewati } as never);
         if (galatLewat) throw new Error(galatLewat.message);
       }
-      if (kirimKe.length === 0) continue;
+      if (kirimKe.length === 0) {
+        if (berhenti) break;
+        continue;
+      }
 
       const origin = blast.site_origin ?? "";
       const slug = encodeURIComponent(event.slug);
@@ -400,11 +434,18 @@ export async function drainQueue(budgetMs = 45_000, options: { onlyBlast?: strin
         hasil.stoppedBy = "budget";
         break;
       }
+      if (berhenti) break;
       await sleep(JEDA_RESEND_MS);
     }
     if (Date.now() >= batas && hasil.stoppedBy === "empty") hasil.stoppedBy = "budget";
     await client.rpc("sweep_message_recipients" as never);
     return hasil;
+  } catch (error) {
+    // Di luar produksi galat tidak boleh meninggalkan baris di antrean: cron
+    // produksi akan mengirimnya dengan env produksi. Baris ditutup dengan
+    // alasan yang terlihat di laporan.
+    if (hanya) await tutupKarenaGalat(hanya, error instanceof Error ? error.message : String(error));
+    throw error;
   } finally {
     await client.rpc("release_message_drain_turn" as never);
   }

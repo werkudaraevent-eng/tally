@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { messagingAllowlist } from "@/lib/pesan/alamat";
 import { idSchema, loadBlast, pesanBelumAda } from "@/lib/pesan/api";
 import { drainQueue } from "@/lib/pesan/mesin";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -25,6 +26,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (error) return apiError("INTERNAL_ERROR", 500);
   if (!blast) return apiError("MESSAGE_NOT_FOUND", 404);
   if (blast.status === "draf" || blast.status === "dibatalkan") return apiError("MESSAGE_NOT_DRAFT", 409);
+  // Situs uji hanya boleh mengirim ulang kiriman yang ia kirim sendiri. Kiriman
+  // dari situs utama dikirim ulang dari situs utama, dengan env-nya.
+  if (messagingAllowlist().mode !== "off" && blast.site_origin !== new URL(request.url).origin) {
+    return apiError("MESSAGE_RETRY_NOT_ALLOWED", 403);
+  }
 
   const client = getSupabaseServiceClient();
   const { data, error: galat } = await client.rpc("requeue_message_failures" as never, { p_blast: id } as never);
