@@ -68,7 +68,9 @@ export async function PATCH(request: Request) {
 
   const { data, error } = await client
     .from("events")
-    .update({ landing_config: { ...landing, member: parsed.data }, updated_at: new Date().toISOString() } as never)
+    // Digabung, bukan diganti: kunci yang tidak dikirim layar ini (mis.
+    // show_roommates) tetap tersimpan.
+    .update({ landing_config: { ...landing, member: { ...(landing.member ?? {}), ...parsed.data } }, updated_at: new Date().toISOString() } as never)
     .eq("id", auth.scope.event.id)
     .select("landing_config")
     .single();

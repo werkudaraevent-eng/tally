@@ -26,6 +26,7 @@ import { KakiModern, KV_SCRIM_RATA, PitaMitra, bagianModern, gayaModern, tinta }
 import { HEAD, LABEL_BAGIAN, MUTED, PIL, SHELL } from "@/components/landing/modern/styles";
 import { KartuBarang, KartuBerikutnya, KartuBus, KartuKamar } from "@/components/member/kartu-logistik";
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
+import { loadLandingLodging } from "@/lib/landing-hotel";
 
 /**
  * Dashboard saya (`/e/<slug>/peserta`), tata letak Modern.
@@ -73,7 +74,10 @@ export async function DashboardModern({
   const halamanAcara = landingPath(event.slug, "id", utama);
   const sections = normalizeLandingSections(config.sections, config.blocks);
   const agenda = await loadAgendaPreview(event.id, "id");
-  const { aktif, blokById, tampil, speakers, navSections, mitra: sponsor, kontak } = bagianModern(event, config, sections, agenda, "id");
+  // Gaya gathering: menu dan susunan acara sama dengan halaman acaranya.
+  const gaya = config.gathering === true;
+  const adaHotel = gaya ? (await loadLandingLodging(event.id)).hotels.length > 0 : false;
+  const { aktif, blokById, tampil, speakers, navSections, mitra: sponsor, kontak } = bagianModern(event, config, sections, agenda, "id", { gathering: gaya, adaHotel });
   // Pita mitra seperti di kaki halaman acara. Banyak acara (ILO salah satunya)
   // memasang logo lewat blok Logo, bukan daftar Sponsor; tanpa sponsor, pakai
   // blok Logo pertama yang tampil supaya kaki dashboard sama dengan halaman acara.
@@ -93,7 +97,7 @@ export async function DashboardModern({
   const peserta = sesi.participant;
   // Logistik gathering (kamar, bus, barang). null di acara tanpa logistik:
   // ILO dan acara lain tampil persis seperti sebelumnya.
-  const logistik = peserta ? await loadMemberLogistics(event.id, peserta.id) : null;
+  const logistik = peserta ? await loadMemberLogistics(event.id, peserta.id, member.show_logistics === true) : null;
   const sekarang = new Date();
   const berikutnya = logistik ? agendaBerikutnya(logistik, sekarang) : null;
   const nama = publicEventName(event);
@@ -369,7 +373,7 @@ export async function DashboardModern({
                   </Link>
                 </div>
                 <div className="mt-5">
-                  <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang="id" />
+                  <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang="id" perHari={gaya} />
                 </div>
               </section>
             ) : null}

@@ -21,6 +21,8 @@ export type LandingThemePreset = {
   secondary?: string;
   /** Menyalakan "Khusus undangan" (lihat EventLandingConfig.invite_only). */
   invite_only?: boolean;
+  /** Menyalakan gaya gathering (lihat EventLandingConfig.gathering). */
+  gathering?: boolean;
 };
 
 export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
@@ -37,16 +39,18 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
   },
   {
     // Rancangan Gathering yang Hanung setujui pada 2026-10-03: tata letak
-    // Modern yang sama dengan ILO, bukan tata letak ketiga. Yang berbeda hanya
-    // warna, huruf, dan sifat "khusus undangan"; menu Logistik dinyalakan
-    // terpisah dari Area peserta karena tersimpan di database, bukan di CMS.
+    // Modern yang sama dengan ILO, bukan tata letak ketiga. Yang berbeda: warna,
+    // huruf, sifat "khusus undangan", dan gaya gathering (hero perjalanan,
+    // susunan per hari, Tempat menginap). Menu Logistik dinyalakan terpisah
+    // karena tersimpan di database, bukan di CMS.
     key: "gathering",
     label: "Gathering",
-    note: "Modern, teal, khusus undangan: tamu masuk untuk melihat tiket, kamar, dan bus",
+    note: "Gaya perjalanan, khusus undangan: lama menginap di hero, susunan per hari, tempat menginap, tamu masuk untuk melihat tiket, kamar, dan bus",
     layout: "modern",
     seed: "#0b6e69",
     heading_font: "source",
     invite_only: true,
+    gathering: true,
   },
 ];
 
@@ -58,6 +62,7 @@ export function presetCocok(preset: LandingThemePreset, landing: EventLandingCon
     (landing.layout ?? "editorial") === preset.layout &&
     sama(landing.theme?.seed, preset.seed) &&
     landing.heading_font === preset.heading_font &&
+    Boolean(landing.gathering) === Boolean(preset.gathering) &&
     (preset.layout !== "forum" ||
       (sama(landing.forum?.accent ?? FORUM_DEFAULTS.accent, preset.accent) && sama(landing.forum?.secondary ?? FORUM_DEFAULTS.secondary, preset.secondary)))
   );
@@ -70,7 +75,9 @@ export function terapkanPreset(preset: LandingThemePreset, landing: EventLanding
     layout: preset.layout,
     heading_font: preset.heading_font,
     theme: { ...landing.theme, seed: preset.seed },
-    ...(preset.invite_only ? { invite_only: true } : {}),
+    // Satu preset, satu gaya: memilih preset lain mematikan gaya gathering.
+    invite_only: Boolean(preset.invite_only),
+    gathering: Boolean(preset.gathering),
     ...(preset.layout === "forum" ? { forum: { ...landing.forum, accent: preset.accent, secondary: preset.secondary } } : {}),
   };
 }

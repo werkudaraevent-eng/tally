@@ -2,12 +2,12 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
  * Logistik yang boleh dilihat satu peserta di Dashboard saya: kamar, bus, dan
- * barang dari SALINAN TERBIT (migrasi 202610030004, fungsi member_logistics).
+ * barang (fungsi `member_logistics`, migrasi 202609300005).
  *
- * Penyaringan terjadi di database: yang belum diterbitkan panitia tidak pernah
- * sampai ke sini. Fungsi ini tidak melempar. Sebelum migrasinya dijalankan,
- * atau di acara tanpa logistik, hasilnya null dan dashboard tampil seperti
- * biasa tanpa satu piksel pun berubah.
+ * Hanya dibaca bila panitia menyalakan "Kamar dan bus" di Area peserta
+ * (`landing_config.member.show_logistics`, bawaan mati). Fungsi ini tidak
+ * melempar: sakelar mati, galat, atau acara tanpa logistik menghasilkan null,
+ * dan dashboard tampil seperti biasa tanpa satu piksel pun berubah.
  */
 
 export type LogistikKamar = {
@@ -27,7 +27,6 @@ export type LogistikAgenda = {
   origin: string | null;
   destination: string | null;
   meeting_point: string | null;
-  rundown_item_id: number | null;
   /** null = peserta tidak naik bus di agenda ini. */
   bus: string | null;
   differs_from_default: boolean;
@@ -36,14 +35,13 @@ export type LogistikAgenda = {
 export type LogistikBarang = { name: string; size: string | null; pickup_note: string | null; picked_up_at: string | null };
 
 export type LogistikPeserta = {
-  enabled: boolean;
-  published: { rooms: boolean; transport: boolean; items: boolean };
   lodging: LogistikKamar | null;
   transport: { default_bus: string | null; trips: LogistikAgenda[] } | null;
   items: LogistikBarang[];
 };
 
-export async function loadMemberLogistics(eventId: string, participantId: string): Promise<LogistikPeserta | null> {
+export async function loadMemberLogistics(eventId: string, participantId: string, tampil: boolean): Promise<LogistikPeserta | null> {
+  if (!tampil) return null;
   try {
     const { data, error } = await getSupabaseServiceClient().rpc(
       "member_logistics" as never,
@@ -51,26 +49,10 @@ export async function loadMemberLogistics(eventId: string, participantId: string
     );
     if (error || !data || typeof data !== "object") return null;
     const hasil = data as Partial<LogistikPeserta>;
-    // Versi lama fungsi ini (sebelum 202610030004) tidak punya `published` dan
-    // menampilkan penempatan yang belum final. Abaikan sampai migrasinya jalan.
-    if (!hasil.published) return null;
-    const logistik: LogistikPeserta = {
-      enabled: Boolean(hasil.enabled),
-      published: hasil.published,
-      lodging: hasil.lodging ?? null,
-      transport: hasil.transport ?? null,
-      items: hasil.items ?? [],
-    };
-    return dipakai(logistik) ? logistik : null;
+    return { lodging: hasil.lodging ?? null, transport: hasil.transport ?? null, items: hasil.items ?? [] };
   } catch {
     return null;
   }
-}
-
-/** Acara ini memakai logistik untuk peserta (menu menyala atau sudah pernah terbit). */
-export function dipakai(logistik: LogistikPeserta): boolean {
-  const { rooms, transport, items } = logistik.published;
-  return logistik.enabled || rooms || transport || items;
 }
 
 /** Agenda bus terdekat yang belum berangkat, untuk kartu "Berikutnya". */

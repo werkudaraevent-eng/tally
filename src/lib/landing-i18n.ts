@@ -351,6 +351,20 @@ export type LandingUiText = {
   inviteOnly: string;
   inviteHeading: string;
   inviteNote: string;
+  /** Gaya gathering (EventLandingConfig.gathering). */
+  inviteOnlyShort: string;
+  inviteCta: string;
+  stayLength: (days: number) => string;
+  day: (n: number) => string;
+  navTrip: string;
+  navHotel: string;
+  tripEyebrow: string;
+  hotelEyebrow: string;
+  hotelHeading: string;
+  checkIn: string;
+  checkOut: string;
+  room: string;
+  roomShare: (capacity: number, sameGender: boolean) => string;
   program: string;
   /** `${n} sesi` */
   sessions: (n: number) => string;
@@ -425,6 +439,20 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     inviteOnly: "Khusus undangan.",
     inviteHeading: "Sudah menerima undangan?",
     inviteNote: "Masuk dengan email yang didaftarkan panitia untuk melihat tiket dan info perjalanan Anda.",
+    inviteOnlyShort: "Khusus undangan",
+    inviteCta: "Masuk untuk lihat tiket & kamar",
+    stayLength: (days) => (days > 1 ? `${days} hari ${days - 1} malam` : "1 hari"),
+    day: (n) => `Hari ${n}`,
+    navTrip: "Perjalanan",
+    navHotel: "Hotel",
+    tripEyebrow: "Perjalanan",
+    hotelEyebrow: "Hotel",
+    hotelHeading: "Tempat menginap",
+    checkIn: "Check-in",
+    checkOut: "Check-out",
+    room: "Kamar",
+    roomShare: (capacity, sameGender) =>
+      `${capacity === 1 ? "Sendiri" : capacity === 2 ? "Berdua" : capacity === 3 ? "Bertiga" : `${capacity} orang`}${capacity > 1 && sameGender ? ", sesama jenis kelamin" : ""}`,
     program: "Program",
     sessions: (n) => `${n} sesi`,
     inPrograms: (n) => `Dalam ${n} program.`,
@@ -491,6 +519,20 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     inviteOnly: "By invitation only.",
     inviteHeading: "Received an invitation?",
     inviteNote: "Sign in with the email the organisers registered to see your ticket and travel details.",
+    inviteOnlyShort: "By invitation only",
+    inviteCta: "Sign in to see your ticket & room",
+    stayLength: (days) => (days > 1 ? `${days} days, ${days - 1} night${days - 1 > 1 ? "s" : ""}` : "1 day"),
+    day: (n) => `Day ${n}`,
+    navTrip: "Itinerary",
+    navHotel: "Hotel",
+    tripEyebrow: "Itinerary",
+    hotelEyebrow: "Hotel",
+    hotelHeading: "Where you'll stay",
+    checkIn: "Check-in",
+    checkOut: "Check-out",
+    room: "Room",
+    roomShare: (capacity, sameGender) =>
+      `${capacity === 1 ? "Single" : capacity === 2 ? "Twin share" : `${capacity} per room`}${capacity > 1 && sameGender ? ", same gender" : ""}`,
     program: "Programme",
     sessions: (n) => `${n} ${n === 1 ? "session" : "sessions"}`,
     inPrograms: (n) => `Across ${n} programmes.`,

@@ -9,7 +9,7 @@ import { HEAD, LABEL_BAGIAN, MUTED } from "@/components/landing/modern/styles";
  * /mnt/project-files/gathering/): Berikutnya, Kamar, Bus, Barang.
  *
  * Bentuknya meneruskan kartu Tiket di sebelahnya: panel abu 16px, label kapital
- * 13px, judul 22/24px. Yang belum diterbitkan panitia ditulis "sedang
+ * 13px, judul 22/24px. Kamar atau bus yang belum diatur ditulis "sedang
  * disiapkan", bukan disembunyikan: peserta gathering memang menunggu kamarnya,
  * dan kartu yang hilang terbaca sebagai "saya tidak dapat kamar".
  */
@@ -62,7 +62,7 @@ export function KartuBerikutnya({ agenda, zona, now, className = "" }: { agenda:
 }
 
 export function KartuKamar({ logistik, zona }: { logistik: LogistikPeserta; zona: EventTimeZone }) {
-  const kamar = logistik.published.rooms ? logistik.lodging : null;
+  const kamar = logistik.lodging;
   return (
     <section aria-labelledby="kamar-judul" className={KARTU}>
       <div className="flex items-start justify-between gap-4">
@@ -135,14 +135,14 @@ export function KartuKamar({ logistik, zona }: { logistik: LogistikPeserta; zona
           ) : null}
         </>
       ) : (
-        <Disiapkan>Panitia sedang mengatur kamar. Nomor kamar dan teman sekamar Anda muncul di sini begitu diterbitkan.</Disiapkan>
+        <Disiapkan>Panitia sedang mengatur kamar. Nomor kamar dan teman sekamar Anda muncul di sini begitu siap.</Disiapkan>
       )}
     </section>
   );
 }
 
 export function KartuBus({ logistik, zona }: { logistik: LogistikPeserta; zona: EventTimeZone }) {
-  const bus = logistik.published.transport ? logistik.transport : null;
+  const bus = logistik.transport;
   return (
     <section aria-labelledby="bus-judul" className={KARTU}>
       <p className={`${LABEL_BAGIAN} ${MUTED} inline-flex items-center gap-1.5`}>
@@ -178,14 +178,14 @@ export function KartuBus({ logistik, zona }: { logistik: LogistikPeserta; zona: 
           ) : null}
         </>
       ) : (
-        <Disiapkan>Nomor bus dan titik kumpul Anda muncul di sini begitu panitia menerbitkannya.</Disiapkan>
+        <Disiapkan>Nomor bus dan titik kumpul Anda muncul di sini begitu panitia selesai mengaturnya.</Disiapkan>
       )}
     </section>
   );
 }
 
 export function KartuBarang({ logistik }: { logistik: LogistikPeserta }) {
-  if (!logistik.published.items || logistik.items.length === 0) return null;
+  if (logistik.items.length === 0) return null;
   return (
     <section aria-labelledby="barang-judul" className={KARTU}>
       <p className={`${LABEL_BAGIAN} ${MUTED} inline-flex items-center gap-1.5`}>

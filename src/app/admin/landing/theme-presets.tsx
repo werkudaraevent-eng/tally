@@ -1,9 +1,9 @@
 "use client";
 
 import { Kelompok } from "@/components/admin/compact-form";
-import { Switch } from "@/components/m3/switch";
-import { LANDING_HEADING_FONTS, type EventLandingConfig } from "@/lib/domain";
-import { LANDING_THEME_PRESETS, presetCocok, terapkanPreset } from "@/lib/landing-theme-presets";
+import { LANDING_HEADING_FONTS, normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
+import { LANDING_THEME_PRESETS, presetCocok, terapkanPreset, type LandingThemePreset } from "@/lib/landing-theme-presets";
+import { buatBlok } from "./blocks";
 
 /**
  * Kelompok "Preset tema" di tab Tema. Dipisah dari page.tsx supaya pekerjaan
@@ -22,7 +22,7 @@ export function PresetTema({
   first?: boolean;
 }) {
   return (
-    <Kelompok title="Preset tema" first={first} note="Satu klik mengisi tata letak, warna, dan huruf judul. Isi halaman tidak berubah, dan semuanya tetap bisa diatur satu per satu di bawah.">
+    <Kelompok title="Preset tema" first={first} note="Satu klik mengisi tata letak, warna, dan huruf judul. Isi halaman tidak berubah, dan semuanya tetap bisa diatur satu per satu di bawah. Gathering juga menambahkan bagian Sebelum berangkat yang masih tersembunyi di Susunan, untuk Anda isi.">
       <div role="radiogroup" aria-label="Preset tema" className="grid gap-2">
         {LANDING_THEME_PRESETS.map((preset) => {
           const pilih = presetCocok(preset, landing);
@@ -32,7 +32,7 @@ export function PresetTema({
               type="button"
               role="radio"
               aria-checked={pilih}
-              onClick={() => setLanding(terapkanPreset(preset, landing))}
+              onClick={() => setLanding(pakaiPreset(preset, landing))}
               className={`m3-state flex overflow-hidden rounded-md border text-left ${pilih ? "border-primary ring-1 ring-primary" : "border-outline-variant"}`}
             >
               {/* Cuplikan hero dengan warna preset yang sebenarnya. */}
@@ -52,21 +52,38 @@ export function PresetTema({
           );
         })}
       </div>
-      {/* Bagian dari preset Gathering, tetapi bisa dimatikan sendiri: acara
-          lain pun bisa khusus undangan. Hanya Modern yang membacanya. */}
-      <Switch
-        checked={landing.layout === "modern" && Boolean(landing.invite_only)}
-        onChange={(value) => setLanding({ ...landing, invite_only: value })}
-        disabled={landing.layout !== "modern"}
-        label="Khusus undangan"
-        description={
-          landing.layout !== "modern"
-            ? "Hanya untuk tata letak Modern."
-            : landing.invite_only
-              ? "Saat pendaftaran ditutup, tombol utama halaman mengajak tamu undangan masuk untuk melihat tiket dan info perjalanannya."
-              : "Peserta yang diimpor panitia masuk lewat undangan. Saat pendaftaran ditutup, halaman mengajak mereka masuk."
-        }
-      />
     </Kelompok>
   );
+}
+
+/** Judul kartu bagian "Sebelum berangkat" untuk acara gathering. */
+const INFO_GATHERING = ["Dress code", "Yang perlu dibawa", "Kontak panitia"];
+
+/**
+ * Preset ditambah, khusus Gathering, blok Kartu poin "Sebelum berangkat"
+ * (sekali saja). Bloknya masuk Susunan dalam keadaan TERSEMBUNYI: kartu
+ * berjudul tanpa isi tetap tampil, dan halaman publik tidak boleh memuat teks
+ * contoh. Panitia mengisi teksnya lalu menampilkannya.
+ */
+function pakaiPreset(preset: LandingThemePreset, landing: EventLandingConfig): EventLandingConfig {
+  const hasil = terapkanPreset(preset, landing);
+  const sudahAda = (hasil.blocks ?? []).some((block) => block.type === "points" && block.heading === "Sebelum berangkat");
+  if (!preset.gathering || sudahAda) return hasil;
+  const blok = {
+    ...buatBlok("points"),
+    layout: "cards" as const,
+    eyebrow: "Info penting",
+    heading: "Sebelum berangkat",
+    nav_label: "Info penting",
+    items: INFO_GATHERING.map((title) => ({ title, body: "" })),
+  };
+  const sections = normalizeLandingSections(hasil.sections, hasil.blocks);
+  // Sebelum FAQ, seperti di rancangan; tanpa FAQ, di ujung.
+  const faq = sections.findIndex((section) => section.id === "faq");
+  const posisi = faq === -1 ? sections.length : faq;
+  return {
+    ...hasil,
+    blocks: [...(hasil.blocks ?? []), blok],
+    sections: [...sections.slice(0, posisi), { id: blok.id, enabled: false }, ...sections.slice(posisi)],
+  };
 }

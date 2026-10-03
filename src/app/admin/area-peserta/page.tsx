@@ -159,6 +159,12 @@ export default function AreaPesertaPage() {
                     <Switch checked={anggota.show_code !== false} onChange={(value) => set({ show_code: value })} label="Kode QR dan kode peserta" description="Untuk registrasi di pintu masuk." />
                     <Switch checked={anggota.show_seat !== false} onChange={(value) => set({ show_seat: value })} label="Kursi" description="Dari Denah kursi." />
                     <Switch checked={anggota.show_schedule !== false} onChange={(value) => set({ show_schedule: value })} label="Susunan acara" description="Dari Rundown acara." />
+                    <Switch
+                      checked={anggota.show_logistics === true}
+                      onChange={(value) => set({ show_logistics: value })}
+                      label="Kamar dan bus"
+                      description="Dari menu Logistik: kamar, teman sekamar, bus, dan barang. Nyalakan setelah penempatan selesai."
+                    />
                     <Switch checked={anggota.show_vote !== false} onChange={(value) => set({ show_vote: value })} label="Voting langsung" description="Kode peserta terisi otomatis di halaman voting." />
                     <TextField
                       label="Tautan formulir umpan balik"
