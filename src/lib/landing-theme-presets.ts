@@ -14,8 +14,9 @@ export type LandingThemePreset = {
   label: string;
   note: string;
   layout: LandingLayout;
-  seed: string;
-  heading_font: LandingHeadingFont;
+  /** Kosong = warna dan huruf acara sendiri tidak disentuh (preset Modern). */
+  seed?: string;
+  heading_font?: LandingHeadingFont;
   /** Warna pendamping tata letak Forum. */
   accent?: string;
   secondary?: string;
@@ -26,6 +27,14 @@ export type LandingThemePreset = {
 };
 
 export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
+  {
+    // Jalan kembali dari Gathering ke halaman Modern biasa (QA PR #57 M1).
+    // Warna dan huruf acara tetap: preset ini hanya mematikan gaya gathering.
+    key: "modern",
+    label: "Modern",
+    note: "Halaman acara biasa: pendaftaran, program, susunan acara, lokasi. Warna dan huruf acara tetap",
+    layout: "modern",
+  },
   {
     // Figma "IFC Website" yang Hanung setujui pada 2026-10-01.
     key: "forum-ifc",
@@ -58,6 +67,11 @@ const sama = (a: string | undefined, b: string | undefined) => (a ?? "").toLower
 
 /** Apakah isi CMS sekarang persis preset ini (untuk menandai kartu yang terpilih). */
 export function presetCocok(preset: LandingThemePreset, landing: EventLandingConfig): boolean {
+  // Modern dan Gathering dikenali dari tata letak dan gaya saja, bukan warna:
+  // panitia yang mengganti warna tetap melihat kartu mana yang sedang dipakai.
+  if (preset.layout === "modern") {
+    return (landing.layout ?? "editorial") === "modern" && Boolean(landing.gathering) === Boolean(preset.gathering);
+  }
   return (
     (landing.layout ?? "editorial") === preset.layout &&
     sama(landing.theme?.seed, preset.seed) &&
@@ -73,8 +87,8 @@ export function terapkanPreset(preset: LandingThemePreset, landing: EventLanding
   return {
     ...landing,
     layout: preset.layout,
-    heading_font: preset.heading_font,
-    theme: { ...landing.theme, seed: preset.seed },
+    heading_font: preset.heading_font ?? landing.heading_font,
+    ...(preset.seed ? { theme: { ...landing.theme, seed: preset.seed } } : {}),
     // Satu preset, satu gaya: memilih preset lain mematikan gaya gathering.
     invite_only: Boolean(preset.invite_only),
     gathering: Boolean(preset.gathering),

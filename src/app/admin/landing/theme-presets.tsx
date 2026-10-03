@@ -3,6 +3,7 @@
 import { Kelompok } from "@/components/admin/compact-form";
 import { LANDING_HEADING_FONTS, normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
 import { LANDING_THEME_PRESETS, presetCocok, terapkanPreset, type LandingThemePreset } from "@/lib/landing-theme-presets";
+import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { buatBlok } from "./blocks";
 
 /**
@@ -36,9 +37,9 @@ export function PresetTema({
               className={`m3-state flex overflow-hidden rounded-md border text-left ${pilih ? "border-primary ring-1 ring-primary" : "border-outline-variant"}`}
             >
               {/* Cuplikan hero dengan warna preset yang sebenarnya. */}
-              <span aria-hidden className="flex w-36 shrink-0 flex-col justify-center gap-1.5 px-3 py-3" style={{ background: preset.seed }}>
+              <span aria-hidden className="flex w-36 shrink-0 flex-col justify-center gap-1.5 px-3 py-3" style={{ background: preset.seed ?? landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED }}>
                 {preset.accent ? <span className="h-2 w-10" style={{ background: preset.accent }} /> : null}
-                <span className="line-clamp-2 text-body-medium font-bold leading-tight text-white" style={{ fontFamily: LANDING_HEADING_FONTS[preset.heading_font].cssVar }}>
+                <span className="line-clamp-2 text-body-medium font-bold leading-tight text-white" style={{ fontFamily: LANDING_HEADING_FONTS[preset.heading_font ?? landing.heading_font ?? "sans"].cssVar }}>
                   {nama}
                 </span>
                 {preset.secondary ? <span className="h-3 w-12" style={{ background: preset.secondary }} /> : null}
