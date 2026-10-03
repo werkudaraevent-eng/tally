@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     unsubscribeUrl: null,
     test: true,
   });
-  const hasil = await sendEmail({ to: alamat, ...isi });
+  const hasil = await sendEmail({ eventId: event.id, to: alamat, ...isi });
   if (!hasil.ok) return hasil.error === "EMAIL_NOT_CONFIGURED" ? apiError("EMAIL_NOT_CONFIGURED", 503) : apiError("EMAIL_SEND_FAILED", 502, { error: hasil.error });
   return Response.json({ ok: true, to: alamat });
 }

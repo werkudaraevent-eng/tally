@@ -412,7 +412,7 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
         };
       });
 
-      const kirim = await sendEmailBatchDetailed(items, `tally:${blast.id}:email:${baris[0].chunk}`);
+      const kirim = await sendEmailBatchDetailed(items, `tally:${blast.id}:email:${baris[0].chunk}`, blast.event_id);
 
       if (kirim.kind === "not_configured" || (kirim.kind === "failed" && kirim.retryable)) {
         // Dikembalikan ke antrean dengan kunci yang sama. Bila penyedia sebenarnya

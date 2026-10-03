@@ -70,6 +70,7 @@ export async function sendRegistrationCode(input: Input): Promise<EmailDelivery>
   }
 
   const hasil = await sendEmail({
+    eventId: input.eventId,
     to: input.to,
     subject: `Kode peserta Anda — ${input.eventName}`,
     html: htmlBody({ ...input, tanggal }),

@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     linkLabel: item.link_label,
     dashboardUrl: `${origin}/e/${encodeURIComponent(event.slug)}/peserta`,
   });
-  const hasil = await sendEmailBatch(penerima.map((to) => ({ to, ...isi })));
+  const hasil = await sendEmailBatch(penerima.map((to) => ({ to, ...isi })), event.id);
   if ("notConfigured" in hasil) return apiError("EMAIL_NOT_CONFIGURED", 503);
 
   const ringkasan = { terkirim: hasil.sent, gagal: hasil.failed, galat: hasil.error, waktu: new Date().toISOString() };
