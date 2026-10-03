@@ -1294,7 +1294,13 @@ export default function LandingCmsPage() {
           className="w-full"
           label={`Yang tayang di /e/${facts?.slug ?? "slug"}`}
           value={hanyaFormulir ? "formulir" : "halaman"}
-          onChange={(value) => setLanding({ ...landing, tayang: value === "formulir" ? "formulir" : undefined })}
+          onChange={(value) => {
+            setLanding({ ...landing, tayang: value === "formulir" ? "formulir" : undefined });
+            // Tab yang dipilih memang Tema, bukan hanya jatuh ke sana: kembali ke
+            // Halaman acara tidak boleh melempar admin ke Susunan halaman dan
+            // menghilangkan kontrol yang baru ia klik.
+            setBagian("tema");
+          }}
           options={[
             { value: "halaman", label: "Halaman acara" },
             { value: "formulir", label: "Hanya formulir" },
@@ -1302,7 +1308,7 @@ export default function LandingCmsPage() {
         />
         <p className="text-body-medium text-on-surface-variant">
           {hanyaFormulir
-            ? "Tanpa halaman acara: alamat ini langsung membuka formulir pendaftaran. Logo, gambar utama, warna, dan huruf di bawah tetap dipakai formulir, masuk peserta, dan area peserta."
+            ? "Tanpa halaman acara: alamat ini langsung membuka formulir pendaftaran. Logo, gambar utama, warna, dan huruf di bawah tetap dipakai formulir dan halaman masuk peserta."
             : "Halaman acara dengan tombol Daftar menuju formulir. Isinya disusun di Susunan halaman."}
         </p>
       </Kelompok>

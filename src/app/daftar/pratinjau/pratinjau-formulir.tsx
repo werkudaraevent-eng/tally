@@ -63,5 +63,7 @@ export function PratinjauFormulir({ slug, children }: { slug: string; children: 
     };
   }, [slug]);
 
-  return <>{isi}</>;
+  // `inert`: Tab dari CMS tidak masuk ke kolom-kolom pratinjau yang diperkecil
+  // (cincin fokusnya tinggal sepertiga). Gulir dengan roda tetap berjalan.
+  return <div inert>{isi}</div>;
 }

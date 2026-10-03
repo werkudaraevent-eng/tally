@@ -4,6 +4,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { isEmailConfigured } from "@/lib/email/client";
 import { sendRegistrationCode } from "@/lib/email/registration-code";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { landingFormOnly } from "@/lib/landing-i18n";
 import { LANDING_HEADING_FONTS, type EventLandingConfig, type RegistrationField, type RegistrationFormConfig } from "@/lib/domain";
 import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "@/lib/registration-fields";
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
@@ -12,12 +13,14 @@ import { resolveFormTheme } from "@/lib/registration-theme-css";
 
 /** Yang dipakai formulir dari Tema halaman acara, plus status area peserta. */
 function tampilanFormulir(landing: EventLandingConfig | null) {
-  const modern = landing?.layout === "modern" || landing?.layout === "forum";
+  // Sama dengan bingkaiFormulir (src/app/daftar/isi-daftar.tsx): logo, gambar
+  // utama, dan huruf judul hanya dipakai formulir berkerangka v2.
+  const v2 = landing?.layout === "modern" || landing?.layout === "forum" || landingFormOnly(landing);
   return {
-    logo: Boolean(landing?.nav?.logo_url),
-    kv: landing?.banner_url ?? null,
-    // Huruf judul hanya dipakai formulir bertata letak Modern dan Forum.
-    huruf: modern ? (LANDING_HEADING_FONTS[landing?.heading_font ?? (landing?.layout === "forum" ? "ubuntu" : "source")] ?? LANDING_HEADING_FONTS.source).label : null,
+    v2,
+    logo: v2 && Boolean(landing?.nav?.logo_url),
+    kv: v2 ? landing?.banner_url ?? null : null,
+    huruf: v2 ? (LANDING_HEADING_FONTS[landing?.heading_font ?? (landing?.layout === "forum" ? "ubuntu" : "source")] ?? LANDING_HEADING_FONTS.source).label : null,
     area_peserta: Boolean(landing?.member?.enabled),
   };
 }

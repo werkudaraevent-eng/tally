@@ -1,5 +1,6 @@
 "use client";
 
+import { LockSimple } from "@phosphor-icons/react";
 import { useId, type ReactNode } from "react";
 import { useTerkunci } from "@/components/admin/page-context";
 import { cx } from "@/lib/m3/cx";
@@ -17,6 +18,14 @@ export type SwitchProps = {
 	simpan?: boolean;
 	/** Label hanya untuk pembaca layar, mis. sakelar di baris yang sudah berjudul. */
 	labelHidden?: boolean;
+	/**
+	 * Dikunci oleh aturan lain (deskripsi menjelaskan alasannya), bukan sekadar
+	 * nonaktif. Teksnya tetap terbaca penuh dengan ikon gembok, dan sakelarnya
+	 * tetap bisa difokus (`aria-disabled`, bukan `disabled`) supaya alasannya
+	 * ikut diumumkan saat dicapai dengan Tab. M3 States: keadaan nonaktif tidak
+	 * dipakai untuk menyampaikan informasi.
+	 */
+	kunci?: boolean;
 };
 
 /**
@@ -44,7 +53,7 @@ export type SwitchProps = {
  * adalah keadaannya, dan kolom teks yang mulai rata kiri kalau yang dicari
  * adalah artinya.
  */
-export function Switch({ checked, onChange, label, description, disabled: nonaktif, note, className, simpan, labelHidden }: SwitchProps) {
+export function Switch({ checked, onChange, label, description, disabled: nonaktif, note, className, simpan, labelHidden, kunci = false }: SwitchProps) {
 	const terkunci = useTerkunci(simpan);
 	const disabled = nonaktif || terkunci;
 	const id = useId();
@@ -57,8 +66,8 @@ export function Switch({ checked, onChange, label, description, disabled: nonakt
 			    adalah target terkecil di layar ini; judul dan deskripsinya jauh lebih
 			    mudah dikenai, dan orang memang mengarahkan ke sana lebih dulu. */}
 			<div
-				onClick={() => { if (!disabled) onChange(!checked); }}
-				className={cx("min-w-0 flex-1", labelHidden && "sr-only", disabled ? "opacity-50" : "cursor-pointer")}
+				onClick={() => { if (!disabled && !kunci) onChange(!checked); }}
+				className={cx("min-w-0 flex-1", labelHidden && "sr-only", disabled ? "opacity-50" : !kunci && "cursor-pointer")}
 			>
 				{/* `<div>`, bukan `<button>` kedua. Dua tombol untuk satu sakelar berarti
 				    papan ketik berhenti dua kali di baris yang sama dan pembaca layar
@@ -67,7 +76,10 @@ export function Switch({ checked, onChange, label, description, disabled: nonakt
 				    menamai dirinya dari teks di sini lewat `aria-labelledby`. */}
 				<span id={labelId} className="block text-body-medium font-medium text-on-surface">{label}</span>
 				{description ? (
-					<span id={descId} className="mt-0.5 block max-w-[40rem] text-body-medium text-on-surface-variant">{description}</span>
+					<span id={descId} className={cx("mt-0.5 block max-w-[40rem] text-body-medium text-on-surface-variant", kunci && "flex items-start gap-1.5")}>
+						{kunci ? <LockSimple size={16} weight="fill" aria-hidden className="mt-0.5 shrink-0" /> : null}
+						{kunci ? <span>{description}</span> : description}
+					</span>
 				) : null}
 				{note ? <span className="mt-3 block">{note}</span> : null}
 			</div>
@@ -80,7 +92,8 @@ export function Switch({ checked, onChange, label, description, disabled: nonakt
 				aria-labelledby={labelId}
 				aria-describedby={descId}
 				disabled={disabled}
-				onClick={() => onChange(!checked)}
+				aria-disabled={kunci || undefined}
+				onClick={() => { if (!kunci) onChange(!checked); }}
 				// Ukurannya ada di CSS (`m3-switch`), bukan di kelas Tailwind, dengan
 				// alasan yang sama seperti warna tombol: jawabannya berbeda di dua
 				// dunia. Ruang kerja memakai 36x20 mengikuti kepadatan dasbor. Layar
@@ -91,6 +104,7 @@ export function Switch({ checked, onChange, label, description, disabled: nonakt
 				className={cx(
 					"m3-switch relative mt-0.5 inline-flex shrink-0 items-center rounded-full transition-colors duration-150 ease-standard",
 					"disabled:cursor-not-allowed disabled:opacity-50",
+					kunci && "cursor-not-allowed opacity-50",
 					checked ? "bg-primary" : "bg-outline-variant",
 				)}
 			>

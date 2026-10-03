@@ -85,7 +85,7 @@ type Props = {
   akun: { minPassword: number } | null;
 };
 
-type FormModern = {
+export type FormModern = {
   /** Gambar KV acara. Tanpa KV, kepala memakai bidang warna primer. */
   kv: string | null;
   /** Tanggal, jam, tempat: chip yang sama dengan hero halaman acara. */
@@ -693,7 +693,7 @@ function Bingkai({
  * kepala; Hanung menolak versi sempit di tengah karena sisi kiri-kanannya
  * kosong di layar lebar.
  */
-function BingkaiModern({
+export function BingkaiModern({
   lang,
   halamanUrl,
   eventName,
@@ -701,8 +701,15 @@ function BingkaiModern({
   theme,
   modern,
   areaUrl,
+  eyebrow,
   children,
-}: Props & { modern: FormModern; areaUrl: string | null; children: React.ReactNode }) {
+}: Pick<Props, "lang" | "halamanUrl" | "eventName" | "welcomeText" | "theme"> & {
+  modern: FormModern;
+  areaUrl: string | null;
+  /** Label kecil di atas nama acara. Bawaan "Pendaftaran peserta"; halaman masuk memakai "Area peserta". */
+  eyebrow?: string;
+  children: React.ReactNode;
+}) {
   const tinta = modern.kv ? "#fff" : "var(--reg-on-brand)";
   const t = DAFTAR_UI[lang];
   return (
@@ -755,7 +762,7 @@ function BingkaiModern({
               {t.eventPage}
             </Link>
           ) : null}
-          <p className="text-label-large font-semibold uppercase tracking-[0.12em] opacity-85">{t.registration}</p>
+          <p className="text-label-large font-semibold uppercase tracking-[0.12em] opacity-85">{eyebrow ?? t.registration}</p>
           <h1 className={`mt-4 max-w-[900px] text-balance text-[34px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[44px] lg:text-[56px] ${HEAD}`}>
             {eventName}
           </h1>
