@@ -70,9 +70,13 @@ export type DaftarUiText = {
     successPending: string;
     messageApproved: string;
     messagePending: string;
+    /** Varian saat email benar-benar terkirim (kode QR / kabar persetujuan lewat email). */
+    messageApprovedEmailed: string;
+    messagePendingEmailed: string;
     openArea: string;
     memberArea: string;
-    confirmNote: string;
+    /** "Kami kirim email ke {email}. Klik {Konfirmasi email} di dalamnya ..." */
+    confirmNote: { before: string; middle: string; button: string; after: string };
     accountFailed: string;
   };
   field: {
@@ -155,9 +159,11 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
       successPending: "Pendaftaran terkirim, menunggu persetujuan",
       messageApproved: "Akun area peserta Anda aktif. Tunjukkan kode QR ini di meja registrasi. Kode yang sama ada di area peserta.",
       messagePending: "Akun area peserta Anda sudah dibuat dan Anda sudah masuk. Kode QR muncul di area peserta setelah panitia menyetujui pendaftaran.",
+      messageApprovedEmailed: "Akun area peserta Anda aktif. Tunjukkan kode QR ini di meja registrasi. Kode yang sama ada di area peserta dan di email Anda.",
+      messagePendingEmailed: "Akun area peserta Anda sudah dibuat dan Anda sudah masuk. Kode QR muncul di area peserta setelah panitia menyetujui pendaftaran, dan kami kabari lewat email.",
       openArea: "Buka area peserta",
       memberArea: "Area peserta",
-      confirmNote: "Kami kirim email konfirmasi ke alamat Anda. Klik Konfirmasi email di dalamnya supaya akun bisa dipulihkan bila Anda lupa kata sandi.",
+      confirmNote: { before: "Kami kirim email ke ", middle: ". Klik ", button: "Konfirmasi email", after: " di dalamnya supaya akun ini bisa dipulihkan bila Anda lupa kata sandi." },
       accountFailed: "Pendaftaran tersimpan, tetapi akun belum dibuat. Buat kata sandi lewat Masuk area peserta, lalu Lupa kata sandi.",
     },
     field: {
@@ -244,9 +250,11 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
       successPending: "Registration sent, awaiting approval",
       messageApproved: "Your participant account is active. Show this QR code at the registration desk. The same code is in the participant area.",
       messagePending: "Your participant account is ready and you are signed in. Your QR code appears in the participant area once the organisers approve your registration.",
+      messageApprovedEmailed: "Your participant account is active. Show this QR code at the registration desk. The same code is in the participant area and in your email.",
+      messagePendingEmailed: "Your participant account is ready and you are signed in. Your QR code appears in the participant area once the organisers approve your registration, and we will let you know by email.",
       openArea: "Open participant area",
       memberArea: "Participant area",
-      confirmNote: "We have emailed you a confirmation link. Select Confirm email in it so you can recover the account if you forget your password.",
+      confirmNote: { before: "We have emailed ", middle: ". Select ", button: "Confirm email", after: " in it so you can recover this account if you forget your password." },
       accountFailed: "Your registration is saved, but the account was not created. Use Participant sign-in, then Forgot password, to set a password.",
     },
     field: {

@@ -42,7 +42,9 @@ export async function kirimMasuk(
 
 /** Kalimat setelah tautan dikirim. Sama untuk email terdaftar maupun tidak. */
 export function pesanTautanTerkirim(email: string) {
-  return `Bila ${email} terdaftar di acara ini, tautan untuk membuat kata sandi sudah kami kirim. Tautannya berlaku 60 menit. Periksa juga folder spam.`;
+  // Netral untuk ketiga kemungkinan: tautan kata sandi, kabar "akses belum
+  // dibuka" (peserta impor yang belum boleh masuk), atau tidak ada apa-apa.
+  return `Bila ${email} terdaftar di acara ini, kami sudah mengirim email berisi langkah berikutnya. Periksa juga folder spam.`;
 }
 
 const FIELD =

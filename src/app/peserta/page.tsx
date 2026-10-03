@@ -8,6 +8,7 @@ import { formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { memberPageStyle } from "@/lib/member/page-theme";
+import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
 
 /**
  * Area peserta: `/e/<slug>/peserta`.
@@ -89,12 +90,13 @@ export default async function AreaPesertaPage({
             <CheckCircle size={22} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
             Email Anda terkonfirmasi.
           </p>
-        ) : !sesi.emailVerified ? (
+        ) : !sesi.emailVerified && sesi.status !== "rejected" ? (
           <p className="mt-6 flex max-w-[720px] items-start gap-3 rounded-md border border-[var(--reg-outline-variant)] px-4 py-3 text-body-large">
             <EnvelopeSimple size={22} className="mt-0.5 shrink-0 text-[var(--reg-primary)]" aria-hidden />
             <span>
               {konfirmasi === "gagal" ? "Tautan konfirmasi itu sudah dipakai atau kedaluwarsa. " : null}
               Konfirmasi email {sesi.email} lewat tautan yang kami kirim, supaya akun ini bisa dipulihkan bila Anda lupa kata sandi.
+              <KirimUlangKonfirmasi slug={event.slug} />
             </span>
           </p>
         ) : null}

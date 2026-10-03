@@ -116,6 +116,24 @@ export async function POST(request: Request) {
     }
   }
 
+  // Area peserta menyala: email yang sudah ada di daftar peserta acara ini
+  // (impor panitia) adalah orang yang sama. Mendaftar ulang akan membuat akun
+  // yang terikat ke pendaftaran baru yang masih menunggu, padahal tiket
+  // impornya sudah sah. Arahkan ke "Kirim tautan ke email" saja.
+  if (member && parsed.data.email) {
+    const email = parsed.data.email.trim().toLowerCase();
+    const { data: impor } = await client
+      .from("participants")
+      .select("email")
+      .eq("event_id", event.id)
+      .ilike("email", email)
+      .is("source_removed_at", null)
+      .limit(5);
+    if (((impor ?? []) as { email: string | null }[]).some((p) => (p.email ?? "").trim().toLowerCase() === email)) {
+      return apiError("REGISTRATION_DUPLICATE_EMAIL", 422, { message: "Email ini sudah terdaftar di acara ini.", masuk: "tautan" });
+    }
+  }
+
   // Berkas: nilainya di `extra` adalah id baris registration_uploads, dan id itu
   // datang dari klien. Diperiksa TIGA hal sekaligus, karena masing-masing sendiri
   // tidak cukup:
@@ -204,6 +222,7 @@ export async function POST(request: Request) {
   // TIDAK membatalkan pendaftaran: pendaftar tetap terdaftar dan bisa membuat
   // kata sandi lewat "Kirim tautan ke email".
   let akun: "ok" | "conflict" | "failed" | null = null;
+  let konfirmasiTerkirim = false;
   if (member && parsed.data.email && parsed.data.password) {
     const { data: reg } = await client
       .from("event_registrations")
@@ -218,12 +237,13 @@ export async function POST(request: Request) {
     });
     akun = dibuat.status;
     if (dibuat.status === "ok") {
-      await sendConfirmationLink(event, {
+      const kirim = await sendConfirmationLink(event, {
         accountId: dibuat.accountId,
         email: parsed.data.email,
         name: parsed.data.name,
         requestUrl: request.url,
       });
+      konfirmasiTerkirim = kirim.state === "sent";
     }
   }
 
@@ -233,6 +253,8 @@ export async function POST(request: Request) {
     // peserta acara ini mati.
     akun,
     peserta_url: akun === "ok" ? `/e/${event.slug}/peserta` : null,
+    // "Kami kirim email ke ..." hanya bila penyedia benar-benar menerimanya.
+    konfirmasi_terkirim: konfirmasiTerkirim,
     // qr_code hanya ada pada event auto-approve. Pendaftar di event bermoderasi
     // menerima null, dan halamannya harus mengatakan "menunggu persetujuan" —
     // bukan menampilkan kotak QR kosong.

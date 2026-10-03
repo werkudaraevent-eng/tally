@@ -97,3 +97,27 @@ revoke all on table public.participant_account_tokens from public, anon, authent
 
 comment on table public.participant_account_tokens is
   'Tautan email area peserta (konfirmasi email, buat/atur ulang kata sandi). Hanya sha256 token yang disimpan.';
+
+-- Permintaan "Kirim tautan ke email", untuk batas per email dan per IP.
+-- Dihitung per PERMINTAAN, termasuk email yang tidak terdaftar: menghitung
+-- token saja (yang hanya dibuat untuk email cocok) membuat batas itu hanya
+-- menggigit email terdaftar, sehingga jawabannya membocorkan siapa yang
+-- terdaftar.
+create table if not exists public.participant_link_requests (
+  id          bigint generated always as identity primary key,
+  event_id    uuid not null references public.events(id) on delete cascade,
+  email       text not null,
+  ip          text,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists participant_link_requests_email_idx
+  on public.participant_link_requests (event_id, email, created_at desc);
+create index if not exists participant_link_requests_ip_idx
+  on public.participant_link_requests (event_id, ip, created_at desc);
+
+alter table public.participant_link_requests enable row level security;
+revoke all on table public.participant_link_requests from public, anon, authenticated;
+
+comment on table public.participant_link_requests is
+  'Catatan permintaan tautan kata sandi area peserta, hanya untuk pembatasan laju.';

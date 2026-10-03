@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
 import { publicEventName } from "@/lib/domain";
 import { isEmailConfigured } from "@/lib/email/client";
-import { sendMemberLink, type MemberLinkKind } from "@/lib/email/member-links";
+import { sendMemberLink } from "@/lib/email/member-links";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { clearGate, eligible, HASH_ROUNDS, hashToken, normalizeEmail, startSession } from "./account";
 
@@ -19,14 +19,21 @@ import { clearGate, eligible, HASH_ROUNDS, hashToken, normalizeEmail, startSessi
  * `email_verified_at` ikut terisi.
  */
 
-const MASA: Record<MemberLinkKind, number> = { konfirmasi: 14 * 24 * 60 * 60 * 1000, sandi: 60 * 60 * 1000 };
-/** Paling banyak tiga tautan per email per 15 menit: cukup untuk "belum masuk, kirim lagi", sempit untuk membanjiri kotak masuk orang. */
-const BATAS_TAUTAN = 3;
-const JENDELA_TAUTAN = 15 * 60 * 1000;
+const MASA: Record<"konfirmasi" | "sandi", number> = { konfirmasi: 14 * 24 * 60 * 60 * 1000, sandi: 60 * 60 * 1000 };
+/** Paling banyak tiga permintaan per email per 15 menit: cukup untuk "belum masuk, kirim lagi", sempit untuk membanjiri kotak masuk orang. */
+const BATAS_EMAIL = 3;
+const JENDELA_EMAIL = 15 * 60 * 1000;
+/**
+ * Per IP: 20 per 10 menit. Lebih longgar dari batas login karena peserta impor
+ * satu perusahaan sering meminta tautan dari satu jaringan kantor sekaligus,
+ * dan yang tertahan di sini tidak diberi tahu (jawabannya tetap "terkirim").
+ */
+const BATAS_IP = 20;
+const JENDELA_IP = 10 * 60 * 1000;
 
 type Sasaran = { accountId?: string; participantId?: string; registrationId?: string };
 
-async function buatToken(eventId: string, purpose: MemberLinkKind, email: string, sasaran: Sasaran) {
+async function buatToken(eventId: string, purpose: "konfirmasi" | "sandi", email: string, sasaran: Sasaran) {
   const token = randomBytes(32).toString("base64url");
   const { error } = await getSupabaseServiceClient()
     .from("participant_account_tokens")
@@ -45,7 +52,7 @@ async function buatToken(eventId: string, purpose: MemberLinkKind, email: string
 }
 
 /** Alamat tautan, dari origin permintaan (sama dengan registrationCodeUrl). */
-export function memberLinkUrl(requestUrl: string, slug: string, purpose: MemberLinkKind, token: string) {
+export function memberLinkUrl(requestUrl: string, slug: string, purpose: "konfirmasi" | "sandi", token: string) {
   const origin = new URL(requestUrl).origin;
   const path = purpose === "konfirmasi"
     ? `/e/${encodeURIComponent(slug)}/api/peserta/konfirmasi?token=${token}`
@@ -73,38 +80,79 @@ export async function sendConfirmationLink(
   }
 }
 
+/**
+ * "Kirim ulang" di pita konfirmasi area peserta. Pemiliknya sudah masuk, jadi
+ * tidak ada yang bisa ditebak dari jawabannya; batasnya tiga per 15 menit.
+ */
+export async function resendConfirmationLink(
+  event: Pick<EventRow, "id" | "slug" | "name" | "landing_config">,
+  input: { accountId: string; email: string; name: string; requestUrl: string },
+): Promise<{ status: "sent" | "not_configured" | "rate_limited" | "failed" }> {
+  if (!isEmailConfigured()) return { status: "not_configured" };
+  const { count } = await getSupabaseServiceClient()
+    .from("participant_account_tokens")
+    .select("id", { head: true, count: "exact" })
+    .eq("account_id", input.accountId)
+    .eq("purpose", "konfirmasi")
+    .gte("created_at", new Date(Date.now() - JENDELA_EMAIL).toISOString());
+  if ((count ?? 0) >= BATAS_EMAIL) return { status: "rate_limited" };
+  const hasil = await sendConfirmationLink(event, input);
+  return { status: hasil.state === "sent" ? "sent" : hasil.state === "not_configured" ? "not_configured" : "failed" };
+}
+
 export type LinkRequestOutcome =
   | { status: "sent" }
   | { status: "not_configured" }
-  | { status: "rate_limited" }
   | { status: "failed" };
 
 /**
  * "Kirim tautan ke email". Jawabannya SAMA untuk email yang terdaftar maupun
- * tidak (`sent`), supaya formulir ini tidak bisa dipakai menebak siapa yang
- * mendaftar. Pengecualiannya hanya kondisi server (email belum aktif, batas).
+ * tidak (`sent`), juga saat kena batas, supaya formulir ini tidak bisa dipakai
+ * menebak siapa yang mendaftar. Pengecualiannya hanya kondisi server (email
+ * belum aktif, penyedia gagal).
+ *
+ * Batasnya dihitung per PERMINTAAN (participant_link_requests), bukan per
+ * token: token hanya dibuat untuk email yang cocok, jadi menghitung token
+ * membuat batas itu hanya menggigit email terdaftar dan membocorkannya.
  */
 export async function requestPasswordLink(
   event: EventRow,
   member: LandingMemberConfig,
-  input: { email: string; requestUrl: string },
+  input: { email: string; ip: string | null; requestUrl: string },
 ): Promise<LinkRequestOutcome> {
   if (!isEmailConfigured()) return { status: "not_configured" };
   const email = normalizeEmail(input.email);
   const client = getSupabaseServiceClient();
 
-  const sejak = new Date(Date.now() - JENDELA_TAUTAN).toISOString();
-  const { count } = await client
-    .from("participant_account_tokens")
-    .select("id", { head: true, count: "exact" })
-    .eq("event_id", event.id)
-    .eq("email", email)
-    .eq("purpose", "sandi")
-    .gte("created_at", sejak);
-  if ((count ?? 0) >= BATAS_TAUTAN) return { status: "rate_limited" };
+  const [perEmail, perIp] = await Promise.all([
+    client
+      .from("participant_link_requests")
+      .select("id", { head: true, count: "exact" })
+      .eq("event_id", event.id)
+      .eq("email", email)
+      .gte("created_at", new Date(Date.now() - JENDELA_EMAIL).toISOString()),
+    input.ip
+      ? client
+        .from("participant_link_requests")
+        .select("id", { head: true, count: "exact" })
+        .eq("event_id", event.id)
+        .eq("ip", input.ip)
+        .gte("created_at", new Date(Date.now() - JENDELA_IP).toISOString())
+      : Promise.resolve({ count: 0 }),
+  ]);
+  await client.from("participant_link_requests").insert({ event_id: event.id, email, ip: input.ip } as never);
+  if ((perEmail.count ?? 0) >= BATAS_EMAIL || (perIp.count ?? 0) >= BATAS_IP) return { status: "sent" };
 
   const sasaran = await cariSasaran(event, member, email);
   if (!sasaran) return { status: "sent" };
+
+  // Peserta impor yang belum dibuka aksesnya ("Siapa yang bisa masuk" =
+  // peserta disetujui). Tetap dikabari lewat email, bukan dibiarkan menunggu
+  // tautan yang tidak akan datang; layarnya tetap sama.
+  if (sasaran.tertutup) {
+    const hasil = await sendMemberLink({ kind: "tertutup", to: email, name: sasaran.name, eventName: publicEventName(event), url: null });
+    return hasil.state === "sent" ? { status: "sent" } : { status: "failed" };
+  }
 
   try {
     const token = await buatToken(event.id, "sandi", email, sasaran.sasaran);
@@ -126,7 +174,7 @@ async function cariSasaran(
   event: EventRow,
   member: LandingMemberConfig,
   email: string,
-): Promise<{ sasaran: Sasaran; name: string | null } | null> {
+): Promise<{ sasaran: Sasaran; name: string | null; tertutup?: true } | null> {
   const client = getSupabaseServiceClient();
   const { data: akun } = await client
     .from("participant_accounts")
@@ -142,9 +190,11 @@ async function cariSasaran(
     .eq("event_id", event.id)
     .ilike("email", email)
     .is("source_removed_at", null);
+  let tertutup: { name: string } | null = null;
   for (const p of (daftarPeserta ?? []) as { id: string; name: string; email: string | null }[]) {
     if (normalizeEmail(p.email ?? "") !== email) continue;
     if (await eligible(event.id, p.id, member)) return { sasaran: { participantId: p.id }, name: p.name };
+    tertutup ??= { name: p.name };
   }
 
   const { data: reg } = await client
@@ -156,12 +206,13 @@ async function cariSasaran(
     .limit(1)
     .maybeSingle();
   if (reg) return { sasaran: { registrationId: (reg as { id: string }).id }, name: (reg as { name: string }).name };
+  if (tertutup) return { sasaran: {}, name: tertutup.name, tertutup: true };
   return null;
 }
 
 type BarisToken = {
   id: string;
-  purpose: MemberLinkKind;
+  purpose: "konfirmasi" | "sandi";
   email: string;
   account_id: string | null;
   participant_id: string | null;
@@ -170,7 +221,7 @@ type BarisToken = {
   used_at: string | null;
 };
 
-async function bacaToken(eventId: string, token: string, purpose: MemberLinkKind): Promise<BarisToken | null> {
+async function bacaToken(eventId: string, token: string, purpose: "konfirmasi" | "sandi"): Promise<BarisToken | null> {
   if (!/^[A-Za-z0-9_-]{20,100}$/.test(token)) return null;
   const { data } = await getSupabaseServiceClient()
     .from("participant_account_tokens")

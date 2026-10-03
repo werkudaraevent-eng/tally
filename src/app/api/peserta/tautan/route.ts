@@ -14,12 +14,11 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return memberError("VALIDATION_ERROR", 400, "Isi email pendaftaran Anda.");
 
-  const hasil = await requestPasswordLink(resolved.event, resolved.member, { email: parsed.data.email, requestUrl: request.url });
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || request.headers.get("x-real-ip");
+  const hasil = await requestPasswordLink(resolved.event, resolved.member, { email: parsed.data.email, ip, requestUrl: request.url });
   switch (hasil.status) {
     case "sent":
       return Response.json({ ok: true });
-    case "rate_limited":
-      return memberError("RATE_LIMITED", 429, "Tautan untuk email ini sudah dikirim beberapa kali. Periksa kotak masuk dan folder spam, atau coba lagi dalam 15 menit.");
     case "not_configured":
       return memberError("EMAIL_NOT_CONFIGURED", 503, "Pengiriman email belum aktif untuk acara ini. Hubungi panitia.");
     default:

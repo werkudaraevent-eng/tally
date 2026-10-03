@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, CalendarBlank, CheckCircle, Hourglass, WarningCi
 import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
+import { useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
 import type { LandingNavWidth, RegistrationField } from "@/lib/domain";
 import { REG_CONTROL, REG_LABEL, RegistrationFieldInput } from "@/components/registration-field-input";
 import { DAFTAR_UI } from "@/lib/daftar-i18n";
@@ -114,6 +114,8 @@ type Hasil = {
   /** Akun area peserta: "ok" = sudah masuk. Null bila area peserta mati. */
   akun?: "ok" | "conflict" | "failed" | null;
   peserta_url?: string | null;
+  /** True hanya bila email konfirmasi akun benar-benar diterima penyedia. */
+  konfirmasi_terkirim?: boolean;
 };
 
 /**
@@ -149,13 +151,16 @@ export default function DaftarClient(props: Props) {
   const [error, setError] = useState("");
   // Email sudah terdaftar di acara yang punya area peserta: pesannya membawa
   // tautan Masuk, bukan menyuruh menghubungi panitia.
-  const [duplikat, setDuplikat] = useState(false);
+  const [duplikat, setDuplikat] = useState<false | "masuk" | "tautan">(false);
   const [lihatSandi, setLihatSandi] = useState(false);
   const [hasil, setHasil] = useState<Hasil | null>(null);
   // Nama yang benar-benar dikirim, disimpan saat pengiriman berhasil. Gambar
   // kode yang dibagikan mencantumkannya supaya jelas kode itu milik siapa, dan
   // formulirnya sudah tidak ada di layar untuk dibaca ulang.
   const [nama, setNama] = useState("");
+  const [emailDaftar, setEmailDaftar] = useState("");
+  // Judul sukses menerima fokus sekali, saat muncul (setelah animasi tukar).
+  const judulDifokus = useRef(false);
   // Tautan kode dari pendaftaran sebelumnya di peramban yang sama.
   //
   // useSyncExternalStore, bukan efek yang memanggil setState: `localStorage`
@@ -212,7 +217,7 @@ export default function DaftarClient(props: Props) {
       // Pesan server berbahasa Indonesia. Halaman English memakai kodenya.
       const kode = response.status === 429 ? "RATE_LIMITED" : body.error?.code;
       if (props.akun && kode === "REGISTRATION_DUPLICATE_EMAIL") {
-        setDuplikat(true);
+        setDuplikat(body.error?.details?.masuk === "tautan" ? "tautan" : "masuk");
         setError(t.account.duplicate);
         return;
       }
@@ -220,6 +225,8 @@ export default function DaftarClient(props: Props) {
       return;
     }
     setNama(String(form.get("name") ?? "").trim());
+    setEmailDaftar(String(form.get("email") ?? "").trim());
+    judulDifokus.current = false;
     setHasil(body);
     if (typeof body.code_url === "string") {
       // Gagal menulis TIDAK dijadikan galat: mode penyamaran dan pengaturan
@@ -327,7 +334,7 @@ export default function DaftarClient(props: Props) {
         {duplikat && m?.masukUrl ? (
           <>
             {" "}
-            <Link href={m.masukUrl} className="font-semibold underline underline-offset-4">{t.account.duplicateLink}</Link>
+            <Link href={duplikat === "tautan" ? `${m.masukUrl}?mode=tautan` : m.masukUrl} className="font-semibold underline underline-offset-4">{t.account.duplicateLink}</Link>
           </>
         ) : null}
       </span>
@@ -375,15 +382,27 @@ export default function DaftarClient(props: Props) {
   // menunggu email yang tidak akan pernah datang -- dan baru sadar di meja
   // registrasi, saat antrean sudah panjang.
   const pesanSukses = props.successText ?? (berakun
-    ? (disetujui ? t.account.messageApproved : t.account.messagePending)
+    ? (disetujui
+      ? (lewatEmail ? t.account.messageApprovedEmailed : t.account.messageApproved)
+      : (hasil?.konfirmasi_terkirim ? t.account.messagePendingEmailed : t.account.messagePending))
     : disetujui ? t.messageApproved : t.messagePending);
-  // Konfirmasi email (akun baru), atau akun yang gagal dibuat.
-  const catatanAkun = hasil?.akun ? (
+  // Konfirmasi email (akun baru), atau akun yang gagal dibuat. Alamatnya
+  // ditulis lengkap: email adalah nama pengguna dan formulir tidak punya kolom
+  // ulangi, jadi di sinilah salah ketik masih bisa terlihat.
+  const c = t.account.confirmNote;
+  const catatanAkun = hasil?.akun && (!berakun || hasil.konfirmasi_terkirim) ? (
     <p className={`mt-5 max-w-[35rem] text-body-medium leading-6 ${berakun ? MUTED : "font-semibold text-[var(--reg-error)]"}`}>
-      {berakun ? t.account.confirmNote : t.account.accountFailed}
+      {berakun ? (
+        <>
+          {c.before}<strong className="font-semibold text-[var(--reg-on-surface)] [overflow-wrap:anywhere]">{emailDaftar}</strong>{c.middle}
+          <strong className="font-semibold text-[var(--reg-on-surface)]">{c.button}</strong>{c.after}
+        </>
+      ) : t.account.accountFailed}
     </p>
   ) : null;
-  const catatanEmail = disetujui ? (
+  // Sudah berakun: kode tersimpan di area peserta, jadi catatan kode-lewat-email
+  // dilebur ke kalimat pembuka (satu catatan email saja, seperti mockup).
+  const catatanEmail = disetujui && !berakun ? (
     <p className={`mt-5 text-body-medium leading-6 ${lewatEmail ? MUTED : "font-semibold text-[var(--reg-error)]"}`}>
       {lewatEmail
         ? t.emailSent
@@ -409,6 +428,19 @@ export default function DaftarClient(props: Props) {
       </p>
     </div>
   ) : null;
+
+  const fokusJudul = (judul: HTMLHeadingElement | null) => {
+    if (!judul || judulDifokus.current) return;
+    judulDifokus.current = true;
+    // Bilah atas sticky (88px) akan menutupi judul bila halaman dibiarkan di
+    // posisi tombol kirim. scroll-margin-top menjaga jaraknya dari bilah.
+    const tenang = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    judul.focus({ preventScroll: true });
+    judul.scrollIntoView({ block: "start", behavior: tenang ? "auto" : "smooth" });
+  };
+  // Jarak gulir = bilah + ikon di atas judul (56px + 20px) + 24px, supaya ikon
+  // juga terlihat. Judul bukan kontrol: cincin fokus global dimatikan di sini.
+  const JUDUL_FOKUS = "scroll-mt-[calc(var(--nav-h,0px)+100px)] focus-visible:outline-none! focus-visible:shadow-none!";
 
   /* Ikon hasil membesar masuk dengan pegas ekspresif, sesaat setelah kartunya
      mendarat. Ini satu-satunya momen di alur pendaftaran yang boleh terasa
@@ -441,7 +473,7 @@ export default function DaftarClient(props: Props) {
                   berdiri di kolom kanan setinggi dua blok kiri. */}
               <div className="min-w-0">
                 {ikonSukses("w-fit")}
-                <h2 className={`mt-5 text-[32px] font-semibold leading-tight tracking-[-0.02em] sm:text-[36px] ${HEAD}`}>{judulSukses}</h2>
+                <h2 ref={fokusJudul} tabIndex={-1} className={`mt-5 text-[32px] font-semibold leading-tight tracking-[-0.02em] sm:text-[36px] ${HEAD} ${JUDUL_FOKUS}`}>{judulSukses}</h2>
                 <p className={`mt-3 max-w-[60ch] text-body-large leading-7 ${MUTED}`}>{pesanSukses}</p>
               </div>
 
@@ -533,7 +565,7 @@ export default function DaftarClient(props: Props) {
       {hasil ? (
         <motion.div key="sukses" className="text-center" {...TUKAR}>
           {ikonSukses("mx-auto w-fit")}
-          <h2 className="mt-5 text-headline-small font-semibold tracking-[-0.02em]">{judulSukses}</h2>
+          <h2 ref={fokusJudul} tabIndex={-1} className={`mt-5 text-headline-small font-semibold tracking-[-0.02em] ${JUDUL_FOKUS}`}>{judulSukses}</h2>
           <p className={`mx-auto mt-3 max-w-[52ch] text-body-large leading-7 ${MUTED}`}>{pesanSukses}</p>
           {disetujui && hasil.qr_code ? (
             <RegistrationCodeCard
