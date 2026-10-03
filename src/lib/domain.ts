@@ -858,6 +858,13 @@ export const LANDING_NAV_HEIGHT_MAX = 120;
 export type EventLandingConfig = {
   /** Bawaan `editorial`. */
   layout?: LandingLayout;
+  /**
+   * Yang tayang di `/e/<slug>`. Bawaan `halaman` (halaman acara). `formulir`:
+   * acara tanpa halaman acara; alamat itu langsung membuka formulir
+   * pendaftaran, dan Tema (logo, gambar utama, warna, huruf) tetap dipakai
+   * formulir, masuk peserta, dan area peserta. Lihat landingFormOnly.
+   */
+  tayang?: "halaman" | "formulir";
   /** Isi khusus tata letak Forum. */
   forum?: LandingForumConfig;
   /**

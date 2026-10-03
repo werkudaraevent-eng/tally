@@ -60,6 +60,7 @@ export function LandingPreview({
   onHalaman,
   bahasa = "id",
   onBahasa,
+  formulir = false,
 }: {
   slug: string;
   reloadKey: number;
@@ -75,6 +76,11 @@ export function LandingPreview({
   bahasa?: "id" | "en";
   /** Pilihan ID | EN diklik di dalam pratinjau. */
   onBahasa?: (bahasa: "id" | "en") => void;
+  /**
+   * Acara tanpa halaman acara (Tema > Yang tayang: Hanya formulir): yang
+   * dipratinjau formulir pendaftaran, dengan Tema dari draf yang sama.
+   */
+  formulir?: boolean;
 }) {
   const [device, setDevice] = useState<Device>("desktop");
   const [wadahUkuran, setWadahUkuran] = useState({ lebar: 0, tinggi: 0 });
@@ -87,8 +93,11 @@ export function LandingPreview({
 
   const kirimDraf = useCallback(() => {
     if (!draf) return;
-    bingkai.current?.contentWindow?.postMessage({ jenis: "tally-pratinjau-draf", draf, bahasa }, window.location.origin);
-  }, [draf, bahasa]);
+    bingkai.current?.contentWindow?.postMessage(
+      formulir ? { jenis: "tally-pratinjau-formulir", landing: draf } : { jenis: "tally-pratinjau-draf", draf, bahasa },
+      window.location.origin,
+    );
+  }, [draf, bahasa, formulir]);
 
   // Menyentuh DOM halaman di dalam iframe, bukan keadaan React: halaman itu
   // asal-yang-sama, dan garisnya hanya ada di pratinjau ini, tidak tersimpan.
@@ -210,10 +219,10 @@ export function LandingPreview({
             // Mengganti `src` saja tidak cukup: browser memperlakukan navigasi
             // di dalam iframe sebagai riwayat, dan tombol Back halaman CMS lalu
             // menelusuri riwayat pratinjau alih-alih meninggalkan layar ini.
-            key={`${reloadKey}-${nonce}-${halaman ?? ""}`}
+            key={`${reloadKey}-${nonce}-${halaman ?? ""}-${formulir ? "formulir" : "halaman"}`}
             ref={bingkai}
-            src={`/e/${slug}/pratinjau${halaman && halaman !== "beranda" ? `?halaman=${halaman}` : ""}`}
-            title="Pratinjau halaman acara"
+            src={formulir ? `/e/${slug}/daftar/pratinjau` : `/e/${slug}/pratinjau${halaman && halaman !== "beranda" ? `?halaman=${halaman}` : ""}`}
+            title={formulir ? "Pratinjau formulir pendaftaran" : "Pratinjau halaman acara"}
             // Pratinjau tidak boleh ikut merekam riwayat maupun mengambil alih
             // halaman induk. Sandbox tetap mengizinkan skrip dan asal-yang-sama,
             // karena halaman publiknya memang butuh keduanya untuk berjalan

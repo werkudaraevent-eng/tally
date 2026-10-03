@@ -48,9 +48,11 @@ type Props = {
   config: RegistrationFormConfig;
   onChange: (next: RegistrationFormConfig) => void;
   disabled?: boolean;
+  /** Area peserta acara ini menyala: "Email wajib" dikunci menyala. */
+  areaPeserta?: boolean;
 };
 
-export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
+export function RegistrationFormBuilder({ config, onChange, disabled, areaPeserta = false }: Props) {
   const fields = config.fields ?? [];
   /**
    * Baris yang sedang terbuka dilacak lewat POSISINYA, bukan lewat kuncinya.
@@ -114,7 +116,14 @@ export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
             <span className="font-semibold">Nama lengkap</span>
             <StatusChip tone="neutral" className="ml-auto min-h-7 text-label-medium">Selalu wajib</StatusChip>
           </li>
-          {(["Email", "Nomor telepon", "Perusahaan", "Jabatan"] as const).map((label) => (
+          {(["Email", "Nomor telepon", "Perusahaan", "Jabatan"] as const).map((label) => label === "Email" && areaPeserta ? (
+            // Area peserta: email adalah nama pengguna, jadi barisnya sama dengan Nama lengkap.
+            <li key={label} className="flex items-center gap-2 text-body-medium">
+              <LockSimple size={16} weight="fill" className="shrink-0 text-on-surface-variant" />
+              <span className="font-semibold">{label}</span>
+              <StatusChip tone="neutral" className="ml-auto min-h-7 text-label-medium">Selalu wajib (area peserta)</StatusChip>
+            </li>
+          ) : (
             <li key={label} className="flex items-center gap-2 text-body-medium text-on-surface-variant">
               <LockSimple size={16} className="shrink-0" />
               <span>{label}</span>
@@ -138,16 +147,22 @@ export function RegistrationFormBuilder({ config, onChange, disabled }: Props) {
       <div className="divide-y divide-outline-variant rounded-[10px] border border-outline-variant bg-surface-container-lowest">
         <div className="px-5 py-4">
           <Switch
-            checked={config.require_email !== false}
+            // Area peserta menyala: email adalah nama pengguna untuk masuk, jadi
+            // formulir publik selalu mewajibkannya (src/app/daftar/isi-daftar.tsx).
+            // Saklarnya dikunci menyala supaya layar ini tidak menyatakan hal lain.
+            checked={areaPeserta || config.require_email !== false}
             onChange={(value) => onChange({ ...config, require_email: value })}
             disabled={disabled}
+            kunci={areaPeserta}
             label="Email wajib diisi"
-            description="Kode peserta dikirim ke email ini."
+            description={areaPeserta
+              ? "Selalu wajib selama area peserta aktif: email dipakai untuk masuk ke area peserta."
+              : "Kode peserta dikirim ke email ini."}
             // Peringatan hanya muncul saat DIMATIKAN, menyebut akibatnya, bukan
             // nama setelannya, dan duduk di dalam baris yang sama. Admin yang
             // mematikannya tanpa membaca baru sadar saat ada pendaftar berdiri di
             // meja registrasi tanpa kode.
-            note={config.require_email === false ? (
+            note={!areaPeserta && config.require_email === false ? (
               <Banner tone="warning" icon={<WarningCircle size={16} />} className="text-body-small">
                 <strong className="font-medium">Kode peserta tidak akan terkirim ke mana pun.</strong> Pendaftar hanya
                 melihatnya sekali di layar; yang menutup halaman kehilangannya dan harus dicari panitia di daftar ini.

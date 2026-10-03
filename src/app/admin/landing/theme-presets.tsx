@@ -12,13 +12,16 @@ export function PresetTema({
   landing,
   setLanding,
   nama,
+  first = true,
 }: {
   landing: EventLandingConfig;
   setLanding: (next: EventLandingConfig) => void;
   nama: string;
+  /** False bila ada kelompok lain di atasnya (garis pemisah tampil). */
+  first?: boolean;
 }) {
   return (
-    <Kelompok title="Preset tema" first note="Satu klik mengisi tata letak, warna, dan huruf judul. Isi halaman tidak berubah, dan semuanya tetap bisa diatur satu per satu di bawah.">
+    <Kelompok title="Preset tema" first={first} note="Satu klik mengisi tata letak, warna, dan huruf judul. Isi halaman tidak berubah, dan semuanya tetap bisa diatur satu per satu di bawah.">
       <div role="radiogroup" aria-label="Preset tema" className="grid gap-2">
         {LANDING_THEME_PRESETS.map((preset) => {
           const pilih = presetCocok(preset, landing);

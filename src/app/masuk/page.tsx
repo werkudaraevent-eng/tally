@@ -5,9 +5,12 @@ import { formatEventSchedule } from "@/lib/event-datetime";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { memberPageStyle } from "@/lib/member/page-theme";
 import type { EventLandingConfig } from "@/lib/domain";
+import { landingFormOnly } from "@/lib/landing-i18n";
 import { renderLanding } from "@/components/landing/render-landing";
 import { asalSitus } from "@/app/e/[slug]/landing-metadata";
 import { peekPasswordToken } from "@/lib/member/links";
+import { bingkaiFormulir } from "@/app/daftar/isi-daftar";
+import { BingkaiModern } from "@/app/daftar/daftar-client";
 import { MasukClient, type MasukMode, type MasukSandi } from "./masuk-client";
 
 /**
@@ -66,7 +69,29 @@ export default async function MasukPage({
     sandi = berlaku ? { token: tokenSandi, email: berlaku.email } : "invalid";
     modeAwal = berlaku ? "sandi" : "tautan";
   }
-  if ((event.landing_config as EventLandingConfig | null)?.layout === "modern") {
+  const landing = event.landing_config as EventLandingConfig | null;
+  // Hanya formulir: tidak ada halaman acara untuk dijadikan latar dialog, jadi
+  // Modern pun memakai halaman masuk penuh di bawah, dengan Tema yang sama.
+  const hanyaFormulir = landingFormOnly(landing);
+  if (hanyaFormulir) {
+    // Kerangka yang sama dengan formulir (bilah atas, logo, gambar utama, nama
+    // publik): pendaftar yang pindah dari formulir ke sini tetap di situs yang
+    // sama. Area peserta belum dwibahasa, jadi bahasa Indonesia dan tanpa ID | EN.
+    const bingkai = await bingkaiFormulir(event, "id", { tautanBahasa: false, tautanMasuk: false });
+    if (bingkai.modern) {
+      return (
+        <BingkaiModern lang="id" halamanUrl={null} eventName={bingkai.eventName} welcomeText={null} theme={bingkai.theme} modern={bingkai.modern} areaUrl={null} eyebrow="Area peserta">
+          <div className="mx-auto w-full max-w-[440px]">
+            <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} />
+            <Link href={`/e/${event.slug}/daftar`} className="mt-6 inline-flex min-h-11 items-center text-title-small font-semibold text-[var(--reg-primary)]">
+              Belum terdaftar? Daftar di sini
+            </Link>
+          </div>
+        </BingkaiModern>
+      );
+    }
+  }
+  if (landing?.layout === "modern") {
     return renderLanding(event, undefined, { masukAwal: modeAwal, sandi });
   }
 

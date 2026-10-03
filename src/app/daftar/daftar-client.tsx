@@ -61,7 +61,8 @@ type Props = {
   /** Bahasa formulir, mengikuti alamatnya (lihat src/lib/daftar-i18n.ts). */
   lang: LandingLang;
   /** Halaman acara dalam bahasa yang sama. */
-  halamanUrl: string;
+  /** Null: acara tanpa halaman acara (Tema > Hanya formulir); tautan kembali ke sana disembunyikan. */
+  halamanUrl: string | null;
   eventName: string;
   eventSlug: string;
   /** "Senin, 17 Agustus 2026 · 09.00–17.00 WITA". Sumbernya sama dengan halaman acara. */
@@ -84,7 +85,7 @@ type Props = {
   akun: { minPassword: number } | null;
 };
 
-type FormModern = {
+export type FormModern = {
   /** Gambar KV acara. Tanpa KV, kepala memakai bidang warna primer. */
   kv: string | null;
   /** Tanggal, jam, tempat: chip yang sama dengan hero halaman acara. */
@@ -514,12 +515,14 @@ export default function DaftarClient(props: Props) {
                       {berakun ? t.account.openArea : t.signInMemberArea}
                     </Link>
                   ) : null}
-                  <Link
-                    href={props.halamanUrl}
-                    className="m3-state inline-flex min-h-12 items-center rounded-md border border-[var(--reg-on-surface)] px-5 text-label-large font-semibold"
-                  >
-                    {t.backToEvent}
-                  </Link>
+                  {props.halamanUrl ? (
+                    <Link
+                      href={props.halamanUrl}
+                      className="m3-state inline-flex min-h-12 items-center rounded-md border border-[var(--reg-on-surface)] px-5 text-label-large font-semibold"
+                    >
+                      {t.backToEvent}
+                    </Link>
+                  ) : null}
                 </div>
               </div>
             </motion.div>
@@ -643,15 +646,17 @@ function Bingkai({
               benar. */}
           <div className="lg:col-span-5 xl:col-span-4">
             <div className="lg:sticky lg:top-12">
-              <Link
-                href={halamanUrl}
-                className={`m3-state -ml-3 inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-label-large font-semibold ${MUTED}`}
-              >
-                <ArrowLeft size={18} weight="bold" />
-                {t.eventPage}
-              </Link>
+              {halamanUrl ? (
+                <Link
+                  href={halamanUrl}
+                  className={`m3-state -ml-3 mb-6 inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-label-large font-semibold ${MUTED}`}
+                >
+                  <ArrowLeft size={18} weight="bold" />
+                  {t.eventPage}
+                </Link>
+              ) : null}
 
-              <p className="mt-6 text-label-large font-semibold uppercase tracking-[0.18em] text-[var(--reg-primary)]">
+              <p className="text-label-large font-semibold uppercase tracking-[0.18em] text-[var(--reg-primary)]">
                 {t.registration}
               </p>
               <h1 className="mt-3 text-balance text-display-small font-semibold tracking-[-0.03em]">{eventName}</h1>
@@ -688,7 +693,7 @@ function Bingkai({
  * kepala; Hanung menolak versi sempit di tengah karena sisi kiri-kanannya
  * kosong di layar lebar.
  */
-function BingkaiModern({
+export function BingkaiModern({
   lang,
   halamanUrl,
   eventName,
@@ -696,8 +701,15 @@ function BingkaiModern({
   theme,
   modern,
   areaUrl,
+  eyebrow,
   children,
-}: Props & { modern: FormModern; areaUrl: string | null; children: React.ReactNode }) {
+}: Pick<Props, "lang" | "halamanUrl" | "eventName" | "welcomeText" | "theme"> & {
+  modern: FormModern;
+  areaUrl: string | null;
+  /** Label kecil di atas nama acara. Bawaan "Pendaftaran peserta"; halaman masuk memakai "Area peserta". */
+  eyebrow?: string;
+  children: React.ReactNode;
+}) {
   const tinta = modern.kv ? "#fff" : "var(--reg-on-brand)";
   const t = DAFTAR_UI[lang];
   return (
@@ -719,8 +731,8 @@ function BingkaiModern({
         logoOnDark={modern.nav.logoOnDark}
         lang={lang}
         langSwitch={modern.nav.langSwitch}
-        homeHref={halamanUrl}
-        backLink={{ href: halamanUrl, label: t.backToEvent }}
+        homeHref={halamanUrl ?? undefined}
+        backLink={halamanUrl ? { href: halamanUrl, label: t.backToEvent } : null}
       />
       {/* Ditarik ke bawah bilah seperti hero halaman acara, supaya bilah
           bening berdiri di atas KV; `data-landing-hero` membuat bilah berganti
@@ -744,11 +756,13 @@ function BingkaiModern({
 
 
         <div className="mx-auto w-full max-w-[1440px] px-5 pb-10 pt-8 sm:px-8 sm:pb-14 sm:pt-14 lg:px-20 lg:pb-20 lg:pt-20">
-          <Link href={halamanUrl} className="mb-4 inline-flex min-h-11 items-center gap-2 text-label-large font-medium opacity-85 sm:hidden">
-            <ArrowLeft size={16} weight="bold" />
-            {t.eventPage}
-          </Link>
-          <p className="text-label-large font-semibold uppercase tracking-[0.12em] opacity-85">{t.registration}</p>
+          {halamanUrl ? (
+            <Link href={halamanUrl} className="mb-4 inline-flex min-h-11 items-center gap-2 text-label-large font-medium opacity-85 sm:hidden">
+              <ArrowLeft size={16} weight="bold" />
+              {t.eventPage}
+            </Link>
+          ) : null}
+          <p className="text-label-large font-semibold uppercase tracking-[0.12em] opacity-85">{eyebrow ?? t.registration}</p>
           <h1 className={`mt-4 max-w-[900px] text-balance text-[34px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[44px] lg:text-[56px] ${HEAD}`}>
             {eventName}
           </h1>

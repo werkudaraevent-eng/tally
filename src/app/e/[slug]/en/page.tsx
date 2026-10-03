@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getEventBySlugPublic } from "@/lib/auth/event-scope";
 import type { EventLandingConfig } from "@/lib/domain";
-import { withQuery, landingDefaultLang, landingEnAvailable } from "@/lib/landing-i18n";
+import { withQuery, landingDefaultLang, landingFormOnly, landingEnAvailable } from "@/lib/landing-i18n";
 import { renderLanding } from "@/components/landing/render-landing";
 import { landingMetadata } from "../landing-metadata";
 
@@ -38,6 +38,8 @@ export default async function EventLandingEnglishPage({
   const { slug } = await params;
   const event = await getEventBySlugPublic(slug);
   if (!event || event.status === "archived") notFound();
+  // Hanya formulir: formulir dalam bahasa yang sama (halamannya memeriksa sendiri bahasanya).
+  if (landingFormOnly(event.landing_config as EventLandingConfig)) redirect(withQuery(`/e/${event.slug}/en/daftar`, await searchParams));
   const config = event.landing_config as EventLandingConfig;
   if (!landingEnAvailable(config) || landingDefaultLang(config) === "en") redirect(withQuery(`/e/${event.slug}`, await searchParams));
   return renderLanding(event, "en");

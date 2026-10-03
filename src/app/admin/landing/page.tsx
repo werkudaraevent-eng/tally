@@ -390,7 +390,22 @@ export default function LandingCmsPage() {
   const [landing, setLanding] = useState<EventLandingConfig>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [bagian, setBagian] = useState<Bagian>("susunan");
+  const [bagianDipilih, setBagian] = useState<Bagian>("susunan");
+  // Hanya formulir: tidak ada halaman acara, jadi Susunan halaman tidak tampil
+  // dan bagian yang terbuka jatuh ke Tema (juga saat sebuah tindakan meminta
+  // Susunan halaman, mis. klik bagian di pratinjau).
+  const hanyaFormulir = landing.tayang === "formulir";
+  const bagian: Bagian = hanyaFormulir && bagianDipilih === "susunan" ? "tema" : bagianDipilih;
+  // `?bagian=tema|peserta`: tautan "Ubah di Tema" dan "Atur di Peserta" dari
+  // Atur formulir membuka langsung tab yang dimaksud.
+  // Dibaca setelah hidrasi (bukan di penginisialisasi useState): server tidak
+  // tahu kueri ini, dan render pertama klien harus sama dengan markup server.
+  useEffect(() => {
+    const diminta = new URLSearchParams(window.location.search).get("bagian");
+    if (diminta !== "tema" && diminta !== "peserta") return;
+    const timer = window.setTimeout(() => setBagian(diminta), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
   // Lipatan "Judul bagian" yang terbuka (satu bagian), awalnya tertutup.
   const [judulTerbuka, setJudulTerbuka] = useState<LandingHeadedSection | null>(null);
   // Baris Susunan halaman yang sedang terbuka ("pembuka", id bagian, atau "kaki").
@@ -1274,7 +1289,31 @@ export default function LandingCmsPage() {
   // ---- Tema ----------------------------------------------------------------------
   const isiTema = (
     <div className="flex flex-col gap-5">
-      <PresetTema landing={landing} setLanding={setLanding} nama={landing.public_name?.trim() || facts?.name || "Nama acara"} />
+      <Kelompok title={`Yang tayang di /e/${facts?.slug ?? "slug"}`} first>
+        <SegmentedButton<"halaman" | "formulir">
+          className="w-full"
+          label={`Yang tayang di /e/${facts?.slug ?? "slug"}`}
+          value={hanyaFormulir ? "formulir" : "halaman"}
+          onChange={(value) => {
+            setLanding({ ...landing, tayang: value === "formulir" ? "formulir" : undefined });
+            // Tab yang dipilih memang Tema, bukan hanya jatuh ke sana: kembali ke
+            // Halaman acara tidak boleh melempar admin ke Susunan halaman dan
+            // menghilangkan kontrol yang baru ia klik.
+            setBagian("tema");
+          }}
+          options={[
+            { value: "halaman", label: "Halaman acara" },
+            { value: "formulir", label: "Hanya formulir" },
+          ]}
+        />
+        <p className="text-body-medium text-on-surface-variant">
+          {hanyaFormulir
+            ? "Tanpa halaman acara: alamat ini langsung membuka formulir pendaftaran. Logo, gambar utama, warna, dan huruf di bawah tetap dipakai formulir dan halaman masuk peserta."
+            : "Halaman acara dengan tombol Daftar menuju formulir. Isinya disusun di Susunan halaman."}
+        </p>
+      </Kelompok>
+
+      <PresetTema landing={landing} setLanding={setLanding} nama={landing.public_name?.trim() || facts?.name || "Nama acara"} first={false} />
 
       <Kelompok title="Tata letak">
         <SegmentedButton<LandingLayout>
@@ -2182,7 +2221,11 @@ export default function LandingCmsPage() {
           value={bagian}
           onChange={setBagian}
           className="w-full"
-          options={[{ value: "susunan", label: "Susunan halaman" }, { value: "tema", label: "Tema" }, { value: "peserta", label: "Peserta" }]}
+          options={[
+            ...(hanyaFormulir ? [] : [{ value: "susunan" as const, label: "Susunan halaman" }]),
+            { value: "tema", label: "Tema" },
+            { value: "peserta", label: "Peserta" },
+          ]}
         />
       </div>
       {/* Satu tabpanel memuat baris saringan dan isinya, supaya Tab sesudah
@@ -2319,6 +2362,7 @@ export default function LandingCmsPage() {
               onHalaman={setHalamanPratinjau}
               bahasa={modeEn && bagian === "susunan" ? "en" : "id"}
               onBahasa={pilihBahasa}
+              formulir={hanyaFormulir}
             />
           </div>
           <div

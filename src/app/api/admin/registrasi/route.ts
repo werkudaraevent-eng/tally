@@ -4,11 +4,26 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { isEmailConfigured } from "@/lib/email/client";
 import { sendRegistrationCode } from "@/lib/email/registration-code";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import type { EventLandingConfig, RegistrationField, RegistrationFormConfig } from "@/lib/domain";
+import { landingFormOnly } from "@/lib/landing-i18n";
+import { LANDING_HEADING_FONTS, type EventLandingConfig, type RegistrationField, type RegistrationFormConfig } from "@/lib/domain";
 import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "@/lib/registration-fields";
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { resolveFormTheme } from "@/lib/registration-theme-css";
+
+/** Yang dipakai formulir dari Tema halaman acara, plus status area peserta. */
+function tampilanFormulir(landing: EventLandingConfig | null) {
+  // Sama dengan bingkaiFormulir (src/app/daftar/isi-daftar.tsx): logo, gambar
+  // utama, dan huruf judul hanya dipakai formulir berkerangka v2.
+  const v2 = landing?.layout === "modern" || landing?.layout === "forum" || landingFormOnly(landing);
+  return {
+    v2,
+    logo: v2 && Boolean(landing?.nav?.logo_url),
+    kv: v2 ? landing?.banner_url ?? null : null,
+    huruf: v2 ? (LANDING_HEADING_FONTS[landing?.heading_font ?? (landing?.layout === "forum" ? "ubuntu" : "source")] ?? LANDING_HEADING_FONTS.source).label : null,
+    area_peserta: Boolean(landing?.member?.enabled),
+  };
+}
 
 const querySchema = z.object({
   status: z.enum(["pending", "approved", "rejected", "all"]).default("pending"),
@@ -138,6 +153,9 @@ export async function GET(request: Request) {
           (auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.theme,
           (auth.scope.event.landing_config as EventLandingConfig | null)?.theme,
         )?.seed ?? DEFAULT_REGISTRATION_SEED,
+      // Ringkasan Tema halaman acara untuk kartu "Tampilan mengikuti Tema" di
+      // Atur formulir. Hanya yang dipakai formulir; mengubahnya tetap di Tema.
+      tampilan: tampilanFormulir(auth.scope.event.landing_config as EventLandingConfig | null),
     },
     // Dibaca dari env, bukan dari data. Layar moderasi memakainya untuk memilih
     // antara "belum terkirim, coba lagi" (yang menyuruh panitia bertindak) dan

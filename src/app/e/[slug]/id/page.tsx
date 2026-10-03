@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getEventBySlugPublic } from "@/lib/auth/event-scope";
 import type { EventLandingConfig } from "@/lib/domain";
-import { withQuery, landingDefaultLang } from "@/lib/landing-i18n";
+import { withQuery, landingDefaultLang, landingFormOnly } from "@/lib/landing-i18n";
 import { renderLanding } from "@/components/landing/render-landing";
 import { landingMetadata } from "../landing-metadata";
 
@@ -30,6 +30,8 @@ export default async function EventLandingIndonesiaPage({
   const { slug } = await params;
   const event = await getEventBySlugPublic(slug);
   if (!event || event.status === "archived") notFound();
+  // Hanya formulir: formulir dalam bahasa yang sama (halamannya memeriksa sendiri bahasanya).
+  if (landingFormOnly(event.landing_config as EventLandingConfig)) redirect(withQuery(`/e/${event.slug}/id/daftar`, await searchParams));
   if (landingDefaultLang(event.landing_config as EventLandingConfig) !== "en") redirect(withQuery(`/e/${event.slug}`, await searchParams));
   return renderLanding(event, "id");
 }

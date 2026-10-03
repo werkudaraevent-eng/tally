@@ -3,6 +3,8 @@
 import { pesanGalatApi } from "@/lib/api-message";
 import { ArrowLeft, Check, EnvelopeSimple, Hourglass, PaperPlaneTilt, PencilSimple, Tray, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { withEventPrefix } from "@/lib/event-path";
 import { useToast } from "@/components/toast";
 import {
   Banner, Button, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, ListRow, MetaSeparator, PageLoading,
@@ -10,7 +12,8 @@ import {
   type ChipTone,
 } from "@/components/m3";
 import { RegistrationFormBuilder } from "@/components/admin/registration-form-builder";
-import { RegistrationFormPreview } from "@/components/admin/registration-form-preview";
+import { FormPreview } from "@/components/admin/form-preview";
+import Link from "@/components/event-link";
 import type { RegistrationFormConfig } from "@/lib/domain";
 import { formatEventDateTime } from "@/lib/datetime";
 import { eventApiPath } from "@/lib/event-url";
@@ -44,6 +47,8 @@ type EventConfig = {
   registration_form_config: RegistrationFormConfig;
   /** Warna halaman pendaftaran, sudah memperhitungkan saklar di CMS halaman acara. */
   form_theme_seed: string;
+  /** Ringkasan Tema halaman acara yang dipakai formulir. */
+  tampilan?: { v2: boolean; logo: boolean; kv: string | null; huruf: string | null; area_peserta: boolean };
 };
 
 type Status = Row["status"];
@@ -79,6 +84,10 @@ export default function RegistrasiAdminPage() {
   // form setengah jadi ikut tayang di halaman publik saat itu juga.
   const [draftForm, setDraftForm] = useState<RegistrationFormConfig | null>(null);
   const [simpanForm, setSimpanForm] = useState(false);
+  // Tujuan tautan "Ubah di Tema" / "Atur di Peserta" yang menunggu keputusan
+  // atas susunan formulir yang belum disimpan.
+  const [tujuanTertunda, setTujuanTertunda] = useState<string | null>(null);
+  const router = useRouter();
   const { zone, abbr } = useEventTimeZone();
   const toast = useToast();
 
@@ -97,6 +106,19 @@ export default function RegistrasiAdminPage() {
   }, [tab]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+
+  // Susunan yang belum disimpan hanya hidup di state: menutup tab atau memuat
+  // ulang tanpa peringatan membuangnya.
+  useEffect(() => {
+    if (!draftForm) return;
+    const tahan = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", tahan);
+    return () => window.removeEventListener("beforeunload", tahan);
+  }, [draftForm]);
+
+  function buka(href: string) {
+    router.push(withEventPrefix(href, window.location.pathname));
+  }
 
   function gantiTab(next: Status) {
     setTab(next);
@@ -144,8 +166,8 @@ export default function RegistrasiAdminPage() {
    * tempat untuk keduanya. Server mempertahankan tema yang sudah tersimpan
    * ketika permintaan ini tidak menyebutnya.
    */
-  async function kirimForm(next: RegistrationFormConfig) {
-    if (!config) return;
+  async function kirimForm(next: RegistrationFormConfig): Promise<boolean> {
+    if (!config) return false;
     setSimpanForm(true);
     const response = await fetch(eventApiPath("/api/admin/registrasi"), {
       method: "PATCH",
@@ -158,21 +180,27 @@ export default function RegistrasiAdminPage() {
           fields: next.fields ?? [],
           welcome_text: next.welcome_text,
           success_text: next.success_text,
+          // Email dan telepon IKUT dikirim. Sebelumnya hanya perusahaan dan
+          // jabatan, sehingga saklar "Email wajib" dan "Nomor telepon wajib"
+          // tampak berubah di layar tetapi tidak pernah tersimpan.
+          require_email: next.require_email,
+          require_phone: next.require_phone,
           require_company: next.require_company,
           require_job_title: next.require_job_title,
         },
       }),
     }).catch(() => null);
     setSimpanForm(false);
-    if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat status sebenarnya."); return; }
+    if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat status sebenarnya."); return false; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       toast.error("Form gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
-      return;
+      return false;
     }
     setConfig({ ...config, ...body });
     setDraftForm(null);
     toast.success("Form tersimpan", "Halaman pendaftaran publik langsung memakai susunan baru.");
+    return true;
   }
 
   /**
@@ -258,9 +286,6 @@ export default function RegistrasiAdminPage() {
   // di dalam effect menambah satu render setiap kali data dimuat ulang, dan
   // pemuatan berkala akan menimpa suntingan yang sedang berjalan.
   const formDraft = draftForm ?? config?.registration_form_config ?? {};
-  // Nama acara hanya untuk pratinjau. Slug hanya cadangan: pratinjau bertuliskan
-  // "undefined" lebih membingungkan daripada slug mentah.
-  const namaEvent = config?.name ?? config?.slug ?? "Acara";
 
   function salinTautan() {
     void navigator.clipboard.writeText(new URL(tautan, window.location.origin).toString());
@@ -278,7 +303,7 @@ export default function RegistrasiAdminPage() {
               <ArrowLeft size={14} aria-hidden />Pendaftaran publik
             </button>
           }
-          meta={<span>Apa yang ditanyakan ke pendaftar. Perubahan baru berlaku setelah disimpan.</span>}
+          meta={<span>Apa yang ditanyakan ke pendaftar. Tampilannya mengikuti Tema halaman acara.</span>}
         />
         {!config ? (
           error ? <Banner tone="error" icon={<XCircle size={18} />}>{error}</Banner> : <PageLoading />
@@ -290,7 +315,13 @@ export default function RegistrasiAdminPage() {
             main={
               <Pane aria-label="Penyunting formulir">
                 <PaneBody className="px-5 py-5">
-                  <RegistrationFormBuilder config={formDraft} onChange={setDraftForm} disabled={simpanForm} />
+                  <KartuTampilan
+                    tampilan={config.tampilan}
+                    seed={config.form_theme_seed}
+                    // Ada draf: tanya dulu, jangan buang diam-diam.
+                    onBuka={(href, event) => { if (draftForm) { event.preventDefault(); setTujuanTertunda(href); } }}
+                  />
+                  <RegistrationFormBuilder config={formDraft} onChange={setDraftForm} disabled={simpanForm} areaPeserta={config.tampilan?.area_peserta ?? false} />
                 </PaneBody>
                 <PaneFooter note={draftForm ? "Ada perubahan yang belum disimpan" : "Sama dengan yang tayang di halaman pendaftaran"}>
                   <Button simpan size="sm" onClick={() => void kirimForm(formDraft)} loading={simpanForm} disabled={busy} icon={<Check size={16} weight="bold" />}>
@@ -301,11 +332,40 @@ export default function RegistrasiAdminPage() {
             }
             pane={
               <Pane as="aside" aria-label="Pratinjau formulir">
-                <RegistrationFormPreview config={formDraft} eventName={namaEvent} seed={config.form_theme_seed} bingkai={false} />
+                <FormPreview slug={config.slug} form={formDraft} />
               </Pane>
             }
           />
         )}
+        <Dialog
+          open={tujuanTertunda !== null}
+          onClose={() => setTujuanTertunda(null)}
+          dismissible={!simpanForm}
+          title="Simpan perubahan formulir dulu?"
+          description="Ada perubahan susunan formulir yang belum disimpan. Kalau dibuang, formulir publik tetap memakai susunan yang tersimpan."
+          actions={
+            <>
+              <Button variant="outlined" disabled={simpanForm} onClick={() => setTujuanTertunda(null)}>Batal</Button>
+              <Button
+                variant="outlined"
+                disabled={simpanForm}
+                onClick={() => { const tujuan = tujuanTertunda; setDraftForm(null); setTujuanTertunda(null); if (tujuan) buka(tujuan); }}
+              >
+                Buang
+              </Button>
+              <Button
+                simpan
+                loading={simpanForm}
+                onClick={async () => {
+                  const tujuan = tujuanTertunda;
+                  if (await kirimForm(formDraft)) { setTujuanTertunda(null); if (tujuan) buka(tujuan); }
+                }}
+              >
+                Simpan lalu buka
+              </Button>
+            </>
+          }
+        />
       </WorkspacePage>
     );
   }
@@ -599,4 +659,60 @@ function StatusEmail({ row, emailAktif, zone, abbr }: {
     <Hourglass size={16} className="mt-0.5 shrink-0" aria-hidden />
     <span>Kode belum pernah dikirim lewat email.</span>
   </p>;
+}
+
+/**
+ * Dari mana tampilan formulir datang, dan apa yang membuat formulir meminta
+ * kata sandi. Keduanya diatur di CMS Halaman acara, bukan di sini; kartu ini
+ * hanya menunjukkan keadaannya dan jalan ke sana, supaya admin tidak mencari
+ * pilihan warna di layar yang tidak punya.
+ */
+function KartuTampilan({
+  tampilan,
+  seed,
+  onBuka,
+}: {
+  tampilan: EventConfig["tampilan"];
+  seed: string;
+  /** Dipanggil saat tautan diklik; `preventDefault` menahan perpindahan halaman. */
+  onBuka: (href: string, event: React.MouseEvent<HTMLAnchorElement>) => void;
+}) {
+  if (!tampilan) return null;
+  // Hanya yang benar-benar dipakai formulir. Tata letak Editorial memakai
+  // formulir lama, yang hanya mengambil warnanya.
+  const ringkasan = tampilan.v2
+    ? [tampilan.logo ? "Logo" : "Tanpa logo", tampilan.kv ? "gambar utama" : "tanpa gambar utama", seed.toUpperCase(), tampilan.huruf].filter(Boolean).join(" · ")
+    : `Warna ${seed.toUpperCase()}. Logo dan gambar utama hanya tampil di formulir bertata letak Modern atau Forum.`;
+  // text-body-medium, bukan text-label-large: aturan `.press .text-label-large`
+  // yang tidak berlapis menurunkan tebalnya ke 400 di dalam panel.
+  const TAUTAN = "inline-flex min-h-10 shrink-0 items-center rounded-sm text-body-medium font-semibold text-primary hover:underline";
+  return (
+    <div className="mb-4 divide-y divide-outline-variant rounded-lg bg-panel-high px-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-4">
+        {tampilan.kv ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={tampilan.kv} alt="" className="hidden h-10 w-16 shrink-0 rounded-sm object-cover sm:block" />
+        ) : (
+          <span aria-hidden className="hidden h-10 w-16 shrink-0 rounded-sm sm:block" style={{ backgroundColor: seed }} />
+        )}
+        {/* Teks paling sedikit 14rem: di ponsel tautannya turun ke bawah, bukan memeras teks. */}
+        <div className="min-w-[14rem] flex-1">
+          <p className="text-title-medium font-semibold">
+            Tampilan mengikuti Tema halaman acara
+          </p>
+          <p className="mt-0.5 text-body-medium text-on-surface-variant">{ringkasan}</p>
+        </div>
+        <Link href="/admin/landing?bagian=tema" onClick={(event) => onBuka("/admin/landing?bagian=tema", event)} className={TAUTAN}>Ubah di Tema</Link>
+      </div>
+      {tampilan.area_peserta ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-4">
+          <div className="min-w-[14rem] flex-1">
+            <p className="text-title-medium font-semibold">Area peserta aktif</p>
+            <p className="mt-0.5 text-body-medium text-on-surface-variant">Formulir meminta kata sandi; email otomatis wajib.</p>
+          </div>
+          <Link href="/admin/landing?bagian=peserta" onClick={(event) => onBuka("/admin/landing?bagian=peserta", event)} className={TAUTAN}>Atur di Peserta</Link>
+        </div>
+      ) : null}
+    </div>
+  );
 }

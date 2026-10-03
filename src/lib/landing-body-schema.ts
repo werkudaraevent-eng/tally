@@ -205,6 +205,7 @@ export const landingBodySchema = z.object({
     cta_label: z.string().trim().max(60).optional(),
     heading_font: z.enum(LANDING_HEADING_FONT_KEYS).optional(),
     layout: z.enum(["editorial", "modern", "forum"]).optional(),
+    tayang: z.enum(["halaman", "formulir"]).optional(),
     forum: forumSchema.optional(),
     public_name: z.string().trim().max(120).optional(),
     nav: z.object({
