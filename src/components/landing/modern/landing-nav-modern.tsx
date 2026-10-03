@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { List, X } from "@phosphor-icons/react";
 import type { LandingNavWidth } from "@/lib/domain";
 import { LANDING_LANG_LABELS, LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { HtmlLang } from "@/components/html-lang";
+import { LoncengPengumuman } from "@/components/member/lonceng-pengumuman";
+import type { NavPeserta } from "@/lib/member/nav";
 
 /**
  * Kepala halaman acara tata letak Modern.
@@ -36,6 +38,15 @@ import { HtmlLang } from "@/components/html-lang";
  * dinyalakan admin. Di ponsel tetap di bilah, tidak di dalam menu: tamu asing
  * harus menemukannya tanpa membuka apa pun. Pindah bahasa mempertahankan bagian yang sedang dibaca (lihat
  * pindahBahasa).
+ *
+ * `peserta`: peserta sudah masuk. Masuk dan Daftar diganti DI TEMPAT YANG SAMA
+ * oleh lonceng pengumuman dan tombol "Dashboard saya" (ukuran, radius, dan
+ * warna tombol Daftar), seperti Luma yang tetap menampilkan halaman acara bagi
+ * tamu yang login. Di ponsel tombol Dashboard pindah ke baris pertama Menu,
+ * bersama Keluar, supaya bilah tetap muat logo, ID | EN, lonceng, dan Menu.
+ *
+ * `sectionBase`: awalan tautan bagian. Kosong di halaman acara (`#agenda`);
+ * di Dashboard saya alamat halaman acara, jadi menu kembali ke bagiannya.
  */
 
 /** Kunci sessionStorage posisi baca saat pindah bahasa. */
@@ -137,6 +148,9 @@ export function LandingNavModern({
   langSwitch = null,
   homeHref = "#",
   backLink = null,
+  peserta = null,
+  sectionBase = "",
+  dashboardAktif = false,
 }: {
   eventName: string;
   daftarUrl: string;
@@ -154,10 +168,22 @@ export function LandingNavModern({
   homeHref?: string;
   /** Tautan teks sebelum pilihan bahasa, mis. kembali ke halaman acara. */
   backLink?: { href: string; label: string } | null;
+  /** Peserta yang sudah masuk; null = tampilkan Masuk dan Daftar. */
+  peserta?: NavPeserta | null;
+  sectionBase?: string;
+  /** Halaman ini Dashboard saya: tombolnya ditandai halaman aktif. */
+  dashboardAktif?: boolean;
 }) {
   const t = LANDING_UI[lang];
   const [aktif, setAktif] = useState<string | null>(null);
   const [menuBuka, setMenuBuka] = useState(false);
+  const [loncengBuka, setLoncengBuka] = useState(false);
+  // Satu lapisan terbuka pada satu waktu: menu dan panel lonceng menempati
+  // tempat yang sama di bawah bilah.
+  const ubahLonceng = useCallback((buka: boolean) => {
+    setLoncengBuka(buka);
+    if (buka) setMenuBuka(false);
+  }, []);
   const menuId = useId();
   const navRef = useRef<HTMLElement>(null);
   const tombolMenuRef = useRef<HTMLButtonElement>(null);
@@ -289,7 +315,7 @@ export function LandingNavModern({
           {sections.map((section) => (
             <li key={section.id}>
               <a
-                href={`#${section.id}`}
+                href={`${sectionBase}#${section.id}`}
                 aria-current={aktif === section.id ? "true" : undefined}
                 // Tebal sama untuk semua tautan, bagian aktif ditandai garis
                 // bawah: tautan yang menebal menggeser tetangganya saat digulir.
@@ -365,7 +391,39 @@ export function LandingNavModern({
               })}
             </div>
           ) : null}
-          {memberLink ? (
+          {peserta ? (
+            <>
+              {peserta.lonceng ? (
+                <LoncengPengumuman
+                  slug={peserta.slug}
+                  lang={lang}
+                  items={peserta.lonceng.items}
+                  unread={peserta.lonceng.unread}
+                  dashboardHref={dashboardAktif ? null : peserta.dashboardHref}
+                  buka={loncengBuka}
+                  onBukaChange={ubahLonceng}
+                />
+              ) : null}
+              <Link
+                href={peserta.dashboardHref}
+                aria-current={dashboardAktif ? "page" : undefined}
+                // Ukuran dan warna tombol Daftar yang digantikannya. Lingkaran
+                // inisial memakai pasangan warna yang dibalik, jadi tetap terlihat
+                // di bilah terang maupun gelap.
+                className="m3-state hidden min-h-11 items-center gap-2 whitespace-nowrap rounded-md bg-[var(--nav-text)] pl-1.5 pr-4 text-label-large font-semibold text-[var(--nav-on-text)] sm:inline-flex"
+                style={{ "--m3-state-color": "var(--nav-on-text)" } as CSSProperties}
+              >
+                <span
+                  aria-hidden
+                  className="inline-flex size-8 items-center justify-center rounded-full bg-[var(--nav-on-text)] text-[12px] font-semibold tracking-[0.02em] text-[var(--nav-text)]"
+                >
+                  {peserta.inisial}
+                </span>
+                {t.myDashboard}
+              </Link>
+            </>
+          ) : null}
+          {!peserta && memberLink ? (
             <Link
               href={memberLink.href}
               // Tombol bergaris kecil, bukan teks: tanpa bingkai "Masuk" terbaca
@@ -375,7 +433,7 @@ export function LandingNavModern({
               {memberLink.label}
             </Link>
           ) : null}
-          {registrationOpen ? (
+          {!peserta && registrationOpen ? (
             <Link
               href={daftarUrl}
               className="m3-state inline-flex min-h-11 items-center rounded-md bg-[var(--nav-text)] px-4 text-label-large font-semibold text-[var(--nav-on-text)]"
@@ -386,15 +444,22 @@ export function LandingNavModern({
               {t.register}
             </Link>
           ) : null}
-          {sections.length > 0 ? (
+          {sections.length > 0 || peserta ? (
             <button
               ref={tombolMenuRef}
               type="button"
               aria-expanded={menuBuka}
               aria-controls={menuId}
               aria-label={menuBuka ? t.closeMenu : t.openMenu}
-              onClick={() => setMenuBuka((buka) => !buka)}
-              className="m3-state -mr-2 inline-flex size-11 items-center justify-center rounded-md xl:hidden"
+              onClick={() => {
+                setMenuBuka((buka) => !buka);
+                setLoncengBuka(false);
+              }}
+              className={`m3-state -mr-2 inline-flex size-11 items-center justify-center rounded-md xl:hidden ${
+                // Tanpa bagian halaman, Menu hanya berisi Dashboard saya dan
+                // Keluar, dan di layar sm+ tombol Dashboard sudah di bilah.
+                sections.length === 0 ? "sm:hidden" : ""
+              }`}
             >
               {menuBuka ? <X size={22} aria-hidden /> : <List size={22} aria-hidden />}
             </button>
@@ -407,10 +472,40 @@ export function LandingNavModern({
           id={menuId}
           className="absolute inset-x-0 top-full flex flex-col border-t border-[color-mix(in_srgb,var(--nav-text)_12%,transparent)] bg-[var(--nav-fill)] px-3 pb-3 pt-2 text-[var(--nav-text)] shadow-[0_8px_16px_rgb(0_0_0/0.08)] backdrop-blur-md xl:hidden"
         >
+          {peserta ? (
+            <>
+              <li className="sm:hidden">
+                <Link
+                  href={peserta.dashboardHref}
+                  onClick={() => setMenuBuka(false)}
+                  aria-current={dashboardAktif ? "page" : undefined}
+                  className={`m3-state flex min-h-12 items-center gap-3 rounded-md px-4 text-[17px] ${dashboardAktif ? "font-semibold" : "font-medium"}`}
+                >
+                  <span
+                    aria-hidden
+                    className="inline-flex size-8 items-center justify-center rounded-full bg-[var(--nav-text)] text-[12px] font-semibold text-[var(--nav-on-text)]"
+                  >
+                    {peserta.inisial}
+                  </span>
+                  {t.myDashboard}
+                </Link>
+              </li>
+              <li>
+                <form method="post" action={peserta.keluarAction}>
+                  <button type="submit" className="m3-state flex min-h-12 w-full items-center rounded-md px-4 text-left text-[17px] font-medium">
+                    {t.signOut}
+                  </button>
+                </form>
+              </li>
+              {sections.length > 0 ? (
+                <li aria-hidden className="mx-4 my-1 border-t border-[color-mix(in_srgb,var(--nav-text)_12%,transparent)]" />
+              ) : null}
+            </>
+          ) : null}
           {sections.map((section) => (
             <li key={section.id}>
               <a
-                href={`#${section.id}`}
+                href={`${sectionBase}#${section.id}`}
                 onClick={() => setMenuBuka(false)}
                 aria-current={aktif === section.id ? "true" : undefined}
                 className={`m3-state flex min-h-12 items-center rounded-md px-4 text-[17px] ${aktif === section.id ? "font-semibold" : "font-medium"}`}

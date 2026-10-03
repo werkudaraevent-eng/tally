@@ -329,6 +329,20 @@ export type LandingUiText = {
   signIn: string;
   memberArea: string;
   signInMemberArea: string;
+  /** Pengganti tombol Daftar di bilah atas saat peserta sudah masuk. */
+  myDashboard: string;
+  signOut: string;
+  /** Pengganti tombol utama hero saat peserta sudah masuk. */
+  viewMyTicket: string;
+  /** Pengganti "Lihat tiket saya" selama pendaftaran belum disetujui. */
+  viewRegistrationStatus: string;
+  announcements: string;
+  /** Nama tombol lonceng untuk pembaca layar, dengan jumlah belum dibaca. */
+  announcementsButton: (unread: number) => string;
+  noAnnouncements: string;
+  newAnnouncement: string;
+  pinned: string;
+  viewAllInDashboard: string;
   viewAgenda: string;
   aboutEvent: string;
   registrationSoon: string;
@@ -389,6 +403,16 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     signIn: "Masuk",
     memberArea: "Area peserta",
     signInMemberArea: "Masuk area peserta",
+    myDashboard: "Dashboard saya",
+    signOut: "Keluar",
+    viewMyTicket: "Lihat tiket saya",
+    viewRegistrationStatus: "Lihat status pendaftaran",
+    announcements: "Pengumuman",
+    announcementsButton: (n) => (n > 0 ? `Pengumuman, ${n} belum dibaca` : "Pengumuman"),
+    noAnnouncements: "Belum ada pengumuman dari panitia.",
+    newAnnouncement: "Baru",
+    pinned: "Disematkan",
+    viewAllInDashboard: "Lihat semua di Dashboard saya",
     viewAgenda: "Lihat susunan acara",
     aboutEvent: "Pelajari acaranya",
     registrationSoon: "Pendaftaran dibuka segera.",
@@ -441,6 +465,16 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     signIn: "Sign in",
     memberArea: "Participant area",
     signInMemberArea: "Participant sign-in",
+    myDashboard: "My dashboard",
+    signOut: "Sign out",
+    viewMyTicket: "View my ticket",
+    viewRegistrationStatus: "View registration status",
+    announcements: "Announcements",
+    announcementsButton: (n) => (n > 0 ? `Announcements, ${n} unread` : "Announcements"),
+    noAnnouncements: "No announcements from the organisers yet.",
+    newAnnouncement: "New",
+    pinned: "Pinned",
+    viewAllInDashboard: "View all in My dashboard",
     viewAgenda: "View agenda",
     aboutEvent: "About the event",
     registrationSoon: "Registration opens soon.",

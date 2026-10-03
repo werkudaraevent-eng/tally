@@ -3,7 +3,7 @@
 import { DAFTAR_UI } from "@/lib/daftar-i18n";
 import type { LandingLang } from "@/lib/landing-i18n";
 import { DownloadSimple, ShareNetwork } from "@phosphor-icons/react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 /**
  * Kode peserta: QR, angkanya, dan satu tombol untuk menyimpannya.
@@ -45,6 +45,14 @@ type Props = {
   inverse?: boolean;
   /** Bahasa teks bawaan kartu dan gambarnya. */
   lang?: LandingLang;
+  /**
+   * `samping`: QR di kiri, kode dan tombol di kanannya (layar sm ke atas), tanpa
+   * bingkai sendiri. Dipakai kartu Tiket di Dashboard saya, supaya QR, kode,
+   * dan tombol simpan muat di layar pertama laptop 1280x588.
+   */
+  layout?: "tumpuk" | "samping";
+  /** Tombol tambahan di bawah tombol simpan (layout samping). */
+  children?: ReactNode;
 };
 
 const MUTED = "text-[var(--reg-on-surface-variant)]";
@@ -68,7 +76,7 @@ function bacaBisaBagikan() {
   return cacheBagikan;
 }
 
-export function RegistrationCodeCard({ code, eventName, personName, schedule, inverse = false, lang = "id" }: Props) {
+export function RegistrationCodeCard({ code, eventName, personName, schedule, inverse = false, lang = "id", layout = "tumpuk", children }: Props) {
   const t = DAFTAR_UI[lang].code;
   const [qr, setQr] = useState<string | null>(null);
   const [sibuk, setSibuk] = useState(false);
@@ -129,6 +137,43 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
     } finally {
       setSibuk(false);
     }
+  }
+
+  const tombolSimpan = (
+    <button
+      type="button"
+      onClick={() => void simpan()}
+      disabled={!qr || sibuk}
+      className="m3-state inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-md bg-[var(--reg-primary)] px-5 text-title-medium font-semibold text-[var(--reg-on-primary)] disabled:opacity-50"
+      style={{ "--m3-state-color": "var(--reg-on-primary)" } as React.CSSProperties}
+    >
+      {bisaBagikan ? <ShareNetwork size={18} weight="fill" /> : <DownloadSimple size={18} weight="fill" />}
+      {sibuk ? t.preparing : bisaBagikan ? t.saveOrShare : t.download}
+    </button>
+  );
+
+  if (layout === "samping") {
+    return (
+      <div ref={kartu} className="flex flex-col items-center gap-5 sm:grid sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center sm:gap-6">
+        {/* Ruang QR disediakan sejak awal; alasannya di kartu tumpuk di bawah. */}
+        <div className="relative size-48 shrink-0 sm:size-40">
+          <span aria-hidden className={`absolute inset-0 rounded-2xl bg-white transition-opacity duration-300 ${qr ? "opacity-0" : "opacity-100"}`} />
+          {qr ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={qr} alt={t.qrAlt(code)} className="rise-in-fast relative size-full rounded-2xl bg-white p-2.5" width={192} height={192} />
+          ) : null}
+        </div>
+        <div className="flex w-full min-w-0 flex-col gap-3">
+          <div className="text-center sm:text-left">
+            <p className={`text-body-medium ${MUTED}`}>{t.participantCode}</p>
+            <p className="mt-0.5 select-all break-all font-mono text-[24px] font-semibold leading-8 tracking-[0.06em]">{code}</p>
+          </div>
+          {tombolSimpan}
+          {children}
+          {galat ? <p role="alert" className="text-body-medium font-medium text-[var(--reg-error)]">{galat}</p> : null}
+        </div>
+      </div>
+    );
   }
 
   return (
