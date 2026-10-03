@@ -34,5 +34,5 @@ export default async function VotePage({ searchParams }: {
   // Peserta yang masuk lewat area peserta tidak perlu mengetik kode di badge.
   const sesi = await getMemberSession(event);
 
-  return <VoteClient eventName={event.name} accent={accent} memberCode={sesi?.participant.qr_code ?? null} />;
+  return <VoteClient eventName={event.name} accent={accent} memberCode={sesi?.participant?.qr_code ?? null} />;
 }

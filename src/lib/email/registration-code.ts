@@ -163,7 +163,7 @@ function textBody(b: Body) {
  * badan HTML. Tanpa ini, seorang pendaftar dapat menuliskan tag di kolom nama
  * dan email yang diterima berisi tautan yang tidak pernah ditulis panitia.
  */
-function escapeHtml(value: string) {
+export function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

@@ -10,18 +10,22 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * Terpisah total dari login panitia (`src/lib/auth/login.ts`): tabel lain,
  * cookie lain, dan tidak ada satu pun jalur dari sesi peserta ke `users`.
  *
- * Kata sandi dibuat peserta sendiri dengan bukti dua hal yang hanya ia punya:
- * email pendaftarannya dan kode peserta di undangannya. Dua-duanya harus cocok
- * pada baris peserta yang sama. Kode peserta pendek (REG + 6 digit), jadi
- * pertahanannya adalah batas percobaan per email lewat `begin_login_attempt`
- * yang sama dengan login panitia, dengan kunci ber-awalan `peserta:` supaya
- * tidak pernah bertabrakan dengan username panitia.
+ * Kata sandi dibuat di dua tempat:
+ *   - formulir pendaftaran, bila area peserta menyala (createAccountForRegistration);
+ *   - tautan sekali pakai dari email (setPasswordWithToken), untuk peserta impor
+ *     panitia, pendaftar lama, dan lupa kata sandi.
+ * Kode peserta TIDAK lagi dipakai untuk membuat kata sandi: kodenya pendek dan
+ * tercetak di undangan, sedangkan tautan email membuktikan pemilik kotak masuk.
+ *
+ * Batas percobaan per email lewat `begin_login_attempt` yang sama dengan login
+ * panitia, dengan kunci ber-awalan `peserta:` supaya tidak pernah bertabrakan
+ * dengan username panitia.
  */
 
 const COOKIE = "tally_peserta";
 const SESSION_DAYS = 30;
 /** Biaya bcrypt. Sama dengan PIN panitia; alasannya di login.ts. */
-const HASH_ROUNDS = 10;
+export const HASH_ROUNDS = 10;
 /** bcrypt hanya membaca 72 bita pertama. */
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 72;
@@ -36,11 +40,19 @@ export type MemberParticipant = {
   seats: { subEventId?: string | number; subEventName?: string | null; label?: string | null }[] | null;
 };
 
+/**
+ * `participant` kosong selama pendaftarannya belum disetujui (atau ditolak):
+ * akunnya sudah ada sejak formulir dikirim, tetapi baris peserta baru dibuat
+ * saat disetujui. Area peserta lalu hanya menampilkan statusnya.
+ */
 export type MemberSession = {
   accountId: string;
   sessionId: string;
   email: string;
-  participant: MemberParticipant;
+  emailVerified: boolean;
+  name: string;
+  status: "approved" | "pending" | "rejected";
+  participant: MemberParticipant | null;
 };
 
 export type MemberOutcome =
@@ -61,7 +73,7 @@ export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-function hashToken(token: string) {
+export function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
@@ -70,7 +82,7 @@ function hashToken(token: string) {
  * sesaat tidak terbaca, percobaan tetap jalan (alasan yang sama dengan login
  * panitia: mengunci semua orang karena database tersendat lebih merugikan).
  */
-async function gate(eventId: string, email: string): Promise<MemberOutcome | null> {
+export async function gate(eventId: string, email: string): Promise<MemberOutcome | null> {
   const { data } = await getSupabaseServiceClient().rpc(
     "begin_login_attempt" as never,
     { p_username: `peserta:${eventId}:${email}` } as never,
@@ -80,12 +92,12 @@ async function gate(eventId: string, email: string): Promise<MemberOutcome | nul
   return null;
 }
 
-async function clearGate(eventId: string, email: string) {
+export async function clearGate(eventId: string, email: string) {
   await getSupabaseServiceClient().rpc("clear_login_attempts" as never, { p_username: `peserta:${eventId}:${email}` } as never);
 }
 
 /** Apakah peserta ini boleh punya akun, menurut setelan `audience`. */
-async function eligible(eventId: string, participantId: string, member: LandingMemberConfig) {
+export async function eligible(eventId: string, participantId: string, member: LandingMemberConfig) {
   if ((member.audience ?? "approved") === "all") return true;
   const { data } = await getSupabaseServiceClient()
     .from("event_registrations")
@@ -97,7 +109,7 @@ async function eligible(eventId: string, participantId: string, member: LandingM
   return (data ?? []).length > 0;
 }
 
-async function startSession(accountId: string) {
+export async function startSession(accountId: string) {
   const token = randomBytes(32).toString("base64url");
   const expires = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   const { error } = await getSupabaseServiceClient()
@@ -114,51 +126,39 @@ async function startSession(accountId: string) {
 }
 
 /**
- * Membuat kata sandi (atau menggantinya bila lupa) dengan email + kode peserta.
- * Mengganti kata sandi mengeluarkan semua sesi lama akun itu.
+ * Akun dari formulir pendaftaran. Dipanggil SETELAH pendaftarannya tersimpan;
+ * berhasil = langsung masuk di perangkat ini.
+ *
+ * `participantId` terisi bila acaranya setujui otomatis. Pada acara bermoderasi
+ * kosong, dan pemicu `event_registrations_link_account` mengisinya saat
+ * panitia menyetujui.
+ *
+ * `conflict`: email ini sudah punya akun di acara ini lewat jalur lain (peserta
+ * impor yang sudah membuat kata sandi). Pendaftarannya tetap tersimpan; akun
+ * lama tidak ditimpa.
  */
-export async function activateWithCode(
-  event: EventRow,
-  member: LandingMemberConfig,
-  input: { email: string; code: string; password: string },
-): Promise<MemberOutcome> {
+export async function createAccountForRegistration(
+  event: Pick<EventRow, "id">,
+  input: { registrationId: string; participantId: string | null; email: string; password: string },
+): Promise<{ status: "ok"; accountId: string } | { status: "conflict" } | { status: "failed" }> {
   const email = normalizeEmail(input.email);
-  const code = input.code.trim().toUpperCase();
-  const blocked = await gate(event.id, email);
-  if (blocked) return blocked;
-
-  const client = getSupabaseServiceClient();
-  const { data } = await client
-    .from("participants")
-    .select("id,email,qr_code,source_removed_at")
-    .eq("event_id", event.id)
-    .ilike("email", email)
-    .is("source_removed_at", null);
-  const peserta = ((data ?? []) as { id: string; email: string | null; qr_code: string }[]).find(
-    (row) => normalizeEmail(row.email ?? "") === email && row.qr_code.trim().toUpperCase() === code,
-  );
-  if (!peserta) return { status: "invalid" };
-  if (!(await eligible(event.id, peserta.id, member))) return { status: "not_eligible" };
-
   const password_hash = await bcrypt.hash(input.password, HASH_ROUNDS);
-  const { data: akun, error } = await client
+  const { data, error } = await getSupabaseServiceClient()
     .from("participant_accounts")
-    .upsert(
-      { event_id: event.id, participant_id: peserta.id, email, password_hash, password_set_at: new Date().toISOString() } as never,
-      { onConflict: "participant_id" },
-    )
+    .insert({
+      event_id: event.id,
+      registration_id: input.registrationId,
+      participant_id: input.participantId,
+      email,
+      password_hash,
+      last_login_at: new Date().toISOString(),
+    } as never)
     .select("id")
     .single();
-  // Unik (event_id, email): dua baris peserta dengan email yang sama di satu
-  // acara. Akun kedua ditolak alih-alih menimpa milik orang lain.
-  if (error || !akun) return error?.code === "23505" ? { status: "conflict" } : { status: "invalid" };
-
-  const accountId = (akun as { id: string }).id;
-  await client.from("participant_sessions").delete().eq("account_id", accountId);
-  await clearGate(event.id, email);
-  await client.from("participant_accounts").update({ last_login_at: new Date().toISOString() } as never).eq("id", accountId);
+  if (error || !data) return error?.code === "23505" ? { status: "conflict" } : { status: "failed" };
+  const accountId = (data as { id: string }).id;
   await startSession(accountId);
-  return { status: "ok" };
+  return { status: "ok", accountId };
 }
 
 export async function loginMember(
@@ -177,18 +177,21 @@ export async function loginMember(
     .eq("event_id", event.id)
     .eq("email", email)
     .maybeSingle();
-  const akun = data as { id: string; participant_id: string; password_hash: string } | null;
+  const akun = data as { id: string; participant_id: string | null; password_hash: string } | null;
   if (!akun || !(await bcrypt.compare(input.password, akun.password_hash))) return { status: "invalid" };
 
   // Diperiksa ulang setiap masuk: panitia bisa mengubah `audience` atau
-  // peserta bisa dikeluarkan setelah akunnya dibuat.
-  const { data: peserta } = await client
-    .from("participants")
-    .select("id")
-    .eq("id", akun.participant_id)
-    .is("source_removed_at", null)
-    .maybeSingle();
-  if (!peserta || !(await eligible(event.id, akun.participant_id, member))) return { status: "not_eligible" };
+  // peserta bisa dikeluarkan setelah akunnya dibuat. Akun yang pendaftarannya
+  // belum disetujui tetap boleh masuk; area peserta hanya menampilkan statusnya.
+  if (akun.participant_id) {
+    const { data: peserta } = await client
+      .from("participants")
+      .select("id")
+      .eq("id", akun.participant_id)
+      .is("source_removed_at", null)
+      .maybeSingle();
+    if (!peserta || !(await eligible(event.id, akun.participant_id, member))) return { status: "not_eligible" };
+  }
 
   await clearGate(event.id, email);
   await client.from("participant_accounts").update({ last_login_at: new Date().toISOString() } as never).eq("id", akun.id);
@@ -209,30 +212,51 @@ export async function getMemberSession(event: Pick<EventRow, "id" | "landing_con
   const client = getSupabaseServiceClient();
   const { data } = await client
     .from("participant_sessions")
-    .select("id,expires_at,participant_accounts!inner(id,event_id,email,participant_id)")
+    .select("id,expires_at,participant_accounts!inner(id,event_id,email,participant_id,registration_id,email_verified_at)")
     .eq("token_hash", hashToken(token))
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
   const sesi = data as {
     id: string;
-    participant_accounts: { id: string; event_id: string; email: string; participant_id: string };
+    participant_accounts: {
+      id: string;
+      event_id: string;
+      email: string;
+      participant_id: string | null;
+      registration_id: string | null;
+      email_verified_at: string | null;
+    };
   } | null;
   if (!sesi || sesi.participant_accounts.event_id !== event.id) return null;
-
-  const { data: peserta } = await client
-    .from("participants")
-    .select(PARTICIPANT_COLUMNS)
-    .eq("id", sesi.participant_accounts.participant_id)
-    .is("source_removed_at", null)
-    .maybeSingle();
-  if (!peserta) return null;
-
-  return {
-    accountId: sesi.participant_accounts.id,
+  const akun = sesi.participant_accounts;
+  const dasar = {
+    accountId: akun.id,
     sessionId: sesi.id,
-    email: sesi.participant_accounts.email,
-    participant: peserta as unknown as MemberParticipant,
+    email: akun.email,
+    emailVerified: Boolean(akun.email_verified_at),
   };
+
+  if (akun.participant_id) {
+    const { data: peserta } = await client
+      .from("participants")
+      .select(PARTICIPANT_COLUMNS)
+      .eq("id", akun.participant_id)
+      .is("source_removed_at", null)
+      .maybeSingle();
+    if (!peserta) return null;
+    const p = peserta as unknown as MemberParticipant;
+    return { ...dasar, name: p.name, status: "approved", participant: p };
+  }
+
+  if (!akun.registration_id) return null;
+  const { data: reg } = await client
+    .from("event_registrations")
+    .select("name,status")
+    .eq("id", akun.registration_id)
+    .maybeSingle();
+  const r = reg as { name: string; status: string } | null;
+  if (!r) return null;
+  return { ...dasar, name: r.name, status: r.status === "rejected" ? "rejected" : "pending", participant: null };
 }
 
 export async function logoutMember() {

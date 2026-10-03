@@ -52,6 +52,29 @@ export type DaftarUiText = {
    * dalam bahasa Indonesia. Di halaman Indonesia pesan server tampil apa adanya.
    */
   errors: Partial<Record<"REGISTRATION_DUPLICATE_EMAIL" | "REGISTRATION_CLOSED" | "RATE_LIMITED" | "VALIDATION_ERROR" | "INTERNAL_ERROR", string>>;
+  /** Bila area peserta menyala: pendaftaran sekaligus membuat akun. */
+  account: {
+    heading: string;
+    intro: string;
+    password: string;
+    passwordHelp: (min: number) => string;
+    show: string;
+    hide: string;
+    showAria: string;
+    hideAria: string;
+    emailHelp: string;
+    registerButton: string;
+    duplicate: string;
+    duplicateLink: string;
+    successApproved: string;
+    successPending: string;
+    messageApproved: string;
+    messagePending: string;
+    openArea: string;
+    memberArea: string;
+    confirmNote: string;
+    accountFailed: string;
+  };
   field: {
     choose: string;
     fileHelp: string;
@@ -115,6 +138,28 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
     closedTitle: "Pendaftaran ditutup",
     closedBody: (eventName) => `Pendaftaran untuk "${eventName}" sedang tidak dibuka. Hubungi panitia bila Anda merasa ini keliru.`,
     errors: {},
+    account: {
+      heading: "Akun area peserta",
+      intro: "Setelah mendaftar Anda langsung masuk. Berikutnya cukup email di atas dan kata sandi ini.",
+      password: "Buat kata sandi",
+      passwordHelp: (min) => `Minimal ${min} karakter.`,
+      show: "Tampilkan",
+      hide: "Sembunyikan",
+      showAria: "Tampilkan kata sandi",
+      hideAria: "Sembunyikan kata sandi",
+      emailHelp: "Dipakai untuk masuk ke area peserta dan menerima kode QR. Satu email hanya bisa mendaftar sekali.",
+      registerButton: "Daftar dan buat akun",
+      duplicate: "Email ini sudah terdaftar di acara ini.",
+      duplicateLink: "Masuk area peserta",
+      successApproved: "Anda terdaftar dan sudah masuk",
+      successPending: "Pendaftaran terkirim, menunggu persetujuan",
+      messageApproved: "Akun area peserta Anda aktif. Tunjukkan kode QR ini di meja registrasi. Kode yang sama ada di area peserta.",
+      messagePending: "Akun area peserta Anda sudah dibuat dan Anda sudah masuk. Kode QR muncul di area peserta setelah panitia menyetujui pendaftaran.",
+      openArea: "Buka area peserta",
+      memberArea: "Area peserta",
+      confirmNote: "Kami kirim email konfirmasi ke alamat Anda. Klik Konfirmasi email di dalamnya supaya akun bisa dipulihkan bila Anda lupa kata sandi.",
+      accountFailed: "Pendaftaran tersimpan, tetapi akun belum dibuat. Buat kata sandi lewat Masuk area peserta, lalu Lupa kata sandi.",
+    },
     field: {
       choose: "Pilih…",
       fileHelp: "PNG, JPG, WebP, atau PDF. Maksimal 5 MB.",
@@ -181,6 +226,28 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
       RATE_LIMITED: "Too many registrations from this device. Wait 10 minutes, then try again.",
       VALIDATION_ERROR: "Some details are not valid. Check the form and try again.",
       INTERNAL_ERROR: "Something went wrong on our side. Please try again.",
+    },
+    account: {
+      heading: "Participant account",
+      intro: "You are signed in as soon as you register. Next time, use the email above and this password.",
+      password: "Create a password",
+      passwordHelp: (min) => `At least ${min} characters.`,
+      show: "Show",
+      hide: "Hide",
+      showAria: "Show password",
+      hideAria: "Hide password",
+      emailHelp: "Used to sign in to the participant area and to receive your QR code. Each email can register only once.",
+      registerButton: "Register and create account",
+      duplicate: "This email is already registered for this event.",
+      duplicateLink: "Participant sign-in",
+      successApproved: "You are registered and signed in",
+      successPending: "Registration sent, awaiting approval",
+      messageApproved: "Your participant account is active. Show this QR code at the registration desk. The same code is in the participant area.",
+      messagePending: "Your participant account is ready and you are signed in. Your QR code appears in the participant area once the organisers approve your registration.",
+      openArea: "Open participant area",
+      memberArea: "Participant area",
+      confirmNote: "We have emailed you a confirmation link. Select Confirm email in it so you can recover the account if you forget your password.",
+      accountFailed: "Your registration is saved, but the account was not created. Use Participant sign-in, then Forgot password, to set a password.",
     },
     field: {
       choose: "Choose…",

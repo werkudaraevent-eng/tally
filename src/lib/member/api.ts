@@ -42,13 +42,13 @@ export function outcomeResponse(outcome: MemberOutcome, invalidMessage: string) 
       return memberError(
         "NOT_ELIGIBLE",
         403,
-        "Akun ini belum bisa masuk. Area peserta hanya untuk peserta yang pendaftarannya sudah disetujui panitia.",
+        "Akun ini belum bisa masuk. Area peserta hanya untuk peserta yang terdaftar di acara ini. Hubungi panitia.",
       );
     case "conflict":
       return memberError(
         "EMAIL_IN_USE",
         409,
-        "Email ini sudah dipakai akun peserta lain di acara ini. Hubungi panitia.",
+        "Email ini sudah punya akun di acara ini. Masuk dengan kata sandinya, atau pilih \"Lupa kata sandi?\".",
       );
     default:
       return memberError("INVALID", 401, invalidMessage);
