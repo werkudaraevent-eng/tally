@@ -17,6 +17,6 @@ export async function POST(request: Request) {
   const outcome = await loginMember(resolved.event, resolved.member, parsed.data);
   return outcomeResponse(
     outcome,
-    "Email atau kata sandi tidak cocok. Periksa lagi, atau buat kata sandi baru dengan kode peserta.",
+    "Email atau kata sandi tidak cocok. Periksa lagi, atau pilih \"Lupa kata sandi?\" untuk menerima tautan di email.",
   );
 }

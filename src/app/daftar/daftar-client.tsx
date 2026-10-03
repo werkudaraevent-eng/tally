@@ -1,10 +1,11 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, CalendarBlank, CheckCircle, Hourglass, WarningCircle } from "@phosphor-icons/react";
+import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
-import type { RegistrationField } from "@/lib/domain";
+import { useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
+import type { LandingNavWidth, RegistrationField } from "@/lib/domain";
 import { REG_CONTROL, REG_LABEL, RegistrationFieldInput } from "@/components/registration-field-input";
 import { DAFTAR_UI } from "@/lib/daftar-i18n";
 import { HtmlLang } from "@/components/html-lang";
@@ -76,6 +77,11 @@ type Props = {
   theme: CSSProperties;
   /** Diisi bila halaman acaranya bertata letak Modern: formulir v2. */
   modern: FormModern | null;
+  /**
+   * Area peserta menyala: formulir meminta kata sandi dan pendaftaran
+   * sekaligus membuat akun (lihat /api/registrasi). Null = formulir biasa.
+   */
+  akun: { minPassword: number } | null;
 };
 
 type FormModern = {
@@ -87,6 +93,16 @@ type FormModern = {
   headingFont: string;
   /** Alamat masuk area peserta, atau null bila area peserta tidak dibuka. */
   masukUrl: string | null;
+  /** Alamat area peserta bila tamu ini sudah masuk; bilah atas lalu menunjuk ke sana, bukan ke Masuk. */
+  areaUrl: string | null;
+  /** Bilah atas halaman acara: logo, lebar, warna (variabel --nav-*), pilihan bahasa. */
+  nav: {
+    logoUrl: string | null;
+    width: LandingNavWidth;
+    logoOnDark: boolean;
+    style: CSSProperties;
+    langSwitch: { href: string; lang: LandingLang } | null;
+  };
 };
 
 type Hasil = {
@@ -95,6 +111,11 @@ type Hasil = {
   email_sent?: boolean;
   /** Alamat permanen ke kode ini. Null bila migrasi tokennya belum dijalankan. */
   code_url?: string | null;
+  /** Akun area peserta: "ok" = sudah masuk. Null bila area peserta mati. */
+  akun?: "ok" | "conflict" | "failed" | null;
+  peserta_url?: string | null;
+  /** True hanya bila email konfirmasi akun benar-benar diterima penyedia. */
+  konfirmasi_terkirim?: boolean;
 };
 
 /**
@@ -128,11 +149,18 @@ export default function DaftarClient(props: Props) {
   const t = DAFTAR_UI[props.lang];
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  // Email sudah terdaftar di acara yang punya area peserta: pesannya membawa
+  // tautan Masuk, bukan menyuruh menghubungi panitia.
+  const [duplikat, setDuplikat] = useState<false | "masuk" | "tautan">(false);
+  const [lihatSandi, setLihatSandi] = useState(false);
   const [hasil, setHasil] = useState<Hasil | null>(null);
   // Nama yang benar-benar dikirim, disimpan saat pengiriman berhasil. Gambar
   // kode yang dibagikan mencantumkannya supaya jelas kode itu milik siapa, dan
   // formulirnya sudah tidak ada di layar untuk dibaca ulang.
   const [nama, setNama] = useState("");
+  const [emailDaftar, setEmailDaftar] = useState("");
+  // Judul sukses menerima fokus sekali, saat muncul (setelah animasi tukar).
+  const judulDifokus = useRef(false);
   // Tautan kode dari pendaftaran sebelumnya di peramban yang sama.
   //
   // useSyncExternalStore, bukan efek yang memanggil setState: `localStorage`
@@ -149,6 +177,7 @@ export default function DaftarClient(props: Props) {
     const form = new FormData(e.currentTarget);
     setPending(true);
     setError("");
+    setDuplikat(false);
 
     const extra: Record<string, string> = {};
     for (const field of props.fields) {
@@ -168,6 +197,7 @@ export default function DaftarClient(props: Props) {
         name: form.get("name"), email: form.get("email"), phone: form.get("phone"),
         company: form.get("company") || null, job_title: form.get("job_title") || null,
         extra,
+        ...(props.akun ? { password: form.get("password") } : {}),
       }),
     }).catch(() => null);
     setPending(false);
@@ -186,10 +216,17 @@ export default function DaftarClient(props: Props) {
     if (!response.ok) {
       // Pesan server berbahasa Indonesia. Halaman English memakai kodenya.
       const kode = response.status === 429 ? "RATE_LIMITED" : body.error?.code;
+      if (props.akun && kode === "REGISTRATION_DUPLICATE_EMAIL") {
+        setDuplikat(body.error?.details?.masuk === "tautan" ? "tautan" : "masuk");
+        setError(t.account.duplicate);
+        return;
+      }
       setError(props.lang === "id" ? (body.error?.details?.message ?? body.error?.message ?? t.failed) : (t.errors[kode as keyof typeof t.errors] ?? t.failed));
       return;
     }
     setNama(String(form.get("name") ?? "").trim());
+    setEmailDaftar(String(form.get("email") ?? "").trim());
+    judulDifokus.current = false;
     setHasil(body);
     if (typeof body.code_url === "string") {
       // Gagal menulis TIDAK dijadikan galat: mode penyamaran dan pengaturan
@@ -216,9 +253,11 @@ export default function DaftarClient(props: Props) {
       <label className={REG_LABEL}>{`${t.email} `}{!props.requireEmail && <span className={OPSIONAL}>{t.optional}</span>}
         <input required={props.requireEmail} type="email" maxLength={160} name="email" autoComplete="email" inputMode="email" className={`${REG_CONTROL} font-normal`} />
         <span className={`mt-2 block text-body-medium font-normal leading-6 ${MUTED}`}>
-          {props.requireEmail
-            ? t.emailHelpRequired
-            : t.emailHelpOptional}
+          {props.akun
+            ? t.account.emailHelp
+            : props.requireEmail
+              ? t.emailHelpRequired
+              : t.emailHelpOptional}
         </span>
       </label>
 
@@ -242,13 +281,63 @@ export default function DaftarClient(props: Props) {
     </>
   );
 
+  // Bagian akun, di akhir formulir: data diri tetap di urutan yang sama dengan
+  // formulir tanpa akun, dan membuat akun adalah langkah terakhir. Satu kolom
+  // dengan tombol Tampilkan, tanpa kolom "ulangi kata sandi" (NN/g, GOV.UK
+  // Design System): mengetik dua kali tidak mencegah salah ketik sebaik
+  // melihatnya, dan lupa kata sandi bisa dipulihkan lewat email.
+  const bagianAkun = props.akun ? (
+    <div className={m ? "mt-10 border-t border-[var(--reg-outline-variant)] pt-8" : "mt-8"}>
+      <h2 className={m ? "text-title-large font-medium" : "text-title-medium font-semibold"}>{t.account.heading}</h2>
+      <p className={`mt-1 text-body-medium ${MUTED}`}>{t.account.intro}</p>
+      <div className={m ? "grid gap-x-6 sm:grid-cols-2" : undefined}>
+        <div className="mt-6">
+          <label htmlFor="daftar-sandi" className="block text-label-large font-semibold">{t.account.password}</label>
+          <div className="relative mt-2">
+            <input
+              id="daftar-sandi"
+              name="password"
+              type={lihatSandi ? "text" : "password"}
+              required
+              minLength={props.akun.minPassword}
+              maxLength={72}
+              autoComplete="new-password"
+              aria-describedby="daftar-sandi-catatan"
+              className={`${REG_CONTROL.replace("mt-2 ", "")} pr-32 font-normal`}
+            />
+            <button
+              type="button"
+              onClick={() => setLihatSandi((lihat) => !lihat)}
+              aria-label={lihatSandi ? t.account.hideAria : t.account.showAria}
+              aria-pressed={lihatSandi}
+              className="m3-state absolute! right-1.5 top-1/2 inline-flex min-h-10 -translate-y-1/2 items-center rounded-md px-3 text-label-large font-semibold text-[var(--reg-primary)]"
+            >
+              {lihatSandi ? t.account.hide : t.account.show}
+            </button>
+          </div>
+          <span id="daftar-sandi-catatan" className={`mt-2 block text-body-medium leading-6 ${MUTED}`}>
+            {t.account.passwordHelp(props.akun.minPassword)}
+          </span>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   const galat = error ? (
     // Galat naik-pudar masuk, bukan muncul seketika: kotak merah yang
     // tiba-tiba ada di bawah formulir terbaca sebagai bagian halaman yang
     // baru termuat, bukan sebagai jawaban atas tombol yang barusan ditekan.
     <p key={error} role="alert" className="rise-in-fast mt-7 flex items-start gap-2 rounded-[20px] bg-[var(--reg-error-soft)] p-4 text-body-medium font-medium leading-6 text-[var(--reg-on-error-soft)]">
       <WarningCircle size={20} weight="fill" className="mt-0.5 shrink-0" />
-      {error}
+      <span>
+        {error}
+        {duplikat && m?.masukUrl ? (
+          <>
+            {" "}
+            <Link href={duplikat === "tautan" ? `${m.masukUrl}?mode=tautan` : m.masukUrl} className="font-semibold underline underline-offset-4">{t.account.duplicateLink}</Link>
+          </>
+        ) : null}
+      </span>
     </p>
   ) : null;
 
@@ -272,7 +361,7 @@ export default function DaftarClient(props: Props) {
       className={`m3-state inline-flex items-center justify-center gap-2 bg-[var(--reg-primary)] px-8 font-semibold text-[var(--reg-on-primary)] transition-[scale] duration-150 ease-standard active:scale-[0.98] disabled:opacity-50 ${bentuk}`}
       style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
     >
-      {t.registerNow}
+      {props.akun ? t.account.registerButton : t.registerNow}
       {pending ? <Spinner size={20} label={t.sending} /> : m ? null : <ArrowRight size={20} weight="bold" />}
     </button>
   );
@@ -284,15 +373,36 @@ export default function DaftarClient(props: Props) {
   // mati semuanya sampai ke sini sebagai false.
   const lewatEmail = disetujui && hasil?.email_sent === true;
 
-  const judulSukses = disetujui ? t.successApproved : t.successPending;
+  const berakun = hasil?.akun === "ok";
+  const judulSukses = berakun
+    ? (disetujui ? t.account.successApproved : t.account.successPending)
+    : disetujui ? t.successApproved : t.successPending;
   // Email disebut HANYA bila benar-benar terkirim. Menjanjikannya lebih dulu
   // membuat pendaftar menutup halaman ini tanpa menyimpan kodenya, lalu
   // menunggu email yang tidak akan pernah datang -- dan baru sadar di meja
   // registrasi, saat antrean sudah panjang.
-  const pesanSukses = props.successText ?? (disetujui
-    ? t.messageApproved
-    : t.messagePending);
-  const catatanEmail = disetujui ? (
+  const pesanSukses = props.successText ?? (berakun
+    ? (disetujui
+      ? (lewatEmail ? t.account.messageApprovedEmailed : t.account.messageApproved)
+      : (hasil?.konfirmasi_terkirim ? t.account.messagePendingEmailed : t.account.messagePending))
+    : disetujui ? t.messageApproved : t.messagePending);
+  // Konfirmasi email (akun baru), atau akun yang gagal dibuat. Alamatnya
+  // ditulis lengkap: email adalah nama pengguna dan formulir tidak punya kolom
+  // ulangi, jadi di sinilah salah ketik masih bisa terlihat.
+  const c = t.account.confirmNote;
+  const catatanAkun = hasil?.akun && (!berakun || hasil.konfirmasi_terkirim) ? (
+    <p className={`mt-5 max-w-[35rem] text-body-medium leading-6 ${berakun ? MUTED : "font-semibold text-[var(--reg-error)]"}`}>
+      {berakun ? (
+        <>
+          {c.before}<strong className="font-semibold text-[var(--reg-on-surface)] [overflow-wrap:anywhere]">{emailDaftar}</strong>{c.middle}
+          <strong className="font-semibold text-[var(--reg-on-surface)]">{c.button}</strong>{c.after}
+        </>
+      ) : t.account.accountFailed}
+    </p>
+  ) : null;
+  // Sudah berakun: kode tersimpan di area peserta, jadi catatan kode-lewat-email
+  // dilebur ke kalimat pembuka (satu catatan email saja, seperti mockup).
+  const catatanEmail = disetujui && !berakun ? (
     <p className={`mt-5 text-body-medium leading-6 ${lewatEmail ? MUTED : "font-semibold text-[var(--reg-error)]"}`}>
       {lewatEmail
         ? t.emailSent
@@ -319,6 +429,19 @@ export default function DaftarClient(props: Props) {
     </div>
   ) : null;
 
+  const fokusJudul = (judul: HTMLHeadingElement | null) => {
+    if (!judul || judulDifokus.current) return;
+    judulDifokus.current = true;
+    // Bilah atas sticky (88px) akan menutupi judul bila halaman dibiarkan di
+    // posisi tombol kirim. scroll-margin-top menjaga jaraknya dari bilah.
+    const tenang = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    judul.focus({ preventScroll: true });
+    judul.scrollIntoView({ block: "start", behavior: tenang ? "auto" : "smooth" });
+  };
+  // Jarak gulir = bilah + ikon di atas judul (56px + 20px) + 24px, supaya ikon
+  // juga terlihat. Judul bukan kontrol: cincin fokus global dimatikan di sini.
+  const JUDUL_FOKUS = "scroll-mt-[calc(var(--nav-h,0px)+100px)] focus-visible:outline-none! focus-visible:shadow-none!";
+
   /* Ikon hasil membesar masuk dengan pegas ekspresif, sesaat setelah kartunya
      mendarat. Ini satu-satunya momen di alur pendaftaran yang boleh terasa
      seperti perayaan. */
@@ -337,7 +460,7 @@ export default function DaftarClient(props: Props) {
 
   if (m) {
     return (
-      <BingkaiModern {...props} modern={m}>
+      <BingkaiModern {...props} modern={m} areaUrl={(berakun && hasil?.peserta_url) || m.areaUrl}>
         <AnimatePresence mode="wait" initial={false}>
           {hasil ? (
             <motion.div
@@ -350,7 +473,7 @@ export default function DaftarClient(props: Props) {
                   berdiri di kolom kanan setinggi dua blok kiri. */}
               <div className="min-w-0">
                 {ikonSukses("w-fit")}
-                <h2 className={`mt-5 text-[32px] font-semibold leading-tight tracking-[-0.02em] sm:text-[36px] ${HEAD}`}>{judulSukses}</h2>
+                <h2 ref={fokusJudul} tabIndex={-1} className={`mt-5 text-[32px] font-semibold leading-tight tracking-[-0.02em] sm:text-[36px] ${HEAD} ${JUDUL_FOKUS}`}>{judulSukses}</h2>
                 <p className={`mt-3 max-w-[60ch] text-body-large leading-7 ${MUTED}`}>{pesanSukses}</p>
               </div>
 
@@ -378,15 +501,17 @@ export default function DaftarClient(props: Props) {
 
               <div className="min-w-0 [&>*:first-child]:mt-0">
                 {catatanEmail}
-                {tautanKode}
+                {catatanAkun}
+                {/* Sudah masuk: area peserta menggantikan tautan kode permanen. */}
+                {berakun ? null : tautanKode}
                 <div className="mt-6 flex flex-wrap gap-3">
                   {m.masukUrl ? (
                     <Link
-                      href={m.masukUrl}
+                      href={berakun && hasil.peserta_url ? hasil.peserta_url : m.masukUrl}
                       className="m3-state inline-flex min-h-12 items-center rounded-md bg-[var(--reg-primary)] px-5 text-label-large font-semibold text-[var(--reg-on-primary)]"
                       style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
                     >
-                      {t.signInMemberArea}
+                      {berakun ? t.account.openArea : t.signInMemberArea}
                     </Link>
                   ) : null}
                   <Link
@@ -418,6 +543,7 @@ export default function DaftarClient(props: Props) {
               <form onSubmit={submit} noValidate={false} className="mt-2">
                 {pengingat ? <div className="mt-6">{pengingat}</div> : null}
                 <div className="grid gap-x-6 sm:grid-cols-2">{kolom}</div>
+                {bagianAkun}
                 {galat}
                 <div className="mt-8 flex flex-col gap-4 border-t border-[var(--reg-outline-variant)] pt-7 sm:flex-row sm:items-center sm:gap-6">
                   {tombolKirim("min-h-[52px] w-full rounded-md text-title-small sm:w-auto sm:min-w-64")}
@@ -439,7 +565,7 @@ export default function DaftarClient(props: Props) {
       {hasil ? (
         <motion.div key="sukses" className="text-center" {...TUKAR}>
           {ikonSukses("mx-auto w-fit")}
-          <h2 className="mt-5 text-headline-small font-semibold tracking-[-0.02em]">{judulSukses}</h2>
+          <h2 ref={fokusJudul} tabIndex={-1} className={`mt-5 text-headline-small font-semibold tracking-[-0.02em] ${JUDUL_FOKUS}`}>{judulSukses}</h2>
           <p className={`mx-auto mt-3 max-w-[52ch] text-body-large leading-7 ${MUTED}`}>{pesanSukses}</p>
           {disetujui && hasil.qr_code ? (
             <RegistrationCodeCard
@@ -451,13 +577,24 @@ export default function DaftarClient(props: Props) {
             />
           ) : null}
           {catatanEmail}
-          {tautanKode}
+          {catatanAkun}
+          {berakun ? null : tautanKode}
+          {berakun && hasil.peserta_url ? (
+            <a
+              href={hasil.peserta_url}
+              className="m3-state mt-6 inline-flex min-h-12 items-center rounded-full bg-[var(--reg-primary)] px-6 text-label-large font-semibold text-[var(--reg-on-primary)]"
+              style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
+            >
+              {t.account.openArea}
+            </a>
+          ) : null}
         </motion.div>
       ) : (
         <motion.div key="formulir" {...TUKAR}>
           {pengingat}
           <form onSubmit={submit} noValidate={false}>
             {kolom}
+            {bagianAkun}
             {galat}
             {/* Kapsul, bukan persegi membulat: bentuknya sama dengan tombol
                 "Daftar sekarang" yang baru saja ditekan tamu di halaman acara. */}
@@ -558,19 +695,39 @@ function BingkaiModern({
   welcomeText,
   theme,
   modern,
+  areaUrl,
   children,
-}: Props & { modern: FormModern; children: React.ReactNode }) {
+}: Props & { modern: FormModern; areaUrl: string | null; children: React.ReactNode }) {
   const tinta = modern.kv ? "#fff" : "var(--reg-on-brand)";
   const t = DAFTAR_UI[lang];
   return (
     <main
       lang={LANDING_LANG_LABELS[lang].htmlLang}
       className="flex min-h-dvh flex-col bg-[var(--reg-surface)] text-[var(--reg-on-surface)]"
-      style={{ ...theme, "--landing-heading": modern.headingFont } as CSSProperties}
+      style={{ ...theme, ...modern.nav.style, "--landing-heading": modern.headingFont } as CSSProperties}
     >
-      <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
+      {/* Bilah atas yang sama dengan halaman acara (warna, logo, ID | EN,
+          Masuk). Daftar tidak diulang di sini: tamunya sudah di formulir. */}
+      <LandingNavModern
+        eventName={eventName}
+        daftarUrl=""
+        registrationOpen={false}
+        memberLink={areaUrl ? { href: areaUrl, label: t.account.memberArea } : modern.masukUrl ? { href: modern.masukUrl, label: t.signIn } : null}
+        sections={[]}
+        width={modern.nav.width}
+        logoUrl={modern.nav.logoUrl}
+        logoOnDark={modern.nav.logoOnDark}
+        lang={lang}
+        langSwitch={modern.nav.langSwitch}
+        homeHref={halamanUrl}
+        backLink={{ href: halamanUrl, label: t.backToEvent }}
+      />
+      {/* Ditarik ke bawah bilah seperti hero halaman acara, supaya bilah
+          bening berdiri di atas KV; `data-landing-hero` membuat bilah berganti
+          warna pekat setelah kepala ini lewat. */}
       <header
-        className={`relative isolate overflow-hidden ${modern.kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
+        data-landing-hero
+        className={`relative isolate -mt-[var(--nav-h)] overflow-hidden pt-[var(--nav-h)] ${modern.kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
         style={{ color: tinta, "--m3-state-color": tinta } as CSSProperties}
       >
         {modern.kv ? (
@@ -585,26 +742,6 @@ function BingkaiModern({
           </>
         ) : null}
 
-        <nav
-          aria-label={t.navAria}
-          className={`${modern.kv ? "bg-black/40 backdrop-blur-[10px]" : "bg-[color-mix(in_srgb,currentColor_8%,transparent)]"}`}
-        >
-          <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-20">
-            <Link href={halamanUrl} className={`min-w-0 truncate text-title-large font-semibold ${HEAD}`}>
-              {eventName}
-            </Link>
-            <div className="flex shrink-0 items-center gap-1 sm:gap-4">
-              <Link href={halamanUrl} className="m3-state hidden min-h-11 items-center rounded-md px-3 text-body-large font-medium sm:inline-flex">
-                {t.backToEvent}
-              </Link>
-              {modern.masukUrl ? (
-                <Link href={modern.masukUrl} className="m3-state inline-flex min-h-11 items-center rounded-md px-3 text-body-large font-medium">
-                  {t.signIn}
-                </Link>
-              ) : null}
-            </div>
-          </div>
-        </nav>
 
         <div className="mx-auto w-full max-w-[1440px] px-5 pb-10 pt-8 sm:px-8 sm:pb-14 sm:pt-14 lg:px-20 lg:pb-20 lg:pt-20">
           <Link href={halamanUrl} className="mb-4 inline-flex min-h-11 items-center gap-2 text-label-large font-medium opacity-85 sm:hidden">

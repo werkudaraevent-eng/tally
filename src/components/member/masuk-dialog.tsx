@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { X } from "@phosphor-icons/react";
 import { REG_CONTROL } from "@/components/registration-field-input";
-import { kirimMasuk, type MasukMode } from "@/app/masuk/masuk-client";
+import { kirimMasuk, pesanTautanTerkirim, TAUTAN_TIDAK_BERLAKU, type MasukMode, type MasukSandi } from "@/app/masuk/masuk-client";
 
 /**
  * Masuk area peserta sebagai dialog di atas halaman acara (tata letak Modern).
@@ -13,9 +13,10 @@ import { kirimMasuk, type MasukMode } from "@/app/masuk/masuk-client";
  * penuh (M3 full-screen dialog), karena dialog kecil di ponsel menyisakan
  * ruang sempit begitu papan ketik terbuka.
  *
- * Alamatnya tetap `/e/<slug>/masuk`: tautan di email, "buat kata sandi"
- * (`?mode=aktifkan`), dan pengalihan saat sesi habis mendarat di halaman acara
- * dengan dialog ini sudah terbuka (src/app/masuk/page.tsx, `awal`).
+ * Alamatnya tetap `/e/<slug>/masuk`: tautan buat kata sandi dari email
+ * (`?sandi=<token>`), "kirim tautan" (`?mode=tautan`), dan pengalihan saat
+ * sesi habis mendarat di halaman acara dengan dialog ini sudah terbuka
+ * (src/app/masuk/page.tsx, `awal`).
  *
  * Riwayat peramban: membuka dialog menambah satu entri `/masuk`, jadi tombol
  * Kembali menutup dialog, bukan meninggalkan situs. Dibuka langsung dari
@@ -45,6 +46,7 @@ export function MasukDialog({
   keterangan,
   minPassword,
   awal = null,
+  sandi = null,
 }: {
   slug: string;
   /** `/e/<slug>/masuk`: alamat dialog, juga href tautan pemicunya. */
@@ -56,12 +58,14 @@ export function MasukDialog({
   minPassword: number;
   /** Terbuka sejak dimuat (halaman /masuk), dengan mode ini. */
   awal?: MasukMode | null;
+  /** Tautan sandi dari email (mode "sandi"), atau "invalid" bila sudah tidak berlaku. */
+  sandi?: MasukSandi;
 }) {
   const judulId = useId();
   const galatId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
-  const kodeRef = useRef<HTMLInputElement>(null);
+  const sandiRef = useRef<HTMLInputElement>(null);
   const pemicuRef = useRef<HTMLElement | null>(null);
   const galatRef = useRef<HTMLParagraphElement>(null);
   const isiRef = useRef<HTMLDivElement>(null);
@@ -74,8 +78,10 @@ export function MasukDialog({
   const [mode, setMode] = useState<MasukMode>(awal ?? "masuk");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
-  const [galat, setGalat] = useState("");
+  const [galat, setGalat] = useState(sandi === "invalid" ? TAUTAN_TIDAK_BERLAKU : "");
+  // Tautan terkirim: formulirnya diganti kalimat hasil.
+  const [terkirim, setTerkirim] = useState("");
+  const token = sandi && sandi !== "invalid" ? sandi : null;
   const [sibuk, setSibuk] = useState(false);
   // Judul baru dibacakan pembaca layar saat mode berganti (fokus pindah ke
   // kolom, bukan ke judul).
@@ -86,6 +92,7 @@ export function MasukDialog({
   const buka = useCallback((dengan: MasukMode) => {
     setMode(dengan);
     setGalat("");
+    setTerkirim("");
     setTerbuka(true);
   }, []);
 
@@ -158,7 +165,7 @@ export function MasukDialog({
       akar.style.scrollbarGutter = "auto";
       akar.style.overflow = "hidden";
       if (celah > 0) document.body.style.paddingRight = `${celah}px`;
-      emailRef.current?.focus();
+      (emailRef.current ?? sandiRef.current)?.focus();
       return () => {
         akar.style.overflow = sebelum.overflow;
         akar.style.scrollbarGutter = sebelum.gutter;
@@ -181,7 +188,7 @@ export function MasukDialog({
     pengamat.observe(isi);
     Array.from(isi.children).forEach((anak) => pengamat.observe(anak));
     return () => pengamat.disconnect();
-  }, [terbuka, mode, galat]);
+  }, [terbuka, mode, galat, terkirim]);
 
   // Pesan galat di atas formulir; di layar pendek isi bisa sudah tergulir ke
   // tombol, jadi pesannya digulir ke tampilan.
@@ -192,16 +199,17 @@ export function MasukDialog({
   function ganti(next: MasukMode) {
     setMode(next);
     setGalat("");
+    setTerkirim("");
     setPassword("");
-    setPengumuman(next === "aktifkan" ? "Buat kata sandi" : "Masuk area peserta");
+    setPengumuman(next === "tautan" ? "Kirim tautan ke email" : "Masuk area peserta");
     // Mode ikut di alamat, supaya muat ulang dan salin tautan mendarat di mode
-    // yang sama. Diganti, bukan ditumpuk: Kembali tetap menutup dialog.
+    // yang sama. Diganti, bukan ditumpuk: Kembali tetap menutup dialog. Token
+    // tautan sandi sengaja dibuang dari alamat begitu pindah mode.
     if (window.location.pathname === masukUrl) {
-      window.history.replaceState(window.history.state, "", next === "aktifkan" ? `${masukUrl}?mode=aktifkan` : masukUrl);
+      window.history.replaceState(window.history.state, "", next === "tautan" ? `${masukUrl}?mode=tautan` : masukUrl);
     }
-    // Tombol yang diklik hilang bersama modenya; fokus pindah ke kolom yang
-    // perlu diisi berikutnya.
-    requestAnimationFrame(() => (next === "aktifkan" ? kodeRef.current : emailRef.current)?.focus());
+    // Tombol yang diklik hilang bersama modenya; fokus pindah ke kolom email.
+    requestAnimationFrame(() => emailRef.current?.focus());
   }
 
   async function kirim(event: FormEvent) {
@@ -209,7 +217,12 @@ export function MasukDialog({
     if (sibuk) return;
     setGalat("");
     setSibuk(true);
-    const hasil = await kirimMasuk(slug, mode, { email, password, code });
+    const hasil = await kirimMasuk(slug, mode, { email, password, token: token?.token });
+    if (hasil.ok && mode === "tautan") {
+      setSibuk(false);
+      setTerkirim(pesanTautanTerkirim(email));
+      return;
+    }
     if (hasil.ok) {
       window.location.assign(`/e/${slug}/peserta`);
       return;
@@ -219,8 +232,8 @@ export function MasukDialog({
   }
 
   // Klik di luar kotak (pada ::backdrop, yang target kliknya <dialog>) menutup
-  // mode Masuk, tapi tidak bila sudah ada yang diketik atau sedang membuat
-  // kata sandi: salah klik tidak boleh membuang isian.
+  // mode Masuk, tapi tidak bila sudah ada yang diketik atau sedang di mode
+  // lain: salah klik tidak boleh membuang isian.
   function klikLatar(event: MouseEvent<HTMLDialogElement>) {
     if (event.target !== event.currentTarget) return;
     if (mode === "masuk" && !email && !password) tutup();
@@ -246,7 +259,7 @@ export function MasukDialog({
 
   const invalid = galat ? true : undefined;
   const describedGalat = galat ? galatId : undefined;
-  const judul = mode === "masuk" ? "Masuk area peserta" : "Buat kata sandi";
+  const judul = mode === "masuk" ? "Masuk area peserta" : mode === "tautan" ? "Kirim tautan ke email" : "Buat kata sandi";
 
   return (
     <dialog
@@ -290,10 +303,12 @@ export function MasukDialog({
           {pengumuman}
         </p>
         <p className="text-body-medium text-[var(--reg-on-surface-variant)]">{keterangan}</p>
-        {mode === "aktifkan" ? (
+        {mode === "tautan" ? (
           <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">
-            Pakai kode peserta dari email undangan. Juga untuk lupa kata sandi.
+            Untuk membuat kata sandi pertama kali, atau bila Anda lupa kata sandi.
           </p>
+        ) : mode === "sandi" && token ? (
+          <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">Untuk {token.email}.</p>
         ) : null}
 
         <form onSubmit={kirim} className="mt-3 flex flex-col">
@@ -303,40 +318,28 @@ export function MasukDialog({
             </p>
           ) : null}
 
-          <label className={`${LABEL} mt-4`}>
-            Email pendaftaran
-            <input
-              ref={emailRef}
-              type="email"
-              name="email"
-              required
-              autoComplete="email"
-              inputMode="email"
-              placeholder="nama@perusahaan.com"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              aria-invalid={invalid}
-              aria-describedby={describedGalat}
-              className={KOLOM}
-            />
-          </label>
+          {terkirim ? (
+            <p role="status" className="mt-2 rounded-md bg-[var(--reg-primary-container)] px-4 py-3 text-body-medium text-[var(--reg-on-primary-container)]">
+              {terkirim}
+            </p>
+          ) : null}
 
-          {mode === "aktifkan" ? (
+          {mode !== "sandi" && !terkirim ? (
             <label className={`${LABEL} mt-4`}>
-              Kode peserta
+              Email pendaftaran
               <input
-                ref={kodeRef}
-                name="code"
+                ref={emailRef}
+                type="email"
+                name="email"
                 required
-                autoComplete="one-time-code"
-                autoCapitalize="characters"
-                spellCheck={false}
-                placeholder="mis. REG123456"
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
+                autoComplete="email"
+                inputMode="email"
+                placeholder="nama@perusahaan.com"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
                 aria-invalid={invalid}
                 aria-describedby={describedGalat}
-                className={`${KOLOM} uppercase tracking-[0.06em] placeholder:normal-case placeholder:tracking-normal`}
+                className={KOLOM}
               />
             </label>
           ) : null}
@@ -344,39 +347,42 @@ export function MasukDialog({
           {/* "Lupa kata sandi?" di LUAR label: tombol di dalam <label> ikut
               menjadi nama kolom bagi pembaca layar. Baris label setinggi
               tombolnya (44px), jadi jaraknya dari kolom di atas lebih kecil. */}
-          <div className={mode === "masuk" ? "mt-1" : "mt-4"}>
-            <div className={`flex justify-between gap-4 ${mode === "masuk" ? "min-h-11 items-end" : ""}`}>
-              <label htmlFor={`${judulId}-sandi`} className={LABEL}>
-                {mode === "masuk" ? "Kata sandi" : "Kata sandi baru"}
-              </label>
-              {mode === "masuk" ? (
-                <button type="button" onClick={() => ganti("aktifkan")} className={`-mb-3 text-label-large ${TAUTAN}`}>
-                  Lupa kata sandi?
-                </button>
+          {mode !== "tautan" ? (
+            <div className={mode === "masuk" ? "mt-1" : "mt-4"}>
+              <div className={`flex justify-between gap-4 ${mode === "masuk" ? "min-h-11 items-end" : ""}`}>
+                <label htmlFor={`${judulId}-sandi`} className={LABEL}>
+                  {mode === "masuk" ? "Kata sandi" : "Kata sandi baru"}
+                </label>
+                {mode === "masuk" ? (
+                  <button type="button" onClick={() => ganti("tautan")} className={`-mb-3 text-label-large ${TAUTAN}`}>
+                    Lupa kata sandi?
+                  </button>
+                ) : null}
+              </div>
+              <input
+                ref={sandiRef}
+                id={`${judulId}-sandi`}
+                type="password"
+                name="password"
+                required
+                minLength={mode === "sandi" ? minPassword : undefined}
+                autoComplete={mode === "masuk" ? "current-password" : "new-password"}
+                enterKeyHint="go"
+                aria-invalid={invalid}
+                aria-describedby={[mode === "sandi" ? `${judulId}-catatan` : null, describedGalat].filter(Boolean).join(" ") || undefined}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className={KOLOM}
+              />
+              {mode === "sandi" ? (
+                <span id={`${judulId}-catatan`} className="mt-2 block text-body-small text-[var(--reg-on-surface-variant)]">
+                  Minimal {minPassword} karakter.
+                </span>
               ) : null}
             </div>
-            <input
-              id={`${judulId}-sandi`}
-              type="password"
-              name="password"
-              required
-              minLength={mode === "aktifkan" ? minPassword : undefined}
-              autoComplete={mode === "masuk" ? "current-password" : "new-password"}
-              enterKeyHint="go"
-              aria-invalid={invalid}
-              aria-describedby={[mode === "aktifkan" ? `${judulId}-catatan` : null, describedGalat].filter(Boolean).join(" ") || undefined}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className={KOLOM}
-            />
-            {mode === "aktifkan" ? (
-              <span id={`${judulId}-catatan`} className="mt-2 block text-body-small text-[var(--reg-on-surface-variant)]">
-                Minimal {minPassword} karakter.
-              </span>
-            ) : null}
-          </div>
+          ) : null}
 
-          <button
+          {terkirim ? null : <button
             type="submit"
             // aria-disabled, bukan disabled: tombol yang dinonaktifkan selagi
             // berfokus menjatuhkan fokus ke <body> saat kiriman gagal.
@@ -384,14 +390,14 @@ export function MasukDialog({
             className="m3-state mt-6 min-h-[52px] rounded-md bg-[var(--reg-primary)] px-5 text-title-medium font-semibold text-[var(--reg-on-primary)] aria-disabled:opacity-60"
             style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
           >
-            {sibuk ? "Memproses..." : mode === "masuk" ? "Masuk" : "Simpan kata sandi dan masuk"}
-          </button>
+            {sibuk ? "Memproses..." : mode === "masuk" ? "Masuk" : mode === "tautan" ? "Kirim tautan" : "Simpan kata sandi dan masuk"}
+          </button>}
         </form>
 
         <p className="mt-5 flex flex-wrap items-center gap-x-1 border-t border-[var(--reg-outline-variant)] pt-3 text-body-medium text-[var(--reg-on-surface-variant)]">
-          <span>{mode === "masuk" ? "Pertama kali masuk?" : "Sudah punya kata sandi?"}</span>
-          <button type="button" onClick={() => ganti(mode === "masuk" ? "aktifkan" : "masuk")} className={`text-left ${TAUTAN}`}>
-            {mode === "masuk" ? "Buat kata sandi dengan kode peserta" : "Masuk"}
+          <span>{mode === "masuk" ? "Belum punya kata sandi?" : "Sudah punya kata sandi?"}</span>
+          <button type="button" onClick={() => ganti(mode === "masuk" ? "tautan" : "masuk")} className={`text-left ${TAUTAN}`}>
+            {mode === "masuk" ? "Kirim tautan ke email" : "Masuk"}
           </button>
         </p>
       </div>

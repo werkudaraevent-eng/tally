@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowRight, ArrowSquareOut } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, ArrowSquareOut, CheckCircle, EnvelopeSimple, Hourglass, XCircle } from "@phosphor-icons/react/dist/ssr";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { AgendaTabs } from "@/components/landing/agenda-tabs";
 import { getPublicPageEvent } from "@/lib/auth/request-event";
@@ -8,6 +8,7 @@ import { formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { memberPageStyle } from "@/lib/member/page-theme";
+import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
 
 /**
  * Area peserta: `/e/<slug>/peserta`.
@@ -20,6 +21,10 @@ import { memberPageStyle } from "@/lib/member/page-theme";
  *
  * "Susunan acara", bukan "Jadwal Anda": rundown berlaku untuk semua peserta,
  * dan menyebutnya jadwal pribadi menjanjikan sesuatu yang datanya tidak ada.
+ *
+ * Akun yang dibuat dari formulir pendaftaran sudah bisa masuk sebelum
+ * pendaftarannya disetujui. Selama itu belum ada baris peserta (kode, kursi),
+ * jadi halaman ini menampilkan status pendaftarannya di tempat tiket.
  */
 
 export const dynamic = "force-dynamic";
@@ -42,13 +47,15 @@ export default async function AreaPesertaPage({
 
   const peserta = sesi.participant;
   const schedule = formatEventSchedule(event);
-  const namaDepan = peserta.name.trim().split(/\s+/)[0] || peserta.name;
-  const tampilKode = member.show_code !== false;
-  const tampilKursi = member.show_seat !== false;
+  const namaDepan = sesi.name.trim().split(/\s+/)[0] || sesi.name;
+  const tampilKode = Boolean(peserta) && member.show_code !== false;
+  const tampilKursi = Boolean(peserta) && member.show_seat !== false;
   const tampilSusunan = member.show_schedule !== false;
-  const tampilVote = member.show_vote !== false;
+  const tampilVote = Boolean(peserta) && member.show_vote !== false;
   const agenda = tampilSusunan ? await loadAgendaPreview(event.id) : [];
-  const kursi = (peserta.seats ?? []).filter((seat) => seat.label?.trim());
+  const kursi = (peserta?.seats ?? []).filter((seat) => seat.label?.trim());
+  const kueri = await searchParams;
+  const konfirmasi = kueri.konfirmasi === "ok" ? "ok" : kueri.konfirmasi === "gagal" ? "gagal" : null;
 
   return (
     <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={memberPageStyle(event)}>
@@ -60,7 +67,7 @@ export default async function AreaPesertaPage({
           >
             <span className="truncate">{event.name}</span>
           </Link>
-          <span className={`hidden max-w-[16rem] truncate text-body-large sm:block ${MUTED}`}>{peserta.name}</span>
+          <span className={`hidden max-w-[16rem] truncate text-body-large sm:block ${MUTED}`}>{sesi.name}</span>
           <form method="post" action={`/e/${event.slug}/api/peserta/keluar`}>
             <button
               type="submit"
@@ -78,8 +85,44 @@ export default async function AreaPesertaPage({
           Selamat datang, {namaDepan}
         </h1>
 
+        {konfirmasi === "ok" ? (
+          <p role="status" className="mt-6 flex max-w-[720px] items-start gap-3 rounded-md bg-[var(--reg-primary-container)] px-4 py-3 text-body-large text-[var(--reg-on-primary-container)]">
+            <CheckCircle size={22} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
+            Email Anda terkonfirmasi.
+          </p>
+        ) : !sesi.emailVerified && sesi.status !== "rejected" ? (
+          <p className="mt-6 flex max-w-[720px] items-start gap-3 rounded-md border border-[var(--reg-outline-variant)] px-4 py-3 text-body-large">
+            <EnvelopeSimple size={22} className="mt-0.5 shrink-0 text-[var(--reg-primary)]" aria-hidden />
+            <span>
+              {konfirmasi === "gagal" ? "Tautan konfirmasi itu sudah dipakai atau kedaluwarsa. " : null}
+              Konfirmasi email {sesi.email} lewat tautan yang kami kirim, supaya akun ini bisa dipulihkan bila Anda lupa kata sandi.
+              <KirimUlangKonfirmasi slug={event.slug} />
+            </span>
+          </p>
+        ) : null}
+
         <div className="mt-10 grid gap-12 lg:grid-cols-12 lg:gap-6">
-          {tampilKode || tampilKursi ? (
+          {!peserta ? (
+            <section aria-labelledby="status-judul" className="lg:col-span-5 lg:self-start">
+              <div className="rounded-md border border-[var(--reg-outline-variant)] bg-[var(--reg-panel)] p-6 sm:p-8">
+                {sesi.status === "rejected" ? (
+                  <XCircle size={40} className={MUTED} aria-hidden />
+                ) : (
+                  <Hourglass size={40} className={MUTED} aria-hidden />
+                )}
+                <h2 id="status-judul" className={`mt-4 text-[24px] font-semibold leading-tight ${HEAD}`}>
+                  {sesi.status === "rejected" ? "Pendaftaran tidak disetujui" : "Menunggu persetujuan panitia"}
+                </h2>
+                <p className={`mt-2 text-body-large leading-7 ${MUTED}`}>
+                  {sesi.status === "rejected"
+                    ? "Panitia tidak menyetujui pendaftaran Anda untuk acara ini. Hubungi panitia bila Anda merasa ini keliru."
+                    : "Kode QR untuk meja registrasi muncul di sini setelah panitia menyetujui pendaftaran Anda. Kami juga mengabari Anda lewat email."}
+                </p>
+              </div>
+            </section>
+          ) : null}
+
+          {peserta && (tampilKode || tampilKursi) ? (
             <section aria-label="Tiket masuk" className="lg:sticky lg:top-8 lg:col-span-5 lg:self-start">
               <div className="rounded-md border border-[var(--reg-outline-variant)] bg-[var(--reg-panel)] p-6 sm:p-8">
                 {tampilKode ? (
@@ -125,7 +168,7 @@ export default async function AreaPesertaPage({
             </section>
           ) : null}
 
-          <div className={`flex flex-col gap-12 ${tampilKode || tampilKursi ? "lg:col-span-6 lg:col-start-7" : "lg:col-span-8"}`}>
+          <div className={`flex flex-col gap-12 ${!peserta || tampilKode || tampilKursi ? "lg:col-span-6 lg:col-start-7" : "lg:col-span-8"}`}>
             {tampilVote || member.feedback_url ? (
               <section aria-label="Tautan acara" className="grid gap-4 sm:grid-cols-2">
                 {tampilVote ? (

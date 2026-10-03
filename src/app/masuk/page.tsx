@@ -7,14 +7,16 @@ import { memberPageStyle } from "@/lib/member/page-theme";
 import type { EventLandingConfig } from "@/lib/domain";
 import { renderLanding } from "@/components/landing/render-landing";
 import { asalSitus } from "@/app/e/[slug]/landing-metadata";
-import { MasukClient } from "./masuk-client";
+import { peekPasswordToken } from "@/lib/member/links";
+import { MasukClient, type MasukMode, type MasukSandi } from "./masuk-client";
 
 /**
  * Masuk area peserta: `/e/<slug>/masuk`.
  *
- * Dua mode di satu halaman: masuk dengan kata sandi, dan membuat kata sandi
- * dengan kode peserta (dipakai juga saat lupa kata sandi). Peserta yang sudah
- * masuk langsung diantar ke area peserta.
+ * Tiga mode di satu halaman (masuk-client.tsx): masuk dengan kata sandi,
+ * minta tautan ke email, dan membuat kata sandi dari tautan itu
+ * (`?sandi=<token>`). Peserta yang sudah masuk langsung diantar ke area
+ * peserta, kecuali ia membuka tautan sandi (mengganti kata sandi).
  *
  * Acara bertata letak Modern tidak punya halaman masuk sendiri: alamat ini
  * merender halaman acaranya dengan dialog masuk sudah terbuka
@@ -48,11 +50,24 @@ export default async function MasukPage({
   const params = await searchParams;
   const event = await getPublicPageEvent(Promise.resolve(params));
   if (!event || event.status === "archived" || !memberConfig(event)) notFound();
-  if (await getMemberSession(event)) redirect(`/e/${event.slug}/peserta`);
+  const tokenSandi = typeof params.sandi === "string" ? params.sandi : null;
+  const sudahMasuk = Boolean(await getMemberSession(event));
+  if (!tokenSandi && sudahMasuk) redirect(`/e/${event.slug}/peserta`);
 
-  const modeAwal = params.mode === "aktifkan" ? "aktifkan" : "masuk";
+  // `?mode=aktifkan` adalah alamat lama (buat kata sandi dengan kode); kini
+  // jalurnya tautan email.
+  let sandi: MasukSandi = null;
+  let modeAwal: MasukMode = params.mode === "tautan" || params.mode === "aktifkan" ? "tautan" : "masuk";
+  if (tokenSandi) {
+    const berlaku = await peekPasswordToken(event.id, tokenSandi);
+    // Sudah masuk dan tautannya tidak berlaku lagi (biasanya tautan yang baru
+    // saja dipakai, dibuka ulang dari email): tidak ada yang perlu diminta.
+    if (!berlaku && sudahMasuk) redirect(`/e/${event.slug}/peserta`);
+    sandi = berlaku ? { token: tokenSandi, email: berlaku.email } : "invalid";
+    modeAwal = berlaku ? "sandi" : "tautan";
+  }
   if ((event.landing_config as EventLandingConfig | null)?.layout === "modern") {
-    return renderLanding(event, undefined, { masukAwal: modeAwal });
+    return renderLanding(event, undefined, { masukAwal: modeAwal, sandi });
   }
 
   const schedule = formatEventSchedule(event);
@@ -85,7 +100,7 @@ export default async function MasukPage({
         </div>
 
         <div className="flex flex-col justify-center py-10 lg:col-span-5 lg:col-start-7 lg:py-12">
-          <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} />
+          <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} />
         </div>
       </div>
     </main>

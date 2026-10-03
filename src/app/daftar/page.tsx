@@ -1,8 +1,8 @@
 import { getPublicPageEvent } from "@/lib/auth/request-event";
-import { LANDING_HEADING_FONTS, publicEventName, type EventLandingConfig } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, LANDING_NAV_DEFAULTS, publicEventName, type EventLandingConfig } from "@/lib/domain";
 import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
-import { memberConfig } from "@/lib/member/account";
-import { modernThemeStyle, registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
+import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
+import { modernNavStyle, modernThemeStyle, registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
 import { redirect } from "next/navigation";
 import { DAFTAR_UI } from "@/lib/daftar-i18n";
 import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, LANDING_LANG_LABELS, type LandingLang } from "@/lib/landing-i18n";
@@ -75,18 +75,34 @@ export default async function DaftarPage({
     return <Pesan lang={lang} judul={t.closedTitle} isi={t.closedBody(publicEventName(event))} />;
   }
 
+  const member = memberConfig(event);
+  const lainnya: LandingLang | null = landingEnAvailable(landing) ? (lang === "id" ? "en" : "id") : null;
+
   // Acara bertata letak Modern (halaman acara v2) mendapat formulir v2: kepala
   // selebar layar yang sama dengan hero, lalu kartu formulir selebar grid.
   // Acara lain tetap memakai formulir yang sudah ada.
   const modern = landing.layout === "modern" || landing.layout === "forum"
     ? {
+        // Bilah atas yang sama dengan halaman acara (logo, ID | EN, Masuk),
+        // dengan warna dan tinggi dari CMS.
+        nav: {
+          logoUrl: landing.nav?.logo_url ?? null,
+          width: landing.nav?.width ?? "full",
+          logoOnDark: Boolean(landing.banner_url) && (landing.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50,
+          style: modernNavStyle(
+            landing.nav,
+            landing.banner_url ? { ink: "#ffffff", onInk: "#181d27" } : { ink: "var(--reg-on-brand)", onInk: "var(--reg-brand)" },
+          ),
+          langSwitch: lainnya ? { href: `${landingPath(event.slug, lainnya, utama)}/daftar`, lang: lainnya } : null,
+        },
         kv: landing.banner_url ?? null,
         fakta: [formatEventDate(event, lang), formatEventTime(event, lang), event.venue_name?.trim() || null]
           .filter((item): item is string => Boolean(item)),
         // Huruf judul bawaan mengikuti tata letaknya: Ubuntu untuk Forum, Source Sans 3 untuk Modern.
         headingFont: (LANDING_HEADING_FONTS[landing.heading_font ?? (landing.layout === "forum" ? "ubuntu" : "source")] ?? LANDING_HEADING_FONTS.source).cssVar,
         // Area peserta belum dwibahasa, jadi tautannya tetap ke versi utamanya.
-        masukUrl: memberConfig(event) ? `/e/${event.slug}/masuk` : null,
+        masukUrl: member ? `/e/${event.slug}/masuk` : null,
+        areaUrl: member && (await getMemberSession(event)) ? `/e/${event.slug}/peserta` : null,
       }
     : null;
 
@@ -105,7 +121,9 @@ export default async function DaftarPage({
     fields={config.fields ?? []}
     welcomeText={config.welcome_text ?? null}
     successText={config.success_text ?? null}
-    requireEmail={config.require_email !== false}
+    // Area peserta menyala: email adalah nama pengguna, jadi selalu wajib.
+    requireEmail={Boolean(member) || config.require_email !== false}
+    akun={member ? { minPassword: PASSWORD_MIN } : null}
     requirePhone={config.require_phone !== false}
     requireCompany={config.require_company ?? false}
     requireJobTitle={config.require_job_title ?? false}

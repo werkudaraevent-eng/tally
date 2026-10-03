@@ -19,7 +19,7 @@ import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingPath, landi
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { MasukDialog } from "@/components/member/masuk-dialog";
-import type { MasukMode } from "@/app/masuk/masuk-client";
+import type { MasukMode, MasukSandi } from "@/app/masuk/masuk-client";
 import { timeZoneAbbr } from "@/lib/timezone";
 import { AgendaPills } from "./modern/agenda-pills";
 import { LandingNavModern } from "./modern/landing-nav-modern";
@@ -66,6 +66,8 @@ type Props = {
   otherLang?: LandingLang | null;
   /** Dialog masuk peserta terbuka sejak dimuat (alamat `/e/<slug>/masuk`), dengan mode ini. */
   masukAwal?: MasukMode | null;
+  /** Tautan sandi dari email, untuk dialog yang dibuka di mode "sandi". */
+  sandi?: MasukSandi;
 };
 
 /** Label kecil di atas judul bagian, sama dengan blok dari pustaka blok. */
@@ -184,7 +186,7 @@ function tautanPeta(url: string, lang: LandingLang): string {
   return /google\.|goo\.gl/i.test(url) ? LANDING_UI[lang].openGoogleMaps : LANDING_UI[lang].openMap;
 }
 
-export async function EventLandingModern({ event, config, sections, theme, lang = "id", otherLang = null, masukAwal = null }: Props) {
+export async function EventLandingModern({ event, config, sections, theme, lang = "id", otherLang = null, masukAwal = null, sandi = null }: Props) {
   // Teks bawaan halaman dalam bahasa halaman. Teks dari CMS sudah diterjemahkan
   // sebelum sampai di sini (resolveLanding).
   const t = LANDING_UI[lang];
@@ -812,7 +814,9 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       {/* Masuk area peserta: dialog di atas halaman ini, dibuka tautan Masuk di
           bilah atas dan kaki. Area peserta belum dwibahasa, jadi dialognya
           berbahasa Indonesia di kedua versi halaman. */}
-      {member && !sudahMasuk ? (
+      {/* Yang sudah masuk tetap mendapat dialog bila membuka tautan sandi yang
+          masih berlaku: itu cara mengganti kata sandi. */}
+      {member && (!sudahMasuk || (sandi && sandi !== "invalid")) ? (
         <MasukDialog
           slug={event.slug}
           masukUrl={masukUrl}
@@ -820,6 +824,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           keterangan={[nama, formatEventDate(event, "id")].filter(Boolean).join(" · ")}
           minPassword={PASSWORD_MIN}
           awal={masukAwal}
+          sandi={sandi}
         />
       ) : null}
     </main>

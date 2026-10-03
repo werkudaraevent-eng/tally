@@ -6,6 +6,8 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { validateAnswers } from "@/lib/registration-fields";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
+import { createAccountForRegistration, memberConfig, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/member/account";
+import { sendConfirmationLink } from "@/lib/member/links";
 
 /**
  * Pendaftaran peserta dari form publik. TANPA login — satu-satunya endpoint
@@ -30,6 +32,9 @@ const submitSchema = z.object({
   // Field tambahan dari events.registration_form_config. Dibatasi 20 kunci agar
   // endpoint publik tidak bisa dipakai menitipkan jsonb berukuran bebas.
   extra: z.record(z.string().max(2000)).refine((value) => Object.keys(value).length <= 20).default({}),
+  // Kata sandi area peserta. Wajib atau tidaknya ditentukan di bawah: hanya
+  // bila area peserta acara ini menyala. Tidak pernah disimpan di pendaftaran.
+  password: z.string().max(PASSWORD_MAX).optional(),
 });
 
 /**
@@ -66,13 +71,22 @@ export async function POST(request: Request) {
   // Bawaan WAJIB pada keduanya: konfigurasi lama tidak punya kunci ini, dan
   // menganggapnya opsional akan diam-diam melonggarkan setiap event yang sudah
   // berjalan.
-  const requireEmail = config.require_email !== false;
+  // Area peserta menyala = pendaftaran sekaligus membuat akun. Email menjadi
+  // nama pengguna, jadi wajib apa pun setelan formulirnya.
+  const member = memberConfig(event);
+  const requireEmail = Boolean(member) || config.require_email !== false;
   const requirePhone = config.require_phone !== false;
   if (requireEmail && !parsed.data.email) {
     return apiError("VALIDATION_ERROR", 422, { email: "Email wajib diisi." });
   }
   if (requirePhone && !parsed.data.phone) {
     return apiError("VALIDATION_ERROR", 422, { phone: "Nomor telepon wajib diisi." });
+  }
+  if (member && (parsed.data.password ?? "").length < PASSWORD_MIN) {
+    return apiError("VALIDATION_ERROR", 422, {
+      password: `Kata sandi minimal ${PASSWORD_MIN} karakter.`,
+      message: `Buat kata sandi minimal ${PASSWORD_MIN} karakter untuk area peserta.`,
+    });
   }
   const { issues, clean } = validateAnswers(fields, parsed.data.extra);
   if (issues.length > 0) {
@@ -99,6 +113,24 @@ export async function POST(request: Request) {
       return apiError("VALIDATION_ERROR", 429, {
         message: "Terlalu banyak pendaftaran dari perangkat ini. Tunggu 10 menit, lalu coba lagi.",
       });
+    }
+  }
+
+  // Area peserta menyala: email yang sudah ada di daftar peserta acara ini
+  // (impor panitia) adalah orang yang sama. Mendaftar ulang akan membuat akun
+  // yang terikat ke pendaftaran baru yang masih menunggu, padahal tiket
+  // impornya sudah sah. Arahkan ke "Kirim tautan ke email" saja.
+  if (member && parsed.data.email) {
+    const email = parsed.data.email.trim().toLowerCase();
+    const { data: impor } = await client
+      .from("participants")
+      .select("email")
+      .eq("event_id", event.id)
+      .ilike("email", email)
+      .is("source_removed_at", null)
+      .limit(5);
+    if (((impor ?? []) as { email: string | null }[]).some((p) => (p.email ?? "").trim().toLowerCase() === email)) {
+      return apiError("REGISTRATION_DUPLICATE_EMAIL", 422, { message: "Email ini sudah terdaftar di acara ini.", masuk: "tautan" });
     }
   }
 
@@ -186,8 +218,43 @@ export async function POST(request: Request) {
       })
     : { state: "not_configured" as const };
 
+  // Akun area peserta, setelah pendaftarannya tersimpan. Gagal membuat akun
+  // TIDAK membatalkan pendaftaran: pendaftar tetap terdaftar dan bisa membuat
+  // kata sandi lewat "Kirim tautan ke email".
+  let akun: "ok" | "conflict" | "failed" | null = null;
+  let konfirmasiTerkirim = false;
+  if (member && parsed.data.email && parsed.data.password) {
+    const { data: reg } = await client
+      .from("event_registrations")
+      .select("participant_id")
+      .eq("id", hasil.registration_id)
+      .maybeSingle();
+    const dibuat = await createAccountForRegistration(event, {
+      registrationId: hasil.registration_id,
+      participantId: (reg as { participant_id: string | null } | null)?.participant_id ?? null,
+      email: parsed.data.email,
+      password: parsed.data.password,
+    });
+    akun = dibuat.status;
+    if (dibuat.status === "ok") {
+      const kirim = await sendConfirmationLink(event, {
+        accountId: dibuat.accountId,
+        email: parsed.data.email,
+        name: parsed.data.name,
+        requestUrl: request.url,
+      });
+      konfirmasiTerkirim = kirim.state === "sent";
+    }
+  }
+
   return Response.json({
     status: hasil.status,
+    // Akun area peserta: "ok" = sudah masuk di perangkat ini. Null bila area
+    // peserta acara ini mati.
+    akun,
+    peserta_url: akun === "ok" ? `/e/${event.slug}/peserta` : null,
+    // "Kami kirim email ke ..." hanya bila penyedia benar-benar menerimanya.
+    konfirmasi_terkirim: konfirmasiTerkirim,
     // qr_code hanya ada pada event auto-approve. Pendaftar di event bermoderasi
     // menerima null, dan halamannya harus mengatakan "menunggu persetujuan" —
     // bukan menampilkan kotak QR kosong.

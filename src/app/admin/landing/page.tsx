@@ -1674,7 +1674,7 @@ export default function LandingCmsPage() {
           checked={anggota.enabled}
           onChange={(value) => setAnggota({ enabled: value })}
           label="Buka area peserta"
-          description="Tombol Masuk tampil di halaman acara. Peserta masuk dengan email pendaftaran dan kata sandi yang mereka buat sendiri dengan kode peserta."
+          description="Tombol Masuk tampil di halaman acara. Formulir pendaftaran meminta kata sandi, jadi pendaftar langsung punya akun. Peserta impor membuat kata sandi lewat tautan di email."
         />
       </Kelompok>
       {anggota.enabled ? (

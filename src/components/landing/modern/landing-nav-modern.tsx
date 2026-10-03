@@ -26,6 +26,12 @@ import { HtmlLang } from "@/components/html-lang";
  * `logoOnDark`: bilah bening di atas KV, jadi logo berwarna diputihkan
  * (filter) sampai hero lewat. Logo satu warna seperti ILO tetap utuh bentuknya.
  *
+ * `homeHref` dan `backLink`: dipakai formulir pendaftaran, yang memakai bilah
+ * yang sama supaya pindah dari halaman acara ke formulir tidak terasa berganti
+ * situs. Logo kembali ke halaman acara, dan "Kembali ke halaman acara" tampil
+ * sebagai tautan teks sebelum pilihan bahasa (disembunyikan di ponsel; kepala
+ * formulir punya tautannya sendiri di sana).
+ *
  * `langSwitch`: pilihan bahasa "ID | EN" sebelum Masuk, hanya bila versi English
  * dinyalakan admin. Di ponsel tetap di bilah, tidak di dalam menu: tamu asing
  * harus menemukannya tanpa membuka apa pun. Pindah bahasa mempertahankan bagian yang sedang dibaca (lihat
@@ -129,6 +135,8 @@ export function LandingNavModern({
   logoOnDark = false,
   lang = "id",
   langSwitch = null,
+  homeHref = "#",
+  backLink = null,
 }: {
   eventName: string;
   daftarUrl: string;
@@ -142,6 +150,10 @@ export function LandingNavModern({
   lang?: LandingLang;
   /** Alamat versi bahasa lain dan bahasanya; null = tombol bahasa tidak tampil. */
   langSwitch?: { href: string; lang: LandingLang } | null;
+  /** Tujuan logo/nama di kiri. Bawaan "#" (atas halaman acara). */
+  homeHref?: string;
+  /** Tautan teks sebelum pilihan bahasa, mis. kembali ke halaman acara. */
+  backLink?: { href: string; label: string } | null;
 }) {
   const t = LANDING_UI[lang];
   const [aktif, setAktif] = useState<string | null>(null);
@@ -254,7 +266,7 @@ export function LandingNavModern({
         style={selebarIsi ? { backdropFilter: lewatHero ? "blur(12px)" : "var(--nav-blur)" } : undefined}
       >
         <a
-          href="#"
+          href={homeHref}
           className="flex min-h-11 min-w-0 flex-1 items-center text-title-large font-semibold [font-family:var(--landing-heading)]"
         >
           {logoUrl ? (
@@ -296,6 +308,14 @@ export function LandingNavModern({
         </ul>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+          {backLink ? (
+            <Link
+              href={backLink.href}
+              className="m3-state hidden min-h-11 items-center whitespace-nowrap rounded-md px-3 text-[15px] font-medium sm:inline-flex"
+            >
+              {backLink.label}
+            </Link>
+          ) : null}
           {langSwitch ? (
             // Dua pilihan yang selalu tampil, bahasa aktif terlihat tanpa menebak.
             // Hurufnya sama dengan tautan bagian di sebelahnya, dipisah garis
