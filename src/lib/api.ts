@@ -79,6 +79,17 @@ const messages: Record<ApiErrorCode, string> = {
   // Menyebut SIAPA yang harus bertindak. Panitia yang membaca "gagal terkirim"
   // akan menekan Kirim ulang berkali-kali untuk keadaan yang tidak akan berubah
   // sampai pemilik sistem mengisi kunci API.
+  // Pesan peserta (migrasi 202610030003).
+  MESSAGES_NOT_READY: "Pesan peserta belum aktif: migrasi database 202610030003 belum dijalankan.",
+  MESSAGE_NOT_FOUND: "Kiriman tidak ditemukan. Mungkin sudah dihapus panitia lain; muat ulang halaman.",
+  MESSAGE_NOT_DRAFT: "Kiriman ini sudah dikirim atau dijadwalkan, jadi isinya tidak bisa diubah lagi. Buat duplikatnya untuk kiriman baru.",
+  MESSAGE_EMPTY: "Tidak ada penerima yang bisa dikirimi. Periksa penerima dan alasan yang dilewati.",
+  // Jumlah di dialog adalah janji. Bila berubah antara dialog dibuka dan Kirim
+  // ditekan (peserta baru diimpor, panitia lain menyunting), panitia harus
+  // melihat angka barunya dulu.
+  MESSAGE_COUNT_CHANGED: "Jumlah penerima berubah sejak dialog dibuka. Periksa angka barunya, lalu kirim lagi.",
+  MESSAGE_TEST_NOT_ALLOWED: "Alamat tes ini di luar daftar uji (MESSAGING_ALLOWLIST) untuk server ini.",
+  MESSAGE_WHATSAPP_NOT_READY: "WhatsApp belum terhubung. Untuk sekarang kirim lewat email.",
   EMAIL_NOT_CONFIGURED: "Pengiriman email belum diaktifkan di server. Hubungi pemilik sistem; kode peserta tetap bisa dibacakan dari daftar ini.",
   EMAIL_SEND_FAILED: "Email gagal dikirim. Sebabnya tercatat di baris pendaftaran.",
   EVENT_NOT_DELETABLE: "Hanya event berstatus Draft atau Arsip yang dapat dihapus. Kembalikan ke draft atau arsipkan dulu.",

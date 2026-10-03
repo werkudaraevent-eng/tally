@@ -110,7 +110,7 @@ export default function AreaPesertaPage() {
               </>
             ) : null}
             <MetaSeparator />
-            <span>Kabar untuk peserta ada di <Link href="/admin/pengumuman" className={TAUTAN}>Pengumuman</Link></span>
+            <span>Kabar untuk peserta ada di <Link href="/admin/pengumuman/lonceng" className={TAUTAN}>Pesan peserta → Pengumuman</Link></span>
           </>
         }
       />

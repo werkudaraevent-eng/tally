@@ -85,10 +85,13 @@ export const navigation: NavGroup[] = [
       // juga satu rumah untuk formulir, buka/tutup, dan mode persetujuan. "publik" dibuang dari namanya karena tidak
       // ada pendaftaran lain yang perlu dibedakan di menu.
       { href: "/admin/registrasi", label: "Pendaftaran", icon: UserPlus, description: "Formulir pendaftaran publik dan moderasi pendaftar yang masuk." },
-      { href: "/admin/pengumuman", label: "Pengumuman", icon: Megaphone, description: "Kabar panitia untuk peserta, tampil di lonceng halaman acara dan Dashboard saya." },
+      // Satu baris untuk dua tab: Kiriman (email ke kotak masuk peserta) dan
+      // Pengumuman (lonceng dan Dashboard saya). Alamatnya tetap
+      // /admin/pengumuman supaya Terakhir dibuka dan Ctrl K lama tetap sampai.
+      { href: "/admin/pengumuman", label: "Pesan peserta", icon: Megaphone, description: "Undangan dan kabar lewat email, dan pengumuman di lonceng halaman acara." },
       // Paling bawah di Peserta: diatur sekali (siapa yang bisa masuk, apa yang
-      // tampil), sedangkan Pengumuman ditekan berkali-kali. Urutan ini menjaga
-      // Pengumuman tetap di atas lipatan layar 1280x588.
+      // tampil), sedangkan Pesan peserta ditekan berkali-kali. Urutan ini menjaga
+      // Pesan peserta tetap di atas lipatan layar 1280x588.
       { href: "/admin/area-peserta", label: "Area peserta", icon: IdentificationCard, description: "Siapa yang bisa masuk ke Dashboard saya dan apa yang tampil di sana." },
     ],
   },
