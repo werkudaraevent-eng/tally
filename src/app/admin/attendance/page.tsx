@@ -59,6 +59,10 @@ type Jalur = {
 
 type Bagian = "sesi" | "meja" | "walkin";
 
+/** Barang yang dibagikan (dibuat di Logistik) dan pasangannya dengan sesi. */
+type Barang = { id: number; name: string; size_field_key: string | null };
+type Pasangan = { session_id: number; item_id: number };
+
 const slugify = (teks: string) =>
   teks.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 
@@ -68,6 +72,8 @@ const PENJELASAN_JALUR =
 export default function AttendanceAdminPage() {
   const [sessions, setSessions] = useState<Sesi[]>([]);
   const [lanes, setLanes] = useState<Jalur[]>([]);
+  const [barang, setBarang] = useState<Barang[]>([]);
+  const [pasangan, setPasangan] = useState<Pasangan[]>([]);
   const [allowWalkIn, setAllowWalkIn] = useState(false);
   const [walkInCount, setWalkInCount] = useState(0);
   const [nama, setNama] = useState("");
@@ -90,9 +96,10 @@ export default function AttendanceAdminPage() {
   const { zone, abbr } = useEventTimeZone();
 
   const load = useCallback(async () => {
-    const [sesi, jalur] = await Promise.all([
+    const [sesi, jalur, item] = await Promise.all([
       fetch(eventApiPath("/api/admin/attendance"), { cache: "no-store" }).catch(() => null),
       fetch(eventApiPath("/api/admin/attendance/lanes"), { cache: "no-store" }).catch(() => null),
+      fetch(eventApiPath("/api/admin/attendance/items"), { cache: "no-store" }).catch(() => null),
     ]);
     if (!sesi?.ok) { setError("Daftar sesi gagal dimuat."); setDimuat(true); return; }
     const body = await sesi.json();
@@ -101,6 +108,11 @@ export default function AttendanceAdminPage() {
     setWalkInCount(body.walk_in_count ?? 0);
     if (jalur?.ok) { setLanes((await jalur.json()).lanes ?? []); setErrorJalur(""); }
     else setErrorJalur("Daftar meja gagal dimuat.");
+    if (item?.ok) {
+      const isi = await item.json();
+      setBarang(isi.items ?? []);
+      setPasangan(isi.links ?? []);
+    }
     setError("");
     setDimuat(true);
   }, []);
@@ -172,6 +184,25 @@ export default function AttendanceAdminPage() {
     }
     await load();
     return true;
+  }
+
+  async function ubahBarangSesi(sesiId: number, itemId: number, periksa: boolean) {
+    const sekarang = pasangan.filter((p) => p.session_id === sesiId).map((p) => p.item_id);
+    const berikut = periksa ? [...sekarang, itemId] : sekarang.filter((id) => id !== itemId);
+    // Optimistis, sama dengan sakelar walk-in: dikembalikan bila server menolak.
+    const lama = pasangan;
+    setPasangan([...pasangan.filter((p) => p.session_id !== sesiId), ...berikut.map((id) => ({ session_id: sesiId, item_id: id }))]);
+    setBusy(true);
+    const response = await fetch(eventApiPath("/api/admin/attendance/items"), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sesiId, item_ids: berikut }),
+    }).catch(() => null);
+    setBusy(false);
+    if (!response?.ok) {
+      setPasangan(lama);
+      toast.error("Gagal disimpan", pesanGalatApi(await response?.json().catch(() => ({}))) ?? "Barang yang diperiksa tidak berubah. Coba lagi.");
+    }
   }
 
   async function hapusJalur(jalur: Jalur) {
@@ -273,6 +304,34 @@ export default function AttendanceAdminPage() {
             <KeyValue label="Scan terakhir">{sesiTerpilih.terakhir ? `${formatEventDateTime(sesiTerpilih.terakhir, zone)} ${abbr}` : "Belum ada"}</KeyValue>
           </dl>
           <p className="text-body-medium text-on-surface-variant">Hadir menghitung orang unik, scan menghitung setiap pemindaian. Orang yang dipindai dua kali terhitung satu kali hadir.</p>
+        </DetailSection>
+        {/* Barang dibuat di Logistik; di sini hanya dipilih mana yang diperiksa
+            petugas setelah memindai di sesi ini. */}
+        <DetailSection
+          title="Barang yang diperiksa"
+          action={<ButtonLink href="/admin/logistik" variant="text" size="sm">Kelola barang</ButtonLink>}
+        >
+          {barang.length === 0 ? (
+            <p className="text-body-medium text-on-surface-variant">
+              Belum ada barang. Buat di Logistik, tab Barang, bila sesi ini juga membagikan kaos atau goodie bag.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1">
+                {barang.map((item) => (
+                  <Switch simpan
+                    key={item.id}
+                    checked={pasangan.some((p) => p.session_id === sesiTerpilih.id && p.item_id === item.id)}
+                    disabled={busy}
+                    onChange={(value) => void ubahBarangSesi(sesiTerpilih.id, item.id, value)}
+                    label={item.name}
+                    description={item.size_field_key ? "Petugas melihat ukuran peserta." : undefined}
+                  />
+                ))}
+              </div>
+              <p className="text-body-medium text-on-surface-variant">Setelah memindai, petugas mencentang barang yang diserahkan. Tiap barang hanya bisa diambil sekali per peserta, di sesi mana pun.</p>
+            </>
+          )}
         </DetailSection>
         <DetailSection title="Layar pemindai">
           <dl className="flex flex-col gap-2">
