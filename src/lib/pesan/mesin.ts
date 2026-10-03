@@ -208,68 +208,85 @@ function alasanLewatSekarang(r: RecipientRow, p: PesertaKini | undefined, daftar
 }
 
 /** Klaim potongan berikutnya dari antrean semua kiriman (produksi). */
-async function klaimPotongan(): Promise<RecipientRow[]> {
-  const { data, error } = await getSupabaseServiceClient().rpc("claim_email_chunk" as never, { p_lease_seconds: LEASE_SECONDS } as never);
-  if (error) throw new Error(error.message);
-  return (data ?? []) as RecipientRow[];
-}
-
 /**
- * Klaim potongan berikutnya dari SATU kiriman, untuk server di luar produksi.
- * Pembaruan bersyarat `status = antre` atomik per baris, dan giliran pengirim
- * menjamin tidak ada putaran lain yang berjalan bersamaan.
+ * Klaim potongan email berikutnya dari kiriman berjalan milik `origin` (dan
+ * hanya `onlyBlast` bila diisi). Satu jalur untuk semua mode, tanpa bergantung
+ * pada balikan PATCH: PostgREST sebelum v14 menyaring ulang baris SETELAH
+ * pembaruan, sehingga `status = antre` tidak cocok lagi dan balikan kosong.
+ * Pembaruan bersyarat dikirim tanpa balikan dengan cap sewa unik, lalu baris
+ * yang benar-benar diambil dibaca ulang lewat cap itu. Pembaruan bersyarat
+ * atomik per baris, dan giliran pengirim menjamin tidak ada putaran serentak.
  */
-async function klaimPotonganKiriman(blastId: string): Promise<RecipientRow[]> {
+async function klaimPotongan(origin: string, onlyBlast: string | null): Promise<RecipientRow[]> {
   const client = getSupabaseServiceClient();
-  const { data: b } = await client.from("message_blasts").select("status").eq("id", blastId).maybeSingle();
-  if ((b as { status: string } | null)?.status !== "mengirim") return [];
-  // Antre, atau klaim lama yang kedaluwarsa (pengirimnya mati di tengah jalan),
-  // sama dengan claim_email_chunk.
+  let qb = client.from("message_blasts").select("id").eq("status", "mengirim").eq("site_origin", origin);
+  if (onlyBlast) qb = qb.eq("id", onlyBlast);
+  const { data: berjalan, error: galatKiriman } = await qb.order("sent_at", { ascending: true, nullsFirst: false }).order("id");
+  if (galatKiriman) throw new Error(galatKiriman.message);
+  // Antre, atau klaim lama yang kedaluwarsa (pengirimnya mati di tengah jalan).
   const bisaDiklaim = `status.eq.antre,and(status.eq.mengirim,locked_until.lt.${new Date().toISOString()})`;
-  const { data: awal } = await client
-    .from("message_blast_recipients")
-    .select("chunk")
-    .eq("blast_id", blastId)
-    .eq("channel", "email")
-    .or(bisaDiklaim)
-    .order("chunk")
-    .limit(1)
-    .maybeSingle();
-  const chunk = (awal as { chunk: number } | null)?.chunk;
-  if (chunk == null) return [];
-  const { data, error } = await client
-    .from("message_blast_recipients")
-    .update({ status: "mengirim", locked_until: new Date(Date.now() + LEASE_SECONDS * 1000).toISOString(), updated_at: new Date().toISOString() } as never)
-    .eq("blast_id", blastId)
-    .eq("channel", "email")
-    .eq("chunk", chunk)
-    .or(bisaDiklaim)
-    // Kolom yang dipakai saringan PATCH ikut dipilih: PostgREST 12.2/13.0
-    // menolak (42703) pembaruan bersyarat yang menyaring kolom di luar `select`.
-    .select("id,blast_id,event_id,participant_id,address,name,chunk,status,locked_until")
-    .order("id");
-  if (error) throw new Error(error.message);
-  return (data ?? []) as RecipientRow[];
+  for (const { id: blastId } of (berjalan ?? []) as { id: string }[]) {
+    const { data: awal, error: galatAwal } = await client
+      .from("message_blast_recipients")
+      .select("chunk")
+      .eq("blast_id", blastId)
+      .eq("channel", "email")
+      .or(bisaDiklaim)
+      .order("chunk")
+      .limit(1)
+      .maybeSingle();
+    if (galatAwal) throw new Error(galatAwal.message);
+    const chunk = (awal as { chunk: number } | null)?.chunk;
+    if (chunk == null) continue;
+    const cap = capSewa();
+    const { error } = await client
+      .from("message_blast_recipients")
+      .update({ status: "mengirim", locked_until: cap, updated_at: new Date().toISOString() } as never)
+      .eq("blast_id", blastId)
+      .eq("channel", "email")
+      .eq("chunk", chunk)
+      .or(bisaDiklaim);
+    if (error) throw new Error(error.message);
+    const { data, error: galatBaca } = await client
+      .from("message_blast_recipients")
+      .select("id,blast_id,event_id,participant_id,address,name,chunk")
+      .eq("blast_id", blastId)
+      .eq("chunk", chunk)
+      .eq("status", "mengirim")
+      .eq("locked_until", cap)
+      .order("id");
+    if (galatBaca) throw new Error(galatBaca.message);
+    if (data?.length) return data as RecipientRow[];
+  }
+  return [];
+}
+
+/** Batas sewa dengan mikrodetik acak: cap unik untuk membaca ulang klaim. */
+function capSewa(): string {
+  const iso = new Date(Date.now() + LEASE_SECONDS * 1000).toISOString();
+  const mikro = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
+  return `${iso.slice(0, -1)}${mikro}Z`;
 }
 
 /**
- * Pengirim di luar produksi gagal di tengah jalan: baris kiriman itu yang masih
- * antre menjadi gagal sementara (bisa dikirim ulang dari server yang sama),
- * dan yang sedang dikirim menjadi tidak pasti (mungkin sudah sampai).
+ * Pengirim situs uji berhenti sebelum kirimannya habis (galat, penyedia
+ * menolak, batas waktu). Situs uji tidak punya cron, jadi sisa baris ditutup
+ * di sini dengan alasan yang terlihat di laporan: yang masih antre menjadi
+ * gagal sementara (bisa dikirim ulang dari situs yang sama), yang sedang
+ * dikirim menjadi tidak pasti (mungkin sudah sampai).
  */
-async function tutupKarenaGalat(blastId: string, pesan: string) {
+async function tutupSisa(blastId: string, pesan: string) {
   const client = getSupabaseServiceClient();
-  const alasan = `Pengirim situs uji berhenti: ${pesan}`.slice(0, 300);
+  const alasan = `Pengiriman di situs uji berhenti: ${pesan}`.slice(0, 300);
   const sekarang = new Date().toISOString();
-  console.error("[pesan] drain gagal", blastId, pesan);
   await client
     .from("message_blast_recipients")
-    .update({ status: "gagal_sementara", reason_code: "pengirim_galat", reason: alasan, locked_until: null, failed_at: sekarang, updated_at: sekarang } as never)
+    .update({ status: "gagal_sementara", reason_code: "pengirim_berhenti", reason: alasan, locked_until: null, failed_at: sekarang, updated_at: sekarang } as never)
     .eq("blast_id", blastId)
     .eq("status", "antre");
   await client
     .from("message_blast_recipients")
-    .update({ status: "tidak_pasti", reason_code: "pengirim_galat", reason: alasan, locked_until: null, failed_at: sekarang, updated_at: sekarang } as never)
+    .update({ status: "tidak_pasti", reason_code: "pengirim_berhenti", reason: alasan, locked_until: null, failed_at: sekarang, updated_at: sekarang } as never)
     .eq("blast_id", blastId)
     .eq("status", "mengirim");
 }
@@ -303,18 +320,20 @@ type ResultRow = { id: number; status: string; provider_id?: string | null; reas
  * Satu putaran pengirim, paling lama `budgetMs`. Aman dipanggil berkali-kali
  * dan serentak: yang tidak mendapat giliran langsung pulang.
  */
-export async function drainQueue(budgetMs = 45_000, options: { onlyBlast?: string } = {}): Promise<DrainOutcome> {
+export async function drainQueue(budgetMs = 45_000, options: { origin: string; onlyBlast?: string }): Promise<DrainOutcome> {
   const client = getSupabaseServiceClient();
   const daftarUji = messagingAllowlist();
-  // Di luar produksi hanya kiriman milik server ini; tanpa id kiriman, tidak ada
-  // yang dikirim sama sekali.
-  const hanya = daftarUji.mode === "off" ? null : options.onlyBlast ?? "";
+  // Setiap pengirim hanya mengambil kiriman dari asal server ini. Di luar
+  // produksi juga hanya satu kiriman; tanpa id kiriman, tidak ada yang dikirim.
+  const hanya = daftarUji.mode === "off" ? options.onlyBlast ?? null : options.onlyBlast ?? "";
+  const situsUji = daftarUji.mode !== "off";
   if (hanya === "") return { ran: false, chunks: 0, sent: 0, failed: 0, stoppedBy: "empty" };
   const { data: giliran } = await client.rpc("take_message_drain_turn" as never, { p_seconds: TURN_SECONDS } as never);
   if (giliran !== true) return { ran: false, chunks: 0, sent: 0, failed: 0, stoppedBy: "busy" };
 
   const batas = Date.now() + budgetMs;
-  let berhenti = false;
+  let alasanBerhenti = "Waktu pengirim habis.";
+  let antreanHabis = false;
   const hasil: DrainOutcome = { ran: true, chunks: 0, sent: 0, failed: 0, stoppedBy: "empty" };
   const kiriman = new Map<string, BlastRow>();
   const acara = new Map<string, EventForMail>();
@@ -322,8 +341,11 @@ export async function drainQueue(budgetMs = 45_000, options: { onlyBlast?: strin
   try {
     await client.rpc("sweep_message_recipients" as never);
     while (Date.now() < batas) {
-      const baris = hanya ? await klaimPotonganKiriman(hanya) : await klaimPotongan();
-      if (baris.length === 0) break;
+      const baris = await klaimPotongan(options.origin, hanya);
+      if (baris.length === 0) {
+        antreanHabis = true;
+        break;
+      }
       hasil.chunks += 1;
 
       const blastId = baris[0].blast_id;
@@ -355,23 +377,14 @@ export async function drainQueue(budgetMs = 45_000, options: { onlyBlast?: strin
       const lewati: ResultRow[] = [];
       const kirimKe = baris.filter((r) => {
         const alasan = alasanLewatSekarang(r, r.participant_id ? peserta.get(r.participant_id) : undefined, daftarUji);
-        // Di luar daftar uji SERVER INI bukan keputusan tentang peserta: baris
-        // dikembalikan ke antrean apa adanya, dan putaran berhenti supaya tidak
-        // mengklaimnya lagi.
-        if (alasan?.code === "di_luar_daftar_uji") {
-          lewati.push({ id: r.id, status: "antre" });
-          berhenti = true;
-        } else if (alasan) lewati.push({ id: r.id, status: "dilewati", reason_code: alasan.code, reason: alasan.reason });
+        if (alasan) lewati.push({ id: r.id, status: "dilewati", reason_code: alasan.code, reason: alasan.reason });
         return !alasan;
       });
       if (lewati.length) {
         const { error: galatLewat } = await client.rpc("record_message_results" as never, { p_rows: lewati } as never);
         if (galatLewat) throw new Error(galatLewat.message);
       }
-      if (kirimKe.length === 0) {
-        if (berhenti) break;
-        continue;
-      }
+      if (kirimKe.length === 0) continue;
 
       const origin = blast.site_origin ?? "";
       const slug = encodeURIComponent(event.slug);
@@ -409,6 +422,7 @@ export async function drainQueue(budgetMs = 45_000, options: { onlyBlast?: strin
           p_rows: kirimKe.map((r) => ({ id: r.id, status: "antre" })) satisfies ResultRow[],
         } as never);
         hasil.stoppedBy = kirim.kind === "not_configured" ? "not_configured" : "provider";
+        alasanBerhenti = kirim.kind === "not_configured" ? "Pengirim email belum diatur." : "Penyedia email menolak sementara. Coba kirim ulang nanti.";
         break;
       }
 
@@ -434,19 +448,19 @@ export async function drainQueue(budgetMs = 45_000, options: { onlyBlast?: strin
         hasil.stoppedBy = "budget";
         break;
       }
-      if (berhenti) break;
       await sleep(JEDA_RESEND_MS);
     }
     if (Date.now() >= batas && hasil.stoppedBy === "empty") hasil.stoppedBy = "budget";
-    await client.rpc("sweep_message_recipients" as never);
     return hasil;
   } catch (error) {
-    // Di luar produksi galat tidak boleh meninggalkan baris di antrean: cron
-    // produksi akan mengirimnya dengan env produksi. Baris ditutup dengan
-    // alasan yang terlihat di laporan.
-    if (hanya) await tutupKarenaGalat(hanya, error instanceof Error ? error.message : String(error));
+    alasanBerhenti = error instanceof Error ? error.message : String(error);
+    console.error("[pesan] drain gagal", hanya ?? options.origin, alasanBerhenti);
     throw error;
   } finally {
+    // Situs uji tidak punya cron: apa pun yang tersisa ditutup, pada setiap
+    // jalan keluar, lalu disapu supaya kiriman tidak tertahan "Sedang dikirim".
+    if (situsUji && hanya && !antreanHabis) await tutupSisa(hanya, alasanBerhenti).catch(() => undefined);
+    await client.rpc("sweep_message_recipients" as never);
     await client.rpc("release_message_drain_turn" as never);
   }
 }

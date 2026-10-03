@@ -47,6 +47,19 @@ export function messagingAllowlist(): { mode: "off" } | { mode: "list"; entries:
   return produksi ? { mode: "off" } : { mode: "blocked" };
 }
 
+/**
+ * Asal server ini. Kiriman mencatat asal server yang menekan Kirim, dan setiap
+ * pengirim hanya mengambil kiriman dengan asal yang sama: produksi tidak pernah
+ * mengirim kiriman preview (dengan env produksi), preview tidak pernah mengirim
+ * kiriman produksi. Di produksi asal dibakukan ke domain produksi proyek, jadi
+ * Kirim dari alias lain tetap diambil cron dan tautannya memakai domain utama.
+ */
+export function serverOrigin(request: Request): string {
+  const domain = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (messagingAllowlist().mode === "off" && domain) return `https://${domain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+  return new URL(request.url).origin;
+}
+
 export function allowedByList(address: string, list = messagingAllowlist()): boolean {
   if (list.mode === "off") return true;
   if (list.mode === "blocked") return false;

@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { z } from "zod";
 import { apiError } from "@/lib/api";
-import { messagingAllowlist } from "@/lib/pesan/alamat";
+import { messagingAllowlist, serverOrigin } from "@/lib/pesan/alamat";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { isEmailConfigured } from "@/lib/email/client";
 import { idSchema, loadBlast, pesanBelumAda } from "@/lib/pesan/api";
@@ -54,7 +54,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return apiError("VALIDATION_ERROR", 422, { scheduled_at: "Waktu kirim sudah lewat." });
   }
 
-  const hasil = await enqueueBlast(id, event, { scheduledAt: parsed.data.scheduled_at, origin: new URL(request.url).origin });
+  const origin = serverOrigin(request);
+  const hasil = await enqueueBlast(id, event, { scheduledAt: parsed.data.scheduled_at, origin });
   if (hasil.status === "not_draft") return apiError("MESSAGE_NOT_DRAFT", 409);
   if (hasil.status === "empty") return apiError("MESSAGE_EMPTY", 409);
 
@@ -65,6 +66,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     payload: { id, title: blast.title, queued: hasil.queued, skipped: hasil.skipped, scheduled_at: parsed.data.scheduled_at },
   } as never);
 
-  if (!parsed.data.scheduled_at) after(() => drainQueue(45_000, { onlyBlast: id }).then(() => undefined));
+  if (!parsed.data.scheduled_at) after(() => drainQueue(45_000, { origin, onlyBlast: id }).then(() => undefined));
   return Response.json(hasil);
 }

@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { messagingAllowlist } from "@/lib/pesan/alamat";
+import { serverOrigin } from "@/lib/pesan/alamat";
 import { idSchema, loadBlast, pesanBelumAda } from "@/lib/pesan/api";
 import { drainQueue } from "@/lib/pesan/mesin";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -26,9 +26,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (error) return apiError("INTERNAL_ERROR", 500);
   if (!blast) return apiError("MESSAGE_NOT_FOUND", 404);
   if (blast.status === "draf" || blast.status === "dibatalkan") return apiError("MESSAGE_NOT_DRAFT", 409);
-  // Situs uji hanya boleh mengirim ulang kiriman yang ia kirim sendiri. Kiriman
-  // dari situs utama dikirim ulang dari situs utama, dengan env-nya.
-  if (messagingAllowlist().mode !== "off" && blast.site_origin !== new URL(request.url).origin) {
+  // Kiriman hanya dikirim ulang dari server yang mengirimnya, dengan env-nya:
+  // situs uji tidak menyentuh kiriman produksi, dan sebaliknya.
+  const origin = serverOrigin(request);
+  if (blast.site_origin !== origin) {
     return apiError("MESSAGE_RETRY_NOT_ALLOWED", 403);
   }
 
@@ -42,6 +43,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     action: "message_retry",
     payload: { id, requeued: jumlah },
   } as never);
-  if (jumlah > 0) after(() => drainQueue(45_000, { onlyBlast: id }).then(() => undefined));
+  if (jumlah > 0) after(() => drainQueue(45_000, { origin, onlyBlast: id }).then(() => undefined));
   return Response.json({ requeued: jumlah });
 }

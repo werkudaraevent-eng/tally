@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { apiError } from "@/lib/api";
-import { messagingAllowlist } from "@/lib/pesan/alamat";
+import { messagingAllowlist, serverOrigin } from "@/lib/pesan/alamat";
 import { drainQueue } from "@/lib/pesan/mesin";
 
 /**
@@ -26,6 +26,6 @@ function rahasiaCocok(request: Request) {
 export async function POST(request: Request) {
   if (messagingAllowlist().mode !== "off") return apiError("FORBIDDEN", 403);
   if (!rahasiaCocok(request)) return apiError("FORBIDDEN", 403);
-  const hasil = await drainQueue(45_000);
+  const hasil = await drainQueue(45_000, { origin: serverOrigin(request) });
   return Response.json(hasil);
 }
