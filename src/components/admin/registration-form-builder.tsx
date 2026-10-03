@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, LockSimple, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Banner, Button, IconButton, PageSection, SelectField, StatusChip, Switch, TextArea, TextField } from "@/components/m3";
 import {
   CHOICE_FIELD_TYPES,
@@ -281,15 +281,14 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                       disabled={disabled}
                       onChange={(event) => {
                         const type = event.target.value as RegistrationFieldType;
-                        // Pilihan dibuang saat pindah ke jenis yang tidak memakainya,
-                        // dan diisi contoh saat pindah ke jenis yang memerlukannya.
-                        // Dropdown tanpa pilihan adalah kolom yang mustahil diisi.
+                        // Pilihan dan keterangannya TETAP disimpan di draf saat pindah
+                        // ke jenis yang tidak memakainya, supaya radio → kotak centang
+                        // → radio tidak menghapus isian; Simpan yang membuangnya.
+                        // Diisi contoh saat pindah ke jenis yang memerlukannya:
+                        // dropdown tanpa pilihan adalah kolom yang mustahil diisi.
                         patchField(index, {
                           type,
-                          options: CHOICE_FIELD_TYPES.includes(type)
-                            ? (field.options?.length ? field.options : ["Pilihan 1", "Pilihan 2"])
-                            : undefined,
-                          option_descriptions: CHOICE_FIELD_TYPES.includes(type) ? field.option_descriptions : undefined,
+                          options: CHOICE_FIELD_TYPES.includes(type) && !field.options?.length ? ["Pilihan 1", "Pilihan 2"] : field.options,
                           min: type === "number" ? field.min : undefined,
                           max: type === "number" ? field.max : undefined,
                         });
@@ -403,25 +402,77 @@ function PilihanEditor({
   const options = field.options ?? [];
   const keterangan = options.map((_, index) => field.option_descriptions?.[index] ?? "");
   const dropdown = field.type === "select";
+  const baseId = useId();
 
-  // Kedua larik selalu ditulis bersama supaya indeksnya tidak pernah bergeser.
-  function tulis(nextOptions: string[], nextKeterangan: string[]) {
+  // Kunci tetap per pilihan, sejajar dengan `options`. Kunci posisi membuat
+  // fokus tertinggal di posisinya setelah naik/turun/hapus, sehingga ketukan
+  // kedua mengenai pilihan lain. Bila panjangnya tidak cocok (diubah dari luar),
+  // kunci yang hilang dibuat ulang.
+  const [ids, setIds] = useState<string[]>([]);
+  const [urutan, setUrutan] = useState(0);
+  const kunci = options.map((_, index) => ids[index] ?? `awal-${index}`);
+  const tujuanFokus = useRef<{ id: string; sasaran: "judul" | "naik" | "turun" } | "tambah" | null>(null);
+  const wadahRef = useRef<HTMLFieldSetElement>(null);
+
+  useEffect(() => {
+    const tujuan = tujuanFokus.current;
+    if (!tujuan) return;
+    tujuanFokus.current = null;
+    if (tujuan === "tambah") {
+      wadahRef.current?.querySelector<HTMLButtonElement>('[data-aksi="tambah"]')?.focus();
+      return;
+    }
+    const baris = wadahRef.current?.querySelector<HTMLElement>(`[data-pilihan="${tujuan.id}"]`);
+    if (!baris) return;
+    if (tujuan.sasaran === "judul") {
+      baris.querySelector<HTMLInputElement>("input")?.focus();
+      return;
+    }
+    // Tombol arah yang baru saja ditekan bisa nonaktif di ujung daftar;
+    // fokus pindah ke tombol arah satunya, tetap di pilihan yang sama.
+    const lain = tujuan.sasaran === "naik" ? "turun" : "naik";
+    const tombol =
+      baris.querySelector<HTMLButtonElement>(`[data-aksi="${tujuan.sasaran}"]:not(:disabled)`) ??
+      baris.querySelector<HTMLButtonElement>(`[data-aksi="${lain}"]:not(:disabled)`);
+    tombol?.focus();
+  });
+
+  // Kedua larik (dan kuncinya) selalu ditulis bersama supaya indeksnya tidak
+  // pernah bergeser.
+  function tulis(nextOptions: string[], nextKeterangan: string[], nextKunci: string[] = kunci) {
+    setIds(nextKunci);
     onChange({
       options: nextOptions,
       option_descriptions: nextKeterangan.some((teks) => teks.trim()) ? nextKeterangan : undefined,
     });
   }
+  function tukar<T>(larik: T[], a: number, b: number): T[] {
+    const salinan = [...larik];
+    [salinan[a], salinan[b]] = [salinan[b], salinan[a]];
+    return salinan;
+  }
   function pindah(index: number, delta: number) {
     const target = index + delta;
-    const o = [...options];
-    const k = [...keterangan];
-    [o[index], o[target]] = [o[target], o[index]];
-    [k[index], k[target]] = [k[target], k[index]];
-    tulis(o, k);
+    tujuanFokus.current = { id: kunci[index], sasaran: delta < 0 ? "naik" : "turun" };
+    tulis(tukar(options, index, target), tukar(keterangan, index, target), tukar(kunci, index, target));
+  }
+  function hapus(index: number) {
+    const sisa = kunci.filter((_, i) => i !== index);
+    // Fokus ke judul pilihan berikutnya, atau sebelumnya bila yang dihapus
+    // adalah yang terakhir.
+    const berikut = sisa[index] ?? sisa[index - 1];
+    tujuanFokus.current = berikut ? { id: berikut, sasaran: "judul" } : "tambah";
+    tulis(options.filter((_, i) => i !== index), keterangan.filter((_, i) => i !== index), sisa);
+  }
+  function tambah() {
+    const id = `baru-${urutan}`;
+    setUrutan(urutan + 1);
+    tujuanFokus.current = { id, sasaran: "judul" };
+    tulis([...options, ""], [...keterangan, ""], [...kunci, id]);
   }
 
   return (
-    <fieldset className="space-y-3">
+    <fieldset ref={wadahRef} className="space-y-3">
       <legend className="text-body-medium font-medium text-on-surface">Pilihan</legend>
       <p className="-mt-1 text-body-small text-on-surface-variant">
         {dropdown
@@ -430,24 +481,26 @@ function PilihanEditor({
       </p>
       <ol className="space-y-3">
         {options.map((option, index) => (
-          // Kunci posisi, alasan yang sama dengan daftar pertanyaan di atas:
-          // judul yang diketik tidak boleh membongkar barisnya.
-          <li key={index} className="rounded-md border border-outline-variant bg-surface-container-lowest p-3">
+          <li key={`${baseId}-${kunci[index]}`} data-pilihan={kunci[index]} className="rounded-md border border-outline-variant bg-surface-container-lowest p-3">
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1 space-y-3">
                 <TextField
                   label={`Pilihan ${index + 1}`}
                   maxLength={120}
+                  counter
                   disabled={disabled}
                   value={option}
                   onChange={(event) => tulis(options.map((o, i) => (i === index ? event.target.value : o)), keterangan)}
                 />
                 {dropdown ? null : (
                   <TextArea
-                    label="Keterangan"
+                    // Teks tersembunyi membedakan kolom ini dari "Keterangan"
+                    // milik pertanyaan dan dari pilihan lain bagi pembaca layar.
+                    label={<>Keterangan<span className="sr-only"> pilihan {index + 1}</span></>}
                     optional
                     rows={barisKeterangan(keterangan[index])}
                     maxLength={300}
+                    counter
                     disabled={disabled}
                     value={keterangan[index]}
                     onChange={(event) => tulis(options, keterangan.map((k, i) => (i === index ? event.target.value : k)))}
@@ -455,16 +508,16 @@ function PilihanEditor({
                 )}
               </div>
               <div className="flex shrink-0 flex-col gap-1 pt-7">
-                <IconButton size="sm" label={`Naikkan pilihan ${index + 1}`} onClick={() => pindah(index, -1)} disabled={disabled || index === 0}>
+                <IconButton size="sm" data-aksi="naik" label={`Naikkan pilihan ${index + 1}`} onClick={() => pindah(index, -1)} disabled={disabled || index === 0}>
                   <ArrowUp size={16} weight="bold" />
                 </IconButton>
-                <IconButton size="sm" label={`Turunkan pilihan ${index + 1}`} onClick={() => pindah(index, 1)} disabled={disabled || index === options.length - 1}>
+                <IconButton size="sm" data-aksi="turun" label={`Turunkan pilihan ${index + 1}`} onClick={() => pindah(index, 1)} disabled={disabled || index === options.length - 1}>
                   <ArrowDown size={16} weight="bold" />
                 </IconButton>
                 <IconButton
                   size="sm"
                   label={`Hapus pilihan ${index + 1}`}
-                  onClick={() => tulis(options.filter((_, i) => i !== index), keterangan.filter((_, i) => i !== index))}
+                  onClick={() => hapus(index)}
                   disabled={disabled || options.length <= 2}
                   className="text-error"
                 >
@@ -476,13 +529,14 @@ function PilihanEditor({
         ))}
       </ol>
       <Button
+        data-aksi="tambah"
         variant="tonal"
         size="sm"
         icon={<Plus size={16} weight="bold" />}
         disabled={disabled || options.length >= 50}
         // Baris baru kosong, bukan "Pilihan N": teks contoh yang lupa diganti
         // ikut tayang. Baris yang dibiarkan kosong dibuang saat Simpan.
-        onClick={() => tulis([...options, ""], [...keterangan, ""])}
+        onClick={tambah}
       >
         Tambah pilihan
       </Button>

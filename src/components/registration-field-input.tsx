@@ -118,11 +118,14 @@ export function RegistrationFieldInput({ field, lang = "id" }: { field: Registra
                   required={field.required}
                   name={`extra.${field.key}`}
                   value={option}
+                  // Nama tombol = judul saja; keterangan dibacakan sekali lewat
+                  // aria-describedby, bukan dua kali dari isi <label>.
+                  aria-labelledby={keterangan ? `${field.key}-pilihan-${index}-judul` : undefined}
                   aria-describedby={keterangan ? `${field.key}-pilihan-${index}` : undefined}
                   className={`size-5 shrink-0 accent-[var(--reg-primary)] ${keterangan ? "mt-0.5" : ""}`}
                 />
                 <span className="min-w-0">
-                  <span className={`block text-body-large ${keterangan ? "font-semibold" : ""}`}>{option}</span>
+                  <span id={keterangan ? `${field.key}-pilihan-${index}-judul` : undefined} className={`block text-body-large ${keterangan ? "font-semibold" : ""}`}>{option}</span>
                   {keterangan ? (
                     <span id={`${field.key}-pilihan-${index}`} className="mt-1 block whitespace-pre-line text-body-medium text-[var(--reg-on-surface-variant)]">{keterangan}</span>
                   ) : null}

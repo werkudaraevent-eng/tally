@@ -14,7 +14,8 @@ import {
 import { RegistrationFormBuilder } from "@/components/admin/registration-form-builder";
 import { FormPreview } from "@/components/admin/form-preview";
 import Link from "@/components/event-link";
-import type { RegistrationFormConfig } from "@/lib/domain";
+import { CHOICE_FIELD_TYPES, type RegistrationFormConfig } from "@/lib/domain";
+import { validateFieldDefinitions } from "@/lib/registration-fields";
 import { formatEventDateTime } from "@/lib/datetime";
 import { eventApiPath } from "@/lib/event-url";
 import type { EventTimeZone } from "@/lib/timezone";
@@ -168,6 +169,13 @@ export default function RegistrasiAdminPage() {
    */
   async function kirimForm(next: RegistrationFormConfig): Promise<boolean> {
     if (!config) return false;
+    // Masalah yang sama dengan penanda "Perlu diperbaiki" di penyunting,
+    // ditolak di sini supaya tidak ada yang terbuang diam-diam di jalan.
+    const masalah = validateFieldDefinitions(next.fields ?? []);
+    if (masalah.length) {
+      toast.error("Form belum bisa disimpan", masalah[0].message);
+      return false;
+    }
     setSimpanForm(true);
     const response = await fetch(eventApiPath("/api/admin/registrasi"), {
       method: "PATCH",
@@ -177,10 +185,14 @@ export default function RegistrasiAdminPage() {
       // dipegang layar ini bisa sudah didahului panitia lain.
       body: JSON.stringify({
         form: {
-          // Pilihan berjudul kosong dibuang bersama keterangannya (indeksnya
-          // sejajar), supaya baris yang baru ditambah lalu dibiarkan kosong
-          // tidak menggagalkan Simpan.
+          // Penyunting menyimpan pilihan di semua jenis supaya berpindah
+          // jenis bolak-balik tidak menghapusnya; baru di sini dibuang untuk
+          // jenis yang tidak memakainya. Baris pilihan yang judul dan
+          // keterangannya kosong dibuang bersama (indeksnya sejajar), supaya
+          // baris yang baru ditambah lalu dibiarkan kosong tidak menggagalkan
+          // Simpan.
           fields: (next.fields ?? []).map((field) => {
+            if (!CHOICE_FIELD_TYPES.includes(field.type)) return { ...field, options: undefined, option_descriptions: undefined };
             if (!field.options) return field;
             const baris = field.options
               .map((option, i) => ({ option: option.trim(), keterangan: field.option_descriptions?.[i]?.trim() ?? "" }))
