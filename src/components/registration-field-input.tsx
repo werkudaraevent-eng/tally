@@ -104,18 +104,35 @@ export function RegistrationFieldInput({ field, lang = "id" }: { field: Registra
       <fieldset className="mt-6">
         <legend className="text-label-large font-semibold">{field.label} {optional}</legend>
         <div className="mt-2 space-y-2">
-          {(field.options ?? []).map((option) => (
-            <label key={option} className="flex cursor-pointer items-center gap-3 rounded-md border border-[var(--reg-outline)] px-4 py-3">
-              <input
-                type="radio"
-                required={field.required}
-                name={`extra.${field.key}`}
-                value={option}
-                className="size-5 shrink-0 accent-[var(--reg-primary)]"
-              />
-              <span className="text-body-large">{option}</span>
-            </label>
-          ))}
+          {(field.options ?? []).map((option, index) => {
+            // Baris kosong yang baru ditambah di editor belum tayang di pratinjau.
+            if (!option.trim()) return null;
+            const keterangan = field.option_descriptions?.[index]?.trim();
+            return (
+              // Dengan keterangan: judul tebal dan keterangan di bawahnya (pola
+              // kartu pilihan Typeform dan M3 list item dua baris), tombol radio
+              // sejajar baris judul, bukan di tengah kartu.
+              <label key={option} className={`flex cursor-pointer gap-3 rounded-md border border-[var(--reg-outline)] px-4 py-3 ${keterangan ? "items-start" : "items-center"}`}>
+                <input
+                  type="radio"
+                  required={field.required}
+                  name={`extra.${field.key}`}
+                  value={option}
+                  // Nama tombol = judul saja; keterangan dibacakan sekali lewat
+                  // aria-describedby, bukan dua kali dari isi <label>.
+                  aria-labelledby={keterangan ? `${field.key}-pilihan-${index}-judul` : undefined}
+                  aria-describedby={keterangan ? `${field.key}-pilihan-${index}` : undefined}
+                  className={`size-5 shrink-0 accent-[var(--reg-primary)] ${keterangan ? "mt-0.5" : ""}`}
+                />
+                <span className="min-w-0">
+                  <span id={keterangan ? `${field.key}-pilihan-${index}-judul` : undefined} className={`block text-body-large ${keterangan ? "font-semibold" : ""}`}>{option}</span>
+                  {keterangan ? (
+                    <span id={`${field.key}-pilihan-${index}`} className="mt-1 block whitespace-pre-line text-body-medium text-[var(--reg-on-surface-variant)]">{keterangan}</span>
+                  ) : null}
+                </span>
+              </label>
+            );
+          })}
         </div>
         {field.help_text ? (
           <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">{field.help_text}</p>
@@ -184,7 +201,7 @@ export function RegistrationFieldInput({ field, lang = "id" }: { field: Registra
       ) : field.type === "select" ? (
         <select required={field.required} name={`extra.${field.key}`} defaultValue="" className={`${REG_CONTROL} font-normal`}>
           <option value="" disabled>{t.choose}</option>
-          {(field.options ?? []).map((option) => (
+          {(field.options ?? []).filter((option) => option.trim()).map((option) => (
             <option key={option} value={option}>{option}</option>
           ))}
         </select>

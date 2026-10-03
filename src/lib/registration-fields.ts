@@ -62,6 +62,15 @@ export function validateFieldDefinitions(fields: RegistrationField[]): FieldIssu
 		if (CHOICE_FIELD_TYPES.includes(field.type) && normalizeOptions(field).length < 2) {
 			issues.push({ key, message: "Perlu minimal dua pilihan." });
 		}
+		if (CHOICE_FIELD_TYPES.includes(field.type)) {
+			// Keterangan tanpa judul tidak boleh hilang diam-diam saat Simpan.
+			const tanpaJudul = (field.option_descriptions ?? []).findIndex(
+				(teks, i) => !!teks?.trim() && !field.options?.[i]?.trim(),
+			);
+			if (tanpaJudul >= 0) {
+				issues.push({ key, message: `Pilihan ${tanpaJudul + 1} punya keterangan tetapi belum berjudul.` });
+			}
+		}
 		if (field.type === "number" && field.min !== undefined && field.max !== undefined && field.min > field.max) {
 			issues.push({ key, message: "Nilai minimum melebihi maksimum." });
 		}
