@@ -52,6 +52,9 @@ export async function PATCH(request: Request) {
       ...(formThemeBaru ? { registration_form_config: formThemeBaru } : {}),
       landing_config: {
         ...landing,
+        // Area peserta punya layar dan endpoint sendiri (/api/admin/area-peserta).
+        // Salinan `member` dari editor ini bisa basi, jadi yang tersimpan dipakai.
+        member: (auth.scope.event.landing_config as { member?: unknown } | null)?.member,
         // Peran warna diturunkan di server, sama seperti tema form pendaftaran.
         // Halaman publiknya menerima hex jadi dan tidak memuat pustaka warna.
         theme: landing.theme ? withDerivedRoles(landing.theme) : undefined,

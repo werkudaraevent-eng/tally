@@ -732,7 +732,7 @@ function KartuTampilan({
             <p className="text-title-medium font-semibold">Area peserta aktif</p>
             <p className="mt-0.5 text-body-medium text-on-surface-variant">Formulir meminta kata sandi; email otomatis wajib.</p>
           </div>
-          <Link href="/admin/landing?bagian=peserta" onClick={(event) => onBuka("/admin/landing?bagian=peserta", event)} className={TAUTAN}>Atur di Peserta</Link>
+          <Link href="/admin/area-peserta" onClick={(event) => onBuka("/admin/area-peserta", event)} className={TAUTAN}>Atur di Area peserta</Link>
         </div>
       ) : null}
     </div>
