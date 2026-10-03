@@ -473,7 +473,7 @@ export default function PengumumanPage() {
           tone="info"
           icon={<Megaphone size={18} />}
           actions={
-            <Link href="/admin/landing?bagian=peserta" className="text-label-large font-semibold text-primary underline-offset-4 hover:underline">
+            <Link href="/admin/area-peserta" className="text-label-large font-semibold text-primary underline-offset-4 hover:underline">
               Buka setelan area peserta
             </Link>
           }
