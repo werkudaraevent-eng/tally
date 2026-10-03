@@ -73,6 +73,7 @@ export async function sendConfirmationLink(
   try {
     const token = await buatToken(event.id, "konfirmasi", normalizeEmail(input.email), { accountId: input.accountId });
     return await sendMemberLink({
+      eventId: event.id,
       kind: "konfirmasi",
       to: input.email,
       name: input.name,
@@ -154,13 +155,14 @@ export async function requestPasswordLink(
   // peserta disetujui). Tetap dikabari lewat email, bukan dibiarkan menunggu
   // tautan yang tidak akan datang; layarnya tetap sama.
   if (sasaran.tertutup) {
-    const hasil = await sendMemberLink({ kind: "tertutup", to: email, name: sasaran.name, eventName: publicEventName(event), url: null });
+    const hasil = await sendMemberLink({ eventId: event.id, kind: "tertutup", to: email, name: sasaran.name, eventName: publicEventName(event), url: null });
     return hasil.state === "sent" ? { status: "sent" } : { status: "failed" };
   }
 
   try {
     const token = await buatToken(event.id, "sandi", email, sasaran.sasaran);
     const hasil = await sendMemberLink({
+      eventId: event.id,
       kind: "sandi",
       to: email,
       name: sasaran.name,
