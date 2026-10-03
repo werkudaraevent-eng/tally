@@ -346,6 +346,11 @@ export type LandingUiText = {
   viewAgenda: string;
   aboutEvent: string;
   registrationSoon: string;
+  /** Khusus undangan (invite_only): ajakan masuk menggantikan "pendaftaran dibuka segera". */
+  memberSignIn: string;
+  inviteOnly: string;
+  inviteHeading: string;
+  inviteNote: string;
   program: string;
   /** `${n} sesi` */
   sessions: (n: number) => string;
@@ -416,6 +421,10 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     viewAgenda: "Lihat susunan acara",
     aboutEvent: "Pelajari acaranya",
     registrationSoon: "Pendaftaran dibuka segera.",
+    memberSignIn: "Masuk peserta",
+    inviteOnly: "Khusus undangan.",
+    inviteHeading: "Sudah menerima undangan?",
+    inviteNote: "Masuk dengan email yang didaftarkan panitia untuk melihat tiket dan info perjalanan Anda.",
     program: "Program",
     sessions: (n) => `${n} sesi`,
     inPrograms: (n) => `Dalam ${n} program.`,
@@ -478,6 +487,10 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     viewAgenda: "View agenda",
     aboutEvent: "About the event",
     registrationSoon: "Registration opens soon.",
+    memberSignIn: "Participant sign in",
+    inviteOnly: "By invitation only.",
+    inviteHeading: "Received an invitation?",
+    inviteNote: "Sign in with the email the organisers registered to see your ticket and travel details.",
     program: "Programme",
     sessions: (n) => `${n} ${n === 1 ? "session" : "sessions"}`,
     inPrograms: (n) => `Across ${n} programmes.`,

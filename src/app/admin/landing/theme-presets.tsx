@@ -1,6 +1,7 @@
 "use client";
 
 import { Kelompok } from "@/components/admin/compact-form";
+import { Switch } from "@/components/m3/switch";
 import { LANDING_HEADING_FONTS, type EventLandingConfig } from "@/lib/domain";
 import { LANDING_THEME_PRESETS, presetCocok, terapkanPreset } from "@/lib/landing-theme-presets";
 
@@ -51,6 +52,21 @@ export function PresetTema({
           );
         })}
       </div>
+      {/* Bagian dari preset Gathering, tetapi bisa dimatikan sendiri: acara
+          lain pun bisa khusus undangan. Hanya Modern yang membacanya. */}
+      <Switch
+        checked={landing.layout === "modern" && Boolean(landing.invite_only)}
+        onChange={(value) => setLanding({ ...landing, invite_only: value })}
+        disabled={landing.layout !== "modern"}
+        label="Khusus undangan"
+        description={
+          landing.layout !== "modern"
+            ? "Hanya untuk tata letak Modern."
+            : landing.invite_only
+              ? "Saat pendaftaran ditutup, tombol utama halaman mengajak tamu undangan masuk untuk melihat tiket dan info perjalanannya."
+              : "Peserta yang diimpor panitia masuk lewat undangan. Saat pendaftaran ditutup, halaman mengajak mereka masuk."
+        }
+      />
     </Kelompok>
   );
 }

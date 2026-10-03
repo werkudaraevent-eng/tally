@@ -953,6 +953,13 @@ export type EventLandingConfig = {
    */
   en_enabled?: boolean;
   /**
+   * Khusus undangan (preset Gathering): peserta diimpor panitia, jadi saat
+   * pendaftaran tertutup hero dan pita penutup mengajak MASUK, bukan menunggu
+   * pendaftaran dibuka. Hanya berlaku di Modern dan bila area peserta aktif;
+   * tanpa itu halaman sama persis dengan pendaftaran tertutup biasa.
+   */
+  invite_only?: boolean;
+  /**
    * Bahasa di alamat utama `/e/<slug>` (bawaan "id"). "en" hanya berlaku
    * selama versi English menyala; lihat landingDefaultLang.
    */

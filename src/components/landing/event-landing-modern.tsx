@@ -180,6 +180,10 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const sudahMasuk = Boolean(sesi);
   const peserta = sesi ? await muatNavPeserta(event, sesi, lang) : null;
   const memberLink = member && !sesi ? { href: masukUrl, label: t.signIn } : null;
+  // Khusus undangan (preset Gathering): saat pendaftaran tertutup, ajakannya
+  // masuk, bukan menunggu pendaftaran. Tanpa area peserta tidak ada yang bisa
+  // dimasuki, jadi halaman kembali ke perilaku tertutup biasa.
+  const undangan = Boolean(config.invite_only) && Boolean(member) && !event.registration_enabled && !sudahMasuk;
 
   const { tampil, tampilProgram, speakers, blokById, jangkar, navSections, mitra, kontak } = bagianModern(event, config, sections, agenda, lang);
 
@@ -596,6 +600,13 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                     </a>
                   ) : null}
                 </>
+              ) : undangan ? (
+                <>
+                  <Link href={masukUrl} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
+                    {t.memberSignIn}
+                  </Link>
+                  <p className="text-isi opacity-90">{t.inviteOnly}</p>
+                </>
               ) : (
                 <>
                   <a href={aksiTertutup.href} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
@@ -657,6 +668,30 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             </div>
           </section>
         ) : null}
+        {/* Khusus undangan: pita penutup yang sama, mengajak tamu undangan masuk. */}
+        {undangan && !adaBlokAjakan ? (
+          <section className="pb-16 sm:pb-24">
+            <div
+              className={`relative isolate flex flex-col items-center gap-6 overflow-hidden rounded-lg px-6 py-16 text-center text-[var(--ink)] sm:py-24 ${
+                kv ? "bg-black" : "bg-[var(--reg-brand)]"
+              }`}
+              style={tinta(Boolean(kv))}
+            >
+              {kv ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={kv} alt="" loading="lazy" className="absolute inset-0 -z-10 size-full object-cover" />
+                  <div aria-hidden className="absolute inset-0 -z-10" style={{ background: KV_SCRIM_RATA }} />
+                </>
+              ) : null}
+              <h2 className={`${JUDUL} max-w-[800px]`}>{t.inviteHeading}</h2>
+              <p className="max-w-[720px] text-title-large font-normal leading-[1.5] opacity-90">{t.inviteNote}</p>
+              <Link href={masukUrl} className={PIL_INK}>
+                {t.memberSignIn}
+              </Link>
+            </div>
+          </section>
+        ) : null}
       </div>
 
       <PitaMitra mitra={mitra} judul={t.organisedBy} />
@@ -665,7 +700,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       <KakiModern
         nama={nama}
         keterangan={{ catatan: config.footer_note?.trim() || null, baris: [tanggal, venue].filter((baris): baris is string => Boolean(baris)) }}
-        tombol={aksiPeserta ?? (event.registration_enabled ? { href: daftarUrl, label: ctaLabel } : null)}
+        tombol={aksiPeserta ?? (event.registration_enabled ? { href: daftarUrl, label: ctaLabel } : undangan ? { href: masukUrl, label: t.memberSignIn } : null)}
         kolom={[
           { judul: t.footerEvent, tautan: tautanAcara.map((item) => ({ label: item.label, href: `#${item.id}` })) },
           { judul: t.footerGuests, tautan: tautanTamu },

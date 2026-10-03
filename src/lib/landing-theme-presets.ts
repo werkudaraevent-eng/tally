@@ -19,6 +19,8 @@ export type LandingThemePreset = {
   /** Warna pendamping tata letak Forum. */
   accent?: string;
   secondary?: string;
+  /** Menyalakan "Khusus undangan" (lihat EventLandingConfig.invite_only). */
+  invite_only?: boolean;
 };
 
 export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
@@ -32,6 +34,19 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     heading_font: "ubuntu",
     accent: FORUM_DEFAULTS.accent,
     secondary: FORUM_DEFAULTS.secondary,
+  },
+  {
+    // Rancangan Gathering yang Hanung setujui pada 2026-10-03: tata letak
+    // Modern yang sama dengan ILO, bukan tata letak ketiga. Yang berbeda hanya
+    // warna, huruf, dan sifat "khusus undangan"; menu Logistik dinyalakan
+    // terpisah dari Area peserta karena tersimpan di database, bukan di CMS.
+    key: "gathering",
+    label: "Gathering",
+    note: "Modern, teal, khusus undangan: tamu masuk untuk melihat tiket, kamar, dan bus",
+    layout: "modern",
+    seed: "#0b6e69",
+    heading_font: "source",
+    invite_only: true,
   },
 ];
 
@@ -55,6 +70,7 @@ export function terapkanPreset(preset: LandingThemePreset, landing: EventLanding
     layout: preset.layout,
     heading_font: preset.heading_font,
     theme: { ...landing.theme, seed: preset.seed },
+    ...(preset.invite_only ? { invite_only: true } : {}),
     ...(preset.layout === "forum" ? { forum: { ...landing.forum, accent: preset.accent, secondary: preset.secondary } } : {}),
   };
 }
