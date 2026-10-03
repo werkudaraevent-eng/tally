@@ -59,7 +59,7 @@ export type PageHeaderProps = {
  * `letter-spacing` per KELAS PERAN, jadi ia tidak menjangkau nilai arbitrer ini
  * dan rapatannya benar-benar hidup di layar. Acuan melarangnya mutlak.
  */
-const JUDUL_HALAMAN = "min-w-0 text-[1.875rem] font-semibold leading-10 text-on-surface";
+const JUDUL_HALAMAN = "min-w-0 text-headline-medium text-on-surface";
 
 export function PageHeader({ eyebrow, title, description, icon, meta, actions, className }: PageHeaderProps) {
 	const page = useAdminPage();
@@ -235,6 +235,12 @@ export type BannerProps = {
 	children: ReactNode;
 	/** Aksi di ujung kanan. Tombol kecil, bukan tautan teks panjang. */
 	actions?: ReactNode;
+	/**
+	 * Satu baris tipis, untuk penanda yang menetap di setiap halaman (acara
+	 * terkunci). Banner biasa setinggi 56px di atas setiap tabel membuat
+	 * keadaan yang sudah diketahui terbaca seperti peringatan baru.
+	 */
+	compact?: boolean;
 	className?: string;
 };
 
@@ -250,10 +256,10 @@ export type BannerProps = {
  * pemanggil lewat props biasa; komponen ini tidak menebak mana yang harus
  * menyela pembaca layar.
  */
-export function Banner({ tone = "info", icon, children, actions, className }: BannerProps) {
+export function Banner({ tone = "info", icon, children, actions, compact, className }: BannerProps) {
 	return (
-		<div className={cx("flex flex-wrap items-center justify-between gap-3 rounded-lg border px-5 py-4 text-body-medium", BANNER[tone], className)}>
-			<div className="flex min-w-0 flex-1 items-start gap-2.5">
+		<div className={cx("flex flex-wrap items-center justify-between gap-3 border", compact ? "rounded-md px-3 py-1.5 text-label-large" : "rounded-lg px-5 py-4 text-body-medium", BANNER[tone], className)}>
+			<div className={cx("flex min-w-0 flex-1 items-start", compact ? "gap-2" : "gap-2.5")}>
 				{icon ? <span className="mt-0.5 shrink-0" aria-hidden>{icon}</span> : null}
 				<div className="min-w-0">{children}</div>
 			</div>
