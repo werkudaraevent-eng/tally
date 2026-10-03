@@ -33,6 +33,8 @@ const ISI: Record<MemberLinkKind, { subjek: (acara: string) => string; pembuka: 
 };
 
 export async function sendMemberLink(input: {
+  /** Acara pengirim, untuk nama pengirim dan reply-to. */
+  eventId: string;
   kind: MemberLinkKind;
   to: string;
   name: string | null;
@@ -64,6 +66,6 @@ export async function sendMemberLink(input: {
     isi.catatan,
   ].join("\n");
 
-  const hasil = await sendEmail({ to: input.to, subject: isi.subjek(input.eventName), html, text });
+  const hasil = await sendEmail({ eventId: input.eventId, to: input.to, subject: isi.subjek(input.eventName), html, text });
   return hasil.ok ? { state: "sent" } : { state: "failed", error: hasil.error };
 }

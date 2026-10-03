@@ -3,6 +3,10 @@ import { apiError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { TIME_ZONE_IDS } from "@/lib/timezone";
+import { emailConfig, forgetEventSender, senderAddress } from "@/lib/email/client";
+
+/** Kosong berarti "pakai bawaan" dan disimpan sebagai null. */
+const kosongJadiNull = (nilai: unknown) => (typeof nilai === "string" && nilai.trim() === "" ? null : nilai);
 
 const patchSchema = z.object({
   pickup_mode: z.enum(["after_payment", "immediate"]).optional(),
@@ -13,16 +17,31 @@ const patchSchema = z.object({
   // Daftar zona diambil dari satu sumber yang sama dengan CHECK constraint di
   // database, jadi keduanya tidak bisa menyimpang.
   time_zone: z.enum(TIME_ZONE_IDS as unknown as [string, ...string[]]).optional(),
+  // Nama pengirim email acara ini. Tanpa < > " dan baris baru: nilainya
+  // disusun menjadi header From `Nama <alamat>`.
+  email_sender_name: z.preprocess(kosongJadiNull, z.string().trim().max(80).regex(/^[^<>"\r\n]+$/, "Nama pengirim tidak boleh memuat < > atau tanda petik.").nullable()).optional(),
+  email_reply_to: z.preprocess(kosongJadiNull, z.string().trim().toLowerCase().max(254).email("Alamat balasan bukan email yang sah.").nullable()).optional(),
 });
 
-const SELECT = "pickup_mode,name_display_mode,leaderboard_enabled,pending_auto_void_minutes,cashier_confirmation_required,time_zone,updated_at";
+const SELECT = "pickup_mode,name_display_mode,leaderboard_enabled,pending_auto_void_minutes,cashier_confirmation_required,time_zone,email_sender_name,email_reply_to,updated_at";
+
+/**
+ * Pengirim bawaan dari env, untuk contoh "Peserta melihat" di Pengaturan:
+ * alamatnya tidak bisa diubah per acara, jadi panitia perlu melihatnya.
+ */
+function pengirimBawaan() {
+  const config = emailConfig();
+  if (!config) return null;
+  const nama = /^(.*?)\s*<[^>]+>\s*$/.exec(config.from)?.[1]?.replace(/^"|"$/g, "").trim() || null;
+  return { name: nama, address: senderAddress(config.from), reply_to: config.replyTo };
+}
 
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["booth", "cashier", "admin"]);
   if (auth.response) return auth.response;
   const { data, error } = await getSupabaseServiceClient().from("event_settings").select(SELECT).eq("event_id", auth.scope.event.id).single();
   if (error) return apiError("INTERNAL_ERROR", 500);
-  return Response.json(data);
+  return Response.json({ ...(data as object), email_default: pengirimBawaan() });
 }
 
 export async function PATCH(request: Request) {
@@ -46,5 +65,6 @@ export async function PATCH(request: Request) {
   }
 
   await client.from("audit_logs").insert({ event_id: auth.scope.event.id, user_id: auth.user.id, action: "settings_update", payload: { old: current, new: data, auto_settled_orders: autoSettled } } as never);
-  return Response.json({ ...(data as object), auto_settled_orders: autoSettled });
+  forgetEventSender(auth.scope.event.id);
+  return Response.json({ ...(data as object), email_default: pengirimBawaan(), auto_settled_orders: autoSettled });
 }

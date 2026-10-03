@@ -18,11 +18,15 @@ type Settings = {
   pending_auto_void_minutes: number;
   cashier_confirmation_required: boolean;
   time_zone: EventTimeZone;
+  email_sender_name: string | null;
+  email_reply_to: string | null;
+  /** Pengirim dari env (hanya dibaca). Null bila email belum disetel. */
+  email_default?: { name: string | null; address: string; reply_to: string | null } | null;
   updated_at?: string;
 };
 
 /** Field yang dikirim PATCH. Hanya ini yang dihitung sebagai perubahan belum tersimpan. */
-const FIELD_DISIMPAN = ["time_zone", "pickup_mode", "cashier_confirmation_required", "pending_auto_void_minutes"] as const;
+const FIELD_DISIMPAN = ["time_zone", "pickup_mode", "cashier_confirmation_required", "pending_auto_void_minutes", "email_sender_name", "email_reply_to"] as const;
 
 const kelasInput = "h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
 
@@ -90,6 +94,8 @@ export function SettingsPanel() {
       pending_auto_void_minutes: settings.pending_auto_void_minutes,
       cashier_confirmation_required: settings.cashier_confirmation_required,
       time_zone: settings.time_zone,
+      email_sender_name: settings.email_sender_name?.trim() || null,
+      email_reply_to: settings.email_reply_to?.trim() || null,
     }) });
     const data = await response.json();
     setSaving(false);
@@ -130,10 +136,15 @@ export function SettingsPanel() {
     );
   }
 
-  const jumlahUbah = FIELD_DISIMPAN.filter((key) => settings[key] !== saved[key]).length;
+  // Teks kosong dan null sama-sama berarti "pakai bawaan".
+  const sama = (a: unknown, b: unknown) => (typeof a === "string" || typeof b === "string" ? String(a ?? "").trim() === String(b ?? "").trim() : a === b);
+  const jumlahUbah = FIELD_DISIMPAN.filter((key) => !sama(settings[key], saved[key])).length;
   const zonaTersimpan = saved.time_zone ?? DEFAULT_TIME_ZONE;
   const waktuUbah = saved.updated_at ? `${formatEventDateTime(saved.updated_at, zonaTersimpan)} ${timeZoneAbbr(zonaTersimpan)}` : "";
   const zonaDipilih = EVENT_TIME_ZONES.find((option) => option.id === settings.time_zone);
+  const bawaan = saved.email_default ?? null;
+  const namaTampil = settings.email_sender_name?.trim() || bawaan?.name || "";
+  const balasanTampil = settings.email_reply_to?.trim() || bawaan?.reply_to || null;
   const set = (patch: Partial<Settings>) => setSettings((current) => current && { ...current, ...patch });
 
   return (
@@ -161,6 +172,47 @@ export function SettingsPanel() {
                 Jam order yang sudah tercatat ikut bergeser saat ditampilkan, karena yang tersimpan adalah waktu absolut. Setel sekali sebelum acara mulai. Jam di rundown adalah jam dinding yang diketik panitia, jadi angkanya tetap; yang menyesuaikan hanya penanda &ldquo;sedang berlangsung&rdquo;.
               </Peringatan>
             ) : null}
+          </SettingRow>
+
+          {/* Pengirim email: nama yang tampil di kotak masuk peserta, per acara.
+              Alamatnya tetap dari EMAIL_FROM (domain terverifikasi di Resend),
+              jadi ditampilkan sebagai teks, bukan kolom. */}
+          <SettingRow title="Pengirim email" description="Nama yang dilihat peserta di kotak masuk, dan ke mana balasan mereka dikirim. Berlaku untuk konfirmasi pendaftaran, tautan masuk, dan Pesan peserta.">
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="mb-1.5 block text-body-medium font-medium text-on-surface" htmlFor="nama-pengirim">Nama pengirim</label>
+                <input
+                  id="nama-pengirim"
+                  type="text"
+                  maxLength={80}
+                  value={settings.email_sender_name ?? ""}
+                  placeholder={bawaan?.name ?? "Nama penyelenggara"}
+                  onChange={(event) => set({ email_sender_name: event.target.value })}
+                  className={kelasInput}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-body-medium font-medium text-on-surface" htmlFor="balasan-ke">Balasan ke</label>
+                <input
+                  id="balasan-ke"
+                  type="email"
+                  maxLength={254}
+                  value={settings.email_reply_to ?? ""}
+                  placeholder={bawaan?.reply_to ?? "email@penyelenggara.com"}
+                  onChange={(event) => set({ email_reply_to: event.target.value })}
+                  className={kelasInput}
+                />
+              </div>
+              <p className="text-body-medium text-on-surface-variant">
+                {bawaan ? (
+                  <>
+                    Peserta melihat: <span className="font-medium text-on-surface">{namaTampil ? `${namaTampil} <${bawaan.address}>` : bawaan.address}</span>
+                    {balasanTampil ? <>. Balasan masuk ke <span className="font-medium text-on-surface">{balasanTampil}</span>.</> : ". Balasan masuk ke alamat pengirim."}
+                    {" "}Kosongkan untuk memakai bawaan situs.
+                  </>
+                ) : "Pengiriman email belum disetel di server, jadi nama ini belum dipakai."}
+              </p>
+            </div>
           </SettingRow>
 
           <SettingRow title="Penyerahan barang" description="Kapan booth menyerahkan barang ke peserta.">

@@ -15,6 +15,11 @@
  * kirim ulang -- bukan menelannya diam-diam.
  */
 
+import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { fromWithName } from "./pengirim";
+
+export { senderAddress } from "./pengirim";
+
 const ENDPOINT = "https://api.resend.com/emails";
 
 /** Batas tunggu. Tanpa ini, penyedia yang menggantung ikut menggantung request persetujuan. */
@@ -55,14 +60,64 @@ export function isEmailConfigured() {
   return emailConfig() !== null;
 }
 
+export type EventSender = { name: string | null; replyTo: string | null };
+
+/**
+ * Pengirim per acara (Pengaturan > Acara > Pengirim email). Hanya NAMA yang
+ * diganti; alamatnya tetap dari EMAIL_FROM karena domainnya harus terverifikasi
+ * di Resend. Kolom kosong jatuh ke env.
+ */
+export function withEventSender(config: EmailConfig, sender: EventSender | null): EmailConfig {
+  return {
+    ...config,
+    from: fromWithName(sender?.name, config.from),
+    replyTo: sender?.replyTo?.trim() || config.replyTo,
+  };
+}
+
+const cachePengirim = new Map<string, { nilai: EventSender | null; sampai: number }>();
+
+/**
+ * Setelan pengirim satu acara, disimpan sebentar supaya satu blast tidak
+ * membaca event_settings untuk setiap potongan. Galat baca (mis. kolom belum
+ * ada) = pakai env, bukan gagal kirim.
+ */
+export async function eventSender(eventId: string | null | undefined): Promise<EventSender | null> {
+  if (!eventId) return null;
+  const tersimpan = cachePengirim.get(eventId);
+  if (tersimpan && tersimpan.sampai > Date.now()) return tersimpan.nilai;
+  const { data, error } = await getSupabaseServiceClient()
+    .from("event_settings")
+    .select("email_sender_name,email_reply_to")
+    .eq("event_id", eventId)
+    .maybeSingle();
+  const baris = data as { email_sender_name: string | null; email_reply_to: string | null } | null;
+  const nilai = error || !baris ? null : { name: baris.email_sender_name, replyTo: baris.email_reply_to };
+  cachePengirim.set(eventId, { nilai, sampai: Date.now() + 30_000 });
+  return nilai;
+}
+
+/** Dipanggil setelah Pengaturan disimpan, supaya email berikutnya langsung memakai nama baru. */
+export function forgetEventSender(eventId: string) {
+  cachePengirim.delete(eventId);
+}
+
+async function configFor(eventId: string | null | undefined): Promise<EmailConfig | null> {
+  const config = emailConfig();
+  if (!config) return null;
+  return withEventSender(config, await eventSender(eventId).catch(() => null));
+}
+
 export async function sendEmail(input: {
   to: string;
   subject: string;
   html: string;
   text: string;
   attachments?: EmailAttachment[];
+  /** Acara pengirim: nama pengirim dan reply-to diambil dari setelannya. */
+  eventId?: string | null;
 }): Promise<SendResult> {
-  const config = emailConfig();
+  const config = await configFor(input.eventId);
   // Dibedakan dari kegagalan jaringan dengan sengaja: pemanggil memakai ini
   // untuk memutuskan apakah menampilkan "gagal terkirim" (yang menyuruh panitia
   // mencoba lagi) atau "pengiriman email belum diaktifkan" (yang menyuruh
@@ -122,8 +177,9 @@ export const BATCH_MAX = 100;
  */
 export async function sendEmailBatch(
   messages: { to: string; subject: string; html: string; text: string }[],
+  eventId?: string | null,
 ): Promise<{ sent: number; failed: number; error: string | null } | { notConfigured: true }> {
-  const config = emailConfig();
+  const config = await configFor(eventId);
   if (!config) return { notConfigured: true };
   let sent = 0;
   let failed = 0;
@@ -189,8 +245,8 @@ export type DetailedBatchResult =
  *   * Hasilnya per email, sesuai urutan masukan, supaya setiap baris penerima
  *     bisa diberi id kiriman atau alasan gagalnya sendiri.
  */
-export async function sendEmailBatchDetailed(items: BatchItem[], idempotencyKey: string): Promise<DetailedBatchResult> {
-  const config = emailConfig();
+export async function sendEmailBatchDetailed(items: BatchItem[], idempotencyKey: string, eventId?: string | null): Promise<DetailedBatchResult> {
+  const config = await configFor(eventId);
   if (!config) return { kind: "not_configured" };
   if (items.length === 0) return { kind: "ok", items: [] };
   if (items.length > BATCH_MAX) throw new Error(`Paling banyak ${BATCH_MAX} email per potongan.`);
