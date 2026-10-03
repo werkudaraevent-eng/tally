@@ -1,5 +1,5 @@
 import {
-  ArmchairIcon, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving,
+  ArmchairIcon, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving, IdentificationCard,
   ListChecks, Megaphone, MonitorPlay, Printer, QrCode, Receipt, ShieldCheck, Storefront, UserPlus, UsersThree,
 } from "@phosphor-icons/react";
 import type { ComponentType } from "react";
@@ -86,6 +86,10 @@ export const navigation: NavGroup[] = [
       // ada pendaftaran lain yang perlu dibedakan di menu.
       { href: "/admin/registrasi", label: "Pendaftaran", icon: UserPlus, description: "Formulir pendaftaran publik dan moderasi pendaftar yang masuk." },
       { href: "/admin/pengumuman", label: "Pengumuman", icon: Megaphone, description: "Kabar panitia untuk peserta, tampil di lonceng halaman acara dan Dashboard saya." },
+      // Paling bawah di Peserta: diatur sekali (siapa yang bisa masuk, apa yang
+      // tampil), sedangkan Pengumuman ditekan berkali-kali. Urutan ini menjaga
+      // Pengumuman tetap di atas lipatan layar 1280x588.
+      { href: "/admin/area-peserta", label: "Area peserta", icon: IdentificationCard, description: "Siapa yang bisa masuk ke Dashboard saya dan apa yang tampil di sana." },
     ],
   },
   {
