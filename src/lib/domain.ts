@@ -1271,6 +1271,8 @@ export type ApiErrorCode =
   | "MESSAGE_WHATSAPP_NOT_READY"
   | "EMAIL_NOT_CONFIGURED"
   | "EMAIL_SEND_FAILED"
+  | "EMAIL_TEMPLATE_NOT_READY"
+  | "MESSAGING_PREVIEW_BLOCKED"
   // Dua penjaga penghapusan event. Dipisah karena jalan keluarnya berbeda:
   // yang pertama diselesaikan dengan mengubah status, yang kedua tidak dapat
   // diselesaikan sama sekali — event yang pernah bertransaksi diarsipkan.

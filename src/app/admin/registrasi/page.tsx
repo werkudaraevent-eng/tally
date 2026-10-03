@@ -50,6 +50,8 @@ type EventConfig = {
   form_theme_seed: string;
   /** Ringkasan Tema halaman acara yang dipakai formulir. */
   tampilan?: { v2: boolean; logo: boolean; kv: string | null; huruf: string | null; area_peserta: boolean };
+  /** Email konfirmasi (Pesan peserta > Email otomatis). Preset null = templat bawaan dari Tema. */
+  email_konfirmasi?: { preset: string | null; kirim_ditolak: boolean };
 };
 
 type Status = Row["status"];
@@ -275,7 +277,11 @@ export default function RegistrasiAdminPage() {
             : email.state === "failed" ? " Email gagal terkirim. Bacakan kodenya, lalu coba Kirim ulang di tab Disetujui."
             : ""
           }`
-        : "Pendaftar tidak dibuatkan kode peserta.",
+        : `Pendaftar tidak dibuatkan kode peserta.${
+            email.state === "sent" ? ` Email Tidak disetujui terkirim ke ${row.email}.`
+            : email.state === "failed" ? " Email Tidak disetujui gagal terkirim."
+            : ""
+          }`,
     );
   }
 
@@ -555,6 +561,15 @@ export default function RegistrasiAdminPage() {
                 <button type="button" onClick={salinTautan} className="rounded-sm font-medium text-primary hover:underline">Salin tautan</button>
               </>
             ) : null}
+            {config.email_konfirmasi ? (
+              <>
+                <MetaSeparator />
+                <span>
+                  Email konfirmasi: {emailAktif ? config.email_konfirmasi.preset ?? "bawaan dari Tema" : "belum aktif di server"}
+                </span>
+                <Link href="/admin/pengumuman/otomatis" className="rounded-sm font-medium text-primary hover:underline">Atur email</Link>
+              </>
+            ) : null}
           </>
         ) : null}
         actions={
@@ -616,7 +631,9 @@ export default function RegistrasiAdminPage() {
         dismissible={!busy}
         tone="danger"
         title={`Tolak pendaftaran ${menolak?.name ?? ""}?`}
-        description="Pendaftar tidak dibuatkan kode peserta. Catatannya tetap tersimpan, dan orang ini boleh mendaftar ulang dengan email yang sama."
+        description={`Pendaftar tidak dibuatkan kode peserta. Catatannya tetap tersimpan, dan orang ini boleh mendaftar ulang dengan email yang sama.${
+          config?.email_konfirmasi?.kirim_ditolak && emailAktif && menolak?.email ? " Email Tidak disetujui ikut terkirim; alasan di bawah tidak ikut." : ""
+        }`}
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={() => setMenolak(null)}>Batal</Button>

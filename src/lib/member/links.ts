@@ -64,6 +64,24 @@ export function memberLinkUrl(requestUrl: string, slug: string, purpose: "konfir
   return new URL(path, origin).toString();
 }
 
+/**
+ * Tautan konfirmasi akun tanpa mengirim email: dipakai formulir pendaftaran
+ * untuk menyelipkannya ke email konfirmasi pendaftaran, supaya pendaftar
+ * menerima satu email, bukan dua. Null bila token gagal dibuat; pemanggil lalu
+ * jatuh ke sendConfirmationLink.
+ */
+export async function confirmationLinkUrl(
+  event: Pick<EventRow, "id" | "slug">,
+  input: { accountId: string; email: string; requestUrl: string },
+): Promise<string | null> {
+  try {
+    const token = await buatToken(event.id, "konfirmasi", normalizeEmail(input.email), { accountId: input.accountId });
+    return memberLinkUrl(input.requestUrl, event.slug, "konfirmasi", token);
+  } catch {
+    return null;
+  }
+}
+
 /** Email konfirmasi untuk akun yang baru dibuat dari formulir. Best effort. */
 export async function sendConfirmationLink(
   event: Pick<EventRow, "id" | "slug" | "name" | "landing_config">,

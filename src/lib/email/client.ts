@@ -29,6 +29,11 @@ export type EmailAttachment = {
   filename: string;
   /** Isi berkas dalam base64, tanpa prefiks data URL. */
   content: string;
+  /**
+   * Gambar inline: dirujuk dari HTML sebagai `cid:<content_id>` dan tampil di
+   * badan email, bukan sebagai lampiran terpisah. Lihat email konfirmasi.
+   */
+  content_id?: string;
 };
 
 export type SendResult = { ok: true; id: string } | { ok: false; error: string };
@@ -116,6 +121,12 @@ export async function sendEmail(input: {
   attachments?: EmailAttachment[];
   /** Acara pengirim: nama pengirim dan reply-to diambil dari setelannya. */
   eventId?: string | null;
+  /**
+   * Header Idempotency-Key Resend: permintaan kedua dengan kunci yang sama
+   * dalam 24 jam tidak mengirim email kedua. Dipakai pengiriman massal yang
+   * bisa saja berjalan dua kali bersamaan.
+   */
+  idempotencyKey?: string;
 }): Promise<SendResult> {
   const config = await configFor(input.eventId);
   // Dibedakan dari kegagalan jaringan dengan sengaja: pemanggil memakai ini
@@ -130,6 +141,7 @@ export async function sendEmail(input: {
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
+        ...(input.idempotencyKey ? { "Idempotency-Key": input.idempotencyKey } : {}),
       },
       body: JSON.stringify({
         from: config.from,
