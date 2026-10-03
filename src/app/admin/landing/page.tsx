@@ -849,7 +849,8 @@ export default function LandingCmsPage() {
     const response = await fetch(eventApiPath("/api/admin/landing"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(isiKirim(facts)),
+      // `member` hanya untuk pratinjau; area peserta disimpan di halamannya sendiri.
+      body: JSON.stringify(isiKirim(facts), (kunci, nilai) => (kunci === "member" ? undefined : nilai)),
     }).catch(() => null);
     setBusy(false);
     if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return; }

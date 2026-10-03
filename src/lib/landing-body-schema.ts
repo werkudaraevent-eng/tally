@@ -300,9 +300,10 @@ export const landingBodySchema = z.object({
       en: z.object({ name: teks(120) }).optional(),
     })).max(40).optional(),
     theme: z.object({ seed: z.string().regex(/^#[0-9a-fA-F]{6}$/) }).optional(),
-    // Diterima demi klien lama, tetapi diabaikan server: area peserta disimpan
-    // lewat /api/admin/area-peserta (lihat PATCH /api/admin/landing).
-    member: memberSchema.optional(),
+    // Tidak divalidasi dan diabaikan server: area peserta disimpan lewat
+    // /api/admin/area-peserta (lihat PATCH /api/admin/landing). Salinan basi
+    // dari klien lama tidak boleh menggagalkan Simpan halaman acara.
+    member: z.unknown().optional(),
   }),
 
   // ---- Warna formulir pendaftaran -----------------------------------------
