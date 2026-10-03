@@ -314,11 +314,11 @@ export async function POST(request: Request) {
   if (hasil.status === "approved" && hasil.qr_code) {
     const { data: baris } = await getSupabaseServiceClient()
       .from("event_registrations")
-      .select("name,email,access_token")
+      .select("name,email,company,access_token")
       .eq("id", parsed.data.id)
       .eq("event_id", auth.scope.event.id)
       .maybeSingle();
-    const reg = baris as { name: string; email: string; access_token: string | null } | null;
+    const reg = baris as { name: string; email: string; company: string | null; access_token: string | null } | null;
     if (reg) {
       kirim = await sendRegistrationCode({
         eventId: auth.scope.event.id,
@@ -330,6 +330,8 @@ export async function POST(request: Request) {
         name: reg.name,
         qrCode: hasil.qr_code,
         codeUrl: registrationCodeUrl(request.url, auth.scope.event.slug, reg.access_token),
+        origin: new URL(request.url).origin,
+        company: reg.company,
         actorId: auth.user.id,
       });
     }

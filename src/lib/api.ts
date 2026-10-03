@@ -95,6 +95,7 @@ const messages: Record<ApiErrorCode, string> = {
   MESSAGE_WHATSAPP_NOT_READY: "WhatsApp belum terhubung. Untuk sekarang kirim lewat email.",
   EMAIL_NOT_CONFIGURED: "Pengiriman email belum diaktifkan di server. Hubungi pemilik sistem; kode peserta tetap bisa dibacakan dari daftar ini.",
   EMAIL_SEND_FAILED: "Email gagal dikirim. Sebabnya tercatat di baris pendaftaran.",
+  EMAIL_TEMPLATE_NOT_READY: "Templat email konfirmasi belum bisa disimpan: migrasi database 202610030006 belum dijalankan. Email tetap terkirim memakai templat bawaan.",
   EVENT_NOT_DELETABLE: "Hanya event berstatus Draft atau Arsip yang dapat dihapus. Kembalikan ke draft atau arsipkan dulu.",
   EVENT_HAS_ORDERS: "Event ini sudah punya transaksi tercatat, jadi tidak dapat dihapus. Arsipkan saja — datanya hilang dari daftar utama tanpa memusnahkan laporan.",
   // Menyebut APA yang masih boleh diubah, bukan sekadar menolak. Tanpa itu

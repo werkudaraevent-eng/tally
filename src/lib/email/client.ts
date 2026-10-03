@@ -26,6 +26,11 @@ export type EmailAttachment = {
   filename: string;
   /** Isi berkas dalam base64, tanpa prefiks data URL. */
   content: string;
+  /**
+   * Gambar inline: dirujuk dari HTML sebagai `cid:<content_id>` dan tampil di
+   * badan email, bukan sebagai lampiran terpisah. Lihat email konfirmasi.
+   */
+  content_id?: string;
 };
 
 export type SendResult = { ok: true; id: string } | { ok: false; error: string };

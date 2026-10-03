@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
-import { sendRegistrationCode } from "@/lib/email/registration-code";
+import { sendRegistrationCode, sendRegistrationReceived } from "@/lib/email/registration-code";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { validateAnswers } from "@/lib/registration-fields";
@@ -192,9 +192,10 @@ export async function POST(request: Request) {
     access_token: string | null;
   };
 
-  // Email hanya untuk jalur auto-approve: di event bermoderasi belum ada kode
-  // yang bisa dikirim, dan email "pendaftaran diterima" tanpa kode hanya
-  // membuat pendaftar mengira urusannya sudah selesai.
+  // Email ber-QR hanya untuk jalur auto-approve: di event bermoderasi belum ada
+  // kode yang bisa dikirim. Pendaftar bermoderasi menerima email "Menunggu
+  // persetujuan" yang menyebut QR menyusul, supaya tidak mengira urusannya
+  // sudah selesai.
   //
   // Ditunggu (await), tidak dilepas sebagai janji menggantung. Di lingkungan
   // serverless, fungsi yang sudah membalas dapat dibekukan sebelum janji itu
@@ -215,8 +216,22 @@ export async function POST(request: Request) {
         name: parsed.data.name,
         qrCode: hasil.qr_code,
         codeUrl: registrationCodeUrl(request.url, event.slug, hasil.access_token),
+        origin: new URL(request.url).origin,
+        company: parsed.data.company ?? null,
       })
-    : { state: "not_configured" as const };
+    : hasil.status === "pending" && parsed.data.email
+      ? // Acara bermoderasi: email "Pendaftaran diterima" dari templat yang
+        // sama, tanpa QR, dan jelas mengatakan QR menyusul setelah disetujui.
+        // Inilah yang membuatnya tidak lagi menyesatkan (lihat catatan di atas).
+        await sendRegistrationReceived({
+          eventId: event.id,
+          registrationId: hasil.registration_id,
+          to: parsed.data.email as string,
+          name: parsed.data.name,
+          company: parsed.data.company ?? null,
+          requestUrl: request.url,
+        }).then(() => ({ state: "not_configured" as const }))
+      : { state: "not_configured" as const };
 
   // Akun area peserta, setelah pendaftarannya tersimpan. Gagal membuat akun
   // TIDAK membatalkan pendaftaran: pendaftar tetap terdaftar dan bisa membuat

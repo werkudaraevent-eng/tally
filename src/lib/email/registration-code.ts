@@ -2,6 +2,10 @@ import QRCode from "qrcode";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { isEmailConfigured, sendEmail } from "./client";
 import type { EventTimeZone } from "@/lib/timezone";
+import type { FieldKey } from "@/lib/pesan/bawaan";
+import { bahanKonfirmasi, type BahanKonfirmasi } from "./konfirmasi/konteks";
+import { renderKonfirmasi, type RenderContext } from "./konfirmasi/render";
+import { defaultTemplat } from "./konfirmasi/templat";
 
 /**
  * Kirim kode peserta ke pendaftar yang disetujui, lalu catat hasilnya.
@@ -19,6 +23,8 @@ import type { EventTimeZone } from "@/lib/timezone";
 
 export type EmailDelivery =
   | { state: "sent" }
+  /** Sakelar email Menunggu persetujuan acara ini mati. */
+  | { state: "disabled" }
   | { state: "failed"; error: string }
   | { state: "not_configured" };
 
@@ -41,6 +47,9 @@ type Input = {
    */
   codeUrl?: string | null;
   actorId?: string | null;
+  company?: string | null;
+  /** Origin permintaan: tautan di email (kalender, dashboard) memakai alamat yang sama dengan yang dibuka pendaftar. */
+  origin: string;
 };
 
 export async function sendRegistrationCode(input: Input): Promise<EmailDelivery> {
@@ -49,33 +58,38 @@ export async function sendRegistrationCode(input: Input): Promise<EmailDelivery>
   // dan gagal" berbohong: tidak ada satu pun percobaan yang benar-benar terjadi.
   if (!isEmailConfigured()) return { state: "not_configured" };
 
-  const tanggal = formatTanggal(input.eventDate, input.timeZone);
-  let lampiran: { filename: string; content: string }[] = [];
+  const bahan = await bahanKonfirmasi(input.eventId, input.origin);
+  if (!bahan) return { state: "failed", error: "Acara tidak ditemukan." };
+
+  let qrPng: string | null = null;
   try {
-    // QR sebagai LAMPIRAN, bukan <img> di badan email. Gambar jarak jauh
-    // diblokir sebagian besar klien email secara bawaan, dan QR yang tidak
-    // tampil di meja registrasi lebih buruk daripada tidak ada QR sama sekali.
-    // Kode teksnya di bawah adalah jalur yang pasti terbaca; lampiran ini
-    // kenyamanan tambahan.
-    const png = await QRCode.toBuffer(input.qrCode, {
-      errorCorrectionLevel: "H",
-      margin: 2,
-      width: 512,
-    });
-    lampiran = [{ filename: `kode-peserta-${input.qrCode}.png`, content: png.toString("base64") }];
+    // QR ditanam inline (cid), bukan gambar dari server: gambar jarak jauh
+    // diblokir banyak klien email secara bawaan. Kode teksnya tetap jalur
+    // yang pasti terbaca; QR ini kenyamanan tambahan.
+    qrPng = (await QRCode.toBuffer(input.qrCode, { errorCorrectionLevel: "H", margin: 4, width: 480, color: { dark: "#000000", light: "#FFFFFF" } })).toString("base64");
   } catch {
     // QR gagal digambar bukan alasan membatalkan email: kode teksnya sendiri
     // sudah cukup untuk dicocokkan panitia di meja registrasi.
-    lampiran = [];
+    qrPng = null;
   }
+
+  const email = susunAman(bahan, {
+    ...bahan.dasar,
+    state: "approved",
+    values: nilaiKolom(bahan.dasar.eventName, bahan.dasar.detail.tanggal, input.name, input.company ?? null),
+    qr: { code: input.qrCode, src: qrPng ? `cid:${QR_CID}` : null },
+    codeUrl: input.codeUrl ?? null,
+  });
 
   const hasil = await sendEmail({
     eventId: input.eventId,
     to: input.to,
-    subject: `Kode peserta Anda — ${input.eventName}`,
-    html: htmlBody({ ...input, tanggal }),
-    text: textBody({ ...input, tanggal }),
-    attachments: lampiran,
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
+    attachments: qrPng
+      ? [{ filename: `kode-peserta-${input.qrCode}.png`, content: qrPng, content_id: QR_CID }]
+      : [],
   });
 
   // Pencatatan dilakukan lewat RPC supaya email_attempts naik atomik dan satu
@@ -94,69 +108,58 @@ export async function sendRegistrationCode(input: Input): Promise<EmailDelivery>
   return hasil.ok ? { state: "sent" } : { state: "failed", error: hasil.error };
 }
 
-function formatTanggal(eventDate: string | null, timeZone: EventTimeZone) {
-  if (!eventDate) return null;
-  // T12:00:00Z, pola yang sama dengan halaman-halaman lain: tanggal tanpa jam
-  // yang diurai sebagai tengah malam UTC akan mundur satu hari di zona WIB/WITA/WIT.
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone })
-    .format(new Date(`${eventDate}T12:00:00Z`));
+/**
+ * Email "Pendaftaran diterima" untuk acara bermoderasi: templat yang sama,
+ * kartu Tiket diganti kotak Menunggu persetujuan. Tidak menyentuh
+ * email_sent_at (kolom itu milik email ber-QR), cukup satu baris audit.
+ */
+export async function sendRegistrationReceived(input: {
+  eventId: string;
+  registrationId: string;
+  to: string;
+  name: string;
+  company?: string | null;
+  requestUrl: string;
+}): Promise<EmailDelivery> {
+  if (!isEmailConfigured()) return { state: "not_configured" };
+  const bahan = await bahanKonfirmasi(input.eventId, new URL(input.requestUrl).origin);
+  if (!bahan) return { state: "failed", error: "Acara tidak ditemukan." };
+  if (!bahan.kirimMenunggu) return { state: "disabled" };
+  const email = susunAman(bahan, {
+    ...bahan.dasar,
+    state: "pending",
+    values: nilaiKolom(bahan.dasar.eventName, bahan.dasar.detail.tanggal, input.name, input.company ?? null),
+    qr: null,
+    codeUrl: null,
+  });
+  const hasil = await sendEmail({ eventId: input.eventId, to: input.to, subject: email.subject, html: email.html, text: email.text });
+  await getSupabaseServiceClient().from("audit_logs").insert({
+    event_id: input.eventId,
+    user_id: null,
+    action: hasil.ok ? "registration_received_email_sent" : "registration_received_email_failed",
+    payload: { registration_id: input.registrationId, email: input.to, error: hasil.ok ? null : hasil.error },
+  } as never);
+  return hasil.ok ? { state: "sent" } : { state: "failed", error: hasil.error };
 }
 
-type Body = Input & { tanggal: string | null };
+const QR_CID = "kode-peserta-qr";
 
 /**
- * HTML email, gaya inline dan tabel-bebas.
- *
- * Tanpa `<style>`, tanpa kelas, tanpa flexbox/grid: Gmail membuang blok style di
- * `<head>`, dan Outlook desktop merender lewat mesin Word yang tidak mengenal
- * tata letak modern. Yang tersisa aman di semua klien adalah `<div>` bertumpuk
- * dengan atribut `style` -- membosankan, dan terbaca di mana saja.
+ * Templat panitia bila bisa disusun; bila tidak (data lama yang aneh, bug
+ * penyusun), templat bawaan acara. Pendaftar tetap menerima email; panitia
+ * melihat jejaknya di log server.
  */
-function htmlBody(b: Body) {
-  return `<!doctype html>
-<html lang="id"><body style="margin:0;padding:24px;background:#F5F4F0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#17211D;">
-  <div style="max-width:520px;margin:0 auto;background:#FFFFFF;border:1px solid #D9DDD7;padding:32px;">
-    <p style="margin:0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#2649D0;font-weight:600;">Pendaftaran peserta</p>
-    <h1 style="margin:12px 0 0;font-size:24px;line-height:1.25;font-weight:600;">${escapeHtml(b.eventName)}</h1>
-    ${b.tanggal ? `<p style="margin:8px 0 0;font-size:14px;color:#66736C;">${escapeHtml(b.tanggal)}</p>` : ""}
-
-    <p style="margin:28px 0 0;font-size:15px;line-height:1.6;">Halo ${escapeHtml(b.name)}, pendaftaran Anda sudah disetujui panitia.</p>
-
-    <div style="margin:24px 0 0;border:1px solid #D9DDD7;background:#EDECE6;padding:24px;text-align:center;">
-      <p style="margin:0;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#66736C;font-weight:600;">Kode peserta</p>
-      <p style="margin:10px 0 0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:30px;letter-spacing:0.1em;font-weight:600;">${escapeHtml(b.qrCode)}</p>
-    </div>
-
-    ${b.codeUrl ? `<p style="margin:24px 0 0;text-align:center;"><a href="${escapeHtml(b.codeUrl)}" style="display:inline-block;padding:14px 28px;background:#2649D0;color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none;border-radius:999px;">Buka kode &amp; QR</a></p>` : ""}
-
-    <p style="margin:24px 0 0;font-size:15px;line-height:1.6;">Tunjukkan kode ini di meja registrasi saat hari acara. QR-nya juga terlampir di email ini sebagai berkas gambar, tinggal ditunjukkan dari layar ponsel.</p>
-    <p style="margin:16px 0 0;font-size:14px;line-height:1.6;color:#66736C;">Kode ini khusus untuk Anda. Jangan diteruskan ke orang lain — kode yang sama tidak bisa dipakai dua orang.</p>
-
-    <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #D9DDD7;font-size:13px;line-height:1.6;color:#66736C;">Email ini dikirim otomatis dan tidak perlu dibalas. Ada pertanyaan? Hubungi panitia acara.</p>
-  </div>
-</body></html>`;
+function susunAman(bahan: BahanKonfirmasi, ctx: RenderContext) {
+  try {
+    return renderKonfirmasi(bahan.templat, ctx);
+  } catch (error) {
+    console.error("Templat email konfirmasi gagal disusun, memakai bawaan:", error);
+    return renderKonfirmasi(defaultTemplat({ punyaKv: false, memberOn: bahan.memberOn }), ctx);
+  }
 }
 
-/**
- * Versi teks. Bukan formalitas: sebagian klien perusahaan menampilkan bagian
- * teks apa adanya, dan email tanpa bagian teks lebih sering dinilai spam oleh
- * penyaring.
- */
-function textBody(b: Body) {
-  return [
-    b.eventName,
-    b.tanggal ?? "",
-    "",
-    `Halo ${b.name}, pendaftaran Anda sudah disetujui panitia.`,
-    "",
-    `KODE PESERTA: ${b.qrCode}`,
-    "",
-    ...(b.codeUrl ? [`Kode dan QR-nya juga bisa dibuka kapan saja di: ${b.codeUrl}`, ""] : []),
-    "Tunjukkan kode ini di meja registrasi saat hari acara. QR-nya juga terlampir sebagai berkas gambar.",
-    "Kode ini khusus untuk Anda. Jangan diteruskan ke orang lain.",
-    "",
-    "Email ini dikirim otomatis dan tidak perlu dibalas.",
-  ].filter((baris, index) => baris !== "" || index > 0).join("\n");
+export function nilaiKolom(acara: string, tanggal: string | null, nama: string, perusahaan: string | null): Record<FieldKey, string> {
+  return { nama: nama.trim() || "Peserta", perusahaan: perusahaan?.trim() || "", acara, tanggal: tanggal ?? "" };
 }
 
 /**

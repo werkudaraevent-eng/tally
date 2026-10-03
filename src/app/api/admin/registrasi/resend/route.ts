@@ -75,6 +75,7 @@ export async function POST(request: Request) {
     name: reg.name,
     qrCode,
     codeUrl: registrationCodeUrl(request.url, auth.scope.event.slug, reg.access_token),
+    origin: new URL(request.url).origin,
     actorId: auth.user.id,
   });
 
