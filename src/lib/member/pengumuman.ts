@@ -25,6 +25,12 @@ export type Announcement = {
 };
 
 export type MemberAnnouncements = {
+  /**
+   * false: tabelnya belum ada (migrasi belum dijalankan) atau gagal dibaca.
+   * Lonceng dan bagian Pengumuman lalu disembunyikan, bukan tampil kosong,
+   * supaya peserta tidak mengira panitia memang belum mengumumkan apa pun.
+   */
+  ready: boolean;
   items: Announcement[];
   /** Jumlah yang terbit setelah peserta terakhir membuka lonceng/dashboard. */
   unread: number;
@@ -57,24 +63,28 @@ export async function loadMemberAnnouncements(
     query,
     client.from("participant_accounts").select("announcements_seen_at").eq("id", sesi.accountId).maybeSingle(),
   ]);
-  if (error || !data) return { items: [], unread: 0, seenAt: null };
+  if (error || !data) return { ready: false, items: [], unread: 0, seenAt: null };
 
   const items = data as unknown as Announcement[];
   const seenAt = (akun.data as { announcements_seen_at?: string | null } | null)?.announcements_seen_at ?? null;
   const unread = items.filter((item) => isUnread(item, seenAt)).length;
-  return { items, unread, seenAt };
+  return { ready: true, items, unread, seenAt };
 }
 
 export function isUnread(item: Pick<Announcement, "published_at">, seenAt: string | null) {
   return !seenAt || new Date(item.published_at).getTime() > new Date(seenAt).getTime();
 }
 
-/** Tandai semua pengumuman sampai saat ini sudah dibaca akun ini. */
+/**
+ * Tandai semua pengumuman sampai saat ini sudah dibaca akun ini. false bila
+ * gagal, termasuk sebelum migrasi (kolom `announcements_seen_at` belum ada).
+ */
 export async function markAnnouncementsSeen(accountId: string) {
-  await getSupabaseServiceClient()
+  const { error } = await getSupabaseServiceClient()
     .from("participant_accounts")
     .update({ announcements_seen_at: new Date().toISOString() } as never)
     .eq("id", accountId);
+  return !error;
 }
 
 /** Tabel belum ada: migrasi 202610030002 belum dijalankan. */

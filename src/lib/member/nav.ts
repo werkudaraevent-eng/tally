@@ -14,7 +14,8 @@ export type NavPeserta = {
   keluarAction: string;
   /** Dua huruf awal nama, untuk lingkaran di tombol Dashboard saya. */
   inisial: string;
-  lonceng: { items: LoncengItem[]; unread: number };
+  /** null: fitur pengumuman belum siap (migrasi belum jalan), lonceng disembunyikan. */
+  lonceng: { items: LoncengItem[]; unread: number } | null;
 };
 
 /** Paling banyak lima di lonceng; sisanya di Dashboard saya. */
@@ -77,6 +78,6 @@ export async function muatNavPeserta(
     dashboardHref: `/e/${slug}/peserta`,
     keluarAction: `/e/${slug}/api/peserta/keluar`,
     inisial: inisialNama(sesi.name),
-    lonceng: { items: itemLonceng(data, event, lang), unread: opsi.unread ?? data.unread },
+    lonceng: data.ready ? { items: itemLonceng(data, event, lang), unread: opsi.unread ?? data.unread } : null,
   };
 }

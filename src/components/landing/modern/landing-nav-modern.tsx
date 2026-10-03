@@ -393,15 +393,17 @@ export function LandingNavModern({
           ) : null}
           {peserta ? (
             <>
-              <LoncengPengumuman
-                slug={peserta.slug}
-                lang={lang}
-                items={peserta.lonceng.items}
-                unread={peserta.lonceng.unread}
-                dashboardHref={dashboardAktif ? null : peserta.dashboardHref}
-                buka={loncengBuka}
-                onBukaChange={ubahLonceng}
-              />
+              {peserta.lonceng ? (
+                <LoncengPengumuman
+                  slug={peserta.slug}
+                  lang={lang}
+                  items={peserta.lonceng.items}
+                  unread={peserta.lonceng.unread}
+                  dashboardHref={dashboardAktif ? null : peserta.dashboardHref}
+                  buka={loncengBuka}
+                  onBukaChange={ubahLonceng}
+                />
+              ) : null}
               <Link
                 href={peserta.dashboardHref}
                 aria-current={dashboardAktif ? "page" : undefined}

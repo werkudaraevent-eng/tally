@@ -12,6 +12,6 @@ export async function POST(request: Request) {
   if (resolved.response) return resolved.response;
   const sesi = await getMemberSession(resolved.event);
   if (!sesi) return memberError("UNAUTHORIZED", 401, "Masuk dulu ke area peserta.");
-  await markAnnouncementsSeen(sesi.accountId);
+  if (!(await markAnnouncementsSeen(sesi.accountId))) return memberError("ANNOUNCEMENTS_NOT_READY", 409, "Pengumuman belum tersedia.");
   return Response.json({ ok: true });
 }

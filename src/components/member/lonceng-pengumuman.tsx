@@ -71,19 +71,48 @@ export function LoncengPengumuman({
       setBelum(0);
       fetch(`/e/${encodeURIComponent(slug)}/api/peserta/pengumuman`, { method: "POST" }).catch(() => null);
     }
+    // Ponsel: panel menutupi halaman di atas lapisan gelap, jadi ia modal; Tab
+    // berputar di dalam panel. Layar lebar: panel melayang seperti menu, dan
+    // tertutup begitu fokus keluar darinya (lonceng sendiri masih di dalam).
+    const ponsel = window.matchMedia("(max-width: 639.98px)").matches;
+    const panel = panelRef.current;
+    if (ponsel) panel?.setAttribute("aria-modal", "true");
+    else panel?.removeAttribute("aria-modal");
     const tekan = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setBuka(false);
-      tombolRef.current?.focus();
+      if (event.key === "Escape") {
+        setBuka(false);
+        tombolRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab" || !ponsel || !panel) return;
+      const fokus = [...panel.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")];
+      if (fokus.length === 0) return;
+      const pertama = fokus[0];
+      const terakhir = fokus[fokus.length - 1];
+      const aktif = document.activeElement;
+      if (event.shiftKey && (aktif === pertama || aktif === panel || !panel.contains(aktif))) {
+        event.preventDefault();
+        terakhir.focus();
+      } else if (!event.shiftKey && (aktif === terakhir || !panel.contains(aktif))) {
+        event.preventDefault();
+        pertama.focus();
+      }
     };
     const ketuk = (event: PointerEvent) => {
       if (!akarRef.current?.contains(event.target as Node)) setBuka(false);
     };
+    const keluar = (event: FocusEvent) => {
+      const ke = event.relatedTarget as Node | null;
+      if (!ponsel && ke && !akarRef.current?.contains(ke)) setBuka(false);
+    };
+    const akar = akarRef.current;
     document.addEventListener("keydown", tekan);
     document.addEventListener("pointerdown", ketuk);
+    akar?.addEventListener("focusout", keluar);
     return () => {
       document.removeEventListener("keydown", tekan);
       document.removeEventListener("pointerdown", ketuk);
+      akar?.removeEventListener("focusout", keluar);
     };
   }, [buka, belum, slug, setBuka]);
 

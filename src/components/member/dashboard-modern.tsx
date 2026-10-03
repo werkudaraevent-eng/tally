@@ -11,7 +11,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventLandingConfig, EventRow, LandingMemberConfig } from "@/lib/domain";
-import { LANDING_NAV_DEFAULTS, normalizeLandingSections, publicEventName } from "@/lib/domain";
+import { LANDING_NAV_DEFAULTS, isLandingBlockId, normalizeLandingSections, publicEventName } from "@/lib/domain";
 import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath } from "@/lib/landing-i18n";
@@ -71,7 +71,19 @@ export async function DashboardModern({
   const halamanAcara = landingPath(event.slug, "id", utama);
   const sections = normalizeLandingSections(config.sections, config.blocks);
   const agenda = await loadAgendaPreview(event.id, "id");
-  const { tampil, speakers, navSections, mitra, kontak } = bagianModern(event, config, sections, agenda, "id");
+  const { aktif, blokById, tampil, speakers, navSections, mitra: sponsor, kontak } = bagianModern(event, config, sections, agenda, "id");
+  // Pita mitra seperti di kaki halaman acara. Banyak acara (ILO salah satunya)
+  // memasang logo lewat blok Logo, bukan daftar Sponsor; tanpa sponsor, pakai
+  // blok Logo pertama yang tampil supaya kaki dashboard sama dengan halaman acara.
+  const blokLogo = sponsor.length
+    ? null
+    : sections
+        .map((section) => (isLandingBlockId(section.id) ? blokById.get(section.id) : undefined))
+        .find((block) => block?.type === "logos" && aktif.has(block.id) && block.items?.some((item) => item.image_url));
+  const mitra = blokLogo
+    ? (blokLogo.items ?? []).filter((item) => item.image_url).map((item) => ({ logo_url: item.image_url, name: item.label }))
+    : sponsor;
+  const judulMitra = blokLogo?.heading?.trim() || t.organisedBy;
   // Lonceng di halaman ini tanpa angka: semua pengumumannya sedang ditampilkan
   // di bawah, dan membuka halaman ini menandainya terbaca.
   const nav = await muatNavPeserta(event, sesi, "id", { data: pengumuman, unread: 0 });
@@ -270,58 +282,60 @@ export async function DashboardModern({
           </div>
 
           <div className="flex min-w-0 flex-col gap-12 lg:col-span-7 lg:col-start-1 lg:row-start-1">
-            <section aria-labelledby="pengumuman-judul">
-              <p className={ALIS}>Dari panitia</p>
-              <h2 id="pengumuman-judul" className={`${JUDUL_DASBOR} mt-1.5`}>
-                Pengumuman
-              </h2>
-              {pengumuman.items.length === 0 ? (
-                <p className={`mt-5 rounded-lg border border-[var(--reg-outline-variant)] px-6 py-5 text-body-large ${MUTED}`}>
-                  Belum ada pengumuman. Kabar dari panitia muncul di sini.
-                </p>
-              ) : (
-                <ul className="mt-5 overflow-hidden rounded-lg border border-[var(--reg-outline-variant)]">
-                  {pengumuman.items.map((item, index) => {
-                    const baru = isUnread(item, pengumuman.seenAt);
-                    return (
-                      <li
-                        key={item.id}
-                        className={`grid grid-cols-[8px_minmax(0,1fr)] gap-3 px-5 py-4 sm:gap-4 sm:px-6 sm:py-5 ${
-                          index > 0 ? "border-t border-[var(--reg-outline-variant)]" : ""
-                        }`}
-                      >
-                        <span aria-hidden className={`mt-2 size-2 rounded-full ${baru ? "bg-[#b41340]" : ""}`} />
-                        <div className="min-w-0">
-                          {item.pinned ? (
-                            <p className="mb-1 inline-flex items-center gap-1 text-[12px] font-semibold uppercase leading-4 tracking-[0.06em] text-[var(--reg-primary)]">
-                              <PushPin size={13} weight="fill" aria-hidden />
-                              Disematkan
-                            </p>
-                          ) : null}
-                          <h3 className="text-[17px] font-semibold leading-6">
-                            {baru ? <span className="sr-only">Baru: </span> : null}
-                            {item.title}
-                          </h3>
-                          {item.body ? <p className={`mt-1 whitespace-pre-line text-isi ${MUTED}`}>{item.body}</p> : null}
-                          {item.link_url ? (
-                            <a
-                              href={item.link_url}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className="mt-1 inline-flex min-h-10 items-center gap-1.5 text-title-small font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline"
-                            >
-                              {item.link_label?.trim() || item.link_url}
-                              <ArrowSquareOut size={16} aria-hidden />
-                            </a>
-                          ) : null}
-                          <p className="mt-1.5 text-body-small text-[#535862]">{waktuPengumuman(item.published_at, event.time_zone, "id")}</p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
+            {pengumuman.ready ? (
+              <section aria-labelledby="pengumuman-judul">
+                <p className={ALIS}>Dari panitia</p>
+                <h2 id="pengumuman-judul" className={`${JUDUL_DASBOR} mt-1.5`}>
+                  Pengumuman
+                </h2>
+                {pengumuman.items.length === 0 ? (
+                  <p className={`mt-5 rounded-lg border border-[var(--reg-outline-variant)] px-6 py-5 text-body-large ${MUTED}`}>
+                    Belum ada pengumuman. Kabar dari panitia muncul di sini.
+                  </p>
+                ) : (
+                  <ul className="mt-5 overflow-hidden rounded-lg border border-[var(--reg-outline-variant)]">
+                    {pengumuman.items.map((item, index) => {
+                      const baru = isUnread(item, pengumuman.seenAt);
+                      return (
+                        <li
+                          key={item.id}
+                          className={`grid grid-cols-[8px_minmax(0,1fr)] gap-3 px-5 py-4 sm:gap-4 sm:px-6 sm:py-5 ${
+                            index > 0 ? "border-t border-[var(--reg-outline-variant)]" : ""
+                          }`}
+                        >
+                          <span aria-hidden className={`mt-2 size-2 rounded-full ${baru ? "bg-[#b41340]" : ""}`} />
+                          <div className="min-w-0">
+                            {item.pinned ? (
+                              <p className="mb-1 inline-flex items-center gap-1 text-[12px] font-semibold uppercase leading-4 tracking-[0.06em] text-[var(--reg-primary)]">
+                                <PushPin size={13} weight="fill" aria-hidden />
+                                Disematkan
+                              </p>
+                            ) : null}
+                            <h3 className="text-[17px] font-semibold leading-6">
+                              {baru ? <span className="sr-only">Baru: </span> : null}
+                              {item.title}
+                            </h3>
+                            {item.body ? <p className={`mt-1 whitespace-pre-line text-isi ${MUTED}`}>{item.body}</p> : null}
+                            {item.link_url ? (
+                              <a
+                                href={item.link_url}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="mt-1 inline-flex min-h-10 items-center gap-1.5 text-title-small font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline"
+                              >
+                                {item.link_label?.trim() || item.link_url}
+                                <ArrowSquareOut size={16} aria-hidden />
+                              </a>
+                            ) : null}
+                            <p className="mt-1.5 text-body-small text-[#535862]">{waktuPengumuman(item.published_at, event.time_zone, "id")}</p>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            ) : null}
 
             {tampilSusunan ? (
               <section aria-labelledby="susunan-judul">
@@ -345,7 +359,7 @@ export async function DashboardModern({
         </div>
       </div>
 
-      <PitaMitra mitra={mitra} judul={t.organisedBy} />
+      <PitaMitra mitra={mitra} judul={judulMitra} />
       <KakiModern
         nama={nama}
         keterangan={{ catatan: config.footer_note?.trim() || null, baris: [tanggal, venue].filter((baris): baris is string => Boolean(baris)) }}
