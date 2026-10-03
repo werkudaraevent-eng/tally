@@ -89,7 +89,7 @@ const BAGIAN: Bagian[] = [
         judul: "d. Peserta",
         poin: [
           "Daftar peserta: tarik dari Event Scanner API, impor berkas, atau isi manual — tergantung sumber peserta yang dipilih di konfigurasi acara.",
-          "Pendaftaran publik: nyalakan bila tamu mendaftar sendiri lewat formulir. Susun pertanyaannya di tab yang sama, lalu moderasi pendaftar yang masuk.",
+          "Pendaftaran: nyalakan bila tamu mendaftar sendiri lewat formulir. Susun pertanyaannya di tab yang sama, lalu moderasi pendaftar yang masuk.",
           "Kode peserta terbit otomatis pada acara yang menyetujui pendaftaran secara otomatis; pada acara bermoderasi, kode terbit setelah panitia menekan Setujui.",
         ],
       },
