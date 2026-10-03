@@ -480,10 +480,11 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
                 onChange={setWaktuKirim}
                 options={[
                   { value: "sekarang", label: "Sekarang" },
-                  { value: "jadwal", label: "Jadwalkan" },
+                  { value: "jadwal", label: "Jadwalkan", disabled: detail.test_mode !== "off" },
                 ]}
                 className="self-start"
               />
+              {detail.test_mode !== "off" ? <p className="text-body-small text-on-surface-variant">Jadwal kirim hanya di situs utama.</p> : null}
               {waktuKirim === "jadwal" ? (
                 <TextField
                   label="Tanggal dan jam"

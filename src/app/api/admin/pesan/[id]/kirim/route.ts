@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { z } from "zod";
 import { apiError } from "@/lib/api";
+import { messagingAllowlist } from "@/lib/pesan/alamat";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { isEmailConfigured } from "@/lib/email/client";
 import { idSchema, loadBlast, pesanBelumAda } from "@/lib/pesan/api";
@@ -43,6 +44,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!blast) return apiError("MESSAGE_NOT_FOUND", 404);
   if (blast.status !== "draf") return apiError("MESSAGE_NOT_DRAFT", 409);
   if (blast.channel !== "email") return apiError("MESSAGE_WHATSAPP_NOT_READY", 409);
+  // Jadwal dikirim nanti oleh cron PRODUKSI dengan env produksi. Dari preview,
+  // tautan undangannya dibuat dengan SESSION_SECRET preview dan bisa mati.
+  if (parsed.data.scheduled_at && messagingAllowlist().mode !== "off") return apiError("MESSAGE_SCHEDULE_NOT_ALLOWED", 403);
 
   const hitung = countAudience(await resolveAudience(event, blast.kind, audienceSchema.parse(blast.audience ?? {})));
   if (hitung.email !== parsed.data.expected) return apiError("MESSAGE_COUNT_CHANGED", 409, { counts: hitung });
