@@ -53,6 +53,8 @@ export function renderEmail(input: {
   /** Tautan berhenti berlangganan untuk kaki email. Null di email tes. */
   unsubscribeUrl: string | null;
   test?: boolean;
+  /** Satu kalimat dari sistem tepat di atas tombol, mis. untuk peserta yang sudah punya akun. */
+  note?: string | null;
 }): RenderedEmail {
   const subjek = `${input.test ? "[TES] " : ""}${fillFields(input.subject, input.values).trim() || input.eventName}`;
   const isi = fillFields(input.body, input.values).trim();
@@ -76,6 +78,7 @@ export function renderEmail(input: {
     ${catatanUji}
     <p style="margin:0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#2649D0;font-weight:600;">${escapeHtml(input.eventName)}</p>
     ${paragraf}
+    ${input.note ? `<p style="margin:16px 0 0;font-size:15px;line-height:1.6;">${escapeHtml(input.note)}</p>` : ""}
     <p style="margin:28px 0 0;"><a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;padding:14px 28px;background:#2649D0;color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">${tombol}</a></p>
     <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:#66736C;">Tombol tidak bisa diklik? Salin alamat ini ke peramban:<br><span style="word-break:break-all;">${escapeHtml(input.actionUrl)}</span></p>
     <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #D9DDD7;font-size:13px;line-height:1.6;color:#66736C;">${kaki}</p>
@@ -87,6 +90,7 @@ export function renderEmail(input: {
     input.eventName,
     "",
     isi,
+    ...(input.note ? ["", input.note] : []),
     "",
     `${tombol}: ${input.actionUrl}`,
     "",

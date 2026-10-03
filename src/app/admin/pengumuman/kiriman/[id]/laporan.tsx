@@ -86,6 +86,7 @@ type Baris = {
   name: string;
   status: Status;
   reason: string | null;
+  reason_code: string | null;
   signed_in_at: string | null;
 };
 
@@ -289,7 +290,9 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <StatusChip tone={NADA[r.status]}>{LABEL[r.status]}</StatusChip>
                         {r.reason ? <span className="text-body-small text-on-surface-variant">{r.reason}</span> : null}
-                        {r.status === "gagal_tetap" || (r.status === "dilewati" && r.reason) ? (
+                        {/* Hanya yang bisa diperbaiki di data peserta. Berhenti langganan dan
+                            jadwal yang dibatalkan bukan untuk "diperbaiki". */}
+                        {r.status === "gagal_tetap" || (r.status === "dilewati" && (r.reason_code === "tanpa_email" || r.reason_code === "email_memantul")) ? (
                           <Link href="/admin/participants" className="text-body-small font-medium text-primary hover:underline">
                             Perbaiki
                           </Link>

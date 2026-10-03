@@ -89,6 +89,7 @@ const messages: Record<ApiErrorCode, string> = {
   // melihat angka barunya dulu.
   MESSAGE_COUNT_CHANGED: "Jumlah penerima berubah sejak dialog dibuka. Periksa angka barunya, lalu kirim lagi.",
   MESSAGE_TEST_NOT_ALLOWED: "Alamat tes ini di luar daftar uji (MESSAGING_ALLOWLIST) untuk server ini.",
+  MESSAGING_BLOCKED: "Server ini bukan produksi dan daftar uji (MESSAGING_ALLOWLIST) belum diisi, jadi tidak ada email yang dikirim ke peserta.",
   MESSAGE_WHATSAPP_NOT_READY: "WhatsApp belum terhubung. Untuk sekarang kirim lewat email.",
   EMAIL_NOT_CONFIGURED: "Pengiriman email belum diaktifkan di server. Hubungi pemilik sistem; kode peserta tetap bisa dibacakan dari daftar ini.",
   EMAIL_SEND_FAILED: "Email gagal dikirim. Sebabnya tercatat di baris pendaftaran.",

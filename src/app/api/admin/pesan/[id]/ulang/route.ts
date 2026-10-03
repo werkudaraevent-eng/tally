@@ -36,6 +36,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     action: "message_retry",
     payload: { id, requeued: jumlah },
   } as never);
-  if (jumlah > 0) after(() => drainQueue(45_000).then(() => undefined));
+  if (jumlah > 0) after(() => drainQueue(45_000, { onlyBlast: id }).then(() => undefined));
   return Response.json({ requeued: jumlah });
 }

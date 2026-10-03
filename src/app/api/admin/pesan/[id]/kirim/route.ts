@@ -61,6 +61,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     payload: { id, title: blast.title, queued: hasil.queued, skipped: hasil.skipped, scheduled_at: parsed.data.scheduled_at },
   } as never);
 
-  if (!parsed.data.scheduled_at) after(() => drainQueue(45_000).then(() => undefined));
+  if (!parsed.data.scheduled_at) after(() => drainQueue(45_000, { onlyBlast: id }).then(() => undefined));
   return Response.json(hasil);
 }

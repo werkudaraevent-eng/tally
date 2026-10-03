@@ -41,19 +41,63 @@ export async function GET(request: Request) {
   if (pesanBelumAda(error)) return Response.json({ ready: false, items: [], ...dasar });
   if (error) return apiError("INTERNAL_ERROR", 500);
 
-  const items = (data ?? []) as { id: string; status: string }[];
-  // Ringkasan per kiriman: jumlah penerima (tanpa yang dilewati) dan yang gagal.
-  const ringkasan = await Promise.all(
-    items.map(async (item) => {
-      if (item.status === "draf") return { recipients: null, failed: 0 };
-      const [semua, gagal] = await Promise.all([
-        client.from("message_blast_recipients").select("id", { count: "exact", head: true }).eq("blast_id", item.id).neq("status", "dilewati"),
-        client.from("message_blast_recipients").select("id", { count: "exact", head: true }).eq("blast_id", item.id).in("status", ["gagal_sementara", "gagal_tetap", "tidak_pasti"]),
-      ]);
-      return { recipients: semua.count ?? 0, failed: gagal.count ?? 0 };
+  const items = (data ?? []) as { id: string; status: string; sent_at: string | null }[];
+  const ringkasan = await ringkasAcara(event.id);
+  return Response.json({
+    ready: true,
+    items: items.map((item) => {
+      if (item.status === "draf") return { ...item, recipients: null, failed: 0, signed_in: null };
+      const r = ringkasan.perKiriman.get(item.id) ?? { penerima: [], gagal: 0 };
+      // "Sudah masuk" baru berarti setelah kiriman berangkat.
+      const masuk = item.sent_at
+        ? r.penerima.filter((pid) => (ringkasan.masuk.get(pid) ?? 0) >= Date.parse(item.sent_at!)).length
+        : null;
+      return { ...item, recipients: r.penerima.length, failed: r.gagal, signed_in: masuk };
     }),
-  );
-  return Response.json({ ready: true, items: items.map((item, i) => ({ ...item, ...ringkasan[i] })), ...dasar });
+    ...dasar,
+  });
+}
+
+/**
+ * Ringkasan semua kiriman satu acara dari dua kueri berhalaman, bukan kueri per
+ * kiriman: penerima (tanpa yang dilewati) beserta statusnya, dan waktu masuk
+ * terakhir setiap akun peserta.
+ */
+async function ringkasAcara(eventId: string) {
+  const client = getSupabaseServiceClient();
+  const perKiriman = new Map<string, { penerima: string[]; gagal: number }>();
+  const masuk = new Map<string, number>();
+  for (let dari = 0; ; dari += 1000) {
+    const { data } = await client
+      .from("message_blast_recipients")
+      .select("blast_id,participant_id,status")
+      .eq("event_id", eventId)
+      .neq("status", "dilewati")
+      .order("id")
+      .range(dari, dari + 999);
+    const rows = (data ?? []) as { blast_id: string; participant_id: string | null; status: string }[];
+    for (const r of rows) {
+      const k = perKiriman.get(r.blast_id) ?? { penerima: [], gagal: 0 };
+      if (r.participant_id) k.penerima.push(r.participant_id);
+      if (r.status === "gagal_sementara" || r.status === "gagal_tetap" || r.status === "tidak_pasti") k.gagal += 1;
+      perKiriman.set(r.blast_id, k);
+    }
+    if (rows.length < 1000) break;
+  }
+  for (let dari = 0; ; dari += 1000) {
+    const { data } = await client
+      .from("participant_accounts")
+      .select("participant_id,last_login_at")
+      .eq("event_id", eventId)
+      .not("participant_id", "is", null)
+      .not("last_login_at", "is", null)
+      .order("id")
+      .range(dari, dari + 999);
+    const rows = (data ?? []) as { participant_id: string; last_login_at: string }[];
+    for (const r of rows) masuk.set(r.participant_id, Date.parse(r.last_login_at));
+    if (rows.length < 1000) break;
+  }
+  return { perKiriman, masuk };
 }
 
 export async function POST(request: Request) {

@@ -9,7 +9,6 @@ import {
   Button,
   ChipMenu,
   Dialog,
-  FilterChip,
   MetaSeparator,
   SegmentedButton,
   SelectField,
@@ -397,19 +396,29 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
             </Baris>
 
             <Baris judul="Penerima" id="penerima">
-              <div className="flex flex-wrap gap-2">
-                {isi.audience.jenis === "manual" ? (
-                  <FilterChip selected onClick={() => undefined}>
-                    {isi.audience.label || `${isi.audience.ids.length} peserta dipilih`}
-                  </FilterChip>
-                ) : null}
-                <FilterChip selected={isi.audience.jenis === "semua"} onClick={() => gantiAudience({ jenis: "semua", ids: [], label: undefined })}>
-                  Semua peserta
-                </FilterChip>
-                <FilterChip selected={isi.audience.jenis === "belum_masuk"} onClick={() => gantiAudience({ jenis: "belum_masuk", ids: [], label: undefined })}>
-                  Belum pernah masuk
-                </FilterChip>
-                {pilihPerusahaan.length > 0 ? (
+              {/* Satu keluarga kontrol dengan baris Saluran, Jenis, dan Waktu kirim:
+                  pilihan tunggal = tombol bersegmen. Perusahaan penyaring
+                  tambahan di barisnya sendiri, chip menu yang sama dengan
+                  Daftar peserta. */}
+              <SegmentedButton
+                label="Penerima"
+                labelledBy="penerima"
+                value={isi.audience.jenis}
+                onChange={(jenis) => {
+                  if (jenis !== "manual") gantiAudience({ jenis, ids: [], label: undefined });
+                }}
+                options={[
+                  ...(isi.audience.jenis === "manual"
+                    ? [{ value: "manual" as const, label: isi.audience.label || `${isi.audience.ids.length} peserta dipilih` }]
+                    : []),
+                  { value: "semua" as const, label: "Semua peserta" },
+                  { value: "belum_masuk" as const, label: "Belum pernah masuk" },
+                ]}
+                className="self-start"
+              />
+              {pilihPerusahaan.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-body-small text-on-surface-variant">Hanya dari</span>
                   <ChipMenu
                     label="Perusahaan"
                     options={pilihPerusahaan}
@@ -418,8 +427,8 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
                     multiple
                     searchable
                   />
-                ) : null}
-              </div>
+                </div>
+              ) : null}
               <p className="text-body-medium text-on-surface-variant" aria-live="polite">
                 <span className="font-semibold text-on-surface tabular-nums">{counts.email} peserta</span> menerima email
                 {lewat > 0 ? (

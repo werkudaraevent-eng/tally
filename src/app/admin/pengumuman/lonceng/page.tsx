@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { EnvelopeSimple, Megaphone, Plus, PushPin, Trash, Warning, X, XCircle } from "@phosphor-icons/react";
+import { EnvelopeSimple, Info, Megaphone, Plus, PushPin, Trash, Warning, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import {
   Banner,
@@ -59,6 +59,7 @@ type Muat = {
   items: Item[];
   recipients: Record<Audience, number>;
   email_configured: boolean;
+  test_mode?: "off" | "list" | "blocked";
   member_enabled?: boolean;
   time_zone?: string;
 };
@@ -481,6 +482,14 @@ export default function PengumumanPage() {
           }
         >
           Area peserta acara ini belum dinyalakan, jadi peserta belum bisa masuk dan melihat pengumuman.
+        </Banner>
+      ) : null}
+
+      {data?.test_mode && data.test_mode !== "off" ? (
+        <Banner tone="info" icon={<Info size={18} />}>
+          {data.test_mode === "list"
+            ? "Mode uji: salinan email hanya sampai ke alamat di daftar uji (MESSAGING_ALLOWLIST). Akun lain tidak menerima."
+            : "Mode uji: server ini bukan produksi dan daftar uji belum diisi, jadi salinan email tidak dikirim ke siapa pun."}
         </Banner>
       ) : null}
 

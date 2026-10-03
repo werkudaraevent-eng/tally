@@ -29,9 +29,9 @@ import { BLAST_STATUS_LABEL, BLAST_STATUS_TONE, audienceLabel, waktu, type Blast
 /**
  * Tab Kiriman di menu Pesan peserta: semua kiriman email acara ini.
  *
- * Kolom "Sudah masuk" tidak ada di daftar; angka itu dihitung per kiriman di
- * laporannya, karena menghitungnya untuk semua baris sekaligus berarti satu
- * kueri akun per kiriman setiap kali tab dibuka.
+ * "Sudah masuk" adalah ukuran keberhasilan kiriman (peserta yang masuk ke area
+ * peserta setelah kiriman berangkat), dihitung server untuk semua baris dari
+ * satu ringkasan per acara.
  */
 
 type Item = {
@@ -47,6 +47,7 @@ type Item = {
   created_at: string;
   recipients: number | null;
   failed: number;
+  signed_in: number | null;
 };
 
 type Muat = { ready: boolean; items: Item[]; email_configured: boolean; member_enabled: boolean; time_zone?: string };
@@ -141,12 +142,13 @@ export default function KirimanPage() {
         />
       ) : data.ready ? (
         <TableCard>
-          <Table minWidth="760px">
+          <Table minWidth="840px">
             <TableHead>
               <TableRow>
                 <TableHeaderCell>Kiriman</TableHeaderCell>
                 <TableHeaderCell>Saluran</TableHeaderCell>
                 <TableHeaderCell align="end">Penerima</TableHeaderCell>
+                <TableHeaderCell align="end">Sudah masuk</TableHeaderCell>
                 <TableHeaderCell>Status</TableHeaderCell>
               </TableRow>
             </TableHead>
@@ -171,6 +173,15 @@ export default function KirimanPage() {
                     <TableCell>{SALURAN[item.channel]}</TableCell>
                     <TableCell align="end" numeric>
                       {item.recipients ?? "–"}
+                    </TableCell>
+                    <TableCell align="end" numeric>
+                      {item.signed_in == null || !item.recipients ? (
+                        "–"
+                      ) : (
+                        <>
+                          {item.signed_in} <span className="text-on-surface-variant">({Math.round((item.signed_in / item.recipients) * 100)}%)</span>
+                        </>
+                      )}
                     </TableCell>
                     <TableCell>
                       <span className="flex flex-wrap items-center gap-2">
