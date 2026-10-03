@@ -313,6 +313,25 @@ export function AdminShell({
   }, [eventSlug, logicalPathname, adaBooth]);
 
   /**
+   * Sama dengan booth, untuk menu Logistik: tersembunyi selama belum diketahui,
+   * ditampilkan bila gagal dimuat, dan dibaca ulang setiap pindah halaman
+   * sampai jawabannya "ya", supaya hotel pertama langsung memunculkan menunya.
+   */
+  const [logistikAcara, setLogistikAcara] = useState<{ slug: string; ada: boolean } | null>(null);
+  const adaLogistik = logistikAcara && logistikAcara.slug === eventSlug ? logistikAcara.ada : null;
+  useEffect(() => {
+    if (adaLogistik === true) return;
+    let batal = false;
+    void fetch(eventApiPath("/api/admin/logistik/ada"), { cache: "no-store" })
+      .then(async (response) => {
+        const ada = response.ok ? Boolean((await response.json()).ada) : true;
+        if (!batal) setLogistikAcara({ slug: eventSlug, ada });
+      })
+      .catch(() => { if (!batal) setLogistikAcara({ slug: eventSlug, ada: true }); });
+    return () => { batal = true; };
+  }, [eventSlug, logicalPathname, adaLogistik]);
+
+  /**
    * Laci hanya ada di bawah lg. DITURUNKAN dari lebar layar, bukan ditutup oleh
    * efek yang mengamatinya: keadaan "terbuka" yang tertinggal saat ponsel diputar
    * ke lanskap mengunci gulir halaman padahal tidak ada menu yang terlihat.
@@ -556,6 +575,7 @@ export function AdminShell({
             path={logicalPathname}
             isOwner={isOwner}
             adaBooth={adaBooth}
+            adaLogistik={adaLogistik}
             onNavigate={onNavigate}
             grupTerbuka={grupTerbuka}
             onToggleGrup={toggleGrup}

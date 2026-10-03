@@ -61,6 +61,14 @@ export type NavGroup = { section: string | null; items: NavItem[] };
  */
 export const HREF_BOOTH: ReadonlySet<string> = new Set(["/admin/display", "/admin/orders", "/admin/booths", "/admin/reports"]);
 
+/**
+ * Menu yang hanya berarti bila acara memakai logistik (kamar, bus, barang).
+ * Sebagian besar acara tidak menginapkan pesertanya, dan bagi mereka baris ini
+ * hanya mendorong Pesan peserta ke bawah. Halamannya tetap bisa dibuka lewat
+ * palet perintah untuk mulai mengisi hotel pertama.
+ */
+export const HREF_LOGISTIK: ReadonlySet<string> = new Set(["/admin/logistik"]);
+
 export const navigation: NavGroup[] = [
   {
     section: null,
