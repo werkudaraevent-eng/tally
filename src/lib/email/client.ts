@@ -16,6 +16,9 @@
  */
 
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { fromWithName } from "./pengirim";
+
+export { senderAddress } from "./pengirim";
 
 const ENDPOINT = "https://api.resend.com/emails";
 
@@ -64,22 +67,15 @@ export function isEmailConfigured() {
 
 export type EventSender = { name: string | null; replyTo: string | null };
 
-/** Bagian alamat dari `Nama <alamat@domain>` atau `alamat@domain`. */
-export function senderAddress(from: string): string {
-  const cocok = /<([^>]+)>\s*$/.exec(from);
-  return (cocok ? cocok[1] : from).trim();
-}
-
 /**
  * Pengirim per acara (Pengaturan > Acara > Pengirim email). Hanya NAMA yang
  * diganti; alamatnya tetap dari EMAIL_FROM karena domainnya harus terverifikasi
  * di Resend. Kolom kosong jatuh ke env.
  */
 export function withEventSender(config: EmailConfig, sender: EventSender | null): EmailConfig {
-  const nama = sender?.name?.replace(/[<>"\r\n]/g, "").trim();
   return {
     ...config,
-    from: nama ? `${nama} <${senderAddress(config.from)}>` : config.from,
+    from: fromWithName(sender?.name, config.from),
     replyTo: sender?.replyTo?.trim() || config.replyTo,
   };
 }
