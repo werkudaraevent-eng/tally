@@ -1,7 +1,7 @@
 "use client";
 
 import { pesanGalatApi } from "@/lib/api-message";
-import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Info, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
@@ -18,7 +18,6 @@ import {
   LANDING_HEADING_FONTS,
   LANDING_HEADING_SIZE,
   LANDING_HERO_HEIGHT_PX,
-  LANDING_MEMBER_AUDIENCE_LABELS,
   LANDING_LAYOUT_LABELS,
   LANDING_NAV_HEIGHT_MAX,
   LANDING_NAV_HEIGHT_MIN,
@@ -39,8 +38,6 @@ import {
   type LandingForumPage,
   type LandingHeadingFont,
   type LandingLayout,
-  type LandingMemberConfig,
-  type LandingMemberAudience,
   type LandingHeadedSection,
   type LandingConfigEn,
   type LandingSection,
@@ -714,9 +711,9 @@ export default function LandingCmsPage() {
         blocks: tanpaTersembunyiKepanjangan(landing.blocks),
         sections,
         theme: { seed: landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
-        member: landing.member
-          ? { ...landing.member, feedback_url: landing.member.feedback_url?.trim() || null }
-          : undefined,
+        // Hanya untuk pratinjau (tombol Masuk). Server mengabaikannya: area
+        // peserta disimpan di /admin/area-peserta.
+        member: landing.member,
       },
       form_theme: { inherit: formInherit, seed: formSeed },
     };
@@ -734,11 +731,6 @@ export default function LandingCmsPage() {
     const tanyaKosong = (landing.faq ?? []).findIndex((item) => !item.q.trim() || !item.a.trim());
     if (tanyaKosong >= 0) {
       toast.error("Pertanyaan umum belum lengkap", `Pertanyaan ${tanyaKosong + 1}: isi pertanyaan dan jawabannya, atau hapus pertanyaan itu.`);
-      return;
-    }
-    const umpanBalik = landing.member?.feedback_url?.trim();
-    if (landing.member?.enabled && umpanBalik && !/^https?:\/\/\S+\.\S+/.test(umpanBalik)) {
-      toast.error("Tautan umpan balik belum valid", "Tulis alamat lengkap yang diawali https://, atau kosongkan.");
       return;
     }
     const pembicaraKosong = (landing.speakers ?? []).findIndex((item) => !item.name.trim());
@@ -857,7 +849,8 @@ export default function LandingCmsPage() {
     const response = await fetch(eventApiPath("/api/admin/landing"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(isiKirim(facts)),
+      // `member` hanya untuk pratinjau; area peserta disimpan di halamannya sendiri.
+      body: JSON.stringify(isiKirim(facts), (kunci, nilai) => (kunci === "member" ? undefined : nilai)),
     }).catch(() => null);
     setBusy(false);
     if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return; }
@@ -1703,67 +1696,18 @@ export default function LandingCmsPage() {
   };
 
   // ---- Peserta (area peserta) -------------------------------------------------
-  const anggota: LandingMemberConfig = landing.member ?? { enabled: false };
-  const setAnggota = (patch: Partial<LandingMemberConfig>) =>
-    setLanding({ ...landing, member: { ...anggota, ...patch } });
+  // Setelannya pindah ke halaman sendiri, di samping Daftar peserta dan
+  // Pengumuman. Tab ini tinggal penunjuk bagi yang terbiasa mencarinya di sini.
   const isiPeserta = (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <Kelompok title="Area peserta" first>
-        <Switch
-          checked={anggota.enabled}
-          onChange={(value) => setAnggota({ enabled: value })}
-          label="Buka area peserta"
-          description="Tombol Masuk tampil di halaman acara. Formulir pendaftaran meminta kata sandi, jadi pendaftar langsung punya akun. Peserta impor membuat kata sandi lewat tautan di email."
-        />
+        <p className="text-body-medium text-on-surface-variant">
+          {landing.member?.enabled ? "Area peserta sedang dibuka." : "Area peserta sedang ditutup."} Setelannya, termasuk siapa yang bisa masuk dan apa yang tampil di Dashboard saya, sekarang ada di halaman Area peserta.
+        </p>
+        <div>
+          <ButtonLink href="/admin/area-peserta" variant="outlined" size="sm">Buka Area peserta</ButtonLink>
+        </div>
       </Kelompok>
-      {anggota.enabled ? (
-        <>
-          <Kelompok title="Siapa yang bisa masuk">
-            <div role="radiogroup" aria-label="Siapa yang bisa masuk" className="flex flex-col gap-2">
-              {(Object.keys(LANDING_MEMBER_AUDIENCE_LABELS) as LandingMemberAudience[]).map((key) => {
-                const pilih = (anggota.audience ?? "approved") === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    role="radio"
-                    aria-checked={pilih}
-                    onClick={() => setAnggota({ audience: key })}
-                    className={`m3-state flex min-h-12 flex-col items-start gap-0.5 rounded-md border px-4 py-2.5 text-left ${
-                      pilih ? "border-primary bg-primary-container/40 ring-1 ring-primary" : "border-outline-variant"
-                    }`}
-                  >
-                    <span className="text-body-medium font-medium text-on-surface">{LANDING_MEMBER_AUDIENCE_LABELS[key]}</span>
-                    <span className="text-body-small text-on-surface-variant">
-                      {key === "approved"
-                        ? "Dari Pendaftaran publik dengan status disetujui."
-                        : "Termasuk peserta impor, selama datanya punya email."}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </Kelompok>
-          <Kelompok title="Yang tampil di area peserta">
-            <Switch checked={anggota.show_code !== false} onChange={(value) => setAnggota({ show_code: value })} label="Kode QR dan kode peserta" description="Untuk registrasi di pintu masuk." />
-            <Switch checked={anggota.show_seat !== false} onChange={(value) => setAnggota({ show_seat: value })} label="Kursi" description="Dari Denah kursi." />
-            <Switch checked={anggota.show_schedule !== false} onChange={(value) => setAnggota({ show_schedule: value })} label="Susunan acara" description="Dari Rundown acara." />
-            <Switch checked={anggota.show_vote !== false} onChange={(value) => setAnggota({ show_vote: value })} label="Voting langsung" description="Kode peserta terisi otomatis di halaman voting." />
-            <TextField
-              label="Tautan formulir umpan balik"
-              optional
-              type="url"
-              placeholder="https://"
-              hint="Kosongkan bila tidak ada. Dibuka di tab baru."
-              value={anggota.feedback_url ?? ""}
-              onChange={(event) => setAnggota({ feedback_url: event.target.value })}
-            />
-          </Kelompok>
-          <Banner tone="info" icon={<Info size={18} />}>
-            Belum ada email aktivasi. Peserta membuat kata sandi sendiri di halaman Masuk dengan email pendaftaran dan kode peserta dari email konfirmasi atau undangan. Peserta tanpa email di datanya belum bisa masuk.
-          </Banner>
-        </>
-      ) : null}
     </div>
   );
 

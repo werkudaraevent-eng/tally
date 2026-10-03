@@ -181,6 +181,17 @@ const forumSchema = z.object({
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
+/** Setelan area peserta (`landing_config.member`), disimpan di /admin/area-peserta. */
+export const memberSchema = z.object({
+  enabled: z.boolean(),
+  audience: z.enum(["approved", "all"]).optional(),
+  show_code: z.boolean().optional(),
+  show_seat: z.boolean().optional(),
+  show_schedule: z.boolean().optional(),
+  show_vote: z.boolean().optional(),
+  feedback_url: z.string().trim().url().max(600).nullable().optional(),
+});
+
 export const landingBodySchema = z.object({
   // ---- Fakta acara --------------------------------------------------------
   // 5000, bukan 500 seperti di form pembuatan acara. Batas di sana untuk
@@ -289,15 +300,10 @@ export const landingBodySchema = z.object({
       en: z.object({ name: teks(120) }).optional(),
     })).max(40).optional(),
     theme: z.object({ seed: z.string().regex(/^#[0-9a-fA-F]{6}$/) }).optional(),
-    member: z.object({
-      enabled: z.boolean(),
-      audience: z.enum(["approved", "all"]).optional(),
-      show_code: z.boolean().optional(),
-      show_seat: z.boolean().optional(),
-      show_schedule: z.boolean().optional(),
-      show_vote: z.boolean().optional(),
-      feedback_url: z.string().trim().url().max(600).nullable().optional(),
-    }).optional(),
+    // Tidak divalidasi dan diabaikan server: area peserta disimpan lewat
+    // /api/admin/area-peserta (lihat PATCH /api/admin/landing). Salinan basi
+    // dari klien lama tidak boleh menggagalkan Simpan halaman acara.
+    member: z.unknown().optional(),
   }),
 
   // ---- Warna formulir pendaftaran -----------------------------------------
