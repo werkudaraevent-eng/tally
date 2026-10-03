@@ -24,6 +24,9 @@ import { AgendaPills } from "@/components/landing/modern/agenda-pills";
 import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
 import { KakiModern, KV_SCRIM_RATA, PitaMitra, bagianModern, gayaModern, tinta } from "@/components/landing/modern/kerangka";
 import { HEAD, LABEL_BAGIAN, MUTED, PIL, SHELL } from "@/components/landing/modern/styles";
+import { KartuBarang, KartuBerikutnya, KartuBus, KartuKamar } from "@/components/member/kartu-logistik";
+import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
+import { loadLandingLodging } from "@/lib/landing-hotel";
 
 /**
  * Dashboard saya (`/e/<slug>/peserta`), tata letak Modern.
@@ -71,7 +74,10 @@ export async function DashboardModern({
   const halamanAcara = landingPath(event.slug, "id", utama);
   const sections = normalizeLandingSections(config.sections, config.blocks);
   const agenda = await loadAgendaPreview(event.id, "id");
-  const { aktif, blokById, tampil, speakers, navSections, mitra: sponsor, kontak } = bagianModern(event, config, sections, agenda, "id");
+  // Gaya gathering: menu dan susunan acara sama dengan halaman acaranya.
+  const gaya = config.gathering === true;
+  const adaHotel = gaya ? (await loadLandingLodging(event.id)).hotels.length > 0 : false;
+  const { aktif, blokById, tampil, speakers, navSections, mitra: sponsor, kontak } = bagianModern(event, config, sections, agenda, "id", { gathering: gaya, adaHotel });
   // Pita mitra seperti di kaki halaman acara. Banyak acara (ILO salah satunya)
   // memasang logo lewat blok Logo, bukan daftar Sponsor; tanpa sponsor, pakai
   // blok Logo pertama yang tampil supaya kaki dashboard sama dengan halaman acara.
@@ -89,6 +95,11 @@ export async function DashboardModern({
   const nav = await muatNavPeserta(event, sesi, "id", { data: pengumuman, unread: 0 });
 
   const peserta = sesi.participant;
+  // Logistik gathering (kamar, bus, barang). null di acara tanpa logistik:
+  // ILO dan acara lain tampil persis seperti sebelumnya.
+  const logistik = peserta ? await loadMemberLogistics(event.id, peserta.id, member.show_logistics === true) : null;
+  const sekarang = new Date();
+  const berikutnya = logistik ? agendaBerikutnya(logistik, sekarang) : null;
   const nama = publicEventName(event);
   const namaDepan = sesi.name.trim().split(/\s+/)[0] || sesi.name;
   const tanggal = formatEventDate(event, "id");
@@ -204,6 +215,7 @@ export async function DashboardModern({
         <div className="grid gap-10 pb-16 pt-8 lg:grid-cols-12 lg:gap-6 lg:pb-24">
           {/* Kanan di layar lebar, PERTAMA di ponsel: tiket lalu tautan cepat. */}
           <div className="flex flex-col gap-4 lg:sticky lg:top-[calc(var(--nav-h)+24px)] lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:self-start">
+            {berikutnya ? <KartuBerikutnya agenda={berikutnya} zona={event.time_zone} now={sekarang} className="lg:hidden" /> : null}
             {!peserta ? (
               <section aria-labelledby="status-judul" className={KARTU}>
                 {sesi.status === "rejected" ? (
@@ -270,6 +282,14 @@ export async function DashboardModern({
               </section>
             ) : null}
 
+            {logistik ? (
+              <>
+                <KartuKamar logistik={logistik} zona={event.time_zone} />
+                <KartuBus logistik={logistik} zona={event.time_zone} />
+                <KartuBarang logistik={logistik} />
+              </>
+            ) : null}
+
             {tautanCepat.length > 0 ? (
               <ul aria-label="Tautan acara" className="grid grid-cols-2 gap-3">
                 {tautanCepat.map((item) => (
@@ -282,6 +302,8 @@ export async function DashboardModern({
           </div>
 
           <div className="flex min-w-0 flex-col gap-12 lg:col-span-7 lg:col-start-1 lg:row-start-1">
+            {/* Di ponsel kartu ini tampil paling atas kolom kanan (sebelum tiket). */}
+            {berikutnya ? <KartuBerikutnya agenda={berikutnya} zona={event.time_zone} now={sekarang} className="hidden lg:block" /> : null}
             {pengumuman.ready ? (
               <section aria-labelledby="pengumuman-judul">
                 <p className={ALIS}>Dari panitia</p>
@@ -351,7 +373,7 @@ export async function DashboardModern({
                   </Link>
                 </div>
                 <div className="mt-5">
-                  <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang="id" />
+                  <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang="id" perHari={gaya} />
                 </div>
               </section>
             ) : null}

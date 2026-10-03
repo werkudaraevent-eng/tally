@@ -17,7 +17,21 @@ import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
  * seluruhnya; satu komponen dengan dua gaya akan membuat keduanya sulit diubah.
  */
 
-export function AgendaPills({ agenda, speakers = [], lang = "id" }: { agenda: AgendaPreview[]; speakers?: LandingSpeaker[]; lang?: LandingLang }) {
+export function AgendaPills({
+  agenda,
+  speakers = [],
+  lang = "id",
+  perHari = false,
+}: {
+  agenda: AgendaPreview[];
+  speakers?: LandingSpeaker[];
+  lang?: LandingLang;
+  /**
+   * Gaya gathering: tab dinamai "Hari 1 · <judul bagian>" tanpa rentang jam,
+   * dan di ponsel cukup "Hari 1" supaya tiga tab muat tanpa menggulir.
+   */
+  perHari?: boolean;
+}) {
   const t = LANDING_UI[lang];
   const [aktif, setAktif] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -75,9 +89,18 @@ export function AgendaPills({ agenda, speakers = [], lang = "id" }: { agenda: Ag
                 }`}
                 style={pilih ? ({ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties) : undefined}
               >
-                {bagian.sectionTitle || t.part(index + 1)}
-                {rentang ? <span aria-hidden> · </span> : null}
-                {rentang ? <span>{rentang}</span> : null}
+                {perHari ? (
+                  <>
+                    {t.day(index + 1)}
+                    {bagian.sectionTitle ? <span className="hidden sm:inline">{`\u00a0· ${bagian.sectionTitle}`}</span> : null}
+                  </>
+                ) : (
+                  <>
+                    {bagian.sectionTitle || t.part(index + 1)}
+                    {rentang ? <span aria-hidden> · </span> : null}
+                    {rentang ? <span>{rentang}</span> : null}
+                  </>
+                )}
               </button>
             );
           })}

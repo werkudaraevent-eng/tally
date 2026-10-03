@@ -14,14 +14,27 @@ export type LandingThemePreset = {
   label: string;
   note: string;
   layout: LandingLayout;
-  seed: string;
-  heading_font: LandingHeadingFont;
+  /** Kosong = warna dan huruf acara sendiri tidak disentuh (preset Modern). */
+  seed?: string;
+  heading_font?: LandingHeadingFont;
   /** Warna pendamping tata letak Forum. */
   accent?: string;
   secondary?: string;
+  /** Menyalakan "Khusus undangan" (lihat EventLandingConfig.invite_only). */
+  invite_only?: boolean;
+  /** Menyalakan gaya gathering (lihat EventLandingConfig.gathering). */
+  gathering?: boolean;
 };
 
 export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
+  {
+    // Jalan kembali dari Gathering ke halaman Modern biasa (QA PR #57 M1).
+    // Warna dan huruf acara tetap: preset ini hanya mematikan gaya gathering.
+    key: "modern",
+    label: "Modern",
+    note: "Halaman acara biasa: pendaftaran, program, susunan acara, lokasi. Warna dan huruf acara tetap",
+    layout: "modern",
+  },
   {
     // Figma "IFC Website" yang Hanung setujui pada 2026-10-01.
     key: "forum-ifc",
@@ -33,16 +46,37 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     accent: FORUM_DEFAULTS.accent,
     secondary: FORUM_DEFAULTS.secondary,
   },
+  {
+    // Rancangan Gathering yang Hanung setujui pada 2026-10-03: tata letak
+    // Modern yang sama dengan ILO, bukan tata letak ketiga. Yang berbeda: warna,
+    // huruf, sifat "khusus undangan", dan gaya gathering (hero perjalanan,
+    // susunan per hari, Tempat menginap). Menu Logistik dinyalakan terpisah
+    // karena tersimpan di database, bukan di CMS.
+    key: "gathering",
+    label: "Gathering",
+    note: "Gaya perjalanan, khusus undangan: lama menginap di hero, susunan per hari, tempat menginap, tamu masuk untuk melihat tiket, kamar, dan bus",
+    layout: "modern",
+    seed: "#0b6e69",
+    heading_font: "source",
+    invite_only: true,
+    gathering: true,
+  },
 ];
 
 const sama = (a: string | undefined, b: string | undefined) => (a ?? "").toLowerCase() === (b ?? "").toLowerCase();
 
 /** Apakah isi CMS sekarang persis preset ini (untuk menandai kartu yang terpilih). */
 export function presetCocok(preset: LandingThemePreset, landing: EventLandingConfig): boolean {
+  // Modern dan Gathering dikenali dari tata letak dan gaya saja, bukan warna:
+  // panitia yang mengganti warna tetap melihat kartu mana yang sedang dipakai.
+  if (preset.layout === "modern") {
+    return (landing.layout ?? "editorial") === "modern" && Boolean(landing.gathering) === Boolean(preset.gathering);
+  }
   return (
     (landing.layout ?? "editorial") === preset.layout &&
     sama(landing.theme?.seed, preset.seed) &&
     landing.heading_font === preset.heading_font &&
+    Boolean(landing.gathering) === Boolean(preset.gathering) &&
     (preset.layout !== "forum" ||
       (sama(landing.forum?.accent ?? FORUM_DEFAULTS.accent, preset.accent) && sama(landing.forum?.secondary ?? FORUM_DEFAULTS.secondary, preset.secondary)))
   );
@@ -53,8 +87,11 @@ export function terapkanPreset(preset: LandingThemePreset, landing: EventLanding
   return {
     ...landing,
     layout: preset.layout,
-    heading_font: preset.heading_font,
-    theme: { ...landing.theme, seed: preset.seed },
+    heading_font: preset.heading_font ?? landing.heading_font,
+    ...(preset.seed ? { theme: { ...landing.theme, seed: preset.seed } } : {}),
+    // Satu preset, satu gaya: memilih preset lain mematikan gaya gathering.
+    invite_only: Boolean(preset.invite_only),
+    gathering: Boolean(preset.gathering),
     ...(preset.layout === "forum" ? { forum: { ...landing.forum, accent: preset.accent, secondary: preset.secondary } } : {}),
   };
 }

@@ -817,6 +817,14 @@ export type LandingMemberConfig = {
   show_seat?: boolean;
   show_schedule?: boolean;
   show_vote?: boolean;
+  /**
+   * Kamar, bus, dan barang dari Logistik di Dashboard saya. Bawaan MATI, beda
+   * dengan sakelar lain: penempatan yang setengah jadi tidak boleh terbaca
+   * peserta sebagai kamar finalnya. Panitia menyalakannya saat siap.
+   */
+  show_logistics?: boolean;
+  /** Teman sekamar di kartu Kamar (dibaca member_logistics). Bawaan tampil. */
+  show_roommates?: boolean;
   feedback_url?: string | null;
 };
 
@@ -952,6 +960,20 @@ export type EventLandingConfig = {
    * mati: selama mati, alamat English 404 dan halaman Indonesia tidak berubah.
    */
   en_enabled?: boolean;
+  /**
+   * Khusus undangan (preset Gathering): peserta diimpor panitia, jadi saat
+   * pendaftaran tertutup hero dan pita penutup mengajak MASUK, bukan menunggu
+   * pendaftaran dibuka. Hanya berlaku di Modern dan bila area peserta aktif;
+   * tanpa itu halaman sama persis dengan pendaftaran tertutup biasa.
+   */
+  invite_only?: boolean;
+  /**
+   * Gaya gathering (preset Gathering, tata letak Modern saja): hero perjalanan
+   * dengan lama menginap, susunan acara per "Hari N", bagian Tempat menginap
+   * dari hotel di Logistik menggantikan Lokasi, dan kartu Program serta kotak
+   * angka sesi (khas acara rapat) disembunyikan.
+   */
+  gathering?: boolean;
   /**
    * Bahasa di alamat utama `/e/<slug>` (bawaan "id"). "en" hanya berlaku
    * selama versi English menyala; lihat landingDefaultLang.
