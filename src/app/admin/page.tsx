@@ -392,6 +392,16 @@ export default function AdminPage() {
               </Link>
             ))}
           </div>
+          {/* Satu-satunya pintu yang selalu terlihat ke Booth & item di acara
+              tanpa booth: menunya di sidebar sengaja disembunyikan sampai booth
+              pertama dibuat, dan baris "Booth aktif" di Kesiapan hanya tampil
+              selama persiapan. */}
+          {data && !adaBooth ? (
+            <p className="border-t border-outline-variant px-5 py-3 text-body-medium text-on-surface-variant">
+              Menjual di booth? Layar booth, kasir, dan papan peringkat muncul setelah booth pertama dibuat di{" "}
+              <Link href="/admin/booths" className="rounded-sm font-medium text-primary hover:underline">Booth &amp; item</Link>.
+            </p>
+          ) : null}
         </Kartu>
       </div>}
     </WorkspacePage>

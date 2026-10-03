@@ -19,9 +19,9 @@ import type { ComponentType } from "react";
  * Menurut KAPAN PANITIA MENGERJAKANNYA untuk satu acara: siapkan, kelola orang,
  * jalankan hari-H. Dulu menurut siapa yang menatap hasilnya (tamu di ponsel,
  * seruangan di proyektor), dan akibatnya panitia meloncat: kelompok "Peserta"
- * berisi pendaftaran (sebelum acara) sekaligus kehadiran dan label (hari-H),
- * sementara halaman acara, rundown, dan denah yang diisi paling awal duduk di
- * kelompok kedua, di bawah lipatan layar laptop 1280x588.
+ * ikut berisi kehadiran dan label (hari-H), Layar sapa terpisah jauh di
+ * kelompok lain, sementara halaman acara, rundown, dan denah yang diisi paling
+ * awal duduk di kelompok kedua, di bawah lipatan layar laptop 1280x588.
  *
  * Penjualan dan Papan peringkat hanya tampil bila acara punya booth (lihat
  * `HREF_BOOTH`), aturan yang sama dengan Dashboard. Halamannya tetap ada dan
@@ -71,19 +71,20 @@ export const navigation: NavGroup[] = [
     items: [
       { href: "/admin/landing", label: "Halaman acara", icon: Browsers, description: "Isi dan tampilan halaman acara yang dibuka tamu." },
       { href: "/admin/rundown", label: "Rundown acara", icon: CalendarDots, description: "Susunan acara yang dipakai halaman acara dan layar rundown." },
-      // Di Persiapan, bukan di Peserta: denah disusun sebelum pendaftaran dibuka,
-      // bersama halaman acara dan rundown, meski yang mencarinya nanti tamu.
+      // Di Persiapan: denah disusun sebelum pendaftaran dibuka, bersama halaman
+      // acara dan rundown, meski yang mencarinya nanti tamu.
       { href: "/admin/seat-map", label: "Denah kursi", icon: ArmchairIcon, description: "Denah meja dan kursi yang dicari tamu sebelum duduk." },
-      // Satu rumah untuk semua urusan mendaftar: formulir, buka/tutup, mode
-      // persetujuan, dan moderasi. "publik" dibuang dari namanya karena tidak
-      // ada pendaftaran lain yang perlu dibedakan di menu.
-      { href: "/admin/registrasi", label: "Pendaftaran", icon: UserPlus, description: "Formulir pendaftaran publik dan moderasi pendaftar yang masuk." },
     ],
   },
   {
     section: "Peserta",
     items: [
       { href: "/admin/participants", label: "Daftar peserta", icon: UsersThree, description: "Daftar hadirin, sumber datanya, dan penyuntingan per baris." },
+      // Di Peserta, bukan Persiapan: halaman ini terbuka di antrean moderasi,
+      // dan peringatan "menunggu moderasi" di Dashboard menuju ke sini. Ia
+      // juga satu rumah untuk formulir, buka/tutup, dan mode persetujuan. "publik" dibuang dari namanya karena tidak
+      // ada pendaftaran lain yang perlu dibedakan di menu.
+      { href: "/admin/registrasi", label: "Pendaftaran", icon: UserPlus, description: "Formulir pendaftaran publik dan moderasi pendaftar yang masuk." },
       { href: "/admin/pengumuman", label: "Pengumuman", icon: Megaphone, description: "Kabar panitia untuk peserta, tampil di lonceng halaman acara dan Dashboard saya." },
     ],
   },
