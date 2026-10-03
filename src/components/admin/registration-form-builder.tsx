@@ -289,6 +289,7 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                           options: CHOICE_FIELD_TYPES.includes(type)
                             ? (field.options?.length ? field.options : ["Pilihan 1", "Pilihan 2"])
                             : undefined,
+                          option_descriptions: CHOICE_FIELD_TYPES.includes(type) ? field.option_descriptions : undefined,
                           min: type === "number" ? field.min : undefined,
                           max: type === "number" ? field.max : undefined,
                         });
@@ -300,14 +301,7 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                     </SelectField>
 
                     {CHOICE_FIELD_TYPES.includes(field.type) ? (
-                      <TextArea
-                        label="Pilihan"
-                        hint="Satu pilihan per baris. Minimal dua."
-                        rows={4}
-                        disabled={disabled}
-                        value={(field.options ?? []).join("\n")}
-                        onChange={(event) => patchField(index, { options: event.target.value.split("\n") })}
-                      />
+                      <PilihanEditor field={field} disabled={disabled} onChange={(patch) => patchField(index, patch)} />
                     ) : null}
 
                     {field.type === "number" ? (
@@ -386,4 +380,118 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
       )}
     </div>
   );
+}
+
+/**
+ * Daftar pilihan untuk Dropdown dan Pilihan (radio): satu baris per pilihan,
+ * masing-masing dengan judul dan keterangan opsional.
+ *
+ * Menggantikan kotak "satu pilihan per baris": di sana Enter selalu berarti
+ * pilihan baru, jadi keterangan di bawah judul (pola kartu pilihan Typeform)
+ * mustahil ditulis. Judul tetap satu baris karena ia juga jawaban yang
+ * tersimpan dan diekspor; keterangan boleh beberapa baris.
+ */
+function PilihanEditor({
+  field,
+  disabled,
+  onChange,
+}: {
+  field: RegistrationField;
+  disabled?: boolean;
+  onChange: (patch: Partial<RegistrationField>) => void;
+}) {
+  const options = field.options ?? [];
+  const keterangan = options.map((_, index) => field.option_descriptions?.[index] ?? "");
+  const dropdown = field.type === "select";
+
+  // Kedua larik selalu ditulis bersama supaya indeksnya tidak pernah bergeser.
+  function tulis(nextOptions: string[], nextKeterangan: string[]) {
+    onChange({
+      options: nextOptions,
+      option_descriptions: nextKeterangan.some((teks) => teks.trim()) ? nextKeterangan : undefined,
+    });
+  }
+  function pindah(index: number, delta: number) {
+    const target = index + delta;
+    const o = [...options];
+    const k = [...keterangan];
+    [o[index], o[target]] = [o[target], o[index]];
+    [k[index], k[target]] = [k[target], k[index]];
+    tulis(o, k);
+  }
+
+  return (
+    <fieldset className="space-y-3">
+      <legend className="text-body-medium font-medium text-on-surface">Pilihan</legend>
+      <p className="-mt-1 text-body-small text-on-surface-variant">
+        {dropdown
+          ? "Minimal dua. Dropdown hanya menampilkan judul pilihan; pakai Pilihan (radio) bila keterangan perlu terlihat."
+          : "Minimal dua. Keterangan tampil di bawah judul pilihan, dan boleh beberapa baris."}
+      </p>
+      <ol className="space-y-3">
+        {options.map((option, index) => (
+          // Kunci posisi, alasan yang sama dengan daftar pertanyaan di atas:
+          // judul yang diketik tidak boleh membongkar barisnya.
+          <li key={index} className="rounded-md border border-outline-variant bg-surface-container-lowest p-3">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1 space-y-3">
+                <TextField
+                  label={`Pilihan ${index + 1}`}
+                  maxLength={120}
+                  disabled={disabled}
+                  value={option}
+                  onChange={(event) => tulis(options.map((o, i) => (i === index ? event.target.value : o)), keterangan)}
+                />
+                {dropdown ? null : (
+                  <TextArea
+                    label="Keterangan"
+                    optional
+                    rows={barisKeterangan(keterangan[index])}
+                    maxLength={300}
+                    disabled={disabled}
+                    value={keterangan[index]}
+                    onChange={(event) => tulis(options, keterangan.map((k, i) => (i === index ? event.target.value : k)))}
+                  />
+                )}
+              </div>
+              <div className="flex shrink-0 flex-col gap-1 pt-7">
+                <IconButton size="sm" label={`Naikkan pilihan ${index + 1}`} onClick={() => pindah(index, -1)} disabled={disabled || index === 0}>
+                  <ArrowUp size={16} weight="bold" />
+                </IconButton>
+                <IconButton size="sm" label={`Turunkan pilihan ${index + 1}`} onClick={() => pindah(index, 1)} disabled={disabled || index === options.length - 1}>
+                  <ArrowDown size={16} weight="bold" />
+                </IconButton>
+                <IconButton
+                  size="sm"
+                  label={`Hapus pilihan ${index + 1}`}
+                  onClick={() => tulis(options.filter((_, i) => i !== index), keterangan.filter((_, i) => i !== index))}
+                  disabled={disabled || options.length <= 2}
+                  className="text-error"
+                >
+                  <Trash size={16} weight="bold" />
+                </IconButton>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <Button
+        variant="tonal"
+        size="sm"
+        icon={<Plus size={16} weight="bold" />}
+        disabled={disabled || options.length >= 50}
+        // Baris baru kosong, bukan "Pilihan N": teks contoh yang lupa diganti
+        // ikut tayang. Baris yang dibiarkan kosong dibuang saat Simpan.
+        onClick={() => tulis([...options, ""], [...keterangan, ""])}
+      >
+        Tambah pilihan
+      </Button>
+    </fieldset>
+  );
+}
+
+/** Tinggi kotak Keterangan mengikuti isinya (2–6 baris) supaya teks panjang tidak terpotong. */
+function barisKeterangan(teks: string): number {
+  const baris = teks.split("\n").reduce((jumlah, b) => jumlah + Math.max(1, Math.ceil(b.length / 52)), 0);
+  return Math.min(6, Math.max(2, baris));
 }

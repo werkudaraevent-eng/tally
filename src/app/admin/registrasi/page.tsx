@@ -177,7 +177,17 @@ export default function RegistrasiAdminPage() {
       // dipegang layar ini bisa sudah didahului panitia lain.
       body: JSON.stringify({
         form: {
-          fields: next.fields ?? [],
+          // Pilihan berjudul kosong dibuang bersama keterangannya (indeksnya
+          // sejajar), supaya baris yang baru ditambah lalu dibiarkan kosong
+          // tidak menggagalkan Simpan.
+          fields: (next.fields ?? []).map((field) => {
+            if (!field.options) return field;
+            const baris = field.options
+              .map((option, i) => ({ option: option.trim(), keterangan: field.option_descriptions?.[i]?.trim() ?? "" }))
+              .filter((b) => b.option);
+            const keterangan = baris.map((b) => b.keterangan);
+            return { ...field, options: baris.map((b) => b.option), option_descriptions: keterangan.some(Boolean) ? keterangan : undefined };
+          }),
           welcome_text: next.welcome_text,
           success_text: next.success_text,
           // Email dan telepon IKUT dikirim. Sebelumnya hanya perusahaan dan

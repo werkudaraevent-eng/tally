@@ -24,6 +24,7 @@ const formDrafSchema = z.object({
     type: z.enum(["text", "email", "tel", "textarea", "select", "radio", "checkbox", "date", "number", "file"]),
     required: z.boolean(),
     options: z.array(z.string().max(400)).max(100).optional(),
+    option_descriptions: z.array(z.string().max(1000)).max(100).optional(),
     placeholder: z.string().max(400).optional(),
     help_text: z.string().max(1000).optional(),
     min: z.number().optional(),

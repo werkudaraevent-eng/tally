@@ -991,8 +991,16 @@ export type RegistrationField = {
   label: string;
   type: RegistrationFieldType;
   required: boolean;
-  /** Hanya untuk `select` dan `radio`. */
+  /** Hanya untuk `select` dan `radio`. Jawaban yang tersimpan adalah teks pilihan ini. */
   options?: string[];
+  /**
+   * Keterangan per pilihan, sejajar dengan `options` (indeks yang sama; kosong =
+   * tanpa keterangan). Tampil di bawah judul pilihan pada `radio`; `select`
+   * bawaan peramban tidak bisa menampilkannya. Disimpan terpisah, bukan
+   * mengubah `options` menjadi objek, supaya jawaban, ekspor, dan semua
+   * pembaca `options` yang sudah ada tidak berubah.
+   */
+  option_descriptions?: string[];
   placeholder?: string;
   help_text?: string;
   /** Hanya untuk `number`. Dibiarkan kosong berarti tanpa batas. */

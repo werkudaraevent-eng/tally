@@ -43,6 +43,7 @@ const fieldSchema = z.object({
   type: z.enum(["text", "email", "tel", "textarea", "select", "radio", "checkbox", "date", "number", "file"]),
   required: z.boolean(),
   options: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
+  option_descriptions: z.array(z.string().trim().max(300)).max(50).optional(),
   placeholder: z.string().trim().max(120).optional(),
   help_text: z.string().trim().max(300).optional(),
   min: z.number().optional(),
