@@ -4,7 +4,7 @@ import { CaretDown, CaretRight, ClockCounterClockwise, PushPin, PushPinSlash } f
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useId } from "react";
-import { hrefAktif, navigation, type NavItem } from "@/components/admin/nav-config";
+import { HREF_BOOTH, hrefAktif, navigation, type NavItem } from "@/components/admin/nav-config";
 import type { Recent } from "@/components/admin/sidebar-store";
 
 /**
@@ -178,13 +178,15 @@ function BarisRecent({
 /* ---- Daftar lengkap ------------------------------------------------------ */
 
 export function SidebarNav({
-  eventPrefix, path, isOwner, onNavigate,
+  eventPrefix, path, isOwner, adaBooth, onNavigate,
   grupTerbuka, onToggleGrup, recentsTerbuka, onToggleRecents, recents, onTogglePin,
 }: {
   eventPrefix: string;
   /** Path tanpa prefiks `/e/<slug>`. */
   path: string;
   isOwner: boolean;
+  /** Acara punya booth? null = belum diketahui. */
+  adaBooth: boolean | null;
   onNavigate: () => void;
   grupTerbuka: ReadonlySet<string>;
   onToggleGrup: (href: string) => void;
@@ -195,8 +197,14 @@ export function SidebarNav({
 }) {
   // Kelompok yang seluruh isinya tersembunyi ikut dibuang. Tanpa itu, tajuknya
   // menggantung di atas ruang kosong bagi admin yang bukan pemilik sistem.
+  // Menu booth disembunyikan selama acara tidak (atau belum diketahui) punya
+  // booth, KECUALI halamannya sedang dibuka lewat palet atau Dashboard: menu
+  // yang sedang dibuka tidak boleh hilang dari bawah kursor.
+  const tampil = (item: NavItem) =>
+    (!item.ownerOnly || isOwner) &&
+    (adaBooth === true || !HREF_BOOTH.has(item.href) || hrefAktif(item.href, path));
   const terlihat = navigation
-    .map((group) => ({ ...group, items: group.items.filter((item) => !item.ownerOnly || isOwner) }))
+    .map((group) => ({ ...group, items: group.items.filter(tampil) }))
     .filter((group) => group.items.length > 0);
 
   const recentsId = useId();

@@ -166,7 +166,7 @@ const BAGIAN: Bagian[] = [
         judul: "Meja registrasi",
         poin: [
           "Tamu menunjukkan kode peserta (angka atau QR) dari email, halaman kodenya, atau gambar yang ia simpan.",
-          "Kode juga selalu terlihat panitia di modul Pendaftaran publik, jadi tamu yang kehilangan kodenya tetap bisa dilayani.",
+          "Kode juga selalu terlihat panitia di modul Pendaftaran, jadi tamu yang kehilangan kodenya tetap bisa dilayani.",
         ],
       },
       {
@@ -219,7 +219,7 @@ const BAGIAN: Bagian[] = [
         judul: "Peserta tidak menerima email kode",
         poin: [
           "Pengiriman email butuh kunci penyedia email disetel di server. Bila belum, layar moderasi menyebutkannya secara terbuka, bukan menampilkan “gagal kirim”.",
-          "Kode tetap bisa dibacakan panitia dari modul Pendaftaran publik, dan tamu punya tautan halaman kode yang bisa dibuka kapan saja.",
+          "Kode tetap bisa dibacakan panitia dari modul Pendaftaran, dan tamu punya tautan halaman kode yang bisa dibuka kapan saja.",
         ],
       },
       {
