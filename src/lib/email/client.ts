@@ -125,6 +125,12 @@ export async function sendEmail(input: {
   attachments?: EmailAttachment[];
   /** Acara pengirim: nama pengirim dan reply-to diambil dari setelannya. */
   eventId?: string | null;
+  /**
+   * Header Idempotency-Key Resend: permintaan kedua dengan kunci yang sama
+   * dalam 24 jam tidak mengirim email kedua. Dipakai pengiriman massal yang
+   * bisa saja berjalan dua kali bersamaan.
+   */
+  idempotencyKey?: string;
 }): Promise<SendResult> {
   const config = await configFor(input.eventId);
   // Dibedakan dari kegagalan jaringan dengan sengaja: pemanggil memakai ini
@@ -139,6 +145,7 @@ export async function sendEmail(input: {
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
+        ...(input.idempotencyKey ? { "Idempotency-Key": input.idempotencyKey } : {}),
       },
       body: JSON.stringify({
         from: config.from,

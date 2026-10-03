@@ -19,7 +19,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const schema = z.object({
   email: z.string().trim().email().max(200),
-  state: z.enum(["approved", "pending"]),
+  state: z.enum(["approved", "pending", "rejected"]),
   templat: templatSchema,
   sebagai: z.string().uuid().nullable().optional(),
 });
@@ -58,6 +58,7 @@ export async function POST(request: Request) {
     values: nilaiKolom(bahan.dasar.eventName, bahan.dasar.detail.tanggal, contoh.name, contoh.company),
     qr: parsed.data.state === "approved" ? { code: kode, src: "cid:kode-peserta-qr" } : null,
     codeUrl: parsed.data.state === "approved" ? `${origin}/e/${encodeURIComponent(event.slug)}` : null,
+    akunUrl: bahan.memberOn ? `${origin}/e/${encodeURIComponent(event.slug)}` : null,
     test: true,
   });
   const hasil = await sendEmail({

@@ -73,6 +73,9 @@ type Data = {
   member_on: boolean;
   contoh: Contoh[];
   belum_terima: number;
+  /** Yang benar-benar dikirimi "Kirim ke mereka…": di luar produksi hanya alamat di daftar uji. */
+  belum_terima_dikirim: number;
+  daftar_uji: "off" | "list" | "blocked";
   email_aktif: boolean;
 };
 
@@ -96,6 +99,14 @@ function TeksTumbuh(props: React.ComponentProps<typeof TextArea>) {
     </div>
   );
 }
+
+/** Kolom salinan per versi email. Bagian lain sama untuk semua versi. */
+const VERSI: Record<RenderState, { label: string; panjang: string; subjek: "subjek" | "subjek_menunggu" | "subjek_ditolak"; judul: "judul" | "judul_menunggu" | "judul_ditolak"; isi: "isi" | "isi_menunggu" | "isi_ditolak" }> = {
+  approved: { label: "Disetujui", panjang: "Disetujui", subjek: "subjek", judul: "judul", isi: "isi" },
+  pending: { label: "Menunggu", panjang: "Menunggu persetujuan", subjek: "subjek_menunggu", judul: "judul_menunggu", isi: "isi_menunggu" },
+  rejected: { label: "Ditolak", panjang: "Tidak disetujui", subjek: "subjek_ditolak", judul: "judul_ditolak", isi: "isi_ditolak" },
+};
+const PILIHAN_VERSI = (Object.keys(VERSI) as RenderState[]).map((value) => ({ value, label: VERSI[value].label }));
 
 export default function EmailOtomatisPage() {
   const toast = useToast();
@@ -179,6 +190,8 @@ export default function EmailOtomatisPage() {
         values: { nama, perusahaan: contoh?.company ?? "", acara: data.dasar.eventName, tanggal: data.dasar.detail.tanggal ?? "" },
         qr: state === "approved" ? { code: KODE_CONTOH, src: qrContoh } : null,
         codeUrl: state === "approved" ? data.dasar.halamanUrl : null,
+        // Contoh tautan: kotak Akun Area peserta hanya ikut untuk pendaftar yang membuat akun saat mendaftar.
+        akunUrl: data.member_on ? data.dasar.halamanUrl : null,
       });
     } catch {
       return null;
@@ -199,7 +212,7 @@ export default function EmailOtomatisPage() {
   if (!data || !templat) return <PageLoading />;
 
   const t = templat;
-  const menunggu = state === "pending";
+  const versi = VERSI[state];
   const asing = unknownFieldsIn(t);
   const sah = templatSchema.safeParse(t);
   const pesanTidakSah = sah.success ? null : sah.error.issues[0]?.message ?? "Periksa isian.";
@@ -235,13 +248,13 @@ export default function EmailOtomatisPage() {
   }
 
   function nilaiKolom(k: KolomTeks): string {
-    if (k.blockId === "subjek") return menunggu ? t.subjek_menunggu : t.subjek;
+    if (k.blockId === "subjek") return t[versi.subjek];
     const block = t.blocks.find((item) => item.id === k.blockId) as Record<string, unknown> | undefined;
     return typeof block?.[k.kunci] === "string" ? (block[k.kunci] as string) : "";
   }
 
   function tulisKolom(k: KolomTeks, nilai: string) {
-    if (k.blockId === "subjek") ubah(menunggu ? { subjek_menunggu: nilai } : { subjek: nilai });
+    if (k.blockId === "subjek") ubah({ [versi.subjek]: nilai });
     else ubahBlock(k.blockId, { [k.kunci]: nilai } as Partial<Block>);
   }
 
@@ -361,13 +374,13 @@ export default function EmailOtomatisPage() {
       // Tidak diingat, tidak apa-apa.
     }
     setDialog(null);
-    toast.success("Email tes terkirim", `Ke ${email}, versi ${menunggu ? "Menunggu persetujuan" : "Disetujui"}. Subjeknya diawali [TES].`);
+    toast.success("Email tes terkirim", `Ke ${email}, versi ${versi.panjang}. Subjeknya diawali [TES].`);
   }
 
   async function kirimTertunda() {
     setSibuk(true);
     setKemajuan({ terkirim: 0, gagal: 0 });
-    let expected: number | undefined = data!.belum_terima;
+    let expected: number | undefined = data!.belum_terima_dikirim;
     let terkirim = 0;
     let gagal = 0;
     for (let putaran = 0; putaran < 40; putaran += 1) {
@@ -381,7 +394,7 @@ export default function EmailOtomatisPage() {
         setSibuk(false);
         setKemajuan(null);
         if (body?.error?.code === "MESSAGE_COUNT_CHANGED") {
-          setData((lama) => (lama ? { ...lama, belum_terima: body.error.details?.count ?? lama.belum_terima } : lama));
+          setData((lama) => (lama ? { ...lama, belum_terima_dikirim: body.error.details?.count ?? lama.belum_terima_dikirim } : lama));
           toast.warning("Jumlahnya berubah", "Periksa angka barunya, lalu kirim lagi.");
           return;
         }
@@ -393,8 +406,9 @@ export default function EmailOtomatisPage() {
       gagal += body.gagal.length;
       setKemajuan({ terkirim, gagal });
       expected = undefined;
-      // Yang gagal tercatat email_error dan tetap "belum terima"; berhenti bila putaran ini tidak mengirim apa pun.
-      if (body.sisa === 0 || body.terkirim === 0) break;
+      // Yang gagal tercatat email_error dan diklaim 10 menit, jadi tidak diambil lagi;
+      // berhenti bila tidak ada sisa atau putaran ini tidak mendapat satu baris pun.
+      if (body.sisa === 0 || body.diproses === 0) break;
     }
     setSibuk(false);
     setDialog(null);
@@ -476,25 +490,35 @@ export default function EmailOtomatisPage() {
               />
             </Baris>
 
+            <Baris judul="Tidak disetujui" id="ditolak">
+              <Switch
+                label="Kirim email saat panitia menolak pendaftaran"
+                description="Hanya kepala dan pembuka, tanpa alasan penolakan (alasan tetap catatan panitia). Bawaan mati."
+                checked={t.kirim_ditolak}
+                onChange={(nilai) => ubah({ kirim_ditolak: nilai })}
+              />
+            </Baris>
+
             <Baris judul="Mengedit" id="mengedit">
               <SegmentedButton<RenderState>
                 label="Versi yang diedit"
                 labelledBy="mengedit"
                 value={state}
                 onChange={setState}
-                options={[
-                  { value: "approved", label: "Disetujui" },
-                  { value: "pending", label: "Menunggu" },
-                ]}
+                options={PILIHAN_VERSI}
                 className="self-start"
               />
-              <p className="text-body-small text-on-surface-variant">Subjek, judul, dan sapaan berbeda per versi. Bagian lain sama untuk keduanya.</p>
+              <p className="text-body-small text-on-surface-variant">
+                {state === "rejected"
+                  ? "Versi Tidak disetujui hanya memuat Kepala dan Pembuka."
+                  : "Subjek, judul, dan sapaan berbeda per versi. Bagian lain sama untuk Disetujui dan Menunggu."}
+              </p>
               <TextField
-                label={menunggu ? "Subjek (Menunggu)" : "Subjek (Disetujui)"}
-                value={menunggu ? t.subjek_menunggu : t.subjek}
+                label={`Subjek (${versi.label})`}
+                value={t[versi.subjek]}
                 maxLength={150}
                 onFocus={(e) => (kolomTerakhir.current = { blockId: "subjek", kunci: "subjek", el: e.currentTarget })}
-                onChange={(e) => ubah(menunggu ? { subjek_menunggu: e.target.value } : { subjek: e.target.value })}
+                onChange={(e) => ubah({ [versi.subjek]: e.target.value })}
               />
             </Baris>
 
@@ -511,7 +535,7 @@ export default function EmailOtomatisPage() {
                   pertama={index <= 1}
                   terakhir={index === t.blocks.length - 1}
                   terbuka={terbuka === block.id}
-                  ringkas={ringkasan(block, data, menunggu)}
+                  ringkas={ringkasan(block, data, state)}
                   onBuka={() => setTerbuka((lama) => (lama === block.id ? null : block.id))}
                   onNyala={(on) => ubahBlock(block.id, { on } as Partial<Block>)}
                   onGeser={(arah) => geser(block.id, arah)}
@@ -519,7 +543,7 @@ export default function EmailOtomatisPage() {
                 >
                   <EditorBagian
                     block={block}
-                    menunggu={menunggu}
+                    state={state}
                     data={data}
                     pembuka={pembuka ?? null}
                     onUbah={(next) => ubahBlock(block.id, next)}
@@ -564,10 +588,7 @@ export default function EmailOtomatisPage() {
                   label="Versi pratinjau"
                   value={state}
                   onChange={setState}
-                  options={[
-                    { value: "approved", label: "Disetujui" },
-                    { value: "pending", label: "Menunggu" },
-                  ]}
+                  options={PILIHAN_VERSI}
                 />
                 <SegmentedButton<"desktop" | "ponsel">
                   label="Lebar pratinjau"
@@ -597,7 +618,7 @@ export default function EmailOtomatisPage() {
               <PratinjauEmail html={pratinjau?.html ?? ""} lebar={lebarPratinjau} />
             </div>
             <p className="border-t border-outline-variant px-5 py-3 text-body-small text-on-surface-variant">
-              Pratinjau memakai data pendaftar sungguhan; QR dan tautannya contoh.
+              Pratinjau memakai data pendaftar sungguhan; QR dan tautannya contoh.{data.member_on ? " Kotak Akun Area peserta hanya ikut untuk pendaftar yang membuat akun saat mendaftar." : ""}
             </p>
           </div>
         }
@@ -631,7 +652,7 @@ export default function EmailOtomatisPage() {
         onClose={() => setDialog(null)}
         dismissible={!sibuk}
         title="Kirim email tes"
-        description={`Versi ${menunggu ? "Menunggu persetujuan" : "Disetujui"} dengan isi di layar (boleh belum disimpan) dan data pendaftar yang sedang dipratinjau. Subjeknya diawali [TES]; QR dan tautannya contoh.`}
+        description={`Versi ${versi.panjang} dengan isi di layar (boleh belum disimpan) dan data pendaftar yang sedang dipratinjau. Subjeknya diawali [TES]; QR dan tautannya contoh.`}
         actions={
           <>
             <Button variant="text" onClick={() => setDialog(null)} disabled={sibuk}>
@@ -652,15 +673,15 @@ export default function EmailOtomatisPage() {
         dismissible={!sibuk}
         size="md"
         icon={<PaperPlaneTilt size={20} />}
-        title={`Kirim ke ${data.belum_terima} pendaftar?`}
+        title={`Kirim ke ${data.belum_terima_dikirim} pendaftar?`}
         description="Email Disetujui dengan QR masing-masing, memakai templat yang tersimpan. Email yang sudah terkirim tidak bisa ditarik."
         actions={
           <>
             <Button variant="text" onClick={() => setDialog(null)} disabled={sibuk}>
               Batal
             </Button>
-            <Button onClick={() => void kirimTertunda()} loading={sibuk} disabled={data.belum_terima === 0}>
-              Kirim ke {data.belum_terima} pendaftar
+            <Button onClick={() => void kirimTertunda()} loading={sibuk} disabled={data.belum_terima_dikirim === 0}>
+              Kirim ke {data.belum_terima_dikirim} pendaftar
             </Button>
           </>
         }
@@ -670,7 +691,20 @@ export default function EmailOtomatisPage() {
             <dt className="font-semibold">Disetujui, belum menerima email</dt>
             <dd className="tabular-nums">{data.belum_terima}</dd>
           </div>
+          {data.daftar_uji !== "off" ? (
+            <div className="flex justify-between gap-4 py-3">
+              <dt className="font-semibold">Ada di daftar uji situs pratinjau</dt>
+              <dd className="tabular-nums">{data.belum_terima_dikirim}</dd>
+            </div>
+          ) : null}
         </dl>
+        {data.daftar_uji !== "off" ? (
+          <Banner tone="warning" icon={<Warning size={18} />} className="mt-3">
+            {data.daftar_uji === "blocked"
+              ? "Situs pratinjau tanpa daftar uji (MESSAGING_ALLOWLIST) tidak mengirim ke pendaftar sungguhan."
+              : "Situs pratinjau: hanya alamat di daftar uji (MESSAGING_ALLOWLIST) yang dikirimi."}
+          </Banner>
+        ) : null}
         <p className="mt-3 text-body-small text-on-surface-variant">
           Dikirim satu per satu dengan jeda singkat. Pendaftar yang emailnya pernah memantul dilewati.
           {kemajuan ? ` Terkirim ${kemajuan.terkirim}${kemajuan.gagal ? `, gagal ${kemajuan.gagal}` : ""}…` : ""}
@@ -729,14 +763,15 @@ function KartuPreset({ preset, dipilih, dasar, kvUrl, onPilih }: { preset: Prese
   );
 }
 
-function ringkasan(block: Block, data: Data, menunggu: boolean): string {
+function ringkasan(block: Block, data: Data, state: RenderState): string {
+  if (state === "rejected" && block.type !== "kepala" && block.type !== "pembuka") return "Tidak ada di versi Tidak disetujui";
   switch (block.type) {
     case "kepala":
       return "Dari preset dan Tema acara";
     case "pembuka":
-      return (menunggu ? block.judul_menunggu : block.judul) || "Judul dan sapaan";
+      return block[VERSI[state].judul] || "Judul dan sapaan";
     case "tiket":
-      return menunggu ? "Kotak Menunggu persetujuan (versi Menunggu)" : "Kode peserta, QR, dan tombol Buka kode & QR";
+      return state === "pending" ? "Kotak Menunggu persetujuan (versi Menunggu)" : "Kode peserta, QR, dan tombol Buka kode & QR";
     case "detail":
       return [data.dasar.detail.tanggal, data.dasar.detail.tempat].filter(Boolean).join(" · ") || "Tanggal dan tempat belum diisi di data acara";
     case "teks":
@@ -852,7 +887,7 @@ function Toolbar({ onTebal, onMiring, onTautan, onDaftar }: { onTebal: () => voi
 
 function EditorBagian({
   block,
-  menunggu,
+  state,
   data,
   onUbah,
   onFokus,
@@ -860,7 +895,7 @@ function EditorBagian({
   sisipkan,
 }: {
   block: Block;
-  menunggu: boolean;
+  state: RenderState;
   data: Data;
   pembuka: Extract<Block, { type: "pembuka" }> | null;
   onUbah: (next: Partial<Block>) => void;
@@ -872,11 +907,11 @@ function EditorBagian({
   const [mengunggah, setMengunggah] = useState(false);
   switch (block.type) {
     case "pembuka": {
-      const kJudul = menunggu ? "judul_menunggu" : "judul";
-      const kIsi = menunggu ? "isi_menunggu" : "isi";
+      const kJudul = VERSI[state].judul;
+      const kIsi = VERSI[state].isi;
       return (
         <>
-          <p className="text-body-small text-on-surface-variant">Mengedit versi {menunggu ? "Menunggu persetujuan" : "Disetujui"}. Ganti versi di baris Mengedit atau di pratinjau.</p>
+          <p className="text-body-small text-on-surface-variant">Mengedit versi {VERSI[state].panjang}. Ganti versi di baris Mengedit atau di pratinjau.</p>
           <TextField label="Judul" value={block[kJudul]} maxLength={120} onFocus={(e) => onFokus(kJudul, e.currentTarget)} onChange={(e) => onUbah({ [kJudul]: e.target.value } as Partial<Block>)} />
           {toolbar(kIsi)}
           <TeksTumbuh label="Sapaan" value={block[kIsi]} maxLength={2000} onFocus={(e) => onFokus(kIsi, e.currentTarget)} onChange={(e) => onUbah({ [kIsi]: e.target.value } as Partial<Block>)} />

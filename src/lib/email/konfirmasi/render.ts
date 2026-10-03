@@ -2,7 +2,7 @@ import { mixHex } from "@/lib/color";
 import type { LandingHeadingFont } from "@/lib/domain";
 import { FIELDS, type FieldKey } from "@/lib/pesan/bawaan";
 import { escapeHtml, formatHtml, formatText } from "@/lib/pesan/format";
-import type { Block, Font, Templat } from "./templat";
+import { DEFAULT_PEMBUKA, SALINAN_DITOLAK, type Block, type Font, type Templat } from "./templat";
 
 export { escapeHtml };
 
@@ -21,7 +21,8 @@ export { escapeHtml };
  *     (Outlook kantor memblokir gambar); kodenya tidak.
  */
 
-export type RenderState = "approved" | "pending";
+/** Disetujui (ber-QR), Menunggu persetujuan, atau Tidak disetujui. */
+export type RenderState = "approved" | "pending" | "rejected";
 
 export type RenderContext = {
   state: RenderState;
@@ -51,6 +52,12 @@ export type RenderContext = {
   dashboardUrl: string | null;
   halamanUrl: string;
   mitra: { name: string; url: string }[];
+  /**
+   * Tautan konfirmasi akun Area peserta yang baru dibuat dari formulir. Bila
+   * ada, kotak "Konfirmasi email akun" ikut di email ini, supaya pendaftar
+   * tidak menerima dua email sekaligus saat mendaftar.
+   */
+  akunUrl?: string | null;
   /** Ada alamat Balas-ke (Pengaturan > Pengirim email). */
   bisaDibalas: boolean;
   test?: boolean;
@@ -209,23 +216,50 @@ function garis() {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0;"><tr><td style="border-top:1px solid ${RULE};font-size:0;line-height:0;height:1px;">&nbsp;</td></tr></table>`;
 }
 
+type Pembuka = Extract<Block, { type: "pembuka" }>;
+
+/** Judul dan sapaan untuk keadaan ini. Judul yang dikosongkan diisi bawaan: email tanpa judul terbaca seperti email rusak. */
+function salinan(block: Pembuka, state: RenderState): { eyebrow: string; judul: string; isi: string } {
+  if (state === "pending") return { eyebrow: "Pendaftaran diterima", judul: block.judul_menunggu.trim() || DEFAULT_PEMBUKA.judul_menunggu, isi: block.isi_menunggu };
+  if (state === "rejected") return { eyebrow: "Kabar pendaftaran", judul: block.judul_ditolak.trim() || SALINAN_DITOLAK.judul, isi: block.isi_ditolak };
+  return { eyebrow: "Pendaftaran berhasil", judul: block.judul.trim() || DEFAULT_PEMBUKA.judul, isi: block.isi };
+}
+
+function kotakAkun(url: string, ctx: RenderContext) {
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0;border:1px solid ${RULE};border-radius:12px;border-collapse:separate;"><tr>` +
+    `<td style="padding:20px 24px;">` +
+    `<p style="margin:0;font-size:13px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${MUTED};">Akun Area peserta</p>` +
+    `<p style="margin:8px 0 0;font-size:15px;line-height:22px;color:${INK};">Konfirmasi email Anda untuk mengaktifkan akun. Tautan berlaku 14 hari.</p>` +
+    // Tombol bergaris, bukan isi warna: tombol utama email tetap milik panitia (blok Tombol).
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 0;"><tr><td style="border:1px solid ${ctx.brand};border-radius:10px;">` +
+    `<a href="${escapeHtml(url)}" style="display:block;padding:12px 18px;font-size:15px;line-height:20px;font-weight:700;color:${ctx.brand};text-decoration:none;">Konfirmasi email</a></td></tr></table>` +
+    `</td></tr></table>`
+  );
+}
+
+/** Email Tidak disetujui hanya membawa kepala dan pembuka: Tiket, detail, dan tombol acara tidak berlaku lagi untuk penerimanya. */
+function tampil(block: Block, state: RenderState) {
+  return block.on && (state !== "rejected" || block.type === "pembuka");
+}
+
 function blockHtml(block: Block, templat: Templat, ctx: RenderContext, fonts: { heading: string }): string {
-  if (!block.on) return "";
+  if (!tampil(block, ctx.state)) return "";
   switch (block.type) {
     case "kepala":
       return "";
     case "pembuka": {
-      const menunggu = ctx.state === "pending";
-      const eyebrow = menunggu ? "Pendaftaran diterima" : "Pendaftaran berhasil";
-      const judul = fill(menunggu ? block.judul_menunggu : block.judul, ctx.values);
+      const teks = salinan(block, ctx.state);
+      const judul = fill(teks.judul, ctx.values);
       return (
-        `<p style="margin:0;font-size:13px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${ctx.brand};">${eyebrow}</p>` +
+        `<p style="margin:0;font-size:13px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${ctx.brand};">${teks.eyebrow}</p>` +
         (judul ? `<h1 style="margin:8px 0 0;font-family:${fonts.heading};font-size:26px;line-height:32px;font-weight:700;color:${INK};">${escapeHtml(judul)}</h1>` : "") +
-        richHtml(menunggu ? block.isi_menunggu : block.isi, ctx, 16, 16)
+        richHtml(teks.isi, ctx, 16, 16)
       );
     }
     case "tiket":
-      return tiket(ctx, templat.preset === "pita");
+      // Kotak akun SESUDAH tiket: QR tetap hal pertama yang dilihat, konfirmasi akun menyusul.
+      return tiket(ctx, templat.preset === "pita") + (ctx.akunUrl ? kotakAkun(ctx.akunUrl, ctx) : "");
     case "detail":
       return detail(ctx);
     case "teks":
@@ -269,15 +303,17 @@ function blockHtml(block: Block, templat: Templat, ctx: RenderContext, fonts: { 
 }
 
 function blockText(block: Block, ctx: RenderContext): string {
-  if (!block.on) return "";
+  if (!tampil(block, ctx.state)) return "";
   switch (block.type) {
     case "pembuka": {
-      const menunggu = ctx.state === "pending";
-      return [fill(menunggu ? block.judul_menunggu : block.judul, ctx.values), richText(menunggu ? block.isi_menunggu : block.isi, ctx.values)].filter(Boolean).join("\n\n");
+      const teks = salinan(block, ctx.state);
+      return [fill(teks.judul, ctx.values), richText(teks.isi, ctx.values)].filter(Boolean).join("\n\n");
     }
-    case "tiket":
-      if (ctx.state === "pending" || !ctx.qr) return "MENUNGGU PERSETUJUAN\nPanitia sedang meninjau pendaftaran Anda. QR masuk dikirim ke email ini setelah disetujui.";
-      return [`KODE PESERTA: ${ctx.qr.code}`, "Tunjukkan QR ini di meja registrasi. Kode ini khusus untuk Anda.", ctx.codeUrl ? `Kode dan QR: ${ctx.codeUrl}` : ""].filter(Boolean).join("\n");
+    case "tiket": {
+      const akun = ctx.akunUrl ? `\n\nAKUN AREA PESERTA\nKonfirmasi email Anda untuk mengaktifkan akun (berlaku 14 hari): ${ctx.akunUrl}` : "";
+      if (ctx.state === "pending" || !ctx.qr) return `MENUNGGU PERSETUJUAN\nPanitia sedang meninjau pendaftaran Anda. QR masuk dikirim ke email ini setelah disetujui.${akun}`;
+      return [`KODE PESERTA: ${ctx.qr.code}`, "Tunjukkan QR ini di meja registrasi. Kode ini khusus untuk Anda.", ctx.codeUrl ? `Kode dan QR: ${ctx.codeUrl}` : ""].filter(Boolean).join("\n") + akun;
+    }
     case "detail": {
       const d = ctx.detail;
       return [
@@ -309,7 +345,8 @@ function kaki(ctx: RenderContext) {
 
 export function renderKonfirmasi(templat: Templat, ctx: RenderContext): RenderedEmail {
   const fonts = fontStacks(templat.font, ctx.headingFont);
-  const subjekDasar = fill(ctx.state === "pending" ? templat.subjek_menunggu : templat.subjek, ctx.values).trim() || ctx.eventName;
+  const subjekMentah = ctx.state === "pending" ? templat.subjek_menunggu : ctx.state === "rejected" ? templat.subjek_ditolak : templat.subjek;
+  const subjekDasar = fill(subjekMentah, ctx.values).trim() || ctx.eventName;
   const subject = `${ctx.test ? "[TES] " : ""}${subjekDasar}`;
   const uji = ctx.test
     ? `<p style="margin:0 0 20px;padding:10px 12px;background:${AMBER_BG};color:${AMBER_INK};font-size:13px;line-height:18px;border-radius:6px;">Email tes. QR dan tautan di email ini contoh dan tidak bisa dipakai masuk.</p>`
@@ -320,7 +357,7 @@ export function renderKonfirmasi(templat: Templat, ctx: RenderContext): Rendered
   const html = `<!doctype html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${escapeHtml(subjekDasar)}</title>
 ${fonts.link ? `<link href="${fonts.link}" rel="stylesheet">` : ""}
-<!--[if mso]><style>body,table,td,p,a,h1,li{font-family:Arial,Helvetica,sans-serif !important;}</style><![endif]-->
+<!--[if mso]><style>body,table,td,p,a,h1,li{font-family:${templat.font === "serif" ? SERIF : SANS} !important;}</style><![endif]-->
 <style>:root{color-scheme:light;supported-color-schemes:light;}
 @media (max-width:620px){.px{padding-left:20px !important;padding-right:20px !important;}
 .stack{display:block !important;width:auto !important;padding:20px 20px 0 !important;}

@@ -50,6 +50,10 @@ type Input = {
   company?: string | null;
   /** Origin permintaan: tautan di email (kalender, dashboard) memakai alamat yang sama dengan yang dibuka pendaftar. */
   origin: string;
+  /** Tautan konfirmasi akun Area peserta yang baru dibuat; ikut di email ini (lihat RenderContext.akunUrl). */
+  akunUrl?: string | null;
+  /** Lihat sendEmail. Hanya "Kirim ke mereka…" yang mengisinya. */
+  idempotencyKey?: string;
 };
 
 export async function sendRegistrationCode(input: Input): Promise<EmailDelivery> {
@@ -79,10 +83,12 @@ export async function sendRegistrationCode(input: Input): Promise<EmailDelivery>
     values: nilaiKolom(bahan.dasar.eventName, bahan.dasar.detail.tanggal, input.name, input.company ?? null),
     qr: { code: input.qrCode, src: qrPng ? `cid:${QR_CID}` : null },
     codeUrl: input.codeUrl ?? null,
+    akunUrl: input.akunUrl ?? null,
   });
 
   const hasil = await sendEmail({
     eventId: input.eventId,
+    idempotencyKey: input.idempotencyKey,
     to: input.to,
     subject: email.subject,
     html: email.html,
@@ -120,23 +126,50 @@ export async function sendRegistrationReceived(input: {
   name: string;
   company?: string | null;
   requestUrl: string;
+  akunUrl?: string | null;
 }): Promise<EmailDelivery> {
+  return kirimTanpaQr("pending", input);
+}
+
+/**
+ * Email "Tidak disetujui" saat panitia menolak. Hanya bila sakelarnya
+ * dinyalakan di Email otomatis (bawaan mati). Alasan penolakan TIDAK ikut:
+ * kolom itu catatan internal panitia.
+ */
+export async function sendRegistrationRejected(input: {
+  eventId: string;
+  registrationId: string;
+  to: string;
+  name: string;
+  company?: string | null;
+  requestUrl: string;
+  actorId?: string | null;
+}): Promise<EmailDelivery> {
+  return kirimTanpaQr("rejected", input);
+}
+
+async function kirimTanpaQr(
+  state: "pending" | "rejected",
+  input: { eventId: string; registrationId: string; to: string; name: string; company?: string | null; requestUrl: string; akunUrl?: string | null; actorId?: string | null },
+): Promise<EmailDelivery> {
   if (!isEmailConfigured()) return { state: "not_configured" };
   const bahan = await bahanKonfirmasi(input.eventId, new URL(input.requestUrl).origin);
   if (!bahan) return { state: "failed", error: "Acara tidak ditemukan." };
-  if (!bahan.kirimMenunggu) return { state: "disabled" };
+  if (state === "pending" ? !bahan.kirimMenunggu : !bahan.templat.kirim_ditolak) return { state: "disabled" };
   const email = susunAman(bahan, {
     ...bahan.dasar,
-    state: "pending",
+    state,
     values: nilaiKolom(bahan.dasar.eventName, bahan.dasar.detail.tanggal, input.name, input.company ?? null),
     qr: null,
     codeUrl: null,
+    akunUrl: input.akunUrl ?? null,
   });
   const hasil = await sendEmail({ eventId: input.eventId, to: input.to, subject: email.subject, html: email.html, text: email.text });
+  const jenis = state === "pending" ? "registration_received_email" : "registration_rejected_email";
   await getSupabaseServiceClient().from("audit_logs").insert({
     event_id: input.eventId,
-    user_id: null,
-    action: hasil.ok ? "registration_received_email_sent" : "registration_received_email_failed",
+    user_id: input.actorId ?? null,
+    action: `${jenis}_${hasil.ok ? "sent" : "failed"}`,
     payload: { registration_id: input.registrationId, email: input.to, error: hasil.ok ? null : hasil.error },
   } as never);
   return hasil.ok ? { state: "sent" } : { state: "failed", error: hasil.error };

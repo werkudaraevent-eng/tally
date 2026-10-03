@@ -7,7 +7,7 @@ import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { validateAnswers } from "@/lib/registration-fields";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { createAccountForRegistration, memberConfig, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/member/account";
-import { sendConfirmationLink } from "@/lib/member/links";
+import { confirmationLinkUrl, sendConfirmationLink } from "@/lib/member/links";
 
 /**
  * Pendaftaran peserta dari form publik. TANPA login — satu-satunya endpoint
@@ -192,52 +192,13 @@ export async function POST(request: Request) {
     access_token: string | null;
   };
 
-  // Email ber-QR hanya untuk jalur auto-approve: di event bermoderasi belum ada
-  // kode yang bisa dikirim. Pendaftar bermoderasi menerima email "Menunggu
-  // persetujuan" yang menyebut QR menyusul, supaya tidak mengira urusannya
-  // sudah selesai.
-  //
-  // Ditunggu (await), tidak dilepas sebagai janji menggantung. Di lingkungan
-  // serverless, fungsi yang sudah membalas dapat dibekukan sebelum janji itu
-  // selesai — emailnya hilang tanpa satu pun galat, dan `email_attempts` tidak
-  // pernah naik sehingga tidak ada tanda bahwa ada yang tidak terkirim.
-  // `parsed.data.email` bisa kosong sekarang. Tanpa syarat ini, pengiriman
-  // dipanggil dengan alamat kosong dan gagal di penyedia email — tercatat
-  // sebagai kegagalan yang harus dicoba ulang panitia, padahal memang tidak ada
-  // tujuan yang bisa dikirimi.
-  const kirim = hasil.status === "approved" && hasil.qr_code && parsed.data.email
-    ? await sendRegistrationCode({
-        eventId: event.id,
-        registrationId: hasil.registration_id,
-        eventName: event.name,
-        eventDate: event.event_date,
-        timeZone: event.time_zone,
-        to: parsed.data.email as string,
-        name: parsed.data.name,
-        qrCode: hasil.qr_code,
-        codeUrl: registrationCodeUrl(request.url, event.slug, hasil.access_token),
-        origin: new URL(request.url).origin,
-        company: parsed.data.company ?? null,
-      })
-    : hasil.status === "pending" && parsed.data.email
-      ? // Acara bermoderasi: email "Pendaftaran diterima" dari templat yang
-        // sama, tanpa QR, dan jelas mengatakan QR menyusul setelah disetujui.
-        // Inilah yang membuatnya tidak lagi menyesatkan (lihat catatan di atas).
-        await sendRegistrationReceived({
-          eventId: event.id,
-          registrationId: hasil.registration_id,
-          to: parsed.data.email as string,
-          name: parsed.data.name,
-          company: parsed.data.company ?? null,
-          requestUrl: request.url,
-        }).then(() => ({ state: "not_configured" as const }))
-      : { state: "not_configured" as const };
-
-  // Akun area peserta, setelah pendaftarannya tersimpan. Gagal membuat akun
-  // TIDAK membatalkan pendaftaran: pendaftar tetap terdaftar dan bisa membuat
-  // kata sandi lewat "Kirim tautan ke email".
+  // Akun area peserta DULU, baru email. Gagal membuat akun TIDAK membatalkan
+  // pendaftaran: pendaftar tetap terdaftar dan bisa membuat kata sandi lewat
+  // "Kirim tautan ke email". Urutannya dibalik supaya tautan konfirmasi akun
+  // bisa ikut di email konfirmasi pendaftaran: satu email, bukan dua yang tiba
+  // berdetik-detik berselisih.
   let akun: "ok" | "conflict" | "failed" | null = null;
-  let konfirmasiTerkirim = false;
+  let akunBaru: { accountId: string } | null = null;
   if (member && parsed.data.email && parsed.data.password) {
     const { data: reg } = await client
       .from("event_registrations")
@@ -251,15 +212,71 @@ export async function POST(request: Request) {
       password: parsed.data.password,
     });
     akun = dibuat.status;
-    if (dibuat.status === "ok") {
-      const kirim = await sendConfirmationLink(event, {
-        accountId: dibuat.accountId,
-        email: parsed.data.email,
-        name: parsed.data.name,
-        requestUrl: request.url,
-      });
-      konfirmasiTerkirim = kirim.state === "sent";
-    }
+    if (dibuat.status === "ok") akunBaru = { accountId: dibuat.accountId };
+  }
+  const akunUrl = akunBaru && parsed.data.email
+    ? await confirmationLinkUrl(event, { accountId: akunBaru.accountId, email: parsed.data.email, requestUrl: request.url })
+    : null;
+
+  // Email ber-QR hanya untuk jalur auto-approve: di event bermoderasi belum ada
+  // kode yang bisa dikirim. Pendaftar bermoderasi menerima email "Menunggu
+  // persetujuan" yang menyebut QR menyusul, supaya tidak mengira urusannya
+  // sudah selesai.
+  //
+  // Ditunggu (await), tidak dilepas sebagai janji menggantung. Di lingkungan
+  // serverless, fungsi yang sudah membalas dapat dibekukan sebelum janji itu
+  // selesai — emailnya hilang tanpa satu pun galat, dan `email_attempts` tidak
+  // pernah naik sehingga tidak ada tanda bahwa ada yang tidak terkirim.
+  // `parsed.data.email` bisa kosong sekarang. Tanpa syarat ini, pengiriman
+  // dipanggil dengan alamat kosong dan gagal di penyedia email — tercatat
+  // sebagai kegagalan yang harus dicoba ulang panitia, padahal memang tidak ada
+  // tujuan yang bisa dikirimi.
+  let emailPendaftaran: { state: string } = { state: "not_configured" };
+  if (hasil.status === "approved" && hasil.qr_code && parsed.data.email) {
+    emailPendaftaran = await sendRegistrationCode({
+      eventId: event.id,
+      registrationId: hasil.registration_id,
+      eventName: event.name,
+      eventDate: event.event_date,
+      timeZone: event.time_zone,
+      to: parsed.data.email as string,
+      name: parsed.data.name,
+      qrCode: hasil.qr_code,
+      codeUrl: registrationCodeUrl(request.url, event.slug, hasil.access_token),
+      origin: new URL(request.url).origin,
+      company: parsed.data.company ?? null,
+      akunUrl,
+    });
+  } else if (hasil.status === "pending" && parsed.data.email) {
+    // Acara bermoderasi: email "Pendaftaran diterima" dari templat yang sama,
+    // tanpa QR, dan jelas mengatakan QR menyusul setelah disetujui. Panitia
+    // bisa mematikannya di Email otomatis (hasilnya "disabled").
+    emailPendaftaran = await sendRegistrationReceived({
+      eventId: event.id,
+      registrationId: hasil.registration_id,
+      to: parsed.data.email as string,
+      name: parsed.data.name,
+      company: parsed.data.company ?? null,
+      requestUrl: request.url,
+      akunUrl,
+    });
+  }
+  // Status email ber-QR untuk layar sukses. Email Menunggu tidak dilaporkan:
+  // layar sukses bermoderasi tidak menjanjikan email apa pun.
+  const kirim = hasil.status === "approved" ? emailPendaftaran : { state: "not_configured" as const };
+
+  // Tautan konfirmasi akun ikut terkirim bila email pendaftaran terkirim. Bila
+  // tidak (email Menunggu dimatikan, penyedia gagal, token gagal dibuat), email
+  // konfirmasi akun dikirim tersendiri seperti sebelumnya.
+  let konfirmasiTerkirim = Boolean(akunUrl) && emailPendaftaran.state === "sent";
+  if (akunBaru && !konfirmasiTerkirim && parsed.data.email) {
+    const terpisah = await sendConfirmationLink(event, {
+      accountId: akunBaru.accountId,
+      email: parsed.data.email,
+      name: parsed.data.name,
+      requestUrl: request.url,
+    });
+    konfirmasiTerkirim = terpisah.state === "sent";
   }
 
   return Response.json({

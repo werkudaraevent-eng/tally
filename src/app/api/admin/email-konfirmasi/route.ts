@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     kv_url: bahan.kvUrl,
     member_on: bahan.memberOn,
     contoh: contoh ?? [],
-    belum_terima: await hitungBelumTerima(event.id),
+    ...(await hitungBelumTerima(event.id).then((hitung) => ({ belum_terima: hitung.semua, belum_terima_dikirim: hitung.dikirim, daftar_uji: hitung.daftarUji }))),
     email_aktif: isEmailConfigured(),
   });
 }

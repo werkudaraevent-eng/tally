@@ -2,7 +2,8 @@ import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { isEmailConfigured } from "@/lib/email/client";
-import { sendRegistrationCode } from "@/lib/email/registration-code";
+import { sendRegistrationCode, sendRegistrationRejected } from "@/lib/email/registration-code";
+import { PRESET_LABELS, templatSchema } from "@/lib/email/konfirmasi/templat";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { landingFormOnly } from "@/lib/landing-i18n";
 import { LANDING_HEADING_FONTS, type EventLandingConfig, type RegistrationField, type RegistrationFormConfig } from "@/lib/domain";
@@ -103,7 +104,7 @@ export async function GET(request: Request) {
     .range(parsed.data.offset, parsed.data.offset + parsed.data.limit - 1);
   if (parsed.data.status !== "all") query = query.eq("status", parsed.data.status);
 
-  const [result, menunggu, konfigurasi] = await Promise.all([
+  const [result, menunggu, konfigurasi, setelanEmail] = await Promise.all([
     query,
     client.from("event_registrations").select("id", { head: true, count: "exact" })
       .eq("event_id", eventId).eq("status", "pending"),
@@ -111,6 +112,9 @@ export async function GET(request: Request) {
     // kolom itu hanya dipakai halaman ini, sedangkan EVENT_COLUMNS ikut di
     // setiap resolusi event di seluruh aplikasi.
     client.from("events").select("registration_auto_approve").eq("id", eventId).single(),
+    // Ringkasan email konfirmasi untuk baris "Email konfirmasi · Atur email".
+    // Galat (migrasi 0006 belum dijalankan) = templat bawaan.
+    client.from("event_settings").select("registration_email").eq("event_id", eventId).maybeSingle(),
   ]);
   if (result.error) return apiError("INTERNAL_ERROR", 500);
 
@@ -157,6 +161,7 @@ export async function GET(request: Request) {
       // Ringkasan Tema halaman acara untuk kartu "Tampilan mengikuti Tema" di
       // Atur formulir. Hanya yang dipakai formulir; mengubahnya tetap di Tema.
       tampilan: tampilanFormulir(auth.scope.event.landing_config as EventLandingConfig | null),
+      email_konfirmasi: ringkasanEmail(setelanEmail.error ? null : (setelanEmail.data as { registration_email: unknown } | null)?.registration_email ?? null),
     },
     // Dibaca dari env, bukan dari data. Layar moderasi memakainya untuk memilih
     // antara "belum terkirim, coba lagi" (yang menyuruh panitia bertindak) dan
@@ -284,6 +289,12 @@ export async function PATCH(request: Request) {
   return Response.json(data);
 }
 
+/** Preset dan sakelar Tidak disetujui dari templat tersimpan; null = templat bawaan. */
+function ringkasanEmail(raw: unknown): { preset: string | null; kirim_ditolak: boolean } {
+  const hasil = templatSchema.safeParse(raw);
+  return hasil.success ? { preset: PRESET_LABELS[hasil.data.preset].label, kirim_ditolak: hasil.data.kirim_ditolak } : { preset: null, kirim_ditolak: false };
+}
+
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
@@ -332,6 +343,29 @@ export async function POST(request: Request) {
         codeUrl: registrationCodeUrl(request.url, auth.scope.event.slug, reg.access_token),
         origin: new URL(request.url).origin,
         company: reg.company,
+        actorId: auth.user.id,
+      });
+    }
+  }
+
+  // Email "Tidak disetujui": hanya bila panitia menyalakannya di Email
+  // otomatis (bawaan mati); sendRegistrationRejected memeriksa sakelarnya.
+  if (hasil.status === "rejected") {
+    const { data: baris } = await getSupabaseServiceClient()
+      .from("event_registrations")
+      .select("name,email,company")
+      .eq("id", parsed.data.id)
+      .eq("event_id", auth.scope.event.id)
+      .maybeSingle();
+    const reg = baris as { name: string; email: string | null; company: string | null } | null;
+    if (reg?.email) {
+      kirim = await sendRegistrationRejected({
+        eventId: auth.scope.event.id,
+        registrationId: parsed.data.id,
+        to: reg.email,
+        name: reg.name,
+        company: reg.company,
+        requestUrl: request.url,
         actorId: auth.user.id,
       });
     }

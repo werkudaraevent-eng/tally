@@ -28,6 +28,13 @@ const teksKaya = z.string().max(TEXT_MAX);
 
 const id = z.string().regex(/^[a-z0-9-]{1,40}$/);
 const judul = z.string().trim().max(120);
+
+/** Salinan email Tidak disetujui. Bawaan diisi saat dibaca, jadi templat yang disimpan sebelum fitur ini tetap sah. */
+export const SALINAN_DITOLAK = {
+  subjek: "Kabar pendaftaran {acara}",
+  judul: "Terima kasih atas minat Anda",
+  isi: "Halo {nama}, terima kasih sudah mendaftar di {acara}. Mohon maaf, kali ini panitia belum dapat menyetujui pendaftaran Anda.",
+};
 const gambarUrl = z.string().trim().url().max(600).refine((nilai) => nilai.startsWith("https://"), "Gambar harus dari alamat https://");
 
 export const blockSchema = z.discriminatedUnion("type", [
@@ -40,6 +47,8 @@ export const blockSchema = z.discriminatedUnion("type", [
     isi: teksKaya,
     judul_menunggu: judul,
     isi_menunggu: teksKaya,
+    judul_ditolak: judul.default(SALINAN_DITOLAK.judul),
+    isi_ditolak: teksKaya.default(SALINAN_DITOLAK.isi),
   }),
   z.object({ id, type: z.literal("tiket"), on: z.literal(true) }),
   z.object({ id, type: z.literal("detail"), on: z.boolean() }),
@@ -82,6 +91,9 @@ export const templatSchema = z
     font: z.enum(FONTS),
     subjek: z.string().trim().min(1).max(150),
     subjek_menunggu: z.string().trim().min(1).max(150),
+    subjek_ditolak: z.string().trim().min(1).max(150).default(SALINAN_DITOLAK.subjek),
+    /** Email "Tidak disetujui" saat panitia menolak. Bawaan mati: penolakan sering perlu disampaikan secara pribadi. */
+    kirim_ditolak: z.boolean().default(false),
     /**
      * Gambar kepala Banner KV yang sudah jadi: potongan KV 1200x400 dengan logo
      * putih di atasnya, dibuat sekali di peramban saat Simpan. Satu gambar,
@@ -189,7 +201,7 @@ export function newBlock(type: BlockType, opsi: { memberOn: boolean }): Block {
   }
 }
 
-const DEFAULT_PEMBUKA: Extract<Block, { type: "pembuka" }> = {
+export const DEFAULT_PEMBUKA: Extract<Block, { type: "pembuka" }> = {
   id: "pembuka",
   type: "pembuka",
   on: true,
@@ -197,6 +209,8 @@ const DEFAULT_PEMBUKA: Extract<Block, { type: "pembuka" }> = {
   isi: "Halo {nama}, pendaftaran Anda sudah dikonfirmasi. Simpan email ini; **QR di bawah adalah tiket masuk Anda**.",
   judul_menunggu: "Terima kasih sudah mendaftar",
   isi_menunggu: "Halo {nama}, pendaftaran Anda di {acara} sudah kami terima. Kami kabari lewat email ini begitu panitia menyetujuinya.",
+  judul_ditolak: SALINAN_DITOLAK.judul,
+  isi_ditolak: SALINAN_DITOLAK.isi,
 };
 
 /**
@@ -210,6 +224,8 @@ export function defaultTemplat(opsi: { punyaKv: boolean; memberOn: boolean }): T
     font: "sans",
     subjek: "Tiket Anda: {acara}",
     subjek_menunggu: "Pendaftaran diterima: {acara}",
+    subjek_ditolak: SALINAN_DITOLAK.subjek,
+    kirim_ditolak: false,
     kepala_url: null,
     logo_putih_url: null,
     blocks: [
@@ -232,9 +248,9 @@ export function readTemplat(raw: unknown, opsi: { punyaKv: boolean; memberOn: bo
 
 /** Semua teks yang ditulis panitia, untuk memeriksa `{kolom}` yang tidak dikenal. */
 export function teksPanitia(templat: Templat): string[] {
-  const out = [templat.subjek, templat.subjek_menunggu];
+  const out = [templat.subjek, templat.subjek_menunggu, templat.subjek_ditolak];
   for (const block of templat.blocks) {
-    if (block.type === "pembuka") out.push(block.judul, block.isi, block.judul_menunggu, block.isi_menunggu);
+    if (block.type === "pembuka") out.push(block.judul, block.isi, block.judul_menunggu, block.isi_menunggu, block.judul_ditolak, block.isi_ditolak);
     if (block.type === "teks") out.push(block.isi);
     if (block.type === "info") out.push(block.judul, block.isi);
   }
