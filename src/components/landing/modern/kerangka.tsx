@@ -83,8 +83,13 @@ export function bagianModern(
   sections: LandingSection[],
   agenda: Agenda,
   lang: LandingLang,
+  /** Gaya gathering: tanpa kartu Program, Lokasi menjadi Tempat menginap bila ada hotel. */
+  opsi: { gathering?: boolean; adaHotel?: boolean } = {},
 ) {
-  const NAV_LABEL = LANDING_UI[lang].nav;
+  const t = LANDING_UI[lang];
+  const NAV_LABEL = opsi.gathering
+    ? { ...t.nav, agenda: t.navTrip, ...(opsi.adaHotel ? { venue: t.navHotel } : {}) }
+    : t.nav;
   const aktif = new Set(sections.filter((section) => section.enabled).map((section) => section.id));
   const speakers = (config.speakers ?? []).filter((speaker) => speaker.name?.trim());
   const isi: Record<LandingSectionId, boolean> = {
@@ -92,7 +97,7 @@ export function bagianModern(
     highlights: (config.highlights ?? []).length > 0,
     agenda: agenda.length > 0,
     speakers: speakers.length > 0,
-    venue: Boolean(event.venue_name?.trim() || event.venue_address?.trim()),
+    venue: Boolean(event.venue_name?.trim() || event.venue_address?.trim() || (opsi.gathering && opsi.adaHotel)),
     faq: (config.faq ?? []).length > 0,
     sponsors: (config.sponsors ?? []).some((sponsor) => sponsor.logo_url),
     contact: Boolean(config.contact_name || config.contact_phone || config.contact_email),
@@ -100,7 +105,7 @@ export function bagianModern(
   const tampil = (id: LandingSectionId) => aktif.has(id) && isi[id];
   // Program = bagian-bagian rundown sebagai kartu. Satu bagian saja tidak
   // perlu kartu: susunan acara di bawahnya sudah mengatakan hal yang sama.
-  const tampilProgram = tampil("agenda") && agenda.length >= 2 && !config.program_hidden;
+  const tampilProgram = tampil("agenda") && agenda.length >= 2 && !config.program_hidden && !opsi.gathering;
 
   const blokById = new Map((config.blocks ?? []).map((block) => [block.id, block]));
 

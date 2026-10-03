@@ -189,6 +189,10 @@ export const memberSchema = z.object({
   show_seat: z.boolean().optional(),
   show_schedule: z.boolean().optional(),
   show_vote: z.boolean().optional(),
+  /** Kamar, bus, dan barang dari Logistik di Dashboard saya. Bawaan mati. */
+  show_logistics: z.boolean().optional(),
+  /** Dibaca member_logistics di database; bawaan tampil. */
+  show_roommates: z.boolean().optional(),
   feedback_url: z.string().trim().url().max(600).nullable().optional(),
 });
 
@@ -250,6 +254,8 @@ export const landingBodySchema = z.object({
       .max(10 + MAX_BLOCKS),
     blocks: z.array(blockSchema).max(MAX_BLOCKS).optional(),
     en_enabled: z.boolean().optional(),
+    invite_only: z.boolean().optional(),
+    gathering: z.boolean().optional(),
     default_lang: z.enum(["id", "en"]).optional(),
     en: z.object({
       public_name: teks(120),

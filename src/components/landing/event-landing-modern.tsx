@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, CalendarBlank, CalendarPlus, Clock, MapPin, Minus, Plus } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, ArrowUpRight, CalendarBlank, CalendarPlus, Clock, MapPin, Minus, Moon, Plus } from "@phosphor-icons/react/dist/ssr";
 import type {
   EventLandingConfig,
   EventRow,
@@ -20,7 +20,8 @@ import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { MasukDialog } from "@/components/member/masuk-dialog";
 import type { MasukMode, MasukSandi } from "@/app/masuk/masuk-client";
-import { timeZoneAbbr } from "@/lib/timezone";
+import { timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
+import { loadLandingLodging, type LandingHotel } from "@/lib/landing-hotel";
 import { AgendaPills } from "./modern/agenda-pills";
 import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
@@ -180,8 +181,21 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const sudahMasuk = Boolean(sesi);
   const peserta = sesi ? await muatNavPeserta(event, sesi, lang) : null;
   const memberLink = member && !sesi ? { href: masukUrl, label: t.signIn } : null;
+  // Khusus undangan (preset Gathering): saat pendaftaran tertutup, ajakannya
+  // masuk, bukan menunggu pendaftaran. Tanpa area peserta tidak ada yang bisa
+  // dimasuki, jadi halaman kembali ke perilaku tertutup biasa.
+  const undangan = Boolean(config.invite_only) && Boolean(member) && !event.registration_enabled && !sudahMasuk;
 
-  const { tampil, tampilProgram, speakers, blokById, jangkar, navSections, mitra, kontak } = bagianModern(event, config, sections, agenda, lang);
+  // Gaya gathering (preset Gathering). Acara lain tidak membaca hotel apa pun
+  // dan tampil persis seperti sebelumnya.
+  const gaya = config.gathering === true;
+  const inap = gaya ? await loadLandingLodging(event.id) : null;
+  const hotelInap = inap?.hotels ?? [];
+
+  const { tampil, tampilProgram, speakers, blokById, jangkar, navSections, mitra, kontak } = bagianModern(event, config, sections, agenda, lang, {
+    gathering: gaya,
+    adaHotel: hotelInap.length > 0,
+  });
 
   const kv = config.banner_url ?? null;
   // Pita ajakan dari pustaka blok menggantikan banner ajakan bawaan, supaya
@@ -207,18 +221,23 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
 
   // Angka di kartu Sekilas: angka penting pertama dari CMS bila bagian itu
   // menyala, atau jumlah sesi di rundown. Tidak ada angka = kartu tanpa angka.
-  const sorotan = tampil("highlights") ? config.highlights?.[0] : undefined;
+  // Gathering tanpa kotak angka: "6 sesi" adalah bahasa acara rapat.
+  const sorotan = !gaya && tampil("highlights") ? config.highlights?.[0] : undefined;
   const totalSesi = agenda.reduce((jumlah, bagian) => jumlah + bagian.items.length, 0);
   const stat = sorotan
     ? { nilai: sorotan.value, label: sorotan.label }
-    : totalSesi > 0
+    : totalSesi > 0 && !gaya
       ? { nilai: t.sessions(totalSesi), label: agenda.length > 1 ? t.inPrograms(agenda.length) : null }
       : null;
 
+  // Gathering: lama menginap menggantikan jam, karena jam mulai-selesai acara
+  // tiga hari tidak berarti apa-apa bagi tamu.
+  const lamaHari = gaya ? jumlahHari(event.event_date, event.end_date) : null;
   const infoHero = [
     tanggal ? { ikon: CalendarBlank, teks: tanggal } : null,
-    jam ? { ikon: Clock, teks: jam } : null,
+    jam && !gaya ? { ikon: Clock, teks: jam } : null,
     venue ? { ikon: MapPin, teks: venue } : null,
+    lamaHari ? { ikon: Moon, teks: t.stayLength(lamaHari) } : null,
   ].filter((item): item is NonNullable<typeof item> => item !== null);
   const cta = heroCtaColors(config.theme?.seed);
   // Aksi utama saat pendaftaran tertutup: yang memang bisa dilakukan tamu.
@@ -226,6 +245,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     ? { href: "#agenda", label: t.viewAgenda }
     : { href: "#isi-acara", label: t.aboutEvent };
   const ctaKv = { "--cta-bg": cta.bg, "--cta-fg": cta.fg } as CSSProperties;
+  const judulAjakan = gaya ? event.tagline?.trim() || null : null;
   const mainStyle = gayaModern(config, theme);
 
   // Paling banyak 8 kartu sekaligus; sisanya per sesi lewat tab (lihat
@@ -358,12 +378,16 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 kolom kiri yang 60% kosong. Acara satu hari tidak butuh penanda
                 yang ikut turun; daftar yang padat muat satu layar laptop. */}
             <div className="flex flex-col gap-3">
-              <JudulBagian {...judulBagian("agenda")} />
+              <JudulBagian
+                {...judulBagian("agenda")}
+                // Gathering: label "Perjalanan", kecuali panitia menulis labelnya sendiri.
+                {...(gaya && !config.agenda_eyebrow?.trim() ? { alis: t.tripEyebrow } : {})}
+              />
               {/* Catatan di bawah judul, sama seperti bagian lain. */}
               {config.agenda_note?.trim() ? <p className={`max-w-[520px] text-isi ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
             </div>
             <div className="mt-6 sm:mt-8">
-              <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} />
+              <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari={gaya} />
             </div>
           </Section>
         ) : null}
@@ -396,8 +420,14 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     ),
     venue: (
       <>
+        {/* ---- Tempat menginap (gathering) ---------------------------------- */}
+        {gaya && hotelInap.length > 0 && tampil("venue") ? (
+          <Section id="venue">
+            <TempatMenginap hotels={hotelInap} sesamaJenis={inap?.same_gender ?? false} zona={event.time_zone} lang={lang} />
+          </Section>
+        ) : null}
         {/* ---- Lokasi ------------------------------------------------------- */}
-        {tampil("venue") ? (
+        {tampil("venue") && !(gaya && hotelInap.length > 0) ? (
           <Section id="venue">
             <div className={`grid items-center gap-10 lg:gap-20 ${petaKueri ? "lg:grid-cols-2" : ""}`}>
               <div className="flex max-w-[572px] flex-col items-start gap-8 sm:gap-10">
@@ -540,6 +570,13 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           {/* Urutan: nama acara, subjudul (satu kelompok, jarak 16), info
               acara (24), tombol (32). Ritme M3 kelipatan 8dp. */}
           <div className="flex min-w-0 max-w-[1040px] flex-col">
+            {judulAjakan ? (
+              // Gathering: nama acara turun menjadi label kecil, dan tagline
+              // menjadi judul ajakan (rancangan 2026-10-03).
+              <p className={`rise-in mb-4 ${LABEL_BAGIAN} opacity-90`} style={HERO_DELAY(0)}>
+                {[nama, undangan ? t.inviteOnlyShort : null].filter(Boolean).join(" · ")}
+              </p>
+            ) : null}
             <h1
               // Tinggi baris display M3: 64/57 = 1.12.
               className={`rise-in text-balance font-semibold leading-[1.12] tracking-[-0.02em] ${HEAD} ${
@@ -547,9 +584,9 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               }`}
               style={{ ...HERO_DELAY(0), ...(config.heading_size ? { fontSize: landingHeadingFontSize(config.heading_size) } : null) }}
             >
-              {nama}
+              {judulAjakan ?? nama}
             </h1>
-            {event.tagline ? (
+            {event.tagline && !judulAjakan ? (
               // body-large 16/24 di ponsel, title-large 22/28 di layar lebar (skala tipe M3).
               <p className="rise-in mt-4 max-w-[720px] text-body-large opacity-90 sm:text-title-large sm:font-normal" style={HERO_DELAY(2)}>
                 {event.tagline}
@@ -595,6 +632,13 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                       {t.viewAgenda}
                     </a>
                   ) : null}
+                </>
+              ) : undangan ? (
+                <>
+                  <Link href={masukUrl} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
+                    {gaya ? t.inviteCta : t.memberSignIn}
+                  </Link>
+                  {judulAjakan ? null : <p className="text-isi opacity-90">{t.inviteOnly}</p>}
                 </>
               ) : (
                 <>
@@ -657,6 +701,30 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             </div>
           </section>
         ) : null}
+        {/* Khusus undangan: pita penutup yang sama, mengajak tamu undangan masuk. */}
+        {undangan && !adaBlokAjakan ? (
+          <section className="pb-16 sm:pb-24">
+            <div
+              className={`relative isolate flex flex-col items-center gap-6 overflow-hidden rounded-lg px-6 py-16 text-center text-[var(--ink)] sm:py-24 ${
+                kv ? "bg-black" : "bg-[var(--reg-brand)]"
+              }`}
+              style={tinta(Boolean(kv))}
+            >
+              {kv ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={kv} alt="" loading="lazy" className="absolute inset-0 -z-10 size-full object-cover" />
+                  <div aria-hidden className="absolute inset-0 -z-10" style={{ background: KV_SCRIM_RATA }} />
+                </>
+              ) : null}
+              <h2 className={`${JUDUL} max-w-[800px]`}>{t.inviteHeading}</h2>
+              <p className="max-w-[720px] text-title-large font-normal leading-[1.5] opacity-90">{t.inviteNote}</p>
+              <Link href={masukUrl} className={PIL_INK}>
+                {t.memberSignIn}
+              </Link>
+            </div>
+          </section>
+        ) : null}
       </div>
 
       <PitaMitra mitra={mitra} judul={t.organisedBy} />
@@ -665,7 +733,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       <KakiModern
         nama={nama}
         keterangan={{ catatan: config.footer_note?.trim() || null, baris: [tanggal, venue].filter((baris): baris is string => Boolean(baris)) }}
-        tombol={aksiPeserta ?? (event.registration_enabled ? { href: daftarUrl, label: ctaLabel } : null)}
+        tombol={aksiPeserta ?? (event.registration_enabled ? { href: daftarUrl, label: ctaLabel } : undangan ? { href: masukUrl, label: t.memberSignIn } : null)}
         kolom={[
           { judul: t.footerEvent, tautan: tautanAcara.map((item) => ({ label: item.label, href: `#${item.id}` })) },
           { judul: t.footerGuests, tautan: tautanTamu },
@@ -693,5 +761,90 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         />
       ) : null}
     </main>
+  );
+}
+
+/** Jumlah hari dari tanggal mulai sampai selesai (inklusif). Null bila satu hari atau tanggal tidak lengkap. */
+function jumlahHari(mulai: string | null, selesai: string | null): number | null {
+  if (!mulai || !selesai) return null;
+  const hari = Math.round((Date.parse(`${selesai}T00:00:00Z`) - Date.parse(`${mulai}T00:00:00Z`)) / 86_400_000) + 1;
+  return Number.isFinite(hari) && hari > 1 && hari <= 31 ? hari : null;
+}
+
+function waktuInap(iso: string | null, zona: EventTimeZone, lang: LandingLang): string | null {
+  if (!iso) return null;
+  const tanggal = new Date(iso);
+  const locale = lang === "en" ? "en-GB" : "id-ID";
+  const hari = new Intl.DateTimeFormat(locale, { timeZone: zona, weekday: "short", day: "numeric", month: "short" }).format(tanggal);
+  const jamnya = new Intl.DateTimeFormat(locale, { timeZone: zona, hour: "2-digit", minute: "2-digit", hour12: false }).format(tanggal);
+  return `${hari} · ${lang === "en" ? jamnya : jamnya.replace(":", ".")}`;
+}
+
+/**
+ * Bagian "Tempat menginap" gaya gathering: hotel dari Logistik, dengan jam
+ * check-in/out dan aturan kamar. Peta tersemat di kanan, sama dengan Lokasi.
+ * Nomor kamar dan teman sekamar TIDAK di sini; itu milik Dashboard saya.
+ */
+function TempatMenginap({ hotels, sesamaJenis, zona, lang }: { hotels: LandingHotel[]; sesamaJenis: boolean; zona: EventTimeZone; lang: LandingLang }) {
+  const t = LANDING_UI[lang];
+  const utama = hotels[0];
+  const kueriPeta = [utama.name, utama.address].filter(Boolean).join(", ");
+  return (
+    <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-20">
+      <div className="flex max-w-[572px] flex-col gap-8 sm:gap-10">
+        <div className="flex flex-col gap-3">
+          <p className={ALIS}>{t.hotelEyebrow}</p>
+          <h2 className={JUDUL}>{t.hotelHeading}</h2>
+        </div>
+        {hotels.map((hotel) => {
+          const masuk = waktuInap(hotel.check_in_at, zona, lang);
+          const keluar = waktuInap(hotel.check_out_at, zona, lang);
+          const petaUrl = hotel.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([hotel.name, hotel.address].filter(Boolean).join(", "))}`;
+          return (
+            <div key={hotel.id} className="flex flex-col items-start gap-5">
+              <div className="flex flex-col gap-1.5">
+                <h3 className={`${HEAD} text-[24px] font-semibold leading-tight`}>{hotel.name}</h3>
+                {hotel.address ? <p className={`whitespace-pre-line text-isi ${MUTED}`}>{hotel.address}</p> : null}
+              </div>
+              {masuk || keluar || hotel.room_capacity ? (
+                <dl className="grid w-full grid-cols-[120px_minmax(0,1fr)] gap-y-2.5 text-isi">
+                  {masuk ? (
+                    <>
+                      <dt className={MUTED}>{t.checkIn}</dt>
+                      <dd className="font-medium tabular-nums">{masuk}</dd>
+                    </>
+                  ) : null}
+                  {keluar ? (
+                    <>
+                      <dt className={MUTED}>{t.checkOut}</dt>
+                      <dd className="font-medium tabular-nums">{keluar}</dd>
+                    </>
+                  ) : null}
+                  {hotel.room_capacity ? (
+                    <>
+                      <dt className={MUTED}>{t.room}</dt>
+                      <dd className="font-medium">{t.roomShare(hotel.room_capacity, sesamaJenis)}</dd>
+                    </>
+                  ) : null}
+                </dl>
+              ) : null}
+              <a href={petaUrl} target="_blank" rel="noreferrer noopener" className={PIL_GARIS}>
+                {t.openMap}
+                <ArrowUpRight size={16} weight="bold" aria-hidden />
+              </a>
+            </div>
+          );
+        })}
+      </div>
+      <div className="overflow-hidden rounded-lg bg-[var(--reg-panel)] [aspect-ratio:4/3] sm:[aspect-ratio:625/460]">
+        <iframe
+          title={t.mapOf(utama.name)}
+          src={`https://www.google.com/maps?q=${encodeURIComponent(kueriPeta)}&output=embed`}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          className="size-full border-0"
+        />
+      </div>
+    </div>
   );
 }
