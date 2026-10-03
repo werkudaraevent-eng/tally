@@ -12,6 +12,8 @@ import { clearGate, eligible, HASH_ROUNDS, hashToken, normalizeEmail, startSessi
  *
  *   konfirmasi  membuktikan email akun yang dibuat dari formulir pendaftaran
  *   sandi       membuat atau mengganti kata sandi
+ *   undangan    sama dengan `sandi`, tetapi dikirim panitia lewat Pesan peserta
+ *               dan berlaku 7 hari (lihat createInviteToken)
  *
  * Tautan "sandi" menggantikan "buat kata sandi dengan kode peserta": peserta
  * impor panitia, pendaftar sebelum fitur ini, dan yang lupa kata sandi meminta
@@ -20,6 +22,8 @@ import { clearGate, eligible, HASH_ROUNDS, hashToken, normalizeEmail, startSessi
  */
 
 const MASA: Record<"konfirmasi" | "sandi", number> = { konfirmasi: 14 * 24 * 60 * 60 * 1000, sandi: 60 * 60 * 1000 };
+/** Masa berlaku tautan undangan, dihitung dari saat kiriman berangkat. */
+export const MASA_UNDANGAN_MS = 7 * 24 * 60 * 60 * 1000;
 /** Paling banyak tiga permintaan per email per 15 menit: cukup untuk "belum masuk, kirim lagi", sempit untuk membanjiri kotak masuk orang. */
 const BATAS_EMAIL = 3;
 const JENDELA_EMAIL = 15 * 60 * 1000;
@@ -52,7 +56,7 @@ async function buatToken(eventId: string, purpose: "konfirmasi" | "sandi", email
 }
 
 /** Alamat tautan, dari origin permintaan (sama dengan registrationCodeUrl). */
-export function memberLinkUrl(requestUrl: string, slug: string, purpose: "konfirmasi" | "sandi", token: string) {
+export function memberLinkUrl(requestUrl: string, slug: string, purpose: "konfirmasi" | "sandi" | "undangan", token: string) {
   const origin = new URL(requestUrl).origin;
   const path = purpose === "konfirmasi"
     ? `/e/${encodeURIComponent(slug)}/api/peserta/konfirmasi?token=${token}`
@@ -212,7 +216,7 @@ async function cariSasaran(
 
 type BarisToken = {
   id: string;
-  purpose: "konfirmasi" | "sandi";
+  purpose: "konfirmasi" | "sandi" | "undangan";
   email: string;
   account_id: string | null;
   participant_id: string | null;
@@ -221,6 +225,12 @@ type BarisToken = {
   used_at: string | null;
 };
 
+/**
+ * `sandi` juga menerima tautan `undangan`: keduanya membuka halaman buat kata
+ * sandi yang sama (`?sandi=`), jadi membuka tautan tidak pernah memakainya;
+ * baru menekan Simpan yang memakai. Itu yang menjaga tautan dari pemindai
+ * tautan email kantor dan pratinjau tautan, yang membuka URL lebih dulu.
+ */
 async function bacaToken(eventId: string, token: string, purpose: "konfirmasi" | "sandi"): Promise<BarisToken | null> {
   if (!/^[A-Za-z0-9_-]{20,100}$/.test(token)) return null;
   const { data } = await getSupabaseServiceClient()
@@ -228,7 +238,7 @@ async function bacaToken(eventId: string, token: string, purpose: "konfirmasi" |
     .select("id,purpose,email,account_id,participant_id,registration_id,expires_at,used_at")
     .eq("token_hash", hashToken(token))
     .eq("event_id", eventId)
-    .eq("purpose", purpose)
+    .in("purpose", purpose === "sandi" ? ["sandi", "undangan"] : [purpose])
     .maybeSingle();
   const baris = data as BarisToken | null;
   if (!baris || baris.used_at || new Date(baris.expires_at).getTime() < Date.now()) return null;

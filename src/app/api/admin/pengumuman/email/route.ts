@@ -5,6 +5,7 @@ import { publicEventName } from "@/lib/domain";
 import { sendEmailBatch } from "@/lib/email/client";
 import { emailPengumuman } from "@/lib/email/pengumuman";
 import { tabelBelumAda } from "@/lib/member/pengumuman";
+import { allowedByList, messagingAllowlist } from "@/lib/pesan/alamat";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -43,7 +44,14 @@ export async function POST(request: Request) {
   if (item.audience === "disetujui") kueri = kueri.not("participant_id", "is", null);
   const { data: akun, error: galatAkun } = await kueri;
   if (galatAkun) return apiError("INTERNAL_ERROR", 500);
-  const penerima = [...new Set(((akun ?? []) as { email: string }[]).map((baris) => baris.email).filter(Boolean))];
+  // Daftar uji yang sama dengan Kiriman: di luar produksi hanya alamat di
+  // MESSAGING_ALLOWLIST yang menerima, dan tanpa daftar itu tidak ada yang
+  // dikirim. Preview memakai database produksi.
+  const daftarUji = messagingAllowlist();
+  if (daftarUji.mode === "blocked") return apiError("MESSAGING_BLOCKED", 403);
+  const penerima = [
+    ...new Set(((akun ?? []) as { email: string }[]).map((baris) => baris.email?.trim().toLowerCase()).filter((email): email is string => Boolean(email) && allowedByList(email, daftarUji))),
+  ];
 
   const origin = new URL(request.url).origin;
   const isi = emailPengumuman({

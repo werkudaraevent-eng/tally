@@ -160,3 +160,94 @@ export async function sendEmailBatch(
   }
   return { sent, failed, error: lastError };
 }
+
+export type BatchItem = {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  headers?: Record<string, string>;
+};
+
+/** Hasil per email, urutannya sama dengan masukan. */
+export type BatchItemResult = { ok: true; id: string } | { ok: false; error: string; permanent: boolean };
+
+export type DetailedBatchResult =
+  | { kind: "not_configured" }
+  /** Penyedia menolak seluruh panggilan (atau tidak membalas). `retryable` = layak dicoba lagi apa adanya. */
+  | { kind: "failed"; error: string; retryable: boolean; status: number | null }
+  | { kind: "ok"; items: BatchItemResult[] };
+
+/**
+ * Satu potongan (paling banyak 100) lewat /emails/batch untuk mesin Pesan
+ * peserta. Berbeda dari sendEmailBatch di atas dalam tiga hal:
+ *
+ *   * `Idempotency-Key`: potongan yang dikirim ulang dengan kunci yang sama
+ *     dalam 24 jam tidak terkirim dua kali; Resend membalas hasil yang lama.
+ *   * `x-batch-validation: permissive`: satu alamat buruk tidak menggagalkan
+ *     99 lainnya. Yang gagal validasi dikembalikan per indeks.
+ *   * Hasilnya per email, sesuai urutan masukan, supaya setiap baris penerima
+ *     bisa diberi id kiriman atau alasan gagalnya sendiri.
+ */
+export async function sendEmailBatchDetailed(items: BatchItem[], idempotencyKey: string): Promise<DetailedBatchResult> {
+  const config = emailConfig();
+  if (!config) return { kind: "not_configured" };
+  if (items.length === 0) return { kind: "ok", items: [] };
+  if (items.length > BATCH_MAX) throw new Error(`Paling banyak ${BATCH_MAX} email per potongan.`);
+
+  try {
+    const response = await fetch(`${ENDPOINT}/batch`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+        "x-batch-validation": "permissive",
+      },
+      body: JSON.stringify(
+        items.map((item) => ({
+          from: config.from,
+          to: [item.to],
+          subject: item.subject,
+          html: item.html,
+          text: item.text,
+          ...(config.replyTo ? { reply_to: config.replyTo } : {}),
+          ...(item.headers ? { headers: item.headers } : {}),
+        })),
+      ),
+      signal: AbortSignal.timeout(TIMEOUT_MS * 2),
+    });
+    const body = (await response.json().catch(() => null)) as
+      | { data?: { id: string }[]; errors?: { index: number; message: string }[]; message?: string; name?: string }
+      | null;
+
+    if (!response.ok) {
+      const error = (body?.message ?? body?.name ?? `HTTP ${response.status}`).slice(0, 300);
+      // 429 dan 5xx: penyedia sibuk, coba lagi nanti. 4xx lain (kunci API salah,
+      // domain belum diverifikasi, kunci idempotensi dipakai untuk isi lain):
+      // mengulang apa adanya tidak akan menolong.
+      return { kind: "failed", error, retryable: response.status === 429 || response.status >= 500, status: response.status };
+    }
+
+    // Dalam mode permissive, `data` hanya berisi email yang diterima, berurutan;
+    // `errors` menyebut indeks yang ditolak. Keduanya digabung kembali ke urutan
+    // masukan.
+    const ditolak = new Map((body?.errors ?? []).map((galat) => [galat.index, galat.message]));
+    const diterima = [...(body?.data ?? [])];
+    const hasil: BatchItemResult[] = items.map((_, indeks) => {
+      const pesan = ditolak.get(indeks);
+      if (pesan !== undefined) return { ok: false, error: pesan.slice(0, 300), permanent: true };
+      const berikut = diterima.shift();
+      return berikut?.id ? { ok: true, id: berikut.id } : { ok: false, error: "Penyedia email membalas tanpa id kiriman.", permanent: false };
+    });
+    return { kind: "ok", items: hasil };
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    return {
+      kind: "failed",
+      error: name === "TimeoutError" ? "Penyedia email tidak membalas dalam 20 detik." : error instanceof Error ? error.message.slice(0, 300) : "Gagal menghubungi penyedia email.",
+      retryable: true,
+      status: null,
+    };
+  }
+}

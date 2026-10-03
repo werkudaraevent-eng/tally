@@ -51,6 +51,36 @@ select cron.unschedule('tally-auto-void');
 Endpoint `/api/cron/auto-void` di Vercel **tetap tersedia** sebagai jalur manual
 atau darurat (lihat contoh uji manual di bagian bawah).
 
+## Pesan peserta — pg_cron + pg_net (Supabase)
+
+Dijadwalkan lewat migrasi `202610030003_pesan_peserta.sql`:
+
+- Job name: `tally-pesan`
+- Jadwal: tiap menit (`* * * * *`)
+- Perintah: bila ada kiriman yang antre, jatuh tempo, atau masih mengirim,
+  memanggil `POST <tally_site_url>/api/cron/pesan` lewat `pg_net` dengan
+  `Authorization: Bearer <tally_cron_secret>`. Tanpa antrean, job tidak
+  memanggil apa pun.
+
+Dua rahasia disimpan di Supabase Vault, sekali saja (SQL Editor):
+
+```sql
+select vault.create_secret('https://eventhub.werkudara.group', 'tally_site_url');
+select vault.create_secret('<nilai CRON_SECRET di Vercel>', 'tally_cron_secret');
+```
+
+"Kirim sekarang" langsung mulai mengirim dari Vercel; job ini jaring pengaman
+(putaran yang terpotong batas waktu) dan pelaksana kiriman terjadwal.
+
+Cek hasil panggilan terakhir:
+
+```sql
+select id, status_code, left(content::text, 200), created
+from net._http_response order by created desc limit 10;
+```
+
+Nonaktifkan sementara: `select cron.unschedule('tally-pesan');`
+
 ## Sync peserta — setel di cron-job.org
 
 ### Prasyarat
