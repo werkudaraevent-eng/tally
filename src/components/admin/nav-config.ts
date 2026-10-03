@@ -1,6 +1,6 @@
 import {
   ArmchairIcon, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving, IdentificationCard,
-  ListChecks, Megaphone, MonitorPlay, Printer, QrCode, Receipt, ShieldCheck, Storefront, UserPlus, UsersThree,
+  ListChecks, Megaphone, MonitorPlay, Printer, QrCode, Receipt, ShieldCheck, Storefront, SuitcaseRolling, UserPlus, UsersThree,
 } from "@phosphor-icons/react";
 import type { ComponentType } from "react";
 
@@ -85,6 +85,11 @@ export const navigation: NavGroup[] = [
       // juga satu rumah untuk formulir, buka/tutup, dan mode persetujuan. "publik" dibuang dari namanya karena tidak
       // ada pendaftaran lain yang perlu dibedakan di menu.
       { href: "/admin/registrasi", label: "Pendaftaran", icon: UserPlus, description: "Formulir pendaftaran publik dan moderasi pendaftar yang masuk." },
+      // Di antara Pendaftaran dan Pesan peserta: kamar dan bus dibagi setelah
+      // pendaftar masuk, dan pemberitahuannya dikirim lewat Pesan peserta.
+      // Selalu tampil: hotel, bus, dan barang diisi di halaman ini sendiri,
+      // jadi menu yang menunggu data pertama tidak akan pernah muncul.
+      { href: "/admin/logistik", label: "Logistik", icon: SuitcaseRolling, description: "Kamar hotel, bus di tiap agenda, dan barang yang dibagikan ke peserta." },
       // Satu baris untuk dua tab: Kiriman (email ke kotak masuk peserta) dan
       // Pengumuman (lonceng dan Dashboard saya). Alamatnya tetap
       // /admin/pengumuman supaya Terakhir dibuka dan Ctrl K lama tetap sampai.

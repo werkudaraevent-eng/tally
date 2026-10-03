@@ -9,7 +9,18 @@ import type { LabelData } from "@/lib/label/layout";
  * dipecah lagi.
  */
 
-export type Sesi = { id: number; name: string; slug: string; hadir?: number };
+/** `jumlah_barang`: barang yang diperiksa di sesi ini (kaos, goodie bag). Nol = tanpa daftar centang. */
+export type Sesi = { id: number; name: string; slug: string; hadir?: number; jumlah_barang?: number };
+
+/** Satu baris daftar centang barang, dari `pickup_checklist`. */
+export type BarisBarang = {
+  item_id: number;
+  name: string;
+  size: string | null;
+  has_size: boolean;
+  picked_up_at: string | null;
+  picked_up_size: string | null;
+};
 
 /**
  * Jalur registrasi, yaitu satu MEJA, bukan satu tahap acara.
