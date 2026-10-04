@@ -76,9 +76,9 @@ async function ringkasAcara(eventId: string) {
   for (let dari = 0; ; dari += 1000) {
     const baca = (kolom: string) =>
       client.from("message_blast_recipients").select(kolom).eq("event_id", eventId).neq("status", "dilewati").order("id").range(dari, dari + 999);
-    let { data, error } = await baca("blast_id,participant_id,invitation_id,status");
+    const pertama = await baca("blast_id,participant_id,invitation_id,status");
     // Sebelum migrasi 202610040007 kolom invitation_id belum ada.
-    if (error && undanganBelumAda(error)) ({ data } = await baca("blast_id,participant_id,status"));
+    const { data } = pertama.error && undanganBelumAda(pertama.error) ? await baca("blast_id,participant_id,status") : pertama;
     const rows = (data ?? []) as unknown as { blast_id: string; participant_id: string | null; invitation_id?: string | null; status: string }[];
     for (const r of rows) {
       const k = perKiriman.get(r.blast_id) ?? { penerima: [], gagal: 0 };

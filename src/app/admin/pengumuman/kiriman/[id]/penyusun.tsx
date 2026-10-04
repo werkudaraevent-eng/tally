@@ -110,6 +110,11 @@ function Baris({ judul, children, id }: { judul: string; children: React.ReactNo
   );
 }
 
+/** Sama dengan firstWaveSize di mesin pengirim: 10%, paling sedikit 25. */
+function gelombangPertama(n: number) {
+  return Math.min(n, Math.max(25, Math.ceil(n * 0.1)));
+}
+
 export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () => void }) {
   const toast = useToast();
   const router = useRouter();
@@ -596,7 +601,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
 
       <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex flex-wrap items-center gap-3 border-t border-outline-variant bg-surface px-4 py-3 sm:-mx-6 sm:px-6">
         <p className="min-w-0 flex-1 text-body-medium text-on-surface-variant">
-          <span className="font-semibold text-on-surface tabular-nums">{counts.email} peserta</span> · email
+          <span className="font-semibold text-on-surface tabular-nums">{counts.email} {tamu ? "tamu" : "peserta"}</span> · email
           {alasanTidakBoleh ? <span className="block text-body-small">{alasanTidakBoleh}</span> : null}
         </p>
         <Button variant="outlined" onClick={bukaTes}>
@@ -640,11 +645,14 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
         dismissible={!sibuk}
         size="md"
         icon={<PaperPlaneTilt size={20} />}
-        title={jadwalIso ? `Jadwalkan untuk ${counts.email} peserta?` : `Kirim ke ${counts.email} peserta?`}
+        title={jadwalIso ? `Jadwalkan untuk ${counts.email} ${tamu ? "tamu" : "peserta"}?` : `Kirim ke ${counts.email} ${tamu ? "tamu" : "peserta"}?`}
         description={
           <>
             Email yang sudah terkirim tidak bisa ditarik.
             {isi.kind === "undangan" ? " Tautan masuk berlaku 7 hari dan sekali pakai; undangan lama yang belum dipakai ikut dicabut." : ""}
+            {tamu && counts.email > gelombangPertama(counts.email)
+              ? ` Dikirim bertahap: ${gelombangPertama(counts.email)} undangan dulu, sisanya sekitar 15 menit kemudian bila pantulan rendah dan tidak ada laporan spam.`
+              : ""}
             {jadwalIso ? ` Berangkat ${new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(jadwalIso))}.` : ""}
           </>
         }
@@ -654,7 +662,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
               Batal
             </Button>
             <Button onClick={() => void kirim()} loading={sibuk} disabled={counts.email === 0}>
-              {jadwalIso ? "Jadwalkan" : `Kirim ke ${counts.email} peserta`}
+              {jadwalIso ? "Jadwalkan" : `Kirim ke ${counts.email} ${tamu ? "tamu" : "peserta"}`}
             </Button>
           </>
         }

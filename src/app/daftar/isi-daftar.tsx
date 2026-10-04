@@ -146,7 +146,8 @@ export async function isiDaftar(
       return halamanTamu(event, lang, {
         judul: baca.state === "invalid" ? u.invalidTitle : u.inviteOnlyTitle,
         isi: baca.state === "invalid" ? u.invalidBody : u.inviteOnlyBody,
-        kirimUlang: khusus,
+        // Tautan rusak: tamu bisa meminta tautannya dikirim ulang di kedua mode.
+        kirimUlang: khusus || baca.state === "invalid",
         // Mode terbuka: tautan yang salah tidak menghalangi mendaftar biasa.
         tombol: khusus ? null : { href: `/e/${event.slug}/daftar`, label: DAFTAR_UI[lang].registerNow },
       });

@@ -271,7 +271,10 @@ export default function DaftarClient(props: Props) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: form.get("name"), email: form.get("email"), phone: form.get("phone"),
+        name: form.get("name"),
+        // Email undangan tidak ada di formulir; server memakai alamat yang diundang.
+        email: pakaiEmailUndangan ? "" : form.get("email"),
+        phone: form.get("phone"),
         company: form.get("company") || null, job_title: form.get("job_title") || null,
         extra,
         ...(props.akun ? { password: form.get("password") } : {}),
@@ -332,7 +335,8 @@ export default function DaftarClient(props: Props) {
         <div className={REG_LABEL}>
           {t.email}
           <div className={`${REG_CONTROL} flex items-center justify-between gap-3 font-normal`}>
-            <span className="min-w-0 truncate">
+            {/* w-0 flex-1: teks tersamar tidak ikut menentukan lebar kolom grid formulir Modern di HP. */}
+            <span className="w-0 flex-1 truncate">
               <span className={MUTED}>{PUBLIK[props.lang].invitedAs} </span>
               {tamu!.emailMasked}
             </span>

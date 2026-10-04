@@ -203,7 +203,8 @@ export function TamuUndangan({
       {data.items.length === 0 ? (
         <EmptyState plain icon={<Tray size={40} />} title={TAMU.empty} description={TAMU.emptyHint} />
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        // relative: teks sr-only di sel terakhir ikut terpotong wadah gulir, tidak melebarkan halaman di HP.
+        <div className="relative min-h-0 flex-1 overflow-y-auto">
           <Table minWidth="880px">
             <TableHead>
               <tr>

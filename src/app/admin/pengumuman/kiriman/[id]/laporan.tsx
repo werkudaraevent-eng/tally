@@ -109,7 +109,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
   const total = Object.entries(counts).reduce((a, [s, n]) => (s === "dilewati" ? a : a + n), 0);
   const diterima = counts.diterima + counts.dibaca;
   const gagal = counts.gagal_sementara + counts.gagal_tetap;
-  const berjalan = counts.antre + counts.mengirim + (counts.ditahan ?? 0);
+  const berjalan = counts.antre + counts.mengirim;
   const tamu = blast.kind === "invitation";
   const dijeda = blast.status === "dijeda";
   const persen = total > 0 ? Math.round((detail.signed_in / total) * 100) : 0;
@@ -287,6 +287,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
           <p className="text-body-large tabular-nums">
             {diterima} diterima
             {berjalan > 0 ? <> · {berjalan} dalam antrean</> : null}
+            {(counts.ditahan ?? 0) > 0 ? <> · {counts.ditahan} ditahan</> : null}
             {counts.terkirim > 0 ? <> · {counts.terkirim} terkirim</> : null}
             {gagal > 0 ? <span className="text-error"> · {gagal} gagal</span> : null}
           </p>
@@ -313,7 +314,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
             <Table minWidth="720px">
               <TableHead>
                 <TableRow>
-                  <TableHeaderCell>Peserta</TableHeaderCell>
+                  <TableHeaderCell>{tamu ? "Tamu" : "Peserta"}</TableHeaderCell>
                   <TableHeaderCell>Email</TableHeaderCell>
                   <TableHeaderCell>Status</TableHeaderCell>
                   <TableHeaderCell>{tamu ? "Daftar" : "Masuk"}</TableHeaderCell>
@@ -331,7 +332,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
                         {/* Hanya yang bisa diperbaiki di data peserta. Berhenti langganan dan
                             jadwal yang dibatalkan bukan untuk "diperbaiki". */}
                         {r.status === "gagal_tetap" || (r.status === "dilewati" && (r.reason_code === "tanpa_email" || r.reason_code === "email_memantul")) ? (
-                          <Link href="/admin/participants" className="text-body-small font-medium text-primary hover:underline">
+                          <Link href={tamu ? "/admin/registrasi" : "/admin/participants"} className="text-body-small font-medium text-primary hover:underline">
                             Perbaiki
                           </Link>
                         ) : null}
