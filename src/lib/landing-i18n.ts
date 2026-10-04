@@ -15,6 +15,7 @@ import {
 import { formatEventDate } from "./event-datetime";
 import { DEFAULT_TIME_ZONE } from "./timezone";
 import { jumlahLembaga } from "./landing-speaker-tabs";
+import { peranSesiUntukEn } from "./landing-peran-sesi";
 
 /**
  * Halaman acara dwibahasa: Indonesia (bahasa utama, `/e/<slug>`) dan English
@@ -130,7 +131,10 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
       ...tumpuk(block, block.en, LANDING_BLOCK_EN_KEYS),
       items: block.items?.map((item) => tumpuk(item, item.en, LANDING_ITEM_EN_KEYS)),
     })),
-    speakers: asli.speakers?.map((speaker) => tumpuk(speaker, speaker.en, LANDING_SPEAKER_EN_KEYS.filter((key) => key !== "session"))),
+    speakers: asli.speakers?.map((speaker) => ({
+      ...tumpuk(speaker, speaker.en, LANDING_SPEAKER_EN_KEYS.filter((key) => key !== "session")),
+      ...(speaker.session_refs ? { session_refs: speaker.session_refs.map((ref) => tumpuk(ref, ref.en, ["role"])) } : {}),
+    })),
     faq: asli.faq?.map((item) => tumpuk(item, item.en, ["q", "a"])),
     highlights: asli.highlights?.map((item) => tumpuk(item, item.en, ["label", "value"])),
     sponsors: asli.sponsors?.map((item) => tumpuk(item, item.en, ["name"])),
@@ -295,6 +299,8 @@ export function landingUntranslated(event: Partial<LandingHeadingFacts> & {
     new Set(config.speakers?.filter((s) => !sesiDariRundown(s)).map((s) => s.session?.trim()).filter((nama): nama is string => !!nama)).forEach((nama) =>
       periksa(nama, landingSessionEn(config.speakers, nama), `speakers.session.${nama}`, "speakers"),
     );
+    // Peran sesi dihitung sekali per peran berbeda, seperti di tab EN.
+    peranSesiUntukEn(config.speakers).forEach(({ kunci, teks, en: terjemahan }) => periksa(teks, terjemahan, `speakers.session_role.${kunci}`, "speakers"));
   }
   if (bagian("faq")) {
     config.faq?.forEach((item, index) => {

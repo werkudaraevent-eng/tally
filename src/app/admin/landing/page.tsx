@@ -57,7 +57,7 @@ import { ForumSusunan, ForumTema, forumTautanSalah, halamanBagianForum } from ".
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
 import { PresetTema } from "./theme-presets";
 import { BagianEn, BlockEditorEn, kartuRundownId, labelIsianButirEn, labelKolomBlokEn, namaButirBlokEn, rundownBelumDiterjemahkan, type BarisRundownEn } from "./editor-en";
-import { barisSesiDariAdmin, petakanSesiLama, PilihSesi, sesiHilang, type BarisSesi, type HasilPetakan } from "./pilih-sesi";
+import { barisSesiDariAdmin, petakanSesiLama, PilihSesi, sesiHilang, urutRundown, type BarisSesi, type HasilPetakan } from "./pilih-sesi";
 import { formatClock, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { LANDING_UI, landingEyebrowShown, landingUntranslated } from "@/lib/landing-i18n";
 import { sesiDariRundown } from "@/lib/landing-speaker-tabs";
@@ -1590,11 +1590,13 @@ export default function LandingCmsPage() {
                   label="Peran"
                   optional
                   placeholder="mis. Moderator"
+                  hint="Main role. Used in Highlights and in sessions without their own role."
                   value={speaker.role ?? ""}
                   onChange={(event) => ubah(index, { role: event.target.value })}
                 />
                 <PilihSesi
                   speaker={speaker}
+                  speakers={list}
                   baris={barisSesi}
                   memuat={sesiMemuat}
                   onMuatUlang={() => void muatBarisSesi()}
@@ -2394,7 +2396,7 @@ function barisRundownEnDariAdmin(isi: IsiAdminRundown): BarisRundownEn[] {
   const namaBagian = new Map(daftarBagian.map((bagian) => [bagian.id, bagian.name?.trim() || bagian.title?.trim() || "Bagian"]));
   return (isi.items ?? [])
     .filter((item) => item.title?.trim() && item.is_published && urutBagian.has(item.section_id))
-    .sort((a, b) => (urutBagian.get(a.section_id) ?? 0) - (urutBagian.get(b.section_id) ?? 0) || a.sort_order - b.sort_order)
+    .sort((a, b) => (urutBagian.get(a.section_id) ?? 0) - (urutBagian.get(b.section_id) ?? 0) || urutRundown(a, b))
     .map((item) => ({
       id: item.id,
       jam: formatClock(item.start_time).replace(":", "."),

@@ -1,5 +1,6 @@
 import type { LandingSpeaker } from "./domain";
 import type { AgendaItem, AgendaPreview } from "./landing-agenda";
+import { pembicaraDiSesi } from "./landing-peran-sesi";
 
 /**
  * Pengelompokan pembicara menjadi tab untuk bagian Pembicara halaman acara.
@@ -104,10 +105,14 @@ export function pembicaraSesi(all: LandingSpeaker[], baris: AgendaItem | string)
   if (typeof baris === "string") {
     return ada.filter((speaker) => !sesiDariRundown(speaker) && speaker.session?.trim() && cocokSesi(speaker.session, baris));
   }
-  return ada.filter((speaker) =>
-    sesiDariRundown(speaker)
-      ? !baris.jeda && speaker.session_refs!.some((ref) => ref.id === baris.id)
-      : !!speaker.session?.trim() && cocokSesi(speaker.session, baris.key),
+  // Dengan peran sesi baris ini dan moderator lebih dulu, sama dengan tab sesinya.
+  return pembicaraDiSesi(
+    ada.filter((speaker) =>
+      sesiDariRundown(speaker)
+        ? !baris.jeda && speaker.session_refs!.some((ref) => ref.id === baris.id)
+        : !!speaker.session?.trim() && cocokSesi(speaker.session, baris.key),
+    ),
+    baris.id,
   );
 }
 
@@ -133,10 +138,11 @@ export function speakerTabs(all: LandingSpeaker[], agenda: AgendaPreview[] = [],
   const tabs: SpeakerTab[] = [{ key: "sorotan", label: labels.highlights, note: null, speakers: sorotan }];
 
   // Satu tab per baris rundown yang dipegang paling tidak satu pembicara, urut
-  // rundown. Pembicara beberapa sesi tampil di tiap tab sesinya, urut editor.
+  // rundown. Pembicara beberapa sesi tampil di tiap tab sesinya, urut editor,
+  // dengan peran sesi itu dan moderator lebih dulu.
   const sesi = agenda.flatMap((bagian) =>
     bagian.items
-      .map((item) => ({ item, bagian, orang: speakers.filter((speaker) => barisnya.get(speaker)!.includes(item)) }))
+      .map((item) => ({ item, bagian, orang: pembicaraDiSesi(speakers.filter((speaker) => barisnya.get(speaker)!.includes(item)), item.id) }))
       .filter(({ orang }) => orang.length > 0),
   );
   const labelTab = ({ item, orang }: { item: AgendaItem; orang: LandingSpeaker[] }): string => {
