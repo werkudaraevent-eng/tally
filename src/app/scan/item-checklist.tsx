@@ -1,7 +1,8 @@
 "use client";
 
 import { CheckSquare, Package, Warning } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/m3";
 import { pesanGalatApi } from "@/lib/api-message";
 import { eventApiPath } from "@/lib/event-url";
@@ -24,12 +25,40 @@ import type { BarisBarang } from "./types";
 const jam = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "";
 
-export function ItemChecklist({ sessionId, laneId, participantId }: { sessionId: number; laneId: number | null; participantId: string }) {
+export function ItemChecklist({
+  sessionId,
+  laneId,
+  participantId,
+  onCentang,
+  tempatTombol,
+}: {
+  sessionId: number;
+  laneId: number | null;
+  participantId: string;
+  /**
+   * Jumlah centang yang belum diserahkan, dilaporkan ke layar pemindai. Selama
+   * masih ada, tamu berikutnya yang terpindai tidak boleh mengganti lembar ini:
+   * centangnya akan hilang dan kaos yang sudah di tangan tamu tidak tercatat.
+   */
+  onCentang?: (jumlah: number) => void;
+  /**
+   * Tempat tombol Serahkan, di bilah aksi lembar hasil yang menempel di bawah.
+   * Daftar barang yang panjang bergulir, dan aksi utamanya tidak boleh ikut
+   * hilang dari layar. Tanpa tempat, tombolnya tetap di bawah daftar.
+   */
+  tempatTombol?: HTMLElement | null;
+}) {
   const [items, setItems] = useState<BarisBarang[] | null>(null);
   const [galat, setGalat] = useState("");
   const [pilih, setPilih] = useState<Set<number>>(new Set());
   const [menyimpan, setMenyimpan] = useState(false);
   const [catatan, setCatatan] = useState<{ nada: "ok" | "peringatan"; teks: string } | null>(null);
+
+  const onCentangRef = useRef(onCentang);
+  useEffect(() => { onCentangRef.current = onCentang; });
+  useEffect(() => { onCentangRef.current?.(pilih.size); }, [pilih]);
+  // Lembar ditutup atau berganti tamu: tidak ada lagi yang tertunda.
+  useEffect(() => () => onCentangRef.current?.(0), []);
 
   const muat = useCallback(async () => {
     setGalat("");
@@ -89,9 +118,22 @@ export function ItemChecklist({ sessionId, laneId, participantId }: { sessionId:
   if (items.length === 0) return null;
 
   const belum = items.filter((item) => !item.picked_up_at).length;
+  const tombol = (
+    <Button
+      variant="filled"
+      size="md"
+      // Di ponsel sempit tombol ini mengambil satu baris penuh di bawah Tutup.
+      className="max-[400px]:w-full"
+      loading={menyimpan}
+      disabled={pilih.size === 0}
+      onClick={() => void serahkan()}
+    >
+      {pilih.size === 0 ? "Serahkan barang" : `Serahkan ${pilih.size} barang`}
+    </Button>
+  );
 
   return (
-    <fieldset className="mb-4">
+    <fieldset>
       <legend className="mb-2 flex items-center gap-2 text-title-small font-semibold">
         <Package size={18} aria-hidden />
         Barang yang diserahkan
@@ -146,20 +188,10 @@ export function ItemChecklist({ sessionId, laneId, participantId }: { sessionId:
           {catatan.teks}
         </p>
       ) : null}
-      {belum > 0 ? (
-        <Button
-          variant="tonal"
-          size="lg"
-          className="mt-3"
-          loading={menyimpan}
-          disabled={pilih.size === 0}
-          onClick={() => void serahkan()}
-        >
-          {pilih.size === 0 ? "Centang barang yang diserahkan" : `Serahkan ${pilih.size} barang`}
-        </Button>
-      ) : (
+      {belum === 0 ? (
         <p className="mt-2 text-body-medium text-on-surface-variant">Semua barang di sesi ini sudah diambil.</p>
-      )}
+      ) : null}
+      {belum > 0 ? (tempatTombol ? createPortal(tombol, tempatTombol) : <div className="mt-3">{tombol}</div>) : null}
     </fieldset>
   );
 }

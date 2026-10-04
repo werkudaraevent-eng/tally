@@ -2170,3 +2170,30 @@ html:hover {
 	font-size: 1rem;
 	line-height: 1.5rem;
 }
+
+/* Hitung mundur lembar hasil pemindai. Hiasan saja: yang menutup lembarnya
+ * adalah pewaktu di scan-client, bukan akhir animasi ini. Dengan gerak dikurangi
+ * bilahnya disembunyikan; kalimat "menutup sendiri" tetap ada. */
+.scan-hitung {
+	transform-origin: left;
+	animation: scan-hitung 3s linear forwards;
+}
+
+@keyframes scan-hitung {
+	from { transform: scaleX(1); }
+	to { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.scan-hitung { display: none; }
+}
+
+/* Pemindai memakai satu huruf (Inter) dan jarak huruf normal di seluruh
+ * layarnya, sama seperti ruang kerja admin (`.press`). Tanpa ini, setiap peran
+ * M3 membawa jarak hurufnya sendiri (0,1 sampai 0,5 px) dan teks sepanjang
+ * layar terlihat seperti beberapa huruf yang berbeda. Gaya `style` di elemen
+ * (jarak kode enam digit) tetap menang. */
+.scan-teks,
+.scan-teks * {
+	letter-spacing: normal;
+}

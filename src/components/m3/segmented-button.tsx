@@ -39,6 +39,8 @@ export type SegmentedButtonProps<T extends string> = {
 	panel?: string;
 	/** Sembunyikan teks di layar sempit, sisakan ikon. Butuh `icon` di tiap opsi. */
 	compact?: boolean;
+	/** `lg` = 48px untuk layar yang dipakai sambil berdiri (pemindai). Bawaan 44px. */
+	size?: "md" | "lg";
 	className?: string;
 };
 
@@ -61,7 +63,7 @@ export function segmentTabId(panel: string, value: string) {
 	return `${panel}-tab-${value}`;
 }
 
-export function SegmentedButton<T extends string>({ options, value, onChange, label, labelledBy, panel, compact, className }: SegmentedButtonProps<T>) {
+export function SegmentedButton<T extends string>({ options, value, onChange, label, labelledBy, panel, compact, size = "md", className }: SegmentedButtonProps<T>) {
 	const aktif = options.filter((option) => !option.disabled);
 	// Perhentian Tab: opsi terpilih, atau opsi aktif pertama bila tidak ada yang terpilih.
 	const perhentian = aktif.some((option) => option.value === value) ? value : aktif[0]?.value;
@@ -105,7 +107,8 @@ export function SegmentedButton<T extends string>({ options, value, onChange, la
 							// "Audit trail". Tanpa ini flexbox menyusutkan tombolnya sampai
 							// selebar kata terpanjang lalu memecah labelnya jadi dua baris —
 							// grup tombol setinggi dua baris di tengah ruang yang masih lapang.
-							"m3-segmented m3-state flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 text-label-large",
+							"m3-segmented m3-state flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 text-label-large",
+							size === "lg" ? "min-h-12" : "min-h-11",
 							"transition-[background-color,color,box-shadow] duration-150 ease-standard",
 							"disabled:pointer-events-none disabled:opacity-40",
 							// Tab terpilih adalah kepingan PUTIH yang terangkat dari alas abu,
