@@ -153,6 +153,8 @@ const messages: Record<ApiErrorCode, string> = {
  * halaman peserta mengikuti bahasa acara, jadi kalimatnya disalin ke sini dan
  * tidak ikut berganti. Kode yang tidak ada di sini jatuh ke `messages`.
  */
+const PESAN_PESERTA_UMUM = "Permintaan belum bisa diproses. Muat ulang halaman, lalu coba lagi.";
+
 const pesanPeserta: Partial<Record<ApiErrorCode, string>> = {
   VALIDATION_ERROR: "Data yang dikirim belum valid.",
   INTERNAL_ERROR: "Terjadi kesalahan server. Coba lagi.",
@@ -174,6 +176,9 @@ const pesanPeserta: Partial<Record<ApiErrorCode, string>> = {
   VOTE_RATING_INVALID: "Nilai yang dipilih di luar rentang yang disediakan.",
   VOTE_WORD_TOO_LONG: "Ada kata yang terlalu panjang. Maksimal 40 huruf per kata.",
   VOTE_TEXT_BLOCKED: "Ada kata yang tidak dapat ditampilkan di layar acara. Ganti dengan kata lain.",
+  PARTICIPANT_NOT_FOUND: "Peserta tidak ditemukan.",
+  PARTICIPANT_EXTRA_INVALID: "Jawaban formulir tidak berbentuk yang diharapkan. Muat ulang halaman lalu coba lagi.",
+  UNAUTHENTICATED: "Sesi login tidak ditemukan.",
 };
 
 export function apiError(code: ApiErrorCode, status: number, details?: unknown) {
@@ -182,7 +187,9 @@ export function apiError(code: ApiErrorCode, status: number, details?: unknown) 
 
 /** `apiError` untuk rute yang dibaca peserta. Lihat `pesanPeserta`. */
 export function apiErrorPeserta(code: ApiErrorCode, status: number, details?: unknown) {
-  return Response.json({ error: { code, message: pesanPeserta[code] ?? messages[code], details } }, { status });
+  // Kode yang belum ada di `pesanPeserta` memakai kalimat umum dalam bahasa
+  // peserta, bukan `messages[code]`: tabel staf itu akan berbahasa English.
+  return Response.json({ error: { code, message: pesanPeserta[code] ?? PESAN_PESERTA_UMUM, details } }, { status });
 }
 
 export function mapDatabaseError(error: { code?: string; message?: string }) {

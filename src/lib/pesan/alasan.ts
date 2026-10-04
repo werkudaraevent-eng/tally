@@ -47,6 +47,8 @@ const LABEL_ALASAN: Record<string, string> = {
   complained: "Penerima menandai email sebagai spam",
   failed: "Penyedia email gagal mengirim",
   suppressed: "Alamat ada di daftar blokir penyedia email",
+  // Ditulis fungsi SQL (migrasi 202610030003 dan 202610040007).
+  lease_expired: "Pengirim berhenti sebelum penyedia membalas. Pesan mungkin sudah terkirim.",
 };
 
 /**
