@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { serverOrigin } from "@/lib/pesan/alamat";
+import { claimOrigins, serverOrigin } from "@/lib/pesan/alamat";
 import { idSchema, loadBlast, pesanBelumAda } from "@/lib/pesan/api";
 import { drainQueue } from "@/lib/pesan/mesin";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -29,7 +29,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   // Kiriman hanya dikirim ulang dari server yang mengirimnya, dengan env-nya:
   // situs uji tidak menyentuh kiriman produksi, dan sebaliknya.
   const origin = serverOrigin(request);
-  if (blast.site_origin !== origin) {
+  if (!claimOrigins(origin).includes(blast.site_origin ?? "")) {
     return apiError("MESSAGE_RETRY_NOT_ALLOWED", 403);
   }
 

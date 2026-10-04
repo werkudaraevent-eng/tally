@@ -18,6 +18,9 @@ export type KeputusanHost =
  */
 const DILARANG = [/^\/admin(\/|$)/, /^\/login(\/|$)/, /^\/booth(\/|$)/, /^\/cashier(\/|$)/, /^\/scan(\/|$)/, /^\/api\/(admin|cron|auth|settings|webhooks)(\/|$)/];
 
+/** API publik dan peserta, langsung atau lewat /e/<slug>/api. */
+const API = /^\/(e\/[^/]+\/)?api(\/|$)/;
+
 /** Singkatan di akar domain klien -> halaman acaranya. */
 const SINGKATAN = /^\/(en|id)?\/?$/;
 
@@ -36,18 +39,23 @@ export function decideClientHost(input: {
   const singkatan = SINGKATAN.exec(pathname);
   const pathAcara = singkatan ? `/e/${slugAman}${singkatan[1] ? `/${singkatan[1]}` : ""}` : pathname;
 
-  if (status === "dilepas") {
-    if (!tallyOrigin) return { kind: "tolak" };
-    const tujuan = pathAcara.startsWith(`/e/${slugAman}`) ? pathAcara : `/e/${slugAman}`;
-    const query = search.toString();
-    return { kind: "alihkan", to: `${tallyOrigin}${tujuan}${query ? `?${query}` : ""}` };
-  }
-
-  if (DILARANG.some((pola) => pola.test(pathname))) return { kind: "tolak" };
+  // Juga lewat /e/<slug>/...: proxy menulis ulang /e/<slug>/admin ke /admin.
+  const sisa = pathname.replace(/^\/e\/[^/]+/, "") || "/";
+  if (DILARANG.some((pola) => pola.test(pathname) || pola.test(sisa))) return { kind: "tolak" };
   const lain = /^\/e\/([^/]+)/.exec(pathname);
   if (lain && decodeURIComponent(lain[1]) !== slug) return { kind: "tolak" };
   const diminta = search.get("eventSlug");
   if (diminta && diminta !== slug) return { kind: "tolak" };
+
+  // Dilepas: halaman pindah ke alamat Tally dengan path dan query yang sama
+  // (temuan QA M2). API tetap dilayani di sini, tanpa pengalihan: tautan
+  // berhenti berlangganan di email lama (GET dan POST one-click) harus tetap
+  // bekerja, dan klien email tidak mengikuti pengalihan untuk POST.
+  if (status === "dilepas" && !API.test(pathAcara)) {
+    if (!tallyOrigin) return { kind: "tolak" };
+    const query = search.toString();
+    return { kind: "alihkan", to: `${tallyOrigin}${pathAcara}${query ? `?${query}` : ""}` };
+  }
 
   // Halaman lama di luar /e/ (/daftar, /rundown, /vote ...) membaca slug dari
   // `?eventSlug=`; tanpa itu mereka jatuh ke "satu-satunya acara aktif".
@@ -56,9 +64,19 @@ export function decideClientHost(input: {
 }
 
 /**
- * Di host Tally: alihkan halaman acara ke domain klien yang AKTIF. Hanya
- * halaman (bukan /api), hanya GET/HEAD, dan tidak untuk pratinjau admin di
- * iframe (Halaman acara, Formulir) supaya editor tetap memakai sesi Tally.
+ * Halaman PESERTA di bawah /e/<slug> yang dipindah ke domain klien: halaman
+ * acara (dan versi bahasanya), formulir pendaftaran, masuk, area peserta,
+ * rundown, denah, kode pendaftaran. Daftar izin, bukan daftar larangan (temuan
+ * QA H1): ruang kerja panitia (/admin, /booth, /cashier, /scan, /display,
+ * /undian, /workspace, /pratinjau) juga tinggal di bawah /e/<slug>, dan host
+ * klien menolaknya, jadi mengalihkannya berarti 404 untuk panitia.
+ */
+const HALAMAN_PESERTA = [/^(\/(en|id))?(\/daftar)?\/?$/, /^\/(masuk|peserta|rundown|denah)(\/.*)?$/, /^\/kode\/[^/]+\/?$/];
+
+/**
+ * Di host Tally: alihkan halaman peserta ke domain klien yang AKTIF. Hanya
+ * GET/HEAD, dan tidak untuk pratinjau admin di iframe (Halaman acara,
+ * Formulir) supaya editor tetap memakai sesi Tally.
  */
 export function redirectToClient(input: {
   pathname: string;
@@ -71,7 +89,7 @@ export function redirectToClient(input: {
   if (input.fetchDest === "iframe") return null;
   const cocok = /^\/e\/([^/]+)(\/.*)?$/.exec(input.pathname);
   if (!cocok) return null;
-  if ((cocok[2] ?? "").startsWith("/api/")) return null;
+  if (!HALAMAN_PESERTA.some((pola) => pola.test(cocok[2] ?? ""))) return null;
   const tujuan = input.domainFor(decodeURIComponent(cocok[1]));
   if (tujuan?.status !== "aktif") return null;
   return `https://${tujuan.domain}${input.pathname}${input.search}`;

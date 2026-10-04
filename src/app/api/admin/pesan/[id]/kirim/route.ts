@@ -8,7 +8,7 @@ import { idSchema, loadBlast, pesanBelumAda } from "@/lib/pesan/api";
 import { drainQueue, enqueueBlast } from "@/lib/pesan/mesin";
 import { audienceSchema, countAudience, resolveAudience } from "@/lib/pesan/penerima";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { linkOrigin } from "@/lib/domain-klien/asal";
+import { blastLinkOrigin } from "@/lib/domain-klien/asal";
 
 /**
  * Kirim (atau jadwalkan) satu draf, setelah panitia mengonfirmasi jumlahnya.
@@ -56,7 +56,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   const origin = serverOrigin(request);
-  const hasil = await enqueueBlast(id, event, { scheduledAt: parsed.data.scheduled_at, origin, linkOrigin: await linkOrigin(request, event.id) });
+  const hasil = await enqueueBlast(id, event, { scheduledAt: parsed.data.scheduled_at, origin, linkOrigin: await blastLinkOrigin(event.id) });
   if (hasil.status === "not_draft") return apiError("MESSAGE_NOT_DRAFT", 409);
   if (hasil.status === "empty") return apiError("MESSAGE_EMPTY", 409);
 

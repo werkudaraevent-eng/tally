@@ -103,6 +103,24 @@ semuanya, dan tidak pernah berjalan di Preview):
 | `VERCEL_TEAM_ID` | ID tim Vercel (`team_...`). |
 | `VERCEL_PROJECT_ID` | Diisi otomatis oleh Vercel (system env). Isi manual hanya bila tidak tersedia. |
 
+Urutan memasang (jangan dibalik):
+
+1. Jalankan migrasi `202610040001_domain_klien.sql` lebih dulu. Kode tetap
+   berjalan tanpa migrasi (Pesan peserta tidak membaca kolom baru sampai ada
+   domain klien aktif), tetapi kartu domain baru bisa dipakai setelahnya.
+2. Isi `TALLY_SITE_URL` dengan alamat yang SAMA dengan Vault `tally_site_url`
+   dan alamat produksi yang dipakai sekarang (`https://event.sofish.tech`).
+   Kiriman yang terjadwal atau sedang mengirim sebelum env ini diisi mencatat
+   asal lama (`https://$VERCEL_PROJECT_PRODUCTION_URL`); pengirim produksi ikut
+   mengambil asal lama itu, jadi tidak ada kiriman yang tertinggal saat
+   peralihan.
+3. Redeploy Production.
+
+Pengalihan host Tally ke domain klien hanya untuk halaman peserta
+(`/e/<slug>`, `/en`, `/id`, `/daftar`, `/masuk`, `/peserta`, `/rundown`,
+`/denah`, `/kode/*`), memakai 307 tanpa cache. Ruang kerja panitia tetap di
+alamat Tally.
+
 Nonaktifkan sementara: `select cron.unschedule('tally-domain');`
 
 ## Sync peserta — setel di cron-job.org

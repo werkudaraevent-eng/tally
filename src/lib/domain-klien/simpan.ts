@@ -50,33 +50,82 @@ export type PetaDomain = {
   byEvent: Map<string, { domain: string; status: StatusDomain }>;
 };
 
-const UMUR_PETA_MS = 30_000;
+/**
+ * Umur peta per instans. forgetDomainMap() hanya menjangkau instans yang
+ * memanggilnya (route admin), bukan modul proxy yang terpisah, jadi umur ini
+ * adalah batas atas keterlambatan proxy setelah status berubah. Penanda
+ * (PENANDA_PATH) tidak memakai peta sama sekali: lihat eventIdForHost().
+ */
+const UMUR_PETA_MS = 15_000;
+/** Batas tunggu baca peta. Proxy menunggunya di setiap permintaan yang memuat ulang. */
+const BATAS_BACA_MS = 1_500;
+/** Setelah baca gagal, peta cadangan dipakai selama ini sebelum mencoba lagi. */
+const JEDA_GAGAL_MS = 5_000;
 let peta: { nilai: PetaDomain; sampai: number } | null = null;
 let memuat: Promise<PetaDomain> | null = null;
+let terakhirBaik: PetaDomain | null = null;
 
-async function muatPeta(): Promise<PetaDomain> {
-  const kosong: PetaDomain = { byHost: new Map(), bySlug: new Map(), byEvent: new Map() };
-  const { data, error } = await getSupabaseServiceClient().from("event_domains").select("domain,status,event_id,events(slug)");
-  // Gagal baca (termasuk tabel belum ada) = tidak ada domain klien. Aman: semua
-  // tautan kembali ke alamat Tally, host klien tidak dikenali.
-  if (error || !data) return kosong;
-  for (const baris of data as unknown as { domain: string; status: StatusDomain; event_id: string; events: { slug: string } | null }[]) {
+const petaKosong = (): PetaDomain => ({ byHost: new Map(), bySlug: new Map(), byEvent: new Map() });
+
+/** Peta baru, atau null bila gagal dibaca (lambat, putus, galat). */
+async function muatPeta(): Promise<PetaDomain | null> {
+  const { data, error } = await getSupabaseServiceClient()
+    .from("event_domains")
+    .select("domain,status,event_id,events(slug)")
+    .abortSignal(AbortSignal.timeout(BATAS_BACA_MS));
+  if (error) {
+    // Tabel belum ada (migrasi belum dijalankan) memang berarti tidak ada
+    // domain klien. Galat lain bukan jawaban "kosong".
+    const code = (error as { code?: string }).code;
+    return code === "42P01" || code === "PGRST205" ? petaKosong() : null;
+  }
+  const hasil = petaKosong();
+  for (const baris of (data ?? []) as unknown as { domain: string; status: StatusDomain; event_id: string; events: { slug: string } | null }[]) {
     const slug = baris.events?.slug;
     if (!slug) continue;
-    kosong.byHost.set(baris.domain, { eventId: baris.event_id, slug, status: baris.status });
-    kosong.bySlug.set(slug, { domain: baris.domain, status: baris.status });
-    kosong.byEvent.set(baris.event_id, { domain: baris.domain, status: baris.status });
+    hasil.byHost.set(baris.domain, { eventId: baris.event_id, slug, status: baris.status });
+    hasil.bySlug.set(slug, { domain: baris.domain, status: baris.status });
+    hasil.byEvent.set(baris.event_id, { domain: baris.domain, status: baris.status });
   }
-  return kosong;
+  return hasil;
 }
 
+/**
+ * Peta host <-> acara. Baca gagal TIDAK disimpan sebagai "tidak ada domain"
+ * (temuan QA M4): peta terakhir yang berhasil tetap dipakai, dan baca ulang
+ * dicoba lagi setelah JEDA_GAGAL_MS, bukan di setiap permintaan.
+ */
 export async function domainMap(): Promise<PetaDomain> {
   if (peta && peta.sampai > Date.now()) return peta.nilai;
-  memuat ??= muatPeta().then((nilai) => {
-    peta = { nilai, sampai: Date.now() + UMUR_PETA_MS };
-    return nilai;
-  }).finally(() => { memuat = null; });
+  memuat ??= muatPeta()
+    .catch(() => null)
+    .then((nilai) => {
+      if (nilai) {
+        terakhirBaik = nilai;
+        peta = { nilai, sampai: Date.now() + UMUR_PETA_MS };
+        return nilai;
+      }
+      const cadangan = terakhirBaik ?? petaKosong();
+      peta = { nilai: cadangan, sampai: Date.now() + JEDA_GAGAL_MS };
+      return cadangan;
+    })
+    .finally(() => { memuat = null; });
   return memuat;
+}
+
+/**
+ * Acara pemilik host ini, dibaca langsung tanpa peta. Hanya untuk penanda:
+ * pemeriksaan tepat setelah Hubungkan tidak boleh menunggu peta proxy kedaluwarsa.
+ */
+export async function eventIdForHost(host: string): Promise<string | null> {
+  const { data, error } = await getSupabaseServiceClient()
+    .from("event_domains")
+    .select("event_id")
+    .eq("domain", host)
+    .abortSignal(AbortSignal.timeout(BATAS_BACA_MS))
+    .maybeSingle();
+  if (error || !data) return null;
+  return (data as { event_id: string }).event_id;
 }
 
 /** Dipanggil setelah status berubah, supaya instans ini langsung memakai yang baru. */
