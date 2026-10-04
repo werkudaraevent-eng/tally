@@ -23,6 +23,10 @@ create table if not exists public.badge_settings (
   updated_by uuid references public.users(id) on delete set null
 );
 
+-- Untuk basis data yang sudah menjalankan versi awal berkas ini, sebelum kolom
+-- di_meja ada: `create table if not exists` di atas tidak menyentuh tabel lama.
+alter table public.badge_settings add column if not exists di_meja boolean not null default false;
+
 -- Tanpa policy: hanya service role (route handler admin) yang membaca dan
 -- menulis, sama dengan label_settings.
 alter table public.badge_settings enable row level security;

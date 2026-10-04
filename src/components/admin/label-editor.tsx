@@ -96,8 +96,8 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
   hidden?: boolean;
   /**
    * Pilihan "Yang dicetak di meja registrasi" (tab Badge kertas › Cetak).
-   * Simpan di sini menulis `enabled` dari pilihan itu, bukan dari salinan lama
-   * yang dimuat saat halaman dibuka, supaya tidak menimpanya.
+   * Hanya untuk keterangan; Simpan di sini tidak menulis `enabled`, supaya
+   * tidak menimpa pilihan itu.
    */
   labelDiMeja: boolean;
 }) {
@@ -357,7 +357,6 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...settings,
-        enabled: labelDiMeja,
         name_prefixes: prefixText.split(",").map((bagian) => bagian.trim()).filter(Boolean),
       }),
     }).catch(() => null);

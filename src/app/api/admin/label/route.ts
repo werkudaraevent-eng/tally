@@ -32,13 +32,19 @@ export async function PATCH(request: Request) {
   // Awalan kosong dibuang, bukan disimpan: satu string kosong di daftar
   // penyaring membuat dialog Bluetooth peramban menawarkan SELURUH perangkat di
   // ballroom, dan petugas memilih televisi orang lain.
-  const prefixes = parsed.data.name_prefixes.map((value) => value.trim()).filter(Boolean);
+  // `enabled` tidak ditulis di sini. Pilihan "Yang dicetak di meja registrasi"
+  // menyimpannya sendiri lewat /api/admin/badge/meja; kalau Simpan di penyunting
+  // label ikut menulisnya, nilai lama atau nilai yang belum termuat bisa diam-diam
+  // mematikan cetak label di meja scan.
+  const { enabled: _diabaikan, ...data } = parsed.data;
+  void _diabaikan;
+  const prefixes = data.name_prefixes.map((value) => value.trim()).filter(Boolean);
 
   const { error } = await getSupabaseServiceClient()
     .from("label_settings")
     .upsert(
       {
-        ...parsed.data,
+        ...data,
         name_prefixes: prefixes,
         event_id: auth.scope.event.id,
         updated_at: new Date().toISOString(),
