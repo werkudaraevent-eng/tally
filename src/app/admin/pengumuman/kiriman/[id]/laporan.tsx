@@ -81,6 +81,7 @@ export type DetailTerkirim = {
   counts: Record<Status, number>;
   signed_in: number;
   time_zone?: string;
+  invitation_sending?: { ok: true } | { ok: false; missing: string[] };
 };
 
 type Baris = {
@@ -257,6 +258,10 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
       {dijeda ? (
         <Banner tone="warning" icon={<PauseCircle size={18} />}>
           Kiriman dijeda otomatis. {blast.paused_reason ?? "Periksa laporan sebelum melanjutkan."} {counts.ditahan ?? 0} undangan belum dikirim dan menunggu keputusan Anda.
+        </Banner>
+      ) : tamu && blast.status === "mengirim" && detail.invitation_sending?.ok === false && detail.invitation_sending.missing.includes("EMAIL_FROM_UNDANGAN") && berjalan > 0 ? (
+        <Banner tone="warning" icon={<PauseCircle size={18} />}>
+          Kiriman tertahan: pengirim undangan (EMAIL_FROM_UNDANGAN) belum disiapkan pemilik sistem. {berjalan} undangan menunggu dan berangkat otomatis setelah disiapkan.
         </Banner>
       ) : tamu && blast.hold_until && blast.status === "mengirim" ? (
         <Banner tone="info" icon={<Hourglass size={18} />}>

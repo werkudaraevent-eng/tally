@@ -165,9 +165,9 @@ const LEBAR_PENUH = new Set<RegistrationField["type"]>(["textarea", "checkbox", 
 /**
  * Tautan pribadi: `?undangan=` dihapus dari bilah alamat setelah halaman dimuat
  * (tidak ikut tersalin atau tersimpan di riwayat), lalu penanda "Membuka
- * formulir" dikirim SEKALI setelah interaksi nyata: fokus ke kolom, gulir,
- * atau halaman terlihat lebih dari 3 detik. Pemindai tautan email kantor
- * membuka URL tanpa interaksi, jadi tidak ikut terhitung.
+ * formulir" dikirim SEKALI setelah interaksi nyata: fokus ke kolom, sentuh,
+ * ketik, atau gulir. Pemindai tautan email kantor bisa merender halaman dan
+ * menunggu beberapa detik, jadi lama terlihat saja tidak dihitung.
  */
 function useTandaUndangan(token: string | null) {
   useEffect(() => {
@@ -181,9 +181,8 @@ function useTandaUndangan(token: string | null) {
     } catch { /* diabaikan */ }
 
     let terkirim = false;
-    let waktu: number | null = null;
-    const kirim = () => {
-      if (terkirim) return;
+    const kirim = (e: Event) => {
+      if (terkirim || !e.isTrusted) return;
       terkirim = true;
       lepas();
       void fetch(eventApiPath("/api/undangan/buka"), {
@@ -193,26 +192,16 @@ function useTandaUndangan(token: string | null) {
         keepalive: true,
       }).catch(() => undefined);
     };
-    const mulaiWaktu = () => {
-      if (waktu === null && document.visibilityState === "visible") waktu = window.setTimeout(kirim, 3000);
-    };
-    const saatTerlihat = () => {
-      if (document.visibilityState === "visible") mulaiWaktu();
-      else if (waktu !== null) {
-        window.clearTimeout(waktu);
-        waktu = null;
-      }
-    };
     const lepas = () => {
       document.removeEventListener("focusin", kirim);
+      document.removeEventListener("pointerdown", kirim);
+      document.removeEventListener("keydown", kirim);
       window.removeEventListener("scroll", kirim);
-      document.removeEventListener("visibilitychange", saatTerlihat);
-      if (waktu !== null) window.clearTimeout(waktu);
     };
     document.addEventListener("focusin", kirim);
+    document.addEventListener("pointerdown", kirim);
+    document.addEventListener("keydown", kirim);
     window.addEventListener("scroll", kirim, { passive: true });
-    document.addEventListener("visibilitychange", saatTerlihat);
-    mulaiWaktu();
     return lepas;
   }, [token]);
 }

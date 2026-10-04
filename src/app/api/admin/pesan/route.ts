@@ -4,7 +4,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { isEmailConfigured } from "@/lib/email/client";
 import { memberConfig } from "@/lib/member/account";
 import { pesanBelumAda } from "@/lib/pesan/api";
-import { DEFAULT_CONTENT } from "@/lib/pesan/isi";
+import { DEFAULT_CONTENT, INVITATION_REMINDER } from "@/lib/pesan/isi";
 import { BLAST_COLUMNS } from "@/lib/pesan/mesin";
 import { audienceSchema } from "@/lib/pesan/penerima";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -128,7 +128,8 @@ export async function POST(request: Request) {
   if (auth.response) return auth.response;
   const parsed = buatSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
-  const awal = DEFAULT_CONTENT[parsed.data.kind];
+  const awal =
+    parsed.data.kind === "invitation" && parsed.data.audience?.jenis === "belum_daftar" ? INVITATION_REMINDER : DEFAULT_CONTENT[parsed.data.kind];
   const client = getSupabaseServiceClient();
 
   let isi = {

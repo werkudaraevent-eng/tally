@@ -22,7 +22,12 @@ export function requestIp(headers: Headers): string | null {
 type JenisLaju = "kirim_ulang" | "token_salah" | "penanda";
 
 /** Jumlah jejak satu jenis dari IP ini dalam jendela waktu. */
-export async function rateCount(eventId: string, kind: JenisLaju, by: { ip?: string | null; emailHash?: string }, sinceMs: number) {
+export async function rateCount(
+  eventId: string,
+  kind: JenisLaju,
+  by: { ip?: string | null; emailHash?: string; onlyWithEmail?: boolean },
+  sinceMs: number,
+) {
   let kueri = getSupabaseServiceClient()
     .from("invitation_rate_events")
     .select("id", { head: true, count: "exact" })
@@ -31,6 +36,7 @@ export async function rateCount(eventId: string, kind: JenisLaju, by: { ip?: str
     .gte("created_at", new Date(Date.now() - sinceMs).toISOString());
   if (by.ip) kueri = kueri.eq("ip", by.ip);
   if (by.emailHash) kueri = kueri.eq("email_hash", by.emailHash);
+  if (by.onlyWithEmail) kueri = kueri.not("email_hash", "is", null);
   const { count } = await kueri;
   return count ?? 0;
 }
@@ -79,21 +85,38 @@ export async function readInvite(event: Pick<EventRow, "id">, token: string | nu
  * ke alamat lain dan tidak pernah membuat tautan baru. Dilewati: berhenti,
  * memantul, sudah mendaftar, dan batas per email (1 per 10 menit, 3 per hari)
  * serta batas harian acara.
+ *
+ * Setiap permintaan dicatat sekali untuk batas per IP, tetapi hash email hanya
+ * ikut dicatat bila benar-benar mengirim. Batas per email dan batas acara
+ * menghitung kiriman nyata saja, jadi permintaan asal tidak bisa menghabiskan
+ * jatah tamu sungguhan.
  */
 const BATAS_HARIAN_ACARA = 300;
 
 export async function resendInvitation(event: EventRow, rawEmail: string, origin: string, ip: string | null) {
+  let terkirimKe: string | null = null;
+  try {
+    const inv = await undanganUntukKirimUlang(event, rawEmail);
+    if (!inv) return;
+    terkirimKe = inv.hash;
+    await rateNote(event.id, "kirim_ulang", { ip, emailHash: inv.hash });
+    await kirimUlang(event, inv, origin);
+  } finally {
+    if (!terkirimKe) await rateNote(event.id, "kirim_ulang", { ip }).catch(() => undefined);
+  }
+}
+
+async function undanganUntukKirimUlang(event: EventRow, rawEmail: string) {
   const norm = normalizeInviteEmail(rawEmail);
-  if (!norm.ok || !norm.email || !inviteSecretReady()) return;
+  if (!norm.ok || !norm.email || !inviteSecretReady()) return null;
   const hash = emailHash(norm.email);
   const [per10, perHari, acara] = await Promise.all([
     rateCount(event.id, "kirim_ulang", { emailHash: hash }, 10 * 60_000),
     rateCount(event.id, "kirim_ulang", { emailHash: hash }, 86_400_000),
-    rateCount(event.id, "kirim_ulang", {}, 86_400_000),
+    rateCount(event.id, "kirim_ulang", { onlyWithEmail: true }, 86_400_000),
   ]);
-  await rateNote(event.id, "kirim_ulang", { ip, emailHash: hash });
-  if (per10 >= 1 || perHari >= 3 || acara >= BATAS_HARIAN_ACARA) return;
-  if (!invitationSendingReady().ok) return;
+  if (per10 >= 1 || perHari >= 3 || acara >= BATAS_HARIAN_ACARA) return null;
+  if (!invitationSendingReady().ok) return null;
 
   const client = getSupabaseServiceClient();
   const [{ data }, { data: tekan }] = await Promise.all([
@@ -107,8 +130,11 @@ export async function resendInvitation(event: EventRow, rawEmail: string, origin
     client.from("event_email_suppressions").select("reason").eq("event_id", event.id).eq("email_hash", hash).maybeSingle(),
   ]);
   const inv = data as (Pick<InvitationRow, "id" | "event_id" | "name" | "email" | "company" | "link_nonce" | "registered_at" | "rejected_at" | "opted_out_at" | "email_invalid_at">) | null;
-  if (!inv || !inv.email || inv.registered_at || inv.rejected_at || inv.opted_out_at || inv.email_invalid_at || tekan) return;
+  if (!inv || !inv.email || inv.registered_at || inv.rejected_at || inv.opted_out_at || inv.email_invalid_at || tekan) return null;
+  return { ...inv, email: inv.email, hash };
+}
 
+async function kirimUlang(event: EventRow, inv: Pick<InvitationRow, "id" | "event_id" | "name" | "company" | "link_nonce"> & { email: string }, origin: string) {
   const nama = publicEventName(event);
   const berhenti = `${origin}/api/pesan/berhenti?e=${event.id}&u=${inv.id}&s=${inviteUnsubscribeSignature(event.id, inv.id)}`;
   const awal = DEFAULT_CONTENT.invitation;
@@ -121,7 +147,13 @@ export async function resendInvitation(event: EventRow, rawEmail: string, origin
     actionUrl: invitationUrl(origin, event.slug, inv),
     unsubscribeUrl: berhenti,
   });
-  await sendEmail({ eventId: event.id, to: inv.email, ...isi, from: invitationFrom() });
+  await sendEmail({
+    eventId: event.id,
+    to: inv.email,
+    ...isi,
+    from: invitationFrom(),
+    headers: { "List-Unsubscribe": `<${berhenti}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
+  });
 }
 
 /**

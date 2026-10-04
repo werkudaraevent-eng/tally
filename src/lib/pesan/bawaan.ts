@@ -45,3 +45,16 @@ export const DEFAULT_CONTENT: Record<BlastKind, { title: string; subject: string
     body: "Halo {nama},\n\n",
   },
 };
+
+/** Isi bawaan "Ingatkan yang belum daftar": tamu yang sudah diundang tapi belum mendaftar. */
+export const INVITATION_REMINDER = {
+  title: "Pengingat undangan",
+  subject: "Pengingat: undangan Anda ke {acara}",
+  body: [
+    "Halo {nama},",
+    "",
+    "Kami belum menerima pendaftaran Anda untuk {acara}, {tanggal}. Tempat Anda masih kami simpan.",
+    "",
+    "Tekan tombol di bawah untuk mendaftar. Tautan ini khusus untuk Anda, jadi mohon tidak diteruskan.",
+  ].join("\n"),
+};

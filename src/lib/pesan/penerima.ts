@@ -189,6 +189,8 @@ async function resolveInvitees(event: Pick<EventRow, "id">, audience: Audience):
     .filter((u) => !u.rejected_at)
     .filter((u) => (dipilih ? dipilih.has(u.id) : true))
     .filter((u) => (audience.jenis === "belum_dikirim" ? !keadaan.get(u.id)?.sent : true))
+    // Pengingat hanya untuk yang sudah pernah dikirimi undangan.
+    .filter((u) => (audience.jenis === "belum_daftar" ? Boolean(keadaan.get(u.id)?.sent) : true))
     .map((u) => {
       const email = normalizeAddress(u.email);
       // Tanpa rahasia tautan tidak ada hash; kiriman Invitation memang terkunci.

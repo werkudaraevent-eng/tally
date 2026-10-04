@@ -13,9 +13,9 @@ import { escapeHtml } from "@/lib/email/registration-code";
  * tautan orang lain.
  */
 
-import { DEFAULT_CONTENT, FIELDS, type BlastKind, type FieldKey } from "./bawaan";
+import { DEFAULT_CONTENT, FIELDS, INVITATION_REMINDER, type BlastKind, type FieldKey } from "./bawaan";
 
-export { DEFAULT_CONTENT, FIELDS };
+export { DEFAULT_CONTENT, FIELDS, INVITATION_REMINDER };
 export type { BlastKind, FieldKey };
 
 export type Recipient = { name: string; company: string | null };

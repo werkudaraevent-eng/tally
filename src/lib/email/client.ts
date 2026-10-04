@@ -138,6 +138,8 @@ export async function sendEmail(input: {
   idempotencyKey?: string;
   /** Alamat pengirim lain dari EMAIL_FROM (Invitation: EMAIL_FROM_UNDANGAN). */
   from?: string | null;
+  /** Header email tambahan, mis. List-Unsubscribe untuk email undangan. */
+  headers?: Record<string, string>;
 }): Promise<SendResult> {
   const config = await configFor(input.eventId, input.from);
   // Dibedakan dari kegagalan jaringan dengan sengaja: pemanggil memakai ini
@@ -162,6 +164,7 @@ export async function sendEmail(input: {
         text: input.text,
         ...(config.replyTo ? { reply_to: config.replyTo } : {}),
         ...(input.attachments?.length ? { attachments: input.attachments } : {}),
+        ...(input.headers ? { headers: input.headers } : {}),
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

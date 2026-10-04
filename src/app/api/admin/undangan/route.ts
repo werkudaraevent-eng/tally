@@ -63,7 +63,7 @@ export async function GET(request: Request) {
   const counts: Record<InviteFilter, number> = {
     semua: items.length,
     belum_dikirim: items.filter((i) => i.status === "belum_dikirim").length,
-    belum_daftar: items.filter((i) => i.status !== "sudah_daftar" && i.status !== "ditolak").length,
+    belum_daftar: items.filter((i) => i.status === "terkirim" || i.status === "membuka").length,
     sudah_daftar: items.filter((i) => i.status === "sudah_daftar").length,
     gagal: items.filter((i) => i.status === "gagal").length,
   };

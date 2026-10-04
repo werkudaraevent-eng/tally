@@ -50,7 +50,7 @@ const FILTER: InviteFilter[] = ["semua", "belum_dikirim", "belum_daftar", "sudah
 
 function cocok(filter: InviteFilter, t: Tamu) {
   if (filter === "semua") return true;
-  if (filter === "belum_daftar") return t.status !== "sudah_daftar" && t.status !== "ditolak";
+  if (filter === "belum_daftar") return t.status === "terkirim" || t.status === "membuka";
   if (filter === "gagal") return t.status === "gagal";
   return t.status === filter;
 }
@@ -162,7 +162,6 @@ export function TamuUndangan({
       body: JSON.stringify({
         kind: "invitation",
         audience: { jenis, perusahaan: [], ids: jenis === "manual" ? terpilih : [], ...(jenis === "manual" ? { label: `${terpilih.length} tamu terpilih` } : {}) },
-        ...(jenis === "belum_daftar" ? { title: "Pengingat undangan" } : {}),
       }),
     }).catch(() => null);
     setBusy(false);

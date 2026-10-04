@@ -313,7 +313,7 @@ function alasanLewatTamu(
  * yang benar-benar diambil dibaca ulang lewat cap itu. Pembaruan bersyarat
  * atomik per baris, dan giliran pengirim menjamin tidak ada putaran serentak.
  */
-async function klaimPotongan(origin: string, onlyBlast: string | null): Promise<RecipientRow[]> {
+async function klaimPotongan(origin: string, onlyBlast: string | null, ditunda: ReadonlySet<string>): Promise<RecipientRow[]> {
   const client = getSupabaseServiceClient();
   let qb = client.from("message_blasts").select("id").eq("status", "mengirim").in("site_origin", claimOrigins(origin));
   if (onlyBlast) qb = qb.eq("id", onlyBlast);
@@ -322,6 +322,7 @@ async function klaimPotongan(origin: string, onlyBlast: string | null): Promise<
   // Antre, atau klaim lama yang kedaluwarsa (pengirimnya mati di tengah jalan).
   const bisaDiklaim = `status.eq.antre,and(status.eq.mengirim,locked_until.lt.${new Date().toISOString()})`;
   for (const { id: blastId } of (berjalan ?? []) as { id: string }[]) {
+    if (ditunda.has(blastId)) continue;
     const { data: awal, error: galatAwal } = await client
       .from("message_blast_recipients")
       .select("chunk")
@@ -438,6 +439,9 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
   const hasil: DrainOutcome = { ran: true, chunks: 0, sent: 0, failed: 0, stoppedBy: "empty" };
   const kiriman = new Map<string, BlastRow>();
   const acara = new Map<string, EventForMail>();
+  // Kiriman yang dilewati di putaran ini (Invitation tanpa pengirim undangan),
+  // supaya satu kiriman yang tertahan tidak menghentikan kiriman lain.
+  const ditunda = new Set<string>();
 
   try {
     await client.rpc("sweep_message_recipients" as never);
@@ -446,7 +450,7 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
     const { error: galatGerbang } = await client.rpc("evaluate_invitation_gates" as never);
     if (galatGerbang && galatGerbang.code !== "PGRST202" && !undanganBelumAda(galatGerbang)) console.error("[pesan] gerbang undangan", galatGerbang.message);
     while (Date.now() < batas) {
-      const baris = await klaimPotongan(options.origin, hanya);
+      const baris = await klaimPotongan(options.origin, hanya, ditunda);
       if (baris.length === 0) {
         antreanHabis = true;
         break;
@@ -573,6 +577,18 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
           ? ({ kind: "not_configured" } as const)
           : await sendEmailBatchDetailed(items, `tally:${blast.id}:email:${baris[0].chunk}`, blast.event_id, pengirimUndangan);
 
+      if (kirim.kind === "not_configured" && blast.kind === "invitation" && !situsUji) {
+        // Hanya kiriman ini yang menunggu EMAIL_FROM_UNDANGAN; laporan
+        // menampilkannya sebagai tertahan. Kiriman lain tetap berjalan. Situs
+        // uji hanya punya satu kiriman dan tanpa cron, jadi tetap ditutup di
+        // bawah seperti sebelumnya.
+        await client.rpc("record_message_results" as never, {
+          p_rows: kirimKe.map((r) => ({ id: r.id, status: "antre" })) satisfies ResultRow[],
+        } as never);
+        ditunda.add(blast.id);
+        console.warn("[pesan] Invitation menunggu EMAIL_FROM_UNDANGAN", blast.id);
+        continue;
+      }
       if (kirim.kind === "not_configured" || (kirim.kind === "failed" && kirim.retryable)) {
         // Dikembalikan ke antrean dengan kunci yang sama. Bila penyedia sebenarnya
         // sudah menerima potongan ini, percobaan berikutnya dijawab dari kunci
