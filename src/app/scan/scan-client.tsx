@@ -684,10 +684,13 @@ export default function ScanClient() {
    * menatap tamu. Sekarang ia lembar yang sama dengan hasil lain: merah, berbunyi,
    * dan membawa aksi yang memang menolong.
    */
-  const tampilGagal = useCallback((qr: string, status: "gagal" | "login" | "ditolak", teks: string) => {
+  const tampilGagal = useCallback((qr: string, status: "gagal" | "login" | "ditolak", teks: string, dikirim: number) => {
     if (status === "gagal") {
       setOffline(true);
-      gagalRef.current = { qr, waktu: Date.now() };
+      // Waktu KIRIM, bukan waktu lembar merah muncul. Jawaban yang hilang paling
+      // sering adalah jawaban yang telat lewat 8 detik, dan server sudah
+      // menyimpannya sebelum lembar merah ini terbuka.
+      gagalRef.current = { qr, waktu: dikirim };
     }
     pasangLembar({ status, qr, pesan: teks });
     bunyikan("galat", suaraRef.current);
@@ -697,6 +700,7 @@ export default function ScanClient() {
     if (!sessionId) { setPesan("Pilih sesi lebih dulu."); return null; }
     setSibuk(true);
     setMembaca(qr);
+    const dikirim = Date.now();
     const batas = new AbortController();
     const pewaktu = window.setTimeout(() => batas.abort(), BATAS_TUNGGU_MS);
     const response = await fetch(eventApiPath("/api/attendance/scan"), {
@@ -713,16 +717,16 @@ export default function ScanClient() {
     setMembaca(null);
 
     if (!response || response.status >= 500) {
-      tampilGagal(qr, "gagal", "Koneksi terputus atau server tidak menjawab, jadi tamu ini BELUM masuk daftar hadir. Tekan Ulangi, atau pindai lagi badge-nya.");
+      tampilGagal(qr, "gagal", "Koneksi terputus atau server tidak menjawab, jadi tamu ini BELUM masuk daftar hadir. Tekan Ulangi, atau pindai lagi badge-nya.", dikirim);
       return null;
     }
     const body = await response.json().catch(() => ({}));
     if (response.status === 401) {
-      tampilGagal(qr, "login", "Login petugas di ponsel ini sudah habis, jadi pemindaian ini TIDAK tercatat. Login lagi, lalu pindai ulang.");
+      tampilGagal(qr, "login", "Login petugas di ponsel ini sudah habis, jadi pemindaian ini TIDAK tercatat. Login lagi, lalu pindai ulang.", dikirim);
       return null;
     }
     if (!response.ok) {
-      tampilGagal(qr, "ditolak", pesanGalat(body, "Server menolak pemindaian ini. Hubungi panitia."));
+      tampilGagal(qr, "ditolak", pesanGalat(body, "Server menolak pemindaian ini. Hubungi panitia."), dikirim);
       return null;
     }
 
@@ -755,10 +759,13 @@ export default function ScanClient() {
    * tahanan bergeser untuk kode yang sama, dan daftar tamu yang tercatat di
    * ponsel ini dalam 30 detik terakhir.
    */
-  const terbaca = useCallback((nilai: string) => {
+  const terbaca = useCallback((nilai: string, dariPemindaiGenggam = false) => {
     const sekarang = Date.now();
     const terakhir = terakhirRef.current;
-    if (terakhir.qr === nilai && sekarang - terakhir.waktu < terakhir.tahan) {
+    // Tahanan bergeser hanya untuk kamera, yang membaca badge yang sama puluhan
+    // kali per detik. Pemindai genggam mengirim satu kode per tekanan pelatuk,
+    // jadi kode yang sama berarti petugas memang memindainya lagi.
+    if (!dariPemindaiGenggam && terakhir.qr === nilai && sekarang - terakhir.waktu < terakhir.tahan) {
       terakhir.waktu = sekarang;
       return;
     }
@@ -786,7 +793,7 @@ export default function ScanClient() {
 
   // Pemindai genggam yang mengetik kodenya, aktif selama tab Pindai QR terbuka,
   // termasuk saat lembar hasil menutupi layar.
-  usePemindaiKeyboard(mode === "qr" && !dialogWalkIn, (kode) => terbacaRef.current(kode), KOLOM_KODE);
+  usePemindaiKeyboard(mode === "qr" && !dialogWalkIn, (kode) => terbacaRef.current(kode, true), KOLOM_KODE);
 
   useEffect(() => {
     if (!scanning || mode !== "qr" || !videoRef.current) return;
@@ -1119,7 +1126,9 @@ export default function ScanClient() {
       setHasil(null);
     }, TUTUP_OTOMATIS_MS);
     return () => window.clearTimeout(pewaktu);
-  }, [hasil, lembarMenutup]);
+    // `kedip` ikut: lembar yang dibuka lagi untuk tamu yang sama membawa objek
+    // hasil yang sama, dan pewaktunya harus mulai lagi bersama bilahnya.
+  }, [hasil, kedip, lembarMenutup]);
 
   const pil = membaca
     ? { teks: "Terbaca, menyimpan…", nada: "bg-primary text-on-primary" }
