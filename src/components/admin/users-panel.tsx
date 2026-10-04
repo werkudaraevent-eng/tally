@@ -185,12 +185,12 @@ export function UsersPanel() {
           />
         ) : (
           <table className="w-full min-w-[520px] border-separate border-spacing-0 text-left text-body-medium">
-            <thead className="sticky top-0 z-10 bg-surface-container-high text-body-medium font-medium text-on-surface-variant">
+            <thead className="sticky top-0 z-10 bg-surface-container-lowest text-label-large text-on-surface-variant">
               <tr>
-                <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Akun</th>
-                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Peran</th>
-                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Booth</th>
-                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Status</th>
+                <th scope="col" className="border-b border-outline-variant px-4 py-2 font-normal">Akun</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2 font-normal">Peran</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2 font-normal">Booth</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2 font-normal">Status</th>
               </tr>
             </thead>
             <tbody>

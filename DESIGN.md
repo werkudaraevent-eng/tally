@@ -915,9 +915,11 @@ lebar-tetap; kolom angka memakai `tabular-nums`.
 
 Aturan yang mengikat semuanya:
 
-- `WorkspaceHeader` membawa `<h1>` halaman (30px/600, judul dari
-  `nav-config.ts`), satu baris meta, dan aksi halaman di kanan. Aksi utama
-  (filled) paling banyak satu.
+- `WorkspaceHeader` membawa `<h1>` halaman (`text-headline-medium`, 20px/600,
+  judul dari `nav-config.ts`), satu baris meta, dan aksi halaman di kanan. Aksi
+  utama (filled) paling banyak satu. Sampai September 2026 judulnya 30px; di
+  layar yang dibuka pada zoom 150% itu memakan satu baris tabel dan terbaca
+  sebagai pengumuman, bukan nama tempat.
 - Baris meta memuat **fakta**, bukan aksi, dan harus muat satu baris. Tautan
   aksi (sync, kelola) pindah ke tombol di area aksi; keterangan yang hanya
   relevan saat menelusuri (mis. peserta dihapus di sumber) ditaruh di tempat
@@ -938,14 +940,21 @@ Aturan yang mengikat semuanya:
   akun per acara di `localStorage` perangkat itu (`useColumnPrefs`), jadi tidak
   ikut pindah ke perangkat lain.
 - Warna: kanvas `surface`, panel `surface-container-lowest` (putih), kepala
-  tabel dan kaki panel `surface-container-high`, baris hover `primary-soft`
+  tabel putih tanpa isi (13px/400 `on-surface-variant`, garis bawah saja), kaki
+  panel `surface-container-high`, baris hover `primary-soft`
   (abu), baris terpilih `secondary-container`, penanda aktif/terpilih
   `accent-soft` + `primary`. `primary` biru `#1a56c4` adalah satu-satunya
   warna aksen.
 - Status: `StatusChip` setinggi 20px, radius 4px, bertitik.
+- Rel navigasi: item 14px/400 `on-surface-variant`, item aktif `on-surface`
+  500 di atas `--press-active`. Hitam penuh di dua puluh lima item membuat rel
+  lebih keras daripada isi halaman.
+- `ChipMenu` bersudut 6px (`rounded-md`), 400, bukan pil tebal: saringan adalah
+  kontrol, dan pil 500 di sebelah kolom cari terbaca sebagai tombol aksi.
 - Tanpa em dash di teks antarmuka. Sel kosong memakai en dash (`EMPTY_VALUE`).
 - Acara berstatus selesai atau arsip memasang penanda di bawah `WorkspaceHeader`
-  setiap halaman (`kunci` di konteks halaman admin): `Banner` info untuk admin
+  setiap halaman (`kunci` di konteks halaman admin), sebagai `Banner compact`
+  satu baris 13px: info untuk admin
   ("hanya bisa dilihat dan diekspor"), `Banner` warning untuk super_admin, yang
   tetap bisa menyimpan (`isWriteBlocked`). Satu penanda per halaman, bukan per
   tombol: yang terkunci acaranya, bukan satu formulir. Tombol yang menyimpan ke

@@ -114,7 +114,7 @@ export default function ReportsPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] border-separate border-spacing-0 text-left text-body-medium">
-                <thead className="bg-surface-container-high text-on-surface-variant">
+                <thead className="bg-surface-container-lowest text-on-surface-variant">
                   <tr>
                     <th scope="col" className={TH}>Booth</th>
                     <th scope="col" className={cx(TH, "text-right")}>Order</th>
@@ -137,7 +137,7 @@ export default function ReportsPage() {
                 {jumlah ? (
                   <tfoot className="bg-surface-container-high font-medium">
                     <tr>
-                      <th scope="row" className="px-5 py-3 font-medium">Total</th>
+                      <th scope="row" className="px-5 py-3 font-normal">Total</th>
                       <td className="px-5 py-3 text-right tabular-nums">{angka(jumlah.orders)}</td>
                       <td className="px-5 py-3 text-right tabular-nums">{angka(jumlah.paid)}</td>
                       <td className="px-5 py-3 text-right tabular-nums">{angka(jumlah.discounts)}</td>

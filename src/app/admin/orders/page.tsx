@@ -254,12 +254,12 @@ export default function AdminOrdersPage() {
           />
         ) : (
           <table className={cx("w-full min-w-[560px] border-separate border-spacing-0 text-left text-body-medium", loading && "opacity-60")}>
-            <thead className="sticky top-0 z-10 bg-surface-container-high text-on-surface-variant">
+            <thead className="sticky top-0 z-10 bg-surface-container-lowest text-on-surface-variant">
               <tr>
-                <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Order</th>
-                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Peserta</th>
-                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Status</th>
-                <th scope="col" className="border-b border-outline-variant px-4 py-2.5 text-right font-medium">Total</th>
+                <th scope="col" className="border-b border-outline-variant px-4 py-2 font-normal">Order</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2 font-normal">Peserta</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2 font-normal">Status</th>
+                <th scope="col" className="border-b border-outline-variant px-4 py-2 text-right font-normal">Total</th>
               </tr>
             </thead>
             <tbody>

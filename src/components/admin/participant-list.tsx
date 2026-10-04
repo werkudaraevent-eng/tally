@@ -491,11 +491,11 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
               <col style={{ minWidth: LEBAR_NAMA }} />
               {kolomTampil.map((item) => <col key={item.key} style={{ width: item.width }} />)}
             </colgroup>
-            <thead className="sticky top-0 z-10 bg-surface-container-high text-body-medium font-medium text-on-surface-variant">
+            <thead className="sticky top-0 z-10 bg-surface-container-lowest text-label-large text-on-surface-variant">
               <tr>
-                <th scope="col" aria-sort={ariaSort("name")} className="sticky left-0 z-10 border-b border-outline-variant bg-surface-container-high px-4 py-2.5 font-medium">{sortHeader("Nama", "name")}</th>
+                <th scope="col" aria-sort={ariaSort("name")} className="sticky left-0 z-10 border-b border-outline-variant bg-surface-container-lowest px-4 py-2 font-normal">{sortHeader("Nama", "name")}</th>
                 {kolomTampil.map((item) => (
-                  <th key={item.key} scope="col" aria-sort={ariaSort(item.sort)} className="border-b border-outline-variant px-3 py-2.5 font-medium">{sortHeader(item.label, item.sort, item.align)}</th>
+                  <th key={item.key} scope="col" aria-sort={ariaSort(item.sort)} className="border-b border-outline-variant px-3 py-2 font-normal">{sortHeader(item.label, item.sort, item.align)}</th>
                 ))}
               </tr>
             </thead>
@@ -516,7 +516,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                         className="block w-full min-w-0 rounded-sm text-left"
                       >
                         <span className="flex min-w-0 items-center gap-2">
-                          <span className="truncate font-medium text-on-surface" title={participant.name}>{participant.name}</span>
+                          <span className="truncate text-on-surface" title={participant.name}>{participant.name}</span>
                           {participant.source_removed_at ? <StatusChip tone="warning" className="shrink-0">Dihapus di sumber</StatusChip> : null}
                         </span>
                         {jabatanDiBawahNama ? <span className="block truncate text-on-surface-variant">{participant.title || " "}</span> : null}

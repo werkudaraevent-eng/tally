@@ -108,7 +108,10 @@ export function TopAppBar({ leading, title, titleAs = "h1", subtitle, subtitleCl
 
 	return (
 		<>
-			<div ref={sentinel} aria-hidden className="h-px" />
+			{/* `-mb-px`: penanda gulir tidak boleh memakan tempat. Satu piksel di sini
+			    menurunkan bilah atas satu piksel, dan garis bawahnya tidak lagi
+			    sejajar dengan garis bawah kepala menu samping. */}
+			<div ref={sentinel} aria-hidden className="-mb-px h-px" />
 			<header
 				className={cx(
 					// z-20, di bawah laci navigasi (z-40) dan latar gelapnya (z-30).
