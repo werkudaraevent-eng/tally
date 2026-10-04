@@ -6,6 +6,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { undanganBelumAda } from "@/lib/undangan/data";
 import { normalizeInviteEmail } from "@/lib/undangan/email";
 import { emailHash, inviteSecretReady } from "@/lib/undangan/tanda";
+import { isContohTemplat } from "@/lib/undangan/templat";
 
 /**
  * Impor tamu undangan dari CSV atau XLSX. Tidak pernah mengirim apa pun.
@@ -34,7 +35,7 @@ function header(raw: string) {
   return raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
-const ALASAN = { tanpa_nama: "Nama kosong", dua_alamat: "Dua alamat dalam satu sel", tidak_sah: "Email tidak sah" } as const;
+const ALASAN = { tanpa_nama: "Nama kosong", dua_alamat: "Dua alamat dalam satu sel", tidak_sah: "Email tidak sah", contoh: "Baris contoh templat, hapus atau timpa dulu" } as const;
 
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
@@ -93,6 +94,10 @@ export async function POST(request: Request) {
     }
     if (!email.ok) {
       ditolak.push({ row: nomor, name: nama, email: isi.email ?? "", reason: ALASAN[email.reason] });
+      continue;
+    }
+    if (isContohTemplat({ name: nama, email: email.email, company: isi.company, title: isi.title, phone: isi.phone })) {
+      ditolak.push({ row: nomor, name: nama, email: isi.email ?? "", reason: ALASAN.contoh });
       continue;
     }
     baris.push({
