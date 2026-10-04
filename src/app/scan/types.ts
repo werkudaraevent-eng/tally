@@ -1,3 +1,4 @@
+import type { HasilCetakMeja } from "@/lib/badge/stasiun";
 import type { LabelData } from "@/lib/label/layout";
 
 /**
@@ -59,6 +60,8 @@ export type Hasil = {
    * datang, bukan masuk dua kali.
    */
   tersimpanSebelumnya?: boolean;
+  /** Badge kertas di stasiun cetak: pekerjaan yang diantrekan, atau yang terakhir untuk pemindaian ulang. */
+  badge_cetak?: HasilCetakMeja;
 };
 
 /**

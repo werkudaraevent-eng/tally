@@ -13,7 +13,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Dialog } from "@/components/m3";
 import { standard } from "@/lib/m3/motion";
 import { ItemChecklist } from "./item-checklist";
@@ -128,6 +128,9 @@ type Props = {
   labelUntukPerangkatIni: boolean;
   cetak: StatusCetak;
   onCetak: () => void;
+  /** Badge kertas di stasiun cetak (cetak-meja.tsx): baris status dan tombolnya. */
+  cetakMeja?: ReactNode;
+  aksiMeja?: ReactNode;
   bolehWalkIn: boolean;
   onWalkIn: () => void;
   onUlangi: () => void;
@@ -155,6 +158,8 @@ export function ResultSheet({
   labelUntukPerangkatIni,
   cetak,
   onCetak,
+  cetakMeja,
+  aksiMeja,
   bolehWalkIn,
   onWalkIn,
   onUlangi,
@@ -360,6 +365,8 @@ export function ResultSheet({
                   </p>
                 ) : null}
 
+                {adaOrang ? cetakMeja : null}
+
                 {/* Rata kanan, aksi utama paling kanan: pola baris aksi dialog M3. Semua
                     tombol di baris ini setinggi 48 px, supaya barisnya rata. */}
                 <div className="flex flex-wrap items-center justify-end gap-2">
@@ -374,6 +381,8 @@ export function ResultSheet({
                       {teksLabel}
                     </Button>
                   ) : null}
+
+                  {adaOrang ? aksiMeja : null}
 
                   <Button variant="text" size="md" onClick={onTutup}>
                     Tutup
