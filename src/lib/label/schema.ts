@@ -39,7 +39,8 @@ export const labelLayoutSchema = z.object({
 });
 
 export const labelSettingsSchema = z.object({
-	enabled: z.boolean(),
+	/** Diabaikan oleh PATCH: hanya `/api/admin/badge/meja` yang menulis kolom ini. */
+	enabled: z.boolean().optional(),
 	// Satu awalan kosong akan cocok dengan SEMUA perangkat BLE di ruangan, jadi
 	// yang kosong dibuang di route handler sebelum disimpan.
 	name_prefixes: z.array(z.string().trim().min(1).max(30)).max(6),
