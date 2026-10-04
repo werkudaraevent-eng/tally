@@ -306,6 +306,10 @@ begin
   -- Baris yang sedang diambil stasiun terkunci dan tidak tersentuh: HP
   -- membacanya sebagai "sudah diambil".
   if p_jenis = 'ulang' then
+    -- Dua Print again serentak (dua HP, atau klien yang mengulang) tidak boleh
+    -- saling tidak melihat: kunci per peserta, lalu retire mengambil snapshot
+    -- setelah kunci didapat dan ikut menutup ulang yang satunya.
+    perform pg_advisory_xact_lock(hashtextextended('badge_cetak_ulang:' || p_participant_id::text, 0));
     update public.badge_cetak_antrean
        set status = 'kedaluwarsa', selesai_at = now()
      where event_id = p_event_id and participant_id = p_participant_id and status = 'antre';
@@ -375,17 +379,25 @@ declare
 begin
   select coalesce((select cetak_kedaluwarsa_menit from public.badge_settings where event_id = p_event_id), 10)
     into menit;
+  -- skip locked: baris yang sedang dikunci ambil, antrekan, atau sapuan lain
+  -- dilewati, jadi sapuan tidak pernah menunggu kunci baris dan tidak bisa ikut
+  -- membentuk deadlock dengan sapuan per stasiun di badge_cetak_ambil. Baris
+  -- yang terlewat diselesaikan pemegangnya atau tersapu pada panggilan berikut.
   update public.badge_cetak_antrean
      set status = 'kedaluwarsa', selesai_at = now()
-   where event_id = p_event_id and status = 'antre'
-     and created_at < now() - make_interval(mins => menit);
+   where id in (
+     select id from public.badge_cetak_antrean
+      where event_id = p_event_id and status = 'antre'
+        and created_at < now() - make_interval(mins => menit)
+        for update skip locked);
   get diagnostics n = row_count;
   return n;
 end $$;
 
 -- Fungsi di atas SECURITY INVOKER dan hanya dipanggil service_role. Haknya atas
--- tabel diberikan tegas di sini, tidak bergantung pada default privileges
--- Supabase.
+-- dua tabel baru diberikan tegas di sini. Bacaan ke participants, badge_settings,
+-- dan attendance_lanes memakai hak service_role yang sudah dipakai seluruh
+-- aplikasi (default privileges Supabase); cek-sesudah memeriksanya.
 grant select, insert, update, delete on table public.badge_stasiun, public.badge_cetak_antrean to service_role;
 grant usage, select on sequence public.badge_stasiun_id_seq, public.badge_cetak_antrean_id_seq to service_role;
 revoke all on sequence public.badge_stasiun_id_seq, public.badge_cetak_antrean_id_seq from public, anon, authenticated;
