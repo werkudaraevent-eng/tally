@@ -15,19 +15,27 @@ import { badgeLayoutSchema } from "./schema";
  * Susunan tersimpan diperiksa ulang: `layout` jsonb, bentuknya tidak dijamin
  * database, dan satu baris rusak tidak boleh menjatuhkan halaman cetak.
  */
-/** Tabel `badge_settings` belum dibuat: migrasi 202610040002 belum dijalankan. */
-export function tabelBadgeBelumAda(error: { code?: string; message?: string } | null): boolean {
+/**
+ * Tabel `badge_settings` belum dibuat: migrasi 202610040002 belum dijalankan.
+ *
+ * Bentuk galatnya berbeda per versi PostgREST, dan versi di produksi tidak
+ * diketahui pasti: 42P01 dari Postgres, PGRST205 di PostgREST 13 ke atas, dan
+ * di PostgREST 12 upsert ke tabel yang tidak ada menjawab 404 dengan badan
+ * kosong tanpa kode sama sekali (diukur QA). Ketiganya dianggap "belum ada".
+ */
+export function tabelBadgeBelumAda(error: { code?: string; message?: string } | null, status?: number): boolean {
 	if (!error) return false;
-	return error.code === "42P01" || error.code === "PGRST205" || /badge_settings/.test(error.message ?? "");
+	if (error.code === "42P01" || error.code === "PGRST205" || /badge_settings/.test(error.message ?? "")) return true;
+	return status === 404 && !error.code;
 }
 
 export async function loadBadgeLayout(eventId: string): Promise<{ layout: BadgeLayout; migrasi: boolean }> {
-	const { data, error } = await getSupabaseServiceClient()
+	const { data, error, status } = await getSupabaseServiceClient()
 		.from("badge_settings")
 		.select("layout")
 		.eq("event_id", eventId)
 		.maybeSingle();
-	if (error) return { layout: DEFAULT_BADGE_LAYOUT, migrasi: !tabelBadgeBelumAda(error) };
+	if (error) return { layout: DEFAULT_BADGE_LAYOUT, migrasi: !tabelBadgeBelumAda(error, status) };
 	if (!data) return { layout: DEFAULT_BADGE_LAYOUT, migrasi: true };
 	const parsed = badgeLayoutSchema.safeParse((data as { layout: unknown }).layout);
 	return { layout: parsed.success ? (parsed.data as BadgeLayout) : DEFAULT_BADGE_LAYOUT, migrasi: true };

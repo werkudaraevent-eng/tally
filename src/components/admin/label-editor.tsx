@@ -91,7 +91,16 @@ const TOMBOL_TAMBAH: Array<{ label: string; buat: ElemenBaru }> = [
 
 type Bagian = "isi" | "gulungan" | "printer";
 
-export function LabelEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hidden?: boolean }) {
+export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
+  pilihJenis: ReactNode;
+  hidden?: boolean;
+  /**
+   * Pilihan "Yang dicetak di meja registrasi" (tab Badge kertas › Cetak).
+   * Simpan di sini menulis `enabled` dari pilihan itu, bukan dari salinan lama
+   * yang dimuat saat halaman dibuka, supaya tidak menimpanya.
+   */
+  labelDiMeja: boolean;
+}) {
   const [settings, setSettings] = useState<LabelSettings | null>(null);
   const [prefixText, setPrefixText] = useState("");
   const [terpilih, setTerpilih] = useState<number | null>(null);
@@ -348,6 +357,7 @@ export function LabelEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...settings,
+        enabled: labelDiMeja,
         name_prefixes: prefixText.split(",").map((bagian) => bagian.trim()).filter(Boolean),
       }),
     }).catch(() => null);
@@ -747,24 +757,15 @@ export function LabelEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
             <span>Badge tamu walk-in</span>
             <MetaSeparator />
             <span className="tabular-nums">{settings.width_mm} x {settings.height_mm} mm</span>
-            {!settings.enabled ? (
-              <>
-                <MetaSeparator />
-                <span>Printer label mati, jadi bagian printer tidak tampil di layar pemindai</span>
-              </>
-            ) : null}
+            <MetaSeparator />
+            <span>
+              {labelDiMeja
+                ? "Dicetak di meja registrasi"
+                : "Tidak dicetak di meja registrasi. Ubah di Badge kertas, bagian Cetak"}
+            </span>
           </>
         }
-        actions={
-          <>
-          {pilihJenis}
-          <Switch
-            checked={settings.enabled}
-            onChange={(value) => ubah("enabled", value)}
-            label="Pakai printer label"
-          />
-          </>
-        }
+        actions={pilihJenis}
       />
 
       {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}

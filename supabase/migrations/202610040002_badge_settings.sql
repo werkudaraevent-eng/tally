@@ -15,6 +15,10 @@
 create table if not exists public.badge_settings (
   event_id uuid primary key references public.events(id) on delete cascade,
   layout jsonb not null,
+  -- Badge kertas yang dicetak di meja registrasi. Satu dari tiga pilihan
+  -- "Yang dicetak di meja registrasi"; pilihan label stiker tetap disimpan di
+  -- label_settings.enabled supaya layar scan yang sudah ada tidak berubah.
+  di_meja boolean not null default false,
   updated_at timestamptz not null default now(),
   updated_by uuid references public.users(id) on delete set null
 );

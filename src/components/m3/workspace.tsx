@@ -228,11 +228,20 @@ export function ListDetail({ list, detail, detailWidth = 440 }: ListDetailProps)
 }
 
 /** Supporting pane M3: objek yang disunting di tengah, setelannya di panel kanan. */
-export function SupportingPane({ main, pane, paneWidth = 400 }: { main: ReactNode; pane: ReactNode; paneWidth?: number }) {
+export function SupportingPane({ main, pane, paneWidth = 400, terkunci = false }: {
+	main: ReactNode;
+	pane: ReactNode;
+	paneWidth?: number;
+	/**
+	 * Halaman pemanggil tetap dikunci setinggi jendela di layar pendek, jadi panel
+	 * kanan tidak perlu menempel: ia mengisi tinggi yang ada dan bergulir sendiri.
+	 */
+	terkunci?: boolean;
+}) {
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
 			<div className="flex min-h-0 min-w-0 flex-1 flex-col *:flex-1">{main}</div>
-			<div className={cx("flex min-h-0 w-full flex-col *:flex-1 lg:w-[var(--pane-w)] lg:shrink-0", PANEL_MENEMPEL)} style={{ "--pane-w": `${paneWidth}px` } as React.CSSProperties}>
+			<div className={cx("flex min-h-0 w-full flex-col *:flex-1 lg:w-[var(--pane-w)] lg:shrink-0", !terkunci && PANEL_MENEMPEL)} style={{ "--pane-w": `${paneWidth}px` } as React.CSSProperties}>
 				{pane}
 			</div>
 		</div>

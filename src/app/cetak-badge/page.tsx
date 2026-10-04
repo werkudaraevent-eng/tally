@@ -1,13 +1,15 @@
 "use client";
 
 import { Printer, Warning } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
-import { BadgeSisi } from "@/components/badge/badge-sisi";
+import { useCallback, useEffect, useState } from "react";
+import { BadgeSisi, type StatusRundown } from "@/components/badge/badge-sisi";
 import { Banner, Button, SelectField } from "@/components/m3";
 import { eventApiPath } from "@/lib/event-url";
 import {
 	BADGE_PREVIEW_DATA,
 	KERTAS,
+	kertasCocok,
+	punyaBelakang,
 	susunLembar,
 	type BadgeData,
 	type BadgeEventData,
@@ -16,7 +18,7 @@ import {
 	type Lembar,
 } from "@/lib/badge/layout";
 import { KUNCI_DRAF, bacaPrinter, bacaPrinterAktif, simpanPrinterAktif, type ProfilPrinter } from "@/lib/badge/printer";
-import { RUNDOWN_CONTOH, type BadgeRundownHari } from "@/lib/badge/rundown";
+import type { BadgeRundownHari } from "@/lib/badge/rundown";
 
 /**
  * Halaman cetak badge kertas: `/e/<slug>/cetak-badge?mode=...`.
@@ -111,7 +113,10 @@ export default function CetakBadgePage() {
 	}, [param]);
 
 	const profil = printer.find((p) => p.id === aktif) ?? null;
-	const lembar = useMemo(() => (muatan ? susunLembar(muatan.layout.format) : null), [muatan]);
+	const kertasPrinter = profil?.kertas ?? "A4";
+	const lembar = muatan ? susunLembar(muatan.layout.format, kertasPrinter) : null;
+	const [rundownLuber, setRundownLuber] = useState(false);
+	const catatRundown = useCallback((status: StatusRundown) => { if (!status.muat) setRundownLuber(true); }, []);
 	const siap = param?.mode === "kalibrasi" || Boolean(muatan && peserta && lembar);
 
 	// Dialog cetak dibuka setelah huruf dan gambar latar selesai dimuat; terlalu
@@ -139,7 +144,16 @@ export default function CetakBadgePage() {
 	const event: BadgeEventData | null = muatan
 		? { name: muatan.event.name, kv_url: muatan.event.kv_url, rundown_url: `${window.location.origin}/e/${muatan.event.slug}/rundown` }
 		: null;
-	const hari = muatan && muatan.rundown.length > 0 ? muatan.rundown : RUNDOWN_CONTOH;
+	// Rundown yang belum terbit TIDAK diganti contoh: jam karangan di punggung
+	// 300 badge lebih buruk daripada punggung kosong.
+	const hari = muatan?.rundown ?? [];
+	const pakaiRundown = Boolean(muatan && punyaBelakang(muatan.layout.format) && [...muatan.layout.back, ...muatan.layout.front].some((e) => e.type === "rundown"));
+	const peringatan: string[] = [];
+	if (param.mode !== "kalibrasi" && muatan && lembar) {
+		if (pakaiRundown && hari.length === 0) peringatan.push("Rundown acara belum diterbitkan, jadi kotak rundown di belakang badge kosong. Terbitkan dulu di menu Rundown acara bila ingin ikut tercetak.");
+		if (rundownLuber) peringatan.push("Rundown tidak muat walau sudah 8 pt. Badge mencetak baris yang muat lalu \"+N acara lagi\". Perbesar kotaknya atau pilih satu hari di penyunting.");
+		if (profil && !kertasCocok(lembar, profil.kertas)) peringatan.push(`Format ini dicetak di kertas ${lembar.namaKertas}, sedangkan ${profil.nama || "printer ini"} berisi ${profil.kertas}. Ganti kertasnya atau pilih format lain.`);
+	}
 
 	// Peserta dikelompokkan per lembar: A4 isi dua memuat dua badge.
 	const perLembar = lembar?.badgePerLembar ?? 1;
@@ -188,6 +202,9 @@ export default function CetakBadgePage() {
 			</div>
 
 			{error ? <div className="cetak-alat p-4"><Banner tone="error" icon={<Warning size={18} />}>{error}</Banner></div> : null}
+			{peringatan.map((teks) => (
+				<div key={teks} className="cetak-alat px-4 pt-4"><Banner tone="warning" icon={<Warning size={18} />}>{teks}</Banner></div>
+			))}
 			{lembar?.tidakMuat && param.mode !== "kalibrasi" ? (
 				<div className="cetak-alat p-4"><Banner tone="warning" icon={<Warning size={18} />}>{lembar.tidakMuat}</Banner></div>
 			) : null}
@@ -211,6 +228,8 @@ export default function CetakBadgePage() {
 											event={event}
 											hari={hari}
 											hariIni={hariIniLokal()}
+											onRundown={catatRundown}
+											cetak
 											style={{
 												position: "absolute",
 												left: `${panel.x}mm`,
@@ -250,9 +269,14 @@ function TandaLembar({ lembar }: { lembar: Lembar }) {
 	const { kertas } = lembar;
 	const takik = (g: Garis, i: number) => {
 		const tegak = Math.abs(g.x1 - g.x2) < 0.01;
+		// Lipatan yang berujung di tepi kertas: takik di dalam, mulai 4 mm dari
+		// tepi. Lipatan badge yang ditata di tengah lembar: takik di LUAR badge,
+		// di sela antarbadge, supaya tidak tercetak di badge jadi.
+		const diTepi = tegak ? g.y1 < 0.6 : g.x1 < 0.6;
+		const [a1, a2, b1, b2] = diTepi ? [4, 8, -8, -4] : [-4, -1, 1, 4];
 		const ruas: Garis[] = tegak
-			? [{ x1: g.x1, y1: g.y1 + 4, x2: g.x1, y2: g.y1 + 8 }, { x1: g.x1, y1: g.y2 - 8, x2: g.x1, y2: g.y2 - 4 }]
-			: [{ x1: g.x1 + 4, y1: g.y1, x2: g.x1 + 8, y2: g.y1 }, { x1: g.x2 - 8, y1: g.y1, x2: g.x2 - 4, y2: g.y1 }];
+			? [{ x1: g.x1, y1: g.y1 + a1, x2: g.x1, y2: g.y1 + a2 }, { x1: g.x1, y1: g.y2 + b1, x2: g.x1, y2: g.y2 + b2 }]
+			: [{ x1: g.x1 + a1, y1: g.y1, x2: g.x1 + a2, y2: g.y1 }, { x1: g.x2 + b1, y1: g.y1, x2: g.x2 + b2, y2: g.y1 }];
 		return ruas.map((r, j) => <line key={`l${i}-${j}`} {...r} stroke={TINTA_TANDA} strokeWidth={0.25} />);
 	};
 	return (
@@ -263,6 +287,7 @@ function TandaLembar({ lembar }: { lembar: Lembar }) {
 				style={{ position: "absolute", inset: 0, width: `${kertas.w}mm`, height: `${kertas.h}mm`, pointerEvents: "none" }}
 			>
 				{lembar.lipatan.flatMap(takik)}
+				{lembar.tanda.map((g, i) => <line key={`t${i}`} {...g} stroke="#555555" strokeWidth={0.2} />)}
 				{lembar.potongan.map((g, i) => (
 					<line key={`p${i}`} {...g} stroke={TINTA_TANDA} strokeWidth={0.2} strokeDasharray="2 1.5" />
 				))}

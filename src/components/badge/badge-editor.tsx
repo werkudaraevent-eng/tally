@@ -3,7 +3,7 @@
 import {
 	ArrowCounterClockwise, CaretDown, Check, DownloadSimple, Info, MagnifyingGlassPlus, Plus, Printer, Trash, Warning,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { BadgeSisi, MODUL_MIN_MM, PX_PER_MM, matriksQr, type StatusRundown } from "@/components/badge/badge-sisi";
 import { PrinterDialog } from "@/components/badge/printer-dialog";
 import { Kelompok } from "@/components/admin/compact-form";
@@ -15,7 +15,7 @@ import {
 import { useToast } from "@/components/toast";
 import {
 	BADGE_PREVIEW_DATA, BADGE_TEXT_LABELS, DEFAULT_BADGE_LAYOUT, MAX_ELEMEN_PER_SISI, UKURAN_KHUSUS,
-	areaAman, elemenBaru, jepitKeSisi, kotakElemen, punyaBelakang, susunLembar, ukuranSisi,
+	areaAman, elemenBaru, kertasCocok, jepitKeSisi, kotakElemen, punyaBelakang, susunLembar, ukuranSisi,
 	type BadgeData, type BadgeElement, type BadgeEventData, type BadgeFold, type BadgeFormat, type BadgeFormatKind,
 	type BadgeLayout, type BadgeSide, type BadgeTextField, type Mm,
 } from "@/lib/badge/layout";
@@ -38,6 +38,17 @@ import { cx } from "@/lib/m3/cx";
 
 type Bagian = "isi" | "kertas" | "cetak";
 type Zoom = "pas" | "100" | "200";
+/**
+ * Halaman dikunci setinggi jendela juga di laptop pendek (1280 × 588).
+ *
+ * WorkspacePage melepas kuncinya di layar pendek supaya tabel tidak terperas.
+ * Penyunting ini kebalikannya: yang harus selalu terlihat adalah badge DAN
+ * tombol Simpan, dan panel kanan sudah bergulir sendiri. Tanpa kunci, Simpan
+ * jatuh di bawah lipatan layar.
+ */
+const KUNCI_TINGGI = "lg:short:h-[calc(100dvh-var(--workspace-top,58px))]! lg:short:overflow-hidden!";
+
+const NAMA_ZOOM: Record<Zoom, string> = { pas: "Pas", "100": "100%", "200": "200%" };
 
 type Muatan = {
 	layout: BadgeLayout;
@@ -54,7 +65,7 @@ const FORMAT: Array<{ kind: BadgeFormatKind; judul: string; keterangan: string }
 	{ kind: "a5_lipat2", judul: "A5 lipat dua jadi A6", keterangan: "Kertas tebal, satu lipatan saja, jadi tetap rapi." },
 	{ kind: "a4_isi2", judul: "A4 isi dua, potong, lipat dua jadi A6", keterangan: "Kertas tebal yang dijual A4. Satu garis potong, hemat setengah lembar." },
 	{ kind: "a4_lipat2", judul: "A4 lipat dua jadi A5", keterangan: "Badge besar. Perlu holder A5." },
-	{ kind: "tunggal", judul: "Satu sisi, tanpa lipat", keterangan: "Kertasnya seukuran badge. Tanpa rundown di belakang." },
+	{ kind: "tunggal", judul: "Satu sisi, tanpa lipat", keterangan: "Ditata beberapa per lembar dengan tanda potong. Tanpa rundown di belakang." },
 	{ kind: "khusus", judul: "Ukuran khusus", keterangan: "Ketik lebar dan tinggi badge jadi, pilih lipatannya." },
 ];
 
@@ -123,7 +134,17 @@ function hariIniLokal() {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hidden?: boolean }) {
+export type Meja = "badge" | "label" | "tidak";
+
+export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }: {
+	pilihJenis: ReactNode;
+	hidden?: boolean;
+	/** Null selama dimuat. */
+	meja: Meja | null;
+	ubahMeja: (meja: Meja) => void;
+	/** Mis. "50 × 30 mm", untuk keterangan pilihan label stiker. */
+	labelUkuran: string | null;
+}) {
 	const [muatan, setMuatan] = useState<Muatan | null>(null);
 	const [layout, setLayout] = useState<BadgeLayout | null>(null);
 	const [sisi, setSisi] = useState<BadgeSide>("front");
@@ -145,6 +166,9 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 	const menuTambah = usePopoverAnchor(pemicuTambah);
 	// Button tidak meneruskan ref, jadi tombolnya diambil dari pembungkus.
 	const pasangPemicu = useCallback((el: HTMLSpanElement | null) => setPemicuTambah(el?.querySelector("button") ?? null), []);
+	const [pemicuZoom, setPemicuZoom] = useState<HTMLButtonElement | null>(null);
+	const menuZoom = usePopoverAnchor(pemicuZoom);
+	const pasangPemicuZoom = useCallback((el: HTMLSpanElement | null) => setPemicuZoom(el?.querySelector("button") ?? null), []);
 	const toast = useToast();
 
 	const load = useCallback(async () => {
@@ -184,10 +208,12 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 
 	const format = layout?.format ?? DEFAULT_BADGE_LAYOUT.format;
 	const ukuran = ukuranSisi(format);
-	const lembar = useMemo(() => susunLembar(format), [format]);
+	const profil = printer.find((p) => p.id === printerAktif) ?? null;
+	const kertasPrinter = profil?.kertas ?? "A4";
+	const lembar = susunLembar(format, kertasPrinter);
 	const adaBelakang = punyaBelakang(format);
 	const sisiAktif: BadgeSide = adaBelakang ? sisi : "front";
-	const aman = areaAman(format, sisiAktif);
+	const aman = areaAman(format, sisiAktif, kertasPrinter);
 
 	// px layar per mm.
 	const skala = zoom === "100" ? PX_PER_MM
@@ -199,7 +225,6 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 		: null;
 	const hari = muatan && muatan.rundown.length > 0 ? muatan.rundown : RUNDOWN_CONTOH;
 	const data = contoh[indeksContoh % contoh.length] ?? BADGE_PREVIEW_DATA;
-	const profil = printer.find((p) => p.id === printerAktif) ?? null;
 
 	function ubahLayout(fn: (current: BadgeLayout) => BadgeLayout) {
 		setLayout((current) => (current ? fn(current) : current));
@@ -385,6 +410,8 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 	const tanpaQr = !layout.front.some((e) => e.type === "qr" && e.field === "qr_code");
 	const adaRundown = elements.some((e) => e.type === "rundown");
 	const rundownTidakMuat = adaRundown && statusRundown && !statusRundown.muat;
+	const rundownBelumTerbit = muatan.rundown.length === 0 && adaBelakang && [...layout.front, ...layout.back].some((e) => e.type === "rundown");
+	const kertasPas = !profil || kertasCocok(lembar, profil.kertas);
 
 	// ---- Panel utama ---------------------------------------------------------
 	const utama = (
@@ -422,20 +449,41 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 					</Popover>
 				) : null}
 				<div className="flex-1" />
-				<MagnifyingGlassPlus size={18} className="text-on-surface-variant" aria-hidden />
-				<SegmentedButton<Zoom>
-					label="Perbesaran"
-					value={zoom}
-					onChange={setZoom}
-					options={[{ value: "pas", label: "Pas" }, { value: "100", label: "100%" }, { value: "200", label: "200%" }]}
-				/>
+				{/* Satu tombol menu, bukan tiga segmen: di 1280 px dengan bilah samping,
+				    tiga segmen mematahkan bilah alat jadi dua baris. */}
+				<span ref={pasangPemicuZoom} className="inline-flex">
+					<Button
+						variant="outlined"
+						size="sm"
+						icon={<MagnifyingGlassPlus size={16} />}
+						trailingIcon={<CaretDown size={14} />}
+						aria-haspopup="menu"
+						aria-expanded={menuZoom.open}
+						aria-label={`Perbesaran: ${NAMA_ZOOM[zoom]}`}
+						onClick={menuZoom.toggle}
+					>
+						{NAMA_ZOOM[zoom]}
+					</Button>
+				</span>
+				{menuZoom.open ? (
+					<Popover anchor={menuZoom} label="Perbesaran" align="end" width={160}>
+						<div className="p-1.5">
+							{(Object.keys(NAMA_ZOOM) as Zoom[]).map((z) => (
+								<button key={z} type="button" role="menuitemradio" aria-checked={zoom === z} className={POPOVER_ITEM} onClick={() => { setZoom(z); menuZoom.tutup(); }}>
+									<span className="flex-1">{NAMA_ZOOM[z]}</span>
+									{zoom === z ? <Check size={14} weight="bold" /> : null}
+								</button>
+							))}
+						</div>
+					</Popover>
+				) : null}
 			</PaneHeader>
 
 			<PaneBody className="flex flex-col bg-surface-container-highest">
-				{/* Tinggi minimum untuk layar pendek, saat halaman tidak dikunci setinggi
-				    jendela: "Pas" mengukur panggung ini, dan tanpa batas bawah panggung
-				    hanya setinggi badge yang sedang diukur. */}
-				<div ref={setPanggung} className={cx("flex min-h-[420px] flex-1 p-6", zoom === "pas" ? "items-center justify-center overflow-hidden" : "overflow-auto")}>
+				{/* Tinggi minimum di bawah lg, saat halaman bergulir biasa: "Pas"
+				    mengukur panggung ini, dan tanpa batas bawah panggung hanya setinggi
+				    badge yang sedang diukur. Di lg halaman dikunci setinggi jendela. */}
+				<div ref={setPanggung} className={cx("flex min-h-[360px] flex-1 p-6 lg:min-h-0", zoom === "pas" ? "items-center justify-center overflow-hidden" : "overflow-auto")}>
 					{skala > 0 ? (
 						<div className="relative m-auto shrink-0 shadow-level2" style={{ width: ukuran.w * skala, height: ukuran.h * skala }}>
 							<div style={{ transform: `scale(${skala / PX_PER_MM})`, transformOrigin: "top left", width: `${ukuran.w}mm`, height: `${ukuran.h}mm` }}>
@@ -499,9 +547,21 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 				</div>
 			</PaneBody>
 
-			{tanpaQr || penuh ? (
+			{tanpaQr || penuh || rundownBelumTerbit || !kertasPas ? (
 				<div className="flex shrink-0 flex-col gap-2 border-t border-outline-variant px-4 py-3 text-body-medium">
 					{penuh ? <p className="text-on-surface-variant">Sudah {MAX_ELEMEN_PER_SISI} isi di sisi ini. Hapus salah satu sebelum menambah lagi.</p> : null}
+					{rundownBelumTerbit ? (
+						<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-on-surface">
+							<Warning size={16} className="mt-0.5 shrink-0 text-warning" />
+							Rundown acara belum diterbitkan. Pratinjau memakai contoh, tetapi badge yang dicetak belakangnya kosong sampai rundown diterbitkan.
+						</p>
+					) : null}
+					{!kertasPas ? (
+						<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-on-surface">
+							<Warning size={16} className="mt-0.5 shrink-0 text-warning" />
+							Format ini dicetak di kertas {lembar.namaKertas}, sedangkan {profil?.nama || "printer aktif"} berisi {kertasPrinter}.
+						</p>
+					) : null}
 					{tanpaQr ? (
 						<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-on-surface">
 							<Warning size={16} className="mt-0.5 shrink-0 text-warning" />
@@ -643,7 +703,7 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 						<Warning size={16} className="mt-0.5 shrink-0 text-warning" />{lembar.tidakMuat}
 					</p>
 				) : null}
-				{lembar.kertas.w === 210 && lembar.kertas.h === 297 ? (
+				{kertasCocok(lembar, "A4") ? (
 					<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
 						<Warning size={16} className="mt-0.5 shrink-0 text-warning" />
 						Pastikan kertas di printer A4, bukan F4 atau Folio. Kertas yang lebih panjang menggeser posisi lipatan.
@@ -690,9 +750,11 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 							) : null}
 						</div>
 						<p className="text-body-medium text-on-surface-variant">
-							Per sisi {ukuran.w + 6} × {ukuran.h + 6} mm termasuk lebihan 3 mm, idealnya 300 dpi ({Math.round(((ukuran.w + 6) / 25.4) * 300)} × {Math.round(((ukuran.h + 6) / 25.4) * 300)} px), PNG atau JPG.
-							Nama, QR, dan rundown ditambahkan di sini, bukan di desain.
+							Per sisi {ukuran.w + 6} × {ukuran.h + 6} mm termasuk lebihan 3 mm, idealnya 300 dpi ({Math.round(((ukuran.w + 6) / 25.4) * 300)} × {Math.round(((ukuran.h + 6) / 25.4) * 300)} px).
+							Simpan sebagai JPG di bawah 5 MB; PNG 300 dpi sering melewati batas itu. Nama, QR, dan rundown ditambahkan di sini, bukan di desain.
 						</p>
+						<PeringatanDpi url={layout.background.front_url} wMm={ukuran.w} hMm={ukuran.h} />
+						{adaBelakang ? <PeringatanDpi url={layout.background.back_url} wMm={ukuran.w} hMm={ukuran.h} /> : null}
 						{adaBelakang ? (
 							<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
 								<Info size={16} className="mt-0.5 shrink-0 text-warning" />
@@ -708,7 +770,36 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 	// ---- Cetak -----------------------------------------------------------------
 	const isiCetak = (
 		<div className="flex flex-col gap-5">
-			<Kelompok title="Cetak" first>
+			<Kelompok title="Yang dicetak di meja registrasi" first>
+				<div role="radiogroup" aria-label="Yang dicetak di meja registrasi" className="flex flex-col gap-1">
+					{([
+						{ value: "badge", label: "Badge kertas", sub: NAMA_FORMAT[format.kind] },
+						{ value: "label", label: "Label stiker", sub: labelUkuran ? `NIIMBOT · ${labelUkuran}` : "NIIMBOT" },
+						{ value: "tidak", label: "Tidak ada", sub: null },
+					] as const).map((o) => (
+						<label key={o.value} className="flex min-h-9 cursor-pointer items-center gap-3 text-body-medium text-on-surface">
+							<input
+								type="radio"
+								name="meja-registrasi"
+								value={o.value}
+								checked={meja === o.value}
+								disabled={meja === null || (o.value === "badge" && !muatan.migrasi)}
+								onChange={() => ubahMeja(o.value)}
+								className="size-4 shrink-0 accent-[var(--md-sys-color-primary)]"
+							/>
+							<span className="font-medium">{o.label}</span>
+							{o.sub ? <span className="text-on-surface-variant">{o.sub}</span> : null}
+						</label>
+					))}
+				</div>
+				<p className="text-body-medium text-on-surface-variant">
+					Menggantikan sakelar &ldquo;Pakai printer label&rdquo; dan langsung tersimpan.
+					{meja === "badge" ? " Tombol cetak badge di layar scan menyusul; sementara itu cetak walk-in lewat Cetak contoh dengan peserta yang dipilih." : ""}
+					{!muatan.migrasi ? " Badge kertas bisa dipilih setelah migrasi database dijalankan." : ""}
+				</p>
+			</Kelompok>
+
+			<Kelompok title="Cetak">
 				<div className="flex flex-wrap gap-2">
 					<Button variant="outlined" size="sm" icon={<Printer size={16} />} onClick={() => bukaCetak("contoh")}>Cetak contoh</Button>
 					<Button variant="outlined" size="sm" icon={<DownloadSimple size={16} />} onClick={() => bukaCetak("semua")}>Semua peserta</Button>
@@ -784,13 +875,13 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 			</div>
 			<PaneBody className="px-4 py-4">{bagian === "isi" ? isiTerpilih : bagian === "kertas" ? isiKertas : isiCetak}</PaneBody>
 			<PaneFooter note={!muatan.migrasi ? "Menunggu migrasi database" : kotor ? "Ada perubahan belum disimpan" : "Semua perubahan tersimpan"}>
-				<Button simpan size="sm" loading={busy} disabled={!kotor} onClick={() => void simpan()}>Simpan</Button>
+				<Button simpan size="sm" loading={busy} disabled={!kotor || !muatan.migrasi} onClick={() => void simpan()}>Simpan</Button>
 			</PaneFooter>
 		</Pane>
 	);
 
 	return (
-		<WorkspacePage fill className={hidden ? "hidden" : undefined}>
+		<WorkspacePage fill className={cx(hidden && "hidden", KUNCI_TINGGI)}>
 			<WorkspaceHeader
 				meta={
 					<>
@@ -813,7 +904,7 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 				</Banner>
 			) : null}
 			{error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
-			<SupportingPane main={utama} pane={panel} />
+			<SupportingPane main={utama} pane={panel} terkunci />
 			{dialogPrinter ? (
 				<PrinterDialog
 					awal={dialogPrinter === "baru" ? null : dialogPrinter}
@@ -828,6 +919,37 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 }
 
 // ---- Potongan panel --------------------------------------------------------
+
+/** Di bawah ini gambar terlihat pecah di jarak baca badge. */
+const DPI_MIN = 150;
+
+/**
+ * Peringatan resolusi untuk gambar unggahan, dihitung dari ukuran cetaknya.
+ *
+ * Diukur di peramban dari ukuran asli gambar, bukan dari metadata dpi berkas:
+ * angka dpi di berkas tidak dipakai siapa pun saat mencetak HTML, yang
+ * menentukan hanya jumlah piksel dibagi milimeter yang ditutupnya.
+ */
+function PeringatanDpi({ url, wMm, hMm }: { url: string | null; wMm: number; hMm: number }) {
+	const [asli, setAsli] = useState<{ url: string; w: number; h: number } | null>(null);
+	useEffect(() => {
+		if (!url) return;
+		let batal = false;
+		const img = new Image();
+		img.onload = () => { if (!batal) setAsli({ url, w: img.naturalWidth, h: img.naturalHeight }); };
+		img.src = url;
+		return () => { batal = true; };
+	}, [url]);
+	if (!url || !asli || asli.url !== url) return null;
+	const dpi = Math.round(Math.min(asli.w / (wMm / 25.4), asli.h / (hMm / 25.4)));
+	if (dpi >= DPI_MIN) return null;
+	return (
+		<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
+			<Warning size={16} className="mt-0.5 shrink-0 text-warning" />
+			Gambar {asli.w} × {asli.h} px hanya sekitar {dpi} dpi di ukuran cetaknya, jadi akan terlihat pecah. Pakai minimal {Math.round((wMm / 25.4) * DPI_MIN)} × {Math.round((hMm / 25.4) * DPI_MIN)} px.
+		</p>
+	);
+}
 
 function WarnaField({ label, value, onChange }: { label: string; value: string; onChange: (nilai: string) => void }) {
 	return (
@@ -1006,7 +1128,8 @@ function SetelanElemen({
 		case "image":
 			return (
 				<>
-					<ImageUploadField label="Gambar" kind="badge" fit="contain" value={element.url} previewClassName="h-24 w-full" onChange={(url) => ubah({ url })} />
+					<ImageUploadField label="Gambar" kind="badge" fit="contain" value={element.url} previewClassName="h-24 w-full" hint="PNG transparan atau JPG, di bawah 5 MB." onChange={(url) => ubah({ url })} />
+					<PeringatanDpi url={element.url} wMm={element.w} hMm={element.h} />
 					<div className="grid grid-cols-2 gap-3">
 						<AngkaMm label="Lebar (mm)" value={element.w} min={4} max={sisi.w} onChange={(w) => ubah({ w })} />
 						<AngkaMm label="Tinggi (mm)" value={element.h} min={4} max={sisi.h} onChange={(h) => ubah({ h })} />
@@ -1023,7 +1146,7 @@ function SetelanElemen({
 						{hari.map((h) => <option key={h.id} value={h.id}>{h.nama}</option>)}
 					</SelectField>
 					{hari.length === 0 ? (
-						<p className="text-body-medium text-on-surface-variant">Rundown acara belum diterbitkan, jadi pratinjau memakai contoh. Badge yang dicetak memakai rundown yang terbit.</p>
+						<p className="text-body-medium text-on-surface-variant">Rundown acara belum diterbitkan. Pratinjau memakai contoh; di badge yang dicetak kotak ini kosong sampai rundown diterbitkan.</p>
 					) : null}
 					<Switch checked={element.merge_parallel} onChange={(v) => ubah({ merge_parallel: v })} label="Gabung sesi berjam sama" description="Tiga sesi paralel jadi satu baris." />
 					<AngkaMm label="Ukuran huruf awal (pt)" value={element.size} min={8} max={14} hint="Turun sendiri sampai 8 pt bila tidak muat." onChange={(size) => ubah({ size })} />

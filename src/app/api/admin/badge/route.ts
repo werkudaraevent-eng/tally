@@ -30,7 +30,12 @@ export async function PATCH(request: Request) {
   const parsed = badgeLayoutSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
-  const { error } = await getSupabaseServiceClient()
+  // Diperiksa dulu lewat baca: jawaban galat upsert ke tabel yang tidak ada
+  // berbeda per versi PostgREST, sedangkan baca sudah terbukti konsisten.
+  const sekarang = await loadBadgeLayout(auth.scope.event.id);
+  if (!sekarang.migrasi) return apiError("BADGE_NOT_READY", 409);
+
+  const { error, status } = await getSupabaseServiceClient()
     .from("badge_settings")
     .upsert(
       { event_id: auth.scope.event.id, layout: parsed.data, updated_at: new Date().toISOString(), updated_by: auth.user.id } as never,
@@ -39,7 +44,7 @@ export async function PATCH(request: Request) {
   if (error) {
     // Tabel belum ada: migrasi belum dijalankan di database ini. Dibedakan dari
     // galat lain supaya penyunting bisa mengatakannya dengan jujur.
-    if (tabelBadgeBelumAda(error)) return apiError("BADGE_NOT_READY", 409);
+    if (tabelBadgeBelumAda(error, status)) return apiError("BADGE_NOT_READY", 409);
     return apiError("INTERNAL_ERROR", 500);
   }
   const { layout } = await loadBadgeLayout(auth.scope.event.id);

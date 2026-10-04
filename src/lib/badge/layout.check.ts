@@ -18,20 +18,36 @@ const isi2 = susunLembar(f({ kind: "a4_isi2" }));
 assert.equal(isi2.badgePerLembar, 2);
 assert.equal(isi2.potongan.length, 1);
 
-// Khusus lipat samping 100x140: lembar 200x140 masuk A5 mendatar, di tengah.
+// Khusus lipat samping 100x140: unit 200x140 di A4 mendatar (297x210), satu per lembar, di tengah.
 const samping = susunLembar(f({}));
-assert.equal(samping.namaKertas, "A5 mendatar");
+assert.equal(samping.namaKertas, "A4 mendatar");
 assert.equal(samping.tidakMuat, null);
-assert.equal(samping.panels[0].x, 5);
-assert.equal(samping.panels[1].x, 105);
+assert.equal(samping.badgePerLembar, 1);
+assert.equal(samping.panels[0].x, 48.5);
+assert.equal(samping.panels[1].x, 148.5);
+assert.ok(samping.tanda.length > 0);
+
+// Printer berisi A5: unit yang sama tetap muat di A5 mendatar (210x148)? 200+12 > 210, jadi tanpa tepi.
+const sampingA5 = susunLembar(f({ w_mm: 100, h_mm: 140 }), "A5");
+assert.equal(sampingA5.namaKertas, "A5 mendatar");
+assert.equal(sampingA5.tanda.length, 0);
 
 // Khusus lipat atas: belakang di bawah, terbalik.
 const atas = susunLembar(f({ fold: "top" }));
 assert.equal(atas.panels[1].rotate, 180);
 assert.equal(atas.namaKertas, "A4 tegak");
 
+// Satu sisi A6 di A4: empat per lembar, bukan halaman seukuran badge.
+const tunggal = susunLembar(f({ kind: "tunggal", w_mm: 90, h_mm: 130 }));
+assert.deepEqual(tunggal.kertas, { w: 210, h: 297 });
+assert.equal(tunggal.badgePerLembar, 4);
+assert.equal(new Set(tunggal.panels.map((p) => p.slot)).size, 4);
+
 // Terlalu besar: diberi tahu, bukan diam-diam dikecilkan.
 assert.ok(susunLembar(f({ w_mm: 200, h_mm: 280 })).tidakMuat);
+
+// A4 isi dua: badge kedua menyentuh tepi bawah kertas, jadi area amannya ikut 6 mm.
+assert.equal(areaAman(f({ kind: "a4_isi2" }), "front").bottom, 6);
 
 // Area aman: 6 mm di tepi kertas, 3 mm di lipatan. Sisi terbalik menukar atas dan bawah.
 assert.deepEqual(areaAman(f({ kind: "a4_lipat4" }), "front"), { top: 6, right: 3, bottom: 3, left: 6 });

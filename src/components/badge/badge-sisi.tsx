@@ -129,32 +129,56 @@ function TeksPas({ element, teks }: { element: BadgeTextElement; teks: string })
 
 /**
  * Rundown dengan tangga ukuran: mulai dari ukuran pilihan admin, turun 0,5 pt
- * sampai 8 pt. Bila 8 pt pun tidak muat, statusnya dikabarkan ke penyunting
- * (garis kuning dan kalimat di panel) dan sisanya dipotong rapi di halaman cetak.
+ * sampai 8 pt. Bila 8 pt pun tidak muat, hanya baris yang muat utuh yang
+ * digambar, ditutup "+N acara lagi". Memotong baris di tengah membuat tamu
+ * mengira acaranya selesai di situ. Statusnya dikabarkan ke penyunting (garis
+ * kuning dan kalimat di panel) dan ke halaman cetak (peringatan di bilah alat).
+ *
+ * Pengukuran dua tahap: render pertama untuk masukan baru selalu memuat semua
+ * baris, efek mengukurnya, lalu menyimpan ukuran dan jumlah baris untuk kunci
+ * itu. Render berikutnya dengan kunci sama memakai hasilnya.
  */
 function RundownBlok({
-	element, hari, hariIni, onStatus,
-}: { element: BadgeRundownElement; hari: BadgeRundownHari[]; hariIni: string; onStatus?: (status: StatusRundown) => void }) {
+	element, hari, hariIni, onStatus, cetak,
+}: { element: BadgeRundownElement; hari: BadgeRundownHari[]; hariIni: string; onStatus?: (status: StatusRundown) => void; cetak?: boolean }) {
 	const baris = useMemo(() => barisRundown(hari, element.day, element.merge_parallel, hariIni), [hari, element.day, element.merge_parallel, hariIni]);
 	const judul = judulRundown(hari, element.day, hariIni);
 	const ref = useRef<HTMLDivElement | null>(null);
-	const [ukuran, setUkuran] = useState(element.size);
 	const kunci = `${element.size}|${element.w}|${element.h}|${baris.length}|${baris.map((b) => b.judul).join("|")}`;
+	const [ukur, setUkur] = useState<{ kunci: string; ukuran: number; tampil: number | null }>({ kunci: "", ukuran: element.size, tampil: null });
+	const terukur = ukur.kunci === kunci;
+	const ukuran = terukur ? ukur.ukuran : element.size;
+	const tampil = terukur ? ukur.tampil : null;
 
 	useLayoutEffect(() => {
 		const el = ref.current;
-		if (!el) return;
+		if (!el || terukur) return;
 		let pt = element.size;
 		el.style.fontSize = `${pt}pt`;
-		while (el.scrollHeight > el.clientHeight + 0.5 && pt > 8) {
+		const luber = () => el.scrollHeight > el.clientHeight + 0.5;
+		while (luber() && pt > 8) {
 			pt = Math.max(8, pt - 0.5);
 			el.style.fontSize = `${pt}pt`;
 		}
-		setUkuran(pt);
-		onStatus?.({ muat: el.scrollHeight <= el.clientHeight + 0.5, ukuran: pt });
+		let batas: number | null = null;
+		if (luber()) {
+			// Sisakan satu baris untuk "+N acara lagi".
+			const sisa = el.clientHeight - pt * 1.3 * (96 / 72) - 4;
+			const semua = Array.from(el.querySelectorAll<HTMLElement>("[data-baris]"));
+			batas = semua.filter((b) => b.offsetTop + b.offsetHeight <= sisa).length;
+		}
+		setUkur({ kunci, ukuran: pt, tampil: batas });
+		onStatus?.({ muat: batas === null, ukuran: pt });
 		// `kunci` merangkum semua masukan yang mengubah tinggi isi.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [kunci]);
+	}, [kunci, terukur]);
+
+	// Di lembar cetak, rundown yang belum terbit tidak menggambar apa pun: kalimat
+	// "belum diterbitkan" di punggung 300 badge tidak berguna bagi tamu.
+	if (cetak && baris.length === 0) return null;
+
+	const terlihat = tampil === null ? baris : baris.slice(0, tampil);
+	const lagi = baris.length - terlihat.length;
 
 	return (
 		<div
@@ -175,22 +199,27 @@ function RundownBlok({
 			{baris.length === 0 ? (
 				<div style={{ opacity: 0.6 }}>Rundown belum diterbitkan.</div>
 			) : (
-				baris.map((b, i) => (
-					<div key={i} style={{ display: "flex", gap: "0.7em", padding: "0.18em 0", borderTop: i === 0 ? undefined : "0.2mm solid rgba(0,0,0,0.12)" }}>
+				terlihat.map((b, i) => (
+					<div key={i} data-baris style={{ display: "flex", gap: "0.7em", padding: "0.18em 0", borderTop: i === 0 ? undefined : "0.2mm solid rgba(0,0,0,0.12)" }}>
 						<span style={{ width: "3.1em", flexShrink: 0, fontWeight: 700, color: element.accent, fontVariantNumeric: "tabular-nums" }}>{b.jam}</span>
-						<span style={{ minWidth: 0, flex: 1 }}>
+						<span style={{ minWidth: 0, flex: 1, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
 							{b.hari ? <span style={{ fontWeight: 700 }}>{b.hari} · </span> : null}
 							{b.judul}
 						</span>
 					</div>
 				))
 			)}
+			{lagi > 0 ? (
+				<div style={{ paddingTop: "0.18em", borderTop: "0.2mm solid rgba(0,0,0,0.12)", fontWeight: 700, color: element.accent }}>
+					+{lagi} acara lagi
+				</div>
+			) : null}
 		</div>
 	);
 }
 
 function Elemen({
-	element, data, event, hari, hariIni, onRundown,
+	element, data, event, hari, hariIni, onRundown, cetak,
 }: {
 	element: BadgeElement;
 	data: BadgeData;
@@ -198,6 +227,7 @@ function Elemen({
 	hari: BadgeRundownHari[];
 	hariIni: string;
 	onRundown?: (status: StatusRundown) => void;
+	cetak?: boolean;
 }) {
 	switch (element.type) {
 		case "text":
@@ -232,7 +262,7 @@ function Elemen({
 				</div>
 			);
 		case "rundown":
-			return <RundownBlok element={element} hari={hari} hariIni={hariIni} onStatus={onRundown} />;
+			return <RundownBlok element={element} hari={hari} hariIni={hariIni} onStatus={onRundown} cetak={cetak} />;
 	}
 }
 
@@ -252,7 +282,7 @@ function latar(layout: BadgeLayout, side: BadgeSide, kvUrl: string | null): CSSP
 }
 
 export function BadgeSisi({
-	layout, side, data, event, hari, hariIni, onRundown, className, style,
+	layout, side, data, event, hari, hariIni, onRundown, cetak, className, style,
 }: {
 	layout: BadgeLayout;
 	side: BadgeSide;
@@ -262,6 +292,8 @@ export function BadgeSisi({
 	/** "YYYY-MM-DD" hari pencetakan, untuk rundown "Hari ini". */
 	hariIni: string;
 	onRundown?: (status: StatusRundown) => void;
+	/** Lembar cetak sungguhan: rundown kosong tidak digambar sama sekali. */
+	cetak?: boolean;
 	className?: string;
 	style?: CSSProperties;
 }) {
@@ -285,7 +317,7 @@ export function BadgeSisi({
 			}}
 		>
 			{elements.map((element, index) => (
-				<Elemen key={index} element={element} data={data} event={event} hari={hari} hariIni={hariIni} onRundown={onRundown} />
+				<Elemen key={index} element={element} data={data} event={event} hari={hari} hariIni={hariIni} onRundown={onRundown} cetak={cetak} />
 			))}
 		</div>
 	);

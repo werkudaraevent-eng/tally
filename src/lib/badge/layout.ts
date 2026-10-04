@@ -112,8 +112,8 @@ export type BadgeElement = BadgeTextElement | BadgeQrElement | BadgeRectElement 
  * - `a5_lipat2`: A5 mendatar dilipat sekali jadi A6. Untuk kertas tebal.
  * - `a4_isi2`: A4 tegak berisi dua lembar A5 mendatar. Potong, lalu lipat sekali.
  * - `a4_lipat2`: A4 mendatar dilipat sekali jadi badge A5.
- * - `tunggal`: satu sisi tanpa lipatan, kertasnya seukuran badge.
- * - `khusus`: ukuran badge diketik sendiri, dengan atau tanpa lipatan.
+ * - `tunggal`: satu sisi tanpa lipatan, ditata beberapa per lembar di kertas printer.
+ * - `khusus`: ukuran badge diketik sendiri, dengan atau tanpa lipatan, ditata di kertas printer.
  */
 export const BADGE_FORMATS = ["a4_lipat4", "a5_lipat2", "a4_isi2", "a4_lipat2", "tunggal", "khusus"] as const;
 export type BadgeFormatKind = (typeof BADGE_FORMATS)[number];
@@ -231,6 +231,8 @@ export type Lembar = {
 	panels: Panel[];
 	lipatan: Garis[];
 	potongan: Garis[];
+	/** Tanda potong pendek di sudut tiap badge, untuk badge yang ditata beberapa per lembar. */
+	tanda: Garis[];
 	/** Kuadran tersembunyi tempat petunjuk lipat dicetak (hanya A4 lipat empat). */
 	petunjuk: { x: number; y: number; w: number; h: number } | null;
 	badgePerLembar: number;
@@ -238,15 +240,8 @@ export type Lembar = {
 	tidakMuat: string | null;
 };
 
-/** Kertas standar terkecil yang memuat ukuran ini, dicoba tegak lalu mendatar. */
-function kertasUntuk(ukuran: Mm): { kertas: Mm; nama: string } | null {
-	const daftar: Array<[string, Mm]> = [["A6", KERTAS.A6], ["A5", KERTAS.A5], ["A4", KERTAS.A4]];
-	for (const [nama, k] of daftar) {
-		if (ukuran.w <= k.w + 0.01 && ukuran.h <= k.h + 0.01) return { kertas: k, nama: `${nama} tegak` };
-		if (ukuran.w <= k.h + 0.01 && ukuran.h <= k.w + 0.01) return { kertas: { w: k.h, h: k.w }, nama: `${nama} mendatar` };
-	}
-	return null;
-}
+/** Kertas yang dimasukkan ke printer. Diambil dari profil printer aktif, bawaannya A4. */
+export type KertasPrinter = "A4" | "A5";
 
 /**
  * Susunan lembar untuk sebuah format.
@@ -256,8 +251,8 @@ function kertasUntuk(ukuran: Mm): { kertas: Mm; nama: string } | null {
  * (untuk meletakkan sisi). Dua tempat yang menghitung sendiri akan berbeda
  * pada format pertama yang ditambah belakangan.
  */
-export function susunLembar(format: BadgeFormat): Lembar {
-	const kosong = { potongan: [], petunjuk: null, tidakMuat: null };
+export function susunLembar(format: BadgeFormat, kertasPrinter: KertasPrinter = "A4"): Lembar {
+	const kosong = { potongan: [], tanda: [], petunjuk: null, tidakMuat: null };
 	switch (format.kind) {
 		case "a4_lipat4":
 			// Depan kiri atas. Belakang kiri bawah, terbalik: lipatan kedua (bawah ke
@@ -314,59 +309,109 @@ export function susunLembar(format: BadgeFormat): Lembar {
 				badgePerLembar: 1,
 			};
 		case "tunggal":
-			return {
-				...kosong,
-				kertas: { w: format.w_mm, h: format.h_mm },
-				namaKertas: `${format.w_mm} × ${format.h_mm} mm`,
-				panels: [{ side: "front", x: 0, y: 0, w: format.w_mm, h: format.h_mm, rotate: 0, slot: 0 }],
-				lipatan: [],
-				badgePerLembar: 1,
-			};
+			return tataDiKertas({ ...format, fold: "none" }, kertasPrinter);
 		case "khusus":
-			return susunKhusus(format);
+			return tataDiKertas(format, kertasPrinter);
 	}
 }
 
+/** Tepi kertas yang tidak dicetak printer kantor, dan jarak antarbadge tempat tanda potong. */
+const TEPI_TATA = 6;
+const JARAK_TATA = 6;
+
 /**
- * Ukuran khusus: lembar dihitung dari ukuran badge JADI.
+ * Satu sisi dan ukuran khusus: ditata di kertas yang ADA di printer.
  *
- * Lipat samping: depan kiri, belakang kanan, tegak. Lipat atas: depan atas,
- * belakang bawah TERBALIK, sebab lipatan mendatar memutar sisi belakang 180°.
- * Lembarnya diletakkan di tengah kertas standar terkecil yang memuatnya;
- * sisanya dipotong mengikuti tanda potong.
+ * Halaman seukuran badge (105 × 148 mm) dikirim ke printer berisi A4 membuat
+ * driver mengecilkan atau menggesernya, dan ukurannya tidak lagi tepat. Jadi
+ * lembarnya selalu kertas printer, dan badge disusun sebanyak yang muat dengan
+ * tanda potong di sudut.
+ *
+ * Satu unit adalah badge beserta pasangannya: lipat samping dua sisi
+ * berdampingan, lipat atas dua sisi bertumpuk dengan belakang TERBALIK, sebab
+ * lipatan mendatar memutar sisi belakang 180°.
  */
-function susunKhusus(format: BadgeFormat): Lembar {
+function tataDiKertas(format: BadgeFormat, kertasPrinter: KertasPrinter): Lembar {
 	const { w_mm: w, h_mm: h, fold } = format;
-	const lembar: Mm = fold === "side" ? { w: w * 2, h } : fold === "top" ? { w, h: h * 2 } : { w, h };
-	const pilihan = kertasUntuk(lembar);
-	const kertas = pilihan?.kertas ?? lembar;
-	const ox = Math.max(0, (kertas.w - lembar.w) / 2);
-	const oy = Math.max(0, (kertas.h - lembar.h) / 2);
-	const panels: Panel[] = [{ side: "front", x: ox, y: oy, w, h, rotate: 0, slot: 0 }];
-	const lipatan: Garis[] = [];
-	if (fold === "side") {
-		panels.push({ side: "back", x: ox + w, y: oy, w, h, rotate: 0, slot: 0 });
-		lipatan.push({ x1: ox + w, y1: oy, x2: ox + w, y2: oy + h });
-	} else if (fold === "top") {
-		panels.push({ side: "back", x: ox, y: oy + h, w, h, rotate: 180, slot: 0 });
-		lipatan.push({ x1: ox, y1: oy + h, x2: ox + w, y2: oy + h });
+	const unit: Mm = fold === "side" ? { w: w * 2, h } : fold === "top" ? { w, h: h * 2 } : { w, h };
+	const dasar = KERTAS[kertasPrinter];
+	const pilihan: Array<{ kertas: Mm; nama: string }> = [
+		{ kertas: { w: dasar.w, h: dasar.h }, nama: `${kertasPrinter} tegak` },
+		{ kertas: { w: dasar.h, h: dasar.w }, nama: `${kertasPrinter} mendatar` },
+	];
+	const muat = (panjang: number, ukuran: number, tepi: number, jarak: number) =>
+		Math.max(0, Math.floor((panjang - 2 * tepi + jarak + 0.01) / (ukuran + jarak)));
+
+	let terbaik: { kertas: Mm; nama: string; kolom: number; baris: number; jarak: number } | null = null;
+	for (const p of pilihan) {
+		const kolom = muat(p.kertas.w, unit.w, TEPI_TATA, JARAK_TATA);
+		const baris = muat(p.kertas.h, unit.h, TEPI_TATA, JARAK_TATA);
+		if (kolom * baris > (terbaik ? terbaik.kolom * terbaik.baris : 0)) terbaik = { ...p, kolom, baris, jarak: JARAK_TATA };
 	}
-	// Garis potong hanya bila lembar lebih kecil daripada kertasnya.
-	const potongan: Garis[] = [];
-	if (oy > 0.5) potongan.push({ x1: 0, y1: oy, x2: kertas.w, y2: oy }, { x1: 0, y1: oy + lembar.h, x2: kertas.w, y2: oy + lembar.h });
-	if (ox > 0.5) potongan.push({ x1: ox, y1: 0, x2: ox, y2: kertas.h }, { x1: ox + lembar.w, y1: 0, x2: ox + lembar.w, y2: kertas.h });
+	// Badge selebar kertas: satu per lembar tanpa tepi, dipotong di garis tepi.
+	if (!terbaik) {
+		const pas = pilihan.find((p) => unit.w <= p.kertas.w + 0.01 && unit.h <= p.kertas.h + 0.01);
+		if (pas) terbaik = { ...pas, kolom: 1, baris: 1, jarak: 0 };
+	}
+	if (!terbaik) {
+		return {
+			kertas: dasar,
+			namaKertas: `${kertasPrinter} tegak`,
+			panels: [{ side: "front", x: 0, y: 0, w, h, rotate: 0, slot: 0 }],
+			lipatan: [],
+			potongan: [],
+			tanda: [],
+			petunjuk: null,
+			badgePerLembar: 1,
+			tidakMuat: `Lembar ${Math.round(unit.w)} × ${Math.round(unit.h)} mm lebih besar dari kertas ${kertasPrinter}. Perkecil badge, atau pilih lipatan lain.`,
+		};
+	}
+
+	const { kertas, kolom, baris, jarak } = terbaik;
+	const lebarSemua = kolom * unit.w + (kolom - 1) * jarak;
+	const tinggiSemua = baris * unit.h + (baris - 1) * jarak;
+	const x0 = (kertas.w - lebarSemua) / 2;
+	const y0 = (kertas.h - tinggiSemua) / 2;
+	const panels: Panel[] = [];
+	const lipatan: Garis[] = [];
+	const tanda: Garis[] = [];
+	let slot = 0;
+	for (let r = 0; r < baris; r++) {
+		for (let c = 0; c < kolom; c++, slot++) {
+			const ox = x0 + c * (unit.w + jarak);
+			const oy = y0 + r * (unit.h + jarak);
+			panels.push({ side: "front", x: ox, y: oy, w, h, rotate: 0, slot });
+			if (fold === "side") {
+				panels.push({ side: "back", x: ox + w, y: oy, w, h, rotate: 0, slot });
+				lipatan.push({ x1: ox + w, y1: oy, x2: ox + w, y2: oy + h });
+			} else if (fold === "top") {
+				panels.push({ side: "back", x: ox, y: oy + h, w, h, rotate: 180, slot });
+				lipatan.push({ x1: ox, y1: oy + h, x2: ox + w, y2: oy + h });
+			}
+			// Tanda potong: 3 mm, mulai 1 mm di luar sudut, tidak pernah masuk badge.
+			for (const [x, y, dx, dy] of [[ox, oy, -1, -1], [ox + unit.w, oy, 1, -1], [ox, oy + unit.h, -1, 1], [ox + unit.w, oy + unit.h, 1, 1]] as const) {
+				tanda.push({ x1: x + dx, y1: y, x2: x + dx * 4, y2: y }, { x1: x, y1: y + dy, x2: x, y2: y + dy * 4 });
+			}
+		}
+	}
 	return {
 		kertas,
-		namaKertas: pilihan?.nama ?? `${Math.round(lembar.w)} × ${Math.round(lembar.h)} mm`,
+		namaKertas: terbaik.nama,
 		panels,
 		lipatan,
-		potongan,
+		potongan: [],
+		tanda: jarak > 0 ? tanda : [],
 		petunjuk: null,
-		badgePerLembar: 1,
-		tidakMuat: pilihan
-			? null
-			: `Lembar ${Math.round(lembar.w)} × ${Math.round(lembar.h)} mm lebih besar dari A4. Perkecil badge, atau pilih lipatan lain.`,
+		badgePerLembar: kolom * baris,
+		tidakMuat: null,
 	};
+}
+
+/** Apakah lembar format ini sama dengan kertas di printer, tegak atau mendatar. */
+export function kertasCocok(lembar: Lembar, kertasPrinter: KertasPrinter): boolean {
+	const k = KERTAS[kertasPrinter];
+	const sama = (a: number, b: number) => Math.abs(a - b) < 1;
+	return (sama(lembar.kertas.w, k.w) && sama(lembar.kertas.h, k.h)) || (sama(lembar.kertas.w, k.h) && sama(lembar.kertas.h, k.w));
 }
 
 // ---- Area aman ---------------------------------------------------------------
@@ -386,18 +431,27 @@ export type Inset = { top: number; right: number; bottom: number; left: number }
  * dengan bawah dan kiri dengan kanan, karena yang dilihat orang adalah sisi
  * yang sudah tegak.
  */
-export function areaAman(format: BadgeFormat, side: BadgeSide): Inset {
-	const lembar = susunLembar(format);
-	const panel = lembar.panels.find((p) => p.side === side) ?? lembar.panels[0];
+export function areaAman(format: BadgeFormat, side: BadgeSide, kertasPrinter: KertasPrinter = "A4"): Inset {
+	const lembar = susunLembar(format, kertasPrinter);
+	const daftar = lembar.panels.filter((p) => p.side === side);
 	const dekat = (a: number, b: number) => Math.abs(a - b) < 0.6;
-	const tepi = {
-		top: dekat(panel.y, 0) ? AMAN_TEPI : AMAN_LIPAT,
-		left: dekat(panel.x, 0) ? AMAN_TEPI : AMAN_LIPAT,
-		bottom: dekat(panel.y + panel.h, lembar.kertas.h) ? AMAN_TEPI : AMAN_LIPAT,
-		right: dekat(panel.x + panel.w, lembar.kertas.w) ? AMAN_TEPI : AMAN_LIPAT,
-	};
-	if (panel.rotate === 180) return { top: tepi.bottom, right: tepi.left, bottom: tepi.top, left: tepi.right };
-	return tepi;
+	// Badge kedua di lembar bisa punya tepi kertas di sisi yang berbeda dari
+	// badge pertama; susunannya satu untuk semua, jadi yang terbesar yang berlaku.
+	const hasil: Inset = { top: AMAN_LIPAT, right: AMAN_LIPAT, bottom: AMAN_LIPAT, left: AMAN_LIPAT };
+	for (const panel of daftar.length > 0 ? daftar : lembar.panels.slice(0, 1)) {
+		const tepi = {
+			top: dekat(panel.y, 0) ? AMAN_TEPI : AMAN_LIPAT,
+			left: dekat(panel.x, 0) ? AMAN_TEPI : AMAN_LIPAT,
+			bottom: dekat(panel.y + panel.h, lembar.kertas.h) ? AMAN_TEPI : AMAN_LIPAT,
+			right: dekat(panel.x + panel.w, lembar.kertas.w) ? AMAN_TEPI : AMAN_LIPAT,
+		};
+		const tegak = panel.rotate === 180 ? { top: tepi.bottom, right: tepi.left, bottom: tepi.top, left: tepi.right } : tepi;
+		hasil.top = Math.max(hasil.top, tegak.top);
+		hasil.right = Math.max(hasil.right, tegak.right);
+		hasil.bottom = Math.max(hasil.bottom, tegak.bottom);
+		hasil.left = Math.max(hasil.left, tegak.left);
+	}
+	return hasil;
 }
 
 // ---- Nilai bawaan -----------------------------------------------------------
