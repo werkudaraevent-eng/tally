@@ -15,7 +15,7 @@ import { badgeLayoutSchema } from "./schema";
  * Susunan tersimpan diperiksa ulang: `layout` jsonb, bentuknya tidak dijamin
  * database, dan satu baris rusak tidak boleh menjatuhkan halaman cetak.
  */
-/** Tabel `badge_settings` belum dibuat: migrasi 202610040001 belum dijalankan. */
+/** Tabel `badge_settings` belum dibuat: migrasi 202610040002 belum dijalankan. */
 export function tabelBadgeBelumAda(error: { code?: string; message?: string } | null): boolean {
 	if (!error) return false;
 	return error.code === "42P01" || error.code === "PGRST205" || /badge_settings/.test(error.message ?? "");

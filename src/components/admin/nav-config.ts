@@ -108,7 +108,7 @@ export const navigation: NavGroup[] = [
       { href: "/admin/attendance", label: "Kehadiran", icon: QrCode, description: "Catatan kehadiran per jalur registrasi dan per sesi." },
       // Label tepat di bawah Kehadiran: yang dicetak adalah badge tamu walk-in,
       // dan walk-in hanya ada karena layar kehadiran.
-      { href: "/admin/label", label: "Label & printer", icon: Printer, description: "Cetak label nama lewat printer NIIMBOT." },
+      { href: "/admin/label", label: "Badge & label", icon: Printer, description: "Cetak label nama lewat printer NIIMBOT." },
       { href: "/admin/sapa", label: "Layar sapa", icon: HandWaving, description: "Layar penyambut yang menyebut nama tamu saat dipindai." },
       {
         href: "/admin/undian", label: "Undian", icon: Gift,

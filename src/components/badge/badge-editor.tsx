@@ -809,7 +809,7 @@ export function BadgeEditor({ pilihJenis, hidden }: { pilihJenis: ReactNode; hid
 			/>
 			{!muatan.migrasi ? (
 				<Banner tone="warning" icon={<Warning size={18} />}>
-					Badge kertas belum bisa disimpan: migrasi database 202610040001 belum dijalankan. Penyunting dan Cetak contoh tetap bisa dicoba.
+					Badge kertas belum bisa disimpan: migrasi database 202610040002 belum dijalankan. Penyunting dan Cetak contoh tetap bisa dicoba.
 				</Banner>
 			) : null}
 			{error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
