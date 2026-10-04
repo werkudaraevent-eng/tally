@@ -38,7 +38,6 @@ const LABEL_ALASAN: Record<string, string> = {
   ...SKIP_REASON,
   peserta_dihapus: "Peserta sudah dihapus dari daftar",
   undangan_dihapus: "Tamu sudah dihapus dari daftar undangan",
-  alamat_berubah: "Email berubah sesudah kiriman disusun",
   pendaftaran_ditutup: "Pendaftaran acara sudah ditutup",
   jadwal_dibatalkan: "Kiriman dibatalkan",
   idempotency_conflict: "Isi berubah saat dikirim ulang. Periksa apakah peserta sudah menerima.",
@@ -50,6 +49,9 @@ const LABEL_ALASAN: Record<string, string> = {
   // Ditulis fungsi SQL (migrasi 202610030003 dan 202610040007).
   lease_expired: "Pengirim berhenti sebelum penyedia membalas. Pesan mungkin sudah terkirim.",
 };
+
+// `alamat_berubah` sengaja tidak dipetakan: kalimat tersimpannya berbeda untuk
+// peserta dan tamu. Fase 2b memberinya dua label menurut jenis penerima.
 
 /**
  * Kode yang kalimatnya membawa rincian dari penyedia setelah ": ". Labelnya
