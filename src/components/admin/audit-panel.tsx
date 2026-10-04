@@ -60,6 +60,7 @@ const ACTION_LABEL: Record<string, string> = {
   rundown_item_create: "Menambah baris rundown",
   rundown_item_update: "Mengubah baris rundown",
   rundown_item_delete: "Menghapus baris rundown",
+  rundown_item_reorder: "Reordered rundown rows",
   undian_settings_update: "Mengubah setelan undian",
   undian_prize_create: "Menambah hadiah undian",
   undian_prize_update: "Mengubah hadiah undian",
