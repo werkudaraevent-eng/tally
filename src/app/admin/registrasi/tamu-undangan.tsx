@@ -494,7 +494,7 @@ function KetikTamu({ hidden, sibuk, setSibuk, onSaved, onCancel }: {
     }
     const n = isi.name.trim();
     if (body.status === "sudah_peserta") {
-      setGalat({ email: `${n} sudah terdaftar sebagai peserta acara ini, jadi tidak perlu diundang.` });
+      setGalat({ email: `${n} sudah peserta atau sedang mendaftar di acara ini, jadi tidak perlu diundang.` });
       setFokus("email");
       return;
     }

@@ -100,7 +100,7 @@ export const IMPOR = {
   willAdd: "akan ditambahkan",
   withoutEmail: "tanpa email (tidak bisa dikirimi email)",
   merged: "sudah diundang atau ganda di berkas, digabung",
-  alreadyParticipant: "sudah jadi peserta, dilewati",
+  alreadyParticipant: "sudah peserta atau sedang mendaftar, dilewati",
   rejected: "tidak diimpor (email tidak sah, tanpa nama, atau baris contoh templat)",
   suppressed: "pernah berhenti atau memantul, tidak akan dikirimi",
   possibleDuplicates: "nama sama tanpa email, kemungkinan ganda",
