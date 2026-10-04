@@ -140,7 +140,7 @@ export function LandingPreview({
       }
       if (event.data?.jenis === "tally-pratinjau-bahasa") onBahasa?.(event.data.bahasa === "en" ? "en" : "id");
       if (event.data?.jenis === "tally-pratinjau-hasil") {
-        setTertinggal(event.data.pesan ? String(event.data.pesan) : event.data.ok ? null : "Pratinjau belum diperbarui.");
+        setTertinggal(event.data.pesan ? String(event.data.pesan) : event.data.ok ? null : "The preview hasn't updated yet.");
         // Halaman dirender ulang: pasang lagi garis sorot tanpa menggulir.
         if (event.data.ok) window.requestAnimationFrame(() => terapkanSorot(false));
       }
@@ -176,35 +176,36 @@ export function LandingPreview({
   }, []);
 
   return (
-    <Pane aria-label="Pratinjau halaman acara">
+    <div lang="en" className="contents">
+    <Pane aria-label="Event page preview">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant px-4 py-2.5">
         <p className={`line-clamp-2 min-w-0 flex-1 ${tertinggal ? "text-body-small text-error" : "text-body-medium text-on-surface-variant"}`} role="status" title={tertinggal ?? undefined}>
           {/* Forum: pilihan halaman ikut di baris ini, jadi labelnya dipendekkan
               supaya tidak terlipat di layar 1440. */}
-          {tertinggal ?? `${halaman && onHalaman ? "Pratinjau" : "Pratinjau langsung"} · ${width} px${bahasa === "en" ? " · English" : ""}`}
+          {tertinggal ?? `${halaman && onHalaman ? "Preview" : "Live preview"} · ${width} px${bahasa === "en" ? " · English" : ""}`}
         </p>
         {halaman && onHalaman ? (
           <SegmentedButton<LandingForumPage>
-            label="Halaman yang dipratinjau"
+            label="Page to preview"
             value={halaman}
             onChange={onHalaman}
             options={[
-              { value: "beranda", label: "Beranda" },
-              { value: "program", label: "Program" },
+              { value: "beranda", label: "Home" },
+              { value: "program", label: "Programme" },
               { value: "info", label: "Info" },
             ]}
           />
         ) : null}
         <SegmentedButton<Device>
-          label="Ukuran layar pratinjau"
+          label="Preview screen size"
           value={device}
           onChange={setDevice}
           options={[
             { value: "desktop", label: "Desktop", icon: <Monitor size={16} /> },
-            { value: "mobile", label: "Ponsel", icon: <DeviceMobile size={16} /> },
+            { value: "mobile", label: "Phone", icon: <DeviceMobile size={16} /> },
           ]}
         />
-        <IconButton size="sm" label="Muat ulang pratinjau" onClick={() => setNonce((current) => current + 1)}>
+        <IconButton size="sm" label="Reload preview" onClick={() => setNonce((current) => current + 1)}>
           <ArrowClockwise size={16} />
         </IconButton>
       </div>
@@ -222,7 +223,7 @@ export function LandingPreview({
             key={`${reloadKey}-${nonce}-${halaman ?? ""}-${formulir ? "formulir" : "halaman"}`}
             ref={bingkai}
             src={formulir ? `/e/${slug}/daftar/pratinjau` : `/e/${slug}/pratinjau${halaman && halaman !== "beranda" ? `?halaman=${halaman}` : ""}`}
-            title={formulir ? "Pratinjau formulir pendaftaran" : "Pratinjau halaman acara"}
+            title={formulir ? "Registration form preview" : "Event page preview"}
             // Pratinjau tidak boleh ikut merekam riwayat maupun mengambil alih
             // halaman induk. Sandbox tetap mengizinkan skrip dan asal-yang-sama,
             // karena halaman publiknya memang butuh keduanya untuk berjalan
@@ -239,5 +240,6 @@ export function LandingPreview({
         </div>
       </div>
     </Pane>
+    </div>
   );
 }

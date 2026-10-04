@@ -32,14 +32,14 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     // Warna dan huruf acara tetap: preset ini hanya mematikan gaya gathering.
     key: "modern",
     label: "Modern",
-    note: "Halaman acara biasa: pendaftaran, program, susunan acara, lokasi. Warna dan huruf acara tetap",
+    note: "A standard event page: registration, programme, agenda, venue. Event colours and fonts stay",
     layout: "modern",
   },
   {
     // Figma "IFC Website" yang Hanung setujui pada 2026-10-01.
     key: "forum-ifc",
     label: "Forum IFC",
-    note: "Tiga halaman, navy dengan aksen kuning dan biru langit, huruf Ubuntu",
+    note: "Three pages, navy with yellow and sky-blue accents, Ubuntu font",
     layout: "forum",
     seed: FORUM_DEFAULTS.primary,
     heading_font: "ubuntu",
@@ -54,7 +54,7 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     // karena tersimpan di database, bukan di CMS.
     key: "gathering",
     label: "Gathering",
-    note: "Gaya perjalanan, khusus undangan: lama menginap di hero, susunan per hari, tempat menginap, tamu masuk untuk melihat tiket, kamar, dan bus",
+    note: "Travel style, invitation only: length of stay in the hero, day-by-day agenda, accommodation, invited guests sign in to see their ticket, room and bus",
     layout: "modern",
     seed: "#0b6e69",
     heading_font: "source",

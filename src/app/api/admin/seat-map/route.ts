@@ -52,7 +52,7 @@ const configSchema = z.object({
     .min(1)
     .max(40)
     .refine((value) => value.includes("{table}") && value.includes("{seat}"), {
-      message: "Pola wajib memuat {table} dan {seat}.",
+      message: "The pattern must include {table} and {seat}.",
     })
     .optional(),
   table_overrides: z
@@ -162,7 +162,7 @@ export async function PATCH(request: Request) {
   }
   for (const rule of parsed.data.seat_rules ?? []) {
     if (rule.from > rule.to) {
-      return apiError("VALIDATION_ERROR", 422, { message: "Rentang meja tidak valid: nomor awal melebihi nomor akhir." });
+      return apiError("VALIDATION_ERROR", 422, { message: "Invalid table range: the first number is higher than the last." });
     }
   }
 
@@ -188,7 +188,7 @@ export async function PATCH(request: Request) {
     const duplicates = duplicateTableLabels({ ...(existing ?? {}), ...parsed.data } as Partial<SeatMapConfig>);
     if (duplicates.length > 0) {
       return apiError("VALIDATION_ERROR", 422, {
-        message: `Label meja tidak boleh sama: ${duplicates.join(", ")}. Dua meja bernama sama membuat tamu diarahkan ke meja yang salah.`,
+        message: `Table labels must be unique: ${duplicates.join(", ")}. Two tables with the same name send participants to the wrong table.`,
       });
     }
   }
@@ -205,7 +205,7 @@ export async function PATCH(request: Request) {
       .maybeSingle() as { data: { id: number; is_published: boolean } | null };
     if (!target) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
     if (!target.is_published) {
-      return apiError("VALIDATION_ERROR", 422, { message: "Agenda bawaan harus dipublikasikan lebih dulu." });
+      return apiError("VALIDATION_ERROR", 422, { message: "Publish this session before making it the default." });
     }
   }
   const { data: current } = await bacaConfig(client, eventId);
@@ -235,9 +235,9 @@ export async function PATCH(request: Request) {
     if (adaPenempatan) {
       return apiError("VALIDATION_ERROR", 422, {
         message:
-          "Tata ruang tidak dapat diganti karena sudah ada peserta yang punya nomor kursi. " +
-          "Mengganti tata ruang mengubah bentuk label kursi, sehingga seluruh penempatan yang " +
-          "sudah masuk tidak lagi cocok. Kosongkan nomor kursi peserta lebih dulu bila ruangan memang ditata ulang.",
+          "The layout can't be changed because some participants already have seat numbers. " +
+          "Changing the layout changes the seat label format, so none of the existing seat " +
+          "assignments would match. Clear the participants' seat numbers first if the room really is being rearranged.",
       });
     }
   }

@@ -27,12 +27,12 @@
 export type BrandingFont = "sans" | "geometric" | "condensed" | "grotesk" | "serif" | "mono";
 
 export const BRANDING_FONTS: { value: BrandingFont; label: string; hint: string }[] = [
-  { value: "sans", label: "Sans (bawaan)", hint: "Geist. Netral, aman untuk semua ukuran layar." },
-  { value: "geometric", label: "Geometric", hint: "Montserrat. Paling dekat dengan key visual acara." },
-  { value: "condensed", label: "Condensed", hint: "Oswald. Untuk judul panjang di panel sempit." },
-  { value: "grotesk", label: "Grotesk", hint: "Space Grotesk. Modern, sedikit teknis." },
-  { value: "serif", label: "Serif", hint: "Playfair Display. Formal, untuk gala." },
-  { value: "mono", label: "Mono", hint: "Geist Mono. Lebar huruf seragam." },
+  { value: "sans", label: "Sans (default)", hint: "Geist. Neutral, safe for every screen size." },
+  { value: "geometric", label: "Geometric", hint: "Montserrat. Closest to the event key visual." },
+  { value: "condensed", label: "Condensed", hint: "Oswald. For long titles in narrow panels." },
+  { value: "grotesk", label: "Grotesk", hint: "Space Grotesk. Modern, slightly technical." },
+  { value: "serif", label: "Serif", hint: "Playfair Display. Formal, for galas." },
+  { value: "mono", label: "Mono", hint: "Geist Mono. Every letter the same width." },
 ];
 
 /**

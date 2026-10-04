@@ -18,7 +18,7 @@ const slugPattern = /^[a-z0-9-]{2,40}$/;
 const isoDate = z
   .string()
   .trim()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal harus format YYYY-MM-DD");
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format");
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -32,7 +32,7 @@ const createSchema = z.object({
 const updateSchema = z.object({
   id: z.number().int().positive(),
   name: z.string().trim().min(1).max(120).optional(),
-  slug: z.string().trim().regex(slugPattern, "Slug hanya huruf kecil, angka, dan tanda hubung.").optional(),
+  slug: z.string().trim().regex(slugPattern, "Slug can only contain lowercase letters, numbers and hyphens.").optional(),
   title: z.string().trim().min(1).max(160).optional(),
   subtitle: z.string().trim().max(160).nullable().optional(),
   event_date: isoDate.optional(),
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
 
   const requested = parsed.data.slug?.trim() ? parsed.data.slug.trim().toLowerCase() : toSlug(parsed.data.name);
   if (!slugPattern.test(requested)) {
-    return apiError("VALIDATION_ERROR", 422, { message: "Slug hanya huruf kecil, angka, dan tanda hubung (2-40 karakter)." });
+    return apiError("VALIDATION_ERROR", 422, { message: "Slug can only contain lowercase letters, numbers and hyphens (2–40 characters)." });
   }
 
   const client = getSupabaseServiceClient();

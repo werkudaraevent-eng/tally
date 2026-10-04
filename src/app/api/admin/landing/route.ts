@@ -19,7 +19,7 @@ export async function PATCH(request: Request) {
   // selesai 02.00 keesokan harinya sah, dan `end_date` yang menyatakannya.
   if (!facts.end_date && facts.start_time && facts.end_time && facts.end_time <= facts.start_time) {
     return apiError("VALIDATION_ERROR", 422, {
-      end_time: "Jam selesai harus setelah jam mulai. Untuk acara yang melewati tengah malam, isi tanggal selesai.",
+      end_time: "End time must be after the start time. For an event that runs past midnight, fill in the end date.",
     });
   }
 

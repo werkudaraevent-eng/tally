@@ -16,7 +16,7 @@ import { DEFAULT_HEADER, HEADER_COLUMNS } from "@/lib/rundown";
 // menerima aturan yang sama. Warna boleh null: null berarti "ikut tema bawaan
 // halaman", bukan "tanpa warna".
 
-const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Warna harus format hex #RRGGBB");
+const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Colour must be a hex value like #RRGGBB");
 const scale = z.number().min(SCALE_MIN).max(SCALE_MAX);
 const assetUrl = z.string().trim().url().max(600).nullable().optional();
 

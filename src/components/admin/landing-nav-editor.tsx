@@ -65,7 +65,8 @@ export function BilahAtasEditor({
   const warnaBilah = bilahAtas.color ?? LANDING_NAV_DEFAULTS.color;
   const opasitasBilah = bilahAtas.opacity ?? LANDING_NAV_DEFAULTS.opacity;
   return (
-    <Kelompok title="Bilah atas" note="Bilah berisi logo atau nama acara, Masuk, dan Daftar yang menempel di atas halaman.">
+    <div lang="en" className="contents">
+    <Kelompok title="Top bar" note="The bar that sticks to the top of the page, with the logo or event name and the sign-in and registration buttons.">
       <BilahAtasContoh
         warna={warnaBilah}
         opasitas={opasitasBilah}
@@ -74,11 +75,11 @@ export function BilahAtasEditor({
         logo={bilahAtas.logo_url ?? null}
       />
       <ImageUploadField
-        label="Logo acara"
+        label="Event logo"
         kind="landing"
         fit="contain"
         previewClassName="h-12 w-36"
-        hint="Tampil di pojok kiri bilah menggantikan nama acara. Kosongkan untuk memakai nama. PNG transparan paling rapi; tingginya menyesuaikan bilah, lebar maks 240px."
+        hint="Shown at the left of the bar in place of the event name. Leave empty to use the name. A transparent PNG looks tidiest; its height follows the bar, 240px wide max."
         value={bilahAtas.logo_url ?? null}
         onChange={(url) => setBilahAtas({ logo_url: url })}
         disabled={disabled}
@@ -89,16 +90,16 @@ export function BilahAtasEditor({
           value={warnaBilah}
           onChange={(event) => setBilahAtas({ color: event.target.value })}
           className="h-9 w-12 shrink-0 cursor-pointer rounded-md border border-outline-variant bg-transparent"
-          aria-label="Warna bilah"
+          aria-label="Bar colour"
         />
         <span className="min-w-0">
-          <span className="block text-body-medium font-medium text-on-surface">Warna bilah</span>
+          <span className="block text-body-medium font-medium text-on-surface">Bar colour</span>
           <span className="block text-body-medium text-on-surface-variant">{warnaBilah.toUpperCase()}</span>
         </span>
       </label>
       <div>
         <label htmlFor="bilah-opasitas" className="flex items-baseline justify-between text-body-medium font-medium text-on-surface">
-          <span>Ketidaktembusan</span>
+          <span>Opacity</span>
           <span className="tabular-nums text-on-surface-variant">{opasitasBilah}%</span>
         </label>
         <input
@@ -112,14 +113,14 @@ export function BilahAtasEditor({
           className="h-11 w-full accent-primary"
         />
         <p className="mt-1.5 text-body-medium text-on-surface-variant">
-          0% bening, 100% pekat. Berlaku selama bilah di atas gambar hero. Setelah hero lewat, bilah dibuat paling sedikit 90% pekat supaya teksnya tetap terbaca di atas halaman putih.
+          0% is clear, 100% is solid. Applies while the bar sits over the hero image. Past the hero, the bar is at least 90% solid so its text stays readable over the white page.
         </p>
       </div>
       <div>
-        <p className="text-body-medium font-medium text-on-surface">Lebar bilah</p>
+        <p className="text-body-medium font-medium text-on-surface">Bar width</p>
         <SegmentedButton<LandingNavWidth>
           className="mt-1.5 w-full"
-          label="Lebar bilah"
+          label="Bar width"
           value={bilahAtas.width ?? "full"}
           onChange={(value) => setBilahAtas({ width: value })}
           options={[
@@ -128,13 +129,13 @@ export function BilahAtasEditor({
           ]}
         />
         <p className="mt-1.5 text-body-medium text-on-surface-variant">
-          Selebar isi: bilah sejajar dengan kolom isi halaman, sudut bawahnya membulat, dan gambar hero terlihat di kiri-kanannya.
+          {LANDING_NAV_WIDTH_LABELS.content}: the bar lines up with the page content, its bottom corners are rounded, and the hero image shows on either side.
         </p>
       </div>
       <div className="flex flex-col gap-1.5">
         <TextField
           className="w-32"
-          label="Tinggi bilah"
+          label="Bar height"
           type="number"
           inputMode="numeric"
           min={LANDING_NAV_HEIGHT_MIN}
@@ -149,7 +150,7 @@ export function BilahAtasEditor({
         />
         <input
           type="range"
-          aria-label="Tinggi bilah, penggeser"
+          aria-label="Bar height slider"
           min={LANDING_NAV_HEIGHT_MIN}
           max={LANDING_NAV_HEIGHT_MAX}
           step={1}
@@ -158,9 +159,10 @@ export function BilahAtasEditor({
           className="h-11 w-full accent-primary"
         />
         <p className="text-body-medium text-on-surface-variant">
-          Bawaan {LANDING_NAV_DEFAULTS.height}. Rentang {LANDING_NAV_HEIGHT_MIN} sampai {LANDING_NAV_HEIGHT_MAX} px.
+          Default {LANDING_NAV_DEFAULTS.height}. Range {LANDING_NAV_HEIGHT_MIN} to {LANDING_NAV_HEIGHT_MAX} px.
         </p>
       </div>
     </Kelompok>
+    </div>
   );
 }

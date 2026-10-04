@@ -21,6 +21,7 @@ import {
   LANDING_LAYOUT_LABELS,
   LANDING_NAV_HEIGHT_MAX,
   LANDING_NAV_HEIGHT_MIN,
+  LANDING_SECTION_ADMIN_LABELS,
   LANDING_SECTION_LABELS,
   LANDING_SECTION_SOURCES,
   LANDING_SECTION_TEXT_MAX,
@@ -52,6 +53,7 @@ import { eventApiPath } from "@/lib/event-url";
 import { Kelompok } from "@/components/admin/compact-form";
 import { BilahAtasEditor } from "@/components/admin/landing-nav-editor";
 import { cx } from "@/lib/m3/cx";
+import { plural } from "@/lib/plural";
 import { BlockEditor, butirBerlebih, isianButirTampil, kolomBlokTampil, labelIsianButir, labelKolomBlok, namaButirBlok, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok, type KolomButir } from "./blocks";
 import { ForumSusunan, ForumTema, forumTautanSalah, halamanBagianForum } from "./forum-editor";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
@@ -95,6 +97,10 @@ type Bagian = "susunan" | "tema" | "peserta";
 
 /** "09:00:00" → "09:00". Kolom <input type="time"> menolak bentuk berdetik. */
 const jamInput = (value: string | null) => (value ? value.slice(0, 5) : "");
+
+/** "2026-10-15" → "15 Oct 2026" (en-GB, untuk teks staf). */
+const formatTanggal = (iso: string) =>
+  new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso.slice(0, 10)}T00:00:00Z`));
 
 function PilihWarna({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
@@ -171,7 +177,7 @@ function fokusKolomLewat(barisId: string, kunci: string | undefined, kabar: (ket
       ? baris.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-kolom="${kunci}"]`)
       : [...baris.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")].find((el) => el.maxLength > 0 && el.value.length > el.maxLength);
     if (!kolom) {
-      const terlipat = [...baris.querySelectorAll<HTMLButtonElement>('button[aria-expanded="false"]')].find((tombol) => tombol.textContent?.includes("Terlalu panjang"));
+      const terlipat = [...baris.querySelectorAll<HTMLButtonElement>('button[aria-expanded="false"]')].find((tombol) => /Terlalu panjang|Too long/.test(tombol.textContent ?? ""));
       if (terlipat && ulang) {
         terlipat.click();
         fokusKolomLewat(barisId, kunci, kabar, false);
@@ -259,7 +265,7 @@ function AngkaPx({
         />
         <input
           type="range"
-          aria-label={`${label}, penggeser`}
+          aria-label={`${label}, slider`}
           min={rentang.min}
           max={rentang.max}
           step={rentang.step}
@@ -268,7 +274,7 @@ function AngkaPx({
           className="h-11 w-full accent-primary"
         />
       <p className="text-body-medium text-on-surface-variant">
-        {hint} Rentang {rentang.min} sampai {rentang.max} px.
+        {hint} Range {rentang.min} to {rentang.max} px.
       </p>
     </div>
   );
@@ -294,11 +300,11 @@ const BAGIAN_BERJUDUL = Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSec
 function kolomJudulBagian(id: LandingHeadedSection): [KunciTeksEn, string, number][] {
   const { eyebrow, heading, intro } = LANDING_SECTION_TEXT_MAX;
   return [
-    [`${id}_eyebrow`, "label kecil", eyebrow],
+    [`${id}_eyebrow`, "small label", eyebrow],
     // Judul Tentang: skema tetap 160 supaya judul lama tetap bisa disimpan.
-    id === "about" ? ["about_heading", "judul", 160] : [`${id}_heading`, "judul", heading],
-    ...(id === "faq" ? [["faq_intro", "pengantar", intro] as [KunciTeksEn, string, number]] : []),
-    ...(id === "agenda" ? [["agenda_note", "catatan", intro] as [KunciTeksEn, string, number]] : []),
+    id === "about" ? ["about_heading", "heading", 160] : [`${id}_heading`, "heading", heading],
+    ...(id === "faq" ? [["faq_intro", "intro", intro] as [KunciTeksEn, string, number]] : []),
+    ...(id === "agenda" ? [["agenda_note", "note", intro] as [KunciTeksEn, string, number]] : []),
   ];
 }
 
@@ -421,7 +427,7 @@ export default function LandingCmsPage() {
    */
   const [isiRundown, setIsiRundown] = useState<"ada" | "belum-terbit" | "kosong" | null>(null);
   const rundownKosong = isiRundown === null ? null : isiRundown !== "ada";
-  const lencanaRundown = isiRundown === "belum-terbit" ? "Belum diterbitkan" : "Rundown kosong";
+  const lencanaRundown = isiRundown === "belum-terbit" ? "Not published yet" : "No agenda items yet";
   // Teks English baris Rundown. Disimpan ke tabel rundown, bukan landing_config,
   // jadi keadaan tersimpannya dicatat terpisah.
   // null: rundown gagal dimuat, beda dengan rundown tanpa sesi.
@@ -485,7 +491,7 @@ export default function LandingCmsPage() {
 
   const load = useCallback(async () => {
     const response = await fetch(eventApiPath("/api/events"), { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) { setError("Data acara gagal dimuat."); return; }
+    if (!response?.ok) { setError("Couldn't load the event."); return; }
     const body = await response.json().catch(() => null);
     // /api/events mengembalikan daftar; slug dari URL yang menentukan mana.
     const slug = window.location.pathname.match(/^\/e\/([^/]+)/)?.[1];
@@ -496,7 +502,7 @@ export default function LandingCmsPage() {
     const found = slug ? list.find((item) => item.slug === slug) : list[0];
     // /api/events hanya memuat acara yang boleh dibuka akun ini, jadi "tidak ada
     // di daftar" bisa berarti acaranya tidak ada ATAU aksesnya belum diberikan.
-    if (!found) { setError("Acara ini tidak ada di daftar acara yang bisa Anda buka. Minta super admin memberi akses."); return; }
+    if (!found) { setError("This event isn't in the list of events you can open. Ask a super admin for access."); return; }
     const nextLanding = found.landing_config ?? {};
     // `inherit` yang belum pernah disimpan berarti konfigurasi dibuat sebelum
     // saklar ini ada. Acara yang sudah punya warna formulir sendiri dianggap
@@ -637,7 +643,7 @@ export default function LandingCmsPage() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(berkas, null, 2)], { type: "application/json" }));
     const tautan = document.createElement("a");
     tautan.href = url;
-    tautan.download = `isi-halaman-${facts.slug}-${new Date().toISOString().slice(0, 10)}.json`;
+    tautan.download = `event-page-${facts.slug}-${new Date().toISOString().slice(0, 10)}.json`;
     tautan.click();
     URL.revokeObjectURL(url);
   }
@@ -648,7 +654,7 @@ export default function LandingCmsPage() {
     if (!file) return;
     const isi = await file.text().then((teks) => JSON.parse(teks) as Partial<BerkasIsi>).catch(() => null);
     if (!isi || isi.format !== BERKAS_FORMAT || typeof isi.landing !== "object" || isi.landing === null) {
-      toast.error("Berkas tidak dikenali", "Pilih berkas .json hasil Ekspor isi dari halaman ini.");
+      toast.error("File not recognised", "Choose a .json file exported from this page.");
       return;
     }
     const fakta = Object.fromEntries(
@@ -659,7 +665,7 @@ export default function LandingCmsPage() {
     // isi yang sekarang, jadi berkas tanpa gambar tidak menghapus gambar yang ada.
     setLanding((current) => (barisSesi ? petakanSesiLama({ ...current, ...isi.landing }, barisSesi).landing : { ...current, ...isi.landing }));
     setBagian("susunan");
-    toast.success("Isi dimuat", "Periksa isinya, lalu tekan Simpan. Muat ulang halaman untuk membatalkan.");
+    toast.success("Content imported", "Check the content, then select Save. Reload the page to discard it.");
   }
 
   /**
@@ -725,17 +731,17 @@ export default function LandingCmsPage() {
     // (min 1) tetapi galatnya hanya menyebut "landing", tanpa bagian dan baris mana.
     const angkaKosong = (landing.highlights ?? []).findIndex((item) => !item.label.trim() || !item.value.trim());
     if (angkaKosong >= 0) {
-      toast.error("Angka penting belum lengkap", `Baris ${angkaKosong + 1}: isi keterangan dan angkanya, atau hapus baris itu.`);
+      toast.error("Key figures incomplete", `Row ${angkaKosong + 1}: fill in the label and the figure, or delete the row.`);
       return;
     }
     const tanyaKosong = (landing.faq ?? []).findIndex((item) => !item.q.trim() || !item.a.trim());
     if (tanyaKosong >= 0) {
-      toast.error("Pertanyaan umum belum lengkap", `Pertanyaan ${tanyaKosong + 1}: isi pertanyaan dan jawabannya, atau hapus pertanyaan itu.`);
+      toast.error("FAQ incomplete", `Question ${tanyaKosong + 1}: fill in the question and the answer, or delete the question.`);
       return;
     }
     const pembicaraKosong = (landing.speakers ?? []).findIndex((item) => !item.name.trim());
     if (pembicaraKosong >= 0) {
-      toast.error("Pembicara belum lengkap", `Pembicara ${pembicaraKosong + 1}: isi namanya, atau hapus baris itu.`);
+      toast.error("Speakers incomplete", `Speaker ${pembicaraKosong + 1}: fill in the name, or delete the row.`);
       return;
     }
     const blokSalah = sections.findIndex((section) => {
@@ -743,7 +749,7 @@ export default function LandingCmsPage() {
       return blok ? tautanBlokSalah(blok) : false;
     });
     if (blokSalah >= 0) {
-      toast.error("Tautan di blok belum valid", `Bagian ${blokSalah + 1}: tulis alamat lengkap yang diawali https://, # untuk bagian di halaman ini, atau kosongkan.`);
+      toast.error("Invalid link in a block", `Section ${blokSalah + 1}: enter a full address starting with https://, # for a section on this page, or leave it empty.`);
       return;
     }
     const blokPenuh = sections.findIndex((section) => {
@@ -751,7 +757,7 @@ export default function LandingCmsPage() {
       return blok ? butirBerlebih(blok) > 0 : false;
     });
     if (blokPenuh >= 0) {
-      toast.error("Butir blok terlalu banyak", `Bagian ${blokPenuh + 1}: tata letak yang dipilih menampung lebih sedikit butir. Hapus butir yang berlebih atau pilih tata letak lain.`);
+      toast.error("Too many items in a block", `Section ${blokPenuh + 1}: the chosen layout holds fewer items. Delete the extra items or choose another layout.`);
       return;
     }
     // Batas karakter juga diperiksa server, tetapi galatnya hanya "Maksimal 24
@@ -767,10 +773,10 @@ export default function LandingCmsPage() {
         gulirKeBaris(blok.id);
         // Toast langsung; fokus menyusul setelah baris terbuka. Bila kolomnya
         // ternyata tidak ada, toast kedua menyusul (toast tidak bisa diganti).
-        const pesan = (akhir: string) => `Bagian ${index + 2}, ${lewat.kolom}${lewat.bahasa === "en" ? " (English)" : ""}: maksimal ${lewat.max} karakter. ${akhir}`;
-        toast.error("Teks terlalu panjang", pesan("Kolomnya sudah ditampilkan."));
+        const pesan = (akhir: string) => `Section ${index + 2}, ${lewat.kolom}${lewat.bahasa === "en" ? " (English)" : ""}: up to ${plural(lewat.max, "character")}. ${akhir}`;
+        toast.error("Text too long", pesan("The field is now shown."));
         fokusKolomLewat(blok.id, undefined, (ketemu) => {
-          if (!ketemu) toast.error("Teks terlalu panjang", pesan("Bagiannya sudah dibuka."));
+          if (!ketemu) toast.error("Text too long", pesan("The section is now open."));
         });
         return;
       }
@@ -784,10 +790,10 @@ export default function LandingCmsPage() {
       gulirKeBaris(judulLewat.id);
       // Kolomnya bisa jauh di bawah baris (mis. judul FAQ di bawah semua pertanyaan).
       const pesan = (akhir: string) =>
-        `${LANDING_SECTION_LABELS[judulLewat.id]}, ${judulLewat.kolom}${judulLewat.bahasa === "en" ? " (English)" : ""}: maksimal ${judulLewat.max} karakter. ${akhir}`;
-      toast.error("Teks terlalu panjang", pesan("Kolomnya sudah ditampilkan."));
+        `${LANDING_SECTION_ADMIN_LABELS[judulLewat.id]}, ${judulLewat.kolom}${judulLewat.bahasa === "en" ? " (English)" : ""}: up to ${plural(judulLewat.max, "character")}. ${akhir}`;
+      toast.error("Text too long", pesan("The field is now shown."));
       fokusKolomLewat(judulLewat.id, judulLewat.kunci, (ketemu) => {
-        if (!ketemu) toast.error("Teks terlalu panjang", pesan("Bagiannya sudah dibuka."));
+        if (!ketemu) toast.error("Text too long", pesan("The section is now open."));
       });
       return;
     }
@@ -796,7 +802,7 @@ export default function LandingCmsPage() {
       setBagian("susunan");
       setTerbuka(forumSalah.baris);
       gulirKeBaris(forumSalah.baris);
-      toast.error("Tautan belum valid", `${forumSalah.pesan} Bagiannya sudah dibuka.`);
+      toast.error("Invalid link", `${forumSalah.pesan} The section is now open.`);
       return;
     }
     const tinggiBilah = landing.nav?.height;
@@ -805,7 +811,7 @@ export default function LandingCmsPage() {
       setBahasa("id");
       setTerbuka("pembuka");
       gulirKeBaris("pembuka");
-      toast.error("Tinggi bilah atas di luar batas", `Pembuka, Bilah atas: isi ${LANDING_NAV_HEIGHT_MIN} sampai ${LANDING_NAV_HEIGHT_MAX} px. Bagiannya sudah dibuka.`);
+      toast.error("Top bar height out of range", `Hero, Top bar: enter ${LANDING_NAV_HEIGHT_MIN} to ${LANDING_NAV_HEIGHT_MAX} px. The section is now open.`);
       return;
     }
     const kirim = cuplikan;
@@ -836,8 +842,8 @@ export default function LandingCmsPage() {
           }
           kartu?.querySelector<HTMLElement>("input, textarea")?.focus({ preventScroll: true });
         }, 300);
-        const sudah = rundownTerkirim > 0 ? ` ${rundownTerkirim} sesi sebelumnya sudah tayang.` : "";
-        toast.error("Gagal disimpan", `Susunan acara, sesi ${baris.jam} (English): ${(hasil && pesanGalatApi(await hasil.json().catch(() => ({})))) ?? "coba lagi."}${sudah} Kartunya sudah dibuka.`);
+        const sudah = rundownTerkirim > 0 ? ` ${plural(rundownTerkirim, "earlier session")} already live.` : "";
+        toast.error("Couldn't save", `Agenda, session ${baris.jam} (English): ${(hasil && pesanGalatApi(await hasil.json().catch(() => ({})))) ?? "try again."}${sudah} The card is now open.`);
         return;
       }
       rundownTerkirim += 1;
@@ -853,15 +859,15 @@ export default function LandingCmsPage() {
       body: JSON.stringify(isiKirim(facts), (kunci, nilai) => (kunci === "member" ? undefined : nilai)),
     }).catch(() => null);
     setBusy(false);
-    if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return; }
+    if (!response) { toast.error("Connection failed", "Reload to see what was saved."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      toast.error("Gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
+      toast.error("Couldn't save", pesanGalatApi(body) ?? "Try again.");
       return;
     }
     setTersimpan(kirim);
     setPreviewKey((current) => current + 1);
-    toast.success("Tersimpan", "Halaman acara publik langsung memakai isi baru.");
+    toast.success("Saved", "The public event page now shows the new content.");
   }
 
   // ---- Isian per bagian ------------------------------------------------------------
@@ -922,11 +928,11 @@ export default function LandingCmsPage() {
 
   const isiPembuka = facts ? (
     <div className="flex flex-col gap-5">
-      <Kelompok title="Isi" first>
+      <Kelompok title="Content" first>
         <TextField
-          label="Nama acara di halaman publik"
+          label="Event name on the public page"
           optional
-          hint="Judul besar di hero, bilah atas, formulir, dan kartu tautan. Kosongkan untuk memakai nama acara di admin."
+          hint="The large title in the hero, top bar, form and link preview. Leave empty to use the event name from admin."
           maxLength={120}
           value={landing.public_name ?? ""}
           onChange={(event) => setLanding({ ...landing, public_name: event.target.value })}
@@ -935,7 +941,7 @@ export default function LandingCmsPage() {
           label="Tagline"
           optional
           rows={2}
-          hint="Satu kalimat di bawah nama acara."
+          hint="One sentence below the event name."
           value={facts.tagline ?? ""}
           onChange={(event) => patchFacts({ tagline: event.target.value })}
         />
@@ -951,30 +957,30 @@ export default function LandingCmsPage() {
         />
       ) : null}
 
-      <Kelompok title="Ukuran" note="Dalam px, untuk layar lebar. Di ponsel mengecil otomatis.">
+      <Kelompok title="Size" note="In px, for wide screens. Scales down automatically on phones.">
         <AngkaPx
-          label="Ukuran nama acara"
+          label="Event name size"
           rentang={LANDING_HEADING_SIZE}
           value={landing.heading_size ?? JUDUL_PRESET_PX[landing.heading_scale ?? "lg"]}
           onChange={(value) => setLanding({ ...landing, heading_size: value })}
-          hint="Nama yang panjang lebih rapi di 48 sampai 64. Di ponsel sekitar 60% dari angka ini."
+          hint="Long names look tidier at 48 to 64. On phones about 60% of this value."
         />
         <AngkaPx
-          label="Tinggi hero"
+          label="Hero height"
           rentang={LANDING_HERO_HEIGHT_PX}
           value={landing.hero_min_height ?? HERO_PRESET_PX[landing.hero_height ?? "standard"]}
           onChange={(value) => setLanding({ ...landing, hero_min_height: value })}
-          hint="Tidak pernah melebihi tinggi layar tamu, jadi tombol daftar tetap terlihat. Di ponsel 75% dari angka ini."
+          hint="Never taller than the visitor's screen, so the register button stays visible. On phones 75% of this value."
         />
       </Kelompok>
 
-      <Kelompok title="Gambar latar (KV)">
+      <Kelompok title="Background image (KV)">
         <ImageUploadField
-          label="Gambar hero (KV)"
+          label="Hero image (KV)"
           kind="landing"
           fit="cover"
           previewClassName="h-20 w-36"
-          hint="Rasio 16:9, minimal 1920×1080. Taruh bagian penting gambar di sisi atas atau kanan: judul berdiri di kiri bawah. PNG, JPG, atau WebP, maks 5 MB."
+          hint="16:9 ratio, at least 1920×1080. Keep the important part of the image at the top or right: the title sits bottom left. PNG, JPG or WebP, up to 5 MB."
           value={landing.banner_url ?? null}
           onChange={(url) => setLanding({ ...landing, banner_url: url })}
           disabled={busy}
@@ -984,10 +990,10 @@ export default function LandingCmsPage() {
             mengubah apa pun membuat admin ragu apakah dirinya salah pakai. */}
         {landing.banner_url ? (
           <div>
-            <p className="text-body-medium font-medium text-on-surface">Tampilan KV</p>
+            <p className="text-body-medium font-medium text-on-surface">KV style</p>
             <SegmentedButton
               className="mt-1.5 w-full"
-              label="Tampilan KV"
+              label="KV style"
               value={gayaBanner}
               onChange={(value) => setLanding({ ...landing, banner_style: value })}
               options={[
@@ -997,16 +1003,16 @@ export default function LandingCmsPage() {
             />
             <p className="mt-1.5 text-body-medium text-on-surface-variant">
               {gayaBanner === "theme"
-                ? "Gambar dilebur ke warna halaman. Senada, tapi gambar berwarna pekat jadi pucat."
-                : "Gambar tampil dengan warna aslinya. Bagian bawah diberi bayangan gelap dan teks hero jadi putih agar tetap terbaca."}
+                ? "The image is blended into the page colour. It matches, but strongly coloured images turn pale."
+                : "The image keeps its original colours. The bottom gets a dark shade and the hero text turns white so it stays readable."}
             </p>
           </div>
         ) : null}
       </Kelompok>
 
-      <Kelompok title="Tombol">
+      <Kelompok title="Button">
         <TextField
-          label="Teks tombol daftar"
+          label="Register button text"
           optional
           placeholder="Daftar sekarang"
           maxLength={40}
@@ -1016,17 +1022,17 @@ export default function LandingCmsPage() {
         />
       </Kelompok>
 
-      <Kelompok title="Waktu" note="Juga dipakai berkas kalender dan email, bukan hanya halaman ini.">
+      <Kelompok title="Time" note="Also used in calendar files and emails, not only on this page.">
         <div className="grid grid-cols-2 gap-3">
           <TextField
-            label="Jam mulai"
+            label="Start time"
             optional
             type="time"
             value={jamInput(facts.start_time)}
             onChange={(event) => patchFacts({ start_time: event.target.value || null })}
           />
           <TextField
-            label="Jam selesai"
+            label="End time"
             optional
             type="time"
             value={jamInput(facts.end_time)}
@@ -1034,10 +1040,10 @@ export default function LandingCmsPage() {
           />
         </div>
         <TextField
-          label="Tanggal selesai"
+          label="End date"
           optional
           type="date"
-          hint={`Isi hanya bila acara lebih dari satu hari. Tanggal mulai (${facts.event_date ?? "belum diisi"}) diatur di Pengaturan.`}
+          hint={`Fill in only if the event runs over more than one day. The start date (${facts.event_date ? formatTanggal(facts.event_date) : "not set yet"}) is set in Settings.`}
           value={facts.end_date ?? ""}
           onChange={(event) => patchFacts({ end_date: event.target.value || null })}
         />
@@ -1057,8 +1063,8 @@ export default function LandingCmsPage() {
     const kunciJudul = id === "about" ? "about_heading" : (`${id}_heading` as const);
     const judul = landing[kunciJudul] ?? "";
     const buka = judulTerbuka === id;
-    const catatan = id === "agenda" && landing.agenda_note?.trim() ? " · Catatan terisi" : "";
-    const ringkasan = `Label: ${nyala ? alis.trim() || LANDING_SECTION_LABELS[id] : "mati"} · Judul: ${judul.trim() || otomatis.jenis}${catatan}`;
+    const catatan = id === "agenda" && landing.agenda_note?.trim() ? " · Note filled in" : "";
+    const ringkasan = `Label: ${nyala ? alis.trim() || LANDING_SECTION_LABELS[id] : "hidden"} · Heading: ${judul.trim() || otomatis.jenis}${catatan}`;
     return (
       <div className="flex flex-col gap-4 border-t border-outline-variant pt-2">
         <button
@@ -1068,7 +1074,7 @@ export default function LandingCmsPage() {
           className="m3-state -mx-2 flex min-h-12 items-center gap-2 rounded-sm px-2 text-left"
         >
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="text-body-medium font-semibold text-on-surface">Judul bagian</span>
+            <span className="text-body-medium font-semibold text-on-surface">Section heading</span>
             <span className="truncate text-body-small text-on-surface-variant">{ringkasan}</span>
           </span>
           <CaretDown size={14} aria-hidden className={cx("shrink-0 text-on-surface-variant transition-transform", buka && "rotate-180")} />
@@ -1078,7 +1084,7 @@ export default function LandingCmsPage() {
             <Switch
               checked={nyala}
               onChange={(value) => setLanding({ ...landing, eyebrow_shown: { ...landing.eyebrow_shown, [id]: value } })}
-              label="Label kecil di atas judul"
+              label="Small label above the heading"
             />
             {/* Dimatikan: kolomnya disembunyikan, isinya tetap tersimpan (kecuali
                 terlalu panjang: Simpan menolaknya, jadi harus terlihat). */}
@@ -1086,10 +1092,10 @@ export default function LandingCmsPage() {
               <TextField
                 data-kolom={`${id}_eyebrow`}
                 className={TEKS_BAWAAN}
-                label="Label kecil"
+                label="Small label"
                 optional
                 placeholder={LANDING_SECTION_LABELS[id]}
-                hint="Satu sampai tiga kata di atas judul."
+                hint="One to three words above the heading."
                 maxLength={LANDING_SECTION_TEXT_MAX.eyebrow}
                 counter
                 value={alis}
@@ -1099,7 +1105,7 @@ export default function LandingCmsPage() {
             <TextField
               data-kolom={kunciJudul}
               className={TEKS_BAWAAN}
-              label="Judul"
+              label="Heading"
               placeholder={otomatis.judul}
               hint={otomatis.hint}
               maxLength={LANDING_SECTION_TEXT_MAX.heading}
@@ -1116,7 +1122,7 @@ export default function LandingCmsPage() {
   const tanggalAcara = facts ? formatEventDate({ ...facts, time_zone: DEFAULT_TIME_ZONE }) : null;
   const pembicaraIsi = (landing.speakers ?? []).filter((speaker) => speaker.name?.trim());
   const lembaga = jumlahLembaga(pembicaraIsi);
-  const KOSONG_BAWAAN = "Kosongkan untuk teks bawaan.";
+  const KOSONG_BAWAAN = "Leave empty for the default text.";
   // Placeholder judul bagian adalah teks yang benar-benar tampil bila kolom
   // kosong, jadi warnanya penuh on-surface-variant (5,33:1), bukan /70 contoh.
   const TEKS_BAWAAN = "[&_input::placeholder]:text-on-surface-variant [&_textarea::placeholder]:text-on-surface-variant";
@@ -1124,39 +1130,39 @@ export default function LandingCmsPage() {
   const isiTentang = facts ? (
     <div className="flex flex-col gap-4">
       <TextArea
-        label="Deskripsi acara"
+        label="Event description"
         optional
         rows={6}
-        hint="Pisahkan paragraf dengan enter; jedanya ikut tampil."
+        hint="Separate paragraphs with Enter; the breaks show on the page."
         value={facts.description ?? ""}
         onChange={(event) => patchFacts({ description: event.target.value })}
       />
-      {judulBagian("about", { judul: LANDING_SECTION_LABELS.about, jenis: "bawaan", hint: "Kalimat besar di samping deskripsi acara." })}
+      {judulBagian("about", { judul: LANDING_SECTION_LABELS.about, jenis: "default", hint: "The large sentence next to the event description." })}
     </div>
   ) : null;
 
   const isiLokasi = facts ? (
     <div className="flex flex-col gap-4">
       <TextField
-        label="Nama tempat"
+        label="Venue name"
         optional
-        placeholder="mis. Grand Ballroom, Hotel Mulia"
-        hint="Juga dipakai berkas kalender dan email."
+        placeholder="e.g. Grand Ballroom, Hotel Mulia"
+        hint="Also used in calendar files and emails."
         value={facts.venue_name ?? ""}
         onChange={(event) => patchFacts({ venue_name: event.target.value })}
       />
       <TextArea
-        label="Alamat"
+        label="Address"
         optional
         rows={3}
         value={facts.venue_address ?? ""}
         onChange={(event) => patchFacts({ venue_address: event.target.value })}
       />
       <TextField
-        label="Tautan peta"
+        label="Map link"
         optional
         type="url"
-        hint="Google Maps atau sejenisnya. Dibuka sebagai tautan, tidak disematkan, supaya halaman tamu tidak memuat skrip pihak ketiga."
+        hint="Google Maps or similar. Opens as a link instead of being embedded, so the page loads no third-party scripts for visitors."
         placeholder="https://maps.app.goo.gl/..."
         value={facts.venue_map_url ?? ""}
         onChange={(event) => patchFacts({ venue_map_url: event.target.value })}
@@ -1164,8 +1170,8 @@ export default function LandingCmsPage() {
       {judulBagian(
         "venue",
         facts.venue_name?.trim()
-          ? { judul: facts.venue_name.trim(), jenis: "otomatis (nama tempat)", hint: "Kosongkan untuk memakai nama tempat." }
-          : { judul: LANDING_SECTION_LABELS.venue, jenis: "bawaan", hint: "Kosongkan untuk memakai nama tempat setelah diisi." },
+          ? { judul: facts.venue_name.trim(), jenis: "automatic (venue name)", hint: "Leave empty to use the venue name." }
+          : { judul: LANDING_SECTION_LABELS.venue, jenis: "default", hint: "Leave empty to use the venue name once it is filled in." },
       )}
     </div>
   ) : null;
@@ -1175,65 +1181,65 @@ export default function LandingCmsPage() {
       {judulBagian(
         "agenda",
         tanggalAcara
-          ? { judul: tanggalAcara, jenis: "otomatis (tanggal)", hint: "Kosongkan untuk memakai tanggal acara." }
-          : { judul: LANDING_SECTION_LABELS.agenda, jenis: "bawaan", hint: "Kosongkan untuk memakai tanggal acara setelah diisi." },
+          ? { judul: tanggalAcara, jenis: "automatic (date)", hint: "Leave empty to use the event date." }
+          : { judul: LANDING_SECTION_LABELS.agenda, jenis: "default", hint: "Leave empty to use the event date once it is set." },
         <TextField
           data-kolom="agenda_note"
-          label="Catatan"
+          label="Note"
           optional
           placeholder="Registrasi dibuka pukul 08.00 WIB."
-          hint="Di bawah judul, di atas daftar sesi."
+          hint="Below the heading, above the list of sessions."
           maxLength={LANDING_SECTION_TEXT_MAX.intro}
           counter
           value={landing.agenda_note ?? ""}
           onChange={(event) => setLanding({ ...landing, agenda_note: event.target.value })}
         />,
       )}
-      <Kelompok title="Kartu program" note="Kartu besar dari bagian-bagian Rundown, tampil di bawah Tentang.">
+      <Kelompok title="Programme cards" note="Large cards made from the agenda sections, shown below About.">
         <Switch
           checked={!landing.program_hidden}
           onChange={(value) => setLanding({ ...landing, program_hidden: !value })}
-          label="Tampilkan kartu program"
-          description="Matikan bila sesi utama sudah ditulis di blok Kartu bergambar, supaya tidak tampil dua kali."
+          label="Show programme cards"
+          description="Turn off if the main sessions are already in an image card block, so they don't show twice."
         />
         {!landing.program_hidden ? (
           <>
             <TextField
-              label="Judul bagian Program"
+              label="Programme section heading"
               optional
               placeholder="Program"
-              hint="Bagian Program tampil bila Rundown punya dua bagian atau lebih."
+              hint="The Programme section shows when the agenda has two or more sections."
               value={landing.program_heading ?? ""}
               onChange={(event) => setLanding({ ...landing, program_heading: event.target.value })}
             />
             <TextArea
-              label="Pengantar Program"
+              label="Programme intro"
               optional
               rows={2}
               value={landing.program_intro ?? ""}
               onChange={(event) => setLanding({ ...landing, program_intro: event.target.value })}
             />
             <div className="flex flex-col gap-3">
-              <p className="text-body-medium font-medium text-on-surface">Keterangan kartu program</p>
+              <p className="text-body-medium font-medium text-on-surface">Programme card descriptions</p>
               <p className="text-body-medium text-on-surface-variant">
-                Urut sesuai bagian Rundown yang diterbitkan: keterangan 1 untuk bagian pertama yang tampil, dan seterusnya. Jam dan jumlah sesi diisi otomatis.
+                In the order of the published agenda sections: description 1 goes with the first section shown, and so on. Times and session counts are filled in automatically.
               </p>
               {catatanProgram.map((item, index) => (
                 <div key={index} className="flex items-start gap-2">
                   <TextArea
                     className="min-w-0 flex-1"
-                    label={`Keterangan program ${index + 1}`}
+                    label={`Programme description ${index + 1}`}
                     rows={2}
                     value={item}
                     onChange={(event) => { const next = [...catatanProgram]; next[index] = event.target.value; setCatatanProgram(next); }}
                   />
-                  <IconButton size="sm" label={`Hapus keterangan ${index + 1}`} className="mt-6 text-error" onClick={() => hapusCatatanProgram(index)}>
+                  <IconButton size="sm" label={`Delete description ${index + 1}`} className="mt-6 text-error" onClick={() => hapusCatatanProgram(index)}>
                     <Trash size={16} />
                   </IconButton>
                 </div>
               ))}
               <div>
-                <Button variant="outlined" size="sm" icon={<Plus size={16} />} disabled={catatanProgram.length >= 10} onClick={() => setCatatanProgram([...catatanProgram, ""])}>Tambah keterangan</Button>
+                <Button variant="outlined" size="sm" icon={<Plus size={16} />} disabled={catatanProgram.length >= 10} onClick={() => setCatatanProgram([...catatanProgram, ""])}>Add description</Button>
               </div>
             </div>
           </>
@@ -1246,11 +1252,11 @@ export default function LandingCmsPage() {
     <div className="flex flex-col gap-5">
       <Kelompok first>
         <TextArea
-          label="Kalimat penyelenggara"
+          label="Organiser line"
           optional
           rows={2}
           placeholder="Diselenggarakan oleh ..."
-          hint={modern ? "Di bawah nama acara di kaki halaman. Kosong = tagline dan nama tempat." : "Tampil di tata letak Modern."}
+          hint={modern ? "Below the event name in the footer. Empty = tagline and venue name." : "Shown in the Modern layout."}
           maxLength={180}
           counter
           value={landing.footer_note ?? ""}
@@ -1258,19 +1264,19 @@ export default function LandingCmsPage() {
         />
       </Kelompok>
       {modern ? (
-        <Kelompok title="Banner ajakan" note="Di atas kaki halaman, tampil selama pendaftaran terbuka dan tidak ada blok Pita ajakan.">
+        <Kelompok title="Call-to-action banner" note="Above the footer, shown while registration is open and there is no call-to-action strip block.">
           <TextField
-            label="Judul banner"
+            label="Banner heading"
             optional
             placeholder="Amankan tempat Anda"
             value={landing.cta_heading ?? ""}
             onChange={(event) => setLanding({ ...landing, cta_heading: event.target.value })}
           />
           <TextArea
-            label="Kalimat banner"
+            label="Banner text"
             optional
             rows={2}
-            placeholder="mis. Pendaftaran perlu persetujuan panitia. Kode QR dikirim setelah disetujui."
+            placeholder="e.g. Pendaftaran perlu persetujuan panitia. Kode QR dikirim setelah disetujui."
             value={landing.cta_note ?? ""}
             onChange={(event) => setLanding({ ...landing, cta_note: event.target.value })}
           />
@@ -1282,10 +1288,10 @@ export default function LandingCmsPage() {
   // ---- Tema ----------------------------------------------------------------------
   const isiTema = (
     <div className="flex flex-col gap-5">
-      <Kelompok title={`Yang tayang di /e/${facts?.slug ?? "slug"}`} first>
+      <Kelompok title={`What /e/${facts?.slug ?? "slug"} shows`} first>
         <SegmentedButton<"halaman" | "formulir">
           className="w-full"
-          label={`Yang tayang di /e/${facts?.slug ?? "slug"}`}
+          label={`What /e/${facts?.slug ?? "slug"} shows`}
           value={hanyaFormulir ? "formulir" : "halaman"}
           onChange={(value) => {
             setLanding({ ...landing, tayang: value === "formulir" ? "formulir" : undefined });
@@ -1295,23 +1301,23 @@ export default function LandingCmsPage() {
             setBagian("tema");
           }}
           options={[
-            { value: "halaman", label: "Halaman acara" },
-            { value: "formulir", label: "Hanya formulir" },
+            { value: "halaman", label: "Event page" },
+            { value: "formulir", label: "Form only" },
           ]}
         />
         <p className="text-body-medium text-on-surface-variant">
           {hanyaFormulir
-            ? "Tanpa halaman acara: alamat ini langsung membuka formulir pendaftaran. Logo, gambar utama, warna, dan huruf di bawah tetap dipakai formulir dan halaman masuk peserta."
-            : "Halaman acara dengan tombol Daftar menuju formulir. Isinya disusun di Susunan halaman."}
+            ? "No event page: this address opens the registration form directly. The logo, main image, colours and fonts below still apply to the form and the participant sign-in page."
+            : "An event page with a register button that leads to the form. Arrange its content in Page sections."}
         </p>
       </Kelompok>
 
       <PresetTema landing={landing} setLanding={setLanding} nama={landing.public_name?.trim() || facts?.name || "Nama acara"} first={false} />
 
-      <Kelompok title="Tata letak">
+      <Kelompok title="Layout">
         <SegmentedButton<LandingLayout>
           className="w-full"
-          label="Tata letak"
+          label="Layout"
           value={tataLetak}
           onChange={(value) =>
             // Huruf judul yang belum pernah dipilih ikut disimpan saat pindah ke
@@ -1331,70 +1337,70 @@ export default function LandingCmsPage() {
         />
         <p className="text-body-medium text-on-surface-variant">
           {forum
-            ? "Tiga halaman sederhana: Beranda, Program acara, dan Informasi praktis, dengan tombol Masuk ke area peserta. Susunan bagiannya tetap; blok tambahan tidak tampil."
+            ? "Three simple pages: home, programme and practical information, with a sign-in button to the participant area. The section order is fixed; extra blocks don't show."
             : modern
-              ? "KV selebar layar dengan nav gelap, kartu program dari Rundown, kartu pembicara tinggi, dan blok tambahan."
-              : "Tenang dan tipografis: judul bagian di rel kiri, garis rambut sebagai pemisah. Blok tambahan tidak tampil di sini."}
+              ? "Full-width KV with a dark nav bar, programme cards from the agenda, tall speaker cards and extra blocks."
+              : "Calm and typographic: section headings in a left rail, hairlines as dividers. Extra blocks don't show here."}
         </p>
       </Kelompok>
 
       {/* Versi English. Teks English-nya diisi per kolom; sampai mode EN di
           editor ada, lewat Ekspor/Impor (kunci `en`, lihat landing-i18n.ts). */}
-      <Kelompok title="Bahasa">
+      <Kelompok title="Language">
         <Switch
           // Di luar Modern tampil mati walau tersimpan menyala: halaman tata
           // letak lain memang tidak punya versi English (landingEnAvailable).
           checked={modern && Boolean(landing.en_enabled)}
           onChange={(value) => setLanding({ ...landing, en_enabled: value })}
           disabled={!modern}
-          label="Tampilkan versi English"
+          label="English version"
           description={
             !modern
               ? landing.en_enabled
-                ? `Hanya untuk tata letak Modern. Versi English tersimpan dan aktif lagi bila Modern dipilih kembali${landing.default_lang === "en" ? ", termasuk English sebagai bahasa utama" : ""}.`
-                : "Hanya untuk tata letak Modern."
+                ? `Modern layout only. The English version is kept and comes back when Modern is chosen again${landing.default_lang === "en" ? ", including English as the main language" : ""}.`
+                : "Modern layout only."
               : landing.en_enabled
-                ? "Pilihan ID | EN tampil di bilah atas halaman."
-                : "Selama mati, halaman hanya berbahasa Indonesia dan alamat /en tidak bisa dibuka."
+                ? "An ID | EN switch shows in the page's top bar."
+                : "While off, the page is in Indonesian only and the /en address doesn't open."
           }
         />
         {modern && landing.en_enabled ? (
           <div className="flex flex-col gap-2">
-            <p id="label-bahasa-utama" className="text-body-medium font-medium text-on-surface">Bahasa utama</p>
+            <p id="label-bahasa-utama" className="text-body-medium font-medium text-on-surface">Main language</p>
             <SegmentedButton<"id" | "en">
               className="w-full"
-              label="Bahasa utama"
+              label="Main language"
               labelledBy="label-bahasa-utama"
               value={landing.default_lang ?? "id"}
               onChange={(value) => setLanding({ ...landing, default_lang: value })}
               options={[
-                { value: "id", label: "Indonesia" },
+                { value: "id", label: "Indonesian" },
                 { value: "en", label: "English" },
               ]}
             />
             <p className="text-body-medium text-on-surface-variant">
               {(landing.default_lang ?? "id") === "en"
-                ? `/e/${facts?.slug ?? "slug"} tampil dalam English. Versi Indonesia di /e/${facts?.slug ?? "slug"}/id.`
-                : `/e/${facts?.slug ?? "slug"} tampil dalam Bahasa Indonesia. Versi English di /e/${facts?.slug ?? "slug"}/en.`}{" "}
-              Alamat di undangan dan QR tidak berubah.
+                ? `/e/${facts?.slug ?? "slug"} shows in English. The Indonesian version is at /e/${facts?.slug ?? "slug"}/id.`
+                : `/e/${facts?.slug ?? "slug"} shows in Indonesian. The English version is at /e/${facts?.slug ?? "slug"}/en.`}{" "}
+              The address on invitations and QR codes stays the same.
               {(landing.default_lang ?? "id") === "en"
-                ? " Tamu yang memindai QR atau membuka tautan undangan melihat versi English lebih dulu. Tautan /en yang sudah dibagikan dialihkan ke alamat utama."
+                ? " Visitors who scan the QR code or open an invitation link see the English version first. /en links already shared redirect to the main address."
                 : null}
             </p>
           </div>
         ) : null}
         {modern && belumDiterjemahkan > 0 ? (
           <p className="text-body-medium text-on-surface-variant">
-            {belumDiterjemahkan} teks belum diterjemahkan. Halaman English menampilkan teks Indonesianya.{" "}
+            {plural(belumDiterjemahkan, "text")} not translated yet. The English page shows the Indonesian text instead.{" "}
             <button type="button" onClick={() => pilihBahasa("en")} className="rounded-sm font-medium text-primary hover:underline">
-              Terjemahkan di Susunan halaman
+              Translate in Page sections
             </button>
           </p>
         ) : null}
       </Kelompok>
 
-      <Kelompok title="Huruf judul" note="Dipakai untuk nama acara dan judul bagian. Isi halaman tetap memakai huruf yang mudah dibaca.">
-        <div role="radiogroup" aria-label="Huruf judul" className="flex flex-col gap-2">
+      <Kelompok title="Heading font" note="Used for the event name and section headings. Body text keeps an easy-to-read font.">
+        <div role="radiogroup" aria-label="Heading font" className="flex flex-col gap-2">
           {(Object.keys(LANDING_HEADING_FONTS) as LandingHeadingFont[]).map((key) => {
             const font = LANDING_HEADING_FONTS[key];
             const pilih = hurufJudul === key;
@@ -1421,9 +1427,9 @@ export default function LandingCmsPage() {
         </div>
       </Kelompok>
 
-      <Kelompok title="Warna" note="Satu warna; sisanya diturunkan otomatis supaya teks tetap terbaca.">
+      <Kelompok title="Colour" note="One colour; the rest is derived automatically so text stays readable.">
         <PilihWarna
-          label="Warna merek"
+          label="Brand colour"
           value={landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED}
           onChange={(value) => setLanding({ ...landing, theme: { seed: value } })}
         />
@@ -1433,12 +1439,12 @@ export default function LandingCmsPage() {
         <Switch
           checked={!formInherit}
           onChange={(value) => setFormInherit(!value)}
-          label="Formulir pendaftaran pakai warna berbeda"
+          label="Different colour for the registration form"
           description={formInherit
-            ? "Halaman pendaftaran memakai warna merek di atas, jadi tamu tidak berpindah identitas visual."
-            : "Halaman pendaftaran memakai warnanya sendiri. Dua warna dalam dua ketukan berurutan terbaca seperti pindah ke situs lain."}
+            ? "The registration page uses the brand colour above, so visitors stay in one visual identity."
+            : "The registration page uses its own colour. Two colours in two taps in a row feel like moving to another site."}
         />
-        {!formInherit ? <PilihWarna label="Warna formulir" value={formSeed} onChange={setFormSeed} /> : null}
+        {!formInherit ? <PilihWarna label="Form colour" value={formSeed} onChange={setFormSeed} /> : null}
       </Kelompok>
       {forum ? <ForumTema landing={landing} setLanding={setLanding} PilihWarna={PilihWarna} /> : null}
     </div>
@@ -1452,29 +1458,29 @@ export default function LandingCmsPage() {
         const setList = (next: typeof list) => setLanding({ ...landing, highlights: next });
         return (
           <div className="flex flex-col gap-3">
-            {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">Belum ada angka.</p> : null}
+            {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">No key figures yet.</p> : null}
             {list.map((item, index) => (
               <div key={index} className="flex items-end gap-2">
                 <TextField
                   className="min-w-0 flex-1"
-                  label="Keterangan"
-                  placeholder="mis. Peserta"
+                  label="Label"
+                  placeholder="e.g. Peserta"
                   value={item.label}
                   onChange={(event) => { const next = [...list]; next[index] = { ...next[index], label: event.target.value }; setList(next); }}
                 />
                 <TextField
                   className="w-24"
-                  label="Angka"
+                  label="Figure"
                   value={item.value}
                   onChange={(event) => { const next = [...list]; next[index] = { ...next[index], value: event.target.value }; setList(next); }}
                 />
-                <IconButton size="sm" label={`Hapus angka ${index + 1}`} className="text-error" onClick={() => setList(list.filter((_, position) => position !== index))}>
+                <IconButton size="sm" label={`Delete figure ${index + 1}`} className="text-error" onClick={() => setList(list.filter((_, position) => position !== index))}>
                   <Trash size={16} />
                 </IconButton>
               </div>
             ))}
             <div>
-              <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setList([...list, { label: "", value: "" }])}>Tambah angka</Button>
+              <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setList([...list, { label: "", value: "" }])}>Add figure</Button>
             </div>
           </div>
         );
@@ -1484,22 +1490,22 @@ export default function LandingCmsPage() {
         const setList = (next: typeof list) => setLanding({ ...landing, faq: next });
         return (
           <div className="flex flex-col gap-3">
-            {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">Belum ada pertanyaan.</p> : null}
+            {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">No questions yet.</p> : null}
             {list.map((item, index) => (
               <div key={index} className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
                 <div className="flex items-end gap-2">
                   <TextField
                     className="min-w-0 flex-1"
-                    label="Pertanyaan"
+                    label="Question"
                     value={item.q}
                     onChange={(event) => { const next = [...list]; next[index] = { ...next[index], q: event.target.value }; setList(next); }}
                   />
-                  <IconButton size="sm" label={`Hapus pertanyaan ${index + 1}`} className="text-error" onClick={() => setList(list.filter((_, position) => position !== index))}>
+                  <IconButton size="sm" label={`Delete question ${index + 1}`} className="text-error" onClick={() => setList(list.filter((_, position) => position !== index))}>
                     <Trash size={16} />
                   </IconButton>
                 </div>
                 <TextArea
-                  label="Jawaban"
+                  label="Answer"
                   rows={3}
                   value={item.a}
                   onChange={(event) => { const next = [...list]; next[index] = { ...next[index], a: event.target.value }; setList(next); }}
@@ -1507,19 +1513,19 @@ export default function LandingCmsPage() {
               </div>
             ))}
             <div>
-              <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setList([...list, { q: "", a: "" }])}>Tambah pertanyaan</Button>
+              <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setList([...list, { q: "", a: "" }])}>Add question</Button>
             </div>
             {judulBagian(
               "faq",
-              { judul: LANDING_UI.id.faqHeading, jenis: "bawaan", hint: KOSONG_BAWAAN },
+              { judul: LANDING_UI.id.faqHeading, jenis: "default", hint: KOSONG_BAWAAN },
               <TextArea
                 data-kolom="faq_intro"
                 className={TEKS_BAWAAN}
-                label="Pengantar"
+                label="Intro"
                 optional
                 rows={2}
                 placeholder={LANDING_UI.id.faqIntro}
-                hint="Bila bagian Kontak tampil, kalimat “Hubungi panitia…” ditambahkan di belakangnya."
+                hint="If the Contact section is shown, the sentence “Hubungi panitia…” is added after it."
                 maxLength={LANDING_SECTION_TEXT_MAX.intro}
                 counter
                 value={landing.faq_intro ?? ""}
@@ -1540,14 +1546,14 @@ export default function LandingCmsPage() {
         return (
           <div className="flex flex-col gap-3">
             <p className="text-body-medium text-on-surface-variant">
-              Paling banyak 8 pembicara tampil sekaligus di tab Sorotan (yang ditonjolkan lebih dulu). Sisanya dibuka per sesi lewat tab. Tanpa foto, inisial nama dipakai.
+              Up to 8 speakers show at once in the Highlights tab (featured speakers first). The rest open per session through the tabs. Without a photo, initials are used.
             </p>
-            {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">Belum ada pembicara.</p> : null}
+            {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">No speakers yet.</p> : null}
             {hasilPetakan?.terhubung || sesiLamaBelumTerhubung ? (
               <p className="rounded-md bg-surface-container-high px-3 py-2 text-body-small text-on-surface" role="status">
                 {[
-                  hasilPetakan?.terhubung ? `${hasilPetakan.terhubung} pembicara dihubungkan ke rundown otomatis` : null,
-                  sesiLamaBelumTerhubung ? `${sesiLamaBelumTerhubung} pembicara perlu dipilih sesinya` : null,
+                  hasilPetakan?.terhubung ? `${plural(hasilPetakan.terhubung, "speaker")} linked to the agenda automatically` : null,
+                  sesiLamaBelumTerhubung ? `${plural(sesiLamaBelumTerhubung, "speaker")} still need a session chosen` : null,
                 ].filter(Boolean).join(", ")}.
               </p>
             ) : null}
@@ -1556,40 +1562,40 @@ export default function LandingCmsPage() {
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
                   <ImageUploadField
-                    label={`Foto pembicara ${index + 1}`}
+                    label={`Speaker photo ${index + 1}`}
                     kind="landing"
                     fit="cover"
                     previewClassName="size-16 rounded-full"
-                    hint="Persegi, minimal 400×400."
+                    hint="Square, at least 400×400."
                     value={speaker.photo_url ?? null}
                     disabled={busy}
                     onChange={(url) => ubah(index, { photo_url: url })}
                   />
                   </div>
-                  <IconButton size="sm" label={`Hapus pembicara ${index + 1}`} className="text-error" onClick={() => setList(list.filter((_, position) => position !== index))}>
+                  <IconButton size="sm" label={`Delete speaker ${index + 1}`} className="text-error" onClick={() => setList(list.filter((_, position) => position !== index))}>
                     <Trash size={16} />
                   </IconButton>
                 </div>
-                <TextField label="Nama" value={speaker.name} onChange={(event) => ubah(index, { name: event.target.value })} />
+                <TextField label="Name" value={speaker.name} onChange={(event) => ubah(index, { name: event.target.value })} />
                 <TextField
-                  label="Jabatan"
+                  label="Job title"
                   optional
-                  placeholder="mis. Direktur Utama"
+                  placeholder="e.g. Direktur Utama"
                   value={speaker.title ?? ""}
                   onChange={(event) => ubah(index, { title: event.target.value })}
                 />
                 <TextField
-                  label="Instansi"
+                  label="Organisation"
                   optional
-                  placeholder="mis. Bank Indonesia"
-                  hint="Tampil di bawah jabatan, berwarna utama."
+                  placeholder="e.g. Bank Indonesia"
+                  hint="Shown below the job title, in the primary colour."
                   value={speaker.company ?? ""}
                   onChange={(event) => ubah(index, { company: event.target.value })}
                 />
                 <TextField
-                  label="Peran"
+                  label="Role"
                   optional
-                  placeholder="mis. Moderator"
+                  placeholder="e.g. Moderator"
                   hint="Main role. Used in Highlights and in sessions without their own role."
                   value={speaker.role ?? ""}
                   onChange={(event) => ubah(index, { role: event.target.value })}
@@ -1605,27 +1611,27 @@ export default function LandingCmsPage() {
                 <Switch
                   checked={Boolean(speaker.featured)}
                   onChange={(value) => ubah(index, { featured: value })}
-                  label="Tonjolkan"
+                  label="Feature this speaker"
                   description="Goes in the Highlights tab (up to 8), for officials giving remarks or keynote speakers."
                 />
                 <div className="flex gap-1">
-                  <IconButton size="sm" label={`Naikkan pembicara ${index + 1}`} disabled={index === 0} onClick={() => { const next = [...list]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setList(next); }}>
+                  <IconButton size="sm" label={`Move speaker ${index + 1} up`} disabled={index === 0} onClick={() => { const next = [...list]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setList(next); }}>
                     <ArrowUp size={16} />
                   </IconButton>
-                  <IconButton size="sm" label={`Turunkan pembicara ${index + 1}`} disabled={index === list.length - 1} onClick={() => { const next = [...list]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; setList(next); }}>
+                  <IconButton size="sm" label={`Move speaker ${index + 1} down`} disabled={index === list.length - 1} onClick={() => { const next = [...list]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; setList(next); }}>
                     <ArrowDown size={16} />
                   </IconButton>
                 </div>
               </div>
             ))}
             <div>
-              <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setList([...list, { name: "" }])}>Tambah pembicara</Button>
+              <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setList([...list, { name: "" }])}>Add speaker</Button>
             </div>
             {judulBagian(
               "speakers",
               lembaga >= 3
-                ? { judul: LANDING_UI.id.speakersFrom(pembicaraIsi.length, lembaga), jenis: "otomatis (jumlah)", hint: "Kosongkan untuk memakai jumlah pembicara dan lembaga." }
-                : { judul: LANDING_SECTION_LABELS.speakers, jenis: "bawaan", hint: "Kosongkan untuk teks bawaan. Dari tiga lembaga, jumlah pembicara dipakai." },
+                ? { judul: LANDING_UI.id.speakersFrom(pembicaraIsi.length, lembaga), jenis: "automatic (count)", hint: "Leave empty to use the number of speakers and organisations." }
+                : { judul: LANDING_SECTION_LABELS.speakers, jenis: "default", hint: "Leave empty for the default text. From three organisations on, the speaker count is used." },
             )}
           </div>
         );
@@ -1634,8 +1640,8 @@ export default function LandingCmsPage() {
         const list = landing.sponsors ?? [];
         return (
           <div className="flex flex-col gap-3">
-            <p className="text-body-medium text-on-surface-variant">Ditampilkan sebagai kisi berukuran sama, apa pun urutan unggahnya.</p>
-            {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">Belum ada sponsor.</p> : null}
+            <p className="text-body-medium text-on-surface-variant">Shown as an even grid, whatever the upload order.</p>
+            {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">No sponsors yet.</p> : null}
             {list.map((sponsor, index) => (
               <div key={index} className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
                 <ImageUploadField
@@ -1656,9 +1662,9 @@ export default function LandingCmsPage() {
                   }}
                 />
                 <TextField
-                  label="Nama"
+                  label="Name"
                   optional
-                  hint="Teks alternatif gambar, tidak ditampilkan."
+                  hint="Alt text for the image, not shown on the page."
                   value={sponsor.name ?? ""}
                   onChange={(event) => {
                     const next = [...list];
@@ -1672,7 +1678,7 @@ export default function LandingCmsPage() {
                 itu. Membuka pemilih berkas lebih dulu berarti baris kosong akan
                 tertinggal setiap kali admin membatalkan pemilihan. */}
             <div>
-              <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setLanding({ ...landing, sponsors: [...list, { logo_url: "" }] })}>Tambah sponsor</Button>
+              <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setLanding({ ...landing, sponsors: [...list, { logo_url: "" }] })}>Add sponsor</Button>
             </div>
           </div>
         );
@@ -1680,8 +1686,8 @@ export default function LandingCmsPage() {
       case "contact":
         return (
           <div className="flex flex-col gap-3">
-            <TextField label="Nama" optional value={landing.contact_name ?? ""} onChange={(event) => setLanding({ ...landing, contact_name: event.target.value })} />
-            <TextField label="Telepon" optional value={landing.contact_phone ?? ""} onChange={(event) => setLanding({ ...landing, contact_phone: event.target.value })} />
+            <TextField label="Name" optional value={landing.contact_name ?? ""} onChange={(event) => setLanding({ ...landing, contact_name: event.target.value })} />
+            <TextField label="Phone" optional value={landing.contact_phone ?? ""} onChange={(event) => setLanding({ ...landing, contact_phone: event.target.value })} />
             <TextField label="Email" optional type="email" value={landing.contact_email ?? ""} onChange={(event) => setLanding({ ...landing, contact_email: event.target.value })} />
           </div>
         );
@@ -1702,12 +1708,12 @@ export default function LandingCmsPage() {
   // Pengumuman. Tab ini tinggal penunjuk bagi yang terbiasa mencarinya di sini.
   const isiPeserta = (
     <div className="flex flex-col gap-4">
-      <Kelompok title="Area peserta" first>
+      <Kelompok title="Participant area" first>
         <p className="text-body-medium text-on-surface-variant">
-          {landing.member?.enabled ? "Area peserta sedang dibuka." : "Area peserta sedang ditutup."} Setelannya, termasuk siapa yang bisa masuk dan apa yang tampil di Dashboard saya, sekarang ada di halaman Area peserta.
+          {landing.member?.enabled ? "The participant area is open." : "The participant area is closed."} Its settings, including who can sign in and what shows on My dashboard, are now on the Participant area page.
         </p>
         <div>
-          <ButtonLink href="/admin/area-peserta" variant="outlined" size="sm">Buka Area peserta</ButtonLink>
+          <ButtonLink href="/admin/area-peserta" variant="outlined" size="sm">Open Participant area</ButtonLink>
         </div>
       </Kelompok>
     </div>
@@ -1720,7 +1726,7 @@ export default function LandingCmsPage() {
   function hapusBlok(ids: string[]) {
     const buang = new Set(ids);
     setUrungan({
-      pesan: ids.length === 1 ? "Blok dihapus. Berlaku saat Simpan." : `${ids.length} blok dihapus. Berlaku saat Simpan.`,
+      pesan: `${ids.length === 1 ? "Block" : plural(ids.length, "block")} deleted. Takes effect when you save.`,
       sections,
       blocks: landing.blocks ?? [],
     });
@@ -1822,7 +1828,7 @@ export default function LandingCmsPage() {
   }) {
     const buka = terbuka === id;
     const tersembunyi = saklar ? !saklar.checked : false;
-    const alasanTitik = typeof titik === "string" ? titik : "Ada teks yang belum diterjemahkan.";
+    const alasanTitik = typeof titik === "string" ? titik : "Some text isn't translated yet.";
     // Yang bisa diseret hanya pegangannya: kalau seluruh baris draggable,
     // memblok teks di kolom isian ikut memulai seretan. Pegangannya selebar
     // seluruh tinggi baris (24x56), bukan ikon 16px.
@@ -1853,7 +1859,7 @@ export default function LandingCmsPage() {
               onDragStart={(event) => { setSeret(indeks); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", judul); }}
               onDragEnd={() => { setSeret(null); setSasaran(null); }}
               className="flex h-14 w-6 shrink-0 cursor-grab items-center justify-center self-stretch text-on-surface-variant opacity-80 hover:opacity-100"
-              title="Seret untuk memindah"
+              title="Drag to move"
             >
               <DotsSixVertical size={16} aria-hidden />
             </span>
@@ -1893,7 +1899,7 @@ export default function LandingCmsPage() {
             {titik ? <span className="sr-only">{alasanTitik}</span> : null}
             {sub ? (
               <span title={sub} className="block truncate text-body-small text-on-surface-variant">
-                {tersembunyi ? `${sub} · tersembunyi` : sub}
+                {tersembunyi ? `${sub} · hidden` : sub}
               </span>
             ) : null}
           </button>
@@ -1905,13 +1911,13 @@ export default function LandingCmsPage() {
             <IconButton
               size="sm"
               className="size-10!"
-              label={saklar.checked ? `Sembunyikan ${judul}` : `Tampilkan ${judul}`}
+              label={saklar.checked ? `Hide ${judul}` : `Show ${judul}`}
               onClick={() => saklar.onChange(!saklar.checked)}
             >
               {saklar.checked ? <Eye size={20} /> : <EyeSlash size={20} />}
             </IconButton>
           ) : null}
-          {menu ? <MenuBlok label={`Menu blok: ${judul}`} items={menu} /> : null}
+          {menu ? <MenuBlok label={`Menu: ${judul}`} items={menu} /> : null}
         </div>
         {buka ? (
           <div id={`isi-${id}`} className="flex flex-col gap-4 bg-primary-soft/40 px-4 pb-4 pt-2">
@@ -1926,19 +1932,19 @@ export default function LandingCmsPage() {
   function menuBaris(index: number, judul: string, blok?: LandingBlock): ItemMenuBlok[] {
     const tampil = sections[index].enabled;
     const items: ItemMenuBlok[] = [
-      { label: "Naikkan", icon: <ArrowUp size={18} />, disabled: index === 0, onSelect: () => moveSection(index, -1) },
-      { label: "Turunkan", icon: <ArrowDown size={18} />, disabled: index === sections.length - 1, onSelect: () => moveSection(index, 1) },
+      { label: "Move up", icon: <ArrowUp size={18} />, disabled: index === 0, onSelect: () => moveSection(index, -1) },
+      { label: "Move down", icon: <ArrowDown size={18} />, disabled: index === sections.length - 1, onSelect: () => moveSection(index, 1) },
     ];
     if (blok) {
-      items.push({ label: "Duplikat", icon: <CopySimple size={18} />, disabled: (landing.blocks ?? []).length >= 30, onSelect: () => duplikatBlok(index, blok) });
+      items.push({ label: "Duplicate", icon: <CopySimple size={18} />, disabled: (landing.blocks ?? []).length >= 30, onSelect: () => duplikatBlok(index, blok) });
     }
     items.push({
-      label: tampil ? "Sembunyikan" : "Tampilkan",
+      label: tampil ? "Hide" : "Show",
       icon: tampil ? <EyeSlash size={18} /> : <Eye size={18} />,
       onSelect: () => setTampil(index, !tampil),
     });
     if (blok) {
-      items.push({ label: "Hapus blok…", icon: <Trash size={18} />, bahaya: true, onSelect: () => setKonfirmasiHapus({ ids: [blok.id], judul }) });
+      items.push({ label: "Delete block…", icon: <Trash size={18} />, bahaya: true, onSelect: () => setKonfirmasiHapus({ ids: [blok.id], judul }) });
     }
     return items;
   }
@@ -1947,14 +1953,14 @@ export default function LandingCmsPage() {
 
   function subBawaan(id: LandingSectionId): string {
     switch (id) {
-      case "about": return "Teks · dari deskripsi acara";
-      case "agenda": return "Bawaan · dari Rundown acara";
-      case "venue": return "Nama tempat, alamat, peta";
-      case "speakers": return `Bawaan · ${JUMLAH.speakers ?? 0} pembicara`;
-      case "faq": return `Bawaan · ${JUMLAH.faq ?? 0} pertanyaan`;
-      case "highlights": return `Bawaan · ${JUMLAH.highlights ?? 0} angka`;
-      case "sponsors": return `Bawaan · ${JUMLAH.sponsors ?? 0} logo`;
-      case "contact": return "Nama, telepon, email";
+      case "about": return "Text · from the event description";
+      case "agenda": return "Built-in · from the Agenda";
+      case "venue": return "Venue name, address, map";
+      case "speakers": return `Built-in · ${plural(JUMLAH.speakers ?? 0, "speaker")}`;
+      case "faq": return `Built-in · ${plural(JUMLAH.faq ?? 0, "question")}`;
+      case "highlights": return `Built-in · ${plural(JUMLAH.highlights ?? 0, "figure")}`;
+      case "sponsors": return `Built-in · ${plural(JUMLAH.sponsors ?? 0, "logo")}`;
+      case "contact": return "Name, phone, email";
     }
   }
 
@@ -1969,7 +1975,7 @@ export default function LandingCmsPage() {
     const isi = id === "about" ? isiTentang : id === "venue" ? isiLokasi : id === "agenda" ? isiAgenda : editorBagian(id);
     return (
       <>
-        {id === "agenda" ? <p className="text-body-medium text-on-surface-variant">Sesi diambil otomatis dari Rundown acara. Hanya bagian dan sesi yang diterbitkan yang tampil; bagian ini tersembunyi selama belum ada yang diterbitkan.</p> : null}
+        {id === "agenda" ? <p className="text-body-medium text-on-surface-variant">Sessions come from the Agenda automatically. Only published agenda sections and sessions show; this section stays hidden until something is published.</p> : null}
         {tautanSumber}
         {isi}
       </>
@@ -1988,7 +1994,7 @@ export default function LandingCmsPage() {
   const isiSusunanEn = facts ? (
     <div className="flex flex-col">
       <ol className="flex flex-col">
-        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Pembuka", sub: "Nama acara, tagline, tombol daftar", titik: barisKurangEn.has("pembuka"), isi: <BagianEn id="pembuka" landing={landing} facts={facts} setLanding={setLanding} /> })}
+        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Hero", sub: "Event name, tagline, register button", titik: barisKurangEn.has("pembuka"), isi: <BagianEn id="pembuka" landing={landing} facts={facts} setLanding={setLanding} /> })}
         {sections.map((section, index) => {
           // Bagian tersembunyi tidak perlu diterjemahkan, kecuali yang sedang
           // dibuka: Simpan membukanya bila teks English-nya melewati batas
@@ -2011,13 +2017,13 @@ export default function LandingCmsPage() {
           return barisSusunan({
             id,
             nomor: index + 2,
-            judul: LANDING_SECTION_LABELS[id],
+            judul: LANDING_SECTION_ADMIN_LABELS[id],
             sub: subBawaan(id),
             titik: barisKurangEn.has(id),
             isi: <BagianEn id={id} landing={landing} facts={facts} setLanding={setLanding} rundown={rundownEn} ubahRundown={ubahRundown} sesiRundown={agendaAktif ? [] : (rundownEn ?? []).filter((baris) => idSesiDipakai.has(baris.id))} />,
           });
         })}
-        {barisSusunan({ id: "kaki", nomor: sections.length + 2, judul: "Kaki halaman", sub: "Kalimat penyelenggara, banner ajakan", titik: barisKurangEn.has("kaki"), isi: <BagianEn id="kaki" landing={landing} facts={facts} setLanding={setLanding} /> })}
+        {barisSusunan({ id: "kaki", nomor: sections.length + 2, judul: "Footer", sub: "Organiser line, call-to-action banner", titik: barisKurangEn.has("kaki"), isi: <BagianEn id="kaki" landing={landing} facts={facts} setLanding={setLanding} /> })}
       </ol>
     </div>
   ) : null;
@@ -2039,11 +2045,11 @@ export default function LandingCmsPage() {
     <div className="flex flex-col">
       {!modern ? (
         <div className="px-4 py-2">
-          <Banner tone="info">Blok tambahan hanya tampil di tata letak Modern. Pilih Modern di tab Tema untuk memakainya.</Banner>
+          <Banner tone="info">Extra blocks show only in the Modern layout. Choose Modern in the Theme tab to use them.</Banner>
         </div>
       ) : null}
       <ol className="flex flex-col">
-        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Pembuka", sub: modern ? "Bilah atas, nama acara, tagline, KV, tombol daftar" : "Nama acara, tagline, KV, tombol daftar", isi: isiPembuka })}
+        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Hero", sub: modern ? "Top bar, event name, tagline, KV, register button" : "Event name, tagline, KV, register button", isi: isiPembuka })}
         {sections.map((section, index) => {
           if (!section.enabled && !tampilTersembunyi) return null;
           const saklar = { checked: section.enabled, onChange: (value: boolean) => setTampil(index, value) };
@@ -2059,7 +2065,7 @@ export default function LandingCmsPage() {
               nomor: index + 2,
               judul,
               sub: ringkas && ringkas !== judul ? `${jenis} · ${ringkas}` : jenis,
-              lencana: section.enabled && !landingBlockHasContent(blok) ? "Belum ada isinya" : null,
+              lencana: section.enabled && !landingBlockHasContent(blok) ? "No content yet" : null,
               saklar,
               indeks: index,
               menu: menuBaris(index, judul, blok),
@@ -2073,10 +2079,10 @@ export default function LandingCmsPage() {
           return barisSusunan({
             id,
             nomor: index + 2,
-            judul: LANDING_SECTION_LABELS[id],
+            judul: LANDING_SECTION_ADMIN_LABELS[id],
             sub: subBawaan(id),
-            lencana: kosong ? (id === "agenda" ? lencanaRundown : "Belum ada isinya") : null,
-            titik: id === "speakers" && sesiPerluDipilih > 0 ? "Ada sesi pembicara yang perlu dipilih ulang." : false,
+            lencana: kosong ? (id === "agenda" ? lencanaRundown : "No content yet") : null,
+            titik: id === "speakers" && sesiPerluDipilih > 0 ? "Some speaker sessions need to be chosen again." : false,
             saklar,
             indeks: index,
             menu: menuBaris(index, LANDING_SECTION_LABELS[id]),
@@ -2086,14 +2092,14 @@ export default function LandingCmsPage() {
         {barisSusunan({
           id: "kaki",
           nomor: sections.length + 2,
-          judul: "Kaki halaman",
-          sub: modern ? "Kalimat penyelenggara, banner ajakan" : "Kalimat penyelenggara",
+          judul: "Footer",
+          sub: modern ? "Organiser line, call-to-action banner" : "Organiser line",
           isi: isiKaki,
         })}
       </ol>
       <div className="px-4 py-4">
         <Button variant="outlined" icon={<Plus size={18} />} onClick={() => setTambahTerbuka(true)} disabled={(landing.blocks ?? []).length >= 30}>
-          Tambah blok
+          Add block
         </Button>
       </div>
       <TambahBlokDialog open={tambahTerbuka} onClose={() => setTambahTerbuka(false)} onPick={tambahBlok} />
@@ -2107,7 +2113,7 @@ export default function LandingCmsPage() {
   // yang belum diterjemahkan.
   const pilihanBahasa = modern ? (
     <SegmentedButton<"id" | "en">
-      label="Bahasa yang disunting"
+      label="Language being edited"
       value={bahasa}
       onChange={pilihBahasa}
       className="w-24 shrink-0"
@@ -2118,7 +2124,7 @@ export default function LandingCmsPage() {
     <div className="flex h-12 shrink-0 items-center gap-3 border-b border-outline-variant pl-3 pr-2">
       {pilihanBahasa}
       <p role="status" className={cx("min-w-0 flex-1 truncate text-body-small", belumDiterjemahkan > 0 ? "font-medium text-on-warning-soft" : "text-on-surface-variant")}>
-        {belumDiterjemahkan > 0 ? `${belumDiterjemahkan} teks belum diterjemahkan` : "Semua teks sudah diterjemahkan"}
+        {belumDiterjemahkan > 0 ? `${plural(belumDiterjemahkan, "text")} not translated yet` : "All text translated"}
       </p>
     </div>
   ) : (
@@ -2130,23 +2136,23 @@ export default function LandingCmsPage() {
         className={cx("min-w-0 flex-1 truncate text-body-small text-on-surface-variant max-sm:hidden", pilihanBahasa && "invisible")}
         title={
           forum
-            ? "Urutan bagian tata letak Forum tetap. Klik baris untuk menyunting; pratinjau pindah ke halaman yang memuat bagian itu. Tombol mata menyembunyikan bagian tanpa menghapus isinya."
-            : "Urutan di sini sama dengan urutan di halaman, dari atas ke bawah. Klik baris untuk menyunting; pratinjau melompat ke bagian itu. Seret pegangan di kiri baris untuk memindah."
+            ? "The Forum layout has a fixed section order. Click a row to edit it; the preview moves to the page with that section. The eye button hides a section without deleting its content."
+            : "The order here matches the page, top to bottom. Click a row to edit it; the preview jumps to that section. Drag the handle on the left of a row to move it."
         }
       >
-        Klik untuk menyunting
+        Click a row to edit
       </p>
       {jumlahTersembunyi > 0 ? (
         <>
           <FilterChip selected={tampilTersembunyi} onClick={() => setTampilTersembunyi((nilai) => !nilai)} className="shrink-0">
-            Tampilkan {jumlahTersembunyi} tersembunyi
+            Show {jumlahTersembunyi} hidden
           </FilterChip>
           {/* Forum tidak punya blok tambahan, jadi tidak ada yang bisa dihapus massal. */}
           {forum ? null : <MenuBlok
-            label="Menu blok tersembunyi"
+            label="Hidden blocks menu"
             width={272}
             items={[{
-              label: blokTersembunyi.length > 0 ? `Hapus ${blokTersembunyi.length} blok tersembunyi…` : "Tak ada blok untuk dihapus",
+              label: blokTersembunyi.length > 0 ? `Delete ${plural(blokTersembunyi.length, "hidden block")}…` : "No blocks to delete",
               icon: <Trash size={18} />,
               bahaya: true,
               disabled: blokTersembunyi.length === 0,
@@ -2159,18 +2165,18 @@ export default function LandingCmsPage() {
   );
 
   const panel = (
-    <Pane as="aside" id="panel-setelan" aria-label="Setelan halaman acara">
+    <Pane as="aside" id="panel-setelan" aria-label="Event page settings">
       <div className="flex h-12 shrink-0 items-center border-b border-outline-variant px-3">
         <SegmentedButton<Bagian>
-          label="Bagian setelan"
+          label="Settings tabs"
           panel="isi-setelan"
           value={bagian}
           onChange={setBagian}
           className="w-full"
           options={[
-            ...(hanyaFormulir ? [] : [{ value: "susunan" as const, label: "Susunan halaman" }]),
-            { value: "tema", label: "Tema" },
-            { value: "peserta", label: "Peserta" },
+            ...(hanyaFormulir ? [] : [{ value: "susunan" as const, label: "Page sections" }]),
+            { value: "tema", label: "Theme" },
+            { value: "peserta", label: "Participants" },
           ]}
         />
       </div>
@@ -2257,13 +2263,13 @@ export default function LandingCmsPage() {
     // setinggi layar; pratinjau dan panel setelan masing-masing bergulir sendiri.
     // Judul, aksi, dan Simpan ada di bilah atas, jadi tidak ada kepala halaman
     // yang memakan tinggi di sini.
-    <main className="flex w-full flex-col gap-4 bg-surface p-4 text-on-surface lg:h-[calc(100dvh-var(--workspace-top,58px))] lg:overflow-hidden">
+    <main lang="en" className="flex w-full flex-col gap-4 bg-surface p-4 text-on-surface lg:h-[calc(100dvh-var(--workspace-top,58px))] lg:overflow-hidden">
       <AdminBarPortal
         judul={
           <div className="flex min-w-0 shrink items-baseline gap-3">
-            <h1 className="truncate text-title-medium font-semibold text-on-surface">Halaman acara</h1>
+            <h1 className="truncate text-title-medium font-semibold text-on-surface">Event page</h1>
             {facts ? (
-              <span className="hidden truncate text-body-small text-on-surface-variant xl:inline" title="Alamat yang dicetak di undangan dan QR">
+              <span className="hidden truncate text-body-small text-on-surface-variant xl:inline" title="The address printed on invitations and QR codes">
                 /e/{facts.slug}
               </span>
             ) : null}
@@ -2274,22 +2280,22 @@ export default function LandingCmsPage() {
             {/* Di ponsel bilahnya hanya muat judul dan Simpan; Ekspor/Impor jarang dipakai di sana. */}
             <span className="hidden md:contents">
               <Button variant="text" size="sm" icon={<DownloadSimple size={16} />} onClick={ekspor}>
-                Ekspor
+                Export
               </Button>
               <Button variant="text" size="sm" icon={<UploadSimple size={16} />} onClick={() => pilihBerkas.current?.click()}>
-                Impor
+                Import
               </Button>
               <input ref={pilihBerkas} type="file" accept="application/json,.json" className="hidden" onChange={(event) => void impor(event)} />
               <ButtonLink href={`/e/${facts.slug}`} target="_blank" rel="noreferrer" variant="outlined" size="sm" icon={<ArrowSquareOut size={16} />}>
-                Lihat halaman
+                View page
               </ButtonLink>
             </span>
             <span aria-hidden className="mx-1 hidden h-7 w-px bg-outline-variant md:block" />
             <span role="status" className="hidden min-w-[7.5rem] items-center justify-end gap-1.5 whitespace-nowrap text-body-small text-on-surface-variant md:inline-flex">
               <span aria-hidden className={cx("size-2 rounded-full", berubah ? "bg-warning" : "bg-success")} />
-              {berubah ? "Belum disimpan" : "Tersimpan"}
+              {berubah ? "Unsaved changes" : "Saved"}
             </span>
-            <Button simpan size="sm" onClick={() => void save()} loading={busy}>Simpan</Button>
+            <Button simpan size="sm" onClick={() => void save()} loading={busy}>Save</Button>
           </>
         ) : null}
       />
@@ -2315,7 +2321,7 @@ export default function LandingCmsPage() {
             role="separator"
             tabIndex={0}
             aria-orientation="vertical"
-            aria-label="Lebar panel setelan"
+            aria-label="Settings panel width"
             aria-controls="panel-setelan"
             aria-valuemin={PANEL_MIN}
             aria-valuemax={PANEL_MAX}
@@ -2326,7 +2332,7 @@ export default function LandingCmsPage() {
             onPointerCancel={lepasPanel}
             onKeyDown={tombolPanel}
             onDoubleClick={() => simpanLebar(PANEL_BAWAAN)}
-            title="Seret untuk mengubah lebar panel. Klik dua kali untuk lebar bawaan."
+            title="Drag to resize the panel. Double-click for the default width."
             className="group hidden w-4 shrink-0 cursor-col-resize touch-none items-center justify-center rounded-sm outline-none lg:flex"
           >
             <span className="h-10 w-1 rounded-full bg-outline transition-colors group-hover:bg-on-surface-variant group-focus-visible:h-16 group-focus-visible:bg-primary group-active:bg-primary" />
@@ -2345,15 +2351,15 @@ export default function LandingCmsPage() {
         onClose={() => setKonfirmasiHapus(null)}
         tone="danger"
         icon={<Trash size={20} />}
-        title={jumlahHapus > 1 ? `Hapus ${jumlahHapus} blok tersembunyi?` : `Hapus “${konfirmasiHapus?.judul || "blok ini"}”?`}
+        title={jumlahHapus > 1 ? `Delete ${plural(jumlahHapus, "hidden block")}?` : `Delete “${konfirmasiHapus?.judul || "this block"}”?`}
         description={
           jumlahHapus > 1
-            ? `Isi ${jumlahHapus} blok ini ikut terhapus. Bagian bawaan yang tersembunyi tetap ada. Baru berlaku saat Anda menekan Simpan, dan sebelum itu masih bisa diurungkan.`
-            : "Isi blok ini ikut terhapus. Baru berlaku saat Anda menekan Simpan, dan sebelum itu masih bisa diurungkan."
+            ? `The content of these ${jumlahHapus} blocks is deleted too. Hidden built-in sections stay. Takes effect when you save, and you can undo it until then.`
+            : "The content of this block is deleted too. Takes effect when you save, and you can undo it until then."
         }
         actions={
           <>
-            <Button variant="text" onClick={() => setKonfirmasiHapus(null)}>Batal</Button>
+            <Button variant="text" onClick={() => setKonfirmasiHapus(null)}>Cancel</Button>
             <Button
               variant="danger"
               onClick={() => {
@@ -2361,7 +2367,7 @@ export default function LandingCmsPage() {
                 setKonfirmasiHapus(null);
               }}
             >
-              {jumlahHapus > 1 ? `Hapus ${jumlahHapus} blok` : "Hapus blok"}
+              {jumlahHapus > 1 ? `Delete ${plural(jumlahHapus, "block")}` : "Delete block"}
             </Button>
           </>
         }
@@ -2371,7 +2377,7 @@ export default function LandingCmsPage() {
         <div role="status" className="fixed bottom-4 left-1/2 z-popover flex -translate-x-1/2 items-center gap-2 rounded-sm bg-inverse-surface py-1.5 pl-4 pr-1.5 text-body-medium text-inverse-on-surface shadow-level3">
           <span>{urungan.pesan}</span>
           <button type="button" onClick={urungkan} className="h-9 rounded-sm px-3 font-medium text-inverse-primary hover:bg-white/10">
-            Urungkan
+            Undo
           </button>
         </div>
       ) : null}
@@ -2393,13 +2399,13 @@ function bagianTerbit(isi: IsiAdminRundown): RundownSection[] {
 function barisRundownEnDariAdmin(isi: IsiAdminRundown): BarisRundownEn[] {
   const daftarBagian = bagianTerbit(isi);
   const urutBagian = new Map<number, number>(daftarBagian.map((bagian, index) => [bagian.id, index]));
-  const namaBagian = new Map(daftarBagian.map((bagian) => [bagian.id, bagian.name?.trim() || bagian.title?.trim() || "Bagian"]));
+  const namaBagian = new Map(daftarBagian.map((bagian) => [bagian.id, bagian.name?.trim() || bagian.title?.trim() || "Section"]));
   return (isi.items ?? [])
     .filter((item) => item.title?.trim() && item.is_published && urutBagian.has(item.section_id))
     .sort((a, b) => (urutBagian.get(a.section_id) ?? 0) - (urutBagian.get(b.section_id) ?? 0) || urutRundown(a, b))
     .map((item) => ({
       id: item.id,
-      jam: formatClock(item.start_time).replace(":", "."),
+      jam: formatClock(item.start_time),
       bagian: daftarBagian.length > 1 ? namaBagian.get(item.section_id) ?? null : null,
       title: item.title,
       subtitle: item.subtitle,

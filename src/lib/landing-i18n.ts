@@ -556,7 +556,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     openMap: "Open map",
     mapOf: (venue) => `Map of ${venue ?? "the venue"}`,
     addToCalendar: "Add to calendar",
-    findSeat: "Find your seat on the floor plan",
+    findSeat: "Find your seat on the seating plan",
     faqHeading: "Before you come",
     faqIntro: "The questions guests ask most often.",
     faqContact: " Contact the organisers for anything else.",

@@ -14,11 +14,11 @@ import { ITEM_COLUMNS, toDbTime } from "@/lib/rundown";
 const clock = z
   .string()
   .trim()
-  .regex(/^\d{1,2}:\d{2}$/, "Jam harus format HH:MM")
+  .regex(/^\d{1,2}:\d{2}$/, "Time must be in HH:MM format")
   .refine((value) => {
     const [hour, minute] = value.split(":").map(Number);
     return hour <= 23 && minute <= 59;
-  }, "Jam tidak valid");
+  }, "Invalid time");
 
 // Keterangan boleh berisi beberapa baris: satu baris per pembicara. Batasnya
 // dinaikkan dari 300 ke 800 karena satu butir acara pembukaan di rundown klien
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   if (invalidRange(parsed.data.start_time, parsed.data.end_time)) {
-    return apiError("VALIDATION_ERROR", 422, { message: "Jam selesai tidak boleh lebih awal dari jam mulai." });
+    return apiError("VALIDATION_ERROR", 422, { message: "End time can't be earlier than start time." });
   }
 
   const client = getSupabaseServiceClient();
@@ -174,7 +174,7 @@ export async function PATCH(request: Request) {
   const nextStart = changes.start_time ?? row.start_time;
   const nextEnd = changes.end_time !== undefined ? changes.end_time : row.end_time;
   if (invalidRange(nextStart, nextEnd)) {
-    return apiError("VALIDATION_ERROR", 422, { message: "Jam selesai tidak boleh lebih awal dari jam mulai." });
+    return apiError("VALIDATION_ERROR", 422, { message: "End time can't be earlier than start time." });
   }
 
   // Baris yang jam mulainya berubah masuk ke urutan paling belakang: di slot

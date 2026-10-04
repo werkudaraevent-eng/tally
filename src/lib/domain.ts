@@ -179,7 +179,7 @@ export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "
  */
 export type LandingColumnCount = 1 | 2 | 3 | 4;
 export type LandingImageShape = "wide" | "square" | "circle";
-export const LANDING_IMAGE_SHAPE_LABELS: Record<LandingImageShape, string> = { wide: "Lebar", square: "Persegi", circle: "Bulat" };
+export const LANDING_IMAGE_SHAPE_LABELS: Record<LandingImageShape, string> = { wide: "Wide", square: "Square", circle: "Circle" };
 export const LANDING_COLUMNS_DEFAULT: LandingColumnCount = 3;
 
 /** Latar blok. `dark` = warna merek dicampur hitam, teks putih. */
@@ -298,35 +298,35 @@ export const LANDING_SECTION_TEXT_MAX = { eyebrow: 24, heading: 60, headingIdeal
 export const LANDING_NAV_LABEL_MAX = 16;
 
 export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
-  text_image: "Teks + gambar",
-  cards: "Kartu bergambar",
-  points: "Kartu poin",
-  gallery: "Galeri foto",
-  stats: "Pita angka",
-  quote: "Kutipan",
-  logos: "Logo mitra",
-  download: "Unduhan materi",
-  cta: "Pita ajakan",
-  multicolumn: "Kolom",
+  text_image: "Text and image",
+  cards: "Image cards",
+  points: "Point cards",
+  gallery: "Photo gallery",
+  stats: "Figures strip",
+  quote: "Quote",
+  logos: "Partner logos",
+  download: "Downloads",
+  cta: "Call-to-action strip",
+  multicolumn: "Columns",
 };
 
 export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
-  text_image: "Cerita singkat dengan satu foto di kiri atau kanan.",
-  cards: "Sesi, topik, atau bacaan, masing-masing dengan foto.",
-  points: "Poin tanpa foto: pengertian, tujuan, atau daftar peserta.",
-  gallery: "3 sampai 12 foto suasana acara.",
-  stats: "2 sampai 4 angka asli dengan sumbernya, latar gelap.",
-  quote: "Satu kutipan asli dengan nama dan jabatan.",
-  logos: "Logo penyelenggara, mitra, atau sponsor.",
-  download: "Tautan ke kerangka acuan, brosur, atau materi PDF.",
-  cta: "Ajakan mendaftar, dengan atau tanpa foto latar.",
-  multicolumn: "1 sampai 4 kolom, masing-masing dengan gambar, judul, teks, dan tautan.",
+  text_image: "A short story with one photo on the left or right.",
+  cards: "Sessions, topics or reading, each with a photo.",
+  points: "Points without photos: definitions, goals or who should attend.",
+  gallery: "3 to 12 photos of the event.",
+  stats: "2 to 4 real figures with their source, on a dark background.",
+  quote: "One real quote with a name and job title.",
+  logos: "Organiser, partner or sponsor logos.",
+  download: "Links to terms of reference, brochures or PDF materials.",
+  cta: "A call to register, with or without a background photo.",
+  multicolumn: "1 to 4 columns, each with an image, title, text and link.",
 };
 
 export const LANDING_BLOCK_TONE_LABELS: Record<LandingBlockTone, string> = {
-  light: "Terang",
-  panel: "Abu-abu",
-  dark: "Merek gelap",
+  light: "Light",
+  panel: "Grey",
+  dark: "Dark brand",
 };
 
 /** Latar bawaan tiap jenis blok saat baru ditambahkan. */
@@ -345,14 +345,14 @@ export const LANDING_BLOCK_DEFAULT_TONE: Record<LandingBlockType, LandingBlockTo
 
 export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: LandingBlockLayout; label: string; hint: string }[]>> = {
   cards: [
-    { value: "overlay", label: "Foto bertulisan", hint: "Judul di atas foto, 2 atau 3 kartu sebaris. Cocok untuk sesi utama." },
-    { value: "columns", label: "Tiga kolom", hint: "Foto di atas, teks di bawah, 3 atau 6 kartu. Cocok untuk diskusi kelompok atau bacaan." },
-    { value: "featured", label: "Utama besar", hint: "Kartu pertama besar, dua kartu kecil di sampingnya." },
+    { value: "overlay", label: "Text on photo", hint: "Title over the photo, 2 or 3 cards per row. Good for main sessions." },
+    { value: "columns", label: "Three columns", hint: "Photo on top, text below, 3 or 6 cards. Good for group discussions or reading." },
+    { value: "featured", label: "Large feature", hint: "A large first card with two small cards beside it." },
   ],
   points: [
-    { value: "cards", label: "Kartu", hint: "3 atau 4 kartu bernomor sebaris." },
-    { value: "numbered", label: "Daftar bernomor", hint: "Judul di kiri, 3 sampai 7 baris bernomor di kanan." },
-    { value: "list", label: "Daftar dua kolom", hint: "Judul di kiri, butir pendek dalam dua kolom." },
+    { value: "cards", label: "Cards", hint: "3 or 4 numbered cards in a row." },
+    { value: "numbered", label: "Numbered list", hint: "Title on the left, 3 to 7 numbered rows on the right." },
+    { value: "list", label: "Two-column list", hint: "Title on the left, short points in two columns." },
   ],
 };
 
@@ -516,6 +516,18 @@ export const LANDING_SECTION_LABELS: Record<LandingSectionId, string> = {
   contact: "Kontak panitia",
 };
 
+/** Nama bagian di editor admin (English). `LANDING_SECTION_LABELS` di atas tetap label bawaan halaman publik. */
+export const LANDING_SECTION_ADMIN_LABELS: Record<LandingSectionId, string> = {
+  about: "About the event",
+  highlights: "Key figures",
+  agenda: "Agenda",
+  speakers: "Speakers",
+  venue: "Venue",
+  faq: "FAQ",
+  sponsors: "Sponsors & partners",
+  contact: "Staff contacts",
+};
+
 /**
  * Dari mana isi tiap bagian datang.
  *
@@ -528,22 +540,22 @@ export const LANDING_SECTION_LABELS: Record<LandingSectionId, string> = {
 export type LandingSectionSource = { text: string; href?: string; linkLabel?: string };
 
 export const LANDING_SECTION_SOURCES: Record<LandingSectionId, LandingSectionSource> = {
-  about: { text: "Deskripsi acara, diisi di halaman ini" },
-  highlights: { text: "Diisi di halaman ini" },
+  about: { text: "Event description, filled in on this page" },
+  highlights: { text: "Filled in on this page" },
   agenda: {
-    text: "Ditarik otomatis dari modul Rundown acara",
+    text: "Pulled automatically from the Agenda module",
     href: "/admin/rundown",
-    linkLabel: "Buka Rundown",
+    linkLabel: "Open Agenda",
   },
-  speakers: { text: "Diisi di halaman ini" },
+  speakers: { text: "Filled in on this page" },
   venue: {
-    text: "Nama, alamat, dan peta diisi di halaman ini. Tombol denah menuju modul Denah kursi",
+    text: "Name, address and map are filled in on this page. The seating plan button opens the Seating plan module",
     href: "/admin/seat-map",
-    linkLabel: "Buka Denah kursi",
+    linkLabel: "Open Seating plan",
   },
-  faq: { text: "Diisi di halaman ini" },
-  sponsors: { text: "Logo diunggah di halaman ini" },
-  contact: { text: "Diisi di halaman ini" },
+  faq: { text: "Filled in on this page" },
+  sponsors: { text: "Logos are uploaded on this page" },
+  contact: { text: "Filled in on this page" },
 };
 
 /** Susunan bawaan, dipakai saat event belum pernah menyimpan konfigurasi. */
@@ -599,8 +611,8 @@ export function normalizeLandingSections(saved: LandingSection[] | undefined, bl
 export type LandingBannerStyle = "theme" | "photo";
 
 export const LANDING_BANNER_STYLE_LABELS: Record<LandingBannerStyle, string> = {
-  theme: "Menyatu tema",
-  photo: "Warna asli",
+  theme: "Match theme",
+  photo: "Original colours",
 };
 
 /**
@@ -631,13 +643,13 @@ export const LANDING_HERO_HEIGHT_LABELS: Record<LandingHeroHeight, string> = {
 export type LandingHeadingFont = "serif" | "sans" | "geometric" | "condensed" | "grotesk" | "source" | "ubuntu";
 
 export const LANDING_HEADING_FONTS: Record<LandingHeadingFont, { label: string; note: string; cssVar: string }> = {
-  serif: { label: "Playfair Display", note: "Klasik, cocok untuk undangan resmi", cssVar: "var(--font-serif)" },
-  sans: { label: "Inter", note: "Netral dan modern", cssVar: "var(--font-sans)" },
-  geometric: { label: "Montserrat", note: "Geometris, tegas", cssVar: "var(--font-geometric)" },
-  condensed: { label: "Oswald", note: "Rapat, cocok untuk judul panjang", cssVar: "var(--font-condensed)" },
-  grotesk: { label: "Space Grotesk", note: "Teknis, untuk acara teknologi", cssVar: "var(--font-grotesk)" },
-  source: { label: "Source Sans 3", note: "Humanis dan lapang, pasangan tata letak Modern", cssVar: "var(--font-source)" },
-  ubuntu: { label: "Ubuntu", note: "Bulat dan ramah, pasangan tata letak Forum", cssVar: "var(--font-ubuntu)" },
+  serif: { label: "Playfair Display", note: "Classic, suits formal invitations", cssVar: "var(--font-serif)" },
+  sans: { label: "Inter", note: "Neutral and modern", cssVar: "var(--font-sans)" },
+  geometric: { label: "Montserrat", note: "Geometric, bold", cssVar: "var(--font-geometric)" },
+  condensed: { label: "Oswald", note: "Condensed, suits long titles", cssVar: "var(--font-condensed)" },
+  grotesk: { label: "Space Grotesk", note: "Technical, for tech events", cssVar: "var(--font-grotesk)" },
+  source: { label: "Source Sans 3", note: "Humanist and airy, pairs with the Modern layout", cssVar: "var(--font-source)" },
+  ubuntu: { label: "Ubuntu", note: "Rounded and friendly, pairs with the Forum layout", cssVar: "var(--font-ubuntu)" },
 };
 
 /** Kunci huruf judul, untuk validasi di API. Urutannya urutan pilihan di CMS. */
@@ -689,18 +701,18 @@ export const LANDING_FORUM_PAGE_PATHS: Record<LandingForumPage, string> = {
 
 /** Ikon ubin Informasi praktis. Kuncinya disimpan; gambarnya di komponen. */
 export const LANDING_FORUM_ICONS = {
-  plane: "Pesawat",
-  visa: "Kartu identitas",
-  tax: "Pajak",
-  venue: "Lokasi",
-  list: "Daftar",
-  health: "Kesehatan",
-  info: "Informasi",
-  shirt: "Pakaian",
-  bus: "Transportasi",
+  plane: "Plane",
+  visa: "ID card",
+  tax: "Tax",
+  venue: "Venue",
+  list: "List",
+  health: "Health",
+  info: "Information",
+  shirt: "Clothing",
+  bus: "Transport",
   hotel: "Hotel",
   wifi: "Internet",
-  phone: "Telepon",
+  phone: "Phone",
 } as const;
 export type LandingForumIcon = keyof typeof LANDING_FORUM_ICONS;
 export const LANDING_FORUM_ICON_KEYS = Object.keys(LANDING_FORUM_ICONS) as [LandingForumIcon, ...LandingForumIcon[]];
@@ -867,8 +879,8 @@ export type LandingNavConfig = {
 export type LandingNavWidth = "full" | "content";
 
 export const LANDING_NAV_WIDTH_LABELS: Record<LandingNavWidth, string> = {
-  full: "Selebar layar",
-  content: "Selebar isi",
+  full: "Full width",
+  content: "Content width",
 };
 
 export const LANDING_NAV_DEFAULTS = { color: "#121212", opacity: 72, width: "full", height: 64 } as const;
