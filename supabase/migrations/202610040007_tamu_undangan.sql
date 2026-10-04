@@ -23,6 +23,11 @@
 --   duplicate_event                ikut menyalin registration_access dan
 --                                  invitation_auto_approve
 --
+-- Hash penekanan (event_email_suppressions.email_hash) memakai
+-- INVITE_LINK_SECRET dengan awalan versi "v1:". Jangan pernah mengganti
+-- rahasia itu tanpa awalan baru (v2:) dan masa baca ganda v1+v2; tanpa itu
+-- semua opt-out lama diam-diam tidak berlaku lagi.
+--
 -- Jalankan di luar jam ramai. Bila berhenti karena lock_timeout, jalankan
 -- ulang: seluruh berkas aman dijalankan dua kali.
 --
@@ -773,8 +778,16 @@ begin
     return;
   end if;
 
-  if position('registration_access' in sumber_def) > 0 then
+  -- Sudah disisipkan (berkas ini dijalankan ulang): tanda pasti, bukan
+  -- sekadar kata registration_access di badan fungsi.
+  if position('registration_access = sumber.registration_access' in sumber_def) > 0 then
     return;
+  end if;
+
+  -- Sisipan memakai variabel `sumber` (baris acara asal). Bila bentuk fungsi
+  -- di produksi berbeda, berhenti dengan galat, jangan menulis fungsi rusak.
+  if position('select * into sumber from public.events' in sumber_def) = 0 then
+    raise exception 'duplicate_event berubah bentuk: variabel sumber tidak ditemukan';
   end if;
 
   if position(jangkar in sumber_def) = 0
