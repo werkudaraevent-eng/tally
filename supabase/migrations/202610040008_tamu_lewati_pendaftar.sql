@@ -11,6 +11,16 @@
 -- (already_participant) sama, jadi kode aplikasi tidak perlu diubah dan
 -- migrasi ini aman dijalankan sebelum atau sesudah deploy. Pencarian memakai
 -- event_registrations_email_unique (event_id, lower(email)) where status <> 'rejected'.
+--
+-- Catatan (sudah ada sebelumnya, di luar migrasi ini): mengubah email tamu
+-- lewat PATCH belum memeriksa peserta atau pendaftar yang menunggu.
+
+-- Bila berhenti karena lock_timeout, jalankan ulang: berkas ini aman dijalankan
+-- dua kali.
+begin;
+
+set local lock_timeout = '5s';
+set local statement_timeout = '60s';
 
 create or replace function public.import_event_invitations(
   p_event_id uuid,
@@ -158,3 +168,5 @@ $$;
 
 revoke all on function public.import_event_invitations(uuid, jsonb, boolean, uuid, boolean) from public, anon, authenticated;
 grant execute on function public.import_event_invitations(uuid, jsonb, boolean, uuid, boolean) to service_role;
+
+commit;
