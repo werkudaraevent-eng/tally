@@ -43,7 +43,7 @@ export const TAMU = {
   remove: "Remove",
   removeConfirm: (nama: string) => `Remove ${nama} from invited guests? Their private link stops working.`,
   viewRegistration: "View registration →",
-  approx: "estimate",
+  approx: "Estimated",
   noEmail: "No email",
 } as const;
 

@@ -214,7 +214,7 @@ export function ScannerPanel() {
   const dipakai = ["scanner_api", "hybrid"].includes(sumber);
 
   return (
-    <>
+    <div lang="en" className="contents">
       <Pane aria-label="Scanner API">
         <PaneHeader className="px-5 py-4">
           <div className="min-w-0 flex-1">
@@ -338,6 +338,6 @@ export function ScannerPanel() {
           </>
         }
       />
-    </>
+    </div>
   );
 }

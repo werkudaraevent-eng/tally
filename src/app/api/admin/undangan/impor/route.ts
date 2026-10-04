@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   const dikenali = [...new Set(kolom.filter(Boolean))] as string[];
   if (!dikenali.includes("name")) {
     return apiError("VALIDATION_ERROR", 422, {
-      message: "No Name column found in the first row of the file. Recognised columns: Name, Email, Organisation, Job title, Mobile number.",
+      message: "Column Name not found in the first row of the file. Recognised columns: Name, Email, Organisation, Job title, Mobile number.",
     });
   }
 

@@ -53,7 +53,7 @@ export async function requireRequestEvent(
         {
           error: {
             code: "EVENT_NOT_WRITABLE",
-            message: `Event ini berstatus ${resolved.scope.event.status === "archived" ? "arsip" : "selesai"} dan tidak menerima perubahan data.`,
+            message: `This event is ${resolved.scope.event.status === "archived" ? "archived" : "completed"} and no longer accepts changes.`,
           },
         },
         { status: 409 },

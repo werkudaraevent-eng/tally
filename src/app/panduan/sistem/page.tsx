@@ -89,7 +89,7 @@ const BAGIAN: Bagian[] = [
         judul: "d. Participants",
         poin: [
           "Participant list: pull from the Event Scanner API, import a file, or add people by hand, depending on the participant source chosen for the event.",
-          "Registration: turn it on when participants sign up themselves through the form. Build the questions on the same page, then review incoming registrants.",
+          "Registration: turn it on when participants register themselves through the form. Build the questions on the same page, then review incoming registrants.",
           "Invited guests: on the Invited guests tab of Registration, add people one by one or import an Excel file, then send each one a personal registration link.",
           "Participant codes are issued straight away for events that approve registrations automatically. For moderated events, the code is issued once staff press Approve.",
         ],

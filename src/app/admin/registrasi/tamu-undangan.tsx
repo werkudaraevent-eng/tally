@@ -150,7 +150,7 @@ export function TamuUndangan({
       toast.error("Couldn't delete", "Try again.");
       return;
     }
-    toast.success("Deleted", hapus.name);
+    toast.success("Removed", hapus.name);
     setHapus(null);
     void load();
   }
