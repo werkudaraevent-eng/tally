@@ -1,13 +1,14 @@
 "use client";
 
-import { ArrowsClockwise, Copy, DownloadSimple, EnvelopeSimple, PencilSimple, Trash, Tray, XCircle } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowsClockwise, Copy, DownloadSimple, EnvelopeSimple, PencilSimple, Trash, Tray, UploadSimple, X, XCircle } from "@phosphor-icons/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Banner, Button, Dialog, EmptyState, FilterChip, PageLoading, StatusChip, Table, TableBody, TableCell, TableHead, TableHeaderCell,
+  Banner, Button, Dialog, EmptyState, FilterChip, IconButton, PageLoading, SegmentedButton, StatusChip, Table, TableBody, TableCell, TableHead, TableHeaderCell,
   TableRow, TextField,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { cx } from "@/lib/m3/cx";
 import { MenuBlok } from "@/app/admin/landing/menu-blok";
 import { eventApiPath } from "@/lib/event-url";
 import { withEventPrefix } from "@/lib/event-path";
@@ -364,22 +365,134 @@ type Pratinjau = {
   test: boolean;
 };
 
-/** Dialog Impor tamu: coba dulu, lihat ringkasan, centang pernyataan, Tambahkan. */
-export function ImporTamu({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+/** Dialog Tambah tamu: ketik satu per satu, atau impor dari Excel. Layar penuh di HP. */
+export function TambahTamu({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+  const [cara, setCara] = useState<"ketik" | "impor">("ketik");
+  const [sibuk, setSibuk] = useState(false);
+  const [berubah, setBerubah] = useState(false);
+
+  function tutup() {
+    if (sibuk) return;
+    if (berubah) onDone();
+    setBerubah(false);
+    setCara("ketik");
+    onClose();
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={tutup}
+      dismissible={!sibuk}
+      bare
+      size="lg"
+      title={TAMU.addTitle}
+      // M3: formulir di layar sempit memakai dialog layar penuh.
+      className="flex flex-col max-sm:fixed max-sm:inset-0 max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none"
+    >
+      <div className="flex shrink-0 items-center gap-2 border-b border-outline-variant px-2 py-2 sm:px-4">
+        <IconButton label="Tutup" onClick={tutup} disabled={sibuk}><X size={20} /></IconButton>
+        <h2 className="min-w-0 flex-1 truncate text-title-large font-semibold">{TAMU.addTitle}</h2>
+      </div>
+      <div className="shrink-0 px-6 pt-4">
+        <SegmentedButton<"ketik" | "impor">
+          label="Cara menambah"
+          value={cara}
+          className="w-full [&>*]:flex-1"
+          options={[
+            { value: "ketik", label: TAMU.addManual, disabled: sibuk },
+            { value: "impor", label: TAMU.addImport, disabled: sibuk },
+          ]}
+          onChange={setCara}
+        />
+      </div>
+      {cara === "ketik"
+        ? <KetikTamu sibuk={sibuk} setSibuk={setSibuk} onSaved={(lanjut) => { setBerubah(true); if (!lanjut) { setBerubah(false); onDone(); onClose(); } }} />
+        : <ImporBerkas sibuk={sibuk} setSibuk={setSibuk} onDone={() => { setBerubah(false); onDone(); onClose(); }} />}
+    </Dialog>
+  );
+}
+
+const KOSONG = { name: "", email: "", company: "", title: "", phone: "" };
+
+function KetikTamu({ sibuk, setSibuk, onSaved }: { sibuk: boolean; setSibuk: (v: boolean) => void; onSaved: (lanjut: boolean) => void }) {
+  const [isi, setIsi] = useState(KOSONG);
+  const [setuju, setSetuju] = useState(false);
+  const [galat, setGalat] = useState<{ name?: string; email?: string; umum?: string }>({});
+  // TextField tidak meneruskan ref; fokus dicari lewat pembungkusnya.
+  const nama = useRef<HTMLDivElement>(null);
+  const fokusNama = () => nama.current?.querySelector("input")?.focus();
+  const toast = useToast();
+
+  const ubah = (k: keyof typeof KOSONG) => (e: React.ChangeEvent<HTMLInputElement>) => setIsi((v) => ({ ...v, [k]: e.target.value }));
+
+  async function simpan(lanjut: boolean) {
+    if (!isi.name.trim()) {
+      setGalat({ name: "Nama wajib diisi." });
+      fokusNama();
+      return;
+    }
+    setSibuk(true);
+    setGalat({});
+    const jawab = await fetch(eventApiPath("/api/admin/undangan/tambah"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...isi, attested: setuju }),
+    }).catch(() => null);
+    setSibuk(false);
+    const body = await jawab?.json().catch(() => null);
+    if (!jawab?.ok || !body) {
+      const pesan = body?.error?.details?.message ?? body?.error?.message ?? "Tamu belum tersimpan. Coba lagi.";
+      setGalat(body?.error?.details?.field === "email" ? { email: pesan } : { umum: pesan });
+      return;
+    }
+    const n = isi.name.trim();
+    if (body.status === "sudah_peserta") {
+      setGalat({ email: `${n} sudah terdaftar sebagai peserta acara ini, jadi tidak perlu diundang.` });
+      return;
+    }
+    if (body.status === "digabung") toast.success("Sudah ada di daftar tamu", `${n} sudah diundang sebelumnya. Kolom yang kosong dilengkapi.`);
+    else if (body.suppressed) toast.success(`${n} ditambahkan`, "Alamat ini pernah berhenti berlangganan atau memantul, jadi tidak akan dikirimi email.");
+    else toast.success(`${n} ditambahkan`, "Belum ada email yang terkirim.");
+    setIsi(KOSONG);
+    onSaved(lanjut);
+    if (lanjut) fokusNama();
+  }
+
+  return (
+    <form
+      className="flex min-h-0 flex-1 flex-col"
+      onSubmit={(e) => { e.preventDefault(); void simpan(false); }}
+      noValidate
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-6 pt-4 text-body-medium">
+        <div ref={nama}><TextField label="Nama" required autoComplete="off" maxLength={120} value={isi.name} onChange={ubah("name")} error={galat.name} disabled={sibuk} /></div>
+        <TextField label="Email" optional type="email" inputMode="email" autoComplete="off" maxLength={254} value={isi.email} onChange={ubah("email")} error={galat.email} hint="Tanpa email, undangan hanya bisa lewat Salin tautan pribadi." disabled={sibuk} />
+        <TextField label="Instansi" optional maxLength={160} value={isi.company} onChange={ubah("company")} disabled={sibuk} />
+        <TextField label="Jabatan" optional maxLength={160} value={isi.title} onChange={ubah("title")} disabled={sibuk} />
+        <TextField label="No. HP" optional type="tel" inputMode="tel" maxLength={30} value={isi.phone} onChange={ubah("phone")} disabled={sibuk} />
+        <label className="flex items-start gap-3">
+          <input type="checkbox" checked={setuju} onChange={(e) => setSetuju(e.target.checked)} className="mt-1 size-4 shrink-0 accent-[var(--color-primary)]" />
+          <span>{TAMU.addAttest}</span>
+        </label>
+        {galat.umum ? <p role="alert" className="flex items-start gap-2 rounded-md bg-error-soft p-3 text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{galat.umum}</p> : null}
+        <p className="text-on-surface-variant">{TAMU.addNoSend}</p>
+      </div>
+      <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-outline-variant px-6 py-4">
+        <Button type="button" variant="outlined" disabled={sibuk || !setuju} onClick={() => void simpan(true)}>{TAMU.addAnother}</Button>
+        <Button type="submit" simpan loading={sibuk} disabled={!setuju}>Simpan</Button>
+      </div>
+    </form>
+  );
+}
+
+function ImporBerkas({ sibuk: jalan, setSibuk: setJalan, onDone }: { sibuk: boolean; setSibuk: (v: boolean) => void; onDone: () => void }) {
   const [berkas, setBerkas] = useState<File | null>(null);
   const [pratinjau, setPratinjau] = useState<Pratinjau | null>(null);
   const [setuju, setSetuju] = useState(false);
-  const [jalan, setJalan] = useState(false);
   const [error, setError] = useState("");
   const toast = useToast();
 
-  function tutup() {
-    setBerkas(null);
-    setPratinjau(null);
-    setSetuju(false);
-    setError("");
-    onClose();
-  }
 
   async function jalankan(coba: boolean) {
     if (!berkas) return;
@@ -401,7 +514,6 @@ export function ImporTamu({ open, onClose, onDone }: { open: boolean; onClose: (
       return;
     }
     toast.success("Tamu ditambahkan", `${body.inserted} tamu baru, ${body.merged} digabung. Belum ada email yang terkirim.`);
-    tutup();
     onDone();
   }
 
@@ -421,39 +533,51 @@ export function ImporTamu({ open, onClose, onDone }: { open: boolean; onClose: (
 
   const p = pratinjau;
   return (
-    <Dialog
-      open={open}
-      onClose={tutup}
-      dismissible={!jalan}
-      size="lg"
-      title={TAMU.importTitle}
-      description={`${IMPOR.noSend} Kolom dikenali lewat baris pertama: Nama (wajib), Email, Instansi, Jabatan, No. HP. Paling banyak 5.000 baris.`}
-      actions={
-        <>
-          <Button variant="outlined" disabled={jalan} onClick={tutup}>Batal</Button>
-          {p ? (
-            <Button simpan loading={jalan} disabled={!setuju || p.inserted + p.merged === 0} onClick={() => void jalankan(false)}>
-              {IMPOR.commit} {p.inserted} tamu
-            </Button>
-          ) : (
-            <Button loading={jalan} disabled={!berkas} onClick={() => void jalankan(true)}>Periksa berkas</Button>
-          )}
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4 text-body-medium">
-        <label className="block font-medium">
-          Berkas
-          <input
-            type="file"
-            accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            onChange={(e) => { setBerkas(e.target.files?.[0] ?? null); setPratinjau(null); }}
-            className="mt-1.5 block w-full rounded-md border border-outline bg-surface-container-lowest p-2 text-body-medium file:mr-3 file:rounded file:border-0 file:bg-surface-container-high file:px-3 file:py-1 file:text-body-medium file:font-medium"
-          />
-        </label>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-6 pt-4 text-body-medium">
+        <div className="rounded-lg bg-surface-container-highest p-4">
+          <p className="font-medium">1. Unduh templat</p>
+          <p className="mt-1 text-on-surface-variant">Kolom: Nama (wajib), Email, Instansi, Jabatan, No. HP. Ada 2 baris contoh untuk ditimpa.</p>
+          <Button
+            variant="text"
+            size="sm"
+            className="-ms-3 mt-2"
+            icon={<DownloadSimple size={16} />}
+            onClick={() => { window.location.href = eventApiPath("/api/admin/undangan/templat"); }}
+          >
+            Unduh templat .xlsx
+          </Button>
+        </div>
+        <div>
+          <p className="font-medium">2. Pilih berkas</p>
+          <label
+            className={cx(
+              "m3-state mt-2 flex h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-outline px-4 text-center",
+              jalan && "pointer-events-none opacity-60",
+            )}
+          >
+            <span className="flex max-w-full items-center gap-2 font-medium">
+              <UploadSimple size={16} className="shrink-0" aria-hidden />
+              <span className="truncate">{berkas ? berkas.name : "Pilih berkas .xlsx atau .csv"}</span>
+            </span>
+            <span className="text-body-small text-on-surface-variant">Paling banyak 5.000 baris</span>
+            <input
+              type="file"
+              accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="sr-only"
+              disabled={jalan}
+              onChange={(e) => {
+                setBerkas(e.target.files?.[0] ?? null);
+                setPratinjau(null);
+                // Dikosongkan supaya memilih berkas yang sama lagi tetap terbaca.
+                e.target.value = "";
+              }}
+            />
+          </label>
+        </div>
         {error ? <p role="alert" className="flex items-start gap-2 rounded-md bg-error-soft p-3 text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{error}</p> : null}
         {p ? (
-          <div className="rounded-md border border-outline-variant p-3">
+          <div className="rounded-lg border border-outline-variant p-4">
             <p className="font-medium">{p.file_name}, {p.rows} baris terbaca{p.test ? " (situs uji: ditandai uji)" : ""}</p>
             <ul className="mt-2 space-y-0.5">
               <li><span className="font-medium tabular-nums">{p.with_email}</span> {IMPOR.willAdd}</li>
@@ -477,8 +601,17 @@ export function ImporTamu({ open, onClose, onDone }: { open: boolean; onClose: (
           <input type="checkbox" checked={setuju} onChange={(e) => setSetuju(e.target.checked)} className="mt-1 size-4 shrink-0 accent-[var(--color-primary)]" />
           <span>{IMPOR.attest}</span>
         </label>
-        <p className="text-on-surface-variant">{IMPOR.retention}</p>
+        <p className="text-on-surface-variant">{IMPOR.noSend} {IMPOR.retention}</p>
       </div>
-    </Dialog>
+      <div className="flex shrink-0 justify-end gap-2 border-t border-outline-variant px-6 py-4">
+        {p ? (
+          <Button simpan loading={jalan} disabled={!setuju || p.inserted + p.merged === 0} onClick={() => void jalankan(false)}>
+            {IMPOR.commit} {p.inserted} tamu
+          </Button>
+        ) : (
+          <Button loading={jalan} disabled={!berkas} onClick={() => void jalankan(true)}>Periksa berkas</Button>
+        )}
+      </div>
+    </div>
   );
 }
