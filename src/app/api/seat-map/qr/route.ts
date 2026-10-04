@@ -1,6 +1,6 @@
 import { z } from "zod";
 import QRCode from "qrcode";
-import { apiError } from "@/lib/api";
+import { apiErrorPeserta } from "@/lib/api";
 
 // QR untuk layar LED. Publik, tanpa login.
 //
@@ -20,7 +20,7 @@ const querySchema = z.object({
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const parsed = querySchema.safeParse(Object.fromEntries(url.searchParams));
-  if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+  if (!parsed.success) return apiErrorPeserta("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   // Tujuan dibangun dari origin permintaan, bukan dari nilai kiriman, sehingga
   // QR selalu menunjuk ke aplikasi ini di alamat mana pun ia dijalankan.
@@ -50,6 +50,6 @@ export async function GET(request: Request) {
       },
     });
   } catch {
-    return apiError("INTERNAL_ERROR", 500);
+    return apiErrorPeserta("INTERNAL_ERROR", 500);
   }
 }

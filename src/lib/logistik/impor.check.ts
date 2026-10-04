@@ -66,4 +66,18 @@ assert.equal(bus.baris[3].alasan, "Nama tidak ditemukan di Daftar peserta");
 assert.deepEqual(bus.busBaru, ["Bus 7"]);
 assert.deepEqual(bus.penempatan, [{ hotel: null, tujuan: "Bus 1", participant_ids: ["a"] }, { hotel: null, tujuan: "Bus 7", participant_ids: ["c"] }]);
 
+
+// Judul English (templat admin English) dikenali sama seperti judul Indonesia.
+const busEn = rencanaBus([
+  ["Participant code", "Participant name", "Vehicle"],
+  ["Q-1", "", "Bus 1"],
+], acara);
+assert.equal(busEn.galat, null);
+assert.equal(busEn.baris[0]?.status, "masuk");
+const kamarEn = rencanaKamar([
+  ["Hotel name", "Room number", "Full name"],
+  ["Mulia", "1501", "Budi Santoso"],
+], acara);
+assert.equal(kamarEn.galat, null);
+
 console.log("impor.check: ok");

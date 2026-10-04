@@ -281,7 +281,7 @@ export function DomainPanel() {
 
     const panduanDns = (masalah: ReactNode) => (
       <div className="flex flex-col gap-3">
-        {domain.records.map((record) => <KartuRecord key={`${record.type}-${record.name}`} record={record} onCopy={(label) => void salin(record[label === "Tipe" ? "type" : label === "Nama" ? "name" : "value"], `${label} disalin`)} />)}
+        {domain.records.map((record) => <KartuRecord key={`${record.type}-${record.name}`} record={record} onCopy={(label, nilai) => void salin(nilai, `${label} disalin`)} />)}
         {masalah ? <Catatan tone="error">{masalah}</Catatan> : null}
         {domain.stale && domain.status === "menunggu" ? <Catatan tone="warning">Sudah lebih dari 2 hari dan record belum terpasang. Kirim ulang petunjuk ke tim IT klien, atau batalkan domain ini.</Catatan> : null}
         <div className="flex flex-wrap items-center gap-2">

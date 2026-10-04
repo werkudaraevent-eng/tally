@@ -1,4 +1,4 @@
-import { apiError } from "@/lib/api";
+import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, normalizeBranding } from "@/lib/branding";
@@ -70,7 +70,7 @@ const DEFAULT_SETTINGS = {
 
 export async function GET(request: Request) {
   const event = await getPublicRequestEvent(request);
-  if (!event) return apiError("INTERNAL_ERROR", 404);
+  if (!event) return apiErrorPeserta("INTERNAL_ERROR", 404);
   const eventId = event.id;
   const client = getSupabaseServiceClient();
   const [stateResult, settingsResult] = await Promise.all([

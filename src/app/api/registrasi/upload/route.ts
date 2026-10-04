@@ -1,4 +1,4 @@
-import { apiError, mapDatabaseError } from "@/lib/api";
+import { apiErrorPeserta, mapDatabaseError } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { FIELD_KEY_PATTERN } from "@/lib/registration-fields";
@@ -47,16 +47,16 @@ function clientIp(request: Request): string | null {
 
 export async function POST(request: Request) {
   const event = await getPublicRequestEvent(request);
-  if (!event) return apiError("VALIDATION_ERROR", 404, { message: "Acara tidak ditemukan." });
-  if (!event.registration_enabled) return apiError("REGISTRATION_CLOSED", 422);
+  if (!event) return apiErrorPeserta("VALIDATION_ERROR", 404, { message: "Acara tidak ditemukan." });
+  if (!event.registration_enabled) return apiErrorPeserta("REGISTRATION_CLOSED", 422);
 
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
   const fieldKeyRaw = form?.get("field_key");
 
-  if (!(file instanceof File)) return apiError("VALIDATION_ERROR", 422, { file: "Berkas tidak ditemukan." });
+  if (!(file instanceof File)) return apiErrorPeserta("VALIDATION_ERROR", 422, { file: "Berkas tidak ditemukan." });
   if (typeof fieldKeyRaw !== "string" || !FIELD_KEY_PATTERN.test(fieldKeyRaw)) {
-    return apiError("VALIDATION_ERROR", 422, { field_key: "Field tidak dikenali." });
+    return apiErrorPeserta("VALIDATION_ERROR", 422, { field_key: "Field tidak dikenali." });
   }
 
   // Field harus ada di konfigurasi DAN bertipe file. Memeriksa keberadaannya
@@ -65,13 +65,13 @@ export async function POST(request: Request) {
   const config = (event.registration_form_config ?? {}) as RegistrationFormConfig;
   const field = ((config.fields ?? []) as RegistrationField[]).find((item) => item.key === fieldKeyRaw);
   if (!field || field.type !== "file") {
-    return apiError("VALIDATION_ERROR", 422, { field_key: "Field tidak menerima unggahan berkas." });
+    return apiErrorPeserta("VALIDATION_ERROR", 422, { field_key: "Field tidak menerima unggahan berkas." });
   }
 
   const ext = ALLOWED.get(file.type);
-  if (!ext) return apiError("VALIDATION_ERROR", 422, { file: "Format harus PNG, JPG, WebP, atau PDF." });
+  if (!ext) return apiErrorPeserta("VALIDATION_ERROR", 422, { file: "Format harus PNG, JPG, WebP, atau PDF." });
   if (file.size === 0 || file.size > MAX_BYTES) {
-    return apiError("VALIDATION_ERROR", 422, { file: "Ukuran berkas maksimal 5 MB." });
+    return apiErrorPeserta("VALIDATION_ERROR", 422, { file: "Ukuran berkas maksimal 5 MB." });
   }
 
   const client = getSupabaseServiceClient();
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       .eq("submitted_ip", ip)
       .gte("created_at", sejak);
     if ((count ?? 0) >= RATE_LIMIT) {
-      return apiError("VALIDATION_ERROR", 429, {
+      return apiErrorPeserta("VALIDATION_ERROR", 429, {
         message: "Terlalu banyak unggahan dari perangkat ini. Tunggu 10 menit, lalu coba lagi.",
       });
     }
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
   const { error: uploadError } = await client.storage
     .from("registration-uploads")
     .upload(path, buffer, { contentType: file.type, upsert: false });
-  if (uploadError) return apiError("INTERNAL_ERROR", 500);
+  if (uploadError) return apiErrorPeserta("INTERNAL_ERROR", 500);
 
   const { data, error } = await client.rpc("record_registration_upload" as never, {
     p_event_id: event.id,
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
     // gagal dibuat.
     await client.storage.from("registration-uploads").remove([path]);
     const code = mapDatabaseError(error);
-    return apiError(code, code === "INTERNAL_ERROR" ? 500 : 422);
+    return apiErrorPeserta(code, code === "INTERNAL_ERROR" ? 500 : 422);
   }
 
   // Id baris, BUKAN URL. Klien menyimpannya sebagai jawaban field, dan hanya

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiError } from "@/lib/api";
+import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { computeSeatMapGeometry, normalizeSeatLabel } from "@/lib/seat-map";
@@ -17,10 +17,10 @@ const querySchema = z.object({ sesi: z.string().trim().max(40).optional() });
 
 export async function GET(request: Request) {
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
-  if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+  if (!parsed.success) return apiErrorPeserta("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const event = await getPublicRequestEvent(request);
-  if (!event) return apiError("INTERNAL_ERROR", 404);
+  if (!event) return apiErrorPeserta("INTERNAL_ERROR", 404);
   const eventId = event.id;
 
   try {
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       requestedSlug: parsed.data.sesi,
       defaultSessionId: config.default_session_id,
     });
-    if (!session) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
+    if (!session) return apiErrorPeserta("SEAT_MAP_SESSION_NOT_FOUND", 404);
 
     const [settingsResult, assignmentData] = await Promise.all([
       // Zona waktu ikut diambil di query yang memang sudah ada, bukan lewat
@@ -148,6 +148,6 @@ export async function GET(request: Request) {
       },
     });
   } catch {
-    return apiError("INTERNAL_ERROR", 500);
+    return apiErrorPeserta("INTERNAL_ERROR", 500);
   }
 }

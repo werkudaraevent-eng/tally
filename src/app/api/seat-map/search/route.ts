@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiError } from "@/lib/api";
+import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { normalizeSeatLabel } from "@/lib/seat-map";
 import { loadAssignmentsForSession, loadSeatMapConfig, loadSessions, resolveSession } from "@/lib/seat-map-data";
@@ -32,10 +32,10 @@ const querySchema = z.object({
 
 export async function GET(request: Request) {
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
-  if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+  if (!parsed.success) return apiErrorPeserta("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const event = await getPublicRequestEvent(request);
-  if (!event) return apiError("INTERNAL_ERROR", 404);
+  if (!event) return apiErrorPeserta("INTERNAL_ERROR", 404);
   const eventId = event.id;
 
   try {
@@ -46,13 +46,13 @@ export async function GET(request: Request) {
       loadSeatMapConfig(eventId),
       loadSessions(eventId, { publishedOnly: true }),
     ]);
-    if (sessions.length === 0) return apiError("SEAT_MAP_SESSION_UNPUBLISHED", 404);
+    if (sessions.length === 0) return apiErrorPeserta("SEAT_MAP_SESSION_UNPUBLISHED", 404);
 
     const session = resolveSession(sessions, {
       requestedSlug: parsed.data.sesi,
       defaultSessionId: config.default_session_id,
     });
-    if (!session) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
+    if (!session) return apiErrorPeserta("SEAT_MAP_SESSION_NOT_FOUND", 404);
 
     const needle = parsed.data.q.toLowerCase();
     const { assignments } = await loadAssignmentsForSession(eventId, session.sub_event_id);
@@ -94,6 +94,6 @@ export async function GET(request: Request) {
 
     return Response.json({ session: session.slug, total, truncated: false, results });
   } catch {
-    return apiError("INTERNAL_ERROR", 500);
+    return apiErrorPeserta("INTERNAL_ERROR", 500);
   }
 }

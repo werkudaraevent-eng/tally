@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { z } from "zod";
-import { apiError, mapDatabaseError } from "@/lib/api";
+import { apiErrorPeserta, mapDatabaseError } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -44,10 +44,10 @@ const DEVICE_MAX_AGE = 60 * 60 * 12;
 
 export async function POST(request: Request) {
   const event = await getPublicRequestEvent(request);
-  if (!event) return apiError("VALIDATION_ERROR", 404, { message: "Acara tidak ditemukan." });
+  if (!event) return apiErrorPeserta("VALIDATION_ERROR", 404, { message: "Acara tidak ditemukan." });
 
   const body = bodySchema.safeParse(await request.json().catch(() => null));
-  if (!body.success) return apiError("VALIDATION_ERROR", 422, body.error.flatten());
+  if (!body.success) return apiErrorPeserta("VALIDATION_ERROR", 422, body.error.flatten());
 
   const client = getSupabaseServiceClient();
 
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   const { data: poll } = await client
     .from("vote_polls").select("id,voter_mode,type,status")
     .eq("id", body.data.poll_id).eq("event_id", event.id).maybeSingle();
-  if (!poll) return apiError("VOTE_POLL_NOT_FOUND", 404);
+  if (!poll) return apiErrorPeserta("VOTE_POLL_NOT_FOUND", 404);
 
   const row = poll as { id: number; voter_mode: string; type: string; status: string };
 
@@ -77,34 +77,34 @@ export async function POST(request: Request) {
 
   if (row.voter_mode === "participant_code") {
     const code = body.data.code?.trim();
-    if (!code) return apiError("VOTE_INVALID_REQUEST", 422, { message: "Isi kode peserta di badge Anda." });
+    if (!code) return apiErrorPeserta("VOTE_INVALID_REQUEST", 422, { message: "Isi kode peserta di badge Anda." });
     const { data: participant } = await client
       .from("participants").select("id,name,source_removed_at")
       .eq("event_id", event.id).eq("qr_code", code).maybeSingle();
     const found = participant as { id: string; name: string; source_removed_at: string | null } | null;
     // Peserta yang sudah ditandai terhapus di sumber ikut ditolak: ia tidak lagi
     // hadir di acara, dan barisnya hanya disimpan untuk audit.
-    if (!found || found.source_removed_at) return apiError("VOTE_CODE_NOT_FOUND", 404);
+    if (!found || found.source_removed_at) return apiErrorPeserta("VOTE_CODE_NOT_FOUND", 404);
     voterKey = `pt:${found.id}`;
     participantId = found.id;
     displayName = found.name;
 
   } else if (row.voter_mode === "participant_pick") {
-    if (!body.data.participant_id) return apiError("VOTE_INVALID_REQUEST", 422, { message: "Pilih nama Anda dari daftar." });
+    if (!body.data.participant_id) return apiErrorPeserta("VOTE_INVALID_REQUEST", 422, { message: "Pilih nama Anda dari daftar." });
     // Id yang dikirim tetap DIPERIKSA milik event ini. Tanpa itu, id peserta
     // acara lain yang bocor dari mana pun dapat dipakai memberi suara di sini.
     const { data: participant } = await client
       .from("participants").select("id,name,source_removed_at")
       .eq("event_id", event.id).eq("id", body.data.participant_id).maybeSingle();
     const found = participant as { id: string; name: string; source_removed_at: string | null } | null;
-    if (!found || found.source_removed_at) return apiError("VOTE_CODE_NOT_FOUND", 404);
+    if (!found || found.source_removed_at) return apiErrorPeserta("VOTE_CODE_NOT_FOUND", 404);
     voterKey = `pt:${found.id}`;
     participantId = found.id;
     displayName = found.name;
 
   } else if (row.voter_mode === "name_text") {
     const name = body.data.name?.trim();
-    if (!name) return apiError("VOTE_INVALID_REQUEST", 422, { message: "Isi nama Anda lebih dulu." });
+    if (!name) return apiErrorPeserta("VOTE_INVALID_REQUEST", 422, { message: "Isi nama Anda lebih dulu." });
     // Kuncinya PERANGKAT, bukan namanya. Nama yang diketik bebas tidak dapat
     // dijadikan kunci: dua orang bernama sama akan saling menghalangi, dan satu
     // orang bisa memilih berkali-kali hanya dengan mengubah satu huruf.
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
 
   if (error) {
     const code = mapDatabaseError(error);
-    return apiError(code, code === "INTERNAL_ERROR" ? 500 : code === "VOTE_ALREADY_CAST" ? 409 : 422);
+    return apiErrorPeserta(code, code === "INTERNAL_ERROR" ? 500 : code === "VOTE_ALREADY_CAST" ? 409 : 422);
   }
 
   const response = Response.json({ ...(data as Record<string, unknown>), voter: displayName });

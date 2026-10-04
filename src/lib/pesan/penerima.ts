@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { EventRow } from "@/lib/domain";
 import { memberConfig } from "@/lib/member/account";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import type { SkipCode } from "./alasan";
 import { allowedByList, messagingAllowlist, normalizeAddress } from "./alamat";
 import type { BlastKind } from "./isi";
 import { allInvitations, sendStates } from "@/lib/undangan/data";
@@ -32,28 +33,7 @@ export const audienceSchema = z.object({
 });
 export type Audience = z.infer<typeof audienceSchema>;
 
-export type SkipCode =
-  | "tanpa_email"
-  | "berhenti_email"
-  | "email_memantul"
-  | "area_mati"
-  | "belum_boleh_masuk"
-  | "di_luar_daftar_uji"
-  | "sudah_daftar"
-  | "sudah_peserta"
-  | "terjadwal";
-
-export const SKIP_REASON: Record<SkipCode, string> = {
-  tanpa_email: "Tidak punya email",
-  berhenti_email: "Berhenti menerima email",
-  email_memantul: "Email pernah memantul",
-  area_mati: "Area peserta belum dinyalakan",
-  belum_boleh_masuk: "Belum boleh masuk area peserta",
-  di_luar_daftar_uji: "Di luar daftar uji",
-  sudah_daftar: "Sudah mendaftar",
-  sudah_peserta: "Email ini sudah dipakai peserta",
-  terjadwal: "Sudah ada di kiriman lain yang belum selesai",
-};
+export { SKIP_REASON, type SkipCode } from "./alasan";
 
 export type ParticipantRow = {
   id: string;

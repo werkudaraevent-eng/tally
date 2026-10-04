@@ -26,6 +26,7 @@ import {
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { withEventPrefix } from "@/lib/event-path";
+import { labelAlasan, labelAlasanJeda } from "@/lib/pesan/alasan";
 import { BLAST_STATUS_LABEL, BLAST_STATUS_TONE, audienceLabel, waktu, type BlastStatus } from "../../pesan-shared";
 
 /**
@@ -257,7 +258,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
 
       {dijeda ? (
         <Banner tone="warning" icon={<PauseCircle size={18} />}>
-          Kiriman dijeda otomatis. {blast.paused_reason ?? "Periksa laporan sebelum melanjutkan."} {counts.ditahan ?? 0} undangan belum dikirim dan menunggu keputusan Anda.
+          Kiriman dijeda otomatis. {labelAlasanJeda(blast.paused_reason) ?? "Periksa laporan sebelum melanjutkan."} {counts.ditahan ?? 0} undangan belum dikirim dan menunggu keputusan Anda.
         </Banner>
       ) : tamu && blast.status === "mengirim" && detail.invitation_sending?.ok === false && detail.invitation_sending.missing.includes("EMAIL_FROM_UNDANGAN") && berjalan > 0 ? (
         <Banner tone="warning" icon={<PauseCircle size={18} />}>
@@ -333,7 +334,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
                     <TableCell>
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <StatusChip tone={NADA[r.status]}>{LABEL[r.status]}</StatusChip>
-                        {r.reason ? <span className="text-body-small text-on-surface-variant">{r.reason}</span> : null}
+                        {r.reason || r.reason_code ? <span className="text-body-small text-on-surface-variant">{labelAlasan(r.reason_code, r.reason)}</span> : null}
                         {/* Hanya yang bisa diperbaiki di data peserta. Berhenti langganan dan
                             jadwal yang dibatalkan bukan untuk "diperbaiki". */}
                         {r.status === "gagal_tetap" || (r.status === "dilewati" && (r.reason_code === "tanpa_email" || r.reason_code === "email_memantul")) ? (

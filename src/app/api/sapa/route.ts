@@ -1,4 +1,4 @@
-import { apiError } from "@/lib/api";
+import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { normalizeBranding } from "@/lib/branding";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -176,7 +176,7 @@ export async function GET(request: Request) {
   if (!config.greet_duplicates) kueri = kueri.eq("is_duplicate", false);
 
   const { data, error } = await kueri;
-  if (error) return apiError("INTERNAL_ERROR", 500);
+  if (error) return apiErrorPeserta("INTERNAL_ERROR", 500);
 
   const greetings: Greeting[] = ((data ?? []) as unknown as BarisScan[])
     // Peserta yang pendaftarannya dibatalkan panitia pusat tidak disapa. Namanya

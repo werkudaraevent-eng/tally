@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiError } from "@/lib/api";
+import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { DEFAULT_HEADER, HEADER_COLUMNS, ITEM_COLUMNS, SECTION_COLUMNS, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
@@ -19,10 +19,10 @@ const querySchema = z.object({ sesi: z.string().trim().max(40).optional() });
 
 export async function GET(request: Request) {
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
-  if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+  if (!parsed.success) return apiErrorPeserta("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const event = await getPublicRequestEvent(request);
-  if (!event) return apiError("INTERNAL_ERROR", 404);
+  if (!event) return apiErrorPeserta("INTERNAL_ERROR", 404);
   const eventId = event.id;
   const client = getSupabaseServiceClient();
 
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     client.from("rundown_settings").select(HEADER_COLUMNS).eq("event_id", eventId).maybeSingle(),
   ]);
   const { data: sectionRows, error: sectionError } = sectionResult;
-  if (sectionError) return apiError("INTERNAL_ERROR", 500);
+  if (sectionError) return apiErrorPeserta("INTERNAL_ERROR", 500);
 
   // Setelan yang gagal dibaca tidak menggagalkan rundown: normalizeTimeZone
   // menjatuhkannya ke WIB, dan jadwalnya tetap tampil.
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
     .order("sort_order", { ascending: true })
     .order("start_time", { ascending: true })
     .order("id", { ascending: true });
-  if (itemError) return apiError("INTERNAL_ERROR", 500);
+  if (itemError) return apiErrorPeserta("INTERNAL_ERROR", 500);
 
   return Response.json({
     published: true,

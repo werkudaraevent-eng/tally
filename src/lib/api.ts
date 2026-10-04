@@ -147,8 +147,42 @@ const messages: Record<ApiErrorCode, string> = {
   INTERNAL_ERROR: "Terjadi kesalahan server. Coba lagi.",
 };
 
+/**
+ * Pesan untuk rute yang dibaca PESERTA (pendaftaran, voting, denah, rundown,
+ * layar panggung). Admin pindah ke English bertahap lewat `messages` di atas;
+ * halaman peserta mengikuti bahasa acara, jadi kalimatnya disalin ke sini dan
+ * tidak ikut berganti. Kode yang tidak ada di sini jatuh ke `messages`.
+ */
+const pesanPeserta: Partial<Record<ApiErrorCode, string>> = {
+  VALIDATION_ERROR: "Data yang dikirim belum valid.",
+  INTERNAL_ERROR: "Terjadi kesalahan server. Coba lagi.",
+  INVITATION_USED: "Tautan undangan ini sudah dipakai untuk mendaftar.",
+  REGISTRATION_CLOSED: "Pendaftaran untuk acara ini sedang ditutup.",
+  REGISTRATION_DUPLICATE_EMAIL: "Email ini sudah terdaftar untuk acara ini. Hubungi panitia bila Anda belum menerima kode peserta.",
+  REGISTRATION_INVITE_ONLY: "Pendaftaran acara ini khusus tamu undangan. Gunakan tautan pribadi di email undangan Anda.",
+  REGISTRATION_NOT_FOUND: "Pendaftaran tidak ditemukan.",
+  SEAT_MAP_SESSION_NOT_FOUND: "Sesi denah tidak ditemukan.",
+  SEAT_MAP_SESSION_UNPUBLISHED: "Denah sesi ini belum dipublikasikan.",
+  VOTE_POLL_NOT_FOUND: "Pertanyaan voting tidak ditemukan.",
+  VOTE_CLOSED: "Voting untuk pertanyaan ini sedang ditutup.",
+  VOTE_ALREADY_CAST: "Anda sudah memberikan suara untuk pertanyaan ini.",
+  VOTE_NO_OPTION: "Pilih dulu jawabannya.",
+  VOTE_OPTION_INVALID: "Ada pilihan yang tidak dikenali. Muat ulang halaman lalu coba lagi.",
+  VOTE_TOO_MANY: "Pilihan Anda melebihi batas untuk pertanyaan ini.",
+  VOTE_INVALID_REQUEST: "Permintaan voting tidak lengkap.",
+  VOTE_CODE_NOT_FOUND: "Kode peserta tidak ditemukan di acara ini. Periksa kembali kode di badge Anda.",
+  VOTE_RATING_INVALID: "Nilai yang dipilih di luar rentang yang disediakan.",
+  VOTE_WORD_TOO_LONG: "Ada kata yang terlalu panjang. Maksimal 40 huruf per kata.",
+  VOTE_TEXT_BLOCKED: "Ada kata yang tidak dapat ditampilkan di layar acara. Ganti dengan kata lain.",
+};
+
 export function apiError(code: ApiErrorCode, status: number, details?: unknown) {
   return Response.json({ error: { code, message: messages[code], details } }, { status });
+}
+
+/** `apiError` untuk rute yang dibaca peserta. Lihat `pesanPeserta`. */
+export function apiErrorPeserta(code: ApiErrorCode, status: number, details?: unknown) {
+  return Response.json({ error: { code, message: pesanPeserta[code] ?? messages[code], details } }, { status });
 }
 
 export function mapDatabaseError(error: { code?: string; message?: string }) {

@@ -1,4 +1,4 @@
-import { apiError } from "@/lib/api";
+import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -24,7 +24,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  */
 export async function GET(request: Request) {
   const event = await getPublicRequestEvent(request);
-  if (!event) return apiError("VALIDATION_ERROR", 404, { message: "Acara tidak ditemukan." });
+  if (!event) return apiErrorPeserta("VALIDATION_ERROR", 404, { message: "Acara tidak ditemukan." });
 
   const query = (new URL(request.url).searchParams.get("q") ?? "").trim();
   if (query.length < 3) return Response.json({ participants: [] }, { headers: { "Cache-Control": "no-store" } });
@@ -34,13 +34,13 @@ export async function GET(request: Request) {
   const { data: state } = await client
     .from("vote_state").select("active_poll_id").eq("event_id", event.id).maybeSingle();
   const activeId = (state as { active_poll_id: number | null } | null)?.active_poll_id ?? null;
-  if (!activeId) return apiError("VOTE_POLL_NOT_FOUND", 404);
+  if (!activeId) return apiErrorPeserta("VOTE_POLL_NOT_FOUND", 404);
 
   const { data: poll } = await client
     .from("vote_polls").select("voter_mode,status").eq("id", activeId).eq("event_id", event.id).maybeSingle();
   const row = poll as { voter_mode: string; status: string } | null;
   if (!row || row.voter_mode !== "participant_pick" || row.status !== "open") {
-    return apiError("VOTE_POLL_NOT_FOUND", 404);
+    return apiErrorPeserta("VOTE_POLL_NOT_FOUND", 404);
   }
 
   // `%` dan `_` di masukan pengguna adalah wildcard bagi ILIKE. Tanpa dilepas,

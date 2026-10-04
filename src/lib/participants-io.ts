@@ -85,13 +85,16 @@ export function exportHeaders(fields: RegistrationField[]): string[] {
 const HEADER_ALIASES: Record<string, ImportField> = {
   qr_code: "qr_code", qr: "qr_code", kode: "qr_code", kode_qr: "qr_code",
   kode_peserta: "qr_code", unique_code: "qr_code", uniquecode: "qr_code",
-  name: "name", nama: "name", nama_lengkap: "name", full_name: "name", fullname: "name",
+  participant_code: "qr_code",
+  name: "name", nama: "name", nama_lengkap: "name", full_name: "name", fullname: "name", participant_name: "name",
   company: "company", perusahaan: "company", instansi: "company", affiliation: "company",
-  title: "title", jabatan: "title", job_title: "title", jobtitle: "title", posisi: "title",
-  email: "email", surel: "email", alamat_email: "email",
+  organisation: "company", organization: "company", organisasi: "company",
+  title: "title", jabatan: "title", job_title: "title", jobtitle: "title", posisi: "title", position: "title",
+  email: "email", surel: "email", alamat_email: "email", email_address: "email",
   phone: "phone", telepon: "phone", telp: "phone", hp: "phone", no_hp: "phone", whatsapp: "phone",
+  phone_number: "phone", mobile: "phone", mobile_number: "phone",
   participant_type: "participant_type", tipe: "participant_type", tipe_peserta: "participant_type",
-  kategori: "participant_type", participanttype: "participant_type",
+  kategori: "participant_type", participanttype: "participant_type", type: "participant_type",
   rsvp_status: "rsvp_status", rsvp: "rsvp_status", status_rsvp: "rsvp_status", rsvpstatus: "rsvp_status",
 };
 

@@ -59,13 +59,13 @@ export type KeadaanAcara = {
 export const BATAS_BARIS = 3000;
 
 const ALIAS = {
-  hotel: ["hotel", "nama hotel"],
+  hotel: ["hotel", "nama hotel", "hotel name"],
   kamar: ["kamar", "nomor kamar", "no kamar", "no. kamar", "room", "room number", "room no", "room no."],
   tipe: ["tipe", "tipe kamar", "jenis kamar", "type", "room type"],
   kapasitas: ["kapasitas", "capacity", "jumlah tempat", "pax"],
-  kode: ["kode qr", "qr", "qr code", "kode", "kode peserta"],
-  nama: ["nama", "nama peserta", "nama tamu", "name", "guest", "guest name", "peserta", "tamu"],
-  bus: ["bus", "nama bus", "kendaraan", "armada"],
+  kode: ["kode qr", "qr", "qr code", "kode", "kode peserta", "participant code", "code"],
+  nama: ["nama", "nama peserta", "nama tamu", "name", "guest", "guest name", "peserta", "tamu", "participant", "participant name", "full name"],
+  bus: ["bus", "nama bus", "kendaraan", "armada", "bus name", "vehicle"],
 } as const;
 
 export const TEMPLAT: Record<JenisImpor, { judul: string[]; contoh: string[][] }> = {
