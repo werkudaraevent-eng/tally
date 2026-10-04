@@ -7,9 +7,10 @@ import { Banner, Button, MetaSeparator, Pane, PaneBody, PaneFooter, Switch, Text
 import { SettingRow } from "@/components/admin/settings-panel";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
-import { LANDING_MEMBER_AUDIENCE_LABELS, type LandingMemberAudience, type LandingMemberConfig } from "@/lib/domain";
+import { type LandingMemberAudience, type LandingMemberConfig } from "@/lib/domain";
 import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
+import { plural } from "@/lib/plural";
 
 /**
  * Area peserta: siapa yang bisa masuk ke Dashboard saya dan apa yang tampil di
@@ -24,16 +25,21 @@ import { cx } from "@/lib/m3/cx";
 type Hitungan = { participants: number | null; with_email: number | null; approved: number | null; accounts: number | null };
 type Muat = { member: LandingMemberConfig; counts: Hitungan };
 
-const angka = (nilai: number) => nilai.toLocaleString("id-ID");
+const angka = (nilai: number) => nilai.toLocaleString("en-GB");
+
+const AUDIENCE_LABELS: Record<LandingMemberAudience, string> = {
+  approved: "Participants with an approved registration",
+  all: "All participants in the Participant list",
+};
 
 function catatanPilihan(key: LandingMemberAudience, counts: Hitungan | null) {
   if (key === "approved") {
     const jumlah = counts?.approved;
-    return `Dari Pendaftaran dengan status disetujui.${jumlah != null ? ` Saat ini ${angka(jumlah)} pendaftaran.` : ""}`;
+    return `From Registration, with the Approved status.${jumlah != null ? ` Currently ${plural(jumlah, "registration")}.` : ""}`;
   }
   const semua = counts?.participants;
   const berEmail = counts?.with_email;
-  return `Termasuk peserta impor, selama datanya punya email.${semua != null && berEmail != null ? ` Saat ini ${angka(berEmail)} dari ${angka(semua)} peserta punya email.` : ""}`;
+  return `Includes imported participants, as long as they have an email address.${semua != null && berEmail != null ? ` Currently ${plural(semua, "participant")}, ${angka(berEmail)} with an email address.` : ""}`;
 }
 
 function Pilihan({ checked, onSelect, label, description }: { checked: boolean; onSelect: () => void; label: string; description: string }) {
@@ -60,7 +66,7 @@ export default function AreaPesertaPage() {
   const load = useCallback(async () => {
     setGalatMuat("");
     const response = await fetch(eventApiPath("/api/admin/area-peserta"), { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) { setGalatMuat("Setelan area peserta gagal dimuat."); return; }
+    if (!response?.ok) { setGalatMuat("Couldn't load Participant area settings."); return; }
     const body = (await response.json()) as Muat;
     setData(body);
     setAnggotaState(body.member);
@@ -75,7 +81,7 @@ export default function AreaPesertaPage() {
     if (!anggota) return;
     const umpanBalik = anggota.feedback_url?.trim() || null;
     if (anggota.enabled && umpanBalik && !/^https?:\/\/\S+\.\S+/.test(umpanBalik)) {
-      toast.error("Tautan belum valid", "Tautan formulir umpan balik harus diawali https:// atau dikosongkan.");
+      toast.error("Link not valid", "The feedback form link must start with https:// or be left empty.");
       return;
     }
     setSimpan(true);
@@ -85,42 +91,43 @@ export default function AreaPesertaPage() {
       body: JSON.stringify({ member: { ...anggota, feedback_url: umpanBalik } }),
     }).catch(() => null);
     setSimpan(false);
-    if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return; }
+    if (!response) { toast.error("Connection failed", "Reload to see the current state."); return; }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) { toast.error("Gagal disimpan", pesanGalatApi(body) ?? "Coba lagi."); return; }
+    if (!response.ok) { toast.error("Couldn't save", pesanGalatApi(body) ?? "Try again."); return; }
     const tersimpan = (body as { member: LandingMemberConfig }).member;
     setData((current) => current && { ...current, member: tersimpan });
     setAnggotaState(tersimpan);
-    toast.success("Tersimpan", tersimpan.enabled ? "Halaman acara langsung memakai setelan baru." : "Area peserta ditutup. Tombol Masuk tidak tampil di halaman acara.");
+    toast.success("Saved", tersimpan.enabled ? "The Event page uses the new settings right away." : "Participant area closed. The Sign in button no longer shows on the Event page.");
   }
 
   const counts = data?.counts ?? null;
 
   return (
+    <div lang="en" className="contents">
     <WorkspacePage width="form">
       <WorkspaceHeader
-        title="Area peserta"
+        title="Participant area"
         meta={
           <>
-            <span>{anggota ? (anggota.enabled ? "Dibuka" : "Ditutup") : "Memuat"}</span>
+            <span>{anggota ? (anggota.enabled ? "Open" : "Closed") : "Loading…"}</span>
             {counts?.accounts != null ? (
               <>
                 <MetaSeparator />
-                <span className="tabular-nums">{angka(counts.accounts)} akun peserta</span>
+                <span className="tabular-nums">{plural(counts.accounts, "participant account")}</span>
               </>
             ) : null}
             <MetaSeparator />
-            <span>Kabar untuk peserta ada di <Link href="/admin/pengumuman/lonceng" className={TAUTAN}>Pesan peserta → Pengumuman</Link></span>
+            <span>News for participants is in <Link href="/admin/pengumuman/lonceng" className={TAUTAN}>Messages → Announcements</Link></span>
           </>
         }
       />
 
       {galatMuat ? (
-        <Banner tone="error" icon={<XCircle size={18} />} actions={<Button variant="outlined" size="sm" onClick={() => void load()}>Coba lagi</Button>}>
+        <Banner tone="error" icon={<XCircle size={18} />} actions={<Button variant="outlined" size="sm" onClick={() => void load()}>Try again</Button>}>
           {galatMuat}
         </Banner>
       ) : !anggota || !data ? (
-        <Pane aria-label="Memuat setelan area peserta">
+        <Pane aria-label="Loading Participant area settings">
           {Array.from({ length: 3 }, (_, i) => (
             <div key={i} className="grid gap-3 border-b border-outline-variant px-5 py-6 last:border-b-0 md:grid-cols-[2fr_3fr] md:gap-8">
               <div className="h-3 w-40 animate-pulse rounded bg-surface-container-high" />
@@ -129,73 +136,74 @@ export default function AreaPesertaPage() {
           ))}
         </Pane>
       ) : (
-        <Pane aria-label="Setelan area peserta">
+        <Pane aria-label="Participant area settings">
           <PaneBody>
-            <SettingRow title="Area peserta" description="Peserta masuk dengan email dan kata sandi untuk melihat kode QR, kursi, dan susunan acaranya.">
+            <SettingRow title="Participant area" description="Participants sign in with their email and a password to see their QR code, seat and agenda.">
               <Switch
                 checked={anggota.enabled}
                 onChange={(value) => set({ enabled: value })}
-                label="Buka area peserta"
-                description="Tombol Masuk tampil di halaman acara. Formulir pendaftaran meminta kata sandi, jadi pendaftar langsung punya akun. Peserta impor membuat kata sandi lewat tautan di email."
+                label="Open Participant area"
+                description="The Sign in button shows on the Event page. The registration form asks for a password, so registrants get an account straight away. Imported participants create a password through the link in their email."
               />
             </SettingRow>
             {anggota.enabled ? (
               <>
-                <SettingRow title="Siapa yang bisa masuk" description={<>Peserta impor ada di <Link href="/admin/participants" className={TAUTAN}>Daftar peserta</Link>, bukan di Pendaftaran.</>}>
-                  <div role="radiogroup" aria-label="Siapa yang bisa masuk" className="flex flex-col gap-2">
-                    {(Object.keys(LANDING_MEMBER_AUDIENCE_LABELS) as LandingMemberAudience[]).map((key) => (
+                <SettingRow title="Who can sign in" description={<>Imported participants are in the <Link href="/admin/participants" className={TAUTAN}>Participant list</Link>, not in Registration.</>}>
+                  <div role="radiogroup" aria-label="Who can sign in" className="flex flex-col gap-2">
+                    {(Object.keys(AUDIENCE_LABELS) as LandingMemberAudience[]).map((key) => (
                       <Pilihan
                         key={key}
                         checked={(anggota.audience ?? "approved") === key}
                         onSelect={() => set({ audience: key })}
-                        label={LANDING_MEMBER_AUDIENCE_LABELS[key]}
+                        label={AUDIENCE_LABELS[key]}
                         description={catatanPilihan(key, counts)}
                       />
                     ))}
                   </div>
                 </SettingRow>
-                <SettingRow title="Yang tampil di area peserta">
+                <SettingRow title="Shown in the Participant area">
                   <div className="flex flex-col gap-4">
-                    <Switch checked={anggota.show_code !== false} onChange={(value) => set({ show_code: value })} label="Kode QR dan kode peserta" description="Untuk registrasi di pintu masuk." />
-                    <Switch checked={anggota.show_seat !== false} onChange={(value) => set({ show_seat: value })} label="Kursi" description="Dari Denah kursi." />
-                    <Switch checked={anggota.show_schedule !== false} onChange={(value) => set({ show_schedule: value })} label="Susunan acara" description="Dari Rundown acara." />
+                    <Switch checked={anggota.show_code !== false} onChange={(value) => set({ show_code: value })} label="QR code and participant code" description="For check-in at the entrance." />
+                    <Switch checked={anggota.show_seat !== false} onChange={(value) => set({ show_seat: value })} label="Seat" description="From the Seating plan." />
+                    <Switch checked={anggota.show_schedule !== false} onChange={(value) => set({ show_schedule: value })} label="Agenda" description="From the Agenda page." />
                     <Switch
                       checked={anggota.show_logistics === true}
                       onChange={(value) => set({ show_logistics: value })}
-                      label="Kamar dan bus"
-                      description="Dari menu Logistik: kamar, teman sekamar, bus, dan barang. Nyalakan setelah penempatan selesai."
+                      label="Room and bus"
+                      description="From Logistics: room, roommate, bus and kit items. Turn this on once allocations are final."
                     />
-                    <Switch checked={anggota.show_vote !== false} onChange={(value) => set({ show_vote: value })} label="Voting langsung" description="Kode peserta terisi otomatis di halaman voting." />
+                    <Switch checked={anggota.show_vote !== false} onChange={(value) => set({ show_vote: value })} label="Live voting" description="The participant code is filled in automatically on the voting page." />
                     <TextField
-                      label="Tautan formulir umpan balik"
+                      label="Feedback form link"
                       optional
                       type="url"
                       placeholder="https://"
-                      hint="Kosongkan bila tidak ada. Dibuka di tab baru."
+                      hint="Leave empty if there is none. Opens in a new tab."
                       value={anggota.feedback_url ?? ""}
                       onChange={(event) => set({ feedback_url: event.target.value })}
                     />
                   </div>
                 </SettingRow>
-                <SettingRow title="Cara peserta masuk">
+                <SettingRow title="How participants sign in">
                   <Banner tone="info" icon={<Info size={18} />}>
-                    Belum ada email aktivasi. Peserta membuat kata sandi sendiri di halaman Masuk dengan email pendaftaran dan kode peserta dari email konfirmasi atau undangan. Peserta tanpa email di datanya belum bisa masuk.
+                    There is no activation email yet. Participants create their own password on the Sign in page, using their registration email and the participant code from the confirmation or invitation email. Participants without an email address in their data can&apos;t sign in yet.
                   </Banner>
                 </SettingRow>
               </>
             ) : null}
-            <SettingRow title="Diatur di halaman lain">
+            <SettingRow title="Set on other pages">
               <ul className="flex flex-col gap-1.5 text-body-medium text-on-surface-variant">
-                <li>Tampilan halaman acara dan tombol Masuk di <Link href="/admin/landing" className={TAUTAN}>Halaman acara</Link>.</li>
+                <li>Event page design and the Sign in button are on the <Link href="/admin/landing" className={TAUTAN}>Event page</Link>.</li>
               </ul>
             </SettingRow>
           </PaneBody>
-          <PaneFooter note={berubah ? "Perubahan belum disimpan" : null}>
-            {berubah ? <Button variant="outlined" size="sm" disabled={simpan} onClick={() => setAnggotaState(data.member)}>Batalkan</Button> : null}
-            <Button simpan size="sm" loading={simpan} disabled={!berubah} onClick={() => void save()}>Simpan perubahan</Button>
+          <PaneFooter note={berubah ? "Unsaved changes" : null}>
+            {berubah ? <Button variant="outlined" size="sm" disabled={simpan} onClick={() => setAnggotaState(data.member)}>Cancel</Button> : null}
+            <Button simpan size="sm" loading={simpan} disabled={!berubah} onClick={() => void save()}>Save changes</Button>
           </PaneFooter>
         </Pane>
       )}
     </WorkspacePage>
+    </div>
   );
 }

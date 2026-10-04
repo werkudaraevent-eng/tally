@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Button, Dialog, IconButton, StatusChip, TextField, type ChipTone } from "@/components/m3";
 import { cx } from "@/lib/m3/cx";
 import type { LogistikData, LogistikPeserta } from "@/lib/logistik/types";
+import { plural } from "@/lib/plural";
 import { timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
 
 /**
@@ -80,7 +81,7 @@ export function Galat({ pesan }: { pesan: string }) {
 
 export function Kerangka() {
   return (
-    <div role="status" aria-label="Memuat data logistik" className="flex flex-col">
+    <div role="status" aria-label="Loading logistics data" className="flex flex-col">
       {Array.from({ length: 6 }, (_, i) => (
         <div key={i} className="flex flex-col gap-2 border-b border-outline-variant px-4 py-3.5">
           <div className="h-3 w-44 animate-pulse rounded bg-surface-container-high" />
@@ -121,7 +122,7 @@ export function KepalaDetail({ nama, chip, sub, angka, keterangan, onClose }: {
           </p>
         ) : null}
       </div>
-      <IconButton size="sm" label="Tutup detail" onClick={onClose}><X size={16} /></IconButton>
+      <IconButton size="sm" label="Close details" onClick={onClose}><X size={16} /></IconButton>
     </div>
   );
 }
@@ -219,9 +220,9 @@ export function PilihPeserta({ open, onClose, title, description, peserta, utama
       actions={
         <>
           <span className="mr-auto text-body-medium tabular-nums text-on-surface-variant" aria-live="polite">
-            {pilih.size} dipilih{batas !== undefined ? ` dari ${batas} tempat tersisa` : ""}
+            {pilih.size.toLocaleString("en-GB")} selected{batas !== undefined ? ` · ${plural(batas, "place")} left` : ""}
           </span>
-          <Button variant="outlined" disabled={busy} onClick={tutup}>Batal</Button>
+          <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
           <Button simpan loading={busy} disabled={pilih.size === 0} onClick={() => void simpan()}>{tombol}</Button>
         </>
       }
@@ -229,8 +230,8 @@ export function PilihPeserta({ open, onClose, title, description, peserta, utama
       <div className="flex flex-col gap-3">
         {children}
         <TextField
-          label="Cari peserta"
-          placeholder="Nama, perusahaan, atau kode QR"
+          label="Search participants"
+          placeholder="Name, organisation or QR code"
           value={cari}
           autoFocus
           leading={<MagnifyingGlass size={16} />}
@@ -238,13 +239,13 @@ export function PilihPeserta({ open, onClose, title, description, peserta, utama
         />
         <label className="flex items-center gap-2 text-body-medium text-on-surface">
           <input type="checkbox" checked={semua} onChange={(event) => setSemua(event.target.checked)} className="size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
-          Tampilkan juga yang sudah ditempatkan
+          Also show participants already assigned
         </label>
-        <p className="text-body-small text-on-surface-variant">{semua ? "Semua peserta aktif." : labelUtama}</p>
-        <ul className="flex max-h-[44dvh] flex-col overflow-y-auto rounded-md border border-outline-variant" aria-label="Peserta">
+        <p className="text-body-small text-on-surface-variant">{semua ? "All active participants." : labelUtama}</p>
+        <ul className="flex max-h-[44dvh] flex-col overflow-y-auto rounded-md border border-outline-variant" aria-label="Participants">
           {tampil.length === 0 ? (
             <li className="px-4 py-6 text-center text-body-medium text-on-surface-variant">
-              {cari.trim() ? "Tidak ada peserta dengan nama itu." : "Semua peserta sudah ditempatkan. Centang kotak di atas untuk memindahkan seseorang."}
+              {cari.trim() ? "No participants match that search." : "Every participant is already assigned. Tick the box above to move someone."}
             </li>
           ) : tampil.slice(0, BATAS_RENDER).map((orang) => {
             const tolak = alasanTolak?.(orang) ?? null;
@@ -273,7 +274,7 @@ export function PilihPeserta({ open, onClose, title, description, peserta, utama
           })}
           {tampil.length > BATAS_RENDER ? (
             <li className="px-4 py-3 text-body-small text-on-surface-variant">
-              {tampil.length - BATAS_RENDER} peserta lain tidak ditampilkan. Ketik namanya untuk menemukannya.
+              {plural(tampil.length - BATAS_RENDER, "more participant")} not shown. Type a name to find them.
             </li>
           ) : null}
         </ul>
@@ -283,6 +284,11 @@ export function PilihPeserta({ open, onClose, title, description, peserta, utama
 }
 
 /* ------------------------------------------------------------ Waktu */
+
+/** Tanggal dan jam untuk layar staf (en-GB, 24 jam, zona acara), mis. "15 Oct 2026, 09:00". */
+export function formatWaktu(iso: string, zone: EventTimeZone): string {
+  return new Date(iso).toLocaleString("en-GB", { timeZone: zone, dateStyle: "medium", timeStyle: "short", hourCycle: "h23" });
+}
 
 /** ISO ke nilai `<input type="datetime-local">` di zona acara. */
 export function keInputWaktu(iso: string | null, zone: EventTimeZone): string {

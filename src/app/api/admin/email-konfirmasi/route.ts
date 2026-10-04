@@ -54,7 +54,7 @@ export async function PUT(request: Request) {
   // Kolom tak dikenal ditolak saat Simpan, sama seperti Kiriman: lebih baik
   // panitia membetulkannya sekarang daripada peserta menerima "{nmaa}".
   const asing = unknownFieldsIn(parsed.data.templat);
-  if (asing.length) return apiError("VALIDATION_ERROR", 422, { fieldErrors: { templat: [`Kolom tidak dikenal: ${asing.map((key) => `{${key}}`).join(", ")}`] } });
+  if (asing.length) return apiError("VALIDATION_ERROR", 422, { fieldErrors: { templat: [`Unknown fields: ${asing.map((key) => `{${key}}`).join(", ")}`] } });
 
   const event = auth.scope.event;
   const { data, error } = await getSupabaseServiceClient()

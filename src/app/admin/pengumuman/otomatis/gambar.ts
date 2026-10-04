@@ -14,13 +14,13 @@ function muat(url: string): Promise<HTMLImageElement> {
     // Storage Supabase publik mengizinkan CORS (*); tanpa ini canvas "tercemar" dan tidak bisa diekspor.
     img.crossOrigin = "anonymous";
     img.onload = () => selesai(img);
-    img.onerror = () => gagal(new Error(`Gambar tidak bisa dimuat: ${url}`));
+    img.onerror = () => gagal(new Error(`Couldn't load image: ${url}`));
     img.src = url;
   });
 }
 
 function blob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
-  return new Promise((selesai, gagal) => canvas.toBlob((hasil) => (hasil ? selesai(hasil) : gagal(new Error("Canvas gagal diekspor."))), type, quality));
+  return new Promise((selesai, gagal) => canvas.toBlob((hasil) => (hasil ? selesai(hasil) : gagal(new Error("Couldn't export the canvas."))), type, quality));
 }
 
 export async function unggah(berkas: Blob, nama: string): Promise<string> {
@@ -28,7 +28,7 @@ export async function unggah(berkas: Blob, nama: string): Promise<string> {
   form.append("file", new File([berkas], nama, { type: berkas.type }));
   form.append("kind", "email");
   const response = await fetch("/api/display/background", { method: "POST", body: form });
-  if (!response.ok) throw new Error("Unggah gambar gagal.");
+  if (!response.ok) throw new Error("Image upload failed.");
   return ((await response.json()) as { url: string }).url;
 }
 

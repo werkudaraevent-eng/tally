@@ -18,15 +18,15 @@ export type RecipientStatus =
   | "dilewati";
 
 export const STATUS_LABEL: Record<RecipientStatus, string> = {
-  antre: "Antre",
-  mengirim: "Sedang dikirim",
-  terkirim: "Terkirim",
-  diterima: "Diterima",
-  dibaca: "Dibaca",
-  tidak_pasti: "Tidak pasti",
-  gagal_sementara: "Gagal, bisa dicoba",
-  gagal_tetap: "Gagal tetap",
-  dilewati: "Dilewati",
+  antre: "Queued",
+  mengirim: "Sending",
+  terkirim: "Sent",
+  diterima: "Delivered",
+  dibaca: "Read",
+  tidak_pasti: "Unconfirmed",
+  gagal_sementara: "Retrying",
+  gagal_tetap: "Failed",
+  dilewati: "Skipped",
 };
 
 export const STATUS_TONE: Record<RecipientStatus, "neutral" | "primary" | "success" | "warning" | "error"> = {

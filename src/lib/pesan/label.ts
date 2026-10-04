@@ -10,14 +10,14 @@
 import { plural } from "@/lib/plural";
 
 export const KIND_LABEL = {
-  undangan: "Link login",
+  undangan: "Sign-in link",
   invitation: "Invitation",
-  info: "Info acara",
+  info: "Event update",
 } as const;
 
 export const AUDIENCE_LABEL = {
-  peserta: "Peserta",
-  tamu: "Tamu undangan",
+  peserta: "Participants",
+  tamu: "Invited guests",
 } as const;
 
 export const TAMU = {
@@ -34,7 +34,7 @@ export const TAMU = {
   remind: "Remind those not registered",
   empty: "No invited guests yet.",
   emptyHint: "Add them one by one or import from Excel with Add invited guest. No email has been sent yet.",
-  emptyComposer: "Belum ada tamu. Tambah di Pendaftaran →",
+  emptyComposer: "No invited guests yet. Add them in Registration →",
   copyLink: "Copy private link",
   linkCopied: "Private link copied",
   newLink: "Create new link",

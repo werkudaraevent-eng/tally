@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { galatRpc, klien } from "@/lib/logistik/server";
+import { plural } from "@/lib/plural";
 
 /**
  * Menempatkan peserta di kamar, dan mengeluarkannya.
@@ -37,8 +38,8 @@ export async function POST(request: Request) {
       // Sebagian sudah masuk: kalimatnya menyebut itu, supaya panitia tidak
       // mengulang seluruh pilihan dan mengira semuanya gagal.
       const body = await galat.json();
-      const alasan = body?.error?.details?.message ?? "Sisanya gagal.";
-      return apiError("VALIDATION_ERROR", 422, { message: `${masuk} orang sudah masuk kamar. Sisanya ditolak: ${alasan}` });
+      const alasan = body?.error?.details?.message ?? "The rest could not be added.";
+      return apiError("VALIDATION_ERROR", 422, { message: `${plural(masuk, "person", "people")} added to the room. The rest were rejected: ${alasan}` });
     }
     masuk += 1;
   }

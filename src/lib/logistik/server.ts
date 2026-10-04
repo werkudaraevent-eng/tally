@@ -17,17 +17,17 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * "gagal disimpan" untuk kamar campuran akan mencoba kamar yang sama lagi.
  */
 const PESAN_RPC: Record<string, string> = {
-  ROOM_NOT_FOUND: "Kamar ini sudah tidak ada. Muat ulang halaman.",
-  PARTICIPANT_NOT_FOUND: "Ada peserta yang tidak ditemukan atau sudah dihapus di sumber. Muat ulang halaman.",
-  LODGING_DATES_INVALID: "Tanggal check-out harus setelah check-in.",
-  ROOM_FULL: "Kamar ini sudah penuh. Pilih kamar lain atau naikkan kapasitasnya.",
+  ROOM_NOT_FOUND: "This room no longer exists. Reload the page.",
+  PARTICIPANT_NOT_FOUND: "A participant was not found or has been deleted at source. Reload the page.",
+  LODGING_DATES_INVALID: "Hotel check-out must be after hotel check-in.",
+  ROOM_FULL: "This room is full. Choose another room or raise its capacity.",
   LODGING_GENDER_FIELD_NOT_SET:
-    "Field jenis kelamin belum dipilih. Pilih di Aturan kamar, atau matikan aturan sesama jenis kelamin.",
+    "No gender field chosen yet. Choose one in Room rules, or turn off Same-gender rooms only.",
   PARTICIPANT_GENDER_UNKNOWN:
-    "Peserta ini belum punya jawaban jenis kelamin. Isi di Daftar peserta, lalu tempatkan lagi.",
-  ROOM_GENDER_MISMATCH: "Jenis kelamin peserta berbeda dengan penghuni kamar ini.",
-  TRIP_NOT_FOUND: "Agenda ini sudah tidak ada. Muat ulang halaman.",
-  VEHICLE_NOT_FOUND: "Bus ini sudah tidak ada. Muat ulang halaman.",
+    "This participant has no gender answer yet. Fill it in on the Participant list, then assign them again.",
+  ROOM_GENDER_MISMATCH: "This participant's gender differs from the occupants of this room.",
+  TRIP_NOT_FOUND: "This trip no longer exists. Reload the page.",
+  VEHICLE_NOT_FOUND: "This bus no longer exists. Reload the page.",
   SESSION_NOT_FOUND: "Sesi tidak ditemukan di acara ini.",
   SESSION_CLOSED: "Sesi ini sudah ditutup. Pilih sesi lain.",
   ITEM_NOT_IN_SESSION: "Barang ini tidak diperiksa di sesi ini. Muat ulang layar pemindai.",
@@ -48,8 +48,8 @@ export function galatRpc(error: { message?: string; details?: string | null }) {
 export function pesanRpc(error: { message?: string; details?: string | null }): string | null {
   const pesan = String(error.message ?? "");
   if (pesan.includes("VEHICLE_FULL")) {
-    const rincian = error.details ? ` ${error.details}.` : "";
-    return `Bus melebihi kapasitas.${rincian} Pilih bus lain atau naikkan kapasitasnya.`;
+    // error.details dari SQL berbahasa Indonesia; tidak ditempel ke kalimat English.
+    return "Bus over capacity. Choose another bus or raise its capacity.";
   }
   const kode = Object.keys(PESAN_RPC).find((nama) => pesan.includes(nama));
   return kode ? PESAN_RPC[kode] : null;

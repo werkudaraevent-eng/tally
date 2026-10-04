@@ -148,7 +148,7 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (!asal) return apiError("MESSAGE_NOT_FOUND", 404);
     const a = asal as unknown as typeof isi;
-    isi = { ...a, title: `${a.title} (salinan)`.slice(0, 120) };
+    isi = { ...a, title: `${a.title} (copy)`.slice(0, 120) };
   }
 
   const { data, error } = await client

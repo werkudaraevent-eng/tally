@@ -77,31 +77,31 @@ const messages: Record<ApiErrorCode, string> = {
   INVITATION_NOT_FOUND: "Invited guest not found.",
   INVITATIONS_NOT_READY: "Invited guests are not ready yet: the database migration has not been run.",
   // Menyebut env-nya: yang bisa membereskan ini pemilik sistem, bukan panitia.
-  INVITATION_SENDING_LOCKED: "Kiriman Invitation masih terkunci sampai pengirim undangan terpisah disiapkan pemilik sistem.",
-  MESSAGE_NOT_PAUSED: "Kiriman ini tidak sedang dijeda.",
-  ANNOUNCEMENT_NOT_FOUND: "Pengumuman tidak ditemukan. Mungkin sudah dihapus panitia lain; muat ulang halaman.",
+  INVITATION_SENDING_LOCKED: "Invitation blasts stay locked until the system owner sets up a separate invitation sender.",
+  MESSAGE_NOT_PAUSED: "This blast is not paused.",
+  ANNOUNCEMENT_NOT_FOUND: "Announcement not found. Another staff member may have deleted it; reload the page.",
   // Tabel pengumuman dibuat migrasi 202610030002. Sebelum dijalankan, fitur
   // ini mati dengan pesan yang menyebut langkahnya, bukan galat 500.
-  ANNOUNCEMENTS_NOT_READY: "Fitur pengumuman belum aktif: migrasi database 202610030002 belum dijalankan.",
+  ANNOUNCEMENTS_NOT_READY: "Announcements are not active yet: database migration 202610030002 has not been run.",
   BADGE_NOT_READY: "Badge kertas belum bisa disimpan: migrasi database 202610040002 belum dijalankan.",
   STASIUN_NOT_READY: "Print stations are not active yet: database migration 202610040009 has not been run.",
   // Menyebut SIAPA yang harus bertindak. Panitia yang membaca "gagal terkirim"
   // akan menekan Kirim ulang berkali-kali untuk keadaan yang tidak akan berubah
   // sampai pemilik sistem mengisi kunci API.
   // Pesan peserta (migrasi 202610030003).
-  MESSAGES_NOT_READY: "Pesan peserta belum aktif: migrasi database 202610030003 belum dijalankan.",
-  MESSAGE_NOT_FOUND: "Kiriman tidak ditemukan. Mungkin sudah dihapus panitia lain; muat ulang halaman.",
-  MESSAGE_NOT_DRAFT: "Kiriman ini sudah dikirim atau dijadwalkan, jadi isinya tidak bisa diubah lagi. Buat duplikatnya untuk kiriman baru.",
-  MESSAGE_EMPTY: "Tidak ada penerima yang bisa dikirimi. Periksa penerima dan alasan yang dilewati.",
+  MESSAGES_NOT_READY: "Messages are not active yet: database migration 202610030003 has not been run.",
+  MESSAGE_NOT_FOUND: "Blast not found. Another staff member may have deleted it; reload the page.",
+  MESSAGE_NOT_DRAFT: "This blast has already been sent or scheduled, so its content can't be changed. Duplicate it to make a new blast.",
+  MESSAGE_EMPTY: "There are no recipients to send to. Check the recipients and the skip reasons.",
   // Jumlah di dialog adalah janji. Bila berubah antara dialog dibuka dan Kirim
   // ditekan (peserta baru diimpor, panitia lain menyunting), panitia harus
   // melihat angka barunya dulu.
-  MESSAGE_COUNT_CHANGED: "Jumlah penerima berubah sejak dialog dibuka. Periksa angka barunya, lalu kirim lagi.",
-  MESSAGE_TEST_NOT_ALLOWED: "Alamat tes ini di luar daftar uji (MESSAGING_ALLOWLIST) untuk server ini.",
-  MESSAGING_BLOCKED: "Server ini bukan produksi dan daftar uji (MESSAGING_ALLOWLIST) belum diisi, jadi tidak ada email yang dikirim ke peserta.",
-  MESSAGE_SCHEDULE_NOT_ALLOWED: "Jadwal kirim hanya di situs utama. Di situs uji, pilih Kirim sekarang.",
-  MESSAGE_RETRY_NOT_ALLOWED: "Kiriman ini dikirim dari situs lain. Kirim ulang dari situs yang mengirimnya.",
-  MESSAGE_WHATSAPP_NOT_READY: "WhatsApp belum terhubung. Untuk sekarang kirim lewat email.",
+  MESSAGE_COUNT_CHANGED: "The number of recipients changed since the dialog opened. Check the new number, then send again.",
+  MESSAGE_TEST_NOT_ALLOWED: "This test address is not on this server's test list (MESSAGING_ALLOWLIST).",
+  MESSAGING_BLOCKED: "This server is not production and its test list (MESSAGING_ALLOWLIST) is empty, so no email is sent to participants.",
+  MESSAGE_SCHEDULE_NOT_ALLOWED: "Scheduling only works on the main site. On a test site, choose Send now.",
+  MESSAGE_RETRY_NOT_ALLOWED: "This blast was sent from another site. Retry it from the site that sent it.",
+  MESSAGE_WHATSAPP_NOT_READY: "WhatsApp is not connected yet. Send by email for now.",
   EMAIL_NOT_CONFIGURED: "Email sending is not set up on the server. Contact the system owner; you can still read out participant codes from this list.",
   EMAIL_SEND_FAILED: "The email could not be sent. The reason is recorded on the registration row.",
   EMAIL_TEMPLATE_NOT_READY: "The confirmation email template can't be saved yet: database migration 202610030006 has not been run. Emails still go out with the default template.",

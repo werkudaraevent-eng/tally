@@ -36,18 +36,18 @@ export function TabBarang({ data, kirim, busy, baru, tutupBaru }: TabProps) {
   const sesi = (barang: Barang) => data.item_sessions.filter((baris) => baris.item_id === barang.id);
 
   const daftar = (
-    <Pane aria-label="Daftar barang">
+    <Pane aria-label="Kit items">
       <PaneBody>
         {data.items.length === 0 ? (
           <EmptyState
             plain
             icon={<Package size={40} />}
-            title="Belum ada barang"
-            description="Tambahkan barang yang dibagikan lewat Barang baru di kanan atas, mis. Kaos atau Goodie bag, lalu pilih sesi scan yang memeriksanya di halaman Kehadiran."
+            title="No kit items yet"
+            description="Add the kit items you hand out with Add kit item at the top right, such as T-shirts or goodie bags. Then choose the check-in point that checks them on the Check-in page."
           />
         ) : (
           <>
-            <KepalaKolom kolom={[["Barang", "min-w-0 flex-1"], ["Diperiksa di", "w-40 max-sm:hidden"], ["Diambil", "w-24 text-right"]]} />
+            <KepalaKolom kolom={[["Kit item", "min-w-0 flex-1"], ["Checked at", "w-40 max-sm:hidden"], ["Collected", "w-24 text-right"]]} />
             {data.items.map((barang) => {
               const { peserta, diambil } = jumlah(barang);
               const diSesi = sesi(barang);
@@ -63,10 +63,10 @@ export function TabBarang({ data, kirim, busy, baru, tutupBaru }: TabProps) {
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="text-on-surface">{barang.name}</span>
-                      {diSesi.length === 0 ? <StatusChip dot tone="warning">Belum di sesi scan</StatusChip> : null}
+                      {diSesi.length === 0 ? <StatusChip dot tone="warning">No check-in point</StatusChip> : null}
                     </span>
                     <span className="block truncate text-on-surface-variant">
-                      {barang.size_field_key ? `Ukuran dari ${labelField(barang.size_field_key)}` : "Tanpa ukuran"}
+                      {barang.size_field_key ? `Size from ${labelField(barang.size_field_key)}` : "No size"}
                     </span>
                   </span>
                   <span className="w-40 shrink-0 truncate text-on-surface-variant max-sm:hidden">
@@ -88,59 +88,59 @@ export function TabBarang({ data, kirim, busy, baru, tutupBaru }: TabProps) {
     const diSesi = sesi(barang);
     const baris = rekap(barang);
     return (
-      <Pane as="aside" aria-label={`Detail ${barang.name}`}>
+      <Pane as="aside" aria-label={`${barang.name} details`}>
         <KepalaDetail
           nama={barang.name}
-          sub={barang.size_field_key ? `Ukuran dari field ${labelField(barang.size_field_key)}` : "Tanpa ukuran"}
+          sub={barang.size_field_key ? `Size from field ${labelField(barang.size_field_key)}` : "No size"}
           angka={`${diambil}/${peserta}`}
-          keterangan="sudah diambil"
+          keterangan="collected"
           onClose={() => setPilih(null)}
         />
         <PaneBody>
           {barang.size_field_key ? (
-            <DetailSection title="Per ukuran">
+            <DetailSection title="By size">
               <table className="w-full text-body-medium">
                 <thead>
                   <tr className="text-left text-on-surface-variant">
-                    <th scope="col" className="py-1 font-normal">Ukuran</th>
-                    <th scope="col" className="py-1 text-right font-normal">Peserta</th>
-                    <th scope="col" className="py-1 text-right font-normal">Diambil</th>
+                    <th scope="col" className="py-1 font-normal">Size</th>
+                    <th scope="col" className="py-1 text-right font-normal">Participants</th>
+                    <th scope="col" className="py-1 text-right font-normal">Collected</th>
                   </tr>
                 </thead>
                 <tbody>
                   {baris.map((b) => (
                     <tr key={b.size ?? "kosong"} className="border-t border-outline-variant">
-                      <td className={cx("py-1.5", b.size ? "text-on-surface" : "text-on-surface-variant")}>{b.size ?? "Belum mengisi"}</td>
+                      <td className={cx("py-1.5", b.size ? "text-on-surface" : "text-on-surface-variant")}>{b.size ?? "No answer"}</td>
                       <td className="py-1.5 text-right tabular-nums">{b.participants}</td>
                       <td className="py-1.5 text-right tabular-nums">{b.picked_up}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <p className="text-body-small text-on-surface-variant">Dari jawaban peserta saat ini. Ukuran yang tercatat saat diambil disimpan terpisah dan tidak ikut berubah.</p>
+              <p className="text-body-small text-on-surface-variant">From participants&rsquo; current answers. The size recorded at collection is stored separately and does not change.</p>
             </DetailSection>
           ) : null}
           <DetailSection
-            title="Diperiksa di sesi scan"
-            action={<ButtonLink href="/admin/attendance" variant="text" size="sm">Atur di Kehadiran</ButtonLink>}
+            title="Checked at check-in points"
+            action={<ButtonLink href="/admin/attendance" variant="text" size="sm">Set up in Check-in</ButtonLink>}
           >
             {diSesi.length === 0 ? (
-              <Banner tone="warning" icon={<Warning size={18} />}>Belum di sesi mana pun, jadi petugas scan belum bisa menandainya. Pilih sesinya di halaman Kehadiran.</Banner>
+              <Banner tone="warning" icon={<Warning size={18} />}>Not at any check-in point yet, so scanner staff cannot mark it as handed out. Choose a check-in point on the Check-in page.</Banner>
             ) : (
               <ul className="flex flex-col gap-1 text-body-medium text-on-surface">
                 {diSesi.map((b) => <li key={b.session_id}>{b.session_name}</li>)}
               </ul>
             )}
           </DetailSection>
-          <DetailSection title="Keterangan untuk peserta">
+          <DetailSection title="Note for participants">
             <p className="text-body-medium text-on-surface">{barang.pickup_note ?? EMPTY_VALUE}</p>
           </DetailSection>
         </PaneBody>
-        <PaneFooter note={diambil > 0 ? "Sudah ada yang mengambil, jadi barang ini tidak bisa dihapus." : undefined}>
+        <PaneFooter note={diambil > 0 ? "Someone has already collected this kit item, so it cannot be deleted." : undefined}>
           {diambil === 0 ? (
-            <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapus(barang)}>Hapus</Button>
+            <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapus(barang)}>Delete</Button>
           ) : null}
-          <Button variant="outlined" size="sm" onClick={() => setUbah(barang)}>Ubah</Button>
+          <Button variant="outlined" size="sm" onClick={() => setUbah(barang)}>Edit</Button>
         </PaneFooter>
       </Pane>
     );
@@ -167,16 +167,16 @@ export function TabBarang({ data, kirim, busy, baru, tutupBaru }: TabProps) {
         onClose={() => setHapus(null)}
         dismissible={!busy}
         tone="danger"
-        title={`Hapus ${hapus?.name ?? ""}?`}
-        description="Belum ada yang mengambil barang ini. Barang juga dilepas dari semua sesi scan. Tidak bisa dibatalkan."
+        title={`Delete ${hapus?.name ?? ""}?`}
+        description="Nobody has collected this kit item yet. It is also removed from every check-in point. This cannot be undone."
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setHapus(null)}>Batal</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setHapus(null)}>Cancel</Button>
             <Button simpan variant="danger" loading={busy} onClick={async () => {
               const target = hapus;
               setHapus(null);
               if (target && await kirim(`/api/admin/logistik/data/barang?id=${target.id}`, "DELETE")) setPilih(null);
-            }}>Hapus barang</Button>
+            }}>Delete kit item</Button>
           </>
         }
       />
@@ -212,27 +212,27 @@ function FormBarang({ barang, fields, busy, onClose, simpan }: {
       open={barang !== null}
       onClose={tutup}
       dismissible={!busy}
-      title={lama ? `Ubah ${lama.name}` : "Barang baru"}
+      title={lama ? `Edit ${lama.name}` : "New kit item"}
       icon={<Package size={20} />}
       actions={
         <>
-          <Button variant="outlined" disabled={busy} onClick={tutup}>Batal</Button>
-          <Button simpan type="submit" form="form-barang" loading={busy} disabled={!sah}>{lama ? "Simpan barang" : "Tambah barang"}</Button>
+          <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
+          <Button simpan type="submit" form="form-barang" loading={busy} disabled={!sah}>{lama ? "Save kit item" : "Add kit item"}</Button>
         </>
       }
     >
       <form id="form-barang" className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void kirimForm(); }}>
-        <TextField label="Nama barang" placeholder="mis. Kaos, Goodie bag" autoFocus value={nilai.name} onChange={(event) => setDraf({ ...nilai, name: event.target.value })} />
+        <TextField label="Kit item name" placeholder="e.g. T-shirt, Goodie bag" autoFocus value={nilai.name} onChange={(event) => setDraf({ ...nilai, name: event.target.value })} />
         <SelectField
-          label="Ukuran dibaca dari"
+          label="Size taken from"
           value={nilai.size_field_key}
           onChange={(event) => setDraf({ ...nilai, size_field_key: event.target.value })}
-          hint="Field formulir atau kolom impor yang berisi ukuran peserta. Petugas scan melihat ukurannya saat menyerahkan."
+          hint="The form field or import column that holds each participant's size. Scanner staff see the size when they hand the item out."
         >
-          <option value="">Tanpa ukuran</option>
-          {fields.map((f) => <option key={f.key} value={f.key}>{f.label}{f.source === "data" ? " (dari impor)" : ""}</option>)}
+          <option value="">No size</option>
+          {fields.map((f) => <option key={f.key} value={f.key}>{f.label}{f.source === "data" ? " (from import)" : ""}</option>)}
         </SelectField>
-        <TextField label="Keterangan untuk peserta" optional placeholder="mis. Ambil di meja registrasi, lobi utama" value={nilai.pickup_note} onChange={(event) => setDraf({ ...nilai, pickup_note: event.target.value })} />
+        <TextField label="Note for participants" optional placeholder="e.g. Collect at the check-in desk, main lobby" value={nilai.pickup_note} onChange={(event) => setDraf({ ...nilai, pickup_note: event.target.value })} />
       </form>
     </Dialog>
   );

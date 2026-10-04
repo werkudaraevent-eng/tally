@@ -6,6 +6,7 @@ import { Banner, Button, ChipMenu, Dialog, EmptyState, IconButton, ListDetail, P
 import { kunciGender, type Bus, type Kamar, type LogistikPeserta } from "@/lib/logistik/types";
 import Link from "@/components/event-link";
 import { cx } from "@/lib/m3/cx";
+import { plural } from "@/lib/plural";
 import { KolomCari, type TabProps } from "./bersama";
 
 /**
@@ -124,47 +125,47 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
 
   const toolbar = pilih.size > 0 ? (
     <PaneHeader className="flex-wrap gap-2 px-3 py-2.5">
-      <span className="mr-1 text-body-medium tabular-nums text-on-surface" aria-live="polite">{pilih.size} dipilih</span>
+      <span className="mr-1 text-body-medium tabular-nums text-on-surface" aria-live="polite">{pilih.size.toLocaleString("en-GB")} selected</span>
       {/* Centang di kepala tabel memilih satu halaman. Rombongan satu perusahaan
           bisa lebih dari 25 orang, jadi sisanya dipilih dari sini, bukan dengan
           membuka halaman demi halaman. */}
       {semuaHalamanDipilih && !semuaTampilDipilih ? (
         <Button variant="text" size="sm" onClick={() => pilihBanyak(tampil, true)}>
-          {adaSaringan ? `Pilih semua ${tampil.length} hasil saringan` : `Pilih semua ${tampil.length} peserta`}
+          {adaSaringan ? `Select all ${plural(tampil.length, "filtered result")}` : `Select all ${plural(tampil.length, "participant")}`}
         </Button>
       ) : null}
-      <Button variant="tonal" size="sm" icon={<Bed size={16} />} onClick={() => setDialog("kamar")}>Masukkan ke kamar</Button>
-      <Button variant="tonal" size="sm" icon={<IkonBus size={16} />} onClick={() => setDialog("bus")}>Masukkan ke bus</Button>
+      <Button variant="tonal" size="sm" icon={<Bed size={16} />} onClick={() => setDialog("kamar")}>Assign to room</Button>
+      <Button variant="tonal" size="sm" icon={<IkonBus size={16} />} onClick={() => setDialog("bus")}>Assign to bus</Button>
       {dipilih.some((orang) => kamarPeserta.has(orang.id)) ? (
-        <Button variant="text" size="sm" onClick={() => setDialog("lepas-kamar")}>Lepas kamar</Button>
+        <Button variant="text" size="sm" onClick={() => setDialog("lepas-kamar")}>Remove from room</Button>
       ) : null}
       {dipilih.some((orang) => busPeserta.has(orang.id)) ? (
-        <Button variant="text" size="sm" onClick={() => setDialog("lepas-bus")}>Lepas bus</Button>
+        <Button variant="text" size="sm" onClick={() => setDialog("lepas-bus")}>Remove from bus</Button>
       ) : null}
-      <Button variant="text" size="sm" className="ml-auto" icon={<X size={16} />} onClick={() => setPilih(new Set())}>Batal pilih</Button>
+      <Button variant="text" size="sm" className="ml-auto" icon={<X size={16} />} onClick={() => setPilih(new Set())}>Clear selection</Button>
     </PaneHeader>
   ) : (
     <PaneHeader className="flex-wrap gap-2 px-3 py-2.5">
-      <KolomCari className="max-w-80" label="Cari peserta" placeholder="Cari nama, perusahaan, atau kode QR" value={cari} onChange={setCari} />
+      <KolomCari className="max-w-80" label="Search participants" placeholder="Search name, organisation or QR code" value={cari} onChange={setCari} />
       <ChipMenu
-        label="Kamar"
-        options={[{ value: "belum", label: "Belum dapat kamar", count: belumKamar }, { value: "sudah", label: "Sudah dapat kamar" }]}
+        label="Room"
+        options={[{ value: "belum", label: "No room", count: belumKamar }, { value: "sudah", label: "Has a room" }]}
         selected={saringKamar}
         onChange={setSaringKamar}
-        summary={(pilihan) => pilihan[0]?.label ?? "Kamar"}
+        summary={(pilihan) => pilihan[0]?.label ?? "Room"}
       />
       <ChipMenu
         label="Bus"
-        options={[{ value: "belum", label: "Belum punya bus", count: belumBus }, { value: "sudah", label: "Sudah punya bus" }]}
+        options={[{ value: "belum", label: "No bus", count: belumBus }, { value: "sudah", label: "Has a bus" }]}
         selected={saringBus}
         onChange={setSaringBus}
         summary={(pilihan) => pilihan[0]?.label ?? "Bus"}
       />
       <ChipMenu
-        label="Perusahaan"
+        label="Organisation"
         multiple
         searchable
-        options={perusahaan.map(([nama, jumlah]) => ({ value: nama, label: nama || "Tanpa perusahaan", count: jumlah }))}
+        options={perusahaan.map(([nama, jumlah]) => ({ value: nama, label: nama || "No organisation", count: jumlah }))}
         selected={saringPerusahaan}
         onChange={setSaringPerusahaan}
       />
@@ -180,18 +181,18 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
           sama dengan Daftar peserta. Pane biasa memanjang mengikuti isinya dan
           kepala tabel ikut tergulir hilang. */}
       <ListDetail detail={null} list={
-      <Pane aria-label="Penempatan peserta">
+      <Pane aria-label="Participant assignments">
         {toolbar}
         <PaneBody className="overflow-x-auto">
           {data.participants.length === 0 ? (
-            <EmptyState plain icon={<Users size={40} />} title="Belum ada peserta aktif" description="Peserta yang terdaftar muncul di sini, lalu bisa dimasukkan ke kamar dan bus." />
+            <EmptyState plain icon={<Users size={40} />} title="No active participants yet" description="Registered participants appear here, ready to be assigned to rooms and buses." />
           ) : tampil.length === 0 ? (
             <EmptyState
               plain
               icon={<MagnifyingGlass size={40} />}
-              title="Tidak ada peserta yang cocok"
-              description="Longgarkan saringan atau ubah kata cari."
-              action={<Button variant="outlined" size="sm" onClick={hapusSaringan}>Hapus saringan</Button>}
+              title="No matching participants"
+              description="Loosen the filters or change your search."
+              action={<Button variant="outlined" size="sm" onClick={hapusSaringan}>Clear filters</Button>}
             />
           ) : (
             <table className="w-full min-w-[640px] border-separate border-spacing-0 text-body-medium">
@@ -200,17 +201,17 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                   <th scope="col" className={cx(th, "w-10 pl-4 pr-0")}>
                     <input
                       type="checkbox"
-                      aria-label={`Pilih ${barisHalaman.length} peserta di halaman ini`}
+                      aria-label={`Select ${plural(barisHalaman.length, "participant")} on this page`}
                       checked={semuaHalamanDipilih}
                       ref={(el) => { if (el) el.indeterminate = sebagianDipilih; }}
                       onChange={(event) => pilihBanyak(barisHalaman, event.target.checked)}
                       className="size-4 align-middle accent-[var(--md-sys-color-primary)]"
                     />
                   </th>
-                  <th scope="col" className={th}>Nama</th>
-                  <th scope="col" className={th}>Perusahaan</th>
-                  {kunciField ? <th scope="col" className={th}>Jenis kelamin</th> : null}
-                  <th scope="col" className={th}>Kamar</th>
+                  <th scope="col" className={th}>Name</th>
+                  <th scope="col" className={th}>Organisation</th>
+                  {kunciField ? <th scope="col" className={th}>Gender</th> : null}
+                  <th scope="col" className={th}>Room</th>
                   <th scope="col" className={th}>Bus</th>
                 </tr>
               </thead>
@@ -229,7 +230,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                       <td className={cx(td, "w-10 pl-4 pr-0")}>
                         <input
                           type="checkbox"
-                          aria-label={`Pilih ${orang.name}`}
+                          aria-label={`Select ${orang.name}`}
                           checked={centang}
                           onClick={(event) => event.stopPropagation()}
                           onChange={(event) => ubah(orang.id, event.target.checked)}
@@ -241,7 +242,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                           href={`/admin/participants?peserta=${encodeURIComponent(orang.qr_code)}`}
                           onClick={(event) => event.stopPropagation()}
                           className="rounded-sm text-on-surface underline-offset-2 hover:underline"
-                          title="Buka di Daftar peserta"
+                          title="Open in Participant list"
                         >
                           {orang.name}
                         </Link>
@@ -268,16 +269,16 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
           className="bg-surface-container-lowest py-2"
           note={
             <span className="tabular-nums">
-              {tampil.length === 0 ? "0 peserta" : `${nomorHalaman * PER_HALAMAN + 1}–${nomorHalaman * PER_HALAMAN + barisHalaman.length} dari ${tampil.length}`}
-              {adaSaringan ? ` (${data.participants.length} peserta seluruhnya)` : ""}
+              {tampil.length === 0 ? "0 participants" : `${nomorHalaman * PER_HALAMAN + 1}–${nomorHalaman * PER_HALAMAN + barisHalaman.length} of ${tampil.length.toLocaleString("en-GB")}`}
+              {adaSaringan ? ` (${plural(data.participants.length, "participant")} in total)` : ""}
             </span>
           }
         >
           {jumlahHalaman > 1 ? (
             <>
-              <IconButton size="sm" variant="outlined" label="Halaman sebelumnya" disabled={nomorHalaman === 0} onClick={() => keHalaman(nomorHalaman - 1)}><CaretLeft size={16} /></IconButton>
+              <IconButton size="sm" variant="outlined" label="Previous page" disabled={nomorHalaman === 0} onClick={() => keHalaman(nomorHalaman - 1)}><CaretLeft size={16} /></IconButton>
               <span className="min-w-14 text-center text-body-medium tabular-nums text-on-surface-variant">{nomorHalaman + 1} / {jumlahHalaman}</span>
-              <IconButton size="sm" variant="outlined" label="Halaman berikutnya" disabled={nomorHalaman + 1 >= jumlahHalaman} onClick={() => keHalaman(nomorHalaman + 1)}><CaretRight size={16} /></IconButton>
+              <IconButton size="sm" variant="outlined" label="Next page" disabled={nomorHalaman + 1 >= jumlahHalaman} onClick={() => keHalaman(nomorHalaman + 1)}><CaretRight size={16} /></IconButton>
             </>
           ) : null}
         </PaneFooter>
@@ -309,15 +310,15 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
         open={dialog === "lepas-kamar"}
         onClose={() => setDialog(null)}
         dismissible={!busy}
-        title={`Lepas ${dipilih.filter((o) => kamarPeserta.has(o.id)).length} orang dari kamarnya?`}
-        description="Tempat mereka di kamar menjadi kosong lagi. Yang dipilih tanpa kamar tidak berubah."
+        title={`Remove ${plural(dipilih.filter((o) => kamarPeserta.has(o.id)).length, "person", "people")} from their room?`}
+        description="Their places in the room become free again. Selected people without a room are not affected."
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setDialog(null)}>Batal</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setDialog(null)}>Cancel</Button>
             <Button simpan loading={busy} onClick={async () => {
               const ids = dipilih.filter((o) => kamarPeserta.has(o.id)).map((o) => `participant_id=${o.id}`).join("&");
               await selesai(await kirim(`/api/admin/logistik/penghuni?${ids}`, "DELETE"));
-            }}>Lepas kamar</Button>
+            }}>Remove from room</Button>
           </>
         }
       />
@@ -326,15 +327,15 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
         open={dialog === "lepas-bus"}
         onClose={() => setDialog(null)}
         dismissible={!busy}
-        title={`Lepas ${dipilih.filter((o) => busPeserta.has(o.id)).length} orang dari bus bawaannya?`}
-        description="Mereka tidak lagi punya bus bawaan. Bus pengganti yang diatur per agenda di tab Bus, bagian Agenda, tetap berlaku."
+        title={`Remove ${plural(dipilih.filter((o) => busPeserta.has(o.id)).length, "person", "people")} from their default bus?`}
+        description="They will no longer have a default bus. Replacement buses set for a single trip (Buses tab, Trips section) still apply."
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setDialog(null)}>Batal</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setDialog(null)}>Cancel</Button>
             <Button simpan loading={busy} onClick={async () => {
               const ids = dipilih.filter((o) => busPeserta.has(o.id)).map((o) => o.id);
               await selesai(await kirim("/api/admin/logistik/penumpang", "POST", { trip_id: null, vehicle_id: null, participant_ids: ids }));
-            }}>Lepas bus</Button>
+            }}>Remove from bus</Button>
           </>
         }
       />
@@ -395,10 +396,10 @@ function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, simpan }: {
   const tanpaGender = wajibSama && kunciField ? orang.filter((o) => !kunciGender(o.gender)) : [];
   const genderDipilih = new Set(orang.map((o) => kunciGender(o.gender)).filter(Boolean));
   const blokir =
-    n > BATAS_KAMAR ? `Paling banyak ${BATAS_KAMAR} orang sekaligus ke satu kamar. Kurangi pilihannya.`
-    : wajibSama && !kunciField ? "Aturan kamar belum lengkap: pilih field jenis kelamin di tab Kamar, atau izinkan kamar campuran."
-    : tanpaGender.length > 0 ? `${tanpaGender.length} orang belum mengisi ${namaField}: ${tanpaGender.slice(0, 3).map((o) => o.name).join(", ")}${tanpaGender.length > 3 ? ", dan lainnya" : ""}.`
-    : wajibSama && genderDipilih.size > 1 ? "Yang dipilih berbeda jenis kelamin, sedangkan kamar harus sesama jenis kelamin. Pilih yang sama saja."
+    n > BATAS_KAMAR ? `You can add at most ${BATAS_KAMAR} people to one room at a time. Select fewer people.`
+    : wajibSama && !kunciField ? "Room rules are incomplete: choose a gender field on the Rooms tab, or allow mixed rooms."
+    : tanpaGender.length > 0 ? `${plural(tanpaGender.length, "person has", "people have")} no answer for ${namaField}: ${tanpaGender.slice(0, 3).map((o) => o.name).join(", ")}${tanpaGender.length > 3 ? ", and others" : ""}.`
+    : wajibSama && genderDipilih.size > 1 ? "The selection includes different genders, but rooms must be same-gender. Select people of one gender only."
     : null;
   const gender = [...genderDipilih][0] ?? null;
 
@@ -417,9 +418,9 @@ function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, simpan }: {
         const isi = penghuni.get(kamar.id) ?? [];
         const sisa = kamar.capacity - isi.length;
         const genderKamar = kunciGender(isi.find((o) => o.gender)?.gender);
-        const alasan = sisa <= 0 ? "Penuh"
-          : sisa < n ? `Sisa ${sisa}`
-          : wajibSama && gender && genderKamar && genderKamar !== gender ? "Beda jenis kelamin"
+        const alasan = sisa <= 0 ? "Full"
+          : sisa < n ? `${sisa} left`
+          : wajibSama && gender && genderKamar && genderKamar !== gender ? "Different gender"
           : null;
         const hotel = data.hotels.find((h) => h.id === kamar.hotel_id)?.name ?? "";
         return { kamar, isi, sisa, alasan, hotel };
@@ -441,40 +442,40 @@ function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, simpan }: {
       dismissible={!busy}
       size="lg"
       icon={<Bed size={20} />}
-      title={`Masukkan ${n} orang ke kamar`}
-      description={n === 1 ? orang[0]?.name : `${orang.slice(0, 3).map((o) => o.name).join(", ")}${n > 3 ? `, dan ${n - 3} lainnya` : ""}`}
+      title={`Assign ${plural(n, "person", "people")} to a room`}
+      description={n === 1 ? orang[0]?.name : `${orang.slice(0, 3).map((o) => o.name).join(", ")}${n > 3 ? `, and ${n - 3} more` : ""}`}
       actions={
         <>
-          <Button variant="outlined" disabled={busy} onClick={tutup}>Batal</Button>
+          <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
           <Button simpan loading={busy} disabled={!pilihan || Boolean(blokir) || Boolean(pilihan.alasan)} onClick={async () => { if (pilihan && await simpan(pilihan.kamar)) tutup(); }}>
-            {pilihan ? `Masukkan ke ${pilihan.kamar.room_number}` : "Masukkan"}
+            {pilihan ? `Assign to ${pilihan.kamar.room_number}` : "Assign"}
           </Button>
         </>
       }
     >
       {data.rooms.length === 0 ? (
-        <EmptyState plain icon={<Bed size={40} />} title="Belum ada kamar" description="Tambahkan hotel dan kamarnya di tab Kamar dulu." action={<Button variant="outlined" size="sm" onClick={keTabKamar}>Buka tab Kamar</Button>} />
+        <EmptyState plain icon={<Bed size={40} />} title="No rooms yet" description="Add hotels and their rooms on the Rooms tab first." action={<Button variant="outlined" size="sm" onClick={keTabKamar}>Open Rooms tab</Button>} />
       ) : blokir ? (
         <Banner tone="warning" icon={<Warning size={18} />}>{blokir}</Banner>
       ) : (
         <div className="flex flex-col gap-3">
-          <KolomCari label="Cari kamar" placeholder="Nomor kamar, hotel, atau nama penghuni" value={cari} onChange={setCari} />
+          <KolomCari label="Search rooms" placeholder="Room number, hotel or occupant name" value={cari} onChange={setCari} />
           <label className="flex items-center gap-2 text-body-medium text-on-surface">
             <input type="checkbox" checked={semua} onChange={(event) => setSemua(event.target.checked)} className="size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
-            Tampilkan juga kamar yang tidak cukup
+            Also show rooms without enough space
           </label>
-          <ul className="flex max-h-[44dvh] flex-col overflow-y-auto rounded-md border border-outline-variant" aria-label="Kamar tujuan">
+          <ul className="flex max-h-[44dvh] flex-col overflow-y-auto rounded-md border border-outline-variant" aria-label="Destination room">
             {tampil.length === 0 ? (
               <li className="px-4 py-6 text-center text-body-medium text-on-surface-variant">
-                {kata ? "Tidak ada kamar yang cocok." : `Tidak ada kamar dengan ${n} tempat kosong${gender && wajibSama ? " untuk jenis kelamin ini" : ""}. Tambah kamar di tab Kamar, atau kurangi pilihannya.`}
+                {kata ? "No matching rooms." : `No room has ${plural(n, "free place")}${gender && wajibSama ? " for this gender" : ""}. Add rooms on the Rooms tab, or select fewer people.`}
               </li>
             ) : tampil.map((b) => (
               <BarisTujuan
                 key={b.kamar.id}
                 name="kamar-tujuan"
                 nama={[b.kamar.room_number, data.hotels.length > 1 ? b.hotel : null, b.kamar.room_type].filter(Boolean).join(" · ")}
-                keterangan={b.isi.length > 0 ? b.isi.map((o) => o.name).join(", ") : "Kosong"}
-                sisa={`${b.sisa} kosong`}
+                keterangan={b.isi.length > 0 ? b.isi.map((o) => o.name).join(", ") : "Empty"}
+                sisa={`${b.sisa} free`}
                 alasan={b.alasan}
                 checked={tujuan === b.kamar.id}
                 onPilih={() => setTujuan(b.kamar.id)}
@@ -513,7 +514,7 @@ function DialogBus({ open, orang, data, busPeserta, busy, onClose, keTabBus, sim
   const baris = data.vehicles.map((bus) => {
     const isi = isiBawaan.get(bus.id) ?? 0;
     const sisa = bus.capacity === null ? null : bus.capacity - isi;
-    const alasan = sisa === null ? null : sisa <= 0 ? "Penuh" : sisa < n ? `Sisa ${sisa}` : null;
+    const alasan = sisa === null ? null : sisa <= 0 ? "Full" : sisa < n ? `${sisa} left` : null;
     return { bus, isi, sisa, alasan };
   });
   const pilihan = baris.find((b) => b.bus.id === tujuan);
@@ -525,28 +526,28 @@ function DialogBus({ open, orang, data, busPeserta, busy, onClose, keTabBus, sim
       dismissible={!busy}
       size="md"
       icon={<IkonBus size={20} />}
-      title={`Masukkan ${n} orang ke bus`}
-      description="Menjadi bus bawaan mereka di setiap agenda. Pengecualian per agenda diatur di tab Bus, bagian Agenda."
+      title={`Assign ${plural(n, "person", "people")} to a bus`}
+      description="This becomes their default bus on every trip. Exceptions for a single trip are set on the Buses tab, Trips section."
       actions={
         <>
-          <Button variant="outlined" disabled={busy} onClick={tutup}>Batal</Button>
+          <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
           <Button simpan loading={busy} disabled={!pilihan || Boolean(pilihan.alasan)} onClick={async () => { if (pilihan && await simpan(pilihan.bus)) tutup(); }}>
-            {pilihan ? `Masukkan ke ${pilihan.bus.code}` : "Masukkan"}
+            {pilihan ? `Assign to ${pilihan.bus.code}` : "Assign"}
           </Button>
         </>
       }
     >
       {data.vehicles.length === 0 ? (
-        <EmptyState plain icon={<IkonBus size={40} />} title="Belum ada bus" description="Tambahkan bus di tab Bus dulu." action={<Button variant="outlined" size="sm" onClick={keTabBus}>Buka tab Bus</Button>} />
+        <EmptyState plain icon={<IkonBus size={40} />} title="No buses yet" description="Add buses on the Buses tab first." action={<Button variant="outlined" size="sm" onClick={keTabBus}>Open Buses tab</Button>} />
       ) : (
-        <ul className="flex max-h-[44dvh] flex-col overflow-y-auto rounded-md border border-outline-variant" aria-label="Bus tujuan">
+        <ul className="flex max-h-[44dvh] flex-col overflow-y-auto rounded-md border border-outline-variant" aria-label="Destination bus">
           {baris.map((b) => (
             <BarisTujuan
               key={b.bus.id}
               name="bus-tujuan"
               nama={b.bus.code}
               keterangan={b.bus.plate_number}
-              sisa={b.sisa === null ? `${b.isi} penumpang` : `${b.sisa} kursi kosong`}
+              sisa={b.sisa === null ? plural(b.isi, "passenger") : plural(b.sisa, "free seat")}
               alasan={b.alasan}
               checked={tujuan === b.bus.id}
               onPilih={() => setTujuan(b.bus.id)}
