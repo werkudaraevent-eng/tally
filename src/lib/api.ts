@@ -76,6 +76,7 @@ const messages: Record<ApiErrorCode, string> = {
   // Tabel pengumuman dibuat migrasi 202610030002. Sebelum dijalankan, fitur
   // ini mati dengan pesan yang menyebut langkahnya, bukan galat 500.
   ANNOUNCEMENTS_NOT_READY: "Fitur pengumuman belum aktif: migrasi database 202610030002 belum dijalankan.",
+  BADGE_NOT_READY: "Badge kertas belum bisa disimpan: migrasi database 202610040001 belum dijalankan.",
   // Menyebut SIAPA yang harus bertindak. Panitia yang membaca "gagal terkirim"
   // akan menekan Kirim ulang berkali-kali untuk keadaan yang tidak akan berubah
   // sampai pemilik sistem mengisi kunci API.
