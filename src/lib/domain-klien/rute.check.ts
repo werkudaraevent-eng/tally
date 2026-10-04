@@ -13,7 +13,7 @@ for (const p of ["/e/ilo/rundown", "/e/ilo/denah", "/e/ilo/vote", "/e/ilo/kode/a
 assert.deepEqual(putuskan("/daftar"), { kind: "layani", pathname: "/daftar", addSlugQuery: true });
 assert.deepEqual(putuskan("/daftar", "eventSlug=ilo"), { kind: "layani", pathname: "/daftar", addSlugQuery: false });
 // Ruang kerja panitia, API admin, dan acara lain tidak pernah dilayani.
-for (const p of ["/admin", "/admin/settings", "/login", "/booth", "/cashier", "/scan", "/api/admin/domain", "/api/cron/pesan", "/api/settings", "/e/acara-lain", "/e/acara-lain/rundown", "/e/ilo/admin/settings", "/e/ilo/booth", "/e/ilo/api/admin/domain"]) {
+for (const p of ["/admin", "/admin/settings", "/login", "/booth", "/cashier", "/scan", "/api/admin/domain", "/api/cron/pesan", "/api/settings", "/e/acara-lain", "/e/acara-lain/rundown", "/e/ilo/admin/settings", "/e/ilo/booth", "/e/ilo/api/admin/domain", "/stasiun", "/cetak-badge", "/e/ilo/stasiun", "/e/ilo/cetak-badge"]) {
   assert.equal(putuskan(p).kind, "tolak", p);
 }
 assert.equal(putuskan("/daftar", "eventSlug=lain").kind, "tolak");
@@ -45,7 +45,7 @@ assert.equal(alih("/admin"), null);
 for (const p of ["/e/ilo/en", "/e/ilo/id/", "/e/ilo/daftar", "/e/ilo/en/daftar", "/e/ilo/peserta", "/e/ilo/peserta/tiket", "/e/ilo/rundown", "/e/ilo/denah", "/e/ilo/kode/ABC123"]) {
   assert.equal(alih(p), `https://event.ilo-forum.org${p}`, p);
 }
-for (const p of ["/e/ilo/admin", "/e/ilo/admin/settings", "/e/ilo/booth", "/e/ilo/cashier", "/e/ilo/scan", "/e/ilo/display", "/e/ilo/undian", "/e/ilo/workspace", "/e/ilo/pratinjau", "/e/ilo/api/pesan/berhenti", "/e/ilo/vote"]) {
+for (const p of ["/e/ilo/admin", "/e/ilo/admin/settings", "/e/ilo/booth", "/e/ilo/cashier", "/e/ilo/scan", "/e/ilo/display", "/e/ilo/undian", "/e/ilo/workspace", "/e/ilo/pratinjau", "/e/ilo/api/pesan/berhenti", "/e/ilo/vote", "/e/ilo/stasiun", "/e/ilo/cetak-badge"]) {
   assert.equal(alih(p), null, p);
 }
 

@@ -16,7 +16,7 @@ export type KeputusanHost =
  * admin. Semua yang lain (halaman peserta, /e/<slug>/*, /api publik dan
  * peserta, aset) dilayani untuk acara pemilik domain itu saja.
  */
-const DILARANG = [/^\/admin(\/|$)/, /^\/login(\/|$)/, /^\/booth(\/|$)/, /^\/cashier(\/|$)/, /^\/scan(\/|$)/, /^\/api\/(admin|cron|auth|settings|webhooks)(\/|$)/];
+const DILARANG = [/^\/admin(\/|$)/, /^\/login(\/|$)/, /^\/booth(\/|$)/, /^\/cashier(\/|$)/, /^\/scan(\/|$)/, /^\/stasiun(\/|$)/, /^\/cetak-badge(\/|$)/, /^\/api\/(admin|cron|auth|settings|webhooks)(\/|$)/];
 
 /** API publik dan peserta, langsung atau lewat /e/<slug>/api. */
 const API = /^\/(e\/[^/]+\/)?api(\/|$)/;

@@ -46,6 +46,7 @@ import {
   type PrinterInfo,
 } from "@/lib/label/printer";
 import { renderLabelDataUrl } from "@/lib/label/render";
+import { DialogGantiStasiun, PanelCetakMeja, barisCetakMeja, useCetakMeja } from "./cetak-meja";
 import { usePemindaiKeyboard } from "./pemindai-keyboard";
 import { ResultSheet, TUTUP_OTOMATIS_MS } from "./result-sheet";
 import { bacaSuara, bukaSuara, bunyikan, simpanSuara } from "./umpan-balik";
@@ -422,6 +423,20 @@ export default function ScanClient() {
   const [cetak, setCetak] = useState<StatusCetak>({ fase: "diam" });
   const [modeCetak, setModeCetak] = useState<ModeCetak>("off");
 
+  // ---- Badge kertas lewat stasiun cetak (cetak-meja.tsx) -------------------
+  // Null: acara ini tidak mencetak badge kertas di meja. `siap: false`: memilih
+  // badge, tetapi migrasi stasiun belum dijalankan.
+  const [badgeMeja, setBadgeMeja] = useState<{ siap: boolean; menit: number } | null>(null);
+  const [eventSlug, setEventSlug] = useState("");
+  const suaraNyala = useCallback(() => suaraRef.current, []);
+  const meja = useCetakMeja(Boolean(badgeMeja?.siap), laneId, suaraNyala);
+  const { bodyCetak, catat: catatCetak } = meja;
+  // Pekerjaan Print again yang dibuat dari lembar `kedip` ini, menggantikan
+  // pekerjaan yang datang bersama jawaban scan.
+  const [ulangLembar, setUlangLembar] = useState<{ kedip: number; id: number } | null>(null);
+  const [mengantre, setMengantre] = useState(false);
+  const [gantiJob, setGantiJob] = useState<number | null>(null);
+
   /**
    * Apakah peramban ini punya Web Bluetooth sama sekali.
    *
@@ -452,6 +467,8 @@ export default function ScanClient() {
     setAllowWalkIn(Boolean(body.allow_walk_in));
     setWalkinFields((body.walkin_fields ?? []) as RegistrationField[]);
     setLabel((body.label ?? null) as LabelSettings | null);
+    setBadgeMeja((body.badge_meja ?? null) as { siap: boolean; menit: number } | null);
+    setEventSlug(body.event?.slug ?? "");
     // Sesi yang dipilih bisa ditutup admin di tengah hari. Diam-diam pindah ke
     // sesi pertama berarti pemindaian berikutnya tercatat di sesi yang salah;
     // yang benar adalah membuka bilah meja dan meminta petugas memilih lagi.
@@ -645,6 +662,7 @@ export default function ScanClient() {
    */
   const terapkanHasil = useCallback((data: Hasil, sesi: number) => {
     pasangLembar(data);
+    catatCetak(data.badge_cetak, data.participant?.name ?? "");
     setPesan("");
     setOffline(false);
     gagalRef.current = null;
@@ -674,7 +692,7 @@ export default function ScanClient() {
     const mode = printerSupported() ? modeRef.current : "off";
     const perlu = mode === "semua" ? beres : mode === "walkin" ? data.status === "created" : false;
     if (perlu && data.participant) void cetakRef.current(data.participant);
-  }, [pasangLembar]);
+  }, [catatCetak, pasangLembar]);
 
   /**
    * Lembar untuk pemindaian yang tidak menghasilkan jawaban server yang sah.
@@ -709,7 +727,9 @@ export default function ScanClient() {
       // Jalur ikut di setiap pemindaian, bukan disimpulkan belakangan dari siapa
       // yang memindai: satu akun petugas dipakai bergantian di beberapa meja,
       // jadi `scanned_by` tidak pernah bisa menjawab "meja yang mana".
-      body: JSON.stringify({ session_id: sessionId, qr, lane_id: laneId }),
+      // Stasiun cetak dan mode cetak otomatis HP ini. Server yang mengantrekan
+      // badge-nya, di permintaan yang sama dengan pencatatan kehadiran.
+      body: JSON.stringify({ session_id: sessionId, qr, lane_id: laneId, cetak: bodyCetak() }),
       signal: batas.signal,
     }).catch(() => null);
     window.clearTimeout(pewaktu);
@@ -750,7 +770,7 @@ export default function ScanClient() {
     }
     terapkanHasil({ ...data, qr: data.qr ?? qr }, sessionId);
     return data;
-  }, [laneId, sessionId, terapkanHasil, tampilGagal]);
+  }, [bodyCetak, laneId, sessionId, terapkanHasil, tampilGagal]);
 
   /**
    * Pintu masuk setiap kode yang terbaca kamera atau pemindai genggam.
@@ -1041,6 +1061,7 @@ export default function ScanClient() {
         email: formWalkIn.email.trim() || null,
         extra: formWalkIn.extra,
         force: paksa,
+        cetak: bodyCetak(),
       }),
     }).catch(() => null);
     setMenyimpanWalkIn(false);
@@ -1093,6 +1114,32 @@ export default function ScanClient() {
    * cetak otomatis, hitungannya baru mulai setelah labelnya keluar.
    */
   const menungguCetakOtomatis = Boolean(label?.enabled) && bisaBluetooth && modeCetak === "semua";
+
+  // Badge lembar ini di stasiun cetak: Print again dari lembar ini, atau yang
+  // datang bersama jawaban scan. Status terbarunya dari pertanyaan ulang HP.
+  const jobAwal = hasil?.badge_cetak?.pekerjaan ?? null;
+  const jobLembarId = ulangLembar?.kedip === kedip ? ulangLembar.id : jobAwal?.id ?? null;
+  const pekerjaanLembar = jobLembarId === null ? null : meja.pekerjaan[jobLembarId] ?? (jobAwal?.id === jobLembarId ? jobAwal : null);
+  const barisMeja = badgeMeja?.siap && hasil?.participant
+    ? barisCetakMeja({
+        meja,
+        pekerjaan: pekerjaanLembar,
+        galat: ulangLembar?.kedip === kedip ? null : hasil.badge_cetak?.galat ?? null,
+        ulangi: hasil.status === "duplicate",
+        mengantre,
+        onGanti: () => setGantiJob(pekerjaanLembar?.id ?? null),
+        onCetak: () => {
+          const orang = hasil.participant;
+          if (!orang) return;
+          const untuk = kedip;
+          setMengantre(true);
+          void meja.cetakUlang(orang.id, orang.name).then((id) => {
+            setMengantre(false);
+            if (id !== null) setUlangLembar({ kedip: untuk, id });
+          });
+        },
+      })
+    : null;
   const hijau = hasil?.status === "recorded" || Boolean(hasil?.tersimpanSebelumnya);
   const lembarMenutup =
     tutupOtomatis &&
@@ -1102,7 +1149,8 @@ export default function ScanClient() {
     tertahan === null &&
     cetak.fase !== "jalan" &&
     cetak.fase !== "galat" &&
-    (!menungguCetakOtomatis || cetak.fase === "selesai");
+    (!menungguCetakOtomatis || cetak.fase === "selesai") &&
+    !barisMeja?.menahan;
 
   // Keadaan pencarian, seluruhnya diturunkan dari kueri yang sedang diketik dan
   // kunci yang menempel pada hasil terakhir. Tidak ada penanda "sedang memuat"
@@ -1537,6 +1585,19 @@ export default function ScanClient() {
                 Peserta unik. Pemindaian ulang menambah catatan, bukan angka ini.
               </p>
 
+              {badgeMeja && !label?.enabled ? (
+                <>
+                  <Divider className="my-4" />
+                  {badgeMeja.siap ? (
+                    <PanelCetakMeja meja={meja} slug={eventSlug} />
+                  ) : (
+                    <p className="text-body-small text-on-surface-variant">
+                      Paper badges are selected for this desk, but print stations aren&apos;t active yet. Ask the Tally admin to run the database update.
+                    </p>
+                  )}
+                </>
+              ) : null}
+
               {label?.enabled ? (
                 <>
                   <Divider className="my-4" />
@@ -1709,6 +1770,8 @@ export default function ScanClient() {
         labelUntukPerangkatIni={bisaBluetooth}
         cetak={cetak}
         onCetak={() => { if (hasil?.participant) void cetakLabel(hasil.participant); }}
+        cetakMeja={barisMeja?.status}
+        aksiMeja={barisMeja?.aksi}
         bolehWalkIn={allowWalkIn}
         onWalkIn={() => { tutupLembar(); bukaWalkIn(""); }}
         onUlangi={() => {
@@ -1724,6 +1787,8 @@ export default function ScanClient() {
         tertahan={tertahan}
         onLewati={lewatiBarang}
       />
+
+      <DialogGantiStasiun meja={meja} jobId={gantiJob} nama={hasil?.participant?.name ?? ""} onClose={() => setGantiJob(null)} />
 
       <WalkinDialog
         open={dialogWalkIn}

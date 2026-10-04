@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { cetakSetelahHadir } from "@/lib/badge/stasiun-server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -24,6 +25,11 @@ const bodySchema = z.object({
   // Meja tempat pemindaian ini terjadi. Opsional: acara satu meja tidak
   // mengenal jalur sama sekali, dan layar sapa tunggalnya menyapa semua orang.
   lane_id: z.number().int().positive().nullish(),
+  /**
+   * Stasiun cetak yang dipilih HP ini dan mode cetak otomatisnya. Diabaikan bila
+   * acara tidak mencetak badge kertas di meja (lib/badge/stasiun-server.ts).
+   */
+  cetak: z.object({ stasiun_id: z.number().int().positive(), mode: z.enum(["off", "walkin", "semua"]) }).nullish(),
 });
 
 export async function POST(request: Request) {
@@ -61,5 +67,17 @@ export async function POST(request: Request) {
     return apiError("INTERNAL_ERROR", 500);
   }
 
-  return Response.json(data);
+  // Badge diantrekan SETELAH kehadiran tersimpan, di permintaan yang sama:
+  // HP tidak perlu permintaan kedua yang bisa hilang di jaringan venue.
+  // Gagal mengantrekan tidak menggagalkan kehadiran; HP menampilkan galatnya.
+  const hasil = data as { status?: string; participant?: { id?: string } } | null;
+  const badgeCetak = await cetakSetelahHadir({
+    eventId: auth.scope.event.id,
+    cetak: parsed.data.cetak,
+    status: hasil?.status ?? "",
+    participantId: hasil?.participant?.id ?? null,
+    userId: auth.user.id,
+    laneId: parsed.data.lane_id ?? null,
+  }).catch(() => ({ pekerjaan: null, galat: "The badge could not be queued." }));
+  return Response.json(badgeCetak ? { ...(data as object), badge_cetak: badgeCetak } : data);
 }
