@@ -1,7 +1,7 @@
 "use client";
 
 import { pesanGalatApi } from "@/lib/api-message";
-import { ArrowLeft, Check, EnvelopeSimple, Hourglass, PaperPlaneTilt, PencilSimple, Tray, UploadSimple, WarningCircle, X, XCircle } from "@phosphor-icons/react";
+import { ArrowLeft, Check, EnvelopeSimple, Hourglass, PaperPlaneTilt, PencilSimple, Plus, Tray, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { withEventPrefix } from "@/lib/event-path";
@@ -13,7 +13,7 @@ import {
 } from "@/components/m3";
 import { RegistrationFormBuilder } from "@/components/admin/registration-form-builder";
 import { AKSES, TAMU } from "@/lib/pesan/label";
-import { ImporTamu, TamuUndangan } from "./tamu-undangan";
+import { TambahTamu, TamuUndangan } from "./tamu-undangan";
 import { FormPreview } from "@/components/admin/form-preview";
 import Link from "@/components/event-link";
 import { CHOICE_FIELD_TYPES, type RegistrationFormConfig } from "@/lib/domain";
@@ -629,7 +629,7 @@ export default function RegistrasiAdminPage() {
         actions={
           <>
             {config?.undangan ? (
-              <Button variant="outlined" icon={<UploadSimple size={16} />} onClick={() => setImporOpen(true)}>{TAMU.importButton}</Button>
+              <Button icon={<Plus size={16} weight="bold" />} onClick={() => setImporOpen(true)}>{TAMU.addButton}</Button>
             ) : null}
             <Button variant="outlined" disabled={!config} icon={<PencilSimple size={16} />} onClick={() => setTampilan("formulir")}>Atur formulir</Button>
             {config ? (
@@ -675,7 +675,7 @@ export default function RegistrasiAdminPage() {
         )}
       </div>
 
-      <ImporTamu
+      <TambahTamu
         open={imporOpen}
         onClose={() => setImporOpen(false)}
         onDone={() => { setMuatTamu((n) => n + 1); setJumlahTamu(null); void load(); gantiTab("tamu"); }}
