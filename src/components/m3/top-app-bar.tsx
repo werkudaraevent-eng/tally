@@ -158,7 +158,7 @@ export function TopAppBar({ leading, title, titleAs = "h1", subtitle, subtitleCl
 							)
 						) : null}
 						{subtitle ? (
-							<p className={cx("truncate text-body-small text-on-surface-variant", subtitleClassName)}>{subtitle}</p>
+							<p className={cx("truncate text-label-medium text-on-surface-variant", subtitleClassName)}>{subtitle}</p>
 						) : null}
 					</div>
 					{actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
