@@ -765,8 +765,19 @@ export const LANDING_HEADING_SCALE_LABELS: Record<LandingHeadingScale, string> =
   xl: "Sangat besar",
 };
 
-/** Satu baris rundown yang dipegang pembicara. */
-export type LandingSessionRef = { id: number; label: string };
+/**
+ * Satu baris rundown yang dipegang pembicara. `role`: peran pembicara di sesi
+ * ini saja (mis. Moderator di breakout), teks bebas; kosong berarti peran
+ * utamanya (`LandingSpeaker.role`). `en.role` versi English-nya.
+ */
+export type LandingSessionRef = {
+  id: number;
+  label: string;
+  role?: string;
+  en?: { role?: string };
+  /** Hanya di /en, diisi resolveLanding: `role` Indonesia, untuk urutan moderator. Tidak disimpan. */
+  role_id?: string;
+};
 
 /** Satu pembicara di bagian Pembicara. `featured` = kartu besar (keynote). */
 export type LandingSpeaker = {
@@ -786,6 +797,8 @@ export type LandingSpeaker = {
    * `session` diabaikan.
    */
   session_refs?: LandingSessionRef[];
+  /** Hanya di /en, diisi resolveLanding: `role` Indonesia, untuk urutan moderator. Tidak disimpan. */
+  role_id?: string;
   /**
    * Sesi teks bebas versi lama ("Sesi 1"), dicocokkan ke awal judul rundown.
    * Dipakai hanya selama `session_refs` belum ada. Editor mengisi

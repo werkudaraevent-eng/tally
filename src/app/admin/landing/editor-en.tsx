@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { TextArea, TextField } from "@/components/m3";
 import { landingSectionHeading, landingSessionEn } from "@/lib/landing-i18n";
 import { sesiDariRundown } from "@/lib/landing-speaker-tabs";
+import { isiPeranSesiEn, peranSesiUntukEn } from "@/lib/landing-peran-sesi";
 import {
   LANDING_BLOCK_LABELS,
   LANDING_NAV_LABEL_MAX,
@@ -48,6 +49,7 @@ function KolomEn({
   area = false,
   rows,
   kunci,
+  kosong = KOSONG,
 }: {
   label: string;
   sumber: string;
@@ -59,6 +61,8 @@ function KolomEn({
   rows?: number;
   /** `data-kolom`: dipakai Simpan untuk membawa kolom yang salah ke layar. */
   kunci?: string;
+  /** Placeholder kolom kosong; bawaan KOSONG. */
+  kosong?: string;
 }) {
   // Kolom panjang menampilkan sampai empat baris sumber: menerjemahkan paragraf
   // dari satu baris terpotong tidak mungkin. Teks utuhnya di `title`.
@@ -74,7 +78,7 @@ function KolomEn({
     "data-kolom": kunci,
     label,
     hint,
-    placeholder: KOSONG,
+    placeholder: kosong,
     maxLength: max,
     counter: max ? (ideal ? { ideal } : true) : false,
     value: value ?? "",
@@ -367,7 +371,26 @@ export function BagianEn({
             ))}
           </Kartu>
         ) : null;
-        return [kartuSesiRundown, kartuSesi, ...daftar.map((speaker, index) => {
+        // Peran per sesi (mis. Moderator di breakout): satu kolom per peran
+        // berbeda, ditulis ke semua entri yang perannya sama. Hanya peran sesi
+        // yang diisi; yang kosong memakai Peran utama di kartu pembicaranya.
+        const peranSesi = peranSesiUntukEn(daftar);
+        const kartuPeranSesi = peranSesi.length ? (
+          <Kartu key="peran-sesi" judul="Session roles">
+            {peranSesi.map(({ kunci, teks, en, sesi }) => (
+              <KolomEn
+                key={kunci}
+                label={sesi.length > 2 ? `Role in ${sesi[0]} and ${sesi.length - 1} more` : `Role in ${sesi.join(" and ") || "a session"}`}
+                sumber={teks}
+                value={en}
+                onChange={(value) => setLanding({ ...landing, speakers: isiPeranSesiEn(daftar, kunci, value) })}
+                max={60}
+                kosong="Not filled. Shows the Indonesian text."
+              />
+            ))}
+          </Kartu>
+        ) : null;
+        return [kartuSesiRundown, kartuSesi, kartuPeranSesi, ...daftar.map((speaker, index) => {
           const ubah = (key: "title" | "company" | "role", value: string) =>
             setLanding({ ...landing, speakers: daftar.map((s, posisi) => (posisi === index ? { ...s, en: { ...s.en, [key]: value } } : s)) });
           const isian = ([["title", "Jabatan", 200], ["company", "Instansi", 120], ["role", "Peran", 60]] as const).filter(([key]) => ada(speaker[key]));
