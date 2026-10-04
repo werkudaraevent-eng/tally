@@ -74,8 +74,10 @@ export async function GET(request: Request) {
     .eq("event_id", eventId)
     .eq("section_id", section.id)
     .eq("is_published", true)
-    .order("sort_order", { ascending: true })
+    // Jam mulai dulu, sama dengan CMS rundown; sort_order hanya memisahkan
+    // butir berjam sama.
     .order("start_time", { ascending: true })
+    .order("sort_order", { ascending: true })
     .order("id", { ascending: true });
   if (itemError) return apiErrorPeserta("INTERNAL_ERROR", 500);
 

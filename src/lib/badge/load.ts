@@ -64,7 +64,10 @@ export async function loadBadgeRundown(eventId: string): Promise<BadgeRundownHar
 		.select("section_id,title,start_time,is_break,sort_order")
 		.in("section_id", daftar.map((section) => section.id))
 		.eq("is_published", true)
-		.order("sort_order", { ascending: true });
+		// Urutan CMS rundown: jam mulai, lalu sort_order untuk butir berjam sama.
+		.order("start_time", { ascending: true })
+		.order("sort_order", { ascending: true })
+		.order("id", { ascending: true });
 	const baris = (items ?? []) as unknown as Array<{ section_id: number; title: string | null; start_time: string | null; is_break: boolean | null }>;
 
 	return daftar.map((section) => ({
