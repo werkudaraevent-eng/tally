@@ -35,19 +35,19 @@ const rolePermissions: Record<Role, string[]> = {
   booth: ["Scan peserta & buat order", "Serahkan barang di booth", "Lihat riwayat booth sendiri"],
   cashier: ["Lihat antrean pembayaran", "Tandai lunas", "Void order"],
   admin: ["Kelola booth & item spesial", "Kelola metode pembayaran", "Semua laporan & settings", "Void order apa pun", "Reset PIN operator booth & kasir"],
-  super_admin: ["Semua izin Panitia / Admin", "Kelola user & role", "Kosongkan data pencatatan"],
+  super_admin: ["Semua izin Admin", "Kelola user & role", "Kosongkan data pencatatan"],
   // Sengaja sesempit ini. Akun ini dipegang bergantian di pintu masuk, sering di
   // ponsel yang tidak terkunci; apa pun di luar memindai kehadiran adalah
   // kewenangan yang tidak dibutuhkan di sana.
   scanner: ["Buka layar pemindai kehadiran", "Catat kehadiran peserta per sesi"],
 };
 
-/** Tab penyaring per peran. "Admin" memuat Panitia / Admin dan Super Admin. */
+/** Tab penyaring per peran. "Admin" memuat Admin dan Super admin. */
 const ROLE_TABS: Array<{ value: RoleTab; label: string; roles: Role[] | null }> = [
   { value: "semua", label: "Semua", roles: null },
-  { value: "booth", label: "Booth", roles: ["booth"] },
-  { value: "cashier", label: "Kasir", roles: ["cashier"] },
-  { value: "scanner", label: "Petugas scan", roles: ["scanner"] },
+  { value: "booth", label: ROLE_LABEL.booth, roles: ["booth"] },
+  { value: "cashier", label: ROLE_LABEL.cashier, roles: ["cashier"] },
+  { value: "scanner", label: ROLE_LABEL.scanner, roles: ["scanner"] },
   { value: "admin", label: "Admin", roles: ["admin", "super_admin"] },
 ];
 
@@ -277,10 +277,10 @@ export function UsersPanel() {
                     value={draft.role}
                     onChange={(event) => setDraft((current) => current && { ...current, role: event.target.value as Role })}
                   >
-                    <option value="booth">Admin Booth</option>
-                    <option value="cashier">Kasir</option>
-                    <option value="scanner">Petugas scan</option>
-                    <option value="admin">Panitia / Admin</option>
+                    <option value="booth">{ROLE_LABEL.booth}</option>
+                    <option value="cashier">{ROLE_LABEL.cashier}</option>
+                    <option value="scanner">{ROLE_LABEL.scanner}</option>
+                    <option value="admin">{ROLE_LABEL.admin}</option>
                     <option value="super_admin">Super Admin</option>
                   </SelectField>
                   {draft.role === "booth" ? (

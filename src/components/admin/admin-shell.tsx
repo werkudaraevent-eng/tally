@@ -478,7 +478,6 @@ export function AdminShell({
     // panel melayang dan bukan seperti tata letak yang berdenyut: kolom konten
     // tidak pernah tahu rel sedang melebar.
     <div
-      lang="en"
       className="press admin-shell min-h-dvh bg-surface text-on-surface"
       style={{ "--rail-w": pinned ? LEBAR_PENUH : LEBAR_REL } as React.CSSProperties}
     >
@@ -503,7 +502,10 @@ export function AdminShell({
           jadi pemotongan di sini menghabisinya. Jebakan yang sama sudah tercatat
           dua kali di berkas ini. Pemotongannya dipasang di <nav> dan di pembungkus
           kolom cari, dua tempat yang tidak berlabuh apa pun. */}
+      {/* lang="en" hanya pada bingkai yang sudah English (sidebar, Ctrl K). Isi
+          halaman pindah ke English per tahap dan memasang lang-nya sendiri. */}
       <aside
+        lang="en"
         ref={aside}
         data-rail={rail ? "1" : "0"}
         onPointerEnter={onPointerEnter}

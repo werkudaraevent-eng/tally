@@ -57,7 +57,12 @@ export type NavItem = {
   alias?: string[];
 };
 
-export type NavGroup = { section: string | null; items: NavItem[] };
+export type NavGroup = {
+  section: string | null;
+  items: NavItem[];
+  /** Nama kelompok lama untuk Ctrl K: mengetik "hari-h" tetap menampilkan isi kelompoknya. */
+  alias?: string[];
+};
 
 /**
  * Menu yang hanya berarti bila acara punya booth: papan peringkat menghitung
@@ -74,6 +79,7 @@ export const navigation: NavGroup[] = [
   },
   {
     section: "Setup",
+    alias: ["persiapan"],
     items: [
       { href: "/admin/landing", label: "Event page", icon: Browsers, description: "Content and look of the event page participants open.", alias: ["halaman acara", "landing"] },
       { href: "/admin/rundown", label: "Agenda", icon: CalendarDots, description: "The programme shown on the event page and the agenda screen.", alias: ["rundown", "rundown acara", "susunan acara"] },
@@ -84,6 +90,7 @@ export const navigation: NavGroup[] = [
   },
   {
     section: "Participants",
+    alias: ["peserta"],
     items: [
       { href: "/admin/participants", label: "Participant list", icon: UsersThree, description: "Everyone on the list, where they came from, and row-by-row editing.", alias: ["daftar peserta", "peserta"] },
       // Di Peserta, bukan Persiapan: halaman ini terbuka di antrean moderasi,
@@ -95,7 +102,7 @@ export const navigation: NavGroup[] = [
       // pendaftar masuk, dan pemberitahuannya dikirim lewat Pesan peserta.
       // Selalu tampil: hotel, bus, dan barang diisi di halaman ini sendiri,
       // jadi menu yang menunggu data pertama tidak akan pernah muncul.
-      { href: "/admin/logistik", label: "Logistics", icon: SuitcaseRolling, description: "Hotel rooms, buses for each agenda item, and kit items handed out to participants.", alias: ["logistik", "kamar", "bus"] },
+      { href: "/admin/logistik", label: "Logistics", icon: SuitcaseRolling, description: "Hotel rooms, buses for each agenda item, and kit items handed out to participants.", alias: ["logistik", "hotel", "kamar", "bus"] },
       // Satu baris untuk dua tab: Kiriman (email ke kotak masuk peserta) dan
       // Pengumuman (lonceng dan Dashboard saya). Alamatnya tetap
       // /admin/pengumuman supaya Terakhir dibuka dan Ctrl K lama tetap sampai.
@@ -103,15 +110,16 @@ export const navigation: NavGroup[] = [
       // Paling bawah di Peserta: diatur sekali (siapa yang bisa masuk, apa yang
       // tampil), sedangkan Pesan peserta ditekan berkali-kali. Urutan ini menjaga
       // Pesan peserta tetap di atas lipatan layar 1280x588.
-      { href: "/admin/area-peserta", label: "Participant area", icon: IdentificationCard, description: "Who can sign in to My dashboard and what they see there.", alias: ["area peserta", "dashboard saya"] },
+      { href: "/admin/area-peserta", label: "Participant area", icon: IdentificationCard, description: "Who can sign in to the participant area and what they see there.", alias: ["area peserta", "dashboard saya"] },
     ],
   },
   {
     // Semua yang dipegang saat pintu dibuka, dalam satu blok: tidak ada lagi
     // loncatan dari Kehadiran di atas ke Layar sapa jauh di bawah.
     section: "Event day",
+    alias: ["hari-h", "hari h"],
     items: [
-      { href: "/admin/attendance", label: "Check-in", icon: QrCode, description: "Check-ins per desk lane and per check-in point.", alias: ["kehadiran", "hadir", "absensi"] },
+      { href: "/admin/attendance", label: "Check-in", icon: QrCode, description: "Check-ins per desk lane and per check-in point.", alias: ["kehadiran", "hadir", "absensi", "scan", "scanner"] },
       // Label tepat di bawah Kehadiran: yang dicetak adalah badge tamu walk-in,
       // dan walk-in hanya ada karena layar kehadiran.
       { href: "/admin/label", label: "Badges & labels", icon: Printer, description: "Paper badge and sticker label designs, plus printer settings.", alias: ["badge & label", "label", "printer", "cetak"] },
@@ -119,7 +127,7 @@ export const navigation: NavGroup[] = [
       {
         href: "/admin/undian", label: "Lucky draw", icon: Gift,
         description: "Prizes, eligibility rules, and the operator panel for the draw.",
-        alias: ["undian", "doorprize"],
+        alias: ["undian", "doorprize", "hadiah", "lucky draw"],
         children: [
           { href: "/admin/undian", label: "Prizes & rules", icon: Gift, description: "Prize list, participant groups, and draw eligibility rules.", alias: ["hadiah & aturan", "hadiah"] },
           { href: "/admin/undian/kontrol", label: "Operator panel", icon: Gift, description: "The panel the operator runs while the draw is on stage.", alias: ["panel operator"] },
@@ -149,6 +157,7 @@ export const navigation: NavGroup[] = [
   },
   {
     section: "Sales",
+    alias: ["penjualan"],
     items: [
       { href: "/admin/orders", label: "Orders", icon: ListChecks, description: "Every booth order and its payment status.", alias: ["transaksi", "transactions", "order"] },
       // Item spesial dulu menu tersendiri. Ia katalog barang yang dijual booth

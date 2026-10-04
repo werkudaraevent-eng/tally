@@ -357,7 +357,7 @@ export function ColumnMenu({ columns, visible, onChange, onReset, isDefault }: {
 				)}
 			>
 				<Columns size={16} aria-hidden />
-				Kolom
+				Columns
 			</button>
 			<Popover anchor={anchor} label="Show columns" role="dialog" id={id} align="end" width={264}>
 				<p className="px-3 pb-1 pt-1.5 text-body-medium font-medium text-on-surface-variant">Show columns</p>
@@ -381,7 +381,7 @@ export function ColumnMenu({ columns, visible, onChange, onReset, isDefault }: {
 				</div>
 				<div className="border-t border-outline-variant px-3 pb-1 pt-2">
 					<button type="button" disabled={isDefault} onClick={onReset} className="rounded-sm text-body-medium font-medium text-primary hover:underline disabled:text-on-surface-variant disabled:no-underline">
-						Kembalikan bawaan
+						Reset to default
 					</button>
 				</div>
 			</Popover>

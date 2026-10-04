@@ -151,8 +151,15 @@ export function CommandPalette({
     // hanya membuat orang menimbang mana yang benar.
     const terlihat = new Set<string>();
     const halaman: Hasil[] = [];
-    const tambah = (item: { href: string; label: string; icon: NavIcon; alias?: string[] }, konteks: string) => {
-      if (terlihat.has(item.href)) return;
+    const tambah = (item: { href: string; label: string; icon: NavIcon; alias?: string[] }, konteks: string, aliasGrup: string[] = []) => {
+      if (terlihat.has(item.href)) {
+        // Href kembar (induk dan sub-halaman pertamanya): baris yang tampil
+        // tetap satu, tetapi alias keduanya ikut, supaya "hadiah" yang milik
+        // Prizes & rules tetap menemukan Lucky draw.
+        const ada = halaman.find((baris) => baris.path === item.href);
+        if (ada) ada.alias = [...(ada.alias ?? []), ...(item.alias ?? [])];
+        return;
+      }
       terlihat.add(item.href);
       halaman.push({
         kunci: `h:${item.href}`,
@@ -162,14 +169,14 @@ export function CommandPalette({
         href: `${eventPrefix}${item.href}`,
         path: item.href,
         grup: "halaman",
-        alias: item.alias,
+        alias: [...(item.alias ?? []), ...aliasGrup],
       });
     };
 
     for (const group of navigation) {
       for (const item of group.items) {
         for (const kandidat of [item, ...(item.children ?? [])]) {
-          tambah(kandidat, grupDari.get(kandidat.href) ?? "Workspace");
+          tambah(kandidat, grupDari.get(kandidat.href) ?? "Workspace", group.alias);
         }
       }
     }
@@ -221,7 +228,12 @@ export function CommandPalette({
           nilaiCocok(item.label, cari) ?? -Infinity,
           // Alias sedikit di bawah label: "undian" tetap menemukan Lucky draw,
           // tetapi kecocokan pada nama yang terlihat menang bila keduanya ada.
-          ...(item.alias ?? []).map((alias) => (nilaiCocok(alias, cari) ?? -Infinity) - 1),
+          // Alias yang diketik utuh ("hotel", "scan") justru di atas label
+          // mana pun, supaya nama acara yang kebetulan memuat kata itu tidak
+          // menyalip menunya.
+          ...(item.alias ?? []).map((alias) =>
+            alias.toLowerCase() === cari.toLowerCase() ? (nilaiCocok(alias, cari) ?? 0) + 8 : (nilaiCocok(alias, cari) ?? -Infinity) - 1,
+          ),
           (nilaiCocok(item.konteks, cari) ?? -Infinity) - 3,
         ),
       }))
@@ -282,6 +294,7 @@ export function CommandPalette({
       >
         <motion.div
           role="dialog"
+          lang="en"
           aria-modal="true"
           aria-label="Quick search"
           onKeyDown={onKeyDown}
