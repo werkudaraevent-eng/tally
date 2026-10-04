@@ -7,6 +7,8 @@
  * Tidak mengimpor apa pun: dipakai server dan peramban.
  */
 
+import { plural } from "@/lib/plural";
+
 export const KIND_LABEL = {
   undangan: "Link login",
   invitation: "Invitation",
@@ -19,42 +21,42 @@ export const AUDIENCE_LABEL = {
 } as const;
 
 export const TAMU = {
-  tab: "Tamu undangan",
-  addButton: "Tambah tamu",
-  addTitle: "Tambah tamu undangan",
-  addManual: "Ketik",
-  addImport: "Impor Excel",
-  addAnother: "Simpan & tambah lagi",
-  addAttest: "Orang ini mengharapkan undangan acara ini.",
-  addNoSend: "Belum ada email yang terkirim. Undangan dikirim dari tab Tamu undangan.",
-  sendInvite: "Kirim undangan",
-  sendInviteSelected: (n: number) => `Kirim undangan ke ${n} terpilih`,
-  remind: "Ingatkan yang belum daftar",
-  empty: "Belum ada tamu undangan.",
-  emptyHint: "Tambah satu per satu atau impor dari Excel lewat Tambah tamu. Belum ada email yang terkirim.",
+  tab: "Invited guests",
+  addButton: "Add invited guest",
+  addTitle: "Add invited guests",
+  addManual: "Type",
+  addImport: "Import Excel",
+  addAnother: "Save and add another",
+  addAttest: "This person expects an invitation to this event.",
+  addNoSend: "No email has been sent yet. Invitations are sent from the Invited guests tab.",
+  sendInvite: "Send invitation",
+  sendInviteSelected: (n: number) => `Send invitation to ${n} selected`,
+  remind: "Remind those not registered",
+  empty: "No invited guests yet.",
+  emptyHint: "Add them one by one or import from Excel with Add invited guest. No email has been sent yet.",
   emptyComposer: "Belum ada tamu. Tambah di Pendaftaran →",
-  copyLink: "Salin tautan pribadi",
-  linkCopied: "Tautan pribadi disalin",
-  newLink: "Buat tautan baru",
-  newLinkConfirm: "Tautan lama berhenti bekerja, termasuk yang sudah terkirim di email. Lanjutkan?",
-  edit: "Ubah data",
-  remove: "Hapus",
-  removeConfirm: (nama: string) => `Hapus ${nama} dari tamu undangan? Tautan pribadinya berhenti bekerja.`,
-  viewRegistration: "Lihat pendaftaran →",
-  approx: "perkiraan",
-  noEmail: "Tanpa email",
+  copyLink: "Copy private link",
+  linkCopied: "Private link copied",
+  newLink: "Create new link",
+  newLinkConfirm: "The old link stops working, including the one already sent by email. Continue?",
+  edit: "Edit details",
+  remove: "Remove",
+  removeConfirm: (nama: string) => `Remove ${nama} from invited guests? Their private link stops working.`,
+  viewRegistration: "View registration →",
+  approx: "estimate",
+  noEmail: "No email",
 } as const;
 
 export type InviteStatus = "sudah_daftar" | "ditolak" | "gagal" | "membuka" | "terkirim" | "terjadwal" | "belum_dikirim";
 
 export const INVITE_STATUS_LABEL: Record<InviteStatus, string> = {
-  sudah_daftar: "Sudah daftar",
-  ditolak: "Ditolak",
-  gagal: "Gagal kirim",
-  membuka: "Membuka formulir",
-  terkirim: "Terkirim",
-  terjadwal: "Terjadwal",
-  belum_dikirim: "Belum dikirim",
+  sudah_daftar: "Registered",
+  ditolak: "Rejected",
+  gagal: "Send failed",
+  membuka: "Opened the form",
+  terkirim: "Sent",
+  terjadwal: "Scheduled",
+  belum_dikirim: "Not sent",
 };
 
 export const INVITE_STATUS_TONE: Record<InviteStatus, "neutral" | "primary" | "success" | "warning" | "error"> = {
@@ -70,43 +72,43 @@ export const INVITE_STATUS_TONE: Record<InviteStatus, "neutral" | "primary" | "s
 export type InviteFilter = "semua" | "belum_dikirim" | "belum_daftar" | "sudah_daftar" | "gagal";
 
 export const INVITE_FILTER_LABEL: Record<InviteFilter, string> = {
-  semua: "Semua",
-  belum_dikirim: "Belum dikirim",
-  belum_daftar: "Belum daftar",
-  sudah_daftar: "Sudah daftar",
-  gagal: "Gagal",
+  semua: "All",
+  belum_dikirim: "Not sent",
+  belum_daftar: "Not registered yet",
+  sudah_daftar: "Registered",
+  gagal: "Failed",
 };
 
 export const AKSES = {
-  title: "Setelan pendaftaran",
-  change: "Ubah setelan",
-  openTo: "Terbuka untuk",
-  anyone: "Siapa saja yang punya tautan",
-  inviteOnly: "Hanya tamu undangan",
-  inviteAutoApprove: "Tamu undangan langsung disetujui",
-  inviteAutoApproveHint: "Berlaku bila tamu mendaftar lewat tautan pribadinya dengan email yang diundang. Email lain selalu masuk Menunggu.",
-  generalAutoApprove: "Setujui otomatis pendaftar umum",
-  publicLinkInviteOnly: "Tautan umum (khusus undangan)",
+  title: "Registration settings",
+  change: "Change settings",
+  openTo: "Open to",
+  anyone: "Anyone with the link",
+  inviteOnly: "Invited guests only",
+  inviteAutoApprove: "Approve invited guests automatically",
+  inviteAutoApproveHint: "Applies when an invited guest registers through their private link with the invited email. Other emails always go to Pending approval.",
+  generalAutoApprove: "Approve other registrants automatically",
+  publicLinkInviteOnly: "Public link (invitation only)",
   confirmInviteOnly: (n: number) =>
     n > 0
-      ? `Hanya ${n} tamu undangan yang bisa mendaftar, lewat tautan pribadinya. Orang lain yang membuka formulir melihat halaman "Khusus undangan".`
-      : "Belum ada tamu undangan, jadi tidak ada yang bisa mendaftar sampai Anda mengimpor daftarnya.",
+      ? `Only ${plural(n, "invited guest")} can register, through their private links. Anyone else who opens the form sees the "Invitation only" page.`
+      : "There are no invited guests yet, so nobody can register until you import the list.",
 } as const;
 
 export const IMPOR = {
-  attest: "Daftar ini dari panitia atau klien, dan orang-orang ini mengharapkan undangan acara ini.",
-  retention: "Tamu yang tidak mendaftar dihapus 30 hari setelah acara.",
-  noSend: "Impor tidak mengirim email apa pun.",
-  willAdd: "akan ditambahkan",
-  withoutEmail: "tanpa email (tidak bisa dikirimi email)",
-  merged: "sudah diundang atau ganda di berkas, digabung",
-  alreadyParticipant: "sudah peserta atau sedang mendaftar, dilewati",
-  rejected: "tidak diimpor (email tidak sah, tanpa nama, atau baris contoh templat)",
-  suppressed: "pernah berhenti atau memantul, tidak akan dikirimi",
-  possibleDuplicates: "nama sama tanpa email, kemungkinan ganda",
-  downloadRejected: "Unduh baris yang ditolak",
-  commit: "Tambahkan",
-  previewBlocked: "Impor dari situs uji hanya untuk acara draf, karena situs uji memakai database produksi.",
+  attest: "This list comes from staff or the client, and these people expect an invitation to this event.",
+  retention: "Invited guests who don't register are deleted 30 days after the event.",
+  noSend: "Importing sends no email.",
+  willAdd: "will be added",
+  withoutEmail: "without email (can't be emailed)",
+  merged: "already invited or duplicated in the file, merged",
+  alreadyParticipant: "already a participant or registering, skipped",
+  rejected: "not imported (invalid email, no name, or a template sample row)",
+  suppressed: "unsubscribed or bounced before, won't be emailed",
+  possibleDuplicates: "same name without email, possible duplicates",
+  downloadRejected: "Download rejected rows",
+  commit: "Add",
+  previewBlocked: "Imports from a test site only work for draft events, because test sites use the production database.",
 } as const;
 
 /** Kalimat halaman publik (formulir dari undangan, tautan terpakai, khusus undangan). */

@@ -109,32 +109,32 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
       {/* Kolom bawaan lebih dulu, dalam urutan yang sama dengan form publik.
           Admin harus melihat form apa adanya, bukan hanya bagian yang bisa ia ubah. */}
       <div className="rounded-lg bg-panel-high p-4">
-        <p className="text-label-medium font-semibold ed-label text-on-surface-variant">Kolom bawaan</p>
+        <p className="text-label-medium font-semibold ed-label text-on-surface-variant">Built-in fields</p>
         <ul className="mt-3 space-y-2">
           <li className="flex items-center gap-2 text-body-medium">
             <LockSimple size={16} weight="fill" className="shrink-0 text-on-surface-variant" />
-            <span className="font-semibold">Nama lengkap</span>
-            <StatusChip tone="neutral" className="ml-auto min-h-7 text-label-medium">Selalu wajib</StatusChip>
+            <span className="font-semibold">Full name</span>
+            <StatusChip tone="neutral" className="ml-auto min-h-7 text-label-medium">Always required</StatusChip>
           </li>
-          {(["Email", "Nomor telepon", "Perusahaan", "Jabatan"] as const).map((label) => label === "Email" && areaPeserta ? (
+          {(["Email", "Phone number", "Organisation", "Job title"] as const).map((label) => label === "Email" && areaPeserta ? (
             // Area peserta: email adalah nama pengguna, jadi barisnya sama dengan Nama lengkap.
             <li key={label} className="flex items-center gap-2 text-body-medium">
               <LockSimple size={16} weight="fill" className="shrink-0 text-on-surface-variant" />
               <span className="font-semibold">{label}</span>
-              <StatusChip tone="neutral" className="ml-auto min-h-7 text-label-medium">Selalu wajib (area peserta)</StatusChip>
+              <StatusChip tone="neutral" className="ml-auto min-h-7 text-label-medium">Always required (participant area)</StatusChip>
             </li>
           ) : (
             <li key={label} className="flex items-center gap-2 text-body-medium text-on-surface-variant">
               <LockSimple size={16} className="shrink-0" />
               <span>{label}</span>
-              <span className="ml-auto text-body-small">wajib/opsional diatur di bawah</span>
+              <span className="ml-auto text-body-small">required or optional, set below</span>
             </li>
           ))}
         </ul>
         <p className="mt-3 text-body-small leading-5 text-on-surface-variant">
-          Kelimanya tidak bisa dihapus atau diurutkan ulang. Masing-masing punya kolom sendiri di
-          data peserta. Nama selalu wajib: pendaftaran tanpa nama tidak bisa dicocokkan dengan
-          siapa pun di meja registrasi.
+          These five can&apos;t be deleted or reordered. Each has its own column in the participant
+          data. Name is always required: a registration without a name can&apos;t be matched to anyone
+          at the check-in desk.
         </p>
       </div>
 
@@ -154,19 +154,19 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
             onChange={(value) => onChange({ ...config, require_email: value })}
             disabled={disabled}
             kunci={areaPeserta}
-            label="Email wajib diisi"
+            label="Require email"
             description={areaPeserta
-              ? "Selalu wajib selama area peserta aktif: email dipakai untuk masuk ke area peserta."
-              : "Kode peserta dikirim ke email ini."}
+              ? "Always required while the participant area is on: participants sign in with their email."
+              : "The participant code is sent to this email."}
             // Peringatan hanya muncul saat DIMATIKAN, menyebut akibatnya, bukan
             // nama setelannya, dan duduk di dalam baris yang sama. Admin yang
             // mematikannya tanpa membaca baru sadar saat ada pendaftar berdiri di
             // meja registrasi tanpa kode.
             note={!areaPeserta && config.require_email === false ? (
               <Banner tone="warning" icon={<WarningCircle size={16} />} className="text-body-small">
-                <strong className="font-medium">Kode peserta tidak akan terkirim ke mana pun.</strong> Pendaftar hanya
-                melihatnya sekali di layar; yang menutup halaman kehilangannya dan harus dicari panitia di daftar ini.
-                Satu orang juga bisa mendaftar berkali-kali, karena pencegahan ganda memakai email.
+                <strong className="font-medium">The participant code won&apos;t be sent anywhere.</strong> Registrants
+                see it once on screen; anyone who closes the page loses it, and staff have to look it up in this list.
+                One person can also register more than once, because duplicate checks use the email.
               </Banner>
             ) : null}
           />
@@ -176,8 +176,8 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
             checked={config.require_phone !== false}
             onChange={(value) => onChange({ ...config, require_phone: value })}
             disabled={disabled}
-            label="Nomor telepon wajib diisi"
-            description="Satu-satunya jalan menghubungi pendaftar bila emailnya salah ketik."
+            label="Require phone number"
+            description="The only way to reach a registrant whose email has a typo."
           />
         </div>
         <div className="px-5 py-4">
@@ -185,8 +185,8 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
             checked={config.require_company === true}
             onChange={(value) => onChange({ ...config, require_company: value })}
             disabled={disabled}
-            label="Perusahaan wajib diisi"
-            description="Kolomnya selalu ada. Ini hanya menentukan boleh dikosongkan atau tidak."
+            label="Require organisation"
+            description="The field is always shown. This only decides whether it can be left blank."
           />
         </div>
         <div className="px-5 py-4">
@@ -194,15 +194,15 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
             checked={config.require_job_title === true}
             onChange={(value) => onChange({ ...config, require_job_title: value })}
             disabled={disabled}
-            label="Jabatan wajib diisi"
-            description="Kolomnya selalu ada. Ini hanya menentukan boleh dikosongkan atau tidak."
+            label="Require job title"
+            description="The field is always shown. This only decides whether it can be left blank."
           />
         </div>
       </div>
 
       <PageSection
-        title="Pertanyaan tambahan"
-        description={`${fields.length} dari ${MAX_CUSTOM_FIELDS}. Jawabannya ikut tersimpan ke data peserta.`}
+        title="Extra questions"
+        description={`${fields.length} of ${MAX_CUSTOM_FIELDS}. Answers are saved to the participant data.`}
         action={
           <Button
             variant="tonal"
@@ -211,15 +211,15 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
             disabled={disabled || fields.length >= MAX_CUSTOM_FIELDS}
             icon={<Plus size={16} weight="bold" />}
           >
-            Tambah
+            Add question
           </Button>
         }
       />
 
       {fields.length === 0 ? (
         <p className="rounded-lg border border-dashed border-outline-variant p-6 text-center text-body-medium text-on-surface-variant">
-          Belum ada pertanyaan tambahan. Form tetap bisa dipakai: pendaftar mengisi nama, email, telepon,
-          perusahaan, dan jabatan.
+          No extra questions yet. The form still works: registrants fill in name, email, phone,
+          organisation and job title.
         </p>
       ) : (
         <ol className="space-y-2">
@@ -245,19 +245,19 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                     aria-controls={`${groupId}-${index}`}
                     className="m3-state min-w-0 flex-1 rounded-sm px-2 py-2 text-left"
                   >
-                    <span className="block truncate text-body-large font-semibold">{field.label || "(tanpa label)"}</span>
+                    <span className="block truncate text-body-large font-semibold">{field.label || "(no label)"}</span>
                     <span className="mt-0.5 block truncate text-body-small text-on-surface-variant">
-                      {REGISTRATION_FIELD_TYPE_LABELS[field.type]} · {field.required ? "wajib" : "opsional"} · {field.key}
+                      {REGISTRATION_FIELD_TYPE_LABELS[field.type]} · {field.required ? "required" : "optional"} · {field.key}
                     </span>
                   </button>
-                  {problem ? <StatusChip tone="error" className="shrink-0">Perlu diperbaiki</StatusChip> : null}
-                  <IconButton size="sm" label="Naikkan" onClick={() => move(index, -1)} disabled={disabled || index === 0}>
+                  {problem ? <StatusChip tone="error" className="shrink-0">Needs fixing</StatusChip> : null}
+                  <IconButton size="sm" label="Move up" onClick={() => move(index, -1)} disabled={disabled || index === 0}>
                     <ArrowUp size={16} weight="bold" />
                   </IconButton>
-                  <IconButton size="sm" label="Turunkan" onClick={() => move(index, 1)} disabled={disabled || index === fields.length - 1}>
+                  <IconButton size="sm" label="Move down" onClick={() => move(index, 1)} disabled={disabled || index === fields.length - 1}>
                     <ArrowDown size={16} weight="bold" />
                   </IconButton>
-                  <IconButton size="sm" label={`Hapus ${field.label}`} onClick={() => remove(index)} disabled={disabled} className="text-error">
+                  <IconButton size="sm" label={`Delete ${field.label}`} onClick={() => remove(index)} disabled={disabled} className="text-error">
                     <Trash size={16} weight="bold" />
                   </IconButton>
                 </div>
@@ -269,14 +269,14 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                     ) : null}
 
                     <TextField
-                      label="Pertanyaan"
+                      label="Question"
                       value={field.label}
                       disabled={disabled}
                       onChange={(event) => patchField(index, { label: event.target.value })}
                     />
 
                     <SelectField
-                      label="Jenis jawaban"
+                      label="Answer type"
                       value={field.type}
                       disabled={disabled}
                       onChange={(event) => {
@@ -314,7 +314,7 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                           onChange={(event) => patchField(index, { min: event.target.value === "" ? undefined : Number(event.target.value) })}
                         />
                         <TextField
-                          label="Maksimum"
+                          label="Maximum"
                           optional
                           type="number"
                           disabled={disabled}
@@ -326,17 +326,17 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
 
                     {field.type === "file" ? (
                       <p className="rounded-md bg-panel p-3 text-body-small leading-5 text-on-surface-variant">
-                        Pendaftar dapat mengunggah PNG, JPG, WebP, atau PDF maksimal 5 MB. Berkasnya disimpan
-                        <strong> tidak publik</strong>. Hanya panitia yang bisa membukanya, lewat tautan yang
-                        kedaluwarsa dalam lima menit.
+                        Registrants can upload a PNG, JPG, WebP or PDF of up to 5 MB. Files are stored
+                        <strong> privately</strong>. Only staff can open them, through a link that
+                        expires after five minutes.
                       </p>
                     ) : null}
 
                     {field.type !== "checkbox" && field.type !== "file" ? (
                       <TextField
-                        label="Contoh isian"
+                        label="Placeholder"
                         optional
-                        hint="Teks abu-abu di dalam kolom sebelum diisi."
+                        hint="Grey text shown in the field before it is filled in."
                         disabled={disabled}
                         value={field.placeholder ?? ""}
                         onChange={(event) => patchField(index, { placeholder: event.target.value || undefined })}
@@ -344,19 +344,19 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                     ) : null}
 
                     <TextField
-                      label="Keterangan"
+                      label="Help text"
                       optional
-                      hint="Muncul di bawah kolom. Untuk menjelaskan kenapa data ini diminta."
+                      hint="Shown below the field. Use it to explain why you ask for this."
                       disabled={disabled}
                       value={field.help_text ?? ""}
                       onChange={(event) => patchField(index, { help_text: event.target.value || undefined })}
                     />
 
                     <TextField
-                      label="Kunci data"
-                      hint="Nama kolom saat diekspor. Huruf kecil, angka, garis bawah."
+                      label="Data key"
+                      hint="Column name in exports. Lowercase letters, numbers and underscores."
                       disabled={disabled}
-                      error={FIELD_KEY_PATTERN.test(field.key) ? undefined : "Format kunci tidak sah."}
+                      error={FIELD_KEY_PATTERN.test(field.key) ? undefined : "Invalid key format."}
                       value={field.key}
                       onChange={(event) => patchField(index, { key: event.target.value })}
                     />
@@ -365,10 +365,10 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                       checked={field.required}
                       onChange={(value) => patchField(index, { required: value })}
                       disabled={disabled}
-                      label="Wajib diisi"
+                      label="Required"
                       description={field.type === "checkbox"
-                        ? "Pendaftar harus mencentangnya sebelum bisa mengirim."
-                        : "Pendaftar tidak bisa mengirim sebelum kolom ini terisi."}
+                        ? "Registrants must tick it before they can submit."
+                        : "Registrants can't submit until this field is filled in."}
                     />
                   </div>
                 ) : null}
@@ -473,11 +473,11 @@ function PilihanEditor({
 
   return (
     <fieldset ref={wadahRef} className="space-y-3">
-      <legend className="text-body-medium font-medium text-on-surface">Pilihan</legend>
+      <legend className="text-body-medium font-medium text-on-surface">Options</legend>
       <p className="-mt-1 text-body-small text-on-surface-variant">
         {dropdown
-          ? "Minimal dua. Dropdown hanya menampilkan judul pilihan; pakai Pilihan (radio) bila keterangan perlu terlihat."
-          : "Minimal dua. Keterangan tampil di bawah judul pilihan, dan boleh beberapa baris."}
+          ? "At least two. A dropdown shows only the option titles; use radio buttons if the descriptions need to be visible."
+          : "At least two. The description shows below the option title and can span several lines."}
       </p>
       <ol className="space-y-3">
         {options.map((option, index) => (
@@ -485,7 +485,7 @@ function PilihanEditor({
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1 space-y-3">
                 <TextField
-                  label={`Pilihan ${index + 1}`}
+                  label={`Option ${index + 1}`}
                   maxLength={120}
                   counter
                   disabled={disabled}
@@ -496,7 +496,7 @@ function PilihanEditor({
                   <TextArea
                     // Teks tersembunyi membedakan kolom ini dari "Keterangan"
                     // milik pertanyaan dan dari pilihan lain bagi pembaca layar.
-                    label={<>Keterangan<span className="sr-only"> pilihan {index + 1}</span></>}
+                    label={<>Description<span className="sr-only"> for option {index + 1}</span></>}
                     optional
                     rows={barisKeterangan(keterangan[index])}
                     maxLength={300}
@@ -508,15 +508,15 @@ function PilihanEditor({
                 )}
               </div>
               <div className="flex shrink-0 flex-col gap-1 pt-7">
-                <IconButton size="sm" data-aksi="naik" label={`Naikkan pilihan ${index + 1}`} onClick={() => pindah(index, -1)} disabled={disabled || index === 0}>
+                <IconButton size="sm" data-aksi="naik" label={`Move option ${index + 1} up`} onClick={() => pindah(index, -1)} disabled={disabled || index === 0}>
                   <ArrowUp size={16} weight="bold" />
                 </IconButton>
-                <IconButton size="sm" data-aksi="turun" label={`Turunkan pilihan ${index + 1}`} onClick={() => pindah(index, 1)} disabled={disabled || index === options.length - 1}>
+                <IconButton size="sm" data-aksi="turun" label={`Move option ${index + 1} down`} onClick={() => pindah(index, 1)} disabled={disabled || index === options.length - 1}>
                   <ArrowDown size={16} weight="bold" />
                 </IconButton>
                 <IconButton
                   size="sm"
-                  label={`Hapus pilihan ${index + 1}`}
+                  label={`Delete option ${index + 1}`}
                   onClick={() => hapus(index)}
                   disabled={disabled || options.length <= 2}
                   className="text-error"
@@ -538,7 +538,7 @@ function PilihanEditor({
         // ikut tayang. Baris yang dibiarkan kosong dibuang saat Simpan.
         onClick={tambah}
       >
-        Tambah pilihan
+        Add option
       </Button>
     </fieldset>
   );

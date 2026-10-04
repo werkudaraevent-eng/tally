@@ -41,26 +41,26 @@ export function validateFieldDefinitions(fields: RegistrationField[]): FieldIssu
 	const seen = new Set<string>();
 
 	if (fields.length > MAX_CUSTOM_FIELDS) {
-		issues.push({ key: "", message: `Maksimal ${MAX_CUSTOM_FIELDS} field tambahan.` });
+		issues.push({ key: "", message: `No more than ${MAX_CUSTOM_FIELDS} extra questions.` });
 	}
 
 	for (const field of fields) {
 		const key = field.key?.trim() ?? "";
 		if (!FIELD_KEY_PATTERN.test(key)) {
-			issues.push({ key, message: "Kunci harus diawali huruf kecil, isinya huruf kecil, angka, atau garis bawah." });
+			issues.push({ key, message: "The key must start with a lowercase letter and use only lowercase letters, numbers or underscores." });
 			continue;
 		}
 		if (seen.has(key)) {
-			issues.push({ key, message: "Kunci sudah dipakai field lain." });
+			issues.push({ key, message: "Another question already uses this key." });
 			continue;
 		}
 		seen.add(key);
 
 		if (!field.label?.trim()) {
-			issues.push({ key, message: "Label wajib diisi." });
+			issues.push({ key, message: "Label is required." });
 		}
 		if (CHOICE_FIELD_TYPES.includes(field.type) && normalizeOptions(field).length < 2) {
-			issues.push({ key, message: "Perlu minimal dua pilihan." });
+			issues.push({ key, message: "Add at least two options." });
 		}
 		if (CHOICE_FIELD_TYPES.includes(field.type)) {
 			// Keterangan tanpa judul tidak boleh hilang diam-diam saat Simpan.
@@ -68,11 +68,11 @@ export function validateFieldDefinitions(fields: RegistrationField[]): FieldIssu
 				(teks, i) => !!teks?.trim() && !field.options?.[i]?.trim(),
 			);
 			if (tanpaJudul >= 0) {
-				issues.push({ key, message: `Pilihan ${tanpaJudul + 1} punya keterangan tetapi belum berjudul.` });
+				issues.push({ key, message: `Option ${tanpaJudul + 1} has a description but no title.` });
 			}
 		}
 		if (field.type === "number" && field.min !== undefined && field.max !== undefined && field.min > field.max) {
-			issues.push({ key, message: "Nilai minimum melebihi maksimum." });
+			issues.push({ key, message: "The minimum is greater than the maximum." });
 		}
 	}
 

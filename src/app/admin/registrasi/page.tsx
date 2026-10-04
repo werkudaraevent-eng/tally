@@ -18,7 +18,7 @@ import { FormPreview } from "@/components/admin/form-preview";
 import Link from "@/components/event-link";
 import { CHOICE_FIELD_TYPES, type RegistrationFormConfig } from "@/lib/domain";
 import { validateFieldDefinitions } from "@/lib/registration-fields";
-import { formatEventDateTime } from "@/lib/datetime";
+import { plural } from "@/lib/plural";
 import { eventApiPath } from "@/lib/event-url";
 import type { EventTimeZone } from "@/lib/timezone";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
@@ -61,10 +61,19 @@ type EventConfig = {
 type Status = Row["status"];
 
 const STATUS: Record<Status, { label: string; tone: ChipTone; kosong: string }> = {
-  pending: { label: "Menunggu", tone: "warning", kosong: "Tidak ada pendaftar yang menunggu" },
-  approved: { label: "Disetujui", tone: "success", kosong: "Belum ada pendaftar yang disetujui" },
-  rejected: { label: "Ditolak", tone: "error", kosong: "Belum ada pendaftar yang ditolak" },
+  pending: { label: "Pending approval", tone: "warning", kosong: "No registrants pending approval" },
+  approved: { label: "Approved", tone: "success", kosong: "No approved registrants yet" },
+  rejected: { label: "Rejected", tone: "error", kosong: "No rejected registrants yet" },
 };
+
+/**
+ * Tanggal dan jam untuk panitia, en-GB 24 jam di zona acara. Lokal di sini:
+ * formatEventDateTime di lib/datetime.ts masih id-ID dan dipakai halaman publik.
+ */
+function formatWaktu(value: string | null | undefined, zone: EventTimeZone): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("en-GB", { timeZone: zone, dateStyle: "medium", timeStyle: "short", hourCycle: "h23" });
+}
 
 /** Tab: tamu undangan, atau salah satu status pendaftaran. */
 type Tab = Status | "tamu";
@@ -111,10 +120,10 @@ export default function RegistrasiAdminPage() {
     // pernah sampai ke route handler -- permintaannya jatuh ke "event aktif
     // tunggal", yaitu event PRODUKSI, bukan event yang sedang dibuka.
     const response = await fetch(eventApiPath(`/api/admin/registrasi?status=${tab === "tamu" ? "pending" : tab}`), { cache: "no-store" }).catch(() => null);
-    if (!response) { setError("Koneksi gagal. Muat ulang halaman."); setLoading(false); return; }
+    if (!response) { setError("Connection failed. Reload the page."); setLoading(false); return; }
     if (response.status === 401) { window.location.href = "/login"; return; }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) setError(body.error?.details?.message ?? body.error?.message ?? "Daftar pendaftaran gagal dimuat.");
+    if (!response.ok) setError(body.error?.details?.message ?? body.error?.message ?? "Couldn't load registrations.");
     else { setRows(body.registrations ?? []); setTotal(body.total ?? 0); setConfig(body.event); setPending(body.pending ?? 0); setEmailAktif(body.email_configured === true); setError(""); }
     setLoading(false);
   }, [tab]);
@@ -152,7 +161,7 @@ export default function RegistrasiAdminPage() {
     setBusy(false);
     const body = await response?.json().catch(() => ({}));
     if (!response?.ok) {
-      toast.error("Gagal disimpan", body?.error?.details?.message ?? body?.error?.message ?? "Coba lagi.");
+      toast.error("Couldn't save", body?.error?.details?.message ?? body?.error?.message ?? "Try again.");
       return;
     }
     setConfig({
@@ -163,9 +172,9 @@ export default function RegistrasiAdminPage() {
         ...(next.invitation_auto_approve !== undefined ? { auto_approve: next.invitation_auto_approve } : {}),
       },
     });
-    toast.success("Tersimpan", next.registration_access
-      ? next.registration_access === "undangan" ? "Pendaftaran khusus tamu undangan." : "Pendaftaran terbuka untuk siapa saja yang punya tautan."
-      : next.invitation_auto_approve ? "Tamu undangan langsung disetujui." : "Tamu undangan menunggu ditinjau.");
+    toast.success("Saved", next.registration_access
+      ? next.registration_access === "undangan" ? "Registration is limited to invited guests." : "Registration is open to anyone with the link."
+      : next.invitation_auto_approve ? "Invited guests are approved automatically." : "Invited guests wait for review.");
   }
 
   async function simpanKonfigurasi(next: Partial<EventConfig>) {
@@ -182,10 +191,10 @@ export default function RegistrasiAdminPage() {
         : { registration_auto_approve: next.registration_auto_approve }),
     }).catch(() => null);
     setBusy(false);
-    if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat status sebenarnya."); return; }
+    if (!response) { toast.error("Connection failed", "Reload to see the current status."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      toast.error("Gagal disimpan", body.error?.details?.message ?? body.error?.message ?? "Coba lagi.");
+      toast.error("Couldn't save", body.error?.details?.message ?? body.error?.message ?? "Try again.");
       return;
     }
     setConfig({ ...config, ...body });
@@ -194,10 +203,10 @@ export default function RegistrasiAdminPage() {
     // setelah seseorang mengubah mode persetujuan adalah kabar tentang hal yang
     // tidak ia sentuh.
     toast.success(
-      "Tersimpan",
+      "Saved",
       next.registration_enabled !== undefined
-        ? body.registration_enabled ? "Pendaftaran dibuka." : "Pendaftaran ditutup."
-        : body.registration_auto_approve ? "Pendaftar baru langsung disetujui." : "Pendaftar baru menunggu ditinjau.",
+        ? body.registration_enabled ? "Registration opened." : "Registration closed."
+        : body.registration_auto_approve ? "New registrants are approved automatically." : "New registrants wait for review.",
     );
   }
 
@@ -214,7 +223,7 @@ export default function RegistrasiAdminPage() {
     // ditolak di sini supaya tidak ada yang terbuang diam-diam di jalan.
     const masalah = validateFieldDefinitions(next.fields ?? []);
     if (masalah.length) {
-      toast.error("Form belum bisa disimpan", masalah[0].message);
+      toast.error("Can't save the form yet", masalah[0].message);
       return false;
     }
     setSimpanForm(true);
@@ -254,15 +263,15 @@ export default function RegistrasiAdminPage() {
       }),
     }).catch(() => null);
     setSimpanForm(false);
-    if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat status sebenarnya."); return false; }
+    if (!response) { toast.error("Connection failed", "Reload to see the current status."); return false; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      toast.error("Form gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
+      toast.error("Couldn't save the form", pesanGalatApi(body) ?? "Try again.");
       return false;
     }
     setConfig({ ...config, ...body });
     setDraftForm(null);
-    toast.success("Form tersimpan", "Halaman pendaftaran publik langsung memakai susunan baru.");
+    toast.success("Form saved", "The public registration page now uses the new form.");
     return true;
   }
 
@@ -277,7 +286,7 @@ export default function RegistrasiAdminPage() {
     const response = await fetch(eventApiPath(`/api/admin/registrasi/upload?id=${encodeURIComponent(uploadId)}`), { cache: "no-store" }).catch(() => null);
     const body = await response?.json().catch(() => null);
     if (!response?.ok || !body?.url) {
-      toast.error("Berkas tidak bisa dibuka", body?.error?.details?.message ?? "Coba muat ulang halaman.");
+      toast.error("Couldn't open the file", body?.error?.details?.message ?? "Reload the page and try again.");
       return;
     }
     window.open(body.url, "_blank", "noopener,noreferrer");
@@ -291,10 +300,10 @@ export default function RegistrasiAdminPage() {
       body: JSON.stringify({ id: row.id, approve, reason: reason ?? null }),
     }).catch(() => null);
     setBusy(false);
-    if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat status sebenarnya."); return; }
+    if (!response) { toast.error("Connection failed", "Reload to see the current status."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      toast.error("Gagal diproses", body.error?.details?.message ?? body.error?.message ?? "Coba lagi.");
+      toast.error("Couldn't update the registration", body.error?.details?.message ?? body.error?.message ?? "Try again.");
       // Muat ulang: "sudah diproses admin lain" berarti daftar di layar sudah
       // basi, dan membiarkannya membuat admin menekan tombol yang sama lagi.
       void load();
@@ -309,16 +318,16 @@ export default function RegistrasiAdminPage() {
     // status pengiriman adalah keterangan kedua, bukan penggantinya.
     const email = (body.email ?? {}) as { state?: string; error?: string };
     toast.success(
-      approve ? `${row.name} disetujui` : `${row.name} ditolak`,
+      approve ? `${row.name} approved` : `${row.name} rejected`,
       approve
-        ? `Kode peserta: ${body.qr_code}.${
-            email.state === "sent" ? ` Email terkirim ke ${row.email}.`
-            : email.state === "failed" ? " Email gagal terkirim. Bacakan kodenya, lalu coba Kirim ulang di tab Disetujui."
+        ? `Participant code: ${body.qr_code}.${
+            email.state === "sent" ? ` Email sent to ${row.email}.`
+            : email.state === "failed" ? " The email was not sent. Read the code out, then try Resend code on the Approved tab."
             : ""
           }`
-        : `Pendaftar tidak dibuatkan kode peserta.${
-            email.state === "sent" ? ` Email Tidak disetujui terkirim ke ${row.email}.`
-            : email.state === "failed" ? " Email Tidak disetujui gagal terkirim."
+        : `No participant code was issued.${
+            email.state === "sent" ? ` Rejection email sent to ${row.email}.`
+            : email.state === "failed" ? " The rejection email was not sent."
             : ""
           }`,
     );
@@ -332,10 +341,10 @@ export default function RegistrasiAdminPage() {
       body: JSON.stringify({ id: row.id }),
     }).catch(() => null);
     setMengirim(null);
-    if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat status sebenarnya."); return; }
+    if (!response) { toast.error("Connection failed", "Reload to see the current status."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      toast.error("Email gagal dikirim", body.error?.details?.message ?? body.error?.message ?? "Coba lagi.");
+      toast.error("Couldn't send the email", body.error?.details?.message ?? body.error?.message ?? "Try again.");
       // Baris di layar sekarang basi: email_error dan email_attempts sudah
       // berubah di database, dan membiarkannya membuat panitia membaca sebab
       // kegagalan yang lama.
@@ -345,7 +354,7 @@ export default function RegistrasiAdminPage() {
     setRows((current) => current.map((entry) => (
       entry.id === row.id ? { ...entry, email_sent_at: new Date().toISOString(), email_error: null, email_attempts: entry.email_attempts + 1 } : entry
     )));
-    toast.success("Email terkirim", `Kode peserta dikirim ulang ke ${row.email}.`);
+    toast.success("Email sent", `Participant code sent again to ${row.email}.`);
   }
 
   const tautan = config ? `/e/${config.slug}/daftar` : "";
@@ -356,21 +365,22 @@ export default function RegistrasiAdminPage() {
 
   function salinTautan() {
     void navigator.clipboard.writeText(new URL(tautan, window.location.origin).toString());
-    toast.success("Tautan disalin", "Sebarkan ke calon peserta.");
+    toast.success("Link copied", "Share it with prospective participants.");
   }
 
   // ---- Tampilan penyunting formulir ----------------------------------------
   if (tampilan === "formulir") {
     return (
+      <div lang="en" className="contents">
       <WorkspacePage fill>
         <WorkspaceHeader
-          title="Atur formulir"
+          title="Edit form"
           back={
             <button type="button" onClick={() => setTampilan("moderasi")} className="inline-flex items-center gap-1.5 rounded-sm text-body-medium font-medium text-primary hover:underline">
-              <ArrowLeft size={14} aria-hidden />Pendaftaran
+              <ArrowLeft size={14} aria-hidden />Registration
             </button>
           }
-          meta={<span>Apa yang ditanyakan ke pendaftar. Tampilannya mengikuti Tema halaman acara.</span>}
+          meta={<span>What registrants are asked. The look follows the event page Theme.</span>}
         />
         {!config ? (
           error ? <Banner tone="error" icon={<XCircle size={18} />}>{error}</Banner> : <PageLoading />
@@ -380,7 +390,7 @@ export default function RegistrasiAdminPage() {
           <SupportingPane
             paneWidth={440}
             main={
-              <Pane aria-label="Penyunting formulir">
+              <Pane aria-label="Form editor">
                 <PaneBody className="px-5 py-5">
                   <KartuTampilan
                     tampilan={config.tampilan}
@@ -390,15 +400,15 @@ export default function RegistrasiAdminPage() {
                   />
                   <RegistrationFormBuilder config={formDraft} onChange={setDraftForm} disabled={simpanForm} areaPeserta={config.tampilan?.area_peserta ?? false} />
                 </PaneBody>
-                <PaneFooter note={draftForm ? "Ada perubahan yang belum disimpan" : "Sama dengan yang tayang di halaman pendaftaran"}>
+                <PaneFooter note={draftForm ? "Unsaved changes" : "Matches the live registration page"}>
                   <Button simpan size="sm" onClick={() => void kirimForm(formDraft)} loading={simpanForm} disabled={busy} icon={<Check size={16} weight="bold" />}>
-                    Simpan formulir
+                    Save form
                   </Button>
                 </PaneFooter>
               </Pane>
             }
             pane={
-              <Pane as="aside" aria-label="Pratinjau formulir">
+              <Pane as="aside" aria-label="Form preview">
                 <FormPreview slug={config.slug} form={formDraft} />
               </Pane>
             }
@@ -408,17 +418,17 @@ export default function RegistrasiAdminPage() {
           open={tujuanTertunda !== null}
           onClose={() => setTujuanTertunda(null)}
           dismissible={!simpanForm}
-          title="Simpan perubahan formulir dulu?"
-          description="Ada perubahan susunan formulir yang belum disimpan. Kalau dibuang, formulir publik tetap memakai susunan yang tersimpan."
+          title="Save form changes first?"
+          description="The form has unsaved changes. If you discard them, the public form keeps the saved version."
           actions={
             <>
-              <Button variant="outlined" disabled={simpanForm} onClick={() => setTujuanTertunda(null)}>Batal</Button>
+              <Button variant="outlined" disabled={simpanForm} onClick={() => setTujuanTertunda(null)}>Cancel</Button>
               <Button
                 variant="outlined"
                 disabled={simpanForm}
                 onClick={() => { const tujuan = tujuanTertunda; setDraftForm(null); setTujuanTertunda(null); if (tujuan) buka(tujuan); }}
               >
-                Buang
+                Discard changes
               </Button>
               <Button
                 simpan
@@ -428,12 +438,13 @@ export default function RegistrasiAdminPage() {
                   if (await kirimForm(formDraft)) { setTujuanTertunda(null); if (tujuan) buka(tujuan); }
                 }}
               >
-                Simpan lalu buka
+                Save and open
               </Button>
             </>
           }
         />
       </WorkspacePage>
+      </div>
     );
   }
 
@@ -443,16 +454,16 @@ export default function RegistrasiAdminPage() {
   const terpilih = rows.find((row) => row.id === pilihId) ?? null;
 
   const list = (
-    <Pane aria-label="Daftar pendaftar">
+    <Pane aria-label="Registrant list">
       <div className="flex shrink-0 items-center gap-3 border-b border-outline-variant bg-surface-container-high px-4 py-2.5 text-body-medium font-medium text-on-surface-variant">
-        <span className="min-w-0 flex-1">Pendaftar</span>
-        <span className="shrink-0">Masuk</span>
+        <span className="min-w-0 flex-1">Registrant</span>
+        <span className="shrink-0">Received</span>
       </div>
       <PaneBody>
         {error ? (
           <p role="alert" className="m-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</p>
         ) : loading ? (
-          <div role="status" aria-label="Memuat pendaftar" className="flex flex-col">
+          <div role="status" aria-label="Loading registrants" className="flex flex-col">
             {Array.from({ length: 6 }, (_, i) => (
               <div key={i} className="flex flex-col gap-2 border-b border-outline-variant px-4 py-3.5">
                 <div className="h-3 w-44 animate-pulse rounded bg-surface-container-high" />
@@ -466,9 +477,9 @@ export default function RegistrasiAdminPage() {
             icon={<Tray size={40} />}
             title={STATUS[tab === "tamu" ? "pending" : tab].kosong}
             description={tab !== "pending" ? undefined
-              : !config?.registration_enabled ? "Pendaftaran sedang ditutup. Halaman pendaftaran menolak semua pengiriman."
-              : config.registration_auto_approve ? "Setujui otomatis menyala, jadi pendaftar baru langsung masuk ke tab Disetujui."
-              : "Pendaftar baru muncul di sini sampai disetujui atau ditolak."}
+              : !config?.registration_enabled ? "Registration is closed. The registration page rejects all submissions."
+              : config.registration_auto_approve ? "Auto-approve is on, so new registrants go straight to the Approved tab."
+              : "New registrants appear here until they are approved or rejected."}
           />
         ) : (
           rows.map((row) => {
@@ -479,8 +490,8 @@ export default function RegistrasiAdminPage() {
                   <span className="block truncate font-medium text-on-surface">{row.name}</span>
                   <span className="block truncate text-on-surface-variant">{sub || row.email}</span>
                 </span>
-                {row.status === "approved" && row.email_error ? <StatusChip dot tone="error">Email gagal</StatusChip> : null}
-                <span className="shrink-0 tabular-nums text-on-surface-variant">{formatEventDateTime(row.created_at, zone)}</span>
+                {row.status === "approved" && row.email_error ? <StatusChip dot tone="error">Email failed</StatusChip> : null}
+                <span className="shrink-0 tabular-nums text-on-surface-variant">{formatWaktu(row.created_at, zone)}</span>
               </ListRow>
             );
           })
@@ -489,7 +500,7 @@ export default function RegistrasiAdminPage() {
       {!loading && !error && rows.length > 0 ? (
         <PaneFooter
           className="bg-surface-container-lowest py-2"
-          note={<span className="tabular-nums">{total > rows.length ? `${rows.length} dari ${total} ditampilkan, terlama di atas` : `${rows.length} pendaftar, terlama di atas`}</span>}
+          note={<span className="tabular-nums">{total > rows.length ? `Showing ${rows.length.toLocaleString("en-GB")} of ${plural(total, "registrant")}, oldest first` : `${plural(rows.length, "registrant")}, oldest first`}</span>}
         />
       ) : null}
     </Pane>
@@ -500,38 +511,38 @@ export default function RegistrasiAdminPage() {
     const sub = [row.job_title, row.company].filter(Boolean).join(" · ");
     const jawaban = Object.entries(row.extra ?? {});
     return (
-      <Pane as="aside" aria-label={`Detail ${row.name}`}>
+      <Pane as="aside" aria-label={`Details for ${row.name}`}>
         <div className="flex shrink-0 flex-col gap-2 border-b border-outline-variant px-5 py-4">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <h2 className="text-title-medium font-semibold leading-6">{row.name}</h2>
               {sub ? <p className="text-body-medium text-on-surface-variant">{sub}</p> : null}
             </div>
-            <IconButton size="sm" label="Tutup detail" onClick={() => setPilihId(null)}><X size={16} /></IconButton>
+            <IconButton size="sm" label="Close details" onClick={() => setPilihId(null)}><X size={16} /></IconButton>
           </div>
           <p className="flex flex-wrap items-center gap-2 text-body-medium text-on-surface-variant">
             <StatusChip dot tone={STATUS[row.status].tone}>{STATUS[row.status].label}</StatusChip>
-            <span>Didaftarkan {formatEventDateTime(row.created_at, zone)} {abbr}</span>
+            <span>Registered {formatWaktu(row.created_at, zone)} {abbr}</span>
           </p>
         </div>
         <PaneBody>
-          <DetailSection title="Kontak">
+          <DetailSection title="Contact">
             <dl className="flex flex-col gap-2">
               <KeyValue label="Email">{row.email}</KeyValue>
-              <KeyValue label="Telepon">{row.phone}</KeyValue>
+              <KeyValue label="Phone">{row.phone}</KeyValue>
             </dl>
           </DetailSection>
           {row.qr_code ? (
             // Kode tetap ditampilkan meski email sudah aktif: email bisa masuk
             // spam atau ditolak server penerima, dan panitia harus bisa
             // membacakannya lewat telepon tanpa membuka database.
-            <DetailSection title="Kode peserta">
+            <DetailSection title="Participant code">
               <p className="select-all text-title-medium font-semibold tabular-nums">{row.qr_code}</p>
               {row.status === "approved" ? <StatusEmail row={row} emailAktif={emailAktif} zone={zone} abbr={abbr} /> : null}
             </DetailSection>
           ) : null}
           {jawaban.length > 0 ? (
-            <DetailSection title="Jawaban formulir">
+            <DetailSection title="Form answers">
               <dl className="flex flex-col gap-2">
                 {jawaban.map(([key, value]) => {
                   // Label pertanyaan, bukan kunci datanya. Kuncinya dibuat
@@ -543,8 +554,8 @@ export default function RegistrasiAdminPage() {
                       {field?.type === "file"
                         // Berkasnya di bucket privat: tautannya diminta ke server
                         // saat ditekan dan berlaku lima menit.
-                        ? <button type="button" onClick={() => void bukaBerkas(value)} className="rounded-sm font-medium text-primary hover:underline">Buka berkas</button>
-                        : field?.type === "checkbox" ? (value === "true" ? "Ya" : "Tidak")
+                        ? <button type="button" onClick={() => void bukaBerkas(value)} className="rounded-sm font-medium text-primary hover:underline">Open file</button>
+                        : field?.type === "checkbox" ? (value === "true" ? "Yes" : "No")
                         : value}
                     </KeyValue>
                   );
@@ -553,15 +564,15 @@ export default function RegistrasiAdminPage() {
             </DetailSection>
           ) : null}
           {row.reject_reason ? (
-            <DetailSection title="Alasan penolakan">
+            <DetailSection title="Rejection reason">
               <p className="text-body-medium text-on-surface">{row.reject_reason}</p>
             </DetailSection>
           ) : null}
         </PaneBody>
         {row.status === "pending" ? (
-          <PaneFooter note="Kode peserta terbit saat disetujui">
-            <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setMenolak(row)}>Tolak</Button>
-            <Button simpan size="sm" disabled={busy} icon={<Check size={16} weight="bold" />} onClick={() => void review(row, true)}>Setujui</Button>
+          <PaneFooter note="The participant code is issued on approval">
+            <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setMenolak(row)}>Reject</Button>
+            <Button simpan size="sm" disabled={busy} icon={<Check size={16} weight="bold" />} onClick={() => void review(row, true)}>Approve</Button>
           </PaneFooter>
         ) : row.status === "approved" && row.qr_code && emailAktif ? (
           // Tombol disembunyikan, bukan diredupkan, saat email belum diaktifkan
@@ -575,7 +586,7 @@ export default function RegistrasiAdminPage() {
               icon={<PaperPlaneTilt size={16} />}
               onClick={() => void kirimUlang(row)}
             >
-              {row.email_sent_at ? "Kirim ulang" : "Kirim kode"}
+              {row.email_sent_at ? "Resend code" : "Send code"}
             </Button>
           </PaneFooter>
         ) : null}
@@ -584,13 +595,14 @@ export default function RegistrasiAdminPage() {
   })() : null;
 
   return (
+    <div lang="en" className="contents">
     <WorkspacePage fill>
       <WorkspaceHeader
         meta={config ? (
           <>
             <span className="inline-flex items-center gap-1.5">
               <StatusDot tone={config.registration_enabled ? "success" : "neutral"} />
-              {config.registration_enabled ? "Dibuka" : "Ditutup"}
+              {config.registration_enabled ? "Open" : "Closed"}
             </span>
             {config.registration_enabled ? (
               <>
@@ -601,8 +613,8 @@ export default function RegistrasiAdminPage() {
                   </>
                 ) : null}
                 <MetaSeparator />
-                <span>Setujui otomatis: {config.registration_auto_approve ? "nyala" : "mati"}</span>
-                <button type="button" onClick={() => setSetelanOpen(true)} className="rounded-sm font-medium text-primary hover:underline">{config.undangan ? AKSES.change : "Ubah"}</button>
+                <span>Auto-approve: {config.registration_auto_approve ? "on" : "off"}</span>
+                <button type="button" onClick={() => setSetelanOpen(true)} className="rounded-sm font-medium text-primary hover:underline">{config.undangan ? AKSES.change : "Edit"}</button>
                 <MetaSeparator />
                 {config.undangan?.access === "undangan" ? (
                   // Khusus undangan: tautan umum hanya membuka halaman Khusus undangan.
@@ -610,7 +622,7 @@ export default function RegistrasiAdminPage() {
                 ) : (
                   <>
                     <span className="min-w-0 break-all">{tautan}</span>
-                    <button type="button" onClick={salinTautan} className="rounded-sm font-medium text-primary hover:underline">Salin tautan</button>
+                    <button type="button" onClick={salinTautan} className="rounded-sm font-medium text-primary hover:underline">Copy link</button>
                   </>
                 )}
               </>
@@ -619,9 +631,9 @@ export default function RegistrasiAdminPage() {
               <>
                 <MetaSeparator />
                 <span>
-                  Email konfirmasi: {emailAktif ? config.email_konfirmasi.preset ?? "bawaan dari Tema" : "belum aktif di server"}
+                  Registration confirmation: {emailAktif ? config.email_konfirmasi.preset ?? "default from Theme" : "email not enabled on the server"}
                 </span>
-                <Link href="/admin/pengumuman/otomatis" className="rounded-sm font-medium text-primary hover:underline">Atur email</Link>
+                <Link href="/admin/pengumuman/otomatis" className="rounded-sm font-medium text-primary hover:underline">Edit email</Link>
               </>
             ) : null}
           </>
@@ -631,7 +643,7 @@ export default function RegistrasiAdminPage() {
             {config?.undangan ? (
               <Button icon={<Plus size={16} weight="bold" />} onClick={() => setImporOpen(true)}>{TAMU.addButton}</Button>
             ) : null}
-            <Button variant="outlined" disabled={!config} icon={<PencilSimple size={16} />} onClick={() => setTampilan("formulir")}>Atur formulir</Button>
+            <Button variant="outlined" disabled={!config} icon={<PencilSimple size={16} />} onClick={() => setTampilan("formulir")}>Edit form</Button>
             {config ? (
               <Button
                 variant="outlined"
@@ -639,7 +651,7 @@ export default function RegistrasiAdminPage() {
                 disabled={busy}
                 onClick={() => void simpanKonfigurasi({ registration_enabled: !config.registration_enabled })}
               >
-                {config.registration_enabled ? "Tutup pendaftaran" : "Buka pendaftaran"}
+                {config.registration_enabled ? "Close registration" : "Open registration"}
               </Button>
             ) : null}
           </>
@@ -647,7 +659,7 @@ export default function RegistrasiAdminPage() {
       />
 
       <Tabs<Tab>
-        label="Status pendaftaran"
+        label="Registration status"
         idPrefix="registrasi"
         value={tab}
         onChange={gantiTab}
@@ -657,9 +669,9 @@ export default function RegistrasiAdminPage() {
           ...(tamuTampil
             ? [{ value: "tamu" as const, label: TAMU.tab, badge: jumlahTamuTampil, badgeOutlined: true, divider: true }]
             : []),
-          { value: "pending", label: "Menunggu", badge: pending > 0 ? pending : undefined },
-          { value: "approved", label: "Disetujui" },
-          { value: "rejected", label: "Ditolak" },
+          { value: "pending", label: "Pending approval", badge: pending > 0 ? pending : undefined },
+          { value: "approved", label: "Approved" },
+          { value: "rejected", label: "Rejected" },
         ]}
       />
 
@@ -689,8 +701,8 @@ export default function RegistrasiAdminPage() {
         description={AKSES.confirmInviteOnly(jumlahTamuTampil ?? 0)}
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setKonfirmasiAkses(false)}>Batal</Button>
-            <Button simpan loading={busy} onClick={async () => { await simpanUndangan({ registration_access: "undangan" }); setKonfirmasiAkses(false); }}>Khusus undangan</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setKonfirmasiAkses(false)}>Cancel</Button>
+            <Button simpan loading={busy} onClick={async () => { await simpanUndangan({ registration_access: "undangan" }); setKonfirmasiAkses(false); }}>Limit to invited guests</Button>
           </>
         }
       />
@@ -698,8 +710,8 @@ export default function RegistrasiAdminPage() {
       <Dialog
         open={setelanOpen}
         onClose={() => setSetelanOpen(false)}
-        title={config?.undangan ? AKSES.title : "Mode persetujuan"}
-        actions={<Button variant="outlined" onClick={() => setSetelanOpen(false)}>Tutup</Button>}
+        title={config?.undangan ? AKSES.title : "Approval mode"}
+        actions={<Button variant="outlined" onClick={() => setSetelanOpen(false)}>Close</Button>}
       >
         {config?.undangan ? (
           <div className="mb-5 flex flex-col gap-5 border-b border-outline-variant pb-5">
@@ -734,11 +746,11 @@ export default function RegistrasiAdminPage() {
             checked={config.registration_auto_approve}
             disabled={busy}
             onChange={(value) => void simpanKonfigurasi({ registration_auto_approve: value })}
-            label={config.undangan ? AKSES.generalAutoApprove : "Setujui otomatis"}
+            label={config.undangan ? AKSES.generalAutoApprove : "Auto-approve"}
             // Akibatnya ditulis, bukan sekadar nama setelannya. Dicentang tanpa
             // membaca, panitia baru sadar ada 40 peserta asing di leaderboard
             // saat acara sudah berjalan.
-            description="Pendaftar langsung jadi peserta dan kode terbit seketika, tanpa diperiksa siapa pun. Tanpa ini, setiap pendaftaran menunggu persetujuan di tab Menunggu."
+            description="Registrants become participants and get their code straight away, without anyone checking them. Without this, each registration waits on the Pending approval tab."
           />
         ) : null}
       </Dialog>
@@ -748,14 +760,14 @@ export default function RegistrasiAdminPage() {
         onClose={() => setMenolak(null)}
         dismissible={!busy}
         tone="danger"
-        title={`Tolak pendaftaran ${menolak?.name ?? ""}?`}
-        description={`Pendaftar tidak dibuatkan kode peserta. Catatannya tetap tersimpan, dan orang ini boleh mendaftar ulang dengan email yang sama.${
-          config?.email_konfirmasi?.kirim_ditolak && emailAktif && menolak?.email ? " Email Tidak disetujui ikut terkirim; alasan di bawah tidak ikut." : ""
+        title={`Reject registration from ${menolak?.name ?? ""}?`}
+        description={`No participant code is issued. The record is kept, and this person can register again with the same email.${
+          config?.email_konfirmasi?.kirim_ditolak && emailAktif && menolak?.email ? " The rejection email is sent too, without the reason below." : ""
         }`}
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setMenolak(null)}>Batal</Button>
-            <Button simpan variant="danger" type="submit" form="form-tolak" loading={busy}>Tolak</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setMenolak(null)}>Cancel</Button>
+            <Button simpan variant="danger" type="submit" form="form-tolak" loading={busy}>Reject</Button>
           </>
         }
       >
@@ -767,10 +779,11 @@ export default function RegistrasiAdminPage() {
           }}
         >
           <p className="mb-4 text-body-medium text-on-surface-variant">{menolak?.email}</p>
-          <TextField name="reason" label="Alasan" optional maxLength={300} hint="Untuk catatan panitia." />
+          <TextField name="reason" label="Reason" optional maxLength={300} hint="For staff records only." />
         </form>
       </Dialog>
     </WorkspacePage>
+    </div>
   );
 }
 
@@ -797,24 +810,24 @@ function StatusEmail({ row, emailAktif, zone, abbr }: {
   if (!emailAktif) {
     return <p className="flex items-start gap-2 text-body-medium text-on-surface-variant">
       <EnvelopeSimple size={16} className="mt-0.5 shrink-0" aria-hidden />
-      <span>Pengiriman email belum diaktifkan di server. Bacakan kode di atas ke pendaftar.</span>
+      <span>Email sending is not enabled on the server. Read the code above out to the registrant.</span>
     </p>;
   }
   if (row.email_error) {
     return <p className="flex items-start gap-2 text-body-medium text-error">
       <WarningCircle size={16} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
-      <span>Email gagal terkirim setelah {row.email_attempts}× percobaan: {row.email_error}</span>
+      <span>Email failed after {plural(row.email_attempts, "attempt")}: {row.email_error}</span>
     </p>;
   }
   if (row.email_sent_at) {
     return <p className="flex items-start gap-2 text-body-medium text-on-success-container">
       <Check size={16} weight="bold" className="mt-0.5 shrink-0" aria-hidden />
-      <span>Email terkirim {formatEventDateTime(row.email_sent_at, zone)} {abbr}</span>
+      <span>Email sent {formatWaktu(row.email_sent_at, zone)} {abbr}</span>
     </p>;
   }
   return <p className="flex items-start gap-2 text-body-medium text-warning">
     <Hourglass size={16} className="mt-0.5 shrink-0" aria-hidden />
-    <span>Kode belum pernah dikirim lewat email.</span>
+    <span>The code has not been emailed yet.</span>
   </p>;
 }
 
@@ -838,8 +851,8 @@ function KartuTampilan({
   // Hanya yang benar-benar dipakai formulir. Tata letak Editorial memakai
   // formulir lama, yang hanya mengambil warnanya.
   const ringkasan = tampilan.v2
-    ? [tampilan.logo ? "Logo" : "Tanpa logo", tampilan.kv ? "gambar utama" : "tanpa gambar utama", seed.toUpperCase(), tampilan.huruf].filter(Boolean).join(" · ")
-    : `Warna ${seed.toUpperCase()}. Logo dan gambar utama hanya tampil di formulir bertata letak Modern atau Forum.`;
+    ? [tampilan.logo ? "Logo" : "No logo", tampilan.kv ? "hero image" : "no hero image", seed.toUpperCase(), tampilan.huruf].filter(Boolean).join(" · ")
+    : `Colour ${seed.toUpperCase()}. The logo and hero image only show on forms with the Modern or Forum layout.`;
   // text-body-medium, bukan text-label-large: aturan `.press .text-label-large`
   // yang tidak berlapis menurunkan tebalnya ke 400 di dalam panel.
   const TAUTAN = "inline-flex min-h-10 shrink-0 items-center rounded-sm text-body-medium font-semibold text-primary hover:underline";
@@ -855,19 +868,19 @@ function KartuTampilan({
         {/* Teks paling sedikit 14rem: di ponsel tautannya turun ke bawah, bukan memeras teks. */}
         <div className="min-w-[14rem] flex-1">
           <p className="text-title-medium font-semibold">
-            Tampilan mengikuti Tema halaman acara
+            Look follows the event page Theme
           </p>
           <p className="mt-0.5 text-body-medium text-on-surface-variant">{ringkasan}</p>
         </div>
-        <Link href="/admin/landing?bagian=tema" onClick={(event) => onBuka("/admin/landing?bagian=tema", event)} className={TAUTAN}>Ubah di Tema</Link>
+        <Link href="/admin/landing?bagian=tema" onClick={(event) => onBuka("/admin/landing?bagian=tema", event)} className={TAUTAN}>Edit in Theme</Link>
       </div>
       {tampilan.area_peserta ? (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-4">
           <div className="min-w-[14rem] flex-1">
-            <p className="text-title-medium font-semibold">Area peserta aktif</p>
-            <p className="mt-0.5 text-body-medium text-on-surface-variant">Formulir meminta kata sandi; email otomatis wajib.</p>
+            <p className="text-title-medium font-semibold">Participant area is on</p>
+            <p className="mt-0.5 text-body-medium text-on-surface-variant">The form asks for a password, so email is always required.</p>
           </div>
-          <Link href="/admin/area-peserta" onClick={(event) => onBuka("/admin/area-peserta", event)} className={TAUTAN}>Atur di Area peserta</Link>
+          <Link href="/admin/area-peserta" onClick={(event) => onBuka("/admin/area-peserta", event)} className={TAUTAN}>Set up in Participant area</Link>
         </div>
       ) : null}
     </div>

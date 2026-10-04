@@ -25,23 +25,23 @@ const isian = z.object({
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
-  if (!inviteSecretReady()) return apiError("VALIDATION_ERROR", 503, { message: "INVITE_LINK_SECRET belum diisi di server." });
+  if (!inviteSecretReady()) return apiError("VALIDATION_ERROR", 503, { message: "INVITE_LINK_SECRET is not set on the server." });
 
   const parsed = isian.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) {
     const salah = parsed.error.flatten().fieldErrors;
-    const message = salah.attested ? "Centang pernyataan dulu." : salah.name ? "Nama wajib diisi." : "Periksa isian lagi.";
+    const message = salah.attested ? "Tick the statement first." : salah.name ? "Name is required." : "Check the fields again.";
     return apiError("VALIDATION_ERROR", 422, { message });
   }
   const email = normalizeInviteEmail(parsed.data.email);
-  if (!email.ok) return apiError("VALIDATION_ERROR", 422, { message: "Email tidak sah.", field: "email" });
+  if (!email.ok) return apiError("VALIDATION_ERROR", 422, { message: "This email address is not valid.", field: "email" });
   const hp = parsed.data.phone;
-  if (hp && (/[a-z]/i.test(hp) || !normalizePhone(hp))) return apiError("VALIDATION_ERROR", 422, { message: "Nomor HP tidak sah.", field: "phone" });
+  if (hp && (/[a-z]/i.test(hp) || !normalizePhone(hp))) return apiError("VALIDATION_ERROR", 422, { message: "This mobile number is not valid.", field: "phone" });
 
   // Situs uji memakai database produksi: hanya untuk acara draf, ditandai uji.
   const situsUji = messagingAllowlist().mode !== "off";
   if (situsUji && auth.scope.event.status !== "draft") {
-    return apiError("FORBIDDEN", 403, { message: "Dari situs uji, tamu hanya bisa ditambahkan ke acara draf, karena situs uji memakai database produksi." });
+    return apiError("FORBIDDEN", 403, { message: "From the test site, invited guests can only be added to draft events, because the test site uses the production database." });
   }
 
   const { data, error } = await getSupabaseServiceClient().rpc("import_event_invitations" as never, {

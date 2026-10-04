@@ -92,11 +92,11 @@ export async function PATCH(request: Request) {
     // nama constraint.
     if ((error.message ?? "").includes("events_scanner_slug_required")) {
       return apiError("VALIDATION_ERROR", 422, {
-        message: "Event ini bersumber Scanner API, jadi slug event tidak boleh dikosongkan. Ubah sumber peserta event lebih dulu bila memang ingin berhenti memakainya.",
+        message: "This event gets its participants from Scanner API, so the event slug can't be empty. Change the event's participant source first if you want to stop using it.",
       });
     }
     if ((error.message ?? "").includes("events_scanner_base_url_format")) {
-      return apiError("VALIDATION_ERROR", 422, { message: "Base URL harus diawali http:// atau https://." });
+      return apiError("VALIDATION_ERROR", 422, { message: "Base URL must start with http:// or https://." });
     }
     return apiError("INTERNAL_ERROR", 500);
   }

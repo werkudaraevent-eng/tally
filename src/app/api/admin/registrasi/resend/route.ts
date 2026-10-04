@@ -86,7 +86,7 @@ export async function POST(request: Request) {
   // tidak terkirim adalah kebohongan.
   if (kirim.state !== "sent") {
     return apiError("EMAIL_SEND_FAILED", 422, {
-      message: kirim.state === "failed" ? `Email gagal dikirim: ${kirim.error}` : undefined,
+      message: kirim.state === "failed" ? `Couldn't send the email: ${kirim.error}` : undefined,
     });
   }
 
