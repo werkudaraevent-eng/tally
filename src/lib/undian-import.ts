@@ -13,10 +13,10 @@ export type ParsedEntry = { label: string; sublabel: string | null; code: string
 
 /** Nama kolom yang dikenali, semuanya dicocokkan tanpa memandang besar kecil huruf. */
 const COLUMN_ALIASES = {
-  label: ["nama", "name", "label", "peserta", "nama peserta"],
-  sublabel: ["perusahaan", "company", "instansi", "keterangan", "sublabel", "jabatan"],
-  code: ["kode", "code", "kupon", "nomor", "kursi", "qr", "no", "nomor kupon"],
-  weight: ["bobot", "weight", "tiket", "jumlah", "jumlah tiket"],
+  label: ["nama", "name", "label", "peserta", "nama peserta", "participant", "participant name", "full name"],
+  sublabel: ["perusahaan", "company", "instansi", "keterangan", "sublabel", "jabatan", "organisation", "organization", "note", "job title"],
+  code: ["kode", "code", "kupon", "nomor", "kursi", "qr", "no", "nomor kupon", "participant code", "qr code", "coupon", "number", "seat"],
+  weight: ["bobot", "weight", "tiket", "jumlah", "jumlah tiket", "tickets", "entries"],
 } as const;
 
 export const TEMPLATE_HEADERS = ["Nama", "Perusahaan", "Kode", "Bobot"] as const;

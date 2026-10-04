@@ -1,6 +1,7 @@
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { kolomImpor, normalizeHeader, type KolomImpor } from "./participants-kolom";
 
 // Impor dan ekspor peserta, CSV maupun XLSX.
 //
@@ -74,39 +75,8 @@ export function exportHeaders(fields: RegistrationField[]): string[] {
   return [...importHeaders(fields), ...berkas, ...READONLY_HEADERS];
 }
 
-/**
- * Nama kolom alternatif yang diterima importir.
- *
- * Berkas nyata datang dari spreadsheet panitia, bukan dari ekspor aplikasi ini.
- * Menolak "Nama" karena headernya bukan "name" memaksa orang menyunting baris
- * pertama sebelum boleh mengunggah -- pekerjaan yang tidak menghasilkan apa pun
- * dan yang gagal dilakukan justru saat sedang terburu-buru.
- */
-const HEADER_ALIASES: Record<string, ImportField> = {
-  qr_code: "qr_code", qr: "qr_code", kode: "qr_code", kode_qr: "qr_code",
-  kode_peserta: "qr_code", unique_code: "qr_code", uniquecode: "qr_code",
-  name: "name", nama: "name", nama_lengkap: "name", full_name: "name", fullname: "name",
-  company: "company", perusahaan: "company", instansi: "company", affiliation: "company",
-  title: "title", jabatan: "title", job_title: "title", jobtitle: "title", posisi: "title",
-  email: "email", surel: "email", alamat_email: "email",
-  phone: "phone", telepon: "phone", telp: "phone", hp: "phone", no_hp: "phone", whatsapp: "phone",
-  participant_type: "participant_type", tipe: "participant_type", tipe_peserta: "participant_type",
-  kategori: "participant_type", participanttype: "participant_type",
-  rsvp_status: "rsvp_status", rsvp: "rsvp_status", status_rsvp: "rsvp_status", rsvpstatus: "rsvp_status",
-};
-
-/** Samakan bentuk header sebelum dicocokkan: "No. HP " -> "no_hp". */
-function normalizeHeader(raw: string) {
-  return raw
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
-
 export type ImportRow = Partial<Record<ImportField, string>> & { extra?: Record<string, string> };
 
-type ColumnTarget = { kind: "base"; field: ImportField } | { kind: "extra"; key: string } | null;
 
 /**
  * Petakan matriks sel (baris pertama = header) menjadi baris impor.
@@ -130,15 +100,8 @@ export function mapRows(matrix: string[][], fields: RegistrationField[] = []) {
     byLabel.set(normalizeHeader(field.label), field.key);
   }
 
-  const columns: ColumnTarget[] = headerRow.map((cell) => {
-    const header = normalizeHeader(cell ?? "");
-    const base = HEADER_ALIASES[header];
-    if (base) return { kind: "base", field: base };
-    const key = byLabel.get(header);
-    if (key) return { kind: "extra", key };
-    return null;
-  });
-  const recognized = [...new Set(columns.filter((column): column is NonNullable<ColumnTarget> => column !== null).map((column) => (column.kind === "base" ? column.field : column.key)))];
+  const columns = headerRow.map((cell) => kolomImpor(cell ?? "", byLabel));
+  const recognized = [...new Set(columns.filter((column): column is NonNullable<KolomImpor> => column !== null).map((column) => (column.kind === "base" ? column.field : column.key)))];
 
   const rows: ImportRow[] = [];
   for (const cells of bodyRows) {

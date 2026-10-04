@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiError, mapDatabaseError } from "@/lib/api";
+import { apiErrorPeserta, mapDatabaseError } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { sendRegistrationCode, sendRegistrationReceived } from "@/lib/email/registration-code";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -60,11 +60,11 @@ function clientIp(request: Request): string | null {
 
 export async function POST(request: Request) {
   const event = await getPublicRequestEvent(request);
-  if (!event) return apiError("VALIDATION_ERROR", 404, { message: "Acara tidak ditemukan." });
-  if (!event.registration_enabled) return apiError("REGISTRATION_CLOSED", 422);
+  if (!event) return apiErrorPeserta("VALIDATION_ERROR", 404, { message: "Acara tidak ditemukan." });
+  if (!event.registration_enabled) return apiErrorPeserta("REGISTRATION_CLOSED", 422);
 
   const parsed = submitSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+  if (!parsed.success) return apiErrorPeserta("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   // Tamu undangan. Tanpa tautan pada mode "Hanya tamu undangan": ditolak di
   // sini untuk pesan yang jelas, dan sekali lagi di dalam fungsi database.
@@ -72,12 +72,12 @@ export async function POST(request: Request) {
   let undangan: InvitationRow | null = null;
   if (parsed.data.undangan) {
     const baca = await readInvite(event, parsed.data.undangan, ipAwal);
-    if (baca.state === "used") return apiError("INVITATION_USED", 422);
-    if (baca.state !== "ok") return apiError("VALIDATION_ERROR", 422, { message: "Tautan undangan ini tidak berlaku lagi. Minta tautan baru ke panitia." });
+    if (baca.state === "used") return apiErrorPeserta("INVITATION_USED", 422);
+    if (baca.state !== "ok") return apiErrorPeserta("VALIDATION_ERROR", 422, { message: "Tautan undangan ini tidak berlaku lagi. Minta tautan baru ke panitia." });
     undangan = baca.inv;
     if (parsed.data.pakai_email_undangan && undangan.email) parsed.data.email = undangan.email;
   } else if ((await invitationSettings(event.id)).access === "undangan") {
-    return apiError("REGISTRATION_INVITE_ONLY", 422);
+    return apiErrorPeserta("REGISTRATION_INVITE_ONLY", 422);
   }
 
   // Jawaban field tambahan diperiksa terhadap konfigurasi event, bukan hanya
@@ -100,20 +100,20 @@ export async function POST(request: Request) {
   const requireEmail = Boolean(member) || config.require_email !== false;
   const requirePhone = config.require_phone !== false;
   if (requireEmail && !parsed.data.email) {
-    return apiError("VALIDATION_ERROR", 422, { email: "Email wajib diisi." });
+    return apiErrorPeserta("VALIDATION_ERROR", 422, { email: "Email wajib diisi." });
   }
   if (requirePhone && !parsed.data.phone) {
-    return apiError("VALIDATION_ERROR", 422, { phone: "Nomor telepon wajib diisi." });
+    return apiErrorPeserta("VALIDATION_ERROR", 422, { phone: "Nomor telepon wajib diisi." });
   }
   if (member && (parsed.data.password ?? "").length < PASSWORD_MIN) {
-    return apiError("VALIDATION_ERROR", 422, {
+    return apiErrorPeserta("VALIDATION_ERROR", 422, {
       password: `Kata sandi minimal ${PASSWORD_MIN} karakter.`,
       message: `Buat kata sandi minimal ${PASSWORD_MIN} karakter untuk area peserta.`,
     });
   }
   const { issues, clean } = validateAnswers(fields, parsed.data.extra);
   if (issues.length > 0) {
-    return apiError("VALIDATION_ERROR", 422, Object.fromEntries(issues.map((issue) => [`extra.${issue.key}`, issue.message])));
+    return apiErrorPeserta("VALIDATION_ERROR", 422, Object.fromEntries(issues.map((issue) => [`extra.${issue.key}`, issue.message])));
   }
 
   const client = getSupabaseServiceClient();
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
       .eq("submitted_ip", ip)
       .gte("created_at", sejak);
     if ((count ?? 0) >= 10) {
-      return apiError("VALIDATION_ERROR", 429, {
+      return apiErrorPeserta("VALIDATION_ERROR", 429, {
         message: "Terlalu banyak pendaftaran dari perangkat ini. Tunggu 10 menit, lalu coba lagi.",
       });
     }
@@ -155,7 +155,7 @@ export async function POST(request: Request) {
       .is("source_removed_at", null)
       .limit(5);
     if (((impor ?? []) as { email: string | null }[]).some((p) => (p.email ?? "").trim().toLowerCase() === email)) {
-      return apiError("REGISTRATION_DUPLICATE_EMAIL", 422, { message: "Email ini sudah terdaftar di acara ini.", masuk: "tautan" });
+      return apiErrorPeserta("REGISTRATION_DUPLICATE_EMAIL", 422, { message: "Email ini sudah terdaftar di acara ini.", masuk: "tautan" });
     }
   }
 
@@ -184,7 +184,7 @@ export async function POST(request: Request) {
     const byId = new Map(rows.map((row) => [row.id, row.field_key]));
     for (const field of fileFields) {
       if (byId.get(clean[field.key]) !== field.key) {
-        return apiError("VALIDATION_ERROR", 422, {
+        return apiErrorPeserta("VALIDATION_ERROR", 422, {
           [`extra.${field.key}`]: `${field.label} gagal diunggah. Coba unggah ulang.`,
         });
       }
@@ -209,7 +209,7 @@ export async function POST(request: Request) {
   } as never);
   if (error) {
     const code = mapDatabaseError(error);
-    return apiError(code, code === "INTERNAL_ERROR" ? 500 : 422);
+    return apiErrorPeserta(code, code === "INTERNAL_ERROR" ? 500 : 422);
   }
 
   const hasil = data as {

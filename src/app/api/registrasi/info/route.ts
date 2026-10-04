@@ -1,4 +1,4 @@
-import { apiError } from "@/lib/api";
+import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 
 /**
@@ -11,8 +11,8 @@ import { getPublicRequestEvent } from "@/lib/auth/request-event";
  */
 export async function GET(request: Request) {
   const event = await getPublicRequestEvent(request);
-  if (!event) return apiError("VALIDATION_ERROR", 404, { message: "Acara tidak ditemukan." });
-  if (!event.registration_enabled) return apiError("REGISTRATION_CLOSED", 422);
+  if (!event) return apiErrorPeserta("VALIDATION_ERROR", 404, { message: "Acara tidak ditemukan." });
+  if (!event.registration_enabled) return apiErrorPeserta("REGISTRATION_CLOSED", 422);
 
   const config = event.registration_form_config ?? {};
   return Response.json({

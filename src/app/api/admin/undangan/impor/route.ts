@@ -24,11 +24,12 @@ const MAX_BYTES = 4 * 1024 * 1024;
 const MAX_ROWS = 5000;
 
 const KOLOM: Record<string, "name" | "email" | "company" | "title" | "phone"> = {
-  name: "name", nama: "name", nama_lengkap: "name", full_name: "name", fullname: "name",
-  email: "email", surel: "email", alamat_email: "email", e_mail: "email",
-  company: "company", perusahaan: "company", instansi: "company", organisasi: "company", organization: "company", affiliation: "company",
-  title: "title", jabatan: "title", job_title: "title", jobtitle: "title", posisi: "title",
+  name: "name", nama: "name", nama_lengkap: "name", full_name: "name", fullname: "name", guest_name: "name", participant_name: "name", invitee_name: "name",
+  email: "email", surel: "email", alamat_email: "email", e_mail: "email", email_address: "email",
+  company: "company", perusahaan: "company", instansi: "company", organisasi: "company", organization: "company", organisation: "company", affiliation: "company",
+  title: "title", jabatan: "title", job_title: "title", jobtitle: "title", posisi: "title", position: "title",
   phone: "phone", telepon: "phone", telp: "phone", hp: "phone", no_hp: "phone", whatsapp: "phone", no_telepon: "phone",
+  phone_number: "phone", mobile: "phone", mobile_number: "phone", mobile_phone: "phone",
 };
 
 function header(raw: string) {

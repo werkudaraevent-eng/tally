@@ -1,4 +1,4 @@
-import { apiError } from "@/lib/api";
+import { apiErrorPeserta } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -18,14 +18,14 @@ export async function GET(request: Request) {
   // Spasi dan tanda hubung dibuang: kode dipajang berkelompok ("937 1226") dan
   // peserta akan mengetiknya persis seperti yang terlihat di layar.
   const code = raw.replace(/[^0-9]/g, "");
-  if (code.length !== 7) return apiError("VALIDATION_ERROR", 422, { message: "Kode acara terdiri dari 7 angka." });
+  if (code.length !== 7) return apiErrorPeserta("VALIDATION_ERROR", 422, { message: "Kode acara terdiri dari 7 angka." });
 
   const { data } = await getSupabaseServiceClient()
     .from("events").select("slug,status").eq("join_code", code).maybeSingle();
 
   const event = data as { slug: string; status: string } | null;
   if (!event || event.status === "archived") {
-    return apiError("VALIDATION_ERROR", 404, { message: "Kode tidak ditemukan. Periksa lagi angka di layar." });
+    return apiErrorPeserta("VALIDATION_ERROR", 404, { message: "Kode tidak ditemukan. Periksa lagi angka di layar." });
   }
 
   return Response.json({ slug: event.slug }, { headers: { "Cache-Control": "no-store" } });
