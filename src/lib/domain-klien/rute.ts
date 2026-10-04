@@ -54,7 +54,10 @@ export function decideClientHost(input: {
   if (status === "dilepas" && !API.test(pathAcara)) {
     if (!tallyOrigin) return { kind: "tolak" };
     const query = search.toString();
-    return { kind: "alihkan", to: `${tallyOrigin}${pathAcara}${query ? `?${query}` : ""}` };
+    // Tautan pendek di luar /e/ (/daftar, /rundown) dibawa ke /e/<slug>/...,
+    // karena di host Tally path itu tidak tahu acaranya (temuan QA L7).
+    const tujuan = pathAcara.startsWith("/e/") || pathAcara.startsWith("/_next/") ? pathAcara : `/e/${slugAman}${pathAcara}`;
+    return { kind: "alihkan", to: `${tallyOrigin}${tujuan}${query ? `?${query}` : ""}` };
   }
 
   // Halaman lama di luar /e/ (/daftar, /rundown, /vote ...) membaca slug dari

@@ -25,7 +25,7 @@ assert.deepEqual(putuskan("/", "", { status: "dilepas" }), { kind: "alihkan", to
 assert.deepEqual(putuskan("/e/ilo/masuk", "sandi=x", { status: "dilepas" }), { kind: "alihkan", to: "https://event.sofish.tech/e/ilo/masuk?sandi=x" });
 // Temuan QA M2: path di luar /e/<slug> tidak dibuang, dan API (berhenti
 // berlangganan GET dan POST one-click) dilayani tanpa pengalihan.
-assert.deepEqual(putuskan("/daftar", "", { status: "dilepas" }), { kind: "alihkan", to: "https://event.sofish.tech/daftar" });
+assert.deepEqual(putuskan("/daftar", "", { status: "dilepas" }), { kind: "alihkan", to: "https://event.sofish.tech/e/ilo/daftar" });
 assert.equal(putuskan("/api/pesan/berhenti", "e=1&p=2", { status: "dilepas" }).kind, "layani");
 assert.equal(putuskan("/e/ilo/api/leaderboard", "", { status: "dilepas" }).kind, "layani");
 assert.equal(putuskan("/admin", "", { status: "dilepas" }).kind, "tolak");
