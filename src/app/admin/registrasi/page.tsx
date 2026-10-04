@@ -1,17 +1,19 @@
 "use client";
 
 import { pesanGalatApi } from "@/lib/api-message";
-import { ArrowLeft, Check, EnvelopeSimple, Hourglass, PaperPlaneTilt, PencilSimple, Tray, WarningCircle, X, XCircle } from "@phosphor-icons/react";
+import { ArrowLeft, Check, EnvelopeSimple, Hourglass, PaperPlaneTilt, PencilSimple, Tray, UploadSimple, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { withEventPrefix } from "@/lib/event-path";
 import { useToast } from "@/components/toast";
 import {
   Banner, Button, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, ListRow, MetaSeparator, PageLoading,
-  Pane, PaneBody, PaneFooter, StatusChip, StatusDot, SupportingPane, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
+  Pane, PaneBody, PaneFooter, SegmentedButton, StatusChip, StatusDot, SupportingPane, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
   type ChipTone,
 } from "@/components/m3";
 import { RegistrationFormBuilder } from "@/components/admin/registration-form-builder";
+import { AKSES, TAMU } from "@/lib/pesan/label";
+import { ImporTamu, TamuUndangan } from "./tamu-undangan";
 import { FormPreview } from "@/components/admin/form-preview";
 import Link from "@/components/event-link";
 import { CHOICE_FIELD_TYPES, type RegistrationFormConfig } from "@/lib/domain";
@@ -52,6 +54,8 @@ type EventConfig = {
   tampilan?: { v2: boolean; logo: boolean; kv: string | null; huruf: string | null; area_peserta: boolean };
   /** Email konfirmasi (Pesan peserta > Email otomatis). Preset null = templat bawaan dari Tema. */
   email_konfirmasi?: { preset: string | null; kirim_ditolak: boolean };
+  /** Tamu undangan. Null = migrasi 202610040007 belum dijalankan. */
+  undangan?: { access: "terbuka" | "undangan"; auto_approve: boolean; count: number } | null;
 };
 
 type Status = Row["status"];
@@ -62,6 +66,9 @@ const STATUS: Record<Status, { label: string; tone: ChipTone; kosong: string }> 
   rejected: { label: "Ditolak", tone: "error", kosong: "Belum ada pendaftar yang ditolak" },
 };
 
+/** Tab: tamu undangan, atau salah satu status pendaftaran. */
+type Tab = Status | "tamu";
+
 /** Moderasi pendaftar, atau penyunting susunan formulir. */
 type Tampilan = "moderasi" | "formulir";
 
@@ -70,7 +77,11 @@ export default function RegistrasiAdminPage() {
   const [total, setTotal] = useState(0);
   const [config, setConfig] = useState<EventConfig | null>(null);
   const [pending, setPending] = useState(0);
-  const [tab, setTab] = useState<Status>("pending");
+  const [tab, setTab] = useState<Tab>("pending");
+  const [imporOpen, setImporOpen] = useState(false);
+  const [muatTamu, setMuatTamu] = useState(0);
+  const [jumlahTamu, setJumlahTamu] = useState<number | null>(null);
+  const [konfirmasiAkses, setKonfirmasiAkses] = useState(false);
   const [tampilan, setTampilan] = useState<Tampilan>("moderasi");
   const [pilihId, setPilihId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,7 +110,7 @@ export default function RegistrasiAdminPage() {
     // slug lewat Referer, dan parameter yang ditambahkan proxy saat rewrite tidak
     // pernah sampai ke route handler -- permintaannya jatuh ke "event aktif
     // tunggal", yaitu event PRODUKSI, bukan event yang sedang dibuka.
-    const response = await fetch(eventApiPath(`/api/admin/registrasi?status=${tab}`), { cache: "no-store" }).catch(() => null);
+    const response = await fetch(eventApiPath(`/api/admin/registrasi?status=${tab === "tamu" ? "pending" : tab}`), { cache: "no-store" }).catch(() => null);
     if (!response) { setError("Koneksi gagal. Muat ulang halaman."); setLoading(false); return; }
     if (response.status === 401) { window.location.href = "/login"; return; }
     const body = await response.json().catch(() => ({}));
@@ -123,10 +134,38 @@ export default function RegistrasiAdminPage() {
     router.push(withEventPrefix(href, window.location.pathname));
   }
 
-  function gantiTab(next: Status) {
+  function gantiTab(next: Tab) {
     setTab(next);
-    setLoading(true);
+    if (next !== "tamu") setLoading(true);
     setPilihId(null);
+  }
+
+  /** Setelan tamu undangan (Terbuka untuk, Tamu undangan langsung disetujui). */
+  async function simpanUndangan(next: { registration_access?: "terbuka" | "undangan"; invitation_auto_approve?: boolean }) {
+    if (!config?.undangan) return;
+    setBusy(true);
+    const response = await fetch(eventApiPath("/api/admin/registrasi"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    }).catch(() => null);
+    setBusy(false);
+    const body = await response?.json().catch(() => ({}));
+    if (!response?.ok) {
+      toast.error("Gagal disimpan", body?.error?.details?.message ?? body?.error?.message ?? "Coba lagi.");
+      return;
+    }
+    setConfig({
+      ...config,
+      undangan: {
+        ...config.undangan,
+        ...(next.registration_access ? { access: next.registration_access } : {}),
+        ...(next.invitation_auto_approve !== undefined ? { auto_approve: next.invitation_auto_approve } : {}),
+      },
+    });
+    toast.success("Tersimpan", next.registration_access
+      ? next.registration_access === "undangan" ? "Pendaftaran khusus tamu undangan." : "Pendaftaran terbuka untuk siapa saja yang punya tautan."
+      : next.invitation_auto_approve ? "Tamu undangan langsung disetujui." : "Tamu undangan menunggu ditinjau.");
   }
 
   async function simpanKonfigurasi(next: Partial<EventConfig>) {
@@ -399,6 +438,8 @@ export default function RegistrasiAdminPage() {
   }
 
   // ---- Tampilan moderasi -----------------------------------------------------
+  const jumlahTamuTampil = jumlahTamu ?? config?.undangan?.count ?? 0;
+  const tamuTampil = Boolean(config?.undangan) && (jumlahTamuTampil > 0 || config?.undangan?.access === "undangan" || tab === "tamu");
   const terpilih = rows.find((row) => row.id === pilihId) ?? null;
 
   const list = (
@@ -423,7 +464,7 @@ export default function RegistrasiAdminPage() {
           <EmptyState
             plain
             icon={<Tray size={40} />}
-            title={STATUS[tab].kosong}
+            title={STATUS[tab === "tamu" ? "pending" : tab].kosong}
             description={tab !== "pending" ? undefined
               : !config?.registration_enabled ? "Pendaftaran sedang ditutup. Halaman pendaftaran menolak semua pengiriman."
               : config.registration_auto_approve ? "Setujui otomatis menyala, jadi pendaftar baru langsung masuk ke tab Disetujui."
@@ -553,12 +594,25 @@ export default function RegistrasiAdminPage() {
             </span>
             {config.registration_enabled ? (
               <>
+                {config.undangan ? (
+                  <>
+                    <MetaSeparator />
+                    <span>{AKSES.openTo}: <span className="font-medium text-on-surface">{config.undangan.access === "undangan" ? AKSES.inviteOnly : AKSES.anyone}</span></span>
+                  </>
+                ) : null}
                 <MetaSeparator />
                 <span>Setujui otomatis: {config.registration_auto_approve ? "nyala" : "mati"}</span>
-                <button type="button" onClick={() => setSetelanOpen(true)} className="rounded-sm font-medium text-primary hover:underline">Ubah</button>
+                <button type="button" onClick={() => setSetelanOpen(true)} className="rounded-sm font-medium text-primary hover:underline">{config.undangan ? AKSES.change : "Ubah"}</button>
                 <MetaSeparator />
-                <span className="min-w-0 break-all">{tautan}</span>
-                <button type="button" onClick={salinTautan} className="rounded-sm font-medium text-primary hover:underline">Salin tautan</button>
+                {config.undangan?.access === "undangan" ? (
+                  // Khusus undangan: tautan umum hanya membuka halaman Khusus undangan.
+                  <span className="min-w-0 break-all">{AKSES.publicLinkInviteOnly}: {tautan}</span>
+                ) : (
+                  <>
+                    <span className="min-w-0 break-all">{tautan}</span>
+                    <button type="button" onClick={salinTautan} className="rounded-sm font-medium text-primary hover:underline">Salin tautan</button>
+                  </>
+                )}
               </>
             ) : null}
             {config.email_konfirmasi ? (
@@ -574,6 +628,9 @@ export default function RegistrasiAdminPage() {
         ) : null}
         actions={
           <>
+            {config?.undangan ? (
+              <Button variant="outlined" icon={<UploadSimple size={16} />} onClick={() => setImporOpen(true)}>{TAMU.importButton}</Button>
+            ) : null}
             <Button variant="outlined" disabled={!config} icon={<PencilSimple size={16} />} onClick={() => setTampilan("formulir")}>Atur formulir</Button>
             {config ? (
               <Button
@@ -589,12 +646,17 @@ export default function RegistrasiAdminPage() {
         }
       />
 
-      <Tabs<Status>
+      <Tabs<Tab>
         label="Status pendaftaran"
         idPrefix="registrasi"
         value={tab}
         onChange={gantiTab}
         options={[
+          // Tamu undangan: daftar yang berbeda jenis, jadi dipisah garis dan
+          // angkanya netral. Hanya muncul bila ada tamu atau mode khusus undangan.
+          ...(tamuTampil
+            ? [{ value: "tamu" as const, label: TAMU.tab, badge: jumlahTamuTampil, badgeOutlined: true, divider: true }]
+            : []),
           { value: "pending", label: "Menunggu", badge: pending > 0 ? pending : undefined },
           { value: "approved", label: "Disetujui" },
           { value: "rejected", label: "Ditolak" },
@@ -602,21 +664,77 @@ export default function RegistrasiAdminPage() {
       />
 
       <div role="tabpanel" id={`registrasi-panel-${tab}`} aria-labelledby={`registrasi-tab-${tab}`} className="flex min-h-0 flex-1 flex-col">
-        <ListDetail list={list} detail={detail} />
+        {tab === "tamu" ? (
+          <TamuUndangan
+            reloadKey={muatTamu}
+            onCount={setJumlahTamu}
+            onLihatPendaftaran={(status, id) => { gantiTab(status); setPilihId(id); }}
+          />
+        ) : (
+          <ListDetail list={list} detail={detail} />
+        )}
       </div>
+
+      <ImporTamu
+        open={imporOpen}
+        onClose={() => setImporOpen(false)}
+        onDone={() => { setMuatTamu((n) => n + 1); setJumlahTamu(null); void load(); gantiTab("tamu"); }}
+      />
+
+      <Dialog
+        open={konfirmasiAkses}
+        onClose={() => setKonfirmasiAkses(false)}
+        dismissible={!busy}
+        title={`${AKSES.openTo}: ${AKSES.inviteOnly}?`}
+        description={AKSES.confirmInviteOnly(jumlahTamuTampil ?? 0)}
+        actions={
+          <>
+            <Button variant="outlined" disabled={busy} onClick={() => setKonfirmasiAkses(false)}>Batal</Button>
+            <Button simpan loading={busy} onClick={async () => { await simpanUndangan({ registration_access: "undangan" }); setKonfirmasiAkses(false); }}>Khusus undangan</Button>
+          </>
+        }
+      />
 
       <Dialog
         open={setelanOpen}
         onClose={() => setSetelanOpen(false)}
-        title="Mode persetujuan"
+        title={config?.undangan ? AKSES.title : "Mode persetujuan"}
         actions={<Button variant="outlined" onClick={() => setSetelanOpen(false)}>Tutup</Button>}
       >
+        {config?.undangan ? (
+          <div className="mb-5 flex flex-col gap-5 border-b border-outline-variant pb-5">
+            <div>
+              <p id="setelan-akses" className="mb-2 text-label-large font-semibold">{AKSES.openTo}</p>
+              <SegmentedButton<"terbuka" | "undangan">
+                label={AKSES.openTo}
+                labelledBy="setelan-akses"
+                value={config.undangan.access}
+                options={[
+                  { value: "terbuka", label: AKSES.anyone },
+                  { value: "undangan", label: AKSES.inviteOnly },
+                ]}
+                onChange={(next) => {
+                  if (busy || next === config.undangan?.access) return;
+                  if (next === "undangan") setKonfirmasiAkses(true);
+                  else void simpanUndangan({ registration_access: "terbuka" });
+                }}
+              />
+            </div>
+            <Switch simpan
+              checked={config.undangan.auto_approve}
+              disabled={busy}
+              onChange={(value) => void simpanUndangan({ invitation_auto_approve: value })}
+              label={AKSES.inviteAutoApprove}
+              description={AKSES.inviteAutoApproveHint}
+            />
+          </div>
+        ) : null}
         {config ? (
           <Switch simpan
             checked={config.registration_auto_approve}
             disabled={busy}
             onChange={(value) => void simpanKonfigurasi({ registration_auto_approve: value })}
-            label="Setujui otomatis"
+            label={config.undangan ? AKSES.generalAutoApprove : "Setujui otomatis"}
             // Akibatnya ditulis, bukan sekadar nama setelannya. Dicentang tanpa
             // membaca, panitia baru sadar ada 40 peserta asing di leaderboard
             // saat acara sudah berjalan.

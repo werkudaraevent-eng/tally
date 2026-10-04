@@ -40,6 +40,14 @@ export function unknownFields(template: string): string[] {
   return [...new Set([...template.matchAll(/\{([^{}\s]{1,30})\}/g)].map((cocok) => cocok[1]).filter((key) => !dikenal.has(key)))];
 }
 
+/** Tautan contoh di pratinjau dan email tes: tidak bisa dipakai masuk atau mendaftar. */
+export function contohTautan(origin: string, slug: string, kind: BlastKind) {
+  const dasar = `${origin}/e/${encodeURIComponent(slug)}`;
+  if (kind === "undangan") return `${dasar}/masuk?sandi=contoh-tidak-berlaku`;
+  if (kind === "invitation") return `${dasar}/daftar?undangan=contoh-tidak-berlaku`;
+  return dasar;
+}
+
 export type RenderedEmail = { subject: string; html: string; text: string };
 
 export function renderEmail(input: {
@@ -58,7 +66,12 @@ export function renderEmail(input: {
 }): RenderedEmail {
   const subjek = `${input.test ? "[TES] " : ""}${fillFields(input.subject, input.values).trim() || input.eventName}`;
   const isi = fillFields(input.body, input.values).trim();
-  const tombol = input.kind === "undangan" ? "Masuk ke acara" : "Buka halaman acara";
+  const tombol = input.kind === "undangan" ? "Masuk ke acara" : input.kind === "invitation" ? "Daftar sekarang" : "Buka halaman acara";
+  // Tamu undangan belum peserta: kaki email menyebut alasan yang benar.
+  const alasan =
+    input.kind === "invitation"
+      ? `Anda menerima email ini karena panitia ${input.eventName} mengundang Anda.`
+      : `Anda menerima email ini karena terdaftar sebagai peserta ${input.eventName}.`;
   const paragraf = isi
     .split(/\n{2,}/)
     .map((bagian) => bagian.trim())
@@ -66,11 +79,11 @@ export function renderEmail(input: {
     .map((bagian) => `<p style="margin:16px 0 0;font-size:15px;line-height:1.6;">${escapeHtml(bagian).replace(/\n/g, "<br>")}</p>`)
     .join("");
   const catatanUji = input.test
-    ? `<p style="margin:0 0 16px;padding:10px 12px;background:#FDF5E1;color:#8A5A00;font-size:13px;line-height:1.5;border-radius:6px;">Email tes. Tautan di bawah contoh dan tidak bisa dipakai masuk.</p>`
+    ? `<p style="margin:0 0 16px;padding:10px 12px;background:#FDF5E1;color:#8A5A00;font-size:13px;line-height:1.5;border-radius:6px;">Email tes. Tautan di bawah contoh dan tidak bisa dipakai.</p>`
     : "";
   const kaki = input.unsubscribeUrl
-    ? `Anda menerima email ini karena terdaftar sebagai peserta ${escapeHtml(input.eventName)}. <a href="${escapeHtml(input.unsubscribeUrl)}" style="color:#66736C;">Berhenti menerima email untuk acara ini</a>.`
-    : `Anda menerima email ini karena terdaftar sebagai peserta ${escapeHtml(input.eventName)}.`;
+    ? `${escapeHtml(alasan)} <a href="${escapeHtml(input.unsubscribeUrl)}" style="color:#66736C;">Berhenti menerima email untuk acara ini</a>.`
+    : escapeHtml(alasan);
 
   const html = `<!doctype html>
 <html lang="id"><body style="margin:0;padding:24px;background:#F5F4F0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#17211D;">
@@ -94,7 +107,7 @@ export function renderEmail(input: {
     "",
     `${tombol}: ${input.actionUrl}`,
     "",
-    `Anda menerima email ini karena terdaftar sebagai peserta ${input.eventName}.`,
+    alasan,
     ...(input.unsubscribeUrl ? [`Berhenti menerima email untuk acara ini: ${input.unsubscribeUrl}`] : []),
   ].join("\n");
 

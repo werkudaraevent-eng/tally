@@ -4,7 +4,8 @@ import { ArrowLeft, ArrowRight, CalendarBlank, CheckCircle, Hourglass, WarningCi
 import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
+import { PUBLIK } from "@/lib/pesan/label";
 import type { LandingNavWidth, RegistrationField } from "@/lib/domain";
 import { REG_CONTROL, REG_LABEL, RegistrationFieldInput } from "@/components/registration-field-input";
 import { DAFTAR_UI } from "@/lib/daftar-i18n";
@@ -83,6 +84,21 @@ type Props = {
    * sekaligus membuat akun (lihat /api/registrasi). Null = formulir biasa.
    */
   akun: { minPassword: number } | null;
+  /** Dibuka dari tautan pribadi tamu undangan. Null = formulir biasa. */
+  undangan?: TamuProp | null;
+};
+
+/**
+ * Tamu undangan: nama, instansi, dan jabatan diisi lebih dulu. Email hanya
+ * tampil tersamar; alamat aslinya dipakai server bila tamu tidak menekan Ganti.
+ * Nomor HP tidak pernah diisi lebih dulu.
+ */
+export type TamuProp = {
+  token: string;
+  name: string;
+  company: string | null;
+  title: string | null;
+  emailMasked: string | null;
 };
 
 export type FormModern = {
@@ -146,6 +162,61 @@ const HEAD = "[font-family:var(--landing-heading)]";
 /** Kolom tambahan yang selalu selebar kartu di formulir v2 dua lajur. */
 const LEBAR_PENUH = new Set<RegistrationField["type"]>(["textarea", "checkbox", "radio", "file"]);
 
+/**
+ * Tautan pribadi: `?undangan=` dihapus dari bilah alamat setelah halaman dimuat
+ * (tidak ikut tersalin atau tersimpan di riwayat), lalu penanda "Membuka
+ * formulir" dikirim SEKALI setelah interaksi nyata: fokus ke kolom, gulir,
+ * atau halaman terlihat lebih dari 3 detik. Pemindai tautan email kantor
+ * membuka URL tanpa interaksi, jadi tidak ikut terhitung.
+ */
+function useTandaUndangan(token: string | null) {
+  useEffect(() => {
+    if (!token) return;
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("undangan")) {
+        url.searchParams.delete("undangan");
+        window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+      }
+    } catch { /* diabaikan */ }
+
+    let terkirim = false;
+    let waktu: number | null = null;
+    const kirim = () => {
+      if (terkirim) return;
+      terkirim = true;
+      lepas();
+      void fetch(eventApiPath("/api/undangan/buka"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ undangan: token }),
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+    const mulaiWaktu = () => {
+      if (waktu === null && document.visibilityState === "visible") waktu = window.setTimeout(kirim, 3000);
+    };
+    const saatTerlihat = () => {
+      if (document.visibilityState === "visible") mulaiWaktu();
+      else if (waktu !== null) {
+        window.clearTimeout(waktu);
+        waktu = null;
+      }
+    };
+    const lepas = () => {
+      document.removeEventListener("focusin", kirim);
+      window.removeEventListener("scroll", kirim);
+      document.removeEventListener("visibilitychange", saatTerlihat);
+      if (waktu !== null) window.clearTimeout(waktu);
+    };
+    document.addEventListener("focusin", kirim);
+    window.addEventListener("scroll", kirim, { passive: true });
+    document.addEventListener("visibilitychange", saatTerlihat);
+    mulaiWaktu();
+    return lepas;
+  }, [token]);
+}
+
 export default function DaftarClient(props: Props) {
   const t = DAFTAR_UI[props.lang];
   const [pending, setPending] = useState(false);
@@ -155,6 +226,11 @@ export default function DaftarClient(props: Props) {
   const [duplikat, setDuplikat] = useState<false | "masuk" | "tautan">(false);
   const [lihatSandi, setLihatSandi] = useState(false);
   const [hasil, setHasil] = useState<Hasil | null>(null);
+  const tamu = props.undangan ?? null;
+  // Email tamu tersamar sampai ia menekan Ganti. Email lain = Menunggu.
+  const [gantiEmail, setGantiEmail] = useState(false);
+  const pakaiEmailUndangan = Boolean(tamu?.emailMasked) && !gantiEmail;
+  useTandaUndangan(tamu?.token ?? null);
   // Nama yang benar-benar dikirim, disimpan saat pengiriman berhasil. Gambar
   // kode yang dibagikan mencantumkannya supaya jelas kode itu milik siapa, dan
   // formulirnya sudah tidak ada di layar untuk dibaca ulang.
@@ -199,6 +275,7 @@ export default function DaftarClient(props: Props) {
         company: form.get("company") || null, job_title: form.get("job_title") || null,
         extra,
         ...(props.akun ? { password: form.get("password") } : {}),
+        ...(tamu ? { undangan: tamu.token, pakai_email_undangan: pakaiEmailUndangan } : {}),
       }),
     }).catch(() => null);
     setPending(false);
@@ -226,7 +303,7 @@ export default function DaftarClient(props: Props) {
       return;
     }
     setNama(String(form.get("name") ?? "").trim());
-    setEmailDaftar(String(form.get("email") ?? "").trim());
+    setEmailDaftar(pakaiEmailUndangan ? tamu?.emailMasked ?? "" : String(form.get("email") ?? "").trim());
     judulDifokus.current = false;
     setHasil(body);
     if (typeof body.code_url === "string") {
@@ -248,30 +325,55 @@ export default function DaftarClient(props: Props) {
       {/* `mt-6` pertama dari REG_LABEL dibatalkan di formulir lama: kolom
           pertama menempel di tepi atas kartu. Di v2 ada kepala kartu di atasnya. */}
       <label className={`${REG_LABEL} ${m ? "" : "!mt-0"}`}>{t.fullName}
-        <input required minLength={2} maxLength={120} name="name" autoComplete="name" className={`${REG_CONTROL} font-normal`} />
+        <input required minLength={2} maxLength={120} name="name" autoComplete="name" defaultValue={tamu?.name} className={`${REG_CONTROL} font-normal`} />
       </label>
 
-      <label className={REG_LABEL}>{`${t.email} `}{!props.requireEmail && <span className={OPSIONAL}>{t.optional}</span>}
-        <input required={props.requireEmail} type="email" maxLength={160} name="email" autoComplete="email" inputMode="email" className={`${REG_CONTROL} font-normal`} />
-        <span className={`mt-2 block text-body-medium font-normal leading-6 ${MUTED}`}>
-          {props.akun
-            ? t.account.emailHelp
-            : props.requireEmail
-              ? t.emailHelpRequired
-              : t.emailHelpOptional}
-        </span>
-      </label>
+      {pakaiEmailUndangan ? (
+        <div className={REG_LABEL}>
+          {t.email}
+          <div className={`${REG_CONTROL} flex items-center justify-between gap-3 font-normal`}>
+            <span className="min-w-0 truncate">
+              <span className={MUTED}>{PUBLIK[props.lang].invitedAs} </span>
+              {tamu!.emailMasked}
+            </span>
+            <button
+              type="button"
+              onClick={() => setGantiEmail(true)}
+              className="m3-state -my-2 inline-flex min-h-10 shrink-0 items-center rounded-md px-3 text-label-large font-semibold text-[var(--reg-primary)]"
+            >
+              {PUBLIK[props.lang].change}
+            </button>
+          </div>
+          <span className={`mt-2 block text-body-medium font-normal leading-6 ${MUTED}`}>
+            {props.akun ? t.account.emailHelp : t.emailHelpRequired}
+          </span>
+        </div>
+      ) : (
+        <label className={REG_LABEL}>{`${t.email} `}{!props.requireEmail && <span className={OPSIONAL}>{t.optional}</span>}
+          {/* Ganti ditekan: kolom kosong yang langsung difokus. */}
+          <input required={props.requireEmail} type="email" maxLength={160} name="email" autoComplete="email" inputMode="email" autoFocus={gantiEmail} className={`${REG_CONTROL} font-normal`} />
+          <span className={`mt-2 block text-body-medium font-normal leading-6 ${MUTED}`}>
+            {gantiEmail
+              ? PUBLIK[props.lang].changeHint
+              : props.akun
+                ? t.account.emailHelp
+                : props.requireEmail
+                  ? t.emailHelpRequired
+                  : t.emailHelpOptional}
+          </span>
+        </label>
+      )}
 
       <label className={REG_LABEL}>{`${t.phone} `}{!props.requirePhone && <span className={OPSIONAL}>{t.optional}</span>}
         <input required={props.requirePhone} type="tel" minLength={6} maxLength={30} name="phone" autoComplete="tel" inputMode="tel" className={`${REG_CONTROL} font-normal`} />
       </label>
 
       <label className={REG_LABEL}>{`${t.company} `}{!props.requireCompany && <span className={OPSIONAL}>{t.optional}</span>}
-        <input required={props.requireCompany} maxLength={160} name="company" autoComplete="organization" className={`${REG_CONTROL} font-normal`} />
+        <input required={props.requireCompany} maxLength={160} name="company" autoComplete="organization" defaultValue={tamu?.company ?? undefined} className={`${REG_CONTROL} font-normal`} />
       </label>
 
       <label className={REG_LABEL}>{`${t.jobTitle} `}{!props.requireJobTitle && <span className={OPSIONAL}>{t.optional}</span>}
-        <input required={props.requireJobTitle} maxLength={160} name="job_title" autoComplete="organization-title" className={`${REG_CONTROL} font-normal`} />
+        <input required={props.requireJobTitle} maxLength={160} name="job_title" autoComplete="organization-title" defaultValue={tamu?.title ?? undefined} className={`${REG_CONTROL} font-normal`} />
       </label>
 
       {props.fields.map((field) => m ? (

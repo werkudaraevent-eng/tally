@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { apiError } from "@/lib/api";
 import { resendEvent } from "@/lib/pesan/status";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { emailHash, inviteSecretReady } from "@/lib/undangan/tanda";
 
 /**
  * Webhook Resend: status kiriman email Pesan peserta (diterima, memantul,
@@ -63,6 +64,27 @@ export async function POST(request: Request) {
   }
   if (pesertaIds.length && status.reason_code === "complained") {
     await client.from("participants").update({ email_opt_out_at: new Date().toISOString() } as never).in("id", pesertaIds).is("email_opt_out_at", null);
+  }
+
+  // Tamu undangan: tandai undangannya dan catat penekanan per acara (hash
+  // email berpepper), supaya bertahan walau tamu dihapus lalu diimpor ulang.
+  const tamu = (data ?? []) as { invitation_id?: string | null; event_id: string; address: string | null }[];
+  const keputusan = status.reason_code === "complained" ? "spam" : status.reason_code === "bounce" || status.reason_code === "suppressed" ? "memantul" : null;
+  const kenaTamu = tamu.filter((b) => b.invitation_id);
+  if (keputusan && kenaTamu.length) {
+    const sekarang = new Date().toISOString();
+    const ids = kenaTamu.map((b) => b.invitation_id!);
+    if (keputusan === "spam") {
+      await client.from("event_invitations").update({ opted_out_at: sekarang } as never).in("id", ids).is("opted_out_at", null);
+    } else {
+      await client.from("event_invitations").update({ email_invalid_at: sekarang } as never).in("id", ids).is("email_invalid_at", null);
+    }
+    if (inviteSecretReady()) {
+      const tekan = kenaTamu
+        .filter((b) => b.address)
+        .map((b) => ({ event_id: b.event_id, email_hash: emailHash(b.address!), reason: keputusan }));
+      if (tekan.length) await client.from("event_email_suppressions").upsert(tekan as never, { onConflict: "event_id,email_hash", ignoreDuplicates: true });
+    }
   }
   return Response.json({ ok: true });
 }

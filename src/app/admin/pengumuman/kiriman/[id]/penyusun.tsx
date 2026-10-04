@@ -21,6 +21,7 @@ import {
 import { useToast } from "@/components/toast";
 import { withEventPrefix } from "@/lib/event-path";
 import { DEFAULT_CONTENT, FIELDS, type BlastKind } from "@/lib/pesan/bawaan";
+import { AUDIENCE_LABEL, KIND_LABEL, TAMU } from "@/lib/pesan/label";
 
 /**
  * Penyusun kiriman (gambar 2-tulis): saluran, jenis, penerima, isi, dan waktu
@@ -32,9 +33,11 @@ import { DEFAULT_CONTENT, FIELDS, type BlastKind } from "@/lib/pesan/bawaan";
  * sudah berubah sejak dialog dibuka.
  */
 
-type Jenis = "semua" | "belum_masuk" | "manual";
+type Jenis = "semua" | "belum_masuk" | "manual" | "belum_dikirim" | "belum_daftar";
 type Audience = { jenis: Jenis; perusahaan: string[]; ids: string[]; label?: string };
-type SkipCode = "tanpa_email" | "berhenti_email" | "email_memantul" | "area_mati" | "belum_boleh_masuk" | "di_luar_daftar_uji";
+type SkipCode =
+  | "tanpa_email" | "berhenti_email" | "email_memantul" | "area_mati" | "belum_boleh_masuk" | "di_luar_daftar_uji"
+  | "sudah_daftar" | "sudah_peserta" | "terjadwal";
 
 const ALASAN_LEWAT: Record<SkipCode, string> = {
   tanpa_email: "tidak punya email",
@@ -43,6 +46,9 @@ const ALASAN_LEWAT: Record<SkipCode, string> = {
   area_mati: "Area peserta belum dinyalakan",
   belum_boleh_masuk: "belum boleh masuk Area peserta",
   di_luar_daftar_uji: "di luar daftar uji",
+  sudah_daftar: "sudah mendaftar",
+  sudah_peserta: "emailnya sudah dipakai peserta",
+  terjadwal: "sudah ada di kiriman lain yang belum selesai",
 };
 
 type Ringkas = {
@@ -70,6 +76,8 @@ export type DetailDraf = {
   member_enabled: boolean;
   test_mode: "off" | "list" | "blocked";
   time_zone?: string;
+  /** Invitation terkunci sampai pengirim undangan terpisah disiapkan. */
+  invitation_sending?: { ok: true } | { ok: false; missing: string[] };
 };
 
 type Isi = { title: string; kind: BlastKind; audience: Audience; email_subject: string; email_body: string };
@@ -196,6 +204,22 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
     });
   }
 
+  /** Peserta atau Tamu undangan. Tamu hanya menerima Invitation. */
+  function gantiKelompok(kelompok: "peserta" | "tamu") {
+    const tamu = isi.kind === "invitation";
+    if ((kelompok === "tamu") === tamu) return;
+    const kind: BlastKind = kelompok === "tamu" ? "invitation" : "undangan";
+    const lama = DEFAULT_CONTENT[isi.kind];
+    const baru = DEFAULT_CONTENT[kind];
+    ubah({
+      kind,
+      audience: { jenis: kelompok === "tamu" ? "belum_dikirim" : "belum_masuk", perusahaan: [], ids: [], label: undefined },
+      title: isi.title === lama.title ? baru.title : isi.title,
+      email_subject: isi.email_subject === lama.subject ? baru.subject : isi.email_subject,
+      email_body: isi.email_body === lama.body ? baru.body : isi.email_body,
+    });
+  }
+
   function gantiAudience(next: Partial<Audience>) {
     ubah({ audience: { ...isi.audience, ...next } });
   }
@@ -302,9 +326,13 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
   const lewat = jumlahLewat(counts.skipped);
   const pilihPerusahaan = detail.companies.map((c) => ({ value: c.name, label: c.name, count: c.count }));
   const jadwalSalah = waktuKirim === "jadwal" && (!jadwal || jadwalLewat);
+  const tamu = isi.kind === "invitation";
+  const undanganTerkunci = tamu && detail.invitation_sending?.ok === false;
   const bolehKirim =
-    detail.email_configured && counts.email > 0 && ringkas.unknown_fields.length === 0 && isi.email_subject.trim() !== "" && isi.email_body.trim() !== "" && !jadwalSalah;
-  const alasanTidakBoleh = !detail.email_configured
+    !undanganTerkunci && detail.email_configured && counts.email > 0 && ringkas.unknown_fields.length === 0 && isi.email_subject.trim() !== "" && isi.email_body.trim() !== "" && !jadwalSalah;
+  const alasanTidakBoleh = undanganTerkunci
+    ? "Invitation masih terkunci sampai pengirim undangan terpisah disiapkan."
+    : !detail.email_configured
     ? "Pengiriman email belum diaktifkan di server."
     : counts.email === 0
       ? "Belum ada penerima yang bisa dikirimi email."
@@ -371,22 +399,46 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
               <p className="text-body-small text-on-surface-variant">WhatsApp menyusul setelah akun WhatsApp Business terhubung.</p>
             </Baris>
 
+            <Baris judul="Kirim ke" id="kelompok">
+              <SegmentedButton
+                label="Kirim ke"
+                labelledBy="kelompok"
+                value={tamu ? "tamu" : "peserta"}
+                onChange={gantiKelompok}
+                options={[
+                  { value: "peserta", label: AUDIENCE_LABEL.peserta },
+                  { value: "tamu", label: AUDIENCE_LABEL.tamu },
+                ]}
+                className="self-start"
+              />
+              {undanganTerkunci ? (
+                <Banner tone="warning" icon={<Warning size={18} />}>
+                  Invitation masih terkunci sampai pengirim undangan terpisah disiapkan pemilik sistem
+                  ({detail.invitation_sending?.ok === false ? detail.invitation_sending.missing.join(", ") : ""}). Draf tetap bisa disusun.
+                </Banner>
+              ) : null}
+            </Baris>
+
             <Baris judul="Jenis" id="jenis">
               <SegmentedButton
                 label="Jenis kiriman"
                 labelledBy="jenis"
                 value={isi.kind}
                 onChange={gantiJenis}
-                options={[
-                  { value: "undangan", label: "Undangan masuk" },
-                  { value: "info", label: "Kabar" },
-                ]}
+                options={tamu
+                  ? [{ value: "invitation" as const, label: KIND_LABEL.invitation }]
+                  : [
+                      { value: "undangan" as const, label: KIND_LABEL.undangan },
+                      { value: "info" as const, label: KIND_LABEL.info },
+                    ]}
                 className="self-start"
               />
               <p className="text-body-small text-on-surface-variant">
                 {isi.kind === "undangan"
                   ? "Setiap email membawa tombol masuk pribadi, berlaku 7 hari dan sekali pakai."
-                  : "Email biasa dengan tombol ke halaman acara. Tidak membawa tautan masuk."}
+                  : tamu
+                    ? "Undangan untuk mendaftar. Setiap email membawa tautan pribadi ke formulir yang sudah terisi nama tamu. Dikirim pelan: sekitar 10% dulu, sisanya setelah 15 menit bila pantulan rendah."
+                    : "Email biasa dengan tombol ke halaman acara. Tidak membawa tautan masuk."}
               </p>
               {isi.kind === "undangan" && !detail.member_enabled ? (
                 <Banner tone="warning" icon={<Warning size={18} />}>
@@ -409,14 +461,24 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
                 }}
                 options={[
                   ...(isi.audience.jenis === "manual"
-                    ? [{ value: "manual" as const, label: isi.audience.label || `${isi.audience.ids.length} peserta dipilih` }]
+                    ? [{ value: "manual" as const, label: isi.audience.label || `${isi.audience.ids.length} ${tamu ? "tamu" : "peserta"} dipilih` }]
                     : []),
-                  { value: "semua" as const, label: "Semua peserta" },
-                  { value: "belum_masuk" as const, label: "Belum pernah masuk" },
+                  ...(tamu
+                    ? [
+                        { value: "belum_dikirim" as const, label: "Belum dikirim" },
+                        { value: "belum_daftar" as const, label: "Belum daftar" },
+                      ]
+                    : [
+                        { value: "semua" as const, label: "Semua peserta" },
+                        { value: "belum_masuk" as const, label: "Belum pernah masuk" },
+                      ]),
                 ]}
                 className="self-start"
               />
-              {pilihPerusahaan.length > 0 ? (
+              {tamu && counts.total === 0 ? (
+                <Link href="/admin/registrasi" className="self-start rounded-sm text-body-medium font-medium text-primary hover:underline">{TAMU.emptyComposer}</Link>
+              ) : null}
+              {!tamu && pilihPerusahaan.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-body-small text-on-surface-variant">Hanya dari</span>
                   <ChipMenu
@@ -430,7 +492,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
                 </div>
               ) : null}
               <p className="text-body-medium text-on-surface-variant" aria-live="polite">
-                <span className="font-semibold text-on-surface tabular-nums">{counts.email} peserta</span> menerima email
+                <span className="font-semibold text-on-surface tabular-nums">{counts.email} {tamu ? "tamu" : "peserta"}</span> menerima email
                 {lewat > 0 ? (
                   <>
                     {" "}
@@ -455,7 +517,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
                 maxLength={5000}
                 onFocus={(e) => (kolomTerakhir.current = { jenis: "isi", el: e.currentTarget })}
                 onChange={(e) => ubah({ email_body: e.target.value })}
-                hint={isi.kind === "undangan" ? "Tombol “Masuk ke acara” ditambahkan otomatis di bawah teks." : "Tombol “Buka halaman acara” ditambahkan otomatis di bawah teks."}
+                hint={isi.kind === "undangan" ? "Tombol “Masuk ke acara” ditambahkan otomatis di bawah teks." : tamu ? "Tombol “Daftar sekarang” dengan tautan pribadi tamu ditambahkan otomatis di bawah teks." : "Tombol “Buka halaman acara” ditambahkan otomatis di bawah teks."}
               />
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-body-small text-on-surface-variant">Sisipkan:</span>

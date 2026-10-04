@@ -1257,6 +1257,12 @@ export type ApiErrorCode =
   // dari REGISTRATION_NOT_FOUND karena tindak lanjutnya berbeda: yang ini
   // menyuruh menyetujui dulu, bukan mencari barisnya.
   | "REGISTRATION_NOT_APPROVED"
+  | "REGISTRATION_INVITE_ONLY"
+  | "INVITATION_USED"
+  | "INVITATION_NOT_FOUND"
+  | "INVITATIONS_NOT_READY"
+  | "INVITATION_SENDING_LOCKED"
+  | "MESSAGE_NOT_PAUSED"
   | "ANNOUNCEMENT_NOT_FOUND"
   | "ANNOUNCEMENTS_NOT_READY"
   | "MESSAGES_NOT_READY"

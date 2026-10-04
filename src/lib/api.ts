@@ -72,6 +72,13 @@ const messages: Record<ApiErrorCode, string> = {
   REGISTRATION_NOT_FOUND: "Pendaftaran tidak ditemukan.",
   REGISTRATION_ALREADY_REVIEWED: "Pendaftaran ini sudah diproses admin lain. Muat ulang daftarnya.",
   REGISTRATION_NOT_APPROVED: "Pendaftaran ini belum disetujui, jadi belum ada kode peserta yang bisa dikirim.",
+  REGISTRATION_INVITE_ONLY: "Pendaftaran acara ini khusus tamu undangan. Gunakan tautan pribadi di email undangan Anda.",
+  INVITATION_USED: "Tautan undangan ini sudah dipakai untuk mendaftar.",
+  INVITATION_NOT_FOUND: "Tamu undangan tidak ditemukan.",
+  INVITATIONS_NOT_READY: "Fitur tamu undangan belum siap: migrasi database belum dijalankan.",
+  // Menyebut env-nya: yang bisa membereskan ini pemilik sistem, bukan panitia.
+  INVITATION_SENDING_LOCKED: "Kiriman Invitation masih terkunci sampai pengirim undangan terpisah disiapkan pemilik sistem.",
+  MESSAGE_NOT_PAUSED: "Kiriman ini tidak sedang dijeda.",
   ANNOUNCEMENT_NOT_FOUND: "Pengumuman tidak ditemukan. Mungkin sudah dihapus panitia lain; muat ulang halaman.",
   // Tabel pengumuman dibuat migrasi 202610030002. Sebelum dijalankan, fitur
   // ini mati dengan pesan yang menyebut langkahnya, bukan galat 500.
@@ -189,6 +196,8 @@ export function mapDatabaseError(error: { code?: string; message?: string }) {
   // membaca "sudah mengambil item diskon di booth ini" tanpa cabang ini.
   if (message.includes("event_registrations_email_unique")) return "REGISTRATION_DUPLICATE_EMAIL" as const;
   if (message.includes("REGISTRATION_CLOSED")) return "REGISTRATION_CLOSED" as const;
+  if (message.includes("REGISTRATION_INVITE_ONLY")) return "REGISTRATION_INVITE_ONLY" as const;
+  if (message.includes("INVITATION_USED")) return "INVITATION_USED" as const;
   if (message.includes("REGISTRATION_ALREADY_REVIEWED")) return "REGISTRATION_ALREADY_REVIEWED" as const;
   if (message.includes("REGISTRATION_NOT_FOUND")) return "REGISTRATION_NOT_FOUND" as const;
   // Dilempar delete_event. EVENT_NOT_FOUND sengaja TIDAK dipetakan di sini:

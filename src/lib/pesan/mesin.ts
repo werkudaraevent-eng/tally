@@ -1,6 +1,6 @@
 import type { EventRow } from "@/lib/domain";
 import { publicEventName } from "@/lib/domain";
-import { BATCH_MAX, sendEmailBatchDetailed, type BatchItem } from "@/lib/email/client";
+import { BATCH_MAX, invitationFrom, sendEmailBatchDetailed, type BatchItem } from "@/lib/email/client";
 import { normalizeEmail } from "@/lib/member/account";
 import { MASA_UNDANGAN_MS } from "@/lib/member/links";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -9,6 +9,8 @@ import { fieldValues, renderEmail, type BlastKind } from "./isi";
 import { audienceSchema, resolveAudience, SKIP_REASON } from "./penerima";
 import { emailFailure } from "./status";
 import { inviteToken, inviteTokenHash, unsubscribeSignature } from "./tautan";
+import { INVITATION_COLUMNS, invitationUrl, undanganBelumAda, type InvitationRow } from "@/lib/undangan/data";
+import { emailHash, inviteUnsubscribeSignature } from "@/lib/undangan/tanda";
 
 /**
  * Mesin kirim Pesan peserta.
@@ -40,7 +42,7 @@ export type BlastRow = {
   audience: unknown;
   email_subject: string;
   email_body: string;
-  status: "draf" | "terjadwal" | "mengirim" | "selesai" | "dibatalkan";
+  status: "draf" | "terjadwal" | "mengirim" | "dijeda" | "selesai" | "dibatalkan";
   scheduled_at: string | null;
   site_origin: string | null;
   /**
@@ -50,6 +52,14 @@ export type BlastRow = {
    * Pengirim membacanya terpisah.
    */
   link_origin?: string | null;
+  /**
+   * Mulai pelan (Invitation): sisa penerima ditahan sampai waktu ini, dan
+   * alasan bila dijeda otomatis. Sama seperti link_origin, tidak ada di
+   * BLAST_COLUMNS supaya Pesan peserta tetap jalan sebelum migrasi
+   * 202610040007; dibaca terpisah lewat `invitationBlastState`.
+   */
+  hold_until?: string | null;
+  paused_reason?: string | null;
   sent_at: string | null;
   finished_at: string | null;
   created_at: string;
@@ -64,13 +74,31 @@ type RecipientRow = {
   blast_id: string;
   event_id: string;
   participant_id: string | null;
+  /** Tamu undangan (kiriman Invitation). */
+  invitation_id: string | null;
   address: string | null;
   name: string;
   chunk: number | null;
 };
 
-const EVENT_COLUMNS = "id,slug,name,landing_config,event_date,end_date,start_time,end_time,time_zone";
-type EventForMail = Pick<EventRow, "id" | "slug" | "name" | "landing_config" | "event_date" | "end_date" | "start_time" | "end_time" | "time_zone">;
+const EVENT_COLUMNS = "id,slug,name,landing_config,event_date,end_date,start_time,end_time,time_zone,registration_enabled,status";
+type EventForMail = Pick<
+  EventRow,
+  "id" | "slug" | "name" | "landing_config" | "event_date" | "end_date" | "start_time" | "end_time" | "time_zone" | "registration_enabled" | "status"
+>;
+
+/**
+ * Mulai pelan untuk Invitation (daftar dingin): gelombang pertama ~10%
+ * (paling sedikit 25), sisanya ditahan 15 menit lalu dinilai oleh
+ * evaluate_invitation_gates dari kabar pantulan dan laporan spam.
+ */
+const GELOMBANG_MIN = 25;
+const GELOMBANG_PORSI = 0.1;
+const TAHAN_MS = 15 * 60_000;
+
+export function firstWaveSize(total: number): number {
+  return Math.min(total, Math.max(GELOMBANG_MIN, Math.ceil(total * GELOMBANG_PORSI)));
+}
 
 /** Masa klaim potongan. Lebih panjang dari maxDuration rute (60 dtk), jadi klaim tidak kedaluwarsa saat pengirimnya masih hidup. */
 const LEASE_SECONDS = 120;
@@ -155,6 +183,45 @@ export async function enqueueBlast(
       }
     }
 
+    // Mulai pelan hanya di produksi: situs uji mengirim ke daftar uji yang
+    // pendek dan tidak punya cron untuk melepas sisanya.
+    const pelan = blast.kind === "invitation" && messagingAllowlist().mode === "off" && terkirim.length > GELOMBANG_MIN;
+    const gelombang = pelan ? firstWaveSize(terkirim.length) : terkirim.length;
+
+    if (blast.kind === "invitation") {
+      let urutTamu = 0;
+      const barisTamu = penerima.map((p) => {
+        const ke = p.skip ? null : urutTamu++;
+        return {
+          blast_id: blastId,
+          event_id: event.id,
+          invitation_id: p.participant.id,
+          address: p.email,
+          name: p.participant.name,
+          status: p.skip ? "dilewati" : ke! < gelombang ? "antre" : "ditahan",
+          reason_code: p.skip,
+          reason: p.skip ? SKIP_REASON[p.skip] : null,
+          // Gelombang pertama dan sisanya tidak berbagi potongan, jadi kunci
+          // idempotensi potongan pertama tidak berubah saat sisanya dilepas.
+          chunk: ke === null ? null : ke < gelombang ? Math.floor(ke / BATCH_MAX) : Math.ceil(gelombang / BATCH_MAX) + Math.floor((ke - gelombang) / BATCH_MAX),
+        };
+      });
+      for (let i = 0; i < barisTamu.length; i += 500) {
+        const { error } = await client.rpc("enqueue_invitation_recipients" as never, { p_rows: barisTamu.slice(i, i + 500) } as never);
+        if (error) throw new Error(error.message);
+      }
+      const tahan = pelan ? { hold_until: new Date(mulai.getTime() + TAHAN_MS).toISOString() } : {};
+      await client
+        .from("message_blasts")
+        .update(
+          (input.scheduledAt
+            ? { status: "terjadwal", scheduled_at: input.scheduledAt, ...tahan, updated_at: new Date().toISOString() }
+            : { status: "mengirim", sent_at: new Date().toISOString(), ...tahan, updated_at: new Date().toISOString() }) as never,
+        )
+        .eq("id", blastId);
+      return { status: "ok", queued: terkirim.length, skipped: penerima.length - terkirim.length };
+    }
+
     let urut = 0;
     const baris = penerima.map((p) => ({
       blast_id: blastId,
@@ -214,6 +281,28 @@ function alasanLewatSekarang(r: RecipientRow, p: PesertaKini | undefined, daftar
   return null;
 }
 
+type TamuKini = Pick<InvitationRow, "id" | "event_id" | "email" | "company" | "link_nonce" | "registered_at" | "rejected_at" | "deleted_at" | "opted_out_at" | "email_invalid_at">;
+
+/** Alasan baris tamu yang sudah diantre tidak jadi dikirim, dibaca saat potongan berangkat. */
+function alasanLewatTamu(
+  r: RecipientRow,
+  u: TamuKini | undefined,
+  konteks: { event: EventForMail; emailPeserta: Set<string>; tekan: Map<string, string>; daftarUji: ReturnType<typeof messagingAllowlist> },
+) {
+  if (!u || u.deleted_at) return { code: "undangan_dihapus", reason: "Tamu sudah dihapus dari daftar undangan" };
+  if (u.registered_at || u.rejected_at) return { code: "sudah_daftar", reason: SKIP_REASON.sudah_daftar };
+  if (!konteks.event.registration_enabled || !["draft", "active"].includes(konteks.event.status)) {
+    return { code: "pendaftaran_ditutup", reason: "Pendaftaran acara sudah ditutup" };
+  }
+  const ditekan = r.address ? konteks.tekan.get(emailHash(r.address)) : undefined;
+  if (u.opted_out_at || ditekan === "berhenti" || ditekan === "spam") return { code: "berhenti_email", reason: SKIP_REASON.berhenti_email };
+  if (u.email_invalid_at || ditekan === "memantul") return { code: "email_memantul", reason: SKIP_REASON.email_memantul };
+  if (normalizeAddress(u.email) !== r.address) return { code: "alamat_berubah", reason: "Email tamu berubah sesudah kiriman disusun" };
+  if (r.address && konteks.emailPeserta.has(r.address)) return { code: "sudah_peserta", reason: SKIP_REASON.sudah_peserta };
+  if (!r.address || !allowedByList(r.address, konteks.daftarUji)) return { code: "di_luar_daftar_uji", reason: SKIP_REASON.di_luar_daftar_uji };
+  return null;
+}
+
 /** Klaim potongan berikutnya dari antrean semua kiriman (produksi). */
 /**
  * Klaim potongan email berikutnya dari kiriman berjalan milik `origin` (dan
@@ -254,16 +343,21 @@ async function klaimPotongan(origin: string, onlyBlast: string | null): Promise<
       .eq("chunk", chunk)
       .or(bisaDiklaim);
     if (error) throw new Error(error.message);
-    const { data, error: galatBaca } = await client
-      .from("message_blast_recipients")
-      .select("id,blast_id,event_id,participant_id,address,name,chunk")
-      .eq("blast_id", blastId)
-      .eq("chunk", chunk)
-      .eq("status", "mengirim")
-      .eq("locked_until", cap)
-      .order("id");
+    const baca = (kolom: string) =>
+      client
+        .from("message_blast_recipients")
+        .select(kolom)
+        .eq("blast_id", blastId)
+        .eq("chunk", chunk)
+        .eq("status", "mengirim")
+        .eq("locked_until", cap)
+        .order("id");
+    let { data, error: galatBaca } = await baca("id,blast_id,event_id,participant_id,invitation_id,address,name,chunk");
+    // Sebelum migrasi 202610040007 kolom invitation_id belum ada; kiriman
+    // peserta tetap jalan.
+    if (galatBaca && undanganBelumAda(galatBaca)) ({ data, error: galatBaca } = await baca("id,blast_id,event_id,participant_id,address,name,chunk"));
     if (galatBaca) throw new Error(galatBaca.message);
-    if (data?.length) return data as RecipientRow[];
+    if (data?.length) return (data as unknown as RecipientRow[]).map((r) => ({ ...r, invitation_id: r.invitation_id ?? null }));
   }
   return [];
 }
@@ -347,6 +441,10 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
 
   try {
     await client.rpc("sweep_message_recipients" as never);
+    // Mulai pelan Invitation: lepas sisa atau jeda. Galat (mis. migrasi
+    // 202610040007 belum ada) tidak menghentikan kiriman lain.
+    const { error: galatGerbang } = await client.rpc("evaluate_invitation_gates" as never);
+    if (galatGerbang && galatGerbang.code !== "PGRST202" && !undanganBelumAda(galatGerbang)) console.error("[pesan] gerbang undangan", galatGerbang.message);
     while (Date.now() < batas) {
       const baris = await klaimPotongan(options.origin, hanya);
       if (baris.length === 0) {
@@ -384,9 +482,33 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
         for (const row of (a ?? []) as { participant_id: string }[]) punyaAkun.add(row.participant_id);
       }
 
+      // Tamu undangan SAAT INI: undangan, email peserta aktif, dan penekanan.
+      const tamu = new Map<string, TamuKini>();
+      const emailPeserta = new Set<string>();
+      const tekan = new Map<string, string>();
+      const idsTamu = baris.map((r) => r.invitation_id).filter((id): id is string => Boolean(id));
+      if (idsTamu.length) {
+        const alamat = baris.map((r) => r.address).filter((a): a is string => Boolean(a));
+        const [{ data: u, error: galatU }, { data: ps, error: galatPs }, { data: t, error: galatT }] = await Promise.all([
+          client.from("event_invitations").select(INVITATION_COLUMNS).in("id", idsTamu),
+          client.from("participants").select("email").eq("event_id", blast.event_id).is("source_removed_at", null).in("email", alamat),
+          client.from("event_email_suppressions").select("email_hash,reason").eq("event_id", blast.event_id).in("email_hash", alamat.map((a) => emailHash(a))),
+        ]);
+        if (galatU || galatPs || galatT) throw new Error((galatU ?? galatPs ?? galatT)!.message);
+        for (const row of (u ?? []) as InvitationRow[]) tamu.set(row.id, row);
+        for (const row of (ps ?? []) as { email: string | null }[]) {
+          const a = normalizeAddress(row.email);
+          if (a) emailPeserta.add(a);
+        }
+        for (const row of (t ?? []) as { email_hash: string; reason: string }[]) tekan.set(row.email_hash, row.reason);
+      }
+      const pengirimUndangan = blast.kind === "invitation" ? invitationFrom() : null;
+
       const lewati: ResultRow[] = [];
       const kirimKe = baris.filter((r) => {
-        const alasan = alasanLewatSekarang(r, r.participant_id ? peserta.get(r.participant_id) : undefined, daftarUji);
+        const alasan = r.invitation_id
+          ? alasanLewatTamu(r, tamu.get(r.invitation_id), { event, emailPeserta, tekan, daftarUji })
+          : alasanLewatSekarang(r, r.participant_id ? peserta.get(r.participant_id) : undefined, daftarUji);
         if (alasan) lewati.push({ id: r.id, status: "dilewati", reason_code: alasan.code, reason: alasan.reason });
         return !alasan;
       });
@@ -403,6 +525,24 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
       const slug = encodeURIComponent(event.slug);
       const nama = publicEventName(event);
       const items: BatchItem[] = kirimKe.map((r) => {
+        if (r.invitation_id) {
+          const u = tamu.get(r.invitation_id)!;
+          const berhentiTamu = `${origin}/api/pesan/berhenti?e=${event.id}&u=${u.id}&s=${inviteUnsubscribeSignature(event.id, u.id)}`;
+          const isiTamu = renderEmail({
+            kind: "invitation",
+            subject: blast.email_subject,
+            body: blast.email_body,
+            eventName: nama,
+            values: fieldValues(event, { name: r.name, company: u.company }),
+            actionUrl: invitationUrl(origin, event.slug, u),
+            unsubscribeUrl: berhentiTamu,
+          });
+          return {
+            to: r.address ?? "",
+            ...isiTamu,
+            headers: { "List-Unsubscribe": `<${berhentiTamu}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
+          };
+        }
         const pid = r.participant_id ?? "";
         const akun = punyaAkun.has(pid);
         const actionUrl =
@@ -425,7 +565,13 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
         };
       });
 
-      const kirim = await sendEmailBatchDetailed(items, `tally:${blast.id}:email:${baris[0].chunk}`, blast.event_id);
+      // Invitation hanya berangkat dari pengirim undangan yang terpisah. Bila
+      // env-nya hilang setelah Kirim, diperlakukan sebagai belum diatur: baris
+      // kembali ke antrean, tidak dikirim dari EMAIL_FROM biasa.
+      const kirim =
+        blast.kind === "invitation" && !pengirimUndangan
+          ? ({ kind: "not_configured" } as const)
+          : await sendEmailBatchDetailed(items, `tally:${blast.id}:email:${baris[0].chunk}`, blast.event_id, pengirimUndangan);
 
       if (kirim.kind === "not_configured" || (kirim.kind === "failed" && kirim.retryable)) {
         // Dikembalikan ke antrean dengan kunci yang sama. Bila penyedia sebenarnya

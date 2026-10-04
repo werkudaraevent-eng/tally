@@ -6,7 +6,13 @@ import { DAFTAR_UI } from "@/lib/daftar-i18n";
 import { landingDefaultLang, landingEnAvailable, landingFormOnly, landingPath, LANDING_LANG_LABELS, type LandingLang } from "@/lib/landing-i18n";
 import { HtmlLang } from "@/components/html-lang";
 import type { CSSProperties } from "react";
-import DaftarClient, { BingkaiModern, type FormModern } from "./daftar-client";
+import DaftarClient, { BingkaiModern, type FormModern, type TamuProp } from "./daftar-client";
+import { HalamanUndangan } from "./undangan-publik";
+import { PUBLIK } from "@/lib/pesan/label";
+import { invitationSettings } from "@/lib/undangan/data";
+import { maskEmail } from "@/lib/undangan/email";
+import { readInvite } from "@/lib/undangan/publik";
+import { eventSender } from "@/lib/email/client";
 
 /**
  * Formulir pendaftaran satu acara dalam satu bahasa. Dipakai halaman publik
@@ -81,7 +87,11 @@ export async function bingkaiFormulir(
  * `pratinjau`: formulir tetap dirender walau pendaftaran sedang ditutup (admin
  * menyusun formulir sebelum membukanya), dan sesi peserta tidak dibaca.
  */
-export async function isiDaftar(event: EventRow, lang: LandingLang, opsi: { pratinjau?: boolean } = {}) {
+export async function isiDaftar(
+  event: EventRow,
+  lang: LandingLang,
+  opsi: { pratinjau?: boolean; undangan?: string | null; ip?: string | null } = {},
+) {
   const t = DAFTAR_UI[lang];
   const config = event.registration_form_config ?? {};
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
@@ -114,6 +124,45 @@ export async function isiDaftar(event: EventRow, lang: LandingLang, opsi: { prat
     return <Pesan lang={lang} judul={t.closedTitle} isi={t.closedBody(publicEventName(event))} />;
   }
 
+  // Tamu undangan: tautan pribadi (`?undangan=`), tautan yang sudah dipakai
+  // atau tidak berlaku, dan mode "Hanya tamu undangan" tanpa tautan.
+  let undangan: TamuProp | null = null;
+  if (!opsi.pratinjau) {
+    const u = PUBLIK[lang];
+    const [setelan, baca] = await Promise.all([invitationSettings(event.id), readInvite(event, opsi.undangan, opsi.ip ?? null)]);
+    if (baca.state === "used") {
+      const kontak = (await eventSender(event.id).catch(() => null))?.replyTo ?? null;
+      return halamanTamu(event, lang, {
+        judul: u.usedTitle,
+        isi: u.usedBody,
+        kirimUlang: false,
+        // Tanpa nama, tanggal, atau email: tautan bisa saja diteruskan.
+        tombol: member ? { href: `/e/${event.slug}/masuk`, label: u.openDashboard } : null,
+        kontak: kontak ? u.contact(kontak) : u.contactGeneric,
+      });
+    }
+    if (baca.state === "invalid" || (baca.state === "none" && setelan.access === "undangan")) {
+      const khusus = setelan.access === "undangan";
+      return halamanTamu(event, lang, {
+        judul: baca.state === "invalid" ? u.invalidTitle : u.inviteOnlyTitle,
+        isi: baca.state === "invalid" ? u.invalidBody : u.inviteOnlyBody,
+        kirimUlang: khusus,
+        // Mode terbuka: tautan yang salah tidak menghalangi mendaftar biasa.
+        tombol: khusus ? null : { href: `/e/${event.slug}/daftar`, label: DAFTAR_UI[lang].registerNow },
+      });
+    }
+    if (baca.state === "ok") {
+      undangan = {
+        token: opsi.undangan!,
+        name: baca.inv.name,
+        company: baca.inv.company,
+        title: baca.inv.title,
+        // Alamat asli tidak dikirim ke peramban; server yang memakainya.
+        emailMasked: baca.inv.email ? maskEmail(baca.inv.email) : null,
+      };
+    }
+  }
+
   const bingkai = await bingkaiFormulir(event, lang, opsi);
   const tanggal = formatEventDate(event, lang);
   const jam = formatEventTime(event, lang);
@@ -134,7 +183,34 @@ export async function isiDaftar(event: EventRow, lang: LandingLang, opsi: { prat
     requirePhone={config.require_phone !== false}
     requireCompany={config.require_company ?? false}
     requireJobTitle={config.require_job_title ?? false}
+    undangan={undangan}
   />;
+}
+
+/** Halaman tamu undangan tanpa formulir, dalam kerangka formulir acara. */
+async function halamanTamu(
+  event: EventRow,
+  lang: LandingLang,
+  isi: { judul: string; isi: string; kirimUlang: boolean; tombol?: { href: string; label: string } | null; kontak?: string | null },
+) {
+  const bingkai = await bingkaiFormulir(event, lang);
+  const badan = <HalamanUndangan lang={lang} {...isi} />;
+  if (bingkai.modern) {
+    return (
+      <BingkaiModern lang={lang} halamanUrl={bingkai.halamanUrl} eventName={bingkai.eventName} welcomeText={null} theme={bingkai.theme} modern={bingkai.modern} areaUrl={bingkai.modern.areaUrl}>
+        {badan}
+      </BingkaiModern>
+    );
+  }
+  return (
+    <main lang={LANDING_LANG_LABELS[lang].htmlLang} style={bingkai.theme} className="grid min-h-dvh place-items-center bg-[var(--reg-surface)] px-4 py-10 text-[var(--reg-on-surface)]">
+      <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
+      <div className="w-full max-w-xl rounded-[28px] border border-[var(--reg-outline-variant)] bg-[var(--reg-panel)] p-6 sm:p-8">
+        <p className="text-label-large font-semibold text-[var(--reg-primary)]">{bingkai.eventName}</p>
+        <div className="mt-4">{badan}</div>
+      </div>
+    </main>
+  );
 }
 
 export function Pesan({ lang, judul, isi }: { lang: LandingLang; judul: string; isi: string }) {

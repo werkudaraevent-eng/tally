@@ -2,10 +2,10 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { publicEventName } from "@/lib/domain";
-import { sendEmail } from "@/lib/email/client";
+import { invitationFrom, sendEmail } from "@/lib/email/client";
 import { allowedByList, normalizeAddress } from "@/lib/pesan/alamat";
 import { idSchema, loadBlast, pesanBelumAda } from "@/lib/pesan/api";
-import { fieldValues, renderEmail } from "@/lib/pesan/isi";
+import { contohTautan, fieldValues, renderEmail } from "@/lib/pesan/isi";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { linkOrigin } from "@/lib/domain-klien/asal";
 
@@ -37,10 +37,15 @@ export async function POST(request: Request) {
   if (pesanBelumAda(error)) return apiError("MESSAGES_NOT_READY", 409);
   if (!blast) return apiError("MESSAGE_NOT_FOUND", 404);
 
+  // Invitation diuji dari pengirim undangan yang sebenarnya, supaya tes juga
+  // memeriksa subdomain dan reputasinya.
+  const dari = blast.kind === "invitation" ? invitationFrom() : null;
+  if (blast.kind === "invitation" && !dari) return apiError("INVITATION_SENDING_LOCKED", 409, { missing: ["EMAIL_FROM_UNDANGAN"] });
+
   let contoh: { name: string; company: string | null } = { name: "Budi Santoso", company: null };
   if (parsed.data.sebagai) {
     const { data } = await getSupabaseServiceClient()
-      .from("participants")
+      .from(blast.kind === "invitation" ? "event_invitations" : "participants")
       .select("name,company")
       .eq("id", parsed.data.sebagai)
       .eq("event_id", event.id)
@@ -55,11 +60,11 @@ export async function POST(request: Request) {
     body: blast.email_body,
     eventName: publicEventName(event),
     values: fieldValues(event, contoh),
-    actionUrl: `${origin}/e/${encodeURIComponent(event.slug)}${blast.kind === "undangan" ? "/masuk?sandi=contoh-tidak-berlaku" : ""}`,
+    actionUrl: contohTautan(origin, event.slug, blast.kind),
     unsubscribeUrl: null,
     test: true,
   });
-  const hasil = await sendEmail({ eventId: event.id, to: alamat, ...isi });
+  const hasil = await sendEmail({ eventId: event.id, to: alamat, ...isi, from: dari });
   if (!hasil.ok) return hasil.error === "EMAIL_NOT_CONFIGURED" ? apiError("EMAIL_NOT_CONFIGURED", 503) : apiError("EMAIL_SEND_FAILED", 502, { error: hasil.error });
   return Response.json({ ok: true, to: alamat });
 }

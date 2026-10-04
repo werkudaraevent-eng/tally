@@ -3,7 +3,11 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { idSchema, pesanBelumAda } from "@/lib/pesan/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
-/** Batalkan kiriman terjadwal yang belum berangkat. Kiriman yang sedang berjalan tidak bisa dibatalkan dari sini. */
+/**
+ * Batalkan kiriman terjadwal yang belum berangkat, atau sisa kiriman
+ * Invitation yang dijeda. Kiriman yang sedang berjalan tidak bisa dibatalkan
+ * dari sini.
+ */
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
@@ -15,8 +19,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     .update({ status: "dibatalkan", updated_at: new Date().toISOString() } as never)
     .eq("id", id)
     .eq("event_id", auth.scope.event.id)
-    .eq("status", "terjadwal")
-    .not("scheduled_at", "is", null)
+    .or("and(status.eq.terjadwal,scheduled_at.not.is.null),status.eq.dijeda")
     .select("id")
     .maybeSingle();
   if (pesanBelumAda(error)) return apiError("MESSAGES_NOT_READY", 409);
@@ -28,9 +31,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   await client.from("participant_account_tokens").delete().eq("blast_id", id).is("used_at", null);
   await client
     .from("message_blast_recipients")
-    .update({ status: "dilewati", reason_code: "jadwal_dibatalkan", reason: "Jadwal dibatalkan", updated_at: new Date().toISOString() } as never)
+    .update({ status: "dilewati", reason_code: "jadwal_dibatalkan", reason: "Kiriman dibatalkan", updated_at: new Date().toISOString() } as never)
     .eq("blast_id", id)
-    .eq("status", "antre");
+    .in("status", ["antre", "ditahan"]);
   await client.from("audit_logs").insert({ event_id: auth.scope.event.id, user_id: auth.user.id, action: "message_cancel", payload: { id } } as never);
   return Response.json({ ok: true });
 }

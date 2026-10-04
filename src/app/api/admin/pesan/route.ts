@@ -8,6 +8,7 @@ import { DEFAULT_CONTENT } from "@/lib/pesan/isi";
 import { BLAST_COLUMNS } from "@/lib/pesan/mesin";
 import { audienceSchema } from "@/lib/pesan/penerima";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { invitationSendingReady, undanganBelumAda } from "@/lib/undangan/data";
 
 /**
  * Kiriman Pesan peserta (tab Kiriman di menu Pesan peserta).
@@ -18,7 +19,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  */
 
 const buatSchema = z.object({
-  kind: z.enum(["undangan", "info"]).default("undangan"),
+  kind: z.enum(["undangan", "info", "invitation"]).default("undangan"),
   audience: audienceSchema.optional(),
   title: z.string().trim().min(1).max(120).optional(),
   /** Duplikat: salin isi dan penerima kiriman ini. */
@@ -37,7 +38,12 @@ export async function GET(request: Request) {
     .eq("event_id", event.id)
     .order("created_at", { ascending: false })
     .limit(200);
-  const dasar = { email_configured: isEmailConfigured(), member_enabled: Boolean(memberConfig(event)), time_zone: event.time_zone };
+  const dasar = {
+    email_configured: isEmailConfigured(),
+    member_enabled: Boolean(memberConfig(event)),
+    time_zone: event.time_zone,
+    invitation_sending: invitationSendingReady(),
+  };
   if (pesanBelumAda(error)) return Response.json({ ready: false, items: [], ...dasar });
   if (error) return apiError("INTERNAL_ERROR", 500);
 
@@ -68,17 +74,17 @@ async function ringkasAcara(eventId: string) {
   const perKiriman = new Map<string, { penerima: string[]; gagal: number }>();
   const masuk = new Map<string, number>();
   for (let dari = 0; ; dari += 1000) {
-    const { data } = await client
-      .from("message_blast_recipients")
-      .select("blast_id,participant_id,status")
-      .eq("event_id", eventId)
-      .neq("status", "dilewati")
-      .order("id")
-      .range(dari, dari + 999);
-    const rows = (data ?? []) as { blast_id: string; participant_id: string | null; status: string }[];
+    const baca = (kolom: string) =>
+      client.from("message_blast_recipients").select(kolom).eq("event_id", eventId).neq("status", "dilewati").order("id").range(dari, dari + 999);
+    let { data, error } = await baca("blast_id,participant_id,invitation_id,status");
+    // Sebelum migrasi 202610040007 kolom invitation_id belum ada.
+    if (error && undanganBelumAda(error)) ({ data } = await baca("blast_id,participant_id,status"));
+    const rows = (data ?? []) as unknown as { blast_id: string; participant_id: string | null; invitation_id?: string | null; status: string }[];
     for (const r of rows) {
       const k = perKiriman.get(r.blast_id) ?? { penerima: [], gagal: 0 };
+      // Tamu undangan dihitung "masuk" saat mendaftar; kuncinya diberi awalan.
       if (r.participant_id) k.penerima.push(r.participant_id);
+      else if (r.invitation_id) k.penerima.push(`u:${r.invitation_id}`);
       if (r.status === "gagal_sementara" || r.status === "gagal_tetap" || r.status === "tidak_pasti") k.gagal += 1;
       perKiriman.set(r.blast_id, k);
     }
@@ -97,7 +103,24 @@ async function ringkasAcara(eventId: string) {
     for (const r of rows) masuk.set(r.participant_id, Date.parse(r.last_login_at));
     if (rows.length < 1000) break;
   }
+  for (let dari = 0; ; dari += 1000) {
+    const { data, error } = await client
+      .from("event_invitations")
+      .select("id,registered_at")
+      .eq("event_id", eventId)
+      .not("registered_at", "is", null)
+      .order("id")
+      .range(dari, dari + 999);
+    if (error) break; // migrasi tamu undangan belum dijalankan
+    const rows = (data ?? []) as { id: string; registered_at: string }[];
+    for (const r of rows) masuk.set(`u:${r.id}`, Date.parse(r.registered_at));
+    if (rows.length < 1000) break;
+  }
   return { perKiriman, masuk };
+}
+
+function audienceDefault(kind: "undangan" | "info" | "invitation") {
+  return kind === "undangan" ? "belum_masuk" : kind === "invitation" ? "belum_dikirim" : "semua";
 }
 
 export async function POST(request: Request) {
@@ -111,7 +134,7 @@ export async function POST(request: Request) {
   let isi = {
     kind: parsed.data.kind,
     title: parsed.data.title ?? awal.title,
-    audience: parsed.data.audience ?? { jenis: parsed.data.kind === "undangan" ? "belum_masuk" : "semua", perusahaan: [], ids: [] },
+    audience: parsed.data.audience ?? { jenis: audienceDefault(parsed.data.kind), perusahaan: [], ids: [] },
     email_subject: awal.subject,
     email_body: awal.body,
   };
