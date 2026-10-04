@@ -629,7 +629,7 @@ export default function RegistrasiAdminPage() {
         actions={
           <>
             {config?.undangan ? (
-              <Button variant="tonal" icon={<Plus size={16} weight="bold" />} onClick={() => setImporOpen(true)}>{TAMU.addButton}</Button>
+              <Button icon={<Plus size={16} weight="bold" />} onClick={() => setImporOpen(true)}>{TAMU.addButton}</Button>
             ) : null}
             <Button variant="outlined" disabled={!config} icon={<PencilSimple size={16} />} onClick={() => setTampilan("formulir")}>Atur formulir</Button>
             {config ? (

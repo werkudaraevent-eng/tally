@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowsClockwise, Copy, DownloadSimple, EnvelopeSimple, PencilSimple, Trash, Tray, UploadSimple, X, XCircle } from "@phosphor-icons/react";
+import { ArrowsClockwise, CheckCircle, Copy, DownloadSimple, EnvelopeSimple, PencilSimple, Trash, Tray, UploadSimple, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -406,30 +406,72 @@ export function TambahTamu({ open, onClose, onDone }: { open: boolean; onClose: 
           onChange={setCara}
         />
       </div>
-      {cara === "ketik"
-        ? <KetikTamu sibuk={sibuk} setSibuk={setSibuk} onSaved={(lanjut) => { setBerubah(true); if (!lanjut) { setBerubah(false); onDone(); onClose(); } }} />
-        : <ImporBerkas sibuk={sibuk} setSibuk={setSibuk} onDone={() => { setBerubah(false); onDone(); onClose(); }} />}
+      {/* Keduanya tetap terpasang: berpindah cara tidak menghapus yang sudah diketik. */}
+      <KetikTamu
+        hidden={cara !== "ketik"}
+        sibuk={sibuk}
+        setSibuk={setSibuk}
+        onCancel={tutup}
+        onSaved={(lanjut) => {
+          if (lanjut) setBerubah(true);
+          else { setBerubah(false); setCara("ketik"); onDone(); onClose(); }
+        }}
+      />
+      <ImporBerkas
+        hidden={cara !== "impor"}
+        sibuk={sibuk}
+        setSibuk={setSibuk}
+        onCancel={tutup}
+        onDone={() => { setBerubah(false); setCara("ketik"); onDone(); onClose(); }}
+      />
     </Dialog>
   );
 }
 
 const KOSONG = { name: "", email: "", company: "", title: "", phone: "" };
 
-function KetikTamu({ sibuk, setSibuk, onSaved }: { sibuk: boolean; setSibuk: (v: boolean) => void; onSaved: (lanjut: boolean) => void }) {
+type Galat = { name?: string; email?: string; phone?: string; attest?: string; umum?: string };
+
+function KetikTamu({ hidden, sibuk, setSibuk, onSaved, onCancel }: {
+  hidden: boolean;
+  sibuk: boolean;
+  setSibuk: (v: boolean) => void;
+  onSaved: (lanjut: boolean) => void;
+  onCancel: () => void;
+}) {
   const [isi, setIsi] = useState(KOSONG);
   const [setuju, setSetuju] = useState(false);
-  const [galat, setGalat] = useState<{ name?: string; email?: string; umum?: string }>({});
-  // TextField tidak meneruskan ref; fokus dicari lewat pembungkusnya.
-  const nama = useRef<HTMLDivElement>(null);
-  const fokusNama = () => nama.current?.querySelector("input")?.focus();
+  const [galat, setGalat] = useState<Galat>({});
+  // Kabar hasil simpan di DALAM dialog (role=status): snackbar global menutupi
+  // tombol di HP dan berada di luar dialog modal, jadi tidak selalu dibacakan.
+  const [kabar, setKabar] = useState<{ tone: "success" | "warning"; text: string } | null>(null);
+  // Kolom yang difokuskan begitu form aktif lagi (selama menyimpan, kolom nonaktif).
+  const fokus = useRef<"name" | "email" | "phone" | null>(null);
+  // TextField tidak meneruskan ref; kolom dicari lewat pembungkusnya.
+  const wadah = useRef<HTMLDivElement>(null);
   const toast = useToast();
+
+  useEffect(() => {
+    if (!fokus.current || sibuk || hidden) return;
+    wadah.current?.querySelector<HTMLInputElement>(`input[data-kolom="${fokus.current}"]`)?.focus();
+    fokus.current = null;
+  });
+  function setFokus(kolom: "name" | "email" | "phone") {
+    fokus.current = kolom;
+    if (!sibuk) wadah.current?.querySelector<HTMLInputElement>(`input[data-kolom="${kolom}"]`)?.focus();
+  }
 
   const ubah = (k: keyof typeof KOSONG) => (e: React.ChangeEvent<HTMLInputElement>) => setIsi((v) => ({ ...v, [k]: e.target.value }));
 
   async function simpan(lanjut: boolean) {
+    setKabar(null);
     if (!isi.name.trim()) {
       setGalat({ name: "Nama wajib diisi." });
-      fokusNama();
+      setFokus("name");
+      return;
+    }
+    if (!setuju) {
+      setGalat({ attest: "Centang pernyataan ini dulu." });
       return;
     }
     setSibuk(true);
@@ -437,56 +479,95 @@ function KetikTamu({ sibuk, setSibuk, onSaved }: { sibuk: boolean; setSibuk: (v:
     const jawab = await fetch(eventApiPath("/api/admin/undangan/tambah"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...isi, attested: setuju }),
+      body: JSON.stringify({ ...isi, attested: true }),
     }).catch(() => null);
     setSibuk(false);
     const body = await jawab?.json().catch(() => null);
     if (!jawab?.ok || !body) {
       const pesan = body?.error?.details?.message ?? body?.error?.message ?? "Tamu belum tersimpan. Coba lagi.";
-      setGalat(body?.error?.details?.field === "email" ? { email: pesan } : { umum: pesan });
+      const kolom = body?.error?.details?.field;
+      if (kolom === "email" || kolom === "phone") {
+        setGalat({ [kolom]: pesan });
+        setFokus(kolom);
+      } else setGalat({ umum: pesan });
       return;
     }
     const n = isi.name.trim();
     if (body.status === "sudah_peserta") {
       setGalat({ email: `${n} sudah terdaftar sebagai peserta acara ini, jadi tidak perlu diundang.` });
+      setFokus("email");
       return;
     }
-    if (body.status === "digabung") toast.success("Sudah ada di daftar tamu", `${n} sudah diundang sebelumnya. Kolom yang kosong dilengkapi.`);
-    else if (body.suppressed) toast.success(`${n} ditambahkan`, "Alamat ini pernah berhenti berlangganan atau memantul, jadi tidak akan dikirimi email.");
-    else toast.success(`${n} ditambahkan`, "Belum ada email yang terkirim.");
+    const teks =
+      body.status === "digabung"
+        ? `${n} sudah ada di daftar tamu. Kolom yang kosong dilengkapi.`
+        : body.possible_duplicate
+          ? `${n} ditambahkan, tetapi sudah ada tamu tanpa email dengan nama yang sama. Periksa dan hapus salah satunya di tab Tamu undangan.`
+          : body.suppressed
+            ? `${n} ditambahkan. Alamat ini pernah berhenti berlangganan atau memantul, jadi tidak akan dikirimi email.`
+            : `${n} ditambahkan. Belum ada email yang terkirim.`;
+    const peringatan = body.status === "digabung" || body.possible_duplicate || body.suppressed;
     setIsi(KOSONG);
-    onSaved(lanjut);
-    if (lanjut) fokusNama();
+    // Peringatan harus terbaca: dialog tetap terbuka walau yang ditekan Simpan.
+    if (lanjut || peringatan) {
+      setKabar({ tone: peringatan ? "warning" : "success", text: teks });
+      setFokus("name");
+      onSaved(true);
+      return;
+    }
+    toast.success(`${n} ditambahkan`, "Belum ada email yang terkirim.");
+    onSaved(false);
   }
 
   return (
     <form
+      hidden={hidden}
       className="flex min-h-0 flex-1 flex-col"
       onSubmit={(e) => { e.preventDefault(); void simpan(false); }}
       noValidate
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-6 pt-4 text-body-medium">
-        <div ref={nama}><TextField label="Nama" required autoComplete="off" maxLength={120} value={isi.name} onChange={ubah("name")} error={galat.name} disabled={sibuk} /></div>
-        <TextField label="Email" optional type="email" inputMode="email" autoComplete="off" maxLength={254} value={isi.email} onChange={ubah("email")} error={galat.email} hint="Tanpa email, undangan hanya bisa lewat Salin tautan pribadi." disabled={sibuk} />
+      <div ref={wadah} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-6 pt-4 text-body-medium">
+        <p role="status" className={cx("empty:hidden", kabar && "flex items-start gap-2 rounded-md p-3", kabar?.tone === "warning" ? "bg-warning-soft text-on-surface" : kabar ? "bg-success-soft text-on-surface" : "")}>
+          {kabar ? <>{kabar.tone === "warning" ? <WarningCircle size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden /> : <CheckCircle size={16} className="mt-0.5 shrink-0 text-success" aria-hidden />}{kabar.text}</> : null}
+        </p>
+        <TextField data-kolom="name" autoFocus label="Nama" required autoComplete="off" maxLength={120} value={isi.name} onChange={ubah("name")} error={galat.name} disabled={sibuk} />
+        <TextField data-kolom="email" label="Email" optional type="email" inputMode="email" autoComplete="off" maxLength={254} value={isi.email} onChange={ubah("email")} error={galat.email} hint="Tanpa email, undangan hanya bisa lewat Salin tautan pribadi." disabled={sibuk} />
         <TextField label="Instansi" optional maxLength={160} value={isi.company} onChange={ubah("company")} disabled={sibuk} />
         <TextField label="Jabatan" optional maxLength={160} value={isi.title} onChange={ubah("title")} disabled={sibuk} />
-        <TextField label="No. HP" optional type="tel" inputMode="tel" maxLength={30} value={isi.phone} onChange={ubah("phone")} disabled={sibuk} />
-        <label className="flex items-start gap-3">
-          <input type="checkbox" checked={setuju} onChange={(e) => setSetuju(e.target.checked)} className="mt-1 size-4 shrink-0 accent-[var(--color-primary)]" />
-          <span>{TAMU.addAttest}</span>
-        </label>
+        <TextField data-kolom="phone" label="No. HP" optional type="tel" inputMode="tel" autoComplete="off" maxLength={30} value={isi.phone} onChange={ubah("phone")} error={galat.phone} disabled={sibuk} />
+        <div>
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={setuju}
+              onChange={(e) => { setSetuju(e.target.checked); setGalat((g) => ({ ...g, attest: undefined })); }}
+              aria-invalid={galat.attest ? true : undefined}
+              aria-describedby={galat.attest ? "tambah-tamu-attest" : undefined}
+              className="mt-1 size-4 shrink-0 accent-[var(--color-primary)]"
+            />
+            <span>{TAMU.addAttest}</span>
+          </label>
+          {galat.attest ? <p id="tambah-tamu-attest" className="ms-7 mt-1 text-body-small text-error">{galat.attest}</p> : null}
+        </div>
         {galat.umum ? <p role="alert" className="flex items-start gap-2 rounded-md bg-error-soft p-3 text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{galat.umum}</p> : null}
         <p className="text-on-surface-variant">{TAMU.addNoSend}</p>
       </div>
       <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-outline-variant px-6 py-4">
-        <Button type="button" variant="outlined" disabled={sibuk || !setuju} onClick={() => void simpan(true)}>{TAMU.addAnother}</Button>
-        <Button type="submit" simpan loading={sibuk} disabled={!setuju}>Simpan</Button>
+        <Button type="button" variant="text" className="me-auto max-sm:hidden" disabled={sibuk} onClick={onCancel}>Batal</Button>
+        <Button type="button" variant="outlined" disabled={sibuk} onClick={() => void simpan(true)}>{TAMU.addAnother}</Button>
+        <Button type="submit" simpan loading={sibuk}>Simpan</Button>
       </div>
     </form>
   );
 }
 
-function ImporBerkas({ sibuk: jalan, setSibuk: setJalan, onDone }: { sibuk: boolean; setSibuk: (v: boolean) => void; onDone: () => void }) {
+function ImporBerkas({ hidden, sibuk: jalan, setSibuk: setJalan, onDone, onCancel }: {
+  hidden: boolean;
+  sibuk: boolean;
+  setSibuk: (v: boolean) => void;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
   const [berkas, setBerkas] = useState<File | null>(null);
   const [pratinjau, setPratinjau] = useState<Pratinjau | null>(null);
   const [setuju, setSetuju] = useState(false);
@@ -533,7 +614,7 @@ function ImporBerkas({ sibuk: jalan, setSibuk: setJalan, onDone }: { sibuk: bool
 
   const p = pratinjau;
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div hidden={hidden} className="min-h-0 flex-1 flex-col [&:not([hidden])]:flex">
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-6 pt-4 text-body-medium">
         <div className="rounded-lg bg-surface-container-highest p-4">
           <p className="font-medium">1. Unduh templat</p>
@@ -552,7 +633,7 @@ function ImporBerkas({ sibuk: jalan, setSibuk: setJalan, onDone }: { sibuk: bool
           <p className="font-medium">2. Pilih berkas</p>
           <label
             className={cx(
-              "m3-state mt-2 flex h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-outline px-4 text-center",
+              "m3-state mt-2 flex h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-outline px-4 text-center focus-within:ring-2 focus-within:ring-primary",
               jalan && "pointer-events-none opacity-60",
             )}
           >
@@ -604,6 +685,7 @@ function ImporBerkas({ sibuk: jalan, setSibuk: setJalan, onDone }: { sibuk: bool
         <p className="text-on-surface-variant">{IMPOR.noSend} {IMPOR.retention}</p>
       </div>
       <div className="flex shrink-0 justify-end gap-2 border-t border-outline-variant px-6 py-4">
+        <Button variant="text" className="me-auto max-sm:hidden" disabled={jalan} onClick={onCancel}>Batal</Button>
         {p ? (
           <Button simpan loading={jalan} disabled={!setuju || p.inserted + p.merged === 0} onClick={() => void jalankan(false)}>
             {IMPOR.commit} {p.inserted} tamu

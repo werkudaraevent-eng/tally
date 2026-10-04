@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { messagingAllowlist } from "@/lib/pesan/alamat";
+import { messagingAllowlist, normalizePhone } from "@/lib/pesan/alamat";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { undanganBelumAda } from "@/lib/undangan/data";
 import { normalizeInviteEmail } from "@/lib/undangan/email";
@@ -35,6 +35,8 @@ export async function POST(request: Request) {
   }
   const email = normalizeInviteEmail(parsed.data.email);
   if (!email.ok) return apiError("VALIDATION_ERROR", 422, { message: "Email tidak sah.", field: "email" });
+  const hp = parsed.data.phone;
+  if (hp && (/[a-z]/i.test(hp) || !normalizePhone(hp))) return apiError("VALIDATION_ERROR", 422, { message: "Nomor HP tidak sah.", field: "phone" });
 
   // Situs uji memakai database produksi: hanya untuk acara draf, ditandai uji.
   const situsUji = messagingAllowlist().mode !== "off";
