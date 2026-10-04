@@ -11,6 +11,7 @@ import { fieldValues, renderEmail, unknownFields } from "@/lib/pesan/isi";
 import { BLAST_COLUMNS, type BlastRow } from "@/lib/pesan/mesin";
 import { audienceSchema, companies, countAudience, resolveAudience } from "@/lib/pesan/penerima";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { linkOrigin } from "@/lib/domain-klien/asal";
 
 /**
  * Satu kiriman. Draf: isi penyusun, hitungan penerima, dan pratinjau email.
@@ -72,7 +73,7 @@ export async function GET(request: Request, context: Konteks) {
   };
   if (blast.status === "draf") {
     const sebagai = new URL(request.url).searchParams.get("sebagai");
-    const [ringkas, perusahaan] = await Promise.all([ringkasDraf(event, blast, new URL(request.url).origin, sebagai), companies(event.id)]);
+    const [ringkas, perusahaan] = await Promise.all([ringkasDraf(event, blast, await linkOrigin(request, event.id), sebagai), companies(event.id)]);
     return Response.json({ ...dasar, draft: ringkas, companies: perusahaan });
   }
   const [counts, masuk] = await Promise.all([recipientCounts(blast.id), signedInCount(blast)]);
@@ -104,7 +105,7 @@ export async function PATCH(request: Request, context: Konteks) {
   }
   const blast = data as BlastRow;
   const sebagai = new URL(request.url).searchParams.get("sebagai");
-  return Response.json({ blast, draft: await ringkasDraf(event, blast, new URL(request.url).origin, sebagai) });
+  return Response.json({ blast, draft: await ringkasDraf(event, blast, await linkOrigin(request, event.id), sebagai) });
 }
 
 export async function DELETE(request: Request, context: Konteks) {

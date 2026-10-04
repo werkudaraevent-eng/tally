@@ -11,6 +11,7 @@ import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { resolveFormTheme } from "@/lib/registration-theme-css";
+import { linkOrigin } from "@/lib/domain-klien/asal";
 
 /** Yang dipakai formulir dari Tema halaman acara, plus status area peserta. */
 function tampilanFormulir(landing: EventLandingConfig | null) {
@@ -340,8 +341,8 @@ export async function POST(request: Request) {
         to: reg.email,
         name: reg.name,
         qrCode: hasil.qr_code,
-        codeUrl: registrationCodeUrl(request.url, auth.scope.event.slug, reg.access_token),
-        origin: new URL(request.url).origin,
+        codeUrl: registrationCodeUrl(await linkOrigin(request, auth.scope.event.id), auth.scope.event.slug, reg.access_token),
+        origin: await linkOrigin(request, auth.scope.event.id),
         company: reg.company,
         actorId: auth.user.id,
       });
@@ -365,7 +366,7 @@ export async function POST(request: Request) {
         to: reg.email,
         name: reg.name,
         company: reg.company,
-        requestUrl: request.url,
+        requestUrl: await linkOrigin(request, auth.scope.event.id),
         actorId: auth.user.id,
       });
     }

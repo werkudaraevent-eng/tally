@@ -4,7 +4,7 @@ import { BATCH_MAX, sendEmailBatchDetailed, type BatchItem } from "@/lib/email/c
 import { normalizeEmail } from "@/lib/member/account";
 import { MASA_UNDANGAN_MS } from "@/lib/member/links";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { allowedByList, messagingAllowlist, normalizeAddress } from "./alamat";
+import { allowedByList, claimOrigins, messagingAllowlist, normalizeAddress } from "./alamat";
 import { fieldValues, renderEmail, type BlastKind } from "./isi";
 import { audienceSchema, resolveAudience, SKIP_REASON } from "./penerima";
 import { emailFailure } from "./status";
@@ -43,6 +43,13 @@ export type BlastRow = {
   status: "draf" | "terjadwal" | "mengirim" | "selesai" | "dibatalkan";
   scheduled_at: string | null;
   site_origin: string | null;
+  /**
+   * Asal tautan domain klien, dibekukan saat masuk antrean. Tidak ada di
+   * BLAST_COLUMNS: kolomnya baru ada setelah migrasi domain klien, dan memilih
+   * kolom yang belum ada mengosongkan seluruh Pesan peserta (temuan QA H2).
+   * Pengirim membacanya terpisah.
+   */
+  link_origin?: string | null;
   sent_at: string | null;
   finished_at: string | null;
   created_at: string;
@@ -91,12 +98,12 @@ export type EnqueueOutcome =
 export async function enqueueBlast(
   blastId: string,
   event: EventForMail,
-  input: { scheduledAt: string | null; origin: string },
+  input: { scheduledAt: string | null; origin: string; linkOrigin: string | null },
 ): Promise<EnqueueOutcome> {
   const client = getSupabaseServiceClient();
   const { data: dipindah } = await client
     .from("message_blasts")
-    .update({ status: "terjadwal", scheduled_at: null, site_origin: input.origin, updated_at: new Date().toISOString() } as never)
+    .update({ status: "terjadwal", scheduled_at: null, site_origin: input.origin, ...(input.linkOrigin ? { link_origin: input.linkOrigin } : {}), updated_at: new Date().toISOString() } as never)
     .eq("id", blastId)
     .eq("event_id", event.id)
     .eq("status", "draf")
@@ -108,7 +115,7 @@ export async function enqueueBlast(
   const kembalikan = async () => {
     await client.from("participant_account_tokens").delete().eq("blast_id", blastId).is("used_at", null);
     await client.from("message_blast_recipients").delete().eq("blast_id", blastId);
-    await client.from("message_blasts").update({ status: "draf", site_origin: null } as never).eq("id", blastId);
+    await client.from("message_blasts").update({ status: "draf", site_origin: null, ...(input.linkOrigin ? { link_origin: null } : {}) } as never).eq("id", blastId);
   };
 
   try {
@@ -219,7 +226,7 @@ function alasanLewatSekarang(r: RecipientRow, p: PesertaKini | undefined, daftar
  */
 async function klaimPotongan(origin: string, onlyBlast: string | null): Promise<RecipientRow[]> {
   const client = getSupabaseServiceClient();
-  let qb = client.from("message_blasts").select("id").eq("status", "mengirim").eq("site_origin", origin);
+  let qb = client.from("message_blasts").select("id").eq("status", "mengirim").in("site_origin", claimOrigins(origin));
   if (onlyBlast) qb = qb.eq("id", onlyBlast);
   const { data: berjalan, error: galatKiriman } = await qb.order("sent_at", { ascending: true, nullsFirst: false }).order("id");
   if (galatKiriman) throw new Error(galatKiriman.message);
@@ -351,7 +358,10 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
       const blastId = baris[0].blast_id;
       if (!kiriman.has(blastId)) {
         const { data: b } = await client.from("message_blasts").select(BLAST_COLUMNS).eq("id", blastId).single();
-        kiriman.set(blastId, b as unknown as BlastRow);
+        // Terpisah dan boleh gagal: sebelum migrasi domain klien kolom ini
+        // belum ada, dan kiriman tetap memakai site_origin.
+        const { data: asal } = await client.from("message_blasts").select("link_origin").eq("id", blastId).maybeSingle();
+        kiriman.set(blastId, { ...(b as unknown as BlastRow), link_origin: (asal as { link_origin: string | null } | null)?.link_origin ?? null });
       }
       const blast = kiriman.get(blastId)!;
       if (!acara.has(blast.event_id)) {
@@ -386,7 +396,10 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
       }
       if (kirimKe.length === 0) continue;
 
-      const origin = blast.site_origin ?? "";
+      // Tautan memakai asal yang dibekukan saat antre (temuan QA M4); site_origin
+      // hanya kunci klaim produksi/preview. Kiriman lama tanpa link_origin
+      // memakai site_origin seperti sebelumnya.
+      const origin = blast.link_origin ?? blast.site_origin ?? "";
       const slug = encodeURIComponent(event.slug);
       const nama = publicEventName(event);
       const items: BatchItem[] = kirimKe.map((r) => {

@@ -7,6 +7,7 @@ import { allowedByList, normalizeAddress } from "@/lib/pesan/alamat";
 import { idSchema, loadBlast, pesanBelumAda } from "@/lib/pesan/api";
 import { fieldValues, renderEmail } from "@/lib/pesan/isi";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { linkOrigin } from "@/lib/domain-klien/asal";
 
 /**
  * "Kirim tes…": satu email ke alamat yang diketik panitia.
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     if (data) contoh = data as typeof contoh;
   }
 
-  const origin = new URL(request.url).origin;
+  const origin = await linkOrigin(request, event.id);
   const isi = renderEmail({
     kind: blast.kind,
     subject: blast.email_subject,

@@ -1,3 +1,5 @@
+import { fixedSiteOrigin, productionSiteOrigin } from "@/lib/domain-klien/situs";
+
 /**
  * Alamat tujuan Pesan peserta: normalisasi nomor WhatsApp dan daftar uji.
  */
@@ -55,9 +57,26 @@ export function messagingAllowlist(): { mode: "off" } | { mode: "list"; entries:
  * Kirim dari alias lain tetap diambil cron dan tautannya memakai domain utama.
  */
 export function serverOrigin(request: Request): string {
-  const domain = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
-  if (messagingAllowlist().mode === "off" && domain) return `https://${domain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
-  return new URL(request.url).origin;
+  // TALLY_SITE_URL lebih dulu: VERCEL_PROJECT_PRODUCTION_URL adalah domain
+  // produksi TERPENDEK, dan domain klien bisa lebih pendek dari domain Tally
+  // (src/lib/domain-klien/situs.ts).
+  const asal = messagingAllowlist().mode === "off" ? productionSiteOrigin() : null;
+  return asal ?? new URL(request.url).origin;
+}
+
+/**
+ * Asal kiriman yang boleh diambil pengirim dengan asal `origin`. Biasanya hanya
+ * dirinya. Di produksi setelah TALLY_SITE_URL diisi, juga asal lama
+ * (https://$VERCEL_PROJECT_PRODUCTION_URL): kiriman yang dijadwalkan atau
+ * sedang mengirim sebelum env itu diisi mencatat asal lama, dan tanpa ini
+ * tidak pernah diambil lagi (temuan QA M5). Preview tidak pernah sampai ke
+ * sini dengan TALLY_SITE_URL sebagai asalnya, jadi pemisahan produksi/preview
+ * tetap utuh.
+ */
+export function claimOrigins(origin: string): string[] {
+  if (messagingAllowlist().mode !== "off" || origin !== fixedSiteOrigin()) return [origin];
+  const lama = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  return lama && `https://${lama}` !== origin ? [origin, `https://${lama}`] : [origin];
 }
 
 export function allowedByList(address: string, list = messagingAllowlist()): boolean {

@@ -7,6 +7,7 @@ import { AuditPanel } from "@/components/admin/audit-panel";
 import { PaymentMethodManager } from "@/components/admin/payment-method-manager";
 import { ScannerPanel } from "@/components/admin/scanner-panel";
 import { DangerZonePanel, SettingsPanel } from "@/components/admin/settings-panel";
+import { DomainPanel } from "@/components/admin/domain-panel";
 
 /**
  * Pengaturan sistem, satu panel bertab. Isinya hal-hal yang disiapkan sekali
@@ -76,7 +77,7 @@ export default function SettingsPage() {
       {/* Panel yang tidak aktif DILEPAS, bukan disembunyikan dengan CSS.
           Masing-masing memuat datanya sendiri saat dipasang. */}
       <div role="tabpanel" id={`pengaturan-panel-${aktif}`} aria-labelledby={`pengaturan-tab-${aktif}`} className="flex flex-col gap-4">
-        {aktif === "acara" ? <SettingsPanel />
+        {aktif === "acara" ? <><SettingsPanel /><DomainPanel /></>
           : aktif === "pembayaran" ? <PaymentMethodManager />
           : aktif === "integrasi" ? <ScannerPanel />
           : aktif === "audit" ? <AuditPanel />

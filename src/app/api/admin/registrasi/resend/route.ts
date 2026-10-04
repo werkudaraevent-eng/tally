@@ -5,6 +5,7 @@ import { isEmailConfigured } from "@/lib/email/client";
 import { sendRegistrationCode } from "@/lib/email/registration-code";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { linkOrigin } from "@/lib/domain-klien/asal";
 
 /**
  * Kirim ulang kode peserta ke satu pendaftar.
@@ -74,8 +75,8 @@ export async function POST(request: Request) {
     to: reg.email,
     name: reg.name,
     qrCode,
-    codeUrl: registrationCodeUrl(request.url, auth.scope.event.slug, reg.access_token),
-    origin: new URL(request.url).origin,
+    codeUrl: registrationCodeUrl(await linkOrigin(request, auth.scope.event.id), auth.scope.event.slug, reg.access_token),
+    origin: await linkOrigin(request, auth.scope.event.id),
     actorId: auth.user.id,
   });
 

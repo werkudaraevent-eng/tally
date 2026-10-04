@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 
 // Ekstensi .ts ditulis eksplisit karena berkas ini dijalankan langsung oleh
 // Node (ESM), bukan lewat bundler Next.
-import { eventSlugFromRequest } from "./event-slug.ts";
+import { eventSlugFromRequest, HOST_SLUG_HEADER } from "./event-slug.ts";
 
 function req(url: string, referer?: string) {
   return new Request(url, referer ? { headers: { referer } } : undefined);
@@ -52,3 +52,10 @@ assert.equal(eventSlugFromRequest(req(`${BASE}/api/settings`, `${BASE}/e/acara%2
 assert.equal(eventSlugFromRequest(req(`${BASE}/e/tanpa-sisa`)), undefined);
 
 console.log("event-slug: 9 pemeriksaan lolos");
+
+// Domain klien: header dari proxy menang atas query, path, dan Referer.
+assert.equal(
+  eventSlugFromRequest(new Request(`${BASE}/api/leaderboard?eventSlug=lain`, { headers: { [HOST_SLUG_HEADER]: "ilo", referer: `${BASE}/e/lain/rundown` } })),
+  "ilo",
+);
+console.log("event-slug.check.ts: header domain klien OK");

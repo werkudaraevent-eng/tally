@@ -8,6 +8,7 @@ import { validateAnswers } from "@/lib/registration-fields";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { createAccountForRegistration, memberConfig, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/member/account";
 import { confirmationLinkUrl, sendConfirmationLink } from "@/lib/member/links";
+import { linkOrigin } from "@/lib/domain-klien/asal";
 
 /**
  * Pendaftaran peserta dari form publik. TANPA login — satu-satunya endpoint
@@ -215,7 +216,7 @@ export async function POST(request: Request) {
     if (dibuat.status === "ok") akunBaru = { accountId: dibuat.accountId };
   }
   const akunUrl = akunBaru && parsed.data.email
-    ? await confirmationLinkUrl(event, { accountId: akunBaru.accountId, email: parsed.data.email, requestUrl: request.url })
+    ? await confirmationLinkUrl(event, { accountId: akunBaru.accountId, email: parsed.data.email, requestUrl: await linkOrigin(request, event.id) })
     : null;
 
   // Email ber-QR hanya untuk jalur auto-approve: di event bermoderasi belum ada
@@ -242,8 +243,8 @@ export async function POST(request: Request) {
       to: parsed.data.email as string,
       name: parsed.data.name,
       qrCode: hasil.qr_code,
-      codeUrl: registrationCodeUrl(request.url, event.slug, hasil.access_token),
-      origin: new URL(request.url).origin,
+      codeUrl: registrationCodeUrl(await linkOrigin(request, event.id), event.slug, hasil.access_token),
+      origin: await linkOrigin(request, event.id),
       company: parsed.data.company ?? null,
       akunUrl,
     });
@@ -257,7 +258,7 @@ export async function POST(request: Request) {
       to: parsed.data.email as string,
       name: parsed.data.name,
       company: parsed.data.company ?? null,
-      requestUrl: request.url,
+      requestUrl: await linkOrigin(request, event.id),
       akunUrl,
     });
   }
@@ -274,7 +275,7 @@ export async function POST(request: Request) {
       accountId: akunBaru.accountId,
       email: parsed.data.email,
       name: parsed.data.name,
-      requestUrl: request.url,
+      requestUrl: await linkOrigin(request, event.id),
     });
     konfirmasiTerkirim = terpisah.state === "sent";
   }
