@@ -1,6 +1,6 @@
 import type { LandingSpeaker } from "./domain";
 import type { AgendaItem, AgendaPreview } from "./landing-agenda";
-import { pembicaraDiSesi } from "./landing-peran-sesi";
+import { pembicaraDiSesi, pembicaraSesiLama } from "./landing-peran-sesi";
 
 /**
  * Pengelompokan pembicara menjadi tab untuk bagian Pembicara halaman acara.
@@ -103,7 +103,7 @@ export function barisJeda(judulRundown: string, jumlahPembicara: number): boolea
 export function pembicaraSesi(all: LandingSpeaker[], baris: AgendaItem | string): LandingSpeaker[] {
   const ada = all.filter((speaker) => speaker.name?.trim());
   if (typeof baris === "string") {
-    return ada.filter((speaker) => !sesiDariRundown(speaker) && speaker.session?.trim() && cocokSesi(speaker.session, baris));
+    return pembicaraSesiLama(ada.filter((speaker) => !sesiDariRundown(speaker) && speaker.session?.trim() && cocokSesi(speaker.session, baris)));
   }
   // Dengan peran sesi baris ini dan moderator lebih dulu, sama dengan tab sesinya.
   return pembicaraDiSesi(
@@ -187,7 +187,7 @@ export function speakerTabs(all: LandingSpeaker[], agenda: AgendaPreview[] = [],
       key: `sesi-${normal(nama)}`,
       label: labels.sesi?.get(nama.toLowerCase()) ?? nama,
       note: null,
-      speakers: yatim.filter((speaker) => normal(speaker.session!) === normal(nama)),
+      speakers: pembicaraSesiLama(yatim.filter((speaker) => normal(speaker.session!) === normal(nama))),
     });
   }
 

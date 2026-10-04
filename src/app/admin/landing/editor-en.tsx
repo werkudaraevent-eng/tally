@@ -49,6 +49,7 @@ function KolomEn({
   area = false,
   rows,
   kunci,
+  kosong = KOSONG,
 }: {
   label: string;
   sumber: string;
@@ -60,6 +61,8 @@ function KolomEn({
   rows?: number;
   /** `data-kolom`: dipakai Simpan untuk membawa kolom yang salah ke layar. */
   kunci?: string;
+  /** Placeholder kolom kosong; bawaan KOSONG. */
+  kosong?: string;
 }) {
   // Kolom panjang menampilkan sampai empat baris sumber: menerjemahkan paragraf
   // dari satu baris terpotong tidak mungkin. Teks utuhnya di `title`.
@@ -75,7 +78,7 @@ function KolomEn({
     "data-kolom": kunci,
     label,
     hint,
-    placeholder: KOSONG,
+    placeholder: kosong,
     maxLength: max,
     counter: max ? (ideal ? { ideal } : true) : false,
     value: value ?? "",
@@ -382,6 +385,7 @@ export function BagianEn({
                 value={en}
                 onChange={(value) => setLanding({ ...landing, speakers: isiPeranSesiEn(daftar, kunci, value) })}
                 max={60}
+                kosong="Not filled. Shows the Indonesian text."
               />
             ))}
           </Kartu>

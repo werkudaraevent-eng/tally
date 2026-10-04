@@ -16,27 +16,61 @@ export function kunciPeran(teks: string | null | undefined): string {
 }
 
 /** Peran sesi yang diisi pada baris rundown ini, atau undefined (= peran utama). */
-function peranSesi(speaker: LandingSpeaker, id: number): string | undefined {
-  const peran = speaker.session_refs?.find((ref) => ref.id === id)?.role?.trim();
-  return peran || undefined;
+function entriBerperan(speaker: LandingSpeaker, id: number): LandingSessionRef | undefined {
+  const entri = speaker.session_refs?.find((ref) => ref.id === id);
+  return entri?.role?.trim() ? entri : undefined;
+}
+
+/**
+ * Peran Indonesia yang berlaku, dasar urutan moderator. Di /en `role` sudah
+ * teks English (resolveLanding), jadi teks Indonesianya dibawa di `role_id`:
+ * urutan di /en sama dengan di halaman Indonesia.
+ */
+function peranId(speaker: LandingSpeaker, entri: LandingSessionRef | undefined): string | undefined {
+  return entri ? entri.role_id ?? entri.role : speaker.role_id ?? speaker.role;
+}
+
+/** Moderator lebih dulu; urutan editor tetap di dalam tiap kelompok. */
+function moderatorDulu<T>(orang: T[], peran: (item: T) => string | undefined): T[] {
+  const moderator = orang.filter((item) => kunciPeran(peran(item)) === "moderator");
+  if (moderator.length === 0 || moderator.length === orang.length) return orang;
+  return [...moderator, ...orang.filter((item) => !moderator.includes(item))];
+}
+
+/** Pembicara tab sesi teks lama (tanpa baris rundown): hanya moderator lebih dulu. */
+export function pembicaraSesiLama(orang: LandingSpeaker[]): LandingSpeaker[] {
+  return moderatorDulu(orang, (speaker) => peranId(speaker, undefined));
 }
 
 /**
  * Pembicara satu baris rundown seperti yang tampil di baris itu: salinan dengan
  * `role` diganti peran sesinya bila diisi, lalu moderator lebih dulu (urutan
- * editor tetap di dalam tiap kelompok). Moderator dikenali dari peran yang
- * berlaku: peran sesi, selain itu peran utama.
+ * editor tetap di dalam tiap kelompok). Moderator dikenali dari peran
+ * Indonesia yang berlaku: peran sesi, selain itu peran utama.
  *
  * Pembicara tanpa peran sesi dikembalikan sebagai objek yang sama.
  */
 export function pembicaraDiSesi(orang: LandingSpeaker[], id: number): LandingSpeaker[] {
-  const salinan = orang.map((speaker) => {
-    const peran = peranSesi(speaker, id);
-    return peran ? { ...speaker, role: peran } : speaker;
+  const susun = orang.map((speaker) => {
+    const entri = entriBerperan(speaker, id);
+    return { tampil: entri ? { ...speaker, role: entri.role!.trim() } : speaker, peran: peranId(speaker, entri) };
   });
-  const moderator = salinan.filter((speaker) => kunciPeran(speaker.role) === "moderator");
-  if (moderator.length === 0 || moderator.length === salinan.length) return salinan;
-  return [...moderator, ...salinan.filter((speaker) => !moderator.includes(speaker))];
+  return moderatorDulu(susun, (item) => item.peran).map((item) => item.tampil);
+}
+
+/**
+ * Entri sesi setelah perannya diketik atau dipilih. Saran yang dipilih membawa
+ * versi English-nya bila entri belum punya. Peran yang berubah tanpa English
+ * baru membuang English lamanya: "Panelis" tidak boleh tampil "Moderator" di /en.
+ */
+export function ubahPeranEntri(entri: LandingSessionRef, role: string, en?: string): LandingSessionRef {
+  if (en?.trim()) return { ...entri, role, en: { ...entri.en, role: entri.en?.role?.trim() && kunciPeran(entri.role) === kunciPeran(role) ? entri.en.role : en } };
+  if (entri.en?.role !== undefined && kunciPeran(entri.role) !== kunciPeran(role)) {
+    const { role: _lama, ...sisa } = entri.en;
+    void _lama;
+    return { ...entri, role, en: sisa };
+  }
+  return { ...entri, role };
 }
 
 export type SaranPeran = {

@@ -131,9 +131,12 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
       ...tumpuk(block, block.en, LANDING_BLOCK_EN_KEYS),
       items: block.items?.map((item) => tumpuk(item, item.en, LANDING_ITEM_EN_KEYS)),
     })),
+    // `role_id`: peran Indonesia, supaya urutan moderator di /en sama dengan
+    // di halaman Indonesia walau `role` sudah English.
     speakers: asli.speakers?.map((speaker) => ({
       ...tumpuk(speaker, speaker.en, LANDING_SPEAKER_EN_KEYS.filter((key) => key !== "session")),
-      ...(speaker.session_refs ? { session_refs: speaker.session_refs.map((ref) => tumpuk(ref, ref.en, ["role"])) } : {}),
+      ...(speaker.role ? { role_id: speaker.role } : {}),
+      ...(speaker.session_refs ? { session_refs: speaker.session_refs.map((ref) => ({ ...tumpuk(ref, ref.en, ["role"]), ...(ref.role ? { role_id: ref.role } : {}) })) } : {}),
     })),
     faq: asli.faq?.map((item) => tumpuk(item, item.en, ["q", "a"])),
     highlights: asli.highlights?.map((item) => tumpuk(item, item.en, ["label", "value"])),

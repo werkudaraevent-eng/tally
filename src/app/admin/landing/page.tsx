@@ -1606,7 +1606,7 @@ export default function LandingCmsPage() {
                   checked={Boolean(speaker.featured)}
                   onChange={(value) => ubah(index, { featured: value })}
                   label="Tonjolkan"
-                  description="Masuk tab Sorotan (paling banyak 8), untuk pejabat sambutan atau pembicara utama."
+                  description="Goes in the Highlights tab (up to 8), for officials giving remarks or keynote speakers."
                 />
                 <div className="flex gap-1">
                   <IconButton size="sm" label={`Naikkan pembicara ${index + 1}`} disabled={index === 0} onClick={() => { const next = [...list]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setList(next); }}>

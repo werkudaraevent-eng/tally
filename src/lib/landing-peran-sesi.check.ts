@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { gabungEntriSesi, isiPeranSesiEn, kunciPeran, pembicaraDiSesi, peranSesiUntukEn, saranPeran } from "./landing-peran-sesi.ts";
+import { gabungEntriSesi, isiPeranSesiEn, kunciPeran, pembicaraDiSesi, pembicaraSesiLama, peranSesiUntukEn, saranPeran, ubahPeranEntri } from "./landing-peran-sesi.ts";
 import type { LandingSpeaker } from "./domain.ts";
 
 // Kunci: huruf besar-kecil, spasi ganda, dan spasi di ujung tidak membedakan peran.
@@ -57,5 +57,26 @@ assert.deepEqual(baru[2], { id: 5, label: "Breakout Session 1", role: "Moderator
 assert.deepEqual(baru[1], { id: 4, label: "Session 3" });
 // Label terbaru dari rundown menang atas label tersimpan.
 assert.equal(gabungEntriSesi([{ id: 5, label: "Breakout 1" }], lama)[0].label, "Breakout 1");
+
+// /en: urutan moderator dari peran Indonesia (role_id), bukan teks English.
+const en1: LandingSpeaker = { name: "A", role: "Speaker", role_id: "Pembicara" };
+const en2: LandingSpeaker = { name: "B", role: "Speaker", role_id: "Pembicara", session_refs: [{ id: 5, label: "B", role: "Facilitator", role_id: "Moderator" }] };
+assert.deepEqual(pembicaraDiSesi([en1, en2], 5).map((s) => [s.name, s.role]), [["B", "Facilitator"], ["A", "Speaker"]]);
+const en3: LandingSpeaker = { name: "C", role: "Moderator", role_id: "Pemandu" };
+assert.deepEqual(pembicaraDiSesi([en1, en3], 5).map((s) => s.name), ["A", "C"], "English 'Moderator' tidak menggeser urutan");
+
+// Tab sesi teks lama: moderator juga lebih dulu.
+assert.deepEqual(pembicaraSesiLama([nancy, andini]).map((s) => s.name), ["Andini", "Nancy"]);
+
+// Mengetik peran lain membuang English lama; mengubah huruf saja tidak.
+const entri = { id: 5, label: "B", role: "Moderator", en: { role: "Moderator" } };
+assert.deepEqual(ubahPeranEntri(entri, "Panelis"), { id: 5, label: "B", role: "Panelis", en: {} });
+assert.deepEqual(ubahPeranEntri(entri, "moderator"), { id: 5, label: "B", role: "moderator", en: { role: "Moderator" } });
+// Saran yang dipilih membawa English-nya; English yang masih cocok tidak ditimpa.
+assert.deepEqual(ubahPeranEntri({ id: 1, label: "A" }, "Moderator", "Moderator (EN)"), { id: 1, label: "A", role: "Moderator", en: { role: "Moderator (EN)" } });
+assert.equal(ubahPeranEntri({ id: 1, label: "A", role: "Moderator", en: { role: "Chair" } }, "Moderator", "Moderator (EN)").en?.role, "Chair");
+assert.equal(ubahPeranEntri({ id: 1, label: "A", role: "Panelis", en: { role: "Panellist" } }, "Moderator", "Moderator (EN)").en?.role, "Moderator (EN)");
+// Tanpa English sama sekali: tidak menambah objek en.
+assert.deepEqual(ubahPeranEntri({ id: 1, label: "A" }, "MC"), { id: 1, label: "A", role: "MC" });
 
 console.log("landing-peran-sesi: ok");

@@ -5,7 +5,8 @@ import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { IconButton, Popover, usePopoverAnchor } from "@/components/m3";
 import type { EventLandingConfig, LandingSessionRef, LandingSpeaker } from "@/lib/domain";
 import { cocokSesi, labelSesi, sesiDariRundown } from "@/lib/landing-speaker-tabs";
-import { gabungEntriSesi, kunciPeran, saranPeran, type SaranPeran } from "@/lib/landing-peran-sesi";
+import { gabungEntriSesi, kunciPeran, saranPeran, ubahPeranEntri, type SaranPeran } from "@/lib/landing-peran-sesi";
+import { plural } from "@/lib/plural";
 import { formatClock, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { cx } from "@/lib/m3/cx";
 
@@ -164,14 +165,7 @@ export function PilihSesi({ speaker, speakers, baris, memuat, onChange, onMuatUl
     ]);
   };
   const ubahPeran = (target: number, role: string, en?: string) => {
-    simpan(
-      refs.map((item) => {
-        if (item.id !== target) return item;
-        // Saran yang dipilih membawa versi English-nya, kecuali sudah diisi.
-        const isiEn = en && !item.en?.role?.trim() ? { en: { ...item.en, role: en } } : {};
-        return { ...item, role, ...isiEn };
-      }),
-    );
+    simpan(refs.map((item) => (item.id === target ? ubahPeranEntri(item, role, en) : item)));
   };
   const lepas = (target: LandingSessionRef, label: string, posisi: number) => {
     setDiubah(true);
@@ -338,10 +332,12 @@ export function PilihSesi({ speaker, speakers, baris, memuat, onChange, onMuatUl
           {terpilih.map(({ ref: entri, item, hilang: tak }, posisi) => {
             const judul = item?.title ?? entri.label;
             return (
-              <li key={entri.id} className={cx("flex flex-col gap-1.5 pb-3 pl-3 pr-1 pt-1.5", (posisi > 0 || lama) && "border-t border-outline-variant", tak && "bg-error-soft/40")}>
+              <li key={entri.id} className={cx("flex flex-col gap-2 pb-3 pl-3 pr-1 pt-2", (posisi > 0 || lama) && "border-t border-outline-variant", tak && "bg-error-soft/40")}>
                 <div className="flex items-start gap-3">
-                  {item ? <span className="mt-2 w-10 shrink-0 text-body-medium tabular-nums text-on-surface-variant">{item.jam}</span> : null}
-                  {tak ? <WarningCircle size={16} weight="fill" className="mt-2.5 shrink-0 text-error" aria-hidden /> : null}
+                  {/* Kolom jam selalu 40px, juga tanpa jam, supaya judul semua baris sejajar. */}
+                  <span className="mt-2 flex w-10 shrink-0 text-body-medium tabular-nums text-on-surface-variant">
+                    {item ? item.jam : tak ? <WarningCircle size={16} weight="fill" className="mt-0.5 text-error" aria-hidden /> : null}
+                  </span>
                   <div className="min-w-0 flex-1 py-2">
                     <p className="line-clamp-2 break-words text-body-medium text-on-surface" title={judul}>{judul}</p>
                     {tak ? <p className="text-body-small font-medium text-error">No longer shown in the agenda</p> : null}
@@ -406,7 +402,7 @@ export function PilihSesi({ speaker, speakers, baris, memuat, onChange, onMuatUl
           ) : dikenal.length === 0 ? (
             <p className="px-3 py-2 text-body-medium text-on-surface-variant">No published sessions in the agenda yet.</p>
           ) : pilihan.length === 0 ? (
-            <p className="px-3 py-2 text-body-medium text-on-surface-variant">No matches.</p>
+            <p className="px-3 py-2 text-body-medium text-on-surface-variant">No sessions match.</p>
           ) : (
             <ul id={`${id}-daftar`} role="listbox" aria-multiselectable="true" aria-label="Agenda sessions">
               {beberapaBagian
@@ -444,7 +440,8 @@ const SARAN_MAKS = 8;
 /**
  * Kolom peran di satu sesi: teks bebas dengan saran dari peran yang sudah
  * dipakai di acara ini (saranPeran). Pola APG combobox dengan autocomplete
- * daftar: tidak ada saran yang tersorot sebelum Panah bawah, jadi Enter atau
+ * daftar: saran muncul saat mengetik atau Panah bawah, bukan saat fokus.
+ * Tidak ada saran yang tersorot sebelum Panah bawah, jadi Enter atau
  * keluar kolom menyimpan persis yang diketik; Esc menutup saran dan teksnya
  * tetap. Kosong berarti peran utama, yang disebut di placeholder.
  */
@@ -461,9 +458,9 @@ function KolomPeran({ label, value, utama, speakers, onChange }: {
   const id = useId();
 
   const ketik = kunciPeran(value);
-  const saran = saranPeran(speakers, value)
-    .filter((item) => !ketik || item.kunci.includes(ketik))
-    .slice(0, SARAN_MAKS);
+  // Yang diawali ketikan lebih dulu: "M" menyarankan Moderator, bukan Pembicara.
+  const cocok = saranPeran(speakers, value).filter((item) => !ketik || item.kunci.includes(ketik));
+  const saran = [...cocok.filter((item) => item.kunci.startsWith(ketik)), ...cocok.filter((item) => !item.kunci.startsWith(ketik))].slice(0, SARAN_MAKS);
   const terbuka = saranMenu.open && saran.length > 0;
   const aktif = terbuka && sorot >= 0 ? saran[Math.min(sorot, saran.length - 1)] : undefined;
 
@@ -518,7 +515,6 @@ function KolomPeran({ label, value, utama, speakers, onChange }: {
           setSorot(-1);
           if (!saranMenu.open) saranMenu.buka();
         }}
-        onFocus={() => { if (!saranMenu.open) saranMenu.buka(); }}
         onBlur={() => { setSorot(-1); saranMenu.tutup(); }}
         onKeyDown={onKeyDown}
         className="m3-field h-14 w-full rounded-lg border border-outline bg-surface-container-lowest px-3 text-body-large text-on-surface outline-none transition-[border-color,box-shadow] duration-150 ease-standard placeholder:text-on-surface-variant/70 focus:border-primary"
@@ -544,7 +540,7 @@ function KolomPeran({ label, value, utama, speakers, onChange }: {
               )}
             >
               <span className="truncate">{item.teks}</span>
-              <span className="truncate text-body-small text-on-surface-variant">{item.nama ?? `${item.pembicara} speakers`}</span>
+              <span className="truncate text-body-small text-on-surface-variant">{item.nama ?? plural(item.pembicara, "speaker")}</span>
             </div>
           ))}
         </Popover>
