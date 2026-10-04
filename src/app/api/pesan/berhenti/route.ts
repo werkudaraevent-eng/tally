@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { escapeHtml } from "@/lib/email/registration-code";
 import { unsubscribeSignature } from "@/lib/pesan/tautan";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { emailHash, inviteSecretReady, verifyInviteUnsubscribe } from "@/lib/undangan/tanda";
 
 /**
  * Berhenti menerima email Pesan peserta untuk satu acara.
@@ -17,6 +18,29 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  */
 
 type Hasil = { ok: true; name: string; eventName: string } | { ok: false };
+
+/**
+ * Tamu undangan (`u` = id undangan) ditandatangani terpisah dengan
+ * INVITE_LINK_SECRET: `berhenti-undangan:<event>:<invitation>`. Berhenti dicatat
+ * di undangannya dan di penekanan per acara, supaya bertahan walau tamu
+ * dihapus lalu diimpor ulang, dan ikut ke pesertanya bila ia mendaftar.
+ */
+async function periksaTamu(url: URL): Promise<Hasil & { eventId?: string; invitationId?: string; email?: string | null }> {
+  const eventId = url.searchParams.get("e") ?? "";
+  const invitationId = url.searchParams.get("u") ?? "";
+  const tanda = url.searchParams.get("s") ?? "";
+  if (!/^[0-9a-f-]{36}$/i.test(eventId) || !/^[0-9a-f-]{36}$/i.test(invitationId) || !tanda || !inviteSecretReady()) return { ok: false };
+  if (!verifyInviteUnsubscribe(eventId, invitationId, tanda)) return { ok: false };
+  const client = getSupabaseServiceClient();
+  const [{ data: u }, { data: e }] = await Promise.all([
+    client.from("event_invitations").select("name,email_norm").eq("id", invitationId).eq("event_id", eventId).maybeSingle(),
+    client.from("events").select("name").eq("id", eventId).maybeSingle(),
+  ]);
+  if (!e) return { ok: false };
+  // Undangan yang sudah dibersihkan tetap bisa berhenti: halaman tanpa nama.
+  const tamu = u as { name: string; email_norm: string | null } | null;
+  return { ok: true, name: tamu?.name ?? "", eventName: (e as { name: string }).name, eventId, invitationId, email: tamu?.email_norm ?? null };
+}
 
 async function periksa(url: URL): Promise<Hasil & { eventId?: string; participantId?: string }> {
   const eventId = url.searchParams.get("e") ?? "";
@@ -48,17 +72,35 @@ const TIDAK_SAH = () => halaman("Tautan tidak berlaku", `<p style="font-size:15p
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const hasil = await periksa(url);
+  const hasil = url.searchParams.has("u") ? await periksaTamu(url) : await periksa(url);
   if (!hasil.ok) return TIDAK_SAH();
   return halaman(
     "Berhenti menerima email?",
-    `<p style="font-size:15px;line-height:1.6;">${escapeHtml(hasil.name)}, Anda tidak akan lagi menerima undangan dan kabar lewat email dari panitia <b>${escapeHtml(hasil.eventName)}</b>. Acara lain tidak terpengaruh.</p>
+    `<p style="font-size:15px;line-height:1.6;">${hasil.name ? `${escapeHtml(hasil.name)}, a` : "A"}nda tidak akan lagi menerima undangan dan kabar lewat email dari panitia <b>${escapeHtml(hasil.eventName)}</b>. Acara lain tidak terpengaruh.</p>
 <form method="post" action="${escapeHtml(url.pathname + url.search)}" style="margin-top:24px;"><button type="submit" style="min-height:48px;padding:0 24px;border:0;border-radius:8px;background:#2649D0;color:#fff;font-size:15px;font-weight:600;cursor:pointer;">Berhenti menerima email</button></form>`,
   );
 }
 
 export async function POST(request: Request) {
-  const hasil = await periksa(new URL(request.url));
+  const url = new URL(request.url);
+  if (url.searchParams.has("u")) {
+    const tamu = await periksaTamu(url);
+    if (!tamu.ok || !tamu.invitationId) return TIDAK_SAH();
+    const client = getSupabaseServiceClient();
+    await client
+      .from("event_invitations")
+      .update({ opted_out_at: new Date().toISOString() } as never)
+      .eq("id", tamu.invitationId)
+      .eq("event_id", tamu.eventId!)
+      .is("opted_out_at", null);
+    if (tamu.email) {
+      await client
+        .from("event_email_suppressions")
+        .upsert({ event_id: tamu.eventId, email_hash: emailHash(tamu.email), reason: "berhenti" } as never, { onConflict: "event_id,email_hash" });
+    }
+    return halaman("Anda sudah berhenti", `<p style="font-size:15px;line-height:1.6;">Panitia ${escapeHtml(tamu.eventName)} tidak akan mengirim undangan lewat email lagi kepada Anda. Bila ini keliru, hubungi panitia.</p>`);
+  }
+  const hasil = await periksa(url);
   if (!hasil.ok || !hasil.participantId) return TIDAK_SAH();
   await getSupabaseServiceClient()
     .from("participants")

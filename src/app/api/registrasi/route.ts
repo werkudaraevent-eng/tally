@@ -8,6 +8,9 @@ import { validateAnswers } from "@/lib/registration-fields";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { createAccountForRegistration, memberConfig, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/member/account";
 import { confirmationLinkUrl, sendConfirmationLink } from "@/lib/member/links";
+import { linkOrigin } from "@/lib/domain-klien/asal";
+import { invitationSettings, type InvitationRow } from "@/lib/undangan/data";
+import { notifyInviteUsedElsewhere, readInvite } from "@/lib/undangan/publik";
 
 /**
  * Pendaftaran peserta dari form publik. TANPA login — satu-satunya endpoint
@@ -35,6 +38,12 @@ const submitSchema = z.object({
   // Kata sandi area peserta. Wajib atau tidaknya ditentukan di bawah: hanya
   // bila area peserta acara ini menyala. Tidak pernah disimpan di pendaftaran.
   password: z.string().max(PASSWORD_MAX).optional(),
+  // Tautan pribadi tamu undangan (`?undangan=` di formulir). Tanda tangannya
+  // diperiksa di sini; database mengunci dan memeriksa ulang undangannya.
+  undangan: z.string().max(200).optional(),
+  // Tamu tidak menekan "Ganti": email yang diundang dipakai dari server, jadi
+  // formulir tidak pernah memegang alamat aslinya.
+  pakai_email_undangan: z.boolean().optional(),
 });
 
 /**
@@ -56,6 +65,20 @@ export async function POST(request: Request) {
 
   const parsed = submitSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+
+  // Tamu undangan. Tanpa tautan pada mode "Hanya tamu undangan": ditolak di
+  // sini untuk pesan yang jelas, dan sekali lagi di dalam fungsi database.
+  const ipAwal = clientIp(request);
+  let undangan: InvitationRow | null = null;
+  if (parsed.data.undangan) {
+    const baca = await readInvite(event, parsed.data.undangan, ipAwal);
+    if (baca.state === "used") return apiError("INVITATION_USED", 422);
+    if (baca.state !== "ok") return apiError("VALIDATION_ERROR", 422, { message: "Tautan undangan ini tidak berlaku lagi. Minta tautan baru ke panitia." });
+    undangan = baca.inv;
+    if (parsed.data.pakai_email_undangan && undangan.email) parsed.data.email = undangan.email;
+  } else if ((await invitationSettings(event.id)).access === "undangan") {
+    return apiError("REGISTRATION_INVITE_ONLY", 422);
+  }
 
   // Jawaban field tambahan diperiksa terhadap konfigurasi event, bukan hanya
   // terhadap bentuk luarnya.
@@ -101,7 +124,9 @@ export async function POST(request: Request) {
   // auto-approve setiap barisnya ikut membuat peserta yang muncul di undian.
   // Sepuluh per sepuluh menit longgar untuk satu keluarga yang mendaftar
   // bergantian dari satu ponsel, dan sempit untuk skrip.
-  if (ip) {
+  // Tautan undangan yang sah tidak dibatasi per IP: satu kantor yang diundang
+  // bisa berbagi satu IP. Tautan salah sudah dibatasi tersendiri (readInvite).
+  if (ip && !undangan) {
     const sejak = new Date(Date.now() - 10 * 60_000).toISOString();
     const { count } = await client
       .from("event_registrations")
@@ -179,6 +204,8 @@ export async function POST(request: Request) {
     p_extra: cleanExtra,
     p_ip: ip,
     p_upload_ids: uploadIds,
+    // Hanya dikirim bila ada: kode ini tetap jalan sebelum migrasi 202610040007.
+    ...(undangan ? { p_invitation_id: undangan.id } : {}),
   } as never);
   if (error) {
     const code = mapDatabaseError(error);
@@ -190,7 +217,14 @@ export async function POST(request: Request) {
     status: string;
     qr_code: string | null;
     access_token: string | null;
+    invitation_id?: string | null;
+    email_changed?: boolean;
   };
+
+  // Tautan pribadi dipakai dengan email lain: pemiliknya diberi tahu.
+  if (hasil.email_changed && hasil.invitation_id) {
+    await notifyInviteUsedElsewhere(event, hasil.invitation_id).catch((galat) => console.error("[undangan] pemberitahuan", galat));
+  }
 
   // Akun area peserta DULU, baru email. Gagal membuat akun TIDAK membatalkan
   // pendaftaran: pendaftar tetap terdaftar dan bisa membuat kata sandi lewat
@@ -215,7 +249,7 @@ export async function POST(request: Request) {
     if (dibuat.status === "ok") akunBaru = { accountId: dibuat.accountId };
   }
   const akunUrl = akunBaru && parsed.data.email
-    ? await confirmationLinkUrl(event, { accountId: akunBaru.accountId, email: parsed.data.email, requestUrl: request.url })
+    ? await confirmationLinkUrl(event, { accountId: akunBaru.accountId, email: parsed.data.email, requestUrl: await linkOrigin(request, event.id) })
     : null;
 
   // Email ber-QR hanya untuk jalur auto-approve: di event bermoderasi belum ada
@@ -242,8 +276,8 @@ export async function POST(request: Request) {
       to: parsed.data.email as string,
       name: parsed.data.name,
       qrCode: hasil.qr_code,
-      codeUrl: registrationCodeUrl(request.url, event.slug, hasil.access_token),
-      origin: new URL(request.url).origin,
+      codeUrl: registrationCodeUrl(await linkOrigin(request, event.id), event.slug, hasil.access_token),
+      origin: await linkOrigin(request, event.id),
       company: parsed.data.company ?? null,
       akunUrl,
     });
@@ -257,7 +291,7 @@ export async function POST(request: Request) {
       to: parsed.data.email as string,
       name: parsed.data.name,
       company: parsed.data.company ?? null,
-      requestUrl: request.url,
+      requestUrl: await linkOrigin(request, event.id),
       akunUrl,
     });
   }
@@ -274,7 +308,7 @@ export async function POST(request: Request) {
       accountId: akunBaru.accountId,
       email: parsed.data.email,
       name: parsed.data.name,
-      requestUrl: request.url,
+      requestUrl: await linkOrigin(request, event.id),
     });
     konfirmasiTerkirim = terpisah.state === "sent";
   }

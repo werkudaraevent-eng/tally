@@ -8,6 +8,8 @@ import { idSchema, loadBlast, pesanBelumAda } from "@/lib/pesan/api";
 import { drainQueue, enqueueBlast } from "@/lib/pesan/mesin";
 import { audienceSchema, countAudience, resolveAudience } from "@/lib/pesan/penerima";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { blastLinkOrigin } from "@/lib/domain-klien/asal";
+import { invitationSendingReady } from "@/lib/undangan/data";
 
 /**
  * Kirim (atau jadwalkan) satu draf, setelah panitia mengonfirmasi jumlahnya.
@@ -44,6 +46,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!blast) return apiError("MESSAGE_NOT_FOUND", 404);
   if (blast.status !== "draf") return apiError("MESSAGE_NOT_DRAFT", 409);
   if (blast.channel !== "email") return apiError("MESSAGE_WHATSAPP_NOT_READY", 409);
+  if (blast.kind === "invitation") {
+    const siap = invitationSendingReady();
+    if (!siap.ok) return apiError("INVITATION_SENDING_LOCKED", 409, { missing: siap.missing });
+  }
   // Jadwal dikirim nanti oleh cron PRODUKSI dengan env produksi. Dari preview,
   // tautan undangannya dibuat dengan SESSION_SECRET preview dan bisa mati.
   if (parsed.data.scheduled_at && messagingAllowlist().mode !== "off") return apiError("MESSAGE_SCHEDULE_NOT_ALLOWED", 403);
@@ -55,7 +61,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   const origin = serverOrigin(request);
-  const hasil = await enqueueBlast(id, event, { scheduledAt: parsed.data.scheduled_at, origin });
+  const hasil = await enqueueBlast(id, event, { scheduledAt: parsed.data.scheduled_at, origin, linkOrigin: await blastLinkOrigin(event.id) });
   if (hasil.status === "not_draft") return apiError("MESSAGE_NOT_DRAFT", 409);
   if (hasil.status === "empty") return apiError("MESSAGE_EMPTY", 409);
 

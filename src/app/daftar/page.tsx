@@ -1,6 +1,8 @@
 import { getPublicPageEvent } from "@/lib/auth/request-event";
 import { publicEventName, type EventLandingConfig } from "@/lib/domain";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { requestIp } from "@/lib/undangan/publik";
 import { DAFTAR_UI } from "@/lib/daftar-i18n";
 import { landingDefaultLang, landingEnAvailable, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import type { Metadata } from "next";
@@ -28,9 +30,13 @@ export async function generateMetadata({ searchParams }: { searchParams: Kueri }
   const lang = minta && minta !== utama && landingEnAvailable(landing) ? minta : utama;
   const judul = `${DAFTAR_UI[lang].registration} · ${publicEventName(event)}`;
   const deskripsi = lang === "en" ? `Register for ${publicEventName(event)}.` : `Pendaftaran peserta ${publicEventName(event)}.`;
+  // Tautan pribadi: jangan diindeks, dan jangan bocorkan alamat lengkapnya
+  // lewat Referer ke situs lain.
+  const pribadi = typeof kueri.undangan === "string";
   return {
     title: judul,
     description: deskripsi,
+    ...(pribadi ? { robots: { index: false, follow: false }, referrer: "strict-origin-when-cross-origin" as const } : {}),
     openGraph: { title: judul, description: deskripsi, locale: lang === "en" ? "en_GB" : "id_ID" },
   };
 }
@@ -63,5 +69,7 @@ export default async function DaftarPage({
     const sisa = Object.fromEntries(Object.entries(kueri).filter(([kunci]) => kunci !== "eventSlug" && kunci !== "bahasa"));
     redirect(withQuery(`/e/${event.slug}/daftar`, sisa));
   }
-  return isiDaftar(event, minta ?? utama);
+  // Tautan pribadi tamu undangan. IP untuk batas tautan yang salah.
+  const undangan = typeof kueri.undangan === "string" ? kueri.undangan : null;
+  return isiDaftar(event, minta ?? utama, { undangan, ip: undangan ? requestIp(await headers()) : null });
 }

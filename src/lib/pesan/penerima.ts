@@ -4,6 +4,8 @@ import { memberConfig } from "@/lib/member/account";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { allowedByList, messagingAllowlist, normalizeAddress } from "./alamat";
 import type { BlastKind } from "./isi";
+import { allInvitations, sendStates } from "@/lib/undangan/data";
+import { emailHash, inviteSecretReady } from "@/lib/undangan/tanda";
 
 /**
  * Siapa yang menerima sebuah kiriman, dan siapa yang dilewati beserta alasannya.
@@ -15,7 +17,12 @@ import type { BlastKind } from "./isi";
  */
 
 export const audienceSchema = z.object({
-  jenis: z.enum(["semua", "belum_masuk", "manual"]).default("semua"),
+  /**
+   * Peserta: semua | belum_masuk | manual.
+   * Tamu undangan (jenis kiriman `invitation`): belum_dikirim | belum_daftar |
+   * manual, dengan `ids` berisi id undangan.
+   */
+  jenis: z.enum(["semua", "belum_masuk", "manual", "belum_dikirim", "belum_daftar"]).default("semua"),
   /** Penyempit: hanya perusahaan ini. Kosong = semua perusahaan. */
   perusahaan: z.array(z.string().trim().min(1).max(200)).max(200).default([]),
   /** Untuk `manual`: id peserta yang dipilih (Daftar peserta, Logistik). */
@@ -25,7 +32,16 @@ export const audienceSchema = z.object({
 });
 export type Audience = z.infer<typeof audienceSchema>;
 
-export type SkipCode = "tanpa_email" | "berhenti_email" | "email_memantul" | "area_mati" | "belum_boleh_masuk" | "di_luar_daftar_uji";
+export type SkipCode =
+  | "tanpa_email"
+  | "berhenti_email"
+  | "email_memantul"
+  | "area_mati"
+  | "belum_boleh_masuk"
+  | "di_luar_daftar_uji"
+  | "sudah_daftar"
+  | "sudah_peserta"
+  | "terjadwal";
 
 export const SKIP_REASON: Record<SkipCode, string> = {
   tanpa_email: "Tidak punya email",
@@ -34,6 +50,9 @@ export const SKIP_REASON: Record<SkipCode, string> = {
   area_mati: "Area peserta belum dinyalakan",
   belum_boleh_masuk: "Belum boleh masuk area peserta",
   di_luar_daftar_uji: "Di luar daftar uji",
+  sudah_daftar: "Sudah mendaftar",
+  sudah_peserta: "Email ini sudah dipakai peserta",
+  terjadwal: "Sudah ada di kiriman lain yang belum selesai",
 };
 
 export type ParticipantRow = {
@@ -47,6 +66,11 @@ export type ParticipantRow = {
 };
 
 export type ResolvedRecipient = {
+  /**
+   * Untuk kiriman `invitation` baris ini TAMU UNDANGAN, bukan peserta: `id`
+   * adalah id undangan dan barisnya diantre dengan `invitation_id`.
+   */
+  target: "participant" | "invitation";
   participant: ParticipantRow;
   email: string | null;
   /** Akun area peserta yang sudah ada, untuk sasaran tautan undangan. */
@@ -121,6 +145,7 @@ export async function resolveAudience(
   kind: BlastKind,
   audience: Audience,
 ): Promise<ResolvedRecipient[]> {
+  if (kind === "invitation") return resolveInvitees(event, audience);
   const [peserta, akun] = await Promise.all([semuaPeserta(event.id), akunPeserta(event.id)]);
   const member = memberConfig(event);
   const disetujui = kind === "undangan" && member && (member.audience ?? "approved") === "approved" ? await pesertaDisetujui(event.id) : null;
@@ -141,8 +166,74 @@ export async function resolveAudience(
       else if (kind === "undangan" && !member) skip = "area_mati";
       else if (disetujui && !disetujui.has(p.id)) skip = "belum_boleh_masuk";
       else if (!allowedByList(email, daftarUji)) skip = "di_luar_daftar_uji";
-      return { participant: p, email, accountId: akun.get(p.id)?.id ?? null, skip };
+      return { target: "participant" as const, participant: p, email, accountId: akun.get(p.id)?.id ?? null, skip };
     });
+}
+
+/**
+ * Tamu undangan sebagai penerima Invitation. Dilewati beserta alasannya:
+ * sudah mendaftar, berhenti atau memantul (termasuk penekanan per acara),
+ * emailnya sudah dipakai peserta aktif, atau sudah ada di kiriman Invitation
+ * lain yang belum selesai (Terjadwal).
+ */
+async function resolveInvitees(event: Pick<EventRow, "id">, audience: Audience): Promise<ResolvedRecipient[]> {
+  const [undangan, keadaan, emailPeserta, tekan] = await Promise.all([
+    allInvitations(event.id),
+    sendStates(event.id),
+    emailPesertaAktif(event.id),
+    penekanan(event.id),
+  ]);
+  const dipilih = audience.jenis === "manual" ? new Set(audience.ids) : null;
+  const daftarUji = messagingAllowlist();
+  return undangan
+    .filter((u) => !u.rejected_at)
+    .filter((u) => (dipilih ? dipilih.has(u.id) : true))
+    .filter((u) => (audience.jenis === "belum_dikirim" ? !keadaan.get(u.id)?.sent : true))
+    // Pengingat hanya untuk yang sudah pernah dikirimi undangan.
+    .filter((u) => (audience.jenis === "belum_daftar" ? Boolean(keadaan.get(u.id)?.sent) : true))
+    .map((u) => {
+      const email = normalizeAddress(u.email);
+      // Tanpa rahasia tautan tidak ada hash; kiriman Invitation memang terkunci.
+      const ditekan = email && inviteSecretReady() ? tekan.get(emailHash(email)) : undefined;
+      let skip: SkipCode | null = null;
+      if (u.registered_at) skip = "sudah_daftar";
+      else if (!email) skip = "tanpa_email";
+      else if (u.opted_out_at || ditekan === "berhenti" || ditekan === "spam") skip = "berhenti_email";
+      else if (u.email_invalid_at || ditekan === "memantul") skip = "email_memantul";
+      else if (emailPeserta.has(email)) skip = "sudah_peserta";
+      else if (keadaan.get(u.id)?.queued) skip = "terjadwal";
+      else if (!allowedByList(email, daftarUji)) skip = "di_luar_daftar_uji";
+      return {
+        target: "invitation" as const,
+        participant: { id: u.id, name: u.name, company: u.company, email: u.email, phone: u.phone, email_opt_out_at: u.opted_out_at, email_invalid_at: u.email_invalid_at },
+        email,
+        accountId: null,
+        skip,
+      };
+    })
+    // Yang sudah mendaftar tidak dihitung sebagai penerima yang dilewati: di
+    // saringan "Belum daftar" mereka memang bukan sasaran.
+    .filter((r) => !(audience.jenis !== "manual" && r.skip === "sudah_daftar"));
+}
+
+/** Email peserta aktif acara ini, untuk melewati tamu yang sudah jadi peserta lewat jalur lain. */
+async function emailPesertaAktif(eventId: string): Promise<Set<string>> {
+  const set = new Set<string>();
+  for (const p of await semuaPeserta(eventId)) {
+    const email = normalizeAddress(p.email);
+    if (email) set.add(email);
+  }
+  return set;
+}
+
+async function penekanan(eventId: string): Promise<Map<string, string>> {
+  const { data, error } = await getSupabaseServiceClient()
+    .from("event_email_suppressions")
+    .select("email_hash,reason")
+    .eq("event_id", eventId)
+    .limit(10000);
+  if (error) throw new Error(error.message);
+  return new Map(((data ?? []) as { email_hash: string; reason: string }[]).map((r) => [r.email_hash, r.reason]));
 }
 
 export function countAudience(rows: ResolvedRecipient[]): AudienceCounts {

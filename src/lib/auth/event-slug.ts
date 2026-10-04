@@ -31,7 +31,17 @@
  * Ini BUKAN otorisasi. Ketiganya dapat dipalsukan; pemanggil tetap wajib
  * meneruskan hasilnya ke requireEventScope(), yang memeriksa user_event_access.
  */
+/** Header slug yang dipasang src/proxy.ts untuk permintaan di domain klien. */
+export const HOST_SLUG_HEADER = "x-tally-host-slug";
+
 export function eventSlugFromRequest(request: Request) {
+  // 0. Host domain klien: proxy memasang header ini dari peta domain dan
+  //    MEMBUANG salinan yang dikirim browser, jadi nilainya tepercaya. Ia
+  //    menang atas semuanya: di event.klien.com hanya ada satu acara, dan
+  //    Referer di sana (`https://event.klien.com/`) tidak memuat slug.
+  const dariHost = request.headers.get(HOST_SLUG_HEADER);
+  if (dariHost) return dariHost;
+
   const url = new URL(request.url);
   const fromQuery = url.searchParams.get("eventSlug");
   if (fromQuery) return fromQuery;

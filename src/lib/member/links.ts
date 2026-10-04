@@ -55,7 +55,7 @@ async function buatToken(eventId: string, purpose: "konfirmasi" | "sandi", email
   return token;
 }
 
-/** Alamat tautan, dari origin permintaan (sama dengan registrationCodeUrl). */
+/** Alamat tautan. `requestUrl` berisi linkOrigin() pemanggil (sama dengan registrationCodeUrl). */
 export function memberLinkUrl(requestUrl: string, slug: string, purpose: "konfirmasi" | "sandi" | "undangan", token: string) {
   const origin = new URL(requestUrl).origin;
   const path = purpose === "konfirmasi"

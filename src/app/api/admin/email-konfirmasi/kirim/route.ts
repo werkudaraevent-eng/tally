@@ -8,6 +8,7 @@ import { sendRegistrationCode } from "@/lib/email/registration-code";
 import { messagingAllowlist } from "@/lib/pesan/alamat";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { linkOrigin } from "@/lib/domain-klien/asal";
 
 /**
  * "Kirim ke mereka…": email ber-QR untuk pendaftar disetujui yang belum pernah
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
   if (galatBaca) return apiError("INTERNAL_ERROR", 500);
   const milikku = new Set(((diklaim ?? []) as { id: string }[]).map((row) => row.id));
 
-  const origin = new URL(request.url).origin;
+  const origin = await linkOrigin(request, event.id);
   let terkirim = 0;
   const gagal: { name: string; error: string }[] = [];
   let pertama = true;
@@ -90,7 +91,7 @@ export async function POST(request: Request) {
       name: reg.name,
       company: reg.company,
       qrCode: reg.qr_code,
-      codeUrl: registrationCodeUrl(request.url, event.slug, reg.access_token),
+      codeUrl: registrationCodeUrl(origin, event.slug, reg.access_token),
       origin,
       actorId: auth.user.id,
       idempotencyKey: `tally-reg-${reg.id}-qr-${reg.email_attempts}`,

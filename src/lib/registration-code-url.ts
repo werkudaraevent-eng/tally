@@ -1,12 +1,11 @@
 /**
  * Alamat halaman kode peserta.
  *
- * Dibangun dari origin PERMINTAAN, bukan dari variabel lingkungan. Aplikasi ini
- * dilayani di beberapa alamat sekaligus — domain produksi, pratinjau Vercel, dan
- * localhost — dan alamat yang dipatok di env akan mengirim pendaftar ke domain
- * yang salah pada dua di antaranya. Pola yang sama dipakai /api/seat-map/qr.
+ * `origin` diambil dari linkOrigin() (src/lib/domain-klien/asal.ts): domain
+ * klien bila aktif, alamat Tally di produksi, origin permintaan di pratinjau dan
+ * localhost. Menerima URL apa pun; hanya origin-nya yang dipakai.
  */
-export function registrationCodeUrl(requestUrl: string, slug: string, token: string | null | undefined) {
+export function registrationCodeUrl(origin: string, slug: string, token: string | null | undefined) {
   if (!token) return null;
-  return new URL(`/e/${encodeURIComponent(slug)}/kode/${token}`, new URL(requestUrl).origin).toString();
+  return new URL(`/e/${encodeURIComponent(slug)}/kode/${token}`, new URL(origin).origin).toString();
 }

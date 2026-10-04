@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useRef, type ReactNode } from "react";
+import { Fragment, useRef, type ReactNode } from "react";
 import { cx } from "@/lib/m3/cx";
 import { standard } from "@/lib/m3/motion";
 
@@ -11,6 +11,10 @@ export type TabOption<T extends string> = {
 	icon?: ReactNode;
 	/** Angka kecil di samping label. Untuk jumlah hasil, bukan untuk status. */
 	badge?: ReactNode;
+	/** Angka netral bergaris: jumlah isi, bukan "perlu tindakan". */
+	badgeOutlined?: boolean;
+	/** Garis pemisah sesudah tab ini: tab berikutnya daftar yang berbeda jenis. */
+	divider?: boolean;
 	disabled?: boolean;
 };
 
@@ -93,8 +97,8 @@ export function Tabs<T extends string>({ options, value, onChange, label, idPref
 			{options.map((option) => {
 				const aktif = option.value === value;
 				return (
+					<Fragment key={option.value}>
 					<button
-						key={option.value}
 						type="button"
 						role="tab"
 						id={`${idPrefix}-tab-${option.value}`}
@@ -123,7 +127,7 @@ export function Tabs<T extends string>({ options, value, onChange, label, idPref
 						{option.icon}
 						<span>{option.label}</span>
 						{option.badge != null ? (
-							<span className={cx("rounded-full px-1.5 text-label-medium font-medium tabular-nums", aktif ? "bg-primary-soft text-primary" : "bg-surface-container-high text-on-surface-variant")}>
+							<span className={cx("rounded-full px-1.5 text-label-medium font-medium tabular-nums", option.badgeOutlined ? "border border-outline-variant text-on-surface-variant" : aktif ? "bg-primary-soft text-primary" : "bg-surface-container-high text-on-surface-variant")}>
 								{option.badge}
 							</span>
 						) : null}
@@ -140,6 +144,8 @@ export function Tabs<T extends string>({ options, value, onChange, label, idPref
 							/>
 						) : null}
 					</button>
+					{option.divider ? <span aria-hidden className="mx-2 my-2 w-px shrink-0 self-stretch bg-outline-variant" /> : null}
+					</Fragment>
 				);
 			})}
 		</div>

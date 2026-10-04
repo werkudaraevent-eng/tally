@@ -81,6 +81,48 @@ from net._http_response order by created desc limit 10;
 
 Nonaktifkan sementara: `select cron.unschedule('tally-pesan');`
 
+## Domain klien — pg_cron + pg_net (Supabase)
+
+Dijadwalkan lewat migrasi `202610040001_domain_klien.sql`:
+
+- Job name: `tally-domain`
+- Jadwal: tiap 5 menit (`*/5 * * * *`)
+- Perintah: bila ada domain klien yang menunggu DNS (maks 72 jam) atau sudah
+  aktif, memanggil `POST <tally_site_url>/api/cron/domain` dengan rahasia Vault
+  yang sama dengan `tally-pesan`. Domain menunggu diperiksa tiap panggilan;
+  domain aktif paling cepat tiap 30 menit (2 kegagalan berturut-turut =
+  "Bermasalah", tautan email kembali ke alamat Tally).
+
+Env yang dibutuhkan di Vercel **Production** (fitur menolak bekerja tanpa
+semuanya, dan tidak pernah berjalan di Preview):
+
+| Env | Isi |
+| --- | --- |
+| `TALLY_SITE_URL` | `https://event.sofish.tech`. Harus sama dengan Vault `tally_site_url`. Membakukan asal kiriman supaya domain klien yang lebih pendek tidak menggesernya. |
+| `VERCEL_API_TOKEN` | Token akses Vercel (Account Settings > Tokens), scope tim `hanungsastriyas-projects`. Hanya dipakai server untuk menambah, memeriksa, dan menghapus domain proyek ini. |
+| `VERCEL_TEAM_ID` | ID tim Vercel (`team_...`). |
+| `VERCEL_PROJECT_ID` | Diisi otomatis oleh Vercel (system env). Isi manual hanya bila tidak tersedia. |
+
+Urutan memasang (jangan dibalik):
+
+1. Jalankan migrasi `202610040001_domain_klien.sql` lebih dulu. Kode tetap
+   berjalan tanpa migrasi (Pesan peserta tidak membaca kolom baru sampai ada
+   domain klien aktif), tetapi kartu domain baru bisa dipakai setelahnya.
+2. Isi `TALLY_SITE_URL` dengan alamat yang SAMA dengan Vault `tally_site_url`
+   dan alamat produksi yang dipakai sekarang (`https://event.sofish.tech`).
+   Kiriman yang terjadwal atau sedang mengirim sebelum env ini diisi mencatat
+   asal lama (`https://$VERCEL_PROJECT_PRODUCTION_URL`); pengirim produksi ikut
+   mengambil asal lama itu, jadi tidak ada kiriman yang tertinggal saat
+   peralihan.
+3. Redeploy Production.
+
+Pengalihan host Tally ke domain klien hanya untuk halaman peserta
+(`/e/<slug>`, `/en`, `/id`, `/daftar`, `/masuk`, `/peserta`, `/rundown`,
+`/denah`, `/kode/*`), memakai 307 tanpa cache. Ruang kerja panitia tetap di
+alamat Tally.
+
+Nonaktifkan sementara: `select cron.unschedule('tally-domain');`
+
 ## Sync peserta — setel di cron-job.org
 
 ### Prasyarat

@@ -6,11 +6,13 @@ import { publicEventName } from "@/lib/domain";
 import { isEmailConfigured } from "@/lib/email/client";
 import { memberConfig } from "@/lib/member/account";
 import { messagingAllowlist } from "@/lib/pesan/alamat";
-import { idSchema, loadBlast, pesanBelumAda, recipientCounts, signedInCount } from "@/lib/pesan/api";
-import { fieldValues, renderEmail, unknownFields } from "@/lib/pesan/isi";
+import { idSchema, invitationBlastState, loadBlast, pesanBelumAda, recipientCounts, signedInCount } from "@/lib/pesan/api";
+import { contohTautan, fieldValues, renderEmail, unknownFields } from "@/lib/pesan/isi";
 import { BLAST_COLUMNS, type BlastRow } from "@/lib/pesan/mesin";
 import { audienceSchema, companies, countAudience, resolveAudience } from "@/lib/pesan/penerima";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { linkOrigin } from "@/lib/domain-klien/asal";
+import { invitationSendingReady } from "@/lib/undangan/data";
 
 /**
  * Satu kiriman. Draf: isi penyusun, hitungan penerima, dan pratinjau email.
@@ -19,7 +21,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const ubahSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
-  kind: z.enum(["undangan", "info"]).optional(),
+  kind: z.enum(["undangan", "info", "invitation"]).optional(),
   audience: audienceSchema.optional(),
   email_subject: z.string().max(200).optional(),
   email_body: z.string().max(5000).optional(),
@@ -40,7 +42,7 @@ async function ringkasDraf(event: EventRow, blast: BlastRow, origin: string, seb
     body: blast.email_body,
     eventName: nama,
     values: fieldValues(event, { name: contoh?.participant.name ?? "Budi Santoso", company: contoh?.participant.company ?? null }),
-    actionUrl: `${origin}/e/${encodeURIComponent(event.slug)}${blast.kind === "undangan" ? "/masuk?sandi=contoh-tidak-berlaku" : ""}`,
+    actionUrl: contohTautan(origin, event.slug, blast.kind),
     unsubscribeUrl: `${origin}/api/pesan/berhenti?contoh`,
   });
   return {
@@ -68,15 +70,20 @@ export async function GET(request: Request, context: Konteks) {
     email_configured: isEmailConfigured(),
     member_enabled: Boolean(memberConfig(event)),
     test_mode: messagingAllowlist().mode,
+    invitation_sending: invitationSendingReady(),
     time_zone: event.time_zone,
   };
   if (blast.status === "draf") {
     const sebagai = new URL(request.url).searchParams.get("sebagai");
-    const [ringkas, perusahaan] = await Promise.all([ringkasDraf(event, blast, new URL(request.url).origin, sebagai), companies(event.id)]);
+    const [ringkas, perusahaan] = await Promise.all([ringkasDraf(event, blast, await linkOrigin(request, event.id), sebagai), companies(event.id)]);
     return Response.json({ ...dasar, draft: ringkas, companies: perusahaan });
   }
-  const [counts, masuk] = await Promise.all([recipientCounts(blast.id), signedInCount(blast)]);
-  return Response.json({ ...dasar, counts, signed_in: masuk });
+  const [counts, masuk, pelan] = await Promise.all([
+    recipientCounts(blast.id),
+    signedInCount(blast),
+    blast.kind === "invitation" ? invitationBlastState(blast.id) : null,
+  ]);
+  return Response.json({ ...dasar, blast: pelan ? { ...blast, ...pelan } : blast, counts, signed_in: masuk });
 }
 
 export async function PATCH(request: Request, context: Konteks) {
@@ -88,9 +95,15 @@ export async function PATCH(request: Request, context: Konteks) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const event = auth.scope.event;
+  // Ganti jenis tanpa penerima: penerima ikut berganti antara peserta dan
+  // tamu undangan, karena saringan keduanya tidak sama.
+  const ubah = { ...parsed.data };
+  if (ubah.kind && !ubah.audience) {
+    ubah.audience = { jenis: ubah.kind === "undangan" ? "belum_masuk" : ubah.kind === "invitation" ? "belum_dikirim" : "semua", perusahaan: [], ids: [] };
+  }
   const { data, error } = await getSupabaseServiceClient()
     .from("message_blasts")
-    .update({ ...parsed.data, updated_at: new Date().toISOString() } as never)
+    .update({ ...ubah, updated_at: new Date().toISOString() } as never)
     .eq("id", id)
     .eq("event_id", event.id)
     .eq("status", "draf")
@@ -104,7 +117,7 @@ export async function PATCH(request: Request, context: Konteks) {
   }
   const blast = data as BlastRow;
   const sebagai = new URL(request.url).searchParams.get("sebagai");
-  return Response.json({ blast, draft: await ringkasDraf(event, blast, new URL(request.url).origin, sebagai) });
+  return Response.json({ blast, draft: await ringkasDraf(event, blast, await linkOrigin(request, event.id), sebagai) });
 }
 
 export async function DELETE(request: Request, context: Konteks) {
