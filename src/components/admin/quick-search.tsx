@@ -80,7 +80,7 @@ export function QuickSearchButton({ onOpen, collapsed }: { onOpen: () => void; c
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`Cari cepat (${pintasan})`}
+      aria-label={`Quick search (${pintasan})`}
       // SATU elemen untuk dua lebar, bukan dua tombol yang saling menggantikan.
       // Rel yang melebar saat disentuh tidak boleh memasang ulang isinya; lihat
       // catatan "Rel: satu pohon, dua lebar" di globals.css.
@@ -93,7 +93,7 @@ export function QuickSearchButton({ onOpen, collapsed }: { onOpen: () => void; c
       }`}
     >
       <MagnifyingGlass size={16} className="shrink-0" />
-      <span className="m3-nav-label min-w-0 flex-1 truncate">Cari cepat...</span>
+      <span className="m3-nav-label min-w-0 flex-1 truncate">Quick search…</span>
       <span className="m3-rail-hide shrink-0 text-label-medium tabular-nums">{pintasan}</span>
     </button>
   );
@@ -101,7 +101,9 @@ export function QuickSearchButton({ onOpen, collapsed }: { onOpen: () => void; c
 
 /* ---- Palet --------------------------------------------------------------- */
 
-type Grup = "Terakhir dibuka" | "Halaman" | "Event";
+type Grup = "terakhir" | "halaman" | "event";
+
+const LABEL_GRUP: Record<Grup, string> = { terakhir: "Recently opened", halaman: "Pages", event: "Events" };
 
 type Hasil = {
   kunci: string;
@@ -112,6 +114,8 @@ type Hasil = {
   /** Alamat logis tanpa prefiks acara. Dipakai membuang riwayat yang sudah ada di daftar halaman. */
   path: string;
   grup: Grup;
+  /** Nama lain yang juga dicocokkan, mis. nama menu lama berbahasa Indonesia. */
+  alias?: string[];
 };
 
 /** Recents ditampilkan lima. Lebih dari itu, ia bukan lagi "terakhir". */
@@ -147,8 +151,15 @@ export function CommandPalette({
     // hanya membuat orang menimbang mana yang benar.
     const terlihat = new Set<string>();
     const halaman: Hasil[] = [];
-    const tambah = (item: { href: string; label: string; icon: NavIcon }, konteks: string) => {
-      if (terlihat.has(item.href)) return;
+    const tambah = (item: { href: string; label: string; icon: NavIcon; alias?: string[] }, konteks: string, aliasGrup: string[] = []) => {
+      if (terlihat.has(item.href)) {
+        // Href kembar (induk dan sub-halaman pertamanya): baris yang tampil
+        // tetap satu, tetapi alias keduanya ikut, supaya "hadiah" yang milik
+        // Prizes & rules tetap menemukan Lucky draw.
+        const ada = halaman.find((baris) => baris.path === item.href);
+        if (ada) ada.alias = [...(ada.alias ?? []), ...(item.alias ?? [])];
+        return;
+      }
       terlihat.add(item.href);
       halaman.push({
         kunci: `h:${item.href}`,
@@ -157,18 +168,22 @@ export function CommandPalette({
         icon: item.icon,
         href: `${eventPrefix}${item.href}`,
         path: item.href,
-        grup: "Halaman",
+        grup: "halaman",
+        alias: [...(item.alias ?? []), ...aliasGrup],
       });
     };
 
     for (const group of navigation) {
       for (const item of group.items) {
-        for (const kandidat of [item, ...(item.children ?? [])]) {
-          tambah(kandidat, grupDari.get(kandidat.href) ?? "Ruang kerja");
+        tambah(item, grupDari.get(item.href) ?? "Workspace", group.alias);
+        // Sub-halaman ikut membawa nama induknya: "undian" menampilkan Operator
+        // panel juga, seperti sebelum menu berbahasa Inggris.
+        for (const anak of item.children ?? []) {
+          tambah(anak, grupDari.get(anak.href) ?? "Workspace", [...(group.alias ?? []), ...(item.alias ?? [])]);
         }
       }
     }
-    for (const item of halamanSistem) tambah(item, "Sistem");
+    for (const item of halamanSistem) tambah(item, "System");
 
     const acara: Hasil[] = events.map((event) => ({
       kunci: `e:${event.slug}`,
@@ -179,7 +194,7 @@ export function CommandPalette({
       icon: Storefront,
       href: `/e/${event.slug}/admin`,
       path: `/e/${event.slug}/admin`,
-      grup: "Event",
+      grup: "event",
     }));
 
     const terakhir: Hasil[] = recents.slice(0, BATAS_RECENTS).map((item) => ({
@@ -189,7 +204,7 @@ export function CommandPalette({
       icon: ClockCounterClockwise,
       href: `${eventPrefix}${item.path}`,
       path: item.path,
-      grup: "Terakhir dibuka",
+      grup: "terakhir",
     }));
 
     return [...terakhir, ...halaman, ...acara];
@@ -200,19 +215,30 @@ export function CommandPalette({
     if (!cari) {
       // Tanpa kueri: riwayat lalu seluruh halaman. Palet kosong yang menunggu
       // diketik membuang satu-satunya kesempatan memberi tahu isinya apa saja.
-      return semua.filter((item) => item.grup !== "Event");
+      return semua.filter((item) => item.grup !== "event");
     }
 
     // Saat mengetik, riwayat DIBUANG kalau halamannya juga muncul di daftar
     // "Halaman". Dua baris identik dengan ikon berbeda terbaca sebagai dua
     // tujuan berbeda, dan orang berhenti untuk memilih di antara keduanya.
-    const adaDiHalaman = new Set(semua.filter((item) => item.grup === "Halaman").map((item) => item.path));
+    const adaDiHalaman = new Set(semua.filter((item) => item.grup === "halaman").map((item) => item.path));
 
     return semua
-      .filter((item) => !(item.grup === "Terakhir dibuka" && adaDiHalaman.has(item.path)))
+      .filter((item) => !(item.grup === "terakhir" && adaDiHalaman.has(item.path)))
       .map((item) => ({
         item,
-        nilai: Math.max(nilaiCocok(item.label, cari) ?? -Infinity, (nilaiCocok(item.konteks, cari) ?? -Infinity) - 3),
+        nilai: Math.max(
+          nilaiCocok(item.label, cari) ?? -Infinity,
+          // Alias sedikit di bawah label: "undian" tetap menemukan Lucky draw,
+          // tetapi kecocokan pada nama yang terlihat menang bila keduanya ada.
+          // Alias yang diketik utuh ("hotel", "scan") justru di atas label
+          // mana pun, supaya nama acara yang kebetulan memuat kata itu tidak
+          // menyalip menunya.
+          ...(item.alias ?? []).map((alias) =>
+            alias.toLowerCase() === cari.toLowerCase() ? (nilaiCocok(alias, cari) ?? 0) + 8 : (nilaiCocok(alias, cari) ?? -Infinity) - 1,
+          ),
+          (nilaiCocok(item.konteks, cari) ?? -Infinity) - 3,
+        ),
       }))
       .filter(({ nilai }) => nilai > -Infinity)
       .sort((a, b) => b.nilai - a.nilai)
@@ -271,8 +297,9 @@ export function CommandPalette({
       >
         <motion.div
           role="dialog"
+          lang="en"
           aria-modal="true"
-          aria-label="Cari cepat"
+          aria-label="Quick search"
           onKeyDown={onKeyDown}
           initial={{ opacity: 0, y: -8, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -286,8 +313,8 @@ export function CommandPalette({
               ref={kolom}
               value={kueri}
               onChange={(peristiwa) => { setKueri(peristiwa.target.value); setSorot(0); }}
-              placeholder="Cari halaman, event, dan fitur..."
-              aria-label="Cari halaman, event, dan fitur"
+              placeholder="Search pages, events, and features…"
+              aria-label="Search pages, events, and features"
               // `m3-search-field` melepas cincin fokus global. Kolom ini menerima
               // fokus otomatis saat palet dibuka, jadi cincinnya hanya melingkari
               // satu-satunya hal yang sudah pasti aktif. Lihat globals.css.
@@ -297,7 +324,7 @@ export function CommandPalette({
                 palet dengan tetikus tidak selalu tahu Esc menutupnya, dan lencana
                 yang terlihat seperti tombol tetapi tidak bisa ditekan adalah janji
                 yang dilanggar pada percobaan pertama. */}
-            <button type="button" onClick={onClose} aria-label="Tutup pencarian" className="m3-kbd shrink-0">
+            <button type="button" onClick={onClose} aria-label="Close search" className="m3-kbd shrink-0">
               Esc
             </button>
           </div>
@@ -305,12 +332,12 @@ export function CommandPalette({
           <div ref={daftar} className="m3-thin-scroll max-h-[400px] min-h-0 flex-1 overflow-y-auto p-2">
             {tampil.length === 0 ? (
               <p className="px-2 py-8 text-center text-body-medium text-on-surface-variant">
-                Tidak ada hasil untuk &ldquo;{kueri.trim()}&rdquo;
+                No results for &ldquo;{kueri.trim()}&rdquo;
               </p>
             ) : (
               urutanGrup.map((grup) => (
                 <div key={grup} className="mb-1">
-                  <p className="px-2 pb-1 pt-2 text-label-medium font-medium text-[var(--press-ink-faint)]">{grup}</p>
+                  <p className="px-2 pb-1 pt-2 text-label-medium font-medium text-[var(--press-ink-faint)]">{LABEL_GRUP[grup]}</p>
                   {hasil.filter((item) => item.grup === grup).map((item) => {
                     const indeks = tampil.indexOf(item);
                     const aktif = indeks === sorot;
@@ -349,15 +376,15 @@ export function CommandPalette({
             <span className="flex items-center gap-1.5">
               <kbd className="m3-kbd">&uarr;</kbd>
               <kbd className="m3-kbd">&darr;</kbd>
-              untuk navigasi
+              to navigate
             </span>
             <span className="flex items-center gap-1.5">
               <kbd className="m3-kbd">&crarr;</kbd>
-              untuk memilih
+              to select
             </span>
             <span className="flex items-center gap-1.5">
               <kbd className="m3-kbd">Esc</kbd>
-              untuk menutup
+              to close
             </span>
           </div>
         </motion.div>

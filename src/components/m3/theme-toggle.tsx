@@ -5,9 +5,9 @@ import { useSyncExternalStore } from "react";
 import { applyTheme, readTheme, type ThemePreference } from "@/lib/m3/theme";
 
 const OPTIONS: { value: ThemePreference; label: string; Icon: typeof Sun }[] = [
-	{ value: "light", label: "Terang", Icon: Sun },
-	{ value: "dark", label: "Gelap", Icon: Moon },
-	{ value: "system", label: "Sistem", Icon: Desktop },
+	{ value: "light", label: "Light", Icon: Sun },
+	{ value: "dark", label: "Dark", Icon: Moon },
+	{ value: "system", label: "System", Icon: Desktop },
 ];
 
 /**
@@ -40,7 +40,8 @@ export function ThemeToggle({ className = "", compact = false }: { className?: s
 	return (
 		<div
 			role="radiogroup"
-			aria-label="Tema tampilan"
+			aria-label="Theme"
+
 			// Warna latar TIDAK ditetapkan di sini. Komponen ini duduk di dua tier
 			// permukaan yang berbeda — `surface` di layar login, `surface-container`
 			// di rel navigasi admin — dan menaruh satu nilai bawaan lalu menimpanya

@@ -25,7 +25,8 @@ export function PageLoading({ className }: { className?: string }) {
 	return (
 		<div
 			role="status"
-			aria-label="Memuat"
+			aria-label="Loading"
+
 			className={cx("flex min-h-[60dvh] items-center justify-center", className)}
 		>
 			{/* `border`, bukan SVG: tidak ada berkas untuk diunduh, dan strokenya

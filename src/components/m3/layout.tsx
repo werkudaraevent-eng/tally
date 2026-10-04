@@ -149,7 +149,8 @@ export function PageToolbar({ search, children, count, onReset, className }: Pag
 					{count ? <span>{count}</span> : null}
 					{onReset ? (
 						<button type="button" onClick={onReset} className="rounded-sm text-body-small font-medium text-primary hover:underline">
-							Reset filter
+							Reset filters
+
 						</button>
 					) : null}
 				</div>

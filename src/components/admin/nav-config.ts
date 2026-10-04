@@ -49,9 +49,20 @@ export type NavItem = {
    * Tidak ada sub-halaman yang dikarang hanya untuk mengisi chevron.
    */
   children?: NavItem[];
+  /**
+   * Nama lain yang tetap ditemukan palet perintah (Ctrl K). Isinya nama menu
+   * lama dalam Bahasa Indonesia sebelum admin berbahasa Inggris, supaya panitia
+   * yang terbiasa mengetik "undian" tetap sampai ke Lucky draw.
+   */
+  alias?: string[];
 };
 
-export type NavGroup = { section: string | null; items: NavItem[] };
+export type NavGroup = {
+  section: string | null;
+  items: NavItem[];
+  /** Nama kelompok lama untuk Ctrl K: mengetik "hari-h" tetap menampilkan isi kelompoknya. */
+  alias?: string[];
+};
 
 /**
  * Menu yang hanya berarti bila acara punya booth: papan peringkat menghitung
@@ -64,91 +75,97 @@ export const HREF_BOOTH: ReadonlySet<string> = new Set(["/admin/display", "/admi
 export const navigation: NavGroup[] = [
   {
     section: null,
-    items: [{ href: "/admin", label: "Dashboard", icon: ChartBar, description: "Ringkasan acara dan pintasan ke layar hari-H." }],
+    items: [{ href: "/admin", label: "Dashboard", icon: ChartBar, description: "Event summary and shortcuts to the event-day screens.", alias: ["ringkasan"] }],
   },
   {
-    section: "Persiapan",
+    section: "Setup",
+    alias: ["persiapan"],
     items: [
-      { href: "/admin/landing", label: "Halaman acara", icon: Browsers, description: "Isi dan tampilan halaman acara yang dibuka tamu." },
-      { href: "/admin/rundown", label: "Rundown acara", icon: CalendarDots, description: "Susunan acara yang dipakai halaman acara dan layar rundown." },
+      { href: "/admin/landing", label: "Event page", icon: Browsers, description: "Content and look of the event page participants open.", alias: ["halaman acara", "landing"] },
+      { href: "/admin/rundown", label: "Agenda", icon: CalendarDots, description: "The programme shown on the event page and the agenda screen.", alias: ["rundown", "rundown acara", "susunan acara"] },
       // Di Persiapan: denah disusun sebelum pendaftaran dibuka, bersama halaman
       // acara dan rundown, meski yang mencarinya nanti tamu.
-      { href: "/admin/seat-map", label: "Denah kursi", icon: ArmchairIcon, description: "Denah meja dan kursi yang dicari tamu sebelum duduk." },
+      { href: "/admin/seat-map", label: "Seating plan", icon: ArmchairIcon, description: "Table and seat plan participants look up before they sit down.", alias: ["denah kursi", "denah"] },
     ],
   },
   {
-    section: "Peserta",
+    section: "Participants",
+    alias: ["peserta"],
     items: [
-      { href: "/admin/participants", label: "Daftar peserta", icon: UsersThree, description: "Daftar hadirin, sumber datanya, dan penyuntingan per baris." },
+      { href: "/admin/participants", label: "Participant list", icon: UsersThree, description: "Everyone on the list, where they came from, and row-by-row editing.", alias: ["daftar peserta", "peserta"] },
       // Di Peserta, bukan Persiapan: halaman ini terbuka di antrean moderasi,
       // dan peringatan "menunggu moderasi" di Dashboard menuju ke sini. Ia
       // juga satu rumah untuk formulir, buka/tutup, dan mode persetujuan. "publik" dibuang dari namanya karena tidak
       // ada pendaftaran lain yang perlu dibedakan di menu.
-      { href: "/admin/registrasi", label: "Pendaftaran", icon: UserPlus, description: "Formulir pendaftaran publik dan moderasi pendaftar yang masuk." },
+      { href: "/admin/registrasi", label: "Registration", icon: UserPlus, description: "The public registration form and approval of new registrants.", alias: ["pendaftaran", "registrasi", "formulir"] },
       // Di antara Pendaftaran dan Pesan peserta: kamar dan bus dibagi setelah
       // pendaftar masuk, dan pemberitahuannya dikirim lewat Pesan peserta.
       // Selalu tampil: hotel, bus, dan barang diisi di halaman ini sendiri,
       // jadi menu yang menunggu data pertama tidak akan pernah muncul.
-      { href: "/admin/logistik", label: "Logistik", icon: SuitcaseRolling, description: "Kamar hotel, bus di tiap agenda, dan barang yang dibagikan ke peserta." },
+      { href: "/admin/logistik", label: "Logistics", icon: SuitcaseRolling, description: "Hotel rooms, buses for each agenda item, and kit items handed out to participants.", alias: ["logistik", "hotel", "kamar", "bus"] },
       // Satu baris untuk dua tab: Kiriman (email ke kotak masuk peserta) dan
       // Pengumuman (lonceng dan Dashboard saya). Alamatnya tetap
       // /admin/pengumuman supaya Terakhir dibuka dan Ctrl K lama tetap sampai.
-      { href: "/admin/pengumuman", label: "Pesan peserta", icon: Megaphone, description: "Undangan dan kabar lewat email, dan pengumuman di lonceng halaman acara." },
+      { href: "/admin/pengumuman", label: "Messages", icon: Megaphone, description: "Email blasts, announcements on the event page bell, and automated emails.", alias: ["pesan peserta", "blast", "pengumuman", "undangan"] },
       // Paling bawah di Peserta: diatur sekali (siapa yang bisa masuk, apa yang
       // tampil), sedangkan Pesan peserta ditekan berkali-kali. Urutan ini menjaga
       // Pesan peserta tetap di atas lipatan layar 1280x588.
-      { href: "/admin/area-peserta", label: "Area peserta", icon: IdentificationCard, description: "Siapa yang bisa masuk ke Dashboard saya dan apa yang tampil di sana." },
+      { href: "/admin/area-peserta", label: "Participant area", icon: IdentificationCard, description: "Who can sign in to the participant area and what they see there.", alias: ["area peserta", "dashboard saya"] },
     ],
   },
   {
     // Semua yang dipegang saat pintu dibuka, dalam satu blok: tidak ada lagi
     // loncatan dari Kehadiran di atas ke Layar sapa jauh di bawah.
-    section: "Hari-H",
+    section: "Event day",
+    alias: ["hari-h", "hari h"],
     items: [
-      { href: "/admin/attendance", label: "Kehadiran", icon: QrCode, description: "Catatan kehadiran per jalur registrasi dan per sesi." },
+      { href: "/admin/attendance", label: "Check-in", icon: QrCode, description: "Check-ins per desk lane and per check-in point.", alias: ["kehadiran", "hadir", "absensi", "scan", "scanner"] },
       // Label tepat di bawah Kehadiran: yang dicetak adalah badge tamu walk-in,
       // dan walk-in hanya ada karena layar kehadiran.
-      { href: "/admin/label", label: "Badge & label", icon: Printer, description: "Desain badge kertas dan label stiker, plus pengaturan printer." },
-      { href: "/admin/sapa", label: "Layar sapa", icon: HandWaving, description: "Layar penyambut yang menyebut nama tamu saat dipindai." },
+      { href: "/admin/label", label: "Badges & labels", icon: Printer, description: "Paper badge and sticker label designs, plus printer settings.", alias: ["badge & label", "label", "printer", "cetak"] },
+      { href: "/admin/sapa", label: "Welcome screen", icon: HandWaving, description: "A greeting screen that shows each participant's name when they are scanned.", alias: ["layar sapa", "sapa"] },
       {
-        href: "/admin/undian", label: "Undian", icon: Gift,
-        description: "Hadiah, aturan kelayakan, dan panel operator saat mengundi.",
+        href: "/admin/undian", label: "Lucky draw", icon: Gift,
+        description: "Prizes, eligibility rules, and the operator panel for the draw.",
+        alias: ["undian", "doorprize", "hadiah", "lucky draw"],
         children: [
-          { href: "/admin/undian", label: "Hadiah & aturan", icon: Gift, description: "Daftar hadiah, kelompok peserta, dan aturan kelayakan undian." },
-          { href: "/admin/undian/kontrol", label: "Panel operator", icon: Gift, description: "Panel yang dipegang operator saat undian berjalan di panggung." },
+          { href: "/admin/undian", label: "Prizes & rules", icon: Gift, description: "Prize list, participant groups, and draw eligibility rules.", alias: ["hadiah & aturan", "hadiah"] },
+          { href: "/admin/undian/kontrol", label: "Operator panel", icon: Gift, description: "The panel the operator runs while the draw is on stage.", alias: ["panel operator"] },
         ],
       },
-      { href: "/admin/vote", label: "Voting langsung", icon: ChartBarHorizontal, description: "Pertanyaan voting langsung dan hasilnya di layar panggung." },
+      { href: "/admin/vote", label: "Live voting", icon: ChartBarHorizontal, description: "Live voting questions and their results on the stage screen.", alias: ["voting langsung", "voting"] },
       {
         // Dulu "Live Display". Namanya menjanjikan seluruh layar acara, isinya
         // papan peringkat transaksi, dan panitia yang mencari "di mana atur
         // ranking" tidak punya alasan menekan menu itu. Paling bawah di Hari-H
         // karena ia ikut hilang di acara tanpa booth: yang hilang tidak
         // menggeser menu di atasnya.
-        href: "/admin/display", label: "Papan peringkat", icon: MonitorPlay,
-        description: "Papan peringkat transaksi untuk ditayangkan ke proyektor.",
+        href: "/admin/display", label: "Leaderboard", icon: MonitorPlay,
+        description: "Spending leaderboard for the projector.",
+        alias: ["papan peringkat", "ranking", "top spender"],
         children: [
           // Induk ikut menjadi anak pertama, seperti "Overview" di bawah
           // "Domains". Tanpa itu, membuka kelompok justru menyembunyikan halaman
           // induknya: satu-satunya jalan kembali ke sana adalah menutup lagi
           // chevron yang barusan dibuka.
-          { href: "/admin/display", label: "Setelan tampilan", icon: MonitorPlay, description: "Papan peringkat transaksi untuk ditayangkan ke proyektor." },
-          { href: "/admin/display/reveal", label: "Reveal bertahap", icon: MonitorPlay, description: "Umumkan peringkat sedikit demi sedikit ke layar proyektor." },
-          { href: "/admin/display/exclusions", label: "Pengecualian", icon: MonitorPlay, description: "Peserta dan perusahaan yang tidak dihitung sebagai top spender." },
+          { href: "/admin/display", label: "Display settings", icon: MonitorPlay, description: "Spending leaderboard for the projector.", alias: ["setelan tampilan"] },
+          { href: "/admin/display/reveal", label: "Staged reveal", icon: MonitorPlay, description: "Reveal the ranking bit by bit on the projector.", alias: ["reveal bertahap"] },
+          { href: "/admin/display/exclusions", label: "Exclusions", icon: MonitorPlay, description: "Participants and organisations not counted as top spenders.", alias: ["pengecualian"] },
         ],
       },
     ],
   },
   {
-    section: "Penjualan",
+    section: "Sales",
+    alias: ["penjualan"],
     items: [
-      { href: "/admin/orders", label: "Transaksi", icon: ListChecks, description: "Seluruh transaksi booth beserta status pembayarannya." },
+      { href: "/admin/orders", label: "Orders", icon: ListChecks, description: "Every booth order and its payment status.", alias: ["transaksi", "transactions", "order"] },
       // Item spesial dulu menu tersendiri. Ia katalog barang yang dijual booth
       // yang sama, dan dua menu untuk satu katalog membuat admin mencari harga
       // di tempat yang salah lebih dulu. Sekarang tab di dalam Booth & item.
       // Metode pembayaran tidak di sini: ia tab Pembayaran di Pengaturan.
-      { href: "/admin/booths", label: "Booth & item", icon: Storefront, description: "Booth dan item spesial yang dijual di tiap booth." },
-      { href: "/admin/reports", label: "Laporan", icon: Receipt, description: "Angka rekonsiliasi acara untuk dicocokkan dengan kasir." },
+      { href: "/admin/booths", label: "Booths & items", icon: Storefront, description: "Booths and the special items each booth sells.", alias: ["booth & item", "booth"] },
+      { href: "/admin/reports", label: "Reports", icon: Receipt, description: "Event reconciliation figures to check against the cashiers.", alias: ["laporan", "rekonsiliasi"] },
     ],
   },
 ];
@@ -163,8 +180,8 @@ export const navigation: NavGroup[] = [
  * sidebar disisakan untuk tujuan yang benar-benar ditekan panitia sepanjang hari.
  */
 export const halamanSistem: NavItem[] = [
-  { href: "/admin/settings", label: "Pengaturan", icon: GearSix, description: "Zona waktu, alur order, metode pembayaran, integrasi, dan jejak audit." },
-  { href: "/admin/users", label: "User & role", icon: ShieldCheck, description: "Akun panitia, perannya, dan reset PIN." },
+  { href: "/admin/settings", label: "Settings", icon: GearSix, description: "Time zone, order flow, payment methods, integrations, and the audit trail.", alias: ["pengaturan", "setelan"] },
+  { href: "/admin/users", label: "Users & roles", icon: ShieldCheck, description: "Staff accounts, their roles, and PIN resets.", alias: ["user & role", "pengguna", "panitia"] },
 ];
 
 /**
@@ -175,11 +192,11 @@ export const halamanSistem: NavItem[] = [
 export const grupDari: ReadonlyMap<string, string> = new Map<string, string>([
   ...navigation.flatMap((group) =>
     group.items.flatMap((item): [string, string][] => [
-      [item.href, group.section ?? "Ringkasan"],
+      [item.href, group.section ?? "Overview"],
       ...(item.children ?? []).map((child): [string, string] => [child.href, item.label]),
     ]),
   ),
-  ...halamanSistem.map((item): [string, string] => [item.href, "Sistem"]),
+  ...halamanSistem.map((item): [string, string] => [item.href, "System"]),
 ]);
 
 /**

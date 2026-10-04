@@ -11,6 +11,7 @@ import { daysUntil } from "@/lib/event-datetime";
 import { cx } from "@/lib/m3/cx";
 import { useQueryState } from "@/lib/url-state";
 import { EN_DASH, SEPARATOR, gabungMeta } from "@/lib/typography";
+import { plural } from "@/lib/plural";
 import { alasanTidakBisaBuka, roleHome } from "@/lib/role-home";
 
 /**
@@ -50,19 +51,19 @@ type Action = "activate" | "deactivate" | "complete" | "archive";
  * sebagai sistem rusak, bukan sebagai aturan.
  */
 const ACTIONS: Record<EventStatus, Array<{ action: Action; label: string; danger?: boolean }>> = {
-  draft: [{ action: "activate", label: "Aktifkan" }],
+  draft: [{ action: "activate", label: "Activate" }],
   active: [
-    { action: "deactivate", label: "Kembalikan ke draft" },
-    { action: "complete", label: "Tandai selesai" },
+    { action: "deactivate", label: "Move back to draft" },
+    { action: "complete", label: "Mark as completed" },
   ],
   completed: [
-    { action: "activate", label: "Aktifkan lagi" },
-    { action: "archive", label: "Arsipkan", danger: true },
+    { action: "activate", label: "Activate again" },
+    { action: "archive", label: "Archive", danger: true },
   ],
   // Event arsip sengaja hanya bisa dikembalikan ke draft, bukan langsung aktif.
   // Konfigurasinya sudah lama tidak disentuh; melewati draft berarti tidak ada
   // kesempatan memeriksanya sebelum ia jadi kandidat di jalur publik.
-  archived: [{ action: "deactivate", label: "Kembalikan ke draft" }],
+  archived: [{ action: "deactivate", label: "Move back to draft" }],
 };
 
 /**
@@ -74,22 +75,22 @@ const DELETABLE: EventStatus[] = ["draft", "archived"];
 
 /** Nama tabel dari `delete_event` -> kata yang bisa dibaca panitia. */
 const LABEL_HITUNGAN: Record<string, string> = {
-  participants: "peserta",
-  booths: "booth",
-  special_offers: "item spesial",
-  registrations: "pendaftaran",
-  undian_prizes: "hadiah undian",
-  rundown_items: "baris rundown",
-  seat_map_sessions: "sesi denah",
-  audit_logs: "baris audit",
+  participants: "participants",
+  booths: "booths",
+  special_offers: "special items",
+  registrations: "registrations",
+  undian_prizes: "lucky-draw prizes",
+  rundown_items: "agenda rows",
+  seat_map_sessions: "seating plan sessions",
+  audit_logs: "audit rows",
 };
 
 /** Aksi yang mengubah apa yang tampil di layar publik butuh konfirmasi. */
 const CONFIRM_TEXT: Partial<Record<Action, string>> = {
-  activate: "Event aktif ikut jadi kandidat untuk tautan publik tanpa slug (/display, /denah, /rundown). Bila ada lebih dari satu event aktif, tautan lama akan meminta pengguna memilih.",
-  deactivate: "Event kembali ke draft. Layar publiknya berhenti melayani tautan tanpa slug, tetapi seluruh data dan konfigurasi tetap utuh.",
-  complete: "Event ditandai selesai. Transaksi baru tidak lagi diharapkan, tetapi seluruh laporan dan riwayat tetap bisa dibuka.",
-  archive: "Event diarsipkan dan hilang dari daftar utama. Datanya tidak dihapus dan masih bisa dikembalikan ke draft.",
+  activate: "An active event becomes a candidate for public links without a slug (/display, /denah, /rundown). If more than one event is active, those old links ask the visitor to choose.",
+  deactivate: "The event goes back to draft. Its public screens stop serving links without a slug, but all data and settings stay intact.",
+  complete: "The event is marked as completed. No new orders are expected, but every report and history stays available.",
+  archive: "The event is archived and leaves the main list. Its data is not deleted and it can be moved back to draft.",
 };
 
 const KOLOM = "mt-4";
@@ -102,10 +103,11 @@ function hitungMundur(eventDate: string | null, now: Date | null): string | null
   if (!now) return null;
   const selisih = daysUntil(eventDate, now);
   if (selisih === null) return null;
-  if (selisih > 1) return `${selisih} hari lagi`;
-  if (selisih === 1) return "Besok";
-  if (selisih === 0) return "Hari ini";
-  return `${Math.abs(selisih)} hari lalu`;
+  if (selisih > 1) return `In ${plural(selisih, "day")}`;
+  if (selisih === 1) return "Tomorrow";
+  if (selisih === 0) return "Today";
+  if (selisih === -1) return "Yesterday";
+  return `${plural(Math.abs(selisih), "day")} ago`;
 }
 
 /**
@@ -123,12 +125,12 @@ function BlokTanggal({ event }: { event: EventRow }) {
     );
   }
   const tanggal = new Date(`${event.event_date}T12:00:00Z`);
-  const hari = new Intl.DateTimeFormat("id-ID", { day: "numeric", timeZone: event.time_zone }).format(tanggal);
+  const hari = new Intl.DateTimeFormat("en-GB", { day: "numeric", timeZone: event.time_zone }).format(tanggal);
   // Bulan SAJA, tanpa tahun. "AGU 26" terbaca sebagai tanggal 26 Agustus oleh
   // siapa pun yang tidak diberi tahu bahwa 26 adalah tahunnya — dua angka di
   // satu tile, keduanya bisa jadi tanggal. Tahunnya tetap ada, satu baris di
   // sebelah kanan, di dalam tanggal lengkap yang tidak bisa disalahbaca.
-  const bulan = new Intl.DateTimeFormat("id-ID", { month: "short", timeZone: event.time_zone }).format(tanggal);
+  const bulan = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: event.time_zone }).format(tanggal);
   return (
     <time
       dateTime={event.event_date}
@@ -143,17 +145,17 @@ function BlokTanggal({ event }: { event: EventRow }) {
 /** Tanggal lengkap di baris kedua: hari, tanggal, bulan, TAHUN. */
 function tanggalPanjang(event: EventRow): string | null {
   if (!event.event_date) return null;
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat("en-GB", {
     weekday: "long", day: "numeric", month: "short", year: "numeric", timeZone: event.time_zone,
   }).format(new Date(`${event.event_date}T12:00:00Z`));
 }
 
 /** Urutan yang bisa dipilih di toolbar. Semuanya dikerjakan di klien: daftar acara puluhan baris, bukan ribuan. */
 const OPSI_URUT = [
-  { value: "terdekat", label: "Tanggal acara terdekat" },
-  { value: "terbaru", label: "Tanggal terbaru" },
-  { value: "nama", label: `Nama A${EN_DASH}Z` },
-  { value: "diperbarui", label: "Terakhir diperbarui" },
+  { value: "terdekat", label: "Nearest event date" },
+  { value: "terbaru", label: "Latest date" },
+  { value: "nama", label: `Name A${EN_DASH}Z` },
+  { value: "diperbarui", label: "Last updated" },
 ];
 
 /** Menu ⋯ per baris. Hanya super_admin yang melihatnya. */
@@ -185,7 +187,7 @@ function MenuAcara({
     <>
       <IconButton
         ref={setPemicu}
-        label={`Aksi untuk ${event.name}`}
+        label={`Actions for ${event.name}`}
         size="sm"
         disabled={disabled}
         aria-haspopup="menu"
@@ -197,23 +199,23 @@ function MenuAcara({
       </IconButton>
 
       {menu.open ? (
-          <Popover anchor={menu} id={menuId} label={`Aksi untuk ${event.name}`} width={240}>
+          <Popover anchor={menu} id={menuId} label={`Actions for ${event.name}`} width={240}>
             {/* Tujuan yang sama dengan klik baris, diulang di sini karena menu
                 yang tidak memuat aksi utamanya memaksa orang menutupnya dulu
                 sebelum bisa melakukan hal yang paling sering dilakukan. */}
             {tujuan ? (
               <Link href={tujuan} role="menuitem" className={item} onClick={() => setOpen(false)}>
-                <ArrowRight size={16} className="text-on-surface-variant" /> Buka dashboard
+                <ArrowRight size={16} className="text-on-surface-variant" /> Open dashboard
               </Link>
             ) : null}
             <a href={`/e/${event.slug}`} target="_blank" rel="noreferrer" role="menuitem" className={item} onClick={() => setOpen(false)}>
-              <ArrowSquareOut size={16} className="text-on-surface-variant" /> Lihat halaman publik
+              <ArrowSquareOut size={16} className="text-on-surface-variant" /> View public page
             </a>
             {/* Hanya saat pendaftaran memang terbuka. Menyalin tautan ke formulir
                 yang tertutup berarti mengirim tamu ke halaman yang menolaknya. */}
             {event.registration_enabled ? (
               <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onSalinTautan(); }}>
-                <CopySimple size={16} className="text-on-surface-variant" /> Salin tautan pendaftaran
+                <CopySimple size={16} className="text-on-surface-variant" /> Copy registration link
               </button>
             ) : null}
             <div className="my-1.5 border-t border-outline-variant" />
@@ -229,10 +231,10 @@ function MenuAcara({
               </button>
             ))}
             <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onDuplicate(); }}>
-              <CopySimple size={16} className="text-on-surface-variant" /> Duplikat acara
+              <CopySimple size={16} className="text-on-surface-variant" /> Duplicate event
             </button>
             <Link href={`/events/${event.id}/access`} role="menuitem" className={item} onClick={() => setOpen(false)}>
-              <UsersThree size={16} className="text-on-surface-variant" /> Hak akses
+              <UsersThree size={16} className="text-on-surface-variant" /> Access
             </Link>
             {/* Hanya muncul untuk status yang memang bisa dihapus. Menampilkannya
                 selalu lalu menolak dengan 422 membuat aturannya terbaca sebagai
@@ -241,7 +243,7 @@ function MenuAcara({
               <>
                 <div className="my-1.5 border-t border-outline-variant" />
                 <button type="button" role="menuitem" className={POPOVER_ITEM_DANGER} onClick={() => { setOpen(false); onDelete(); }}>
-                  <Trash size={16} /> Hapus permanen
+                  <Trash size={16} /> Delete permanently
                 </button>
               </>
             ) : null}
@@ -336,10 +338,10 @@ export default function EventsPage() {
       })
       .catch(() => null);
     const response = await fetch("/api/events").catch(() => null);
-    if (!response) { setError("Koneksi gagal. Muat ulang halaman."); setLoading(false); return; }
+    if (!response) { setError("Connection failed. Reload the page."); setLoading(false); return; }
     if (response.status === 401) { window.location.href = "/login"; return; }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) setError(body.error?.message ?? "Daftar event gagal dimuat.");
+    if (!response.ok) setError(body.error?.message ?? "Could not load the event list.");
     else setEvents(body.events ?? []);
     setSekarang(new Date());
     setLoading(false);
@@ -358,17 +360,17 @@ export default function EventsPage() {
     if (!response) {
       // POST yang gagal mungkin sudah sampai server. "Coba lagi" bisa berarti
       // menjalankan aksi yang sama dua kali.
-      setError("Koneksi gagal. Muat ulang halaman untuk melihat status sebenarnya.");
+      setError("Connection failed. Reload the page to see the actual status.");
       return;
     }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setError(body.error?.details?.message ?? body.error?.message ?? `Aksi gagal (${response.status}).`);
+      setError(body.error?.details?.message ?? body.error?.message ?? `Action failed (${response.status}).`);
       return;
     }
     setConfirming(null);
     setEvents((current) => current.map((row) => (row.id === event.id ? body.event : row)));
-    setNotice(`"${event.name}" sekarang berstatus ${EVENT_STATUS_LABEL[body.event.status as EventStatus]}.`);
+    setNotice(`"${event.name}" is now ${EVENT_STATUS_LABEL[body.event.status as EventStatus]}.`);
   }
 
   async function duplicate(form: FormData) {
@@ -386,15 +388,15 @@ export default function EventsPage() {
       }),
     }).catch(() => null);
     setPending(false);
-    if (!response) { setError("Koneksi gagal. Periksa daftar sebelum mengulang — salinan mungkin sudah dibuat."); return; }
+    if (!response) { setError("Connection failed. Check the list before trying again; the copy may already exist."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setError(body.error?.details?.message ?? body.error?.message ?? "Duplikasi gagal.");
+      setError(body.error?.details?.message ?? body.error?.message ?? "Could not duplicate the event.");
       return;
     }
     setDuplicating(null);
     setEvents((current) => [body.event, ...current]);
-    setNotice(`Salinan "${body.event.name}" dibuat sebagai draft. Peserta, transaksi, dan pemenang undian TIDAK ikut disalin.`);
+    setNotice(`Copy "${body.event.name}" created as a draft. Participants, orders and lucky-draw winners were NOT copied.`);
   }
 
   async function remove() {
@@ -412,12 +414,12 @@ export default function EventsPage() {
       // Penghapusan berjalan dalam satu transaksi di database, jadi keadaan
       // setengah jadi tidak mungkin -- tetapi permintaan yang tidak berbalas
       // bisa saja SUDAH selesai. Daftarnya yang harus menjawab, bukan tebakan.
-      setError("Koneksi terputus. Muat ulang halaman untuk melihat apakah event sudah terhapus.");
+      setError("Connection lost. Reload the page to see whether the event was deleted.");
       return;
     }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setError(body.error?.details?.message ?? body.error?.message ?? "Penghapusan gagal.");
+      setError(body.error?.details?.message ?? body.error?.message ?? "Could not delete the event.");
       return;
     }
     const hapus = (body.deleted ?? {}) as Record<string, number>;
@@ -425,7 +427,7 @@ export default function EventsPage() {
     setDeleting(null);
     setConfirmSlug("");
     setEvents((current) => current.filter((row) => row.id !== deleting.id));
-    setNotice(`"${body.name}" dihapus permanen${rincian.length > 0 ? `, beserta ${rincian.join(", ")}` : ", tanpa data anak"}.`);
+    setNotice(`"${body.name}" deleted permanently${rincian.length > 0 ? `, with ${rincian.join(", ")}` : ", with no related data"}.`);
   }
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, []);
@@ -478,9 +480,9 @@ export default function EventsPage() {
       }),
     }).catch(() => null);
     setPending(false);
-    if (!response) { setError("Koneksi gagal. Event mungkin belum tersimpan."); return; }
+    if (!response) { setError("Connection failed. The event may not have been saved."); return; }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) { setError(body.error?.message ?? "Event gagal dibuat."); return; }
+    if (!response.ok) { setError(body.error?.message ?? "Could not create the event."); return; }
     setCreating(false);
     setEvents((current) => [body.event, ...current]);
   }
@@ -553,12 +555,12 @@ export default function EventsPage() {
 
   async function salinTautan(item: EventRow) {
     await navigator.clipboard.writeText(`${window.location.origin}/e/${item.slug}/daftar`).catch(() => null);
-    setNotice(`Tautan pendaftaran ${item.name} disalin.`);
+    setNotice(`Registration link for ${item.name} copied.`);
   }
 
   const baris = "group relative flex items-center gap-4 px-5 py-4 transition-colors duration-150 hover:bg-surface";
 
-  return <div className="press min-h-dvh bg-surface text-on-surface">
+  return <div lang="en" className="press min-h-dvh bg-surface text-on-surface">
     {/* Bilah atas milik halaman di LUAR acara: tidak ada rel navigasi di sini,
         karena belum ada acara yang dipilih untuk dinavigasi. Yang tersisa hanya
         identitas produk dan menu akun.
@@ -576,7 +578,7 @@ export default function EventsPage() {
         <Storefront size={18} className="shrink-0 text-on-surface-variant" />
         <span className="text-body-medium font-medium">Tally</span>
         <div className="ml-auto flex items-center gap-1">
-          <IconButton label="Cari acara (Ctrl K)" size="sm" onClick={() => kolomCari.current?.focus()}>
+          <IconButton label="Search events (Ctrl K)" size="sm" onClick={() => kolomCari.current?.focus()}>
             <MagnifyingGlass size={18} />
           </IconButton>
           <UserMenu
@@ -592,9 +594,9 @@ export default function EventsPage() {
 
     <PageContainer center>
       <PageHeader
-        title="Acara"
-        description="Kelola semua acara dan buka dashboard masing-masing."
-        actions={isOwner ? <Button onClick={bukaBuatEvent} icon={<Plus size={16} weight="bold" />} className="max-sm:w-full">Buat event</Button> : undefined}
+        title="Events"
+        description="Manage every event and open its dashboard."
+        actions={isOwner ? <Button onClick={bukaBuatEvent} icon={<Plus size={16} weight="bold" />} className="max-sm:w-full">Create event</Button> : undefined}
       />
 
       {error && !dialogTerbuka && <p role="alert" className="rounded-lg mb-4 border border-error-soft-outline bg-error-soft p-4 text-body-medium font-medium text-on-error-soft">{error}</p>}
@@ -605,15 +607,15 @@ export default function EventsPage() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="m3-nav-scroll -mx-1 max-w-full overflow-x-auto px-1">
           <SegmentedButton<string>
-            label="Saring menurut status acara"
+            label="Filter by event status"
             value={tab}
             onChange={(nilai) => setQuery({ tab: nilai === "semua" ? null : nilai })}
             options={[
-              { value: "semua", label: "Semua", badge: hitung.semua },
-              { value: "active", label: "Aktif", badge: hitung.active },
+              { value: "semua", label: "All", badge: hitung.semua },
+              { value: "active", label: "Active", badge: hitung.active },
               { value: "draft", label: "Draft", badge: hitung.draft },
-              { value: "completed", label: "Selesai", badge: hitung.completed },
-              ...(hitung.archived > 0 ? [{ value: "archived", label: "Arsip", badge: hitung.archived }] : []),
+              { value: "completed", label: "Completed", badge: hitung.completed },
+              ...(hitung.archived > 0 ? [{ value: "archived", label: "Archived", badge: hitung.archived }] : []),
             ]}
           />
         </div>
@@ -624,15 +626,15 @@ export default function EventsPage() {
               ref={kolomCari}
               value={cari}
               onChange={(peristiwa) => setQuery({ q: peristiwa.target.value })}
-              placeholder="Cari acara..."
-              aria-label="Cari acara"
-              title="Mencari nama acara dan lokasinya"
+              placeholder="Search events…"
+              aria-label="Search events"
+              title="Searches event names and venues"
               className="h-9 w-full rounded-lg border border-outline bg-surface-container-lowest pl-9 pr-3 text-body-medium outline-none transition-[border-color] duration-150 placeholder:text-on-surface-variant focus:border-primary"
             />
           </div>
           <SelectMenu
             kind="sort"
-            label="Urutkan acara"
+            label="Sort events"
             value={urut}
             onChange={(nilai) => setQuery({ sort: nilai === "terdekat" ? null : nilai })}
             options={OPSI_URUT}
@@ -644,7 +646,7 @@ export default function EventsPage() {
       {loading ? (
         // Kerangka seukuran baris sungguhan, bukan teks "Memuat...": daftar tidak
         // melompat tingginya saat data tiba.
-        <div className="overflow-hidden rounded-[10px] border border-outline-variant bg-surface-container-lowest" aria-busy="true" aria-label="Memuat acara">
+        <div className="overflow-hidden rounded-[10px] border border-outline-variant bg-surface-container-lowest" aria-busy="true" aria-label="Loading events">
           {[0, 1, 2].map((index) => <div key={index} aria-hidden className="flex items-center gap-4 border-b border-outline-variant px-5 py-4 last:border-b-0">
             <span className="h-[52px] w-12 shrink-0 rounded-lg bg-primary-soft shimmer" />
             <span className="min-w-0 flex-1 space-y-2">
@@ -656,18 +658,18 @@ export default function EventsPage() {
       ) : events.length === 0 ? (
         <EmptyState
           icon={<CalendarPlus size={40} />}
-          title="Belum ada acara"
+          title="No events yet"
           description={isOwner
-            ? "Buat acara pertama untuk mulai mengelola peserta."
-            : "Belum ada acara yang bisa Anda buka. Minta pemilik sistem memberi hak akses."}
-          action={isOwner ? <Button onClick={bukaBuatEvent} icon={<Plus size={16} weight="bold" />}>Buat event</Button> : undefined}
+            ? "Create your first event to start managing participants."
+            : "There are no events you can open yet. Ask the system owner for access."}
+          action={isOwner ? <Button onClick={bukaBuatEvent} icon={<Plus size={16} weight="bold" />}>Create event</Button> : undefined}
         />
       ) : terlihat.length === 0 ? (
         <EmptyState
           icon={<MagnifyingGlass size={40} />}
-          title={cari ? `Tidak ada acara yang cocok dengan "${cari}"` : "Tidak ada acara di tab ini"}
-          description="Coba kata lain, atau pilih tab yang berbeda."
-          action={<Button variant="outlined" size="sm" onClick={() => setQuery({ q: null, tab: null })}>Reset pencarian</Button>}
+          title={cari ? `No events match "${cari}"` : "No events in this tab"}
+          description="Try another word, or choose a different tab."
+          action={<Button variant="outlined" size="sm" onClick={() => setQuery({ q: null, tab: null })}>Reset search</Button>}
         />
       ) : (
         <div className="overflow-hidden rounded-[10px] border border-outline-variant bg-surface-container-lowest">
@@ -691,7 +693,7 @@ export default function EventsPage() {
                   tanggalPanjang(item),
                   item.venue_name,
                   mundur,
-                  item.status === "active" ? (item.registration_enabled ? "Pendaftaran dibuka" : "Pendaftaran ditutup") : null,
+                  item.status === "active" ? (item.registration_enabled ? "Registration open" : "Registration closed") : null,
                   alasan,
                 ];
                 return (
@@ -760,9 +762,9 @@ export default function EventsPage() {
       description={confirming?.event.name}
       actions={
         <>
-          <Button variant="outlined" disabled={pending} onClick={() => setConfirming(null)}>Batal</Button>
+          <Button variant="outlined" disabled={pending} onClick={() => setConfirming(null)}>Cancel</Button>
           <Button loading={pending} onClick={() => { if (confirming) void runAction(confirming.event, confirming.action); }}>
-            {confirming?.label ?? "Lanjutkan"}
+            {confirming?.label ?? "Continue"}
           </Button>
         </>
       }
@@ -778,18 +780,18 @@ export default function EventsPage() {
       dismissible={!pending}
       tone="danger"
       icon={<Trash size={22} weight="fill" />}
-      title="Hapus permanen"
+      title="Delete permanently"
       description={deleting?.name}
       actions={
         <>
-          <Button variant="outlined" disabled={pending} onClick={() => setDeleting(null)}>Batal</Button>
+          <Button variant="outlined" disabled={pending} onClick={() => setDeleting(null)}>Cancel</Button>
           <Button
             variant="danger"
             type="submit"
             form="hapus-event"
             loading={pending}
             disabled={deleting === null || confirmSlug.trim() !== deleting.slug}
-          >Hapus permanen</Button>
+          >Delete permanently</Button>
         </>
       }
     >
@@ -800,14 +802,14 @@ export default function EventsPage() {
             keluar karena itulah yang sebenarnya dibutuhkan sebagian besar orang
             yang sampai ke dialog ini. */}
         <p className="rounded-lg mt-4 border border-error-soft-outline bg-error-soft p-4 text-body-medium leading-6 text-on-error-soft">
-          Booth, peserta, item spesial, pendaftaran, rundown, denah, hadiah undian, dan riwayat audit event ini dihapus dari database dan tidak dapat dikembalikan. Tidak ada cadangan di dalam aplikasi.
-          <span className="mt-2 block font-semibold">Kalau yang Anda inginkan hanya menyembunyikannya dari daftar, batalkan lalu pakai Arsipkan.</span>
+          This event&rsquo;s booths, participants, special items, registrations, agenda, seating plan, lucky-draw prizes and audit history are deleted from the database and cannot be restored. There is no backup inside the app.
+          <span className="mt-2 block font-semibold">If you only want to hide it from the list, cancel and use Archive instead.</span>
         </p>
-        <p className="mt-5 text-label-large font-semibold">Ketik slug event untuk melanjutkan</p>
+        <p className="mt-5 text-label-large font-semibold">Type the event slug to continue</p>
         <code className="rounded-lg mt-2 block select-all bg-surface-container px-3 py-2 font-mono text-body-medium">{deleting?.slug}</code>
         <TextField
           className="mt-3"
-          label="Slug event"
+          label="Event slug"
           value={confirmSlug}
           onChange={(e) => setConfirmSlug(e.target.value)}
           autoComplete="off"
@@ -823,12 +825,12 @@ export default function EventsPage() {
       onClose={() => setDuplicating(null)}
       dismissible={!pending}
       size="lg"
-      title={`Salin dari “${duplicating?.name ?? ""}”`}
-      description="Salinan mulai kosong sebagai draft."
+      title={`Copy of “${duplicating?.name ?? ""}”`}
+      description="The copy starts as a draft with no participants."
       actions={
         <>
-          <Button variant="outlined" disabled={pending} onClick={() => setDuplicating(null)}>Tutup</Button>
-          <Button type="submit" form="duplikat-event" loading={pending}>Buat salinan sebagai draft</Button>
+          <Button variant="outlined" disabled={pending} onClick={() => setDuplicating(null)}>Close</Button>
+          <Button type="submit" form="duplikat-event" loading={pending}>Create copy as draft</Button>
         </>
       }
     >
@@ -837,21 +839,21 @@ export default function EventsPage() {
             tombol ditekan. Salinan yang ternyata membawa 247 peserta acara lain
             baru ketahuan setelah ada yang memeriksa daftar peserta. */}
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold ed-label">Ikut disalin</p><p className="mt-2 text-body-medium text-on-surface-variant">Booth, item spesial, pengaturan, tampilan display, rundown, denah, hadiah &amp; aturan undian, diskualifikasi berbasis nama perusahaan.</p></div>
-          <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold ed-label">Tidak disalin</p><p className="mt-2 text-body-medium text-on-surface-variant">Peserta, transaksi, pemenang undian, hak akses pengguna, dan seluruh riwayat.</p></div>
+          <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold ed-label">Copied</p><p className="mt-2 text-body-medium text-on-surface-variant">Booths, special items, settings, display settings, agenda, seating plan, lucky-draw prizes &amp; rules, organisation-name exclusions.</p></div>
+          <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold ed-label">Not copied</p><p className="mt-2 text-body-medium text-on-surface-variant">Participants, orders, lucky-draw winners, user access, and all history.</p></div>
         </div>
 
         {/* `key`: nilai bawaan nama mengikuti event yang sedang disalin. Tanpa
             key, React memakai ulang kolom dari salinan sebelumnya. */}
-        <TextField key={duplicating?.id} className="mt-5" label="Nama event baru" name="name" required minLength={3} maxLength={120} defaultValue={`${duplicating?.name ?? ""} (salinan)`} />
-        <TextField className={KOLOM} label="Tanggal" name="event_date" type="date" optional />
+        <TextField key={duplicating?.id} className="mt-5" label="New event name" name="name" required minLength={3} maxLength={120} defaultValue={`${duplicating?.name ?? ""} (copy)`} />
+        <TextField className={KOLOM} label="Date" name="event_date" type="date" optional />
         <TextField
           className={KOLOM}
-          label="Slug Scanner API"
+          label="Scanner API slug"
           name="scanner_api_event_slug"
           optional
-          placeholder="Kosongkan bila belum ada"
-          hint="Sengaja tidak diwarisi. Diisi dengan slug lama, salinan akan menarik peserta acara sebelumnya setiap 5 menit. Dikosongkan, sumber peserta turun ke manual dan bisa diubah kapan saja."
+          placeholder="Leave empty if there is none yet"
+          hint="Not copied on purpose. With the old slug, the copy would pull the previous event's participants every 5 minutes. Left empty, the participant source falls back to manual and can be changed any time."
         />
         {error ? <p role="alert" className="rounded-lg mt-3 border border-error-soft-outline bg-error-soft p-3 text-body-small text-on-error-soft">{error}</p> : null}
       </form>
@@ -862,44 +864,44 @@ export default function EventsPage() {
       onClose={() => setCreating(false)}
       dismissible={!pending}
       size="lg"
-      title="Buat workspace draft"
-      description="Event baru lahir sebagai draft. Aktifkan setelah konfigurasi dan user-nya siap."
+      title="Create a draft event"
+      description="A new event starts as a draft. Activate it once its settings and users are ready."
       actions={
         <>
-          <Button variant="outlined" disabled={pending} onClick={() => setCreating(false)}>Tutup</Button>
-          <Button type="submit" form="buat-event" loading={pending}>Buat event draft</Button>
+          <Button variant="outlined" disabled={pending} onClick={() => setCreating(false)}>Close</Button>
+          <Button type="submit" form="buat-event" loading={pending}>Create draft event</Button>
         </>
       }
     >
       <form id="buat-event" onSubmit={submit}>
-        <TextField className="mt-5" label="Nama event" name="name" required minLength={3} maxLength={120} autoFocus />
+        <TextField className="mt-5" label="Event name" name="name" required minLength={3} maxLength={120} autoFocus />
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <TextField label="Tanggal" name="event_date" type="date" optional />
-          <SelectField label="Zona waktu" name="time_zone" defaultValue="Asia/Jakarta">
+          <TextField label="Date" name="event_date" type="date" optional />
+          <SelectField label="Time zone" name="time_zone" defaultValue="Asia/Jakarta">
             <option value="Asia/Jakarta">WIB</option>
             <option value="Asia/Makassar">WITA</option>
             <option value="Asia/Jayapura">WIT</option>
           </SelectField>
         </div>
         <fieldset className={KOLOM}>
-          <legend className="text-label-large font-semibold">Dari mana pesertanya datang</legend>
+          <legend className="text-label-large font-semibold">Where participants come from</legend>
           <p className="mt-1 text-body-small text-on-surface-variant">
-            Menambah peserta satu per satu dan mengimpor dari spreadsheet <strong>selalu tersedia</strong>, apa pun
-            pilihan di bawah. Nyalakan hanya yang benar-benar dipakai.
+            Adding participants one by one and importing from a spreadsheet are <strong>always available</strong>,
+            whatever you choose below. Turn on only what you will use.
           </p>
 
           <div className="mt-4 space-y-4">
             <Switch
               checked={pakaiFormPublik}
               onChange={setPakaiFormPublik}
-              label="Buka pendaftaran publik"
-              description="Tamu mengisi formulir sendiri lewat halaman acara, dan kode pesertanya terbit otomatis."
+              label="Public registration"
+              description="People fill in the form themselves on the event page, and their participant code is issued automatically."
             />
             <Switch
               checked={pakaiScanner}
               onChange={setPakaiScanner}
-              label="Tarik dari Scanner API"
-              description="Daftar peserta disinkronkan tiap 5 menit dari sistem luar. Nama, instansi, dan kode QR-nya dikelola di sana, bukan di sini."
+              label="Pull from Scanner API"
+              description="The participant list syncs every 5 minutes from an outside system. Names, organisations and QR codes are managed there, not here."
             />
           </div>
         </fieldset>
@@ -910,13 +912,13 @@ export default function EventsPage() {
         {pakaiScanner ? (
           <TextField
             className={KOLOM}
-            label="Slug Scanner API"
+            label="Scanner API slug"
             name="scanner_api_event_slug"
             required
-            hint="Nama acara ini di sistem Scanner API. Tanpa ini, sinkronisasinya tidak tahu peserta siapa yang harus ditarik."
+            hint="This event's name in the Scanner API system. Without it, the sync does not know which participants to pull."
           />
         ) : null}
-        <TextArea className={KOLOM} label="Deskripsi" name="description" maxLength={500} rows={3} optional />
+        <TextArea className={KOLOM} label="Description" name="description" maxLength={500} rows={3} optional />
         {error ? <p role="alert" className="rounded-lg mt-3 border border-error-soft-outline bg-error-soft p-3 text-body-small text-on-error-soft">{error}</p> : null}
       </form>
     </Dialog>

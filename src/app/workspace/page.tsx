@@ -31,7 +31,7 @@ export default async function EventWorkspace({
   if (resolved.response) {
     if (resolved.response.status === 404) notFound();
     if (resolved.response.status === 403) redirect("/events");
-    throw new Error("Event gagal dimuat.");
+    throw new Error("Could not load the event.");
   }
   const { event, role } = resolved.scope;
 

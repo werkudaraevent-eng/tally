@@ -83,14 +83,14 @@ export function WorkspaceHeader({ title, meta, actions, back }: WorkspaceHeaderP
  * acaranya, bukan satu formulir.
  */
 function PenandaKunci({ status, pemilik }: { status: "completed" | "archived"; pemilik: boolean }) {
-	const kata = status === "archived" ? "diarsipkan" : "selesai";
+	const kata = status === "archived" ? "archived" : "completed";
 	return pemilik ? (
 		<Banner tone="warning" icon={<Warning size={18} />}>
-			<span className="font-medium">Acara ini sudah {kata}.</span> Sebagai super admin, perubahan Anda tetap tersimpan dan mengubah angka yang sudah diserahkan.
+			<span className="font-medium">This event is {kata}.</span> As a super admin, your changes are still saved and change figures that were already handed over.
 		</Banner>
 	) : (
 		<Banner tone="info" icon={<LockSimple size={18} />}>
-			<span className="font-medium">Acara ini sudah {kata}, jadi hanya bisa dilihat dan diekspor.</span> Perubahan tidak akan tersimpan. Untuk mengoreksi, minta super admin membuka kembali acaranya.
+			<span className="font-medium">This event is {kata}, so it can only be viewed and exported.</span> Changes will not be saved. To correct something, ask a super admin to reopen the event.
 		</Banner>
 	);
 }
@@ -357,10 +357,10 @@ export function ColumnMenu({ columns, visible, onChange, onReset, isDefault }: {
 				)}
 			>
 				<Columns size={16} aria-hidden />
-				Kolom
+				Columns
 			</button>
-			<Popover anchor={anchor} label="Tampilkan kolom" role="dialog" id={id} align="end" width={264}>
-				<p className="px-3 pb-1 pt-1.5 text-body-medium font-medium text-on-surface-variant">Tampilkan kolom</p>
+			<Popover anchor={anchor} label="Show columns" role="dialog" id={id} align="end" width={264}>
+				<p className="px-3 pb-1 pt-1.5 text-body-medium font-medium text-on-surface-variant">Show columns</p>
 				<div className="py-0.5">
 					{columns.map((column) => {
 						const on = column.locked || visible.includes(column.key);
@@ -374,14 +374,14 @@ export function ColumnMenu({ columns, visible, onChange, onReset, isDefault }: {
 									className="size-4 shrink-0 accent-[var(--md-sys-color-primary)]"
 								/>
 								<span className="min-w-0 flex-1 truncate">{column.label}</span>
-								{column.locked ? <span className="text-on-surface-variant">selalu</span> : null}
+								{column.locked ? <span className="text-on-surface-variant">always</span> : null}
 							</label>
 						);
 					})}
 				</div>
 				<div className="border-t border-outline-variant px-3 pb-1 pt-2">
 					<button type="button" disabled={isDefault} onClick={onReset} className="rounded-sm text-body-medium font-medium text-primary hover:underline disabled:text-on-surface-variant disabled:no-underline">
-						Kembalikan bawaan
+						Reset to default
 					</button>
 				</div>
 			</Popover>
@@ -458,7 +458,7 @@ export function ChipMenu({ label, options, selected, onChange, multiple, searcha
 			{aktif ? (
 				<button
 					type="button"
-					aria-label={`Hapus saringan ${label}`}
+					aria-label={`Clear filter ${label}`}
 					onClick={() => onChange([])}
 					className="mr-1 grid size-6 place-items-center rounded-full hover:bg-surface-container-high"
 				>
@@ -472,14 +472,15 @@ export function ChipMenu({ label, options, selected, onChange, multiple, searcha
 						<input
 							value={cari}
 							onChange={(event) => setCari(event.target.value)}
-							placeholder={`Cari ${label.toLowerCase()}...`}
-							aria-label={`Cari ${label.toLowerCase()}`}
+							placeholder={`Search ${label.toLowerCase()}…`}
+							aria-label={`Search ${label.toLowerCase()}`}
+
 							className="h-8 min-w-0 flex-1 bg-transparent text-body-medium outline-none placeholder:text-on-surface-variant"
 						/>
 					</div>
 				) : null}
 				<div className="py-1">
-					{tersaring.length === 0 ? <p className="px-3 py-2 text-body-medium text-on-surface-variant">Tidak ada yang cocok.</p> : null}
+					{tersaring.length === 0 ? <p className="px-3 py-2 text-body-medium text-on-surface-variant">No matches.</p> : null}
 					{tersaring.map((option) => {
 						const on = selected.includes(option.value);
 						return (
@@ -508,8 +509,8 @@ export function ChipMenu({ label, options, selected, onChange, multiple, searcha
 				</div>
 				{multiple && aktif ? (
 					<div className="sticky -bottom-1 z-10 -mb-1 flex items-center justify-between border-t border-outline-variant bg-surface-container-lowest px-3 pb-2 pt-2 text-body-medium">
-						<span className="text-on-surface-variant">{terpilih.length} dipilih</span>
-						<button type="button" onClick={() => onChange([])} className="rounded-sm font-medium text-primary hover:underline">Hapus pilihan</button>
+						<span className="text-on-surface-variant">{terpilih.length} selected</span>
+						<button type="button" onClick={() => onChange([])} className="rounded-sm font-medium text-primary hover:underline">Clear selection</button>
 					</div>
 				) : null}
 			</Popover>

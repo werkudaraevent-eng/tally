@@ -163,7 +163,7 @@ function BarisRecent({
       <button
         type="button"
         onClick={() => onTogglePin(item.path)}
-        aria-label={item.pinned ? `Lepas pin ${item.label}` : `Pin ${item.label}`}
+        aria-label={item.pinned ? `Unpin ${item.label}` : `Pin ${item.label}`}
         aria-pressed={item.pinned ?? false}
         className={`absolute right-1 flex size-7 items-center justify-center rounded-sm text-on-surface-variant transition-opacity hover:bg-[var(--press-active)] ${
           item.pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
@@ -259,11 +259,11 @@ export function SidebarNav({
                   onClick={onToggleRecents}
                   aria-expanded={recentsTerbuka}
                   aria-controls={recentsId}
-                  title="Terakhir dibuka"
+                  title="Recently opened"
                   className={`${ITEM_DASAR} ${HOVER}`}
                 >
                   <ClockCounterClockwise size={18} className="shrink-0 text-on-surface-variant" />
-                  <span className="m3-nav-label min-w-0 flex-1 truncate text-left">Terakhir dibuka</span>
+                  <span className="m3-nav-label min-w-0 flex-1 truncate text-left">Recently opened</span>
                   <CaretDown
                     size={14}
                     className={`m3-nav-chev shrink-0 text-on-surface-variant transition-transform duration-150 ease-standard ${recentsTerbuka ? "" : "-rotate-90"}`}
@@ -282,7 +282,8 @@ export function SidebarNav({
                       <div className="ml-4 mt-0.5 space-y-0.5 border-l border-outline-variant pl-2">
                         {recents.length === 0 ? (
                           <p className="px-2.5 py-1.5 text-label-medium text-on-surface-variant">
-                            Belum ada halaman yang dibuka
+                            No pages opened yet
+
                           </p>
                         ) : (
                           recents.map((item) => (

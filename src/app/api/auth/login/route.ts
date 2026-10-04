@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       {
         error: {
           code: "RATE_LIMITED",
-          message: `Terlalu banyak percobaan login untuk username ini. Tunggu ${seconds} detik, lalu coba lagi.`,
+          message: `Too many sign-in attempts for this username. Wait ${seconds} seconds, then try again.`,
           details: { retry_after_seconds: seconds },
         },
       },

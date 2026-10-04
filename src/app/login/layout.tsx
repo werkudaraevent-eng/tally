@@ -13,7 +13,7 @@ import type { Metadata } from "next";
  * satu.
  */
 export const metadata: Metadata = {
-  title: "Masuk · Tally",
+  title: "Sign in · Tally",
 };
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {

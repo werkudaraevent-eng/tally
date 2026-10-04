@@ -421,7 +421,7 @@ export function AdminShell({
     username: akun?.username ?? null,
     path: logicalPathname,
     label: currentPage?.label,
-    konteks: grupDari.get(currentPage?.href ?? "") ?? eventName ?? "Ruang kerja",
+    konteks: grupDari.get(currentPage?.href ?? "") ?? eventName ?? "Workspace",
   });
 
   // Judul halaman berpindah ke bilah atas begitu kepala halaman tergulir lewat.
@@ -486,7 +486,7 @@ export function AdminShell({
       <button
         type="button"
         onClick={() => setMobileOpen(false)}
-        aria-label="Tutup menu admin"
+        aria-label="Close admin menu"
         tabIndex={laciTerbuka ? 0 : -1}
         className={`fixed inset-0 z-peek bg-scrim/50 transition-opacity duration-200 ease-standard lg:hidden ${laciTerbuka ? "opacity-100" : "pointer-events-none opacity-0"}`}
       />
@@ -502,7 +502,10 @@ export function AdminShell({
           jadi pemotongan di sini menghabisinya. Jebakan yang sama sudah tercatat
           dua kali di berkas ini. Pemotongannya dipasang di <nav> dan di pembungkus
           kolom cari, dua tempat yang tidak berlabuh apa pun. */}
+      {/* lang="en" hanya pada bingkai yang sudah English (sidebar, Ctrl K). Isi
+          halaman pindah ke English per tahap dan memasang lang-nya sendiri. */}
       <aside
+        lang="en"
         ref={aside}
         data-rail={rail ? "1" : "0"}
         onPointerEnter={onPointerEnter}
@@ -549,7 +552,7 @@ export function AdminShell({
             pernah aktif — persis kegagalan yang sama seperti pada app-shell /rundown. */}
         <nav
           className="m3-nav-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain py-3 pl-3 pr-2 short:py-2"
-          aria-label="Navigasi admin"
+          aria-label="Admin navigation"
         >
           <SidebarNav
             eventPrefix={eventPrefix}
@@ -578,8 +581,8 @@ export function AdminShell({
             // Ia tombol SEMATAN, bukan tombol lipat, dan labelnya harus
             // mengatakan itu: yang dilepas bukan lebarnya, melainkan haknya untuk
             // tetap lebar tanpa diminta.
-            aria-label={pinned ? "Lepas sematan sidebar (Ctrl B)" : "Sematkan sidebar (Ctrl B)"}
-            title={pinned ? "Lepas sematan sidebar (Ctrl B)" : "Sematkan sidebar (Ctrl B)"}
+            aria-label={pinned ? "Unpin sidebar (Ctrl B)" : "Pin sidebar (Ctrl B)"}
+            title={pinned ? "Unpin sidebar (Ctrl B)" : "Pin sidebar (Ctrl B)"}
             aria-pressed={pinned}
             className={`hidden size-8 shrink-0 items-center justify-center rounded-sm transition-colors duration-150 hover:bg-[var(--press-hover)] lg:flex ${
               pinned ? "text-on-surface" : "text-on-surface-variant"
@@ -596,8 +599,9 @@ export function AdminShell({
             // registrasi dengan halaman kerja yang belum selesai di tab sebelah.
             className="m3-rail-hide flex min-w-0 items-center gap-1 whitespace-nowrap rounded-sm px-1.5 py-1 text-label-medium text-on-surface-variant hover:bg-[var(--press-hover)]"
           >
-            Panduan sistem
-            <ArrowSquareOut size={12} className="shrink-0" />
+            System guide
+            <ArrowSquareOut
+ size={12} className="shrink-0" />
           </a>
           {/* Versinya ada karena ia pertanyaan pertama saat panitia melaporkan
               masalah lewat WhatsApp, dan sebelumnya tidak ada satu pun tempat di
@@ -648,7 +652,7 @@ export function AdminShell({
           }
           leading={
             <IconButton
-              label={laciTerbuka ? "Tutup menu admin" : "Buka menu admin"}
+              label={laciTerbuka ? "Close admin menu" : "Open admin menu"}
               onClick={() => setMobileOpen((open) => !open)}
               className="-ml-2 lg:hidden"
             >
@@ -666,7 +670,8 @@ export function AdminShell({
          */}
         <AdminPageProvider
           value={{
-            label: currentPage?.label ?? "Ruang kerja",
+            label: currentPage?.label ?? "Workspace",
+
             icon: currentPage?.icon,
             description: currentPage?.description,
             username: akun?.username ?? null,

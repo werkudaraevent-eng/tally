@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { bacaLokal, langgananLokal, tulisLokal } from "@/lib/local-store";
+import { grupDari, semuaMenu } from "./nav-config";
 
 /**
  * Keadaan sidebar yang harus selamat dari reload: rel terlipat, kelompok mana
@@ -208,5 +209,21 @@ export function useRecents({ username, path, label, konteks }: ArgRecents) {
     tulisLokal(kunci, [...diubah.filter((item) => item.pinned), ...diubah.filter((item) => !item.pinned)]);
   }, [kunci]);
 
-  return { recents, togglePin };
+  /**
+   * Label dan kelompok dibaca ulang dari menu saat ini, bukan dari yang tersimpan.
+   * Riwayat menyimpan teks saat halaman dikunjungi; tanpa ini, riwayat lama tetap
+   * menampilkan nama menu berbahasa Indonesia setelah admin berganti bahasa,
+   * atau nama lama setelah sebuah menu diganti namanya.
+   */
+  const terkini = useMemo(
+    () =>
+      recents.map((item) => {
+        const menu = semuaMenu.find((m) => m.href === item.path);
+        return menu ? { ...item, label: menu.label, konteks: grupDari.get(menu.href) ?? item.konteks } : item;
+      }),
+    [recents],
+  );
+
+  return { recents: terkini, togglePin };
 }
+

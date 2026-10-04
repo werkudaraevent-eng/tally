@@ -79,7 +79,7 @@ export function EventMenu({
   const router = useRouter();
 
   const aktif = events.find((event) => event.slug === activeSlug);
-  const label = aktif?.name ?? "Semua event";
+  const label = aktif?.name ?? "All events";
 
   const hasil = useMemo(() => {
     const cari = kueri.trim().toLowerCase();
@@ -201,7 +201,7 @@ export function EventMenu({
             anchor={menu}
             id={menuId}
             role="dialog"
-            label="Pilih acara"
+            label="Choose event"
             align="start"
             width={300}
             className="p-0"
@@ -216,8 +216,8 @@ export function EventMenu({
                 ref={kolom}
                 value={kueri}
                 onChange={(peristiwa) => ubahKueri(peristiwa.target.value)}
-                placeholder="Cari event..."
-                aria-label="Cari event"
+                placeholder="Search events…"
+                aria-label="Search events"
                 className="m3-search-field ed-plain min-w-0 flex-1 border-0 bg-transparent py-2.5 text-body-medium shadow-none outline-none placeholder:text-on-surface-variant"
               />
             </div>
@@ -225,7 +225,8 @@ export function EventMenu({
             <div className="max-h-[320px] overflow-y-auto p-1.5">
               {hasil.length === 0 ? (
                 <p className="px-2.5 py-3 text-body-medium text-on-surface-variant">
-                  {events.length === 0 ? "Tidak ada acara yang bisa dibuka." : "Event tidak ditemukan"}
+                  {events.length === 0 ? "No events you can open." : "No events found"}
+
                 </p>
               ) : (
                 hasil.map((event, indeks) => {
@@ -261,7 +262,7 @@ export function EventMenu({
                   className={POPOVER_ITEM}
                 >
                   <Plus size={16} className="shrink-0 text-on-surface-variant" />
-                  Buat event baru
+                  Create new event
                 </Link>
               ) : null}
               <Link
@@ -269,8 +270,9 @@ export function EventMenu({
                 className={POPOVER_ITEM}
               >
                 <ListDashes size={16} className="shrink-0 text-on-surface-variant" />
-                Semua event
+                All events
               </Link>
+
             </div>
           </Popover>
       ) : null}
