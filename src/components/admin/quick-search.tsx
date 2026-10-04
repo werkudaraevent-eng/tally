@@ -175,8 +175,11 @@ export function CommandPalette({
 
     for (const group of navigation) {
       for (const item of group.items) {
-        for (const kandidat of [item, ...(item.children ?? [])]) {
-          tambah(kandidat, grupDari.get(kandidat.href) ?? "Workspace", group.alias);
+        tambah(item, grupDari.get(item.href) ?? "Workspace", group.alias);
+        // Sub-halaman ikut membawa nama induknya: "undian" menampilkan Operator
+        // panel juga, seperti sebelum menu berbahasa Inggris.
+        for (const anak of item.children ?? []) {
+          tambah(anak, grupDari.get(anak.href) ?? "Workspace", [...(group.alias ?? []), ...(item.alias ?? [])]);
         }
       }
     }

@@ -281,7 +281,7 @@ export function UsersPanel() {
                     <option value="cashier">{ROLE_LABEL.cashier}</option>
                     <option value="scanner">{ROLE_LABEL.scanner}</option>
                     <option value="admin">{ROLE_LABEL.admin}</option>
-                    <option value="super_admin">Super Admin</option>
+                    <option value="super_admin">{ROLE_LABEL.super_admin}</option>
                   </SelectField>
                   {draft.role === "booth" ? (
                     <SelectField
