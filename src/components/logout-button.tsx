@@ -3,9 +3,10 @@
 import { SignOut } from "@phosphor-icons/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/m3";
+import { Button, type ButtonSize } from "@/components/m3";
 
-export function LogoutButton() {
+/** `size` bawaan `sm`; layar pemindai memakai `md` (48px). */
+export function LogoutButton({ size = "sm" }: { size?: ButtonSize } = {}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -19,7 +20,7 @@ export function LogoutButton() {
   return (
     <Button
       variant="outlined"
-      size="sm"
+      size={size}
       onClick={handleLogout}
       loading={pending}
       icon={pending ? undefined : <SignOut size={18} weight="duotone" aria-hidden="true" />}

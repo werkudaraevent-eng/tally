@@ -2170,3 +2170,20 @@ html:hover {
 	font-size: 1rem;
 	line-height: 1.5rem;
 }
+
+/* Hitung mundur lembar hasil pemindai. Hiasan saja: yang menutup lembarnya
+ * adalah pewaktu di scan-client, bukan akhir animasi ini. Dengan gerak dikurangi
+ * bilahnya disembunyikan; kalimat "menutup sendiri" tetap ada. */
+.scan-hitung {
+	transform-origin: left;
+	animation: scan-hitung 3s linear forwards;
+}
+
+@keyframes scan-hitung {
+	from { transform: scaleX(1); }
+	to { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.scan-hitung { display: none; }
+}
