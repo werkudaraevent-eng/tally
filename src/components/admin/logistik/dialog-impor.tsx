@@ -8,6 +8,7 @@ import { pesanGalatApi } from "@/lib/api-message";
 import { eventApiPath } from "@/lib/event-url";
 import type { BarisRencana, JenisImpor, Rencana, StatusBaris } from "@/lib/logistik/impor";
 import { cx } from "@/lib/m3/cx";
+import { plural } from "@/lib/plural";
 
 /**
  * Impor Excel untuk Logistik: rooming list dari hotel, atau daftar bus.
@@ -22,15 +23,15 @@ import { cx } from "@/lib/m3/cx";
 type Hasil = { masuk: number; dibuat: string[]; gagal: Array<{ nama: string; alasan: string }> };
 
 const URAIAN: Record<JenisImpor, string> = {
-  kamar: "Satu baris per orang: Hotel, Kamar, lalu Kode QR atau Nama. Hotel dan kamar yang belum ada akan dibuat; isi Tipe dan Kapasitas untuk kamar baru.",
-  bus: "Satu baris per orang: Bus, lalu Kode QR atau Nama. Bus yang belum ada akan dibuat tanpa batas kapasitas.",
+  kamar: "One row per person: Hotel, Room, then QR code or Name. Hotels and rooms that do not exist yet are created; fill in Type and Capacity for new rooms.",
+  bus: "One row per person: Bus, then QR code or Name. Buses that do not exist yet are created with no capacity limit.",
 };
 
 const STATUS: Record<StatusBaris, { label: string; tone: "success" | "warning" | "neutral" | "error" }> = {
-  masuk: { label: "Masuk", tone: "success" },
-  pindah: { label: "Pindah", tone: "warning" },
-  tetap: { label: "Sudah sesuai", tone: "neutral" },
-  tolak: { label: "Ditolak", tone: "error" },
+  masuk: { label: "Added", tone: "success" },
+  pindah: { label: "Moved", tone: "warning" },
+  tetap: { label: "Unchanged", tone: "neutral" },
+  tolak: { label: "Rejected", tone: "error" },
 };
 
 // Pratinjau ribuan baris tetap cepat; ringkasan di atas tabel menghitung semuanya.
@@ -73,9 +74,9 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     form.set("jenis", jenisBerkas);
     if (simpan) form.set("simpan", "1");
     const response = await fetch(eventApiPath("/api/admin/logistik/impor"), { method: "POST", body: form }).catch(() => null);
-    if (!response) return { galat: "Koneksi gagal. Coba lagi." };
+    if (!response) return { galat: "Connection failed. Try again." };
     const json = await response.json().catch(() => ({}));
-    if (!response.ok) return { galat: pesanGalatApi(json) ?? "Berkas gagal dibaca." };
+    if (!response.ok) return { galat: pesanGalatApi(json) ?? "The file could not be read." };
     return json as { rencana: Rencana; hasil?: Hasil };
   };
 
@@ -105,9 +106,9 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     await onSelesai();
     setProses(null);
     const selesai = jawaban.hasil!;
-    const dibuat = selesai.dibuat.length > 0 ? `Dibuat ${selesai.dibuat.join(" dan ")}.` : "";
+    const dibuat = selesai.dibuat.length > 0 ? `Created ${selesai.dibuat.join(" and ")}.` : "";
     if (selesai.gagal.length === 0) {
-      toast.success(`${selesai.masuk} orang ditempatkan`, dibuat || undefined);
+      toast.success(`${plural(selesai.masuk, "person", "people")} assigned`, dibuat || undefined);
       onClose();
       return;
     }
@@ -121,9 +122,9 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
   const akanDitulis = hitung("masuk") + hitung("pindah");
   const dibuatNanti = rencana
     ? [
-        rencana.hotelBaru.length > 0 ? `${rencana.hotelBaru.length} hotel` : null,
-        rencana.kamarBaru.length > 0 ? `${rencana.kamarBaru.length} kamar` : null,
-        rencana.busBaru.length > 0 ? `${rencana.busBaru.length} bus` : null,
+        rencana.hotelBaru.length > 0 ? plural(rencana.hotelBaru.length, "hotel") : null,
+        rencana.kamarBaru.length > 0 ? plural(rencana.kamarBaru.length, "room") : null,
+        rencana.busBaru.length > 0 ? plural(rencana.busBaru.length, "bus", "buses") : null,
       ].filter(Boolean)
     : [];
   const tampil = (rencana?.baris ?? []).filter((b) => !hanyaTolak || b.status === "tolak");
@@ -136,20 +137,20 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
       dismissible={!sibuk}
       size="xl"
       icon={<FileXls size={20} />}
-      title={jenis === "kamar" ? "Impor kamar dari Excel" : "Impor bus dari Excel"}
+      title={jenis === "kamar" ? "Import rooms from Excel" : "Import buses from Excel"}
       description={hasil ? undefined : URAIAN[jenis]}
       actions={hasil ? (
-        <Button onClick={onClose}>Selesai</Button>
+        <Button onClick={onClose}>Done</Button>
       ) : (
         <>
-          <Button variant="outlined" disabled={sibuk} onClick={onClose}>Batal</Button>
+          <Button variant="outlined" disabled={sibuk} onClick={onClose}>Cancel</Button>
           <Button
             simpan
             loading={proses === "simpan"}
             disabled={!rencana || proses === "baca" || (akanDitulis === 0 && dibuatNanti.length === 0)}
             onClick={() => void simpan()}
           >
-            {akanDitulis > 0 ? `Simpan ${akanDitulis} penempatan` : "Simpan"}
+            {akanDitulis > 0 ? `Save ${plural(akanDitulis, "assignment")}` : "Save"}
           </Button>
         </>
       )}
@@ -157,7 +158,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
       {hasil ? (
         <div className="flex flex-col gap-3">
           <p className="text-body-medium text-on-surface">
-            {hasil.masuk} orang ditempatkan{hasil.dibuat.length > 0 ? `, dan dibuat ${hasil.dibuat.join(" dan ")}` : ""}. {hasil.gagal.length} orang gagal karena keadaan berubah sejak pratinjau:
+            {plural(hasil.masuk, "person", "people")} assigned{hasil.dibuat.length > 0 ? `, and created ${hasil.dibuat.join(" and ")}` : ""}. {plural(hasil.gagal.length, "person", "people")} could not be assigned because things changed since the preview:
           </p>
           <ul className="flex max-h-[44dvh] flex-col overflow-y-auto rounded-md border border-outline-variant">
             {hasil.gagal.map((g, i) => (
@@ -171,10 +172,10 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
       ) : (
         <div className="flex flex-col gap-4">
           <SegmentedButton<JenisImpor>
-            label="Isi berkas"
+            label="File contents"
             value={jenis}
             onChange={(nilai) => { setJenis(nilai); if (berkas) void baca(berkas, nilai); }}
-            options={[{ value: "kamar", label: "Kamar hotel" }, { value: "bus", label: "Bus" }]}
+            options={[{ value: "kamar", label: "Hotel rooms" }, { value: "bus", label: "Buses" }]}
             className="self-start"
           />
 
@@ -184,7 +185,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
               sibuk && "pointer-events-none opacity-60",
             )}>
               <UploadSimple size={16} className="shrink-0" aria-hidden />
-              <span className="truncate">{berkas ? berkas.name : "Pilih berkas .xlsx atau .csv"}</span>
+              <span className="truncate">{berkas ? berkas.name : "Choose an .xlsx or .csv file"}</span>
               <input
                 type="file"
                 accept=".xlsx,.xlsm,.csv,.txt,.tsv"
@@ -205,11 +206,11 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
               icon={<DownloadSimple size={16} />}
               onClick={() => { window.location.href = eventApiPath(`/api/admin/logistik/impor?jenis=${jenis}`); }}
             >
-              Unduh templat
+              Download template
             </Button>
           </div>
 
-          {proses === "baca" ? <p className="text-body-medium text-on-surface-variant">Membaca berkas…</p> : null}
+          {proses === "baca" ? <p className="text-body-medium text-on-surface-variant">Reading file…</p> : null}
           {galat ? <Banner tone="warning" icon={<Warning size={18} />}>{galat}</Banner> : null}
 
           {rencana ? (
@@ -221,21 +222,21 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
                     <span className="tabular-nums text-on-surface">{hitung(status)}</span> {STATUS[status].label.toLowerCase()}
                   </span>
                 ) : null)}
-                {dibuatNanti.length > 0 ? <span>Akan dibuat: {dibuatNanti.join(", ")}</span> : null}
+                {dibuatNanti.length > 0 ? <span>Will be created: {dibuatNanti.join(", ")}</span> : null}
               </div>
 
               {rencana.baris.length === 0 ? (
                 <p className="rounded-md border border-outline-variant px-4 py-6 text-center text-body-medium text-on-surface-variant">
-                  Tidak ada baris berisi nama atau Kode QR di berkas ini.
+                  This file has no rows with a name or QR code.
                 </p>
               ) : (
                 <>
                   {hitung("tolak") > 0 ? (
                     <SegmentedButton<"semua" | "tolak">
-                      label="Tampilkan baris"
+                      label="Show rows"
                       value={hanyaTolak ? "tolak" : "semua"}
                       onChange={(nilai) => setHanyaTolak(nilai === "tolak")}
-                      options={[{ value: "semua", label: "Semua", badge: rencana.baris.length }, { value: "tolak", label: "Ditolak", badge: hitung("tolak") }]}
+                      options={[{ value: "semua", label: "All", badge: rencana.baris.length }, { value: "tolak", label: "Rejected", badge: hitung("tolak") }]}
                       className="self-start"
                     />
                   ) : null}
@@ -256,10 +257,10 @@ function TabelRencana({ baris, jenis }: { baris: BarisRencana[]; jenis: JenisImp
       <table className="w-full border-collapse text-left text-body-medium">
         <thead className="sticky top-0 bg-surface-container-lowest text-on-surface-variant">
           <tr className="h-9 border-b border-outline-variant">
-            <th scope="col" className="hidden w-16 px-4 font-normal sm:table-cell">Baris</th>
-            <th scope="col" className="px-4 font-normal">Nama</th>
-            <th scope="col" className="hidden px-4 font-normal sm:table-cell">{jenis === "kamar" ? "Kamar" : "Bus"}</th>
-            <th scope="col" className="px-4 font-normal">Keterangan</th>
+            <th scope="col" className="hidden w-16 px-4 font-normal sm:table-cell">Row</th>
+            <th scope="col" className="px-4 font-normal">Name</th>
+            <th scope="col" className="hidden px-4 font-normal sm:table-cell">{jenis === "kamar" ? "Room" : "Bus"}</th>
+            <th scope="col" className="px-4 font-normal">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -269,9 +270,9 @@ function TabelRencana({ baris, jenis }: { baris: BarisRencana[]; jenis: JenisImp
               <td className="px-4 py-2 text-on-surface sm:whitespace-nowrap">
                 {b.nama || <span className="text-on-surface-variant">{b.kode}</span>}
                 {/* Di layar sempit kolom tujuan digabung ke sini, supaya Keterangan tetap terlihat tanpa menggeser tabel. */}
-                <span className="block text-on-surface-variant sm:hidden">{b.tujuan || "Tujuan kosong"}</span>
+                <span className="block text-on-surface-variant sm:hidden">{b.tujuan || "No room or bus"}</span>
               </td>
-              <td className="hidden whitespace-nowrap px-4 py-2 text-on-surface sm:table-cell">{b.tujuan || <span className="text-on-surface-variant">Kosong</span>}</td>
+              <td className="hidden whitespace-nowrap px-4 py-2 text-on-surface sm:table-cell">{b.tujuan || <span className="text-on-surface-variant">Empty</span>}</td>
               <td className="px-4 py-2 sm:min-w-48">
                 <span className="flex items-start gap-1.5">
                   <span className="mt-[7px] flex"><StatusDot tone={STATUS[b.status].tone} /></span>
@@ -286,7 +287,7 @@ function TabelRencana({ baris, jenis }: { baris: BarisRencana[]; jenis: JenisImp
       </table>
       {baris.length > BATAS_TAMPIL ? (
         <p className="border-t border-outline-variant px-4 py-2 text-body-medium text-on-surface-variant">
-          {baris.length - BATAS_TAMPIL} baris lagi tidak ditampilkan. Angka di atas tabel menghitung semuanya.
+          {plural(baris.length - BATAS_TAMPIL, "more row")} not shown. The counts above the table include every row.
         </p>
       ) : null}
     </div>

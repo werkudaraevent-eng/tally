@@ -347,9 +347,9 @@ export function renderKonfirmasi(templat: Templat, ctx: RenderContext): Rendered
   const fonts = fontStacks(templat.font, ctx.headingFont);
   const subjekMentah = ctx.state === "pending" ? templat.subjek_menunggu : ctx.state === "rejected" ? templat.subjek_ditolak : templat.subjek;
   const subjekDasar = fill(subjekMentah, ctx.values).trim() || ctx.eventName;
-  const subject = `${ctx.test ? "[TES] " : ""}${subjekDasar}`;
+  const subject = `${ctx.test ? "[TEST] " : ""}${subjekDasar}`;
   const uji = ctx.test
-    ? `<p style="margin:0 0 20px;padding:10px 12px;background:${AMBER_BG};color:${AMBER_INK};font-size:13px;line-height:18px;border-radius:6px;">Email tes. QR dan tautan di email ini contoh dan tidak bisa dipakai masuk.</p>`
+    ? `<p lang="en" style="margin:0 0 20px;padding:10px 12px;background:${AMBER_BG};color:${AMBER_INK};font-size:13px;line-height:18px;border-radius:6px;">Test email. The QR code and links in this email are samples and can't be used to sign in.</p>`
     : "";
   const isi = templat.blocks.map((block) => blockHtml(block, templat, ctx, fonts)).join("");
   const latarLuar = templat.preset === "polos" ? "#F4F4F5" : mixHex(ctx.brand, "#FFFFFF", 0.93);
@@ -378,7 +378,7 @@ ${uji}${isi}
 </body></html>`;
 
   const text = [
-    ...(ctx.test ? ["[EMAIL TES: QR dan tautan di email ini contoh]", ""] : []),
+    ...(ctx.test ? ["[TEST EMAIL: the QR code and links in this email are samples]", ""] : []),
     ctx.eventName,
     "",
     ...templat.blocks.map((block) => blockText(block, ctx)).filter(Boolean).flatMap((bagian) => [bagian, ""]),

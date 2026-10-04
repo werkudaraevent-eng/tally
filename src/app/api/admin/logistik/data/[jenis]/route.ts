@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { idDariQuery, klien } from "@/lib/logistik/server";
+import { plural } from "@/lib/plural";
 
 /**
  * Data induk logistik: hotel, kamar, bus, agenda bus, dan barang.
@@ -41,7 +42,7 @@ const JENIS: Record<string, Jenis> = {
     skema: z.object({
       name: z.string().trim().min(1).max(120),
       address: teks(300),
-      map_url: z.string().trim().url("Tautan peta harus berupa alamat lengkap, mis. https://maps.app.goo.gl/...").max(500).nullish()
+      map_url: z.string().trim().url("The map link must be a full web address, such as https://maps.app.goo.gl/...").max(500).nullish()
         .or(z.literal("")).transform((nilai) => (nilai ? nilai : null)),
       check_in_at: waktu,
       check_out_at: waktu,
@@ -54,7 +55,7 @@ const JENIS: Record<string, Jenis> = {
       const { count } = await klien().from("lodging_assignments").select("id", { head: true, count: "exact" })
         .eq("event_id", eventId).in("room_id", kamar);
       return (count ?? 0) > 0
-        ? `Hotel ini masih punya ${count} penghuni. Pindahkan atau keluarkan mereka dulu, lalu hapus hotelnya.`
+        ? `This hotel still has ${plural(count ?? 0, "occupant")}. Move or remove them first, then delete the hotel.`
         : null;
     },
   },
@@ -69,12 +70,12 @@ const JENIS: Record<string, Jenis> = {
       floor: teks(20),
       notes: teks(500),
     }),
-    ganda: "Nomor kamar ini sudah ada di hotel yang sama.",
-    indukHilang: "Hotelnya tidak ditemukan. Muat ulang halaman.",
+    ganda: "This room number already exists in the same hotel.",
+    indukHilang: "The hotel was not found. Reload the page.",
     tahanHapus: async (eventId, id) => {
       const { count } = await klien().from("lodging_assignments").select("id", { head: true, count: "exact" })
         .eq("event_id", eventId).eq("room_id", id);
-      return (count ?? 0) > 0 ? `Kamar ini masih punya ${count} penghuni. Keluarkan mereka dulu, lalu hapus kamarnya.` : null;
+      return (count ?? 0) > 0 ? `This room still has ${plural(count ?? 0, "occupant")}. Remove them first, then delete the room.` : null;
     },
   },
   bus: {
@@ -87,12 +88,12 @@ const JENIS: Record<string, Jenis> = {
       crew_contact: teks(200),
       sort_order: urutan,
     }),
-    ganda: "Nama bus ini sudah dipakai. Beri nama lain, mis. Bus 4.",
+    ganda: "This bus name is already in use. Choose another name, such as Bus 4.",
     tahanHapus: async (eventId, id) => {
       const { count } = await klien().from("transport_assignments").select("id", { head: true, count: "exact" })
         .eq("event_id", eventId).eq("vehicle_id", id);
       return (count ?? 0) > 0
-        ? `Bus ini masih dipakai ${count} penempatan (bus bawaan atau pengganti di agenda). Pindahkan penumpangnya dulu, lalu hapus busnya.`
+        ? `This bus is still used by ${plural(count ?? 0, "assignment")} (as a default bus or a replacement on a trip). Move its passengers first, then delete the bus.`
         : null;
     },
   },
@@ -120,12 +121,12 @@ const JENIS: Record<string, Jenis> = {
       pickup_note: teks(200),
       sort_order: urutan,
     }),
-    ganda: "Nama barang ini sudah ada.",
+    ganda: "A kit item with this name already exists.",
     tahanHapus: async (eventId, id) => {
       const { count } = await klien().from("item_pickups").select("id", { head: true, count: "exact" })
         .eq("event_id", eventId).eq("item_id", id);
       return (count ?? 0) > 0
-        ? `Barang ini sudah diserahkan ke ${count} peserta. Catatan penyerahannya ikut terhapus, jadi barang ini tidak bisa dihapus.`
+        ? `This kit item has been handed out to ${plural(count ?? 0, "participant")}. Deleting it would also delete those hand-out records, so it cannot be deleted.`
         : null;
     },
   },
@@ -186,7 +187,7 @@ export async function PATCH(request: Request, context: Konteks) {
     .select(jenis.kolom)
     .maybeSingle();
   if (error) return galatTulis(jenis, error);
-  if (!data) return apiError("VALIDATION_ERROR", 404, { message: "Data ini sudah tidak ada. Muat ulang halaman." });
+  if (!data) return apiError("VALIDATION_ERROR", 404, { message: "This no longer exists. Reload the page." });
   return Response.json(data);
 }
 

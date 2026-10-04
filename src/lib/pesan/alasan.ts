@@ -22,48 +22,59 @@ export type SkipCode =
   | "terjadwal";
 
 export const SKIP_REASON: Record<SkipCode, string> = {
-  tanpa_email: "Tidak punya email",
-  berhenti_email: "Berhenti menerima email",
-  email_memantul: "Email pernah memantul",
-  area_mati: "Area peserta belum dinyalakan",
-  belum_boleh_masuk: "Belum boleh masuk area peserta",
-  di_luar_daftar_uji: "Di luar daftar uji",
-  sudah_daftar: "Sudah mendaftar",
-  sudah_peserta: "Email ini sudah dipakai peserta",
-  terjadwal: "Sudah ada di kiriman lain yang belum selesai",
+  tanpa_email: "No email",
+  berhenti_email: "Unsubscribed",
+  email_memantul: "Email bounced before",
+  area_mati: "Participant area is turned off",
+  belum_boleh_masuk: "Not allowed to sign in to the participant area yet",
+  di_luar_daftar_uji: "Not on the test list",
+  sudah_daftar: "Already registered",
+  sudah_peserta: "Email already used by a participant",
+  terjadwal: "Already in another blast that hasn't finished",
 };
 
 /** Kode yang kalimatnya tetap: kalimat tersimpan diganti seluruhnya. */
 const LABEL_ALASAN: Record<string, string> = {
   ...SKIP_REASON,
-  peserta_dihapus: "Peserta sudah dihapus dari daftar",
-  undangan_dihapus: "Tamu sudah dihapus dari daftar undangan",
-  pendaftaran_ditutup: "Pendaftaran acara sudah ditutup",
-  jadwal_dibatalkan: "Kiriman dibatalkan",
-  idempotency_conflict: "Isi berubah saat dikirim ulang. Periksa apakah peserta sudah menerima.",
-  bounce: "Alamat tidak ada atau menolak email",
-  bounce_transient: "Kotak masuk penuh atau server penerima sibuk",
-  complained: "Penerima menandai email sebagai spam",
-  failed: "Penyedia email gagal mengirim",
-  suppressed: "Alamat ada di daftar blokir penyedia email",
+  peserta_dihapus: "Participant was removed from the list",
+  undangan_dihapus: "Invited guest was removed from the list",
+  pendaftaran_ditutup: "Registration for this event is closed",
+  jadwal_dibatalkan: "Blast cancelled",
+  idempotency_conflict: "Content changed during the resend. Check whether the participant already received it.",
+  bounce: "Address doesn't exist or rejects email",
+  bounce_transient: "Inbox full or receiving server busy",
+  complained: "Recipient marked the email as spam",
+  failed: "Email provider failed to send",
+  suppressed: "Address is on the email provider's block list",
   // Ditulis fungsi SQL (migrasi 202610030003 dan 202610040007).
-  lease_expired: "Pengirim berhenti sebelum penyedia membalas. Pesan mungkin sudah terkirim.",
+  lease_expired: "The sender stopped before the provider replied. The message may have been sent.",
 };
 
-// `alamat_berubah` sengaja tidak dipetakan: kalimat tersimpannya berbeda untuk
-// peserta dan tamu. Fase 2b memberinya dua label menurut jenis penerima.
+// `alamat_berubah`: kalimat tersimpannya berbeda untuk peserta dan tamu, jadi
+// labelnya dipilih menurut jenis penerima (argumen ketiga labelAlasan).
+const LABEL_ALAMAT_BERUBAH: Record<JenisPenerima, string> = {
+  peserta: "Participant's email changed after the blast was prepared",
+  tamu: "Invited guest's email changed after the blast was prepared",
+};
+
+export type JenisPenerima = "peserta" | "tamu";
 
 /**
  * Kode yang kalimatnya membawa rincian dari penyedia setelah ": ". Labelnya
  * diganti, rinciannya (teks penyedia, sudah English) dipertahankan.
  */
 const LABEL_DENGAN_RINCIAN: Record<string, string> = {
-  provider_auth: "Penyedia email menolak pengirim",
-  invalid_address: "Alamat ditolak",
-  pengirim_berhenti: "Pengiriman di situs uji berhenti",
+  provider_auth: "Email provider rejected the sender",
+  invalid_address: "Address rejected",
+  pengirim_berhenti: "Sending on the test site stopped",
 };
 
-export function labelAlasan(code: string | null | undefined, tersimpan: string | null | undefined): string | null {
+export function labelAlasan(
+  code: string | null | undefined,
+  tersimpan: string | null | undefined,
+  penerima?: JenisPenerima,
+): string | null {
+  if (code === "alamat_berubah" && penerima) return LABEL_ALAMAT_BERUBAH[penerima];
   if (code && LABEL_DENGAN_RINCIAN[code]) {
     const titik = tersimpan?.indexOf(": ") ?? -1;
     const rincian = tersimpan && titik >= 0 ? tersimpan.slice(titik + 2) : "";
@@ -82,12 +93,12 @@ export function labelAlasan(code: string | null | undefined, tersimpan: string |
 export function labelAlasanJeda(tersimpan: string | null | undefined): string | null {
   if (!tersimpan) return null;
   if (tersimpan.startsWith("Ada penerima yang menandai undangan sebagai spam")) {
-    return "Ada penerima yang menandai undangan sebagai spam. Periksa daftar dan isi sebelum melanjutkan.";
+    return "A recipient marked the invitation as spam. Check the list and content before continuing.";
   }
   const pantul = /^(\d+) dari (\d+) undangan pertama memantul/.exec(tersimpan);
-  if (pantul) return `${pantul[1]} dari ${pantul[2]} undangan pertama memantul. Periksa sumber daftar sebelum melanjutkan.`;
+  if (pantul) return `${pantul[1]} of the first ${pantul[2]} invitations bounced. Check where the list came from before continuing.`;
   if (tersimpan.startsWith("Kabar pengiriman gelombang pertama belum cukup")) {
-    return "Kabar pengiriman gelombang pertama belum cukup untuk menilai daftar ini. Periksa laporan, lalu lanjutkan bila aman.";
+    return "Not enough delivery updates from the first wave to judge this list yet. Check the report, then continue if it looks safe.";
   }
   return tersimpan;
 }

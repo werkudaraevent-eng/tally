@@ -57,7 +57,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const hitung = countAudience(await resolveAudience(event, blast.kind, audienceSchema.parse(blast.audience ?? {})));
   if (hitung.email !== parsed.data.expected) return apiError("MESSAGE_COUNT_CHANGED", 409, { counts: hitung });
   if (parsed.data.scheduled_at && new Date(parsed.data.scheduled_at).getTime() < Date.now() - 60_000) {
-    return apiError("VALIDATION_ERROR", 422, { scheduled_at: "Waktu kirim sudah lewat." });
+    return apiError("VALIDATION_ERROR", 422, { scheduled_at: "This send time has already passed." });
   }
 
   const origin = serverOrigin(request);

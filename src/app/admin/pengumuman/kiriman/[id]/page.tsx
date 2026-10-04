@@ -25,7 +25,7 @@ export default function KirimanDetailPage() {
       return;
     }
     if (!response?.ok) {
-      toast.error("Kiriman gagal dimuat", "Muat ulang halaman.");
+      toast.error("Couldn't load the blast", "Reload the page.");
       return;
     }
     setDetail((await response.json()) as DetailDraf | DetailTerkirim);
@@ -39,8 +39,8 @@ export default function KirimanDetailPage() {
 
   if (hilang) {
     return (
-      <main className="p-6 text-body-large text-on-surface-variant">
-        Kiriman ini tidak ditemukan. Mungkin draf yang sudah dihapus.
+      <main lang="en" className="p-6 text-body-large text-on-surface-variant">
+        Blast not found. It may be a draft that was deleted.
       </main>
     );
   }

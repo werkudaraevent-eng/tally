@@ -21,11 +21,11 @@ const tautanSchema = z
   .string()
   .trim()
   .max(500)
-  .refine((nilai) => nilai === "" || /^https?:\/\//i.test(nilai), "Tautan harus diawali http:// atau https://")
+  .refine((nilai) => nilai === "" || /^https?:\/\//i.test(nilai), "Links must start with http:// or https://")
   .transform((nilai) => nilai || null);
 
 const isiSchema = z.object({
-  title: z.string().trim().min(1, "Judul wajib diisi").max(120),
+  title: z.string().trim().min(1, "Title is required").max(120),
   body: z.string().trim().max(2000).default(""),
   link_url: tautanSchema.nullable().optional(),
   link_label: z

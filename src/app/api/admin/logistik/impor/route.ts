@@ -2,6 +2,7 @@ import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { rencanaBus, rencanaKamar, TEMPLAT, type JenisImpor, type KeadaanAcara, type Rencana } from "@/lib/logistik/impor";
 import { klien, pesanRpc, semuaBaris } from "@/lib/logistik/server";
+import { plural } from "@/lib/plural";
 import { textToCells, xlsxToCells } from "@/lib/undian-import";
 
 /**
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
   return new Response(buffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="templat-${jenis === "kamar" ? "kamar" : "bus"}.xlsx"`,
+      "Content-Disposition": `attachment; filename="${jenis === "kamar" ? "room" : "bus"}-template.xlsx"`,
     },
   });
 }
@@ -55,17 +56,17 @@ export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
   const jenis = jenisDari(form?.get("jenis"));
   const file = form?.get("file");
-  if (!form || !jenis) return apiError("VALIDATION_ERROR", 422, { message: "Pilih jenis impor: kamar atau bus." });
-  if (!(file instanceof File) || file.size === 0) return apiError("VALIDATION_ERROR", 422, { message: "Pilih berkas Excel atau CSV dulu." });
-  if (file.size > BATAS_BERKAS) return apiError("VALIDATION_ERROR", 422, { message: "Ukuran berkas maksimal 10 MB." });
+  if (!form || !jenis) return apiError("VALIDATION_ERROR", 422, { message: "Choose what to import: rooms or buses." });
+  if (!(file instanceof File) || file.size === 0) return apiError("VALIDATION_ERROR", 422, { message: "Choose an Excel or CSV file first." });
+  if (file.size > BATAS_BERKAS) return apiError("VALIDATION_ERROR", 422, { message: "The file can be at most 10 MB." });
 
   // Jenis berkas dari ekstensi, bukan MIME: lihat readFileRequest di impor undian.
   const namaBerkas = file.name.toLowerCase();
-  if (namaBerkas.endsWith(".xls")) return apiError("VALIDATION_ERROR", 422, { message: "Format .xls lama tidak didukung. Buka di Excel lalu Save As .xlsx." });
+  if (namaBerkas.endsWith(".xls")) return apiError("VALIDATION_ERROR", 422, { message: "The old .xls format is not supported. Open the file in Excel, then Save As .xlsx." });
   const xlsx = namaBerkas.endsWith(".xlsx") || namaBerkas.endsWith(".xlsm");
-  if (!xlsx && !/\.(csv|txt|tsv)$/.test(namaBerkas)) return apiError("VALIDATION_ERROR", 422, { message: "Format harus .xlsx atau .csv." });
+  if (!xlsx && !/\.(csv|txt|tsv)$/.test(namaBerkas)) return apiError("VALIDATION_ERROR", 422, { message: "The file must be .xlsx or .csv." });
   const sel = xlsx ? await xlsxToCells(await file.arrayBuffer()) : textToCells(await file.text());
-  if (!sel) return apiError("VALIDATION_ERROR", 422, { message: "Berkas Excel tidak terbaca. Pastikan tidak rusak atau terkunci kata sandi." });
+  if (!sel) return apiError("VALIDATION_ERROR", 422, { message: "The Excel file could not be read. Check that it is not damaged or password-protected." });
 
   const acara = await muatKeadaan(eventId);
   if (!acara) return apiError("INTERNAL_ERROR", 500);
@@ -121,9 +122,9 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
     const { data, error } = await db.from("lodging_hotels")
       .insert(rencana.hotelBaru.map((name, i) => ({ event_id: eventId, name, sort_order: acara.hotels.length + i })) as never)
       .select("id,name");
-    if (error) return { galat: "Hotel baru gagal dibuat. Muat ulang halaman, lalu impor lagi." };
+    if (error) return { galat: "New hotels could not be created. Reload the page, then import again." };
     for (const hotel of (data ?? []) as Array<{ id: number; name: string }>) hotelId.set(kunci(hotel.name), hotel.id);
-    dibuat.push(`${rencana.hotelBaru.length} hotel`);
+    dibuat.push(plural(rencana.hotelBaru.length, "hotel"));
   }
 
   const kamarId = new Map(acara.rooms.map((kamar) => [`${kamar.hotel_id}\u0000${kunci(kamar.room_number)}`, kamar.id]));
@@ -138,12 +139,12 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
       })) as never)
       .select("id,hotel_id,room_number");
     if (error) {
-      return { galat: error.code === "23505" ? "Ada kamar di berkas yang baru saja dibuat orang lain. Muat ulang halaman, lalu impor lagi." : "Kamar baru gagal dibuat." };
+      return { galat: error.code === "23505" ? "Someone else has just created a room from this file. Reload the page, then import again." : "New rooms could not be created." };
     }
     for (const kamar of (data ?? []) as Array<{ id: number; hotel_id: number; room_number: string }>) {
       kamarId.set(`${kamar.hotel_id}\u0000${kunci(kamar.room_number)}`, kamar.id);
     }
-    dibuat.push(`${rencana.kamarBaru.length} kamar`);
+    dibuat.push(plural(rencana.kamarBaru.length, "room"));
   }
 
   const nama = new Map(acara.peserta.map((orang) => [orang.id, orang.name]));
@@ -172,7 +173,7 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
   if (gagal.length < antre.length && gagal.some((g) => bisaUlang(g.error))) {
     gagal = gagal.filter((g) => !bisaUlang(g.error)).concat(await coba(gagal.filter((g) => bisaUlang(g.error))));
   }
-  return { masuk, dibuat, gagal: gagal.map((g) => ({ nama: nama.get(g.pid) ?? g.pid, alasan: pesanRpc(g.error) ?? "Gagal disimpan." })) };
+  return { masuk, dibuat, gagal: gagal.map((g) => ({ nama: nama.get(g.pid) ?? g.pid, alasan: pesanRpc(g.error) ?? "Could not save." })) };
 }
 
 type Antre = { pid: string; room: number };
@@ -185,9 +186,9 @@ async function simpanBus(eventId: string, actor: string, rencana: Rencana, acara
     const { data, error } = await db.from("transport_vehicles")
       .insert(rencana.busBaru.map((code, i) => ({ event_id: eventId, code, sort_order: acara.vehicles.length + i })) as never)
       .select("id,code");
-    if (error) return { galat: error.code === "23505" ? "Ada bus di berkas yang baru saja dibuat orang lain. Muat ulang halaman, lalu impor lagi." : "Bus baru gagal dibuat." };
+    if (error) return { galat: error.code === "23505" ? "Someone else has just created a bus from this file. Reload the page, then import again." : "New buses could not be created." };
     for (const bus of (data ?? []) as Array<{ id: number; code: string }>) busId.set(kunci(bus.code), bus.id);
-    dibuat.push(`${rencana.busBaru.length} bus`);
+    dibuat.push(plural(rencana.busBaru.length, "bus", "buses"));
   }
 
   const nama = new Map(acara.peserta.map((orang) => [orang.id, orang.name]));
@@ -203,7 +204,7 @@ async function simpanBus(eventId: string, actor: string, rencana: Rencana, acara
     // yang sudah penuh), sisanya dicoba satu per satu supaya yang muat tetap masuk.
     for (const pid of kelompok.participant_ids) {
       const satu = await panggil([pid]);
-      if (satu.error) gagal.push({ nama: nama.get(pid) ?? pid, alasan: pesanRpc(satu.error) ?? "Gagal disimpan." });
+      if (satu.error) gagal.push({ nama: nama.get(pid) ?? pid, alasan: pesanRpc(satu.error) ?? "Could not save." });
       else masuk += 1;
     }
   }

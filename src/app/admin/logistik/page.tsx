@@ -13,6 +13,7 @@ import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { eventApiPath } from "@/lib/event-url";
 import type { LogistikData } from "@/lib/logistik/types";
+import { plural } from "@/lib/plural";
 
 /**
  * Logistik peserta: kamar, bus, dan barang yang dibagikan.
@@ -50,7 +51,7 @@ export default function LogistikPage() {
   const muat = useCallback(async () => {
     const response = await fetch(eventApiPath("/api/admin/logistik"), { cache: "no-store" }).catch(() => null);
     if (!response?.ok) {
-      setError("Data logistik gagal dimuat. Periksa koneksi, lalu muat ulang halaman.");
+      setError("Logistics data could not be loaded. Check your connection, then reload the page.");
       return;
     }
     setData(await response.json());
@@ -71,13 +72,13 @@ export default function LogistikPage() {
     }).catch(() => null);
     if (!response) {
       setBusy(false);
-      toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya.");
+      toast.error("Connection failed", "Reload the page to see the current state.");
       return null;
     }
     const json = await response.json().catch(() => ({}));
     if (!response.ok) {
       setBusy(false);
-      toast.error("Gagal disimpan", pesanGalatApi(json) ?? "Coba lagi.");
+      toast.error("Could not save", pesanGalatApi(json) ?? "Try again.");
       return null;
     }
     // Dimuat ulang sebelum tombolnya hidup lagi: angka isi kamar dan bus yang
@@ -100,50 +101,51 @@ export default function LogistikPage() {
   // Agenda baru di bagian Agenda.
   const aktifBaru: Baru | null = bagian === "penempatan" ? null : bagian === "bus" ? bagianBus : bagian;
   const tabProps = data ? { data, kirim, busy, baru: baru !== null && baru === aktifBaru, tutupBaru: () => setBaru(null) } : null;
-  const LABEL_BARU: Record<Baru, string> = { kamar: "Kamar baru", bus: "Bus baru", agenda: "Agenda baru", barang: "Barang baru" };
+  const LABEL_BARU: Record<Baru, string> = { kamar: "Add room", bus: "Add bus", agenda: "Add trip", barang: "Add kit item" };
 
   const pilihBus = (
     <SegmentedButton<BagianBus>
-      label="Bagian bus"
+      label="Bus section"
       value={bagianBus}
       onChange={(nilai) => { setBagianBus(nilai); setBaru(null); }}
       options={[
-        { value: "bus", label: "Daftar bus", badge: data?.vehicles.length || undefined },
-        { value: "agenda", label: "Agenda", badge: data?.trips.length || undefined },
+        { value: "bus", label: "Buses", badge: data?.vehicles.length || undefined },
+        { value: "agenda", label: "Trips", badge: data?.trips.length || undefined },
       ]}
     />
   );
 
   return (
     <WorkspacePage fill>
+      <div lang="en" className="contents">
       <WorkspaceHeader
         meta={data ? (
           <>
-            <span className="tabular-nums">{data.participants.length} peserta aktif</span>
+            <span className="tabular-nums">{plural(data.participants.length, "active participant")}</span>
             {data.rooms.length > 0 ? (
               <>
                 <MetaSeparator />
-                <span className="tabular-nums">{tanpaKamar === 0 ? "Semua dapat kamar" : `${tanpaKamar} belum dapat kamar`}</span>
+                <span className="tabular-nums">{tanpaKamar === 0 ? "Everyone has a room" : `${tanpaKamar.toLocaleString("en-GB")} without a room`}</span>
               </>
             ) : null}
             {data.vehicles.length > 0 ? (
               <>
                 <MetaSeparator />
-                <span className="tabular-nums">{tanpaBus === 0 ? "Semua punya bus" : `${tanpaBus} belum punya bus`}</span>
+                <span className="tabular-nums">{tanpaBus === 0 ? "Everyone has a bus" : `${tanpaBus.toLocaleString("en-GB")} without a bus`}</span>
               </>
             ) : null}
           </>
         ) : null}
         actions={data && bagian !== "barang" && !(bagian === "bus" && bagianBus === "agenda") ? (
           <>
-            <Button variant="outlined" icon={<UploadSimple size={16} />} onClick={() => setImpor(true)}>Impor Excel</Button>
+            <Button variant="outlined" icon={<UploadSimple size={16} />} onClick={() => setImpor(true)}>Import from Excel</Button>
             {aktifBaru === "kamar" && data.hotels.length === 0 ? (
               // Tanpa hotel, "Kamar baru" hanya bisa ditolak. Satu tombol yang
               // bisa ditekan lebih jelas daripada dua dengan salah satunya mati.
-              <Button icon={<Plus size={16} />} onClick={() => setHotelBaru(true)}>Hotel baru</Button>
+              <Button icon={<Plus size={16} />} onClick={() => setHotelBaru(true)}>Add hotel</Button>
             ) : aktifBaru ? (
               <>
-                {aktifBaru === "kamar" ? <Button variant="outlined" onClick={() => setHotelBaru(true)}>Hotel baru</Button> : null}
+                {aktifBaru === "kamar" ? <Button variant="outlined" onClick={() => setHotelBaru(true)}>Add hotel</Button> : null}
                 <Button variant="outlined" icon={<Plus size={16} />} onClick={() => setBaru(aktifBaru)}>{LABEL_BARU[aktifBaru]}</Button>
               </>
             ) : null}
@@ -154,23 +156,23 @@ export default function LogistikPage() {
       />
 
       <Tabs<Bagian>
-        label="Bagian logistik"
+        label="Logistics sections"
         idPrefix="logistik"
         value={bagian}
         onChange={(nilai) => { setBagian(nilai); setBaru(null); }}
         options={[
-          { value: "penempatan", label: "Penempatan" },
-          { value: "kamar", label: "Kamar", badge: data?.rooms.length || undefined },
-          { value: "bus", label: "Bus", badge: data?.vehicles.length || undefined },
-          { value: "barang", label: "Barang", badge: data?.items.length || undefined },
+          { value: "penempatan", label: "Assignments" },
+          { value: "kamar", label: "Rooms", badge: data?.rooms.length || undefined },
+          { value: "bus", label: "Buses", badge: data?.vehicles.length || undefined },
+          { value: "barang", label: "Kit items", badge: data?.items.length || undefined },
         ]}
       />
 
       <div role="tabpanel" id={`logistik-panel-${bagian}`} aria-labelledby={`logistik-tab-${bagian}`} className="flex min-h-0 flex-1 flex-col">
         {error && !data ? (
-          <Pane aria-label="Galat"><Galat pesan={error} /></Pane>
+          <Pane aria-label="Error"><Galat pesan={error} /></Pane>
         ) : !tabProps ? (
-          <Pane aria-label="Memuat"><Kerangka /></Pane>
+          <Pane aria-label="Loading"><Kerangka /></Pane>
         ) : bagian === "penempatan" ? (
           <TabPenempatan data={tabProps.data} kirim={kirim} busy={busy} keTab={(tab) => { setBagian(tab); setBaru(null); }} />
         ) : bagian === "kamar" ? (
@@ -183,6 +185,7 @@ export default function LogistikPage() {
       </div>
 
       <DialogImpor open={impor} jenisAwal={bagian === "bus" ? "bus" : "kamar"} onClose={() => setImpor(false)} onSelesai={muat} />
+      </div>
     </WorkspacePage>
   );
 }

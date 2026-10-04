@@ -26,6 +26,7 @@ import {
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { withEventPrefix } from "@/lib/event-path";
+import { plural } from "@/lib/plural";
 import { labelAlasan, labelAlasanJeda } from "@/lib/pesan/alasan";
 import { BLAST_STATUS_LABEL, BLAST_STATUS_TONE, audienceLabel, waktu, type BlastStatus } from "../../pesan-shared";
 
@@ -38,16 +39,16 @@ import { BLAST_STATUS_LABEL, BLAST_STATUS_TONE, audienceLabel, waktu, type Blast
 type Status = "antre" | "ditahan" | "mengirim" | "terkirim" | "diterima" | "dibaca" | "tidak_pasti" | "gagal_sementara" | "gagal_tetap" | "dilewati";
 
 const LABEL: Record<Status, string> = {
-  antre: "Antre",
-  ditahan: "Ditahan",
-  mengirim: "Sedang dikirim",
-  terkirim: "Terkirim",
-  diterima: "Diterima",
-  dibaca: "Dibaca",
-  tidak_pasti: "Tidak pasti",
-  gagal_sementara: "Gagal, bisa dicoba",
-  gagal_tetap: "Gagal tetap",
-  dilewati: "Dilewati",
+  antre: "Queued",
+  ditahan: "Held",
+  mengirim: "Sending",
+  terkirim: "Sent",
+  diterima: "Delivered",
+  dibaca: "Read",
+  tidak_pasti: "Unconfirmed",
+  gagal_sementara: "Retrying",
+  gagal_tetap: "Failed",
+  dilewati: "Skipped",
 };
 
 const NADA: Record<Status, "neutral" | "primary" | "success" | "warning" | "error"> = {
@@ -114,12 +115,14 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
   const berjalan = counts.antre + counts.mengirim;
   const tamu = blast.kind === "invitation";
   const dijeda = blast.status === "dijeda";
+  const orang = (n: number) => plural(n, tamu ? "invited guest" : "participant");
+  const undangan = (n: number) => plural(n, "invitation");
   const persen = total > 0 ? Math.round((detail.signed_in / total) * 100) : 0;
 
   const muatBaris = useCallback(async () => {
     const response = await fetch(`/api/admin/pesan/${blast.id}/penerima?kelompok=${kelompok}&halaman=${halaman}`, { cache: "no-store" }).catch(() => null);
     if (!response?.ok) {
-      toast.error("Daftar penerima gagal dimuat", "Muat ulang halaman.");
+      toast.error("Couldn't load recipients", "Reload the page.");
       return;
     }
     setData((await response.json()) as Halaman);
@@ -149,19 +152,19 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
     setDialog(null);
     if (!response?.ok) {
       toast.error(
-        jalur === "ulang" ? "Kirim ulang gagal" : jalur === "lanjutkan" ? "Kiriman tidak dilanjutkan" : dijeda ? "Kiriman tidak dibatalkan" : "Jadwal tidak dibatalkan",
-        body?.error?.message ?? "Coba lagi.",
+        jalur === "ulang" ? "Retry failed" : jalur === "lanjutkan" ? "Blast not resumed" : dijeda ? "Blast not cancelled" : "Schedule not cancelled",
+        body?.error?.message ?? "Try again.",
       );
       return;
     }
     toast.success(
       jalur === "ulang"
-        ? `${body?.requeued ?? 0} email masuk antrean lagi`
+        ? `${plural(body?.requeued ?? 0, "email")} queued again`
         : jalur === "lanjutkan"
-          ? `${body?.released ?? 0} undangan dilanjutkan`
+          ? `${undangan(body?.released ?? 0)} resumed`
           : dijeda
-            ? "Sisa kiriman dibatalkan"
-            : "Jadwal dibatalkan",
+            ? "Rest of the blast cancelled"
+            : "Schedule cancelled",
     );
     onReload();
     void muatBaris();
@@ -177,7 +180,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
     const body = await response?.json().catch(() => null);
     setSibuk(false);
     if (!response?.ok) {
-      toast.error("Duplikat gagal", body?.error?.message ?? "Coba lagi.");
+      toast.error("Couldn't duplicate the blast", body?.error?.message ?? "Try again.");
       return;
     }
     router.push(withEventPrefix(`/admin/pengumuman/kiriman/${body.id}`, window.location.pathname));
@@ -191,32 +194,33 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
 
   const kapan =
     dijeda
-      ? `${counts.ditahan ?? 0} undangan ditahan`
+      ? `${undangan(counts.ditahan ?? 0)} held`
       : blast.status === "terjadwal" && blast.scheduled_at
-      ? `Dijadwalkan ${waktu(blast.scheduled_at, detail.time_zone)}`
+      ? `Scheduled for ${waktu(blast.scheduled_at, detail.time_zone)}`
       : blast.status === "selesai" && blast.finished_at
-        ? `Selesai ${waktu(blast.finished_at, detail.time_zone)}`
+        ? `Finished ${waktu(blast.finished_at, detail.time_zone)}`
         : blast.sent_at
-          ? `Berangkat ${waktu(blast.sent_at, detail.time_zone)}`
+          ? `Started ${waktu(blast.sent_at, detail.time_zone)}`
           : BLAST_STATUS_LABEL[blast.status];
 
   const chips: { value: Kelompok; label: string; count: number | null }[] = [
-    { value: "semua", label: "Semua", count: total + counts.dilewati },
-    { value: "bisa_dicoba", label: "Bisa dicoba", count: counts.gagal_sementara },
-    { value: "gagal_tetap", label: "Gagal tetap", count: counts.gagal_tetap },
-    { value: "tidak_pasti", label: "Tidak pasti", count: counts.tidak_pasti },
-    { value: "belum_masuk", label: tamu ? "Belum daftar" : "Belum masuk", count: Math.max(0, total - detail.signed_in) },
-    { value: "dilewati", label: "Dilewati", count: counts.dilewati },
+    { value: "semua", label: "All", count: total + counts.dilewati },
+    { value: "bisa_dicoba", label: "Retrying", count: counts.gagal_sementara },
+    { value: "gagal_tetap", label: "Failed", count: counts.gagal_tetap },
+    { value: "tidak_pasti", label: "Unconfirmed", count: counts.tidak_pasti },
+    { value: "belum_masuk", label: tamu ? "Not registered yet" : "Not signed in yet", count: Math.max(0, total - detail.signed_in) },
+    { value: "dilewati", label: "Skipped", count: counts.dilewati },
   ];
 
   return (
+    <div lang="en" className="contents">
     <WorkspacePage>
       <WorkspaceHeader
         title={blast.title}
         back={
           <Link href="/admin/pengumuman" className="inline-flex items-center gap-1.5 rounded-sm text-body-medium font-medium text-primary hover:underline">
             <ArrowLeft size={14} aria-hidden />
-            Pesan peserta
+            Messages
           </Link>
         }
         meta={
@@ -232,24 +236,24 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
         actions={
           <>
             <Button variant="outlined" onClick={() => void duplikat()} disabled={sibuk} icon={<Copy size={16} />}>
-              Duplikat
+              Duplicate
             </Button>
             {dijeda ? (
               <>
                 <Button variant="outlined" onClick={() => setDialog("batal")} icon={<XCircle size={16} />}>
-                  Batalkan sisanya
+                  Cancel the rest
                 </Button>
                 <Button onClick={() => setDialog("lanjutkan")} icon={<Play size={16} />}>
-                  Lanjutkan kiriman…
+                  Resume blast…
                 </Button>
               </>
             ) : blast.status === "terjadwal" ? (
               <Button variant="outlined" onClick={() => setDialog("batal")} icon={<XCircle size={16} />}>
-                Batalkan jadwal
+                Cancel schedule
               </Button>
             ) : counts.gagal_sementara > 0 ? (
               <Button onClick={() => setDialog("ulang")} icon={<ArrowClockwise size={16} />}>
-                Kirim ulang yang bisa dicoba ({counts.gagal_sementara})…
+                Retry ({counts.gagal_sementara})…
               </Button>
             ) : null}
           </>
@@ -258,32 +262,32 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
 
       {dijeda ? (
         <Banner tone="warning" icon={<PauseCircle size={18} />}>
-          Kiriman dijeda otomatis. {labelAlasanJeda(blast.paused_reason) ?? "Periksa laporan sebelum melanjutkan."} {counts.ditahan ?? 0} undangan belum dikirim dan menunggu keputusan Anda.
+          Blast paused automatically. {labelAlasanJeda(blast.paused_reason) ?? "Check the report before resuming."} {undangan(counts.ditahan ?? 0)} not sent yet, waiting for your decision.
         </Banner>
       ) : tamu && blast.status === "mengirim" && detail.invitation_sending?.ok === false && detail.invitation_sending.missing.includes("EMAIL_FROM_UNDANGAN") && berjalan > 0 ? (
         <Banner tone="warning" icon={<PauseCircle size={18} />}>
-          Kiriman tertahan: pengirim undangan (EMAIL_FROM_UNDANGAN) belum disiapkan pemilik sistem. {berjalan} undangan menunggu dan berangkat otomatis setelah disiapkan.
+          Blast on hold: the system owner hasn&apos;t set up the invitation sender (EMAIL_FROM_UNDANGAN) yet. {undangan(berjalan)} waiting. They go out automatically once it&apos;s set up.
         </Banner>
       ) : tamu && blast.hold_until && blast.status === "mengirim" ? (
         <Banner tone="info" icon={<Hourglass size={18} />}>
-          Gelombang pertama sudah berangkat. Sisanya dikirim setelah {waktu(blast.hold_until, detail.time_zone)} bila pantulan rendah dan tidak ada laporan spam.
+          The first wave has gone out. The rest are sent after {waktu(blast.hold_until, detail.time_zone)} if few bounce and nobody reports spam.
         </Banner>
       ) : null}
 
       {counts.tidak_pasti > 0 ? (
         <Banner tone="warning" icon={<Warning size={18} />}>
-          {counts.tidak_pasti} email berstatus Tidak pasti: penyedia tidak memberi kabar apakah sudah terkirim. Tidak dikirim ulang otomatis supaya peserta tidak menerima dua kali.
+          {plural(counts.tidak_pasti, "email")} Unconfirmed: the provider didn&apos;t confirm whether they were sent. They aren&apos;t retried automatically, so nobody gets them twice.
         </Banner>
       ) : null}
 
-      <section aria-label="Ringkasan" className="grid overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest sm:grid-cols-2">
+      <section aria-label="Summary" className="grid overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest sm:grid-cols-2">
         <div className="flex flex-col gap-1 border-b border-outline-variant px-5 py-4 sm:border-b-0 sm:border-e">
           <h2 className="text-label-medium font-semibold uppercase tracking-[0.08em] text-on-surface-variant">
-            {blast.kind === "undangan" ? "Sudah masuk ke acara" : tamu ? "Sudah daftar" : "Masuk setelah kiriman"}
+            {blast.kind === "undangan" ? "Signed in" : tamu ? "Registered" : "Signed in after the blast"}
           </h2>
           <p className="text-body-large text-on-surface-variant">
             <span className="me-2 text-headline-small font-semibold text-on-surface tabular-nums">{detail.signed_in}</span>
-            dari <span className="tabular-nums">{total}</span> ({persen}%)
+            of <span className="tabular-nums">{total}</span> ({persen}%)
           </p>
         </div>
         <div className="flex flex-col gap-1 px-5 py-4">
@@ -291,16 +295,16 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
             Email · <span className="tabular-nums">{total}</span>
           </h2>
           <p className="text-body-large tabular-nums">
-            {diterima} diterima
-            {berjalan > 0 ? <> · {berjalan} dalam antrean</> : null}
-            {(counts.ditahan ?? 0) > 0 ? <> · {counts.ditahan} ditahan</> : null}
-            {counts.terkirim > 0 ? <> · {counts.terkirim} terkirim</> : null}
-            {gagal > 0 ? <span className="text-error"> · {gagal} gagal</span> : null}
+            {diterima} delivered
+            {berjalan > 0 ? <> · {berjalan} queued</> : null}
+            {(counts.ditahan ?? 0) > 0 ? <> · {counts.ditahan} held</> : null}
+            {counts.terkirim > 0 ? <> · {counts.terkirim} sent</> : null}
+            {gagal > 0 ? <span className="text-error"> · {gagal} failed</span> : null}
           </p>
         </div>
       </section>
 
-      <div role="group" aria-label="Saring penerima" className="flex flex-wrap gap-2">
+      <div role="group" aria-label="Filter recipients" className="flex flex-wrap gap-2">
         {chips.map((c) => (
           <FilterChip key={c.value} selected={kelompok === c.value} onClick={() => pilih(c.value)}>
             {c.label} <span className="tabular-nums">{c.count}</span>
@@ -313,17 +317,17 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
           <TableSkeleton rows={6} cols={4} />
         </TableCard>
       ) : data.rows.length === 0 ? (
-        <EmptyState title="Tidak ada penerima di kelompok ini" description="Pilih chip lain untuk melihat penerima lainnya." />
+        <EmptyState title="No recipients in this group" description="Choose another chip to see other recipients." />
       ) : (
         <>
           <TableCard>
             <Table minWidth="720px">
               <TableHead>
                 <TableRow>
-                  <TableHeaderCell>{tamu ? "Tamu" : "Peserta"}</TableHeaderCell>
+                  <TableHeaderCell>{tamu ? "Invited guest" : "Participant"}</TableHeaderCell>
                   <TableHeaderCell>Email</TableHeaderCell>
                   <TableHeaderCell>Status</TableHeaderCell>
-                  <TableHeaderCell>{tamu ? "Daftar" : "Masuk"}</TableHeaderCell>
+                  <TableHeaderCell>{tamu ? "Registered" : "Signed in"}</TableHeaderCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -334,12 +338,12 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
                     <TableCell>
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <StatusChip tone={NADA[r.status]}>{LABEL[r.status]}</StatusChip>
-                        {r.reason || r.reason_code ? <span className="text-body-small text-on-surface-variant">{labelAlasan(r.reason_code, r.reason)}</span> : null}
+                        {r.reason || r.reason_code ? <span className="text-body-small text-on-surface-variant">{labelAlasan(r.reason_code, r.reason, tamu ? "tamu" : "peserta")}</span> : null}
                         {/* Hanya yang bisa diperbaiki di data peserta. Berhenti langganan dan
                             jadwal yang dibatalkan bukan untuk "diperbaiki". */}
                         {r.status === "gagal_tetap" || (r.status === "dilewati" && (r.reason_code === "tanpa_email" || r.reason_code === "email_memantul")) ? (
                           <Link href={tamu ? "/admin/registrasi" : "/admin/participants"} className="text-body-small font-medium text-primary hover:underline">
-                            Perbaiki
+                            Fix
                           </Link>
                         ) : null}
                       </span>
@@ -360,15 +364,15 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
         open={dialog === "ulang"}
         onClose={() => setDialog(null)}
         dismissible={!sibuk}
-        title={`Kirim ulang ke ${counts.gagal_sementara} ${tamu ? "tamu" : "peserta"}?`}
-        description="Hanya email yang gagal sementara (penyedia sibuk atau batas sesaat). Gagal tetap dan Tidak pasti tidak ikut, supaya tidak ada yang menerima dua kali."
+        title={`Retry sending to ${orang(counts.gagal_sementara)}?`}
+        description="Only emails that are Retrying (provider busy or a short-term limit). Failed and Unconfirmed are left out, so nobody gets the email twice."
         actions={
           <>
             <Button variant="text" onClick={() => setDialog(null)} disabled={sibuk}>
-              Batal
+              Cancel
             </Button>
             <Button onClick={() => void aksi("ulang")} loading={sibuk}>
-              Kirim ulang
+              Retry
             </Button>
           </>
         }
@@ -378,19 +382,19 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
         onClose={() => setDialog(null)}
         dismissible={!sibuk}
         tone="danger"
-        title={dijeda ? "Batalkan sisa kiriman?" : "Batalkan jadwal ini?"}
+        title={dijeda ? "Cancel the rest of this blast?" : "Cancel this schedule?"}
         description={
           dijeda
-            ? `${counts.ditahan ?? 0} undangan yang ditahan tidak dikirim. Yang sudah berangkat tidak terpengaruh.`
-            : "Tidak ada email yang berangkat. Untuk mengirimnya lagi, buat duplikat lalu jadwalkan ulang."
+            ? `${undangan(counts.ditahan ?? 0)} on hold won't be sent. Emails already sent aren't affected.`
+            : "No emails go out. To send it later, duplicate it and schedule it again."
         }
         actions={
           <>
             <Button variant="text" onClick={() => setDialog(null)} disabled={sibuk}>
-              Kembali
+              Back
             </Button>
             <Button variant="danger" onClick={() => void aksi("batal")} loading={sibuk}>
-              {dijeda ? "Batalkan sisanya" : "Batalkan jadwal"}
+              {dijeda ? "Cancel the rest" : "Cancel schedule"}
             </Button>
           </>
         }
@@ -399,19 +403,20 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
         open={dialog === "lanjutkan"}
         onClose={() => setDialog(null)}
         dismissible={!sibuk}
-        title={`Lanjutkan ${counts.ditahan ?? 0} undangan?`}
-        description="Sisa undangan langsung dikirim dan tidak dijeda otomatis lagi. Lanjutkan hanya bila Anda yakin daftar ini berasal dari panitia atau klien dan alamatnya masih aktif."
+        title={`Resume ${undangan(counts.ditahan ?? 0)}?`}
+        description="The remaining invitations are sent right away and won't be paused automatically again. Only resume if you're sure this list comes from staff or the client and the addresses are still active."
         actions={
           <>
             <Button variant="text" onClick={() => setDialog(null)} disabled={sibuk}>
-              Kembali
+              Back
             </Button>
             <Button onClick={() => void aksi("lanjutkan")} loading={sibuk}>
-              Lanjutkan kiriman
+              Resume blast
             </Button>
           </>
         }
       />
     </WorkspacePage>
+    </div>
   );
 }

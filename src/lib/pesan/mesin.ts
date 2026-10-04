@@ -434,7 +434,7 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
   if (giliran !== true) return { ran: false, chunks: 0, sent: 0, failed: 0, stoppedBy: "busy" };
 
   const batas = Date.now() + budgetMs;
-  let alasanBerhenti = "Waktu pengirim habis.";
+  let alasanBerhenti = "The sender ran out of time.";
   let antreanHabis = false;
   const hasil: DrainOutcome = { ran: true, chunks: 0, sent: 0, failed: 0, stoppedBy: "empty" };
   const kiriman = new Map<string, BlastRow>();
@@ -597,7 +597,7 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
           p_rows: kirimKe.map((r) => ({ id: r.id, status: "antre" })) satisfies ResultRow[],
         } as never);
         hasil.stoppedBy = kirim.kind === "not_configured" ? "not_configured" : "provider";
-        alasanBerhenti = kirim.kind === "not_configured" ? "Pengirim email belum diatur." : "Penyedia email menolak sementara. Coba kirim ulang nanti.";
+        alasanBerhenti = kirim.kind === "not_configured" ? "Email sender isn't set up." : "The email provider is refusing for now. Retry later.";
         break;
       }
 

@@ -25,6 +25,7 @@ import {
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
+import { plural } from "@/lib/plural";
 import { PesanTabs } from "../pesan-tabs";
 
 /**
@@ -68,13 +69,13 @@ type Draft = { id: string | null; title: string; body: string; link_url: string;
 const KOSONG: Draft = { id: null, title: "", body: "", link_url: "", link_label: "", audience: "semua", pinned: false };
 
 const PENERIMA: Record<Audience, string> = {
-  semua: "Semua akun peserta",
-  disetujui: "Hanya yang sudah disetujui",
+  semua: "All participant accounts",
+  disetujui: "Approved participants only",
 };
 
 /** Jam di zona waktu acara, sama dengan yang dilihat peserta, bukan zona peramban admin. */
 function waktu(iso: string, timeZone?: string) {
-  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(iso));
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(iso));
 }
 
 function keDraft(item: Item): Draft {
@@ -105,7 +106,7 @@ export default function PengumumanPage() {
     const response = await fetch("/api/admin/pengumuman", { cache: "no-store" }).catch(() => null);
     const body = await response?.json().catch(() => null);
     if (!response?.ok || !body) {
-      setGalatMuat(body?.error?.message ?? "Daftar pengumuman gagal dimuat.");
+      setGalatMuat(body?.error?.message ?? "Couldn't load announcements.");
       return;
     }
     setData(body as Muat);
@@ -153,15 +154,15 @@ export default function PengumumanPage() {
       const pesan =
         body?.error?.code === "VALIDATION_ERROR"
           ? Object.values((body.error.details?.fieldErrors ?? {}) as Record<string, string[]>).flat()[0] ?? body.error.message
-          : body?.error?.message ?? "Pengumuman gagal disimpan.";
+          : body?.error?.message ?? "Couldn't save the announcement.";
       setGalat(pesan);
-      toast.error("Pengumuman gagal disimpan", pesan);
+      toast.error("Couldn't save announcement", pesan);
       return;
     }
     const baru = !draft.id;
     toast.success(
-      baru ? "Pengumuman terbit" : "Perubahan tersimpan",
-      baru ? "Peserta melihatnya di lonceng dan Dashboard saya." : "Peserta melihat versi terbaru.",
+      baru ? "Announcement published" : "Changes saved",
+      baru ? "Participants see it in the event page bell and My dashboard." : "Participants see the latest version.",
     );
     setDraft(keDraft(body as Item));
     void muat();
@@ -175,10 +176,10 @@ export default function PengumumanPage() {
     setSimpan(false);
     setKonfirmasiHapus(false);
     if (!response?.ok) {
-      toast.error("Pengumuman gagal dihapus", body?.error?.message ?? "Coba lagi.");
+      toast.error("Couldn't delete announcement", body?.error?.message ?? "Try again.");
       return;
     }
-    toast.success("Pengumuman dihapus", "Tidak lagi tampil bagi peserta.");
+    toast.success("Announcement deleted", "Participants no longer see it.");
     tutup();
     void muat();
   }
@@ -195,14 +196,14 @@ export default function PengumumanPage() {
     setKirim(false);
     setKonfirmasiEmail(false);
     if (!response?.ok) {
-      toast.error("Email belum terkirim", body?.error?.message ?? "Coba lagi sebentar lagi.");
+      toast.error("Email not sent", body?.error?.message ?? "Try again in a moment.");
       void muat();
       return;
     }
     const hasil = body as Ringkasan;
     toast.success(
-      `Email terkirim ke ${hasil.terkirim} akun`,
-      hasil.gagal > 0 ? `${hasil.gagal} gagal terkirim.` : "Salinan yang sama ada di Dashboard saya peserta.",
+      `Email sent to ${plural(hasil.terkirim, "account")}`,
+      hasil.gagal > 0 ? `${plural(hasil.gagal, "email")} failed to send.` : "Participants also have the same copy in My dashboard.",
     );
     void muat();
   }
@@ -211,7 +212,7 @@ export default function PengumumanPage() {
 
   // ---- Daftar --------------------------------------------------------------
   const list = (
-    <Pane aria-label="Daftar pengumuman">
+    <Pane aria-label="Announcement list">
       <PaneBody className="overflow-x-auto">
         {galatMuat && !data ? (
           <div className="flex flex-wrap items-center gap-3 px-4 py-4">
@@ -220,11 +221,11 @@ export default function PengumumanPage() {
               {galatMuat}
             </p>
             <Button variant="outlined" size="sm" onClick={() => void muat()}>
-              Coba lagi
+              Try again
             </Button>
           </div>
         ) : !data ? (
-          <div aria-label="Memuat pengumuman">
+          <div aria-label="Loading announcements">
             {Array.from({ length: 4 }, (_, i) => (
               <div key={i} className="flex items-center gap-4 border-b border-outline-variant px-4 py-4">
                 <div className="h-3 w-56 animate-pulse rounded bg-surface-container-high" />
@@ -236,12 +237,12 @@ export default function PengumumanPage() {
           <EmptyState
             plain
             icon={<Megaphone size={40} />}
-            title="Belum ada pengumuman"
-            description="Tulis kabar untuk peserta: perubahan ruang, jadwal, atau barang yang perlu dibawa. Peserta melihatnya di lonceng halaman acara dan di Dashboard saya."
+            title="No announcements yet"
+            description="Post news for participants: a room change, a schedule update or what to bring. Participants see it in the event page bell and in My dashboard."
             action={
               data.ready ? (
                 <Button size="sm" icon={<Plus size={16} weight="bold" />} onClick={() => setDraft({ ...KOSONG })}>
-                  Tulis pengumuman
+                  Write announcement
                 </Button>
               ) : undefined
             }
@@ -250,9 +251,9 @@ export default function PengumumanPage() {
           <table className="w-full min-w-[560px] border-separate border-spacing-0 text-left text-body-medium">
             <thead className="sticky top-0 z-10 bg-surface-container-high text-body-medium font-medium text-on-surface-variant">
               <tr>
-                <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Pengumuman</th>
-                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Penerima</th>
-                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Terbit</th>
+                <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Announcement</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Send to</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Published</th>
                 <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Email</th>
               </tr>
             </thead>
@@ -276,20 +277,20 @@ export default function PengumumanPage() {
                         aria-pressed={aktif}
                         className="flex w-full min-w-0 items-center gap-1.5 rounded-sm text-left font-medium text-on-surface"
                       >
-                        {item.pinned ? <PushPin size={14} weight="fill" className="shrink-0 text-primary" aria-label="Disematkan" /> : null}
+                        {item.pinned ? <PushPin size={14} weight="fill" className="shrink-0 text-primary" aria-label="Pinned" /> : null}
                         <span className="truncate">{item.title}</span>
                       </button>
-                      {disunting ? <span className="text-body-small text-on-surface-variant">Disunting {waktu(item.updated_at, data?.time_zone)}</span> : null}
+                      {disunting ? <span className="text-body-small text-on-surface-variant">Edited {waktu(item.updated_at, data?.time_zone)}</span> : null}
                     </td>
-                    <td className="whitespace-nowrap border-b border-outline-variant px-3 py-2.5">{item.audience === "semua" ? "Semua akun" : "Disetujui"}</td>
+                    <td className="whitespace-nowrap border-b border-outline-variant px-3 py-2.5">{item.audience === "semua" ? "All accounts" : "Approved"}</td>
                     <td className="whitespace-nowrap border-b border-outline-variant px-3 py-2.5 tabular-nums">{waktu(item.published_at, data?.time_zone)}</td>
                     <td className="border-b border-outline-variant px-3 py-2.5">
                       {item.email_summary ? (
                         <StatusChip dot tone={item.email_summary.gagal > 0 ? "warning" : "success"}>
-                          {item.email_summary.terkirim} terkirim
+                          {item.email_summary.terkirim} sent
                         </StatusChip>
                       ) : (
-                        <span className="text-on-surface-variant">Belum</span>
+                        <span className="text-on-surface-variant">Not sent</span>
                       )}
                     </td>
                   </tr>
@@ -299,7 +300,7 @@ export default function PengumumanPage() {
           </table>
         )}
       </PaneBody>
-      <PaneFooter className="bg-surface-container-lowest py-2" note="Disematkan tampil paling atas. Lainnya urut dari yang terbaru." />
+      <PaneFooter className="bg-surface-container-lowest py-2" note="Pinned announcements show first. The rest are newest first." />
     </Pane>
   );
 
@@ -308,15 +309,15 @@ export default function PengumumanPage() {
   if (draft) {
     const baru = !draft.id;
     detail = (
-      <Pane as="aside" aria-label={baru ? "Pengumuman baru" : `Pengumuman ${draft.title}`}>
+      <Pane as="aside" aria-label={baru ? "New announcement" : `Announcement ${draft.title}`}>
         <div className="flex shrink-0 items-start gap-3 border-b border-outline-variant px-5 py-4">
           <div className="min-w-0 flex-1">
-            <h2 className="min-w-0 truncate text-title-medium font-semibold leading-6">{baru ? "Pengumuman baru" : terpilih?.title ?? draft.title}</h2>
+            <h2 className="min-w-0 truncate text-title-medium font-semibold leading-6">{baru ? "New announcement" : terpilih?.title ?? draft.title}</h2>
             <p className="text-body-medium text-on-surface-variant">
-              {baru ? "Terbit begitu disimpan." : `Terbit ${terpilih ? waktu(terpilih.published_at, data?.time_zone) : ""}`}
+              {baru ? "Publishes when you save it." : `Published ${terpilih ? waktu(terpilih.published_at, data?.time_zone) : ""}`}
             </p>
           </div>
-          <IconButton size="sm" label="Tutup detail" onClick={tutup} disabled={simpan}>
+          <IconButton size="sm" label="Close details" onClick={tutup} disabled={simpan}>
             <X size={16} />
           </IconButton>
         </div>
@@ -338,25 +339,25 @@ export default function PengumumanPage() {
             <DetailSection>
               <div className="flex flex-col gap-4">
                 <TextField
-                  label="Judul"
+                  label="Title"
                   value={draft.title}
                   maxLength={120}
                   counter
                   onChange={(event) => setDraft((kini) => kini && { ...kini, title: event.target.value })}
-                  placeholder="mis. Ruang breakout sudah ditentukan"
+                  placeholder="e.g. Breakout rooms are confirmed"
                 />
                 <TextArea
-                  label="Isi"
+                  label="Body"
                   optional
                   rows={5}
                   maxLength={2000}
                   counter
                   value={draft.body}
                   onChange={(event) => setDraft((kini) => kini && { ...kini, body: event.target.value })}
-                  hint="Enter untuk baris baru. Di lonceng hanya tiga baris pertama yang tampil."
+                  hint="Press Enter for a new line. The bell shows only the first three lines."
                 />
                 <TextField
-                  label="Tautan"
+                  label="Link"
                   optional
                   type="url"
                   inputMode="url"
@@ -366,23 +367,23 @@ export default function PengumumanPage() {
                 />
                 {draft.link_url.trim() ? (
                   <TextField
-                    label="Teks tautan"
+                    label="Link text"
                     optional
                     maxLength={60}
                     value={draft.link_label}
                     onChange={(event) => setDraft((kini) => kini && { ...kini, link_label: event.target.value })}
-                    placeholder="mis. Unduh materi"
-                    hint="Kosong: alamat tautannya yang tampil."
+                    placeholder="e.g. Download the slides"
+                    hint="Leave empty to show the link address."
                   />
                 ) : null}
                 <SelectField
-                  label="Penerima"
+                  label="Send to"
                   value={draft.audience}
                   onChange={(event) => setDraft((kini) => kini && { ...kini, audience: event.target.value as Audience })}
                   hint={
                     draft.audience === "semua"
-                      ? `${data?.recipients.semua ?? 0} akun, termasuk yang pendaftarannya belum disetujui.`
-                      : `${data?.recipients.disetujui ?? 0} akun yang sudah menjadi peserta.`
+                      ? `${plural(data?.recipients.semua ?? 0, "account")}, including registrants not yet approved.`
+                      : `${plural(data?.recipients.disetujui ?? 0, "account")} already approved as participants.`
                   }
                 >
                   <option value="semua">{PENERIMA.semua}</option>
@@ -391,21 +392,21 @@ export default function PengumumanPage() {
                 <Switch
                   checked={draft.pinned}
                   onChange={(pinned) => setDraft((kini) => kini && { ...kini, pinned })}
-                  label="Sematkan"
-                  description="Tampil paling atas sampai sematannya dilepas."
+                  label="Pin to top"
+                  description="Shows first until you unpin it."
                 />
               </div>
             </DetailSection>
 
             {!baru ? (
-              <DetailSection title="Salinan email">
+              <DetailSection title="Email copy">
                 <div className="flex flex-col items-start gap-3">
                   <p className="text-body-medium text-on-surface-variant">
                     {terpilih?.email_summary
-                      ? `Terkirim ke ${terpilih.email_summary.terkirim} akun, ${waktu(terpilih.email_summary.waktu, data?.time_zone)}.${
-                          terpilih.email_summary.gagal > 0 ? ` ${terpilih.email_summary.gagal} gagal.` : ""
+                      ? `Sent to ${plural(terpilih.email_summary.terkirim, "account")}, ${waktu(terpilih.email_summary.waktu, data?.time_zone)}.${
+                          terpilih.email_summary.gagal > 0 ? ` ${terpilih.email_summary.gagal} failed.` : ""
                         }`
-                      : "Belum dikirim lewat email. Peserta tetap melihatnya di lonceng dan Dashboard saya."}
+                      : "Not sent by email yet. Participants still see it in the event page bell and My dashboard."}
                   </p>
                   {data?.email_configured ? (
                     <Button
@@ -416,12 +417,12 @@ export default function PengumumanPage() {
                       disabled={berubah || jumlahPenerima === 0}
                       onClick={() => setKonfirmasiEmail(true)}
                     >
-                      {terpilih?.email_summary ? "Kirim ulang lewat email" : "Kirim lewat email"}
+                      {terpilih?.email_summary ? "Resend by email" : "Send by email"}
                     </Button>
                   ) : (
-                    <p className="text-body-medium text-on-surface-variant">Pengiriman email belum diaktifkan untuk sistem ini.</p>
+                    <p className="text-body-medium text-on-surface-variant">Email sending isn&apos;t set up for this system yet.</p>
                   )}
-                  {berubah ? <p className="text-body-small text-on-surface-variant">Simpan perubahan dulu sebelum mengirim email.</p> : null}
+                  {berubah ? <p className="text-body-small text-on-surface-variant">Save your changes before sending the email.</p> : null}
                 </div>
               </DetailSection>
             ) : null}
@@ -431,14 +432,14 @@ export default function PengumumanPage() {
         <PaneFooter>
           {!baru ? (
             <Button type="button" variant="text" size="sm" icon={<Trash size={16} />} disabled={simpan} onClick={() => setKonfirmasiHapus(true)} className="mr-auto">
-              Hapus
+              Delete
             </Button>
           ) : null}
           <Button type="button" variant="outlined" size="sm" disabled={simpan} onClick={tutup}>
-            Batal
+            Cancel
           </Button>
           <Button type="submit" form="form-pengumuman" size="sm" loading={simpan} disabled={!draft.title.trim() || (!baru && !berubah)}>
-            {baru ? "Terbitkan" : "Simpan perubahan"}
+            {baru ? "Publish" : "Save changes"}
           </Button>
         </PaneFooter>
       </Pane>
@@ -446,21 +447,22 @@ export default function PengumumanPage() {
   }
 
   return (
+    <div lang="en" className="contents">
     <WorkspacePage fill>
       <WorkspaceHeader
         meta={
           data ? (
             <>
-              <span className="tabular-nums">{items.length} pengumuman</span>
+              <span className="tabular-nums">{plural(items.length, "announcement")}</span>
               <MetaSeparator />
-              <span className="tabular-nums">{data.recipients.semua} akun peserta</span>
+              <span className="tabular-nums">{plural(data.recipients.semua, "participant account")}</span>
             </>
           ) : null
         }
         actions={
           data?.ready ? (
             <Button variant={draft ? "outlined" : "filled"} onClick={() => setDraft({ ...KOSONG })} icon={<Plus size={16} weight="bold" />}>
-              Tulis pengumuman
+              Write announcement
             </Button>
           ) : undefined
         }
@@ -469,7 +471,7 @@ export default function PengumumanPage() {
 
       {data && !data.ready ? (
         <Banner tone="warning" icon={<Warning size={18} />}>
-          Fitur pengumuman belum aktif: migrasi database 202610030002 belum dijalankan di Supabase.
+          Announcements aren&apos;t available yet: database migration 202610030002 hasn&apos;t been run in Supabase.
         </Banner>
       ) : data && data.member_enabled === false ? (
         <Banner
@@ -477,19 +479,19 @@ export default function PengumumanPage() {
           icon={<Megaphone size={18} />}
           actions={
             <Link href="/admin/area-peserta" className="text-label-large font-semibold text-primary underline-offset-4 hover:underline">
-              Buka setelan area peserta
+              Open Participant area settings
             </Link>
           }
         >
-          Area peserta acara ini belum dinyalakan, jadi peserta belum bisa masuk dan melihat pengumuman.
+          The Participant area for this event is turned off, so participants can&apos;t sign in to see announcements.
         </Banner>
       ) : null}
 
       {data?.test_mode && data.test_mode !== "off" ? (
         <Banner tone="info" icon={<Info size={18} />}>
           {data.test_mode === "list"
-            ? "Mode uji: salinan email hanya sampai ke alamat di daftar uji (MESSAGING_ALLOWLIST). Akun lain tidak menerima."
-            : "Mode uji: server ini bukan produksi dan daftar uji belum diisi, jadi salinan email tidak dikirim ke siapa pun."}
+            ? "Test mode: email copies only go to addresses on the test list (MESSAGING_ALLOWLIST). Other accounts receive nothing."
+            : "Test mode: this server isn't production and the test list is empty, so no email copies are sent."}
         </Banner>
       ) : null}
 
@@ -502,15 +504,15 @@ export default function PengumumanPage() {
         onClose={() => setKonfirmasiEmail(false)}
         dismissible={!kirim}
         icon={<EnvelopeSimple size={22} />}
-        title={`Kirim ke ${jumlahPenerima} akun?`}
-        description="Email yang sudah terkirim tidak bisa ditarik kembali. Isinya sama dengan yang tampil di Dashboard saya."
+        title={`Send to ${plural(jumlahPenerima, "account")}?`}
+        description="Sent emails can't be recalled. The content matches what participants see in My dashboard."
         actions={
           <>
             <Button variant="outlined" size="sm" disabled={kirim} onClick={() => setKonfirmasiEmail(false)}>
-              Batal
+              Cancel
             </Button>
             <Button size="sm" loading={kirim} onClick={() => void kirimEmail()}>
-              Kirim email
+              Send email
             </Button>
           </>
         }
@@ -530,19 +532,20 @@ export default function PengumumanPage() {
         dismissible={!simpan}
         tone="danger"
         icon={<Trash size={22} />}
-        title="Hapus pengumuman ini?"
-        description="Pengumuman hilang dari lonceng dan Dashboard saya semua peserta. Email yang sudah terkirim tidak ikut terhapus."
+        title="Delete this announcement?"
+        description="It disappears from the event page bell and My dashboard for all participants. Emails already sent stay sent."
         actions={
           <>
             <Button variant="outlined" size="sm" disabled={simpan} onClick={() => setKonfirmasiHapus(false)}>
-              Batal
+              Cancel
             </Button>
             <Button variant="danger" size="sm" loading={simpan} onClick={() => void hapus()}>
-              Hapus
+              Delete
             </Button>
           </>
         }
       />
     </WorkspacePage>
+    </div>
   );
 }

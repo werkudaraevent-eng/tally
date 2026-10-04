@@ -16,11 +16,11 @@ import { LinkTabs } from "@/components/m3";
 export function PesanTabs() {
   return (
     <LinkTabs
-      label="Pesan peserta"
+      label="Messages"
       tabs={[
-        { href: "/admin/pengumuman", label: "Kiriman" },
-        { href: "/admin/pengumuman/lonceng", label: "Pengumuman" },
-        { href: "/admin/pengumuman/otomatis", label: "Email otomatis" },
+        { href: "/admin/pengumuman", label: "Blasts" },
+        { href: "/admin/pengumuman/lonceng", label: "Announcements" },
+        { href: "/admin/pengumuman/otomatis", label: "Automated emails" },
       ]}
     />
   );
