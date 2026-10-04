@@ -30,7 +30,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   const client = getSupabaseServiceClient();
   const { paused_reason } = await invitationBlastState(id);
-  const { data, error: galat } = await client.rpc("resume_invitation_blast" as never, { p_blast: id } as never);
+  const { data, error: galat } = await client.rpc("resume_invitation_blast" as never, { p_event_id: auth.scope.event.id, p_blast: id } as never);
   if (galat) return apiError("INTERNAL_ERROR", 500);
   if ((data as number) < 0) return apiError("MESSAGE_NOT_PAUSED", 409);
   await client.from("audit_logs").insert({

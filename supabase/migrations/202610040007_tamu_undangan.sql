@@ -18,9 +18,27 @@
 --   import_event_invitations       impor coba-dulu / simpan, satu fungsi
 --   enqueue_invitation_recipients  antre baris tamu (indeks unik parsial)
 --   evaluate_invitation_gates      mulai pelan: lepas sisa atau jeda
---   purge_event_invitations        hapus tamu yang tidak mendaftar, 30 hari
---                                  setelah acara (pg_cron harian)
+--   purge_event_invitations        hapus tamu yang tidak menjadi peserta, 30
+--                                  hari setelah acara (pg_cron harian)
+--   duplicate_event                ikut menyalin registration_access dan
+--                                  invitation_auto_approve
+--
+-- Jalankan di luar jam ramai. Bila berhenti karena lock_timeout, jalankan
+-- ulang: seluruh berkas aman dijalankan dua kali.
+--
+-- Bila kode dikembalikan ke versi sebelum fitur ini saat ada kiriman
+-- Invitation berjalan, baris 'ditahan' membuat kirimannya tidak pernah
+-- selesai. Tutup dengan:
+--   update public.message_blast_recipients set status = 'dilewati',
+--          reason_code = 'dibatalkan' where status = 'ditahan';
+--   update public.message_blasts set status = 'dibatalkan'
+--    where kind = 'invitation' and status in ('mengirim', 'dijeda');
 begin;
+
+-- Kunci eksklusif pada events dan tabel kiriman ditahan sampai commit: jangan
+-- antre lama di belakang pembaca lain.
+set local lock_timeout = '5s';
+set local statement_timeout = '60s';
 
 -- Setelan acara ------------------------------------------------------------
 
@@ -109,8 +127,8 @@ create table if not exists public.invitation_rate_events (
   id         bigint generated always as identity primary key,
   event_id   uuid not null references public.events(id) on delete cascade,
   kind       text not null check (kind in ('kirim_ulang', 'token_salah', 'penanda')),
-  email_hash text,
-  ip         text,
+  email_hash text check (email_hash is null or char_length(email_hash) between 20 and 100),
+  ip         text check (ip is null or char_length(ip) <= 45),
   created_at timestamptz not null default now()
 );
 
@@ -119,6 +137,7 @@ create index if not exists invitation_rate_events_lookup_idx
 
 alter table public.invitation_rate_events enable row level security;
 revoke all on table public.invitation_rate_events from public, anon, authenticated;
+revoke all on sequence public.invitation_rate_events_id_seq from public, anon, authenticated;
 
 -- Kiriman ---------------------------------------------------------------------
 
@@ -175,10 +194,21 @@ begin
   insert into public.message_blast_recipients
     (blast_id, event_id, invitation_id, channel, address, name, status, reason_code, reason, chunk)
   select x.blast_id, x.event_id, x.invitation_id, 'email', x.address, coalesce(x.name, ''),
-         x.status, x.reason_code, x.reason, x.chunk
+         coalesce(x.status, 'antre'), x.reason_code, x.reason, x.chunk
     from jsonb_to_recordset(p_rows) as x(
       blast_id uuid, event_id uuid, invitation_id uuid, address text, name text,
       status text, reason_code text, reason text, chunk integer)
+    -- Penahan: hanya undangan acara ini, ke kiriman Invitation acara ini.
+    -- Tamu yang berhenti, memantul, atau sudah mendaftar hanya boleh masuk
+    -- sebagai 'dilewati' (aplikasi yang menulis alasannya).
+    join public.event_invitations i
+      on i.id = x.invitation_id and i.event_id = x.event_id and i.deleted_at is null
+    join public.message_blasts b
+      on b.id = x.blast_id and b.event_id = x.event_id and b.kind = 'invitation'
+   where coalesce(x.status, 'antre') in ('antre', 'ditahan', 'dilewati')
+     and (coalesce(x.status, 'antre') = 'dilewati'
+          or (i.opted_out_at is null and i.email_invalid_at is null
+              and i.registered_at is null and i.rejected_at is null))
   on conflict (blast_id, invitation_id, channel) where invitation_id is not null do nothing;
   get diagnostics v_jumlah = row_count;
   return v_jumlah;
@@ -219,9 +249,12 @@ $$;
 -- Mulai pelan untuk Invitation. Dipanggil di awal setiap putaran pengirim.
 --
 --   * Ada laporan spam di kiriman Invitation yang belum dilepas -> dijeda.
---   * Waktu tahan habis dan sudah ada cukup kabar (20, atau semua gelombang
---     pertama bila lebih sedikit):
---       pantulan keras >= 5% -> dijeda; selain itu sisa dilepas ke antrean.
+--   * Waktu tahan habis (hold_until, dan paling cepat 15 menit setelah
+--     kiriman benar-benar berangkat, supaya kiriman terjadwal tidak dinilai
+--     sebelum mengirim apa pun) dan sudah ada cukup kabar (80% gelombang
+--     pertama, paling sedikit 20, atau semuanya bila lebih sedikit):
+--       pantulan keras >= 5% dan paling sedikit 2 -> dijeda; selain itu sisa
+--       dilepas ke antrean.
 --   * 45 menit setelah waktu tahan habis kabarnya belum cukup -> dijeda,
 --     panitia yang memutuskan (webhook mungkin belum terpasang).
 --
@@ -241,9 +274,10 @@ declare
   v_spam integer;
   v_perlu integer;
   v_alasan text;
+  v_tahan timestamptz;
 begin
   for b in
-    select id, hold_until from public.message_blasts
+    select id, hold_until, sent_at from public.message_blasts
      where kind = 'invitation' and status = 'mengirim' and gate_cleared_at is null
      for update skip locked
   loop
@@ -256,16 +290,16 @@ begin
      where blast_id = b.id;
 
     v_alasan := null;
+    v_tahan := greatest(coalesce(b.hold_until, '-infinity'::timestamptz),
+                        coalesce(b.sent_at + interval '15 minutes', '-infinity'::timestamptz));
     if v_spam > 0 then
       v_alasan := 'Ada penerima yang menandai undangan sebagai spam. Periksa daftar dan isi sebelum melanjutkan.';
-    elsif b.hold_until is null then
-      continue;
-    elsif b.hold_until > now() then
+    elsif v_tahan > now() then
       continue;
     else
-      v_perlu := least(20, v_gelombang);
+      v_perlu := least(v_gelombang, greatest(20, ceil(0.8 * v_gelombang)::integer));
       if v_kabar >= v_perlu and v_kabar > 0 then
-        if v_pantul::numeric / v_kabar >= 0.05 then
+        if v_pantul >= 2 and v_pantul::numeric / v_kabar >= 0.05 then
           v_alasan := format('%s dari %s undangan pertama memantul. Periksa sumber daftar sebelum melanjutkan.', v_pantul, v_kabar);
         else
           update public.message_blast_recipients
@@ -276,7 +310,7 @@ begin
            where id = b.id;
           continue;
         end if;
-      elsif b.hold_until < now() - interval '45 minutes' then
+      elsif v_tahan < now() - interval '45 minutes' then
         v_alasan := 'Kabar pengiriman gelombang pertama belum cukup untuk menilai daftar ini. Periksa laporan, lalu lanjutkan bila aman.';
       else
         continue;
@@ -294,7 +328,8 @@ end;
 $$;
 
 -- Lanjutkan kiriman yang dijeda (tombol admin).
-create or replace function public.resume_invitation_blast(p_blast uuid)
+drop function if exists public.resume_invitation_blast(uuid);
+create or replace function public.resume_invitation_blast(p_event_id uuid, p_blast uuid)
 returns integer
 language plpgsql
 security definer
@@ -306,7 +341,7 @@ begin
   update public.message_blasts
      set status = 'mengirim', paused_reason = null, hold_until = null,
          gate_cleared_at = now(), updated_at = now()
-   where id = p_blast and status = 'dijeda';
+   where id = p_blast and event_id = p_event_id and status = 'dijeda';
   if not found then
     return -1;
   end if;
@@ -321,7 +356,7 @@ $$;
 revoke all on function public.enqueue_invitation_recipients(jsonb) from public, anon, authenticated;
 revoke all on function public.sweep_message_recipients() from public, anon, authenticated;
 revoke all on function public.evaluate_invitation_gates() from public, anon, authenticated;
-revoke all on function public.resume_invitation_blast(uuid) from public, anon, authenticated;
+revoke all on function public.resume_invitation_blast(uuid, uuid) from public, anon, authenticated;
 
 -- Pendaftaran -------------------------------------------------------------------
 
@@ -424,7 +459,8 @@ begin
     if inv.id is null or inv.registered_at is not null or inv.rejected_at is not null then
       raise exception 'INVITATION_USED';
     end if;
-    v_cocok := inv.email_norm is not null and inv.email_norm = v_email;
+    -- Tidak pernah NULL: email kosong lewat tautan = email lain -> Menunggu.
+    v_cocok := inv.email_norm is not null and v_email is not null and inv.email_norm = v_email;
     v_setuju := v_cocok and ev.invitation_auto_approve;
   elsif ev.registration_access = 'undangan' then
     raise exception 'REGISTRATION_INVITE_ONLY';
@@ -461,7 +497,7 @@ begin
        and registration_id is null;
   end if;
 
-  if not v_setuju then
+  if not coalesce(v_setuju, false) then
     insert into public.audit_logs (event_id, action, payload)
     values (p_event_id, 'registration_submitted',
             jsonb_build_object('registration_id', reg_id, 'auto_approved', false,
@@ -505,6 +541,11 @@ grant execute on function public.submit_event_registration(uuid, text, text, tex
 
 -- Impor ---------------------------------------------------------------------------
 
+-- Pencocokan "sudah jadi peserta" di impor memakai lower(btrim(email)); indeks
+-- lama (event_id, lower(email)) tidak terpakai untuk ekspresi itu.
+create index if not exists participants_event_email_norm_idx
+  on public.participants (event_id, lower(btrim(email))) where source_removed_at is null;
+
 -- Satu fungsi untuk coba dulu dan simpan: p_dry_run menjalankan semua tulisan
 -- lalu membatalkannya, jadi hitungan pratinjau PERSIS hitungan penyimpanan.
 --
@@ -535,6 +576,8 @@ declare
   r record;
   v_ada public.event_invitations;
   v_tekan text;
+  v_email text;
+  v_nama text;
   v_baris integer := 0;
   v_baru integer := 0;
   v_gabung integer := 0;
@@ -556,46 +599,54 @@ begin
        order by x."row"
     loop
       v_baris := v_baris + 1;
+      v_email := nullif(lower(btrim(r.email)), '');
+      v_nama := left(btrim(coalesce(r.name, '')), 120);
+      if v_nama = '' then
+        raise exception 'IMPORT_NAME_REQUIRED';
+      end if;
+      if v_email is not null and coalesce(char_length(r.email_hash), 0) < 20 then
+        raise exception 'IMPORT_HASH_REQUIRED';
+      end if;
 
-      if r.email is null then
+      if v_email is null then
         v_tanpa_email := v_tanpa_email + 1;
         if exists (
           select 1 from public.event_invitations
            where event_id = p_event_id and deleted_at is null and email_norm is null
-             and lower(btrim(name)) = lower(btrim(r.name))
+             and lower(btrim(name)) = lower(v_nama)
         ) then
           v_mirip := v_mirip + 1;
           if jsonb_array_length(v_contoh_mirip) < 20 then
-            v_contoh_mirip := v_contoh_mirip || jsonb_build_object('row', r."row", 'name', r.name);
+            v_contoh_mirip := v_contoh_mirip || jsonb_build_object('row', r."row", 'name', v_nama);
           end if;
         end if;
         insert into public.event_invitations
           (event_id, name, company, title, phone, is_test, attested_by, attested_at, created_by)
-        values (p_event_id, btrim(r.name), nullif(btrim(r.company), ''), nullif(btrim(r.title), ''),
-                nullif(btrim(r.phone), ''), p_test, p_actor, now(), p_actor);
+        values (p_event_id, v_nama, nullif(left(btrim(r.company), 160), ''), nullif(left(btrim(r.title), 160), ''),
+                nullif(left(btrim(r.phone), 30), ''), p_test, p_actor, now(), p_actor);
         continue;
       end if;
 
       if exists (
         select 1 from public.participants
          where event_id = p_event_id and source_removed_at is null
-           and lower(btrim(email)) = r.email
+           and lower(btrim(email)) = v_email
       ) then
         v_peserta := v_peserta + 1;
         if jsonb_array_length(v_contoh_peserta) < 20 then
-          v_contoh_peserta := v_contoh_peserta || jsonb_build_object('row', r."row", 'name', r.name, 'email', r.email);
+          v_contoh_peserta := v_contoh_peserta || jsonb_build_object('row', r."row", 'name', v_nama, 'email', v_email);
         end if;
         continue;
       end if;
 
       select * into v_ada from public.event_invitations
-       where event_id = p_event_id and email_norm = r.email and deleted_at is null;
+       where event_id = p_event_id and email_norm = v_email and deleted_at is null;
       if v_ada.id is not null then
         v_gabung := v_gabung + 1;
         update public.event_invitations
-           set company = coalesce(company, nullif(btrim(r.company), '')),
-               title = coalesce(title, nullif(btrim(r.title), '')),
-               phone = coalesce(phone, nullif(btrim(r.phone), '')),
+           set company = coalesce(company, nullif(left(btrim(r.company), 160), '')),
+               title = coalesce(title, nullif(left(btrim(r.title), 160), '')),
+               phone = coalesce(phone, nullif(left(btrim(r.phone), 30), '')),
                updated_at = now()
          where id = v_ada.id;
         continue;
@@ -610,8 +661,8 @@ begin
       insert into public.event_invitations
         (event_id, name, email, company, title, phone, opted_out_at, email_invalid_at,
          is_test, attested_by, attested_at, created_by)
-      values (p_event_id, btrim(r.name), r.email, nullif(btrim(r.company), ''), nullif(btrim(r.title), ''),
-              nullif(btrim(r.phone), ''),
+      values (p_event_id, v_nama, v_email, nullif(left(btrim(r.company), 160), ''), nullif(left(btrim(r.title), 160), ''),
+              nullif(left(btrim(r.phone), 30), ''),
               case when v_tekan in ('berhenti', 'spam') then now() end,
               case when v_tekan = 'memantul' then now() end,
               p_test, p_actor, now(), p_actor);
@@ -654,9 +705,11 @@ grant execute on function public.import_event_invitations(uuid, jsonb, boolean, 
 
 -- Penghapusan data (UU PDP 27/2022) ------------------------------------------------
 
--- Tamu yang tidak pernah mendaftar dihapus 30 hari setelah acara. Nama dan
--- alamat di baris kiriman yang menunjuk ke mereka ikut dikosongkan. Penekanan
--- (hash) tetap.
+-- Tamu yang tidak menjadi peserta (tidak pernah mendaftar, pendaftarannya
+-- dihapus, atau ditolak) dihapus 30 hari setelah acara. Acara tanpa tanggal
+-- memakai tanggal arsip, atau setahun setelah dibuat. Nama, alamat, dan
+-- alasan (bisa memuat alamat dari pesan galat penyedia) di baris kiriman yang
+-- menunjuk ke mereka ikut dikosongkan. Penekanan (hash) tetap.
 create or replace function public.purge_event_invitations()
 returns integer
 language plpgsql
@@ -667,18 +720,20 @@ declare
   v_jumlah integer;
 begin
   update public.message_blast_recipients r
-     set address = null, name = ''
+     set address = null, name = '', reason = null
     from public.event_invitations i
     join public.events e on e.id = i.event_id
    where r.invitation_id = i.id
-     and i.registered_at is null
-     and coalesce(e.end_date, e.event_date) < current_date - 30;
+     and i.participant_id is null
+     and (i.registration_id is null or i.rejected_at is not null)
+     and coalesce(e.end_date, e.event_date, e.archived_at::date, e.created_at::date + 365) < current_date - 30;
 
   delete from public.event_invitations i
    using public.events e
    where e.id = i.event_id
-     and i.registered_at is null
-     and coalesce(e.end_date, e.event_date) < current_date - 30;
+     and i.participant_id is null
+     and (i.registration_id is null or i.rejected_at is not null)
+     and coalesce(e.end_date, e.event_date, e.archived_at::date, e.created_at::date + 365) < current_date - 30;
   get diagnostics v_jumlah = row_count;
   return v_jumlah;
 end;
@@ -698,15 +753,48 @@ $$;
 
 revoke all on function public.purge_invitation_rate_events() from public, anon, authenticated;
 
+-- Salinan acara -------------------------------------------------------------------
+
+-- Salinan acara "Hanya tamu undangan" tidak boleh terbuka untuk siapa saja.
+-- Disisipkan ke `duplicate_event` lewat penggantian teks, pola yang sama dengan
+-- 202608200002 dan 202609300005. Tamu undangannya sendiri tidak disalin.
+do $$
+declare
+  sumber_def text;
+  jangkar text := 'returning * into baru;';
+begin
+  select pg_get_functiondef(p.oid) into sumber_def
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.proname = 'duplicate_event'
+  limit 1;
+
+  if sumber_def is null then
+    raise notice 'duplicate_event tidak ditemukan; lewati penyalinan setelan undangan.';
+    return;
+  end if;
+
+  if position('registration_access' in sumber_def) > 0 then
+    return;
+  end if;
+
+  if position(jangkar in sumber_def) = 0
+     or position(jangkar in substr(sumber_def, position(jangkar in sumber_def) + 1)) > 0 then
+    raise exception 'duplicate_event berubah bentuk: titik sisip setelan undangan tidak ditemukan atau ganda';
+  end if;
+
+  sumber_def := replace(sumber_def, jangkar,
+    jangkar || E'\n\n  update public.events'
+    || E'\n     set registration_access = sumber.registration_access,'
+    || E'\n         invitation_auto_approve = sumber.invitation_auto_approve'
+    || E'\n   where id = baru.id'
+    || E'\n  returning * into baru;');
+  execute sumber_def;
+end $$;
+
 commit;
 
 -- Di luar transaksi: job harian pukul 03.15 UTC (10.15 WIB). Aman dijalankan
 -- ulang; cron.schedule dengan nama yang sama menimpa jadwal lama.
-select cron.schedule(
-  'tally-undangan-bersih',
-  '15 3 * * *',
-  $job$
-    select public.purge_event_invitations();
-    select public.purge_invitation_rate_events();
-  $job$
-);
+-- Dua job terpisah: galat yang satu tidak menahan yang lain.
+select cron.schedule('tally-undangan-bersih', '15 3 * * *', $job$select public.purge_event_invitations();$job$);
+select cron.schedule('tally-undangan-jejak', '20 3 * * *', $job$select public.purge_invitation_rate_events();$job$);

@@ -67,7 +67,11 @@ export function verifyInviteUnsubscribe(eventId: string, invitationId: string, s
 /**
  * Hash email berpepper untuk penekanan per acara dan batas laju. Tidak bisa
  * dibalik tanpa rahasianya, dan cukup untuk mencocokkan alamat yang sama.
+ *
+ * Diawali versi kunci ("v1:"). INVITE_LINK_SECRET tidak boleh diganti tanpa
+ * menghitung ulang hash: penekanan lama (berhenti, memantul, spam) akan
+ * diam-diam tidak cocok lagi, dan semua tautan pribadi ikut mati.
  */
 export function emailHash(email: string): string {
-  return hmac(`tekan-email:v1:${email}`);
+  return `v1:${hmac(`tekan-email:v1:${email}`)}`;
 }
