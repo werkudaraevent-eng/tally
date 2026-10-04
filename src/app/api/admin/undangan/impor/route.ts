@@ -96,7 +96,7 @@ export async function POST(request: Request) {
       ditolak.push({ row: nomor, name: nama, email: isi.email ?? "", reason: ALASAN[email.reason] });
       continue;
     }
-    if (isContohTemplat(nama, email.email)) {
+    if (isContohTemplat({ name: nama, email: email.email, company: isi.company, title: isi.title, phone: isi.phone })) {
       ditolak.push({ row: nomor, name: nama, email: isi.email ?? "", reason: ALASAN.contoh });
       continue;
     }

@@ -114,7 +114,10 @@ export function Dialog({
 		const overflow = body.style.overflow;
 		body.style.overflow = "hidden";
 
-		const focusables = () => Array.from(element?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
+		// Hanya yang tampil: panel yang disembunyikan (hidden) tetap terpasang, dan
+		// tanpa saringan ini perangkap fokus tidak pernah berputar.
+		const focusables = () =>
+			Array.from(element?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).filter((el) => el.getClientRects().length > 0);
 
 		// Ditunda satu tik supaya `autoFocus` milik isi dialog menang bila ada.
 		const timer = window.setTimeout(() => {
