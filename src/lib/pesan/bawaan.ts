@@ -8,17 +8,17 @@
 export type BlastKind = "undangan" | "info" | "invitation";
 
 export const FIELDS = [
-  { key: "nama", label: "Nama" },
-  { key: "perusahaan", label: "Perusahaan" },
-  { key: "acara", label: "Nama acara" },
-  { key: "tanggal", label: "Tanggal acara" },
+  { key: "nama", label: "Name" },
+  { key: "perusahaan", label: "Organisation" },
+  { key: "acara", label: "Event name" },
+  { key: "tanggal", label: "Event date" },
 ] as const;
 
 export type FieldKey = (typeof FIELDS)[number]["key"];
 
 export const DEFAULT_CONTENT: Record<BlastKind, { title: string; subject: string; body: string }> = {
   undangan: {
-    title: "Undangan masuk",
+    title: "Sign-in link",
     subject: "Undangan: {acara}",
     body: [
       "Halo {nama},",
@@ -29,7 +29,7 @@ export const DEFAULT_CONTENT: Record<BlastKind, { title: string; subject: string
     ].join("\n"),
   },
   invitation: {
-    title: "Undangan acara",
+    title: "Event invitation",
     subject: "Anda diundang ke {acara}",
     body: [
       "Halo {nama},",
@@ -40,7 +40,7 @@ export const DEFAULT_CONTENT: Record<BlastKind, { title: string; subject: string
     ].join("\n"),
   },
   info: {
-    title: "Kabar untuk peserta",
+    title: "Event update",
     subject: "{acara}: ",
     body: "Halo {nama},\n\n",
   },
@@ -48,7 +48,7 @@ export const DEFAULT_CONTENT: Record<BlastKind, { title: string; subject: string
 
 /** Isi bawaan "Ingatkan yang belum daftar": tamu yang sudah diundang tapi belum mendaftar. */
 export const INVITATION_REMINDER = {
-  title: "Pengingat undangan",
+  title: "Invitation reminder",
   subject: "Pengingat: undangan Anda ke {acara}",
   body: [
     "Halo {nama},",

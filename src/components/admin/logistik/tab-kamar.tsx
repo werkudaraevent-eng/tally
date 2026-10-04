@@ -6,12 +6,12 @@ import {
   Banner, Button, ChipMenu, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, Pane, PaneBody, PaneFooter,
   PaneHeader, SelectField, StatusChip, StatusDot, Switch, TextArea, TextField, EMPTY_VALUE,
 } from "@/components/m3";
-import { formatEventDateTime } from "@/lib/datetime";
 import { kunciGender, type Hotel, type Kamar, type LogistikPeserta } from "@/lib/logistik/types";
 import { cx } from "@/lib/m3/cx";
+import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import {
-  angkaAtauNull, BarisKelompok, BarisOrang, dariInputWaktu, keInputWaktu, KepalaDetail, KepalaKolom, KolomCari, PilihPeserta, type TabProps,
+  angkaAtauNull, BarisKelompok, BarisOrang, dariInputWaktu, formatWaktu, keInputWaktu, KepalaDetail, KepalaKolom, KolomCari, PilihPeserta, type TabProps,
 } from "./bersama";
 
 /**
@@ -114,7 +114,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
   // sekali saat menyiapkan acara, lalu hanya perlu terlihat, bukan menonjol.
   const tombolAturan = (
     <Button variant="text" size="sm" className="ml-auto" icon={<StatusDot tone={aturanTerpasang ? "success" : "warning"} />} onClick={() => setAturan(true)}>
-      {!wajibSama ? "Aturan: boleh campuran" : kunciField ? `Aturan: sesama ${namaField}` : "Aturan belum lengkap"}
+      {!wajibSama ? "Rule: mixed rooms allowed" : kunciField ? `Rule: same ${namaField}` : "Room rules incomplete"}
     </Button>
   );
 
@@ -122,7 +122,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     <PaneHeader className="flex-wrap gap-2 px-3 py-2.5">
       {data.rooms.length > 0 ? (
         <>
-          <KolomCari className="max-w-80" label="Cari kamar atau penghuni" placeholder="Cari nomor kamar atau nama penghuni" value={cari} onChange={setCari} />
+          <KolomCari className="max-w-80" label="Search rooms or occupants" placeholder="Search room number or occupant name" value={cari} onChange={setCari} />
           {data.hotels.length > 1 ? (
             <ChipMenu
               label="Hotel"
@@ -133,13 +133,13 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
             />
           ) : null}
           <ChipMenu
-            label="Keadaan"
+            label="Status"
             multiple
             options={[
-              { value: "kosong", label: "Kosong" },
-              { value: "ada-tempat", label: "Masih ada tempat" },
-              { value: "penuh", label: "Penuh" },
-              { value: "perlu-dicek", label: "Perlu dicek", count: perluDicek },
+              { value: "kosong", label: "Empty" },
+              { value: "ada-tempat", label: "Space left" },
+              { value: "penuh", label: "Full" },
+              { value: "perlu-dicek", label: "Needs checking", count: perluDicek },
             ]}
             selected={saringKeadaan}
             onChange={setSaringKeadaan}
@@ -151,26 +151,26 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
   );
 
   const daftar = (
-    <Pane aria-label="Daftar kamar">
+    <Pane aria-label="Rooms">
       {saringan}
       <PaneBody>
         {data.hotels.length === 0 ? (
           <EmptyState
             plain
             icon={<Buildings size={40} />}
-            title="Belum ada hotel"
-            description="Kamar selalu milik satu hotel. Mulai dari Hotel baru di kanan atas, lalu tambahkan kamar-kamarnya."
+            title="No hotels yet"
+            description="Every room belongs to a hotel. Start with Add hotel at the top right, then add its rooms."
           />
         ) : (
           <>
-            <KepalaKolom kolom={[["Kamar", "w-24"], ["Penghuni", "min-w-0 flex-1"], ["Tipe", "w-28 max-sm:hidden"], ["Isi", "w-16 text-right"]]} />
+            <KepalaKolom kolom={[["Room", "w-24"], ["Occupants", "min-w-0 flex-1"], ["Type", "w-28 max-sm:hidden"], ["Filled", "w-16 text-right"]]} />
             {menyaring && kamarTampil.length === 0 ? (
               <EmptyState
                 plain
                 icon={<MagnifyingGlass size={40} />}
-                title="Tidak ada kamar yang cocok"
-                description="Ubah kata pencarian atau lepaskan saringan untuk melihat semua kamar."
-                action={<Button variant="outlined" onClick={() => { setCari(""); setSaringHotel([]); setSaringKeadaan([]); }}>Lepas saringan</Button>}
+                title="No matching rooms"
+                description="Change your search or clear the filters to see every room."
+                action={<Button variant="outlined" onClick={() => { setCari(""); setSaringHotel([]); setSaringKeadaan([]); }}>Clear filters</Button>}
               />
             ) : data.hotels.filter((hotel) => saringHotel.length === 0 || saringHotel.includes(String(hotel.id))).map((hotel) => {
               const kamarHotel = kamarTampil.filter((kamar) => kamar.hotel_id === hotel.id).sort(urutKamar);
@@ -187,12 +187,12 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
                   >
                     <Buildings size={16} className="shrink-0 text-on-surface-variant" aria-hidden />
                     <span className="min-w-0 flex-1 truncate text-on-surface">{hotel.name}</span>
-                    <span className="shrink-0 tabular-nums text-on-surface-variant">{semuaKamar.length} kamar · {terisi}/{tempat} tempat</span>
+                    <span className="shrink-0 tabular-nums text-on-surface-variant">{plural(semuaKamar.length, "room")} · {terisi}/{tempat} places</span>
                   </BarisKelompok>
                   {semuaKamar.length === 0 ? (
                     <div className="flex flex-wrap items-center gap-3 border-b border-outline-variant px-4 py-3 text-body-medium text-on-surface-variant">
-                      <span className="min-w-0 flex-1">Belum ada kamar di hotel ini.</span>
-                      <Button variant="outlined" size="sm" onClick={() => setDialogKamar({ mode: "baru", hotelId: hotel.id })}>Tambah kamar</Button>
+                      <span className="min-w-0 flex-1">No rooms in this hotel yet.</span>
+                      <Button variant="outlined" size="sm" onClick={() => setDialogKamar({ mode: "baru", hotelId: hotel.id })}>Add room</Button>
                     </div>
                   ) : kamarHotel.map((kamar) => {
                     const { isi, lebih, campuran } = masalah(kamar);
@@ -210,10 +210,10 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
                       >
                         <span className="w-24 shrink-0 truncate tabular-nums text-on-surface">{kamar.room_number}</span>
                         <span className="flex min-w-0 flex-1 items-center gap-2">
-                          {lebih ? <StatusChip dot tone="error">Melebihi kapasitas</StatusChip> : null}
-                          {campuran ? <StatusChip dot tone="warning">Jenis kelamin campuran</StatusChip> : null}
+                          {lebih ? <StatusChip dot tone="error">Over capacity</StatusChip> : null}
+                          {campuran ? <StatusChip dot tone="warning">Mixed gender</StatusChip> : null}
                           <span className="min-w-0 truncate text-on-surface-variant">
-                            {isi.length > 0 ? isi.map((orang) => orang.name).join(", ") : "Kosong"}
+                            {isi.length > 0 ? isi.map((orang) => orang.name).join(", ") : "Empty"}
                           </span>
                         </span>
                         <span className="w-28 shrink-0 truncate text-on-surface-variant max-sm:hidden">{kamar.room_type ?? EMPTY_VALUE}</span>
@@ -242,13 +242,13 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     const hotel = hotelById.get(kamarDipilih.hotel_id);
     const sisa = kamarDipilih.capacity - isi.length;
     detail = (
-      <Pane as="aside" aria-label={`Detail kamar ${kamarDipilih.room_number}`}>
+      <Pane as="aside" aria-label={`Room ${kamarDipilih.room_number} details`}>
         <KepalaDetail
-          nama={`Kamar ${kamarDipilih.room_number}`}
-          chip={lebih ? { tone: "error", teks: "Melebihi kapasitas" } : campuran ? { tone: "warning", teks: "Campuran" } : null}
-          sub={[hotel?.name, kamarDipilih.room_type, kamarDipilih.floor ? `Lantai ${kamarDipilih.floor}` : null].filter(Boolean).join(" · ")}
+          nama={`Room ${kamarDipilih.room_number}`}
+          chip={lebih ? { tone: "error", teks: "Over capacity" } : campuran ? { tone: "warning", teks: "Mixed gender" } : null}
+          sub={[hotel?.name, kamarDipilih.room_type, kamarDipilih.floor ? `Floor ${kamarDipilih.floor}` : null].filter(Boolean).join(" · ")}
           angka={`${isi.length}/${kamarDipilih.capacity}`}
-          keterangan="tempat terisi"
+          keterangan="places filled"
           onClose={() => setPilihan(null)}
         />
         <PaneBody>
@@ -256,23 +256,23 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
             <div className="px-5 pt-4">
               <Banner tone={lebih ? "error" : "warning"} icon={<Warning size={18} />}>
                 {lebih
-                  ? `Penghuninya ${isi.length - kamarDipilih.capacity} orang lebih banyak dari kapasitas. Keluarkan seseorang atau naikkan kapasitasnya.`
-                  : "Penghuninya berbeda jenis kelamin, biasanya karena jawabannya diubah setelah ditempatkan. Pindahkan salah satunya."}
+                  ? `This room has ${plural(isi.length - kamarDipilih.capacity, "person", "people")} more than its capacity. Remove someone or raise the capacity.`
+                  : "The occupants have different genders, usually because an answer changed after they were assigned. Move one of them."}
               </Banner>
             </div>
           ) : null}
-          <DetailSection title="Penghuni">
+          <DetailSection title="Occupants">
             {isi.length === 0 ? (
-              <p className="text-body-medium text-on-surface-variant">Belum ada penghuni. Tambahkan lewat tombol di bawah.</p>
+              <p className="text-body-medium text-on-surface-variant">No occupants yet. Add them with the button below.</p>
             ) : (
               <ul className="flex flex-col">
                 {isi.map((orang) => (
                   <BarisOrang
                     key={orang.id}
                     orang={orang}
-                    keterangan={kunciField ? orang.gender ?? "Jenis kelamin kosong" : null}
+                    keterangan={kunciField ? orang.gender ?? "No gender" : null}
                     aksi={
-                      <IconButton simpan size="sm" label={`Keluarkan ${orang.name} dari kamar`} disabled={busy} onClick={() => void keluarkan(orang)}>
+                      <IconButton simpan size="sm" label={`Remove ${orang.name} from the room`} disabled={busy} onClick={() => void keluarkan(orang)}>
                         <SignOut size={16} />
                       </IconButton>
                     }
@@ -282,18 +282,18 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
             )}
           </DetailSection>
           {kamarDipilih.notes ? (
-            <DetailSection title="Catatan panitia">
+            <DetailSection title="Staff notes">
               <p className="whitespace-pre-line text-body-medium text-on-surface">{kamarDipilih.notes}</p>
-              <p className="text-body-small text-on-surface-variant">Tidak pernah tampil ke peserta.</p>
+              <p className="text-body-small text-on-surface-variant">Never shown to participants.</p>
             </DetailSection>
           ) : null}
         </PaneBody>
-        <PaneFooter note={sisa > 0 ? `${sisa} tempat tersisa` : "Kamar penuh"}>
+        <PaneFooter note={sisa > 0 ? `${plural(sisa, "place")} left` : "Room full"}>
           {isi.length === 0 ? (
-            <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapus({ jenis: "kamar", kamar: kamarDipilih })}>Hapus</Button>
+            <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapus({ jenis: "kamar", kamar: kamarDipilih })}>Delete</Button>
           ) : null}
-          <Button variant="outlined" size="sm" onClick={() => setDialogKamar({ mode: "ubah", kamar: kamarDipilih })}>Ubah</Button>
-          <Button simpan size="sm" disabled={busy || sisa <= 0} onClick={() => setTambahPenghuni(true)}>Tambah penghuni</Button>
+          <Button variant="outlined" size="sm" onClick={() => setDialogKamar({ mode: "ubah", kamar: kamarDipilih })}>Edit</Button>
+          <Button simpan size="sm" disabled={busy || sisa <= 0} onClick={() => setTambahPenghuni(true)}>Add occupants</Button>
         </PaneFooter>
       </Pane>
     );
@@ -302,33 +302,33 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     const terisi = semuaKamar.reduce((jumlah, kamar) => jumlah + (penghuniKamar.get(kamar.id)?.length ?? 0), 0);
     const tempat = semuaKamar.reduce((jumlah, kamar) => jumlah + kamar.capacity, 0);
     detail = (
-      <Pane as="aside" aria-label={`Detail hotel ${hotelDipilih.name}`}>
+      <Pane as="aside" aria-label={`Hotel ${hotelDipilih.name} details`}>
         <KepalaDetail
           nama={hotelDipilih.name}
-          sub={`${semuaKamar.length} kamar`}
+          sub={plural(semuaKamar.length, "room")}
           angka={`${terisi}/${tempat}`}
-          keterangan="tempat terisi"
+          keterangan="places filled"
           onClose={() => setPilihan(null)}
         />
         <PaneBody>
-          <DetailSection title="Yang dilihat peserta">
+          <DetailSection title="What participants see">
             <dl className="flex flex-col gap-2">
-              <KeyValue label="Alamat">{hotelDipilih.address ?? EMPTY_VALUE}</KeyValue>
-              <KeyValue label="Peta">
-                {hotelDipilih.map_url ? <a href={hotelDipilih.map_url} target="_blank" rel="noreferrer" className="text-primary underline">Buka peta</a> : EMPTY_VALUE}
+              <KeyValue label="Address">{hotelDipilih.address ?? EMPTY_VALUE}</KeyValue>
+              <KeyValue label="Map">
+                {hotelDipilih.map_url ? <a href={hotelDipilih.map_url} target="_blank" rel="noreferrer" className="text-primary underline">Open map</a> : EMPTY_VALUE}
               </KeyValue>
-              <KeyValue label="Check-in">{hotelDipilih.check_in_at ? `${formatEventDateTime(hotelDipilih.check_in_at, zone)} ${abbr}` : EMPTY_VALUE}</KeyValue>
-              <KeyValue label="Check-out">{hotelDipilih.check_out_at ? `${formatEventDateTime(hotelDipilih.check_out_at, zone)} ${abbr}` : EMPTY_VALUE}</KeyValue>
+              <KeyValue label="Hotel check-in">{hotelDipilih.check_in_at ? `${formatWaktu(hotelDipilih.check_in_at, zone)} ${abbr}` : EMPTY_VALUE}</KeyValue>
+              <KeyValue label="Hotel check-out">{hotelDipilih.check_out_at ? `${formatWaktu(hotelDipilih.check_out_at, zone)} ${abbr}` : EMPTY_VALUE}</KeyValue>
             </dl>
-            <p className="text-body-small text-on-surface-variant">Tanggal di sini berlaku untuk semua kamar hotel ini.</p>
+            <p className="text-body-small text-on-surface-variant">These times apply to every room in this hotel.</p>
           </DetailSection>
         </PaneBody>
-        <PaneFooter note={terisi > 0 ? "Hotel berpenghuni tidak bisa dihapus." : undefined}>
+        <PaneFooter note={terisi > 0 ? "A hotel with occupants cannot be deleted." : undefined}>
           {terisi === 0 ? (
-            <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapus({ jenis: "hotel", hotel: hotelDipilih })}>Hapus</Button>
+            <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapus({ jenis: "hotel", hotel: hotelDipilih })}>Delete</Button>
           ) : null}
-          <Button variant="outlined" size="sm" onClick={() => setDialogHotel({ mode: "ubah", hotel: hotelDipilih })}>Ubah</Button>
-          <Button simpan size="sm" onClick={() => setDialogKamar({ mode: "baru", hotelId: hotelDipilih.id })}>Tambah kamar</Button>
+          <Button variant="outlined" size="sm" onClick={() => setDialogHotel({ mode: "ubah", hotel: hotelDipilih })}>Edit</Button>
+          <Button simpan size="sm" onClick={() => setDialogKamar({ mode: "baru", hotelId: hotelDipilih.id })}>Add room</Button>
         </PaneFooter>
       </Pane>
     );
@@ -346,28 +346,28 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
         <PilihPeserta
           open={tambahPenghuni}
           onClose={() => setTambahPenghuni(false)}
-          title={`Tambah penghuni kamar ${kamarDipilih.room_number}`}
+          title={`Add occupants to room ${kamarDipilih.room_number}`}
           description={wajibSama && kunciField
-            ? `Hanya peserta dengan jenis kelamin yang sama yang bisa dipilih${genderKamar ? "" : "; kamar kosong mengikuti orang pertama yang dipilih"}.`
+            ? `Only participants of the same gender can be chosen${genderKamar ? "" : "; an empty room follows the first person chosen"}.`
             : undefined}
           peserta={data.participants}
           utama={(orang) => !kamarPeserta.has(orang.id)}
-          labelUtama="Peserta yang belum dapat kamar."
+          labelUtama="Participants without a room."
           keterangan={(orang) => {
             const kamarLama = kamarPeserta.get(orang.id);
             const lama = kamarLama !== undefined ? kamarById.get(kamarLama) : undefined;
-            return [kunciField ? orang.gender ?? "Jenis kelamin kosong" : null, lama ? `Sekarang di kamar ${lama.room_number}` : null]
+            return [kunciField ? orang.gender ?? "No gender" : null, lama ? `Now in room ${lama.room_number}` : null]
               .filter(Boolean).join(" · ") || null;
           }}
           alasanTolak={(orang) => {
-            if (kamarPeserta.get(orang.id) === kamarDipilih.id) return "Sudah di kamar ini";
+            if (kamarPeserta.get(orang.id) === kamarDipilih.id) return "Already in this room";
             if (!wajibSama || !kunciField) return null;
-            if (!orang.gender) return "Jenis kelamin belum diisi";
-            if (genderKamar && kunciGender(orang.gender) !== genderKamar) return "Jenis kelamin berbeda";
+            if (!orang.gender) return "Gender not filled in";
+            if (genderKamar && kunciGender(orang.gender) !== genderKamar) return "Different gender";
             return null;
           }}
           batas={Math.max(kamarDipilih.capacity - penghuniSekarang.length, 0)}
-          tombol="Masukkan ke kamar"
+          tombol="Add to room"
           busy={busy}
           onSubmit={async (ids) => Boolean(await kirim("/api/admin/logistik/penghuni", "POST", { room_id: kamarDipilih.id, participant_ids: ids }))}
         />
@@ -410,14 +410,14 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
         onClose={() => setHapus(null)}
         dismissible={!busy}
         tone="danger"
-        title={hapus?.jenis === "kamar" ? `Hapus kamar ${hapus.kamar.room_number}?` : `Hapus hotel ${hapus?.jenis === "hotel" ? hapus.hotel.name : ""}?`}
+        title={hapus?.jenis === "kamar" ? `Delete room ${hapus.kamar.room_number}?` : `Delete hotel ${hapus?.jenis === "hotel" ? hapus.hotel.name : ""}?`}
         description={hapus?.jenis === "hotel"
-          ? "Semua kamar kosong di hotel ini ikut terhapus. Penghapusan tidak bisa dibatalkan."
-          : "Kamar ini kosong, jadi tidak ada penempatan yang hilang. Penghapusan tidak bisa dibatalkan."}
+          ? "Every empty room in this hotel is deleted too. This cannot be undone."
+          : "This room is empty, so no assignments are lost. This cannot be undone."}
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setHapus(null)}>Batal</Button>
-            <Button simpan variant="danger" loading={busy} onClick={() => void hapusSekarang()}>Hapus</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setHapus(null)}>Cancel</Button>
+            <Button simpan variant="danger" loading={busy} onClick={() => void hapusSekarang()}>Delete</Button>
           </>
         }
       />
@@ -445,34 +445,34 @@ function DialogAturan({ open, onClose, busy, data, simpan }: {
       open={open}
       onClose={tutup}
       dismissible={!busy}
-      title="Aturan kamar"
-      description="Jenis kelamin dibaca dari jawaban formulir atau kolom impor peserta. Aturannya diperiksa setiap kali seseorang dimasukkan ke kamar."
+      title="Room rules"
+      description="Gender is read from each participant's form answer or import column. The rule is checked every time someone is added to a room."
       actions={
         <>
-          <Button variant="outlined" disabled={busy} onClick={tutup}>Batal</Button>
-          <Button simpan loading={busy} onClick={async () => { if (await simpan({ gender_field_key: nilai.key || null, enforce_same_gender: nilai.wajib })) tutup(); }}>Simpan aturan</Button>
+          <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
+          <Button simpan loading={busy} onClick={async () => { if (await simpan({ gender_field_key: nilai.key || null, enforce_same_gender: nilai.wajib })) tutup(); }}>Save rules</Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
         <SelectField
-          label="Field jenis kelamin"
+          label="Gender field"
           value={nilai.key}
           onChange={(event) => setDraf({ ...nilai, key: event.target.value })}
           hint={data.fields.length === 0
-            ? "Belum ada field di data peserta. Tambahkan field Jenis kelamin di Pendaftaran publik, atau impor peserta dengan kolom itu."
-            : field ? `${field.filled} dari ${data.participants.length} peserta sudah punya jawaban.` : undefined}
+            ? "Participant data has no fields yet. Add a Gender field in Registration, or import participants with that column."
+            : field ? `${field.filled.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")} have an answer.` : undefined}
         >
-          <option value="">Belum dipilih</option>
+          <option value="">Not chosen</option>
           {data.fields.map((f) => (
-            <option key={f.key} value={f.key}>{f.label}{f.source === "data" ? " (dari impor)" : ""}</option>
+            <option key={f.key} value={f.key}>{f.label}{f.source === "data" ? " (from import)" : ""}</option>
           ))}
         </SelectField>
         <Switch
           checked={nilai.wajib}
           onChange={(wajib) => setDraf({ ...nilai, wajib })}
-          label="Wajib sesama jenis kelamin"
-          description="Menolak penempatan yang membuat kamar campuran, dan peserta yang belum punya jawaban jenis kelamin."
+          label="Same-gender rooms only"
+          description="Rejects assignments that would make a room mixed, and participants with no gender answer."
         />
       </div>
     </Dialog>
@@ -500,7 +500,7 @@ function FormKamar({ state, hotels, busy, onClose, simpan }: {
   function tutup() { setDraf(null); onClose(); }
 
   const kapasitas = angkaAtauNull(nilai.capacity);
-  const galatKapasitas = kapasitas === null || kapasitas < 1 || kapasitas > 20 ? "Isi 1 sampai 20." : undefined;
+  const galatKapasitas = kapasitas === null || kapasitas < 1 || kapasitas > 20 ? "Enter 1 to 20." : undefined;
   const sah = Boolean(nilai.hotel_id && nilai.room_number.trim()) && !galatKapasitas;
 
   async function kirimForm() {
@@ -517,12 +517,12 @@ function FormKamar({ state, hotels, busy, onClose, simpan }: {
       open={state !== null}
       onClose={tutup}
       dismissible={!busy}
-      title={state?.mode === "ubah" ? `Ubah kamar ${state.kamar.room_number}` : "Kamar baru"}
+      title={state?.mode === "ubah" ? `Edit room ${state.kamar.room_number}` : "New room"}
       icon={<Bed size={20} />}
       actions={
         <>
-          <Button variant="outlined" disabled={busy} onClick={tutup}>Batal</Button>
-          <Button simpan type="submit" form="form-kamar" loading={busy} disabled={!sah}>{state?.mode === "ubah" ? "Simpan kamar" : "Tambah kamar"}</Button>
+          <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
+          <Button simpan type="submit" form="form-kamar" loading={busy} disabled={!sah}>{state?.mode === "ubah" ? "Save room" : "Add room"}</Button>
         </>
       }
     >
@@ -530,11 +530,11 @@ function FormKamar({ state, hotels, busy, onClose, simpan }: {
         <SelectField label="Hotel" className="col-span-2" value={nilai.hotel_id} onChange={(event) => ubah("hotel_id", event.target.value)}>
           {hotels.map((hotel) => <option key={hotel.id} value={hotel.id}>{hotel.name}</option>)}
         </SelectField>
-        <TextField label="Nomor kamar" placeholder="mis. 1208" autoFocus value={nilai.room_number} onChange={(event) => ubah("room_number", event.target.value)} className="max-sm:col-span-2" />
-        <TextField label="Kapasitas" type="number" inputMode="numeric" min={1} max={20} value={nilai.capacity} error={nilai.capacity ? galatKapasitas : undefined} onChange={(event) => ubah("capacity", event.target.value)} className="max-sm:col-span-2" />
-        <TextField label="Tipe kamar" optional placeholder="mis. Twin, Deluxe" value={nilai.room_type} onChange={(event) => ubah("room_type", event.target.value)} className="max-sm:col-span-2" />
-        <TextField label="Lantai" optional value={nilai.floor} onChange={(event) => ubah("floor", event.target.value)} className="max-sm:col-span-2" />
-        <TextArea label="Catatan panitia" optional rows={2} hint="Tidak tampil ke peserta." value={nilai.notes} onChange={(event) => ubah("notes", event.target.value)} className="col-span-2" />
+        <TextField label="Room number" placeholder="e.g. 1208" autoFocus value={nilai.room_number} onChange={(event) => ubah("room_number", event.target.value)} className="max-sm:col-span-2" />
+        <TextField label="Capacity" type="number" inputMode="numeric" min={1} max={20} value={nilai.capacity} error={nilai.capacity ? galatKapasitas : undefined} onChange={(event) => ubah("capacity", event.target.value)} className="max-sm:col-span-2" />
+        <TextField label="Room type" optional placeholder="e.g. Twin, Deluxe" value={nilai.room_type} onChange={(event) => ubah("room_type", event.target.value)} className="max-sm:col-span-2" />
+        <TextField label="Floor" optional value={nilai.floor} onChange={(event) => ubah("floor", event.target.value)} className="max-sm:col-span-2" />
+        <TextArea label="Staff notes" optional rows={2} hint="Not shown to participants." value={nilai.notes} onChange={(event) => ubah("notes", event.target.value)} className="col-span-2" />
       </form>
     </Dialog>
   );
@@ -561,7 +561,7 @@ function FormHotel({ state, busy, zone, onClose, simpan }: {
   function tutup() { setDraf(null); onClose(); }
 
   const galatTanggal = nilai.check_in_at && nilai.check_out_at && nilai.check_out_at <= nilai.check_in_at
-    ? "Check-out harus setelah check-in." : undefined;
+    ? "Hotel check-out must be after hotel check-in." : undefined;
   const sah = Boolean(nilai.name.trim()) && !galatTanggal;
 
   async function kirimForm() {
@@ -578,22 +578,22 @@ function FormHotel({ state, busy, zone, onClose, simpan }: {
       open={state !== null}
       onClose={tutup}
       dismissible={!busy}
-      title={state?.mode === "ubah" ? `Ubah ${state.hotel.name}` : "Hotel baru"}
+      title={state?.mode === "ubah" ? `Edit ${state.hotel.name}` : "New hotel"}
       icon={<Buildings size={20} />}
-      description="Alamat, peta, dan jam check-in tampil di area peserta."
+      description="The address, map and hotel check-in time appear in the participant area."
       actions={
         <>
-          <Button variant="outlined" disabled={busy} onClick={tutup}>Batal</Button>
-          <Button simpan type="submit" form="form-hotel" loading={busy} disabled={!sah}>{state?.mode === "ubah" ? "Simpan hotel" : "Tambah hotel"}</Button>
+          <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
+          <Button simpan type="submit" form="form-hotel" loading={busy} disabled={!sah}>{state?.mode === "ubah" ? "Save hotel" : "Add hotel"}</Button>
         </>
       }
     >
       <form id="form-hotel" className="grid grid-cols-2 gap-4" onSubmit={(event) => { event.preventDefault(); void kirimForm(); }}>
-        <TextField label="Nama hotel" autoFocus value={nilai.name} onChange={(event) => ubah("name", event.target.value)} className="col-span-2" />
-        <TextArea label="Alamat" optional rows={2} value={nilai.address} onChange={(event) => ubah("address", event.target.value)} className="col-span-2" />
-        <TextField label="Tautan peta" optional type="url" placeholder="https://maps.app.goo.gl/..." value={nilai.map_url} onChange={(event) => ubah("map_url", event.target.value)} className="col-span-2" />
-        <TextField label="Check-in" optional type="datetime-local" value={nilai.check_in_at} onChange={(event) => ubah("check_in_at", event.target.value)} className="max-sm:col-span-2" />
-        <TextField label="Check-out" optional type="datetime-local" value={nilai.check_out_at} error={galatTanggal} onChange={(event) => ubah("check_out_at", event.target.value)} className="max-sm:col-span-2" />
+        <TextField label="Hotel name" autoFocus value={nilai.name} onChange={(event) => ubah("name", event.target.value)} className="col-span-2" />
+        <TextArea label="Address" optional rows={2} value={nilai.address} onChange={(event) => ubah("address", event.target.value)} className="col-span-2" />
+        <TextField label="Map link" optional type="url" placeholder="https://maps.app.goo.gl/..." value={nilai.map_url} onChange={(event) => ubah("map_url", event.target.value)} className="col-span-2" />
+        <TextField label="Hotel check-in" optional type="datetime-local" value={nilai.check_in_at} onChange={(event) => ubah("check_in_at", event.target.value)} className="max-sm:col-span-2" />
+        <TextField label="Hotel check-out" optional type="datetime-local" value={nilai.check_out_at} error={galatTanggal} onChange={(event) => ubah("check_out_at", event.target.value)} className="max-sm:col-span-2" />
       </form>
     </Dialog>
   );

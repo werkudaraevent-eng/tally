@@ -6,7 +6,7 @@
 
 import { normalizePhone } from "@/lib/pesan/alamat";
 
-export const KOLOM_TEMPLAT = ["Nama", "Email", "Instansi", "Jabatan", "No. HP"];
+export const KOLOM_TEMPLAT = ["Name", "Email", "Organisation", "Job title", "Mobile number"];
 
 export const CONTOH_TEMPLAT = [
   ["Budi Santoso", "budi.santoso@example.com", "PT Maju Bersama", "Direktur Keuangan", "081234567890"],
@@ -19,7 +19,7 @@ export const CONTOH_TEMPLAT = [
  * templatnya berganti: templat yang sudah terunduh sebelum pergantian tidak
  * boleh membuat "Budi Santoso" terimpor sebagai tamu sungguhan.
  */
-const CONTOH_TEMPLAT_EN = [
+export const CONTOH_TEMPLAT_EN = [
   ["Budi Santoso", "budi.santoso@example.com", "PT Maju Bersama", "Finance director", "081234567890"],
   ["Siti Rahayu", "", "Ministry of Finance", "Analyst", ""],
 ];

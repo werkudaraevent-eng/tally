@@ -20,6 +20,7 @@ import {
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { withEventPrefix } from "@/lib/event-path";
+import { plural } from "@/lib/plural";
 import { DEFAULT_CONTENT, FIELDS, type BlastKind } from "@/lib/pesan/bawaan";
 import { AUDIENCE_LABEL, KIND_LABEL, TAMU } from "@/lib/pesan/label";
 
@@ -40,15 +41,15 @@ type SkipCode =
   | "sudah_daftar" | "sudah_peserta" | "terjadwal";
 
 const ALASAN_LEWAT: Record<SkipCode, string> = {
-  tanpa_email: "tidak punya email",
-  berhenti_email: "berhenti menerima email",
-  email_memantul: "email pernah memantul",
-  area_mati: "Area peserta belum dinyalakan",
-  belum_boleh_masuk: "belum boleh masuk Area peserta",
-  di_luar_daftar_uji: "di luar daftar uji",
-  sudah_daftar: "sudah mendaftar",
-  sudah_peserta: "emailnya sudah dipakai peserta",
-  terjadwal: "sudah ada di kiriman lain yang belum selesai",
+  tanpa_email: "with no email",
+  berhenti_email: "unsubscribed",
+  email_memantul: "bounced before",
+  area_mati: "blocked because the participant area is turned off",
+  belum_boleh_masuk: "not allowed to sign in to the participant area yet",
+  di_luar_daftar_uji: "not on the test list",
+  sudah_daftar: "already registered",
+  sudah_peserta: "already used by a participant",
+  terjadwal: "already in another blast that hasn't finished",
 };
 
 type Ringkas = {
@@ -266,7 +267,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
     const body = await response?.json().catch(() => null);
     setSibuk(false);
     if (!response?.ok) {
-      toast.error("Email tes tidak terkirim", body?.error?.message ?? "Simpan draf gagal. Coba lagi.");
+      toast.error("Test email not sent", body?.error?.message ?? "Couldn't save the draft. Try again.");
       return;
     }
     try {
@@ -275,7 +276,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
       // Tidak diingat, tidak apa-apa.
     }
     setDialog(null);
-    toast.success("Email tes terkirim", `Ke ${email}. Subjeknya diawali [TES] dan tautannya tidak bisa dipakai masuk.`);
+    toast.success("Test email sent", `To ${email}. The subject starts with [TEST] and its links can't be used to sign in.`);
   }
 
   async function bukaKonfirmasi() {
@@ -283,7 +284,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
     const ok = await simpan();
     setSibuk(false);
     if (!ok) {
-      toast.error("Draf belum tersimpan", "Periksa koneksi lalu coba lagi.");
+      toast.error("Draft not saved yet", "Check your connection, then try again.");
       return;
     }
     setDialog("kirim");
@@ -303,14 +304,14 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
     if (!response?.ok) {
       if (body?.error?.code === "MESSAGE_COUNT_CHANGED" && body.error.details?.counts) {
         setRingkas((lama) => ({ ...lama, counts: body.error.details.counts }));
-        toast.warning("Jumlah penerima berubah", "Data peserta berubah sejak dialog dibuka. Periksa angka barunya, lalu kirim lagi.");
+        toast.warning("Number of recipients changed", "Participant data changed after the dialog opened. Check the new number, then send again.");
         return;
       }
-      toast.error("Kiriman tidak berangkat", body?.error?.message ?? "Coba lagi.");
+      toast.error("Blast not sent", body?.error?.message ?? "Try again.");
       return;
     }
     setDialog(null);
-    toast.success(jadwalIso ? "Kiriman dijadwalkan" : "Kiriman berangkat", jadwalIso ? undefined : "Status per peserta muncul di laporan.");
+    toast.success(jadwalIso ? "Blast scheduled" : "Blast sent", jadwalIso ? undefined : "Each recipient's status shows in the report.");
     onSent();
   }
 
@@ -321,7 +322,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
     const response = await fetch(`/api/admin/pesan/${id}`, { method: "DELETE" }).catch(() => null);
     setSibuk(false);
     if (!response?.ok) {
-      toast.error("Draf tidak terhapus", "Coba lagi.");
+      toast.error("Draft not deleted", "Try again.");
       return;
     }
     router.push(withEventPrefix("/admin/pengumuman", window.location.pathname));
@@ -332,56 +333,58 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
   const pilihPerusahaan = detail.companies.map((c) => ({ value: c.name, label: c.name, count: c.count }));
   const jadwalSalah = waktuKirim === "jadwal" && (!jadwal || jadwalLewat);
   const tamu = isi.kind === "invitation";
+  const orang = (n: number) => plural(n, tamu ? "invited guest" : "participant");
   const undanganTerkunci = tamu && detail.invitation_sending?.ok === false;
   const bolehKirim =
     !undanganTerkunci && detail.email_configured && counts.email > 0 && ringkas.unknown_fields.length === 0 && isi.email_subject.trim() !== "" && isi.email_body.trim() !== "" && !jadwalSalah;
   const alasanTidakBoleh = undanganTerkunci
-    ? "Invitation masih terkunci sampai pengirim undangan terpisah disiapkan."
+    ? "Invitation is locked until a separate invitation sender is set up."
     : !detail.email_configured
-    ? "Pengiriman email belum diaktifkan di server."
+    ? "Email sending isn't set up on the server yet."
     : counts.email === 0
-      ? "Belum ada penerima yang bisa dikirimi email."
+      ? "No recipients can be emailed yet."
       : ringkas.unknown_fields.length > 0
-        ? "Ada kolom isian yang tidak dikenal di teks."
+        ? "The text has a merge field that isn't recognised."
         : isi.email_subject.trim() === "" || isi.email_body.trim() === ""
-          ? "Subjek dan isi email belum lengkap."
+          ? "Subject and body aren't complete yet."
           : jadwalSalah
-            ? "Pilih waktu kirim yang belum lewat."
+            ? "Choose a send time that hasn't passed."
             : null;
 
   return (
+    <div lang="en" className="contents">
     <WorkspacePage className="pb-0">
       <WorkspaceHeader
-        title={isi.title || "Kiriman tanpa judul"}
+        title={isi.title || "Untitled blast"}
         back={
           <Link href="/admin/pengumuman" className="inline-flex items-center gap-1.5 rounded-sm text-body-medium font-medium text-primary hover:underline">
             <ArrowLeft size={14} aria-hidden />
-            Pesan peserta
+            Messages
           </Link>
         }
         meta={
           <>
-            <span>Draf</span>
+            <span>Draft</span>
             <MetaSeparator />
             <span aria-live="polite" className={galatSimpan ? "text-error" : undefined}>
-              {menyimpan ? "Menyimpan…" : galatSimpan ? "Belum tersimpan, dicoba lagi saat Anda mengubah isi" : "Tersimpan otomatis"}
+              {menyimpan ? "Saving…" : galatSimpan ? "Not saved yet. Retries when you make your next change" : "Saved automatically"}
             </span>
           </>
         }
         actions={
           <Button variant="text" onClick={() => setDialog("hapus")} icon={<Trash size={16} />}>
-            Hapus draf
+            Delete draft
           </Button>
         }
       />
 
       {!detail.email_configured ? (
         <Banner tone="warning" icon={<Warning size={18} />}>
-          Pengiriman email belum diaktifkan di server (RESEND_API_KEY dan EMAIL_FROM). Draf tetap bisa disusun.
+          Email sending isn&apos;t set up on the server yet (RESEND_API_KEY and EMAIL_FROM). You can still write drafts.
         </Banner>
       ) : detail.test_mode !== "off" ? (
         <Banner tone="info" icon={<Info size={18} />}>
-          Mode uji: hanya alamat di daftar uji (MESSAGING_ALLOWLIST) yang menerima email. Peserta lain dihitung Dilewati.
+          Test mode: only addresses on the test list (MESSAGING_ALLOWLIST) receive email. Other participants count as Skipped.
         </Banner>
       ) : null}
 
@@ -389,9 +392,9 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
         paneWidth={440}
         main={
           <div className="self-start rounded-lg border border-outline-variant bg-surface-container-lowest">
-            <Baris judul="Saluran" id="saluran">
+            <Baris judul="Channel" id="saluran">
               <SegmentedButton
-                label="Saluran"
+                label="Channel"
                 labelledBy="saluran"
                 value="email"
                 onChange={() => undefined}
@@ -401,12 +404,12 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
                 ]}
                 className="self-start"
               />
-              <p className="text-body-small text-on-surface-variant">WhatsApp menyusul setelah akun WhatsApp Business terhubung.</p>
+              <p className="text-body-small text-on-surface-variant">WhatsApp becomes available once a WhatsApp Business account is connected.</p>
             </Baris>
 
-            <Baris judul="Kirim ke" id="kelompok">
+            <Baris judul="Send to" id="kelompok">
               <SegmentedButton
-                label="Kirim ke"
+                label="Send to"
                 labelledBy="kelompok"
                 value={tamu ? "tamu" : "peserta"}
                 onChange={gantiKelompok}
@@ -418,15 +421,15 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
               />
               {undanganTerkunci ? (
                 <Banner tone="warning" icon={<Warning size={18} />}>
-                  Invitation masih terkunci sampai pengirim undangan terpisah disiapkan pemilik sistem
-                  ({detail.invitation_sending?.ok === false ? detail.invitation_sending.missing.join(", ") : ""}). Draf tetap bisa disusun.
+                  Invitation is locked until the system owner sets up a separate invitation sender
+                  ({detail.invitation_sending?.ok === false ? detail.invitation_sending.missing.join(", ") : ""}). You can still write drafts.
                 </Banner>
               ) : null}
             </Baris>
 
-            <Baris judul="Jenis" id="jenis">
+            <Baris judul="Type" id="jenis">
               <SegmentedButton
-                label="Jenis kiriman"
+                label="Blast type"
                 labelledBy="jenis"
                 value={isi.kind}
                 onChange={gantiJenis}
@@ -440,25 +443,25 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
               />
               <p className="text-body-small text-on-surface-variant">
                 {isi.kind === "undangan"
-                  ? "Setiap email membawa tombol masuk pribadi, berlaku 7 hari dan sekali pakai."
+                  ? "Each email has a personal sign-in button. It works once and expires after 7 days."
                   : tamu
-                    ? "Undangan untuk mendaftar. Setiap email membawa tautan pribadi ke formulir yang sudah terisi nama tamu. Dikirim pelan: sekitar 10% dulu, sisanya setelah 15 menit bila pantulan rendah."
-                    : "Email biasa dengan tombol ke halaman acara. Tidak membawa tautan masuk."}
+                    ? "An invitation to register. Each email has a personal link to the form, with the invited guest's name already filled in. Sent gradually: about 10% first, the rest after 15 minutes if few bounce."
+                    : "A regular email with a button to the event page. It has no sign-in link."}
               </p>
               {isi.kind === "undangan" && !detail.member_enabled ? (
                 <Banner tone="warning" icon={<Warning size={18} />}>
-                  Area peserta belum dinyalakan, jadi undangan tidak bisa dipakai masuk. Nyalakan dulu di Area peserta.
+                  The participant area is turned off, so sign-in links won&apos;t work. Turn it on in Participant area first.
                 </Banner>
               ) : null}
             </Baris>
 
-            <Baris judul="Penerima" id="penerima">
+            <Baris judul="Recipients" id="penerima">
               {/* Satu keluarga kontrol dengan baris Saluran, Jenis, dan Waktu kirim:
                   pilihan tunggal = tombol bersegmen. Perusahaan penyaring
                   tambahan di barisnya sendiri, chip menu yang sama dengan
                   Daftar peserta. */}
               <SegmentedButton
-                label="Penerima"
+                label="Recipients"
                 labelledBy="penerima"
                 value={isi.audience.jenis}
                 onChange={(jenis) => {
@@ -466,16 +469,16 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
                 }}
                 options={[
                   ...(isi.audience.jenis === "manual"
-                    ? [{ value: "manual" as const, label: isi.audience.label || `${isi.audience.ids.length} ${tamu ? "tamu" : "peserta"} dipilih` }]
+                    ? [{ value: "manual" as const, label: isi.audience.label || `${orang(isi.audience.ids.length)} selected` }]
                     : []),
                   ...(tamu
                     ? [
-                        { value: "belum_dikirim" as const, label: "Belum dikirim" },
-                        { value: "belum_daftar" as const, label: "Belum daftar" },
+                        { value: "belum_dikirim" as const, label: "Not sent yet" },
+                        { value: "belum_daftar" as const, label: "Not registered yet" },
                       ]
                     : [
-                        { value: "semua" as const, label: "Semua peserta" },
-                        { value: "belum_masuk" as const, label: "Belum pernah masuk" },
+                        { value: "semua" as const, label: "All participants" },
+                        { value: "belum_masuk" as const, label: "Never signed in" },
                       ]),
                 ]}
                 className="self-start"
@@ -485,9 +488,9 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
               ) : null}
               {!tamu && pilihPerusahaan.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-body-small text-on-surface-variant">Hanya dari</span>
+                  <span className="text-body-small text-on-surface-variant">Filter:</span>
                   <ChipMenu
-                    label="Perusahaan"
+                    label="Organisation"
                     options={pilihPerusahaan}
                     selected={isi.audience.perusahaan}
                     onChange={(perusahaan) => gantiAudience({ perusahaan })}
@@ -497,35 +500,35 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
                 </div>
               ) : null}
               <p className="text-body-medium text-on-surface-variant" aria-live="polite">
-                <span className="font-semibold text-on-surface tabular-nums">{counts.email} {tamu ? "tamu" : "peserta"}</span> menerima email
+                <span className="font-semibold text-on-surface tabular-nums">{orang(counts.email)}</span> will get the email
                 {lewat > 0 ? (
                   <>
                     {" "}
-                    · <span className="tabular-nums">{lewat}</span> dilewati: {kalimatLewat(counts.skipped)}
+                    · <span className="tabular-nums">{lewat}</span> skipped: {kalimatLewat(counts.skipped)}
                   </>
                 ) : null}
               </p>
             </Baris>
 
-            <Baris judul="Isi email" id="isi-email">
+            <Baris judul="Email" id="isi-email">
               <TextField
-                label="Subjek"
+                label="Subject"
                 value={isi.email_subject}
                 maxLength={200}
                 onFocus={(e) => (kolomTerakhir.current = { jenis: "subjek", el: e.currentTarget })}
                 onChange={(e) => ubah({ email_subject: e.target.value })}
               />
               <TextArea
-                label="Isi"
+                label="Body"
                 rows={9}
                 value={isi.email_body}
                 maxLength={5000}
                 onFocus={(e) => (kolomTerakhir.current = { jenis: "isi", el: e.currentTarget })}
                 onChange={(e) => ubah({ email_body: e.target.value })}
-                hint={isi.kind === "undangan" ? "Tombol “Masuk ke acara” ditambahkan otomatis di bawah teks." : tamu ? "Tombol “Daftar sekarang” dengan tautan pribadi tamu ditambahkan otomatis di bawah teks." : "Tombol “Buka halaman acara” ditambahkan otomatis di bawah teks."}
+                hint={isi.kind === "undangan" ? "A “Masuk ke acara” button is added below the text automatically." : tamu ? "A “Daftar sekarang” button with the invited guest's personal link is added below the text automatically." : "A “Buka halaman acara” button is added below the text automatically."}
               />
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-body-small text-on-surface-variant">Sisipkan:</span>
+                <span className="text-body-small text-on-surface-variant">Insert:</span>
                 {FIELDS.map((f) => (
                   <Button key={f.key} size="sm" variant="outlined" onMouseDown={(e) => e.preventDefault()} onClick={() => sisipkan(f.key)}>
                     {f.label}
@@ -534,35 +537,35 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
               </div>
               {ringkas.unknown_fields.length > 0 ? (
                 <p role="alert" className="text-body-small text-error">
-                  Kolom isian tidak dikenal: {ringkas.unknown_fields.map((k) => `{${k}}`).join(", ")}. Pakai tombol Sisipkan supaya ejaannya tepat.
+                  Unrecognised merge fields: {ringkas.unknown_fields.map((k) => `{${k}}`).join(", ")}. Use the Insert buttons so the spelling is exact.
                 </p>
               ) : null}
             </Baris>
 
-            <Baris judul="Waktu kirim" id="waktu-kirim">
+            <Baris judul="Send" id="waktu-kirim">
               <SegmentedButton
-                label="Waktu kirim"
+                label="Send"
                 labelledBy="waktu-kirim"
                 value={waktuKirim}
                 onChange={setWaktuKirim}
                 options={[
-                  { value: "sekarang", label: "Sekarang" },
-                  { value: "jadwal", label: "Jadwalkan", disabled: detail.test_mode !== "off" },
+                  { value: "sekarang", label: "Now" },
+                  { value: "jadwal", label: "Schedule", disabled: detail.test_mode !== "off" },
                 ]}
                 className="self-start"
               />
-              {detail.test_mode !== "off" ? <p className="text-body-small text-on-surface-variant">Jadwal kirim hanya di situs utama.</p> : null}
+              {detail.test_mode !== "off" ? <p className="text-body-small text-on-surface-variant">Scheduling is only available on the main site.</p> : null}
               {waktuKirim === "jadwal" ? (
                 <TextField
-                  label="Tanggal dan jam"
+                  label="Date and time"
                   type="datetime-local"
                   value={jadwal}
                   onChange={(e) => {
                     setJadwal(e.target.value);
                     setJadwalLewat(Boolean(e.target.value) && new Date(e.target.value).getTime() < Date.now());
                   }}
-                  hint="Mengikuti jam di perangkat Anda. Pengiriman mulai paling lambat satu menit setelahnya."
-                  error={jadwalLewat ? "Waktu ini sudah lewat." : undefined}
+                  hint="Uses your device's clock. Sending starts within a minute of this time."
+                  error={jadwalLewat ? "This time has already passed." : undefined}
                   className="max-w-xs"
                 />
               ) : null}
@@ -573,7 +576,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
           <div className="flex flex-col self-start overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
             <div className="flex flex-col gap-3 border-b border-outline-variant px-5 py-4">
               {ringkas.sample_options.length > 0 ? (
-                <SelectField label="Pratinjau sebagai" value={sebagai ?? ""} onChange={(e) => void gantiSebagai(e.target.value)}>
+                <SelectField label="Preview as" value={sebagai ?? ""} onChange={(e) => void gantiSebagai(e.target.value)}>
                   {ringkas.sample_options.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -582,18 +585,18 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
                 </SelectField>
               ) : null}
               <p className="text-body-medium">
-                <span className="text-on-surface-variant">Subjek </span>
+                <span className="text-on-surface-variant">Subject </span>
                 <span className="font-semibold text-on-surface">{ringkas.preview.subject}</span>
               </p>
             </div>
             <iframe
-              title="Pratinjau email"
+              title="Email preview"
               srcDoc={ringkas.preview.html}
               sandbox=""
               className="h-[520px] w-full border-0 bg-white"
             />
             <p className="border-t border-outline-variant px-5 py-3 text-body-small text-on-surface-variant">
-              Pratinjau memakai data peserta sungguhan; tautannya contoh dan tidak bisa dipakai masuk.
+              The preview uses real participant data. Its links are samples and can&apos;t be used to sign in.
             </p>
           </div>
         }
@@ -601,14 +604,14 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
 
       <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex flex-wrap items-center gap-3 border-t border-outline-variant bg-surface px-4 py-3 sm:-mx-6 sm:px-6">
         <p className="min-w-0 flex-1 text-body-medium text-on-surface-variant">
-          <span className="font-semibold text-on-surface tabular-nums">{counts.email} {tamu ? "tamu" : "peserta"}</span> · email
+          <span className="font-semibold text-on-surface tabular-nums">{orang(counts.email)}</span> · email
           {alasanTidakBoleh ? <span className="block text-body-small">{alasanTidakBoleh}</span> : null}
         </p>
         <Button variant="outlined" onClick={bukaTes}>
-          Kirim tes…
+          Send test…
         </Button>
         <Button onClick={() => void bukaKonfirmasi()} disabled={!bolehKirim} loading={sibuk && dialog === null}>
-          Tinjau dan kirim…
+          Review and send…
         </Button>
       </div>
 
@@ -616,26 +619,26 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
         open={dialog === "tes"}
         onClose={() => setDialog(null)}
         dismissible={!sibuk}
-        title="Kirim email tes"
-        description="Email tes memakai isi draf ini dengan data peserta yang sedang dipratinjau. Subjeknya diawali [TES] dan tautannya tidak bisa dipakai masuk."
+        title="Send test email"
+        description="The test email uses this draft with the data of the participant being previewed. The subject starts with [TEST] and its links can't be used to sign in."
         actions={
           <>
             <Button variant="text" onClick={() => setDialog(null)} disabled={sibuk}>
-              Batal
+              Cancel
             </Button>
             <Button onClick={() => void kirimTes()} loading={sibuk} disabled={!emailTes.trim()}>
-              Kirim tes
+              Send test
             </Button>
           </>
         }
       >
         <TextField
-          label="Kirim ke"
+          label="Send to"
           type="email"
           autoComplete="email"
           value={emailTes}
           onChange={(e) => setEmailTes(e.target.value)}
-          hint={detail.test_mode === "list" ? "Hanya alamat di daftar uji yang diterima." : "Alamat ini diingat untuk tes berikutnya."}
+          hint={detail.test_mode === "list" ? "Only addresses on the test list are accepted." : "This address is remembered for the next test."}
         />
       </Dialog>
 
@@ -645,24 +648,24 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
         dismissible={!sibuk}
         size="md"
         icon={<PaperPlaneTilt size={20} />}
-        title={jadwalIso ? `Jadwalkan untuk ${counts.email} ${tamu ? "tamu" : "peserta"}?` : `Kirim ke ${counts.email} ${tamu ? "tamu" : "peserta"}?`}
+        title={jadwalIso ? `Schedule for ${orang(counts.email)}?` : `Send to ${orang(counts.email)}?`}
         description={
           <>
-            Email yang sudah terkirim tidak bisa ditarik.
-            {isi.kind === "undangan" ? " Tautan masuk berlaku 7 hari dan sekali pakai; undangan lama yang belum dipakai ikut dicabut." : ""}
+            Sent emails can&apos;t be recalled.
+            {isi.kind === "undangan" ? " Sign-in links work once and expire after 7 days. Older unused sign-in links stop working." : ""}
             {tamu && counts.email > gelombangPertama(counts.email)
-              ? ` Dikirim bertahap: ${gelombangPertama(counts.email)} undangan dulu, sisanya sekitar 15 menit kemudian bila pantulan rendah dan tidak ada laporan spam.`
+              ? ` Sent in stages: ${plural(gelombangPertama(counts.email), "invitation")} first, the rest about 15 minutes later if few bounce and nobody reports spam.`
               : ""}
-            {jadwalIso ? ` Berangkat ${new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(jadwalIso))}.` : ""}
+            {jadwalIso ? ` Sends ${new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" }).format(new Date(jadwalIso))}.` : ""}
           </>
         }
         actions={
           <>
             <Button variant="text" onClick={() => setDialog(null)} disabled={sibuk}>
-              Batal
+              Cancel
             </Button>
             <Button onClick={() => void kirim()} loading={sibuk} disabled={counts.email === 0}>
-              {jadwalIso ? "Jadwalkan" : `Kirim ke ${counts.email} ${tamu ? "tamu" : "peserta"}`}
+              {jadwalIso ? "Schedule" : "Send now"}
             </Button>
           </>
         }
@@ -670,11 +673,11 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
         <dl className="divide-y divide-outline-variant border-y border-outline-variant text-body-medium">
           <div className="flex justify-between gap-4 py-3">
             <dt className="font-semibold">Email</dt>
-            <dd className="tabular-nums">{counts.email} penerima</dd>
+            <dd className="tabular-nums">{plural(counts.email, "recipient")}</dd>
           </div>
           {lewat > 0 ? (
             <div className="flex justify-between gap-4 py-3 text-on-surface-variant">
-              <dt>Dilewati</dt>
+              <dt>Skipped</dt>
               <dd className="text-end">
                 <span className="tabular-nums">{lewat}</span>: {kalimatLewat(counts.skipped)}
               </dd>
@@ -683,11 +686,11 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
         </dl>
         {counts.email > 100 ? (
           <p className="mt-3 text-body-small text-on-surface-variant">
-            Paket gratis Resend hanya mengirim 100 email per hari. Pastikan paketnya sudah Pro; bila belum, sisanya gagal dan bisa dikirim ulang besok.
+            The free Resend plan only sends 100 emails a day. Make sure the plan is Pro. If not, the rest fail and can be retried tomorrow.
           </p>
         ) : null}
         {detail.test_mode === "list" ? (
-          <p className="mt-3 text-body-small text-on-surface-variant">Mode uji: hanya alamat di daftar uji yang benar-benar menerima.</p>
+          <p className="mt-3 text-body-small text-on-surface-variant">Test mode: only addresses on the test list actually receive it.</p>
         ) : null}
       </Dialog>
 
@@ -696,19 +699,20 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
         onClose={() => setDialog(null)}
         dismissible={!sibuk}
         tone="danger"
-        title="Hapus draf ini?"
-        description="Isi dan pilihan penerimanya hilang. Belum ada yang terkirim."
+        title="Delete this draft?"
+        description="Its content and recipient choices are lost. Nothing has been sent yet."
         actions={
           <>
             <Button variant="text" onClick={() => setDialog(null)} disabled={sibuk}>
-              Batal
+              Cancel
             </Button>
             <Button variant="danger" onClick={() => void hapus()} loading={sibuk}>
-              Hapus draf
+              Delete draft
             </Button>
           </>
         }
       />
     </WorkspacePage>
+    </div>
   );
 }

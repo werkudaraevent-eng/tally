@@ -341,7 +341,7 @@ export function buildCsv(rows: unknown[][], headers: readonly string[]) {
 export async function buildXlsx(rows: unknown[][], headers: readonly string[]) {
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("Peserta");
+  const sheet = workbook.addWorksheet("Participants");
 
   sheet.addRow([...headers]);
   sheet.getRow(1).font = { bold: true };
@@ -362,11 +362,11 @@ export async function buildXlsx(rows: unknown[][], headers: readonly string[]) {
 }
 
 export function exportFilename(format: ParticipantFileFormat, slug: string) {
-  return `peserta-${slug}-${new Date().toISOString().slice(0, 10)}.${format}`;
+  return `participants-${slug}-${new Date().toISOString().slice(0, 10)}.${format}`;
 }
 
 export function templateFilename(format: ParticipantFileFormat) {
-  return `template-impor-peserta.${format}`;
+  return `participant-import-template.${format}`;
 }
 
 export const CONTENT_TYPES: Record<ParticipantFileFormat, string> = {

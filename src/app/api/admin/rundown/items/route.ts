@@ -167,7 +167,7 @@ export async function PATCH(request: Request) {
   const { data: current } = await client.from("rundown_items").select(ITEM_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   if (!current) return apiError("RUNDOWN_ITEM_NOT_FOUND", 404);
 
-  const row = current as { start_time: string; end_time: string | null };
+  const row = current as { section_id: number; start_time: string; end_time: string | null };
   // Rentang diperiksa terhadap gabungan nilai lama dan baru. Mengubah hanya jam
   // mulai tetap bisa membuatnya melewati jam selesai yang sudah tersimpan, dan
   // memeriksa nilai kiriman saja akan meloloskannya.
@@ -177,10 +177,27 @@ export async function PATCH(request: Request) {
     return apiError("VALIDATION_ERROR", 422, { message: "Jam selesai tidak boleh lebih awal dari jam mulai." });
   }
 
+  // Baris yang jam mulainya berubah masuk ke urutan paling belakang: di slot
+  // jam barunya ia tampil sesudah sesi paralel yang sudah ada, bukan di posisi
+  // acak menurut sort_order lamanya. sort_order kiriman klien tetap menang.
+  let pindahSlot: { sort_order: number } | null = null;
+  if (changes.start_time !== undefined && changes.sort_order === undefined && toDbTime(changes.start_time) !== row.start_time) {
+    const { data: last } = await client
+      .from("rundown_items")
+      .select("sort_order")
+      .eq("event_id", eventId)
+      .eq("section_id", row.section_id)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    pindahSlot = { sort_order: Math.min(9999, ((last as { sort_order: number } | null)?.sort_order ?? 0) + 1) };
+  }
+
   const { data, error } = await client
     .from("rundown_items")
     .update({
       ...changes,
+      ...(pindahSlot ?? {}),
       ...(changes.start_time !== undefined ? { start_time: toDbTime(changes.start_time) } : {}),
       // null berarti admin sengaja menghapus jam selesai (butir tanpa durasi);
       // field yang tidak dikirim berarti tidak ada perubahan.

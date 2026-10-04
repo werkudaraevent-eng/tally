@@ -70,15 +70,15 @@ const ALIAS = {
 
 export const TEMPLAT: Record<JenisImpor, { judul: string[]; contoh: string[][] }> = {
   kamar: {
-    judul: ["Hotel", "Kamar", "Tipe", "Kapasitas", "Kode QR", "Nama"],
+    judul: ["Hotel", "Room", "Type", "Capacity", "QR code", "Name"],
     contoh: [
-      ["Hotel Contoh", "1208", "Twin", "2", "", "Budi Santoso"],
-      ["Hotel Contoh", "1208", "Twin", "2", "", "Andi Pratama"],
-      ["Hotel Contoh", "1209", "Triple", "3", "", "Siti Rahayu"],
+      ["Sample Hotel", "1208", "Twin", "2", "", "Budi Santoso"],
+      ["Sample Hotel", "1208", "Twin", "2", "", "Andi Pratama"],
+      ["Sample Hotel", "1209", "Triple", "3", "", "Siti Rahayu"],
     ],
   },
   bus: {
-    judul: ["Kode QR", "Nama", "Bus"],
+    judul: ["QR code", "Name", "Bus"],
     contoh: [
       ["", "Budi Santoso", "Bus 1"],
       ["", "Siti Rahayu", "Bus 2"],
@@ -117,12 +117,12 @@ function buatPencocok(peserta: KeadaanAcara["peserta"]): Pencocok {
     // hotel ("Budi S." dan "Budi Santoso"), kode tidak.
     if (kode) {
       const orang = perKode.get(kunci(kode));
-      return orang ? { id: orang.id } : { alasan: "Kode QR tidak ditemukan" };
+      return orang ? { id: orang.id } : { alasan: "QR code not found" };
     }
     const cocok = perNama.get(kunci(nama)) ?? [];
     if (cocok.length === 1) return { id: cocok[0].id };
-    if (cocok.length > 1) return { alasan: `Ada ${cocok.length} peserta bernama ini; isi kolom Kode QR` };
-    return { alasan: "Nama tidak ditemukan di Daftar peserta" };
+    if (cocok.length > 1) return { alasan: `${cocok.length} participants have this name; fill in the QR code column` };
+    return { alasan: "Name not found in the Participant list" };
   };
 }
 
@@ -135,15 +135,15 @@ function kosong(jenis: JenisImpor, galat: string): Rencana {
 export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
   const judul = bacaJudul(sel);
   if (!judul || judul.kolom.kamar === undefined) {
-    return kosong("kamar", "Kolom Kamar tidak ditemukan. Baris judul harus memuat Kamar, lalu Nama atau Kode QR. Unduh templat untuk contohnya.");
+    return kosong("kamar", "Room column not found. The header row must include Room, then Name or QR code. Download the template for an example.");
   }
   const { kolom, mulai } = judul;
   const isi = sel.slice(mulai);
-  if (isi.length > BATAS_BARIS) return kosong("kamar", `Paling banyak ${BATAS_BARIS} baris sekali impor.`);
+  if (isi.length > BATAS_BARIS) return kosong("kamar", `You can import at most ${BATAS_BARIS.toLocaleString("en-GB")} rows at a time.`);
 
   const { gender_field_key: fieldGender, enforce_same_gender: wajibSama } = acara.settings;
   if (wajibSama && !fieldGender) {
-    return kosong("kamar", "Aturan kamar belum lengkap. Pilih field jenis kelamin di tab Kamar, atau izinkan kamar campuran, lalu impor lagi.");
+    return kosong("kamar", "Room rules are incomplete. Choose a gender field on the Rooms tab, or allow mixed rooms, then import again.");
   }
 
   // Tanpa kolom Hotel, berkas hanya jelas bila acaranya punya tepat satu hotel.
@@ -151,8 +151,8 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
   if (kolom.hotel === undefined) {
     if (acara.hotels.length === 1) hotelTetap = acara.hotels[0].name;
     else return kosong("kamar", acara.hotels.length === 0
-      ? "Tambahkan kolom Hotel. Acara ini belum punya hotel, jadi namanya harus ada di berkas."
-      : "Acara ini punya lebih dari satu hotel. Tambahkan kolom Hotel supaya tiap kamar jelas miliknya.");
+      ? "Add a Hotel column. This event has no hotels yet, so the file must name them."
+      : "This event has more than one hotel. Add a Hotel column so each room's hotel is clear.");
   }
 
   const hotelPerNama = new Map(acara.hotels.map((hotel) => [kunci(hotel.name), hotel]));
@@ -179,8 +179,8 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
     const adaOrang = Boolean(kode || nama);
     const tujuan = nomor ? (banyakHotel ? `${nomor} · ${hotel}` : nomor) : "";
     const tolak = (alasan: string) => { if (adaOrang) baris.push({ baris: nomorBaris, nama, kode: kode || null, tujuan, status: "tolak", alasan, participant_id: null }); };
-    if (!nomor) return tolak("Nomor kamar kosong");
-    if (!hotel) return tolak("Nama hotel kosong");
+    if (!nomor) return tolak("Room number is empty");
+    if (!hotel) return tolak("Hotel name is empty");
 
     const hotelAda = hotelPerNama.get(kunci(hotel));
     const kunciKamar = `${kunci(hotel)}\u0000${kunci(nomor)}`;
@@ -198,7 +198,7 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
     const hasil = cocokkan(kode, nama);
     if ("alasan" in hasil) return tolak(hasil.alasan);
     const pertama = sudah.get(hasil.id);
-    if (pertama !== undefined) return tolak(`Orang yang sama sudah ada di baris ${pertama}`);
+    if (pertama !== undefined) return tolak(`Same person already on row ${pertama}`);
     sudah.set(hasil.id, nomorBaris);
 
     const orang = orangById.get(hasil.id)!;
@@ -211,7 +211,7 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
       kode: kode || null,
       tujuan,
       status: tetap ? "tetap" : kamarLama ? "pindah" : "masuk",
-      alasan: tetap ? "Sudah di kamar ini" : kamarLama ? `Pindah dari ${kamarLama.room_number}${banyakHotel ? ` · ${hotelById.get(kamarLama.hotel_id)?.name ?? ""}` : ""}` : null,
+      alasan: tetap ? "Already in this room" : kamarLama ? `Moving from ${kamarLama.room_number}${banyakHotel ? ` · ${hotelById.get(kamarLama.hotel_id)?.name ?? ""}` : ""}` : null,
       participant_id: hasil.id,
     };
     baris.push(baru);
@@ -247,11 +247,11 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
     for (const b of datang) {
       if (wajibSama) {
         const g = genderDari(b.participant_id!);
-        if (!g) { b.status = "tolak"; b.alasan = "Jenis kelamin belum diisi di Daftar peserta"; continue; }
-        if (genderKamar && g !== genderKamar) { b.status = "tolak"; b.alasan = "Jenis kelamin berbeda dengan penghuni kamar ini"; continue; }
+        if (!g) { b.status = "tolak"; b.alasan = "Gender not filled in on the Participant list"; continue; }
+        if (genderKamar && g !== genderKamar) { b.status = "tolak"; b.alasan = "Gender differs from the occupants of this room"; continue; }
         genderKamar ??= g;
       }
-      if (terisi >= kapasitas) { b.status = "tolak"; b.alasan = `Kamar penuh (kapasitas ${kapasitas})`; continue; }
+      if (terisi >= kapasitas) { b.status = "tolak"; b.alasan = `Room full (capacity ${kapasitas})`; continue; }
       terisi += 1;
       masuk.push(b.participant_id!);
     }
@@ -272,11 +272,11 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
 export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
   const judul = bacaJudul(sel);
   if (!judul || judul.kolom.bus === undefined || (judul.kolom.nama === undefined && judul.kolom.kode === undefined)) {
-    return kosong("bus", "Kolom Bus dan Nama (atau Kode QR) tidak ditemukan di baris judul. Unduh templat untuk contohnya.");
+    return kosong("bus", "Bus and Name (or QR code) columns not found in the header row. Download the template for an example.");
   }
   const { kolom, mulai } = judul;
   const isi = sel.slice(mulai);
-  if (isi.length > BATAS_BARIS) return kosong("bus", `Paling banyak ${BATAS_BARIS} baris sekali impor.`);
+  if (isi.length > BATAS_BARIS) return kosong("bus", `You can import at most ${BATAS_BARIS.toLocaleString("en-GB")} rows at a time.`);
 
   const busPerKode = new Map(acara.vehicles.map((bus) => [kunci(bus.code), bus]));
   const orangById = new Map(acara.peserta.map((orang) => [orang.id, orang]));
@@ -295,12 +295,12 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
     const nama = kolom.nama !== undefined ? rapi(sel1[kolom.nama]) : "";
     if (!bus && !kode && !nama) return;
     const tolak = (alasan: string) => { baris.push({ baris: nomorBaris, nama, kode: kode || null, tujuan: bus, status: "tolak", alasan, participant_id: null }); };
-    if (!kode && !nama) return tolak("Nama dan Kode QR kosong");
-    if (!bus) return tolak("Nama bus kosong");
+    if (!kode && !nama) return tolak("Name and QR code are empty");
+    if (!bus) return tolak("Bus name is empty");
     const hasil = cocokkan(kode, nama);
     if ("alasan" in hasil) return tolak(hasil.alasan);
     const pertama = sudah.get(hasil.id);
-    if (pertama !== undefined) return tolak(`Orang yang sama sudah ada di baris ${pertama}`);
+    if (pertama !== undefined) return tolak(`Same person already on row ${pertama}`);
     sudah.set(hasil.id, nomorBaris);
 
     const ada = busPerKode.get(kunci(bus)) ?? null;
@@ -314,7 +314,7 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
       kode: kode || null,
       tujuan: grup.kode,
       status: tetap ? "tetap" : lama !== undefined ? "pindah" : "masuk",
-      alasan: tetap ? "Sudah di bus ini" : lama !== undefined ? `Pindah dari ${kodeBusById.get(lama) ?? "bus lain"}` : null,
+      alasan: tetap ? "Already on this bus" : lama !== undefined ? `Moving from ${kodeBusById.get(lama) ?? "another bus"}` : null,
       participant_id: hasil.id,
     };
     baris.push(b);
@@ -332,7 +332,7 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
     const masuk: string[] = [];
     for (const b of grup.orang) {
       if (b.status === "tetap") continue;
-      if (kapasitas !== null && terisi >= kapasitas) { b.status = "tolak"; b.alasan = `Bus penuh (kapasitas ${kapasitas})`; continue; }
+      if (kapasitas !== null && terisi >= kapasitas) { b.status = "tolak"; b.alasan = `Bus full (capacity ${kapasitas})`; continue; }
       terisi += 1;
       masuk.push(b.participant_id!);
     }

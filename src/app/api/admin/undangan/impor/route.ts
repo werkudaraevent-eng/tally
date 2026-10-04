@@ -36,27 +36,27 @@ function header(raw: string) {
   return raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
-const ALASAN = { tanpa_nama: "Nama kosong", dua_alamat: "Dua alamat dalam satu sel", tidak_sah: "Email tidak sah", contoh: "Baris contoh templat, hapus atau timpa dulu" } as const;
+const ALASAN = { tanpa_nama: "Name is empty", dua_alamat: "Two email addresses in one cell", tidak_sah: "Email address is not valid", contoh: "Template sample row: delete or overwrite it first" } as const;
 
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
-  if (!inviteSecretReady()) return apiError("VALIDATION_ERROR", 503, { message: "INVITE_LINK_SECRET belum diisi di server." });
+  if (!inviteSecretReady()) return apiError("VALIDATION_ERROR", 503, { message: "INVITE_LINK_SECRET is not set on the server." });
 
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
-  if (!(file instanceof File)) return apiError("VALIDATION_ERROR", 422, { message: "Berkas belum dipilih." });
+  if (!(file instanceof File)) return apiError("VALIDATION_ERROR", 422, { message: "No file selected." });
   if (file.size === 0) return apiError("IMPORT_EMPTY", 422);
   if (file.size > MAX_BYTES) return apiError("IMPORT_TOO_LARGE", 422);
   const dryRun = String(form?.get("dry_run") ?? "") !== "false";
   const attested = String(form?.get("attested") ?? "") === "true";
-  if (!dryRun && !attested) return apiError("VALIDATION_ERROR", 422, { message: "Centang pernyataan sumber daftar dulu." });
+  if (!dryRun && !attested) return apiError("VALIDATION_ERROR", 422, { message: "Tick the statement about where the list came from first." });
 
   // Situs uji memakai database produksi. Impor dari sana hanya ke acara draf,
   // dan barisnya ditandai uji.
   const situsUji = messagingAllowlist().mode !== "off";
   if (situsUji && auth.scope.event.status !== "draft") {
-    return apiError("FORBIDDEN", 403, { message: "Impor dari situs uji hanya untuk acara draf, karena situs uji memakai database produksi." });
+    return apiError("FORBIDDEN", 403, { message: "Importing from the test site is only allowed for draft events, because the test site uses the production database." });
   }
 
   const isXlsx = /\.xlsx$/i.test(file.name) || file.type.includes("spreadsheetml");
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   const dikenali = [...new Set(kolom.filter(Boolean))] as string[];
   if (!dikenali.includes("name")) {
     return apiError("VALIDATION_ERROR", 422, {
-      message: "Kolom Nama tidak ditemukan di baris pertama berkas. Kolom yang dikenali: Nama, Email, Instansi, Jabatan, No. HP.",
+      message: "Column Name not found in the first row of the file. Recognised columns: Name, Email, Organisation, Job title, Mobile number.",
     });
   }
 
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     });
   }
   if (nomor === 0) return apiError("IMPORT_EMPTY", 422);
-  if (nomor > MAX_ROWS) return apiError("VALIDATION_ERROR", 422, { message: `Paling banyak ${MAX_ROWS.toLocaleString("id-ID")} baris per impor. Bagi berkasnya.` });
+  if (nomor > MAX_ROWS) return apiError("VALIDATION_ERROR", 422, { message: `Up to ${MAX_ROWS.toLocaleString("en-GB")} rows per import. Split the file.` });
 
   const kosong = {
     rows: 0, inserted: 0, with_email: 0, merged: 0, already_participant: 0, without_email: 0,

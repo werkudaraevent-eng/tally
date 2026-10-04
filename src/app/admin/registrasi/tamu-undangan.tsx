@@ -12,6 +12,7 @@ import { cx } from "@/lib/m3/cx";
 import { MenuBlok } from "@/app/admin/landing/menu-blok";
 import { eventApiPath } from "@/lib/event-url";
 import { withEventPrefix } from "@/lib/event-path";
+import { plural } from "@/lib/plural";
 import {
   IMPOR, INVITE_FILTER_LABEL, INVITE_STATUS_LABEL, INVITE_STATUS_TONE, TAMU,
   type InviteFilter, type InviteStatus,
@@ -80,7 +81,7 @@ export function TamuUndangan({
     const jawab = await fetch(eventApiPath("/api/admin/undangan"), { cache: "no-store" }).catch(() => null);
     const body = await jawab?.json().catch(() => null);
     if (!jawab?.ok || !body) {
-      setError(body?.error?.message ?? "Daftar tamu undangan gagal dimuat.");
+      setError(body?.error?.message ?? "Couldn't load the invited guest list.");
       return;
     }
     setError("");
@@ -106,11 +107,11 @@ export function TamuUndangan({
     setBusy(false);
     const body = await jawab?.json().catch(() => null);
     if (!jawab?.ok || !body?.url) {
-      toast.error("Tautan gagal dibuat", body?.error?.details?.message ?? body?.error?.message ?? "Coba lagi.");
+      toast.error("Couldn't create the link", body?.error?.details?.message ?? body?.error?.message ?? "Try again.");
       return;
     }
     await navigator.clipboard.writeText(body.url).catch(() => undefined);
-    toast.success(baru ? "Tautan baru disalin" : TAMU.linkCopied, baru ? "Tautan lama berhenti bekerja." : "Kirim lewat WhatsApp atau email Anda sendiri.");
+    toast.success(baru ? "New link copied" : TAMU.linkCopied, baru ? "The old link no longer works." : "Send it by WhatsApp or from your own email.");
     if (baru) void load();
   }
 
@@ -132,11 +133,11 @@ export function TamuUndangan({
     const body = await jawab?.json().catch(() => null);
     if (!jawab?.ok) {
       const d = body?.error?.details;
-      toast.error("Gagal disimpan", d?.email ?? d?.message ?? body?.error?.message ?? "Coba lagi.");
+      toast.error("Couldn't save changes", d?.email ?? d?.message ?? body?.error?.message ?? "Try again.");
       return;
     }
     setUbah(null);
-    toast.success("Tersimpan", ubah.name);
+    toast.success("Changes saved", ubah.name);
     void load();
   }
 
@@ -146,10 +147,10 @@ export function TamuUndangan({
     const jawab = await fetch(eventApiPath(`/api/admin/undangan/${hapus.id}`), { method: "DELETE" }).catch(() => null);
     setBusy(false);
     if (!jawab?.ok) {
-      toast.error("Gagal dihapus", "Coba lagi.");
+      toast.error("Couldn't delete", "Try again.");
       return;
     }
-    toast.success("Dihapus", hapus.name);
+    toast.success("Removed", hapus.name);
     setHapus(null);
     void load();
   }
@@ -162,13 +163,13 @@ export function TamuUndangan({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         kind: "invitation",
-        audience: { jenis, perusahaan: [], ids: jenis === "manual" ? terpilih : [], ...(jenis === "manual" ? { label: `${terpilih.length} tamu terpilih` } : {}) },
+        audience: { jenis, perusahaan: [], ids: jenis === "manual" ? terpilih : [], ...(jenis === "manual" ? { label: `${plural(terpilih.length, "invited guest")} selected` } : {}) },
       }),
     }).catch(() => null);
     setBusy(false);
     const body = await jawab?.json().catch(() => null);
     if (!jawab?.ok || !body?.id) {
-      toast.error("Kiriman gagal dibuat", body?.error?.message ?? "Coba lagi.");
+      toast.error("Couldn't create the blast", body?.error?.message ?? "Try again.");
       return;
     }
     router.push(withEventPrefix(`/admin/pengumuman/kiriman/${body.id}`, window.location.pathname));
@@ -176,7 +177,7 @@ export function TamuUndangan({
 
   if (error) return <Banner tone="error" icon={<XCircle size={18} />}>{error}</Banner>;
   if (!data) return <PageLoading />;
-  if (!data.ready) return <Banner tone="warning">Fitur tamu undangan belum siap: migrasi database belum dijalankan.</Banner>;
+  if (!data.ready) return <Banner tone="warning">Invited guests are not available yet: the database migration has not been run.</Banner>;
 
   const semuaDicentang = items.length > 0 && items.every((t) => pilih.has(t.id));
 
@@ -184,7 +185,7 @@ export function TamuUndangan({
     <div className="flex min-h-0 flex-1 flex-col">
       {!data.sending.ready ? (
         <Banner tone="info" icon={<EnvelopeSimple size={18} />}>
-          Kiriman undangan lewat email masih terkunci sampai pengirim undangan terpisah disiapkan ({data.sending.missing.join(", ")}). Sementara itu pakai Salin tautan pribadi.
+          Sending invitations by email is locked until a separate invitation sender is set up ({data.sending.missing.join(", ")}). Until then, use Copy private link.
         </Banner>
       ) : null}
       <div className="flex shrink-0 flex-wrap items-center gap-2 py-3">
@@ -211,16 +212,16 @@ export function TamuUndangan({
                 <TableHeaderCell className="w-12">
                   <input
                     type="checkbox"
-                    aria-label="Centang semua yang tampil"
+                    aria-label="Select all shown"
                     checked={semuaDicentang}
                     onChange={(e) => setPilih(e.target.checked ? new Set(items.map((t) => t.id)) : new Set())}
                     className="size-4 accent-[var(--color-primary)]"
                   />
                 </TableHeaderCell>
-                <TableHeaderCell>Nama</TableHeaderCell>
+                <TableHeaderCell>Name</TableHeaderCell>
                 <TableHeaderCell>Email</TableHeaderCell>
                 <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Keterangan</TableHeaderCell>
+                <TableHeaderCell>Details</TableHeaderCell>
                 <TableHeaderCell className="w-14"><span className="sr-only">Menu</span></TableHeaderCell>
               </tr>
             </TableHead>
@@ -232,7 +233,7 @@ export function TamuUndangan({
                     <TableCell>
                       <input
                         type="checkbox"
-                        aria-label={`Centang ${t.name}`}
+                        aria-label={`Select ${t.name}`}
                         checked={pilih.has(t.id)}
                         onChange={(e) => setPilih((lama) => {
                           const baru = new Set(lama);
@@ -244,7 +245,7 @@ export function TamuUndangan({
                       />
                     </TableCell>
                     <TableCell>
-                      <span className="block font-medium text-on-surface">{t.name}{t.is_test ? <span className="ml-2 text-label-medium text-on-surface-variant">uji</span> : null}</span>
+                      <span className="block font-medium text-on-surface">{t.name}{t.is_test ? <span className="ml-2 text-label-medium text-on-surface-variant">test</span> : null}</span>
                       {sub ? <span className="block text-on-surface-variant">{sub}</span> : null}
                     </TableCell>
                     <TableCell className="break-all">
@@ -286,18 +287,18 @@ export function TamuUndangan({
         title={`${TAMU.edit}: ${ubah?.name ?? ""}`}
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setUbah(null)}>Batal</Button>
-            <Button simpan type="submit" form="form-ubah-tamu" loading={busy}>Simpan</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setUbah(null)}>Cancel</Button>
+            <Button simpan type="submit" form="form-ubah-tamu" loading={busy}>Save changes</Button>
           </>
         }
       >
         {ubah ? (
           <form id="form-ubah-tamu" className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); void simpanUbah(new FormData(e.currentTarget)); }}>
-            <TextField name="name" label="Nama" required maxLength={120} defaultValue={ubah.name} />
-            <TextField name="email" label="Email" optional type="email" maxLength={160} defaultValue={ubah.email ?? ""} hint="Mengganti email membuka lagi tanda berhenti atau memantul milik alamat lama." />
-            <TextField name="company" label="Instansi" optional maxLength={160} defaultValue={ubah.company ?? ""} />
-            <TextField name="title" label="Jabatan" optional maxLength={160} defaultValue={ubah.title ?? ""} />
-            <TextField name="phone" label="No. HP" optional maxLength={30} defaultValue={ubah.phone ?? ""} />
+            <TextField name="name" label="Name" required maxLength={120} defaultValue={ubah.name} />
+            <TextField name="email" label="Email" optional type="email" maxLength={160} defaultValue={ubah.email ?? ""} hint="Changing the email clears the unsubscribe or bounce flag of the old address." />
+            <TextField name="company" label="Organisation" optional maxLength={160} defaultValue={ubah.company ?? ""} />
+            <TextField name="title" label="Job title" optional maxLength={160} defaultValue={ubah.title ?? ""} />
+            <TextField name="phone" label="Mobile number" optional maxLength={30} defaultValue={ubah.phone ?? ""} />
           </form>
         ) : null}
       </Dialog>
@@ -306,12 +307,12 @@ export function TamuUndangan({
         open={tautanBaru !== null}
         onClose={() => setTautanBaru(null)}
         dismissible={!busy}
-        title={`${TAMU.newLink} untuk ${tautanBaru?.name ?? ""}?`}
-        description={tautanBaru?.status === "ditolak" ? "Pendaftaran tamu ini ditolak. Tautan baru membukanya lagi sehingga ia bisa mendaftar ulang." : TAMU.newLinkConfirm}
+        title={`${TAMU.newLink} for ${tautanBaru?.name ?? ""}?`}
+        description={tautanBaru?.status === "ditolak" ? "This invited guest's registration was rejected. A new link reopens it so they can register again." : TAMU.newLinkConfirm}
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setTautanBaru(null)}>Batal</Button>
-            <Button loading={busy} onClick={() => { const t = tautanBaru; setTautanBaru(null); if (t) void salinTautan(t, true); }}>Buat dan salin</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setTautanBaru(null)}>Cancel</Button>
+            <Button loading={busy} onClick={() => { const t = tautanBaru; setTautanBaru(null); if (t) void salinTautan(t, true); }}>Create and copy</Button>
           </>
         }
       />
@@ -324,7 +325,7 @@ export function TamuUndangan({
         title={hapus ? TAMU.removeConfirm(hapus.name) : ""}
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setHapus(null)}>Batal</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setHapus(null)}>Cancel</Button>
             <Button simpan variant="danger" loading={busy} onClick={() => void jalankanHapus()}>{TAMU.remove}</Button>
           </>
         }
@@ -341,9 +342,9 @@ function Keterangan({ t, onLihat }: { t: Tamu; onLihat: (status: "pending" | "ap
       </button>
     );
   }
-  if (t.status === "gagal") return <>{t.failed_reason ?? "Gagal terkirim"}</>;
-  if (t.opted_out) return <>Berhenti menerima email</>;
-  if (t.email_invalid) return <>Email pernah memantul</>;
+  if (t.status === "gagal") return <>{t.failed_reason ?? "Failed to send"}</>;
+  if (t.opted_out) return <>Unsubscribed from emails</>;
+  if (t.email_invalid) return <>Email bounced before</>;
   if (!t.email) return <>{TAMU.noEmail}</>;
   if (t.status === "membuka") return <>{TAMU.approx}</>;
   return null;
@@ -391,12 +392,12 @@ export function TambahTamu({ open, onClose, onDone }: { open: boolean; onClose: 
       className="flex flex-col max-sm:fixed max-sm:inset-0 max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none"
     >
       <div className="flex shrink-0 items-center gap-2 border-b border-outline-variant px-2 py-2 sm:px-4">
-        <IconButton label="Tutup" onClick={tutup} disabled={sibuk}><X size={20} /></IconButton>
+        <IconButton label="Close" onClick={tutup} disabled={sibuk}><X size={20} /></IconButton>
         <h2 className="min-w-0 flex-1 truncate text-title-large font-semibold">{TAMU.addTitle}</h2>
       </div>
       <div className="shrink-0 px-6 pt-4">
         <SegmentedButton<"ketik" | "impor">
-          label="Cara menambah"
+          label="How to add"
           value={cara}
           className="w-full [&>*]:flex-1"
           options={[
@@ -466,12 +467,12 @@ function KetikTamu({ hidden, sibuk, setSibuk, onSaved, onCancel }: {
   async function simpan(lanjut: boolean) {
     setKabar(null);
     if (!isi.name.trim()) {
-      setGalat({ name: "Nama wajib diisi." });
+      setGalat({ name: "Name is required." });
       setFokus("name");
       return;
     }
     if (!setuju) {
-      setGalat({ attest: "Centang pernyataan ini dulu." });
+      setGalat({ attest: "Tick this statement first." });
       return;
     }
     setSibuk(true);
@@ -484,7 +485,7 @@ function KetikTamu({ hidden, sibuk, setSibuk, onSaved, onCancel }: {
     setSibuk(false);
     const body = await jawab?.json().catch(() => null);
     if (!jawab?.ok || !body) {
-      const pesan = body?.error?.details?.message ?? body?.error?.message ?? "Tamu belum tersimpan. Coba lagi.";
+      const pesan = body?.error?.details?.message ?? body?.error?.message ?? "The invited guest was not saved. Try again.";
       const kolom = body?.error?.details?.field;
       if (kolom === "email" || kolom === "phone") {
         setGalat({ [kolom]: pesan });
@@ -494,18 +495,18 @@ function KetikTamu({ hidden, sibuk, setSibuk, onSaved, onCancel }: {
     }
     const n = isi.name.trim();
     if (body.status === "sudah_peserta") {
-      setGalat({ email: `${n} sudah peserta atau sedang mendaftar di acara ini, jadi tidak perlu diundang.` });
+      setGalat({ email: `${n} is already a participant or is registering for this event, so there is no need to invite them.` });
       setFokus("email");
       return;
     }
     const teks =
       body.status === "digabung"
-        ? `${n} sudah ada di daftar tamu. Kolom yang kosong dilengkapi.`
+        ? `${n} is already on the invited guest list. Empty fields were filled in.`
         : body.possible_duplicate
-          ? `${n} ditambahkan, tetapi sudah ada tamu tanpa email dengan nama yang sama. Periksa dan hapus salah satunya di tab Tamu undangan.`
+          ? `${n} was added, but an invited guest with the same name and no email already exists. Check the Invited guests tab and delete one of them.`
           : body.suppressed
-            ? `${n} ditambahkan. Alamat ini pernah berhenti berlangganan atau memantul, jadi tidak akan dikirimi email.`
-            : `${n} ditambahkan. Belum ada email yang terkirim.`;
+            ? `${n} was added. This address unsubscribed or bounced before, so it will not receive emails.`
+            : `${n} was added. No email has been sent yet.`;
     const peringatan = body.status === "digabung" || body.possible_duplicate || body.suppressed;
     setIsi(KOSONG);
     // Peringatan harus terbaca: dialog tetap terbuka walau yang ditekan Simpan.
@@ -515,7 +516,7 @@ function KetikTamu({ hidden, sibuk, setSibuk, onSaved, onCancel }: {
       onSaved(true);
       return;
     }
-    toast.success(`${n} ditambahkan`, "Belum ada email yang terkirim.");
+    toast.success(`${n} added`, "No email has been sent yet.");
     onSaved(false);
   }
 
@@ -530,11 +531,11 @@ function KetikTamu({ hidden, sibuk, setSibuk, onSaved, onCancel }: {
         <p role="status" className={cx("empty:hidden", kabar && "flex items-start gap-2 rounded-md p-3", kabar?.tone === "warning" ? "bg-warning-soft text-on-surface" : kabar ? "bg-success-soft text-on-surface" : "")}>
           {kabar ? <>{kabar.tone === "warning" ? <WarningCircle size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden /> : <CheckCircle size={16} className="mt-0.5 shrink-0 text-success" aria-hidden />}{kabar.text}</> : null}
         </p>
-        <TextField data-kolom="name" autoFocus label="Nama" required autoComplete="off" maxLength={120} value={isi.name} onChange={ubah("name")} error={galat.name} disabled={sibuk} />
-        <TextField data-kolom="email" label="Email" optional type="email" inputMode="email" autoComplete="off" maxLength={254} value={isi.email} onChange={ubah("email")} error={galat.email} hint="Tanpa email, undangan hanya bisa lewat Salin tautan pribadi." disabled={sibuk} />
-        <TextField label="Instansi" optional maxLength={160} value={isi.company} onChange={ubah("company")} disabled={sibuk} />
-        <TextField label="Jabatan" optional maxLength={160} value={isi.title} onChange={ubah("title")} disabled={sibuk} />
-        <TextField data-kolom="phone" label="No. HP" optional type="tel" inputMode="tel" autoComplete="off" maxLength={30} value={isi.phone} onChange={ubah("phone")} error={galat.phone} disabled={sibuk} />
+        <TextField data-kolom="name" autoFocus label="Name" required autoComplete="off" maxLength={120} value={isi.name} onChange={ubah("name")} error={galat.name} disabled={sibuk} />
+        <TextField data-kolom="email" label="Email" optional type="email" inputMode="email" autoComplete="off" maxLength={254} value={isi.email} onChange={ubah("email")} error={galat.email} hint="Without an email, you can only invite them with Copy private link." disabled={sibuk} />
+        <TextField label="Organisation" optional maxLength={160} value={isi.company} onChange={ubah("company")} disabled={sibuk} />
+        <TextField label="Job title" optional maxLength={160} value={isi.title} onChange={ubah("title")} disabled={sibuk} />
+        <TextField data-kolom="phone" label="Mobile number" optional type="tel" inputMode="tel" autoComplete="off" maxLength={30} value={isi.phone} onChange={ubah("phone")} error={galat.phone} disabled={sibuk} />
         <div>
           <label className="flex items-start gap-3">
             <input
@@ -553,9 +554,9 @@ function KetikTamu({ hidden, sibuk, setSibuk, onSaved, onCancel }: {
         <p className="text-on-surface-variant">{TAMU.addNoSend}</p>
       </div>
       <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-outline-variant px-6 py-4">
-        <Button type="button" variant="text" className="me-auto max-sm:hidden" disabled={sibuk} onClick={onCancel}>Batal</Button>
+        <Button type="button" variant="text" className="me-auto max-sm:hidden" disabled={sibuk} onClick={onCancel}>Cancel</Button>
         <Button type="button" variant="outlined" disabled={sibuk} onClick={() => void simpan(true)}>{TAMU.addAnother}</Button>
-        <Button type="submit" simpan loading={sibuk}>Simpan</Button>
+        <Button type="submit" simpan loading={sibuk}>Save</Button>
       </div>
     </form>
   );
@@ -587,27 +588,27 @@ function ImporBerkas({ hidden, sibuk: jalan, setSibuk: setJalan, onDone, onCance
     setJalan(false);
     const body = await jawab?.json().catch(() => null);
     if (!jawab?.ok || !body) {
-      setError(body?.error?.details?.message ?? body?.error?.message ?? "Impor gagal.");
+      setError(body?.error?.details?.message ?? body?.error?.message ?? "Import failed.");
       return;
     }
     if (coba) {
       setPratinjau(body as Pratinjau);
       return;
     }
-    toast.success("Tamu ditambahkan", `${body.inserted} tamu baru, ${body.merged} digabung. Belum ada email yang terkirim.`);
+    toast.success("Invited guests added", `${plural(body.inserted, "new invited guest")}, ${body.merged.toLocaleString("en-GB")} merged. No email has been sent yet.`);
     onDone();
   }
 
   function unduhDitolak() {
     if (!pratinjau) return;
     const sel = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-    const csv = [["Baris", "Nama", "Email", "Alasan"], ...pratinjau.rejected_rows.map((r) => [r.row, r.name, r.email, r.reason])]
+    const csv = [["Row", "Name", "Email", "Reason"], ...pratinjau.rejected_rows.map((r) => [r.row, r.name, r.email, r.reason])]
       .map((baris) => baris.map(sel).join(","))
       .join("\n");
     const url = URL.createObjectURL(new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = "tamu-ditolak.csv";
+    a.download = "rejected-invited-guests.csv";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -617,8 +618,8 @@ function ImporBerkas({ hidden, sibuk: jalan, setSibuk: setJalan, onDone, onCance
     <div hidden={hidden} className="min-h-0 flex-1 flex-col [&:not([hidden])]:flex">
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-6 pt-4 text-body-medium">
         <div className="rounded-lg bg-surface-container-highest p-4">
-          <p className="font-medium">1. Unduh templat</p>
-          <p className="mt-1 text-on-surface-variant">Kolom: Nama (wajib), Email, Instansi, Jabatan, No. HP. Ada 2 baris contoh untuk ditimpa.</p>
+          <p className="font-medium">1. Download the template</p>
+          <p className="mt-1 text-on-surface-variant">Columns: Name (required), Email, Organisation, Job title, Mobile number. It has 2 sample rows to overwrite.</p>
           <Button
             variant="text"
             size="sm"
@@ -626,11 +627,11 @@ function ImporBerkas({ hidden, sibuk: jalan, setSibuk: setJalan, onDone, onCance
             icon={<DownloadSimple size={16} />}
             onClick={() => { window.location.href = eventApiPath("/api/admin/undangan/templat"); }}
           >
-            Unduh templat .xlsx
+            Download .xlsx template
           </Button>
         </div>
         <div>
-          <p className="font-medium">2. Pilih berkas</p>
+          <p className="font-medium">2. Choose a file</p>
           <label
             className={cx(
               "m3-state mt-2 flex h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-outline px-4 text-center focus-within:ring-2 focus-within:ring-primary",
@@ -639,9 +640,9 @@ function ImporBerkas({ hidden, sibuk: jalan, setSibuk: setJalan, onDone, onCance
           >
             <span className="flex max-w-full items-center gap-2 font-medium">
               <UploadSimple size={16} className="shrink-0" aria-hidden />
-              <span className="truncate">{berkas ? berkas.name : "Pilih berkas .xlsx atau .csv"}</span>
+              <span className="truncate">{berkas ? berkas.name : "Choose an .xlsx or .csv file"}</span>
             </span>
-            <span className="text-body-small text-on-surface-variant">Paling banyak 5.000 baris</span>
+            <span className="text-body-small text-on-surface-variant">Up to 5,000 rows</span>
             <input
               type="file"
               accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -659,7 +660,7 @@ function ImporBerkas({ hidden, sibuk: jalan, setSibuk: setJalan, onDone, onCance
         {error ? <p role="alert" className="flex items-start gap-2 rounded-md bg-error-soft p-3 text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{error}</p> : null}
         {p ? (
           <div className="rounded-lg border border-outline-variant p-4">
-            <p className="font-medium">{p.file_name}, {p.rows} baris terbaca{p.test ? " (situs uji: ditandai uji)" : ""}</p>
+            <p className="font-medium">{p.file_name}, {plural(p.rows, "row")} read{p.test ? " (test site: marked as test)" : ""}</p>
             <ul className="mt-2 space-y-0.5">
               <li><span className="font-medium tabular-nums">{p.with_email}</span> {IMPOR.willAdd}</li>
               <li><span className="font-medium tabular-nums">{p.without_email}</span> {IMPOR.withoutEmail}</li>
@@ -685,13 +686,13 @@ function ImporBerkas({ hidden, sibuk: jalan, setSibuk: setJalan, onDone, onCance
         <p className="text-on-surface-variant">{IMPOR.noSend} {IMPOR.retention}</p>
       </div>
       <div className="flex shrink-0 justify-end gap-2 border-t border-outline-variant px-6 py-4">
-        <Button variant="text" className="me-auto max-sm:hidden" disabled={jalan} onClick={onCancel}>Batal</Button>
+        <Button variant="text" className="me-auto max-sm:hidden" disabled={jalan} onClick={onCancel}>Cancel</Button>
         {p ? (
           <Button simpan loading={jalan} disabled={!setuju || p.inserted + p.merged === 0} onClick={() => void jalankan(false)}>
-            {IMPOR.commit} {p.inserted} tamu
+            {IMPOR.commit} {plural(p.inserted, "invited guest")}
           </Button>
         ) : (
-          <Button loading={jalan} disabled={!berkas} onClick={() => void jalankan(true)}>Periksa berkas</Button>
+          <Button loading={jalan} disabled={!berkas} onClick={() => void jalankan(true)}>Check file</Button>
         )}
       </div>
     </div>

@@ -128,7 +128,7 @@ export async function GET(request: Request) {
   ]);
 
   if (halaman.error) {
-    if (companies.length > 0) return apiError("VALIDATION_ERROR", 422, { message: "Saringan perusahaan belum aktif: migrasi 202609290001 belum diterapkan." });
+    if (companies.length > 0) return apiError("VALIDATION_ERROR", 422, { message: "The organisation filter isn't available yet: migration 202609290001 hasn't been applied." });
     return apiError("INTERNAL_ERROR", 500);
   }
 

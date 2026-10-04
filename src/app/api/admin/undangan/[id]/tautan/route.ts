@@ -20,7 +20,7 @@ const schema = z.object({ baru: z.boolean().default(false) });
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
-  if (!inviteSecretReady()) return apiError("VALIDATION_ERROR", 503, { message: "INVITE_LINK_SECRET belum diisi di server." });
+  if (!inviteSecretReady()) return apiError("VALIDATION_ERROR", 503, { message: "INVITE_LINK_SECRET is not set on the server." });
   const id = (await context.params).id;
   if (!z.string().uuid().safeParse(id).success) return apiError("VALIDATION_ERROR", 422);
   const parsed = schema.safeParse(await request.json().catch(() => ({})));
@@ -31,7 +31,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!inv) return apiError("INVITATION_NOT_FOUND", 404);
   if (inv.registered_at && !inv.rejected_at) return apiError("INVITATION_USED", 409);
   if (inv.rejected_at && !parsed.data.baru) {
-    return apiError("INVITATION_USED", 409, { message: "Pendaftaran tamu ini ditolak, jadi tautannya mati. Buat tautan baru untuk membukanya lagi." });
+    return apiError("INVITATION_USED", 409, { message: "This invited guest's registration was rejected, so the link no longer works. Create a new link to reopen it." });
   }
 
   if (parsed.data.baru) {

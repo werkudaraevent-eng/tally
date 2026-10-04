@@ -23,6 +23,7 @@ import {
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { withEventPrefix } from "@/lib/event-path";
+import { plural } from "@/lib/plural";
 import { PesanTabs } from "./pesan-tabs";
 import { BLAST_STATUS_LABEL, BLAST_STATUS_TONE, audienceLabel, waktu, type BlastStatus } from "./pesan-shared";
 
@@ -63,7 +64,7 @@ export default function KirimanPage() {
   const muat = useCallback(async () => {
     const response = await fetch("/api/admin/pesan", { cache: "no-store" }).catch(() => null);
     if (!response?.ok) {
-      toast.error("Kiriman gagal dimuat", "Muat ulang halaman.");
+      toast.error("Couldn't load blasts", "Reload the page.");
       return;
     }
     setData((await response.json()) as Muat);
@@ -85,7 +86,7 @@ export default function KirimanPage() {
     const body = await response?.json().catch(() => null);
     setMembuat(false);
     if (!response?.ok) {
-      toast.error("Kiriman gagal dibuat", body?.error?.message ?? "Coba lagi.");
+      toast.error("Couldn't create the blast", body?.error?.message ?? "Try again.");
       return;
     }
     router.push(withEventPrefix(`/admin/pengumuman/kiriman/${body.id}`, window.location.pathname));
@@ -94,21 +95,22 @@ export default function KirimanPage() {
   const items = data?.items ?? [];
 
   return (
+    <div lang="en" className="contents">
     <WorkspacePage>
       <WorkspaceHeader
         meta={
           data?.ready ? (
             <>
-              <span className="tabular-nums">{items.length} kiriman</span>
+              <span className="tabular-nums">{plural(items.length, "blast")}</span>
               <MetaSeparator />
-              <span>WhatsApp belum terhubung</span>
+              <span>WhatsApp not connected yet</span>
             </>
           ) : null
         }
         actions={
           data?.ready ? (
             <Button onClick={() => void buat()} loading={membuat} icon={<Plus size={16} weight="bold" />}>
-              Kiriman baru
+              New blast
             </Button>
           ) : undefined
         }
@@ -117,11 +119,11 @@ export default function KirimanPage() {
 
       {data && !data.ready ? (
         <Banner tone="warning" icon={<Warning size={18} />}>
-          Kiriman belum aktif: migrasi database 202610030003 belum dijalankan di Supabase.
+          Blasts aren&apos;t available yet: database migration 202610030003 hasn&apos;t been run on Supabase.
         </Banner>
       ) : data && !data.email_configured ? (
         <Banner tone="warning" icon={<Warning size={18} />}>
-          Pengiriman email belum diaktifkan di server (RESEND_API_KEY dan EMAIL_FROM). Draf tetap bisa disusun.
+          Email sending isn&apos;t set up on the server yet (RESEND_API_KEY and EMAIL_FROM). You can still write drafts.
         </Banner>
       ) : null}
 
@@ -132,11 +134,11 @@ export default function KirimanPage() {
       ) : data.ready && items.length === 0 ? (
         <EmptyState
           icon={<EnvelopeSimple size={28} />}
-          title="Belum ada kiriman"
-          description="Kirim undangan masuk ke peserta yang belum pernah masuk, atau kabar ke semua peserta, lewat email."
+          title="No blasts yet"
+          description="Email a sign-in link to participants who have never signed in, or an update to all participants."
           action={
             <Button onClick={() => void buat()} loading={membuat} icon={<Plus size={16} weight="bold" />}>
-              Kiriman baru
+              New blast
             </Button>
           }
         />
@@ -145,10 +147,10 @@ export default function KirimanPage() {
           <Table minWidth="840px">
             <TableHead>
               <TableRow>
-                <TableHeaderCell>Kiriman</TableHeaderCell>
-                <TableHeaderCell>Saluran</TableHeaderCell>
-                <TableHeaderCell align="end">Penerima</TableHeaderCell>
-                <TableHeaderCell align="end">Sudah masuk</TableHeaderCell>
+                <TableHeaderCell>Blast</TableHeaderCell>
+                <TableHeaderCell>Channel</TableHeaderCell>
+                <TableHeaderCell align="end">Recipients</TableHeaderCell>
+                <TableHeaderCell align="end">Signed in</TableHeaderCell>
                 <TableHeaderCell>Status</TableHeaderCell>
               </TableRow>
             </TableHead>
@@ -160,7 +162,7 @@ export default function KirimanPage() {
                     : item.status === "selesai" && item.finished_at
                       ? waktu(item.finished_at, data.time_zone)
                       : item.status === "draf"
-                        ? `Diubah ${waktu(item.created_at, data.time_zone)}`
+                        ? `Edited ${waktu(item.created_at, data.time_zone)}`
                         : null;
                 return (
                   <TableRow key={item.id} interactive className="relative">
@@ -180,7 +182,7 @@ export default function KirimanPage() {
                       ) : (
                         <>
                           {item.signed_in}
-                          {item.kind === "invitation" ? " daftar" : null}{" "}
+                          {item.kind === "invitation" ? " registered" : null}{" "}
                           <span className="text-on-surface-variant">({Math.round((item.signed_in / item.recipients) * 100)}%)</span>
                         </>
                       )}
@@ -190,7 +192,7 @@ export default function KirimanPage() {
                         <StatusChip tone={BLAST_STATUS_TONE[item.status]}>{BLAST_STATUS_LABEL[item.status]}</StatusChip>
                         {kapan ? <span className="text-body-small text-on-surface-variant">{kapan}</span> : null}
                       </span>
-                      {item.failed > 0 ? <span className="mt-0.5 block text-body-small text-error">{item.failed} gagal</span> : null}
+                      {item.failed > 0 ? <span className="mt-0.5 block text-body-small text-error">{item.failed} failed</span> : null}
                     </TableCell>
                   </TableRow>
                 );
@@ -200,5 +202,6 @@ export default function KirimanPage() {
         </TableCard>
       ) : null}
     </WorkspacePage>
+    </div>
   );
 }

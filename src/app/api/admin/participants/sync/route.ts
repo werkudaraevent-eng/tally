@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   // sini supaya pesannya bisa ditindaklanjuti, bukan galat konfigurasi env.
   if (!event.scanner_api_event_slug) {
     return apiError("VALIDATION_ERROR", 422, {
-      message: "Event ini tidak memakai Scanner API. Atur slug-nya di konfigurasi event lebih dulu.",
+      message: "This event doesn't use Scanner API. Set its event slug in the event settings first.",
     });
   }
 

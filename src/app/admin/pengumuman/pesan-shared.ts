@@ -1,14 +1,16 @@
 /** Potongan yang dipakai bersama daftar Kiriman, penyusun, dan laporan. */
 
+import { plural } from "@/lib/plural";
+
 export type BlastStatus = "draf" | "terjadwal" | "mengirim" | "selesai" | "dibatalkan" | "dijeda";
 
 export const BLAST_STATUS_LABEL: Record<BlastStatus, string> = {
-  draf: "Draf",
-  terjadwal: "Terjadwal",
-  mengirim: "Sedang dikirim",
-  selesai: "Selesai",
-  dibatalkan: "Dibatalkan",
-  dijeda: "Dijeda",
+  draf: "Draft",
+  terjadwal: "Scheduled",
+  mengirim: "Sending",
+  selesai: "Sent",
+  dibatalkan: "Cancelled",
+  dijeda: "Paused",
 };
 
 export const BLAST_STATUS_TONE: Record<BlastStatus, "neutral" | "primary" | "success" | "warning" | "error"> = {
@@ -23,20 +25,20 @@ export const BLAST_STATUS_TONE: Record<BlastStatus, "neutral" | "primary" | "suc
 export function audienceLabel(audience: { jenis?: string; label?: string; perusahaan?: string[]; ids?: string[] } | null) {
   const dasar =
     audience?.jenis === "belum_masuk"
-      ? "Belum pernah masuk"
+      ? "Never signed in"
       : audience?.jenis === "belum_dikirim"
-        ? "Tamu yang belum dikirim"
+        ? "Invited guests not sent yet"
         : audience?.jenis === "belum_daftar"
-          ? "Tamu yang belum daftar"
+          ? "Invited guests not registered yet"
           : audience?.jenis === "manual"
-            ? audience.label || `${audience.ids?.length ?? 0} peserta dipilih`
-            : "Semua peserta";
+            ? audience.label || `${plural(audience.ids?.length ?? 0, "participant")} selected`
+            : "All participants";
   const perusahaan = audience?.perusahaan ?? [];
   if (perusahaan.length === 0) return dasar;
-  return `${dasar} · ${perusahaan.length === 1 ? perusahaan[0] : `${perusahaan.length} perusahaan`}`;
+  return `${dasar} · ${perusahaan.length === 1 ? perusahaan[0] : plural(perusahaan.length, "organisation")}`;
 }
 
 /** Jam di zona waktu acara, sama dengan halaman Pengumuman. */
 export function waktu(iso: string, timeZone?: string) {
-  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(iso));
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(iso));
 }

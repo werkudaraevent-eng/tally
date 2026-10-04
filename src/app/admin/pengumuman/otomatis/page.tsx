@@ -45,6 +45,7 @@ import {
 } from "@/lib/email/konfirmasi/templat";
 import { cx } from "@/lib/m3/cx";
 import { FIELDS } from "@/lib/pesan/bawaan";
+import { plural } from "@/lib/plural";
 import { PesanTabs } from "../pesan-tabs";
 import { buatKepala, buatLogoPutih, siapkanGambar, unggah } from "./gambar";
 
@@ -102,9 +103,9 @@ function TeksTumbuh(props: React.ComponentProps<typeof TextArea>) {
 
 /** Kolom salinan per versi email. Bagian lain sama untuk semua versi. */
 const VERSI: Record<RenderState, { label: string; panjang: string; subjek: "subjek" | "subjek_menunggu" | "subjek_ditolak"; judul: "judul" | "judul_menunggu" | "judul_ditolak"; isi: "isi" | "isi_menunggu" | "isi_ditolak" }> = {
-  approved: { label: "Disetujui", panjang: "Disetujui", subjek: "subjek", judul: "judul", isi: "isi" },
-  pending: { label: "Menunggu", panjang: "Menunggu persetujuan", subjek: "subjek_menunggu", judul: "judul_menunggu", isi: "isi_menunggu" },
-  rejected: { label: "Ditolak", panjang: "Tidak disetujui", subjek: "subjek_ditolak", judul: "judul_ditolak", isi: "isi_ditolak" },
+  approved: { label: "Approved", panjang: "Approved", subjek: "subjek", judul: "judul", isi: "isi" },
+  pending: { label: "Pending", panjang: "Pending approval", subjek: "subjek_menunggu", judul: "judul_menunggu", isi: "isi_menunggu" },
+  rejected: { label: "Rejected", panjang: "Rejected", subjek: "subjek_ditolak", judul: "judul_ditolak", isi: "isi_ditolak" },
 };
 const PILIHAN_VERSI = (Object.keys(VERSI) as RenderState[]).map((value) => ({ value, label: VERSI[value].label }));
 
@@ -200,13 +201,15 @@ export default function EmailOtomatisPage() {
 
   if (galatMuat) {
     return (
-      <WorkspacePage>
-        <WorkspaceHeader />
-        <PesanTabs />
-        <Banner tone="error" icon={<Warning size={18} />}>
-          Email otomatis gagal dimuat. Muat ulang halaman.
-        </Banner>
-      </WorkspacePage>
+      <div lang="en" className="contents">
+        <WorkspacePage>
+          <WorkspaceHeader />
+          <PesanTabs />
+          <Banner tone="error" icon={<Warning size={18} />}>
+            Couldn&apos;t load automated emails. Reload the page.
+          </Banner>
+        </WorkspacePage>
+      </div>
     );
   }
   if (!data || !templat) return <PageLoading />;
@@ -215,7 +218,7 @@ export default function EmailOtomatisPage() {
   const versi = VERSI[state];
   const asing = unknownFieldsIn(t);
   const sah = templatSchema.safeParse(t);
-  const pesanTidakSah = sah.success ? null : sah.error.issues[0]?.message ?? "Periksa isian.";
+  const pesanTidakSah = sah.success ? null : sah.error.issues[0]?.message ?? "Check the fields.";
 
   function ubah(next: Partial<Templat>) {
     setTemplat((lama) => (lama ? { ...lama, ...next } : lama));
@@ -316,7 +319,7 @@ export default function EmailOtomatisPage() {
     } catch {
       // Gambar kepala gagal dibuat (mis. KV tidak bisa dimuat): email tetap
       // sah, kepala jatuh ke Pita warna sampai Simpan berikutnya.
-      toast.warning("Gambar kepala belum dibuat", "Email memakai kepala Pita warna sampai gambar berhasil dibuat.");
+      toast.warning("Header image not created", "The email uses the Colour band header until the image is created.");
     }
     const response = await fetch("/api/admin/email-konfirmasi", {
       method: "PUT",
@@ -326,14 +329,14 @@ export default function EmailOtomatisPage() {
     const body = await response?.json().catch(() => null);
     setMenyimpan(false);
     if (!response?.ok) {
-      const pesan = body?.error?.message ?? "Periksa koneksi lalu coba lagi.";
+      const pesan = body?.error?.message ?? "Check your connection and try again.";
       setGalatSimpan(pesan);
-      toast.error("Email konfirmasi belum tersimpan", pesan);
+      toast.error("Confirmation email not saved", pesan);
       return false;
     }
     setTemplat(siap);
     setBerubah(false);
-    toast.success("Email konfirmasi tersimpan", "Pendaftar berikutnya menerima email ini.");
+    toast.success("Confirmation email saved", "New registrants receive this email.");
     return true;
   }
 
@@ -365,7 +368,7 @@ export default function EmailOtomatisPage() {
     const body = await response?.json().catch(() => null);
     setSibuk(false);
     if (!response?.ok) {
-      toast.error("Email tes tidak terkirim", body?.error?.message ?? "Coba lagi.");
+      toast.error("Test email not sent", body?.error?.message ?? "Try again.");
       return;
     }
     try {
@@ -374,7 +377,7 @@ export default function EmailOtomatisPage() {
       // Tidak diingat, tidak apa-apa.
     }
     setDialog(null);
-    toast.success("Email tes terkirim", `Ke ${email}, versi ${versi.panjang}. Subjeknya diawali [TES].`);
+    toast.success("Test email sent", `To ${email}, ${versi.panjang} version. The subject starts with [TEST].`);
   }
 
   async function kirimTertunda() {
@@ -395,10 +398,10 @@ export default function EmailOtomatisPage() {
         setKemajuan(null);
         if (body?.error?.code === "MESSAGE_COUNT_CHANGED") {
           setData((lama) => (lama ? { ...lama, belum_terima_dikirim: body.error.details?.count ?? lama.belum_terima_dikirim } : lama));
-          toast.warning("Jumlahnya berubah", "Periksa angka barunya, lalu kirim lagi.");
+          toast.warning("The number changed", "Check the new number, then send again.");
           return;
         }
-        toast.error("Pengiriman berhenti", body?.error?.message ?? "Coba lagi.");
+        toast.error("Sending stopped", body?.error?.message ?? "Try again.");
         void muat();
         return;
       }
@@ -413,8 +416,8 @@ export default function EmailOtomatisPage() {
     setSibuk(false);
     setDialog(null);
     setKemajuan(null);
-    if (gagal) toast.warning(`${terkirim} terkirim, ${gagal} gagal`, "Sebab kegagalan tercatat di baris pendaftaran.");
-    else toast.success(`${terkirim} email terkirim`);
+    if (gagal) toast.warning(`${terkirim} sent, ${gagal} failed`, "The reason is recorded on each registration row.");
+    else toast.success(`${plural(terkirim, "email")} sent`);
     void muat();
   }
 
@@ -423,14 +426,15 @@ export default function EmailOtomatisPage() {
   const pembuka = t.blocks.find((block): block is Extract<Block, { type: "pembuka" }> => block.type === "pembuka");
 
   return (
+    <div lang="en" className="contents">
     <WorkspacePage className="pb-0">
       <WorkspaceHeader
         meta={
           <>
-            <span>Email otomatis</span>
+            <span>Automated emails</span>
             <MetaSeparator />
             <span aria-live="polite" className={galatSimpan ? "text-error" : undefined}>
-              {menyimpan ? "Menyimpan…" : berubah ? "Ada perubahan yang belum disimpan" : data.tersimpan ? "Tersimpan" : "Memakai templat bawaan dari Tema"}
+              {menyimpan ? "Saving…" : berubah ? "Unsaved changes" : data.tersimpan ? "Saved" : "Using the default template from Theme"}
             </span>
           </>
         }
@@ -439,7 +443,7 @@ export default function EmailOtomatisPage() {
 
       {!data.email_aktif ? (
         <Banner tone="warning" icon={<Warning size={18} />}>
-          Pengiriman email belum diaktifkan di server (RESEND_API_KEY dan EMAIL_FROM). Templat tetap bisa disusun.
+          Email sending isn&apos;t set up on the server (RESEND_API_KEY and EMAIL_FROM). You can still build the template.
         </Banner>
       ) : null}
 
@@ -448,9 +452,9 @@ export default function EmailOtomatisPage() {
         main={
           <div className="@container w-full min-w-0 self-start rounded-lg border border-outline-variant bg-surface-container-lowest">
             <div className="border-b border-outline-variant px-5 py-5">
-              <h2 className="text-title-large font-semibold text-on-surface">Konfirmasi pendaftaran</h2>
+              <h2 className="text-title-large font-semibold text-on-surface">Registration confirmation</h2>
               <p className="mt-1 max-w-[40rem] text-body-medium text-on-surface-variant">
-                Terkirim ke setiap pendaftar. Disetujui (langsung atau saat panitia menyetujui) membawa QR masuk. Acara bermoderasi juga mengirim versi Menunggu persetujuan saat mendaftar.
+                Sent to every registrant. The Approved version (sent straight away, or when staff approve) carries the check-in QR code. Events with moderation also send the Pending approval version on registration.
               </p>
             </div>
 
@@ -461,27 +465,27 @@ export default function EmailOtomatisPage() {
                 ))}
               </div>
               <p className="text-body-small text-on-surface-variant">
-                Warna, KV, dan logo diambil dari Tema acara. Mengganti preset tidak mengubah teks.
-                {t.preset === "banner" && !data.kv_url ? " Acara ini belum punya KV, jadi kepala memakai Pita warna." : ""}
+                Colours, KV and logo come from the event Theme. Changing the preset doesn&apos;t change the text.
+                {t.preset === "banner" && !data.kv_url ? " This event has no KV yet, so the header uses Colour band." : ""}
               </p>
             </Baris>
 
-            <Baris judul="Huruf" id="huruf">
+            <Baris judul="Font" id="huruf">
               <SegmentedButton<Font>
-                label="Huruf"
+                label="Font"
                 labelledBy="huruf"
                 value={t.font}
                 onChange={(font) => ubah({ font })}
                 options={FONTS.map((font) => ({ value: font, label: FONT_LABELS[font], disabled: font === "tema" && !data.dasar.headingFont }))}
                 className="self-start"
               />
-              <p className="text-body-small text-on-surface-variant">{FONT_NOTES[t.font]}. Satu huruf untuk seluruh email.</p>
+              <p className="text-body-small text-on-surface-variant">{FONT_NOTES[t.font]}. One font for the whole email.</p>
             </Baris>
 
-            <Baris judul="Menunggu persetujuan" id="menunggu">
+            <Baris judul="Pending approval" id="menunggu">
               <Switch
-                label="Kirim email saat mendaftar di acara bermoderasi"
-                description="Tanpa QR; QR menyusul di email Disetujui. Email Disetujui selalu terkirim dan tidak bisa dimatikan."
+                label="Send an email on registration when the event uses moderation"
+                description="No QR code; it follows in the Approved email. The Approved email is always sent and can't be turned off."
                 checked={kirimMenunggu}
                 onChange={(nilai) => {
                   setKirimMenunggu(nilai);
@@ -490,18 +494,18 @@ export default function EmailOtomatisPage() {
               />
             </Baris>
 
-            <Baris judul="Tidak disetujui" id="ditolak">
+            <Baris judul="Rejection email" id="ditolak">
               <Switch
-                label="Kirim email saat panitia menolak pendaftaran"
-                description="Hanya kepala dan pembuka, tanpa alasan penolakan (alasan tetap catatan panitia). Bawaan mati."
+                label="Send an email when staff reject a registration"
+                description="Header and opening only, without the rejection reason (the reason stays a staff note). Off by default."
                 checked={t.kirim_ditolak}
                 onChange={(nilai) => ubah({ kirim_ditolak: nilai })}
               />
             </Baris>
 
-            <Baris judul="Mengedit" id="mengedit">
+            <Baris judul="Editing" id="mengedit">
               <SegmentedButton<RenderState>
-                label="Versi yang diedit"
+                label="Version being edited"
                 labelledBy="mengedit"
                 value={state}
                 onChange={setState}
@@ -510,11 +514,11 @@ export default function EmailOtomatisPage() {
               />
               <p className="text-body-small text-on-surface-variant">
                 {state === "rejected"
-                  ? "Versi Tidak disetujui hanya memuat Kepala dan Pembuka."
-                  : "Subjek, judul, dan sapaan berbeda per versi. Bagian lain sama untuk Disetujui dan Menunggu."}
+                  ? "The Rejected version has only the Header and Opening."
+                  : "Subject, title and greeting differ per version. Other sections are shared by Approved and Pending."}
               </p>
               <TextField
-                label={`Subjek (${versi.label})`}
+                label={`Subject (${versi.label})`}
                 value={t[versi.subjek]}
                 maxLength={150}
                 onFocus={(e) => (kolomTerakhir.current = { blockId: "subjek", kunci: "subjek", el: e.currentTarget })}
@@ -524,7 +528,7 @@ export default function EmailOtomatisPage() {
 
             <section aria-labelledby="bagian" className="px-5 pt-5">
               <h2 id="bagian" className="text-title-small font-semibold text-on-surface">
-                Bagian email
+                Email sections
               </h2>
             </section>
             <ol className="mt-3 border-t border-outline-variant">
@@ -558,7 +562,7 @@ export default function EmailOtomatisPage() {
                     )}
                     sisipkan={
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-body-small text-on-surface-variant">Sisipkan:</span>
+                        <span className="text-body-small text-on-surface-variant">Insert:</span>
                         {FIELDS.map((field) => (
                           <Button key={field.key} size="sm" variant="outlined" onMouseDown={(e) => e.preventDefault()} onClick={() => sisip(kolomTerakhir.current, `{${field.key}}`)}>
                             {field.label}
@@ -575,7 +579,7 @@ export default function EmailOtomatisPage() {
             </div>
             {asing.length > 0 ? (
               <p role="alert" className="border-t border-outline-variant px-5 py-3 text-body-small text-error">
-                Kolom isian tidak dikenal: {asing.map((key) => `{${key}}`).join(", ")}. Pakai tombol Sisipkan supaya ejaannya tepat.
+                Unknown fields: {asing.map((key) => `{${key}}`).join(", ")}. Use the Insert buttons so the spelling is exact.
               </p>
             ) : null}
           </div>
@@ -585,23 +589,23 @@ export default function EmailOtomatisPage() {
             <div className="flex flex-col gap-3 border-b border-outline-variant px-5 py-4">
               <div className="flex flex-wrap gap-3">
                 <SegmentedButton<RenderState>
-                  label="Versi pratinjau"
+                  label="Preview version"
                   value={state}
                   onChange={setState}
                   options={PILIHAN_VERSI}
                 />
                 <SegmentedButton<"desktop" | "ponsel">
-                  label="Lebar pratinjau"
+                  label="Preview width"
                   value={layar}
                   onChange={setLayar}
                   options={[
                     { value: "desktop", label: "Desktop" },
-                    { value: "ponsel", label: "Ponsel" },
+                    { value: "ponsel", label: "Mobile" },
                   ]}
                 />
               </div>
               {data.contoh.length > 0 ? (
-                <SelectField label="Pratinjau sebagai" value={sebagai} onChange={(e) => setSebagai(e.target.value)}>
+                <SelectField label="Preview as" value={sebagai} onChange={(e) => setSebagai(e.target.value)}>
                   {data.contoh.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
@@ -610,7 +614,7 @@ export default function EmailOtomatisPage() {
                 </SelectField>
               ) : null}
               <p className="text-body-medium">
-                <span className="text-on-surface-variant">Subjek </span>
+                <span className="text-on-surface-variant">Subject </span>
                 <span className="font-semibold text-on-surface">{pratinjau?.subject ?? "-"}</span>
               </p>
             </div>
@@ -618,7 +622,7 @@ export default function EmailOtomatisPage() {
               <PratinjauEmail html={pratinjau?.html ?? ""} lebar={lebarPratinjau} />
             </div>
             <p className="border-t border-outline-variant px-5 py-3 text-body-small text-on-surface-variant">
-              Pratinjau memakai data pendaftar sungguhan; QR dan tautannya contoh.{data.member_on ? " Kotak Akun Area peserta hanya ikut untuk pendaftar yang membuat akun saat mendaftar." : ""}
+              The preview uses a real registrant&apos;s data; the QR code and links are samples.{data.member_on ? " The Participant area account box only appears for registrants who create an account when they register." : ""}
             </p>
           </div>
         }
@@ -628,22 +632,22 @@ export default function EmailOtomatisPage() {
         <p className="min-w-0 basis-full text-body-medium text-on-surface-variant sm:flex-1 sm:basis-0">
           {data.belum_terima > 0 ? (
             <>
-              <span className="font-semibold text-on-surface tabular-nums">{data.belum_terima} pendaftar disetujui</span> belum pernah menerima email ber-QR.{" "}
+              <span className="font-semibold text-on-surface tabular-nums">{plural(data.belum_terima, "approved registrant")}</span> without the QR email yet.{" "}
               <Button variant="text" size="sm" onClick={() => setDialog("kirim")} disabled={berubah || !data.email_aktif}>
-                Kirim ke mereka…
+                Send to them…
               </Button>
-              {berubah ? <span className="block text-body-small">Simpan dulu, supaya mereka menerima versi terbaru.</span> : null}
+              {berubah ? <span className="block text-body-small">Save first so they get the latest version.</span> : null}
             </>
           ) : (
-            <>Semua pendaftar disetujui sudah menerima email ber-QR.</>
+            <>All approved registrants have received the QR email.</>
           )}
           {pesanTidakSah && !asing.length ? <span className="block text-body-small text-error">{pesanTidakSah}</span> : null}
         </p>
         <Button variant="outlined" className="ml-auto" onClick={bukaTes} disabled={!sah.success}>
-          Kirim tes…
+          Send test…
         </Button>
         <Button onClick={() => void simpan()} loading={menyimpan} disabled={!berubah || !sah.success || asing.length > 0}>
-          Simpan
+          Save
         </Button>
       </div>
 
@@ -651,20 +655,20 @@ export default function EmailOtomatisPage() {
         open={dialog === "tes"}
         onClose={() => setDialog(null)}
         dismissible={!sibuk}
-        title="Kirim email tes"
-        description={`Versi ${versi.panjang} dengan isi di layar (boleh belum disimpan) dan data pendaftar yang sedang dipratinjau. Subjeknya diawali [TES]; QR dan tautannya contoh.`}
+        title="Send test email"
+        description={`The ${versi.panjang} version with the content on screen (saved or not) and the data of the registrant in the preview. The subject starts with [TEST]; the QR code and links are samples.`}
         actions={
           <>
             <Button variant="text" onClick={() => setDialog(null)} disabled={sibuk}>
-              Batal
+              Cancel
             </Button>
             <Button onClick={() => void kirimTes()} loading={sibuk} disabled={!emailTes.trim()}>
-              Kirim tes
+              Send test
             </Button>
           </>
         }
       >
-        <TextField label="Kirim ke" type="email" autoComplete="email" value={emailTes} onChange={(e) => setEmailTes(e.target.value)} hint="Alamat ini diingat untuk tes berikutnya." />
+        <TextField label="Send to" type="email" autoComplete="email" value={emailTes} onChange={(e) => setEmailTes(e.target.value)} hint="This address is remembered for the next test." />
       </Dialog>
 
       <Dialog
@@ -673,27 +677,27 @@ export default function EmailOtomatisPage() {
         dismissible={!sibuk}
         size="md"
         icon={<PaperPlaneTilt size={20} />}
-        title={`Kirim ke ${data.belum_terima_dikirim} pendaftar?`}
-        description="Email Disetujui dengan QR masing-masing, memakai templat yang tersimpan. Email yang sudah terkirim tidak bisa ditarik."
+        title={`Send to ${plural(data.belum_terima_dikirim, "registrant")}?`}
+        description="The Approved email with each person's own QR code, using the saved template. Sent emails can't be recalled."
         actions={
           <>
             <Button variant="text" onClick={() => setDialog(null)} disabled={sibuk}>
-              Batal
+              Cancel
             </Button>
             <Button onClick={() => void kirimTertunda()} loading={sibuk} disabled={data.belum_terima_dikirim === 0}>
-              Kirim ke {data.belum_terima_dikirim} pendaftar
+              Send to {plural(data.belum_terima_dikirim, "registrant")}
             </Button>
           </>
         }
       >
         <dl className="divide-y divide-outline-variant border-y border-outline-variant text-body-medium">
           <div className="flex justify-between gap-4 py-3">
-            <dt className="font-semibold">Disetujui, belum menerima email</dt>
+            <dt className="font-semibold">Approved, no email yet</dt>
             <dd className="tabular-nums">{data.belum_terima}</dd>
           </div>
           {data.daftar_uji !== "off" ? (
             <div className="flex justify-between gap-4 py-3">
-              <dt className="font-semibold">Ada di daftar uji situs pratinjau</dt>
+              <dt className="font-semibold">On the preview site test list</dt>
               <dd className="tabular-nums">{data.belum_terima_dikirim}</dd>
             </div>
           ) : null}
@@ -701,16 +705,17 @@ export default function EmailOtomatisPage() {
         {data.daftar_uji !== "off" ? (
           <Banner tone="warning" icon={<Warning size={18} />} className="mt-3">
             {data.daftar_uji === "blocked"
-              ? "Situs pratinjau tanpa daftar uji (MESSAGING_ALLOWLIST) tidak mengirim ke pendaftar sungguhan."
-              : "Situs pratinjau: hanya alamat di daftar uji (MESSAGING_ALLOWLIST) yang dikirimi."}
+              ? "A preview site without a test list (MESSAGING_ALLOWLIST) doesn't send to real registrants."
+              : "Preview site: only addresses on the test list (MESSAGING_ALLOWLIST) receive the email."}
           </Banner>
         ) : null}
         <p className="mt-3 text-body-small text-on-surface-variant">
-          Dikirim satu per satu dengan jeda singkat. Pendaftar yang emailnya pernah memantul dilewati.
-          {kemajuan ? ` Terkirim ${kemajuan.terkirim}${kemajuan.gagal ? `, gagal ${kemajuan.gagal}` : ""}…` : ""}
+          Sent one by one with a short pause. Registrants whose email has bounced before are skipped.
+          {kemajuan ? ` ${kemajuan.terkirim} sent${kemajuan.gagal ? `, ${kemajuan.gagal} failed` : ""}…` : ""}
         </p>
       </Dialog>
     </WorkspacePage>
+    </div>
   );
 }
 
@@ -764,28 +769,28 @@ function KartuPreset({ preset, dipilih, dasar, kvUrl, onPilih }: { preset: Prese
 }
 
 function ringkasan(block: Block, data: Data, state: RenderState): string {
-  if (state === "rejected" && block.type !== "kepala" && block.type !== "pembuka") return "Tidak ada di versi Tidak disetujui";
+  if (state === "rejected" && block.type !== "kepala" && block.type !== "pembuka") return "Not in the Rejected version";
   switch (block.type) {
     case "kepala":
-      return "Dari preset dan Tema acara";
+      return "From the preset and the event Theme";
     case "pembuka":
-      return block[VERSI[state].judul] || "Judul dan sapaan";
+      return block[VERSI[state].judul] || "Title and greeting";
     case "tiket":
-      return state === "pending" ? "Kotak Menunggu persetujuan (versi Menunggu)" : "Kode peserta, QR, dan tombol Buka kode & QR";
+      return state === "pending" ? "Pending approval box" : "Participant code, QR and button";
     case "detail":
-      return [data.dasar.detail.tanggal, data.dasar.detail.tempat].filter(Boolean).join(" · ") || "Tanggal dan tempat belum diisi di data acara";
+      return [data.dasar.detail.tanggal, data.dasar.detail.tempat].filter(Boolean).join(" · ") || "Date and venue aren't set in the event details";
     case "teks":
-      return block.isi.split("\n")[0]?.slice(0, 80) || "Teks kosong";
+      return block.isi.split("\n")[0]?.slice(0, 80) || "Empty text";
     case "gambar":
-      return block.url ? block.alt || "Teks alternatif belum diisi" : "Belum ada gambar";
+      return block.url ? block.alt || "Alt text missing" : "No image yet";
     case "tombol":
       return block.label;
     case "info":
-      return block.judul || "Kotak info";
+      return block.judul || "Info box";
     case "mitra":
-      return data.dasar.mitra.length ? `${Math.min(8, data.dasar.mitra.length)} logo dari Halaman acara` : "Belum ada logo mitra di Halaman acara";
+      return data.dasar.mitra.length ? `${plural(Math.min(8, data.dasar.mitra.length), "logo")} from the Event page` : "No partner logos on the Event page yet";
     case "garis":
-      return "Garis tipis pemisah";
+      return "Thin divider line";
   }
 }
 
@@ -836,10 +841,10 @@ function BarisBagian({
         </button>
         {block.type !== "kepala" ? (
           <>
-            <IconButton size="sm" label={`Naikkan ${BLOCK_LABELS[block.type]}`} disabled={pertama} onClick={() => onGeser(-1)}>
+            <IconButton size="sm" label={`Move ${BLOCK_LABELS[block.type]} up`} disabled={pertama} onClick={() => onGeser(-1)}>
               <ArrowUp size={18} />
             </IconButton>
-            <IconButton size="sm" label={`Turunkan ${BLOCK_LABELS[block.type]}`} disabled={terakhir} onClick={() => onGeser(1)}>
+            <IconButton size="sm" label={`Move ${BLOCK_LABELS[block.type]} down`} disabled={terakhir} onClick={() => onGeser(1)}>
               <ArrowDown size={18} />
             </IconButton>
           </>
@@ -848,10 +853,10 @@ function BarisBagian({
           <Switch label={BLOCK_LABELS[block.type]} labelHidden kunci checked onChange={() => undefined} className="w-11 shrink-0" />
         ) : (
           <>
-            <IconButton size="sm" label={`Hapus ${BLOCK_LABELS[block.type]}`} onClick={onHapus}>
+            <IconButton size="sm" label={`Delete ${BLOCK_LABELS[block.type]}`} onClick={onHapus}>
               <Trash size={18} />
             </IconButton>
-            <Switch label={`Tampilkan ${BLOCK_LABELS[block.type]}`} labelHidden checked={block.on} onChange={onNyala} className="w-11 shrink-0" />
+            <Switch label={`Show ${BLOCK_LABELS[block.type]}`} labelHidden checked={block.on} onChange={onNyala} className="w-11 shrink-0" />
           </>
         )}
       </div>
@@ -867,20 +872,20 @@ function BarisBagian({
 function Toolbar({ onTebal, onMiring, onTautan, onDaftar }: { onTebal: () => void; onMiring: () => void; onTautan: () => void; onDaftar: () => void }) {
   const tahan = (e: React.MouseEvent) => e.preventDefault();
   return (
-    <div role="toolbar" aria-label="Format teks" className="flex flex-wrap items-center gap-1">
-      <IconButton size="sm" label="Tebal (**teks**)" onMouseDown={tahan} onClick={onTebal}>
+    <div role="toolbar" aria-label="Text format" className="flex flex-wrap items-center gap-1">
+      <IconButton size="sm" label="Bold (**text**)" onMouseDown={tahan} onClick={onTebal}>
         <TextB size={18} weight="bold" />
       </IconButton>
-      <IconButton size="sm" label="Miring (_teks_)" onMouseDown={tahan} onClick={onMiring}>
+      <IconButton size="sm" label="Italic (_text_)" onMouseDown={tahan} onClick={onMiring}>
         <TextItalic size={18} />
       </IconButton>
-      <IconButton size="sm" label="Tautan ([teks](https://...))" onMouseDown={tahan} onClick={onTautan}>
+      <IconButton size="sm" label="Link ([text](https://...))" onMouseDown={tahan} onClick={onTautan}>
         <LinkSimple size={18} />
       </IconButton>
-      <IconButton size="sm" label="Daftar berpoin (- di awal baris)" onMouseDown={tahan} onClick={onDaftar}>
+      <IconButton size="sm" label="Bulleted list (- at the start of a line)" onMouseDown={tahan} onClick={onDaftar}>
         <ListBullets size={18} />
       </IconButton>
-      <span className="ms-2 text-body-small text-on-surface-variant">**tebal** · _miring_ · [teks](https://…) · - daftar</span>
+      <span className="ms-2 text-body-small text-on-surface-variant">**bold** · _italic_ · [text](https://…) · - list</span>
     </div>
   );
 }
@@ -911,10 +916,10 @@ function EditorBagian({
       const kIsi = VERSI[state].isi;
       return (
         <>
-          <p className="text-body-small text-on-surface-variant">Mengedit versi {VERSI[state].panjang}. Ganti versi di baris Mengedit atau di pratinjau.</p>
-          <TextField label="Judul" value={block[kJudul]} maxLength={120} onFocus={(e) => onFokus(kJudul, e.currentTarget)} onChange={(e) => onUbah({ [kJudul]: e.target.value } as Partial<Block>)} />
+          <p className="text-body-small text-on-surface-variant">Editing the {VERSI[state].panjang} version. Switch versions in the Editing row or in the preview.</p>
+          <TextField label="Title" value={block[kJudul]} maxLength={120} onFocus={(e) => onFokus(kJudul, e.currentTarget)} onChange={(e) => onUbah({ [kJudul]: e.target.value } as Partial<Block>)} />
           {toolbar(kIsi)}
-          <TeksTumbuh label="Sapaan" value={block[kIsi]} maxLength={2000} onFocus={(e) => onFokus(kIsi, e.currentTarget)} onChange={(e) => onUbah({ [kIsi]: e.target.value } as Partial<Block>)} />
+          <TeksTumbuh label="Greeting" value={block[kIsi]} maxLength={2000} onFocus={(e) => onFokus(kIsi, e.currentTarget)} onChange={(e) => onUbah({ [kIsi]: e.target.value } as Partial<Block>)} />
           {sisipkan}
         </>
       );
@@ -923,16 +928,16 @@ function EditorBagian({
       return (
         <>
           {toolbar("isi")}
-          <TeksTumbuh label="Teks" value={block.isi} maxLength={2000} onFocus={(e) => onFokus("isi", e.currentTarget)} onChange={(e) => onUbah({ isi: e.target.value })} />
+          <TeksTumbuh label="Text" value={block.isi} maxLength={2000} onFocus={(e) => onFokus("isi", e.currentTarget)} onChange={(e) => onUbah({ isi: e.target.value })} />
           {sisipkan}
         </>
       );
     case "info":
       return (
         <>
-          <TextField label="Judul kotak" value={block.judul} maxLength={120} onFocus={(e) => onFokus("judul", e.currentTarget)} onChange={(e) => onUbah({ judul: e.target.value })} />
+          <TextField label="Box title" value={block.judul} maxLength={120} onFocus={(e) => onFokus("judul", e.currentTarget)} onChange={(e) => onUbah({ judul: e.target.value })} />
           {toolbar("isi")}
-          <TeksTumbuh label="Isi" value={block.isi} maxLength={2000} onFocus={(e) => onFokus("isi", e.currentTarget)} onChange={(e) => onUbah({ isi: e.target.value })} />
+          <TeksTumbuh label="Body" value={block.isi} maxLength={2000} onFocus={(e) => onFokus("isi", e.currentTarget)} onChange={(e) => onUbah({ isi: e.target.value })} />
           {sisipkan}
         </>
       );
@@ -942,7 +947,7 @@ function EditorBagian({
           {/* eslint-disable-next-line @next/next/no-img-element -- gambar email dari storage, bukan aset halaman */}
           {block.url ? <img src={block.url} alt="" className="max-h-40 w-auto self-start rounded-sm border border-outline-variant" /> : null}
           <label className="self-start">
-            <span className="sr-only">Pilih gambar</span>
+            <span className="sr-only">Choose image</span>
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
@@ -958,7 +963,7 @@ function EditorBagian({
                   const url = await unggah(siap.blob, "gambar-email.jpg");
                   onUbah({ url, lebar: siap.lebar, tinggi: siap.tinggi });
                 } catch {
-                  toast.error("Gambar gagal diunggah", "Pakai PNG, JPG, atau WebP di bawah 5 MB.");
+                  toast.error("Couldn't upload image", "Use a PNG, JPG or WebP under 5 MB.");
                 } finally {
                   setMengunggah(false);
                 }
@@ -966,42 +971,42 @@ function EditorBagian({
             />
             <span className="m3-state inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-outline px-4 text-label-large font-semibold text-primary peer-focus-visible:outline-2 peer-focus-visible:outline-primary">
               <UploadSimple size={16} aria-hidden />
-              {mengunggah ? "Mengunggah…" : block.url ? "Ganti gambar" : "Unggah gambar"}
+              {mengunggah ? "Uploading…" : block.url ? "Replace image" : "Upload image"}
             </span>
           </label>
-          <p className="text-body-small text-on-surface-variant">Dikecilkan otomatis ke lebar 1200 px. Jangan menaruh info penting hanya di dalam gambar: banyak email kantor memblokir gambar.</p>
+          <p className="text-body-small text-on-surface-variant">Scaled down automatically to 1200 px wide. Don&apos;t put important information only in the image: many work email systems block images.</p>
           <TextField
-            label="Teks alternatif"
+            label="Alt text"
             value={block.alt}
             maxLength={200}
             onChange={(e) => onUbah({ alt: e.target.value })}
-            hint="Tampil bila gambar diblokir, dan dibacakan pembaca layar. Contoh: Panduan dress code batik."
-            error={block.url && !block.alt.trim() ? "Wajib diisi." : undefined}
+            hint="Shown when the image is blocked, and read aloud by screen readers. Example: Batik dress code guide."
+            error={block.url && !block.alt.trim() ? "Required." : undefined}
           />
-          <TextField label="Tautan saat gambar diklik" optional value={block.href ?? ""} placeholder="https://" maxLength={600} onChange={(e) => onUbah({ href: e.target.value.trim() || undefined })} />
+          <TextField label="Link when the image is clicked" optional value={block.href ?? ""} placeholder="https://" maxLength={600} onChange={(e) => onUbah({ href: e.target.value.trim() || undefined })} />
         </>
       );
     case "tombol": {
       const tujuan = [
-        ...(data.member_on ? [{ value: "dashboard" as const, label: "Dashboard saya" }] : []),
-        { value: "halaman" as const, label: "Halaman acara" },
-        { value: "url" as const, label: "Tautan lain" },
+        ...(data.member_on ? [{ value: "dashboard" as const, label: "My dashboard" }] : []),
+        { value: "halaman" as const, label: "Event page" },
+        { value: "url" as const, label: "Other link" },
       ];
       return (
         <>
-          <TextField label="Tulisan tombol" value={block.label} maxLength={40} onChange={(e) => onUbah({ label: e.target.value })} />
+          <TextField label="Button text" value={block.label} maxLength={40} onChange={(e) => onUbah({ label: e.target.value })} />
           <SegmentedButton
-            label="Tujuan tombol"
+            label="Button destination"
             value={block.tujuan === "dashboard" && !data.member_on ? "halaman" : block.tujuan}
             onChange={(nilai) => onUbah({ tujuan: nilai })}
             options={tujuan}
             className="self-start"
           />
           {block.tujuan === "dashboard" && !data.member_on ? (
-            <p className="text-body-small text-on-surface-variant">Area peserta mati, jadi tombol ini menuju Halaman acara.</p>
+            <p className="text-body-small text-on-surface-variant">Participant area is off, so this button goes to the Event page.</p>
           ) : null}
           {block.tujuan === "url" ? (
-            <TextField label="Tautan" value={block.url ?? ""} placeholder="https://" maxLength={600} onChange={(e) => onUbah({ url: e.target.value.trim() || undefined })} />
+            <TextField label="Link" value={block.url ?? ""} placeholder="https://" maxLength={600} onChange={(e) => onUbah({ url: e.target.value.trim() || undefined })} />
           ) : null}
         </>
       );
@@ -1009,13 +1014,13 @@ function EditorBagian({
     case "mitra":
       return (
         <>
-          <TextField label="Judul di atas logo" value={block.judul} maxLength={120} onChange={(e) => onUbah({ judul: e.target.value })} />
+          <TextField label="Title above the logos" value={block.judul} maxLength={120} onChange={(e) => onUbah({ judul: e.target.value })} />
           <p className="text-body-small text-on-surface-variant">
             {data.dasar.mitra.length
-              ? `${Math.min(8, data.dasar.mitra.length)} logo diambil dari Halaman acara (paling banyak 8). Ubah logonya di Halaman acara.`
-              : "Belum ada logo mitra di Halaman acara, jadi bagian ini tidak tampil."}{" "}
+              ? `${plural(Math.min(8, data.dasar.mitra.length), "logo")} taken from the Event page (8 at most). Change the logos on the Event page.`
+              : "No partner logos on the Event page yet, so this section is hidden."}{" "}
             <Link href="/admin/landing" className="font-semibold text-primary underline-offset-4 hover:underline">
-              Buka Halaman acara
+              Open Event page
             </Link>
           </p>
         </>
@@ -1031,9 +1036,9 @@ function TambahBagian({ onTambah }: { onTambah: (type: BlockType) => void }) {
   return (
     <span ref={setPemicu} className="inline-block">
       <Button variant="outlined" icon={<Plus size={16} weight="bold" />} aria-haspopup="menu" aria-expanded={anchor.open} onClick={anchor.toggle}>
-        Tambah bagian
+        Add section
       </Button>
-      <Popover anchor={anchor} label="Tambah bagian" width={300} align="start">
+      <Popover anchor={anchor} label="Add section" width={300} align="start">
         {ADDABLE.map((item) => (
           <button
             key={item.type}
@@ -1079,7 +1084,7 @@ function PratinjauEmail({ html, lebar }: { html: string; lebar: number }) {
   return (
     <div ref={setWadah} className="w-full" style={{ height: tinggi * skala }}>
       <iframe
-        title="Pratinjau email"
+        title="Email preview"
         srcDoc={html}
         sandbox="allow-same-origin"
         onLoad={(e) => {

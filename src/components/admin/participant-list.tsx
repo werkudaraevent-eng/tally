@@ -44,13 +44,13 @@ type SesiKehadiran = { id: number; name: string; is_active: boolean };
 type FacetPerusahaan = { company: string; count: number };
 
 const ASAL: Record<AsalPeserta, { label: string; judul: string }> = {
-  walkin: { label: "Walk-in", judul: "Didaftarkan petugas di meja registrasi pada hari-H" },
-  registration: { label: "Daftar sendiri", judul: "Mengisi formulir pendaftaran publik" },
-  manual: { label: "Manual", judul: "Diketik atau diimpor panitia" },
-  scanner: { label: "Scanner API", judul: "Ditarik dari Scanner API; sebagian kolom dikelola di sana" },
+  walkin: { label: "Walk-in", judul: "Added by staff at the check-in desk on event day" },
+  registration: { label: "Self-registered", judul: "Filled in the public registration form" },
+  manual: { label: "Manual", judul: "Typed in or imported by staff" },
+  scanner: { label: "Scanner API", judul: "Pulled from Scanner API; some fields are managed there" },
 };
 
-const LABEL_RSVP: Record<string, string> = { confirmed: "Konfirmasi", invited: "Menunggu", declined: "Tidak hadir" };
+const LABEL_RSVP: Record<string, string> = { confirmed: "Confirmed", invited: "Awaiting reply", declined: "Declined" };
 const RSVP_TONE: Record<string, "success" | "warning" | "error"> = { confirmed: "success", invited: "warning", declined: "error" };
 
 const PAGE_SIZE = 25;
@@ -84,7 +84,7 @@ const lockedClass = "mt-1.5 flex min-h-9 items-center rounded-md border border-d
 
 function teksJawaban(field: RegistrationField, value: string | undefined): string {
   if (!value) return "";
-  if (field.type === "checkbox") return value === "true" ? "Ya" : "";
+  if (field.type === "checkbox") return value === "true" ? "Yes" : "";
   return value;
 }
 
@@ -162,7 +162,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       const response = await fetch(`/api/admin/participants?${params.toString()}`, { cache: "no-store" });
       const data = await response.json();
       if (nomor !== urutanMuat.current) return;
-      if (!response.ok) { setError(data.error?.details?.message ?? data.error?.message ?? "Daftar peserta gagal dimuat."); return; }
+      if (!response.ok) { setError(data.error?.details?.message ?? data.error?.message ?? "Couldn't load the participant list."); return; }
       setParticipants(data.participants ?? []);
       setTotal(data.total ?? 0);
       setFields((data.fields ?? []) as RegistrationField[]);
@@ -172,7 +172,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       setRemovedCount(data.removed_count ?? 0);
       onStats?.({ total: data.total ?? 0, activeTotal: data.active_total ?? data.total ?? 0, removedCount: data.removed_count ?? 0, lastSyncedAt: data.last_synced_at ?? null });
     } catch {
-      if (nomor === urutanMuat.current) setError("Koneksi terputus. Coba lagi.");
+      if (nomor === urutanMuat.current) setError("Connection lost. Try again.");
     } finally {
       if (nomor === urutanMuat.current) setLoading(false);
     }
@@ -228,7 +228,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       : fetch("/api/admin/undian/exclusions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ participant_id: participant.id }) })
     ).catch(() => null);
     setTogglingExclusion(null);
-    if (!response?.ok) { toast.error("Status undian gagal diubah"); return; }
+    if (!response?.ok) { toast.error("Couldn't update lucky draw status"); return; }
     setExcluded((current) => {
       const next = new Set(current);
       if (isExcluded) next.delete(participant.id); else next.add(participant.id);
@@ -277,16 +277,16 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       body: JSON.stringify(draft),
     }).catch(() => null);
     setSaving(false);
-    if (!response) { setFormError("Koneksi terputus. Peserta belum tersimpan."); return; }
+    if (!response) { setFormError("Connection lost. Participant not saved."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       const rincian = body.error?.details && typeof body.error.details === "object"
         ? Object.values(body.error.details as Record<string, unknown>).find((value) => typeof value === "string")
         : undefined;
-      setFormError((typeof rincian === "string" ? rincian : undefined) ?? body.error?.message ?? "Peserta gagal disimpan.");
+      setFormError((typeof rincian === "string" ? rincian : undefined) ?? body.error?.message ?? "Couldn't save participant.");
       return;
     }
-    setNotice(isNew ? `${draft.name} ditambahkan.` : `${draft.name} diperbarui.`);
+    setNotice(isNew ? `${draft.name} added.` : `${draft.name} updated.`);
     const savedId: string | undefined = body.participant?.id ?? body.id ?? (isNew ? undefined : mode.row.id);
     setMode(savedId ? { kind: "view", id: savedId } : null);
     setDraft(EMPTY_DRAFT);
@@ -299,10 +299,10 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     const response = await fetch(`/api/admin/participants/${participant.id}`, { method: "DELETE" }).catch(() => null);
     setSaving(false);
     setConfirmDelete(null);
-    if (!response) { setError("Koneksi terputus. Muat ulang untuk melihat apakah peserta terhapus."); return; }
+    if (!response) { setError("Connection lost. Reload to see whether the participant was deleted."); return; }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) { setError(body.error?.details?.message ?? body.error?.message ?? "Peserta gagal dihapus."); return; }
-    setNotice(`${participant.name} dihapus.`);
+    if (!response.ok) { setError(body.error?.details?.message ?? body.error?.message ?? "Couldn't delete participant."); return; }
+    setNotice(`${participant.name} deleted.`);
     setMode(null);
     void load(debouncedQuery, page, sort, dir, perPage);
     onChanged?.();
@@ -311,50 +311,50 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   async function bukaBerkas(id: string) {
     const response = await fetch(`/api/admin/registrasi/upload?id=${encodeURIComponent(id)}`, { cache: "no-store" }).catch(() => null);
     const body = await response?.json().catch(() => null);
-    if (!response?.ok || !body?.url) { toast.error("Berkas tidak bisa dibuka", "Coba lagi."); return; }
+    if (!response?.ok || !body?.url) { toast.error("Couldn't open file", "Try again."); return; }
     window.open(body.url, "_blank", "noopener");
   }
 
   async function salinKode(kode: string) {
-    try { await navigator.clipboard.writeText(kode); toast.success("Kode disalin", kode); }
-    catch { toast.error("Kode tidak bisa disalin", "Salin manual dari layar."); }
+    try { await navigator.clipboard.writeText(kode); toast.success("Code copied", kode); }
+    catch { toast.error("Couldn't copy code", "Copy it from the screen."); }
   }
 
-  const jam = useCallback((iso: string) => new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone }), [timeZone]);
+  const jam = useCallback((iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone }), [timeZone]);
 
   // ---- Kolom -------------------------------------------------------------
   const kolom = useMemo<Kolom[]>(() => {
     const daftar: Kolom[] = [
-      { key: "company", label: "Perusahaan", sort: "company", width: 200, cell: (p) => p.company ? <span className="block truncate" title={p.company}>{p.company}</span> : <EmptyCell /> },
-      { key: "title", label: "Jabatan", sort: "title", width: 180, cell: (p) => p.title ? <span className="block truncate" title={p.title}>{p.title}</span> : <EmptyCell /> },
+      { key: "company", label: "Organisation", sort: "company", width: 200, cell: (p) => p.company ? <span className="block truncate" title={p.company}>{p.company}</span> : <EmptyCell /> },
+      { key: "title", label: "Job title", sort: "title", width: 180, cell: (p) => p.title ? <span className="block truncate" title={p.title}>{p.title}</span> : <EmptyCell /> },
       ...sessions.map<Kolom>((sesi) => ({
         key: `sesi:${sesi.id}`,
-        label: sesi.is_active ? sesi.name : `${sesi.name} (ditutup)`,
+        label: sesi.is_active ? sesi.name : `${sesi.name} (closed)`,
         width: 140,
         cell: (p) => {
           const catatan = p.attendance?.[String(sesi.id)];
           return catatan
-            ? <StatusChip dot tone="success" className="tabular-nums" title={catatan.count > 1 ? `Dipindai ${catatan.count} kali` : "Dipindai sekali"}>{jam(catatan.first)}</StatusChip>
-            : <StatusChip dot tone="neutral">Belum</StatusChip>;
+            ? <StatusChip dot tone="success" className="tabular-nums" title={catatan.count > 1 ? `Scanned ${catatan.count} times` : "Scanned once"}>{jam(catatan.first)}</StatusChip>
+            : <StatusChip dot tone="neutral">Not checked in</StatusChip>;
         },
       })),
       { key: "rsvp", label: "RSVP", sort: "rsvp_status", width: 128, cell: (p) => p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell /> },
-      { key: "kamar", label: "Kamar", width: 120, cell: (p) => p.logistik?.kamar ? <span className="block truncate" title={p.logistik.kamar}>{p.logistik.kamar}</span> : <EmptyCell /> },
+      { key: "kamar", label: "Room", width: 120, cell: (p) => p.logistik?.kamar ? <span className="block truncate" title={p.logistik.kamar}>{p.logistik.kamar}</span> : <EmptyCell /> },
       { key: "bus", label: "Bus", width: 96, cell: (p) => p.logistik?.bus ?? <EmptyCell /> },
-      { key: "seat", label: "Kursi", width: 168, cell: (p) => p.seats?.length ? <span className="block truncate" title={p.seats.map((s) => `${s.subEventName}: ${s.label}`).join(", ")}>{p.seats.map((s) => s.label).join(", ")}</span> : <EmptyCell /> },
-      { key: "source", label: "Asal", width: 128, cell: (p) => <span title={ASAL[p.source].judul}>{ASAL[p.source].label}</span> },
-      { key: "type", label: "Tipe", sort: "participant_type", width: 112, cell: (p) => p.participant_type ?? <EmptyCell /> },
-      { key: "qr", label: "Kode QR", sort: "qr_code", width: 128, cell: (p) => <span className="tabular-nums">{p.qr_code}</span> },
+      { key: "seat", label: "Seat", width: 168, cell: (p) => p.seats?.length ? <span className="block truncate" title={p.seats.map((s) => `${s.subEventName}: ${s.label}`).join(", ")}>{p.seats.map((s) => s.label).join(", ")}</span> : <EmptyCell /> },
+      { key: "source", label: "Source", width: 128, cell: (p) => <span title={ASAL[p.source].judul}>{ASAL[p.source].label}</span> },
+      { key: "type", label: "Type", sort: "participant_type", width: 112, cell: (p) => p.participant_type ?? <EmptyCell /> },
+      { key: "qr", label: "QR code", sort: "qr_code", width: 128, cell: (p) => <span className="tabular-nums">{p.qr_code}</span> },
       { key: "email", label: "Email", width: 220, cell: (p) => p.email ? <span className="block truncate" title={p.email}>{p.email}</span> : <EmptyCell /> },
-      { key: "phone", label: "Telepon", width: 140, cell: (p) => p.phone ?? <EmptyCell /> },
-      { key: "undian", label: "Undian", width: 128, cell: (p) => excluded.has(p.id) ? <StatusChip tone="warning">Dikecualikan</StatusChip> : <span className="text-on-surface-variant">Ikut</span> },
+      { key: "phone", label: "Phone", width: 140, cell: (p) => p.phone ?? <EmptyCell /> },
+      { key: "undian", label: "Lucky draw", width: 128, cell: (p) => excluded.has(p.id) ? <StatusChip tone="warning">Excluded</StatusChip> : <span className="text-on-surface-variant">Included</span> },
       ...fields.map<Kolom>((item) => ({
         key: `field:${item.key}`,
         label: item.label,
         width: 180,
         cell: (p) => {
           const value = p.extra?.[item.key];
-          if (FILE_FIELD_TYPES.includes(item.type)) return value ? <span className="inline-flex items-center gap-1"><Paperclip size={14} aria-hidden />Berkas</span> : <EmptyCell />;
+          if (FILE_FIELD_TYPES.includes(item.type)) return value ? <span className="inline-flex items-center gap-1"><Paperclip size={14} aria-hidden />File</span> : <EmptyCell />;
           const teks = teksJawaban(item, value);
           return teks ? <span className="block truncate" title={teks}>{teks}</span> : <EmptyCell />;
         },
@@ -362,9 +362,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     ];
     if (scannerColumns) {
       daftar.push(
-        { key: "scanner_status", label: "Status sumber", width: 150, cell: (p) => p.source_removed_at ? <StatusChip tone="warning">Dihapus di sumber</StatusChip> : <span className="text-on-surface-variant">Aktif</span> },
-        { key: "checked_in", label: "Check-in sumber", sort: "source_checked_in", width: 140, cell: (p) => p.source_checked_in ? <Check size={16} className="text-success" aria-label="Sudah check-in" /> : <EmptyCell /> },
-        { key: "scans", label: "Scan", sort: "source_total_scans", width: 88, align: "right", cell: (p) => <span className="tabular-nums">{p.source_total_scans}</span> },
+        { key: "scanner_status", label: "Source status", width: 150, cell: (p) => p.source_removed_at ? <StatusChip tone="warning">Deleted at source</StatusChip> : <span className="text-on-surface-variant">Active</span> },
+        { key: "checked_in", label: "Source check-in", sort: "source_checked_in", width: 140, cell: (p) => p.source_checked_in ? <Check size={16} className="text-success" aria-label="Checked in" /> : <EmptyCell /> },
+        { key: "scans", label: "Scans", sort: "source_total_scans", width: 88, align: "right", cell: (p) => <span className="tabular-nums">{p.source_total_scans}</span> },
       );
     }
     return daftar;
@@ -373,7 +373,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const bawaan = useMemo(() => ["company", ...(sessions[0] ? [`sesi:${sessions[0].id}`] : []), "rsvp", "seat"], [sessions]);
   const { visible, setVisible, isDefault } = useColumnPrefs("peserta", bawaan);
   const kolomTampil = kolom.filter((item) => visible.includes(item.key));
-  const opsiKolom: ColumnOption[] = [{ key: "name", label: "Nama", locked: true }, ...kolom.map((item) => ({ key: item.key, label: item.label }))];
+  const opsiKolom: ColumnOption[] = [{ key: "name", label: "Name", locked: true }, ...kolom.map((item) => ({ key: item.key, label: item.label }))];
   const jabatanDiBawahNama = !visible.includes("title");
 
   const adaFilter = Boolean(filterAsal || filterHadir || filterRsvp || filterPerusahaan.length);
@@ -394,7 +394,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         type="button"
         onClick={() => toggleSort(key)}
         className={cx("inline-flex max-w-full items-center gap-1 whitespace-nowrap hover:text-on-surface", active && "text-on-surface", align === "right" && "ml-auto")}
-        title={`Urutkan menurut ${label}`}
+        title={`Sort by ${label}`}
       >
         <span className="truncate">{label}</span>
         {active ? (dir === "asc" ? <ArrowUp size={14} className="shrink-0" /> : <ArrowDown size={14} className="shrink-0" />) : <CaretUpDown size={14} className="shrink-0 text-outline" />}
@@ -406,31 +406,31 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
 
   // ---- Panel daftar --------------------------------------------------------
   const list = (
-    <Pane aria-label="Daftar peserta">
+    <Pane aria-label="Participant list">
       <PaneHeader className="flex-wrap gap-2 px-3 py-3">
         <label className="relative min-w-[200px] flex-1">
-          <span className="sr-only">Cari peserta</span>
+          <span className="sr-only">Search participants</span>
           <MagnifyingGlass size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Cari nama, perusahaan, kode QR..."
+            placeholder="Search name, organisation, QR code…"
             className="h-8 w-full rounded-md border border-outline bg-surface-container-lowest pl-9 pr-3 text-body-medium outline-none placeholder:text-on-surface-variant focus:border-primary"
           />
         </label>
         <ChipMenu
-          label="Perusahaan"
+          label="Organisation"
           multiple
           searchable
-          options={companies.map((row) => ({ value: row.company, label: row.company || "Tanpa perusahaan", count: row.count }))}
+          options={companies.map((row) => ({ value: row.company, label: row.company || "No organisation", count: row.count }))}
           selected={filterPerusahaan}
           onChange={(next) => { setFilterPerusahaan(next); setPage(0); }}
         />
         <ChipMenu
-          label="Asal"
+          label="Source"
           options={[
             { value: "walkin", label: "Walk-in" },
-            { value: "registration", label: "Daftar sendiri" },
+            { value: "registration", label: "Self-registered" },
             { value: "manual", label: "Manual" },
             ...(scannerColumns ? [{ value: "scanner", label: "Scanner API" }] : []),
           ]}
@@ -439,22 +439,22 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         />
         {sessions.length > 0 ? (
           <ChipMenu
-            label="Kehadiran"
+            label="Check-in"
             options={sessions.flatMap((sesi) => [
-              { value: `${sesi.id}:yes`, label: `Sudah hadir: ${sesi.name}` },
-              { value: `${sesi.id}:no`, label: `Belum hadir: ${sesi.name}` },
+              { value: `${sesi.id}:yes`, label: `Checked in: ${sesi.name}` },
+              { value: `${sesi.id}:no`, label: `Not checked in: ${sesi.name}` },
             ])}
             selected={filterHadir ? [filterHadir] : []}
             onChange={(next) => { setFilterHadir(next[0] ?? ""); setPage(0); }}
-            summary={(pilihan) => pilihan[0]?.label ?? "Kehadiran"}
+            summary={(pilihan) => pilihan[0]?.label ?? "Check-in"}
           />
         ) : null}
         <ChipMenu
           label="RSVP"
           options={[
-            { value: "confirmed", label: "Konfirmasi" },
-            { value: "invited", label: "Menunggu" },
-            { value: "none", label: "Belum diisi" },
+            { value: "confirmed", label: "Confirmed" },
+            { value: "invited", label: "Awaiting reply" },
+            { value: "none", label: "Not set" },
           ]}
           selected={filterRsvp ? [filterRsvp] : []}
           onChange={(next) => { setFilterRsvp(next[0] ?? ""); setPage(0); }}
@@ -466,7 +466,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         {error ? (
           <p role="alert" className="m-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</p>
         ) : loading && participants.length === 0 ? (
-          <div aria-label="Memuat peserta" className="flex flex-col">
+          <div aria-label="Loading participants" className="flex flex-col">
             {Array.from({ length: 8 }, (_, i) => (
               <div key={i} className="flex items-center gap-4 border-b border-outline-variant px-4 py-4">
                 <div className="h-3 w-48 animate-pulse rounded bg-surface-container-high" />
@@ -478,9 +478,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           <EmptyState
             plain
             icon={<UsersThree size={40} />}
-            title={adaFilter || debouncedQuery ? "Tidak ada peserta yang cocok" : "Belum ada peserta"}
-            description={adaFilter || debouncedQuery ? "Longgarkan salah satu saringan atau ubah kata cari." : "Tambahkan peserta satu per satu, atau impor dari berkas CSV atau XLSX."}
-            action={adaFilter ? <Button variant="outlined" size="sm" onClick={resetFilter}>Hapus semua saringan</Button> : !debouncedQuery ? <Button size="sm" onClick={startAdd}>Tambah peserta</Button> : undefined}
+            title={adaFilter || debouncedQuery ? "No matching participants" : "No participants yet"}
+            description={adaFilter || debouncedQuery ? "Loosen a filter or change the search." : "Add participants one by one, or import a CSV or XLSX file."}
+            action={adaFilter ? <Button variant="outlined" size="sm" onClick={resetFilter}>Clear all filters</Button> : !debouncedQuery ? <Button size="sm" onClick={startAdd}>Add participant</Button> : undefined}
           />
         ) : (
           <table
@@ -493,7 +493,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             </colgroup>
             <thead className="sticky top-0 z-10 bg-surface-container-high text-body-medium font-medium text-on-surface-variant">
               <tr>
-                <th scope="col" aria-sort={ariaSort("name")} className="sticky left-0 z-10 border-b border-outline-variant bg-surface-container-high px-4 py-2.5 font-medium">{sortHeader("Nama", "name")}</th>
+                <th scope="col" aria-sort={ariaSort("name")} className="sticky left-0 z-10 border-b border-outline-variant bg-surface-container-high px-4 py-2.5 font-medium">{sortHeader("Name", "name")}</th>
                 {kolomTampil.map((item) => (
                   <th key={item.key} scope="col" aria-sort={ariaSort(item.sort)} className="border-b border-outline-variant px-3 py-2.5 font-medium">{sortHeader(item.label, item.sort, item.align)}</th>
                 ))}
@@ -517,7 +517,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                       >
                         <span className="flex min-w-0 items-center gap-2">
                           <span className="truncate font-medium text-on-surface" title={participant.name}>{participant.name}</span>
-                          {participant.source_removed_at ? <StatusChip tone="warning" className="shrink-0">Dihapus di sumber</StatusChip> : null}
+                          {participant.source_removed_at ? <StatusChip tone="warning" className="shrink-0">Deleted at source</StatusChip> : null}
                         </span>
                         {jabatanDiBawahNama ? <span className="block truncate text-on-surface-variant">{participant.title || " "}</span> : null}
                       </button>
@@ -539,21 +539,21 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         className="bg-surface-container-lowest py-2"
         note={
           <span className="flex flex-wrap items-center gap-x-2">
-            <span className="tabular-nums">{error ? "Daftar tidak dimuat" : `${dari}–${sampai} dari ${total}`}</span>
+            <span className="tabular-nums">{error ? "List not loaded" : `${dari}–${sampai} of ${total}`}</span>
             {/* Menjelaskan selisih "dari 278" dengan "247 peserta aktif" di kepala halaman.
                 removed_count dihitung tanpa saringan, jadi hanya benar saat tidak ada saringan. */}
             {!error && removedCount > 0 && !adaFilter && !query.trim() ? (
-              <span className="tabular-nums" title="Tetap disimpan untuk audit, tapi tidak muncul di pencarian booth dan kasir serta tidak dihitung di laporan.">
-                termasuk {removedCount} dihapus di sumber
+              <span className="tabular-nums" title="Kept for the audit trail, but hidden from booth and cashier search and not counted in reports.">
+                including {removedCount} deleted at source
               </span>
             ) : null}
-            {adaFilter ? <button type="button" onClick={resetFilter} className="rounded-sm font-medium text-primary hover:underline">Hapus semua saringan</button> : null}
+            {adaFilter ? <button type="button" onClick={resetFilter} className="rounded-sm font-medium text-primary hover:underline">Clear all filters</button> : null}
           </span>
         }
       >
-        <IconButton size="sm" variant="outlined" label="Halaman sebelumnya" disabled={page === 0 || loading} onClick={() => setPage((current) => Math.max(0, current - 1))}><CaretLeft size={16} /></IconButton>
+        <IconButton size="sm" variant="outlined" label="Previous page" disabled={page === 0 || loading} onClick={() => setPage((current) => Math.max(0, current - 1))}><CaretLeft size={16} /></IconButton>
         <span className="min-w-14 text-center text-body-medium tabular-nums text-on-surface-variant">{page + 1} / {totalPages}</span>
-        <IconButton size="sm" variant="outlined" label="Halaman berikutnya" disabled={page + 1 >= totalPages || loading || Boolean(error)} onClick={() => setPage((current) => current + 1)}><CaretRight size={16} /></IconButton>
+        <IconButton size="sm" variant="outlined" label="Next page" disabled={page + 1 >= totalPages || loading || Boolean(error)} onClick={() => setPage((current) => current + 1)}><CaretRight size={16} /></IconButton>
       </PaneFooter>
     </Pane>
   );
@@ -574,7 +574,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   }
 
   function textField(label: string, key: Exclude<keyof Draft, "extra">, options?: { locked?: boolean; value?: string; placeholder?: string; type?: string; hint?: string }) {
-    if (options?.locked) return field(label, <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{options.value || "Tidak diisi"}</p>);
+    if (options?.locked) return field(label, <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{options.value || "Not set"}</p>);
     return field(label, (
       <input
         value={draft[key]}
@@ -589,11 +589,11 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   function jawabanField(item: RegistrationField) {
     const value = draft.extra[item.key] ?? "";
     const set = (next: string) => setDraft({ ...draft, extra: { ...draft.extra, [item.key]: next } });
-    const label = item.required ? item.label : `${item.label} (opsional)`;
+    const label = item.required ? item.label : `${item.label} (optional)`;
     if (FILE_FIELD_TYPES.includes(item.type)) {
       return field(label, value
-        ? <p className={lockedClass}><Paperclip size={14} className="mr-2 shrink-0" />Berkas terlampir.<button type="button" onClick={() => void bukaBerkas(value)} className="ml-1 font-medium text-primary underline">Buka</button></p>
-        : <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />Hanya bisa diunggah pendaftar sendiri.</p>);
+        ? <p className={lockedClass}><Paperclip size={14} className="mr-2 shrink-0" />File attached.<button type="button" onClick={() => void bukaBerkas(value)} className="ml-1 font-medium text-primary underline">Open</button></p>
+        : <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />Only the registrant can upload this.</p>);
     }
     if (item.type === "checkbox") {
       return (
@@ -609,7 +609,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     if (item.type === "select" || item.type === "radio") {
       return field(label, (
         <select value={value} onChange={(event) => set(event.target.value)} className={inputClass}>
-          <option value="">Tidak diisi</option>
+          <option value="">Not set</option>
           {(item.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
       ), item.help_text);
@@ -631,53 +631,53 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   }
 
   const editor = editing ? (
-    <Pane as="aside" aria-label={mode?.kind === "new" ? "Tambah peserta" : "Sunting peserta"}>
+    <Pane as="aside" aria-label={mode?.kind === "new" ? "Add participant" : "Edit participant"}>
       <PaneHeader className="px-5 py-4">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-title-medium font-semibold">{mode?.kind === "new" ? "Tambah peserta" : `Sunting ${editingRow?.name ?? "peserta"}`}</h2>
-          {mode?.kind === "new" ? <p className="text-body-medium text-on-surface-variant">Peserta manual tidak disentuh sinkronisasi Scanner API.</p> : null}
+          <h2 className="truncate text-title-medium font-semibold">{mode?.kind === "new" ? "Add participant" : `Edit ${editingRow?.name ?? "participant"}`}</h2>
+          {mode?.kind === "new" ? <p className="text-body-medium text-on-surface-variant">Scanner API sync never changes manual participants.</p> : null}
         </div>
-        <IconButton size="sm" label="Batal" onClick={cancelEdit} disabled={saving}><X size={16} /></IconButton>
+        <IconButton size="sm" label="Cancel" onClick={cancelEdit} disabled={saving}><X size={16} /></IconButton>
       </PaneHeader>
       <PaneBody>
         <form id="form-peserta" onSubmit={(event) => { event.preventDefault(); void save(); }} className="flex flex-col gap-4 px-5 py-4">
           {editingLocked ? (
             <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
               <LockSimple size={16} className="mt-0.5 shrink-0 text-warning" />
-              <span>Nama, perusahaan, jabatan, kode QR, tipe, dan RSVP dikelola di Scanner API. Email, telepon, dan jawaban formulir tetap bisa diisi di sini.</span>
+              <span>Name, organisation, job title, QR code, type and RSVP are managed in Scanner API. Email, phone and form answers can still be edited here.</span>
             </p>
           ) : null}
           {formError ? <p role="alert" className="flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{formError}</p> : null}
-          {textField("Nama lengkap", "name", { locked: editingLocked, value: editingRow?.name, placeholder: "Nama peserta" })}
-          {textField("Perusahaan", "company", { locked: editingLocked, value: editingRow?.company ?? "", placeholder: "Opsional" })}
-          {textField("Jabatan", "title", { locked: editingLocked, value: editingRow?.title ?? "", placeholder: "Opsional" })}
+          {textField("Full name", "name", { locked: editingLocked, value: editingRow?.name, placeholder: "Participant name" })}
+          {textField("Organisation", "company", { locked: editingLocked, value: editingRow?.company ?? "", placeholder: "Optional" })}
+          {textField("Job title", "title", { locked: editingLocked, value: editingRow?.title ?? "", placeholder: "Optional" })}
           {editingLocked
-            ? field("Kode QR", <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{editingRow?.qr_code}</p>)
-            : field("Kode QR", <input value={draft.qr_code} onChange={(event) => setDraft({ ...draft, qr_code: event.target.value })} className={`${inputClass} tabular-nums`} placeholder="REG000000" required />, "Harus unik di acara ini. Kode ini yang dipindai booth dan kasir.")}
-          {textField("Tipe peserta", "participant_type", { locked: editingLocked, value: editingRow?.participant_type ?? "", placeholder: "mis. VIP, reguler" })}
+            ? field("QR code", <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{editingRow?.qr_code}</p>)
+            : field("QR code", <input value={draft.qr_code} onChange={(event) => setDraft({ ...draft, qr_code: event.target.value })} className={`${inputClass} tabular-nums`} placeholder="REG000000" required />, "Must be unique in this event. Booths and cashiers scan this code.")}
+          {textField("Participant type", "participant_type", { locked: editingLocked, value: editingRow?.participant_type ?? "", placeholder: "e.g. VIP, regular" })}
           {editingLocked
-            ? field("RSVP", <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{LABEL_RSVP[editingRow?.rsvp_status ?? ""] ?? "Tidak diisi"}</p>)
+            ? field("RSVP", <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{LABEL_RSVP[editingRow?.rsvp_status ?? ""] ?? "Not set"}</p>)
             : field("RSVP", (
               <select value={draft.rsvp_status} onChange={(event) => setDraft({ ...draft, rsvp_status: event.target.value })} className={inputClass}>
-                <option value="">Tidak diisi</option>
-                <option value="invited">Menunggu</option>
-                <option value="confirmed">Konfirmasi</option>
+                <option value="">Not set</option>
+                <option value="invited">Awaiting reply</option>
+                <option value="confirmed">Confirmed</option>
               </select>
             ))}
           {textField("Email", "email", { placeholder: "email@example.com", type: "email" })}
-          {textField("Telepon", "phone", { placeholder: "08xx atau +62xx" })}
+          {textField("Phone", "phone", { placeholder: "08xx or +62xx" })}
           {fields.length > 0 ? (
             <div className="flex flex-col gap-4 border-t border-outline-variant pt-4">
-              <p className="text-body-medium font-semibold">Jawaban formulir pendaftaran</p>
+              <p className="text-body-medium font-semibold">Registration form answers</p>
               {fields.map((item) => <div key={item.key}>{jawabanField(item)}</div>)}
             </div>
           ) : null}
         </form>
       </PaneBody>
       <PaneFooter>
-        <Button type="button" variant="outlined" size="sm" disabled={saving} onClick={cancelEdit}>Batal</Button>
+        <Button type="button" variant="outlined" size="sm" disabled={saving} onClick={cancelEdit}>Cancel</Button>
         <Button simpan type="submit" form="form-peserta" size="sm" loading={saving} disabled={!draft.name.trim() || !draft.qr_code.trim()} icon={<Check size={16} weight="bold" />}>
-          {mode?.kind === "new" ? "Tambah peserta" : "Simpan perubahan"}
+          {mode?.kind === "new" ? "Add participant" : "Save changes"}
         </Button>
       </PaneFooter>
     </Pane>
@@ -689,7 +689,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     const pertama = sessions.map((sesi) => ({ sesi, catatan: p.attendance?.[String(sesi.id)] })).find((item) => item.catatan);
     const subjudul = [p.title, p.company].filter(Boolean).join(" · ");
     return (
-      <Pane as="aside" aria-label={`Detail ${p.name}`}>
+      <Pane as="aside" aria-label={`Details for ${p.name}`}>
         <div className="flex shrink-0 flex-col gap-3 border-b border-outline-variant px-5 py-4">
           <div className="flex items-start gap-3">
             <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-body-medium font-semibold text-primary">{inisial(p.name)}</span>
@@ -697,74 +697,74 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
               <h2 className="text-title-medium font-semibold leading-6">{p.name}</h2>
               {subjudul ? <p className="text-body-medium text-on-surface-variant">{subjudul}</p> : null}
             </div>
-            <IconButton size="sm" label="Tutup detail" onClick={() => setMode(null)}><X size={16} /></IconButton>
+            <IconButton size="sm" label="Close details" onClick={() => setMode(null)}><X size={16} /></IconButton>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {pertama?.catatan ? <StatusChip dot tone="success">Hadir {jam(pertama.catatan.first)}</StatusChip> : sessions.length > 0 ? <StatusChip dot tone="neutral">Belum hadir</StatusChip> : null}
+            {pertama?.catatan ? <StatusChip dot tone="success">Checked in {jam(pertama.catatan.first)}</StatusChip> : sessions.length > 0 ? <StatusChip dot tone="neutral">Not checked in</StatusChip> : null}
             {p.participant_type ? <StatusChip>{p.participant_type}</StatusChip> : null}
             <StatusChip title={ASAL[p.source].judul}>{ASAL[p.source].label}</StatusChip>
-            {p.source_removed_at ? <StatusChip tone="warning">Dihapus di sumber</StatusChip> : null}
+            {p.source_removed_at ? <StatusChip tone="warning">Deleted at source</StatusChip> : null}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outlined" size="sm" icon={<PencilSimple size={16} />} onClick={() => startEdit(p)}>{fromSource ? "Sunting kontak" : "Sunting"}</Button>
-            {!fromSource ? <Button simpan variant="text" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmDelete(p)}>Hapus</Button> : null}
+            <Button variant="outlined" size="sm" icon={<PencilSimple size={16} />} onClick={() => startEdit(p)}>{fromSource ? "Edit contact" : "Edit"}</Button>
+            {!fromSource ? <Button simpan variant="text" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmDelete(p)}>Delete</Button> : null}
           </div>
         </div>
         <PaneBody>
           <dl>
-            <DetailSection title="Undangan">
-              <KeyValue label="Kode QR">
+            <DetailSection title="Invitation">
+              <KeyValue label="QR code">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="tabular-nums">{p.qr_code}</span>
-                  <IconButton size="sm" label="Salin kode QR" onClick={() => void salinKode(p.qr_code)}><Copy size={14} /></IconButton>
+                  <IconButton size="sm" label="Copy QR code" onClick={() => void salinKode(p.qr_code)}><Copy size={14} /></IconButton>
                 </span>
               </KeyValue>
-              <KeyValue label="Tipe">{p.participant_type ?? <EmptyCell />}</KeyValue>
+              <KeyValue label="Type">{p.participant_type ?? <EmptyCell />}</KeyValue>
               <KeyValue label="RSVP">{p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell />}</KeyValue>
             </DetailSection>
             {sessions.length > 0 ? (
-              <DetailSection title="Kehadiran">
+              <DetailSection title="Check-in">
                 {sessions.map((sesi) => {
                   const catatan = p.attendance?.[String(sesi.id)];
                   return (
                     <KeyValue key={sesi.id} label={sesi.name}>
-                      {catatan ? <StatusChip dot tone="success" title={catatan.count > 1 ? `Dipindai ${catatan.count} kali` : undefined}>Hadir {jam(catatan.first)}</StatusChip> : <StatusChip dot>Belum</StatusChip>}
+                      {catatan ? <StatusChip dot tone="success" title={catatan.count > 1 ? `Scanned ${catatan.count} times` : undefined}>Checked in {jam(catatan.first)}</StatusChip> : <StatusChip dot>Not checked in</StatusChip>}
                     </KeyValue>
                   );
                 })}
               </DetailSection>
             ) : null}
-            <DetailSection title="Logistik" action={<ButtonLink href="/admin/logistik" variant="text" size="sm">Atur di Logistik</ButtonLink>}>
-              <KeyValue label="Kamar">{p.logistik?.kamar ?? <span className="text-on-surface-variant">Belum dapat kamar</span>}</KeyValue>
-              <KeyValue label="Bus bawaan">{p.logistik?.bus ?? <span className="text-on-surface-variant">Belum punya bus</span>}</KeyValue>
+            <DetailSection title="Logistics" action={<ButtonLink href="/admin/logistik" variant="text" size="sm">Manage in Logistics</ButtonLink>}>
+              <KeyValue label="Room">{p.logistik?.kamar ?? <span className="text-on-surface-variant">No room yet</span>}</KeyValue>
+              <KeyValue label="Default bus">{p.logistik?.bus ?? <span className="text-on-surface-variant">No bus yet</span>}</KeyValue>
             </DetailSection>
-            <DetailSection title="Tempat duduk">
-              {p.seats?.length ? p.seats.map((seat) => <KeyValue key={`${seat.subEventId}-${seat.label}`} label={seat.subEventName}>{seat.label}</KeyValue>) : <p className="text-body-medium text-on-surface-variant">Belum ada kursi.</p>}
+            <DetailSection title="Seating">
+              {p.seats?.length ? p.seats.map((seat) => <KeyValue key={`${seat.subEventId}-${seat.label}`} label={seat.subEventName}>{seat.label}</KeyValue>) : <p className="text-body-medium text-on-surface-variant">No seat yet.</p>}
             </DetailSection>
             <DetailSection
-              title="Undian"
+              title="Lucky draw"
               action={
                 <Button simpan variant="text" size="sm" loading={togglingExclusion === p.id} onClick={() => void toggleExclusion(p)}>
-                  {excluded.has(p.id) ? "Ikutkan lagi" : "Kecualikan"}
+                  {excluded.has(p.id) ? "Include again" : "Exclude"}
                 </Button>
               }
             >
               <p className="text-body-medium">
-                {excluded.has(p.id) ? <StatusChip tone="warning">Dikecualikan dari semua undian</StatusChip> : <span className="text-on-surface-variant">Ikut undian bila memenuhi syarat hadiah.</span>}
+                {excluded.has(p.id) ? <StatusChip tone="warning">Excluded from all draws</StatusChip> : <span className="text-on-surface-variant">Included in draws when they meet the prize rules.</span>}
               </p>
             </DetailSection>
-            <DetailSection title="Kontak">
+            <DetailSection title="Contact">
               <KeyValue label="Email">{p.email ?? <EmptyCell />}</KeyValue>
-              <KeyValue label="Telepon">{p.phone ?? <EmptyCell />}</KeyValue>
+              <KeyValue label="Phone">{p.phone ?? <EmptyCell />}</KeyValue>
             </DetailSection>
             {fields.length > 0 ? (
-              <DetailSection title="Jawaban formulir">
+              <DetailSection title="Form answers">
                 {fields.map((item) => {
                   const value = p.extra?.[item.key];
                   return (
                     <KeyValue key={item.key} label={item.label}>
                       {FILE_FIELD_TYPES.includes(item.type)
-                        ? value ? <button type="button" onClick={() => void bukaBerkas(value)} className="inline-flex items-center gap-1 font-medium text-primary underline"><Paperclip size={14} />Buka berkas</button> : <EmptyCell />
+                        ? value ? <button type="button" onClick={() => void bukaBerkas(value)} className="inline-flex items-center gap-1 font-medium text-primary underline"><Paperclip size={14} />Open file</button> : <EmptyCell />
                         : teksJawaban(item, value) || <EmptyCell />}
                     </KeyValue>
                   );
@@ -776,13 +776,13 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                 <KeyValue label="Status">
                   {p.source_removed_at ? (
                     <>
-                      Dihapus di sumber
-                      <span className="mt-0.5 block text-on-surface-variant">Disimpan untuk audit. Tidak muncul di pencarian booth dan kasir, tidak dihitung di laporan.</span>
+                      Deleted at source
+                      <span className="mt-0.5 block text-on-surface-variant">Kept for the audit trail. Hidden from booth and cashier search and not counted in reports.</span>
                     </>
-                  ) : "Aktif"}
+                  ) : "Active"}
                 </KeyValue>
-                <KeyValue label="Check-in">{p.source_checked_in ? "Sudah" : "Belum"}</KeyValue>
-                <KeyValue label="Pemindaian">{p.source_total_scans}</KeyValue>
+                <KeyValue label="Check-in">{p.source_checked_in ? "Checked in" : "Not checked in"}</KeyValue>
+                <KeyValue label="Scans">{p.source_total_scans}</KeyValue>
               </DetailSection>
             ) : null}
           </dl>
@@ -794,20 +794,20 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   return (
     <>
       {notice ? (
-        <Banner tone="success" icon={<Check size={18} />} actions={<IconButton size="sm" label="Tutup" onClick={() => setNotice("")}><X size={16} /></IconButton>}>{notice}</Banner>
+        <Banner tone="success" icon={<Check size={18} />} actions={<IconButton size="sm" label="Close" onClick={() => setNotice("")}><X size={16} /></IconButton>}>{notice}</Banner>
       ) : null}
       <ListDetail list={list} detail={editor ?? viewer} />
       <Dialog
         open={confirmDelete !== null}
         onClose={() => setConfirmDelete(null)}
         dismissible={!saving}
-        title={`Hapus ${confirmDelete?.name ?? "peserta"}?`}
+        title={`Delete ${confirmDelete?.name ?? "participant"}?`}
         tone="danger"
-        description="Dihapus permanen dan tercatat di jejak audit. Peserta yang sudah punya order atau pernah menang undian tidak bisa dihapus."
+        description="Deleted permanently and recorded in the audit trail. Participants with an order or a lucky draw win can't be deleted."
         actions={
           <>
-            <Button type="button" variant="outlined" disabled={saving} onClick={() => setConfirmDelete(null)}>Batal</Button>
-            <Button simpan variant="danger" loading={saving} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus peserta</Button>
+            <Button type="button" variant="outlined" disabled={saving} onClick={() => setConfirmDelete(null)}>Cancel</Button>
+            <Button simpan variant="danger" loading={saving} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Delete participant</Button>
           </>
         }
       />

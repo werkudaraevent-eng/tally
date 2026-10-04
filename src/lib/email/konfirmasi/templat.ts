@@ -21,7 +21,7 @@ const tautan = z
   .string()
   .trim()
   .max(600)
-  .refine((nilai) => /^(https?:\/\/|mailto:)\S+$/i.test(nilai), "Tautan harus diawali https://, http://, atau mailto:");
+  .refine((nilai) => /^(https?:\/\/|mailto:)\S+$/i.test(nilai), "Links must start with https://, http:// or mailto:");
 
 /** Teks panitia: TextArea biasa dengan format kecil (lihat src/lib/pesan/format.ts). */
 const teksKaya = z.string().max(TEXT_MAX);
@@ -35,7 +35,7 @@ export const SALINAN_DITOLAK = {
   judul: "Terima kasih atas minat Anda",
   isi: "Halo {nama}, terima kasih sudah mendaftar di {acara}. Mohon maaf, kali ini panitia belum dapat menyetujui pendaftaran Anda.",
 };
-const gambarUrl = z.string().trim().url().max(600).refine((nilai) => nilai.startsWith("https://"), "Gambar harus dari alamat https://");
+const gambarUrl = z.string().trim().url().max(600).refine((nilai) => nilai.startsWith("https://"), "Images must come from an https:// address");
 
 export const blockSchema = z.discriminatedUnion("type", [
   z.object({ id, type: z.literal("kepala"), on: z.literal(true) }),
@@ -112,59 +112,59 @@ export const templatSchema = z
     // kehilangan satu-satunya alasan keberadaannya: kode masuk peserta.
     for (const wajib of ["kepala", "tiket", "pembuka"] as const) {
       const jumlah = templat.blocks.filter((block) => block.type === wajib).length;
-      if (jumlah !== 1) ctx.addIssue({ code: "custom", path: ["blocks"], message: `Bagian ${BLOCK_LABELS[wajib]} harus ada satu.` });
+      if (jumlah !== 1) ctx.addIssue({ code: "custom", path: ["blocks"], message: `The email needs exactly one ${BLOCK_LABELS[wajib]} section.` });
     }
-    if (templat.blocks[0]?.type !== "kepala") ctx.addIssue({ code: "custom", path: ["blocks"], message: "Kepala harus di paling atas." });
+    if (templat.blocks[0]?.type !== "kepala") ctx.addIssue({ code: "custom", path: ["blocks"], message: "Header must be at the top." });
     templat.blocks.forEach((block, index) => {
       if (block.type === "gambar" && block.on && block.url && !block.alt) {
-        ctx.addIssue({ code: "custom", path: ["blocks", index, "alt"], message: "Isi teks alternatif gambar." });
+        ctx.addIssue({ code: "custom", path: ["blocks", index, "alt"], message: "Add alt text for the image." });
       }
       if (block.type === "tombol" && block.tujuan === "url" && !block.url) {
-        ctx.addIssue({ code: "custom", path: ["blocks", index, "url"], message: "Isi tautan tombol." });
+        ctx.addIssue({ code: "custom", path: ["blocks", index, "url"], message: "Add the button link." });
       }
     });
     const ids = templat.blocks.map((block) => block.id);
-    if (new Set(ids).size !== ids.length) ctx.addIssue({ code: "custom", path: ["blocks"], message: "Id bagian ganda." });
+    if (new Set(ids).size !== ids.length) ctx.addIssue({ code: "custom", path: ["blocks"], message: "Duplicate section ID." });
   });
 
 export type Templat = z.infer<typeof templatSchema>;
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
-  kepala: "Kepala",
-  pembuka: "Pembuka",
-  tiket: "Tiket dan QR",
-  detail: "Detail acara",
-  teks: "Teks",
-  gambar: "Gambar",
-  tombol: "Tombol",
-  info: "Kotak info",
-  mitra: "Logo mitra",
-  garis: "Garis pemisah",
+  kepala: "Header",
+  pembuka: "Opening",
+  tiket: "Ticket and QR",
+  detail: "Event details",
+  teks: "Text",
+  gambar: "Image",
+  tombol: "Button",
+  info: "Info box",
+  mitra: "Partner logos",
+  garis: "Divider",
 };
 
 /** Bagian yang bisa ditambah panitia lewat "+ Tambah bagian", dengan urutan menu. */
 export const ADDABLE: { type: BlockType; note: string }[] = [
-  { type: "teks", note: "Paragraf, tebal, miring, tautan" },
-  { type: "gambar", note: "Unggah, teks alternatif wajib" },
-  { type: "tombol", note: "Dashboard, halaman acara, tautan lain" },
-  { type: "info", note: "Kotak berwarna untuk hal penting" },
-  { type: "mitra", note: "Logo dari Halaman acara" },
-  { type: "garis", note: "Pemisah antarbagian" },
+  { type: "teks", note: "Paragraph, bold, italic, link" },
+  { type: "gambar", note: "Upload; alt text required" },
+  { type: "tombol", note: "My dashboard, Event page, other link" },
+  { type: "info", note: "Coloured box for important points" },
+  { type: "mitra", note: "Logos from the Event page" },
+  { type: "garis", note: "Line between sections" },
 ];
 
 export const PRESET_LABELS: Record<Preset, { label: string; note: string }> = {
-  banner: { label: "Banner KV", note: "Potongan KV + logo di atas" },
-  pita: { label: "Pita warna", note: "Warna utama acara + logo putih" },
-  polos: { label: "Polos", note: "Logo berwarna, latar putih" },
+  banner: { label: "KV banner", note: "KV crop with the logo on top" },
+  pita: { label: "Colour band", note: "Event main colour with a white logo" },
+  polos: { label: "Plain", note: "Colour logo on white" },
 };
 
-export const FONT_LABELS: Record<Font, string> = { sans: "Sans", serif: "Serif", tema: "Ikuti Tema" };
+export const FONT_LABELS: Record<Font, string> = { sans: "Sans", serif: "Serif", tema: "Follow theme" };
 
 /** Gmail dan Outlook Windows tidak memuat huruf web; "Ikuti Tema" hanya tampil di Apple Mail. */
 export const FONT_NOTES: Record<Font, string> = {
-  sans: "Arial/Helvetica, tampil sama di semua aplikasi email",
-  serif: "Georgia, tampil sama di semua aplikasi email",
-  tema: "Huruf judul acara di Apple Mail; Gmail dan Outlook memakai Sans atau Serif",
+  sans: "Arial/Helvetica, looks the same in every email app",
+  serif: "Georgia, looks the same in every email app",
+  tema: "Event heading font in Apple Mail; Gmail and Outlook use Sans or Serif",
 };
 
 let urutId = 0;
