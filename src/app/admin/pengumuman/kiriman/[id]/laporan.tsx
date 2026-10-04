@@ -266,7 +266,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
         </Banner>
       ) : tamu && blast.status === "mengirim" && detail.invitation_sending?.ok === false && detail.invitation_sending.missing.includes("EMAIL_FROM_UNDANGAN") && berjalan > 0 ? (
         <Banner tone="warning" icon={<PauseCircle size={18} />}>
-          Blast on hold: the system owner hasn&apos;t set up the invitation sender (EMAIL_FROM_UNDANGAN) yet. {undangan(berjalan)} waiting. They go out automatically once it&apos;s set up.
+          Blast on hold: the system owner hasn&apos;t set up the invitation sender (EMAIL_FROM_UNDANGAN) yet. {undangan(berjalan)}{" "}waiting. They go out automatically once it&apos;s set up.
         </Banner>
       ) : tamu && blast.hold_until && blast.status === "mengirim" ? (
         <Banner tone="info" icon={<Hourglass size={18} />}>
@@ -276,7 +276,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
 
       {counts.tidak_pasti > 0 ? (
         <Banner tone="warning" icon={<Warning size={18} />}>
-          {plural(counts.tidak_pasti, "email")} Unconfirmed: the provider didn&apos;t confirm whether they were sent. They aren&apos;t retried automatically, so nobody gets them twice.
+          {plural(counts.tidak_pasti, "email")}{" "}Unconfirmed: the provider didn&apos;t confirm whether they were sent. They aren&apos;t retried automatically, so nobody gets them twice.
         </Banner>
       ) : null}
 

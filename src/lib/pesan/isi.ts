@@ -79,7 +79,7 @@ export function renderEmail(input: {
     .map((bagian) => `<p style="margin:16px 0 0;font-size:15px;line-height:1.6;">${escapeHtml(bagian).replace(/\n/g, "<br>")}</p>`)
     .join("");
   const catatanUji = input.test
-    ? `<p style="margin:0 0 16px;padding:10px 12px;background:#FDF5E1;color:#8A5A00;font-size:13px;line-height:1.5;border-radius:6px;">Test email. The links below are samples and can't be used.</p>`
+    ? `<p lang="en" style="margin:0 0 16px;padding:10px 12px;background:#FDF5E1;color:#8A5A00;font-size:13px;line-height:1.5;border-radius:6px;">Test email. The links below are samples and can't be used.</p>`
     : "";
   const kaki = input.unsubscribeUrl
     ? `${escapeHtml(alasan)} <a href="${escapeHtml(input.unsubscribeUrl)}" style="color:#66736C;">Berhenti menerima email untuk acara ini</a>.`

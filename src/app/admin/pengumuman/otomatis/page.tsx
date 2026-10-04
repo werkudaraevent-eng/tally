@@ -776,7 +776,7 @@ function ringkasan(block: Block, data: Data, state: RenderState): string {
     case "pembuka":
       return block[VERSI[state].judul] || "Title and greeting";
     case "tiket":
-      return state === "pending" ? "Pending approval box (Pending version)" : "Participant code, QR code and a button to open them";
+      return state === "pending" ? "Pending approval box" : "Participant code, QR and button";
     case "detail":
       return [data.dasar.detail.tanggal, data.dasar.detail.tempat].filter(Boolean).join(" · ") || "Date and venue aren't set in the event details";
     case "teks":

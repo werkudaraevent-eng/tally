@@ -48,8 +48,8 @@ export function galatRpc(error: { message?: string; details?: string | null }) {
 export function pesanRpc(error: { message?: string; details?: string | null }): string | null {
   const pesan = String(error.message ?? "");
   if (pesan.includes("VEHICLE_FULL")) {
-    const rincian = error.details ? ` ${error.details}.` : "";
-    return `Bus over capacity.${rincian} Choose another bus or raise its capacity.`;
+    // error.details dari SQL berbahasa Indonesia; tidak ditempel ke kalimat English.
+    return "Bus over capacity. Choose another bus or raise its capacity.";
   }
   const kode = Object.keys(PESAN_RPC).find((nama) => pesan.includes(nama));
   return kode ? PESAN_RPC[kode] : null;
