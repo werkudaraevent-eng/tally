@@ -70,7 +70,11 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
     .select("id,section_id,title,subtitle,title_en,subtitle_en,start_time,end_time,is_break,sort_order")
     .in("section_id", daftarSeksi.map((section) => section.id))
     .eq("is_published", true)
-    .order("sort_order", { ascending: true });
+    // Urutan yang sama dengan CMS rundown: jam mulai, lalu sort_order untuk
+    // butir berjam sama (sesi paralel), lalu id sebagai pemutus terakhir.
+    .order("start_time", { ascending: true })
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
 
   const daftarItem = (items ?? []) as unknown as Array<{
     id: number;
