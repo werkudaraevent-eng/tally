@@ -170,7 +170,7 @@ export function ItemChecklist({
       {belum > 0 ? (
         <Button
           variant="filled"
-          size="lg"
+          size="md"
           className="mt-3"
           loading={menyimpan}
           disabled={pilih.size === 0}

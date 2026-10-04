@@ -1094,7 +1094,7 @@ export default function ScanClient() {
       : { teks: "Siap memindai", nada: "bg-black/60 text-white" };
 
   return (
-    <div className="min-h-dvh bg-surface text-on-surface">
+    <div className="scan-teks min-h-dvh bg-surface text-on-surface">
       <TopAppBar
         title="Pemindai kehadiran"
         subtitle={`${eventName || "Memuat..."}${username ? ` · ${username}` : ""}`}
@@ -1119,7 +1119,7 @@ export default function ScanClient() {
             aria-expanded={false}
             aria-controls="bilah-meja"
             onClick={() => setMejaTerbuka(true)}
-            className="m3-state flex min-h-14 w-full items-center gap-3 rounded-2xl bg-surface-container pl-4 pr-2 text-left"
+            className="m3-state flex min-h-14 w-full items-center gap-3 rounded-2xl bg-surface-container pl-5 pr-2 text-left"
           >
             <span className="min-w-0 flex-1 truncate text-body-large">
               {sesiAktif?.name ?? "Sesi"}
@@ -1295,7 +1295,6 @@ export default function ScanClient() {
                         <p
                           aria-hidden
                           className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-1.5 text-title-medium text-white"
-                          style={{ fontFamily: "var(--font-mono), ui-monospace, monospace", letterSpacing: "0.04em" }}
                         >
                           {membaca}
                         </p>
@@ -1323,9 +1322,10 @@ export default function ScanClient() {
 
                 {/* Jalur cadangan di dalam jalur cadangan. Kamera ponsel bisa
                     rusak, badge bisa terlipat, dan antrean tidak berhenti untuk
-                    menunggu keduanya beres. */}
+                    menunggu keduanya beres. `pt-3` menambah jarak tumpukan
+                    jadi 24 px: kamera dan tombolnya satu kelompok, ini yang lain. */}
                 <form
-                  className="flex items-end gap-2"
+                  className="flex items-end gap-2 pt-3"
                   onSubmit={(event) => {
                     event.preventDefault();
                     const form = event.currentTarget;
@@ -1340,10 +1340,6 @@ export default function ScanClient() {
                     autoComplete="off"
                     autoCapitalize="characters"
                     placeholder="mis. REG159425"
-                    // Font mono lewat `style`, bukan kelas pada pembungkus:
-                    // pembungkusnya juga memuat label, dan label berhuruf mono
-                    // terbaca sebagai bagian dari kodenya.
-                    style={{ fontFamily: "var(--font-mono), ui-monospace, monospace" }}
                   />
                   <Button type="submit" variant="tonal" size="lg" loading={sibuk} disabled={!sessionId}>
                     Catat
@@ -1577,7 +1573,7 @@ export default function ScanClient() {
               <Divider className="my-4" />
               {/* Per perangkat, seperti Suara. Meja yang memeriksa setiap tamu
                   lebih lama dari tiga detik mematikannya di sini. */}
-              <Switch label="Tutup otomatis" checked={tutupOtomatis} onChange={gantiTutupOtomatis} />
+              <Switch className="!items-center" label={<span className="font-semibold">Tutup otomatis</span>} checked={tutupOtomatis} onChange={gantiTutupOtomatis} />
               <p className="mt-2 text-body-small text-on-surface-variant">
                 Lembar hijau di sesi tanpa barang menutup sendiri setelah 3 detik; sentuh lembarnya untuk menahan. Suara
                 diatur dari tombol speaker di kamera. Di iPhone, bunyi ikut mati kalau sakelar senyap menyala.
@@ -1613,7 +1609,7 @@ export default function ScanClient() {
                         inputMode="numeric"
                         autoComplete="off"
                         placeholder="000000"
-                        style={{ fontFamily: "var(--font-mono), ui-monospace, monospace", letterSpacing: "0.2em" }}
+                        style={{ letterSpacing: "0.2em" }}
                       />
                       <Button type="submit" variant="tonal" size="lg" loading={memasang} disabled={kodeLayar.length !== 6 || !laneId}>
                         Hubungkan

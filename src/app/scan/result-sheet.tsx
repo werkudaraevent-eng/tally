@@ -118,8 +118,6 @@ const TAMPILAN: Record<StatusHasil, { judul: string; blok: string; ikon: string;
 const jam = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "";
 
-const MONO = { fontFamily: "var(--font-mono), ui-monospace, monospace", letterSpacing: "0.04em" };
-
 type Props = {
   hasil: Hasil | null;
   /** Naik satu setiap jawaban baru. Memaksa lembar berkedip walau isinya serupa. */
@@ -250,7 +248,7 @@ export function ResultSheet({
                   {peserta ? (
                     <p className="line-clamp-2 text-headline-small font-semibold [overflow-wrap:anywhere]">{peserta.name}</p>
                   ) : (
-                    <p className="line-clamp-2 text-headline-small font-semibold [overflow-wrap:anywhere]" style={MONO}>
+                    <p className="line-clamp-2 text-headline-small font-semibold [overflow-wrap:anywhere]">
                       {hasil.qr ? `Kode ${hasil.qr}` : "Kode ?"}
                     </p>
                   )}
@@ -272,7 +270,7 @@ export function ResultSheet({
               </div>
 
               {peserta && hadir ? (
-                <p className="mt-3 inline-flex rounded-lg bg-black/15 px-3 py-1.5 text-title-medium" style={MONO}>
+                <p className="mt-3 inline-flex rounded-lg bg-black/15 px-3 py-1.5 text-title-medium">
                   {peserta.qr_code}
                 </p>
               ) : null}
@@ -361,12 +359,13 @@ export function ResultSheet({
                   </p>
                 ) : null}
 
-                {/* Rata kanan, aksi utama paling kanan: pola baris aksi dialog M3. */}
+                {/* Rata kanan, aksi utama paling kanan: pola baris aksi dialog M3. Semua
+                    tombol di baris ini setinggi 48 px, supaya barisnya rata. */}
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {adaOrang && bisaCetak ? (
                     <Button
                       variant={labelUtama ? "filled" : "text"}
-                      size={labelUtama ? "lg" : "md"}
+                      size="md"
                       loading={cetak.fase === "jalan"}
                       onClick={onCetak}
                       icon={labelUntukPerangkatIni ? <Printer size={20} aria-hidden /> : <DownloadSimple size={20} aria-hidden />}
@@ -380,20 +379,20 @@ export function ResultSheet({
                   </Button>
 
                   {status === "not_found" && bolehWalkIn ? (
-                    <Button variant="filled" size="lg" onClick={onWalkIn} icon={<UserPlus size={20} weight="bold" aria-hidden />}>
+                    <Button variant="filled" size="md" onClick={onWalkIn} icon={<UserPlus size={20} weight="bold" aria-hidden />}>
                       Daftarkan tamu walk-in
                     </Button>
                   ) : null}
 
                   {status === "gagal" ? (
-                    <Button variant="filled" size="lg" onClick={onUlangi}>
+                    <Button variant="filled" size="md" onClick={onUlangi}>
                       Ulangi
                     </Button>
                   ) : null}
 
                   {status === "login" ? (
                     // Halaman penuh, bukan klien: sesi baru harus membawa kuki baru.
-                    <Button variant="filled" size="lg" onClick={() => window.location.assign("/login")} icon={<SignIn size={20} aria-hidden />}>
+                    <Button variant="filled" size="md" onClick={() => window.location.assign("/login")} icon={<SignIn size={20} aria-hidden />}>
                       Login lagi
                     </Button>
                   ) : null}
