@@ -46,11 +46,11 @@ export default function LoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!username.trim()) {
-      setError("Masukkan username panitia.");
+      setError("Enter your staff username.");
       return;
     }
     if (!/^\d{6}$/.test(pin)) {
-      setError("PIN harus terdiri dari 6 angka.");
+      setError("PIN must be 6 digits.");
       return;
     }
     setPending(true);
@@ -63,8 +63,8 @@ export default function LoginPage() {
       response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, pin, remember_me: rememberMe }) });
     } catch {
       setPending(false);
-      setError("Koneksi gagal. Periksa jaringan lalu coba lagi.");
-      toast.error("Tidak ada koneksi", "Perangkat tidak dapat menghubungi server.");
+      setError("Connection failed. Check your network and try again.");
+      toast.error("No connection", "This device cannot reach the server.");
       return;
     }
     if (!response.ok) {
@@ -78,17 +78,17 @@ export default function LoginPage() {
       // dan mengosongkannya memaksa pengetikan ulang tanpa alasan.
       if (response.status === 429) {
         const body = await response.json().catch(() => null);
-        const message = body?.error?.message ?? "Terlalu banyak percobaan login. Tunggu sebentar, lalu coba lagi.";
+        const message = body?.error?.message ?? "Too many sign-in attempts. Wait a moment, then try again.";
         setError(message);
-        toast.error("Login dijeda sementara", message);
+        toast.error("Sign-in paused", message);
         return;
       }
       // Hanya PIN yang dikosongkan. Username tetap: ia hampir selalu benar, dan
       // mengetiknya ulang di ponsel adalah hukuman untuk kesalahan yang bukan
       // miliknya.
       setPin("");
-      setError("Username atau PIN salah.");
-      toast.error("Login gagal", "Username atau PIN salah. Periksa kembali.");
+      setError("Wrong username or PIN.");
+      toast.error("Sign-in failed", "Wrong username or PIN. Check and try again.");
       return;
     }
     // Tidak ada toast sukses di sini, dan itu keputusan yang disengaja.
@@ -111,7 +111,7 @@ export default function LoginPage() {
   const versi = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.1.0";
 
   return (
-    <main className="press flex min-h-dvh bg-surface-container-lowest text-on-surface">
+    <main lang="en" className="press flex min-h-dvh bg-surface-container-lowest text-on-surface">
       {/* ---- Kolom kiri: formulir -------------------------------------------
           `relative`, karena merek di atas dan versi di bawah duduk pada tepi
           kolomnya sendiri, bukan pada tepi layar. Di bawah lg kolom ini menjadi
@@ -127,7 +127,7 @@ export default function LoginPage() {
             isinya di atas — layar sempit tidak boleh menaruh kolom isian di
             tengah, karena papan ketik yang muncul akan mendorongnya keluar. */}
         <div className="mx-auto w-full max-w-[380px] max-lg:mt-8">
-          <h1 className="text-center text-[1.75rem] font-semibold leading-9 tracking-[-0.01em]">Masuk ke Tally</h1>
+          <h1 className="text-center text-[1.75rem] font-semibold leading-9 tracking-[-0.01em]">Sign in to Tally</h1>
 
           <form className="mt-7" onSubmit={handleSubmit} noValidate>
             <TextField
@@ -154,11 +154,11 @@ export default function LoginPage() {
               value={pin}
               onChange={(event) => { setPin(event.target.value.replace(/\D/g, "")); setError(""); }}
               aria-invalid={error ? true : undefined}
-              hint="Masukkan username dan PIN panitia 6 digit."
+              hint="Enter your staff username and 6-digit PIN."
               trailing={
                 <IconButton
                   size="sm"
-                  label={showPin ? "Sembunyikan PIN" : "Tampilkan PIN"}
+                  label={showPin ? "Hide PIN" : "Show PIN"}
                   onClick={() => setShowPin((value) => !value)}
                 >
                   {showPin ? <EyeSlash size={18} /> : <Eye size={18} />}
@@ -177,10 +177,10 @@ export default function LoginPage() {
                   setebal judul membuatnya terbaca sebagai bagian yang wajib
                   dibaca sebelum menekan Masuk. Keterangan masa berlaku sesi
                   turun ke baris kecil supaya barisnya tetap satu tingkat. */}
-              <span className="text-body-medium">Ingat saya di perangkat ini</span>
+              <span className="text-body-medium">Remember me on this device</span>
             </label>
             <p className="mt-1 pl-6 text-body-small text-on-surface-variant">
-              Sesi bertahan 30 hari. Tanpa dicentang, 12 jam.
+              Stay signed in for 30 days. Unchecked, 12 hours.
             </p>
 
             {/* Galat sebagai pita tipis DI ATAS tombol, bukan di bawah kolom PIN.
@@ -198,17 +198,17 @@ export default function LoginPage() {
             ) : null}
 
             <Button type="submit" className="mt-5 h-11" block loading={pending}>
-              {pending ? "Memproses..." : "Masuk"}
+              {pending ? "Signing in…" : "Sign in"}
             </Button>
           </form>
 
           <p className="mt-4 text-center text-body-small text-on-surface-variant">
-            Lupa PIN? Hubungi admin acara.
+            Forgot your PIN? Contact the event admin.
           </p>
         </div>
 
         <p className="absolute inset-x-0 bottom-6 text-center text-body-small text-on-surface-variant">
-          Tally v{versi} {SEPARATOR} Akses panitia terlindungi
+          Tally v{versi} {SEPARATOR} Secure staff access
         </p>
       </div>
 
@@ -230,17 +230,17 @@ export default function LoginPage() {
         <div className="max-w-[480px] p-16 text-white">
           <p className="ed-tracked text-label-medium uppercase text-white/80">Tally</p>
           <p className="mt-6 text-[clamp(2rem,2.6vw,2.5rem)] font-semibold leading-[1.15]">
-            Dari pendaftaran sampai panggung.
+            From registration to the stage.
           </p>
           <p className="mt-4 text-[0.9375rem] leading-6 text-white/80">
-            Kelola peserta, registrasi ulang, cetak label, dan layar panggung dalam satu tempat.
+            Manage participants, check-in, badge printing, and stage screens in one place.
           </p>
 
           <ul className="mt-8 space-y-2.5 text-body-medium text-white/80">
             {[
-              "Satu akun untuk semua acara yang diberi akses.",
-              "Peran diperiksa di server pada setiap aksi.",
-              "Status koneksi selalu terlihat di layar kerja.",
+              "One account for every event you have access to.",
+              "Roles are checked on the server for every action.",
+              "Connection status is always visible on work screens.",
             ].map((butir) => (
               <li key={butir} className="flex items-start gap-2.5">
                 <Check size={14} weight="bold" className="mt-1 shrink-0" />
@@ -256,7 +256,8 @@ export default function LoginPage() {
             href="/panduan"
             className="mt-9 inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-body-medium font-medium text-[var(--auth-brand)] transition-opacity duration-150 hover:opacity-90"
           >
-            Lihat panduan
+            View guide
+
             <ArrowSquareOut size={14} />
           </a>
         </div>

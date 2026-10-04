@@ -77,7 +77,7 @@ function Penghitung({ id, count }: { id: string; count: Hitungan }) {
 			)}
 		>
 			{count.length}/{count.max}
-			{penuh ? " · batas" : lewat ? ` · ideal ${count.ideal}` : null}
+			{penuh ? " · limit" : lewat ? ` · ideal ${count.ideal}` : null}
 		</span>
 	);
 }
@@ -115,7 +115,8 @@ function FieldLabel({ htmlFor, children, optional }: { htmlFor: string; children
 	return (
 		<label htmlFor={htmlFor} className="m3-field-label flex items-baseline gap-2 text-label-large font-semibold text-on-surface">
 			{children}
-			{optional ? <span className="text-body-small font-normal text-on-surface-variant">opsional</span> : null}
+			{optional ? <span className="text-body-small font-normal text-on-surface-variant">optional</span>
+ : null}
 		</label>
 	);
 }

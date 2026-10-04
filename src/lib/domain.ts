@@ -22,11 +22,11 @@ export type UserRole = "booth" | "cashier" | "admin" | "super_admin" | "scanner"
  * baru tanpa menamainya di sini sekarang gagal di typecheck, bukan di layar.
  */
 export const ROLE_LABEL: Record<UserRole, string> = {
-  booth: "Admin Booth",
-  cashier: "Kasir",
-  admin: "Panitia / Admin",
-  super_admin: "Super Admin",
-  scanner: "Petugas Scan",
+  booth: "Booth staff",
+  cashier: "Cashier",
+  admin: "Admin",
+  super_admin: "Super admin",
+  scanner: "Scanner staff",
 };
 export type OrderStatus = "pending" | "paid" | "void" | "handed_over";
 export type PickupMode = "after_payment" | "immediate";
@@ -47,9 +47,9 @@ export type EventStatus = "draft" | "active" | "completed" | "archived";
  */
 export const EVENT_STATUS_LABEL: Record<EventStatus, string> = {
   draft: "Draft",
-  active: "Aktif",
-  completed: "Selesai",
-  archived: "Arsip",
+  active: "Active",
+  completed: "Completed",
+  archived: "Archived",
 };
 
 export type ParticipantSource =

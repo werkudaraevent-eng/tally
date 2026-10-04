@@ -39,5 +39,5 @@ export const FIELD_ROLES: readonly UserRole[] = ["booth", "cashier", "scanner"];
  */
 export function alasanTidakBisaBuka(role: UserRole, status: EventStatus): string | null {
   if (!FIELD_ROLES.includes(role) || status === "active") return null;
-  return status === "draft" ? "Belum aktif" : "Sudah selesai";
+  return status === "draft" ? "Not active yet" : "Already completed";
 }

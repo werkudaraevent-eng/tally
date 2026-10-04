@@ -187,7 +187,7 @@ export const EMPTY_VALUE = "–";
 
 /** Sel kosong abu tersier. Dipakai di mana pun nilainya null. */
 export function EmptyCell({ className }: { className?: string }) {
-	return <span className={cx("text-on-surface-variant", className)} aria-label="tidak ada nilai">{EMPTY_VALUE}</span>;
+	return <span className={cx("text-on-surface-variant", className)} aria-label="no value">{EMPTY_VALUE}</span>;
 }
 
 export function TableHeaderCell({ align = "start", plain, sticky, children, className, ...rest }: TableHeaderCellProps) {
@@ -287,7 +287,7 @@ export function Pagination({ page, pageCount, total, pageSize, onChange, onPageS
 		<div className={cx("mt-4 flex flex-wrap items-center justify-between gap-3", className)}>
 			<div className="flex flex-wrap items-center gap-3">
 				<p className="text-body-small text-on-surface-variant">
-					{total === 0 ? "Tidak ada baris" : <>Menampilkan {awal}&ndash;{akhir} dari {total}</>}
+					{total === 0 ? "No rows" : <>Showing {awal}&ndash;{akhir} of {total}</>}
 				</p>
 				{onPageSizeChange ? (
 					<div className="flex items-center gap-1 text-body-small text-on-surface-variant">
@@ -305,7 +305,7 @@ export function Pagination({ page, pageCount, total, pageSize, onChange, onPageS
 								{ukuran}
 							</button>
 						))}
-						<span>per halaman</span>
+						<span>per page</span>
 					</div>
 				) : null}
 			</div>
@@ -313,11 +313,12 @@ export function Pagination({ page, pageCount, total, pageSize, onChange, onPageS
 			    Empat tombol terpisah berjarak akan terbaca sebagai empat aksi berbeda;
 			    menyatukannya membuatnya terbaca sebagai satu kontrol. */}
 			<div className="inline-flex overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
-				<button type="button" onClick={() => onChange(1)} disabled={page <= 1} aria-label="Halaman pertama" className={cx(tombol, "border-r")}>&laquo;</button>
-				<button type="button" onClick={() => onChange(page - 1)} disabled={page <= 1} aria-label="Halaman sebelumnya" className={cx(tombol, "border-r")}>&lsaquo;</button>
+				<button type="button" onClick={() => onChange(1)} disabled={page <= 1} aria-label="First page" className={cx(tombol, "border-r")}>&laquo;</button>
+				<button type="button" onClick={() => onChange(page - 1)} disabled={page <= 1} aria-label="Previous page" className={cx(tombol, "border-r")}>&lsaquo;</button>
 				<span aria-current="page" className="flex h-8 min-w-10 items-center justify-center border-r border-outline-variant px-3 text-body-small font-medium text-on-surface">{page}</span>
-				<button type="button" onClick={() => onChange(page + 1)} disabled={page >= pageCount} aria-label="Halaman berikutnya" className={cx(tombol, "border-r")}>&rsaquo;</button>
-				<button type="button" onClick={() => onChange(pageCount)} disabled={page >= pageCount} aria-label="Halaman terakhir" className={tombol}>&raquo;</button>
+				<button type="button" onClick={() => onChange(page + 1)} disabled={page >= pageCount} aria-label="Next page" className={cx(tombol, "border-r")}>&rsaquo;</button>
+				<button type="button" onClick={() => onChange(pageCount)} disabled={page >= pageCount} aria-label="Last page"
+ className={tombol}>&raquo;</button>
 			</div>
 		</div>
 	);

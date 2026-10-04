@@ -30,7 +30,7 @@ export function SyncMenu({ menit, gagal, terakhir, syncing, onSync }: SyncMenuPr
   const [pemicu, setPemicu] = useState<HTMLElement | null>(null);
   const menu = usePopoverAnchor(pemicu);
   const menuId = useId();
-  const status = gagal ? "Sync terakhir gagal" : menit > 0 ? `Otomatis tiap ${menit} menit` : "Sync otomatis mati";
+  const status = gagal ? "Last sync failed" : menit > 0 ? `Automatic every ${menit} min` : "Automatic sync off";
 
   return (
     <div className="relative">
@@ -44,18 +44,18 @@ export function SyncMenu({ menit, gagal, terakhir, syncing, onSync }: SyncMenuPr
         className="m3-btn inline-flex min-h-12 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-label-large font-medium text-on-surface transition-colors duration-150 hover:bg-primary-soft"
         data-size="md"
       >
-        <ArrowsClockwise size={16} className={syncing ? "animate-spin" : undefined} /> Sinkron
+        <ArrowsClockwise size={16} className={syncing ? "animate-spin" : undefined} /> Sync
         <CaretDown size={14} className={`transition-transform ${menu.open ? "rotate-180" : ""}`} />
       </button>
 
       {menu.open ? (
-        <Popover anchor={menu} id={menuId} label="Sinkron Scanner API" width={288} className="p-0">
+        <Popover anchor={menu} id={menuId} label="Scanner API sync" width={288} className="p-0">
           <div className="border-b border-outline-variant p-3 text-body-medium">
             <span className="flex items-center gap-2 font-medium text-on-surface">
               <StatusDot tone={gagal ? "error" : menit > 0 ? "success" : "neutral"} />
               {status}
             </span>
-            <span className="mt-0.5 block text-body-small text-on-surface-variant">{terakhir ? `Terakhir ${terakhir}` : "Belum pernah sync"}</span>
+            <span className="mt-0.5 block text-body-small text-on-surface-variant">{terakhir ? `Last ${terakhir}` : "Never synced"}</span>
           </div>
           <button
             type="button"
@@ -66,7 +66,7 @@ export function SyncMenu({ menit, gagal, terakhir, syncing, onSync }: SyncMenuPr
             className="flex w-full items-center gap-3 border-b border-outline-variant p-3 text-left text-body-medium font-medium hover:bg-primary-soft disabled:opacity-50"
           >
             <ArrowsClockwise size={18} className="shrink-0 text-on-surface-variant" />
-            {syncing ? "Menyinkron..." : "Sync sekarang"}
+            {syncing ? "Syncing…" : "Sync now"}
           </button>
           <Link
             role="menuitem"
@@ -75,7 +75,8 @@ export function SyncMenu({ menit, gagal, terakhir, syncing, onSync }: SyncMenuPr
             className="flex items-center gap-3 p-3 text-body-medium font-medium hover:bg-primary-soft"
           >
             <GearSix size={18} className="shrink-0 text-on-surface-variant" />
-            Atur sinkron
+            Sync settings
+
           </Link>
         </Popover>
       ) : null}

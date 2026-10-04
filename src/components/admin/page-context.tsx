@@ -65,7 +65,8 @@ export function useTerkunci(simpan?: boolean) {
 }
 
 /** Keterangan pada kontrol yang nonaktif karena acaranya terkunci. */
-export const KETERANGAN_KUNCI = "Acara sudah ditutup; perubahan tidak disimpan.";
+export const KETERANGAN_KUNCI = "This event is closed; changes are not saved."
+;
 
 
 /**

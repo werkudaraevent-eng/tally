@@ -29,9 +29,9 @@ import { cx } from "@/lib/m3/cx";
  */
 
 const TEMA: { value: ThemePreference; label: string }[] = [
-  { value: "light", label: "Terang" },
-  { value: "dark", label: "Gelap" },
-  { value: "system", label: "Ikut sistem" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+  { value: "system", label: "Match system" },
 ];
 
 /**
@@ -72,7 +72,8 @@ function SubmenuTampilan({ tutupInduk }: { tutupInduk: () => void }) {
         }}
         className={cx(POPOVER_ITEM, sub.open && "bg-primary-soft")}
       >
-        <span className="flex-1">Tampilan</span>
+        <span className="flex-1">Appearance</span>
+
         <CaretRight size={14} className="shrink-0 text-on-surface-variant" />
       </button>
 
@@ -81,7 +82,7 @@ function SubmenuTampilan({ tutupInduk }: { tutupInduk: () => void }) {
         // bukan pada tombol di bilah atas, jadi ia tumbuh ke bawah dari baris itu.
         // Penjepitan ke dalam jendela ditangani `Popover`, termasuk saat ruang di
         // kanan habis.
-        <Popover anchor={sub} id={subId} label="Pilih tema" width={180} align="start">
+        <Popover anchor={sub} id={subId} label="Choose theme" width={180} align="start">
           {TEMA.map((pilihan) => (
             <button
               key={pilihan.value}
@@ -132,21 +133,21 @@ export function UserMenu({
         aria-haspopup="menu"
         aria-expanded={menu.open}
         aria-controls={menu.open ? menuId : undefined}
-        aria-label={username ? `Menu akun ${username}` : "Menu akun"}
+        aria-label={username ? `Account menu for ${username}` : "Account menu"}
         className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-body-small font-medium text-on-surface transition-colors duration-150 hover:bg-secondary-container"
       >
         {inisial}
       </button>
 
       {menu.open ? (
-        <Popover anchor={menu} id={menuId} label="Menu akun" width={240}>
+        <Popover anchor={menu} id={menuId} label="Account menu" width={240}>
           {/* Kepala menu bukan item: ia tidak bisa ditekan, jadi ia tidak boleh
               terlihat seperti yang bisa. Nama akun 13px abu, bukan judul tebal —
               yang dicari orang di menu ini adalah aksinya, dan nama hanya
               memastikan ia sedang bertindak atas nama siapa. */}
           <div className="px-3 py-2">
             <p className="truncate text-body-small text-on-surface-variant" title={username ?? undefined}>
-              {username ?? "Tidak diketahui"}
+              {username ?? "Unknown"}
             </p>
             {role ? (
               <p className="mt-0.5 truncate text-label-medium text-on-surface-variant">{ROLE_LABEL[role as UserRole] ?? role}</p>
@@ -156,7 +157,7 @@ export function UserMenu({
           <div className="my-1 border-t border-outline-variant" />
 
           <Link href={settingsHref} role="menuitem" onClick={menu.tutup} className={POPOVER_ITEM}>
-            Pengaturan akun
+            Account settings
           </Link>
 
           <SubmenuTampilan tutupInduk={menu.tutup} />
@@ -172,7 +173,7 @@ export function UserMenu({
             disabled={loggingOut}
             className={cx(POPOVER_ITEM_DANGER, "disabled:opacity-50")}
           >
-            {loggingOut ? "Keluar…" : "Keluar"}
+            {loggingOut ? "Signing out…" : "Sign out"}
           </button>
         </Popover>
       ) : null}

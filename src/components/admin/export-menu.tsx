@@ -22,8 +22,8 @@ type Choice = {
 };
 
 const CHOICES: Choice[] = [
-  { format: "xlsx", label: "Excel (.xlsx)", detail: "Siap dibuka dan dijumlahkan di Excel.", Icon: FileXls },
-  { format: "csv", label: "CSV (.csv)", detail: "Untuk diolah ulang atau diimpor ke sistem lain.", Icon: FileCsv },
+  { format: "xlsx", label: "Excel (.xlsx)", detail: "Ready to open and total in Excel.", Icon: FileXls },
+  { format: "csv", label: "CSV (.csv)", detail: "For further processing or importing into another system.", Icon: FileCsv },
 ];
 
 export type ExportMenuProps = {
@@ -65,7 +65,8 @@ export function ExportMenu({ endpoint = "/api/admin/export", label = "Export dat
           sekarang, tapi ia juga dipakai di dalam kartu, dan kartu yang memotong
           isinya akan memotong menunya. */}
       {menu.open ? (
-        <Popover anchor={menu} id={menuId} label="Pilih format export" width={288} className="p-0">
+        <Popover anchor={menu} id={menuId} label="Choose export format"
+ width={288} className="p-0">
           {CHOICES.map(({ format, label, detail, Icon }) => (
             <a
               key={format}
