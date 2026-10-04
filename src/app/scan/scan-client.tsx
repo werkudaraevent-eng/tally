@@ -142,18 +142,24 @@ const TAHAN_SUKSES_MS = 2500;
 const TAHAN_GAGAL_MS = 1000;
 
 /**
- * Tamu yang tercatat di ponsel ini dalam jendela ini tidak dikirim ulang.
- * Server akan menjawab "sudah pernah dipindai", jumlah hadir tidak berubah, dan
- * lembar hijau tamu yang baru datang berganti oranye di depan matanya.
+ * Tamu yang tercatat di ponsel ini, di sesi yang sama, dalam jendela ini tidak
+ * dikirim ulang. Server akan menjawab "sudah pernah dipindai", jumlah hadir
+ * tidak berubah, dan lembar hijau tamu yang baru datang berganti oranye di
+ * depan matanya. Yang dibuka lagi adalah lembar hijaunya sendiri, tanpa kirim.
+ *
+ * Kuncinya sesi + kode, dan daftarnya dikosongkan saat sesi atau meja diganti:
+ * "salah sesi, pindai ulang" adalah koreksi yang harus sampai ke server.
  */
 const BARUSAN_MS = 30_000;
 
 /**
  * Jawaban `duplicate` atas Ulangi dianggap tersimpan pada percobaan yang gagal
- * bila pemindaian pertamanya sedekat ini dengan percobaan itu. Lebar, karena
- * jam server dan jam tablet venue jarang sama persis.
+ * hanya bila pemindaian pertamanya terjadi SESUDAH percobaan itu dikirim,
+ * menurut jam server. Selisih jam tablet dihitung dari header `Date` jawaban;
+ * kelonggaran ini menutup pembulatan header ke detik dan waktu tempuh.
+ * Satu arah: pemindaian yang lebih tua adalah duplikat sungguhan.
  */
-const TOLERANSI_JAM_MS = 10 * 60_000;
+const KELONGGARAN_JAM_MS = 5_000;
 
 function bacaTutupOtomatis(): boolean {
   try {
@@ -383,7 +389,7 @@ export default function ScanClient() {
   // tersimpan (jawabannya hilang, bukan permintaannya).
   const gagalRef = useRef<{ qr: string; waktu: number } | null>(null);
   // Kode yang tercatat di ponsel ini beberapa detik terakhir. Lihat BARUSAN_MS.
-  const barusanRef = useRef<Map<string, number>>(new Map());
+  const barusanRef = useRef<Map<string, { waktu: number; hasil: Hasil }>>(new Map());
 
   const [kueri, setKueri] = useState("");
   /**
@@ -452,6 +458,10 @@ export default function ScanClient() {
     const dipilih = sessionRef.current;
     const hilang = dipilih !== null && !daftar.some((sesi) => sesi.id === dipilih);
     const sesiBaru = hilang ? null : dipilih ?? daftar[0]?.id ?? null;
+    if (sesiBaru !== dipilih) {
+      barusanRef.current.clear();
+      terakhirRef.current = { qr: "", waktu: 0, tahan: TAHAN_SUKSES_MS };
+    }
     sessionRef.current = sesiBaru;
     setSessionId(sesiBaru);
     setSesiHilang(hilang);
@@ -465,8 +475,16 @@ export default function ScanClient() {
     setPesan(daftar.length === 0 ? "Belum ada sesi kehadiran yang dibuka. Hubungi panitia." : "");
   }, []);
 
+  // Sesi atau meja berganti: pemindaian ulang tamu yang barusan adalah koreksi,
+  // jadi ingatan 30 detik dan tahanan kode yang sama ikut dilupakan.
+  function lupakanBarusan() {
+    barusanRef.current.clear();
+    terakhirRef.current = { qr: "", waktu: 0, tahan: TAHAN_SUKSES_MS };
+  }
+
   function gantiJalur(id: number | null) {
     laneRef.current = id;
+    lupakanBarusan();
     setLaneId(id);
     setPesanLayar(null);
     try {
@@ -643,9 +661,9 @@ export default function ScanClient() {
     ].slice(0, 20));
     if (beres && data.participant) {
       setTerakhirHadir({ nama: data.participant.name, waktu });
-      const sekarang = Date.now();
-      barusanRef.current.set(data.participant.qr_code, sekarang);
-      if (data.qr) barusanRef.current.set(data.qr, sekarang);
+      const catatan = { waktu: Date.now(), hasil: data };
+      barusanRef.current.set(`${sesi}:${data.participant.qr_code}`, catatan);
+      if (data.qr) barusanRef.current.set(`${sesi}:${data.qr}`, catatan);
     }
 
     // Cetak otomatis TIDAK berlaku untuk pemindaian ulang: tamu itu sudah
@@ -712,14 +730,19 @@ export default function ScanClient() {
     // Jawaban percobaan sebelumnya hilang, tetapi server sempat menyimpannya.
     // "Sudah pernah dipindai" di sini menyesatkan: tamunya baru datang.
     const gagal = gagalRef.current;
+    const jamServer = Date.parse(response.headers.get("date") ?? "");
     if (
       data.status === "duplicate" &&
       gagal?.qr === qr &&
       data.scan_count === 2 &&
       data.first_scan_at &&
-      Math.abs(new Date(data.first_scan_at).getTime() - gagal.waktu) < TOLERANSI_JAM_MS
+      Number.isFinite(jamServer)
     ) {
-      data = { ...data, tersimpanSebelumnya: true };
+      // Selisih jam server terhadap tablet, lalu waktu percobaan yang gagal
+      // menurut jam server.
+      const selisih = jamServer - Date.now();
+      const pertama = new Date(data.first_scan_at).getTime();
+      if (pertama >= gagal.waktu + selisih - KELONGGARAN_JAM_MS) data = { ...data, tersimpanSebelumnya: true };
     }
     terapkanHasil({ ...data, qr: data.qr ?? qr }, sessionId);
     return data;
@@ -740,12 +763,23 @@ export default function ScanClient() {
       return;
     }
     terakhirRef.current = { qr: nilai, waktu: sekarang, tahan: TAHAN_SUKSES_MS };
-    const barusan = barusanRef.current.get(nilai);
-    if (barusan && sekarang - barusan < BARUSAN_MS) return;
+    // Catatan yang lewat jendela dibuang setiap kali dibaca, supaya daftarnya
+    // tidak tumbuh sepanjang hari.
+    for (const [kunci, catatan] of barusanRef.current) {
+      if (sekarang - catatan.waktu >= BARUSAN_MS) barusanRef.current.delete(kunci);
+    }
+    const barusan = barusanRef.current.get(`${sessionRef.current}:${nilai}`);
+    if (barusan) {
+      // Tidak dikirim lagi, tetapi juga tidak diam: lembar hijau tamu itu
+      // dibuka lagi dari ingatan ponsel, dengan bunyinya.
+      pasangLembar(barusan.hasil);
+      bunyikan("ok", suaraRef.current);
+      return;
+    }
     void kirim(nilai).then((data) => {
       if (!data && terakhirRef.current.qr === nilai) terakhirRef.current.tahan = TAHAN_GAGAL_MS;
     });
-  }, [kirim]);
+  }, [kirim, pasangLembar]);
 
   const terbacaRef = useRef(terbaca);
   useEffect(() => { terbacaRef.current = terbaca; });
@@ -1098,6 +1132,8 @@ export default function ScanClient() {
       <TopAppBar
         title="Pemindai kehadiran"
         subtitle={`${eventName || "Memuat..."}${username ? ` · ${username}` : ""}`}
+        // Teks biasa, bukan label tebal: di layar ini subjudul hanya keterangan.
+        subtitleClassName="!font-normal"
         actions={<LogoutButton size="md" />}
         maxWidth="1280px"
       />
@@ -1156,6 +1192,7 @@ export default function ScanClient() {
                 onChange={(event) => {
                   const id = Number(event.target.value) || null;
                   sessionRef.current = id;
+                  lupakanBarusan();
                   setSessionId(id);
                   setSesiHilang(false);
                   tutupLembar();
@@ -1163,6 +1200,10 @@ export default function ScanClient() {
                 className="min-w-0 flex-1 sm:max-w-xs"
               >
                 {sessions.length === 0 ? <option value="">Belum ada sesi</option> : null}
+                {/* Tanpa pilihan kosong, peramban menampilkan sesi pertama yang
+                    tersisa sebagai terpilih, dan mengetuknya tidak memicu
+                    perubahan: petugas terkunci sampai halaman dimuat ulang. */}
+                {sessions.length > 0 && sessionId === null ? <option value="">Pilih sesi...</option> : null}
                 {sessions.map((sesi) => <option key={sesi.id} value={sesi.id}>{sesi.name}</option>)}
               </SelectField>
 
@@ -1207,7 +1248,9 @@ export default function ScanClient() {
           </p>
         ) : null}
 
-        <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        {/* `minmax(0,1fr)` juga di ponsel, bukan kolom `auto`: nama tamu yang
+            panjang tidak boleh melebarkan seluruh halaman. */}
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           {/* ---------------------------------------------------------------
               Panggung
               --------------------------------------------------------------- */}

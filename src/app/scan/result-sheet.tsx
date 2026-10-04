@@ -13,7 +13,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Dialog } from "@/components/m3";
 import { standard } from "@/lib/m3/motion";
 import { ItemChecklist } from "./item-checklist";
@@ -182,6 +182,8 @@ export function ResultSheet({
    * kaos. Wadah yang fokus tidak melakukan apa pun saat Enter ditekan.
    */
   const wadah = useRef<HTMLDivElement>(null);
+  // Tempat tombol Serahkan barang di bilah aksi; diisi ItemChecklist lewat portal.
+  const [tempatSerahkan, setTempatSerahkan] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
     if (hasil) wadah.current?.focus({ preventScroll: true });
   }, [hasil, kedip]);
@@ -233,40 +235,38 @@ export function ResultSheet({
             {/* Blok status. Seluruhnya berwarna, karena inilah yang harus
                 terbaca dari sudut mata sebelum satu huruf pun sempat dibaca. */}
             <div className={`relative overflow-hidden rounded-t-2xl p-4 sm:p-5 ${tampilan.blok}`}>
-              <div className="flex items-start gap-4">
-                <span className={`flex size-14 shrink-0 items-center justify-center rounded-full [@media(max-height:700px)]:size-10 ${tampilan.ikon}`}>
-                  <tampilan.Icon size={30} weight="fill" aria-hidden />
+              {/* Kisi, bukan baris flex. Di ponsel sempit (di bawah 400 px,
+                  termasuk 360 px yang paling umum di Android) nama turun ke
+                  baris sendiri selebar lembar, di bawah ikon. Nama adalah bahan
+                  memastikan orangnya benar, jadi tidak pernah dipotong menjadi
+                  "Siti Rahmawati...": tiga baris masih muat, dan ukurannya turun
+                  satu langkah sebelum lebarnya habis. */}
+              <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_3rem] items-start gap-x-4 max-[400px]:grid-cols-[2.5rem_minmax(0,1fr)_3rem] max-[400px]:gap-x-3 [@media(max-height:700px)]:grid-cols-[2.5rem_minmax(0,1fr)_3rem]">
+                <span className={`row-span-3 flex size-14 shrink-0 items-center justify-center rounded-full max-[400px]:row-span-1 max-[400px]:size-10 [@media(max-height:700px)]:size-10 ${tampilan.ikon}`}>
+                  <tampilan.Icon size={30} weight="fill" aria-hidden className="max-[400px]:size-6" />
                 </span>
 
-                <div className="min-w-0 flex-1">
-                  {/* `opacity`, bukan peran warna kedua: di atas permukaan
-                      berwarna tidak ada peran "on-container-variant". */}
-                  <p className="text-label-large opacity-80">{tampilan.judul}</p>
-                  {/* Dua baris, bukan satu. Nama adalah bahan memastikan orangnya
-                      benar, dan "Siti Rahmawati..." tidak bisa dicocokkan dengan
-                      siapa pun. Lebih dari dua baris mendorong tombol keluar layar. */}
-                  {peserta ? (
-                    <p className="line-clamp-2 text-headline-small font-semibold [overflow-wrap:anywhere]">{peserta.name}</p>
-                  ) : (
-                    <p className="line-clamp-2 text-headline-small font-semibold [overflow-wrap:anywhere]">
-                      {hasil.qr ? `Kode ${hasil.qr}` : "Kode ?"}
-                    </p>
-                  )}
-                  {peserta ? (
-                    <p className="line-clamp-2 text-body-medium opacity-80">
-                      {[peserta.company, peserta.title].filter(Boolean).join(" · ") || "Tanpa instansi"}
-                    </p>
-                  ) : null}
-                </div>
+                {/* `opacity`, bukan peran warna kedua: di atas permukaan
+                    berwarna tidak ada peran "on-container-variant". */}
+                <p className="col-start-2 row-start-1 text-label-large opacity-80 max-[400px]:self-center">{tampilan.judul}</p>
 
                 <button
                   type="button"
                   onClick={onTutup}
                   aria-label="Tutup hasil"
-                  className="m3-state -mr-1 -mt-1 flex size-12 shrink-0 items-center justify-center rounded-full text-current opacity-80"
+                  className="m3-state col-start-3 row-span-2 row-start-1 -mr-1 -mt-1 flex size-12 max-[400px]:row-span-1 shrink-0 items-center justify-center rounded-full text-current opacity-80 max-[400px]:-my-1"
                 >
                   <X size={20} />
                 </button>
+
+                <p className="col-start-2 row-start-2 line-clamp-3 text-headline-small font-semibold [overflow-wrap:anywhere] max-[400px]:col-span-3 max-[400px]:col-start-1 max-[400px]:mt-2 max-[400px]:text-title-large">
+                  {peserta ? peserta.name : hasil.qr ? `Kode ${hasil.qr}` : "Kode ?"}
+                </p>
+                {peserta ? (
+                  <p className="col-start-2 row-start-3 line-clamp-2 text-body-medium opacity-80 max-[400px]:col-span-3 max-[400px]:col-start-1">
+                    {[peserta.company, peserta.title].filter(Boolean).join(" · ") || "Tanpa instansi"}
+                  </p>
+                ) : null}
               </div>
 
               {peserta && hadir ? (
@@ -328,6 +328,7 @@ export function ResultSheet({
                     laneId={barang.laneId}
                     participantId={peserta.id}
                     onCentang={onCentang}
+                    tempatTombol={tempatSerahkan}
                   />
                 </div>
               ) : null}
@@ -396,6 +397,11 @@ export function ResultSheet({
                       Login lagi
                     </Button>
                   ) : null}
+
+                  {/* Serahkan barang masuk ke sini dari daftar barang, paling
+                      kanan sebagai aksi utama. `contents` supaya tombolnya ikut
+                      menjadi anggota baris ini. */}
+                  {adaBarang ? <div ref={setTempatSerahkan} className="contents" /> : null}
                 </div>
               </div>
             </div>
