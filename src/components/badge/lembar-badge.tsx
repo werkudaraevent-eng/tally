@@ -65,6 +65,11 @@ export function hariIniLokal() {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Tanggal hari ini (YYYY-MM-DD) di zona acara, bukan zona laptop. */
+export function hariIniDi(zona: string) {
+	return new Intl.DateTimeFormat("en-CA", { timeZone: zona, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
 /** Garis tipis berwarna abu, cukup terlihat untuk dilipat, nyaris hilang di badge jadi. */
 const TINTA_TANDA = "#9a9a9a";
 

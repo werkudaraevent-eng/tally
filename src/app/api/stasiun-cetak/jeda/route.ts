@@ -33,9 +33,10 @@ export async function POST(request: Request) {
   if (error) return apiError("INTERNAL_ERROR", 500);
   // Token ini bukan lagi pemegang stasiun (diambil alih laptop lain): tidak ada
   // yang berubah, dan itu dikatakan, bukan dijawab 200 dengan keadaan lama.
-  if (count === 0) return apiError("VALIDATION_ERROR", 409, { message: "Another laptop holds this station now.", lease: "hilang" });
-
+  // Stasiun acara lain atau yang sudah dihapus juga 0 baris: dibedakan supaya
+  // pesannya tidak menyalahkan laptop lain.
   const stasiun = (await daftarStasiun(eventId))?.find((s) => s.id === parsed.data.stasiun_id);
   if (!stasiun) return apiError("VALIDATION_ERROR", 404, { message: "This print station no longer exists." });
+  if (count === 0) return apiError("VALIDATION_ERROR", 409, { message: "Another laptop holds this station now.", lease: "hilang" });
   return Response.json({ dijeda: stasiun.dijeda });
 }

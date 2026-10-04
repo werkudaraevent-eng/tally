@@ -2,7 +2,7 @@
 
 import { CheckCircle, Copy, Pause, Play, Printer, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { LembarBadge, hariIniLokal } from "@/components/badge/lembar-badge";
+import { LembarBadge, hariIniDi } from "@/components/badge/lembar-badge";
 import { PrinterDialog } from "@/components/badge/printer-dialog";
 import { Button, Card, Dialog, SelectField, StatusChip, TextField } from "@/components/m3";
 import { useToast } from "@/components/toast";
@@ -11,7 +11,7 @@ import { kertasCocok, susunLembar, type BadgeData, type BadgeEventData, type Bad
 import { bacaPrinter, bacaPrinterAktif, simpanPrinter, simpanPrinterAktif, type ProfilPrinter } from "@/lib/badge/printer";
 import type { BadgeRundownHari } from "@/lib/badge/rundown";
 import type { JenisCetak, StatusAntrean } from "@/lib/badge/stasiun";
-import { normalizeTimeZone, type EventTimeZone } from "@/lib/timezone";
+import { normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 
 /**
  * Stasiun cetak: laptop di meja registrasi yang mencetak badge kertas untuk HP
@@ -23,8 +23,9 @@ import { normalizeTimeZone, type EventTimeZone } from "@/lib/timezone";
  * yang membuat HP menulis "Connected".
  *
  * Mencetak lewat dokumen ini sendiri, satu badge per dialog: lembar badge
- * dipasang di wadah tersembunyi, `@media print` menyembunyikan seluruh layar,
- * lalu `window.print()`. Dengan Chrome `--kiosk-printing` dialognya tidak
+ * dipasang di wadah tersembunyi, `@media print` menyembunyikan semua yang lain
+ * (termasuk toast dan dialog yang dipasang di luar layar ini), lalu
+ * `window.print()`. Dengan Chrome `--kiosk-printing` dialognya tidak
  * muncul dan lembar langsung ke printer bawaan. `afterprint` menandai
  * "terkirim": Chrome tidak pernah tahu apakah kertasnya benar-benar keluar,
  * jadi tidak ada kata "printed" di layar ini.
@@ -62,7 +63,8 @@ type Koneksi =
 	| { jenis: "terputus"; sejak: string }
 	| { jenis: "sesi" }
 	| { jenis: "dipakai"; sejak: string | null }
-	| { jenis: "belum" };
+	| { jenis: "belum" }
+	| { jenis: "tutup" };
 
 type Jawaban = { status: number; ok: boolean; body: Record<string, unknown> };
 
@@ -70,6 +72,8 @@ const KUNCI_NAMA = "tally.stasiun.nama";
 const KUNCI_TOKEN = "tally.stasiun.token";
 const JEDA_TARIK_MS = 1500;
 const JEDA_RIWAYAT_MS = 5000;
+/** Batas mundur saat Tally tidak terjangkau: 1,5, 3, 6, 12, lalu 15 detik. */
+const JEDA_TARIK_MAKS_MS = 15000;
 
 /** Badge Cetak uji: tidak lewat antrean, langsung dari laptop ini. */
 const BADGE_UJI: BadgeData = { name: "Test Badge", company: "Tally print station", title: null, qr_code: "TEST0000" };
@@ -77,6 +81,19 @@ const BADGE_UJI: BadgeData = { name: "Test Badge", company: "Tally print station
 /** Jam di zona acara, bukan zona laptop: laptop sewaan sering masih berjam lain. */
 const jamDi = (iso: string | null | undefined, zona: EventTimeZone) =>
 	iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: zona }) : "";
+
+/** Nama kertas dari layout.ts masih berbahasa Indonesia; diterjemahkan di layar ini saja supaya /cetak-badge tidak berubah. */
+const kertasEn = (nama: string) => nama.replace(/ tegak$/, " portrait").replace(/ mendatar$/, " landscape");
+
+function tidakMuatEn(pesan: string | null): string | null {
+	if (!pesan) return null;
+	const m = /^Lembar (\d+) × (\d+) mm lebih besar dari kertas (\w+)\./.exec(pesan);
+	return m ? `The ${m[1]} × ${m[2]} mm sheet is larger than ${m[3]} paper. Make the badge smaller or choose another fold.` : pesan;
+}
+
+/** 409 dari route stasiun: acara selesai atau diarsipkan, atau migrasi 0009 belum ada. */
+const koneksi409 = (r: Jawaban): Koneksi =>
+	(r.body.error as { code?: string } | undefined)?.code === "EVENT_NOT_WRITABLE" ? { jenis: "tutup" } : { jenis: "belum" };
 
 const tidur = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 const bingkai = () => new Promise((r) => window.requestAnimationFrame(() => window.requestAnimationFrame(r)));
@@ -155,7 +172,8 @@ export default function StasiunClient() {
 	const [tanyaUji, setTanyaUji] = useState(false);
 	const [ujiGagal, setUjiGagal] = useState(false);
 	const [cobaKe, setCobaKe] = useState(0);
-	const [salinan, setSalinan] = useState<"win" | "mac" | null>(null);
+	const [salinan, setSalinan] = useState<string | null>(null);
+	const [tersembunyi, setTersembunyi] = useState(false);
 
 	// Satu badge pada satu waktu. Ref, bukan state: putaran tarik membacanya di
 	// tengah await, dan nilai state di sana sudah basi.
@@ -189,6 +207,7 @@ export default function StasiunClient() {
 
 	const zona = normalizeTimeZone(susunan?.time_zone);
 	const jamZona = (iso: string | null | undefined) => jamDi(iso, zona);
+	const jamZonaLengkap = (iso: string | null | undefined) => `${jamDi(iso, zona)} ${timeZoneAbbr(zona)}`;
 	const profil = printer.find((p) => p.id === aktif) ?? null;
 	const lembar = susunan ? susunLembar(susunan.layout.format, profil?.kertas ?? "A4") : null;
 	const kertasOk = !lembar || lembar.tidakMuat === null && (!profil || kertasCocok(lembar, profil.kertas));
@@ -235,7 +254,7 @@ export default function StasiunClient() {
 	const tanganiKlaim = useCallback((r: Jawaban | null): boolean => {
 		if (!r) { putus(); return false; }
 		if (r.status === 401) { setKoneksi({ jenis: "sesi" }); return false; }
-		if (r.status === 409) { setKoneksi({ jenis: "belum" }); return false; }
+		if (r.status === 409) { setKoneksi(koneksi409(r)); return false; }
 		if (!r.ok) { putus(); return false; }
 		const b = r.body as { status: string; stasiun_id: number; nama: string; dijeda?: boolean; sejak?: string | null };
 		setStasiun({ id: b.stasiun_id, nama: b.nama });
@@ -255,33 +274,37 @@ export default function StasiunClient() {
 		}
 	}
 
-	async function satuPutaran() {
-		if (!stasiun) return;
-		// Kertas tidak cocok: tetap terlihat tersambung di HP, tetapi tidak
-		// mengambil badge yang akan tercetak di kertas yang salah.
-		if (!kertasOk) {
-			tanganiKlaim(await kirimJson("/api/stasiun-cetak/klaim", { nama: stasiun.nama, token }));
-			return;
+	/** Satu tarikan. `false` bila Tally tidak terjangkau, supaya putaran mundur. */
+	async function satuPutaran(): Promise<boolean> {
+		if (!stasiun) return true;
+		// Kertas tidak cocok, atau dialog terbuka (Cetak uji, profil printer):
+		// tetap terlihat tersambung di HP, tetapi tidak mengambil badge. Kertas
+		// salah mencetak di tempat yang salah, dan dialog yang terbuka ikut
+		// menghalangi petugas melihat apa yang sedang dicetak.
+		if (!kertasOk || tanyaUji || dialogPrinter !== null) {
+			const k = await kirimJson("/api/stasiun-cetak/klaim", { nama: stasiun.nama, token });
+			tanganiKlaim(k);
+			return Boolean(k && k.status < 500);
 		}
 		const r = await kirimJson("/api/stasiun-cetak/ambil", { stasiun_id: stasiun.id, token });
-		if (!r) { putus(); return; }
-		if (r.status === 401) { setKoneksi({ jenis: "sesi" }); return; }
-		if (r.status === 409) { setKoneksi({ jenis: "belum" }); return; }
-		if (!r.ok) { putus(); return; }
+		if (!r) { putus(); return false; }
+		if (r.status === 401) { setKoneksi({ jenis: "sesi" }); return true; }
+		if (r.status === 409) { setKoneksi(koneksi409(r)); return true; }
+		if (!r.ok) { putus(); return false; }
 		const b = r.body as {
 			status: string;
 			sejak?: string | null;
 			job?: { id: number; participant_id: string | null; jenis: JenisCetak };
 			peserta?: BadgeData | null;
 		};
-		if (b.status === "lease_hilang") { setKoneksi({ jenis: "dipakai", sejak: b.sejak ?? null }); return; }
+		if (b.status === "lease_hilang") { setKoneksi({ jenis: "dipakai", sejak: b.sejak ?? null }); return true; }
 		if (b.status === "tidak_ada") {
 			tanganiKlaim(await kirimJson("/api/stasiun-cetak/klaim", { nama: stasiun.nama, token }));
-			return;
+			return true;
 		}
 		setKoneksi({ jenis: "ok" });
 		setDijeda(b.status === "dijeda");
-		if (b.status !== "ok" || !b.job) return;
+		if (b.status !== "ok" || !b.job) return true;
 
 		const job = b.job;
 		sibukRef.current = true;
@@ -289,7 +312,7 @@ export default function StasiunClient() {
 			if (!b.peserta) {
 				await selesai(job.id, "gagal", "data peserta tidak terbaca");
 				setGagalSiap({ nama: null, participant_id: job.participant_id });
-				return;
+				return true;
 			}
 			setGagalSiap(null);
 			setMengirim(b.peserta.name);
@@ -301,35 +324,63 @@ export default function StasiunClient() {
 			sibukRef.current = false;
 			void muatRiwayat(stasiun.id);
 		}
+		return true;
 	}
 
 	const putaranRef = useRef(satuPutaran);
 	useEffect(() => { putaranRef.current = satuPutaran; });
 
-	const berhenti = koneksi.jenis === "sesi" || koneksi.jenis === "dipakai" || koneksi.jenis === "belum";
+	const berhenti = koneksi.jenis === "sesi" || koneksi.jenis === "dipakai" || koneksi.jenis === "belum" || koneksi.jenis === "tutup";
 	const stasiunId = stasiun?.id ?? null;
 
 	// Putaran tarik. Berurutan, bukan setInterval: tarikan berikutnya baru
-	// dimulai setelah yang ini (termasuk mencetaknya) selesai.
+	// dimulai setelah yang ini (termasuk mencetaknya) selesai. Saat Tally tidak
+	// terjangkau jedanya berlipat sampai 15 detik; Try again memulai ulang dari
+	// 1,5 detik. Berhenti total saat sesi habis, stasiun dipegang laptop lain,
+	// atau acara ditutup: tarikan berikutnya hanya akan ditolak lagi.
 	useEffect(() => {
 		if (fase !== "jalan" || stasiunId === null || berhenti) return;
 		let batal = false;
 		let pewaktu = 0;
+		let gagal = 0;
 		const putar = async () => {
 			if (batal) return;
-			if (!sibukRef.current) await putaranRef.current();
-			if (!batal) pewaktu = window.setTimeout(putar, JEDA_TARIK_MS);
+			if (!sibukRef.current) gagal = (await putaranRef.current()) ? 0 : gagal + 1;
+			if (!batal) pewaktu = window.setTimeout(putar, Math.min(JEDA_TARIK_MS * 2 ** gagal, JEDA_TARIK_MAKS_MS));
 		};
 		pewaktu = window.setTimeout(putar, 0);
 		return () => { batal = true; window.clearTimeout(pewaktu); };
 	}, [fase, stasiunId, berhenti, cobaKe]);
 
 	useEffect(() => {
-		if (fase !== "jalan" || stasiunId === null) return;
+		if (fase !== "jalan" || stasiunId === null || berhenti) return;
 		const timer = window.setTimeout(() => void muatRiwayat(stasiunId), 0);
 		const ulang = window.setInterval(() => void muatRiwayat(stasiunId), JEDA_RIWAYAT_MS);
 		return () => { window.clearTimeout(timer); window.clearInterval(ulang); };
-	}, [fase, stasiunId, muatRiwayat]);
+	}, [fase, stasiunId, berhenti, muatRiwayat]);
+
+	// Tab di belakang: Chrome memperlambat pewaktunya sampai sekali semenit
+	// setelah lima menit, dan badge ikut tertahan. Judul tab memberi tahu dari
+	// bilah tab, pita memberi tahu saat petugas kembali. Web Lock yang dipegang
+	// selama stasiun berjalan mencegah Chrome membekukan atau membuang tab ini.
+	useEffect(() => {
+		if (fase !== "jalan") return;
+		const judulAsli = document.title;
+		const cek = () => {
+			const sembunyi = document.visibilityState === "hidden";
+			if (sembunyi) setTersembunyi(true);
+			document.title = sembunyi ? "Bring this tab to the front · Print station" : judulAsli;
+		};
+		document.addEventListener("visibilitychange", cek);
+		let lepas: () => void = () => {};
+		const kunci = new Promise<void>((r) => { lepas = r; });
+		void navigator.locks?.request("tally-stasiun-cetak", () => kunci).catch(() => {});
+		return () => {
+			document.removeEventListener("visibilitychange", cek);
+			document.title = judulAsli;
+			lepas();
+		};
+	}, [fase]);
 
 	async function mulai() {
 		const bersih = nama.trim();
@@ -340,7 +391,12 @@ export default function StasiunClient() {
 		setMemulai(false);
 		if (!r) { setGalatMulai("No connection to Tally. Check the laptop's Wi-Fi."); return; }
 		if (r.status === 401) { setKoneksi({ jenis: "sesi" }); return; }
-		if (r.status === 409) { setGalatMulai(String((r.body.error as { message?: string } | undefined)?.message ?? "Print stations are not active yet.")); return; }
+		if (r.status === 409) {
+			setGalatMulai(koneksi409(r).jenis === "tutup"
+				? "This event is completed or archived, so it doesn't take new badges."
+				: String((r.body.error as { message?: string } | undefined)?.message ?? "Print stations are not active yet."));
+			return;
+		}
 		if (!r.ok) { setGalatMulai("The station could not be started. Try again."); return; }
 		simpanNama(bersih);
 		tanganiKlaim(r);
@@ -404,7 +460,7 @@ export default function StasiunClient() {
 		setDialogPrinter(null);
 	}
 
-	async function salin(jenis: "win" | "mac", teks: string) {
+	async function salin(jenis: string, teks: string) {
 		try {
 			await navigator.clipboard.writeText(teks);
 			setSalinan(jenis);
@@ -419,10 +475,12 @@ export default function StasiunClient() {
 	const slug = susunan?.event.slug ?? "";
 	const alamat = typeof window === "undefined" ? "" : `${window.location.origin}/e/${slug}/stasiun`;
 	const winPilih = `"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir=C:\\TallyStation ${alamat}`;
+	const macPilih = `open -na "Google Chrome" --args --user-data-dir=$HOME/TallyStation ${alamat}`;
 	const winKiosk = `"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir=C:\\TallyStation --kiosk-printing ${alamat}`;
 	const macKiosk = `open -na "Google Chrome" --args --user-data-dir=$HOME/TallyStation --kiosk-printing ${alamat}`;
 	const namaPrinter = profil ? profil.nama || profil.model || "Printer" : null;
-	const namaFormat = lembar ? `${lembar.namaKertas}` : "";
+	const namaFormat = lembar ? kertasEn(lembar.namaKertas) : "";
+	const tidakMuat = tidakMuatEn(lembar?.tidakMuat ?? null);
 
 	// ---- Pita keadaan, urut dari yang paling menghentikan ----------------
 	const pita: ReactNode[] = [];
@@ -440,17 +498,24 @@ export default function StasiunClient() {
 			</Pita>,
 		);
 	}
+	if (koneksi.jenis === "tutup") {
+		pita.push(
+			<Pita key="tutup" nada="error" judul="This event is closed">
+				Completed or archived events don&apos;t take new badges. Check that this station is open on the right event.
+			</Pita>,
+		);
+	}
 	if (fase === "jalan" && koneksi.jenis === "dipakai" && stasiun) {
 		pita.push(
 			<Pita key="dipakai" nada="error" judul={`${stasiun.nama} is being used by another laptop`} aksi={<Button variant="outlined" size="md" onClick={() => void ambilAlih()}>Take over</Button>}>
-				{koneksi.sejak ? `Another laptop has held this name since ${jamZona(koneksi.sejak)}, ` : "Another laptop holds this name, "}
+				{koneksi.sejak ? `Another laptop has held this name since ${jamZonaLengkap(koneksi.sejak)}, ` : "Another laptop holds this name, "}
 				so this laptop stopped printing to avoid duplicate badges.
 			</Pita>,
 		);
 	}
 	if (fase === "jalan" && koneksi.jenis === "terputus") {
 		pita.push(
-			<Pita key="putus" nada="error" judul={`Disconnected from Tally since ${jamZona(koneksi.sejak)}`} aksi={<Button variant="outlined" size="md" onClick={() => setCobaKe((n) => n + 1)}>Try again</Button>}>
+			<Pita key="putus" nada="error" judul={`Disconnected from Tally since ${jamZonaLengkap(koneksi.sejak)}`} aksi={<Button variant="outlined" size="md" onClick={() => setCobaKe((n) => n + 1)}>Try again</Button>}>
 				Check the laptop&apos;s Wi-Fi. The queue is safe on the server and prints as soon as you&apos;re back online.
 			</Pita>,
 		);
@@ -458,7 +523,7 @@ export default function StasiunClient() {
 	if (fase === "jalan" && !kertasOk && lembar) {
 		pita.push(
 			<Pita key="kertas" nada="error" judul="Paper doesn't match" aksi={<Button variant="outlined" size="md" onClick={() => setFase("pasang")}>Change profile</Button>}>
-				{lembar.tidakMuat ?? `This badge format prints on ${namaFormat} paper, but ${namaPrinter ?? "this printer"} at this station has ${profil?.kertas}. Change the paper or the printer profile.`}
+				{tidakMuat ?? `This badge format prints on ${namaFormat} paper, but ${namaPrinter ?? "this printer"} at this station has ${profil?.kertas}. Change the paper or the printer profile.`}
 			</Pita>,
 		);
 	}
@@ -478,6 +543,13 @@ export default function StasiunClient() {
 				aksi={gagalSiap.participant_id ? <Button variant="outlined" size="md" disabled={Boolean(mengirim)} onClick={() => void cetakUlang(gagalSiap.participant_id)}>Try again</Button> : null}
 			>
 				The participant data could not be read. Try again; if it fails again, ask an admin to check this participant.
+			</Pita>,
+		);
+	}
+	if (fase === "jalan" && tersembunyi) {
+		pita.push(
+			<Pita key="belakang" nada="warning" judul="Keep this tab in front" aksi={<Button variant="outlined" size="md" onClick={() => setTersembunyi(false)}>OK</Button>}>
+				This tab went to the background. Chrome slows background tabs, so badges can wait up to a minute. Keep the station tab in front of other tabs and windows.
 			</Pita>,
 		);
 	}
@@ -517,7 +589,9 @@ export default function StasiunClient() {
 				@media print {
 					html, body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; }
 					.stasiun-layar { display: none !important; }
-					.stasiun-cetak { position: static !important; left: auto !important; }
+					body * { visibility: hidden !important; }
+					.stasiun-cetak, .stasiun-cetak * { visibility: visible !important; }
+					.stasiun-cetak { position: absolute !important; left: 0 !important; top: 0 !important; }
 					.cetak-lembar { box-shadow: none !important; break-after: auto; }
 				}
 			`}</style>
@@ -570,7 +644,7 @@ export default function StasiunClient() {
 								) : (
 									<p className="mt-4 flex items-start gap-2 rounded-lg bg-error-soft px-4 py-3 text-body-medium text-error">
 										<Warning size={18} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
-										{lembar.tidakMuat ?? `This badge format prints on ${namaFormat} paper, but the printer profile has ${profil?.kertas}.`}
+										{tidakMuat ?? `This badge format prints on ${namaFormat} paper, but the printer profile has ${profil?.kertas}.`}
 									</p>
 								)
 							) : null}
@@ -599,16 +673,11 @@ export default function StasiunClient() {
 								</li>
 								<li>
 									<span className="font-semibold">Choose the printer (once).</span> Open the station Chrome <em>without</em> kiosk, print one sheet, pick the badge printer, then close that Chrome.
-									<Perintah teks={winPilih} />
+									<Perintah win={winPilih} mac={macPilih} kunci="pilih" salinan={salinan} onSalin={(k, t) => void salin(k, t)} />
 								</li>
 								<li>
 									<span className="font-semibold">Run the station</span> with the second shortcut. Chrome remembers that printer, and from now on badges print without a dialog.
-									<Perintah teks={winKiosk} />
-									<p className="mt-2 break-all font-mono text-body-small text-on-surface-variant">Mac (quit Chrome with Cmd+Q first): {macKiosk}</p>
-									<div className="mt-2 flex flex-wrap gap-2">
-										<Button variant="text" size="sm" icon={<Copy size={16} />} onClick={() => void salin("win", winKiosk)}>{salinan === "win" ? "Copied" : "Copy for Windows"}</Button>
-										<Button variant="text" size="sm" icon={<Copy size={16} />} onClick={() => void salin("mac", macKiosk)}>{salinan === "mac" ? "Copied" : "Copy for Mac"}</Button>
-									</div>
+									<Perintah win={winKiosk} mac={macKiosk} kunci="kiosk" salinan={salinan} onSalin={(k, t) => void salin(k, t)} />
 								</li>
 								<li>
 									<span className="font-semibold">Keep the station tab in front</span>, sleep turned off, and the laptop plugged in. Then press <span className="font-semibold">Print test</span>.
@@ -622,7 +691,7 @@ export default function StasiunClient() {
 							<div className="min-w-0">
 								<h1 className="truncate text-headline-medium font-semibold">{stasiun?.nama ?? nama}</h1>
 								<p className="mt-1 text-body-large text-on-surface-variant">
-									{["Print station", susunan?.event.name, lembar ? `${lembar.namaKertas} paper` : null, namaPrinter].filter(Boolean).join(" · ")}
+									{["Print station", susunan?.event.name, lembar ? `${namaFormat} paper` : null, namaPrinter].filter(Boolean).join(" · ")}
 								</p>
 							</div>
 							<div className="flex flex-wrap items-center gap-2">
@@ -662,7 +731,7 @@ export default function StasiunClient() {
 
 							<Card variant="outlined" padded={false} className="!rounded-2xl">
 								<div className="border-b border-outline-variant px-5 py-4">
-									<h2 className="text-title-medium">Recent prints</h2>
+									<h2 className="text-title-medium">Recent prints <span className="text-body-medium font-normal text-on-surface-variant">· times in {timeZoneAbbr(zona)}</span></h2>
 									<p className="mt-1 text-body-medium text-on-surface-variant">Badge didn&apos;t come out or paper ran out? Fix the printer, then press Print again.</p>
 								</div>
 								{riwayat && riwayat.baris.length > 0 ? (
@@ -671,24 +740,26 @@ export default function StasiunClient() {
 											const s = STATUS_BARIS[b.status];
 											const teks = b.status === "terkirim" && b.jenis === "ulang" ? "Sent again" : s.teks;
 											return (
-												<li key={b.id} className="flex items-center gap-3 px-5 py-3">
-													<span className="w-12 shrink-0 text-body-medium tabular-nums text-on-surface-variant">{jamZona(b.created_at)}</span>
+												<li key={b.id} className="flex items-start gap-3 px-5 py-3">
+													<span className="w-12 shrink-0 pt-0.5 text-body-medium tabular-nums text-on-surface-variant">{jamZona(b.created_at)}</span>
 													<span className="min-w-0 flex-1">
-														<span className="line-clamp-2 block text-body-large font-medium [overflow-wrap:anywhere]">{b.jenis === "uji" ? "Test badge" : b.nama ?? "Participant removed"}</span>
+														<span className="line-clamp-2 text-body-large font-medium [overflow-wrap:break-word]">{b.jenis === "uji" ? "Test badge" : b.nama ?? "Participant removed"}</span>
 														{b.asal ? <span className="block truncate text-body-medium text-on-surface-variant">{b.asal}</span> : null}
 													</span>
-													<StatusChip tone={s.tone} title={b.galat ?? undefined}>{teks}</StatusChip>
-													{b.participant_id ? (
-														<Button variant="text" size="sm" disabled={Boolean(mengirim) || b.status === "antre" || b.status === "diambil" || berhenti} onClick={() => void cetakUlang(b.participant_id)}>
-															Print again
-														</Button>
-													) : null}
+													<span className="flex shrink-0 flex-col items-end gap-1">
+														<StatusChip tone={s.tone} title={b.galat ?? undefined}>{teks}</StatusChip>
+														{b.participant_id ? (
+															<Button variant="text" size="sm" disabled={Boolean(mengirim) || b.status === "antre" || b.status === "diambil" || berhenti} onClick={() => void cetakUlang(b.participant_id)}>
+																Print again
+															</Button>
+														) : null}
+													</span>
 												</li>
 											);
 										})}
 									</ul>
 								) : (
-									<p className="px-5 py-8 text-body-medium text-on-surface-variant">Nothing printed yet. Badges appear here as scanners check participants in.</p>
+									<p className="px-5 py-8 text-body-medium text-on-surface-variant">No badges printed yet. Badges appear here as scanners check participants in.</p>
 								)}
 							</Card>
 						</div>
@@ -706,7 +777,7 @@ export default function StasiunClient() {
 						isi={isiCetak}
 						event={event}
 						hari={susunan.rundown}
-						hariIni={hariIniLokal()}
+						hariIni={hariIniDi(zona)}
 						geser={geser}
 					/>
 				) : null}
@@ -752,8 +823,16 @@ function Pita({ nada, judul, aksi, children }: { nada: "error" | "warning" | "in
 	);
 }
 
-function Perintah({ teks }: { teks: string }) {
+/** Perintah Windows (terlihat) dan Mac (di bawahnya), masing-masing dengan tombol salin. */
+function Perintah({ win, mac, kunci, salinan, onSalin }: { win: string; mac: string; kunci: string; salinan: string | null; onSalin: (kunci: string, teks: string) => void }) {
 	return (
-		<pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-inverse-surface px-4 py-3 font-mono text-body-small text-inverse-on-surface">{teks}</pre>
+		<>
+			<pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-inverse-surface px-4 py-3 font-mono text-body-small text-inverse-on-surface">{win}</pre>
+			<p className="mt-2 break-all font-mono text-body-small text-on-surface-variant">Mac: {mac}</p>
+			<div className="mt-2 flex flex-wrap gap-2">
+				<Button variant="text" size="sm" icon={<Copy size={16} />} onClick={() => onSalin(`${kunci}-win`, win)}>{salinan === `${kunci}-win` ? "Copied" : "Copy for Windows"}</Button>
+				<Button variant="text" size="sm" icon={<Copy size={16} />} onClick={() => onSalin(`${kunci}-mac`, mac)}>{salinan === `${kunci}-mac` ? "Copied" : "Copy for Mac"}</Button>
+			</div>
+		</>
 	);
 }

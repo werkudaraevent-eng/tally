@@ -205,6 +205,12 @@ export function useCetakMeja(aktif: boolean, laneId: number | null, suaraNyala: 
 			return;
 		}
 		lacak(body.pekerjaan, nama);
+		// Sudah diambil stasiun lama sebelum pindah sampai: pekerjaan tetap di
+		// sana, jadi pilihan HP ini juga tidak diganti diam-diam.
+		if (body.pekerjaan.stasiun.id !== tujuan) {
+			toast.error("Station not changed", `${body.pekerjaan.stasiun.nama} already took this badge.`);
+			return;
+		}
 		pilihStasiun(tujuan);
 	}, [lacak, pilihStasiun, toast]);
 

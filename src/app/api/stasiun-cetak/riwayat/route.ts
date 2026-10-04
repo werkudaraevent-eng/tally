@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { sapuKedaluwarsa } from "@/lib/badge/stasiun-server";
+import { sapuKedaluwarsa, stasiunBelumAda } from "@/lib/badge/stasiun-server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeTimeZone, timeZoneOffset } from "@/lib/timezone";
 
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
       .eq("stasiun_id", stasiunId)
       .eq("status", "antre"),
   ]);
-  if (daftar.error) return apiError("INTERNAL_ERROR", 500);
+  if (daftar.error) return stasiunBelumAda(daftar.error, daftar.status) ? apiError("STASIUN_NOT_READY", 409) : apiError("INTERNAL_ERROR", 500);
 
   const baris = (daftar.data ?? []) as Baris[];
   const pesertaIds = [...new Set(baris.map((b) => b.participant_id).filter((id): id is string => Boolean(id)))];
