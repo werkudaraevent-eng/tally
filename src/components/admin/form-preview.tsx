@@ -33,7 +33,7 @@ export function FormPreview({ slug, form }: { slug: string; form: RegistrationFo
     function terima(event: MessageEvent) {
       if (event.origin !== window.location.origin || event.source !== bingkai.current?.contentWindow) return;
       if (event.data?.jenis === "tally-pratinjau-siap") kirim();
-      if (event.data?.jenis === "tally-pratinjau-hasil") setTertinggal(event.data.ok ? null : String(event.data.pesan ?? "Pratinjau belum diperbarui."));
+      if (event.data?.jenis === "tally-pratinjau-hasil") setTertinggal(event.data.ok ? null : String(event.data.pesan ?? "The preview hasn't updated yet."));
     }
     window.addEventListener("message", terima);
     return () => window.removeEventListener("message", terima);
@@ -56,13 +56,13 @@ export function FormPreview({ slug, form }: { slug: string; form: RegistrationFo
         role="status"
         className={`shrink-0 border-b border-outline-variant px-4 py-2.5 ${tertinggal ? "text-body-small text-error" : "text-body-medium text-on-surface-variant"}`}
       >
-        {tertinggal ?? "Pratinjau · seperti yang dilihat pendaftar"}
+        {tertinggal ?? "Preview · as registrants see it"}
       </p>
       <div ref={wadah} className="min-h-[480px] flex-1 overflow-hidden bg-surface-container-lowest lg:min-h-0">
         <iframe
           ref={bingkai}
           src={`/e/${slug}/daftar/pratinjau`}
-          title="Pratinjau formulir pendaftaran"
+          title="Registration form preview"
           sandbox="allow-scripts allow-same-origin"
           style={{ width: LEBAR, height: tinggi, border: 0, transform: `scale(${skala})`, transformOrigin: "top left" }}
         />

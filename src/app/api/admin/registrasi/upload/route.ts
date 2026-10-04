@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   if (auth.response) return auth.response;
 
   const id = new URL(request.url).searchParams.get("id");
-  if (!id) return apiError("VALIDATION_ERROR", 422, { id: "Id berkas wajib diisi." });
+  if (!id) return apiError("VALIDATION_ERROR", 422, { id: "File ID is required." });
 
   const client = getSupabaseServiceClient();
   const { data } = await client
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
   const row = data as unknown as { storage_path: string; original_name: string; event_id: string } | null;
   if (!row || row.event_id !== auth.scope.event.id) {
-    return apiError("VALIDATION_ERROR", 404, { message: "Berkas tidak ditemukan." });
+    return apiError("VALIDATION_ERROR", 404, { message: "File not found." });
   }
 
   const { data: signed, error } = await client.storage

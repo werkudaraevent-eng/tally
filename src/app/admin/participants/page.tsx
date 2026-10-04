@@ -8,6 +8,7 @@ import { SyncMenu } from "@/components/admin/sync-menu";
 import { useAutoSync, useScannerConfig, useScannerSync } from "@/components/admin/scanner-panel";
 import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
+import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import { Banner, Button, ButtonLink, Dialog, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 
@@ -60,28 +61,29 @@ export default function ParticipantsAdminPage() {
     form.append("dry_run", dryRun ? "true" : "false");
     const response = await fetch("/api/admin/participants/import", { method: "POST", body: form, signal: AbortSignal.timeout(120000) }).catch(() => null);
     setImporting(false);
-    if (!response) { setError("Koneksi terputus saat mengunggah berkas."); return; }
+    if (!response) { setError("Connection lost while uploading the file."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const failure = body.error?.details?.message ?? body.error?.message ?? "Impor gagal.";
-      setError(failure); toast.error("Impor peserta gagal", failure);
+      const failure = body.error?.details?.message ?? body.error?.message ?? "Import failed.";
+      setError(failure); toast.error("Participant import failed", failure);
       return;
     }
     if (dryRun) { setPreview(body as ImportPreview); return; }
     closeImport();
-    toast.success("Impor selesai", `${body.inserted} ditambah, ${body.updated} diperbarui, ${body.rejected} ditolak.`);
-    setMessage(`Impor selesai: ${body.inserted} peserta ditambah, ${body.updated} diperbarui, ${body.source_locked} hanya kontaknya, ${body.rejected} ditolak.`);
+    toast.success("Import complete", `${body.inserted} added, ${body.updated} updated, ${body.rejected} rejected.`);
+    setMessage(`Import complete: ${plural(body.inserted, "participant")} added, ${body.updated} updated, ${body.source_locked} with contact details only, ${body.rejected} rejected.`);
     setReloadKey((key) => key + 1);
   }
 
   const barisDiterapkan = preview ? preview.inserted + preview.updated + preview.source_locked : 0;
 
   return (
+    <div lang="en" className="contents">
     <WorkspacePage fill>
       <WorkspaceHeader
         // Satu baris meta, satu fakta. Peserta yang dihapus di sumber dijelaskan
         // di kaki tabel dan di barisnya; status sinkron ada di menu Sinkron.
-        meta={<span>{stats ? `${stats.activeTotal} peserta aktif` : "Memuat peserta"}</span>}
+        meta={<span>{stats ? plural(stats.activeTotal, "active participant") : "Loading participants"}</span>}
         actions={
           <>
             {config && usesScanner ? (
@@ -93,9 +95,9 @@ export default function ParticipantsAdminPage() {
                 onSync={() => void sync()}
               />
             ) : null}
-            <Button simpan variant="outlined" onClick={() => setImportOpen(true)} icon={<FileArrowUp size={16} />}>Impor</Button>
-            <ExportMenu endpoint="/api/admin/participants/export" label="Ekspor" />
-            <Button onClick={() => daftar.current?.tambah()} icon={<Plus size={16} weight="bold" />}>Tambah peserta</Button>
+            <Button simpan variant="outlined" onClick={() => setImportOpen(true)} icon={<FileArrowUp size={16} />}>Import</Button>
+            <ExportMenu endpoint="/api/admin/participants/export" label="Export" />
+            <Button onClick={() => daftar.current?.tambah()} icon={<Plus size={16} weight="bold" />}>Add participant</Button>
           </>
         }
       />
@@ -116,28 +118,28 @@ export default function ParticipantsAdminPage() {
         onClose={closeImport}
         dismissible={!importing}
         size="lg"
-        title="Impor peserta dari CSV atau XLSX"
-        description="Baris dicocokkan lewat kode QR: yang sudah ada diperbarui, yang belum ditambahkan. Peserta dari Scanner API hanya diperbarui email, telepon, dan jawabannya."
+        title="Import participants from CSV or XLSX"
+        description="Rows are matched by QR code: existing participants are updated and new ones are added. Participants from Scanner API only get their email, phone and answers updated."
         actions={
           <>
-            <Button variant="outlined" disabled={importing} onClick={closeImport}>Batal</Button>
+            <Button variant="outlined" disabled={importing} onClick={closeImport}>Cancel</Button>
             {preview
-              ? <Button simpan loading={importing} disabled={barisDiterapkan === 0} onClick={() => void runImport(false)}>Terapkan ke {barisDiterapkan} baris</Button>
-              : <Button loading={importing} disabled={!importFile} onClick={() => void runImport(true)}>Pratinjau impor</Button>}
+              ? <Button simpan loading={importing} disabled={barisDiterapkan === 0} onClick={() => void runImport(false)}>Apply to {plural(barisDiterapkan, "row")}</Button>
+              : <Button loading={importing} disabled={!importFile} onClick={() => void runImport(true)}>Preview import</Button>}
           </>
         }
       >
         <div className="flex flex-col gap-4 text-body-medium">
           <div className="flex flex-wrap items-center gap-2 rounded-md bg-surface-container-high p-3">
-            <span className="min-w-0 flex-1 text-on-surface-variant">Belum punya berkasnya? Templat berisi kolom bawaan, pertanyaan tambahan formulir, dan dua baris contoh.</span>
-            <ButtonLink native variant="outlined" size="sm" href="/api/admin/participants/export?template=1&format=xlsx" icon={<DownloadSimple size={16} />}>Templat XLSX</ButtonLink>
-            <ButtonLink native variant="outlined" size="sm" href="/api/admin/participants/export?template=1&format=csv" icon={<DownloadSimple size={16} />}>Templat CSV</ButtonLink>
+            <span className="min-w-0 flex-1 text-on-surface-variant">No file yet? The template has the built-in columns, the extra registration form questions and two sample rows.</span>
+            <ButtonLink native variant="outlined" size="sm" href="/api/admin/participants/export?template=1&format=xlsx" icon={<DownloadSimple size={16} />}>XLSX template</ButtonLink>
+            <ButtonLink native variant="outlined" size="sm" href="/api/admin/participants/export?template=1&format=csv" icon={<DownloadSimple size={16} />}>CSV template</ButtonLink>
           </div>
           <p className="text-on-surface-variant">
-            Kolom dikenali lewat baris pertama, termasuk nama Indonesia (nama, perusahaan, jabatan, no_hp). Hanya <span className="font-medium text-on-surface">qr_code</span> dan <span className="font-medium text-on-surface">name</span> yang wajib. Kolom kosong tidak menghapus jawaban yang sudah ada.
+            Columns are recognised from the first row, in English or Indonesian (for example organisation or perusahaan, phone or no_hp). Only <span className="font-medium text-on-surface">qr_code</span> and <span className="font-medium text-on-surface">name</span> are required. Empty cells do not delete existing answers.
           </p>
           <label className="block font-medium">
-            Berkas
+            File
             <input
               type="file"
               accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -148,18 +150,18 @@ export default function ParticipantsAdminPage() {
           {error ? <p role="alert" className="flex items-start gap-2 rounded-md bg-error-soft p-3 text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{error}</p> : null}
           {preview ? (
             <div className="rounded-md border border-outline-variant p-3">
-              <p className="font-medium">{preview.file_name}, {preview.rows} baris terbaca</p>
+              <p className="font-medium">{preview.file_name}, {plural(preview.rows, "row")} read</p>
               <ul className="mt-2 space-y-0.5">
-                <li><span className="font-medium">{preview.inserted}</span> peserta baru ditambahkan</li>
-                <li><span className="font-medium">{preview.updated}</span> peserta manual diperbarui</li>
-                <li><span className="font-medium">{preview.source_locked}</span> peserta Scanner API, hanya email dan telepon</li>
-                <li><span className="font-medium text-error">{preview.rejected}</span> baris ditolak</li>
+                <li><span className="font-medium">{preview.inserted}</span> {preview.inserted === 1 ? "new participant" : "new participants"} added</li>
+                <li><span className="font-medium">{preview.updated}</span> {preview.updated === 1 ? "manual participant" : "manual participants"} updated</li>
+                <li><span className="font-medium">{preview.source_locked}</span> Scanner API {preview.source_locked === 1 ? "participant" : "participants"}, email and phone only</li>
+                <li><span className="font-medium text-error">{preview.rejected}</span> {preview.rejected === 1 ? "row" : "rows"} rejected</li>
               </ul>
-              <p className="mt-2 text-on-surface-variant">Kolom dikenali: {preview.recognized_columns.join(", ") || "tidak ada"}</p>
+              <p className="mt-2 text-on-surface-variant">Recognised columns: {preview.recognized_columns.join(", ") || "none"}</p>
               {preview.issues.length > 0 ? (
                 <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto border-t border-outline-variant pt-2 text-on-surface-variant">
-                  {preview.issues.map((issue) => <li key={`${issue.row}-${issue.qr_code ?? ""}`}>Baris {issue.row}{issue.qr_code ? ` (${issue.qr_code})` : ""}: {issue.reason}</li>)}
-                  {preview.issues_truncated ? <li className="italic">Daftar dipotong pada 50 baris pertama.</li> : null}
+                  {preview.issues.map((issue) => <li key={`${issue.row}-${issue.qr_code ?? ""}`}>Row {issue.row}{issue.qr_code ? ` (${issue.qr_code})` : ""}: {issue.reason}</li>)}
+                  {preview.issues_truncated ? <li className="italic">List cut off at the first 50 rows.</li> : null}
                 </ul>
               ) : null}
             </div>
@@ -167,5 +169,6 @@ export default function ParticipantsAdminPage() {
         </div>
       </Dialog>
     </WorkspacePage>
+    </div>
   );
 }

@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
   const seed = new URL(request.url).searchParams.get("seed");
   if (!isHexColor(seed)) {
-    return apiError("VALIDATION_ERROR", 422, { seed: "Warna harus berupa heksadesimal enam digit." });
+    return apiError("VALIDATION_ERROR", 422, { seed: "Colour must be a six-digit hex code." });
   }
 
   return Response.json({

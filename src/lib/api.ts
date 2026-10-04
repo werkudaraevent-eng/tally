@@ -1,13 +1,13 @@
 import type { ApiErrorCode } from "./domain";
 
 const messages: Record<ApiErrorCode, string> = {
-  UNAUTHENTICATED: "Sesi login tidak ditemukan.",
-  FORBIDDEN: "Anda tidak punya izin untuk aksi ini.",
+  UNAUTHENTICATED: "You are signed out. Sign in again.",
+  FORBIDDEN: "You don't have permission to do this.",
   // Lama tunggu yang tepat disisipkan pemanggil lewat `details`; pesan dasar ini
   // hanya dipakai bila angkanya tidak tersedia.
-  RATE_LIMITED: "Terlalu banyak percobaan login untuk username ini. Tunggu sebentar, lalu coba lagi.",
-  VALIDATION_ERROR: "Data yang dikirim belum valid.",
-  PARTICIPANT_NOT_FOUND: "Peserta tidak ditemukan.",
+  RATE_LIMITED: "Too many sign-in attempts for this username. Wait a moment, then try again.",
+  VALIDATION_ERROR: "Some of the data sent is not valid.",
+  PARTICIPANT_NOT_FOUND: "Participant not found.",
   DISCOUNT_ALREADY_TAKEN: "Peserta sudah mengambil item diskon di booth ini.",
   DISCOUNT_OUT_OF_STOCK: "Item diskon di booth ini sudah habis.",
   ORDER_CODE_USED: "Nomor stiker sudah terpakai. Gunakan stiker berikutnya.",
@@ -65,17 +65,17 @@ const messages: Record<ApiErrorCode, string> = {
   UNDIAN_SESSION_ACTIVE: "Masih ada sesi yang berjalan. Tutup dulu sebelum memulai sesi baru.",
   UNDIAN_SESSION_CLOSED: "Sesi ini sudah ditutup.",
   UNDIAN_NO_ACTIVE_SESSION: "Belum ada sesi undian yang dimulai.",
-  REGISTRATION_CLOSED: "Pendaftaran untuk acara ini sedang ditutup.",
+  REGISTRATION_CLOSED: "Registration for this event is closed.",
   // Menyebut "sudah terdaftar" dan bukan "email dipakai": pendaftar yang lupa
   // pernah mengisi form akan mengira ada orang lain memakai emailnya.
-  REGISTRATION_DUPLICATE_EMAIL: "Email ini sudah terdaftar untuk acara ini. Hubungi panitia bila Anda belum menerima kode peserta.",
-  REGISTRATION_NOT_FOUND: "Pendaftaran tidak ditemukan.",
-  REGISTRATION_ALREADY_REVIEWED: "Pendaftaran ini sudah diproses admin lain. Muat ulang daftarnya.",
-  REGISTRATION_NOT_APPROVED: "Pendaftaran ini belum disetujui, jadi belum ada kode peserta yang bisa dikirim.",
-  REGISTRATION_INVITE_ONLY: "Pendaftaran acara ini khusus tamu undangan. Gunakan tautan pribadi di email undangan Anda.",
-  INVITATION_USED: "Tautan undangan ini sudah dipakai untuk mendaftar.",
-  INVITATION_NOT_FOUND: "Tamu undangan tidak ditemukan.",
-  INVITATIONS_NOT_READY: "Fitur tamu undangan belum siap: migrasi database belum dijalankan.",
+  REGISTRATION_DUPLICATE_EMAIL: "This email is already registered for this event.",
+  REGISTRATION_NOT_FOUND: "Registration not found.",
+  REGISTRATION_ALREADY_REVIEWED: "Another admin has already handled this registration. Reload the list.",
+  REGISTRATION_NOT_APPROVED: "This registration is not approved yet, so there is no participant code to send.",
+  REGISTRATION_INVITE_ONLY: "Registration for this event is for invited guests only.",
+  INVITATION_USED: "This invitation link has already been used to register.",
+  INVITATION_NOT_FOUND: "Invited guest not found.",
+  INVITATIONS_NOT_READY: "Invited guests are not ready yet: the database migration has not been run.",
   // Menyebut env-nya: yang bisa membereskan ini pemilik sistem, bukan panitia.
   INVITATION_SENDING_LOCKED: "Kiriman Invitation masih terkunci sampai pengirim undangan terpisah disiapkan pemilik sistem.",
   MESSAGE_NOT_PAUSED: "Kiriman ini tidak sedang dijeda.",
@@ -102,28 +102,28 @@ const messages: Record<ApiErrorCode, string> = {
   MESSAGE_SCHEDULE_NOT_ALLOWED: "Jadwal kirim hanya di situs utama. Di situs uji, pilih Kirim sekarang.",
   MESSAGE_RETRY_NOT_ALLOWED: "Kiriman ini dikirim dari situs lain. Kirim ulang dari situs yang mengirimnya.",
   MESSAGE_WHATSAPP_NOT_READY: "WhatsApp belum terhubung. Untuk sekarang kirim lewat email.",
-  EMAIL_NOT_CONFIGURED: "Pengiriman email belum diaktifkan di server. Hubungi pemilik sistem; kode peserta tetap bisa dibacakan dari daftar ini.",
-  EMAIL_SEND_FAILED: "Email gagal dikirim. Sebabnya tercatat di baris pendaftaran.",
-  EMAIL_TEMPLATE_NOT_READY: "Templat email konfirmasi belum bisa disimpan: migrasi database 202610030006 belum dijalankan. Email tetap terkirim memakai templat bawaan.",
-  MESSAGING_PREVIEW_BLOCKED: "Situs pratinjau tanpa daftar uji (MESSAGING_ALLOWLIST) tidak mengirim email ke pendaftar sungguhan.",
+  EMAIL_NOT_CONFIGURED: "Email sending is not set up on the server. Contact the system owner; you can still read out participant codes from this list.",
+  EMAIL_SEND_FAILED: "The email could not be sent. The reason is recorded on the registration row.",
+  EMAIL_TEMPLATE_NOT_READY: "The confirmation email template can't be saved yet: database migration 202610030006 has not been run. Emails still go out with the default template.",
+  MESSAGING_PREVIEW_BLOCKED: "A preview site without a test list (MESSAGING_ALLOWLIST) doesn't email real registrants.",
   EVENT_NOT_DELETABLE: "Hanya event berstatus Draft atau Arsip yang dapat dihapus. Kembalikan ke draft atau arsipkan dulu.",
   EVENT_HAS_ORDERS: "Event ini sudah punya transaksi tercatat, jadi tidak dapat dihapus. Arsipkan saja — datanya hilang dari daftar utama tanpa memusnahkan laporan.",
   // Menyebut APA yang masih boleh diubah, bukan sekadar menolak. Tanpa itu
   // panitia mengira barisnya rusak dan mencoba lagi dengan cara yang sama.
-  PARTICIPANT_SOURCE_LOCKED: "Peserta ini datang dari Scanner API, jadi nama, perusahaan, jabatan, kode QR, tipe, dan RSVP-nya dikelola di sana — suntingan di sini akan tertimpa pada sync berikutnya. Hanya email, telepon, dan jawaban formulir yang bisa diubah dari halaman ini.",
-  PARTICIPANT_QR_TAKEN: "Kode QR ini sudah dipakai peserta lain di event ini. Gunakan kode lain.",
-  PARTICIPANT_FIELDS_REQUIRED: "Kode QR dan nama wajib diisi.",
-  PARTICIPANT_RSVP_INVALID: "RSVP hanya boleh kosong, invited, atau confirmed.",
-  PARTICIPANT_EXTRA_INVALID: "Jawaban formulir tidak berbentuk yang diharapkan. Muat ulang halaman lalu coba lagi.",
-  PARTICIPANT_IN_USE: "Peserta ini sudah punya transaksi atau pernah menang undian, jadi tidak dapat dihapus.",
+  PARTICIPANT_SOURCE_LOCKED: "This participant comes from the Scanner API, so their name, organisation, job title, QR code, type and RSVP are managed there. Changes made here are overwritten at the next sync. Only email, phone and form answers can be changed on this page.",
+  PARTICIPANT_QR_TAKEN: "Another participant in this event already uses this QR code. Use a different code.",
+  PARTICIPANT_FIELDS_REQUIRED: "QR code and name are required.",
+  PARTICIPANT_RSVP_INVALID: "RSVP can only be empty, invited or confirmed.",
+  PARTICIPANT_EXTRA_INVALID: "The form answers are not in the expected shape. Reload the page and try again.",
+  PARTICIPANT_IN_USE: "This participant has orders or has won a draw, so they can't be deleted.",
   // Menyebut SIAPA yang bisa mengubahnya. Petugas di pintu masuk tidak punya
   // akses ke setelan acara, dan pesan yang hanya menyatakan "tidak diizinkan"
   // membuatnya mencoba lagi dengan cara yang sama sampai antreannya menumpuk.
   WALKIN_DISABLED: "Acara ini tidak menerima tamu walk-in. Minta admin menyalakannya di Admin → Kehadiran bila memang boleh.",
-  IMPORT_EMPTY: "Berkas tidak memuat satu baris data pun.",
-  IMPORT_TOO_LARGE: "Berkas melebihi 5.000 baris. Pecah menjadi beberapa berkas.",
-  IMPORT_UNREADABLE: "Berkas tidak terbaca. Pastikan formatnya CSV atau XLSX dan baris pertamanya berisi nama kolom.",
-  SCANNER_NOT_CONFIGURED: "Scanner API belum disetel untuk event ini. Isi base URL, kunci API, dan slug event di kartu Setelan Scanner API.",
+  IMPORT_EMPTY: "The file has no data rows.",
+  IMPORT_TOO_LARGE: "The file has more than 5,000 rows. Split it into several files.",
+  IMPORT_UNREADABLE: "The file can't be read. Make sure it is CSV or XLSX and the first row holds the column names.",
+  SCANNER_NOT_CONFIGURED: "The Scanner API is not set up for this event. Enter the base URL, API key and event slug in the Scanner API card.",
   VOTE_POLL_NOT_FOUND: "Pertanyaan voting tidak ditemukan.",
   VOTE_CLOSED: "Voting untuk pertanyaan ini sedang ditutup.",
   VOTE_ALREADY_CAST: "Anda sudah memberikan suara untuk pertanyaan ini.",
@@ -145,7 +145,7 @@ const messages: Record<ApiErrorCode, string> = {
   // menampilkannya, dan pengetiknya sudah tahu apa yang baru saja ia ketik.
   VOTE_TEXT_BLOCKED: "Ada kata yang tidak dapat ditampilkan di layar acara. Ganti dengan kata lain.",
   VOTE_BALLOT_NOT_FOUND: "Entri tidak ditemukan.",
-  INTERNAL_ERROR: "Terjadi kesalahan server. Coba lagi.",
+  INTERNAL_ERROR: "Something went wrong on the server. Try again.",
 };
 
 /**

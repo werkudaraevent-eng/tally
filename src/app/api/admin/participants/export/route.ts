@@ -52,6 +52,6 @@ export async function GET(request: Request) {
       },
     });
   } catch {
-    return Response.json({ error: { code: "INTERNAL_ERROR", message: "Export peserta gagal." } }, { status: 500 });
+    return Response.json({ error: { code: "INTERNAL_ERROR", message: "Participant export failed." } }, { status: 500 });
   }
 }

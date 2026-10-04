@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
-  if (!(file instanceof File)) return apiError("VALIDATION_ERROR", 422, { message: "Berkas belum dipilih." });
+  if (!(file instanceof File)) return apiError("VALIDATION_ERROR", 422, { message: "No file selected." });
   if (file.size === 0) return apiError("IMPORT_EMPTY", 422);
   if (file.size > MAX_BYTES) return apiError("IMPORT_TOO_LARGE", 422);
 
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   const missing = (["qr_code", "name"] as const).filter((field) => !recognized.includes(field));
   if (missing.length > 0) {
     return apiError("VALIDATION_ERROR", 422, {
-      message: `Kolom ${missing.join(" dan ")} tidak ditemukan di baris pertama berkas. Kolom yang dikenali: ${importHeaders(fields).join(", ")}.`,
+      message: `${missing.length === 1 ? "Column" : "Columns"} ${missing.join(" and ")} not found in the first row of the file. Recognised columns: ${importHeaders(fields).join(", ")}.`,
     });
   }
   if (semua.length === 0) return apiError("IMPORT_EMPTY", 422);

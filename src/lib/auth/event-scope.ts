@@ -100,7 +100,7 @@ export async function requireEventScope(
     return {
       scope: null,
       user: null,
-      response: errorResponse("EVENT_REQUIRED", "Event belum dipilih.", 400),
+      response: errorResponse("EVENT_REQUIRED", "No event selected.", 400),
     };
   }
 
@@ -116,7 +116,7 @@ export async function requireEventScope(
     return {
       scope: null,
       user: null,
-      response: errorResponse("INTERNAL_ERROR", "Gagal memuat event.", 500),
+      response: errorResponse("INTERNAL_ERROR", "The event could not be loaded.", 500),
     };
   }
 
@@ -124,7 +124,7 @@ export async function requireEventScope(
     return {
       scope: null,
       user: null,
-      response: errorResponse("EVENT_NOT_FOUND", "Event tidak ditemukan.", 404),
+      response: errorResponse("EVENT_NOT_FOUND", "Event not found.", 404),
     };
   }
 
@@ -151,7 +151,7 @@ export async function requireEventScope(
       return {
         scope: null,
         user: null,
-        response: errorResponse("INTERNAL_ERROR", "Gagal memeriksa hak akses.", 500),
+        response: errorResponse("INTERNAL_ERROR", "Access could not be checked.", 500),
       };
     }
 
@@ -161,7 +161,7 @@ export async function requireEventScope(
       return {
         scope: null,
         user: null,
-        response: errorResponse("FORBIDDEN", "Anda tidak punya akses ke event ini.", 403),
+        response: errorResponse("FORBIDDEN", "You don't have access to this event.", 403),
       };
     }
 
@@ -178,7 +178,7 @@ export async function requireEventScope(
       return {
         scope: null,
         user: null,
-        response: errorResponse("FORBIDDEN", "Anda tidak punya izin untuk aksi ini.", 403),
+        response: errorResponse("FORBIDDEN", "You don't have permission to do this.", 403),
       };
     }
   }

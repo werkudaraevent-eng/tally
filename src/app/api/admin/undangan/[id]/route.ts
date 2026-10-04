@@ -36,7 +36,7 @@ export async function PATCH(request: Request, context: Konteks) {
   }
   if (parsed.data.email !== undefined) {
     const email = normalizeInviteEmail(parsed.data.email);
-    if (!email.ok) return apiError("VALIDATION_ERROR", 422, { email: email.reason === "dua_alamat" ? "Isi satu alamat saja." : "Email tidak sah." });
+    if (!email.ok) return apiError("VALIDATION_ERROR", 422, { email: email.reason === "dua_alamat" ? "Enter one email address only." : "This email address is not valid." });
     if (email.email !== ada.email_norm) {
       // Alamat baru = orang yang mungkin berbeda: tanda berhenti dan memantul
       // milik alamat lama tidak ikut. Penekanan per acara tetap dicek saat kirim.
@@ -55,7 +55,7 @@ export async function PATCH(request: Request, context: Konteks) {
     .select(INVITATION_COLUMNS)
     .maybeSingle();
   if (undanganBelumAda(error)) return apiError("INVITATIONS_NOT_READY", 409);
-  if (error?.code === "23505") return apiError("VALIDATION_ERROR", 422, { email: "Email ini sudah ada di daftar tamu." });
+  if (error?.code === "23505") return apiError("VALIDATION_ERROR", 422, { email: "This email is already on the invited guest list." });
   if (error) return apiError("INTERNAL_ERROR", 500);
   if (!data) return apiError("INVITATION_NOT_FOUND", 404);
   return Response.json({ ok: true });

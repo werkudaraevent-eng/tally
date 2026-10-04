@@ -1034,16 +1034,16 @@ export type RegistrationField = {
 export const CHOICE_FIELD_TYPES: RegistrationFieldType[] = ["select", "radio"];
 
 export const REGISTRATION_FIELD_TYPE_LABELS: Record<RegistrationFieldType, string> = {
-  text: "Teks singkat",
+  text: "Short text",
   email: "Email",
-  tel: "Nomor telepon",
-  textarea: "Teks panjang",
+  tel: "Phone number",
+  textarea: "Long text",
   select: "Dropdown",
-  radio: "Pilihan (radio)",
-  checkbox: "Kotak centang",
-  date: "Tanggal",
-  number: "Angka",
-  file: "Unggah berkas",
+  radio: "Multiple choice",
+  checkbox: "Checkboxes",
+  date: "Date",
+  number: "Number",
+  file: "File upload",
 };
 
 // ============================================================================
