@@ -135,8 +135,17 @@ export default function RundownAdminPage() {
   // halaman publik, supaya yang dilihat admin sama dengan yang dilihat tamu.
   const activeItems = useMemo(() => {
     if (activeId === null) return [];
-    return items.filter((item) => item.section_id === activeId).sort(bandingkanBaris);
-  }, [items, activeId]);
+    // Baris yang jam mulainya diubah tetapi belum disimpan ditaruh di akhir slot
+    // jam barunya, sama dengan tempat server menaruhnya saat disimpan. Tanpa ini
+    // ia tampil menurut sort_order lamanya lalu melompat begitu disimpan.
+    return items
+      .filter((item) => item.section_id === activeId)
+      .map((item) => {
+        const tersimpan = savedStart.get(item.id);
+        return tersimpan !== undefined && kunciSlot(tersimpan) !== kunciSlot(item.start_time) ? { ...item, sort_order: Number.MAX_SAFE_INTEGER } : item;
+      })
+      .sort(bandingkanBaris);
+  }, [items, activeId, savedStart]);
 
   // Ada jam mulai yang diubah tetapi belum disimpan di bagian ini.
   const jamBelumDisimpan = activeItems.some((item) => kunciSlot(item.start_time) !== kunciSlot(savedStart.get(item.id) ?? item.start_time));
@@ -429,7 +438,8 @@ export default function RundownAdminPage() {
       // sebagian perubahan. Kolom lain tidak disentuh supaya suntingan yang belum
       // disimpan tetap ada.
       setItems(before);
-      const failure = (data as { error?: { details?: { message?: string } } }).error?.details?.message ?? "Check your connection and try again.";
+      const failure = (data as { error?: { details?: { message?: string } } }).error?.details?.message
+        ?? (response ? "Something went wrong. Try again." : "Check your connection and try again.");
       setError(failure); toast.error("Order not saved", failure);
       const fresh = await fetch("/api/admin/rundown/sections", { cache: "no-store" }).catch(() => null);
       if (fresh?.ok) apply(((await fresh.json()) as Payload).items);
