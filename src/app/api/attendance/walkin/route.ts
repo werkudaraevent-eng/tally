@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { cetakSetelahHadir } from "@/lib/badge/stasiun-server";
 import type { RegistrationFormConfig } from "@/lib/domain";
 import { cleanExtra } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -27,6 +28,11 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 const bodySchema = z.object({
   session_id: z.number().int().positive(),
   lane_id: z.number().int().positive().nullish(),
+  /**
+   * Stasiun cetak yang dipilih HP ini dan mode cetak otomatisnya. Diabaikan bila
+   * acara tidak mencetak badge kertas di meja (lib/badge/stasiun-server.ts).
+   */
+  cetak: z.object({ stasiun_id: z.number().int().positive(), mode: z.enum(["off", "walkin", "semua"]) }).nullish(),
   name: z.string().trim().min(1).max(200),
   company: z.string().trim().max(300).nullish(),
   title: z.string().trim().max(300).nullish(),
@@ -97,5 +103,17 @@ export async function POST(request: Request) {
     return apiError(code, code === "INTERNAL_ERROR" ? 500 : 422);
   }
 
-  return Response.json(data);
+  // Badge diantrekan SETELAH kehadiran tersimpan, di permintaan yang sama:
+  // HP tidak perlu permintaan kedua yang bisa hilang di jaringan venue.
+  // Gagal mengantrekan tidak menggagalkan kehadiran; HP menampilkan galatnya.
+  const hasil = data as { status?: string; participant?: { id?: string } } | null;
+  const badgeCetak = await cetakSetelahHadir({
+    eventId: auth.scope.event.id,
+    cetak: parsed.data.cetak,
+    status: hasil?.status ?? "",
+    participantId: hasil?.participant?.id ?? null,
+    userId: auth.user.id,
+    laneId: parsed.data.lane_id ?? null,
+  }).catch(() => ({ pekerjaan: null, galat: "The badge could not be queued." }));
+  return Response.json(badgeCetak ? { ...(data as object), badge_cetak: badgeCetak } : data);
 }

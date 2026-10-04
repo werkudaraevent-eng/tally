@@ -20,6 +20,14 @@
 --
 -- Antrean hanya menyimpan participant_id. Nama, instansi, dan QR dibaca stasiun
 -- saat mencetak, jadi tabel ini tidak menyimpan salinan data pribadi.
+--
+-- Satu transaksi dengan lock_timeout: ALTER badge_settings mengambil ACCESS
+-- EXCLUSIVE, dan menunggu lama di belakang pembaca halaman badge akan menahan
+-- semua pembaca berikutnya. Bila habis waktu, tidak ada yang berubah; ulangi.
+
+begin;
+set local lock_timeout = '5s';
+set local statement_timeout = '60s';
 
 create table if not exists public.badge_stasiun (
   id bigint generated always as identity primary key,
@@ -66,8 +74,15 @@ create unique index if not exists badge_cetak_otomatis_sekali
 create index if not exists badge_cetak_antrean_stasiun
   on public.badge_cetak_antrean (stasiun_id, status, created_at);
 
+-- participant_id di depan: cascade hapus peserta memakai index ini, dan baca
+-- "pekerjaan terakhir peserta ini" juga (participant_id unik lintas acara).
 create index if not exists badge_cetak_antrean_peserta
-  on public.badge_cetak_antrean (event_id, participant_id, created_at desc);
+  on public.badge_cetak_antrean (participant_id, created_at desc);
+
+-- Sapuan kedaluwarsa per acara (badge_cetak_sapu), dipanggil setiap HP membaca
+-- status: hanya baris yang masih antre.
+create index if not exists badge_cetak_antrean_antre
+  on public.badge_cetak_antrean (event_id, created_at) where status = 'antre';
 
 -- Berapa lama badge boleh menunggu stasiun sebelum kedaluwarsa. Setelan acara
 -- karena antrean panjang setelah jaringan putus butuh batas yang berbeda.
@@ -100,6 +115,12 @@ as $$
 declare
   s public.badge_stasiun;
 begin
+  -- Token kosong akan lolos pemeriksaan "milik laptop lain" (NULL <> x adalah
+  -- NULL) lalu merebut stasiun yang hidup. Hanya bug klien yang bisa mengirimnya.
+  if p_token is null then
+    raise exception 'TOKEN_KOSONG';
+  end if;
+
   insert into public.badge_stasiun (event_id, nama)
   values (p_event_id, btrim(p_nama))
   on conflict (event_id, lower(btrim(nama))) do nothing;
@@ -111,6 +132,16 @@ begin
   if s.lease_token is not null and s.lease_token <> p_token
      and s.lease_until > now() and not p_ambil_alih then
     return jsonb_build_object('status', 'dipakai', 'stasiun_id', s.id, 'nama', s.nama, 'sejak', s.last_seen_at);
+  end if;
+
+  -- Diambil alih: pekerjaan yang sedang dicetak laptop lama tidak akan pernah
+  -- dilaporkan (tokennya ditolak). Langsung jadi gagal, bukan menunggu sapuan
+  -- 60 detik yang menahan laptop baru di 'sibuk'. Tidak diantrekan ulang: badge
+  -- itu mungkin sudah keluar.
+  if s.lease_token is distinct from p_token then
+    update public.badge_cetak_antrean
+       set status = 'gagal', galat = 'diambil_alih', selesai_at = now()
+     where stasiun_id = s.id and status = 'diambil';
   end if;
 
   update public.badge_stasiun
@@ -140,6 +171,9 @@ declare
   menit int;
   job public.badge_cetak_antrean;
 begin
+  if p_token is null then
+    raise exception 'TOKEN_KOSONG';
+  end if;
   select * into s from public.badge_stasiun
    where id = p_stasiun_id and event_id = p_event_id
    for update;
@@ -211,6 +245,9 @@ as $$
 declare
   n int;
 begin
+  if p_token is null then
+    raise exception 'TOKEN_KOSONG';
+  end if;
   if p_hasil not in ('terkirim', 'gagal') then
     raise exception 'HASIL_TIDAK_DIKENAL';
   end if;
@@ -244,18 +281,38 @@ as $$
 declare
   job public.badge_cetak_antrean;
   baru boolean := true;
+  jalur bigint := p_lane_id;
 begin
   if not exists (select 1 from public.badge_stasiun where id = p_stasiun_id and event_id = p_event_id) then
     raise exception 'STASIUN_NOT_FOUND';
   end if;
+  -- Peserta yang dihapus panitia pusat tidak dicetak, sama seperti halaman cetak.
   if p_participant_id is not null and not exists (
-    select 1 from public.participants where id = p_participant_id and event_id = p_event_id
+    select 1 from public.participants
+     where id = p_participant_id and event_id = p_event_id and source_removed_at is null
   ) then
     raise exception 'PARTICIPANT_NOT_FOUND';
   end if;
+  -- Jalur hanya untuk laporan "dari meja mana". Jalur acara lain tidak disimpan.
+  if jalur is not null and not exists (
+    select 1 from public.attendance_lanes where id = jalur and event_id = p_event_id
+  ) then
+    jalur := null;
+  end if;
+
+  -- Cetak ulang berarti MENGGANTI, bukan menambah. Pekerjaan peserta ini yang
+  -- masih antre (mis. di stasiun yang mati, sudah tampil kedaluwarsa di HP)
+  -- ditutup dulu; tanpa ini stasiun yang hidup lagi mencetak dua badge.
+  -- Baris yang sedang diambil stasiun terkunci dan tidak tersentuh: HP
+  -- membacanya sebagai "sudah diambil".
+  if p_jenis = 'ulang' then
+    update public.badge_cetak_antrean
+       set status = 'kedaluwarsa', selesai_at = now()
+     where event_id = p_event_id and participant_id = p_participant_id and status = 'antre';
+  end if;
 
   insert into public.badge_cetak_antrean (event_id, stasiun_id, participant_id, jenis, requested_by, lane_id)
-  values (p_event_id, p_stasiun_id, p_participant_id, p_jenis, p_user, p_lane_id)
+  values (p_event_id, p_stasiun_id, p_participant_id, p_jenis, p_user, jalur)
   on conflict (event_id, participant_id) where jenis = 'otomatis' do nothing
   returning * into job;
 
@@ -284,6 +341,9 @@ as $$
 declare
   n int;
 begin
+  if not exists (select 1 from public.badge_stasiun where id = p_stasiun_id and event_id = p_event_id) then
+    raise exception 'STASIUN_NOT_FOUND';
+  end if;
   if not exists (
     select 1 from public.badge_stasiun
      where id = p_stasiun_id and event_id = p_event_id and lease_until > now()
@@ -297,7 +357,42 @@ begin
   return n > 0;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Kedaluwarsa untuk seluruh acara, dengan jam database dan setelan saat ini.
+--
+-- badge_cetak_ambil hanya menyapu antrean stasiun yang memanggilnya, jadi
+-- antrean stasiun yang mati tidak pernah ditandai. HP memanggil ini sebelum
+-- membaca status, sehingga "kedaluwarsa" di HP selalu berarti baris yang
+-- memang sudah kedaluwarsa di database, bukan tebakan jam ponsel.
+create or replace function public.badge_cetak_sapu(p_event_id uuid)
+returns integer
+language plpgsql
+set search_path = public
+as $$
+declare
+  menit int;
+  n int;
+begin
+  select coalesce((select cetak_kedaluwarsa_menit from public.badge_settings where event_id = p_event_id), 10)
+    into menit;
+  update public.badge_cetak_antrean
+     set status = 'kedaluwarsa', selesai_at = now()
+   where event_id = p_event_id and status = 'antre'
+     and created_at < now() - make_interval(mins => menit);
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+-- Fungsi di atas SECURITY INVOKER dan hanya dipanggil service_role. Haknya atas
+-- tabel diberikan tegas di sini, tidak bergantung pada default privileges
+-- Supabase.
+grant select, insert, update, delete on table public.badge_stasiun, public.badge_cetak_antrean to service_role;
+grant usage, select on sequence public.badge_stasiun_id_seq, public.badge_cetak_antrean_id_seq to service_role;
+revoke all on sequence public.badge_stasiun_id_seq, public.badge_cetak_antrean_id_seq from public, anon, authenticated;
+
 revoke all on function public.badge_stasiun_klaim(uuid, text, uuid, boolean) from public, anon, authenticated;
+revoke all on function public.badge_cetak_sapu(uuid) from public, anon, authenticated;
+grant execute on function public.badge_cetak_sapu(uuid) to service_role;
 revoke all on function public.badge_cetak_ambil(uuid, bigint, uuid) from public, anon, authenticated;
 revoke all on function public.badge_cetak_selesai(uuid, bigint, uuid, text, text) from public, anon, authenticated;
 revoke all on function public.badge_cetak_antrekan(uuid, bigint, uuid, text, uuid, bigint) from public, anon, authenticated;
@@ -312,3 +407,5 @@ comment on table public.badge_stasiun is
   'Laptop stasiun cetak badge per acara. Lease (lease_token, lease_until) memastikan satu nama hanya hidup di satu laptop.';
 comment on table public.badge_cetak_antrean is
   'Antrean cetak badge kertas dari pemindai ke stasiun. Hanya participant_id; data peserta dibaca saat mencetak.';
+
+commit;

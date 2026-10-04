@@ -1,6 +1,7 @@
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { apiError } from "@/lib/api";
 import type { RegistrationFormConfig } from "@/lib/domain";
+import { setelanMeja } from "@/lib/badge/stasiun-server";
 import { loadLabelSettings } from "@/lib/label/load";
 import { editableFields } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -79,7 +80,7 @@ export async function GET(request: Request) {
   // pemindai membutuhkannya pada saat yang persis sama dengan daftar sesi —
   // saat halaman dibuka — dan setiap permintaan tambahan di jaringan venue yang
   // padat adalah satu kesempatan lagi untuk gagal sebelum tamu pertama datang.
-  const label = await loadLabelSettings(auth.scope.event.id);
+  const [label, meja] = await Promise.all([loadLabelSettings(auth.scope.event.id), setelanMeja(auth.scope.event.id)]);
 
   const jumlahBarang = new Map<number, number>();
   for (const baris of (barang.data ?? []) as Array<{ session_id: number }>) {
@@ -98,5 +99,8 @@ export async function GET(request: Request) {
     allow_walk_in: auth.scope.event.attendance_allow_walk_in,
     walkin_fields: walkinFields,
     label,
+    // Badge kertas lewat stasiun cetak. Label stiker menang bila keduanya
+    // tersimpan menyala: itulah urutan "Yang dicetak di meja registrasi".
+    badge_meja: !label.enabled && meja.badge ? { siap: meja.siap, menit: meja.menit } : null,
   });
 }
