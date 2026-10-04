@@ -24,13 +24,16 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const eventId = auth.scope.event.id;
-  const { error } = await getSupabaseServiceClient()
+  const { error, count } = await getSupabaseServiceClient()
     .from("badge_stasiun")
-    .update({ dijeda: parsed.data.dijeda } as never)
+    .update({ dijeda: parsed.data.dijeda } as never, { count: "exact" })
     .eq("event_id", eventId)
     .eq("id", parsed.data.stasiun_id)
     .eq("lease_token", parsed.data.token);
   if (error) return apiError("INTERNAL_ERROR", 500);
+  // Token ini bukan lagi pemegang stasiun (diambil alih laptop lain): tidak ada
+  // yang berubah, dan itu dikatakan, bukan dijawab 200 dengan keadaan lama.
+  if (count === 0) return apiError("VALIDATION_ERROR", 409, { message: "Another laptop holds this station now.", lease: "hilang" });
 
   const stasiun = (await daftarStasiun(eventId))?.find((s) => s.id === parsed.data.stasiun_id);
   if (!stasiun) return apiError("VALIDATION_ERROR", 404, { message: "This print station no longer exists." });

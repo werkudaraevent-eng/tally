@@ -15,5 +15,6 @@ export async function GET(request: Request) {
     layout,
     event: { name: event.name, slug: event.slug, kv_url: kvUrlDari(event.landing_config) },
     rundown,
+    time_zone: event.time_zone,
   });
 }

@@ -14,5 +14,5 @@ export async function GET(request: Request) {
   const eventId = auth.scope.event.id;
   const [setelan, stasiun] = await Promise.all([setelanMeja(eventId), daftarStasiun(eventId)]);
   if (!setelan.siap || stasiun === null) return apiError("STASIUN_NOT_READY", 409);
-  return Response.json({ badge: setelan.badge, menit: setelan.menit, stasiun });
+  return Response.json({ badge: setelan.badge, menit: setelan.menit, stasiun, time_zone: auth.scope.event.time_zone });
 }

@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { sapuKedaluwarsa } from "@/lib/badge/stasiun-server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { normalizeTimeZone, timeZoneOffset } from "@/lib/timezone";
 
 /**
  * Cetakan terakhir sebuah stasiun dan dua angkanya: terkirim hari ini dan
@@ -10,15 +11,16 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * Chrome tidak tahu printernya bermasalah, jadi petugas melihat namanya di
  * sini lalu menekan Print again.
  *
- * "Hari ini" mengikuti WIB, zona acara-acara Tally, bukan jam server.
+ * "Hari ini" mengikuti zona waktu acara (WIB, WITA, atau WIT), bukan jam server.
  */
 const querySchema = z.object({ stasiun_id: z.coerce.number().int().positive() });
 
-const WIB_MS = 7 * 60 * 60 * 1000;
-
-function awalHariWib(sekarang = Date.now()) {
-  const wib = new Date(sekarang + WIB_MS);
-  return new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()) - WIB_MS).toISOString();
+/** Pukul 00.00 hari ini di zona acara. Zona Indonesia tanpa DST, jadi offset tetap cukup. */
+function awalHariAcara(zona: unknown, sekarang = Date.now()) {
+  const [jam, menit] = timeZoneOffset(normalizeTimeZone(zona)).slice(1).split(":").map(Number);
+  const geser = (jam * 60 + menit) * 60_000;
+  const lokal = new Date(sekarang + geser);
+  return new Date(Date.UTC(lokal.getUTCFullYear(), lokal.getUTCMonth(), lokal.getUTCDate()) - geser).toISOString();
 }
 
 type Baris = {
@@ -60,7 +62,7 @@ export async function GET(request: Request) {
       .eq("stasiun_id", stasiunId)
       .eq("status", "terkirim")
       .neq("jenis", "uji")
-      .gte("selesai_at", awalHariWib()),
+      .gte("selesai_at", awalHariAcara(auth.scope.event.time_zone)),
     client
       .from("badge_cetak_antrean")
       .select("id", { count: "exact", head: true })

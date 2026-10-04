@@ -11,6 +11,7 @@ import { kertasCocok, susunLembar, type BadgeData, type BadgeEventData, type Bad
 import { bacaPrinter, bacaPrinterAktif, simpanPrinter, simpanPrinterAktif, type ProfilPrinter } from "@/lib/badge/printer";
 import type { BadgeRundownHari } from "@/lib/badge/rundown";
 import type { JenisCetak, StatusAntrean } from "@/lib/badge/stasiun";
+import { normalizeTimeZone, type EventTimeZone } from "@/lib/timezone";
 
 /**
  * Stasiun cetak: laptop di meja registrasi yang mencetak badge kertas untuk HP
@@ -39,6 +40,7 @@ type Susunan = {
 	layout: BadgeLayout;
 	event: { name: string; slug: string; kv_url: string | null };
 	rundown: BadgeRundownHari[];
+	time_zone?: string;
 };
 
 type BarisRiwayat = {
@@ -72,8 +74,9 @@ const JEDA_RIWAYAT_MS = 5000;
 /** Badge Cetak uji: tidak lewat antrean, langsung dari laptop ini. */
 const BADGE_UJI: BadgeData = { name: "Test Badge", company: "Tally print station", title: null, qr_code: "TEST0000" };
 
-const jam = (iso: string | null | undefined) =>
-	iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+/** Jam di zona acara, bukan zona laptop: laptop sewaan sering masih berjam lain. */
+const jamDi = (iso: string | null | undefined, zona: EventTimeZone) =>
+	iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: zona }) : "";
 
 const tidur = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 const bingkai = () => new Promise((r) => window.requestAnimationFrame(() => window.requestAnimationFrame(r)));
@@ -184,6 +187,8 @@ export default function StasiunClient() {
 		return () => { batal = true; };
 	}, []);
 
+	const zona = normalizeTimeZone(susunan?.time_zone);
+	const jamZona = (iso: string | null | undefined) => jamDi(iso, zona);
 	const profil = printer.find((p) => p.id === aktif) ?? null;
 	const lembar = susunan ? susunLembar(susunan.layout.format, profil?.kertas ?? "A4") : null;
 	const kertasOk = !lembar || lembar.tidakMuat === null && (!profil || kertasCocok(lembar, profil.kertas));
@@ -352,6 +357,7 @@ export default function StasiunClient() {
 		if (!stasiun) return;
 		const r = await kirimJson("/api/stasiun-cetak/jeda", { stasiun_id: stasiun.id, token, dijeda: !dijeda });
 		if (r?.ok) setDijeda(Boolean(r.body.dijeda));
+		else if (r?.status === 409) setKoneksi({ jenis: "dipakai", sejak: null });
 		else toast.error(dijeda ? "Could not resume" : "Could not pause", "Check the connection and try again.");
 	}
 
@@ -437,14 +443,14 @@ export default function StasiunClient() {
 	if (fase === "jalan" && koneksi.jenis === "dipakai" && stasiun) {
 		pita.push(
 			<Pita key="dipakai" nada="error" judul={`${stasiun.nama} is being used by another laptop`} aksi={<Button variant="outlined" size="md" onClick={() => void ambilAlih()}>Take over</Button>}>
-				{koneksi.sejak ? `Another laptop has held this name since ${jam(koneksi.sejak)}, ` : "Another laptop holds this name, "}
+				{koneksi.sejak ? `Another laptop has held this name since ${jamZona(koneksi.sejak)}, ` : "Another laptop holds this name, "}
 				so this laptop stopped printing to avoid duplicate badges.
 			</Pita>,
 		);
 	}
 	if (fase === "jalan" && koneksi.jenis === "terputus") {
 		pita.push(
-			<Pita key="putus" nada="error" judul={`Disconnected from Tally since ${jam(koneksi.sejak)}`} aksi={<Button variant="outlined" size="md" onClick={() => setCobaKe((n) => n + 1)}>Try again</Button>}>
+			<Pita key="putus" nada="error" judul={`Disconnected from Tally since ${jamZona(koneksi.sejak)}`} aksi={<Button variant="outlined" size="md" onClick={() => setCobaKe((n) => n + 1)}>Try again</Button>}>
 				Check the laptop&apos;s Wi-Fi. The queue is safe on the server and prints as soon as you&apos;re back online.
 			</Pita>,
 		);
@@ -489,6 +495,18 @@ export default function StasiunClient() {
 			: koneksi.jenis === "terputus" ? <StatusChip tone="error" dot>Disconnected</StatusChip>
 				: <StatusChip tone="error" dot>Stopped</StatusChip>;
 
+	const namaIni = stasiun?.nama ?? "this station";
+	const teksHero = mengirim
+		? "One badge at a time. The next one starts when this sheet has been sent."
+		: koneksi.jenis === "terputus"
+			? "Badges keep queuing on the server and print once this laptop is back online."
+			: berhenti
+				? "This laptop isn't taking badges. See the message above."
+				: dijeda
+					? "Scanners keep checking participants in. Their badges wait here until you press Resume."
+					: !kertasOk
+						? "Badges wait until the paper matches the badge format."
+						: `Badges go to the printer whenever a scanner that picked ${namaIni} checks in a new participant. Keep this tab in front and the laptop on.`;
 	const judulHero = mengirim ? "Sending to printer" : berhenti || koneksi.jenis === "terputus" ? "Not printing" : dijeda ? "Paused" : !kertasOk ? "Not printing" : "Ready to print";
 
 	return (
@@ -610,9 +628,9 @@ export default function StasiunClient() {
 							<div className="flex flex-wrap items-center gap-2">
 								{chip}
 								<Button variant="outlined" size="md" disabled={Boolean(mengirim) || berhenti} onClick={() => void cetakUji()}>Print test</Button>
-								{koneksi.jenis === "ok" ? (
-									<Button variant="outlined" size="md" icon={dijeda ? <Play size={16} weight="fill" /> : <Pause size={16} weight="fill" />} onClick={() => void gantiJeda()}>
-										{dijeda ? "Resume" : "Pause"}
+								{koneksi.jenis === "ok" && !dijeda ? (
+									<Button variant="outlined" size="md" icon={<Pause size={16} weight="fill" />} onClick={() => void gantiJeda()}>
+										Pause
 									</Button>
 								) : null}
 								<Button variant="text" size="md" onClick={() => setFase("pasang")}>Station settings</Button>
@@ -627,9 +645,7 @@ export default function StasiunClient() {
 									<Printer size={36} aria-hidden />
 								</span>
 								<h2 className="mt-4 text-headline-small font-semibold">{judulHero}</h2>
-								<p className="mt-2 max-w-xl text-body-large opacity-80">
-									Badges go to the printer whenever a scanner that picked {stasiun?.nama ?? "this station"} checks in a new participant. Keep this tab in front and the laptop on.
-								</p>
+								<p className="mt-2 max-w-xl text-body-large opacity-80">{teksHero}</p>
 								<dl className="mt-8 flex flex-wrap justify-center gap-x-12 gap-y-4">
 									<div>
 										<dt className="sr-only">Sent to printer today</dt>
@@ -656,9 +672,9 @@ export default function StasiunClient() {
 											const teks = b.status === "terkirim" && b.jenis === "ulang" ? "Sent again" : s.teks;
 											return (
 												<li key={b.id} className="flex items-center gap-3 px-5 py-3">
-													<span className="w-12 shrink-0 text-body-medium tabular-nums text-on-surface-variant">{jam(b.created_at)}</span>
+													<span className="w-12 shrink-0 text-body-medium tabular-nums text-on-surface-variant">{jamZona(b.created_at)}</span>
 													<span className="min-w-0 flex-1">
-														<span className="block truncate text-body-large font-medium">{b.jenis === "uji" ? "Test badge" : b.nama ?? "Participant removed"}</span>
+														<span className="line-clamp-2 block text-body-large font-medium [overflow-wrap:anywhere]">{b.jenis === "uji" ? "Test badge" : b.nama ?? "Participant removed"}</span>
 														{b.asal ? <span className="block truncate text-body-medium text-on-surface-variant">{b.asal}</span> : null}
 													</span>
 													<StatusChip tone={s.tone} title={b.galat ?? undefined}>{teks}</StatusChip>

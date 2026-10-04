@@ -6,6 +6,7 @@ import { Button, Dialog, SegmentedButton, SelectField, StatusChip } from "@/comp
 import { useToast } from "@/components/toast";
 import { eventApiPath } from "@/lib/event-url";
 import { masihJalan, type HasilCetakMeja, type ModeCetakMeja, type PekerjaanCetak, type StasiunRingkas } from "@/lib/badge/stasiun";
+import { normalizeTimeZone, type EventTimeZone } from "@/lib/timezone";
 import { bunyikan } from "./umpan-balik";
 
 /**
@@ -29,8 +30,9 @@ const KUNCI_MODE = "scan-badge-autoprint";
 const JEDA_STASIUN_MS = 5000;
 const JEDA_PEKERJAAN_MS = 1500;
 
-const jam = (iso: string | null | undefined) =>
-	iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+/** Jam di zona acara, bukan zona ponsel. */
+const jamDi = (iso: string | null | undefined, zona: EventTimeZone) =>
+	iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: zona }) : "";
 
 function baca(kunci: string): string | null {
 	try {
@@ -59,6 +61,7 @@ type Antrean = Map<number, { nama: string }>;
 export function useCetakMeja(aktif: boolean, laneId: number | null, suaraNyala: () => boolean) {
 	const toast = useToast();
 	const [stasiun, setStasiun] = useState<StasiunRingkas[] | null>(null);
+	const [zona, setZona] = useState<EventTimeZone>(normalizeTimeZone(null));
 	const [stasiunId, setStasiunId] = useState<number | null>(null);
 	const [mode, setMode] = useState<ModeCetakMeja>("walkin");
 	const [pekerjaan, setPekerjaan] = useState<Record<number, PekerjaanCetak>>({});
@@ -85,8 +88,9 @@ export function useCetakMeja(aktif: boolean, laneId: number | null, suaraNyala: 
 		const muat = async () => {
 			const r = await fetch(eventApiPath("/api/stasiun-cetak"), { cache: "no-store" }).catch(() => null);
 			if (batal || !r?.ok) return;
-			const body = (await r.json()) as { stasiun: StasiunRingkas[] };
+			const body = (await r.json()) as { stasiun: StasiunRingkas[]; time_zone?: string };
 			setStasiun(body.stasiun);
+			setZona(normalizeTimeZone(body.time_zone));
 		};
 		const awal = window.setTimeout(() => void muat(), 0);
 		const ulang = window.setInterval(() => void muat(), JEDA_STASIUN_MS);
@@ -206,6 +210,7 @@ export function useCetakMeja(aktif: boolean, laneId: number | null, suaraNyala: 
 
 	return {
 		stasiun,
+		zona,
 		stasiunId,
 		stasiunDipilih: stasiun?.find((s) => s.id === stasiunId) ?? null,
 		mode,
@@ -222,8 +227,8 @@ export function useCetakMeja(aktif: boolean, laneId: number | null, suaraNyala: 
 
 export type CetakMeja = ReturnType<typeof useCetakMeja>;
 
-function chipStasiun(s: StasiunRingkas) {
-	if (!s.online) return <StatusChip tone="error" dot>{s.terakhir ? `Disconnected since ${jam(s.terakhir)}` : "Not connected"}</StatusChip>;
+function chipStasiun(s: StasiunRingkas, zona: EventTimeZone) {
+	if (!s.online) return <StatusChip tone="error" dot>{s.terakhir ? `Disconnected since ${jamDi(s.terakhir, zona)}` : "Not connected"}</StatusChip>;
 	if (s.dijeda) return <StatusChip tone="warning" dot>Paused</StatusChip>;
 	return <StatusChip tone="success" dot>Connected</StatusChip>;
 }
@@ -256,7 +261,7 @@ export function PanelCetakMeja({ meja, slug }: { meja: CetakMeja; slug: string }
 							<option key={s.id} value={s.id}>{s.nama}</option>
 						))}
 					</SelectField>
-					{stasiunDipilih ? <div className="mt-2">{chipStasiun(stasiunDipilih)}</div> : null}
+					{stasiunDipilih ? <div className="mt-2">{chipStasiun(stasiunDipilih, meja.zona)}</div> : null}
 				</>
 			)}
 
@@ -310,6 +315,7 @@ export function barisCetakMeja(input: {
 }): { status: React.ReactNode; aksi: React.ReactNode; menahan: boolean } {
 	const { meja, pekerjaan: p, galat, ulangi, onCetak, onGanti, mengantre } = input;
 	const adaStasiun = meja.stasiunId !== null;
+	const jam = (iso: string | null | undefined) => jamDi(iso, meja.zona);
 
 	let nada: "biasa" | "ok" | "awas" | "galat" = "biasa";
 	let teks: React.ReactNode = null;
