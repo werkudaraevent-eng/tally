@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowSquareOut, Info, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, DotsSixVertical, Info, Plus, Stack, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { useToast } from "@/components/toast";
 import { normalizeBranding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
 import { DEFAULT_HEADER, formatClock, formatEventDate, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
+import { bandingkanBaris, geserDalamSlot, kunciSlot, pindahDalamSlot, susunUlangSlot } from "@/lib/rundown-urutan";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import {
   Banner, Button, ButtonLink, Dialog, EmptyState, ListRow, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
@@ -19,9 +20,12 @@ import { Kelompok } from "@/components/admin/compact-form";
 //
 // Bentuknya daftar, bukan kanvas: rundown adalah urutan waktu, dan satu-satunya
 // tata letak yang benar adalah dari jam paling awal ke paling akhir. Karena itu
-// tidak ada drag-and-drop di sini: urutan dihitung dari jam mulai, sehingga
+// tidak ada drag-and-drop bebas di sini: urutan dihitung dari jam mulai, sehingga
 // admin yang mengetik jam yang benar tidak perlu lagi menyusun ulang barisnya.
-// Kolom `sort_order` tetap ada untuk memisahkan dua butir berjam sama.
+// Pengecualiannya baris berjam mulai sama (sesi paralel): urutan di dalam slot
+// itu disimpan di `sort_order` dan diatur admin lewat pegangan geser atau tombol
+// Move up/Move down. Baris berjam unik tidak punya pegangan, karena menggesernya
+// ke luar slot jamnya akan membuat jadwal berbohong.
 
 type Payload = { sections: RundownSection[]; items: RundownItem[] };
 
@@ -53,6 +57,10 @@ function fokusJudulBaru() {
 export default function RundownAdminPage() {
   const [sections, setSections] = useState<RundownSection[]>([]);
   const [items, setItems] = useState<RundownItem[]>([]);
+  // Jam mulai yang terakhir tersimpan, per id. Suntingan jam yang belum disimpan
+  // hidup di `items`; susun ulang dikunci selama ada yang berbeda dari sini,
+  // karena server menilai slot dari jam yang tersimpan.
+  const [savedStart, setSavedStart] = useState<Map<number, string>>(new Map());
   const [loaded, setLoaded] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
@@ -79,6 +87,12 @@ export default function RundownAdminPage() {
   // membuang data.
   const [confirmItem, setConfirmItem] = useState<RundownItem | null>(null);
   const [confirmSection, setConfirmSection] = useState<RundownSection | null>(null);
+  // Susun ulang sesi paralel. Satu permintaan pada satu waktu: dua geseran yang
+  // berbalapan bisa saling menimpa nomor urut.
+  const [reordering, setReordering] = useState(false);
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ id: number; after: boolean } | null>(null);
+  const [reorderNote, setReorderNote] = useState("");
   const [error, setError] = useState("");
   // Zona acara dipakai supaya tanggal yang diecho di bawah kolom tanggal dihitung
   // dengan zona yang sama dengan halaman publik. Kalau tidak, admin bisa membaca
@@ -99,6 +113,7 @@ export default function RundownAdminPage() {
     const data = (await sectionResponse.json()) as Payload;
     setSections(data.sections);
     setItems(data.items);
+    setSavedStart(new Map(data.items.map((item) => [item.id, item.start_time])));
     setActiveId((current) => (current && data.sections.some((row) => row.id === current) ? current : data.sections[0]?.id ?? null));
     // Header yang gagal dimuat tidak menggagalkan seluruh halaman: jadwalnya tetap
     // bisa disusun, dan nilai bawaan tetap aman disimpan.
@@ -120,12 +135,40 @@ export default function RundownAdminPage() {
   // halaman publik, supaya yang dilihat admin sama dengan yang dilihat tamu.
   const activeItems = useMemo(() => {
     if (activeId === null) return [];
+    // Baris yang jam mulainya diubah tetapi belum disimpan ditaruh di akhir slot
+    // jam barunya, sama dengan tempat server menaruhnya saat disimpan. Tanpa ini
+    // ia tampil menurut sort_order lamanya lalu melompat begitu disimpan.
     return items
       .filter((item) => item.section_id === activeId)
-      .sort((a, b) => a.start_time.localeCompare(b.start_time) || a.sort_order - b.sort_order);
-  }, [items, activeId]);
+      .map((item) => {
+        const tersimpan = savedStart.get(item.id);
+        return tersimpan !== undefined && kunciSlot(tersimpan) !== kunciSlot(item.start_time) ? { ...item, sort_order: Number.MAX_SAFE_INTEGER } : item;
+      })
+      .sort(bandingkanBaris);
+  }, [items, activeId, savedStart]);
+
+  // Ada jam mulai yang diubah tetapi belum disimpan di bagian ini.
+  const jamBelumDisimpan = activeItems.some((item) => kunciSlot(item.start_time) !== kunciSlot(savedStart.get(item.id) ?? item.start_time));
+
+  // Id baris per slot jam, dalam urutan tampil. Slot berisi satu baris tidak
+  // bisa disusun ulang. Kosong selama ada jam yang belum disimpan: slot dari jam
+  // lokal bisa berbeda dari slot di server, dan susunannya akan ditolak.
+  const slots = useMemo(() => {
+    const peta = new Map<string, number[]>();
+    if (jamBelumDisimpan) return peta;
+    for (const item of activeItems) {
+      const kunci = kunciSlot(item.start_time);
+      peta.set(kunci, [...(peta.get(kunci) ?? []), item.id]);
+    }
+    return peta;
+  }, [activeItems, jamBelumDisimpan]);
+  const adaSlotParalel = [...slots.values()].some((ids) => ids.length > 1);
 
   const selectedItem = activeItems.find((item) => item.id === selectedItemId) ?? null;
+  const selectedSlot = selectedItem ? slots.get(kunciSlot(selectedItem.start_time)) ?? [] : [];
+  // Baris lain yang berjam mulai sama dengan baris terpilih menurut jam lokal.
+  // Dipakai untuk menjelaskan kenapa susun ulang terkunci.
+  const selectedSlotLokal = selectedItem ? activeItems.filter((item) => kunciSlot(item.start_time) === kunciSlot(selectedItem.start_time)).length : 0;
 
   // Branding dinormalisasi sebelum diserahkan ke <BrandingEditor>.
   //
@@ -367,6 +410,60 @@ export default function RundownAdminPage() {
     await load();
   }
 
+  async function reorderSlot(ids: number[], movedId: number) {
+    if (activeId === null || reordering) return;
+    const sectionItems = items.filter((item) => item.section_id === activeId);
+    const changes = susunUlangSlot(sectionItems, ids);
+    if (!changes) return;
+    // Optimistis: hanya sort_order yang diubah, supaya suntingan baris yang belum
+    // disimpan tidak ikut hilang.
+    const before = items;
+    const apply = (list: Array<{ id: number; sort_order: number }>) =>
+      setItems((current) => current.map((row) => {
+        const found = list.find((change) => change.id === row.id);
+        return found ? { ...row, sort_order: found.sort_order } : row;
+      }));
+    apply(changes);
+    setReordering(true); setError("");
+    const response = await fetch("/api/admin/rundown/items/order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section_id: activeId, ids }),
+    }).catch(() => null);
+    setReordering(false);
+    const data = response ? await response.json().catch(() => ({})) : {};
+    if (!response?.ok) {
+      // Kembali ke susunan sebelumnya, lalu baca ulang sort_order saja: server
+      // menulis baris satu per satu, jadi kegagalan di tengah bisa meninggalkan
+      // sebagian perubahan. Kolom lain tidak disentuh supaya suntingan yang belum
+      // disimpan tetap ada.
+      setItems(before);
+      const failure = (data as { error?: { details?: { message?: string } } }).error?.details?.message
+        ?? (response ? "Something went wrong. Try again." : "Check your connection and try again.");
+      setError(failure); toast.error("Order not saved", failure);
+      const fresh = await fetch("/api/admin/rundown/sections", { cache: "no-store" }).catch(() => null);
+      if (fresh?.ok) apply(((await fresh.json()) as Payload).items);
+      return;
+    }
+    apply((data as { items?: RundownItem[] }).items ?? []);
+    const moved = sectionItems.find((item) => item.id === movedId);
+    setReorderNote(`${moved?.title.trim() || "Row"} moved to position ${ids.indexOf(movedId) + 1} of ${ids.length}.`);
+  }
+
+  function moveInSlot(item: RundownItem, direction: -1 | 1, fromPanel = false) {
+    const ids = slots.get(kunciSlot(item.start_time)) ?? [];
+    const next = geserDalamSlot(ids, item.id, direction);
+    if (!next) return;
+    void reorderSlot(next, item.id);
+    // Baris sampai di ujung slot: tombol yang baru dipakai jadi mati, jadi fokus
+    // dipindah ke tombol arah sebaliknya supaya pengguna keyboard tidak tersesat.
+    if (fromPanel) {
+      const posisi = next.indexOf(item.id);
+      const tujuan = posisi === 0 ? "down" : posisi === next.length - 1 ? "up" : null;
+      if (tujuan) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-move="${tujuan}"]`)?.focus());
+    }
+  }
+
   const publishedCount = sections.filter((row) => row.is_published).length;
   // Tanpa bagian, hanya header yang bisa disunting.
   const panelAktif: Panel = active ? panel : "header";
@@ -377,7 +474,9 @@ export default function RundownAdminPage() {
       <PaneHeader>
         <h2 className="text-body-medium font-semibold text-on-surface">Jadwal</h2>
         <span className="tabular-nums text-body-medium text-on-surface-variant">{activeItems.length} baris</span>
-        <span className="min-w-0 flex-1 truncate text-body-medium text-on-surface-variant max-sm:hidden">Urut otomatis menurut jam mulai</span>
+        <span className="min-w-0 flex-1 truncate text-body-medium text-on-surface-variant max-sm:hidden">
+          {adaSlotParalel ? "Drag to reorder same-time rows" : "Urut otomatis menurut jam mulai"}
+        </span>
         <Button variant="outlined" size="sm" className="ml-auto" icon={<Plus size={16} />} onClick={mulaiTambahBaris}>Tambah baris</Button>
       </PaneHeader>
       <PaneBody>
@@ -391,29 +490,100 @@ export default function RundownAdminPage() {
           <div>
             {activeItems.map((item) => {
               const keterangan = (item.subtitle ?? "").split("\n").map((line) => line.trim()).filter(Boolean).join(" · ");
+              const kunci = kunciSlot(item.start_time);
+              const slotIds = slots.get(kunci) ?? [];
+              const paralel = slotIds.length > 1;
+              const posisi = slotIds.indexOf(item.id);
+              const judul = item.title.trim() || "Tanpa nama";
+              const garis = dropTarget?.id === item.id && dragId !== null && dragId !== item.id ? (dropTarget.after ? "bottom" : "top") : null;
               return (
-                <ListRow
-                  key={item.id}
-                  selected={item.id === selectedItemId}
-                  onSelect={() => { setSelectedItemId(item.id); setPanel("baris"); }}
-                  className="items-start py-3"
-                >
-                  <span className="w-28 shrink-0 tabular-nums text-on-surface">
-                    {formatClock(item.start_time)}{item.end_time ? `–${formatClock(item.end_time)}` : ""}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className={cx("min-w-0 truncate", item.is_break ? "text-on-surface-variant" : "font-medium text-on-surface")}>
-                        {item.title.trim() || "Tanpa nama"}
+                <div key={item.id}>
+                  {paralel && posisi === 0 ? (
+                    <div className="flex items-center gap-2 border-b border-outline-variant py-2 pr-4 pl-4 text-body-small pointer-fine:pl-10 text-on-surface-variant">
+                      <Stack size={16} aria-hidden />
+                      {slotIds.length} rows start at {formatClock(item.start_time)}
+                    </div>
+                  ) : null}
+                  <div
+                    data-rundown-row={item.id}
+                    className={cx("relative", dragId === item.id && "opacity-50")}
+                    onDragOver={paralel && dragId !== null && slotIds.includes(dragId) ? (event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                      const kotak = event.currentTarget.getBoundingClientRect();
+                      const after = event.clientY > kotak.top + kotak.height / 2;
+                      if (dropTarget?.id !== item.id || dropTarget.after !== after) setDropTarget({ id: item.id, after });
+                    } : undefined}
+                    onDrop={paralel && dragId !== null && slotIds.includes(dragId) ? (event) => {
+                      event.preventDefault();
+                      const tanpa = slotIds.filter((id) => id !== dragId);
+                      const ke = tanpa.indexOf(item.id) + (dropTarget?.after ? 1 : 0);
+                      const next = dragId === item.id ? null : pindahDalamSlot(slotIds, dragId, ke);
+                      const moved = dragId;
+                      setDragId(null); setDropTarget(null);
+                      if (next) void reorderSlot(next, moved);
+                    } : undefined}
+                  >
+                    <ListRow
+                      selected={item.id === selectedItemId}
+                      onSelect={() => { setSelectedItemId(item.id); setPanel("baris"); }}
+                      className={cx("items-start py-3", adaSlotParalel && "pointer-fine:pl-10!")}
+                    >
+                      <span className="w-28 shrink-0 tabular-nums text-on-surface">
+                        {formatClock(item.start_time)}{item.end_time ? `–${formatClock(item.end_time)}` : ""}
                       </span>
-                      {item.is_break ? <StatusChip>Jeda</StatusChip> : null}
-                      {item.is_published ? null : <StatusChip tone="warning">Tidak tampil</StatusChip>}
-                    </span>
-                    {keterangan ? <span className="mt-0.5 block truncate text-on-surface-variant">{keterangan}</span> : null}
-                  </span>
-                </ListRow>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className={cx("min-w-0 truncate", item.is_break ? "text-on-surface-variant" : "font-medium text-on-surface")}>
+                            {judul}
+                          </span>
+                          {item.is_break ? <StatusChip>Jeda</StatusChip> : null}
+                          {item.is_published ? null : <StatusChip tone="warning">Tidak tampil</StatusChip>}
+                        </span>
+                        {keterangan ? <span className="mt-0.5 block truncate text-on-surface-variant">{keterangan}</span> : null}
+                      </span>
+                    </ListRow>
+                    {/* Pegangan berada di luar <ListRow> karena ListRow sendiri sebuah
+                        <button>; tombol di dalam tombol tidak sah. Panah atas/bawah
+                        pada pegangan menggeser baris tanpa tetikus. */}
+                    {paralel ? (
+                      <button
+                        type="button"
+                        // aria-disabled, bukan disabled: tombol yang dinonaktifkan
+                        // kehilangan fokus, sehingga pengguna keyboard terlempar
+                        // keluar setiap kali satu langkah sedang disimpan.
+                        draggable={!reordering}
+                        aria-disabled={reordering || undefined}
+                        aria-label={`Reorder ${judul}, position ${posisi + 1} of ${slotIds.length} at ${formatClock(item.start_time)}`}
+                        title="Drag to reorder, or use the arrow keys"
+                        aria-describedby="rundown-reorder-hint"
+                        className="absolute top-3 left-2 flex pointer-coarse:hidden size-6 cursor-grab items-center justify-center rounded-md text-on-surface-variant hover:bg-primary-soft hover:text-on-surface active:cursor-grabbing aria-disabled:cursor-default aria-disabled:opacity-40"
+                        onKeyDown={(event) => {
+                          if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+                          event.preventDefault();
+                          moveInSlot(item, event.key === "ArrowUp" ? -1 : 1);
+                        }}
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = "move";
+                          event.dataTransfer.setData("text/plain", String(item.id));
+                          const baris = event.currentTarget.closest("[data-rundown-row]");
+                          if (baris instanceof HTMLElement) event.dataTransfer.setDragImage(baris, 24, 20);
+                          setDragId(item.id);
+                        }}
+                        onDragEnd={() => { setDragId(null); setDropTarget(null); }}
+                      >
+                        <DotsSixVertical size={18} weight="bold" aria-hidden />
+                      </button>
+                    ) : null}
+                    {garis ? (
+                      <span aria-hidden className={cx("pointer-events-none absolute right-4 left-10 h-0.5 rounded-full bg-primary", garis === "top" ? "-top-px" : "-bottom-px")} />
+                    ) : null}
+                  </div>
+                </div>
               );
             })}
+            <p role="status" className="sr-only">{reorderNote}</p>
+            <span id="rundown-reorder-hint" hidden>Use the up and down arrow keys to move this row among rows with the same start time.</span>
           </div>
         )}
       </PaneBody>
@@ -454,6 +624,47 @@ export default function RundownAdminPage() {
         />
       </div>
       <TextField label="Nama acara" value={selectedItem.title} onChange={(event) => updateItem(selectedItem.id, { title: event.target.value })} />
+      {jamBelumDisimpan && selectedSlotLokal > 1 ? (
+        <p className="border-t border-outline-variant pt-4 text-body-small text-on-surface-variant">
+          Save the time change first to reorder rows that start at {kunciSlot(selectedItem.start_time).slice(0, 5)}.
+        </p>
+      ) : null}
+      {selectedSlot.length > 1 ? (
+        <div className="flex flex-col gap-2 border-t border-outline-variant pt-4">
+          <div>
+            <p className="text-body-medium font-medium text-on-surface">Order at {formatClock(selectedItem.start_time)}</p>
+            <p className="text-body-small text-on-surface-variant">
+              {selectedSlot.indexOf(selectedItem.id) + 1} of {selectedSlot.length} rows that start at {formatClock(selectedItem.start_time)}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outlined"
+              size="sm"
+              icon={<ArrowUp size={16} />}
+              data-move="up"
+              // aria-disabled, bukan disabled: tombol yang dinonaktifkan melepas
+              // fokus ke <body>. Klik saat tidak berlaku diabaikan di sini.
+              aria-disabled={reordering || selectedSlot[0] === selectedItem.id || undefined}
+              className="aria-disabled:cursor-default aria-disabled:opacity-40"
+              onClick={() => { if (!reordering && selectedSlot[0] !== selectedItem.id) moveInSlot(selectedItem, -1, true); }}
+            >
+              Move up
+            </Button>
+            <Button
+              variant="outlined"
+              size="sm"
+              icon={<ArrowDown size={16} />}
+              data-move="down"
+              aria-disabled={reordering || selectedSlot[selectedSlot.length - 1] === selectedItem.id || undefined}
+              className="aria-disabled:cursor-default aria-disabled:opacity-40"
+              onClick={() => { if (!reordering && selectedSlot[selectedSlot.length - 1] !== selectedItem.id) moveInSlot(selectedItem, 1, true); }}
+            >
+              Move down
+            </Button>
+          </div>
+        </div>
+      ) : null}
       {/* textarea, bukan input satu baris: satu butir acara bisa memuat beberapa
           pembicara, dan tiap baris tampil sebagai butir terpisah di halaman publik. */}
       <TextArea

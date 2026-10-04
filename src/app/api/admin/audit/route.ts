@@ -27,7 +27,7 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
   rundown: [
     "rundown_header_update",
     "rundown_section_create", "rundown_section_update", "rundown_section_delete",
-    "rundown_item_create", "rundown_item_update", "rundown_item_delete",
+    "rundown_item_create", "rundown_item_update", "rundown_item_delete", "rundown_item_reorder",
   ],
   // Undian. `undian_draw` sengaja dicatat meski frekuensinya lumayan: berbeda
   // dengan tombol next/prev reveal yang hanya mengganti tampilan, setiap undi
