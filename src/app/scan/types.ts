@@ -31,7 +31,18 @@ export type BarisBarang = {
  */
 export type Jalur = { id: number; name: string; slug: string };
 
-export type StatusHasil = "recorded" | "duplicate" | "not_found" | "created";
+/**
+ * Empat status pertama datang dari server. Tiga terakhir dibuat di perangkat
+ * ketika jawaban server tidak pernah sampai atau menolak:
+ *
+ * - `gagal`: jaringan putus, kehabisan waktu, atau server galat (5xx). Tamu ini
+ *   BELUM tercatat; Ulangi mengirim kode yang sama.
+ * - `login`: sesi petugas habis (401). Mengulang hanya berputar di tempat; yang
+ *   menolong adalah masuk lagi.
+ * - `ditolak`: server menjawab tetapi menolak (4xx lain, mis. sesi ditutup).
+ *   Mengulang tidak akan mengubah jawabannya.
+ */
+export type StatusHasil = "recorded" | "duplicate" | "not_found" | "created" | "gagal" | "login" | "ditolak";
 
 export type Hasil = {
   status: StatusHasil;
@@ -40,6 +51,14 @@ export type Hasil = {
   scan_count?: number;
   session_unique_total?: number;
   qr?: string;
+  /** Kalimat dari server atau perangkat, untuk status `gagal`, `login`, `ditolak`. */
+  pesan?: string;
+  /**
+   * Jawaban `duplicate` atas Ulangi yang ternyata sudah tersimpan pada percobaan
+   * yang jawabannya hilang. Ditampilkan hijau, bukan oranye: tamu ini baru saja
+   * datang, bukan masuk dua kali.
+   */
+  tersimpanSebelumnya?: boolean;
 };
 
 /**

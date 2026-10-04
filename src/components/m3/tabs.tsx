@@ -29,6 +29,11 @@ export type TabsProps<T extends string> = {
 	 * tidak pernah dikenali sebagai milik tab yang barusan dipilih.
 	 */
 	idPrefix: string;
+	/**
+	 * `lg` = 48px, tinggi tab M3. Bawaannya 40px mengikuti kepadatan dasbor;
+	 * layar pemindai dipegang sambil berdiri dan memakai `lg`.
+	 */
+	size?: "md" | "lg";
 	className?: string;
 };
 
@@ -57,7 +62,7 @@ export type TabsProps<T extends string> = {
  * membuat indikator terbaca sebagai penanda posisi pada sebuah rel, bukan sebagai
  * garis bawah yang menggantung.
  */
-export function Tabs<T extends string>({ options, value, onChange, label, idPrefix, className }: TabsProps<T>) {
+export function Tabs<T extends string>({ options, value, onChange, label, idPrefix, size = "md", className }: TabsProps<T>) {
 	const stripRef = useRef<HTMLDivElement>(null);
 
 	/**
@@ -109,7 +114,8 @@ export function Tabs<T extends string>({ options, value, onChange, label, idPref
 							else if (event.key === "End") { event.preventDefault(); pindah("akhir"); }
 						}}
 						className={cx(
-							"relative flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-t-md px-3 text-body-medium",
+							"relative flex shrink-0 items-center gap-2 whitespace-nowrap rounded-t-md px-3 text-body-medium",
+							size === "lg" ? "min-h-12" : "min-h-10",
 							"disabled:pointer-events-none disabled:opacity-40",
 							aktif ? "font-medium text-on-surface" : "text-on-surface-variant hover:text-on-surface",
 						)}

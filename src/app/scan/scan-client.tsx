@@ -1,15 +1,22 @@
 "use client";
 
 import { BrowserMultiFormatReader } from "@zxing/browser";
+import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import {
   ArrowsClockwise,
   CaretDown,
+  CaretUp,
+  CircleNotch,
+  Flashlight,
   MagnifyingGlass,
   Printer,
   QrCode,
+  SpeakerHigh,
+  SpeakerSlash,
   UserCheck,
   UserPlus,
   WarningCircle,
+  WifiSlash,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
@@ -20,6 +27,7 @@ import {
   IconButton,
   SegmentedButton,
   SelectField,
+  Switch,
   Tabs,
   TextField,
   TopAppBar,
@@ -38,7 +46,9 @@ import {
   type PrinterInfo,
 } from "@/lib/label/printer";
 import { renderLabelDataUrl } from "@/lib/label/render";
-import { ResultSheet } from "./result-sheet";
+import { usePemindaiKeyboard } from "./pemindai-keyboard";
+import { ResultSheet, TUTUP_OTOMATIS_MS } from "./result-sheet";
+import { bacaSuara, bukaSuara, bunyikan, simpanSuara } from "./umpan-balik";
 import { WalkinDialog } from "./walkin-dialog";
 import {
   FORM_KOSONG,
@@ -109,6 +119,56 @@ const KUNCI_JALUR = "scan-lane-id";
  */
 const KUNCI_CETAK = "scan-label-autoprint";
 
+/** Lembar hijau menutup sendiri. Bawaan nyala; disimpan per perangkat, seperti Suara. */
+const KUNCI_TUTUP = "scan-tutup-otomatis";
+
+/** Nama kolom "ketik kode peserta". Pemindai genggam boleh mengetik ke sana. */
+const KOLOM_KODE = "qr";
+
+/** Permintaan yang tidak terjawab selama ini dianggap gagal, bukan dibiarkan berputar. */
+const BATAS_TUNGGU_MS = 8000;
+
+/**
+ * Berapa lama kode yang sama ditahan setelah terbaca.
+ *
+ * Bergeser: setiap kali kamera masih melihat kode itu, hitungannya mulai lagi.
+ * Badge yang dipegang lama di depan lensa tidak pernah terkirim dua kali; ia
+ * baru boleh terkirim lagi setelah HILANG dari pandangan selama jeda ini.
+ * Setelah gagal jedanya lebih pendek supaya "pindai lagi badge-nya" langsung
+ * bekerja, tetapi tidak nol: badge yang tertinggal di depan lensa saat jaringan
+ * mati akan mengulang lembar merah dan bunyinya setiap setengah detik.
+ */
+const TAHAN_SUKSES_MS = 2500;
+const TAHAN_GAGAL_MS = 1000;
+
+/**
+ * Tamu yang tercatat di ponsel ini, di sesi yang sama, dalam jendela ini tidak
+ * dikirim ulang. Server akan menjawab "sudah pernah dipindai", jumlah hadir
+ * tidak berubah, dan lembar hijau tamu yang baru datang berganti oranye di
+ * depan matanya. Yang dibuka lagi adalah lembar hijaunya sendiri, tanpa kirim.
+ *
+ * Kuncinya sesi + kode, dan daftarnya dikosongkan saat sesi atau meja diganti:
+ * "salah sesi, pindai ulang" adalah koreksi yang harus sampai ke server.
+ */
+const BARUSAN_MS = 30_000;
+
+/**
+ * Jawaban `duplicate` atas Ulangi dianggap tersimpan pada percobaan yang gagal
+ * hanya bila pemindaian pertamanya terjadi SESUDAH percobaan itu dikirim,
+ * menurut jam server. Selisih jam tablet dihitung dari header `Date` jawaban;
+ * kelonggaran ini menutup pembulatan header ke detik dan waktu tempuh.
+ * Satu arah: pemindaian yang lebih tua adalah duplikat sungguhan.
+ */
+const KELONGGARAN_JAM_MS = 5_000;
+
+function bacaTutupOtomatis(): boolean {
+  try {
+    return window.localStorage.getItem(KUNCI_TUTUP) !== "0";
+  } catch {
+    return true;
+  }
+}
+
 /** Tidak ada yang perlu dilangganani: kemampuan peramban tidak berubah saat halaman terbuka. */
 const langgananKosong = () => () => {};
 
@@ -170,6 +230,10 @@ const RIWAYAT: Record<Hasil["status"], { teks: string; kelas: string }> = {
   created: { teks: "baru", kelas: "text-primary" },
   duplicate: { teks: "ulang", kelas: "text-warning" },
   not_found: { teks: "gagal", kelas: "text-error" },
+  // Tiga yang terakhir tidak pernah masuk riwayat: tidak ada yang tercatat.
+  gagal: { teks: "belum", kelas: "text-error" },
+  login: { teks: "belum", kelas: "text-error" },
+  ditolak: { teks: "ditolak", kelas: "text-error" },
 };
 
 const jam = (iso: string | null | undefined) =>
@@ -249,6 +313,19 @@ const inisial = (nama: string) =>
     .map((kata) => kata.charAt(0).toUpperCase())
     .join("") || "?";
 
+/**
+ * Penanda bahwa permintaan TERAKHIR gagal sampai ke server. Ikon plus kata,
+ * bukan warna saja. Hilang sendiri pada jawaban berikutnya yang berhasil.
+ */
+function ChipOffline({ className = "" }: { className?: string }) {
+  return (
+    <span className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-error px-2.5 text-label-medium font-semibold text-on-error ${className}`}>
+      <WifiSlash size={14} weight="bold" aria-hidden />
+      Offline
+    </span>
+  );
+}
+
 export default function ScanClient() {
   const [sessions, setSessions] = useState<Sesi[]>([]);
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -276,6 +353,43 @@ export default function ScanClient() {
   const [riwayat, setRiwayat] = useState<Array<{ nama: string; status: Hasil["status"]; waktu: string }>>([]);
   const [pesan, setPesan] = useState("");
   const [sibuk, setSibuk] = useState(false);
+
+  // ---- Umpan balik di jendela kamera ----------------------------------------
+  // Kode yang sudah terbaca dan sedang menunggu jawaban server. Tanpa tanda ini,
+  // di Wi-Fi venue yang lambat satu-satunya kabar bahwa badge sudah terbaca
+  // hanyalah putaran kecil di tombol Catat di bawah, dan tamu menyodorkan ulang.
+  const [membaca, setMembaca] = useState<string | null>(null);
+  // Diturunkan dari permintaan TERAKHIR, bukan dari `navigator.onLine`: Wi-Fi
+  // venue yang tersambung tetapi mati tetap melaporkan "online".
+  const [offline, setOffline] = useState(false);
+  // Tamu terakhir yang tercatat, untuk pil di kamera setelah lembarnya menutup
+  // sendiri. Di ponsel, riwayat ada di bawah kamera, di luar pandangan.
+  const [terakhirHadir, setTerakhirHadir] = useState<{ nama: string; waktu: string } | null>(null);
+  const [suara, setSuara] = useState(true);
+  const suaraRef = useRef(true);
+  const [senter, setSenter] = useState<{ ada: boolean; nyala: boolean }>({ ada: false, nyala: false });
+  const kontrolKameraRef = useRef<{ stop: () => void; switchTorch?: (nyala: boolean) => Promise<void> } | null>(null);
+
+  // ---- Bilah meja -------------------------------------------------------------
+  const [mejaTerbuka, setMejaTerbuka] = useState(false);
+  const [sesiHilang, setSesiHilang] = useState(false);
+  const sessionRef = useRef<number | null>(null);
+
+  // ---- Lembar hasil -----------------------------------------------------------
+  const [tutupOtomatis, setTutupOtomatis] = useState(true);
+  // `kedip` lembar yang hitung mundurnya dihentikan oleh sentuhan petugas.
+  const [hitungBatal, setHitungBatal] = useState<number | null>(null);
+  // Centang barang yang belum diserahkan. Selama masih ada, hasil berikutnya
+  // menunggu (`tertahan`) dan tidak mengganti lembar.
+  const centangRef = useRef(0);
+  const [tertahan, setTertahan] = useState<Hasil | null>(null);
+  const tertahanRef = useRef<Hasil | null>(null);
+  const hasilRef = useRef<Hasil | null>(null);
+  // Percobaan terakhir yang gagal, untuk mengenali Ulangi yang ternyata sudah
+  // tersimpan (jawabannya hilang, bukan permintaannya).
+  const gagalRef = useRef<{ qr: string; waktu: number } | null>(null);
+  // Kode yang tercatat di ponsel ini beberapa detik terakhir. Lihat BARUSAN_MS.
+  const barusanRef = useRef<Map<string, { waktu: number; hasil: Hasil }>>(new Map());
 
   const [kueri, setKueri] = useState("");
   /**
@@ -323,7 +437,7 @@ export default function ScanClient() {
   // Menahan pemindaian beruntun dari QR yang sama. Kamera membaca puluhan frame
   // per detik, dan tanpa jeda satu badge yang tertinggal di depan lensa akan
   // menghasilkan belasan baris catatan dalam sekejap.
-  const terakhirRef = useRef<{ qr: string; waktu: number }>({ qr: "", waktu: 0 });
+  const terakhirRef = useRef<{ qr: string; waktu: number; tahan: number }>({ qr: "", waktu: 0, tahan: TAHAN_SUKSES_MS });
 
   const muatSesi = useCallback(async () => {
     const response = await fetch(eventApiPath("/api/attendance/sessions"), { cache: "no-store" }).catch(() => null);
@@ -338,7 +452,19 @@ export default function ScanClient() {
     setAllowWalkIn(Boolean(body.allow_walk_in));
     setWalkinFields((body.walkin_fields ?? []) as RegistrationField[]);
     setLabel((body.label ?? null) as LabelSettings | null);
-    setSessionId((current) => current ?? daftar[0]?.id ?? null);
+    // Sesi yang dipilih bisa ditutup admin di tengah hari. Diam-diam pindah ke
+    // sesi pertama berarti pemindaian berikutnya tercatat di sesi yang salah;
+    // yang benar adalah membuka bilah meja dan meminta petugas memilih lagi.
+    const dipilih = sessionRef.current;
+    const hilang = dipilih !== null && !daftar.some((sesi) => sesi.id === dipilih);
+    const sesiBaru = hilang ? null : dipilih ?? daftar[0]?.id ?? null;
+    if (sesiBaru !== dipilih) {
+      barusanRef.current.clear();
+      terakhirRef.current = { qr: "", waktu: 0, tahan: TAHAN_SUKSES_MS };
+    }
+    sessionRef.current = sesiBaru;
+    setSessionId(sesiBaru);
+    setSesiHilang(hilang);
 
     // Dihitung di luar `setLaneId`, bukan di dalam updaternya: updater harus
     // murni, dan yang ini membaca alamat halaman serta localStorage.
@@ -349,8 +475,16 @@ export default function ScanClient() {
     setPesan(daftar.length === 0 ? "Belum ada sesi kehadiran yang dibuka. Hubungi panitia." : "");
   }, []);
 
+  // Sesi atau meja berganti: pemindaian ulang tamu yang barusan adalah koreksi,
+  // jadi ingatan 30 detik dan tahanan kode yang sama ikut dilupakan.
+  function lupakanBarusan() {
+    barusanRef.current.clear();
+    terakhirRef.current = { qr: "", waktu: 0, tahan: TAHAN_SUKSES_MS };
+  }
+
   function gantiJalur(id: number | null) {
     laneRef.current = id;
+    lupakanBarusan();
     setLaneId(id);
     setPesanLayar(null);
     try {
@@ -395,7 +529,13 @@ export default function ScanClient() {
   }, [muatSesi]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setModeCetak(bacaModeCetak()), 0);
+    const timer = window.setTimeout(() => {
+      setModeCetak(bacaModeCetak());
+      const nyala = bacaSuara();
+      suaraRef.current = nyala;
+      setSuara(nyala);
+      setTutupOtomatis(bacaTutupOtomatis());
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -475,42 +615,94 @@ export default function ScanClient() {
   }
 
   /**
+   * Memasang satu hasil sebagai lembar yang terlihat, atau menahannya.
+   *
+   * Ditahan bila lembar yang sedang terbuka masih punya barang yang dicentang
+   * tetapi belum diserahkan. Kamera tetap memindai di balik lembar, dan tamu
+   * berikutnya sering sudah menyodorkan badge selagi petugas mengulurkan kaos.
+   * Mengganti lembar di saat itu menghapus centangnya, dan kaos yang sudah di
+   * tangan tamu tidak pernah tercatat.
+   */
+  const pasangLembar = useCallback((data: Hasil) => {
+    if (centangRef.current > 0 && hasilRef.current) {
+      tertahanRef.current = data;
+      setTertahan(data);
+      return;
+    }
+    hasilRef.current = data;
+    setHasil(data);
+    setKedip((current) => current + 1);
+    setCetak({ fase: "diam" });
+  }, []);
+
+  /**
    * Menerapkan satu jawaban server ke seluruh layar.
    *
    * Dipakai bersama oleh pemindaian, pencatatan dari hasil pencarian, dan
    * pendaftaran tamu walk-in. Ketiganya menghasilkan lembar hasil, kedipan,
-   * getaran, baris riwayat, dan angka hadir yang sama. Ditulis tiga kali, cepat
-   * atau lambat salah satunya ketinggalan saat yang lain diperbaiki.
+   * bunyi, getaran, baris riwayat, dan angka hadir yang sama. Ditulis tiga kali,
+   * cepat atau lambat salah satunya ketinggalan saat yang lain diperbaiki.
    */
   const terapkanHasil = useCallback((data: Hasil, sesi: number) => {
-    setHasil(data);
-    setKedip((current) => current + 1);
-    setCetak({ fase: "diam" });
+    pasangLembar(data);
     setPesan("");
+    setOffline(false);
+    gagalRef.current = null;
     if (typeof data.session_unique_total === "number") {
       const total = data.session_unique_total;
       setHadirTerbaru((current) => ({ ...current, [sesi]: total }));
     }
-    // Getaran dibedakan: satu ketukan untuk yang beres, tiga ketukan pendek
-    // untuk yang perlu diperiksa petugas.
-    const beres = data.status === "recorded" || data.status === "created";
-    if (navigator.vibrate) navigator.vibrate(beres ? 90 : [60, 60, 60]);
+    const beres = data.status === "recorded" || data.status === "created" || Boolean(data.tersimpanSebelumnya);
+    bunyikan(beres ? "ok" : data.status === "duplicate" ? "ulang" : "galat", suaraRef.current);
+    const waktu = new Date().toISOString();
     setRiwayat((current) => [
-      { nama: data.participant?.name ?? data.qr ?? "Tidak dikenal", status: data.status, waktu: new Date().toISOString() },
+      { nama: data.participant?.name ?? data.qr ?? "Tidak dikenal", status: beres ? "recorded" : data.status, waktu },
       ...current,
     ].slice(0, 20));
+    if (beres && data.participant) {
+      setTerakhirHadir({ nama: data.participant.name, waktu });
+      const catatan = { waktu: Date.now(), hasil: data };
+      barusanRef.current.set(`${sesi}:${data.participant.qr_code}`, catatan);
+      if (data.qr) barusanRef.current.set(`${sesi}:${data.qr}`, catatan);
+    }
 
     // Cetak otomatis TIDAK berlaku untuk pemindaian ulang: tamu itu sudah
     // memegang badge-nya sejak tadi, dan mencetak lagi hanya menghabiskan
     // gulungan. Cetak ulang tetap tersedia satu ketukan di lembar hasil.
-    const mode = modeRef.current;
+    // Tanpa Bluetooth tidak ada cetak otomatis sama sekali: di sana "mencetak"
+    // berarti membuka lembar bagikan, dan itu ditolak peramban tanpa ketukan.
+    const mode = printerSupported() ? modeRef.current : "off";
     const perlu = mode === "semua" ? beres : mode === "walkin" ? data.status === "created" : false;
     if (perlu && data.participant) void cetakRef.current(data.participant);
-  }, []);
+  }, [pasangLembar]);
+
+  /**
+   * Lembar untuk pemindaian yang tidak menghasilkan jawaban server yang sah.
+   *
+   * Dulu ini sebaris pesan di puncak halaman yang mendorong kamera 76 px ke
+   * bawah, tanpa bunyi, di tempat yang tidak dilihat petugas yang sedang
+   * menatap tamu. Sekarang ia lembar yang sama dengan hasil lain: merah, berbunyi,
+   * dan membawa aksi yang memang menolong.
+   */
+  const tampilGagal = useCallback((qr: string, status: "gagal" | "login" | "ditolak", teks: string, dikirim: number) => {
+    if (status === "gagal") {
+      setOffline(true);
+      // Waktu KIRIM, bukan waktu lembar merah muncul. Jawaban yang hilang paling
+      // sering adalah jawaban yang telat lewat 8 detik, dan server sudah
+      // menyimpannya sebelum lembar merah ini terbuka.
+      gagalRef.current = { qr, waktu: dikirim };
+    }
+    pasangLembar({ status, qr, pesan: teks });
+    bunyikan("galat", suaraRef.current);
+  }, [pasangLembar]);
 
   const kirim = useCallback(async (qr: string): Promise<Hasil | null> => {
     if (!sessionId) { setPesan("Pilih sesi lebih dulu."); return null; }
     setSibuk(true);
+    setMembaca(qr);
+    const dikirim = Date.now();
+    const batas = new AbortController();
+    const pewaktu = window.setTimeout(() => batas.abort(), BATAS_TUNGGU_MS);
     const response = await fetch(eventApiPath("/api/attendance/scan"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -518,45 +710,204 @@ export default function ScanClient() {
       // yang memindai: satu akun petugas dipakai bergantian di beberapa meja,
       // jadi `scanned_by` tidak pernah bisa menjawab "meja yang mana".
       body: JSON.stringify({ session_id: sessionId, qr, lane_id: laneId }),
+      signal: batas.signal,
     }).catch(() => null);
+    window.clearTimeout(pewaktu);
     setSibuk(false);
+    setMembaca(null);
 
-    if (!response) { setPesan("Koneksi terputus. Pemindaian TIDAK tercatat, ulangi."); return null; }
+    if (!response || response.status >= 500) {
+      tampilGagal(qr, "gagal", "Koneksi terputus atau server tidak menjawab, jadi tamu ini BELUM masuk daftar hadir. Tekan Ulangi, atau pindai lagi badge-nya.", dikirim);
+      return null;
+    }
     const body = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      tampilGagal(qr, "login", "Login petugas di ponsel ini sudah habis, jadi pemindaian ini TIDAK tercatat. Login lagi, lalu pindai ulang.", dikirim);
+      return null;
+    }
     if (!response.ok) {
-      setPesan(pesanGalat(body, "Pemindaian gagal. Coba lagi."));
+      tampilGagal(qr, "ditolak", pesanGalat(body, "Server menolak pemindaian ini. Hubungi panitia."), dikirim);
       return null;
     }
 
-    const data = body as Hasil;
-    terapkanHasil(data, sessionId);
+    let data = body as Hasil;
+    // Jawaban percobaan sebelumnya hilang, tetapi server sempat menyimpannya.
+    // "Sudah pernah dipindai" di sini menyesatkan: tamunya baru datang.
+    const gagal = gagalRef.current;
+    const jamServer = Date.parse(response.headers.get("date") ?? "");
+    if (
+      data.status === "duplicate" &&
+      gagal?.qr === qr &&
+      data.scan_count === 2 &&
+      data.first_scan_at &&
+      Number.isFinite(jamServer)
+    ) {
+      // Selisih jam server terhadap tablet, lalu waktu percobaan yang gagal
+      // menurut jam server.
+      const selisih = jamServer - Date.now();
+      const pertama = new Date(data.first_scan_at).getTime();
+      if (pertama >= gagal.waktu + selisih - KELONGGARAN_JAM_MS) data = { ...data, tersimpanSebelumnya: true };
+    }
+    terapkanHasil({ ...data, qr: data.qr ?? qr }, sessionId);
     return data;
-  }, [laneId, sessionId, terapkanHasil]);
+  }, [laneId, sessionId, terapkanHasil, tampilGagal]);
+
+  /**
+   * Pintu masuk setiap kode yang terbaca kamera atau pemindai genggam.
+   *
+   * Dua penahan, keduanya demi tamu yang memegang badge-nya lama di depan lensa:
+   * tahanan bergeser untuk kode yang sama, dan daftar tamu yang tercatat di
+   * ponsel ini dalam 30 detik terakhir.
+   */
+  const terbaca = useCallback((nilai: string, dariPemindaiGenggam = false) => {
+    const sekarang = Date.now();
+    const terakhir = terakhirRef.current;
+    // Tahanan bergeser hanya untuk kamera, yang membaca badge yang sama puluhan
+    // kali per detik. Pemindai genggam mengirim satu kode per tekanan pelatuk,
+    // jadi kode yang sama berarti petugas memang memindainya lagi.
+    if (!dariPemindaiGenggam && terakhir.qr === nilai && sekarang - terakhir.waktu < terakhir.tahan) {
+      terakhir.waktu = sekarang;
+      return;
+    }
+    terakhirRef.current = { qr: nilai, waktu: sekarang, tahan: TAHAN_SUKSES_MS };
+    // Catatan yang lewat jendela dibuang setiap kali dibaca, supaya daftarnya
+    // tidak tumbuh sepanjang hari.
+    for (const [kunci, catatan] of barusanRef.current) {
+      if (sekarang - catatan.waktu >= BARUSAN_MS) barusanRef.current.delete(kunci);
+    }
+    const barusan = barusanRef.current.get(`${sessionRef.current}:${nilai}`);
+    if (barusan) {
+      // Tidak dikirim lagi, tetapi juga tidak diam: lembar hijau tamu itu
+      // dibuka lagi dari ingatan ponsel, dengan bunyinya.
+      pasangLembar(barusan.hasil);
+      bunyikan("ok", suaraRef.current);
+      return;
+    }
+    void kirim(nilai).then((data) => {
+      if (!data && terakhirRef.current.qr === nilai) terakhirRef.current.tahan = TAHAN_GAGAL_MS;
+    });
+  }, [kirim, pasangLembar]);
+
+  const terbacaRef = useRef(terbaca);
+  useEffect(() => { terbacaRef.current = terbaca; });
+
+  // Pemindai genggam yang mengetik kodenya, aktif selama tab Pindai QR terbuka,
+  // termasuk saat lembar hasil menutupi layar.
+  usePemindaiKeyboard(mode === "qr" && !dialogWalkIn, (kode) => terbacaRef.current(kode, true), KOLOM_KODE);
 
   useEffect(() => {
     if (!scanning || mode !== "qr" || !videoRef.current) return;
-    const reader = new BrowserMultiFormatReader();
+    // Hanya QR: membuang format lain memangkas kerja tiap frame. Jeda 150 ms,
+    // bukan 500 ms bawaan zxing; lebih rapat lagi memanaskan Android murah.
+    const petunjuk = new Map([[DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]]]);
+    const reader = new BrowserMultiFormatReader(petunjuk, { delayBetweenScanAttempts: 150, delayBetweenScanSuccess: 150 });
     let berhenti = false;
-    let kontrol: { stop: () => void } | undefined;
+    let kontrol: { stop: () => void; switchTorch?: (nyala: boolean) => Promise<void> } | undefined;
 
     void reader
-      .decodeFromConstraints({ video: { facingMode: { ideal: "environment" } }, audio: false }, videoRef.current, (result) => {
-        if (berhenti || !result) return;
-        const nilai = result.getText().trim();
-        if (!nilai) return;
-        // Kamera TIDAK dimatikan setelah membaca: antrean bergerak terus, dan
-        // menyalakan ulang kamera untuk setiap orang menambah dua detik per
-        // tamu. Yang ditahan hanya pengulangan QR yang sama dalam 2,5 detik.
-        const sekarang = Date.now();
-        if (terakhirRef.current.qr === nilai && sekarang - terakhirRef.current.waktu < 2500) return;
-        terakhirRef.current = { qr: nilai, waktu: sekarang };
-        void kirim(nilai);
+      .decodeFromConstraints(
+        {
+          // `ideal`, bukan nilai pasti: iPhone memilih aliran potretnya sendiri,
+          // dan permintaan pasti yang tidak bisa dipenuhi membuat kamera gagal.
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        },
+        videoRef.current,
+        (result) => {
+          if (berhenti || !result) return;
+          const nilai = result.getText().trim();
+          // Kamera TIDAK dimatikan setelah membaca: antrean bergerak terus, dan
+          // menyalakan ulang kamera untuk setiap orang menambah dua detik per tamu.
+          if (nilai) terbacaRef.current(nilai);
+        },
+      )
+      .then((value) => {
+        kontrol = value;
+        if (berhenti) { kontrol.stop(); return; }
+        kontrolKameraRef.current = kontrol;
+        // Senter hanya muncul bila kameranya memang punya. iPhone dan iPad tidak
+        // pernah melaporkannya ke peramban.
+        setSenter({ ada: typeof kontrol.switchTorch === "function", nyala: false });
       })
-      .then((value) => { kontrol = value; if (berhenti) kontrol.stop(); })
       .catch(() => setPesan("Kamera tidak tersedia atau izinnya ditolak."));
 
-    return () => { berhenti = true; kontrol?.stop(); };
-  }, [kirim, mode, scanning]);
+    return () => {
+      berhenti = true;
+      kontrol?.stop();
+      kontrolKameraRef.current = null;
+      setSenter({ ada: false, nyala: false });
+    };
+  }, [mode, scanning]);
+
+  /**
+   * Layar tidak meredup selama kamera menyala.
+   *
+   * Saat antrean sepi, layar ponsel meredup lalu terkunci, kamera ikut mati, dan
+   * tamu berikutnya menunggu petugas membuka kunci dan menekan Nyalakan kamera.
+   * Peramban melepas kuncinya sendiri saat halaman ke belakang; kamera juga mati
+   * saat itu, dan "Nyalakan kamera" memintanya lagi.
+   */
+  useEffect(() => {
+    if (!scanning) return;
+    let kunci: { release: () => Promise<void> } | null = null;
+    let lepas = false;
+    const wl = (navigator as Navigator & { wakeLock?: { request: (jenis: "screen") => Promise<{ release: () => Promise<void> }> } }).wakeLock;
+    void wl?.request("screen")
+      .then((k) => { if (lepas) void k.release(); else kunci = k; })
+      .catch(() => { /* ditolak atau tidak didukung: layar meredup seperti biasa */ });
+    return () => { lepas = true; void kunci?.release().catch(() => {}); };
+  }, [scanning]);
+
+  async function gantiSenter() {
+    const kontrol = kontrolKameraRef.current;
+    if (!kontrol?.switchTorch) return;
+    const nyala = !senter.nyala;
+    try {
+      await kontrol.switchTorch(nyala);
+      setSenter({ ada: true, nyala });
+    } catch { /* sebagian kamera menolak di tengah jalan; tombolnya tetap */ }
+  }
+
+  function gantiSuara() {
+    const nyala = !suaraRef.current;
+    suaraRef.current = nyala;
+    setSuara(nyala);
+    simpanSuara(nyala);
+    bukaSuara();
+  }
+
+  function gantiTutupOtomatis(nyala: boolean) {
+    setTutupOtomatis(nyala);
+    try {
+      if (nyala) window.localStorage.removeItem(KUNCI_TUTUP);
+      else window.localStorage.setItem(KUNCI_TUTUP, "0");
+    } catch { /* penyimpanan tidak tersedia; pilihan tetap berlaku sesi ini */ }
+  }
+
+  const tutupLembar = useCallback(() => {
+    hasilRef.current = null;
+    setHasil(null);
+  }, []);
+
+  /** Laporan centang dari daftar barang. Nol berarti hasil yang tertahan boleh tampil. */
+  const onCentang = useCallback((jumlah: number) => {
+    centangRef.current = jumlah;
+    const tunggu = tertahanRef.current;
+    if (jumlah === 0 && tunggu) {
+      tertahanRef.current = null;
+      setTertahan(null);
+      pasangLembar(tunggu);
+    }
+  }, [pasangLembar]);
+
+  function lewatiBarang() {
+    const tunggu = tertahanRef.current;
+    if (!tunggu) return;
+    centangRef.current = 0;
+    tertahanRef.current = null;
+    setTertahan(null);
+    pasangLembar(tunggu);
+  }
 
   // Kamera dimatikan begitu layar berpindah ke belakang. Ponsel petugas masuk
   // saku puluhan kali per acara, dan kamera yang tetap menyala di dalam saku
@@ -727,6 +1078,31 @@ export default function ScanClient() {
   const sesiAktif = sessions.find((sesi) => sesi.id === sessionId);
   const hadir = sessionId === null ? null : hadirTerbaru[sessionId] ?? sesiAktif?.hadir ?? null;
   const perluJalur = lanes.length > 0 && laneId === null;
+  const jalurAktif = lanes.find((jalur) => jalur.id === laneId);
+  // Bilah meja terbuka sampai sesi (dan jalur, bila ada) benar-benar dipilih.
+  // Terlipat sebelum itu berarti petugas tidak pernah melihat pertanyaannya.
+  const mejaTerlipat = !mejaTerbuka && sessionId !== null && !perluJalur && !sesiHilang;
+
+  /**
+   * Apakah lembar yang sedang terbuka menutup sendiri.
+   *
+   * Hanya hijau "Tercatat hadir" (bukan walk-in, yang datanya masih perlu
+   * diperiksa), hanya di sesi tanpa barang, tidak selama label dicetak atau
+   * setelah printer gagal (kabarnya hanya ada di lembar ini), tidak bila ada
+   * tamu yang tertahan, dan tidak setelah petugas menyentuh lembarnya. Dengan
+   * cetak otomatis, hitungannya baru mulai setelah labelnya keluar.
+   */
+  const menungguCetakOtomatis = Boolean(label?.enabled) && bisaBluetooth && modeCetak === "semua";
+  const hijau = hasil?.status === "recorded" || Boolean(hasil?.tersimpanSebelumnya);
+  const lembarMenutup =
+    tutupOtomatis &&
+    hijau &&
+    (sesiAktif?.jumlah_barang ?? 0) === 0 &&
+    hitungBatal !== kedip &&
+    tertahan === null &&
+    cetak.fase !== "jalan" &&
+    cetak.fase !== "galat" &&
+    (!menungguCetakOtomatis || cetak.fase === "selesai");
 
   // Keadaan pencarian, seluruhnya diturunkan dari kueri yang sedang diketik dan
   // kunci yang menempel pada hasil terakhir. Tidak ada penanda "sedang memuat"
@@ -737,12 +1113,37 @@ export default function ScanClient() {
   const cariSekarang = cari?.kunci === kunciSekarang ? cari : null;
   const mencari = cukupHuruf && cariSekarang === null;
 
+  // Pewaktu sungguhan, milik satu hasil. Bukan akhir animasi bilahnya: dengan
+  // gerak dikurangi animasinya tidak berjalan, dan lembarnya akan menutup
+  // seketika. Penjaga `=== target` memastikan pewaktu yang basi tidak pernah
+  // menutup lembar tamu berikutnya.
+  useEffect(() => {
+    if (!lembarMenutup || !hasil) return;
+    const target = hasil;
+    const pewaktu = window.setTimeout(() => {
+      if (hasilRef.current !== target) return;
+      hasilRef.current = null;
+      setHasil(null);
+    }, TUTUP_OTOMATIS_MS);
+    return () => window.clearTimeout(pewaktu);
+    // `kedip` ikut: lembar yang dibuka lagi untuk tamu yang sama membawa objek
+    // hasil yang sama, dan pewaktunya harus mulai lagi bersama bilahnya.
+  }, [hasil, kedip, lembarMenutup]);
+
+  const pil = membaca
+    ? { teks: "Terbaca, menyimpan…", nada: "bg-primary text-on-primary" }
+    : terakhirHadir
+      ? { teks: `Terakhir: ${terakhirHadir.nama} · ${jam(terakhirHadir.waktu)}`, nada: "bg-black/60 text-white" }
+      : { teks: "Siap memindai", nada: "bg-black/60 text-white" };
+
   return (
-    <div className="min-h-dvh bg-surface text-on-surface">
+    <div className="scan-teks min-h-dvh bg-surface text-on-surface">
       <TopAppBar
         title="Pemindai kehadiran"
         subtitle={`${eventName || "Memuat..."}${username ? ` · ${username}` : ""}`}
-        actions={<LogoutButton />}
+        // Teks biasa, bukan label tebal: di layar ini subjudul hanya keterangan.
+        subtitleClassName="!font-normal"
+        actions={<LogoutButton size="md" />}
         maxWidth="1280px"
       />
 
@@ -755,41 +1156,99 @@ export default function ScanClient() {
             puncak layar, sehingga bagian yang paling jarang dipakai justru yang
             paling besar. Sekarang ia satu baris setinggi kolom isian.
             ------------------------------------------------------------------- */}
-        <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-surface-container px-3 py-3 sm:px-4">
-          <SelectField
-            label="Sesi kehadiran"
-            value={sessionId ?? ""}
-            onChange={(event) => { setSessionId(Number(event.target.value) || null); setHasil(null); }}
-            className="min-w-0 flex-1 sm:max-w-xs"
+        {mejaTerlipat ? (
+          // Satu tombol setinggi 56 px, seluruh barisnya. "Ganti" di ujungnya
+          // hanya penanda; yang ditekan adalah barisnya.
+          <button
+            type="button"
+            aria-expanded={false}
+            aria-controls="bilah-meja"
+            onClick={() => setMejaTerbuka(true)}
+            className="m3-state flex min-h-14 w-full items-center gap-3 rounded-2xl bg-surface-container pl-5 pr-2 text-left"
           >
-            {sessions.length === 0 ? <option value="">Belum ada sesi</option> : null}
-            {sessions.map((sesi) => <option key={sesi.id} value={sesi.id}>{sesi.name}</option>)}
-          </SelectField>
+            <span className="min-w-0 flex-1 truncate text-body-large">
+              {sesiAktif?.name ?? "Sesi"}
+              {jalurAktif ? <span className="text-on-surface-variant"> · {jalurAktif.name}</span> : null}
+            </span>
+            {offline ? <ChipOffline /> : null}
+            <span className="flex min-h-12 shrink-0 items-center gap-1 rounded-full px-3 text-label-large text-primary">
+              Ganti
+              <CaretDown size={16} aria-hidden />
+            </span>
+          </button>
+        ) : (
+          <div id="bilah-meja" className="rounded-2xl bg-surface-container px-3 py-3 sm:px-4">
+            {/* Lipat lagi hanya setelah semuanya terpilih. Barisnya sendiri di
+                atas, supaya baris kolom di bawahnya tetap sama dengan sebelumnya
+                dan tidak menyempit di ponsel. */}
+            {sessionId !== null && !perluJalur ? (
+              <div className="-mt-1 mb-1 flex items-center justify-between gap-2">
+                <span className="text-title-small text-on-surface-variant">Sesi dan meja ini</span>
+                <IconButton
+                  label="Lipat bilah meja"
+                  aria-expanded
+                  aria-controls="bilah-meja"
+                  onClick={() => { setMejaTerbuka(false); setSesiHilang(false); }}
+                >
+                  <CaretUp size={22} />
+                </IconButton>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-end gap-2">
+              <SelectField
+                label="Sesi kehadiran"
+                value={sessionId ?? ""}
+                onChange={(event) => {
+                  const id = Number(event.target.value) || null;
+                  sessionRef.current = id;
+                  lupakanBarusan();
+                  setSessionId(id);
+                  setSesiHilang(false);
+                  tutupLembar();
+                }}
+                className="min-w-0 flex-1 sm:max-w-xs"
+              >
+                {sessions.length === 0 ? <option value="">Belum ada sesi</option> : null}
+                {/* Tanpa pilihan kosong, peramban menampilkan sesi pertama yang
+                    tersisa sebagai terpilih, dan mengetuknya tidak memicu
+                    perubahan: petugas terkunci sampai halaman dimuat ulang. */}
+                {sessions.length > 0 && sessionId === null ? <option value="">Pilih sesi...</option> : null}
+                {sessions.map((sesi) => <option key={sesi.id} value={sesi.id}>{sesi.name}</option>)}
+              </SelectField>
 
-          {/* Pemilih jalur hanya muncul kalau acara ini memang punya jalur.
-              Acara satu meja tidak boleh dipaksa memahami konsep yang tidak
-              dipakainya: kolom berisi satu pilihan adalah pertanyaan yang
-              jawabannya sudah pasti. */}
-          {lanes.length > 0 ? (
-            <SelectField
-              label="Jalur / meja"
-              value={laneId ?? ""}
-              onChange={(event) => gantiJalur(Number(event.target.value) || null)}
-              error={perluJalur ? "Belum dipilih" : undefined}
-              className="min-w-0 flex-1 sm:max-w-xs"
-            >
-              <option value="">Pilih meja...</option>
-              {lanes.map((jalur) => <option key={jalur.id} value={jalur.id}>{jalur.name}</option>)}
-            </SelectField>
-          ) : null}
+              {/* Pemilih jalur hanya muncul kalau acara ini memang punya jalur.
+                  Acara satu meja tidak boleh dipaksa memahami konsep yang tidak
+                  dipakainya: kolom berisi satu pilihan adalah pertanyaan yang
+                  jawabannya sudah pasti. */}
+              {lanes.length > 0 ? (
+                <SelectField
+                  label="Jalur / meja"
+                  value={laneId ?? ""}
+                  onChange={(event) => gantiJalur(Number(event.target.value) || null)}
+                  error={perluJalur ? "Belum dipilih" : undefined}
+                  className="min-w-0 flex-1 sm:max-w-xs"
+                >
+                  <option value="">Pilih meja...</option>
+                  {lanes.map((jalur) => <option key={jalur.id} value={jalur.id}>{jalur.name}</option>)}
+                </SelectField>
+              ) : null}
 
-          {/* `lg` = 56px, tinggi yang sama persis dengan kolom pilihan di
-              sebelahnya. Ukuran yang lebih kecil menggantung di atas garis dasar
-              kolom dan membuat barisnya terbaca miring. */}
-          <IconButton label="Muat ulang daftar sesi" variant="outlined" size="lg" onClick={() => void muatSesi()}>
-            <ArrowsClockwise size={22} />
-          </IconButton>
-        </div>
+              {/* `lg` = 56px, tinggi yang sama persis dengan kolom pilihan di
+                  sebelahnya. Ukuran yang lebih kecil menggantung di atas garis dasar
+                  kolom dan membuat barisnya terbaca miring. */}
+              <IconButton label="Muat ulang daftar sesi" variant="outlined" size="lg" onClick={() => void muatSesi()}>
+                <ArrowsClockwise size={22} />
+              </IconButton>
+
+              {offline ? <ChipOffline className="self-center" /> : null}
+            </div>
+            {sesiHilang ? (
+              <p role="alert" className="mt-2 text-body-medium text-error">
+                Sesi yang tadi dipilih sudah ditutup. Pilih sesi lagi sebelum memindai.
+              </p>
+            ) : null}
+          </div>
+        )}
 
         {pesan ? (
           <p role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-error-soft p-3 text-body-medium text-on-error-soft">
@@ -798,7 +1257,9 @@ export default function ScanClient() {
           </p>
         ) : null}
 
-        <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        {/* `minmax(0,1fr)` juga di ponsel, bukan kolom `auto`: nama tamu yang
+            panjang tidak boleh melebarkan seluruh halaman. */}
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           {/* ---------------------------------------------------------------
               Panggung
               --------------------------------------------------------------- */}
@@ -811,6 +1272,7 @@ export default function ScanClient() {
             <Tabs<Mode>
               label="Cara mencatat kehadiran"
               idPrefix="mode"
+              size="lg"
               value={mode}
               onChange={gantiMode}
               options={[
@@ -821,7 +1283,10 @@ export default function ScanClient() {
 
             {mode === "qr" ? (
               <div role="tabpanel" id="mode-panel-qr" aria-labelledby="mode-tab-qr" className="space-y-3">
-                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-scrim lg:aspect-video">
+                {/* 4:5 di ponsel supaya bingkai bidiknya besar, dibatasi tinggi
+                    layar supaya tombol dan kolom kode tetap terlihat di ponsel
+                    pendek. Tablet dan layar lebar tetap 4:3 dan 16:9. */}
+                <div className="relative aspect-[4/5] max-h-[52dvh] w-full overflow-hidden rounded-2xl bg-scrim sm:aspect-[4/3] lg:aspect-video">
                   {scanning ? (
                     <>
                       <video
@@ -837,8 +1302,55 @@ export default function ScanClient() {
                           tempat yang ditunjukkan layar, dan yang di tengah
                           adalah yang paling tajam di hampir semua lensa ponsel. */}
                       <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                        <div className="h-[62%] max-h-64 min-h-32 aspect-square rounded-2xl border-2 border-on-primary/70" />
+                        <div
+                          className={`aspect-square h-[62%] max-h-64 min-h-32 rounded-2xl transition-colors ${
+                            membaca ? "border-4 border-primary-fixed-dim bg-white/10" : "border-2 border-on-primary/70"
+                          }`}
+                        />
                       </div>
+
+                      {/* Kabar di atas gambar kamera, tempat mata petugas berada
+                          saat mengarahkan ponsel. Pil di kiri: siap, terbaca dan
+                          menyimpan, atau tamu terakhir yang tercatat. */}
+                      <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+                        <p role="status" className={`flex min-h-8 min-w-0 items-center gap-2 rounded-full px-3 py-1 text-label-large ${pil.nada}`}>
+                          {membaca ? (
+                            <CircleNotch size={16} weight="bold" className="shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
+                          ) : (
+                            <span aria-hidden className="size-2 shrink-0 rounded-full bg-[#4ade80]" />
+                          )}
+                          <span className="truncate">{pil.teks}</span>
+                        </p>
+                        <div className="flex shrink-0 gap-2">
+                          <IconButton
+                            label={suara ? "Suara nyala" : "Suara mati"}
+                            selected={suara}
+                            onClick={gantiSuara}
+                            className="!rounded-full !bg-black/60 !text-white"
+                          >
+                            {suara ? <SpeakerHigh size={22} weight="fill" /> : <SpeakerSlash size={22} weight="fill" />}
+                          </IconButton>
+                          {senter.ada ? (
+                            <IconButton
+                              label={senter.nyala ? "Senter nyala" : "Senter mati"}
+                              selected={senter.nyala}
+                              onClick={() => void gantiSenter()}
+                              className={senter.nyala ? "!rounded-full" : "!rounded-full !bg-black/60 !text-white"}
+                            >
+                              <Flashlight size={22} weight="fill" />
+                            </IconButton>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {membaca ? (
+                        <p
+                          aria-hidden
+                          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-1.5 text-title-medium text-white"
+                        >
+                          {membaca}
+                        </p>
+                      ) : null}
                     </>
                   ) : (
                     <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-on-surface-variant">
@@ -853,7 +1365,7 @@ export default function ScanClient() {
                   size="xl"
                   shape="pill"
                   block
-                  onClick={() => setScanning((current) => !current)}
+                  onClick={() => { bukaSuara(); setScanning((current) => !current); }}
                   disabled={!sessionId}
                   icon={<QrCode size={24} weight="bold" aria-hidden />}
                 >
@@ -862,27 +1374,24 @@ export default function ScanClient() {
 
                 {/* Jalur cadangan di dalam jalur cadangan. Kamera ponsel bisa
                     rusak, badge bisa terlipat, dan antrean tidak berhenti untuk
-                    menunggu keduanya beres. */}
+                    menunggu keduanya beres. `pt-3` menambah jarak tumpukan
+                    jadi 24 px: kamera dan tombolnya satu kelompok, ini yang lain. */}
                 <form
-                  className="flex items-end gap-2"
+                  className="flex items-end gap-2 pt-3"
                   onSubmit={(event) => {
                     event.preventDefault();
                     const form = event.currentTarget;
-                    const kode = String(new FormData(form).get("qr") ?? "").trim();
-                    if (kode) { void kirim(kode); form.reset(); }
+                    const kode = String(new FormData(form).get(KOLOM_KODE) ?? "").trim();
+                    if (kode) { bukaSuara(); void kirim(kode); form.reset(); }
                   }}
                 >
                   <TextField
                     className="min-w-0 flex-1"
                     label="Atau ketik kode peserta"
-                    name="qr"
+                    name={KOLOM_KODE}
                     autoComplete="off"
                     autoCapitalize="characters"
                     placeholder="mis. REG159425"
-                    // Font mono lewat `style`, bukan kelas pada pembungkus:
-                    // pembungkusnya juga memuat label, dan label berhuruf mono
-                    // terbaca sebagai bagian dari kodenya.
-                    style={{ fontFamily: "var(--font-mono), ui-monospace, monospace" }}
                   />
                   <Button type="submit" variant="tonal" size="lg" loading={sibuk} disabled={!sessionId}>
                     Catat
@@ -976,8 +1485,8 @@ export default function ScanClient() {
                               </div>
                               <Button
                                 variant={sudahHadir ? "outlined" : "filled"}
-                                size="sm"
-                                onClick={() => void catatDariCari(baris)}
+                                size="md"
+                                onClick={() => { bukaSuara(); void catatDariCari(baris); }}
                                 loading={mencatatId === baris.id}
                                 disabled={!sessionId || (sibuk && mencatatId !== baris.id)}
                                 icon={<UserCheck size={18} weight="bold" aria-hidden />}
@@ -1052,13 +1561,13 @@ export default function ScanClient() {
                   ) : (
                     <>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <Button variant={printer ? "outlined" : "filled"} size="sm" onClick={() => void sambungPrinter()}>
+                        <Button variant={printer ? "outlined" : "filled"} size="md" onClick={() => void sambungPrinter()}>
                           {printer ? "Sambungkan ulang" : "Sambungkan"}
                         </Button>
                         {/* Menghabiskan satu lembar label, dan itu disebutkan.
                             Uji cetak yang diam-diam memakan label adalah cara
                             tercepat menghabiskan gulungan di pagi hari. */}
-                        <Button variant="text" size="sm" onClick={() => void cetakLabel(UJI_LABEL)}>
+                        <Button variant="text" size="md" onClick={() => void cetakLabel(UJI_LABEL)}>
                           Uji cetak, 1 label
                         </Button>
                       </div>
@@ -1083,29 +1592,44 @@ export default function ScanClient() {
                     </>
                   )}
 
-                  <div className="mt-4">
-                    <p className="text-label-large text-on-surface-variant">Cetak otomatis</p>
-                    <SegmentedButton
-                      className="mt-2"
-                      label="Kapan label dicetak sendiri"
-                      value={modeCetak}
-                      onChange={gantiModeCetak}
-                      options={[
-                        { value: "off" as const, label: "Mati" },
-                        { value: "walkin" as const, label: "Walk-in" },
-                        { value: "semua" as const, label: "Semua" },
-                      ]}
-                    />
-                    <p className="mt-2 text-body-small text-on-surface-variant">
-                      {modeCetak === "off"
-                        ? "Label hanya tercetak kalau tombolnya ditekan."
-                        : modeCetak === "walkin"
-                          ? "Hanya tamu yang didaftarkan di meja ini. Peserta terdaftar sudah punya kodenya."
-                          : "Setiap tamu yang baru tercatat hadir. Pemindaian ulang tidak ikut."}
-                    </p>
-                  </div>
+                  {/* Tanpa Bluetooth tidak ada cetak otomatis: "mencetak" di sana
+                      berarti membuka lembar bagikan, dan peramban menolaknya
+                      tanpa ketukan. Penjelasannya sudah ada di paragraf atas. */}
+                  {bisaBluetooth ? (
+                    <div className="mt-4">
+                      <p className="text-label-large text-on-surface-variant">Cetak otomatis</p>
+                      <SegmentedButton
+                        className="mt-2"
+                        size="lg"
+                        label="Kapan label dicetak sendiri"
+                        value={modeCetak}
+                        onChange={gantiModeCetak}
+                        options={[
+                          { value: "off" as const, label: "Mati" },
+                          { value: "walkin" as const, label: "Walk-in" },
+                          { value: "semua" as const, label: "Semua" },
+                        ]}
+                      />
+                      <p className="mt-2 text-body-small text-on-surface-variant">
+                        {modeCetak === "off"
+                          ? "Label hanya tercetak kalau tombolnya ditekan."
+                          : modeCetak === "walkin"
+                            ? "Hanya tamu yang didaftarkan di meja ini. Peserta terdaftar sudah punya kodenya."
+                            : "Setiap tamu yang baru tercatat hadir. Pemindaian ulang tidak ikut."}
+                      </p>
+                    </div>
+                  ) : null}
                 </>
               ) : null}
+
+              <Divider className="my-4" />
+              {/* Per perangkat, seperti Suara. Meja yang memeriksa setiap tamu
+                  lebih lama dari tiga detik mematikannya di sini. */}
+              <Switch className="!items-center" label={<span className="font-semibold">Tutup otomatis</span>} checked={tutupOtomatis} onChange={gantiTutupOtomatis} />
+              <p className="mt-2 text-body-small text-on-surface-variant">
+                Lembar hijau di sesi tanpa barang menutup sendiri setelah 3 detik; sentuh lembarnya untuk menahan. Suara
+                diatur dari tombol speaker di kamera. Di iPhone, bunyi ikut mati kalau sakelar senyap menyala.
+              </p>
 
               {/* Pemasangan TV hanya muncul kalau jalurnya LEBIH DARI SATU. Kode
                   enam angka menjawab "TV ini melayani meja yang mana", dan
@@ -1115,7 +1639,7 @@ export default function ScanClient() {
                 <>
                   <Divider className="my-4" />
                   <details>
-                    <summary className="m3-state flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg text-title-small">
+                    <summary className="m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 rounded-lg text-title-small">
                       Layar sapa di meja ini
                       <CaretDown size={18} aria-hidden />
                     </summary>
@@ -1137,7 +1661,7 @@ export default function ScanClient() {
                         inputMode="numeric"
                         autoComplete="off"
                         placeholder="000000"
-                        style={{ fontFamily: "var(--font-mono), ui-monospace, monospace", letterSpacing: "0.2em" }}
+                        style={{ letterSpacing: "0.2em" }}
                       />
                       <Button type="submit" variant="tonal" size="lg" loading={memasang} disabled={kodeLayar.length !== 6 || !laneId}>
                         Hubungkan
@@ -1180,14 +1704,25 @@ export default function ScanClient() {
       <ResultSheet
         hasil={hasil}
         kedip={kedip}
-        onTutup={() => setHasil(null)}
+        onTutup={tutupLembar}
         bisaCetak={Boolean(label?.enabled)}
         labelUntukPerangkatIni={bisaBluetooth}
         cetak={cetak}
         onCetak={() => { if (hasil?.participant) void cetakLabel(hasil.participant); }}
         bolehWalkIn={allowWalkIn}
-        onWalkIn={() => { setHasil(null); bukaWalkIn(""); }}
+        onWalkIn={() => { tutupLembar(); bukaWalkIn(""); }}
+        onUlangi={() => {
+          // Langsung ke server, melewati tahanan kode-sama: petugas menekannya
+          // dengan sengaja.
+          const kode = hasil?.qr;
+          if (kode) void kirim(kode);
+        }}
         barang={sessionId !== null && (sesiAktif?.jumlah_barang ?? 0) > 0 ? { sessionId, laneId } : null}
+        onCentang={onCentang}
+        tutupOtomatis={lembarMenutup}
+        onSentuh={() => setHitungBatal(kedip)}
+        tertahan={tertahan}
+        onLewati={lewatiBarang}
       />
 
       <WalkinDialog
