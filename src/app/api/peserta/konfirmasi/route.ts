@@ -2,6 +2,7 @@ import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { confirmEmail, resendConfirmationLink } from "@/lib/member/links";
 import { memberError, requireMemberEvent } from "@/lib/member/api";
+import { linkOrigin } from "@/lib/domain-klien/asal";
 
 /**
  * Tautan "Konfirmasi email" dari email pendaftaran. GET karena dibuka dari
@@ -10,6 +11,8 @@ import { memberError, requireMemberEvent } from "@/lib/member/api";
  */
 export async function GET(request: Request) {
   const event = await getPublicRequestEvent(request);
+  // Origin permintaan, BUKAN linkOrigin: cookie sesi hanya berlaku di host
+  // tempat tautan dibuka, jadi pengalihan harus tetap di host yang sama.
   const asal = new URL(request.url).origin;
   if (!event || !memberConfig(event)) return Response.redirect(new URL("/", asal), 303);
   const token = new URL(request.url).searchParams.get("token") ?? "";
@@ -28,7 +31,7 @@ export async function POST(request: Request) {
     accountId: sesi.accountId,
     email: sesi.email,
     name: sesi.name,
-    requestUrl: request.url,
+    requestUrl: await linkOrigin(request, resolved.event.id),
   });
   switch (hasil.status) {
     case "sent":

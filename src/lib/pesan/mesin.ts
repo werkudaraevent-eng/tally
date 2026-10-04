@@ -43,6 +43,8 @@ export type BlastRow = {
   status: "draf" | "terjadwal" | "mengirim" | "selesai" | "dibatalkan";
   scheduled_at: string | null;
   site_origin: string | null;
+  /** Asal tautan, dibekukan saat masuk antrean (domain klien atau alamat Tally). */
+  link_origin: string | null;
   sent_at: string | null;
   finished_at: string | null;
   created_at: string;
@@ -50,7 +52,7 @@ export type BlastRow = {
 };
 
 export const BLAST_COLUMNS =
-  "id,event_id,title,kind,channel,audience,email_subject,email_body,status,scheduled_at,site_origin,sent_at,finished_at,created_at,updated_at";
+  "id,event_id,title,kind,channel,audience,email_subject,email_body,status,scheduled_at,site_origin,link_origin,sent_at,finished_at,created_at,updated_at";
 
 type RecipientRow = {
   id: number;
@@ -91,12 +93,12 @@ export type EnqueueOutcome =
 export async function enqueueBlast(
   blastId: string,
   event: EventForMail,
-  input: { scheduledAt: string | null; origin: string },
+  input: { scheduledAt: string | null; origin: string; linkOrigin: string },
 ): Promise<EnqueueOutcome> {
   const client = getSupabaseServiceClient();
   const { data: dipindah } = await client
     .from("message_blasts")
-    .update({ status: "terjadwal", scheduled_at: null, site_origin: input.origin, updated_at: new Date().toISOString() } as never)
+    .update({ status: "terjadwal", scheduled_at: null, site_origin: input.origin, link_origin: input.linkOrigin, updated_at: new Date().toISOString() } as never)
     .eq("id", blastId)
     .eq("event_id", event.id)
     .eq("status", "draf")
@@ -108,7 +110,7 @@ export async function enqueueBlast(
   const kembalikan = async () => {
     await client.from("participant_account_tokens").delete().eq("blast_id", blastId).is("used_at", null);
     await client.from("message_blast_recipients").delete().eq("blast_id", blastId);
-    await client.from("message_blasts").update({ status: "draf", site_origin: null } as never).eq("id", blastId);
+    await client.from("message_blasts").update({ status: "draf", site_origin: null, link_origin: null } as never).eq("id", blastId);
   };
 
   try {
@@ -386,7 +388,10 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
       }
       if (kirimKe.length === 0) continue;
 
-      const origin = blast.site_origin ?? "";
+      // Tautan memakai asal yang dibekukan saat antre (temuan QA M4); site_origin
+      // hanya kunci klaim produksi/preview. Kiriman lama tanpa link_origin
+      // memakai site_origin seperti sebelumnya.
+      const origin = blast.link_origin ?? blast.site_origin ?? "";
       const slug = encodeURIComponent(event.slug);
       const nama = publicEventName(event);
       const items: BatchItem[] = kirimKe.map((r) => {

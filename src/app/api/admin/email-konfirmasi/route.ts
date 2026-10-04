@@ -6,6 +6,7 @@ import { bahanKonfirmasi } from "@/lib/email/konfirmasi/konteks";
 import { defaultTemplat, templatSchema, unknownFieldsIn } from "@/lib/email/konfirmasi/templat";
 import { hitungBelumTerima } from "@/lib/email/konfirmasi/tertunda";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { linkOrigin } from "@/lib/domain-klien/asal";
 
 /**
  * Editor email Konfirmasi pendaftaran (Pesan peserta > Email otomatis).
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
   const event = auth.scope.event;
-  const bahan = await bahanKonfirmasi(event.id, new URL(request.url).origin);
+  const bahan = await bahanKonfirmasi(event.id, await linkOrigin(request, event.id));
   if (!bahan) return apiError("FORBIDDEN", 403);
 
   const { data: contoh } = await getSupabaseServiceClient()

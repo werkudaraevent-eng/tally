@@ -7,6 +7,7 @@ import { emailPengumuman } from "@/lib/email/pengumuman";
 import { tabelBelumAda } from "@/lib/member/pengumuman";
 import { allowedByList, messagingAllowlist } from "@/lib/pesan/alamat";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { linkOrigin } from "@/lib/domain-klien/asal";
 
 /**
  * Kirim salinan email satu pengumuman ke akun area peserta sesuai penerimanya.
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
     ...new Set(((akun ?? []) as { email: string }[]).map((baris) => baris.email?.trim().toLowerCase()).filter((email): email is string => Boolean(email) && allowedByList(email, daftarUji))),
   ];
 
-  const origin = new URL(request.url).origin;
+  const origin = await linkOrigin(request, event.id);
   const isi = emailPengumuman({
     eventName: publicEventName(event),
     title: item.title,

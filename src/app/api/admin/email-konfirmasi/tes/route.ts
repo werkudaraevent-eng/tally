@@ -9,6 +9,7 @@ import { templatSchema } from "@/lib/email/konfirmasi/templat";
 import { nilaiKolom } from "@/lib/email/registration-code";
 import { allowedByList, normalizeAddress } from "@/lib/pesan/alamat";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { linkOrigin } from "@/lib/domain-klien/asal";
 
 /**
  * "Kirim tes…" email konfirmasi: satu email ke alamat yang DIKETIK panitia,
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
   if (!allowedByList(alamat)) return apiError("MESSAGE_TEST_NOT_ALLOWED", 403);
 
   const event = auth.scope.event;
-  const origin = new URL(request.url).origin;
+  const origin = await linkOrigin(request, event.id);
   const bahan = await bahanKonfirmasi(event.id, origin);
   if (!bahan) return apiError("FORBIDDEN", 403);
 

@@ -1,3 +1,5 @@
+import { productionSiteOrigin } from "@/lib/domain-klien/situs";
+
 /**
  * Alamat tujuan Pesan peserta: normalisasi nomor WhatsApp dan daftar uji.
  */
@@ -55,9 +57,11 @@ export function messagingAllowlist(): { mode: "off" } | { mode: "list"; entries:
  * Kirim dari alias lain tetap diambil cron dan tautannya memakai domain utama.
  */
 export function serverOrigin(request: Request): string {
-  const domain = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
-  if (messagingAllowlist().mode === "off" && domain) return `https://${domain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
-  return new URL(request.url).origin;
+  // TALLY_SITE_URL lebih dulu: VERCEL_PROJECT_PRODUCTION_URL adalah domain
+  // produksi TERPENDEK, dan domain klien bisa lebih pendek dari domain Tally
+  // (src/lib/domain-klien/situs.ts).
+  const asal = messagingAllowlist().mode === "off" ? productionSiteOrigin() : null;
+  return asal ?? new URL(request.url).origin;
 }
 
 export function allowedByList(address: string, list = messagingAllowlist()): boolean {
