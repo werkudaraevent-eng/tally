@@ -57,6 +57,10 @@ function fokusJudulBaru() {
 export default function RundownAdminPage() {
   const [sections, setSections] = useState<RundownSection[]>([]);
   const [items, setItems] = useState<RundownItem[]>([]);
+  // Jam mulai yang terakhir tersimpan, per id. Suntingan jam yang belum disimpan
+  // hidup di `items`; susun ulang dikunci selama ada yang berbeda dari sini,
+  // karena server menilai slot dari jam yang tersimpan.
+  const [savedStart, setSavedStart] = useState<Map<number, string>>(new Map());
   const [loaded, setLoaded] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
@@ -109,6 +113,7 @@ export default function RundownAdminPage() {
     const data = (await sectionResponse.json()) as Payload;
     setSections(data.sections);
     setItems(data.items);
+    setSavedStart(new Map(data.items.map((item) => [item.id, item.start_time])));
     setActiveId((current) => (current && data.sections.some((row) => row.id === current) ? current : data.sections[0]?.id ?? null));
     // Header yang gagal dimuat tidak menggagalkan seluruh halaman: jadwalnya tetap
     // bisa disusun, dan nilai bawaan tetap aman disimpan.
@@ -133,20 +138,28 @@ export default function RundownAdminPage() {
     return items.filter((item) => item.section_id === activeId).sort(bandingkanBaris);
   }, [items, activeId]);
 
+  // Ada jam mulai yang diubah tetapi belum disimpan di bagian ini.
+  const jamBelumDisimpan = activeItems.some((item) => kunciSlot(item.start_time) !== kunciSlot(savedStart.get(item.id) ?? item.start_time));
+
   // Id baris per slot jam, dalam urutan tampil. Slot berisi satu baris tidak
-  // bisa disusun ulang.
+  // bisa disusun ulang. Kosong selama ada jam yang belum disimpan: slot dari jam
+  // lokal bisa berbeda dari slot di server, dan susunannya akan ditolak.
   const slots = useMemo(() => {
     const peta = new Map<string, number[]>();
+    if (jamBelumDisimpan) return peta;
     for (const item of activeItems) {
       const kunci = kunciSlot(item.start_time);
       peta.set(kunci, [...(peta.get(kunci) ?? []), item.id]);
     }
     return peta;
-  }, [activeItems]);
+  }, [activeItems, jamBelumDisimpan]);
   const adaSlotParalel = [...slots.values()].some((ids) => ids.length > 1);
 
   const selectedItem = activeItems.find((item) => item.id === selectedItemId) ?? null;
   const selectedSlot = selectedItem ? slots.get(kunciSlot(selectedItem.start_time)) ?? [] : [];
+  // Baris lain yang berjam mulai sama dengan baris terpilih menurut jam lokal.
+  // Dipakai untuk menjelaskan kenapa susun ulang terkunci.
+  const selectedSlotLokal = selectedItem ? activeItems.filter((item) => kunciSlot(item.start_time) === kunciSlot(selectedItem.start_time)).length : 0;
 
   // Branding dinormalisasi sebelum diserahkan ke <BrandingEditor>.
   //
@@ -411,12 +424,15 @@ export default function RundownAdminPage() {
     setReordering(false);
     const data = response ? await response.json().catch(() => ({})) : {};
     if (!response?.ok) {
-      // Kembali ke susunan sebelumnya, lalu baca ulang: server menulis baris satu
-      // per satu, jadi kegagalan di tengah bisa meninggalkan sebagian perubahan.
+      // Kembali ke susunan sebelumnya, lalu baca ulang sort_order saja: server
+      // menulis baris satu per satu, jadi kegagalan di tengah bisa meninggalkan
+      // sebagian perubahan. Kolom lain tidak disentuh supaya suntingan yang belum
+      // disimpan tetap ada.
       setItems(before);
-      const failure = failureMessage(data, "The order couldn't be saved.");
+      const failure = (data as { error?: { details?: { message?: string } } }).error?.details?.message ?? "Check your connection and try again.";
       setError(failure); toast.error("Order not saved", failure);
-      await load();
+      const fresh = await fetch("/api/admin/rundown/sections", { cache: "no-store" }).catch(() => null);
+      if (fresh?.ok) apply(((await fresh.json()) as Payload).items);
       return;
     }
     apply((data as { items?: RundownItem[] }).items ?? []);
@@ -424,10 +440,18 @@ export default function RundownAdminPage() {
     setReorderNote(`${moved?.title.trim() || "Row"} moved to position ${ids.indexOf(movedId) + 1} of ${ids.length}.`);
   }
 
-  function moveInSlot(item: RundownItem, direction: -1 | 1) {
+  function moveInSlot(item: RundownItem, direction: -1 | 1, fromPanel = false) {
     const ids = slots.get(kunciSlot(item.start_time)) ?? [];
     const next = geserDalamSlot(ids, item.id, direction);
-    if (next) void reorderSlot(next, item.id);
+    if (!next) return;
+    void reorderSlot(next, item.id);
+    // Baris sampai di ujung slot: tombol yang baru dipakai jadi mati, jadi fokus
+    // dipindah ke tombol arah sebaliknya supaya pengguna keyboard tidak tersesat.
+    if (fromPanel) {
+      const posisi = next.indexOf(item.id);
+      const tujuan = posisi === 0 ? "down" : posisi === next.length - 1 ? "up" : null;
+      if (tujuan) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-move="${tujuan}"]`)?.focus());
+    }
   }
 
   const publishedCount = sections.filter((row) => row.is_published).length;
@@ -465,9 +489,9 @@ export default function RundownAdminPage() {
               return (
                 <div key={item.id}>
                   {paralel && posisi === 0 ? (
-                    <div className="flex items-center gap-2 border-b border-outline-variant py-1.5 pr-4 pl-10 text-body-small text-on-surface-variant">
+                    <div className="flex items-center gap-2 border-b border-outline-variant py-2 pr-4 pl-4 text-body-small pointer-fine:pl-10 text-on-surface-variant">
                       <Stack size={16} aria-hidden />
-                      {slotIds.length} rows start at {kunci}
+                      {slotIds.length} rows start at {formatClock(item.start_time)}
                     </div>
                   ) : null}
                   <div
@@ -493,7 +517,7 @@ export default function RundownAdminPage() {
                     <ListRow
                       selected={item.id === selectedItemId}
                       onSelect={() => { setSelectedItemId(item.id); setPanel("baris"); }}
-                      className={cx("items-start py-3", adaSlotParalel && "pl-10!")}
+                      className={cx("items-start py-3", adaSlotParalel && "pointer-fine:pl-10!")}
                     >
                       <span className="w-28 shrink-0 tabular-nums text-on-surface">
                         {formatClock(item.start_time)}{item.end_time ? `–${formatClock(item.end_time)}` : ""}
@@ -520,9 +544,10 @@ export default function RundownAdminPage() {
                         // keluar setiap kali satu langkah sedang disimpan.
                         draggable={!reordering}
                         aria-disabled={reordering || undefined}
-                        aria-label={`Reorder ${judul}, position ${posisi + 1} of ${slotIds.length} at ${kunci}`}
+                        aria-label={`Reorder ${judul}, position ${posisi + 1} of ${slotIds.length} at ${formatClock(item.start_time)}`}
                         title="Drag to reorder, or use the arrow keys"
-                        className="absolute top-3 left-2 flex size-6 cursor-grab items-center justify-center rounded-md text-on-surface-variant hover:bg-primary-soft hover:text-on-surface active:cursor-grabbing aria-disabled:cursor-default aria-disabled:opacity-40"
+                        aria-describedby="rundown-reorder-hint"
+                        className="absolute top-3 left-2 flex pointer-coarse:hidden size-6 cursor-grab items-center justify-center rounded-md text-on-surface-variant hover:bg-primary-soft hover:text-on-surface active:cursor-grabbing aria-disabled:cursor-default aria-disabled:opacity-40"
                         onKeyDown={(event) => {
                           if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
                           event.preventDefault();
@@ -548,6 +573,7 @@ export default function RundownAdminPage() {
               );
             })}
             <p role="status" className="sr-only">{reorderNote}</p>
+            <span id="rundown-reorder-hint" hidden>Use the up and down arrow keys to move this row among rows with the same start time.</span>
           </div>
         )}
       </PaneBody>
@@ -588,12 +614,17 @@ export default function RundownAdminPage() {
         />
       </div>
       <TextField label="Nama acara" value={selectedItem.title} onChange={(event) => updateItem(selectedItem.id, { title: event.target.value })} />
+      {jamBelumDisimpan && selectedSlotLokal > 1 ? (
+        <p className="border-t border-outline-variant pt-4 text-body-small text-on-surface-variant">
+          Save the time change first to reorder rows that start at {kunciSlot(selectedItem.start_time).slice(0, 5)}.
+        </p>
+      ) : null}
       {selectedSlot.length > 1 ? (
         <div className="flex flex-col gap-2 border-t border-outline-variant pt-4">
           <div>
-            <p className="text-body-medium font-medium text-on-surface">Order at {kunciSlot(selectedItem.start_time)}</p>
+            <p className="text-body-medium font-medium text-on-surface">Order at {formatClock(selectedItem.start_time)}</p>
             <p className="text-body-small text-on-surface-variant">
-              {selectedSlot.indexOf(selectedItem.id) + 1} of {selectedSlot.length} rows that start at {kunciSlot(selectedItem.start_time)}
+              {selectedSlot.indexOf(selectedItem.id) + 1} of {selectedSlot.length} rows that start at {formatClock(selectedItem.start_time)}
             </p>
           </div>
           <div className="flex gap-2">
@@ -601,8 +632,12 @@ export default function RundownAdminPage() {
               variant="outlined"
               size="sm"
               icon={<ArrowUp size={16} />}
-              disabled={reordering || selectedSlot[0] === selectedItem.id}
-              onClick={() => moveInSlot(selectedItem, -1)}
+              data-move="up"
+              // aria-disabled, bukan disabled: tombol yang dinonaktifkan melepas
+              // fokus ke <body>. Klik saat tidak berlaku diabaikan di sini.
+              aria-disabled={reordering || selectedSlot[0] === selectedItem.id || undefined}
+              className="aria-disabled:cursor-default aria-disabled:opacity-40"
+              onClick={() => { if (!reordering && selectedSlot[0] !== selectedItem.id) moveInSlot(selectedItem, -1, true); }}
             >
               Move up
             </Button>
@@ -610,8 +645,10 @@ export default function RundownAdminPage() {
               variant="outlined"
               size="sm"
               icon={<ArrowDown size={16} />}
-              disabled={reordering || selectedSlot[selectedSlot.length - 1] === selectedItem.id}
-              onClick={() => moveInSlot(selectedItem, 1)}
+              data-move="down"
+              aria-disabled={reordering || selectedSlot[selectedSlot.length - 1] === selectedItem.id || undefined}
+              className="aria-disabled:cursor-default aria-disabled:opacity-40"
+              onClick={() => { if (!reordering && selectedSlot[selectedSlot.length - 1] !== selectedItem.id) moveInSlot(selectedItem, 1, true); }}
             >
               Move down
             </Button>

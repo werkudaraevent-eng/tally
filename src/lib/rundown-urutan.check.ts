@@ -43,4 +43,8 @@ assert.deepEqual(pindahDalamSlot([3, 5, 6], 6, 0), [6, 3, 5]);
 assert.deepEqual(pindahDalamSlot([3, 5, 6], 3, 2), [5, 6, 3]);
 assert.equal(pindahDalamSlot([3, 5, 6], 5, 1), null);
 
+// "HH:MM" dari suntingan CMS sama dengan "HH:MM:00" dari database; detik dibedakan.
+assert.equal(bandingkanBaris({ id: 1, start_time: "13:00", sort_order: 9 }, { id: 2, start_time: "13:00:00", sort_order: 1 }) > 0, true);
+assert.equal(bandingkanBaris({ id: 1, start_time: "13:00:30", sort_order: 1 }, { id: 2, start_time: "13:00:00", sort_order: 9 }) > 0, true);
+
 console.log("rundown-urutan ok");

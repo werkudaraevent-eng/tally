@@ -6,14 +6,19 @@
 
 export type BarisUrut = { id: number; start_time: string; sort_order: number };
 
-/** Pembanding urutan jadwal. Jam "HH:MM:SS" dan "HH:MM" sama-sama terurut leksikal. */
-export function bandingkanBaris(a: BarisUrut, b: BarisUrut): number {
-  return a.start_time.slice(0, 5).localeCompare(b.start_time.slice(0, 5)) || a.sort_order - b.sort_order || a.id - b.id;
+/**
+ * Kunci slot: baris berjam mulai sama berbagi slot. Jam dibakukan ke "HH:MM:SS"
+ * (kolom `time` di database), karena suntingan di CMS mengirim "HH:MM". Detiknya
+ * ikut dibandingkan supaya urutan CMS sama persis dengan `.order("start_time")`
+ * di halaman publik.
+ */
+export function kunciSlot(startTime: string): string {
+  return startTime.length === 5 ? `${startTime}:00` : startTime;
 }
 
-/** Kunci slot: baris berjam mulai sama (sampai menit) berbagi slot. */
-export function kunciSlot(startTime: string): string {
-  return startTime.slice(0, 5);
+/** Pembanding urutan jadwal: jam mulai, sort_order, lalu id. */
+export function bandingkanBaris(a: BarisUrut, b: BarisUrut): number {
+  return kunciSlot(a.start_time).localeCompare(kunciSlot(b.start_time)) || a.sort_order - b.sort_order || a.id - b.id;
 }
 
 /**

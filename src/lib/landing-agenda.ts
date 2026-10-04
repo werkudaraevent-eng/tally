@@ -60,7 +60,8 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
     .select("id,title,event_date,sort_order")
     .eq("event_id", eventId)
     .eq("is_published", true)
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
 
   const daftarSeksi = (sections ?? []) as unknown as Array<{ id: number; title: string | null; event_date: string | null }>;
   if (daftarSeksi.length === 0) return [];
