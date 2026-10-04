@@ -107,10 +107,19 @@ export function forgetEventSender(eventId: string) {
   cachePengirim.delete(eventId);
 }
 
-async function configFor(eventId: string | null | undefined): Promise<EmailConfig | null> {
+/**
+ * Alamat pengirim khusus Invitation (EMAIL_FROM_UNDANGAN), di subdomain
+ * terpisah: daftar dingin tidak boleh merusak reputasi email pendaftaran dan
+ * login semua klien. Null bila belum diisi; Invitation terkunci sampai ada.
+ */
+export function invitationFrom(): string | null {
+  return process.env.EMAIL_FROM_UNDANGAN?.trim() || null;
+}
+
+async function configFor(eventId: string | null | undefined, from?: string | null): Promise<EmailConfig | null> {
   const config = emailConfig();
   if (!config) return null;
-  return withEventSender(config, await eventSender(eventId).catch(() => null));
+  return withEventSender(from ? { ...config, from } : config, await eventSender(eventId).catch(() => null));
 }
 
 export async function sendEmail(input: {
@@ -127,8 +136,12 @@ export async function sendEmail(input: {
    * bisa saja berjalan dua kali bersamaan.
    */
   idempotencyKey?: string;
+  /** Alamat pengirim lain dari EMAIL_FROM (Invitation: EMAIL_FROM_UNDANGAN). */
+  from?: string | null;
+  /** Header email tambahan, mis. List-Unsubscribe untuk email undangan. */
+  headers?: Record<string, string>;
 }): Promise<SendResult> {
-  const config = await configFor(input.eventId);
+  const config = await configFor(input.eventId, input.from);
   // Dibedakan dari kegagalan jaringan dengan sengaja: pemanggil memakai ini
   // untuk memutuskan apakah menampilkan "gagal terkirim" (yang menyuruh panitia
   // mencoba lagi) atau "pengiriman email belum diaktifkan" (yang menyuruh
@@ -151,6 +164,7 @@ export async function sendEmail(input: {
         text: input.text,
         ...(config.replyTo ? { reply_to: config.replyTo } : {}),
         ...(input.attachments?.length ? { attachments: input.attachments } : {}),
+        ...(input.headers ? { headers: input.headers } : {}),
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
@@ -257,8 +271,13 @@ export type DetailedBatchResult =
  *   * Hasilnya per email, sesuai urutan masukan, supaya setiap baris penerima
  *     bisa diberi id kiriman atau alasan gagalnya sendiri.
  */
-export async function sendEmailBatchDetailed(items: BatchItem[], idempotencyKey: string, eventId?: string | null): Promise<DetailedBatchResult> {
-  const config = await configFor(eventId);
+export async function sendEmailBatchDetailed(
+  items: BatchItem[],
+  idempotencyKey: string,
+  eventId?: string | null,
+  from?: string | null,
+): Promise<DetailedBatchResult> {
+  const config = await configFor(eventId, from);
   if (!config) return { kind: "not_configured" };
   if (items.length === 0) return { kind: "ok", items: [] };
   if (items.length > BATCH_MAX) throw new Error(`Paling banyak ${BATCH_MAX} email per potongan.`);

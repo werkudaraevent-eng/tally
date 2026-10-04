@@ -1,6 +1,6 @@
 /** Potongan yang dipakai bersama daftar Kiriman, penyusun, dan laporan. */
 
-export type BlastStatus = "draf" | "terjadwal" | "mengirim" | "selesai" | "dibatalkan";
+export type BlastStatus = "draf" | "terjadwal" | "mengirim" | "selesai" | "dibatalkan" | "dijeda";
 
 export const BLAST_STATUS_LABEL: Record<BlastStatus, string> = {
   draf: "Draf",
@@ -8,6 +8,7 @@ export const BLAST_STATUS_LABEL: Record<BlastStatus, string> = {
   mengirim: "Sedang dikirim",
   selesai: "Selesai",
   dibatalkan: "Dibatalkan",
+  dijeda: "Dijeda",
 };
 
 export const BLAST_STATUS_TONE: Record<BlastStatus, "neutral" | "primary" | "success" | "warning" | "error"> = {
@@ -16,15 +17,20 @@ export const BLAST_STATUS_TONE: Record<BlastStatus, "neutral" | "primary" | "suc
   mengirim: "primary",
   selesai: "success",
   dibatalkan: "neutral",
+  dijeda: "warning",
 };
 
 export function audienceLabel(audience: { jenis?: string; label?: string; perusahaan?: string[]; ids?: string[] } | null) {
   const dasar =
     audience?.jenis === "belum_masuk"
       ? "Belum pernah masuk"
-      : audience?.jenis === "manual"
-        ? audience.label || `${audience.ids?.length ?? 0} peserta dipilih`
-        : "Semua peserta";
+      : audience?.jenis === "belum_dikirim"
+        ? "Tamu yang belum dikirim"
+        : audience?.jenis === "belum_daftar"
+          ? "Tamu yang belum daftar"
+          : audience?.jenis === "manual"
+            ? audience.label || `${audience.ids?.length ?? 0} peserta dipilih`
+            : "Semua peserta";
   const perusahaan = audience?.perusahaan ?? [];
   if (perusahaan.length === 0) return dasar;
   return `${dasar} · ${perusahaan.length === 1 ? perusahaan[0] : `${perusahaan.length} perusahaan`}`;

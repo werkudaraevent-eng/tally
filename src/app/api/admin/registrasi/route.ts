@@ -12,6 +12,7 @@ import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { resolveFormTheme } from "@/lib/registration-theme-css";
 import { linkOrigin } from "@/lib/domain-klien/asal";
+import { invitationSettings, undanganBelumAda } from "@/lib/undangan/data";
 
 /** Yang dipakai formulir dari Tema halaman acara, plus status area peserta. */
 function tampilanFormulir(landing: EventLandingConfig | null) {
@@ -66,6 +67,10 @@ const fieldSchema = z.object({
 const configSchema = z.object({
   registration_enabled: z.boolean().optional(),
   registration_auto_approve: z.boolean().optional(),
+  // Tamu undangan (migrasi 202610040007). Hanya ditulis bila dikirim, jadi
+  // pemanggil lama tetap jalan sebelum migrasinya ada.
+  registration_access: z.enum(["terbuka", "undangan"]).optional(),
+  invitation_auto_approve: z.boolean().optional(),
   // Opsional supaya pemanggil lama yang hanya menyalakan/mematikan pendaftaran
   // tidak ikut mengosongkan seluruh susunan form.
   form: z
@@ -118,6 +123,10 @@ export async function GET(request: Request) {
     client.from("event_settings").select("registration_email").eq("event_id", eventId).maybeSingle(),
   ]);
   if (result.error) return apiError("INTERNAL_ERROR", 500);
+  const undangan = await invitationSettings(eventId);
+  const { count: jumlahTamu } = undangan.ready
+    ? await client.from("event_invitations").select("id", { head: true, count: "exact" }).eq("event_id", eventId).is("deleted_at", null)
+    : { count: 0 };
 
   // Kode peserta ikut dikirim untuk baris yang sudah disetujui. Tetap dikirim
   // meskipun email sudah aktif: email bisa masuk spam, salah ketik, atau
@@ -162,6 +171,9 @@ export async function GET(request: Request) {
       // Ringkasan Tema halaman acara untuk kartu "Tampilan mengikuti Tema" di
       // Atur formulir. Hanya yang dipakai formulir; mengubahnya tetap di Tema.
       tampilan: tampilanFormulir(auth.scope.event.landing_config as EventLandingConfig | null),
+      // Tamu undangan: mode pendaftaran, sakelar tamu langsung disetujui, dan
+      // jumlah tamu untuk tab dan konfirmasi ganti mode. Null = migrasi belum ada.
+      undangan: undangan.ready ? { access: undangan.access, auto_approve: undangan.autoApprove, count: jumlahTamu } : null,
       email_konfirmasi: ringkasanEmail(setelanEmail.error ? null : (setelanEmail.data as { registration_email: unknown } | null)?.registration_email ?? null),
     },
     // Dibaca dari env, bukan dari data. Layar moderasi memakainya untuk memilih
@@ -270,11 +282,16 @@ export async function PATCH(request: Request) {
       ...(sumberBaru ? { participant_source: sumberBaru } : {}),
       ...(formConfig ? { registration_form_config: formConfig } : {}),
       ...autoApprove,
+      ...(parsed.data.registration_access !== undefined ? { registration_access: parsed.data.registration_access } : {}),
+      ...(parsed.data.invitation_auto_approve !== undefined ? { invitation_auto_approve: parsed.data.invitation_auto_approve } : {}),
       updated_at: new Date().toISOString(),
     } as never)
     .eq("id", event.id)
     .select("registration_enabled,registration_auto_approve,registration_form_config,participant_source")
     .single();
+  if (error && (parsed.data.registration_access !== undefined || parsed.data.invitation_auto_approve !== undefined) && undanganBelumAda(error)) {
+    return apiError("INVITATIONS_NOT_READY", 409);
+  }
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   await client.from("audit_logs").insert({

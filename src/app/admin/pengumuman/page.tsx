@@ -37,7 +37,7 @@ import { BLAST_STATUS_LABEL, BLAST_STATUS_TONE, audienceLabel, waktu, type Blast
 type Item = {
   id: string;
   title: string;
-  kind: "undangan" | "info";
+  kind: "undangan" | "info" | "invitation";
   channel: "email" | "whatsapp" | "keduanya";
   audience: { jenis?: string; label?: string; perusahaan?: string[] } | null;
   status: BlastStatus;
@@ -179,7 +179,9 @@ export default function KirimanPage() {
                         "–"
                       ) : (
                         <>
-                          {item.signed_in} <span className="text-on-surface-variant">({Math.round((item.signed_in / item.recipients) * 100)}%)</span>
+                          {item.signed_in}
+                          {item.kind === "invitation" ? " daftar" : null}{" "}
+                          <span className="text-on-surface-variant">({Math.round((item.signed_in / item.recipients) * 100)}%)</span>
                         </>
                       )}
                     </TableCell>
