@@ -1,7 +1,6 @@
 "use client";
 
 import { CaretRight, Check } from "@phosphor-icons/react";
-import Link from "next/link";
 import { useId, useState, useSyncExternalStore } from "react";
 import { Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, usePopoverAnchor } from "@/components/m3";
 import { applyTheme, readTheme, type ThemePreference } from "@/lib/m3/theme";
@@ -11,8 +10,10 @@ import { cx } from "@/lib/m3/cx";
 /**
  * Menu akun di ujung kanan bilah atas.
  *
- * Menampung hal-hal yang BUKAN tujuan navigasi: siapa yang sedang login, tema,
- * pengaturan, dan keluar. Sebelumnya ketiganya tinggal di kaki drawer dan
+ * Menampung hal-hal yang BUKAN tujuan navigasi: siapa yang sedang login, versi
+ * aplikasi, tema, dan keluar. Pengaturan acara sengaja tidak di sini: menu avatar
+ * hanya untuk akun pribadi, dan "Pengaturan akun" yang membuka setelan acara
+ * membuat panitia mencari setelan di tempat yang salah. Sebelumnya ketiganya tinggal di kaki drawer dan
  * memakan ~170px dari ruang yang sama dengan daftar menu.
  *
  * Nama akun yang sedang login sebelumnya TIDAK ADA di mana pun di layar admin.
@@ -22,8 +23,8 @@ import { cx } from "@/lib/m3/cx";
  *
  * ---- Kenapa tanpa ikon di itemnya -----------------------------------------
  *
- * Menu ini berisi empat baris, dan keempatnya sudah dibedakan oleh kata. Ikon
- * roda gigi di sebelah "Pengaturan akun" tidak menambah satu pun informasi;
+ * Menu ini berisi tiga baris, dan ketiganya sudah dibedakan oleh kata. Ikon
+ * di sebelah "Appearance" tidak menambah satu pun informasi;
  * yang ia tambahkan adalah kolom 24px di kiri yang memundurkan semua teks, dan
  * satu bentuk lagi untuk dipindai mata sebelum sampai ke katanya.
  */
@@ -105,13 +106,13 @@ function SubmenuTampilan({ tutupInduk }: { tutupInduk: () => void }) {
 export function UserMenu({
   username,
   role,
-  settingsHref,
+  version,
   onLogout,
   loggingOut,
 }: {
   username: string | null;
   role: string | null;
-  settingsHref: string;
+  version?: string;
   onLogout: () => void;
   loggingOut?: boolean;
 }) {
@@ -152,13 +153,10 @@ export function UserMenu({
             {role ? (
               <p className="mt-0.5 truncate text-label-medium text-on-surface-variant">{ROLE_LABEL[role as UserRole] ?? role}</p>
             ) : null}
+            {version ? <p className="mt-0.5 text-label-medium text-[var(--press-ink-faint)]">Tally v{version}</p> : null}
           </div>
 
           <div className="my-1 border-t border-outline-variant" />
-
-          <Link href={settingsHref} role="menuitem" onClick={menu.tutup} className={POPOVER_ITEM}>
-            Account settings
-          </Link>
 
           <SubmenuTampilan tutupInduk={menu.tutup} />
 

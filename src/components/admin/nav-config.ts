@@ -41,6 +41,11 @@ export type NavItem = {
   description: string;
   ownerOnly?: boolean;
   /**
+   * Halaman tingkat workspace, bukan milik satu acara. Tautannya tidak diberi
+   * awalan `/e/<slug>`: User & role berlaku untuk semua acara sekaligus.
+   */
+  global?: boolean;
+  /**
    * Sub-halaman yang benar-benar ada.
    *
    * Hanya dua induk yang punya, dan keduanya punya alasan yang sama: aturan
@@ -174,14 +179,15 @@ export const navigation: NavGroup[] = [
  * Halaman yang TIDAK ada di sidebar, tetapi tetap butuh judul dan tetap harus
  * bisa ditemukan lewat palet perintah.
  *
- * Pengaturan dicapai lewat menu akun di pojok kanan; User & role lewat palet
- * perintah dan tautan di kepala halaman Pengaturan. Keduanya dibuka sekali saat
- * menyiapkan sistem lalu nyaris tidak disentuh lagi selama acara berjalan;
- * sidebar disisakan untuk tujuan yang benar-benar ditekan panitia sepanjang hari.
+ * Event settings tinggal di kaki sidebar (satu baris dengan tombol sematan),
+ * bukan di daftar menu: ia dibuka sekali saat menyiapkan acara, dan memasukkannya
+ * ke daftar akan mendorong Participant area ke bawah lipatan 1280x588.
+ * Users & roles berada di tingkat workspace (`/users`), dibuka dari pemilih
+ * acara, kepala halaman Events, dan tautan di Event settings.
  */
 export const halamanSistem: NavItem[] = [
-  { href: "/admin/settings", label: "Settings", icon: GearSix, description: "Time zone, order flow, payment methods, integrations, and the audit trail.", alias: ["pengaturan", "setelan"] },
-  { href: "/admin/users", label: "Users & roles", icon: ShieldCheck, description: "Staff accounts, their roles, and PIN resets.", alias: ["user & role", "pengguna", "panitia"] },
+  { href: "/admin/settings", label: "Event settings", icon: GearSix, description: "Time zone, order flow, payment methods, integrations, and the audit trail.", alias: ["pengaturan", "setelan"] },
+  { href: "/users", global: true, label: "Users & roles", icon: ShieldCheck, description: "Staff accounts, their roles, and PIN resets.", alias: ["user & role", "pengguna", "panitia"] },
 ];
 
 /**

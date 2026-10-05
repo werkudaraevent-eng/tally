@@ -151,7 +151,7 @@ export function CommandPalette({
     // hanya membuat orang menimbang mana yang benar.
     const terlihat = new Set<string>();
     const halaman: Hasil[] = [];
-    const tambah = (item: { href: string; label: string; icon: NavIcon; alias?: string[] }, konteks: string, aliasGrup: string[] = []) => {
+    const tambah = (item: { href: string; label: string; icon: NavIcon; alias?: string[]; global?: boolean }, konteks: string, aliasGrup: string[] = []) => {
       if (terlihat.has(item.href)) {
         // Href kembar (induk dan sub-halaman pertamanya): baris yang tampil
         // tetap satu, tetapi alias keduanya ikut, supaya "hadiah" yang milik
@@ -166,7 +166,7 @@ export function CommandPalette({
         label: item.label,
         konteks,
         icon: item.icon,
-        href: `${eventPrefix}${item.href}`,
+        href: item.global ? item.href : `${eventPrefix}${item.href}`,
         path: item.href,
         grup: "halaman",
         alias: [...(item.alias ?? []), ...aliasGrup],

@@ -13,7 +13,7 @@ for (const p of ["/e/ilo/rundown", "/e/ilo/denah", "/e/ilo/vote", "/e/ilo/kode/a
 assert.deepEqual(putuskan("/daftar"), { kind: "layani", pathname: "/daftar", addSlugQuery: true });
 assert.deepEqual(putuskan("/daftar", "eventSlug=ilo"), { kind: "layani", pathname: "/daftar", addSlugQuery: false });
 // Ruang kerja panitia, API admin, dan acara lain tidak pernah dilayani.
-for (const p of ["/admin", "/admin/settings", "/login", "/booth", "/cashier", "/scan", "/api/admin/domain", "/api/cron/pesan", "/api/settings", "/e/acara-lain", "/e/acara-lain/rundown", "/e/ilo/admin/settings", "/e/ilo/booth", "/e/ilo/api/admin/domain", "/stasiun", "/cetak-badge", "/e/ilo/stasiun", "/e/ilo/cetak-badge"]) {
+for (const p of ["/admin", "/admin/settings", "/login", "/booth", "/cashier", "/scan", "/api/admin/domain", "/api/cron/pesan", "/api/settings", "/e/acara-lain", "/e/acara-lain/rundown", "/e/ilo/admin/settings", "/e/ilo/booth", "/e/ilo/api/admin/domain", "/stasiun", "/cetak-badge", "/e/ilo/stasiun", "/e/ilo/cetak-badge", "/users", "/e/ilo/users"]) {
   assert.equal(putuskan(p).kind, "tolak", p);
 }
 assert.equal(putuskan("/daftar", "eventSlug=lain").kind, "tolak");

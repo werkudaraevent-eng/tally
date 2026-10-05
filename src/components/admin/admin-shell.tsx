@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowSquareOut, List, SidebarSimple, Storefront, X } from "@phosphor-icons/react";
+import { GearSix, List, Question, SidebarSimple, Storefront, X } from "@phosphor-icons/react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { IconButton, TopAppBar } from "@/components/m3";
@@ -569,10 +570,13 @@ export function AdminShell({
           />
         </nav>
 
-        {/* Kaki. Satu baris, tanpa pembungkus baris kedua.
-            Sebelumnya tautan panduan berdiri sendiri di atas nomor versi, dan
-            pada rel 260px "Panduan sistem" pecah jadi dua baris tepat di belakang
-            lencana peralatan pengembang. `whitespace-nowrap` menutup itu. */}
+        {/* Kaki. Satu baris 48px: sematan, Event settings, panduan.
+            Event settings duduk di sini, bukan di daftar menu dan bukan di menu
+            avatar: ia tujuan acara (bukan akun pribadi), dibuka sekali saat
+            persiapan, dan menaruhnya di daftar akan mendorong Participant area
+            ke bawah lipatan 1280x588. Baris ini sudah ada, jadi biayanya 0px.
+            Nomor versi (pertanyaan pertama saat panitia melaporkan masalah lewat
+            WhatsApp) pindah ke tooltip panduan dan kepala menu akun. */}
         <div className="m3-drawer-foot flex shrink-0 items-center gap-1 border-t border-outline-variant px-2">
           <button
             type="button"
@@ -584,31 +588,38 @@ export function AdminShell({
             aria-label={pinned ? "Unpin sidebar (Ctrl B)" : "Pin sidebar (Ctrl B)"}
             title={pinned ? "Unpin sidebar (Ctrl B)" : "Pin sidebar (Ctrl B)"}
             aria-pressed={pinned}
-            className={`hidden size-8 shrink-0 items-center justify-center rounded-sm transition-colors duration-150 hover:bg-[var(--press-hover)] lg:flex ${
+            className={`m3-foot-pin hidden size-8 shrink-0 items-center justify-center rounded-sm transition-colors duration-150 hover:bg-[var(--press-hover)] lg:flex ${
               pinned ? "text-on-surface" : "text-on-surface-variant"
             }`}
           >
             <SidebarSimple size={18} weight={pinned ? "fill" : "regular"} />
           </button>
 
+          <Link
+            href={`${eventPrefix}/admin/settings`}
+            onClick={onNavigate}
+            aria-current={logicalPathname.startsWith("/admin/settings") ? "page" : undefined}
+            title="Event settings"
+            className={`m3-nav-item m3-foot-settings flex min-h-9 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 text-body-medium text-on-surface transition-colors duration-150 ${
+              logicalPathname.startsWith("/admin/settings") ? "bg-[var(--press-active)] font-medium" : "hover:bg-[var(--press-hover)]"
+            }`}
+          >
+            <GearSix size={18} className="shrink-0 text-on-surface-variant" />
+            <span className="m3-nav-label min-w-0 flex-1 truncate text-left">Event settings</span>
+          </Link>
           <a
             href={`${eventPrefix}/panduan/sistem`}
             target="_blank"
             rel="noreferrer"
             // Dibuka di tab baru: panitia yang membacanya sedang berdiri di meja
             // registrasi dengan halaman kerja yang belum selesai di tab sebelah.
-            className="m3-rail-hide flex min-w-0 items-center gap-1 whitespace-nowrap rounded-sm px-1.5 py-1 text-label-medium text-on-surface-variant hover:bg-[var(--press-hover)]"
+            // Nomor versi menumpang di tooltip ini dan di kepala menu akun.
+            aria-label="System guide (opens in a new tab)"
+            title={`System guide · Tally v${versi}`}
+            className="m3-rail-hide flex size-8 shrink-0 items-center justify-center rounded-sm text-on-surface-variant hover:bg-[var(--press-hover)]"
           >
-            System guide
-            <ArrowSquareOut
- size={12} className="shrink-0" />
+            <Question size={18} />
           </a>
-          {/* Versinya ada karena ia pertanyaan pertama saat panitia melaporkan
-              masalah lewat WhatsApp, dan sebelumnya tidak ada satu pun tempat di
-              layar yang bisa menjawabnya. */}
-          <p className="m3-rail-hide ml-auto shrink truncate whitespace-nowrap pr-1 text-label-medium text-[var(--press-ink-faint)]">
-            Tally v{versi}
-          </p>
         </div>
       </aside>
 
@@ -644,7 +655,7 @@ export function AdminShell({
               <UserMenu
                 username={akun?.username ?? null}
                 role={akun?.role ?? null}
-                settingsHref={`${eventPrefix}/admin/settings`}
+                version={versi}
                 onLogout={() => void logout()}
                 loggingOut={loggingOut}
               />
