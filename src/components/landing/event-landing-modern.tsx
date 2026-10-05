@@ -301,6 +301,8 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 const awal = bagian.items[0]?.time;
                 const akhir = rentangAkhir(bagian);
                 const catatan = config.program_notes?.[index]?.trim();
+                // Program yang isinya jeda semua tidak diberi "0 sesi".
+                const sesiProgram = jumlahSesi(bagian.items, orangSesi);
                 return (
                   <li
                     key={bagian.sectionTitle ?? index}
@@ -312,7 +314,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                           {akhir && akhir !== awal ? `${awal} – ${akhir}` : awal} {zona}
                         </span>
                       ) : null}
-                      <span className={CHIP}>{t.sessions(jumlahSesi(bagian.items, orangSesi))}</span>
+                      {sesiProgram > 0 ? <span className={CHIP}>{t.sessions(sesiProgram)}</span> : null}
                     </div>
                     <h3 className="text-balance text-headline-medium font-medium">
                       {bagian.sectionTitle || t.part(index + 1)}

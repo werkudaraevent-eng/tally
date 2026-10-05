@@ -1146,11 +1146,11 @@ export default function LandingCmsPage() {
         <p className="mt-1.5 text-body-medium text-on-surface-variant">
           {mediaTentang === "auto"
             ? landing.banner_url
-              ? "The hero image (KV) with a figure on top: the first figure in Highlights, or the number of agenda sessions. Breaks such as registration and lunch are not counted."
-              : "A panel in the page colour with a figure: the first figure in Highlights, or the number of agenda sessions. Breaks such as registration and lunch are not counted."
+              ? "The hero image (KV) with a figure on top: the first figure in Key figures, or the number of agenda sessions. Breaks such as registration and lunch are not counted."
+              : "A panel in the page colour with a figure: the first figure in Key figures, or the number of agenda sessions. Breaks such as registration and lunch are not counted."
             : mediaTentang === "image"
               ? "Shown as uploaded, without a figure on top."
-              : "The description spans the full width."}
+              : "The description stands alone, without an image."}
         </p>
       </div>
       {mediaTentang === "image" ? (
