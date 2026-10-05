@@ -1,7 +1,6 @@
 "use client";
 
 import { CheckCircle, Copy, Plus, ShieldCheck, X, XCircle } from "@phosphor-icons/react";
-import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ROLE_LABEL } from "@/lib/domain";
 import {
@@ -55,34 +54,21 @@ const BATAS_ACARA = 2;
  * Akses per acara (user_event_access) di samping peran global. Booth ikut ditulis
  * di sebelah acaranya, karena booth adalah milik acara, bukan milik akun.
  */
-function AksesAcara({ user, canManage }: { user: User; canManage: boolean }) {
+function AksesAcara({ user }: { user: User }) {
   if (user.role === "super_admin") return <span className="text-on-surface-variant">All events</span>;
   const daftar = user.events ?? [];
   if (daftar.length === 0) return <span className="text-on-surface-variant">No events yet</span>;
   const tampil = daftar.slice(0, BATAS_ACARA);
   const sisa = daftar.length - tampil.length;
   return (
-    <ul className="min-w-0 space-y-0.5">
-      {tampil.map((event) => {
-        const ekstra = [event.role !== user.role ? ROLE_LABEL[event.role] : null, event.booth_code ? `Booth ${event.booth_code}` : null].filter(Boolean).join(" · ");
-        return (
-          <li key={event.id} className="flex min-w-0 items-baseline gap-1.5">
-            {canManage ? (
-              <Link
-                href={`/events/${event.id}/access`}
-                onClick={(klik) => klik.stopPropagation()}
-                className="min-w-0 truncate rounded-sm text-primary hover:underline"
-              >
-                {event.name}
-              </Link>
-            ) : (
-              <span className="min-w-0 truncate">{event.name}</span>
-            )}
-            {ekstra ? <span className="shrink-0 text-body-small text-on-surface-variant">{ekstra}</span> : null}
-          </li>
-        );
-      })}
-      {sisa > 0 ? <li className="text-body-small text-on-surface-variant">+{sisa} more</li> : null}
+    <ul className="flex min-w-0 flex-wrap gap-1">
+      {tampil.map((event) => (
+        <li key={event.id} className="inline-flex h-6 min-w-0 max-w-full items-center gap-1 rounded-md border border-outline-variant bg-surface px-2 text-body-small text-on-surface">
+          <span className="min-w-0 truncate">{event.name}</span>
+          {event.booth_code ? <span className="shrink-0 text-on-surface-variant">· {event.booth_code}</span> : null}
+        </li>
+      ))}
+      {sisa > 0 ? <li className="inline-flex h-6 items-center px-1 text-body-small text-on-surface-variant">+{sisa}</li> : null}
     </ul>
   );
 }
@@ -350,7 +336,7 @@ export function UsersPanel() {
                     </td>
                     <td className="border-b border-outline-variant px-3 py-2.5">{ROLE_LABEL[user.role]}</td>
                     <td className="max-w-[360px] border-b border-outline-variant px-3 py-2.5">
-                      <AksesAcara user={user} canManage={canManage} />
+                      <AksesAcara user={user} />
                     </td>
                     <td className="border-b border-outline-variant px-3 py-2.5">
                       {user.is_active ? <StatusChip dot tone="success">Active</StatusChip> : <StatusChip dot tone="neutral">Inactive</StatusChip>}
@@ -411,6 +397,25 @@ export function UsersPanel() {
       </DetailSection>
     );
 
+    const isiAkses = (
+      <div className="mt-2">
+        {perluAcara ? (
+          <AksesAcaraEditor
+            rows={draft.rows}
+            role={draft.role as EventRole}
+            onChange={(rows) => setDraft((current) => current && { ...current, rows })}
+            events={events}
+            booths={booths}
+            onNeedBooths={pastikanBooth}
+          />
+        ) : (
+          <div>
+            <p className="m3-field-label text-label-large font-semibold text-on-surface">Event access</p>
+            <p className="mt-1.5 text-body-medium text-on-surface">All events, including ones created later.</p>
+          </div>
+        )}
+      </div>
+    );
     const bagianPeran = (
       <DetailSection>
         <SelectField
@@ -425,28 +430,10 @@ export function UsersPanel() {
         >
           {ROLE_ORDER.map((role) => <option key={role} value={role}>{ROLE_LABEL[role]}</option>)}
         </SelectField>
+        {isiAkses}
       </DetailSection>
     );
 
-    const bagianAcara = (
-      <DetailSection
-        title="Events"
-        action={perluAcara && draft.rows.length > 0 ? <span className="text-body-small tabular-nums text-on-surface-variant">{draft.rows.length} {draft.rows.length === 1 ? "event" : "events"}</span> : undefined}
-      >
-        {perluAcara ? (
-          <AksesAcaraEditor
-            rows={draft.rows}
-            role={draft.role as EventRole}
-            onChange={(rows) => setDraft((current) => current && { ...current, rows })}
-            events={events}
-            booths={booths}
-            onNeedBooths={pastikanBooth}
-          />
-        ) : (
-          <p className="text-body-medium text-on-surface-variant">Every event, including ones created later.</p>
-        )}
-      </DetailSection>
-    );
 
     const tombolSimpan = (
       <Button type="submit" form="form-akun" size="sm" loading={saving} disabled={saveDisabled}>
@@ -480,7 +467,6 @@ export function UsersPanel() {
               {pesanGalat}
               {bagianMasuk}
               {bagianPeran}
-              {bagianAcara}
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-t border-outline-variant px-5 py-3">
               <p className="min-w-0 flex-1 text-body-medium text-on-surface-variant max-sm:basis-full">{catatanSimpan}</p>
@@ -512,8 +498,7 @@ export function UsersPanel() {
             {canManage ? (
               <>
                 {bagianPeran}
-                {bagianAcara}
-                {bagianMasuk}
+                  {bagianMasuk}
                 <DetailSection>
                   <Switch checked={draft.is_active} onChange={(is_active) => setDraft((current) => current && { ...current, is_active })} label="Active" description="Inactive accounts cannot sign in." />
                 </DetailSection>

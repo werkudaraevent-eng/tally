@@ -1,8 +1,8 @@
 "use client";
 
-import { MagnifyingGlass, Plus, X } from "@phosphor-icons/react";
-import { useId, useState, type KeyboardEvent } from "react";
-import { Button, IconButton, Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
+import { CaretDown, Check, X } from "@phosphor-icons/react";
+import { useId, useRef, useState, type KeyboardEvent } from "react";
+import { Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
 import { EVENT_STATUS_LABEL } from "@/lib/domain";
 import { cx } from "@/lib/m3/cx";
 
@@ -16,18 +16,16 @@ const SELECT =
   "h-9 min-w-0 rounded-md border border-outline bg-surface px-2 text-body-medium text-on-surface focus:border-primary";
 
 /**
- * Akses per acara sebagai BARIS, satu baris per acara: nama acara, dan untuk
- * Booth staff booth-nya di acara itu. Perannya satu untuk seluruh akun (dipilih
- * di atas daftar ini), karena peran global juga menentukan layar tujuan setelah
- * masuk; peran berbeda per acara membuat keduanya bisa tidak sejalan.
+ * "Event access" sebagai SATU kolom pilihan ganda dengan chip, seperti kolom To
+ * di Gmail atau Labels di Jira: acara terpilih tampil sebagai chip yang bisa
+ * dihapus di dalam kolom, dan klik kolom membuka daftar acara bercari dengan
+ * tanda centang. Hanung menolak dua bentuk sebelumnya (daftar centang dan baris
+ * per acara) karena tidak terasa seperti kolom formulir biasa.
  *
- * Pola penugasan seperti "Assign projects" di Vercel dan "Add to team" di
- * GitHub: yang ditambahkan adalah acara tempat orang ini bekerja, lewat menu
- * bercari, bukan centang di daftar SEMUA acara milik semua klien.
- *
- * Acara ditambahkan lewat menu bercari, yang hanya menawarkan acara yang belum
- * punya baris; satu acara tidak bisa muncul dua kali karena kunci tabelnya
- * (user_id, event_id).
+ * Perannya satu untuk seluruh akun (dipilih di atas kolom ini), karena peran
+ * global juga menentukan layar tujuan setelah masuk. Untuk Booth staff, booth
+ * adalah milik acara, jadi pilihannya muncul sebagai daftar ringkas "Booth per
+ * event" di bawah kolom, satu pilihan per acara terpilih.
  */
 export function AksesAcaraEditor({
   rows,
@@ -44,159 +42,145 @@ export function AksesAcaraEditor({
   booths: DaftarBooth;
   onNeedBooths: (event: AcaraPilihan) => void;
 }) {
-  const [pemicu, setPemicu] = useState<HTMLSpanElement | null>(null);
-  const menu = usePopoverAnchor(pemicu);
+  const [kolom, setKolom] = useState<HTMLDivElement | null>(null);
+  const menu = usePopoverAnchor(kolom);
+  const masukan = useRef<HTMLInputElement | null>(null);
   const [cari, setCari] = useState("");
   const [sorot, setSorot] = useState(0);
-  const idDaftar = useId();
+  const id = useId();
+  const idDaftar = `${id}-list`;
 
-  const sudah = new Set(rows.map((row) => row.event_id));
-  const tersisa = events.filter((event) => !sudah.has(event.id));
+  const terpilih = new Set(rows.map((row) => row.event_id));
   const kata = cari.trim().toLowerCase();
-  const tawaran = kata ? tersisa.filter((event) => event.name.toLowerCase().includes(kata)) : tersisa;
+  const tawaran = kata ? events.filter((event) => event.name.toLowerCase().includes(kata)) : events;
+  const nama = (eventId: string) => events.find((event) => event.id === eventId)?.name ?? "Archived event";
 
-  function setBooth(index: number, booth_id: number | null) {
-    onChange(rows.map((row, i) => (i === index ? { ...row, booth_id } : row)));
+  function buka() {
+    if (menu.open) return;
+    // Layar 588px: kolom digulir ke atas wadahnya dulu, supaya daftar punya
+    // ruang terbuka ke bawah dan tidak menutupi Role di atasnya.
+    kolom?.scrollIntoView({ block: "start", behavior: "instant" });
+    menu.buka();
   }
 
-  function tambah(event: AcaraPilihan) {
-    if (role === "booth") onNeedBooths(event);
-    onChange([...rows, { event_id: event.id, booth_id: null }]);
+  function alih(event: AcaraPilihan) {
+    if (terpilih.has(event.id)) {
+      onChange(rows.filter((row) => row.event_id !== event.id));
+    } else {
+      if (role === "booth") onNeedBooths(event);
+      onChange([...rows, { event_id: event.id, booth_id: null }]);
+    }
     setCari("");
-    setSorot(0);
-    menu.tutup();
-    menu.fokus();
+    masukan.current?.focus();
+    // Chip baru bisa menambah baris kolom; ukur ulang supaya daftar tetap
+    // menempel di bawah kolom, tidak menutupinya.
+    window.requestAnimationFrame(() => menu.buka());
   }
 
-  // Combobox ARIA 1.2: fokus tetap di kolom cari, panah memindah sorotan di
-  // daftar, Enter memilih yang disorot, Esc menutup (ditangani Popover).
+  function setBooth(eventId: string, booth_id: number | null) {
+    onChange(rows.map((row) => (row.event_id === eventId ? { ...row, booth_id } : row)));
+  }
+
+  // Combobox ARIA 1.2: fokus tetap di kolom ketik, panah memindah sorotan,
+  // Enter mencentang atau melepas yang disorot, Backspace di kolom kosong
+  // melepas chip terakhir, Esc menutup (ditangani Popover).
   function tombol(peristiwa: KeyboardEvent<HTMLInputElement>) {
     if (peristiwa.key === "ArrowDown" || peristiwa.key === "ArrowUp") {
       peristiwa.preventDefault();
+      buka();
       if (tawaran.length === 0) return;
       const arah = peristiwa.key === "ArrowDown" ? 1 : -1;
       setSorot((sekarang) => (sekarang + arah + tawaran.length) % tawaran.length);
     } else if (peristiwa.key === "Enter") {
       peristiwa.preventDefault();
-      const pilihan = tawaran[Math.min(sorot, tawaran.length - 1)];
-      if (pilihan) tambah(pilihan);
+      const pilihan = menu.open ? tawaran[Math.min(sorot, tawaran.length - 1)] : undefined;
+      if (pilihan) alih(pilihan);
+      else buka();
+    } else if (peristiwa.key === "Escape" && menu.open) {
+      // Esc pertama hanya menutup daftar, bukan dialog di sekelilingnya. Dialog
+      // mendengar Esc di document, tempat React juga memasang pendengarnya
+      // (akar App Router adalah document), jadi stopPropagation tidak cukup:
+      // pendengar lain di simpul yang sama harus dihentikan juga.
+      peristiwa.preventDefault();
+      peristiwa.nativeEvent.stopImmediatePropagation();
+      menu.tutup();
+    } else if (peristiwa.key === "Backspace" && cari === "" && rows.length > 0) {
+      onChange(rows.slice(0, -1));
+      if (menu.open) window.requestAnimationFrame(() => menu.buka());
     }
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      {rows.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-outline-variant px-3 py-3 text-body-medium text-on-surface-variant">
-          No events yet. Add the events this person works at.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {rows.map((row, index) => {
-            const event = events.find((item) => item.id === row.event_id);
-            const daftar = booths[row.event_id];
-            return (
-              <li key={row.event_id} className="rounded-lg border border-outline-variant px-3 py-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-body-medium font-medium text-on-surface">{event?.name ?? "Archived event"}</span>
-                  {event ? (
-                    <span className="shrink-0 text-body-small text-on-surface-variant">
-                      {EVENT_STATUS_LABEL[event.status as keyof typeof EVENT_STATUS_LABEL] ?? event.status}
-                    </span>
-                  ) : null}
-                  <IconButton size="sm" label={`Remove ${event?.name ?? "event"}`} onClick={() => onChange(rows.filter((_, i) => i !== index))}>
-                    <X size={16} />
-                  </IconButton>
-                </div>
-                {role === "booth" ? (
-                  <div className="mt-1.5">
-                    {daftar === "loading" || daftar === undefined ? (
-                      <span className="text-body-small text-on-surface-variant">Loading booths…</span>
-                    ) : daftar === "error" ? (
-                      <span className="text-body-small text-error">Booths could not be loaded.</span>
-                    ) : daftar.length === 0 ? (
-                      <span className="text-body-small text-error">No booths at this event yet. Add one in Booths &amp; items first.</span>
-                    ) : (
-                      <select
-                        aria-label={`Booth at ${event?.name ?? "this event"}`}
-                        aria-invalid={!row.booth_id}
-                        aria-describedby={!row.booth_id ? `${idDaftar}-booth-${index}` : undefined}
-                        className={cx(SELECT, "w-full", !row.booth_id && "border-error text-on-surface-variant")}
-                        value={row.booth_id ?? ""}
-                        onChange={(change) => setBooth(index, change.target.value ? Number(change.target.value) : null)}
-                      >
-                        <option value="">Choose a booth</option>
-                        {daftar.map((booth) => <option key={booth.id} value={booth.id}>{booth.code} · {booth.name}</option>)}
-                      </select>
-                    )}
-                    {row.booth_id || !Array.isArray(daftar) || daftar.length === 0 ? null : (
-                      <p id={`${idDaftar}-booth-${index}`} className="mt-1 text-body-small text-error">Choose their booth at this event.</p>
-                    )}
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span ref={setPemicu} className="inline-flex">
-          <Button
-            type="button"
-            variant="outlined"
-            size="sm"
-            icon={<Plus size={16} weight="bold" />}
-            disabled={tersisa.length === 0}
-            onClick={() => { setSorot(0); menu.toggle(); }}
+    <div className="flex flex-col gap-3">
+      <div>
+        <label htmlFor={id} className="m3-field-label flex items-baseline gap-2 text-label-large font-semibold text-on-surface">Event access</label>
+        <div
+          ref={setKolom}
+          onClick={() => { masukan.current?.focus(); buka(); }}
+          className={cx(
+            "mt-1.5 flex min-h-9 w-full cursor-text flex-wrap items-center gap-1 rounded-lg border bg-surface-container-lowest py-[3px] pl-1 pr-8 relative transition-[border-color,box-shadow] duration-150",
+            menu.open ? "border-primary shadow-[0_0_0_3px_color-mix(in_srgb,var(--md-sys-color-primary)_15%,transparent)]" : "border-outline",
+          )}
+        >
+          {rows.map((row) => (
+            <span key={row.event_id} className="inline-flex h-7 max-w-full items-center gap-1 rounded-md border border-outline-variant bg-surface pl-2 pr-0.5 text-label-large text-on-surface">
+              <span className="min-w-0 truncate">{nama(row.event_id)}</span>
+              <button
+                type="button"
+                aria-label={`Remove ${nama(row.event_id)}`}
+                onClick={(klik) => { klik.stopPropagation(); onChange(rows.filter((item) => item.event_id !== row.event_id)); }}
+                className="flex size-6 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-on-surface/8"
+              >
+                <X size={14} />
+              </button>
+            </span>
+          ))}
+          <input
+            ref={masukan}
+            id={id}
+            role="combobox"
             aria-expanded={menu.open}
-            aria-haspopup="dialog"
-          >
-            Add event
-          </Button>
-        </span>
-        {tersisa.length === 0 && events.length > 0 ? (
-          <span className="text-body-small text-on-surface-variant">Every event is already added.</span>
-        ) : null}
+            aria-controls={idDaftar}
+            aria-autocomplete="list"
+            aria-activedescendant={menu.open && tawaran.length > 0 ? `${idDaftar}-${Math.min(sorot, tawaran.length - 1)}` : undefined}
+            aria-describedby={`${id}-hint`}
+            value={cari}
+            onChange={(change) => { setCari(change.target.value); setSorot(0); buka(); }}
+            onKeyDown={tombol}
+            placeholder={rows.length === 0 ? "Choose events" : ""}
+            className="h-7 min-w-[8ch] flex-1 bg-transparent px-2 focus-visible:!shadow-none focus-visible:!outline-none text-body-large text-on-surface outline-none placeholder:text-on-surface-variant/70"
+          />
+          <CaretDown size={16} aria-hidden className={cx("pointer-events-none absolute right-2.5 top-2.5 text-on-surface-variant transition-transform", menu.open && "rotate-180")} />
+        </div>
+        <p id={`${id}-hint`} className="mt-2 text-body-small text-on-surface-variant">
+          {rows.length === 0 ? "They only see the events chosen here." : `${rows.length} ${rows.length === 1 ? "event" : "events"}. They only see these.`}
+        </p>
       </div>
+
       {menu.open ? (
-        <Popover anchor={menu} label="Add event" role="dialog" align="start" width={340}>
-          <div className="p-2">
-            <label className="flex h-9 items-center gap-2 rounded-md border border-outline px-2 focus-within:border-primary">
-              <MagnifyingGlass size={16} className="shrink-0 text-on-surface-variant" />
-              <input
-                autoFocus
-                role="combobox"
-                aria-expanded
-                aria-controls={idDaftar}
-                aria-autocomplete="list"
-                aria-activedescendant={tawaran.length > 0 ? `${idDaftar}-${Math.min(sorot, tawaran.length - 1)}` : undefined}
-                value={cari}
-                onChange={(change) => { setCari(change.target.value); setSorot(0); }}
-                onKeyDown={tombol}
-                placeholder="Search events"
-                aria-label="Search events"
-                className="min-w-0 flex-1 bg-transparent text-body-medium outline-none"
-              />
-            </label>
-          </div>
+        <Popover anchor={menu} label="Choose events" role="dialog" align="start" width={menu.rect?.width}>
           <p role="status" className="sr-only">{tawaran.length === 1 ? "1 event" : `${tawaran.length} events`}</p>
-          <ul id={idDaftar} role="listbox" aria-label="Events" className="max-h-64 overflow-y-auto pb-1">
+          <ul id={idDaftar} role="listbox" aria-label="Events" aria-multiselectable className="max-h-64 overflow-y-auto py-1">
             {tawaran.length === 0 ? (
               <li role="presentation" className="px-4 py-3 text-body-medium text-on-surface-variant">No matching events.</li>
             ) : tawaran.map((event, index) => {
               const aktif = index === Math.min(sorot, tawaran.length - 1);
+              const dipilih = terpilih.has(event.id);
               return (
                 <li
                   key={event.id}
                   id={`${idDaftar}-${index}`}
                   role="option"
-                  aria-selected={aktif}
+                  aria-selected={dipilih}
                   onMouseDown={(klik) => klik.preventDefault()}
                   onMouseEnter={() => setSorot(index)}
-                  onClick={() => tambah(event)}
-                  className={cx(POPOVER_ITEM, "cursor-pointer", aktif && "bg-primary-soft")}
+                  onClick={() => alih(event)}
+                  className={cx(POPOVER_ITEM, "cursor-pointer gap-3", aktif && "bg-on-surface/8")}
                 >
-                  <span className="min-w-0 flex-1 truncate text-left">{event.name}</span>
+                  <span className={cx("flex size-5 shrink-0 items-center justify-center", dipilih ? "text-primary" : "text-transparent")}>
+                    <Check size={18} weight="bold" />
+                  </span>
+                  <span className={cx("min-w-0 flex-1 truncate text-left", dipilih && "font-medium")}>{event.name}</span>
                   <span className="shrink-0 text-body-small text-on-surface-variant">
                     {EVENT_STATUS_LABEL[event.status as keyof typeof EVENT_STATUS_LABEL] ?? event.status}
                   </span>
@@ -205,6 +189,41 @@ export function AksesAcaraEditor({
             })}
           </ul>
         </Popover>
+      ) : null}
+
+      {role === "booth" && rows.length > 0 ? (
+        <div>
+          <p className="text-label-large font-semibold text-on-surface">Booth per event</p>
+          <ul className="mt-1.5 flex flex-col gap-1.5">
+            {rows.map((row) => {
+              const daftar = booths[row.event_id];
+              const galat = !row.booth_id && Array.isArray(daftar) && daftar.length > 0;
+              return (
+                <li key={row.event_id} className="flex min-w-0 items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-body-medium text-on-surface">{nama(row.event_id)}</span>
+                  {daftar === "loading" || daftar === undefined ? (
+                    <span className="text-body-small text-on-surface-variant">Loading booths…</span>
+                  ) : daftar === "error" ? (
+                    <span className="text-body-small text-error">Booths could not be loaded.</span>
+                  ) : daftar.length === 0 ? (
+                    <span className="text-body-small text-error">No booths yet</span>
+                  ) : (
+                    <select
+                      aria-label={`Booth at ${nama(row.event_id)}`}
+                      aria-invalid={galat || undefined}
+                      className={cx(SELECT, "w-44 shrink-0", galat && "border-error text-on-surface-variant")}
+                      value={row.booth_id ?? ""}
+                      onChange={(change) => setBooth(row.event_id, change.target.value ? Number(change.target.value) : null)}
+                    >
+                      <option value="">Choose a booth</option>
+                      {daftar.map((booth) => <option key={booth.id} value={booth.id}>{booth.code} · {booth.name}</option>)}
+                    </select>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       ) : null}
     </div>
   );

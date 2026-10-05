@@ -12,7 +12,6 @@ import { AdminBarSlotsProvider, AdminHeaderScrollProvider, AdminPageProvider } f
 import { CommandPalette, QuickSearchButton } from "@/components/admin/quick-search";
 import { SidebarNav } from "@/components/admin/sidebar-nav";
 import { useOpenGroups, usePinnedSidebar, useRecents } from "@/components/admin/sidebar-store";
-import { ShareAcara } from "./share-acara";
 import { UserMenu } from "@/components/admin/user-menu";
 
 /**
@@ -657,7 +656,6 @@ export function AdminShell({
           actions={
             <>
               <div ref={setSlotAksi} className="contents" />
-              {isOwner && eventAktif?.id ? <ShareAcara eventId={eventAktif.id} eventName={eventAktif.name} /> : null}
               <UserMenu
                 username={akun?.username ?? null}
                 role={akun?.role ?? null}
