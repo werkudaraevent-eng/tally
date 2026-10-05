@@ -1881,7 +1881,10 @@ html:hover {
 	}
 }
 .press .m3-topbar-row { min-block-size: 3.5rem; }
-.press .m3-drawer-head { block-size: 3.5rem; }
+/* Kepala rel = baris bilah atas (56px) + garis bawahnya (1px). Bilah atas
+ * menaruh garisnya DI LUAR baris 56px, kepala ini memakai border-box; tanpa
+ * +1px garis rel berhenti 1px lebih tinggi daripada garis bilah. */
+.press .m3-drawer-head { block-size: calc(3.5rem + 1px); }
 .press .m3-drawer-foot { block-size: 3rem; }
 
 /* Tajuk kelompok navigasi: 13px, bobot 500, abu tersier, tanpa garis pemisah.
