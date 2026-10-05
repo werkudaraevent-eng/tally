@@ -195,11 +195,13 @@ export function DeretPembicara({ orang, lang, namaTampil = false }: { orang: Lan
     // namaTampil: di bawah judul dengan nama di semua lebar layar (tabel
     // Susunan acara tata letak Forum tidak punya kolom kanan untuk foto).
     <div className={namaTampil ? "mt-2 flex items-center gap-3" : "mt-3 flex items-center gap-3 sm:col-start-2 lg:col-start-3 lg:row-start-1 lg:-mt-1 lg:self-start"} title={orang.map((speaker) => speaker.name.trim()).join(", ")}>
+      {/* Tumpang 4px, bukan 8px: cincin 3px ikut menutup foto di kirinya,
+          jadi pada 8px huruf kedua inisial terpotong ("PO" terbaca "PC"). */}
       <ul aria-hidden className="flex shrink-0 pl-px">
         {tampil.map((speaker, index) => (
           <li
             key={`${speaker.name}-${index}`}
-            className="-ml-2 flex size-8 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--reg-primary)_14%,var(--reg-surface))] text-[11px] font-semibold text-[var(--reg-primary)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--reg-on-surface)_24%,var(--reg-surface)),0_0_0_3px_var(--reg-surface)] first:ml-0"
+            className="-ml-1 flex size-8 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--reg-primary)_14%,var(--reg-surface))] text-[10px] font-semibold text-[var(--reg-primary)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--reg-on-surface)_24%,var(--reg-surface)),0_0_0_3px_var(--reg-surface)] first:ml-0"
           >
             {speaker.photo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -210,7 +212,7 @@ export function DeretPembicara({ orang, lang, namaTampil = false }: { orang: Lan
           </li>
         ))}
         {sisa > 0 ? (
-          <li className="-ml-2 flex size-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--reg-outline-variant)_45%,var(--reg-surface))] text-[12px] font-medium text-[var(--reg-on-surface-variant)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--reg-on-surface)_24%,var(--reg-surface)),0_0_0_3px_var(--reg-surface)]">
+          <li className="-ml-1 flex size-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--reg-outline-variant)_45%,var(--reg-surface))] text-[12px] font-medium text-[var(--reg-on-surface-variant)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--reg-on-surface)_24%,var(--reg-surface)),0_0_0_3px_var(--reg-surface)]">
             +{sisa}
           </li>
         ) : null}
