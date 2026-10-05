@@ -3,6 +3,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { isEmailConfigured, sendEmail } from "./client";
 import type { EventTimeZone } from "@/lib/timezone";
 import type { FieldKey } from "@/lib/pesan/bawaan";
+import { bahasaEmail, type EmailLang } from "./konfirmasi/bahasa";
 import { bahanKonfirmasi, type BahanKonfirmasi } from "./konfirmasi/konteks";
 import { renderKonfirmasi, type RenderContext } from "./konfirmasi/render";
 import { defaultTemplat } from "./konfirmasi/templat";
@@ -54,6 +55,8 @@ type Input = {
   akunUrl?: string | null;
   /** Lihat sendEmail. Hanya "Kirim ke mereka…" yang mengisinya. */
   idempotencyKey?: string;
+  /** Bahasa formulir yang baru disimpan (pendaftaran baru); selain itu dibaca dari barisnya. */
+  lang?: EmailLang;
 };
 
 export async function sendRegistrationCode(input: Input): Promise<EmailDelivery> {
@@ -77,10 +80,11 @@ export async function sendRegistrationCode(input: Input): Promise<EmailDelivery>
     qrPng = null;
   }
 
+  const dasar = bahan.konteks(await bahasaPendaftar(bahan, input.registrationId, input.lang));
   const email = susunAman(bahan, {
-    ...bahan.dasar,
+    ...dasar,
     state: "approved",
-    values: nilaiKolom(bahan.dasar.eventName, bahan.dasar.detail.tanggal, input.name, input.company ?? null),
+    values: nilaiKolom(dasar.eventName, dasar.detail.tanggal, input.name, input.company ?? null, dasar.lang),
     qr: { code: input.qrCode, src: qrPng ? `cid:${QR_CID}` : null },
     codeUrl: input.codeUrl ?? null,
     akunUrl: input.akunUrl ?? null,
@@ -127,6 +131,7 @@ export async function sendRegistrationReceived(input: {
   company?: string | null;
   requestUrl: string;
   akunUrl?: string | null;
+  lang?: EmailLang;
 }): Promise<EmailDelivery> {
   return kirimTanpaQr("pending", input);
 }
@@ -150,16 +155,17 @@ export async function sendRegistrationRejected(input: {
 
 async function kirimTanpaQr(
   state: "pending" | "rejected",
-  input: { eventId: string; registrationId: string; to: string; name: string; company?: string | null; requestUrl: string; akunUrl?: string | null; actorId?: string | null },
+  input: { eventId: string; registrationId: string; to: string; name: string; company?: string | null; requestUrl: string; akunUrl?: string | null; actorId?: string | null; lang?: EmailLang },
 ): Promise<EmailDelivery> {
   if (!isEmailConfigured()) return { state: "not_configured" };
   const bahan = await bahanKonfirmasi(input.eventId, new URL(input.requestUrl).origin);
   if (!bahan) return { state: "failed", error: "Acara tidak ditemukan." };
   if (state === "pending" ? !bahan.kirimMenunggu : !bahan.templat.kirim_ditolak) return { state: "disabled" };
+  const dasar = bahan.konteks(await bahasaPendaftar(bahan, input.registrationId, input.lang));
   const email = susunAman(bahan, {
-    ...bahan.dasar,
+    ...dasar,
     state,
-    values: nilaiKolom(bahan.dasar.eventName, bahan.dasar.detail.tanggal, input.name, input.company ?? null),
+    values: nilaiKolom(dasar.eventName, dasar.detail.tanggal, input.name, input.company ?? null, dasar.lang),
     qr: null,
     codeUrl: null,
     akunUrl: input.akunUrl ?? null,
@@ -178,6 +184,21 @@ async function kirimTanpaQr(
 const QR_CID = "kode-peserta-qr";
 
 /**
+ * Bahasa email untuk satu pendaftaran: aturan "Email language" acara, lalu
+ * bahasa formulir yang tersimpan. NULL, kolom belum ada (migrasi belum jalan),
+ * atau gagal dibaca = Indonesia, supaya kirim ulang pendaftar lama tidak
+ * berubah bahasa.
+ */
+async function bahasaPendaftar(bahan: BahanKonfirmasi, registrationId: string, baru?: EmailLang): Promise<EmailLang> {
+  const aturan = bahan.templat.bahasa;
+  if (aturan !== "ikuti") return aturan;
+  if (baru) return baru;
+  const { data, error } = await getSupabaseServiceClient().from("event_registrations").select("language").eq("id", registrationId).maybeSingle();
+  if (error) return "id";
+  return bahasaEmail(aturan, (data as { language: string | null } | null)?.language ?? null);
+}
+
+/**
  * Templat panitia bila bisa disusun; bila tidak (data lama yang aneh, bug
  * penyusun), templat bawaan acara. Pendaftar tetap menerima email; panitia
  * melihat jejaknya di log server.
@@ -191,8 +212,8 @@ function susunAman(bahan: BahanKonfirmasi, ctx: RenderContext) {
   }
 }
 
-export function nilaiKolom(acara: string, tanggal: string | null, nama: string, perusahaan: string | null): Record<FieldKey, string> {
-  return { nama: nama.trim() || "Peserta", perusahaan: perusahaan?.trim() || "", acara, tanggal: tanggal ?? "" };
+export function nilaiKolom(acara: string, tanggal: string | null, nama: string, perusahaan: string | null, lang: EmailLang = "id"): Record<FieldKey, string> {
+  return { nama: nama.trim() || (lang === "en" ? "Participant" : "Peserta"), perusahaan: perusahaan?.trim() || "", acara, tanggal: tanggal ?? "" };
 }
 
 /**

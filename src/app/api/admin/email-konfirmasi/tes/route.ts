@@ -23,6 +23,8 @@ const schema = z.object({
   state: z.enum(["approved", "pending", "rejected"]),
   templat: templatSchema,
   sebagai: z.string().uuid().nullable().optional(),
+  /** Bahasa yang sedang diedit; tes mengirim versi yang sedang dilihat panitia. */
+  lang: z.enum(["id", "en"]).default("id"),
 });
 
 export async function POST(request: Request) {
@@ -53,10 +55,11 @@ export async function POST(request: Request) {
 
   const kode = "CONTOH-0000";
   const qr = (await QRCode.toBuffer(kode, { errorCorrectionLevel: "H", margin: 4, width: 480 })).toString("base64");
+  const dasar = bahan.konteks(parsed.data.lang);
   const email = renderKonfirmasi(parsed.data.templat, {
-    ...bahan.dasar,
+    ...dasar,
     state: parsed.data.state,
-    values: nilaiKolom(bahan.dasar.eventName, bahan.dasar.detail.tanggal, contoh.name, contoh.company),
+    values: nilaiKolom(dasar.eventName, dasar.detail.tanggal, contoh.name, contoh.company, dasar.lang),
     qr: parsed.data.state === "approved" ? { code: kode, src: "cid:kode-peserta-qr" } : null,
     codeUrl: parsed.data.state === "approved" ? `${origin}/e/${encodeURIComponent(event.slug)}` : null,
     akunUrl: bahan.memberOn ? `${origin}/e/${encodeURIComponent(event.slug)}` : null,
