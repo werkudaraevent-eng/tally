@@ -334,6 +334,12 @@ export async function PATCH(request: Request) {
   // acara tidak bisa membuka apa pun.
   const perluDaftar = nextRole !== current.role && (nextRole === "booth" || current.role === "super_admin");
   if (perluDaftar && !parsed.data.events) return apiError("VALIDATION_ERROR", 422, { message: "Add the events for this role." });
+  // Menjadi Booth staff tanpa acara aktif: baris arsip tanpa booth akan dihapus
+  // dan tidak ada acara yang bisa diberi booth, jadi akunnya tertinggal tanpa
+  // acara. Pesan "pilih booth" di bawah tidak bisa dipenuhi dari layar.
+  if (nextRole === "booth" && current.role !== "booth" && parsed.data.events?.length === 0) {
+    return apiError("VALIDATION_ERROR", 422, { message: "Add an active event first." });
+  }
   const nextBoothId = nextRole !== "booth" ? null
     : (parsed.data.events ? boothLama(nextRole, parsed.data.events) : null) ?? parsed.data.booth_id ?? current.booth_id;
   if (nextRole === "booth" && !nextBoothId) return apiError("VALIDATION_ERROR", 422, { message: "Choose a booth for each event." });
@@ -362,13 +368,17 @@ export async function PATCH(request: Request) {
   if (typeof parsed.data.is_active === "boolean") update.is_active = parsed.data.is_active;
   if (parsed.data.pin) update.pin_hash = await bcrypt.hash(parsed.data.pin, PIN_HASH_ROUNDS);
 
-  // Akun ditulis dulu, lalu barisnya. Bila baris gagal, akun dikembalikan ke
-  // keadaan sebelumnya (kecuali PIN baru, yang tetap berlaku), supaya peran akun
-  // dan peran di barisnya tidak tertinggal berbeda.
+  // Akun ditulis dulu, lalu barisnya. Bila baris gagal, akun DAN barisnya
+  // dikembalikan ke keadaan sebelumnya (kecuali PIN baru, yang tetap berlaku),
+  // dari salinan yang diambil di sini.
+  const salinan = await client.from("user_event_access").select("user_id,event_id,role,booth_id,granted_at,granted_by").eq("user_id", current.id);
+  if (salinan.error) return apiError("INTERNAL_ERROR", 500);
+  const barisAwal = (salinan.data ?? []) as { event_id: string; booth_id: number | null }[];
   const { data, error } = await client.from("users").update(update as never).eq("id", parsed.data.id).select("id,username,role,booth_id,is_active").single();
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   let barisOk = true;
+  let dihapusArsip: string[] = [];
   if (parsed.data.events || nextRole === "super_admin") {
     // Naik ke Super admin menghapus semua baris (tanpa baris = semua acara).
     barisOk = await tulisAkses(client, current.id, nextRole, parsed.data.events ?? [], auth.user.id);
@@ -380,8 +390,9 @@ export async function PATCH(request: Request) {
     // Booth staff. Menjadi Booth staff: baris tanpa booth (hanya mungkin baris
     // arsip, baris aktif sudah ber-booth) tidak sah untuk peran itu dan dihapus.
     if (nextRole === "booth") {
-      const { error: galatTanpaBooth } = await client.from("user_event_access").delete().eq("user_id", current.id).is("booth_id", null);
+      const { data: terhapus, error: galatTanpaBooth } = await client.from("user_event_access").delete().eq("user_id", current.id).is("booth_id", null).select("event_id");
       barisOk = !galatTanpaBooth;
+      dihapusArsip = ((terhapus ?? []) as { event_id: string }[]).map((b) => b.event_id);
     }
     if (barisOk) {
       const ubah: Record<string, unknown> = { role: nextRole };
@@ -392,9 +403,19 @@ export async function PATCH(request: Request) {
   }
   if (!barisOk) {
     await client.from("users").update({ role: current.role, booth_id: current.booth_id, username: current.username, is_active: current.is_active } as never).eq("id", current.id);
+    const { error: galatKosong } = await client.from("user_event_access").delete().eq("user_id", current.id);
+    const { error: galatPulih } = galatKosong || salinan.data?.length === 0 ? { error: galatKosong } : await client.from("user_event_access").insert(salinan.data as never);
+    if (galatKosong || galatPulih) {
+      await client.from("audit_logs").insert({ user_id: auth.user.id, action: "user_update_restore_failed", payload: { user: { id: current.id, username: current.username }, rows: salinan.data } } as never);
+      return apiError("INTERNAL_ERROR", 500, { message: "Event access could not be saved, and the previous access could not be fully restored. Check this account's events." });
+    }
     return apiError("INTERNAL_ERROR", 500, { message: "Event access could not be saved, so the account was left as it was. Try again." });
   }
 
-  await client.from("audit_logs").insert({ user_id: auth.user.id, action: "user_update", payload: { old: current, new: data, events: parsed.data.events } } as never);
+  await client.from("audit_logs").insert({
+    user_id: auth.user.id,
+    action: "user_update",
+    payload: { old: current, new: data, events: parsed.data.events, old_events: barisAwal.map((b) => ({ event_id: b.event_id, booth_id: b.booth_id })), removed_archived: dihapusArsip },
+  } as never);
   return Response.json({ user: data });
 }

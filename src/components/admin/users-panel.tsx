@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Copy, Plus, ShieldCheck, X, XCircle } from "@phosphor-icons/react";
+import { CheckCircle, Copy, Plus, ShieldCheck, Warning, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ROLE_LABEL } from "@/lib/domain";
 import {
@@ -240,6 +240,11 @@ export function UsersPanel() {
 
   const perluAcara = Boolean(draft && draft.role !== "super_admin");
   const boothKurang = Boolean(draft && draft.role === "booth" && draft.rows.some((row) => !row.booth_id));
+  // Menjadi Booth staff: acara terarsip tanpa booth tidak sah untuk peran itu
+  // dan dihapus server saat disimpan. Diperingatkan dulu di sini.
+  const peranAsal = draft?.id ? users.find((user) => user.id === draft.id)?.role : undefined;
+  const arsipHilang = draft && draft.role === "booth" && peranAsal !== undefined && peranAsal !== "booth" ? draft.arsip : [];
+  const tanpaAcaraAktif = arsipHilang.length > 0 && draft?.rows.length === 0;
 
   async function save() {
     if (!draft) return;
@@ -376,11 +381,11 @@ export function UsersPanel() {
     const isNew = !draft.id;
     const editable = isNew ? canManage : canEdit(selectedUser ?? draft);
     const saveDisabled = canManage
-      ? draft.username.length < 3 || (isNew && draft.pin.length !== 6) || (perluAcara && draft.rows.length + draft.arsip.length === 0) || boothKurang
+      ? draft.username.length < 3 || (isNew && draft.pin.length !== 6) || (perluAcara && draft.rows.length + draft.arsip.length === 0) || tanpaAcaraAktif || boothKurang
       : !draft.id || draft.pin.length !== 6;
 
     const ringkasanAcara = (selectedUser?.events ?? []).map((event) => event.name).join(", ");
-    const catatanSimpan = canManage && perluAcara && draft.rows.length + draft.arsip.length === 0 ? "Add at least one event." : boothKurang ? "Choose a booth for each event." : undefined;
+    const catatanSimpan = canManage && perluAcara && draft.rows.length + draft.arsip.length === 0 ? "Add at least one event." : canManage && tanpaAcaraAktif ? "Add an active event first." : boothKurang ? "Choose a booth for each event." : undefined;
 
     const bagianMasuk = (
       <DetailSection title="Sign-in">
@@ -412,6 +417,7 @@ export function UsersPanel() {
     const isiAkses = (
       <div className="mt-2">
         {perluAcara ? (
+          <>
           <AksesAcaraEditor
             rows={draft.rows}
             role={draft.role as EventRole}
@@ -421,6 +427,13 @@ export function UsersPanel() {
             onNeedBooths={pastikanBooth}
             archived={draft.arsip}
           />
+          {arsipHilang.length > 0 ? (
+            <p role="status" className="mt-2 flex items-start gap-2 text-body-small text-on-surface-variant">
+              <Warning size={16} className="mt-px shrink-0 text-warning" aria-hidden />
+              Removes access to {arsipHilang.length === 1 ? "1 archived event" : `${arsipHilang.length} archived events`}: {arsipHilang.map((event) => event.name).join(", ")}.
+            </p>
+          ) : null}
+          </>
         ) : (
           <div>
             <p className="m3-field-label text-label-large font-semibold text-on-surface">Event access</p>
