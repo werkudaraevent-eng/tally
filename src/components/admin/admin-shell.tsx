@@ -519,7 +519,11 @@ export function AdminShell({
         // mengenai scrim dan hanya menutup laci, dan kepala laci (pemilih acara)
         // tertutup bilah. Tidak sampai z-overlay: panel pemilih acara (z-popover)
         // harus tetap di atas laci.
-        className={`fixed left-0 top-0 ${laciTerbuka ? "z-[calc(var(--z-index-topbar)+1)]" : "z-sidebar"} flex h-dvh w-[260px] flex-col border-r border-outline-variant bg-surface transition-[transform,width,box-shadow] duration-200 ease-out lg:translate-x-0 ${
+        //
+        // Peek di desktop naik dengan alasan yang sama: rel yang melebar ke 260px
+        // menyelip di bawah bilah atas yang `sticky` (z-topbar), sehingga kepala
+        // rel (pemilih acara) tertutup dan panelnya tampak mulai di bawah bilah.
+        className={`fixed left-0 top-0 ${laciTerbuka || peeking ? "z-[calc(var(--z-index-topbar)+1)]" : "z-sidebar"} flex h-dvh w-[260px] flex-col border-r border-outline-variant bg-surface transition-[transform,width,box-shadow] duration-200 ease-out lg:translate-x-0 ${
           laciTerbuka ? "translate-x-0" : "-translate-x-full"
         } ${pinned ? "lg:w-[260px]" : peeking ? "lg:w-[260px] lg:shadow-level3" : "lg:w-16"}`}
       >
