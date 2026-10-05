@@ -6,8 +6,9 @@ import { BrandingEditor } from "@/components/admin/branding-editor";
 import { useToast } from "@/components/toast";
 import { normalizeBranding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
-import { DEFAULT_HEADER, formatClock, formatEventDate, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
+import { DEFAULT_HEADER, formatClock, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { bandingkanBaris, geserDalamSlot, kunciSlot, pindahDalamSlot, susunUlangSlot } from "@/lib/rundown-urutan";
+import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import {
   Banner, Button, ButtonLink, Dialog, EmptyState, ListRow, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
@@ -49,6 +50,14 @@ const BRANDING_FALLBACK = {
   text_color: "#1a1a1a",
   accent_color: "#2649d0",
 } as const;
+
+/** "Monday, 24 August 2026" untuk keterangan staf. formatEventDate di lib/rundown dipakai halaman publik, jadi tetap id-ID. */
+function formatStaffDate(eventDate: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return eventDate;
+  const date = new Date(`${eventDate}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return eventDate;
+  return date.toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
 
 function fokusJudulBaru() {
   window.setTimeout(() => document.querySelector<HTMLInputElement>("[data-draft-title]")?.focus(), 0);
@@ -97,7 +106,7 @@ export default function RundownAdminPage() {
   // Zona acara dipakai supaya tanggal yang diecho di bawah kolom tanggal dihitung
   // dengan zona yang sama dengan halaman publik. Kalau tidak, admin bisa membaca
   // "Kamis" di CMS sementara tamu membaca "Rabu".
-  const { zone, abbr } = useEventTimeZone();
+  const { abbr } = useEventTimeZone();
   const toast = useToast();
 
   async function load() {
@@ -107,9 +116,9 @@ export default function RundownAdminPage() {
       fetch("/api/admin/rundown/sections", { cache: "no-store" }),
       fetch("/api/admin/rundown/header", { cache: "no-store" }),
     ]).catch(() => null);
-    if (!hasil) { setError("Koneksi terputus. Data rundown tidak bisa dimuat."); return; }
+    if (!hasil) { setError("Connection lost. The agenda could not be loaded."); return; }
     const [sectionResponse, headerResponse] = hasil;
-    if (!sectionResponse.ok) { setError("Data rundown gagal dimuat."); return; }
+    if (!sectionResponse.ok) { setError("The agenda could not be loaded."); return; }
     const data = (await sectionResponse.json()) as Payload;
     setSections(data.sections);
     setItems(data.items);
@@ -219,13 +228,13 @@ export default function RundownAdminPage() {
     const data = await response.json().catch(() => null);
     setUploadingBackground(false);
     if (!response.ok) {
-      const failure = data?.error?.details?.file ?? data?.error?.message ?? "Upload gambar gagal.";
+      const failure = data?.error?.details?.file ?? data?.error?.message ?? "Image upload failed.";
       setError(failure);
-      toast.error("Upload gambar gagal", failure);
+      toast.error("Image upload failed", failure);
       return;
     }
     updateHeader({ background_image_url: data.url });
-    toast.info("Gambar terunggah", "Klik Simpan header untuk menerapkannya ke halaman publik.");
+    toast.info("Image uploaded", "Select Save header to apply it to the public page.");
   }
 
   async function saveHeader() {
@@ -238,12 +247,12 @@ export default function RundownAdminPage() {
     const data = await response.json().catch(() => ({}));
     setSavingHeader(false);
     if (!response.ok) {
-      const failure = failureMessage(data, "Header gagal disimpan.");
-      setError(failure); toast.error("Header gagal disimpan", failure);
+      const failure = failureMessage(data, "Header not saved.");
+      setError(failure); toast.error("Header not saved", failure);
       return;
     }
     setHeader(data as RundownHeader);
-    toast.success("Header tersimpan", "Berlaku untuk semua tab di halaman publik.");
+    toast.success("Header saved", "Applies to every tab on the public page.");
   }
 
   function updateItem(id: number, changes: Partial<RundownItem>) {
@@ -272,15 +281,15 @@ export default function RundownAdminPage() {
     const data = await response.json();
     setCreatingSection(false);
     if (!response.ok) {
-      const failure = failureMessage(data, "Bagian gagal ditambahkan.");
-      setError(failure); toast.error("Bagian gagal ditambahkan", failure);
+      const failure = failureMessage(data, "Section not added.");
+      setError(failure); toast.error("Section not added", failure);
       return;
     }
     setNewSectionName("");
     setAddSectionOpen(false);
     pilihBagian((data as RundownSection).id);
     setPanel("bagian");
-    toast.success("Bagian ditambahkan", "Masih draf. Isi tanggal dan jadwalnya lalu publikasikan.");
+    toast.success("Section added", "It is still a draft. Set the date, add the schedule, then publish it.");
     await load();
   }
 
@@ -305,11 +314,11 @@ export default function RundownAdminPage() {
     const data = await response.json();
     setSavingSection(false);
     if (!response.ok) {
-      const failure = failureMessage(data, "Bagian gagal disimpan.");
-      setError(failure); toast.error("Bagian gagal disimpan", failure);
+      const failure = failureMessage(data, "Section not saved.");
+      setError(failure); toast.error("Section not saved", failure);
       return;
     }
-    toast.success("Bagian tersimpan", section.is_published ? "Bagian ini tampil di halaman publik." : "Bagian ini belum tampil di publik.");
+    toast.success("Section saved", section.is_published ? "This section is shown on the public page." : "This section is not public yet.");
     await load();
   }
 
@@ -321,13 +330,13 @@ export default function RundownAdminPage() {
     setConfirmSection(null);
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      const failure = failureMessage(data, "Bagian gagal dihapus.");
-      setError(failure); toast.error("Bagian gagal dihapus", failure);
+      const failure = failureMessage(data, "Section not deleted.");
+      setError(failure); toast.error("Section not deleted", failure);
       return;
     }
     setActiveId(null);
     setSelectedItemId(null);
-    toast.success("Bagian dihapus", "Seluruh baris jadwalnya ikut terhapus.");
+    toast.success("Section deleted", "All of its agenda items were deleted too.");
     await load();
   }
 
@@ -335,7 +344,7 @@ export default function RundownAdminPage() {
     if (activeId === null) return;
     const title = draft.title.trim();
     if (!title || !draft.start_time) {
-      setError("Jam mulai dan nama acara wajib diisi.");
+      setError("Start time and title are required.");
       return;
     }
     setAddingItem(true); setError("");
@@ -356,15 +365,15 @@ export default function RundownAdminPage() {
     const data = await response.json();
     setAddingItem(false);
     if (!response.ok) {
-      const failure = failureMessage(data, "Baris gagal ditambahkan.");
-      setError(failure); toast.error("Baris gagal ditambahkan", failure);
+      const failure = failureMessage(data, "Agenda item not added.");
+      setError(failure); toast.error("Agenda item not added", failure);
       return;
     }
     // Jam mulai baris berikutnya diisi jam selesai baris ini. Rundown disusun
     // berurutan dan bersambung, jadi ini menghilangkan pengetikan yang berulang
     // sekaligus mengurangi celah waktu yang tidak disengaja.
     setDrafts((current) => ({ ...current, [activeId]: { ...EMPTY_DRAFT, start_time: draft.end_time || "" } }));
-    toast.success("Baris ditambahkan");
+    toast.success("Agenda item added");
     await load();
   }
 
@@ -386,11 +395,11 @@ export default function RundownAdminPage() {
     const data = await response.json();
     setSavingItem(null);
     if (!response.ok) {
-      const failure = failureMessage(data, "Baris gagal disimpan.");
-      setError(failure); toast.error("Baris gagal disimpan", failure);
+      const failure = failureMessage(data, "Agenda item not saved.");
+      setError(failure); toast.error("Agenda item not saved", failure);
       return;
     }
-    toast.success("Baris tersimpan");
+    toast.success("Agenda item saved");
     await load();
   }
 
@@ -401,12 +410,12 @@ export default function RundownAdminPage() {
     setConfirmItem(null);
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      const failure = failureMessage(data, "Baris gagal dihapus.");
-      setError(failure); toast.error("Baris gagal dihapus", failure);
+      const failure = failureMessage(data, "Agenda item not deleted.");
+      setError(failure); toast.error("Agenda item not deleted", failure);
       return;
     }
     setSelectedItemId((current) => (current === item.id ? null : current));
-    toast.success("Baris dihapus");
+    toast.success("Agenda item deleted");
     await load();
   }
 
@@ -447,7 +456,7 @@ export default function RundownAdminPage() {
     }
     apply((data as { items?: RundownItem[] }).items ?? []);
     const moved = sectionItems.find((item) => item.id === movedId);
-    setReorderNote(`${moved?.title.trim() || "Row"} moved to position ${ids.indexOf(movedId) + 1} of ${ids.length}.`);
+    setReorderNote(`${moved?.title.trim() || "Item"} moved to position ${ids.indexOf(movedId) + 1} of ${ids.length}.`);
   }
 
   function moveInSlot(item: RundownItem, direction: -1 | 1, fromPanel = false) {
@@ -470,21 +479,21 @@ export default function RundownAdminPage() {
 
   // ---- Panel utama: jadwal bagian aktif -------------------------------------------
   const jadwal = active ? (
-    <Pane aria-label={`Jadwal ${active.name}`}>
+    <Pane aria-label={`${active.name} schedule`}>
       <PaneHeader>
-        <h2 className="text-body-medium font-semibold text-on-surface">Jadwal</h2>
-        <span className="tabular-nums text-body-medium text-on-surface-variant">{activeItems.length} baris</span>
+        <h2 className="text-body-medium font-semibold text-on-surface">Schedule</h2>
+        <span className="tabular-nums text-body-medium text-on-surface-variant">{plural(activeItems.length, "item")}</span>
         <span className="min-w-0 flex-1 truncate text-body-medium text-on-surface-variant max-sm:hidden">
-          {adaSlotParalel ? "Drag to reorder same-time rows" : "Urut otomatis menurut jam mulai"}
+          {adaSlotParalel ? "Drag to reorder same-time items" : "Sorted by start time automatically"}
         </span>
-        <Button variant="outlined" size="sm" className="ml-auto" icon={<Plus size={16} />} onClick={mulaiTambahBaris}>Tambah baris</Button>
+        <Button variant="outlined" size="sm" className="ml-auto" icon={<Plus size={16} />} onClick={mulaiTambahBaris}>Add item</Button>
       </PaneHeader>
       <PaneBody>
         {activeItems.length === 0 ? (
           <EmptyState
             plain
-            title="Belum ada baris jadwal"
-            description="Isi formulir Baris baru di panel samping. Urutan mengikuti jam mulai, jadi tidak perlu disusun ulang."
+            title="No agenda items yet"
+            description="Fill in the New item form in the side panel. Items are sorted by start time, so there is nothing to reorder."
           />
         ) : (
           <div>
@@ -494,14 +503,14 @@ export default function RundownAdminPage() {
               const slotIds = slots.get(kunci) ?? [];
               const paralel = slotIds.length > 1;
               const posisi = slotIds.indexOf(item.id);
-              const judul = item.title.trim() || "Tanpa nama";
+              const judul = item.title.trim() || "Untitled";
               const garis = dropTarget?.id === item.id && dragId !== null && dragId !== item.id ? (dropTarget.after ? "bottom" : "top") : null;
               return (
                 <div key={item.id}>
                   {paralel && posisi === 0 ? (
                     <div className="flex items-center gap-2 border-b border-outline-variant py-2 pr-4 pl-4 text-body-small pointer-fine:pl-10 text-on-surface-variant">
                       <Stack size={16} aria-hidden />
-                      {slotIds.length} rows start at {formatClock(item.start_time)}
+                      {slotIds.length} items start at {formatClock(item.start_time)}
                     </div>
                   ) : null}
                   <div
@@ -537,8 +546,8 @@ export default function RundownAdminPage() {
                           <span className={cx("min-w-0 truncate", item.is_break ? "text-on-surface-variant" : "font-medium text-on-surface")}>
                             {judul}
                           </span>
-                          {item.is_break ? <StatusChip>Jeda</StatusChip> : null}
-                          {item.is_published ? null : <StatusChip tone="warning">Tidak tampil</StatusChip>}
+                          {item.is_break ? <StatusChip>Break</StatusChip> : null}
+                          {item.is_published ? null : <StatusChip tone="warning">Hidden</StatusChip>}
                         </span>
                         {keterangan ? <span className="mt-0.5 block truncate text-on-surface-variant">{keterangan}</span> : null}
                       </span>
@@ -583,18 +592,18 @@ export default function RundownAdminPage() {
               );
             })}
             <p role="status" className="sr-only">{reorderNote}</p>
-            <span id="rundown-reorder-hint" hidden>Use the up and down arrow keys to move this row among rows with the same start time.</span>
+            <span id="rundown-reorder-hint" hidden>Use the up and down arrow keys to move this item among items with the same start time.</span>
           </div>
         )}
       </PaneBody>
     </Pane>
   ) : (
-    <Pane aria-label="Jadwal">
+    <Pane aria-label="Schedule">
       <EmptyState
         plain
-        title="Belum ada bagian rundown"
-        description="Bagian adalah tab di halaman publik, biasanya satu per hari atau per acara. Bagian baru dibuat sebagai draf."
-        action={<Button size="sm" icon={<Plus size={16} />} onClick={() => setAddSectionOpen(true)}>Tambah bagian</Button>}
+        title="No agenda sections yet"
+        description="Each section is a tab on the public page, usually one per day or per event. New sections start as drafts."
+        action={<Button size="sm" icon={<Plus size={16} />} onClick={() => setAddSectionOpen(true)}>Add section</Button>}
       />
     </Pane>
   );
@@ -603,19 +612,19 @@ export default function RundownAdminPage() {
   const isiBaris = selectedItem ? (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <h3 className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Sunting baris</h3>
-        <Button variant="text" size="sm" onClick={() => setSelectedItemId(null)}>Tutup</Button>
+        <h3 className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Edit item</h3>
+        <Button variant="text" size="sm" onClick={() => setSelectedItemId(null)}>Close</Button>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <TextField
-          label="Mulai"
+          label="Start"
           type="time"
           inputClassName="tabular-nums"
           value={formatClock(selectedItem.start_time)}
           onChange={(event) => updateItem(selectedItem.id, { start_time: event.target.value })}
         />
         <TextField
-          label="Selesai"
+          label="End"
           optional
           type="time"
           inputClassName="tabular-nums"
@@ -623,10 +632,10 @@ export default function RundownAdminPage() {
           onChange={(event) => updateItem(selectedItem.id, { end_time: event.target.value || null })}
         />
       </div>
-      <TextField label="Nama acara" value={selectedItem.title} onChange={(event) => updateItem(selectedItem.id, { title: event.target.value })} />
+      <TextField label="Title" value={selectedItem.title} onChange={(event) => updateItem(selectedItem.id, { title: event.target.value })} />
       {jamBelumDisimpan && selectedSlotLokal > 1 ? (
         <p className="border-t border-outline-variant pt-4 text-body-small text-on-surface-variant">
-          Save the time change first to reorder rows that start at {kunciSlot(selectedItem.start_time).slice(0, 5)}.
+          Save the time change first to reorder items that start at {kunciSlot(selectedItem.start_time).slice(0, 5)}.
         </p>
       ) : null}
       {selectedSlot.length > 1 ? (
@@ -634,7 +643,7 @@ export default function RundownAdminPage() {
           <div>
             <p className="text-body-medium font-medium text-on-surface">Order at {formatClock(selectedItem.start_time)}</p>
             <p className="text-body-small text-on-surface-variant">
-              {selectedSlot.indexOf(selectedItem.id) + 1} of {selectedSlot.length} rows that start at {formatClock(selectedItem.start_time)}
+              {selectedSlot.indexOf(selectedItem.id) + 1} of {selectedSlot.length} items that start at {formatClock(selectedItem.start_time)}
             </p>
           </div>
           <div className="flex gap-2">
@@ -668,68 +677,68 @@ export default function RundownAdminPage() {
       {/* textarea, bukan input satu baris: satu butir acara bisa memuat beberapa
           pembicara, dan tiap baris tampil sebagai butir terpisah di halaman publik. */}
       <TextArea
-        label="Keterangan"
+        label="Details"
         optional
         rows={5}
         placeholder={CONTOH_KETERANGAN}
-        hint="Satu baris per pembicara. Baris berakhiran titik dua jadi judul kelompok (mis. Moderator:) dan tidak diberi bulet."
+        hint="One line per speaker. A line ending in a colon becomes a group heading (e.g. Moderator:) without a bullet."
         value={selectedItem.subtitle ?? ""}
         onChange={(event) => updateItem(selectedItem.id, { subtitle: event.target.value })}
       />
       <Switch
         checked={selectedItem.is_break}
         onChange={(checked) => updateItem(selectedItem.id, { is_break: checked })}
-        label="Jeda"
-        description="Tampil lebih redup di halaman publik."
+        label="Break"
+        description="Shown dimmed on the public page."
       />
       <Switch
         checked={selectedItem.is_published}
         onChange={(checked) => updateItem(selectedItem.id, { is_published: checked })}
-        label="Tampil di publik"
+        label="Show on public page"
       />
     </div>
   ) : active ? (
     <div className="flex flex-col gap-4">
-      <h3 className="text-body-medium font-semibold text-on-surface">Baris baru</h3>
+      <h3 className="text-body-medium font-semibold text-on-surface">New item</h3>
       <div className="grid grid-cols-2 gap-3">
-        <TextField label="Mulai" type="time" inputClassName="tabular-nums" value={draft.start_time} onChange={(event) => updateDraft({ start_time: event.target.value })} />
-        <TextField label="Selesai" optional type="time" inputClassName="tabular-nums" value={draft.end_time} onChange={(event) => updateDraft({ end_time: event.target.value })} />
+        <TextField label="Start" type="time" inputClassName="tabular-nums" value={draft.start_time} onChange={(event) => updateDraft({ start_time: event.target.value })} />
+        <TextField label="End" optional type="time" inputClassName="tabular-nums" value={draft.end_time} onChange={(event) => updateDraft({ end_time: event.target.value })} />
       </div>
       <TextField
-        label="Nama acara"
-        placeholder="Mis. Opening Keynote Speech"
+        label="Title"
+        placeholder="e.g. Opening Keynote Speech"
         data-draft-title=""
         value={draft.title}
         onChange={(event) => updateDraft({ title: event.target.value })}
       />
       <TextArea
-        label="Keterangan"
+        label="Details"
         optional
         rows={5}
         placeholder={CONTOH_KETERANGAN}
-        hint="Satu baris per pembicara. Baris berakhiran titik dua jadi judul kelompok."
+        hint="One line per speaker. A line ending in a colon becomes a group heading."
         value={draft.subtitle}
         onChange={(event) => updateDraft({ subtitle: event.target.value })}
       />
-      <Switch checked={draft.is_break} onChange={(checked) => updateDraft({ is_break: checked })} label="Jeda" description="Tampil lebih redup di halaman publik." />
-      <p className="text-body-medium text-on-surface-variant">Jam selesai boleh dikosongkan untuk penanda momen. Pilih baris di jadwal untuk menyuntingnya.</p>
+      <Switch checked={draft.is_break} onChange={(checked) => updateDraft({ is_break: checked })} label="Break" description="Shown dimmed on the public page." />
+      <p className="text-body-medium text-on-surface-variant">Leave the end time empty to mark a single moment. Select an item in the schedule to edit it.</p>
     </div>
   ) : null;
 
   // ---- Panel samping: bagian -------------------------------------------------------
   const isiBagian = active ? (
     <div className="flex flex-col gap-5">
-      <Kelompok title="Bagian ini" first>
+      <Kelompok title="This section" first>
         <TextField
-          label="Label tab"
-          hint="Pendek, agar beberapa tab muat di layar ponsel."
+          label="Tab label"
+          hint="Keep it short so several tabs fit on a phone screen."
           value={active.name}
           onChange={(event) => updateSection(active.id, { name: event.target.value })}
         />
         <TextField
-          label="Tanggal acara"
+          label="Date"
           type="date"
-          hint={`Dipakai penanda sedang berlangsung. ${formatEventDate(active.event_date, zone)} (${abbr})`}
+          hint={`Used to highlight what is happening now. ${formatStaffDate(active.event_date)} (${abbr})`}
           value={active.event_date}
           onChange={(event) => updateSection(active.id, { event_date: event.target.value })}
         />
@@ -737,30 +746,30 @@ export default function RundownAdminPage() {
             tidak ada: judul header kini satu untuk seluruh acara (panel Header
             publik). Kolomnya tetap ada di database supaya data lama tidak rusak. */}
       </Kelompok>
-      <Kelompok title="Di halaman publik">
+      <Kelompok title="On the public page">
         {/* Sakelar penanda ditaruh bersama tanggal karena keduanya satu urusan:
             penanda hanya benar bila tanggalnya benar. */}
         <Switch
           checked={active.highlight_current}
           onChange={(checked) => updateSection(active.id, { highlight_current: checked })}
-          label="Tandai acara yang sedang berlangsung"
+          label="Highlight the current item"
           description={active.highlight_current
-            ? "Halaman publik menyorot acara berjalan, menandai acara berikutnya, meredupkan yang sudah selesai, dan menggulir otomatis ke baris tersebut. Butuh tanggal di atas benar."
-            : "Jadwal tampil sebagai daftar biasa tanpa sorotan dan tanpa gulir otomatis. Pakai ini bila tanggal acara belum tiba."}
+            ? "The public page highlights the current item, marks the next one, dims finished items and scrolls to the current item automatically. The date above must be correct."
+            : "The schedule shows as a plain list, with no highlight and no automatic scrolling. Use this until the event date arrives."}
         />
         <Switch
           checked={active.is_published}
           onChange={(checked) => updateSection(active.id, { is_published: checked })}
-          label="Tampilkan di halaman publik"
+          label="Show on public page"
           description={`/rundown?sesi=${active.slug}`}
         />
       </Kelompok>
       <section className="flex items-center gap-3 border-t border-outline-variant pt-5">
         <div className="min-w-0 flex-1">
-          <p className="text-body-medium font-medium text-on-surface">Hapus bagian</p>
-          <p className="text-body-medium text-on-surface-variant">Seluruh baris jadwalnya ikut terhapus.</p>
+          <p className="text-body-medium font-medium text-on-surface">Delete section</p>
+          <p className="text-body-medium text-on-surface-variant">All of its agenda items are deleted too.</p>
         </div>
-        <Button simpan variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmSection(active)}>Hapus</Button>
+        <Button simpan variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmSection(active)}>Delete</Button>
       </section>
     </div>
   ) : null;
@@ -773,21 +782,21 @@ export default function RundownAdminPage() {
     <div className="flex flex-col gap-5">
       <p className="flex items-start gap-2 rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant">
         <Info size={16} className="mt-0.5 shrink-0" aria-hidden />
-        Berlaku untuk semua tab. Isian tampilan opsional; bila dikosongkan, header memakai tema bawaan.
+        Applies to every tab. The appearance fields are optional; left empty, the header uses the default theme.
       </p>
-      <Kelompok title="Judul" first>
+      <Kelompok title="Title" first>
         <TextField
-          label="Judul acara"
-          hint="Tampil sama di semua tab."
-          placeholder="Mis. PRIMA EXECUTIVE GATHERING"
+          label="Event title"
+          hint="Shown the same on every tab."
+          placeholder="e.g. PRIMA EXECUTIVE GATHERING"
           value={header.event_title}
           onChange={(event) => updateHeader({ event_title: event.target.value })}
         />
         <TextField
-          label="Sub judul acara"
+          label="Event subtitle"
           optional
-          hint="Maksimal dua baris di halaman publik."
-          placeholder="Mis. Beyond Tomorrow: Securing Progress"
+          hint="Up to two lines on the public page."
+          placeholder="e.g. Beyond Tomorrow: Securing Progress"
           value={header.event_subtitle ?? ""}
           onChange={(event) => updateHeader({ event_subtitle: event.target.value })}
         />
@@ -796,11 +805,11 @@ export default function RundownAdminPage() {
       {/* Warna boleh dikosongkan, dan itu tidak bisa dilakukan <input type="color">
           yang selalu punya nilai. Jadi tiap warna dipasangkan tombol kembali ke
           bawaan (null). */}
-      <Kelompok title="Warna">
+      <Kelompok title="Colours">
         {([
-          ["background_color", "Latar header"],
-          ["text_color", "Warna tulisan"],
-          ["accent_color", "Aksen (garis tab)"],
+          ["background_color", "Header background"],
+          ["text_color", "Text colour"],
+          ["accent_color", "Accent (tab underline)"],
         ] as const).map(([key, label]) => (
           <div key={key} className="flex items-center gap-3">
             <input
@@ -812,10 +821,10 @@ export default function RundownAdminPage() {
             />
             <label htmlFor={`header-${key}`} className="min-w-0 flex-1">
               <span className="block text-body-medium font-medium text-on-surface">{label}</span>
-              <span className="block text-body-medium text-on-surface-variant">{header[key] ? header[key]?.toUpperCase() : "Ikut tema bawaan"}</span>
+              <span className="block text-body-medium text-on-surface-variant">{header[key] ? header[key]?.toUpperCase() : "Uses the default theme"}</span>
             </label>
-            <Button variant="outlined" size="sm" disabled={!header[key]} onClick={() => updateHeader({ [key]: null })} aria-label={`Kembalikan ${label} ke bawaan`}>
-              Bawaan
+            <Button variant="outlined" size="sm" disabled={!header[key]} onClick={() => updateHeader({ [key]: null })} aria-label={`Reset ${label.toLowerCase()} to default`}>
+              Default
             </Button>
           </div>
         ))}
@@ -823,7 +832,7 @@ export default function RundownAdminPage() {
 
       {/* Gambar latar berdiri DI ATAS warna, bukan menggantikannya. Warna tetap
           dipakai di belakangnya supaya teks tidak hilang bila gambar gagal dimuat. */}
-      <Kelompok title="Gambar latar" note="Diberi lapisan gelap otomatis dan tulisan dipaksa putih agar tetap terbaca. PNG, JPG, atau WebP, maks 5 MB.">
+      <Kelompok title="Background image" note="A dark overlay is added automatically and the text turns white so it stays readable. PNG, JPG or WebP, up to 5 MB.">
         <div className="flex flex-wrap items-center gap-2">
           {header.background_image_url ? (
             <span className="h-12 w-20 shrink-0 rounded-md border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${header.background_image_url})` }} />
@@ -833,7 +842,7 @@ export default function RundownAdminPage() {
             uploadingBackground && "pointer-events-none opacity-60",
           )}>
             <UploadSimple size={16} aria-hidden />
-            {uploadingBackground ? "Mengunggah..." : header.background_image_url ? "Ganti gambar" : "Unggah gambar"}
+            {uploadingBackground ? "Uploading…" : header.background_image_url ? "Replace image" : "Upload image"}
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
@@ -848,14 +857,14 @@ export default function RundownAdminPage() {
             />
           </label>
           {header.background_image_url ? (
-            <Button variant="text" size="sm" className="text-error" onClick={() => updateHeader({ background_image_url: null })}>Hapus gambar</Button>
+            <Button variant="text" size="sm" className="text-error" onClick={() => updateHeader({ background_image_url: null })}>Remove image</Button>
           ) : null}
         </div>
       </Kelompok>
 
       {/* Editor logo, jenis huruf, ukuran, dan warna per elemen. Komponen yang sama
           dipakai /admin/seat-map dan /admin/display. */}
-      <Kelompok title="Logo dan huruf">
+      <Kelompok title="Logo and type">
         <BrandingEditor
           value={headerBranding}
           onChange={(changes) => updateHeader(changes)}
@@ -875,37 +884,37 @@ export default function RundownAdminPage() {
         note: null,
         aksi: (
           <>
-            <Button simpan variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmItem(selectedItem)}>Hapus</Button>
-            <Button simpan size="sm" onClick={() => void saveItem(selectedItem)} loading={savingItem === selectedItem.id}>Simpan baris</Button>
+            <Button simpan variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmItem(selectedItem)}>Delete</Button>
+            <Button simpan size="sm" onClick={() => void saveItem(selectedItem)} loading={savingItem === selectedItem.id}>Save item</Button>
           </>
         ),
       }
       : {
-        note: draftLengkap ? null : "Jam mulai dan nama acara wajib",
-        aksi: active ? <Button simpan size="sm" icon={<Plus size={16} />} onClick={() => void addItem()} loading={addingItem} disabled={!draftLengkap}>Tambah baris</Button> : null,
+        note: draftLengkap ? null : "Start time and title are required",
+        aksi: active ? <Button simpan size="sm" icon={<Plus size={16} />} onClick={() => void addItem()} loading={addingItem} disabled={!draftLengkap}>Add item</Button> : null,
       },
     bagian: {
-      note: "Hanya bagian ini",
-      aksi: active ? <Button simpan size="sm" onClick={() => void saveSection(active)} loading={savingSection}>Simpan bagian</Button> : null,
+      note: "This section only",
+      aksi: active ? <Button simpan size="sm" onClick={() => void saveSection(active)} loading={savingSection}>Save section</Button> : null,
     },
     header: {
-      note: "Berlaku untuk semua tab",
-      aksi: <Button simpan size="sm" onClick={() => void saveHeader()} loading={savingHeader}>Simpan header</Button>,
+      note: "Applies to every tab",
+      aksi: <Button simpan size="sm" onClick={() => void saveHeader()} loading={savingHeader}>Save header</Button>,
     },
   };
 
   const samping = (
-    <Pane as="aside" aria-label="Penyunting rundown">
+    <Pane as="aside" aria-label="Agenda editor">
       <div className="shrink-0 border-b border-outline-variant px-4 py-3">
         <SegmentedButton<Panel>
-          label="Yang disunting"
+          label="Editing"
           value={panelAktif}
           onChange={setPanel}
           className="w-full"
           options={[
-            { value: "baris", label: "Baris", disabled: !active },
-            { value: "bagian", label: "Bagian", disabled: !active },
-            { value: "header", label: "Header publik" },
+            { value: "baris", label: "Item", disabled: !active },
+            { value: "bagian", label: "Section", disabled: !active },
+            { value: "header", label: "Page header" },
           ]}
         />
       </div>
@@ -916,19 +925,20 @@ export default function RundownAdminPage() {
 
   return (
     <WorkspacePage fill>
+      <div lang="en" className="contents">
       <WorkspaceHeader
         meta={loaded ? (
           <>
             <span>
               {publishedCount === 0
-                ? "Belum ada bagian yang tampil, jadi halaman publik masih menampilkan pesan tunggu"
-                : `${publishedCount} dari ${sections.length} bagian tampil di publik`}
+                ? "No sections are public yet, so the public page still shows a holding message"
+                : `${publishedCount} of ${plural(sections.length, "section")} public`}
             </span>
             <MetaSeparator />
-            <span>Penanda sedang berlangsung memakai tanggal bagian dan jam baris</span>
+            <span>The current-item highlight uses the section date and item times</span>
           </>
         ) : null}
-        actions={<ButtonLink href="/rundown" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Buka halaman publik</ButtonLink>}
+        actions={<ButtonLink href="/rundown" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open public page</ButtonLink>}
       />
 
       {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
@@ -940,17 +950,17 @@ export default function RundownAdminPage() {
               // Tabs membawa shrink-0; pembungkus ini yang menyempit agar tombol + Bagian tetap di layar.
               <div className="min-w-0">
                 <Tabs
-                  label="Bagian rundown"
+                  label="Agenda sections"
                   idPrefix="bagian"
                   value={String(activeId ?? "")}
                   onChange={(value) => pilihBagian(Number(value))}
                   className="border-b-0"
-                  options={sections.map((section) => ({ value: String(section.id), label: section.name, badge: section.is_published ? undefined : "Draf" }))}
+                  options={sections.map((section) => ({ value: String(section.id), label: section.name, badge: section.is_published ? undefined : "Draft" }))}
                 />
               </div>
-            ) :<span className="py-2.5 text-body-medium text-on-surface-variant">Belum ada bagian</span>}
+            ) :<span className="py-2.5 text-body-medium text-on-surface-variant">No sections yet</span>}
             <button type="button" onClick={() => setAddSectionOpen(true)} className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body-medium font-medium text-primary hover:bg-primary-soft">
-              <Plus size={14} aria-hidden />Bagian
+              <Plus size={14} aria-hidden />Section
             </button>
           </div>
           <div
@@ -969,17 +979,17 @@ export default function RundownAdminPage() {
         onClose={() => { setAddSectionOpen(false); setNewSectionName(""); }}
         dismissible={!creatingSection}
         size="sm"
-        title="Tambah bagian"
-        description="Bagian baru dibuat sebagai draf, jadi belum tampil di halaman publik."
+        title="Add section"
+        description="New sections start as drafts, so they are not on the public page yet."
         actions={
           <>
-            <Button variant="outlined" disabled={creatingSection} onClick={() => { setAddSectionOpen(false); setNewSectionName(""); }}>Batal</Button>
-            <Button simpan type="submit" form="form-bagian" loading={creatingSection} disabled={!newSectionName.trim()}>Tambah bagian</Button>
+            <Button variant="outlined" disabled={creatingSection} onClick={() => { setAddSectionOpen(false); setNewSectionName(""); }}>Cancel</Button>
+            <Button simpan type="submit" form="form-bagian" loading={creatingSection} disabled={!newSectionName.trim()}>Add section</Button>
           </>
         }
       >
         <form id="form-bagian" className="mt-4" onSubmit={(event) => { event.preventDefault(); void createSection(); }}>
-          <TextField label="Nama bagian" autoFocus placeholder="Mis. Prima Awards" value={newSectionName} onChange={(event) => setNewSectionName(event.target.value)} />
+          <TextField label="Section name" autoFocus placeholder="e.g. Prima Awards" value={newSectionName} onChange={(event) => setNewSectionName(event.target.value)} />
         </form>
       </Dialog>
 
@@ -988,12 +998,12 @@ export default function RundownAdminPage() {
         onClose={() => setConfirmItem(null)}
         dismissible={deletingItem === null}
         tone="danger"
-        title={`Hapus baris ${confirmItem?.title.trim() || ""}?`}
-        description="Baris ini hilang dari rundown dan halaman publik. Salinannya dicatat di jejak audit."
+        title={`Delete ${confirmItem?.title.trim() || "this item"}?`}
+        description="This item is removed from the agenda and the public page. A copy is kept in the audit log."
         actions={
           <>
-            <Button variant="outlined" disabled={deletingItem !== null} onClick={() => setConfirmItem(null)}>Batal</Button>
-            <Button simpan variant="danger" loading={deletingItem !== null} onClick={() => { if (confirmItem) void deleteItem(confirmItem); }}>Hapus baris</Button>
+            <Button variant="outlined" disabled={deletingItem !== null} onClick={() => setConfirmItem(null)}>Cancel</Button>
+            <Button simpan variant="danger" loading={deletingItem !== null} onClick={() => { if (confirmItem) void deleteItem(confirmItem); }}>Delete item</Button>
           </>
         }
       />
@@ -1003,15 +1013,16 @@ export default function RundownAdminPage() {
         onClose={() => setConfirmSection(null)}
         dismissible={!deletingSection}
         tone="danger"
-        title={`Hapus bagian ${confirmSection?.name ?? ""}?`}
-        description={`${confirmSection?.is_published ? "Bagian ini sedang tampil di publik. " : ""}Seluruh ${activeItems.length} baris jadwal di bagian ini ikut terhapus. Salinannya dicatat di jejak audit.`}
+        title={`Delete section ${confirmSection?.name ?? ""}?`}
+        description={`${confirmSection?.is_published ? "This section is on the public page now. " : ""}${activeItems.length === 0 ? "" : activeItems.length === 1 ? "Its 1 agenda item is deleted too. " : `All ${plural(activeItems.length, "agenda item")} in this section are deleted too. `}A copy is kept in the audit log.`}
         actions={
           <>
-            <Button variant="outlined" disabled={deletingSection} onClick={() => setConfirmSection(null)}>Batal</Button>
-            <Button simpan variant="danger" loading={deletingSection} onClick={() => { if (confirmSection) void deleteSection(confirmSection); }}>Hapus bagian</Button>
+            <Button variant="outlined" disabled={deletingSection} onClick={() => setConfirmSection(null)}>Cancel</Button>
+            <Button simpan variant="danger" loading={deletingSection} onClick={() => { if (confirmSection) void deleteSection(confirmSection); }}>Delete section</Button>
           </>
         }
       />
+      </div>
     </WorkspacePage>
   );
 }

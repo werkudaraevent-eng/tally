@@ -208,44 +208,44 @@ export const SEAT_MAP_LAYOUTS: readonly SeatMapLayout[] = [
 
 export const LAYOUT_INFO: Record<SeatMapLayout, { name: string; desc: string; labelHint: string }> = {
   banquet_round: {
-    name: "Banquet (meja bundar)",
-    desc: "Meja bundar berbaris. Kursi mengelilingi meja, menyisakan celah di sisi panggung.",
-    labelHint: "Label kursi: nomor meja + huruf, mis. 12A",
+    name: "Banquet (round tables)",
+    desc: "Rows of round tables. Seats go around each table, leaving a gap on the stage side.",
+    labelHint: "Seat label: table number + letter, e.g. 12A",
   },
   cabaret: {
-    name: "Cabaret (setengah lingkaran)",
-    desc: "Meja bundar dengan kursi hanya di sisi menghadap panggung. Tidak ada tamu yang membelakangi layar.",
-    labelHint: "Label kursi: nomor meja + huruf, mis. 12A",
+    name: "Cabaret (half circle)",
+    desc: "Round tables with seats only on the side facing the stage. Nobody sits with their back to the screen.",
+    labelHint: "Seat label: table number + letter, e.g. 12A",
   },
   theater: {
     name: "Theater",
-    desc: "Baris kursi tanpa meja. Kapasitas terbesar, dipakai untuk seminar dan pembukaan.",
-    labelHint: "Label kursi: huruf baris + nomor, mis. A12",
+    desc: "Rows of seats without tables. The largest capacity, used for seminars and opening sessions.",
+    labelHint: "Seat label: row letter + number, e.g. A12",
   },
   classroom: {
     name: "Classroom",
-    desc: "Meja panjang berbaris menghadap panggung, dua sampai tiga kursi per meja.",
-    labelHint: "Label kursi: nomor meja + huruf, mis. 12A",
+    desc: "Rows of long tables facing the stage, two or three seats per table.",
+    labelHint: "Seat label: table number + letter, e.g. 12A",
   },
   u_shape: {
     name: "U-shape",
-    desc: "Meja membentuk huruf U dengan kursi di sisi luar. Untuk rapat 15-30 orang.",
-    labelHint: "Label kursi: nomor sisi + huruf, mis. 1A",
+    desc: "Tables in a U shape with seats on the outside. For meetings of 15–30 people.",
+    labelHint: "Seat label: side number + letter, e.g. 1A",
   },
   hollow_square: {
     name: "Hollow square",
-    desc: "Meja membentuk persegi tertutup. Tidak ada kepala meja; semua peserta setara.",
-    labelHint: "Label kursi: nomor sisi + huruf, mis. 1A",
+    desc: "Tables in a closed square. There is no head of the table; every participant is equal.",
+    labelHint: "Seat label: side number + letter, e.g. 1A",
   },
   boardroom: {
     name: "Boardroom",
-    desc: "Satu meja panjang dengan kursi mengelilinginya. Untuk rapat kecil.",
-    labelHint: "Label kursi: nomor meja + huruf, mis. 1A",
+    desc: "One long table with seats all around it. For small meetings.",
+    labelHint: "Seat label: table number + letter, e.g. 1A",
   },
   head_table: {
     name: "Head table + banquet",
-    desc: "Meja utama menghadap tamu di depan, meja bundar di belakangnya.",
-    labelHint: "Meja utama bernomor 1, meja bundar melanjutkan nomornya",
+    desc: "A head table at the front facing the room, with round tables behind it.",
+    labelHint: "The head table is number 1 and the round tables continue the numbering",
   },
 };
 

@@ -37,13 +37,13 @@ export function ImagePreview({ url, alt, fit = "contain", className = "h-16 w-24
   }
 
   if (failed) {
-    return <div className={`rounded-lg flex ${className} shrink-0 flex-col items-center justify-center gap-1 border border-dashed border-error bg-error-soft px-2 text-center`}>
+    return <div lang="en" className={`rounded-lg flex ${className} shrink-0 flex-col items-center justify-center gap-1 border border-dashed border-error bg-error-soft px-2 text-center`}>
       <ImageBroken size={18} className="text-error" />
-      <span className="text-label-small font-semibold leading-tight text-error">Gambar tidak dapat dimuat</span>
+      <span className="text-label-small font-semibold leading-tight text-error">Image could not be loaded</span>
     </div>;
   }
 
-  return <div className="flex items-center gap-3">
+  return <div lang="en" className="flex items-center gap-3">
     {/* Latar kotak-kotak, bukan putih atau abu polos.
         PNG transparan di atas latar putih terlihat seperti gambar berlatar putih,
         jadi panitia tidak bisa tahu apakah berkasnya sudah benar sampai melihatnya

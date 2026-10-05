@@ -51,28 +51,28 @@ export function ImageUploadField({
     const response = await fetch("/api/display/background", { method: "POST", body }).catch(() => null);
     setUploading(false);
     if (!response) {
-      toast.error("Unggah gagal", "Koneksi terputus. Coba lagi.");
+      toast.error("Upload failed", "The connection dropped. Try again.");
       return;
     }
     const data = await response.json().catch(() => null);
     if (!response.ok) {
-      toast.error("Unggah gagal", data?.error?.details?.file ?? data?.error?.message ?? "Coba berkas lain.");
+      toast.error("Upload failed", data?.error?.details?.file ?? data?.error?.message ?? "Try another file.");
       return;
     }
     onChange(data.url as string);
     // "Terunggah", bukan "tersimpan". Berkasnya memang sudah naik, tetapi
     // halamannya belum berubah sampai admin menekan Simpan, dan admin yang
     // mengira sudah selesai akan menutup tab tanpa menyimpannya.
-    toast.info("Gambar terunggah", "Tekan Simpan untuk menerapkannya ke halaman publik.");
+    toast.info("Image uploaded", "Click Save to apply it to the public page.");
   }
 
   const mati = disabled || uploading;
 
   return (
-    <div>
+    <div lang="en">
       <p className="flex items-baseline gap-2 text-body-medium font-medium text-on-surface">
         {label}
-        <span className="font-normal text-on-surface-variant">opsional</span>
+        <span className="font-normal text-on-surface-variant">optional</span>
       </p>
 
       <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -88,7 +88,7 @@ export function ImageUploadField({
           )}
         >
           <UploadSimple size={16} aria-hidden />
-          {uploading ? "Mengunggah..." : value ? "Ganti gambar" : "Unggah gambar"}
+          {uploading ? "Uploading…" : value ? "Replace image" : "Upload image"}
           <input
             type="file"
             className="sr-only"
@@ -113,7 +113,7 @@ export function ImageUploadField({
             className="inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-body-medium font-medium text-error hover:bg-error-soft disabled:opacity-50"
           >
             <Trash size={16} aria-hidden />
-            Hapus
+            Remove
           </button>
         ) : null}
       </div>

@@ -241,7 +241,7 @@ export async function discoverSubEvents(eventId: string) {
       else
         found.set(seat.subEventId, {
           subEventId: seat.subEventId,
-          subEventName: typeof seat.subEventName === "string" ? seat.subEventName : "(tanpa nama)",
+          subEventName: typeof seat.subEventName === "string" ? seat.subEventName : "(no name)",
           seatCount: 1,
         });
     }

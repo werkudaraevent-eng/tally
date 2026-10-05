@@ -92,37 +92,37 @@ export function BrandingEditor({
     const data = await response.json().catch(() => null);
     setUploading(null);
     if (!response.ok) {
-      toast.error("Upload gambar gagal", data?.error?.details?.file ?? data?.error?.message ?? "Coba lagi.");
+      toast.error("Image upload failed", data?.error?.details?.file ?? data?.error?.message ?? "Try again.");
       return;
     }
     onChange(kind === "logo" ? { logo_url: data.url } : { footer_image_url: data.url });
-    toast.info("Gambar terunggah", "Klik Simpan untuk menerapkannya ke layar publik.");
+    toast.info("Image uploaded", "Click Save to apply it to the public screen.");
   }
 
   return (
-    <div className="space-y-6">
+    <div lang="en" className="space-y-6">
       {/* Penjelasan di depan, sebelum field apa pun.
           Seluruh bagian ini opsional, dan itu tidak terlihat dari form-nya sendiri:
           admin yang menemukan belasan field baru cenderung merasa harus mengisinya. */}
       <p className="rounded-lg border border-outline-variant bg-panel-high p-3 text-body-small leading-5 text-on-surface-variant">
-        Semua isian di bagian ini <strong>opsional</strong>. Dibiarkan kosong, layar tampil
-        seperti sebelumnya tanpa logo dan tanpa blok sponsor.
+        Every field in this section is <strong>optional</strong>. Left empty, the screen looks
+        the same as before, with no logo and no sponsor block.
       </p>
 
       {/* ------------------------------------------------------------------ */}
       {/* Logo header                                                        */}
       {/* ------------------------------------------------------------------ */}
       <div>
-        <p className="text-body-medium font-semibold">Logo header</p>
+        <p className="text-body-medium font-semibold">Header logo</p>
         <p className="mt-1 text-body-small text-on-surface-variant">
-          Tampil di atas judul. PNG berlatar transparan paling baik. Maksimal 5 MB.
+          Shown above the title. A PNG with a transparent background works best. 5 MB max.
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <label
             className={`rounded-md inline-flex min-h-11 cursor-pointer items-center gap-2 border border-outline-variant bg-surface px-3 text-body-medium font-semibold hover:border-primary ${uploading === "logo" ? "pointer-events-none opacity-60" : ""}`}
           >
             <UploadSimple size={17} weight="bold" />
-            {uploading === "logo" ? "Mengunggah…" : "Upload logo"}
+            {uploading === "logo" ? "Uploading…" : "Upload logo"}
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
@@ -143,7 +143,7 @@ export function BrandingEditor({
               onClick={() => onChange({ logo_url: null })}
               className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-3 text-body-medium font-semibold text-error hover:border-error"
             >
-              <XCircle size={17} weight="bold" /> Hapus logo
+              <XCircle size={17} weight="bold" /> Remove logo
             </button>
           ) : null}
         </div>
@@ -164,13 +164,13 @@ export function BrandingEditor({
                 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={value.logo_url} alt="Pratinjau logo" className="max-h-12 max-w-20 object-contain" />
+                <img src={value.logo_url} alt="Logo preview" className="max-h-12 max-w-20 object-contain" />
               </span>
               <span className="break-all text-label-small leading-4 text-on-surface-variant">{value.logo_url}</span>
             </div>
             <ScaleField
               id={`${idPrefix}-logo-scale`}
-              label="Ukuran logo"
+              label="Logo size"
               value={value.logo_scale}
               onChange={(next) => onChange({ logo_scale: next })}
             />
@@ -182,16 +182,16 @@ export function BrandingEditor({
       {/* Footer sponsor                                                     */}
       {/* ------------------------------------------------------------------ */}
       <div className="border-t border-outline-variant pt-5">
-        <p className="text-body-medium font-semibold">Blok sponsor / media partner</p>
+        <p className="text-body-medium font-semibold">Sponsor / media partner block</p>
         <p className="mt-1 text-body-small leading-5 text-on-surface-variant">
-          Satu gambar gabungan yang sudah ditata desainer, bukan logo satu per satu.
-          Jarak antar logo dan ukuran optisnya tidak bisa disusun otomatis dengan
-          hasil yang rapi, jadi tata letaknya tetap dipegang desainer.
-          Disarankan PNG transparan, lebar 1600–2400px.
+          One combined image laid out by a designer, not separate logos.
+          Spacing and optical sizing between logos can’t be arranged automatically
+          and still look tidy, so the layout stays with the designer.
+          Transparent PNG recommended, 1600–2400px wide.
         </p>
 
         <label className="mt-4 block text-body-medium font-semibold" htmlFor={`${idPrefix}-footer-text`}>
-          Teks di atas gambar <span className="font-normal text-on-surface-variant">(opsional)</span>
+          Text above the image <span className="font-normal text-on-surface-variant">(optional)</span>
         </label>
         <input
           id={`${idPrefix}-footer-text`}
@@ -207,7 +207,7 @@ export function BrandingEditor({
             className={`rounded-md inline-flex min-h-11 cursor-pointer items-center gap-2 border border-outline-variant bg-surface px-3 text-body-medium font-semibold hover:border-primary ${uploading === "footer" ? "pointer-events-none opacity-60" : ""}`}
           >
             <UploadSimple size={17} weight="bold" />
-            {uploading === "footer" ? "Mengunggah…" : "Upload gambar sponsor"}
+            {uploading === "footer" ? "Uploading…" : "Upload sponsor image"}
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
@@ -226,7 +226,7 @@ export function BrandingEditor({
               onClick={() => onChange({ footer_image_url: null })}
               className="rounded-lg inline-flex min-h-11 items-center gap-2 border border-outline-variant bg-panel px-3 text-body-medium font-semibold text-error hover:border-error"
             >
-              <XCircle size={17} weight="bold" /> Hapus gambar
+              <XCircle size={17} weight="bold" /> Remove image
             </button>
           ) : null}
         </div>
@@ -244,13 +244,13 @@ export function BrandingEditor({
                 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={value.footer_image_url} alt="Pratinjau blok sponsor" className="max-h-12 max-w-28 object-contain" />
+                <img src={value.footer_image_url} alt="Sponsor block preview" className="max-h-12 max-w-28 object-contain" />
               </span>
               <span className="break-all text-label-small leading-4 text-on-surface-variant">{value.footer_image_url}</span>
             </div>
             <ScaleField
               id={`${idPrefix}-footer-image-scale`}
-              label="Ukuran gambar sponsor"
+              label="Sponsor image size"
               value={value.footer_image_scale}
               onChange={(next) => onChange({ footer_image_scale: next })}
             />
@@ -262,10 +262,10 @@ export function BrandingEditor({
       {/* Tipografi                                                          */}
       {/* ------------------------------------------------------------------ */}
       <div className="border-t border-outline-variant pt-5">
-        <p className="text-body-medium font-semibold">Jenis huruf judul</p>
+        <p className="text-body-medium font-semibold">Heading font</p>
         <select
           id={`${idPrefix}-font`}
-          aria-label="Jenis huruf judul"
+          aria-label="Heading font"
           value={value.heading_font}
           onChange={(event) => onChange({ heading_font: event.target.value as BrandingFont })}
           className={`mt-2 ${inputClass}`}
@@ -281,16 +281,15 @@ export function BrandingEditor({
         {/* Kenapa pengali, bukan ukuran piksel. Penjelasan singkat ditaruh di form
             karena inilah pertanyaan pertama admin saat mencari field "ukuran font". */}
         <p className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-3 text-body-small leading-5 text-on-surface-variant">
-          Ukuran diatur sebagai <strong>pengali</strong>, bukan angka piksel. Layar acara
-          punya banyak resolusi dan ukurannya menyesuaikan diri sendiri; angka piksel
-          tetap akan mepet di panel sempit dan mungil di LED besar. 1,0× berarti ukuran
-          bawaan.
+          Sizes are set as a <strong>multiplier</strong>, not in pixels. Event screens come in
+          many resolutions and sizes adapt on their own; a fixed pixel size would be cramped
+          on a narrow panel and tiny on a large LED wall. 1.0× is the default size.
         </p>
 
         <div className="mt-4 space-y-4">
-          <ScaleField id={`${idPrefix}-title-scale`} label="Ukuran judul" value={value.title_scale} onChange={(next) => onChange({ title_scale: next })} />
-          <ScaleField id={`${idPrefix}-subtitle-scale`} label="Ukuran sub judul" value={value.subtitle_scale} onChange={(next) => onChange({ subtitle_scale: next })} />
-          <ScaleField id={`${idPrefix}-footer-scale`} label="Ukuran teks footer" value={value.footer_scale} onChange={(next) => onChange({ footer_scale: next })} />
+          <ScaleField id={`${idPrefix}-title-scale`} label="Title size" value={value.title_scale} onChange={(next) => onChange({ title_scale: next })} />
+          <ScaleField id={`${idPrefix}-subtitle-scale`} label="Subtitle size" value={value.subtitle_scale} onChange={(next) => onChange({ subtitle_scale: next })} />
+          <ScaleField id={`${idPrefix}-footer-scale`} label="Footer text size" value={value.footer_scale} onChange={(next) => onChange({ footer_scale: next })} />
         </div>
       </div>
 
@@ -298,15 +297,15 @@ export function BrandingEditor({
       {/* Warna per elemen                                                   */}
       {/* ------------------------------------------------------------------ */}
       <div className="border-t border-outline-variant pt-5">
-        <p className="text-body-medium font-semibold">Warna per elemen</p>
+        <p className="text-body-medium font-semibold">Colour per element</p>
         <p className="mt-1 text-body-small text-on-surface-variant">
-          Dibiarkan kosong, elemen mengikuti warna dasar layar. Mengubah warna dasar
-          nanti tetap berlaku untuk elemen yang belum disetel khusus di sini.
+          Left empty, an element follows the screen’s base colour. Changing the base colour
+          later still applies to elements not set here.
         </p>
         <div className="mt-3 space-y-3">
           <ColorField
             id={`${idPrefix}-title-color`}
-            label="Judul"
+            label="Title"
             value={value.title_color}
             fallback={baseTextColor}
             background={baseBackgroundColor}
@@ -314,7 +313,7 @@ export function BrandingEditor({
           />
           <ColorField
             id={`${idPrefix}-subtitle-color`}
-            label="Sub judul"
+            label="Subtitle"
             value={value.subtitle_color}
             fallback={baseTextColor}
             background={baseBackgroundColor}
@@ -322,7 +321,7 @@ export function BrandingEditor({
           />
           <ColorField
             id={`${idPrefix}-footer-text-color`}
-            label="Teks footer"
+            label="Footer text"
             value={value.footer_text_color}
             fallback={baseTextColor}
             background={baseBackgroundColor}
@@ -330,8 +329,8 @@ export function BrandingEditor({
           />
         </div>
         <p className="mt-3 text-body-small text-on-surface-variant">
-          Warna aksen layar ({baseAccentColor.toUpperCase()}) tetap dipakai untuk garis
-          bawah judul dan nomor langkah pada layar QR.
+          The screen’s accent colour ({baseAccentColor.toUpperCase()}) is still used for the title
+          underline and the step numbers on the QR screen.
         </p>
       </div>
     </div>
@@ -421,10 +420,10 @@ function ColorField({
       <div className="flex items-center justify-between gap-3">
         <label className="text-body-small font-semibold" htmlFor={id}>{label}</label>
         {value === null ? (
-          <span className="text-label-small text-on-surface-variant">Ikut warna dasar</span>
+          <span className="text-label-small text-on-surface-variant">Uses base colour</span>
         ) : (
           <button type="button" onClick={() => onChange(null)} className="min-h-8 text-label-small font-semibold text-primary">
-            Kembalikan ke warna dasar
+            Reset to base colour
           </button>
         )}
       </div>
@@ -439,7 +438,7 @@ function ColorField({
         <input
           value={value ?? ""}
           placeholder={fallback.toUpperCase()}
-          aria-label={`Kode warna ${label}`}
+          aria-label={`${label} colour code`}
           onChange={(event) => {
             const next = event.target.value.trim();
             // Kolom dikosongkan berarti "ikut warna dasar". Nilai yang belum lengkap
@@ -454,8 +453,8 @@ function ColorField({
       </div>
       {low ? (
         <p className="mt-1 text-label-small text-error">
-          Kontras {ratio?.toFixed(1)}:1 terhadap latar. Di bawah 4,5:1 teks sulit dibaca
-          dari jauh. Tetap bisa disimpan.
+          Contrast {ratio?.toFixed(1)}:1 against the background. Below 4.5:1, text is hard to read
+          from a distance. You can still save it.
         </p>
       ) : null}
     </div>

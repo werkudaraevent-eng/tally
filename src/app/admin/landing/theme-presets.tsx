@@ -23,8 +23,8 @@ export function PresetTema({
   first?: boolean;
 }) {
   return (
-    <Kelompok title="Preset tema" first={first} note="Satu klik mengisi tata letak, warna, dan huruf judul. Isi halaman tidak berubah, dan semuanya tetap bisa diatur satu per satu di bawah. Gathering juga menambahkan bagian Sebelum berangkat yang masih tersembunyi di Susunan, untuk Anda isi.">
-      <div role="radiogroup" aria-label="Preset tema" className="grid gap-2">
+    <Kelompok title="Theme preset" first={first} note="One click sets the layout, colours and heading font. Page content stays the same, and each setting can still be changed below. Gathering also adds a hidden “Sebelum berangkat” section to Page sections for you to fill in.">
+      <div role="radiogroup" aria-label="Theme preset" className="grid gap-2">
         {LANDING_THEME_PRESETS.map((preset) => {
           const pilih = presetCocok(preset, landing);
           return (
@@ -47,7 +47,7 @@ export function PresetTema({
               <span className="flex min-w-0 flex-col justify-center gap-0.5 px-3 py-2.5">
                 <span className="text-body-medium font-medium text-on-surface">{preset.label}</span>
                 <span className="text-body-small text-on-surface-variant">{preset.note}</span>
-                {pilih ? <span className="text-body-small font-medium text-primary">Sedang dipakai</span> : null}
+                {pilih ? <span className="text-body-small font-medium text-primary">In use</span> : null}
               </span>
             </button>
           );

@@ -520,7 +520,7 @@ function KolomPeran({ label, value, utama, speakers, onChange }: {
         className="m3-field h-14 w-full rounded-lg border border-outline bg-surface-container-lowest px-3 text-body-large text-on-surface outline-none transition-[border-color,box-shadow] duration-150 ease-standard placeholder:text-on-surface-variant/70 focus:border-primary"
       />
       <span className="sr-only" aria-live="polite">
-        {terbuka ? (saran.length === 1 ? "1 suggestion" : `${saran.length} suggestions`) : ""}
+        {terbuka ? plural(saran.length, "suggestion") : ""}
       </span>
       {terbuka ? (
         <Popover anchor={saranMenu} id={`${id}-saran`} label="Roles used in this event" role="listbox" align="start" className="max-h-[min(20rem,50vh)]">
