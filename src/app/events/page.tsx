@@ -6,6 +6,7 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "rea
 import { Button, CONTAINER_PADDING, Dialog, EmptyState, IconButton, PageContainer, PageHeader, Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, SegmentedButton, SelectField, SelectMenu, Switch, TextArea, TextField, usePopoverAnchor } from "@/components/m3";
 import { EventStatusBadge, URUTAN_STATUS } from "@/components/admin/event-status";
 import { UserMenu } from "@/components/admin/user-menu";
+import { WorkspaceTabs } from "@/components/admin/workspace-tabs";
 import { EVENT_STATUS_LABEL, type EventRow, type EventStatus, type ParticipantSource, type UserRole } from "@/lib/domain";
 import { daysUntil } from "@/lib/event-datetime";
 import { cx } from "@/lib/m3/cx";
@@ -577,6 +578,9 @@ export default function EventsPage() {
       <div className="m3-topbar-row mx-auto flex min-h-14 w-full max-w-[1280px] items-center gap-2">
         <Storefront size={18} className="shrink-0 text-on-surface-variant" />
         <span className="text-body-medium font-medium">Tally</span>
+        {role === "admin" || role === "super_admin" ? (
+          <WorkspaceTabs current="events" />
+        ) : null}
         <div className="ml-auto flex items-center gap-1">
           <IconButton label="Search events (Ctrl K)" size="sm" onClick={() => kolomCari.current?.focus()}>
             <MagnifyingGlass size={18} />
@@ -584,7 +588,7 @@ export default function EventsPage() {
           <UserMenu
             username={username}
             role={role}
-            settingsHref="/admin/settings"
+            version={process.env.NEXT_PUBLIC_APP_VERSION}
             onLogout={() => void logout()}
             loggingOut={pending}
           />

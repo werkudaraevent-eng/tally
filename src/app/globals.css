@@ -2197,3 +2197,17 @@ html:hover {
 .scan-teks * {
 	letter-spacing: normal;
 }
+
+/* Kaki rel 64px: hanya Event settings, 32px di tengah. Tombol sematan
+ * disembunyikan di rel: dua tombol 32px tidak muat dengan jarak di 64px, dan
+ * rel melebar ke 260px saat disorot atau difokus, jadi sematan (dan Ctrl B)
+ * tetap terjangkau. */
+.press [data-rail="1"] .m3-foot-pin { display: none; }
+.press [data-rail="1"] .m3-foot-settings {
+	flex: 0 0 2rem;
+	inline-size: 2rem;
+	block-size: 2rem;
+	min-block-size: 2rem;
+	padding-inline: 0;
+	justify-content: center;
+}

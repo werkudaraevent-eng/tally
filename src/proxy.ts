@@ -84,6 +84,14 @@ function alihkan(ke: string) {
   return response;
 }
 
+/**
+ * User & role pindah dari ruang kerja acara ke tingkat workspace (`/users`):
+ * akunnya berlaku untuk semua acara, jadi URL-nya tidak boleh mengaku milik satu
+ * acara. Alamat lama dan varian ber-slug dialihkan permanen, hanya di host
+ * Tally: di domain klien jalur /admin tetap ditolak `decideClientHost`.
+ */
+const USERS_LAMA = /^\/(?:e\/[^/]+\/)?(?:admin\/)?users\/?$/;
+
 export async function proxy(request: NextRequest) {
   // Penanda dibaca langsung dari tabel, tanpa peta: pemeriksaan "Aktif" tepat
   // setelah Hubungkan berjalan di instans lain yang petanya belum tahu host ini.
@@ -131,6 +139,12 @@ export async function proxy(request: NextRequest) {
         domainFor: (slug) => peta.bySlug.get(slug),
       });
       if (ke) return alihkan(ke);
+    }
+    if (USERS_LAMA.test(request.nextUrl.pathname) && (request.nextUrl.pathname !== "/users" || request.nextUrl.searchParams.has("eventSlug"))) {
+      const ke = request.nextUrl.clone();
+      ke.pathname = "/users";
+      ke.search = "";
+      return NextResponse.redirect(ke, 308);
     }
     destination = eventRewrite(request);
   }
