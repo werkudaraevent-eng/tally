@@ -231,7 +231,10 @@ export function SelectField({ label, hint, error, optional, className, children,
 				// appearance-none dilepas dengan sengaja: panah bawaan sistem ikut
 				// mengikuti color-scheme, dan menggantinya dengan ikon sendiri berarti
 				// membangun ulang perilaku papan ketik yang sudah benar.
-				className={cx(controlClass(error), "m3-field h-14")}
+				// mt-2: jarak label ke kotak sama dengan TextField dan TextArea. Tanpa
+				// ini, select di sebelah kolom teks naik 8px dan kedua kotak tidak
+				// sejajar walau labelnya sejajar.
+				className={cx(controlClass(error), "m3-field mt-2 h-14")}
 			>
 				{children}
 			</select>

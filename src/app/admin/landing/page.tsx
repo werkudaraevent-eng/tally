@@ -1045,7 +1045,7 @@ export default function LandingCmsPage() {
           label="End date"
           optional
           type="date"
-          hint={`Fill in only if the event runs over more than one day. The start date (${facts.event_date ? formatTanggal(facts.event_date) : "not set yet"}) is set in Settings.`}
+          hint={`Fill in only if the event runs over more than one day. The start date (${facts.event_date ? formatTanggal(facts.event_date) : "not set yet"}) is set in Edit details on the dashboard.`}
           value={facts.end_date ?? ""}
           onChange={(event) => patchFacts({ end_date: event.target.value || null })}
         />

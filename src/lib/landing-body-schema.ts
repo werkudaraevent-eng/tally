@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LANDING_ABOUT_MEDIA, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_ABOUT_MEDIA, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 // Skema isi CMS Halaman acara. Dipakai PATCH /api/admin/landing saat menyimpan
 // dan pratinjau langsung saat merender draf, supaya pratinjau menolak hal yang
@@ -207,7 +207,7 @@ export const landingBodySchema = z.object({
   start_time: z.string().regex(HHMM).nullable(),
   end_time: z.string().regex(HHMM).nullable(),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
-  venue_name: z.string().trim().max(200).nullable(),
+  venue_name: z.string().trim().max(EVENT_VENUE_MAX).nullable(),
   venue_address: z.string().trim().max(600).nullable(),
   venue_map_url: z.string().url().max(600).nullable(),
 

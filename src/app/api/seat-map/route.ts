@@ -54,7 +54,9 @@ export async function GET(request: Request) {
 
     const settingsRow = settingsResult.data as { name_display_mode?: NameDisplayMode; time_zone?: string } | null;
     const mode = (settingsRow?.name_display_mode ?? "initials") as NameDisplayMode;
-    const timeZone = normalizeTimeZone(settingsRow?.time_zone);
+    // events.time_zone adalah satu-satunya sumber zona waktu; kolom event_settings
+    // hanya cadangan untuk baris lama yang belum punya nilai.
+    const timeZone = normalizeTimeZone(event.time_zone ?? settingsRow?.time_zone);
 
     const geometry = computeSeatMapGeometry(config);
     const knownSeatLabels = new Set<string>();

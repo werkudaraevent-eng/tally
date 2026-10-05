@@ -29,20 +29,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   // saran yang tidak akan pernah berhasil untuk event yang memang tidak ada.
   // Tidak ada kode NOT_FOUND generik di ApiErrorCode, jadi perbedaannya dibawa
   // lewat `details` daripada mendaftarkan kode baru di tiga tempat.
-  if (!current) return apiError("VALIDATION_ERROR", 404, { message: "Event tidak ditemukan. Muat ulang daftarnya." });
+  if (!current) return apiError("VALIDATION_ERROR", 404, { message: "Event not found. Reload the list." });
 
   if (body.data.action === "activate") {
-    const [{ count: booths }, { count: settings }] = await Promise.all([
-      client.from("booths").select("id", { head: true, count: "exact" }).eq("event_id", id.data).eq("is_active", true),
-      client.from("event_settings").select("id", { head: true, count: "exact" }).eq("event_id", id.data),
-    ]);
-    // Dua syarat DIPISAH pesannya. Digabung, panitia yang sudah punya booth
-    // tetap membaca "perlu booth" dan menambah booth kedua yang tidak
-    // menyelesaikan apa pun -- lalu menyerah tanpa tahu apa yang kurang.
-    const kurang: string[] = [];
-    if ((booths ?? 0) === 0) kurang.push("Belum ada booth aktif. Tambahkan minimal satu di Kelola booth.");
-    if ((settings ?? 0) !== 1) kurang.push("Baris pengaturan event belum ada. Buka Pengaturan sekali untuk membuatnya.");
-    if (kurang.length > 0) return apiError("VALIDATION_ERROR", 422, { message: kurang.join(" ") });
+    // Hanya baris pengaturan yang wajib. Syarat "minimal satu booth aktif"
+    // dihapus: konferensi seperti ILO tidak punya booth sama sekali, dan syarat
+    // itu membuatnya tidak pernah bisa diaktifkan. Tidak ada route server yang
+    // membutuhkan booth; acara yang memakainya tetap melihat "Booth aktif" di
+    // daftar kesiapan dashboard.
+    const { count: settings } = await client.from("event_settings").select("id", { head: true, count: "exact" }).eq("event_id", id.data);
+    if ((settings ?? 0) !== 1) {
+      return apiError("VALIDATION_ERROR", 422, { message: "This event has no settings row yet. Open Event settings once to create it." });
+    }
   }
 
   // Menyelesaikan atau mengarsipkan event yang masih punya order pending
@@ -56,7 +54,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       .eq("status", "pending");
     if ((pending ?? 0) > 0) {
       return apiError("VALIDATION_ERROR", 422, {
-        message: `Masih ada ${pending} order pending. Selesaikan atau batalkan dulu di Kasir sebelum menutup event.`,
+        message: `${pending} orders are still pending. Settle or cancel them at the cashier before closing the event.`,
       });
     }
   }
@@ -97,7 +95,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
   const client = getSupabaseServiceClient();
   const { data: current } = await client.from("events").select("slug,name,status").eq("id", id.data).maybeSingle();
-  if (!current) return apiError("VALIDATION_ERROR", 404, { message: "Event tidak ditemukan. Muat ulang daftarnya." });
+  if (!current) return apiError("VALIDATION_ERROR", 404, { message: "Event not found. Reload the list." });
 
   const event = current as { slug: string; name: string; status: string };
   if (body.data.confirm_slug !== event.slug) {
@@ -117,7 +115,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     // Balapan: event yang sudah dihapus admin lain di antara pembacaan di atas
     // dan panggilan ini. Dijawab 404 dengan saran yang sama seperti di PATCH.
     if ((error.message ?? "").includes("EVENT_NOT_FOUND")) {
-      return apiError("VALIDATION_ERROR", 404, { message: "Event tidak ditemukan. Muat ulang daftarnya." });
+      return apiError("VALIDATION_ERROR", 404, { message: "Event not found. Reload the list." });
     }
     const code = mapDatabaseError(error);
     return apiError(code, code === "INTERNAL_ERROR" ? 500 : 422);

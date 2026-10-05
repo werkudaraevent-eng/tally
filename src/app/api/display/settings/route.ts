@@ -68,7 +68,8 @@ export async function GET(request: Request) {
   // sehingga `data` bertipe terlalu longgar untuk di-spread.
   return Response.json({
     ...(displayResult.data as Record<string, unknown>),
-    time_zone: normalizeTimeZone((settingsResult.data as { time_zone?: string } | null)?.time_zone),
+    // events.time_zone adalah sumbernya; event_settings hanya cadangan.
+    time_zone: normalizeTimeZone(event.time_zone ?? (settingsResult.data as { time_zone?: string } | null)?.time_zone),
     // Bukan kolom display_settings, tapi WAJIB ikut di sini.
     //
     // Layar menyegarkan konfigurasinya dari endpoint ini tiap 30 detik dan
