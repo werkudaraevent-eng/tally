@@ -282,6 +282,7 @@ function tintaTerbaik(latar: string, merek: string): string {
  * - `heroAlis`/`heroAngka`: label kecil dan angka hitung mundur di hero, diukur
  *   terhadap KV yang dibayangi (kira-kira hitam) atau, tanpa KV, warna merek.
  * - `angka`: nomor hari di lingkaran warna primary.
+ * - `primerTeks`: warna primary yang terbaca di atas pasir (dan kartu putih).
  */
 export function gatheringColors(accent: string | undefined, seed: string | undefined, adaKv: boolean) {
   const aksen = /^#[0-9a-f]{6}$/i.test(accent ?? "") ? accent! : GATHERING_ACCENT_DEFAULT;
@@ -290,7 +291,10 @@ export function gatheringColors(accent: string | undefined, seed: string | undef
   const primer = kontras(merek, "#ffffff") >= 3 ? merek : TINTA_GELAP;
   const sand = mixHex(aksen, "#ffffff", 0.86);
   const cta = kontras(aksen, "#000000") >= 3 ? aksen : "#ffffff";
-  const latarHero = adaKv ? "#000000" : merek;
+  // KV yang dibayangi tidak pernah hitam murni: KV navy KSO 21 terukur ~#070e1f,
+  // dan KV yang lebih terang lebih dari itu. #222 memberi jarak aman untuk
+  // keduanya (QA PR #87: #4d72c8 lolos terhadap hitam, 4.17:1 terhadap KV nyata).
+  const latarHero = adaKv ? "#222222" : merek;
   return {
     aksen,
     sand,
@@ -301,5 +305,7 @@ export function gatheringColors(accent: string | undefined, seed: string | undef
     heroAlis: terbacaDi(adaKv ? mixHex(aksen, "#ffffff", 0.55) : aksen, latarHero),
     heroAngka: terbacaDi(aksen, latarHero),
     angka: terbacaDi(aksen, primer),
+    // Teks warna primary di atas pasir (jam kartu hari, tautan jadwal lengkap).
+    primerTeks: terbacaDi(primer, sand),
   };
 }

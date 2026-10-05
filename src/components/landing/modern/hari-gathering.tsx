@@ -64,7 +64,7 @@ export function HariGathering({
                       // gala) ditebalkan, seperti rancangan v3.
                       className={`${urutan === tampil.length - 1 && tampil.length > 1 ? "font-semibold" : ""} flex gap-3 border-b border-[color-mix(in_srgb,var(--reg-on-surface)_10%,transparent)] py-3 text-[14px] leading-5 last:border-b-0 last:pb-0`}
                     >
-                      <span className="w-11 shrink-0 font-semibold tabular-nums text-[var(--reg-primary)]">{item.time}</span>
+                      <span className="w-11 shrink-0 font-semibold tabular-nums text-[var(--primer-teks)]">{item.time}</span>
                       <span className="min-w-0">{item.title}</span>
                     </li>
                   ))}
@@ -76,7 +76,7 @@ export function HariGathering({
         })}
       </ol>
       <details className="group">
-        <summary className="m3-state -mx-3 inline-flex min-h-12 px-3 cursor-pointer list-none items-center gap-2 rounded-md text-title-medium font-semibold text-[var(--reg-primary)] [&::-webkit-details-marker]:hidden">
+        <summary className="m3-state -mx-3 inline-flex min-h-12 px-3 cursor-pointer list-none items-center gap-2 rounded-md text-title-medium font-semibold text-[var(--primer-teks)] [&::-webkit-details-marker]:hidden">
           {t.fullSchedule}
           <CaretDown size={18} weight="bold" aria-hidden className="transition-transform group-open:rotate-180" />
         </summary>
