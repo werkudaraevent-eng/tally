@@ -155,7 +155,9 @@ export async function GET() {
   // Akun disaring di server dengan aturan yang sama: admin hanya menerima akun
   // yang berbagi acara dengannya, tanpa super admin. Angka di tab peran dihitung
   // dari daftar ini, jadi ikut tersaring.
-  const users = akunTerlihat(auth.user, akses, (akun.data ?? []) as UserRow[]).map((user) => ({ ...user, events: perUser.get(user.id) ?? [] }));
+  // Acara terarsip tidak dihitung sebagai "berbagi acara".
+  const aktif = new Set(acara.map((event) => event.id));
+  const users = akunTerlihat(auth.user, akses.filter((baris) => aktif.has(baris.event_id)), (akun.data ?? []) as UserRow[]).map((user) => ({ ...user, events: perUser.get(user.id) ?? [] }));
   return Response.json({
     users,
     can_manage: canManageUsers(auth.user),
@@ -229,7 +231,9 @@ export async function PATCH(request: Request) {
   const client = getSupabaseServiceClient();
 
   const { data: current } = await client.from("users").select("id,username,role,booth_id,is_active").eq("id", parsed.data.id).maybeSingle() as { data: UserRow | null };
-  if (!current) return apiError("USER_NOT_FOUND", 404);
+  // Bagi yang bukan pengelola akun, id tak dikenal dijawab sama dengan id di luar
+  // cakupannya (403), supaya tanggapannya tidak membocorkan id mana yang ada.
+  if (!current) return canManageUsers(auth.user) ? apiError("USER_NOT_FOUND", 404) : apiError("FORBIDDEN", 403);
 
   // Klien hanya boleh mereset PIN operator booth/kasir supaya tidak perlu
   // menghubungi pemilik saat ada yang lupa PIN di hari-H. Selain itu, seluruh
@@ -246,9 +250,15 @@ export async function PATCH(request: Request) {
     // Peran global saja tidak cukup: target harus ada di acara tempat pemanggil
     // berperan admin. Tanpa ini admin klien A bisa mereset PIN akun booth klien
     // B lewat id-nya dan mengambil alih akun itu.
-    const aksesTerkait = await client.from("user_event_access").select("user_id,event_id,role").in("user_id", [auth.user.id, current.id]);
+    const aksesTerkait = await semuaHalaman<BarisAkses>((dari, sampai) =>
+      client.from("user_event_access").select("user_id,event_id,role").in("user_id", [auth.user.id, current.id]).order("user_id").order("event_id").range(dari, sampai));
     if (aksesTerkait.error) return apiError("INTERNAL_ERROR", 500);
-    if (!bolehResetPin(auth.user.id, current.id, (aksesTerkait.data ?? []) as BarisAkses[])) return apiError("FORBIDDEN", 403);
+    // Acara terarsip tidak lagi memberi wewenang atas akun di dalamnya.
+    const idAcara = [...new Set(aksesTerkait.data.map((baris) => baris.event_id))];
+    const terarsip = idAcara.length === 0 ? { data: [], error: null } : await client.from("events").select("id").in("id", idAcara).not("archived_at", "is", null);
+    if (terarsip.error) return apiError("INTERNAL_ERROR", 500);
+    const arsip = new Set(((terarsip.data ?? []) as { id: string }[]).map((event) => event.id));
+    if (!bolehResetPin(auth.user.id, current.id, aksesTerkait.data.filter((baris) => !arsip.has(baris.event_id)))) return apiError("FORBIDDEN", 403);
 
     // Reset PIN menulis PIN SAJA. Menulis ulang peran dan booth di sini membuat
     // akun booth lama tanpa users.booth_id gagal direset.

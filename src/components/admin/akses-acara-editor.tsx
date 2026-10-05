@@ -1,7 +1,7 @@
 "use client";
 
 import { MagnifyingGlass, Plus, X } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useId, useState, type KeyboardEvent } from "react";
 import { Button, IconButton, Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
 import { EVENT_STATUS_LABEL } from "@/lib/domain";
 import { cx } from "@/lib/m3/cx";
@@ -47,6 +47,8 @@ export function AksesAcaraEditor({
   const [pemicu, setPemicu] = useState<HTMLSpanElement | null>(null);
   const menu = usePopoverAnchor(pemicu);
   const [cari, setCari] = useState("");
+  const [sorot, setSorot] = useState(0);
+  const idDaftar = useId();
 
   const sudah = new Set(rows.map((row) => row.event_id));
   const tersisa = events.filter((event) => !sudah.has(event.id));
@@ -61,7 +63,24 @@ export function AksesAcaraEditor({
     if (role === "booth") onNeedBooths(event);
     onChange([...rows, { event_id: event.id, booth_id: null }]);
     setCari("");
+    setSorot(0);
     menu.tutup();
+    menu.fokus();
+  }
+
+  // Combobox ARIA 1.2: fokus tetap di kolom cari, panah memindah sorotan di
+  // daftar, Enter memilih yang disorot, Esc menutup (ditangani Popover).
+  function tombol(peristiwa: KeyboardEvent<HTMLInputElement>) {
+    if (peristiwa.key === "ArrowDown" || peristiwa.key === "ArrowUp") {
+      peristiwa.preventDefault();
+      if (tawaran.length === 0) return;
+      const arah = peristiwa.key === "ArrowDown" ? 1 : -1;
+      setSorot((sekarang) => (sekarang + arah + tawaran.length) % tawaran.length);
+    } else if (peristiwa.key === "Enter") {
+      peristiwa.preventDefault();
+      const pilihan = tawaran[Math.min(sorot, tawaran.length - 1)];
+      if (pilihan) tambah(pilihan);
+    }
   }
 
   return (
@@ -99,13 +118,18 @@ export function AksesAcaraEditor({
                     ) : (
                       <select
                         aria-label={`Booth at ${event?.name ?? "this event"}`}
-                        className={cx(SELECT, "w-full", !row.booth_id && "text-on-surface-variant")}
+                        aria-invalid={!row.booth_id}
+                        aria-describedby={!row.booth_id ? `${idDaftar}-booth-${index}` : undefined}
+                        className={cx(SELECT, "w-full", !row.booth_id && "border-error text-on-surface-variant")}
                         value={row.booth_id ?? ""}
                         onChange={(change) => setBooth(index, change.target.value ? Number(change.target.value) : null)}
                       >
                         <option value="">Choose a booth</option>
                         {daftar.map((booth) => <option key={booth.id} value={booth.id}>{booth.code} · {booth.name}</option>)}
                       </select>
+                    )}
+                    {row.booth_id || !Array.isArray(daftar) || daftar.length === 0 ? null : (
+                      <p id={`${idDaftar}-booth-${index}`} className="mt-1 text-body-small text-error">Choose their booth at this event.</p>
                     )}
                   </div>
                 ) : null}
@@ -115,20 +139,25 @@ export function AksesAcaraEditor({
         </ul>
       )}
 
-      <span ref={setPemicu} className="inline-flex self-start">
-        <Button
-          type="button"
-          variant="outlined"
-          size="sm"
-          icon={<Plus size={16} weight="bold" />}
-          disabled={tersisa.length === 0}
-          onClick={() => menu.toggle()}
-          aria-expanded={menu.open}
-          aria-haspopup="dialog"
-        >
-          Add event
-        </Button>
-      </span>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span ref={setPemicu} className="inline-flex">
+          <Button
+            type="button"
+            variant="outlined"
+            size="sm"
+            icon={<Plus size={16} weight="bold" />}
+            disabled={tersisa.length === 0}
+            onClick={() => { setSorot(0); menu.toggle(); }}
+            aria-expanded={menu.open}
+            aria-haspopup="dialog"
+          >
+            Add event
+          </Button>
+        </span>
+        {tersisa.length === 0 && events.length > 0 ? (
+          <span className="text-body-small text-on-surface-variant">Every event is already added.</span>
+        ) : null}
+      </div>
       {menu.open ? (
         <Popover anchor={menu} label="Add event" role="dialog" align="start" width={340}>
           <div className="p-2">
@@ -136,26 +165,45 @@ export function AksesAcaraEditor({
               <MagnifyingGlass size={16} className="shrink-0 text-on-surface-variant" />
               <input
                 autoFocus
+                role="combobox"
+                aria-expanded
+                aria-controls={idDaftar}
+                aria-autocomplete="list"
+                aria-activedescendant={tawaran.length > 0 ? `${idDaftar}-${Math.min(sorot, tawaran.length - 1)}` : undefined}
                 value={cari}
-                onChange={(change) => setCari(change.target.value)}
+                onChange={(change) => { setCari(change.target.value); setSorot(0); }}
+                onKeyDown={tombol}
                 placeholder="Search events"
                 aria-label="Search events"
                 className="min-w-0 flex-1 bg-transparent text-body-medium outline-none"
               />
             </label>
           </div>
-          <div className="max-h-64 overflow-y-auto pb-1">
+          <p role="status" className="sr-only">{tawaran.length === 1 ? "1 event" : `${tawaran.length} events`}</p>
+          <ul id={idDaftar} role="listbox" aria-label="Events" className="max-h-64 overflow-y-auto pb-1">
             {tawaran.length === 0 ? (
-              <p className="px-4 py-3 text-body-medium text-on-surface-variant">No matching events.</p>
-            ) : tawaran.map((event) => (
-              <button key={event.id} type="button" className={POPOVER_ITEM} onClick={() => tambah(event)}>
-                <span className="min-w-0 flex-1 truncate text-left">{event.name}</span>
-                <span className="shrink-0 text-body-small text-on-surface-variant">
-                  {EVENT_STATUS_LABEL[event.status as keyof typeof EVENT_STATUS_LABEL] ?? event.status}
-                </span>
-              </button>
-            ))}
-          </div>
+              <li role="presentation" className="px-4 py-3 text-body-medium text-on-surface-variant">No matching events.</li>
+            ) : tawaran.map((event, index) => {
+              const aktif = index === Math.min(sorot, tawaran.length - 1);
+              return (
+                <li
+                  key={event.id}
+                  id={`${idDaftar}-${index}`}
+                  role="option"
+                  aria-selected={aktif}
+                  onMouseDown={(klik) => klik.preventDefault()}
+                  onMouseEnter={() => setSorot(index)}
+                  onClick={() => tambah(event)}
+                  className={cx(POPOVER_ITEM, "cursor-pointer", aktif && "bg-primary-soft")}
+                >
+                  <span className="min-w-0 flex-1 truncate text-left">{event.name}</span>
+                  <span className="shrink-0 text-body-small text-on-surface-variant">
+                    {EVENT_STATUS_LABEL[event.status as keyof typeof EVENT_STATUS_LABEL] ?? event.status}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         </Popover>
       ) : null}
     </div>

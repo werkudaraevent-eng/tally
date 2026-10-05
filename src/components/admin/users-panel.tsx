@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, ShieldCheck, X, XCircle } from "@phosphor-icons/react";
+import { CheckCircle, Copy, Plus, ShieldCheck, X, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ROLE_LABEL } from "@/lib/domain";
@@ -93,6 +93,42 @@ function pinAcak() {
   return String(angka[0] % 1_000_000).padStart(6, "0");
 }
 
+/**
+ * Layar sesudah akun dibuat: username dan PIN ditampilkan SEKALI, dengan tombol
+ * salin. PIN tidak disimpan dalam bentuk terbaca, jadi setelah dialog ini
+ * ditutup satu-satunya jalan adalah membuat PIN baru.
+ */
+function AkunDibuat({ username, pin, onDone }: { username: string; pin: string; onDone: () => void }) {
+  const [tersalin, setTersalin] = useState(false);
+  async function salin() {
+    try {
+      await navigator.clipboard.writeText(`Username: ${username}\nPIN: ${pin}`);
+      setTersalin(true);
+    } catch {
+      setTersalin(false);
+    }
+  }
+  return (
+    <div className="flex flex-col max-sm:h-dvh">
+      <div className="flex-1 px-5 py-5">
+        <h2 className="flex items-center gap-2 text-title-large font-semibold"><CheckCircle size={22} weight="fill" className="text-success" />{username} is added</h2>
+        <p className="mt-1 text-body-medium text-on-surface-variant">Give them these sign-in details in person. The PIN is shown only once.</p>
+        <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 rounded-lg border border-outline-variant px-4 py-3">
+          <dt className="text-body-medium text-on-surface-variant">Username</dt>
+          <dd className="text-body-large font-medium">{username}</dd>
+          <dt className="text-body-medium text-on-surface-variant">PIN</dt>
+          <dd className="text-body-large font-semibold tabular-nums tracking-widest">{pin}</dd>
+        </dl>
+        <p role="status" className="mt-2 min-h-5 text-body-small text-on-surface-variant">{tersalin ? "Copied." : ""}</p>
+      </div>
+      <div className="flex shrink-0 justify-end gap-2 border-t border-outline-variant px-5 py-3">
+        <Button type="button" variant="outlined" size="sm" icon={<Copy size={16} />} onClick={() => void salin()}>Copy details</Button>
+        <Button type="button" size="sm" onClick={onDone}>Done</Button>
+      </div>
+    </div>
+  );
+}
+
 /** Tab penyaring per peran. "Admin" memuat Admin dan Super admin. */
 const ROLE_TABS: Array<{ value: RoleTab; label: string; roles: Role[] | null }> = [
   { value: "semua", label: "All", roles: null },
@@ -135,6 +171,10 @@ export function UsersPanel() {
   const [roleTab, setRoleTab] = useState<RoleTab>("semua");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState("");
+  // Galat yang milik satu kolom (username dipakai) ditulis di bawah kolomnya.
+  const [galatUsername, setGalatUsername] = useState("");
+  // Akun yang baru dibuat: PIN-nya ditampilkan SEKALI, lalu tidak pernah lagi.
+  const [dibuat, setDibuat] = useState<{ username: string; pin: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [canManage, setCanManage] = useState(false);
   const toast = useToast();
@@ -189,11 +229,15 @@ export function UsersPanel() {
 
   function startNew() {
     setDraft(blank);
+    setDibuat(null);
+    setGalatUsername("");
     setError("");
   }
 
   function close() {
     setDraft(null);
+    setDibuat(null);
+    setGalatUsername("");
     setError("");
   }
 
@@ -229,14 +273,18 @@ export function UsersPanel() {
     setSaving(false);
     if (!response.ok) {
       const failure = data.error?.details?.message ?? data.error?.message ?? "The account could not be saved.";
+      if (data.error?.details?.field === "username") { setGalatUsername(failure); return; }
       setError(failure);
-      toast.error("Account not saved", failure);
       return;
     }
-    toast.success(`${data.user.username} saved`, isNew ? "They can sign in now." : canManage ? "Changes applied." : "The new PIN works now.");
     const saved = data.user as User;
-    setDraft(dariUser(saved));
     void load();
+    if (isNew) {
+      setDibuat({ username: saved.username, pin: draft.pin });
+      return;
+    }
+    toast.success(`${saved.username} saved`, canManage ? "Changes applied." : "The new PIN works now.");
+    setDraft(dariUser(saved));
   }
 
   const saring = (roles: Role[] | null) => (roles ? users.filter((user) => roles.includes(user.role)) : users);
@@ -342,7 +390,8 @@ export function UsersPanel() {
         <TextField
           label="Username"
           value={draft.username}
-          onChange={(event) => setDraft((current) => current && { ...current, username: event.target.value.toLowerCase() })}
+          onChange={(event) => { setGalatUsername(""); setDraft((current) => current && { ...current, username: event.target.value.toLowerCase() }); }}
+          error={galatUsername || undefined}
           placeholder="e.g. ratna.booth3"
           autoComplete="off"
         />
@@ -401,7 +450,7 @@ export function UsersPanel() {
 
     const tombolSimpan = (
       <Button type="submit" form="form-akun" size="sm" loading={saving} disabled={saveDisabled}>
-        {canManage ? (isNew ? "Create user" : "Save changes") : "Reset PIN"}
+        {canManage ? (isNew ? "Add user" : "Save changes") : "Reset PIN"}
       </Button>
     );
     const pesanGalat = error ? <p role="alert" className="mx-5 mt-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{error}</p> : null;
@@ -415,12 +464,15 @@ export function UsersPanel() {
       // layar setinggi 588px. Satu kolom: siapa, sebagai apa, lalu di acara
       // mana.
       dialogBaru = (
-        <Dialog open bare size="lg" title="New user" onClose={close} dismissible={!saving}>
-          <form id="form-akun" onSubmit={kirim} className="flex max-h-[90dvh] flex-col">
+        <Dialog open bare size="lg" title="Add user" onClose={close} dismissible={!saving} fullScreenOnMobile>
+          {dibuat ? (
+            <AkunDibuat username={dibuat.username} pin={dibuat.pin} onDone={close} />
+          ) : (
+          <form id="form-akun" onSubmit={kirim} className="flex max-h-[90dvh] flex-col max-sm:h-dvh max-sm:max-h-none">
             <div className="flex shrink-0 items-start gap-3 border-b border-outline-variant px-5 py-4">
               <div className="min-w-0 flex-1">
-                <h2 className="text-title-large font-semibold">New user</h2>
-                <p className="text-body-medium text-on-surface-variant">They can sign in as soon as you create the account.</p>
+                <h2 className="text-title-large font-semibold">Add user</h2>
+                <p className="text-body-medium text-on-surface-variant">They can sign in as soon as you add them.</p>
               </div>
               <IconButton size="sm" label="Close" onClick={close} disabled={saving}><X size={16} /></IconButton>
             </div>
@@ -430,12 +482,15 @@ export function UsersPanel() {
               {bagianPeran}
               {bagianAcara}
             </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant px-5 py-3">
-              <p className="min-w-40 flex-1 text-body-medium text-on-surface-variant">{catatanSimpan}</p>
-              <Button type="button" variant="outlined" size="sm" disabled={saving} onClick={close}>Cancel</Button>
-              {tombolSimpan}
+            <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-t border-outline-variant px-5 py-3">
+              <p className="min-w-0 flex-1 text-body-medium text-on-surface-variant max-sm:basis-full">{catatanSimpan}</p>
+              <div className="ml-auto flex shrink-0 gap-2">
+                <Button type="button" variant="outlined" size="sm" disabled={saving} onClick={close}>Cancel</Button>
+                {tombolSimpan}
+              </div>
             </div>
           </form>
+          )}
         </Dialog>
       );
     } else detail = (

@@ -33,7 +33,7 @@ import type { EventStatus } from "@/lib/domain";
  * tujuan biasa yang memang pantas dibuka di tab baru.
  */
 
-export type EventPilihan = { slug: string; name: string; status: string };
+export type EventPilihan = { id?: string; slug: string; name: string; status: string };
 
 /**
  * Urutan yang SAMA dengan daftar acara: aktif dulu, lalu draft, selesai, arsip.
