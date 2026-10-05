@@ -2197,3 +2197,7 @@ html:hover {
 .scan-teks * {
 	letter-spacing: normal;
 }
+
+/* PROTOTIPE rev 2: di rel 64px kaki memuat dua ikon 32px, sematan dan Pengaturan acara. */
+.press [data-rail="1"] .m3-drawer-foot { padding-inline: 0; gap: 0; justify-content: space-evenly; }
+.press [data-rail="1"] .m3-foot-settings { flex: 0 0 2rem; inline-size: 2rem; min-block-size: 2rem; padding-inline: 0; justify-content: center; }

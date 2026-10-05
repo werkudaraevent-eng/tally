@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowSquareOut, List, SidebarSimple, Storefront, X } from "@phosphor-icons/react";
+import { GearSix, List, Question, SidebarSimple, Storefront, X } from "@phosphor-icons/react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { IconButton, TopAppBar } from "@/components/m3";
@@ -591,24 +592,28 @@ export function AdminShell({
             <SidebarSimple size={18} weight={pinned ? "fill" : "regular"} />
           </button>
 
+          <Link
+            href={`${eventPrefix}/admin/settings`}
+            onClick={() => setMobileOpen(false)}
+            aria-current={logicalPathname.startsWith("/admin/settings") ? "page" : undefined}
+            title="Event settings"
+            className={`m3-nav-item m3-foot-settings flex min-h-9 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 text-body-medium text-on-surface transition-colors duration-150 ${
+              logicalPathname.startsWith("/admin/settings") ? "bg-[var(--press-active)] font-medium" : "hover:bg-[var(--press-hover)]"
+            }`}
+          >
+            <GearSix size={18} className="shrink-0 text-on-surface-variant" />
+            <span className="m3-nav-label min-w-0 flex-1 truncate text-left">Event settings</span>
+          </Link>
           <a
             href={`${eventPrefix}/panduan/sistem`}
             target="_blank"
             rel="noreferrer"
-            // Dibuka di tab baru: panitia yang membacanya sedang berdiri di meja
-            // registrasi dengan halaman kerja yang belum selesai di tab sebelah.
-            className="m3-rail-hide flex min-w-0 items-center gap-1 whitespace-nowrap rounded-sm px-1.5 py-1 text-label-medium text-on-surface-variant hover:bg-[var(--press-hover)]"
+            aria-label="System guide (opens in a new tab)"
+            title={`System guide · Tally v${versi}`}
+            className="m3-rail-hide flex size-[30px] shrink-0 items-center justify-center rounded-sm text-on-surface-variant hover:bg-[var(--press-hover)]"
           >
-            System guide
-            <ArrowSquareOut
- size={12} className="shrink-0" />
+            <Question size={18} />
           </a>
-          {/* Versinya ada karena ia pertanyaan pertama saat panitia melaporkan
-              masalah lewat WhatsApp, dan sebelumnya tidak ada satu pun tempat di
-              layar yang bisa menjawabnya. */}
-          <p className="m3-rail-hide ml-auto shrink truncate whitespace-nowrap pr-1 text-label-medium text-[var(--press-ink-faint)]">
-            Tally v{versi}
-          </p>
         </div>
       </aside>
 
@@ -644,7 +649,7 @@ export function AdminShell({
               <UserMenu
                 username={akun?.username ?? null}
                 role={akun?.role ?? null}
-                settingsHref={`${eventPrefix}/admin/settings`}
+                version={versi}
                 onLogout={() => void logout()}
                 loggingOut={loggingOut}
               />

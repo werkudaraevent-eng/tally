@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowSquareOut, CalendarDots, CalendarPlus, CopySimple, DotsThree, MagnifyingGlass, Plus, Storefront, Trash, UsersThree } from "@phosphor-icons/react";
+import { ArrowRight, ArrowSquareOut, CalendarDots, CalendarPlus, CopySimple, DotsThree, MagnifyingGlass, Plus, ShieldCheck, Storefront, Trash, UsersThree } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Button, CONTAINER_PADDING, Dialog, EmptyState, IconButton, PageContainer, PageHeader, Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, SegmentedButton, SelectField, SelectMenu, Switch, TextArea, TextField, usePopoverAnchor } from "@/components/m3";
@@ -577,6 +577,14 @@ export default function EventsPage() {
       <div className="m3-topbar-row mx-auto flex min-h-14 w-full max-w-[1280px] items-center gap-2">
         <Storefront size={18} className="shrink-0 text-on-surface-variant" />
         <span className="text-body-medium font-medium">Tally</span>
+        <nav aria-label="Workspace" className="ml-4 flex items-center gap-1">
+          <Link href="/events" aria-current="page" className="flex h-8 items-center gap-1.5 rounded-lg bg-[var(--press-active)] px-2.5 text-body-medium font-medium text-on-surface">
+            <CalendarDots size={16} /> Events
+          </Link>
+          <Link href="/users" className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-body-medium text-on-surface-variant hover:bg-[var(--press-hover)]">
+            <ShieldCheck size={16} /> Users &amp; roles
+          </Link>
+        </nav>
         <div className="ml-auto flex items-center gap-1">
           <IconButton label="Search events (Ctrl K)" size="sm" onClick={() => kolomCari.current?.focus()}>
             <MagnifyingGlass size={18} />
@@ -584,7 +592,7 @@ export default function EventsPage() {
           <UserMenu
             username={username}
             role={role}
-            settingsHref="/admin/settings"
+            version={process.env.NEXT_PUBLIC_APP_VERSION}
             onLogout={() => void logout()}
             loggingOut={pending}
           />

@@ -180,8 +180,8 @@ export const navigation: NavGroup[] = [
  * sidebar disisakan untuk tujuan yang benar-benar ditekan panitia sepanjang hari.
  */
 export const halamanSistem: NavItem[] = [
-  { href: "/admin/settings", label: "Settings", icon: GearSix, description: "Time zone, order flow, payment methods, integrations, and the audit trail.", alias: ["pengaturan", "setelan"] },
-  { href: "/admin/users", label: "Users & roles", icon: ShieldCheck, description: "Staff accounts, their roles, and PIN resets.", alias: ["user & role", "pengguna", "panitia"] },
+  { href: "/admin/settings", label: "Event settings", icon: GearSix, description: "Time zone, order flow, payment methods, integrations, and the audit trail.", alias: ["pengaturan", "setelan"] },
+  { href: "/users", label: "Users & roles", icon: ShieldCheck, description: "Staff accounts, their roles, and PIN resets.", alias: ["user & role", "pengguna", "panitia"] },
 ];
 
 /**

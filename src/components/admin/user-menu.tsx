@@ -1,7 +1,6 @@
 "use client";
 
 import { CaretRight, Check } from "@phosphor-icons/react";
-import Link from "next/link";
 import { useId, useState, useSyncExternalStore } from "react";
 import { Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, usePopoverAnchor } from "@/components/m3";
 import { applyTheme, readTheme, type ThemePreference } from "@/lib/m3/theme";
@@ -105,13 +104,13 @@ function SubmenuTampilan({ tutupInduk }: { tutupInduk: () => void }) {
 export function UserMenu({
   username,
   role,
-  settingsHref,
+  version,
   onLogout,
   loggingOut,
 }: {
   username: string | null;
   role: string | null;
-  settingsHref: string;
+  version?: string;
   onLogout: () => void;
   loggingOut?: boolean;
 }) {
@@ -152,13 +151,10 @@ export function UserMenu({
             {role ? (
               <p className="mt-0.5 truncate text-label-medium text-on-surface-variant">{ROLE_LABEL[role as UserRole] ?? role}</p>
             ) : null}
+            {version ? <p className="mt-0.5 text-label-medium text-[var(--press-ink-faint)]">Tally v{version}</p> : null}
           </div>
 
           <div className="my-1 border-t border-outline-variant" />
-
-          <Link href={settingsHref} role="menuitem" onClick={menu.tutup} className={POPOVER_ITEM}>
-            Account settings
-          </Link>
 
           <SubmenuTampilan tutupInduk={menu.tutup} />
 

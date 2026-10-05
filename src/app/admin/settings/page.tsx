@@ -54,7 +54,7 @@ export default function SettingsPage() {
             <MetaSeparator />
             <span>Setiap perubahan tercatat di jejak audit</span>
             <MetaSeparator />
-            <span>Akun panitia ada di <Link href="/admin/users" className="rounded-sm font-medium text-primary hover:underline">User &amp; role</Link></span>
+            <span>Staff access: <Link href="/events" className="rounded-sm font-medium text-primary hover:underline">This event</Link>, <Link href="/users" className="rounded-sm font-medium text-primary hover:underline">Users &amp; roles</Link></span>
           </>
         }
       />

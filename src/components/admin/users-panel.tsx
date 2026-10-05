@@ -25,7 +25,7 @@ import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
 
 type Role = "booth" | "cashier" | "admin" | "super_admin" | "scanner";
-type User = { id: string; username: string; role: Role; booth_id: number | null; is_active: boolean };
+type User = { id: string; username: string; role: Role; booth_id: number | null; is_active: boolean; events?: { slug: string; name: string; role: Role }[] };
 type Booth = { id: number; code: string; name: string };
 type Draft = { id: string | null; username: string; pin: string; role: Role; booth_id: number | null; is_active: boolean };
 type RoleTab = "semua" | "booth" | "cashier" | "scanner" | "admin";
@@ -189,6 +189,7 @@ export function UsersPanel() {
               <tr>
                 <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Akun</th>
                 <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Peran</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Event access</th>
                 <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Booth</th>
                 <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Status</th>
               </tr>
@@ -213,6 +214,17 @@ export function UsersPanel() {
                       </button>
                     </td>
                     <td className="border-b border-outline-variant px-3 py-2.5">{ROLE_LABEL[user.role]}</td>
+                    <td className="max-w-[280px] border-b border-outline-variant px-3 py-2.5">
+                      {user.role === "super_admin" ? (
+                        <span className="text-on-surface-variant">All events</span>
+                      ) : user.events?.length ? (
+                        <span className="block truncate" title={user.events.map((e) => `${e.name} (${ROLE_LABEL[e.role]})`).join(", ")}>
+                          {user.events.map((e) => e.name).join(", ")}
+                        </span>
+                      ) : (
+                        <span className="text-on-surface-variant">None</span>
+                      )}
+                    </td>
                     <td className="border-b border-outline-variant px-3 py-2.5">{boothLabel(user.booth_id) ?? <span className="text-on-surface-variant">Tidak ada</span>}</td>
                     <td className="border-b border-outline-variant px-3 py-2.5">
                       {user.is_active ? <StatusChip dot tone="success">Aktif</StatusChip> : <StatusChip dot tone="neutral">Nonaktif</StatusChip>}
