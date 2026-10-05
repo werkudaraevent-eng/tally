@@ -227,7 +227,7 @@ export function ForumFooter({ config, nama, catatan }: { config: LandingForumCon
   );
 }
 
-/** Pembungkus halaman Forum: huruf Ubuntu untuk isi, huruf judul pilihan CMS (bawaan Ubuntu). */
+/** Pembungkus halaman Forum: huruf isi dan huruf judul dari token (bawaan keduanya Ubuntu). */
 export function ForumMain({ style, lang, children }: { style: CSSProperties; lang: "id" | "en"; children: ReactNode }) {
   return (
     // `lang` di <main>: <html> milik layout bersama tetap "id", dan Forum
@@ -235,7 +235,7 @@ export function ForumMain({ style, lang, children }: { style: CSSProperties; lan
     <main
       lang={lang}
       data-halaman-publik
-      className="min-h-dvh overflow-x-clip bg-white text-black [font-family:var(--font-ubuntu)] [&_:is(h1,h2,h3)]:[font-family:var(--landing-heading)]"
+      className="min-h-dvh overflow-x-clip bg-white text-black [font-family:var(--landing-body)] [&_:is(h1,h2,h3)]:[font-family:var(--landing-heading)]"
       style={style}
     >
       {children}

@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
 import type { EventLandingConfig, EventRow, LandingForumConfig, LandingForumPage, LandingForumPart } from "@/lib/domain";
-import { LANDING_HEADING_FONTS, publicEventName } from "@/lib/domain";
+import { publicEventName } from "@/lib/domain";
 import { forumThemeStyle } from "@/lib/registration-theme-css";
+import { landingFontStyle, landingTokens } from "@/lib/landing-tokens";
 import { formatEventDate } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { speakerTabs } from "@/lib/landing-speaker-tabs";
@@ -88,10 +89,10 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
   };
   const tampil = (part: LandingForumPart) => isi[part] && !hidden.has(part);
 
-  const font = LANDING_HEADING_FONTS[config.heading_font ?? "ubuntu"] ?? LANDING_HEADING_FONTS.ubuntu;
+  const tokens = landingTokens(config, "forum");
   const style = {
-    ...forumThemeStyle(config.theme?.seed, forum.accent, forum.secondary),
-    "--landing-heading": font.cssVar,
+    ...forumThemeStyle(tokens.brand, tokens.accent ?? undefined, tokens.secondary ?? undefined),
+    ...landingFontStyle(tokens),
   } as CSSProperties;
 
   const kv = config.banner_url ?? null;

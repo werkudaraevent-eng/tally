@@ -1,3 +1,4 @@
+import { DEFAULT_BRAND } from "./landing-tokens";
 import { Blend, DynamicScheme, Hct, MaterialDynamicColors, TonalPalette, Variant, argbFromHex, hexFromArgb } from "@material/material-color-utilities";
 
 /**
@@ -65,7 +66,8 @@ export type RegistrationFormTheme = {
 	roles_dark?: RegistrationThemeRoles;
 };
 
-export const DEFAULT_REGISTRATION_SEED = "#2649D0";
+/** Warna merek bawaan. Nilainya tinggal di landing-tokens, satu tempat untuk semua bawaan gaya. */
+export const DEFAULT_REGISTRATION_SEED = DEFAULT_BRAND;
 
 function scheme(seed: string, isDark: boolean) {
 	const sourceColorHct = Hct.fromInt(argbFromHex(seed));

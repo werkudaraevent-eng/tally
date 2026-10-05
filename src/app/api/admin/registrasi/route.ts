@@ -11,6 +11,7 @@ import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { resolveFormTheme } from "@/lib/registration-theme-css";
+import { landingTokens } from "@/lib/landing-tokens";
 import { linkOrigin } from "@/lib/domain-klien/asal";
 import { invitationSettings, undanganBelumAda } from "@/lib/undangan/data";
 
@@ -23,7 +24,7 @@ function tampilanFormulir(landing: EventLandingConfig | null) {
     v2,
     logo: v2 && Boolean(landing?.nav?.logo_url),
     kv: v2 ? landing?.banner_url ?? null : null,
-    huruf: v2 ? (LANDING_HEADING_FONTS[landing?.heading_font ?? (landing?.layout === "forum" ? "ubuntu" : "source")] ?? LANDING_HEADING_FONTS.source).label : null,
+    huruf: v2 ? LANDING_HEADING_FONTS[landingTokens(landing, landing?.layout === "forum" ? "forum" : "modern").headingFont].label : null,
     area_peserta: Boolean(landing?.member?.enabled),
   };
 }

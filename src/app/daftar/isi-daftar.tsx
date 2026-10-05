@@ -2,6 +2,7 @@ import { LANDING_HEADING_FONTS, LANDING_NAV_DEFAULTS, publicEventName, type Even
 import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { modernNavStyle, modernThemeStyle, registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
+import { landingTokens } from "@/lib/landing-tokens";
 import { DAFTAR_UI } from "@/lib/daftar-i18n";
 import { landingDefaultLang, landingEnAvailable, landingFormOnly, landingPath, LANDING_LANG_LABELS, type LandingLang } from "@/lib/landing-i18n";
 import { HtmlLang } from "@/components/html-lang";
@@ -62,7 +63,7 @@ export async function bingkaiFormulir(
         fakta: [formatEventDate(event, lang), formatEventTime(event, lang), event.venue_name?.trim() || null]
           .filter((item): item is string => Boolean(item)),
         // Huruf judul bawaan mengikuti tata letaknya: Ubuntu untuk Forum, Source Sans 3 untuk yang lain.
-        headingFont: (LANDING_HEADING_FONTS[landing.heading_font ?? (landing.layout === "forum" ? "ubuntu" : "source")] ?? LANDING_HEADING_FONTS.source).cssVar,
+        headingFont: LANDING_HEADING_FONTS[landingTokens(landing, landing.layout === "forum" ? "forum" : "modern").headingFont].cssVar,
         // Area peserta dalam bahasa formulir ini.
         masukUrl: member && opsi.tautanMasuk !== false ? `${landingPath(event.slug, lang, utama)}/masuk` : null,
         areaUrl: member && !opsi.pratinjau && opsi.tautanMasuk !== false && (await getMemberSession(event)) ? `${landingPath(event.slug, lang, utama)}/peserta` : null,

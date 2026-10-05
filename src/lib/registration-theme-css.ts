@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { mixHex, parseHex } from "./color";
 import { DEFAULT_REGISTRATION_SEED, buildRegistrationThemeRoles, type RegistrationFormTheme, type RegistrationThemeRoles } from "./registration-theme";
 import { LANDING_NAV_DEFAULTS, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, type LandingNavConfig } from "./domain";
+import { FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT } from "./landing-tokens";
 
 /**
  * Tema mana yang dipakai halaman pendaftaran sebuah acara.
@@ -135,7 +136,7 @@ export function modernThemeStyle(seed: string | undefined): CSSProperties {
  * letak Modern. Akibatnya teks tombol Masuk di atas biru muda bawaan berwarna
  * gelap, bukan putih seperti di Figma: putih di atas #00AEEF kontrasnya 2,5:1.
  */
-export const FORUM_DEFAULTS = { primary: "#002f54", accent: "#ffc72c", secondary: "#00aeef" } as const;
+export { FORUM_DEFAULTS };
 
 export function forumThemeStyle(seed: string | undefined, accent: string | undefined, secondary: string | undefined): CSSProperties {
   const hex = (value: string | undefined, fallback: string) => (/^#[0-9a-f]{6}$/i.test(value ?? "") ? value! : fallback);
@@ -210,8 +211,7 @@ export function modernNavStyle(
   } as CSSProperties;
 }
 
-/** Aksen bawaan gaya gathering: emas, pasangan navy di rancangan KSO 21. */
-export const GATHERING_ACCENT_DEFAULT = "#E9C46A";
+export { GATHERING_ACCENT_DEFAULT };
 /** Label kecil di atas pasir untuk aksen emas bawaan (rancangan v3). */
 const GATHERING_OKER = "#8A5F10";
 
