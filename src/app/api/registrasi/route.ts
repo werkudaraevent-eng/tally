@@ -324,6 +324,7 @@ export async function POST(request: Request) {
       email: parsed.data.email,
       name: parsed.data.name,
       requestUrl: await linkOrigin(request, event.id),
+      lang: bahasa,
     });
     konfirmasiTerkirim = terpisah.state === "sent";
   }
