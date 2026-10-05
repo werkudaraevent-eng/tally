@@ -10,7 +10,7 @@ import { PIN_HASH_ROUNDS } from "@/lib/auth/login";
 import { canManageUsers, canResetOperatorPin } from "@/lib/auth/roles";
 import type { UserRole } from "@/lib/domain";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { aksesPerUser, type AcaraRingkas, type BarisAkses } from "@/lib/users-akses";
+import { aksesPerUser, akunTerlihat, bolehResetPin, type AcaraRingkas, type BarisAkses } from "@/lib/users-akses";
 
 // `super_admin` harus ikut diterima: dropdown role di UI menawarkannya dan
 // kolom enum di database sudah memilikinya sejak migrasi 202607300001. Tanpa ini
@@ -98,7 +98,10 @@ export async function GET() {
     acara = hasilAcara.data as AcaraRingkas[];
   }
   const perUser = aksesPerUser(auth.user, akses, acara);
-  const users = ((akun.data ?? []) as UserRow[]).map((user) => ({ ...user, events: perUser.get(user.id) ?? [] }));
+  // Akun disaring di server dengan aturan yang sama: admin hanya menerima akun
+  // yang berbagi acara dengannya, tanpa super admin. Angka di tab peran dihitung
+  // dari daftar ini, jadi ikut tersaring.
+  const users = akunTerlihat(auth.user, akses, (akun.data ?? []) as UserRow[]).map((user) => ({ ...user, events: perUser.get(user.id) ?? [] }));
   return Response.json({
     users,
     can_manage: canManageUsers(auth.user),
@@ -151,6 +154,12 @@ export async function PATCH(request: Request) {
       && parsed.data.is_active === undefined;
     if (!onlyPinChange) return apiError("FORBIDDEN", 403);
     if (!canResetOperatorPin(auth.user, current.role as UserRole)) return apiError("FORBIDDEN", 403);
+    // Peran global saja tidak cukup: target harus ada di acara tempat pemanggil
+    // berperan admin. Tanpa ini admin klien A bisa mereset PIN akun booth klien
+    // B lewat id-nya dan mengambil alih akun itu.
+    const aksesTerkait = await client.from("user_event_access").select("user_id,event_id,role").in("user_id", [auth.user.id, current.id]);
+    if (aksesTerkait.error) return apiError("INTERNAL_ERROR", 500);
+    if (!bolehResetPin(auth.user.id, current.id, (aksesTerkait.data ?? []) as BarisAkses[])) return apiError("FORBIDDEN", 403);
   }
 
   const nextRole = parsed.data.role ?? current.role;

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { acaraTerlihat, aksesPerUser, type AcaraRingkas, type BarisAkses } from "./users-akses.ts";
+import { acaraTerlihat, aksesPerUser, akunTerlihat, bolehResetPin, type AcaraRingkas, type BarisAkses } from "./users-akses.ts";
 
 const acara: AcaraRingkas[] = [
   { id: "a", slug: "acara-a", name: "Acara A" },
@@ -28,5 +28,24 @@ assert.equal(acaraTerlihat({ id: "pemilik", role: "super_admin" }, []), "semua")
 
 // Baris yang acaranya tidak ada di daftar (terhapus) dilewati.
 assert.equal(aksesPerUser({ id: "x", role: "super_admin" }, [{ user_id: "u", event_id: "hilang", role: "admin" }], acara).size, 0);
+
+// Daftar akun: admin A hanya melihat akun yang berbagi acara dengannya, tanpa
+// super admin dan tanpa admin klien lain.
+const akun = [
+  { id: "admin-a", role: "admin" },
+  { id: "admin-b", role: "admin" },
+  { id: "kasir", role: "cashier" },
+  { id: "booth-b", role: "booth" },
+  { id: "pemilik", role: "super_admin" },
+];
+const aksesAkun: BarisAkses[] = [...akses, { user_id: "booth-b", event_id: "b", role: "booth" }, { user_id: "pemilik", event_id: "a", role: "admin" }];
+assert.deepEqual(akunTerlihat({ id: "admin-a", role: "admin" }, aksesAkun, akun).map((u) => u.id), ["admin-a", "kasir"]);
+assert.deepEqual(akunTerlihat({ id: "baru", role: "admin" }, aksesAkun, akun), []);
+assert.equal(akunTerlihat({ id: "pemilik", role: "super_admin" }, aksesAkun, akun).length, akun.length);
+
+// Reset PIN: hanya akun di acara tempat pemanggil berperan admin.
+assert.equal(bolehResetPin("admin-a", "kasir", aksesAkun), true);
+assert.equal(bolehResetPin("admin-a", "booth-b", aksesAkun), false);
+assert.equal(bolehResetPin("kasir", "admin-a", aksesAkun), false);
 
 console.log("users-akses: ok");
