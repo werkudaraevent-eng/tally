@@ -489,8 +489,10 @@ export default function EmailOtomatisPage() {
         </Banner>
       ) : null}
 
-      {/* Panel pratinjau tidak menempel: setinggi email penuh tanpa gulir di dalam
-          (layar pendek panitia menyisakan ~170 px bila menempel). Perbesar membuka 1:1. */}
+      {/* Panel pratinjau menempel setinggi layar dan bergulir sendiri, supaya
+          pratinjau tetap terlihat saat panitia mengetik di bagian bawah editor.
+          Kepala panelnya ringkas dan catatan ikut bergulir, agar ruang email
+          terbesar di layar pendek. Perbesar membuka email penuh 1:1. */}
       <SupportingPane
         paneWidth={440}
         terkunci
@@ -686,10 +688,10 @@ export default function EmailOtomatisPage() {
           </div>
         }
         pane={
-          <div className="flex w-full min-w-0 flex-col self-start overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
-            <div className="flex flex-col gap-3 border-b border-outline-variant px-5 py-4">
+          <div className="flex w-full min-w-0 flex-none! flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest lg:sticky lg:top-[calc(var(--workspace-top,58px)+16px)] lg:max-h-[calc(100dvh-var(--workspace-top,58px)-32px)]">
+            <div className="flex flex-col gap-3 border-b border-outline-variant px-5 py-3">
               <div className="flex items-center gap-3">
-                <h2 className="min-w-0 flex-1 text-title-small font-semibold text-on-surface">Preview: {namaVersi}</h2>
+                <h2 className="min-w-0 flex-1 truncate text-title-small font-semibold text-on-surface">Preview: {namaVersi}</h2>
                 <Button variant="outlined" size="sm" icon={<ArrowsOut size={16} />} onClick={() => setBesar(true)}>
                   Enlarge
                 </Button>
@@ -725,12 +727,12 @@ export default function EmailOtomatisPage() {
                 <span className="font-semibold text-on-surface">{pratinjau?.subject ?? "-"}</span>
               </p>
             </div>
-            <div className="overflow-x-hidden bg-surface-container">
+            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface-container">
               <PratinjauEmail html={pratinjau?.html ?? ""} lebar={lebarPratinjau} />
+              <p className="border-t border-outline-variant bg-surface-container-lowest px-5 py-3 text-body-small text-on-surface-variant">
+                The preview uses a real registrant&apos;s data; the QR code and links are samples.{data.member_on ? " The Participant area account box only appears for registrants who create an account when they register." : ""}
+              </p>
             </div>
-            <p className="border-t border-outline-variant px-5 py-3 text-body-small text-on-surface-variant">
-              The preview uses a real registrant&apos;s data; the QR code and links are samples.{data.member_on ? " The Participant area account box only appears for registrants who create an account when they register." : ""}
-            </p>
           </div>
         }
       />
@@ -834,7 +836,7 @@ export default function EmailOtomatisPage() {
 
       <Dialog open={besar} onClose={() => setBesar(false)} title={`Email preview: ${namaVersi}`} bare className="flex h-[90dvh] max-w-[760px]! flex-col overflow-hidden!">
         <div className="flex flex-wrap items-center gap-3 border-b border-outline-variant px-5 py-3">
-          <h2 className="min-w-0 flex-1 text-title-medium font-semibold text-on-surface">{namaVersi}</h2>
+          <h2 className="min-w-0 flex-1 truncate text-title-medium font-semibold text-on-surface">{namaVersi}</h2>
           <SegmentedButton<"desktop" | "ponsel">
             label="Preview width"
             value={layar}
@@ -843,6 +845,7 @@ export default function EmailOtomatisPage() {
               { value: "desktop", label: "Desktop" },
               { value: "ponsel", label: "Mobile" },
             ]}
+            className="max-sm:order-last max-sm:basis-full"
           />
           <IconButton label="Close preview" onClick={() => setBesar(false)}>
             <X size={20} />
