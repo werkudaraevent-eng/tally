@@ -41,14 +41,34 @@ export async function GET() {
   // `can_manage` dikirim agar UI tahu harus menampilkan mode baca saja.
   const auth = await requireUser(["admin"]);
   if (auth.response) return auth.response;
-  const { data, error } = await getSupabaseServiceClient()
-    .from("users")
-    .select("id,username,role,booth_id,is_active")
-    .order("role", { ascending: true })
-    .order("username", { ascending: true });
-  if (error) return apiError("INTERNAL_ERROR", 500);
+  const client = getSupabaseServiceClient();
+  const [akun, akses, acara] = await Promise.all([
+    client
+      .from("users")
+      .select("id,username,role,booth_id,is_active")
+      .order("role", { ascending: true })
+      .order("username", { ascending: true }),
+    // Akses per acara (user_event_access) ditampilkan di samping peran global,
+    // supaya dua sistem peran itu terbaca di satu tempat: siapa memegang acara apa.
+    client.from("user_event_access").select("user_id,event_id,role"),
+    client.from("events").select("id,slug,name").order("name"),
+  ]);
+  if (akun.error || akses.error || acara.error) return apiError("INTERNAL_ERROR", 500);
+  const eventById = new Map(((acara.data ?? []) as { id: string; slug: string; name: string }[]).map((event) => [event.id, event]));
+  const aksesPerUser = new Map<string, { id: string; slug: string; name: string; role: string }[]>();
+  for (const baris of (akses.data ?? []) as { user_id: string; event_id: string; role: string }[]) {
+    const event = eventById.get(baris.event_id);
+    if (!event) continue;
+    const daftar = aksesPerUser.get(baris.user_id) ?? [];
+    daftar.push({ ...event, role: baris.role });
+    aksesPerUser.set(baris.user_id, daftar);
+  }
+  const users = ((akun.data ?? []) as UserRow[]).map((user) => ({
+    ...user,
+    events: (aksesPerUser.get(user.id) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
+  }));
   return Response.json({
-    users: data ?? [],
+    users,
     can_manage: canManageUsers(auth.user),
     can_reset_operator_pin: auth.user.role === "admin" || canManageUsers(auth.user),
   });

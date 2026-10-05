@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "@/components/event-link";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useAdminPage } from "@/components/admin/page-context";
 import { MetaSeparator, Tabs, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { AuditPanel } from "@/components/admin/audit-panel";
 import { PaymentMethodManager } from "@/components/admin/payment-method-manager";
@@ -14,9 +15,9 @@ import { DomainPanel } from "@/components/admin/domain-panel";
  * sebelum acara lalu nyaris tidak disentuh: preferensi acara, metode
  * pembayaran, integrasi, dan riwayat perubahannya.
  *
- * Akun panitia sudah bukan tab di sini. Ia halaman sendiri di /admin/users
- * (list-detail), karena yang dikerjakan di sana memilih satu akun dari daftar,
- * bukan mengisi formulir setelan.
+ * Akun panitia bukan tab di sini. Ia halaman tingkat workspace di /users
+ * (list-detail), karena akunnya berlaku untuk semua acara. Kepala halaman ini
+ * menautkannya, dan untuk pemilik juga halaman akses acara ini.
  */
 
 type Tab = "acara" | "pembayaran" | "integrasi" | "audit" | "bahaya";
@@ -24,6 +25,21 @@ type Tab = "acara" | "pembayaran" | "integrasi" | "audit" | "bahaya";
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("acara");
   const [isOwner, setIsOwner] = useState(false);
+  const [eventId, setEventId] = useState<string | null>(null);
+  const eventSlug = useAdminPage()?.eventSlug ?? null;
+
+  // Halaman akses per acara memakai id, bukan slug, dan API-nya khusus pemilik.
+  // Admin tidak perlu id ini: tautannya memang tidak ditampilkan untuknya.
+  useEffect(() => {
+    if (!isOwner || !eventSlug) return;
+    let batal = false;
+    void fetch("/api/events", { cache: "no-store" }).then(async (response) => {
+      if (!response.ok || batal) return;
+      const daftar = ((await response.json()).events ?? []) as { id: string; slug: string }[];
+      if (!batal) setEventId(daftar.find((event) => event.slug === eventSlug)?.id ?? null);
+    }).catch(() => {});
+    return () => { batal = true; };
+  }, [isOwner, eventSlug]);
 
   useEffect(() => {
     // Jejak audit dan Zona bahaya hanya untuk pemilik sistem. Servernya tetap
@@ -54,7 +70,15 @@ export default function SettingsPage() {
             <MetaSeparator />
             <span>Setiap perubahan tercatat di jejak audit</span>
             <MetaSeparator />
-            <span>Akun panitia ada di <Link href="/admin/users" className="rounded-sm font-medium text-primary hover:underline">User &amp; role</Link></span>
+            <span>
+              {isOwner && eventId ? (
+                <>
+                  <Link href={`/events/${eventId}/access`} className="rounded-sm font-medium text-primary hover:underline">Event access</Link>
+                  <MetaSeparator />
+                </>
+              ) : null}
+              <Link href="/users" className="rounded-sm font-medium text-primary hover:underline">Users &amp; roles</Link>
+            </span>
           </>
         }
       />

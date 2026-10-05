@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Plus, ShieldCheck, X, XCircle } from "@phosphor-icons/react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ROLE_LABEL } from "@/lib/domain";
 import {
@@ -25,7 +26,7 @@ import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
 
 type Role = "booth" | "cashier" | "admin" | "super_admin" | "scanner";
-type User = { id: string; username: string; role: Role; booth_id: number | null; is_active: boolean };
+type User = { id: string; username: string; role: Role; booth_id: number | null; is_active: boolean; events?: { id: string; slug: string; name: string; role: Role }[] };
 type Booth = { id: number; code: string; name: string };
 type Draft = { id: string | null; username: string; pin: string; role: Role; booth_id: number | null; is_active: boolean };
 type RoleTab = "semua" | "booth" | "cashier" | "scanner" | "admin";
@@ -41,6 +42,43 @@ const rolePermissions: Record<Role, string[]> = {
   // kewenangan yang tidak dibutuhkan di sana.
   scanner: ["Buka layar pemindai kehadiran", "Catat kehadiran peserta per sesi"],
 };
+
+/**
+ * Akses per acara (user_event_access) di samping peran global. Peran per acara
+ * ditulis langsung, bukan hanya di tooltip: tooltip tidak terjangkau di layar
+ * sentuh maupun keyboard. Pemilik mendapat tautan ke halaman akses acaranya,
+ * satu-satunya tempat akses itu diubah (API-nya khusus super admin).
+ */
+const BATAS_ACARA = 2;
+
+function AksesAcara({ user, canManage }: { user: User; canManage: boolean }) {
+  if (user.role === "super_admin") return <span className="text-on-surface-variant">All events</span>;
+  const daftar = user.events ?? [];
+  if (daftar.length === 0) return <span className="text-on-surface-variant">None</span>;
+  const tampil = daftar.slice(0, BATAS_ACARA);
+  const sisa = daftar.length - tampil.length;
+  return (
+    <ul className="min-w-0 space-y-0.5">
+      {tampil.map((event) => (
+        <li key={event.id} className="flex min-w-0 items-baseline gap-1.5">
+          {canManage ? (
+            <Link
+              href={`/events/${event.id}/access`}
+              onClick={(klik) => klik.stopPropagation()}
+              className="min-w-0 truncate rounded-sm text-primary hover:underline"
+            >
+              {event.name}
+            </Link>
+          ) : (
+            <span className="min-w-0 truncate">{event.name}</span>
+          )}
+          <span className="shrink-0 text-body-small text-on-surface-variant">{ROLE_LABEL[event.role] ?? event.role}</span>
+        </li>
+      ))}
+      {sisa > 0 ? <li className="text-body-small text-on-surface-variant">+{sisa} more</li> : null}
+    </ul>
+  );
+}
 
 /** Tab penyaring per peran. "Admin" memuat Admin dan Super admin. */
 const ROLE_TABS: Array<{ value: RoleTab; label: string; roles: Role[] | null }> = [
@@ -189,6 +227,7 @@ export function UsersPanel() {
               <tr>
                 <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Akun</th>
                 <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Peran</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Event access</th>
                 <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Booth</th>
                 <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Status</th>
               </tr>
@@ -213,6 +252,9 @@ export function UsersPanel() {
                       </button>
                     </td>
                     <td className="border-b border-outline-variant px-3 py-2.5">{ROLE_LABEL[user.role]}</td>
+                    <td className="max-w-[320px] border-b border-outline-variant px-3 py-2.5">
+                      <AksesAcara user={user} canManage={canManage} />
+                    </td>
                     <td className="border-b border-outline-variant px-3 py-2.5">{boothLabel(user.booth_id) ?? <span className="text-on-surface-variant">Tidak ada</span>}</td>
                     <td className="border-b border-outline-variant px-3 py-2.5">
                       {user.is_active ? <StatusChip dot tone="success">Aktif</StatusChip> : <StatusChip dot tone="neutral">Nonaktif</StatusChip>}
@@ -353,6 +395,7 @@ export function UsersPanel() {
   return (
     <>
       <WorkspaceHeader
+        title="Users & roles"
         meta={
           <>
             <span className="tabular-nums">{loading ? "Memuat akun" : `${users.length} akun`}</span>

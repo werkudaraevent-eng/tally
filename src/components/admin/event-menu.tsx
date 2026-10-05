@@ -1,6 +1,6 @@
 "use client";
 
-import { CaretUpDown, Check, ListDashes, MagnifyingGlass, Plus } from "@phosphor-icons/react";
+import { CaretUpDown, Check, ListDashes, MagnifyingGlass, Plus, ShieldCheck } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -256,23 +256,20 @@ export function EventMenu({
             </div>
 
             <div className="border-t border-outline-variant p-1.5">
+              <Link href="/events" className={POPOVER_ITEM}>
+                <ListDashes size={16} className="shrink-0 text-on-surface-variant" />
+                All events
+              </Link>
+              <Link href="/users" className={POPOVER_ITEM}>
+                <ShieldCheck size={16} className="shrink-0 text-on-surface-variant" />
+                Users &amp; roles
+              </Link>
               {isOwner ? (
-                <Link
-                  href="/events?buat=1"
-                  className={POPOVER_ITEM}
-                >
+                <Link href="/events?buat=1" className={POPOVER_ITEM}>
                   <Plus size={16} className="shrink-0 text-on-surface-variant" />
                   Create new event
                 </Link>
               ) : null}
-              <Link
-                href="/events"
-                className={POPOVER_ITEM}
-              >
-                <ListDashes size={16} className="shrink-0 text-on-surface-variant" />
-                All events
-              </Link>
-
             </div>
           </Popover>
       ) : null}
