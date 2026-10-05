@@ -3,7 +3,9 @@
 import { CalendarDots, ShieldCheck } from "@phosphor-icons/react";
 import Link from "next/link";
 
-const TAB = "flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-body-medium";
+// Ikon tab disembunyikan di bawah 640px: di 390px label "Users & roles" patah
+// dua baris di sebelah avatar bila ikonnya ikut.
+const TAB = "flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-body-medium";
 const AKTIF = "bg-[var(--press-active)] font-medium text-on-surface";
 const DIAM = "text-on-surface-variant hover:bg-[var(--press-hover)]";
 
@@ -18,12 +20,12 @@ const DIAM = "text-on-surface-variant hover:bg-[var(--press-hover)]";
  */
 export function WorkspaceTabs({ current }: { current: "events" | "users" }) {
   return (
-    <nav aria-label="Workspace" className="ml-4 flex items-center gap-1">
+    <nav aria-label="Workspace" className="ml-2 flex items-center gap-1 sm:ml-4">
       <Link href="/events" aria-current={current === "events" ? "page" : undefined} className={`${TAB} ${current === "events" ? AKTIF : DIAM}`}>
-        <CalendarDots size={16} /> Events
+        <CalendarDots size={16} className="max-sm:hidden" /> Events
       </Link>
       <Link href="/users" aria-current={current === "users" ? "page" : undefined} className={`${TAB} ${current === "users" ? AKTIF : DIAM}`}>
-        <ShieldCheck size={16} /> Users &amp; roles
+        <ShieldCheck size={16} className="max-sm:hidden" /> Users &amp; roles
       </Link>
     </nav>
   );

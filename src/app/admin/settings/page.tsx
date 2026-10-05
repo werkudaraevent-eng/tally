@@ -70,15 +70,14 @@ export default function SettingsPage() {
             <MetaSeparator />
             <span>Setiap perubahan tercatat di jejak audit</span>
             <MetaSeparator />
-            <span>
-              {isOwner && eventId ? (
-                <>
-                  <Link href={`/events/${eventId}/access`} className="rounded-sm font-medium text-primary hover:underline">Event access</Link>
-                  <MetaSeparator />
-                </>
-              ) : null}
-              <Link href="/users" className="rounded-sm font-medium text-primary hover:underline">Users &amp; roles</Link>
-            </span>
+            {/* Akses acara ini hanya untuk pemilik: API-nya khusus super admin. */}
+            {isOwner && eventId ? (
+              <>
+                <Link href={`/events/${eventId}/access`} className="rounded-sm font-medium text-primary hover:underline">Event access</Link>
+                <MetaSeparator />
+              </>
+            ) : null}
+            <Link href="/users" className="rounded-sm font-medium text-primary hover:underline">Users &amp; roles</Link>
           </>
         }
       />
