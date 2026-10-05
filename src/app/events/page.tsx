@@ -1,13 +1,14 @@
 "use client";
 
-import { ArrowRight, ArrowSquareOut, CalendarDots, CalendarPlus, CopySimple, DotsThree, MagnifyingGlass, Plus, Storefront, Trash, UsersThree } from "@phosphor-icons/react";
+import { ArrowRight, ArrowSquareOut, CalendarDots, CalendarPlus, CopySimple, DotsThree, MagnifyingGlass, PencilSimple, Plus, Storefront, Trash, UsersThree } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
-import { Button, CONTAINER_PADDING, Dialog, EmptyState, IconButton, PageContainer, PageHeader, Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, SegmentedButton, SelectField, SelectMenu, Switch, TextArea, TextField, usePopoverAnchor } from "@/components/m3";
+import { Button, CONTAINER_PADDING, Dialog, EmptyState, IconButton, PageContainer, PageHeader, Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, SegmentedButton, SelectField, SelectMenu, TextField, usePopoverAnchor } from "@/components/m3";
 import { EventStatusBadge, URUTAN_STATUS } from "@/components/admin/event-status";
 import { UserMenu } from "@/components/admin/user-menu";
+import { EventDetailsDialog } from "@/components/admin/event-details-dialog";
 import { WorkspaceTabs } from "@/components/admin/workspace-tabs";
-import { EVENT_STATUS_LABEL, type EventRow, type EventStatus, type ParticipantSource, type UserRole } from "@/lib/domain";
+import { EVENT_STATUS_LABEL, type EventRow, type EventStatus, type UserRole } from "@/lib/domain";
 import { daysUntil } from "@/lib/event-datetime";
 import { cx } from "@/lib/m3/cx";
 import { useQueryState } from "@/lib/url-state";
@@ -88,7 +89,7 @@ const LABEL_HITUNGAN: Record<string, string> = {
 
 /** Aksi yang mengubah apa yang tampil di layar publik butuh konfirmasi. */
 const CONFIRM_TEXT: Partial<Record<Action, string>> = {
-  activate: "An active event becomes a candidate for public links without a slug (/display, /denah, /rundown). If more than one event is active, those old links ask the visitor to choose.",
+  activate: "Booth staff, cashiers and scanner staff can open their screens for it, and it becomes a candidate for old links without a slug (/display, /denah, /rundown). The event page and registration already work while it is a draft.",
   deactivate: "The event goes back to draft. Its public screens stop serving links without a slug, but all data and settings stay intact.",
   complete: "The event is marked as completed. No new orders are expected, but every report and history stays available.",
   archive: "The event is archived and leaves the main list. Its data is not deleted and it can be moved back to draft.",
@@ -165,6 +166,7 @@ function MenuAcara({
   disabled,
   tujuan,
   onAction,
+  onEdit,
   onDuplicate,
   onDelete,
   onSalinTautan,
@@ -174,6 +176,7 @@ function MenuAcara({
   /** Tujuan "Buka dashboard". Null kalau peran ini tidak boleh masuk. */
   tujuan: string | null;
   onAction: (action: Action, label: string) => void;
+  onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onSalinTautan: () => void;
@@ -220,6 +223,18 @@ function MenuAcara({
               </button>
             ) : null}
             <div className="my-1.5 border-t border-outline-variant" />
+            <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onEdit(); }}>
+              <PencilSimple size={16} className="text-on-surface-variant" /> Edit details
+            </button>
+            <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onDuplicate(); }}>
+              <CopySimple size={16} className="text-on-surface-variant" /> Duplicate event
+            </button>
+            <Link href={`/events/${event.id}/access`} role="menuitem" className={item} onClick={() => setOpen(false)}>
+              <UsersThree size={16} className="text-on-surface-variant" /> Access
+            </Link>
+            {/* Perpindahan status satu kelompok sendiri: ia mengubah apa yang
+                bisa dibuka staf di lapangan, bukan sekadar data acaranya. */}
+            <div className="my-1.5 border-t border-outline-variant" />
             {ACTIONS[event.status].map((entry) => (
               <button
                 key={entry.action}
@@ -231,12 +246,6 @@ function MenuAcara({
                 {entry.label}
               </button>
             ))}
-            <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onDuplicate(); }}>
-              <CopySimple size={16} className="text-on-surface-variant" /> Duplicate event
-            </button>
-            <Link href={`/events/${event.id}/access`} role="menuitem" className={item} onClick={() => setOpen(false)}>
-              <UsersThree size={16} className="text-on-surface-variant" /> Access
-            </Link>
             {/* Hanya muncul untuk status yang memang bisa dihapus. Menampilkannya
                 selalu lalu menolak dengan 422 membuat aturannya terbaca sebagai
                 kerusakan, bukan sebagai batas yang disengaja. */}
@@ -289,27 +298,8 @@ export default function EventsPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [creating, setCreating] = useState(false);
-  /**
-   * Dua sumber peserta yang bisa DINYALAKAN, bukan empat pilihan yang saling
-   * meniadakan.
-   *
-   * Pemilih lamanya menawarkan "Manual / impor", "Scanner API", "Form registrasi
-   * publik", dan "Gabungan". Dua di antaranya menyesatkan sekaligus:
-   *
-   *   * "Manual / impor" terbaca sebagai pilihan yang mengunci yang lain,
-   *     padahal menambah peserta satu per satu dan mengimpor spreadsheet selalu
-   *     tersedia di setiap acara, apa pun isi kolom ini.
-   *   * "Gabungan" tidak menyebut apa yang digabung. Yang dimaksud kode adalah
-   *     Scanner API DAN form publik, jadi memilihnya untuk menggabung impor
-   *     manual dengan form publik berakhir pada galat "slug Scanner API wajib
-   *     diisi" yang tidak menjelaskan apa pun.
-   *
-   * Dua sakelar menghapus keduanya. Nilai enum yang dikirim ke server tetap
-   * sama persis; yang berubah hanya pertanyaan yang diajukan ke admin.
-   */
-  const [pakaiScanner, setPakaiScanner] = useState(false);
-  const [pakaiFormPublik, setPakaiFormPublik] = useState(false);
   const [duplicating, setDuplicating] = useState<EventRow | null>(null);
+  const [editing, setEditing] = useState<EventRow | null>(null);
   const [confirming, setConfirming] = useState<{ event: EventRow; action: Action; label: string } | null>(null);
   // Dipisahkan dari `confirming`: penghapusan tidak dapat dibatalkan, jadi
   // dialognya menuntut slug diketik ulang dan tidak boleh ikut memakai dialog
@@ -454,11 +444,8 @@ export default function EventsPage() {
     window.history.replaceState(null, "", window.location.pathname);
   }, [isOwner]);
 
-  /** Dialog dibuka bersih. Sakelar yang tertinggal menyala dari percobaan
-   *  sebelumnya akan membuat event berikutnya lahir dengan sumber yang salah. */
+  /** Dialog dibuka bersih: galat percobaan sebelumnya tidak ikut terbawa. */
   function bukaBuatEvent() {
-    setPakaiScanner(false);
-    setPakaiFormPublik(false);
     setError("");
     setCreating(true);
   }
@@ -468,16 +455,16 @@ export default function EventsPage() {
     const form = new FormData(event.currentTarget);
     setPending(true);
     setError("");
-    const participantSource: ParticipantSource =
-      pakaiScanner && pakaiFormPublik ? "hybrid" : pakaiScanner ? "scanner_api" : pakaiFormPublik ? "public_form" : "manual";
     const response = await fetch("/api/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        // Sumber peserta selalu "manual" di awal. Pendaftaran publik menaikkan
+        // sumbernya sendiri saat dibuka (api/admin/registrasi), dan Scanner API
+        // dipasang di Event settings, Integrations.
         name: form.get("name"), event_date: form.get("event_date") || null,
-        description: form.get("description") || null, time_zone: form.get("time_zone"),
-        participant_source: participantSource,
-        scanner_api_event_slug: form.get("scanner_api_event_slug") || null,
+        time_zone: form.get("time_zone"), venue_name: form.get("venue_name") || null,
+        participant_source: "manual",
       }),
     }).catch(() => null);
     setPending(false);
@@ -490,7 +477,7 @@ export default function EventsPage() {
 
   // Galat yang lahir dari dialog ditampilkan DI DALAM dialognya. Galat di
   // halaman belakang tidak terlihat oleh orang yang sedang menatap dialog.
-  const dialogTerbuka = confirming !== null || deleting !== null || duplicating !== null || creating;
+  const dialogTerbuka = confirming !== null || deleting !== null || duplicating !== null || editing !== null || creating;
 
 
   const tab = params.get("tab") ?? "semua";
@@ -743,6 +730,7 @@ export default function EventsPage() {
                           disabled={pending}
                           tujuan={tujuan}
                           onAction={(action, label) => setConfirming({ event: item, action, label })}
+                          onEdit={() => { setEditing(item); setNotice(""); }}
                           onDuplicate={() => { setDuplicating(item); setError(""); setNotice(""); }}
                           onDelete={() => { setDeleting(item); setConfirmSlug(""); setError(""); setNotice(""); }}
                           onSalinTautan={() => void salinTautan(item)}
@@ -863,23 +851,38 @@ export default function EventsPage() {
       </form>
     </Dialog>
 
+    <EventDetailsDialog
+      event={editing}
+      onClose={() => setEditing(null)}
+      onSaved={(baru) => {
+        setEditing(null);
+        setEvents((current) => current.map((item) => (item.id === baru.id ? { ...item, ...baru } : item)));
+        setNotice(`"${baru.name}" saved.`);
+      }}
+    />
+
     <Dialog
       open={creating}
       onClose={() => setCreating(false)}
       dismissible={!pending}
       size="lg"
-      title="Create a draft event"
-      description="A new event starts as a draft. Activate it once its settings and users are ready."
+      fullScreenOnMobile
+      title="Create event"
+      description="It starts as a draft. You can change everything here later."
       actions={
         <>
-          <Button variant="outlined" disabled={pending} onClick={() => setCreating(false)}>Close</Button>
-          <Button type="submit" form="buat-event" loading={pending}>Create draft event</Button>
+          <Button variant="outlined" disabled={pending} onClick={() => setCreating(false)} className="max-sm:hidden">Cancel</Button>
+          <Button type="submit" form="buat-event" loading={pending}>Create draft</Button>
         </>
       }
     >
       <form id="buat-event" onSubmit={submit}>
+        {/* Hanya yang dibutuhkan untuk MENEMUKAN acaranya lagi: nama, kapan,
+            di mana. Sumber peserta, pendaftaran publik, dan deskripsi pindah ke
+            layarnya masing-masing, tempat semuanya memang diatur dan bisa
+            diubah kapan saja. */}
         <TextField className="mt-5" label="Event name" name="name" required minLength={3} maxLength={120} autoFocus />
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_160px]">
           <TextField label="Date" name="event_date" type="date" optional />
           <SelectField label="Time zone" name="time_zone" defaultValue="Asia/Jakarta">
             <option value="Asia/Jakarta">WIB</option>
@@ -887,42 +890,10 @@ export default function EventsPage() {
             <option value="Asia/Jayapura">WIT</option>
           </SelectField>
         </div>
-        <fieldset className={KOLOM}>
-          <legend className="text-label-large font-semibold">Where participants come from</legend>
-          <p className="mt-1 text-body-small text-on-surface-variant">
-            Adding participants one by one and importing from a spreadsheet are <strong>always available</strong>,
-            whatever you choose below. Turn on only what you will use.
-          </p>
-
-          <div className="mt-4 space-y-4">
-            <Switch
-              checked={pakaiFormPublik}
-              onChange={setPakaiFormPublik}
-              label="Public registration"
-              description="People fill in the form themselves on the event page, and their participant code is issued automatically."
-            />
-            <Switch
-              checked={pakaiScanner}
-              onChange={setPakaiScanner}
-              label="Pull from Scanner API"
-              description="The participant list syncs every 5 minutes from an outside system. Names, organisations and QR codes are managed there, not here."
-            />
-          </div>
-        </fieldset>
-
-        {/* Kolom slug lahir bersama sakelarnya. Selalu tampil, ia kolom yang
-            tidak berarti apa-apa untuk mayoritas acara, dan wajib diisi untuk
-            sebagian kecil, tanpa satu pun tanda mana yang sedang berlaku. */}
-        {pakaiScanner ? (
-          <TextField
-            className={KOLOM}
-            label="Scanner API slug"
-            name="scanner_api_event_slug"
-            required
-            hint="This event's name in the Scanner API system. Without it, the sync does not know which participants to pull."
-          />
-        ) : null}
-        <TextArea className={KOLOM} label="Description" name="description" maxLength={500} rows={3} optional />
+        <TextField className={KOLOM} label="Venue" name="venue_name" optional maxLength={160} placeholder="e.g. Pullman Hotel CBD Thamrin" />
+        <p className="mt-5 rounded-lg bg-surface-container p-3 text-body-small text-on-surface-variant">
+          Set up next, from the event: public registration (Registration), Scanner API sync (Event settings, Integrations) and the description (Event page).
+        </p>
         {error ? <p role="alert" className="rounded-lg mt-3 border border-error-soft-outline bg-error-soft p-3 text-body-small text-on-error-soft">{error}</p> : null}
       </form>
     </Dialog>

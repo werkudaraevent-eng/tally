@@ -55,6 +55,13 @@ export async function PATCH(request: Request) {
   const { data, error } = await client.from("event_settings").update({ ...parsed.data, updated_at: new Date().toISOString(), updated_by: auth.user.id } as never).eq("event_id", auth.scope.event.id).select(SELECT).single();
   if (error) return apiError("INTERNAL_ERROR", 500);
 
+  // Zona waktu juga kolom acara, dan halaman publik, email, serta daftar acara
+  // membacanya dari sana. Tanpa ini, mengganti zona di Settings mengubah jam
+  // di layar staf saja sementara halaman acara tetap di zona lama.
+  if (parsed.data.time_zone) {
+    await client.from("events").update({ time_zone: parsed.data.time_zone, updated_at: new Date().toISOString() } as never).eq("id", auth.scope.event.id);
+  }
+
   // Order yang sudah menggantung di antrean kasir tidak ada lagi yang melayani
   // setelah toggle dimatikan, dan akan kena auto-void dalam 45 menit. Lunasi
   // sekaligus supaya tidak hilang diam-diam.

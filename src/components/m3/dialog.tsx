@@ -1,8 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { X } from "@phosphor-icons/react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { cx } from "@/lib/m3/cx";
+import { IconButton } from "./icon-button";
 import { standard } from "@/lib/m3/motion";
 
 /**
@@ -29,6 +31,15 @@ import { standard } from "@/lib/m3/motion";
  * panel), Tab berputar di dalam panel, Escape menutup. Saat tertutup: fokus
  * kembali ke tombol yang membukanya, supaya Tab berikutnya melanjutkan dari
  * tempat pengguna berhenti, bukan dari awal halaman.
+ *
+ * ---- Gulir -------------------------------------------------------------------
+ *
+ * Yang bergulir hanya ISI. Judul dan baris tombol tetap di tempatnya, seperti
+ * spesifikasi M3: dialog yang lebih panjang dari layar menggulir kontennya,
+ * bukan dirinya. Sebelumnya seluruh panel yang bergulir, jadi di 1280x588 judul
+ * "Create a draft event" hilang begitu formulirnya digulir dan tombol Create
+ * baru terlihat di dasar. Garis pemisah muncul hanya saat isinya memang lebih
+ * panjang dari panel, karena garis di dialog pendek tidak memisahkan apa pun.
  */
 
 const FOCUSABLE =
@@ -68,6 +79,12 @@ export type DialogProps = {
 	 * kabar apakah aksinya jadi.
 	 */
 	dismissible?: boolean;
+	/**
+	 * Di layar sempit (< 600px) panel memenuhi layar: tombol tutup dan judul di
+	 * atas, tombol aksi menempel di bawah. Untuk formulir yang lebih dari dua-tiga
+	 * kolom, sesuai pola full-screen dialog M3 untuk perangkat seluler.
+	 */
+	fullScreenOnMobile?: boolean;
 	className?: string;
 };
 
@@ -90,12 +107,27 @@ export function Dialog({
 	size = "sm",
 	tone = "neutral",
 	dismissible = true,
+	fullScreenOnMobile = false,
 	className,
 }: DialogProps) {
 	const id = useId();
 	const titleId = `${id}-title`;
 	const descriptionId = `${id}-description`;
 	const panel = useRef<HTMLDivElement>(null);
+	const [isi, setIsi] = useState<HTMLDivElement | null>(null);
+	const [bergulir, setBergulir] = useState(false);
+
+	// Garis pemisah hanya bila isi lebih tinggi dari ruangnya. Diukur ulang saat
+	// ukuran isi berubah (kolom yang muncul karena sakelar, pesan galat).
+	useEffect(() => {
+		if (!isi) return;
+		const ukur = () => setBergulir(isi.scrollHeight > isi.clientHeight + 1);
+		ukur();
+		const pengamat = new ResizeObserver(ukur);
+		pengamat.observe(isi);
+		for (const anak of Array.from(isi.children)) pengamat.observe(anak);
+		return () => pengamat.disconnect();
+	}, [isi, open]);
 
 	// `onClose` hampir selalu fungsi baru tiap render. Kalau ia masuk dependensi
 	// efek di bawah, efeknya dipasang ulang tiap ketikan — dan pembersihannya
@@ -163,7 +195,7 @@ export function Dialog({
 			{open ? (
 				<motion.div
 					key="scrim"
-					className="fixed inset-0 z-50 flex items-end justify-center bg-scrim/50 p-4 sm:items-center"
+					className={cx("fixed inset-0 z-50 flex items-end justify-center bg-scrim/50 p-4 sm:items-center", fullScreenOnMobile && "max-sm:p-0")}
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0, transition: { duration: 0.12 } }}
@@ -184,8 +216,9 @@ export function Dialog({
 						aria-describedby={!bare && description ? descriptionId : undefined}
 						tabIndex={-1}
 						className={cx(
-							"max-h-[90dvh] w-full overflow-y-auto rounded-2xl text-on-surface shadow-level3 outline-none",
-							bare ? "bg-surface-container" : "bg-surface-container-high p-6",
+							"max-h-[90dvh] w-full rounded-2xl text-on-surface shadow-level3 outline-none",
+							bare ? "overflow-y-auto bg-surface-container" : "flex flex-col overflow-hidden bg-surface-container-high",
+							fullScreenOnMobile && "max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none",
 							SIZE[size],
 							className,
 						)}
@@ -195,13 +228,20 @@ export function Dialog({
 						transition={{ ...standard.spatial.default, opacity: standard.effects.default }}
 					>
 						{bare ? children : <>
-						<div className="flex items-start gap-3">
+						<div className={cx("flex shrink-0 items-start gap-3 px-6 pt-6", bergulir ? "border-b border-outline-variant pb-4" : null, fullScreenOnMobile && "max-sm:px-4 max-sm:pt-2")}>
+							{fullScreenOnMobile ? (
+								<span className="-ml-2 sm:hidden">
+									<IconButton label="Close" onClick={() => onCloseRef.current()} disabled={!dismissible}>
+										<X size={20} />
+									</IconButton>
+								</span>
+							) : null}
 							{icon ? (
 								<span className={cx("mt-0.5 shrink-0", tone === "danger" ? "text-error" : "text-primary")} aria-hidden>
 									{icon}
 								</span>
 							) : null}
-							<div className="min-w-0 flex-1">
+							<div className={cx("min-w-0 flex-1", fullScreenOnMobile && "max-sm:pt-2")}>
 								<h2 id={titleId} className={cx("text-title-large font-semibold", tone === "danger" && "text-error")}>
 									{title}
 								</h2>
@@ -213,9 +253,18 @@ export function Dialog({
 							</div>
 						</div>
 
-						{children}
+						{/* pb-1: cincin fokus kolom terakhir tidak terpotong tepi gulir. */}
+						<div ref={setIsi} className={cx("min-h-0 flex-1 overflow-y-auto px-6 pb-1", !actions && "pb-6", fullScreenOnMobile && "max-sm:px-4")}>
+							{children}
+						</div>
 
-						{actions ? <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">{actions}</div> : null}
+						{actions ? (
+							<div className={cx(
+								"flex shrink-0 flex-col-reverse gap-2 px-6 pb-6 sm:flex-row sm:justify-end",
+								bergulir ? "border-t border-outline-variant pt-4" : "pt-6",
+								fullScreenOnMobile && "max-sm:px-4 max-sm:pb-4",
+							)}>{actions}</div>
+						) : null}
 						</>}
 					</motion.div>
 				</motion.div>

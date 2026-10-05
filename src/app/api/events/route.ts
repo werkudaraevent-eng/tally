@@ -8,6 +8,7 @@ const createSchema = z.object({
   name: z.string().trim().min(3).max(120),
   event_date: z.string().date().nullable().optional(),
   description: z.string().trim().max(500).nullable().optional(),
+  venue_name: z.string().trim().max(160).nullable().optional(),
   time_zone: z.enum(["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"]),
   participant_source: z.enum(["scanner_api", "manual", "public_form", "hybrid"]),
   scanner_api_event_slug: z.string().trim().min(1).max(120).nullable().optional(),

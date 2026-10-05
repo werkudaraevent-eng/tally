@@ -7,9 +7,10 @@ import {
 import Link from "@/components/event-link";
 import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { ExportMenu } from "@/components/admin/export-menu";
-import { Banner, ButtonLink, LinearProgress, StatusChip, WorkspaceHeader, WorkspacePage } from "@/components/m3";
+import { Banner, Button, ButtonLink, Dialog, LinearProgress, StatusChip, WorkspaceHeader, WorkspacePage } from "@/components/m3";
+import { EventDetailsDialog } from "@/components/admin/event-details-dialog";
 import { cx } from "@/lib/m3/cx";
-import { EVENT_STATUS_LABEL, type EventStatus } from "@/lib/domain";
+import { EVENT_STATUS_LABEL, type EventRow, type EventStatus } from "@/lib/domain";
 import { formatEventSchedule, daysUntil } from "@/lib/event-datetime";
 import { eventApiPath } from "@/lib/event-url";
 import { Skeleton } from "@/components/m3/skeleton";
@@ -112,6 +113,14 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [sekarang, setSekarang] = useState<Date | null>(null);
   const [tampilkanSelesai, setTampilkanSelesai] = useState(false);
+  // Baris acara lengkap (id, zona waktu) untuk Edit details dan Activate.
+  // Ringkasan tidak membawa id; daftar acara sudah dibatasi ke acara yang boleh
+  // dilihat pemanggil, jadi mencarinya di sana tidak membuka apa pun yang baru.
+  const [baris, setBaris] = useState<EventRow | null>(null);
+  const [pemilik, setPemilik] = useState(false);
+  const [mengubah, setMengubah] = useState(false);
+  const [mengaktifkan, setMengaktifkan] = useState(false);
+  const [aktivasi, setAktivasi] = useState<{ pending: boolean; error: string }>({ pending: false, error: "" });
 
   const refresh = useCallback(async () => {
     const response = await fetch(eventApiPath("/api/admin/overview"), { cache: "no-store" }).catch(() => null);
@@ -124,6 +133,37 @@ export default function AdminPage() {
     setSekarang(new Date());
     setError("");
   }, []);
+
+  const slug = data?.event.slug ?? null;
+  useEffect(() => {
+    if (!slug) return;
+    let batal = false;
+    void Promise.all([
+      fetch("/api/events", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/auth/me", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)),
+    ]).then(([daftar, akun]) => {
+      if (batal) return;
+      setBaris(((daftar?.events ?? []) as EventRow[]).find((item) => item.slug === slug) ?? null);
+      setPemilik(akun?.user?.role === "super_admin");
+    }).catch(() => {});
+    return () => { batal = true; };
+  }, [slug]);
+
+  async function aktifkan() {
+    if (!baris) return;
+    setAktivasi({ pending: true, error: "" });
+    const response = await fetch(`/api/events/${baris.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "activate" }),
+    }).catch(() => null);
+    const body = await response?.json().catch(() => ({}));
+    if (!response?.ok) { setAktivasi({ pending: false, error: body?.error?.message ?? "Could not activate the event." }); return; }
+    setAktivasi({ pending: false, error: "" });
+    setMengaktifkan(false);
+    setBaris(body.event as EventRow);
+    void refresh();
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void refresh(); }, 0);
@@ -217,9 +257,35 @@ export default function AdminPage() {
           <>
             {data ? <ButtonLink native variant="outlined" href={`/e/${data.event.slug}`} target="_blank" rel="noreferrer" icon={<ArrowSquareOut size={16} />}>Halaman acara</ButtonLink> : null}
             <ExportMenu />
+            {baris && (pemilik || (data?.event.status !== "completed" && data?.event.status !== "archived")) ? <Button variant="outlined" onClick={() => setMengubah(true)}>Edit details</Button> : null}
+            {/* Satu-satunya tombol penuh di kepala halaman, dan hanya selama
+                acara masih draft: itulah langkah berikutnya bagi pemiliknya. */}
+            {baris && pemilik && data?.event.status === "draft" ? <Button onClick={() => { setAktivasi({ pending: false, error: "" }); setMengaktifkan(true); }}>Activate</Button> : null}
           </>
         }
       />
+
+      <EventDetailsDialog
+        event={mengubah ? baris : null}
+        onClose={() => setMengubah(false)}
+        onSaved={(baru) => { setMengubah(false); setBaris(baru); void refresh(); }}
+      />
+
+      <Dialog
+        open={mengaktifkan}
+        onClose={() => setMengaktifkan(false)}
+        dismissible={!aktivasi.pending}
+        title="Activate this event?"
+        description="Booth staff, cashiers and scanner staff can open their screens for it. The event page and registration already work while it is a draft, so participants notice nothing."
+        actions={
+          <>
+            <Button variant="outlined" disabled={aktivasi.pending} onClick={() => setMengaktifkan(false)}>Cancel</Button>
+            <Button loading={aktivasi.pending} onClick={() => void aktifkan()}>Activate</Button>
+          </>
+        }
+      >
+        {aktivasi.error ? <p role="alert" className="mt-4 rounded-lg border border-error-soft-outline bg-error-soft p-3 text-body-small text-on-error-soft">{aktivasi.error}</p> : null}
+      </Dialog>
 
       {error ? <Banner tone="error" icon={<XCircle size={18} />}>{error}</Banner> : null}
 
