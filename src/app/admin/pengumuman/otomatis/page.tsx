@@ -688,7 +688,7 @@ export default function EmailOtomatisPage() {
           </div>
         }
         pane={
-          <div className="flex w-full min-w-0 flex-none! flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest lg:sticky lg:top-[calc(var(--workspace-top,58px)+16px)] lg:max-h-[calc(100dvh-var(--workspace-top,58px)-32px)]">
+          <div className="flex w-full min-w-0 flex-none! flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest lg:sticky lg:top-[calc(var(--workspace-top,58px)+16px)] lg:max-h-[calc(100dvh-var(--workspace-top,58px)-104px)]">
             <div className="flex flex-col gap-3 border-b border-outline-variant px-5 py-3">
               <div className="flex items-center gap-3">
                 <h2 className="min-w-0 flex-1 truncate text-title-small font-semibold text-on-surface">Preview: {namaVersi}</h2>
