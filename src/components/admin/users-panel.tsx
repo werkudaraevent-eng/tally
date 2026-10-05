@@ -98,7 +98,7 @@ function PilihanPeran({ checked, onSelect, role, description, disabled }: { chec
     <label className={cx("flex min-h-9 cursor-pointer items-center gap-3 rounded-lg border px-3", checked ? "border-primary bg-primary-soft" : "border-outline-variant hover:bg-primary-soft", disabled && "cursor-not-allowed opacity-60")}>
       <input type="radio" name="peran-akun" checked={checked} disabled={disabled} onChange={onSelect} className="size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
       <span className="w-28 shrink-0 text-body-medium font-medium text-on-surface">{ROLE_LABEL[role]}</span>
-      <span className="min-w-0 flex-1 truncate text-body-small text-on-surface-variant">{description}</span>
+      <span className="min-w-0 flex-1 truncate text-body-small text-on-surface-variant max-sm:hidden">{description}</span>
     </label>
   );
 }
