@@ -266,6 +266,8 @@ export default function DaftarClient(props: Props) {
         phone: form.get("phone"),
         company: form.get("company") || null, job_title: form.get("job_title") || null,
         extra,
+        // Bahasa email konfirmasi mengikuti formulir ini (server tetap memeriksanya).
+        lang: props.lang,
         ...(props.akun ? { password: form.get("password") } : {}),
         ...(tamu ? { undangan: tamu.token, pakai_email_undangan: pakaiEmailUndangan } : {}),
       }),

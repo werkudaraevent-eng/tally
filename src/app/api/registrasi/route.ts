@@ -3,7 +3,8 @@ import { apiErrorPeserta, mapDatabaseError } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { sendRegistrationCode, sendRegistrationReceived } from "@/lib/email/registration-code";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
+import type { EventLandingConfig, RegistrationField, RegistrationFormConfig } from "@/lib/domain";
+import { bahasaPendaftaranBaru } from "@/lib/email/konfirmasi/bahasa";
 import { validateAnswers } from "@/lib/registration-fields";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { createAccountForRegistration, memberConfig, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/member/account";
@@ -44,6 +45,9 @@ const submitSchema = z.object({
   // Tamu tidak menekan "Ganti": email yang diundang dipakai dari server, jadi
   // formulir tidak pernah memegang alamat aslinya.
   pakai_email_undangan: z.boolean().optional(),
+  // Bahasa formulir yang dipakai. Hanya petunjuk: server menerima "en" bila
+  // halaman English acara memang menyala (bahasaPendaftaranBaru).
+  lang: z.enum(["id", "en"]).optional(),
 });
 
 /**
@@ -221,6 +225,14 @@ export async function POST(request: Request) {
     email_changed?: boolean;
   };
 
+  // Bahasa formulir disimpan SEBELUM email apa pun disusun: email konfirmasi,
+  // kirim ulang, dan persetujuan nanti membaca kolom yang sama. Gagal menulis
+  // (kolom belum ada sebelum migrasi 202610050001) = email Indonesia, bukan
+  // pendaftaran gagal.
+  const bahasa = bahasaPendaftaranBaru(event.landing_config as EventLandingConfig | null, parsed.data.lang);
+  const { error: galatBahasa } = await client.from("event_registrations").update({ language: bahasa } as never).eq("id", hasil.registration_id);
+  if (galatBahasa) console.error("[registrasi] bahasa tidak tersimpan:", galatBahasa.message);
+
   // Tautan pribadi dipakai dengan email lain: pemiliknya diberi tahu.
   if (hasil.email_changed && hasil.invitation_id) {
     await notifyInviteUsedElsewhere(event, hasil.invitation_id).catch((galat) => console.error("[undangan] pemberitahuan", galat));
@@ -280,6 +292,7 @@ export async function POST(request: Request) {
       origin: await linkOrigin(request, event.id),
       company: parsed.data.company ?? null,
       akunUrl,
+      lang: bahasa,
     });
   } else if (hasil.status === "pending" && parsed.data.email) {
     // Acara bermoderasi: email "Pendaftaran diterima" dari templat yang sama,
@@ -293,6 +306,7 @@ export async function POST(request: Request) {
       company: parsed.data.company ?? null,
       requestUrl: await linkOrigin(request, event.id),
       akunUrl,
+      lang: bahasa,
     });
   }
   // Status email ber-QR untuk layar sukses. Email Menunggu tidak dilaporkan:

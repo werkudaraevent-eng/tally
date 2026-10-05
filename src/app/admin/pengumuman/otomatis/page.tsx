@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, CaretDown, CaretRight, LinkSimple, ListBullets, PaperPlaneTilt, Plus, TextB, TextItalic, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, ArrowsOut, CaretDown, CaretRight, LinkSimple, ListBullets, PaperPlaneTilt, Plus, TextB, TextItalic, Trash, UploadSimple, Warning, X } from "@phosphor-icons/react";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "@/components/event-link";
@@ -24,6 +24,7 @@ import {
   WorkspacePage,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { belumDiterjemahkan, untukBahasa, type BahasaKirim, type EmailLang } from "@/lib/email/konfirmasi/bahasa";
 import type { KonteksDasar } from "@/lib/email/konfirmasi/konteks";
 import { renderKonfirmasi, type RenderState } from "@/lib/email/konfirmasi/render";
 import {
@@ -62,7 +63,7 @@ import { buatKepala, buatLogoPutih, siapkanGambar, unggah } from "./gambar";
  * jadi yang terlihat adalah yang terkirim.
  */
 
-type Contoh = { id: string; name: string; company: string | null; status: string };
+type Contoh = { id: string; name: string; company: string | null; status: string; language?: string | null };
 
 type Data = {
   templat: Templat;
@@ -70,6 +71,10 @@ type Data = {
   tersimpan: boolean;
   kirim_menunggu: boolean;
   dasar: KonteksDasar;
+  /** Konteks yang sama dalam English: nama, tanggal, tempat, dan tautan halaman /en. */
+  dasar_en: KonteksDasar;
+  bahasa_utama: EmailLang;
+  en_tersedia: boolean;
   kv_url: string | null;
   member_on: boolean;
   contoh: Contoh[];
@@ -79,6 +84,19 @@ type Data = {
   daftar_uji: "off" | "list" | "blocked";
   email_aktif: boolean;
 };
+
+/** Pengirim email acara, dari /api/settings. Sama dengan Pengaturan; disimpan terpisah dari templat. */
+type Pengirim = {
+  email_sender_name: string | null;
+  email_reply_to: string | null;
+  email_default: { name: string | null; address: string; reply_to: string | null } | null;
+};
+
+const NAMA_BAHASA: Record<EmailLang, string> = { id: "Indonesian", en: "English" };
+const PILIHAN_BAHASA_EDIT = [
+  { value: "id" as const, label: "ID" },
+  { value: "en" as const, label: "EN" },
+];
 
 const KUNCI_EMAIL_TES = "tally:pesan:email-tes";
 const KODE_CONTOH = "CONTOH-0000";
@@ -117,12 +135,15 @@ export default function EmailOtomatisPage() {
   const [kirimMenunggu, setKirimMenunggu] = useState(true);
   const [berubah, setBerubah] = useState(false);
   const [state, setState] = useState<RenderState>("approved");
+  const [bahasaEdit, setBahasaEdit] = useState<EmailLang>("id");
+  const [pengirim, setPengirim] = useState<Pengirim | null>(null);
+  const [besar, setBesar] = useState(false);
   const [layar, setLayar] = useState<"desktop" | "ponsel">("desktop");
   const [sebagai, setSebagai] = useState<string>("");
   const [terbuka, setTerbuka] = useState<string | null>("pembuka");
   const [qrContoh, setQrContoh] = useState<string | null>(null);
   const [menyimpan, setMenyimpan] = useState(false);
-  const [dialog, setDialog] = useState<null | "tes" | "kirim">(null);
+  const [dialog, setDialog] = useState<null | "tes" | "kirim" | "pengirim">(null);
   const [emailTes, setEmailTes] = useState("");
   const [sibuk, setSibuk] = useState(false);
   const [kemajuan, setKemajuan] = useState<{ terkirim: number; gagal: number } | null>(null);
@@ -143,12 +164,21 @@ export default function EmailOtomatisPage() {
     setBerubah(false);
   }, []);
 
+  // Pengirim dibaca terpisah: gagal memuatnya tidak boleh menghalangi editor templat.
+  const muatPengirim = useCallback(async () => {
+    const response = await fetch("/api/settings", { cache: "no-store" }).catch(() => null);
+    if (!response?.ok) return;
+    const body = (await response.json()) as Pengirim;
+    setPengirim({ email_sender_name: body.email_sender_name ?? null, email_reply_to: body.email_reply_to ?? null, email_default: body.email_default ?? null });
+  }, []);
+
   useEffect(() => {
     // Muat sekali saat halaman dibuka.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void muat();
+    void muatPengirim();
     void QRCode.toDataURL(KODE_CONTOH, { errorCorrectionLevel: "H", margin: 4, width: 320 }).then(setQrContoh);
-  }, [muat]);
+  }, [muat, muatPengirim]);
 
   // Gambar kepala dan logo putih untuk PRATINJAU sebelum Simpan pertama:
   // dibuat di peramban sebagai URL lokal, tidak diunggah. Tanpa ini, memilih
@@ -175,7 +205,9 @@ export default function EmailOtomatisPage() {
 
   const pratinjau = useMemo(() => {
     if (!data || !templat) return null;
-    const nama = contoh?.name ?? "Budi Santoso";
+    // Pratinjau mengikuti bahasa yang sedang diedit; renderKonfirmasi memilih teks English sendiri dari ctx.lang.
+    const dasar = bahasaEdit === "en" ? data.dasar_en : data.dasar;
+    const nama = contoh?.name ?? (bahasaEdit === "en" ? "Alex Tan" : "Budi Santoso");
     const logo = logoKepala(data.dasar);
     const kepalaBasi = !templat.kepala_url || templat.kepala_sumber !== `${data.kv_url}|${logo?.url ?? ""}`;
     const putihBasi = !data.dasar.logoPutihUrl && templat.logo_putih_sumber !== data.dasar.logoUrl;
@@ -186,18 +218,18 @@ export default function EmailOtomatisPage() {
     };
     try {
       return renderKonfirmasi(tampil, {
-        ...data.dasar,
+        ...dasar,
         state,
-        values: { nama, perusahaan: contoh?.company ?? "", acara: data.dasar.eventName, tanggal: data.dasar.detail.tanggal ?? "" },
+        values: { nama, perusahaan: contoh?.company ?? "", acara: dasar.eventName, tanggal: dasar.detail.tanggal ?? "" },
         qr: state === "approved" ? { code: KODE_CONTOH, src: qrContoh } : null,
-        codeUrl: state === "approved" ? data.dasar.halamanUrl : null,
+        codeUrl: state === "approved" ? dasar.halamanUrl : null,
         // Contoh tautan: kotak Akun Area peserta hanya ikut untuk pendaftar yang membuat akun saat mendaftar.
-        akunUrl: data.member_on ? data.dasar.halamanUrl : null,
+        akunUrl: data.member_on ? dasar.halamanUrl : null,
       });
     } catch {
       return null;
     }
-  }, [data, templat, state, contoh, qrContoh, gambarLokal]);
+  }, [data, templat, state, bahasaEdit, contoh, qrContoh, gambarLokal]);
 
   if (galatMuat) {
     return (
@@ -219,6 +251,11 @@ export default function EmailOtomatisPage() {
   const asing = unknownFieldsIn(t);
   const sah = templatSchema.safeParse(t);
   const pesanTidakSah = sah.success ? null : sah.error.issues[0]?.message ?? "Check the fields.";
+  const en = bahasaEdit === "en";
+  // Yang benar-benar diterima pendaftar English: dipakai untuk placeholder dan ringkasan baris.
+  const templatEn = untukBahasa(t, "en");
+  const belum = belumDiterjemahkan(t);
+  const namaVersi = `${NAMA_BAHASA[bahasaEdit]} · ${versi.panjang}`;
 
   function ubah(next: Partial<Templat>) {
     setTemplat((lama) => (lama ? { ...lama, ...next } : lama));
@@ -250,15 +287,20 @@ export default function EmailOtomatisPage() {
     setTerbuka(block.id);
   }
 
+  /** Kolom dalam bahasa yang sedang diedit: English disimpan di `en` milik templat atau bagian. */
   function nilaiKolom(k: KolomTeks): string {
-    if (k.blockId === "subjek") return t[versi.subjek];
-    const block = t.blocks.find((item) => item.id === k.blockId) as Record<string, unknown> | undefined;
-    return typeof block?.[k.kunci] === "string" ? (block[k.kunci] as string) : "";
+    if (k.blockId === "subjek") return en ? t.en?.[versi.subjek] ?? "" : t[versi.subjek];
+    const block = t.blocks.find((item) => item.id === k.blockId) as (Record<string, unknown> & { en?: Record<string, unknown> }) | undefined;
+    const sumber = en ? block?.en : block;
+    return typeof sumber?.[k.kunci] === "string" ? (sumber[k.kunci] as string) : "";
   }
 
   function tulisKolom(k: KolomTeks, nilai: string) {
-    if (k.blockId === "subjek") ubah({ [versi.subjek]: nilai });
-    else ubahBlock(k.blockId, { [k.kunci]: nilai } as Partial<Block>);
+    if (k.blockId === "subjek") ubah(en ? { en: { ...t.en, [versi.subjek]: nilai } } : { [versi.subjek]: nilai });
+    else if (en) {
+      const block = t.blocks.find((item) => item.id === k.blockId) as { en?: Record<string, unknown> } | undefined;
+      ubahBlock(k.blockId, { en: { ...block?.en, [k.kunci]: nilai } } as Partial<Block>);
+    } else ubahBlock(k.blockId, { [k.kunci]: nilai } as Partial<Block>);
   }
 
   /** Sisipkan teks di kursor kolom terakhir; `bungkus` membungkus pilihan (tebal, miring, tautan). */
@@ -363,7 +405,7 @@ export default function EmailOtomatisPage() {
     const response = await fetch("/api/admin/email-konfirmasi/tes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, state, templat: siap, sebagai: sebagai || null }),
+      body: JSON.stringify({ email, state, lang: bahasaEdit, templat: siap, sebagai: sebagai || null }),
     }).catch(() => null);
     const body = await response?.json().catch(() => null);
     setSibuk(false);
@@ -377,7 +419,7 @@ export default function EmailOtomatisPage() {
       // Tidak diingat, tidak apa-apa.
     }
     setDialog(null);
-    toast.success("Test email sent", `To ${email}, ${versi.panjang} version. The subject starts with [TEST].`);
+    toast.success("Test email sent", `To ${email}, ${namaVersi} version. The subject starts with [TEST].`);
   }
 
   async function kirimTertunda() {
@@ -447,8 +489,13 @@ export default function EmailOtomatisPage() {
         </Banner>
       ) : null}
 
+      {/* Panel pratinjau menempel setinggi layar dan bergulir sendiri, supaya
+          pratinjau tetap terlihat saat panitia mengetik di bagian bawah editor.
+          Kepala panelnya ringkas dan catatan ikut bergulir, agar ruang email
+          terbesar di layar pendek. Perbesar membuka email penuh 1:1. */}
       <SupportingPane
         paneWidth={440}
+        terkunci
         main={
           <div className="@container w-full min-w-0 self-start rounded-lg border border-outline-variant bg-surface-container-lowest">
             <div className="border-b border-outline-variant px-5 py-5">
@@ -457,6 +504,36 @@ export default function EmailOtomatisPage() {
                 Sent to every registrant. The Approved version (sent straight away, or when staff approve) carries the check-in QR code. Events with moderation also send the Pending approval version on registration.
               </p>
             </div>
+
+            <Baris judul="Sender" id="pengirim">
+              <RingkasanPengirim pengirim={pengirim} />
+              <Button variant="outlined" size="sm" className="self-start" onClick={() => setDialog("pengirim")} disabled={!pengirim}>
+                Change…
+              </Button>
+            </Baris>
+
+            <Baris judul="Email language" id="bahasa-kirim">
+              <div role="radiogroup" aria-labelledby="bahasa-kirim" className="flex flex-col gap-2">
+                {(
+                  [
+                    ["ikuti", "Match the registration form", `Recommended. The English registration form sends English; everything else sends ${NAMA_BAHASA[data.bahasa_utama]}.`],
+                    ["id", "Always Indonesian", null],
+                    ["en", "Always English", null],
+                  ] as const satisfies readonly (readonly [BahasaKirim, string, string | null])[]
+                ).map(([value, label, keterangan]) => (
+                  <PilihanRadio key={value} name="bahasa-kirim" checked={t.bahasa === value} onSelect={() => ubah({ bahasa: value })} label={label} description={keterangan} />
+                ))}
+              </div>
+              {t.bahasa === "ikuti" && !data.en_tersedia ? (
+                <p className="text-body-small text-on-surface-variant">This event has no English page, so everyone gets {NAMA_BAHASA[data.bahasa_utama]}.</p>
+              ) : null}
+              {t.bahasa === "en" && !data.en_tersedia ? (
+                <Banner tone="warning" icon={<Warning size={18} />}>
+                  This event has no English page. The event name, date and venue stay as typed in the event details, and links open the Indonesian pages.
+                </Banner>
+              ) : null}
+              <p className="text-body-small text-on-surface-variant">Applies to emails sent after you save. Emails already sent don&apos;t change.</p>
+            </Baris>
 
             <Baris judul="Preset" id="preset">
               <div role="radiogroup" aria-labelledby="preset" className="grid gap-3 @md:grid-cols-3">
@@ -504,26 +581,50 @@ export default function EmailOtomatisPage() {
             </Baris>
 
             <Baris judul="Editing" id="mengedit">
-              <SegmentedButton<RenderState>
-                label="Version being edited"
-                labelledBy="mengedit"
-                value={state}
-                onChange={setState}
-                options={PILIHAN_VERSI}
-                className="self-start"
-              />
-              <p className="text-body-small text-on-surface-variant">
-                {state === "rejected"
-                  ? "The Rejected version has only the Header and Opening."
-                  : "Subject, title and greeting differ per version. Other sections are shared by Approved and Pending."}
-              </p>
-              <TextField
-                label={`Subject (${versi.label})`}
-                value={t[versi.subjek]}
-                maxLength={150}
-                onFocus={(e) => (kolomTerakhir.current = { blockId: "subjek", kunci: "subjek", el: e.currentTarget })}
-                onChange={(e) => ubah({ [versi.subjek]: e.target.value })}
-              />
+              <div className="flex flex-col gap-2">
+                <p id="versi-edit" className="text-body-medium font-medium text-on-surface">
+                  Version being edited
+                </p>
+                <SegmentedButton<RenderState> label="Version being edited" labelledBy="versi-edit" value={state} onChange={setState} options={PILIHAN_VERSI} className="self-start" />
+                <p className="text-body-small text-on-surface-variant">
+                  {state === "rejected"
+                    ? "The Rejected version has only the Header and Opening."
+                    : "Subject, title and greeting differ per version. Other sections are shared by Approved and Pending."}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <p id="bahasa-edit" className="text-body-medium font-medium text-on-surface">
+                  Language being edited
+                </p>
+                <SegmentedButton<EmailLang> label="Language being edited" labelledBy="bahasa-edit" value={bahasaEdit} onChange={setBahasaEdit} options={PILIHAN_BAHASA_EDIT} className="w-24 self-start" />
+                <p role="status" className={cx("flex items-center gap-2 text-body-small", belum.length ? "font-medium text-on-warning-soft" : "text-on-surface-variant")}>
+                  {belum.length ? <span aria-hidden className="size-2 shrink-0 rounded-full bg-warning" /> : null}
+                  {belum.length
+                    ? `${plural(belum.length, "text")} not translated yet`
+                    : en
+                      ? "All text translated"
+                      : "English fields left empty use the English default."}
+                </p>
+              </div>
+              {en ? (
+                <TextField
+                  label={`Subject (${versi.label})`}
+                  value={t.en?.[versi.subjek] ?? ""}
+                  placeholder={templatEn[versi.subjek]}
+                  maxLength={150}
+                  hint={`Empty: uses the English default. Indonesian: “${t[versi.subjek]}”`}
+                  onFocus={(e) => (kolomTerakhir.current = { blockId: "subjek", kunci: "subjek", el: e.currentTarget })}
+                  onChange={(e) => ubah({ en: { ...t.en, [versi.subjek]: e.target.value } })}
+                />
+              ) : (
+                <TextField
+                  label={`Subject (${versi.label})`}
+                  value={t[versi.subjek]}
+                  maxLength={150}
+                  onFocus={(e) => (kolomTerakhir.current = { blockId: "subjek", kunci: "subjek", el: e.currentTarget })}
+                  onChange={(e) => ubah({ [versi.subjek]: e.target.value })}
+                />
+              )}
             </Baris>
 
             <section aria-labelledby="bagian" className="px-5 pt-5">
@@ -539,7 +640,8 @@ export default function EmailOtomatisPage() {
                   pertama={index <= 1}
                   terakhir={index === t.blocks.length - 1}
                   terbuka={terbuka === block.id}
-                  ringkas={ringkasan(block, data, state)}
+                  ringkas={ringkasan(en ? templatEn.blocks[index] ?? block : block, data, state)}
+                  belumDiterjemahkan={en && belum.some((kolom) => kolom.blockId === block.id)}
                   onBuka={() => setTerbuka((lama) => (lama === block.id ? null : block.id))}
                   onNyala={(on) => ubahBlock(block.id, { on } as Partial<Block>)}
                   onGeser={(arah) => geser(block.id, arah)}
@@ -547,6 +649,7 @@ export default function EmailOtomatisPage() {
                 >
                   <EditorBagian
                     block={block}
+                    blockEn={en ? templatEn.blocks[index] ?? block : null}
                     state={state}
                     data={data}
                     pembuka={pembuka ?? null}
@@ -585,8 +688,14 @@ export default function EmailOtomatisPage() {
           </div>
         }
         pane={
-          <div className="flex w-full min-w-0 flex-col self-start overflow-hidden rounded-lg lg:sticky lg:top-[calc(var(--workspace-top,58px)+16px)] lg:max-h-[calc(100dvh-var(--workspace-top,58px)-104px)] border border-outline-variant bg-surface-container-lowest">
-            <div className="flex flex-col gap-3 border-b border-outline-variant px-5 py-4">
+          <div className="flex w-full min-w-0 flex-none! flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest lg:sticky lg:top-[calc(var(--workspace-top,58px)+16px)] lg:max-h-[calc(100dvh-var(--workspace-top,58px)-104px)]">
+            <div className="flex flex-col gap-3 border-b border-outline-variant px-5 py-3">
+              <div className="flex items-center gap-3">
+                <h2 className="min-w-0 flex-1 truncate text-title-small font-semibold text-on-surface">Preview: {namaVersi}</h2>
+                <Button variant="outlined" size="sm" icon={<ArrowsOut size={16} />} onClick={() => setBesar(true)}>
+                  Enlarge
+                </Button>
+              </div>
               <div className="flex flex-wrap gap-3">
                 <SegmentedButton<RenderState>
                   label="Preview version"
@@ -620,10 +729,10 @@ export default function EmailOtomatisPage() {
             </div>
             <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface-container">
               <PratinjauEmail html={pratinjau?.html ?? ""} lebar={lebarPratinjau} />
+              <p className="border-t border-outline-variant bg-surface-container-lowest px-5 py-3 text-body-small text-on-surface-variant">
+                The preview uses a real registrant&apos;s data; the QR code and links are samples.{data.member_on ? " The Participant area account box only appears for registrants who create an account when they register." : ""}
+              </p>
             </div>
-            <p className="border-t border-outline-variant px-5 py-3 text-body-small text-on-surface-variant">
-              The preview uses a real registrant&apos;s data; the QR code and links are samples.{data.member_on ? " The Participant area account box only appears for registrants who create an account when they register." : ""}
-            </p>
           </div>
         }
       />
@@ -656,7 +765,7 @@ export default function EmailOtomatisPage() {
         onClose={() => setDialog(null)}
         dismissible={!sibuk}
         title="Send test email"
-        description={`The ${versi.panjang} version with the content on screen (saved or not) and the data of the registrant in the preview. The subject starts with [TEST]; the QR code and links are samples.`}
+        description={`The ${namaVersi} version with the content on screen (saved or not) and the data of the registrant in the preview. The subject starts with [TEST]; the QR code and links are samples.`}
         actions={
           <>
             <Button variant="text" onClick={() => setDialog(null)} disabled={sibuk}>
@@ -714,6 +823,42 @@ export default function EmailOtomatisPage() {
           {kemajuan ? ` ${kemajuan.terkirim} sent${kemajuan.gagal ? `, ${kemajuan.gagal} failed` : ""}…` : ""}
         </p>
       </Dialog>
+
+      <DialogPengirim
+        open={dialog === "pengirim"}
+        pengirim={pengirim}
+        onClose={() => setDialog(null)}
+        onTersimpan={(baru) => {
+          setPengirim(baru);
+          setDialog(null);
+        }}
+      />
+
+      <Dialog open={besar} onClose={() => setBesar(false)} title={`Email preview: ${namaVersi}`} bare className="flex h-[90dvh] max-w-[760px]! flex-col overflow-hidden!">
+        <div className="flex flex-wrap items-center gap-3 border-b border-outline-variant px-5 py-3">
+          <h2 className="min-w-0 flex-1 truncate text-title-medium font-semibold text-on-surface">{namaVersi}</h2>
+          <SegmentedButton<"desktop" | "ponsel">
+            label="Preview width"
+            value={layar}
+            onChange={setLayar}
+            options={[
+              { value: "desktop", label: "Desktop" },
+              { value: "ponsel", label: "Mobile" },
+            ]}
+            className="max-sm:order-last max-sm:basis-full"
+          />
+          <IconButton label="Close preview" onClick={() => setBesar(false)}>
+            <X size={20} />
+          </IconButton>
+        </div>
+        <p className="border-b border-outline-variant px-5 py-2 text-body-medium">
+          <span className="text-on-surface-variant">Subject </span>
+          <span className="font-semibold text-on-surface">{pratinjau?.subject ?? "-"}</span>
+        </p>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-surface-container py-4">
+          <PratinjauEmail html={pratinjau?.html ?? ""} lebar={lebarPratinjau} />
+        </div>
+      </Dialog>
     </WorkspacePage>
     </div>
   );
@@ -727,6 +872,147 @@ function Baris({ judul, children, id }: { judul: string; children: React.ReactNo
       </h2>
       <div className="flex min-w-0 flex-col gap-3">{children}</div>
     </section>
+  );
+}
+
+/** Pilihan radio berkartu, sama dengan Pengaturan. */
+function PilihanRadio({ name, checked, onSelect, label, description }: { name: string; checked: boolean; onSelect: () => void; label: string; description: string | null }) {
+  return (
+    <label className={cx("flex cursor-pointer gap-3 rounded-lg border px-3 py-2.5", checked ? "border-primary" : "border-outline-variant hover:bg-primary-soft")}>
+      <input type="radio" name={name} checked={checked} onChange={onSelect} className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
+      <span className="min-w-0">
+        <span className="block text-body-medium font-medium text-on-surface">{label}</span>
+        {description ? <span className="mt-0.5 block text-body-small text-on-surface-variant">{description}</span> : null}
+      </span>
+    </label>
+  );
+}
+
+function RingkasanPengirim({ pengirim }: { pengirim: Pengirim | null }) {
+  if (!pengirim) return <p className="pt-2 text-body-medium text-on-surface-variant">Loading…</p>;
+  const bawaan = pengirim.email_default;
+  if (!bawaan) return <p className="pt-2 text-body-medium text-on-surface-variant">Email sending isn&apos;t set up on the server, so the sender name isn&apos;t used yet.</p>;
+  const nama = pengirim.email_sender_name?.trim() || bawaan.name;
+  const balasan = pengirim.email_reply_to?.trim() || bawaan.reply_to;
+  return (
+    <div className="pt-2 text-body-medium">
+      <p className="break-words text-on-surface">
+        {nama ? (
+          <>
+            {nama} <span className="text-on-surface-variant">&lt;{bawaan.address}&gt;</span>
+          </>
+        ) : (
+          bawaan.address
+        )}
+      </p>
+      <p className="mt-1 text-body-small text-on-surface-variant">
+        {balasan ? `Replies go to ${balasan}.` : "Replies go to the sender address."} Also used for blasts, invitations and sign-in links.
+      </p>
+    </div>
+  );
+}
+
+const POLA_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Nama pengirim dan alamat balasan. Tersimpan sendiri (PATCH ke Pengaturan), lepas dari Simpan templat. */
+function DialogPengirim({ open, pengirim, onClose, onTersimpan }: { open: boolean; pengirim: Pengirim | null; onClose: () => void; onTersimpan: (baru: Pengirim) => void }) {
+  const toast = useToast();
+  const [nama, setNama] = useState("");
+  const [balasan, setBalasan] = useState("");
+  const [sibuk, setSibuk] = useState(false);
+  const [dicoba, setDicoba] = useState(false);
+  const [galat, setGalat] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open || !pengirim) return;
+    // Isi ulang dari yang tersimpan setiap kali dialog dibuka.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNama(pengirim.email_sender_name ?? "");
+    setBalasan(pengirim.email_reply_to ?? "");
+    setDicoba(false);
+    setGalat(null);
+  }, [open, pengirim]);
+
+  const bawaan = pengirim?.email_default ?? null;
+  const galatNama = /[<>"\r\n]/.test(nama) ? "Don't use < > or quotation marks." : undefined;
+  const galatBalasan = balasan.trim() && !POLA_EMAIL.test(balasan.trim()) ? "Enter a valid email address." : undefined;
+  const namaTampil = nama.trim() || bawaan?.name || "";
+
+  async function simpan() {
+    setDicoba(true);
+    if (galatNama || galatBalasan || !pengirim) return;
+    setSibuk(true);
+    setGalat(null);
+    const response = await fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email_sender_name: nama.trim() || null, email_reply_to: balasan.trim() || null }),
+    }).catch(() => null);
+    const body = (await response?.json().catch(() => null)) as Partial<Pengirim> | null;
+    setSibuk(false);
+    if (!response?.ok || !body) {
+      setGalat("Sender not saved. Check the fields and your connection, then try again.");
+      return;
+    }
+    toast.success("Sender saved", "Every email sent from now on uses it.");
+    onTersimpan({ email_sender_name: body.email_sender_name ?? null, email_reply_to: body.email_reply_to ?? null, email_default: body.email_default ?? pengirim.email_default });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      dismissible={!sibuk}
+      title="Email sender"
+      actions={
+        <>
+          <Button variant="text" onClick={onClose} disabled={sibuk}>
+            Cancel
+          </Button>
+          <Button onClick={() => void simpan()} loading={sibuk}>
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="mt-4 flex flex-col gap-4">
+        <TextField
+          label="Sender name"
+          value={nama}
+          maxLength={80}
+          placeholder={bawaan?.name ?? "Organiser name"}
+          onChange={(e) => setNama(e.target.value)}
+          error={dicoba ? galatNama : undefined}
+          hint={
+            bawaan
+              ? `Participants see: ${namaTampil ? `${namaTampil} <${bawaan.address}>` : bawaan.address}. Leave empty to use the site default${bawaan.name ? ` (${bawaan.name})` : ""}.`
+              : "Leave empty to use the site default."
+          }
+        />
+        <TextField
+          label="Reply-to address"
+          optional
+          type="email"
+          value={balasan}
+          maxLength={254}
+          placeholder={bawaan?.reply_to ?? "name@organiser.com"}
+          onChange={(e) => setBalasan(e.target.value)}
+          error={dicoba ? galatBalasan : undefined}
+          hint="Where participant replies go."
+        />
+        {galat ? (
+          <Banner tone="error" icon={<Warning size={18} />}>
+            {galat}
+          </Banner>
+        ) : null}
+        <p className="text-body-small text-on-surface-variant">
+          Applies to every email sent after you save, including scheduled blasts. Also in{" "}
+          <Link href="/admin/settings" className="font-semibold text-primary underline underline-offset-4">
+            Settings
+          </Link>
+          .
+        </p>
+      </div>
+    </Dialog>
   );
 }
 
@@ -800,6 +1086,7 @@ function BarisBagian({
   terakhir,
   terbuka,
   ringkas,
+  belumDiterjemahkan,
   onBuka,
   onNyala,
   onGeser,
@@ -811,6 +1098,7 @@ function BarisBagian({
   terakhir: boolean;
   terbuka: boolean;
   ringkas: string;
+  belumDiterjemahkan: boolean;
   onBuka: () => void;
   onNyala: (on: boolean) => void;
   onGeser: (arah: -1 | 1) => void;
@@ -835,7 +1123,15 @@ function BarisBagian({
             {bisaDibuka ? terbuka ? <CaretDown size={16} /> : <CaretRight size={16} /> : null}
           </span>
           <span className="min-w-0">
-            <span className="block text-body-large font-semibold text-on-surface">{BLOCK_LABELS[block.type]}</span>
+            <span className="flex items-center gap-2 text-body-large font-semibold text-on-surface">
+              {BLOCK_LABELS[block.type]}
+              {belumDiterjemahkan ? (
+                <>
+                  <span aria-hidden className="size-2 shrink-0 rounded-full bg-warning" />
+                  <span className="sr-only">(not translated yet)</span>
+                </>
+              ) : null}
+            </span>
             <span className="block truncate text-body-small text-on-surface-variant">{ringkas}</span>
           </span>
         </button>
@@ -890,8 +1186,15 @@ function Toolbar({ onTebal, onMiring, onTautan, onDaftar }: { onTebal: () => voi
   );
 }
 
+/** Potongan teks Indonesia untuk petunjuk di bawah kolom English. */
+function kutip(teks: string): string {
+  const satu = teks.replace(/\s+/g, " ").trim();
+  return `“${satu.length > 120 ? `${satu.slice(0, 117)}…` : satu}”`;
+}
+
 function EditorBagian({
   block,
+  blockEn,
   state,
   data,
   onUbah,
@@ -900,6 +1203,8 @@ function EditorBagian({
   sisipkan,
 }: {
   block: Block;
+  /** Bagian ini seperti diterima pendaftar English; null saat mengedit Indonesia. */
+  blockEn: Block | null;
   state: RenderState;
   data: Data;
   pembuka: Extract<Block, { type: "pembuka" }> | null;
@@ -910,38 +1215,70 @@ function EditorBagian({
 }) {
   const toast = useToast();
   const [mengunggah, setMengunggah] = useState(false);
+
+  /**
+   * Nilai, placeholder, petunjuk, dan pengubah satu kolom dalam bahasa yang
+   * diedit. English: kolom kosong memakai yang akan diterima pendaftar English
+   * (bawaan English, atau teks Indonesia untuk teks bebas), dan teks Indonesia
+   * selalu tampil di bawahnya.
+   */
+  function kolom(kunci: string, petunjuk?: string) {
+    const asli = block as unknown as Record<string, string> & { en?: Record<string, string | undefined> };
+    const idNilai = asli[kunci] ?? "";
+    if (!blockEn) return { value: idNilai, hint: petunjuk, onChange: (nilai: string) => onUbah({ [kunci]: nilai } as Partial<Block>) };
+    const jadi = (blockEn as unknown as Record<string, string>)[kunci] ?? "";
+    const tetapIndonesia = !!idNilai.trim() && jadi === idNilai;
+    return {
+      value: asli.en?.[kunci] ?? "",
+      placeholder: tetapIndonesia ? "Not translated: English registrants see the Indonesian text" : jadi,
+      hint: idNilai.trim() ? `${tetapIndonesia ? "" : "Empty: uses the English default. "}Indonesian: ${kutip(idNilai)}` : petunjuk,
+      onChange: (nilai: string) => onUbah({ en: { ...asli.en, [kunci]: nilai } } as Partial<Block>),
+    };
+  }
+
   switch (block.type) {
     case "pembuka": {
       const kJudul = VERSI[state].judul;
       const kIsi = VERSI[state].isi;
+      const judul = kolom(kJudul);
+      const isi = kolom(kIsi);
       return (
         <>
-          <p className="text-body-small text-on-surface-variant">Editing the {VERSI[state].panjang} version. Switch versions in the Editing row or in the preview.</p>
-          <TextField label="Title" value={block[kJudul]} maxLength={120} onFocus={(e) => onFokus(kJudul, e.currentTarget)} onChange={(e) => onUbah({ [kJudul]: e.target.value } as Partial<Block>)} />
+          <p className="text-body-small text-on-surface-variant">
+            Editing the {blockEn ? "English " : ""}
+            {VERSI[state].panjang} version. Switch versions and languages in the Editing row.
+          </p>
+          <TextField label="Title" {...judul} maxLength={120} onFocus={(e) => onFokus(kJudul, e.currentTarget)} onChange={(e) => judul.onChange(e.target.value)} />
           {toolbar(kIsi)}
-          <TeksTumbuh label="Greeting" value={block[kIsi]} maxLength={2000} onFocus={(e) => onFokus(kIsi, e.currentTarget)} onChange={(e) => onUbah({ [kIsi]: e.target.value } as Partial<Block>)} />
+          <TeksTumbuh label="Greeting" {...isi} maxLength={2000} onFocus={(e) => onFokus(kIsi, e.currentTarget)} onChange={(e) => isi.onChange(e.target.value)} />
           {sisipkan}
         </>
       );
     }
-    case "teks":
+    case "teks": {
+      const isi = kolom("isi");
       return (
         <>
           {toolbar("isi")}
-          <TeksTumbuh label="Text" value={block.isi} maxLength={2000} onFocus={(e) => onFokus("isi", e.currentTarget)} onChange={(e) => onUbah({ isi: e.target.value })} />
+          <TeksTumbuh label="Text" {...isi} maxLength={2000} onFocus={(e) => onFokus("isi", e.currentTarget)} onChange={(e) => isi.onChange(e.target.value)} />
           {sisipkan}
         </>
       );
-    case "info":
+    }
+    case "info": {
+      const judul = kolom("judul");
+      const isi = kolom("isi");
       return (
         <>
-          <TextField label="Box title" value={block.judul} maxLength={120} onFocus={(e) => onFokus("judul", e.currentTarget)} onChange={(e) => onUbah({ judul: e.target.value })} />
+          <TextField label="Box title" {...judul} maxLength={120} onFocus={(e) => onFokus("judul", e.currentTarget)} onChange={(e) => judul.onChange(e.target.value)} />
           {toolbar("isi")}
-          <TeksTumbuh label="Body" value={block.isi} maxLength={2000} onFocus={(e) => onFokus("isi", e.currentTarget)} onChange={(e) => onUbah({ isi: e.target.value })} />
+          <TeksTumbuh label="Body" {...isi} maxLength={2000} onFocus={(e) => onFokus("isi", e.currentTarget)} onChange={(e) => isi.onChange(e.target.value)} />
           {sisipkan}
         </>
       );
-    case "gambar":
+    }
+    case "gambar": {
+      const alt = kolom("alt", "Shown when the image is blocked, and read aloud by screen readers. Example: Batik dress code guide.");
       return (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- gambar email dari storage, bukan aset halaman */}
@@ -977,15 +1314,15 @@ function EditorBagian({
           <p className="text-body-small text-on-surface-variant">Scaled down automatically to 1200 px wide. Don&apos;t put important information only in the image: many work email systems block images.</p>
           <TextField
             label="Alt text"
-            value={block.alt}
+            {...alt}
             maxLength={200}
-            onChange={(e) => onUbah({ alt: e.target.value })}
-            hint="Shown when the image is blocked, and read aloud by screen readers. Example: Batik dress code guide."
-            error={block.url && !block.alt.trim() ? "Required." : undefined}
+            onChange={(e) => alt.onChange(e.target.value)}
+            error={!blockEn && block.url && !block.alt.trim() ? "Required." : undefined}
           />
           <TextField label="Link when the image is clicked" optional value={block.href ?? ""} placeholder="https://" maxLength={600} onChange={(e) => onUbah({ href: e.target.value.trim() || undefined })} />
         </>
       );
+    }
     case "tombol": {
       const tujuan = [
         ...(data.member_on ? [{ value: "dashboard" as const, label: "My dashboard" }] : []),
@@ -994,7 +1331,10 @@ function EditorBagian({
       ];
       return (
         <>
-          <TextField label="Button text" value={block.label} maxLength={40} onChange={(e) => onUbah({ label: e.target.value })} />
+          {(() => {
+            const label = kolom("label");
+            return <TextField label="Button text" {...label} maxLength={40} onChange={(e) => label.onChange(e.target.value)} />;
+          })()}
           <SegmentedButton
             label="Button destination"
             value={block.tujuan === "dashboard" && !data.member_on ? "halaman" : block.tujuan}
@@ -1014,7 +1354,10 @@ function EditorBagian({
     case "mitra":
       return (
         <>
-          <TextField label="Title above the logos" value={block.judul} maxLength={120} onChange={(e) => onUbah({ judul: e.target.value })} />
+          {(() => {
+            const judul = kolom("judul");
+            return <TextField label="Title above the logos" {...judul} maxLength={120} onChange={(e) => judul.onChange(e.target.value)} />;
+          })()}
           <p className="text-body-small text-on-surface-variant">
             {data.dasar.mitra.length
               ? `${plural(Math.min(8, data.dasar.mitra.length), "logo")} taken from the Event page (8 at most). Change the logos on the Event page.`

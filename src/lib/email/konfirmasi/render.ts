@@ -2,6 +2,7 @@ import { mixHex } from "@/lib/color";
 import type { LandingHeadingFont } from "@/lib/domain";
 import { FIELDS, type FieldKey } from "@/lib/pesan/bawaan";
 import { escapeHtml, formatHtml, formatText } from "@/lib/pesan/format";
+import { TEKS_TETAP, untukBahasa, type EmailLang } from "./bahasa";
 import { DEFAULT_PEMBUKA, SALINAN_DITOLAK, type Block, type Font, type Templat } from "./templat";
 
 export { escapeHtml };
@@ -61,7 +62,11 @@ export type RenderContext = {
   /** Ada alamat Balas-ke (Pengaturan > Pengirim email). */
   bisaDibalas: boolean;
   test?: boolean;
+  /** Bahasa email. Bawaan Indonesia; konteks (nama acara, tempat, tanggal) sudah disusun dalam bahasa yang sama. */
+  lang?: EmailLang;
 };
+
+const teksTetap = (ctx: RenderContext) => TEKS_TETAP[ctx.lang ?? "id"];
 
 export type RenderedEmail = { subject: string; html: string; text: string };
 
@@ -156,32 +161,33 @@ function kepala(templat: Templat, ctx: RenderContext, fonts: { heading: string }
 }
 
 function tiket(ctx: RenderContext, garisPutus: boolean) {
+  const t = teksTetap(ctx);
   if (ctx.state === "pending" || !ctx.qr) {
     return (
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0;"><tr>` +
       `<td bgcolor="${AMBER_BG}" style="background:${AMBER_BG};border-radius:12px;padding:20px 24px;">` +
-      `<p style="margin:0;font-size:13px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${AMBER_INK};">Menunggu persetujuan</p>` +
-      `<p style="margin:8px 0 0;font-size:15px;line-height:22px;color:${INK};">Panitia sedang meninjau pendaftaran Anda. QR masuk dikirim ke email ini setelah disetujui.</p>` +
+      `<p style="margin:0;font-size:13px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${AMBER_INK};">${t.menungguJudul}</p>` +
+      `<p style="margin:8px 0 0;font-size:15px;line-height:22px;color:${INK};">${t.menungguIsi}</p>` +
       `</td></tr></table>`
     );
   }
   const border = garisPutus ? `2px dashed ${RULE}` : `1px solid ${RULE}`;
   // Dua sel yang ditumpuk di ponsel (kelas .stack): QR 160px di atas kode.
   const qr = ctx.qr.src
-    ? `<td width="164" class="stack" style="padding:20px 0 20px 20px;width:164px;vertical-align:middle;"><img src="${escapeHtml(ctx.qr.src)}" width="160" height="160" alt="QR kode peserta ${escapeHtml(ctx.qr.code)}" style="display:block;width:160px;height:160px;border:0;font-size:13px;color:${INK};"></td>`
+    ? `<td width="164" class="stack" style="padding:20px 0 20px 20px;width:164px;vertical-align:middle;"><img src="${escapeHtml(ctx.qr.src)}" width="160" height="160" alt="${escapeHtml(t.qrAlt(ctx.qr.code))}" style="display:block;width:160px;height:160px;border:0;font-size:13px;color:${INK};"></td>`
     : "";
   // Tombol halaman kode permanen: lapis ketiga bila QR tidak tampil. Selalu ada, tidak bisa dimatikan.
   const cadangan = ctx.codeUrl
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 0;"><tr><td style="border:1px solid ${ctx.brand};border-radius:10px;">` +
-      `<a href="${escapeHtml(ctx.codeUrl)}" style="display:block;padding:12px 18px;font-size:15px;line-height:20px;font-weight:700;color:${ctx.brand};text-decoration:none;">Buka kode &amp; QR</a></td></tr></table>`
+      `<a href="${escapeHtml(ctx.codeUrl)}" style="display:block;padding:12px 18px;font-size:15px;line-height:20px;font-weight:700;color:${ctx.brand};text-decoration:none;">${t.bukaKode}</a></td></tr></table>`
     : "";
   return (
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0;border:${border};border-radius:12px;border-collapse:separate;"><tr>` +
     qr +
     `<td class="stack" style="padding:20px;vertical-align:middle;">` +
-    `<p style="margin:0;font-size:13px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${MUTED};">Kode peserta</p>` +
+    `<p style="margin:0;font-size:13px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${MUTED};">${t.kodePeserta}</p>` +
     `<p style="margin:6px 0 0;font-family:Consolas,Menlo,'Courier New',monospace;font-size:24px;line-height:30px;font-weight:700;letter-spacing:.06em;color:${INK};white-space:nowrap;">${escapeHtml(ctx.qr.code)}</p>` +
-    `<p style="margin:8px 0 0;font-size:14px;line-height:20px;color:${MUTED};">Tunjukkan QR ini di meja registrasi. Kode ini khusus untuk Anda.</p>` +
+    `<p style="margin:8px 0 0;font-size:14px;line-height:20px;color:${MUTED};">${t.tunjukkan}</p>` +
     cadangan +
     `</td></tr></table>`
   );
@@ -189,10 +195,11 @@ function tiket(ctx: RenderContext, garisPutus: boolean) {
 
 function detail(ctx: RenderContext) {
   const d = ctx.detail;
+  const t = teksTetap(ctx);
   const baris: [string, string][] = [];
-  if (d.tanggal) baris.push(["Tanggal", d.tanggal]);
-  if (d.waktu) baris.push(["Waktu", d.waktu]);
-  if (d.tempat || d.alamat) baris.push(["Tempat", [d.tempat, d.alamat].filter(Boolean).join(", ")]);
+  if (d.tanggal) baris.push([t.tanggal, d.tanggal]);
+  if (d.waktu) baris.push([t.waktu, d.waktu]);
+  if (d.tempat || d.alamat) baris.push([t.tempat, [d.tempat, d.alamat].filter(Boolean).join(", ")]);
   if (!baris.length) return "";
   const rows = baris
     .map(
@@ -202,8 +209,8 @@ function detail(ctx: RenderContext) {
     )
     .join("");
   const tautan = [
-    d.kalenderUrl ? `<a href="${escapeHtml(d.kalenderUrl)}" class="tap" style="display:inline-block;padding:12px 0;color:${ctx.brand};font-weight:700;text-decoration:underline;">Tambah ke kalender</a>` : "",
-    d.petaUrl ? `<a href="${escapeHtml(d.petaUrl)}" class="tap" style="display:inline-block;padding:12px 0;color:${ctx.brand};font-weight:700;text-decoration:underline;">Lihat peta</a>` : "",
+    d.kalenderUrl ? `<a href="${escapeHtml(d.kalenderUrl)}" class="tap" style="display:inline-block;padding:12px 0;color:${ctx.brand};font-weight:700;text-decoration:underline;">${t.kalender}</a>` : "",
+    d.petaUrl ? `<a href="${escapeHtml(d.petaUrl)}" class="tap" style="display:inline-block;padding:12px 0;color:${ctx.brand};font-weight:700;text-decoration:underline;">${t.peta}</a>` : "",
   ].filter(Boolean);
   return (
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0;border-collapse:collapse;">${rows}</table>` +
@@ -219,21 +226,23 @@ function garis() {
 type Pembuka = Extract<Block, { type: "pembuka" }>;
 
 /** Judul dan sapaan untuk keadaan ini. Judul yang dikosongkan diisi bawaan: email tanpa judul terbaca seperti email rusak. */
-function salinan(block: Pembuka, state: RenderState): { eyebrow: string; judul: string; isi: string } {
-  if (state === "pending") return { eyebrow: "Pendaftaran diterima", judul: block.judul_menunggu.trim() || DEFAULT_PEMBUKA.judul_menunggu, isi: block.isi_menunggu };
-  if (state === "rejected") return { eyebrow: "Kabar pendaftaran", judul: block.judul_ditolak.trim() || SALINAN_DITOLAK.judul, isi: block.isi_ditolak };
-  return { eyebrow: "Pendaftaran berhasil", judul: block.judul.trim() || DEFAULT_PEMBUKA.judul, isi: block.isi };
+function salinan(block: Pembuka, state: RenderState, ctx: RenderContext): { eyebrow: string; judul: string; isi: string } {
+  const t = teksTetap(ctx);
+  if (state === "pending") return { eyebrow: t.eyebrow.pending, judul: block.judul_menunggu.trim() || DEFAULT_PEMBUKA.judul_menunggu, isi: block.isi_menunggu };
+  if (state === "rejected") return { eyebrow: t.eyebrow.rejected, judul: block.judul_ditolak.trim() || SALINAN_DITOLAK.judul, isi: block.isi_ditolak };
+  return { eyebrow: t.eyebrow.approved, judul: block.judul.trim() || DEFAULT_PEMBUKA.judul, isi: block.isi };
 }
 
 function kotakAkun(url: string, ctx: RenderContext) {
+  const t = teksTetap(ctx);
   return (
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0;border:1px solid ${RULE};border-radius:12px;border-collapse:separate;"><tr>` +
     `<td style="padding:20px 24px;">` +
-    `<p style="margin:0;font-size:13px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${MUTED};">Akun Area peserta</p>` +
-    `<p style="margin:8px 0 0;font-size:15px;line-height:22px;color:${INK};">Konfirmasi email Anda untuk mengaktifkan akun. Tautan berlaku 14 hari.</p>` +
+    `<p style="margin:0;font-size:13px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${MUTED};">${t.akunJudul}</p>` +
+    `<p style="margin:8px 0 0;font-size:15px;line-height:22px;color:${INK};">${t.akunIsi}</p>` +
     // Tombol bergaris, bukan isi warna: tombol utama email tetap milik panitia (blok Tombol).
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 0;"><tr><td style="border:1px solid ${ctx.brand};border-radius:10px;">` +
-    `<a href="${escapeHtml(url)}" style="display:block;padding:12px 18px;font-size:15px;line-height:20px;font-weight:700;color:${ctx.brand};text-decoration:none;">Konfirmasi email</a></td></tr></table>` +
+    `<a href="${escapeHtml(url)}" style="display:block;padding:12px 18px;font-size:15px;line-height:20px;font-weight:700;color:${ctx.brand};text-decoration:none;">${t.akunTombol}</a></td></tr></table>` +
     `</td></tr></table>`
   );
 }
@@ -249,7 +258,7 @@ function blockHtml(block: Block, templat: Templat, ctx: RenderContext, fonts: { 
     case "kepala":
       return "";
     case "pembuka": {
-      const teks = salinan(block, ctx.state);
+      const teks = salinan(block, ctx.state, ctx);
       const judul = fill(teks.judul, ctx.values);
       return (
         `<p style="margin:0;font-size:13px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${ctx.brand};">${teks.eyebrow}</p>` +
@@ -288,7 +297,7 @@ function blockHtml(block: Block, templat: Templat, ctx: RenderContext, fonts: { 
       if (!ctx.mitra.length) return "";
       const sel = ctx.mitra
         .slice(0, 8)
-        .map((logo) => `<td style="padding:0 16px 12px 0;vertical-align:middle;"><img src="${escapeHtml(logo.url)}" height="40" alt="${escapeHtml(logo.name || "Logo mitra")}" style="display:block;height:40px;width:auto;max-width:140px;border:0;font-size:12px;color:${MUTED};"></td>`);
+        .map((logo) => `<td style="padding:0 16px 12px 0;vertical-align:middle;"><img src="${escapeHtml(logo.url)}" height="40" alt="${escapeHtml(logo.name || teksTetap(ctx).logoMitra)}" style="display:block;height:40px;width:auto;max-width:140px;border:0;font-size:12px;color:${MUTED};"></td>`);
       const baris: string[] = [];
       for (let i = 0; i < sel.length; i += 4) baris.push(`<tr>${sel.slice(i, i + 4).join("")}</tr>`);
       return (
@@ -306,21 +315,23 @@ function blockText(block: Block, ctx: RenderContext): string {
   if (!tampil(block, ctx.state)) return "";
   switch (block.type) {
     case "pembuka": {
-      const teks = salinan(block, ctx.state);
+      const teks = salinan(block, ctx.state, ctx);
       return [fill(teks.judul, ctx.values), richText(teks.isi, ctx.values)].filter(Boolean).join("\n\n");
     }
     case "tiket": {
-      const akun = ctx.akunUrl ? `\n\nAKUN AREA PESERTA\nKonfirmasi email Anda untuk mengaktifkan akun (berlaku 14 hari): ${ctx.akunUrl}` : "";
-      if (ctx.state === "pending" || !ctx.qr) return `MENUNGGU PERSETUJUAN\nPanitia sedang meninjau pendaftaran Anda. QR masuk dikirim ke email ini setelah disetujui.${akun}`;
-      return [`KODE PESERTA: ${ctx.qr.code}`, "Tunjukkan QR ini di meja registrasi. Kode ini khusus untuk Anda.", ctx.codeUrl ? `Kode dan QR: ${ctx.codeUrl}` : ""].filter(Boolean).join("\n") + akun;
+      const t = teksTetap(ctx);
+      const akun = ctx.akunUrl ? t.teks.akun(ctx.akunUrl) : "";
+      if (ctx.state === "pending" || !ctx.qr) return `${t.teks.menunggu}${akun}`;
+      return [t.teks.kode(ctx.qr.code), t.tunjukkan, ctx.codeUrl ? t.teks.kodeQr(ctx.codeUrl) : ""].filter(Boolean).join("\n") + akun;
     }
     case "detail": {
       const d = ctx.detail;
+      const t = teksTetap(ctx);
       return [
-        d.tanggal ? `Tanggal: ${d.tanggal}` : "",
-        d.waktu ? `Waktu: ${d.waktu}` : "",
-        d.tempat || d.alamat ? `Tempat: ${[d.tempat, d.alamat].filter(Boolean).join(", ")}` : "",
-        d.petaUrl ? `Peta: ${d.petaUrl}` : "",
+        d.tanggal ? `${t.tanggal}: ${d.tanggal}` : "",
+        d.waktu ? `${t.waktu}: ${d.waktu}` : "",
+        d.tempat || d.alamat ? `${t.tempat}: ${[d.tempat, d.alamat].filter(Boolean).join(", ")}` : "",
+        d.petaUrl ? `${t.teks.peta}: ${d.petaUrl}` : "",
       ].filter(Boolean).join("\n");
     }
     case "teks":
@@ -339,11 +350,11 @@ function blockText(block: Block, ctx: RenderContext): string {
 }
 
 function kaki(ctx: RenderContext) {
-  const acara = ctx.eventName;
-  return `Anda menerima email ini karena mendaftar di ${acara}. ${ctx.bisaDibalas ? "Ada pertanyaan? Balas email ini untuk menghubungi panitia." : "Ada pertanyaan? Hubungi panitia acara."}`;
+  return teksTetap(ctx).kaki(ctx.eventName, ctx.bisaDibalas);
 }
 
-export function renderKonfirmasi(templat: Templat, ctx: RenderContext): RenderedEmail {
+export function renderKonfirmasi(templatAsli: Templat, ctx: RenderContext): RenderedEmail {
+  const templat = untukBahasa(templatAsli, ctx.lang ?? "id");
   const fonts = fontStacks(templat.font, ctx.headingFont);
   const subjekMentah = ctx.state === "pending" ? templat.subjek_menunggu : ctx.state === "rejected" ? templat.subjek_ditolak : templat.subjek;
   const subjekDasar = fill(subjekMentah, ctx.values).trim() || ctx.eventName;
@@ -355,7 +366,7 @@ export function renderKonfirmasi(templat: Templat, ctx: RenderContext): Rendered
   const latarLuar = templat.preset === "polos" ? "#F4F4F5" : mixHex(ctx.brand, "#FFFFFF", 0.93);
 
   const html = `<!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${escapeHtml(subjekDasar)}</title>
+<html lang="${teksTetap(ctx).htmlLang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${escapeHtml(subjekDasar)}</title>
 ${fonts.link ? `<link href="${fonts.link}" rel="stylesheet">` : ""}
 <!--[if mso]><style>body,table,td,p,a,h1,li{font-family:${templat.font === "serif" ? SERIF : SANS} !important;}</style><![endif]-->
 <style>:root{color-scheme:light;supported-color-schemes:light;}
