@@ -7,6 +7,7 @@ import { sesiDariRundown } from "@/lib/landing-speaker-tabs";
 import { isiPeranSesiEn, peranSesiUntukEn } from "@/lib/landing-peran-sesi";
 import {
   LANDING_BLOCK_LABELS,
+  LANDING_IMAGE_ALT_MAX,
   LANDING_NAV_LABEL_MAX,
   LANDING_SECTION_ADMIN_LABELS,
   LANDING_SECTION_TEXT_MAX,
@@ -294,7 +295,14 @@ export function BagianEn({
           kolom("cta_note", "Banner text", landing.cta_note, 300, true),
         ];
       case "about":
-        return [kolom("description", "Event description", facts.description, 5000, true), judulBagian("about")];
+        return [
+          kolom("description", "Event description", facts.description, 5000, true),
+          // Hanya saat gambar sendiri benar-benar tampil di halaman Modern.
+          landing.layout === "modern" && landing.about_media === "image" && ada(landing.about_image_url)
+            ? kolom("about_image_alt", "Image description", landing.about_image_alt, LANDING_IMAGE_ALT_MAX)
+            : null,
+          judulBagian("about"),
+        ];
       case "venue":
         return [kolom("venue_name", "Venue name", facts.venue_name, 200), kolom("venue_address", "Address", facts.venue_address, 600, true), judulBagian("venue")];
       case "agenda": {

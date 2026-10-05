@@ -278,7 +278,7 @@ export type LandingSpeakerEn = Partial<Record<(typeof LANDING_SPEAKER_EN_KEYS)[n
  * terjemahannya tinggal di sini.
  */
 export const LANDING_CONFIG_EN_KEYS = [
-  "public_name", "cta_label", "about_heading", "program_heading", "program_intro", "agenda_note", "footer_note", "cta_heading", "cta_note", "contact_name",
+  "public_name", "cta_label", "about_heading", "about_image_alt", "program_heading", "program_intro", "agenda_note", "footer_note", "cta_heading", "cta_note", "contact_name",
   "about_eyebrow", "agenda_eyebrow", "speakers_eyebrow", "venue_eyebrow", "faq_eyebrow",
   "agenda_heading", "speakers_heading", "venue_heading", "faq_heading", "faq_intro",
 ] as const;
@@ -287,6 +287,12 @@ export type LandingConfigEn = Partial<Record<(typeof LANDING_CONFIG_EN_KEYS)[num
   /** Urut sesuai `program_notes`. */
   program_notes?: string[];
 };
+
+export const LANDING_ABOUT_MEDIA = ["auto", "image", "none"] as const;
+export type LandingAboutMedia = (typeof LANDING_ABOUT_MEDIA)[number];
+export const LANDING_ABOUT_MEDIA_LABELS: Record<LandingAboutMedia, string> = { auto: "Automatic", image: "Own image", none: "No image" };
+/** Batas teks alternatif gambar Tentang acara. */
+export const LANDING_IMAGE_ALT_MAX = 160;
 
 /** Bagian bawaan yang judulnya bisa disunting, dan label kecilnya menyala atau tidak bila belum diatur. */
 export const LANDING_EYEBROW_DEFAULT = { about: false, agenda: true, speakers: false, venue: true, faq: false } as const satisfies Partial<Record<LandingSectionId, boolean>>;
@@ -913,6 +919,15 @@ export type EventLandingConfig = {
   // sama sekali, tidak pernah ke teks contoh.
   /** Judul besar di samping deskripsi (bagian Tentang). */
   about_heading?: string;
+  /**
+   * Gambar di samping deskripsi (tata letak Modern). Bawaan `auto`: banner
+   * hero dengan angka pertama Sorotan atau jumlah sesi. `image`: gambar
+   * `about_image_url`. `none`: deskripsi selebar halaman.
+   */
+  about_media?: LandingAboutMedia;
+  about_image_url?: string | null;
+  /** Teks alternatif gambar sendiri, dibacakan pembaca layar. */
+  about_image_alt?: string;
   /** Judul bagian Program, mis. "Dua program, satu hari". */
   program_heading?: string;
   /** Kalimat pengantar di kanan judul Program. */

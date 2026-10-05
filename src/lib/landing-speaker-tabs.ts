@@ -96,6 +96,19 @@ export function barisJeda(judulRundown: string, jumlahPembicara: number): boolea
 }
 
 /**
+ * Jumlah sesi untuk angka "12 sesi": baris rundown tanpa jeda. Registrasi,
+ * makan siang, dan penutupan bukan sesi bagi tamu, dan Susunan acara pun
+ * menulisnya tenang. Aturannya sama dengan baris tenang itu.
+ */
+export function jumlahSesi(items: AgendaItem[], speakers: LandingSpeaker[]): number {
+  return items.filter((item) => {
+    if (item.jeda) return false;
+    const orang = pembicaraSesi(speakers, item).length;
+    return !barisJeda(item.key, orang) && !barisJeda(item.title, orang);
+  }).length;
+}
+
+/**
  * Pembicara satu baris rundown, untuk deret foto di baris itu. Aturannya sama
  * dengan tab Pembicara (barisPembicara), jadi kedua bagian selalu sepakat.
  * Judul saja (string) hanya mencocokkan sesi teks lama.

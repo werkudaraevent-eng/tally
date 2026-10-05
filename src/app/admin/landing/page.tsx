@@ -14,6 +14,8 @@ import { useToast } from "@/components/toast";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { LandingPreview } from "@/components/admin/landing-preview";
 import {
+  LANDING_ABOUT_MEDIA_LABELS,
+  LANDING_IMAGE_ALT_MAX,
   LANDING_BANNER_STYLE_LABELS,
   LANDING_HEADING_FONTS,
   LANDING_HEADING_SIZE,
@@ -1127,6 +1129,59 @@ export default function LandingCmsPage() {
   // kosong, jadi warnanya penuh on-surface-variant (5,33:1), bukan /70 contoh.
   const TEKS_BAWAAN = "[&_input::placeholder]:text-on-surface-variant [&_textarea::placeholder]:text-on-surface-variant";
 
+  // Gambar di samping deskripsi (Modern). Otomatis = perilaku sebelum pilihan
+  // ini ada, jadi acara lama tidak berubah sampai admin memilih.
+  const mediaTentang = landing.about_media ?? "auto";
+  const gambarTentang = (
+    <div className="flex flex-col gap-3">
+      <div>
+        <p className="text-body-medium font-medium text-on-surface">Image</p>
+        <SegmentedButton<keyof typeof LANDING_ABOUT_MEDIA_LABELS>
+          className="mt-1.5 w-full"
+          label="Image"
+          value={mediaTentang}
+          onChange={(about_media) => setLanding({ ...landing, about_media })}
+          options={(["auto", "image", "none"] as const).map((value) => ({ value, label: LANDING_ABOUT_MEDIA_LABELS[value] }))}
+        />
+        <p className="mt-1.5 text-body-medium text-on-surface-variant">
+          {mediaTentang === "auto"
+            ? landing.banner_url
+              ? "The hero image (KV) with a figure on top: the first figure in Key figures, or the number of agenda sessions. Breaks such as registration and lunch are not counted."
+              : "A panel in the page colour with a figure: the first figure in Key figures, or the number of agenda sessions. Breaks such as registration and lunch are not counted."
+            : mediaTentang === "image"
+              ? "Shown as uploaded, without a figure on top."
+              : "The description stands alone, without an image."}
+        </p>
+      </div>
+      {mediaTentang === "image" ? (
+        <>
+          <ImageUploadField
+            label="About image"
+            kind="landing"
+            fit="cover"
+            previewClassName="h-24 w-28"
+            hint="Close to square (8:7), at least 1250×1100. PNG, JPG or WebP, up to 5 MB. Until an image is uploaded, the automatic panel shows."
+            value={landing.about_image_url ?? null}
+            onChange={(url) => setLanding({ ...landing, about_image_url: url })}
+            disabled={busy}
+          />
+          {landing.about_image_url ? (
+            <TextField
+              label="Image description"
+              optional
+              maxLength={LANDING_IMAGE_ALT_MAX}
+              counter
+              placeholder="e.g. Participants at last year's forum"
+              hint="Read aloud by screen readers. Leave empty if the image is only decoration."
+              value={landing.about_image_alt ?? ""}
+              onChange={(event) => setLanding({ ...landing, about_image_alt: event.target.value })}
+            />
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+
   const isiTentang = facts ? (
     <div className="flex flex-col gap-4">
       <TextArea
@@ -1137,6 +1192,7 @@ export default function LandingCmsPage() {
         value={facts.description ?? ""}
         onChange={(event) => patchFacts({ description: event.target.value })}
       />
+      {modern ? gambarTentang : null}
       {judulBagian("about", { judul: LANDING_SECTION_LABELS.about, jenis: "default", hint: "The large sentence next to the event description." })}
     </div>
   ) : null;
