@@ -1,5 +1,5 @@
-import type { EventRow } from "@/lib/domain";
-import type { LandingLang } from "@/lib/landing-i18n";
+import type { EventLandingConfig, EventRow } from "@/lib/domain";
+import { landingDefaultLang, landingPath, type LandingLang } from "@/lib/landing-i18n";
 import type { MemberSession } from "@/lib/member/account";
 import { isUnread, loadMemberAnnouncements, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import type { LoncengItem } from "@/components/member/lonceng-pengumuman";
@@ -66,16 +66,19 @@ export function itemLonceng(
  * yang sedang menampilkan semua pengumuman.
  */
 export async function muatNavPeserta(
-  event: Pick<EventRow, "id" | "slug" | "time_zone">,
+  event: Pick<EventRow, "id" | "slug" | "time_zone" | "landing_config">,
   sesi: MemberSession,
   lang: LandingLang,
   opsi: { data?: MemberAnnouncements; unread?: number } = {},
 ): Promise<NavPeserta> {
   const data = opsi.data ?? (await loadMemberAnnouncements(event.id, sesi));
   const slug = encodeURIComponent(event.slug);
+  // Dashboard dalam bahasa halaman yang sedang dibuka: `/e/<slug>/en/peserta`
+  // dari halaman acara English, `/e/<slug>/peserta` dari bahasa utama.
+  const utama = landingDefaultLang(event.landing_config as EventLandingConfig | null);
   return {
     slug: event.slug,
-    dashboardHref: `/e/${slug}/peserta`,
+    dashboardHref: `${landingPath(slug, lang, utama)}/peserta`,
     keluarAction: `/e/${slug}/api/peserta/keluar`,
     inisial: inisialNama(sesi.name),
     lonceng: data.ready ? { items: itemLonceng(data, event, lang), unread: opsi.unread ?? data.unread } : null,
