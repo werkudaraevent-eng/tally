@@ -92,11 +92,25 @@ async function periksaAcaraBooth(client: Klien, baris: AksesMasuk[]): Promise<st
  */
 async function tulisAkses(client: Klien, userId: string, role: UserRole, baris: AksesMasuk[], oleh: string): Promise<boolean> {
   const tetap = role === "super_admin" ? [] : baris;
-  const hapus = client.from("user_event_access").delete().eq("user_id", userId);
-  const { error: galatHapus } = tetap.length > 0
-    ? await hapus.not("event_id", "in", `(${tetap.map((b) => b.event_id).join(",")})`)
-    : await hapus;
-  if (galatHapus) return false;
+  // Baris acara TERARSIP tidak ikut diganti: layar tidak menawarkan acara
+  // terarsip, jadi daftar dari layar tidak pernah memuatnya, dan menggantinya
+  // berarti menghapus akses lama setiap kali akun disimpan. Super admin
+  // pengecualian: tanpa baris berarti semua acara, jadi semuanya dihapus.
+  const ada = await client.from("user_event_access").select("event_id").eq("user_id", userId);
+  if (ada.error) return false;
+  const idAda = ((ada.data ?? []) as { event_id: string }[]).map((b) => b.event_id);
+  let arsip = new Set<string>();
+  if (role !== "super_admin" && idAda.length > 0) {
+    const terarsip = await client.from("events").select("id").in("id", idAda).not("archived_at", "is", null);
+    if (terarsip.error) return false;
+    arsip = new Set(((terarsip.data ?? []) as { id: string }[]).map((e) => e.id));
+  }
+  const simpan = new Set(tetap.map((b) => b.event_id));
+  const hapusIds = idAda.filter((id) => !simpan.has(id) && !arsip.has(id));
+  if (hapusIds.length > 0) {
+    const { error: galatHapus } = await client.from("user_event_access").delete().eq("user_id", userId).in("event_id", hapusIds);
+    if (galatHapus) return false;
+  }
   if (tetap.length === 0) return true;
   const { error } = await client.from("user_event_access").upsert(
     tetap.map((b) => ({ user_id: userId, event_id: b.event_id, role, booth_id: role === "booth" ? b.booth_id : null, granted_by: oleh })) as never,
@@ -139,25 +153,38 @@ export async function GET() {
   if (ids === null || ids.length > 0) {
     const [hasilAkses, hasilAcara] = await Promise.all([
       semuaHalaman((dari, sampai) => {
-        const kueri = client.from("user_event_access").select("user_id,event_id,role").order("user_id").order("event_id");
+        const kueri = client.from("user_event_access").select("user_id,event_id,role,booth_id").order("user_id").order("event_id");
         return (ids ? kueri.in("event_id", ids) : kueri).range(dari, sampai);
       }),
       semuaHalaman((dari, sampai) => {
-        const kueri = client.from("events").select("id,slug,name").is("archived_at", null).order("id");
+        // Acara terarsip ikut dibaca supaya layar bisa menampilkannya sebagai chip
+        // terkunci; ia tidak dihitung sebagai "berbagi acara" di bawah.
+        const kueri = client.from("events").select("id,slug,name,archived_at").order("id");
         return (ids ? kueri.in("id", ids) : kueri).range(dari, sampai);
       }),
     ]);
     if (hasilAkses.error || hasilAcara.error) return apiError("INTERNAL_ERROR", 500);
     akses = hasilAkses.data as BarisAkses[];
-    acara = hasilAcara.data as AcaraRingkas[];
+    acara = (hasilAcara.data as (AcaraRingkas & { archived_at: string | null })[]).map(({ archived_at, ...event }) => ({ ...event, archived: archived_at !== null }));
+  }
+  // Kode booth untuk chip "Acara · B3".
+  const idBooth = [...new Set(akses.map((baris) => baris.booth_id).filter((id): id is number => typeof id === "number"))];
+  const kodeBooth = new Map<number, string>();
+  for (let i = 0; i < idBooth.length; i += 200) {
+    const { data, error } = await client.from("booths").select("id,code").in("id", idBooth.slice(i, i + 200));
+    if (error) return apiError("INTERNAL_ERROR", 500);
+    for (const booth of (data ?? []) as { id: number; code: string }[]) kodeBooth.set(booth.id, booth.code);
   }
   const perUser = aksesPerUser(auth.user, akses, acara);
   // Akun disaring di server dengan aturan yang sama: admin hanya menerima akun
   // yang berbagi acara dengannya, tanpa super admin. Angka di tab peran dihitung
   // dari daftar ini, jadi ikut tersaring.
   // Acara terarsip tidak dihitung sebagai "berbagi acara".
-  const aktif = new Set(acara.map((event) => event.id));
-  const users = akunTerlihat(auth.user, akses.filter((baris) => aktif.has(baris.event_id)), (akun.data ?? []) as UserRow[]).map((user) => ({ ...user, events: perUser.get(user.id) ?? [] }));
+  const aktif = new Set(acara.filter((event) => !event.archived).map((event) => event.id));
+  const users = akunTerlihat(auth.user, akses.filter((baris) => aktif.has(baris.event_id)), (akun.data ?? []) as UserRow[]).map((user) => ({
+    ...user,
+    events: (perUser.get(user.id) ?? []).map((event) => ({ ...event, booth_code: event.booth_id ? kodeBooth.get(event.booth_id) ?? null : null })),
+  }));
   return Response.json({
     users,
     can_manage: canManageUsers(auth.user),
@@ -180,16 +207,21 @@ export async function POST(request: Request) {
   if (galatAcara) return apiError("VALIDATION_ERROR", 422, { message: galatAcara });
 
   // Username yang sudah dipakai ditolak, KECUALI sisa pembuatan yang gagal di
-  // tengah jalan: akun nonaktif, tanpa acara, dan tanpa catatan audit
-  // user_create (catatan itu baru ditulis setelah semuanya berhasil). Sisa itu
-  // dihapus dulu supaya mencoba lagi dengan username yang sama tetap bisa.
+  // tengah jalan: akun nonaktif, tanpa acara, tanpa catatan user_create (baru
+  // ditulis setelah semuanya berhasil), DAN ada catatan user_create_started
+  // untuk username ini dalam 15 menit terakhir. Syarat terakhir itu yang
+  // membedakan sisa gagal dari akun nonaktif sungguhan yang memang belum punya
+  // acara; tanpanya akun seperti itu ikut terhapus.
   const { data: existing } = await client.from("users").select("id,is_active").eq("username", parsed.data.username).maybeSingle() as { data: { id: string; is_active: boolean } | null };
   if (existing) {
-    const [akses, jejak] = await Promise.all([
+    const [akses, jejak, mulai] = await Promise.all([
       client.from("user_event_access").select("event_id", { count: "exact", head: true }).eq("user_id", existing.id),
       client.from("audit_logs").select("id", { count: "exact", head: true }).eq("action", "user_create").eq("payload->user->>id", existing.id),
+      client.from("audit_logs").select("id", { count: "exact", head: true }).eq("action", "user_create_started").eq("payload->>username", parsed.data.username)
+        .gte("created_at", new Date(Date.now() - 15 * 60 * 1000).toISOString()),
     ]);
-    const sisaGagal = !existing.is_active && !akses.error && !jejak.error && (akses.count ?? 0) === 0 && (jejak.count ?? 0) === 0;
+    const sisaGagal = !existing.is_active && !akses.error && !jejak.error && !mulai.error
+      && (akses.count ?? 0) === 0 && (jejak.count ?? 0) === 0 && (mulai.count ?? 0) > 0;
     if (!sisaGagal) return apiError("USERNAME_TAKEN", 409, { field: "username", message: "This username is taken. Choose another." });
     const { error: galatSisa } = await client.from("users").delete().eq("id", existing.id).eq("is_active", false);
     if (galatSisa) return apiError("INTERNAL_ERROR", 500);
@@ -199,6 +231,10 @@ export async function POST(request: Request) {
   // langkah di tengah gagal, yang tertinggal hanyalah akun yang tidak bisa
   // masuk, bukan akun aktif dengan PIN yang sudah dibagikan tetapi tanpa acara.
   const pinHash = await bcrypt.hash(parsed.data.pin, PIN_HASH_ROUNDS);
+  // Penanda awal untuk pemulihan sisa gagal di atas. Ditulis sebelum akun ada;
+  // bila penanda ini gagal ditulis, akun tidak dibuat sama sekali.
+  const { error: galatMulai } = await client.from("audit_logs").insert({ user_id: auth.user.id, action: "user_create_started", payload: { username: parsed.data.username } } as never);
+  if (galatMulai) return apiError("INTERNAL_ERROR", 500);
   const { data: dibuat, error } = await client
     .from("users")
     .insert({ username: parsed.data.username, pin_hash: pinHash, role: parsed.data.role, booth_id: boothLama(parsed.data.role, parsed.data.events), is_active: false } as never)
@@ -302,18 +338,6 @@ export async function PATCH(request: Request) {
     if (taken) return apiError("USERNAME_TAKEN", 409, { field: "username", message: "This username is taken. Choose another." });
   }
 
-  // Acara ditulis SEBELUM akun: peran baru baru berlaku setelah barisnya
-  // sejalan. Naik ke Super admin menghapus semua baris (tanpa baris = semua
-  // acara); ganti peran tanpa daftar acara menyamakan peran di baris yang ada.
-  if (parsed.data.events || nextRole === "super_admin") {
-    if (!(await tulisAkses(client, current.id, nextRole, parsed.data.events ?? [], auth.user.id))) {
-      return apiError("INTERNAL_ERROR", 500, { message: "Event access could not be saved. Nothing else was changed. Try again." });
-    }
-  } else if (nextRole !== current.role) {
-    const { error: galatPeran } = await client.from("user_event_access").update({ role: nextRole } as never).eq("user_id", current.id);
-    if (galatPeran) return apiError("INTERNAL_ERROR", 500);
-  }
-
   const update: Record<string, unknown> = {
     role: nextRole,
     booth_id: nextBoothId,
@@ -322,8 +346,29 @@ export async function PATCH(request: Request) {
   if (typeof parsed.data.is_active === "boolean") update.is_active = parsed.data.is_active;
   if (parsed.data.pin) update.pin_hash = await bcrypt.hash(parsed.data.pin, PIN_HASH_ROUNDS);
 
+  // Akun ditulis dulu, lalu barisnya. Bila baris gagal, akun dikembalikan ke
+  // keadaan sebelumnya (kecuali PIN baru, yang tetap berlaku), supaya peran akun
+  // dan peran di barisnya tidak tertinggal berbeda.
   const { data, error } = await client.from("users").update(update as never).eq("id", parsed.data.id).select("id,username,role,booth_id,is_active").single();
   if (error) return apiError("INTERNAL_ERROR", 500);
-  await client.from("audit_logs").insert({ user_id: auth.user.id, action: "user_update", payload: { old: current, new: data } } as never);
+
+  let barisOk = true;
+  if (parsed.data.events || nextRole === "super_admin") {
+    // Naik ke Super admin menghapus semua baris (tanpa baris = semua acara).
+    barisOk = await tulisAkses(client, current.id, nextRole, parsed.data.events ?? [], auth.user.id);
+  } else if (nextRole !== current.role) {
+    // Ganti peran tanpa daftar acara: samakan peran di baris yang ada, dan
+    // lepas booth bila peran barunya bukan Booth staff.
+    const ubah: Record<string, unknown> = { role: nextRole };
+    if (nextRole !== "booth") ubah.booth_id = null;
+    const { error: galatPeran } = await client.from("user_event_access").update(ubah as never).eq("user_id", current.id);
+    barisOk = !galatPeran;
+  }
+  if (!barisOk) {
+    await client.from("users").update({ role: current.role, booth_id: current.booth_id, username: current.username, is_active: current.is_active } as never).eq("id", current.id);
+    return apiError("INTERNAL_ERROR", 500, { message: "Event access could not be saved, so the account was left as it was. Try again." });
+  }
+
+  await client.from("audit_logs").insert({ user_id: auth.user.id, action: "user_update", payload: { old: current, new: data, events: parsed.data.events } } as never);
   return Response.json({ user: data });
 }

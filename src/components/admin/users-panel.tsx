@@ -27,13 +27,13 @@ import { cx } from "@/lib/m3/cx";
 import { AksesAcaraEditor, type AksesBaris, type DaftarBooth, type EventRole } from "./akses-acara-editor";
 
 type Role = "booth" | "cashier" | "admin" | "super_admin" | "scanner";
-type UserEvent = { id: string; slug: string; name: string; role: EventRole; booth_id?: number | null; booth_code?: string | null };
+type UserEvent = { id: string; slug: string; name: string; role: EventRole; booth_id?: number | null; booth_code?: string | null; archived?: boolean };
 type User = { id: string; username: string; role: Role; booth_id: number | null; is_active: boolean; events?: UserEvent[] };
 type EventOption = { id: string; slug: string; name: string; status: string; archived_at?: string | null };
-type Draft = { id: string | null; username: string; pin: string; role: Role; is_active: boolean; rows: AksesBaris[] };
+type Draft = { id: string | null; username: string; pin: string; role: Role; is_active: boolean; rows: AksesBaris[]; arsip: { id: string; name: string }[] };
 type RoleTab = "semua" | "booth" | "cashier" | "scanner" | "admin";
 
-const blank: Draft = { id: null, username: "", pin: "", role: "booth", is_active: true, rows: [] };
+const blank: Draft = { id: null, username: "", pin: "", role: "booth", is_active: true, rows: [], arsip: [] };
 
 /**
  * Satu peran per akun, berlaku di setiap acaranya. Satu kalimat per peran,
@@ -56,16 +56,17 @@ const BATAS_ACARA = 2;
  */
 function AksesAcara({ user }: { user: User }) {
   if (user.role === "super_admin") return <span className="text-on-surface-variant">All events</span>;
-  const daftar = user.events ?? [];
+  const daftar = [...(user.events ?? [])].sort((a, b) => Number(Boolean(a.archived)) - Number(Boolean(b.archived)));
   if (daftar.length === 0) return <span className="text-on-surface-variant">No events yet</span>;
   const tampil = daftar.slice(0, BATAS_ACARA);
   const sisa = daftar.length - tampil.length;
   return (
     <ul className="flex min-w-0 flex-wrap gap-1">
       {tampil.map((event) => (
-        <li key={event.id} className="inline-flex h-6 min-w-0 max-w-full items-center gap-1 rounded-md border border-outline-variant bg-surface px-2 text-body-small text-on-surface">
+        <li key={event.id} className={cx("inline-flex h-6 min-w-0 max-w-full items-center gap-1 rounded-md border border-outline-variant px-2 text-body-small", event.archived ? "text-on-surface-variant" : "bg-surface text-on-surface")}>
           <span className="min-w-0 truncate">{event.name}</span>
           {event.booth_code ? <span className="shrink-0 text-on-surface-variant">· {event.booth_code}</span> : null}
+          {event.archived ? <span className="shrink-0 text-on-surface-variant">· Archived</span> : null}
         </li>
       ))}
       {sisa > 0 ? <li className="inline-flex h-6 items-center px-1 text-body-small text-on-surface-variant">+{sisa}</li> : null}
@@ -131,7 +132,10 @@ function dariUser(user: User): Draft {
     pin: "",
     role: user.role,
     is_active: user.is_active,
-    rows: (user.events ?? []).map((event) => ({ event_id: event.id, booth_id: event.booth_id ?? null })),
+    rows: (user.events ?? []).filter((event) => !event.archived).map((event) => ({ event_id: event.id, booth_id: event.booth_id ?? null })),
+    // Acara terarsip tetap tersimpan di server (tidak ikut diganti saat simpan);
+    // di layar tampil sebagai chip terkunci.
+    arsip: (user.events ?? []).filter((event) => event.archived).map((event) => ({ id: event.id, name: event.name })),
   };
 }
 
@@ -270,7 +274,9 @@ export function UsersPanel() {
       return;
     }
     toast.success(`${saved.username} saved`, canManage ? "Changes applied." : "The new PIN works now.");
-    setDraft(dariUser(saved));
+    // Respons PATCH hanya membawa akun, tanpa acara. Draft yang baru disimpan
+    // sudah sama dengan isi server, jadi cukup disamakan field akunnya.
+    setDraft((current) => current && { ...current, username: saved.username, role: saved.role, is_active: saved.is_active, pin: "" });
   }
 
   const saring = (roles: Role[] | null) => (roles ? users.filter((user) => roles.includes(user.role)) : users);
@@ -407,6 +413,7 @@ export function UsersPanel() {
             events={events}
             booths={booths}
             onNeedBooths={pastikanBooth}
+            archived={draft.arsip}
           />
         ) : (
           <div>

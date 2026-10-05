@@ -1,8 +1,8 @@
 "use client";
 
 import { CaretDown, Check, X } from "@phosphor-icons/react";
-import { useId, useRef, useState, type KeyboardEvent } from "react";
-import { Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
+import { useId, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
+import { POPOVER_ITEM } from "@/components/m3";
 import { EVENT_STATUS_LABEL } from "@/lib/domain";
 import { cx } from "@/lib/m3/cx";
 
@@ -34,6 +34,7 @@ export function AksesAcaraEditor({
   events,
   booths,
   onNeedBooths,
+  archived = [],
 }: {
   rows: AksesBaris[];
   role: EventRole;
@@ -41,9 +42,11 @@ export function AksesAcaraEditor({
   events: AcaraPilihan[];
   booths: DaftarBooth;
   onNeedBooths: (event: AcaraPilihan) => void;
+  /** Acara terarsip yang masih dipegang akun ini: tampil terkunci, tidak dikirim. */
+  archived?: { id: string; name: string }[];
 }) {
-  const [kolom, setKolom] = useState<HTMLDivElement | null>(null);
-  const menu = usePopoverAnchor(kolom);
+  const [terbuka, setTerbuka] = useState(false);
+  const daftarRef = useRef<HTMLUListElement | null>(null);
   const masukan = useRef<HTMLInputElement | null>(null);
   const [cari, setCari] = useState("");
   const [sorot, setSorot] = useState(0);
@@ -55,12 +58,17 @@ export function AksesAcaraEditor({
   const tawaran = kata ? events.filter((event) => event.name.toLowerCase().includes(kata)) : events;
   const nama = (eventId: string) => events.find((event) => event.id === eventId)?.name ?? "Archived event";
 
+  // Daftar tampil DI BAWAH kolom, di dalam alur isi dialog, bukan melayang.
+  // Di layar 588px daftar melayang tidak punya ruang ke bawah dan membalik ke
+  // atas menutupi Role; di dalam alur, isi dialog cukup bergulir.
   function buka() {
-    if (menu.open) return;
-    // Layar 588px: kolom digulir ke atas wadahnya dulu, supaya daftar punya
-    // ruang terbuka ke bawah dan tidak menutupi Role di atasnya.
-    kolom?.scrollIntoView({ block: "start", behavior: "instant" });
-    menu.buka();
+    if (terbuka) return;
+    setTerbuka(true);
+    window.requestAnimationFrame(() => daftarRef.current?.scrollIntoView({ block: "nearest" }));
+  }
+
+  function tutupBilaKeluar(peristiwa: FocusEvent<HTMLDivElement>) {
+    if (!peristiwa.currentTarget.contains(peristiwa.relatedTarget as Node | null)) setTerbuka(false);
   }
 
   function alih(event: AcaraPilihan) {
@@ -72,9 +80,6 @@ export function AksesAcaraEditor({
     }
     setCari("");
     masukan.current?.focus();
-    // Chip baru bisa menambah baris kolom; ukur ulang supaya daftar tetap
-    // menempel di bawah kolom, tidak menutupinya.
-    window.requestAnimationFrame(() => menu.buka());
   }
 
   function setBooth(eventId: string, booth_id: number | null) {
@@ -93,35 +98,39 @@ export function AksesAcaraEditor({
       setSorot((sekarang) => (sekarang + arah + tawaran.length) % tawaran.length);
     } else if (peristiwa.key === "Enter") {
       peristiwa.preventDefault();
-      const pilihan = menu.open ? tawaran[Math.min(sorot, tawaran.length - 1)] : undefined;
+      const pilihan = terbuka ? tawaran[Math.min(sorot, tawaran.length - 1)] : undefined;
       if (pilihan) alih(pilihan);
       else buka();
-    } else if (peristiwa.key === "Escape" && menu.open) {
+    } else if (peristiwa.key === "Escape" && terbuka) {
       // Esc pertama hanya menutup daftar, bukan dialog di sekelilingnya. Dialog
       // mendengar Esc di document, tempat React juga memasang pendengarnya
       // (akar App Router adalah document), jadi stopPropagation tidak cukup:
       // pendengar lain di simpul yang sama harus dihentikan juga.
       peristiwa.preventDefault();
       peristiwa.nativeEvent.stopImmediatePropagation();
-      menu.tutup();
+      setTerbuka(false);
     } else if (peristiwa.key === "Backspace" && cari === "" && rows.length > 0) {
       onChange(rows.slice(0, -1));
-      if (menu.open) window.requestAnimationFrame(() => menu.buka());
     }
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <div>
+      <div onBlur={tutupBilaKeluar}>
         <label htmlFor={id} className="m3-field-label flex items-baseline gap-2 text-label-large font-semibold text-on-surface">Event access</label>
         <div
-          ref={setKolom}
           onClick={() => { masukan.current?.focus(); buka(); }}
           className={cx(
             "mt-1.5 flex min-h-9 w-full cursor-text flex-wrap items-center gap-1 rounded-lg border bg-surface-container-lowest py-[3px] pl-1 pr-8 relative transition-[border-color,box-shadow] duration-150",
-            menu.open ? "border-primary shadow-[0_0_0_3px_color-mix(in_srgb,var(--md-sys-color-primary)_15%,transparent)]" : "border-outline",
+            terbuka ? "border-primary shadow-[0_0_0_3px_color-mix(in_srgb,var(--md-sys-color-primary)_15%,transparent)]" : "border-outline",
           )}
         >
+          {archived.map((event) => (
+            <span key={event.id} title="Archived event. Access is kept." className="inline-flex h-7 max-w-full items-center gap-1 rounded-md border border-dashed border-outline-variant px-2 text-label-large text-on-surface-variant">
+              <span className="min-w-0 truncate">{event.name}</span>
+              <span className="shrink-0">· Archived</span>
+            </span>
+          ))}
           {rows.map((row) => (
             <span key={row.event_id} className="inline-flex h-7 max-w-full items-center gap-1 rounded-md border border-outline-variant bg-surface pl-2 pr-0.5 text-label-large text-on-surface">
               <span className="min-w-0 truncate">{nama(row.event_id)}</span>
@@ -139,57 +148,57 @@ export function AksesAcaraEditor({
             ref={masukan}
             id={id}
             role="combobox"
-            aria-expanded={menu.open}
+            aria-expanded={terbuka}
             aria-controls={idDaftar}
             aria-autocomplete="list"
-            aria-activedescendant={menu.open && tawaran.length > 0 ? `${idDaftar}-${Math.min(sorot, tawaran.length - 1)}` : undefined}
+            aria-activedescendant={terbuka && tawaran.length > 0 ? `${idDaftar}-${Math.min(sorot, tawaran.length - 1)}` : undefined}
             aria-describedby={`${id}-hint`}
             value={cari}
             onChange={(change) => { setCari(change.target.value); setSorot(0); buka(); }}
             onKeyDown={tombol}
-            placeholder={rows.length === 0 ? "Choose events" : ""}
+            placeholder={rows.length === 0 && archived.length === 0 ? "Choose events" : ""}
             className="h-7 min-w-[8ch] flex-1 bg-transparent px-2 focus-visible:!shadow-none focus-visible:!outline-none text-body-large text-on-surface outline-none placeholder:text-on-surface-variant/70"
           />
-          <CaretDown size={16} aria-hidden className={cx("pointer-events-none absolute right-2.5 top-2.5 text-on-surface-variant transition-transform", menu.open && "rotate-180")} />
+          <CaretDown size={16} aria-hidden className={cx("pointer-events-none absolute right-2.5 top-2.5 text-on-surface-variant transition-transform", terbuka && "rotate-180")} />
         </div>
+        {terbuka ? (
+          <div className="mt-1 overflow-hidden rounded-[10px] border border-outline-variant bg-surface-container-lowest p-1 shadow-level1">
+            <p role="status" className="sr-only">{tawaran.length === 1 ? "1 event" : `${tawaran.length} events`}</p>
+            <ul ref={daftarRef} id={idDaftar} role="listbox" aria-label="Events" aria-multiselectable className="max-h-56 overflow-y-auto">
+              {tawaran.length === 0 ? (
+                <li role="presentation" className="px-4 py-3 text-body-medium text-on-surface-variant">No matching events.</li>
+              ) : tawaran.map((event, index) => {
+                const aktif = index === Math.min(sorot, tawaran.length - 1);
+                const dipilih = terpilih.has(event.id);
+                return (
+                  <li
+                    key={event.id}
+                    id={`${idDaftar}-${index}`}
+                    role="option"
+                    aria-selected={dipilih}
+                    onMouseDown={(klik) => klik.preventDefault()}
+                    onMouseEnter={() => setSorot(index)}
+                    onClick={() => alih(event)}
+                    className={cx(POPOVER_ITEM, "cursor-pointer gap-3", aktif && "bg-on-surface/8")}
+                  >
+                    <span className={cx("flex size-5 shrink-0 items-center justify-center", dipilih ? "text-primary" : "text-transparent")}>
+                      <Check size={18} weight="bold" />
+                    </span>
+                    <span className={cx("min-w-0 flex-1 truncate text-left", dipilih && "font-medium")}>{event.name}</span>
+                    <span className="shrink-0 text-body-small text-on-surface-variant">
+                      {EVENT_STATUS_LABEL[event.status as keyof typeof EVENT_STATUS_LABEL] ?? event.status}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
         <p id={`${id}-hint`} className="mt-2 text-body-small text-on-surface-variant">
           {rows.length === 0 ? "They only see the events chosen here." : `${rows.length} ${rows.length === 1 ? "event" : "events"}. They only see these.`}
         </p>
       </div>
 
-      {menu.open ? (
-        <Popover anchor={menu} label="Choose events" role="dialog" align="start" width={menu.rect?.width}>
-          <p role="status" className="sr-only">{tawaran.length === 1 ? "1 event" : `${tawaran.length} events`}</p>
-          <ul id={idDaftar} role="listbox" aria-label="Events" aria-multiselectable className="max-h-64 overflow-y-auto py-1">
-            {tawaran.length === 0 ? (
-              <li role="presentation" className="px-4 py-3 text-body-medium text-on-surface-variant">No matching events.</li>
-            ) : tawaran.map((event, index) => {
-              const aktif = index === Math.min(sorot, tawaran.length - 1);
-              const dipilih = terpilih.has(event.id);
-              return (
-                <li
-                  key={event.id}
-                  id={`${idDaftar}-${index}`}
-                  role="option"
-                  aria-selected={dipilih}
-                  onMouseDown={(klik) => klik.preventDefault()}
-                  onMouseEnter={() => setSorot(index)}
-                  onClick={() => alih(event)}
-                  className={cx(POPOVER_ITEM, "cursor-pointer gap-3", aktif && "bg-on-surface/8")}
-                >
-                  <span className={cx("flex size-5 shrink-0 items-center justify-center", dipilih ? "text-primary" : "text-transparent")}>
-                    <Check size={18} weight="bold" />
-                  </span>
-                  <span className={cx("min-w-0 flex-1 truncate text-left", dipilih && "font-medium")}>{event.name}</span>
-                  <span className="shrink-0 text-body-small text-on-surface-variant">
-                    {EVENT_STATUS_LABEL[event.status as keyof typeof EVENT_STATUS_LABEL] ?? event.status}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </Popover>
-      ) : null}
 
       {role === "booth" && rows.length > 0 ? (
         <div>

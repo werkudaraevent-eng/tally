@@ -10,9 +10,9 @@
  * Fungsi murni, supaya aturannya diperiksa oleh users-akses.check.ts tanpa
  * database.
  */
-export type BarisAkses = { user_id: string; event_id: string; role: string };
-export type AcaraRingkas = { id: string; slug: string; name: string };
-export type AksesTampil = AcaraRingkas & { role: string };
+export type BarisAkses = { user_id: string; event_id: string; role: string; booth_id?: number | null };
+export type AcaraRingkas = { id: string; slug: string; name: string; archived?: boolean };
+export type AksesTampil = AcaraRingkas & { role: string; booth_id: number | null };
 
 export function acaraTerlihat(pemanggil: { id: string; role: string }, akses: BarisAkses[]): Set<string> | "semua" {
   if (pemanggil.role === "super_admin") return "semua";
@@ -32,7 +32,7 @@ export function aksesPerUser(
     const event = acaraById.get(baris.event_id);
     if (!event) continue;
     const daftar = hasil.get(baris.user_id) ?? [];
-    daftar.push({ id: event.id, slug: event.slug, name: event.name, role: baris.role });
+    daftar.push({ id: event.id, slug: event.slug, name: event.name, role: baris.role, booth_id: baris.booth_id ?? null, ...(event.archived ? { archived: true } : {}) });
     hasil.set(baris.user_id, daftar);
   }
   for (const daftar of hasil.values()) daftar.sort((a, b) => a.name.localeCompare(b.name));
