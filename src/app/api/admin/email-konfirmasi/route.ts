@@ -27,8 +27,8 @@ export async function GET(request: Request) {
   // 202610050001 kolomnya belum ada, jadi baca ulang tanpa kolom itu.
   const contohQuery = (kolom: string) =>
     getSupabaseServiceClient().from("event_registrations").select(kolom).eq("event_id", event.id).order("created_at", { ascending: false }).limit(20);
-  let { data: contoh, error: galatContoh } = await contohQuery("id,name,company,status,language");
-  if (galatContoh) ({ data: contoh } = await contohQuery("id,name,company,status"));
+  const pertama = await contohQuery("id,name,company,status,language");
+  const contoh = pertama.error ? (await contohQuery("id,name,company,status")).data : pertama.data;
 
   return Response.json({
     templat: bahan.templat,
