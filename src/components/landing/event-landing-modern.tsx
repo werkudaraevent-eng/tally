@@ -14,7 +14,7 @@ import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingBlockHasContent, landing
 import { heroCtaColors } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
-import { speakerTabs } from "@/lib/landing-speaker-tabs";
+import { jumlahSesi, speakerTabs } from "@/lib/landing-speaker-tabs";
 import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingPath, landingSectionHeading, landingSessionLabels, type LandingLang } from "@/lib/landing-i18n";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
@@ -223,12 +223,21 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // menyala, atau jumlah sesi di rundown. Tidak ada angka = kartu tanpa angka.
   // Gathering tanpa kotak angka: "6 sesi" adalah bahasa acara rapat.
   const sorotan = !gaya && tampil("highlights") ? config.highlights?.[0] : undefined;
-  const totalSesi = agenda.reduce((jumlah, bagian) => jumlah + bagian.items.length, 0);
+  // Pembicara yang sama dengan Susunan acara, supaya angka dan baris tenangnya sepakat.
+  const orangSesi = tampil("speakers") ? speakers : [];
+  const totalSesi = agenda.reduce((jumlah, bagian) => jumlah + jumlahSesi(bagian.items, orangSesi), 0);
   const stat = sorotan
     ? { nilai: sorotan.value, label: sorotan.label }
     : totalSesi > 0 && !gaya
       ? { nilai: t.sessions(totalSesi), label: agenda.length > 1 ? t.inPrograms(agenda.length) : null }
       : null;
+
+  // Gambar di samping Tentang acara (Halaman acara > Tentang acara > Gambar).
+  // Otomatis: banner hero dengan angka di atas. Gambar sendiri yang belum
+  // diunggah tetap otomatis, supaya bagian ini tidak kosong sesaat di pratinjau.
+  const mediaTentang = config.about_media ?? "auto";
+  const fotoTentang = mediaTentang === "image" ? config.about_image_url?.trim() || null : null;
+  const panelTentang = mediaTentang !== "none" && !fotoTentang && Boolean(kv || stat);
 
   // Gathering: lama menginap menggantikan jam, karena jam mulai-selesai acara
   // tiga hari tidak berarti apa-apa bagi tamu.
@@ -303,7 +312,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                           {akhir && akhir !== awal ? `${awal} – ${akhir}` : awal} {zona}
                         </span>
                       ) : null}
-                      <span className={CHIP}>{t.sessions(bagian.items.length)}</span>
+                      <span className={CHIP}>{t.sessions(jumlahSesi(bagian.items, orangSesi))}</span>
                     </div>
                     <h3 className="text-balance text-headline-medium font-medium">
                       {bagian.sectionTitle || t.part(index + 1)}
@@ -323,8 +332,17 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         {/* ---- Sekilas acara ------------------------------------------------ */}
         {tampil("about") ? (
           <Section id="about">
-            <div className={`grid items-center gap-10 lg:gap-20 ${kv || stat ? "lg:grid-cols-2" : ""}`}>
-              {kv || stat ? (
+            <div className={`grid items-center gap-10 lg:gap-20 ${fotoTentang || panelTentang ? "lg:grid-cols-2" : ""}`}>
+              {fotoTentang ? (
+                // Gambar dari CMS: tampil apa adanya, tanpa angka di atasnya.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={fotoTentang}
+                  alt={config.about_image_alt?.trim() ?? ""}
+                  loading="lazy"
+                  className="aspect-[4/3] w-full rounded-lg object-cover sm:aspect-[625/550]"
+                />
+              ) : panelTentang ? (
                 <div
                   className={`relative isolate flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg p-6 sm:aspect-[625/550] ${
                     kv ? "bg-black" : "bg-[var(--reg-brand)]"

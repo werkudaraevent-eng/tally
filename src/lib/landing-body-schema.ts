@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LANDING_FORUM_ICON_KEYS, LANDING_HEADING_FONT_KEYS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_ABOUT_MEDIA, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 // Skema isi CMS Halaman acara. Dipakai PATCH /api/admin/landing saat menyimpan
 // dan pratinjau langsung saat merender draf, supaya pratinjau menolak hal yang
@@ -231,6 +231,9 @@ export const landingBodySchema = z.object({
       logo_url: z.string().url().max(600).nullable().optional(),
     }).optional(),
     about_heading: z.string().trim().max(160).optional(),
+    about_media: z.enum(LANDING_ABOUT_MEDIA).optional(),
+    about_image_url: z.string().url().max(600).nullable().optional(),
+    about_image_alt: teks(LANDING_IMAGE_ALT_MAX),
     program_heading: z.string().trim().max(120).optional(),
     program_intro: z.string().trim().max(400).optional(),
     program_notes: z.array(z.string().trim().max(600)).max(10).optional(),
@@ -261,6 +264,7 @@ export const landingBodySchema = z.object({
       public_name: teks(120),
       cta_label: teks(60),
       about_heading: teks(160),
+      about_image_alt: teks(LANDING_IMAGE_ALT_MAX),
       program_heading: teks(120),
       program_intro: teks(400),
       program_notes: z.array(z.string().trim().max(600)).max(10).optional(),
