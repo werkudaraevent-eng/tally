@@ -148,14 +148,12 @@ function DialogShare({ eventId, eventName, onClose }: { eventId: string; eventNa
     void muat();
   }
 
-  async function ubahPeran(baris: Baris, nilai: string) {
+  async function cabut(baris: Baris) {
     setSibuk(true); setGalat("");
-    const response = nilai === "hapus"
-      ? await fetch(`/api/events/${eventId}/access`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: baris.user_id }) }).catch(() => null)
-      : await fetch(`/api/events/${eventId}/access`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: baris.user_id, role: nilai, booth_id: nilai === "booth" ? baris.booth_id : null }) }).catch(() => null);
+    const response = await fetch(`/api/events/${eventId}/access`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: baris.user_id }) }).catch(() => null);
     setSibuk(false);
     const body = response ? await response.json().catch(() => ({})) : {};
-    if (!response?.ok) { setGalat(body.error?.details?.message ?? body.error?.message ?? "Could not change access."); return; }
+    if (!response?.ok) { setGalat(body.error?.details?.message ?? body.error?.message ?? "Could not remove access."); return; }
     void muat();
   }
 
@@ -265,6 +263,7 @@ function DialogShare({ eventId, eventName, onClose }: { eventId: string; eventNa
                   <Inisial nama={user.username} />
                   <span className="min-w-0 flex-1 truncate text-body-medium">{user.username}</span>
                   <span className="shrink-0 text-body-medium text-on-surface-variant">Super admin</span>
+                  <span aria-hidden className="w-8 shrink-0" />
                 </li>
               ))}
               {urut.map((baris) => (
@@ -276,16 +275,8 @@ function DialogShare({ eventId, eventName, onClose }: { eventId: string; eventNa
                       {booths.find((item) => item.id === baris.booth_id)?.code ?? "No booth"}
                     </span>
                   ) : null}
-                  <select
-                    aria-label={`Access for ${nama(baris.user_id)}`}
-                    className={cx(FIELD, "w-36 border-transparent hover:border-outline")}
-                    value={baris.role}
-                    disabled={sibuk}
-                    onChange={(change) => void ubahPeran(baris, change.target.value)}
-                  >
-                    <option value={baris.role}>{ROLE_LABEL[baris.role]}</option>
-                    <option value="hapus">Remove access</option>
-                  </select>
+                  <span className="shrink-0 text-body-medium text-on-surface-variant">{ROLE_LABEL[baris.role]}</span>
+                  <IconButton size="sm" label={`Remove ${nama(baris.user_id)}`} disabled={sibuk} onClick={() => void cabut(baris)}><X size={16} /></IconButton>
                 </li>
               ))}
             </ul>
