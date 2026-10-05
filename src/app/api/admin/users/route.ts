@@ -10,6 +10,7 @@ import { PIN_HASH_ROUNDS } from "@/lib/auth/login";
 import { canManageUsers, canResetOperatorPin } from "@/lib/auth/roles";
 import type { UserRole } from "@/lib/domain";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { aksesPerUser, type AcaraRingkas, type BarisAkses } from "@/lib/users-akses";
 
 // `super_admin` harus ikut diterima: dropdown role di UI menawarkannya dan
 // kolom enum di database sudah memilikinya sejak migrasi 202607300001. Tanpa ini
@@ -36,37 +37,68 @@ const updateSchema = z.object({
 
 type UserRow = { id: string; username: string; role: string; booth_id: number | null; is_active: boolean };
 
+/**
+ * Membaca semua baris, per halaman 1000. PostgREST memotong setiap respons di
+ * max-rows (1000) tanpa galat, jadi satu kueri tanpa halaman bisa diam-diam
+ * kehilangan akses panitia begitu tabelnya tumbuh.
+ */
+async function semuaHalaman<T>(
+  ambil: (dari: number, sampai: number) => PromiseLike<{ data: unknown; error: unknown }>,
+): Promise<{ data: T[]; error: unknown }> {
+  const UKURAN = 1000;
+  const semua: T[] = [];
+  for (let dari = 0; ; dari += UKURAN) {
+    const { data, error } = await ambil(dari, dari + UKURAN - 1);
+    if (error) return { data: [], error };
+    const halaman = (data ?? []) as T[];
+    semua.push(...halaman);
+    if (halaman.length < UKURAN) return { data: semua, error: null };
+  }
+}
+
 export async function GET() {
   // Klien (`admin`) boleh MELIHAT daftar operator, tapi tidak mengubahnya.
   // `can_manage` dikirim agar UI tahu harus menampilkan mode baca saja.
   const auth = await requireUser(["admin"]);
   if (auth.response) return auth.response;
   const client = getSupabaseServiceClient();
-  const [akun, akses, acara] = await Promise.all([
-    client
-      .from("users")
-      .select("id,username,role,booth_id,is_active")
-      .order("role", { ascending: true })
-      .order("username", { ascending: true }),
-    // Akses per acara (user_event_access) ditampilkan di samping peran global,
-    // supaya dua sistem peran itu terbaca di satu tempat: siapa memegang acara apa.
-    client.from("user_event_access").select("user_id,event_id,role"),
-    client.from("events").select("id,slug,name").order("name"),
-  ]);
-  if (akun.error || akses.error || acara.error) return apiError("INTERNAL_ERROR", 500);
-  const eventById = new Map(((acara.data ?? []) as { id: string; slug: string; name: string }[]).map((event) => [event.id, event]));
-  const aksesPerUser = new Map<string, { id: string; slug: string; name: string; role: string }[]>();
-  for (const baris of (akses.data ?? []) as { user_id: string; event_id: string; role: string }[]) {
-    const event = eventById.get(baris.event_id);
-    if (!event) continue;
-    const daftar = aksesPerUser.get(baris.user_id) ?? [];
-    daftar.push({ ...event, role: baris.role });
-    aksesPerUser.set(baris.user_id, daftar);
+  const akun = await client
+    .from("users")
+    .select("id,username,role,booth_id,is_active")
+    .order("role", { ascending: true })
+    .order("username", { ascending: true });
+  if (akun.error) return apiError("INTERNAL_ERROR", 500);
+
+  // Akses per acara (user_event_access) ditampilkan di samping peran global,
+  // supaya dua sistem peran itu terbaca di satu tempat. Admin hanya menerima
+  // acara yang ia pegang sendiri (src/lib/users-akses.ts); super admin semuanya.
+  // Kueri dibatasi ke acara itu, bukan seluruh tabel, supaya batas 1000 baris
+  // PostgREST tidak memotong daftar diam-diam.
+  let ids: string[] | null = null;
+  if (auth.user.role !== "super_admin") {
+    const milik = await client.from("user_event_access").select("event_id").eq("user_id", auth.user.id);
+    if (milik.error) return apiError("INTERNAL_ERROR", 500);
+    ids = [...new Set(((milik.data ?? []) as { event_id: string }[]).map((baris) => baris.event_id))];
   }
-  const users = ((akun.data ?? []) as UserRow[]).map((user) => ({
-    ...user,
-    events: (aksesPerUser.get(user.id) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
-  }));
+  let akses: BarisAkses[] = [];
+  let acara: AcaraRingkas[] = [];
+  if (ids === null || ids.length > 0) {
+    const [hasilAkses, hasilAcara] = await Promise.all([
+      semuaHalaman((dari, sampai) => {
+        const kueri = client.from("user_event_access").select("user_id,event_id,role").order("user_id").order("event_id");
+        return (ids ? kueri.in("event_id", ids) : kueri).range(dari, sampai);
+      }),
+      semuaHalaman((dari, sampai) => {
+        const kueri = client.from("events").select("id,slug,name").is("archived_at", null).order("id");
+        return (ids ? kueri.in("id", ids) : kueri).range(dari, sampai);
+      }),
+    ]);
+    if (hasilAkses.error || hasilAcara.error) return apiError("INTERNAL_ERROR", 500);
+    akses = hasilAkses.data as BarisAkses[];
+    acara = hasilAcara.data as AcaraRingkas[];
+  }
+  const perUser = aksesPerUser(auth.user, akses, acara);
+  const users = ((akun.data ?? []) as UserRow[]).map((user) => ({ ...user, events: perUser.get(user.id) ?? [] }));
   return Response.json({
     users,
     can_manage: canManageUsers(auth.user),
