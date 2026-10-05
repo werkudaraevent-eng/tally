@@ -108,7 +108,9 @@ export function TopAppBar({ leading, title, titleAs = "h1", subtitle, subtitleCl
 
 	return (
 		<>
-			<div ref={sentinel} aria-hidden className="h-px" />
+			{/* `-mb-px`: penanda tidak boleh memakan tempat. Tanpa itu bilah mulai di
+			    y=1, dan garis bawahnya turun 1px dari garis kepala rel di sebelahnya. */}
+			<div ref={sentinel} aria-hidden className="-mb-px h-px" />
 			<header
 				className={cx(
 					// z-20, di bawah laci navigasi (z-40) dan latar gelapnya (z-30).
