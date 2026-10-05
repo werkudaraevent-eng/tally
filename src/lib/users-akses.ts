@@ -38,3 +38,36 @@ export function aksesPerUser(
   for (const daftar of hasil.values()) daftar.sort((a, b) => a.name.localeCompare(b.name));
   return hasil;
 }
+
+/**
+ * Akun yang boleh dilihat pemanggil di Users & roles.
+ *
+ * Super admin melihat semua akun. Admin hanya melihat akun yang punya akses ke
+ * salah satu acaranya, dan TIDAK PERNAH melihat super admin: tanpa saringan ini
+ * admin klien A bisa membaca username admin dan operator klien B, termasuk
+ * jumlahnya lewat angka di tab peran.
+ */
+export function akunTerlihat<T extends { id: string; role: string }>(
+  pemanggil: { id: string; role: string },
+  akses: BarisAkses[],
+  akun: T[],
+): T[] {
+  const boleh = acaraTerlihat(pemanggil, akses);
+  if (boleh === "semua") return akun;
+  const berbagi = new Set(akses.filter((baris) => boleh.has(baris.event_id)).map((baris) => baris.user_id));
+  return akun.filter((user) => user.role !== "super_admin" && berbagi.has(user.id));
+}
+
+/**
+ * Bolehkah admin mereset PIN akun `target`.
+ *
+ * Hanya bila target punya akses ke acara tempat pemanggil berperan ADMIN. Peran
+ * global saja tidak cukup: admin klien A tidak boleh mengambil alih akun booth
+ * klien B hanya karena mengetahui id-nya. Super admin tidak melewati fungsi ini.
+ */
+export function bolehResetPin(pemanggilId: string, targetId: string, akses: BarisAkses[]): boolean {
+  const acaraAdmin = new Set(
+    akses.filter((baris) => baris.user_id === pemanggilId && baris.role === "admin").map((baris) => baris.event_id),
+  );
+  return akses.some((baris) => baris.user_id === targetId && acaraAdmin.has(baris.event_id));
+}
