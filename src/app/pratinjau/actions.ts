@@ -17,23 +17,23 @@ type LandingBody = z.infer<typeof landingBodySchema>;
 const BATAS_PANJANG = new Set<string>(["too_big", "custom"]);
 
 const NAMA_KOLOM: Record<string, string> = {
-  eyebrow: "label kecil", heading: "judul", body: "isi", link_label: "teks tombol", link2_label: "teks tombol kedua",
-  fact_title: "judul fakta", fact_body: "isi fakta", source: "sumber", quote: "kutipan", name: "nama", role: "peran",
-  label: "label butir", title: "judul butir", value: "angka", nav_label: "label menu atas",
+  eyebrow: "small label", heading: "heading", body: "body text", link_label: "button text", link2_label: "second button text",
+  fact_title: "fact title", fact_body: "fact text", source: "source", quote: "quote", name: "name", role: "role",
+  label: "item label", title: "item title", value: "figure", nav_label: "top menu label",
 };
 
-/** "Label kecil di "Pilih satu dari tiga diskusi" terlalu panjang. ..." */
+/** "Small label in "Pilih satu dari tiga diskusi" is too long. ..." */
 function pesanBatas(isi: LandingBody, issue: z.ZodIssue | undefined): string {
   // Aturan `refine` lain (mis. tautan harus https://) juga berkode "custom".
-  if (issue?.code === "custom" && !issue.message.startsWith("Maksimal")) {
-    return `${issue.message}. Tetap tampil di sini, tapi belum bisa disimpan.`;
+  if (issue?.code === "custom" && !issue.message.startsWith("Maximum")) {
+    return `${issue.message}. It still shows here, but it can't be saved yet.`;
   }
   const jalur = issue?.path ?? [];
   const indeksBlok = jalur[0] === "landing" && jalur[1] === "blocks" ? Number(jalur[2]) : NaN;
   const blok = Number.isInteger(indeksBlok) ? isi.landing.blocks?.[indeksBlok] : undefined;
-  const kolom = NAMA_KOLOM[String(jalur[jalur.length - 1])] ?? "teks";
-  const tempat = blok ? `${kolom} di "${blok.heading?.trim() || "blok tanpa judul"}"` : kolom;
-  return `${tempat.charAt(0).toUpperCase()}${tempat.slice(1)} terlalu panjang. Tetap tampil di sini, tapi belum bisa disimpan.`;
+  const kolom = NAMA_KOLOM[String(jalur[jalur.length - 1])] ?? "text";
+  const tempat = blok ? `${kolom} in "${blok.heading?.trim() || "untitled section"}"` : kolom;
+  return `${tempat.charAt(0).toUpperCase()}${tempat.slice(1)} is too long. It still shows here, but it can't be saved yet.`;
 }
 
 /**
@@ -55,7 +55,7 @@ export async function renderPratinjau(
   halaman: LandingForumPage = "beranda",
 ): Promise<HasilPratinjau> {
   const auth = await requireEventScope(slug, ["admin"]);
-  if (auth.response) return { ok: false, pesan: "Sesi login berakhir. Muat ulang halaman ini." };
+  if (auth.response) return { ok: false, pesan: "Your session has expired. Reload this page." };
 
   // Teks yang melewati batas tetap dirender: justru itu yang ingin dilihat admin
   // sambil mengetik. Yang ditolak hanya bentuk data yang salah. Batasnya tetap
@@ -67,13 +67,13 @@ export async function renderPratinjau(
     isiDraf = parsed.data;
   } else {
     const soalBentuk = parsed.error.issues.find((issue) => !BATAS_PANJANG.has(issue.code));
-    if (soalBentuk || !draf || typeof draf !== "object") return { ok: false, pesan: "Ada isian yang belum valid. Pratinjau menunggu sampai diperbaiki." };
+    if (soalBentuk || !draf || typeof draf !== "object") return { ok: false, pesan: "Some fields aren't valid yet. The preview resumes once they're fixed." };
     isiDraf = draf as LandingBody;
     peringatan = pesanBatas(isiDraf, parsed.error.issues[0]);
   }
 
   const event = await getEventBySlugPublic(slug);
-  if (!event) return { ok: false, pesan: "Acara tidak ditemukan." };
+  if (!event) return { ok: false, pesan: "Event not found." };
 
   // Warna formulir pendaftaran tidak tampil di halaman acara, jadi diabaikan.
   const { landing, ...isian } = isiDraf;

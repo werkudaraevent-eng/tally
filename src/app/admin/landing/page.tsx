@@ -760,8 +760,8 @@ export default function LandingCmsPage() {
       toast.error("Too many items in a block", `Section ${blokPenuh + 1}: the chosen layout holds fewer items. Delete the extra items or choose another layout.`);
       return;
     }
-    // Batas karakter juga diperiksa server, tetapi galatnya hanya "Maksimal 24
-    // karakter" tanpa menyebut blok mana. Di sini blok itu dibuka dan disebut.
+    // Batas karakter juga diperiksa server, tetapi galatnya hanya "Maximum 24
+    // characters" tanpa menyebut blok mana. Di sini blok itu dibuka dan disebut.
     for (const [index, section] of sections.entries()) {
       const blok = isLandingBlockId(section.id) ? (landing.blocks ?? []).find((item) => item.id === section.id) : undefined;
       const lewat = blok ? kolomKepanjangan(blok) : null;
@@ -1953,7 +1953,7 @@ export default function LandingCmsPage() {
 
   function subBawaan(id: LandingSectionId): string {
     switch (id) {
-      case "about": return "Text · from the event description";
+      case "about": return "From the event description";
       case "agenda": return "Built-in · from the Agenda";
       case "venue": return "Venue name, address, map";
       case "speakers": return `Built-in · ${plural(JUMLAH.speakers ?? 0, "speaker")}`;
@@ -2085,7 +2085,7 @@ export default function LandingCmsPage() {
             titik: id === "speakers" && sesiPerluDipilih > 0 ? "Some speaker sessions need to be chosen again." : false,
             saklar,
             indeks: index,
-            menu: menuBaris(index, LANDING_SECTION_LABELS[id]),
+            menu: menuBaris(index, LANDING_SECTION_ADMIN_LABELS[id]),
             isi: isiBawaan(id),
           });
         })}

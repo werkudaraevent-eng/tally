@@ -484,7 +484,7 @@ export default function RundownAdminPage() {
         <h2 className="text-body-medium font-semibold text-on-surface">Schedule</h2>
         <span className="tabular-nums text-body-medium text-on-surface-variant">{plural(activeItems.length, "item")}</span>
         <span className="min-w-0 flex-1 truncate text-body-medium text-on-surface-variant max-sm:hidden">
-          {adaSlotParalel ? "Drag to reorder items with the same start time" : "Sorted by start time automatically"}
+          {adaSlotParalel ? "Drag to reorder same-time items" : "Sorted by start time automatically"}
         </span>
         <Button variant="outlined" size="sm" className="ml-auto" icon={<Plus size={16} />} onClick={mulaiTambahBaris}>Add item</Button>
       </PaneHeader>

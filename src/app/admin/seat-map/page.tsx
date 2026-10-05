@@ -432,7 +432,7 @@ export default function SeatMapAdminPage() {
                   />
                   <button
                     type="button"
-                    aria-label={`Remove row ${index + 1}`}
+                    aria-label={`Delete row ${index + 1}`}
                     disabled={config.row_table_counts.length <= 1}
                     onClick={() => updateConfig("row_table_counts", config.row_table_counts.filter((_, i) => i !== index))}
                     className="grid h-9 w-7 place-items-center rounded-r-md text-on-surface-variant hover:bg-primary-soft disabled:opacity-40"

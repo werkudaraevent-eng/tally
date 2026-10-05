@@ -12,7 +12,7 @@ const blockId = z.string().regex(/^blk_[a-z0-9]{6,24}$/) as z.ZodType<`blk_${str
 // Tautan opsional: kosong boleh, selain itu http(s) atau jangkar di halaman yang
 // sama (#agenda). Bukan `z.string().url()` saja karena kolom yang dikosongkan
 // admin terkirim sebagai "".
-const tautan = z.string().trim().max(600).refine((value) => value === "" || /^(https?:\/\/\S+|#[A-Za-z][\w-]*)$/.test(value), "Tautan harus diawali http://, https://, atau # untuk bagian di halaman ini");
+const tautan = z.string().trim().max(600).refine((value) => value === "" || /^(https?:\/\/\S+|#[A-Za-z][\w-]*)$/.test(value), "Links must start with http://, https://, or # for a section on this page");
 // Batas luar. Batas per jenis blok (lebih ketat) diperiksa di superRefine dengan
 // landingBlockLimits, sumber yang sama dengan penghitung di CMS.
 const teks = (max: number) => z.string().trim().max(max).optional();
@@ -88,7 +88,7 @@ const blockSchema = z.object({
   const batas = landingBlockLimits(block);
   const periksa = (nilai: string | undefined, limit: LandingTextLimit | undefined, path: (string | number)[]) => {
     if (nilai && limit && nilai.length > limit.max) {
-      ctx.addIssue({ code: "custom", path, message: `Maksimal ${limit.max} karakter` });
+      ctx.addIssue({ code: "custom", path, message: `Maximum ${limit.max} characters` });
     }
   };
   (["eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role"] as const).forEach((key) => {
@@ -97,7 +97,7 @@ const blockSchema = z.object({
   });
   const items = block.items ?? [];
   if (items.length > (batas.items?.max ?? 0)) {
-    ctx.addIssue({ code: "custom", path: ["items"], message: `Maksimal ${batas.items?.max ?? 0} butir` });
+    ctx.addIssue({ code: "custom", path: ["items"], message: `Maximum ${batas.items?.max ?? 0} items` });
   }
   items.forEach((item, index) =>
     (["label", "title", "body", "value"] as const).forEach((key) => {
@@ -111,7 +111,7 @@ const blockSchema = z.object({
 const gambar = z.string().url().max(600).nullable().optional();
 const warna = z.string().regex(/^#[0-9a-fA-F]{6}$/).optional();
 // Tautan penuh saja: tautan Forum keluar dari halaman (sosmed, situs tempat).
-const tautanLuar = z.string().trim().max(600).refine((value) => value === "" || /^https?:\/\/\S+\.\S+/.test(value), "Tautan harus diawali http:// atau https://");
+const tautanLuar = z.string().trim().max(600).refine((value) => value === "" || /^https?:\/\/\S+\.\S+/.test(value), "Links must start with http:// or https://");
 const forumSchema = z.object({
   language: z.enum(["id", "en"]).optional(),
   accent: warna,
