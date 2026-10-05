@@ -1,9 +1,9 @@
 "use client";
 
-import { MagnifyingGlass, Plus, ShieldCheck, X, XCircle } from "@phosphor-icons/react";
+import { Plus, ShieldCheck, X, XCircle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { EVENT_STATUS_LABEL, ROLE_LABEL } from "@/lib/domain";
+import { ROLE_LABEL } from "@/lib/domain";
 import {
   Button,
   DetailSection,
@@ -16,7 +16,7 @@ import {
   Pane,
   PaneBody,
   PaneFooter,
-  SelectField,
+  SegmentedButton,
   StatusChip,
   Switch,
   Tabs,
@@ -25,35 +25,29 @@ import {
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
+import { AksesAcaraEditor, type AksesBaris, type DaftarBooth, type EventRole } from "./akses-acara-editor";
 
 type Role = "booth" | "cashier" | "admin" | "super_admin" | "scanner";
-type EventRole = Exclude<Role, "super_admin">;
 type UserEvent = { id: string; slug: string; name: string; role: EventRole; booth_id?: number | null; booth_code?: string | null };
 type User = { id: string; username: string; role: Role; booth_id: number | null; is_active: boolean; events?: UserEvent[] };
-type Booth = { id: number; code: string; name: string };
 type EventOption = { id: string; slug: string; name: string; status: string; archived_at?: string | null };
-/** Acara yang dicentang, per id acara. `role` hanya terisi bila peran di acara itu berbeda dari peran akun. */
-type Picked = Record<string, { booth_id: number | null; role?: EventRole }>;
-type Draft = { id: string | null; username: string; pin: string; role: Role; is_active: boolean; events: Picked };
+type Draft = { id: string | null; username: string; pin: string; semua: boolean; is_active: boolean; rows: AksesBaris[] };
 type RoleTab = "semua" | "booth" | "cashier" | "scanner" | "admin";
+type Cakupan = "acara" | "semua";
 
-const blank: Draft = { id: null, username: "", pin: "", role: "booth", is_active: true, events: {} };
+const blank: Draft = { id: null, username: "", pin: "", semua: false, is_active: true, rows: [] };
 
 /**
- * Peran dipilih SEKALI per akun, dan berlaku di setiap acara yang dicentang.
- * Pola yang sama dengan Eventbrite (peran + "semua acara / acara tertentu") dan
- * Vercel (peran tim + proyek yang ditugaskan). Satu kalimat per peran, bukan
- * daftar izin: kalimatnya ada di sebelah pilihan, tepat saat orang memilih.
+ * Peran akun (users.role) DITURUNKAN dari barisnya, tidak dipilih terpisah:
+ * "semua acara" = Super admin; selain itu Admin bila ia admin di salah satu
+ * acara (supaya mendarat di workspace admin), lain dari itu peran baris
+ * pertamanya. Peran yang berlaku di sebuah acara selalu peran di baris acara itu.
  */
-const ROLE_OPTIONS: Array<{ value: Role; description: string }> = [
-  { value: "admin", description: "Runs the events you tick." },
-  { value: "booth", description: "Serves one booth per event." },
-  { value: "cashier", description: "Takes payments, voids orders." },
-  // Sengaja sesempit ini. Akun ini dipegang bergantian di pintu masuk, sering di
-  // ponsel yang tidak terkunci.
-  { value: "scanner", description: "Checks people in at the door." },
-  { value: "super_admin", description: "Every event, plus users and roles." },
-];
+function peranAkun(draft: Pick<Draft, "semua" | "rows">): Role {
+  if (draft.semua) return "super_admin";
+  if (draft.rows.some((row) => row.role === "admin")) return "admin";
+  return draft.rows[0]?.role ?? "booth";
+}
 
 const BATAS_ACARA = 2;
 
@@ -93,16 +87,6 @@ function AksesAcara({ user, canManage }: { user: User; canManage: boolean }) {
   );
 }
 
-function PilihanPeran({ checked, onSelect, role, description, disabled }: { checked: boolean; onSelect: () => void; role: Role; description: string; disabled?: boolean }) {
-  return (
-    <label className={cx("flex min-h-9 cursor-pointer items-center gap-3 rounded-lg border px-3", checked ? "border-primary bg-primary-soft" : "border-outline-variant hover:bg-primary-soft", disabled && "cursor-not-allowed opacity-60")}>
-      <input type="radio" name="peran-akun" checked={checked} disabled={disabled} onChange={onSelect} className="size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
-      <span className="w-28 shrink-0 text-body-medium font-medium text-on-surface">{ROLE_LABEL[role]}</span>
-      <span className="min-w-0 flex-1 truncate text-body-small text-on-surface-variant max-sm:hidden">{description}</span>
-    </label>
-  );
-}
-
 function pinAcak() {
   const angka = new Uint32Array(1);
   crypto.getRandomValues(angka);
@@ -118,15 +102,15 @@ const ROLE_TABS: Array<{ value: RoleTab; label: string; roles: Role[] | null }> 
   { value: "admin", label: "Admin", roles: ["admin", "super_admin"] },
 ];
 
-/** Daftar centang acara mulai menampilkan kolom cari di atas jumlah ini. */
-const CARI_ACARA_MULAI = 7;
-
 function dariUser(user: User): Draft {
-  const events: Picked = {};
-  for (const event of user.events ?? []) {
-    events[event.id] = { booth_id: event.booth_id ?? null, ...(event.role !== user.role ? { role: event.role } : {}) };
-  }
-  return { id: user.id, username: user.username, pin: "", role: user.role, is_active: user.is_active, events };
+  return {
+    id: user.id,
+    username: user.username,
+    pin: "",
+    semua: user.role === "super_admin",
+    is_active: user.is_active,
+    rows: (user.events ?? []).map((event) => ({ event_id: event.id, role: event.role, booth_id: event.booth_id ?? null })),
+  };
 }
 
 /**
@@ -145,12 +129,11 @@ export function UsersPanel() {
   const [users, setUsers] = useState<User[]>([]);
   const [events, setEvents] = useState<EventOption[]>([]);
   // Booth per acara, dimuat saat dibutuhkan (peran Booth staff + acara dicentang).
-  const [booths, setBooths] = useState<Record<string, Booth[] | "loading" | "error">>({});
+  const [booths, setBooths] = useState<DaftarBooth>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [roleTab, setRoleTab] = useState<RoleTab>("semua");
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [cariAcara, setCariAcara] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [canManage, setCanManage] = useState(false);
@@ -189,14 +172,9 @@ export function UsersPanel() {
     }
   }, []);
 
-  // Booth staff memilih booth per acara, jadi daftar booth setiap acara yang
-  // dicentang dimuat begitu acara dicentang atau peran berganti ke Booth staff.
-  function pastikanBooth(ids: string[]) {
-    for (const id of ids) {
-      const event = events.find((item) => item.id === id);
-      if (event && !booths[id]) void muatBooth(event);
-    }
-  }
+  const pastikanBooth = useCallback((event: EventOption) => {
+    if (!booths[event.id]) void muatBooth(event);
+  }, [booths, muatBooth]);
 
   function canEdit(user: Pick<User, "role">) {
     return canManage || user.role === "booth" || user.role === "cashier";
@@ -204,15 +182,16 @@ export function UsersPanel() {
 
   function selectUser(user: User) {
     const next = dariUser(user);
-    if (next.role === "booth") pastikanBooth(Object.keys(next.events));
+    for (const row of next.rows) {
+      const event = events.find((item) => item.id === row.event_id);
+      if (row.role === "booth" && event) pastikanBooth(event);
+    }
     setDraft(next);
-    setCariAcara("");
     setError("");
   }
 
   function startNew() {
     setDraft(blank);
-    setCariAcara("");
     setError("");
   }
 
@@ -221,24 +200,8 @@ export function UsersPanel() {
     setError("");
   }
 
-  function toggleEvent(id: string, on: boolean) {
-    if (on && draft?.role === "booth") pastikanBooth([id]);
-    setDraft((current) => {
-      if (!current) return current;
-      const next = { ...current.events };
-      if (on) next[id] = { booth_id: null };
-      else delete next[id];
-      return { ...current, events: next };
-    });
-  }
-
-  function setBooth(id: string, booth_id: number | null) {
-    setDraft((current) => current && { ...current, events: { ...current.events, [id]: { ...current.events[id], booth_id } } });
-  }
-
-  const dipilih = draft ? Object.keys(draft.events).filter((id) => events.some((event) => event.id === id)) : [];
-  const perluAcara = Boolean(draft && draft.role !== "super_admin");
-  const boothKurang = Boolean(draft && draft.role === "booth" && dipilih.some((id) => !draft.events[id]?.booth_id));
+  const perluAcara = Boolean(draft && !draft.semua);
+  const boothKurang = Boolean(draft && perluAcara && draft.rows.some((row) => row.role === "booth" && !row.booth_id));
 
   async function save() {
     if (!draft) return;
@@ -250,13 +213,9 @@ export function UsersPanel() {
     const payload: Record<string, unknown> = canManage
       ? {
           username: draft.username,
-          role: draft.role,
+          role: peranAkun(draft),
           is_active: draft.is_active,
-          events: draft.role === "super_admin" ? [] : dipilih.map((id) => ({
-            event_id: id,
-            booth_id: draft.role === "booth" ? draft.events[id]?.booth_id ?? null : null,
-            role: draft.events[id]?.role ?? draft.role,
-          })),
+          events: draft.semua ? [] : draft.rows,
         }
       : {};
     if (draft.id) payload.id = draft.id;
@@ -367,69 +326,11 @@ export function UsersPanel() {
     const isNew = !draft.id;
     const editable = isNew ? canManage : canEdit(selectedUser ?? draft);
     const saveDisabled = canManage
-      ? draft.username.length < 3 || (isNew && draft.pin.length !== 6) || (perluAcara && dipilih.length === 0) || boothKurang
+      ? draft.username.length < 3 || (isNew && draft.pin.length !== 6) || (perluAcara && draft.rows.length === 0) || boothKurang
       : !draft.id || draft.pin.length !== 6;
-    const kataKunci = cariAcara.trim().toLowerCase();
-    const acaraTampil = kataKunci ? events.filter((event) => event.name.toLowerCase().includes(kataKunci)) : events;
-
-    const daftarAcara = (
-      <div className="flex flex-col gap-1">
-        {events.length >= CARI_ACARA_MULAI ? (
-          <TextField
-            label="Search events"
-            className="mb-1"
-            value={cariAcara}
-            onChange={(event) => setCariAcara(event.target.value)}
-            leading={<MagnifyingGlass size={16} />}
-            placeholder="Event name"
-          />
-        ) : null}
-        {events.length === 0 ? (
-          <p className="text-body-medium text-on-surface-variant">No events yet. Create an event first, then give access here.</p>
-        ) : acaraTampil.map((event) => {
-          const pilih = draft.events[event.id];
-          const daftarBooth = booths[event.id];
-          return (
-            <div key={event.id} className={cx("rounded-lg border px-3 py-2", pilih ? "border-primary" : "border-outline-variant")}>
-              <label className="flex cursor-pointer items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={Boolean(pilih)}
-                  onChange={(change) => toggleEvent(event.id, change.target.checked)}
-                  className="size-4 shrink-0 accent-[var(--md-sys-color-primary)]"
-                />
-                <span className="min-w-0 flex-1 truncate text-body-medium text-on-surface">{event.name}</span>
-                {pilih?.role ? <span className="shrink-0 text-body-small text-on-surface-variant">{ROLE_LABEL[pilih.role]} here</span> : null}
-                <span className="shrink-0 text-body-small text-on-surface-variant">{EVENT_STATUS_LABEL[event.status as keyof typeof EVENT_STATUS_LABEL] ?? event.status}</span>
-              </label>
-              {pilih && draft.role === "booth" && !pilih.role ? (
-                <div className="mt-2 pl-7">
-                  {daftarBooth === "loading" || daftarBooth === undefined ? (
-                    <p className="text-body-small text-on-surface-variant">Loading booths…</p>
-                  ) : daftarBooth === "error" ? (
-                    <p className="text-body-small text-error">Booths could not be loaded.</p>
-                  ) : daftarBooth.length === 0 ? (
-                    <p className="text-body-small text-error">This event has no booths yet. Add one in Booths & items first.</p>
-                  ) : (
-                    <SelectField
-                      label="Booth"
-                      value={pilih.booth_id ?? ""}
-                      onChange={(change) => setBooth(event.id, change.target.value ? Number(change.target.value) : null)}
-                    >
-                      <option value="">Choose a booth</option>
-                      {daftarBooth.map((booth) => <option key={booth.id} value={booth.id}>{booth.code} · {booth.name}</option>)}
-                    </SelectField>
-                  )}
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-    );
 
     const ringkasanAcara = (selectedUser?.events ?? []).map((event) => event.name).join(", ");
-    const catatanSimpan = canManage && perluAcara && dipilih.length === 0 ? "Tick at least one event." : boothKurang ? "Choose a booth for each event." : undefined;
+    const catatanSimpan = canManage && perluAcara && draft.rows.length === 0 ? "Add at least one event." : boothKurang ? "Choose a booth for each event." : undefined;
 
     const bagianMasuk = (
       <DetailSection title="Sign-in">
@@ -457,37 +358,27 @@ export function UsersPanel() {
       </DetailSection>
     );
 
-    const bagianPeran = (
-      <DetailSection title="Role">
-        <div role="radiogroup" aria-label="Role" className="flex flex-col gap-1">
-          {ROLE_OPTIONS.map((option) => (
-            <PilihanPeran
-              key={option.value}
-              role={option.value}
-              description={option.description}
-              checked={draft.role === option.value}
-              onSelect={() => {
-                if (option.value === "booth") pastikanBooth(Object.keys(draft.events));
-                setDraft((current) => current && { ...current, role: option.value });
-              }}
-            />
-          ))}
-        </div>
-      </DetailSection>
-    );
-
     const bagianAcara = (
-      <DetailSection
-        title="Events"
-        action={perluAcara && dipilih.length > 0 ? <span className="text-body-small text-on-surface-variant tabular-nums">{dipilih.length} selected</span> : undefined}
-      >
+      <DetailSection title="Event access">
+        <SegmentedButton<Cakupan>
+          label="Event access"
+          value={draft.semua ? "semua" : "acara"}
+          onChange={(cakupan) => setDraft((current) => current && { ...current, semua: cakupan === "semua" })}
+          options={[
+            { value: "acara", label: "Specific events" },
+            { value: "semua", label: "All events" },
+          ]}
+        />
         {perluAcara ? (
-          <>
-            <p className="-mt-1 text-body-small text-on-surface-variant">They can open only the events you tick.</p>
-            {daftarAcara}
-          </>
+          <AksesAcaraEditor
+            rows={draft.rows}
+            onChange={(rows) => setDraft((current) => current && { ...current, rows })}
+            events={events}
+            booths={booths}
+            onNeedBooths={pastikanBooth}
+          />
         ) : (
-          <p className="text-body-medium text-on-surface-variant">Super admins open every event, including ones created later.</p>
+          <p className="text-body-medium text-on-surface-variant">Super admin. Opens every event, including ones created later, and manages users and roles.</p>
         )}
       </DetailSection>
     );
@@ -505,24 +396,22 @@ export function UsersPanel() {
       // dan "Invite member" di Vercel/GitHub: satu langkah yang selesai atau
       // dibatalkan. Kepala dan baris tombol DIKUNCI; hanya isinya yang
       // bergulir, supaya judul dan tombol Create tidak hilang saat menggulir di
-      // layar setinggi 588px. Dua kolom: siapa dan perannya di kiri, acaranya
-      // di kanan, sehingga ketiganya terlihat sekaligus.
+      // layar setinggi 588px. Satu kolom: siapa, lalu di acara mana dan
+      // sebagai apa.
       dialogBaru = (
-        <Dialog open bare size="xl" title="New user" onClose={close} dismissible={!saving} className="sm:max-w-[880px]">
+        <Dialog open bare size="lg" title="New user" onClose={close} dismissible={!saving}>
           <form id="form-akun" onSubmit={kirim} className="flex max-h-[90dvh] flex-col">
             <div className="flex shrink-0 items-start gap-3 border-b border-outline-variant px-5 py-4">
               <div className="min-w-0 flex-1">
                 <h2 className="text-title-large font-semibold">New user</h2>
-                <p className="text-body-medium text-on-surface-variant">Pick a role and the events they can open. They can sign in right away.</p>
+                <p className="text-body-medium text-on-surface-variant">Add the events they work at and their role at each. They can sign in right away.</p>
               </div>
               <IconButton size="sm" label="Close" onClick={close} disabled={saving}><X size={16} /></IconButton>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {pesanGalat}
-              <div className="grid md:grid-cols-2 md:divide-x md:divide-outline-variant">
-                <div className="min-w-0">{bagianMasuk}{bagianPeran}</div>
-                <div className="min-w-0">{bagianAcara}</div>
-              </div>
+              {bagianMasuk}
+              {bagianAcara}
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant px-5 py-3">
               <p className="min-w-40 flex-1 text-body-medium text-on-surface-variant">{catatanSimpan}</p>
@@ -540,7 +429,7 @@ export function UsersPanel() {
               <h2 className="min-w-0 truncate text-title-medium font-semibold leading-6">{selectedUser?.username ?? draft.username}</h2>
               {selectedUser ? (selectedUser.is_active ? <StatusChip dot tone="success">Active</StatusChip> : <StatusChip dot tone="neutral">Inactive</StatusChip>) : null}
             </div>
-            <p className="text-body-medium text-on-surface-variant">{ROLE_LABEL[selectedUser?.role ?? draft.role]}</p>
+            <p className="text-body-medium text-on-surface-variant">{ROLE_LABEL[selectedUser?.role ?? peranAkun(draft)]}</p>
           </div>
           <IconButton size="sm" label="Close" onClick={close} disabled={saving}><X size={16} /></IconButton>
         </div>
@@ -551,7 +440,6 @@ export function UsersPanel() {
             {canManage ? (
               <>
                 {bagianAcara}
-                {bagianPeran}
                 {bagianMasuk}
                 <DetailSection>
                   <Switch checked={draft.is_active} onChange={(is_active) => setDraft((current) => current && { ...current, is_active })} label="Active" description="Inactive accounts cannot sign in." />
@@ -561,7 +449,7 @@ export function UsersPanel() {
               <>
                 <DetailSection>
                   <dl className="flex flex-col gap-2.5">
-                    <KeyValue label="Role">{ROLE_LABEL[draft.role]}</KeyValue>
+                    <KeyValue label="Role">{ROLE_LABEL[peranAkun(draft)]}</KeyValue>
                     <KeyValue label="Events">{ringkasanAcara || <span className="text-on-surface-variant">No events yet</span>}</KeyValue>
                     <KeyValue label="Status">{draft.is_active ? "Active" : "Inactive"}</KeyValue>
                   </dl>
@@ -582,7 +470,7 @@ export function UsersPanel() {
                   </DetailSection>
                 ) : (
                   <DetailSection>
-                    <p className="text-body-medium text-on-surface-variant">Only a super admin can change {ROLE_LABEL[draft.role]} accounts, including their PIN.</p>
+                    <p className="text-body-medium text-on-surface-variant">Only a super admin can change {ROLE_LABEL[peranAkun(draft)]} accounts, including their PIN.</p>
                   </DetailSection>
                 )}
               </>
