@@ -1,9 +1,13 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CalendarBlank, CheckCircle, Hourglass, XCircle } from "@phosphor-icons/react/dist/ssr";
+import { HtmlLang } from "@/components/html-lang";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { publicEventName, type EventLandingConfig, type EventRow } from "@/lib/domain";
 import { formatEventSchedule } from "@/lib/event-datetime";
+import { LANDING_LANG_LABELS, landingDefaultLang, landingEnAvailable, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
+import { PESERTA_UI } from "@/lib/member/peserta-i18n";
 import { registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -25,6 +29,11 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * nama. Konsekuensinya nama ikut terbawa bila tautannya diteruskan, dan karena
  * itu tidak ada apa pun selain nama di sini: tidak ada email, telepon, maupun
  * jawaban isian tambahan.
+ *
+ * Bahasa: `/e/<slug>/en/kode/<token>` (proxy mengisi `?bahasa=en`), atau
+ * bahasa formulir yang dipakai pendaftar (event_registrations.language) bila
+ * alamatnya tanpa akhiran bahasa. English hanya bila versi English acara
+ * menyala; selain itu bahasa utama acara.
  */
 
 export const dynamic = "force-dynamic";
@@ -32,10 +41,20 @@ export const dynamic = "force-dynamic";
 // Halaman ini tidak boleh masuk indeks mesin pencari. Tautannya rahasia hanya
 // selama ia tidak dipublikasikan, dan satu tautan yang bocor ke indeks berarti
 // setiap kode peserta acara itu dapat ditemukan lewat pencarian.
-export const metadata = {
-  title: "Kode peserta",
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [{ token }, { bahasa }] = await Promise.all([params, searchParams]);
+  const muat = await muatKode(token, typeof bahasa === "string" ? bahasa : null);
+  return {
+    title: PESERTA_UI[muat?.lang ?? "id"].kode.title,
+    robots: { index: false, follow: false },
+  };
+}
 
 type Registrasi = {
   event_id: string;
@@ -44,12 +63,15 @@ type Registrasi = {
   participant_id: string | null;
 };
 
-export default async function KodePesertaPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
-
+/**
+ * Pendaftaran, acara, kode, dan bahasa halaman untuk satu token. Di-cache per
+ * permintaan: generateMetadata (judul tab) dan halaman memakai hasil yang sama.
+ * Null = 404.
+ */
+const muatKode = cache(async (token: string, bahasa: string | null) => {
   // Bentuk token diperiksa SEBELUM menyentuh database. Tanpa ini, setiap alamat
   // ngawur — termasuk yang dipindai bot — menjadi satu kueri.
-  if (!/^[0-9a-f]{64}$/.test(token)) notFound();
+  if (!/^[0-9a-f]{64}$/.test(token)) return null;
 
   const client = getSupabaseServiceClient();
   const { data } = await client
@@ -59,25 +81,51 @@ export default async function KodePesertaPage({ params }: { params: Promise<{ to
     .maybeSingle();
 
   const registrasi = data as Registrasi | null;
-  if (!registrasi) notFound();
+  if (!registrasi) return null;
 
-  const [acara, peserta] = await Promise.all([
+  const [acara, peserta, bahasaDaftar] = await Promise.all([
     client.from("events").select("*").eq("id", registrasi.event_id).single(),
     registrasi.participant_id
       ? client.from("participants").select("qr_code").eq("id", registrasi.participant_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    // Kolom `language` dari migrasi 202610050001; belum ada atau gagal = tidak diketahui.
+    client.from("event_registrations").select("language").eq("access_token", token).maybeSingle().then(
+      ({ data: baris, error }) => (error ? null : ((baris as { language?: string | null } | null)?.language ?? null)),
+      () => null,
+    ),
   ]);
 
-  const event = acara.data as EventRow | null;
-  if (!event || event.status === "archived") notFound();
+  const asli = acara.data as EventRow | null;
+  if (!asli || asli.status === "archived") return null;
 
   const kode = (peserta.data as { qr_code: string } | null)?.qr_code ?? null;
-  const landing = (event.landing_config ?? {}) as EventLandingConfig;
+  const landingAsli = (asli.landing_config ?? {}) as EventLandingConfig;
+  const utama = landingDefaultLang(landingAsli);
+  const diminta = bahasa === "en" || bahasa === "id" ? bahasa : bahasaDaftar === "en" || bahasaDaftar === "id" ? bahasaDaftar : null;
+  const lang: LandingLang = diminta && landingEnAvailable(landingAsli) ? diminta : utama;
+  return { registrasi, asli, kode, lang, utama };
+});
+
+export default async function KodePesertaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [{ token }, { bahasa }] = await Promise.all([params, searchParams]);
+  const muat = await muatKode(token, typeof bahasa === "string" ? bahasa : null);
+  if (!muat) notFound();
+  const { registrasi, asli, kode, lang, utama } = muat;
+  const { event, config: landing } = resolveLanding(asli, lang);
+  const p = PESERTA_UI[lang].kode;
   const theme = registrationThemeStyle(resolveFormTheme(event.registration_form_config?.theme, landing.theme));
-  const schedule = formatEventSchedule(event);
+  const schedule = formatEventSchedule(event, lang);
+  const halamanAcara = lang === utama ? `/e/${event.slug}` : `/e/${event.slug}/${lang}`;
 
   return (
     <main
+      lang={lang}
       className="min-h-dvh"
       style={{
         ...theme,
@@ -85,13 +133,14 @@ export default async function KodePesertaPage({ params }: { params: Promise<{ to
           "radial-gradient(120% 100% at 82% -10%, color-mix(in srgb, var(--reg-primary) 22%, transparent), transparent 60%), radial-gradient(90% 80% at 0% 0%, color-mix(in srgb, var(--reg-primary) 10%, transparent), transparent 55%)",
       }}
     >
+      <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
       <div className="mx-auto w-full max-w-[560px] px-5 py-12 sm:py-16">
         <Link
-          href={`/e/${event.slug}`}
+          href={halamanAcara}
           className="m3-state -ml-3 inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-label-large font-semibold text-[var(--reg-on-surface-variant)]"
         >
           <ArrowLeft size={18} weight="bold" />
-          Halaman acara
+          {p.eventPage}
         </Link>
 
         <h1 className="mt-6 text-balance text-headline-large font-semibold tracking-[-0.02em]">{publicEventName(event)}</h1>
@@ -99,7 +148,21 @@ export default async function KodePesertaPage({ params }: { params: Promise<{ to
         {schedule ? (
           <p className="mt-4 inline-flex items-start gap-2 rounded-3xl bg-[var(--reg-primary-container)] px-4 py-2 text-label-large font-semibold text-[var(--reg-on-primary-container)]">
             <CalendarBlank size={18} weight="fill" className="mt-0.5 shrink-0" />
-            {schedule}
+            {/* English: tanggal dan jam masing-masing tidak dipotong, jadi di
+                layar sempit baris patah di " · ", bukan di tengah jam. Versi
+                Indonesia sengaja tidak diubah di sini. */}
+            {lang === "en" ? (
+              <span>
+                {schedule.split(" · ").map((bagian, i) => (
+                  <span key={i}>
+                    {i ? " · " : null}
+                    <span className="whitespace-nowrap">{bagian}</span>
+                  </span>
+                ))}
+              </span>
+            ) : (
+              schedule
+            )}
           </p>
         ) : null}
 
@@ -108,36 +171,37 @@ export default async function KodePesertaPage({ params }: { params: Promise<{ to
             <>
               <CheckCircle size={48} weight="fill" className="mx-auto text-[var(--reg-primary)]" />
               <h2 className="mt-4 text-title-large font-semibold">{registrasi.name}</h2>
-              <p className="mt-1 text-body-medium text-[var(--reg-on-surface-variant)]">Terdaftar</p>
+              <p className="mt-1 text-body-medium text-[var(--reg-on-surface-variant)]">{p.registered}</p>
               <RegistrationCodeCard
                 code={kode}
                 eventName={publicEventName(event)}
                 personName={registrasi.name}
                 schedule={schedule}
+                lang={lang}
               />
               <p className="mt-5 text-body-medium leading-6 text-[var(--reg-on-surface-variant)]">
-                Simpan alamat halaman ini. Ia bisa dibuka kapan saja sampai acara selesai.
+                {p.keepLink}
               </p>
             </>
           ) : registrasi.status === "rejected" ? (
             <>
               <XCircle size={48} weight="fill" className="mx-auto text-[var(--reg-error)]" />
-              <h2 className="mt-4 text-title-large font-semibold">Pendaftaran tidak disetujui</h2>
+              <h2 className="mt-4 text-title-large font-semibold">{p.rejectedTitle}</h2>
               {/* Alasan penolakan TIDAK ditampilkan di sini. Ia ditulis panitia
                   untuk catatan internal, sering berupa kalimat pendek yang tidak
                   dimaksudkan dibaca pendaftarnya sendiri. */}
               <p className="mt-3 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">
-                Hubungi panitia bila Anda merasa ini keliru.
+                {p.rejectedBody}
               </p>
             </>
           ) : (
             <>
               <Hourglass size={48} className="mx-auto text-[var(--reg-on-surface-variant)]" />
-              <h2 className="mt-4 text-title-large font-semibold">Menunggu persetujuan</h2>
+              <h2 className="mt-4 text-title-large font-semibold">{p.pendingTitle}</h2>
               <p className="mt-3 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">
-                Pendaftaran atas nama <span className="font-semibold">{registrasi.name}</span> sudah masuk dan
-                sedang diperiksa panitia. Buka halaman ini lagi nanti — kode peserta muncul di sini begitu
-                pendaftarannya disetujui.
+                {p.pendingBody.sebelum}
+                <span className="font-semibold">{registrasi.name}</span>
+                {p.pendingBody.sesudah}
               </p>
             </>
           )}

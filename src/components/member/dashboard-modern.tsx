@@ -10,11 +10,12 @@ import {
   PushPin,
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
-import type { EventLandingConfig, EventRow, LandingMemberConfig } from "@/lib/domain";
+import type { EventRow, LandingMemberConfig } from "@/lib/domain";
 import { LANDING_NAV_DEFAULTS, isLandingBlockId, normalizeLandingSections, publicEventName } from "@/lib/domain";
 import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
-import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath } from "@/lib/landing-i18n";
+import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
+import { PESERTA_UI } from "@/lib/member/peserta-i18n";
 import type { MemberSession } from "@/lib/member/account";
 import { muatNavPeserta, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
@@ -43,8 +44,10 @@ import { loadLandingLodging } from "@/lib/landing-hotel";
  * karena itu yang dicari di meja registrasi; Voting sebelum rundown karena itu
  * yang dibuka saat sesi berjalan.
  *
- * Area peserta belum dwibahasa (dicatat di memori proyek): halaman ini
- * berbahasa Indonesia, dan "EN" di bilah atas membuka halaman acara English.
+ * Dwibahasa seperti halaman acara: `/e/<slug>/en/peserta` memakai isian English
+ * acara (dengan cadangan Indonesia, resolveLanding) dan teks PESERTA_UI.en.
+ * "ID | EN" di bilah atas berpindah antara kedua versi dashboard ini.
+ * Logistik gathering (kartu kamar, bus, barang) masih berbahasa Indonesia.
  */
 
 const ALIS = `${LABEL_BAGIAN} text-[var(--reg-primary)]`;
@@ -55,29 +58,34 @@ const PIL_GARIS_TIPIS = `${PIL} justify-center border border-[var(--reg-outline)
 const PIL_INK_GARIS = `${PIL} min-h-11 border border-[color-mix(in_srgb,var(--ink)_60%,transparent)] px-4 text-label-large font-semibold text-[var(--ink)]`;
 
 export async function DashboardModern({
-  event,
+  event: asli,
+  lang = "id",
   member,
   sesi,
   pengumuman,
   konfirmasi,
 }: {
   event: EventRow;
+  lang?: LandingLang;
   member: LandingMemberConfig;
   sesi: MemberSession;
   /** Dimuat halaman sebelum menandai terbaca, jadi titik "baru" masih benar. */
   pengumuman: MemberAnnouncements;
   konfirmasi: "ok" | "gagal" | null;
 }) {
-  const t = LANDING_UI.id;
-  const config = (event.landing_config ?? {}) as EventLandingConfig;
+  const t = LANDING_UI[lang];
+  const p = PESERTA_UI[lang];
+  // Isian English acara (venue, label menu, judul blok) dengan cadangan Indonesia.
+  const { event, config } = resolveLanding(asli, lang);
   const utama = landingDefaultLang(config);
-  const halamanAcara = landingPath(event.slug, "id", utama);
+  const halamanAcara = landingPath(event.slug, lang, utama);
+  const lainnya: LandingLang = lang === "en" ? "id" : "en";
   const sections = normalizeLandingSections(config.sections, config.blocks);
-  const agenda = await loadAgendaPreview(event.id, "id");
+  const agenda = await loadAgendaPreview(event.id, lang);
   // Gaya gathering: menu dan susunan acara sama dengan halaman acaranya.
   const gaya = config.gathering === true;
   const adaHotel = gaya ? (await loadLandingLodging(event.id)).hotels.length > 0 : false;
-  const { aktif, blokById, tampil, speakers, navSections, mitra: sponsor, kontak } = bagianModern(event, config, sections, agenda, "id", { gathering: gaya, adaHotel });
+  const { aktif, blokById, tampil, speakers, navSections, mitra: sponsor, kontak } = bagianModern(event, config, sections, agenda, lang, { gathering: gaya, adaHotel });
   // Pita mitra seperti di kaki halaman acara. Banyak acara (ILO salah satunya)
   // memasang logo lewat blok Logo, bukan daftar Sponsor; tanpa sponsor, pakai
   // blok Logo pertama yang tampil supaya kaki dashboard sama dengan halaman acara.
@@ -92,7 +100,7 @@ export async function DashboardModern({
   const judulMitra = blokLogo?.heading?.trim() || t.organisedBy;
   // Lonceng di halaman ini tanpa angka: semua pengumumannya sedang ditampilkan
   // di bawah, dan membuka halaman ini menandainya terbaca.
-  const nav = await muatNavPeserta(event, sesi, "id", { data: pengumuman, unread: 0 });
+  const nav = await muatNavPeserta(event, sesi, lang, { data: pengumuman, unread: 0 });
 
   const peserta = sesi.participant;
   // Logistik gathering (kamar, bus, barang). null di acara tanpa logistik:
@@ -102,8 +110,8 @@ export async function DashboardModern({
   const berikutnya = logistik ? agendaBerikutnya(logistik, sekarang) : null;
   const nama = publicEventName(event);
   const namaDepan = sesi.name.trim().split(/\s+/)[0] || sesi.name;
-  const tanggal = formatEventDate(event, "id");
-  const jam = formatEventTime(event, "id");
+  const tanggal = formatEventDate(event, lang);
+  const jam = formatEventTime(event, lang);
   const venue = event.venue_name?.trim() || null;
   const kv = config.banner_url ?? null;
   const tampilKode = Boolean(peserta) && member.show_code !== false;
@@ -121,16 +129,16 @@ export async function DashboardModern({
 
   const status =
     sesi.status === "approved"
-      ? { label: "Terdaftar", warna: "#4ade80" }
+      ? { label: p.status.approved, warna: "#4ade80" }
       : sesi.status === "rejected"
-        ? { label: "Tidak disetujui", warna: "#f87171" }
-        : { label: "Menunggu persetujuan", warna: "#fbbf24" };
+        ? { label: p.status.rejected, warna: "#f87171" }
+        : { label: p.status.pending, warna: "#fbbf24" };
 
   const tautanCepat: { href: string; judul: string; isi: string; luar?: boolean }[] = [
-    ...(tampilVote ? [{ href: `/e/${event.slug}/vote`, judul: "Voting langsung", isi: "Terbuka saat sesi berlangsung. Kode Anda sudah terisi." }] : []),
-    ...(member.feedback_url ? [{ href: member.feedback_url, judul: "Umpan balik", isi: "Dibuka di tab baru.", luar: true }] : []),
-    ...(petaUrl ? [{ href: petaUrl, judul: "Lokasi & peta", isi: venue ?? "Buka peta lokasi acara.", luar: true }] : []),
-    ...(tampilKursi ? [{ href: `/e/${event.slug}/denah`, judul: "Denah kursi", isi: "Cari meja dan kursi Anda." }] : []),
+    ...(tampilVote ? [{ href: `/e/${event.slug}/vote`, ...p.vote }] : []),
+    ...(member.feedback_url ? [{ href: member.feedback_url, ...p.feedback, luar: true }] : []),
+    ...(petaUrl ? [{ href: petaUrl, judul: p.map.judul, isi: venue ?? p.map.isiCadangan, luar: true }] : []),
+    ...(tampilKursi ? [{ href: `/e/${event.slug}/denah`, ...p.seatingPlan }] : []),
   ];
 
   return (
@@ -145,8 +153,8 @@ export async function DashboardModern({
         width={config.nav?.width ?? "full"}
         logoUrl={config.nav?.logo_url ?? null}
         logoOnDark={Boolean(kv) && (config.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50}
-        lang="id"
-        langSwitch={landingEnAvailable(config) ? { href: landingPath(event.slug, "en", utama), lang: "en" } : null}
+        lang={lang}
+        langSwitch={landingEnAvailable(config) ? { href: `${landingPath(event.slug, lainnya, utama)}/peserta`, lang: lainnya } : null}
         peserta={nav}
         dashboardAktif
       />
@@ -169,9 +177,9 @@ export async function DashboardModern({
         ) : null}
         <div className={`${SHELL} flex items-end justify-between gap-6 pb-6 pt-[calc(var(--nav-h)+24px)] text-[var(--ink)]`}>
           <div className="min-w-0">
-            <p className={`${LABEL_BAGIAN} opacity-85`}>Dashboard peserta</p>
+            <p className={`${LABEL_BAGIAN} opacity-85`}>{p.dashboardEyebrow}</p>
             <h1 className={`${HEAD} mt-1.5 text-balance text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] sm:text-[40px]`}>
-              Halo, {namaDepan}
+              {p.hello(namaDepan)}
             </h1>
             <ul className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-body-large font-medium">
               {[tanggal, jam, venue].filter(Boolean).map((teks) => (
@@ -189,7 +197,7 @@ export async function DashboardModern({
           </div>
           <form method="post" action={nav.keluarAction} className="hidden shrink-0 sm:block">
             <button type="submit" className={PIL_INK_GARIS}>
-              Keluar
+              {t.signOut}
             </button>
           </form>
         </div>
@@ -199,15 +207,15 @@ export async function DashboardModern({
         {konfirmasi === "ok" ? (
           <p role="status" className="mt-6 flex max-w-[720px] items-start gap-3 rounded-md bg-[var(--reg-primary-container)] px-4 py-3 text-body-large text-[var(--reg-on-primary-container)]">
             <CheckCircle size={22} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
-            Email Anda terkonfirmasi.
+            {p.emailConfirmed}
           </p>
         ) : !sesi.emailVerified && sesi.status !== "rejected" ? (
           <p className="mt-6 flex max-w-[720px] items-start gap-3 rounded-md border border-[var(--reg-outline-variant)] px-4 py-3 text-body-large">
             <EnvelopeSimple size={22} className="mt-0.5 shrink-0 text-[var(--reg-primary)]" aria-hidden />
             <span>
-              {konfirmasi === "gagal" ? "Tautan konfirmasi itu sudah dipakai atau kedaluwarsa. " : null}
-              Konfirmasi email {sesi.email} lewat tautan yang kami kirim, supaya akun ini bisa dipulihkan bila Anda lupa kata sandi.
-              <KirimUlangKonfirmasi slug={event.slug} />
+              {konfirmasi === "gagal" ? p.confirmLinkUsed : null}
+              {p.confirmEmail(sesi.email)}
+              <KirimUlangKonfirmasi slug={event.slug} lang={lang} />
             </span>
           </p>
         ) : null}
@@ -224,19 +232,17 @@ export async function DashboardModern({
                   <Hourglass size={36} className={MUTED} aria-hidden />
                 )}
                 <h2 id="status-judul" className={`${HEAD} mt-3 text-[24px] font-semibold leading-tight`}>
-                  {sesi.status === "rejected" ? "Pendaftaran tidak disetujui" : "Menunggu persetujuan panitia"}
+                  {sesi.status === "rejected" ? p.rejectedTitle : p.pendingTitle}
                 </h2>
                 <p className={`mt-2 text-body-large leading-7 ${MUTED}`}>
-                  {sesi.status === "rejected"
-                    ? "Panitia tidak menyetujui pendaftaran Anda untuk acara ini. Hubungi panitia bila Anda merasa ini keliru."
-                    : "Kode QR untuk meja registrasi muncul di sini setelah panitia menyetujui pendaftaran Anda. Kami juga mengabari Anda lewat email."}
+                  {sesi.status === "rejected" ? p.rejectedBody : p.pendingBody}
                 </p>
               </section>
             ) : tampilKode || tampilKursi ? (
               <section aria-labelledby="tiket-judul" className={KARTU}>
-                <p className={`${LABEL_BAGIAN} ${MUTED}`}>Tiket masuk</p>
+                <p className={`${LABEL_BAGIAN} ${MUTED}`}>{p.ticketEyebrow}</p>
                 <h2 id="tiket-judul" className={`${HEAD} mt-1.5 text-[22px] font-semibold leading-tight sm:text-[24px]`}>
-                  {tampilKode ? "Tunjukkan di meja registrasi" : "Kursi Anda"}
+                  {tampilKode ? p.showAtDesk : p.yourSeat}
                 </h2>
                 {tampilKode ? (
                   <div className="mt-5">
@@ -244,7 +250,8 @@ export async function DashboardModern({
                       code={peserta.qr_code}
                       eventName={nama}
                       personName={peserta.name}
-                      schedule={formatEventSchedule(event)}
+                      schedule={formatEventSchedule(event, lang)}
+                      lang={lang}
                       layout="samping"
                     >
                       {kalenderUrl ? (
@@ -262,19 +269,19 @@ export async function DashboardModern({
                       <dl className={`grid gap-4 ${kursi.length > 1 ? "sm:grid-cols-2" : ""}`}>
                         {kursi.map((seat, index) => (
                           <div key={`${seat.subEventId ?? index}-${seat.label}`}>
-                            <dt className={`text-body-medium ${MUTED}`}>{seat.subEventName?.trim() || "Kursi"}</dt>
+                            <dt className={`text-body-medium ${MUTED}`}>{seat.subEventName?.trim() || p.seat}</dt>
                             <dd className="mt-0.5 text-[20px] font-semibold leading-7 tabular-nums">{seat.label}</dd>
                           </div>
                         ))}
                       </dl>
                     ) : (
-                      <p className={`text-body-large ${MUTED}`}>Kursi belum ditentukan panitia. Halaman ini diperbarui begitu kursinya diatur.</p>
+                      <p className={`text-body-large ${MUTED}`}>{p.seatPending}</p>
                     )}
                     <Link
                       href={`/e/${event.slug}/denah`}
                       className="m3-state -mx-2 mt-2 inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-title-small font-semibold text-[var(--reg-primary)]"
                     >
-                      Lihat denah
+                      {p.viewSeatingPlan}
                       <ArrowRight size={18} weight="bold" />
                     </Link>
                   </div>
@@ -291,7 +298,7 @@ export async function DashboardModern({
             ) : null}
 
             {tautanCepat.length > 0 ? (
-              <ul aria-label="Tautan acara" className="grid grid-cols-2 gap-3">
+              <ul aria-label={p.quickLinksAria} className="grid grid-cols-2 gap-3">
                 {tautanCepat.map((item) => (
                   <li key={item.judul}>
                     <TautanKartu {...item} />
@@ -306,13 +313,13 @@ export async function DashboardModern({
             {berikutnya ? <KartuBerikutnya agenda={berikutnya} zona={event.time_zone} now={sekarang} className="hidden lg:block" /> : null}
             {pengumuman.ready ? (
               <section aria-labelledby="pengumuman-judul">
-                <p className={ALIS}>Dari panitia</p>
+                <p className={ALIS}>{p.fromOrganisers}</p>
                 <h2 id="pengumuman-judul" className={`${JUDUL_DASBOR} mt-1.5`}>
-                  Pengumuman
+                  {t.announcements}
                 </h2>
                 {pengumuman.items.length === 0 ? (
                   <p className={`mt-5 rounded-lg border border-[var(--reg-outline-variant)] px-6 py-5 text-body-large ${MUTED}`}>
-                    Belum ada pengumuman. Kabar dari panitia muncul di sini.
+                    {p.noAnnouncements}
                   </p>
                 ) : (
                   <ul className="mt-5 overflow-hidden rounded-lg border border-[var(--reg-outline-variant)]">
@@ -330,11 +337,11 @@ export async function DashboardModern({
                             {item.pinned ? (
                               <p className="mb-1 inline-flex items-center gap-1 text-[12px] font-semibold uppercase leading-4 tracking-[0.06em] text-[var(--reg-primary)]">
                                 <PushPin size={13} weight="fill" aria-hidden />
-                                Disematkan
+                                {t.pinned}
                               </p>
                             ) : null}
                             <h3 className="text-[17px] font-semibold leading-6">
-                              {baru ? <span className="sr-only">Baru: </span> : null}
+                              {baru ? <span className="sr-only">{p.newPrefix}</span> : null}
                               {item.title}
                             </h3>
                             {item.body ? <p className={`mt-1 whitespace-pre-line text-isi ${MUTED}`}>{item.body}</p> : null}
@@ -349,7 +356,7 @@ export async function DashboardModern({
                                 <ArrowSquareOut size={16} aria-hidden />
                               </a>
                             ) : null}
-                            <p className="mt-1.5 text-body-small text-[#535862]">{waktuPengumuman(item.published_at, event.time_zone, "id")}</p>
+                            <p className="mt-1.5 text-body-small text-[#535862]">{waktuPengumuman(item.published_at, event.time_zone, lang)}</p>
                           </div>
                         </li>
                       );
@@ -363,17 +370,17 @@ export async function DashboardModern({
               <section aria-labelledby="susunan-judul">
                 <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
                   <div>
-                    <p className={ALIS}>Susunan acara</p>
+                    <p className={ALIS}>{p.agendaEyebrow}</p>
                     <h2 id="susunan-judul" className={`${JUDUL_DASBOR} mt-1.5`}>
-                      {tanggal ?? "Susunan acara"}
+                      {tanggal ?? p.agendaEyebrow}
                     </h2>
                   </div>
                   <Link href={`/e/${event.slug}/rundown`} className="inline-flex min-h-11 items-center text-title-small font-semibold text-[var(--reg-primary)]">
-                    Layar penuh
+                    {p.fullScreen}
                   </Link>
                 </div>
                 <div className="mt-5">
-                  <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang="id" perHari={gaya} />
+                  <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari={gaya} />
                 </div>
               </section>
             ) : null}
@@ -385,7 +392,7 @@ export async function DashboardModern({
       <KakiModern
         nama={nama}
         keterangan={{ catatan: config.footer_note?.trim() || null, baris: [tanggal, venue].filter((baris): baris is string => Boolean(baris)) }}
-        tombol={{ href: halamanAcara, label: "Kembali ke halaman acara" }}
+        tombol={{ href: halamanAcara, label: p.backToEventPage }}
         kolom={[
           { judul: t.footerEvent, tautan: navSections.map((item) => ({ label: item.label, href: `${halamanAcara}#${item.id}` })) },
           { judul: t.footerContact, tautan: kontak },

@@ -13,6 +13,7 @@ import { DashboardModern } from "@/components/member/dashboard-modern";
 import { isUnread, loadMemberAnnouncements, markAnnouncementsSeen } from "@/lib/member/pengumuman";
 import { waktuPengumuman } from "@/lib/member/nav";
 import type { EventLandingConfig } from "@/lib/domain";
+import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
 
 /**
  * Area peserta: `/e/<slug>/peserta`.
@@ -34,12 +35,20 @@ import type { EventLandingConfig } from "@/lib/domain";
  * bilah atas, warna, dan kaki halaman acara yang sama. Editorial dan Forum
  * masih memakai halaman di bawah ini, ditambah daftar pengumuman.
  *
+ * Bahasa: bahasa utama di `/e/<slug>/peserta`, bahasa lain di
+ * `/e/<slug>/en/peserta` (src/proxy.ts mengisi `?bahasa=`). Sama dengan
+ * formulir: alamat bahasa lain yang tidak berlaku dialihkan ke alamat utama.
+ *
  * Membuka halaman ini menandai semua pengumuman terbaca. Daftarnya dimuat
  * DULU, jadi titik "baru" di halaman ini tetap menunjuk yang baru masuk.
  */
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Area peserta", robots: { index: false, follow: false } };
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  // `bahasa` dari proxy (/en/peserta). Alamat yang tidak berlaku dialihkan halamannya.
+  const { bahasa } = await searchParams;
+  return { title: bahasa === "en" ? "Participant area" : "Area peserta", robots: { index: false, follow: false } };
+}
 
 const MUTED = "text-[var(--reg-on-surface-variant)]";
 const HEAD = "[font-family:var(--landing-heading)]";
@@ -53,8 +62,18 @@ export default async function AreaPesertaPage({
   if (!event || event.status === "archived") notFound();
   const member = memberConfig(event);
   if (!member) notFound();
+  const kueri = await searchParams;
+  const landing = (event.landing_config ?? {}) as EventLandingConfig;
+  const utama = landingDefaultLang(landing);
+  const minta: LandingLang | null = kueri.bahasa === "en" || kueri.bahasa === "id" ? kueri.bahasa : null;
+  if (minta && (minta === utama || !landingEnAvailable(landing))) {
+    const sisa = Object.fromEntries(Object.entries(kueri).filter(([kunci]) => kunci !== "eventSlug" && kunci !== "bahasa"));
+    redirect(withQuery(`/e/${event.slug}/peserta`, sisa));
+  }
+  const lang = minta ?? utama;
   const sesi = await getMemberSession(event);
-  if (!sesi) redirect(`/e/${event.slug}/masuk`);
+  // Belum masuk: dialog masuk di halaman acara dalam bahasa yang sama.
+  if (!sesi) redirect(`${landingPath(event.slug, lang, utama)}/masuk`);
 
   const peserta = sesi.participant;
   const schedule = formatEventSchedule(event);
@@ -64,13 +83,12 @@ export default async function AreaPesertaPage({
   const tampilSusunan = member.show_schedule !== false;
   const tampilVote = Boolean(peserta) && member.show_vote !== false;
   const kursi = (peserta?.seats ?? []).filter((seat) => seat.label?.trim());
-  const kueri = await searchParams;
   const konfirmasi = kueri.konfirmasi === "ok" ? "ok" : kueri.konfirmasi === "gagal" ? "gagal" : null;
   const pengumuman = await loadMemberAnnouncements(event.id, sesi);
   if (pengumuman.unread > 0) await markAnnouncementsSeen(sesi.accountId);
 
-  if ((event.landing_config as EventLandingConfig | null)?.layout === "modern") {
-    return <DashboardModern event={event} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} />;
+  if (landing.layout === "modern") {
+    return <DashboardModern event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} />;
   }
   const agenda = tampilSusunan ? await loadAgendaPreview(event.id) : [];
 

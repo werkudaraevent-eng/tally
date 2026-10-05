@@ -63,9 +63,9 @@ export async function bingkaiFormulir(
           .filter((item): item is string => Boolean(item)),
         // Huruf judul bawaan mengikuti tata letaknya: Ubuntu untuk Forum, Source Sans 3 untuk yang lain.
         headingFont: (LANDING_HEADING_FONTS[landing.heading_font ?? (landing.layout === "forum" ? "ubuntu" : "source")] ?? LANDING_HEADING_FONTS.source).cssVar,
-        // Area peserta belum dwibahasa, jadi tautannya tetap ke versi utamanya.
-        masukUrl: member && opsi.tautanMasuk !== false ? `/e/${event.slug}/masuk` : null,
-        areaUrl: member && !opsi.pratinjau && opsi.tautanMasuk !== false && (await getMemberSession(event)) ? `/e/${event.slug}/peserta` : null,
+        // Area peserta dalam bahasa formulir ini.
+        masukUrl: member && opsi.tautanMasuk !== false ? `${landingPath(event.slug, lang, utama)}/masuk` : null,
+        areaUrl: member && !opsi.pratinjau && opsi.tautanMasuk !== false && (await getMemberSession(event)) ? `${landingPath(event.slug, lang, utama)}/peserta` : null,
       }
     : null;
 
@@ -110,7 +110,7 @@ export async function isiDaftar(
             <p className="mt-2 max-w-[60ch] text-body-large text-[var(--reg-on-surface-variant)]">{t.closedBody(bingkai.eventName)}</p>
             {member ? (
               <a
-                href={bingkai.modern.areaUrl ?? `/e/${event.slug}/masuk`}
+                href={bingkai.modern.areaUrl ?? bingkai.modern.masukUrl ?? `/e/${event.slug}/masuk`}
                 className="m3-state mt-6 inline-flex min-h-12 items-center rounded-md bg-[var(--reg-primary)] px-5 text-label-large font-semibold text-[var(--reg-on-primary)]"
                 style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
               >
@@ -137,7 +137,7 @@ export async function isiDaftar(
         isi: u.usedBody,
         kirimUlang: false,
         // Tanpa nama, tanggal, atau email: tautan bisa saja diteruskan.
-        tombol: member ? { href: `/e/${event.slug}/masuk`, label: u.openDashboard } : null,
+        tombol: member ? { href: `${landingPath(event.slug, lang, landingDefaultLang(landing))}/masuk`, label: u.openDashboard } : null,
         kontak: kontak ? u.contact(kontak) : u.contactGeneric,
       });
     }

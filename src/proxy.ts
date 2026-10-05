@@ -53,10 +53,12 @@ function eventRewrite(request: NextRequest) {
     // Formulir pendaftaran dalam bahasa lain: `/e/<slug>/en/daftar` ->
     // `/daftar?eventSlug=<slug>&bahasa=en`. Halamannya memeriksa sendiri apakah
     // bahasa itu berlaku untuk acara ini.
-    const daftarBahasa = rest.match(/^\/(en|id)\/daftar\/?$/);
-    destination.pathname = daftarBahasa ? "/daftar" : rest;
+    // Area peserta juga: `/e/<slug>/en/peserta` -> `/peserta?...&bahasa=en`,
+    // `/e/<slug>/en/kode/<token>` -> `/kode/<token>?...&bahasa=en`.
+    const bahasa = rest.match(/^\/(en|id)(\/(?:daftar|masuk|peserta|kode\/[^/]+))\/?$/);
+    destination.pathname = bahasa ? bahasa[2] : rest;
     destination.searchParams.set("eventSlug", slug);
-    if (daftarBahasa) destination.searchParams.set("bahasa", daftarBahasa[1]);
+    if (bahasa) destination.searchParams.set("bahasa", bahasa[1]);
     return destination;
   }
 

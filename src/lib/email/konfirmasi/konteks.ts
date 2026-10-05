@@ -108,6 +108,8 @@ export function konteksDasar(event: KonteksEvent, origin: string, bisaDibalas: b
         alamat: nilaiEn(landing, "venue_address", event.venue_address)?.trim() || null,
       },
       halamanUrl: halaman,
+      // Dashboard English (/en/peserta) bila halaman English menyala.
+      dashboardUrl: id.dashboardUrl && landingEnAvailable(landing) ? `${halaman}/peserta` : id.dashboardUrl,
     };
   }
   return {

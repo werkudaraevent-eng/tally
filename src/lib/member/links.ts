@@ -1,9 +1,11 @@
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
-import type { EventRow, LandingMemberConfig } from "@/lib/domain";
+import type { EventLandingConfig, EventRow, LandingMemberConfig } from "@/lib/domain";
 import { publicEventName } from "@/lib/domain";
 import { isEmailConfigured } from "@/lib/email/client";
 import { sendMemberLink } from "@/lib/email/member-links";
+import { landingDefaultLang, landingEnAvailable, type LandingLang } from "@/lib/landing-i18n";
+import { alamatEnglish } from "@/lib/registration-code-url";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { clearGate, eligible, HASH_ROUNDS, hashToken, normalizeEmail, startSession } from "./account";
 
@@ -65,6 +67,25 @@ export function memberLinkUrl(requestUrl: string, slug: string, purpose: "konfir
 }
 
 /**
+ * Email tautan dari halaman English (`lang` "en"): isi email English, nama
+ * acara English bila diisi, dan tautannya mendarat di halaman English
+ * (`/e/<slug>/en/masuk?sandi=`, konfirmasi `&bahasa=en`) bila English bukan
+ * bahasa utama. Tanpa `lang` semuanya tetap seperti sebelumnya.
+ */
+function versiBahasa(event: Pick<EventRow, "slug" | "name" | "landing_config">, lang: LandingLang | undefined, url: string) {
+  const landing = (event.landing_config ?? {}) as EventLandingConfig;
+  const en = lang === "en" && landingEnAvailable(landing);
+  const namaEn = landing.en?.public_name?.trim();
+  const eventName = en && namaEn ? namaEn : publicEventName(event as EventRow);
+  if (!en || !alamatEnglish("en", landingDefaultLang(landing), true)) return { url, eventName, lang: en ? ("en" as const) : undefined };
+  const alamat = new URL(url);
+  const awalan = `/e/${encodeURIComponent(event.slug)}/`;
+  if (alamat.pathname.startsWith(`${awalan}masuk`)) alamat.pathname = `${awalan}en/masuk`;
+  else alamat.searchParams.set("bahasa", "en");
+  return { url: alamat.toString(), eventName, lang: "en" as const };
+}
+
+/**
  * Tautan konfirmasi akun tanpa mengirim email: dipakai formulir pendaftaran
  * untuk menyelipkannya ke email konfirmasi pendaftaran, supaya pendaftar
  * menerima satu email, bukan dua. Null bila token gagal dibuat; pemanggil lalu
@@ -85,18 +106,20 @@ export async function confirmationLinkUrl(
 /** Email konfirmasi untuk akun yang baru dibuat dari formulir. Best effort. */
 export async function sendConfirmationLink(
   event: Pick<EventRow, "id" | "slug" | "name" | "landing_config">,
-  input: { accountId: string; email: string; name: string; requestUrl: string },
+  input: { accountId: string; email: string; name: string; requestUrl: string; lang?: LandingLang },
 ) {
   if (!isEmailConfigured()) return { state: "not_configured" as const };
   try {
     const token = await buatToken(event.id, "konfirmasi", normalizeEmail(input.email), { accountId: input.accountId });
+    const versi = versiBahasa(event, input.lang, memberLinkUrl(input.requestUrl, event.slug, "konfirmasi", token));
     return await sendMemberLink({
       eventId: event.id,
       kind: "konfirmasi",
       to: input.email,
       name: input.name,
-      eventName: publicEventName(event as EventRow),
-      url: memberLinkUrl(input.requestUrl, event.slug, "konfirmasi", token),
+      eventName: versi.eventName,
+      url: versi.url,
+      lang: versi.lang,
     });
   } catch (error) {
     return { state: "failed" as const, error: error instanceof Error ? error.message : "gagal" };
@@ -109,7 +132,7 @@ export async function sendConfirmationLink(
  */
 export async function resendConfirmationLink(
   event: Pick<EventRow, "id" | "slug" | "name" | "landing_config">,
-  input: { accountId: string; email: string; name: string; requestUrl: string },
+  input: { accountId: string; email: string; name: string; requestUrl: string; lang?: LandingLang },
 ): Promise<{ status: "sent" | "not_configured" | "rate_limited" | "failed" }> {
   if (!isEmailConfigured()) return { status: "not_configured" };
   const { count } = await getSupabaseServiceClient()
@@ -141,7 +164,7 @@ export type LinkRequestOutcome =
 export async function requestPasswordLink(
   event: EventRow,
   member: LandingMemberConfig,
-  input: { email: string; ip: string | null; requestUrl: string },
+  input: { email: string; ip: string | null; requestUrl: string; lang?: LandingLang },
 ): Promise<LinkRequestOutcome> {
   if (!isEmailConfigured()) return { status: "not_configured" };
   const email = normalizeEmail(input.email);
@@ -173,19 +196,22 @@ export async function requestPasswordLink(
   // peserta disetujui). Tetap dikabari lewat email, bukan dibiarkan menunggu
   // tautan yang tidak akan datang; layarnya tetap sama.
   if (sasaran.tertutup) {
-    const hasil = await sendMemberLink({ eventId: event.id, kind: "tertutup", to: email, name: sasaran.name, eventName: publicEventName(event), url: null });
+    const versi = versiBahasa(event, input.lang, input.requestUrl);
+    const hasil = await sendMemberLink({ eventId: event.id, kind: "tertutup", to: email, name: sasaran.name, eventName: versi.eventName, url: null, lang: versi.lang });
     return hasil.state === "sent" ? { status: "sent" } : { status: "failed" };
   }
 
   try {
     const token = await buatToken(event.id, "sandi", email, sasaran.sasaran);
+    const versi = versiBahasa(event, input.lang, memberLinkUrl(input.requestUrl, event.slug, "sandi", token));
     const hasil = await sendMemberLink({
       eventId: event.id,
       kind: "sandi",
       to: email,
       name: sasaran.name,
-      eventName: publicEventName(event),
-      url: memberLinkUrl(input.requestUrl, event.slug, "sandi", token),
+      eventName: versi.eventName,
+      url: versi.url,
+      lang: versi.lang,
     });
     return hasil.state === "sent" ? { status: "sent" } : { status: "failed" };
   } catch {

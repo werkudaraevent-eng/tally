@@ -47,10 +47,10 @@ function tanggal(iso: string, zona: EventTimeZone, panjang = true, bahasa: Tangg
  *   "6–8 Agustus 2026 · mulai 09.00 WITA"
  *   "Kamis, 6 Agustus 2026"
  */
-export function formatEventSchedule(schedule: EventSchedule): string | null {
-  const hari = formatEventDate(schedule);
+export function formatEventSchedule(schedule: EventSchedule, bahasa: TanggalBahasa = "id"): string | null {
+  const hari = formatEventDate(schedule, bahasa);
   if (!hari) return null;
-  const waktu = formatEventTime(schedule);
+  const waktu = formatEventTime(schedule, bahasa);
   return waktu ? `${hari} · ${waktu}` : hari;
 }
 

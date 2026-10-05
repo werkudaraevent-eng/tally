@@ -174,7 +174,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const zona = timeZoneAbbr(event.time_zone);
 
   const member = memberConfig(event);
-  const masukUrl = `/e/${event.slug}/masuk`;
+  const masukUrl = `${landingPath(event.slug, lang, landingDefaultLang(config))}/masuk`;
   // Peserta yang sudah masuk melihat halaman acara yang sama, dengan lonceng
   // pengumuman dan "Dashboard saya" menggantikan Masuk dan Daftar.
   const sesi = member ? await getMemberSession(event) : null;
@@ -745,8 +745,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       />
 
       {/* Masuk area peserta: dialog di atas halaman ini, dibuka tautan Masuk di
-          bilah atas dan kaki. Area peserta belum dwibahasa, jadi dialognya
-          berbahasa Indonesia di kedua versi halaman. */}
+          bilah atas dan kaki, dalam bahasa halamannya. */}
       {/* Yang sudah masuk tetap mendapat dialog bila membuka tautan sandi yang
           masih berlaku: itu cara mengganti kata sandi. */}
       {member && (!sudahMasuk || (sandi && sandi !== "invalid")) ? (
@@ -754,10 +753,11 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           slug={event.slug}
           masukUrl={masukUrl}
           halamanUrl={landingPath(event.slug, lang, landingDefaultLang(config))}
-          keterangan={[nama, formatEventDate(event, "id")].filter(Boolean).join(" · ")}
+          keterangan={[nama, formatEventDate(event, lang)].filter(Boolean).join(" · ")}
           minPassword={PASSWORD_MIN}
           awal={masukAwal}
           sandi={sandi}
+          lang={lang}
         />
       ) : null}
     </main>
