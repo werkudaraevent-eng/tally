@@ -211,7 +211,9 @@ export default function AdminPage() {
           <>
             <StatusChip dot tone={NADA_STATUS[data.event.status]}>{EVENT_STATUS_LABEL[data.event.status]}</StatusChip>
             {jadwal ? <span className="inline-flex items-center gap-1.5"><CalendarBlank size={16} aria-hidden />{jadwal}</span> : null}
-            {data.event.venue_name ? <span className="inline-flex items-center gap-1.5"><MapPin size={16} aria-hidden />{data.event.venue_name}</span> : null}
+            {/* Nama tempat bisa 200 karakter tanpa spasi; tanpa pemecah kata,
+                baris ini melebarkan tata letak ponsel. */}
+            {data.event.venue_name ? <span className="inline-flex min-w-0 items-start gap-1.5"><MapPin size={16} aria-hidden className="mt-0.5 shrink-0" /><span className="min-w-0 [overflow-wrap:anywhere]">{data.event.venue_name}</span></span> : null}
           </>
         ) : error ? null : <Skeleton className="h-4 w-72" />}
         actions={

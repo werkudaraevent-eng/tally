@@ -38,14 +38,6 @@ export type PickupMode = "after_payment" | "immediate";
 export type EventStatus = "draft" | "active" | "completed" | "archived";
 
 /**
- * SATU peta label status untuk seluruh antarmuka.
- *
- * Sebelumnya daftar acara menulis "Aktif", halaman workspace menulis "ACTIVE",
- * dan dashboard menulis "active" — tiga kosakata untuk satu status, di tiga
- * layar yang dibuka berurutan dalam hitungan detik. Nilai mentah kolom tidak
- * pernah boleh sampai ke layar.
- */
-/**
  * Batas panjang nama tempat acara, satu angka untuk Create event, Edit details
  * dan editor Halaman acara. Dulu 160 di dua dialog dan 200 di editor, sehingga
  * tempat sepanjang 161-200 karakter yang disimpan editor membuat setiap simpan
@@ -53,6 +45,14 @@ export type EventStatus = "draft" | "active" | "completed" | "archived";
  */
 export const EVENT_VENUE_MAX = 200;
 
+/**
+ * SATU peta label status untuk seluruh antarmuka.
+ *
+ * Sebelumnya daftar acara menulis "Aktif", halaman workspace menulis "ACTIVE",
+ * dan dashboard menulis "active" — tiga kosakata untuk satu status, di tiga
+ * layar yang dibuka berurutan dalam hitungan detik. Nilai mentah kolom tidak
+ * pernah boleh sampai ke layar.
+ */
 export const EVENT_STATUS_LABEL: Record<EventStatus, string> = {
   draft: "Draft",
   active: "Active",
