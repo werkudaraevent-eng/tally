@@ -119,6 +119,17 @@ async function tulisAkses(client: Klien, userId: string, role: UserRole, baris: 
   return !error;
 }
 
+/** Acara terarsip yang masih dipegang akun: tetap tersimpan, jadi ikut dihitung sebagai acaranya. */
+async function acaraArsip(client: Klien, userId: string): Promise<string[] | null> {
+  const ada = await client.from("user_event_access").select("event_id").eq("user_id", userId);
+  if (ada.error) return null;
+  const ids = ((ada.data ?? []) as { event_id: string }[]).map((b) => b.event_id);
+  if (ids.length === 0) return [];
+  const { data, error } = await client.from("events").select("id").in("id", ids).not("archived_at", "is", null);
+  if (error) return null;
+  return ((data ?? []) as { id: string }[]).map((e) => e.id);
+}
+
 /** users.booth_id lama masih wajib untuk Booth staff (cek booth_user_requires_booth): booth acara pertama. */
 function boothLama(role: string, baris: AksesMasuk[]): number | null {
   return role === "booth" ? baris[0]?.booth_id ?? null : null;
@@ -307,7 +318,13 @@ export async function PATCH(request: Request) {
 
   const nextRole = (parsed.data.role ?? current.role) as UserRole;
   if (parsed.data.events) {
-    const aturan = periksaAkses(nextRole, nextRole === "super_admin" ? [] : parsed.data.events);
+    // Akun yang acaranya tinggal acara terarsip tetap punya acara (baris arsip
+    // tidak ikut diganti), jadi daftar kosong dari layar tidak boleh ditolak
+    // karena "minimal satu acara": tanpa ini akun itu tidak bisa di-reset PIN-nya
+    // atau dinonaktifkan dari layar.
+    const arsip = nextRole === "super_admin" || parsed.data.events.length > 0 ? [] : await acaraArsip(client, current.id);
+    if (arsip === null) return apiError("INTERNAL_ERROR", 500);
+    const aturan = arsip.length > 0 ? null : periksaAkses(nextRole, nextRole === "super_admin" ? [] : parsed.data.events);
     if (aturan) return apiError("VALIDATION_ERROR", 422, { message: aturan });
     const galatAcara = await periksaAcaraBooth(client, nextRole === "super_admin" ? [] : parsed.data.events);
     if (galatAcara) return apiError("VALIDATION_ERROR", 422, { message: galatAcara });
@@ -318,8 +335,7 @@ export async function PATCH(request: Request) {
   const perluDaftar = nextRole !== current.role && (nextRole === "booth" || current.role === "super_admin");
   if (perluDaftar && !parsed.data.events) return apiError("VALIDATION_ERROR", 422, { message: "Add the events for this role." });
   const nextBoothId = nextRole !== "booth" ? null
-    : parsed.data.events ? boothLama(nextRole, parsed.data.events)
-    : (parsed.data.booth_id ?? current.booth_id);
+    : (parsed.data.events ? boothLama(nextRole, parsed.data.events) : null) ?? parsed.data.booth_id ?? current.booth_id;
   if (nextRole === "booth" && !nextBoothId) return apiError("VALIDATION_ERROR", 422, { message: "Choose a booth for each event." });
 
   // Jaga super_admin terakhir. Guard lama hanya menjaga `admin`, yang setelah
@@ -356,13 +372,23 @@ export async function PATCH(request: Request) {
   if (parsed.data.events || nextRole === "super_admin") {
     // Naik ke Super admin menghapus semua baris (tanpa baris = semua acara).
     barisOk = await tulisAkses(client, current.id, nextRole, parsed.data.events ?? [], auth.user.id);
-  } else if (nextRole !== current.role) {
-    // Ganti peran tanpa daftar acara: samakan peran di baris yang ada, dan
-    // lepas booth bila peran barunya bukan Booth staff.
-    const ubah: Record<string, unknown> = { role: nextRole };
-    if (nextRole !== "booth") ubah.booth_id = null;
-    const { error: galatPeran } = await client.from("user_event_access").update(ubah as never).eq("user_id", current.id);
-    barisOk = !galatPeran;
+  }
+  if (barisOk && nextRole !== current.role && nextRole !== "super_admin") {
+    // Ganti peran menyamakan peran di SEMUA baris akun, termasuk baris acara
+    // terarsip yang tidak ikut diganti di atas; tanpa ini Admin yang diturunkan
+    // tetap Admin di acara terarsipnya. Booth dilepas bila peran baru bukan
+    // Booth staff. Menjadi Booth staff: baris tanpa booth (hanya mungkin baris
+    // arsip, baris aktif sudah ber-booth) tidak sah untuk peran itu dan dihapus.
+    if (nextRole === "booth") {
+      const { error: galatTanpaBooth } = await client.from("user_event_access").delete().eq("user_id", current.id).is("booth_id", null);
+      barisOk = !galatTanpaBooth;
+    }
+    if (barisOk) {
+      const ubah: Record<string, unknown> = { role: nextRole };
+      if (nextRole !== "booth") ubah.booth_id = null;
+      const { error: galatPeran } = await client.from("user_event_access").update(ubah as never).eq("user_id", current.id);
+      barisOk = !galatPeran;
+    }
   }
   if (!barisOk) {
     await client.from("users").update({ role: current.role, booth_id: current.booth_id, username: current.username, is_active: current.is_active } as never).eq("id", current.id);

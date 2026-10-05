@@ -57,8 +57,9 @@ assert.notEqual(periksaAkses("admin", [{ event_id: "a", booth_id: null }, { even
 assert.equal(periksaAkses("booth", [{ event_id: "a", booth_id: 3 }, { event_id: "b", booth_id: null }]), "Choose a booth for each event.");
 assert.equal(periksaAkses("booth", [{ event_id: "a", booth_id: 3 }]), null);
 
-console.log("users-akses: ok");
 
 // Booth dan tanda arsip ikut diteruskan ke layar.
 const denganBooth = aksesPerUser({ id: "x", role: "super_admin" }, [{ user_id: "b", event_id: "a", role: "booth", booth_id: 3 }], [{ ...acara[0], archived: true }]);
 assert.deepEqual(denganBooth.get("b")?.map((e) => [e.booth_id, e.archived]), [[3, true]]);
+
+console.log("users-akses: ok");

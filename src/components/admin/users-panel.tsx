@@ -248,12 +248,18 @@ export function UsersPanel() {
     if (isNew && !/^\d{6}$/.test(draft.pin)) { setSaving(false); setError("Enter a 6-digit PIN for the new account."); return; }
     // Tanpa izin kelola user, kirim HANYA pin. Server menolak PATCH yang
     // menyertakan field lain.
+    const events = draft.role === "super_admin" ? [] : draft.rows.map((row) => ({ event_id: row.event_id, booth_id: draft.role === "booth" ? row.booth_id : null }));
+    // Daftar acara hanya dikirim bila berubah. Simpan yang sekadar mengganti PIN
+    // atau status Active tidak menyentuh akses acaranya sama sekali.
+    const asal = draft.id ? users.find((user) => user.id === draft.id) : undefined;
+    const kunci = (daftar: { event_id: string; booth_id: number | null }[]) => JSON.stringify([...daftar].sort((a, b) => a.event_id.localeCompare(b.event_id)));
+    const tetap = asal !== undefined && asal.role === draft.role && kunci(events) === kunci(dariUser(asal).rows.map((row) => ({ event_id: row.event_id, booth_id: draft.role === "booth" ? row.booth_id : null })));
     const payload: Record<string, unknown> = canManage
       ? {
           username: draft.username,
           role: draft.role,
           is_active: draft.is_active,
-          events: draft.role === "super_admin" ? [] : draft.rows.map((row) => ({ event_id: row.event_id, booth_id: draft.role === "booth" ? row.booth_id : null })),
+          ...(tetap ? {} : { events }),
         }
       : {};
     if (draft.id) payload.id = draft.id;
@@ -370,11 +376,11 @@ export function UsersPanel() {
     const isNew = !draft.id;
     const editable = isNew ? canManage : canEdit(selectedUser ?? draft);
     const saveDisabled = canManage
-      ? draft.username.length < 3 || (isNew && draft.pin.length !== 6) || (perluAcara && draft.rows.length === 0) || boothKurang
+      ? draft.username.length < 3 || (isNew && draft.pin.length !== 6) || (perluAcara && draft.rows.length + draft.arsip.length === 0) || boothKurang
       : !draft.id || draft.pin.length !== 6;
 
     const ringkasanAcara = (selectedUser?.events ?? []).map((event) => event.name).join(", ");
-    const catatanSimpan = canManage && perluAcara && draft.rows.length === 0 ? "Add at least one event." : boothKurang ? "Choose a booth for each event." : undefined;
+    const catatanSimpan = canManage && perluAcara && draft.rows.length + draft.arsip.length === 0 ? "Add at least one event." : boothKurang ? "Choose a booth for each event." : undefined;
 
     const bagianMasuk = (
       <DetailSection title="Sign-in">
