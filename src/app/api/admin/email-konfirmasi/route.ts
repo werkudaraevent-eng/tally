@@ -23,12 +23,12 @@ export async function GET(request: Request) {
   const bahan = await bahanKonfirmasi(event.id, await linkOrigin(request, event.id));
   if (!bahan) return apiError("FORBIDDEN", 403);
 
-  const { data: contoh } = await getSupabaseServiceClient()
-    .from("event_registrations")
-    .select("id,name,company,status")
-    .eq("event_id", event.id)
-    .order("created_at", { ascending: false })
-    .limit(20);
+  // Bahasa tersimpan ikut dibaca untuk "Preview as"; sebelum migrasi
+  // 202610050001 kolomnya belum ada, jadi baca ulang tanpa kolom itu.
+  const contohQuery = (kolom: string) =>
+    getSupabaseServiceClient().from("event_registrations").select(kolom).eq("event_id", event.id).order("created_at", { ascending: false }).limit(20);
+  const pertama = await contohQuery("id,name,company,status,language");
+  const contoh = pertama.error ? (await contohQuery("id,name,company,status")).data : pertama.data;
 
   return Response.json({
     templat: bahan.templat,
@@ -36,6 +36,9 @@ export async function GET(request: Request) {
     tersimpan: bahan.tersimpan,
     kirim_menunggu: bahan.kirimMenunggu,
     dasar: bahan.dasar,
+    dasar_en: bahan.konteks("en"),
+    bahasa_utama: bahan.bahasaUtama,
+    en_tersedia: bahan.enTersedia,
     kv_url: bahan.kvUrl,
     member_on: bahan.memberOn,
     contoh: contoh ?? [],

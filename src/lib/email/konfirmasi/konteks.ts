@@ -1,9 +1,11 @@
 import type { EventLandingConfig, EventRow } from "@/lib/domain";
 import { publicEventName } from "@/lib/domain";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
+import { landingEnAvailable, landingPath } from "@/lib/landing-i18n";
 import { buildRegistrationThemeRoles } from "@/lib/registration-theme";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { contrast } from "./kontras";
+import { bahasaUtamaAcara, type EmailLang } from "./bahasa";
 import type { RenderContext } from "./render";
 import { readTemplat, type Templat } from "./templat";
 
@@ -22,7 +24,7 @@ export type KonteksEvent = Pick<
   "id" | "slug" | "name" | "event_date" | "end_date" | "start_time" | "end_time" | "time_zone" | "venue_name" | "venue_address" | "venue_map_url" | "landing_config"
 >;
 
-export type KonteksDasar = Omit<RenderContext, "state" | "values" | "qr" | "codeUrl" | "test">;
+export type KonteksDasar = Omit<RenderContext, "state" | "values" | "qr" | "codeUrl" | "test"> & { lang: EmailLang };
 
 export type BahanKonfirmasi = {
   event: KonteksEvent;
@@ -30,7 +32,14 @@ export type BahanKonfirmasi = {
   tersimpan: boolean;
   /** Kirim email Menunggu persetujuan. Email ber-QR (Disetujui) selalu terkirim. */
   kirimMenunggu: boolean;
+  /** Konteks Indonesia (bahasa tersimpan NULL, dan semua pemanggil lama). */
   dasar: KonteksDasar;
+  /** Konteks dalam satu bahasa: nama acara, tempat, alamat, dan tanggal English bila ada. */
+  konteks: (lang: EmailLang) => KonteksDasar;
+  /** Bahasa utama acara (Forum: bahasa halaman Forum). */
+  bahasaUtama: EmailLang;
+  /** Halaman English acara menyala. */
+  enTersedia: boolean;
   /** KV acara (Tema > gambar utama), sumber gambar kepala Banner KV. */
   kvUrl: string | null;
   memberOn: boolean;
@@ -71,11 +80,38 @@ export function mitraOf(landing: EventLandingConfig): { name: string; url: strin
   return [...unik.values()];
 }
 
-export function konteksDasar(event: KonteksEvent, origin: string, bisaDibalas: boolean): KonteksDasar {
+/**
+ * Nilai English dari Halaman acara (landing_config.en) bila diisi, selain itu
+ * nilai Indonesianya, seperti resolveLanding() untuk halaman /en.
+ */
+function nilaiEn(landing: EventLandingConfig, kunci: "public_name" | "venue_name" | "venue_address", asli: string | null | undefined): string | null | undefined {
+  const en = landing.en?.[kunci];
+  return typeof en === "string" && en.trim() ? en : asli;
+}
+
+export function konteksDasar(event: KonteksEvent, origin: string, bisaDibalas: boolean, lang: EmailLang = "id"): KonteksDasar {
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
   const memberOn = Boolean(landing.member?.enabled);
   const slug = encodeURIComponent(event.slug);
+  if (lang === "en") {
+    const id = konteksDasar(event, origin, bisaDibalas, "id");
+    const halaman = landingEnAvailable(landing) ? new URL(landingPath(slug, "en", bahasaUtamaAcara(landing)), origin).toString() : id.halamanUrl;
+    return {
+      ...id,
+      lang,
+      eventName: nilaiEn(landing, "public_name", null)?.trim() || id.eventName,
+      detail: {
+        ...id.detail,
+        tanggal: formatEventDate(event, "en"),
+        waktu: formatEventTime(event, "en"),
+        tempat: nilaiEn(landing, "venue_name", event.venue_name)?.trim() || null,
+        alamat: nilaiEn(landing, "venue_address", event.venue_address)?.trim() || null,
+      },
+      halamanUrl: halaman,
+    };
+  }
   return {
+    lang,
     ...brandEmail(seedOf(landing)),
     eventName: publicEventName(event),
     logoUrl: landing.nav?.logo_url?.startsWith("https://") ? landing.nav.logo_url : null,
@@ -116,6 +152,9 @@ export async function bahanKonfirmasi(eventId: string, origin: string): Promise<
     tersimpan: Boolean(baris?.registration_email),
     kirimMenunggu: baris?.registration_email_pending ?? true,
     dasar: konteksDasar(event, origin, bisaDibalas),
+    konteks: (lang) => konteksDasar(event, origin, bisaDibalas, lang),
+    bahasaUtama: bahasaUtamaAcara(landing),
+    enTersedia: landingEnAvailable(landing),
     kvUrl,
     memberOn,
   };

@@ -35,6 +35,12 @@ export const SALINAN_DITOLAK = {
   judul: "Terima kasih atas minat Anda",
   isi: "Halo {nama}, terima kasih sudah mendaftar di {acara}. Mohon maaf, kali ini panitia belum dapat menyetujui pendaftaran Anda.",
 };
+/**
+ * Versi English sebuah kolom (lihat bahasa.ts). Kosong = bawaan English, atau
+ * untuk teks bebas tanpa bawaan, teks Indonesianya.
+ */
+const enJudul = judul.optional();
+const enTeks = teksKaya.optional();
 const gambarUrl = z.string().trim().url().max(600).refine((nilai) => nilai.startsWith("https://"), "Images must come from an https:// address");
 
 export const blockSchema = z.discriminatedUnion("type", [
@@ -49,10 +55,13 @@ export const blockSchema = z.discriminatedUnion("type", [
     isi_menunggu: teksKaya,
     judul_ditolak: judul.default(SALINAN_DITOLAK.judul),
     isi_ditolak: teksKaya.default(SALINAN_DITOLAK.isi),
+    en: z
+      .object({ judul: enJudul, isi: enTeks, judul_menunggu: enJudul, isi_menunggu: enTeks, judul_ditolak: enJudul, isi_ditolak: enTeks })
+      .optional(),
   }),
   z.object({ id, type: z.literal("tiket"), on: z.literal(true) }),
   z.object({ id, type: z.literal("detail"), on: z.boolean() }),
-  z.object({ id, type: z.literal("teks"), on: z.boolean(), isi: teksKaya }),
+  z.object({ id, type: z.literal("teks"), on: z.boolean(), isi: teksKaya, en: z.object({ isi: enTeks }).optional() }),
   z.object({
     id,
     type: z.literal("gambar"),
@@ -62,6 +71,7 @@ export const blockSchema = z.discriminatedUnion("type", [
     lebar: z.number().int().min(1).max(4000).optional(),
     tinggi: z.number().int().min(1).max(4000).optional(),
     href: tautan.optional(),
+    en: z.object({ alt: z.string().trim().max(200).optional() }).optional(),
   }),
   z.object({
     id,
@@ -70,9 +80,10 @@ export const blockSchema = z.discriminatedUnion("type", [
     label: z.string().trim().min(1).max(40),
     tujuan: z.enum(["dashboard", "halaman", "url"]),
     url: tautan.optional(),
+    en: z.object({ label: z.string().trim().max(40).optional() }).optional(),
   }),
-  z.object({ id, type: z.literal("info"), on: z.boolean(), judul, isi: teksKaya }),
-  z.object({ id, type: z.literal("mitra"), on: z.boolean(), judul }),
+  z.object({ id, type: z.literal("info"), on: z.boolean(), judul, isi: teksKaya, en: z.object({ judul: enJudul, isi: enTeks }).optional() }),
+  z.object({ id, type: z.literal("mitra"), on: z.boolean(), judul, en: z.object({ judul: enJudul }).optional() }),
   z.object({ id, type: z.literal("garis"), on: z.boolean() }),
 ]);
 
@@ -82,6 +93,9 @@ export type BlockType = Block["type"];
 export const PRESETS = ["banner", "pita", "polos"] as const;
 export type Preset = (typeof PRESETS)[number];
 export const FONTS = ["sans", "serif", "tema"] as const;
+/** Aturan bahasa kirim (lihat bahasa.ts): ikuti formulir pendaftar, atau selalu satu bahasa. */
+export const BAHASA_KIRIM = ["ikuti", "id", "en"] as const;
+const subjekEn = z.string().trim().max(150).optional();
 export type Font = (typeof FONTS)[number];
 
 export const templatSchema = z
@@ -94,6 +108,10 @@ export const templatSchema = z
     subjek_ditolak: z.string().trim().min(1).max(150).default(SALINAN_DITOLAK.subjek),
     /** Email "Tidak disetujui" saat panitia menolak. Bawaan mati: penolakan sering perlu disampaikan secara pribadi. */
     kirim_ditolak: z.boolean().default(false),
+    /** Bawaan "ikuti": pendaftar dari formulir English menerima email English. */
+    bahasa: z.enum(BAHASA_KIRIM).default("ikuti"),
+    /** Subjek versi English; kosong = bawaan English. Teks bagian ada di `en` tiap bagian. */
+    en: z.object({ subjek: subjekEn, subjek_menunggu: subjekEn, subjek_ditolak: subjekEn }).optional(),
     /**
      * Gambar kepala Banner KV yang sudah jadi: potongan KV 1200x400 dengan logo
      * putih di atasnya, dibuat sekali di peramban saat Simpan. Satu gambar,
@@ -226,6 +244,7 @@ export function defaultTemplat(opsi: { punyaKv: boolean; memberOn: boolean }): T
     subjek_menunggu: "Pendaftaran diterima: {acara}",
     subjek_ditolak: SALINAN_DITOLAK.subjek,
     kirim_ditolak: false,
+    bahasa: "ikuti",
     kepala_url: null,
     logo_putih_url: null,
     blocks: [
@@ -249,10 +268,15 @@ export function readTemplat(raw: unknown, opsi: { punyaKv: boolean; memberOn: bo
 /** Semua teks yang ditulis panitia, untuk memeriksa `{kolom}` yang tidak dikenal. */
 export function teksPanitia(templat: Templat): string[] {
   const out = [templat.subjek, templat.subjek_menunggu, templat.subjek_ditolak];
+  const en = templat.en ?? {};
+  out.push(en.subjek ?? "", en.subjek_menunggu ?? "", en.subjek_ditolak ?? "");
   for (const block of templat.blocks) {
-    if (block.type === "pembuka") out.push(block.judul, block.isi, block.judul_menunggu, block.isi_menunggu, block.judul_ditolak, block.isi_ditolak);
-    if (block.type === "teks") out.push(block.isi);
-    if (block.type === "info") out.push(block.judul, block.isi);
+    if (block.type === "pembuka") {
+      out.push(block.judul, block.isi, block.judul_menunggu, block.isi_menunggu, block.judul_ditolak, block.isi_ditolak);
+      out.push(...Object.values(block.en ?? {}).map((nilai) => nilai ?? ""));
+    }
+    if (block.type === "teks") out.push(block.isi, block.en?.isi ?? "");
+    if (block.type === "info") out.push(block.judul, block.isi, block.en?.judul ?? "", block.en?.isi ?? "");
   }
   return out;
 }

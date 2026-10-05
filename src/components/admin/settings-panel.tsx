@@ -64,6 +64,11 @@ function Peringatan({ children }: { children: ReactNode }) {
   );
 }
 
+/** Teks kosong dan null sama-sama berarti "pakai bawaan". */
+function samaNilai(a: unknown, b: unknown) {
+  return typeof a === "string" || typeof b === "string" ? String(a ?? "").trim() === String(b ?? "").trim() : a === b;
+}
+
 /** Tab "Acara": zona waktu, penyerahan barang, konfirmasi kasir, auto-void. */
 export function SettingsPanel() {
   // `saved` = yang terakhir dibaca/disimpan server, `settings` = draf di layar.
@@ -89,14 +94,20 @@ export function SettingsPanel() {
   async function save() {
     if (!settings) return;
     setSaving(true); setError("");
-    const response = await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+    // Hanya kolom yang diubah di layar ini. Nama pengirim juga bisa diubah di
+    // Email otomatis; mengirim semua kolom membuat tab Pengaturan yang dibuka
+    // lebih dulu diam-diam mengembalikan nama lama saat disimpan.
+    const semua = {
       pickup_mode: settings.pickup_mode,
       pending_auto_void_minutes: settings.pending_auto_void_minutes,
       cashier_confirmation_required: settings.cashier_confirmation_required,
       time_zone: settings.time_zone,
       email_sender_name: settings.email_sender_name?.trim() || null,
       email_reply_to: settings.email_reply_to?.trim() || null,
-    }) });
+    };
+    const ubah = Object.fromEntries(Object.entries(semua).filter(([key]) => saved && !samaNilai(settings[key as keyof Settings], saved[key as keyof Settings])));
+    if (!Object.keys(ubah).length) { setSaving(false); return; }
+    const response = await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ubah) });
     const data = await response.json();
     setSaving(false);
     if (!response.ok) {
@@ -136,9 +147,7 @@ export function SettingsPanel() {
     );
   }
 
-  // Teks kosong dan null sama-sama berarti "pakai bawaan".
-  const sama = (a: unknown, b: unknown) => (typeof a === "string" || typeof b === "string" ? String(a ?? "").trim() === String(b ?? "").trim() : a === b);
-  const jumlahUbah = FIELD_DISIMPAN.filter((key) => !sama(settings[key], saved[key])).length;
+  const jumlahUbah = FIELD_DISIMPAN.filter((key) => !samaNilai(settings[key], saved[key])).length;
   const zonaTersimpan = saved.time_zone ?? DEFAULT_TIME_ZONE;
   const waktuUbah = saved.updated_at ? `${formatEventDateTime(saved.updated_at, zonaTersimpan)} ${timeZoneAbbr(zonaTersimpan)}` : "";
   const zonaDipilih = EVENT_TIME_ZONES.find((option) => option.id === settings.time_zone);
