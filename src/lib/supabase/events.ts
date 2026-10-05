@@ -73,6 +73,7 @@ export type CreateEventInput = {
   name: string;
   description?: string | null;
   event_date?: string | null;
+  venue_name?: string | null;
   status?: EventStatus;
   participant_source?: ParticipantSource;
   scanner_api_event_slug?: string | null;
@@ -91,6 +92,7 @@ export async function createEvent(input: CreateEventInput): Promise<EventRow> {
       name: input.name,
       description: input.description ?? null,
       event_date: input.event_date ?? null,
+      venue_name: input.venue_name ?? null,
       // Bawaan 'draft', bukan 'active'. Event baru selalu punya konfigurasi
       // kosong (belum ada booth, belum ada peserta); membuatnya langsung aktif
       // berarti ia ikut muncul sebagai kandidat di jalur publik tanpa slug.

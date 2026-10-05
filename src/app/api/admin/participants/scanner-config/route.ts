@@ -23,6 +23,23 @@ const bodySchema = z.object({
   api_key: z.string().trim().min(8).max(500).nullable().optional(),
 });
 
+/**
+ * Sakelar "Sync participants from Scanner API". Dulu hanya ada di dialog Create
+ * event; setelah acara dibuat, sumber peserta tidak bisa diubah dari layar
+ * mana pun, jadi acara yang lupa menyalakannya tidak pernah disinkronkan cron.
+ *
+ * Yang diubah hanya bagian "Scanner API" dari sumbernya. Pendaftaran publik
+ * yang sudah menyala dipertahankan: manual <-> scanner_api,
+ * public_form <-> hybrid.
+ */
+const syncSchema = z.object({ sync_enabled: z.boolean() });
+
+function sumberBaru(sekarang: string, nyala: boolean) {
+  const publik = sekarang === "public_form" || sekarang === "hybrid";
+  if (nyala) return publik ? "hybrid" : "scanner_api";
+  return publik ? "public_form" : "manual";
+}
+
 /** `sk_live_9f3ab21c` -> `••••••••b21c`. Empat huruf terakhir cukup untuk
  *  mencocokkan dengan kunci di dashboard penyedia tanpa mengungkap apa pun. */
 function mask(key: string | null) {
@@ -68,7 +85,32 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
-  const body = bodySchema.safeParse(await request.json().catch(() => null));
+  const mentah = await request.json().catch(() => null);
+
+  const sakelar = syncSchema.safeParse(mentah);
+  if (sakelar.success) {
+    const client = getSupabaseServiceClient();
+    const { data: baris } = await client.from("events").select("participant_source,scanner_api_event_slug").eq("id", auth.scope.event.id).maybeSingle();
+    const kini = baris as { participant_source: string; scanner_api_event_slug: string | null } | null;
+    if (!kini) return apiError("INTERNAL_ERROR", 500);
+    // CHECK events_scanner_slug_required menuntut slug di kolom acara, bukan di
+    // env. Ditolak di sini dengan jalan keluarnya, sebelum constraint menolak.
+    if (sakelar.data.sync_enabled && !kini.scanner_api_event_slug) {
+      return apiError("VALIDATION_ERROR", 422, { message: "Fill in the event slug in Scanner API first, then turn sync on." });
+    }
+    const sumber = sumberBaru(kini.participant_source, sakelar.data.sync_enabled);
+    const { error } = await client.from("events").update({ participant_source: sumber, updated_at: new Date().toISOString() } as never).eq("id", auth.scope.event.id);
+    if (error) return apiError("INTERNAL_ERROR", 500);
+    await client.from("audit_logs").insert({
+      event_id: auth.scope.event.id,
+      user_id: auth.user.id,
+      action: "scanner_sync_toggled",
+      payload: { old: kini.participant_source, new: sumber },
+    } as never);
+    return Response.json({ ok: true, participant_source: sumber });
+  }
+
+  const body = bodySchema.safeParse(mentah);
   if (!body.success) return apiError("VALIDATION_ERROR", 422, body.error.flatten());
 
   const update: Record<string, string | null> = {
@@ -92,7 +134,7 @@ export async function PATCH(request: Request) {
     // nama constraint.
     if ((error.message ?? "").includes("events_scanner_slug_required")) {
       return apiError("VALIDATION_ERROR", 422, {
-        message: "This event gets its participants from Scanner API, so the event slug can't be empty. Change the event's participant source first if you want to stop using it.",
+        message: "Sync from Scanner API is on, so the event slug can't be empty. Turn sync off first if you want to stop using it.",
       });
     }
     if ((error.message ?? "").includes("events_scanner_base_url_format")) {

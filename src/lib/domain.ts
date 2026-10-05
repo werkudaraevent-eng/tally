@@ -38,6 +38,14 @@ export type PickupMode = "after_payment" | "immediate";
 export type EventStatus = "draft" | "active" | "completed" | "archived";
 
 /**
+ * Batas panjang nama tempat acara, satu angka untuk Create event, Edit details
+ * dan editor Halaman acara. Dulu 160 di dua dialog dan 200 di editor, sehingga
+ * tempat sepanjang 161-200 karakter yang disimpan editor membuat setiap simpan
+ * Edit details ditolak.
+ */
+export const EVENT_VENUE_MAX = 200;
+
+/**
  * SATU peta label status untuk seluruh antarmuka.
  *
  * Sebelumnya daftar acara menulis "Aktif", halaman workspace menulis "ACTIVE",
