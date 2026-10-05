@@ -209,3 +209,28 @@ export function modernNavStyle(
     "--nav-on-ink-scrolled": lawan(tintaBilah),
   } as CSSProperties;
 }
+
+/** Aksen bawaan gaya gathering: emas, pasangan navy di rancangan KSO 21. */
+export const GATHERING_ACCENT_DEFAULT = "#E9C46A";
+
+/**
+ * Warna gaya gathering (preset Gathering, tata letak Modern) dari aksen admin.
+ *
+ * - `sand`: permukaan halaman, aksen yang sangat diencerkan. Kartu di atasnya putih.
+ * - `cta`/`onCta`: tombol utama di atas KV yang digelapkan. Aksen yang terlalu
+ *   gelap untuk berdiri di atas foto gelap (< 3:1 terhadap hitam) jatuh ke putih,
+ *   sama dengan heroCtaColors. Teksnya warna merek bila cukup kontras (navy di
+ *   atas emas), selain itu putih atau tinta gelap.
+ * - `teks`: aksen yang digelapkan sampai terbaca (4.5:1) di atas `sand`, untuk
+ *   label kecil. Emas murni di atas pasir tidak terbaca.
+ */
+export function gatheringColors(accent: string | undefined, seed: string | undefined) {
+  const aksen = /^#[0-9a-f]{6}$/i.test(accent ?? "") ? accent! : GATHERING_ACCENT_DEFAULT;
+  const merek = /^#[0-9a-f]{6}$/i.test(seed ?? "") ? seed! : DEFAULT_REGISTRATION_SEED;
+  const sand = mixHex(aksen, "#ffffff", 0.86);
+  const cta = kontras(aksen, "#000000") >= 3 ? aksen : "#ffffff";
+  const onCta = kontras(cta, merek) >= 4.5 ? merek : tintaDiAtas(cta);
+  let teks = aksen;
+  for (let langkah = 1; kontras(teks, sand) < 4.5 && langkah <= 20; langkah += 1) teks = mixHex(aksen, "#000000", langkah * 0.05);
+  return { aksen, sand, cta, onCta, teks };
+}

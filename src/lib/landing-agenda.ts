@@ -35,6 +35,8 @@ export type AgendaPreview = {
   sectionTitle: string | null;
   /** Hari pendek bagian dalam bahasa halaman, mis. "Kam 15" atau "Thu 15". */
   hari: string | null;
+  /** Tanggal bagian "YYYY-MM-DD" apa adanya, untuk label panjang (kartu hari gathering). */
+  tanggal: string | null;
   items: AgendaItem[];
 };
 
@@ -93,6 +95,7 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
     .map((section) => ({
       sectionTitle: section.title,
       hari: hariPendek(section.event_date, bahasa),
+      tanggal: section.event_date && /^\d{4}-\d{2}-\d{2}$/.test(section.event_date) ? section.event_date : null,
       items: daftarItem
         .filter((item) => item.section_id === section.id)
         .slice(0, MAX_ITEMS)

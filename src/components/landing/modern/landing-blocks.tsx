@@ -36,14 +36,15 @@ const LATAR_GELAP = "color-mix(in srgb, var(--reg-primary) 45%, black)";
  */
 const NADA: Record<LandingBlockTone, CSSProperties> = {
   light: {
-    "--blok-aksen": "var(--reg-primary)",
+    // `--alis`: warna label kecil gaya gathering (aksen yang digelapkan); acara lain tidak menyetelnya.
+    "--blok-aksen": "var(--alis, var(--reg-primary))",
     "--blok-tombol": "var(--reg-primary)",
     "--blok-tombol-ink": "var(--reg-on-primary)",
     "--blok-kartu": "var(--reg-panel)",
   } as CSSProperties,
   panel: {
     backgroundColor: "var(--reg-panel)",
-    "--blok-aksen": "var(--reg-primary)",
+    "--blok-aksen": "var(--alis, var(--reg-primary))",
     "--blok-tombol": "var(--reg-primary)",
     "--blok-tombol-ink": "var(--reg-on-primary)",
     "--blok-kartu": "var(--reg-surface)",

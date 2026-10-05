@@ -11,7 +11,7 @@ import type {
   LandingSectionId,
 } from "@/lib/domain";
 import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
-import { heroCtaColors } from "@/lib/registration-theme-css";
+import { gatheringColors, heroCtaColors } from "@/lib/registration-theme-css";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { jumlahSesi, speakerTabs } from "@/lib/landing-speaker-tabs";
@@ -23,6 +23,7 @@ import type { MasukMode, MasukSandi } from "@/app/masuk/masuk-client";
 import { timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 import { loadLandingLodging, type LandingHotel } from "@/lib/landing-hotel";
 import { AgendaPills } from "./modern/agenda-pills";
+import { HariGathering } from "./modern/hari-gathering";
 import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
 import { HEAD, JUDUL, JUDUL_BUTIR, LABEL_BAGIAN, LEBAR_BACA, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
@@ -74,7 +75,8 @@ type Props = {
 };
 
 /** Label kecil di atas judul bagian, sama dengan blok dari pustaka blok. */
-const ALIS = `${LABEL_BAGIAN} text-[var(--reg-primary)]`;
+/** `--alis` hanya disetel gaya gathering (aksen yang digelapkan); acara lain tetap primary. */
+const ALIS = `${LABEL_BAGIAN} text-[var(--alis,var(--reg-primary))]`;
 
 const STATE_ON_PRIMARY = { "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties;
 
@@ -104,6 +106,12 @@ const HEADING_SCALE: Record<LandingHeadingScale, string> = {
 };
 
 
+
+/**
+ * Bayangan KV gaya gathering: isinya di tengah, jadi bagian tengah ikut cukup
+ * gelap untuk teks putih, bukan hanya bagian bawah seperti KV_SCRIM.
+ */
+const KV_SCRIM_TENGAH = "linear-gradient(to bottom, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0.45) 45%, rgb(0 0 0 / 0.6))";
 
 const HERO_DELAY = (step: number) => ({ "--rise-delay": `${step * 60}ms` }) as CSSProperties;
 
@@ -248,14 +256,31 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     venue ? { ikon: MapPin, teks: venue } : null,
     lamaHari ? { ikon: Moon, teks: t.stayLength(lamaHari) } : null,
   ].filter((item): item is NonNullable<typeof item> => item !== null);
-  const cta = heroCtaColors(config.theme?.seed);
+  // Gathering: tombol utama warna aksen (emas di rancangan KSO 21), bukan warna merek.
+  const warnaGathering = gaya ? gatheringColors(config.accent, config.theme?.seed) : null;
+  const cta = warnaGathering ? { bg: warnaGathering.cta, fg: warnaGathering.onCta } : heroCtaColors(config.theme?.seed);
+  const logoHero = gaya ? config.hero_logo_url?.trim() || null : null;
+  const hitungMundur = gaya ? sisaHari(event.event_date, event.end_date, event.time_zone) : null;
   // Aksi utama saat pendaftaran tertutup: yang memang bisa dilakukan tamu.
   const aksiTertutup = tampil("agenda")
     ? { href: "#agenda", label: t.viewAgenda }
     : { href: "#isi-acara", label: t.aboutEvent };
   const ctaKv = { "--cta-bg": cta.bg, "--cta-fg": cta.fg } as CSSProperties;
   const judulAjakan = gaya ? event.tagline?.trim() || null : null;
-  const mainStyle = gayaModern(config, theme);
+  // Nama acara turun ke label kecil bila judulnya tagline; tanpa tagline nama
+  // acara sudah judulnya, jadi label hanya "Anda diundang".
+  const alisGathering = gaya ? [undangan ? t.invitedYou : null, judulAjakan ? nama : null].filter(Boolean).join(" · ") || null : null;
+  const mainStyle: CSSProperties = warnaGathering
+    ? {
+        ...gayaModern(config, theme),
+        // Permukaan pasir dengan kartu putih di atasnya (rancangan v3 KSO 21).
+        "--reg-surface": warnaGathering.sand,
+        "--reg-panel": "#ffffff",
+        backgroundColor: warnaGathering.sand,
+        "--alis": warnaGathering.teks,
+        "--aksen": warnaGathering.aksen,
+      } as CSSProperties
+    : gayaModern(config, theme);
 
   // Paling banyak 8 kartu sekaligus; sisanya per sesi lewat tab (lihat
   // landing-speaker-tabs.ts, dipakai juga tata letak lain).
@@ -406,9 +431,20 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               {/* Catatan di bawah judul, sama seperti bagian lain. */}
               {config.agenda_note?.trim() ? <p className={`max-w-[520px] text-isi ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
             </div>
-            <div className="mt-6 sm:mt-8">
-              <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari={gaya} />
-            </div>
+            {gaya ? (
+              // Gathering: satu kartu per hari dengan jam-jam penting; jadwal
+              // lengkap jam per jam tetap ada, dilipat di bawahnya.
+              <HariGathering
+                agenda={agenda}
+                catatan={config.program_notes ?? []}
+                lang={lang}
+                jadwalLengkap={<AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari />}
+              />
+            ) : (
+              <div className="mt-6 sm:mt-8">
+                <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari={gaya} />
+              </div>
+            )}
           </Section>
         ) : null}
       </>
@@ -575,31 +611,46 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         className={`relative isolate -mt-[var(--nav-h)] overflow-hidden ${kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
         style={tinta(Boolean(kv))}
       >
-        {kv ? <Kv src={kv} scrim={KV_SCRIM} /> : null}
+        {kv ? <Kv src={kv} scrim={gaya ? KV_SCRIM_TENGAH : KV_SCRIM} /> : null}
         <div
           style={config.hero_min_height ? ({ "--hero-h": `${config.hero_min_height}px` } as CSSProperties) : undefined}
           className={`${SHELL} flex flex-col text-[var(--ink)] ${
             // Dengan KV, isi hero berdiri di bawah supaya gambarnya terlihat,
             // dengan jarak bawah 40/64dp (kelipatan 8dp M3). Tanpa KV tidak ada
             // yang perlu diperlihatkan di atas judul, jadi isinya di tengah.
-            kv ? "justify-end pb-10 pt-28 lg:pb-16" : "justify-center pb-12 pt-28 lg:pb-16"
+            // Gathering: isi di tengah, seperti undangan (rancangan v3 KSO 21).
+            gaya
+              ? "items-center justify-center pb-12 pt-28 text-center lg:pb-16"
+              : kv ? "justify-end pb-10 pt-28 lg:pb-16" : "justify-center pb-12 pt-28 lg:pb-16"
           } ${
             config.hero_min_height ? HERO_HEIGHT_ANGKA : HERO_HEIGHT[config.hero_height ?? "standard"]
           }`}
         >
           {/* Urutan: nama acara, subjudul (satu kelompok, jarak 16), info
               acara (24), tombol (32). Ritme M3 kelipatan 8dp. */}
-          <div className="flex min-w-0 max-w-[1040px] flex-col">
-            {judulAjakan ? (
-              // Gathering: nama acara turun menjadi label kecil, dan tagline
-              // menjadi judul ajakan (rancangan 2026-10-03).
-              <p className={`rise-in mb-4 ${LABEL_BAGIAN} opacity-90`} style={HERO_DELAY(0)}>
-                {[nama, undangan ? t.inviteOnlyShort : null].filter(Boolean).join(" · ")}
-              </p>
+          <div className={`flex min-w-0 max-w-[1040px] flex-col ${gaya ? "items-center" : ""}`}>
+            {gaya ? (
+              // Gathering: label kecil "Anda diundang · nama acara" warna aksen
+              // terang, lalu logo, lalu tagline sebagai judul ajakan (v3).
+              alisGathering ? (
+                <p className={`rise-in mb-4 ${LABEL_BAGIAN} text-[color-mix(in_srgb,var(--aksen)_55%,#fff)]`} style={HERO_DELAY(0)}>
+                  {alisGathering}
+                </p>
+              ) : null
+            ) : null}
+            {logoHero ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoHero}
+                alt={judulAjakan ? nama : ""}
+                className="rise-in mb-4 h-auto max-h-[180px] w-auto max-w-[200px] object-contain sm:max-w-[230px]"
+                style={HERO_DELAY(1)}
+              />
             ) : null}
             <h1
-              // Tinggi baris display M3: 64/57 = 1.12.
-              className={`rise-in text-balance font-semibold leading-[1.12] tracking-[-0.02em] ${HEAD} ${
+              // Tinggi baris display M3: 64/57 = 1.12. Logo tanpa tagline:
+              // logonya sudah nama acara, judulnya tetap ada untuk pembaca layar.
+              className={`${logoHero && !judulAjakan ? "sr-only" : ""} rise-in text-balance font-semibold leading-[1.12] tracking-[-0.02em] ${HEAD} ${
                 config.heading_size ? "" : HEADING_SCALE[config.heading_scale ?? "lg"]
               }`}
               style={{ ...HERO_DELAY(0), ...(config.heading_size ? { fontSize: landingHeadingFontSize(config.heading_size) } : null) }}
@@ -617,7 +668,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 foto. Letaknya tepat di atas tombol karena tanggal dan tempat
                 adalah yang dibaca orang sebelum memutuskan mendaftar. */}
             {infoHero.length > 0 ? (
-              <ul className="rise-in mt-6 flex flex-wrap gap-x-6 gap-y-2 text-body-large font-medium" style={HERO_DELAY(2)}>
+              <ul className={`rise-in mt-6 flex flex-wrap gap-x-6 gap-y-2 text-body-large font-medium ${gaya ? "justify-center" : ""}`} style={HERO_DELAY(2)}>
                 {infoHero.map(({ ikon: Ikon, teks }) => (
                   <li key={teks} className="inline-flex items-center gap-2 tabular-nums">
                     <Ikon size={20} weight="regular" aria-hidden className="shrink-0 opacity-80" />
@@ -626,11 +677,17 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 ))}
               </ul>
             ) : null}
+            {hitungMundur ? (
+              // Hitung mundur dihitung saat halaman dirender (halaman dinamis).
+              <p className="rise-in mt-5 inline-flex h-10 items-center rounded-full border border-[color-mix(in_srgb,var(--aksen)_50%,transparent)] bg-[rgb(0_0_0/0.35)] px-4 text-body-large tabular-nums" style={HERO_DELAY(2)}>
+                <span className="font-semibold text-[var(--aksen)]">{t.countdown(hitungMundur.sisa, hitungMundur.hariKe, hitungMundur.lama)}</span>
+              </p>
+            ) : null}
             {/* Satu tombol filled M3, aksi berpenekanan tertinggi di layar ini.
                 Saat pendaftaran tertutup tidak ada tombol palsu: tombol utamanya
                 menjadi aksi yang memang bisa dilakukan (lihat susunan acara),
                 dan statusnya ditulis sebagai teks. */}
-            <div className="rise-in mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center" style={HERO_DELAY(3)}>
+            <div className={`rise-in mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center ${gaya ? "w-full sm:w-auto sm:justify-center" : ""}`} style={HERO_DELAY(3)}>
               {aksiPeserta ? (
                 <>
                   <Link href={aksiPeserta.href} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
@@ -658,7 +715,11 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                   <Link href={masukUrl} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
                     {gaya ? t.inviteCta : t.memberSignIn}
                   </Link>
-                  {judulAjakan ? null : <p className="text-isi opacity-90">{t.inviteOnly}</p>}
+                  {gaya && tampil("agenda") ? (
+                    <a href="#agenda" className={`${PIL_INK_GARIS} justify-center`}>
+                      {t.seeTrip}
+                    </a>
+                  ) : judulAjakan ? null : <p className="text-isi opacity-90">{t.inviteOnly}</p>}
                 </>
               ) : (
                 <>
@@ -739,8 +800,9 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               ) : null}
               <h2 className={`${JUDUL} max-w-[800px]`}>{t.inviteHeading}</h2>
               <p className="max-w-[720px] text-title-large font-normal leading-[1.5] opacity-90">{t.inviteNote}</p>
-              <Link href={masukUrl} className={PIL_INK}>
-                {t.memberSignIn}
+              {/* Gathering: tombol yang sama dengan hero, satu ajakan satu label. */}
+              <Link href={masukUrl} className={gaya ? PIL_CTA_KV : PIL_INK} style={gaya ? ctaKv : undefined}>
+                {gaya ? t.inviteCta : t.memberSignIn}
               </Link>
             </div>
           </section>
@@ -753,7 +815,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       <KakiModern
         nama={nama}
         keterangan={{ catatan: config.footer_note?.trim() || null, baris: [tanggal, venue].filter((baris): baris is string => Boolean(baris)) }}
-        tombol={aksiPeserta ?? (event.registration_enabled ? { href: daftarUrl, label: ctaLabel } : undangan ? { href: masukUrl, label: t.memberSignIn } : null)}
+        tombol={aksiPeserta ?? (event.registration_enabled ? { href: daftarUrl, label: ctaLabel } : undangan ? { href: masukUrl, label: gaya ? t.inviteCta : t.memberSignIn } : null)}
         kolom={[
           { judul: t.footerEvent, tautan: tautanAcara.map((item) => ({ label: item.label, href: `#${item.id}` })) },
           { judul: t.footerGuests, tautan: tautanTamu },
@@ -782,6 +844,27 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       ) : null}
     </main>
   );
+}
+
+/** Hari ini (YYYY-MM-DD) di zona waktu acara. */
+function hariIni(zona: EventTimeZone): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: zona, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+/**
+ * Pil hitung mundur hero gathering: sisa hari sebelum acara, atau hari ke
+ * berapa selama acara. Null setelah acara selesai atau tanpa tanggal.
+ */
+function sisaHari(mulai: string | null, selesai: string | null, zona: EventTimeZone): { sisa: number; hariKe: number; lama: number } | null {
+  if (!mulai || !/^\d{4}-\d{2}-\d{2}$/.test(mulai)) return null;
+  const akhir = selesai && /^\d{4}-\d{2}-\d{2}$/.test(selesai) && selesai >= mulai ? selesai : mulai;
+  const hari = (tanggal: string) => Date.parse(`${tanggal}T00:00:00Z`) / 86_400_000;
+  const sekarang = hari(hariIni(zona));
+  const lama = hari(akhir) - hari(mulai) + 1;
+  const sisa = hari(mulai) - sekarang;
+  if (sisa > 0) return { sisa, hariKe: 0, lama };
+  if (sekarang > hari(akhir)) return null;
+  return { sisa: 0, hariKe: sekarang - hari(mulai) + 1, lama };
 }
 
 /** Jumlah hari dari tanggal mulai sampai selesai (inklusif). Null bila satu hari atau tanggal tidak lengkap. */
