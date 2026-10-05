@@ -283,6 +283,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         "--aksen-angka": warnaGathering.angka,
         "--hero-alis": warnaGathering.heroAlis,
         "--hero-angka": warnaGathering.heroAngka,
+        "--primer-teks": warnaGathering.primerTeks,
       } as CSSProperties
     : gayaModern(config, theme);
 

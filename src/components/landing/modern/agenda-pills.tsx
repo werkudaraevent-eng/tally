@@ -82,7 +82,7 @@ export function AgendaPills({
                 aria-controls={`${dasar}-panel`}
                 tabIndex={pilih ? 0 : -1}
                 onClick={() => setAktif(index)}
-                className={`m3-state inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-[18px] text-label-large font-medium tabular-nums ${
+                className={`m3-state inline-flex min-h-12 shrink-0 items-center whitespace-nowrap rounded-full border sm:min-h-11 px-[18px] text-label-large font-medium tabular-nums ${
                   pilih
                     ? "border-[var(--reg-primary)] bg-[var(--reg-primary)] text-[var(--reg-on-primary)]"
                     : "border-[var(--reg-outline-variant)] text-[var(--reg-on-surface)]"

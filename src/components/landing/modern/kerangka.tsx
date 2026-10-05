@@ -261,16 +261,16 @@ function KolomKaki({ judul, tautan }: { judul: string; tautan: TautanKaki[] }) {
           <li key={item.label} className="min-w-0">
             {item.href ? (
               item.href.startsWith("/") ? (
-                <Link href={item.href} className="inline-flex min-h-9 items-center break-all text-body-medium text-white/70 hover:text-white">
+                <Link href={item.href} className="inline-flex min-h-12 items-center sm:min-h-9 break-all text-body-medium text-white/70 hover:text-white">
                   {item.label}
                 </Link>
               ) : (
-                <a href={item.href} className="inline-flex min-h-9 items-center break-all text-body-medium text-white/70 hover:text-white">
+                <a href={item.href} className="inline-flex min-h-12 items-center sm:min-h-9 break-all text-body-medium text-white/70 hover:text-white">
                   {item.label}
                 </a>
               )
             ) : (
-              <span className="inline-flex min-h-9 items-center text-body-medium text-white/70">{item.label}</span>
+              <span className="inline-flex min-h-12 items-center sm:min-h-9 text-body-medium text-white/70">{item.label}</span>
             )}
           </li>
         ))}

@@ -698,6 +698,21 @@ html:hover {
 	--m3-state-color: currentColor;
 }
 
+/* Area sentuh 48dp (M3, audit gathering v2 #5) untuk tombol yang tampilannya
+ * lebih kecil, mis. tombol bergaris 40px di bilah atas. Pseudo-elemen tak
+ * terlihat di tengah elemen, jadi tampilan tidak berubah sama sekali. Butuh
+ * `position: relative` (sudah ada di `.m3-state`). Jangan dipasang pada butir
+ * yang bertumpuk rapat: area sentuhnya akan saling menimpa. */
+.target-48::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: max(100%, 48px);
+	height: max(100%, 48px);
+	transform: translate(-50%, -50%);
+}
+
 .m3-state::after {
 	content: "";
 	position: absolute;

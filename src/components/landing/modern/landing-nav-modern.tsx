@@ -293,7 +293,7 @@ export function LandingNavModern({
       >
         <a
           href={homeHref}
-          className="flex min-h-11 min-w-0 flex-1 items-center text-title-large font-semibold [font-family:var(--landing-heading)]"
+          className="flex min-h-12 min-w-0 flex-1 items-center text-title-large font-semibold [font-family:var(--landing-heading)]"
         >
           {logoUrl ? (
             // Logo menggantikan nama; nama tetap dibacakan pembaca layar lewat alt.
@@ -428,7 +428,7 @@ export function LandingNavModern({
               href={memberLink.href}
               // Tombol bergaris kecil, bukan teks: tanpa bingkai "Masuk" terbaca
               // sebagai tautan menu ketujuh.
-              className="m3-state inline-flex min-h-10 items-center rounded-md border border-current px-4 text-label-large font-semibold"
+              className="m3-state target-48 inline-flex min-h-10 items-center rounded-md border border-current px-4 text-label-large font-semibold"
             >
               {memberLink.label}
             </Link>
@@ -436,7 +436,7 @@ export function LandingNavModern({
           {!peserta && registrationOpen ? (
             <Link
               href={daftarUrl}
-              className="m3-state inline-flex min-h-11 items-center rounded-md bg-[var(--nav-text)] px-4 text-label-large font-semibold text-[var(--nav-on-text)]"
+              className="m3-state target-48 inline-flex min-h-11 items-center rounded-md bg-[var(--nav-text)] px-4 text-label-large font-semibold text-[var(--nav-on-text)]"
             >
               {/* Label pendek di nav, sesuai rancangan. Teks tombol pilihan admin
                   dipakai di hero dan banner ajakan; dua tombol berlabel sama
@@ -455,7 +455,7 @@ export function LandingNavModern({
                 setMenuBuka((buka) => !buka);
                 setLoncengBuka(false);
               }}
-              className={`m3-state -mr-2 inline-flex size-11 items-center justify-center rounded-md xl:hidden ${
+              className={`m3-state target-48 -mr-2 inline-flex size-11 items-center justify-center rounded-md xl:hidden ${
                 // Tanpa bagian halaman, Menu hanya berisi Dashboard saya dan
                 // Keluar, dan di layar sm+ tombol Dashboard sudah di bilah.
                 sections.length === 0 ? "sm:hidden" : ""
