@@ -5,6 +5,7 @@ import { sendRegistrationCode, sendRegistrationReceived } from "@/lib/email/regi
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { EventLandingConfig, RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { bahasaPendaftaranBaru } from "@/lib/email/konfirmasi/bahasa";
+import { landingDefaultLang, landingEnAvailable, landingPath } from "@/lib/landing-i18n";
 import { validateAnswers } from "@/lib/registration-fields";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { createAccountForRegistration, memberConfig, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/member/account";
@@ -327,12 +328,15 @@ export async function POST(request: Request) {
     konfirmasiTerkirim = terpisah.state === "sent";
   }
 
+  // Alamat area peserta dan kode dalam bahasa formulirnya (`/e/<slug>/en/...`).
+  const landingAcara = event.landing_config as EventLandingConfig | null;
+  const halamanBahasa = landingEnAvailable(landingAcara) ? landingPath(event.slug, bahasa, landingDefaultLang(landingAcara)) : `/e/${event.slug}`;
   return Response.json({
     status: hasil.status,
     // Akun area peserta: "ok" = sudah masuk di perangkat ini. Null bila area
     // peserta acara ini mati.
     akun,
-    peserta_url: akun === "ok" ? `/e/${event.slug}/peserta` : null,
+    peserta_url: akun === "ok" ? `${halamanBahasa}/peserta` : null,
     // "Kami kirim email ke ..." hanya bila penyedia benar-benar menerimanya.
     konfirmasi_terkirim: konfirmasiTerkirim,
     // qr_code hanya ada pada event auto-approve. Pendaftar di event bermoderasi
@@ -347,7 +351,7 @@ export async function POST(request: Request) {
     // Null hanya bila migrasi tokennya belum dijalankan. Layar sukses harus
     // memperlakukannya sebagai "tidak ada tautan", bukan merender alamat yang
     // berakhir di 404.
-    code_url: hasil.access_token ? `/e/${event.slug}/kode/${hasil.access_token}` : null,
+    code_url: hasil.access_token ? `${halamanBahasa}/kode/${hasil.access_token}` : null,
     // Layar sukses memakai ini untuk memilih kalimatnya. Hanya `sent` yang boleh
     // menyebut email: menjanjikannya saat pengiriman gagal atau belum disetel
     // membuat pendaftar menutup halaman tanpa menyimpan kode, lalu menunggu

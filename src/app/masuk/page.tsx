@@ -5,7 +5,8 @@ import { formatEventSchedule } from "@/lib/event-datetime";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { memberPageStyle } from "@/lib/member/page-theme";
 import type { EventLandingConfig } from "@/lib/domain";
-import { landingFormOnly } from "@/lib/landing-i18n";
+import { landingDefaultLang, landingEnAvailable, landingFormOnly, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
+import { MASUK_UI } from "@/lib/member/masuk-i18n";
 import { renderLanding } from "@/components/landing/render-landing";
 import { asalSitus } from "@/app/e/[slug]/landing-metadata";
 import { peekPasswordToken } from "@/lib/member/links";
@@ -14,7 +15,8 @@ import { BingkaiModern } from "@/app/daftar/daftar-client";
 import { MasukClient, type MasukMode, type MasukSandi } from "./masuk-client";
 
 /**
- * Masuk area peserta: `/e/<slug>/masuk`.
+ * Masuk area peserta: `/e/<slug>/masuk`, dan `/e/<slug>/en/masuk` (atau
+ * `/id/masuk`) untuk bahasa lain halaman acara (proxy mengisi `?bahasa=`).
  *
  * Tiga mode di satu halaman (masuk-client.tsx): masuk dengan kata sandi,
  * minta tautan ke email, dan membuat kata sandi dari tautan itu
@@ -35,11 +37,12 @@ export async function generateMetadata({
 }) {
   // Tidak diindeks; canonical ke halaman acara, karena di tata letak Modern isi
   // alamat ini adalah halaman acara itu sendiri dengan dialog terbuka.
-  const raw = (await searchParams).eventSlug;
+  const kueri = await searchParams;
+  const raw = kueri.eventSlug;
   const slug = Array.isArray(raw) ? raw[0] : raw;
   const asal = slug ? await asalSitus() : null;
   return {
-    title: "Masuk area peserta",
+    title: MASUK_UI[kueri.bahasa === "en" ? "en" : "id"].judul.masuk,
     robots: { index: false, follow: false },
     ...(slug && asal ? { alternates: { canonical: `${asal}/e/${encodeURIComponent(slug)}` } } : null),
   };
@@ -53,9 +56,20 @@ export default async function MasukPage({
   const params = await searchParams;
   const event = await getPublicPageEvent(Promise.resolve(params));
   if (!event || event.status === "archived" || !memberConfig(event)) notFound();
+  const landing = event.landing_config as EventLandingConfig | null;
+  // Sama dengan /daftar: alamat bahasa lain yang tidak berlaku (English mati,
+  // atau ia bahasa utama) dialihkan ke alamat utama, kuerinya ikut.
+  const utama = landingDefaultLang(landing ?? {});
+  const minta: LandingLang | null = params.bahasa === "en" || params.bahasa === "id" ? params.bahasa : null;
+  if (minta && (minta === utama || !landingEnAvailable(landing ?? {}))) {
+    const sisa = Object.fromEntries(Object.entries(params).filter(([kunci]) => kunci !== "eventSlug" && kunci !== "bahasa"));
+    redirect(withQuery(`/e/${event.slug}/masuk`, sisa));
+  }
+  const lang = minta ?? utama;
+  const halamanUrl = landingPath(event.slug, lang, utama);
   const tokenSandi = typeof params.sandi === "string" ? params.sandi : null;
   const sudahMasuk = Boolean(await getMemberSession(event));
-  if (!tokenSandi && sudahMasuk) redirect(`/e/${event.slug}/peserta`);
+  if (!tokenSandi && sudahMasuk) redirect(`${halamanUrl}/peserta`);
 
   // `?mode=aktifkan` adalah alamat lama (buat kata sandi dengan kode); kini
   // jalurnya tautan email.
@@ -65,26 +79,25 @@ export default async function MasukPage({
     const berlaku = await peekPasswordToken(event.id, tokenSandi);
     // Sudah masuk dan tautannya tidak berlaku lagi (biasanya tautan yang baru
     // saja dipakai, dibuka ulang dari email): tidak ada yang perlu diminta.
-    if (!berlaku && sudahMasuk) redirect(`/e/${event.slug}/peserta`);
+    if (!berlaku && sudahMasuk) redirect(`${halamanUrl}/peserta`);
     sandi = berlaku ? { token: tokenSandi, email: berlaku.email } : "invalid";
     modeAwal = berlaku ? "sandi" : "tautan";
   }
-  const landing = event.landing_config as EventLandingConfig | null;
   // Hanya formulir: tidak ada halaman acara untuk dijadikan latar dialog, jadi
   // Modern pun memakai halaman masuk penuh di bawah, dengan Tema yang sama.
   const hanyaFormulir = landingFormOnly(landing);
   if (hanyaFormulir) {
     // Kerangka yang sama dengan formulir (bilah atas, logo, gambar utama, nama
     // publik): pendaftar yang pindah dari formulir ke sini tetap di situs yang
-    // sama. Area peserta belum dwibahasa, jadi bahasa Indonesia dan tanpa ID | EN.
-    const bingkai = await bingkaiFormulir(event, "id", { tautanBahasa: false, tautanMasuk: false });
+    // sama, dalam bahasa alamatnya, tanpa ID | EN.
+    const bingkai = await bingkaiFormulir(event, lang, { tautanBahasa: false, tautanMasuk: false });
     if (bingkai.modern) {
       return (
-        <BingkaiModern lang="id" halamanUrl={null} eventName={bingkai.eventName} welcomeText={null} theme={bingkai.theme} modern={bingkai.modern} areaUrl={null} eyebrow="Area peserta">
+        <BingkaiModern lang={lang} halamanUrl={null} eventName={bingkai.eventName} welcomeText={null} theme={bingkai.theme} modern={bingkai.modern} areaUrl={null} eyebrow={lang === "en" ? "Participant area" : "Area peserta"}>
           <div className="mx-auto w-full max-w-[440px]">
-            <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} />
-            <Link href={`/e/${event.slug}/daftar`} className="mt-6 inline-flex min-h-11 items-center text-title-small font-semibold text-[var(--reg-primary)]">
-              Belum terdaftar? Daftar di sini
+            <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} lang={lang} halamanUrl={halamanUrl} />
+            <Link href={`${halamanUrl}/daftar`} className="mt-6 inline-flex min-h-11 items-center text-title-small font-semibold text-[var(--reg-primary)]">
+              {lang === "en" ? "Not registered yet? Register here" : "Belum terdaftar? Daftar di sini"}
             </Link>
           </div>
         </BingkaiModern>
@@ -92,7 +105,7 @@ export default async function MasukPage({
     }
   }
   if (landing?.layout === "modern") {
-    return renderLanding(event, undefined, { masukAwal: modeAwal, sandi });
+    return renderLanding(event, lang, { masukAwal: modeAwal, sandi });
   }
 
   const schedule = formatEventSchedule(event);

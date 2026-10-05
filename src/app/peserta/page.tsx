@@ -69,7 +69,7 @@ export default async function AreaPesertaPage({
   const lang = minta ?? utama;
   const sesi = await getMemberSession(event);
   // Belum masuk: dialog masuk di halaman acara dalam bahasa yang sama.
-  if (!sesi) redirect(lang === utama ? `/e/${event.slug}/masuk` : `${landingPath(event.slug, lang, utama)}?masuk=1`);
+  if (!sesi) redirect(`${landingPath(event.slug, lang, utama)}/masuk`);
 
   const peserta = sesi.participant;
   const schedule = formatEventSchedule(event);

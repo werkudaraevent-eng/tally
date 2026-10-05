@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { confirmationUrlIn, registrationCodeUrlIn } from "@/lib/registration-code-url";
 import { isEmailConfigured, sendEmail } from "./client";
 import type { EventTimeZone } from "@/lib/timezone";
 import type { FieldKey } from "@/lib/pesan/bawaan";
@@ -86,8 +87,8 @@ export async function sendRegistrationCode(input: Input): Promise<EmailDelivery>
     state: "approved",
     values: nilaiKolom(dasar.eventName, dasar.detail.tanggal, input.name, input.company ?? null, dasar.lang),
     qr: { code: input.qrCode, src: qrPng ? `cid:${QR_CID}` : null },
-    codeUrl: input.codeUrl ?? null,
-    akunUrl: input.akunUrl ?? null,
+    codeUrl: registrationCodeUrlIn(input.codeUrl, bahan.event.slug, dasar.lang, bahan.bahasaUtama, bahan.enTersedia),
+    akunUrl: confirmationUrlIn(input.akunUrl, dasar.lang, bahan.bahasaUtama, bahan.enTersedia),
   });
 
   const hasil = await sendEmail({
@@ -168,7 +169,7 @@ async function kirimTanpaQr(
     values: nilaiKolom(dasar.eventName, dasar.detail.tanggal, input.name, input.company ?? null, dasar.lang),
     qr: null,
     codeUrl: null,
-    akunUrl: input.akunUrl ?? null,
+    akunUrl: confirmationUrlIn(input.akunUrl, dasar.lang, bahan.bahasaUtama, bahan.enTersedia),
   });
   const hasil = await sendEmail({ eventId: input.eventId, to: input.to, subject: email.subject, html: email.html, text: email.text });
   const jenis = state === "pending" ? "registration_received_email" : "registration_rejected_email";

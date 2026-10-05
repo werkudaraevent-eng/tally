@@ -10,7 +10,7 @@ import {
   PushPin,
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
-import type { EventLandingConfig, EventRow, LandingMemberConfig } from "@/lib/domain";
+import type { EventRow, LandingMemberConfig } from "@/lib/domain";
 import { LANDING_NAV_DEFAULTS, isLandingBlockId, normalizeLandingSections, publicEventName } from "@/lib/domain";
 import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";

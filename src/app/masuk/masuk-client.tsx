@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import type { LandingLang } from "@/lib/landing-i18n";
+import { MASUK_UI } from "@/lib/member/masuk-i18n";
 
 /**
  * Tiga mode masuk area peserta:
@@ -16,16 +18,18 @@ export type MasukMode = "masuk" | "tautan" | "sandi";
 /** Tautan sandi dari email: masih berlaku (dengan emailnya), atau sudah tidak. */
 export type MasukSandi = { token: string; email: string } | "invalid" | null;
 
-export const TAUTAN_TIDAK_BERLAKU = "Tautan itu sudah dipakai atau kedaluwarsa. Minta tautan baru di bawah.";
+export const TAUTAN_TIDAK_BERLAKU = MASUK_UI.id.tautanTidakBerlaku;
 
 /**
  * Kirim formulir. Dipakai halaman ini dan dialog masuk di halaman acara Modern
- * (components/member/masuk-dialog.tsx).
+ * (components/member/masuk-dialog.tsx). English: pesan galat dari kode galatnya
+ * (MASUK_UI.en.galat), karena pesan server berbahasa Indonesia.
  */
 export async function kirimMasuk(
   slug: string,
   mode: MasukMode,
   isian: { email: string; password: string; token?: string },
+  lang: LandingLang = "id",
 ): Promise<{ ok: true } | { ok: false; pesan: string }> {
   const { email, password, token } = isian;
   const body = mode === "masuk" ? { email, password } : mode === "tautan" ? { email } : { token, password };
@@ -34,17 +38,20 @@ export async function kirimMasuk(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   }).catch(() => null);
-  if (!response) return { ok: false, pesan: "Koneksi terputus. Periksa jaringan Anda, lalu coba lagi." };
+  const t = MASUK_UI[lang];
+  if (!response) return { ok: false, pesan: t.koneksi };
   if (response.ok) return { ok: true };
   const data = await response.json().catch(() => null);
-  return { ok: false, pesan: data?.error?.message ?? "Belum berhasil. Coba lagi." };
+  if (t.galat) {
+    const detik = Number(data?.error?.details?.retry_after_seconds);
+    return { ok: false, pesan: t.galat(String(data?.error?.code ?? ""), mode, Number.isFinite(detik) ? Math.ceil(detik / 60) : null) };
+  }
+  return { ok: false, pesan: data?.error?.message ?? t.gagalUmum };
 }
 
 /** Kalimat setelah tautan dikirim. Sama untuk email terdaftar maupun tidak. */
-export function pesanTautanTerkirim(email: string) {
-  // Netral untuk ketiga kemungkinan: tautan kata sandi, kabar "akses belum
-  // dibuka" (peserta impor yang belum boleh masuk), atau tidak ada apa-apa.
-  return `Bila ${email} terdaftar di acara ini, kami sudah mengirim email berisi langkah berikutnya. Periksa juga folder spam.`;
+export function pesanTautanTerkirim(email: string, lang: LandingLang = "id") {
+  return MASUK_UI[lang].tautanTerkirim(email);
 }
 
 const FIELD =
@@ -62,16 +69,22 @@ export function MasukClient({
   modeAwal,
   minPassword,
   sandi = null,
+  lang = "id",
+  halamanUrl = `/e/${slug}`,
 }: {
   slug: string;
   modeAwal: MasukMode;
   minPassword: number;
   sandi?: MasukSandi;
+  lang?: LandingLang;
+  /** Halaman acara dalam bahasa ini; setelah masuk peserta diantar ke `<halamanUrl>/peserta`. */
+  halamanUrl?: string;
 }) {
+  const t = MASUK_UI[lang];
   const [mode, setMode] = useState<MasukMode>(modeAwal);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [galat, setGalat] = useState(sandi === "invalid" ? TAUTAN_TIDAK_BERLAKU : "");
+  const [galat, setGalat] = useState(sandi === "invalid" ? t.tautanTidakBerlaku : "");
   const [terkirim, setTerkirim] = useState("");
   const [sibuk, setSibuk] = useState(false);
   const token = sandi && sandi !== "invalid" ? sandi : null;
@@ -87,30 +100,30 @@ export function MasukClient({
     event.preventDefault();
     setGalat("");
     setSibuk(true);
-    const hasil = await kirimMasuk(slug, mode, { email, password, token: token?.token });
+    const hasil = await kirimMasuk(slug, mode, { email, password, token: token?.token }, lang);
     setSibuk(false);
     if (!hasil.ok) {
       setGalat(hasil.pesan);
       return;
     }
     if (mode === "tautan") {
-      setTerkirim(pesanTautanTerkirim(email));
+      setTerkirim(pesanTautanTerkirim(email, lang));
       return;
     }
-    window.location.assign(`/e/${slug}/peserta`);
+    window.location.assign(`${halamanUrl}/peserta`);
   }
 
-  const judul = mode === "masuk" ? "Masuk" : mode === "tautan" ? "Kirim tautan ke email" : "Buat kata sandi";
+  const judul = mode === "masuk" ? t.masuk : t.judul[mode];
 
   return (
     <form onSubmit={kirim} className="flex w-full max-w-[440px] flex-col gap-6">
       <h2 className="text-[32px] font-semibold leading-tight [font-family:var(--landing-heading)] sm:text-[36px]">{judul}</h2>
       {mode === "tautan" ? (
         <p className="-mt-2 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">
-          Untuk membuat kata sandi pertama kali, atau bila Anda lupa kata sandi.
+          {t.untukPertamaKali}
         </p>
       ) : mode === "sandi" && token ? (
-        <p className="-mt-2 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">Untuk {token.email}.</p>
+        <p className="-mt-2 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">{t.untuk(token.email)}</p>
       ) : null}
 
       {galat ? (
@@ -127,13 +140,13 @@ export function MasukClient({
 
       {mode !== "sandi" && !terkirim ? (
         <label className={LABEL}>
-          Email pendaftaran
+          {t.emailLabel}
           <input
             type="email"
             required
             autoComplete="email"
             inputMode="email"
-            placeholder="nama@perusahaan.com"
+            placeholder={t.emailPlaceholder}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             className={FIELD}
@@ -145,11 +158,11 @@ export function MasukClient({
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-4">
             <label htmlFor="kata-sandi" className="text-body-large font-medium">
-              {mode === "masuk" ? "Kata sandi" : "Kata sandi baru"}
+              {mode === "masuk" ? t.sandiLabel : t.sandiBaruLabel}
             </label>
             {mode === "masuk" ? (
               <button type="button" onClick={() => ganti("tautan")} className="min-h-11 text-body-medium font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline">
-                Lupa kata sandi?
+                {t.lupa}
               </button>
             ) : null}
           </div>
@@ -166,7 +179,7 @@ export function MasukClient({
           />
           {mode === "sandi" ? (
             <span id="kata-sandi-catatan" className="text-body-medium text-[var(--reg-on-surface-variant)]">
-              Minimal {minPassword} karakter.
+              {t.minimal(minPassword)}
             </span>
           ) : null}
         </div>
@@ -178,21 +191,21 @@ export function MasukClient({
           disabled={sibuk}
           className="m3-state h-[52px] rounded-md bg-[var(--reg-primary)] text-title-medium font-semibold text-[var(--reg-on-primary)] disabled:opacity-60"
         >
-          {sibuk ? "Memproses..." : mode === "masuk" ? "Masuk" : mode === "tautan" ? "Kirim tautan" : "Simpan kata sandi dan masuk"}
+          {sibuk ? t.memproses : t.tombol[mode]}
         </button>
       ) : null}
 
       <div className="flex flex-col gap-2 border-t border-[var(--reg-outline-variant)] pt-6 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">
         {mode === "masuk" ? (
           <>
-            <span>Belum punya kata sandi?</span>
+            <span>{t.belumPunya}</span>
             <button type="button" onClick={() => ganti("tautan")} className={TAUTAN}>
-              Kirim tautan ke email
+              {t.kirimTautan}
             </button>
           </>
         ) : (
           <button type="button" onClick={() => ganti("masuk")} className={TAUTAN}>
-            Sudah punya kata sandi? Masuk
+            {t.sudahPunya} {t.masuk}
           </button>
         )}
       </div>

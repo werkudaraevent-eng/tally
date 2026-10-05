@@ -42,7 +42,7 @@ assert.equal(alih("/e/ilo", { fetchDest: "iframe" }), null);
 assert.equal(alih("/e/tunggu"), null);
 assert.equal(alih("/admin"), null);
 // Temuan QA H1: hanya halaman peserta yang dialihkan.
-for (const p of ["/e/ilo/en", "/e/ilo/id/", "/e/ilo/daftar", "/e/ilo/en/daftar", "/e/ilo/peserta", "/e/ilo/peserta/tiket", "/e/ilo/rundown", "/e/ilo/denah", "/e/ilo/kode/ABC123", "/e/ilo/en/peserta", "/e/ilo/en/kode/ABC123"]) {
+for (const p of ["/e/ilo/en", "/e/ilo/id/", "/e/ilo/daftar", "/e/ilo/en/daftar", "/e/ilo/peserta", "/e/ilo/peserta/tiket", "/e/ilo/rundown", "/e/ilo/denah", "/e/ilo/kode/ABC123", "/e/ilo/en/peserta", "/e/ilo/en/masuk", "/e/ilo/en/kode/ABC123"]) {
   assert.equal(alih(p), `https://event.ilo-forum.org${p}`, p);
 }
 for (const p of ["/e/ilo/admin", "/e/ilo/admin/settings", "/e/ilo/booth", "/e/ilo/cashier", "/e/ilo/scan", "/e/ilo/display", "/e/ilo/undian", "/e/ilo/workspace", "/e/ilo/pratinjau", "/e/ilo/api/pesan/berhenti", "/e/ilo/vote", "/e/ilo/stasiun", "/e/ilo/cetak-badge"]) {

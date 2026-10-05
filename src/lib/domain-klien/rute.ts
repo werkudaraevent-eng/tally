@@ -74,7 +74,7 @@ export function decideClientHost(input: {
  * /undian, /workspace, /pratinjau) juga tinggal di bawah /e/<slug>, dan host
  * klien menolaknya, jadi mengalihkannya berarti 404 untuk panitia.
  */
-const HALAMAN_PESERTA = [/^(\/(en|id))?(\/daftar)?\/?$/, /^\/(masuk|peserta|rundown|denah)(\/.*)?$/, /^(\/(en|id))?\/(peserta|kode\/[^/]+)\/?$/];
+const HALAMAN_PESERTA = [/^(\/(en|id))?(\/daftar)?\/?$/, /^\/(masuk|peserta|rundown|denah)(\/.*)?$/, /^(\/(en|id))?\/(masuk|peserta|kode\/[^/]+)\/?$/];
 
 /**
  * Di host Tally: alihkan halaman peserta ke domain klien yang AKTIF. Hanya

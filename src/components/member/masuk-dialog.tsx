@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { X } from "@phosphor-icons/react";
 import { REG_CONTROL } from "@/components/registration-field-input";
-import { kirimMasuk, pesanTautanTerkirim, TAUTAN_TIDAK_BERLAKU, type MasukMode, type MasukSandi } from "@/app/masuk/masuk-client";
+import { kirimMasuk, pesanTautanTerkirim, type MasukMode, type MasukSandi } from "@/app/masuk/masuk-client";
+import type { LandingLang } from "@/lib/landing-i18n";
+import { MASUK_UI } from "@/lib/member/masuk-i18n";
 
 /**
  * Masuk area peserta sebagai dialog di atas halaman acara (tata letak Modern).
@@ -12,6 +14,9 @@ import { kirimMasuk, pesanTautanTerkirim, TAUTAN_TIDAK_BERLAKU, type MasukMode, 
  * tetap melihat acaranya di belakang dialog. Di layar < 600px dialognya layar
  * penuh (M3 full-screen dialog), karena dialog kecil di ponsel menyisakan
  * ruang sempit begitu papan ketik terbuka.
+ *
+ * Dwibahasa (`lang`): di halaman English alamatnya `/e/<slug>/en/masuk` dan
+ * setelah masuk peserta mendarat di `/e/<slug>/en/peserta`.
  *
  * Alamatnya tetap `/e/<slug>/masuk`: tautan buat kata sandi dari email
  * (`?sandi=<token>`), "kirim tautan" (`?mode=tautan`), dan pengalihan saat
@@ -47,6 +52,7 @@ export function MasukDialog({
   minPassword,
   awal = null,
   sandi = null,
+  lang = "id",
 }: {
   slug: string;
   /** `/e/<slug>/masuk`: alamat dialog, juga href tautan pemicunya. */
@@ -60,7 +66,9 @@ export function MasukDialog({
   awal?: MasukMode | null;
   /** Tautan sandi dari email (mode "sandi"), atau "invalid" bila sudah tidak berlaku. */
   sandi?: MasukSandi;
+  lang?: LandingLang;
 }) {
+  const t = MASUK_UI[lang];
   const judulId = useId();
   const galatId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -78,7 +86,7 @@ export function MasukDialog({
   const [mode, setMode] = useState<MasukMode>(awal ?? "masuk");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [galat, setGalat] = useState(sandi === "invalid" ? TAUTAN_TIDAK_BERLAKU : "");
+  const [galat, setGalat] = useState(sandi === "invalid" ? t.tautanTidakBerlaku : "");
   // Tautan terkirim: formulirnya diganti kalimat hasil.
   const [terkirim, setTerkirim] = useState("");
   const token = sandi && sandi !== "invalid" ? sandi : null;
@@ -201,7 +209,7 @@ export function MasukDialog({
     setGalat("");
     setTerkirim("");
     setPassword("");
-    setPengumuman(next === "tautan" ? "Kirim tautan ke email" : "Masuk area peserta");
+    setPengumuman(next === "tautan" ? t.judul.tautan : t.judul.masuk);
     // Mode ikut di alamat, supaya muat ulang dan salin tautan mendarat di mode
     // yang sama. Diganti, bukan ditumpuk: Kembali tetap menutup dialog. Token
     // tautan sandi sengaja dibuang dari alamat begitu pindah mode.
@@ -217,14 +225,14 @@ export function MasukDialog({
     if (sibuk) return;
     setGalat("");
     setSibuk(true);
-    const hasil = await kirimMasuk(slug, mode, { email, password, token: token?.token });
+    const hasil = await kirimMasuk(slug, mode, { email, password, token: token?.token }, lang);
     if (hasil.ok && mode === "tautan") {
       setSibuk(false);
-      setTerkirim(pesanTautanTerkirim(email));
+      setTerkirim(pesanTautanTerkirim(email, lang));
       return;
     }
     if (hasil.ok) {
-      window.location.assign(`/e/${slug}/peserta`);
+      window.location.assign(`${halamanUrl}/peserta`);
       return;
     }
     setSibuk(false);
@@ -259,13 +267,12 @@ export function MasukDialog({
 
   const invalid = galat ? true : undefined;
   const describedGalat = galat ? galatId : undefined;
-  const judul = mode === "masuk" ? "Masuk area peserta" : mode === "tautan" ? "Kirim tautan ke email" : "Buat kata sandi";
+  const judul = t.judul[mode];
 
   return (
     <dialog
       ref={dialogRef}
-      // Area peserta belum dwibahasa; di /en dialog ini tetap berbahasa Indonesia.
-      lang="id"
+      lang={lang}
       aria-modal="true"
       aria-labelledby={judulId}
       onCancel={(event) => {
@@ -291,7 +298,7 @@ export function MasukDialog({
         <button
           type="button"
           onClick={tutup}
-          aria-label="Tutup"
+          aria-label={t.tutup}
           className="m3-state inline-flex size-12 shrink-0 items-center justify-center rounded-full text-[var(--reg-on-surface-variant)]"
         >
           <X size={24} aria-hidden />
@@ -305,10 +312,10 @@ export function MasukDialog({
         <p className="text-body-medium text-[var(--reg-on-surface-variant)]">{keterangan}</p>
         {mode === "tautan" ? (
           <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">
-            Untuk membuat kata sandi pertama kali, atau bila Anda lupa kata sandi.
+            {t.untukPertamaKali}
           </p>
         ) : mode === "sandi" && token ? (
-          <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">Untuk {token.email}.</p>
+          <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">{t.untuk(token.email)}</p>
         ) : null}
 
         <form onSubmit={kirim} className="mt-3 flex flex-col">
@@ -326,7 +333,7 @@ export function MasukDialog({
 
           {mode !== "sandi" && !terkirim ? (
             <label className={`${LABEL} mt-4`}>
-              Email pendaftaran
+              {t.emailLabel}
               <input
                 ref={emailRef}
                 type="email"
@@ -334,7 +341,7 @@ export function MasukDialog({
                 required
                 autoComplete="email"
                 inputMode="email"
-                placeholder="nama@perusahaan.com"
+                placeholder={t.emailPlaceholder}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 aria-invalid={invalid}
@@ -351,11 +358,11 @@ export function MasukDialog({
             <div className={mode === "masuk" ? "mt-1" : "mt-4"}>
               <div className={`flex justify-between gap-4 ${mode === "masuk" ? "min-h-11 items-end" : ""}`}>
                 <label htmlFor={`${judulId}-sandi`} className={LABEL}>
-                  {mode === "masuk" ? "Kata sandi" : "Kata sandi baru"}
+                  {mode === "masuk" ? t.sandiLabel : t.sandiBaruLabel}
                 </label>
                 {mode === "masuk" ? (
                   <button type="button" onClick={() => ganti("tautan")} className={`-mb-3 text-label-large ${TAUTAN}`}>
-                    Lupa kata sandi?
+                    {t.lupa}
                   </button>
                 ) : null}
               </div>
@@ -376,7 +383,7 @@ export function MasukDialog({
               />
               {mode === "sandi" ? (
                 <span id={`${judulId}-catatan`} className="mt-2 block text-body-small text-[var(--reg-on-surface-variant)]">
-                  Minimal {minPassword} karakter.
+                  {t.minimal(minPassword)}
                 </span>
               ) : null}
             </div>
@@ -390,14 +397,14 @@ export function MasukDialog({
             className="m3-state mt-6 min-h-[52px] rounded-md bg-[var(--reg-primary)] px-5 text-title-medium font-semibold text-[var(--reg-on-primary)] aria-disabled:opacity-60"
             style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
           >
-            {sibuk ? "Memproses..." : mode === "masuk" ? "Masuk" : mode === "tautan" ? "Kirim tautan" : "Simpan kata sandi dan masuk"}
+            {sibuk ? t.memproses : t.tombol[mode]}
           </button>}
         </form>
 
         <p className="mt-5 flex flex-wrap items-center gap-x-1 border-t border-[var(--reg-outline-variant)] pt-3 text-body-medium text-[var(--reg-on-surface-variant)]">
-          <span>{mode === "masuk" ? "Belum punya kata sandi?" : "Sudah punya kata sandi?"}</span>
+          <span>{mode === "masuk" ? t.belumPunya : t.sudahPunya}</span>
           <button type="button" onClick={() => ganti(mode === "masuk" ? "tautan" : "masuk")} className={`text-left ${TAUTAN}`}>
-            {mode === "masuk" ? "Kirim tautan ke email" : "Masuk"}
+            {mode === "masuk" ? t.kirimTautan : t.masuk}
           </button>
         </p>
       </div>
