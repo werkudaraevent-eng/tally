@@ -986,7 +986,7 @@ export default function LandingCmsPage() {
             kind="landing"
             fit="contain"
             previewClassName="h-20 w-36"
-            hint="Transparent PNG or SVG in a light colour, so it reads on the KV. Without a tagline, the logo stands in for the event name. Up to 5 MB."
+            hint="Transparent PNG or WebP in a light colour, so it reads on the KV. Without a tagline, the logo stands in for the event name. Up to 5 MB."
             value={landing.hero_logo_url ?? null}
             onChange={(url) => setLanding({ ...landing, hero_logo_url: url })}
             disabled={busy}

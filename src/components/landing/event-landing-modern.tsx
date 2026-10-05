@@ -257,10 +257,11 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     lamaHari ? { ikon: Moon, teks: t.stayLength(lamaHari) } : null,
   ].filter((item): item is NonNullable<typeof item> => item !== null);
   // Gathering: tombol utama warna aksen (emas di rancangan KSO 21), bukan warna merek.
-  const warnaGathering = gaya ? gatheringColors(config.accent, config.theme?.seed) : null;
+  const warnaGathering = gaya ? gatheringColors(config.accent, config.theme?.seed, Boolean(kv)) : null;
   const cta = warnaGathering ? { bg: warnaGathering.cta, fg: warnaGathering.onCta } : heroCtaColors(config.theme?.seed);
   const logoHero = gaya ? config.hero_logo_url?.trim() || null : null;
-  const hitungMundur = gaya ? sisaHari(event.event_date, event.end_date, event.time_zone) : null;
+  const sisa = gaya ? sisaHari(event.event_date, event.end_date, event.time_zone) : null;
+  const hitungMundur = sisa ? t.countdown(sisa.sisa, sisa.hariKe, sisa.lama) : null;
   // Aksi utama saat pendaftaran tertutup: yang memang bisa dilakukan tamu.
   const aksiTertutup = tampil("agenda")
     ? { href: "#agenda", label: t.viewAgenda }
@@ -279,6 +280,9 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         backgroundColor: warnaGathering.sand,
         "--alis": warnaGathering.teks,
         "--aksen": warnaGathering.aksen,
+        "--aksen-angka": warnaGathering.angka,
+        "--hero-alis": warnaGathering.heroAlis,
+        "--hero-angka": warnaGathering.heroAngka,
       } as CSSProperties
     : gayaModern(config, theme);
 
@@ -633,7 +637,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               // Gathering: label kecil "Anda diundang · nama acara" warna aksen
               // terang, lalu logo, lalu tagline sebagai judul ajakan (v3).
               alisGathering ? (
-                <p className={`rise-in mb-4 ${LABEL_BAGIAN} text-[color-mix(in_srgb,var(--aksen)_55%,#fff)]`} style={HERO_DELAY(0)}>
+                <p className={`rise-in mb-4 ${LABEL_BAGIAN} text-[var(--hero-alis)]`} style={HERO_DELAY(0)}>
                   {alisGathering}
                 </p>
               ) : null
@@ -679,8 +683,23 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             ) : null}
             {hitungMundur ? (
               // Hitung mundur dihitung saat halaman dirender (halaman dinamis).
-              <p className="rise-in mt-5 inline-flex h-10 items-center rounded-full border border-[color-mix(in_srgb,var(--aksen)_50%,transparent)] bg-[rgb(0_0_0/0.35)] px-4 text-body-large tabular-nums" style={HERO_DELAY(2)}>
-                <span className="font-semibold text-[var(--aksen)]">{t.countdown(hitungMundur.sisa, hitungMundur.hariKe, hitungMundur.lama)}</span>
+              // Angka warna aksen yang sudah diperiksa terhadap latar hero
+              // (--hero-angka), kalimatnya tinta hero.
+              <p
+                className={`rise-in mt-5 inline-flex h-10 items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--hero-angka)_50%,transparent)] px-4 text-body-large tabular-nums ${
+                  // Tanpa KV tanpa latar: --hero-angka diukur terhadap warna merek itu sendiri.
+                  kv ? "bg-[rgb(0_0_0/0.35)]" : ""
+                }`}
+                style={HERO_DELAY(2)}
+              >
+                {hitungMundur.angka ? (
+                  <>
+                    <span className="text-[17px] font-bold text-[var(--hero-angka)]">{hitungMundur.angka}</span>
+                    <span>{hitungMundur.teks}</span>
+                  </>
+                ) : (
+                  <span className="font-semibold text-[var(--hero-angka)]">{hitungMundur.teks}</span>
+                )}
               </p>
             ) : null}
             {/* Satu tombol filled M3, aksi berpenekanan tertinggi di layar ini.
@@ -695,7 +714,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                   </Link>
                   {tampil("agenda") ? (
                     <a href="#agenda" className={`${PIL_INK_GARIS} justify-center`}>
-                      {t.viewAgenda}
+                      {gaya ? t.seeTrip : t.viewAgenda}
                     </a>
                   ) : null}
                 </>
@@ -706,7 +725,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                   </Link>
                   {tampil("agenda") ? (
                     <a href="#agenda" className={`${PIL_INK_GARIS} justify-center`}>
-                      {t.viewAgenda}
+                      {gaya ? t.seeTrip : t.viewAgenda}
                     </a>
                   ) : null}
                 </>

@@ -35,13 +35,14 @@ export function HariGathering({
           const tanggal = tanggalPanjang(bagian.tanggal, lang);
           return (
             <li
-              key={bagian.sectionTitle ?? index}
+              // Indeks, bukan judul: dua bagian rundown boleh berjudul sama.
+              key={index}
               className="flex flex-col rounded-[20px] border border-[color-mix(in_srgb,var(--alis)_18%,transparent)] bg-[var(--reg-panel)] p-6 sm:p-7"
             >
               <div className="flex items-center gap-3">
                 <span
                   aria-hidden
-                  className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--reg-primary)] text-[18px] font-bold tabular-nums text-[var(--aksen)]"
+                  className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--reg-primary)] text-[18px] font-bold tabular-nums text-[var(--aksen-angka)]"
                 >
                   {index + 1}
                 </span>
@@ -56,10 +57,12 @@ export function HariGathering({
               {cerita ? <p className={`mt-2 whitespace-pre-line text-[15px] leading-[22px] ${MUTED}`}>{cerita}</p> : null}
               {tampil.length > 0 ? (
                 <ul className="mt-5 border-t border-[color-mix(in_srgb,var(--reg-on-surface)_10%,transparent)]">
-                  {tampil.map((item) => (
+                  {tampil.map((item, urutan) => (
                     <li
                       key={item.id}
-                      className="flex gap-3 border-b border-[color-mix(in_srgb,var(--reg-on-surface)_10%,transparent)] py-3 text-[14px] leading-5 last:border-b-0 last:pb-0"
+                      // Jam terakhir yang tampil (acara malam: welcome dinner,
+                      // gala) ditebalkan, seperti rancangan v3.
+                      className={`${urutan === tampil.length - 1 && tampil.length > 1 ? "font-semibold" : ""} flex gap-3 border-b border-[color-mix(in_srgb,var(--reg-on-surface)_10%,transparent)] py-3 text-[14px] leading-5 last:border-b-0 last:pb-0`}
                     >
                       <span className="w-11 shrink-0 font-semibold tabular-nums text-[var(--reg-primary)]">{item.time}</span>
                       <span className="min-w-0">{item.title}</span>
@@ -73,7 +76,7 @@ export function HariGathering({
         })}
       </ol>
       <details className="group">
-        <summary className="m3-state inline-flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-md text-title-medium font-semibold text-[var(--reg-primary)] [&::-webkit-details-marker]:hidden">
+        <summary className="m3-state -mx-3 inline-flex min-h-12 px-3 cursor-pointer list-none items-center gap-2 rounded-md text-title-medium font-semibold text-[var(--reg-primary)] [&::-webkit-details-marker]:hidden">
           {t.fullSchedule}
           <CaretDown size={18} weight="bold" aria-hidden className="transition-transform group-open:rotate-180" />
         </summary>
