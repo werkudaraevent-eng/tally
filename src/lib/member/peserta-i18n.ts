@@ -145,7 +145,7 @@ export const PESERTA_UI: Record<LandingLang, PesertaUiText> = {
       title: "Participant code",
       eventPage: "Event page",
       registered: "Registered",
-      keepLink: "Keep the address of this page. You can open it any time until the event ends.",
+      keepLink: "Save the link to this page. You can open it any time until the event ends.",
       rejectedTitle: "Registration not approved",
       rejectedBody: "Contact the organisers if you think this is a mistake.",
       pendingTitle: "Awaiting approval",

@@ -15,7 +15,7 @@ export function KirimUlangKonfirmasi({ slug, lang = "id" }: { slug: string; lang
 
   async function kirim() {
     setKeadaan("sibuk");
-    const response = await fetch(`/e/${encodeURIComponent(slug)}/api/peserta/konfirmasi`, { method: "POST" }).catch(() => null);
+    const response = await fetch(`/e/${encodeURIComponent(slug)}/api/peserta/konfirmasi${lang === "en" ? "?lang=en" : ""}`, { method: "POST" }).catch(() => null);
     if (response?.ok) {
       setKeadaan("terkirim");
       return;

@@ -44,7 +44,11 @@ import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, type La
  */
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Area peserta", robots: { index: false, follow: false } };
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  // `bahasa` dari proxy (/en/peserta). Alamat yang tidak berlaku dialihkan halamannya.
+  const { bahasa } = await searchParams;
+  return { title: bahasa === "en" ? "Participant area" : "Area peserta", robots: { index: false, follow: false } };
+}
 
 const MUTED = "text-[var(--reg-on-surface-variant)]";
 const HEAD = "[font-family:var(--landing-heading)]";

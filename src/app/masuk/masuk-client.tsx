@@ -32,7 +32,7 @@ export async function kirimMasuk(
   lang: LandingLang = "id",
 ): Promise<{ ok: true } | { ok: false; pesan: string }> {
   const { email, password, token } = isian;
-  const body = mode === "masuk" ? { email, password } : mode === "tautan" ? { email } : { token, password };
+  const body = mode === "masuk" ? { email, password } : mode === "tautan" ? (lang === "en" ? { email, lang } : { email }) : { token, password };
   const response = await fetch(`/e/${encodeURIComponent(slug)}/api/peserta/${mode}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

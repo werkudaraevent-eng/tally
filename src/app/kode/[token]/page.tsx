@@ -1,10 +1,12 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CalendarBlank, CheckCircle, Hourglass, XCircle } from "@phosphor-icons/react/dist/ssr";
+import { HtmlLang } from "@/components/html-lang";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { publicEventName, type EventLandingConfig, type EventRow } from "@/lib/domain";
 import { formatEventSchedule } from "@/lib/event-datetime";
-import { landingDefaultLang, landingEnAvailable, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
+import { LANDING_LANG_LABELS, landingDefaultLang, landingEnAvailable, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
 import { PESERTA_UI } from "@/lib/member/peserta-i18n";
 import { registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -40,13 +42,16 @@ export const dynamic = "force-dynamic";
 // selama ia tidak dipublikasikan, dan satu tautan yang bocor ke indeks berarti
 // setiap kode peserta acara itu dapat ditemukan lewat pencarian.
 export async function generateMetadata({
+  params,
   searchParams,
 }: {
+  params: Promise<{ token: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { bahasa } = await searchParams;
+  const [{ token }, { bahasa }] = await Promise.all([params, searchParams]);
+  const muat = await muatKode(token, typeof bahasa === "string" ? bahasa : null);
   return {
-    title: PESERTA_UI[bahasa === "en" ? "en" : "id"].kode.title,
+    title: PESERTA_UI[muat?.lang ?? "id"].kode.title,
     robots: { index: false, follow: false },
   };
 }
@@ -58,19 +63,15 @@ type Registrasi = {
   participant_id: string | null;
 };
 
-export default async function KodePesertaPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ token: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const { token } = await params;
-  const { bahasa } = await searchParams;
-
+/**
+ * Pendaftaran, acara, kode, dan bahasa halaman untuk satu token. Di-cache per
+ * permintaan: generateMetadata (judul tab) dan halaman memakai hasil yang sama.
+ * Null = 404.
+ */
+const muatKode = cache(async (token: string, bahasa: string | null) => {
   // Bentuk token diperiksa SEBELUM menyentuh database. Tanpa ini, setiap alamat
   // ngawur — termasuk yang dipindai bot — menjadi satu kueri.
-  if (!/^[0-9a-f]{64}$/.test(token)) notFound();
+  if (!/^[0-9a-f]{64}$/.test(token)) return null;
 
   const client = getSupabaseServiceClient();
   const { data } = await client
@@ -80,7 +81,7 @@ export default async function KodePesertaPage({
     .maybeSingle();
 
   const registrasi = data as Registrasi | null;
-  if (!registrasi) notFound();
+  if (!registrasi) return null;
 
   const [acara, peserta, bahasaDaftar] = await Promise.all([
     client.from("events").select("*").eq("id", registrasi.event_id).single(),
@@ -95,13 +96,27 @@ export default async function KodePesertaPage({
   ]);
 
   const asli = acara.data as EventRow | null;
-  if (!asli || asli.status === "archived") notFound();
+  if (!asli || asli.status === "archived") return null;
 
   const kode = (peserta.data as { qr_code: string } | null)?.qr_code ?? null;
   const landingAsli = (asli.landing_config ?? {}) as EventLandingConfig;
   const utama = landingDefaultLang(landingAsli);
   const diminta = bahasa === "en" || bahasa === "id" ? bahasa : bahasaDaftar === "en" || bahasaDaftar === "id" ? bahasaDaftar : null;
   const lang: LandingLang = diminta && landingEnAvailable(landingAsli) ? diminta : utama;
+  return { registrasi, asli, kode, lang, utama };
+});
+
+export default async function KodePesertaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [{ token }, { bahasa }] = await Promise.all([params, searchParams]);
+  const muat = await muatKode(token, typeof bahasa === "string" ? bahasa : null);
+  if (!muat) notFound();
+  const { registrasi, asli, kode, lang, utama } = muat;
   const { event, config: landing } = resolveLanding(asli, lang);
   const p = PESERTA_UI[lang].kode;
   const theme = registrationThemeStyle(resolveFormTheme(event.registration_form_config?.theme, landing.theme));
@@ -118,6 +133,7 @@ export default async function KodePesertaPage({
           "radial-gradient(120% 100% at 82% -10%, color-mix(in srgb, var(--reg-primary) 22%, transparent), transparent 60%), radial-gradient(90% 80% at 0% 0%, color-mix(in srgb, var(--reg-primary) 10%, transparent), transparent 55%)",
       }}
     >
+      <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
       <div className="mx-auto w-full max-w-[560px] px-5 py-12 sm:py-16">
         <Link
           href={halamanAcara}
@@ -132,7 +148,21 @@ export default async function KodePesertaPage({
         {schedule ? (
           <p className="mt-4 inline-flex items-start gap-2 rounded-3xl bg-[var(--reg-primary-container)] px-4 py-2 text-label-large font-semibold text-[var(--reg-on-primary-container)]">
             <CalendarBlank size={18} weight="fill" className="mt-0.5 shrink-0" />
-            {schedule}
+            {/* English: tanggal dan jam masing-masing tidak dipotong, jadi di
+                layar sempit baris patah di " · ", bukan di tengah jam. Versi
+                Indonesia sengaja tidak diubah di sini. */}
+            {lang === "en" ? (
+              <span>
+                {schedule.split(" · ").map((bagian, i) => (
+                  <span key={i}>
+                    {i ? " · " : null}
+                    <span className="whitespace-nowrap">{bagian}</span>
+                  </span>
+                ))}
+              </span>
+            ) : (
+              schedule
+            )}
           </p>
         ) : null}
 

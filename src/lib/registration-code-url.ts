@@ -13,12 +13,17 @@ export function registrationCodeUrl(origin: string, slug: string, token: string 
 }
 
 /**
- * Alamat halaman kode dalam bahasa email: `/e/<slug>/en/kode/<token>` untuk
- * email English bila halaman English acara menyala dan English bukan bahasa
- * utamanya. Selain itu alamatnya tidak diubah (email Indonesia byte-identik).
+ * Tautan email perlu alamat English: email English, halaman English acara
+ * menyala, dan English bukan bahasa utamanya. Selain itu tautan tidak diubah,
+ * jadi email Indonesia byte-identik, juga di acara berbahasa utama English.
  */
+export function alamatEnglish(lang: LandingLang, utama: LandingLang, enTersedia: boolean) {
+  return lang === "en" && utama !== "en" && enTersedia;
+}
+
+/** Alamat halaman kode dalam bahasa email: `/e/<slug>/en/kode/<token>` (lihat alamatEnglish). */
 export function registrationCodeUrlIn(url: string | null | undefined, slug: string, lang: LandingLang, utama: LandingLang, enTersedia: boolean) {
-  if (!url || lang === utama || (lang === "en" && !enTersedia)) return url ?? null;
+  if (!url || !alamatEnglish(lang, utama, enTersedia)) return url ?? null;
   const alamat = new URL(url);
   const awalan = `/e/${encodeURIComponent(slug)}/kode/`;
   if (!alamat.pathname.startsWith(awalan)) return url;
@@ -32,7 +37,7 @@ export function registrationCodeUrlIn(url: string | null | undefined, slug: stri
  * jaminan byte-identik sama dengan registrationCodeUrlIn().
  */
 export function confirmationUrlIn(url: string | null | undefined, lang: LandingLang, utama: LandingLang, enTersedia: boolean) {
-  if (!url || lang === utama || (lang === "en" && !enTersedia)) return url ?? null;
+  if (!url || !alamatEnglish(lang, utama, enTersedia)) return url ?? null;
   const alamat = new URL(url);
   alamat.searchParams.set("bahasa", lang);
   return alamat.toString();

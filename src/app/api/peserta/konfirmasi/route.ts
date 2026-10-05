@@ -41,6 +41,8 @@ export async function POST(request: Request) {
     email: sesi.email,
     name: sesi.name,
     requestUrl: await linkOrigin(request, resolved.event.id),
+    // "Kirim ulang" dari dashboard English: email dan tautannya English.
+    lang: new URL(request.url).searchParams.get("lang") === "en" ? "en" : undefined,
   });
   switch (hasil.status) {
     case "sent":
