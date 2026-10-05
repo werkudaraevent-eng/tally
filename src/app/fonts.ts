@@ -18,7 +18,14 @@ import "./fonts/fallback.css";
 // dari nama konstanta, bukan dari `declarations`. Tidak ada kode yang merujuk
 // nama keluarga secara langsung; semuanya lewat var(--font-*).
 //
-// Hanya subset latin yang di-preload (sama dengan perilaku next/font/google).
+// Yang di-preload hanya subset latin Inter dan Geist Mono, huruf antarmuka yang
+// dipakai hampir setiap layar. Huruf judul layar publik (Montserrat, Oswald,
+// Space Grotesk, Playfair Display, Source Sans 3, dan Ubuntu) TIDAK di-preload:
+// satu acara memakai satu huruf judul, sedangkan preload memasang kelima huruf
+// non-Ubuntu (±145 KB) di setiap halaman, termasuk admin dan pemindai. Peramban
+// hanya mengunduh @font-face yang benar-benar dipakai, jadi halaman acara tetap
+// memuat huruf pilihannya; fallback berukuran menahan geseran saat huruf tiba.
+//
 // Fallback berukuran (`inter Fallback` dst.) ditulis di fonts/fallback.css
 // dengan angka yang sama persis dengan yang dulu dihasilkan next/font/google;
 // adjustFontFallback dimatikan supaya next/font/local tidak menghitung ulang.
@@ -134,6 +141,7 @@ const montserrat = localFont({
     { path: "./fonts/montserrat/montserrat-latin.woff2", weight: "800", style: "normal" },
   ],
   display: "swap",
+  preload: false,
   variable: "--font-geometric",
   fallback: ["montserrat Fallback"],
   adjustFontFallback: false,
@@ -191,6 +199,7 @@ const oswald = localFont({
     { path: "./fonts/oswald/oswald-latin.woff2", weight: "700", style: "normal" },
   ],
   display: "swap",
+  preload: false,
   variable: "--font-condensed",
   fallback: ["oswald Fallback"],
   adjustFontFallback: false,
@@ -223,6 +232,7 @@ const spaceGrotesk = localFont({
     { path: "./fonts/space-grotesk/space-grotesk-latin.woff2", weight: "700", style: "normal" },
   ],
   display: "swap",
+  preload: false,
   variable: "--font-grotesk",
   fallback: ["spaceGrotesk Fallback"],
   adjustFontFallback: false,
@@ -269,6 +279,7 @@ const playfairDisplay = localFont({
     { path: "./fonts/playfair-display/playfair-display-latin.woff2", weight: "800", style: "normal" },
   ],
   display: "swap",
+  preload: false,
   variable: "--font-serif",
   fallback: ["playfairDisplay Fallback"],
   adjustFontFallback: false,
@@ -348,6 +359,7 @@ const sourceSans3 = localFont({
     { path: "./fonts/source-sans-3/source-sans-3-latin.woff2", weight: "700", style: "normal" },
   ],
   display: "swap",
+  preload: false,
   variable: "--font-source",
   fallback: ["sourceSans3 Fallback"],
   adjustFontFallback: false,

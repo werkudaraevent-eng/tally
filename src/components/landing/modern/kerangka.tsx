@@ -1,8 +1,9 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import type { EventLandingConfig, EventRow, LandingSection, LandingSectionId } from "@/lib/domain";
-import { LANDING_HEADING_FONTS, isLandingBlockId, landingBlockHasContent } from "@/lib/domain";
+import { isLandingBlockId, landingBlockHasContent } from "@/lib/domain";
 import { modernNavStyle, modernThemeStyle, registrationThemeStyle } from "@/lib/registration-theme-css";
+import { landingFontStyle, landingTokens } from "@/lib/landing-tokens";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import type { loadAgendaPreview } from "@/lib/landing-agenda";
 import { HEAD, MUTED, SHELL } from "./styles";
@@ -58,16 +59,16 @@ export function tinta(adaKv: boolean): CSSProperties {
 export function gayaModern(config: EventLandingConfig, theme: CSSProperties = registrationThemeStyle(config.theme)): CSSProperties {
   const kv = config.banner_url ?? null;
   // Tanpa pilihan admin, Modern memakai Source Sans 3 (huruf rancangannya).
-  const headingFont = LANDING_HEADING_FONTS[config.heading_font ?? "source"] ?? LANDING_HEADING_FONTS.source;
+  const tokens = landingTokens(config, "modern");
   const navStyle = modernNavStyle(
     config.nav,
     kv ? { ink: "#ffffff", onInk: "#181d27" } : { ink: "var(--reg-on-brand)", onInk: "var(--reg-brand)" },
   );
   return {
     ...theme,
-    ...modernThemeStyle(config.theme?.seed),
+    ...modernThemeStyle(tokens.brand),
     ...navStyle,
-    "--landing-heading": headingFont.cssVar,
+    ...landingFontStyle(tokens),
   } as CSSProperties;
 }
 

@@ -10,7 +10,8 @@ import type {
   LandingSectionId,
   LandingSpeaker,
 } from "@/lib/domain";
-import { LANDING_HEADING_FONTS, LANDING_SECTION_LABELS, isLandingBlockId, landingHeadingFontSize, publicEventName } from "@/lib/domain";
+import { LANDING_SECTION_LABELS, isLandingBlockId, landingHeadingFontSize, publicEventName } from "@/lib/domain";
+import { landingFontStyle, landingTokens } from "@/lib/landing-tokens";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
@@ -226,8 +227,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
     ...(event.venue_name?.trim() ? [{ label: "Tempat", nilai: event.venue_name.trim() }] : []),
   ];
 
-  const headingFont = LANDING_HEADING_FONTS[config.heading_font ?? "serif"] ?? LANDING_HEADING_FONTS.serif;
-  const mainStyle = { ...theme, "--landing-heading": headingFont.cssVar } as CSSProperties;
+  const mainStyle = { ...theme, ...landingFontStyle(landingTokens(config, "editorial")) } as CSSProperties;
 
   const featured = speakers.filter((speaker) => speaker.featured);
   const lainnya = speakers.filter((speaker) => !speaker.featured);

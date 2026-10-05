@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import type { EventLandingConfig, EventRow } from "@/lib/domain";
-import { LANDING_HEADING_FONTS } from "@/lib/domain";
 import { modernThemeStyle, registrationThemeStyle } from "@/lib/registration-theme-css";
+import { landingFontStyle, landingTokens } from "@/lib/landing-tokens";
 
 /**
  * Warna dan huruf judul halaman acara, untuk halaman Masuk dan Area peserta.
@@ -15,12 +15,13 @@ import { modernThemeStyle, registrationThemeStyle } from "@/lib/registration-the
  */
 export function memberPageStyle(event: Pick<EventRow, "landing_config">): CSSProperties {
   const config = (event.landing_config ?? {}) as EventLandingConfig;
-  const netral = config.layout === "modern" || config.layout === "forum";
-  const bawaan = config.layout === "forum" ? "ubuntu" : config.layout === "modern" ? "source" : "serif";
-  const font = LANDING_HEADING_FONTS[config.heading_font ?? bawaan] ?? LANDING_HEADING_FONTS[bawaan];
+  const tokens = landingTokens(config);
   return {
     ...registrationThemeStyle(config.theme),
-    ...(netral ? modernThemeStyle(config.theme?.seed) : null),
-    "--landing-heading": font.cssVar,
+    // Seed apa adanya, bukan tokens.brand: tanpa seed halaman ini memakai biru
+    // bawaan formulir (#2649D0), sedangkan halaman Forum memakai navy bawaannya.
+    // Menyamakannya mengubah tampilan, jadi diputuskan di PR tab Theme.
+    ...(tokens.layout !== "editorial" ? modernThemeStyle(config.theme?.seed) : null),
+    ...landingFontStyle(tokens),
   } as CSSProperties;
 }

@@ -12,6 +12,7 @@ import type {
 } from "@/lib/domain";
 import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
 import { gatheringColors, heroCtaColors } from "@/lib/registration-theme-css";
+import { landingTokens } from "@/lib/landing-tokens";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { jumlahSesi, speakerTabs } from "@/lib/landing-speaker-tabs";
@@ -257,8 +258,9 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     lamaHari ? { ikon: Moon, teks: t.stayLength(lamaHari) } : null,
   ].filter((item): item is NonNullable<typeof item> => item !== null);
   // Gathering: tombol utama warna aksen (emas di rancangan KSO 21), bukan warna merek.
-  const warnaGathering = gaya ? gatheringColors(config.accent, config.theme?.seed, Boolean(kv)) : null;
-  const cta = warnaGathering ? { bg: warnaGathering.cta, fg: warnaGathering.onCta } : heroCtaColors(config.theme?.seed);
+  const tokens = landingTokens(config, "modern");
+  const warnaGathering = gaya ? gatheringColors(tokens.accent ?? undefined, tokens.brand, Boolean(kv)) : null;
+  const cta = warnaGathering ? { bg: warnaGathering.cta, fg: warnaGathering.onCta } : heroCtaColors(tokens.brand);
   const logoHero = gaya ? config.hero_logo_url?.trim() || null : null;
   const sisa = gaya ? sisaHari(event.event_date, event.end_date, event.time_zone) : null;
   const hitungMundur = sisa ? t.countdown(sisa.sisa, sisa.hariKe, sisa.lama) : null;
