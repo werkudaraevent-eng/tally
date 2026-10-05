@@ -45,6 +45,14 @@ export type EventStatus = "draft" | "active" | "completed" | "archived";
  * layar yang dibuka berurutan dalam hitungan detik. Nilai mentah kolom tidak
  * pernah boleh sampai ke layar.
  */
+/**
+ * Batas panjang nama tempat acara, satu angka untuk Create event, Edit details
+ * dan editor Halaman acara. Dulu 160 di dua dialog dan 200 di editor, sehingga
+ * tempat sepanjang 161-200 karakter yang disimpan editor membuat setiap simpan
+ * Edit details ditolak.
+ */
+export const EVENT_VENUE_MAX = 200;
+
 export const EVENT_STATUS_LABEL: Record<EventStatus, string> = {
   draft: "Draft",
   active: "Active",

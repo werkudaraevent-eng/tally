@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { publicEventName } from "@/lib/domain";
+import { EVENT_VENUE_MAX, publicEventName } from "@/lib/domain";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -20,7 +20,7 @@ const patchSchema = z.object({
   name: z.string().trim().min(3).max(120),
   event_date: z.string().date().nullable(),
   time_zone: z.enum(["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"]),
-  venue_name: z.string().trim().max(160).nullable(),
+  venue_name: z.string().trim().max(EVENT_VENUE_MAX).nullable(),
   /** Geser hari-hari agenda sebanyak pergeseran tanggal acara. */
   shift_agenda: z.boolean().default(true),
 });

@@ -6,10 +6,10 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "rea
 import { Button, CONTAINER_PADDING, Dialog, EmptyState, IconButton, PageContainer, PageHeader, Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, SegmentedButton, SelectField, SelectMenu, TextField, usePopoverAnchor } from "@/components/m3";
 import { EventStatusBadge, URUTAN_STATUS } from "@/components/admin/event-status";
 import { UserMenu } from "@/components/admin/user-menu";
-import { EventDetailsDialog } from "@/components/admin/event-details-dialog";
+import { EventDetailsDialog, galatKolomDari, type GalatKolom } from "@/components/admin/event-details-dialog";
 import { ACTIONS, CONFIRM_TEXT, DuplicateEventDialog, type Action } from "@/components/admin/event-actions";
 import { WorkspaceTabs } from "@/components/admin/workspace-tabs";
-import { EVENT_STATUS_LABEL, type EventRow, type EventStatus, type UserRole } from "@/lib/domain";
+import { EVENT_STATUS_LABEL, EVENT_VENUE_MAX, type EventRow, type EventStatus, type UserRole } from "@/lib/domain";
 import { daysUntil } from "@/lib/event-datetime";
 import { cx } from "@/lib/m3/cx";
 import { useQueryState } from "@/lib/url-state";
@@ -266,6 +266,7 @@ export default function EventsPage() {
   }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [galatBuat, setGalatBuat] = useState<GalatKolom>({});
   const [notice, setNotice] = useState("");
   const [creating, setCreating] = useState(false);
   const [duplicating, setDuplicating] = useState<EventRow | null>(null);
@@ -391,6 +392,7 @@ export default function EventsPage() {
   /** Dialog dibuka bersih: galat percobaan sebelumnya tidak ikut terbawa. */
   function bukaBuatEvent() {
     setError("");
+    setGalatBuat({});
     setCreating(true);
   }
 
@@ -399,6 +401,7 @@ export default function EventsPage() {
     const form = new FormData(event.currentTarget);
     setPending(true);
     setError("");
+    setGalatBuat({});
     const response = await fetch("/api/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -414,7 +417,12 @@ export default function EventsPage() {
     setPending(false);
     if (!response) { setError("Connection failed. The event may not have been saved."); return; }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) { setError(body.error?.message ?? "Could not create the event."); return; }
+    if (!response.ok) {
+      const perKolom = galatKolomDari(body);
+      setGalatBuat(perKolom);
+      setError(Object.keys(perKolom).length > 0 ? "" : body.error?.message ?? "Could not create the event.");
+      return;
+    }
     setCreating(false);
     setEvents((current) => [body.event, ...current]);
   }
@@ -796,16 +804,16 @@ export default function EventsPage() {
             di mana. Sumber peserta, pendaftaran publik, dan deskripsi pindah ke
             layarnya masing-masing, tempat semuanya memang diatur dan bisa
             diubah kapan saja. */}
-        <TextField className="mt-5" label="Event name" name="name" required minLength={3} maxLength={120} autoFocus />
+        <TextField className="mt-5" label="Event name" name="name" required minLength={3} maxLength={120} autoFocus error={galatBuat.name} />
         <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_160px]">
-          <TextField label="Date" name="event_date" type="date" optional />
-          <SelectField label="Time zone" name="time_zone" defaultValue="Asia/Jakarta">
+          <TextField label="Date" name="event_date" type="date" optional error={galatBuat.event_date} />
+          <SelectField label="Time zone" name="time_zone" defaultValue="Asia/Jakarta" error={galatBuat.time_zone}>
             <option value="Asia/Jakarta">WIB</option>
             <option value="Asia/Makassar">WITA</option>
             <option value="Asia/Jayapura">WIT</option>
           </SelectField>
         </div>
-        <TextField className={KOLOM} label="Venue" name="venue_name" optional maxLength={160} placeholder="e.g. Pullman Hotel CBD Thamrin" />
+        <TextField className={KOLOM} label="Venue" name="venue_name" optional maxLength={EVENT_VENUE_MAX} placeholder="e.g. Pullman Hotel CBD Thamrin" error={galatBuat.venue_name} />
         <p className="mt-5 rounded-lg bg-surface-container p-3 text-body-small text-on-surface-variant">
           Set up next, from the event: public registration (Registration), Scanner API sync (Event settings, Integrations) and the description (Event page).
         </p>

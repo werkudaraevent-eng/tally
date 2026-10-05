@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Button, Dialog, SelectField, TextField } from "@/components/m3";
-import type { EventRow } from "@/lib/domain";
+import { EVENT_VENUE_MAX, type EventRow } from "@/lib/domain";
 
 /**
  * Data dasar acara: nama, tanggal, zona waktu, tempat.
@@ -20,6 +20,29 @@ export type EventDetails = Pick<EventRow, "id" | "slug" | "name" | "event_date" 
 
 type Info = { agenda_days: number; public_name: string | null };
 
+export type GalatKolom = Partial<Record<"name" | "event_date" | "time_zone" | "venue_name", string>>;
+
+const PESAN_KOLOM: Required<GalatKolom> = {
+  name: "Use 3 to 120 characters.",
+  event_date: "Enter a valid date.",
+  time_zone: "Choose a time zone.",
+  venue_name: `Use at most ${EVENT_VENUE_MAX} characters.`,
+};
+
+/**
+ * Galat 422 per kolom dari `details.fieldErrors` (zod flatten). Pesan umum
+ * "Some of the data sent is not valid." tidak menyebut kolom mana, jadi orang
+ * tidak tahu apa yang harus diperbaiki. Dipakai Create event dan Edit details.
+ */
+export function galatKolomDari(body: unknown): GalatKolom {
+  const kolom = (body as { error?: { details?: { fieldErrors?: Record<string, unknown> } } })?.error?.details?.fieldErrors ?? {};
+  const hasil: GalatKolom = {};
+  for (const kunci of Object.keys(PESAN_KOLOM) as Array<keyof GalatKolom>) {
+    if (kolom[kunci]) hasil[kunci] = PESAN_KOLOM[kunci];
+  }
+  return hasil;
+}
+
 export function EventDetailsDialog({
   event,
   onClose,
@@ -31,6 +54,7 @@ export function EventDetailsDialog({
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [galat, setGalat] = useState<GalatKolom>({});
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -38,6 +62,7 @@ export function EventDetailsDialog({
     const form = new FormData(e.currentTarget);
     setPending(true);
     setError("");
+    setGalat({});
     const response = await fetch(`/api/admin/event-details?eventSlug=${encodeURIComponent(event.slug)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -54,14 +79,19 @@ export function EventDetailsDialog({
     setPending(false);
     if (!response) { setError("Connection failed. The changes may not have been saved."); return; }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) { setError(body.error?.message ?? "Could not save the changes."); return; }
+    if (!response.ok) {
+      const perKolom = galatKolomDari(body);
+      setGalat(perKolom);
+      setError(Object.keys(perKolom).length > 0 ? "" : body.error?.message ?? "Could not save the changes.");
+      return;
+    }
     onSaved(body.event as EventRow);
   }
 
   return (
     <Dialog
       open={event !== null}
-      onClose={() => { setError(""); onClose(); }}
+      onClose={() => { setError(""); setGalat({}); onClose(); }}
       dismissible={!pending}
       size="lg"
       scrollBody
@@ -77,12 +107,12 @@ export function EventDetailsDialog({
     >
       {/* `key`: isi formulir lahir ulang untuk setiap acara yang dibuka, jadi
           nilai awalnya selalu milik acara itu. */}
-      {event ? <Formulir key={event.id} event={event} onSubmit={submit} error={error} /> : null}
+      {event ? <Formulir key={event.id} event={event} onSubmit={submit} error={error} galat={galat} /> : null}
     </Dialog>
   );
 }
 
-function Formulir({ event, onSubmit, error }: { event: EventDetails; onSubmit: (e: FormEvent<HTMLFormElement>) => void; error: string }) {
+function Formulir({ event, onSubmit, error, galat }: { event: EventDetails; onSubmit: (e: FormEvent<HTMLFormElement>) => void; error: string; galat: GalatKolom }) {
   const [info, setInfo] = useState<Info | null>(null);
   const [tanggal, setTanggal] = useState(event.event_date ?? "");
   const [zona, setZona] = useState<string>(event.time_zone ?? "Asia/Jakarta");
@@ -110,11 +140,12 @@ function Formulir({ event, onSubmit, error }: { event: EventDetails; onSubmit: (
         minLength={3}
         maxLength={120}
         defaultValue={event.name}
+        error={galat.name}
         hint={info?.public_name ? `The event page and emails show the public name “${info.public_name}”. Change it in Event page.` : undefined}
       />
       <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_160px]">
-        <TextField label="Date" name="event_date" type="date" optional value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
-        <SelectField label="Time zone" name="time_zone" value={zona} onChange={(e) => setZona(e.target.value)}>
+        <TextField label="Date" name="event_date" type="date" optional value={tanggal} onChange={(e) => setTanggal(e.target.value)} error={galat.event_date} />
+        <SelectField label="Time zone" name="time_zone" error={galat.time_zone} value={zona} onChange={(e) => setZona(e.target.value)}>
           <option value="Asia/Jakarta">WIB</option>
           <option value="Asia/Makassar">WITA</option>
           <option value="Asia/Jayapura">WIT</option>
@@ -132,7 +163,7 @@ function Formulir({ event, onSubmit, error }: { event: EventDetails; onSubmit: (
       {zonaBerubah ? (
         <p className="mt-3 text-body-small text-on-surface-variant">Times stay as written: 09:00 stays 09:00, now in {zona === "Asia/Makassar" ? "WITA" : zona === "Asia/Jayapura" ? "WIT" : "WIB"}.</p>
       ) : null}
-      <TextField className="mt-4" label="Venue" name="venue_name" optional maxLength={160} defaultValue={event.venue_name ?? ""} />
+      <TextField className="mt-4" label="Venue" name="venue_name" optional maxLength={EVENT_VENUE_MAX} defaultValue={event.venue_name ?? ""} error={galat.venue_name} />
       {error ? <p role="alert" className="mt-3 rounded-lg border border-error-soft-outline bg-error-soft p-3 text-body-small text-on-error-soft">{error}</p> : null}
     </form>
   );
