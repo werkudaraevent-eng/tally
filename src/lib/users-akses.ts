@@ -10,9 +10,9 @@
  * Fungsi murni, supaya aturannya diperiksa oleh users-akses.check.ts tanpa
  * database.
  */
-export type BarisAkses = { user_id: string; event_id: string; role: string };
-export type AcaraRingkas = { id: string; slug: string; name: string };
-export type AksesTampil = AcaraRingkas & { role: string };
+export type BarisAkses = { user_id: string; event_id: string; role: string; booth_id?: number | null };
+export type AcaraRingkas = { id: string; slug: string; name: string; archived?: boolean };
+export type AksesTampil = AcaraRingkas & { role: string; booth_id: number | null };
 
 export function acaraTerlihat(pemanggil: { id: string; role: string }, akses: BarisAkses[]): Set<string> | "semua" {
   if (pemanggil.role === "super_admin") return "semua";
@@ -32,7 +32,7 @@ export function aksesPerUser(
     const event = acaraById.get(baris.event_id);
     if (!event) continue;
     const daftar = hasil.get(baris.user_id) ?? [];
-    daftar.push({ id: event.id, slug: event.slug, name: event.name, role: baris.role });
+    daftar.push({ id: event.id, slug: event.slug, name: event.name, role: baris.role, booth_id: baris.booth_id ?? null, ...(event.archived ? { archived: true } : {}) });
     hasil.set(baris.user_id, daftar);
   }
   for (const daftar of hasil.values()) daftar.sort((a, b) => a.name.localeCompare(b.name));
@@ -70,4 +70,23 @@ export function bolehResetPin(pemanggilId: string, targetId: string, akses: Bari
     akses.filter((baris) => baris.user_id === pemanggilId && baris.role === "admin").map((baris) => baris.event_id),
   );
   return akses.some((baris) => baris.user_id === targetId && acaraAdmin.has(baris.event_id));
+}
+
+/** Satu baris akses yang dikirim layar Users & roles: acara, dan booth bila Booth staff. */
+export type AksesMasuk = { event_id: string; booth_id: number | null };
+
+/**
+ * Aturan akses akun, ditegakkan di server (layar hanya meniru):
+ * - selain Super admin, akun wajib punya minimal satu acara;
+ * - satu acara satu baris;
+ * - Booth staff wajib memilih booth di setiap acara.
+ * Super admin tidak boleh punya baris sama sekali: "tanpa baris = semua acara".
+ * Mengembalikan pesan galat dalam bahasa Inggris, atau null bila sah.
+ */
+export function periksaAkses(role: string, baris: AksesMasuk[]): string | null {
+  if (role === "super_admin") return baris.length > 0 ? "Super admins open every event and can't be limited to some." : null;
+  if (baris.length === 0) return "Add at least one event.";
+  if (new Set(baris.map((b) => b.event_id)).size !== baris.length) return "Each event can only be added once.";
+  if (role === "booth" && baris.some((b) => !b.booth_id)) return "Choose a booth for each event.";
+  return null;
 }

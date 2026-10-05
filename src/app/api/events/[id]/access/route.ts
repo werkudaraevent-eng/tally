@@ -81,6 +81,15 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     });
   }
 
+  // Satu peran per akun, berlaku di semua acaranya: peran global juga menentukan
+  // layar tujuan setelah masuk, jadi peran per acara yang berbeda membuat
+  // keduanya tidak sejalan. Peran diubah di Users & roles.
+  if ((user as { role: string }).role !== body.data.role) {
+    return apiError("VALIDATION_ERROR", 422, {
+      message: "This account has a different role. Change its role in Users & roles first.",
+    });
+  }
+
   // Constraint DB (`user_event_access_booth_required`, 23514) menolak ini juga,
   // tapi pesannya sampai ke layar sebagai "kesalahan server".
   const boothId = body.data.role === "booth" ? (body.data.booth_id ?? null) : null;
