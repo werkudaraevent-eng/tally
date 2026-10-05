@@ -209,3 +209,97 @@ export function modernNavStyle(
     "--nav-on-ink-scrolled": lawan(tintaBilah),
   } as CSSProperties;
 }
+
+/** Aksen bawaan gaya gathering: emas, pasangan navy di rancangan KSO 21. */
+export const GATHERING_ACCENT_DEFAULT = "#E9C46A";
+/** Label kecil di atas pasir untuk aksen emas bawaan (rancangan v3). */
+const GATHERING_OKER = "#8A5F10";
+
+/** Warna yang sama dengan kecerahan HSL `terang` (0..1): rona dan saturasi tetap. */
+function ubahTerang(hex: string, terang: number): string {
+  const { r, g, b } = parseHex(hex);
+  const [rr, gg, bb] = [r / 255, g / 255, b / 255];
+  const maks = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const l = (maks + min) / 2;
+  const d = maks - min;
+  const sat = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  let rona = 0;
+  if (d !== 0) {
+    if (maks === rr) rona = ((gg - bb) / d) % 6;
+    else if (maks === gg) rona = (bb - rr) / d + 2;
+    else rona = (rr - gg) / d + 4;
+  }
+  const c = (1 - Math.abs(2 * terang - 1)) * sat;
+  const x = c * (1 - Math.abs((((rona % 6) + 6) % 6) % 2 - 1));
+  const m = terang - c / 2;
+  const sektor = Math.floor((((rona % 6) + 6) % 6));
+  const [r1, g1, b1] = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][sektor];
+  const hexKanal = (v: number) => Math.round(Math.min(255, Math.max(0, (v + m) * 255))).toString(16).padStart(2, "0");
+  return `#${hexKanal(r1)}${hexKanal(g1)}${hexKanal(b1)}`;
+}
+
+/** Kecerahan HSL `hex` (0..1). */
+function terangDari(hex: string): number {
+  const { r, g, b } = parseHex(hex);
+  return (Math.max(r, g, b) + Math.min(r, g, b)) / 510;
+}
+
+/**
+ * `warna` bila terbaca (4.5:1) di atas `latar`; selain itu digeser kecerahannya
+ * (rona tetap) menjauhi latar sampai terbaca. Putih atau tinta gelap bila
+ * pergeseran pun tidak cukup.
+ */
+function terbacaDi(warna: string, latar: string): string {
+  if (kontras(warna, latar) >= 4.5) return warna;
+  const keGelap = kontras(latar, "#000000") >= kontras(latar, "#ffffff");
+  for (let langkah = 1; langkah <= 50; langkah += 1) {
+    const terang = terangDari(warna) + (keGelap ? -1 : 1) * langkah * 0.02;
+    if (terang < 0 || terang > 1) break;
+    const coba = ubahTerang(warna, terang);
+    if (kontras(coba, latar) >= 4.5) return coba;
+  }
+  return keGelap ? "#000000" : "#ffffff";
+}
+
+/** Tinta paling kontras di atas `latar`: merek bila 4.5:1, selain itu putih, tinta gelap, atau hitam. */
+function tintaTerbaik(latar: string, merek: string): string {
+  if (kontras(merek, latar) >= 4.5) return merek;
+  return ["#ffffff", TINTA_GELAP, "#000000"].reduce((terbaik, coba) => (kontras(coba, latar) > kontras(terbaik, latar) ? coba : terbaik));
+}
+
+/**
+ * Warna gaya gathering (preset Gathering, tata letak Modern) dari aksen admin.
+ * Setiap warna teks diperiksa terhadap latar tempat ia benar-benar tampil.
+ *
+ * - `sand`: permukaan halaman, aksen yang sangat diencerkan. Kartu di atasnya putih.
+ * - `cta`/`onCta`: tombol utama hero. Aksen yang terlalu gelap untuk berdiri di
+ *   atas foto gelap (< 3:1 terhadap hitam) jatuh ke putih, sama dengan
+ *   heroCtaColors. Teksnya warna merek bila 4.5:1 (navy di atas emas), selain
+ *   itu tinta yang paling kontras.
+ * - `teks`: label kecil di atas pasir. Aksen yang digelapkan dengan rona tetap
+ *   (emas jadi oker, bukan zaitun) sampai 4.5:1.
+ * - `heroAlis`/`heroAngka`: label kecil dan angka hitung mundur di hero, diukur
+ *   terhadap KV yang dibayangi (kira-kira hitam) atau, tanpa KV, warna merek.
+ * - `angka`: nomor hari di lingkaran warna primary.
+ */
+export function gatheringColors(accent: string | undefined, seed: string | undefined, adaKv: boolean) {
+  const aksen = /^#[0-9a-f]{6}$/i.test(accent ?? "") ? accent! : GATHERING_ACCENT_DEFAULT;
+  const merek = /^#[0-9a-f]{6}$/i.test(seed ?? "") ? seed! : DEFAULT_REGISTRATION_SEED;
+  // Sama dengan --reg-primary dari modernThemeStyle.
+  const primer = kontras(merek, "#ffffff") >= 3 ? merek : TINTA_GELAP;
+  const sand = mixHex(aksen, "#ffffff", 0.86);
+  const cta = kontras(aksen, "#000000") >= 3 ? aksen : "#ffffff";
+  const latarHero = adaKv ? "#000000" : merek;
+  return {
+    aksen,
+    sand,
+    cta,
+    onCta: tintaTerbaik(cta, merek),
+    // Emas bawaan memakai oker yang disetujui di rancangan (audit v2 #5).
+    teks: aksen.toUpperCase() === GATHERING_ACCENT_DEFAULT ? terbacaDi(GATHERING_OKER, sand) : terbacaDi(aksen, sand),
+    heroAlis: terbacaDi(adaKv ? mixHex(aksen, "#ffffff", 0.55) : aksen, latarHero),
+    heroAngka: terbacaDi(aksen, latarHero),
+    angka: terbacaDi(aksen, primer),
+  };
+}

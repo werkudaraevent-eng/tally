@@ -259,6 +259,8 @@ export const landingBodySchema = z.object({
     en_enabled: z.boolean().optional(),
     invite_only: z.boolean().optional(),
     gathering: z.boolean().optional(),
+    hero_logo_url: z.string().url().max(600).nullable().optional(),
+    accent: warna,
     default_lang: z.enum(["id", "en"]).optional(),
     en: z.object({
       public_name: teks(120),

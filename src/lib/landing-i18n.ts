@@ -365,6 +365,13 @@ export type LandingUiText = {
   inviteCta: string;
   stayLength: (days: number) => string;
   day: (n: number) => string;
+  invitedYou: string;
+  /** Pil hitung mundur di hero: null setelah acara selesai (tidak dirender). */
+  /** Angka (tebal, warna aksen) dan sisa kalimatnya; tanpa angka seluruh label ditebalkan. */
+  countdown: (sisa: number, hariKe: number, lama: number) => { angka: string | null; teks: string };
+  seeTrip: string;
+  fullSchedule: string;
+  moreItems: (n: number) => string;
   navTrip: string;
   navHotel: string;
   tripEyebrow: string;
@@ -452,6 +459,12 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     inviteCta: "Masuk untuk lihat tiket & kamar",
     stayLength: (days) => (days > 1 ? `${days} hari ${days - 1} malam` : "1 hari"),
     day: (n) => `Hari ${n}`,
+    invitedYou: "Anda diundang",
+    countdown: (sisa, hariKe, lama) =>
+      sisa > 1 ? { angka: String(sisa), teks: "hari lagi" } : { angka: null, teks: sisa === 1 ? "Besok" : lama > 1 ? `Hari ke-${hariKe} dari ${lama}` : "Hari ini" },
+    seeTrip: "Lihat perjalanannya",
+    fullSchedule: "Lihat jadwal lengkap jam per jam",
+    moreItems: (n) => `+${n} lagi di jadwal lengkap`,
     navTrip: "Perjalanan",
     navHotel: "Hotel",
     tripEyebrow: "Perjalanan",
@@ -532,6 +545,12 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     inviteCta: "Sign in to see your ticket & room",
     stayLength: (days) => (days > 1 ? `${days} days, ${days - 1} night${days - 1 > 1 ? "s" : ""}` : "1 day"),
     day: (n) => `Day ${n}`,
+    invitedYou: "You're invited",
+    countdown: (sisa, hariKe, lama) =>
+      sisa > 1 ? { angka: String(sisa), teks: "days to go" } : { angka: null, teks: sisa === 1 ? "Tomorrow" : lama > 1 ? `Day ${hariKe} of ${lama}` : "Today" },
+    seeTrip: "See the itinerary",
+    fullSchedule: "See the full hour-by-hour schedule",
+    moreItems: (n) => `+${n} more in the full schedule`,
     navTrip: "Itinerary",
     navHotel: "Hotel",
     tripEyebrow: "Itinerary",

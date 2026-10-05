@@ -57,7 +57,8 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     note: "Travel style, invitation only: length of stay in the hero, day-by-day agenda, accommodation, invited guests sign in to see their ticket, room and bus",
     layout: "modern",
     seed: "#0b6e69",
-    heading_font: "source",
+    // Inter saja (rancangan v3 KSO 21, audit v2): kunci "sans" = Inter.
+    heading_font: "sans",
     invite_only: true,
     gathering: true,
   },

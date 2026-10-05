@@ -51,6 +51,7 @@ import { formatEventDate } from "@/lib/event-datetime";
 import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
 import { jumlahLembaga } from "@/lib/landing-speaker-tabs";
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
+import { GATHERING_ACCENT_DEFAULT } from "@/lib/registration-theme-css";
 import { eventApiPath } from "@/lib/event-url";
 import { Kelompok } from "@/components/admin/compact-form";
 import { BilahAtasEditor } from "@/components/admin/landing-nav-editor";
@@ -880,6 +881,8 @@ export default function LandingCmsPage() {
   const tataLetak: LandingLayout = landing.layout ?? "editorial";
   const modern = tataLetak === "modern";
   const forum = tataLetak === "forum";
+  // Gaya gathering (preset Gathering) hanya dibaca tata letak Modern.
+  const gathering = modern && landing.gathering === true;
   // Teks yang tampil di halaman Indonesia tetapi belum punya versi English.
   const kurangEn = landingUntranslated({
     landing_config: { ...landing, sections },
@@ -975,6 +978,21 @@ export default function LandingCmsPage() {
           hint="Never taller than the visitor's screen, so the register button stays visible. On phones 75% of this value."
         />
       </Kelompok>
+
+      {gathering ? (
+        <Kelompok title="Logo" note="Centred in the hero, above the tagline.">
+          <ImageUploadField
+            label="Hero logo"
+            kind="landing"
+            fit="contain"
+            previewClassName="h-20 w-36"
+            hint="Transparent PNG or WebP in a light colour, so it reads on the KV. Without a tagline, the logo stands in for the event name. Up to 5 MB."
+            value={landing.hero_logo_url ?? null}
+            onChange={(url) => setLanding({ ...landing, hero_logo_url: url })}
+            disabled={busy}
+          />
+        </Kelompok>
+      ) : null}
 
       <Kelompok title="Background image (KV)">
         <ImageUploadField
@@ -1232,6 +1250,35 @@ export default function LandingCmsPage() {
     </div>
   ) : null;
 
+  // Keterangan per bagian rundown: kartu Program, atau cerita kartu hari pada gaya gathering.
+  const daftarCatatan = (
+    <div className="flex flex-col gap-3">
+      <p className="text-body-medium font-medium text-on-surface">{gathering ? "Day card stories" : "Programme card descriptions"}</p>
+      <p className="text-body-medium text-on-surface-variant">
+        {gathering
+          ? "One or two sentences per day, in the order of the published agenda sections: story 1 goes with Day 1, and so on. The date, title and key times come from the agenda."
+          : "In the order of the published agenda sections: description 1 goes with the first section shown, and so on. Times and session counts are filled in automatically."}
+      </p>
+      {catatanProgram.map((item, index) => (
+        <div key={index} className="flex items-start gap-2">
+          <TextArea
+            className="min-w-0 flex-1"
+            label={gathering ? `Day ${index + 1} story` : `Programme description ${index + 1}`}
+            rows={2}
+            value={item}
+            onChange={(event) => { const next = [...catatanProgram]; next[index] = event.target.value; setCatatanProgram(next); }}
+          />
+          <IconButton size="sm" label={gathering ? `Delete Day ${index + 1} story` : `Delete description ${index + 1}`} className="mt-6 text-error" onClick={() => hapusCatatanProgram(index)}>
+            <Trash size={16} />
+          </IconButton>
+        </div>
+      ))}
+      <div>
+        <Button variant="outlined" size="sm" icon={<Plus size={16} />} disabled={catatanProgram.length >= 10} onClick={() => setCatatanProgram([...catatanProgram, ""])}>{gathering ? "Add day story" : "Add description"}</Button>
+      </div>
+    </div>
+  );
+
   const isiAgenda = modern ? (
     <div className="flex flex-col gap-5">
       {judulBagian(
@@ -1251,56 +1298,40 @@ export default function LandingCmsPage() {
           onChange={(event) => setLanding({ ...landing, agenda_note: event.target.value })}
         />,
       )}
-      <Kelompok title="Programme cards" note="Large cards made from the agenda sections, shown below About.">
-        <Switch
-          checked={!landing.program_hidden}
-          onChange={(value) => setLanding({ ...landing, program_hidden: !value })}
-          label="Show programme cards"
-          description="Turn off if the main sessions are already in an image card block, so they don't show twice."
-        />
-        {!landing.program_hidden ? (
-          <>
-            <TextField
-              label="Programme section heading"
-              optional
-              placeholder="Program"
-              hint="The Programme section shows when the agenda has two or more sections."
-              value={landing.program_heading ?? ""}
-              onChange={(event) => setLanding({ ...landing, program_heading: event.target.value })}
-            />
-            <TextArea
-              label="Programme intro"
-              optional
-              rows={2}
-              value={landing.program_intro ?? ""}
-              onChange={(event) => setLanding({ ...landing, program_intro: event.target.value })}
-            />
-            <div className="flex flex-col gap-3">
-              <p className="text-body-medium font-medium text-on-surface">Programme card descriptions</p>
-              <p className="text-body-medium text-on-surface-variant">
-                In the order of the published agenda sections: description 1 goes with the first section shown, and so on. Times and session counts are filled in automatically.
-              </p>
-              {catatanProgram.map((item, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <TextArea
-                    className="min-w-0 flex-1"
-                    label={`Programme description ${index + 1}`}
-                    rows={2}
-                    value={item}
-                    onChange={(event) => { const next = [...catatanProgram]; next[index] = event.target.value; setCatatanProgram(next); }}
-                  />
-                  <IconButton size="sm" label={`Delete description ${index + 1}`} className="mt-6 text-error" onClick={() => hapusCatatanProgram(index)}>
-                    <Trash size={16} />
-                  </IconButton>
-                </div>
-              ))}
-              <div>
-                <Button variant="outlined" size="sm" icon={<Plus size={16} />} disabled={catatanProgram.length >= 10} onClick={() => setCatatanProgram([...catatanProgram, ""])}>Add description</Button>
-              </div>
-            </div>
-          </>
-        ) : null}
-      </Kelompok>
+      {gathering ? (
+        <Kelompok title="Day cards" note="One card per agenda section, with up to three key times. The full schedule folds out below the cards.">
+          {daftarCatatan}
+        </Kelompok>
+      ) : (
+        <Kelompok title="Programme cards" note="Large cards made from the agenda sections, shown below About.">
+          <Switch
+            checked={!landing.program_hidden}
+            onChange={(value) => setLanding({ ...landing, program_hidden: !value })}
+            label="Show programme cards"
+            description="Turn off if the main sessions are already in an image card block, so they don't show twice."
+          />
+          {!landing.program_hidden ? (
+            <>
+              <TextField
+                label="Programme section heading"
+                optional
+                placeholder="Program"
+                hint="The Programme section shows when the agenda has two or more sections."
+                value={landing.program_heading ?? ""}
+                onChange={(event) => setLanding({ ...landing, program_heading: event.target.value })}
+              />
+              <TextArea
+                label="Programme intro"
+                optional
+                rows={2}
+                value={landing.program_intro ?? ""}
+                onChange={(event) => setLanding({ ...landing, program_intro: event.target.value })}
+              />
+              {daftarCatatan}
+            </>
+          ) : null}
+        </Kelompok>
+      )}
     </div>
   ) : null;
 
@@ -1501,6 +1532,13 @@ export default function LandingCmsPage() {
             : "The registration page uses its own colour. Two colours in two taps in a row feel like moving to another site."}
         />
         {!formInherit ? <PilihWarna label="Form colour" value={formSeed} onChange={setFormSeed} /> : null}
+        {gathering ? (
+          <PilihWarna
+            label="Accent colour"
+            value={landing.accent ?? GATHERING_ACCENT_DEFAULT}
+            onChange={(value) => setLanding({ ...landing, accent: value })}
+          />
+        ) : null}
       </Kelompok>
       {forum ? <ForumTema landing={landing} setLanding={setLanding} PilihWarna={PilihWarna} /> : null}
     </div>

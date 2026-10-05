@@ -1023,6 +1023,16 @@ export type EventLandingConfig = {
    */
   gathering?: boolean;
   /**
+   * Logo di tengah hero gaya gathering, di atas judul ajakan. Kosong = hero
+   * tanpa logo. Acara lain tidak membacanya.
+   */
+  hero_logo_url?: string | null;
+  /**
+   * Warna aksen gaya gathering: tombol utama hero, label kecil, angka hari, dan
+   * permukaan pasir (aksen yang diencerkan). Bawaan emas #E9C46A.
+   */
+  accent?: string;
+  /**
    * Bahasa di alamat utama `/e/<slug>` (bawaan "id"). "en" hanya berlaku
    * selama versi English menyala; lihat landingDefaultLang.
    */
