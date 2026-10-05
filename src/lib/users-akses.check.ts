@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { acaraTerlihat, aksesPerUser, akunTerlihat, bolehResetPin, type AcaraRingkas, type BarisAkses } from "./users-akses.ts";
+import { acaraTerlihat, aksesPerUser, akunTerlihat, bolehResetPin, periksaAkses, type AcaraRingkas, type BarisAkses } from "./users-akses.ts";
 
 const acara: AcaraRingkas[] = [
   { id: "a", slug: "acara-a", name: "Acara A" },
@@ -47,5 +47,14 @@ assert.equal(akunTerlihat({ id: "pemilik", role: "super_admin" }, aksesAkun, aku
 assert.equal(bolehResetPin("admin-a", "kasir", aksesAkun), true);
 assert.equal(bolehResetPin("admin-a", "booth-b", aksesAkun), false);
 assert.equal(bolehResetPin("kasir", "admin-a", aksesAkun), false);
+
+// Aturan akses akun.
+assert.equal(periksaAkses("super_admin", []), null);
+assert.notEqual(periksaAkses("super_admin", [{ event_id: "a", booth_id: null }]), null);
+assert.equal(periksaAkses("cashier", []), "Add at least one event.");
+assert.equal(periksaAkses("cashier", [{ event_id: "a", booth_id: null }]), null);
+assert.notEqual(periksaAkses("admin", [{ event_id: "a", booth_id: null }, { event_id: "a", booth_id: null }]), null);
+assert.equal(periksaAkses("booth", [{ event_id: "a", booth_id: 3 }, { event_id: "b", booth_id: null }]), "Choose a booth for each event.");
+assert.equal(periksaAkses("booth", [{ event_id: "a", booth_id: 3 }]), null);
 
 console.log("users-akses: ok");

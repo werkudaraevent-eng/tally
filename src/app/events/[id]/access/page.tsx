@@ -115,16 +115,18 @@ export default function EventAccessPage() {
 
         <form onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); void grant(new FormData(e.currentTarget)); }} className="rounded-lg h-fit border border-outline-variant bg-panel p-6">
           <h2 className="flex items-center gap-2 text-body-medium font-semibold uppercase"><ShieldCheck size={18} className="text-primary" /> Give access</h2>
-          <label className="mt-5 block text-body-medium font-semibold">User<select required name="user_id" className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3">
+          <label className="mt-5 block text-body-medium font-semibold">User<select required name="user_id" onChange={(e) => { const chosen = users.find((user) => user.id === e.target.value); if (chosen && chosen.role !== "super_admin") setRole(chosen.role as Role); }} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3">
             <option value="">Choose a user…</option>
             {grantable.map((user) => <option key={user.id} value={user.id}>{user.username}</option>)}
           </select></label>
-          <label className="mt-4 block text-body-medium font-semibold">Role at this event<select name="role" value={role} onChange={(e) => setRole(e.target.value as Role)} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3">
+          <label className="mt-4 block text-body-medium font-semibold">Role at this event<select name="role" value={role} disabled aria-describedby="peran-dari-akun" className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3 disabled:opacity-70">
             <option value="booth">{ROLE_LABEL.booth}</option>
             <option value="cashier">{ROLE_LABEL.cashier}</option>
             <option value="scanner">{ROLE_LABEL.scanner}</option>
             <option value="admin">{ROLE_LABEL.admin}</option>
-          </select></label>
+          </select>
+          <span id="peran-dari-akun" className="mt-2 block text-body-small font-normal text-on-surface-variant">Comes from the account. Change it in Users &amp; roles.</span></label>
+          <input type="hidden" name="role" value={role} />
           {role === "booth" && <label className="mt-4 block text-body-medium font-semibold">Booth
             <select required name="booth_id" className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3">
               <option value="">Choose a booth…</option>

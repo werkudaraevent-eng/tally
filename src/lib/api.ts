@@ -24,7 +24,7 @@ const messages: Record<ApiErrorCode, string> = {
   PARTICIPANT_REMOVED: "Peserta ini sudah dihapus panitia pusat, jadi order tidak dapat dibuat. Arahkan peserta ke meja registrasi.",
   DISCOUNT_QUOTA_REACHED: "Peserta sudah mencapai batas maksimum item diskon.",
   DISCOUNT_NOT_OFFERED: "Booth ini tidak menyediakan item diskon.",
-  USERNAME_TAKEN: "Username sudah dipakai. Gunakan username lain.",
+  USERNAME_TAKEN: "This username is taken. Choose another.",
   USER_NOT_FOUND: "User tidak ditemukan.",
   BOOTH_NOT_FOUND: "Booth tidak ditemukan.",
   BOOTH_WITHOUT_TRANSACTIONS: "Booth ini disetel tanpa transaksi, jadi nominal item reguler harus Rp 0.",

@@ -71,3 +71,22 @@ export function bolehResetPin(pemanggilId: string, targetId: string, akses: Bari
   );
   return akses.some((baris) => baris.user_id === targetId && acaraAdmin.has(baris.event_id));
 }
+
+/** Satu baris akses yang dikirim layar Users & roles: acara, dan booth bila Booth staff. */
+export type AksesMasuk = { event_id: string; booth_id: number | null };
+
+/**
+ * Aturan akses akun, ditegakkan di server (layar hanya meniru):
+ * - selain Super admin, akun wajib punya minimal satu acara;
+ * - satu acara satu baris;
+ * - Booth staff wajib memilih booth di setiap acara.
+ * Super admin tidak boleh punya baris sama sekali: "tanpa baris = semua acara".
+ * Mengembalikan pesan galat dalam bahasa Inggris, atau null bila sah.
+ */
+export function periksaAkses(role: string, baris: AksesMasuk[]): string | null {
+  if (role === "super_admin") return baris.length > 0 ? "Super admins open every event and can't be limited to some." : null;
+  if (baris.length === 0) return "Add at least one event.";
+  if (new Set(baris.map((b) => b.event_id)).size !== baris.length) return "Each event can only be added once.";
+  if (role === "booth" && baris.some((b) => !b.booth_id)) return "Choose a booth for each event.";
+  return null;
+}

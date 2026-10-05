@@ -68,6 +68,12 @@ export type DialogProps = {
 	 * kabar apakah aksinya jadi.
 	 */
 	dismissible?: boolean;
+	/**
+	 * Di bawah `sm` dialog memenuhi layar (M3 full-screen dialog): untuk formulir
+	 * panjang yang di ponsel tidak muat sebagai kartu melayang, dan yang kepala
+	 * serta baris tombolnya harus tetap terlihat.
+	 */
+	fullScreenOnMobile?: boolean;
 	className?: string;
 };
 
@@ -90,6 +96,7 @@ export function Dialog({
 	size = "sm",
 	tone = "neutral",
 	dismissible = true,
+	fullScreenOnMobile = false,
 	className,
 }: DialogProps) {
 	const id = useId();
@@ -163,7 +170,7 @@ export function Dialog({
 			{open ? (
 				<motion.div
 					key="scrim"
-					className="fixed inset-0 z-50 flex items-end justify-center bg-scrim/50 p-4 sm:items-center"
+					className={cx("fixed inset-0 z-50 flex items-end justify-center bg-scrim/50 p-4 sm:items-center", fullScreenOnMobile && "max-sm:p-0")}
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0, transition: { duration: 0.12 } }}
@@ -186,6 +193,7 @@ export function Dialog({
 						className={cx(
 							"max-h-[90dvh] w-full overflow-y-auto rounded-2xl text-on-surface shadow-level3 outline-none",
 							bare ? "bg-surface-container" : "bg-surface-container-high p-6",
+							fullScreenOnMobile && "max-sm:h-dvh max-sm:max-h-none max-sm:rounded-none",
 							SIZE[size],
 							className,
 						)}
