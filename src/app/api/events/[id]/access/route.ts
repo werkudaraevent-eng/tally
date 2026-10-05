@@ -14,7 +14,7 @@ const idSchema = z.string().uuid();
  */
 const grantSchema = z.object({
   user_id: z.string().uuid(),
-  role: z.enum(["booth", "cashier", "admin"]),
+  role: z.enum(["booth", "cashier", "scanner", "admin"]),
   booth_id: z.number().int().positive().nullable().optional(),
 });
 
@@ -27,7 +27,7 @@ async function loadEvent(id: string) {
 }
 
 const eventMissing = () =>
-  apiError("VALIDATION_ERROR", 404, { message: "Event tidak ditemukan. Muat ulang daftarnya." });
+  apiError("VALIDATION_ERROR", 404, { message: "Event not found. Reload the list." });
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const auth = await requireUser(["super_admin"]);
@@ -77,7 +77,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   if (!user) return apiError("USER_NOT_FOUND", 404);
   if ((user as { role: string }).role === "super_admin") {
     return apiError("VALIDATION_ERROR", 422, {
-      message: "Super admin sudah otomatis punya akses ke semua event. Tidak perlu didaftarkan di sini.",
+      message: "Super admins already have access to every event. They don't need to be added here.",
     });
   }
 
@@ -85,7 +85,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   // tapi pesannya sampai ke layar sebagai "kesalahan server".
   const boothId = body.data.role === "booth" ? (body.data.booth_id ?? null) : null;
   if (body.data.role === "booth" && boothId === null) {
-    return apiError("VALIDATION_ERROR", 422, { message: "Peran Admin Booth wajib memilih booth." });
+    return apiError("VALIDATION_ERROR", 422, { message: "Choose a booth for Booth staff." });
   }
   if (boothId !== null) {
     const { data: booth } = await client
