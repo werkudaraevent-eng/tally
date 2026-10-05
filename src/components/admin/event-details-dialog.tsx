@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Button, Dialog, SelectField, TextField } from "@/components/m3";
 import type { EventRow } from "@/lib/domain";
 
@@ -12,11 +12,13 @@ import type { EventRow } from "@/lib/domain";
  * staf serta slug-nya. Dialog ini dibuka dari menu ⋯ di daftar acara dan dari
  * kepala dashboard, dua tempat orang mencari "ubah acara ini".
  *
- * Kolomnya sama persis dengan dialog Create event, supaya yang diisi di awal
- * dan yang diubah kemudian tidak pernah terbaca sebagai dua hal berbeda.
+ * Kolomnya sama dengan dialog Create event, supaya yang diisi di awal dan yang
+ * diubah kemudian tidak pernah terbaca sebagai dua hal berbeda.
  */
 
-export type EventDetails = Pick<EventRow, "id" | "name" | "event_date" | "time_zone" | "venue_name">;
+export type EventDetails = Pick<EventRow, "id" | "slug" | "name" | "event_date" | "time_zone" | "venue_name">;
+
+type Info = { agenda_days: number; public_name: string | null };
 
 export function EventDetailsDialog({
   event,
@@ -36,15 +38,17 @@ export function EventDetailsDialog({
     const form = new FormData(e.currentTarget);
     setPending(true);
     setError("");
-    const response = await fetch(`/api/events/${event.id}`, {
+    const response = await fetch(`/api/admin/event-details?eventSlug=${encodeURIComponent(event.slug)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "edit",
         name: form.get("name"),
         event_date: form.get("event_date") || null,
         time_zone: form.get("time_zone"),
         venue_name: form.get("venue_name") || null,
+        // Kotak centang hanya ada saat tanggal berubah dan agenda punya hari;
+        // tanpa kotak, tidak ada yang perlu digeser.
+        shift_agenda: form.get("shift_agenda") === "on",
       }),
     }).catch(() => null);
     setPending(false);
@@ -60,30 +64,76 @@ export function EventDetailsDialog({
       onClose={() => { setError(""); onClose(); }}
       dismissible={!pending}
       size="lg"
+      scrollBody
       fullScreenOnMobile
       title="Edit details"
-      description="Changes show on the event page, emails and badges straight away."
+      description="The event link stays the same. Emails already sent keep the old details."
       actions={
         <>
           <Button variant="outlined" disabled={pending} onClick={onClose} className="max-sm:hidden">Cancel</Button>
-          <Button type="submit" form="ubah-detail-acara" loading={pending}>Save</Button>
+          <Button type="submit" form="ubah-detail-acara" loading={pending}>Save changes</Button>
         </>
       }
     >
-      {/* `key`: nilai bawaan mengikuti acara yang sedang dibuka. */}
-      <form key={event?.id} id="ubah-detail-acara" onSubmit={submit}>
-        <TextField className="mt-5" label="Event name" name="name" required minLength={3} maxLength={120} defaultValue={event?.name ?? ""} />
-        <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_160px]">
-          <TextField label="Date" name="event_date" type="date" optional defaultValue={event?.event_date ?? ""} />
-          <SelectField label="Time zone" name="time_zone" defaultValue={event?.time_zone ?? "Asia/Jakarta"}>
-            <option value="Asia/Jakarta">WIB</option>
-            <option value="Asia/Makassar">WITA</option>
-            <option value="Asia/Jayapura">WIT</option>
-          </SelectField>
-        </div>
-        <TextField className="mt-4" label="Venue" name="venue_name" optional maxLength={160} defaultValue={event?.venue_name ?? ""} />
-        {error ? <p role="alert" className="mt-3 rounded-lg border border-error-soft-outline bg-error-soft p-3 text-body-small text-on-error-soft">{error}</p> : null}
-      </form>
+      {/* `key`: isi formulir lahir ulang untuk setiap acara yang dibuka, jadi
+          nilai awalnya selalu milik acara itu. */}
+      {event ? <Formulir key={event.id} event={event} onSubmit={submit} error={error} /> : null}
     </Dialog>
+  );
+}
+
+function Formulir({ event, onSubmit, error }: { event: EventDetails; onSubmit: (e: FormEvent<HTMLFormElement>) => void; error: string }) {
+  const [info, setInfo] = useState<Info | null>(null);
+  const [tanggal, setTanggal] = useState(event.event_date ?? "");
+  const [zona, setZona] = useState<string>(event.time_zone ?? "Asia/Jakarta");
+
+  useEffect(() => {
+    let batal = false;
+    void fetch(`/api/admin/event-details?eventSlug=${encodeURIComponent(event.slug)}`, { cache: "no-store" })
+      .then(async (r) => (r.ok ? ((await r.json()) as Info) : null))
+      .then((hasil) => { if (!batal) setInfo(hasil); })
+      .catch(() => {});
+    return () => { batal = true; };
+  }, [event.slug]);
+
+  const tanggalBerubah = Boolean(event.event_date && tanggal && tanggal !== event.event_date);
+  const zonaBerubah = zona !== event.time_zone;
+  const hariAgenda = info?.agenda_days ?? 0;
+
+  return (
+    <form id="ubah-detail-acara" onSubmit={onSubmit}>
+      <TextField
+        className="mt-5"
+        label="Event name"
+        name="name"
+        required
+        minLength={3}
+        maxLength={120}
+        defaultValue={event.name}
+        hint={info?.public_name ? `The event page and emails show the public name “${info.public_name}”. Change it in Event page.` : undefined}
+      />
+      <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_160px]">
+        <TextField label="Date" name="event_date" type="date" optional value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+        <SelectField label="Time zone" name="time_zone" value={zona} onChange={(e) => setZona(e.target.value)}>
+          <option value="Asia/Jakarta">WIB</option>
+          <option value="Asia/Makassar">WITA</option>
+          <option value="Asia/Jayapura">WIT</option>
+        </SelectField>
+      </div>
+      {/* Hari agenda menyimpan tanggalnya sendiri (strip agenda, badge,
+          rundown publik). Tanpa digeser, acara pindah tanggal sementara
+          agendanya tetap di tanggal lama. */}
+      {tanggalBerubah && hariAgenda > 0 ? (
+        <label className="mt-3 flex cursor-pointer items-start gap-2.5 text-body-medium">
+          <input type="checkbox" name="shift_agenda" defaultChecked className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
+          <span>Move {hariAgenda === 1 ? "the agenda day" : `${hariAgenda} agenda days`} by the same amount</span>
+        </label>
+      ) : null}
+      {zonaBerubah ? (
+        <p className="mt-3 text-body-small text-on-surface-variant">Times stay as written: 09:00 stays 09:00, now in {zona === "Asia/Makassar" ? "WITA" : zona === "Asia/Jayapura" ? "WIT" : "WIB"}.</p>
+      ) : null}
+      <TextField className="mt-4" label="Venue" name="venue_name" optional maxLength={160} defaultValue={event.venue_name ?? ""} />
+      {error ? <p role="alert" className="mt-3 rounded-lg border border-error-soft-outline bg-error-soft p-3 text-body-small text-on-error-soft">{error}</p> : null}
+    </form>
   );
 }

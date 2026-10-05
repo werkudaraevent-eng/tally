@@ -41,7 +41,8 @@ export async function GET(request: Request) {
   if (auth.response) return auth.response;
   const { data, error } = await getSupabaseServiceClient().from("event_settings").select(SELECT).eq("event_id", auth.scope.event.id).single();
   if (error) return apiError("INTERNAL_ERROR", 500);
-  return Response.json({ ...(data as object), email_default: pengirimBawaan() });
+  // Zona waktu dari kolom acara, sumber tunggalnya (lihat PATCH di bawah).
+  return Response.json({ ...(data as object), time_zone: auth.scope.event.time_zone ?? (data as { time_zone?: string }).time_zone, email_default: pengirimBawaan() });
 }
 
 export async function PATCH(request: Request) {
@@ -73,5 +74,5 @@ export async function PATCH(request: Request) {
 
   await client.from("audit_logs").insert({ event_id: auth.scope.event.id, user_id: auth.user.id, action: "settings_update", payload: { old: current, new: data, auto_settled_orders: autoSettled } } as never);
   forgetEventSender(auth.scope.event.id);
-  return Response.json({ ...(data as object), email_default: pengirimBawaan(), auto_settled_orders: autoSettled });
+  return Response.json({ ...(data as object), time_zone: parsed.data.time_zone ?? auth.scope.event.time_zone, email_default: pengirimBawaan(), auto_settled_orders: autoSettled });
 }

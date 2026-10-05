@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowsClockwise, Info, XCircle } from "@phosphor-icons/react";
+import { ArrowsClockwise, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { Banner, Button, Dialog, KeyValue, Pane, PaneBody, PaneFooter, PaneHeader, SelectMenu, StatusDot, TextField } from "@/components/m3";
+import { Banner, Button, Dialog, KeyValue, Pane, PaneBody, PaneFooter, PaneHeader, SelectMenu, Switch, TextField } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { bacaLokal, langgananLokal, tulisLokal } from "@/lib/local-store";
 import { plural } from "@/lib/plural";
@@ -68,14 +68,6 @@ export function useAutoSync() {
   const setMenit = useCallback((nilai: number) => tulisLokal(KUNCI_AUTO, nilai), []);
   return { menit, setMenit };
 }
-
-/** Nama sumber peserta dalam bahasa panitia. Nilai kolomnya tetap ditampilkan kecil. */
-const LABEL_SUMBER: Record<string, string> = {
-  public_form: "Public form",
-  scanner_api: "Scanner API",
-  manual: "Manual",
-  hybrid: "Combined",
-};
 
 export function useScannerConfig() {
   const [config, setConfig] = useState<ScannerConfig | null>(null);
@@ -212,6 +204,27 @@ export function ScannerPanel() {
 
   const sumber = config?.participant_source ?? "";
   const dipakai = ["scanner_api", "hybrid"].includes(sumber);
+  const [mengubahSync, setMengubahSync] = useState(false);
+
+  async function aturSync(nyala: boolean) {
+    setMengubahSync(true);
+    const response = await fetch("/api/admin/participants/scanner-config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sync_enabled: nyala }),
+    }).catch(() => null);
+    setMengubahSync(false);
+    const body = await response?.json().catch(() => ({}));
+    if (!response?.ok) {
+      const pesan = body?.error?.details?.message ?? body?.error?.message ?? "Couldn't change sync.";
+      toast.error(nyala ? "Couldn't turn sync on" : "Couldn't turn sync off", pesan);
+      // Slug belum ada: formulirnya langsung dibuka, karena itulah langkahnya.
+      if (nyala && !config?.event_slug) bukaUbah();
+      return;
+    }
+    toast.success(nyala ? "Sync turned on" : "Sync turned off");
+    void muat();
+  }
 
   return (
     <div lang="en" className="contents">
@@ -242,23 +255,19 @@ export function ScannerPanel() {
             </div>
           ) : (
             <>
-              {/* Keterangan, bukan peringatan: warnanya sendiri dulu membuat orang
-                  mengira ada yang rusak. */}
-              {!dipakai ? (
-                <div className="px-5 pt-4">
-                  <Banner tone="info" icon={<Info size={16} />}>
-                    The participant source for this event is {LABEL_SUMBER[sumber] ?? sumber}, so scheduled sync skips it. The settings below are still saved if you fill them in.
-                  </Banner>
-                </div>
-              ) : null}
+              {/* Sakelar sumber peserta. Dulu hanya bisa dipilih saat acara
+                  dibuat, lalu terkunci; sekarang inilah tempatnya. */}
+              <div className="border-b border-outline-variant px-5 py-4">
+                <Switch
+                  checked={dipakai}
+                  onChange={(nyala) => void aturSync(nyala)}
+                  disabled={mengubahSync}
+                  label="Sync participants from Scanner API"
+                  description="The participant list syncs every 5 minutes from the scanner system. Names, organisations and QR codes are managed there, not here. Adding and importing participants here keeps working either way."
+                />
+              </div>
 
               <dl className="flex flex-col gap-3 px-5 py-4">
-                <KeyValue label="Sync status">
-                  <span className="inline-flex items-center gap-1.5">
-                    <StatusDot tone={dipakai ? "success" : "neutral"} />
-                    {dipakai ? "Active" : <span className="text-on-surface-variant">Not used by this event</span>}
-                  </span>
-                </KeyValue>
                 <KeyValue label="Base URL">{config.base_url ?? (config.env_fallback.base_url ? <DariEnv /> : <BelumDiatur />)}</KeyValue>
                 <KeyValue label="Event slug">{config.event_slug ?? (config.env_fallback.event_slug ? <DariEnv /> : <BelumDiatur />)}</KeyValue>
                 <KeyValue label="API key">{config.key_masked ?? (config.env_fallback.key ? <DariEnv /> : <BelumDiatur />)}</KeyValue>

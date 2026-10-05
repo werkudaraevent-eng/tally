@@ -32,14 +32,17 @@ import { standard } from "@/lib/m3/motion";
  * kembali ke tombol yang membukanya, supaya Tab berikutnya melanjutkan dari
  * tempat pengguna berhenti, bukan dari awal halaman.
  *
- * ---- Gulir -------------------------------------------------------------------
+ * ---- Gulir (`scrollBody`) -----------------------------------------------------
  *
- * Yang bergulir hanya ISI. Judul dan baris tombol tetap di tempatnya, seperti
+ * Dengan `scrollBody`, yang bergulir hanya ISI. Judul dan baris tombol tetap di tempatnya, seperti
  * spesifikasi M3: dialog yang lebih panjang dari layar menggulir kontennya,
  * bukan dirinya. Sebelumnya seluruh panel yang bergulir, jadi di 1280x588 judul
  * "Create a draft event" hilang begitu formulirnya digulir dan tombol Create
  * baru terlihat di dasar. Garis pemisah muncul hanya saat isinya memang lebih
  * panjang dari panel, karena garis di dialog pendek tidak memisahkan apa pun.
+ * Opt-in, bukan bawaan: sembilan puluh lebih dialog di aplikasi ini disusun
+ * dengan asumsi panel yang bergulir, dan mengubah semuanya sekaligus butuh
+ * pemeriksaan satu per satu.
  */
 
 const FOCUSABLE =
@@ -85,6 +88,8 @@ export type DialogProps = {
 	 * kolom, sesuai pola full-screen dialog M3 untuk perangkat seluler.
 	 */
 	fullScreenOnMobile?: boolean;
+	/** Judul dan tombol tetap; hanya isi yang bergulir. Lihat "Gulir" di atas. */
+	scrollBody?: boolean;
 	className?: string;
 };
 
@@ -108,12 +113,15 @@ export function Dialog({
 	tone = "neutral",
 	dismissible = true,
 	fullScreenOnMobile = false,
+	scrollBody: scrollBodyProp = false,
 	className,
 }: DialogProps) {
 	const id = useId();
 	const titleId = `${id}-title`;
 	const descriptionId = `${id}-description`;
 	const panel = useRef<HTMLDivElement>(null);
+	// Layar penuh tanpa isi bergulir berarti tombolnya terdorong keluar layar.
+	const scrollBody = scrollBodyProp || fullScreenOnMobile;
 	const [isi, setIsi] = useState<HTMLDivElement | null>(null);
 	const [bergulir, setBergulir] = useState(false);
 
@@ -217,7 +225,7 @@ export function Dialog({
 						tabIndex={-1}
 						className={cx(
 							"max-h-[90dvh] w-full rounded-2xl text-on-surface shadow-level3 outline-none",
-							bare ? "overflow-y-auto bg-surface-container" : "flex flex-col overflow-hidden bg-surface-container-high",
+							bare ? "overflow-y-auto bg-surface-container" : scrollBody ? "flex flex-col overflow-hidden bg-surface-container-high" : "overflow-y-auto bg-surface-container-high p-6",
 							fullScreenOnMobile && "max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none",
 							SIZE[size],
 							className,
@@ -227,7 +235,29 @@ export function Dialog({
 						exit={{ opacity: 0, scale: 0.98, y: 4, transition: { duration: 0.12 } }}
 						transition={{ ...standard.spatial.default, opacity: standard.effects.default }}
 					>
-						{bare ? children : <>
+						{bare ? children : !scrollBody ? <>
+						<div className="flex items-start gap-3">
+							{icon ? (
+								<span className={cx("mt-0.5 shrink-0", tone === "danger" ? "text-error" : "text-primary")} aria-hidden>
+									{icon}
+								</span>
+							) : null}
+							<div className="min-w-0 flex-1">
+								<h2 id={titleId} className={cx("text-title-large font-semibold", tone === "danger" && "text-error")}>
+									{title}
+								</h2>
+								{description ? (
+									<p id={descriptionId} className="mt-2 text-body-medium leading-6 text-on-surface-variant">
+										{description}
+									</p>
+								) : null}
+							</div>
+						</div>
+
+						{children}
+
+						{actions ? <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">{actions}</div> : null}
+						</> : <>
 						<div className={cx("flex shrink-0 items-start gap-3 px-6 pt-6", bergulir ? "border-b border-outline-variant pb-4" : null, fullScreenOnMobile && "max-sm:px-4 max-sm:pt-2")}>
 							{fullScreenOnMobile ? (
 								<span className="-ml-2 sm:hidden">

@@ -48,7 +48,9 @@ export async function GET(request: Request) {
 
   // Setelan yang gagal dibaca tidak menggagalkan rundown: normalizeTimeZone
   // menjatuhkannya ke WIB, dan jadwalnya tetap tampil.
-  const timeZone = normalizeTimeZone((settingsResult.data as { time_zone?: string } | null)?.time_zone);
+  // events.time_zone adalah satu-satunya sumber zona waktu; kolom event_settings
+  // hanya cadangan untuk baris lama yang belum punya nilai.
+  const timeZone = normalizeTimeZone(event.time_zone ?? (settingsResult.data as { time_zone?: string } | null)?.time_zone);
   // Header yang gagal dibaca jatuh ke nilai bawaan, bukan menggagalkan halaman:
   // jadwal tetap jauh lebih berguna bagi tamu daripada layar error.
   const header = (headerResult.data as unknown as RundownHeader | null) ?? DEFAULT_HEADER;

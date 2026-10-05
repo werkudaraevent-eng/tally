@@ -7,6 +7,7 @@ import { Button, CONTAINER_PADDING, Dialog, EmptyState, IconButton, PageContaine
 import { EventStatusBadge, URUTAN_STATUS } from "@/components/admin/event-status";
 import { UserMenu } from "@/components/admin/user-menu";
 import { EventDetailsDialog } from "@/components/admin/event-details-dialog";
+import { ACTIONS, CONFIRM_TEXT, DuplicateEventDialog, type Action } from "@/components/admin/event-actions";
 import { WorkspaceTabs } from "@/components/admin/workspace-tabs";
 import { EVENT_STATUS_LABEL, type EventRow, type EventStatus, type UserRole } from "@/lib/domain";
 import { daysUntil } from "@/lib/event-datetime";
@@ -45,29 +46,6 @@ import { alasanTidakBisaBuka, roleHome } from "@/lib/role-home";
  * tombol: acara yang sudah diarsipkan bukan sesuatu yang dicari setiap hari.
  */
 
-type Action = "activate" | "deactivate" | "complete" | "archive";
-
-/**
- * Aksi yang tersedia per status. Menyembunyikan aksi yang tidak berlaku lebih
- * baik daripada menampilkannya lalu menolak: tombol yang selalu gagal terbaca
- * sebagai sistem rusak, bukan sebagai aturan.
- */
-const ACTIONS: Record<EventStatus, Array<{ action: Action; label: string; danger?: boolean }>> = {
-  draft: [{ action: "activate", label: "Activate" }],
-  active: [
-    { action: "deactivate", label: "Move back to draft" },
-    { action: "complete", label: "Mark as completed" },
-  ],
-  completed: [
-    { action: "activate", label: "Activate again" },
-    { action: "archive", label: "Archive", danger: true },
-  ],
-  // Event arsip sengaja hanya bisa dikembalikan ke draft, bukan langsung aktif.
-  // Konfigurasinya sudah lama tidak disentuh; melewati draft berarti tidak ada
-  // kesempatan memeriksanya sebelum ia jadi kandidat di jalur publik.
-  archived: [{ action: "deactivate", label: "Move back to draft" }],
-};
-
 /**
  * Status yang boleh dihapus. Cerminan penjaga di `delete_event`; kalau keduanya
  * berbeda pendapat yang menang adalah database, dan tombolnya di sini hanya
@@ -85,14 +63,6 @@ const LABEL_HITUNGAN: Record<string, string> = {
   rundown_items: "agenda rows",
   seat_map_sessions: "seating plan sessions",
   audit_logs: "audit rows",
-};
-
-/** Aksi yang mengubah apa yang tampil di layar publik butuh konfirmasi. */
-const CONFIRM_TEXT: Partial<Record<Action, string>> = {
-  activate: "Booth staff, cashiers and scanner staff can open their screens for it, and it becomes a candidate for old links without a slug (/display, /denah, /rundown). The event page and registration already work while it is a draft.",
-  deactivate: "The event goes back to draft. Its public screens stop serving links without a slug, but all data and settings stay intact.",
-  complete: "The event is marked as completed. No new orders are expected, but every report and history stays available.",
-  archive: "The event is archived and leaves the main list. Its data is not deleted and it can be moved back to draft.",
 };
 
 const KOLOM = "mt-4";
@@ -362,32 +332,6 @@ export default function EventsPage() {
     setConfirming(null);
     setEvents((current) => current.map((row) => (row.id === event.id ? body.event : row)));
     setNotice(`"${event.name}" is now ${EVENT_STATUS_LABEL[body.event.status as EventStatus]}.`);
-  }
-
-  async function duplicate(form: FormData) {
-    if (!duplicating) return;
-    setPending(true);
-    setError("");
-    setNotice("");
-    const response = await fetch(`/api/events/${duplicating.id}/duplicate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: form.get("name"),
-        event_date: form.get("event_date") || null,
-        scanner_api_event_slug: form.get("scanner_api_event_slug") || null,
-      }),
-    }).catch(() => null);
-    setPending(false);
-    if (!response) { setError("Connection failed. Check the list before trying again; the copy may already exist."); return; }
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      setError(body.error?.details?.message ?? body.error?.message ?? "Could not duplicate the event.");
-      return;
-    }
-    setDuplicating(null);
-    setEvents((current) => [body.event, ...current]);
-    setNotice(`Copy "${body.event.name}" created as a draft. Participants, orders and lucky-draw winners were NOT copied.`);
   }
 
   async function remove() {
@@ -812,44 +756,15 @@ export default function EventsPage() {
       </form>
     </Dialog>
 
-    <Dialog
-      open={duplicating !== null}
+    <DuplicateEventDialog
+      event={duplicating}
       onClose={() => setDuplicating(null)}
-      dismissible={!pending}
-      size="lg"
-      title={`Copy of “${duplicating?.name ?? ""}”`}
-      description="The copy starts as a draft with no participants."
-      actions={
-        <>
-          <Button variant="outlined" disabled={pending} onClick={() => setDuplicating(null)}>Close</Button>
-          <Button type="submit" form="duplikat-event" loading={pending}>Create copy as draft</Button>
-        </>
-      }
-    >
-      <form id="duplikat-event" onSubmit={(e) => { e.preventDefault(); void duplicate(new FormData(e.currentTarget)); }}>
-        {/* Apa yang ikut dan apa yang tidak ditulis DI DEPAN, bukan setelah
-            tombol ditekan. Salinan yang ternyata membawa 247 peserta acara lain
-            baru ketahuan setelah ada yang memeriksa daftar peserta. */}
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold ed-label">Copied</p><p className="mt-2 text-body-medium text-on-surface-variant">Booths, special items, settings, display settings, agenda, seating plan, lucky-draw prizes &amp; rules, organisation-name exclusions.</p></div>
-          <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold ed-label">Not copied</p><p className="mt-2 text-body-medium text-on-surface-variant">Participants, orders, lucky-draw winners, user access, and all history.</p></div>
-        </div>
-
-        {/* `key`: nilai bawaan nama mengikuti event yang sedang disalin. Tanpa
-            key, React memakai ulang kolom dari salinan sebelumnya. */}
-        <TextField key={duplicating?.id} className="mt-5" label="New event name" name="name" required minLength={3} maxLength={120} defaultValue={`${duplicating?.name ?? ""} (copy)`} />
-        <TextField className={KOLOM} label="Date" name="event_date" type="date" optional />
-        <TextField
-          className={KOLOM}
-          label="Scanner API slug"
-          name="scanner_api_event_slug"
-          optional
-          placeholder="Leave empty if there is none yet"
-          hint="Not copied on purpose. With the old slug, the copy would pull the previous event's participants every 5 minutes. Left empty, the participant source falls back to manual and can be changed any time."
-        />
-        {error ? <p role="alert" className="rounded-lg mt-3 border border-error-soft-outline bg-error-soft p-3 text-body-small text-on-error-soft">{error}</p> : null}
-      </form>
-    </Dialog>
+      onDone={(salinan) => {
+        setDuplicating(null);
+        setEvents((current) => [salinan, ...current]);
+        setNotice(`Copy "${salinan.name}" created as a draft. Participants, orders and lucky-draw winners were NOT copied.`);
+      }}
+    />
 
     <EventDetailsDialog
       event={editing}
@@ -868,7 +783,7 @@ export default function EventsPage() {
       size="lg"
       fullScreenOnMobile
       title="Create event"
-      description="It starts as a draft. You can change everything here later."
+      description="It starts as a draft. You can change these details later."
       actions={
         <>
           <Button variant="outlined" disabled={pending} onClick={() => setCreating(false)} className="max-sm:hidden">Cancel</Button>
