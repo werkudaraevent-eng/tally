@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ROLE_LABEL } from "@/lib/domain";
 
-type Role = "booth" | "cashier" | "admin";
+type Role = "booth" | "cashier" | "scanner" | "admin";
 type AccessRow = { user_id: string; role: Role; booth_id: number | null; granted_at: string };
 type UserRow = { id: string; username: string; role: string; is_active: boolean };
 type BoothRow = { id: number; code: string; name: string };
@@ -101,7 +101,7 @@ export default function EventAccessPage() {
         <section>
           <h2 className="text-body-medium font-semibold uppercase">Has access ({access.length})</h2>
           {loading ? <p className="py-10 text-body-medium text-on-surface-variant">Loading…</p>
-            : access.length === 0 ? <p className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-6 text-body-medium text-on-surface-variant">No one yet. Booth staff and cashiers cannot sign in to this event until they are added.</p>
+            : access.length === 0 ? <p className="rounded-lg mt-4 border border-outline-variant bg-panel-high p-6 text-body-medium text-on-surface-variant">No one yet. Booth staff, cashiers and scanner staff cannot open this event until they are added.</p>
             : <ul className="mt-4 grid gap-3">
               {access.map((row) => <li key={row.user_id} className="rounded-lg flex flex-wrap items-center justify-between gap-3 bg-panel p-4">
                 <div>
@@ -122,6 +122,7 @@ export default function EventAccessPage() {
           <label className="mt-4 block text-body-medium font-semibold">Role at this event<select name="role" value={role} onChange={(e) => setRole(e.target.value as Role)} className="rounded-md mt-2 h-12 w-full border border-outline-variant bg-surface px-3">
             <option value="booth">{ROLE_LABEL.booth}</option>
             <option value="cashier">{ROLE_LABEL.cashier}</option>
+            <option value="scanner">{ROLE_LABEL.scanner}</option>
             <option value="admin">{ROLE_LABEL.admin}</option>
           </select></label>
           {role === "booth" && <label className="mt-4 block text-body-medium font-semibold">Booth
