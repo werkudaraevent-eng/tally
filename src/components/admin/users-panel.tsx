@@ -16,7 +16,7 @@ import {
   Pane,
   PaneBody,
   PaneFooter,
-  SegmentedButton,
+  SelectField,
   StatusChip,
   Switch,
   Tabs,
@@ -31,23 +31,23 @@ type Role = "booth" | "cashier" | "admin" | "super_admin" | "scanner";
 type UserEvent = { id: string; slug: string; name: string; role: EventRole; booth_id?: number | null; booth_code?: string | null };
 type User = { id: string; username: string; role: Role; booth_id: number | null; is_active: boolean; events?: UserEvent[] };
 type EventOption = { id: string; slug: string; name: string; status: string; archived_at?: string | null };
-type Draft = { id: string | null; username: string; pin: string; semua: boolean; is_active: boolean; rows: AksesBaris[] };
+type Draft = { id: string | null; username: string; pin: string; role: Role; is_active: boolean; rows: AksesBaris[] };
 type RoleTab = "semua" | "booth" | "cashier" | "scanner" | "admin";
-type Cakupan = "acara" | "semua";
 
-const blank: Draft = { id: null, username: "", pin: "", semua: false, is_active: true, rows: [] };
+const blank: Draft = { id: null, username: "", pin: "", role: "booth", is_active: true, rows: [] };
 
 /**
- * Peran akun (users.role) DITURUNKAN dari barisnya, tidak dipilih terpisah:
- * "semua acara" = Super admin; selain itu Admin bila ia admin di salah satu
- * acara (supaya mendarat di workspace admin), lain dari itu peran baris
- * pertamanya. Peran yang berlaku di sebuah acara selalu peran di baris acara itu.
+ * Satu peran per akun, berlaku di setiap acaranya. Satu kalimat per peran,
+ * ditampilkan tepat di bawah pilihan.
  */
-function peranAkun(draft: Pick<Draft, "semua" | "rows">): Role {
-  if (draft.semua) return "super_admin";
-  if (draft.rows.some((row) => row.role === "admin")) return "admin";
-  return draft.rows[0]?.role ?? "booth";
-}
+const ROLE_HELP: Record<Role, string> = {
+  admin: "Runs the events below: setup, participants, messages and reports.",
+  booth: "Scans participants and hands out items at one booth per event.",
+  cashier: "Takes payments and voids orders.",
+  scanner: "Checks participants in at the entrance and sessions.",
+  super_admin: "Opens every event, including new ones, and manages users and roles.",
+};
+const ROLE_ORDER: Role[] = ["admin", "booth", "cashier", "scanner", "super_admin"];
 
 const BATAS_ACARA = 2;
 
@@ -107,9 +107,9 @@ function dariUser(user: User): Draft {
     id: user.id,
     username: user.username,
     pin: "",
-    semua: user.role === "super_admin",
+    role: user.role,
     is_active: user.is_active,
-    rows: (user.events ?? []).map((event) => ({ event_id: event.id, role: event.role, booth_id: event.booth_id ?? null })),
+    rows: (user.events ?? []).map((event) => ({ event_id: event.id, booth_id: event.booth_id ?? null })),
   };
 }
 
@@ -182,10 +182,7 @@ export function UsersPanel() {
 
   function selectUser(user: User) {
     const next = dariUser(user);
-    for (const row of next.rows) {
-      const event = events.find((item) => item.id === row.event_id);
-      if (row.role === "booth" && event) pastikanBooth(event);
-    }
+    if (next.role === "booth") muatBoothBaris(next.rows);
     setDraft(next);
     setError("");
   }
@@ -200,8 +197,15 @@ export function UsersPanel() {
     setError("");
   }
 
-  const perluAcara = Boolean(draft && !draft.semua);
-  const boothKurang = Boolean(draft && perluAcara && draft.rows.some((row) => row.role === "booth" && !row.booth_id));
+  function muatBoothBaris(rows: AksesBaris[]) {
+    for (const row of rows) {
+      const event = events.find((item) => item.id === row.event_id);
+      if (event) pastikanBooth(event);
+    }
+  }
+
+  const perluAcara = Boolean(draft && draft.role !== "super_admin");
+  const boothKurang = Boolean(draft && draft.role === "booth" && draft.rows.some((row) => !row.booth_id));
 
   async function save() {
     if (!draft) return;
@@ -213,9 +217,9 @@ export function UsersPanel() {
     const payload: Record<string, unknown> = canManage
       ? {
           username: draft.username,
-          role: peranAkun(draft),
+          role: draft.role,
           is_active: draft.is_active,
-          events: draft.semua ? [] : draft.rows,
+          events: draft.role === "super_admin" ? [] : draft.rows.map((row) => ({ event_id: row.event_id, booth_id: draft.role === "booth" ? row.booth_id : null })),
         }
       : {};
     if (draft.id) payload.id = draft.id;
@@ -334,7 +338,7 @@ export function UsersPanel() {
 
     const bagianMasuk = (
       <DetailSection title="Sign-in">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
         <TextField
           label="Username"
           value={draft.username}
@@ -358,27 +362,39 @@ export function UsersPanel() {
       </DetailSection>
     );
 
+    const bagianPeran = (
+      <DetailSection>
+        <SelectField
+          label="Role"
+          value={draft.role}
+          hint={ROLE_HELP[draft.role]}
+          onChange={(change) => {
+            const role = change.target.value as Role;
+            if (role === "booth") muatBoothBaris(draft.rows);
+            setDraft((current) => current && { ...current, role });
+          }}
+        >
+          {ROLE_ORDER.map((role) => <option key={role} value={role}>{ROLE_LABEL[role]}</option>)}
+        </SelectField>
+      </DetailSection>
+    );
+
     const bagianAcara = (
-      <DetailSection title="Event access">
-        <SegmentedButton<Cakupan>
-          label="Event access"
-          value={draft.semua ? "semua" : "acara"}
-          onChange={(cakupan) => setDraft((current) => current && { ...current, semua: cakupan === "semua" })}
-          options={[
-            { value: "acara", label: "Specific events" },
-            { value: "semua", label: "All events" },
-          ]}
-        />
+      <DetailSection
+        title="Events"
+        action={perluAcara && draft.rows.length > 0 ? <span className="text-body-small tabular-nums text-on-surface-variant">{draft.rows.length} {draft.rows.length === 1 ? "event" : "events"}</span> : undefined}
+      >
         {perluAcara ? (
           <AksesAcaraEditor
             rows={draft.rows}
+            role={draft.role as EventRole}
             onChange={(rows) => setDraft((current) => current && { ...current, rows })}
             events={events}
             booths={booths}
             onNeedBooths={pastikanBooth}
           />
         ) : (
-          <p className="text-body-medium text-on-surface-variant">Super admin. Opens every event, including ones created later, and manages users and roles.</p>
+          <p className="text-body-medium text-on-surface-variant">Every event, including ones created later.</p>
         )}
       </DetailSection>
     );
@@ -396,21 +412,22 @@ export function UsersPanel() {
       // dan "Invite member" di Vercel/GitHub: satu langkah yang selesai atau
       // dibatalkan. Kepala dan baris tombol DIKUNCI; hanya isinya yang
       // bergulir, supaya judul dan tombol Create tidak hilang saat menggulir di
-      // layar setinggi 588px. Satu kolom: siapa, lalu di acara mana dan
-      // sebagai apa.
+      // layar setinggi 588px. Satu kolom: siapa, sebagai apa, lalu di acara
+      // mana.
       dialogBaru = (
         <Dialog open bare size="lg" title="New user" onClose={close} dismissible={!saving}>
           <form id="form-akun" onSubmit={kirim} className="flex max-h-[90dvh] flex-col">
             <div className="flex shrink-0 items-start gap-3 border-b border-outline-variant px-5 py-4">
               <div className="min-w-0 flex-1">
                 <h2 className="text-title-large font-semibold">New user</h2>
-                <p className="text-body-medium text-on-surface-variant">Add the events they work at and their role at each. They can sign in right away.</p>
+                <p className="text-body-medium text-on-surface-variant">They can sign in as soon as you create the account.</p>
               </div>
               <IconButton size="sm" label="Close" onClick={close} disabled={saving}><X size={16} /></IconButton>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {pesanGalat}
               {bagianMasuk}
+              {bagianPeran}
               {bagianAcara}
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant px-5 py-3">
@@ -429,7 +446,7 @@ export function UsersPanel() {
               <h2 className="min-w-0 truncate text-title-medium font-semibold leading-6">{selectedUser?.username ?? draft.username}</h2>
               {selectedUser ? (selectedUser.is_active ? <StatusChip dot tone="success">Active</StatusChip> : <StatusChip dot tone="neutral">Inactive</StatusChip>) : null}
             </div>
-            <p className="text-body-medium text-on-surface-variant">{ROLE_LABEL[selectedUser?.role ?? peranAkun(draft)]}</p>
+            <p className="text-body-medium text-on-surface-variant">{ROLE_LABEL[selectedUser?.role ?? draft.role]}</p>
           </div>
           <IconButton size="sm" label="Close" onClick={close} disabled={saving}><X size={16} /></IconButton>
         </div>
@@ -439,6 +456,7 @@ export function UsersPanel() {
             {pesanGalat}
             {canManage ? (
               <>
+                {bagianPeran}
                 {bagianAcara}
                 {bagianMasuk}
                 <DetailSection>
@@ -449,7 +467,7 @@ export function UsersPanel() {
               <>
                 <DetailSection>
                   <dl className="flex flex-col gap-2.5">
-                    <KeyValue label="Role">{ROLE_LABEL[peranAkun(draft)]}</KeyValue>
+                    <KeyValue label="Role">{ROLE_LABEL[draft.role]}</KeyValue>
                     <KeyValue label="Events">{ringkasanAcara || <span className="text-on-surface-variant">No events yet</span>}</KeyValue>
                     <KeyValue label="Status">{draft.is_active ? "Active" : "Inactive"}</KeyValue>
                   </dl>
@@ -470,7 +488,7 @@ export function UsersPanel() {
                   </DetailSection>
                 ) : (
                   <DetailSection>
-                    <p className="text-body-medium text-on-surface-variant">Only a super admin can change {ROLE_LABEL[peranAkun(draft)]} accounts, including their PIN.</p>
+                    <p className="text-body-medium text-on-surface-variant">Only a super admin can change {ROLE_LABEL[draft.role]} accounts, including their PIN.</p>
                   </DetailSection>
                 )}
               </>

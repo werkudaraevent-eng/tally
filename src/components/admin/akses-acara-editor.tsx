@@ -3,28 +3,27 @@
 import { MagnifyingGlass, Plus, X } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Button, IconButton, Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
-import { EVENT_STATUS_LABEL, ROLE_LABEL } from "@/lib/domain";
+import { EVENT_STATUS_LABEL } from "@/lib/domain";
 import { cx } from "@/lib/m3/cx";
 
 export type EventRole = "admin" | "booth" | "cashier" | "scanner";
-export type AksesBaris = { event_id: string; role: EventRole; booth_id: number | null };
+export type AksesBaris = { event_id: string; booth_id: number | null };
 export type AcaraPilihan = { id: string; slug: string; name: string; status: string };
 export type BoothPilihan = { id: number; code: string; name: string };
 export type DaftarBooth = Record<string, BoothPilihan[] | "loading" | "error">;
-
-const PERAN_ACARA: EventRole[] = ["admin", "booth", "cashier", "scanner"];
 
 const SELECT =
   "h-9 min-w-0 rounded-md border border-outline bg-surface px-2 text-body-medium text-on-surface focus:border-primary";
 
 /**
- * Akses per acara sebagai BARIS, satu baris per acara: nama acara, lalu peran
- * dan (untuk Booth staff) booth di acara itu.
+ * Akses per acara sebagai BARIS, satu baris per acara: nama acara, dan untuk
+ * Booth staff booth-nya di acara itu. Perannya satu untuk seluruh akun (dipilih
+ * di atas daftar ini), karena peran global juga menentukan layar tujuan setelah
+ * masuk; peran berbeda per acara membuat keduanya bisa tidak sejalan.
  *
- * Pola yang sama dengan "Assign project roles" di Vercel dan baris peran IAM di
- * Google Cloud: yang ditambahkan adalah penugasan, bukan centang di daftar semua
- * acara. Daftar centang membuat orang memindai SEMUA acara milik semua klien
- * untuk memberi akses ke satu acara, dan memisahkan peran dari acaranya.
+ * Pola penugasan seperti "Assign projects" di Vercel dan "Add to team" di
+ * GitHub: yang ditambahkan adalah acara tempat orang ini bekerja, lewat menu
+ * bercari, bukan centang di daftar SEMUA acara milik semua klien.
  *
  * Acara ditambahkan lewat menu bercari, yang hanya menawarkan acara yang belum
  * punya baris; satu acara tidak bisa muncul dua kali karena kunci tabelnya
@@ -32,18 +31,20 @@ const SELECT =
  */
 export function AksesAcaraEditor({
   rows,
+  role,
   onChange,
   events,
   booths,
   onNeedBooths,
 }: {
   rows: AksesBaris[];
+  role: EventRole;
   onChange: (rows: AksesBaris[]) => void;
   events: AcaraPilihan[];
   booths: DaftarBooth;
   onNeedBooths: (event: AcaraPilihan) => void;
 }) {
-  const [pemicu, setPemicu] = useState<HTMLButtonElement | null>(null);
+  const [pemicu, setPemicu] = useState<HTMLSpanElement | null>(null);
   const menu = usePopoverAnchor(pemicu);
   const [cari, setCari] = useState("");
 
@@ -52,23 +53,13 @@ export function AksesAcaraEditor({
   const kata = cari.trim().toLowerCase();
   const tawaran = kata ? tersisa.filter((event) => event.name.toLowerCase().includes(kata)) : tersisa;
 
-  function ubah(index: number, patch: Partial<AksesBaris>) {
-    const next = rows.map((row, i) => (i === index ? { ...row, ...patch } : row));
-    const row = next[index];
-    if (patch.role && patch.role !== "booth") row.booth_id = null;
-    if (patch.role === "booth") {
-      const event = events.find((item) => item.id === row.event_id);
-      if (event) onNeedBooths(event);
-    }
-    onChange(next);
+  function setBooth(index: number, booth_id: number | null) {
+    onChange(rows.map((row, i) => (i === index ? { ...row, booth_id } : row)));
   }
 
   function tambah(event: AcaraPilihan) {
-    // Peran baris baru mengikuti baris terakhir: akun yang sama hampir selalu
-    // memegang peran yang sama di acara berikutnya.
-    const role = rows.at(-1)?.role ?? "admin";
     if (role === "booth") onNeedBooths(event);
-    onChange([...rows, { event_id: event.id, role, booth_id: null }]);
+    onChange([...rows, { event_id: event.id, booth_id: null }]);
     setCari("");
     menu.tutup();
   }
@@ -97,44 +88,35 @@ export function AksesAcaraEditor({
                     <X size={16} />
                   </IconButton>
                 </div>
-                <div className="mt-1.5 grid grid-cols-2 gap-2">
-                  <select
-                    aria-label={`Role at ${event?.name ?? "this event"}`}
-                    className={SELECT}
-                    value={row.role}
-                    onChange={(change) => ubah(index, { role: change.target.value as EventRole })}
-                  >
-                    {PERAN_ACARA.map((role) => <option key={role} value={role}>{ROLE_LABEL[role]}</option>)}
-                  </select>
-                  {row.role === "booth" ? (
-                    daftar === "loading" || daftar === undefined ? (
-                      <span className="self-center text-body-small text-on-surface-variant">Loading booths…</span>
+                {role === "booth" ? (
+                  <div className="mt-1.5">
+                    {daftar === "loading" || daftar === undefined ? (
+                      <span className="text-body-small text-on-surface-variant">Loading booths…</span>
                     ) : daftar === "error" ? (
-                      <span className="self-center text-body-small text-error">Booths could not be loaded.</span>
+                      <span className="text-body-small text-error">Booths could not be loaded.</span>
                     ) : daftar.length === 0 ? (
-                      <span className="self-center text-body-small text-error">No booths at this event yet.</span>
+                      <span className="text-body-small text-error">No booths at this event yet. Add one in Booths &amp; items first.</span>
                     ) : (
                       <select
                         aria-label={`Booth at ${event?.name ?? "this event"}`}
-                        className={cx(SELECT, !row.booth_id && "border-error text-on-surface-variant")}
+                        className={cx(SELECT, "w-full", !row.booth_id && "text-on-surface-variant")}
                         value={row.booth_id ?? ""}
-                        onChange={(change) => ubah(index, { booth_id: change.target.value ? Number(change.target.value) : null })}
+                        onChange={(change) => setBooth(index, change.target.value ? Number(change.target.value) : null)}
                       >
                         <option value="">Choose a booth</option>
                         {daftar.map((booth) => <option key={booth.id} value={booth.id}>{booth.code} · {booth.name}</option>)}
                       </select>
-                    )
-                  ) : null}
-                </div>
+                    )}
+                  </div>
+                ) : null}
               </li>
             );
           })}
         </ul>
       )}
 
-      <div>
+      <span ref={setPemicu} className="inline-flex self-start">
         <Button
-          ref={setPemicu}
           type="button"
           variant="outlined"
           size="sm"
@@ -146,7 +128,7 @@ export function AksesAcaraEditor({
         >
           Add event
         </Button>
-      </div>
+      </span>
       {menu.open ? (
         <Popover anchor={menu} label="Add event" role="dialog" align="start" width={340}>
           <div className="p-2">
