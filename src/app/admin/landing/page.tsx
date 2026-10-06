@@ -1684,7 +1684,7 @@ export default function LandingCmsPage() {
         return (
           <div className="flex flex-col gap-3">
             <p className="text-body-medium text-on-surface-variant">
-              Up to 8 speakers show at once in the Highlights tab (featured speakers first). The rest open per session through the tabs. Without a photo, initials are used.
+              Featured speakers (up to 8) open first in the Highlights tab. Without any featured speaker, the first session tab opens. The rest open per session through the tabs. Without a photo, initials are used.
             </p>
             {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">No speakers yet.</p> : null}
             {hasilPetakan?.terhubung || sesiLamaBelumTerhubung ? (
