@@ -505,16 +505,27 @@ function Kutipan({ block }: { block: LandingBlock }) {
   );
 }
 
+/**
+ * Perataan blok Logo. Kiri (bawaan): judul di kolom kiri, logo sebaris di
+ * kanannya pada layar lebar. Tengah dan kanan: judul di atas deret logo,
+ * keduanya rapat ke sisi yang sama di semua lebar layar.
+ */
+const RATA_LOGO: Record<"left" | "center" | "right", string> = {
+  left: "flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-16",
+  center: "flex flex-col items-center gap-5 text-center",
+  right: "flex flex-col items-end gap-5 text-right",
+};
+
 function Logo({ block }: { block: LandingBlock }) {
   const logo = (block.items ?? []).filter((item): item is LandingBlockItem & { image_url: string } => Boolean(item.image_url));
   return (
     <Wadah block={block} className="border-b border-[var(--reg-outline-variant)] py-7 sm:py-9">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-16">
+      <div className={RATA_LOGO[block.align ?? "left"] ?? RATA_LOGO.left}>
         {block.heading?.trim() ? (
-          <h2 className={`shrink-0 text-title-small font-medium lg:w-44 ${MUTED}`}>{block.heading.trim()}</h2>
+          <h2 className={`shrink-0 text-title-small font-medium ${block.align === "center" || block.align === "right" ? "" : "lg:w-44"} ${MUTED}`}>{block.heading.trim()}</h2>
         ) : null}
         {/* Rata dan sama tinggi (40px): ukuran logo bukan keputusan urutan unggah. */}
-        <ul className="flex flex-1 flex-wrap items-center gap-x-10 gap-y-5">
+        <ul className={`flex flex-wrap items-center gap-x-10 gap-y-5 ${block.align === "center" ? "justify-center" : block.align === "right" ? "justify-end" : "flex-1"}`}>
           {logo.map((item, index) => {
             const gambar = (
               // eslint-disable-next-line @next/next/no-img-element

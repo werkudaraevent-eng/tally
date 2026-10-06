@@ -117,7 +117,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
 
   const pembicara = tampil("speakers") ? (
     <div className={JARAK}>
-      <BagianPembicara tabs={speakerTabs(speakers, agenda, { highlights: label.sorotanPembicara, others: label.pembicaraLain })} label={label} />
+      <BagianPembicara tabs={speakerTabs(speakers, agenda, { highlights: label.sorotanPembicara, others: label.pembicaraLain })} label={label} bingkai={config.speaker_frame} />
     </div>
   ) : null;
 

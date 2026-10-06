@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { Button, Dialog, IconButton, SegmentedButton, TextArea, TextField } from "@/components/m3";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import {
+  LANDING_BLOCK_ALIGN_LABELS,
   LANDING_BLOCK_DEFAULT_TONE,
   LANDING_BLOCK_DESCRIPTIONS,
   LANDING_BLOCK_LABELS,
@@ -17,6 +18,7 @@ import {
   landingBlockLayout,
   landingBlockLimits,
   type LandingBlock,
+  type LandingBlockAlign,
   type LandingBlockId,
   type LandingBlockItem,
   type LandingBlockLayout,
@@ -625,7 +627,7 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
                     <p className="text-body-medium font-medium text-on-surface">Alignment</p>
                     <SegmentedButton<"left" | "center">
                       label="Column alignment"
-                      value={block.align ?? "left"}
+                      value={block.align === "center" ? "center" : "left"}
                       onChange={(align) => ubah({ align })}
                       options={[{ value: "left", label: "Left" }, { value: "center", label: "Centre" }]}
                     />
@@ -663,6 +665,18 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
         <div className="flex flex-col gap-4">
           {judul("Label", "e.g. Diselenggarakan oleh")}
           {daftarButir}
+          <div className="flex flex-col gap-1.5">
+            <p className="text-body-medium font-medium text-on-surface">Alignment</p>
+            <SegmentedButton<LandingBlockAlign>
+              label="Logo alignment"
+              value={block.align ?? "left"}
+              onChange={(align) => ubah({ align: align === "left" ? undefined : align })}
+              options={(["left", "center", "right"] as const).map((value) => ({ value, label: LANDING_BLOCK_ALIGN_LABELS[value] }))}
+            />
+            <p className="text-body-small text-on-surface-variant">
+              {block.align === "center" || block.align === "right" ? "The label sits above the logos, both on the same side." : "On wide screens the label sits to the left of the logos."}
+            </p>
+          </div>
           {latar}
         </div>
       );

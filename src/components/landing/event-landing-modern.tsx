@@ -480,6 +480,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               eyebrowClassName={ALIS}
               headingClassName={JUDUL}
               tablistLabel={t.speakersBySession}
+              bingkai={config.speaker_frame}
             />
           </section>
         ) : null}

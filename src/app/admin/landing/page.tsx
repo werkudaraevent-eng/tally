@@ -45,6 +45,9 @@ import {
   type RegistrationFormConfig,
   type LandingHeroAlign,
   type LandingHeroPosition,
+  LANDING_SPEAKER_FRAMES,
+  LANDING_SPEAKER_FRAME_LABELS,
+  type LandingSpeakerFrame,
 } from "@/lib/domain";
 import { landingTokens } from "@/lib/landing-tokens";
 import { formatEventDate } from "@/lib/event-datetime";
@@ -59,6 +62,7 @@ import { plural } from "@/lib/plural";
 import { BlockEditor, butirBerlebih, isianButirTampil, kolomBlokTampil, labelIsianButir, labelKolomBlok, namaButirBlok, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok, type KolomButir } from "./blocks";
 import { ForumSusunan, forumTautanSalah, halamanBagianForum } from "./forum-editor";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
+import { UrutanPembicara } from "./urutan-pembicara";
 import { pakaiPreset } from "./theme-presets";
 import { TabTema } from "./theme-tab";
 import { LANDING_THEME_PRESETS } from "@/lib/landing-theme-presets";
@@ -1687,6 +1691,26 @@ export default function LandingCmsPage() {
               Featured speakers (up to 8) open first in the Highlights tab. Without any featured speaker, the first session tab opens. The rest open per session through the tabs. Without a photo, initials are used.
             </p>
             {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">No speakers yet.</p> : null}
+            {list.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-body-medium font-medium text-on-surface">Photo frame</p>
+                <SegmentedButton<LandingSpeakerFrame>
+                  label="Photo frame"
+                  value={landing.speaker_frame ?? "portrait"}
+                  onChange={(speaker_frame) => setLanding({ ...landing, speaker_frame: speaker_frame === "portrait" ? undefined : speaker_frame })}
+                  options={LANDING_SPEAKER_FRAMES.map((value) => ({ value, label: LANDING_SPEAKER_FRAME_LABELS[value] }))}
+                />
+                <p className="text-body-small text-on-surface-variant">
+                  {(landing.speaker_frame ?? "portrait") === "portrait" ? "Corners follow the Theme setting." : "For every speaker photo on the event page."}
+                </p>
+              </div>
+            ) : null}
+            {list.filter((speaker) => speaker.name?.trim()).length > 1 ? (
+              <div className="flex flex-col gap-1.5 border-t border-outline-variant pt-3">
+                <p className="text-body-medium font-medium text-on-surface">Order on the page</p>
+                <UrutanPembicara speakers={list} baris={barisSesi} bingkai={landing.speaker_frame ?? "portrait"} onChange={setList} />
+              </div>
+            ) : null}
             {hasilPetakan?.terhubung || sesiLamaBelumTerhubung ? (
               <p className="rounded-md bg-surface-container-high px-3 py-2 text-body-small text-on-surface" role="status">
                 {[

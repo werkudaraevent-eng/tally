@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, type KeyboardEvent } from "react";
-import type { LandingSpeaker } from "@/lib/domain";
+import type { LandingSpeaker, LandingSpeakerFrame } from "@/lib/domain";
 import type { SpeakerTab } from "@/lib/landing-speaker-tabs";
 import { JUDUL_BUTIR } from "./styles";
 
@@ -30,14 +30,25 @@ function inisial(nama: string): string {
 const LATAR_INISIAL =
   "linear-gradient(to bottom, color-mix(in srgb, var(--reg-primary) 10%, var(--reg-surface)), color-mix(in srgb, var(--reg-primary) 22%, var(--reg-surface)))";
 
-function Kartu({ speaker }: { speaker: LandingSpeaker }) {
+/**
+ * Bingkai foto per acara (`speaker_frame`). Potret mengikuti sudut Corners;
+ * lengkung memakai radius sangat besar di atas, yang diperkecil peramban
+ * menjadi setengah lingkaran selebar foto.
+ */
+const BINGKAI: Record<LandingSpeakerFrame, string> = {
+  portrait: "aspect-[4/5] rounded-lg",
+  circle: "aspect-square rounded-full",
+  arch: "aspect-[4/5] rounded-t-full",
+};
+
+function Kartu({ speaker, bingkai }: { speaker: LandingSpeaker; bingkai: LandingSpeakerFrame }) {
   // Peran umum ("Pembicara", "Speaker") tidak ditulis: di bagian Pembicara
   // semua orang pembicara. Yang ditulis hanya peran pembeda, mis. Moderator.
   const peran = speaker.role?.trim();
   const keterangan = [peran && !/^(pembicara|speaker)$/i.test(peran) ? peran : null, speaker.title?.trim()].filter(Boolean).join(" · ");
   return (
     <li className="flex min-w-0 flex-col gap-3 sm:gap-4">
-      <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-[var(--reg-outline-variant)]">
+      <div data-bingkai={bingkai} className={`relative overflow-hidden bg-[var(--reg-outline-variant)] ${BINGKAI[bingkai] ?? BINGKAI.portrait}`}>
         {speaker.photo_url ? (
           // Dipotong dari sepertiga atas: foto pejabat setengah badan atau
           // lanskap tidak kehilangan dahi.
@@ -70,6 +81,7 @@ export function SpeakerTabs({
   eyebrowClassName,
   headingClassName,
   tablistLabel = "Pembicara per sesi",
+  bingkai = "portrait",
 }: {
   tabs: SpeakerTab[];
   eyebrow: string | null;
@@ -78,6 +90,8 @@ export function SpeakerTabs({
   headingClassName: string;
   /** Nama baris tab untuk pembaca layar, dalam bahasa halaman. */
   tablistLabel?: string;
+  /** Bentuk foto (`landing_config.speaker_frame`). */
+  bingkai?: LandingSpeakerFrame;
 }) {
   const [aktif, setAktif] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -156,7 +170,7 @@ export function SpeakerTabs({
         {tab.note ? <p className="mb-6 text-isi text-[var(--reg-on-surface-variant)]">{tab.note}</p> : null}
         <ul className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-3 xl:grid-cols-4">
           {tab.speakers.map((speaker, index) => (
-            <Kartu key={`${speaker.name}-${index}`} speaker={speaker} />
+            <Kartu key={`${speaker.name}-${index}`} speaker={speaker} bingkai={bingkai} />
           ))}
         </ul>
       </div>

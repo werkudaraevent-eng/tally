@@ -1,6 +1,6 @@
 import { CaretDown, Plus } from "@phosphor-icons/react/dist/ssr";
 import type { AgendaPreview } from "@/lib/landing-agenda";
-import type { LandingSpeaker } from "@/lib/domain";
+import type { LandingSpeaker, LandingSpeakerFrame } from "@/lib/domain";
 import type { LandingLang } from "@/lib/landing-i18n";
 import { barisJeda, pembicaraSesi, type SpeakerTab } from "@/lib/landing-speaker-tabs";
 import { DeretPembicara } from "@/components/landing/modern/agenda-pills";
@@ -166,7 +166,7 @@ export function KartuFoto({ gambar, judul, teks, sisaInisial }: { gambar: string
  * dari peran --reg-* yang juga dipasang tata letak Forum; yang diatur di sini
  * hanya judul bagian (gaya Forum, rata tengah) dan label tab bawaan.
  */
-export function BagianPembicara({ tabs, label }: { tabs: SpeakerTab[]; label: ForumLabels }) {
+export function BagianPembicara({ tabs, label, bingkai }: { tabs: SpeakerTab[]; label: ForumLabels; bingkai?: LandingSpeakerFrame }) {
   return (
     <section id="pembicara" data-bagian="speakers" className={`${WADAH} scroll-mt-28 sm:[&_[role=tablist]]:justify-center`}>
       <SpeakerTabs
@@ -175,6 +175,7 @@ export function BagianPembicara({ tabs, label }: { tabs: SpeakerTab[]; label: Fo
         heading={label.pembicara}
         eyebrowClassName=""
         headingClassName={`${H_BAGIAN} text-center text-[var(--f-ink)]`}
+        bingkai={bingkai}
       />
     </section>
   );
