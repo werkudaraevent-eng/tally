@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check } from "@phosphor-icons/react";
 import { Kelompok } from "@/components/admin/compact-form";
 import { normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
@@ -86,16 +86,40 @@ export function PresetTema({
  */
 function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePreset; landing: EventLandingConfig; setLanding: (next: EventLandingConfig) => void }) {
   const [tanya, setTanya] = useState(false);
+  const kotak = useRef<HTMLDivElement | null>(null);
+  // Fokus ikut berpindah (QA #91 L4): ke "Keep my colours" saat konfirmasi
+  // muncul, supaya pembaca layar membacakan kalimatnya, lalu kembali ke tombol
+  // Reset saat ditutup. Tanpa ini tombolnya hilang dan fokus jatuh ke <body>.
+  const sudahBuka = useRef(false);
+  useEffect(() => {
+    if (!sudahBuka.current && !tanya) return;
+    sudahBuka.current = true;
+    kotak.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, [tanya]);
   const sekarang = landingTokens(landing).brand;
   const gantiMerek = sekarang.toLowerCase() !== preset.tokens.brand.toLowerCase();
   const reset = () => {
     setTanya(false);
     setLanding(gayaPreset(preset, landing));
+    // Baris ini hilang setelah Reset (preset tidak lagi "Edited"): fokus ke kartu yang dipakai.
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('[role="radiogroup"][aria-label="Preset"] [aria-checked="true"]')?.focus());
   };
   if (tanya) {
     return (
-      <div role="group" aria-label={`Reset to ${preset.label}`} className="-mt-2 flex flex-col gap-2 rounded-md bg-surface-container px-3 py-2">
-        <p className="text-body-small text-on-surface">
+      <div
+        ref={kotak}
+        role="group"
+        aria-label={`Reset to ${preset.label}`}
+        aria-describedby={`reset-${preset.key}`}
+        className="-mt-2 flex flex-col gap-2 rounded-md bg-surface-container px-3 py-2"
+        // Esc = Keep, seperti menutup dialog.
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") return;
+          event.stopPropagation();
+          setTanya(false);
+        }}
+      >
+        <p id={`reset-${preset.key}`} className="text-body-small text-on-surface">
           This also changes the brand colour from <Contoh warna={sekarang} /> to <Contoh warna={preset.tokens.brand} />.
         </p>
         <div className="flex justify-end gap-2">
@@ -110,7 +134,7 @@ function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePres
     );
   }
   return (
-    <div className="-mt-2 flex items-center gap-2">
+    <div ref={kotak} className="-mt-2 flex items-center gap-2">
       <p className="min-w-0 flex-1 text-body-small text-on-surface-variant">Colours, fonts or corners differ from {preset.label}.</p>
       <Button variant="text" size="sm" onClick={gantiMerek ? () => setTanya(true) : reset}>
         Reset colours and fonts

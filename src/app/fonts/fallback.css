@@ -6,9 +6,10 @@
    Untuk keluarga baru, dihitung dengan cara yang sama di bobot 400.
 
    Face tebal (600-900) memakai Arial Bold atau Times New Roman Bold dengan
-   angka sendiri, dihitung dari lebar huruf asli di bobot judulnya (600, atau
-   700 untuk Space Grotesk dan Ubuntu) terhadap lebar Arial Bold atau Times
-   Bold. Halaman acara memasang font-synthesis-weight: none
+   angka sendiri: lebar judul contoh (nama acara, kalimat Indonesia) di bobot
+   judulnya (600, atau 700 untuk Space Grotesk dan Ubuntu) dibandingkan
+   dengan Liberation Sans/Serif Bold, yang lebarnya sama dengan Arial/Times,
+   sampai selisihnya di bawah 1%. Halaman acara memasang font-synthesis-weight: none
    (landing-tokens.ts), jadi tanpa face tebal ini judul semibold tampil tipis
    selama huruf aslinya belum tiba, lalu melompat tebal. Dengan angka sendiri,
    lebar judul fallback hampir sama dengan judul aslinya. */
@@ -26,10 +27,10 @@
 	font-family: "inter Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 95.11%;
-	descent-override: 23.68%;
+	ascent-override: 96.26%;
+	descent-override: 23.97%;
 	line-gap-override: 0.00%;
-	size-adjust: 101.86%;
+	size-adjust: 100.64%;
 }
 
 @font-face {
@@ -45,10 +46,10 @@
 	font-family: "montserrat Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 88.85%;
-	descent-override: 23.04%;
+	ascent-override: 89.49%;
+	descent-override: 23.21%;
 	line-gap-override: 0.00%;
-	size-adjust: 108.95%;
+	size-adjust: 108.17%;
 }
 
 @font-face {
@@ -64,10 +65,10 @@
 	font-family: "oswald Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 143.89%;
-	descent-override: 34.86%;
+	ascent-override: 144.94%;
+	descent-override: 35.11%;
 	line-gap-override: 0.00%;
-	size-adjust: 82.91%;
+	size-adjust: 82.31%;
 }
 
 @font-face {
@@ -83,10 +84,10 @@
 	font-family: "spaceGrotesk Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 95.99%;
-	descent-override: 28.49%;
+	ascent-override: 98.68%;
+	descent-override: 29.29%;
 	line-gap-override: 0.00%;
-	size-adjust: 102.51%;
+	size-adjust: 99.72%;
 }
 
 @font-face {
@@ -102,10 +103,10 @@
 	font-family: "playfairDisplay Fallback";
 	src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 101.77%;
-	descent-override: 23.61%;
+	ascent-override: 104.19%;
+	descent-override: 24.17%;
 	line-gap-override: 0.00%;
-	size-adjust: 106.32%;
+	size-adjust: 103.85%;
 }
 
 @font-face {
@@ -121,10 +122,10 @@
 	font-family: "sourceSans3 Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 113.95%;
-	descent-override: 44.51%;
+	ascent-override: 114.47%;
+	descent-override: 44.71%;
 	line-gap-override: 0.00%;
-	size-adjust: 89.87%;
+	size-adjust: 89.46%;
 }
 
 @font-face {
@@ -159,10 +160,10 @@
 	font-family: "ubuntu Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 93.33%;
-	descent-override: 18.93%;
-	line-gap-override: 2.80%;
-	size-adjust: 99.86%;
+	ascent-override: 94.47%;
+	descent-override: 19.16%;
+	line-gap-override: 2.83%;
+	size-adjust: 98.66%;
 }
 
 @font-face {
@@ -178,10 +179,10 @@
 	font-family: "plusJakartaSans Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 103.78%;
-	descent-override: 22.19%;
+	ascent-override: 105.65%;
+	descent-override: 22.59%;
 	line-gap-override: 0.00%;
-	size-adjust: 100.02%;
+	size-adjust: 98.25%;
 }
 
 @font-face {
@@ -197,10 +198,10 @@
 	font-family: "fraunces Fallback";
 	src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 87.15%;
-	descent-override: 22.72%;
+	ascent-override: 87.98%;
+	descent-override: 22.94%;
 	line-gap-override: 0.00%;
-	size-adjust: 112.22%;
+	size-adjust: 111.16%;
 }
 
 @font-face {
@@ -216,10 +217,10 @@
 	font-family: "sourceSerif4 Fallback";
 	src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 91.42%;
-	descent-override: 29.56%;
+	ascent-override: 94.43%;
+	descent-override: 30.53%;
 	line-gap-override: 0.00%;
-	size-adjust: 113.32%;
+	size-adjust: 109.71%;
 }
 
 @font-face {
@@ -235,10 +236,10 @@
 	font-family: "archivoNarrow Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 129.31%;
-	descent-override: 38.98%;
+	ascent-override: 128.52%;
+	descent-override: 38.74%;
 	line-gap-override: 0.00%;
-	size-adjust: 80.04%;
+	size-adjust: 80.53%;
 }
 
 @font-face {
@@ -254,8 +255,8 @@
 	font-family: "nunito Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 105.75%;
-	descent-override: 36.92%;
+	ascent-override: 105.67%;
+	descent-override: 36.89%;
 	line-gap-override: 0.00%;
-	size-adjust: 95.60%;
+	size-adjust: 95.68%;
 }

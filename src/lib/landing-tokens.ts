@@ -171,12 +171,16 @@ function berkasIsi(font: LandingHeadingFont): string {
 
 /**
  * URL huruf yang perlu di-preload halaman acara: subset latin huruf judul di
- * bobot judulnya, ditambah huruf isi bila halaman itu memasangnya (pilihan
- * admin, atau Forum yang selalu memakai Ubuntu). Inter tidak ikut karena sudah
- * di-preload root layout.
+ * bobot judulnya, ditambah huruf isi bila admin memilihnya. Inter tidak ikut
+ * karena sudah di-preload root layout.
+ *
+ * Ubuntu isi bawaan Forum sengaja TIDAK di-preload (QA #91 L1, L5): formulir
+ * Forum tidak memakainya, dan di halaman Forum dua preload bersaing dengan CSS
+ * dan gambar hero (FCP dan LCP ±200 ms lebih lambat di 3G). Judul yang tampil
+ * di layar pertama cukup; huruf isi dimuat dari CSS seperti biasa.
  */
-export function landingFontUrls(tokens: Pick<LandingTokens, "layout" | "headingFont" | "bodyFont" | "bodyFontChosen">): string[] {
+export function landingFontUrls(tokens: Pick<LandingTokens, "headingFont" | "bodyFont" | "bodyFontChosen">): string[] {
   const berkas = [LANDING_HEADING_FONTS[tokens.headingFont].preload];
-  if (tokens.bodyFontChosen || tokens.layout === "forum") berkas.push(berkasIsi(tokens.bodyFont));
+  if (tokens.bodyFontChosen) berkas.push(berkasIsi(tokens.bodyFont));
   return [...new Set(berkas.filter(Boolean))].map((path) => `/fonts/v1/${path}`);
 }
