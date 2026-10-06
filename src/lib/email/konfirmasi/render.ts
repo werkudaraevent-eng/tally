@@ -1,5 +1,5 @@
 import { mixHex } from "@/lib/color";
-import type { LandingHeadingFont } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, type LandingHeadingFont } from "@/lib/domain";
 import { FIELDS, type FieldKey } from "@/lib/pesan/bawaan";
 import { escapeHtml, formatHtml, formatText } from "@/lib/pesan/format";
 import { TEKS_TETAP, untukBahasa, type EmailLang } from "./bahasa";
@@ -83,6 +83,11 @@ const GOOGLE_FONT: Partial<Record<LandingHeadingFont, string>> = {
   grotesk: "Space+Grotesk:wght@400;700",
   source: "Source+Sans+3:wght@400;700",
   ubuntu: "Ubuntu:wght@400;700",
+  jakarta: "Plus+Jakarta+Sans:wght@400;700",
+  fraunces: "Fraunces:wght@400;700",
+  sourceserif: "Source+Serif+4:wght@400;700",
+  archivo: "Archivo+Narrow:wght@400;700",
+  nunito: "Nunito:wght@400;700",
 };
 const FONT_NAME: Record<LandingHeadingFont, string> = {
   serif: "'Playfair Display'",
@@ -92,6 +97,11 @@ const FONT_NAME: Record<LandingHeadingFont, string> = {
   grotesk: "'Space Grotesk'",
   source: "'Source Sans 3'",
   ubuntu: "Ubuntu",
+  jakarta: "'Plus Jakarta Sans'",
+  fraunces: "Fraunces",
+  sourceserif: "'Source Serif 4'",
+  archivo: "'Archivo Narrow'",
+  nunito: "Nunito",
 };
 const SANS = "Arial, Helvetica, sans-serif";
 const SERIF = "Georgia, 'Times New Roman', serif";
@@ -99,7 +109,7 @@ const SERIF = "Georgia, 'Times New Roman', serif";
 function fontStacks(font: Font, heading: LandingHeadingFont | null) {
   if (font === "serif") return { body: SERIF, heading: SERIF, link: null };
   if (font === "tema" && heading) {
-    const fallback = heading === "serif" ? SERIF : SANS;
+    const fallback = LANDING_HEADING_FONTS[heading].category === "Serif" ? SERIF : SANS;
     const stack = `${FONT_NAME[heading]}, ${fallback}`;
     const family = GOOGLE_FONT[heading];
     return { body: stack, heading: stack, link: family ? `https://fonts.googleapis.com/css2?family=${family}&display=swap` : null };

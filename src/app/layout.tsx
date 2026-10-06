@@ -6,11 +6,10 @@ import { ToastProvider } from "@/components/toast";
 import { OfflineBanner } from "./offline-banner";
 import { THEME_INIT_SCRIPT } from "@/lib/m3/theme";
 
-// Huruf: Inter untuk antarmuka (--font-sans), lima huruf judul layar publik
-// yang dipilih admin lewat CMS (--font-geometric, --font-condensed,
-// --font-grotesk, --font-serif, --font-source), Ubuntu untuk tata letak Forum
-// (--font-ubuntu) dan Geist Mono (--font-mono).
-// Semuanya disimpan di repo dan dimuat lewat next/font/local di ./fonts.ts,
+// Huruf: Inter untuk antarmuka (--font-sans) dan Geist Mono (--font-mono) lewat
+// next/font/local di ./fonts.ts. Huruf yang dipilih admin untuk halaman acara
+// (--font-geometric, --font-serif, --font-jakarta, dst.) ada di
+// ./fonts/landing.css, berkasnya di public/fonts/v1/. Semuanya disimpan di repo,
 // jadi tidak ada permintaan ke server luar, baik saat build maupun saat acara.
 //
 // Alasannya operasional, bukan selera: LED di lokasi sering berada di jaringan

@@ -163,3 +163,20 @@ export function landingShapeStyle(tokens: Pick<LandingTokens, "bodyFont" | "body
     ...(tokens.corners === "soft" ? null : SUDUT[tokens.corners]),
   } as CSSProperties;
 }
+
+/** Berkas huruf isi di bobot 400. Ubuntu satu-satunya yang statis per bobot. */
+function berkasIsi(font: LandingHeadingFont): string {
+  return font === "ubuntu" ? "ubuntu/ubuntu-latin-400.woff2" : LANDING_HEADING_FONTS[font].preload;
+}
+
+/**
+ * URL huruf yang perlu di-preload halaman acara: subset latin huruf judul di
+ * bobot judulnya, ditambah huruf isi bila halaman itu memasangnya (pilihan
+ * admin, atau Forum yang selalu memakai Ubuntu). Inter tidak ikut karena sudah
+ * di-preload root layout.
+ */
+export function landingFontUrls(tokens: Pick<LandingTokens, "layout" | "headingFont" | "bodyFont" | "bodyFontChosen">): string[] {
+  const berkas = [LANDING_HEADING_FONTS[tokens.headingFont].preload];
+  if (tokens.bodyFontChosen || tokens.layout === "forum") berkas.push(berkasIsi(tokens.bodyFont));
+  return [...new Set(berkas.filter(Boolean))].map((path) => `/fonts/v1/${path}`);
+}
