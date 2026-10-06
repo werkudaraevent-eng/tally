@@ -8,15 +8,16 @@ import { pembicaraDiSesi, pembicaraSesiLama } from "./landing-peran-sesi";
  * Murni data, tanpa tampilan, supaya setiap tata letak (Modern, Forum) memakai
  * aturan yang sama: paling banyak 8 kartu tampil sekaligus, sisanya di tab sesi.
  *
- * - "Sorotan": pembicara yang ditandai Tonjolkan, paling banyak 8. Tanpa tanda,
- *   8 pembicara pertama.
+ * - "Sorotan": pembicara yang ditandai Tonjolkan, paling banyak 8. Tanpa satu
+ *   pun yang ditandai, tab ini tidak ada dan tab sesi pertama yang terbuka:
+ *   Sorotan yang diisi sendiri dari daftar terbaca sebagai pilihan admin.
  * - Satu tab per baris rundown yang dipegang pembicara (`speaker.session_refs`,
  *   atau sesi teks lama yang cocok dengan awal judulnya), urut rundown. Sesi
  *   teks lama yang tidak ada di rundown menyusul, urut kemunculan.
  * - "Pembicara lain": pembicara tanpa sesi yang tidak masuk Sorotan.
  *
- * Tanpa sesi sama sekali dan paling banyak 8 pembicara, hasilnya satu tab saja
- * dan tampilan tidak perlu menggambar baris tab.
+ * Tanpa sesi dan tanpa yang ditonjolkan, hasilnya satu tab ("Pembicara lain")
+ * berisi semua pembicara, dan tampilan tidak perlu menggambar baris tab.
  */
 export const SOROTAN_MAKS = 8;
 
@@ -144,11 +145,10 @@ export function speakerTabs(all: LandingSpeaker[], agenda: AgendaPreview[] = [],
   const speakers = all.filter((speaker) => speaker.name?.trim());
   if (speakers.length === 0) return [];
 
-  const ditonjolkan = speakers.filter((speaker) => speaker.featured);
-  const sorotan = (ditonjolkan.length > 0 ? ditonjolkan : speakers).slice(0, SOROTAN_MAKS);
+  const sorotan = speakers.filter((speaker) => speaker.featured).slice(0, SOROTAN_MAKS);
 
   const barisnya = new Map(speakers.map((speaker) => [speaker, barisPembicara(speaker, agenda)]));
-  const tabs: SpeakerTab[] = [{ key: "sorotan", label: labels.highlights, note: null, speakers: sorotan }];
+  const tabs: SpeakerTab[] = sorotan.length > 0 ? [{ key: "sorotan", label: labels.highlights, note: null, speakers: sorotan }] : [];
 
   // Satu tab per baris rundown yang dipegang paling tidak satu pembicara, urut
   // rundown. Pembicara beberapa sesi tampil di tiap tab sesinya, urut editor,
