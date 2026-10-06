@@ -55,6 +55,7 @@ export function LandingPreview({
   slug,
   reloadKey,
   sorot,
+  tabPembicara = null,
   draf,
   halaman = null,
   onHalaman,
@@ -66,6 +67,8 @@ export function LandingPreview({
   reloadKey: number;
   /** Bagian yang dipilih di Susunan halaman: digulir ke sana dan diberi garis. */
   sorot?: { id: string; n: number } | null;
+  /** Tab bagian Pembicara yang sedang diurutkan di editor (`SpeakerTab.key`): dibuka juga di pratinjau. */
+  tabPembicara?: string | null;
   /** Isi CMS yang belum disimpan; dirender di pratinjau sambil mengetik. */
   draf?: object | null;
   /** Halaman tata letak Forum yang dipratinjau; null = tata letak satu halaman. */
@@ -164,6 +167,22 @@ export function LandingPreview({
 
   useEffect(() => { terapkanSorot(); }, [terapkanSorot]);
 
+  // Membuka tab Pembicara yang sedang diurutkan dengan mengklik tabnya di
+  // halaman pratinjau (asal-yang-sama), lalu menggulir ke bagian itu.
+  const bukaTab = useCallback((gulir = true) => {
+    const jendela = bingkai.current?.contentWindow;
+    const doc = bingkai.current?.contentDocument;
+    if (!jendela || !doc || !tabPembicara) return;
+    const tombol = doc.querySelector<HTMLElement>(`[data-bagian="speakers"] [role="tab"][data-tab="${CSS.escape(tabPembicara)}"]`);
+    if (!tombol) return;
+    if (tombol.getAttribute("aria-selected") !== "true") tombol.click();
+    if (!gulir) return;
+    const atas = tombol.getBoundingClientRect().top + jendela.scrollY - BILAH_ATAS - 96;
+    jendela.scrollTo({ top: Math.max(0, atas), behavior: "smooth" });
+  }, [tabPembicara]);
+
+  useEffect(() => { bukaTab(); }, [bukaTab]);
+
   useEffect(() => { kirimDraf(); }, [kirimDraf]);
 
   // Pesan dari halaman di dalam iframe: siap menerima draf (setelah dimuat),
@@ -177,6 +196,7 @@ export function LandingPreview({
       if (event.data?.jenis === "tally-pratinjau-siap") {
         kirimDraf();
         terapkanSorot();
+        bukaTab();
       }
       if (event.data?.jenis === "tally-pratinjau-halaman" && ["beranda", "program", "info"].includes(event.data.halaman)) {
         onHalaman?.(event.data.halaman);
@@ -185,12 +205,12 @@ export function LandingPreview({
       if (event.data?.jenis === "tally-pratinjau-hasil") {
         setTertinggal(event.data.pesan ? String(event.data.pesan) : event.data.ok ? null : "The preview hasn't updated yet.");
         // Halaman dirender ulang: pasang lagi garis sorot tanpa menggulir.
-        if (event.data.ok) window.requestAnimationFrame(() => terapkanSorot(false));
+        if (event.data.ok) window.requestAnimationFrame(() => { terapkanSorot(false); bukaTab(false); });
       }
     }
     window.addEventListener("message", terima);
     return () => window.removeEventListener("message", terima);
-  }, [kirimDraf, terapkanSorot, onHalaman, onBahasa]);
+  }, [kirimDraf, terapkanSorot, bukaTab, onHalaman, onBahasa]);
   const { width, height: tinggiPerangkat } = UKURAN[device];
   // Diukur dari panel, bukan jendela: panel utama menyempit saat panel setelan
   // di sebelahnya muncul, tanpa jendelanya berubah ukuran.

@@ -251,8 +251,8 @@ export type LandingBlock = {
   columns?: LandingColumnCount;
   /** Kolom: bentuk gambar tiap kolom. */
   image_shape?: LandingImageShape;
-  /** Kolom: perataan teks dan gambar di dalam kolom. */
-  align?: "left" | "center";
+  /** Kolom: perataan teks dan gambar di dalam kolom (kiri, tengah). Logo: perataan judul dan deret logo. */
+  align?: LandingBlockAlign;
   /** Teks English blok ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingBlockEn;
 };
@@ -295,6 +295,21 @@ export type LandingConfigEn = Partial<Record<(typeof LANDING_CONFIG_EN_KEYS)[num
   /** Urut sesuai `program_notes`. */
   program_notes?: string[];
 };
+
+/**
+ * Bingkai foto kartu pembicara (Modern), setelan bagian Pembicara, bukan Tema:
+ * bentuk yang cocok bergantung pada foto-fotonya, bukan pada merek. `portrait`
+ * (bawaan): 4:5, sudut dari Corners. `circle`: bulat 1:1, tanpa Corners.
+ * `arch`: 4:5, atas setengah lingkaran, sudut bawah dari Corners. Forum dan
+ * Editorial tetap memakai bentuk rancangannya sendiri.
+ */
+export const LANDING_SPEAKER_FRAMES = ["portrait", "circle", "arch"] as const;
+export type LandingSpeakerFrame = (typeof LANDING_SPEAKER_FRAMES)[number];
+export const LANDING_SPEAKER_FRAME_LABELS: Record<LandingSpeakerFrame, string> = { portrait: "Portrait", circle: "Circle", arch: "Arch" };
+
+/** Perataan blok. Kolom memakai kiri dan tengah; Logo juga kanan. */
+export type LandingBlockAlign = "left" | "center" | "right";
+export const LANDING_BLOCK_ALIGN_LABELS: Record<LandingBlockAlign, string> = { left: "Left", center: "Centre", right: "Right" };
 
 export const LANDING_ABOUT_MEDIA = ["auto", "image", "none"] as const;
 export type LandingAboutMedia = (typeof LANDING_ABOUT_MEDIA)[number];
@@ -844,6 +859,12 @@ export type LandingSessionRef = {
   label: string;
   role?: string;
   en?: { role?: string };
+  /**
+   * Posisi pembicara di sesi ini, kiri ke kanan, diatur admin (0 = paling
+   * kiri). Bila satu pembicara sesi ini punya posisi, urutan ini mengalahkan
+   * urutan editor dan aturan moderator lebih dulu; yang belum punya menyusul.
+   */
+  pos?: number;
   /** Hanya di /en, diisi resolveLanding: `role` Indonesia, untuk urutan moderator. Tidak disimpan. */
   role_id?: string;
 };
@@ -976,6 +997,8 @@ export type EventLandingConfig = {
    * `about_image_url`. `none`: deskripsi selebar halaman.
    */
   about_media?: LandingAboutMedia;
+  /** Bingkai foto kartu pembicara, tata letak Modern saja. Bawaan `portrait`. */
+  speaker_frame?: LandingSpeakerFrame;
   about_image_url?: string | null;
   /** Teks alternatif gambar sendiri, dibacakan pembaca layar. */
   about_image_alt?: string;

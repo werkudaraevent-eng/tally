@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { gabungEntriSesi, isiPeranSesiEn, kunciPeran, pembicaraDiSesi, pembicaraSesiLama, peranSesiUntukEn, saranPeran, ubahPeranEntri } from "./landing-peran-sesi.ts";
+import { aturUrutanSesi, gabungEntriSesi, hapusUrutanSesi, isiPeranSesiEn, kunciPeran, pembicaraDiSesi, pembicaraSesiLama, peranSesiUntukEn, saranPeran, ubahPeranEntri } from "./landing-peran-sesi.ts";
 import type { LandingSpeaker } from "./domain.ts";
 
 // Kunci: huruf besar-kecil, spasi ganda, dan spasi di ujung tidak membedakan peran.
@@ -78,5 +78,32 @@ assert.equal(ubahPeranEntri({ id: 1, label: "A", role: "Moderator", en: { role: 
 assert.equal(ubahPeranEntri({ id: 1, label: "A", role: "Panelis", en: { role: "Panellist" } }, "Moderator", "Moderator (EN)").en?.role, "Moderator (EN)");
 // Tanpa English sama sekali: tidak menambah objek en.
 assert.deepEqual(ubahPeranEntri({ id: 1, label: "A" }, "MC"), { id: 1, label: "A", role: "MC" });
+
+// Urutan yang diatur admin (pos) mengalahkan urutan editor dan moderator lebih dulu.
+const u1: LandingSpeaker = { name: "U1", role: "Moderator", session_refs: [{ id: 3, label: "S" }, { id: 4, label: "T" }] };
+const u2: LandingSpeaker = { name: "U2", session_refs: [{ id: 3, label: "S" }, { id: 4, label: "T" }] };
+const u3: LandingSpeaker = { name: "U3", session_refs: [{ id: 3, label: "S" }] };
+assert.deepEqual(pembicaraDiSesi([u2, u3, u1], 3).map((s) => s.name), ["U1", "U2", "U3"], "tanpa pos: moderator lebih dulu");
+const diatur = aturUrutanSesi([u1, u2, u3], 3, [u3, u2, u1]);
+assert.deepEqual(pembicaraDiSesi(diatur, 3).map((s) => s.name), ["U3", "U2", "U1"]);
+// Sesi lain tidak berubah.
+assert.deepEqual(pembicaraDiSesi(diatur.slice(0, 2), 4).map((s) => s.name), ["U1", "U2"]);
+assert.equal(diatur[0]!.session_refs!.find((ref) => ref.id === 4)!.pos, undefined);
+// Pembicara baru di sesi itu (tanpa pos) menyusul di kanan.
+const u4: LandingSpeaker = { name: "U4", session_refs: [{ id: 3, label: "S" }] };
+assert.deepEqual(pembicaraDiSesi([u4, ...diatur], 3).map((s) => s.name), ["U3", "U2", "U1", "U4"]);
+// Kembali ke otomatis: pos sesi itu dibuang, sesi lain tetap.
+const balik = hapusUrutanSesi(aturUrutanSesi(diatur, 4, [diatur[1]!, diatur[0]!]), 3);
+assert.deepEqual(pembicaraDiSesi(balik, 3).map((s) => s.name), ["U1", "U2", "U3"]);
+assert.equal(balik[0]!.session_refs!.find((ref) => ref.id === 4)!.pos, 1);
+assert.ok(!("pos" in balik[0]!.session_refs!.find((ref) => ref.id === 3)!));
+// Peran sesi tetap ditulis pada salinan yang diurutkan.
+const berperan = aturUrutanSesi([{ ...u2, session_refs: [{ id: 3, label: "S", role: "Panelis" }] }, u3], 3, []);
+assert.deepEqual(pembicaraDiSesi(berperan, 3).map((s) => s.role), ["Panelis", undefined]);
+
+// Urutan sebagian tetap menomori ulang seluruh sesi: yang tidak disebut menyusul, pos rapat 0..n-1.
+const sebagian = aturUrutanSesi([u4, ...diatur], 3, [diatur[0]!]);
+assert.deepEqual(pembicaraDiSesi(sebagian, 3).map((s) => s.name), ["U1", "U3", "U2", "U4"]);
+assert.deepEqual(sebagian.map((s) => s.session_refs!.find((ref) => ref.id === 3)!.pos), [3, 0, 2, 1]);
 
 console.log("landing-peran-sesi: ok");

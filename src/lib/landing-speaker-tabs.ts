@@ -6,7 +6,7 @@ import { pembicaraDiSesi, pembicaraSesiLama } from "./landing-peran-sesi";
  * Pengelompokan pembicara menjadi tab untuk bagian Pembicara halaman acara.
  *
  * Murni data, tanpa tampilan, supaya setiap tata letak (Modern, Forum) memakai
- * aturan yang sama: paling banyak 8 kartu tampil sekaligus, sisanya di tab sesi.
+ * aturan yang sama: Sorotan paling banyak 8 kartu, sisanya di tab sesi.
  *
  * - "Sorotan": pembicara yang ditandai Tonjolkan, paling banyak 8. Tanpa satu
  *   pun yang ditandai, tab ini tidak ada dan tab sesi pertama yang terbuka:

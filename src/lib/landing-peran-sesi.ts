@@ -53,9 +53,51 @@ export function pembicaraSesiLama(orang: LandingSpeaker[]): LandingSpeaker[] {
 export function pembicaraDiSesi(orang: LandingSpeaker[], id: number): LandingSpeaker[] {
   const susun = orang.map((speaker) => {
     const entri = entriBerperan(speaker, id);
-    return { tampil: entri ? { ...speaker, role: entri.role!.trim() } : speaker, peran: peranId(speaker, entri) };
+    return { tampil: entri ? { ...speaker, role: entri.role!.trim() } : speaker, peran: peranId(speaker, entri), pos: posisiDiSesi(speaker, id) };
   });
+  // Urutan yang diatur admin menang; yang belum punya posisi menyusul, urut editor.
+  if (susun.some((item) => item.pos !== undefined)) {
+    return susun
+      .map((item, urutan) => ({ item, urutan }))
+      .sort((a, b) => (a.item.pos ?? Infinity) - (b.item.pos ?? Infinity) || a.urutan - b.urutan)
+      .map(({ item }) => item.tampil);
+  }
   return moderatorDulu(susun, (item) => item.peran).map((item) => item.tampil);
+}
+
+/** Posisi kiri-ke-kanan yang diatur admin untuk pembicara di baris rundown ini, bila ada. */
+export function posisiDiSesi(speaker: LandingSpeaker, id: number): number | undefined {
+  const pos = speaker.session_refs?.find((ref) => ref.id === id)?.pos;
+  return typeof pos === "number" && Number.isFinite(pos) ? pos : undefined;
+}
+
+/** Daftar pembicara tanpa urutan admin di satu baris rundown: kembali ke urutan otomatis (moderator lebih dulu). */
+export function hapusUrutanSesi(daftar: LandingSpeaker[], id: number): LandingSpeaker[] {
+  return daftar.map((speaker) =>
+    speaker.session_refs?.some((ref) => ref.id === id && ref.pos !== undefined)
+      ? { ...speaker, session_refs: speaker.session_refs.map((ref) => (ref.id === id ? (({ pos: _pos, ...sisa }) => (void _pos, sisa))(ref) : ref)) }
+      : speaker,
+  );
+}
+
+/**
+ * Daftar pembicara setelah urutan satu baris rundown diatur: `urutan` berisi
+ * pembicara sesi itu dari kiri ke kanan (objek dari `daftar`). Tiap entri sesi
+ * itu mendapat `pos` 0..n-1; pembicara sesi yang tidak disebut menyusul di
+ * belakang dengan urutan sekarang. Daftar dan sesi lain tidak berubah.
+ */
+export function aturUrutanSesi(daftar: LandingSpeaker[], id: number, urutan: LandingSpeaker[]): LandingSpeaker[] {
+  const sisa = daftar
+    .filter((speaker) => !urutan.includes(speaker) && speaker.session_refs?.some((ref) => ref.id === id))
+    .map((speaker, i) => ({ speaker, i, pos: posisiDiSesi(speaker, id) ?? Infinity }))
+    .sort((a, b) => a.pos - b.pos || a.i - b.i)
+    .map(({ speaker }) => speaker);
+  const lengkap = [...urutan, ...sisa];
+  return daftar.map((speaker) => {
+    const pos = lengkap.indexOf(speaker);
+    if (pos < 0 || !speaker.session_refs?.some((ref) => ref.id === id)) return speaker;
+    return { ...speaker, session_refs: speaker.session_refs.map((ref) => (ref.id === id ? { ...ref, pos } : ref)) };
+  });
 }
 
 /**

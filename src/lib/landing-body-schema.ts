@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LANDING_ABOUT_MEDIA, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 // Skema isi CMS Halaman acara. Dipakai PATCH /api/admin/landing saat menyimpan
 // dan pratinjau langsung saat merender draf, supaya pratinjau menolak hal yang
@@ -82,7 +82,7 @@ const blockSchema = z.object({
   nav_label: teks(LANDING_NAV_LABEL_MAX),
   columns: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
   image_shape: z.enum(["wide", "square", "circle"]).optional(),
-  align: z.enum(["left", "center"]).optional(),
+  align: z.enum(["left", "center", "right"]).optional(),
   en: blockEnSchema.optional(),
 }).superRefine((block, ctx) => {
   const batas = landingBlockLimits(block);
@@ -95,6 +95,9 @@ const blockSchema = z.object({
     periksa(block[key], batas[key], [key]);
     periksa(block.en?.[key], batas[key], ["en", key]);
   });
+  if (block.align === "right" && block.type !== "logos") {
+    ctx.addIssue({ code: "custom", path: ["align"], message: "Right alignment is only for Logos" });
+  }
   const items = block.items ?? [];
   if (items.length > (batas.items?.max ?? 0)) {
     ctx.addIssue({ code: "custom", path: ["items"], message: `Maximum ${batas.items?.max ?? 0} items` });
@@ -236,6 +239,7 @@ export const landingBodySchema = z.object({
     }).optional(),
     about_heading: z.string().trim().max(160).optional(),
     about_media: z.enum(LANDING_ABOUT_MEDIA).optional(),
+    speaker_frame: z.enum(LANDING_SPEAKER_FRAMES).optional(),
     about_image_url: z.string().url().max(600).nullable().optional(),
     about_image_alt: teks(LANDING_IMAGE_ALT_MAX),
     program_heading: z.string().trim().max(120).optional(),
@@ -304,6 +308,7 @@ export const landingBodySchema = z.object({
         // Peran di sesi ini saja; batasnya sama dengan `role` pembicara.
         role: z.string().trim().max(60).optional(),
         en: z.object({ role: teks(60) }).optional(),
+        pos: z.number().int().min(0).max(99).optional(),
       })).max(40).optional(),
       session: z.string().trim().max(40).optional(),
       en: z.object({ title: teks(200), company: teks(120), role: teks(60), session: teks(40) }).optional(),
