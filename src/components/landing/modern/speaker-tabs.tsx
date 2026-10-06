@@ -8,8 +8,8 @@ import { JUDUL_BUTIR } from "./styles";
 /**
  * Bagian Pembicara tata letak Modern: tab sesi di atas kisi kartu.
  *
- * Paling banyak 8 kartu tampil sekaligus (tab "Sorotan"); pembicara lain
- * dibuka per sesi lewat tab, di tempat, tanpa halaman atau panel baru. Tab
+ * Tab "Sorotan" (bila ada yang ditonjolkan) paling banyak 8 kartu; pembicara
+ * lain dibuka per sesi lewat tab, di tempat, tanpa halaman atau panel baru. Tab
  * memakai bentuk filter chip M3 (satu terpilih) dan pola tab WAI-ARIA untuk
  * papan ketik. Dengan satu tab saja, baris tab tidak digambar.
  *
