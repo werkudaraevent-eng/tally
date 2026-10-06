@@ -1896,6 +1896,10 @@ html:hover {
 	}
 }
 .press .m3-topbar-row { min-block-size: 3.5rem; }
+/* Tinggi bilah atas aplikasi termasuk garis bawahnya, untuk elemen yang menempel
+ * tepat di bawahnya saat halaman bergulir. Ikut baris di atas: 64px biasa, 56px di profil kertas. */
+:root { --topbar-height: calc(4rem + 1px); }
+.press { --topbar-height: calc(3.5rem + 1px); }
 /* Kepala rel = baris bilah atas (56px) + garis bawahnya (1px). Bilah atas
  * menaruh garisnya DI LUAR baris 56px, kepala ini memakai border-box; tanpa
  * +1px garis rel berhenti 1px lebih tinggi daripada garis bilah. */

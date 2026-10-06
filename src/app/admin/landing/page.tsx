@@ -2,7 +2,7 @@
 
 import { pesanGalatApi } from "@/lib/api-message";
 import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
   Banner, Button, ButtonLink, Dialog, FilterChip, IconButton, PageLoading, PaneBody, Pane, SegmentedButton, segmentTabId,
@@ -624,6 +624,26 @@ export default function LandingCmsPage() {
     () => (cuplikan && facts ? isiKirim(facts, presetDilihat ? pakaiPreset(presetDilihat, landing) : landing) : null),
     [cuplikan, presetDilihat], // eslint-disable-line react-hooks/exhaustive-deps
   );
+  // Bilah pratinjau muncul di atas bidang gulir panel dan mendorong isinya
+  // turun setinggi bilah. Di desktop bidang gulir itu sendiri yang digeser
+  // sebesar selisihnya, supaya kartu yang baru diketuk tetap di tempatnya.
+  const bilahPratinjau = useRef<HTMLDivElement>(null);
+  // Posisi gulir terakhir dicatat dari event scroll: saat bilah hilang, browser
+  // sudah menjepit scrollTop ke batas yang baru sebelum efek ini berjalan.
+  const tinggiBilah = useRef(0);
+  const gulirTerakhir = useRef(0);
+  // Bidang gulir dibuat ulang per tab (key), jadi mulai lagi dari 0.
+  useLayoutEffect(() => { gulirTerakhir.current = 0; }, [bagian]);
+  useLayoutEffect(() => {
+    if (bagian !== "tema") { tinggiBilah.current = 0; return; }
+    const tinggi = bilahPratinjau.current?.offsetHeight ?? 0;
+    const selisih = tinggi - tinggiBilah.current;
+    tinggiBilah.current = tinggi;
+    const gulir = document.querySelector<HTMLElement>("#isi-setelan > .overflow-y-auto");
+    if (!selisih || !gulir || gulir.scrollHeight <= gulir.clientHeight) return;
+    gulir.scrollTop = gulirTerakhir.current + selisih;
+    gulirTerakhir.current = gulir.scrollTop;
+  }, [presetDilihat, bagian]);
   function terapkanPratinjau() {
     if (presetDilihat) setLanding(pakaiPreset(presetDilihat, landing));
     setPratinjauPreset(null);
@@ -2278,7 +2298,9 @@ export default function LandingCmsPage() {
   );
 
   const panel = (
-    <Pane as="aside" id="panel-setelan" aria-label="Event page settings">
+    // overflow-visible di bawah lg: `overflow-hidden` bawaan Pane memutus
+    // sticky bilah pratinjau dari gulir halaman.
+    <Pane as="aside" id="panel-setelan" aria-label="Event page settings" className="max-lg:overflow-visible">
       <div className="flex h-12 shrink-0 items-center border-b border-outline-variant px-3">
         <SegmentedButton<Bagian>
           label="Settings tabs"
@@ -2298,10 +2320,12 @@ export default function LandingCmsPage() {
       <div id="isi-setelan" role="tabpanel" aria-labelledby={segmentTabId("isi-setelan", bagian)} className="flex min-h-0 flex-1 flex-col">
         {saringan}
         {/* Bilah konteks pratinjau preset berdiri di luar bidang gulir, tepat di
-            bawah tab: tidak perlu sticky, jadi tidak ada celah dari padding
-            bidang gulir dan tidak ada isi yang terlihat di atasnya. */}
+            bawah tab: tidak ada celah dari padding bidang gulir dan tidak ada isi
+            yang terlihat di atasnya. Di bawah lg halamannya yang bergulir, jadi
+            bilah menempel di bawah bilah atas aplikasi agar Cancel dan Apply
+            tetap terjangkau saat kartu preset digulir. */}
         {presetDilihat ? (
-          <div className="flex shrink-0 items-center gap-2 border-b border-outline-variant bg-primary-soft px-4 py-2" role="status">
+          <div ref={bilahPratinjau} className="z-10 flex shrink-0 items-center gap-2 border-b border-outline-variant bg-primary-soft px-4 py-2 max-lg:sticky max-lg:top-(--topbar-height)" role="status">
             <p className="min-w-0 flex-1 truncate text-body-medium text-on-surface" title="Not applied yet">
               Previewing <b className="font-semibold">{presetDilihat.label}</b>
             </p>
@@ -2317,6 +2341,7 @@ export default function LandingCmsPage() {
           tabIndex={bagian === "susunan" ? undefined : 0}
           role={bagian === "susunan" ? undefined : "group"}
           aria-labelledby={bagian === "susunan" ? undefined : segmentTabId("isi-setelan", bagian)}
+          onScroll={(event) => { gulirTerakhir.current = event.currentTarget.scrollTop; }}
           // `!`: aturan :focus-visible global tidak berlapis, jadi mengalahkan utilitas biasa.
           // pb-40 di Susunan: kolom terbawah tetap bisa digulir ke atas toast galat.
           className={bagian === "susunan" ? "scroll-pt-22 pb-40" : "px-4 py-4 focus-visible:shadow-none! focus-visible:-outline-offset-2!"}>
