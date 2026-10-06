@@ -1553,7 +1553,6 @@ export default function LandingCmsPage() {
           document.getElementById("pratinjau-acara")?.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }}
-      onTerapkan={terapkanPratinjau}
       formInherit={formInherit}
       setFormInherit={setFormInherit}
       formSeed={formSeed}
@@ -2298,6 +2297,18 @@ export default function LandingCmsPage() {
           daftar tab langsung masuk ke panel yang dipilih (pola tabs WAI-ARIA). */}
       <div id="isi-setelan" role="tabpanel" aria-labelledby={segmentTabId("isi-setelan", bagian)} className="flex min-h-0 flex-1 flex-col">
         {saringan}
+        {/* Bilah konteks pratinjau preset berdiri di luar bidang gulir, tepat di
+            bawah tab: tidak perlu sticky, jadi tidak ada celah dari padding
+            bidang gulir dan tidak ada isi yang terlihat di atasnya. */}
+        {presetDilihat ? (
+          <div className="flex shrink-0 items-center gap-2 border-b border-outline-variant bg-primary-soft px-4 py-2" role="status">
+            <p className="min-w-0 flex-1 truncate text-body-medium text-on-surface" title="Not applied yet">
+              Previewing <b className="font-semibold">{presetDilihat.label}</b>
+            </p>
+            <Button variant="text" size="sm" onClick={() => setPratinjauPreset(null)}>Cancel</Button>
+            <Button size="sm" onClick={terapkanPratinjau}>Apply</Button>
+          </div>
+        ) : null}
         {/* scroll-pt: field yang difokus dengan Tab tidak boleh tertutup kepala baris yang menempel (72px).
             Tema dan Peserta bisa dimulai dengan teks biasa, jadi bidang gulirnya sendiri
             ikut menerima fokus agar bisa digulir dengan papan ketik. */}

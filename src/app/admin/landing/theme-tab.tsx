@@ -2,7 +2,7 @@
 
 import { CaretDown, CaretRight, Check } from "@phosphor-icons/react";
 import { useId, useState, type ReactNode } from "react";
-import { Button, SegmentedButton, Switch } from "@/components/m3";
+import { SegmentedButton, Switch } from "@/components/m3";
 import { Popover, usePopoverAnchor } from "@/components/m3/popover";
 import { cx } from "@/lib/m3/cx";
 import {
@@ -56,7 +56,6 @@ export function TabTema({
   contohIsi,
   pratinjau,
   onPratinjau,
-  onTerapkan,
   formInherit,
   setFormInherit,
   formSeed,
@@ -73,7 +72,6 @@ export function TabTema({
   contohIsi: string;
   pratinjau: string | null;
   onPratinjau: (key: string | null) => void;
-  onTerapkan: () => void;
   formInherit: boolean;
   setFormInherit: (value: boolean) => void;
   formSeed: string;
@@ -116,16 +114,6 @@ export function TabTema({
 
   return (
     <div className="flex flex-col gap-5">
-      {presetDilihat ? (
-        <div className="sticky top-0 z-10 -mx-4 -mt-4 flex items-center gap-2 border-b border-outline-variant bg-primary-soft px-4 py-2" role="status">
-          <p className="min-w-0 flex-1 truncate text-body-medium text-on-surface" title="Not applied yet">
-            Previewing <b className="font-semibold">{presetDilihat.label}</b>
-          </p>
-          <Button variant="text" size="sm" onClick={() => onPratinjau(null)}>Cancel</Button>
-          <Button size="sm" onClick={onTerapkan}>Apply</Button>
-        </div>
-      ) : null}
-
       <PresetTema landing={landing} setLanding={setLanding} pratinjau={pratinjau} onPratinjau={onPratinjau} />
 
       {/* Selama pratinjau preset, kontrol di bawah dikunci: nilai yang tampil
