@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { aturUrutanSesi, gabungEntriSesi, isiPeranSesiEn, kunciPeran, pembicaraDiSesi, pembicaraSesiLama, peranSesiUntukEn, saranPeran, ubahPeranEntri } from "./landing-peran-sesi.ts";
+import { aturUrutanSesi, gabungEntriSesi, hapusUrutanSesi, isiPeranSesiEn, kunciPeran, pembicaraDiSesi, pembicaraSesiLama, peranSesiUntukEn, saranPeran, ubahPeranEntri } from "./landing-peran-sesi.ts";
 import type { LandingSpeaker } from "./domain.ts";
 
 // Kunci: huruf besar-kecil, spasi ganda, dan spasi di ujung tidak membedakan peran.
@@ -92,6 +92,11 @@ assert.equal(diatur[0]!.session_refs!.find((ref) => ref.id === 4)!.pos, undefine
 // Pembicara baru di sesi itu (tanpa pos) menyusul di kanan.
 const u4: LandingSpeaker = { name: "U4", session_refs: [{ id: 3, label: "S" }] };
 assert.deepEqual(pembicaraDiSesi([u4, ...diatur], 3).map((s) => s.name), ["U3", "U2", "U1", "U4"]);
+// Kembali ke otomatis: pos sesi itu dibuang, sesi lain tetap.
+const balik = hapusUrutanSesi(aturUrutanSesi(diatur, 4, [diatur[1]!, diatur[0]!]), 3);
+assert.deepEqual(pembicaraDiSesi(balik, 3).map((s) => s.name), ["U1", "U2", "U3"]);
+assert.equal(balik[0]!.session_refs!.find((ref) => ref.id === 4)!.pos, 1);
+assert.ok(!("pos" in balik[0]!.session_refs!.find((ref) => ref.id === 3)!));
 // Peran sesi tetap ditulis pada salinan yang diurutkan.
 const berperan = aturUrutanSesi([{ ...u2, session_refs: [{ id: 3, label: "S", role: "Panelis" }] }, u3], 3, []);
 assert.deepEqual(pembicaraDiSesi(berperan, 3).map((s) => s.role), ["Panelis", undefined]);

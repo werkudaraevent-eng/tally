@@ -506,35 +506,36 @@ function Kutipan({ block }: { block: LandingBlock }) {
 }
 
 /**
- * Perataan blok Logo. Kiri (bawaan): judul di kolom kiri, logo sebaris di
- * kanannya pada layar lebar. Tengah dan kanan: judul di atas deret logo,
- * keduanya rapat ke sisi yang sama di semua lebar layar.
+ * Blok Logo: judul di atas kisi sel yang sama lebar (dua per baris di ponsel,
+ * 160 px di layar lebar) dan sama tinggi (48 px, juga target ketuk bila logo
+ * bertautan). Logo berdiri di tengah selnya dengan tinggi paling banyak 40 px,
+ * jadi tepi deret tidak bergerigi mengikuti lebar tiap logo. Perataan
+ * (Kiri bawaan, Tengah, Kanan) hanya menggeser judul dan baris terakhir yang
+ * tidak penuh.
  */
-const RATA_LOGO: Record<"left" | "center" | "right", string> = {
-  left: "flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-16",
-  center: "flex flex-col items-center gap-5 text-center",
-  right: "flex flex-col items-end gap-5 text-right",
+const RATA_LOGO: Record<"left" | "center" | "right", { wadah: string; deret: string }> = {
+  left: { wadah: "items-start text-left", deret: "justify-start" },
+  center: { wadah: "items-center text-center", deret: "justify-center" },
+  right: { wadah: "items-end text-right", deret: "justify-end" },
 };
 
 function Logo({ block }: { block: LandingBlock }) {
   const logo = (block.items ?? []).filter((item): item is LandingBlockItem & { image_url: string } => Boolean(item.image_url));
+  const rata = RATA_LOGO[block.align ?? "left"] ?? RATA_LOGO.left;
   return (
     <Wadah block={block} className="border-b border-[var(--reg-outline-variant)] py-7 sm:py-9">
-      <div className={RATA_LOGO[block.align ?? "left"] ?? RATA_LOGO.left}>
-        {block.heading?.trim() ? (
-          <h2 className={`shrink-0 text-title-small font-medium ${block.align === "center" || block.align === "right" ? "" : "lg:w-44"} ${MUTED}`}>{block.heading.trim()}</h2>
-        ) : null}
-        {/* Rata dan sama tinggi (40px): ukuran logo bukan keputusan urutan unggah. */}
-        <ul className={`flex flex-wrap items-center gap-x-10 gap-y-5 ${block.align === "center" ? "justify-center" : block.align === "right" ? "justify-end" : "flex-1"}`}>
+      <div className={`flex flex-col gap-5 ${rata.wadah}`}>
+        {block.heading?.trim() ? <h2 className={`text-title-small font-medium ${MUTED}`}>{block.heading.trim()}</h2> : null}
+        <ul className={`flex w-full flex-wrap gap-x-6 gap-y-4 sm:gap-x-10 ${rata.deret}`}>
           {logo.map((item, index) => {
             const gambar = (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={item.image_url} alt={item.label?.trim() ?? ""} loading="lazy" className="max-h-full w-auto max-w-[160px] object-contain" />
+              <img src={item.image_url} alt={item.label?.trim() ?? ""} loading="lazy" className="max-h-10 w-auto max-w-full object-contain" />
             );
             const href = item.href?.trim();
             return (
-              <li key={index} className="flex h-10 items-center">
-                {href ? <Taut href={href} className="m3-state flex h-full items-center rounded-md">{gambar}</Taut> : gambar}
+              <li key={index} className="flex h-12 w-[calc((100%-1.5rem)/2)] items-center justify-center sm:w-40">
+                {href ? <Taut href={href} className="m3-state flex size-full items-center justify-center rounded-md">{gambar}</Taut> : gambar}
               </li>
             );
           })}

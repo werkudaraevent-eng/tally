@@ -62,7 +62,7 @@ import { plural } from "@/lib/plural";
 import { BlockEditor, butirBerlebih, isianButirTampil, kolomBlokTampil, labelIsianButir, labelKolomBlok, namaButirBlok, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok, type KolomButir } from "./blocks";
 import { ForumSusunan, forumTautanSalah, halamanBagianForum } from "./forum-editor";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
-import { UrutanPembicara } from "./urutan-pembicara";
+import { BentukBingkai, UrutanPembicara } from "./urutan-pembicara";
 import { pakaiPreset } from "./theme-presets";
 import { TabTema } from "./theme-tab";
 import { LANDING_THEME_PRESETS } from "@/lib/landing-theme-presets";
@@ -444,6 +444,8 @@ export default function LandingCmsPage() {
   // Baris rundown yang bisa dipilih sebagai sesi pembicara. null = belum ada
   // atau gagal dimuat (lihat sesiMemuat): pilihan tersimpan tidak disentuh.
   const [barisSesi, setBarisSesi] = useState<BarisSesi[] | null>(null);
+  // Tab yang sedang diurutkan di "Order on the page": pratinjau membuka tab yang sama.
+  const [tabPembicara, setTabPembicara] = useState<string | null>(null);
   /** Rundown gagal dimuat saat editor dibuka: pemetaan sesi lama menunggu muat ulang yang berhasil. */
   const petakanTertunda = useRef(false);
   const terkini = useRef<{ facts: Facts | null; landing: EventLandingConfig; formInherit: boolean; formSeed: string; tersimpan: string | null }>({
@@ -1692,23 +1694,29 @@ export default function LandingCmsPage() {
             </p>
             {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">No speakers yet.</p> : null}
             {list.length > 0 ? (
-              <div className="flex flex-col gap-1.5">
-                <p className="text-body-medium font-medium text-on-surface">Photo frame</p>
+              <div className="flex flex-col gap-2">
+                <p id="label-bingkai-foto" className="text-body-medium font-medium text-on-surface">Photo frame</p>
                 <SegmentedButton<LandingSpeakerFrame>
+                  className="w-full"
                   label="Photo frame"
-                  value={landing.speaker_frame ?? "portrait"}
+                  labelledBy="label-bingkai-foto"
+                  value={modern ? landing.speaker_frame ?? "portrait" : "portrait"}
                   onChange={(speaker_frame) => setLanding({ ...landing, speaker_frame: speaker_frame === "portrait" ? undefined : speaker_frame })}
-                  options={LANDING_SPEAKER_FRAMES.map((value) => ({ value, label: LANDING_SPEAKER_FRAME_LABELS[value] }))}
+                  options={LANDING_SPEAKER_FRAMES.map((value) => ({ value, label: LANDING_SPEAKER_FRAME_LABELS[value], icon: <BentukBingkai bentuk={value} />, disabled: !modern }))}
                 />
                 <p className="text-body-small text-on-surface-variant">
-                  {(landing.speaker_frame ?? "portrait") === "portrait" ? "Corners follow the Theme setting." : "For every speaker photo on the event page."}
+                  {modern
+                    ? "For the speaker cards. Portrait and Arch follow Theme › Corners; Circle doesn't. Agenda photos stay round."
+                    : forum
+                      ? "Forum keeps the photo shape of its own design. Switch to the Modern layout to choose a frame."
+                      : "Editorial shows small round photos. Switch to the Modern layout to choose a frame."}
                 </p>
               </div>
             ) : null}
             {list.filter((speaker) => speaker.name?.trim()).length > 1 ? (
-              <div className="flex flex-col gap-1.5 border-t border-outline-variant pt-3">
+              <div className="flex flex-col gap-2 border-t border-outline-variant pt-3">
                 <p className="text-body-medium font-medium text-on-surface">Order on the page</p>
-                <UrutanPembicara speakers={list} baris={barisSesi} bingkai={landing.speaker_frame ?? "portrait"} onChange={setList} />
+                <UrutanPembicara speakers={list} baris={barisSesi} bingkai={modern ? landing.speaker_frame ?? "portrait" : "portrait"} onChange={setList} onTab={setTabPembicara} />
               </div>
             ) : null}
             {hasilPetakan?.terhubung || sesiLamaBelumTerhubung ? (
@@ -1724,7 +1732,7 @@ export default function LandingCmsPage() {
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
                   <ImageUploadField
-                    label={`Speaker photo ${index + 1}`}
+                    label={speaker.name.trim() ? `Photo · ${speaker.name.trim()}` : "Speaker photo"}
                     kind="landing"
                     fit="cover"
                     previewClassName="size-16 rounded-full"
@@ -2488,6 +2496,7 @@ export default function LandingCmsPage() {
               slug={facts.slug}
               reloadKey={previewKey}
               sorot={sorot}
+              tabPembicara={tabPembicara}
               draf={drafPratinjau}
               halaman={forum ? halamanPratinjau : null}
               onHalaman={setHalamanPratinjau}

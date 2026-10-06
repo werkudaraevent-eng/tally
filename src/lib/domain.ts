@@ -297,9 +297,11 @@ export type LandingConfigEn = Partial<Record<(typeof LANDING_CONFIG_EN_KEYS)[num
 };
 
 /**
- * Bingkai foto pembicara, satu untuk seluruh acara. `portrait` (bawaan): 4:5
- * dengan sudut dari setelan Corners. `circle`: bulat 1:1. `arch`: 4:5 dengan
- * atas melengkung penuh. Ukuran dan sudut bebas sengaja tidak ada.
+ * Bingkai foto kartu pembicara (Modern), setelan bagian Pembicara, bukan Tema:
+ * bentuk yang cocok bergantung pada foto-fotonya, bukan pada merek. `portrait`
+ * (bawaan): 4:5, sudut dari Corners. `circle`: bulat 1:1, tanpa Corners.
+ * `arch`: 4:5, atas setengah lingkaran, sudut bawah dari Corners. Forum dan
+ * Editorial tetap memakai bentuk rancangannya sendiri.
  */
 export const LANDING_SPEAKER_FRAMES = ["portrait", "circle", "arch"] as const;
 export type LandingSpeakerFrame = (typeof LANDING_SPEAKER_FRAMES)[number];
@@ -995,7 +997,7 @@ export type EventLandingConfig = {
    * `about_image_url`. `none`: deskripsi selebar halaman.
    */
   about_media?: LandingAboutMedia;
-  /** Bingkai foto pembicara (bagian Pembicara, Modern dan Forum). Bawaan `portrait`. */
+  /** Bingkai foto kartu pembicara, tata letak Modern saja. Bawaan `portrait`. */
   speaker_frame?: LandingSpeakerFrame;
   about_image_url?: string | null;
   /** Teks alternatif gambar sendiri, dibacakan pembaca layar. */

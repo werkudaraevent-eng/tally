@@ -665,17 +665,17 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
         <div className="flex flex-col gap-4">
           {judul("Label", "e.g. Diselenggarakan oleh")}
           {daftarButir}
-          <div className="flex flex-col gap-1.5">
-            <p className="text-body-medium font-medium text-on-surface">Alignment</p>
+          <div className="flex flex-col gap-2">
+            <p id={`label-rata-${block.id}`} className="text-body-medium font-medium text-on-surface">Alignment</p>
             <SegmentedButton<LandingBlockAlign>
-              label="Logo alignment"
+              className="w-full"
+              label="Alignment"
+              labelledBy={`label-rata-${block.id}`}
               value={block.align ?? "left"}
               onChange={(align) => ubah({ align: align === "left" ? undefined : align })}
               options={(["left", "center", "right"] as const).map((value) => ({ value, label: LANDING_BLOCK_ALIGN_LABELS[value] }))}
             />
-            <p className="text-body-small text-on-surface-variant">
-              {block.align === "center" || block.align === "right" ? "The label sits above the logos, both on the same side." : "On wide screens the label sits to the left of the logos."}
-            </p>
+            <p className="text-body-small text-on-surface-variant">Moves the label and a last row that isn&apos;t full. Logos sit in equal cells, two per row on phones.</p>
           </div>
           {latar}
         </div>

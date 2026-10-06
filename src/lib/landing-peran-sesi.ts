@@ -71,6 +71,15 @@ export function posisiDiSesi(speaker: LandingSpeaker, id: number): number | unde
   return typeof pos === "number" && Number.isFinite(pos) ? pos : undefined;
 }
 
+/** Daftar pembicara tanpa urutan admin di satu baris rundown: kembali ke urutan otomatis (moderator lebih dulu). */
+export function hapusUrutanSesi(daftar: LandingSpeaker[], id: number): LandingSpeaker[] {
+  return daftar.map((speaker) =>
+    speaker.session_refs?.some((ref) => ref.id === id && ref.pos !== undefined)
+      ? { ...speaker, session_refs: speaker.session_refs.map((ref) => (ref.id === id ? (({ pos: _pos, ...sisa }) => (void _pos, sisa))(ref) : ref)) }
+      : speaker,
+  );
+}
+
 /**
  * Daftar pembicara setelah urutan satu baris rundown diatur: `urutan` berisi
  * pembicara sesi itu dari kiri ke kanan (objek dari `daftar`). Tiap entri sesi
