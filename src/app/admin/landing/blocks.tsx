@@ -675,7 +675,7 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
               onChange={(align) => ubah({ align: align === "left" ? undefined : align })}
               options={(["left", "center", "right"] as const).map((value) => ({ value, label: LANDING_BLOCK_ALIGN_LABELS[value] }))}
             />
-            <p className="text-body-small text-on-surface-variant">Moves the label and a last row that isn&apos;t full. Logos sit in equal cells, two per row on phones.</p>
+            <p className="text-body-small text-on-surface-variant">Left puts the label beside the logos on wide screens. Centre and Right put it above, with logos in equal cells (two per row on phones) lined up that way.</p>
           </div>
           {latar}
         </div>

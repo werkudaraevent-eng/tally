@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, DotsSixVertical } from "@phosphor-icons/react";
-import { useId, useState, type DragEvent } from "react";
+import { useId, useRef, useState, type DragEvent } from "react";
 import { Button, IconButton, SelectMenu } from "@/components/m3";
 import type { LandingSpeaker, LandingSpeakerFrame } from "@/lib/domain";
 import type { AgendaPreview } from "@/lib/landing-agenda";
@@ -80,6 +80,7 @@ export function UrutanPembicara({
   const bertanda: Bertanda[] = speakers.map((speaker, index) => ({ ...speaker, _i: index }));
   const tabs = speakerTabs(bertanda, agendaDariBaris(baris), { highlights: "Highlights", others: "Other speakers" }).filter((tab) => tab.speakers.length > 1);
   const [kunci, setKunci] = useState<string | null>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const [kabar, setKabar] = useState("");
   const [seret, setSeret] = useState<number | null>(null);
   const dasar = useId();
@@ -128,6 +129,13 @@ export function UrutanPembicara({
   function reset() {
     onChange(hapusUrutanSesi(speakers, id!));
     setKabar(`The ${tab!.label} tab is back to the automatic order.`);
+    // Tombol Reset hilang setelah diklik: fokus pindah ke pegangan baris 1,
+    // atau ke pilihan tab di ponsel (pegangan disembunyikan di layar sentuh).
+    window.requestAnimationFrame(() => {
+      const pegangan = document.querySelector<HTMLElement>(`[data-urutan="${dasar}"] > li [data-fokus="pegangan"]`);
+      if (pegangan && pegangan.offsetParent !== null) pegangan.focus();
+      else panel.current?.querySelector<HTMLElement>("button[aria-haspopup]")?.focus();
+    });
   }
 
   function lepas(event: DragEvent<HTMLLIElement>) {
@@ -136,7 +144,7 @@ export function UrutanPembicara({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div ref={panel} className="flex flex-col gap-2">
       <SelectMenu<string>
         label="Tab"
         width="100%"
@@ -218,7 +226,7 @@ export function UrutanPembicara({
                 <IconButton
                   size="sm"
                   data-fokus="atas"
-                  label={`Move ${speaker.name} up`}
+                  label={`Move ${speaker.name} up, position ${index + 1} of ${orang.length}`}
                   aria-disabled={pertama || undefined}
                   className="!size-12 aria-disabled:cursor-default aria-disabled:opacity-40"
                   onClick={() => (pertama ? undefined : pindah(index, index - 1, index - 1 === 0 ? "bawah" : "atas"))}
@@ -228,7 +236,7 @@ export function UrutanPembicara({
                 <IconButton
                   size="sm"
                   data-fokus="bawah"
-                  label={`Move ${speaker.name} down`}
+                  label={`Move ${speaker.name} down, position ${index + 1} of ${orang.length}`}
                   aria-disabled={terakhir || undefined}
                   className="!size-12 aria-disabled:cursor-default aria-disabled:opacity-40"
                   onClick={() => (terakhir ? undefined : pindah(index, index + 1, index + 1 === orang.length - 1 ? "atas" : "bawah"))}
@@ -246,7 +254,7 @@ export function UrutanPembicara({
           ? khusus
             ? `This order applies to the ${tab.label} tab only. New speakers in this tab are added at the end.`
             : `Moving someone makes a custom order for the ${tab.label} tab only.`
-          : "Changing this order also changes the speaker list below."}
+          : "Changing this order also changes the speaker list below, which sets the automatic order inside session tabs."}
       </p>
       <span id={`${dasar}-petunjuk`} hidden>Use the up and down arrow keys to move this speaker. Position 1 is leftmost on the event page.</span>
       <p role="status" className="sr-only">{kabar}</p>
