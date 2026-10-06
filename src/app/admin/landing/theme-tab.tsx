@@ -37,6 +37,8 @@ import { PresetTema } from "./theme-presets";
 
 type Grup = "warna" | "huruf" | "sudut" | "layout" | "halaman";
 
+const LAYOUTS = ["editorial", "modern", "forum"] as const;
+
 const SUDUT_LABEL: Record<LandingCorners, string> = { square: "Square", soft: "Soft", round: "Round" };
 
 const LAYOUT_NOTE: Record<LandingLayout, string> = {
@@ -51,6 +53,7 @@ export function TabTema({
   landing,
   setLanding,
   nama,
+  contohIsi,
   pratinjau,
   onPratinjau,
   onTerapkan,
@@ -66,6 +69,8 @@ export function TabTema({
   setLanding: (next: EventLandingConfig) => void;
   /** Nama acara, untuk contoh di pemilih huruf. */
   nama: string;
+  /** Contoh huruf isi: tagline acara, atau kalimat contoh. */
+  contohIsi: string;
   pratinjau: string | null;
   onPratinjau: (key: string | null) => void;
   onTerapkan: () => void;
@@ -96,6 +101,19 @@ export function TabTema({
     });
   }
 
+  // Pola radiogroup WAI-ARIA: panah memilih opsi berikutnya yang aktif dan memindah fokus ke sana.
+  function panahLayout(event: React.KeyboardEvent<HTMLDivElement>) {
+    const arah = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : event.key === "ArrowUp" || event.key === "ArrowLeft" ? -1 : 0;
+    if (!arah) return;
+    event.preventDefault();
+    const aktif = LAYOUTS.filter((value) => !(gathering && value !== "modern"));
+    const berikut = aktif[(aktif.indexOf(tokens.layout) + arah + aktif.length) % aktif.length];
+    if (berikut !== tokens.layout) pilihLayout(berikut);
+    // Fokus pindah setelah render: tabIndex 0 baru ada di opsi yang baru dipilih.
+    const grup = event.currentTarget;
+    requestAnimationFrame(() => grup.querySelector<HTMLElement>(`[data-layout="${berikut}"]`)?.focus());
+  }
+
   return (
     <div className="flex flex-col gap-5">
       {presetDilihat ? (
@@ -108,7 +126,7 @@ export function TabTema({
         </div>
       ) : null}
 
-      <PresetTema landing={landing} pratinjau={pratinjau} onPratinjau={onPratinjau} />
+      <PresetTema landing={landing} setLanding={setLanding} pratinjau={pratinjau} onPratinjau={onPratinjau} />
 
       {/* Selama pratinjau preset, kontrol di bawah dikunci: nilai yang tampil
           di sini bukan nilai yang sedang dipratinjau, dan mengubahnya diam-diam
@@ -178,7 +196,7 @@ export function TabTema({
             hint="Paragraphs, buttons and labels. Only fonts that stay readable at 14–16 px."
             value={tokens.bodyFont}
             pilihan={[...LANDING_BODY_FONTS]}
-            contoh="Registrasi dibuka pukul 08.00"
+            contoh={contohIsi}
             onChange={(body_font) => setLanding({ ...landing, body_font: body_font as (typeof LANDING_BODY_FONTS)[number] })}
           />
         </Lipat>
@@ -199,8 +217,8 @@ export function TabTema({
 
         <Lipat judul="Layout" {...lipat("layout")} ringkas={LANDING_LAYOUT_LABELS[tokens.layout]}>
           <p className="text-body-small text-on-surface-variant">How the page is built. Colours and fonts stay when you switch.</p>
-          <div role="radiogroup" aria-label="Layout" className="flex flex-col gap-2">
-            {(["editorial", "modern", "forum"] as const).map((value) => {
+          <div role="radiogroup" aria-label="Layout" className="flex flex-col gap-2" onKeyDown={panahLayout}>
+            {LAYOUTS.map((value) => {
               const pilih = tokens.layout === value;
               // Gaya gathering (hari perjalanan, Tempat menginap) hanya ada di Modern.
               const mati = gathering && value !== "modern";
@@ -211,6 +229,9 @@ export function TabTema({
                   role="radio"
                   aria-checked={pilih}
                   aria-disabled={mati || undefined}
+                  // Satu perhentian Tab untuk seluruh grup; panah memindah pilihan.
+                  tabIndex={pilih ? 0 : -1}
+                  data-layout={value}
                   onClick={() => (mati || pilih ? undefined : pilihLayout(value))}
                   className={cx(
                     "m3-state flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-left",

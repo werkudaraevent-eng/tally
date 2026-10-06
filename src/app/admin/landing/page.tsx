@@ -735,7 +735,9 @@ export default function LandingCmsPage() {
         ...tanpaEnYatim(isi),
         blocks: tanpaTersembunyiKepanjangan(isi.blocks),
         sections: susunan,
-        theme: { seed: isi.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
+        // Warna merek yang berlaku, satu sumber dengan pemilih warna dan
+        // pratinjau: Forum tanpa seed tersimpan sebagai navy, bukan biru formulir.
+        theme: { seed: landingTokens(isi).brand },
         // Hanya untuk pratinjau (tombol Masuk). Server mengabaikannya: area
         // peserta disimpan di /admin/area-peserta.
         member: isi.member,
@@ -1027,7 +1029,17 @@ export default function LandingCmsPage() {
         </Kelompok>
       ) : (
         <Kelompok title="Text placement" note="Editorial keeps the title on the left, because the event facts sit in the column to its right. Modern can centre it.">
-          {null}
+          <div className="flex flex-col gap-2">
+            <p id="label-hero-rata" className="text-body-medium font-medium text-on-surface">Alignment</p>
+            <SegmentedButton<LandingHeroAlign>
+              className="w-full"
+              label="Alignment"
+              labelledBy="label-hero-rata"
+              value="left"
+              onChange={() => undefined}
+              options={[{ value: "left", label: "Left" }, { value: "center", label: "Centre", disabled: true }]}
+            />
+          </div>
         </Kelompok>
       )}
 
@@ -1531,8 +1543,16 @@ export default function LandingCmsPage() {
       landing={landing}
       setLanding={setLanding}
       nama={landing.public_name?.trim() || facts?.name || "Nama acara"}
+      contohIsi={facts?.tagline?.trim() || "Join us for two days of talks and conversations."}
       pratinjau={pratinjauPreset}
-      onPratinjau={setPratinjauPreset}
+      onPratinjau={(key) => {
+        setPratinjauPreset(key);
+        // Di bawah lg pratinjau berdiri di atas panel, di luar layar: bawa ke sana
+        // supaya perubahan preset terlihat (QA #90 L5).
+        if (key && !window.matchMedia("(min-width: 1024px)").matches) {
+          document.getElementById("pratinjau-acara")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }}
       onTerapkan={terapkanPratinjau}
       formInherit={formInherit}
       setFormInherit={setFormInherit}
@@ -2398,7 +2418,7 @@ export default function LandingCmsPage() {
 
       {facts ? (
         <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:gap-0">
-          <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0">
+          <div id="pratinjau-acara" className="flex min-h-[70vh] min-w-0 flex-1 scroll-mt-4 flex-col *:flex-1 lg:min-h-0">
             <LandingPreview
               slug={facts.slug}
               reloadKey={previewKey}

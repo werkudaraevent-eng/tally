@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { landingFontStyle, landingLayout, landingTokens } from "./landing-tokens.ts";
 import type { EventLandingConfig } from "./domain.ts";
 import type { LandingTokens } from "./landing-tokens.ts";
+import { LANDING_THEME_PRESETS, gayaPreset, presetCocok, presetDiubah, terapkanPreset } from "./landing-theme-presets.ts";
 
 const pick = (t: LandingTokens) => [t.heroAlign, t.heroPosition];
 
@@ -59,8 +60,32 @@ assert.deepEqual(landingFontStyle(landingTokens({ layout: "forum", heading_font:
   fontSynthesisWeight: "none",
 });
 
-console.log("landing-tokens.check.ts OK");
 
 // Formulir v2 acara Editorial berbingkai Modern, tapi huruf judulnya tetap serif Editorial.
 assert.equal(landingTokens({}, "modern").headingFont, "serif");
 assert.equal(landingTokens({ layout: "modern" }, "modern").headingFont, "source");
+
+// Preset: Apply menulis semua token gaya; perataan hero dan isi tidak disentuh (QA #90 M2).
+const [conference, forumIfc, gatheringPreset] = LANDING_THEME_PRESETS;
+const ifc = terapkanPreset(forumIfc, { layout: "modern", body_font: "source", corners: "round", hero_align: "center", public_name: "X" });
+assert.deepEqual(pick(landingTokens(ifc)), ["left", "bottom"]); // Forum tidak membaca hero
+assert.equal(ifc.hero_align, "center");
+assert.equal(ifc.public_name, "X");
+assert.equal(landingTokens(ifc).bodyFont, "ubuntu");
+assert.equal(ifc.body_font, undefined);
+assert.equal(ifc.corners, undefined);
+assert.equal(presetCocok(forumIfc, ifc) && !presetDiubah(forumIfc, ifc), true);
+const gath = terapkanPreset(gatheringPreset, { layout: "forum", body_font: "source", corners: "square" });
+assert.equal(presetCocok(gatheringPreset, gath) && !presetDiubah(gatheringPreset, gath), true);
+assert.equal(landingTokens(gath).corners, "soft");
+assert.equal(landingTokens(gath).accent?.toLowerCase(), "#e9c46a");
+// Satu token berubah = Edited; Reset (gayaPreset) mengembalikannya tanpa mengubah fitur.
+const diubah = { ...gath, corners: "round" as const };
+assert.equal(presetCocok(gatheringPreset, diubah), true);
+assert.equal(presetDiubah(gatheringPreset, diubah), true);
+assert.equal(presetDiubah(gatheringPreset, gayaPreset(gatheringPreset, diubah)), false);
+// Conference: config kosong Modern sudah sama dengan bundelnya.
+assert.equal(presetCocok(conference, { layout: "modern" }) && !presetDiubah(conference, { layout: "modern" }), true);
+assert.equal(presetCocok(conference, gath), false);
+
+console.log("landing-tokens.check.ts OK");
