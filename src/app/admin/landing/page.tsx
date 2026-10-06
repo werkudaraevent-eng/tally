@@ -632,13 +632,18 @@ export default function LandingCmsPage() {
   // sudah menjepit scrollTop ke batas yang baru sebelum efek ini berjalan.
   const tinggiBilah = useRef(0);
   const gulirTerakhir = useRef(0);
-  // Bidang gulir dibuat ulang per tab (key), jadi mulai lagi dari 0.
-  useLayoutEffect(() => { gulirTerakhir.current = 0; }, [bagian]);
+  const bagianTerakhir = useRef(bagian);
   useLayoutEffect(() => {
-    if (bagian !== "tema") { tinggiBilah.current = 0; return; }
     const tinggi = bilahPratinjau.current?.offsetHeight ?? 0;
     const selisih = tinggi - tinggiBilah.current;
     tinggiBilah.current = tinggi;
+    // Bidang gulir dibuat ulang per tab (key) dan mulai dari 0. Bilah yang sudah
+    // ada saat kembali ke Theme hanya dicatat sebagai titik awal, bukan digeser.
+    if (bagianTerakhir.current !== bagian) {
+      bagianTerakhir.current = bagian;
+      gulirTerakhir.current = 0;
+      return;
+    }
     const gulir = document.querySelector<HTMLElement>("#isi-setelan > .overflow-y-auto");
     if (!selisih || !gulir || gulir.scrollHeight <= gulir.clientHeight) return;
     gulir.scrollTop = gulirTerakhir.current + selisih;
