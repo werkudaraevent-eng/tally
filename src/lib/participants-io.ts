@@ -241,22 +241,48 @@ type ParticipantExportRow = {
 };
 
 /**
+ * Seluruh peserta acara, dibaca per 1000 baris.
+ *
+ * PostgREST memotong satu jawaban di 1000 baris TANPA galat. Ekspor yang dibaca
+ * sekaligus berhenti diam-diam di orang ke-1000 menurut abjad -- dan ekspor
+ * pilihan yang orangnya ada di belakang abjad menjadi berkas kosong. Jumlahnya
+ * dicocokkan dengan hitungan pasti; berkas yang kurang lebih baik gagal daripada
+ * terlihat lengkap.
+ */
+async function semuaPeserta(eventId: string): Promise<ParticipantExportRow[]> {
+  const client = getSupabaseServiceClient();
+  const semua: ParticipantExportRow[] = [];
+  let total: number | null = null;
+  for (let dari = 0; ; dari += 1000) {
+    const { data, error, count } = await client
+      .from("participants")
+      .select("id,qr_code,name,company,title,email,phone,participant_type,rsvp_status,extra,source_participant_id,source_checked_in,source_total_scans,source_removed_at,walk_in_at,seats", dari === 0 ? { count: "exact" } : undefined)
+      .eq("event_id", eventId)
+      .order("name", { ascending: true })
+      .order("id", { ascending: true })
+      .range(dari, dari + 999);
+    if (error) throw new Error(error.message);
+    if (dari === 0) total = count ?? null;
+    const baris = (data ?? []) as unknown as ParticipantExportRow[];
+    semua.push(...baris);
+    if (baris.length < 1000) break;
+  }
+  if (total !== null && semua.length !== total) throw new Error(`Export read ${semua.length} of ${total} participants.`);
+  return semua;
+}
+
+/**
  * `ids` mempersempit ke peserta yang dicentang di daftar. Disaring di sini,
  * bukan lewat `.in("id", ...)`: 5000 uuid di query string PostgREST adalah
  * URL 185 KB, jauh di atas batas server.
  */
 export async function loadParticipantExportRows(eventId: string, fields: RegistrationField[], ids?: ReadonlySet<string>) {
-  const { data, error } = await getSupabaseServiceClient()
-    .from("participants")
-    .select("id,qr_code,name,company,title,email,phone,participant_type,rsvp_status,extra,source_participant_id,source_checked_in,source_total_scans,source_removed_at,walk_in_at,seats")
-    .eq("event_id", eventId)
-    .order("name", { ascending: true });
-  if (error) throw new Error(error.message);
+  const data = await semuaPeserta(eventId);
 
   const tambahan = importableFields(fields);
   const berkas = fields.filter((field) => FILE_FIELD_TYPES.includes(field.type));
 
-  return ((data ?? []) as unknown as ParticipantExportRow[]).filter((row) => !ids || ids.has(row.id)).map((row) => [
+  return data.filter((row) => !ids || ids.has(row.id)).map((row) => [
     row.qr_code,
     row.name,
     row.company ?? "",

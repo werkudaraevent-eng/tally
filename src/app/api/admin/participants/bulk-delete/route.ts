@@ -7,6 +7,10 @@ const bodySchema = z.object({
   ids: z.array(z.string().uuid()).min(1).max(500),
 });
 
+/** 500 hapus dengan 8 sekaligus selesai jauh di bawah batas ini. */
+export const maxDuration = 60;
+const SEKALIGUS = 8;
+
 type Alasan = "source_locked" | "in_use" | "not_found" | "failed";
 
 /**
@@ -30,19 +34,26 @@ export async function POST(request: Request) {
   const skipped: Record<Alasan, number> = { source_locked: 0, in_use: 0, not_found: 0, failed: 0 };
   let deleted = 0;
 
-  for (const id of [...new Set(body.data.ids)]) {
-    const { error } = await client.rpc("delete_participant" as never, {
-      p_event_id: auth.scope.event.id,
-      p_id: id,
-      p_actor: auth.user.id,
-    } as never);
-    if (!error) { deleted += 1; continue; }
-    const code = mapDatabaseError(error);
-    if (code === "PARTICIPANT_SOURCE_LOCKED") skipped.source_locked += 1;
-    else if (code === "PARTICIPANT_IN_USE") skipped.in_use += 1;
-    else if (code === "PARTICIPANT_NOT_FOUND") skipped.not_found += 1;
-    else skipped.failed += 1;
-  }
+  // Beberapa sekaligus, bukan satu per satu: 500 panggilan berurutan dari
+  // Vercel ke Supabase (30-60 ms sekali jalan) bisa melewati batas waktu fungsi
+  // di tengah jalan. Tiap panggilan tetap transaksinya sendiri.
+  const antrean = [...new Set(body.data.ids)];
+  const kerja = async () => {
+    for (let id = antrean.shift(); id; id = antrean.shift()) {
+      const { error } = await client.rpc("delete_participant" as never, {
+        p_event_id: auth.scope.event.id,
+        p_id: id,
+        p_actor: auth.user.id,
+      } as never);
+      if (!error) { deleted += 1; continue; }
+      const code = mapDatabaseError(error);
+      if (code === "PARTICIPANT_SOURCE_LOCKED") skipped.source_locked += 1;
+      else if (code === "PARTICIPANT_IN_USE") skipped.in_use += 1;
+      else if (code === "PARTICIPANT_NOT_FOUND") skipped.not_found += 1;
+      else skipped.failed += 1;
+    }
+  };
+  await Promise.all(Array.from({ length: SEKALIGUS }, kerja));
 
   return Response.json({ deleted, skipped });
 }

@@ -91,6 +91,7 @@ function EksporTerpilih({ busy, onPick }: { busy: boolean; onPick: (format: "xls
         <Button
           variant="outlined"
           size="sm"
+          className="target-48"
           loading={busy}
           icon={<Package size={16} />}
           trailingIcon={<CaretDown size={14} className={cx("transition-transform", menu.open && "rotate-180")} />}
@@ -208,13 +209,17 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Participant | null>(null);
-  // Pilihan bertahan lintas halaman dan saringan: panitia lazim mencentang dari
-  // dua instansi berbeda lalu mengirim satu pesan. Bilah pilihan selalu
-  // menyebut jumlahnya, jadi tidak ada yang tercentang diam-diam.
+  // Pilihan bertahan lintas halaman. Saringan dan pencarian tidak bisa diubah
+  // selama ada pilihan, karena bilah pilihan menutupi barisnya (pola bilah
+  // kontekstual M3), jadi yang tercentang selalu yang cocok dengan saringan.
   const [pilih, setPilih] = useState<Set<string>>(new Set());
   const [memilihSemua, setMemilihSemua] = useState(false);
   const [bulk, setBulk] = useState<"" | "pesan" | "ekspor" | "hapus">("");
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [daftarNama, setDaftarNama] = useState("");
+  // Nama orang yang dicentang dari baris yang pernah tampil, untuk dialog Hapus.
+  // Yang dicentang lewat "Pilih semua" tanpa pernah tampil masuk hitungan "lainnya".
+  const namaTerpilih = useRef(new Map<string, string>());
 
   // Hanya respons dari permintaan terakhir yang boleh mengubah tabel.
   // Saringan yang sama untuk tabel dan untuk "Pilih semua yang cocok".
@@ -385,6 +390,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     const body = await response.json().catch(() => ({}));
     if (!response.ok) { setError(body.error?.details?.message ?? body.error?.message ?? "Couldn't delete participant."); return; }
     setNotice(`${participant.name} deleted.`);
+    setPilih((lama) => { if (!lama.has(participant.id)) return lama; const baru = new Set(lama); baru.delete(participant.id); return baru; });
     setMode(null);
     void load(debouncedQuery, page, sort, dir, perPage);
     onChanged?.();
@@ -392,6 +398,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
 
   // ---- Pilihan massal ------------------------------------------------------
   function centang(id: string, on: boolean) {
+    const orang = participants.find((p) => p.id === id);
+    if (on && orang) namaTerpilih.current.set(id, orang.name);
     setPilih((lama) => {
       const baru = new Set(lama);
       if (on) baru.add(id); else baru.delete(id);
@@ -400,6 +408,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   }
 
   function centangHalaman(on: boolean) {
+    if (on) for (const p of participants) namaTerpilih.current.set(p.id, p.name);
     setPilih((lama) => {
       const baru = new Set(lama);
       for (const p of participants) { if (on) baru.add(p.id); else baru.delete(p.id); }
@@ -426,7 +435,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        kind: "undangan",
+        // "Event update", bukan "Sign-in link": pesan umum ke orang terpilih.
+        // Jenisnya masih bisa diganti di penyusun.
+        kind: "info",
         audience: { jenis: "manual", perusahaan: [], ids: [...pilih], label: `${plural(pilih.size, "participant")} selected` },
       }),
     }).catch(() => null);
@@ -454,6 +465,14 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     setBulk("");
   }
 
+  /** Buka konfirmasi Hapus dengan nama orangnya: "Ana, Budi, Citra and 45 more." */
+  function tanyaHapusTerpilih() {
+    const nama = [...pilih].map((id) => namaTerpilih.current.get(id)).filter((n): n is string => Boolean(n)).slice(0, 3);
+    const sisa = pilih.size - nama.length;
+    setDaftarNama(nama.length === 0 ? `${plural(pilih.size, "participant")} selected.` : sisa > 0 ? `${nama.join(", ")} and ${sisa} more.` : `${nama.join(", ")}.`);
+    setConfirmBulkDelete(true);
+  }
+
   async function hapusTerpilih() {
     setBulk("hapus"); setNotice("");
     const response = await fetch("/api/admin/participants/bulk-delete", {
@@ -470,6 +489,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     const alasan = [
       lewat.source_locked ? `${lewat.source_locked} from Scanner API` : "",
       lewat.in_use ? `${lewat.in_use} with an order or a lucky draw win` : "",
+      lewat.not_found ? `${lewat.not_found} no longer in this event` : "",
       lewat.failed ? `${lewat.failed} failed` : "",
     ].filter(Boolean);
     setNotice(`${plural(body.deleted, "participant")} deleted.${alasan.length ? ` Skipped: ${alasan.join(", ")}.` : ""}`);
@@ -580,7 +600,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   // ---- Panel daftar --------------------------------------------------------
   const list = (
     <Pane aria-label="Participant list">
-      <PaneHeader className="flex-wrap gap-2 px-3 py-3">
+      <PaneHeader className="relative flex-wrap gap-2 px-3 py-3">
         <label className="relative min-w-[200px] flex-1">
           <span className="sr-only">Search participants</span>
           <MagnifyingGlass size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
@@ -633,35 +653,36 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           onChange={(next) => { setFilterRsvp(next[0] ?? ""); setPage(0); }}
         />
         <ColumnMenu columns={opsiKolom} visible={visible} onChange={setVisible} onReset={() => setVisible(null)} isDefault={isDefault} />
+        {/* Bilah pilihan MENUTUPI baris saringan, bukan disisipkan di bawahnya:
+            tabel tidak bergeser saat kotak pertama dicentang. */}
+        {pilih.size > 0 ? (
+          <div role="region" aria-label="Selected participants" className="absolute inset-0 z-[2] flex flex-wrap content-center items-center gap-x-3 gap-y-2 bg-secondary-container px-3 py-2">
+            <IconButton size="sm" className="target-48" label="Clear selection" onClick={() => setPilih(new Set())}><X size={16} /></IconButton>
+            <span className="text-body-medium font-medium tabular-nums text-on-surface" aria-live="polite">{pilih.size} selected</span>
+            {halamanTercentang && total > pilih.size ? (
+              <button type="button" disabled={memilihSemua} onClick={() => void pilihSemuaCocok()} className="target-48 relative rounded-sm text-body-medium font-medium text-primary hover:underline disabled:opacity-60">
+                {memilihSemua ? "Selecting…" : adaFilter || debouncedQuery ? `Select all ${total} matching` : `Select all ${total}`}
+              </button>
+            ) : null}
+            <span className="ml-auto flex flex-wrap items-center gap-2">
+              <Button simpan variant="outlined" size="sm" className="target-48" loading={bulk === "pesan"} icon={<EnvelopeSimple size={16} />} onClick={() => void kirimPesan()}>Send message</Button>
+              <EksporTerpilih busy={bulk === "ekspor"} onPick={(format) => void eksporTerpilih(format)} />
+              <Button
+                simpan
+                variant="outlined"
+                size="sm"
+                className="target-48 text-error"
+                icon={<Trash size={16} />}
+                disabled={pilih.size > BATAS_HAPUS}
+                title={pilih.size > BATAS_HAPUS ? `Delete up to ${BATAS_HAPUS} at a time` : undefined}
+                onClick={tanyaHapusTerpilih}
+              >
+                Delete
+              </Button>
+            </span>
+          </div>
+        ) : null}
       </PaneHeader>
-
-      {pilih.size > 0 ? (
-        <div role="region" aria-label="Selected participants" className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-outline-variant bg-secondary-container px-3 py-2">
-          <IconButton size="sm" label="Clear selection" onClick={() => setPilih(new Set())}><X size={16} /></IconButton>
-          <span className="text-body-medium font-medium tabular-nums text-on-surface" aria-live="polite">{pilih.size} selected</span>
-          {halamanTercentang && total > pilih.size ? (
-            <button type="button" disabled={memilihSemua} onClick={() => void pilihSemuaCocok()} className="rounded-sm text-body-medium font-medium text-primary hover:underline disabled:opacity-60">
-              {memilihSemua ? "Selecting…" : adaFilter || debouncedQuery ? `Select all ${total} matching` : `Select all ${total}`}
-            </button>
-          ) : null}
-          <span className="ml-auto flex flex-wrap items-center gap-2">
-            <Button simpan variant="outlined" size="sm" loading={bulk === "pesan"} icon={<EnvelopeSimple size={16} />} onClick={() => void kirimPesan()}>Send message</Button>
-            <EksporTerpilih busy={bulk === "ekspor"} onPick={(format) => void eksporTerpilih(format)} />
-            <Button
-              simpan
-              variant="outlined"
-              size="sm"
-              className="text-error"
-              icon={<Trash size={16} />}
-              disabled={pilih.size > BATAS_HAPUS}
-              title={pilih.size > BATAS_HAPUS ? `Delete up to ${BATAS_HAPUS} at a time` : undefined}
-              onClick={() => setConfirmBulkDelete(true)}
-            >
-              Delete
-            </Button>
-          </span>
-        </div>
-      ) : null}
 
       <PaneBody className="overflow-x-auto">
         {error ? (
@@ -696,9 +717,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             <thead className="sticky top-0 z-10 bg-surface-container-high text-body-medium font-medium text-on-surface-variant">
               <tr>
                 <th scope="col" className="sticky left-0 z-10 border-b border-outline-variant bg-surface-container-high p-0">
-                  <span className="flex items-center justify-center">
+                  <label className="flex min-h-12 cursor-pointer items-center justify-center">
                     <CentangHalaman checked={halamanTercentang} indeterminate={tercentangDiHalaman > 0 && !halamanTercentang} onChange={centangHalaman} />
-                  </span>
+                  </label>
                 </th>
                 <th scope="col" aria-sort={ariaSort("name")} className="sticky left-12 z-10 border-b border-outline-variant bg-surface-container-high px-4 py-2.5 font-medium">{sortHeader("Name", "name")}</th>
                 {kolomTampil.map((item) => (
@@ -720,7 +741,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                     {/* Seluruh sel adalah sasaran klik kotak centang, bukan hanya kotak 16 px-nya;
                         klik di sini tidak membuka panel detail. */}
                     <td className="sticky left-0 border-b border-outline-variant bg-inherit p-0" onClick={(event) => event.stopPropagation()}>
-                      <label className="flex min-h-11 cursor-pointer items-center justify-center">
+                      <label className="flex min-h-12 cursor-pointer items-center justify-center">
                         <input
                           type="checkbox"
                           aria-label={`Select ${participant.name}`}
@@ -1032,7 +1053,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             <Button simpan variant="danger" loading={bulk === "hapus"} onClick={() => void hapusTerpilih()}>Delete {plural(pilih.size, "participant")}</Button>
           </>
         }
-      />
+      >
+        <p className="text-body-medium text-on-surface">{daftarNama}</p>
+      </Dialog>
       <Dialog
         open={confirmDelete !== null}
         onClose={() => setConfirmDelete(null)}
