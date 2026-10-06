@@ -1,5 +1,6 @@
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
+import { DEFAULT_TIME_ZONE, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { kolomImpor, normalizeHeader, type KolomImpor } from "./participants-kolom";
 
@@ -46,7 +47,8 @@ const READONLY_HEADERS = [
   // yang sudah ada sebelum hari-H — yaitu hampir semuanya.
   "walk_in_at",
   // Kapan data peserta pertama masuk ke Tally: form pendaftaran dikirim, atau
-  // diimpor/ditambahkan. Sama dengan kolom "Registered" di daftar peserta.
+  // diimpor/ditambahkan. Sama dengan kolom "Registered" di daftar peserta,
+  // dalam zona acara dengan offset-nya, mis. 2026-10-02T17:15:00+08:00.
   "registered_at",
   "check_in",
   "total_scan",
@@ -272,12 +274,21 @@ async function pendaftaranPertama(eventId: string): Promise<Map<string, string>>
   return pertama;
 }
 
-/** Sama dengan registered_at di list_event_participants: yang paling awal dari keduanya. */
-function waktuMasuk(dibuat: string, formDikirim: string | undefined): string {
-  return formDikirim && Date.parse(formDikirim) < Date.parse(dibuat) ? formDikirim : dibuat;
+/**
+ * Sama dengan registered_at di list_event_participants: yang paling awal dari
+ * keduanya, ditulis dalam zona acara dengan offset eksplisit supaya cocok dengan
+ * jam di layar tanpa jadi ambigu. Zona Indonesia tidak mengenal musim panas,
+ * jadi offset tetap cukup.
+ */
+function waktuMasuk(dibuat: string, formDikirim: string | undefined, zone: EventTimeZone): string {
+  const iso = formDikirim && Date.parse(formDikirim) < Date.parse(dibuat) ? formDikirim : dibuat;
+  const offset = timeZoneOffset(zone);
+  const [, tanda, jam, menit] = /^([+-])(\d{2}):(\d{2})$/.exec(offset) ?? ["", "+", "07", "00"];
+  const geser = (tanda === "-" ? -1 : 1) * (Number(jam) * 60 + Number(menit)) * 60000;
+  return new Date(Date.parse(iso) + geser).toISOString().slice(0, 19) + offset;
 }
 
-export async function loadParticipantExportRows(eventId: string, fields: RegistrationField[]) {
+export async function loadParticipantExportRows(eventId: string, fields: RegistrationField[], zone: EventTimeZone = DEFAULT_TIME_ZONE) {
   const { data, error } = await getSupabaseServiceClient()
     .from("participants")
     .select("id,qr_code,name,company,title,email,phone,participant_type,rsvp_status,extra,source_participant_id,source_checked_in,source_total_scans,source_removed_at,walk_in_at,seats,created_at")
@@ -307,7 +318,7 @@ export async function loadParticipantExportRows(eventId: string, fields: Registr
     // saling meniadakan.
     row.walk_in_at ? "walk-in" : row.source_participant_id ? "scanner" : "manual",
     row.walk_in_at ?? "",
-    waktuMasuk(row.created_at, formDikirim.get(row.id)),
+    waktuMasuk(row.created_at, formDikirim.get(row.id), zone),
     row.source_checked_in ? "Y" : "N",
     row.source_total_scans,
     (row.seats ?? []).map((seat) => seat.label).join(" | "),

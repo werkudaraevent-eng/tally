@@ -14,7 +14,9 @@
 -- hanya fungsi ini yang diganti, signature-nya sama persis.
 -- ---------------------------------------------------------------------------
 
-set lock_timeout = '5s';
+begin;
+
+set local lock_timeout = '5s';
 
 -- Jaga-jaga bila versi 10 parameter (sebelum 202609290001) masih ada: tanpa ini
 -- create or replace di bawah membuat overload dan pemanggilnya ambigu (42725).
@@ -64,10 +66,10 @@ begin
              p.participant_type, p.rsvp_status, p.extra, p.source_participant_id,
              p.source_checked_in, p.source_total_scans, p.source_synced_at,
              p.source_removed_at, p.walk_in_at, p.seats,
-             least(p.created_at, (
-               select min(r.created_at) from public.event_registrations r
-                where r.event_id = p.event_id and r.participant_id = p.id
-             )) as registered_at,
+             least(p.created_at, rf.first_at) as registered_at,
+             -- Waktu mana yang menang, supaya label di admin cocok dengan jamnya:
+             -- 'form' = form dikirim lebih dulu, 'added' = diimpor/ditambahkan dulu.
+             case when rf.first_at <= p.created_at then 'form' else 'added' end as registered_via,
              case
                when p.walk_in_at is not null then 'walkin'
                when p.source_participant_id is not null then 'scanner'
@@ -78,6 +80,15 @@ begin
                else 'manual'
              end as source
         from public.participants p
+        -- Satu agregat per acara, bukan subkueri per baris: event_registrations
+        -- tidak punya indeks participant_id, dan subkueri berkorelasi membuat
+        -- urut menurut registered_at kuadratik (4-7 detik di 5.000 peserta).
+        left join (
+          select r.participant_id, min(r.created_at) as first_at
+            from public.event_registrations r
+           where r.event_id = $1::uuid and r.participant_id is not null
+           group by r.participant_id
+        ) rf on rf.participant_id = p.id
        where p.event_id = $1::uuid
     ),
     disaring as (
@@ -142,3 +153,5 @@ grant execute on function public.list_event_participants(uuid, text, text, bigin
   to service_role;
 
 notify pgrst, 'reload schema';
+
+commit;

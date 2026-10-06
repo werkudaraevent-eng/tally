@@ -40,6 +40,8 @@ type Participant = {
    * fungsi list_event_participants di database belum versi 202610060001.
    */
   registered_at?: string | null;
+  /** Waktu mana yang menang: form dikirim lebih dulu, atau diimpor/ditambahkan lebih dulu. */
+  registered_via?: "form" | "added";
   source: AsalPeserta;
   attendance: Record<string, { count: number; first: string }>;
   seats: ParticipantSeat[] | null;
@@ -56,13 +58,17 @@ const ASAL: Record<AsalPeserta, { label: string; judul: string }> = {
   scanner: { label: "Scanner API", judul: "Pulled from Scanner API; some fields are managed there" },
 };
 
-/** Arti waktu "Registered" menurut asal pesertanya, untuk tooltip sel dan panel detail. */
-const MASUK: Record<AsalPeserta, string> = {
-  registration: "Registration form submitted",
-  manual: "Imported or added by staff",
-  walkin: "Added at the check-in desk",
-  scanner: "First synced from Scanner API",
-};
+/**
+ * Arti waktu "Registered", untuk tooltip sel dan panel detail. Mengikuti waktu
+ * yang menang, bukan asal peserta: orang yang diimpor lalu belakangan mengisi
+ * form berasal "Self-registered", tapi jamnya adalah jam impor.
+ */
+function artiMasuk(p: Participant): string {
+  if (p.registered_via === "form") return "Registration form submitted";
+  if (p.source === "walkin") return "Added at the check-in desk";
+  if (p.source === "scanner") return "First synced from Scanner API";
+  return "Imported or added by staff";
+}
 
 const LABEL_RSVP: Record<string, string> = { confirmed: "Confirmed", invited: "Awaiting reply", declined: "Declined" };
 const RSVP_TONE: Record<string, "success" | "warning" | "error"> = { confirmed: "success", invited: "warning", declined: "error" };
@@ -339,6 +345,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone,
   }), [timeZone]);
 
+  const adaRegistered = participants.some((p) => p.registered_at !== undefined);
+
   // ---- Kolom -------------------------------------------------------------
   const kolom = useMemo<Kolom[]>(() => {
     const daftar: Kolom[] = [
@@ -358,10 +366,12 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       {
         key: "registered",
         label: "Registered",
-        sort: "registered_at",
-        width: 164,
+        // Hanya bisa diurutkan bila database sudah mengirim nilainya (migrasi
+        // 202610060001). Fungsi lama diam-diam mengurutkan menurut nama.
+        sort: adaRegistered ? "registered_at" : undefined,
+        width: 152,
         cell: (p) => p.registered_at
-          ? <span className="block truncate tabular-nums" title={MASUK[p.source]}>{tanggalJam(p.registered_at)}</span>
+          ? <span className="block truncate tabular-nums" title={artiMasuk(p)}>{tanggalJam(p.registered_at)}</span>
           : <EmptyCell />,
       },
       { key: "rsvp", label: "RSVP", sort: "rsvp_status", width: 128, cell: (p) => p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell /> },
@@ -394,9 +404,12 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       );
     }
     return daftar;
-  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam]);
+  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam, adaRegistered]);
 
-  const bawaan = useMemo(() => ["company", ...(sessions[0] ? [`sesi:${sessions[0].id}`] : []), "registered", "rsvp", "seat"], [sessions]);
+  // Bawaan harus muat di layar 1280 tanpa gulir mendatar (panel ±960 px):
+  // Nama 240 + Organisation 200 + check-in 140 + Registered 152 + RSVP 128.
+  // Seat tetap ada di menu Columns.
+  const bawaan = useMemo(() => ["company", ...(sessions[0] ? [`sesi:${sessions[0].id}`] : []), "registered", "rsvp"], [sessions]);
   const { visible, setVisible, isDefault } = useColumnPrefs("peserta", bawaan);
   const kolomTampil = kolom.filter((item) => visible.includes(item.key));
   const opsiKolom: ColumnOption[] = [{ key: "name", label: "Name", locked: true }, ...kolom.map((item) => ({ key: item.key, label: item.label }))];
@@ -749,7 +762,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
               <KeyValue label="RSVP">{p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell />}</KeyValue>
               <KeyValue label="Registered">
                 {p.registered_at
-                  ? <span className="flex flex-col"><span className="tabular-nums">{tanggalJam(p.registered_at)}</span><span className="text-body-small text-on-surface-variant">{MASUK[p.source]}</span></span>
+                  ? <span className="flex flex-col"><span className="tabular-nums">{tanggalJam(p.registered_at)}</span><span className="text-body-small text-on-surface-variant">{artiMasuk(p)}</span></span>
                   : <EmptyCell />}
               </KeyValue>
             </DetailSection>
