@@ -83,11 +83,18 @@ export function hapusUrutanSesi(daftar: LandingSpeaker[], id: number): LandingSp
 /**
  * Daftar pembicara setelah urutan satu baris rundown diatur: `urutan` berisi
  * pembicara sesi itu dari kiri ke kanan (objek dari `daftar`). Tiap entri sesi
- * itu mendapat `pos` 0..n-1; daftar dan sesi lain tidak berubah.
+ * itu mendapat `pos` 0..n-1; pembicara sesi yang tidak disebut menyusul di
+ * belakang dengan urutan sekarang. Daftar dan sesi lain tidak berubah.
  */
 export function aturUrutanSesi(daftar: LandingSpeaker[], id: number, urutan: LandingSpeaker[]): LandingSpeaker[] {
+  const sisa = daftar
+    .filter((speaker) => !urutan.includes(speaker) && speaker.session_refs?.some((ref) => ref.id === id))
+    .map((speaker, i) => ({ speaker, i, pos: posisiDiSesi(speaker, id) ?? Infinity }))
+    .sort((a, b) => a.pos - b.pos || a.i - b.i)
+    .map(({ speaker }) => speaker);
+  const lengkap = [...urutan, ...sisa];
   return daftar.map((speaker) => {
-    const pos = urutan.indexOf(speaker);
+    const pos = lengkap.indexOf(speaker);
     if (pos < 0 || !speaker.session_refs?.some((ref) => ref.id === id)) return speaker;
     return { ...speaker, session_refs: speaker.session_refs.map((ref) => (ref.id === id ? { ...ref, pos } : ref)) };
   });

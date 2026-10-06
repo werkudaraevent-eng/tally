@@ -95,6 +95,9 @@ const blockSchema = z.object({
     periksa(block[key], batas[key], [key]);
     periksa(block.en?.[key], batas[key], ["en", key]);
   });
+  if (block.align === "right" && block.type !== "logos") {
+    ctx.addIssue({ code: "custom", path: ["align"], message: "Right alignment is only for Logos" });
+  }
   const items = block.items ?? [];
   if (items.length > (batas.items?.max ?? 0)) {
     ctx.addIssue({ code: "custom", path: ["items"], message: `Maximum ${batas.items?.max ?? 0} items` });

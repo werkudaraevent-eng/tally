@@ -101,4 +101,9 @@ assert.ok(!("pos" in balik[0]!.session_refs!.find((ref) => ref.id === 3)!));
 const berperan = aturUrutanSesi([{ ...u2, session_refs: [{ id: 3, label: "S", role: "Panelis" }] }, u3], 3, []);
 assert.deepEqual(pembicaraDiSesi(berperan, 3).map((s) => s.role), ["Panelis", undefined]);
 
+// Urutan sebagian tetap menomori ulang seluruh sesi: yang tidak disebut menyusul, pos rapat 0..n-1.
+const sebagian = aturUrutanSesi([u4, ...diatur], 3, [diatur[0]!]);
+assert.deepEqual(pembicaraDiSesi(sebagian, 3).map((s) => s.name), ["U1", "U3", "U2", "U4"]);
+assert.deepEqual(sebagian.map((s) => s.session_refs!.find((ref) => ref.id === 3)!.pos), [3, 0, 2, 1]);
+
 console.log("landing-peran-sesi: ok");
