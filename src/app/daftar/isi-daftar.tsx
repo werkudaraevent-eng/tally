@@ -2,7 +2,7 @@ import { LANDING_HEADING_FONTS, LANDING_NAV_DEFAULTS, publicEventName, type Even
 import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { modernNavStyle, modernThemeStyle, registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
-import { landingTokens } from "@/lib/landing-tokens";
+import { landingShapeStyle, landingTokens } from "@/lib/landing-tokens";
 import { DAFTAR_UI } from "@/lib/daftar-i18n";
 import { landingDefaultLang, landingEnAvailable, landingFormOnly, landingPath, LANDING_LANG_LABELS, type LandingLang } from "@/lib/landing-i18n";
 import { HtmlLang } from "@/components/html-lang";
@@ -73,7 +73,11 @@ export async function bingkaiFormulir(
   const formTheme = resolveFormTheme(config.theme, landing.theme);
   return {
     modern,
-    theme: modern ? { ...registrationThemeStyle(formTheme), ...modernThemeStyle(formTheme?.seed) } : registrationThemeStyle(formTheme),
+    theme: {
+      ...(modern ? { ...registrationThemeStyle(formTheme), ...modernThemeStyle(formTheme?.seed) } : registrationThemeStyle(formTheme)),
+      // Sudut dan huruf isi pilihan admin (tab Theme) ikut ke formulir.
+      ...landingShapeStyle(landingTokens(landing)),
+    },
     halamanUrl: landingFormOnly(landing) ? null : landingPath(event.slug, lang, utama),
     eventName: publicEventName(event),
     welcomeText: config.welcome_text ?? null,

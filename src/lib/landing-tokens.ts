@@ -1,5 +1,15 @@
 import type { CSSProperties } from "react";
-import { LANDING_HEADING_FONTS, type EventLandingConfig, type LandingHeadingFont, type LandingLayout } from "./domain.ts";
+import {
+  LANDING_BODY_FONTS,
+  LANDING_CORNERS,
+  LANDING_HEADING_FONTS,
+  type EventLandingConfig,
+  type LandingCorners,
+  type LandingHeadingFont,
+  type LandingHeroAlign,
+  type LandingHeroPosition,
+  type LandingLayout,
+} from "./domain.ts";
 
 /**
  * Token gaya halaman acara: satu tempat yang menjawab "warna dan huruf apa
@@ -35,8 +45,16 @@ export type LandingTokens = {
   /** Warna ketiga, khusus Forum. */
   secondary: string | null;
   headingFont: LandingHeadingFont;
-  /** Huruf isi. Hanya Forum yang memasangnya hari ini; yang lain mewarisi Inter dari halaman. */
+  /** Huruf isi. Forum selalu memasangnya; tata letak lain hanya bila admin memilih (lihat bodyFontChosen). */
   bodyFont: LandingHeadingFont;
+  /** Admin memilih huruf isi sendiri. False = halaman mewarisi Inter dari <body>, seperti sebelum token ada. */
+  bodyFontChosen: boolean;
+  /** Forum selalu `soft`: rancangan IFC memakai sudutnya sendiri. */
+  corners: LandingCorners;
+  /** Hero Modern. Editorial dan Forum selalu kiri. */
+  heroAlign: LandingHeroAlign;
+  /** Hero Modern. Editorial dan Forum: `bottom`, tidak dibaca. */
+  heroPosition: LandingHeroPosition;
 };
 
 type Bawaan = Pick<LandingTokens, "brand" | "headingFont" | "bodyFont">;
@@ -68,25 +86,80 @@ export function landingTokens(config: EventLandingConfig | null | undefined, lay
   const bawaan = LANDING_TOKEN_DEFAULTS[layout];
   const forum = layout === "forum";
   const gathering = layout === "modern" && c.gathering === true;
+  const isi = (LANDING_BODY_FONTS as readonly string[]).includes(c.body_font ?? "") ? c.body_font! : null;
+  // Gathering: hero undangan di tengah (rancangan v3 KSO 21). Tanpa KV tidak ada
+  // gambar yang perlu diperlihatkan di atas judul, jadi isinya di tengah juga.
+  const heroAlign: LandingHeroAlign = layout !== "modern" ? "left" : c.hero_align === "left" || c.hero_align === "center" ? c.hero_align : gathering ? "center" : "left";
+  const heroPosition: LandingHeroPosition =
+    layout !== "modern" ? "bottom"
+      : c.hero_position === "bottom" || c.hero_position === "middle" ? c.hero_position
+        : gathering || !c.banner_url ? "middle" : "bottom";
   return {
     layout,
     brand: warna(c.theme?.seed, bawaan.brand),
     accent: forum ? warna(c.forum?.accent, FORUM_DEFAULTS.accent) : gathering ? warna(c.accent, GATHERING_ACCENT_DEFAULT) : null,
     secondary: forum ? warna(c.forum?.secondary, FORUM_DEFAULTS.secondary) : null,
-    headingFont: huruf(c.heading_font, bawaan.headingFont),
-    bodyFont: bawaan.bodyFont,
+    // Huruf judul bawaan mengikuti tata letak halaman acaranya, bukan bingkai:
+    // formulir v2 acara Editorial berbingkai Modern tapi judulnya tetap serif.
+    headingFont: huruf(c.heading_font, LANDING_TOKEN_DEFAULTS[forum ? "forum" : landingLayout(config)].headingFont),
+    bodyFont: isi ?? bawaan.bodyFont,
+    bodyFontChosen: isi !== null,
+    corners: !forum && (LANDING_CORNERS as readonly string[]).includes(c.corners ?? "") ? c.corners! : "soft",
+    heroAlign,
+    heroPosition,
   };
 }
 
 /**
- * Huruf untuk akar halaman: `--landing-heading`, `--landing-body`, dan tanpa
- * tebal palsu. Huruf yang tidak punya bobot yang diminta tampil dengan bobot
+ * Nilai sudut per pilihan. `soft` tidak menimpa apa pun: skala M3 di
+ * globals.css (:root) apa adanya. `full` (pil, avatar, saklar) tidak pernah ditimpa.
+ */
+const SUDUT: Record<Exclude<LandingCorners, "soft">, Record<string, string>> = {
+  square: {
+    "--md-sys-shape-corner-extra-small": "0px",
+    "--md-sys-shape-corner-small": "0px",
+    "--md-sys-shape-corner-medium": "0px",
+    "--md-sys-shape-corner-large": "0px",
+    "--md-sys-shape-corner-large-increased": "0px",
+    "--md-sys-shape-corner-extra-large": "0px",
+    "--md-sys-shape-corner-extra-large-increased": "0px",
+    "--md-sys-shape-corner-extra-extra-large": "0px",
+  },
+  round: {
+    "--md-sys-shape-corner-extra-small": "8px",
+    "--md-sys-shape-corner-small": "12px",
+    "--md-sys-shape-corner-medium": "16px",
+    "--md-sys-shape-corner-large": "24px",
+    "--md-sys-shape-corner-large-increased": "28px",
+    "--md-sys-shape-corner-extra-large": "32px",
+    "--md-sys-shape-corner-extra-large-increased": "40px",
+    "--md-sys-shape-corner-extra-extra-large": "56px",
+  },
+};
+
+/**
+ * Gaya akar halaman: `--landing-heading`, `--landing-body`, huruf isi pilihan
+ * admin, sudut, dan tanpa tebal palsu. Huruf yang tidak punya bobot yang diminta tampil dengan bobot
  * terdekat yang ada, bukan ditebalkan peramban (goresan kabur, lebar berubah).
  */
-export function landingFontStyle(tokens: Pick<LandingTokens, "headingFont" | "bodyFont">): CSSProperties {
+export function landingFontStyle(tokens: Pick<LandingTokens, "headingFont" | "bodyFont" | "bodyFontChosen" | "corners">): CSSProperties {
   return {
     "--landing-heading": LANDING_HEADING_FONTS[tokens.headingFont].cssVar,
     "--landing-body": LANDING_HEADING_FONTS[tokens.bodyFont].cssVar,
+    ...landingShapeStyle(tokens),
     fontSynthesisWeight: "none",
+  } as CSSProperties;
+}
+
+/**
+ * Hanya pilihan admin yang tidak punya bawaan di permukaan itu: huruf isi dan
+ * sudut. Untuk formulir pendaftaran, yang huruf dan bobotnya diatur sendiri;
+ * tanpa pilihan hasilnya objek kosong, jadi formulir lama tidak berubah.
+ */
+export function landingShapeStyle(tokens: Pick<LandingTokens, "bodyFont" | "bodyFontChosen" | "corners">): CSSProperties {
+  return {
+    // Forum memasang huruf isinya sendiri lewat kelas (forum-shell.tsx).
+    ...(tokens.bodyFontChosen ? { "--landing-body": LANDING_HEADING_FONTS[tokens.bodyFont].cssVar, fontFamily: "var(--landing-body)" } : null),
+    ...(tokens.corners === "soft" ? null : SUDUT[tokens.corners]),
   } as CSSProperties;
 }

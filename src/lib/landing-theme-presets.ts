@@ -13,6 +13,11 @@ export type LandingThemePreset = {
   key: string;
   label: string;
   note: string;
+  /**
+   * Cuplikan 162×100 (2x) di public/, dipotong di bagian yang membedakan preset.
+   * Dibuat dari acara contoh bernama netral, bukan acara klien.
+   */
+  thumb: string;
   layout: LandingLayout;
   /** Kosong = warna dan huruf acara sendiri tidak disentuh (preset Modern). */
   seed?: string;
@@ -31,15 +36,19 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     // Jalan kembali dari Gathering ke halaman Modern biasa (QA PR #57 M1).
     // Warna dan huruf acara tetap: preset ini hanya mematikan gaya gathering.
     key: "modern",
-    label: "Modern",
-    note: "A standard event page: registration, programme, agenda, venue. Event colours and fonts stay",
+    // "Conference", bukan "Modern": Modern adalah nama tata letak, dan dua
+    // "Modern" di satu tab adalah separuh keluhan preset vs layout.
+    label: "Conference",
+    note: "Register, programme, speakers. Keeps your colours and fonts",
+    thumb: "/preset-tema/conference.png",
     layout: "modern",
   },
   {
     // Figma "IFC Website" yang Hanung setujui pada 2026-10-01.
     key: "forum-ifc",
     label: "Forum IFC",
-    note: "Three pages, navy with yellow and sky-blue accents, Ubuntu font",
+    note: "Three pages, navy with yellow and sky blue",
+    thumb: "/preset-tema/forum.png",
     layout: "forum",
     seed: FORUM_DEFAULTS.primary,
     heading_font: "ubuntu",
@@ -54,7 +63,8 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     // karena tersimpan di database, bukan di CMS.
     key: "gathering",
     label: "Gathering",
-    note: "Travel style, invitation only: length of stay in the hero, day-by-day agenda, accommodation, invited guests sign in to see their ticket, room and bus",
+    note: "Invite only, trip days, hotel",
+    thumb: "/preset-tema/gathering.png",
     layout: "modern",
     seed: "#0b6e69",
     // Inter saja (rancangan v3 KSO 21, audit v2): kunci "sans" = Inter.

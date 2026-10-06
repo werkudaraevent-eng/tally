@@ -656,15 +656,35 @@ export const LANDING_HERO_HEIGHT_LABELS: Record<LandingHeroHeight, string> = {
  */
 export type LandingHeadingFont = "serif" | "sans" | "geometric" | "condensed" | "grotesk" | "source" | "ubuntu";
 
-export const LANDING_HEADING_FONTS: Record<LandingHeadingFont, { label: string; note: string; cssVar: string }> = {
-  serif: { label: "Playfair Display", note: "Classic, suits formal invitations", cssVar: "var(--font-serif)" },
-  sans: { label: "Inter", note: "Neutral and modern", cssVar: "var(--font-sans)" },
-  geometric: { label: "Montserrat", note: "Geometric, bold", cssVar: "var(--font-geometric)" },
-  condensed: { label: "Oswald", note: "Condensed, suits long titles", cssVar: "var(--font-condensed)" },
-  grotesk: { label: "Space Grotesk", note: "Technical, for tech events", cssVar: "var(--font-grotesk)" },
-  source: { label: "Source Sans 3", note: "Humanist and airy, pairs with the Modern layout", cssVar: "var(--font-source)" },
-  ubuntu: { label: "Ubuntu", note: "Rounded and friendly, pairs with the Forum layout", cssVar: "var(--font-ubuntu)" },
+/** Kategori huruf di pemilih CMS. Urutan di sini = urutan grup di daftarnya. */
+export const LANDING_FONT_CATEGORIES = ["Sans", "Geometric", "Grotesque", "Serif", "Display"] as const;
+export type LandingFontCategory = (typeof LANDING_FONT_CATEGORIES)[number];
+
+/**
+ * Registri huruf halaman acara. `weight` = bobot judul yang benar-benar ada di
+ * berkasnya (fonts.ts), untuk contoh di pemilih: Ubuntu dan Space Grotesk
+ * tidak terdaftar di 600, jadi judul 600 tampil di 700.
+ */
+export const LANDING_HEADING_FONTS: Record<LandingHeadingFont, { label: string; note: string; cssVar: string; category: LandingFontCategory; weight: number }> = {
+  serif: { label: "Playfair Display", note: "Classic, suits formal invitations", cssVar: "var(--font-serif)", category: "Serif", weight: 600 },
+  sans: { label: "Inter", note: "Neutral and modern", cssVar: "var(--font-sans)", category: "Sans", weight: 600 },
+  geometric: { label: "Montserrat", note: "Bold and wide", cssVar: "var(--font-geometric)", category: "Geometric", weight: 600 },
+  condensed: { label: "Oswald", note: "Condensed, suits long titles", cssVar: "var(--font-condensed)", category: "Display", weight: 600 },
+  grotesk: { label: "Space Grotesk", note: "Technical, for tech events", cssVar: "var(--font-grotesk)", category: "Grotesque", weight: 700 },
+  source: { label: "Source Sans 3", note: "Humanist and airy, the Modern default", cssVar: "var(--font-source)", category: "Sans", weight: 600 },
+  ubuntu: { label: "Ubuntu", note: "Rounded and friendly, the Forum default", cssVar: "var(--font-ubuntu)", category: "Sans", weight: 700 },
 };
+
+/** Huruf yang boleh jadi huruf isi: terbaca di 14-16 px. */
+export const LANDING_BODY_FONTS = ["sans", "source", "ubuntu"] as const satisfies readonly LandingHeadingFont[];
+export type LandingBodyFont = (typeof LANDING_BODY_FONTS)[number];
+
+/** Sudut halaman acara: siku, lembut (skala M3), atau bulat. */
+export const LANDING_CORNERS = ["square", "soft", "round"] as const;
+export type LandingCorners = (typeof LANDING_CORNERS)[number];
+
+export type LandingHeroAlign = "left" | "center";
+export type LandingHeroPosition = "bottom" | "middle";
 
 /** Kunci huruf judul, untuk validasi di API. Urutannya urutan pilihan di CMS. */
 export const LANDING_HEADING_FONT_KEYS = Object.keys(LANDING_HEADING_FONTS) as [LandingHeadingFont, ...LandingHeadingFont[]];
@@ -982,8 +1002,25 @@ export type EventLandingConfig = {
   /** Tinggi minimum hero di layar lebar, dalam px. Tidak pernah melebihi tinggi layar. */
   hero_min_height?: number;
   cta_label?: string;
-  /** Bawaan `serif`. */
+  /** Bawaan per tata letak, lihat LANDING_TOKEN_DEFAULTS (landing-tokens.ts). */
   heading_font?: LandingHeadingFont;
+  /**
+   * Huruf isi. Kosong = bawaan tata letak (Inter; Ubuntu di Forum). Hanya
+   * huruf yang terbaca di ukuran kecil, lihat LANDING_BODY_FONTS.
+   */
+  body_font?: LandingBodyFont;
+  /**
+   * Sudut tombol, kartu, dan foto halaman acara. Kosong = `soft` (skala M3
+   * apa adanya). Forum tidak membacanya: rancangan IFC punya sudutnya sendiri.
+   */
+  corners?: LandingCorners;
+  /**
+   * Perataan teks hero, khusus Modern. Kosong = kiri; gaya gathering tengah.
+   * Editorial selalu kiri karena kolom fakta acara ada di kanan.
+   */
+  hero_align?: LandingHeroAlign;
+  /** Letak isi hero, khusus Modern. Kosong = bawah bila ada KV, tengah bila tidak ada; gathering tengah. */
+  hero_position?: LandingHeroPosition;
   /** Bawaan `lg`. Diabaikan bila `heading_size` diisi. */
   heading_scale?: LandingHeadingScale;
   /** Ukuran nama acara di layar lebar, dalam px. Di layar sempit mengecil otomatis. */

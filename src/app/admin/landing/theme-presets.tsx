@@ -1,53 +1,62 @@
 "use client";
 
+import { Check } from "@phosphor-icons/react";
 import { Kelompok } from "@/components/admin/compact-form";
-import { LANDING_HEADING_FONTS, normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
+import { normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
 import { LANDING_THEME_PRESETS, presetCocok, terapkanPreset, type LandingThemePreset } from "@/lib/landing-theme-presets";
-import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { buatBlok } from "./blocks";
 
 /**
- * Kelompok "Preset tema" di tab Tema. Dipisah dari page.tsx supaya pekerjaan
- * lain di tab Tema tidak bertabrakan dengan daftar preset.
+ * Kelompok "Start from a preset" di tab Theme. Klik kartu = pratinjau dulu:
+ * pratinjau besar memakai preset itu, isi CMS belum berubah (status tetap
+ * "Saved"), sampai admin menekan Apply di bilah atas panel. Pola Preview di
+ * Shopify dan Squarespace: perbedaan preset baru terlihat di halaman utuh.
  */
 export function PresetTema({
   landing,
-  setLanding,
-  nama,
-  first = true,
+  pratinjau,
+  onPratinjau,
 }: {
   landing: EventLandingConfig;
-  setLanding: (next: EventLandingConfig) => void;
-  nama: string;
-  /** False bila ada kelompok lain di atasnya (garis pemisah tampil). */
-  first?: boolean;
+  /** Kunci preset yang sedang dipratinjau, atau null. */
+  pratinjau: string | null;
+  onPratinjau: (key: string | null) => void;
 }) {
   return (
-    <Kelompok title="Theme preset" first={first} note="One click sets the layout, colours and heading font. Page content stays the same, and each setting can still be changed below. Gathering also adds a hidden “Sebelum berangkat” section to Page sections for you to fill in.">
-      <div role="radiogroup" aria-label="Theme preset" className="grid gap-2">
+    <Kelompok
+      first
+      title="Start from a preset"
+      note="Click to preview it, then Apply. A preset sets the layout, colours and fonts; page content stays. Gathering also adds a hidden “Sebelum berangkat” section for you to fill in."
+    >
+      <div role="radiogroup" aria-label="Preset" className="flex flex-col gap-2">
         {LANDING_THEME_PRESETS.map((preset) => {
-          const pilih = presetCocok(preset, landing);
+          const dipakai = presetCocok(preset, landing);
+          const dilihat = pratinjau === preset.key;
           return (
             <button
               key={preset.key}
               type="button"
               role="radio"
-              aria-checked={pilih}
-              onClick={() => setLanding(pakaiPreset(preset, landing))}
-              className={`m3-state flex overflow-hidden rounded-md border text-left ${pilih ? "border-primary ring-1 ring-primary" : "border-outline-variant"}`}
+              aria-checked={dilihat || (pratinjau === null && dipakai)}
+              // Kartu yang sedang dipakai tidak punya apa-apa untuk dipratinjau.
+              onClick={() => onPratinjau(dipakai ? null : preset.key)}
+              className={`m3-state flex overflow-hidden rounded-md border text-left ${
+                dilihat ? "border-primary ring-2 ring-primary" : dipakai ? "border-primary ring-1 ring-primary" : "border-outline-variant"
+              }`}
             >
-              {/* Cuplikan hero dengan warna preset yang sebenarnya. */}
-              <span aria-hidden className="flex w-36 shrink-0 flex-col justify-center gap-1.5 px-3 py-3" style={{ background: preset.seed ?? landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED }}>
-                {preset.accent ? <span className="h-2 w-10" style={{ background: preset.accent }} /> : null}
-                <span className="line-clamp-2 text-body-medium font-bold leading-tight text-white" style={{ fontFamily: LANDING_HEADING_FONTS[preset.heading_font ?? landing.heading_font ?? "sans"].cssVar }}>
-                  {nama}
-                </span>
-                {preset.secondary ? <span className="h-3 w-12" style={{ background: preset.secondary }} /> : null}
-              </span>
-              <span className="flex min-w-0 flex-col justify-center gap-0.5 px-3 py-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={preset.thumb} alt="" width={162} height={100} className="h-[100px] w-[162px] shrink-0 border-r border-outline-variant bg-surface-container object-cover object-top" />
+              <span className="flex min-w-0 flex-col justify-center gap-0.5 px-3 py-2">
                 <span className="text-body-medium font-medium text-on-surface">{preset.label}</span>
                 <span className="text-body-small text-on-surface-variant">{preset.note}</span>
-                {pilih ? <span className="text-body-small font-medium text-primary">In use</span> : null}
+                {dilihat ? (
+                  <span className="text-body-small font-medium text-primary">Previewing</span>
+                ) : dipakai ? (
+                  <span className="inline-flex items-center gap-1 text-body-small font-medium text-primary">
+                    <Check size={14} weight="bold" aria-hidden />
+                    In use
+                  </span>
+                ) : null}
               </span>
             </button>
           );
@@ -66,7 +75,7 @@ const INFO_GATHERING = ["Dress code", "Yang perlu dibawa", "Kontak panitia"];
  * berjudul tanpa isi tetap tampil, dan halaman publik tidak boleh memuat teks
  * contoh. Panitia mengisi teksnya lalu menampilkannya.
  */
-function pakaiPreset(preset: LandingThemePreset, landing: EventLandingConfig): EventLandingConfig {
+export function pakaiPreset(preset: LandingThemePreset, landing: EventLandingConfig): EventLandingConfig {
   const hasil = terapkanPreset(preset, landing);
   const sudahAda = (hasil.blocks ?? []).some((block) => block.type === "points" && block.heading === "Sebelum berangkat");
   if (!preset.gathering || sudahAda) return hasil;

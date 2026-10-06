@@ -5,7 +5,7 @@ import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, CopySimple, DotsSixVerti
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
-  Banner, Button, ButtonLink, Dialog, FilterChip, IconButton, MetaSeparator, PageLoading, PaneBody, Pane, SegmentedButton, segmentTabId,
+  Banner, Button, ButtonLink, Dialog, FilterChip, IconButton, PageLoading, PaneBody, Pane, SegmentedButton, segmentTabId,
   StatusChip, Switch, TextArea, TextField,
 } from "@/components/m3";
 import { AdminBarPortal, useAdminPage } from "@/components/admin/page-context";
@@ -17,10 +17,8 @@ import {
   LANDING_ABOUT_MEDIA_LABELS,
   LANDING_IMAGE_ALT_MAX,
   LANDING_BANNER_STYLE_LABELS,
-  LANDING_HEADING_FONTS,
   LANDING_HEADING_SIZE,
   LANDING_HERO_HEIGHT_PX,
-  LANDING_LAYOUT_LABELS,
   LANDING_NAV_HEIGHT_MAX,
   LANDING_NAV_HEIGHT_MIN,
   LANDING_SECTION_ADMIN_LABELS,
@@ -39,28 +37,31 @@ import {
   type LandingBlockType,
   type EventLandingConfig,
   type LandingForumPage,
-  type LandingHeadingFont,
   type LandingLayout,
   type LandingHeadedSection,
   type LandingConfigEn,
   type LandingSection,
   type LandingSectionId,
   type RegistrationFormConfig,
+  type LandingHeroAlign,
+  type LandingHeroPosition,
 } from "@/lib/domain";
+import { landingTokens } from "@/lib/landing-tokens";
 import { formatEventDate } from "@/lib/event-datetime";
 import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
 import { jumlahLembaga } from "@/lib/landing-speaker-tabs";
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
-import { GATHERING_ACCENT_DEFAULT } from "@/lib/registration-theme-css";
 import { eventApiPath } from "@/lib/event-url";
 import { Kelompok } from "@/components/admin/compact-form";
 import { BilahAtasEditor } from "@/components/admin/landing-nav-editor";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import { BlockEditor, butirBerlebih, isianButirTampil, kolomBlokTampil, labelIsianButir, labelKolomBlok, namaButirBlok, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok, type KolomButir } from "./blocks";
-import { ForumSusunan, ForumTema, forumTautanSalah, halamanBagianForum } from "./forum-editor";
+import { ForumSusunan, forumTautanSalah, halamanBagianForum } from "./forum-editor";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
-import { PresetTema } from "./theme-presets";
+import { pakaiPreset } from "./theme-presets";
+import { TabTema } from "./theme-tab";
+import { LANDING_THEME_PRESETS } from "@/lib/landing-theme-presets";
 import { BagianEn, BlockEditorEn, kartuRundownId, labelIsianButirEn, labelKolomBlokEn, namaButirBlokEn, rundownBelumDiterjemahkan, type BarisRundownEn } from "./editor-en";
 import { barisSesiDariAdmin, petakanSesiLama, PilihSesi, sesiHilang, urutRundown, type BarisSesi, type HasilPetakan } from "./pilih-sesi";
 import { formatClock, type RundownItem, type RundownSection } from "@/lib/rundown";
@@ -487,6 +488,9 @@ export default function LandingCmsPage() {
   // jadi ia punya keadaan sendiri di layar ini alih-alih ikut `landing`.
   const [formInherit, setFormInherit] = useState(true);
   const [formSeed, setFormSeed] = useState(DEFAULT_REGISTRATION_SEED);
+  // Preset yang sedang dipratinjau di tab Theme. Hanya pratinjau yang memakainya;
+  // `landing` (dan status Saved) baru berubah saat Apply.
+  const [pratinjauPreset, setPratinjauPreset] = useState<string | null>(null);
   // Potret keadaan terakhir yang tersimpan, untuk memberi tahu bahwa pratinjau
   // belum memuat perubahan yang sedang diketik.
   const [tersimpan, setTersimpan] = useState<string | null>(null);
@@ -613,7 +617,17 @@ export default function LandingCmsPage() {
     setRundownEn((current) => current && current.map((baris) => (baris.id === id ? { ...baris, ...patch } : baris)));
   // Draf untuk pratinjau langsung. Dibuat ulang hanya saat isinya berubah,
   // supaya pratinjau tidak dirender ulang di setiap render CMS.
-  const drafPratinjau = useMemo(() => (cuplikan && facts ? isiKirim(facts) : null), [cuplikan]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Pratinjau preset hanya berlaku selama tab Theme terbuka: pindah tab berarti
+  // pratinjau besar kembali menunjukkan isi CMS yang sebenarnya.
+  const presetDilihat = bagian === "tema" ? LANDING_THEME_PRESETS.find((preset) => preset.key === pratinjauPreset) ?? null : null;
+  const drafPratinjau = useMemo(
+    () => (cuplikan && facts ? isiKirim(facts, presetDilihat ? pakaiPreset(presetDilihat, landing) : landing) : null),
+    [cuplikan, presetDilihat], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  function terapkanPratinjau() {
+    if (presetDilihat) setLanding(pakaiPreset(presetDilihat, landing));
+    setPratinjauPreset(null);
+  }
 
   // Pilihan ID | EN yang diklik di pratinjau memindah mode editor.
   // Baris yang terbuka tetap terbuka di mode lain; daftarnya dirender ulang,
@@ -705,7 +719,9 @@ export default function LandingCmsPage() {
   }
 
   /** Isi yang dikirim saat Simpan, dan yang dirender pratinjau langsung. */
-  function isiKirim(facts: Facts) {
+  function isiKirim(facts: Facts, isi: EventLandingConfig = landing) {
+    // `isi` = landing, kecuali pratinjau preset (yang belum diterapkan).
+    const susunan = isi === landing ? sections : normalizeLandingSections(isi.sections, isi.blocks);
     return {
       description: facts.description?.trim() || null,
       tagline: facts.tagline?.trim() || null,
@@ -716,13 +732,13 @@ export default function LandingCmsPage() {
       venue_address: facts.venue_address?.trim() || null,
       venue_map_url: facts.venue_map_url?.trim() || null,
       landing: {
-        ...tanpaEnYatim(landing),
-        blocks: tanpaTersembunyiKepanjangan(landing.blocks),
-        sections,
-        theme: { seed: landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
+        ...tanpaEnYatim(isi),
+        blocks: tanpaTersembunyiKepanjangan(isi.blocks),
+        sections: susunan,
+        theme: { seed: isi.theme?.seed ?? DEFAULT_REGISTRATION_SEED },
         // Hanya untuk pratinjau (tombol Masuk). Server mengabaikannya: area
         // peserta disimpan di /admin/area-peserta.
-        member: landing.member,
+        member: isi.member,
       },
       form_theme: { inherit: formInherit, seed: formSeed },
     };
@@ -916,8 +932,6 @@ export default function LandingCmsPage() {
     barisSesi === null ? 0 : (landing.speakers ?? []).filter((speaker) => speaker.name?.trim() && !sesiDariRundown(speaker) && !!speaker.session?.trim()).length;
   const sesiPerluDipilih =
     (landing.speakers ?? []).filter((speaker) => speaker.name?.trim() && sesiHilang(speaker, barisSesi).length > 0).length + sesiLamaBelumTerhubung;
-  // Bawaan huruf judul mengikuti tata letak; harus sama dengan halaman publik.
-  const hurufJudul: LandingHeadingFont = landing.heading_font ?? (forum ? "ubuntu" : modern ? "source" : "serif");
   const catatanProgram = landing.program_notes ?? [];
   const setCatatanProgram = (next: string[]) => setLanding({ ...landing, program_notes: next });
   // Terjemahannya ikut terhapus, supaya terjemahan keterangan berikutnya tidak
@@ -931,6 +945,7 @@ export default function LandingCmsPage() {
     });
   };
 
+  const tokensHero = landingTokens(landing);
   const isiPembuka = facts ? (
     <div className="flex flex-col gap-5">
       <Kelompok title="Content" first>
@@ -979,8 +994,45 @@ export default function LandingCmsPage() {
         />
       </Kelompok>
 
+      {/* Setelan bagian, bukan tema global (Shopify: Image banner). Kiri/Tengah
+          saja: rata kanan di teks Latin membuat mata mencari awal baris, dan di
+          ponsel harus jatuh ke kiri juga. Editorial hanya Kiri, karena kolom
+          fakta acara berdiri di kanan judul. */}
+      {modern ? (
+        <Kelompok title="Text placement" note={landing.banner_url ? "Bottom keeps the KV visible above the title." : undefined}>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex min-w-0 flex-col gap-2">
+              <p id="label-hero-rata" className="text-body-medium font-medium text-on-surface">Alignment</p>
+              <SegmentedButton<LandingHeroAlign>
+                className="w-full"
+                label="Alignment"
+                labelledBy="label-hero-rata"
+                value={tokensHero.heroAlign}
+                onChange={(hero_align) => setLanding({ ...landing, hero_align })}
+                options={[{ value: "left", label: "Left" }, { value: "center", label: "Centre" }]}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-2">
+              <p id="label-hero-posisi" className="text-body-medium font-medium text-on-surface">Position</p>
+              <SegmentedButton<LandingHeroPosition>
+                className="w-full"
+                label="Position"
+                labelledBy="label-hero-posisi"
+                value={tokensHero.heroPosition}
+                onChange={(hero_position) => setLanding({ ...landing, hero_position })}
+                options={[{ value: "bottom", label: "Bottom" }, { value: "middle", label: "Middle" }]}
+              />
+            </div>
+          </div>
+        </Kelompok>
+      ) : (
+        <Kelompok title="Text placement" note="Editorial keeps the title on the left, because the event facts sit in the column to its right. Modern can centre it.">
+          {null}
+        </Kelompok>
+      )}
+
       {gathering ? (
-        <Kelompok title="Logo" note="Centred in the hero, above the tagline.">
+        <Kelompok title="Logo" note="In the hero, above the tagline.">
           <ImageUploadField
             label="Hero logo"
             kind="landing"
@@ -1373,8 +1425,11 @@ export default function LandingCmsPage() {
   );
 
   // ---- Tema ----------------------------------------------------------------------
-  const isiTema = (
-    <div className="flex flex-col gap-5">
+  // Grup Page di tab Theme. "What /e/… shows" tinggal di Theme, bukan Page
+  // sections: Hanya formulir menyembunyikan tab Page sections, dan kontrol yang
+  // menyembunyikan tabnya sendiri tidak bisa dibatalkan dari sana.
+  const isiHalamanTema = (
+    <>
       <Kelompok title={`What /e/${facts?.slug ?? "slug"} shows`} first>
         <SegmentedButton<"halaman" | "formulir">
           className="w-full"
@@ -1396,38 +1451,6 @@ export default function LandingCmsPage() {
           {hanyaFormulir
             ? "No event page: this address opens the registration form directly. The logo, main image, colours and fonts below still apply to the form and the participant sign-in page."
             : "An event page with a register button that leads to the form. Arrange its content in Page sections."}
-        </p>
-      </Kelompok>
-
-      <PresetTema landing={landing} setLanding={setLanding} nama={landing.public_name?.trim() || facts?.name || "Nama acara"} first={false} />
-
-      <Kelompok title="Layout">
-        <SegmentedButton<LandingLayout>
-          className="w-full"
-          label="Layout"
-          value={tataLetak}
-          onChange={(value) =>
-            // Huruf judul yang belum pernah dipilih ikut disimpan saat pindah ke
-            // Modern, supaya area peserta (yang membaca `heading_font`) memakai
-            // huruf yang sama dengan halaman acara.
-            setLanding({
-              ...landing,
-              layout: value,
-              heading_font: landing.heading_font ?? (value === "modern" ? "source" : value === "forum" ? "ubuntu" : undefined),
-            })
-          }
-          options={[
-            { value: "editorial", label: LANDING_LAYOUT_LABELS.editorial },
-            { value: "modern", label: LANDING_LAYOUT_LABELS.modern },
-            { value: "forum", label: LANDING_LAYOUT_LABELS.forum },
-          ]}
-        />
-        <p className="text-body-medium text-on-surface-variant">
-          {forum
-            ? "Three simple pages: home, programme and practical information, with a sign-in button to the participant area. The section order is fixed; extra blocks don't show."
-            : modern
-              ? "Full-width KV with a dark nav bar, programme cards from the agenda, tall speaker cards and extra blocks."
-              : "Calm and typographic: section headings in a left rail, hairlines as dividers. Extra blocks don't show here."}
         </p>
       </Kelompok>
 
@@ -1486,62 +1509,39 @@ export default function LandingCmsPage() {
         ) : null}
       </Kelompok>
 
-      <Kelompok title="Heading font" note="Used for the event name and section headings. Body text keeps an easy-to-read font.">
-        <div role="radiogroup" aria-label="Heading font" className="flex flex-col gap-2">
-          {(Object.keys(LANDING_HEADING_FONTS) as LandingHeadingFont[]).map((key) => {
-            const font = LANDING_HEADING_FONTS[key];
-            const pilih = hurufJudul === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                role="radio"
-                aria-checked={pilih}
-                onClick={() => setLanding({ ...landing, heading_font: key })}
-                className={`m3-state flex min-h-16 flex-col items-start gap-0.5 rounded-md border px-4 py-3 text-left ${
-                  pilih ? "border-primary bg-primary-container/40 ring-1 ring-primary" : "border-outline-variant"
-                }`}
-              >
-                <span className="text-title-large font-semibold text-on-surface" style={{ fontFamily: font.cssVar }}>
-                  {landing.public_name?.trim() || facts?.name || "Nama acara"}
-                </span>
-                <span className="text-body-small text-on-surface-variant">
-                  {font.label} <MetaSeparator /> {font.note}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </Kelompok>
-
-      <Kelompok title="Colour" note="One colour; the rest is derived automatically so text stays readable.">
-        <PilihWarna
-          label="Brand colour"
-          value={landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED}
-          onChange={(value) => setLanding({ ...landing, theme: { seed: value } })}
-        />
-        {/* Saklar warna formulir tinggal DI SINI, bukan di CMS Registrasi.
-            Warna acara punya satu sumber; kontrol yang tersebar di dua layar
-            akan berbeda isinya dan tidak ada yang tahu mana yang menang. */}
-        <Switch
-          checked={!formInherit}
-          onChange={(value) => setFormInherit(!value)}
-          label="Different colour for the registration form"
-          description={formInherit
-            ? "The registration page uses the brand colour above, so visitors stay in one visual identity."
-            : "The registration page uses its own colour. Two colours in two taps in a row feel like moving to another site."}
-        />
-        {!formInherit ? <PilihWarna label="Form colour" value={formSeed} onChange={setFormSeed} /> : null}
-        {gathering ? (
-          <PilihWarna
-            label="Accent colour"
-            value={landing.accent ?? GATHERING_ACCENT_DEFAULT}
-            onChange={(value) => setLanding({ ...landing, accent: value })}
+      {forum ? (
+        <Kelompok title="Label language" note="For the menu, section headings and default buttons. Content you write is shown as typed.">
+          <SegmentedButton<"id" | "en">
+            className="w-full"
+            label="Label language"
+            value={landing.forum?.language ?? "id"}
+            onChange={(language) => setLanding({ ...landing, forum: { ...landing.forum, language } })}
+            options={[
+              { value: "id", label: "Indonesian" },
+              { value: "en", label: "English" },
+            ]}
           />
-        ) : null}
-      </Kelompok>
-      {forum ? <ForumTema landing={landing} setLanding={setLanding} PilihWarna={PilihWarna} /> : null}
-    </div>
+        </Kelompok>
+      ) : null}
+    </>
+  );
+
+  const isiTema = (
+    <TabTema
+      landing={landing}
+      setLanding={setLanding}
+      nama={landing.public_name?.trim() || facts?.name || "Nama acara"}
+      pratinjau={pratinjauPreset}
+      onPratinjau={setPratinjauPreset}
+      onTerapkan={terapkanPratinjau}
+      formInherit={formInherit}
+      setFormInherit={setFormInherit}
+      formSeed={formSeed}
+      setFormSeed={setFormSeed}
+      PilihWarna={PilihWarna}
+      halaman={isiHalamanTema}
+      ringkasHalaman={[hanyaFormulir ? "Form only" : "Event page", modern && landing.en_enabled ? "ID + EN" : forum && landing.forum?.language === "en" ? "EN labels" : null].filter(Boolean).join(" · ")}
+    />
   );
 
   // ---- Bagian --------------------------------------------------------------------

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowClockwise, DeviceMobile, Monitor } from "@phosphor-icons/react";
+import { ArrowClockwise, ArrowsIn, ArrowsOut, DeviceMobile, Monitor } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IconButton, Pane, SegmentedButton } from "@/components/m3";
 import type { LandingForumPage } from "@/lib/domain";
@@ -90,6 +90,18 @@ export function LandingPreview({
   const tersorot = useRef<HTMLElement | null>(null);
   // null = pratinjau sejalan dengan draf; teks = alasan pratinjau tertinggal.
   const [tertinggal, setTertinggal] = useState<string | null>(null);
+  // Diperbesar menutupi layar CMS. Pohon elemennya sama, hanya kelas pembungkus
+  // yang berganti, jadi iframe tidak dimuat ulang dan posisi gulirnya tetap.
+  const [besar, setBesar] = useState(false);
+
+  useEffect(() => {
+    if (!besar) return;
+    function tutup(event: KeyboardEvent) {
+      if (event.key === "Escape") setBesar(false);
+    }
+    window.addEventListener("keydown", tutup);
+    return () => window.removeEventListener("keydown", tutup);
+  }, [besar]);
 
   const kirimDraf = useCallback(() => {
     if (!draf) return;
@@ -176,7 +188,11 @@ export function LandingPreview({
   }, []);
 
   return (
-    <div lang="en" className="flex min-h-0 flex-col *:flex-1">
+    <div
+      lang="en"
+      className={besar ? "fixed inset-0 z-50 flex flex-col bg-scrim/40 p-4 *:flex-1" : "flex min-h-0 flex-col *:flex-1"}
+      {...(besar ? { role: "dialog", "aria-modal": true, "aria-label": "Enlarged preview" } : null)}
+    >
     <Pane aria-label="Event page preview">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant px-4 py-2.5">
         <p className={`line-clamp-2 min-w-0 flex-1 ${tertinggal ? "text-body-small text-error" : "text-body-medium text-on-surface-variant"}`} role="status" title={tertinggal ?? undefined}>
@@ -207,6 +223,9 @@ export function LandingPreview({
         />
         <IconButton size="sm" label="Reload preview" onClick={() => setNonce((current) => current + 1)}>
           <ArrowClockwise size={16} />
+        </IconButton>
+        <IconButton size="sm" label={besar ? "Exit enlarged preview" : "Enlarge preview"} onClick={() => setBesar((current) => !current)}>
+          {besar ? <ArrowsIn size={16} /> : <ArrowsOut size={16} />}
         </IconButton>
       </div>
 
