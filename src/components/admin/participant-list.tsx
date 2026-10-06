@@ -94,12 +94,13 @@ function EksporTerpilih({ busy, onPick }: { busy: boolean; onPick: (format: "xls
           className="target-48"
           loading={busy}
           icon={<Package size={16} />}
-          trailingIcon={<CaretDown size={14} className={cx("transition-transform", menu.open && "rotate-180")} />}
+          trailingIcon={<CaretDown size={14} className={cx("transition-transform max-sm:hidden", menu.open && "rotate-180")} />}
+          aria-label="Export"
           aria-haspopup="menu"
           aria-expanded={menu.open}
           onClick={menu.toggle}
         >
-          Export
+          <span className="max-sm:hidden">Export</span>
         </Button>
       </span>
       {menu.open ? (
@@ -568,6 +569,12 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const jabatanDiBawahNama = !visible.includes("title");
 
   const adaFilter = Boolean(filterAsal || filterHadir || filterRsvp || filterPerusahaan.length);
+  // Saringan yang sedang berlaku, disebut di bilah pilihan karena barisnya tertutup.
+  const jumlahSaringan = [filterAsal, filterHadir, filterRsvp].filter(Boolean).length + (filterPerusahaan.length ? 1 : 0);
+  const ringkasSaringan = [
+    debouncedQuery ? `“${debouncedQuery}”` : "",
+    jumlahSaringan ? plural(jumlahSaringan, "filter") : "",
+  ].filter(Boolean).join(", ");
   const tercentangDiHalaman = participants.filter((p) => pilih.has(p.id)).length;
   const halamanTercentang = participants.length > 0 && tercentangDiHalaman === participants.length;
   const resetFilter = () => { setFilterAsal(""); setFilterHadir(""); setFilterRsvp(""); setFilterPerusahaan([]); setPage(0); };
@@ -601,6 +608,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const list = (
     <Pane aria-label="Participant list">
       <PaneHeader className="relative flex-wrap gap-2 px-3 py-3">
+        {/* Saringan yang tertutup bilah pilihan tidak boleh tercapai lewat Tab:
+            mengetik pencarian di bawah bilah akan menyembunyikan baris yang dicentang. */}
+        <div className="contents" inert={pilih.size > 0}>
         <label className="relative min-w-[200px] flex-1">
           <span className="sr-only">Search participants</span>
           <MagnifyingGlass size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
@@ -653,31 +663,43 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           onChange={(next) => { setFilterRsvp(next[0] ?? ""); setPage(0); }}
         />
         <ColumnMenu columns={opsiKolom} visible={visible} onChange={setVisible} onReset={() => setVisible(null)} isDefault={isDefault} />
+        </div>
         {/* Bilah pilihan MENUTUPI baris saringan, bukan disisipkan di bawahnya:
             tabel tidak bergeser saat kotak pertama dicentang. */}
         {pilih.size > 0 ? (
-          <div role="region" aria-label="Selected participants" className="absolute inset-0 z-[2] flex flex-wrap content-center items-center gap-x-3 gap-y-2 bg-secondary-container px-3 py-2">
-            <IconButton size="sm" className="target-48" label="Clear selection" onClick={() => setPilih(new Set())}><X size={16} /></IconButton>
-            <span className="text-body-medium font-medium tabular-nums text-on-surface" aria-live="polite">{pilih.size} selected</span>
+          <div role="region" aria-label="Selected participants" className="absolute inset-0 z-[2] flex flex-wrap content-center items-center gap-x-3 gap-y-0 bg-secondary-container px-3 max-sm:gap-x-2 max-sm:px-2">
+            {/* Tiap baris bilah setinggi 48 px (min-h-12), jadi area sentuh 48 px
+                tombolnya tidak saling menimpa bila bilah terlipat di HP. */}
+            <span className="flex min-h-12 min-w-0 items-center gap-3">
+              <IconButton size="sm" className="target-48" label="Clear selection" onClick={() => setPilih(new Set())}><X size={16} /></IconButton>
+              <span className="text-body-medium font-medium tabular-nums text-on-surface" aria-live="polite">{pilih.size} selected</span>
+              {ringkasSaringan ? <span className="truncate text-body-medium text-on-surface-variant max-sm:hidden" title={ringkasSaringan}>· {ringkasSaringan}</span> : null}
+            </span>
             {halamanTercentang && total > pilih.size ? (
-              <button type="button" disabled={memilihSemua} onClick={() => void pilihSemuaCocok()} className="target-48 relative rounded-sm text-body-medium font-medium text-primary hover:underline disabled:opacity-60">
-                {memilihSemua ? "Selecting…" : adaFilter || debouncedQuery ? `Select all ${total} matching` : `Select all ${total}`}
+              <button type="button" disabled={memilihSemua} onClick={() => void pilihSemuaCocok()} aria-label={memilihSemua ? undefined : adaFilter || debouncedQuery ? `Select all ${total} matching` : `Select all ${total}`} className="target-48 relative min-h-12 rounded-sm text-body-medium font-medium text-primary hover:underline disabled:opacity-60">
+                {memilihSemua ? "Selecting…" : (
+                  <>
+                    <span className="max-sm:hidden">{adaFilter || debouncedQuery ? `Select all ${total} matching` : `Select all ${total}`}</span>
+                    <span className="sm:hidden" aria-hidden>All {total}</span>
+                  </>
+                )}
               </button>
             ) : null}
-            <span className="ml-auto flex flex-wrap items-center gap-2">
-              <Button simpan variant="outlined" size="sm" className="target-48" loading={bulk === "pesan"} icon={<EnvelopeSimple size={16} />} onClick={() => void kirimPesan()}>Send message</Button>
+            <span className="ml-auto flex min-h-12 items-center gap-2">
+              <Button simpan variant="outlined" size="sm" className="target-48" aria-label="Send message" loading={bulk === "pesan"} icon={<EnvelopeSimple size={16} />} onClick={() => void kirimPesan()}><span className="max-sm:hidden">Send message</span></Button>
               <EksporTerpilih busy={bulk === "ekspor"} onPick={(format) => void eksporTerpilih(format)} />
               <Button
                 simpan
                 variant="outlined"
                 size="sm"
                 className="target-48 text-error"
+                aria-label="Delete"
                 icon={<Trash size={16} />}
                 disabled={pilih.size > BATAS_HAPUS}
                 title={pilih.size > BATAS_HAPUS ? `Delete up to ${BATAS_HAPUS} at a time` : undefined}
                 onClick={tanyaHapusTerpilih}
               >
-                Delete
+                <span className="max-sm:hidden">Delete</span>
               </Button>
             </span>
           </div>
