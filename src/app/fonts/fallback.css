@@ -1,12 +1,17 @@
-/* Fallback berukuran untuk huruf di ../fonts.ts. Angkanya disalin persis dari
-   CSS yang dulu dihasilkan next/font/google, supaya pergeseran saat huruf
-   dimuat tetap sama. Nama keluarga harus sama dengan `fallback` di fonts.ts.
+/* Fallback berukuran untuk huruf di ../fonts.ts dan ./landing.css. Nama
+   keluarga harus sama dengan nama di sana ditambah " Fallback".
 
-   Tiap keluarga punya dua face: biasa, dan tebal (600-900) dari Arial Bold atau
-   Times New Roman Bold dengan angka yang sama. Halaman acara memasang
-   font-synthesis-weight: none (landing-tokens.ts), jadi tanpa face tebal ini
-   judul semibold tampil tipis selama huruf aslinya belum tiba, lalu melompat
-   tebal. Dengan face tebal, pergantiannya hanya ganti keluarga, lebar tetap. */
+   Face biasa: untuk keluarga lama, angkanya disalin persis dari CSS yang dulu
+   dihasilkan next/font/google, supaya pergeseran saat huruf dimuat tetap sama.
+   Untuk keluarga baru, dihitung dengan cara yang sama di bobot 400.
+
+   Face tebal (600-900) memakai Arial Bold atau Times New Roman Bold dengan
+   angka sendiri, dihitung dari lebar huruf asli di bobot judulnya (600, atau
+   700 untuk Space Grotesk dan Ubuntu) terhadap lebar Arial Bold atau Times
+   Bold. Halaman acara memasang font-synthesis-weight: none
+   (landing-tokens.ts), jadi tanpa face tebal ini judul semibold tampil tipis
+   selama huruf aslinya belum tiba, lalu melompat tebal. Dengan angka sendiri,
+   lebar judul fallback hampir sama dengan judul aslinya. */
 
 @font-face {
 	font-family: "inter Fallback";
@@ -21,10 +26,10 @@
 	font-family: "inter Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 90.44%;
-	descent-override: 22.52%;
-	line-gap-override: 0.0%;
-	size-adjust: 107.12%;
+	ascent-override: 95.11%;
+	descent-override: 23.68%;
+	line-gap-override: 0.00%;
+	size-adjust: 101.86%;
 }
 
 @font-face {
@@ -40,10 +45,10 @@
 	font-family: "montserrat Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 85.79%;
-	descent-override: 22.25%;
-	line-gap-override: 0.0%;
-	size-adjust: 112.83%;
+	ascent-override: 88.85%;
+	descent-override: 23.04%;
+	line-gap-override: 0.00%;
+	size-adjust: 108.95%;
 }
 
 @font-face {
@@ -59,10 +64,10 @@
 	font-family: "oswald Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 146.51%;
-	descent-override: 35.49%;
-	line-gap-override: 0.0%;
-	size-adjust: 81.43%;
+	ascent-override: 143.89%;
+	descent-override: 34.86%;
+	line-gap-override: 0.00%;
+	size-adjust: 82.91%;
 }
 
 @font-face {
@@ -78,10 +83,10 @@
 	font-family: "spaceGrotesk Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 89.71%;
-	descent-override: 26.62%;
-	line-gap-override: 0.0%;
-	size-adjust: 109.69%;
+	ascent-override: 95.99%;
+	descent-override: 28.49%;
+	line-gap-override: 0.00%;
+	size-adjust: 102.51%;
 }
 
 @font-face {
@@ -97,10 +102,10 @@
 	font-family: "playfairDisplay Fallback";
 	src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 97.25%;
-	descent-override: 22.56%;
-	line-gap-override: 0.0%;
-	size-adjust: 111.26%;
+	ascent-override: 101.77%;
+	descent-override: 23.61%;
+	line-gap-override: 0.00%;
+	size-adjust: 106.32%;
 }
 
 @font-face {
@@ -116,10 +121,10 @@
 	font-family: "sourceSans3 Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 109.21%;
-	descent-override: 42.66%;
-	line-gap-override: 0.0%;
-	size-adjust: 93.76%;
+	ascent-override: 113.95%;
+	descent-override: 44.51%;
+	line-gap-override: 0.00%;
+	size-adjust: 89.87%;
 }
 
 @font-face {
@@ -135,10 +140,10 @@
 	font-family: "geistMono Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 74.67%;
-	descent-override: 21.92%;
-	line-gap-override: 0.0%;
-	size-adjust: 134.59%;
+	ascent-override: 82.69%;
+	descent-override: 24.27%;
+	line-gap-override: 0.00%;
+	size-adjust: 121.54%;
 }
 
 @font-face {
@@ -154,8 +159,103 @@
 	font-family: "ubuntu Fallback";
 	src: local("Arial Bold"), local("Arial-BoldMT");
 	font-weight: 600 900;
-	ascent-override: 91.32%;
-	descent-override: 18.52%;
-	line-gap-override: 2.74%;
-	size-adjust: 102.06%;
+	ascent-override: 93.33%;
+	descent-override: 18.93%;
+	line-gap-override: 2.80%;
+	size-adjust: 99.86%;
+}
+
+@font-face {
+	font-family: "plusJakartaSans Fallback";
+	src: local(Arial);
+	ascent-override: 98.16%;
+	descent-override: 20.99%;
+	line-gap-override: 0.00%;
+	size-adjust: 105.75%;
+}
+
+@font-face {
+	font-family: "plusJakartaSans Fallback";
+	src: local("Arial Bold"), local("Arial-BoldMT");
+	font-weight: 600 900;
+	ascent-override: 103.78%;
+	descent-override: 22.19%;
+	line-gap-override: 0.00%;
+	size-adjust: 100.02%;
+}
+
+@font-face {
+	font-family: "fraunces Fallback";
+	src: local(Times New Roman);
+	ascent-override: 84.71%;
+	descent-override: 22.09%;
+	line-gap-override: 0.00%;
+	size-adjust: 115.46%;
+}
+
+@font-face {
+	font-family: "fraunces Fallback";
+	src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT");
+	font-weight: 600 900;
+	ascent-override: 87.15%;
+	descent-override: 22.72%;
+	line-gap-override: 0.00%;
+	size-adjust: 112.22%;
+}
+
+@font-face {
+	font-family: "sourceSerif4 Fallback";
+	src: local(Times New Roman);
+	ascent-override: 87.45%;
+	descent-override: 28.28%;
+	line-gap-override: 0.00%;
+	size-adjust: 118.46%;
+}
+
+@font-face {
+	font-family: "sourceSerif4 Fallback";
+	src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT");
+	font-weight: 600 900;
+	ascent-override: 91.42%;
+	descent-override: 29.56%;
+	line-gap-override: 0.00%;
+	size-adjust: 113.32%;
+}
+
+@font-face {
+	font-family: "archivoNarrow Fallback";
+	src: local(Arial);
+	ascent-override: 125.50%;
+	descent-override: 37.83%;
+	line-gap-override: 0.00%;
+	size-adjust: 82.47%;
+}
+
+@font-face {
+	font-family: "archivoNarrow Fallback";
+	src: local("Arial Bold"), local("Arial-BoldMT");
+	font-weight: 600 900;
+	ascent-override: 129.31%;
+	descent-override: 38.98%;
+	line-gap-override: 0.00%;
+	size-adjust: 80.04%;
+}
+
+@font-face {
+	font-family: "nunito Fallback";
+	src: local(Arial);
+	ascent-override: 99.46%;
+	descent-override: 34.73%;
+	line-gap-override: 0.00%;
+	size-adjust: 101.65%;
+}
+
+@font-face {
+	font-family: "nunito Fallback";
+	src: local("Arial Bold"), local("Arial-BoldMT");
+	font-weight: 600 900;
+	ascent-override: 105.75%;
+	descent-override: 36.92%;
+	line-gap-override: 0.00%;
+	size-adjust: 95.60%;
 }

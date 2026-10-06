@@ -13,6 +13,7 @@ import type {
 import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
 import { gatheringColors, heroCtaColors } from "@/lib/registration-theme-css";
 import { landingTokens } from "@/lib/landing-tokens";
+import { preloadLandingFonts } from "@/lib/landing-font-preload";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { jumlahSesi, speakerTabs } from "@/lib/landing-speaker-tabs";
@@ -259,6 +260,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   ].filter((item): item is NonNullable<typeof item> => item !== null);
   // Gathering: tombol utama warna aksen (emas di rancangan KSO 21), bukan warna merek.
   const tokens = landingTokens(config, "modern");
+  preloadLandingFonts(tokens);
   const rataTengah = tokens.heroAlign === "center";
   const heroTengah = tokens.heroPosition === "middle";
   const warnaGathering = gaya ? gatheringColors(tokens.accent ?? undefined, tokens.brand, Boolean(kv)) : null;

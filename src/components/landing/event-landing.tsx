@@ -12,6 +12,7 @@ import type {
 } from "@/lib/domain";
 import { LANDING_SECTION_LABELS, isLandingBlockId, landingHeadingFontSize, publicEventName } from "@/lib/domain";
 import { landingFontStyle, landingTokens } from "@/lib/landing-tokens";
+import { preloadLandingFonts } from "@/lib/landing-font-preload";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
@@ -227,7 +228,9 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
     ...(event.venue_name?.trim() ? [{ label: "Tempat", nilai: event.venue_name.trim() }] : []),
   ];
 
-  const mainStyle = { ...theme, ...landingFontStyle(landingTokens(config, "editorial")) } as CSSProperties;
+  const tokens = landingTokens(config, "editorial");
+  preloadLandingFonts(tokens);
+  const mainStyle = { ...theme, ...landingFontStyle(tokens) } as CSSProperties;
 
   const featured = speakers.filter((speaker) => speaker.featured);
   const lainnya = speakers.filter((speaker) => !speaker.featured);

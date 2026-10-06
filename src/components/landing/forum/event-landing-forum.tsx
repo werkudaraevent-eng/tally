@@ -3,6 +3,7 @@ import type { EventLandingConfig, EventRow, LandingForumConfig, LandingForumPage
 import { publicEventName } from "@/lib/domain";
 import { forumThemeStyle } from "@/lib/registration-theme-css";
 import { landingFontStyle, landingTokens } from "@/lib/landing-tokens";
+import { preloadLandingFonts } from "@/lib/landing-font-preload";
 import { formatEventDate } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { speakerTabs } from "@/lib/landing-speaker-tabs";
@@ -90,6 +91,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
   const tampil = (part: LandingForumPart) => isi[part] && !hidden.has(part);
 
   const tokens = landingTokens(config, "forum");
+  preloadLandingFonts(tokens);
   const style = {
     ...forumThemeStyle(tokens.brand, tokens.accent ?? undefined, tokens.secondary ?? undefined),
     ...landingFontStyle(tokens),

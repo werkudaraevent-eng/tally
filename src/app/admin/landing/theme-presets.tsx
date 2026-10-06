@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Check } from "@phosphor-icons/react";
 import { Kelompok } from "@/components/admin/compact-form";
 import { normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
 import { Button } from "@/components/m3";
 import { LANDING_THEME_PRESETS, gayaPreset, presetCocok, presetDiubah, terapkanPreset, type LandingThemePreset } from "@/lib/landing-theme-presets";
+import { landingTokens } from "@/lib/landing-tokens";
 import { buatBlok } from "./blocks";
 
 /**
@@ -69,14 +71,60 @@ export function PresetTema({
       {/* Reset di luar kartu: kartu sudah sebuah tombol, dan tombol di dalam
           tombol tidak bisa difokus terpisah. */}
       {LANDING_THEME_PRESETS.filter((preset) => presetCocok(preset, landing) && presetDiubah(preset, landing)).map((preset) => (
-        <div key={preset.key} className="-mt-2 flex items-center gap-2">
-          <p className="min-w-0 flex-1 text-body-small text-on-surface-variant">Colours, fonts or corners differ from {preset.label}.</p>
-          <Button variant="text" size="sm" onClick={() => setLanding(gayaPreset(preset, landing))}>
-            Reset to {preset.label}
-          </Button>
-        </div>
+        <ResetPreset key={preset.key} preset={preset} landing={landing} setLanding={setLanding} />
       ))}
     </Kelompok>
+  );
+}
+
+/**
+ * "Reset colours and fonts" untuk preset yang dipakai tapi sudah diubah. Kalau
+ * Reset juga mengganti warna merek, minta konfirmasi dulu dan tunjukkan kedua
+ * warnanya: acara yang tidak pernah memakai preset (ILO, KSO 21) tampil
+ * "Edited" karena warna mereknya sendiri, dan sekali klik di sana menghapus
+ * warna yang sudah disetujui klien.
+ */
+function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePreset; landing: EventLandingConfig; setLanding: (next: EventLandingConfig) => void }) {
+  const [tanya, setTanya] = useState(false);
+  const sekarang = landingTokens(landing).brand;
+  const gantiMerek = sekarang.toLowerCase() !== preset.tokens.brand.toLowerCase();
+  const reset = () => {
+    setTanya(false);
+    setLanding(gayaPreset(preset, landing));
+  };
+  if (tanya) {
+    return (
+      <div role="group" aria-label={`Reset to ${preset.label}`} className="-mt-2 flex flex-col gap-2 rounded-md bg-surface-container px-3 py-2">
+        <p className="text-body-small text-on-surface">
+          This also changes the brand colour from <Contoh warna={sekarang} /> to <Contoh warna={preset.tokens.brand} />.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="text" size="sm" onClick={() => setTanya(false)}>
+            Keep my colours
+          </Button>
+          <Button variant="tonal" size="sm" onClick={reset}>
+            Reset
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="-mt-2 flex items-center gap-2">
+      <p className="min-w-0 flex-1 text-body-small text-on-surface-variant">Colours, fonts or corners differ from {preset.label}.</p>
+      <Button variant="text" size="sm" onClick={gantiMerek ? () => setTanya(true) : reset}>
+        Reset colours and fonts
+      </Button>
+    </div>
+  );
+}
+
+function Contoh({ warna }: { warna: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 align-middle font-medium">
+      <span aria-hidden className="inline-block size-3 rounded-full border border-outline-variant" style={{ background: warna }} />
+      {warna.toUpperCase()}
+    </span>
   );
 }
 

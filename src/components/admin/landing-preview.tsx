@@ -99,7 +99,10 @@ export function LandingPreview({
   // Esc menutup dari halaman CMS dan dari DALAM pratinjau: setelah klik di
   // pratinjau fokusnya di iframe, dan keydown-nya tidak sampai ke jendela induk.
   // Halaman di iframe asal-yang-sama, jadi pendengarnya dipasang di sana juga,
-  // dan dipasang ulang setiap kali iframe memuat halaman baru.
+  // dan dipasang ulang setiap kali iframe memuat halaman baru. `kunciBingkai`
+  // ikut di deps: Reload, Save, atau pindah halaman membuat iframe BARU selagi
+  // diperbesar, dan pendengar di iframe lama ikut hilang bersamanya.
+  const kunciBingkai = `${reloadKey}-${nonce}-${halaman ?? ""}-${formulir ? "formulir" : "halaman"}`;
   useEffect(() => {
     if (!besar) return;
     function tutup(event: KeyboardEvent) {
@@ -122,7 +125,7 @@ export function LandingPreview({
       iframe?.removeEventListener("load", pasangDalam);
       jendelaDalam?.removeEventListener("keydown", tutup);
     };
-  }, [besar]);
+  }, [besar, kunciBingkai]);
 
   /** Penjaga fokus: Tab dari ujung kotak kembali ke ujung lainnya (pola dialog modal). */
   function jagaFokus(ke: "awal" | "akhir") {
@@ -271,7 +274,7 @@ export function LandingPreview({
             // Mengganti `src` saja tidak cukup: browser memperlakukan navigasi
             // di dalam iframe sebagai riwayat, dan tombol Back halaman CMS lalu
             // menelusuri riwayat pratinjau alih-alih meninggalkan layar ini.
-            key={`${reloadKey}-${nonce}-${halaman ?? ""}-${formulir ? "formulir" : "halaman"}`}
+            key={kunciBingkai}
             ref={bingkai}
             src={formulir ? `/e/${slug}/daftar/pratinjau` : `/e/${slug}/pratinjau${halaman && halaman !== "beranda" ? `?halaman=${halaman}` : ""}`}
             title={formulir ? "Registration form preview" : "Event page preview"}
