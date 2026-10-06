@@ -1,5 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { barisLogo, barisLogoPonsel, logoPerBaris } from "@/lib/landing-logo-baris";
+import { cx } from "@/lib/m3/cx";
 import Link from "next/link";
 import { ArrowDown, ArrowUpRight, DownloadSimple } from "@phosphor-icons/react/dist/ssr";
 import {
@@ -531,10 +532,17 @@ function lebarDeret(per: number) {
 function Logo({ block }: { block: LandingBlock }) {
   const logo = (block.items ?? []).filter((item): item is LandingBlockItem & { image_url: string } => Boolean(item.image_url));
   const rata = block.align === "center" || block.align === "right" ? RATA_LOGO[block.align] : null;
-  // Di bawah lg, ukuran baris tiap logo: sel satu baris berbagi lebar baris itu.
+  // Di bawah lg, tiap baris dipatahkan tegas di awal baris berikutnya, jadi sel
+  // boleh tetap 160 px (dan rata kanan tetap di kanan) tanpa logo baris bawah
+  // naik mengisi sisa baris atas. Sel baris yang penuh menyusut berbagi lebar.
   const perLogo = (baris: number[]) => baris.flatMap((isi) => Array.from({ length: isi }, () => isi));
-  const isiPonsel = perLogo(barisLogoPonsel(logo.length));
-  const isiTablet = perLogo(barisLogo(logo.length, LOGO_MAKS.sm));
+  const awalBaris = (baris: number[]) => new Set(baris.slice(0, -1).map((_, i) => baris.slice(0, i + 1).reduce((a, b) => a + b, 0)));
+  const barisPonsel = barisLogoPonsel(logo.length);
+  const barisTablet = barisLogo(logo.length, LOGO_MAKS.sm);
+  const isiPonsel = perLogo(barisPonsel);
+  const isiTablet = perLogo(barisTablet);
+  const patahPonsel = awalBaris(barisPonsel);
+  const patahTablet = awalBaris(barisTablet);
   if (!rata) {
     return (
       <Wadah block={block} className="border-b border-[var(--reg-outline-variant)] py-7 sm:py-9">
@@ -566,7 +574,7 @@ function Logo({ block }: { block: LandingBlock }) {
       <div className={`flex flex-col gap-5 ${rata.wadah}`}>
         {block.heading?.trim() ? <h2 className={`text-title-small font-medium ${MUTED}`}>{block.heading.trim()}</h2> : null}
         <ul
-          className={`flex w-full flex-wrap gap-x-4 gap-y-4 sm:gap-x-6 lg:max-w-[var(--logo-lg)] xl:max-w-[var(--logo-xl)] ${rata.deret}`}
+          className={`-my-2 flex w-full flex-wrap gap-x-4 sm:gap-x-6 lg:max-w-[var(--logo-lg)] xl:max-w-[var(--logo-xl)] ${rata.deret}`}
           style={{
             "--logo-lg": lebarDeret(logoPerBaris(logo.length, LOGO_MAKS.lg)),
             "--logo-xl": lebarDeret(logoPerBaris(logo.length, LOGO_MAKS.xl)),
@@ -578,10 +586,16 @@ function Logo({ block }: { block: LandingBlock }) {
               <img src={item.image_url} alt={item.label?.trim() ?? ""} loading="lazy" className="max-h-10 w-auto max-w-full object-contain" />
             );
             const href = item.href?.trim();
+            const patah = patahPonsel.has(index) || patahTablet.has(index);
             return (
-              <li key={index} className="flex h-12 w-[calc((100%-(var(--logo-hp)-1)*1rem)/var(--logo-hp))] items-center justify-center sm:w-[calc((100%-(var(--logo-sm)-1)*1.5rem)/var(--logo-sm))] lg:w-40" style={{ "--logo-hp": isiPonsel[index], "--logo-sm": isiTablet[index] } as CSSProperties}>
-                {href ? <Taut href={href} className="m3-state flex size-full items-center justify-center rounded-md">{gambar}</Taut> : gambar}
-              </li>
+              <Fragment key={index}>
+                {patah ? (
+                  <li aria-hidden className={cx("h-0 basis-full lg:hidden", patahPonsel.has(index) ? "block" : "hidden", patahTablet.has(index) ? "sm:block" : "sm:hidden")} />
+                ) : null}
+                <li className="my-2 flex h-12 w-[min(10rem,calc((100%-(var(--logo-hp)-1)*1rem)/var(--logo-hp)))] items-center justify-center sm:w-[min(10rem,calc((100%-(var(--logo-sm)-1)*1.5rem)/var(--logo-sm)))] lg:w-40" style={{ "--logo-hp": isiPonsel[index], "--logo-sm": isiTablet[index] } as CSSProperties}>
+                  {href ? <Taut href={href} className="m3-state flex size-full items-center justify-center rounded-md">{gambar}</Taut> : gambar}
+                </li>
+              </Fragment>
             );
           })}
         </ul>
