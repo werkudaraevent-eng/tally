@@ -21,6 +21,11 @@ const { version } = createRequire(import.meta.url)("./package.json") as { versio
 // daripada dua lapisan yang saling menimpa.
 const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_APP_VERSION: version },
+  // Huruf halaman acara (src/app/fonts/landing.css) disimpan setahun. Isinya
+  // tidak pernah berubah di folder yang sama: berkas baru masuk folder v2.
+  async headers() {
+    return [{ source: "/fonts/v1/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] }];
+  },
 };
 
 export default nextConfig;

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { landingFontStyle, landingLayout, landingTokens } from "./landing-tokens.ts";
+import { landingFontStyle, landingFontUrls, landingLayout, landingTokens } from "./landing-tokens.ts";
+import { readFileSync, existsSync } from "node:fs";
+import { LANDING_BODY_FONTS, LANDING_HEADING_FONTS } from "./domain.ts";
 import type { EventLandingConfig } from "./domain.ts";
 import type { LandingTokens } from "./landing-tokens.ts";
 import { LANDING_THEME_PRESETS, gayaPreset, presetCocok, presetDiubah, terapkanPreset } from "./landing-theme-presets.ts";
@@ -87,5 +89,33 @@ assert.equal(presetDiubah(gatheringPreset, gayaPreset(gatheringPreset, diubah)),
 // Conference: config kosong Modern sudah sama dengan bundelnya.
 assert.equal(presetCocok(conference, { layout: "modern" }) && !presetDiubah(conference, { layout: "modern" }), true);
 assert.equal(presetCocok(conference, gath), false);
+
+// Preload per acara: hanya huruf judulnya, plus huruf isi pilihan admin. Forum: Ubuntu 700 saja.
+assert.deepEqual(landingFontUrls(landingTokens({ layout: "modern" })), ["/fonts/v1/source-sans-3/source-sans-3-latin.woff2"]);
+assert.deepEqual(landingFontUrls(landingTokens({})), ["/fonts/v1/playfair-display/playfair-display-latin.woff2"]);
+assert.deepEqual(landingFontUrls(landingTokens({ layout: "forum" })), ["/fonts/v1/ubuntu/ubuntu-latin-700.woff2"]);
+assert.deepEqual(landingFontUrls(landingTokens({ layout: "modern", heading_font: "sans" })), []);
+assert.deepEqual(landingFontUrls(landingTokens({ layout: "modern", heading_font: "sourceserif", body_font: "sourceserif" })), ["/fonts/v1/source-serif-4/source-serif-4-latin.woff2"]);
+assert.deepEqual(landingFontUrls(landingTokens({ layout: "modern", heading_font: "fraunces", body_font: "jakarta" })), [
+  "/fonts/v1/fraunces/fraunces-latin.woff2",
+  "/fonts/v1/plus-jakarta-sans/plus-jakarta-sans-latin.woff2",
+]);
+
+// Setiap huruf di registri: variabelnya ditulis landing.css (atau fonts.ts untuk
+// Inter), dan berkas preload-nya ada di public/ serta dirujuk @font-face.
+const css = readFileSync(new URL("../app/fonts/landing.css", import.meta.url), "utf8");
+for (const [key, font] of Object.entries(LANDING_HEADING_FONTS)) {
+  const nama = font.cssVar.slice(4, -1);
+  assert.ok(key === "sans" || css.includes(`\t${nama}: `), `${key}: ${nama} tidak ada di landing.css`);
+  for (const url of landingFontUrls({ headingFont: key as keyof typeof LANDING_HEADING_FONTS, bodyFont: "sans", bodyFontChosen: false })) {
+    assert.ok(existsSync(new URL(`../../public${url}`, import.meta.url)), `${key}: ${url} tidak ada`);
+    assert.ok(css.includes(`url(${url})`), `${key}: ${url} tidak dirujuk landing.css`);
+  }
+}
+for (const key of LANDING_BODY_FONTS) {
+  for (const url of landingFontUrls({ headingFont: "sans", bodyFont: key, bodyFontChosen: true })) {
+    assert.ok(existsSync(new URL(`../../public${url}`, import.meta.url)) && css.includes(`url(${url})`), `isi ${key}: ${url}`);
+  }
+}
 
 console.log("landing-tokens.check.ts OK");

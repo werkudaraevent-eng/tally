@@ -45,7 +45,12 @@ const querySchema = z.object({
   session: z.coerce.number().int().positive().optional(),
   attended: z.enum(["yes", "no"]).optional(),
   rsvp: z.enum(["invited", "confirmed", "none"]).optional(),
+  /** "Pilih semua yang cocok": hanya id seluruh baris yang lolos saringan. */
+  ids_only: z.enum(["1"]).optional(),
 });
+
+/** Batas "pilih semua yang cocok", sama dengan batas penerima manual Pesan peserta. */
+const BATAS_PILIH = 5000;
 
 /**
  * Perusahaan peserta aktif beserta jumlahnya, untuk chip saring "Perusahaan".
@@ -86,25 +91,36 @@ export async function GET(request: Request) {
   // Nama perusahaan bisa mengandung koma, jadi dikirim sebagai parameter berulang.
   const companies = new URL(request.url).searchParams.getAll("company").map((nama) => nama.trim()).slice(0, 50);
 
+  const argumen = {
+    p_event_id: eventId,
+    p_q: parsed.data.q,
+    p_source: parsed.data.source ?? null,
+    // Penyaring kehadiran hanya berarti bila sesinya disebut. "Belum hadir"
+    // tanpa menyebut di sesi mana adalah pertanyaan yang tidak punya jawaban
+    // di acara yang punya registrasi, workshop, dan makan siang.
+    p_session: parsed.data.attended ? (parsed.data.session ?? null) : null,
+    p_attended: parsed.data.session ? (parsed.data.attended ?? null) : null,
+    p_rsvp: parsed.data.rsvp ?? null,
+    p_sort: parsed.data.sort,
+    p_dir: parsed.data.dir,
+    p_limit: parsed.data.limit,
+    p_offset: parsed.data.offset,
+    // Hanya dikirim bila dipakai: fungsi versi lama (sebelum migrasi
+    // 202609290001) tidak mengenal parameter ini dan akan menolak panggilannya.
+    ...(companies.length > 0 ? { p_companies: companies } : {}),
+  };
+
+  // Saringan yang persis sama dengan tabel, tanpa paginasi: yang dicentang
+  // "Pilih semua 278 yang cocok" harus 278 orang yang sama dengan di layar.
+  if (parsed.data.ids_only) {
+    const { data, error } = await client.rpc("list_event_participants" as never, { ...argumen, p_limit: BATAS_PILIH, p_offset: 0 } as never);
+    if (error) return apiError("INTERNAL_ERROR", 500);
+    const hasil = (data ?? { rows: [], total: 0 }) as { rows: Array<{ id: string }>; total: number };
+    return Response.json({ ids: hasil.rows.map((baris) => baris.id), total: hasil.total, limit: BATAS_PILIH });
+  }
+
   const [halaman, sesi, semua, dihapus, dariScanner, terakhir, perusahaan] = await Promise.all([
-    client.rpc("list_event_participants" as never, {
-      p_event_id: eventId,
-      p_q: parsed.data.q,
-      p_source: parsed.data.source ?? null,
-      // Penyaring kehadiran hanya berarti bila sesinya disebut. "Belum hadir"
-      // tanpa menyebut di sesi mana adalah pertanyaan yang tidak punya jawaban
-      // di acara yang punya registrasi, workshop, dan makan siang.
-      p_session: parsed.data.attended ? (parsed.data.session ?? null) : null,
-      p_attended: parsed.data.session ? (parsed.data.attended ?? null) : null,
-      p_rsvp: parsed.data.rsvp ?? null,
-      p_sort: parsed.data.sort,
-      p_dir: parsed.data.dir,
-      p_limit: parsed.data.limit,
-      p_offset: parsed.data.offset,
-      // Hanya dikirim bila dipakai: fungsi versi lama (sebelum migrasi
-      // 202609290001) tidak mengenal parameter ini dan akan menolak panggilannya.
-      ...(companies.length > 0 ? { p_companies: companies } : {}),
-    } as never),
+    client.rpc("list_event_participants" as never, argumen as never),
     client
       .from("attendance_sessions")
       .select("id,name,sort_order,is_active")

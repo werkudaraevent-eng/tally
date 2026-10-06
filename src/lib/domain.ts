@@ -654,29 +654,52 @@ export const LANDING_HERO_HEIGHT_LABELS: Record<LandingHeroHeight, string> = {
  * dan tiap huruf tambahan adalah berkas yang diunduh setiap tamu. Source Sans 3
  * ditambahkan untuk tata letak Modern; admin tetap bebas memilih.
  */
-export type LandingHeadingFont = "serif" | "sans" | "geometric" | "condensed" | "grotesk" | "source" | "ubuntu";
+export type LandingHeadingFont =
+  | "serif"
+  | "sans"
+  | "geometric"
+  | "condensed"
+  | "grotesk"
+  | "source"
+  | "ubuntu"
+  | "jakarta"
+  | "fraunces"
+  | "sourceserif"
+  | "archivo"
+  | "nunito";
 
 /** Kategori huruf di pemilih CMS. Urutan di sini = urutan grup di daftarnya. */
-export const LANDING_FONT_CATEGORIES = ["Sans", "Geometric", "Grotesque", "Serif", "Display"] as const;
+export const LANDING_FONT_CATEGORIES = ["Sans", "Geometric", "Grotesque", "Rounded", "Serif", "Display"] as const;
 export type LandingFontCategory = (typeof LANDING_FONT_CATEGORIES)[number];
 
 /**
- * Registri huruf halaman acara. `weight` = bobot judul yang benar-benar ada di
- * berkasnya (fonts.ts), untuk contoh di pemilih: Ubuntu dan Space Grotesk
- * tidak terdaftar di 600, jadi judul 600 tampil di 700.
+ * Registri huruf halaman acara. Berkasnya di public/fonts/v1/, @font-face-nya
+ * di src/app/fonts/landing.css. `weight` = bobot judul yang benar-benar tampil,
+ * untuk contoh di pemilih: Ubuntu dan Space Grotesk tidak punya 600, jadi judul
+ * 600 tampil di 700. `preload` = berkas subset latin di bobot judul itu, yang
+ * di-preload halaman acara yang memilih huruf ini (landing-font-preload.ts).
+ * Urutan di sini = urutan di daftar pemilih dalam satu kategori.
  */
-export const LANDING_HEADING_FONTS: Record<LandingHeadingFont, { label: string; note: string; cssVar: string; category: LandingFontCategory; weight: number }> = {
-  serif: { label: "Playfair Display", note: "Classic, suits formal invitations", cssVar: "var(--font-serif)", category: "Serif", weight: 600 },
-  sans: { label: "Inter", note: "Neutral and modern", cssVar: "var(--font-sans)", category: "Sans", weight: 600 },
-  geometric: { label: "Montserrat", note: "Bold and wide", cssVar: "var(--font-geometric)", category: "Geometric", weight: 600 },
-  condensed: { label: "Oswald", note: "Condensed, suits long titles", cssVar: "var(--font-condensed)", category: "Display", weight: 600 },
-  grotesk: { label: "Space Grotesk", note: "Technical, for tech events", cssVar: "var(--font-grotesk)", category: "Grotesque", weight: 700 },
-  source: { label: "Source Sans 3", note: "Humanist and airy, the Modern default", cssVar: "var(--font-source)", category: "Sans", weight: 600 },
-  ubuntu: { label: "Ubuntu", note: "Rounded and friendly, the Forum default", cssVar: "var(--font-ubuntu)", category: "Sans", weight: 700 },
+export const LANDING_HEADING_FONTS: Record<
+  LandingHeadingFont,
+  { label: string; note: string; cssVar: string; category: LandingFontCategory; weight: number; preload: string }
+> = {
+  serif: { label: "Playfair Display", note: "Classic, suits formal invitations", cssVar: "var(--font-serif)", category: "Serif", weight: 600, preload: "playfair-display/playfair-display-latin.woff2" },
+  sans: { label: "Inter", note: "Neutral and modern", cssVar: "var(--font-sans)", category: "Sans", weight: 600, preload: "" },
+  jakarta: { label: "Plus Jakarta Sans", note: "Crisp and contemporary", cssVar: "var(--font-jakarta)", category: "Sans", weight: 600, preload: "plus-jakarta-sans/plus-jakarta-sans-latin.woff2" },
+  geometric: { label: "Montserrat", note: "Bold and wide", cssVar: "var(--font-geometric)", category: "Geometric", weight: 600, preload: "montserrat/montserrat-latin.woff2" },
+  condensed: { label: "Oswald", note: "Condensed, suits long titles", cssVar: "var(--font-condensed)", category: "Display", weight: 600, preload: "oswald/oswald-latin.woff2" },
+  grotesk: { label: "Space Grotesk", note: "Technical, for tech events", cssVar: "var(--font-grotesk)", category: "Grotesque", weight: 700, preload: "space-grotesk/space-grotesk-latin.woff2" },
+  source: { label: "Source Sans 3", note: "Humanist and airy, the Modern default", cssVar: "var(--font-source)", category: "Sans", weight: 600, preload: "source-sans-3/source-sans-3-latin.woff2" },
+  ubuntu: { label: "Ubuntu", note: "Friendly humanist, the Forum default", cssVar: "var(--font-ubuntu)", category: "Sans", weight: 700, preload: "ubuntu/ubuntu-latin-700.woff2" },
+  fraunces: { label: "Fraunces", note: "Warm editorial serif with character", cssVar: "var(--font-fraunces)", category: "Serif", weight: 600, preload: "fraunces/fraunces-latin.woff2" },
+  sourceserif: { label: "Source Serif 4", note: "Book serif, pairs with Source Sans 3", cssVar: "var(--font-source-serif)", category: "Serif", weight: 600, preload: "source-serif-4/source-serif-4-latin.woff2" },
+  archivo: { label: "Archivo Narrow", note: "Narrow and sturdy, for posters", cssVar: "var(--font-archivo)", category: "Display", weight: 600, preload: "archivo-narrow/archivo-narrow-latin.woff2" },
+  nunito: { label: "Nunito", note: "Rounded and friendly, for gatherings", cssVar: "var(--font-nunito)", category: "Rounded", weight: 600, preload: "nunito/nunito-latin.woff2" },
 };
 
 /** Huruf yang boleh jadi huruf isi: terbaca di 14-16 px. */
-export const LANDING_BODY_FONTS = ["sans", "source", "ubuntu"] as const satisfies readonly LandingHeadingFont[];
+export const LANDING_BODY_FONTS = ["sans", "jakarta", "source", "ubuntu", "nunito", "sourceserif"] as const satisfies readonly LandingHeadingFont[];
 export type LandingBodyFont = (typeof LANDING_BODY_FONTS)[number];
 
 /** Sudut halaman acara: siku, lembut (skala M3), atau bulat. */

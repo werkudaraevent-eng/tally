@@ -183,6 +183,9 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
+// /fonts/v1/ (huruf halaman acara, src/app/fonts/landing.css) dilewati seperti
+// _next/static: berkas statis yang sama untuk semua host, dan tanpa ini setiap
+// huruf memicu pemeriksaan sesi Supabase.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|fonts/v1/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };
