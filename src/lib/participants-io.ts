@@ -45,6 +45,9 @@ const READONLY_HEADERS = [
   // Jam kedatangan tamu yang didaftarkan di meja. Kosong untuk semua peserta
   // yang sudah ada sebelum hari-H — yaitu hampir semuanya.
   "walk_in_at",
+  // Kapan data peserta pertama masuk ke Tally: form pendaftaran dikirim, atau
+  // diimpor/ditambahkan. Sama dengan kolom "Registered" di daftar peserta.
+  "registered_at",
   "check_in",
   "total_scan",
   "kursi",
@@ -238,15 +241,50 @@ type ParticipantExportRow = {
   source_removed_at: string | null;
   walk_in_at: string | null;
   seats: Array<{ label: string }> | null;
+  created_at: string;
 };
+
+/**
+ * Kapan form pendaftaran peserta yang sudah tertaut pertama kali dikirim, per
+ * participant_id. Baris peserta baru dibuat saat pendaftarannya disetujui, jadi
+ * created_at peserta adalah waktu persetujuan, bukan waktu orangnya mendaftar.
+ * Dibaca per 1000 baris karena PostgREST memotong satu jawaban di 1000.
+ */
+async function pendaftaranPertama(eventId: string): Promise<Map<string, string>> {
+  const client = getSupabaseServiceClient();
+  const pertama = new Map<string, string>();
+  for (let dari = 0; dari < 50000; dari += 1000) {
+    const { data, error } = await client
+      .from("event_registrations")
+      .select("participant_id,created_at")
+      .eq("event_id", eventId)
+      .not("participant_id", "is", null)
+      .order("id")
+      .range(dari, dari + 999);
+    if (error) throw new Error(error.message);
+    const baris1000 = (data ?? []) as Array<{ participant_id: string; created_at: string }>;
+    for (const baris of baris1000) {
+      const lama = pertama.get(baris.participant_id);
+      if (!lama || Date.parse(baris.created_at) < Date.parse(lama)) pertama.set(baris.participant_id, baris.created_at);
+    }
+    if (baris1000.length < 1000) break;
+  }
+  return pertama;
+}
+
+/** Sama dengan registered_at di list_event_participants: yang paling awal dari keduanya. */
+function waktuMasuk(dibuat: string, formDikirim: string | undefined): string {
+  return formDikirim && Date.parse(formDikirim) < Date.parse(dibuat) ? formDikirim : dibuat;
+}
 
 export async function loadParticipantExportRows(eventId: string, fields: RegistrationField[]) {
   const { data, error } = await getSupabaseServiceClient()
     .from("participants")
-    .select("id,qr_code,name,company,title,email,phone,participant_type,rsvp_status,extra,source_participant_id,source_checked_in,source_total_scans,source_removed_at,walk_in_at,seats")
+    .select("id,qr_code,name,company,title,email,phone,participant_type,rsvp_status,extra,source_participant_id,source_checked_in,source_total_scans,source_removed_at,walk_in_at,seats,created_at")
     .eq("event_id", eventId)
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
+  const formDikirim = await pendaftaranPertama(eventId);
 
   const tambahan = importableFields(fields);
   const berkas = fields.filter((field) => FILE_FIELD_TYPES.includes(field.type));
@@ -269,6 +307,7 @@ export async function loadParticipantExportRows(eventId: string, fields: Registr
     // saling meniadakan.
     row.walk_in_at ? "walk-in" : row.source_participant_id ? "scanner" : "manual",
     row.walk_in_at ?? "",
+    waktuMasuk(row.created_at, formDikirim.get(row.id)),
     row.source_checked_in ? "Y" : "N",
     row.source_total_scans,
     (row.seats ?? []).map((seat) => seat.label).join(" | "),
