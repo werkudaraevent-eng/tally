@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { barisLogo, barisLogoPonsel, logoPerBaris } from "@/lib/landing-logo-baris";
 import Link from "next/link";
 import { ArrowDown, ArrowUpRight, DownloadSimple } from "@phosphor-icons/react/dist/ssr";
 import {
@@ -508,18 +509,32 @@ function Kutipan({ block }: { block: LandingBlock }) {
 /**
  * Blok Logo. Kiri (bawaan) sama persis dengan tampilan lama: judul di samping
  * deret logo di layar lebar. Tengah dan Kanan memakai judul di atas kisi sel
- * yang sama lebar (dua per baris di ponsel, 160 px di layar lebar) dan sama
- * tinggi (48 px, juga target ketuk bila logo bertautan); perataannya menggeser
- * judul dan tiap baris logo.
+ * yang sama lebar (160 px di layar lebar) dan sama tinggi (48 px, juga target
+ * ketuk bila logo bertautan); perataannya menggeser judul dan tiap baris logo.
+ * Baris dibagi rata supaya tidak ada satu logo yang tertinggal sendirian di
+ * bawah: 6 logo jadi 6 sebaris bila muat, kalau tidak 3 + 3; 7 jadi 4 + 3.
  */
 const RATA_LOGO: Record<"center" | "right", { wadah: string; deret: string }> = {
   center: { wadah: "items-center text-center", deret: "justify-center" },
   right: { wadah: "items-end text-right", deret: "justify-end" },
 };
 
+/** Sel per baris paling banyak per lebar layar: ponsel, sm (≥640), lg (≥1024), xl (≥1280). */
+const LOGO_MAKS = { sm: 3, lg: 5, xl: 6 } as const;
+const LOGO_SEL = 160;
+const LOGO_JARAK = 24;
+
+function lebarDeret(per: number) {
+  return `${per * LOGO_SEL + (per - 1) * LOGO_JARAK}px`;
+}
+
 function Logo({ block }: { block: LandingBlock }) {
   const logo = (block.items ?? []).filter((item): item is LandingBlockItem & { image_url: string } => Boolean(item.image_url));
   const rata = block.align === "center" || block.align === "right" ? RATA_LOGO[block.align] : null;
+  // Di bawah lg, ukuran baris tiap logo: sel satu baris berbagi lebar baris itu.
+  const perLogo = (baris: number[]) => baris.flatMap((isi) => Array.from({ length: isi }, () => isi));
+  const isiPonsel = perLogo(barisLogoPonsel(logo.length));
+  const isiTablet = perLogo(barisLogo(logo.length, LOGO_MAKS.sm));
   if (!rata) {
     return (
       <Wadah block={block} className="border-b border-[var(--reg-outline-variant)] py-7 sm:py-9">
@@ -550,7 +565,13 @@ function Logo({ block }: { block: LandingBlock }) {
     <Wadah block={block} className="border-b border-[var(--reg-outline-variant)] py-7 sm:py-9">
       <div className={`flex flex-col gap-5 ${rata.wadah}`}>
         {block.heading?.trim() ? <h2 className={`text-title-small font-medium ${MUTED}`}>{block.heading.trim()}</h2> : null}
-        <ul className={`flex w-full flex-wrap gap-x-6 gap-y-4 sm:gap-x-10 ${rata.deret}`}>
+        <ul
+          className={`flex w-full flex-wrap gap-x-4 gap-y-4 sm:gap-x-6 lg:max-w-[var(--logo-lg)] xl:max-w-[var(--logo-xl)] ${rata.deret}`}
+          style={{
+            "--logo-lg": lebarDeret(logoPerBaris(logo.length, LOGO_MAKS.lg)),
+            "--logo-xl": lebarDeret(logoPerBaris(logo.length, LOGO_MAKS.xl)),
+          } as CSSProperties}
+        >
           {logo.map((item, index) => {
             const gambar = (
               // eslint-disable-next-line @next/next/no-img-element
@@ -558,7 +579,7 @@ function Logo({ block }: { block: LandingBlock }) {
             );
             const href = item.href?.trim();
             return (
-              <li key={index} className="flex h-12 w-[calc((100%-1.5rem)/2)] items-center justify-center sm:w-40">
+              <li key={index} className="flex h-12 w-[calc((100%-(var(--logo-hp)-1)*1rem)/var(--logo-hp))] items-center justify-center sm:w-[calc((100%-(var(--logo-sm)-1)*1.5rem)/var(--logo-sm))] lg:w-40" style={{ "--logo-hp": isiPonsel[index], "--logo-sm": isiTablet[index] } as CSSProperties}>
                 {href ? <Taut href={href} className="m3-state flex size-full items-center justify-center rounded-md">{gambar}</Taut> : gambar}
               </li>
             );
