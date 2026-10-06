@@ -1,16 +1,19 @@
 "use client";
 
 import {
-  ArrowDown, ArrowUp, CaretLeft, CaretRight, CaretUpDown, Check, Copy, LockSimple, MagnifyingGlass, Paperclip,
-  PencilSimple, Trash, UsersThree, X, XCircle,
+  ArrowDown, ArrowUp, CaretDown, CaretLeft, CaretRight, CaretUpDown, Check, Copy, EnvelopeSimple, FileCsv, FileXls, LockSimple,
+  MagnifyingGlass, Package, Paperclip, PencilSimple, Trash, UsersThree, X, XCircle,
 } from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Banner, Button, ButtonLink, ChipMenu, ColumnMenu, DetailSection, Dialog, EmptyCell, EmptyState, IconButton, KeyValue,
-  ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, StatusChip, useColumnPrefs, type ColumnOption,
+  ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, Popover, StatusChip, useColumnPrefs, usePopoverAnchor, type ColumnOption,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { withEventPrefix } from "@/lib/event-path";
 import { cx } from "@/lib/m3/cx";
+import { plural } from "@/lib/plural";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
 import { DEFAULT_TIME_ZONE, type EventTimeZone } from "@/lib/timezone";
@@ -55,6 +58,69 @@ const RSVP_TONE: Record<string, "success" | "warning" | "error"> = { confirmed: 
 
 const PAGE_SIZE = 25;
 const LEBAR_NAMA = 240;
+/** Kolom kotak centang. Lengket di kiri bersama kolom Nama. */
+const LEBAR_PILIH = 48;
+/** Batas satu kali Hapus massal, sama dengan /api/admin/participants/bulk-delete. */
+const BATAS_HAPUS = 500;
+
+const kotakCentang = "size-4 cursor-pointer accent-[var(--color-primary)]";
+
+/** Kotak centang kepala tabel: tiga keadaan, karena halaman bisa tercentang sebagian. */
+function CentangHalaman({ checked, indeterminate, onChange }: { checked: boolean; indeterminate: boolean; onChange: (next: boolean) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (ref.current) ref.current.indeterminate = indeterminate; }, [indeterminate]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label="Select all on this page"
+      checked={checked}
+      onChange={(event) => onChange(event.target.checked)}
+      className={kotakCentang}
+    />
+  );
+}
+
+/** Ekspor yang dicentang: format yang sama dengan Export di kepala halaman, ukuran bilah. */
+function EksporTerpilih({ busy, onPick }: { busy: boolean; onPick: (format: "xlsx" | "csv") => void }) {
+  const [pemicu, setPemicu] = useState<HTMLSpanElement | null>(null);
+  const menu = usePopoverAnchor(pemicu);
+  return (
+    <>
+      <span ref={setPemicu} className="inline-flex">
+        <Button
+          variant="outlined"
+          size="sm"
+          className="target-48"
+          loading={busy}
+          icon={<Package size={16} />}
+          trailingIcon={<CaretDown size={14} className={cx("transition-transform max-sm:hidden", menu.open && "rotate-180")} />}
+          aria-label="Export"
+          aria-haspopup="menu"
+          aria-expanded={menu.open}
+          onClick={menu.toggle}
+        >
+          <span className="max-sm:hidden">Export</span>
+        </Button>
+      </span>
+      {menu.open ? (
+        <Popover anchor={menu} label="Choose export format" width={220} className="p-0">
+          {([["xlsx", "Excel (.xlsx)", FileXls], ["csv", "CSV (.csv)", FileCsv]] as const).map(([format, label, Icon]) => (
+            <button
+              key={format}
+              type="button"
+              role="menuitem"
+              onClick={() => { menu.tutup(); onPick(format); }}
+              className="flex w-full items-center gap-3 border-b border-outline-variant p-3 text-left text-body-medium font-medium last:border-b-0 hover:bg-primary-soft"
+            >
+              <Icon size={18} className="shrink-0 text-on-surface-variant" />{label}
+            </button>
+          ))}
+        </Popover>
+      ) : null}
+    </>
+  );
+}
 
 // Harus cocok dengan whitelist SORTABLE di /api/admin/participants.
 type SortKey = "name" | "company" | "title" | "qr_code" | "participant_type" | "rsvp_status" | "source_checked_in" | "source_total_scans";
@@ -115,6 +181,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   ref?: React.Ref<ParticipantListHandle>;
 }) {
   const toast = useToast();
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -143,22 +210,43 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Participant | null>(null);
+  // Pilihan bertahan lintas halaman. Saringan dan pencarian tidak bisa diubah
+  // selama ada pilihan, karena bilah pilihan menutupi barisnya (pola bilah
+  // kontekstual M3), jadi yang tercentang selalu yang cocok dengan saringan.
+  const [pilih, setPilih] = useState<Set<string>>(new Set());
+  const [memilihSemua, setMemilihSemua] = useState(false);
+  const [bulk, setBulk] = useState<"" | "pesan" | "ekspor" | "hapus">("");
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [daftarNama, setDaftarNama] = useState("");
+  // Nama orang yang dicentang dari baris yang pernah tampil, untuk dialog Hapus.
+  // Yang dicentang lewat "Pilih semua" tanpa pernah tampil masuk hitungan "lainnya".
+  const namaTerpilih = useRef(new Map<string, string>());
 
   // Hanya respons dari permintaan terakhir yang boleh mengubah tabel.
+  // Saringan yang sama untuk tabel dan untuk "Pilih semua yang cocok".
+  const paramSaringan = useCallback((search: string) => {
+    const params = new URLSearchParams({ q: search });
+    if (filterAsal) params.set("source", filterAsal);
+    if (filterRsvp) params.set("rsvp", filterRsvp);
+    if (filterHadir) {
+      const [sesiId, keadaan] = filterHadir.split(":");
+      params.set("session", sesiId);
+      params.set("attended", keadaan);
+    }
+    for (const nama of filterPerusahaan) params.append("company", nama);
+    return params;
+  }, [filterAsal, filterHadir, filterRsvp, filterPerusahaan]);
+
   const urutanMuat = useRef(0);
   const load = useCallback(async (search: string, pageIndex: number, sortKey: SortKey, sortDir: "asc" | "desc", size: number) => {
     const nomor = ++urutanMuat.current;
     setLoading(true); setError("");
     try {
-      const params = new URLSearchParams({ q: search, limit: String(size), offset: String(pageIndex * size), sort: sortKey, dir: sortDir });
-      if (filterAsal) params.set("source", filterAsal);
-      if (filterRsvp) params.set("rsvp", filterRsvp);
-      if (filterHadir) {
-        const [sesiId, keadaan] = filterHadir.split(":");
-        params.set("session", sesiId);
-        params.set("attended", keadaan);
-      }
-      for (const nama of filterPerusahaan) params.append("company", nama);
+      const params = paramSaringan(search);
+      params.set("limit", String(size));
+      params.set("offset", String(pageIndex * size));
+      params.set("sort", sortKey);
+      params.set("dir", sortDir);
       const response = await fetch(`/api/admin/participants?${params.toString()}`, { cache: "no-store" });
       const data = await response.json();
       if (nomor !== urutanMuat.current) return;
@@ -176,7 +264,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     } finally {
       if (nomor === urutanMuat.current) setLoading(false);
     }
-  }, [filterAsal, filterHadir, filterRsvp, filterPerusahaan, onStats]);
+  }, [paramSaringan, onStats]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { setDebouncedQuery(query); setPage(0); }, 250);
@@ -303,7 +391,111 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     const body = await response.json().catch(() => ({}));
     if (!response.ok) { setError(body.error?.details?.message ?? body.error?.message ?? "Couldn't delete participant."); return; }
     setNotice(`${participant.name} deleted.`);
+    setPilih((lama) => { if (!lama.has(participant.id)) return lama; const baru = new Set(lama); baru.delete(participant.id); return baru; });
     setMode(null);
+    void load(debouncedQuery, page, sort, dir, perPage);
+    onChanged?.();
+  }
+
+  // ---- Pilihan massal ------------------------------------------------------
+  function centang(id: string, on: boolean) {
+    const orang = participants.find((p) => p.id === id);
+    if (on && orang) namaTerpilih.current.set(id, orang.name);
+    setPilih((lama) => {
+      const baru = new Set(lama);
+      if (on) baru.add(id); else baru.delete(id);
+      return baru;
+    });
+  }
+
+  function centangHalaman(on: boolean) {
+    if (on) for (const p of participants) namaTerpilih.current.set(p.id, p.name);
+    setPilih((lama) => {
+      const baru = new Set(lama);
+      for (const p of participants) { if (on) baru.add(p.id); else baru.delete(p.id); }
+      return baru;
+    });
+  }
+
+  async function pilihSemuaCocok() {
+    setMemilihSemua(true);
+    const params = paramSaringan(debouncedQuery);
+    params.set("ids_only", "1");
+    const response = await fetch(`/api/admin/participants?${params.toString()}`, { cache: "no-store" }).catch(() => null);
+    const body = await response?.json().catch(() => null);
+    setMemilihSemua(false);
+    if (!response?.ok || !Array.isArray(body?.ids)) { toast.error("Couldn't select all matching", "Try again."); return; }
+    setPilih((lama) => new Set([...lama, ...(body.ids as string[])]));
+    if (body.total > body.ids.length) toast.error(`Only the first ${body.ids.length} were selected`, `Narrow the filters to select the other ${body.total - body.ids.length}.`);
+  }
+
+  /** Buka penyusun Pesan peserta dengan yang dicentang sebagai penerimanya. */
+  async function kirimPesan() {
+    setBulk("pesan");
+    const response = await fetch("/api/admin/pesan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        // "Event update", bukan "Sign-in link": pesan umum ke orang terpilih.
+        // Jenisnya masih bisa diganti di penyusun.
+        kind: "info",
+        audience: { jenis: "manual", perusahaan: [], ids: [...pilih], label: `${plural(pilih.size, "participant")} selected` },
+      }),
+    }).catch(() => null);
+    const body = await response?.json().catch(() => null);
+    setBulk("");
+    if (!response?.ok || !body?.id) { toast.error("Couldn't start the message", body?.error?.message ?? "Try again."); return; }
+    router.push(withEventPrefix(`/admin/pengumuman/kiriman/${body.id}`, window.location.pathname));
+  }
+
+  async function eksporTerpilih(format: "xlsx" | "csv") {
+    setBulk("ekspor");
+    const response = await fetch("/api/admin/participants/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ format, ids: [...pilih] }),
+    }).catch(() => null);
+    if (!response?.ok) { setBulk(""); toast.error("Export failed", "Try again."); return; }
+    const berkas = await response.blob();
+    const nama = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "")?.[1] ?? `participants-selected.${format}`;
+    const url = URL.createObjectURL(berkas);
+    const tautan = document.createElement("a");
+    tautan.href = url; tautan.download = nama;
+    document.body.appendChild(tautan); tautan.click(); tautan.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setBulk("");
+  }
+
+  /** Buka konfirmasi Hapus dengan nama orangnya: "Ana, Budi, Citra and 45 more." */
+  function tanyaHapusTerpilih() {
+    const nama = [...pilih].map((id) => namaTerpilih.current.get(id)).filter((n): n is string => Boolean(n)).slice(0, 3);
+    const sisa = pilih.size - nama.length;
+    setDaftarNama(nama.length === 0 ? `${plural(pilih.size, "participant")} selected.` : sisa > 0 ? `${nama.join(", ")} and ${sisa} more.` : `${nama.join(", ")}.`);
+    setConfirmBulkDelete(true);
+  }
+
+  async function hapusTerpilih() {
+    setBulk("hapus"); setNotice("");
+    const response = await fetch("/api/admin/participants/bulk-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [...pilih] }),
+    }).catch(() => null);
+    setBulk("");
+    setConfirmBulkDelete(false);
+    if (!response) { setError("Connection lost. Reload to see which participants were deleted."); return; }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) { toast.error("Couldn't delete participants", body.error?.message ?? "Try again."); return; }
+    const lewat = body.skipped as { source_locked: number; in_use: number; not_found: number; failed: number };
+    const alasan = [
+      lewat.source_locked ? `${lewat.source_locked} from Scanner API` : "",
+      lewat.in_use ? `${lewat.in_use} with an order or a lucky draw win` : "",
+      lewat.not_found ? `${lewat.not_found} no longer in this event` : "",
+      lewat.failed ? `${lewat.failed} failed` : "",
+    ].filter(Boolean);
+    setNotice(`${plural(body.deleted, "participant")} deleted.${alasan.length ? ` Skipped: ${alasan.join(", ")}.` : ""}`);
+    setPilih(new Set());
+    if (mode?.kind === "view") setMode(null);
     void load(debouncedQuery, page, sort, dir, perPage);
     onChanged?.();
   }
@@ -377,6 +569,14 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const jabatanDiBawahNama = !visible.includes("title");
 
   const adaFilter = Boolean(filterAsal || filterHadir || filterRsvp || filterPerusahaan.length);
+  // Saringan yang sedang berlaku, disebut di bilah pilihan karena barisnya tertutup.
+  const jumlahSaringan = [filterAsal, filterHadir, filterRsvp].filter(Boolean).length + (filterPerusahaan.length ? 1 : 0);
+  const ringkasSaringan = [
+    debouncedQuery ? `“${debouncedQuery}”` : "",
+    jumlahSaringan ? plural(jumlahSaringan, "filter") : "",
+  ].filter(Boolean).join(", ");
+  const tercentangDiHalaman = participants.filter((p) => pilih.has(p.id)).length;
+  const halamanTercentang = participants.length > 0 && tercentangDiHalaman === participants.length;
   const resetFilter = () => { setFilterAsal(""); setFilterHadir(""); setFilterRsvp(""); setFilterPerusahaan([]); setPage(0); };
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const dari = total === 0 ? 0 : page * perPage + 1;
@@ -407,7 +607,10 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   // ---- Panel daftar --------------------------------------------------------
   const list = (
     <Pane aria-label="Participant list">
-      <PaneHeader className="flex-wrap gap-2 px-3 py-3">
+      <PaneHeader className="relative flex-wrap gap-2 px-3 py-3">
+        {/* Saringan yang tertutup bilah pilihan tidak boleh tercapai lewat Tab:
+            mengetik pencarian di bawah bilah akan menyembunyikan baris yang dicentang. */}
+        <div className="contents" inert={pilih.size > 0}>
         <label className="relative min-w-[200px] flex-1">
           <span className="sr-only">Search participants</span>
           <MagnifyingGlass size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
@@ -460,6 +663,47 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           onChange={(next) => { setFilterRsvp(next[0] ?? ""); setPage(0); }}
         />
         <ColumnMenu columns={opsiKolom} visible={visible} onChange={setVisible} onReset={() => setVisible(null)} isDefault={isDefault} />
+        </div>
+        {/* Bilah pilihan MENUTUPI baris saringan, bukan disisipkan di bawahnya:
+            tabel tidak bergeser saat kotak pertama dicentang. */}
+        {pilih.size > 0 ? (
+          <div role="region" aria-label="Selected participants" className="absolute inset-0 z-[2] flex flex-wrap content-center items-center gap-x-3 gap-y-0 bg-secondary-container px-3 max-sm:gap-x-2 max-sm:px-2">
+            {/* Tiap baris bilah setinggi 48 px (min-h-12), jadi area sentuh 48 px
+                tombolnya tidak saling menimpa bila bilah terlipat di HP. */}
+            <span className="flex min-h-12 min-w-0 items-center gap-3">
+              <IconButton size="sm" className="target-48" label="Clear selection" onClick={() => setPilih(new Set())}><X size={16} /></IconButton>
+              <span className="text-body-medium font-medium tabular-nums text-on-surface" aria-live="polite">{pilih.size} selected</span>
+              {ringkasSaringan ? <span className="truncate text-body-medium text-on-surface-variant max-sm:hidden" title={ringkasSaringan}>· {ringkasSaringan}</span> : null}
+            </span>
+            {halamanTercentang && total > pilih.size ? (
+              <button type="button" disabled={memilihSemua} onClick={() => void pilihSemuaCocok()} aria-label={memilihSemua ? undefined : adaFilter || debouncedQuery ? `Select all ${total} matching` : `Select all ${total}`} className="target-48 relative min-h-12 rounded-sm text-body-medium font-medium text-primary hover:underline disabled:opacity-60">
+                {memilihSemua ? "Selecting…" : (
+                  <>
+                    <span className="max-sm:hidden">{adaFilter || debouncedQuery ? `Select all ${total} matching` : `Select all ${total}`}</span>
+                    <span className="sm:hidden" aria-hidden>All {total}</span>
+                  </>
+                )}
+              </button>
+            ) : null}
+            <span className="ml-auto flex min-h-12 items-center gap-2">
+              <Button simpan variant="outlined" size="sm" className="target-48" aria-label="Send message" loading={bulk === "pesan"} icon={<EnvelopeSimple size={16} />} onClick={() => void kirimPesan()}><span className="max-sm:hidden">Send message</span></Button>
+              <EksporTerpilih busy={bulk === "ekspor"} onPick={(format) => void eksporTerpilih(format)} />
+              <Button
+                simpan
+                variant="outlined"
+                size="sm"
+                className="target-48 text-error"
+                aria-label="Delete"
+                icon={<Trash size={16} />}
+                disabled={pilih.size > BATAS_HAPUS}
+                title={pilih.size > BATAS_HAPUS ? `Delete up to ${BATAS_HAPUS} at a time` : undefined}
+                onClick={tanyaHapusTerpilih}
+              >
+                <span className="max-sm:hidden">Delete</span>
+              </Button>
+            </span>
+          </div>
+        ) : null}
       </PaneHeader>
 
       <PaneBody className="overflow-x-auto">
@@ -485,15 +729,21 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         ) : (
           <table
             className={cx("w-full table-fixed border-separate border-spacing-0 text-left text-body-medium", loading && "opacity-60")}
-            style={{ minWidth: LEBAR_NAMA + kolomTampil.reduce((jumlah, item) => jumlah + item.width, 0) }}
+            style={{ minWidth: LEBAR_PILIH + LEBAR_NAMA + kolomTampil.reduce((jumlah, item) => jumlah + item.width, 0) }}
           >
             <colgroup>
+              <col style={{ width: LEBAR_PILIH }} />
               <col style={{ minWidth: LEBAR_NAMA }} />
               {kolomTampil.map((item) => <col key={item.key} style={{ width: item.width }} />)}
             </colgroup>
             <thead className="sticky top-0 z-10 bg-surface-container-high text-body-medium font-medium text-on-surface-variant">
               <tr>
-                <th scope="col" aria-sort={ariaSort("name")} className="sticky left-0 z-10 border-b border-outline-variant bg-surface-container-high px-4 py-2.5 font-medium">{sortHeader("Name", "name")}</th>
+                <th scope="col" className="sticky left-0 z-10 border-b border-outline-variant bg-surface-container-high p-0">
+                  <label className="flex min-h-12 cursor-pointer items-center justify-center">
+                    <CentangHalaman checked={halamanTercentang} indeterminate={tercentangDiHalaman > 0 && !halamanTercentang} onChange={centangHalaman} />
+                  </label>
+                </th>
+                <th scope="col" aria-sort={ariaSort("name")} className="sticky left-12 z-10 border-b border-outline-variant bg-surface-container-high px-4 py-2.5 font-medium">{sortHeader("Name", "name")}</th>
                 {kolomTampil.map((item) => (
                   <th key={item.key} scope="col" aria-sort={ariaSort(item.sort)} className="border-b border-outline-variant px-3 py-2.5 font-medium">{sortHeader(item.label, item.sort, item.align)}</th>
                 ))}
@@ -502,13 +752,28 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             <tbody>
               {participants.map((participant) => {
                 const aktif = mode?.kind === "view" && mode.id === participant.id || mode?.kind === "edit" && mode.row.id === participant.id;
+                const dicentang = pilih.has(participant.id);
                 return (
                   <tr
                     key={participant.id}
                     onClick={() => select(participant)}
-                    className={cx("cursor-pointer", aktif ? "bg-secondary-container" : "bg-surface-container-lowest hover:bg-primary-soft", participant.source_removed_at && "text-on-surface-variant")}
+                    aria-selected={dicentang}
+                    className={cx("cursor-pointer", aktif ? "bg-secondary-container" : dicentang ? "bg-primary-soft" : "bg-surface-container-lowest hover:bg-primary-soft", participant.source_removed_at && "text-on-surface-variant")}
                   >
-                    <td className="sticky left-0 border-b border-outline-variant bg-inherit px-4 py-2.5">
+                    {/* Seluruh sel adalah sasaran klik kotak centang, bukan hanya kotak 16 px-nya;
+                        klik di sini tidak membuka panel detail. */}
+                    <td className="sticky left-0 border-b border-outline-variant bg-inherit p-0" onClick={(event) => event.stopPropagation()}>
+                      <label className="flex min-h-12 cursor-pointer items-center justify-center">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${participant.name}`}
+                          checked={dicentang}
+                          onChange={(event) => centang(participant.id, event.target.checked)}
+                          className={kotakCentang}
+                        />
+                      </label>
+                    </td>
+                    <td className="sticky left-12 border-b border-outline-variant bg-inherit px-4 py-2.5">
                       <button
                         type="button"
                         onClick={(event) => { event.stopPropagation(); select(participant); }}
@@ -797,6 +1062,22 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         <Banner tone="success" icon={<Check size={18} />} actions={<IconButton size="sm" label="Close" onClick={() => setNotice("")}><X size={16} /></IconButton>}>{notice}</Banner>
       ) : null}
       <ListDetail list={list} detail={editor ?? viewer} />
+      <Dialog
+        open={confirmBulkDelete}
+        onClose={() => setConfirmBulkDelete(false)}
+        dismissible={bulk !== "hapus"}
+        title={`Delete ${plural(pilih.size, "participant")}?`}
+        tone="danger"
+        description="Deleted permanently and recorded in the audit trail. Participants from Scanner API, or with an order or a lucky draw win, are skipped and stay in the list."
+        actions={
+          <>
+            <Button type="button" variant="outlined" disabled={bulk === "hapus"} onClick={() => setConfirmBulkDelete(false)}>Cancel</Button>
+            <Button simpan variant="danger" loading={bulk === "hapus"} onClick={() => void hapusTerpilih()}>Delete {plural(pilih.size, "participant")}</Button>
+          </>
+        }
+      >
+        <p className="text-body-medium text-on-surface">{daftarNama}</p>
+      </Dialog>
       <Dialog
         open={confirmDelete !== null}
         onClose={() => setConfirmDelete(null)}
