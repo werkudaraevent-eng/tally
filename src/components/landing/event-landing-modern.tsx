@@ -259,6 +259,8 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   ].filter((item): item is NonNullable<typeof item> => item !== null);
   // Gathering: tombol utama warna aksen (emas di rancangan KSO 21), bukan warna merek.
   const tokens = landingTokens(config, "modern");
+  const rataTengah = tokens.heroAlign === "center";
+  const heroTengah = tokens.heroPosition === "middle";
   const warnaGathering = gaya ? gatheringColors(tokens.accent ?? undefined, tokens.brand, Boolean(kv)) : null;
   const cta = warnaGathering ? { bg: warnaGathering.cta, fg: warnaGathering.onCta } : heroCtaColors(tokens.brand);
   const logoHero = gaya ? config.hero_logo_url?.trim() || null : null;
@@ -618,24 +620,21 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         className={`relative isolate -mt-[var(--nav-h)] overflow-hidden ${kv ? "bg-black" : "bg-[var(--reg-brand)]"}`}
         style={tinta(Boolean(kv))}
       >
-        {kv ? <Kv src={kv} scrim={gaya ? KV_SCRIM_TENGAH : KV_SCRIM} /> : null}
+        {kv ? <Kv src={kv} scrim={heroTengah ? KV_SCRIM_TENGAH : KV_SCRIM} /> : null}
         <div
           style={config.hero_min_height ? ({ "--hero-h": `${config.hero_min_height}px` } as CSSProperties) : undefined}
           className={`${SHELL} flex flex-col text-[var(--ink)] ${
-            // Dengan KV, isi hero berdiri di bawah supaya gambarnya terlihat,
-            // dengan jarak bawah 40/64dp (kelipatan 8dp M3). Tanpa KV tidak ada
-            // yang perlu diperlihatkan di atas judul, jadi isinya di tengah.
-            // Gathering: isi di tengah, seperti undangan (rancangan v3 KSO 21).
-            gaya
-              ? "items-center justify-center pb-12 pt-28 text-center lg:pb-16"
-              : kv ? "justify-end pb-10 pt-28 lg:pb-16" : "justify-center pb-12 pt-28 lg:pb-16"
-          } ${
+            // Perataan dari token (Page sections › Hero). Bawaannya: dengan KV
+            // isi berdiri di bawah supaya gambarnya terlihat, jarak bawah 40/64dp;
+            // tanpa KV isinya di tengah; gathering di tengah-tengah seperti undangan.
+            rataTengah ? "items-center text-center" : ""
+          } ${heroTengah ? "justify-center pb-12" : "justify-end pb-10"} pt-28 lg:pb-16 ${
             config.hero_min_height ? HERO_HEIGHT_ANGKA : HERO_HEIGHT[config.hero_height ?? "standard"]
           }`}
         >
           {/* Urutan: nama acara, subjudul (satu kelompok, jarak 16), info
               acara (24), tombol (32). Ritme M3 kelipatan 8dp. */}
-          <div className={`flex min-w-0 max-w-[1040px] flex-col ${gaya ? "items-center" : ""}`}>
+          <div className={`flex min-w-0 max-w-[1040px] flex-col ${rataTengah ? "items-center" : ""}`}>
             {gaya ? (
               // Gathering: label kecil "Anda diundang · nama acara" warna aksen
               // terang, lalu logo, lalu tagline sebagai judul ajakan (v3).
@@ -650,7 +649,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               <img
                 src={logoHero}
                 alt={judulAjakan ? nama : ""}
-                className="rise-in mb-4 h-auto max-h-[180px] w-auto max-w-[200px] object-contain sm:max-w-[230px]"
+                className={`rise-in mb-4 h-auto max-h-[180px] w-auto max-w-[200px] object-contain sm:max-w-[230px] ${rataTengah ? "" : "self-start"}`}
                 style={HERO_DELAY(1)}
               />
             ) : null}
@@ -675,7 +674,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 foto. Letaknya tepat di atas tombol karena tanggal dan tempat
                 adalah yang dibaca orang sebelum memutuskan mendaftar. */}
             {infoHero.length > 0 ? (
-              <ul className={`rise-in mt-6 flex flex-wrap gap-x-6 gap-y-2 text-body-large font-medium ${gaya ? "justify-center" : ""}`} style={HERO_DELAY(2)}>
+              <ul className={`rise-in mt-6 flex flex-wrap gap-x-6 gap-y-2 text-body-large font-medium ${rataTengah ? "justify-center" : ""}`} style={HERO_DELAY(2)}>
                 {infoHero.map(({ ikon: Ikon, teks }) => (
                   <li key={teks} className="inline-flex items-center gap-2 tabular-nums">
                     <Ikon size={20} weight="regular" aria-hidden className="shrink-0 opacity-80" />
@@ -689,7 +688,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               // Angka warna aksen yang sudah diperiksa terhadap latar hero
               // (--hero-angka), kalimatnya tinta hero.
               <p
-                className={`rise-in mt-5 inline-flex h-10 items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--hero-angka)_50%,transparent)] px-4 text-body-large tabular-nums ${
+                className={`rise-in mt-5 inline-flex h-10 items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--hero-angka)_50%,transparent)] px-4 text-body-large tabular-nums ${rataTengah ? "" : "self-start"} ${
                   // Tanpa KV tanpa latar: --hero-angka diukur terhadap warna merek itu sendiri.
                   kv ? "bg-[rgb(0_0_0/0.35)]" : ""
                 }`}
@@ -709,7 +708,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 Saat pendaftaran tertutup tidak ada tombol palsu: tombol utamanya
                 menjadi aksi yang memang bisa dilakukan (lihat susunan acara),
                 dan statusnya ditulis sebagai teks. */}
-            <div className={`rise-in mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center ${gaya ? "w-full sm:w-auto sm:justify-center" : ""}`} style={HERO_DELAY(3)}>
+            <div className={`rise-in mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center ${rataTengah ? "w-full sm:w-auto sm:justify-center" : ""}`} style={HERO_DELAY(3)}>
               {aksiPeserta ? (
                 <>
                   <Link href={aksiPeserta.href} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>

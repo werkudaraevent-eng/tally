@@ -18,10 +18,9 @@ export function memberPageStyle(event: Pick<EventRow, "landing_config">): CSSPro
   const tokens = landingTokens(config);
   return {
     ...registrationThemeStyle(config.theme),
-    // Seed apa adanya, bukan tokens.brand: tanpa seed halaman ini memakai biru
-    // bawaan formulir (#2649D0), sedangkan halaman Forum memakai navy bawaannya.
-    // Menyamakannya mengubah tampilan, jadi diputuskan di PR tab Theme.
-    ...(tokens.layout !== "editorial" ? modernThemeStyle(config.theme?.seed) : null),
+    // tokens.brand, bukan seed mentah: Forum tanpa seed memakai navy bawaannya,
+    // sama dengan halaman acaranya (dulu biru formulir #2649D0).
+    ...(tokens.layout !== "editorial" ? modernThemeStyle(tokens.brand) : null),
     ...landingFontStyle(tokens),
   } as CSSProperties;
 }

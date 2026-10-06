@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowClockwise, DeviceMobile, Monitor } from "@phosphor-icons/react";
+import { ArrowClockwise, ArrowsIn, ArrowsOut, DeviceMobile, Monitor } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IconButton, Pane, SegmentedButton } from "@/components/m3";
 import type { LandingForumPage } from "@/lib/domain";
@@ -90,6 +90,46 @@ export function LandingPreview({
   const tersorot = useRef<HTMLElement | null>(null);
   // null = pratinjau sejalan dengan draf; teks = alasan pratinjau tertinggal.
   const [tertinggal, setTertinggal] = useState<string | null>(null);
+  // Diperbesar menutupi layar CMS. Pohon elemennya sama, hanya kelas pembungkus
+  // yang berganti, jadi iframe tidak dimuat ulang dan posisi gulirnya tetap.
+  const [besar, setBesar] = useState(false);
+
+  const kotakBesar = useRef<HTMLDivElement | null>(null);
+  const tombolBesar = useRef<HTMLButtonElement | null>(null);
+  // Esc menutup dari halaman CMS dan dari DALAM pratinjau: setelah klik di
+  // pratinjau fokusnya di iframe, dan keydown-nya tidak sampai ke jendela induk.
+  // Halaman di iframe asal-yang-sama, jadi pendengarnya dipasang di sana juga,
+  // dan dipasang ulang setiap kali iframe memuat halaman baru.
+  useEffect(() => {
+    if (!besar) return;
+    function tutup(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setBesar(false);
+      tombolBesar.current?.focus();
+    }
+    const iframe = bingkai.current;
+    let jendelaDalam: Window | null = null;
+    function pasangDalam() {
+      jendelaDalam?.removeEventListener("keydown", tutup);
+      jendelaDalam = iframe?.contentWindow ?? null;
+      jendelaDalam?.addEventListener("keydown", tutup);
+    }
+    pasangDalam();
+    iframe?.addEventListener("load", pasangDalam);
+    window.addEventListener("keydown", tutup);
+    return () => {
+      window.removeEventListener("keydown", tutup);
+      iframe?.removeEventListener("load", pasangDalam);
+      jendelaDalam?.removeEventListener("keydown", tutup);
+    };
+  }, [besar]);
+
+  /** Penjaga fokus: Tab dari ujung kotak kembali ke ujung lainnya (pola dialog modal). */
+  function jagaFokus(ke: "awal" | "akhir") {
+    const isi = kotakBesar.current?.querySelectorAll<HTMLElement>('button:not([disabled]), iframe, [tabindex]:not([tabindex="-1"]):not([data-penjaga])');
+    if (!isi?.length) return;
+    (ke === "awal" ? isi[0] : isi[isi.length - 1]).focus();
+  }
 
   const kirimDraf = useCallback(() => {
     if (!draf) return;
@@ -176,7 +216,15 @@ export function LandingPreview({
   }, []);
 
   return (
-    <div lang="en" className="flex min-h-0 flex-col *:flex-1">
+    <div
+      lang="en"
+      ref={kotakBesar}
+      className={besar ? "fixed inset-0 z-50 flex flex-col bg-scrim/40 p-4 *:flex-1" : "flex min-h-0 flex-col *:flex-1"}
+      {...(besar ? { role: "dialog", "aria-modal": true, "aria-label": "Enlarged preview" } : null)}
+    >
+    {/* Penjaga di kedua ujung hanya saat diperbesar; elemennya tetap ada supaya
+        pohon (dan iframe) tidak dibuat ulang saat berganti mode. */}
+    <span data-penjaga tabIndex={besar ? 0 : -1} aria-hidden className="flex-none!" onFocus={() => jagaFokus("akhir")} />
     <Pane aria-label="Event page preview">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant px-4 py-2.5">
         <p className={`line-clamp-2 min-w-0 flex-1 ${tertinggal ? "text-body-small text-error" : "text-body-medium text-on-surface-variant"}`} role="status" title={tertinggal ?? undefined}>
@@ -207,6 +255,9 @@ export function LandingPreview({
         />
         <IconButton size="sm" label="Reload preview" onClick={() => setNonce((current) => current + 1)}>
           <ArrowClockwise size={16} />
+        </IconButton>
+        <IconButton ref={tombolBesar} size="sm" label={besar ? "Exit enlarged preview" : "Enlarge preview"} onClick={() => setBesar((current) => !current)}>
+          {besar ? <ArrowsIn size={16} /> : <ArrowsOut size={16} />}
         </IconButton>
       </div>
 
@@ -240,6 +291,7 @@ export function LandingPreview({
         </div>
       </div>
     </Pane>
+    <span data-penjaga tabIndex={besar ? 0 : -1} aria-hidden className="flex-none!" onFocus={() => jagaFokus("awal")} />
     </div>
   );
 }

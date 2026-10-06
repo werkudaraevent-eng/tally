@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LANDING_ABOUT_MEDIA, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_ABOUT_MEDIA, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 // Skema isi CMS Halaman acara. Dipakai PATCH /api/admin/landing saat menyimpan
 // dan pratinjau langsung saat merender draf, supaya pratinjau menolak hal yang
@@ -219,6 +219,10 @@ export const landingBodySchema = z.object({
     hero_min_height: z.number().int().min(LANDING_HERO_HEIGHT_PX.min).max(LANDING_HERO_HEIGHT_PX.max).optional(),
     cta_label: z.string().trim().max(60).optional(),
     heading_font: z.enum(LANDING_HEADING_FONT_KEYS).optional(),
+    body_font: z.enum(LANDING_BODY_FONTS).optional(),
+    corners: z.enum(LANDING_CORNERS).optional(),
+    hero_align: z.enum(["left", "center"]).optional(),
+    hero_position: z.enum(["bottom", "middle"]).optional(),
     layout: z.enum(["editorial", "modern", "forum"]).optional(),
     tayang: z.enum(["halaman", "formulir"]).optional(),
     forum: forumSchema.optional(),

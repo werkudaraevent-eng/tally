@@ -1,5 +1,5 @@
-import type { EventLandingConfig, LandingHeadingFont, LandingLayout } from "./domain";
-import { FORUM_DEFAULTS } from "./registration-theme-css";
+import type { EventLandingConfig, LandingBodyFont, LandingCorners, LandingHeadingFont, LandingLayout } from "./domain.ts";
+import { DEFAULT_BRAND, FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, LANDING_TOKEN_DEFAULTS, landingLayout, landingTokens } from "./landing-tokens.ts";
 
 /**
  * Preset tema halaman acara: satu klik mengisi tata letak, warna, dan huruf
@@ -8,43 +8,67 @@ import { FORUM_DEFAULTS } from "./registration-theme-css";
  * Yang disimpan nilainya, bukan nama preset. Menyimpan "preset: forum-ifc"
  * berarti acara yang sedang berjalan ikut berganti rupa setiap kali daftar ini
  * disunting.
+ *
+ * Token gaya yang dibawa preset. Apply menulis SEMUANYA (QA #90 M2), supaya
+ * hasil preset tidak bergantung pada pilihan yang tertinggal dari sebelumnya.
+ * Perataan hero tidak termasuk: itu isi bagian Hero (Page sections), bukan gaya.
  */
+export type LandingPresetTokens = {
+  brand: string;
+  /** Aksen gathering (Modern) atau aksen Forum. */
+  accent?: string;
+  /** Warna ketiga, hanya Forum. */
+  secondary?: string;
+  heading_font: LandingHeadingFont;
+  body_font: LandingBodyFont;
+  corners: LandingCorners;
+};
+
 export type LandingThemePreset = {
   key: string;
   label: string;
   note: string;
+  /**
+   * Cuplikan 162×100 (2x) di public/, dipotong di bagian yang membedakan preset.
+   * Dibuat dari acara contoh bernama netral, bukan acara klien.
+   */
+  thumb: string;
   layout: LandingLayout;
-  /** Kosong = warna dan huruf acara sendiri tidak disentuh (preset Modern). */
-  seed?: string;
-  heading_font?: LandingHeadingFont;
-  /** Warna pendamping tata letak Forum. */
-  accent?: string;
-  secondary?: string;
-  /** Menyalakan "Khusus undangan" (lihat EventLandingConfig.invite_only). */
-  invite_only?: boolean;
-  /** Menyalakan gaya gathering (lihat EventLandingConfig.gathering). */
-  gathering?: boolean;
+  tokens: LandingPresetTokens;
+  /**
+   * Fitur yang ikut preset dan menentukan "preset mana yang dipakai acara ini".
+   * Token boleh diubah sesudahnya (kartu jadi "Edited"); fitur tidak.
+   */
+  features: {
+    /** Menyalakan "Khusus undangan" (lihat EventLandingConfig.invite_only). */
+    invite_only?: boolean;
+    /** Menyalakan gaya gathering (lihat EventLandingConfig.gathering). */
+    gathering?: boolean;
+  };
 };
 
 export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
   {
-    // Jalan kembali dari Gathering ke halaman Modern biasa (QA PR #57 M1).
-    // Warna dan huruf acara tetap: preset ini hanya mematikan gaya gathering.
+    // Halaman acara Modern biasa, juga jalan kembali dari Gathering (QA PR #57 M1).
+    // "Conference", bukan "Modern": Modern adalah nama tata letak, dan dua
+    // "Modern" di satu tab adalah separuh keluhan preset vs layout.
     key: "modern",
-    label: "Modern",
-    note: "A standard event page: registration, programme, agenda, venue. Event colours and fonts stay",
+    label: "Conference",
+    note: "Register, programme, speakers",
+    thumb: "/preset-tema/conference.png",
     layout: "modern",
+    tokens: { brand: DEFAULT_BRAND, heading_font: "source", body_font: "sans", corners: "soft" },
+    features: {},
   },
   {
     // Figma "IFC Website" yang Hanung setujui pada 2026-10-01.
     key: "forum-ifc",
     label: "Forum IFC",
-    note: "Three pages, navy with yellow and sky-blue accents, Ubuntu font",
+    note: "Three pages, navy with yellow and sky blue",
+    thumb: "/preset-tema/forum.png",
     layout: "forum",
-    seed: FORUM_DEFAULTS.primary,
-    heading_font: "ubuntu",
-    accent: FORUM_DEFAULTS.accent,
-    secondary: FORUM_DEFAULTS.secondary,
+    tokens: { brand: FORUM_DEFAULTS.primary, accent: FORUM_DEFAULTS.accent, secondary: FORUM_DEFAULTS.secondary, heading_font: "ubuntu", body_font: "ubuntu", corners: "soft" },
+    features: {},
   },
   {
     // Rancangan Gathering yang Hanung setujui pada 2026-10-03: tata letak
@@ -54,45 +78,69 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     // karena tersimpan di database, bukan di CMS.
     key: "gathering",
     label: "Gathering",
-    note: "Travel style, invitation only: length of stay in the hero, day-by-day agenda, accommodation, invited guests sign in to see their ticket, room and bus",
+    note: "Invite only, trip days, hotel",
+    thumb: "/preset-tema/gathering.png",
     layout: "modern",
-    seed: "#0b6e69",
     // Inter saja (rancangan v3 KSO 21, audit v2): kunci "sans" = Inter.
-    heading_font: "sans",
-    invite_only: true,
-    gathering: true,
+    tokens: { brand: "#0b6e69", accent: GATHERING_ACCENT_DEFAULT, heading_font: "sans", body_font: "sans", corners: "soft" },
+    features: { invite_only: true, gathering: true },
   },
 ];
 
-const sama = (a: string | undefined, b: string | undefined) => (a ?? "").toLowerCase() === (b ?? "").toLowerCase();
+const sama = (a: string | null | undefined, b: string | null | undefined) => (a ?? "").toLowerCase() === (b ?? "").toLowerCase();
 
-/** Apakah isi CMS sekarang persis preset ini (untuk menandai kartu yang terpilih). */
+/**
+ * Apakah acara ini memakai preset ini: tata letak dan fiturnya sama. Warna dan
+ * huruf boleh berbeda; bedanya ditandai `presetDiubah`, bukan dengan
+ * menghilangkan tanda "In use".
+ */
 export function presetCocok(preset: LandingThemePreset, landing: EventLandingConfig): boolean {
-  // Modern dan Gathering dikenali dari tata letak dan gaya saja, bukan warna:
-  // panitia yang mengganti warna tetap melihat kartu mana yang sedang dipakai.
-  if (preset.layout === "modern") {
-    return (landing.layout ?? "editorial") === "modern" && Boolean(landing.gathering) === Boolean(preset.gathering);
-  }
-  return (
-    (landing.layout ?? "editorial") === preset.layout &&
-    sama(landing.theme?.seed, preset.seed) &&
-    landing.heading_font === preset.heading_font &&
-    Boolean(landing.gathering) === Boolean(preset.gathering) &&
-    (preset.layout !== "forum" ||
-      (sama(landing.forum?.accent ?? FORUM_DEFAULTS.accent, preset.accent) && sama(landing.forum?.secondary ?? FORUM_DEFAULTS.secondary, preset.secondary)))
+  const gathering = landingLayout(landing) === "modern" && landing.gathering === true;
+  return landingLayout(landing) === preset.layout && gathering === Boolean(preset.features.gathering);
+}
+
+/** Token mana yang berbeda dari bundel preset (dibaca dari token yang berlaku, bukan config mentah). */
+export function presetDiubah(preset: LandingThemePreset, landing: EventLandingConfig): boolean {
+  const t = landingTokens(landing);
+  const b = preset.tokens;
+  return !(
+    sama(t.brand, b.brand) &&
+    (b.accent === undefined || sama(t.accent, b.accent)) &&
+    (b.secondary === undefined || sama(t.secondary, b.secondary)) &&
+    t.headingFont === b.heading_font &&
+    t.bodyFont === b.body_font &&
+    // Forum tidak membaca sudut.
+    (preset.layout === "forum" || t.corners === b.corners)
   );
 }
 
-/** Terapkan preset tanpa menyentuh isi (teks, gambar, bagian). */
-export function terapkanPreset(preset: LandingThemePreset, landing: EventLandingConfig): EventLandingConfig {
+/**
+ * Tulis token gaya preset ke config. Nilai yang sama dengan bawaan tata letak
+ * disimpan kosong (huruf isi, sudut), supaya config tetap sependek mungkin dan
+ * halaman merender persis seperti acara yang belum pernah memilihnya.
+ */
+export function gayaPreset(preset: LandingThemePreset, landing: EventLandingConfig): EventLandingConfig {
+  const b = preset.tokens;
+  const bawaan = LANDING_TOKEN_DEFAULTS[preset.layout];
   return {
     ...landing,
-    layout: preset.layout,
-    heading_font: preset.heading_font ?? landing.heading_font,
-    ...(preset.seed ? { theme: { ...landing.theme, seed: preset.seed } } : {}),
-    // Satu preset, satu gaya: memilih preset lain mematikan gaya gathering.
-    invite_only: Boolean(preset.invite_only),
-    gathering: Boolean(preset.gathering),
-    ...(preset.layout === "forum" ? { forum: { ...landing.forum, accent: preset.accent, secondary: preset.secondary } } : {}),
+    theme: { ...landing.theme, seed: b.brand },
+    heading_font: b.heading_font,
+    body_font: b.body_font === bawaan.bodyFont ? undefined : b.body_font,
+    corners: b.corners === "soft" ? undefined : b.corners,
+    ...(preset.layout === "forum"
+      ? { forum: { ...landing.forum, accent: b.accent, secondary: b.secondary } }
+      : b.accent ? { accent: b.accent } : {}),
   };
+}
+
+/** Terapkan preset (tata letak, fitur, dan semua token gaya) tanpa menyentuh isi: teks, gambar, bagian, perataan hero. */
+export function terapkanPreset(preset: LandingThemePreset, landing: EventLandingConfig): EventLandingConfig {
+  return gayaPreset(preset, {
+    ...landing,
+    layout: preset.layout,
+    // Satu preset, satu gaya: memilih preset lain mematikan gaya gathering.
+    invite_only: Boolean(preset.features.invite_only),
+    gathering: Boolean(preset.features.gathering),
+  });
 }

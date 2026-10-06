@@ -2,7 +2,7 @@
 
 import { ArrowDown, ArrowUp, Plus, Trash } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import { Button, IconButton, SegmentedButton, SelectField, TextArea, TextField } from "@/components/m3";
+import { Button, IconButton, SelectField, TextArea, TextField } from "@/components/m3";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { Kelompok } from "@/components/admin/compact-form";
 import { plural } from "@/lib/plural";
@@ -71,9 +71,6 @@ export function halamanBagianForum(id: string, sekarang: LandingForumPage): Land
   }
 }
 
-const LANGIT = "#00aeef";
-const KUNING = "#ffc72c";
-
 function idInfoBaru() {
   return `info-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -117,44 +114,6 @@ function Kartu({ judul, kendali, children }: { judul: string; kendali: ReactNode
       </div>
       {children}
     </div>
-  );
-}
-
-/** Pilihan khusus Forum di tab Tema: bahasa label dan dua warna pendamping. */
-export function ForumTema({
-  landing,
-  setLanding,
-  PilihWarna,
-}: {
-  landing: EventLandingConfig;
-  setLanding: (next: EventLandingConfig) => void;
-  PilihWarna: (props: { label: string; value: string; onChange: (value: string) => void }) => ReactNode;
-}) {
-  const forum = landing.forum ?? {};
-  const ubah = (patch: Partial<LandingForumConfig>) => setLanding({ ...landing, forum: { ...forum, ...patch } });
-  return (
-    <>
-      <Kelompok title="Supporting colours" note="The brand colour above is used for the bar, main buttons, panels and footer.">
-        <PilihWarna label="Accent colour" value={forum.accent ?? KUNING} onChange={(value) => ubah({ accent: value })} />
-        <p className="-mt-2 text-body-medium text-on-surface-variant">The registration button in the hero, the badge line and the read-more button.</p>
-        <PilihWarna label="Secondary colour" value={forum.secondary ?? LANGIT} onChange={(value) => ubah({ secondary: value })} />
-        <p className="-mt-2 text-body-medium text-on-surface-variant">
-          The sign-in button while registration is closed, and the agenda panel background (lightened). Text colour on top is picked automatically so it stays readable.
-        </p>
-      </Kelompok>
-      <Kelompok title="Label language" note="For the menu, section headings and default buttons. Content you write is shown as typed.">
-        <SegmentedButton<"id" | "en">
-          className="w-full"
-          label="Label language"
-          value={forum.language ?? "id"}
-          onChange={(value) => ubah({ language: value })}
-          options={[
-            { value: "id", label: "Indonesian" },
-            { value: "en", label: "English" },
-          ]}
-        />
-      </Kelompok>
-    </>
   );
 }
 
