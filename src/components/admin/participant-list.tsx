@@ -1,16 +1,19 @@
 "use client";
 
 import {
-  ArrowDown, ArrowUp, CaretLeft, CaretRight, CaretUpDown, Check, Copy, LockSimple, MagnifyingGlass, Paperclip,
-  PencilSimple, Trash, UsersThree, X, XCircle,
+  ArrowDown, ArrowUp, CaretDown, CaretLeft, CaretRight, CaretUpDown, Check, Copy, EnvelopeSimple, FileCsv, FileXls, LockSimple,
+  MagnifyingGlass, Package, Paperclip, PencilSimple, Trash, UsersThree, X, XCircle,
 } from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Banner, Button, ButtonLink, ChipMenu, ColumnMenu, DetailSection, Dialog, EmptyCell, EmptyState, IconButton, KeyValue,
-  ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, StatusChip, useColumnPrefs, type ColumnOption,
+  ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, Popover, StatusChip, useColumnPrefs, usePopoverAnchor, type ColumnOption,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { withEventPrefix } from "@/lib/event-path";
 import { cx } from "@/lib/m3/cx";
+import { plural } from "@/lib/plural";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
 import { DEFAULT_TIME_ZONE, type EventTimeZone } from "@/lib/timezone";
@@ -55,6 +58,67 @@ const RSVP_TONE: Record<string, "success" | "warning" | "error"> = { confirmed: 
 
 const PAGE_SIZE = 25;
 const LEBAR_NAMA = 240;
+/** Kolom kotak centang. Lengket di kiri bersama kolom Nama. */
+const LEBAR_PILIH = 48;
+/** Batas satu kali Hapus massal, sama dengan /api/admin/participants/bulk-delete. */
+const BATAS_HAPUS = 500;
+
+const kotakCentang = "size-4 cursor-pointer accent-[var(--color-primary)]";
+
+/** Kotak centang kepala tabel: tiga keadaan, karena halaman bisa tercentang sebagian. */
+function CentangHalaman({ checked, indeterminate, onChange }: { checked: boolean; indeterminate: boolean; onChange: (next: boolean) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (ref.current) ref.current.indeterminate = indeterminate; }, [indeterminate]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label="Select all on this page"
+      checked={checked}
+      onChange={(event) => onChange(event.target.checked)}
+      className={kotakCentang}
+    />
+  );
+}
+
+/** Ekspor yang dicentang: format yang sama dengan Export di kepala halaman, ukuran bilah. */
+function EksporTerpilih({ busy, onPick }: { busy: boolean; onPick: (format: "xlsx" | "csv") => void }) {
+  const [pemicu, setPemicu] = useState<HTMLSpanElement | null>(null);
+  const menu = usePopoverAnchor(pemicu);
+  return (
+    <>
+      <span ref={setPemicu} className="inline-flex">
+        <Button
+          variant="outlined"
+          size="sm"
+          loading={busy}
+          icon={<Package size={16} />}
+          trailingIcon={<CaretDown size={14} className={cx("transition-transform", menu.open && "rotate-180")} />}
+          aria-haspopup="menu"
+          aria-expanded={menu.open}
+          onClick={menu.toggle}
+        >
+          Export
+        </Button>
+      </span>
+      {menu.open ? (
+        <Popover anchor={menu} label="Choose export format" width={220} className="p-0">
+          {([["xlsx", "Excel (.xlsx)", FileXls], ["csv", "CSV (.csv)", FileCsv]] as const).map(([format, label, Icon]) => (
+            <button
+              key={format}
+              type="button"
+              role="menuitem"
+              onClick={() => { menu.tutup(); onPick(format); }}
+              className="flex w-full items-center gap-3 border-b border-outline-variant p-3 text-left text-body-medium font-medium last:border-b-0 hover:bg-primary-soft"
+            >
+              <Icon size={18} className="shrink-0 text-on-surface-variant" />{label}
+            </button>
+          ))}
+        </Popover>
+      ) : null}
+    </>
+  );
+}
 
 // Harus cocok dengan whitelist SORTABLE di /api/admin/participants.
 type SortKey = "name" | "company" | "title" | "qr_code" | "participant_type" | "rsvp_status" | "source_checked_in" | "source_total_scans";
@@ -115,6 +179,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   ref?: React.Ref<ParticipantListHandle>;
 }) {
   const toast = useToast();
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -143,22 +208,39 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Participant | null>(null);
+  // Pilihan bertahan lintas halaman dan saringan: panitia lazim mencentang dari
+  // dua instansi berbeda lalu mengirim satu pesan. Bilah pilihan selalu
+  // menyebut jumlahnya, jadi tidak ada yang tercentang diam-diam.
+  const [pilih, setPilih] = useState<Set<string>>(new Set());
+  const [memilihSemua, setMemilihSemua] = useState(false);
+  const [bulk, setBulk] = useState<"" | "pesan" | "ekspor" | "hapus">("");
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   // Hanya respons dari permintaan terakhir yang boleh mengubah tabel.
+  // Saringan yang sama untuk tabel dan untuk "Pilih semua yang cocok".
+  const paramSaringan = useCallback((search: string) => {
+    const params = new URLSearchParams({ q: search });
+    if (filterAsal) params.set("source", filterAsal);
+    if (filterRsvp) params.set("rsvp", filterRsvp);
+    if (filterHadir) {
+      const [sesiId, keadaan] = filterHadir.split(":");
+      params.set("session", sesiId);
+      params.set("attended", keadaan);
+    }
+    for (const nama of filterPerusahaan) params.append("company", nama);
+    return params;
+  }, [filterAsal, filterHadir, filterRsvp, filterPerusahaan]);
+
   const urutanMuat = useRef(0);
   const load = useCallback(async (search: string, pageIndex: number, sortKey: SortKey, sortDir: "asc" | "desc", size: number) => {
     const nomor = ++urutanMuat.current;
     setLoading(true); setError("");
     try {
-      const params = new URLSearchParams({ q: search, limit: String(size), offset: String(pageIndex * size), sort: sortKey, dir: sortDir });
-      if (filterAsal) params.set("source", filterAsal);
-      if (filterRsvp) params.set("rsvp", filterRsvp);
-      if (filterHadir) {
-        const [sesiId, keadaan] = filterHadir.split(":");
-        params.set("session", sesiId);
-        params.set("attended", keadaan);
-      }
-      for (const nama of filterPerusahaan) params.append("company", nama);
+      const params = paramSaringan(search);
+      params.set("limit", String(size));
+      params.set("offset", String(pageIndex * size));
+      params.set("sort", sortKey);
+      params.set("dir", sortDir);
       const response = await fetch(`/api/admin/participants?${params.toString()}`, { cache: "no-store" });
       const data = await response.json();
       if (nomor !== urutanMuat.current) return;
@@ -176,7 +258,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     } finally {
       if (nomor === urutanMuat.current) setLoading(false);
     }
-  }, [filterAsal, filterHadir, filterRsvp, filterPerusahaan, onStats]);
+  }, [paramSaringan, onStats]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { setDebouncedQuery(query); setPage(0); }, 250);
@@ -308,6 +390,95 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     onChanged?.();
   }
 
+  // ---- Pilihan massal ------------------------------------------------------
+  function centang(id: string, on: boolean) {
+    setPilih((lama) => {
+      const baru = new Set(lama);
+      if (on) baru.add(id); else baru.delete(id);
+      return baru;
+    });
+  }
+
+  function centangHalaman(on: boolean) {
+    setPilih((lama) => {
+      const baru = new Set(lama);
+      for (const p of participants) { if (on) baru.add(p.id); else baru.delete(p.id); }
+      return baru;
+    });
+  }
+
+  async function pilihSemuaCocok() {
+    setMemilihSemua(true);
+    const params = paramSaringan(debouncedQuery);
+    params.set("ids_only", "1");
+    const response = await fetch(`/api/admin/participants?${params.toString()}`, { cache: "no-store" }).catch(() => null);
+    const body = await response?.json().catch(() => null);
+    setMemilihSemua(false);
+    if (!response?.ok || !Array.isArray(body?.ids)) { toast.error("Couldn't select all matching", "Try again."); return; }
+    setPilih((lama) => new Set([...lama, ...(body.ids as string[])]));
+    if (body.total > body.ids.length) toast.error(`Only the first ${body.ids.length} were selected`, `Narrow the filters to select the other ${body.total - body.ids.length}.`);
+  }
+
+  /** Buka penyusun Pesan peserta dengan yang dicentang sebagai penerimanya. */
+  async function kirimPesan() {
+    setBulk("pesan");
+    const response = await fetch("/api/admin/pesan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "undangan",
+        audience: { jenis: "manual", perusahaan: [], ids: [...pilih], label: `${plural(pilih.size, "participant")} selected` },
+      }),
+    }).catch(() => null);
+    const body = await response?.json().catch(() => null);
+    setBulk("");
+    if (!response?.ok || !body?.id) { toast.error("Couldn't start the message", body?.error?.message ?? "Try again."); return; }
+    router.push(withEventPrefix(`/admin/pengumuman/kiriman/${body.id}`, window.location.pathname));
+  }
+
+  async function eksporTerpilih(format: "xlsx" | "csv") {
+    setBulk("ekspor");
+    const response = await fetch("/api/admin/participants/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ format, ids: [...pilih] }),
+    }).catch(() => null);
+    if (!response?.ok) { setBulk(""); toast.error("Export failed", "Try again."); return; }
+    const berkas = await response.blob();
+    const nama = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "")?.[1] ?? `participants-selected.${format}`;
+    const url = URL.createObjectURL(berkas);
+    const tautan = document.createElement("a");
+    tautan.href = url; tautan.download = nama;
+    document.body.appendChild(tautan); tautan.click(); tautan.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setBulk("");
+  }
+
+  async function hapusTerpilih() {
+    setBulk("hapus"); setNotice("");
+    const response = await fetch("/api/admin/participants/bulk-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [...pilih] }),
+    }).catch(() => null);
+    setBulk("");
+    setConfirmBulkDelete(false);
+    if (!response) { setError("Connection lost. Reload to see which participants were deleted."); return; }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) { toast.error("Couldn't delete participants", body.error?.message ?? "Try again."); return; }
+    const lewat = body.skipped as { source_locked: number; in_use: number; not_found: number; failed: number };
+    const alasan = [
+      lewat.source_locked ? `${lewat.source_locked} from Scanner API` : "",
+      lewat.in_use ? `${lewat.in_use} with an order or a lucky draw win` : "",
+      lewat.failed ? `${lewat.failed} failed` : "",
+    ].filter(Boolean);
+    setNotice(`${plural(body.deleted, "participant")} deleted.${alasan.length ? ` Skipped: ${alasan.join(", ")}.` : ""}`);
+    setPilih(new Set());
+    if (mode?.kind === "view") setMode(null);
+    void load(debouncedQuery, page, sort, dir, perPage);
+    onChanged?.();
+  }
+
   async function bukaBerkas(id: string) {
     const response = await fetch(`/api/admin/registrasi/upload?id=${encodeURIComponent(id)}`, { cache: "no-store" }).catch(() => null);
     const body = await response?.json().catch(() => null);
@@ -377,6 +548,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const jabatanDiBawahNama = !visible.includes("title");
 
   const adaFilter = Boolean(filterAsal || filterHadir || filterRsvp || filterPerusahaan.length);
+  const tercentangDiHalaman = participants.filter((p) => pilih.has(p.id)).length;
+  const halamanTercentang = participants.length > 0 && tercentangDiHalaman === participants.length;
   const resetFilter = () => { setFilterAsal(""); setFilterHadir(""); setFilterRsvp(""); setFilterPerusahaan([]); setPage(0); };
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const dari = total === 0 ? 0 : page * perPage + 1;
@@ -462,6 +635,34 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         <ColumnMenu columns={opsiKolom} visible={visible} onChange={setVisible} onReset={() => setVisible(null)} isDefault={isDefault} />
       </PaneHeader>
 
+      {pilih.size > 0 ? (
+        <div role="region" aria-label="Selected participants" className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-outline-variant bg-secondary-container px-3 py-2">
+          <IconButton size="sm" label="Clear selection" onClick={() => setPilih(new Set())}><X size={16} /></IconButton>
+          <span className="text-body-medium font-medium tabular-nums text-on-surface" aria-live="polite">{pilih.size} selected</span>
+          {halamanTercentang && total > pilih.size ? (
+            <button type="button" disabled={memilihSemua} onClick={() => void pilihSemuaCocok()} className="rounded-sm text-body-medium font-medium text-primary hover:underline disabled:opacity-60">
+              {memilihSemua ? "Selecting…" : adaFilter || debouncedQuery ? `Select all ${total} matching` : `Select all ${total}`}
+            </button>
+          ) : null}
+          <span className="ml-auto flex flex-wrap items-center gap-2">
+            <Button simpan variant="outlined" size="sm" loading={bulk === "pesan"} icon={<EnvelopeSimple size={16} />} onClick={() => void kirimPesan()}>Send message</Button>
+            <EksporTerpilih busy={bulk === "ekspor"} onPick={(format) => void eksporTerpilih(format)} />
+            <Button
+              simpan
+              variant="outlined"
+              size="sm"
+              className="text-error"
+              icon={<Trash size={16} />}
+              disabled={pilih.size > BATAS_HAPUS}
+              title={pilih.size > BATAS_HAPUS ? `Delete up to ${BATAS_HAPUS} at a time` : undefined}
+              onClick={() => setConfirmBulkDelete(true)}
+            >
+              Delete
+            </Button>
+          </span>
+        </div>
+      ) : null}
+
       <PaneBody className="overflow-x-auto">
         {error ? (
           <p role="alert" className="m-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</p>
@@ -485,15 +686,21 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         ) : (
           <table
             className={cx("w-full table-fixed border-separate border-spacing-0 text-left text-body-medium", loading && "opacity-60")}
-            style={{ minWidth: LEBAR_NAMA + kolomTampil.reduce((jumlah, item) => jumlah + item.width, 0) }}
+            style={{ minWidth: LEBAR_PILIH + LEBAR_NAMA + kolomTampil.reduce((jumlah, item) => jumlah + item.width, 0) }}
           >
             <colgroup>
+              <col style={{ width: LEBAR_PILIH }} />
               <col style={{ minWidth: LEBAR_NAMA }} />
               {kolomTampil.map((item) => <col key={item.key} style={{ width: item.width }} />)}
             </colgroup>
             <thead className="sticky top-0 z-10 bg-surface-container-high text-body-medium font-medium text-on-surface-variant">
               <tr>
-                <th scope="col" aria-sort={ariaSort("name")} className="sticky left-0 z-10 border-b border-outline-variant bg-surface-container-high px-4 py-2.5 font-medium">{sortHeader("Name", "name")}</th>
+                <th scope="col" className="sticky left-0 z-10 border-b border-outline-variant bg-surface-container-high p-0">
+                  <span className="flex items-center justify-center">
+                    <CentangHalaman checked={halamanTercentang} indeterminate={tercentangDiHalaman > 0 && !halamanTercentang} onChange={centangHalaman} />
+                  </span>
+                </th>
+                <th scope="col" aria-sort={ariaSort("name")} className="sticky left-12 z-10 border-b border-outline-variant bg-surface-container-high px-4 py-2.5 font-medium">{sortHeader("Name", "name")}</th>
                 {kolomTampil.map((item) => (
                   <th key={item.key} scope="col" aria-sort={ariaSort(item.sort)} className="border-b border-outline-variant px-3 py-2.5 font-medium">{sortHeader(item.label, item.sort, item.align)}</th>
                 ))}
@@ -502,13 +709,28 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             <tbody>
               {participants.map((participant) => {
                 const aktif = mode?.kind === "view" && mode.id === participant.id || mode?.kind === "edit" && mode.row.id === participant.id;
+                const dicentang = pilih.has(participant.id);
                 return (
                   <tr
                     key={participant.id}
                     onClick={() => select(participant)}
-                    className={cx("cursor-pointer", aktif ? "bg-secondary-container" : "bg-surface-container-lowest hover:bg-primary-soft", participant.source_removed_at && "text-on-surface-variant")}
+                    aria-selected={dicentang}
+                    className={cx("cursor-pointer", aktif ? "bg-secondary-container" : dicentang ? "bg-primary-soft" : "bg-surface-container-lowest hover:bg-primary-soft", participant.source_removed_at && "text-on-surface-variant")}
                   >
-                    <td className="sticky left-0 border-b border-outline-variant bg-inherit px-4 py-2.5">
+                    {/* Seluruh sel adalah sasaran klik kotak centang, bukan hanya kotak 16 px-nya;
+                        klik di sini tidak membuka panel detail. */}
+                    <td className="sticky left-0 border-b border-outline-variant bg-inherit p-0" onClick={(event) => event.stopPropagation()}>
+                      <label className="flex min-h-11 cursor-pointer items-center justify-center">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${participant.name}`}
+                          checked={dicentang}
+                          onChange={(event) => centang(participant.id, event.target.checked)}
+                          className={kotakCentang}
+                        />
+                      </label>
+                    </td>
+                    <td className="sticky left-12 border-b border-outline-variant bg-inherit px-4 py-2.5">
                       <button
                         type="button"
                         onClick={(event) => { event.stopPropagation(); select(participant); }}
@@ -797,6 +1019,20 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         <Banner tone="success" icon={<Check size={18} />} actions={<IconButton size="sm" label="Close" onClick={() => setNotice("")}><X size={16} /></IconButton>}>{notice}</Banner>
       ) : null}
       <ListDetail list={list} detail={editor ?? viewer} />
+      <Dialog
+        open={confirmBulkDelete}
+        onClose={() => setConfirmBulkDelete(false)}
+        dismissible={bulk !== "hapus"}
+        title={`Delete ${plural(pilih.size, "participant")}?`}
+        tone="danger"
+        description="Deleted permanently and recorded in the audit trail. Participants from Scanner API, or with an order or a lucky draw win, are skipped and stay in the list."
+        actions={
+          <>
+            <Button type="button" variant="outlined" disabled={bulk === "hapus"} onClick={() => setConfirmBulkDelete(false)}>Cancel</Button>
+            <Button simpan variant="danger" loading={bulk === "hapus"} onClick={() => void hapusTerpilih()}>Delete {plural(pilih.size, "participant")}</Button>
+          </>
+        }
+      />
       <Dialog
         open={confirmDelete !== null}
         onClose={() => setConfirmDelete(null)}

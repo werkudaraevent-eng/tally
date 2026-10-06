@@ -240,7 +240,12 @@ type ParticipantExportRow = {
   seats: Array<{ label: string }> | null;
 };
 
-export async function loadParticipantExportRows(eventId: string, fields: RegistrationField[]) {
+/**
+ * `ids` mempersempit ke peserta yang dicentang di daftar. Disaring di sini,
+ * bukan lewat `.in("id", ...)`: 5000 uuid di query string PostgREST adalah
+ * URL 185 KB, jauh di atas batas server.
+ */
+export async function loadParticipantExportRows(eventId: string, fields: RegistrationField[], ids?: ReadonlySet<string>) {
   const { data, error } = await getSupabaseServiceClient()
     .from("participants")
     .select("id,qr_code,name,company,title,email,phone,participant_type,rsvp_status,extra,source_participant_id,source_checked_in,source_total_scans,source_removed_at,walk_in_at,seats")
@@ -251,7 +256,7 @@ export async function loadParticipantExportRows(eventId: string, fields: Registr
   const tambahan = importableFields(fields);
   const berkas = fields.filter((field) => FILE_FIELD_TYPES.includes(field.type));
 
-  return ((data ?? []) as unknown as ParticipantExportRow[]).map((row) => [
+  return ((data ?? []) as unknown as ParticipantExportRow[]).filter((row) => !ids || ids.has(row.id)).map((row) => [
     row.qr_code,
     row.name,
     row.company ?? "",
