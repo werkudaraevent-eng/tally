@@ -90,10 +90,10 @@ assert.equal(presetDiubah(gatheringPreset, gayaPreset(gatheringPreset, diubah)),
 assert.equal(presetCocok(conference, { layout: "modern" }) && !presetDiubah(conference, { layout: "modern" }), true);
 assert.equal(presetCocok(conference, gath), false);
 
-// Preload per acara: hanya huruf judulnya, plus huruf isi bila dipasang.
+// Preload per acara: hanya huruf judulnya, plus huruf isi pilihan admin. Forum: Ubuntu 700 saja.
 assert.deepEqual(landingFontUrls(landingTokens({ layout: "modern" })), ["/fonts/v1/source-sans-3/source-sans-3-latin.woff2"]);
 assert.deepEqual(landingFontUrls(landingTokens({})), ["/fonts/v1/playfair-display/playfair-display-latin.woff2"]);
-assert.deepEqual(landingFontUrls(landingTokens({ layout: "forum" })), ["/fonts/v1/ubuntu/ubuntu-latin-700.woff2", "/fonts/v1/ubuntu/ubuntu-latin-400.woff2"]);
+assert.deepEqual(landingFontUrls(landingTokens({ layout: "forum" })), ["/fonts/v1/ubuntu/ubuntu-latin-700.woff2"]);
 assert.deepEqual(landingFontUrls(landingTokens({ layout: "modern", heading_font: "sans" })), []);
 assert.deepEqual(landingFontUrls(landingTokens({ layout: "modern", heading_font: "sourceserif", body_font: "sourceserif" })), ["/fonts/v1/source-serif-4/source-serif-4-latin.woff2"]);
 assert.deepEqual(landingFontUrls(landingTokens({ layout: "modern", heading_font: "fraunces", body_font: "jakarta" })), [
@@ -107,13 +107,13 @@ const css = readFileSync(new URL("../app/fonts/landing.css", import.meta.url), "
 for (const [key, font] of Object.entries(LANDING_HEADING_FONTS)) {
   const nama = font.cssVar.slice(4, -1);
   assert.ok(key === "sans" || css.includes(`\t${nama}: `), `${key}: ${nama} tidak ada di landing.css`);
-  for (const url of landingFontUrls({ layout: "modern", headingFont: key as keyof typeof LANDING_HEADING_FONTS, bodyFont: "sans", bodyFontChosen: false })) {
+  for (const url of landingFontUrls({ headingFont: key as keyof typeof LANDING_HEADING_FONTS, bodyFont: "sans", bodyFontChosen: false })) {
     assert.ok(existsSync(new URL(`../../public${url}`, import.meta.url)), `${key}: ${url} tidak ada`);
     assert.ok(css.includes(`url(${url})`), `${key}: ${url} tidak dirujuk landing.css`);
   }
 }
 for (const key of LANDING_BODY_FONTS) {
-  for (const url of landingFontUrls({ layout: "modern", headingFont: "sans", bodyFont: key, bodyFontChosen: true })) {
+  for (const url of landingFontUrls({ headingFont: "sans", bodyFont: key, bodyFontChosen: true })) {
     assert.ok(existsSync(new URL(`../../public${url}`, import.meta.url)) && css.includes(`url(${url})`), `isi ${key}: ${url}`);
   }
 }
