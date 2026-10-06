@@ -13,6 +13,7 @@ import {
   templateFilename,
   templateRows,
 } from "@/lib/participants-io";
+import { normalizeTimeZone } from "@/lib/timezone";
 
 /**
  * Unduh seluruh peserta event ini.
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
 
   try {
     const headers = isTemplate ? importHeaders(fields) : exportHeaders(fields);
-    const rows = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields);
+    const rows = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, normalizeTimeZone(auth.scope.event.time_zone));
     const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers);
     return new Response(body as BodyInit, {
       headers: {
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
 
   const fields = ((auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
   try {
-    const rows = await loadParticipantExportRows(auth.scope.event.id, fields, new Set(body.data.ids));
+    const rows = await loadParticipantExportRows(auth.scope.event.id, fields, normalizeTimeZone(auth.scope.event.time_zone), new Set(body.data.ids));
     const headers = exportHeaders(fields);
     const isi = body.data.format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers);
     return new Response(isi as BodyInit, {

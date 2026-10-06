@@ -20,6 +20,9 @@ const SORTABLE = {
   rsvp_status: "rsvp_status",
   source_checked_in: "source_checked_in",
   source_total_scans: "source_total_scans",
+  // Kapan data peserta masuk ke Tally (form dikirim, atau diimpor/ditambahkan).
+  // Dihitung di list_event_participants, bukan kolom tabel.
+  registered_at: "registered_at",
 } as const;
 
 

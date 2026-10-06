@@ -1,5 +1,6 @@
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
+import { DEFAULT_TIME_ZONE, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { kolomImpor, normalizeHeader, type KolomImpor } from "./participants-kolom";
 
@@ -45,6 +46,10 @@ const READONLY_HEADERS = [
   // Jam kedatangan tamu yang didaftarkan di meja. Kosong untuk semua peserta
   // yang sudah ada sebelum hari-H — yaitu hampir semuanya.
   "walk_in_at",
+  // Kapan data peserta pertama masuk ke Tally: form pendaftaran dikirim, atau
+  // diimpor/ditambahkan. Sama dengan kolom "Registered" di daftar peserta,
+  // dalam zona acara dengan offset-nya, mis. 2026-10-02T17:15:00+08:00.
+  "registered_at",
   "check_in",
   "total_scan",
   "kursi",
@@ -238,7 +243,50 @@ type ParticipantExportRow = {
   source_removed_at: string | null;
   walk_in_at: string | null;
   seats: Array<{ label: string }> | null;
+  created_at: string;
 };
+
+/**
+ * Kapan form pendaftaran peserta yang sudah tertaut pertama kali dikirim, per
+ * participant_id. Baris peserta baru dibuat saat pendaftarannya disetujui, jadi
+ * created_at peserta adalah waktu persetujuan, bukan waktu orangnya mendaftar.
+ * Dibaca per 1000 baris karena PostgREST memotong satu jawaban di 1000.
+ */
+async function pendaftaranPertama(eventId: string): Promise<Map<string, string>> {
+  const client = getSupabaseServiceClient();
+  const pertama = new Map<string, string>();
+  for (let dari = 0; dari < 50000; dari += 1000) {
+    const { data, error } = await client
+      .from("event_registrations")
+      .select("participant_id,created_at")
+      .eq("event_id", eventId)
+      .not("participant_id", "is", null)
+      .order("id")
+      .range(dari, dari + 999);
+    if (error) throw new Error(error.message);
+    const baris1000 = (data ?? []) as Array<{ participant_id: string; created_at: string }>;
+    for (const baris of baris1000) {
+      const lama = pertama.get(baris.participant_id);
+      if (!lama || Date.parse(baris.created_at) < Date.parse(lama)) pertama.set(baris.participant_id, baris.created_at);
+    }
+    if (baris1000.length < 1000) break;
+  }
+  return pertama;
+}
+
+/**
+ * Sama dengan registered_at di list_event_participants: yang paling awal dari
+ * keduanya, ditulis dalam zona acara dengan offset eksplisit supaya cocok dengan
+ * jam di layar tanpa jadi ambigu. Zona Indonesia tidak mengenal musim panas,
+ * jadi offset tetap cukup.
+ */
+function waktuMasuk(dibuat: string, formDikirim: string | undefined, zone: EventTimeZone): string {
+  const iso = formDikirim && Date.parse(formDikirim) < Date.parse(dibuat) ? formDikirim : dibuat;
+  const offset = timeZoneOffset(zone);
+  const [, tanda, jam, menit] = /^([+-])(\d{2}):(\d{2})$/.exec(offset) ?? ["", "+", "07", "00"];
+  const geser = (tanda === "-" ? -1 : 1) * (Number(jam) * 60 + Number(menit)) * 60000;
+  return new Date(Date.parse(iso) + geser).toISOString().slice(0, 19) + offset;
+}
 
 /**
  * Seluruh peserta acara, dibaca per 1000 baris.
@@ -256,7 +304,7 @@ async function semuaPeserta(eventId: string): Promise<ParticipantExportRow[]> {
   for (let dari = 0; ; dari += 1000) {
     const { data, error, count } = await client
       .from("participants")
-      .select("id,qr_code,name,company,title,email,phone,participant_type,rsvp_status,extra,source_participant_id,source_checked_in,source_total_scans,source_removed_at,walk_in_at,seats", dari === 0 ? { count: "exact" } : undefined)
+      .select("id,qr_code,name,company,title,email,phone,participant_type,rsvp_status,extra,source_participant_id,source_checked_in,source_total_scans,source_removed_at,walk_in_at,seats,created_at", dari === 0 ? { count: "exact" } : undefined)
       .eq("event_id", eventId)
       .order("name", { ascending: true })
       .order("id", { ascending: true })
@@ -276,8 +324,13 @@ async function semuaPeserta(eventId: string): Promise<ParticipantExportRow[]> {
  * bukan lewat `.in("id", ...)`: 5000 uuid di query string PostgREST adalah
  * URL 185 KB, jauh di atas batas server.
  */
-export async function loadParticipantExportRows(eventId: string, fields: RegistrationField[], ids?: ReadonlySet<string>) {
-  const data = await semuaPeserta(eventId);
+export async function loadParticipantExportRows(
+  eventId: string,
+  fields: RegistrationField[],
+  zone: EventTimeZone = DEFAULT_TIME_ZONE,
+  ids?: ReadonlySet<string>,
+) {
+  const [data, formDikirim] = await Promise.all([semuaPeserta(eventId), pendaftaranPertama(eventId)]);
 
   const tambahan = importableFields(fields);
   const berkas = fields.filter((field) => FILE_FIELD_TYPES.includes(field.type));
@@ -300,6 +353,7 @@ export async function loadParticipantExportRows(eventId: string, fields: Registr
     // saling meniadakan.
     row.walk_in_at ? "walk-in" : row.source_participant_id ? "scanner" : "manual",
     row.walk_in_at ?? "",
+    waktuMasuk(row.created_at, formDikirim.get(row.id), zone),
     row.source_checked_in ? "Y" : "N",
     row.source_total_scans,
     (row.seats ?? []).map((seat) => seat.label).join(" | "),

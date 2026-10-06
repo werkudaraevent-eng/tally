@@ -37,6 +37,14 @@ type Participant = {
   source_synced_at: string | null;
   source_removed_at: string | null;
   walk_in_at: string | null;
+  /**
+   * Kapan data orang ini pertama masuk ke Tally: saat form pendaftaran dikirim
+   * (bukan saat disetujui), atau saat diimpor/ditambahkan. Null hanya bila
+   * fungsi list_event_participants di database belum versi 202610060001.
+   */
+  registered_at?: string | null;
+  /** Waktu mana yang menang: form dikirim lebih dulu, atau diimpor/ditambahkan lebih dulu. */
+  registered_via?: "form" | "added";
   source: AsalPeserta;
   attendance: Record<string, { count: number; first: string }>;
   seats: ParticipantSeat[] | null;
@@ -52,6 +60,18 @@ const ASAL: Record<AsalPeserta, { label: string; judul: string }> = {
   manual: { label: "Manual", judul: "Typed in or imported by staff" },
   scanner: { label: "Scanner API", judul: "Pulled from Scanner API; some fields are managed there" },
 };
+
+/**
+ * Arti waktu "Registered", untuk tooltip sel dan panel detail. Mengikuti waktu
+ * yang menang, bukan asal peserta: orang yang diimpor lalu belakangan mengisi
+ * form berasal "Self-registered", tapi jamnya adalah jam impor.
+ */
+function artiMasuk(p: Participant): string {
+  if (p.registered_via === "form") return "Registration form submitted";
+  if (p.source === "walkin") return "Added at the check-in desk";
+  if (p.source === "scanner") return "First synced from Scanner API";
+  return "Imported or added by staff";
+}
 
 const LABEL_RSVP: Record<string, string> = { confirmed: "Confirmed", invited: "Awaiting reply", declined: "Declined" };
 const RSVP_TONE: Record<string, "success" | "warning" | "error"> = { confirmed: "success", invited: "warning", declined: "error" };
@@ -123,7 +143,7 @@ function EksporTerpilih({ busy, onPick }: { busy: boolean; onPick: (format: "xls
 }
 
 // Harus cocok dengan whitelist SORTABLE di /api/admin/participants.
-type SortKey = "name" | "company" | "title" | "qr_code" | "participant_type" | "rsvp_status" | "source_checked_in" | "source_total_scans";
+type SortKey = "name" | "company" | "title" | "qr_code" | "participant_type" | "rsvp_status" | "source_checked_in" | "source_total_scans" | "registered_at";
 
 type Draft = {
   qr_code: string; name: string; company: string; title: string; email: string; phone: string;
@@ -513,6 +533,11 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   }
 
   const jam = useCallback((iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone }), [timeZone]);
+  const tanggalJam = useCallback((iso: string) => new Date(iso).toLocaleString("en-GB", {
+    day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone,
+  }), [timeZone]);
+
+  const adaRegistered = participants.some((p) => p.registered_at !== undefined);
 
   // ---- Kolom -------------------------------------------------------------
   const kolom = useMemo<Kolom[]>(() => {
@@ -530,6 +555,17 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             : <StatusChip dot tone="neutral">Not checked in</StatusChip>;
         },
       })),
+      {
+        key: "registered",
+        label: "Registered",
+        // Hanya bisa diurutkan bila database sudah mengirim nilainya (migrasi
+        // 202610060001). Fungsi lama diam-diam mengurutkan menurut nama.
+        sort: adaRegistered ? "registered_at" : undefined,
+        width: 152,
+        cell: (p) => p.registered_at
+          ? <span className="block truncate tabular-nums" title={artiMasuk(p)}>{tanggalJam(p.registered_at)}</span>
+          : <EmptyCell />,
+      },
       { key: "rsvp", label: "RSVP", sort: "rsvp_status", width: 128, cell: (p) => p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell /> },
       { key: "kamar", label: "Room", width: 120, cell: (p) => p.logistik?.kamar ? <span className="block truncate" title={p.logistik.kamar}>{p.logistik.kamar}</span> : <EmptyCell /> },
       { key: "bus", label: "Bus", width: 96, cell: (p) => p.logistik?.bus ?? <EmptyCell /> },
@@ -560,9 +596,12 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       );
     }
     return daftar;
-  }, [sessions, fields, scannerColumns, excluded, jam]);
+  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam, adaRegistered]);
 
-  const bawaan = useMemo(() => ["company", ...(sessions[0] ? [`sesi:${sessions[0].id}`] : []), "rsvp", "seat"], [sessions]);
+  // Bawaan harus muat di layar 1280 tanpa gulir mendatar (panel ±960 px):
+  // Nama 240 + Organisation 200 + check-in 140 + Registered 152 + RSVP 128.
+  // Seat tetap ada di menu Columns.
+  const bawaan = useMemo(() => ["company", ...(sessions[0] ? [`sesi:${sessions[0].id}`] : []), "registered", "rsvp"], [sessions]);
   const { visible, setVisible, isDefault } = useColumnPrefs("peserta", bawaan);
   const kolomTampil = kolom.filter((item) => visible.includes(item.key));
   const opsiKolom: ColumnOption[] = [{ key: "name", label: "Name", locked: true }, ...kolom.map((item) => ({ key: item.key, label: item.label }))];
@@ -986,6 +1025,11 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
               </KeyValue>
               <KeyValue label="Type">{p.participant_type ?? <EmptyCell />}</KeyValue>
               <KeyValue label="RSVP">{p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell />}</KeyValue>
+              <KeyValue label="Registered">
+                {p.registered_at
+                  ? <span className="flex flex-col"><span className="tabular-nums">{tanggalJam(p.registered_at)}</span><span className="text-body-small text-on-surface-variant">{artiMasuk(p)}</span></span>
+                  : <EmptyCell />}
+              </KeyValue>
             </DetailSection>
             {sessions.length > 0 ? (
               <DetailSection title="Check-in">
