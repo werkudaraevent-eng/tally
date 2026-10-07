@@ -53,6 +53,9 @@ export function DuplicateEventDialog({
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  // Salinan sudah dibuat walaupun ada galat sesudahnya: jangan tawarkan
+  // "Create copy" lagi, cukup Close (QA #102, L-R3-1).
+  const [salinanAda, setSalinanAda] = useState(false);
 
   async function duplicate(form: FormData) {
     if (!event) return;
@@ -72,6 +75,7 @@ export function DuplicateEventDialog({
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       setError(body.error?.details?.message ?? body.error?.message ?? "Could not duplicate the event.");
+      if (body.error?.details?.copy_created) setSalinanAda(true);
       return;
     }
     onDone(body.event as EventRow);
@@ -80,19 +84,21 @@ export function DuplicateEventDialog({
   return (
     <Dialog
       open={event !== null}
-      onClose={() => { setError(""); onClose(); }}
+      onClose={() => { setError(""); setSalinanAda(false); onClose(); }}
       dismissible={!pending}
       size="lg"
       scrollBody
       fullScreenOnMobile
       title={`Copy of “${event?.name ?? ""}”`}
       description="The copy starts as a draft with no participants."
-      actions={
+      actions={salinanAda ? (
+        <Button onClick={() => { setError(""); setSalinanAda(false); onClose(); }}>Close</Button>
+      ) : (
         <>
           <Button variant="outlined" disabled={pending} onClick={onClose} className="max-sm:hidden">Cancel</Button>
           <Button type="submit" form="duplikat-event" loading={pending}>Create copy as draft</Button>
         </>
-      }
+      )}
     >
       <form id="duplikat-event" onSubmit={(e) => { e.preventDefault(); void duplicate(new FormData(e.currentTarget)); }}>
         {/* Apa yang ikut dan apa yang tidak ditulis DI DEPAN, bukan setelah
@@ -100,7 +106,7 @@ export function DuplicateEventDialog({
             baru ketahuan setelah ada yang memeriksa daftar peserta. */}
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold ed-label">Copied</p><p className="mt-2 text-body-medium text-on-surface-variant">Booths, special items, settings, display settings, agenda, seating plan, lucky-draw prizes &amp; rules, organisation-name exclusions.</p></div>
-          <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold ed-label">Not copied</p><p className="mt-2 text-body-medium text-on-surface-variant">Participants, orders, lucky-draw winners, user access, and all history.</p></div>
+          <div className="rounded-lg bg-surface-container p-4"><p className="text-label-medium font-semibold ed-label">Not copied</p><p className="mt-2 text-body-medium text-on-surface-variant">Participants, orders, lucky-draw winners, user access, form answers shared with the client, and all history.</p></div>
         </div>
 
         {/* `key`: nilai bawaan nama mengikuti event yang sedang disalin. Tanpa
