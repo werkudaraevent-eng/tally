@@ -295,7 +295,13 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
                 {dibagikan > 0 ? <span className="tabular-nums"><span className="max-sm:hidden"> · </span>{dibagikan}</span> : null}
               </Button>
             ) : null}
-            <ExportMenu endpoint={`/e/${encodeURIComponent(slug)}/api/live/export`} label="Download" />
+            <ExportMenu
+              endpoint={`/e/${encodeURIComponent(slug)}/api/live/export`}
+              label="Download"
+              // CSV klien menandai sel yang terbaca rumus dengan ' (mis. nomor +62);
+              // Excel menyembunyikannya, alat lain menampilkannya.
+              csvDetail="For other systems. Values starting with + or = begin with ' so spreadsheets keep them as text; for Excel, use .xlsx."
+            />
           </PaneHeader>
 
           {/* Kepala tabel tetap terlihat saat halaman digulir (laporan 7 Okt).

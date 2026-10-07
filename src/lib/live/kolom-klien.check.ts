@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { kolomJawabanKlien, rapikanPersetujuan, setujuiKunci, statusPertanyaanKlien, teksJawaban } from "./kolom-klien.ts";
+import { kolomJawabanKlien, rapikanPersetujuan, setujuiKunci, statusPertanyaanKlien, tanpaPersetujuanKlien, teksJawaban } from "./kolom-klien.ts";
 
 const sesi = { key: "pertanyaan_baru_2", label: "Session choice", type: "radio" as const, required: false, options: ["A", "B"] };
 const nik = { key: "nik", label: "NIK", type: "text" as const, required: true };
@@ -42,5 +42,11 @@ assert.equal(teksJawaban(centang, "true"), "Yes");
 assert.equal(teksJawaban(centang, ""), "No");
 assert.equal(teksJawaban(centang, undefined), "No");
 assert.equal(teksJawaban({ key: "x", label: "X", type: "text" }, null), "");
+
+// Duplikasi acara: persetujuan tidak ikut, isi form lain tetap.
+assert.deepEqual(tanpaPersetujuanKlien({ fields: [sesi], theme: { seed: "#123456" }, client_fields: disetujui }), { fields: [sesi], theme: { seed: "#123456" } });
+assert.equal(tanpaPersetujuanKlien({ fields: [sesi] }), null);
+assert.equal(tanpaPersetujuanKlien(null), null);
+assert.deepEqual(kolomJawabanKlien(tanpaPersetujuanKlien({ fields: [sesi], client_fields: disetujui })), []);
 
 console.log("kolom-klien: ok");

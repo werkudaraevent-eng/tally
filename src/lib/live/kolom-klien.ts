@@ -90,6 +90,18 @@ export function rapikanPersetujuan(approvals: unknown, fields: RegistrationField
   return sisa.length > 0 ? sisa : undefined;
 }
 
+/**
+ * Untuk acara hasil duplikasi: persetujuan klien TIDAK ikut disalin. Viewer
+ * acara baru bisa klien lain, dan tidak ada yang menyetujui jawaban apa pun
+ * untuk acara itu (QA #102, M-R2-1). Mengembalikan null bila tidak ada yang dibuang.
+ */
+export function tanpaPersetujuanKlien<T extends object>(config: T | null | undefined): Omit<T, "client_fields"> | null {
+  if (!config || !("client_fields" in config)) return null;
+  const { client_fields: _dibuang, ...sisa } = config as T & { client_fields?: unknown };
+  void _dibuang;
+  return sisa;
+}
+
 /** Jawaban sebagai teks untuk tabel dan berkas; kotak centang jadi "Yes" atau "No". */
 export function teksJawaban(kolom: KolomJawaban, nilai: unknown) {
   if (kolom.type === "checkbox") return nilai === "true" || nilai === true ? "Yes" : "No";

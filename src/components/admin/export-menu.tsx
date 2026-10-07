@@ -38,9 +38,11 @@ export type ExportMenuProps = {
   endpoint?: string;
   label?: string;
   className?: string;
+  /** Keterangan CSV pengganti, mis. untuk berkas klien yang selnya dinetralkan. */
+  csvDetail?: string;
 };
 
-export function ExportMenu({ endpoint = "/api/admin/export", label = "Export data", className }: ExportMenuProps) {
+export function ExportMenu({ endpoint = "/api/admin/export", label = "Export data", className, csvDetail }: ExportMenuProps) {
   const [pemicu, setPemicu] = useState<HTMLElement | null>(null);
   const menu = usePopoverAnchor(pemicu);
   const menuId = useId();
@@ -78,7 +80,7 @@ export function ExportMenu({ endpoint = "/api/admin/export", label = "Export dat
               <Icon size={18} className="mt-0.5 shrink-0 text-on-surface-variant" />
               <span>
                 <span className="block text-body-medium font-medium">{label}</span>
-                <span className="mt-0.5 block text-body-small text-on-surface-variant">{detail}</span>
+                <span className="mt-0.5 block text-body-small text-on-surface-variant">{format === "csv" && csvDetail ? csvDetail : detail}</span>
               </span>
             </a>
           ))}
