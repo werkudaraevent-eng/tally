@@ -198,7 +198,7 @@ type KueriKeyset<T> = {
   limit(jumlah: number): PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
 };
 
-type BarisForm = { id: number; participant_id: string | null; created_at: string };
+type BarisForm = { id: string; participant_id: string | null; created_at: string };
 
 /** Form pertama semua peserta acara. `lengkap` untuk unduhan (lihat `bacaBerurut`). */
 async function semuaFormPertama(eventId: string, lengkap = false) {
@@ -319,7 +319,7 @@ export async function hitunganKlien(eventId: string, zonaMentah: unknown) {
   const [terdaftar, dibuatHariIni, formKemarin, menunggu, dipindai, hadirSumber] = await Promise.all([
     aktif(),
     aktif().gte("created_at", tengahMalam),
-    bacaSemua<{ id: number; participant_id: string }>(
+    bacaSemua<{ id: string; participant_id: string }>(
       () =>
         client
           .from("event_registrations")
@@ -328,7 +328,7 @@ export async function hitunganKlien(eventId: string, zonaMentah: unknown) {
           .lt("created_at", tengahMalam)
           .gte("participants.created_at", tengahMalam)
           .is("participants.source_removed_at", null)
-          .order("id", { ascending: true }) as unknown as KueriBerhalaman<{ id: number; participant_id: string }>,
+          .order("id", { ascending: true }) as unknown as KueriBerhalaman<{ id: string; participant_id: string }>,
       (b) => b.participant_id,
     ),
     client.from("event_registrations").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("status", "pending"),
