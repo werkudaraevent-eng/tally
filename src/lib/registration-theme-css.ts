@@ -293,7 +293,24 @@ export function gatheringColors(accent: string | undefined, seed: string | undef
   // Warna tombol dari Tema (preset Gathering: hijau). Tanpa isian, tombol tetap
   // warna aksen seperti sebelumnya, jadi acara lama tidak berubah warna.
   const tombol = /^#[0-9a-f]{6}$/i.test(button ?? "") ? button! : null;
-  const cta = tombol ?? (kontras(aksen, "#000000") >= 3 ? aksen : "#ffffff");
+  // Tombol harus tetap terlihat sebagai bidang di latar tempatnya (QA #103 M3):
+  // di hero dan pita navy (merek sampai merek yang digelapkan) dan di putih.
+  // Warna yang menyatu (< 2:1) diganti: di navy kembali ke aturan lama (aksen
+  // atau putih), di putih digelapkan sampai terbaca.
+  const navyGelap = mixHex(merek, "#000000", 0.38);
+  const ctaLama = kontras(aksen, "#000000") >= 3 ? aksen : "#ffffff";
+  const cta = tombol && Math.min(kontras(tombol, merek), kontras(tombol, navyGelap)) >= 2 ? tombol : ctaLama;
+  const dasarPutih = tombol ?? cta;
+  const ctaPutih = kontras(dasarPutih, "#ffffff") >= 2 ? dasarPutih : terbacaDi(dasarPutih, "#ffffff");
+  // Teks warna aksi di atas putih: label bagian, ikon, tab aktif.
+  const aksiTeks = tombol ? terbacaDi(tombol, "#ffffff") : terbacaDi(aksen.toUpperCase() === GATHERING_ACCENT_DEFAULT ? GATHERING_OKER : aksen, "#ffffff");
+  const aksenTeks = terbacaDi(aksen.toUpperCase() === GATHERING_ACCENT_DEFAULT ? GATHERING_OKER : aksen, "#ffffff");
+  // Chip berlatar warna yang diencerkan (hari di kartu hari, status di portal):
+  // teksnya diperiksa terhadap latar chip itu sendiri, bukan putih (QA #103 L1).
+  const chip = (warna: string, encer: number, teks: string) => {
+    const latar = mixHex(warna, "#ffffff", encer);
+    return { latar, teks: terbacaDi(teks, latar) };
+  };
   // KV yang dibayangi tidak pernah hitam murni: KV navy KSO 21 terukur ~#070e1f,
   // dan KV yang lebih terang lebih dari itu. #222 memberi jarak aman untuk
   // keduanya (QA PR #87: #4d72c8 lolos terhadap hitam, 4.17:1 terhadap KV nyata).
@@ -311,9 +328,14 @@ export function gatheringColors(accent: string | undefined, seed: string | undef
     // Teks warna primary di atas pasir (jam kartu hari, tautan jadwal lengkap).
     primerTeks: terbacaDi(primer, sand),
     // Warna aksi di atas putih (label bagian, ikon, tab aktif); emas oker bila
-    // warna tombol belum diisi.
-    // Aksen di atas putih (nomor hari ketiga di kartu hari gaya aplikasi).
-    aksenTeks: terbacaDi(aksen.toUpperCase() === GATHERING_ACCENT_DEFAULT ? GATHERING_OKER : aksen, "#ffffff"),
-    aksiTeks: tombol ? terbacaDi(tombol, "#ffffff") : terbacaDi(aksen.toUpperCase() === GATHERING_ACCENT_DEFAULT ? GATHERING_OKER : aksen, "#ffffff"),
+    // warna tombol belum diisi. Aksen di atas putih: nomor hari ketiga.
+    aksiTeks,
+    aksenTeks,
+    // Tombol di atas putih (bagian Portal peserta, dialog masuk).
+    ctaPutih,
+    onCtaPutih: tintaTerbaik(ctaPutih, merek),
+    chipAksi: chip(ctaPutih, 0.88, aksiTeks),
+    chipMerek: chip(primer, 0.9, primer),
+    chipAksen: chip(aksen, 0.78, aksenTeks),
   };
 }

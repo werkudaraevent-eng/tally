@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { getEventBySlugPublic } from "@/lib/auth/event-scope";
 import { publicEventName, type EventLandingConfig } from "@/lib/domain";
 import { formatEventSchedule } from "@/lib/event-datetime";
+import { tanpaBintang } from "@/lib/landing-tagline";
 import { landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
 
 /** Asal situs dari permintaan ini, untuk alamat hreflang dan canonical yang harus absolut. */
@@ -38,12 +39,13 @@ export async function landingMetadata(slug: string, langDiminta?: LandingLang): 
   const banner = (config as EventLandingConfig)?.banner_url ?? undefined;
   const asal = landingEnAvailable(config) ? await asalSitus() : null;
 
+  const tagline = event.tagline ? tanpaBintang(event.tagline) : null;
   return {
-    title: `${publicEventName(event)}${event.tagline ? ` · ${event.tagline}` : ""}`,
+    title: `${publicEventName(event)}${tagline ? ` · ${tagline}` : ""}`,
     description: event.description ?? jadwal ?? undefined,
     openGraph: {
       title: publicEventName(event),
-      description: event.tagline ?? event.description ?? undefined,
+      description: tagline ?? event.description ?? undefined,
       images: banner ? [banner] : undefined,
       type: "website",
       locale: lang === "en" ? "en_GB" : "id_ID",

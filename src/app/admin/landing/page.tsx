@@ -994,7 +994,7 @@ export default function LandingCmsPage() {
           label="Tagline"
           optional
           rows={2}
-          hint="One sentence below the event name."
+          hint={gathering ? "The large title in the hero. Put *stars* around a word to colour it with the accent colour." : "One sentence below the event name."}
           value={facts.tagline ?? ""}
           onChange={(event) => patchFacts({ tagline: event.target.value })}
         />
@@ -1010,6 +1010,9 @@ export default function LandingCmsPage() {
         />
       ) : null}
 
+      {/* Hero gathering punya ukuran dan susunan sendiri: kontrol yang tidak
+          mengubah apa pun tidak ditampilkan (QA #103 L4). */}
+      {gathering ? null : (
       <Kelompok title="Size" note="In px, for wide screens. Scales down automatically on phones.">
         <AngkaPx
           label="Event name size"
@@ -1026,12 +1029,13 @@ export default function LandingCmsPage() {
           hint="Never taller than the visitor's screen, so the register button stays visible. On phones 75% of this value."
         />
       </Kelompok>
+      )}
 
       {/* Setelan bagian, bukan tema global (Shopify: Image banner). Kiri/Tengah
           saja: rata kanan di teks Latin membuat mata mencari awal baris, dan di
           ponsel harus jatuh ke kiri juga. Editorial hanya Kiri, karena kolom
           fakta acara berdiri di kanan judul. */}
-      {modern ? (
+      {gathering ? null : modern ? (
         <Kelompok title="Text placement" note={landing.banner_url ? "Bottom keeps the KV visible above the title." : undefined}>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex min-w-0 flex-col gap-2">
@@ -1082,10 +1086,24 @@ export default function LandingCmsPage() {
             rows={3}
             maxLength={240}
             counter
-            hint="One or two sentences on what the trip is. Put *stars* around a word in the tagline to colour it with the accent colour."
+            hint="One or two sentences on what the trip is."
             value={landing.hero_note ?? ""}
             onChange={(event) => setLanding({ ...landing, hero_note: event.target.value })}
           />
+          {/* Logo hero dari gaya sebelumnya: tidak lagi digambar, jadi admin
+              melihatnya dan bisa menghapusnya (QA #103 L5). */}
+          {landing.hero_logo_url ? (
+            <div className="flex items-center gap-3 rounded-md border border-outline-variant p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={landing.hero_logo_url} alt="" className="h-10 w-16 shrink-0 object-contain" />
+              <p className="min-w-0 flex-1 text-body-medium text-on-surface-variant">
+                This hero logo is not shown in the gathering layout. Put it in Top bar, Event logo instead, or remove it.
+              </p>
+              <Button variant="outlined" size="sm" disabled={busy} onClick={() => setLanding({ ...landing, hero_logo_url: null })}>
+                Remove
+              </Button>
+            </div>
+          ) : null}
         </Kelompok>
       ) : null}
 
@@ -1095,7 +1113,11 @@ export default function LandingCmsPage() {
           kind="landing"
           fit="cover"
           previewClassName="h-20 w-36"
-          hint="16:9 ratio, at least 1920×1080. Keep the important part of the image at the top or right: the title sits bottom left. PNG, JPG or WebP, up to 5 MB."
+          hint={
+            gathering
+              ? "Not shown in the gathering hero. Used as the About picture when About has no photo, and as the link-preview image. PNG, JPG or WebP, up to 5 MB."
+              : "16:9 ratio, at least 1920×1080. Keep the important part of the image at the top or right: the title sits bottom left. PNG, JPG or WebP, up to 5 MB."
+          }
           value={landing.banner_url ?? null}
           onChange={(url) => setLanding({ ...landing, banner_url: url })}
           disabled={busy}
@@ -1103,7 +1125,7 @@ export default function LandingCmsPage() {
         {/* Pilihan ini hanya muncul saat bannernya ada. Tanpa gambar, kedua
             opsi menghasilkan halaman yang sama persis, dan kontrol yang tidak
             mengubah apa pun membuat admin ragu apakah dirinya salah pakai. */}
-        {landing.banner_url ? (
+        {landing.banner_url && !gathering ? (
           <div>
             <p className="text-body-medium font-medium text-on-surface">KV style</p>
             <SegmentedButton

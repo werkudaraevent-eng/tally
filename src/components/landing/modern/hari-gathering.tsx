@@ -7,9 +7,10 @@ import { HEAD, MUTED } from "./styles";
 /** Nomor hari bergiliran warna tombol, warna merek, dan aksen (rancangan pen.dev). */
 const WARNA_NOMOR = ["text-[var(--alis)]", "text-[var(--primer-teks)]", "text-[var(--aksen-teks)]"];
 const WARNA_CHIP = [
-  "bg-[color-mix(in_srgb,var(--aksi)_12%,white)] text-[var(--alis)]",
-  "bg-[color-mix(in_srgb,var(--reg-brand)_10%,white)] text-[var(--primer-teks)]",
-  "bg-[color-mix(in_srgb,var(--aksen)_22%,white)] text-[var(--aksen-teks)]",
+  // Teks chip dihitung terhadap latar chip itu sendiri (gatheringColors, QA #103 L1).
+  "bg-[var(--chip-aksi)] text-[var(--on-chip-aksi)]",
+  "bg-[var(--chip-merek)] text-[var(--on-chip-merek)]",
+  "bg-[var(--chip-aksen)] text-[var(--on-chip-aksen)]",
 ];
 
 /**

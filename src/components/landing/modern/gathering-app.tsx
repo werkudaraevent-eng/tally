@@ -37,10 +37,7 @@ export function judulBerbintang(teks: string): ReactNode[] {
   );
 }
 
-/** Teks polos tanpa bintang, untuk judul dokumen dan alt. */
-export function tanpaBintang(teks: string): string {
-  return teks.replace(/\*([^*\n]+)\*/g, "$1");
-}
+export { tanpaBintang } from "@/lib/landing-tagline";
 
 type Aksi = { href: string; label: string; link?: boolean };
 
@@ -78,7 +75,7 @@ export function HeroGathering({
               {alis}
             </p>
           ) : null}
-          <h1 className={`${HEAD} max-w-[760px] text-balance text-[40px] font-extrabold leading-[1.08] tracking-[-0.02em] sm:text-[52px] lg:text-[62px] lg:leading-[1.05]`}>
+          <h1 className={`${HEAD} max-w-[760px] text-balance [overflow-wrap:anywhere] text-[40px] font-extrabold leading-[1.08] tracking-[-0.02em] sm:text-[52px] lg:text-[62px] lg:leading-[1.05]`}>
             {judulBerbintang(judul)}
           </h1>
           {catatan ? (
@@ -203,7 +200,12 @@ export function PortalGathering({
 }) {
   const IKON = { tiket: Ticket, kamar: Bed, bus: Bus, pengumuman: Megaphone } as const;
   return (
-    <section id="portal" className="scroll-mt-[var(--nav-h)] py-14 sm:py-[72px]">
+    <section
+      id="portal"
+      className="scroll-mt-[var(--nav-h)] py-14 sm:py-[72px]"
+      // Di atas putih: tombol versi yang terlihat di putih (QA #103 M3).
+      style={{ "--aksi": "var(--aksi-putih)", "--on-aksi": "var(--on-aksi-putih)" } as CSSProperties}
+    >
       <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16">
         <div className="flex max-w-[560px] flex-col items-start">
           <p className={`${LABEL_BAGIAN} text-[var(--alis)]`}>{alis}</p>
@@ -235,7 +237,7 @@ export function PitaPenutupGathering({ judul, catatan, aksi, gaya }: { judul: st
   return (
     <section className="text-[var(--ink)]" style={{ ...gaya, background: LATAR_HERO }}>
       <div className={`${SHELL} flex flex-col items-center gap-5 py-16 text-center sm:py-[72px]`}>
-        <h2 className={`${HEAD} max-w-[800px] text-balance text-[32px] font-extrabold leading-[1.15] tracking-[-0.02em] sm:text-[44px]`}>{judul}</h2>
+        <h2 className={`${HEAD} max-w-[800px] text-balance [overflow-wrap:anywhere] text-[32px] font-extrabold leading-[1.15] tracking-[-0.02em] sm:text-[44px]`}>{judul}</h2>
         {catatan ? <p className="max-w-[640px] text-body-large opacity-85">{catatan}</p> : null}
         <TautanAksi {...aksi} className={`${TOMBOL_AKSI} mt-2`} />
       </div>

@@ -293,6 +293,14 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         backgroundColor: "#ffffff",
         "--alis": warnaGathering.aksiTeks,
         "--aksen-teks": warnaGathering.aksenTeks,
+        "--aksi-putih": warnaGathering.ctaPutih,
+        "--on-aksi-putih": warnaGathering.onCtaPutih,
+        "--chip-aksi": warnaGathering.chipAksi.latar,
+        "--on-chip-aksi": warnaGathering.chipAksi.teks,
+        "--chip-merek": warnaGathering.chipMerek.latar,
+        "--on-chip-merek": warnaGathering.chipMerek.teks,
+        "--chip-aksen": warnaGathering.chipAksen.latar,
+        "--on-chip-aksen": warnaGathering.chipAksen.teks,
         "--aksi": warnaGathering.cta,
         "--on-aksi": warnaGathering.onCta,
         "--aksen": warnaGathering.aksen,
@@ -387,7 +395,10 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 <img
                   src={fotoTentang}
                   alt={config.about_image_alt?.trim() ?? ""}
-                  loading="lazy"
+                  // Gathering: hero tanpa KV, jadi gambar ini masuk layar pertama
+                  // dan menjadi LCP (QA #103 M1).
+                  loading={gaya ? "eager" : "lazy"}
+                  fetchPriority={gaya ? "high" : undefined}
                   className="aspect-[4/3] w-full rounded-lg object-cover sm:aspect-[625/550]"
                 />
               ) : panelTentang ? (
@@ -400,7 +411,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                   {kv ? (
                     <>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={kv} alt="" loading="lazy" className="absolute inset-0 -z-10 size-full object-cover" />
+                      <img src={kv} alt="" loading={gaya ? "eager" : "lazy"} fetchPriority={gaya ? "high" : undefined} className="absolute inset-0 -z-10 size-full object-cover" />
                     </>
                   ) : null}
                   {stat ? (
@@ -452,7 +463,8 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 <JudulBagian {...judulBagian("agenda")} {...(!config.agenda_eyebrow?.trim() ? { alis: t.tripEyebrow } : {})} />
                 {config.agenda_note?.trim() ? <p className={`max-w-[520px] text-isi ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
               </div>
-              {tanggal ? <p className={`text-body-medium tabular-nums ${MUTED}`}>{tanggal}</p> : null}
+              {/* Tanpa judul dari CMS, judul bagian sudah tanggalnya (QA #103 L3). */}
+              {tanggal && judulBagian("agenda").judul !== tanggal ? <p className={`text-body-medium tabular-nums ${MUTED}`}>{tanggal}</p> : null}
             </div>
             <HariGathering
               agenda={agenda}
