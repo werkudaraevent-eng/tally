@@ -53,6 +53,11 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
   // supaya klien yang membiarkan layar terbuka melihat siapa yang baru datang.
   const [batasBaru, setBatasBaru] = useState<string | null>(null);
   const urutan = useRef(0);
+  const kepalaRef = useRef<HTMLTableSectionElement>(null);
+  const gulirRef = useRef<HTMLDivElement>(null);
+  const salinanRef = useRef<HTMLDivElement>(null);
+  // Salinan kepala tampil hanya saat kepala asli sudah lewat ke bawah bilah atas.
+  const [menempel, setMenempel] = useState(false);
 
   useEffect(() => {
     const pewaktu = window.setTimeout(() => { setCari(query.trim()); setPage(1); }, 250);
@@ -85,6 +90,24 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
     return () => { window.clearTimeout(awal); window.clearInterval(selang); document.removeEventListener("visibilitychange", terlihat); };
   }, [muat]);
 
+  const adaBaris = Boolean(data && data.rows.length > 0);
+  useEffect(() => {
+    const kepala = kepalaRef.current;
+    if (!adaBaris || !kepala) return;
+    const tinggiBilah = parseFloat(getComputedStyle(kepala).getPropertyValue("--topbar-height")) || 57;
+    const periksa = () => setMenempel(kepala.getBoundingClientRect().top < tinggiBilah);
+    periksa();
+    window.addEventListener("scroll", periksa, { passive: true });
+    window.addEventListener("resize", periksa);
+    return () => { window.removeEventListener("scroll", periksa); window.removeEventListener("resize", periksa); };
+  }, [adaBaris]);
+
+  const samakanGeser = () => {
+    if (salinanRef.current && gulirRef.current) salinanRef.current.scrollLeft = gulirRef.current.scrollLeft;
+  };
+  // Baris baru tiap 30 detik bisa mengubah lebar gulir; jaga salinan tetap sejajar.
+  useEffect(samakanGeser, [data, menempel]);
+
   const zona = data ? normalizeTimeZone(data.event.time_zone) : DEFAULT_TIME_ZONE;
   const jam = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: zona });
   const tanggalJam = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: zona });
@@ -109,17 +132,36 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
     { label: "Checked in", nilai: angka?.checked_in, catatan: angka ? `of ${angka.registered.toLocaleString("en-GB")} registered` : "" },
   ];
 
-  const kepala = (label: string, kunci?: Urut) => {
+  const kepala = (label: string, kunci?: Urut, salinan = false) => {
     if (!kunci) return label;
     const aktif = sort === kunci;
     return (
-      <button type="button" onClick={() => urutkan(kunci)} className="inline-flex items-center gap-1 rounded-sm hover:text-on-surface">
+      <button type="button" tabIndex={salinan ? -1 : undefined} onClick={() => urutkan(kunci)} className="inline-flex items-center gap-1 rounded-sm hover:text-on-surface">
         {label}
         {aktif ? (dir === "asc" ? <CaretUp size={12} weight="bold" aria-hidden /> : <CaretDown size={12} weight="bold" aria-hidden />) : null}
       </button>
     );
   };
   const ariaSort = (kunci: Urut) => (sort === kunci ? (dir === "asc" ? "ascending" : "descending") : undefined);
+  const barisKepala = (salinan: boolean) => (
+      <tr className="h-10">
+        <th scope="col" aria-sort={salinan ? undefined : ariaSort("name")} className="border-b border-outline-variant px-4 py-0 font-medium">{kepala("Name", "name", salinan)}</th>
+        <th scope="col" aria-sort={salinan ? undefined : ariaSort("company")} className="border-b border-outline-variant px-3 py-0 font-medium">{kepala("Organisation", "company", salinan)}</th>
+        <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Job title</th>
+        <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Email</th>
+        <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Phone</th>
+        <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Type</th>
+        <th scope="col" aria-sort={salinan ? undefined : ariaSort("registered_at")} className="border-b border-outline-variant px-3 py-0 font-medium">{kepala("Registered", "registered_at", salinan)}</th>
+        <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Check-in</th>
+      </tr>
+  );
+  const kolom = (
+    <colgroup>
+      {/* 1.160 px: muat di panel pada jendela 1280 yang memakai scrollbar (isi
+          1.265 px). Phone 164: "+6281387719xxx" tampil utuh (laporan 7 Okt). */}
+      <col style={{ width: 168 }} /><col style={{ width: 146 }} /><col style={{ width: 126 }} /><col style={{ width: 208 }} /><col style={{ width: 164 }} /><col style={{ width: 88 }} /><col style={{ width: 140 }} /><col style={{ width: 120 }} />
+    </colgroup>
+  );
   const pageCount = data ? Math.max(1, Math.ceil(data.total / UKURAN)) : 1;
 
   return (
@@ -167,7 +209,9 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
           ))}
         </section>
 
-        <Pane aria-label="Registered participants">
+        {/* overflow clip, bukan hidden: hidden menjadikan panel wadah gulir dan
+            kepala tabel yang sticky berhenti menempel ke jendela. */}
+        <Pane aria-label="Registered participants" className="!overflow-clip">
           <PaneHeader className="flex-wrap gap-2 px-3 py-3">
             <label className="relative min-w-[200px] flex-1">
               <span className="sr-only">Search participants</span>
@@ -185,7 +229,25 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
             <ExportMenu endpoint={`/e/${encodeURIComponent(slug)}/api/live/export`} label="Download" />
           </PaneHeader>
 
-          <div className="overflow-x-auto">
+          {/* Kepala tabel tetap terlihat saat halaman digulir (laporan 7 Okt).
+              - Jendela >= 1248 px: tabel muat, tidak ada wadah overflow, jadi
+                <thead> asli cukup sticky di bawah bilah atas.
+              - Lebih sempit: tabel perlu geser ke samping, dan sticky tidak bisa
+                keluar dari wadah overflow-x. Salinan kepala di luar wadah itu
+                menempel di bawah bilah atas, muncul hanya setelah kepala asli
+                lewat, dan ikut geser ke samping bersama tabel. Salinannya
+                aria-hidden; pembaca layar dan keyboard memakai kepala asli. */}
+          {data && data.rows.length > 0 ? (
+            <div aria-hidden className={cx("sticky top-[var(--topbar-height)] z-10 -mb-10 h-10 min-[1248px]:hidden", !menempel && "invisible")}>
+              <div ref={salinanRef} className="overflow-hidden">
+                <table className="w-full min-w-[1160px] table-fixed border-separate border-spacing-0 text-left text-body-medium">
+                  {kolom}
+                  <thead className="bg-surface-container-high text-body-medium font-medium text-on-surface-variant">{barisKepala(true)}</thead>
+                </table>
+              </div>
+            </div>
+          ) : null}
+          <div ref={gulirRef} onScroll={samakanGeser} className="overflow-x-auto min-[1248px]:overflow-visible">
             {gagal && !data ? (
               <EmptyState plain icon={<UsersThree size={40} />} title="Couldn't load registrations" description="Check your connection. This page tries again every 30 seconds." />
             ) : !data ? (
@@ -193,22 +255,10 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
             ) : data.rows.length === 0 ? (
               <EmptyState plain icon={<UsersThree size={40} />} title={cari ? "No matching participants" : "No registrations yet"} description={cari ? "Try another name, organisation or email." : "New registrations appear here on their own."} />
             ) : (
-              <table className={cx("w-full min-w-[1188px] table-fixed border-separate border-spacing-0 text-left text-body-medium", memuat && "opacity-80")}>
-                <colgroup>
-                  {/* 1.188 px: pas dengan isi panel pada layar 1280 (QA PR #100, M4). */}
-                  <col style={{ width: 180 }} /><col style={{ width: 156 }} /><col style={{ width: 132 }} /><col style={{ width: 216 }} /><col style={{ width: 144 }} /><col style={{ width: 100 }} /><col style={{ width: 140 }} /><col style={{ width: 120 }} />
-                </colgroup>
-                <thead className="bg-surface-container-high text-body-medium font-medium text-on-surface-variant">
-                  <tr className="h-10">
-                    <th scope="col" aria-sort={ariaSort("name")} className="border-b border-outline-variant px-4 py-0 font-medium">{kepala("Name", "name")}</th>
-                    <th scope="col" aria-sort={ariaSort("company")} className="border-b border-outline-variant px-3 py-0 font-medium">{kepala("Organisation", "company")}</th>
-                    <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Job title</th>
-                    <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Email</th>
-                    <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Phone</th>
-                    <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Type</th>
-                    <th scope="col" aria-sort={ariaSort("registered_at")} className="border-b border-outline-variant px-3 py-0 font-medium">{kepala("Registered", "registered_at")}</th>
-                    <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Check-in</th>
-                  </tr>
+              <table className={cx("w-full min-w-[1160px] table-fixed border-separate border-spacing-0 text-left text-body-medium", memuat && "opacity-80")}>
+                {kolom}
+                <thead ref={kepalaRef} className="bg-surface-container-high text-body-medium font-medium text-on-surface-variant min-[1248px]:sticky min-[1248px]:top-[var(--topbar-height)] min-[1248px]:z-10">
+                  {barisKepala(false)}
                 </thead>
                 <tbody>
                   {data.rows.map((baris) => {
