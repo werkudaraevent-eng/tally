@@ -140,6 +140,12 @@ export type RegistrationFormConfig = {
   require_job_title?: boolean;
   /** Warna dan gambar form publik. Lihat src/lib/registration-theme.ts. */
   theme?: RegistrationFormTheme;
+  /**
+   * Kunci pertanyaan yang jawabannya boleh dilihat akun Viewer (klien) di layar
+   * live dan unduhannya. Kosong/tidak ada = tidak satu pun. Diatur dari layar
+   * Client view, BUKAN dari penyunting form; penyunting form mempertahankannya.
+   */
+  client_fields?: string[];
 };
 
 /**

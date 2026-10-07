@@ -243,6 +243,9 @@ export async function PATCH(request: Request) {
       // formulir yang dipilih di CMS halaman acara — dan tidak ada apa pun di
       // layar ini yang memberi tahu bahwa itu terjadi.
       theme: (event.registration_form_config as RegistrationFormConfig | null)?.theme,
+      // Sama seperti tema: pilihan jawaban untuk klien diatur di layar Client
+      // view, dan menyimpan susunan form tidak boleh diam-diam menghapusnya.
+      client_fields: (event.registration_form_config as RegistrationFormConfig | null)?.client_fields,
     };
   }
 

@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/login";
 import { requireEventScope } from "@/lib/auth/event-scope";
+import type { RegistrationFormConfig } from "@/lib/domain";
+import { pertanyaanUntukKlien } from "@/lib/live/data";
 import { roleHome } from "@/lib/role-home";
 import { LiveClient } from "./live-client";
 
@@ -30,6 +32,10 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
     }
     throw new Error("Could not load the event.");
   }
+  // Daftar pertanyaan hanya untuk admin (pengaturan kolom klien); Viewer tidak
+  // pernah menerima label pertanyaan yang tidak dibagikan kepadanya.
+  const admin = resolved.scope.role === "admin" || resolved.scope.role === "super_admin";
+  const config = resolved.scope.event.registration_form_config as RegistrationFormConfig | null;
   return (
     <LiveClient
       slug={resolved.scope.event.slug}
@@ -37,6 +43,10 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
       username={user.username}
       role={resolved.scope.role}
       preview={resolved.scope.role !== "viewer"}
+      pengaturanKolom={admin ? {
+        pertanyaan: pertanyaanUntukKlien(config).map(({ key, label, type }) => ({ key, label, type })),
+        dipilih: Array.isArray(config?.client_fields) ? config.client_fields : [],
+      } : undefined}
     />
   );
 }

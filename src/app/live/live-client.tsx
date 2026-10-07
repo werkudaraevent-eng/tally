@@ -1,20 +1,23 @@
 "use client";
 
-import { ArrowClockwise, CaretDown, CaretUp, Eye, MagnifyingGlass, UsersThree } from "@phosphor-icons/react";
+import { ArrowClockwise, CaretDown, CaretUp, Columns, Eye, MagnifyingGlass, UsersThree } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ExportMenu } from "@/components/admin/export-menu";
 import { UserMenu } from "@/components/admin/user-menu";
-import { Banner, CONTAINER_PADDING, EmptyState, IconButton, Pagination, Pane, PaneHeader, Skeleton, StatusChip, TopAppBar } from "@/components/m3";
+import { Banner, Button, CONTAINER_PADDING, EmptyState, IconButton, Pagination, Pane, PaneHeader, Skeleton, StatusChip, TopAppBar } from "@/components/m3";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import type { BarisKlien } from "@/lib/live/data";
 import { DEFAULT_TIME_ZONE, normalizeTimeZone, timeZoneAbbr } from "@/lib/timezone";
+import { KolomKlienDialog, type PertanyaanKlien } from "./kolom-klien";
 
 
 type Data = {
   event: { name: string; slug: string; status: string; time_zone: string };
   counts: { registered: number; today: number; pending: number; checked_in: number };
+  /** Pertanyaan form yang dibagikan admin, dalam urutan form. */
+  answer_columns: { key: string; label: string }[];
   rows: BarisKlien[];
   total: number;
   fetched_at: string;
@@ -30,14 +33,24 @@ type Urut = "registered_at" | "name" | "company";
  */
 const SELANG_MS = 30_000;
 const UKURAN = 50;
+/**
+ * Lebar kolom dalam rem, bukan px: dengan ukuran huruf peramban yang dibesarkan
+ * (mis. 20 px), kolom ikut melebar bersama teksnya alih-alih memotongnya
+ * (QA #101 L2). 72,5 rem = 1.160 px pada huruf 16 px.
+ */
+const LEBAR_KOLOM = [10.5, 9.125, 7.875, 12.5, 11.5, 5.25, 7.75, 8];
+const LEBAR_INTI = LEBAR_KOLOM.reduce((a, b) => a + b, 0);
+const LEBAR_JAWABAN = 11.5;
 
-export function LiveClient({ slug, eventName, username, role, preview }: {
+export function LiveClient({ slug, eventName, username, role, preview, pengaturanKolom }: {
   slug: string;
   eventName: string;
   username: string;
   role: string;
   /** Admin yang membuka layar klien untuk melihat apa yang klien lihat. */
   preview: boolean;
+  /** Hanya untuk admin: pertanyaan yang bisa dibagikan dan yang sudah dipilih. */
+  pengaturanKolom?: { pertanyaan: PertanyaanKlien[]; dipilih: string[] };
 }) {
   const router = useRouter();
   const [data, setData] = useState<Data | null>(null);
@@ -58,6 +71,13 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
   const salinanRef = useRef<HTMLDivElement>(null);
   // Salinan kepala tampil hanya saat kepala asli sudah lewat ke bawah bilah atas.
   const [menempel, setMenempel] = useState(false);
+  // Kolom pertama ikut menempel di kiri saat tabel digeser; garis pemisahnya
+  // hanya tampil kalau memang ada yang tergeser di bawahnya.
+  const [digeser, setDigeser] = useState(false);
+  const [aturKolom, setAturKolom] = useState(false);
+  const [dipilih, setDipilih] = useState(pengaturanKolom?.dipilih ?? []);
+  // Pertanyaan yang sudah dihapus dari form tidak dihitung.
+  const dibagikan = pengaturanKolom ? pengaturanKolom.pertanyaan.filter((p) => dipilih.includes(p.key)).length : 0;
 
   useEffect(() => {
     const pewaktu = window.setTimeout(() => { setCari(query.trim()); setPage(1); }, 250);
@@ -106,6 +126,7 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
 
   const samakanGeser = () => {
     if (salinanRef.current && gulirRef.current) salinanRef.current.scrollLeft = gulirRef.current.scrollLeft;
+    setDigeser((gulirRef.current?.scrollLeft ?? 0) > 0);
   };
   // Baris baru tiap 30 detik bisa mengubah lebar gulir; jaga salinan tetap sejajar.
   useEffect(samakanGeser, [data, menempel]);
@@ -145,9 +166,15 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
     );
   };
   const ariaSort = (kunci: Urut) => (sort === kunci ? (dir === "asc" ? "ascending" : "descending") : undefined);
+  const jawaban = data?.answer_columns ?? [];
+  // Dengan kolom jawaban, tabel tidak muat di jendela mana pun: selalu pakai
+  // wadah geser dan salinan kepala, bukan <thead> sticky bawaan.
+  const lebar = jawaban.length > 0;
+  const lebarTabel = `${LEBAR_INTI + jawaban.length * LEBAR_JAWABAN}rem`;
+  const selPertama = cx("sticky left-0 z-[1] border-b border-outline-variant px-4 py-0", digeser && "border-r");
   const barisKepala = (salinan: boolean) => (
       <tr className="h-10">
-        <th scope="col" aria-sort={salinan ? undefined : ariaSort("name")} className="border-b border-outline-variant px-4 py-0 font-medium">{kepala("Name", "name", salinan)}</th>
+        <th scope="col" aria-sort={salinan ? undefined : ariaSort("name")} className={cx(selPertama, "bg-surface-container-high font-medium")}>{kepala("Name", "name", salinan)}</th>
         <th scope="col" aria-sort={salinan ? undefined : ariaSort("company")} className="border-b border-outline-variant px-3 py-0 font-medium">{kepala("Organisation", "company", salinan)}</th>
         <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Job title</th>
         <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Email</th>
@@ -155,14 +182,19 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
         <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Type</th>
         <th scope="col" aria-sort={salinan ? undefined : ariaSort("registered_at")} className="border-b border-outline-variant px-3 py-0 font-medium">{kepala("Registered", "registered_at", salinan)}</th>
         <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Check-in</th>
+        {jawaban.map((k) => (
+          <th key={k.key} scope="col" title={k.label} className="truncate border-b border-outline-variant px-3 py-0 font-medium">{k.label}</th>
+        ))}
       </tr>
   );
   const kolom = (
     <colgroup>
       {/* 1.160 px: muat di panel pada jendela 1280 yang memakai scrollbar (isi
           1.265 px). Phone 184: nomor dengan spasi/strip seperti
-          "+62 812-3456-78901" tampil utuh (laporan 7 Okt, QA #101 M1). */}
-      <col style={{ width: 168 }} /><col style={{ width: 146 }} /><col style={{ width: 126 }} /><col style={{ width: 208 }} /><col style={{ width: 184 }} /><col style={{ width: 84 }} /><col style={{ width: 124 }} /><col style={{ width: 120 }} />
+          "+62 812-3456-78901" tampil utuh (laporan 7 Okt, QA #101 M1). Check-in
+          128: chip "Checked in" muat, kepala salinan tidak bergeser (L2). */}
+      {LEBAR_KOLOM.map((lebar, i) => <col key={i} style={{ width: `${lebar}rem` }} />)}
+      {jawaban.map((k) => <col key={k.key} style={{ width: `${LEBAR_JAWABAN}rem` }} />)}
     </colgroup>
   );
   const pageCount = data ? Math.max(1, Math.ceil(data.total / UKURAN)) : 1;
@@ -201,6 +233,17 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
             <a href={`/e/${encodeURIComponent(slug)}/admin`} className="font-medium text-primary underline">Back to admin</a>
           </Banner>
         ) : null}
+        {pengaturanKolom ? (
+          <KolomKlienDialog
+            key={String(aturKolom)}
+            open={aturKolom}
+            onClose={() => setAturKolom(false)}
+            slug={slug}
+            pertanyaan={pengaturanKolom.pertanyaan}
+            dipilih={dipilih}
+            onSaved={(keys) => { setDipilih(keys); setAturKolom(false); void muat(); }}
+          />
+        ) : null}
 
         <section aria-label="Summary" className="grid grid-cols-3 gap-2 sm:gap-3">
           {tile.map((t) => (
@@ -229,11 +272,18 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
             <span className="px-1 text-body-medium text-on-surface-variant tabular-nums">
               {data ? plural(data.total, "participant", "participants") : ""}
             </span>
+            {pengaturanKolom ? (
+              // Hanya admin. Jumlah di label: admin tahu sekilas apakah ada jawaban
+              // form yang sedang terbuka untuk klien.
+              <Button variant="outlined" icon={<Columns size={18} />} onClick={() => setAturKolom(true)}>
+                Form answers{dibagikan > 0 ? ` · ${dibagikan}` : ""}
+              </Button>
+            ) : null}
             <ExportMenu endpoint={`/e/${encodeURIComponent(slug)}/api/live/export`} label="Download" />
           </PaneHeader>
 
           {/* Kepala tabel tetap terlihat saat halaman digulir (laporan 7 Okt).
-              - Jendela >= 1272 px: tabel muat, tidak ada wadah overflow, jadi
+              - Jendela >= 79,5 rem (1.272 px pada huruf 16 px): tabel muat, tidak ada wadah overflow, jadi
                 <thead> asli cukup sticky di bawah bilah atas.
               - Lebih sempit: tabel perlu geser ke samping, dan sticky tidak bisa
                 keluar dari wadah overflow-x. Salinan kepala di luar wadah itu
@@ -241,16 +291,16 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
                 lewat, dan ikut geser ke samping bersama tabel. Salinannya
                 aria-hidden; pembaca layar dan keyboard memakai kepala asli. */}
           {data && data.rows.length > 0 ? (
-            <div aria-hidden className={cx("sticky top-[var(--topbar-height)] z-10 -mb-10 h-10 min-[1272px]:hidden", !menempel && "invisible")}>
+            <div aria-hidden className={cx("sticky top-[var(--topbar-height)] z-10 -mb-10 h-10", !lebar && "min-[79.5rem]:hidden", !menempel && "invisible")}>
               <div ref={salinanRef} className="overflow-hidden">
-                <table className="w-full min-w-[1160px] table-fixed border-separate border-spacing-0 text-left text-body-medium">
+                <table style={{ minWidth: lebarTabel }} className="w-full table-fixed border-separate border-spacing-0 text-left text-body-medium">
                   {kolom}
                   <thead className="bg-surface-container-high text-body-medium font-medium text-on-surface-variant">{barisKepala(true)}</thead>
                 </table>
               </div>
             </div>
           ) : null}
-          <div ref={gulirRef} onScroll={samakanGeser} className="overflow-x-auto min-[1272px]:overflow-visible">
+          <div ref={gulirRef} onScroll={samakanGeser} className={cx("overflow-x-auto", !lebar && "min-[79.5rem]:overflow-visible")}>
             {gagal && !data ? (
               <EmptyState plain icon={<UsersThree size={40} />} title="Couldn't load registrations" description="Check your connection. This page tries again every 30 seconds." />
             ) : !data ? (
@@ -258,9 +308,9 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
             ) : data.rows.length === 0 ? (
               <EmptyState plain icon={<UsersThree size={40} />} title={cari ? "No matching participants" : "No registrations yet"} description={cari ? "Try another name, organisation or email." : "New registrations appear here on their own."} />
             ) : (
-              <table className={cx("w-full min-w-[1160px] table-fixed border-separate border-spacing-0 text-left text-body-medium", memuat && "opacity-80")}>
+              <table style={{ minWidth: lebarTabel }} className={cx("w-full table-fixed border-separate border-spacing-0 text-left text-body-medium", memuat && "opacity-80")}>
                 {kolom}
-                <thead ref={kepalaRef} className="bg-surface-container-high text-body-medium font-medium text-on-surface-variant min-[1272px]:sticky min-[1272px]:top-[var(--topbar-height)] min-[1272px]:z-10">
+                <thead ref={kepalaRef} className={cx("bg-surface-container-high text-body-medium font-medium text-on-surface-variant", !lebar && "min-[79.5rem]:sticky min-[79.5rem]:top-[var(--topbar-height)] min-[79.5rem]:z-10")}>
                   {barisKepala(false)}
                 </thead>
                 <tbody>
@@ -270,7 +320,7 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
                     const baru = batasBaru !== null && Date.parse(baris.registered_at) > Date.parse(batasBaru);
                     return (
                       <tr key={baris.id} className={cx("h-10", baru ? "bg-primary-soft" : "bg-surface-container-lowest")}>
-                        <td className="truncate border-b border-outline-variant px-4 py-0 font-medium" title={baris.name}>{baris.name}</td>
+                        <td className={cx(selPertama, "truncate font-medium", baru ? "bg-primary-soft" : "bg-surface-container-lowest")} title={baris.name}>{baris.name}</td>
                         <td className="truncate border-b border-outline-variant px-3 py-0" title={baris.company ?? undefined}>{baris.company || <Kosong />}</td>
                         <td className="truncate border-b border-outline-variant px-3 py-0 text-on-surface-variant" title={baris.title ?? undefined}>{baris.title || <Kosong />}</td>
                         <td className="truncate border-b border-outline-variant px-3 py-0" title={baris.email ?? undefined}>{baris.email || <Kosong />}</td>
@@ -283,6 +333,9 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
                         <td className="border-b border-outline-variant px-3 py-0">
                           {baris.checked_in ? <StatusChip dot tone="success" className="align-middle">Checked in</StatusChip> : <span className="text-on-surface-variant">Not yet</span>}
                         </td>
+                        {jawaban.map((k) => (
+                          <td key={k.key} className="truncate border-b border-outline-variant px-3 py-0" title={baris.answers[k.key] || undefined}>{baris.answers[k.key] || <Kosong />}</td>
+                        ))}
                       </tr>
                     );
                   })}
