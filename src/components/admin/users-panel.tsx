@@ -26,12 +26,12 @@ import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
 import { AksesAcaraEditor, type AksesBaris, type DaftarBooth, type EventRole } from "./akses-acara-editor";
 
-type Role = "booth" | "cashier" | "admin" | "super_admin" | "scanner";
+type Role = "booth" | "cashier" | "admin" | "super_admin" | "scanner" | "viewer";
 type UserEvent = { id: string; slug: string; name: string; role: EventRole; booth_id?: number | null; booth_code?: string | null; archived?: boolean };
 type User = { id: string; username: string; role: Role; booth_id: number | null; is_active: boolean; events?: UserEvent[] };
 type EventOption = { id: string; slug: string; name: string; status: string; archived_at?: string | null };
 type Draft = { id: string | null; username: string; pin: string; role: Role; is_active: boolean; rows: AksesBaris[]; arsip: { id: string; name: string }[] };
-type RoleTab = "semua" | "booth" | "cashier" | "scanner" | "admin";
+type RoleTab = "semua" | "booth" | "cashier" | "scanner" | "viewer" | "admin";
 
 const blank: Draft = { id: null, username: "", pin: "", role: "booth", is_active: true, rows: [], arsip: [] };
 
@@ -44,9 +44,10 @@ const ROLE_HELP: Record<Role, string> = {
   booth: "Scans participants and hands out items at one booth per event.",
   cashier: "Takes payments and voids orders.",
   scanner: "Checks participants in at the entrance and sessions.",
+  viewer: "For clients. Sees the live registration list, counts and download. Can't change anything.",
   super_admin: "Opens every event, including new ones, and manages users and roles.",
 };
-const ROLE_ORDER: Role[] = ["admin", "booth", "cashier", "scanner", "super_admin"];
+const ROLE_ORDER: Role[] = ["admin", "booth", "cashier", "scanner", "viewer", "super_admin"];
 
 const BATAS_ACARA = 2;
 
@@ -122,6 +123,7 @@ const ROLE_TABS: Array<{ value: RoleTab; label: string; roles: Role[] | null }> 
   { value: "booth", label: ROLE_LABEL.booth, roles: ["booth"] },
   { value: "cashier", label: ROLE_LABEL.cashier, roles: ["cashier"] },
   { value: "scanner", label: ROLE_LABEL.scanner, roles: ["scanner"] },
+  { value: "viewer", label: ROLE_LABEL.viewer, roles: ["viewer"] },
   { value: "admin", label: "Admin", roles: ["admin", "super_admin"] },
 ];
 
@@ -318,7 +320,7 @@ export function UsersPanel() {
             icon={<ShieldCheck size={40} />}
             title={users.length === 0 ? "No accounts yet" : "No accounts with this role"}
             description={users.length === 0
-              ? canManage ? "Add accounts for your team, booth staff, cashiers and scanner staff." : "Only a super admin can add accounts."
+              ? canManage ? "Add accounts for your team, booth staff, cashiers, scanner staff and client viewers." : "Only a super admin can add accounts."
               : "Choose another tab to see accounts with other roles."}
             action={users.length > 0 ? <Button variant="outlined" size="sm" onClick={() => setRoleTab("semua")}>Show all</Button> : undefined}
           />

@@ -16,7 +16,7 @@ import { aksesPerUser, akunTerlihat, bolehResetPin, periksaAkses, type AcaraRing
 // kolom enum di database sudah memilikinya sejak migrasi 202607300001. Tanpa ini
 // setiap penyimpanan akun super admin (termasuk sekadar ganti PIN, karena PATCH
 // dari UI selalu menyertakan role) ditolak sebagai VALIDATION_ERROR.
-const roleSchema = z.enum(["booth", "cashier", "admin", "super_admin", "scanner"]);
+const roleSchema = z.enum(["booth", "cashier", "admin", "super_admin", "scanner", "viewer"]);
 
 const aksesSchema = z.array(z.object({
   event_id: z.string().uuid(),

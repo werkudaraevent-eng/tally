@@ -7,7 +7,7 @@ import type { RegistrationFormTheme } from "./registration-theme";
 // membuka layar /scan. Ada karena HP di pintu masuk sering dipegang bergantian,
 // dan akun yang juga membuka transaksi serta data peserta adalah risiko yang
 // tidak dibutuhkan di sana.
-export type UserRole = "booth" | "cashier" | "admin" | "super_admin" | "scanner";
+export type UserRole = "booth" | "cashier" | "admin" | "super_admin" | "scanner" | "viewer";
 
 /**
  * Nama peran yang boleh dilihat orang. SATU sumber.
@@ -27,6 +27,7 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   admin: "Admin",
   super_admin: "Super admin",
   scanner: "Scanner staff",
+  viewer: "Viewer",
 };
 export type OrderStatus = "pending" | "paid" | "void" | "handed_over";
 export type PickupMode = "after_payment" | "immediate";

@@ -10,7 +10,7 @@ import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
-import { Banner, Button, ButtonLink, Dialog, WorkspaceHeader, WorkspacePage } from "@/components/m3";
+import { Banner, Button, ButtonLink, Dialog, MetaSeparator, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 
 type ImportPreview = {
   dry_run: boolean;
@@ -31,6 +31,14 @@ export default function ParticipantsAdminPage() {
   const toast = useToast();
   const { zone, abbr } = useEventTimeZone();
   const [stats, setStats] = useState<ParticipantStats | null>(null);
+  // Layar Viewer selalu ber-slug (/e/<slug>/live). Di alamat lama tanpa slug
+  // tautannya tidak ditampilkan: /live tanpa slug hanya memantul ke /events.
+  const [tautanKlien, setTautanKlien] = useState<string | null>(null);
+  useEffect(() => {
+    const slug = window.location.pathname.match(/^\/e\/([^/]+)/)?.[1];
+    const pewaktu = window.setTimeout(() => setTautanKlien(slug ? `/e/${slug}/live` : null), 0);
+    return () => window.clearTimeout(pewaktu);
+  }, []);
 
   const { config } = useScannerConfig();
   const { menit } = useAutoSync();
@@ -83,7 +91,16 @@ export default function ParticipantsAdminPage() {
       <WorkspaceHeader
         // Satu baris meta, satu fakta. Peserta yang dihapus di sumber dijelaskan
         // di kaki tabel dan di barisnya; status sinkron ada di menu Sinkron.
-        meta={<span>{stats ? plural(stats.activeTotal, "active participant") : "Loading participants"}</span>}
+        meta={<>
+          <span>{stats ? plural(stats.activeTotal, "active participant") : "Loading participants"}</span>
+          {/* Layar akun Viewer: admin bisa memeriksa persis apa yang dilihat klien. */}
+          {tautanKlien ? (
+            <>
+              <MetaSeparator />
+              <a href={tautanKlien} className="text-primary hover:underline">Client view</a>
+            </>
+          ) : null}
+        </>}
         actions={
           <>
             {config && usesScanner ? (

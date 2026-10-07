@@ -14,6 +14,7 @@ export const roleRedirects: Record<UserRole, string> = {
   admin: "/admin",
   super_admin: "/admin",
   scanner: "/scan",
+  viewer: "/events",
 };
 
 // Kedua role memakai workspace admin yang sama; yang membedakan hanya kewenangan
