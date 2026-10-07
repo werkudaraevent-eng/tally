@@ -10,6 +10,7 @@ import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { memberPageStyle } from "@/lib/member/page-theme";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
 import { DashboardModern } from "@/components/member/dashboard-modern";
+import { DashboardGathering, type PortalTab } from "@/components/member/dashboard-gathering";
 import { isUnread, loadMemberAnnouncements, markAnnouncementsSeen } from "@/lib/member/pengumuman";
 import { waktuPengumuman } from "@/lib/member/nav";
 import type { EventLandingConfig } from "@/lib/domain";
@@ -87,6 +88,12 @@ export default async function AreaPesertaPage({
   const pengumuman = await loadMemberAnnouncements(event.id, sesi);
   if (pengumuman.unread > 0) await markAnnouncementsSeen(sesi.accountId);
 
+  // Preset Gathering: portal bergaya aplikasi dengan tab (rancangan 2026-10-07).
+  if (landing.layout === "modern" && landing.gathering === true) {
+    const tab: PortalTab = kueri.tab === "jadwal" || kueri.tab === "info" || kueri.tab === "profil" || kueri.tab === "qr" ? kueri.tab : "beranda";
+    const hari = typeof kueri.hari === "string" && /^\d{1,2}$/.test(kueri.hari) ? Number(kueri.hari) : null;
+    return <DashboardGathering event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} tab={tab} hari={hari} />;
+  }
   if (landing.layout === "modern") {
     return <DashboardModern event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} />;
   }

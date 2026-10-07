@@ -963,6 +963,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           awal={masukAwal}
           sandi={sandi}
           lang={lang}
+          aksi={gaya}
         />
       ) : null}
     </main>

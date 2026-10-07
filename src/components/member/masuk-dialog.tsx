@@ -53,6 +53,7 @@ export function MasukDialog({
   awal = null,
   sandi = null,
   lang = "id",
+  aksi = false,
 }: {
   slug: string;
   /** `/e/<slug>/masuk`: alamat dialog, juga href tautan pemicunya. */
@@ -67,6 +68,11 @@ export function MasukDialog({
   /** Tautan sandi dari email (mode "sandi"), atau "invalid" bila sudah tidak berlaku. */
   sandi?: MasukSandi;
   lang?: LandingLang;
+  /**
+   * Gaya gathering: tombol, tautan, dan cincin fokus memakai warna tombol Tema
+   * (`--alis`, sudah terbaca di atas putih) seperti tombol halamannya.
+   */
+  aksi?: boolean;
 }) {
   const t = MASUK_UI[lang];
   const judulId = useId();
@@ -281,6 +287,7 @@ export function MasukDialog({
       }}
       onClick={klikLatar}
       onKeyDown={kurungTab}
+      style={aksi ? ({ "--reg-primary": "var(--alis)", "--reg-on-primary": "#ffffff" } as CSSProperties) : undefined}
       // Ponsel (< 600px): layar penuh, bilah atas 64px tetap di tempat dan hanya
       // isinya yang bergulir, supaya tombol bisa digulir ke atas papan ketik.
       // Lebih lebar: kotak 440px bersudut kartu situs (rounded-lg, 16px), kepala
