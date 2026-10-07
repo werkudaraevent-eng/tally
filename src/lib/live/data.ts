@@ -128,7 +128,7 @@ function tambahForm(peta: Map<string, string>, baris: Array<{ participant_id: st
 function formAcara(eventId: string) {
   return getSupabaseServiceClient()
     .from("event_registrations")
-    .select("participant_id,created_at", { count: "exact" })
+    .select("id,participant_id,created_at", { count: "exact" })
     .eq("event_id", eventId)
     .not("participant_id", "is", null);
 }
@@ -144,10 +144,16 @@ async function formUntuk(eventId: string, ids: string[]) {
 }
 
 /**
- * Baca semua halaman sebuah kueri, 1000 per permintaan (batas PostgREST).
- * Halaman pertama memberi jumlah; sisanya diminta bersamaan, bukan berurutan.
+ * Baca semua halaman sebuah kueri untuk layar live, 1000 per permintaan (batas
+ * PostgREST). Halaman pertama memberi jumlah; sisanya diminta bersamaan.
+ *
+ * Sengaja longgar: saat pendaftaran ramai, baris bisa bertambah atau bergeser di
+ * antara permintaan, jadi jumlahnya tidak dicocokkan (dulu jadi 500, QA R3-M1).
+ * Baris yang terbaca dua kali dibuang; baris yang terlewat muncul di muatan
+ * berikutnya, 30 detik lagi. Unduhan memakai `bacaBerurut` yang tidak bisa
+ * melewatkan baris.
  */
-async function bacaSemua<T>(buat: () => KueriBerhalaman<T>): Promise<T[]> {
+async function bacaSemua<T>(buat: () => KueriBerhalaman<T>, kunci: (baris: T) => string): Promise<T[]> {
   const pertama = await buat().range(0, 999);
   if (pertama.error) throw new Error(pertama.error.message);
   const total = pertama.count ?? 0;
@@ -156,23 +162,52 @@ async function bacaSemua<T>(buat: () => KueriBerhalaman<T>): Promise<T[]> {
   const hasil = await Promise.all(sisa);
   const galat = hasil.find((h) => h.error)?.error;
   if (galat) throw new Error(galat.message);
-  const semua = [...(pertama.data ?? []), ...hasil.flatMap((h) => h.data ?? [])];
-  if (semua.length !== total) throw new Error(`Viewer read ${semua.length} of ${total} rows.`);
-  return semua;
+  const unik = new Map<string, T>();
+  for (const baris of [...(pertama.data ?? []), ...hasil.flatMap((h) => h.data ?? [])]) unik.set(kunci(baris), baris);
+  return [...unik.values()];
 }
 
 type KueriBerhalaman<T> = {
   range(dari: number, sampai: number): PromiseLike<{ data: T[] | null; error: { message: string } | null; count: number | null }>;
 };
 
-async function semuaFormPertama(eventId: string) {
+/**
+ * Baca semua baris untuk unduhan: per 1000, berurutan menurut `id` (keyset,
+ * `id > terakhir`). Baris yang ada sejak awal tidak bisa terlewat atau terbaca
+ * dua kali walau peserta baru masuk di tengah pembacaan, jadi berkasnya utuh
+ * tanpa perlu membandingkan jumlah.
+ */
+async function bacaBerurut<T extends { id: string | number }>(buat: () => KueriKeyset<T>): Promise<T[]> {
+  const semua: T[] = [];
+  let terakhir: string | number | null = null;
+  for (;;) {
+    let kueri = buat();
+    if (terakhir !== null) kueri = kueri.gt("id", terakhir);
+    const { data, error } = await kueri.order("id", { ascending: true }).limit(1000);
+    if (error) throw new Error(error.message);
+    const baris = data ?? [];
+    semua.push(...baris);
+    if (baris.length < 1000) return semua;
+    terakhir = baris[baris.length - 1].id;
+  }
+}
+
+type KueriKeyset<T> = {
+  gt(kolom: string, nilai: string | number): KueriKeyset<T>;
+  order(kolom: string, opsi: { ascending: boolean }): KueriKeyset<T>;
+  limit(jumlah: number): PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+};
+
+type BarisForm = { id: number; participant_id: string | null; created_at: string };
+
+/** Form pertama semua peserta acara. `lengkap` untuk unduhan (lihat `bacaBerurut`). */
+async function semuaFormPertama(eventId: string, lengkap = false) {
+  const buat = () => formAcara(eventId);
+  const baris = lengkap
+    ? await bacaBerurut<BarisForm>(() => buat() as unknown as KueriKeyset<BarisForm>)
+    : await bacaSemua<BarisForm>(() => buat().order("id", { ascending: true }) as unknown as KueriBerhalaman<BarisForm>, (b) => String(b.id));
   const peta = new Map<string, string>();
-  tambahForm(
-    peta,
-    await bacaSemua<{ participant_id: string | null; created_at: string }>(() =>
-      formAcara(eventId).order("id", { ascending: true }),
-    ),
-  );
+  tambahForm(peta, baris);
   return peta;
 }
 
@@ -211,7 +246,7 @@ async function halamanMenurutWaktu(eventId: string, cari: string | null, opsi: {
       let kueri = client.from("participants").select("id,created_at", { count: "exact" }).eq("event_id", eventId).is("source_removed_at", null);
       if (cari) kueri = kueri.or(cari);
       return kueri.order("id", { ascending: true });
-    }),
+    }, (b) => b.id),
     semuaFormPertama(eventId),
   ]);
   const arah = opsi.dir === "asc" ? 1 : -1;
@@ -245,8 +280,8 @@ async function jumlahAktif(eventId: string, cari: string | null) {
 /** Semua baris untuk unduhan, urut waktu terdaftar. */
 export async function semuaBarisKlien(eventId: string): Promise<BarisKlien[]> {
   const [baris, form] = await Promise.all([
-    bacaSemua<BarisDb>(() => pesertaAktif(eventId).order("id", { ascending: true }) as unknown as KueriBerhalaman<BarisDb>),
-    semuaFormPertama(eventId),
+    bacaBerurut<BarisDb>(() => pesertaAktif(eventId) as unknown as KueriKeyset<BarisDb>),
+    semuaFormPertama(eventId, true),
   ]);
   return baris
     .map((b) => keBaris(b, form))
@@ -277,19 +312,34 @@ export async function hitunganKlien(eventId: string, zonaMentah: unknown) {
   // "Today" memakai waktu yang tampil: least(created_at, form pertama) >= tengah
   // malam. Itu baris yang dibuat hari ini dikurangi yang formnya sudah masuk
   // sebelum tengah malam (mis. form kemarin, disetujui hari ini).
+  //
+  // Yang dikurangi dihitung dari sisi event_registrations, disaring per acara
+  // (pakai indeks event_id): kebalikannya jadi subkueri per peserta tanpa indeks
+  // participant_id, 2,8 detik di 50 ribu form (QA R3-H1).
   const [terdaftar, dibuatHariIni, formKemarin, menunggu, dipindai, hadirSumber] = await Promise.all([
     aktif(),
     aktif().gte("created_at", tengahMalam),
-    aktif("id,event_registrations!inner(id)").gte("created_at", tengahMalam).lt("event_registrations.created_at", tengahMalam),
+    bacaSemua<{ id: number; participant_id: string }>(
+      () =>
+        client
+          .from("event_registrations")
+          .select("id,participant_id,participants!inner(id)", { count: "exact" })
+          .eq("event_id", eventId)
+          .lt("created_at", tengahMalam)
+          .gte("participants.created_at", tengahMalam)
+          .is("participants.source_removed_at", null)
+          .order("id", { ascending: true }) as unknown as KueriBerhalaman<{ id: number; participant_id: string }>,
+      (b) => b.participant_id,
+    ),
     client.from("event_registrations").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("status", "pending"),
     aktif("id,attendance_scans!inner(id)"),
     aktif("id,attendance_scans(id)").eq("source_checked_in", true).is("attendance_scans", null),
   ]);
-  const galat = [terdaftar, dibuatHariIni, formKemarin, menunggu, dipindai, hadirSumber].find((hasil) => hasil.error)?.error;
+  const galat = [terdaftar, dibuatHariIni, menunggu, dipindai, hadirSumber].find((hasil) => hasil.error)?.error;
   if (galat) throw new Error(galat.message);
   return {
     registered: terdaftar.count ?? 0,
-    today: (dibuatHariIni.count ?? 0) - (formKemarin.count ?? 0),
+    today: Math.max(0, (dibuatHariIni.count ?? 0) - formKemarin.length),
     pending: menunggu.count ?? 0,
     checked_in: (dipindai.count ?? 0) + (hadirSumber.count ?? 0),
   };
