@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/guards";
 import { generateEventSlug } from "@/lib/supabase/events";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { EventRow } from "@/lib/domain";
+import { tanpaPersetujuanKlien } from "@/lib/live/kolom-klien";
 
 const paramsSchema = z.string().uuid();
 const bodySchema = z.object({
@@ -53,7 +54,30 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       p_scanner_slug: body.data.scanner_api_event_slug ?? null,
     } as never);
     if (error) return apiError("INTERNAL_ERROR", 500, { message: error.message });
-    return Response.json({ event: data as EventRow }, { status: 201 });
+    const event = data as EventRow;
+
+    // RPC menyalin registration_form_config utuh, termasuk jawaban yang
+    // disetujui untuk klien acara SUMBER. Acara baru mulai tanpa satu pun
+    // (QA #102, M-R2-1); dibersihkan di sini supaya tidak perlu migrasi.
+    // Dibaca dari tabel, bukan dari hasil RPC, supaya tidak bergantung pada
+    // kolom apa saja yang dikembalikan fungsinya.
+    const { data: baru, error: galatBaca } = await client.from("events").select("registration_form_config").eq("id", event.id).single();
+    if (galatBaca || !baru) return apiError("INTERNAL_ERROR", 500, { message: "The copy was created, but it could not be checked. Open Client view on the copy and review Form answers." });
+    const bersih = tanpaPersetujuanKlien((baru as { registration_form_config: EventRow["registration_form_config"] | null }).registration_form_config);
+    if (bersih) {
+      const { data: diperbarui, error: galatBersih } = await client
+        .from("events")
+        .update({ registration_form_config: bersih, updated_at: new Date().toISOString() } as never)
+        .eq("id", event.id)
+        .select("registration_form_config,updated_at")
+        .single();
+      if (galatBersih || !diperbarui) {
+        console.error("Membersihkan persetujuan klien pada duplikat gagal:", galatBersih);
+        return apiError("INTERNAL_ERROR", 500, { message: "The copy was created, but its client answer sharing could not be reset. Open Client view on the copy and save Form answers with everything off." });
+      }
+      Object.assign(event, diperbarui);
+    }
+    return Response.json({ event }, { status: 201 });
   } catch {
     return apiError("INTERNAL_ERROR", 500);
   }

@@ -1,5 +1,8 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeTimeZone, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
+import { teksJawaban, type KolomJawaban } from "./kolom-klien";
+
+export { kolomJawabanKlien, pertanyaanUntukKlien, statusPertanyaanKlien, type KolomJawaban } from "./kolom-klien";
 
 /**
  * Data layar Viewer (klien): satu definisi untuk kartu angka, tabel, dan unduhan.
@@ -46,6 +49,8 @@ export type BarisKlien = {
   participant_type: string | null;
   registered_at: string;
   checked_in: boolean;
+  /** Jawaban form yang diizinkan admin untuk klien, per kunci field. Lihat `kolomJawabanKlien`. */
+  answers: Record<string, string>;
 };
 
 export type UrutKlien = "registered_at" | "name" | "company";
@@ -63,11 +68,14 @@ type BarisDb = {
   created_at: string;
   source_checked_in: boolean | null;
   attendance_scans: Array<{ id: number }> | null;
+  extra: Record<string, unknown> | null;
 };
 
 // `attendance_scans(id)` dibatasi satu baris per peserta di bawah: yang
 // ditanyakan hanya "pernah dipindai", bukan berapa kali.
-const PILIH = "id,name,company,title,email,phone,participant_type,created_at,source_checked_in,attendance_scans(id)";
+// `extra` dibaca utuh lalu disaring di server (`keBaris`): yang keluar ke klien
+// hanya kunci yang diizinkan admin.
+const PILIH = "id,name,company,title,email,phone,participant_type,created_at,source_checked_in,extra,attendance_scans(id)";
 
 /**
  * Filter `or` PostgREST untuk kata cari klien.
@@ -88,7 +96,7 @@ export function filterCari(kata: string): string | null {
   return ["name", "company", "email"].map((kolom) => `${kolom}.ilike."*${pola}*"`).join(",");
 }
 
-function keBaris(baris: BarisDb, formPertama: Map<string, string>): BarisKlien {
+function keBaris(baris: BarisDb, formPertama: Map<string, string>, kolom: KolomJawaban[]): BarisKlien {
   return {
     id: baris.id,
     name: baris.name,
@@ -99,6 +107,7 @@ function keBaris(baris: BarisDb, formPertama: Map<string, string>): BarisKlien {
     participant_type: baris.participant_type,
     registered_at: waktuTerdaftar(baris.id, baris.created_at, formPertama),
     checked_in: (baris.attendance_scans?.length ?? 0) > 0 || Boolean(baris.source_checked_in),
+    answers: Object.fromEntries(kolom.map((k) => [k.key, teksJawaban(k, baris.extra?.[k.key])])),
   };
 }
 
@@ -212,13 +221,13 @@ async function semuaFormPertama(eventId: string, lengkap = false) {
 }
 
 /** Satu halaman tabel. */
-export async function halamanKlien(eventId: string, opsi: { q: string; sort: UrutKlien; dir: "asc" | "desc"; limit: number; offset: number }) {
+export async function halamanKlien(eventId: string, opsi: { q: string; sort: UrutKlien; dir: "asc" | "desc"; limit: number; offset: number }, kolom: KolomJawaban[]) {
   const cari = filterCari(opsi.q);
-  return opsi.sort === "registered_at" ? halamanMenurutWaktu(eventId, cari, opsi) : halamanMenurutKolom(eventId, cari, opsi);
+  return opsi.sort === "registered_at" ? halamanMenurutWaktu(eventId, cari, opsi, kolom) : halamanMenurutKolom(eventId, cari, opsi, kolom);
 }
 
 /** Urut nama/organisasi: urutan dan halaman langsung dari database. */
-async function halamanMenurutKolom(eventId: string, cari: string | null, opsi: { sort: UrutKlien; dir: "asc" | "desc"; limit: number; offset: number }) {
+async function halamanMenurutKolom(eventId: string, cari: string | null, opsi: { sort: UrutKlien; dir: "asc" | "desc"; limit: number; offset: number }, kolom: KolomJawaban[]) {
   let kueri = pesertaAktif(eventId);
   if (cari) kueri = kueri.or(cari);
   const { data, error, count } = await kueri
@@ -231,7 +240,7 @@ async function halamanMenurutKolom(eventId: string, cari: string | null, opsi: {
   if (error) throw new Error(error.message);
   const baris = (data ?? []) as unknown as BarisDb[];
   const form = await formUntuk(eventId, baris.map((b) => b.id));
-  return { rows: baris.map((b) => keBaris(b, form)), total: count ?? 0 };
+  return { rows: baris.map((b) => keBaris(b, form, kolom)), total: count ?? 0 };
 }
 
 /**
@@ -239,7 +248,7 @@ async function halamanMenurutKolom(eventId: string, cari: string | null, opsi: {
  * mengurutkannya tanpa RPC: baca id + waktu semua peserta yang cocok (dua
  * kolom, bersamaan per 1000), urutkan di sini, lalu ambil isi satu halaman.
  */
-async function halamanMenurutWaktu(eventId: string, cari: string | null, opsi: { dir: "asc" | "desc"; limit: number; offset: number }) {
+async function halamanMenurutWaktu(eventId: string, cari: string | null, opsi: { dir: "asc" | "desc"; limit: number; offset: number }, kolom: KolomJawaban[]) {
   const client = getSupabaseServiceClient();
   const [indeks, form] = await Promise.all([
     bacaSemua<{ id: string; created_at: string }>(() => {
@@ -264,7 +273,7 @@ async function halamanMenurutWaktu(eventId: string, cari: string | null, opsi: {
   const perId = new Map(((data ?? []) as unknown as BarisDb[]).map((b) => [b.id, b]));
   const rows = ids.flatMap((id) => {
     const b = perId.get(id);
-    return b ? [keBaris(b, form)] : [];
+    return b ? [keBaris(b, form, kolom)] : [];
   });
   return { rows, total: indeks.length };
 }
@@ -278,13 +287,13 @@ async function jumlahAktif(eventId: string, cari: string | null) {
 }
 
 /** Semua baris untuk unduhan, urut waktu terdaftar. */
-export async function semuaBarisKlien(eventId: string): Promise<BarisKlien[]> {
+export async function semuaBarisKlien(eventId: string, kolom: KolomJawaban[]): Promise<BarisKlien[]> {
   const [baris, form] = await Promise.all([
     bacaBerurut<BarisDb>(() => pesertaAktif(eventId) as unknown as KueriKeyset<BarisDb>),
     semuaFormPertama(eventId, true),
   ]);
   return baris
-    .map((b) => keBaris(b, form))
+    .map((b) => keBaris(b, form, kolom))
     .sort((a, b) => Date.parse(a.registered_at) - Date.parse(b.registered_at) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 

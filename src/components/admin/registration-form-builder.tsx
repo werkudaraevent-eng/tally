@@ -11,6 +11,7 @@ import {
   type RegistrationFormConfig,
 } from "@/lib/domain";
 import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "@/lib/registration-fields";
+import { persetujuanKlien } from "@/lib/live/kolom-klien";
 
 /**
  * Penyunting susunan form registrasi publik.
@@ -95,7 +96,10 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
   }
 
   function add() {
-    const taken = new Set(fields.map((field) => field.key));
+    // Kunci yang masih disetujui untuk klien ikut dianggap terpakai, walaupun
+    // pertanyaannya sudah dihapus dari susunan ini: pertanyaan baru tidak boleh
+    // mewarisi persetujuan pertanyaan lama (QA #102, H1).
+    const taken = new Set([...fields.map((field) => field.key), ...persetujuanKlien(config).map((item) => item.key)]);
     const key = keyFromLabel("Pertanyaan baru", taken);
     onChange({
       ...config,

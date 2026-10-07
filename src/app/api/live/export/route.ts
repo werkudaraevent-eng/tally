@@ -1,5 +1,5 @@
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { KOLOM_KLIEN, semuaBarisKlien, waktuBerkas } from "@/lib/live/data";
+import { KOLOM_KLIEN, kolomJawabanKlien, semuaBarisKlien, waktuBerkas } from "@/lib/live/data";
 import { CONTENT_TYPES, buildCsv, buildXlsx, exportFilename } from "@/lib/participants-io";
 import { normalizeTimeZone, timeZoneAbbr } from "@/lib/timezone";
 
@@ -12,6 +12,10 @@ import { normalizeTimeZone, timeZoneAbbr } from "@/lib/timezone";
  * dan setiap pertanyaan baru di form akan ikut bocor ke berkas klien tanpa ada
  * yang memutuskannya (QA PR #100, M2). Hadir dihitung dengan definisi yang
  * sama dengan tabel, termasuk pindaian di Tally (M1).
+ *
+ * Jawaban form tambahan ikut HANYA untuk pertanyaan yang dipilih admin di
+ * registration_form_config.client_fields (kolomJawabanKlien), sesudah kolom inti
+ * dan dalam urutan form. Pertanyaan baru tetap tertutup sampai admin memilihnya.
  */
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["viewer", "admin"], { readOnly: true });
@@ -22,15 +26,21 @@ export async function GET(request: Request) {
   const zona = normalizeTimeZone(event.time_zone);
 
   try {
-    const headers = KOLOM_KLIEN.map((kolom) => (kolom.key === "registered_at" ? `${kolom.label} (${timeZoneAbbr(zona)})` : kolom.label));
-    const rows = (await semuaBarisKlien(event.id)).map((baris) =>
-      KOLOM_KLIEN.map(({ key }) => {
+    const jawaban = kolomJawabanKlien(event.registration_form_config);
+    const headers = [
+      ...KOLOM_KLIEN.map((kolom) => (kolom.key === "registered_at" ? `${kolom.label} (${timeZoneAbbr(zona)})` : kolom.label)),
+      ...jawaban.map((kolom) => kolom.label),
+    ];
+    const rows = (await semuaBarisKlien(event.id, jawaban)).map((baris) => [
+      ...KOLOM_KLIEN.map(({ key }) => {
         if (key === "registered_at") return waktuBerkas(baris.registered_at, zona);
         if (key === "checked_in") return baris.checked_in ? "Yes" : "No";
         return baris[key] ?? "";
       }),
-    );
-    const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers);
+      ...jawaban.map(({ key }) => baris.answers[key] ?? ""),
+    ]);
+    // Berkas ini dibuka klien di spreadsheet: sel yang terbaca rumus dinetralkan.
+    const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers, { netralkanRumus: true });
     return new Response(body as BodyInit, {
       headers: {
         "Content-Type": CONTENT_TYPES[format],

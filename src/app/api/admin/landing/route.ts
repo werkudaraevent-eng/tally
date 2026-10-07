@@ -27,8 +27,7 @@ export async function PATCH(request: Request) {
   // requireRequestEvent, bukan dari permintaan. Klien layar ini tidak mengirim
   // susunan field, dan menulis ulang seluruh kolomnya dari permintaan akan
   // menghapus setiap field tambahan yang dibuat di CMS Registrasi.
-  const formConfig = (auth.scope.event.registration_form_config ?? {}) as RegistrationFormConfig;
-  const formThemeBaru: RegistrationFormConfig | null = formTheme
+  const susunTema = (formConfig: RegistrationFormConfig): RegistrationFormConfig | null => formTheme
     ? {
         ...formConfig,
         theme: formTheme.inherit
@@ -45,27 +44,44 @@ export async function PATCH(request: Request) {
     : null;
 
   const client = getSupabaseServiceClient();
-  const { data, error } = await client
-    .from("events")
-    .update({
-      ...facts,
-      ...(formThemeBaru ? { registration_form_config: formThemeBaru } : {}),
-      landing_config: {
-        ...landing,
-        // Area peserta punya layar dan endpoint sendiri (/api/admin/area-peserta).
-        // Salinan `member` dari editor ini bisa basi, jadi yang tersimpan dipakai.
-        member: (auth.scope.event.landing_config as { member?: unknown } | null)?.member,
-        // Peran warna diturunkan di server, sama seperti tema form pendaftaran.
-        // Halaman publiknya menerima hex jadi dan tidak memuat pustaka warna.
-        theme: landing.theme ? withDerivedRoles(landing.theme) : undefined,
-      },
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq("id", auth.scope.event.id)
-    .select("description,tagline,start_time,end_time,end_date,venue_name,venue_address,venue_map_url,landing_config,registration_form_config")
-    .single();
+  // Tema formulir ditulis hanya kalau updated_at masih sama dengan saat dibaca:
+  // penyunting form dan layar Client view juga menulis seluruh JSON
+  // registration_form_config (QA #102, H2). Berubah -> baca ulang, coba sekali lagi.
+  let tersimpan = (auth.scope.event.registration_form_config ?? {}) as RegistrationFormConfig;
+  let versi = auth.scope.event.updated_at;
+  let data: unknown = null;
+  for (let percobaan = 0; ; percobaan++) {
+    const formThemeBaru = susunTema(tersimpan);
+    let query = client
+      .from("events")
+      .update({
+        ...facts,
+        ...(formThemeBaru ? { registration_form_config: formThemeBaru } : {}),
+        landing_config: {
+          ...landing,
+          // Area peserta punya layar dan endpoint sendiri (/api/admin/area-peserta).
+          // Salinan `member` dari editor ini bisa basi, jadi yang tersimpan dipakai.
+          member: (auth.scope.event.landing_config as { member?: unknown } | null)?.member,
+          // Peran warna diturunkan di server, sama seperti tema form pendaftaran.
+          // Halaman publiknya menerima hex jadi dan tidak memuat pustaka warna.
+          theme: landing.theme ? withDerivedRoles(landing.theme) : undefined,
+        },
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", auth.scope.event.id);
+    if (formThemeBaru) query = query.eq("updated_at", versi);
+    const hasil = await query
+      .select("description,tagline,start_time,end_time,end_date,venue_name,venue_address,venue_map_url,landing_config,registration_form_config")
+      .maybeSingle();
 
-  if (error) return apiError("INTERNAL_ERROR", 500);
+    if (hasil.error) return apiError("INTERNAL_ERROR", 500);
+    if (hasil.data) { data = hasil.data; break; }
+    if (!formThemeBaru || percobaan >= 1) return apiError("CONFLICT", 409);
+    const { data: segar, error: galatBaca } = await client.from("events").select("registration_form_config,updated_at").eq("id", auth.scope.event.id).single();
+    if (galatBaca || !segar) return apiError("INTERNAL_ERROR", 500);
+    tersimpan = ((segar as { registration_form_config: RegistrationFormConfig | null }).registration_form_config ?? {}) as RegistrationFormConfig;
+    versi = (segar as { updated_at: string }).updated_at;
+  }
 
   await client.from("audit_logs").insert({
     event_id: auth.scope.event.id,

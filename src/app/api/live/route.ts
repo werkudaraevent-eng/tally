@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { halamanKlien, hitunganKlien } from "@/lib/live/data";
+import { halamanKlien, hitunganKlien, kolomJawabanKlien } from "@/lib/live/data";
 import { normalizeTimeZone } from "@/lib/timezone";
 
 /**
@@ -31,11 +31,13 @@ export async function GET(request: Request) {
 
   const event = auth.scope.event;
   try {
-    const [halaman, counts] = await Promise.all([halamanKlien(event.id, parsed.data), hitunganKlien(event.id, event.time_zone)]);
+    const kolom = kolomJawabanKlien(event.registration_form_config);
+    const [halaman, counts] = await Promise.all([halamanKlien(event.id, parsed.data, kolom), hitunganKlien(event.id, event.time_zone)]);
     return Response.json(
       {
         event: { name: event.name, slug: event.slug, status: event.status, time_zone: normalizeTimeZone(event.time_zone) },
         counts,
+        answer_columns: kolom.map(({ key, label }) => ({ key, label })),
         rows: halaman.rows,
         total: halaman.total,
         fetched_at: new Date().toISOString(),
