@@ -69,6 +69,10 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
     if (!response?.ok) { setGagal(true); return; }
     const isi = (await response.json()) as Data;
     setBatasBaru((lama) => lama ?? isi.fetched_at);
+    // Daftar menyusut saat klien di halaman terakhir: pindah ke halaman terakhir
+    // yang masih ada, bukan menampilkan tabel kosong (QA R2-L1).
+    const halamanTerakhir = Math.max(1, Math.ceil(isi.total / UKURAN));
+    if (page > halamanTerakhir) setPage(halamanTerakhir);
     setGagal(false);
     setData(isi);
   }, [slug, cari, sort, dir, page]);
@@ -130,7 +134,9 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
             {/* Tetap tampil di ponsel: tanpa ini klien tidak tahu angkanya basi. */}
             <span className={cx("flex items-center gap-2 whitespace-nowrap text-body-medium", gagal ? "text-error" : "text-on-surface-variant")} aria-live="polite">
               <span aria-hidden className={cx("size-2 rounded-full", gagal ? "bg-error" : "bg-success")} />
-              {gagal ? "Couldn't refresh" : data ? <><span className="max-sm:hidden">Updated </span>{jam(data.fetched_at)}<span className="max-sm:hidden"> {timeZoneAbbr(zona)}</span></> : "Loading…"}
+              {/* Satu span: anak langsung flex dipisah gap-2, jadi "Updated", jam dan zona
+                harus satu node teks supaya spasinya tunggal (QA R2-L3). */}
+              <span>{gagal ? "Couldn't refresh" : data ? <><span className="max-sm:hidden">Updated </span>{jam(data.fetched_at)}<span className="max-sm:hidden"> {timeZoneAbbr(zona)}</span></> : "Loading…"}</span>
             </span>
             <IconButton label="Refresh now" onClick={() => void muat()} disabled={memuat}>
               <ArrowClockwise size={20} className={cx(memuat && "animate-spin")} />
@@ -190,7 +196,7 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
               <table className={cx("w-full min-w-[1188px] table-fixed border-separate border-spacing-0 text-left text-body-medium", memuat && "opacity-80")}>
                 <colgroup>
                   {/* 1.188 px: pas dengan isi panel pada layar 1280 (QA PR #100, M4). */}
-                  <col style={{ width: 185 }} /><col style={{ width: 160 }} /><col style={{ width: 135 }} /><col style={{ width: 208 }} /><col style={{ width: 130 }} /><col style={{ width: 110 }} /><col style={{ width: 140 }} /><col style={{ width: 120 }} />
+                  <col style={{ width: 180 }} /><col style={{ width: 156 }} /><col style={{ width: 132 }} /><col style={{ width: 216 }} /><col style={{ width: 144 }} /><col style={{ width: 100 }} /><col style={{ width: 140 }} /><col style={{ width: 120 }} />
                 </colgroup>
                 <thead className="bg-surface-container-high text-body-medium font-medium text-on-surface-variant">
                   <tr className="h-10">
@@ -215,7 +221,7 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
                         <td className="truncate border-b border-outline-variant px-3 py-0" title={baris.company ?? undefined}>{baris.company || <Kosong />}</td>
                         <td className="truncate border-b border-outline-variant px-3 py-0 text-on-surface-variant" title={baris.title ?? undefined}>{baris.title || <Kosong />}</td>
                         <td className="truncate border-b border-outline-variant px-3 py-0" title={baris.email ?? undefined}>{baris.email || <Kosong />}</td>
-                        <td className="truncate border-b border-outline-variant px-3 py-0 tabular-nums text-on-surface-variant">{baris.phone || <Kosong />}</td>
+                        <td className="truncate border-b border-outline-variant px-3 py-0 tabular-nums text-on-surface-variant" title={baris.phone ?? undefined}>{baris.phone || <Kosong />}</td>
                         <td className="truncate border-b border-outline-variant px-3 py-0" title={baris.participant_type ?? undefined}>{baris.participant_type || <Kosong />}</td>
                         <td className="truncate border-b border-outline-variant px-3 py-0 tabular-nums">
                           {tanggalJam(baris.registered_at)}
