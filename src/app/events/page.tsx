@@ -285,6 +285,14 @@ export default function EventsPage() {
 
   const isOwner = role === "super_admin";
 
+  // Akun Viewer (klien) biasanya hanya memegang satu acara, dan satu-satunya
+  // layarnya adalah daftar pendaftar. Memilih acara dari daftar berisi satu
+  // baris hanyalah klik tambahan setiap kali masuk.
+  useEffect(() => {
+    if (role !== "viewer" || loading || events.length !== 1) return;
+    window.location.replace(roleHome("viewer", events[0].slug));
+  }, [role, loading, events]);
+
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
     window.location.href = "/login";

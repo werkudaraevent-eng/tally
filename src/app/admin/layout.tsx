@@ -10,7 +10,7 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
   if (!user) redirect("/login");
   // isAdminLevel, bukan role === "admin": perbandingan persis akan mengusir
   // super_admin dari workspace-nya sendiri.
-  if (!isAdminLevel(user)) redirect(user.role === "booth" ? "/booth" : "/cashier");
+  if (!isAdminLevel(user)) redirect(user.role === "booth" ? "/booth" : user.role === "viewer" ? "/events" : "/cashier");
 
   // Sematan rel dibaca DI SERVER, dari cookie, bukan dari localStorage setelah
   // hidrasi. Ia menentukan lebar kolom konten: dibaca belakangan, setiap

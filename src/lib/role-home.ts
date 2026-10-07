@@ -21,6 +21,8 @@ export function roleHome(role: UserRole, slug: string): string {
       return `${dasar}/cashier`;
     case "scanner":
       return `${dasar}/scan`;
+    case "viewer":
+      return `${dasar}/live`;
     default:
       return `${dasar}/admin`;
   }

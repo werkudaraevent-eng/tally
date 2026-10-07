@@ -10,7 +10,7 @@ import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
-import { Banner, Button, ButtonLink, Dialog, WorkspaceHeader, WorkspacePage } from "@/components/m3";
+import { Banner, Button, ButtonLink, Dialog, MetaSeparator, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 
 type ImportPreview = {
   dry_run: boolean;
@@ -83,7 +83,12 @@ export default function ParticipantsAdminPage() {
       <WorkspaceHeader
         // Satu baris meta, satu fakta. Peserta yang dihapus di sumber dijelaskan
         // di kaki tabel dan di barisnya; status sinkron ada di menu Sinkron.
-        meta={<span>{stats ? plural(stats.activeTotal, "active participant") : "Loading participants"}</span>}
+        meta={<>
+          <span>{stats ? plural(stats.activeTotal, "active participant") : "Loading participants"}</span>
+          {/* Layar akun Viewer: admin bisa memeriksa persis apa yang dilihat klien. */}
+          <MetaSeparator />
+          <a href="../live" className="text-primary hover:underline">Client view</a>
+        </>}
         actions={
           <>
             {config && usesScanner ? (

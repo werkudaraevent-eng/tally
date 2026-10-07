@@ -14,7 +14,7 @@ const idSchema = z.string().uuid();
  */
 const grantSchema = z.object({
   user_id: z.string().uuid(),
-  role: z.enum(["booth", "cashier", "scanner", "admin"]),
+  role: z.enum(["booth", "cashier", "scanner", "viewer", "admin"]),
   booth_id: z.number().int().positive().nullable().optional(),
 });
 

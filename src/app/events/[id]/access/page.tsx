@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ROLE_LABEL } from "@/lib/domain";
 
-type Role = "booth" | "cashier" | "scanner" | "admin";
+type Role = "booth" | "cashier" | "scanner" | "viewer" | "admin";
 type AccessRow = { user_id: string; role: Role; booth_id: number | null; granted_at: string };
 type UserRow = { id: string; username: string; role: string; is_active: boolean };
 type BoothRow = { id: number; code: string; name: string };
@@ -123,6 +123,7 @@ export default function EventAccessPage() {
             <option value="booth">{ROLE_LABEL.booth}</option>
             <option value="cashier">{ROLE_LABEL.cashier}</option>
             <option value="scanner">{ROLE_LABEL.scanner}</option>
+            <option value="viewer">{ROLE_LABEL.viewer}</option>
             <option value="admin">{ROLE_LABEL.admin}</option>
           </select>
           <span id="peran-dari-akun" className="mt-2 block text-body-small font-normal text-on-surface-variant">Comes from the account. Change it in Users &amp; roles.</span></label>

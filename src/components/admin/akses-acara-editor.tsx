@@ -6,7 +6,7 @@ import { POPOVER_ITEM } from "@/components/m3";
 import { EVENT_STATUS_LABEL } from "@/lib/domain";
 import { cx } from "@/lib/m3/cx";
 
-export type EventRole = "admin" | "booth" | "cashier" | "scanner";
+export type EventRole = "admin" | "booth" | "cashier" | "scanner" | "viewer";
 export type AksesBaris = { event_id: string; booth_id: number | null };
 export type AcaraPilihan = { id: string; slug: string; name: string; status: string };
 export type BoothPilihan = { id: number; code: string; name: string };
