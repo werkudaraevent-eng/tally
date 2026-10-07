@@ -269,6 +269,8 @@ export const landingBodySchema = z.object({
     gathering: z.boolean().optional(),
     hero_logo_url: z.string().url().max(600).nullable().optional(),
     accent: warna,
+    button_color: warna,
+    hero_note: teks(240),
     default_lang: z.enum(["id", "en"]).optional(),
     en: z.object({
       public_name: teks(120),
@@ -283,6 +285,7 @@ export const landingBodySchema = z.object({
       footer_note: teks(180),
       cta_heading: teks(120),
       cta_note: teks(300),
+      hero_note: teks(240),
       contact_name: teks(120),
       // Versi English kolom `events` (lihat LANDING_EVENT_EN_KEYS), batas sama dengan kolomnya.
       tagline: teks(200),

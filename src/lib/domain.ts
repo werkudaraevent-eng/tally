@@ -299,7 +299,7 @@ export type LandingSpeakerEn = Partial<Record<(typeof LANDING_SPEAKER_EN_KEYS)[n
 export const LANDING_CONFIG_EN_KEYS = [
   "public_name", "cta_label", "about_heading", "about_image_alt", "program_heading", "program_intro", "agenda_note", "footer_note", "cta_heading", "cta_note", "contact_name",
   "about_eyebrow", "agenda_eyebrow", "speakers_eyebrow", "venue_eyebrow", "faq_eyebrow",
-  "agenda_heading", "speakers_heading", "venue_heading", "faq_heading", "faq_intro",
+  "agenda_heading", "speakers_heading", "venue_heading", "faq_heading", "faq_intro", "hero_note",
 ] as const;
 export const LANDING_EVENT_EN_KEYS = ["tagline", "description", "venue_name", "venue_address"] as const;
 export type LandingConfigEn = Partial<Record<(typeof LANDING_CONFIG_EN_KEYS)[number] | (typeof LANDING_EVENT_EN_KEYS)[number], string>> & {
@@ -1126,6 +1126,14 @@ export type EventLandingConfig = {
    * permukaan pasir (aksen yang diencerkan). Bawaan emas #E9C46A.
    */
   accent?: string;
+  /**
+   * Warna tombol gaya gathering: tombol utama, label kecil, tab aktif, dan ikon
+   * portal. Preset Gathering mengisi hijau #007F50; kosong = tombol warna aksen
+   * seperti sebelumnya.
+   */
+  button_color?: string;
+  /** Kalimat di bawah judul hero gaya gathering. Kosong = tanpa kalimat. */
+  hero_note?: string;
   /**
    * Bahasa di alamat utama `/e/<slug>` (bawaan "id"). "en" hanya berlaku
    * selama versi English menyala; lihat landingDefaultLang.

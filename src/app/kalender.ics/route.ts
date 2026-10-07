@@ -1,4 +1,5 @@
 import { getPublicPageEvent } from "@/lib/auth/request-event";
+import { tanpaBintang } from "@/lib/landing-tagline";
 import { timeZoneOffset } from "@/lib/timezone";
 
 /**
@@ -84,7 +85,7 @@ export async function GET(request: Request) {
     `DTSTART:${mulai}`,
     `DTEND:${selesai}`,
     fold(`SUMMARY:${escape(event.name)}`),
-    event.tagline ? fold(`DESCRIPTION:${escape(event.tagline)}`) : null,
+    event.tagline ? fold(`DESCRIPTION:${escape(tanpaBintang(event.tagline))}`) : null,
     lokasi ? fold(`LOCATION:${escape(lokasi)}`) : null,
     "END:VEVENT",
     "END:VCALENDAR",

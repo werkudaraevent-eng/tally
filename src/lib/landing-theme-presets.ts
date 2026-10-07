@@ -1,5 +1,5 @@
 import type { EventLandingConfig, LandingBodyFont, LandingCorners, LandingHeadingFont, LandingLayout } from "./domain.ts";
-import { DEFAULT_BRAND, FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, LANDING_TOKEN_DEFAULTS, landingLayout, landingTokens } from "./landing-tokens.ts";
+import { DEFAULT_BRAND, FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, GATHERING_BUTTON_DEFAULT, LANDING_TOKEN_DEFAULTS, landingLayout, landingTokens } from "./landing-tokens.ts";
 
 /**
  * Preset tema halaman acara: satu klik mengisi tata letak, warna, dan huruf
@@ -19,6 +19,8 @@ export type LandingPresetTokens = {
   accent?: string;
   /** Warna ketiga, hanya Forum. */
   secondary?: string;
+  /** Warna tombol gaya gathering (EventLandingConfig.button_color). */
+  button?: string;
   heading_font: LandingHeadingFont;
   body_font: LandingBodyFont;
   corners: LandingCorners;
@@ -82,7 +84,7 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     thumb: "/preset-tema/gathering.png",
     layout: "modern",
     // Inter saja (rancangan v3 KSO 21, audit v2): kunci "sans" = Inter.
-    tokens: { brand: "#0b6e69", accent: GATHERING_ACCENT_DEFAULT, heading_font: "sans", body_font: "sans", corners: "soft" },
+    tokens: { brand: "#0b6e69", accent: GATHERING_ACCENT_DEFAULT, button: GATHERING_BUTTON_DEFAULT, heading_font: "sans", body_font: "sans", corners: "soft" },
     features: { invite_only: true, gathering: true },
   },
 ];
@@ -107,6 +109,7 @@ export function presetDiubah(preset: LandingThemePreset, landing: EventLandingCo
     sama(t.brand, b.brand) &&
     (b.accent === undefined || sama(t.accent, b.accent)) &&
     (b.secondary === undefined || sama(t.secondary, b.secondary)) &&
+    (b.button === undefined || sama(landing.button_color, b.button)) &&
     t.headingFont === b.heading_font &&
     t.bodyFont === b.body_font &&
     // Forum tidak membaca sudut.
@@ -131,6 +134,8 @@ export function gayaPreset(preset: LandingThemePreset, landing: EventLandingConf
     ...(preset.layout === "forum"
       ? { forum: { ...landing.forum, accent: b.accent, secondary: b.secondary } }
       : b.accent ? { accent: b.accent } : {}),
+    // Hanya preset bertombol (Gathering) yang mengisinya; preset lain mengosongkan.
+    button_color: b.button,
   };
 }
 
