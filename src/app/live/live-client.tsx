@@ -94,8 +94,10 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
   useEffect(() => {
     const kepala = kepalaRef.current;
     if (!adaBaris || !kepala) return;
-    const tinggiBilah = parseFloat(getComputedStyle(kepala).getPropertyValue("--topbar-height")) || 57;
-    const periksa = () => setMenempel(kepala.getBoundingClientRect().top < tinggiBilah);
+    // Tepi bawah bilah atas yang terukur, bukan --topbar-height: token itu
+    // calc() sehingga parseFloat selalu jatuh ke angka cadangan.
+    const bilah = kepala.closest(".press")?.querySelector("header");
+    const periksa = () => setMenempel(kepala.getBoundingClientRect().top < (bilah?.getBoundingClientRect().bottom ?? 57));
     periksa();
     window.addEventListener("scroll", periksa, { passive: true });
     window.addEventListener("resize", periksa);
@@ -158,8 +160,9 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
   const kolom = (
     <colgroup>
       {/* 1.160 px: muat di panel pada jendela 1280 yang memakai scrollbar (isi
-          1.265 px). Phone 164: "+6281387719xxx" tampil utuh (laporan 7 Okt). */}
-      <col style={{ width: 168 }} /><col style={{ width: 146 }} /><col style={{ width: 126 }} /><col style={{ width: 208 }} /><col style={{ width: 164 }} /><col style={{ width: 88 }} /><col style={{ width: 140 }} /><col style={{ width: 120 }} />
+          1.265 px). Phone 184: nomor dengan spasi/strip seperti
+          "+62 812-3456-78901" tampil utuh (laporan 7 Okt, QA #101 M1). */}
+      <col style={{ width: 168 }} /><col style={{ width: 146 }} /><col style={{ width: 126 }} /><col style={{ width: 208 }} /><col style={{ width: 184 }} /><col style={{ width: 84 }} /><col style={{ width: 124 }} /><col style={{ width: 120 }} />
     </colgroup>
   );
   const pageCount = data ? Math.max(1, Math.ceil(data.total / UKURAN)) : 1;
@@ -230,7 +233,7 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
           </PaneHeader>
 
           {/* Kepala tabel tetap terlihat saat halaman digulir (laporan 7 Okt).
-              - Jendela >= 1248 px: tabel muat, tidak ada wadah overflow, jadi
+              - Jendela >= 1272 px: tabel muat, tidak ada wadah overflow, jadi
                 <thead> asli cukup sticky di bawah bilah atas.
               - Lebih sempit: tabel perlu geser ke samping, dan sticky tidak bisa
                 keluar dari wadah overflow-x. Salinan kepala di luar wadah itu
@@ -238,7 +241,7 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
                 lewat, dan ikut geser ke samping bersama tabel. Salinannya
                 aria-hidden; pembaca layar dan keyboard memakai kepala asli. */}
           {data && data.rows.length > 0 ? (
-            <div aria-hidden className={cx("sticky top-[var(--topbar-height)] z-10 -mb-10 h-10 min-[1248px]:hidden", !menempel && "invisible")}>
+            <div aria-hidden className={cx("sticky top-[var(--topbar-height)] z-10 -mb-10 h-10 min-[1272px]:hidden", !menempel && "invisible")}>
               <div ref={salinanRef} className="overflow-hidden">
                 <table className="w-full min-w-[1160px] table-fixed border-separate border-spacing-0 text-left text-body-medium">
                   {kolom}
@@ -247,7 +250,7 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
               </div>
             </div>
           ) : null}
-          <div ref={gulirRef} onScroll={samakanGeser} className="overflow-x-auto min-[1248px]:overflow-visible">
+          <div ref={gulirRef} onScroll={samakanGeser} className="overflow-x-auto min-[1272px]:overflow-visible">
             {gagal && !data ? (
               <EmptyState plain icon={<UsersThree size={40} />} title="Couldn't load registrations" description="Check your connection. This page tries again every 30 seconds." />
             ) : !data ? (
@@ -257,7 +260,7 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
             ) : (
               <table className={cx("w-full min-w-[1160px] table-fixed border-separate border-spacing-0 text-left text-body-medium", memuat && "opacity-80")}>
                 {kolom}
-                <thead ref={kepalaRef} className="bg-surface-container-high text-body-medium font-medium text-on-surface-variant min-[1248px]:sticky min-[1248px]:top-[var(--topbar-height)] min-[1248px]:z-10">
+                <thead ref={kepalaRef} className="bg-surface-container-high text-body-medium font-medium text-on-surface-variant min-[1272px]:sticky min-[1272px]:top-[var(--topbar-height)] min-[1272px]:z-10">
                   {barisKepala(false)}
                 </thead>
                 <tbody>
