@@ -1,7 +1,8 @@
-import type { RegistrationFieldType, RegistrationFormConfig } from "@/lib/domain";
-import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeTimeZone, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
+import { teksJawaban, type KolomJawaban } from "./kolom-klien";
+
+export { kolomJawabanKlien, pertanyaanUntukKlien, statusPertanyaanKlien, type KolomJawaban } from "./kolom-klien";
 
 /**
  * Data layar Viewer (klien): satu definisi untuk kartu angka, tabel, dan unduhan.
@@ -51,42 +52,6 @@ export type BarisKlien = {
   /** Jawaban form yang diizinkan admin untuk klien, per kunci field. Lihat `kolomJawabanKlien`. */
   answers: Record<string, string>;
 };
-
-/**
- * Pertanyaan form yang jawabannya boleh dilihat klien.
- *
- * Bawaannya TIDAK ADA: jawaban custom bisa berisi nomor KTP atau kondisi
- * medis, jadi tiap pertanyaan dibuka satu per satu oleh admin
- * (`registration_form_config.client_fields`). Urutannya urutan form. Pertanyaan
- * yang sudah dihapus dari form ikut hilang di sini, dan unggahan berkas tidak
- * pernah dibagikan: berkasnya pribadi dan tautannya tidak berguna bagi klien.
- */
-export type KolomJawaban = { key: string; label: string; type: RegistrationFieldType };
-
-/** Pertanyaan form yang BOLEH dipilih untuk klien: semua kecuali unggahan berkas. */
-export function pertanyaanUntukKlien(config: unknown) {
-  const form = (config ?? {}) as RegistrationFormConfig;
-  return (form.fields ?? []).filter((field) => !FILE_FIELD_TYPES.includes(field.type));
-}
-
-/**
- * Kolom jawaban yang dilihat klien: pertanyaan yang dipilih admin, dalam urutan
- * form. Pertanyaan yang dihapus dari form ikut hilang dari sini dengan sendirinya.
- */
-export function kolomJawabanKlien(config: unknown): KolomJawaban[] {
-  const form = (config ?? {}) as RegistrationFormConfig;
-  const izin = new Set(Array.isArray(form.client_fields) ? form.client_fields : []);
-  return pertanyaanUntukKlien(form)
-    .filter((field) => izin.has(field.key))
-    .map((field) => ({ key: field.key, label: field.label, type: field.type }));
-}
-
-/** Jawaban sebagai teks untuk tabel dan berkas; kotak centang jadi "Yes". */
-function teksJawaban(kolom: KolomJawaban, nilai: unknown) {
-  if (nilai === null || nilai === undefined || nilai === "") return "";
-  if (kolom.type === "checkbox") return nilai === "true" || nilai === true ? "Yes" : "";
-  return String(nilai);
-}
 
 export type UrutKlien = "registered_at" | "name" | "company";
 

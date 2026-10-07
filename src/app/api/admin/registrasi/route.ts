@@ -8,6 +8,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { landingFormOnly } from "@/lib/landing-i18n";
 import { LANDING_HEADING_FONTS, type EventLandingConfig, type RegistrationField, type RegistrationFormConfig } from "@/lib/domain";
 import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "@/lib/registration-fields";
+import { rapikanPersetujuan } from "@/lib/live/kolom-klien";
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { resolveFormTheme } from "@/lib/registration-theme-css";
@@ -229,25 +230,25 @@ export async function PATCH(request: Request) {
   // dapat dipakai — kunci unik, dropdown punya minimal dua pilihan, batas angka
   // masuk akal — hidup di satu berkas bersama validasi jawaban, supaya definisi
   // dan pemeriksaannya tidak bisa berbeda pendapat.
-  let formConfig: RegistrationFormConfig | undefined;
-  if (parsed.data.form) {
-    const issues = validateFieldDefinitions(parsed.data.form.fields as RegistrationField[]);
+  const formBaru = parsed.data.form;
+  if (formBaru) {
+    const issues = validateFieldDefinitions(formBaru.fields as RegistrationField[]);
     if (issues.length > 0) {
       return apiError("VALIDATION_ERROR", 422, Object.fromEntries(issues.map((issue) => [issue.key || "fields", issue.message])));
     }
-    formConfig = {
-      ...parsed.data.form,
-      fields: parsed.data.form.fields as RegistrationField[],
-      // Tema DIPERTAHANKAN dari yang sudah tersimpan, bukan dikirim ulang dari
-      // layar ini. Tanpa baris ini, menyimpan susunan field akan menghapus warna
-      // formulir yang dipilih di CMS halaman acara — dan tidak ada apa pun di
-      // layar ini yang memberi tahu bahwa itu terjadi.
-      theme: (event.registration_form_config as RegistrationFormConfig | null)?.theme,
-      // Sama seperti tema: pilihan jawaban untuk klien diatur di layar Client
-      // view, dan menyimpan susunan form tidak boleh diam-diam menghapusnya.
-      client_fields: (event.registration_form_config as RegistrationFormConfig | null)?.client_fields,
-    };
   }
+  const susunForm = (tersimpan: RegistrationFormConfig | null): RegistrationFormConfig | undefined => formBaru ? {
+    ...formBaru,
+    fields: formBaru.fields as RegistrationField[],
+    // Tema DIPERTAHANKAN dari yang sudah tersimpan, bukan dikirim ulang dari
+    // layar ini. Tanpa baris ini, menyimpan susunan field akan menghapus warna
+    // formulir yang dipilih di CMS halaman acara — dan tidak ada apa pun di
+    // layar ini yang memberi tahu bahwa itu terjadi.
+    theme: tersimpan?.theme,
+    // Sama seperti tema: jawaban untuk klien diatur di layar Client view.
+    // Yang dibuang hanya persetujuan milik pertanyaan yang dihapus (QA #102 H1).
+    client_fields: rapikanPersetujuan(tersimpan?.client_fields, formBaru.fields as RegistrationField[]),
+  } : undefined;
 
   /**
    * Nilai efektif sakelar pendaftaran: yang dikirim kalau ada, kalau tidak yang
@@ -279,24 +280,45 @@ export async function PATCH(request: Request) {
         : {};
 
   const client = getSupabaseServiceClient();
-  const { data, error } = await client
-    .from("events")
-    .update({
-      ...(parsed.data.registration_enabled !== undefined ? { registration_enabled: parsed.data.registration_enabled } : {}),
-      ...(sumberBaru ? { participant_source: sumberBaru } : {}),
-      ...(formConfig ? { registration_form_config: formConfig } : {}),
-      ...autoApprove,
-      ...(parsed.data.registration_access !== undefined ? { registration_access: parsed.data.registration_access } : {}),
-      ...(parsed.data.invitation_auto_approve !== undefined ? { invitation_auto_approve: parsed.data.invitation_auto_approve } : {}),
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq("id", event.id)
-    .select("registration_enabled,registration_auto_approve,registration_form_config,participant_source")
-    .single();
-  if (error && (parsed.data.registration_access !== undefined || parsed.data.invitation_auto_approve !== undefined) && undanganBelumAda(error)) {
-    return apiError("INVITATIONS_NOT_READY", 409);
+  /**
+   * Susunan form ditulis hanya kalau updated_at masih sama dengan saat dibaca.
+   * registration_form_config juga ditulis CMS halaman acara (tema) dan layar
+   * Client view (jawaban untuk klien), masing-masing seluruh JSON-nya; tanpa
+   * syarat ini simpanan yang tumpang tindih saling menimpa (QA #102, H2). Kalau
+   * sudah berubah: baca ulang, susun lagi di atas yang terbaru, coba sekali lagi.
+   */
+  let tersimpan = event.registration_form_config as RegistrationFormConfig | null;
+  let versi = event.updated_at;
+  let data: unknown = null;
+  for (let percobaan = 0; ; percobaan++) {
+    const formConfig = susunForm(tersimpan);
+    let query = client
+      .from("events")
+      .update({
+        ...(parsed.data.registration_enabled !== undefined ? { registration_enabled: parsed.data.registration_enabled } : {}),
+        ...(sumberBaru ? { participant_source: sumberBaru } : {}),
+        ...(formConfig ? { registration_form_config: formConfig } : {}),
+        ...autoApprove,
+        ...(parsed.data.registration_access !== undefined ? { registration_access: parsed.data.registration_access } : {}),
+        ...(parsed.data.invitation_auto_approve !== undefined ? { invitation_auto_approve: parsed.data.invitation_auto_approve } : {}),
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", event.id);
+    if (formConfig) query = query.eq("updated_at", versi);
+    const hasil = await query
+      .select("registration_enabled,registration_auto_approve,registration_form_config,participant_source")
+      .maybeSingle();
+    if (hasil.error && (parsed.data.registration_access !== undefined || parsed.data.invitation_auto_approve !== undefined) && undanganBelumAda(hasil.error)) {
+      return apiError("INVITATIONS_NOT_READY", 409);
+    }
+    if (hasil.error) return apiError("INTERNAL_ERROR", 500);
+    if (hasil.data) { data = hasil.data; break; }
+    if (!formConfig || percobaan >= 1) return apiError("CONFLICT", 409);
+    const { data: segar, error: galatBaca } = await client.from("events").select("registration_form_config,updated_at").eq("id", event.id).single();
+    if (galatBaca || !segar) return apiError("INTERNAL_ERROR", 500);
+    tersimpan = (segar as { registration_form_config: RegistrationFormConfig | null }).registration_form_config;
+    versi = (segar as { updated_at: string }).updated_at;
   }
-  if (error) return apiError("INTERNAL_ERROR", 500);
 
   await client.from("audit_logs").insert({
     event_id: event.id,

@@ -76,6 +76,7 @@ const messages: Record<ApiErrorCode, string> = {
   INVITATION_USED: "This invitation link has already been used to register.",
   INVITATION_NOT_FOUND: "Invited guest not found.",
   INVITATIONS_NOT_READY: "Invited guests are not ready yet: the database migration has not been run.",
+  CONFLICT: "This event was saved somewhere else at the same moment. Nothing was changed. Try again.",
   // Menyebut env-nya: yang bisa membereskan ini pemilik sistem, bukan panitia.
   INVITATION_SENDING_LOCKED: "Invitation blasts stay locked until the system owner sets up a separate invitation sender.",
   MESSAGE_NOT_PAUSED: "This blast is not paused.",

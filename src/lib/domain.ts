@@ -141,12 +141,16 @@ export type RegistrationFormConfig = {
   /** Warna dan gambar form publik. Lihat src/lib/registration-theme.ts. */
   theme?: RegistrationFormTheme;
   /**
-   * Kunci pertanyaan yang jawabannya boleh dilihat akun Viewer (klien) di layar
-   * live dan unduhannya. Kosong/tidak ada = tidak satu pun. Diatur dari layar
-   * Client view, BUKAN dari penyunting form; penyunting form mempertahankannya.
+   * Pertanyaan yang jawabannya boleh dilihat akun Viewer (klien) di layar live
+   * dan unduhannya, persis seperti saat disetujui admin. Kosong/tidak ada =
+   * tidak satu pun. Diatur dari layar Client view; penyunting form hanya
+   * membuang milik pertanyaan yang dihapus. Lihat src/lib/live/kolom-klien.ts.
    */
-  client_fields?: string[];
+  client_fields?: ClientFieldApproval[];
 };
+
+/** Satu pertanyaan yang disetujui admin untuk klien: kunci, judul, dan jenis saat disetujui. */
+export type ClientFieldApproval = { key: string; label: string; type: RegistrationFieldType };
 
 /**
  * Bagian landing page publik.
@@ -1409,6 +1413,8 @@ export type ApiErrorCode =
   | "INVITATION_USED"
   | "INVITATION_NOT_FOUND"
   | "INVITATIONS_NOT_READY"
+  // Acara disimpan di tempat lain pada saat yang sama; simpanan ini tidak ditulis.
+  | "CONFLICT"
   | "INVITATION_SENDING_LOCKED"
   | "MESSAGE_NOT_PAUSED"
   | "ANNOUNCEMENT_NOT_FOUND"

@@ -39,7 +39,8 @@ export async function GET(request: Request) {
       }),
       ...jawaban.map(({ key }) => baris.answers[key] ?? ""),
     ]);
-    const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers);
+    // Berkas ini dibuka klien di spreadsheet: sel yang terbaca rumus dinetralkan.
+    const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers, { netralkanRumus: true });
     return new Response(body as BodyInit, {
       headers: {
         "Content-Type": CONTENT_TYPES[format],

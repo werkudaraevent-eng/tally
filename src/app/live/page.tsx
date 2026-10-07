@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/login";
 import { requireEventScope } from "@/lib/auth/event-scope";
 import type { RegistrationFormConfig } from "@/lib/domain";
-import { pertanyaanUntukKlien } from "@/lib/live/data";
+import { statusPertanyaanKlien } from "@/lib/live/kolom-klien";
 import { roleHome } from "@/lib/role-home";
 import { LiveClient } from "./live-client";
 
@@ -43,10 +43,7 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
       username={user.username}
       role={resolved.scope.role}
       preview={resolved.scope.role !== "viewer"}
-      pengaturanKolom={admin ? {
-        pertanyaan: pertanyaanUntukKlien(config).map(({ key, label, type }) => ({ key, label, type })),
-        dipilih: Array.isArray(config?.client_fields) ? config.client_fields : [],
-      } : undefined}
+      pertanyaanKlien={admin ? statusPertanyaanKlien(config) : undefined}
     />
   );
 }

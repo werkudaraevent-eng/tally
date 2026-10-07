@@ -415,9 +415,28 @@ function escapeCsv(value: unknown) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-export function buildCsv(rows: unknown[][], headers: readonly string[]) {
-  const lines = [headers.join(",")];
-  for (const row of rows) lines.push(row.map(escapeCsv).join(","));
+/**
+ * Sel yang dibuka spreadsheet sebagai rumus (=, +, -, @, tab, CR di depan)
+ * diberi tanda kutip tunggal supaya tampil sebagai teks (CSV injection, QA #102
+ * L1). Dipakai untuk berkas yang dibagikan ke luar panitia; ekspor admin yang
+ * diunggah ulang lewat impor tidak memakainya.
+ */
+export function netralkanRumus(value: unknown) {
+  const text = value == null ? "" : String(value);
+  return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+}
+
+/** Judul kolom diberi tanda kutip hanya bila perlu, supaya berkas yang sudah ada tetap sama byte demi byte. */
+function escapeHeader(header: string) {
+  return /[",\r\n]/.test(header) ? escapeCsv(header) : header;
+}
+
+export function buildCsv(rows: unknown[][], headers: readonly string[], opsi: { netralkanRumus?: boolean } = {}) {
+  const sel = (value: unknown) => (opsi.netralkanRumus ? netralkanRumus(value) : value);
+  // Judul juga di-escape (QA #102 M2): pertanyaan "Dietary needs, if any"
+  // tanpa kutip menggeser setiap kolom sesudahnya.
+  const lines = [headers.map((header) => escapeHeader(String(sel(header)))).join(",")];
+  for (const row of rows) lines.push(row.map((value) => escapeCsv(sel(value))).join(","));
   // BOM di depan: tanpa itu Excel di Windows membaca berkas sebagai ANSI dan
   // nama beraksen tampil rusak.
   return `﻿${lines.join("\r\n")}\r\n`;
