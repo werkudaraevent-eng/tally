@@ -5,29 +5,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ExportMenu } from "@/components/admin/export-menu";
 import { UserMenu } from "@/components/admin/user-menu";
-import { Banner, EmptyState, IconButton, Pagination, Pane, PaneHeader, Skeleton, StatusChip, TopAppBar } from "@/components/m3";
+import { Banner, CONTAINER_PADDING, EmptyState, IconButton, Pagination, Pane, PaneHeader, Skeleton, StatusChip, TopAppBar } from "@/components/m3";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
+import type { BarisKlien } from "@/lib/live/data";
 import { DEFAULT_TIME_ZONE, normalizeTimeZone, timeZoneAbbr } from "@/lib/timezone";
 
-type Baris = {
-  id: string;
-  name: string;
-  company: string | null;
-  title: string | null;
-  email: string | null;
-  phone: string | null;
-  participant_type: string | null;
-  registered_at: string | null;
-  registered_via: "form" | "added";
-  removed: boolean;
-  checked_in: boolean;
-};
 
 type Data = {
   event: { name: string; slug: string; status: string; time_zone: string };
   counts: { registered: number; today: number; pending: number; checked_in: number };
-  rows: Baris[];
+  rows: BarisKlien[];
   total: number;
   fetched_at: string;
 };
@@ -139,9 +127,10 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
         maxWidth="1280px"
         actions={
           <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-2 text-body-medium text-on-surface-variant sm:flex" aria-live="polite">
+            {/* Tetap tampil di ponsel: tanpa ini klien tidak tahu angkanya basi. */}
+            <span className={cx("flex items-center gap-2 whitespace-nowrap text-body-medium", gagal ? "text-error" : "text-on-surface-variant")} aria-live="polite">
               <span aria-hidden className={cx("size-2 rounded-full", gagal ? "bg-error" : "bg-success")} />
-              {gagal ? "Couldn't refresh" : data ? `Updated ${jam(data.fetched_at)} ${timeZoneAbbr(zona)}` : "Loading…"}
+              {gagal ? "Couldn't refresh" : data ? <><span className="max-sm:hidden">Updated </span>{jam(data.fetched_at)}<span className="max-sm:hidden"> {timeZoneAbbr(zona)}</span></> : "Loading…"}
             </span>
             <IconButton label="Refresh now" onClick={() => void muat()} disabled={memuat}>
               <ArrowClockwise size={20} className={cx(memuat && "animate-spin")} />
@@ -151,7 +140,10 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
         }
       />
 
-      <main className="mx-auto flex w-full max-w-[1280px] flex-col gap-4 px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+      {/* Padding dan lebar maksimum persis seperti TopAppBar (padding di luar,
+          1280 di dalam), supaya judul, kartu, dan tabel mulai di garis yang sama. */}
+      <main className={cx(CONTAINER_PADDING, "pb-10 pt-4")}>
+        <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-4">
         {preview ? (
           <Banner tone="info" icon={<Eye size={18} />}>
             <span className="font-medium">This is what a Viewer account sees.</span> Give the client a Viewer account in Users &amp; roles to share this page.{" "}
@@ -161,7 +153,7 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
 
         <section aria-label="Summary" className="grid grid-cols-3 gap-2 sm:gap-3">
           {tile.map((t) => (
-            <div key={t.label} className="flex flex-col gap-0.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-3 sm:px-5">
+            <div key={t.label} className="flex h-[88px] flex-col justify-center gap-0.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 sm:px-5">
               <span className="truncate text-body-medium font-medium text-on-surface-variant">{"pendek" in t ? <><span className="sm:hidden">{t.pendek}</span><span className="max-sm:hidden">{t.label}</span></> : t.label}</span>
               {t.nilai === undefined ? <Skeleton className="my-1 h-7 w-20" /> : <span className="text-headline-small font-semibold tabular-nums">{t.nilai.toLocaleString("en-GB")}</span>}
               <span className="hidden text-body-small text-on-surface-variant sm:block">{t.catatan}</span>
@@ -177,7 +169,7 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search name or organisation…"
+                placeholder="Search name, organisation or email…"
                 className="h-9 w-full rounded-md border border-outline bg-surface-container-lowest pl-9 pr-3 text-body-medium outline-none placeholder:text-on-surface-variant focus:border-primary"
               />
             </label>
@@ -193,39 +185,44 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
             ) : !data ? (
               <div className="flex flex-col gap-3 p-4">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-5 w-full" />)}</div>
             ) : data.rows.length === 0 ? (
-              <EmptyState plain icon={<UsersThree size={40} />} title={cari ? "No matching participants" : "No registrations yet"} description={cari ? "Try another name or organisation." : "New registrations appear here on their own."} />
+              <EmptyState plain icon={<UsersThree size={40} />} title={cari ? "No matching participants" : "No registrations yet"} description={cari ? "Try another name, organisation or email." : "New registrations appear here on their own."} />
             ) : (
-              <table className={cx("w-full min-w-[1060px] table-fixed border-separate border-spacing-0 text-left text-body-medium", memuat && "opacity-80")}>
+              <table className={cx("w-full min-w-[1188px] table-fixed border-separate border-spacing-0 text-left text-body-medium", memuat && "opacity-80")}>
                 <colgroup>
-                  <col style={{ width: 220 }} /><col style={{ width: 200 }} /><col style={{ width: 160 }} /><col style={{ width: 220 }} /><col style={{ width: 140 }} /><col style={{ width: 180 }} /><col style={{ width: 110 }} />
+                  {/* 1.188 px: pas dengan isi panel pada layar 1280 (QA PR #100, M4). */}
+                  <col style={{ width: 185 }} /><col style={{ width: 160 }} /><col style={{ width: 135 }} /><col style={{ width: 208 }} /><col style={{ width: 130 }} /><col style={{ width: 110 }} /><col style={{ width: 140 }} /><col style={{ width: 120 }} />
                 </colgroup>
                 <thead className="bg-surface-container-high text-body-medium font-medium text-on-surface-variant">
-                  <tr>
-                    <th scope="col" aria-sort={ariaSort("name")} className="border-b border-outline-variant px-4 py-2.5 font-medium">{kepala("Name", "name")}</th>
-                    <th scope="col" aria-sort={ariaSort("company")} className="border-b border-outline-variant px-3 py-2.5 font-medium">{kepala("Organisation", "company")}</th>
-                    <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Job title</th>
-                    <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Email</th>
-                    <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Phone</th>
-                    <th scope="col" aria-sort={ariaSort("registered_at")} className="border-b border-outline-variant px-3 py-2.5 font-medium">{kepala("Registered", "registered_at")}</th>
-                    <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Check-in</th>
+                  <tr className="h-10">
+                    <th scope="col" aria-sort={ariaSort("name")} className="border-b border-outline-variant px-4 py-0 font-medium">{kepala("Name", "name")}</th>
+                    <th scope="col" aria-sort={ariaSort("company")} className="border-b border-outline-variant px-3 py-0 font-medium">{kepala("Organisation", "company")}</th>
+                    <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Job title</th>
+                    <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Email</th>
+                    <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Phone</th>
+                    <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Type</th>
+                    <th scope="col" aria-sort={ariaSort("registered_at")} className="border-b border-outline-variant px-3 py-0 font-medium">{kepala("Registered", "registered_at")}</th>
+                    <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Check-in</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.rows.map((baris) => {
-                    const baru = Boolean(batasBaru && baris.registered_at && baris.registered_at > batasBaru);
+                    // Dibandingkan sebagai waktu, bukan teks ISO: Postgres menulis "+00:00",
+                    // JavaScript menulis "Z" (QA PR #100, L7).
+                    const baru = batasBaru !== null && Date.parse(baris.registered_at) > Date.parse(batasBaru);
                     return (
-                      <tr key={baris.id} className={cx(baru ? "bg-primary-soft" : "bg-surface-container-lowest", baris.removed && "text-on-surface-variant")}>
-                        <td className="truncate border-b border-outline-variant px-4 py-2.5 font-medium" title={baris.name}>{baris.name}</td>
-                        <td className="truncate border-b border-outline-variant px-3 py-2.5" title={baris.company ?? undefined}>{baris.company || <Kosong />}</td>
-                        <td className="truncate border-b border-outline-variant px-3 py-2.5 text-on-surface-variant" title={baris.title ?? undefined}>{baris.title || <Kosong />}</td>
-                        <td className="truncate border-b border-outline-variant px-3 py-2.5" title={baris.email ?? undefined}>{baris.email || <Kosong />}</td>
-                        <td className="truncate border-b border-outline-variant px-3 py-2.5 tabular-nums text-on-surface-variant">{baris.phone || <Kosong />}</td>
-                        <td className="truncate border-b border-outline-variant px-3 py-2.5 tabular-nums">
-                          {baris.registered_at ? tanggalJam(baris.registered_at) : <Kosong />}
-                          {baru ? <StatusChip tone="primary" className="ml-2">New</StatusChip> : null}
+                      <tr key={baris.id} className={cx("h-10", baru ? "bg-primary-soft" : "bg-surface-container-lowest")}>
+                        <td className="truncate border-b border-outline-variant px-4 py-0 font-medium" title={baris.name}>{baris.name}</td>
+                        <td className="truncate border-b border-outline-variant px-3 py-0" title={baris.company ?? undefined}>{baris.company || <Kosong />}</td>
+                        <td className="truncate border-b border-outline-variant px-3 py-0 text-on-surface-variant" title={baris.title ?? undefined}>{baris.title || <Kosong />}</td>
+                        <td className="truncate border-b border-outline-variant px-3 py-0" title={baris.email ?? undefined}>{baris.email || <Kosong />}</td>
+                        <td className="truncate border-b border-outline-variant px-3 py-0 tabular-nums text-on-surface-variant">{baris.phone || <Kosong />}</td>
+                        <td className="truncate border-b border-outline-variant px-3 py-0" title={baris.participant_type ?? undefined}>{baris.participant_type || <Kosong />}</td>
+                        <td className="truncate border-b border-outline-variant px-3 py-0 tabular-nums">
+                          {tanggalJam(baris.registered_at)}
+                          {baru ? <StatusChip tone="primary" className="ml-2 align-middle">New</StatusChip> : null}
                         </td>
-                        <td className="border-b border-outline-variant px-3 py-2.5">
-                          {baris.checked_in ? <StatusChip dot tone="success">Checked in</StatusChip> : <span className="text-on-surface-variant">Not yet</span>}
+                        <td className="border-b border-outline-variant px-3 py-0">
+                          {baris.checked_in ? <StatusChip dot tone="success" className="align-middle">Checked in</StatusChip> : <span className="text-on-surface-variant">Not yet</span>}
                         </td>
                       </tr>
                     );
@@ -242,6 +239,7 @@ export function LiveClient({ slug, eventName, username, role, preview }: {
         <p className="text-body-small text-on-surface-variant">
           Times are in {timeZoneAbbr(zona)}. This page refreshes every 30 seconds while it is open.
         </p>
+        </div>
       </main>
     </div>
   );

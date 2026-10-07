@@ -31,6 +31,14 @@ export default function ParticipantsAdminPage() {
   const toast = useToast();
   const { zone, abbr } = useEventTimeZone();
   const [stats, setStats] = useState<ParticipantStats | null>(null);
+  // Layar Viewer selalu ber-slug (/e/<slug>/live). Di alamat lama tanpa slug
+  // tautannya tidak ditampilkan: /live tanpa slug hanya memantul ke /events.
+  const [tautanKlien, setTautanKlien] = useState<string | null>(null);
+  useEffect(() => {
+    const slug = window.location.pathname.match(/^\/e\/([^/]+)/)?.[1];
+    const pewaktu = window.setTimeout(() => setTautanKlien(slug ? `/e/${slug}/live` : null), 0);
+    return () => window.clearTimeout(pewaktu);
+  }, []);
 
   const { config } = useScannerConfig();
   const { menit } = useAutoSync();
@@ -86,8 +94,12 @@ export default function ParticipantsAdminPage() {
         meta={<>
           <span>{stats ? plural(stats.activeTotal, "active participant") : "Loading participants"}</span>
           {/* Layar akun Viewer: admin bisa memeriksa persis apa yang dilihat klien. */}
-          <MetaSeparator />
-          <a href="../live" className="text-primary hover:underline">Client view</a>
+          {tautanKlien ? (
+            <>
+              <MetaSeparator />
+              <a href={tautanKlien} className="text-primary hover:underline">Client view</a>
+            </>
+          ) : null}
         </>}
         actions={
           <>

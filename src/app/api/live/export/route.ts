@@ -1,31 +1,35 @@
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
-import { CONTENT_TYPES, buildCsv, buildXlsx, exportFilename, exportHeaders, loadParticipantExportRows } from "@/lib/participants-io";
-import { normalizeTimeZone } from "@/lib/timezone";
+import { KOLOM_KLIEN, semuaBarisKlien, waktuBerkas } from "@/lib/live/data";
+import { CONTENT_TYPES, buildCsv, buildXlsx, exportFilename } from "@/lib/participants-io";
+import { normalizeTimeZone, timeZoneAbbr } from "@/lib/timezone";
 
 /**
  * Unduhan daftar pendaftar untuk akun Viewer.
  *
- * Isinya ekspor peserta yang sama dengan milik admin, minus dua kolom: QR code
- * (kunci masuk tiap tamu; berkas klien bisa diteruskan ke mana saja) dan
- * participant_id (hanya berguna untuk impor ulang, yang tidak bisa dilakukan
- * viewer).
+ * Daftar kolom tertutup (KOLOM_KLIEN), sama persis dengan tabel di layar.
+ * Bukan ekspor admin yang dikurangi beberapa kolom: ekspor admin membawa semua
+ * jawaban form tambahan (nomor identitas, kondisi medis) dan kolom internal,
+ * dan setiap pertanyaan baru di form akan ikut bocor ke berkas klien tanpa ada
+ * yang memutuskannya (QA PR #100, M2). Hadir dihitung dengan definisi yang
+ * sama dengan tabel, termasuk pindaian di Tally (M1).
  */
-const DIBUANG = new Set(["qr_code", "participant_id"]);
-
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["viewer", "admin"], { readOnly: true });
   if (auth.response) return auth.response;
 
   const format = new URL(request.url).searchParams.get("format") === "xlsx" ? "xlsx" : "csv";
   const event = auth.scope.event;
-  const fields = ((event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
+  const zona = normalizeTimeZone(event.time_zone);
 
   try {
-    const semua = exportHeaders(fields);
-    const simpan = semua.map((kolom, index) => (DIBUANG.has(kolom) ? -1 : index)).filter((index) => index >= 0);
-    const headers = simpan.map((index) => semua[index]);
-    const rows = (await loadParticipantExportRows(event.id, fields, normalizeTimeZone(event.time_zone))).map((row) => simpan.map((index) => row[index]));
+    const headers = KOLOM_KLIEN.map((kolom) => (kolom.key === "registered_at" ? `${kolom.label} (${timeZoneAbbr(zona)})` : kolom.label));
+    const rows = (await semuaBarisKlien(event.id)).map((baris) =>
+      KOLOM_KLIEN.map(({ key }) => {
+        if (key === "registered_at") return waktuBerkas(baris.registered_at, zona);
+        if (key === "checked_in") return baris.checked_in ? "Yes" : "No";
+        return baris[key] ?? "";
+      }),
+    );
     const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers);
     return new Response(body as BodyInit, {
       headers: {
