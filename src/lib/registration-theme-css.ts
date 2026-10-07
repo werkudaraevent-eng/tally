@@ -284,13 +284,16 @@ function tintaTerbaik(latar: string, merek: string): string {
  * - `angka`: nomor hari di lingkaran warna primary.
  * - `primerTeks`: warna primary yang terbaca di atas pasir (dan kartu putih).
  */
-export function gatheringColors(accent: string | undefined, seed: string | undefined, adaKv: boolean) {
+export function gatheringColors(accent: string | undefined, seed: string | undefined, adaKv: boolean, button?: string | null) {
   const aksen = /^#[0-9a-f]{6}$/i.test(accent ?? "") ? accent! : GATHERING_ACCENT_DEFAULT;
   const merek = /^#[0-9a-f]{6}$/i.test(seed ?? "") ? seed! : DEFAULT_REGISTRATION_SEED;
   // Sama dengan --reg-primary dari modernThemeStyle.
   const primer = kontras(merek, "#ffffff") >= 3 ? merek : TINTA_GELAP;
   const sand = mixHex(aksen, "#ffffff", 0.86);
-  const cta = kontras(aksen, "#000000") >= 3 ? aksen : "#ffffff";
+  // Warna tombol dari Tema (preset Gathering: hijau). Tanpa isian, tombol tetap
+  // warna aksen seperti sebelumnya, jadi acara lama tidak berubah warna.
+  const tombol = /^#[0-9a-f]{6}$/i.test(button ?? "") ? button! : null;
+  const cta = tombol ?? (kontras(aksen, "#000000") >= 3 ? aksen : "#ffffff");
   // KV yang dibayangi tidak pernah hitam murni: KV navy KSO 21 terukur ~#070e1f,
   // dan KV yang lebih terang lebih dari itu. #222 memberi jarak aman untuk
   // keduanya (QA PR #87: #4d72c8 lolos terhadap hitam, 4.17:1 terhadap KV nyata).
@@ -307,5 +310,10 @@ export function gatheringColors(accent: string | undefined, seed: string | undef
     angka: terbacaDi(aksen, primer),
     // Teks warna primary di atas pasir (jam kartu hari, tautan jadwal lengkap).
     primerTeks: terbacaDi(primer, sand),
+    // Warna aksi di atas putih (label bagian, ikon, tab aktif); emas oker bila
+    // warna tombol belum diisi.
+    // Aksen di atas putih (nomor hari ketiga di kartu hari gaya aplikasi).
+    aksenTeks: terbacaDi(aksen.toUpperCase() === GATHERING_ACCENT_DEFAULT ? GATHERING_OKER : aksen, "#ffffff"),
+    aksiTeks: tombol ? terbacaDi(tombol, "#ffffff") : terbacaDi(aksen.toUpperCase() === GATHERING_ACCENT_DEFAULT ? GATHERING_OKER : aksen, "#ffffff"),
   };
 }

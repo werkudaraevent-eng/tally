@@ -1075,16 +1075,16 @@ export default function LandingCmsPage() {
       )}
 
       {gathering ? (
-        <Kelompok title="Logo" note="In the hero, above the tagline.">
-          <ImageUploadField
-            label="Hero logo"
-            kind="landing"
-            fit="contain"
-            previewClassName="h-20 w-36"
-            hint="Transparent PNG or WebP in a light colour, so it reads on the KV. Without a tagline, the logo stands in for the event name. Up to 5 MB."
-            value={landing.hero_logo_url ?? null}
-            onChange={(url) => setLanding({ ...landing, hero_logo_url: url })}
-            disabled={busy}
+        <Kelompok title="Hero text" note="The gathering hero: tagline as the title, this line below it.">
+          <TextArea
+            label="Line below the title"
+            optional
+            rows={3}
+            maxLength={240}
+            counter
+            hint="One or two sentences on what the trip is. Put *stars* around a word in the tagline to colour it with the accent colour."
+            value={landing.hero_note ?? ""}
+            onChange={(event) => setLanding({ ...landing, hero_note: event.target.value })}
           />
         </Kelompok>
       ) : null}
@@ -1446,7 +1446,7 @@ export default function LandingCmsPage() {
         />
       </Kelompok>
       {modern ? (
-        <Kelompok title="Call-to-action banner" note="Above the footer, shown while registration is open and there is no call-to-action strip block.">
+        <Kelompok title="Call-to-action banner" note={gathering ? "Above the footer, inviting guests to sign in." : "Above the footer, shown while registration is open and there is no call-to-action strip block."}>
           <TextField
             label="Banner heading"
             optional

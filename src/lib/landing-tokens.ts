@@ -35,6 +35,8 @@ export const FORUM_DEFAULTS = { primary: "#002f54", accent: "#ffc72c", secondary
 
 /** Aksen bawaan gaya gathering: emas, pasangan navy di rancangan KSO 21. */
 export const GATHERING_ACCENT_DEFAULT = "#E9C46A";
+/** Warna tombol bawaan preset Gathering: hijau yang 5:1 dengan teks putih (hijau rancangan Hanung #00A86B hanya 3:1). */
+export const GATHERING_BUTTON_DEFAULT = "#007F50";
 
 export type LandingTokens = {
   layout: LandingLayout;

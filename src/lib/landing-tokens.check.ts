@@ -118,4 +118,16 @@ for (const key of LANDING_BODY_FONTS) {
   }
 }
 
+// Warna tombol: hanya preset Gathering yang mengisinya; preset lain mengosongkannya,
+// jadi acara non-gathering tidak pernah membawa warna tombol (PR gaya aplikasi).
+{
+  const gathering = LANDING_THEME_PRESETS.find((p) => p.key === "gathering")!;
+  const conference = LANDING_THEME_PRESETS.find((p) => p.key === "modern")!;
+  const g = terapkanPreset(gathering, {});
+  assert.equal(g.button_color, "#007F50");
+  assert.equal(presetDiubah(gathering, g), false);
+  assert.equal(presetDiubah(gathering, { ...g, button_color: "#123456" }), true);
+  assert.equal(terapkanPreset(conference, g).button_color, undefined);
+}
+
 console.log("landing-tokens.check.ts OK");

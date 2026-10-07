@@ -375,6 +375,20 @@ export type LandingUiText = {
   navTrip: string;
   navHotel: string;
   tripEyebrow: string;
+  /** Bagian Portal peserta dan pratinjau di hero gaya gathering. */
+  portalEyebrow: string;
+  portalHeading: string;
+  portalNote: string;
+  portalFirstUp: string;
+  portalAfterSignIn: string;
+  portalTicket: string;
+  portalTicketNote: string;
+  portalRoom: string;
+  portalRoomNote: (roommates: boolean) => string;
+  portalBus: string;
+  portalBusNote: string;
+  portalNews: string;
+  portalNewsNote: string;
   hotelEyebrow: string;
   hotelHeading: string;
   checkIn: string;
@@ -468,6 +482,19 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     navTrip: "Perjalanan",
     navHotel: "Hotel",
     tripEyebrow: "Perjalanan",
+    portalEyebrow: "Portal peserta",
+    portalHeading: "Semua info perjalanan Anda, di satu tempat.",
+    portalNote: "Masuk dengan email yang didaftarkan panitia untuk melihat tiket, kamar, bus, dan pengumuman terbaru langsung dari HP.",
+    portalFirstUp: "Agenda pertama",
+    portalAfterSignIn: "Setelah masuk",
+    portalTicket: "Tiket masuk",
+    portalTicketNote: "Kode QR untuk meja registrasi",
+    portalRoom: "Kamar",
+    portalRoomNote: (roommates) => (roommates ? "Nomor kamar dan teman sekamar" : "Nomor kamar dan hotel"),
+    portalBus: "Bus",
+    portalBusNote: "Bus dan titik kumpul tiap perjalanan",
+    portalNews: "Pengumuman",
+    portalNewsNote: "Info terbaru dari panitia",
     hotelEyebrow: "Hotel",
     hotelHeading: "Tempat menginap",
     checkIn: "Check-in",
@@ -554,6 +581,19 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     navTrip: "Itinerary",
     navHotel: "Hotel",
     tripEyebrow: "Itinerary",
+    portalEyebrow: "Participant portal",
+    portalHeading: "Everything for your trip, in one place.",
+    portalNote: "Sign in with the email the organisers registered to see your ticket, room, bus and the latest announcements on your phone.",
+    portalFirstUp: "First up",
+    portalAfterSignIn: "After sign-in",
+    portalTicket: "Entry ticket",
+    portalTicketNote: "QR code for the registration desk",
+    portalRoom: "Room",
+    portalRoomNote: (roommates) => (roommates ? "Room number and roommate" : "Room number and hotel"),
+    portalBus: "Bus",
+    portalBusNote: "Your bus and meeting point for each trip",
+    portalNews: "Announcements",
+    portalNewsNote: "The latest from the organisers",
     hotelEyebrow: "Hotel",
     hotelHeading: "Where you'll stay",
     checkIn: "Check-in",

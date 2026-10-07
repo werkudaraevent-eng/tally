@@ -127,6 +127,7 @@ export function TabTema({
             <>
               <Bulat warna={tokens.brand} />
               {tokens.accent ? <Bulat warna={tokens.accent} /> : null}
+              {gathering && landing.button_color ? <Bulat warna={landing.button_color} /> : null}
               {tokens.secondary ? <Bulat warna={tokens.secondary} /> : null}
             </>
           }
@@ -142,7 +143,9 @@ export function TabTema({
           ) : gathering ? (
             <>
               <PilihWarna label="Accent colour" value={tokens.accent ?? GATHERING_ACCENT_DEFAULT} onChange={(value) => setLanding({ ...landing, accent: value })} />
-              <p className="-mt-2 text-body-small text-on-surface-variant">The hero label, countdown and day numbers. Darkened automatically where it sits on white.</p>
+              <p className="-mt-2 text-body-small text-on-surface-variant">The highlighted word in the title, the event date and day numbers.</p>
+              <PilihWarna label="Button colour" value={landing.button_color ?? tokens.accent ?? GATHERING_ACCENT_DEFAULT} onChange={(value) => setLanding({ ...landing, button_color: value })} />
+              <p className="-mt-2 text-body-small text-on-surface-variant">Main buttons, section labels, active tabs and icons in the participant area. Darkened automatically where it sits on white.</p>
             </>
           ) : null}
           <p className="text-body-small text-on-surface-variant">Other shades are derived from these, and text on them is picked so it stays readable.</p>
