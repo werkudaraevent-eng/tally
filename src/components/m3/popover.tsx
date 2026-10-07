@@ -196,19 +196,29 @@ export function Popover({ anchor, label, role = "menu", id, align = "end", width
 	// berdekatan, dan itu terbaca sebagai kedipan, bukan sebagai penyesuaian.
 	const keAtas = ruangBawah < 180 && ruangAtas > ruangBawah;
 
+	// Lebar panel tidak boleh melebihi jendela, dan panel selebar `width` yang
+	// pemicunya dekat tepi kiri (mis. Export di ponsel 390) tidak boleh mulai di
+	// x negatif: posisinya digeser ke dalam, bukan dibiarkan terpotong.
+	// Lebar blok penampung posisi fixed: tanpa scrollbar DAN tanpa celah
+	// `scrollbar-gutter: stable` di <html>. innerWidth menghitung keduanya, dan
+	// panel yang dijepit dengan innerWidth tetap keluar 10 px di kiri ponsel.
+	const lebarJendela = Math.min(document.documentElement.clientWidth, document.documentElement.getBoundingClientRect().width);
+	const ruangLebar = lebarJendela - 2 * PADDING;
+	const lebar = typeof width === "number" ? Math.min(width, ruangLebar) : null;
 	const gaya: React.CSSProperties = {
 		position: "fixed",
 		maxHeight: Math.max(120, keAtas ? ruangAtas : ruangBawah),
-		minWidth: rect.width,
-		width,
+		minWidth: Math.min(rect.width, ruangLebar),
+		maxWidth: ruangLebar,
+		width: lebar ?? width,
 		...(keAtas
 			? { bottom: window.innerHeight - rect.top + OFFSET }
 			: { top: rect.bottom + OFFSET }),
 		...(align === "end"
 			// Dijepit ke dalam jendela: panel yang lebih lebar daripada pemicunya di
 			// tepi kanan layar akan keluar layar tanpa penjepit ini.
-			? { right: Math.max(PADDING, window.innerWidth - rect.right) }
-			: { left: Math.max(PADDING, rect.left) }),
+			? { right: Math.min(Math.max(PADDING, lebarJendela - rect.right), lebar === null ? Infinity : lebarJendela - PADDING - lebar) }
+			: { left: Math.min(Math.max(PADDING, rect.left), lebar === null ? Infinity : lebarJendela - PADDING - lebar) }),
 	};
 
 	return createPortal(

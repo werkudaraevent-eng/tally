@@ -59,26 +59,40 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     // RPC menyalin registration_form_config utuh, termasuk jawaban yang
     // disetujui untuk klien acara SUMBER. Acara baru mulai tanpa satu pun
     // (QA #102, M-R2-1); dibersihkan di sini supaya tidak perlu migrasi.
-    // Dibaca dari tabel, bukan dari hasil RPC, supaya tidak bergantung pada
-    // kolom apa saja yang dikembalikan fungsinya.
-    const { data: baru, error: galatBaca } = await client.from("events").select("registration_form_config").eq("id", event.id).single();
-    if (galatBaca || !baru) return apiError("INTERNAL_ERROR", 500, { message: "The copy was created, but it could not be checked. Open Client view on the copy and review Form answers." });
-    const bersih = tanpaPersetujuanKlien((baru as { registration_form_config: EventRow["registration_form_config"] | null }).registration_form_config);
-    if (bersih) {
-      const { data: diperbarui, error: galatBersih } = await client
-        .from("events")
-        .update({ registration_form_config: bersih, updated_at: new Date().toISOString() } as never)
-        .eq("id", event.id)
-        .select("registration_form_config,updated_at")
-        .single();
-      if (galatBersih || !diperbarui) {
-        console.error("Membersihkan persetujuan klien pada duplikat gagal:", galatBersih);
-        return apiError("INTERNAL_ERROR", 500, { message: "The copy was created, but its client answer sharing could not be reset. Open Client view on the copy and save Form answers with everything off." });
-      }
-      Object.assign(event, diperbarui);
+    // Dicoba dua kali (QA #102, L-R3-1). Kalau tetap gagal, salinannya SUDAH
+    // ada: pesannya menyebut salinan itu dan cara membereskannya, dan
+    // `copy_created` membuat dialog berhenti menawarkan "buat salinan" lagi.
+    let bersihkan = await bersihkanPersetujuan(client, event.id);
+    if (!bersihkan.ok) bersihkan = await bersihkanPersetujuan(client, event.id);
+    if (!bersihkan.ok) {
+      console.error("Membersihkan persetujuan klien pada duplikat gagal:", bersihkan.galat);
+      return apiError("INTERNAL_ERROR", 500, {
+        copy_created: true,
+        message: `The copy "${event.name}" was created as a draft, but answers shared with the client in the original may still be shared in the copy. Open the copy's Client view, then Form answers, and save with everything off before giving anyone a Viewer account.`,
+      });
     }
+    if (bersihkan.config) Object.assign(event, bersihkan.config);
     return Response.json({ event }, { status: 201 });
   } catch {
     return apiError("INTERNAL_ERROR", 500);
   }
+}
+
+/**
+ * Buang client_fields dari salinan. Dibaca dari tabel, bukan dari hasil RPC,
+ * supaya tidak bergantung pada kolom apa saja yang dikembalikan fungsinya.
+ */
+async function bersihkanPersetujuan(client: ReturnType<typeof getSupabaseServiceClient>, eventId: string) {
+  const { data: baru, error: galatBaca } = await client.from("events").select("registration_form_config").eq("id", eventId).single();
+  if (galatBaca || !baru) return { ok: false as const, galat: galatBaca };
+  const bersih = tanpaPersetujuanKlien((baru as { registration_form_config: EventRow["registration_form_config"] | null }).registration_form_config);
+  if (!bersih) return { ok: true as const, config: null };
+  const { data, error } = await client
+    .from("events")
+    .update({ registration_form_config: bersih, updated_at: new Date().toISOString() } as never)
+    .eq("id", eventId)
+    .select("registration_form_config,updated_at")
+    .single();
+  if (error || !data) return { ok: false as const, galat: error };
+  return { ok: true as const, config: data as Partial<EventRow> };
 }

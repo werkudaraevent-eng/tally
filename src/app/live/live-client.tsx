@@ -298,9 +298,10 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
             <ExportMenu
               endpoint={`/e/${encodeURIComponent(slug)}/api/live/export`}
               label="Download"
-              // CSV klien menandai sel yang terbaca rumus dengan ' (mis. nomor +62);
-              // Excel menyembunyikannya, alat lain menampilkannya.
-              csvDetail="For other systems. Values starting with + or = begin with ' so spreadsheets keep them as text; for Excel, use .xlsx."
+              // CSV klien memberi ' di depan sel yang diawali = + - @ (mis. nomor
+              // +62) supaya tidak dijalankan sebagai rumus. Tanda itu TAMPIL saat
+              // CSV dibuka di Excel, jadi pengguna Excel diarahkan ke .xlsx.
+              csvDetail="For other systems. Values starting with + = - or @ get a ' in front so they stay text. For Excel, use .xlsx."
             />
           </PaneHeader>
 
