@@ -39,6 +39,7 @@ import { landingTokens } from "@/lib/landing-tokens";
 import { normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
+import { FokusPemicuQr, PemicuQr, TutupQrEscape } from "@/components/member/qr-fokus";
 import { gayaModern } from "@/components/landing/modern/kerangka";
 import { HEAD } from "@/components/landing/modern/styles";
 import { tanpaBintang } from "@/components/landing/modern/gathering-app";
@@ -177,8 +178,15 @@ export async function DashboardGathering({
   const warna = gatheringColors(landingTokens(config, "modern").accent ?? undefined, landingTokens(config, "modern").brand, false, config.button_color);
   const gaya = {
     ...gayaModern(config),
-    "--aksi": warna.cta,
-    "--on-aksi": warna.onCta,
+    // Portal berlatar putih dan abu-abu muda: tombol versi putih (QA #103 M3).
+    "--aksi": warna.ctaPutih,
+    "--on-aksi": warna.onCtaPutih,
+    "--chip-aksi": warna.chipAksi.latar,
+    "--on-chip-aksi": warna.chipAksi.teks,
+    "--chip-merek": warna.chipMerek.latar,
+    "--on-chip-merek": warna.chipMerek.teks,
+    "--chip-aksen": warna.chipAksen.latar,
+    "--on-chip-aksen": warna.chipAksen.teks,
     "--alis": warna.aksiTeks,
     "--aksen": warna.aksen,
     "--aksen-teks": warna.aksenTeks,
@@ -187,7 +195,7 @@ export async function DashboardGathering({
   } as CSSProperties;
 
   const tautanCepat = [
-    ...(tampilKode ? [{ href: keTab("qr"), label: t.quick.tiket, Ikon: Ticket, warna: "text-[var(--alis)]", luar: false }] : []),
+    ...(tampilKode ? [{ href: keTab("qr"), label: t.quick.tiket, Ikon: Ticket, warna: "text-[var(--alis)]", luar: false, pemicuQr: "pemicu-qr-cepat" }] : []),
     ...(petaUrl ? [{ href: petaUrl, label: t.quick.peta, Ikon: MapPin, warna: "text-[var(--reg-brand)]", luar: true }] : []),
     ...(telepon ? [{ href: `tel:${telepon.replace(/[^\d+]/g, "")}`, label: t.quick.panitia, Ikon: Phone, warna: "text-[var(--aksen-teks)]", luar: true }] : []),
   ];
@@ -202,6 +210,7 @@ export async function DashboardGathering({
   if (tab === "qr" && tampilKode && peserta) {
     return (
       <main className="min-h-dvh" style={{ ...gaya, background: "var(--reg-brand)", color: "#ffffff" }}>
+        <TutupQrEscape href={keTab("beranda")} />
         <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-5 pb-10 pt-4">
           <div className="flex min-h-14 items-center justify-between gap-3">
             <h1 className={`${HEAD} text-[22px] font-bold`}>{t.qrTitle}</h1>
@@ -209,13 +218,13 @@ export async function DashboardGathering({
               <X size={22} aria-hidden />
             </Link>
           </div>
-          <div className="mt-6 rounded-[24px] bg-white p-6 text-[#1A2333]">
+          <div className="mt-6 rounded-[24px] bg-white px-4 py-6 text-[#1A2333]">
             <p className="text-center text-[20px] font-bold">{peserta.name}</p>
             {[peserta.title, peserta.company].filter(Boolean).length > 0 ? (
               <p className={`mt-1 text-center text-body-medium ${MUTED}`}>{[peserta.title, peserta.company].filter(Boolean).join(" · ")}</p>
             ) : null}
             <div className="mt-4">
-              <RegistrationCodeCard code={peserta.qr_code} eventName={nama} personName={peserta.name} schedule={formatEventSchedule(event, lang)} lang={lang} />
+              <RegistrationCodeCard code={peserta.qr_code} eventName={nama} personName={peserta.name} schedule={formatEventSchedule(event, lang)} lang={lang} qrBesar />
             </div>
           </div>
           <p className="mt-8 text-center text-title-medium font-bold">{t.qrShow}</p>
@@ -249,7 +258,7 @@ export async function DashboardGathering({
               <div className="mt-1 flex items-center justify-between gap-3">
                 <p className={`text-body-small ${MUTED}`}>{waktuPengumuman(pengumuman.items[0].published_at, zona, lang)}</p>
                 {pengumuman.items.length > 1 ? (
-                  <Link href={keTab("info")} className="inline-flex min-h-12 items-center text-title-small font-bold text-[var(--alis)]">
+                  <Link href={keTab("info")} className="inline-flex min-h-12 min-w-12 items-center justify-center text-title-small font-bold text-[var(--alis)]">
                     {t.seeAllInfo}
                   </Link>
                 ) : null}
@@ -384,9 +393,9 @@ export async function DashboardGathering({
   const aksesCepat =
     tautanCepat.length > 0 ? (
       <ul aria-label={t.quickAria} className={`grid gap-3 ${tautanCepat.length === 1 ? "grid-cols-1" : tautanCepat.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-        {tautanCepat.map(({ href, label, Ikon, warna: warnaIkon, luar }) => (
+        {tautanCepat.map(({ href, label, Ikon, warna: warnaIkon, luar, ...sisa }) => (
           <li key={label}>
-            <TautanPortal href={href} luar={luar} className={`m3-state flex min-h-[84px] flex-col items-center justify-center gap-2 rounded-[16px] bg-white px-2 text-title-small font-bold shadow-[0_1px_2px_rgb(16_24_40/0.06)]`}>
+            <TautanPortal href={href} luar={luar} pemicuQr={"pemicuQr" in sisa ? sisa.pemicuQr : undefined} className={`m3-state flex min-h-[84px] flex-col items-center justify-center gap-2 rounded-[16px] bg-white px-2 text-title-small font-bold shadow-[0_1px_2px_rgb(16_24_40/0.06)]`}>
               <Ikon size={24} aria-hidden className={warnaIkon} />
               {label}
             </TautanPortal>
@@ -543,8 +552,8 @@ export async function DashboardGathering({
         <p className="mt-3 inline-flex min-h-7 items-center rounded-full border border-white/25 bg-white/10 px-3 text-label-large font-semibold">{statusLabel}</p>
       </div>
     );
-    const baris: { href: string; judul: string; isi: string | null; Ikon: typeof House; luar?: boolean }[] = [
-      ...(tampilKode && peserta ? [{ href: keTab("qr"), judul: t.ticket, isi: peserta.qr_code, Ikon: Ticket }] : []),
+    const baris: { href: string; judul: string; isi: string | null; Ikon: typeof House; luar?: boolean; pemicuQr?: string }[] = [
+      ...(tampilKode && peserta ? [{ href: keTab("qr"), judul: t.ticket, isi: peserta.qr_code, Ikon: Ticket, pemicuQr: "pemicu-qr-profil" }] : []),
       ...(kamar ? [{ href: `${keTab("beranda")}#kamar`, judul: t.roomRow, isi: [kamar.room_number, teman?.map((o) => o.name).join(", ")].filter(Boolean).join(" · "), Ikon: Bed }] : []),
       ...(namaBus ? [{ href: `${keTab("beranda")}#bus`, judul: t.busRow, isi: [namaBus, perjalananBus?.meeting_point].filter(Boolean).join(" · "), Ikon: Bus }] : []),
       ...(telepon ? [{ href: `tel:${telepon.replace(/[^\d+]/g, "")}`, judul: t.contactRow, isi: [config.contact_name?.trim(), telepon].filter(Boolean).join(" · "), Ikon: Phone, luar: true }] : []),
@@ -556,9 +565,9 @@ export async function DashboardGathering({
         {pitaEmail}
         {statusPendaftaran}
         <ul className="flex flex-col gap-3">
-          {baris.map(({ href, judul, isi: keterangan, Ikon, luar }) => (
+          {baris.map(({ href, judul, isi: keterangan, Ikon, luar, pemicuQr }) => (
             <li key={judul}>
-              <TautanPortal href={href} luar={Boolean(luar)} className={`m3-state flex min-h-[72px] items-center gap-4 rounded-[16px] bg-white px-4 shadow-[0_1px_2px_rgb(16_24_40/0.06)]`}>
+              <TautanPortal href={href} luar={Boolean(luar)} pemicuQr={pemicuQr} className={`m3-state flex min-h-[72px] items-center gap-4 rounded-[16px] bg-white px-4 shadow-[0_1px_2px_rgb(16_24_40/0.06)]`}>
                 <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#F4F6F8] text-[var(--reg-brand)]">
                   <Ikon size={20} />
                 </span>
@@ -587,6 +596,7 @@ export async function DashboardGathering({
 
   return (
     <main className="min-h-dvh pb-[calc(88px+env(safe-area-inset-bottom))] text-[#1A2333] lg:pb-16" style={gaya}>
+      <FokusPemicuQr />
       {/* ---- Bilah atas layar lebar ---------------------------------------- */}
       <header className="hidden border-b border-[#E6E9EE] bg-white lg:block">
         <div className="mx-auto flex min-h-20 w-full max-w-[1440px] items-center gap-6 px-12">
@@ -605,7 +615,7 @@ export async function DashboardGathering({
                     href={keTab(id)}
                     aria-current={id === tabAktif ? "page" : undefined}
                     className={`m3-state inline-flex min-h-12 items-center rounded-full px-5 text-title-small font-bold ${
-                      id === tabAktif ? "bg-[color-mix(in_srgb,var(--aksi)_12%,white)] text-[var(--alis)]" : MUTED
+                      id === tabAktif ? "bg-[var(--chip-aksi)] text-[var(--on-chip-aksi)]" : MUTED
                     }`}
                   >
                     {label}
@@ -614,13 +624,13 @@ export async function DashboardGathering({
               ))}
             </ul>
           </nav>
-          <div className="flex flex-1 items-center justify-end gap-4">
-            <p className={`text-body-medium ${MUTED}`}>{[tanggal, venue].filter(Boolean).join(" · ")}</p>
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-4">
+            <p className={`min-w-0 truncate text-body-medium ${MUTED}`}>{[tanggal, venue].filter(Boolean).join(" · ")}</p>
             <Link
               href={keTab("profil")}
               aria-label={t.tabs.profil}
               aria-current={tabAktif === "profil" ? "page" : undefined}
-              className="m3-state flex size-12 items-center justify-center rounded-full bg-[var(--aksen)] text-title-small font-extrabold text-[#1A2333]"
+              className="m3-state flex size-12 shrink-0 items-center justify-center rounded-full bg-[var(--aksen)] text-title-small font-extrabold text-[#1A2333]"
             >
               {inisial}
             </Link>
@@ -697,12 +707,13 @@ function Lencana({ logo, nama }: { logo: string | null; nama: string }) {
 }
 
 function Chip({ nada, children }: { nada: "aksi" | "brand" | "aksen"; children: ReactNode }) {
+  // Teks chip dihitung terhadap latar chip itu sendiri (gatheringColors).
   const warna =
     nada === "aksi"
-      ? "bg-[color-mix(in_srgb,var(--aksi)_12%,white)] text-[var(--alis)]"
+      ? "bg-[var(--chip-aksi)] text-[var(--on-chip-aksi)]"
       : nada === "aksen"
-        ? "bg-[color-mix(in_srgb,var(--aksen)_22%,white)] text-[var(--aksen-teks)]"
-        : "bg-[color-mix(in_srgb,var(--reg-brand)_8%,white)] text-[var(--reg-brand)]";
+        ? "bg-[var(--chip-aksen)] text-[var(--on-chip-aksen)]"
+        : "bg-[var(--chip-merek)] text-[var(--on-chip-merek)]";
   return <span className={`inline-flex min-h-7 shrink-0 items-center gap-1 rounded-full px-3 text-[13px] font-bold ${warna}`}>{children}</span>;
 }
 
@@ -738,7 +749,14 @@ function KartuAngka({
   );
 }
 
-function TautanPortal({ href, luar, className, children }: { href: string; luar: boolean; className: string; children: ReactNode }) {
+function TautanPortal({ href, luar, className, children, pemicuQr }: { href: string; luar: boolean; className: string; children: ReactNode; pemicuQr?: string }) {
+  if (pemicuQr) {
+    return (
+      <PemicuQr id={pemicuQr} href={href} className={className}>
+        {children}
+      </PemicuQr>
+    );
+  }
   if (luar) {
     const baru = href.startsWith("http");
     return (

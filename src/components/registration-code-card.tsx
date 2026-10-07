@@ -53,9 +53,13 @@ type Props = {
   layout?: "tumpuk" | "samping";
   /** Tombol tambahan di bawah tombol simpan (layout samping). */
   children?: ReactNode;
+  /** QR besar untuk layar penuh (portal gathering, layout tumpuk): selebar layar, paling besar 320px. */
+  qrBesar?: boolean;
 };
 
 const MUTED = "text-[var(--reg-on-surface-variant)]";
+/** 192px biasa; layar penuh: selebar layar dikurangi bingkai, paling besar 320px. */
+const UKURAN_QR = (besar: boolean) => (besar ? "size-[min(calc(100vw-112px),320px)]" : "size-48");
 
 /** Tidak ada yang perlu dilangganani: kemampuan peramban tidak berubah saat halaman terbuka. */
 const langgananKosong = () => () => {};
@@ -76,7 +80,7 @@ function bacaBisaBagikan() {
   return cacheBagikan;
 }
 
-export function RegistrationCodeCard({ code, eventName, personName, schedule, inverse = false, lang = "id", layout = "tumpuk", children }: Props) {
+export function RegistrationCodeCard({ code, eventName, personName, schedule, inverse = false, lang = "id", layout = "tumpuk", children, qrBesar = false }: Props) {
   const t = DAFTAR_UI[lang].code;
   const [qr, setQr] = useState<string | null>(null);
   const [sibuk, setSibuk] = useState(false);
@@ -188,7 +192,7 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
           penampung, kode teks dan tombol di bawahnya melompat 192px ke bawah
           tepat ketika pendaftar sedang membacanya. Gambarnya lalu masuk dengan
           naik-pudar singkat, bukan muncul seketika. */}
-      <div className="relative mx-auto mt-4 size-48">
+      <div className={`relative mx-auto mt-4 ${UKURAN_QR(qrBesar)}`}>
         <span aria-hidden className={`absolute inset-0 rounded-2xl bg-white/55 transition-opacity duration-300 ${qr ? "opacity-0" : "opacity-100"}`} />
         {qr ? (
           // Latar putih di belakang QR, apa pun warna temanya. Pemindai membaca
@@ -198,7 +202,7 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
           <img
             src={qr}
             alt={t.qrAlt(code)}
-            className="rise-in-fast relative size-48 rounded-2xl bg-white p-3"
+            className={`rise-in-fast relative ${UKURAN_QR(qrBesar)} rounded-2xl bg-white p-3`}
             width={192}
             height={192}
           />
