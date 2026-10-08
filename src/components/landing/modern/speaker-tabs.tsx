@@ -28,7 +28,7 @@ function inisial(nama: string): string {
 }
 
 const LATAR_INISIAL =
-  "linear-gradient(to bottom, color-mix(in srgb, var(--reg-primary) 10%, var(--reg-surface)), color-mix(in srgb, var(--reg-primary) 22%, var(--reg-surface)))";
+  "var(--inisial-latar, linear-gradient(to bottom, color-mix(in srgb, var(--reg-primary) 10%, var(--reg-surface)), color-mix(in srgb, var(--reg-primary) 22%, var(--reg-surface))))";
 
 /**
  * Bingkai foto per acara (`speaker_frame`), hanya untuk kartu ini; deret foto
@@ -62,13 +62,13 @@ function Kartu({ speaker, bingkai }: { speaker: LandingSpeaker; bingkai: Landing
   const keterangan = [peran && !/^(pembicara|speaker)$/i.test(peran) ? peran : null, speaker.title?.trim()].filter(Boolean).join(" · ");
   return (
     <li className="flex min-w-0 flex-col gap-3 sm:gap-4">
-      <div data-bingkai={bingkai} className={`relative overflow-hidden bg-[var(--reg-outline-variant)] ${BINGKAI[bingkai] ?? BINGKAI.portrait}`}>
+      <div data-bingkai={bingkai} className={`relative overflow-hidden bg-[var(--bingkai-foto,var(--reg-outline-variant))] ${BINGKAI[bingkai] ?? BINGKAI.portrait}`}>
         {speaker.photo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={speaker.photo_url} alt="" loading="lazy" className={`absolute inset-0 size-full object-cover ${LETAK_FOTO[bingkai] ?? LETAK_FOTO.portrait}`} />
         ) : (
           <div aria-hidden className="absolute inset-0 flex items-center justify-center" style={{ background: LATAR_INISIAL }}>
-            <span className="text-[48px] font-semibold text-[var(--reg-primary)] opacity-60 [font-family:var(--landing-heading)] sm:text-[72px]">
+            <span className="text-[48px] font-semibold text-[var(--inisial-teks,var(--reg-primary))] opacity-[var(--inisial-opasitas,0.6)] [font-family:var(--landing-heading)] sm:text-[72px]">
               {inisial(speaker.name)}
             </span>
           </div>

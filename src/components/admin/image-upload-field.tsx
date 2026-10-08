@@ -30,6 +30,8 @@ export function ImageUploadField({
   previewClassName = "h-24 w-40",
   fit = "cover",
   perkecil,
+  terima = ["image/png", "image/jpeg", "image/webp"],
+  periksa,
 }: {
   label: string;
   hint?: string;
@@ -46,11 +48,31 @@ export function ImageUploadField({
    * Untuk gambar latar besar yang tampil tipis (KV hero gathering, QA #111 M1).
    */
   perkecil?: { lebar: number; mutu: number };
+  /** Jenis berkas yang diterima kolom ini; bawaan PNG, JPG, dan WebP. */
+  terima?: readonly ("image/png" | "image/jpeg" | "image/webp")[];
+  /**
+   * Pemeriksaan tambahan sebelum diunggah, mis. ukuran paling kecil. Kembalikan
+   * pesan galat untuk menolak berkasnya, atau null.
+   */
+  periksa?: (ukuran: { lebar: number; tinggi: number }) => string | null;
 }) {
   const [uploading, setUploading] = useState(false);
   const toast = useToast();
 
   async function upload(file: File) {
+    if (!terima.includes(file.type as (typeof terima)[number])) {
+      toast.error("Upload failed", `Use a ${daftarJenis(terima)} file.`);
+      return;
+    }
+    if (periksa) {
+      const gambar = await createImageBitmap(file).catch(() => null);
+      const galat = gambar ? periksa({ lebar: gambar.width, tinggi: gambar.height }) : "This file could not be read as an image.";
+      gambar?.close();
+      if (galat) {
+        toast.error("Upload failed", galat);
+        return;
+      }
+    }
     setUploading(true);
     const berkas = perkecil ? await perkecilGambar(file, perkecil) : file;
     const body = new FormData();
@@ -100,7 +122,7 @@ export function ImageUploadField({
           <input
             type="file"
             className="sr-only"
-            accept="image/png,image/jpeg,image/webp"
+            accept={terima.join(",")}
             disabled={mati}
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -153,4 +175,10 @@ async function perkecilGambar(file: File, { lebar, mutu }: { lebar: number; mutu
   const hasil = await new Promise<Blob | null>((selesai) => kanvas.toBlob(selesai, "image/webp", mutu));
   if (!hasil || hasil.type !== "image/webp" || hasil.size >= file.size) return file;
   return new File([hasil], `${file.name.replace(/\.[^.]+$/, "")}.webp`, { type: "image/webp" });
+}
+
+/** "PNG or WebP", "PNG, JPG or WebP". */
+function daftarJenis(jenis: readonly string[]): string {
+  const nama = jenis.map((item) => (item === "image/jpeg" ? "JPG" : item.replace("image/", "").replace("webp", "WebP").toUpperCase().replace("WEBP", "WebP")));
+  return nama.length > 1 ? `${nama.slice(0, -1).join(", ")} or ${nama[nama.length - 1]}` : nama[0];
 }

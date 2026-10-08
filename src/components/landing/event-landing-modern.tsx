@@ -27,6 +27,9 @@ import { timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 import { loadLandingLodging, type LandingHotel } from "@/lib/landing-hotel";
 import { AgendaPills } from "./modern/agenda-pills";
 import { HariGathering } from "./modern/hari-gathering";
+import { komponenIkonKartu } from "./modern/ikon-kartu";
+import { gayaLatarBagian } from "./modern/latar-bagian";
+import { nadaKartu } from "@/lib/landing-card-icons";
 import { HeroGathering, KakiGathering, PitaPenutupGathering, PortalGathering, PratinjauPortal, TentangGathering, agendaSelanjutnya, inisialNama } from "./modern/gathering-app";
 import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
@@ -91,7 +94,7 @@ const STATE_ON_PRIMARY = { "--m3-state-color": "var(--reg-on-primary)" } as CSSP
 /** Kartu di atas putih dan pita susunan acara gaya gathering. */
 const PANEL_GATHERING = "#F4F6F8";
 /** Garis 1px selebar layar di tepi pita (tanpa menambah gulir menyamping). */
-const GARIS_LEBAR = "pointer-events-none absolute inset-x-0 h-px bg-[#E6EAEF] [box-shadow:0_0_0_100vmax_#E6EAEF] [clip-path:inset(0_-100vmax)]";
+const GARIS_LEBAR = "pointer-events-none absolute inset-x-0 h-px bg-[var(--garis-pita,#E6EAEF)] [box-shadow:0_0_0_100vmax_var(--garis-pita,#E6EAEF)] [clip-path:inset(0_-100vmax)]";
 
 
 /**
@@ -319,6 +322,11 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         "--tanda-latar": warnaGathering.tanda.latar,
         "--tanda-teks": warnaGathering.tanda.teks,
         "--reg-on-surface-variant": warnaGathering.teksRedup,
+        // Salinan warna teks terang untuk kartu putih di dalam bagian berlatar gelap.
+        "--terang-on-surface-variant": warnaGathering.teksRedup,
+        "--terang-on-surface": "var(--reg-on-surface)",
+        "--terang-alis": warnaGathering.aksiTeks,
+        "--terang-primer-teks": warnaGathering.primerTeks,
         // Inter polos seperti rancangan: tanpa varian huruf dan angka tabel
         // bawaan halaman publik (yang melebarkan tanda hubung "seru-seruan").
         fontFeatureSettings: "normal",
@@ -484,6 +492,22 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         ) : null}
     </>
   );
+  // Kartu Tentang acara gaya gathering: ikon dimuat satu per satu di server.
+  const kartuTentang = gaya
+    ? await Promise.all(
+        (config.about_cards ?? [])
+          .map((item, posisi) => ({ ...item, posisi }))
+          .filter((item) => item.title?.trim())
+          .map(async (item, index) => ({
+            title: item.title,
+            body: item.body,
+            posisi: item.posisi,
+            Ikon: await komponenIkonKartu(item, index),
+            nada: nadaKartu(item, index),
+            gambar: item.icon_url?.trim() || null,
+          })),
+      )
+    : [];
   const bawaan: Partial<Record<LandingSectionId, ReactNode>> = {
     about: (
       <>
@@ -495,7 +519,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             alis={judulBagian("about").alis}
             judul={judulBagian("about").judul}
             deskripsi={event.description?.trim() || null}
-            kartu={config.about_cards ?? []}
+            kartu={kartuTentang}
             gambar={
               fotoTentang ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -579,7 +603,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           <section
             id="agenda"
             className={`${SECTION} relative bg-[var(--landing-panel)] [clip-path:inset(0_-100vmax)] [box-shadow:0_0_0_100vmax_var(--landing-panel)]`}
-            style={{ "--landing-panel": PANEL_GATHERING } as CSSProperties}
+            style={gaya && gayaLatarBagian("agenda", config.section_tone, tokens.brand) ? undefined : ({ "--landing-panel": PANEL_GATHERING } as CSSProperties)}
           >
             {/* Garis tipis atas dan bawah selebar layar, seperti rancangan. */}
             <span aria-hidden className={`top-0 ${GARIS_LEBAR}`} />
@@ -594,7 +618,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 {config.agenda_note?.trim() ? <p className={`max-w-[520px] text-isi ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
               </div>
               {/* Tanpa judul dari CMS, judul bagian sudah tanggalnya (QA #103 L3). */}
-              {tanggalPanjang && (config.agenda_heading?.trim() || agenda.length > 1) ? <p className="text-[14px] leading-[1.2] tabular-nums text-[#5F6B7F]">{tanggalPanjang}</p> : null}
+              {tanggalPanjang && (config.agenda_heading?.trim() || agenda.length > 1) ? <p className="text-[14px] leading-[1.2] tabular-nums text-[var(--teks-pita,#5F6B7F)]">{tanggalPanjang}</p> : null}
             </div>
             <HariGathering
               agenda={agenda}
@@ -646,7 +670,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           <section
             id="speakers"
             className={`${SECTION} bg-[var(--landing-panel)] [clip-path:inset(0_-100vmax)] [box-shadow:0_0_0_100vmax_var(--landing-panel)]`}
-            style={{ "--landing-panel": "color-mix(in srgb, var(--reg-on-surface) 4%, var(--reg-surface))" } as CSSProperties}
+            style={gaya && gayaLatarBagian("speakers", config.section_tone, tokens.brand) ? undefined : ({ "--landing-panel": "color-mix(in srgb, var(--reg-on-surface) 4%, var(--reg-surface))" } as CSSProperties)}
           >
             <SpeakerTabs
               tabs={tabPembicara}
@@ -750,7 +774,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                   // Lapisan hover hanya menutup pertanyaan (M3 state layer). Saat
                   // terbuka (layar sm ke atas), ruang bawah pertanyaan 16px dan jawaban diberi
                   // 16px di atasnya: tepi lapisan tidak lagi menempel di teks.
-                  <details key={item.q} open={index === 0} className="faq group rounded-md bg-[var(--reg-panel)]">
+                  <details key={item.q} open={index === 0} className="faq group rounded-md bg-[var(--reg-panel)] [box-shadow:inset_0_0_0_1px_var(--garis-kartu,transparent)]">
                     <summary className={`m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-md px-5 py-5 sm:px-7 sm:py-6 sm:group-open:pb-4 ${JUDUL_BUTIR} [&::-webkit-details-marker]:hidden`}>
                       {item.q}
                       <Plus size={22} aria-hidden className={`shrink-0 group-open:hidden ${MUTED}`} />
@@ -999,11 +1023,18 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             );
           }
           const konten = bawaan[section.id];
-          return konten ? (
+          if (!konten) return null;
+          // Gathering: latar pilihan admin selebar layar (Light, Grey, Dark brand).
+          const latar = gaya ? gayaLatarBagian(section.id, config.section_tone, tokens.brand) : undefined;
+          return latar ? (
+            <div key={section.id} data-bagian={section.id} style={latar}>
+              <div className={SHELL}>{konten}</div>
+            </div>
+          ) : (
             <div key={section.id} data-bagian={section.id} className={SHELL}>
               {konten}
             </div>
-          ) : null;
+          );
         })}
 
       <div className={SHELL}>

@@ -1,3 +1,4 @@
+import type { LandingCardTone } from "@/lib/landing-card-icons";
 import type { EventTimeZone } from "./timezone";
 import type { RegistrationFormTheme } from "./registration-theme";
 
@@ -1054,7 +1055,16 @@ export type EventLandingConfig = {
    * berikon di bawah judul). Preset Gathering mengisi tiga kartu bawaan bila
    * kosong; acara lain tidak membacanya.
    */
-  about_cards?: { title: string; body: string }[];
+  about_cards?: {
+    title: string;
+    body: string;
+    /** Nama ikon Phosphor, mis. "Users" (landing-card-icons.ts). Kosong = ikon bawaan urutannya. */
+    icon?: string;
+    /** Warna ubin ikon dari tema. Kosong = bawaan urutannya (Button, Brand, Accent). */
+    tone?: LandingCardTone;
+    /** Gambar ikon sendiri (PNG/WebP transparan, mis. ikon 3D). Diisi = menggantikan ikon dan ubinnya. */
+    icon_url?: string | null;
+  }[];
   /** Judul bagian Program, mis. "Dua program, satu hari". */
   program_heading?: string;
   /** Kalimat pengantar di kanan judul Program. */
@@ -1083,6 +1093,11 @@ export type EventLandingConfig = {
   faq_eyebrow?: string;
   /** Label kecil tampil atau tidak per bagian; dipakai bersama oleh ID dan EN. Default di LANDING_EYEBROW_DEFAULT. */
   eyebrow_shown?: Partial<Record<LandingSectionId, boolean>>;
+  /**
+   * Latar bagian bawaan gaya gathering, pilihan yang sama dengan blok.
+   * Kosong = bawaan bagiannya (Susunan acara dan Pembicara abu-abu, lainnya putih).
+   */
+  section_tone?: Partial<Record<LandingSectionId, LandingBlockTone>>;
   /** Kalimat penyelenggara di kaki halaman, mis. "Diselenggarakan oleh ...". */
   footer_note?: string;
   /** Judul banner ajakan di bawah halaman. */

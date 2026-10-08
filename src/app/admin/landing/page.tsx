@@ -55,6 +55,11 @@ import {
 } from "@/lib/domain";
 import { ukurTerangKv } from "@/lib/kv-terang";
 import { HERO_KV_KUAT, landingTokens } from "@/lib/landing-tokens";
+import { LANDING_BLOCK_TONE_LABELS, type LandingBlockTone } from "@/lib/domain";
+import { gatheringColors } from "@/lib/registration-theme-css";
+import { ikonKartu, nadaKartu } from "@/lib/landing-card-icons";
+import { PilihIkonKartu, type WarnaUbin } from "./pilih-ikon";
+import { LANDING_SECTION_TONE_IDS, latarBagian } from "@/lib/landing-section-tone";
 import { formatEventDate } from "@/lib/event-datetime";
 import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
 import { jumlahLembaga } from "@/lib/landing-speaker-tabs";
@@ -1643,6 +1648,13 @@ export default function LandingCmsPage() {
     setLanding({ ...landing, about_cards: kartuTentang.filter((_, position) => position !== index), ...(en ? { en } : {}) });
     fokusKartu(index);
   };
+  // Ikon dan warna ubin per kartu. Bawaannya mengikuti urutan kartu berjudul,
+  // sama seperti halaman publik (ikonKartu/nadaKartu).
+  const warnaGathering = gathering ? gatheringColors(tokensHero.accent ?? undefined, tokensHero.brand, false, landing.button_color) : null;
+  const warnaUbin: WarnaUbin | null = warnaGathering
+    ? { button: warnaGathering.chipAksi, brand: warnaGathering.chipMerek, accent: warnaGathering.chipAksen }
+    : null;
+  const urutanBerjudul = (index: number) => kartuTentang.slice(0, index).filter((kartu) => kartu.title.trim()).length;
   const editorKartuTentang = (
     <div ref={kartuTentangRef} className="flex flex-col gap-3">
       <div>
@@ -1654,7 +1666,27 @@ export default function LandingCmsPage() {
       {kartuTentang.map((kartu, index) => (
         <div key={index} data-kartu-tentang className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
           <div className="flex items-end gap-2">
+            {warnaUbin && kartu.title.trim() ? (
+              <PilihIkonKartu
+                nomor={index + 1}
+                ikon={ikonKartu(kartu, urutanBerjudul(index))}
+                nada={nadaKartu(kartu, urutanBerjudul(index))}
+                bawaan={!kartu.icon && !kartu.tone && !kartu.icon_url}
+                warna={warnaUbin}
+                gambar={kartu.icon_url?.trim() || null}
+                onChange={(ubah) => {
+                  const next = [...kartuTentang];
+                  if (ubah === null) {
+                    next[index] = { title: next[index].title, body: next[index].body };
+                  } else {
+                    next[index] = { ...next[index], ...ubah };
+                  }
+                  setKartuTentang(next);
+                }}
+              />
+            ) : null}
             <TextField
+              data-kolom={`kartu-${index}`}
               className="min-w-0 flex-1"
               label={`Card ${index + 1} title`}
               maxLength={LANDING_ABOUT_CARDS.title}
@@ -2629,6 +2661,18 @@ export default function LandingCmsPage() {
         ) : null}
         {tautanSumber}
         {isi}
+        {gathering && (LANDING_SECTION_TONE_IDS as readonly string[]).includes(id) ? (
+          // Pilihan yang sama dengan latar blok; bawaannya latar bagian sebelum ada pilihan.
+          <div data-kolom="latar" className="flex flex-col gap-1.5">
+            <p className="text-body-medium font-medium text-on-surface">Background</p>
+            <SegmentedButton<LandingBlockTone>
+              label={`${LANDING_SECTION_ADMIN_LABELS[id]} background`}
+              value={latarBagian(id, landing.section_tone)}
+              onChange={(tone) => setLanding({ ...landing, section_tone: { ...landing.section_tone, [id]: tone } })}
+              options={(["light", "panel", "dark"] as const).map((tone) => ({ value: tone, label: LANDING_BLOCK_TONE_LABELS[tone] }))}
+            />
+          </div>
+        ) : null}
       </>
     );
   }
