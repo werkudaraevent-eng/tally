@@ -15,6 +15,7 @@ import { invitationSettings } from "@/lib/undangan/data";
 import { maskEmail } from "@/lib/undangan/email";
 import { readInvite } from "@/lib/undangan/publik";
 import { eventSender } from "@/lib/email/client";
+import { formulirGathering } from "@/lib/gathering-formulir";
 
 /**
  * Formulir pendaftaran satu acara dalam satu bahasa. Dipakai halaman publik
@@ -71,6 +72,7 @@ export async function bingkaiFormulir(
         // Area peserta dalam bahasa formulir ini.
         masukUrl: member && opsi.tautanMasuk !== false ? `${landingPath(event.slug, lang, utama)}/masuk` : null,
         areaUrl: member && !opsi.pratinjau && opsi.tautanMasuk !== false && (await getMemberSession(event)) ? `${landingPath(event.slug, lang, utama)}/peserta` : null,
+        gathering: formulirGathering(event, lang),
       }
     : null;
 
