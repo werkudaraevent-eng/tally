@@ -1,5 +1,5 @@
 import type { EventLandingConfig, LandingBodyFont, LandingCorners, LandingHeadingFont, LandingLayout } from "./domain.ts";
-import { DEFAULT_BRAND, FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, GATHERING_BUTTON_DEFAULT, LANDING_TOKEN_DEFAULTS, landingLayout, landingTokens } from "./landing-tokens.ts";
+import { DEFAULT_BRAND, FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, GATHERING_BRAND_DEFAULT, GATHERING_BUTTON_DEFAULT, GATHERING_NAV_DEFAULT, LANDING_TOKEN_DEFAULTS, landingLayout, landingTokens } from "./landing-tokens.ts";
 
 /**
  * Preset tema halaman acara: satu klik mengisi tata letak, warna, dan huruf
@@ -21,6 +21,8 @@ export type LandingPresetTokens = {
   secondary?: string;
   /** Warna tombol gaya gathering (EventLandingConfig.button_color). */
   button?: string;
+  /** Warna dan opasitas bilah atas (EventLandingConfig.nav), hanya Gathering. */
+  nav?: { color: string; opacity: number };
   heading_font: LandingHeadingFont;
   body_font: LandingBodyFont;
   corners: LandingCorners;
@@ -83,8 +85,9 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     note: "Invite only, trip days, hotel",
     thumb: "/preset-tema/gathering.png",
     layout: "modern",
-    // Inter saja (rancangan v3 KSO 21, audit v2): kunci "sans" = Inter.
-    tokens: { brand: "#0b6e69", accent: GATHERING_ACCENT_DEFAULT, button: GATHERING_BUTTON_DEFAULT, heading_font: "sans", body_font: "sans", corners: "soft" },
+    // Rancangan pen.dev Hanung (2026-10-07): navy, aksen emas, tombol hijau,
+    // bilah atas putih. Inter saja: kunci "sans" = Inter.
+    tokens: { brand: GATHERING_BRAND_DEFAULT, accent: GATHERING_ACCENT_DEFAULT, button: GATHERING_BUTTON_DEFAULT, nav: GATHERING_NAV_DEFAULT, heading_font: "sans", body_font: "sans", corners: "soft" },
     features: { invite_only: true, gathering: true },
   },
 ];
@@ -110,6 +113,7 @@ export function presetDiubah(preset: LandingThemePreset, landing: EventLandingCo
     (b.accent === undefined || sama(t.accent, b.accent)) &&
     (b.secondary === undefined || sama(t.secondary, b.secondary)) &&
     (b.button === undefined || sama(landing.button_color, b.button)) &&
+    (b.nav === undefined || (sama(landing.nav?.color, b.nav.color) && landing.nav?.opacity === b.nav.opacity)) &&
     t.headingFont === b.heading_font &&
     t.bodyFont === b.body_font &&
     // Forum tidak membaca sudut.
@@ -136,7 +140,22 @@ export function gayaPreset(preset: LandingThemePreset, landing: EventLandingConf
       : b.accent ? { accent: b.accent } : {}),
     // Hanya preset bertombol (Gathering) yang mengisinya; preset lain mengosongkan.
     button_color: b.button,
+    nav: navPreset(b, landing.nav),
   };
+}
+
+/**
+ * Bilah atas: Gathering menulis putih penuh. Preset lain hanya melepas putih
+ * Gathering itu (kembali ke bawaan); warna bilah pilihan admin tetap.
+ * Logo, lebar, dan tinggi bilah tidak pernah disentuh.
+ */
+function navPreset(b: LandingPresetTokens, nav: EventLandingConfig["nav"]): EventLandingConfig["nav"] {
+  if (b.nav) return { ...nav, color: b.nav.color, opacity: b.nav.opacity };
+  if (!nav || !(sama(nav.color, GATHERING_NAV_DEFAULT.color) && nav.opacity === GATHERING_NAV_DEFAULT.opacity)) return nav;
+  const { color: _warna, opacity: _opasitas, ...sisa } = nav;
+  void _warna;
+  void _opasitas;
+  return Object.keys(sisa).length ? sisa : undefined;
 }
 
 /** Terapkan preset (tata letak, fitur, dan semua token gaya) tanpa menyentuh isi: teks, gambar, bagian, perataan hero. */

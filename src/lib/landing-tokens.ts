@@ -33,6 +33,11 @@ export const DEFAULT_BRAND = "#2649D0";
 /** Warna bawaan Forum (Figma IFC). Diekspor ulang oleh registration-theme-css. */
 export const FORUM_DEFAULTS = { primary: "#002f54", accent: "#ffc72c", secondary: "#00aeef" } as const;
 
+/** Warna merek preset Gathering: navy rancangan pen.dev Hanung (2026-10-07). */
+export const GATHERING_BRAND_DEFAULT = "#1B2D57";
+/** Bilah atas preset Gathering: putih penuh, seperti rancangan; teks menu otomatis gelap. */
+export const GATHERING_NAV_DEFAULT = { color: "#ffffff", opacity: 100 } as const;
+
 /** Aksen bawaan gaya gathering: emas, pasangan navy di rancangan KSO 21. */
 export const GATHERING_ACCENT_DEFAULT = "#E9C46A";
 /** Warna tombol bawaan preset Gathering: hijau yang 5:1 dengan teks putih (hijau rancangan Hanung #00A86B hanya 3:1). */
