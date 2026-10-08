@@ -299,7 +299,7 @@ export type LandingSpeakerEn = Partial<Record<(typeof LANDING_SPEAKER_EN_KEYS)[n
 export const LANDING_CONFIG_EN_KEYS = [
   "public_name", "cta_label", "about_heading", "about_image_alt", "program_heading", "program_intro", "agenda_note", "footer_note", "cta_heading", "cta_note", "contact_name",
   "about_eyebrow", "agenda_eyebrow", "speakers_eyebrow", "venue_eyebrow", "faq_eyebrow",
-  "agenda_heading", "speakers_heading", "venue_heading", "faq_heading", "faq_intro", "hero_note",
+  "agenda_heading", "speakers_heading", "venue_heading", "faq_heading", "faq_intro", "hero_note", "hero_eyebrow",
 ] as const;
 export const LANDING_EVENT_EN_KEYS = ["tagline", "description", "venue_name", "venue_address"] as const;
 export type LandingConfigEn = Partial<Record<(typeof LANDING_CONFIG_EN_KEYS)[number] | (typeof LANDING_EVENT_EN_KEYS)[number], string>> & {
@@ -976,6 +976,8 @@ export const LANDING_NAV_DEFAULTS = { color: "#121212", opacity: 72, width: "ful
 /** Batas tinggi bilah. Di bawah 48px tombol Masuk/Daftar tidak muat (target sentuh 44px). */
 export const LANDING_NAV_HEIGHT_MIN = 48;
 export const LANDING_NAV_HEIGHT_MAX = 120;
+/** Batas kartu Tentang acara gaya gathering. */
+export const LANDING_ABOUT_CARDS = { max: 4, title: 40, body: 200 } as const;
 
 export type EventLandingConfig = {
   /** Bawaan `editorial`. */
@@ -1013,6 +1015,12 @@ export type EventLandingConfig = {
   about_image_url?: string | null;
   /** Teks alternatif gambar sendiri, dibacakan pembaca layar. */
   about_image_alt?: string;
+  /**
+   * Kartu bagian Tentang acara gaya gathering (rancangan pen.dev: tiga kartu
+   * berikon di bawah judul). Preset Gathering mengisi tiga kartu bawaan bila
+   * kosong; acara lain tidak membacanya.
+   */
+  about_cards?: { title: string; body: string }[];
   /** Judul bagian Program, mis. "Dua program, satu hari". */
   program_heading?: string;
   /** Kalimat pengantar di kanan judul Program. */
@@ -1134,6 +1142,8 @@ export type EventLandingConfig = {
   button_color?: string;
   /** Kalimat di bawah judul hero gaya gathering. Kosong = tanpa kalimat. */
   hero_note?: string;
+  /** Label pil di atas judul hero gaya gathering. Kosong = "Anda diundang · nama acara". */
+  hero_eyebrow?: string;
   /**
    * Bahasa di alamat utama `/e/<slug>` (bawaan "id"). "en" hanya berlaku
    * selama versi English menyala; lihat landingDefaultLang.

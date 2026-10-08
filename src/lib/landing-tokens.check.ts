@@ -130,7 +130,6 @@ for (const key of LANDING_BODY_FONTS) {
   assert.equal(terapkanPreset(conference, g).button_color, undefined);
 }
 
-console.log("landing-tokens.check.ts OK");
 
 // Preset Gathering = rancangan pen.dev: navy, emas, hijau, bilah atas putih penuh.
 // Preset lain hanya melepas putih Gathering; warna bilah pilihan admin tetap.
@@ -139,10 +138,18 @@ console.log("landing-tokens.check.ts OK");
   const conference = LANDING_THEME_PRESETS.find((p) => p.key === "modern")!;
   const g = terapkanPreset(gathering, { nav: { logo_url: "https://x/logo.png", height: 72 } });
   assert.equal(landingTokens(g).brand.toLowerCase(), "#1b2d57");
-  assert.deepEqual(g.nav, { logo_url: "https://x/logo.png", height: 72, color: "#ffffff", opacity: 100 });
+  assert.deepEqual(g.nav, { logo_url: "https://x/logo.png", height: 82, color: "#ffffff", opacity: 100 });
   assert.equal(presetDiubah(gathering, g), false);
   assert.equal(presetDiubah(gathering, { ...g, nav: { ...g.nav, opacity: 72 } }), true);
-  assert.deepEqual(terapkanPreset(conference, g).nav, { logo_url: "https://x/logo.png", height: 72 });
+  assert.equal(presetDiubah(gathering, { ...g, nav: { ...g.nav, height: 64 } }), true);
+  assert.deepEqual(terapkanPreset(conference, g).nav, { logo_url: "https://x/logo.png" });
+  // Tinggi yang diubah admin setelah Gathering tetap saat pindah preset.
+  assert.deepEqual(terapkanPreset(conference, { ...g, nav: { ...g.nav, height: 72 } }).nav, { logo_url: "https://x/logo.png", height: 72 });
+  // Reset di Conference tidak menyentuh bilah putih pilihan admin (QA #106 L1).
+  const putihSendiri = { layout: "modern" as const, nav: { color: "#ffffff", opacity: 100 } };
+  assert.deepEqual(gayaPreset(conference, putihSendiri).nav, { color: "#ffffff", opacity: 100 });
+  assert.deepEqual(terapkanPreset(forumIfc, putihSendiri).nav, { color: "#ffffff", opacity: 100 });
   assert.equal(terapkanPreset(conference, terapkanPreset(gathering, {})).nav, undefined);
   assert.deepEqual(terapkanPreset(conference, { nav: { color: "#223344", opacity: 90 } }).nav, { color: "#223344", opacity: 90 });
 }
+console.log("landing-tokens.check.ts OK");

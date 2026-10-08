@@ -389,6 +389,25 @@ export type LandingUiText = {
   portalBusNote: string;
   portalNews: string;
   portalNewsNote: string;
+  /** Tombol bagian Portal peserta, tombol bilah atas, dan tautan menu ke bagian itu. */
+  portalCta: string;
+  navPortalSignIn: string;
+  navPortal: string;
+  /** Kartu pratinjau portal di hero. */
+  miniTitle: string;
+  miniBus: string;
+  miniRoom: string;
+  /** Pita penutup gaya gathering tanpa isian CMS. */
+  bandHeading: string;
+  bandNote: string;
+  /** Judul Rundown gaya gathering tanpa isian CMS: "Perjalanan 3 hari". */
+  tripDays: (days: number) => string;
+  /** Kartu Tentang acara bawaan preset Gathering. */
+  aboutCardsDefault: { title: string; body: string }[];
+  /** Judul Tentang acara yang diisi preset Gathering bila masih kosong. */
+  aboutHeadingDefault: string;
+  /** Label menu Tentang acara, gaya gathering. */
+  navAbout: string;
   hotelEyebrow: string;
   hotelHeading: string;
   checkIn: string;
@@ -470,31 +489,47 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     inviteHeading: "Sudah menerima undangan?",
     inviteNote: "Masuk dengan email yang didaftarkan panitia untuk melihat tiket dan info perjalanan Anda.",
     inviteOnlyShort: "Khusus undangan",
-    inviteCta: "Masuk untuk lihat tiket & kamar",
+    inviteCta: "Lihat Perjalanan Saya",
     stayLength: (days) => (days > 1 ? `${days} hari ${days - 1} malam` : "1 hari"),
     day: (n) => `Hari ${n}`,
     invitedYou: "Anda diundang",
     countdown: (sisa, hariKe, lama) =>
       sisa > 1 ? { angka: String(sisa), teks: "hari lagi" } : { angka: null, teks: sisa === 1 ? "Besok" : lama > 1 ? `Hari ke-${hariKe} dari ${lama}` : "Hari ini" },
-    seeTrip: "Lihat perjalanannya",
+    seeTrip: "Intip Rundown",
     fullSchedule: "Lihat jadwal lengkap jam per jam",
     moreItems: (n) => `+${n} lagi di jadwal lengkap`,
-    navTrip: "Perjalanan",
+    navTrip: "Rundown",
     navHotel: "Hotel",
-    tripEyebrow: "Perjalanan",
+    tripEyebrow: "Rundown",
     portalEyebrow: "Portal peserta",
-    portalHeading: "Semua info perjalanan Anda, di satu tempat.",
-    portalNote: "Masuk dengan email yang didaftarkan panitia untuk melihat tiket, kamar, bus, dan pengumuman terbaru langsung dari HP.",
-    portalFirstUp: "Agenda pertama",
+    portalHeading: "Semua info perjalananmu, di satu genggaman.",
+    portalNote: "Masuk ke portal pribadimu untuk melihat tiket, nomor kamar & teman sekamar, rundown lengkap, jadwal bus, dan pengumuman panitia, langsung dari HP-mu.",
+    portalFirstUp: "Agenda selanjutnya",
     portalAfterSignIn: "Setelah masuk",
     portalTicket: "Tiket masuk",
     portalTicketNote: "Kode QR untuk meja registrasi",
-    portalRoom: "Kamar",
-    portalRoomNote: (roommates) => (roommates ? "Nomor kamar dan teman sekamar" : "Nomor kamar dan hotel"),
-    portalBus: "Bus",
-    portalBusNote: "Bus dan titik kumpul tiap perjalanan",
+    portalRoom: "Info kamar",
+    portalRoomNote: (roommates) => (roommates ? "Nomor kamar & teman sekamar" : "Nomor kamar & hotel"),
+    portalBus: "Jadwal bus",
+    portalBusNote: "Antar-jemput tiap pindah lokasi",
     portalNews: "Pengumuman",
     portalNewsNote: "Info terbaru dari panitia",
+    portalCta: "Masuk ke Portal Peserta",
+    navPortalSignIn: "Masuk Portal",
+    navPortal: "Perjalanan",
+    miniTitle: "Perjalanan Anda",
+    miniBus: "Bus Anda",
+    miniRoom: "Kamar Anda",
+    bandHeading: "Siap berangkat bareng?",
+    bandNote: "Masuk dengan email yang terdaftar untuk lihat tiket dan kamarmu.",
+    tripDays: (days) => `Perjalanan ${days} hari`,
+    aboutHeadingDefault: "Bukan sekadar kumpul, ini waktunya kita recharge bareng.",
+    navAbout: "Tentang",
+    aboutCardsDefault: [
+      { title: "Kebersamaan", body: "Satu tujuan, satu keluarga. Perkuat kebersamaan lewat aktivitas yang seru dan bermakna." },
+      { title: "Jelajah", body: "Menikmati kota tujuan, dari tempat bersejarah sampai kuliner yang bikin kangen." },
+      { title: "Energi Baru", body: "Pulang bukan cuma bawa oleh-oleh, tapi juga semangat dan kebanggaan jadi bagian tim." },
+    ],
     hotelEyebrow: "Hotel",
     hotelHeading: "Tempat menginap",
     checkIn: "Check-in",
@@ -569,31 +604,47 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     inviteHeading: "Received an invitation?",
     inviteNote: "Sign in with the email the organisers registered to see your ticket and travel details.",
     inviteOnlyShort: "By invitation only",
-    inviteCta: "Sign in to see your ticket & room",
+    inviteCta: "See My Trip",
     stayLength: (days) => (days > 1 ? `${days} days, ${days - 1} night${days - 1 > 1 ? "s" : ""}` : "1 day"),
     day: (n) => `Day ${n}`,
     invitedYou: "You're invited",
     countdown: (sisa, hariKe, lama) =>
       sisa > 1 ? { angka: String(sisa), teks: "days to go" } : { angka: null, teks: sisa === 1 ? "Tomorrow" : lama > 1 ? `Day ${hariKe} of ${lama}` : "Today" },
-    seeTrip: "See the itinerary",
+    seeTrip: "Peek at the Rundown",
     fullSchedule: "See the full hour-by-hour schedule",
     moreItems: (n) => `+${n} more in the full schedule`,
-    navTrip: "Itinerary",
+    navTrip: "Rundown",
     navHotel: "Hotel",
-    tripEyebrow: "Itinerary",
+    tripEyebrow: "Rundown",
     portalEyebrow: "Participant portal",
-    portalHeading: "Everything for your trip, in one place.",
-    portalNote: "Sign in with the email the organisers registered to see your ticket, room, bus and the latest announcements on your phone.",
-    portalFirstUp: "First up",
+    portalHeading: "All your trip info, in the palm of your hand.",
+    portalNote: "Open your personal portal to see your ticket, room number & roommate, the full rundown, bus times and announcements from the organisers, right on your phone.",
+    portalFirstUp: "Up next",
     portalAfterSignIn: "After sign-in",
     portalTicket: "Entry ticket",
     portalTicketNote: "QR code for the registration desk",
-    portalRoom: "Room",
-    portalRoomNote: (roommates) => (roommates ? "Room number and roommate" : "Room number and hotel"),
-    portalBus: "Bus",
-    portalBusNote: "Your bus and meeting point for each trip",
+    portalRoom: "Room info",
+    portalRoomNote: (roommates) => (roommates ? "Room number & roommate" : "Room number & hotel"),
+    portalBus: "Bus schedule",
+    portalBusNote: "Transfers each time you move",
     portalNews: "Announcements",
     portalNewsNote: "The latest from the organisers",
+    portalCta: "Open the Participant Portal",
+    navPortalSignIn: "Portal Sign-in",
+    navPortal: "Your trip",
+    miniTitle: "Your trip",
+    miniBus: "Your bus",
+    miniRoom: "Your room",
+    bandHeading: "Ready to go together?",
+    bandNote: "Sign in with your registered email to see your ticket and room.",
+    tripDays: (days) => `${days}-day trip`,
+    aboutHeadingDefault: "More than a get-together: this is our time to recharge.",
+    navAbout: "About",
+    aboutCardsDefault: [
+      { title: "Together", body: "One goal, one family. Grow closer through activities that are fun and meaningful." },
+      { title: "Explore", body: "Enjoy the destination, from its landmarks to the food you'll miss once you're home." },
+      { title: "New Energy", body: "Come home with more than souvenirs: fresh energy and pride in being part of the team." },
+    ],
     hotelEyebrow: "Hotel",
     hotelHeading: "Where you'll stay",
     checkIn: "Check-in",

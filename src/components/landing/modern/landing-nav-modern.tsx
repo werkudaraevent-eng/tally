@@ -45,6 +45,11 @@ import type { NavPeserta } from "@/lib/member/nav";
  * tamu yang login. Di ponsel tombol Dashboard pindah ke baris pertama Menu,
  * bersama Keluar, supaya bilah tetap muat logo, ID | EN, lonceng, dan Menu.
  *
+ * `gathering`: gaya aplikasi preset Gathering (rancangan pen.dev Hanung). Tanpa
+ * logo, kiri bilah adalah tanda dua huruf berwarna aksen, nama acara, dan baris
+ * kecil di bawahnya; tautan bagian redup 14/600; Masuk menjadi tombol pil
+ * terisi warna tombol Tema ("Masuk Portal"). Bilah selalu bergaris bawah tipis.
+ *
  * `sectionBase`: awalan tautan bagian. Kosong di halaman acara (`#agenda`);
  * di Dashboard saya alamat halaman acara, jadi menu kembali ke bagiannya.
  */
@@ -151,6 +156,7 @@ export function LandingNavModern({
   peserta = null,
   sectionBase = "",
   dashboardAktif = false,
+  gathering = null,
 }: {
   eventName: string;
   daftarUrl: string;
@@ -173,6 +179,8 @@ export function LandingNavModern({
   sectionBase?: string;
   /** Halaman ini Dashboard saya: tombolnya ditandai halaman aktif. */
   dashboardAktif?: boolean;
+  /** Gaya aplikasi preset Gathering; null = bilah Modern biasa. */
+  gathering?: { tanda: string; sub: string | null } | null;
 }) {
   const t = LANDING_UI[lang];
   const [aktif, setAktif] = useState<string | null>(null);
@@ -267,8 +275,12 @@ export function LandingNavModern({
   // Garis rambut di bawah bilah setelah hero lewat: bilah putih di atas isi
   // putih tanpa garis terlihat seperti teks yang mengambang.
   const bilah = `bg-[var(--nav-fill)] text-[var(--nav-text)] transition-[background-color,box-shadow] duration-200 ${
-    lewatHero ? "shadow-[0_1px_0_color-mix(in_srgb,var(--nav-text)_12%,transparent)]" : ""
+    lewatHero || gathering ? "shadow-[0_1px_0_color-mix(in_srgb,var(--nav-text)_12%,transparent)]" : ""
   }`;
+  // Gathering: tombol pil terisi warna tombol Tema versi putih (--aksi-putih
+  // dipasang di <main>), 13/700 seperti rancangan, area ketuk 48px.
+  const PIL_GATHERING =
+    "m3-state inline-flex min-h-12 items-center whitespace-nowrap rounded-full bg-[var(--aksi-putih)] px-4 text-[13px] sm:px-[26px] font-bold text-[var(--on-aksi-putih)]";
   const selebarIsi = width === "content";
 
   return (
@@ -287,7 +299,7 @@ export function LandingNavModern({
           // jarak tepinya pindah ke luar dan bilah mendapat sudut membulat.
           selebarIsi
             ? `${bilah} rounded-b-lg px-5 sm:px-8 lg:max-w-[calc(1440px-80px)] lg:px-6 xl:max-w-[calc(1440px-160px)]`
-            : "px-5 sm:px-8 lg:px-10 xl:px-20"
+            : "px-5 sm:px-8 lg:px-[var(--pinggir-lg,2.5rem)] xl:px-[var(--pinggir-xl,5rem)]"
         }`}
         style={selebarIsi ? { backdropFilter: lewatHero ? "blur(12px)" : "var(--nav-blur)" } : undefined}
       >
@@ -295,7 +307,25 @@ export function LandingNavModern({
           href={homeHref}
           className="flex min-h-12 min-w-0 flex-1 items-center text-title-large font-semibold [font-family:var(--landing-heading)]"
         >
-          {logoUrl ? (
+          {gathering && !logoUrl ? (
+            <span className="flex min-w-0 items-center gap-3 [font-family:inherit]">
+              <span
+                aria-hidden
+                className="inline-flex size-[38px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--tanda-latar)] text-[15px] font-extrabold text-[var(--tanda-teks)]"
+              >
+                {gathering.tanda}
+              </span>
+              <span className="flex min-w-0 flex-col gap-0.5">
+                {/* Ponsel: nama boleh dua baris, baris kecil disembunyikan, supaya Masuk Portal muat. */}
+                <span className="line-clamp-2 text-[14px] font-extrabold leading-[1.2] sm:truncate sm:text-[15px]">{eventName}</span>
+                {gathering.sub ? (
+                  <span className="hidden truncate text-[12px] sm:block font-semibold uppercase leading-[1.2] tracking-[1.5px] text-[color-mix(in_srgb,var(--nav-text)_68%,transparent)]">
+                    {gathering.sub}
+                  </span>
+                ) : null}
+              </span>
+            </span>
+          ) : logoUrl ? (
             // Logo menggantikan nama; nama tetap dibacakan pembaca layar lewat alt.
             // Tingginya mengikuti bilah (sisa 12px atas-bawah), lebarnya dibatasi
             // supaya logo melebar tidak mendorong Masuk/Daftar.
@@ -311,7 +341,7 @@ export function LandingNavModern({
           )}
         </a>
 
-        <ul className="hidden items-center gap-1 xl:flex">
+        <ul className={`hidden items-center xl:flex ${gathering ? "gap-5" : "gap-1"}`}>
           {sections.map((section) => (
             <li key={section.id}>
               <a
@@ -319,12 +349,16 @@ export function LandingNavModern({
                 aria-current={aktif === section.id ? "true" : undefined}
                 // Tebal sama untuk semua tautan, bagian aktif ditandai garis
                 // bawah: tautan yang menebal menggeser tetangganya saat digulir.
-                className="m3-state relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 text-[15px] font-medium"
+                className={
+                  gathering
+                    ? "m3-state relative inline-flex min-h-12 items-center whitespace-nowrap rounded-md px-2 text-[14px] font-semibold text-[color-mix(in_srgb,var(--nav-text)_72%,transparent)] aria-[current]:text-[var(--nav-text)]"
+                    : "m3-state relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 text-[15px] font-medium"
+                }
               >
                 {section.label}
                 <span
                   aria-hidden
-                  className={`absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-current transition-transform duration-200 ${
+                  className={`absolute ${gathering ? "inset-x-2" : "inset-x-3"} bottom-1 h-0.5 rounded-full bg-current transition-transform duration-200 ${
                     aktif === section.id ? "scale-x-100" : "scale-x-0"
                   }`}
                 />
@@ -423,7 +457,27 @@ export function LandingNavModern({
               </Link>
             </>
           ) : null}
-          {!peserta && memberLink ? (
+          {!peserta && memberLink && gathering ? (
+            // Gathering: satu tombol pil terisi. Bila pendaftaran juga terbuka,
+            // Daftar yang terisi dan Masuk bergaris, supaya tidak ada dua tombol hijau.
+            <Link
+              href={memberLink.href}
+              className={
+                registrationOpen
+                  ? "m3-state inline-flex min-h-12 items-center whitespace-nowrap rounded-full border border-current px-[22px] text-[13px] font-bold"
+                  : PIL_GATHERING
+              }
+              style={registrationOpen ? undefined : ({ "--m3-state-color": "var(--on-aksi-putih)" } as CSSProperties)}
+            >
+              {registrationOpen ? memberLink.label : t.navPortalSignIn}
+            </Link>
+          ) : null}
+          {!peserta && registrationOpen && gathering ? (
+            <Link href={daftarUrl} className={PIL_GATHERING} style={{ "--m3-state-color": "var(--on-aksi-putih)" } as CSSProperties}>
+              {t.register}
+            </Link>
+          ) : null}
+          {!peserta && memberLink && !gathering ? (
             <Link
               href={memberLink.href}
               // Tombol bergaris kecil, bukan teks: tanpa bingkai "Masuk" terbaca
@@ -433,7 +487,7 @@ export function LandingNavModern({
               {memberLink.label}
             </Link>
           ) : null}
-          {!peserta && registrationOpen ? (
+          {!peserta && registrationOpen && !gathering ? (
             <Link
               href={daftarUrl}
               className="m3-state target-48 inline-flex min-h-11 items-center rounded-md bg-[var(--nav-text)] px-4 text-label-large font-semibold text-[var(--nav-on-text)]"

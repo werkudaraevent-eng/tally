@@ -89,12 +89,13 @@ export function bagianModern(
 ) {
   const t = LANDING_UI[lang];
   const NAV_LABEL = opsi.gathering
-    ? { ...t.nav, agenda: t.navTrip, ...(opsi.adaHotel ? { venue: t.navHotel } : {}) }
+    ? { about: t.navAbout, ...t.nav, agenda: t.navTrip, ...(opsi.adaHotel ? { venue: t.navHotel } : {}) }
     : t.nav;
   const aktif = new Set(sections.filter((section) => section.enabled).map((section) => section.id));
   const speakers = (config.speakers ?? []).filter((speaker) => speaker.name?.trim());
   const isi: Record<LandingSectionId, boolean> = {
-    about: Boolean(event.description?.trim()),
+    // Gathering: kartu Tentang acara cukup untuk menampilkan bagian ini.
+    about: Boolean(event.description?.trim()) || Boolean(opsi.gathering && (config.about_cards ?? []).some((kartu) => kartu.title?.trim())),
     highlights: (config.highlights ?? []).length > 0,
     agenda: agenda.length > 0,
     speakers: speakers.length > 0,

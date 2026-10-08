@@ -7,6 +7,7 @@ import { normalizeLandingSections, type EventLandingConfig } from "@/lib/domain"
 import { Button } from "@/components/m3";
 import { LANDING_THEME_PRESETS, gayaPreset, presetCocok, presetDiubah, terapkanPreset, type LandingThemePreset } from "@/lib/landing-theme-presets";
 import { landingTokens } from "@/lib/landing-tokens";
+import { LANDING_UI, landingDefaultLang } from "@/lib/landing-i18n";
 import { buatBlok } from "./blocks";
 
 /**
@@ -31,7 +32,7 @@ export function PresetTema({
     <Kelompok
       first
       title="Start from a preset"
-      note="Click to preview it, then Apply. A preset sets the layout, colours, fonts and corners. Page content and the hero text placement stay. Gathering also makes the top bar white and adds a hidden “Sebelum berangkat” section for you to fill in."
+      note="Click to preview it, then Apply. A preset sets the layout, colours, fonts and corners. Page content and the hero text placement stay. Gathering also makes the top bar white, fills the About heading and three About cards if they are empty, and adds a hidden “Sebelum berangkat” section for you to fill in."
     >
       <div role="radiogroup" aria-label="Preset" className="flex flex-col gap-2">
         {LANDING_THEME_PRESETS.map((preset) => {
@@ -98,6 +99,12 @@ function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePres
   }, [tanya]);
   const sekarang = landingTokens(landing).brand;
   const gantiMerek = sekarang.toLowerCase() !== preset.tokens.brand.toLowerCase();
+  // Gathering juga menulis bilah atas: Reset yang mengganti bilah ikut ditanyakan (QA #106 L2).
+  const bilah = preset.tokens.nav;
+  const gantiBilah = Boolean(
+    bilah &&
+      ((landing.nav?.color ?? "").toLowerCase() !== bilah.color.toLowerCase() || landing.nav?.opacity !== bilah.opacity || landing.nav?.height !== bilah.height),
+  );
   const reset = () => {
     setTanya(false);
     setLanding(gayaPreset(preset, landing));
@@ -120,7 +127,13 @@ function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePres
         }}
       >
         <p id={`reset-${preset.key}`} className="text-body-small text-on-surface">
-          This also changes the brand colour from <Contoh warna={sekarang} /> to <Contoh warna={preset.tokens.brand} />.
+          {gantiMerek ? (
+            <>
+              This also changes the brand colour from <Contoh warna={sekarang} /> to <Contoh warna={preset.tokens.brand} />.
+            </>
+          ) : null}
+          {gantiMerek && gantiBilah ? " " : null}
+          {gantiBilah && bilah ? `${gantiMerek ? "The" : "This also makes the"} top bar ${gantiMerek ? "becomes " : ""}${bilah.color.toLowerCase() === "#ffffff" ? "white" : bilah.color.toUpperCase()}, ${bilah.height} px tall.` : null}
         </p>
         <div className="flex justify-end gap-2">
           <Button variant="text" size="sm" onClick={() => setTanya(false)}>
@@ -135,8 +148,8 @@ function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePres
   }
   return (
     <div ref={kotak} className="-mt-2 flex items-center gap-2">
-      <p className="min-w-0 flex-1 text-body-small text-on-surface-variant">Colours, fonts or corners differ from {preset.label}.</p>
-      <Button variant="text" size="sm" onClick={gantiMerek ? () => setTanya(true) : reset}>
+      <p className="min-w-0 flex-1 text-body-small text-on-surface-variant">{bilah ? "Colours, fonts, top bar or corners" : "Colours, fonts or corners"} differ from {preset.label}.</p>
+      <Button variant="text" size="sm" onClick={gantiMerek || gantiBilah ? () => setTanya(true) : reset}>
         Reset colours and fonts
       </Button>
     </div>
@@ -162,7 +175,19 @@ const INFO_GATHERING = ["Dress code", "Yang perlu dibawa", "Kontak panitia"];
  * contoh. Panitia mengisi teksnya lalu menampilkannya.
  */
 export function pakaiPreset(preset: LandingThemePreset, landing: EventLandingConfig): EventLandingConfig {
-  const hasil = terapkanPreset(preset, landing);
+  const terapan = terapkanPreset(preset, landing);
+  // Gathering: judul dan tiga kartu Tentang acara seperti rancangan, hanya
+  // yang masih kosong. Teksnya umum (tanpa nama kota atau jumlah orang), siap diubah.
+  const ui = LANDING_UI[landingDefaultLang(terapan)];
+  const hasil = preset.features.gathering
+    ? {
+        ...terapan,
+        ...(!terapan.about_heading?.trim() ? { about_heading: ui.aboutHeadingDefault } : {}),
+        // Label "Tentang acara" di atas judul, seperti rancangan (bawaannya mati).
+        ...(terapan.eyebrow_shown?.about === undefined ? { eyebrow_shown: { ...terapan.eyebrow_shown, about: true } } : {}),
+        ...(!(terapan.about_cards ?? []).some((kartu) => kartu.title.trim()) ? { about_cards: ui.aboutCardsDefault.map((kartu) => ({ ...kartu })) } : {}),
+      }
+    : terapan;
   const sudahAda = (hasil.blocks ?? []).some((block) => block.type === "points" && block.heading === "Sebelum berangkat");
   if (!preset.features.gathering || sudahAda) return hasil;
   const blok = {

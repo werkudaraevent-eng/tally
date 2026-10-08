@@ -115,7 +115,7 @@ function IkonTaut({ href, size = 18 }: { href: string; size?: number }) {
   return /^https?:\/\//.test(href) ? <ArrowUpRight size={size} aria-hidden /> : <ArrowDown size={size} aria-hidden />;
 }
 
-function Wadah({ block, children, className = "py-12 sm:py-16 lg:py-[72px]" }: { block: LandingBlock; children: ReactNode; className?: string }) {
+function Wadah({ block, children, className = "py-12 sm:py-16 lg:py-[var(--bagian-y,72px)]" }: { block: LandingBlock; children: ReactNode; className?: string }) {
   return (
     <section id={block.id} className={`scroll-mt-[var(--nav-h)] text-[var(--reg-on-surface)] ${className}`} style={NADA[block.tone ?? "light"]}>
       <div className={SHELL}>{children}</div>

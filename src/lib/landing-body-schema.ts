@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 // Skema isi CMS Halaman acara. Dipakai PATCH /api/admin/landing saat menyimpan
 // dan pratinjau langsung saat merender draf, supaya pratinjau menolak hal yang
@@ -242,6 +242,10 @@ export const landingBodySchema = z.object({
     speaker_frame: z.enum(LANDING_SPEAKER_FRAMES).optional(),
     about_image_url: z.string().url().max(600).nullable().optional(),
     about_image_alt: teks(LANDING_IMAGE_ALT_MAX),
+    about_cards: z.array(z.object({
+      title: z.string().trim().max(LANDING_ABOUT_CARDS.title),
+      body: z.string().trim().max(LANDING_ABOUT_CARDS.body),
+    })).max(LANDING_ABOUT_CARDS.max).optional(),
     program_heading: z.string().trim().max(120).optional(),
     program_intro: z.string().trim().max(400).optional(),
     program_notes: z.array(z.string().trim().max(600)).max(10).optional(),
@@ -271,6 +275,7 @@ export const landingBodySchema = z.object({
     accent: warna,
     button_color: warna,
     hero_note: teks(240),
+    hero_eyebrow: teks(60),
     default_lang: z.enum(["id", "en"]).optional(),
     en: z.object({
       public_name: teks(120),
@@ -286,6 +291,7 @@ export const landingBodySchema = z.object({
       cta_heading: teks(120),
       cta_note: teks(300),
       hero_note: teks(240),
+      hero_eyebrow: teks(60),
       contact_name: teks(120),
       // Versi English kolom `events` (lihat LANDING_EVENT_EN_KEYS), batas sama dengan kolomnya.
       tagline: teks(200),

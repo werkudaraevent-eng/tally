@@ -286,7 +286,9 @@ export function BagianEn({
         return [
           kolom("public_name", "Event name on the public page", landing.public_name, 120),
           kolom("tagline", "Tagline", facts.tagline, 200, true),
-          ...(landing.gathering ? [kolom("hero_note", "Line below the title", landing.hero_note, 240, true)] : []),
+          ...(landing.gathering
+            ? [kolom("hero_eyebrow", "Label above the title", landing.hero_eyebrow, 60, true), kolom("hero_note", "Line below the title", landing.hero_note, 240, true)]
+            : []),
           kolom("cta_label", "Registration button text", landing.cta_label, 40),
         ];
       case "kaki":
