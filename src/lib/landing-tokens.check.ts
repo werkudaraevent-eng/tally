@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { LANDING_BODY_FONTS, LANDING_HEADING_FONTS } from "./domain.ts";
 import type { EventLandingConfig } from "./domain.ts";
 import type { LandingTokens } from "./landing-tokens.ts";
-import { LANDING_THEME_PRESETS, gayaPreset, presetCocok, presetDiubah, terapkanPreset } from "./landing-theme-presets.ts";
+import { LANDING_THEME_PRESETS, gayaPreset, isiGathering, isiGatheringMengubah, presetCocok, presetDiubah, terapkanPreset } from "./landing-theme-presets.ts";
 
 const pick = (t: LandingTokens) => [t.heroAlign, t.heroPosition];
 
@@ -151,5 +151,30 @@ for (const key of LANDING_BODY_FONTS) {
   assert.deepEqual(terapkanPreset(forumIfc, putihSendiri).nav, { color: "#ffffff", opacity: 100 });
   assert.equal(terapkanPreset(conference, terapkanPreset(gathering, {})).nav, undefined);
   assert.deepEqual(terapkanPreset(conference, { nav: { color: "#223344", opacity: 90 } }).nav, { color: "#223344", opacity: 90 });
+}
+// Isi Gathering (Apply dan Reset, QA #107): Tentang acara yang kosong diisi per
+// bahasa, isi admin tetap, Lokasi disembunyikan.
+{
+  const bawaan = {
+    id: { heading: "Judul", cards: [{ title: "Satu", body: "Isi satu" }] },
+    en: { heading: "Heading", cards: [{ title: "One", body: "Body one" }] },
+  };
+  const kosong = isiGathering({}, bawaan);
+  assert.equal(kosong.about_heading, "Judul");
+  assert.deepEqual(kosong.about_cards, [{ title: "Satu", body: "Isi satu" }]);
+  assert.equal(kosong.en?.about_heading, "Heading");
+  assert.deepEqual(kosong.en?.about_cards, [{ title: "One", body: "Body one" }]);
+  assert.equal(kosong.eyebrow_shown?.about, true);
+  assert.equal(kosong.sections?.find((s) => s.id === "venue")?.enabled, false);
+  assert.equal(kosong.sections?.find((s) => s.id === "about")?.enabled, true);
+  assert.deepEqual(isiGatheringMengubah(kosong), { tentang: false, lokasi: false });
+  // Kartu tanpa judul tetapi bertulisan adalah isi admin (L1).
+  const tanpaJudul = isiGathering({ about_cards: [{ title: "", body: "isi tanpa judul" }], about_heading: "Milik admin", eyebrow_shown: { about: false } }, bawaan);
+  assert.deepEqual(tanpaJudul.about_cards, [{ title: "", body: "isi tanpa judul" }]);
+  assert.equal(tanpaJudul.about_heading, "Milik admin");
+  assert.equal(tanpaJudul.en, undefined);
+  assert.equal(tanpaJudul.eyebrow_shown?.about, false);
+  // Terjemahan admin tetap.
+  assert.equal(isiGathering({ en: { about_heading: "Mine" } }, bawaan).en?.about_heading, "Mine");
 }
 console.log("landing-tokens.check.ts OK");

@@ -285,6 +285,10 @@ export const landingBodySchema = z.object({
       program_heading: teks(120),
       program_intro: teks(400),
       program_notes: z.array(z.string().trim().max(600)).max(10).optional(),
+      about_cards: z
+        .array(z.object({ title: z.string().trim().max(LANDING_ABOUT_CARDS.title).optional(), body: z.string().trim().max(LANDING_ABOUT_CARDS.body).optional() }))
+        .max(LANDING_ABOUT_CARDS.max)
+        .optional(),
       agenda_note: teks(140),
       ...JUDUL_BAGIAN,
       footer_note: teks(180),

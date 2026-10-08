@@ -7,6 +7,7 @@ import { sesiDariRundown } from "@/lib/landing-speaker-tabs";
 import { isiPeranSesiEn, peranSesiUntukEn } from "@/lib/landing-peran-sesi";
 import {
   LANDING_BLOCK_LABELS,
+  LANDING_ABOUT_CARDS,
   LANDING_IMAGE_ALT_MAX,
   LANDING_NAV_LABEL_MAX,
   LANDING_SECTION_ADMIN_LABELS,
@@ -230,7 +231,7 @@ export function rundownBelumDiterjemahkan(baris: BarisRundownEn[]): number {
   return baris.reduce((jumlah, item) => jumlah + (ada(item.title) && !ada(item.title_en) ? 1 : 0) + (ada(item.subtitle) && !ada(item.subtitle_en) ? 1 : 0), 0);
 }
 
-type KunciEn = Exclude<keyof LandingConfigEn, "program_notes">;
+type KunciEn = Exclude<keyof LandingConfigEn, "program_notes" | "about_cards">;
 
 /**
  * Isi mode English untuk satu baris Susunan halaman selain blok tambahan:
@@ -305,6 +306,28 @@ export function BagianEn({
             ? kolom("about_image_alt", "Image description", landing.about_image_alt, LANDING_IMAGE_ALT_MAX)
             : null,
           judulBagian("about"),
+          // Kartu Tentang acara (gaya gathering): satu kartu terjemahan per
+          // kartu Indonesia, urut sama; kolom kosong memakai teks Indonesia.
+          ...(landing.gathering
+            ? (landing.about_cards ?? []).map((kartu, index) => {
+                if (!ada(kartu.title) && !ada(kartu.body)) return null;
+                const ubahKartu = (patch: { title?: string; body?: string }) => {
+                  const next = (landing.about_cards ?? []).map((_, posisi) => ({ ...en.about_cards?.[posisi] }));
+                  next[index] = { ...next[index], ...patch };
+                  ubahEn({ about_cards: next });
+                };
+                return (
+                  <Kartu key={`kartu-tentang-${index}`} judul={`Card ${index + 1}`}>
+                    {ada(kartu.title) ? (
+                      <KolomEn label="Title" sumber={kartu.title} value={en.about_cards?.[index]?.title} onChange={(value) => ubahKartu({ title: value })} max={LANDING_ABOUT_CARDS.title} />
+                    ) : null}
+                    {ada(kartu.body) ? (
+                      <KolomEn label="Text" sumber={kartu.body} value={en.about_cards?.[index]?.body} onChange={(value) => ubahKartu({ body: value })} max={LANDING_ABOUT_CARDS.body} area />
+                    ) : null}
+                  </Kartu>
+                );
+              })
+            : []),
         ];
       case "venue":
         return [kolom("venue_name", "Venue name", facts.venue_name, 200), kolom("venue_address", "Address", facts.venue_address, 600, true), judulBagian("venue")];

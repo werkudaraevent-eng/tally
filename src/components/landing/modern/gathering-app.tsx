@@ -164,9 +164,9 @@ export function PratinjauPortal({
           ) : null}
           <div className="grid grid-cols-2 gap-2">
             {ubin.map((label) => (
-              <div key={label} className="flex flex-col gap-0.5 rounded-xl bg-white px-2.5 py-3">
+              <div key={label} className="flex flex-col gap-0.5 rounded-xl bg-white px-1.5 py-3">
                 <p className="truncate text-[12px] leading-[1.2] text-[#5F6B7F]">{label}</p>
-                <p className="truncate text-[11px] font-extrabold leading-[1.2]">{t.portalAfterSignIn}</p>
+                <p className="text-[12px] font-extrabold leading-[1.2]">{t.portalAfterSignIn}</p>
               </div>
             ))}
           </div>

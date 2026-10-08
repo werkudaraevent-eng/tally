@@ -1013,7 +1013,14 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         // Gathering: kaki tipis putih seperti rancangan. Catatan kaki dari CMS
         // menjadi tagline emas di kanan; kontak (bila bagiannya menyala) di kiri.
         <KakiGathering
-          hakCipta={[`© ${tahun} ${[subNama, nama].filter(Boolean).join(" · ")}`, ...kontak.map((item) => item.label)].join(" · ")}
+          // Tahun di ujung nama tidak diulang: "© 2026 KSO Sucofindo", bukan "© 2026 KSO Sucofindo 2026".
+          hakCipta={[
+            `© ${tahun} ${[subNama, nama]
+              .filter((teks): teks is string => Boolean(teks))
+              .map((teks) => teks.replace(new RegExp(`\\s*${tahun}$`), "") || teks)
+              .join(" · ")}`,
+            ...kontak.map((item) => item.label),
+          ].join(" · ")}
           tagline={config.footer_note?.trim() || null}
         />
       ) : (

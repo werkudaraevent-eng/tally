@@ -305,6 +305,8 @@ export const LANDING_EVENT_EN_KEYS = ["tagline", "description", "venue_name", "v
 export type LandingConfigEn = Partial<Record<(typeof LANDING_CONFIG_EN_KEYS)[number] | (typeof LANDING_EVENT_EN_KEYS)[number], string>> & {
   /** Urut sesuai `program_notes`. */
   program_notes?: string[];
+  /** Urut sesuai `about_cards`; kolom kosong memakai teks Indonesia. */
+  about_cards?: { title?: string; body?: string }[];
 };
 
 /**

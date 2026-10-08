@@ -127,6 +127,7 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
   const config: EventLandingConfig = {
     ...tumpuk(asli, en, LANDING_CONFIG_EN_KEYS),
     program_notes: asli.program_notes?.map((catatan, index) => (isi(en.program_notes?.[index]) && isi(catatan) ? en.program_notes![index]! : catatan)),
+    about_cards: asli.about_cards?.map((kartu, index) => tumpuk(kartu, en.about_cards?.[index], ["title", "body"])),
     blocks: asli.blocks?.map((block) => ({
       ...tumpuk(block, block.en, LANDING_BLOCK_EN_KEYS),
       items: block.items?.map((item) => tumpuk(item, item.en, LANDING_ITEM_EN_KEYS)),

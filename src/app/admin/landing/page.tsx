@@ -302,7 +302,7 @@ const KUNCI_PANEL = "tally:landing-panel:v1";
 const KUNCI_BAHASA = "tally:landing-bahasa:v1";
 const jepitPanel = (lebar: number) => Math.round(Math.min(PANEL_MAX, Math.max(PANEL_MIN, lebar)));
 
-type KunciTeksEn = Extract<Exclude<keyof LandingConfigEn, "program_notes">, keyof EventLandingConfig>;
+type KunciTeksEn = Extract<Exclude<keyof LandingConfigEn, "program_notes" | "about_cards">, keyof EventLandingConfig>;
 const BAGIAN_BERJUDUL = Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSection[];
 
 /** Kolom teks di lipatan "Judul bagian" satu bagian: kunci, nama untuk pesan, batas skema. */
@@ -680,6 +680,7 @@ export default function LandingCmsPage() {
   // publik sampai admin menekan Simpan, jadi isi lama masih bisa dikembalikan
   // dengan memuat ulang halaman.
   const pilihBerkas = useRef<HTMLInputElement>(null);
+  const kartuTentangRef = useRef<HTMLDivElement>(null);
 
   function ekspor() {
     if (!facts) return;
@@ -1331,8 +1332,23 @@ export default function LandingCmsPage() {
   // Gaya gathering: kartu berikon di bawah judul Tentang acara (rancangan pen.dev).
   const kartuTentang = landing.about_cards ?? [];
   const setKartuTentang = (next: typeof kartuTentang) => setLanding({ ...landing, about_cards: next });
+  // Fokus setelah Add card dan Delete (QA #107 L2): ke judul kartu yang dituju,
+  // atau ke Add card bila tidak ada kartu lagi. Tanpa ini fokus jatuh ke <body>.
+  const fokusKartu = (index: number) =>
+    requestAnimationFrame(() => {
+      const wadah = kartuTentangRef.current;
+      const judul = wadah?.querySelectorAll<HTMLInputElement>("[data-kartu-tentang] input");
+      const tujuan = judul && judul.length > 0 ? judul[Math.min(index, judul.length - 1)] : wadah?.querySelector<HTMLButtonElement>("[data-tambah-kartu] button");
+      tujuan?.focus();
+    });
+  const hapusKartu = (index: number) => {
+    // Terjemahan English ikut bergeser supaya tetap sepasang dengan kartunya.
+    const en = landing.en?.about_cards ? { ...landing.en, about_cards: landing.en.about_cards.filter((_, position) => position !== index) } : landing.en;
+    setLanding({ ...landing, about_cards: kartuTentang.filter((_, position) => position !== index), ...(en ? { en } : {}) });
+    fokusKartu(index);
+  };
   const editorKartuTentang = (
-    <div className="flex flex-col gap-3">
+    <div ref={kartuTentangRef} className="flex flex-col gap-3">
       <div>
         <p className="text-body-medium font-medium text-on-surface">Cards</p>
         <p className="mt-0.5 text-body-medium text-on-surface-variant">
@@ -1340,7 +1356,7 @@ export default function LandingCmsPage() {
         </p>
       </div>
       {kartuTentang.map((kartu, index) => (
-        <div key={index} className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
+        <div key={index} data-kartu-tentang className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
           <div className="flex items-end gap-2">
             <TextField
               className="min-w-0 flex-1"
@@ -1349,7 +1365,7 @@ export default function LandingCmsPage() {
               value={kartu.title}
               onChange={(event) => { const next = [...kartuTentang]; next[index] = { ...next[index], title: event.target.value }; setKartuTentang(next); }}
             />
-            <IconButton size="sm" label={`Delete card ${index + 1}`} className="text-error" onClick={() => setKartuTentang(kartuTentang.filter((_, position) => position !== index))}>
+            <IconButton size="sm" label={`Delete card ${index + 1}`} className="text-error" onClick={() => hapusKartu(index)}>
               <Trash size={16} />
             </IconButton>
           </div>
@@ -1365,8 +1381,18 @@ export default function LandingCmsPage() {
         </div>
       ))}
       {kartuTentang.length < LANDING_ABOUT_CARDS.max ? (
-        <div>
-          <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setKartuTentang([...kartuTentang, { title: "", body: "" }])}>Add card</Button>
+        <div data-tambah-kartu>
+          <Button
+            variant="outlined"
+            size="sm"
+            icon={<Plus size={16} />}
+            onClick={() => {
+              setKartuTentang([...kartuTentang, { title: "", body: "" }]);
+              fokusKartu(kartuTentang.length);
+            }}
+          >
+            Add card
+          </Button>
         </div>
       ) : null}
     </div>
@@ -2201,7 +2227,7 @@ export default function LandingCmsPage() {
 
   function subBawaan(id: LandingSectionId): string {
     switch (id) {
-      case "about": return "From the event description";
+      case "about": return gathering ? "Heading, cards and description" : "From the event description";
       case "agenda": return "Built-in · from the Agenda";
       case "venue": return "Venue name, address, map";
       case "speakers": return `Built-in · ${plural(JUMLAH.speakers ?? 0, "speaker")}`;

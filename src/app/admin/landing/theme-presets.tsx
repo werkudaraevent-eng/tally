@@ -5,9 +5,19 @@ import { Check } from "@phosphor-icons/react";
 import { Kelompok } from "@/components/admin/compact-form";
 import { normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
 import { Button } from "@/components/m3";
-import { LANDING_THEME_PRESETS, gayaPreset, presetCocok, presetDiubah, terapkanPreset, type LandingThemePreset } from "@/lib/landing-theme-presets";
+import {
+  LANDING_THEME_PRESETS,
+  gayaPreset,
+  isiGathering,
+  isiGatheringMengubah,
+  presetCocok,
+  presetDiubah,
+  terapkanPreset,
+  type LandingThemePreset,
+  type TentangBawaan,
+} from "@/lib/landing-theme-presets";
 import { landingTokens } from "@/lib/landing-tokens";
-import { LANDING_UI, landingDefaultLang } from "@/lib/landing-i18n";
+import { LANDING_UI } from "@/lib/landing-i18n";
 import { buatBlok } from "./blocks";
 
 /**
@@ -32,7 +42,7 @@ export function PresetTema({
     <Kelompok
       first
       title="Start from a preset"
-      note="Click to preview it, then Apply. A preset sets the layout, colours, fonts and corners. Page content and the hero text placement stay. Gathering also makes the top bar white, fills the About heading and three About cards if they are empty, and adds a hidden “Sebelum berangkat” section for you to fill in."
+      note="Click to preview it, then Apply. A preset sets the layout, colours, fonts and corners. Page content and the hero text placement stay. Gathering also makes the top bar white, fills the About heading and three About cards if they are empty, hides Location, and adds a hidden “Sebelum berangkat” section for you to fill in."
     >
       <div role="radiogroup" aria-label="Preset" className="flex flex-col gap-2">
         {LANDING_THEME_PRESETS.map((preset) => {
@@ -71,7 +81,9 @@ export function PresetTema({
       </div>
       {/* Reset di luar kartu: kartu sudah sebuah tombol, dan tombol di dalam
           tombol tidak bisa difokus terpisah. */}
-      {LANDING_THEME_PRESETS.filter((preset) => presetCocok(preset, landing) && presetDiubah(preset, landing)).map((preset) => (
+      {LANDING_THEME_PRESETS.filter(
+        (preset) => presetCocok(preset, landing) && (presetDiubah(preset, landing) || (preset.features.gathering && isiGatheringMengubah(landing).tentang)),
+      ).map((preset) => (
         <ResetPreset key={preset.key} preset={preset} landing={landing} setLanding={setLanding} />
       ))}
     </Kelompok>
@@ -105,9 +117,13 @@ function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePres
     bilah &&
       ((landing.nav?.color ?? "").toLowerCase() !== bilah.color.toLowerCase() || landing.nav?.opacity !== bilah.opacity || landing.nav?.height !== bilah.height),
   );
+  // Gathering: Reset juga mengisi Tentang acara yang kosong dan menyembunyikan
+  // Lokasi, sama seperti Apply (QA #107 M1).
+  const isi = preset.features.gathering ? isiGatheringMengubah(landing) : null;
   const reset = () => {
     setTanya(false);
-    setLanding(gayaPreset(preset, landing));
+    const gaya = gayaPreset(preset, landing);
+    setLanding(preset.features.gathering ? isiGathering(gaya, TENTANG_BAWAAN) : gaya);
     // Baris ini hilang setelah Reset (preset tidak lagi "Edited"): fokus ke kartu yang dipakai.
     requestAnimationFrame(() => document.querySelector<HTMLElement>('[role="radiogroup"][aria-label="Preset"] [aria-checked="true"]')?.focus());
   };
@@ -134,6 +150,8 @@ function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePres
           ) : null}
           {gantiMerek && gantiBilah ? " " : null}
           {gantiBilah && bilah ? `${gantiMerek ? "The" : "This also makes the"} top bar ${gantiMerek ? "becomes " : ""}${bilah.color.toLowerCase() === "#ffffff" ? "white" : bilah.color.toUpperCase()}, ${bilah.height} px tall.` : null}
+          {isi?.tentang ? `${gantiMerek || gantiBilah ? " " : ""}An empty About heading and cards get the ${preset.label} text.` : null}
+          {isi?.lokasi ? `${gantiMerek || gantiBilah || isi.tentang ? " " : ""}Location is hidden; you can show it again in Page sections.` : null}
         </p>
         <div className="flex justify-end gap-2">
           <Button variant="text" size="sm" onClick={() => setTanya(false)}>
@@ -148,9 +166,11 @@ function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePres
   }
   return (
     <div ref={kotak} className="-mt-2 flex items-center gap-2">
-      <p className="min-w-0 flex-1 text-body-small text-on-surface-variant">{bilah ? "Colours, fonts, top bar or corners" : "Colours, fonts or corners"} differ from {preset.label}.</p>
-      <Button variant="text" size="sm" onClick={gantiMerek || gantiBilah ? () => setTanya(true) : reset}>
-        Reset colours and fonts
+      <p className="min-w-0 flex-1 text-body-small text-on-surface-variant">
+        {isi ? "Colours, fonts, top bar, corners or About" : "Colours, fonts or corners"} differ from {preset.label}.
+      </p>
+      <Button variant="text" size="sm" onClick={gantiMerek || gantiBilah || isi?.tentang || isi?.lokasi ? () => setTanya(true) : reset}>
+        {isi ? `Reset to ${preset.label}` : "Reset colours and fonts"}
       </Button>
     </div>
   );
@@ -165,6 +185,12 @@ function Contoh({ warna }: { warna: string }) {
   );
 }
 
+/** Teks bawaan Tentang acara gaya gathering, Indonesia dan English. Umum: tanpa nama kota atau jumlah orang. */
+const TENTANG_BAWAAN: TentangBawaan = {
+  id: { heading: LANDING_UI.id.aboutHeadingDefault, cards: LANDING_UI.id.aboutCardsDefault },
+  en: { heading: LANDING_UI.en.aboutHeadingDefault, cards: LANDING_UI.en.aboutCardsDefault },
+};
+
 /** Judul kartu bagian "Sebelum berangkat" untuk acara gathering. */
 const INFO_GATHERING = ["Dress code", "Yang perlu dibawa", "Kontak panitia"];
 
@@ -176,18 +202,9 @@ const INFO_GATHERING = ["Dress code", "Yang perlu dibawa", "Kontak panitia"];
  */
 export function pakaiPreset(preset: LandingThemePreset, landing: EventLandingConfig): EventLandingConfig {
   const terapan = terapkanPreset(preset, landing);
-  // Gathering: judul dan tiga kartu Tentang acara seperti rancangan, hanya
-  // yang masih kosong. Teksnya umum (tanpa nama kota atau jumlah orang), siap diubah.
-  const ui = LANDING_UI[landingDefaultLang(terapan)];
-  const hasil = preset.features.gathering
-    ? {
-        ...terapan,
-        ...(!terapan.about_heading?.trim() ? { about_heading: ui.aboutHeadingDefault } : {}),
-        // Label "Tentang acara" di atas judul, seperti rancangan (bawaannya mati).
-        ...(terapan.eyebrow_shown?.about === undefined ? { eyebrow_shown: { ...terapan.eyebrow_shown, about: true } } : {}),
-        ...(!(terapan.about_cards ?? []).some((kartu) => kartu.title.trim()) ? { about_cards: ui.aboutCardsDefault.map((kartu) => ({ ...kartu })) } : {}),
-      }
-    : terapan;
+  // Gathering: judul, label, dan tiga kartu Tentang acara seperti rancangan
+  // (hanya yang masih kosong), Lokasi disembunyikan. Lihat isiGathering.
+  const hasil = preset.features.gathering ? isiGathering(terapan, TENTANG_BAWAAN) : terapan;
   const sudahAda = (hasil.blocks ?? []).some((block) => block.type === "points" && block.heading === "Sebelum berangkat");
   if (!preset.features.gathering || sudahAda) return hasil;
   const blok = {
