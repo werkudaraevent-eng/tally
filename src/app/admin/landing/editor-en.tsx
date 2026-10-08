@@ -296,7 +296,7 @@ export function BagianEn({
               key="tagline"
               data-kolom="tagline"
               label="Title"
-              hint={ada(facts.tagline) ? `ID: ${tanpaBintang(facts.tagline ?? "")} · Empty uses the Indonesian title.` : "The Indonesian title is empty."}
+              hint={ada(facts.tagline) ? `ID: ${tanpaBintang(facts.tagline ?? "")} · Empty uses the Indonesian title.` : "Shows on the English page once the Indonesian title is filled."}
               accent={landingTokens(landing).accent ?? "#d4a72c"}
               maxLength={200}
               value={en.tagline ?? ""}
