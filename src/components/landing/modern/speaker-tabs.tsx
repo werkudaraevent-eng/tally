@@ -28,7 +28,7 @@ function inisial(nama: string): string {
 }
 
 const LATAR_INISIAL =
-  "linear-gradient(to bottom, color-mix(in srgb, var(--reg-primary) 10%, var(--reg-surface)), color-mix(in srgb, var(--reg-primary) 22%, var(--reg-surface)))";
+  "var(--inisial-latar, linear-gradient(to bottom, color-mix(in srgb, var(--reg-primary) 10%, var(--reg-surface)), color-mix(in srgb, var(--reg-primary) 22%, var(--reg-surface))))";
 
 /**
  * Bingkai foto per acara (`speaker_frame`), hanya untuk kartu ini; deret foto
@@ -68,7 +68,7 @@ function Kartu({ speaker, bingkai }: { speaker: LandingSpeaker; bingkai: Landing
           <img src={speaker.photo_url} alt="" loading="lazy" className={`absolute inset-0 size-full object-cover ${LETAK_FOTO[bingkai] ?? LETAK_FOTO.portrait}`} />
         ) : (
           <div aria-hidden className="absolute inset-0 flex items-center justify-center" style={{ background: LATAR_INISIAL }}>
-            <span className="text-[48px] font-semibold text-[var(--reg-primary)] opacity-60 [font-family:var(--landing-heading)] sm:text-[72px]">
+            <span className="text-[48px] font-semibold text-[var(--inisial-teks,var(--reg-primary))] opacity-60 [font-family:var(--landing-heading)] sm:text-[72px]">
               {inisial(speaker.name)}
             </span>
           </div>

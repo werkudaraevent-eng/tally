@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Bed, Bus, Megaphone, Ticket } from "@phosphor-icons/react/dist/ssr";
 import type { Icon } from "@phosphor-icons/react";
 import type { LandingCardTone } from "@/lib/landing-card-icons";
+import { GambarIkonKartu } from "./gambar-ikon-kartu";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import type { KvGathering } from "@/lib/registration-theme-css";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
@@ -296,18 +297,14 @@ export function TentangGathering({
             const { Ikon } = item;
             const nada = NADA[item.nada];
             return (
-              <li key={item.posisi} data-sunting={`about:kartu-${item.posisi}`} className="flex flex-col gap-4 rounded-[20px] bg-[var(--reg-panel)] p-[30px]">
-                {item.gambar ? (
-                  // Ikon sendiri (mis. 3D dari Envato): tanpa ubin, sedikit lebih
-                  // besar, karena gambarnya sudah membawa warna dan bayangannya. Margin
-                  // negatif: tingginya tetap 52px, judul sejajar dengan kartu lain.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.gambar} alt="" aria-hidden loading="lazy" className="-my-1.5 size-16 object-contain" />
-                ) : (
+              <li key={item.posisi} data-sunting={`about:kartu-${item.posisi}`} className="flex flex-col gap-4 rounded-[20px] bg-[var(--reg-panel)] p-[30px] [box-shadow:inset_0_0_0_1px_var(--garis-kartu,transparent)]">
+                {/* Ubin ikon; gambar ikon sendiri (mis. 3D dari Envato) menggantikannya
+                    tanpa ubin, dan ubin kembali bila gambarnya gagal dimuat. */}
+                <GambarIkonKartu src={item.gambar}>
                   <span aria-hidden className="inline-flex size-[52px] items-center justify-center rounded-[14px]" style={{ background: nada.latar, color: nada.teks }}>
                     <Ikon size={26} />
                   </span>
-                )}
+                </GambarIkonKartu>
                 <h3 className="text-[20px] font-extrabold leading-[1.2]">{item.title.trim()}</h3>
                 {item.body?.trim() ? <p className="text-[14px] leading-[1.6] text-[var(--reg-on-surface-variant)]">{item.body.trim()}</p> : null}
               </li>

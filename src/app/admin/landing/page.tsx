@@ -56,7 +56,7 @@ import { HERO_KV_KUAT, landingTokens } from "@/lib/landing-tokens";
 import { LANDING_BLOCK_TONE_LABELS, type LandingBlockTone } from "@/lib/domain";
 import { gatheringColors } from "@/lib/registration-theme-css";
 import { ikonKartu, nadaKartu } from "@/lib/landing-card-icons";
-import { PilihIkonKartu, usePustakaIkon, type WarnaUbin } from "./pilih-ikon";
+import { PilihIkonKartu, type WarnaUbin } from "./pilih-ikon";
 import { LANDING_SECTION_TONE_IDS, latarBagian } from "@/lib/landing-section-tone";
 import { formatEventDate } from "@/lib/event-datetime";
 import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
@@ -726,7 +726,6 @@ export default function LandingCmsPage() {
   // dengan memuat ulang halaman.
   const pilihBerkas = useRef<HTMLInputElement>(null);
   const kartuTentangRef = useRef<HTMLDivElement>(null);
-  const pustakaIkon = usePustakaIkon();
 
   function ekspor() {
     if (!facts) return;
@@ -1593,14 +1592,13 @@ export default function LandingCmsPage() {
       {kartuTentang.map((kartu, index) => (
         <div key={index} data-kartu-tentang className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
           <div className="flex items-end gap-2">
-            {warnaUbin ? (
+            {warnaUbin && kartu.title.trim() ? (
               <PilihIkonKartu
                 nomor={index + 1}
                 ikon={ikonKartu(kartu, urutanBerjudul(index))}
                 nada={nadaKartu(kartu, urutanBerjudul(index))}
                 bawaan={!kartu.icon && !kartu.tone && !kartu.icon_url}
                 warna={warnaUbin}
-                pustaka={pustakaIkon}
                 gambar={kartu.icon_url?.trim() || null}
                 onChange={(ubah) => {
                   const next = [...kartuTentang];

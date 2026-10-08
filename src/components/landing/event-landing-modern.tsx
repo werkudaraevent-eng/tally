@@ -429,6 +429,22 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         ) : null}
     </>
   );
+  // Kartu Tentang acara gaya gathering: ikon dimuat satu per satu di server.
+  const kartuTentang = gaya
+    ? await Promise.all(
+        (config.about_cards ?? [])
+          .map((item, posisi) => ({ ...item, posisi }))
+          .filter((item) => item.title?.trim())
+          .map(async (item, index) => ({
+            title: item.title,
+            body: item.body,
+            posisi: item.posisi,
+            Ikon: await komponenIkonKartu(item, index),
+            nada: nadaKartu(item, index),
+            gambar: item.icon_url?.trim() || null,
+          })),
+      )
+    : [];
   const bawaan: Partial<Record<LandingSectionId, ReactNode>> = {
     about: (
       <>
@@ -440,10 +456,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             alis={judulBagian("about").alis}
             judul={judulBagian("about").judul}
             deskripsi={event.description?.trim() || null}
-            kartu={(config.about_cards ?? [])
-              .map((item, posisi) => ({ ...item, posisi }))
-              .filter((item) => item.title?.trim())
-              .map((item, index) => ({ title: item.title, body: item.body, posisi: item.posisi, Ikon: komponenIkonKartu(item, index), nada: nadaKartu(item, index), gambar: item.icon_url?.trim() || null }))}
+            kartu={kartuTentang}
             gambar={
               fotoTentang ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -527,7 +540,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           <section
             id="agenda"
             className={`${SECTION} relative bg-[var(--landing-panel)] [clip-path:inset(0_-100vmax)] [box-shadow:0_0_0_100vmax_var(--landing-panel)]`}
-            style={gaya && gayaLatarBagian("agenda", config.section_tone) ? undefined : ({ "--landing-panel": PANEL_GATHERING } as CSSProperties)}
+            style={gaya && gayaLatarBagian("agenda", config.section_tone, tokens.brand) ? undefined : ({ "--landing-panel": PANEL_GATHERING } as CSSProperties)}
           >
             {/* Garis tipis atas dan bawah selebar layar, seperti rancangan. */}
             <span aria-hidden className={`top-0 ${GARIS_LEBAR}`} />
@@ -594,7 +607,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           <section
             id="speakers"
             className={`${SECTION} bg-[var(--landing-panel)] [clip-path:inset(0_-100vmax)] [box-shadow:0_0_0_100vmax_var(--landing-panel)]`}
-            style={gaya && gayaLatarBagian("speakers", config.section_tone) ? undefined : ({ "--landing-panel": "color-mix(in srgb, var(--reg-on-surface) 4%, var(--reg-surface))" } as CSSProperties)}
+            style={gaya && gayaLatarBagian("speakers", config.section_tone, tokens.brand) ? undefined : ({ "--landing-panel": "color-mix(in srgb, var(--reg-on-surface) 4%, var(--reg-surface))" } as CSSProperties)}
           >
             <SpeakerTabs
               tabs={tabPembicara}
@@ -698,7 +711,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                   // Lapisan hover hanya menutup pertanyaan (M3 state layer). Saat
                   // terbuka (layar sm ke atas), ruang bawah pertanyaan 16px dan jawaban diberi
                   // 16px di atasnya: tepi lapisan tidak lagi menempel di teks.
-                  <details key={item.q} open={index === 0} className="faq group rounded-md bg-[var(--reg-panel)]">
+                  <details key={item.q} open={index === 0} className="faq group rounded-md bg-[var(--reg-panel)] [box-shadow:inset_0_0_0_1px_var(--garis-kartu,transparent)]">
                     <summary className={`m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-md px-5 py-5 sm:px-7 sm:py-6 sm:group-open:pb-4 ${JUDUL_BUTIR} [&::-webkit-details-marker]:hidden`}>
                       {item.q}
                       <Plus size={22} aria-hidden className={`shrink-0 group-open:hidden ${MUTED}`} />
@@ -929,7 +942,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           const konten = bawaan[section.id];
           if (!konten) return null;
           // Gathering: latar pilihan admin selebar layar (Light, Grey, Dark brand).
-          const latar = gaya ? gayaLatarBagian(section.id, config.section_tone) : undefined;
+          const latar = gaya ? gayaLatarBagian(section.id, config.section_tone, tokens.brand) : undefined;
           return latar ? (
             <div key={section.id} data-bagian={section.id} style={latar}>
               <div className={SHELL}>{konten}</div>
