@@ -343,9 +343,11 @@ export function latarGelapBagian(seed: string | undefined): string | null {
   if (kontras(merek, "#ffffff") >= 7) return null;
   for (let campur = 0.3; campur < 1; campur += 0.02) {
     const latar = mixHex(merek, "#000000", campur);
-    // Putih 4,5:1, teks redup (putih 80%) 4,6:1 dengan sedikit cadangan
-    // pembulatan, garis tab dan kartu (putih 50%) 3:1.
-    if (kontras(latar, "#ffffff") >= 4.5 && kontras(latar, mixHex(latar, "#ffffff", 0.8)) >= 4.6 && kontras(latar, mixHex(latar, "#ffffff", 0.5)) >= 3) return latar;
+    // Putih 4,5:1; teks redup (putih 80%) 4,6:1 di atas isi kartu (putih 8%,
+    // --reg-panel), yang sedikit lebih terang daripada latarnya (QA #115 R2);
+    // garis tab dan kartu (putih 50%) 3:1.
+    const kartu = mixHex(latar, "#ffffff", 0.08);
+    if (kontras(latar, "#ffffff") >= 4.5 && kontras(kartu, mixHex(kartu, "#ffffff", 0.8)) >= 4.6 && kontras(latar, mixHex(latar, "#ffffff", 0.5)) >= 3) return latar;
   }
   return mixHex(merek, "#000000", 0.9);
 }

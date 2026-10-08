@@ -47,8 +47,13 @@ export function gayaLatarBagian(
     "--primer-teks": "#ffffff",
     "--teks-pita": redup,
     // Inisial pembicara tanpa foto (speaker-tabs.tsx), QA #115 M1.
-    "--inisial-latar": "rgb(255 255 255 / 0.12)",
+    // Bingkai foto punya variabel sendiri: --reg-outline-variant di sini putih
+    // 50% (garis 3:1) dan akan menjadi lempeng terang di belakang inisial.
+    // Inisial putih penuh di atas putih 12%: 5,5:1 ke atas (QA #115 R2).
+    "--bingkai-foto": "rgb(255 255 255 / 0.12)",
+    "--inisial-latar": "transparent",
     "--inisial-teks": "#ffffff",
+    "--inisial-opasitas": "1",
     "--reg-primary": "#ffffff",
     "--reg-on-primary": "#181d27",
     "--aksi": "#ffffff",
