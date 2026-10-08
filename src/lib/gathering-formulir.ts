@@ -3,7 +3,7 @@ import { publicEventName, type EventLandingConfig, type EventRow } from "@/lib/d
 import { formatEventDate, formatEventDateRingkas } from "@/lib/event-datetime";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { landingTokens } from "@/lib/landing-tokens";
-import { gatheringColors, latarGathering } from "@/lib/registration-theme-css";
+import { gatheringColors, kvGathering, latarGathering, type KvGathering } from "@/lib/registration-theme-css";
 
 /**
  * Formulir pendaftaran acara gaya gathering: warna, fakta, dan kaki yang sama
@@ -20,6 +20,8 @@ export type FormGathering = {
   hakCipta: string;
   /** Catatan kaki dari CMS: tagline emas di kanan kaki. */
   tagline: string | null;
+  /** Gambar latar hero dari CMS (Event page > Hero > Background image), sama dengan halaman acara. Null bila mati/kosong: gradien saja. */
+  kv: KvGathering | null;
 };
 
 export function formulirGathering(event: EventRow, lang: LandingLang): FormGathering | null {
@@ -67,6 +69,7 @@ export function formulirGathering(event: EventRow, lang: LandingLang): FormGathe
       .filter(Boolean)
       .join(" "),
     tagline: config.footer_note?.trim() || null,
+    kv: kvGathering(config),
   };
 }
 
