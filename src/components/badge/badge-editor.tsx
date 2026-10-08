@@ -719,7 +719,7 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 					options={[{ value: "polos", label: "Polos" }, { value: "kv", label: "KV acara" }, { value: "unggah", label: "Unggah desain" }]}
 				/>
 				{layout.background.mode === "kv" && !muatan.event.kv_url ? (
-					<p className="text-body-medium text-on-surface-variant">Halaman acara belum punya KV. Pasang di Halaman acara, atau pilih Unggah desain.</p>
+					<p className="text-body-medium text-on-surface-variant">Halaman acara belum punya KV. Pasang di Halaman acara › Hero › Background image (KV); untuk acara Gathering di Theme › Page › Link preview image. Atau pilih Unggah desain.</p>
 				) : null}
 				{layout.background.mode === "kv" && muatan.event.kv_url ? (
 					<p className="text-body-medium text-on-surface-variant">KV halaman acara dipakai di depan, dipotong mengikuti badge dari tengah atas. Belakang memakai warna di bawah.</p>

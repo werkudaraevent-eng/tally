@@ -1779,7 +1779,7 @@ export default function LandingCmsPage() {
             kind="landing"
             fit="cover"
             previewClassName="h-20 w-36"
-            hint="The picture WhatsApp, LinkedIn and others show when the event link is shared. Also used at the top of the registration form, and as the badge background when a badge uses the KV. Not shown on the gathering page itself. Landscape, at least 1200×630. PNG, JPG or WebP, up to 5 MB."
+            hint="The picture WhatsApp, LinkedIn and others show when the event link is shared. Also used at the top of the registration form, as the header of the confirmation email while it has no saved template, and as the badge background when a badge uses the KV. Not shown on the gathering page itself. Landscape, at least 1200×630. PNG, JPG or WebP, up to 5 MB."
             value={landing.banner_url ?? null}
             onChange={(url) => setLanding({ ...landing, banner_url: url })}
             disabled={busy}
