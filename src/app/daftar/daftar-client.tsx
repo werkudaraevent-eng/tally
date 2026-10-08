@@ -164,9 +164,10 @@ const KARTU = "rounded-[28px] border border-[var(--reg-outline-variant)] bg-[var
 const OPSIONAL = `font-normal ${MUTED}`;
 const HEAD = "[font-family:var(--landing-heading)]";
 /**
- * Gathering: tombol, tautan, dan fokus memakai warna tombol Tema (hijau di
- * rancangan), sama dengan dialog masuk gathering. Hanya formulir dan kolom
- * teks sukses; kartu kode tetap warna merek.
+ * Gathering: tombol, tautan, dan fokus di badan halaman memakai warna tombol
+ * Tema (hijau di rancangan), sama dengan dialog masuk gathering. Berlaku untuk
+ * formulir, layar sukses, dan halaman masuk mode Hanya formulir; kartu kode
+ * menyetel ulang warna merek.
  */
 const AKSI_GATHERING = { "--reg-primary": "var(--alis)", "--reg-on-primary": "var(--on-aksi-putih)" } as CSSProperties;
 /** Judul bagian formulir gathering: 24/800 (rancangan Masuk ke Portal 30/800 di layar sendiri). */
@@ -583,9 +584,9 @@ export default function DaftarClient(props: Props) {
               {/* Tiga blok, bukan dua kolom: di ponsel kartu kode langsung di
                   bawah judul (yang paling penting disimpan), di layar lebar ia
                   berdiri di kolom kanan setinggi dua blok kiri. */}
-              <div className="min-w-0" style={g ? AKSI_GATHERING : undefined}>
+              <div className="min-w-0">
                 {ikonSukses("w-fit")}
-                <h2 ref={fokusJudul} tabIndex={-1} className={`mt-5 text-[32px] leading-tight tracking-[-0.02em] sm:text-[36px] ${g ? "font-extrabold" : "font-semibold"} ${HEAD} ${JUDUL_FOKUS}`}>{judulSukses}</h2>
+                <h2 ref={fokusJudul} tabIndex={-1} className={`mt-5 text-[32px] font-semibold leading-tight tracking-[-0.02em] sm:text-[36px] ${HEAD} ${JUDUL_FOKUS}`}>{judulSukses}</h2>
                 <p className={`mt-3 max-w-[60ch] text-body-large leading-7 ${MUTED}`}>{pesanSukses}</p>
               </div>
 
@@ -595,7 +596,13 @@ export default function DaftarClient(props: Props) {
               {disetujui && hasil.qr_code ? (
                 <div
                   className="rounded-lg bg-[var(--reg-primary)] p-6 text-[var(--reg-on-primary)] sm:p-8 lg:col-start-2 lg:row-span-2 lg:row-start-1"
-                  style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
+                  style={
+                    {
+                      // Gathering: badan halaman memakai warna tombol; kartu kode tetap warna merek dari Tema.
+                      ...(g ? { "--reg-primary": props.theme["--reg-primary" as keyof CSSProperties], "--reg-on-primary": props.theme["--reg-on-primary" as keyof CSSProperties] } : null),
+                      "--m3-state-color": "var(--reg-on-primary)",
+                    } as CSSProperties
+                  }
                 >
                   <RegistrationCodeCard
                     inverse
@@ -611,7 +618,7 @@ export default function DaftarClient(props: Props) {
                 </div>
               ) : null}
 
-              <div className="min-w-0 [&>*:first-child]:mt-0" style={g ? AKSI_GATHERING : undefined}>
+              <div className="min-w-0 [&>*:first-child]:mt-0">
                 {catatanEmail}
                 {catatanAkun}
                 {/* Sudah masuk: area peserta menggantikan tautan kode permanen. */}
@@ -638,7 +645,7 @@ export default function DaftarClient(props: Props) {
               </div>
             </motion.div>
           ) : (
-            <motion.div key="formulir" {...TUKAR} style={g ? AKSI_GATHERING : undefined}>
+            <motion.div key="formulir" {...TUKAR}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h2 className={g ? JUDUL_GATHERING : "text-title-large font-medium"}>{t.personalData}</h2>
@@ -662,7 +669,7 @@ export default function DaftarClient(props: Props) {
                 <div className="mt-8 flex flex-col gap-4 border-t border-[var(--reg-outline-variant)] pt-7 sm:flex-row sm:items-center sm:gap-6">
                   {tombolKirim(
                     g
-                      ? "min-h-12 w-full rounded-[12px] text-[15px] font-bold leading-[1.2] sm:w-auto sm:min-w-64"
+                      ? "min-h-12 w-full rounded-[12px] text-[15px] leading-[1.2] sm:w-auto sm:min-w-64"
                       : "min-h-[52px] w-full rounded-md text-title-small sm:w-auto sm:min-w-64",
                   )}
                   <p className={`text-body-medium ${MUTED}`}>
@@ -966,7 +973,7 @@ function BingkaiGathering({
         eventName={eventName}
         daftarUrl=""
         registrationOpen={false}
-        memberLink={areaUrl ? { href: areaUrl, label: t.account.memberArea } : modern.masukUrl ? { href: modern.masukUrl, label: t.signIn } : null}
+        memberLink={areaUrl ? { href: areaUrl, label: t.account.memberArea, area: true } : modern.masukUrl ? { href: modern.masukUrl, label: t.signIn } : null}
         sections={[]}
         width={modern.nav.width}
         logoUrl={modern.nav.logoUrl}
@@ -1026,10 +1033,11 @@ function BingkaiGathering({
         </div>
       </header>
 
-      {/* Kolom isian rancangan Login: #F4F6F8, garis #E6EAEF, sudut 12. */}
+      {/* Kolom isian rancangan Login: #F4F6F8, garis #E6EAEF, sudut 12. Placeholder
+          memakai teks redup gathering (4.5:1 di #F4F6F8), bukan 50% tinta bawaan. */}
       <div
-        className={`${SHELL} flex-1 py-10 sm:py-14 lg:py-[72px]`}
-        style={{ "--reg-field": "#F4F6F8", "--reg-outline": "#E6EAEF", "--reg-outline-variant": "#E6EAEF", "--radius-md": "12px" } as CSSProperties}
+        className={`${SHELL} flex-1 py-10 sm:py-14 lg:py-[72px] [&_input::placeholder]:text-[var(--reg-on-surface-variant)] [&_textarea::placeholder]:text-[var(--reg-on-surface-variant)]`}
+        style={{ ...AKSI_GATHERING, "--reg-field": "#F4F6F8", "--reg-outline": "#E6EAEF", "--reg-outline-variant": "#E6EAEF", "--radius-md": "12px" } as CSSProperties}
       >
         {children}
       </div>
