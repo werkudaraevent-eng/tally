@@ -152,6 +152,7 @@ function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePres
           {gantiBilah && bilah ? `${gantiMerek ? "The" : "This also makes the"} top bar ${gantiMerek ? "becomes " : ""}${bilah.color.toLowerCase() === "#ffffff" ? "white" : bilah.color.toUpperCase()}, ${bilah.height} px tall.` : null}
           {isi?.tentang ? `${gantiMerek || gantiBilah ? " " : ""}An empty About heading and cards get the ${preset.label} text.` : null}
           {isi?.lokasi ? `${gantiMerek || gantiBilah || isi.tentang ? " " : ""}Location and the hotel card are hidden; show them again in Page sections.` : null}
+          {isi?.portal ? `${gantiMerek || gantiBilah || isi.tentang || isi.lokasi ? " " : ""}Portal peserta moves above FAQ, so FAQ is last before the footer.` : null}
         </p>
         <div className="flex justify-end gap-2">
           <Button variant="text" size="sm" onClick={() => setTanya(false)}>
@@ -169,7 +170,7 @@ function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePres
       <p className="min-w-0 flex-1 text-body-small text-on-surface-variant">
         {isi ? "Colours, fonts, top bar, corners or About" : "Colours, fonts or corners"} differ from {preset.label}.
       </p>
-      <Button variant="text" size="sm" onClick={gantiMerek || gantiBilah || isi?.tentang || isi?.lokasi ? () => setTanya(true) : reset}>
+      <Button variant="text" size="sm" onClick={gantiMerek || gantiBilah || isi?.tentang || isi?.lokasi || isi?.portal ? () => setTanya(true) : reset}>
         {isi ? `Reset to ${preset.label}` : "Reset colours and fonts"}
       </Button>
     </div>

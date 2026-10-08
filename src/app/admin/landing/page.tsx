@@ -1105,7 +1105,7 @@ export default function LandingCmsPage() {
   const isiPortal = (
     <>
       <p className="text-body-medium text-on-surface-variant">
-        This section appears automatically at the end of the page while the Participant area is open. Its text is fixed, and its tiles follow the Participant area: entry ticket, room and bus, and announcements. The top bar gets a link to it, &ldquo;Perjalanan&rdquo; (&ldquo;Your trip&rdquo; in English).
+        This section appears automatically while the Participant area is open. Drag its row to choose where it sits; by default it is just above the footer. Its text is fixed, and its tiles follow the Participant area: entry ticket, room and bus, and announcements. The top bar gets a link to it, &ldquo;Perjalanan&rdquo; (&ldquo;Your trip&rdquo; in English).
       </p>
       {tautanSumberPortal("/admin/area-peserta", "Open Participant area")}
     </>
@@ -2470,15 +2470,17 @@ export default function LandingCmsPage() {
             </span>
             {titik ? <span className="sr-only">{alasanTitik}</span> : null}
             {sub ? (
-              <span title={sub} className="block truncate text-body-small text-on-surface-variant">
+              <span title={sub} className={cx("block truncate text-body-small text-on-surface-variant", lencana && "max-sm:hidden")}>
                 {tersembunyi ? `${sub} · hidden` : sub}
               </span>
             ) : null}
+            {/* Ponsel: lencana di baris kedua, supaya judul tidak terpotong menjadi "P…" (QA #114 L1). */}
+            {lencana ? <span className="block truncate text-body-small font-medium text-warning sm:hidden">{lencana}</span> : null}
           </button>
           {titik ? (
             <span className="mr-2 size-2 shrink-0 rounded-full bg-warning" title={alasanTitik} aria-hidden />
           ) : null}
-          {lencana ? <StatusChip tone="warning" className="shrink-0">{lencana}</StatusChip> : null}
+          {lencana ? <StatusChip tone="warning" className="shrink-0 max-sm:hidden">{lencana}</StatusChip> : null}
           {saklar ? (
             <IconButton
               size="sm"

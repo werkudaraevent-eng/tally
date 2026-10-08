@@ -167,7 +167,7 @@ for (const key of LANDING_BODY_FONTS) {
   assert.equal(kosong.eyebrow_shown?.about, true);
   assert.equal(kosong.sections?.find((s) => s.id === "venue")?.enabled, false);
   assert.equal(kosong.sections?.find((s) => s.id === "about")?.enabled, true);
-  assert.deepEqual(isiGatheringMengubah(kosong), { tentang: false, lokasi: false });
+  assert.deepEqual(isiGatheringMengubah(kosong), { tentang: false, lokasi: false, portal: false });
   // Kartu tanpa judul tetapi bertulisan adalah isi admin (L1).
   const tanpaJudul = isiGathering({ about_cards: [{ title: "", body: "isi tanpa judul" }], about_heading: "Milik admin", eyebrow_shown: { about: false } }, bawaan);
   assert.deepEqual(tanpaJudul.about_cards, [{ title: "", body: "isi tanpa judul" }]);
@@ -194,6 +194,14 @@ for (const key of LANDING_BODY_FONTS) {
   // Reset/Apply: portal yang belum pernah digeser masuk tepat sebelum FAQ.
   const reset = ids(isiGathering({ sections: [...susunan] }, bawaan).sections);
   assert.ok(reset.includes("portal,faq"), reset);
+  // Editor menulis portal di ujung: tetap dianggap belum digeser (QA #114 M1).
+  const ujung = ids(isiGathering({ sections: susunanDenganPortal([...susunan]) }, bawaan).sections);
+  assert.ok(ujung.includes("portal,faq"), ujung);
+  // FAQ tersembunyi: portal tetap di ujung (QA #114 L4).
+  const faqMati = ids(isiGathering({ sections: [{ id: "about", enabled: true }, { id: "faq", enabled: false }, { id: "agenda", enabled: true }] }, bawaan).sections);
+  assert.ok(faqMati.endsWith(",portal"), faqMati);
+  assert.equal(isiGatheringMengubah({ sections: [...susunan] }).portal, true);
+  assert.equal(isiGatheringMengubah({ sections: [...tersimpan] }).portal, false);
   // Tempat pilihan admin dibiarkan.
   const pilihan = ids(isiGathering({ sections: [...tersimpan] }, bawaan).sections);
   assert.ok(pilihan.startsWith("about,portal"), pilihan);

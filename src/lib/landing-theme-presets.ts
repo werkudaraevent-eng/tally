@@ -1,4 +1,4 @@
-import { isPortalEntry, normalizeLandingSections, PORTAL_SECTION_ID, susunanDenganPortal, type EventLandingConfig, type LandingBodyFont, type LandingCorners, type LandingHeadingFont, type LandingLayout } from "./domain.ts";
+import { isPortalEntry, normalizeLandingSections, PORTAL_SECTION_ID, susunanDenganPortal, type EventLandingConfig, type LandingSectionEntry, type LandingBodyFont, type LandingCorners, type LandingHeadingFont, type LandingLayout } from "./domain.ts";
 import { DEFAULT_BRAND, FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, GATHERING_BRAND_DEFAULT, GATHERING_BUTTON_DEFAULT, GATHERING_NAV_DEFAULT, LANDING_TOKEN_DEFAULTS, landingLayout, landingTokens } from "./landing-tokens.ts";
 
 /**
@@ -207,26 +207,34 @@ export function isiGathering(landing: EventLandingConfig, bawaan: TentangBawaan)
   }
   if (Object.keys(en).length > 0) hasil.en = en;
   const susunan = susunanDenganPortal(landing.sections, landing.blocks).map((section) => (section.id === "venue" ? { ...section, enabled: false } : section));
-  // Portal peserta yang belum pernah digeser admin ditaruh tepat sebelum FAQ,
-  // supaya FAQ menjadi bagian terakhir di atas kaki; tanpa FAQ, di ujung.
-  // Tempat yang sudah dipilih admin dibiarkan.
-  if (!(landing.sections ?? []).some(isPortalEntry)) {
-    const tanpaPortal = susunan.filter((section) => !isPortalEntry(section));
-    const faq = tanpaPortal.findIndex((section) => section.id === "faq");
-    const posisi = faq === -1 ? tanpaPortal.length : faq;
-    hasil.sections = [...tanpaPortal.slice(0, posisi), { id: PORTAL_SECTION_ID, enabled: true }, ...tanpaPortal.slice(posisi)];
-  } else {
-    hasil.sections = susunan;
-  }
+  hasil.sections = portalSebelumFaq(susunan) ?? susunan;
   return hasil;
 }
 
+/**
+ * Portal peserta yang belum digeser admin (di ujung, tempat bawaannya; editor
+ * menulis susunan lengkap dengan portal di ujung, jadi entri di ujung juga
+ * dianggap belum digeser) pindah tepat sebelum FAQ, supaya FAQ menjadi bagian
+ * terakhir di atas kaki. Hanya bila FAQ tampil: sebelum FAQ yang tersembunyi,
+ * portal akan melompati bagian yang tampil di bawahnya (QA #114 L4).
+ * null = tidak ada yang berubah.
+ */
+function portalSebelumFaq(susunan: LandingSectionEntry[]): LandingSectionEntry[] | null {
+  const portal = susunan.findIndex(isPortalEntry);
+  if (portal !== susunan.length - 1) return null;
+  const tanpaPortal = susunan.slice(0, -1);
+  const faq = tanpaPortal.findIndex((section) => section.id === "faq");
+  if (faq === -1 || !tanpaPortal[faq].enabled) return null;
+  return [...tanpaPortal.slice(0, faq), { id: PORTAL_SECTION_ID, enabled: true }, ...tanpaPortal.slice(faq)];
+}
+
 /** Apa yang akan diubah isiGathering, untuk kalimat konfirmasi Reset. */
-export function isiGatheringMengubah(landing: EventLandingConfig): { tentang: boolean; lokasi: boolean } {
+export function isiGatheringMengubah(landing: EventLandingConfig): { tentang: boolean; lokasi: boolean; portal: boolean } {
   const tentang =
     !adaTeks(landing.about_heading) ||
     landing.eyebrow_shown?.about === undefined ||
     !(landing.about_cards ?? []).some((kartu) => adaTeks(kartu.title) || adaTeks(kartu.body));
   const lokasi = normalizeLandingSections(landing.sections, landing.blocks).find((section) => section.id === "venue")?.enabled !== false;
-  return { tentang, lokasi };
+  const portal = portalSebelumFaq(susunanDenganPortal(landing.sections, landing.blocks)) !== null;
+  return { tentang, lokasi, portal };
 }
