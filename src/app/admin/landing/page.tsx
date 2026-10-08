@@ -2168,8 +2168,7 @@ export default function LandingCmsPage() {
             disabled={busy}
             label="Invite only"
             description="While registration is closed, the page asks invited guests to sign in instead of saying registration opens soon. The sign-in banner above the footer uses standard text. Works only while the participant area is open."
-            note={landing.member?.enabled === true ? undefined : "The participant area is closed, so this has no effect now."}
-            className={landing.member?.enabled === true ? undefined : "opacity-60"}
+            note={landing.member?.enabled === true ? undefined : <span className="text-body-medium text-on-surface-variant">The participant area is closed, so this has no effect now.</span>}
           />
         </Kelompok>
       ) : null}
@@ -2429,7 +2428,7 @@ export default function LandingCmsPage() {
         return gathering
           ? "Not shown in the gathering layout"
           : modern
-            ? `First figure shows beside About, when About uses the automatic picture · ${plural(JUMLAH.highlights ?? 0, "figure")}`
+            ? `First figure beside About (automatic picture) · ${plural(JUMLAH.highlights ?? 0, "figure")}`
             : `Built-in · ${plural(JUMLAH.highlights ?? 0, "figure")}`;
       case "sponsors": return modern ? `Logo strip above the footer · ${plural(JUMLAH.sponsors ?? 0, "logo")}` : `Built-in · ${plural(JUMLAH.sponsors ?? 0, "logo")}`;
       case "contact": return modern ? "Shown in the footer · name, phone, email" : "Name, phone, email";

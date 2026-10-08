@@ -59,6 +59,9 @@ export function Switch({ checked, onChange, label, description, disabled: nonakt
 	const id = useId();
 	const labelId = `${id}-label`;
 	const descId = description ? `${id}-desc` : undefined;
+	const noteId = note ? `${id}-note` : undefined;
+	// Catatan juga diumumkan, bukan hanya terlihat (QA #110 N2).
+	const describedBy = [descId, noteId].filter(Boolean).join(" ") || undefined;
 
 	return (
 		<div className={cx("flex items-start justify-between gap-6", className)}>
@@ -81,7 +84,7 @@ export function Switch({ checked, onChange, label, description, disabled: nonakt
 						{kunci ? <span>{description}</span> : description}
 					</span>
 				) : null}
-				{note ? <span className="mt-3 block">{note}</span> : null}
+				{note ? <span id={noteId} className="mt-3 block">{note}</span> : null}
 			</div>
 
 			<button
@@ -90,7 +93,7 @@ export function Switch({ checked, onChange, label, description, disabled: nonakt
 				id={id}
 				aria-checked={checked}
 				aria-labelledby={labelId}
-				aria-describedby={descId}
+				aria-describedby={describedBy}
 				disabled={disabled}
 				aria-disabled={kunci || undefined}
 				onClick={() => { if (!kunci) onChange(!checked); }}
