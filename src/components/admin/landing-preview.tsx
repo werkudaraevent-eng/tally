@@ -105,6 +105,8 @@ export function LandingPreview({
   // Diperbesar menutupi layar CMS. Pohon elemennya sama, hanya kelas pembungkus
   // yang berganti, jadi iframe tidak dimuat ulang dan posisi gulirnya tetap.
   const [besar, setBesar] = useState(false);
+  // Pratinjau sedang menampilkan kotak bertitik (bagian kosong): bilah bawah menyebutnya.
+  const [adaKosong, setAdaKosong] = useState(false);
 
   const kotakBesar = useRef<HTMLDivElement | null>(null);
   const tombolBesar = useRef<HTMLButtonElement | null>(null);
@@ -232,6 +234,18 @@ export function LandingPreview({
         setBesar(false);
         onPilih?.(event.data.bagian, typeof event.data.kolom === "string" ? event.data.kolom : null);
       }
+      // Tombol di kotak bertitik: halaman admin acara ini saja, di tab baru.
+      // Editor memuat ulang pratinjau saat admin kembali ke tab ini.
+      if (event.data?.jenis === "tally-pratinjau-admin" && typeof event.data.href === "string") {
+        // Jalur yang sudah dinormalkan (`..`, `%2e`) yang diperiksa, dan hanya
+        // asal yang sama (QA #116 I1).
+        let tujuan: URL | null = null;
+        try { tujuan = new URL(event.data.href, window.location.origin); } catch { tujuan = null; }
+        if (tujuan && tujuan.origin === window.location.origin && tujuan.pathname.startsWith(`/e/${slug}/admin/`)) {
+          window.open(tujuan.pathname + tujuan.search, "_blank", "noreferrer");
+        }
+      }
+      if (event.data?.jenis === "tally-pratinjau-kosong") setAdaKosong(event.data.ada === true);
       if (event.data?.jenis === "tally-pratinjau-bahasa") onBahasa?.(event.data.bahasa === "en" ? "en" : "id");
       if (event.data?.jenis === "tally-pratinjau-hasil") {
         setTertinggal(event.data.pesan ? String(event.data.pesan) : event.data.ok ? null : "The preview hasn't updated yet.");
@@ -241,7 +255,7 @@ export function LandingPreview({
     }
     window.addEventListener("message", terima);
     return () => window.removeEventListener("message", terima);
-  }, [kirimDraf, kirimLabel, terapkanSorot, bukaTab, onHalaman, onBahasa, onPilih]);
+  }, [kirimDraf, kirimLabel, terapkanSorot, bukaTab, onHalaman, onBahasa, onPilih, slug]);
   const { width, height: tinggiPerangkat } = UKURAN[device];
   // Diukur dari panel, bukan jendela: panel utama menyempit saat panel setelan
   // di sebelahnya muncul, tanpa jendelanya berubah ukuran.
@@ -291,7 +305,9 @@ export function LandingPreview({
               supaya tidak terlipat di layar 1440. */}
           {tertinggal ??
             (onPilih && labelPilih && !formulir
-              ? `Click the page to edit · ${width} px${bahasa === "en" ? " · English" : ""}`
+              ? adaKosong
+                ? `Click to edit · Guests don't see dashed boxes${bahasa === "en" ? " · English" : ""}`
+                : `Click the page to edit · ${width} px${bahasa === "en" ? " · English" : ""}`
               : `${halaman && onHalaman ? "Preview" : "Live preview"} · ${width} px${bahasa === "en" ? " · English" : ""}`)}
         </p>
         {halaman && onHalaman ? (

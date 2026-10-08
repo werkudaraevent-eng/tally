@@ -548,6 +548,8 @@ export default function LandingCmsPage() {
   // berubah di sana. Menyegarkannya di setiap ketikan berarti memuat ulang satu
   // halaman penuh berkali-kali per detik.
   const [previewKey, setPreviewKey] = useState(0);
+  // Potret terakhir rundown admin dan `landing_config.member`; null = belum ada.
+  const jejakLuar = useRef<{ rundown: string | null; member: string | null }>({ rundown: null, member: null });
   // Warna formulir disimpan di kolom lain (`registration_form_config.theme`),
   // jadi ia punya keadaan sendiri di layar ini alih-alih ikut `landing`.
   const [formInherit, setFormInherit] = useState(true);
@@ -587,6 +589,7 @@ export default function LandingCmsPage() {
     setFormSeed(nextSeed);
     setTersimpan(JSON.stringify({ facts: found, landing: nextLanding, formInherit: nextInherit, formSeed: nextSeed }));
     setError("");
+    jejakLuar.current = { rundown: null, member: JSON.stringify(nextLanding.member ?? null) };
     // Baris yang sama dengan yang dibaca halaman acara (loadAgendaPreview):
     // baris berjudul yang bagian dan barisnya diterbitkan, urut bagian lalu
     // urutan baris.
@@ -594,6 +597,7 @@ export default function LandingCmsPage() {
     const isiAdmin = admin?.ok ? await admin.json().catch(() => null) : null;
     if (isiAdmin) {
       setIsiRundown(statusRundown(isiAdmin));
+      jejakLuar.current.rundown = JSON.stringify(isiAdmin);
     } else {
       // Tanpa data admin, rundown publik hanya bisa bilang ada atau tidak.
       const rundown = await fetch(eventApiPath("/api/rundown"), { cache: "no-store" }).catch(() => null);
@@ -624,6 +628,29 @@ export default function LandingCmsPage() {
     setSesiMemuat(false);
   }, []);
 
+  const segarkanPratinjau = useCallback(async (rundown: string) => {
+    const response = await fetch(eventApiPath("/api/events"), { cache: "no-store" }).catch(() => null);
+    const body = response?.ok ? await response.json().catch(() => null) : null;
+    const slug = window.location.pathname.match(/^\/e\/([^/]+)/)?.[1];
+    const found = ((body?.events ?? []) as { slug: string; landing_config?: EventLandingConfig }[]).find((item) => item.slug === slug);
+    const jejak = jejakLuar.current;
+    const memberBaru = found ? JSON.stringify(found.landing_config?.member ?? null) : jejak.member;
+    const berganti = (jejak.rundown !== null && jejak.rundown !== rundown) || (jejak.member !== null && jejak.member !== memberBaru);
+    jejakLuar.current = { rundown, member: memberBaru };
+    if (found && memberBaru !== jejak.member) {
+      // Disimpan di /admin/area-peserta, bukan dari editor ini (Save memakai
+      // salinan server), jadi ikut dicatat tersimpan: bukan suntingan.
+      const member = found.landing_config?.member;
+      setLanding((prev) => ({ ...prev, member }));
+      const kini = terkini.current;
+      if (kini.tersimpan) {
+        const lama = JSON.parse(kini.tersimpan) as { landing: EventLandingConfig };
+        lama.landing = { ...lama.landing, member };
+        setTersimpan(JSON.stringify(lama));
+      }
+    }
+    if (berganti) setPreviewKey((k) => k + 1);
+  }, []);
   // Baris sesi dimuat ulang saat tab ini kembali difokus: "Atur rundown" membuka
   // Rundown di tab baru, dan baris yang baru ditambahkan harus bisa dipilih.
   const muatBarisSesi = useCallback(async () => {
@@ -633,6 +660,11 @@ export default function LandingCmsPage() {
     if (!isiAdmin) return;
     const sesi = barisSesiDariAdmin(isiAdmin);
     setBarisSesi(sesi);
+    // Kotak bertitik di pratinjau (PR D) menunjuk Agenda dan Participant area di
+    // tab baru. Saat kembali, status rundown dan setelan area peserta dibaca
+    // ulang, dan pratinjau dimuat ulang bila salah satunya berubah.
+    setIsiRundown(statusRundown(isiAdmin));
+    await segarkanPratinjau(JSON.stringify(isiAdmin));
     // Rundown gagal dimuat saat editor dibuka: sesi teks lama dihubungkan
     // sekarang, sekali, sama dengan saat memuat. Tercatat tersimpan hanya bila
     // belum ada suntingan, supaya suntingan yang belum disimpan tetap terlihat.
@@ -657,11 +689,34 @@ export default function LandingCmsPage() {
       tersimpanLama.landing = petakanSesiLama(tersimpanLama.landing, sesi).landing;
       setTersimpan(JSON.stringify(tersimpanLama));
     }
-  }, []);
+  }, [segarkanPratinjau]);
   useEffect(() => {
-    const onFocus = () => void muatBarisSesi();
+    // Fokus bisa datang beruntun (pindah jendela bolak-balik): ditunggu sebentar,
+    // dan hanya satu muat ulang berjalan; fokus selama itu memicu satu putaran
+    // lagi sesudahnya, jadi jawaban lama tidak menimpa yang baru (QA #116 L2).
+    let timer: number | undefined;
+    let jalan = false;
+    let lagi = false;
+    let lepas = false;
+    const muat = async () => {
+      if (jalan) { lagi = true; return; }
+      jalan = true;
+      try {
+        do { lagi = false; await muatBarisSesi(); } while (lagi && !lepas);
+      } finally {
+        jalan = false;
+      }
+    };
+    const onFocus = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void muat(), 300);
+    };
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    return () => {
+      lepas = true;
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [muatBarisSesi]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);

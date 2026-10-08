@@ -11,7 +11,7 @@ import type {
   LandingHeadedSection,
   LandingSectionId,
 } from "@/lib/domain";
-import { LANDING_NAV_DEFAULTS, isLandingBlockId, isPortalEntry, landingBlockHasContent, landingHeadingFontSize, publicEventName, susunanDenganPortal } from "@/lib/domain";
+import { LANDING_BLOCK_LABELS, LANDING_NAV_DEFAULTS, isLandingBlockId, isPortalEntry, landingBlockHasContent, landingHeadingFontSize, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { gatheringColors, heroCtaColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
 import { landingTokens } from "@/lib/landing-tokens";
 import { preloadLandingFonts } from "@/lib/landing-font-preload";
@@ -32,6 +32,7 @@ import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
 import { HEAD, JUDUL, JUDUL_BUTIR, LABEL_BAGIAN, LEBAR_BACA, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
 import { LandingBlockView } from "./modern/landing-blocks";
+import { KotakKosong } from "./modern/kotak-kosong";
 import { KakiModern, KV_SCRIM, KV_SCRIM_RATA, PitaMitra, bagianModern, gayaModern, tinta } from "./modern/kerangka";
 import { muatNavPeserta } from "@/lib/member/nav";
 import { jumlahHari, tanpaTahunUjung } from "@/lib/gathering-formulir";
@@ -77,6 +78,8 @@ type Props = {
   masukAwal?: MasukMode | null;
   /** Tautan sandi dari email, untuk dialog yang dibuka di mode "sandi". */
   sandi?: MasukSandi;
+  /** Pratinjau CMS: bagian yang menyala tetapi kosong diganti kotak bertitik (KotakKosong). */
+  pratinjau?: boolean;
 };
 
 /** Label kecil di atas judul bagian, sama dengan blok dari pustaka blok. */
@@ -178,7 +181,7 @@ function tautanPeta(url: string, lang: LandingLang): string {
   return /google\.|goo\.gl/i.test(url) ? LANDING_UI[lang].openGoogleMaps : LANDING_UI[lang].openMap;
 }
 
-export async function EventLandingModern({ event, config, sections, theme, lang = "id", otherLang = null, masukAwal = null, sandi = null }: Props) {
+export async function EventLandingModern({ event, config, sections, theme, lang = "id", otherLang = null, masukAwal = null, sandi = null, pratinjau = false }: Props) {
   // Teks bawaan halaman dalam bahasa halaman. Teks dari CMS sudah diterjemahkan
   // sebelum sampai di sini (resolveLanding).
   const t = LANDING_UI[lang];
@@ -407,6 +410,33 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       />
     </div>
   ) : null;
+
+  // Pratinjau CMS: apa yang mengisi bagian yang menyala tetapi kosong (PR D).
+  // Sponsor dan Kontak tidak: tempatnya di kaki, bukan di susunan.
+  const KOSONG: Partial<Record<LandingSectionId, Omit<Parameters<typeof KotakKosong>[0], "slug">>> = pratinjau
+    ? {
+        about: { judul: "About the event", chip: "No content yet", teks: gaya ? "Add a description or About cards and they show here." : "Add a description and it shows here.", aksi: { label: "Add text" } },
+        // Gathering tidak punya Angka kunci, jadi tidak ada kotak untuknya.
+        ...(gaya ? {} : { highlights: { judul: "Key figures", chip: "No content yet", teks: "Figures you add show here.", aksi: { label: "Add figures" } } }),
+        agenda: {
+          judul: "Agenda",
+          chip: "Nothing published yet",
+          teks: gaya ? "The day cards show here once the sessions in Agenda are published." : "The agenda shows here once the sessions in Agenda are published.",
+          aksi: { label: "Open Agenda", href: "/admin/rundown" },
+        },
+        speakers: { judul: "Speakers", chip: "No content yet", teks: "Speakers you add show here.", aksi: { label: "Add speakers" } },
+        venue: gaya
+          ? { judul: "Venue", chip: "No content yet", teks: "The hotel from Logistics shows here, or the venue name and address you fill in.", aksi: { label: "Open Logistics", href: "/admin/logistik" } }
+          : { judul: "Venue", chip: "No content yet", teks: "Fill in the venue name or address and it shows here.", aksi: { label: "Add venue" } },
+        faq: { judul: "FAQ", chip: "No content yet", teks: "Questions you add show here.", aksi: { label: "Add questions" } },
+      }
+    : {};
+  const kosongPortal =
+    pratinjau && gaya && !member && config.portal_section !== false ? (
+      <div data-bagian="portal" className={`${SHELL} py-10`}>
+        <KotakKosong slug={event.slug} judul="Portal peserta" chip="Participant area closed" teks="Ticket, room and bus tiles show here once the Participant area is open." aksi={{ label: "Open Participant area", href: "/admin/area-peserta" }} />
+      </div>
+    ) : null;
 
   // Bagian bawaan, dirender menurut susunan dari CMS bersama blok dari pustaka
   // blok. Program (kartu dari bagian rundown) menempel pada Tentang acara, atau
@@ -781,7 +811,11 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           }
           aksiKedua={tampil("agenda") ? { href: "#agenda", label: t.seeTrip } : null}
           pratinjau={
-            member && config.portal_preview !== false ? (
+            pratinjau && !member && config.portal_preview !== false ? (
+              <div className="h-[270px] w-[270px]">
+                <KotakKosong slug={event.slug} gelap judul="Portal preview" teks="Shows here once the Participant area is open." aksi={{ label: "Participant area", href: "/admin/area-peserta" }} />
+              </div>
+            ) : member && config.portal_preview !== false ? (
               <PratinjauPortal
                 agenda={agendaSelanjutnya(agenda, lang, zona, hariIni(event.time_zone), jamIni(event.time_zone))}
                 logistik={member.show_logistics === true}
@@ -942,12 +976,27 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       {urutan
         .filter((section) => section.enabled)
         .map((section) => {
-          if (isPortalEntry(section)) return portalTampil ? <Fragment key="portal">{portal}</Fragment> : null;
+          if (isPortalEntry(section)) return portalTampil ? <Fragment key="portal">{portal}</Fragment> : kosongPortal ? <Fragment key="portal">{kosongPortal}</Fragment> : null;
           if (isLandingBlockId(section.id)) {
             const block = blokById.get(section.id);
+            if (pratinjau && block && !landingBlockHasContent(block)) {
+              return (
+                <div key={section.id} id={block.id} className={`${SHELL} py-10`}>
+                  <KotakKosong slug={event.slug} judul={block.heading?.trim() || block.name?.trim() || LANDING_BLOCK_LABELS[block.type]} chip="No content yet" teks="This block shows here once it has content." aksi={{ label: "Fill it in" }} />
+                </div>
+              );
+            }
             return block ? (
               <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled && !peserta ? daftarUrl : null} daftarLabel={ctaLabel} jangkar={jangkar} lang={lang} />
             ) : null;
+          }
+          const kosong = pratinjau && !tampil(section.id) ? KOSONG[section.id] : undefined;
+          if (kosong) {
+            return (
+              <div key={section.id} data-bagian={section.id} className={`${SHELL} py-10`}>
+                <KotakKosong slug={event.slug} {...kosong} />
+              </div>
+            );
           }
           const konten = bawaan[section.id];
           return konten ? (
