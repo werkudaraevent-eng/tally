@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { tanpaBintang } from "@/lib/landing-tagline";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, CalendarBlank, CalendarPlus, Clock, MapPin, Minus, Moon, Plus } from "@phosphor-icons/react/dist/ssr";
@@ -11,7 +11,7 @@ import type {
   LandingHeadedSection,
   LandingSectionId,
 } from "@/lib/domain";
-import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
+import { LANDING_NAV_DEFAULTS, isLandingBlockId, isPortalEntry, landingBlockHasContent, landingHeadingFontSize, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { gatheringColors, heroCtaColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
 import { landingTokens } from "@/lib/landing-tokens";
 import { preloadLandingFonts } from "@/lib/landing-font-preload";
@@ -373,7 +373,40 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // kanan. Satu hari: judulnya tanggal, jadi tanggal di kanan tidak diulang.
   const judulAgenda = config.agenda_heading?.trim() || (agenda.length > 1 ? t.tripDays(agenda.length) : judulBagian("agenda").judul);
   // Gathering: "Perjalanan" ke bagian Portal peserta, seperti rancangan.
-  const menuAtas = gaya && member && config.portal_section !== false && !navSections.some((section) => section.id === "portal") ? [...navSections, { id: "portal", label: t.navPortal }] : navSections;
+  // Tautannya mengikuti tempat portal di susunan halaman (bisa digeser di CMS).
+  const portalTampil = Boolean(gaya && member && config.portal_section !== false);
+  const urutan = gaya ? susunanDenganPortal(config.sections, config.blocks) : sections;
+  const posisiPortal = urutan.findIndex(isPortalEntry);
+  const posisiNav = (id: string) => urutan.findIndex((section) => section.id === (id === "program" ? (tampil("about") ? "about" : "agenda") : id));
+  const menuAtas = (() => {
+    if (!portalTampil || navSections.some((section) => section.id === "portal")) return navSections;
+    const sesudah = navSections.findIndex((section) => posisiNav(section.id) > posisiPortal);
+    const tautan = { id: "portal", label: t.navPortal };
+    return sesudah < 0 ? [...navSections, tautan] : [...navSections.slice(0, sesudah), tautan, ...navSections.slice(sesudah)];
+  })();
+
+  // Gathering: apa yang menunggu tamu di area peserta (ubin mengikuti saklar
+  // Area peserta). Tempatnya di susunan halaman, bawaannya tepat di atas kaki.
+  const portal = member ? (
+    <div className={SHELL} data-bagian="portal">
+      <PortalGathering
+        alis={t.portalEyebrow}
+        judul={t.portalHeading}
+        catatan={t.portalNote}
+        aksi={aksiPeserta ? { ...aksiPeserta, link: true } : sudahMasuk ? null : { href: masukUrl, label: t.portalCta, link: true }}
+        ubin={[
+          ...(member.show_code !== false ? [{ ikon: "tiket" as const, judul: t.portalTicket, teks: t.portalTicketNote }] : []),
+          ...(member.show_logistics
+            ? [
+                { ikon: "kamar" as const, judul: t.portalRoom, teks: t.portalRoomNote(Boolean(member.show_roommates)) },
+                { ikon: "bus" as const, judul: t.portalBus, teks: t.portalBusNote },
+              ]
+            : []),
+          { ikon: "pengumuman" as const, judul: t.portalNews, teks: t.portalNewsNote },
+        ]}
+      />
+    </div>
+  ) : null;
 
   // Bagian bawaan, dirender menurut susunan dari CMS bersama blok dari pustaka
   // blok. Program (kartu dari bagian rundown) menempel pada Tentang acara, atau
@@ -906,9 +939,10 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       {/* Jangkar tombol "Pelajari acaranya" saat pendaftaran tertutup. */}
       <div id="isi-acara" aria-hidden className="scroll-mt-16" />
 
-      {sections
+      {urutan
         .filter((section) => section.enabled)
         .map((section) => {
+          if (isPortalEntry(section)) return portalTampil ? <Fragment key="portal">{portal}</Fragment> : null;
           if (isLandingBlockId(section.id)) {
             const block = blokById.get(section.id);
             return block ? (
@@ -980,27 +1014,6 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         ) : null}
       </div>
 
-      {/* Gathering: apa yang menunggu tamu di area peserta (ubin mengikuti saklar Area peserta). */}
-      {gaya && member && config.portal_section !== false ? (
-        <div className={SHELL} data-bagian="portal">
-          <PortalGathering
-            alis={t.portalEyebrow}
-            judul={t.portalHeading}
-            catatan={t.portalNote}
-            aksi={aksiPeserta ? { ...aksiPeserta, link: true } : sudahMasuk ? null : { href: masukUrl, label: t.portalCta, link: true }}
-            ubin={[
-              ...(member.show_code !== false ? [{ ikon: "tiket" as const, judul: t.portalTicket, teks: t.portalTicketNote }] : []),
-              ...(member.show_logistics
-                ? [
-                    { ikon: "kamar" as const, judul: t.portalRoom, teks: t.portalRoomNote(Boolean(member.show_roommates)) },
-                    { ikon: "bus" as const, judul: t.portalBus, teks: t.portalBusNote },
-                  ]
-                : []),
-              { ikon: "pengumuman" as const, judul: t.portalNews, teks: t.portalNewsNote },
-            ]}
-          />
-        </div>
-      ) : null}
 
       {/* Gathering: pita penutup selebar layar dengan tombol warna Tema. */}
       {gaya && !adaBlokAjakan && (undangan || (event.registration_enabled && !peserta)) ? (

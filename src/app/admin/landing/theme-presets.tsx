@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check } from "@phosphor-icons/react";
 import { Kelompok } from "@/components/admin/compact-form";
-import { normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
+import { susunanDenganPortal, type EventLandingConfig } from "@/lib/domain";
 import { Button } from "@/components/m3";
 import {
   LANDING_THEME_PRESETS,
@@ -215,7 +215,7 @@ export function pakaiPreset(preset: LandingThemePreset, landing: EventLandingCon
     nav_label: "Info penting",
     items: INFO_GATHERING.map((title) => ({ title, body: "" })),
   };
-  const sections = normalizeLandingSections(hasil.sections, hasil.blocks);
+  const sections = susunanDenganPortal(hasil.sections, hasil.blocks);
   // Sebelum FAQ, seperti di rancangan; tanpa FAQ, di ujung.
   const faq = sections.findIndex((section) => section.id === "faq");
   const posisi = faq === -1 ? sections.length : faq;

@@ -1,4 +1,4 @@
-import { normalizeLandingSections, type EventLandingConfig, type LandingBodyFont, type LandingCorners, type LandingHeadingFont, type LandingLayout } from "./domain.ts";
+import { isPortalEntry, normalizeLandingSections, PORTAL_SECTION_ID, susunanDenganPortal, type EventLandingConfig, type LandingBodyFont, type LandingCorners, type LandingHeadingFont, type LandingLayout } from "./domain.ts";
 import { DEFAULT_BRAND, FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, GATHERING_BRAND_DEFAULT, GATHERING_BUTTON_DEFAULT, GATHERING_NAV_DEFAULT, LANDING_TOKEN_DEFAULTS, landingLayout, landingTokens } from "./landing-tokens.ts";
 
 /**
@@ -206,7 +206,18 @@ export function isiGathering(landing: EventLandingConfig, bawaan: TentangBawaan)
     en.about_cards = bawaan.en.cards.map((kartu) => ({ ...kartu }));
   }
   if (Object.keys(en).length > 0) hasil.en = en;
-  hasil.sections = normalizeLandingSections(landing.sections, landing.blocks).map((section) => (section.id === "venue" ? { ...section, enabled: false } : section));
+  const susunan = susunanDenganPortal(landing.sections, landing.blocks).map((section) => (section.id === "venue" ? { ...section, enabled: false } : section));
+  // Portal peserta yang belum pernah digeser admin ditaruh tepat sebelum FAQ,
+  // supaya FAQ menjadi bagian terakhir di atas kaki; tanpa FAQ, di ujung.
+  // Tempat yang sudah dipilih admin dibiarkan.
+  if (!(landing.sections ?? []).some(isPortalEntry)) {
+    const tanpaPortal = susunan.filter((section) => !isPortalEntry(section));
+    const faq = tanpaPortal.findIndex((section) => section.id === "faq");
+    const posisi = faq === -1 ? tanpaPortal.length : faq;
+    hasil.sections = [...tanpaPortal.slice(0, posisi), { id: PORTAL_SECTION_ID, enabled: true }, ...tanpaPortal.slice(posisi)];
+  } else {
+    hasil.sections = susunan;
+  }
   return hasil;
 }
 

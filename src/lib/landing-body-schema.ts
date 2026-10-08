@@ -263,10 +263,13 @@ export const landingBodySchema = z.object({
         id: z.union([
           z.enum(["about", "highlights", "agenda", "speakers", "venue", "faq", "sponsors", "contact"]),
           blockId,
+          // Tempat Portal peserta (gaya gathering), lihat susunanDenganPortal.
+          z.literal("portal"),
         ]),
         enabled: z.boolean(),
       }))
-      .max(10 + MAX_BLOCKS),
+      .max(11 + MAX_BLOCKS)
+      .refine((daftar) => daftar.filter((section) => section.id === "portal").length <= 1, "Portal peserta appears more than once."),
     blocks: z.array(blockSchema).max(MAX_BLOCKS).optional(),
     en_enabled: z.boolean().optional(),
     invite_only: z.boolean().optional(),
