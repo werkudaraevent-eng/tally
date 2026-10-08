@@ -287,6 +287,7 @@ export function LandingNavModern({
     <nav
       aria-label={t.navAria}
       data-landing-nav
+      data-sunting="pembuka:nav"
       ref={navRef}
       className={`sticky top-0 z-30 ${selebarIsi ? "" : bilah}`}
       style={{ ...isi, ...(selebarIsi ? {} : { backdropFilter: lewatHero ? "blur(12px)" : "var(--nav-blur)" }) }}

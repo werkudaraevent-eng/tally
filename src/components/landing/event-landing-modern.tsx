@@ -782,7 +782,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 // Gathering: label kecil "Anda diundang · nama acara" warna aksen
                 // terang, lalu logo, lalu tagline sebagai judul ajakan (v3).
                 alisGathering ? (
-                  <p className={`rise-in mb-4 ${LABEL_BAGIAN} text-[var(--hero-alis)]`} style={HERO_DELAY(0)}>
+                  <p data-sunting="pembuka:hero_eyebrow" className={`rise-in mb-4 ${LABEL_BAGIAN} text-[var(--hero-alis)]`} style={HERO_DELAY(0)}>
                     {alisGathering}
                   </p>
                 ) : null
@@ -797,6 +797,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 />
               ) : null}
               <h1
+                data-sunting={judulAjakan ? "pembuka:tagline" : "pembuka:public_name"}
                 // Tinggi baris display M3: 64/57 = 1.12. Logo tanpa tagline:
                 // logonya sudah nama acara, judulnya tetap ada untuk pembaca layar.
                 className={`${logoHero && !judulAjakan ? "sr-only" : ""} rise-in text-balance font-semibold leading-[1.12] tracking-[-0.02em] ${HEAD} ${
@@ -808,7 +809,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               </h1>
               {event.tagline && !judulAjakan ? (
                 // body-large 16/24 di ponsel, title-large 22/28 di layar lebar (skala tipe M3).
-                <p className="rise-in mt-4 max-w-[720px] text-body-large opacity-90 sm:text-title-large sm:font-normal" style={HERO_DELAY(2)}>
+                <p data-sunting="pembuka:tagline" className="rise-in mt-4 max-w-[720px] text-body-large opacity-90 sm:text-title-large sm:font-normal" style={HERO_DELAY(2)}>
                   {event.tagline}
                 </p>
               ) : null}
@@ -923,7 +924,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         {/* ---- Banner ajakan ------------------------------------------------ */}
         {/* Yang sudah terdaftar tidak diajak mendaftar lagi. */}
         {!gaya && event.registration_enabled && !adaBlokAjakan && !peserta ? (
-          <section className="pb-16 sm:pb-24">
+          <section data-sunting="kaki:cta_heading" className="pb-16 sm:pb-24">
             <div
               className={`relative isolate flex flex-col items-center gap-6 overflow-hidden rounded-lg px-6 py-16 text-center text-[var(--ink)] sm:py-24 ${
                 kv ? "bg-black" : "bg-[var(--reg-brand)]"
@@ -948,8 +949,10 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           </section>
         ) : null}
         {/* Khusus undangan: pita penutup yang sama, mengajak tamu undangan masuk. */}
+        {/* Banner undangan memakai teks tetap, bukan cta_heading: klik membuka
+            baris Footer saja (QA #108 M5). */}
         {!gaya && undangan && !adaBlokAjakan ? (
-          <section className="pb-16 sm:pb-24">
+          <section data-sunting="kaki" className="pb-16 sm:pb-24">
             <div
               className={`relative isolate flex flex-col items-center gap-6 overflow-hidden rounded-lg px-6 py-16 text-center text-[var(--ink)] sm:py-24 ${
                 kv ? "bg-black" : "bg-[var(--reg-brand)]"
@@ -1006,7 +1009,10 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         />
       ) : null}
 
-      <PitaMitra mitra={mitra} judul={t.organisedBy} />
+      {/* Pembungkus tanpa gaya hanya untuk klik-di-pratinjau: pita ini baris Sponsors di CMS. */}
+      <div data-bagian="sponsors">
+        <PitaMitra mitra={mitra} judul={t.organisedBy} />
+      </div>
 
       {/* ---- Kaki halaman ---------------------------------------------------- */}
       {gaya ? (

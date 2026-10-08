@@ -62,11 +62,13 @@ export function LandingPreview({
   bahasa = "id",
   onBahasa,
   formulir = false,
+  labelPilih = null,
+  onPilih,
 }: {
   slug: string;
   reloadKey: number;
   /** Bagian yang dipilih di Susunan halaman: digulir ke sana dan diberi garis. */
-  sorot?: { id: string; n: number } | null;
+  sorot?: { id: string; n: number; diam?: boolean } | null;
   /** Tab bagian Pembicara yang sedang diurutkan di editor (`SpeakerTab.key`): dibuka juga di pratinjau. */
   tabPembicara?: string | null;
   /** Isi CMS yang belum disimpan; dirender di pratinjau sambil mengetik. */
@@ -84,6 +86,13 @@ export function LandingPreview({
    * dipratinjau formulir pendaftaran, dengan Tema dari draf yang sama.
    */
   formulir?: boolean;
+  /**
+   * Nama baris Susunan halaman per id bagian (dan per `bagian:kolom`). Diisi =
+   * klik di pratinjau memilih baris itu; lihat src/app/pratinjau/pilih-bagian.ts.
+   */
+  labelPilih?: Record<string, string> | null;
+  /** Bagian (dan kolom) yang diklik di pratinjau. */
+  onPilih?: (bagian: string, kolom: string | null) => void;
 }) {
   const [device, setDevice] = useState<Device>("desktop");
   const [wadahUkuran, setWadahUkuran] = useState({ lebar: 0, tinggi: 0 });
@@ -145,6 +154,18 @@ export function LandingPreview({
     );
   }, [draf, bahasa, formulir]);
 
+  // Skala dihitung di bawah; ref supaya pengirim label tidak bergantung urutan.
+  const skalaRef = useRef(0.5);
+  const kirimLabel = useCallback(() => {
+    if (formulir) return;
+    bingkai.current?.contentWindow?.postMessage(
+      { jenis: "tally-pratinjau-label", label: onPilih ? labelPilih : null, skala: skalaRef.current },
+      window.location.origin,
+    );
+  }, [labelPilih, onPilih, formulir]);
+
+  useEffect(() => { kirimLabel(); }, [kirimLabel]);
+
   // Menyentuh DOM halaman di dalam iframe, bukan keadaan React: halaman itu
   // asal-yang-sama, dan garisnya hanya ada di pratinjau ini, tidak tersimpan.
   const terapkanSorot = useCallback((gulir = true) => {
@@ -158,6 +179,9 @@ export function LandingPreview({
     if (!elemen) return;
     elemen.style.outline = "3px dashed #2563eb";
     elemen.style.outlineOffset = "-3px";
+    // Dipilih dengan klik di pratinjau: bagiannya sudah di depan mata, jadi
+    // pratinjau tidak ikut melompat ke awal bagian.
+    if (sorot.diam) return;
     // scrollTo pada jendela iframe, bukan scrollIntoView: yang terakhir ikut
     // menggulir halaman CMS di luarnya.
     if (!gulir) return;
@@ -195,11 +219,18 @@ export function LandingPreview({
       // membuat React melaporkan atribut yang tidak cocok.
       if (event.data?.jenis === "tally-pratinjau-siap") {
         kirimDraf();
+        kirimLabel();
         terapkanSorot();
         bukaTab();
       }
       if (event.data?.jenis === "tally-pratinjau-halaman" && ["beranda", "program", "info"].includes(event.data.halaman)) {
         onHalaman?.(event.data.halaman);
+      }
+      if (event.data?.jenis === "tally-pratinjau-pilih" && typeof event.data.bagian === "string") {
+        // Panel setelan ada di balik pratinjau yang diperbesar: tutup dulu,
+        // supaya kolom yang difokus terlihat dan ketikan tidak masuk diam-diam (QA #108 M3).
+        setBesar(false);
+        onPilih?.(event.data.bagian, typeof event.data.kolom === "string" ? event.data.kolom : null);
       }
       if (event.data?.jenis === "tally-pratinjau-bahasa") onBahasa?.(event.data.bahasa === "en" ? "en" : "id");
       if (event.data?.jenis === "tally-pratinjau-hasil") {
@@ -210,7 +241,7 @@ export function LandingPreview({
     }
     window.addEventListener("message", terima);
     return () => window.removeEventListener("message", terima);
-  }, [kirimDraf, terapkanSorot, bukaTab, onHalaman, onBahasa]);
+  }, [kirimDraf, kirimLabel, terapkanSorot, bukaTab, onHalaman, onBahasa, onPilih]);
   const { width, height: tinggiPerangkat } = UKURAN[device];
   // Diukur dari panel, bukan jendela: panel utama menyempit saat panel setelan
   // di sebelahnya muncul, tanpa jendelanya berubah ukuran.
@@ -225,6 +256,11 @@ export function LandingPreview({
       : device === "desktop"
         ? Math.min(1, Math.max(0.1, ruangLebar / width))
         : Math.max(0.1, Math.min(1, ruangLebar / width, ruangTinggi / tinggiPerangkat));
+  useEffect(() => {
+    if (skalaRef.current === skala) return;
+    skalaRef.current = skala;
+    kirimLabel();
+  }, [skala, kirimLabel]);
   const height = device === "desktop" && ruangTinggi > 0 ? Math.max(tinggiPerangkat * 0.5, ruangTinggi / skala) : tinggiPerangkat;
 
   useEffect(() => {
@@ -253,7 +289,10 @@ export function LandingPreview({
         <p className={`line-clamp-2 min-w-0 flex-1 ${tertinggal ? "text-body-small text-error" : "text-body-medium text-on-surface-variant"}`} role="status" title={tertinggal ?? undefined}>
           {/* Forum: pilihan halaman ikut di baris ini, jadi labelnya dipendekkan
               supaya tidak terlipat di layar 1440. */}
-          {tertinggal ?? `${halaman && onHalaman ? "Preview" : "Live preview"} · ${width} px${bahasa === "en" ? " · English" : ""}`}
+          {tertinggal ??
+            (onPilih && labelPilih && !formulir
+              ? `Click the page to edit · ${width} px${bahasa === "en" ? " · English" : ""}`
+              : `${halaman && onHalaman ? "Preview" : "Live preview"} · ${width} px${bahasa === "en" ? " · English" : ""}`)}
         </p>
         {halaman && onHalaman ? (
           <SegmentedButton<LandingForumPage>

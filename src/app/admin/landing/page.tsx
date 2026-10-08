@@ -227,6 +227,31 @@ function gulirKeBaris(id: string, bilaDiAtas = false) {
   });
 }
 
+/**
+ * Bawa satu kolom baris yang baru dibuka ke pandangan, setelah klik di
+ * pratinjau (`data-sunting` di halaman = `data-kolom` di sini). Kolom isian
+ * diberi fokus; kelompok (Top bar) hanya digulir ke atas panel.
+ */
+function tampilkanKolom(barisId: string, kunci: string) {
+  window.setTimeout(() => {
+    const baris = document.getElementById(`baris-${barisId}`);
+    const kolom = baris?.querySelector<HTMLElement>(`[data-kolom="${CSS.escape(kunci)}"]`);
+    const wadah = kolom?.closest<HTMLElement>(".overflow-y-auto");
+    if (!kolom || !wadah) return;
+    const atas = kolom.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop;
+    // Di bawah kepala baris yang menempel (56px) dan label kolomnya.
+    wadah.scrollTo({ top: Math.max(0, atas - 96), behavior: "smooth" });
+    if (!kolom.matches("input, textarea")) return;
+    const isian = kolom as HTMLInputElement | HTMLTextAreaElement;
+    isian.focus({ preventScroll: true });
+    // Kursor di akhir isi, siap menyambung tulisan (QA #108 L1). Kolom
+    // seperti type="url" tidak punya pilihan teks dan melempar galat.
+    try {
+      isian.setSelectionRange(isian.value.length, isian.value.length);
+    } catch {}
+  }, 350);
+}
+
 /** Angka yang setara dengan pilihan lama, supaya kolom angka tidak mulai kosong. */
 const JUDUL_PRESET_PX: Record<"md" | "lg" | "xl", number> = { md: 52, lg: 64, xl: 72 };
 const HERO_PRESET_PX: Record<"compact" | "standard" | "tall", number> = { compact: 600, standard: 760, tall: 850 };
@@ -424,7 +449,7 @@ export default function LandingCmsPage() {
   const [terbuka, setTerbuka] = useState<string | null>(null);
   // Bagian yang disorot di pratinjau; `n` naik di setiap klik supaya klik ulang
   // pada baris yang sama tetap menggulir pratinjau ke sana.
-  const [sorot, setSorot] = useState<{ id: string; n: number } | null>(null);
+  const [sorot, setSorot] = useState<{ id: string; n: number; diam?: boolean } | null>(null);
   // Halaman tata letak Forum yang sedang dipratinjau (Beranda, Program, Info).
   const [halamanPratinjau, setHalamanPratinjau] = useState<LandingForumPage>("beranda");
   // null = belum diketahui (gagal dimuat); lencana hanya muncul bila pasti kosong.
@@ -986,6 +1011,7 @@ export default function LandingCmsPage() {
       <Kelompok title="Content" first>
         <TextField
           label="Event name on the public page"
+          data-kolom="public_name"
           optional
           hint="The large title in the hero, top bar, form and link preview. Leave empty to use the event name from admin."
           maxLength={120}
@@ -994,6 +1020,7 @@ export default function LandingCmsPage() {
         />
         <TextArea
           label="Tagline"
+          data-kolom="tagline"
           optional
           rows={2}
           hint={gathering ? "The large title in the hero. Put *stars* around a word to colour it with the accent colour." : "One sentence below the event name."}
@@ -1004,12 +1031,14 @@ export default function LandingCmsPage() {
 
       {/* Bilah atas hanya ada di tata letak Modern; Editorial punya nav sendiri. */}
       {modern ? (
+        <div data-kolom="nav">
         <BilahAtasEditor
           value={landing.nav ?? {}}
           onChange={(nav) => setLanding({ ...landing, nav })}
           eventName={landing.public_name?.trim() || facts.name || "Nama acara"}
           disabled={busy}
         />
+        </div>
       ) : null}
 
       {/* Hero gathering punya ukuran dan susunan sendiri: kontrol yang tidak
@@ -1084,6 +1113,7 @@ export default function LandingCmsPage() {
         <Kelompok title="Hero text" note="The gathering hero: a label, the tagline as the title, and a line below it.">
           <TextField
             label="Label above the title"
+            data-kolom="hero_eyebrow"
             optional
             maxLength={60}
             hint={'Empty shows "You\'re invited · event name" while the page is invite only.'}
@@ -1092,6 +1122,7 @@ export default function LandingCmsPage() {
           />
           <TextArea
             label="Line below the title"
+            data-kolom="hero_note"
             optional
             rows={3}
             maxLength={240}
@@ -1553,6 +1584,7 @@ export default function LandingCmsPage() {
         <Kelompok title="Call-to-action banner" note={gathering ? "Above the footer, inviting guests to sign in." : "Above the footer, shown while registration is open and there is no call-to-action strip block."}>
           <TextField
             label="Banner heading"
+            data-kolom="cta_heading"
             optional
             placeholder="Amankan tempat Anda"
             value={landing.cta_heading ?? ""}
@@ -2546,6 +2578,42 @@ export default function LandingCmsPage() {
     return () => window.clearTimeout(timer);
   }, [urungan]);
 
+  // Klik di pratinjau memilih baris Susunan halaman (pilih-bagian.ts). Nama
+  // baris sama dengan di daftar; kolom `bagian:kolom` sama dengan data-sunting
+  // di halaman publik. Forum punya editor dan nama bagian sendiri: belum ikut.
+  // Editorial belum menandai bagiannya (QA #108 L3): hanya Modern dan Gathering.
+  const kunciLabel = !modern || hanyaFormulir || bagian !== "susunan"
+    ? ""
+    : JSON.stringify([
+        ["pembuka", "Hero"],
+        ...sections.filter((section) => section.enabled).map((section) => [
+          section.id,
+          isLandingBlockId(section.id)
+            ? (() => {
+                const blok = blokById.get(section.id);
+                return blok ? blok.heading?.trim() || blok.name?.trim() || LANDING_BLOCK_LABELS[blok.type] : "Block";
+              })()
+            : LANDING_SECTION_ADMIN_LABELS[section.id],
+        ]),
+        ["kaki", "Footer"],
+        ["pembuka:nav", "Top bar"],
+        ["pembuka:public_name", "Event name"],
+        ["pembuka:tagline", gathering ? "Tagline (title)" : "Tagline"],
+        ["pembuka:hero_eyebrow", "Label above the title"],
+        ["pembuka:hero_note", "Line below the title"],
+        ["kaki:cta_heading", "Call-to-action banner"],
+      ]);
+  const labelPilih = useMemo<Record<string, string> | null>(() => (kunciLabel ? Object.fromEntries(JSON.parse(kunciLabel)) : null), [kunciLabel]);
+
+  const pilihDariPratinjau = useCallback((id: string, kolom: string | null) => {
+    if (terbuka !== id) {
+      setTerbuka(id);
+      setSorot((current) => ({ id, n: (current?.n ?? 0) + 1, diam: true }));
+      gulirKeBaris(id);
+    }
+    if (kolom) tampilkanKolom(id, kolom);
+  }, [terbuka]);
+
   const jumlahHapus = konfirmasiHapus?.ids.length ?? 0;
 
   return (
@@ -2607,6 +2675,8 @@ export default function LandingCmsPage() {
               bahasa={modeEn && bagian === "susunan" ? "en" : "id"}
               onBahasa={pilihBahasa}
               formulir={hanyaFormulir}
+              labelPilih={labelPilih}
+              onPilih={pilihDariPratinjau}
             />
           </div>
           <div
