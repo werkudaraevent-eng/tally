@@ -1,4 +1,4 @@
-import type { EventLandingConfig, LandingBodyFont, LandingCorners, LandingHeadingFont, LandingLayout } from "./domain.ts";
+import { normalizeLandingSections, type EventLandingConfig, type LandingBodyFont, type LandingCorners, type LandingHeadingFont, type LandingLayout } from "./domain.ts";
 import { DEFAULT_BRAND, FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, GATHERING_BRAND_DEFAULT, GATHERING_BUTTON_DEFAULT, GATHERING_NAV_DEFAULT, LANDING_TOKEN_DEFAULTS, landingLayout, landingTokens } from "./landing-tokens.ts";
 
 /**
@@ -21,8 +21,8 @@ export type LandingPresetTokens = {
   secondary?: string;
   /** Warna tombol gaya gathering (EventLandingConfig.button_color). */
   button?: string;
-  /** Warna dan opasitas bilah atas (EventLandingConfig.nav), hanya Gathering. */
-  nav?: { color: string; opacity: number };
+  /** Warna, opasitas, dan tinggi bilah atas (EventLandingConfig.nav), hanya Gathering. */
+  nav?: { color: string; opacity: number; height: number };
   heading_font: LandingHeadingFont;
   body_font: LandingBodyFont;
   corners: LandingCorners;
@@ -113,7 +113,7 @@ export function presetDiubah(preset: LandingThemePreset, landing: EventLandingCo
     (b.accent === undefined || sama(t.accent, b.accent)) &&
     (b.secondary === undefined || sama(t.secondary, b.secondary)) &&
     (b.button === undefined || sama(landing.button_color, b.button)) &&
-    (b.nav === undefined || (sama(landing.nav?.color, b.nav.color) && landing.nav?.opacity === b.nav.opacity)) &&
+    (b.nav === undefined || (sama(landing.nav?.color, b.nav.color) && landing.nav?.opacity === b.nav.opacity && landing.nav?.height === b.nav.height)) &&
     t.headingFont === b.heading_font &&
     t.bodyFont === b.body_font &&
     // Forum tidak membaca sudut.
@@ -140,31 +140,80 @@ export function gayaPreset(preset: LandingThemePreset, landing: EventLandingConf
       : b.accent ? { accent: b.accent } : {}),
     // Hanya preset bertombol (Gathering) yang mengisinya; preset lain mengosongkan.
     button_color: b.button,
-    nav: navPreset(b, landing.nav),
+    // Gathering menulis bilah atasnya (warna, opasitas, tinggi). Preset lain
+    // tidak menyentuh bilah di sini: Reset di Conference/Forum menjaga bilah
+    // pilihan admin, termasuk putih penuh (QA #106 L1).
+    ...(b.nav ? { nav: { ...landing.nav, color: b.nav.color, opacity: b.nav.opacity, height: b.nav.height } } : {}),
   };
 }
 
 /**
- * Bilah atas: Gathering menulis putih penuh. Preset lain hanya melepas putih
- * Gathering itu (kembali ke bawaan); warna bilah pilihan admin tetap.
- * Logo, lebar, dan tinggi bilah tidak pernah disentuh.
+ * Pindah DARI Gathering ke preset lain: lepas nilai bilah yang masih persis
+ * nilai Gathering (kembali ke bawaan). Nilai yang sudah diubah admin, logo,
+ * dan lebar bilah tetap.
  */
-function navPreset(b: LandingPresetTokens, nav: EventLandingConfig["nav"]): EventLandingConfig["nav"] {
-  if (b.nav) return { ...nav, color: b.nav.color, opacity: b.nav.opacity };
-  if (!nav || !(sama(nav.color, GATHERING_NAV_DEFAULT.color) && nav.opacity === GATHERING_NAV_DEFAULT.opacity)) return nav;
-  const { color: _warna, opacity: _opasitas, ...sisa } = nav;
-  void _warna;
-  void _opasitas;
+function lepasBilahGathering(nav: EventLandingConfig["nav"]): EventLandingConfig["nav"] {
+  if (!nav) return nav;
+  const sisa = { ...nav };
+  if (sama(sisa.color, GATHERING_NAV_DEFAULT.color) && sisa.opacity === GATHERING_NAV_DEFAULT.opacity) {
+    delete sisa.color;
+    delete sisa.opacity;
+  }
+  if (sisa.height === GATHERING_NAV_DEFAULT.height) delete sisa.height;
   return Object.keys(sisa).length ? sisa : undefined;
 }
 
 /** Terapkan preset (tata letak, fitur, dan semua token gaya) tanpa menyentuh isi: teks, gambar, bagian, perataan hero. */
 export function terapkanPreset(preset: LandingThemePreset, landing: EventLandingConfig): EventLandingConfig {
+  const dariGathering = landing.gathering === true && !preset.features.gathering;
   return gayaPreset(preset, {
     ...landing,
     layout: preset.layout,
     // Satu preset, satu gaya: memilih preset lain mematikan gaya gathering.
     invite_only: Boolean(preset.features.invite_only),
     gathering: Boolean(preset.features.gathering),
+    ...(dariGathering ? { nav: lepasBilahGathering(landing.nav) } : {}),
   });
+}
+
+/** Teks bawaan Tentang acara per bahasa (LANDING_UI), diberikan pemanggil. */
+export type TentangBawaan = Record<"id" | "en", { heading: string; cards: { title: string; body: string }[] }>;
+
+const adaTeks = (teks: string | null | undefined) => Boolean(teks?.trim());
+
+/**
+ * Isi Gathering di luar gaya, dipakai Apply DAN Reset (QA #107 M1): acara
+ * yang sudah memakai Gathering hanya punya tombol Reset.
+ *
+ * - Judul dan kartu Tentang acara serta label "Tentang acara", hanya yang
+ *   masih kosong. Teks Indonesia di kolom dasar, English di `en` (QA #107 M2).
+ *   Kartu dianggap isi admin bila judul ATAU teksnya terisi (QA #107 L1).
+ * - Bagian Lokasi disembunyikan: rancangan tidak memilikinya. Tetap bisa
+ *   dinyalakan lagi di Page sections.
+ */
+export function isiGathering(landing: EventLandingConfig, bawaan: TentangBawaan): EventLandingConfig {
+  const en = { ...landing.en };
+  const hasil: EventLandingConfig = { ...landing };
+  if (!adaTeks(landing.about_heading)) {
+    hasil.about_heading = bawaan.id.heading;
+    if (!adaTeks(en.about_heading)) en.about_heading = bawaan.en.heading;
+  }
+  if (landing.eyebrow_shown?.about === undefined) hasil.eyebrow_shown = { ...landing.eyebrow_shown, about: true };
+  if (!(landing.about_cards ?? []).some((kartu) => adaTeks(kartu.title) || adaTeks(kartu.body))) {
+    hasil.about_cards = bawaan.id.cards.map((kartu) => ({ ...kartu }));
+    en.about_cards = bawaan.en.cards.map((kartu) => ({ ...kartu }));
+  }
+  if (Object.keys(en).length > 0) hasil.en = en;
+  hasil.sections = normalizeLandingSections(landing.sections, landing.blocks).map((section) => (section.id === "venue" ? { ...section, enabled: false } : section));
+  return hasil;
+}
+
+/** Apa yang akan diubah isiGathering, untuk kalimat konfirmasi Reset. */
+export function isiGatheringMengubah(landing: EventLandingConfig): { tentang: boolean; lokasi: boolean } {
+  const tentang =
+    !adaTeks(landing.about_heading) ||
+    landing.eyebrow_shown?.about === undefined ||
+    !(landing.about_cards ?? []).some((kartu) => adaTeks(kartu.title) || adaTeks(kartu.body));
+  const lokasi = normalizeLandingSections(landing.sections, landing.blocks).find((section) => section.id === "venue")?.enabled !== false;
+  return { tentang, lokasi };
 }

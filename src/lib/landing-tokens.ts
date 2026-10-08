@@ -35,8 +35,11 @@ export const FORUM_DEFAULTS = { primary: "#002f54", accent: "#ffc72c", secondary
 
 /** Warna merek preset Gathering: navy rancangan pen.dev Hanung (2026-10-07). */
 export const GATHERING_BRAND_DEFAULT = "#1B2D57";
-/** Bilah atas preset Gathering: putih penuh, seperti rancangan; teks menu otomatis gelap. */
-export const GATHERING_NAV_DEFAULT = { color: "#ffffff", opacity: 100 } as const;
+/**
+ * Bilah atas preset Gathering: putih penuh, 82px (lencana 38px dan tombol 48px
+ * dengan jarak 17px, rancangan 83px termasuk garis bawah). Teks menu otomatis gelap.
+ */
+export const GATHERING_NAV_DEFAULT = { color: "#ffffff", opacity: 100, height: 82 } as const;
 
 /** Aksen bawaan gaya gathering: emas, pasangan navy di rancangan KSO 21. */
 export const GATHERING_ACCENT_DEFAULT = "#E9C46A";

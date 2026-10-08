@@ -284,6 +284,52 @@ function tintaTerbaik(latar: string, merek: string): string {
  * - `angka`: nomor hari di lingkaran warna primary.
  * - `primerTeks`: warna primary yang terbaca di atas pasir (dan kartu putih).
  */
+/** Geser terang (L) dan jenuh (S) sebuah warna dalam HSL (-1..1), rona (H) dalam derajat. */
+function geserHsl(hex: string, terang: number, jenuh: number, rona = 0): string {
+  const { r, g, b } = parseHex(hex);
+  const [R, G, B] = [r / 255, g / 255, b / 255];
+  const maks = Math.max(R, G, B);
+  const min = Math.min(R, G, B);
+  let h = 0;
+  const d = maks - min;
+  const l0 = (maks + min) / 2;
+  const s0 = d === 0 ? 0 : d / (1 - Math.abs(2 * l0 - 1));
+  if (d !== 0) h = maks === R ? ((G - B) / d) % 6 : maks === G ? (B - R) / d + 2 : (R - G) / d + 4;
+  h = (h * 60 + rona + 360) % 360;
+  const l = Math.min(1, Math.max(0, l0 + terang));
+  const s = Math.min(1, Math.max(0, s0 + jenuh));
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r1, g1, b1] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  const hx = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, "0");
+  return `#${hx(r1)}${hx(g1)}${hx(b1)}`;
+}
+
+/**
+ * Latar hero dan pita penutup gaya gathering. Merek gelap (KSO #1B2D57):
+ * gradasi rancangan pen.dev, sedikit lebih terang di kiri atas
+ * (#1B2D57 → #14294F → #1B3A6B). Merek terang: digelapkan seperti sebelumnya,
+ * supaya teks putih tetap terbaca.
+ */
+export function latarGathering(seed: string | undefined): { latar: string; terang: string; gelap: string; redup: string | null } {
+  const merek = /^#[0-9a-f]{6}$/i.test(seed ?? "") ? seed! : DEFAULT_REGISTRATION_SEED;
+  if (kontras(merek, "#ffffff") >= 7) {
+    const terang = geserHsl(merek, 0.04, 0.07, -5);
+    const gelap = geserHsl(merek, -0.03, 0.07, -4);
+    // Teks redup di atas navy: biru muda dari rona merek (#C6D2E8 untuk KSO).
+    const redup = geserHsl(merek, 0.62, -0.06, -2);
+    return { latar: `linear-gradient(340deg, ${merek} 0%, ${gelap} 55%, ${terang} 100%)`, terang, gelap, redup };
+  }
+  const gelap = mixHex(merek, "#000000", 0.38);
+  return {
+    latar: "linear-gradient(160deg, color-mix(in srgb, var(--reg-brand) 62%, black) 0%, color-mix(in srgb, var(--reg-brand) 85%, black) 60%, var(--reg-brand) 100%)",
+    terang: merek,
+    gelap,
+    redup: null,
+  };
+}
+
 export function gatheringColors(accent: string | undefined, seed: string | undefined, adaKv: boolean, button?: string | null) {
   const aksen = /^#[0-9a-f]{6}$/i.test(accent ?? "") ? accent! : GATHERING_ACCENT_DEFAULT;
   const merek = /^#[0-9a-f]{6}$/i.test(seed ?? "") ? seed! : DEFAULT_REGISTRATION_SEED;
@@ -298,8 +344,9 @@ export function gatheringColors(accent: string | undefined, seed: string | undef
   // Warna yang menyatu (< 2:1) diganti: di navy kembali ke aturan lama (aksen
   // atau putih), di putih digelapkan sampai terbaca.
   const navyGelap = mixHex(merek, "#000000", 0.38);
+  const { terang: navyTerang } = latarGathering(merek);
   const ctaLama = kontras(aksen, "#000000") >= 3 ? aksen : "#ffffff";
-  const cta = tombol && Math.min(kontras(tombol, merek), kontras(tombol, navyGelap)) >= 2 ? tombol : ctaLama;
+  const cta = tombol && Math.min(kontras(tombol, merek), kontras(tombol, navyGelap), kontras(tombol, navyTerang)) >= 2 ? tombol : ctaLama;
   const dasarPutih = tombol ?? cta;
   const ctaPutih = kontras(dasarPutih, "#ffffff") >= 2 ? dasarPutih : terbacaDi(dasarPutih, "#ffffff");
   // Teks warna aksi di atas putih: label bagian, ikon, tab aktif.
@@ -323,6 +370,13 @@ export function gatheringColors(accent: string | undefined, seed: string | undef
     // Emas bawaan memakai oker yang disetujui di rancangan (audit v2 #5).
     teks: aksen.toUpperCase() === GATHERING_ACCENT_DEFAULT ? terbacaDi(GATHERING_OKER, sand) : terbacaDi(aksen, sand),
     heroAlis: terbacaDi(adaKv ? mixHex(aksen, "#ffffff", 0.55) : aksen, latarHero),
+    // Teks lencana di hero gaya aplikasi: emas muda (#F6E3A8 di rancangan).
+    heroLencana: terbacaDi(geserHsl(aksen, 0.15, 0.07, 2), latarHero),
+    // Tanda nama di bilah atas putih (tanpa logo): kotak aksen, huruf merek.
+    tanda: { latar: aksen, teks: tintaTerbaik(aksen, merek) },
+    // Teks redup di permukaan putih dan abu-abu: abu kebiruan dari merek
+    // (#5F6C89 untuk KSO, rancangan #5A6A85), tetap 4.5:1 di #F4F6F8.
+    teksRedup: terbacaDi(mixHex(primer, "#ffffff", 0.3), "#F4F6F8"),
     heroAngka: terbacaDi(aksen, latarHero),
     angka: terbacaDi(aksen, primer),
     // Teks warna primary di atas pasir (jam kartu hari, tautan jadwal lengkap).

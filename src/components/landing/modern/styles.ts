@@ -2,12 +2,16 @@
 // Satu sumber, supaya blok baru tidak punya grid, judul, atau tombol yang sedikit
 // berbeda dari bagian bawaan di sebelahnya.
 
-/** Grid halaman: 1440, pinggir 80px di layar lebar seperti rancangan. */
-export const SHELL = "mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-10 xl:px-20";
+/**
+ * Grid halaman: 1440, pinggir 80px di layar lebar seperti rancangan. Gaya
+ * gathering menyetel `--pinggir-lg`/`--pinggir-xl` ke 56px (rancangan pen.dev);
+ * acara lain memakai nilai bawaan yang sama dengan sebelumnya.
+ */
+export const SHELL = "mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-[var(--pinggir-lg,2.5rem)] xl:px-[var(--pinggir-xl,5rem)]";
 export const MUTED = "text-[var(--reg-on-surface-variant)]";
 export const HEAD = "[font-family:var(--landing-heading)]";
 /** Judul bagian: 48px di layar lebar, 32px di ponsel. */
-export const JUDUL = `${HEAD} text-balance text-[32px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[48px] sm:leading-[1.25]`;
+export const JUDUL = `${HEAD} text-balance text-[32px] [font-weight:var(--judul-tebal,600)] leading-[1.15] tracking-[-0.03em] sm:text-[length:var(--judul-besar,48px)] sm:leading-[var(--judul-baris,1.25)]`;
 /** Jarak antarbagian 144px di layar lebar (dulu ~200px): bagian terbaca berkelompok, bukan satu lembar panjang. */
 /**
  * Judul butir: pertanyaan FAQ dan nama pembicara. 18/24 di layar lebar, 16/24
@@ -21,8 +25,8 @@ export const LEBAR_BACA = "max-w-[35rem]";
  * aksen dari pemakainya. Sengaja terbaca sebagai label, bukan teks kecil
  * yang nyasar. Hanya dipasang bila menambah konteks yang tidak ada di judul.
  */
-export const LABEL_BAGIAN = "text-[13px] font-semibold uppercase leading-4 tracking-[0.08em]";
-export const SECTION = "scroll-mt-[var(--nav-h)] py-12 sm:py-16 lg:py-[72px]";
+export const LABEL_BAGIAN = "text-[length:var(--label-ukuran,13px)] [font-weight:var(--label-tebal,600)] uppercase leading-4 tracking-[var(--label-jarak,0.08em)]";
+export const SECTION = "scroll-mt-[var(--nav-h)] py-12 sm:py-16 lg:py-[var(--bagian-y,72px)]";
 
 /**
  * Tombol. Tinggi 52px dan `rounded-md`, sama dengan tombol hero Editorial
