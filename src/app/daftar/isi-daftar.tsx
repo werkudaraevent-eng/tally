@@ -50,6 +50,10 @@ export async function bingkaiFormulir(
   // Formulir v2 memakai huruf judul acara; formulir lama hanya huruf isi pilihan admin.
   preloadLandingFonts(pakaiModern ? tokens : { ...tokens, headingFont: "sans" });
 
+  const gathering = pakaiModern ? formulirGathering(event, lang) : null;
+  // Gambar di belakang kepala formulir: Gathering memakai KV hero, yang lain banner_url.
+  const gambarKepala = gathering ? gathering.kv?.src ?? null : landing.banner_url ?? null;
+
   const modern: FormModern | null = pakaiModern
     ? {
         // Bilah atas yang sama dengan halaman acara (logo, ID | EN, Masuk),
@@ -57,10 +61,10 @@ export async function bingkaiFormulir(
         nav: {
           logoUrl: landing.nav?.logo_url ?? null,
           width: landing.nav?.width ?? "full",
-          logoOnDark: Boolean(landing.banner_url) && (landing.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50,
+          logoOnDark: Boolean(gambarKepala) && (landing.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50,
           style: modernNavStyle(
             landing.nav,
-            landing.banner_url ? { ink: "#ffffff", onInk: "#181d27" } : { ink: "var(--reg-on-brand)", onInk: "var(--reg-brand)" },
+            gambarKepala ? { ink: "#ffffff", onInk: "#181d27" } : { ink: "var(--reg-on-brand)", onInk: "var(--reg-brand)" },
           ),
           langSwitch: lainnya ? { href: `${landingPath(event.slug, lainnya, utama)}/daftar`, lang: lainnya } : null,
         },
@@ -72,7 +76,7 @@ export async function bingkaiFormulir(
         // Area peserta dalam bahasa formulir ini.
         masukUrl: member && opsi.tautanMasuk !== false ? `${landingPath(event.slug, lang, utama)}/masuk` : null,
         areaUrl: member && !opsi.pratinjau && opsi.tautanMasuk !== false && (await getMemberSession(event)) ? `${landingPath(event.slug, lang, utama)}/peserta` : null,
-        gathering: formulirGathering(event, lang),
+        gathering,
       }
     : null;
 
