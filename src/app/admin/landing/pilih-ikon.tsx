@@ -3,6 +3,7 @@
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
+import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { Popover, SegmentedButton, usePopoverAnchor } from "@/components/m3";
 import { LANDING_CARD_ICON_SARAN, LANDING_CARD_TONES, LANDING_CARD_TONE_LABELS, labelIkon, type LandingCardTone } from "@/lib/landing-card-icons";
 import { cx } from "@/lib/m3/cx";
@@ -10,6 +11,8 @@ import { cx } from "@/lib/m3/cx";
 // Pemilih ikon kartu Tentang acara (gaya gathering). Saran acara/perjalanan
 // tampil lebih dulu; kolom cari mencakup seluruh pustaka Phosphor yang sudah
 // dipakai aplikasi, dimuat saat editor kartu dibuka (bukan di halaman publik).
+// Di bawahnya admin bisa mengunggah gambar ikon sendiri (mis. ikon 3D), yang
+// menggantikan ikon dan ubinnya.
 
 type Pustaka = Record<string, Icon>;
 let muatan: Promise<Pustaka> | null = null;
@@ -55,6 +58,7 @@ export function PilihIkonKartu({
   bawaan,
   warna,
   pustaka,
+  gambar,
   onChange,
 }: {
   /** Nomor kartu (1, 2, ...) untuk label. */
@@ -66,7 +70,10 @@ export function PilihIkonKartu({
   bawaan: boolean;
   warna: WarnaUbin;
   pustaka: Pustaka | null;
-  onChange: (ubah: { icon?: string; tone?: LandingCardTone } | null) => void;
+  /** URL gambar ikon sendiri, bila ada. */
+  gambar: string | null;
+  /** null = kembali ke ikon dan warna bawaan. Memilih ikon menghapus gambar sendiri. */
+  onChange: (ubah: { icon?: string; tone?: LandingCardTone; icon_url?: string | null } | null) => void;
 }) {
   const id = useId();
   const [pemicu, setPemicu] = useState<HTMLButtonElement | null>(null);
@@ -87,7 +94,7 @@ export function PilihIkonKartu({
 
   const tombol = (nama: string) => {
     const Gambar = pustaka?.[nama];
-    const terpilih = nama === ikon;
+    const terpilih = !gambar && nama === ikon;
     return (
       <li key={nama}>
         <button
@@ -95,7 +102,7 @@ export function PilihIkonKartu({
           title={labelIkon(nama)}
           aria-label={labelIkon(nama)}
           aria-pressed={terpilih}
-          onClick={() => onChange({ icon: nama })}
+          onClick={() => onChange({ icon: nama, icon_url: null })}
           className={cx(
             "m3-state flex size-9 items-center justify-center rounded-md text-on-surface",
             terpilih && "bg-primary-soft text-primary ring-2 ring-inset ring-primary",
@@ -119,10 +126,15 @@ export function PilihIkonKartu({
         onClick={menu.toggle}
         className="m3-state flex h-9 items-center gap-2 rounded-md border border-outline bg-surface-container-lowest pl-1 pr-2.5 text-body-medium text-on-surface"
       >
-        <span aria-hidden className="flex size-7 items-center justify-center rounded-[7px]" style={{ background: ubin.latar, color: ubin.teks }}>
-          {Ikon ? <Ikon size={16} /> : null}
-        </span>
-        <span id={`${id}-nama`} className="max-w-[7rem] truncate">{labelIkon(ikon)}</span>
+        {gambar ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={gambar} alt="" aria-hidden className="size-7 object-contain" />
+        ) : (
+          <span aria-hidden className="flex size-7 items-center justify-center rounded-[7px]" style={{ background: ubin.latar, color: ubin.teks }}>
+            {Ikon ? <Ikon size={16} /> : null}
+          </span>
+        )}
+        <span id={`${id}-nama`} className="max-w-[7rem] truncate">{gambar ? "Own image" : labelIkon(ikon)}</span>
       </button>
 
       <Popover anchor={menu} id={`${id}-menu`} label={`Icon for card ${nomor}`} role="dialog" align="start" width={344} className="flex max-h-[min(30rem,70vh)] flex-col gap-3 p-3">
@@ -138,7 +150,7 @@ export function PilihIkonKartu({
             className="h-9 w-full rounded-md border border-outline bg-surface-container-lowest pl-8 pr-2 text-body-medium text-on-surface outline-none focus:border-primary"
           />
         </div>
-        <div className="flex shrink-0 flex-col gap-1.5">
+        {gambar ? null : <div className="flex shrink-0 flex-col gap-1.5">
           <span className="text-body-medium font-medium text-on-surface">Tile colour</span>
           <SegmentedButton<LandingCardTone>
             label={`Tile colour for card ${nomor}`}
@@ -150,7 +162,7 @@ export function PilihIkonKartu({
               icon: <span aria-hidden className="size-3 rounded-full" style={{ background: warna[tone].teks } as CSSProperties} />,
             }))}
           />
-        </div>
+        </div>}
         <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
           {saran.length > 0 ? (
             <>
@@ -174,9 +186,21 @@ export function PilihIkonKartu({
             <p className="pt-3 text-body-small text-on-surface-variant">Search to see all {pustaka ? Object.keys(pustaka).length.toLocaleString("en-GB") : "1,500"} icons.</p>
           )}
         </div>
+        <div className="shrink-0 border-t border-outline-variant pt-3">
+          <ImageUploadField
+            label="Your own icon"
+            hint="A transparent PNG or WebP, square, at least 256 px, e.g. a 3D icon. It replaces the icon and shows without a tile."
+            kind="landing"
+            fit="contain"
+            previewClassName="size-12"
+            perkecil={{ lebar: 256, mutu: 0.9 }}
+            value={gambar}
+            onChange={(url) => onChange({ icon_url: url })}
+          />
+        </div>
         {!bawaan ? (
           <button type="button" onClick={() => onChange(null)} className="shrink-0 self-start rounded-sm text-body-medium font-medium text-primary hover:underline">
-            Back to the default icon and colour
+            Back to the default icon
           </button>
         ) : null}
       </Popover>

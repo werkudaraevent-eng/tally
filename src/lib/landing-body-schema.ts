@@ -250,6 +250,7 @@ export const landingBodySchema = z.object({
       body: z.string().trim().max(LANDING_ABOUT_CARDS.body),
       icon: z.string().regex(LANDING_CARD_ICON_POLA).optional(),
       tone: z.enum(LANDING_CARD_TONES).optional(),
+      icon_url: z.string().url().max(600).nullable().optional(),
     })).max(LANDING_ABOUT_CARDS.max).optional(),
     program_heading: z.string().trim().max(120).optional(),
     program_intro: z.string().trim().max(400).optional(),

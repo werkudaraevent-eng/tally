@@ -1598,9 +1598,10 @@ export default function LandingCmsPage() {
                 nomor={index + 1}
                 ikon={ikonKartu(kartu, urutanBerjudul(index))}
                 nada={nadaKartu(kartu, urutanBerjudul(index))}
-                bawaan={!kartu.icon && !kartu.tone}
+                bawaan={!kartu.icon && !kartu.tone && !kartu.icon_url}
                 warna={warnaUbin}
                 pustaka={pustakaIkon}
+                gambar={kartu.icon_url?.trim() || null}
                 onChange={(ubah) => {
                   const next = [...kartuTentang];
                   if (ubah === null) {

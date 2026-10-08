@@ -1030,6 +1030,8 @@ export type EventLandingConfig = {
     icon?: string;
     /** Warna ubin ikon dari tema. Kosong = bawaan urutannya (Button, Brand, Accent). */
     tone?: LandingCardTone;
+    /** Gambar ikon sendiri (PNG/WebP transparan, mis. ikon 3D). Diisi = menggantikan ikon dan ubinnya. */
+    icon_url?: string | null;
   }[];
   /** Judul bagian Program, mis. "Dua program, satu hari". */
   program_heading?: string;

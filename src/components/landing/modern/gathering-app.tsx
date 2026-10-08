@@ -271,7 +271,7 @@ export function TentangGathering({
   judul: string;
   deskripsi: string | null;
   /** Hanya kartu berjudul, sudah urut. `posisi` = urutan di CMS (untuk klik pratinjau). */
-  kartu: { title: string; body: string; Ikon: Icon; nada: LandingCardTone; posisi: number }[];
+  kartu: { title: string; body: string; Ikon: Icon; nada: LandingCardTone; posisi: number; gambar: string | null }[];
   gambar: ReactNode;
 }) {
   const NADA: Record<LandingCardTone, { latar: string; teks: string }> = {
@@ -297,9 +297,17 @@ export function TentangGathering({
             const nada = NADA[item.nada];
             return (
               <li key={item.posisi} data-sunting={`about:kartu-${item.posisi}`} className="flex flex-col gap-4 rounded-[20px] bg-[var(--reg-panel)] p-[30px]">
-                <span aria-hidden className="inline-flex size-[52px] items-center justify-center rounded-[14px]" style={{ background: nada.latar, color: nada.teks }}>
-                  <Ikon size={26} />
-                </span>
+                {item.gambar ? (
+                  // Ikon sendiri (mis. 3D dari Envato): tanpa ubin, sedikit lebih
+                  // besar, karena gambarnya sudah membawa warna dan bayangannya. Margin
+                  // negatif: tingginya tetap 52px, judul sejajar dengan kartu lain.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.gambar} alt="" aria-hidden loading="lazy" className="-my-1.5 size-16 object-contain" />
+                ) : (
+                  <span aria-hidden className="inline-flex size-[52px] items-center justify-center rounded-[14px]" style={{ background: nada.latar, color: nada.teks }}>
+                    <Ikon size={26} />
+                  </span>
+                )}
                 <h3 className="text-[20px] font-extrabold leading-[1.2]">{item.title.trim()}</h3>
                 {item.body?.trim() ? <p className="text-[14px] leading-[1.6] text-[var(--reg-on-surface-variant)]">{item.body.trim()}</p> : null}
               </li>

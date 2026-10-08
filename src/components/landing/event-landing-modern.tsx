@@ -443,7 +443,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             kartu={(config.about_cards ?? [])
               .map((item, posisi) => ({ ...item, posisi }))
               .filter((item) => item.title?.trim())
-              .map((item, index) => ({ title: item.title, body: item.body, posisi: item.posisi, Ikon: komponenIkonKartu(item, index), nada: nadaKartu(item, index) }))}
+              .map((item, index) => ({ title: item.title, body: item.body, posisi: item.posisi, Ikon: komponenIkonKartu(item, index), nada: nadaKartu(item, index), gambar: item.icon_url?.trim() || null }))}
             gambar={
               fotoTentang ? (
                 // eslint-disable-next-line @next/next/no-img-element
