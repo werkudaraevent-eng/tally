@@ -338,7 +338,7 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
     <TextField
       label="Top menu label"
       optional
-      hint="Fill in to list this block in the top menu on wide screens, e.g. Tentang or Program. Leave empty if not needed."
+      hint="Fill in to list this block in the top menu on wide screens, e.g. Tentang or Program. The menu shows the first 6 links in page order. Leave empty if not needed."
       maxLength={LANDING_NAV_LABEL_MAX}
       counter
       value={block.nav_label ?? ""}

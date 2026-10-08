@@ -1093,7 +1093,11 @@ export default function LandingCmsPage() {
           label="Event name on the public page"
           data-kolom="public_name"
           optional
-          hint="The large title in the hero, top bar, form and link preview. Leave empty to use the event name from admin."
+          hint={
+            gathering
+              ? "Shown in the top bar, the label above the title, the form and link preview. In the gathering layout the Title below is the large heading. Leave empty to use the event name from admin."
+              : "The large title in the hero, top bar, form and link preview. Leave empty to use the event name from admin."
+          }
           maxLength={120}
           value={landing.public_name ?? ""}
           onChange={(event) => setLanding({ ...landing, public_name: event.target.value })}
@@ -1130,6 +1134,7 @@ export default function LandingCmsPage() {
           onChange={(nav) => setLanding({ ...landing, nav })}
           eventName={landing.public_name?.trim() || facts.name || "Nama acara"}
           disabled={busy}
+          gathering={gathering}
         />
         </div>
       ) : null}
@@ -1220,7 +1225,7 @@ export default function LandingCmsPage() {
             rows={3}
             maxLength={240}
             counter
-            hint="One or two sentences on what the trip is."
+            hint="One or two sentences on what the trip is. Press Enter to start a new line."
             value={landing.hero_note ?? ""}
             onChange={(event) => setLanding({ ...landing, hero_note: event.target.value })}
           />
@@ -1295,7 +1300,14 @@ export default function LandingCmsPage() {
         />
       </Kelompok>
 
-      <Kelompok title="Time" note="Also used in calendar files and emails, not only on this page.">
+      <Kelompok
+        title="Time"
+        note={
+          gathering
+            ? "The gathering hero shows the dates and the trip length (like 3 days 2 nights), counted from the start and end date. It does not show the times; they are used in calendar files and emails."
+            : "Also used in calendar files and emails, not only on this page."
+        }
+      >
         <div className="grid grid-cols-2 gap-3">
           <TextField
             label="Start time"
@@ -1331,13 +1343,17 @@ export default function LandingCmsPage() {
   // (tanggal, nama tempat, jumlah pembicara) tetap ikut data acara.
   function judulBagian(id: LandingHeadedSection, otomatis: { judul: string; jenis: string; hint: string }, tambahan?: ReactNode): ReactNode {
     if (!modern) return null;
-    const nyala = landingEyebrowShown(landing, id);
+    // Rundown gathering selalu memakai label kecil ("Rundown" bila kosong) dan
+    // tidak membaca sakelarnya: panel menampilkan yang benar-benar tampil (CMS mudah, butir 6).
+    const selalu = gathering && id === "agenda";
+    const nyala = selalu || landingEyebrowShown(landing, id);
+    const alisBawaan = selalu ? "Rundown" : LANDING_SECTION_LABELS[id];
     const alis = landing[`${id}_eyebrow`] ?? "";
     const kunciJudul = id === "about" ? "about_heading" : (`${id}_heading` as const);
     const judul = landing[kunciJudul] ?? "";
     const buka = judulTerbuka === id;
     const catatan = id === "agenda" && landing.agenda_note?.trim() ? " · Note filled in" : "";
-    const ringkasan = `Label: ${nyala ? alis.trim() || LANDING_SECTION_LABELS[id] : "hidden"} · Heading: ${judul.trim() || otomatis.jenis}${catatan}`;
+    const ringkasan = `Label: ${nyala ? alis.trim() || alisBawaan : "hidden"} · Heading: ${judul.trim() || otomatis.jenis}${catatan}`;
     return (
       <div className="flex flex-col gap-4 border-t border-outline-variant pt-2">
         <button
@@ -1354,11 +1370,13 @@ export default function LandingCmsPage() {
         </button>
         {buka ? (
           <>
-            <Switch
-              checked={nyala}
-              onChange={(value) => setLanding({ ...landing, eyebrow_shown: { ...landing.eyebrow_shown, [id]: value } })}
-              label="Small label above the heading"
-            />
+            {selalu ? null : (
+              <Switch
+                checked={nyala}
+                onChange={(value) => setLanding({ ...landing, eyebrow_shown: { ...landing.eyebrow_shown, [id]: value } })}
+                label="Small label above the heading"
+              />
+            )}
             {/* Dimatikan: kolomnya disembunyikan, isinya tetap tersimpan (kecuali
                 terlalu panjang: Simpan menolaknya, jadi harus terlihat). */}
             {nyala || alis.trim().length > LANDING_SECTION_TEXT_MAX.eyebrow ? (
@@ -1367,8 +1385,8 @@ export default function LandingCmsPage() {
                 className={TEKS_BAWAAN}
                 label="Small label"
                 optional
-                placeholder={LANDING_SECTION_LABELS[id]}
-                hint="One to three words above the heading."
+                placeholder={alisBawaan}
+                hint={selalu ? "One to three words above the heading. The gathering layout always shows this label." : "One to three words above the heading."}
                 maxLength={LANDING_SECTION_TEXT_MAX.eyebrow}
                 counter
                 value={alis}
@@ -1433,7 +1451,11 @@ export default function LandingCmsPage() {
             kind="landing"
             fit="cover"
             previewClassName="h-24 w-28"
-            hint="Close to square (8:7), at least 1250×1100. PNG, JPG or WebP, up to 5 MB. Until an image is uploaded, the automatic panel shows."
+            hint={
+              gathering
+                ? "Landscape (4:3), at least 1250×940. PNG, JPG or WebP, up to 5 MB. Until an image is uploaded, no image shows."
+                : "Close to square (8:7), at least 1250×1100. PNG, JPG or WebP, up to 5 MB. Until an image is uploaded, the automatic panel shows."
+            }
             value={landing.about_image_url ?? null}
             onChange={(url) => setLanding({ ...landing, about_image_url: url })}
             disabled={busy}
@@ -1561,7 +1583,11 @@ export default function LandingCmsPage() {
         label="Map link"
         optional
         type="url"
-        hint="Google Maps or similar. Opens as a link instead of being embedded, so the page loads no third-party scripts for visitors."
+        hint={
+          modern
+            ? "Google Maps or similar, for the Open map button. The map on the page is drawn from the venue name and address, so check those match. Empty = the button searches them."
+            : "Google Maps or similar. Opens as a link instead of being embedded, so the page loads no third-party scripts for visitors."
+        }
         placeholder="https://maps.app.goo.gl/..."
         value={facts.venue_map_url ?? ""}
         onChange={(event) => patchFacts({ venue_map_url: event.target.value })}
@@ -1624,7 +1650,7 @@ export default function LandingCmsPage() {
         />,
       )}
       {gathering ? (
-        <Kelompok title="Day cards" note="One card per agenda section, with up to three key times. The full schedule folds out below the cards.">
+        <Kelompok title="Day cards" note="One card per agenda section. A day with more than three sessions shows the first two and the last, plus how many more; breaks are skipped. The full schedule folds out below the cards.">
           {daftarCatatan}
         </Kelompok>
       ) : (
@@ -1668,7 +1694,13 @@ export default function LandingCmsPage() {
           optional
           rows={2}
           placeholder="Diselenggarakan oleh ..."
-          hint={modern ? "Below the event name in the footer. Empty = tagline and venue name." : "Shown in the Modern layout."}
+          hint={
+            gathering
+              ? "The gold line on the right of the footer. Empty = no line."
+              : modern
+                ? "Below the event name in the footer. Empty = event date and venue name."
+                : "Shown in the Modern layout."
+          }
           maxLength={180}
           counter
           value={landing.footer_note ?? ""}
@@ -1676,7 +1708,15 @@ export default function LandingCmsPage() {
         />
       </Kelompok>
       {modern ? (
-        <Kelompok title="Call-to-action banner" note={gathering ? "Above the footer, inviting guests to sign in." : "Above the footer, shown while registration is open and there is no call-to-action strip block."}>
+        <Kelompok
+          title="Call-to-action banner"
+          note={
+            // Isinya mengikuti keadaan, bukan selalu "masuk" (CMS mudah, butir 12).
+            (landing.blocks ?? []).some((blok) => blok.type === "cta" && landingBlockHasContent(blok) && sections.some((section) => section.enabled && section.id === blok.id))
+              ? "Hidden now, because the page has a call-to-action strip block. Hide or delete that block to show this banner above the footer."
+              : "Above the footer. While registration is open it asks guests to register. On an invite-only page with registration closed it asks them to sign in. Otherwise it is hidden."
+          }
+        >
           <TextField
             label="Banner heading"
             data-kolom="cta_heading"
@@ -2117,6 +2157,18 @@ export default function LandingCmsPage() {
           <ButtonLink href="/admin/area-peserta" variant="outlined" size="sm">Open Participant area</ButtonLink>
         </div>
       </Kelompok>
+      {/* Sebelumnya hanya bisa dinyalakan lewat preset Gathering (CMS mudah, butir 11). */}
+      {modern ? (
+        <Kelompok>
+          <Switch
+            checked={landing.invite_only === true}
+            onChange={(value) => setLanding({ ...landing, invite_only: value })}
+            disabled={busy}
+            label="Invite only"
+            description="While registration is closed, the page asks invited guests to sign in instead of saying registration opens soon. Works only while the participant area is open."
+          />
+        </Kelompok>
+      ) : null}
     </div>
   );
 
@@ -2366,9 +2418,17 @@ export default function LandingCmsPage() {
       case "venue": return gathering ? "Your hotel from Logistics, else the venue" : "Venue name, address, map";
       case "speakers": return `Built-in · ${plural(JUMLAH.speakers ?? 0, "speaker")}`;
       case "faq": return `Built-in · ${plural(JUMLAH.faq ?? 0, "question")}`;
-      case "highlights": return `Built-in · ${plural(JUMLAH.highlights ?? 0, "figure")}`;
-      case "sponsors": return `Built-in · ${plural(JUMLAH.sponsors ?? 0, "logo")}`;
-      case "contact": return "Name, phone, email";
+      // Modern tidak memberi tiga bagian ini tempat sendiri: subjudulnya
+      // menyebut di mana isinya tampil, karena posisinya di daftar tidak
+      // berpengaruh (CMS mudah, butir 4).
+      case "highlights":
+        return gathering
+          ? "Not shown in the gathering layout"
+          : modern
+            ? `First figure shows in the hero · ${plural(JUMLAH.highlights ?? 0, "figure")}`
+            : `Built-in · ${plural(JUMLAH.highlights ?? 0, "figure")}`;
+      case "sponsors": return modern ? `Shown in the footer · ${plural(JUMLAH.sponsors ?? 0, "logo")}` : `Built-in · ${plural(JUMLAH.sponsors ?? 0, "logo")}`;
+      case "contact": return modern ? "Shown in the footer · name, phone, email" : "Name, phone, email";
     }
   }
 

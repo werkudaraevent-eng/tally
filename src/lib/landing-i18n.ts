@@ -288,8 +288,12 @@ export function landingUntranslated(event: Partial<LandingHeadingFacts> & {
   }
   if (bagian("agenda")) {
     periksa(config.agenda_note, en.agenda_note, "agenda_note", "agenda");
-    periksa(config.program_heading, en.program_heading, "program_heading", "agenda");
-    periksa(config.program_intro, en.program_intro, "program_intro", "agenda");
+    // Gaya gathering tidak menampilkan kartu Program, jadi judul dan pengantarnya tidak dihitung.
+    const gayaGathering = config.layout === "modern" && config.gathering === true;
+    if (!gayaGathering) {
+      periksa(config.program_heading, en.program_heading, "program_heading", "agenda");
+      periksa(config.program_intro, en.program_intro, "program_intro", "agenda");
+    }
     config.program_notes?.forEach((catatan, index) => periksa(catatan, en.program_notes?.[index], `program_notes.${index}`, "agenda"));
   }
   if (bagian("venue")) periksa(event.venue_address, en.venue_address, "event.venue_address", "venue");
