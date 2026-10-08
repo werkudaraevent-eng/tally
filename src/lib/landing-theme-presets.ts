@@ -169,8 +169,10 @@ export function terapkanPreset(preset: LandingThemePreset, landing: EventLanding
   return gayaPreset(preset, {
     ...landing,
     layout: preset.layout,
+    // Khusus undangan kini sakelar sendiri di tab Peserta: preset yang tidak
+    // menyebutnya membiarkan pilihan admin (QA #110 M2).
+    invite_only: preset.features.invite_only ?? landing.invite_only,
     // Satu preset, satu gaya: memilih preset lain mematikan gaya gathering.
-    invite_only: Boolean(preset.features.invite_only),
     gathering: Boolean(preset.features.gathering),
     ...(dariGathering ? { nav: lepasBilahGathering(landing.nav) } : {}),
   });

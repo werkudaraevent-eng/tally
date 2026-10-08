@@ -1025,7 +1025,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           hakCipta={[
             [`© ${tahun}`, [subNama, nama]
               .filter((teks): teks is string => Boolean(teks))
-              .map((teks) => teks.replace(new RegExp(`\\s*${tahun}$`), ""))
+              .map((teks) => tanpaTahunUjung(teks, tahun))
               .filter((teks, index, semua) => teks && semua.indexOf(teks) === index)
               .join(" · ")]
               .filter(Boolean)
@@ -1111,6 +1111,17 @@ function waktuInap(iso: string | null, zona: EventTimeZone, lang: LandingLang): 
   const hari = new Intl.DateTimeFormat(locale, { timeZone: zona, weekday: "short", day: "numeric", month: "short" }).format(tanggal);
   const jamnya = new Intl.DateTimeFormat(locale, { timeZone: zona, hour: "2-digit", minute: "2-digit", hour12: false }).format(tanggal);
   return `${hari} · ${lang === "en" ? jamnya : jamnya.replace(":", ".")}`;
+}
+
+// Kata sambung yang butuh tahunnya: "Road to 2026" tetap utuh (QA #110 L3).
+const SAMBUNG_TAHUN = /\b(to|towards?|for|of|menuju|jelang|ke|untuk)$/i;
+
+/** Buang tahun acara di ujung nama ("KSO Sucofindo 2026" → "KSO Sucofindo"); nama yang hanya tahun menjadi kosong. */
+function tanpaTahunUjung(teks: string, tahun: string): string {
+  if (teks.trim() === tahun) return "";
+  const cocok = teks.match(new RegExp(`^(.*\\S)\\s+${tahun}$`));
+  if (!cocok || SAMBUNG_TAHUN.test(cocok[1])) return teks;
+  return cocok[1];
 }
 
 /**

@@ -1095,7 +1095,7 @@ export default function LandingCmsPage() {
           optional
           hint={
             gathering
-              ? "Shown in the top bar, the label above the title, the form and link preview. In the gathering layout the Title below is the large heading. Leave empty to use the event name from admin."
+              ? "Shown in the top bar, the label above the title, the form and link preview. In the gathering layout the Title below is the large heading, or this name when Title is empty. Leave empty to use the event name from admin."
               : "The large title in the hero, top bar, form and link preview. Leave empty to use the event name from admin."
           }
           maxLength={120}
@@ -1256,7 +1256,7 @@ export default function LandingCmsPage() {
           previewClassName="h-20 w-36"
           hint={
             gathering
-              ? "Not shown in the gathering hero. Used as the About picture when About has no photo, and as the link-preview image. PNG, JPG or WebP, up to 5 MB."
+              ? "Not shown on the gathering page; used as the link-preview image. PNG, JPG or WebP, up to 5 MB."
               : "16:9 ratio, at least 1920×1080. Keep the important part of the image at the top or right: the title sits bottom left. PNG, JPG or WebP, up to 5 MB."
           }
           value={landing.banner_url ?? null}
@@ -1584,8 +1584,10 @@ export default function LandingCmsPage() {
         optional
         type="url"
         hint={
-          modern
-            ? "Google Maps or similar, for the Open map button. The map on the page is drawn from the venue name and address, so check those match. Empty = the button searches them."
+          gathering
+            ? "Google Maps or similar, for the \"Buka peta\" or \"Buka di Google Maps\" button. Not used while Logistics has a hotel, because the page shows the hotel instead. Empty = the button searches the venue name and address."
+            : modern
+            ? "Google Maps or similar, for the \"Buka peta\" or \"Buka di Google Maps\" button. The map on the page is drawn from the venue name and address, so check those match. Empty = the button searches them."
             : "Google Maps or similar. Opens as a link instead of being embedded, so the page loads no third-party scripts for visitors."
         }
         placeholder="https://maps.app.goo.gl/..."
@@ -1714,7 +1716,7 @@ export default function LandingCmsPage() {
             // Isinya mengikuti keadaan, bukan selalu "masuk" (CMS mudah, butir 12).
             (landing.blocks ?? []).some((blok) => blok.type === "cta" && landingBlockHasContent(blok) && sections.some((section) => section.enabled && section.id === blok.id))
               ? "Hidden now, because the page has a call-to-action strip block. Hide or delete that block to show this banner above the footer."
-              : "Above the footer. While registration is open it asks guests to register. On an invite-only page with registration closed it asks them to sign in. Otherwise it is hidden."
+              : "Above the footer. While registration is open it asks guests to register. On an invite-only page with registration closed it asks them to sign in, using standard text: the heading and text below are not used there. Otherwise it is hidden."
           }
         >
           <TextField
@@ -2165,7 +2167,9 @@ export default function LandingCmsPage() {
             onChange={(value) => setLanding({ ...landing, invite_only: value })}
             disabled={busy}
             label="Invite only"
-            description="While registration is closed, the page asks invited guests to sign in instead of saying registration opens soon. Works only while the participant area is open."
+            description="While registration is closed, the page asks invited guests to sign in instead of saying registration opens soon. The sign-in banner above the footer uses standard text. Works only while the participant area is open."
+            note={landing.member?.enabled === true ? undefined : "The participant area is closed, so this has no effect now."}
+            className={landing.member?.enabled === true ? undefined : "opacity-60"}
           />
         </Kelompok>
       ) : null}
@@ -2425,9 +2429,9 @@ export default function LandingCmsPage() {
         return gathering
           ? "Not shown in the gathering layout"
           : modern
-            ? `First figure shows in the hero · ${plural(JUMLAH.highlights ?? 0, "figure")}`
+            ? `First figure shows beside About, when About uses the automatic picture · ${plural(JUMLAH.highlights ?? 0, "figure")}`
             : `Built-in · ${plural(JUMLAH.highlights ?? 0, "figure")}`;
-      case "sponsors": return modern ? `Shown in the footer · ${plural(JUMLAH.sponsors ?? 0, "logo")}` : `Built-in · ${plural(JUMLAH.sponsors ?? 0, "logo")}`;
+      case "sponsors": return modern ? `Logo strip above the footer · ${plural(JUMLAH.sponsors ?? 0, "logo")}` : `Built-in · ${plural(JUMLAH.sponsors ?? 0, "logo")}`;
       case "contact": return modern ? "Shown in the footer · name, phone, email" : "Name, phone, email";
     }
   }

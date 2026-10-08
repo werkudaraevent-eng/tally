@@ -351,13 +351,15 @@ export function BagianEn({
         return [kolom("venue_name", "Venue name", facts.venue_name, 200), kolom("venue_address", "Address", facts.venue_address, 600, true), judulBagian("venue")];
       case "agenda": {
         const catatan = landing.program_notes ?? [];
+        // Syarat yang sama dengan landingUntranslated, supaya lencana menghitung kolom yang tampil (QA #110 L4).
+        const gayaGathering = landing.layout === "modern" && landing.gathering === true;
         return [
           judulBagian("agenda"),
           kolom("agenda_note", "Agenda note", landing.agenda_note, 140),
           // Gathering tidak punya kartu Program: judul dan pengantarnya tidak
           // tampil, jadi tidak perlu diterjemahkan (CMS mudah, butir 14).
-          landing.gathering ? null : kolom("program_heading", "Programme section heading", landing.program_heading, 120),
-          landing.gathering ? null : kolom("program_intro", "Programme intro", landing.program_intro, 400, true),
+          gayaGathering ? null : kolom("program_heading", "Programme section heading", landing.program_heading, 120),
+          gayaGathering ? null : kolom("program_intro", "Programme intro", landing.program_intro, 400, true),
           ...catatan.map((teks, index) =>
             ada(teks) ? (
               <KolomEn
