@@ -812,7 +812,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           aksiKedua={tampil("agenda") ? { href: "#agenda", label: t.seeTrip } : null}
           pratinjau={
             pratinjau && !member && config.portal_preview !== false ? (
-              <div className="h-[420px] w-[330px]">
+              <div className="h-[270px] w-[270px]">
                 <KotakKosong slug={event.slug} gelap judul="Portal preview" teks="Shows here once the Participant area is open." aksi={{ label: "Participant area", href: "/admin/area-peserta" }} />
               </div>
             ) : member && config.portal_preview !== false ? (

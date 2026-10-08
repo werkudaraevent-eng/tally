@@ -664,7 +664,7 @@ export default function LandingCmsPage() {
     // tab baru. Saat kembali, status rundown dan setelan area peserta dibaca
     // ulang, dan pratinjau dimuat ulang bila salah satunya berubah.
     setIsiRundown(statusRundown(isiAdmin));
-    void segarkanPratinjau(JSON.stringify(isiAdmin));
+    await segarkanPratinjau(JSON.stringify(isiAdmin));
     // Rundown gagal dimuat saat editor dibuka: sesi teks lama dihubungkan
     // sekarang, sekali, sama dengan saat memuat. Tercatat tersimpan hanya bila
     // belum ada suntingan, supaya suntingan yang belum disimpan tetap terlihat.
@@ -691,9 +691,32 @@ export default function LandingCmsPage() {
     }
   }, [segarkanPratinjau]);
   useEffect(() => {
-    const onFocus = () => void muatBarisSesi();
+    // Fokus bisa datang beruntun (pindah jendela bolak-balik): ditunggu sebentar,
+    // dan hanya satu muat ulang berjalan; fokus selama itu memicu satu putaran
+    // lagi sesudahnya, jadi jawaban lama tidak menimpa yang baru (QA #116 L2).
+    let timer: number | undefined;
+    let jalan = false;
+    let lagi = false;
+    let lepas = false;
+    const muat = async () => {
+      if (jalan) { lagi = true; return; }
+      jalan = true;
+      try {
+        do { lagi = false; await muatBarisSesi(); } while (lagi && !lepas);
+      } finally {
+        jalan = false;
+      }
+    };
+    const onFocus = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void muat(), 300);
+    };
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    return () => {
+      lepas = true;
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [muatBarisSesi]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);

@@ -236,8 +236,14 @@ export function LandingPreview({
       }
       // Tombol di kotak bertitik: halaman admin acara ini saja, di tab baru.
       // Editor memuat ulang pratinjau saat admin kembali ke tab ini.
-      if (event.data?.jenis === "tally-pratinjau-admin" && typeof event.data.href === "string" && event.data.href.startsWith(`/e/${slug}/admin/`)) {
-        window.open(event.data.href, "_blank", "noreferrer");
+      if (event.data?.jenis === "tally-pratinjau-admin" && typeof event.data.href === "string") {
+        // Jalur yang sudah dinormalkan (`..`, `%2e`) yang diperiksa, dan hanya
+        // asal yang sama (QA #116 I1).
+        let tujuan: URL | null = null;
+        try { tujuan = new URL(event.data.href, window.location.origin); } catch { tujuan = null; }
+        if (tujuan && tujuan.origin === window.location.origin && tujuan.pathname.startsWith(`/e/${slug}/admin/`)) {
+          window.open(tujuan.pathname + tujuan.search, "_blank", "noreferrer");
+        }
       }
       if (event.data?.jenis === "tally-pratinjau-kosong") setAdaKosong(event.data.ada === true);
       if (event.data?.jenis === "tally-pratinjau-bahasa") onBahasa?.(event.data.bahasa === "en" ? "en" : "id");

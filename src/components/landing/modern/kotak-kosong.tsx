@@ -29,19 +29,22 @@ export function KotakKosong({
   teks: string;
   aksi: { label: string; href?: string };
   slug: string;
-  /** Di atas hero gelap (tempat kartu Portal preview). */
+  /** Di atas hero (tempat kartu Portal preview): garis dan teks memakai tinta
+   *  hero (`--ink`), jadi terbaca di hero gelap maupun terang (QA #116 M1). */
   gelap?: boolean;
 }) {
   const tombol = aksi.href ? (
     <a
       href={`/e/${slug}${aksi.href}`}
       data-pratinjau-admin=""
-      className={`inline-flex h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border-2 px-5 text-[18px] font-semibold lg:h-[60px] lg:text-[26px] ${
-        gelap ? "border-white/70 text-white" : "border-[#747775] bg-white text-[#0b57d0]"
+      className={`inline-flex h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border-2 px-5 font-semibold ${
+        gelap
+          ? "self-start border-[color-mix(in_srgb,var(--ink)_70%,transparent)] text-[16px] text-[var(--ink)]"
+          : "border-[#747775] bg-white text-[18px] text-[#0b57d0] lg:h-[60px] lg:text-[26px]"
       }`}
     >
       {aksi.label}
-      <ArrowSquareOut className="size-5 lg:size-[22px]" aria-hidden />
+      <ArrowSquareOut className={gelap ? "size-5" : "size-5 lg:size-[22px]"} aria-hidden />
     </a>
   ) : (
     <span className="inline-flex h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border-2 border-[#747775] bg-white px-5 text-[18px] font-semibold text-[#0b57d0] lg:h-[60px] lg:text-[26px]">
@@ -54,17 +57,17 @@ export function KotakKosong({
       data-kotak-kosong=""
       className={`flex rounded-3xl border-[3px] border-dashed ${
         gelap
-          ? "h-full flex-col justify-center gap-0 rounded-[40px] border-white/55 bg-white/[0.06] p-9 text-white"
+          ? "h-full flex-col justify-center gap-0 rounded-[36px] border-[color-mix(in_srgb,var(--ink)_55%,transparent)] bg-[color-mix(in_srgb,var(--ink)_6%,transparent)] p-6 text-[var(--ink)]"
           : "flex-col gap-5 border-[#9aa0a6] bg-[repeating-linear-gradient(135deg,#f4f5f6_0_14px,#eef0f2_14px_28px)] p-6 text-[#1f1f1f] sm:flex-row sm:items-center sm:gap-8 lg:px-12 lg:py-10"
       }`}
       style={{ fontFamily: "Inter, system-ui, sans-serif" }}
     >
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-3 text-[20px] font-semibold leading-tight lg:text-[30px]">
+        <p className={`flex flex-wrap items-center gap-3 font-semibold leading-tight ${gelap ? "text-[22px]" : "text-[20px] lg:text-[30px]"}`}>
           {judul}
           {chip ? <span className="rounded-lg bg-[#fdecd8] px-3 py-1 text-[15px] font-semibold text-[#8a4b00] lg:text-[22px]">{chip}</span> : null}
         </p>
-        <p className={`mt-2 max-w-[760px] text-[17px] leading-normal lg:text-[26px] ${gelap ? "mb-7 text-white/80" : "text-[#444746]"}`}>{teks}</p>
+        <p className={`mt-2 max-w-[760px] leading-normal ${gelap ? "mb-5 text-[16px] text-[color-mix(in_srgb,var(--ink)_80%,transparent)]" : "text-[17px] text-[#444746] lg:text-[26px]"}`}>{teks}</p>
       </div>
       {tombol}
     </div>
