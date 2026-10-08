@@ -121,6 +121,8 @@ export async function GET(request: Request) {
     kesiapan: {
       deskripsi: Boolean(event.description?.trim()),
       banner: Boolean(landing.banner_url),
+      // Gathering menyunting KV di Theme > Page, bukan di Hero (QA #110 K2).
+      banner_gathering: landing.layout === "modern" && landing.gathering === true,
       venue: Boolean(event.venue_name?.trim()),
       jadwal: Boolean(event.event_date),
       agenda: jumlahAgenda ?? 0,

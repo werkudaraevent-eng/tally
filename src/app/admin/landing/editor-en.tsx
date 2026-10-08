@@ -296,7 +296,7 @@ export function BagianEn({
               key="tagline"
               data-kolom="tagline"
               label="Title"
-              hint={ada(facts.tagline) ? `ID: ${tanpaBintang(facts.tagline ?? "")} · Empty uses the Indonesian title.` : "The Indonesian title is empty."}
+              hint={ada(facts.tagline) ? `ID: ${tanpaBintang(facts.tagline ?? "")} · Empty uses the Indonesian title.` : "Shows on the English page once the Indonesian title is filled."}
               accent={landingTokens(landing).accent ?? "#d4a72c"}
               maxLength={200}
               value={en.tagline ?? ""}
@@ -308,7 +308,7 @@ export function BagianEn({
           ...(landing.gathering
             ? [kolom("hero_eyebrow", "Label above the title", landing.hero_eyebrow, 60, true), kolom("hero_note", "Line below the title", landing.hero_note, 240, true)]
             : []),
-          kolom("cta_label", "Registration button text", landing.cta_label, 40),
+          kolom("cta_label", "Register button text", landing.cta_label, 40),
         ];
       case "kaki":
         return [
@@ -351,11 +351,15 @@ export function BagianEn({
         return [kolom("venue_name", "Venue name", facts.venue_name, 200), kolom("venue_address", "Address", facts.venue_address, 600, true), judulBagian("venue")];
       case "agenda": {
         const catatan = landing.program_notes ?? [];
+        // Syarat yang sama dengan landingUntranslated, supaya lencana menghitung kolom yang tampil (QA #110 L4).
+        const gayaGathering = landing.layout === "modern" && landing.gathering === true;
         return [
           judulBagian("agenda"),
           kolom("agenda_note", "Agenda note", landing.agenda_note, 140),
-          kolom("program_heading", "Programme section heading", landing.program_heading, 120),
-          kolom("program_intro", "Programme intro", landing.program_intro, 400, true),
+          // Gathering tidak punya kartu Program: judul dan pengantarnya tidak
+          // tampil, jadi tidak perlu diterjemahkan (CMS mudah, butir 14).
+          gayaGathering ? null : kolom("program_heading", "Programme section heading", landing.program_heading, 120),
+          gayaGathering ? null : kolom("program_intro", "Programme intro", landing.program_intro, 400, true),
           ...catatan.map((teks, index) =>
             ada(teks) ? (
               <KolomEn

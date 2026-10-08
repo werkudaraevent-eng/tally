@@ -35,6 +35,7 @@ type Overview = {
   kesiapan: {
     deskripsi: boolean;
     banner: boolean;
+    banner_gathering?: boolean;
     venue: boolean;
     jadwal: boolean;
     agenda: number;
@@ -153,7 +154,7 @@ export default function AdminPage() {
     { siap: data.kesiapan.deskripsi, label: "Deskripsi di halaman acara", href: "/admin/landing", wajib: true },
     { siap: data.kesiapan.agenda > 0, label: "Rundown acara", href: "/admin/rundown", wajib: true },
     { siap: data.kesiapan.email_aktif, label: "Pengiriman email kode peserta", href: null, wajib: true, catatan: CATATAN_EMAIL },
-    { siap: data.kesiapan.banner, label: "Banner halaman acara", href: "/admin/landing", wajib: false },
+    { siap: data.kesiapan.banner, label: data.kesiapan.banner_gathering ? "Gambar pratinjau tautan (Theme › Page)" : "Banner halaman acara", href: "/admin/landing", wajib: false },
     { siap: data.kesiapan.denah > 0, label: "Denah kursi", href: "/admin/seat-map", wajib: false },
     { siap: data.kesiapan.booth_aktif > 0, label: "Booth aktif", href: "/admin/booths", wajib: false },
     { siap: data.event.registration_enabled, label: "Pendaftaran dibuka", href: "/admin/registrasi", wajib: false },

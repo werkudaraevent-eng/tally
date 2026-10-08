@@ -78,6 +78,65 @@ function bacaPotongan(akar: HTMLElement): PotonganJudul[] {
   return hasil;
 }
 
+/** Letak node sebagai urutan anak dari `akar`, untuk mencari kembarannya di salinan. */
+function jalur(node: Node, akar: Node): number[] {
+  const hasil: number[] = [];
+  let n: Node | null = node;
+  while (n && n !== akar) {
+    const induk: Node | null = n.parentNode;
+    if (!induk) break;
+    hasil.unshift(Array.prototype.indexOf.call(induk.childNodes, n));
+    n = induk;
+  }
+  return hasil;
+}
+
+function diJalur(akar: Node, urutan: number[]): Node {
+  return urutan.reduce<Node>((node, i) => node.childNodes[i], akar);
+}
+
+/** Pilihan diperlebar ke batas kata, supaya tanda tidak memotong kata. */
+function lebarkanKeKata(range: Range) {
+  const { startContainer, startOffset, endContainer, endOffset } = range;
+  if (startContainer.nodeType === Node.TEXT_NODE) {
+    const teks = startContainer.textContent ?? "";
+    let awal = startOffset;
+    while (awal > 0 && HURUF_KATA.test(teks[awal - 1]) && HURUF_KATA.test(teks[awal] ?? "")) awal -= 1;
+    range.setStart(startContainer, awal);
+  }
+  if (endContainer.nodeType === Node.TEXT_NODE) {
+    const teks = endContainer.textContent ?? "";
+    let akhir = endOffset;
+    while (akhir < teks.length && HURUF_KATA.test(teks[akhir]) && HURUF_KATA.test(teks[akhir - 1] ?? "")) akhir += 1;
+    range.setEnd(endContainer, akhir);
+  }
+}
+
+/** Tandai pilihan: diperlebar ke kata, tanda di dalamnya dilebur jadi satu. */
+function tandai(range: Range): HTMLElement {
+  lebarkanKeKata(range);
+  const isi = range.extractContents();
+  const baru = document.createElement("mark");
+  baru.textContent = isi.textContent;
+  range.insertNode(baru);
+  return baru;
+}
+
+/**
+ * Panjang tersimpan bila pilihan ini ditandai, dihitung pada salinan kolom.
+ * Menggabungkan tanda yang sudah ada bisa tidak menambah panjang sama sekali
+ * (`*kata* baru` menjadi satu tanda), jadi bukan sekadar +2 (QA #110 R3-2).
+ */
+function panjangBilaDitandai(akar: HTMLElement, range: Range): number {
+  const salinan = akar.cloneNode(true) as HTMLElement;
+  const r = document.createRange();
+  r.setStart(diJalur(salinan, jalur(range.startContainer, akar)), range.startOffset);
+  r.setEnd(diJalur(salinan, jalur(range.endContainer, akar)), range.endOffset);
+  tandai(r);
+  salinan.normalize();
+  return susunJudul(bacaPotongan(salinan)).length;
+}
+
 /** Tanda tempat node ini berada, bila ada, di dalam kolom `akar`. */
 function tandaDari(node: Node | null, akar: HTMLElement | null): HTMLElement | null {
   const el = node instanceof Element ? node : node?.parentElement;
@@ -122,6 +181,8 @@ export function HighlightField({
   // Pilihan teks ada di dalam tanda: tombolnya jadi "Remove highlight".
   const [diTanda, setDiTanda] = useState(false);
   const [adaPilihan, setAdaPilihan] = useState(false);
+  // Tanda baru tidak muat dalam batas: tombolnya mati dan mengatakan sebabnya.
+  const [tidakMuat, setTidakMuat] = useState(false);
   // Selama IME menyusun huruf, DOM tidak disentuh; batas diperiksa saat selesai.
   const menyusun = useRef(false);
 
@@ -151,6 +212,10 @@ export function HighlightField({
     (ketik = false) => {
       const el = kolom.current;
       if (!el) return;
+      // Selama IME menyusun, nilai belum dibaca: huruf setengah jadi tidak
+      // tersimpan, dan bila hasil akhirnya ditolak kolom kembali ke nilai
+      // sebelum menyusun, tanpa sisa (QA #110 R3-1).
+      if (menyusun.current) return;
       el.normalize();
       const nilai = susunJudul(bacaPotongan(el));
       const sebelum = terakhir.current ?? "";
@@ -158,12 +223,10 @@ export function HighlightField({
       // melewati batas dibatalkan (ketik IME, Highlight, tempel). Yang sudah
       // terlanjur panjang dari server tetap boleh dipendekkan (QA #109 N1).
       if (maxLength && nilai.length > maxLength && nilai.length > sebelum.length) {
-        if (!menyusun.current) {
-          el.innerHTML = keHtml(sebelum);
-          const sel = window.getSelection();
-          sel?.selectAllChildren(el);
-          sel?.collapseToEnd();
-        }
+        el.innerHTML = keHtml(sebelum);
+        const sel = window.getSelection();
+        sel?.selectAllChildren(el);
+        sel?.collapseToEnd();
         return;
       }
       // Blok atau <br> sisa baris baru ditulis ulang menjadi satu baris.
@@ -209,30 +272,15 @@ export function HighlightField({
       const range = pilihan();
       setDiTanda(Boolean(range && tandaDari(range.commonAncestorContainer, kolom.current)));
       setAdaPilihan(Boolean(range && !range.collapsed));
+      const el = kolom.current;
+      setTidakMuat(Boolean(maxLength && el && range && !range.collapsed && !tandaDari(range.commonAncestorContainer, el) && panjangBilaDitandai(el, range) > maxLength));
     }
     document.addEventListener("selectionchange", ubah);
     return () => document.removeEventListener("selectionchange", ubah);
-  }, [pilihan]);
+  }, [pilihan, maxLength]);
 
   function lepasTanda(tanda: HTMLElement) {
     tanda.replaceWith(...tanda.childNodes);
-  }
-
-  /** Pilihan diperlebar ke batas kata, supaya tanda tidak memotong kata. */
-  function lebarkanKeKata(range: Range) {
-    const { startContainer, startOffset, endContainer, endOffset } = range;
-    if (startContainer.nodeType === Node.TEXT_NODE) {
-      const teks = startContainer.textContent ?? "";
-      let awal = startOffset;
-      while (awal > 0 && HURUF_KATA.test(teks[awal - 1]) && HURUF_KATA.test(teks[awal] ?? "")) awal -= 1;
-      range.setStart(startContainer, awal);
-    }
-    if (endContainer.nodeType === Node.TEXT_NODE) {
-      const teks = endContainer.textContent ?? "";
-      let akhir = endOffset;
-      while (akhir < teks.length && HURUF_KATA.test(teks[akhir]) && HURUF_KATA.test(teks[akhir - 1] ?? "")) akhir += 1;
-      range.setEnd(endContainer, akhir);
-    }
   }
 
   function sorot() {
@@ -250,14 +298,12 @@ export function HighlightField({
       window.getSelection()?.addRange(sisa);
     } else {
       if (range.collapsed) return;
-      // Tanda menambah dua bintang tersimpan.
-      if (maxLength && (terakhir.current ?? value).length + 2 > maxLength) return;
-      lebarkanKeKata(range);
-      // Tanda di dalam pilihan dilebur dulu: satu tanda, bukan tanda bersarang.
-      const isi = range.extractContents();
-      const baru = document.createElement("mark");
-      baru.textContent = isi.textContent;
-      range.insertNode(baru);
+      if (maxLength && panjangBilaDitandai(el, range) > maxLength) return;
+      const baru = tandai(range);
+      // extractContents meninggalkan tanda kosong di tepi pilihan (QA #109 N3).
+      el.querySelectorAll("mark").forEach((tanda) => {
+        if (!tanda.textContent) tanda.remove();
+      });
       window.getSelection()?.selectAllChildren(baru);
     }
     kirim();
@@ -381,17 +427,26 @@ export function HighlightField({
         style={{ "--sorot": `color-mix(in srgb, ${accent} 35%, white)` } as CSSProperties}
       >
         <div className="flex gap-1 border-b border-outline-variant p-1">
-          <button
-            type="button"
-            // mousedown dicegah supaya pilihan teks di kolom tidak hilang.
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={sorot}
-            disabled={!diTanda && !adaPilihan}
-            className={cx(tombol, diTanda && "bg-secondary-container")}
-          >
-            <HighlighterCircle size={18} aria-hidden />
-            {diTanda ? "Remove highlight" : "Highlight"}
-          </button>
+          {/* Tombol mati tidak menampilkan title di semua peramban: title di pembungkus. */}
+          <span title={tidakMuat && !diTanda ? `No room: a highlight adds 2 characters and the limit is ${maxLength}.` : undefined} className="inline-flex">
+            <button
+              type="button"
+              // mousedown dicegah supaya pilihan teks di kolom tidak hilang.
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={sorot}
+              disabled={!diTanda && (!adaPilihan || tidakMuat)}
+              aria-describedby={tidakMuat && !diTanda ? `${id}-penuh` : undefined}
+              className={cx(tombol, diTanda && "bg-secondary-container")}
+            >
+              <HighlighterCircle size={18} aria-hidden />
+              {diTanda ? "Remove highlight" : "Highlight"}
+            </button>
+          </span>
+          {tidakMuat && !diTanda ? (
+            <span id={`${id}-penuh`} className="sr-only">
+              No room: a highlight adds 2 characters and the limit is {maxLength}.
+            </span>
+          ) : null}
           <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={bersihkan} disabled={!adaTanda} className={tombol}>
             <TextTSlash size={18} aria-hidden />
             Clear

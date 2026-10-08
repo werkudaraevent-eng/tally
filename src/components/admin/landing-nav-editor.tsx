@@ -55,9 +55,12 @@ export function BilahAtasEditor({
   onChange,
   eventName,
   disabled,
+  gathering = false,
 }: {
   value: LandingNavConfig;
   onChange: (next: LandingNavConfig) => void;
+  /** Hero gathering tanpa gambar: petunjuknya menyebut "hero", bukan "hero image" (CMS mudah, butir 15). */
+  gathering?: boolean;
   eventName: string;
   disabled?: boolean;
 }) {
@@ -113,7 +116,7 @@ export function BilahAtasEditor({
           className="h-11 w-full accent-primary"
         />
         <p className="mt-1.5 text-body-medium text-on-surface-variant">
-          0% is clear, 100% is solid. Applies while the bar sits over the hero image. Past the hero, the bar is at least 90% solid so its text stays readable over the white page.
+          0% is clear, 100% is solid. Applies while the bar sits over the {gathering ? "hero" : "hero image"}. Past the hero, the bar is at least 90% solid so its text stays readable over the white page.
         </p>
       </div>
       <div>
@@ -129,7 +132,7 @@ export function BilahAtasEditor({
           ]}
         />
         <p className="mt-1.5 text-body-medium text-on-surface-variant">
-          {LANDING_NAV_WIDTH_LABELS.content}: the bar lines up with the page content, its bottom corners are rounded, and the hero image shows on either side.
+          {LANDING_NAV_WIDTH_LABELS.content}: the bar lines up with the page content, its bottom corners are rounded, and the {gathering ? "hero colour" : "hero image"} shows on either side.
         </p>
       </div>
       <div className="flex flex-col gap-1.5">
