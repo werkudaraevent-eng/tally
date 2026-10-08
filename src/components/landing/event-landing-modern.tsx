@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { tanpaBintang } from "@/lib/landing-tagline";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, CalendarBlank, CalendarPlus, Clock, MapPin, Minus, Moon, Plus } from "@phosphor-icons/react/dist/ssr";
 import type {
@@ -371,7 +372,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // kanan. Satu hari: judulnya tanggal, jadi tanggal di kanan tidak diulang.
   const judulAgenda = config.agenda_heading?.trim() || (agenda.length > 1 ? t.tripDays(agenda.length) : judulBagian("agenda").judul);
   // Gathering: "Perjalanan" ke bagian Portal peserta, seperti rancangan.
-  const menuAtas = gaya && member && !navSections.some((section) => section.id === "portal") ? [...navSections, { id: "portal", label: t.navPortal }] : navSections;
+  const menuAtas = gaya && member && config.portal_section !== false && !navSections.some((section) => section.id === "portal") ? [...navSections, { id: "portal", label: t.navPortal }] : navSections;
 
   // Bagian bawaan, dirender menurut susunan dari CMS bersama blok dari pustaka
   // blok. Program (kartu dari bagian rundown) menempel pada Tentang acara, atau
@@ -746,7 +747,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           }
           aksiKedua={tampil("agenda") ? { href: "#agenda", label: t.seeTrip } : null}
           pratinjau={
-            member ? (
+            member && config.portal_preview !== false ? (
               <PratinjauPortal
                 agenda={agendaSelanjutnya(agenda, lang, zona, hariIni(event.time_zone), jamIni(event.time_zone))}
                 logistik={member.show_logistics === true}
@@ -810,7 +811,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               {event.tagline && !judulAjakan ? (
                 // body-large 16/24 di ponsel, title-large 22/28 di layar lebar (skala tipe M3).
                 <p data-sunting="pembuka:tagline" className="rise-in mt-4 max-w-[720px] text-body-large opacity-90 sm:text-title-large sm:font-normal" style={HERO_DELAY(2)}>
-                  {event.tagline}
+                  {tanpaBintang(event.tagline)}
                 </p>
               ) : null}
               {/* Info acara sebagai teks berikon, bukan chip: di M3 chip adalah
@@ -978,8 +979,8 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       </div>
 
       {/* Gathering: apa yang menunggu tamu di area peserta (ubin mengikuti saklar Area peserta). */}
-      {gaya && member ? (
-        <div className={SHELL}>
+      {gaya && member && config.portal_section !== false ? (
+        <div className={SHELL} data-bagian="portal">
           <PortalGathering
             alis={t.portalEyebrow}
             judul={t.portalHeading}

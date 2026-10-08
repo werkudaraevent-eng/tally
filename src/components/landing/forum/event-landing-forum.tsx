@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { tanpaBintang } from "@/lib/landing-tagline";
 import type { EventLandingConfig, EventRow, LandingForumConfig, LandingForumPage, LandingForumPart } from "@/lib/domain";
 import { publicEventName } from "@/lib/domain";
 import { forumThemeStyle } from "@/lib/registration-theme-css";
@@ -152,7 +153,7 @@ export async function EventLandingForum({ event, halaman, pratinjau = false }: P
               ) : null}
               <h1 className={`${H_HERO} w-full text-balance`}>{nama}</h1>
               {event.tagline?.trim() ? (
-                <p className="text-[clamp(17px,1.25vw,24px)] leading-[1.3] tracking-[-0.02em]">{event.tagline.trim()}</p>
+                <p className="text-[clamp(17px,1.25vw,24px)] leading-[1.3] tracking-[-0.02em]">{tanpaBintang(event.tagline.trim())}</p>
               ) : null}
               {daftarUrl ? (
                 <a

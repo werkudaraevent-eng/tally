@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { tanpaBintang } from "@/lib/landing-tagline";
 import Link from "next/link";
 import { ArrowRight, CalendarPlus, CaretDown, MapPin } from "@phosphor-icons/react/dist/ssr";
 import type {
@@ -281,7 +282,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
 
               {event.tagline ? (
                 <p className={`rise-in mt-6 max-w-[40ch] text-title-large leading-8 ${heroMuted}`} style={HERO_DELAY(2)}>
-                  {event.tagline}
+                  {tanpaBintang(event.tagline)}
                 </p>
               ) : null}
 

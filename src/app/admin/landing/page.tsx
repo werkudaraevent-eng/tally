@@ -1,7 +1,7 @@
 "use client";
 
 import { pesanGalatApi } from "@/lib/api-message";
-import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Lightning, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
@@ -12,6 +12,7 @@ import { AdminBarPortal, useAdminPage } from "@/components/admin/page-context";
 import { bacaLokal, langgananLokal, tulisLokal } from "@/lib/local-store";
 import { useToast } from "@/components/toast";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
+import { HighlightField } from "@/components/admin/highlight-field";
 import { LandingPreview } from "@/components/admin/landing-preview";
 import {
   LANDING_ABOUT_CARDS,
@@ -241,14 +242,23 @@ function tampilkanKolom(barisId: string, kunci: string) {
     const atas = kolom.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop;
     // Di bawah kepala baris yang menempel (56px) dan label kolomnya.
     wadah.scrollTo({ top: Math.max(0, atas - 96), behavior: "smooth" });
-    if (!kolom.matches("input, textarea")) return;
-    const isian = kolom as HTMLInputElement | HTMLTextAreaElement;
-    isian.focus({ preventScroll: true });
-    // Kursor di akhir isi, siap menyambung tulisan (QA #108 L1). Kolom
-    // seperti type="url" tidak punya pilihan teks dan melempar galat.
-    try {
-      isian.setSelectionRange(isian.value.length, isian.value.length);
-    } catch {}
+    if (kolom.matches("input, textarea")) {
+      const isian = kolom as HTMLInputElement | HTMLTextAreaElement;
+      isian.focus({ preventScroll: true });
+      // Kursor di akhir isi, siap menyambung tulisan (QA #108 L1). Kolom
+      // seperti type="url" tidak punya pilihan teks dan melempar galat.
+      try {
+        isian.setSelectionRange(isian.value.length, isian.value.length);
+      } catch {}
+      return;
+    }
+    // Kolom Highlight (contentEditable): kursor juga di akhir.
+    const sunting = kolom.querySelector<HTMLElement>("[contenteditable]");
+    if (!sunting) return;
+    sunting.focus({ preventScroll: true });
+    const pilihan = window.getSelection();
+    pilihan?.selectAllChildren(sunting);
+    pilihan?.collapseToEnd();
   }, 350);
 }
 
@@ -1006,6 +1016,69 @@ export default function LandingCmsPage() {
   };
 
   const tokensHero = landingTokens(landing);
+  // Kotak HP di kanan hero gathering. Isinya otomatis dari layar lain, jadi
+  // panel ini menyebut sumber tiap bagiannya dan memberi jalan ke sana (CMS
+  // mudah, butir 1): sebelumnya kotak ini tidak punya baris di editor sama sekali.
+  const portalAktif = landing.member?.enabled === true;
+  const sesiPertama = barisSesi?.[0] ?? null;
+  const tautanSumberPortal = (href: string, label: string) =>
+    facts ? (
+      <Link href={`/e/${facts.slug}${href}`} className="inline-flex shrink-0 items-center gap-1 rounded-sm text-body-medium font-medium text-primary hover:underline">
+        {label}
+        <ArrowSquareOut size={14} aria-hidden />
+      </Link>
+    ) : null;
+  const panelPratinjauPortal = (
+    <Kelompok
+      title={
+        <>
+          Portal preview
+          <StatusChip tone="neutral">Automatic</StatusChip>
+        </>
+      }
+      note="The phone on the right of the hero. It shows while the Participant area is open, and fills itself from the Agenda and the Participant area. Hidden on phones."
+    >
+      <Switch
+        checked={landing.portal_preview !== false}
+        onChange={(value) => setLanding({ ...landing, portal_preview: value })}
+        label="Show the portal preview"
+        disabled={busy || !portalAktif}
+        description={portalAktif ? undefined : "The Participant area is closed, so the preview is not shown."}
+      />
+      {portalAktif ? (
+        <dl className="flex flex-col divide-y divide-outline-variant rounded-md border border-outline-variant">
+          <div className="flex items-start gap-3 p-3">
+            <div className="min-w-0 flex-1">
+              <dt className="text-body-medium font-semibold text-on-surface">First up</dt>
+              <dd className="mt-0.5 text-body-medium text-on-surface-variant">
+                {sesiPertama ? `The next session from the Agenda. Before the event: ${sesiPertama.jam} ${sesiPertama.title}.` : "The next session from the Agenda. No published session yet, so this card is empty."}
+              </dd>
+            </div>
+            {tautanSumberPortal("/admin/rundown", "Agenda")}
+          </div>
+          <div className="flex items-start gap-3 p-3">
+            <div className="min-w-0 flex-1">
+              <dt className="text-body-medium font-semibold text-on-surface">Tiles</dt>
+              <dd className="mt-0.5 text-body-medium text-on-surface-variant">
+                {landing.member?.show_logistics ? "Bus and Room, because Room and bus is on in the Participant area." : "Entry ticket and Announcements. Turn on Room and bus in the Participant area to show Bus and Room instead."}
+              </dd>
+            </div>
+            {tautanSumberPortal("/admin/area-peserta", "Participant area")}
+          </div>
+        </dl>
+      ) : (
+        <div>{tautanSumberPortal("/admin/area-peserta", "Open Participant area")}</div>
+      )}
+    </Kelompok>
+  );
+  const isiPortal = (
+    <>
+      <p className="text-body-medium text-on-surface-variant">
+        This section appears automatically at the end of the page while the Participant area is open. Its text is fixed, and its tiles follow the Participant area: entry ticket, room and bus, and announcements. The top bar gets a Portal link to it.
+      </p>
+      {tautanSumberPortal("/admin/area-peserta", "Open Participant area")}
+    </>
+  );
   const isiPembuka = facts ? (
     <div className="flex flex-col gap-5">
       <Kelompok title="Content" first>
@@ -1018,15 +1091,27 @@ export default function LandingCmsPage() {
           value={landing.public_name ?? ""}
           onChange={(event) => setLanding({ ...landing, public_name: event.target.value })}
         />
-        <TextArea
-          label="Tagline"
-          data-kolom="tagline"
-          optional
-          rows={2}
-          hint={gathering ? "The large title in the hero. Put *stars* around a word to colour it with the accent colour." : "One sentence below the event name."}
-          value={facts.tagline ?? ""}
-          onChange={(event) => patchFacts({ tagline: event.target.value })}
-        />
+        {gathering ? (
+          <HighlightField
+            label="Title"
+            data-kolom="tagline"
+            optional
+            hint="The large title in the hero. Select a word and press Highlight to show it in the accent colour."
+            accent={tokensHero.accent ?? "#d4a72c"}
+            value={facts.tagline ?? ""}
+            onChange={(tagline) => patchFacts({ tagline })}
+          />
+        ) : (
+          <TextArea
+            label="Tagline"
+            data-kolom="tagline"
+            optional
+            rows={2}
+            hint="One sentence below the event name."
+            value={facts.tagline ?? ""}
+            onChange={(event) => patchFacts({ tagline: event.target.value })}
+          />
+        )}
       </Kelompok>
 
       {/* Bilah atas hanya ada di tata letak Modern; Editorial punya nav sendiri. */}
@@ -1147,6 +1232,8 @@ export default function LandingCmsPage() {
           ) : null}
         </Kelompok>
       ) : null}
+
+      {gathering ? <div data-kolom="portal">{panelPratinjauPortal}</div> : null}
 
       <Kelompok title="Background image (KV)">
         <ImageUploadField
@@ -2117,7 +2204,8 @@ export default function LandingCmsPage() {
     titik = false,
   }: {
     id: string;
-    nomor: number;
+    /** Angka urutan, atau ikon untuk baris otomatis yang tidak punya tempat di `sections`. */
+    nomor: ReactNode;
     judul: string;
     sub?: string | null;
     lencana?: string | null;
@@ -2261,7 +2349,8 @@ export default function LandingCmsPage() {
     switch (id) {
       case "about": return gathering ? "Heading, cards and description" : "From the event description";
       case "agenda": return "Built-in · from the Agenda";
-      case "venue": return "Venue name, address, map";
+      // Gathering menampilkan hotel dari Logistik di tempat Venue (CMS mudah, butir 5).
+      case "venue": return gathering ? "Your hotel from Logistics, else the venue" : "Venue name, address, map";
       case "speakers": return `Built-in · ${plural(JUMLAH.speakers ?? 0, "speaker")}`;
       case "faq": return `Built-in · ${plural(JUMLAH.faq ?? 0, "question")}`;
       case "highlights": return `Built-in · ${plural(JUMLAH.highlights ?? 0, "figure")}`;
@@ -2282,6 +2371,17 @@ export default function LandingCmsPage() {
     return (
       <>
         {id === "agenda" ? <p className="text-body-medium text-on-surface-variant">Sessions come from the Agenda automatically. Only published agenda sections and sessions show; this section stays hidden until something is published.</p> : null}
+        {id === "venue" && gathering && facts ? (
+          <>
+            <p className="text-body-medium text-on-surface-variant">
+              In the gathering layout this section shows the hotel from Logistics, with check-in and check-out times, and the menu calls it Hotel. The venue fields below show only while Logistics has no hotel.
+            </p>
+            <Link href={`/e/${facts.slug}/admin/logistik`} className="inline-flex items-center gap-1 self-start rounded-sm text-body-medium font-medium text-primary hover:underline">
+              Open Logistics
+              <ArrowSquareOut size={14} aria-hidden />
+            </Link>
+          </>
+        ) : null}
         {tautanSumber}
         {isi}
       </>
@@ -2293,7 +2393,10 @@ export default function LandingCmsPage() {
   const tersembunyi = sections.filter((section) => !section.enabled);
   const blokTersembunyi = tersembunyi.filter((section) => isLandingBlockId(section.id) && blokById.has(section.id)).map((section) => section.id);
   // Forum menyimpan bagian tersembunyinya sendiri (forum.hidden), urutannya tetap.
-  const jumlahTersembunyi = forum ? (landing.forum?.hidden ?? []).length : tersembunyi.length;
+  // Bagian Portal peserta otomatis (gathering) ikut dihitung: tanpa itu,
+  // portal yang disembunyikan tidak bisa ditemukan lagi di daftar.
+  const barisPortal = gathering && landing.member?.enabled === true;
+  const jumlahTersembunyi = forum ? (landing.forum?.hidden ?? []).length : tersembunyi.length + (barisPortal && landing.portal_section === false ? 1 : 0);
 
   // Mode EN: baris yang sama dalam urutan yang sama, tetapi hanya yang tampil di
   // halaman, tanpa seret, mata, dan menu; isinya kolom English (editor-en.tsx).
@@ -2395,6 +2498,18 @@ export default function LandingCmsPage() {
             isi: isiBawaan(id),
           });
         })}
+        {/* Bagian otomatis di akhir halaman gathering: tidak bisa diseret karena
+            tempatnya tetap, tetapi bisa disembunyikan (CMS mudah, butir 2). */}
+        {barisPortal && (landing.portal_section !== false || tampilTersembunyi)
+          ? barisSusunan({
+              id: "portal",
+              nomor: <Lightning size={14} weight="fill" aria-hidden />,
+              judul: "Portal peserta",
+              sub: "Automatic · what guests find after signing in",
+              saklar: { checked: landing.portal_section !== false, onChange: (value) => setLanding({ ...landing, portal_section: value }) },
+              isi: isiPortal,
+            })
+          : null}
         {barisSusunan({
           id: "kaki",
           nomor: sections.length + 2,
@@ -2598,7 +2713,9 @@ export default function LandingCmsPage() {
         ["kaki", "Footer"],
         ["pembuka:nav", "Top bar"],
         ["pembuka:public_name", "Event name"],
-        ["pembuka:tagline", gathering ? "Tagline (title)" : "Tagline"],
+        ["pembuka:tagline", gathering ? "Title" : "Tagline"],
+        ["pembuka:portal", "Portal preview"],
+        ["portal", "Portal peserta"],
         ["pembuka:hero_eyebrow", "Label above the title"],
         ["pembuka:hero_note", "Line below the title"],
         ["kaki:cta_heading", "Call-to-action banner"],

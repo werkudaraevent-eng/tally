@@ -112,7 +112,7 @@ export function HeroGathering({
             </div>
           ) : null}
         </div>
-        {pratinjau ? <div className="hidden lg:block">{pratinjau}</div> : null}
+        {pratinjau ? <div data-sunting="pembuka:portal" className="hidden lg:block">{pratinjau}</div> : null}
       </div>
     </header>
   );

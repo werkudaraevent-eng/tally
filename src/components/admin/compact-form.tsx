@@ -21,12 +21,12 @@ export function Field({ label, hint, htmlFor, children, className }: { label: Re
 }
 
 /** Satu kelompok isian di panel samping. Kelompok kedua dan seterusnya dipisah garis tipis. */
-export function Kelompok({ title, note, first, children }: { title?: string; note?: ReactNode; first?: boolean; children: ReactNode }) {
+export function Kelompok({ title, note, first, children }: { title?: ReactNode; note?: ReactNode; first?: boolean; children: ReactNode }) {
   return (
     <section className={cx("flex flex-col gap-4", !first && "border-t border-outline-variant pt-5")}>
       {title || note ? (
         <div>
-          {title ? <h3 className="text-body-medium font-semibold text-on-surface">{title}</h3> : null}
+          {title ? <h3 className="flex items-center gap-2 text-body-medium font-semibold text-on-surface">{title}</h3> : null}
           {note ? <p className="mt-1 text-body-medium text-on-surface-variant">{note}</p> : null}
         </div>
       ) : null}
