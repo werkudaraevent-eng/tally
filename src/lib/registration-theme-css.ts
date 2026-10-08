@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { mixHex, parseHex } from "./color";
 import { DEFAULT_REGISTRATION_SEED, buildRegistrationThemeRoles, type RegistrationFormTheme, type RegistrationThemeRoles } from "./registration-theme";
 import { LANDING_NAV_DEFAULTS, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, type LandingNavConfig } from "./domain";
-import { FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT } from "./landing-tokens";
+import { FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, HERO_KV_KUAT } from "./landing-tokens";
 
 /**
  * Tema mana yang dipakai halaman pendaftaran sebuah acara.
@@ -328,6 +328,35 @@ export function latarGathering(seed: string | undefined): { latar: string; teran
     gelap,
     redup: null,
   };
+}
+
+/**
+ * KV hero gaya gathering (Halaman acara > Hero > Background image), dipakai
+ * hero halaman acara dan kepala navy portal: gambar setipis `kuat` persen di
+ * atas lapisan warna, seperti dua fill di Figma (Image 20% di atas Linear).
+ * `latar` null = lapisan warna merek seperti biasa; warna sendiri digelapkan
+ * sampai teks putih 4,5:1. Null bila tidak ada gambar atau saklarnya mati.
+ */
+export function kvGathering(config: {
+  hero_bg_url?: string | null;
+  hero_bg_on?: boolean;
+  hero_bg_opacity?: number;
+  hero_bg_color?: string;
+}): { src: string; kuat: number; latar: string | null } | null {
+  const src = config.hero_bg_url?.trim();
+  if (!src || config.hero_bg_on === false) return null;
+  const angka = Number(config.hero_bg_opacity ?? HERO_KV_KUAT.bawaan);
+  const kuat = Number.isFinite(angka) ? Math.min(HERO_KV_KUAT.max, Math.max(HERO_KV_KUAT.min, Math.round(angka))) : HERO_KV_KUAT.bawaan;
+  const warna = /^#[0-9a-f]{6}$/i.test(config.hero_bg_color ?? "") ? config.hero_bg_color! : null;
+  return { src, kuat, latar: warna ? latarWarna(warna) : null };
+}
+
+/** Gradasi dari satu warna, digelapkan dulu sampai teks putih terbaca (4,5:1). */
+function latarWarna(warna: string): string {
+  let dasar = warna;
+  for (let langkah = 0; langkah < 20 && kontras(dasar, "#ffffff") < 4.5; langkah += 1) dasar = mixHex(dasar, "#000000", 0.1);
+  if (kontras(dasar, "#ffffff") >= 7) return latarGathering(dasar).latar;
+  return `linear-gradient(160deg, ${mixHex(dasar, "#000000", 0.38)} 0%, ${mixHex(dasar, "#000000", 0.15)} 60%, ${dasar} 100%)`;
 }
 
 export function gatheringColors(accent: string | undefined, seed: string | undefined, adaKv: boolean, button?: string | null) {

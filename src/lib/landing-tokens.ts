@@ -194,3 +194,6 @@ export function landingFontUrls(tokens: Pick<LandingTokens, "headingFont" | "bod
   if (tokens.bodyFontChosen) berkas.push(berkasIsi(tokens.bodyFont));
   return [...new Set(berkas.filter(Boolean))].map((path) => `/fonts/v1/${path}`);
 }
+
+/** Kekuatan KV hero gathering dalam persen (Figma Hanung: 20). Di atas 50 teks putih mulai tenggelam di KV terang. */
+export const HERO_KV_KUAT = { min: 5, max: 50, step: 5, bawaan: 20 } as const;
