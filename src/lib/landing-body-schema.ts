@@ -276,6 +276,8 @@ export const landingBodySchema = z.object({
     button_color: warna,
     hero_note: teks(240),
     hero_eyebrow: teks(60),
+    portal_preview: z.boolean().optional(),
+    portal_section: z.boolean().optional(),
     default_lang: z.enum(["id", "en"]).optional(),
     en: z.object({
       public_name: teks(120),

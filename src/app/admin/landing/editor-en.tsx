@@ -1,5 +1,8 @@
 "use client";
 
+import { HighlightField } from "@/components/admin/highlight-field";
+import { tanpaBintang } from "@/lib/landing-tagline";
+import { landingTokens } from "@/lib/landing-tokens";
 import type { ReactNode } from "react";
 import { TextArea, TextField } from "@/components/m3";
 import { landingSectionHeading, landingSessionEn } from "@/lib/landing-i18n";
@@ -286,7 +289,22 @@ export function BagianEn({
       case "pembuka":
         return [
           kolom("public_name", "Event name on the public page", landing.public_name, 120),
-          kolom("tagline", "Tagline", facts.tagline, 200, true),
+          // Judul gathering: kolom Highlight yang sama dengan mode ID, tanpa bintang (QA #109 M5).
+          // Selalu kolom Highlight di gathering, juga saat judul ID kosong (QA #109 N5).
+          landing.gathering ? (
+            <HighlightField
+              key="tagline"
+              data-kolom="tagline"
+              label="Title"
+              hint={ada(facts.tagline) ? `ID: ${tanpaBintang(facts.tagline ?? "")} · Empty uses the Indonesian title.` : "The Indonesian title is empty."}
+              accent={landingTokens(landing).accent ?? "#d4a72c"}
+              maxLength={200}
+              value={en.tagline ?? ""}
+              onChange={(tagline) => ubahEn({ tagline })}
+            />
+          ) : (
+            kolom("tagline", "Tagline", facts.tagline, 200, true)
+          ),
           ...(landing.gathering
             ? [kolom("hero_eyebrow", "Label above the title", landing.hero_eyebrow, 60, true), kolom("hero_note", "Line below the title", landing.hero_note, 240, true)]
             : []),

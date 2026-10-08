@@ -1147,6 +1147,13 @@ export type EventLandingConfig = {
   /** Label pil di atas judul hero gaya gathering. Kosong = "Anda diundang · nama acara". */
   hero_eyebrow?: string;
   /**
+   * Kotak HP "Portal peserta" di kanan hero gaya gathering, selama Participant
+   * area menyala. Kosong = tampil (false menyembunyikannya).
+   */
+  portal_preview?: boolean;
+  /** Bagian "Portal peserta" di akhir halaman gaya gathering. Kosong = tampil. */
+  portal_section?: boolean;
+  /**
    * Bahasa di alamat utama `/e/<slug>` (bawaan "id"). "en" hanya berlaku
    * selama versi English menyala; lihat landingDefaultLang.
    */
