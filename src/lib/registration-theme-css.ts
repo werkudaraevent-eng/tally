@@ -374,30 +374,40 @@ export function kvGathering(config: EventLandingConfig | null | undefined): KvGa
   // Hero: latarGathering (merek gelap) atau merek; portal: LATAR_NAVY, ujungnya merek.
   const terangHero = kontras(dasar, "#ffffff") >= 7 ? latarDasar.terang : dasar;
   const terangPortal = lapisan ? latarDasar.terang : merek;
-  // null = putih 80% (teks redup tanpa warna turunan merek).
-  // `kaca`: kartu putih 10% di kepala portal (Agenda selanjutnya). Pratinjau
-  // portal di hero punya latar sendiri yang pekat.
-  const teksHero = [{ warna: "#ffffff" }, { warna: latarDasar.redup }, { warna: warna.heroAngka }, { warna: warna.heroLencana }];
-  const teksPortal = [{ warna: "#ffffff" }, { warna: null }, { warna: warna.heroAngka }, { warna: warna.heroAngka, kaca: 0.1 }, { warna: null, kaca: 0.1 }];
-  // Piksel terang KV dari unggahan; tanpa ukuran, anggap putih polos.
-  const ukur = /^#[0-9a-f]{8}$/i.test(config.hero_bg_terang ?? "") ? config.hero_bg_terang! : "#ffffffff";
+  // Teks di atas kaca putih 10%: lencana di hero dan label "Agenda
+  // selanjutnya" di kepala portal. Warnanya dibuat terbaca di kaca itu dulu
+  // (QA #111 R2-M3); yang sudah terbaca tidak berubah.
+  const lencana = terbacaDi(warna.heroLencana, mixHex(terangHero, "#ffffff", 0.1));
+  const angkaKaca = terbacaDi(warna.heroAngka, mixHex(terangPortal, "#ffffff", 0.1));
+  // `warna` null = putih 80% (teks redup tanpa warna turunan merek). `kaca` =
+  // di atas kaca putih. `target` 2 = bidang tombol terhadap sekitarnya
+  // (QA #103 M3, #111 R2-M4). Pratinjau portal di hero punya latar pekat.
+  const teksHero = [{ warna: "#ffffff" }, { warna: latarDasar.redup }, { warna: warna.heroAngka }, { warna: lencana, kaca: 0.1 }, { warna: warna.cta, target: 2 }];
+  const teksPortal = [{ warna: "#ffffff" }, { warna: null }, { warna: warna.heroAngka }, { warna: angkaKaca, kaca: 0.1 }, { warna: null, kaca: 0.1 }];
+  // Piksel terang KV dari unggahan, hanya bila diukur dari gambar yang sama
+  // dan tidak hampir transparan; selain itu anggap putih polos (QA #111 R2-M1).
+  const ukurSah =
+    /^#[0-9a-f]{8}$/i.test(config.hero_bg_terang ?? "") && config.hero_bg_terang_src === src && parseInt(config.hero_bg_terang!.slice(7), 16) >= 0x20;
+  const ukur = ukurSah ? config.hero_bg_terang! : "#ffffffff";
   const kvTerang = { warna: ukur.slice(0, 7), alfa: parseInt(ukur.slice(7), 16) / 255 };
   return {
     src,
     kuat,
     latar: lapisan ? latarDasar.latar : null,
-    bayang: { hero: bayangKv(terangHero, kvTerang, kuat, teksHero), portal: bayangKv(terangPortal, kvTerang, kuat, teksPortal) },
-    warnaHero: lapisan
-      ? ({
-          "--hero-redup": latarDasar.redup ?? undefined,
-          "--hero-lencana": warna.heroLencana,
-          "--hero-alis": warna.heroAlis,
-          "--hero-angka": warna.heroAngka,
-          "--aksi": warna.cta,
-          "--on-aksi": warna.onCta,
-        } as CSSProperties)
-      : {},
-    warnaPortal: lapisan ? ({ "--hero-angka": warna.heroAngka } as CSSProperties) : {},
+    bayang: { hero: bayangKv(terangHero, kvTerang, kuat, teksHero, Boolean(lapisan)), portal: bayangKv(terangPortal, kvTerang, kuat, teksPortal, Boolean(lapisan)) },
+    warnaHero: {
+      ...(lapisan
+        ? {
+            "--hero-redup": latarDasar.redup ?? undefined,
+            "--hero-alis": warna.heroAlis,
+            "--hero-angka": warna.heroAngka,
+            "--aksi": warna.cta,
+            "--on-aksi": warna.onCta,
+          }
+        : {}),
+      ...(lapisan || lencana !== warna.heroLencana ? { "--hero-lencana": lencana } : {}),
+    } as CSSProperties,
+    warnaPortal: (lapisan || angkaKaca !== warna.heroAngka ? { "--hero-angka": angkaKaca } : {}) as CSSProperties,
   };
 }
 
@@ -418,14 +428,22 @@ function gelapkanSampai(warna: string, rasio: number): string {
  * Bayangan hitam terkecil (0-0,9) supaya setiap warna teks tetap 4,5:1 di atas
  * piksel terburuk: piksel terang KV setipis `kuat` di atas `terang`, lalu bayangannya.
  * Teks yang di latar tanpa KV pun sudah di bawah 4,5 cukup tidak dibuat lebih
- * buruk. `null` = putih 80% di atas latarnya; `kaca` = di atas kartu putih tembus.
+ * buruk, kecuali `penuh` (lapisan warna sendiri: fitur baru, jadi tidak ada
+ * tampilan lama yang harus dijaga; QA #111 R2). `null` = putih 80% di atas latarnya; `kaca` = di atas kartu putih tembus;
+ * `target` = rasio selain 4,5 (bidang tombol 2:1).
  */
-function bayangKv(terang: string, kv: { warna: string; alfa: number }, kuat: number, teks: { warna: string | null; kaca?: number }[]): number {
+function bayangKv(
+  terang: string,
+  kv: { warna: string; alfa: number },
+  kuat: number,
+  teks: { warna: string | null; kaca?: number; target?: number }[],
+  penuh = false,
+): number {
   const lolos = (latar: string, butuh?: number[]) =>
-    teks.map(({ warna, kaca = 0 }, i) => {
+    teks.map(({ warna, kaca = 0, target = 4.5 }, i) => {
       const bawah = mixHex(latar, "#ffffff", kaca);
       const nilai = kontras(warna ?? mixHex(bawah, "#ffffff", 0.8), bawah);
-      return butuh ? nilai >= butuh[i] : Math.min(4.5, nilai);
+      return butuh ? nilai >= butuh[i] : penuh ? target : Math.min(target, nilai);
     });
   const butuh = lolos(terang) as number[];
   const dgnKv = mixHex(terang, kv.warna, (kuat / 100) * kv.alfa);

@@ -1262,12 +1262,16 @@ export default function LandingCmsPage() {
               fit="cover"
               previewClassName="h-20 w-36"
               perkecil={{ lebar: 1920, mutu: 0.75 }}
-              hint="Use an artwork without text, such as the event ornaments. It is cropped to fill the area, so keep the important parts near the middle. Landscape, at least 1440×480; larger images are reduced to 1920 px wide when uploaded. PNG, JPG or WebP, up to 5 MB."
+              hint="Use an artwork without text, such as the event ornaments. It is cropped to fill the area, so keep the important parts near the middle. Landscape, at least 1440×480. Most browsers save wider images at 1920 px wide. PNG, JPG or WebP, up to 5 MB and 8000 px."
               value={landing.hero_bg_url ?? null}
               onChange={(url, berkas) => {
-                setLanding({ ...landing, hero_bg_url: url, hero_bg_on: url ? true : landing.hero_bg_on, hero_bg_terang: undefined });
-                // Terangnya diukur dari berkas yang diunggah (kvGathering menakar bayangan darinya).
-                if (url && berkas) void ukurTerangKv(berkas).then((terang) => terang && setLanding((kini) => (kini.hero_bg_url === url ? { ...kini, hero_bg_terang: terang } : kini)));
+                setLanding({ ...landing, hero_bg_url: url, hero_bg_on: url ? true : landing.hero_bg_on, hero_bg_terang: undefined, hero_bg_terang_src: undefined });
+                // Terangnya diukur dari berkas yang diunggah, bersama URL-nya
+                // (kvGathering menakar bayangan darinya).
+                if (url && berkas)
+                  void ukurTerangKv(berkas).then(
+                    (terang) => terang && setLanding((kini) => (kini.hero_bg_url === url ? { ...kini, hero_bg_terang: terang, hero_bg_terang_src: url } : kini)),
+                  );
               }}
               disabled={busy}
             />
@@ -1285,7 +1289,7 @@ export default function LandingCmsPage() {
                 rentang={HERO_KV_KUAT}
                 value={landing.hero_bg_opacity ?? HERO_KV_KUAT.bawaan}
                 onChange={(value) => setLanding({ ...landing, hero_bg_opacity: value })}
-                hint="How much of the image shows through. 20 matches the design. Higher values also darken the colour layer, so the text stays readable."
+                hint="How much of the image shows through. 20 matches the design. Higher values add a dark shade over the image where needed, so the text stays readable."
               />
             ) : null}
             {landing.hero_bg_url && landing.hero_bg_on !== false ? (
@@ -1307,7 +1311,7 @@ export default function LandingCmsPage() {
               ) : null}
               <p className="text-body-medium text-on-surface-variant">
                 {landing.hero_bg_color
-                  ? "Shown as a gradient. A light colour is darkened automatically so the text stays readable; the text and button colours follow it."
+                  ? "Shown as a gradient. A light colour is darkened so the text stays readable; the text and button colours follow it."
                   : "The navy gradient from Theme, the same as without an image."}
               </p>
             </div>
