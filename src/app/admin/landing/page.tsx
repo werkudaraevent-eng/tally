@@ -2416,7 +2416,7 @@ export default function LandingCmsPage() {
   const isiSusunanEn = facts ? (
     <div className="flex flex-col">
       <ol className="flex flex-col">
-        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Hero", sub: "Event name, tagline, register button", titik: barisKurangEn.has("pembuka"), isi: <BagianEn id="pembuka" landing={landing} facts={facts} setLanding={setLanding} /> })}
+        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Hero", sub: gathering ? "Event name, title, buttons" : "Event name, tagline, register button", titik: barisKurangEn.has("pembuka"), isi: <BagianEn id="pembuka" landing={landing} facts={facts} setLanding={setLanding} /> })}
         {sections.map((section, index) => {
           // Bagian tersembunyi tidak perlu diterjemahkan, kecuali yang sedang
           // dibuka: Simpan membukanya bila teks English-nya melewati batas

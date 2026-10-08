@@ -1,10 +1,10 @@
 "use client";
 
 import { HighlighterCircle, TextTSlash } from "@phosphor-icons/react";
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent } from "react";
 import { FieldMessages } from "@/components/m3/text-field";
 import { cx } from "@/lib/m3/cx";
-import { pecahJudul, susunJudul, type PotonganJudul } from "@/lib/landing-tagline";
+import { lindungiBintang, pecahJudul, susunJudul, type PotonganJudul } from "@/lib/landing-tagline";
 
 /**
  * Kolom satu paragraf dengan tombol Highlight, seperti stabilo.
@@ -34,6 +34,8 @@ function keHtml(nilai: string) {
     .join("");
 }
 
+const BLOK = new Set(["DIV", "P", "LI"]);
+
 function bacaPotongan(akar: HTMLElement): PotonganJudul[] {
   const mentah: PotonganJudul[] = [];
   const jalan = (node: Node, sorot: boolean) => {
@@ -48,6 +50,9 @@ function bacaPotongan(akar: HTMLElement): PotonganJudul[] {
       mentah.push({ teks: " ", sorot });
       return;
     }
+    // Baris baru dari execCommand (tanpa beforeinput) datang sebagai <div>:
+    // awal blok berarti spasi, bukan kata yang menempel (QA #109 N5).
+    if (BLOK.has(node.tagName) && mentah.length) mentah.push({ teks: " ", sorot });
     node.childNodes.forEach((anak) => jalan(anak, sorot || node.tagName === "MARK"));
   };
   akar.childNodes.forEach((anak) => jalan(anak, false));
@@ -82,6 +87,9 @@ function tandaDari(node: Node | null, akar: HTMLElement | null): HTMLElement | n
 
 const HURUF_KATA = /[\p{L}\p{N}]/u;
 
+/** Panjang tersimpan teks polos: bintang dan garis miring yang diketik dihitung dua. */
+const panjangSimpan = (teks: string) => lindungiBintang(teks).length;
+
 type Riwayat = { daftar: string[]; posisi: number; ketikTerakhir: number };
 
 export function HighlightField({
@@ -114,6 +122,8 @@ export function HighlightField({
   // Pilihan teks ada di dalam tanda: tombolnya jadi "Remove highlight".
   const [diTanda, setDiTanda] = useState(false);
   const [adaPilihan, setAdaPilihan] = useState(false);
+  // Selama IME menyusun huruf, DOM tidak disentuh; batas diperiksa saat selesai.
+  const menyusun = useRef(false);
 
   // Isi kolom hanya ditulis ulang saat nilainya berubah dari luar (muat, impor),
   // bukan setiap ketikan, supaya kursor tidak melompat.
@@ -143,11 +153,31 @@ export function HighlightField({
       if (!el) return;
       el.normalize();
       const nilai = susunJudul(bacaPotongan(el));
+      const sebelum = terakhir.current ?? "";
+      // Jaring terakhir untuk batas: perubahan yang membuat teks tersimpan
+      // melewati batas dibatalkan (ketik IME, Highlight, tempel). Yang sudah
+      // terlanjur panjang dari server tetap boleh dipendekkan (QA #109 N1).
+      if (maxLength && nilai.length > maxLength && nilai.length > sebelum.length) {
+        if (!menyusun.current) {
+          el.innerHTML = keHtml(sebelum);
+          const sel = window.getSelection();
+          sel?.selectAllChildren(el);
+          sel?.collapseToEnd();
+        }
+        return;
+      }
+      // Blok atau <br> sisa baris baru ditulis ulang menjadi satu baris.
+      if (el.querySelector("div, p, li, br")) {
+        el.innerHTML = keHtml(nilai);
+        const sel = window.getSelection();
+        sel?.selectAllChildren(el);
+        sel?.collapseToEnd();
+      }
       terakhir.current = nilai;
       catat(nilai, ketik);
       onChange(nilai);
     },
-    [catat, onChange],
+    [catat, onChange, maxLength],
   );
 
   function pulihkan(arah: -1 | 1) {
@@ -220,6 +250,8 @@ export function HighlightField({
       window.getSelection()?.addRange(sisa);
     } else {
       if (range.collapsed) return;
+      // Tanda menambah dua bintang tersimpan.
+      if (maxLength && (terakhir.current ?? value).length + 2 > maxLength) return;
       lebarkanKeKata(range);
       // Tanda di dalam pilihan dilebur dulu: satu tanda, bukan tanda bersarang.
       const isi = range.extractContents();
@@ -243,9 +275,11 @@ export function HighlightField({
     if (!range) return;
     let isi = teks.replace(/ /g, " ").replace(/\s*[\r\n]+\s*/g, " ");
     if (maxLength) {
-      // Bintang yang diketik admin dihitung dua (tersimpan terlindung).
-      const sisa = maxLength - (value.length - range.toString().length);
-      isi = Array.from(isi).slice(0, Math.max(0, sisa)).join("");
+      // Bintang dan garis miring yang diketik admin dihitung dua (tersimpan terlindung).
+      const sisa = maxLength - ((terakhir.current ?? value).length - panjangSimpan(range.toString()));
+      const huruf = Array.from(isi);
+      while (huruf.length && panjangSimpan(huruf.join("")) > sisa) huruf.pop();
+      isi = huruf.join("");
     }
     range.deleteContents();
     if (!isi) return kirim();
@@ -272,25 +306,55 @@ export function HighlightField({
     }
   }
 
-  function sebelumMasuk(event: FormEvent<HTMLDivElement>) {
-    const asli = event.nativeEvent as InputEvent;
-    const jenis = asli.inputType ?? "";
-    // Format bawaan (tebal, miring, garis bawah) tidak tersimpan: tolak (H2).
-    if (jenis.startsWith("format") || jenis === "insertParagraph" || jenis === "insertLineBreak" || jenis === "insertFromDrop" || jenis === "deleteByDrag") {
-      event.preventDefault();
-      return;
-    }
-    if (jenis === "historyUndo" || jenis === "historyRedo") {
-      event.preventDefault();
-      pulihkan(jenis === "historyUndo" ? -1 : 1);
-      return;
-    }
-    if (maxLength && jenis === "insertText" && asli.data) {
-      const range = pilihan();
-      const ganti = range ? range.toString().length : 0;
-      if (value.length - ganti + asli.data.length > maxLength) event.preventDefault();
-    }
-  }
+  // beforeinput asli, bukan onBeforeInput React: React memberi TextEvent tanpa
+  // inputType, jadi penjaga di bawah tidak pernah jalan (QA #109 N1).
+  const sebelumMasuk = useRef<(event: InputEvent) => void>(() => {});
+  useLayoutEffect(() => {
+    sebelumMasuk.current = (event: InputEvent) => {
+      const jenis = event.inputType ?? "";
+      // Format bawaan (tebal, miring, garis bawah) tidak tersimpan: tolak (H2).
+      if (jenis.startsWith("format") || jenis === "insertParagraph" || jenis === "insertLineBreak" || jenis === "insertFromDrop" || jenis === "deleteByDrag") {
+        event.preventDefault();
+        return;
+      }
+      if (jenis === "historyUndo" || jenis === "historyRedo") {
+        event.preventDefault();
+        pulihkan(jenis === "historyUndo" ? -1 : 1);
+        return;
+      }
+      if ((jenis === "insertText" || jenis === "insertReplacementText") && event.data) {
+        // Baris baru (mis. execCommand insertText) menjadi spasi, dan teks yang
+        // melewati batas dipotong: keduanya lewat sisipkanTeks (QA #109 N1, N5).
+        const range = pilihan();
+        const sisa = maxLength ? maxLength - ((terakhir.current ?? value).length - panjangSimpan(range?.toString() ?? "")) : Infinity;
+        if (/[\r\n]/.test(event.data) || panjangSimpan(event.data) > sisa) {
+          event.preventDefault();
+          sisipkanTeks(event.data);
+        }
+      }
+    };
+  });
+
+  useEffect(() => {
+    const el = kolom.current;
+    if (!el) return;
+    const masuk = (event: Event) => sebelumMasuk.current(event as InputEvent);
+    const mulai = () => {
+      menyusun.current = true;
+    };
+    const selesai = () => {
+      menyusun.current = false;
+      kirim(true);
+    };
+    el.addEventListener("beforeinput", masuk);
+    el.addEventListener("compositionstart", mulai);
+    el.addEventListener("compositionend", selesai);
+    return () => {
+      el.removeEventListener("beforeinput", masuk);
+      el.removeEventListener("compositionstart", mulai);
+      el.removeEventListener("compositionend", selesai);
+    };
+  }, [kirim]);
 
   function tempel(event: ClipboardEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -343,7 +407,6 @@ export function HighlightField({
           contentEditable
           suppressContentEditableWarning
           tabIndex={0}
-          onBeforeInput={sebelumMasuk}
           onInput={() => kirim(true)}
           onKeyDown={tekan}
           onPaste={tempel}

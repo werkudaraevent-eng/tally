@@ -290,12 +290,13 @@ export function BagianEn({
         return [
           kolom("public_name", "Event name on the public page", landing.public_name, 120),
           // Judul gathering: kolom Highlight yang sama dengan mode ID, tanpa bintang (QA #109 M5).
-          landing.gathering && ada(facts.tagline) ? (
+          // Selalu kolom Highlight di gathering, juga saat judul ID kosong (QA #109 N5).
+          landing.gathering ? (
             <HighlightField
               key="tagline"
               data-kolom="tagline"
               label="Title"
-              hint={`ID: ${tanpaBintang(facts.tagline ?? "")} · Empty uses the Indonesian title.`}
+              hint={ada(facts.tagline) ? `ID: ${tanpaBintang(facts.tagline ?? "")} · Empty uses the Indonesian title.` : "The Indonesian title is empty."}
               accent={landingTokens(landing).accent ?? "#d4a72c"}
               maxLength={200}
               value={en.tagline ?? ""}
