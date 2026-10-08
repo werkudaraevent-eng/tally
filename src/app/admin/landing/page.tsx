@@ -1248,17 +1248,16 @@ export default function LandingCmsPage() {
 
       {gathering ? <div data-kolom="portal">{panelPratinjauPortal}</div> : null}
 
+      {/* Gathering tidak memakai KV di hero: kolomnya pindah ke tab Theme,
+          grup Page, dengan nama sesuai gunanya (QA #110, Mas Hanung 8 Okt). */}
+      {gathering ? null : (
       <Kelompok title="Background image (KV)">
         <ImageUploadField
           label="Hero image (KV)"
           kind="landing"
           fit="cover"
           previewClassName="h-20 w-36"
-          hint={
-            gathering
-              ? "Not shown on the gathering page; used as the link-preview image. PNG, JPG or WebP, up to 5 MB."
-              : "16:9 ratio, at least 1920×1080. Keep the important part of the image at the top or right: the title sits bottom left. PNG, JPG or WebP, up to 5 MB."
-          }
+          hint="16:9 ratio, at least 1920×1080. Keep the important part of the image at the top or right: the title sits bottom left. PNG, JPG or WebP, up to 5 MB."
           value={landing.banner_url ?? null}
           onChange={(url) => setLanding({ ...landing, banner_url: url })}
           disabled={busy}
@@ -1287,6 +1286,7 @@ export default function LandingCmsPage() {
           </div>
         ) : null}
       </Kelompok>
+      )}
 
       <Kelompok title="Button">
         <TextField
@@ -1770,6 +1770,23 @@ export default function LandingCmsPage() {
         </p>
       </Kelompok>
 
+      {/* Gathering: KV tidak tampil di halaman, tetapi tetap dipakai di luar
+          halaman. Disebut menurut gunanya, bukan "Hero image". */}
+      {gathering ? (
+        <Kelompok title="Sharing image">
+          <ImageUploadField
+            label="Link preview image"
+            kind="landing"
+            fit="cover"
+            previewClassName="h-20 w-36"
+            hint="The picture WhatsApp, LinkedIn and others show when the event link is shared. Also used at the top of the registration form, and as the badge background when a badge uses the KV. Not shown on the gathering page itself. Landscape, at least 1200×630. PNG, JPG or WebP, up to 5 MB."
+            value={landing.banner_url ?? null}
+            onChange={(url) => setLanding({ ...landing, banner_url: url })}
+            disabled={busy}
+          />
+        </Kelompok>
+      ) : null}
+
       {/* Versi English. Teks English-nya diisi per kolom; sampai mode EN di
           editor ada, lewat Ekspor/Impor (kunci `en`, lihat landing-i18n.ts). */}
       <Kelompok title="Language">
@@ -1863,7 +1880,7 @@ export default function LandingCmsPage() {
       setFormSeed={setFormSeed}
       PilihWarna={PilihWarna}
       halaman={isiHalamanTema}
-      ringkasHalaman={[hanyaFormulir ? "Form only" : "Event page", modern && landing.en_enabled ? "ID + EN" : forum && landing.forum?.language === "en" ? "EN labels" : null].filter(Boolean).join(" · ")}
+      ringkasHalaman={[hanyaFormulir ? "Form only" : "Event page", modern && landing.en_enabled ? "ID + EN" : forum && landing.forum?.language === "en" ? "EN labels" : null, gathering ? (landing.banner_url ? "Link preview image" : "No link preview image") : null].filter(Boolean).join(" · ")}
     />
   );
 
