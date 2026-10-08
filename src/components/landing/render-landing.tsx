@@ -48,6 +48,7 @@ export function renderLanding(
         otherLang={adaEnglish ? (lang === "en" ? "id" : "en") : null}
         masukAwal={opsi.masukAwal ?? null}
         sandi={opsi.sandi ?? null}
+        pratinjau={opsi.pratinjau ?? false}
       />
     );
   }
