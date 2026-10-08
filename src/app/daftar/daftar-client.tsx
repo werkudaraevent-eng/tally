@@ -15,6 +15,9 @@ import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { Spinner } from "@/components/search-loading";
 import { eventApiPath } from "@/lib/event-url";
 import { easing, expressive } from "@/lib/m3/motion";
+import type { FormGathering } from "@/lib/gathering-formulir";
+import { KakiGathering } from "@/components/landing/modern/gathering-app";
+import { SHELL } from "@/components/landing/modern/styles";
 
 /**
  * Pergantian formulir → layar sukses di dalam kartu yang sama.
@@ -120,6 +123,8 @@ export type FormModern = {
     style: CSSProperties;
     langSwitch: { href: string; lang: LandingLang } | null;
   };
+  /** Preset Gathering: kepala, kolom, tombol, dan kaki gaya halaman acara gathering. Null = Modern biasa. */
+  gathering: FormGathering | null;
 };
 
 type Hasil = {
@@ -158,6 +163,15 @@ const MUTED = "text-[var(--reg-on-surface-variant)]";
 const KARTU = "rounded-[28px] border border-[var(--reg-outline-variant)] bg-[var(--reg-panel)] p-6 sm:p-8";
 const OPSIONAL = `font-normal ${MUTED}`;
 const HEAD = "[font-family:var(--landing-heading)]";
+/**
+ * Gathering: tombol, tautan, dan fokus di badan halaman memakai warna tombol
+ * Tema (hijau di rancangan), sama dengan dialog masuk gathering. Berlaku untuk
+ * formulir, layar sukses, dan halaman masuk mode Hanya formulir; kartu kode
+ * menyetel ulang warna merek.
+ */
+const AKSI_GATHERING = { "--reg-primary": "var(--alis)", "--reg-on-primary": "var(--on-aksi-putih)" } as CSSProperties;
+/** Judul bagian formulir gathering: 24/800 (rancangan Masuk ke Portal 30/800 di layar sendiri). */
+const JUDUL_GATHERING = "text-[24px] font-extrabold leading-[1.2] text-[var(--reg-on-surface)]";
 
 /** Kolom tambahan yang selalu selebar kartu di formulir v2 dua lajur. */
 const LEBAR_PENUH = new Set<RegistrationField["type"]>(["textarea", "checkbox", "radio", "file"]);
@@ -309,6 +323,7 @@ export default function DaftarClient(props: Props) {
   }
 
   const m = props.modern;
+  const g = m?.gathering ?? null;
 
   // Kolom bawaan dan kolom tambahan. Di formulir v2 kolomnya dua lajur supaya
   // kartu selebar grid tidak menghasilkan kotak isian sepanjang 1200px; kolom
@@ -386,7 +401,7 @@ export default function DaftarClient(props: Props) {
   // melihatnya, dan lupa kata sandi bisa dipulihkan lewat email.
   const bagianAkun = props.akun ? (
     <div className={m ? "mt-10 border-t border-[var(--reg-outline-variant)] pt-8" : "mt-8"}>
-      <h2 className={m ? "text-title-large font-medium" : "text-title-medium font-semibold"}>{t.account.heading}</h2>
+      <h2 className={g ? JUDUL_GATHERING : m ? "text-title-large font-medium" : "text-title-medium font-semibold"}>{t.account.heading}</h2>
       <p className={`mt-1 text-body-medium ${MUTED}`}>{t.account.intro}</p>
       <div className={m ? "grid gap-x-6 sm:grid-cols-2" : undefined}>
         <div className="mt-6">
@@ -581,7 +596,13 @@ export default function DaftarClient(props: Props) {
               {disetujui && hasil.qr_code ? (
                 <div
                   className="rounded-lg bg-[var(--reg-primary)] p-6 text-[var(--reg-on-primary)] sm:p-8 lg:col-start-2 lg:row-span-2 lg:row-start-1"
-                  style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
+                  style={
+                    {
+                      // Gathering: badan halaman memakai warna tombol; kartu kode tetap warna merek dari Tema.
+                      ...(g ? { "--reg-primary": props.theme["--reg-primary" as keyof CSSProperties], "--reg-on-primary": props.theme["--reg-on-primary" as keyof CSSProperties] } : null),
+                      "--m3-state-color": "var(--reg-on-primary)",
+                    } as CSSProperties
+                  }
                 >
                   <RegistrationCodeCard
                     inverse
@@ -627,7 +648,7 @@ export default function DaftarClient(props: Props) {
             <motion.div key="formulir" {...TUKAR}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-title-large font-medium">{t.personalData}</h2>
+                  <h2 className={g ? JUDUL_GATHERING : "text-title-large font-medium"}>{t.personalData}</h2>
                   <p className={`mt-1 text-body-medium ${MUTED}`}>{t.optionalNote}</p>
                 </div>
                 {m.masukUrl ? (
@@ -646,7 +667,11 @@ export default function DaftarClient(props: Props) {
                 {bagianAkun}
                 {galat}
                 <div className="mt-8 flex flex-col gap-4 border-t border-[var(--reg-outline-variant)] pt-7 sm:flex-row sm:items-center sm:gap-6">
-                  {tombolKirim("min-h-[52px] w-full rounded-md text-title-small sm:w-auto sm:min-w-64")}
+                  {tombolKirim(
+                    g
+                      ? "min-h-12 w-full rounded-[12px] text-[15px] leading-[1.2] sm:w-auto sm:min-w-64"
+                      : "min-h-[52px] w-full rounded-md text-title-small sm:w-auto sm:min-w-64",
+                  )}
                   <p className={`text-body-medium ${MUTED}`}>
                     {t.consent}
                   </p>
@@ -807,6 +832,13 @@ export function BingkaiModern({
   eyebrow?: string;
   children: React.ReactNode;
 }) {
+  if (modern.gathering) {
+    return (
+      <BingkaiGathering lang={lang} halamanUrl={halamanUrl} eventName={eventName} welcomeText={welcomeText} theme={theme} modern={modern} gathering={modern.gathering} areaUrl={areaUrl} eyebrow={eyebrow}>
+        {children}
+      </BingkaiGathering>
+    );
+  }
   const tinta = modern.kv ? "#fff" : "var(--reg-on-brand)";
   const t = DAFTAR_UI[lang];
   return (
@@ -891,6 +923,129 @@ export function BingkaiModern({
           <span>{t.managedBy}</span>
         </div>
       </footer>
+    </main>
+  );
+}
+
+/**
+ * Kerangka formulir preset Gathering: bilah atas putih dengan tombol pil
+ * "Masuk Portal", kepala navy bergradasi dengan lencana, nama acara 800, dan
+ * baris fakta seperti hero halaman acara gathering, formulir di atas putih
+ * dengan kolom abu-abu muda bersudut 12 (rancangan Login, Figma Hanung), lalu
+ * kaki tipis putih yang sama dengan halaman acara.
+ */
+function BingkaiGathering({
+  lang,
+  halamanUrl,
+  eventName,
+  welcomeText,
+  theme,
+  modern,
+  gathering,
+  areaUrl,
+  eyebrow,
+  children,
+}: Pick<Props, "lang" | "halamanUrl" | "eventName" | "welcomeText" | "theme"> & {
+  modern: FormModern;
+  gathering: FormGathering;
+  areaUrl: string | null;
+  eyebrow?: string;
+  children: React.ReactNode;
+}) {
+  const t = DAFTAR_UI[lang];
+  const redup = "text-[var(--hero-redup,color-mix(in_srgb,#fff_80%,transparent))]";
+  return (
+    <main
+      lang={LANDING_LANG_LABELS[lang].htmlLang}
+      className="flex min-h-dvh flex-col bg-[var(--reg-surface)] text-[var(--reg-on-surface)]"
+      style={
+        {
+          ...theme,
+          ...modern.nav.style,
+          ...gathering.gaya,
+          "--landing-heading": modern.headingFont,
+          "--pinggir-lg": "56px",
+          "--pinggir-xl": "56px",
+        } as CSSProperties
+      }
+    >
+      <LandingNavModern
+        eventName={eventName}
+        daftarUrl=""
+        registrationOpen={false}
+        memberLink={areaUrl ? { href: areaUrl, label: t.account.memberArea, area: true } : modern.masukUrl ? { href: modern.masukUrl, label: t.signIn } : null}
+        sections={[]}
+        width={modern.nav.width}
+        logoUrl={modern.nav.logoUrl}
+        logoOnDark={modern.nav.logoOnDark}
+        lang={lang}
+        langSwitch={modern.nav.langSwitch}
+        homeHref={halamanUrl ?? undefined}
+        backLink={halamanUrl ? { href: halamanUrl, label: t.backToEvent } : null}
+        gathering={{ tanda: "", sub: null }}
+      />
+      <header
+        data-landing-hero
+        className="relative isolate -mt-[var(--nav-h)] overflow-hidden text-white"
+        style={
+          {
+            background:
+              "var(--latar-gathering, linear-gradient(160deg, color-mix(in srgb, var(--reg-brand) 62%, black) 0%, color-mix(in srgb, var(--reg-brand) 85%, black) 60%, var(--reg-brand) 100%))",
+            "--m3-state-color": "#fff",
+          } as CSSProperties
+        }
+      >
+        {modern.kv ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={modern.kv} alt="" className="absolute inset-0 -z-10 size-full object-cover" />
+        ) : null}
+        <div className={`${SHELL} flex flex-col items-start gap-6 pb-12 pt-[calc(var(--nav-h)+40px)] lg:pb-[72px] lg:pt-[calc(var(--nav-h)+72px)]`}>
+          {halamanUrl ? (
+            <Link href={halamanUrl} className={`-mb-2 inline-flex min-h-12 items-center gap-2 text-[14px] font-semibold sm:hidden ${redup}`}>
+              <ArrowLeft size={16} weight="bold" />
+              {t.eventPage}
+            </Link>
+          ) : null}
+          <p className="inline-flex items-center rounded-full bg-[color-mix(in_srgb,#fff_10%,transparent)] px-[18px] py-2 text-[12px] font-semibold uppercase leading-[1.2] tracking-[2px] text-[var(--hero-lencana,#F6E3A8)]">
+            {eyebrow ?? t.registration}
+          </p>
+          <h1 className={`${HEAD} max-w-[900px] text-balance [overflow-wrap:anywhere] text-[36px] font-extrabold leading-[1.08] sm:text-[44px] lg:text-[52px]`}>
+            {eventName}
+          </h1>
+          {welcomeText ? <p className={`max-w-[760px] whitespace-pre-line text-[16px] leading-[1.6] ${redup}`}>{welcomeText}</p> : null}
+          {gathering.fakta.length > 0 ? (
+            // Pemisah di kiri setiap butir, seperti hero halaman acara gathering.
+            <div className="overflow-hidden">
+              <ul className="-ml-[41px] flex flex-wrap items-center gap-y-2 text-[14px] leading-[1.2] tabular-nums">
+                {gathering.fakta.map((teks, index) => (
+                  <li
+                    key={teks}
+                    className={`flex items-center whitespace-nowrap before:mx-5 before:h-4 before:w-px before:bg-[color-mix(in_srgb,#fff_20%,transparent)] before:content-[''] ${
+                      index === 0 ? "font-extrabold text-[var(--hero-angka)]" : redup
+                    }`}
+                  >
+                    {teks}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      </header>
+
+      {/* Kolom isian rancangan Login: #F4F6F8, garis #E6EAEF, sudut 12. Placeholder
+          memakai teks redup gathering (4.5:1 di #F4F6F8), bukan 50% tinta bawaan. */}
+      <div
+        className={`${SHELL} flex-1 py-10 sm:py-14 lg:py-[72px] [&_input::placeholder]:text-[var(--reg-on-surface-variant)] [&_textarea::placeholder]:text-[var(--reg-on-surface-variant)]`}
+        style={{ ...AKSI_GATHERING, "--reg-field": "#F4F6F8", "--reg-outline": "#E6EAEF", "--reg-outline-variant": "#E6EAEF", "--radius-md": "12px" } as CSSProperties}
+      >
+        {children}
+      </div>
+
+      {/* Garis tipis: kaki putih berdiri di bawah formulir putih, bukan di bawah pita navy seperti di halaman acara. */}
+      <div className="border-t border-[#E6EAEF]">
+        <KakiGathering hakCipta={gathering.hakCipta} tagline={gathering.tagline} />
+      </div>
     </main>
   );
 }

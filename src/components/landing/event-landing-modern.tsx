@@ -34,6 +34,7 @@ import { HEAD, JUDUL, JUDUL_BUTIR, LABEL_BAGIAN, LEBAR_BACA, MUTED, PIL, PIL_GAR
 import { LandingBlockView } from "./modern/landing-blocks";
 import { KakiModern, KV_SCRIM, KV_SCRIM_RATA, PitaMitra, bagianModern, gayaModern, tinta } from "./modern/kerangka";
 import { muatNavPeserta } from "@/lib/member/nav";
+import { jumlahHari, tanpaTahunUjung } from "@/lib/gathering-formulir";
 
 /**
  * Landing page publik acara, tata letak Modern (`landing_config.layout`).
@@ -1097,13 +1098,6 @@ function sisaHari(mulai: string | null, selesai: string | null, zona: EventTimeZ
   return { sisa: 0, hariKe: sekarang - hari(mulai) + 1, lama };
 }
 
-/** Jumlah hari dari tanggal mulai sampai selesai (inklusif). Null bila satu hari atau tanggal tidak lengkap. */
-function jumlahHari(mulai: string | null, selesai: string | null): number | null {
-  if (!mulai || !selesai) return null;
-  const hari = Math.round((Date.parse(`${selesai}T00:00:00Z`) - Date.parse(`${mulai}T00:00:00Z`)) / 86_400_000) + 1;
-  return Number.isFinite(hari) && hari > 1 && hari <= 31 ? hari : null;
-}
-
 function waktuInap(iso: string | null, zona: EventTimeZone, lang: LandingLang): string | null {
   if (!iso) return null;
   const tanggal = new Date(iso);
@@ -1111,17 +1105,6 @@ function waktuInap(iso: string | null, zona: EventTimeZone, lang: LandingLang): 
   const hari = new Intl.DateTimeFormat(locale, { timeZone: zona, weekday: "short", day: "numeric", month: "short" }).format(tanggal);
   const jamnya = new Intl.DateTimeFormat(locale, { timeZone: zona, hour: "2-digit", minute: "2-digit", hour12: false }).format(tanggal);
   return `${hari} · ${lang === "en" ? jamnya : jamnya.replace(":", ".")}`;
-}
-
-// Kata sambung yang butuh tahunnya: "Road to 2026" tetap utuh (QA #110 L3).
-const SAMBUNG_TAHUN = /\b(to|towards?|for|of|menuju|jelang|ke|untuk)$/i;
-
-/** Buang tahun acara di ujung nama ("KSO Sucofindo 2026" → "KSO Sucofindo"); nama yang hanya tahun menjadi kosong. */
-function tanpaTahunUjung(teks: string, tahun: string): string {
-  if (teks.trim() === tahun) return "";
-  const cocok = teks.match(new RegExp(`^(.*\\S)\\s+${tahun}$`));
-  if (!cocok || SAMBUNG_TAHUN.test(cocok[1])) return teks;
-  return cocok[1];
 }
 
 /**

@@ -161,7 +161,8 @@ export function LandingNavModern({
   eventName: string;
   daftarUrl: string;
   registrationOpen: boolean;
-  memberLink?: { href: string; label: string } | null;
+  /** `area`: tautan ke area peserta tamu yang sudah masuk; gaya gathering lalu memakai labelnya, bukan "Masuk Portal". */
+  memberLink?: { href: string; label: string; area?: boolean } | null;
   sections: { id: string; label: string }[];
   width?: LandingNavWidth;
   logoUrl?: string | null;
@@ -470,7 +471,7 @@ export function LandingNavModern({
               }
               style={registrationOpen ? undefined : ({ "--m3-state-color": "var(--on-aksi-putih)" } as CSSProperties)}
             >
-              {registrationOpen ? memberLink.label : t.navPortalSignIn}
+              {registrationOpen || memberLink.area ? memberLink.label : t.navPortalSignIn}
             </Link>
           ) : null}
           {!peserta && registrationOpen && gathering ? (
