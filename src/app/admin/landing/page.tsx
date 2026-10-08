@@ -1,7 +1,7 @@
 "use client";
 
 import { pesanGalatApi } from "@/lib/api-message";
-import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Lightning, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
@@ -34,6 +34,8 @@ import {
   landingBlockLimits,
   type LandingTextLimit,
   normalizeLandingSections,
+  isPortalEntry,
+  susunanDenganPortal,
   type LandingBlock,
   type LandingBlockItem,
   type LandingBlockType,
@@ -42,7 +44,7 @@ import {
   type LandingLayout,
   type LandingHeadedSection,
   type LandingConfigEn,
-  type LandingSection,
+  type LandingSectionEntry,
   type LandingSectionId,
   type RegistrationFormConfig,
   type LandingHeroAlign,
@@ -435,7 +437,22 @@ function tanpaTersembunyiKepanjangan(blocks: LandingBlock[] | undefined): Landin
 }
 
 /** Hapus yang bisa diurungkan. Berlaku di draf; baru permanen saat Simpan. */
-type Urungan = { pesan: string; sections: LandingSection[]; blocks: LandingBlock[] };
+/** Susunan yang diedit: dengan Portal peserta pada gaya gathering. */
+function susunanHalaman(isi: EventLandingConfig): LandingSectionEntry[] {
+  const gathering = isi.layout === "modern" && isi.gathering === true;
+  return gathering ? susunanDenganPortal(isi.sections, isi.blocks) : normalizeLandingSections(isi.sections, isi.blocks);
+}
+
+/**
+ * Susunan yang disimpan. Portal di ujung adalah tempat bawaannya, jadi tidak
+ * ditulis: entri portal tersimpan berarti admin memilih tempat lain, dan Apply
+ * atau Reset Gathering membiarkannya (lihat isiGathering).
+ */
+function simpanSusunan(susunan: LandingSectionEntry[]): LandingSectionEntry[] {
+  return susunan.length > 0 && isPortalEntry(susunan[susunan.length - 1]) ? susunan.slice(0, -1) : susunan;
+}
+
+type Urungan = { pesan: string; sections: LandingSectionEntry[]; blocks: LandingBlock[] };
 
 export default function LandingCmsPage() {
   const [facts, setFacts] = useState<Facts | null>(null);
@@ -649,7 +666,9 @@ export default function LandingCmsPage() {
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
 
-  const sections: LandingSection[] = normalizeLandingSections(landing.sections, landing.blocks);
+  // Gaya gathering: Portal peserta ikut di susunan sebagai baris yang bisa
+  // digeser (lihat susunanDenganPortal); gaya lain tidak punya portal.
+  const sections: LandingSectionEntry[] = susunanHalaman(landing);
   const cuplikan = facts ? JSON.stringify({ facts, landing, formInherit, formSeed }) : null;
   // Nilai terbaru untuk muatBarisSesi, yang juga dipanggil dari pendengar fokus jendela.
   useEffect(() => {
@@ -794,7 +813,7 @@ export default function LandingCmsPage() {
   /** Isi yang dikirim saat Simpan, dan yang dirender pratinjau langsung. */
   function isiKirim(facts: Facts, isi: EventLandingConfig = landing) {
     // `isi` = landing, kecuali pratinjau preset (yang belum diterapkan).
-    const susunan = isi === landing ? sections : normalizeLandingSections(isi.sections, isi.blocks);
+    const susunan = simpanSusunan(isi === landing ? sections : susunanHalaman(isi));
     return {
       description: facts.description?.trim() || null,
       tagline: facts.tagline?.trim() || null,
@@ -1086,7 +1105,7 @@ export default function LandingCmsPage() {
   const isiPortal = (
     <>
       <p className="text-body-medium text-on-surface-variant">
-        This section appears automatically at the end of the page while the Participant area is open. Its text is fixed, and its tiles follow the Participant area: entry ticket, room and bus, and announcements. The top bar gets a link to it, &ldquo;Perjalanan&rdquo; (&ldquo;Your trip&rdquo; in English).
+        This section appears automatically while the Participant area is open. Drag its row to choose where it sits; by default it is just above the footer. Its text is fixed, and its tiles follow the Participant area: entry ticket, room and bus, and announcements. The top bar gets a link to it, &ldquo;Perjalanan&rdquo; (&ldquo;Your trip&rdquo; in English).
       </p>
       {tautanSumberPortal("/admin/area-peserta", "Open Participant area")}
     </>
@@ -2300,6 +2319,8 @@ export default function LandingCmsPage() {
   }
 
   function setTampil(index: number, value: boolean) {
+    // Tampil atau tidaknya portal disimpan di portal_section, bukan di susunan.
+    if (isPortalEntry(sections[index])) { setLanding({ ...landing, portal_section: value }); return; }
     setLanding({ ...landing, sections: sections.map((item, position) => (position === index ? { ...item, enabled: value } : item)) });
   }
 
@@ -2309,7 +2330,10 @@ export default function LandingCmsPage() {
 
   function tambahBlok(type: LandingBlockType) {
     const blok = buatBlok(type);
-    setLanding({ ...landing, sections: [...sections, { id: blok.id, enabled: true }], blocks: [...(landing.blocks ?? []), blok] });
+    // Blok baru masuk di akhir isi, tetap di atas Portal peserta yang ada di ujung.
+    const ujungPortal = sections.length > 0 && isPortalEntry(sections[sections.length - 1]);
+    const next = ujungPortal ? [...sections.slice(0, -1), { id: blok.id, enabled: true }, sections[sections.length - 1]] : [...sections, { id: blok.id, enabled: true }];
+    setLanding({ ...landing, sections: next, blocks: [...(landing.blocks ?? []), blok] });
     setTambahTerbuka(false);
     setBagian("susunan");
     setTerbuka(blok.id);
@@ -2446,15 +2470,17 @@ export default function LandingCmsPage() {
             </span>
             {titik ? <span className="sr-only">{alasanTitik}</span> : null}
             {sub ? (
-              <span title={sub} className="block truncate text-body-small text-on-surface-variant">
+              <span title={sub} className={cx("block truncate text-body-small text-on-surface-variant", lencana && "max-sm:hidden")}>
                 {tersembunyi ? `${sub} · hidden` : sub}
               </span>
             ) : null}
+            {/* Ponsel: lencana di baris kedua, supaya judul tidak terpotong menjadi "P…" (QA #114 L1). */}
+            {lencana ? <span className="block truncate text-body-small font-medium text-warning sm:hidden">{lencana}</span> : null}
           </button>
           {titik ? (
             <span className="mr-2 size-2 shrink-0 rounded-full bg-warning" title={alasanTitik} aria-hidden />
           ) : null}
-          {lencana ? <StatusChip tone="warning" className="shrink-0">{lencana}</StatusChip> : null}
+          {lencana ? <StatusChip tone="warning" className="shrink-0 max-sm:hidden">{lencana}</StatusChip> : null}
           {saklar ? (
             <IconButton
               size="sm"
@@ -2467,9 +2493,6 @@ export default function LandingCmsPage() {
           ) : null}
           {menu ? (
             <MenuBlok label={`Menu: ${judul}`} items={menu} />
-          ) : saklar && id === "portal" ? (
-            // Baris otomatis tanpa menu: matanya tetap di kolom mata baris lain (QA #109 L4).
-            <span className="size-10 shrink-0" aria-hidden />
           ) : null}
         </div>
         {buka ? (
@@ -2483,7 +2506,7 @@ export default function LandingCmsPage() {
 
   /** Isi menu ⋯ sebuah baris. Naik/turun juga jalan papan ketik pengganti seret. */
   function menuBaris(index: number, judul: string, blok?: LandingBlock): ItemMenuBlok[] {
-    const tampil = sections[index].enabled;
+    const tampil = isPortalEntry(sections[index]) ? landing.portal_section !== false : sections[index].enabled;
     const items: ItemMenuBlok[] = [
       { label: "Move up", icon: <ArrowUp size={18} />, disabled: index === 0, onSelect: () => moveSection(index, -1) },
       { label: "Move down", icon: <ArrowDown size={18} />, disabled: index === sections.length - 1, onSelect: () => moveSection(index, 1) },
@@ -2562,7 +2585,7 @@ export default function LandingCmsPage() {
   // Forum menyimpan bagian tersembunyinya sendiri (forum.hidden), urutannya tetap.
   // Bagian Portal peserta otomatis (gathering) ikut dihitung: tanpa itu,
   // portal yang disembunyikan tidak bisa ditemukan lagi di daftar.
-  const barisPortal = gathering && landing.member?.enabled === true;
+  const barisPortal = gathering;
   const jumlahTersembunyi = forum ? (landing.forum?.hidden ?? []).length : tersembunyi.length + (barisPortal && landing.portal_section === false ? 1 : 0);
 
   // Mode EN: baris yang sama dalam urutan yang sama, tetapi hanya yang tampil di
@@ -2576,6 +2599,17 @@ export default function LandingCmsPage() {
           // dibuka: Simpan membukanya bila teks English-nya melewati batas
           // (hanya bisa terjadi lewat Impor).
           if (!section.enabled && terbuka !== section.id) return null;
+          // Portal peserta juga tampil di /en; teksnya tetap dan sudah berbahasa Inggris (QA #109 L5).
+          if (isPortalEntry(section)) {
+            if (landing.member?.enabled !== true || landing.portal_section === false) return null;
+            return barisSusunan({
+              id: "portal",
+              nomor: index + 2,
+              judul: "Portal peserta",
+              sub: "Automatic · fixed English text",
+              isi: <p className="text-body-medium text-on-surface-variant">This section has fixed text in both languages, so there is nothing to translate.</p>,
+            });
+          }
           if (isLandingBlockId(section.id)) {
             const blok = blokById.get(section.id);
             if (!blok) return null;
@@ -2599,16 +2633,6 @@ export default function LandingCmsPage() {
             isi: <BagianEn id={id} landing={landing} facts={facts} setLanding={setLanding} rundown={rundownEn} ubahRundown={ubahRundown} sesiRundown={agendaAktif ? [] : (rundownEn ?? []).filter((baris) => idSesiDipakai.has(baris.id))} />,
           });
         })}
-        {/* Portal peserta juga tampil di /en; teksnya tetap dan sudah berbahasa Inggris (QA #109 L5). */}
-        {gathering && landing.member?.enabled === true && landing.portal_section !== false
-          ? barisSusunan({
-              id: "portal",
-              nomor: <Lightning size={14} weight="fill" aria-hidden />,
-              judul: "Portal peserta",
-              sub: "Automatic · fixed English text",
-              isi: <p className="text-body-medium text-on-surface-variant">This section has fixed text in both languages, so there is nothing to translate.</p>,
-            })
-          : null}
         {barisSusunan({ id: "kaki", nomor: sections.length + 2, judul: "Footer", sub: "Organiser line, call-to-action banner", titik: barisKurangEn.has("kaki"), isi: <BagianEn id="kaki" landing={landing} facts={facts} setLanding={setLanding} /> })}
       </ol>
     </div>
@@ -2639,6 +2663,24 @@ export default function LandingCmsPage() {
         {sections.map((section, index) => {
           if (!section.enabled && !tampilTersembunyi) return null;
           const saklar = { checked: section.enabled, onChange: (value: boolean) => setTampil(index, value) };
+
+          // Bagian otomatis gaya gathering: isinya tetap, tempatnya bisa digeser,
+          // dan tetap terdaftar saat Participant area tutup supaya bisa ditemukan.
+          if (isPortalEntry(section)) {
+            const tampilPortal = landing.portal_section !== false;
+            if (!tampilPortal && !tampilTersembunyi) return null;
+            return barisSusunan({
+              id: "portal",
+              nomor: index + 2,
+              judul: "Portal peserta",
+              sub: "Automatic · what guests find after signing in",
+              lencana: tampilPortal && landing.member?.enabled !== true ? "Participant area closed" : null,
+              saklar: { checked: tampilPortal, onChange: (value: boolean) => setTampil(index, value) },
+              indeks: index,
+              menu: menuBaris(index, "Portal peserta"),
+              isi: isiPortal,
+            });
+          }
 
           if (isLandingBlockId(section.id)) {
             const blok = blokById.get(section.id);
@@ -2675,18 +2717,6 @@ export default function LandingCmsPage() {
             isi: isiBawaan(id),
           });
         })}
-        {/* Bagian otomatis di akhir halaman gathering: tidak bisa diseret karena
-            tempatnya tetap, tetapi bisa disembunyikan (CMS mudah, butir 2). */}
-        {barisPortal && (landing.portal_section !== false || tampilTersembunyi)
-          ? barisSusunan({
-              id: "portal",
-              nomor: <Lightning size={14} weight="fill" aria-hidden />,
-              judul: "Portal peserta",
-              sub: "Automatic · what guests find after signing in",
-              saklar: { checked: landing.portal_section !== false, onChange: (value) => setLanding({ ...landing, portal_section: value }) },
-              isi: isiPortal,
-            })
-          : null}
         {barisSusunan({
           id: "kaki",
           nomor: sections.length + 2,
@@ -2878,7 +2908,7 @@ export default function LandingCmsPage() {
     ? ""
     : JSON.stringify([
         ["pembuka", "Hero"],
-        ...sections.filter((section) => section.enabled).map((section) => [
+        ...normalizeLandingSections(sections, landing.blocks).filter((section) => section.enabled).map((section) => [
           section.id,
           isLandingBlockId(section.id)
             ? (() => {

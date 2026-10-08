@@ -171,6 +171,20 @@ export type LandingSectionId = "about" | "highlights" | "agenda" | "speakers" | 
  */
 export type LandingSection = { id: LandingSectionId | LandingBlockId; enabled: boolean };
 
+/**
+ * Tempat bagian otomatis "Portal peserta" (gaya gathering) di susunan halaman.
+ * Hanya posisinya yang disimpan di `sections`; tampil atau tidaknya tetap
+ * `portal_section`, jadi `enabled` di entri ini tidak dibaca. Tanpa entri ini
+ * portal berada di akhir halaman, tepat di atas kaki, seperti sebelum bisa digeser.
+ */
+export const PORTAL_SECTION_ID = "portal";
+export type LandingPortalEntry = { id: typeof PORTAL_SECTION_ID; enabled: boolean };
+export type LandingSectionEntry = LandingSection | LandingPortalEntry;
+
+export function isPortalEntry(section: LandingSectionEntry): section is LandingPortalEntry {
+  return section.id === PORTAL_SECTION_ID;
+}
+
 export type LandingBlockId = `blk_${string}`;
 
 export function isLandingBlockId(id: string): id is LandingBlockId {
@@ -619,13 +633,13 @@ export const DEFAULT_LANDING_SECTIONS: LandingSection[] = [
  * Bagian yang tertinggal ditambahkan di posisi bawaannya dengan keadaan
  * bawaannya; susunan yang sudah diatur admin tidak diubah.
  */
-export function normalizeLandingSections(saved: LandingSection[] | undefined, blocks: LandingBlock[] = []): LandingSection[] {
+export function normalizeLandingSections(saved: LandingSectionEntry[] | undefined, blocks: LandingBlock[] = []): LandingSection[] {
   const ids = new Set(blocks.map((block) => block.id));
   // Blok yang tersimpan di `blocks` tapi belum ada di susunan masuk di akhir;
   // entri susunan yang bloknya sudah dihapus dibuang.
   const yatim = blocks.filter((block) => !saved?.some((section) => section.id === block.id)).map((block) => ({ id: block.id, enabled: true }));
   if (!saved?.length) return [...DEFAULT_LANDING_SECTIONS, ...yatim];
-  const next = saved.filter((section) =>
+  const next = saved.filter((section): section is LandingSection =>
     isLandingBlockId(section.id) ? ids.has(section.id) : DEFAULT_LANDING_SECTIONS.some((item) => item.id === section.id),
   );
   DEFAULT_LANDING_SECTIONS.forEach((item, index) => {
@@ -633,6 +647,24 @@ export function normalizeLandingSections(saved: LandingSection[] | undefined, bl
     next.splice(Math.min(index, next.length), 0, item);
   });
   return [...next, ...yatim];
+}
+
+/**
+ * Susunan gaya gathering: `normalizeLandingSections` plus entri Portal peserta
+ * di tempat yang disimpan admin. Tempatnya diukur dari bagian sebelum entri itu
+ * di susunan tersimpan, jadi bagian yang ditambahkan normalisasi tidak
+ * menggesernya. Tanpa entri tersimpan, portal ditaruh di akhir.
+ */
+export function susunanDenganPortal(saved: LandingSectionEntry[] | undefined, blocks: LandingBlock[] = []): LandingSectionEntry[] {
+  const susunan: LandingSectionEntry[] = normalizeLandingSections(saved, blocks);
+  const posisi = saved?.findIndex(isPortalEntry) ?? -1;
+  if (posisi < 0) return [...susunan, { id: PORTAL_SECTION_ID, enabled: true }];
+  // Bagian tersimpan terdekat sebelum portal yang masih ada di susunan.
+  for (let i = posisi - 1; i >= 0; i -= 1) {
+    const sebelum = susunan.findIndex((section) => section.id === saved![i].id);
+    if (sebelum >= 0) return [...susunan.slice(0, sebelum + 1), { id: PORTAL_SECTION_ID, enabled: true }, ...susunan.slice(sebelum + 1)];
+  }
+  return [{ id: PORTAL_SECTION_ID, enabled: true }, ...susunan];
 }
 
 /**
@@ -1092,7 +1124,7 @@ export type EventLandingConfig = {
   heading_scale?: LandingHeadingScale;
   /** Ukuran nama acara di layar lebar, dalam px. Di layar sempit mengecil otomatis. */
   heading_size?: number;
-  sections?: LandingSection[];
+  sections?: LandingSectionEntry[];
   speakers?: LandingSpeaker[];
   /** Angka yang ingin ditonjolkan: "300+ peserta", "12 booth". */
   highlights?: { label: string; value: string; en?: { label?: string; value?: string } }[];

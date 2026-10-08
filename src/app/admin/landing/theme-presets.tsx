@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check } from "@phosphor-icons/react";
 import { Kelompok } from "@/components/admin/compact-form";
-import { normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
+import { susunanDenganPortal, type EventLandingConfig } from "@/lib/domain";
 import { Button } from "@/components/m3";
 import {
   LANDING_THEME_PRESETS,
@@ -152,6 +152,7 @@ function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePres
           {gantiBilah && bilah ? `${gantiMerek ? "The" : "This also makes the"} top bar ${gantiMerek ? "becomes " : ""}${bilah.color.toLowerCase() === "#ffffff" ? "white" : bilah.color.toUpperCase()}, ${bilah.height} px tall.` : null}
           {isi?.tentang ? `${gantiMerek || gantiBilah ? " " : ""}An empty About heading and cards get the ${preset.label} text.` : null}
           {isi?.lokasi ? `${gantiMerek || gantiBilah || isi.tentang ? " " : ""}Location and the hotel card are hidden; show them again in Page sections.` : null}
+          {isi?.portal ? `${gantiMerek || gantiBilah || isi.tentang || isi.lokasi ? " " : ""}Portal peserta moves above FAQ, so FAQ is last before the footer.` : null}
         </p>
         <div className="flex justify-end gap-2">
           <Button variant="text" size="sm" onClick={() => setTanya(false)}>
@@ -169,7 +170,7 @@ function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePres
       <p className="min-w-0 flex-1 text-body-small text-on-surface-variant">
         {isi ? "Colours, fonts, top bar, corners or About" : "Colours, fonts or corners"} differ from {preset.label}.
       </p>
-      <Button variant="text" size="sm" onClick={gantiMerek || gantiBilah || isi?.tentang || isi?.lokasi ? () => setTanya(true) : reset}>
+      <Button variant="text" size="sm" onClick={gantiMerek || gantiBilah || isi?.tentang || isi?.lokasi || isi?.portal ? () => setTanya(true) : reset}>
         {isi ? `Reset to ${preset.label}` : "Reset colours and fonts"}
       </Button>
     </div>
@@ -215,7 +216,7 @@ export function pakaiPreset(preset: LandingThemePreset, landing: EventLandingCon
     nav_label: "Info penting",
     items: INFO_GATHERING.map((title) => ({ title, body: "" })),
   };
-  const sections = normalizeLandingSections(hasil.sections, hasil.blocks);
+  const sections = susunanDenganPortal(hasil.sections, hasil.blocks);
   // Sebelum FAQ, seperti di rancangan; tanpa FAQ, di ujung.
   const faq = sections.findIndex((section) => section.id === "faq");
   const posisi = faq === -1 ? sections.length : faq;
