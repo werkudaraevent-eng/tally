@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { pecahJudul } from "@/lib/landing-tagline";
 import Link from "next/link";
 import { Bed, Bus, Heart, Lightning, MapPin, Megaphone, Ticket, Users } from "@phosphor-icons/react/dist/ssr";
 import type { AgendaPreview } from "@/lib/landing-agenda";
@@ -32,13 +33,14 @@ const REDUP = "text-[var(--hero-redup,color-mix(in_srgb,var(--ink)_80%,transpare
 
 /** "Liburan bareng, *tumbuh* bareng." menjadi teks dengan kata berbintang berwarna aksen. */
 export function judulBerbintang(teks: string): ReactNode[] {
-  return teks.split(/(\*[^*\n]+\*)/g).filter(Boolean).map((bagian, index) =>
-    /^\*[^*]+\*$/.test(bagian) ? (
+  // Aturan baca bintang ada di landing-tagline.ts, sama dengan kolom CMS.
+  return pecahJudul(teks).map((bagian, index) =>
+    bagian.sorot ? (
       <span key={index} className="text-[var(--hero-angka)]">
-        {bagian.slice(1, -1)}
+        {bagian.teks}
       </span>
     ) : (
-      bagian
+      bagian.teks
     ),
   );
 }

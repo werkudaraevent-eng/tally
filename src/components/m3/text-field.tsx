@@ -82,7 +82,7 @@ function Penghitung({ id, count }: { id: string; count: Hitungan }) {
 	);
 }
 
-function FieldMessages({ id, error, hint, count }: { id: string; error?: string; hint?: ReactNode; count?: Hitungan | null }) {
+export function FieldMessages({ id, error, hint, count }: { id: string; error?: string; hint?: ReactNode; count?: Hitungan | null }) {
 	if (count) {
 		return (
 			<div className="mt-2 flex items-start justify-between gap-3">

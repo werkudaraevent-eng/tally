@@ -1023,7 +1023,8 @@ export default function LandingCmsPage() {
   const sesiPertama = barisSesi?.[0] ?? null;
   const tautanSumberPortal = (href: string, label: string) =>
     facts ? (
-      <Link href={`/e/${facts.slug}${href}`} className="inline-flex shrink-0 items-center gap-1 rounded-sm text-body-medium font-medium text-primary hover:underline">
+      // Tab baru, sesuai ikonnya: editor ini tidak menahan perubahan yang belum disimpan (QA #109 M6).
+      <Link href={`/e/${facts.slug}${href}`} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-1 rounded-sm text-body-medium font-medium text-primary hover:underline">
         {label}
         <ArrowSquareOut size={14} aria-hidden />
       </Link>
@@ -1065,6 +1066,12 @@ export default function LandingCmsPage() {
             </div>
             {tautanSumberPortal("/admin/area-peserta", "Participant area")}
           </div>
+          <div className="flex items-start gap-3 p-3">
+            <div className="min-w-0 flex-1">
+              <dt className="text-body-medium font-semibold text-on-surface">Card title</dt>
+              <dd className="mt-0.5 text-body-medium text-on-surface-variant">Fixed text: &ldquo;Perjalanan Anda&rdquo;, or &ldquo;Your trip&rdquo; on the English page.</dd>
+            </div>
+          </div>
         </dl>
       ) : (
         <div>{tautanSumberPortal("/admin/area-peserta", "Open Participant area")}</div>
@@ -1074,7 +1081,7 @@ export default function LandingCmsPage() {
   const isiPortal = (
     <>
       <p className="text-body-medium text-on-surface-variant">
-        This section appears automatically at the end of the page while the Participant area is open. Its text is fixed, and its tiles follow the Participant area: entry ticket, room and bus, and announcements. The top bar gets a Portal link to it.
+        This section appears automatically at the end of the page while the Participant area is open. Its text is fixed, and its tiles follow the Participant area: entry ticket, room and bus, and announcements. The top bar gets a link to it, &ldquo;Perjalanan&rdquo; (&ldquo;Your trip&rdquo; in English).
       </p>
       {tautanSumberPortal("/admin/area-peserta", "Open Participant area")}
     </>
@@ -1098,6 +1105,7 @@ export default function LandingCmsPage() {
             optional
             hint="The large title in the hero. Select a word and press Highlight to show it in the accent colour."
             accent={tokensHero.accent ?? "#d4a72c"}
+            maxLength={200}
             value={facts.tagline ?? ""}
             onChange={(tagline) => patchFacts({ tagline })}
           />
@@ -2311,7 +2319,12 @@ export default function LandingCmsPage() {
               {saklar.checked ? <Eye size={20} /> : <EyeSlash size={20} />}
             </IconButton>
           ) : null}
-          {menu ? <MenuBlok label={`Menu: ${judul}`} items={menu} /> : null}
+          {menu ? (
+            <MenuBlok label={`Menu: ${judul}`} items={menu} />
+          ) : saklar && id === "portal" ? (
+            // Baris otomatis tanpa menu: matanya tetap di kolom mata baris lain (QA #109 L4).
+            <span className="size-10 shrink-0" aria-hidden />
+          ) : null}
         </div>
         {buka ? (
           <div id={`isi-${id}`} className="flex flex-col gap-4 bg-primary-soft/40 px-4 pb-4 pt-2">
@@ -2376,7 +2389,7 @@ export default function LandingCmsPage() {
             <p className="text-body-medium text-on-surface-variant">
               In the gathering layout this section shows the hotel from Logistics, with check-in and check-out times, and the menu calls it Hotel. The venue fields below show only while Logistics has no hotel.
             </p>
-            <Link href={`/e/${facts.slug}/admin/logistik`} className="inline-flex items-center gap-1 self-start rounded-sm text-body-medium font-medium text-primary hover:underline">
+            <Link href={`/e/${facts.slug}/admin/logistik`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 self-start rounded-sm text-body-medium font-medium text-primary hover:underline">
               Open Logistics
               <ArrowSquareOut size={14} aria-hidden />
             </Link>
@@ -2432,6 +2445,16 @@ export default function LandingCmsPage() {
             isi: <BagianEn id={id} landing={landing} facts={facts} setLanding={setLanding} rundown={rundownEn} ubahRundown={ubahRundown} sesiRundown={agendaAktif ? [] : (rundownEn ?? []).filter((baris) => idSesiDipakai.has(baris.id))} />,
           });
         })}
+        {/* Portal peserta juga tampil di /en; teksnya tetap dan sudah berbahasa Inggris (QA #109 L5). */}
+        {gathering && landing.member?.enabled === true && landing.portal_section !== false
+          ? barisSusunan({
+              id: "portal",
+              nomor: <Lightning size={14} weight="fill" aria-hidden />,
+              judul: "Portal peserta",
+              sub: "Automatic · fixed English text",
+              isi: <p className="text-body-medium text-on-surface-variant">This section has fixed text in both languages, so there is nothing to translate.</p>,
+            })
+          : null}
         {barisSusunan({ id: "kaki", nomor: sections.length + 2, judul: "Footer", sub: "Organiser line, call-to-action banner", titik: barisKurangEn.has("kaki"), isi: <BagianEn id="kaki" landing={landing} facts={facts} setLanding={setLanding} /> })}
       </ol>
     </div>
@@ -2458,7 +2481,7 @@ export default function LandingCmsPage() {
         </div>
       ) : null}
       <ol className="flex flex-col">
-        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Hero", sub: modern ? "Top bar, event name, tagline, KV, register button" : "Event name, tagline, KV, register button", isi: isiPembuka })}
+        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Hero", sub: gathering ? "Top bar, title, portal preview, buttons" : modern ? "Top bar, event name, tagline, KV, register button" : "Event name, tagline, KV, register button", isi: isiPembuka })}
         {sections.map((section, index) => {
           if (!section.enabled && !tampilTersembunyi) return null;
           const saklar = { checked: section.enabled, onChange: (value: boolean) => setTampil(index, value) };
