@@ -42,7 +42,7 @@ export function PresetTema({
     <Kelompok
       first
       title="Start from a preset"
-      note="Click to preview it, then Apply. A preset sets the layout, colours, fonts and corners. Page content and the hero text placement stay. Gathering also makes the top bar white, fills the About heading and three About cards if they are empty, hides Location, and adds a hidden “Sebelum berangkat” section for you to fill in."
+      note="Click to preview it, then Apply. A preset sets the layout, colours, fonts and corners. Page content and the hero text placement stay. Gathering also makes the top bar white, fills the About heading and three About cards if they are empty, hides Location (with the hotel card), and adds a hidden “Sebelum berangkat” section for you to fill in."
     >
       <div role="radiogroup" aria-label="Preset" className="flex flex-col gap-2">
         {LANDING_THEME_PRESETS.map((preset) => {
@@ -151,7 +151,7 @@ function ResetPreset({ preset, landing, setLanding }: { preset: LandingThemePres
           {gantiMerek && gantiBilah ? " " : null}
           {gantiBilah && bilah ? `${gantiMerek ? "The" : "This also makes the"} top bar ${gantiMerek ? "becomes " : ""}${bilah.color.toLowerCase() === "#ffffff" ? "white" : bilah.color.toUpperCase()}, ${bilah.height} px tall.` : null}
           {isi?.tentang ? `${gantiMerek || gantiBilah ? " " : ""}An empty About heading and cards get the ${preset.label} text.` : null}
-          {isi?.lokasi ? `${gantiMerek || gantiBilah || isi.tentang ? " " : ""}Location is hidden; you can show it again in Page sections.` : null}
+          {isi?.lokasi ? `${gantiMerek || gantiBilah || isi.tentang ? " " : ""}Location and the hotel card are hidden; show them again in Page sections.` : null}
         </p>
         <div className="flex justify-end gap-2">
           <Button variant="text" size="sm" onClick={() => setTanya(false)}>
