@@ -1,8 +1,8 @@
 import type { CSSProperties } from "react";
 import { mixHex, parseHex } from "./color";
 import { DEFAULT_REGISTRATION_SEED, buildRegistrationThemeRoles, type RegistrationFormTheme, type RegistrationThemeRoles } from "./registration-theme";
-import { LANDING_NAV_DEFAULTS, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, type LandingNavConfig } from "./domain";
-import { FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, HERO_KV_KUAT } from "./landing-tokens";
+import { LANDING_NAV_DEFAULTS, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, type EventLandingConfig, type LandingNavConfig } from "./domain";
+import { FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, HERO_KV_KUAT, landingTokens } from "./landing-tokens";
 
 /**
  * Tema mana yang dipakai halaman pendaftaran sebuah acara.
@@ -330,33 +330,109 @@ export function latarGathering(seed: string | undefined): { latar: string; teran
   };
 }
 
+/** KV gathering yang siap digambar: lihat kvGathering(). */
+export type KvGathering = {
+  src: string;
+  /** Kekuatan gambar dalam persen (5-50, kelipatan 5). */
+  kuat: number;
+  /** Gradasi lapisan warna sendiri; null = gradasi merek seperti biasa. */
+  latar: string | null;
+  /** Bayangan hitam di atas gambar (0-1) per tempat, supaya teks tetap terbaca. */
+  bayang: { hero: number; portal: number };
+  /** Warna teks dan tombol hero yang dihitung ulang terhadap lapisan warna sendiri. */
+  warnaHero: CSSProperties;
+  warnaPortal: CSSProperties;
+};
+
 /**
  * KV hero gaya gathering (Halaman acara > Hero > Background image), dipakai
  * hero halaman acara dan kepala navy portal: gambar setipis `kuat` persen di
  * atas lapisan warna, seperti dua fill di Figma (Image 20% di atas Linear).
- * `latar` null = lapisan warna merek seperti biasa; warna sendiri digelapkan
- * sampai teks putih 4,5:1. Null bila tidak ada gambar atau saklarnya mati.
+ * Null bila tidak ada gambar atau saklarnya mati.
+ *
+ * Keterbacaan diukur terhadap piksel terang KV (hero_bg_terang, diukur saat
+ * unggah; tanpa ukuran dianggap putih polos) (QA #111 H1/H2):
+ * - Lapisan warna sendiri digelapkan sampai 7:1 terhadap putih, lalu menjadi
+ *   "merek" hero: biru redup, emas, dan tombol dihitung ulang terhadapnya,
+ *   termasuk penjaga tombol QA #103 M3.
+ * - Bila gambar membuat teks hero di bawah 4,5:1, bayangan hitam ditambahkan
+ *   di atas gambar secukupnya. Makin kuat gambarnya, makin gelap lapisannya.
  */
-export function kvGathering(config: {
-  hero_bg_url?: string | null;
-  hero_bg_on?: boolean;
-  hero_bg_opacity?: number;
-  hero_bg_color?: string;
-}): { src: string; kuat: number; latar: string | null } | null {
-  const src = config.hero_bg_url?.trim();
-  if (!src || config.hero_bg_on === false) return null;
+export function kvGathering(config: EventLandingConfig | null | undefined): KvGathering | null {
+  const src = config?.hero_bg_url?.trim();
+  if (!config || !src || config.hero_bg_on === false) return null;
   const angka = Number(config.hero_bg_opacity ?? HERO_KV_KUAT.bawaan);
-  const kuat = Number.isFinite(angka) ? Math.min(HERO_KV_KUAT.max, Math.max(HERO_KV_KUAT.min, Math.round(angka))) : HERO_KV_KUAT.bawaan;
-  const warna = /^#[0-9a-f]{6}$/i.test(config.hero_bg_color ?? "") ? config.hero_bg_color! : null;
-  return { src, kuat, latar: warna ? latarWarna(warna) : null };
+  const kuat = Number.isFinite(angka) ? jepitKuat(angka) : HERO_KV_KUAT.bawaan;
+  const tokens = landingTokens(config, "modern");
+  const merek = /^#[0-9a-f]{6}$/i.test(tokens.brand ?? "") ? tokens.brand! : DEFAULT_REGISTRATION_SEED;
+  const sendiri = /^#[0-9a-f]{6}$/i.test(config.hero_bg_color ?? "") ? config.hero_bg_color! : null;
+  const lapisan = sendiri ? gelapkanSampai(sendiri, 7) : null;
+  const dasar = lapisan ?? merek;
+  const warna = gatheringColors(tokens.accent ?? undefined, dasar, false, config.button_color);
+  const latarDasar = latarGathering(dasar);
+  // Warna paling terang di tiap gradasi: di situ KV putih paling menyilaukan.
+  // Hero: latarGathering (merek gelap) atau merek; portal: LATAR_NAVY, ujungnya merek.
+  const terangHero = kontras(dasar, "#ffffff") >= 7 ? latarDasar.terang : dasar;
+  const terangPortal = lapisan ? latarDasar.terang : merek;
+  // null = putih 80% (teks redup tanpa warna turunan merek).
+  // `kaca`: kartu putih 10% di kepala portal (Agenda selanjutnya). Pratinjau
+  // portal di hero punya latar sendiri yang pekat.
+  const teksHero = [{ warna: "#ffffff" }, { warna: latarDasar.redup }, { warna: warna.heroAngka }, { warna: warna.heroLencana }];
+  const teksPortal = [{ warna: "#ffffff" }, { warna: null }, { warna: warna.heroAngka }, { warna: warna.heroAngka, kaca: 0.1 }, { warna: null, kaca: 0.1 }];
+  // Piksel terang KV dari unggahan; tanpa ukuran, anggap putih polos.
+  const ukur = /^#[0-9a-f]{8}$/i.test(config.hero_bg_terang ?? "") ? config.hero_bg_terang! : "#ffffffff";
+  const kvTerang = { warna: ukur.slice(0, 7), alfa: parseInt(ukur.slice(7), 16) / 255 };
+  return {
+    src,
+    kuat,
+    latar: lapisan ? latarDasar.latar : null,
+    bayang: { hero: bayangKv(terangHero, kvTerang, kuat, teksHero), portal: bayangKv(terangPortal, kvTerang, kuat, teksPortal) },
+    warnaHero: lapisan
+      ? ({
+          "--hero-redup": latarDasar.redup ?? undefined,
+          "--hero-lencana": warna.heroLencana,
+          "--hero-alis": warna.heroAlis,
+          "--hero-angka": warna.heroAngka,
+          "--aksi": warna.cta,
+          "--on-aksi": warna.onCta,
+        } as CSSProperties)
+      : {},
+    warnaPortal: lapisan ? ({ "--hero-angka": warna.heroAngka } as CSSProperties) : {},
+  };
 }
 
-/** Gradasi dari satu warna, digelapkan dulu sampai teks putih terbaca (4,5:1). */
-function latarWarna(warna: string): string {
-  let dasar = warna;
-  for (let langkah = 0; langkah < 20 && kontras(dasar, "#ffffff") < 4.5; langkah += 1) dasar = mixHex(dasar, "#000000", 0.1);
-  if (kontras(dasar, "#ffffff") >= 7) return latarGathering(dasar).latar;
-  return `linear-gradient(160deg, ${mixHex(dasar, "#000000", 0.38)} 0%, ${mixHex(dasar, "#000000", 0.15)} 60%, ${dasar} 100%)`;
+/** Angka kekuatan KV ke rentang dan kelipatan HERO_KV_KUAT, sama dengan penggeser di CMS. */
+export function jepitKuat(angka: number): number {
+  const { min, max, step } = HERO_KV_KUAT;
+  return Math.min(max, Math.max(min, min + Math.round((angka - min) / step) * step));
+}
+
+/** Gelapkan warna selangkah demi selangkah sampai teks putih mencapai `rasio`. */
+function gelapkanSampai(warna: string, rasio: number): string {
+  let hasil = warna;
+  for (let langkah = 0; langkah < 30 && kontras(hasil, "#ffffff") < rasio; langkah += 1) hasil = mixHex(hasil, "#000000", 0.1);
+  return hasil;
+}
+
+/**
+ * Bayangan hitam terkecil (0-0,9) supaya setiap warna teks tetap 4,5:1 di atas
+ * piksel terburuk: piksel terang KV setipis `kuat` di atas `terang`, lalu bayangannya.
+ * Teks yang di latar tanpa KV pun sudah di bawah 4,5 cukup tidak dibuat lebih
+ * buruk. `null` = putih 80% di atas latarnya; `kaca` = di atas kartu putih tembus.
+ */
+function bayangKv(terang: string, kv: { warna: string; alfa: number }, kuat: number, teks: { warna: string | null; kaca?: number }[]): number {
+  const lolos = (latar: string, butuh?: number[]) =>
+    teks.map(({ warna, kaca = 0 }, i) => {
+      const bawah = mixHex(latar, "#ffffff", kaca);
+      const nilai = kontras(warna ?? mixHex(bawah, "#ffffff", 0.8), bawah);
+      return butuh ? nilai >= butuh[i] : Math.min(4.5, nilai);
+    });
+  const butuh = lolos(terang) as number[];
+  const dgnKv = mixHex(terang, kv.warna, (kuat / 100) * kv.alfa);
+  for (let langkah = 0; langkah <= 45; langkah += 1) {
+    if (lolos(mixHex(dgnKv, "#000000", langkah / 50), butuh).every(Boolean)) return langkah / 50;
+  }
+  return 0.9;
 }
 
 export function gatheringColors(accent: string | undefined, seed: string | undefined, adaKv: boolean, button?: string | null) {

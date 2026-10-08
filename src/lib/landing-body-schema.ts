@@ -282,6 +282,7 @@ export const landingBodySchema = z.object({
     hero_bg_on: z.boolean().optional(),
     hero_bg_opacity: z.number().int().min(5).max(50).optional(),
     hero_bg_color: warna,
+    hero_bg_terang: z.string().regex(/^#[0-9a-fA-F]{8}$/).optional(),
     default_lang: z.enum(["id", "en"]).optional(),
     en: z.object({
       public_name: teks(120),

@@ -1166,6 +1166,11 @@ export type EventLandingConfig = {
   /** Warna lapisan di bawah KV. Kosong = warna merek (gradasi navy). */
   hero_bg_color?: string;
   /**
+   * Piksel terang KV (persentil 98, #rrggbbaa), diukur peramban saat unggah.
+   * Dipakai kvGathering untuk menakar bayangan; kosong = dianggap putih polos.
+   */
+  hero_bg_terang?: string;
+  /**
    * Bahasa di alamat utama `/e/<slug>` (bawaan "id"). "en" hanya berlaku
    * selama versi English menyala; lihat landingDefaultLang.
    */

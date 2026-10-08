@@ -42,7 +42,7 @@ import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi
 import { FokusPemicuQr, PemicuQr, TutupQrEscape } from "@/components/member/qr-fokus";
 import { gayaModern } from "@/components/landing/modern/kerangka";
 import { HEAD } from "@/components/landing/modern/styles";
-import { LatarKv, gayaLatarKv, tanpaBintang } from "@/components/landing/modern/gathering-app";
+import { LatarKv, tanpaBintang } from "@/components/landing/modern/gathering-app";
 
 /**
  * Portal peserta gaya gathering (`/e/<slug>/peserta`, preset Gathering),
@@ -641,8 +641,8 @@ export async function DashboardGathering({
       </header>
 
       {/* ---- Kepala navy ---------------------------------------------------- */}
-      <div className={latarKv ? "relative isolate text-white" : "text-white"} style={{ ...gayaLatarKv(latarKv), background: latarKv?.latar ?? LATAR_NAVY }}>
-        {latarKv ? <LatarKv src={latarKv.src} kuat={latarKv.kuat} /> : null}
+      <div className={latarKv ? "relative isolate text-white" : "text-white"} style={{ ...latarKv?.warnaPortal, background: latarKv?.latar ?? LATAR_NAVY }}>
+        {latarKv ? <LatarKv src={latarKv.src} kuat={latarKv.kuat} bayang={latarKv.bayang.portal} /> : null}
         <div className="mx-auto w-full max-w-[1440px] px-5 pb-8 pt-6 sm:px-8 lg:px-12 lg:pb-16 lg:pt-14">
           {tabAktif !== "profil" ? (
             <div className="mb-6 flex items-center gap-3 lg:hidden">

@@ -51,6 +51,7 @@ import {
   LANDING_SPEAKER_FRAME_LABELS,
   type LandingSpeakerFrame,
 } from "@/lib/domain";
+import { ukurTerangKv } from "@/lib/kv-terang";
 import { HERO_KV_KUAT, landingTokens } from "@/lib/landing-tokens";
 import { formatEventDate } from "@/lib/event-datetime";
 import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
@@ -285,7 +286,8 @@ function AngkaPx({
 }) {
   // Teks yang sedang diketik; null = ikuti nilai tersimpan (mis. dari penggeser).
   const [draf, setDraf] = useState<string | null>(null);
-  const jepit = (angka: number) => Math.min(rentang.max, Math.max(rentang.min, Math.round(angka)));
+  // Kelipatan langkah penggeser, supaya angka ketik dan penggeser selalu sama (QA #111 L3).
+  const jepit = (angka: number) => Math.min(rentang.max, Math.max(rentang.min, rentang.min + Math.round((angka - rentang.min) / rentang.step) * rentang.step));
   return (
     <div className="flex flex-col gap-1.5">
       <TextField
@@ -301,7 +303,7 @@ function AngkaPx({
           onChange={(event) => {
             setDraf(event.target.value);
             const angka = Number(event.target.value);
-            if (event.target.value !== "" && angka >= rentang.min && angka <= rentang.max) onChange(Math.round(angka));
+            if (event.target.value !== "" && angka >= rentang.min && angka <= rentang.max) onChange(jepit(angka));
           }}
           onBlur={() => {
             const angka = Number(draf);
@@ -321,7 +323,7 @@ function AngkaPx({
           className="h-11 w-full accent-primary"
         />
       <p className="text-body-medium text-on-surface-variant">
-        {hint} Range {rentang.min} to {rentang.max} {satuan}.
+        {hint} Range {rentang.min} to {rentang.max}{satuan === "%" ? "" : " "}{satuan}.
       </p>
     </div>
   );
@@ -1259,9 +1261,14 @@ export default function LandingCmsPage() {
               kind="landing"
               fit="cover"
               previewClassName="h-20 w-36"
-              hint="Use an artwork without text, such as the event ornaments. It is cropped to fill the area, so keep the important parts near the middle. Landscape, at least 1440×480. PNG, JPG or WebP, up to 5 MB."
+              perkecil={{ lebar: 1920, mutu: 0.75 }}
+              hint="Use an artwork without text, such as the event ornaments. It is cropped to fill the area, so keep the important parts near the middle. Landscape, at least 1440×480; larger images are reduced to 1920 px wide when uploaded. PNG, JPG or WebP, up to 5 MB."
               value={landing.hero_bg_url ?? null}
-              onChange={(url) => setLanding({ ...landing, hero_bg_url: url, hero_bg_on: url ? true : landing.hero_bg_on })}
+              onChange={(url, berkas) => {
+                setLanding({ ...landing, hero_bg_url: url, hero_bg_on: url ? true : landing.hero_bg_on, hero_bg_terang: undefined });
+                // Terangnya diukur dari berkas yang diunggah (kvGathering menakar bayangan darinya).
+                if (url && berkas) void ukurTerangKv(berkas).then((terang) => terang && setLanding((kini) => (kini.hero_bg_url === url ? { ...kini, hero_bg_terang: terang } : kini)));
+              }}
               disabled={busy}
             />
             <Switch
@@ -1278,7 +1285,7 @@ export default function LandingCmsPage() {
                 rentang={HERO_KV_KUAT}
                 value={landing.hero_bg_opacity ?? HERO_KV_KUAT.bawaan}
                 onChange={(value) => setLanding({ ...landing, hero_bg_opacity: value })}
-                hint="How much of the image shows through. 20 matches the design. Above 50 the white text gets hard to read, so it stops there."
+                hint="How much of the image shows through. 20 matches the design. Higher values also darken the colour layer, so the text stays readable."
               />
             ) : null}
             {landing.hero_bg_url && landing.hero_bg_on !== false ? (
@@ -1292,7 +1299,7 @@ export default function LandingCmsPage() {
                 onChange={(value) => setLanding({ ...landing, hero_bg_color: value === "sendiri" ? (landing.hero_bg_color ?? tokensHero.brand ?? "#1B2D57") : undefined })}
                 options={[
                   { value: "merek", label: "Brand colour" },
-                  { value: "sendiri", label: "Custom" },
+                  { value: "sendiri", label: "Custom colour" },
                 ]}
               />
               {landing.hero_bg_color ? (
@@ -1300,7 +1307,7 @@ export default function LandingCmsPage() {
               ) : null}
               <p className="text-body-medium text-on-surface-variant">
                 {landing.hero_bg_color
-                  ? "Shown as a gradient. A light colour is darkened automatically so the white text stays readable."
+                  ? "Shown as a gradient. A light colour is darkened automatically so the text stays readable; the text and button colours follow it."
                   : "The navy gradient from Theme, the same as without an image."}
               </p>
             </div>
