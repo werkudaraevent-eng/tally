@@ -949,8 +949,10 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           </section>
         ) : null}
         {/* Khusus undangan: pita penutup yang sama, mengajak tamu undangan masuk. */}
+        {/* Banner undangan memakai teks tetap, bukan cta_heading: klik membuka
+            baris Footer saja (QA #108 M5). */}
         {!gaya && undangan && !adaBlokAjakan ? (
-          <section data-sunting="kaki:cta_heading" className="pb-16 sm:pb-24">
+          <section data-sunting="kaki" className="pb-16 sm:pb-24">
             <div
               className={`relative isolate flex flex-col items-center gap-6 overflow-hidden rounded-lg px-6 py-16 text-center text-[var(--ink)] sm:py-24 ${
                 kv ? "bg-black" : "bg-[var(--reg-brand)]"
@@ -1007,7 +1009,10 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         />
       ) : null}
 
-      <PitaMitra mitra={mitra} judul={t.organisedBy} />
+      {/* Pembungkus tanpa gaya hanya untuk klik-di-pratinjau: pita ini baris Sponsors di CMS. */}
+      <div data-bagian="sponsors">
+        <PitaMitra mitra={mitra} judul={t.organisedBy} />
+      </div>
 
       {/* ---- Kaki halaman ---------------------------------------------------- */}
       {gaya ? (

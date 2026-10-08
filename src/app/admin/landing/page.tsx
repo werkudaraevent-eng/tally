@@ -241,7 +241,14 @@ function tampilkanKolom(barisId: string, kunci: string) {
     const atas = kolom.getBoundingClientRect().top - wadah.getBoundingClientRect().top + wadah.scrollTop;
     // Di bawah kepala baris yang menempel (56px) dan label kolomnya.
     wadah.scrollTo({ top: Math.max(0, atas - 96), behavior: "smooth" });
-    if (kolom.matches("input, textarea")) kolom.focus({ preventScroll: true });
+    if (!kolom.matches("input, textarea")) return;
+    const isian = kolom as HTMLInputElement | HTMLTextAreaElement;
+    isian.focus({ preventScroll: true });
+    // Kursor di akhir isi, siap menyambung tulisan (QA #108 L1). Kolom
+    // seperti type="url" tidak punya pilihan teks dan melempar galat.
+    try {
+      isian.setSelectionRange(isian.value.length, isian.value.length);
+    } catch {}
   }, 350);
 }
 
@@ -2574,7 +2581,8 @@ export default function LandingCmsPage() {
   // Klik di pratinjau memilih baris Susunan halaman (pilih-bagian.ts). Nama
   // baris sama dengan di daftar; kolom `bagian:kolom` sama dengan data-sunting
   // di halaman publik. Forum punya editor dan nama bagian sendiri: belum ikut.
-  const kunciLabel = forum || hanyaFormulir || bagian !== "susunan"
+  // Editorial belum menandai bagiannya (QA #108 L3): hanya Modern dan Gathering.
+  const kunciLabel = !modern || hanyaFormulir || bagian !== "susunan"
     ? ""
     : JSON.stringify([
         ["pembuka", "Hero"],

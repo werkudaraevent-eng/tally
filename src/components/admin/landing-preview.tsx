@@ -227,6 +227,9 @@ export function LandingPreview({
         onHalaman?.(event.data.halaman);
       }
       if (event.data?.jenis === "tally-pratinjau-pilih" && typeof event.data.bagian === "string") {
+        // Panel setelan ada di balik pratinjau yang diperbesar: tutup dulu,
+        // supaya kolom yang difokus terlihat dan ketikan tidak masuk diam-diam (QA #108 M3).
+        setBesar(false);
         onPilih?.(event.data.bagian, typeof event.data.kolom === "string" ? event.data.kolom : null);
       }
       if (event.data?.jenis === "tally-pratinjau-bahasa") onBahasa?.(event.data.bahasa === "en" ? "en" : "id");

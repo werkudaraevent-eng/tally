@@ -77,12 +77,16 @@ export function PratinjauLangsung({ slug, halaman, children }: { slug: string; h
 
     window.addEventListener("message", terima);
     document.addEventListener("click", pindahBahasa, true);
-    document.addEventListener("click", klik);
+    // Fase capture di window, sebelum apa pun di document: React menangani
+    // klik di akar aplikasi (bubble di document terlambat untuk <Link>), dan
+    // dialog Masuk memasang capture-nya sendiri di document. Keduanya
+    // menghormati defaultPrevented (QA #108 M4).
+    window.addEventListener("click", klik, true);
     lapor({ jenis: "tally-pratinjau-siap", halaman });
     return () => {
       window.removeEventListener("message", terima);
       document.removeEventListener("click", pindahBahasa, true);
-      document.removeEventListener("click", klik);
+      window.removeEventListener("click", klik, true);
       window.clearTimeout(timer);
       pilih.lepas();
     };
