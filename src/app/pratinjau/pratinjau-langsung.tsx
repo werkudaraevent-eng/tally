@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { LandingForumPage } from "@/lib/domain";
 import { renderPratinjau } from "./actions";
+import { pasangPilih } from "./pilih-bagian";
 
 /** Jeda setelah ketikan terakhir sebelum draf dirender ulang. */
 const JEDA_MS = 350;
@@ -21,9 +22,16 @@ export function PratinjauLangsung({ slug, halaman, children }: { slug: string; h
     let timer: number | undefined;
     let urutan = 0;
     const lapor = (pesan: object) => window.parent.postMessage(pesan, window.location.origin);
+    // Klik di halaman memilih barisnya di CMS; aktif setelah CMS mengirim nama barisnya.
+    const pilih = pasangPilih(lapor);
 
     function terima(event: MessageEvent) {
       if (event.origin !== window.location.origin || event.source !== window.parent) return;
+      if (event.data?.jenis === "tally-pratinjau-label") {
+        const { label, skala } = event.data;
+        pilih.setInfo(label && typeof label === "object" && Number(skala) > 0 ? { label, skala: Number(skala) } : null);
+        return;
+      }
       if (event.data?.jenis !== "tally-pratinjau-draf") return;
       const draf = event.data.draf;
       const bahasa = event.data.bahasa === "en" ? "en" : "id";
@@ -33,7 +41,10 @@ export function PratinjauLangsung({ slug, halaman, children }: { slug: string; h
         const hasil = await renderPratinjau(slug, draf, bahasa, halaman).catch(() => null);
         // Draf yang lebih baru sudah dikirim: hasil ini sudah basi.
         if (nomor !== urutan) return;
-        if (hasil?.ok) setIsi(hasil.isi);
+        if (hasil?.ok) {
+          setIsi(hasil.isi);
+          window.requestAnimationFrame(() => pilih.segarkan());
+        }
         const pesan = !hasil ? "Pratinjau gagal dimuat. Coba lagi." : hasil.ok ? hasil.peringatan : hasil.pesan;
         lapor({ jenis: "tally-pratinjau-hasil", ok: Boolean(hasil?.ok), pesan });
       }, JEDA_MS);
@@ -73,6 +84,7 @@ export function PratinjauLangsung({ slug, halaman, children }: { slug: string; h
       document.removeEventListener("click", pindahBahasa, true);
       document.removeEventListener("click", klik);
       window.clearTimeout(timer);
+      pilih.lepas();
     };
   }, [slug, halaman]);
 

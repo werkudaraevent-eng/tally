@@ -79,14 +79,14 @@ export function HeroGathering({
       <div className={`${SHELL} grid items-center gap-10 pb-14 pt-[calc(var(--nav-h)+56px)] lg:grid-cols-[minmax(0,1fr)_270px] lg:pb-[90px] lg:pt-[calc(var(--nav-h)+90px)]`}>
         <div className="flex min-w-0 flex-col items-start gap-6">
           {alis ? (
-            <p className="inline-flex items-center rounded-full bg-[color-mix(in_srgb,var(--ink)_10%,transparent)] px-[18px] py-2 text-[12px] font-semibold uppercase leading-[1.2] tracking-[2px] text-[var(--hero-lencana,var(--hero-alis))]">
+            <p data-sunting="pembuka:hero_eyebrow" className="inline-flex items-center rounded-full bg-[color-mix(in_srgb,var(--ink)_10%,transparent)] px-[18px] py-2 text-[12px] font-semibold uppercase leading-[1.2] tracking-[2px] text-[var(--hero-lencana,var(--hero-alis))]">
               {alis}
             </p>
           ) : null}
-          <h1 className={`${HEAD} max-w-[760px] text-balance [overflow-wrap:anywhere] text-[40px] font-extrabold leading-[1.08] sm:text-[52px] lg:text-[62px] lg:leading-[1.05]`}>
+          <h1 data-sunting="pembuka:tagline" className={`${HEAD} max-w-[760px] text-balance [overflow-wrap:anywhere] text-[40px] font-extrabold leading-[1.08] sm:text-[52px] lg:text-[62px] lg:leading-[1.05]`}>
             {judulBerbintang(judul)}
           </h1>
-          {catatan ? <p className={`max-w-[1000px] whitespace-pre-line text-[16px] leading-[1.6] ${REDUP}`}>{catatan}</p> : null}
+          {catatan ? <p data-sunting="pembuka:hero_note" className={`max-w-[1000px] whitespace-pre-line text-[16px] leading-[1.6] ${REDUP}`}>{catatan}</p> : null}
           {aksi || aksiKedua ? (
             <div className="flex w-full flex-col gap-3.5 sm:w-auto sm:flex-row sm:flex-wrap">
               {aksi ? <TautanAksi {...aksi} className={TOMBOL_AKSI} /> : null}
@@ -315,7 +315,7 @@ export function PortalGathering({
 /** Pita penutup selebar layar: judul, kalimat, satu tombol, di atas gradasi yang sama dengan hero. */
 export function PitaPenutupGathering({ judul, catatan, aksi, gaya }: { judul: string; catatan: string | null; aksi: Aksi; gaya: CSSProperties }) {
   return (
-    <section className="text-[var(--ink)]" style={{ ...gaya, background: LATAR_HERO }}>
+    <section data-sunting="kaki:cta_heading" className="text-[var(--ink)]" style={{ ...gaya, background: LATAR_HERO }}>
       <div className={`${SHELL} flex flex-col items-center gap-[22px] py-16 text-center lg:py-[90px]`}>
         <h2 className={`${HEAD} max-w-[800px] text-balance [overflow-wrap:anywhere] text-[32px] font-extrabold leading-[1.2] sm:text-[44px]`}>{judul}</h2>
         {catatan ? <p className={`max-w-[640px] text-[15px] leading-[1.5] ${REDUP}`}>{catatan}</p> : null}
