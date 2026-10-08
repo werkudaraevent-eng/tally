@@ -131,3 +131,18 @@ for (const key of LANDING_BODY_FONTS) {
 }
 
 console.log("landing-tokens.check.ts OK");
+
+// Preset Gathering = rancangan pen.dev: navy, emas, hijau, bilah atas putih penuh.
+// Preset lain hanya melepas putih Gathering; warna bilah pilihan admin tetap.
+{
+  const gathering = LANDING_THEME_PRESETS.find((p) => p.key === "gathering")!;
+  const conference = LANDING_THEME_PRESETS.find((p) => p.key === "modern")!;
+  const g = terapkanPreset(gathering, { nav: { logo_url: "https://x/logo.png", height: 72 } });
+  assert.equal(landingTokens(g).brand.toLowerCase(), "#1b2d57");
+  assert.deepEqual(g.nav, { logo_url: "https://x/logo.png", height: 72, color: "#ffffff", opacity: 100 });
+  assert.equal(presetDiubah(gathering, g), false);
+  assert.equal(presetDiubah(gathering, { ...g, nav: { ...g.nav, opacity: 72 } }), true);
+  assert.deepEqual(terapkanPreset(conference, g).nav, { logo_url: "https://x/logo.png", height: 72 });
+  assert.equal(terapkanPreset(conference, terapkanPreset(gathering, {})).nav, undefined);
+  assert.deepEqual(terapkanPreset(conference, { nav: { color: "#223344", opacity: 90 } }).nav, { color: "#223344", opacity: 90 });
+}

@@ -31,7 +31,7 @@ export function PresetTema({
     <Kelompok
       first
       title="Start from a preset"
-      note="Click to preview it, then Apply. A preset sets the layout, colours, fonts and corners. Page content and the hero text placement stay. Gathering also adds a hidden “Sebelum berangkat” section for you to fill in."
+      note="Click to preview it, then Apply. A preset sets the layout, colours, fonts and corners. Page content and the hero text placement stay. Gathering also makes the top bar white and adds a hidden “Sebelum berangkat” section for you to fill in."
     >
       <div role="radiogroup" aria-label="Preset" className="flex flex-col gap-2">
         {LANDING_THEME_PRESETS.map((preset) => {
