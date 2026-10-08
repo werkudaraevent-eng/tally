@@ -51,7 +51,8 @@ import {
   LANDING_SPEAKER_FRAME_LABELS,
   type LandingSpeakerFrame,
 } from "@/lib/domain";
-import { landingTokens } from "@/lib/landing-tokens";
+import { ukurTerangKv } from "@/lib/kv-terang";
+import { HERO_KV_KUAT, landingTokens } from "@/lib/landing-tokens";
 import { formatEventDate } from "@/lib/event-datetime";
 import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
 import { jumlahLembaga } from "@/lib/landing-speaker-tabs";
@@ -273,16 +274,20 @@ function AngkaPx({
   rentang,
   value,
   onChange,
+  satuan = "px",
 }: {
   label: string;
   hint: string;
   rentang: { min: number; max: number; step: number };
   value: number;
   onChange: (value: number) => void;
+  /** Satuan di kolom dan petunjuk ("px", "%"). */
+  satuan?: string;
 }) {
   // Teks yang sedang diketik; null = ikuti nilai tersimpan (mis. dari penggeser).
   const [draf, setDraf] = useState<string | null>(null);
-  const jepit = (angka: number) => Math.min(rentang.max, Math.max(rentang.min, Math.round(angka)));
+  // Kelipatan langkah penggeser, supaya angka ketik dan penggeser selalu sama (QA #111 L3).
+  const jepit = (angka: number) => Math.min(rentang.max, Math.max(rentang.min, rentang.min + Math.round((angka - rentang.min) / rentang.step) * rentang.step));
   return (
     <div className="flex flex-col gap-1.5">
       <TextField
@@ -293,12 +298,12 @@ function AngkaPx({
           min={rentang.min}
           max={rentang.max}
           step={rentang.step}
-          trailing={<span className="text-body-medium text-on-surface-variant">px</span>}
+          trailing={<span className="text-body-medium text-on-surface-variant">{satuan}</span>}
           value={draf ?? String(value)}
           onChange={(event) => {
             setDraf(event.target.value);
             const angka = Number(event.target.value);
-            if (event.target.value !== "" && angka >= rentang.min && angka <= rentang.max) onChange(Math.round(angka));
+            if (event.target.value !== "" && angka >= rentang.min && angka <= rentang.max) onChange(jepit(angka));
           }}
           onBlur={() => {
             const angka = Number(draf);
@@ -318,7 +323,7 @@ function AngkaPx({
           className="h-11 w-full accent-primary"
         />
       <p className="text-body-medium text-on-surface-variant">
-        {hint} Range {rentang.min} to {rentang.max} px.
+        {hint} Range {rentang.min} to {rentang.max}{satuan === "%" ? "" : " "}{satuan}.
       </p>
     </div>
   );
@@ -1244,6 +1249,75 @@ export default function LandingCmsPage() {
             </div>
           ) : null}
         </Kelompok>
+      ) : null}
+
+      {/* KV gathering: tekstur 20% di atas gradasi navy hero dan kepala portal
+          (Figma Hanung 2026-10-08). Kosong = gradasi saja seperti sebelumnya. */}
+      {gathering ? (
+        <div data-kolom="hero_bg_url">
+          <Kelompok title="Background image" note="Two layers behind the hero and at the top of the participant portal: the image, faded, on top of a colour layer.">
+            <ImageUploadField
+              label="Hero background image"
+              kind="landing"
+              fit="cover"
+              previewClassName="h-20 w-36"
+              perkecil={{ lebar: 1920, mutu: 0.75 }}
+              hint="Use an artwork without text, such as the event ornaments. It is cropped to fill the area, so keep the important parts near the middle. Landscape, at least 1440×480. Most browsers save wider images at 1920 px wide. PNG, JPG or WebP, up to 5 MB and 8000 px."
+              value={landing.hero_bg_url ?? null}
+              onChange={(url, berkas) => {
+                setLanding({ ...landing, hero_bg_url: url, hero_bg_on: url ? true : landing.hero_bg_on, hero_bg_terang: undefined, hero_bg_terang_src: undefined });
+                // Terangnya diukur dari berkas yang diunggah, bersama URL-nya
+                // (kvGathering menakar bayangan darinya).
+                if (url && berkas)
+                  void ukurTerangKv(berkas).then(
+                    (terang) => terang && setLanding((kini) => (kini.hero_bg_url === url ? { ...kini, hero_bg_terang: terang, hero_bg_terang_src: url } : kini)),
+                  );
+              }}
+              disabled={busy}
+            />
+            <Switch
+              checked={Boolean(landing.hero_bg_url) && landing.hero_bg_on !== false}
+              onChange={(value) => setLanding({ ...landing, hero_bg_on: value })}
+              label="Show the image"
+              description={landing.hero_bg_url ? "Off keeps the image saved and shows the hero as it was without it." : "Upload an image first."}
+              disabled={busy || !landing.hero_bg_url}
+            />
+            {landing.hero_bg_url && landing.hero_bg_on !== false ? (
+              <AngkaPx
+                label="Image strength"
+                satuan="%"
+                rentang={HERO_KV_KUAT}
+                value={landing.hero_bg_opacity ?? HERO_KV_KUAT.bawaan}
+                onChange={(value) => setLanding({ ...landing, hero_bg_opacity: value })}
+                hint="How much of the image shows through. 20 matches the design. Higher values add a dark shade over the image where needed, so the text stays readable."
+              />
+            ) : null}
+            {landing.hero_bg_url && landing.hero_bg_on !== false ? (
+            <div className="flex flex-col gap-2">
+              <p id="label-lapisan-warna" className="text-body-medium font-medium text-on-surface">Colour layer</p>
+              <SegmentedButton<"merek" | "sendiri">
+                className="w-full"
+                label="Colour layer"
+                labelledBy="label-lapisan-warna"
+                value={landing.hero_bg_color ? "sendiri" : "merek"}
+                onChange={(value) => setLanding({ ...landing, hero_bg_color: value === "sendiri" ? (landing.hero_bg_color ?? tokensHero.brand ?? "#1B2D57") : undefined })}
+                options={[
+                  { value: "merek", label: "Brand colour" },
+                  { value: "sendiri", label: "Custom colour" },
+                ]}
+              />
+              {landing.hero_bg_color ? (
+                <PilihWarna label="Layer colour" value={landing.hero_bg_color} onChange={(value) => setLanding({ ...landing, hero_bg_color: value })} />
+              ) : null}
+              <p className="text-body-medium text-on-surface-variant">
+                {landing.hero_bg_color
+                  ? "Shown as a gradient. A light colour is darkened so the text stays readable; the text and button colours follow it."
+                  : "The navy gradient from Theme, the same as without an image."}
+              </p>
+            </div>
+            ) : null}
+          </Kelompok>
+        </div>
       ) : null}
 
       {gathering ? <div data-kolom="portal">{panelPratinjauPortal}</div> : null}
@@ -2821,6 +2895,7 @@ export default function LandingCmsPage() {
         ["portal", "Portal peserta"],
         ["pembuka:hero_eyebrow", "Label above the title"],
         ["pembuka:hero_note", "Line below the title"],
+        ["pembuka:hero_bg_url", "Background image"],
         ["kaki:cta_heading", "Call-to-action banner"],
       ]);
   const labelPilih = useMemo<Record<string, string> | null>(() => (kunciLabel ? Object.fromEntries(JSON.parse(kunciLabel)) : null), [kunciLabel]);

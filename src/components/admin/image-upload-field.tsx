@@ -29,24 +29,32 @@ export function ImageUploadField({
   disabled,
   previewClassName = "h-24 w-40",
   fit = "cover",
+  perkecil,
 }: {
   label: string;
   hint?: string;
   value: string | null;
-  onChange: (url: string | null) => void;
+  /** `berkas`: berkas yang benar-benar diunggah (sesudah diperkecil), untuk diukur pemanggil. */
+  onChange: (url: string | null, berkas?: Blob) => void;
   /** Folder tujuan di bucket. Harus terdaftar di FOLDERS pada route unggahnya. */
   kind: string;
   disabled?: boolean;
   previewClassName?: string;
   fit?: "contain" | "cover";
+  /**
+   * Perkecil di peramban sebelum diunggah: lebar paling besar dan mutu WebP.
+   * Untuk gambar latar besar yang tampil tipis (KV hero gathering, QA #111 M1).
+   */
+  perkecil?: { lebar: number; mutu: number };
 }) {
   const [uploading, setUploading] = useState(false);
   const toast = useToast();
 
   async function upload(file: File) {
     setUploading(true);
+    const berkas = perkecil ? await perkecilGambar(file, perkecil) : file;
     const body = new FormData();
-    body.append("file", file);
+    body.append("file", berkas);
     body.append("kind", kind);
     const response = await fetch("/api/display/background", { method: "POST", body }).catch(() => null);
     setUploading(false);
@@ -59,7 +67,7 @@ export function ImageUploadField({
       toast.error("Upload failed", data?.error?.details?.file ?? data?.error?.message ?? "Try another file.");
       return;
     }
-    onChange(data.url as string);
+    onChange(data.url as string, berkas);
     // "Terunggah", bukan "tersimpan". Berkasnya memang sudah naik, tetapi
     // halamannya belum berubah sampai admin menekan Simpan, dan admin yang
     // mengira sudah selesai akan menutup tab tanpa menyimpannya.
@@ -121,4 +129,28 @@ export function ImageUploadField({
       {hint ? <p className="mt-1.5 text-body-medium text-on-surface-variant">{hint}</p> : null}
     </div>
   );
+}
+
+/**
+ * Gambar diperkecil ke `lebar` dan disimpan sebagai WebP (transparansi tetap).
+ * Bila peramban tidak bisa menulis WebP, atau hasilnya tidak lebih kecil,
+ * berkas aslinya yang diunggah.
+ */
+async function perkecilGambar(file: File, { lebar, mutu }: { lebar: number; mutu: number }): Promise<File> {
+  const gambar = await createImageBitmap(file).catch(() => null);
+  if (!gambar) return file;
+  const skala = Math.min(1, lebar / gambar.width);
+  const kanvas = document.createElement("canvas");
+  kanvas.width = Math.round(gambar.width * skala);
+  kanvas.height = Math.round(gambar.height * skala);
+  const konteks = kanvas.getContext("2d");
+  if (!konteks) {
+    gambar.close();
+    return file;
+  }
+  konteks.drawImage(gambar, 0, 0, kanvas.width, kanvas.height);
+  gambar.close();
+  const hasil = await new Promise<Blob | null>((selesai) => kanvas.toBlob(selesai, "image/webp", mutu));
+  if (!hasil || hasil.type !== "image/webp" || hasil.size >= file.size) return file;
+  return new File([hasil], `${file.name.replace(/\.[^.]+$/, "")}.webp`, { type: "image/webp" });
 }

@@ -34,7 +34,7 @@ import type { MemberSession } from "@/lib/member/account";
 import { inisialNama, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
-import { gatheringColors } from "@/lib/registration-theme-css";
+import { gatheringColors, kvGathering } from "@/lib/registration-theme-css";
 import { landingTokens } from "@/lib/landing-tokens";
 import { normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
@@ -42,7 +42,7 @@ import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi
 import { FokusPemicuQr, PemicuQr, TutupQrEscape } from "@/components/member/qr-fokus";
 import { gayaModern } from "@/components/landing/modern/kerangka";
 import { HEAD } from "@/components/landing/modern/styles";
-import { tanpaBintang } from "@/components/landing/modern/gathering-app";
+import { LatarKv, tanpaBintang } from "@/components/landing/modern/gathering-app";
 
 /**
  * Portal peserta gaya gathering (`/e/<slug>/peserta`, preset Gathering),
@@ -146,6 +146,8 @@ export async function DashboardGathering({
   const venue = event.venue_name?.trim() || null;
   const inisial = inisialNama(sesi.name);
   const logo = config.nav?.logo_url ?? null;
+  // KV yang sama dengan hero halaman acara, 20% di kepala navy (Figma Hanung).
+  const latarKv = kvGathering(config);
   const petaUrl =
     event.venue_map_url ||
     (venue || event.venue_address?.trim()
@@ -639,7 +641,8 @@ export async function DashboardGathering({
       </header>
 
       {/* ---- Kepala navy ---------------------------------------------------- */}
-      <div className="text-white" style={{ background: LATAR_NAVY }}>
+      <div className={latarKv ? "relative isolate text-white" : "text-white"} style={{ ...latarKv?.warnaPortal, background: latarKv?.latar ?? LATAR_NAVY }}>
+        {latarKv ? <LatarKv src={latarKv.src} kuat={latarKv.kuat} bayang={latarKv.bayang.portal} /> : null}
         <div className="mx-auto w-full max-w-[1440px] px-5 pb-8 pt-6 sm:px-8 lg:px-12 lg:pb-16 lg:pt-14">
           {tabAktif !== "profil" ? (
             <div className="mb-6 flex items-center gap-3 lg:hidden">
@@ -663,7 +666,9 @@ export async function DashboardGathering({
         </div>
       </div>
 
-      <div className="mx-auto -mt-3 w-full max-w-[1440px] px-4 sm:px-8 lg:-mt-6 lg:px-12">{isi}</div>
+      {/* Kepala ber-KV menjadi lapisan tersendiri (relative): isi yang menumpang
+          di tepi bawahnya harus ikut berlapis supaya tetap di atasnya. */}
+      <div className={`${latarKv ? "relative " : ""}mx-auto -mt-3 w-full max-w-[1440px] px-4 sm:px-8 lg:-mt-6 lg:px-12`}>{isi}</div>
 
       {/* ---- Bilah tab bawah (ponsel) -------------------------------------- */}
       <nav aria-label={t.tabsAria} className="fixed inset-x-0 bottom-0 z-20 border-t border-[#E6E9EE] bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">

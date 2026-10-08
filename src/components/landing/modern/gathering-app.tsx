@@ -3,6 +3,7 @@ import { pecahJudul } from "@/lib/landing-tagline";
 import Link from "next/link";
 import { Bed, Bus, Heart, Lightning, MapPin, Megaphone, Ticket, Users } from "@phosphor-icons/react/dist/ssr";
 import type { AgendaPreview } from "@/lib/landing-agenda";
+import type { KvGathering } from "@/lib/registration-theme-css";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { HEAD, LABEL_BAGIAN, SHELL } from "./styles";
 
@@ -57,6 +58,7 @@ export function HeroGathering({
   aksi,
   aksiKedua,
   pratinjau,
+  latarGambar,
   gaya,
 }: {
   alis: string | null;
@@ -67,6 +69,8 @@ export function HeroGathering({
   aksi: Aksi | null;
   aksiKedua: Aksi | null;
   pratinjau: ReactNode;
+  /** KV di belakang hero (Halaman acara > Hero > Background image, kvGathering). Null = gradasi saja. */
+  latarGambar: KvGathering | null;
   gaya: CSSProperties;
 }) {
   return (
@@ -76,10 +80,14 @@ export function HeroGathering({
       // Ditarik ke bawah bilah atas seperti hero Modern, supaya bilah yang
       // dibuat tembus pandang di CMS tetap berdiri di atas gradasi.
       className="relative isolate -mt-[var(--nav-h)] text-[var(--ink)]"
-      style={{ ...gaya, background: LATAR_HERO }}
+      style={{ ...gaya, ...latarGambar?.warnaHero, background: latarGambar?.latar ?? LATAR_HERO }}
     >
-      <div className={`${SHELL} grid items-center gap-10 pb-14 pt-[calc(var(--nav-h)+56px)] lg:grid-cols-[minmax(0,1fr)_270px] lg:pb-[90px] lg:pt-[calc(var(--nav-h)+90px)]`}>
-        <div className="flex min-w-0 flex-col items-start gap-6">
+      {latarGambar ? <LatarKv src={latarGambar.src} kuat={latarGambar.kuat} bayang={latarGambar.bayang.hero} utuhDiPonsel /> : null}
+      {/* Klik di bagian hero yang kosong pada pratinjau CMS membuka Background
+          image (pola #108); kolom teks, tombol, dan fakta membuka Hero atau
+          kolomnya sendiri seperti sebelumnya (QA #111 L1). */}
+      <div data-sunting="pembuka:hero_bg_url" className={`${SHELL} grid items-center gap-10 pb-14 pt-[calc(var(--nav-h)+56px)] lg:grid-cols-[minmax(0,1fr)_270px] lg:pb-[90px] lg:pt-[calc(var(--nav-h)+90px)]`}>
+        <div data-sunting="pembuka" className="flex min-w-0 flex-col items-start gap-6">
           {alis ? (
             <p data-sunting="pembuka:hero_eyebrow" className="inline-flex items-center rounded-full bg-[color-mix(in_srgb,var(--ink)_10%,transparent)] px-[18px] py-2 text-[12px] font-semibold uppercase leading-[1.2] tracking-[2px] text-[var(--hero-lencana,var(--hero-alis))]">
               {alis}
@@ -117,6 +125,41 @@ export function HeroGathering({
         {pratinjau ? <div data-sunting="pembuka:portal" className="hidden lg:block">{pratinjau}</div> : null}
       </div>
     </header>
+  );
+}
+
+/**
+ * KV sebagai tekstur di atas lapisan warna, seperti dua fill di rancangan
+ * Figma Hanung (kf4aCAP6bIim1QMzWCaVzt): Image 20% di atas Linear. `bayang`
+ * (kvGathering) menggelapkan gambar secukupnya supaya teks tetap terbaca.
+ * Induknya harus `relative isolate`. Juga dipakai kepala portal.
+ *
+ * Gambar hiasan, bukan isi: prioritas unduh rendah dan tanpa preload React,
+ * supaya judul dan huruf dimuat lebih dulu (QA #111 M1).
+ */
+export function LatarKv({ src, kuat, bayang, utuhDiPonsel = false }: { src: string; kuat: number; bayang: number; utuhDiPonsel?: boolean }) {
+  return (
+    // Hero halaman acara di ponsel jauh lebih tinggi dari lebarnya: `cover`
+    // hanya menyisakan potongan tengah KV yang lebar, jadi di bawah lg gambar
+    // tampil utuh selebar layar menempel di bawah, tepi atasnya memudar supaya
+    // tidak terlihat garis batas di atas gradasi. Bayangannya ikut memudar.
+    <div
+      aria-hidden="true"
+      className={`pointer-events-none absolute -z-10 select-none ${
+        utuhDiPonsel ? "inset-x-0 bottom-0 [mask-image:linear-gradient(to_top,black_55%,transparent)] lg:inset-0 lg:[mask-image:none]" : "inset-0"
+      }`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        fetchPriority="low"
+        decoding="async"
+        className={utuhDiPonsel ? "block h-auto w-full lg:size-full lg:object-cover" : "block size-full object-cover"}
+        style={{ opacity: kuat / 100 }}
+      />
+      {bayang > 0 ? <div className="absolute inset-0 bg-black" style={{ opacity: bayang }} /> : null}
+    </div>
   );
 }
 

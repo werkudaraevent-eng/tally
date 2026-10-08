@@ -12,7 +12,7 @@ import type {
   LandingSectionId,
 } from "@/lib/domain";
 import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingBlockHasContent, landingHeadingFontSize, publicEventName } from "@/lib/domain";
-import { gatheringColors, heroCtaColors, latarGathering } from "@/lib/registration-theme-css";
+import { gatheringColors, heroCtaColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
 import { landingTokens } from "@/lib/landing-tokens";
 import { preloadLandingFonts } from "@/lib/landing-font-preload";
 import { formatEventDate, formatEventDateRingkas, formatEventTime } from "@/lib/event-datetime";
@@ -756,6 +756,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               />
             ) : null
           }
+          latarGambar={kvGathering(config)}
           gaya={tinta(false)}
         />
       ) : (
