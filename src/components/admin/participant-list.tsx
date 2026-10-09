@@ -1112,7 +1112,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         dismissible={bulk !== "hapus"}
         title={`Delete ${plural(pilih.size, "participant")}?`}
         tone="danger"
-        description="Deleted permanently and recorded in the audit trail. Participants from Scanner API, or with an order or a lucky draw win, are skipped and stay in the list."
+        description="Deleted permanently with their registrations, so the same emails can register again (invited guests need a new link). Recorded in the audit trail. Participants from Scanner API, or with an order or a lucky draw win, are skipped and stay in the list."
         actions={
           <>
             <Button type="button" variant="outlined" disabled={bulk === "hapus"} onClick={() => setConfirmBulkDelete(false)}>Cancel</Button>
@@ -1128,7 +1128,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         dismissible={!saving}
         title={`Delete ${confirmDelete?.name ?? "participant"}?`}
         tone="danger"
-        description="Deleted permanently and recorded in the audit trail. Participants with an order or a lucky draw win can't be deleted."
+        description="Deleted permanently with their registration, so the same email can register again (an invited guest needs a new link). Recorded in the audit trail. Participants with an order or a lucky draw win can't be deleted."
         actions={
           <>
             <Button type="button" variant="outlined" disabled={saving} onClick={() => setConfirmDelete(null)}>Cancel</Button>
