@@ -3,6 +3,7 @@
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
+import { TeksKaya } from "@/components/landing/teks-kaya";
 
 /**
  * Susunan acara per bagian rundown (mis. "Pagi" dan "Malam").
@@ -21,8 +22,11 @@ import { rentangAkhir } from "@/lib/landing-agenda-range";
 export function AgendaTabs({
   agenda,
   stacked = false,
+  warnaTanda = "var(--warna-tanda, var(--reg-primary))",
 }: {
   agenda: AgendaPreview[];
+  /** Warna tanda Theme colour di Details; null = tebal saja (warna utama sama dengan teks). */
+  warnaTanda?: string | null;
   /** Tab selalu mendatar di atas daftar, untuk kolom sempit (area peserta). */
   stacked?: boolean;
 }) {
@@ -114,7 +118,7 @@ export function AgendaTabs({
             <div className="min-w-0">
               <p className="text-title-medium font-semibold text-balance">{item.title}</p>
               {item.subtitle ? (
-                <p className="mt-1 text-body-medium text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
+                <TeksKaya teks={item.subtitle} warna={warnaTanda} className="mt-1 text-body-medium text-[var(--reg-on-surface-variant)]" />
               ) : null}
             </div>
           </li>

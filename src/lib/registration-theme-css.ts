@@ -75,6 +75,47 @@ function kontras(a: string, b: string) {
 
 const TINTA_GELAP = "#181d27";
 
+const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/**
+ * Warna tanda "Theme colour" di Details agenda: warna utama bila beda 3:1 dari
+ * teks Details di sekitarnya, selain itu aksen bila cukup beda dari teks dan
+ * terbaca di permukaan (4,5:1), selain itu null (tanda tampil tebal saja).
+ */
+export function warnaTandaTeks(teks: unknown, primer: unknown, permukaan: unknown, aksen?: unknown): string | null {
+  const hex = (v: unknown) => (typeof v === "string" && HEX.test(v.trim()) ? v.trim() : null);
+  const t = hex(teks);
+  const p = hex(primer);
+  const latar = hex(permukaan);
+  if (!t || !latar) return null;
+  if (p && kontras(p, t) >= 3 && kontras(p, latar) >= 4.5) return p;
+  const a = hex(aksen);
+  if (a && kontras(a, t) >= 3 && kontras(a, latar) >= 4.5) return a;
+  return null;
+}
+
+/** Latar terang tempat Details agenda Modern, Forum, dan Gathering berada (baris Forum #f3f3f3, pita Gathering). */
+const LATAR_DETAILS = ["#ffffff", "#f3f3f3", "#f4f6f8"];
+
+/**
+ * Warna tanda ==warna== di Details untuk palet netral (Modern, Forum, Gathering):
+ * warna merek bila 4,5:1 di semua latar terang Details, selain itu tinta gelap
+ * (tetap tebal). Dibaca lewat `--warna-tanda`.
+ */
+function warnaTandaNetral(warna: string): string {
+  return LATAR_DETAILS.every((latar) => kontras(warna, latar) >= 4.5) ? warna : TINTA_GELAP;
+}
+
+/**
+ * Warna tanda untuk satu halaman dari gaya temanya: `--warna-tanda` palet
+ * netral bila ada, selain itu (Editorial) `warnaTandaTeks` atas peran M3-nya.
+ */
+export function warnaTandaHalaman(gaya: CSSProperties, aksen?: unknown): string | null {
+  const v = gaya as Record<string, unknown>;
+  if (typeof v["--warna-tanda"] === "string") return v["--warna-tanda"];
+  return warnaTandaTeks(v["--reg-on-surface-variant"], v["--reg-primary"], v["--reg-surface"], aksen);
+}
+
 /** Putih atau tinta gelap, mana yang kontrasnya lebih tinggi di atas `hex`. */
 function tintaDiAtas(hex: string) {
   return kontras(hex, "#ffffff") >= kontras(hex, TINTA_GELAP) ? "#ffffff" : TINTA_GELAP;
@@ -118,6 +159,7 @@ export function modernThemeStyle(seed: string | undefined): CSSProperties {
     "--reg-on-primary": tintaDiAtas(aksen),
     "--reg-primary-container": mixHex(aksen, "#ffffff", 0.9),
     "--reg-on-primary-container": TINTA_GELAP,
+    "--warna-tanda": warnaTandaNetral(aksen),
     backgroundColor: "#ffffff",
     color: TINTA_GELAP,
   } as CSSProperties;

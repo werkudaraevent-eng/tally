@@ -8,6 +8,7 @@ import { formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { memberPageStyle } from "@/lib/member/page-theme";
+import { warnaTandaHalaman } from "@/lib/registration-theme-css";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
 import { DashboardModern } from "@/components/member/dashboard-modern";
 import { DashboardGathering, type PortalTab } from "@/components/member/dashboard-gathering";
@@ -284,7 +285,7 @@ export default async function AreaPesertaPage({
                   </Link>
                 </div>
                 <div className="mt-6">
-                  <AgendaTabs agenda={agenda} stacked />
+                  <AgendaTabs agenda={agenda} stacked warnaTanda={warnaTandaHalaman(memberPageStyle(event), landing.accent)} />
                 </div>
               </section>
             ) : null}

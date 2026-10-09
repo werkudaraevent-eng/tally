@@ -18,6 +18,7 @@ import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { AgendaTabs } from "./agenda-tabs";
+import { warnaTandaHalaman } from "@/lib/registration-theme-css";
 import { LandingNav } from "./landing-nav";
 
 /**
@@ -382,7 +383,10 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
             case "agenda":
               return (
                 <SectionShell key="agenda" id="agenda" title={LANDING_SECTION_LABELS.agenda} stacked>
-                  <AgendaTabs agenda={agenda} />
+                  <AgendaTabs
+                    agenda={agenda}
+                    warnaTanda={warnaTandaHalaman(theme, config.accent)}
+                  />
                   <Link
                     href={`/e/${event.slug}/rundown`}
                     className="m3-state mt-8 inline-flex min-h-12 items-center gap-2 rounded-md text-title-small font-semibold text-[var(--reg-primary)]"

@@ -9,6 +9,7 @@ import type { AgendaPreview } from "@/lib/landing-agenda";
 import type { KvGathering } from "@/lib/registration-theme-css";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { HEAD, LABEL_BAGIAN, SHELL } from "./styles";
+import { teksPolos } from "@/lib/landing-teks-kaya";
 
 /**
  * Gaya gathering bergaya aplikasi (rancangan pen.dev Hanung, 2026-10-07):
@@ -245,7 +246,7 @@ export function agendaSelanjutnya(
   const { bagian, item } = berikut;
   const jam = item.time ? `${item.time} ${zona}`.trim() : null;
   if (bagian.tanggal === hariIni) {
-    return { judul: item.title, keterangan: [jam, item.subtitle?.trim() || null].filter(Boolean).join(" · ") || null };
+    return { judul: item.title, keterangan: [jam, teksPolos(item.subtitle).trim() || null].filter(Boolean).join(" · ") || null };
   }
   const hari = bagian.tanggal
     ? new Date(`${bagian.tanggal}T00:00:00Z`).toLocaleDateString(lang === "en" ? "en-GB" : "id-ID", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })

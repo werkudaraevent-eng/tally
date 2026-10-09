@@ -1,5 +1,6 @@
 import { BRANDING_COLUMNS, DEFAULT_BRANDING, type Branding } from "@/lib/branding";
 import { DEFAULT_TIME_ZONE, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
+import { teksPolos } from "./landing-teks-kaya";
 
 // Rundown acara. Dipakai bersama server dan browser, jadi WAJIB bebas dari
 // impor server-only (mis. service client Supabase). Isinya hanya bentuk data dan
@@ -166,7 +167,7 @@ function stripListMarker(line: string): string {
 export function subtitleLines(subtitle: string | null | undefined): SubtitleLine[] {
   if (!subtitle) return [];
   const lines: SubtitleLine[] = [];
-  for (const raw of subtitle.split("\n")) {
+  for (const raw of teksPolos(subtitle).split("\n")) {
     const trimmed = raw.trim();
     if (trimmed.length === 0) continue;
     // Judul diperiksa SEBELUM penanda daftar dibuang, karena judul yang ikut

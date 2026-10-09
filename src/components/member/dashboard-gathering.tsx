@@ -45,6 +45,7 @@ import { bagianModern, gayaModern } from "@/components/landing/modern/kerangka";
 import { HEAD, SHELL } from "@/components/landing/modern/styles";
 import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
 import { LatarKv, inisialNama as inisialAcara } from "@/components/landing/modern/gathering-app";
+import { teksPolos } from "@/lib/landing-teks-kaya";
 
 /**
  * Portal peserta gaya gathering (`/e/<slug>/peserta`, preset Gathering),
@@ -323,7 +324,7 @@ export async function DashboardGathering({
           </p>
           <p className={`${HEAD} mt-2 text-[24px] font-extrabold leading-tight lg:text-[28px]`}>{selanjutnya.item.title}</p>
           <p className={`mt-1 text-body-medium ${gelap ? "opacity-85" : MUTED}`}>
-            {[selanjutnya.hari, `${selanjutnya.item.time} ${singkatanZona}`, selanjutnya.item.subtitle, gelap ? selanjutnya.hitung : null].filter(Boolean).join(" · ")}
+            {[selanjutnya.hari, `${selanjutnya.item.time} ${singkatanZona}`, teksPolos(selanjutnya.item.subtitle) || null, gelap ? selanjutnya.hitung : null].filter(Boolean).join(" · ")}
           </p>
         </div>
         {!gelap && selanjutnya.hitung ? <Chip nada="aksi">{selanjutnya.hitung}</Chip> : null}
@@ -395,7 +396,7 @@ export async function DashboardGathering({
                   {item.title}
                   {status ? <Chip nada="aksi">{status === "berlangsung" ? t.now : t.next}</Chip> : null}
                 </p>
-                {item.subtitle ? <p className={`text-body-medium ${MUTED}`}>{item.subtitle}</p> : null}
+                {item.subtitle ? <p className={`text-body-medium ${MUTED}`}>{teksPolos(item.subtitle)}</p> : null}
               </div>
             </li>
           );
@@ -535,7 +536,7 @@ export async function DashboardGathering({
                           {item.title}
                           {status ? <Chip nada="aksi">{status === "berlangsung" ? t.now : t.next}</Chip> : null}
                         </p>
-                        {item.subtitle ? <p className={`mt-0.5 text-body-medium ${MUTED}`}>{item.subtitle}</p> : null}
+                        {item.subtitle ? <p className={`mt-0.5 text-body-medium ${MUTED}`}>{teksPolos(item.subtitle)}</p> : null}
                       </div>
                     </li>
                   );
