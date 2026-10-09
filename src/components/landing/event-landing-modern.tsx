@@ -250,7 +250,10 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // Gathering tanpa kotak angka: "6 sesi" adalah bahasa acara rapat.
   const sorotan = !gaya && tampil("highlights") ? config.highlights?.[0] : undefined;
   // Pembicara yang sama dengan Susunan acara, supaya angka dan baris tenangnya sepakat.
-  const orangSesi = tampil("speakers") ? speakers : [];
+  // Daftar pembicara di bawah judul sesi (Names / Names with photos) memakai data
+  // Pembicara walau bagian Pembicara dimatikan; Text tetap seperti dulu.
+  const pembicaraAgenda = config.agenda_speakers ?? "text";
+  const orangSesi = pembicaraAgenda !== "text" || tampil("speakers") ? speakers : [];
   const totalSesi = agenda.reduce((jumlah, bagian) => jumlah + jumlahSesi(bagian.items, orangSesi), 0);
   const stat = sorotan
     ? { nilai: sorotan.value, label: sorotan.label }
@@ -624,7 +627,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               agenda={agenda}
               catatan={config.program_notes ?? []}
               lang={lang}
-              jadwalLengkap={<AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari />}
+              jadwalLengkap={<AgendaPills agenda={agenda} speakers={orangSesi} tampilPembicara={pembicaraAgenda} lang={lang} perHari />}
             />
           </section>
         ) : null}
@@ -649,11 +652,11 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 agenda={agenda}
                 catatan={config.program_notes ?? []}
                 lang={lang}
-                jadwalLengkap={<AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari />}
+                jadwalLengkap={<AgendaPills agenda={agenda} speakers={orangSesi} tampilPembicara={pembicaraAgenda} lang={lang} perHari />}
               />
             ) : (
               <div className="mt-6 sm:mt-8">
-                <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari={gaya} />
+                <AgendaPills agenda={agenda} speakers={orangSesi} tampilPembicara={pembicaraAgenda} lang={lang} perHari={gaya} />
               </div>
             )}
           </Section>

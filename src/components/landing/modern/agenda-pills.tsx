@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
-import type { LandingSpeaker } from "@/lib/domain";
+import type { LandingAgendaSpeakers, LandingSpeaker } from "@/lib/domain";
+import { kelompokPeran, keteranganPembicara, sisaKeterangan } from "@/lib/landing-agenda-pembicara";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { barisJeda, pembicaraSesi } from "@/lib/landing-speaker-tabs";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
@@ -22,10 +23,13 @@ export function AgendaPills({
   speakers = [],
   lang = "id",
   perHari = false,
+  tampilPembicara = "text",
 }: {
   agenda: AgendaPreview[];
   speakers?: LandingSpeaker[];
   lang?: LandingLang;
+  /** `landing_config.agenda_speakers`. Bawaan `text`: tampilan lama, foto di kolom kanan. */
+  tampilPembicara?: LandingAgendaSpeakers;
   /**
    * Gaya gathering: tab dinamai "Hari 1 · <judul bagian>" tanpa rentang jam,
    * dan di ponsel cukup "Hari 1" supaya tiga tab muat tanpa menggulir.
@@ -120,6 +124,9 @@ export function AgendaPills({
           // Dikenali dari kata kuncinya, bukan dari keterangan yang kosong:
           // sesi inti tanpa keterangan tetap tampil sebagai sesi inti.
           const jeda = barisJeda(item.key, orang.length) || barisJeda(item.title, orang.length);
+          // Daftar pembicara di bawah judul menggantikan deret foto kanan:
+          // info pembicara satu tempat saja.
+          const daftar = tampilPembicara !== "text" && orang.length > 0;
           return (
             // Garis dasar jam dan judul sejajar (items-baseline); tinggi baris
             // kelipatan 4px (judul 24px, keterangan 20px, padding 12px).
@@ -147,18 +154,73 @@ export function AgendaPills({
                 >
                   {item.title}
                 </p>
-                {item.subtitle ? (
+                {daftar ? (
+                  <DaftarPembicara item={item.subtitle} orang={orang} foto={tampilPembicara === "photos"} lang={lang} />
+                ) : item.subtitle ? (
                   // pre-line: satu sesi bisa punya beberapa pilihan, satu per baris
                   // (mis. tiga kelompok diskusi di jam yang sama).
                   <p className="mt-1 whitespace-pre-line text-body-medium leading-5 text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
                 ) : null}
               </div>
-              {orang.length > 0 ? <DeretPembicara orang={orang} lang={lang} /> : null}
+              {orang.length > 0 && !daftar ? <DeretPembicara orang={orang} lang={lang} /> : null}
             </li>
           );
         })}
       </ol>
     </div>
+  );
+}
+
+/**
+ * Pembicara sesi di bawah judul, satu orang satu baris (pola daftar M3: foto di
+ * depan, nama sebagai judul, jabatan dan instansi sebagai teks pendukung, paling
+ * banyak tiga baris). Dikelompokkan per peran sesi dengan label kecil. Dua kolom
+ * di layar lebar supaya panel lima orang tidak memanjang; satu kolom di ponsel.
+ *
+ * Details yang menyebut pembicara tertaut tidak ditulis ulang; baris pertamanya
+ * menjadi subjudul sesi bila letaknya di atas daftar nama.
+ */
+function DaftarPembicara({ item, orang, foto, lang }: { item: string | null; orang: LandingSpeaker[]; foto: boolean; lang: LandingLang }) {
+  const { subjudul, lain } = sisaKeterangan(item, orang);
+  const kelompok = kelompokPeran(orang, LANDING_UI[lang].agendaSpeakers);
+  return (
+    <>
+      {subjudul ? <p className="mt-1 text-[15px] font-medium leading-[22px] text-[var(--reg-on-surface)]">{subjudul}</p> : null}
+      {lain ? <p className="mt-1 whitespace-pre-line text-body-medium leading-5 text-[var(--reg-on-surface-variant)]">{lain}</p> : null}
+      <div className="mt-3 flex flex-col gap-3">
+        {kelompok.map((grup) => (
+          <div key={grup.label}>
+            <p className="text-[12px] font-semibold uppercase leading-4 tracking-[0.04em] text-[var(--reg-on-surface-variant)]">{grup.label}</p>
+            <ul className="mt-1 grid grid-cols-1 items-start gap-x-8 lg:grid-cols-2">
+              {grup.orang.map((speaker, index) => {
+                const ket = keteranganPembicara(speaker);
+                return (
+                  <li key={`${speaker.name}-${index}`} className={`flex min-w-0 items-center gap-3 py-1 ${foto ? "min-h-12" : ""}`}>
+                    {foto ? (
+                      <span
+                        aria-hidden
+                        className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--reg-primary)_14%,var(--reg-surface))] text-[12px] font-semibold text-[var(--reg-primary)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--reg-on-surface)_16%,var(--reg-surface))]"
+                      >
+                        {speaker.photo_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={speaker.photo_url} alt="" loading="lazy" className="size-full object-cover object-[50%_20%]" />
+                        ) : (
+                          inisial(speaker.name)
+                        )}
+                      </span>
+                    ) : null}
+                    <span className="min-w-0">
+                      <span className="block text-body-medium font-semibold leading-5 text-[var(--reg-on-surface)]">{speaker.name.trim()}</span>
+                      {ket ? <span className="line-clamp-2 text-[13px] leading-[18px] text-[var(--reg-on-surface-variant)]">{ket}</span> : null}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
