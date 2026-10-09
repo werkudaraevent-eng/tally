@@ -75,6 +75,25 @@ function kontras(a: string, b: string) {
 
 const TINTA_GELAP = "#181d27";
 
+const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/**
+ * Warna tanda "Theme colour" di Details agenda: warna utama bila beda 3:1 dari
+ * teks Details di sekitarnya, selain itu aksen bila cukup beda dari teks dan
+ * terbaca di permukaan (4,5:1), selain itu null (tanda tampil tebal saja).
+ */
+export function warnaTandaTeks(teks: unknown, primer: unknown, permukaan: unknown, aksen?: unknown): string | null {
+  const hex = (v: unknown) => (typeof v === "string" && HEX.test(v.trim()) ? v.trim() : null);
+  const t = hex(teks);
+  const p = hex(primer);
+  const latar = hex(permukaan);
+  if (!t || !latar) return null;
+  if (p && kontras(p, t) >= 3 && kontras(p, latar) >= 4.5) return p;
+  const a = hex(aksen);
+  if (a && kontras(a, t) >= 3 && kontras(a, latar) >= 4.5) return a;
+  return null;
+}
+
 /** Putih atau tinta gelap, mana yang kontrasnya lebih tinggi di atas `hex`. */
 function tintaDiAtas(hex: string) {
   return kontras(hex, "#ffffff") >= kontras(hex, TINTA_GELAP) ? "#ffffff" : TINTA_GELAP;

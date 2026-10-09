@@ -136,17 +136,20 @@ function bacaBlok(akar: HTMLElement): Blok[] {
   return blok;
 }
 
-function TombolAlat({ label, aktif, onClick, children }: { label: string; aktif: boolean; onClick: () => void; children: ReactNode }) {
+function TombolAlat({ label, aktif, onClick, children, fokus }: { label: string; aktif: boolean; onClick: () => void; children: ReactNode; fokus: boolean }) {
   return (
     <button
       type="button"
+      // Satu Tab untuk seluruh toolbar; panah kiri/kanan berpindah tombol.
+      tabIndex={fokus ? 0 : -1}
+      data-alat
       title={label}
       aria-label={label}
       aria-pressed={aktif}
       // mousedown dicegah supaya pilihan teks di kolom tidak hilang.
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={cx("m3-state inline-flex size-8 items-center justify-center rounded-sm text-on-surface", aktif && "bg-secondary-container text-on-secondary-container")}
+      className={cx("m3-state inline-flex size-9 items-center justify-center rounded-sm text-on-surface", aktif && "bg-secondary-container text-on-secondary-container")}
     >
       {children}
     </button>
@@ -164,6 +167,7 @@ export function RichDetailsField({
   value,
   onChange,
   className,
+  maxLength = 800,
   "data-kolom": dataKolom,
 }: {
   label: string;
@@ -173,6 +177,8 @@ export function RichDetailsField({
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  /** Batas teks yang disimpan (tanda format ikut dihitung), sama dengan batas server. */
+  maxLength?: number;
   "data-kolom"?: string;
 }) {
   const id = useId();
@@ -180,6 +186,7 @@ export function RichDetailsField({
   const terakhir = useRef<string | null>(null);
   const [aktif, setAktif] = useState<Aktif>(TANPA);
   const [kosong, setKosong] = useState(!value);
+  const [alat, setAlat] = useState(0);
 
   // Isi kolom hanya ditulis ulang saat nilainya berubah dari luar (pilih butir
   // lain, muat ulang), bukan setiap ketikan, supaya kursor tidak melompat.
@@ -195,11 +202,21 @@ export function RichDetailsField({
     const el = kolom.current;
     if (!el) return;
     const nilai = susunTeks(bacaBlok(el));
+    if (nilai.length > maxLength) {
+      // Melewati batas: ketikan terakhir dibatalkan, kursor ke akhir.
+      el.innerHTML = keHtml(terakhir.current ?? "");
+      const sel = window.getSelection();
+      if (sel) {
+        sel.selectAllChildren(el);
+        sel.collapseToEnd();
+      }
+      return;
+    }
     setKosong(!el.textContent?.trim() && !el.querySelector("li"));
     if (nilai === terakhir.current) return;
     terakhir.current = nilai;
     onChange(nilai);
-  }, [onChange]);
+  }, [onChange, maxLength]);
 
   const diKolom = useCallback(() => {
     const sel = window.getSelection();
@@ -277,6 +294,16 @@ export function RichDetailsField({
     return () => el.removeEventListener("beforeinput", masuk);
   }, []);
 
+  function pindahAlat(event: KeyboardEvent<HTMLDivElement>) {
+    const tombol = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("[data-alat]")];
+    const ke = { ArrowRight: alat + 1, ArrowLeft: alat - 1, Home: 0, End: tombol.length - 1 }[event.key];
+    if (ke === undefined) return;
+    event.preventDefault();
+    const baru = (ke + tombol.length) % tombol.length;
+    setAlat(baru);
+    tombol[baru]?.focus();
+  }
+
   function tekan(event: KeyboardEvent<HTMLDivElement>) {
     const mod = event.metaKey || event.ctrlKey;
     if (mod && event.key.toLowerCase() === "u") event.preventDefault();
@@ -284,7 +311,9 @@ export function RichDetailsField({
 
   function tempel(event: ClipboardEvent<HTMLDivElement>) {
     event.preventDefault();
-    const teks = event.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n");
+    const sisa = Math.max(0, maxLength - (terakhir.current ?? "").length);
+    const teks = event.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n").slice(0, sisa);
+    if (!teks) return;
     document.execCommand("insertText", false, teks);
     kirim();
   }
@@ -296,23 +325,23 @@ export function RichDetailsField({
         {optional ? <span className="text-body-small font-normal text-on-surface-variant">optional</span> : null}
       </label>
       <div className="mt-2 rounded-lg border border-outline bg-surface-container-lowest transition-[border-color,box-shadow] duration-150 ease-standard focus-within:border-primary focus-within:shadow-[0_0_0_1px_var(--color-primary)]">
-        <div role="toolbar" aria-label={`${label} formatting`} className="flex items-center gap-0.5 border-b border-outline-variant px-1 py-0.5">
-          <TombolAlat label="Bold (Ctrl+B)" aktif={aktif.tebal} onClick={() => perintah("bold")}>
+        <div role="toolbar" aria-label={`${label} formatting`} onKeyDown={pindahAlat} className="flex items-center gap-0.5 border-b border-outline-variant px-1 py-0.5">
+          <TombolAlat label="Bold (Ctrl+B)" fokus={alat === 0} aktif={aktif.tebal} onClick={() => perintah("bold")}>
             <TextB size={18} weight="bold" aria-hidden />
           </TombolAlat>
-          <TombolAlat label="Italic (Ctrl+I)" aktif={aktif.miring} onClick={() => perintah("italic")}>
+          <TombolAlat label="Italic (Ctrl+I)" fokus={alat === 1} aktif={aktif.miring} onClick={() => perintah("italic")}>
             <TextItalic size={18} aria-hidden />
           </TombolAlat>
-          <TombolAlat label="Theme colour" aktif={aktif.warna} onClick={() => perintah("foreColor", aktif.warna ? "#1f1f1f" : WARNA)}>
+          <TombolAlat label="Theme colour" fokus={alat === 2} aktif={aktif.warna} onClick={() => perintah("foreColor", aktif.warna ? "#1f1f1f" : WARNA)}>
             <span aria-hidden className="flex flex-col items-center text-[14px] font-semibold leading-[14px]">
               A<span className="mt-0.5 h-[3px] w-3.5 rounded-full" style={{ background: WARNA }} />
             </span>
           </TombolAlat>
           <span aria-hidden className="mx-1 h-5 w-px bg-outline-variant" />
-          <TombolAlat label="Bulleted list" aktif={aktif.ul} onClick={() => perintah("insertUnorderedList")}>
+          <TombolAlat label="Bulleted list" fokus={alat === 3} aktif={aktif.ul} onClick={() => perintah("insertUnorderedList")}>
             <ListBullets size={18} aria-hidden />
           </TombolAlat>
-          <TombolAlat label="Numbered list" aktif={aktif.ol} onClick={() => perintah("insertOrderedList")}>
+          <TombolAlat label="Numbered list" fokus={alat === 4} aktif={aktif.ol} onClick={() => perintah("insertOrderedList")}>
             <ListNumbers size={18} aria-hidden />
           </TombolAlat>
         </div>
@@ -348,7 +377,7 @@ export function RichDetailsField({
           />
         </div>
       </div>
-      <FieldMessages id={id} hint={hint} />
+      <FieldMessages id={id} hint={hint} count={{ length: value.length, max: maxLength }} />
     </div>
   );
 }

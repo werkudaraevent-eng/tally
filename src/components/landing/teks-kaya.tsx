@@ -9,14 +9,15 @@ import { adaFormat, pecahTeks, type Blok, type Potongan } from "@/lib/landing-te
  *
  * Semua isi menjadi node teks React; tidak ada HTML dari data yang disisipkan.
  */
-function Isi({ isi, warna }: { isi: Potongan[]; warna: string }) {
+function Isi({ isi, warna }: { isi: Potongan[]; warna: string | null }) {
   return (
     <>
       {isi.map((p, index) => {
         let node: ReactNode = p.teks;
         if (p.miring) node = <em>{node}</em>;
         if (p.tebal) node = <strong className="font-semibold">{node}</strong>;
-        if (p.warna) node = <span style={{ color: warna }}>{node}</span>;
+        // Warna saja bukan penanda (bisa nyaris sama dengan teks di sekitarnya): selalu ikut tebal.
+        if (p.warna) node = <span className="font-semibold" style={warna ? { color: warna } : undefined}>{node}</span>;
         return <Fragment key={index}>{node}</Fragment>;
       })}
     </>
@@ -44,8 +45,8 @@ export function TeksKaya({
   teks: string;
   /** Kelas paragraf lama (ukuran, warna, margin atas). Daftar memakai ukuran yang sama. */
   className: string;
-  /** Warna tanda ==warna==: warna utama tema halaman. */
-  warna?: string;
+  /** Warna tanda ==warna==: warna utama tema halaman. null = tebal saja. */
+  warna?: string | null;
   /** Elemen teks lama tanpa format (Forum memakai <span className="block">). */
   as?: "p" | "span";
 }) {
