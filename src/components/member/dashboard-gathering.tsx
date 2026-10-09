@@ -24,25 +24,27 @@ import {
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
-import { normalizeLandingSections, publicEventName } from "@/lib/domain";
+import { LANDING_NAV_DEFAULTS, isPortalEntry, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { formatEventDate, formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
-import { landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
+import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { PESERTA_UI } from "@/lib/member/peserta-i18n";
 import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import type { MemberSession } from "@/lib/member/account";
-import { inisialNama, waktuPengumuman } from "@/lib/member/nav";
+import { inisialNama, muatNavPeserta, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
-import { gatheringColors, kvGathering } from "@/lib/registration-theme-css";
+import { gatheringColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
+import { loadLandingLodging } from "@/lib/landing-hotel";
 import { landingTokens } from "@/lib/landing-tokens";
 import { normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
 import { FokusPemicuQr, PemicuQr, TutupQrEscape } from "@/components/member/qr-fokus";
-import { gayaModern } from "@/components/landing/modern/kerangka";
-import { HEAD } from "@/components/landing/modern/styles";
-import { LatarKv, tanpaBintang } from "@/components/landing/modern/gathering-app";
+import { bagianModern, gayaModern } from "@/components/landing/modern/kerangka";
+import { HEAD, SHELL } from "@/components/landing/modern/styles";
+import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
+import { LatarKv, inisialNama as inisialAcara } from "@/components/landing/modern/gathering-app";
 
 /**
  * Portal peserta gaya gathering (`/e/<slug>/peserta`, preset Gathering),
@@ -66,7 +68,13 @@ const KARTU = "rounded-[20px] bg-white p-5 shadow-[0_1px_2px_rgb(16_24_40/0.06)]
 const MUTED = "text-[#5F6B7F]";
 const LABEL = "text-[12px] font-bold uppercase tracking-[0.08em]";
 const PANEL = "#F4F6F8";
-const LATAR_NAVY = "linear-gradient(160deg, color-mix(in srgb, var(--reg-brand) 70%, black) 0%, var(--reg-brand) 100%)";
+/** Gradasi hero halaman acara (LATAR_HERO di gathering-app), dari `--latar-gathering`. */
+const LATAR_HERO =
+  "var(--latar-gathering, linear-gradient(160deg, color-mix(in srgb, var(--reg-brand) 62%, black) 0%, color-mix(in srgb, var(--reg-brand) 85%, black) 60%, var(--reg-brand) 100%))";
+/** Lencana di atas judul, sama dengan hero halaman acara. */
+const ALIS_HERO =
+  "inline-flex items-center rounded-full bg-white/10 px-[18px] py-2 text-[12px] font-semibold uppercase leading-[1.2] tracking-[2px] text-[var(--hero-lencana,var(--hero-alis))]";
+const REDUP_HERO = "text-[var(--hero-redup,rgb(255_255_255/0.8))]";
 
 /** Tanggal "YYYY-MM-DD" dan menit sejak tengah malam di zona waktu acara. */
 function sekarangDi(zona: EventTimeZone, now: Date) {
@@ -141,10 +149,27 @@ export async function DashboardGathering({
   const tampilKode = Boolean(peserta) && member.show_code !== false;
 
   const nama = publicEventName(event);
-  const subjudul = event.tagline?.trim() ? tanpaBintang(event.tagline.trim()) : t.portal;
   const tanggal = formatEventDate(event, lang);
   const venue = event.venue_name?.trim() || null;
   const inisial = inisialNama(sesi.name);
+  // Bilah atas sama dengan halaman acara (Mas Hanung, 9 Okt): logo, menu
+  // bagian yang kembali ke halaman acara, lonceng, dan "Dashboard saya".
+  const sectionsHalaman = normalizeLandingSections(config.sections, config.blocks);
+  const agendaNav = tampilSusunan ? agenda : await loadAgendaPreview(event.id, lang);
+  const adaHotel = (await loadLandingLodging(event.id)).hotels.length > 0;
+  const { navSections, tampil } = bagianModern(event, config, sectionsHalaman, agendaNav, lang, { gathering: true, adaHotel });
+  const menuAtas = (() => {
+    const urutan = susunanDenganPortal(config.sections, config.blocks);
+    if (config.portal_section === false || navSections.some((section) => section.id === "portal")) return navSections;
+    const posisiPortal = urutan.findIndex(isPortalEntry);
+    const posisiNav = (id: string) => urutan.findIndex((section) => section.id === (id === "program" ? (tampil("about") ? "about" : "agenda") : id));
+    const sesudah = navSections.findIndex((section) => posisiNav(section.id) > posisiPortal);
+    const tautan = { id: "portal", label: LANDING_UI[lang].navPortal };
+    return sesudah < 0 ? [...navSections, tautan] : [...navSections.slice(0, sesudah), tautan, ...navSections.slice(sesudah)];
+  })();
+  const navPeserta = await muatNavPeserta(event, sesi, lang, { data: pengumuman });
+  const subNama = event.name.trim() && event.name.trim() !== nama ? event.name.trim() : null;
+  const alis = config.hero_eyebrow?.trim() || nama;
   const logo = config.nav?.logo_url ?? null;
   // KV yang sama dengan hero halaman acara, 20% di kepala navy (Figma Hanung).
   const latarKv = kvGathering(config);
@@ -177,6 +202,7 @@ export async function DashboardGathering({
     return item && bagian ? { item, hitung: null, hari: bagian.tanggal === besok ? t.tomorrow : bagian.hari } : null;
   })();
 
+  const latarHalaman = latarGathering(landingTokens(config, "modern").brand);
   const warna = gatheringColors(landingTokens(config, "modern").accent ?? undefined, landingTokens(config, "modern").brand, false, config.button_color);
   const gaya = {
     ...gayaModern(config),
@@ -193,6 +219,15 @@ export async function DashboardGathering({
     "--aksen": warna.aksen,
     "--aksen-teks": warna.aksenTeks,
     "--hero-angka": warna.heroAngka,
+    // Hero sama dengan halaman acara: gradasi, teks redup, lencana, tepi 56px.
+    "--latar-gathering": latarHalaman.latar,
+    "--hero-redup": latarHalaman.redup ?? undefined,
+    "--hero-lencana": warna.heroLencana,
+    "--hero-alis": warna.heroAlis,
+    "--tanda-latar": warna.tanda.latar,
+    "--tanda-teks": warna.tanda.teks,
+    "--pinggir-lg": "56px",
+    "--pinggir-xl": "56px",
     backgroundColor: PANEL,
   } as CSSProperties;
 
@@ -412,9 +447,12 @@ export async function DashboardGathering({
   if (tabAktif === "beranda") {
     kepala = (
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-body-large opacity-85">{t.greeting(kini.jam)}</p>
-          <h1 className={`${HEAD} mt-1 text-[32px] font-extrabold leading-tight tracking-[-0.02em] lg:text-[48px]`}>{sesi.name}</h1>
+        <div className="flex min-w-0 flex-col items-start gap-5">
+          <p className={ALIS_HERO}>{alis}</p>
+          <div>
+            <p className={`text-[16px] leading-[1.6] ${REDUP_HERO}`}>{t.greeting(kini.jam)}</p>
+            <h1 className={`${HEAD} mt-1 text-balance [overflow-wrap:anywhere] text-[40px] font-extrabold leading-[1.08] sm:text-[52px] lg:text-[62px] lg:leading-[1.05]`}>{sesi.name}</h1>
+          </div>
         </div>
         <div className="hidden w-full max-w-[400px] lg:block">{kartuSelanjutnya(true)}</div>
       </div>
@@ -599,25 +637,38 @@ export async function DashboardGathering({
   return (
     <main className="min-h-dvh pb-[calc(88px+env(safe-area-inset-bottom))] text-[#1A2333] lg:pb-16" style={gaya}>
       <FokusPemicuQr />
-      {/* ---- Bilah atas layar lebar ---------------------------------------- */}
-      <header className="hidden border-b border-[#E6E9EE] bg-white lg:block">
-        <div className="mx-auto flex min-h-20 w-full max-w-[1440px] items-center gap-6 px-12">
-          <Link href={halamanAcara} className="flex min-w-0 flex-1 items-center gap-3">
-            <Lencana logo={logo} nama={nama} />
-            <span className="min-w-0">
-              <span className="block truncate text-title-medium font-extrabold">{nama}</span>
-              <span className={`block ${LABEL} ${MUTED}`}>{t.portal}</span>
-            </span>
-          </Link>
-          <nav aria-label={t.tabsAria}>
-            <ul className="flex gap-1">
-              {menuTab.slice(0, 3).map(({ id, label }) => (
+      {/* ---- Bilah atas: sama dengan halaman acara ------------------------- */}
+      <LandingNavModern
+        eventName={nama}
+        daftarUrl={`${halamanAcara}/daftar`}
+        registrationOpen={false}
+        sections={menuAtas}
+        sectionBase={halamanAcara}
+        homeHref={halamanAcara}
+        width={config.nav?.width ?? "full"}
+        logoUrl={logo}
+        logoOnDark={Boolean(config.banner_url) && (config.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50}
+        lang={lang}
+        langSwitch={landingEnAvailable(config) ? { href: `${landingPath(event.slug, lainnya, utama)}/peserta${tabAktif === "beranda" ? "" : `?tab=${tabAktif}`}`, lang: lainnya } : null}
+        peserta={navPeserta}
+        dashboardAktif
+        gathering={{ tanda: inisialAcara(nama), sub: subNama }}
+      />
+
+      {/* ---- Kepala: gradasi dan KV yang sama dengan hero halaman acara ------ */}
+      <div className="relative isolate overflow-hidden text-white" style={{ ...latarKv?.warnaHero, ...latarKv?.warnaPortal, background: latarKv?.latar ?? LATAR_HERO }}>
+        {latarKv ? <LatarKv src={latarKv.src} kuat={latarKv.kuat} bayang={Math.max(latarKv.bayang.hero, latarKv.bayang.portal)} utuhDiPonsel /> : null}
+        <div className={`${SHELL} pb-12 pt-6 lg:pb-[72px] lg:pt-10`}>
+          {/* Tab portal layar lebar; ponsel memakai bilah tab bawah. */}
+          <nav aria-label={t.tabsAria} className="mb-8 hidden lg:mb-12 lg:block">
+            <ul className="flex flex-wrap gap-2">
+              {menuTab.map(({ id, label }) => (
                 <li key={id}>
                   <Link
                     href={keTab(id)}
                     aria-current={id === tabAktif ? "page" : undefined}
-                    className={`m3-state inline-flex min-h-12 items-center rounded-full px-5 text-title-small font-bold ${
-                      id === tabAktif ? "bg-[var(--chip-aksi)] text-[var(--on-chip-aksi)]" : MUTED
+                    className={`m3-state inline-flex min-h-12 items-center rounded-full px-5 text-[14px] font-bold ${
+                      id === tabAktif ? "bg-white text-[#1A2333]" : "bg-white/10 text-white"
                     }`}
                   >
                     {label}
@@ -626,49 +677,13 @@ export async function DashboardGathering({
               ))}
             </ul>
           </nav>
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-4">
-            <p className={`min-w-0 truncate text-body-medium ${MUTED}`}>{[tanggal, venue].filter(Boolean).join(" · ")}</p>
-            <Link
-              href={keTab("profil")}
-              aria-label={t.tabs.profil}
-              aria-current={tabAktif === "profil" ? "page" : undefined}
-              className="m3-state flex size-12 shrink-0 items-center justify-center rounded-full bg-[var(--aksen)] text-title-small font-extrabold text-[#1A2333]"
-            >
-              {inisial}
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* ---- Kepala navy ---------------------------------------------------- */}
-      <div className={latarKv ? "relative isolate text-white" : "text-white"} style={{ ...latarKv?.warnaPortal, background: latarKv?.latar ?? LATAR_NAVY }}>
-        {latarKv ? <LatarKv src={latarKv.src} kuat={latarKv.kuat} bayang={latarKv.bayang.portal} /> : null}
-        <div className="mx-auto w-full max-w-[1440px] px-5 pb-8 pt-6 sm:px-8 lg:px-12 lg:pb-16 lg:pt-14">
-          {tabAktif !== "profil" ? (
-            <div className="mb-6 flex items-center gap-3 lg:hidden">
-              {tabAktif === "beranda" ? (
-                <Link href={halamanAcara} className="flex min-w-0 flex-1 items-center gap-3">
-                  <Lencana logo={logo} nama={nama} />
-                  <span className="min-w-0">
-                    <span className="block truncate text-title-medium font-extrabold">{nama}</span>
-                    <span className="block truncate text-body-medium opacity-85">{subjudul}</span>
-                  </span>
-                </Link>
-              ) : (
-                <span className="flex-1" />
-              )}
-              <Link href={keTab("profil")} aria-label={t.tabs.profil} className="m3-state flex size-12 shrink-0 items-center justify-center rounded-full bg-[var(--aksen)] text-title-small font-extrabold text-[#1A2333]">
-                {inisial}
-              </Link>
-            </div>
-          ) : null}
           {kepala}
         </div>
       </div>
 
       {/* Kepala ber-KV menjadi lapisan tersendiri (relative): isi yang menumpang
           di tepi bawahnya harus ikut berlapis supaya tetap di atasnya. */}
-      <div className={`${latarKv ? "relative " : ""}mx-auto -mt-3 w-full max-w-[1440px] px-4 sm:px-8 lg:-mt-6 lg:px-12`}>{isi}</div>
+      <div className={`relative ${SHELL} -mt-3 lg:-mt-6`}>{isi}</div>
 
       {/* ---- Bilah tab bawah (ponsel) -------------------------------------- */}
       <nav aria-label={t.tabsAria} className="fixed inset-x-0 bottom-0 z-20 border-t border-[#E6E9EE] bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
@@ -697,17 +712,6 @@ function JudulKepala({ judul, catatan }: { judul: string; catatan: string | null
       <h1 className={`${HEAD} text-[28px] font-extrabold leading-tight tracking-[-0.02em] lg:text-[40px]`}>{judul}</h1>
       {catatan ? <p className="mt-1 text-body-medium opacity-85">{catatan}</p> : null}
     </div>
-  );
-}
-
-function Lencana({ logo, nama }: { logo: string | null; nama: string }) {
-  return logo ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={logo} alt="" className="size-12 shrink-0 rounded-xl bg-white object-contain p-1" />
-  ) : (
-    <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[var(--aksen)] text-title-medium font-extrabold text-[#1A2333]">
-      {inisialNama(nama)}
-    </span>
   );
 }
 
