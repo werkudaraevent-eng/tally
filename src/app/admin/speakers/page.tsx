@@ -97,11 +97,36 @@ function pasangUlang(draf: LandingSpeaker, asli: LandingSpeaker, terbaru: Landin
   return { hasil, bentrok };
 }
 
-/** Posisi orang yang sama di daftar terbaru: indeks yang sama bila namanya masih sama, atau satu-satunya orang bernama itu. */
-function cariLagi(daftar: LandingSpeaker[], indeks: number, nama: string): number {
-  if (daftar[indeks]?.name === nama) return indeks;
-  const sama = daftar.flatMap((speaker, i) => (speaker.name === nama ? [i] : []));
-  return sama.length === 1 ? sama[0]! : -1;
+/** Kolom yang diubah di layar ini (draf vs versi yang dibuka); kolom English sebagai "en.title" dst. */
+function kolomDiubah(draf: LandingSpeaker, asli: LandingSpeaker): Set<string> {
+  const hasil = new Set<string>();
+  const banding = (d: Record<string, unknown>, a: Record<string, unknown>, awalan: string) => {
+    for (const kunci of new Set([...Object.keys(d), ...Object.keys(a)])) {
+      if (!awalan && kunci === "en") continue;
+      if (!samaJson(d[kunci], a[kunci])) hasil.add(`${awalan}${kunci}`);
+    }
+  };
+  banding(draf, asli, "");
+  banding(draf.en ?? {}, asli.en ?? {}, "en.");
+  return hasil;
+}
+
+/**
+ * Orang yang sama di daftar terbaru setelah 409, atau -1 bila tidak pasti.
+ * Tidak menebak: namanya harus unik di daftar lama dan di daftar terbaru, dan
+ * setiap kolom yang TIDAK diubah di layar ini (foto, sesi, peran, instansi, dst.)
+ * harus masih sama dengan versi yang dibuka. Selain itu suntingan bisa
+ * mendarat di orang lain (nama kembar ditukar, orang dihapus lalu orang lain
+ * diganti namanya), jadi lebih baik tidak dipasang ulang sama sekali.
+ */
+function cariLagi(lama: LandingSpeaker[], terbaru: LandingSpeaker[], asli: LandingSpeaker, draf: LandingSpeaker): number {
+  const unik = (daftar: LandingSpeaker[]) => daftar.filter((speaker) => speaker.name === asli.name).length === 1;
+  if (!unik(lama) || !unik(terbaru)) return -1;
+  const posisi = terbaru.findIndex((speaker) => speaker.name === asli.name);
+  const calon = terbaru[posisi]!;
+  const diubah = kolomDiubah(draf, asli);
+  const beda = kolomDiubah(calon, asli);
+  return [...beda].every((kunci) => diubah.has(kunci)) ? posisi : -1;
 }
 
 export default function SpeakersAdminPage() {
@@ -269,12 +294,14 @@ export default function SpeakersAdminPage() {
           // Orang yang sama di daftar terbaru. Suntingannya dipasang ulang di
           // atas versi terbaru, bukan disimpan utuh: perubahan orang lain pada
           // kolom yang tidak disentuh di sini tetap ada.
-          const posisi = cariLagi(terbaru, pilihan, asli.name);
+          const posisi = tersimpan ? cariLagi(tersimpan, terbaru, asli, draf) : -1;
           if (posisi < 0) {
             setPilihan(null);
             setDraf(null);
             panelTerbuka = false;
-            pesan = `Not saved. ${asli.name} was renamed or removed by someone else. Open them again from the list.`;
+            pesan = berubah
+              ? `Not saved. ${asli.name} was changed by someone else. Your edits were not saved: open them again and re-apply.`
+              : `Someone else changed ${asli.name}. The latest list is shown now.`;
           } else if (berubah) {
             const { hasil, bentrok } = pasangUlang(draf, asli, terbaru[posisi]!);
             setPilihan(posisi);

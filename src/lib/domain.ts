@@ -1509,6 +1509,7 @@ export type ApiErrorCode =
   // Acara disimpan di tempat lain pada saat yang sama; simpanan ini tidak ditulis.
   | "CONFLICT"
   | "SPEAKERS_CHANGED"
+  | "PAYLOAD_TOO_LARGE"
   | "INVITATION_SENDING_LOCKED"
   | "MESSAGE_NOT_PAUSED"
   | "ANNOUNCEMENT_NOT_FOUND"

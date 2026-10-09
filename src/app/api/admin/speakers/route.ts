@@ -34,14 +34,39 @@ export async function GET(request: Request) {
   });
 }
 
+/**
+ * Badan permintaan sebagai teks, dibaca sepotong-sepotong dan dihentikan begitu
+ * melewati `maks` byte, juga tanpa Content-Length (chunked). null bila terlalu besar.
+ */
+async function bacaTerbatas(request: Request, maks: number): Promise<string | null> {
+  if (!request.body) return "";
+  const pembaca = request.body.getReader();
+  const potongan: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await pembaca.read().catch(() => ({ done: true, value: undefined }));
+    if (done || !value) break;
+    total += value.byteLength;
+    if (total > maks) {
+      await pembaca.cancel().catch(() => undefined);
+      return null;
+    }
+    potongan.push(value);
+  }
+  const gabung = new Uint8Array(total);
+  let posisi = 0;
+  for (const bagian of potongan) { gabung.set(bagian, posisi); posisi += bagian.byteLength; }
+  return new TextDecoder().decode(gabung);
+}
+
 export async function PATCH(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
   const panjang = Number(request.headers.get("content-length") ?? 0);
-  if (panjang > SPEAKERS_BODY_MAX) return apiError("VALIDATION_ERROR", 413);
-  const teks = await request.text().catch(() => "");
-  if (teks.length > SPEAKERS_BODY_MAX) return apiError("VALIDATION_ERROR", 413);
+  if (panjang > SPEAKERS_BODY_MAX) return apiError("PAYLOAD_TOO_LARGE", 413);
+  const teks = await bacaTerbatas(request, SPEAKERS_BODY_MAX);
+  if (teks === null) return apiError("PAYLOAD_TOO_LARGE", 413);
   let badan: unknown = null;
   try { badan = JSON.parse(teks); } catch { badan = null; }
   const parsed = speakersBodySchema.safeParse(badan);

@@ -211,7 +211,8 @@ export const speakerSchema = z.object({
   // http(s) atau jalur di situs ini. `javascript:` dan `data:` ditolak. http
   // tetap diterima: setiap simpan mengirim seluruh daftar, jadi satu foto lama
   // http tidak boleh membuat semua pembicara gagal disimpan.
-  photo_url: z.string().trim().max(600).regex(/^(https?:\/\/[^\s"'<>]+|\/(?!\/)[^\s"'<>]*)$/, "Photos must be an https:// address").nullable().optional(),
+  // Garis miring terbalik ditolak di mana pun: peramban membaca "/\host" sebagai "//host".
+  photo_url: z.string().trim().max(600).regex(/^(https?:\/\/[^\s"'<>\\]+|\/(?![/\\])[^\s"'<>\\]*)$/i, "Photos must be an http:// or https:// address, or a path on this site").nullable().optional(),
   featured: z.boolean().optional(),
   session_refs: z.array(z.object({
     id: z.number().int().positive(),
