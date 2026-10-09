@@ -16,7 +16,7 @@ import { Spinner } from "@/components/search-loading";
 import { eventApiPath } from "@/lib/event-url";
 import { easing, expressive } from "@/lib/m3/motion";
 import type { FormGathering } from "@/lib/gathering-formulir";
-import { KakiGathering } from "@/components/landing/modern/gathering-app";
+import { KakiGathering, LatarKv } from "@/components/landing/modern/gathering-app";
 import { SHELL } from "@/components/landing/modern/styles";
 
 /**
@@ -989,16 +989,15 @@ function BingkaiGathering({
         className="relative isolate -mt-[var(--nav-h)] overflow-hidden text-white"
         style={
           {
+            ...gathering.kv?.warnaHero,
             background:
+              gathering.kv?.latar ??
               "var(--latar-gathering, linear-gradient(160deg, color-mix(in srgb, var(--reg-brand) 62%, black) 0%, color-mix(in srgb, var(--reg-brand) 85%, black) 60%, var(--reg-brand) 100%))",
             "--m3-state-color": "#fff",
           } as CSSProperties
         }
       >
-        {modern.kv ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={modern.kv} alt="" className="absolute inset-0 -z-10 size-full object-cover" />
-        ) : null}
+        {gathering.kv ? <LatarKv src={gathering.kv.src} kuat={gathering.kv.kuat} bayang={gathering.kv.bayang.hero} utuhDiPonsel /> : null}
         <div className={`${SHELL} flex flex-col items-start gap-6 pb-12 pt-[calc(var(--nav-h)+40px)] lg:pb-[72px] lg:pt-[calc(var(--nav-h)+72px)]`}>
           {halamanUrl ? (
             <Link href={halamanUrl} className={`-mb-2 inline-flex min-h-12 items-center gap-2 text-[14px] font-semibold sm:hidden ${redup}`}>

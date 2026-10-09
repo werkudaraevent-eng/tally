@@ -11,7 +11,7 @@ import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "
 import { rapikanPersetujuan } from "@/lib/live/kolom-klien";
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
-import { resolveFormTheme } from "@/lib/registration-theme-css";
+import { kvGathering, resolveFormTheme } from "@/lib/registration-theme-css";
 import { landingTokens } from "@/lib/landing-tokens";
 import { linkOrigin } from "@/lib/domain-klien/asal";
 import { invitationSettings, undanganBelumAda } from "@/lib/undangan/data";
@@ -24,7 +24,8 @@ function tampilanFormulir(landing: EventLandingConfig | null) {
   return {
     v2,
     logo: v2 && Boolean(landing?.nav?.logo_url),
-    kv: v2 ? landing?.banner_url ?? null : null,
+    // Gathering: kepala formulir memakai KV hero (Event page > Hero > Background image), bukan banner_url.
+    kv: !v2 ? null : landing?.layout === "modern" && landing.gathering === true ? kvGathering(landing)?.src ?? null : landing?.banner_url ?? null,
     huruf: v2 ? LANDING_HEADING_FONTS[landingTokens(landing, landing?.layout === "forum" ? "forum" : "modern").headingFont].label : null,
     area_peserta: Boolean(landing?.member?.enabled),
   };
