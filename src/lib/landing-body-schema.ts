@@ -1,5 +1,8 @@
 import { z } from "zod";
+import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
 import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+
+const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
 
 // Skema isi CMS Halaman acara. Dipakai PATCH /api/admin/landing saat menyimpan
 // dan pratinjau langsung saat merender draf, supaya pratinjau menolak hal yang
@@ -245,6 +248,10 @@ export const landingBodySchema = z.object({
     about_cards: z.array(z.object({
       title: z.string().trim().max(LANDING_ABOUT_CARDS.title),
       body: z.string().trim().max(LANDING_ABOUT_CARDS.body),
+      icon: z.string().regex(LANDING_CARD_ICON_POLA).optional(),
+      tone: z.enum(LANDING_CARD_TONES).optional(),
+      // Hanya https (QA #115 L1): gambar dari unggahan CMS selalu https.
+      icon_url: z.string().trim().max(600).regex(/^https:\/\/[^\s"'<>]+$/, "Icon images must be an https:// address").nullable().optional(),
     })).max(LANDING_ABOUT_CARDS.max).optional(),
     program_heading: z.string().trim().max(120).optional(),
     program_intro: z.string().trim().max(400).optional(),
@@ -253,6 +260,7 @@ export const landingBodySchema = z.object({
     agenda_note: z.string().trim().max(140).optional(),
     ...JUDUL_BAGIAN,
     eyebrow_shown: z.object({ about: z.boolean(), agenda: z.boolean(), speakers: z.boolean(), venue: z.boolean(), faq: z.boolean() }).partial().optional(),
+    section_tone: z.object({ about: NADA_BAGIAN, agenda: NADA_BAGIAN, speakers: NADA_BAGIAN, venue: NADA_BAGIAN, faq: NADA_BAGIAN }).partial().optional(),
     footer_note: z.string().trim().max(180).optional(),
     cta_heading: z.string().trim().max(120).optional(),
     cta_note: z.string().trim().max(300).optional(),
@@ -263,10 +271,13 @@ export const landingBodySchema = z.object({
         id: z.union([
           z.enum(["about", "highlights", "agenda", "speakers", "venue", "faq", "sponsors", "contact"]),
           blockId,
+          // Tempat Portal peserta (gaya gathering), lihat susunanDenganPortal.
+          z.literal("portal"),
         ]),
         enabled: z.boolean(),
       }))
-      .max(10 + MAX_BLOCKS),
+      .max(11 + MAX_BLOCKS)
+      .refine((daftar) => daftar.filter((section) => section.id === "portal").length <= 1, "Portal peserta appears more than once."),
     blocks: z.array(blockSchema).max(MAX_BLOCKS).optional(),
     en_enabled: z.boolean().optional(),
     invite_only: z.boolean().optional(),

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { landingFontStyle, landingFontUrls, landingLayout, landingTokens } from "./landing-tokens.ts";
 import { readFileSync, existsSync } from "node:fs";
-import { LANDING_BODY_FONTS, LANDING_HEADING_FONTS } from "./domain.ts";
+import { LANDING_BODY_FONTS, LANDING_HEADING_FONTS, susunanDenganPortal } from "./domain.ts";
 import type { EventLandingConfig } from "./domain.ts";
 import type { LandingTokens } from "./landing-tokens.ts";
 import { LANDING_THEME_PRESETS, gayaPreset, isiGathering, isiGatheringMengubah, presetCocok, presetDiubah, terapkanPreset } from "./landing-theme-presets.ts";
@@ -167,7 +167,7 @@ for (const key of LANDING_BODY_FONTS) {
   assert.equal(kosong.eyebrow_shown?.about, true);
   assert.equal(kosong.sections?.find((s) => s.id === "venue")?.enabled, false);
   assert.equal(kosong.sections?.find((s) => s.id === "about")?.enabled, true);
-  assert.deepEqual(isiGatheringMengubah(kosong), { tentang: false, lokasi: false });
+  assert.deepEqual(isiGatheringMengubah(kosong), { tentang: false, lokasi: false, portal: false });
   // Kartu tanpa judul tetapi bertulisan adalah isi admin (L1).
   const tanpaJudul = isiGathering({ about_cards: [{ title: "", body: "isi tanpa judul" }], about_heading: "Milik admin", eyebrow_shown: { about: false } }, bawaan);
   assert.deepEqual(tanpaJudul.about_cards, [{ title: "", body: "isi tanpa judul" }]);
@@ -176,5 +176,34 @@ for (const key of LANDING_BODY_FONTS) {
   assert.equal(tanpaJudul.eyebrow_shown?.about, false);
   // Terjemahan admin tetap.
   assert.equal(isiGathering({ en: { about_heading: "Mine" } }, bawaan).en?.about_heading, "Mine");
+}
+// Portal peserta di susunan (CMS: bisa digeser).
+{
+  const ids = (daftar: { id: string }[] | undefined) => (daftar ?? []).map((s) => s.id).join(",");
+  const susunan = [{ id: "about", enabled: true }, { id: "agenda", enabled: true }, { id: "faq", enabled: true }] as const;
+  // Tanpa entri tersimpan: di ujung, setelah bagian yang dilengkapi normalisasi.
+  assert.ok(ids(susunanDenganPortal([...susunan])).endsWith(",portal"));
+  // Entri tersimpan menempel pada bagian sebelumnya, juga bila normalisasi menambah bagian.
+  const tersimpan = [{ id: "about", enabled: true }, { id: "portal", enabled: true }, { id: "faq", enabled: true }] as const;
+  const hasil = ids(susunanDenganPortal([...tersimpan]));
+  assert.ok(hasil.indexOf("about,portal") === 0, hasil);
+  assert.equal(hasil.split(",").filter((id) => id === "portal").length, 1);
+  // Bagian sebelumnya hilang: menempel pada yang lebih atas lagi, atau di awal.
+  assert.equal(ids(susunanDenganPortal([{ id: "portal", enabled: true }, { id: "about", enabled: true }])).split(",")[0], "portal");
+  const bawaan = { id: { heading: "J", cards: [] }, en: { heading: "H", cards: [] } };
+  // Reset/Apply: portal yang belum pernah digeser masuk tepat sebelum FAQ.
+  const reset = ids(isiGathering({ sections: [...susunan] }, bawaan).sections);
+  assert.ok(reset.includes("portal,faq"), reset);
+  // Editor menulis portal di ujung: tetap dianggap belum digeser (QA #114 M1).
+  const ujung = ids(isiGathering({ sections: susunanDenganPortal([...susunan]) }, bawaan).sections);
+  assert.ok(ujung.includes("portal,faq"), ujung);
+  // FAQ tersembunyi: portal tetap di ujung (QA #114 L4).
+  const faqMati = ids(isiGathering({ sections: [{ id: "about", enabled: true }, { id: "faq", enabled: false }, { id: "agenda", enabled: true }] }, bawaan).sections);
+  assert.ok(faqMati.endsWith(",portal"), faqMati);
+  assert.equal(isiGatheringMengubah({ sections: [...susunan] }).portal, true);
+  assert.equal(isiGatheringMengubah({ sections: [...tersimpan] }).portal, false);
+  // Tempat pilihan admin dibiarkan.
+  const pilihan = ids(isiGathering({ sections: [...tersimpan] }, bawaan).sections);
+  assert.ok(pilihan.startsWith("about,portal"), pilihan);
 }
 console.log("landing-tokens.check.ts OK");

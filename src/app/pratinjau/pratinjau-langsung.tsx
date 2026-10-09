@@ -43,7 +43,11 @@ export function PratinjauLangsung({ slug, halaman, children }: { slug: string; h
         if (nomor !== urutan) return;
         if (hasil?.ok) {
           setIsi(hasil.isi);
-          window.requestAnimationFrame(() => pilih.segarkan());
+          window.requestAnimationFrame(() => {
+            pilih.segarkan();
+            // Bilah pratinjau di CMS menyebut kotak bertitik hanya bila ada.
+            lapor({ jenis: "tally-pratinjau-kosong", ada: document.querySelector("[data-kotak-kosong]") !== null });
+          });
         }
         const pesan = !hasil ? "Pratinjau gagal dimuat. Coba lagi." : hasil.ok ? hasil.peringatan : hasil.pesan;
         lapor({ jenis: "tally-pratinjau-hasil", ok: Boolean(hasil?.ok), pesan });
@@ -71,6 +75,14 @@ export function PratinjauLangsung({ slug, halaman, children }: { slug: string; h
       const href = tautan.getAttribute("href") ?? "";
       if (href.startsWith("#")) return;
       event.preventDefault();
+      // Kotak bertitik (KotakKosong): halaman admin tempat mengisi bagian itu.
+      // CMS yang membukanya di tab baru: jendela yang dibuka dari iframe ini
+      // ikut terkurung sandbox-nya.
+      if (tautan.hasAttribute("data-pratinjau-admin")) {
+        event.stopPropagation();
+        lapor({ jenis: "tally-pratinjau-admin", href });
+        return;
+      }
       const tujuan = tautan.getAttribute("data-halaman");
       if (tujuan) lapor({ jenis: "tally-pratinjau-halaman", halaman: tujuan, jangkar: href.split("#")[1] ?? null });
     }

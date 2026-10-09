@@ -46,7 +46,7 @@ export function HariGathering({
             <li
               // Indeks, bukan judul: dua bagian rundown boleh berjudul sama.
               key={index}
-              className="flex flex-col rounded-[20px] border border-[color-mix(in_srgb,var(--reg-on-surface)_10%,transparent)] bg-white p-6 sm:p-7"
+              className="flex flex-col rounded-[20px] border border-[color-mix(in_srgb,var(--reg-on-surface)_10%,transparent)] bg-white p-6 text-[var(--reg-on-surface)] sm:p-7 [--reg-on-surface:var(--terang-on-surface,#181d27)] [--reg-on-surface-variant:var(--terang-on-surface-variant,#5F6B7F)] [--alis:var(--terang-alis)] [--primer-teks:var(--terang-primer-teks)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <span aria-hidden className={`${HEAD} text-[44px] font-extrabold leading-none tabular-nums tracking-[-0.02em] ${WARNA_NOMOR[index % WARNA_NOMOR.length]}`}>

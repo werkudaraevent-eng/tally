@@ -1,7 +1,10 @@
 import type { CSSProperties, ReactNode } from "react";
 import { pecahJudul } from "@/lib/landing-tagline";
 import Link from "next/link";
-import { Bed, Bus, Heart, Lightning, MapPin, Megaphone, Ticket, Users } from "@phosphor-icons/react/dist/ssr";
+import { Bed, Bus, Megaphone, Ticket } from "@phosphor-icons/react/dist/ssr";
+import type { Icon } from "@phosphor-icons/react";
+import type { LandingCardTone } from "@/lib/landing-card-icons";
+import { GambarIkonKartu } from "./gambar-ikon-kartu";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import type { KvGathering } from "@/lib/registration-theme-css";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
@@ -27,7 +30,7 @@ const TOMBOL_GARIS =
  * Latar hero dan pita penutup: `--latar-gathering` dari latarGathering()
  * (gradasi rancangan untuk merek gelap). Cadangannya gradasi lama.
  */
-const LATAR_HERO =
+export const LATAR_HERO =
   "var(--latar-gathering, linear-gradient(160deg, color-mix(in srgb, var(--reg-brand) 62%, black) 0%, color-mix(in srgb, var(--reg-brand) 85%, black) 60%, var(--reg-brand) 100%))";
 /** Teks redup di atas navy (#C6D2E8 di rancangan). */
 const REDUP = "text-[var(--hero-redup,color-mix(in_srgb,var(--ink)_80%,transparent))]";
@@ -253,7 +256,10 @@ export function agendaSelanjutnya(
 /**
  * Bagian Tentang acara gaya gathering (rancangan pen.dev): label, judul besar,
  * deskripsi bila diisi, lalu kartu berikon (Halaman acara > Tentang acara >
- * Cards). Ikon dan warnanya mengikuti urutan kartu: hijau, navy, emas.
+ * Cards). Ikon dan warna ubinnya dipilih admin per kartu; tanpa pilihan,
+ * mengikuti urutan kartu (hijau, navy, emas). Komponen ikonnya disiapkan
+ * pemanggil di server (ikon-kartu.tsx), karena berkas ini juga dipakai
+ * komponen klien dan tidak boleh membawa seluruh pustaka ikon.
  */
 export function TentangGathering({
   alis,
@@ -265,16 +271,16 @@ export function TentangGathering({
   alis: string | null;
   judul: string;
   deskripsi: string | null;
-  kartu: { title: string; body: string }[];
+  /** Hanya kartu berjudul, sudah urut. `posisi` = urutan di CMS (untuk klik pratinjau). */
+  kartu: { title: string; body: string; Ikon: Icon; nada: LandingCardTone; posisi: number; gambar: string | null }[];
   gambar: ReactNode;
 }) {
-  const IKON = [Users, MapPin, Lightning, Heart] as const;
-  const NADA = [
-    { latar: "var(--chip-aksi)", teks: "var(--on-chip-aksi)" },
-    { latar: "var(--chip-merek)", teks: "var(--on-chip-merek)" },
-    { latar: "var(--chip-aksen)", teks: "var(--on-chip-aksen)" },
-  ];
-  const isi = kartu.filter((item) => item.title?.trim());
+  const NADA: Record<LandingCardTone, { latar: string; teks: string }> = {
+    button: { latar: "var(--chip-aksi)", teks: "var(--on-chip-aksi)" },
+    brand: { latar: "var(--chip-merek)", teks: "var(--on-chip-merek)" },
+    accent: { latar: "var(--chip-aksen)", teks: "var(--on-chip-aksen)" },
+  };
+  const isi = kartu;
   return (
     <section id="about" className="scroll-mt-[var(--nav-h)] py-14 lg:py-[90px]">
       <div className={`grid items-center gap-10 ${gambar ? "lg:grid-cols-2 lg:gap-20" : ""}`}>
@@ -287,14 +293,18 @@ export function TentangGathering({
       </div>
       {isi.length > 0 ? (
         <ul className={`mt-11 grid gap-5 ${isi.length === 4 ? "sm:grid-cols-2 lg:grid-cols-4" : isi.length === 3 ? "md:grid-cols-3" : isi.length === 2 ? "sm:grid-cols-2" : ""}`}>
-          {isi.map((item, index) => {
-            const Ikon = IKON[index % IKON.length];
-            const nada = NADA[index % NADA.length];
+          {isi.map((item) => {
+            const { Ikon } = item;
+            const nada = NADA[item.nada];
             return (
-              <li key={index} className="flex flex-col gap-4 rounded-[20px] bg-[var(--reg-panel)] p-[30px]">
-                <span aria-hidden className="inline-flex size-[52px] items-center justify-center rounded-[14px]" style={{ background: nada.latar, color: nada.teks }}>
-                  <Ikon size={26} />
-                </span>
+              <li key={item.posisi} data-sunting={`about:kartu-${item.posisi}`} className="flex flex-col gap-4 rounded-[20px] bg-[var(--reg-panel)] p-[30px] [box-shadow:inset_0_0_0_1px_var(--garis-kartu,transparent)]">
+                {/* Ubin ikon; gambar ikon sendiri (mis. 3D dari Envato) menggantikannya
+                    tanpa ubin, dan ubin kembali bila gambarnya gagal dimuat. */}
+                <GambarIkonKartu src={item.gambar}>
+                  <span aria-hidden className="inline-flex size-[52px] items-center justify-center rounded-[14px]" style={{ background: nada.latar, color: nada.teks }}>
+                    <Ikon size={26} />
+                  </span>
+                </GambarIkonKartu>
                 <h3 className="text-[20px] font-extrabold leading-[1.2]">{item.title.trim()}</h3>
                 {item.body?.trim() ? <p className="text-[14px] leading-[1.6] text-[var(--reg-on-surface-variant)]">{item.body.trim()}</p> : null}
               </li>
