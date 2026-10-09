@@ -228,6 +228,10 @@ export async function DashboardGathering({
     "--tanda-teks": warna.tanda.teks,
     "--pinggir-lg": "56px",
     "--pinggir-xl": "56px",
+    // Sama dengan halaman acara: Inter polos, tanpa varian global (cv01/ss03)
+    // dan angka tabel, supaya bilah atas sama persis.
+    fontFeatureSettings: "normal",
+    fontVariantNumeric: "normal",
     backgroundColor: PANEL,
   } as CSSProperties;
 
@@ -638,6 +642,11 @@ export async function DashboardGathering({
     <main className="min-h-dvh pb-[calc(88px+env(safe-area-inset-bottom))] text-[#1A2333] lg:pb-16" style={gaya}>
       <FokusPemicuQr />
       {/* ---- Bilah atas: sama dengan halaman acara ------------------------- */}
+      {/* `data-halaman-publik` memberi jarak huruf halaman acara pada bilah saja;
+          `contents` agar bilah tetap lengket terhadap <main>. Tidak dipasang di
+          <main> karena bilah memakai `main[data-halaman-publik] section[id]`
+          untuk penanda bagian aktif halaman acara. */}
+      <div data-halaman-publik className="contents">
       <LandingNavModern
         eventName={nama}
         daftarUrl={`${halamanAcara}/daftar`}
@@ -654,11 +663,15 @@ export async function DashboardGathering({
         dashboardAktif
         gathering={{ tanda: inisialAcara(nama), sub: subNama }}
       />
+      </div>
 
-      {/* ---- Kepala: gradasi dan KV yang sama dengan hero halaman acara ------ */}
-      <div className="relative isolate overflow-hidden text-white" style={{ ...latarKv?.warnaHero, ...latarKv?.warnaPortal, background: latarKv?.latar ?? LATAR_HERO }}>
+      {/* ---- Kepala: gradasi dan KV yang sama dengan hero halaman acara ------
+          Ditarik ke bawah bilah (margin negatif setinggi `--nav-h`) seperti
+          hero halaman acara, supaya bilah bening berdiri di atas hero, bukan
+          di atas latar abu-abu muda halaman. */}
+      <div data-landing-hero className="relative isolate -mt-[var(--nav-h)] overflow-hidden text-white" style={{ ...latarKv?.warnaHero, ...latarKv?.warnaPortal, background: latarKv?.latar ?? LATAR_HERO }}>
         {latarKv ? <LatarKv src={latarKv.src} kuat={latarKv.kuat} bayang={Math.max(latarKv.bayang.hero, latarKv.bayang.portal)} utuhDiPonsel /> : null}
-        <div className={`${SHELL} pb-12 pt-6 lg:pb-[72px] lg:pt-10`}>
+        <div className={`${SHELL} pb-12 pt-[calc(var(--nav-h)+24px)] lg:pb-[72px] lg:pt-[calc(var(--nav-h)+40px)]`}>
           {/* Tab portal layar lebar; ponsel memakai bilah tab bawah. */}
           <nav aria-label={t.tabsAria} className="mb-8 hidden lg:mb-12 lg:block">
             <ul className="flex flex-wrap gap-2">
