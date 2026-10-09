@@ -51,14 +51,14 @@ assert.deepEqual(sisaKeterangan("Pembicara\nLuis Trevino - AFI\nModerator\nAndin
 // menyatu dengan label bawaan, "Speaker" dan "Speakers" satu kelompok.
 const grup = kelompokPeran([andini, luis, tanpaPeran, nancy], "Speakers");
 assert.deepEqual(grup.map((g) => [g.label, g.orang.map((o) => o.name)]), [
-  ["Speaker", ["Luis Treviño", "Simrin C. Singh", "Nancy Wisjaja"]],
+  ["Speakers", ["Luis Treviño", "Simrin C. Singh", "Nancy Wisjaja"]],
   ["Moderator", ["Andini Effendi"]],
 ]);
 assert.deepEqual(kelompokPeran([tanpaPeran, { name: "B", role: "Pembicara" }], "Pembicara").map((g) => g.orang.length), [2]);
 // Moderator di /en dikenali dari peran Indonesia; Co-moderator juga moderator.
 const host: LandingSpeaker = { name: "H", role: "Host", role_id: "Moderator" };
 const co: LandingSpeaker = { name: "C", role: "Co-moderator" };
-assert.deepEqual(kelompokPeran([host, co, luis], "Speakers").map((g) => g.label), ["Speaker", "Host", "Co-moderator"]);
+assert.deepEqual(kelompokPeran([host, co, luis], "Speakers").map((g) => g.label), ["Speakers", "Host", "Co-moderator"]);
 
 // Baris kedua satu keterangan: instansi, atau jabatan bila tanpa instansi.
 assert.equal(keteranganPembicara(tanpaPeran), "ILO");

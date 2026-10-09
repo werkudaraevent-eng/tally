@@ -102,4 +102,9 @@ const sebagian = aturUrutanSesi([u4, ...diatur], 3, [diatur[0]!]);
 assert.deepEqual(pembicaraDiSesi(sebagian, 3).map((s) => s.name), ["U1", "U3", "U2", "U4"]);
 assert.deepEqual(sebagian.map((s) => s.session_refs!.find((ref) => ref.id === 3)!.pos), [3, 0, 2, 1]);
 
+// Salinan berperan sesi membawa peran Indonesia sesi itu, bukan peran utama.
+const enMod: LandingSpeaker = { name: "M", role: "Speaker", role_id: "Pembicara", session_refs: [{ id: 8, label: "P", role: "Host", role_id: "Moderator" }] };
+assert.equal(pembicaraDiSesi([enMod], 8)[0]!.role_id, "Moderator");
+assert.equal(pembicaraDiSesi([{ name: "N", session_refs: [{ id: 8, label: "P", role: "Moderator" }] }], 8)[0]!.role_id, "Moderator");
+
 console.log("landing-peran-sesi: ok");

@@ -149,6 +149,9 @@ export function kelompokPeran(orang: LandingSpeaker[], labelBawaan: string): Kel
       ada.moderator ||= moderator(speaker);
     } else peta.set(kunci, { kunci, label: peran, orang: [speaker], moderator: moderator(speaker) });
   }
+  // Kelompok "Speakers" memakai label bawaan yang jamak bila sama kuncinya.
+  const bawaan = peta.get(kunciKelompok(labelBawaan));
+  if (bawaan) bawaan.label = labelBawaan;
   const semua = [...peta.values()];
   return [...semua.filter((grup) => !grup.moderator), ...semua.filter((grup) => grup.moderator)].map(({ kunci, label, orang }) => ({ kunci, label, orang }));
 }

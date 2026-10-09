@@ -53,7 +53,8 @@ export function pembicaraSesiLama(orang: LandingSpeaker[]): LandingSpeaker[] {
 export function pembicaraDiSesi(orang: LandingSpeaker[], id: number): LandingSpeaker[] {
   const susun = orang.map((speaker) => {
     const entri = entriBerperan(speaker, id);
-    return { tampil: entri ? { ...speaker, role: entri.role!.trim() } : speaker, peran: peranId(speaker, entri), pos: posisiDiSesi(speaker, id) };
+    // role_id ikut peran sesi: di /en kelompok moderator dikenali dari peran Indonesia sesi ini.
+    return { tampil: entri ? { ...speaker, role: entri.role!.trim(), role_id: (entri.role_id ?? entri.role)!.trim() } : speaker, peran: peranId(speaker, entri), pos: posisiDiSesi(speaker, id) };
   });
   // Urutan yang diatur admin menang; yang belum punya posisi menyusul, urut editor.
   if (susun.some((item) => item.pos !== undefined)) {

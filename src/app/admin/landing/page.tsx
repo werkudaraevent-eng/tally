@@ -1829,7 +1829,7 @@ export default function LandingCmsPage() {
         <p className="text-body-small text-on-surface-variant">
           {(landing.agenda_speakers ?? "text") === "text"
             ? "Details shows as typed. Speaker photos sit to the right of each session while the Speakers section is on."
-            : "Each linked speaker gets a line under the session title, grouped by their role in that session."}
+            : "Each linked speaker gets a line under the session title, grouped by their role in that session. Link speakers to sessions on the Speakers page."}
         </p>
       </Kelompok>
       {gathering ? (
