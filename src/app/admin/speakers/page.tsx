@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowSquareOut, MagnifyingGlass, Plus, Trash, Warning } from "@phosphor-icons/react";
+import { ArrowSquareOut, LinkSimple, MagnifyingGlass, Plus, Trash, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useToast } from "@/components/toast";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
@@ -8,13 +8,13 @@ import {
   Banner, Button, ButtonLink, Dialog, EmptyState, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
   SegmentedButton, SupportingPane, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
-import type { LandingSpeaker, LandingSpeakerFrame } from "@/lib/domain";
+import type { EventLandingConfig, LandingSpeaker, LandingSpeakerFrame } from "@/lib/domain";
 import { eventApiPath } from "@/lib/event-url";
 import { SOROTAN_MAKS, sesiDariRundown, speakerTabs } from "@/lib/landing-speaker-tabs";
 import { samaJson } from "@/lib/landing-speakers-sama";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
-import { barisSesiDariAdmin, KolomPeran, PilihSesi, type BarisSesi } from "../landing/pilih-sesi";
+import { barisSesiDariAdmin, KolomPeran, petakanSesiLama, PilihSesi, type BarisSesi } from "../landing/pilih-sesi";
 import { agendaDariBaris, BINGKAI_KECIL, inisial, UrutanPembicara } from "../landing/urutan-pembicara";
 
 // Halaman Speakers: daftar pembicara satu acara, dipindah dari panel sempit
@@ -56,6 +56,54 @@ function labelSesiPembicara(speaker: LandingSpeaker): string {
   return speaker.session?.trim() ?? "";
 }
 
+const NAMA_KOLOM: Record<string, string> = {
+  name: "name",
+  title: "job title",
+  company: "organisation",
+  role: "main role",
+  photo_url: "photo",
+  featured: "Highlights",
+  session_refs: "sessions",
+  session: "old session",
+  "en.title": "English job title",
+  "en.company": "English organisation",
+  "en.role": "English main role",
+  "en.session": "English session",
+};
+
+/**
+ * Suntingan yang ditolak 409 dipasang ulang di atas versi terbaru orang itu:
+ * hanya kolom yang diubah di layar ini (draf vs versi yang dibuka) yang
+ * ditimpa, kolom lain ikut versi terbaru. `bentrok`: kolom yang juga diubah
+ * orang lain, dengan nilai yang berbeda.
+ */
+function pasangUlang(draf: LandingSpeaker, asli: LandingSpeaker, terbaru: LandingSpeaker): { hasil: LandingSpeaker; bentrok: string[] } {
+  const bentrok: string[] = [];
+  const gabung = (d: Record<string, unknown>, a: Record<string, unknown>, t: Record<string, unknown>, awalan: string) => {
+    const hasil: Record<string, unknown> = { ...t };
+    for (const kunci of new Set([...Object.keys(d), ...Object.keys(a)])) {
+      if (!awalan && kunci === "en") continue;
+      if (samaJson(d[kunci], a[kunci])) continue;
+      if (!samaJson(t[kunci], a[kunci]) && !samaJson(t[kunci], d[kunci])) bentrok.push(`${awalan}${kunci}`);
+      if (d[kunci] === undefined) delete hasil[kunci];
+      else hasil[kunci] = d[kunci];
+    }
+    return hasil;
+  };
+  const hasil = gabung(draf, asli, terbaru, "") as LandingSpeaker;
+  const en = gabung(draf.en ?? {}, asli.en ?? {}, terbaru.en ?? {}, "en.");
+  if (Object.keys(en).length) hasil.en = en as LandingSpeaker["en"];
+  else delete hasil.en;
+  return { hasil, bentrok };
+}
+
+/** Posisi orang yang sama di daftar terbaru: indeks yang sama bila namanya masih sama, atau satu-satunya orang bernama itu. */
+function cariLagi(daftar: LandingSpeaker[], indeks: number, nama: string): number {
+  if (daftar[indeks]?.name === nama) return indeks;
+  const sama = daftar.flatMap((speaker, i) => (speaker.name === nama ? [i] : []));
+  return sama.length === 1 ? sama[0]! : -1;
+}
+
 export default function SpeakersAdminPage() {
   const [tersimpan, setTersimpan] = useState<LandingSpeaker[] | null>(null);
   const [bingkai, setBingkai] = useState<LandingSpeakerFrame>("portrait");
@@ -74,6 +122,8 @@ export default function SpeakersAdminPage() {
   const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
   const [tertunda, setTertunda] = useState<(() => void) | null>(null);
   const [error, setError] = useState("");
+  // Pesan 409 di panel sunting (bukan toast: toast menutupi Save dan Delete).
+  const [konflik, setKonflik] = useState("");
   const [halamanAcara, setHalamanAcara] = useState<string | null>(null);
   const toast = useToast();
   const idPeran = useId();
@@ -158,6 +208,7 @@ export default function SpeakersAdminPage() {
   function buka(indeks: number) {
     if (pilihan === indeks) return;
     lindungi(() => {
+      setKonflik("");
       setPilihan(indeks);
       setDraf(tersimpan?.[indeks] ?? null);
       // Di layar sempit panel sunting ada di bawah daftar: dibawa ke layar.
@@ -169,6 +220,7 @@ export default function SpeakersAdminPage() {
 
   function mulaiBaru() {
     lindungi(() => {
+      setKonflik("");
       setPilihan("baru");
       setDraf({ name: "" });
       setBahasa("id");
@@ -177,7 +229,7 @@ export default function SpeakersAdminPage() {
   }
 
   function tutup() {
-    lindungi(() => { setPilihan(null); setDraf(null); });
+    lindungi(() => { setPilihan(null); setDraf(null); setKonflik(""); });
   }
 
   function ubah(patch: Partial<LandingSpeaker>) {
@@ -210,16 +262,33 @@ export default function SpeakersAdminPage() {
       }
       if (isi?.error?.code === "SPEAKERS_CHANGED" && Array.isArray(isi.error.details?.speakers)) {
         const terbaru = isi.error.details.speakers as LandingSpeaker[];
-        // Suntingan yang terbuka tetap di layar, menempel ke orang yang sama
-        // (dicari dari namanya) di daftar terbaru, supaya bisa disimpan lagi.
-        const nama = asli?.name;
         setTersimpan(terbaru);
-        if (typeof pilihan === "number") {
-          const posisi = nama ? terbaru.findIndex((speaker) => speaker.name === nama) : -1;
-          if (posisi >= 0) setPilihan(posisi);
-          else { setPilihan(null); setDraf(null); }
+        let pesan = "Not saved. Someone else changed the speaker list. The latest list is shown now.";
+        let panelTerbuka = draf !== null;
+        if (typeof pilihan === "number" && asli && draf) {
+          // Orang yang sama di daftar terbaru. Suntingannya dipasang ulang di
+          // atas versi terbaru, bukan disimpan utuh: perubahan orang lain pada
+          // kolom yang tidak disentuh di sini tetap ada.
+          const posisi = cariLagi(terbaru, pilihan, asli.name);
+          if (posisi < 0) {
+            setPilihan(null);
+            setDraf(null);
+            panelTerbuka = false;
+            pesan = `Not saved. ${asli.name} was renamed or removed by someone else. Open them again from the list.`;
+          } else if (berubah) {
+            const { hasil, bentrok } = pasangUlang(draf, asli, terbaru[posisi]!);
+            setPilihan(posisi);
+            setDraf(hasil);
+            pesan = bentrok.length
+              ? `Not saved. Someone else also changed ${bentrok.map((kunci) => NAMA_KOLOM[kunci] ?? kunci).join(", ")}. Your version is shown; check it, then save again.`
+              : "Not saved. Someone else changed this speaker list. Your changes are kept on top of the latest version; check them, then save again.";
+          } else {
+            setPilihan(posisi);
+            setDraf(terbaru[posisi]!);
+          }
         }
-        toast.error("Not saved", isi.error.message);
+        if (panelTerbuka) setKonflik(pesan);
+        else toast.error("Not saved", pesan.replace(/^Not saved\. /, ""));
         return null;
       }
       const rincian = isi?.error?.details?.fieldErrors ? " Check the fields and try again." : "";
@@ -242,6 +311,7 @@ export default function SpeakersAdminPage() {
     const next = baru ? [...tersimpan, draf] : tersimpan.map((speaker, i) => (i === indeks ? draf : speaker));
     const hasil = await kirim(next);
     if (!hasil) return;
+    setKonflik("");
     setPilihan(indeks);
     setDraf(hasil[indeks] ?? null);
     toast.success(baru ? "Speaker added" : "Speaker saved");
@@ -253,6 +323,7 @@ export default function SpeakersAdminPage() {
     const hasil = await kirim(tersimpan.filter((_, i) => i !== pilihan));
     setKonfirmasiHapus(false);
     if (!hasil) return;
+    setKonflik("");
     setPilihan(null);
     setDraf(null);
     toast.success("Speaker deleted", nama ? `${nama} is no longer on the event page.` : undefined);
@@ -270,6 +341,22 @@ export default function SpeakersAdminPage() {
       setPilihan(posisi >= 0 ? posisi : null);
       setDraf(posisi >= 0 ? hasil[posisi]! : null);
     }
+  }
+
+  // Sesi teks lama yang cocok dengan tepat satu baris Agenda: dihubungkan dengan
+  // satu klik, tidak otomatis saat halaman dibuka (membuka halaman tidak menulis).
+  const petakan = useMemo(
+    () => (tersimpan && baris ? petakanSesiLama({ speakers: tersimpan } as EventLandingConfig, baris) : null),
+    [tersimpan, baris],
+  );
+  const bisaDihubungkan = petakan?.hasil.terhubung ?? 0;
+
+  async function hubungkanSesiLama() {
+    if (!petakan?.landing.speakers || menyimpan || berubah) return;
+    const hasil = await kirim(petakan.landing.speakers);
+    if (!hasil) return;
+    if (typeof pilihan === "number") setDraf(hasil[pilihan] ?? null);
+    toast.success(`${plural(bisaDihubungkan, "speaker")} linked to the agenda`, "Their tabs can now be reordered here.");
   }
 
   const terisi = daftar.filter((speaker) => speaker.name?.trim());
@@ -303,7 +390,7 @@ export default function SpeakersAdminPage() {
             />
           </label>
         ) : null}
-        {tombolTambah}
+        {daftar.length > 0 ? tombolTambah : null}
       </PaneHeader>
       <PaneBody>
         {daftar.length === 0 ? (
@@ -327,7 +414,8 @@ export default function SpeakersAdminPage() {
                     onClick={() => buka(i)}
                     aria-current={pilihan === i ? "true" : undefined}
                     className={cx(
-                      "flex min-h-13 w-full items-center gap-3 border-b border-outline-variant px-4 py-2 text-left text-body-medium",
+                      // Cincin fokus ke dalam: di tepi panel cincin luar terpotong.
+                      "flex min-h-13 w-full items-center gap-3 border-b border-outline-variant px-4 py-2 text-left text-body-medium focus-visible:shadow-none! focus-visible:-outline-offset-2!",
                       pilihan === i ? "bg-secondary-container" : "hover:bg-primary-soft",
                     )}
                   >
@@ -499,6 +587,12 @@ export default function SpeakersAdminPage() {
           />
         </div>
       ) : null}
+      {draf && konflik ? (
+        <p role="alert" className="flex shrink-0 items-start gap-2 border-b border-outline-variant bg-error-soft/40 px-4 py-2.5 text-body-small font-medium text-error">
+          <Warning size={16} weight="fill" className="mt-px shrink-0" aria-hidden />
+          {konflik}
+        </p>
+      ) : null}
       <PaneBody className="px-4 py-4">{isiSamping}</PaneBody>
       {draf ? (
         <PaneFooter note={berubah ? "Unsaved changes" : null}>
@@ -531,6 +625,21 @@ export default function SpeakersAdminPage() {
         />
 
         {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
+        {bisaDihubungkan > 0 ? (
+          <Banner
+            tone="info"
+            icon={<LinkSimple size={18} />}
+            className="shrink-0 !py-2"
+            actions={
+              <Button size="sm" variant="outlined" loading={menyimpan} disabled={berubah} onClick={() => void hubungkanSesiLama()}>
+                Link {plural(bisaDihubungkan, "speaker")}
+              </Button>
+            }
+          >
+            {bisaDihubungkan === 1 ? "1 speaker has" : `${bisaDihubungkan} speakers have`} an old session name that matches one agenda item.
+            Link them so the session order and session roles can be edited here.{berubah ? " Save or discard the open speaker first." : ""}
+          </Banner>
+        ) : null}
 
         {!tersimpan ? (error ? null : <PageLoading />) : (
           <>

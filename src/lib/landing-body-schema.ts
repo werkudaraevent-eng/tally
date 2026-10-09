@@ -208,7 +208,10 @@ export const speakerSchema = z.object({
   title: z.string().trim().max(200).optional(),
   company: z.string().trim().max(120).optional(),
   role: z.string().trim().max(60).optional(),
-  photo_url: z.string().url().max(600).nullable().optional(),
+  // http(s) atau jalur di situs ini. `javascript:` dan `data:` ditolak. http
+  // tetap diterima: setiap simpan mengirim seluruh daftar, jadi satu foto lama
+  // http tidak boleh membuat semua pembicara gagal disimpan.
+  photo_url: z.string().trim().max(600).regex(/^(https?:\/\/[^\s"'<>]+|\/(?!\/)[^\s"'<>]*)$/, "Photos must be an https:// address").nullable().optional(),
   featured: z.boolean().optional(),
   session_refs: z.array(z.object({
     id: z.number().int().positive(),
@@ -224,6 +227,14 @@ export const speakerSchema = z.object({
 
 /** Batas jumlah pembicara per acara. */
 export const SPEAKERS_MAX = 60;
+
+/**
+ * Batas badan PATCH /api/admin/speakers dalam byte. Satu pembicara dengan
+ * semua kolom penuh dan 40 sesi sekitar 12 KB; `base` dan `speakers` masing-
+ * masing paling banyak 60 orang. Isi `base` tidak divalidasi per kolom (itu
+ * salinan data tersimpan, apa adanya), jadi ukurannya dibatasi di sini.
+ */
+export const SPEAKERS_BODY_MAX = 1_500_000;
 
 /**
  * Badan PATCH /api/admin/speakers. `base`: daftar pembicara seperti yang
@@ -360,10 +371,10 @@ export const landingBodySchema = z.object({
       value: z.string().trim().min(1).max(30),
       en: z.object({ label: teks(60), value: teks(30) }).optional(),
     })).max(8).optional(),
-    // Tidak divalidasi dan diabaikan server: pembicara disimpan lewat
-    // /api/admin/speakers (halaman Speakers). Salinan dari tab Halaman acara
-    // yang terbuka sejak sebelum halaman itu ada tidak boleh menimpanya.
-    speakers: z.unknown().optional(),
+    // `speakers` sengaja tidak ada: zod membuang kunci yang tidak dikenal tanpa
+    // memeriksanya. Pembicara disimpan lewat /api/admin/speakers (halaman
+    // Speakers); salinan dari tab Halaman acara yang terbuka sejak sebelum
+    // halaman itu ada tidak boleh menimpanya.
     faq: z.array(z.object({
       q: z.string().trim().min(1).max(200),
       a: z.string().trim().min(1).max(2000),

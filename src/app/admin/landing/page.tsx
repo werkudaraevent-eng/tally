@@ -80,7 +80,7 @@ import { BagianEn, BlockEditorEn, kartuRundownId, labelIsianButirEn, labelKolomB
 import { barisSesiDariAdmin, sesiHilang, urutRundown, type BarisSesi } from "./pilih-sesi";
 import { formatClock, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { LANDING_UI, landingEyebrowShown, landingUntranslated } from "@/lib/landing-i18n";
-import { sesiDariRundown } from "@/lib/landing-speaker-tabs";
+import { cocokSesi, sesiDariRundown } from "@/lib/landing-speaker-tabs";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -813,7 +813,11 @@ export default function LandingCmsPage() {
     void _pembicara;
     setLanding((current) => ({ ...current, ...isiLanding }));
     setBagian("susunan");
-    toast.success("Content imported", "Check the content, then select Save. Reload the page to discard it.");
+    const adaPembicara = Array.isArray(_pembicara) && _pembicara.length > 0;
+    toast.success(
+      "Content imported",
+      `Check the content, then select Save. Reload the page to discard it.${adaPembicara ? " Speakers in the file were not imported: they are edited on the Speakers page." : ""}`,
+    );
   }
 
   /**
@@ -1057,7 +1061,13 @@ export default function LandingCmsPage() {
   // terhubung: ditandai titik di baris Pembicara. Selama rundown belum dimuat
   // (atau gagal) teks lama tidak dihitung: cocok tidaknya belum diketahui.
   const sesiLamaBelumTerhubung =
-    barisSesi === null ? 0 : (landing.speakers ?? []).filter((speaker) => speaker.name?.trim() && !sesiDariRundown(speaker) && !!speaker.session?.trim()).length;
+    barisSesi === null
+      ? 0
+      // Teks lama yang cocok dengan tepat satu baris sudah tampil dengan foto dan jamnya.
+      : (landing.speakers ?? []).filter((speaker) => {
+          const label = speaker.name?.trim() && !sesiDariRundown(speaker) ? speaker.session?.trim() : undefined;
+          return !!label && barisSesi.filter((item) => cocokSesi(label, item.title)).length !== 1;
+        }).length;
   const sesiPerluDipilih =
     (landing.speakers ?? []).filter((speaker) => speaker.name?.trim() && sesiHilang(speaker, barisSesi).length > 0).length + sesiLamaBelumTerhubung;
   const catatanProgram = landing.program_notes ?? [];

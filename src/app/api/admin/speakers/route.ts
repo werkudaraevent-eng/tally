@@ -1,7 +1,7 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { type EventLandingConfig } from "@/lib/domain";
-import { speakersBodySchema } from "@/lib/landing-body-schema";
+import { SPEAKERS_BODY_MAX, speakersBodySchema } from "@/lib/landing-body-schema";
 import { samaJson } from "@/lib/landing-speakers-sama";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -38,7 +38,13 @@ export async function PATCH(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
-  const parsed = speakersBodySchema.safeParse(await request.json().catch(() => null));
+  const panjang = Number(request.headers.get("content-length") ?? 0);
+  if (panjang > SPEAKERS_BODY_MAX) return apiError("VALIDATION_ERROR", 413);
+  const teks = await request.text().catch(() => "");
+  if (teks.length > SPEAKERS_BODY_MAX) return apiError("VALIDATION_ERROR", 413);
+  let badan: unknown = null;
+  try { badan = JSON.parse(teks); } catch { badan = null; }
+  const parsed = speakersBodySchema.safeParse(badan);
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const client = getSupabaseServiceClient();
