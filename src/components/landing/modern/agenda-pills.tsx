@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import type { LandingAgendaSpeakers, LandingSpeaker } from "@/lib/domain";
+import { TeksKaya } from "@/components/landing/teks-kaya";
 import { kelompokPeran, keteranganLengkap, keteranganPembicara, sisaKeterangan } from "@/lib/landing-agenda-pembicara";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { barisJeda, pembicaraSesi } from "@/lib/landing-speaker-tabs";
@@ -159,7 +160,7 @@ export function AgendaPills({
                 ) : item.subtitle ? (
                   // pre-line: satu sesi bisa punya beberapa pilihan, satu per baris
                   // (mis. tiga kelompok diskusi di jam yang sama).
-                  <p className="mt-1 whitespace-pre-line text-body-medium leading-5 text-[var(--reg-on-surface-variant)]">{item.subtitle}</p>
+                  <TeksKaya teks={item.subtitle} className="mt-1 whitespace-pre-line text-body-medium leading-5 text-[var(--reg-on-surface-variant)]" />
                 ) : null}
               </div>
               {orang.length > 0 && !daftar ? <DeretPembicara orang={orang} lang={lang} /> : null}
@@ -185,8 +186,8 @@ function DaftarPembicara({ item, orang, foto, lang }: { item: string | null; ora
   const kelompok = kelompokPeran(orang, LANDING_UI[lang].agendaSpeakers);
   return (
     <>
-      {subjudul ? <p className="mt-1 text-[15px] font-medium leading-[22px] text-[var(--reg-on-surface)]">{subjudul}</p> : null}
-      {lain ? <p className="mt-1 whitespace-pre-line text-body-medium leading-5 text-[var(--reg-on-surface-variant)]">{lain}</p> : null}
+      {subjudul ? <TeksKaya teks={subjudul} className="mt-1 text-[15px] font-medium leading-[22px] text-[var(--reg-on-surface)]" /> : null}
+      {lain ? <TeksKaya teks={lain} className="mt-1 whitespace-pre-line text-body-medium leading-5 text-[var(--reg-on-surface-variant)]" /> : null}
       <div className="mt-3 flex flex-col gap-3">
         {kelompok.map((grup) => (
           <div key={grup.kunci}>

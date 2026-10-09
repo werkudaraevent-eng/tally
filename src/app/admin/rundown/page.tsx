@@ -12,9 +12,11 @@ import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import {
   Banner, Button, ButtonLink, Dialog, EmptyState, ListRow, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
-  SegmentedButton, StatusChip, SupportingPane, Switch, Tabs, TextArea, TextField, WorkspaceHeader, WorkspacePage,
+  SegmentedButton, StatusChip, SupportingPane, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { Kelompok } from "@/components/admin/compact-form";
+import { teksPolos } from "@/lib/landing-teks-kaya";
+import { RichDetailsField } from "@/components/admin/rich-details-field";
 
 // CMS rundown acara. Supporting pane: jadwal bagian aktif di panel utama,
 // penyunting di panel kanan (baris terpilih, setelan bagian, header publik).
@@ -37,6 +39,8 @@ type Panel = "baris" | "bagian" | "header";
 
 const EMPTY_DRAFT: Draft = { start_time: "", end_time: "", title: "", subtitle: "", is_break: false };
 
+// Petunjuk satu kalimat per aturan: baris per pembicara, label, format.
+const HINT_KETERANGAN = "One line per speaker. A line ending in a colon becomes a label (e.g. Moderator:). Bold, italic, theme colour and lists show on the event page.";
 const CONTOH_KETERANGAN = "Panelists:\nSantoso, Chairman - ASPI\nModerator:\nAbraham J. Adriaansz, President Director - PT Rintis Sejahtera";
 
 // Nilai yang ditampilkan <input type="color"> ketika kolomnya masih null.
@@ -498,7 +502,7 @@ export default function RundownAdminPage() {
         ) : (
           <div>
             {activeItems.map((item) => {
-              const keterangan = (item.subtitle ?? "").split("\n").map((line) => line.trim()).filter(Boolean).join(" · ");
+              const keterangan = teksPolos(item.subtitle).split("\n").map((line) => line.trim()).filter(Boolean).join(" · ");
               const kunci = kunciSlot(item.start_time);
               const slotIds = slots.get(kunci) ?? [];
               const paralel = slotIds.length > 1;
@@ -676,14 +680,14 @@ export default function RundownAdminPage() {
       ) : null}
       {/* textarea, bukan input satu baris: satu butir acara bisa memuat beberapa
           pembicara, dan tiap baris tampil sebagai butir terpisah di halaman publik. */}
-      <TextArea
+      <RichDetailsField
+        key={selectedItem.id}
         label="Details"
         optional
-        rows={5}
         placeholder={CONTOH_KETERANGAN}
-        hint="One line per speaker. A line ending in a colon becomes a group heading (e.g. Moderator:) without a bullet."
+        hint={HINT_KETERANGAN}
         value={selectedItem.subtitle ?? ""}
-        onChange={(event) => updateItem(selectedItem.id, { subtitle: event.target.value })}
+        onChange={(value) => updateItem(selectedItem.id, { subtitle: value })}
       />
       <Switch
         checked={selectedItem.is_break}
@@ -711,14 +715,13 @@ export default function RundownAdminPage() {
         value={draft.title}
         onChange={(event) => updateDraft({ title: event.target.value })}
       />
-      <TextArea
+      <RichDetailsField
         label="Details"
         optional
-        rows={5}
         placeholder={CONTOH_KETERANGAN}
-        hint="One line per speaker. A line ending in a colon becomes a group heading."
+        hint={HINT_KETERANGAN}
         value={draft.subtitle}
-        onChange={(event) => updateDraft({ subtitle: event.target.value })}
+        onChange={(value) => updateDraft({ subtitle: value })}
       />
       <Switch checked={draft.is_break} onChange={(checked) => updateDraft({ is_break: checked })} label="Break" description="Shown dimmed on the public page." />
       <p className="text-body-medium text-on-surface-variant">Leave the end time empty to mark a single moment. Select an item in the schedule to edit it.</p>

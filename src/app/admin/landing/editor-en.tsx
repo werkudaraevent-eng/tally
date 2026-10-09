@@ -1,6 +1,8 @@
 "use client";
 
 import { HighlightField } from "@/components/admin/highlight-field";
+import { RichDetailsField } from "@/components/admin/rich-details-field";
+import { teksPolos } from "@/lib/landing-teks-kaya";
 import { tanpaBintang } from "@/lib/landing-tagline";
 import { landingTokens } from "@/lib/landing-tokens";
 import type { ReactNode } from "react";
@@ -384,7 +386,18 @@ export function BagianEn({
                 <Kartu key={`rundown-${baris.id}`} id={kartuRundownId(baris.id)} judul={baris.bagian ? `${baris.bagian} · ${baris.jam}` : `Session ${baris.jam}`}>
                   <KolomEn label="Title" sumber={baris.title} value={baris.title_en} onChange={(value) => ubahRundown?.(baris.id, { title_en: value })} max={200} />
                   {ada(baris.subtitle) ? (
-                    <KolomEn label="Description" sumber={baris.subtitle} value={baris.subtitle_en} onChange={(value) => ubahRundown?.(baris.id, { subtitle_en: value })} max={800} area />
+                    // Format sama dengan Details di Agenda (tebal, miring, warna, daftar).
+                    <RichDetailsField
+                      label="Description"
+                      placeholder={KOSONG}
+                      hint={
+                        <span title={teksPolos(baris.subtitle)} className="line-clamp-4 whitespace-pre-line">
+                          <span className="font-medium">ID:</span> {teksPolos(baris.subtitle)}
+                        </span>
+                      }
+                      value={baris.subtitle_en}
+                      onChange={(value) => ubahRundown?.(baris.id, { subtitle_en: value })}
+                    />
                   ) : null}
                 </Kartu>
                 )),
