@@ -31,13 +31,13 @@ import type { BarisSesi } from "./pilih-sesi";
 type Bertanda = LandingSpeaker & { _i: number };
 
 /** Bingkai foto kecil, sama bentuknya dengan kartu di halaman acara. */
-const BINGKAI_KECIL: Record<LandingSpeakerFrame, string> = {
+export const BINGKAI_KECIL: Record<LandingSpeakerFrame, string> = {
   portrait: "aspect-[4/5] rounded-sm",
   circle: "aspect-square rounded-full",
   arch: "aspect-[4/5] rounded-b-sm [border-top-left-radius:50%_40%] [border-top-right-radius:50%_40%]",
 };
 
-function inisial(nama: string): string {
+export function inisial(nama: string): string {
   return nama
     .split(/\s+/)
     .filter((kata) => /^\p{L}/u.test(kata))
@@ -47,7 +47,7 @@ function inisial(nama: string): string {
 }
 
 /** Baris rundown di editor sebagai susunan acara, supaya tab di sini sama dengan tab di halaman. */
-function agendaDariBaris(baris: BarisSesi[] | null): AgendaPreview[] {
+export function agendaDariBaris(baris: BarisSesi[] | null): AgendaPreview[] {
   const bagian = new Map<string, AgendaPreview>();
   for (const item of baris ?? []) {
     const kunci = item.bagian ?? "";
@@ -69,6 +69,10 @@ export function UrutanPembicara({
   bingkai,
   onChange,
   onTab,
+  tab: tabTetap,
+  terpilih,
+  onPilih,
+  terkunci,
 }: {
   speakers: LandingSpeaker[];
   baris: BarisSesi[] | null;
@@ -76,10 +80,22 @@ export function UrutanPembicara({
   onChange: (next: LandingSpeaker[]) => void;
   /** Tab yang sedang diatur, supaya pratinjau membuka tab yang sama. */
   onTab?: (kunci: string) => void;
+  /**
+   * Halaman Speakers: tab dipilih di luar (tab halaman), jadi pilihan Tab di
+   * sini tidak tampil dan tab berisi satu orang pun ikut.
+   */
+  tab?: string;
+  /** Indeks daftar pembicara yang sedang dibuka di panel sunting. */
+  terpilih?: number | null;
+  /** Nama pembicara jadi tombol yang membukanya di panel sunting. */
+  onPilih?: (indeks: number) => void;
+  /** Alasan urutan belum bisa diubah (mis. ada suntingan yang belum disimpan). */
+  terkunci?: string | null;
 }) {
   const bertanda: Bertanda[] = speakers.map((speaker, index) => ({ ...speaker, _i: index }));
-  const tabs = speakerTabs(bertanda, agendaDariBaris(baris), { highlights: "Highlights", others: "Other speakers" }).filter((tab) => tab.speakers.length > 1);
-  const [kunci, setKunci] = useState<string | null>(null);
+  const tabs = speakerTabs(bertanda, agendaDariBaris(baris), { highlights: "Highlights", others: "Other speakers" }).filter((tab) => tabTetap !== undefined || tab.speakers.length > 1);
+  const [kunciPilihan, setKunci] = useState<string | null>(null);
+  const kunci = tabTetap ?? kunciPilihan;
   const panel = useRef<HTMLDivElement>(null);
   const [kabar, setKabar] = useState("");
   const [seret, setSeret] = useState<number | null>(null);
@@ -111,6 +127,7 @@ export function UrutanPembicara({
   }
 
   function pindah(dari: number, ke: number, fokus: "pegangan" | "atas" | "bawah" | null = "pegangan") {
+    if (terkunci) return;
     if (ke < 0 || ke >= orang.length || dari === ke) return;
     const urutan = [...orang];
     const [item] = urutan.splice(dari, 1);
@@ -145,19 +162,21 @@ export function UrutanPembicara({
 
   return (
     <div ref={panel} className="flex flex-col gap-2">
-      <SelectMenu<string>
-        label="Tab"
-        width="100%"
-        value={tab.key}
-        onChange={pilihTab}
-        options={tabs.map((item) => ({ value: item.key, label: `${item.label} · ${item.speakers.length}` }))}
-      />
+      {tabTetap === undefined ? (
+        <SelectMenu<string>
+          label="Tab"
+          width="100%"
+          value={tab.key}
+          onChange={pilihTab}
+          options={tabs.map((item) => ({ value: item.key, label: `${item.label} · ${item.speakers.length}` }))}
+        />
+      ) : null}
       <div className="flex min-h-[30px] flex-wrap items-center gap-x-1 text-body-small text-on-surface-variant">
         {sesiRundown ? (
           khusus ? (
             <>
               <span>Order: custom ·</span>
-              <Button variant="text" size="sm" className="!min-h-[30px] !px-2" onClick={reset}>Reset to automatic</Button>
+              <Button variant="text" size="sm" className="!min-h-[30px] !px-2" onClick={() => { if (!terkunci) reset(); }} aria-disabled={terkunci ? true : undefined}>Reset to automatic</Button>
             </>
           ) : (
             <span>Order: automatic (moderator first)</span>
@@ -183,12 +202,13 @@ export function UrutanPembicara({
                 }
               }}
               onDrop={lepas}
-              className={cx("flex min-h-12 items-center gap-2 border-b border-outline-variant py-1 last:border-b-0", seret === index && "opacity-60")}
+              className={cx("flex min-h-12 items-center gap-2 border-b border-outline-variant py-1 last:border-b-0", seret === index && "opacity-60", onPilih && "px-2", terpilih === speaker._i && "bg-secondary-container")}
             >
               <button
                 type="button"
                 data-fokus="pegangan"
-                draggable
+                draggable={!terkunci}
+                aria-disabled={terkunci ? true : undefined}
                 aria-label={`Reorder ${speaker.name}, position ${index + 1} of ${orang.length}`}
                 aria-describedby={`${dasar}-petunjuk`}
                 title="Drag to reorder, or use the arrow keys"
@@ -219,7 +239,13 @@ export function UrutanPembicara({
                 )}
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-body-medium text-on-surface">{speaker.name}</span>
+                {onPilih ? (
+                  <button type="button" onClick={() => onPilih(speaker._i)} aria-current={terpilih === speaker._i ? "true" : undefined} className="truncate text-left text-body-medium font-medium text-on-surface hover:underline">
+                    {speaker.name}
+                  </button>
+                ) : (
+                  <span className="truncate text-body-medium text-on-surface">{speaker.name}</span>
+                )}
                 {peran ? <span className="truncate text-body-small text-on-surface-variant">{peran}</span> : null}
               </span>
               <span className="hidden shrink-0 gap-1 pointer-coarse:flex">
@@ -227,7 +253,7 @@ export function UrutanPembicara({
                   size="sm"
                   data-fokus="atas"
                   label={`Move ${speaker.name} up, position ${index + 1} of ${orang.length}`}
-                  aria-disabled={pertama || undefined}
+                  aria-disabled={pertama || Boolean(terkunci) || undefined}
                   className="!size-12 aria-disabled:cursor-default aria-disabled:opacity-40"
                   onClick={() => (pertama ? undefined : pindah(index, index - 1, index - 1 === 0 ? "bawah" : "atas"))}
                 >
@@ -237,7 +263,7 @@ export function UrutanPembicara({
                   size="sm"
                   data-fokus="bawah"
                   label={`Move ${speaker.name} down, position ${index + 1} of ${orang.length}`}
-                  aria-disabled={terakhir || undefined}
+                  aria-disabled={terakhir || Boolean(terkunci) || undefined}
                   className="!size-12 aria-disabled:cursor-default aria-disabled:opacity-40"
                   onClick={() => (terakhir ? undefined : pindah(index, index + 1, index + 1 === orang.length - 1 ? "atas" : "bawah"))}
                 >
@@ -248,13 +274,16 @@ export function UrutanPembicara({
           );
         })}
       </ol>
+      {terkunci ? <p className="text-body-small text-on-surface-variant" role="status">{terkunci}</p> : null}
       <p className="text-body-small text-on-surface-variant">
         1 is leftmost on the page.{" "}
         {sesiRundown
           ? khusus
             ? `This order applies to the ${tab.label} tab only. New speakers in this tab are added at the end.`
             : `Moving someone makes a custom order for the ${tab.label} tab only.`
-          : "Changing this order also changes the speaker list below, which sets the automatic order inside session tabs."}
+          : tabTetap !== undefined
+            ? "Changing this order also changes the order in the All tab, which sets the automatic order inside session tabs."
+            : "Changing this order also changes the speaker list below, which sets the automatic order inside session tabs."}
       </p>
       <span id={`${dasar}-petunjuk`} hidden>Use the up and down arrow keys to move this speaker. Position 1 is leftmost on the event page.</span>
       <p role="status" className="sr-only">{kabar}</p>

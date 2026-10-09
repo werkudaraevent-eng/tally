@@ -1,6 +1,6 @@
 import {
   ArmchairIcon, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving, IdentificationCard,
-  ListChecks, Megaphone, MonitorPlay, Printer, QrCode, Receipt, ShieldCheck, Storefront, SuitcaseRolling, UserPlus, UsersThree,
+  ListChecks, Megaphone, MicrophoneStage, MonitorPlay, Printer, QrCode, Receipt, ShieldCheck, Storefront, SuitcaseRolling, UserPlus, UsersThree,
 } from "@phosphor-icons/react";
 import type { ComponentType } from "react";
 
@@ -88,6 +88,9 @@ export const navigation: NavGroup[] = [
     items: [
       { href: "/admin/landing", label: "Event page", icon: Browsers, description: "Content and look of the event page participants open.", alias: ["halaman acara", "landing"] },
       { href: "/admin/rundown", label: "Agenda", icon: CalendarDots, description: "The programme shown on the event page and the agenda screen.", alias: ["rundown", "rundown acara", "susunan acara"] },
+      // Data acara, bukan tata letak halaman: orangnya, foto, jabatan, sesi, dan
+      // urutannya per tab. Dulu disunting di panel Halaman acara.
+      { href: "/admin/speakers", label: "Speakers", icon: MicrophoneStage, description: "Speakers, their photos and sessions, and their order on the event page.", alias: ["pembicara", "narasumber", "moderator"] },
       // Di Persiapan: denah disusun sebelum pendaftaran dibuka, bersama halaman
       // acara dan rundown, meski yang mencarinya nanti tamu.
       { href: "/admin/seat-map", label: "Seating plan", icon: ArmchairIcon, description: "Table and seat plan participants look up before they sit down.", alias: ["denah kursi", "denah"] },

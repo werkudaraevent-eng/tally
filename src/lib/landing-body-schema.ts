@@ -202,6 +202,39 @@ export const memberSchema = z.object({
   feedback_url: z.string().trim().url().max(600).nullable().optional(),
 });
 
+/** Satu pembicara (`landing_config.speakers[]`), disimpan di halaman Speakers. */
+export const speakerSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  title: z.string().trim().max(200).optional(),
+  company: z.string().trim().max(120).optional(),
+  role: z.string().trim().max(60).optional(),
+  photo_url: z.string().url().max(600).nullable().optional(),
+  featured: z.boolean().optional(),
+  session_refs: z.array(z.object({
+    id: z.number().int().positive(),
+    label: z.string().trim().max(80),
+    // Peran di sesi ini saja; batasnya sama dengan `role` pembicara.
+    role: z.string().trim().max(60).optional(),
+    en: z.object({ role: teks(60) }).optional(),
+    pos: z.number().int().min(0).max(99).optional(),
+  })).max(40).optional(),
+  session: z.string().trim().max(40).optional(),
+  en: z.object({ title: teks(200), company: teks(120), role: teks(60), session: teks(40) }).optional(),
+});
+
+/** Batas jumlah pembicara per acara. */
+export const SPEAKERS_MAX = 60;
+
+/**
+ * Badan PATCH /api/admin/speakers. `base`: daftar pembicara seperti yang
+ * terakhir dibaca layar itu dari server, apa adanya. Server menolak (409) bila
+ * daftar tersimpan sudah berbeda, jadi dua tab tidak saling menimpa.
+ */
+export const speakersBodySchema = z.object({
+  base: z.array(z.unknown()).max(SPEAKERS_MAX),
+  speakers: z.array(speakerSchema).max(SPEAKERS_MAX),
+});
+
 export const landingBodySchema = z.object({
   // ---- Fakta acara --------------------------------------------------------
   // 5000, bukan 500 seperti di form pembuatan acara. Batas di sana untuk
@@ -327,24 +360,10 @@ export const landingBodySchema = z.object({
       value: z.string().trim().min(1).max(30),
       en: z.object({ label: teks(60), value: teks(30) }).optional(),
     })).max(8).optional(),
-    speakers: z.array(z.object({
-      name: z.string().trim().min(1).max(120),
-      title: z.string().trim().max(200).optional(),
-      company: z.string().trim().max(120).optional(),
-      role: z.string().trim().max(60).optional(),
-      photo_url: z.string().url().max(600).nullable().optional(),
-      featured: z.boolean().optional(),
-      session_refs: z.array(z.object({
-        id: z.number().int().positive(),
-        label: z.string().trim().max(80),
-        // Peran di sesi ini saja; batasnya sama dengan `role` pembicara.
-        role: z.string().trim().max(60).optional(),
-        en: z.object({ role: teks(60) }).optional(),
-        pos: z.number().int().min(0).max(99).optional(),
-      })).max(40).optional(),
-      session: z.string().trim().max(40).optional(),
-      en: z.object({ title: teks(200), company: teks(120), role: teks(60), session: teks(40) }).optional(),
-    })).max(60).optional(),
+    // Tidak divalidasi dan diabaikan server: pembicara disimpan lewat
+    // /api/admin/speakers (halaman Speakers). Salinan dari tab Halaman acara
+    // yang terbuka sejak sebelum halaman itu ada tidak boleh menimpanya.
+    speakers: z.unknown().optional(),
     faq: z.array(z.object({
       q: z.string().trim().min(1).max(200),
       a: z.string().trim().min(1).max(2000),

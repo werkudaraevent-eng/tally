@@ -1508,6 +1508,7 @@ export type ApiErrorCode =
   | "INVITATIONS_NOT_READY"
   // Acara disimpan di tempat lain pada saat yang sama; simpanan ini tidak ditulis.
   | "CONFLICT"
+  | "SPEAKERS_CHANGED"
   | "INVITATION_SENDING_LOCKED"
   | "MESSAGE_NOT_PAUSED"
   | "ANNOUNCEMENT_NOT_FOUND"

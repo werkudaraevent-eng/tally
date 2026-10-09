@@ -44,43 +44,50 @@ export async function PATCH(request: Request) {
     : null;
 
   const client = getSupabaseServiceClient();
-  // Tema formulir ditulis hanya kalau updated_at masih sama dengan saat dibaca:
-  // penyunting form dan layar Client view juga menulis seluruh JSON
-  // registration_form_config (QA #102, H2). Berubah -> baca ulang, coba sekali lagi.
-  let tersimpan = (auth.scope.event.registration_form_config ?? {}) as RegistrationFormConfig;
-  let versi = auth.scope.event.updated_at;
+  // Ditulis hanya kalau updated_at masih sama dengan saat dibaca. Dua alasan:
+  // tema formulir (penyunting form dan Client view juga menulis seluruh JSON
+  // registration_form_config, QA #102 H2), dan `member` serta `speakers` yang
+  // disalin dari server, bukan dari permintaan: halaman Area peserta dan
+  // Speakers bisa menyimpan di antara baca dan tulis di sini. Berubah -> baca
+  // ulang, coba sekali lagi.
+  type Tersimpan = { registration_form_config: RegistrationFormConfig | null; landing_config: Record<string, unknown> | null; updated_at: string };
+  let tersimpan: Tersimpan = {
+    registration_form_config: auth.scope.event.registration_form_config as RegistrationFormConfig | null,
+    landing_config: auth.scope.event.landing_config as Record<string, unknown> | null,
+    updated_at: auth.scope.event.updated_at,
+  };
   let data: unknown = null;
   for (let percobaan = 0; ; percobaan++) {
-    const formThemeBaru = susunTema(tersimpan);
-    let query = client
+    const formThemeBaru = susunTema((tersimpan.registration_form_config ?? {}) as RegistrationFormConfig);
+    const hasil = await client
       .from("events")
       .update({
         ...facts,
         ...(formThemeBaru ? { registration_form_config: formThemeBaru } : {}),
         landing_config: {
           ...landing,
-          // Area peserta punya layar dan endpoint sendiri (/api/admin/area-peserta).
-          // Salinan `member` dari editor ini bisa basi, jadi yang tersimpan dipakai.
-          member: (auth.scope.event.landing_config as { member?: unknown } | null)?.member,
+          // Area peserta punya layar dan endpoint sendiri (/api/admin/area-peserta),
+          // begitu pula pembicara (/api/admin/speakers). Salinan dari editor ini
+          // bisa basi, jadi yang tersimpan dipakai.
+          member: tersimpan.landing_config?.member,
+          speakers: tersimpan.landing_config?.speakers,
           // Peran warna diturunkan di server, sama seperti tema form pendaftaran.
           // Halaman publiknya menerima hex jadi dan tidak memuat pustaka warna.
           theme: landing.theme ? withDerivedRoles(landing.theme) : undefined,
         },
         updated_at: new Date().toISOString(),
       } as never)
-      .eq("id", auth.scope.event.id);
-    if (formThemeBaru) query = query.eq("updated_at", versi);
-    const hasil = await query
+      .eq("id", auth.scope.event.id)
+      .eq("updated_at", tersimpan.updated_at)
       .select("description,tagline,start_time,end_time,end_date,venue_name,venue_address,venue_map_url,landing_config,registration_form_config")
       .maybeSingle();
 
     if (hasil.error) return apiError("INTERNAL_ERROR", 500);
     if (hasil.data) { data = hasil.data; break; }
-    if (!formThemeBaru || percobaan >= 1) return apiError("CONFLICT", 409);
-    const { data: segar, error: galatBaca } = await client.from("events").select("registration_form_config,updated_at").eq("id", auth.scope.event.id).single();
+    if (percobaan >= 1) return apiError("CONFLICT", 409);
+    const { data: segar, error: galatBaca } = await client.from("events").select("registration_form_config,landing_config,updated_at").eq("id", auth.scope.event.id).single();
     if (galatBaca || !segar) return apiError("INTERNAL_ERROR", 500);
-    tersimpan = ((segar as { registration_form_config: RegistrationFormConfig | null }).registration_form_config ?? {}) as RegistrationFormConfig;
-    versi = (segar as { updated_at: string }).updated_at;
+    tersimpan = segar as Tersimpan;
   }
 
   await client.from("audit_logs").insert({

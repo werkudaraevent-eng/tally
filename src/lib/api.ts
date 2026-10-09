@@ -77,6 +77,7 @@ const messages: Record<ApiErrorCode, string> = {
   INVITATION_NOT_FOUND: "Invited guest not found.",
   INVITATIONS_NOT_READY: "Invited guests are not ready yet: the database migration has not been run.",
   CONFLICT: "This event was saved somewhere else at the same moment. Nothing was changed. Try again.",
+  SPEAKERS_CHANGED: "The speaker list was changed in another tab or by another admin. The latest list is shown now. Make your change again.",
   // Menyebut env-nya: yang bisa membereskan ini pemilik sistem, bukan panitia.
   INVITATION_SENDING_LOCKED: "Invitation blasts stay locked until the system owner sets up a separate invitation sender.",
   MESSAGE_NOT_PAUSED: "This blast is not paused.",

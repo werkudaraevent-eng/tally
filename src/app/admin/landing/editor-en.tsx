@@ -5,9 +5,7 @@ import { tanpaBintang } from "@/lib/landing-tagline";
 import { landingTokens } from "@/lib/landing-tokens";
 import type { ReactNode } from "react";
 import { TextArea, TextField } from "@/components/m3";
-import { landingSectionHeading, landingSessionEn } from "@/lib/landing-i18n";
-import { sesiDariRundown } from "@/lib/landing-speaker-tabs";
-import { isiPeranSesiEn, peranSesiUntukEn } from "@/lib/landing-peran-sesi";
+import { landingSectionHeading } from "@/lib/landing-i18n";
 import {
   LANDING_BLOCK_LABELS,
   LANDING_ABOUT_CARDS,
@@ -397,29 +395,9 @@ export function BagianEn({
       case "contact":
         return [kolom("contact_name", "Name", landing.contact_name, 120)];
       case "speakers": {
-        const daftar = landing.speakers ?? [];
-        // Sesi diterjemahkan sekali per nama sesi, bukan per pembicara: satu
-        // sesi dipakai beberapa pembicara, dan terjemahan yang berbeda-beda
-        // akan memecah tab sesinya di halaman English. Hanya sesi teks lama yang
-        // tidak ada di rundown: sesi dari rundown memakai judul English rundown.
-        const lama = (s: (typeof daftar)[number]) => !sesiDariRundown(s);
-        const sesi = [...new Set(daftar.filter(lama).map((s) => s.session?.trim()).filter(ada))];
-        const ubahSesi = (nama: string, value: string) =>
-          setLanding({ ...landing, speakers: daftar.map((s) => (lama(s) && s.session?.trim() === nama ? { ...s, en: { ...s.en, session: value } } : s)) });
-        const kartuSesi = sesi.length ? (
-          <Kartu key="sesi" judul="Sessions">
-            {sesi.map((nama) => (
-              <KolomEn
-                key={nama}
-                label={`Session "${nama}"`}
-                sumber={nama}
-                value={landingSessionEn(daftar, nama)}
-                onChange={(value) => ubahSesi(nama, value)}
-                max={40}
-              />
-            ))}
-          </Kartu>
-        ) : null;
+        // Jabatan, instansi, dan peran pembicara diterjemahkan di halaman
+        // Speakers (pilihan English di panel sunting), tempat orangnya disunting.
+        // Judul sesi tetap di sini: itu judul rundown, bukan data pembicara.
         const kartuSesiRundown = sesiRundown.length ? (
           <Kartu key="sesi-rundown" judul="Session titles from the agenda">
             {sesiRundown.map((baris) => (
@@ -427,38 +405,13 @@ export function BagianEn({
             ))}
           </Kartu>
         ) : null;
-        // Peran per sesi (mis. Moderator di breakout): satu kolom per peran
-        // berbeda, ditulis ke semua entri yang perannya sama. Hanya peran sesi
-        // yang diisi; yang kosong memakai Peran utama di kartu pembicaranya.
-        const peranSesi = peranSesiUntukEn(daftar);
-        const kartuPeranSesi = peranSesi.length ? (
-          <Kartu key="peran-sesi" judul="Session roles">
-            {peranSesi.map(({ kunci, teks, en, sesi }) => (
-              <KolomEn
-                key={kunci}
-                label={sesi.length > 2 ? `Role in ${sesi[0]} and ${sesi.length - 1} more` : `Role in ${sesi.join(" and ") || "a session"}`}
-                sumber={teks}
-                value={en}
-                onChange={(value) => setLanding({ ...landing, speakers: isiPeranSesiEn(daftar, kunci, value) })}
-                max={60}
-                kosong="Not filled. Shows the Indonesian text."
-              />
-            ))}
-          </Kartu>
-        ) : null;
-        return [kartuSesiRundown, kartuSesi, kartuPeranSesi, ...daftar.map((speaker, index) => {
-          const ubah = (key: "title" | "company" | "role", value: string) =>
-            setLanding({ ...landing, speakers: daftar.map((s, posisi) => (posisi === index ? { ...s, en: { ...s.en, [key]: value } } : s)) });
-          const isian = ([["title", "Position", 200], ["company", "Organisation", 120], ["role", "Role", 60]] as const).filter(([key]) => ada(speaker[key]));
-          if (isian.length === 0) return null;
-          return (
-            <Kartu key={index} judul={speaker.name || `Speaker ${index + 1}`}>
-              {isian.map(([key, label, max]) => (
-                <KolomEn key={key} label={label} sumber={speaker[key] ?? ""} value={speaker.en?.[key]} onChange={(value) => ubah(key, value)} max={max} />
-              ))}
-            </Kartu>
-          );
-        }), judulBagian("speakers")];
+        return [
+          <p key="pembicara-catatan" className="text-body-small text-on-surface-variant">
+            Job titles, organisations and roles are translated on the Speakers page: open a speaker, then choose English.
+          </p>,
+          kartuSesiRundown,
+          judulBagian("speakers"),
+        ];
       }
       case "faq": {
         const daftar = landing.faq ?? [];

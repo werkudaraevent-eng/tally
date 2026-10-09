@@ -445,10 +445,14 @@ const SARAN_MAKS = 8;
  * keluar kolom menyimpan persis yang diketik; Esc menutup saran dan teksnya
  * tetap. Kosong berarti peran utama, yang disebut di placeholder.
  */
-function KolomPeran({ label, value, utama, speakers, onChange }: {
+export function KolomPeran({ label, value, utama, speakers, onChange, placeholder, labelledBy }: {
   label: string;
   value: string;
   utama: string | undefined;
+  /** Bawaan: peran utama, atau "No role". */
+  placeholder?: string;
+  /** Id label yang tampil di atas kolom; tanpa ini `label` jadi aria-label. */
+  labelledBy?: string;
   speakers: LandingSpeaker[];
   onChange: (role: string, en?: string) => void;
 }) {
@@ -501,7 +505,8 @@ function KolomPeran({ label, value, utama, speakers, onChange }: {
         ref={setInput}
         type="text"
         role="combobox"
-        aria-label={label}
+        aria-label={labelledBy ? undefined : label}
+        aria-labelledby={labelledBy}
         aria-autocomplete="list"
         aria-expanded={terbuka}
         aria-controls={terbuka ? `${id}-saran` : undefined}
@@ -509,7 +514,7 @@ function KolomPeran({ label, value, utama, speakers, onChange }: {
         autoComplete="off"
         maxLength={60}
         value={value}
-        placeholder={utama ? `${utama} (main role)` : "No role"}
+        placeholder={placeholder ?? (utama ? `${utama} (main role)` : "No role")}
         onChange={(peristiwa) => {
           onChange(peristiwa.target.value);
           setSorot(-1);
