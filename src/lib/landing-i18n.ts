@@ -434,6 +434,8 @@ export type LandingUiText = {
   agendaParts: string;
   /** "Andini dan Luis", "Andini, Luis, dan 3 lainnya" */
   andOthers: (names: string[], total: number) => string;
+  /** Label kelompok pembicara sesi tanpa peran di Susunan acara. */
+  agendaSpeakers: string;
   openGoogleMaps: string;
   openMap: string;
   mapOf: (venue: string | null) => string;
@@ -552,6 +554,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     otherSpeakers: "Pembicara lain",
     agendaParts: "Bagian acara",
     andOthers: (names, total) => (total > 2 ? `${names.join(", ")}, dan ${total - 2} lainnya` : names.join(" dan ")),
+    agendaSpeakers: "Pembicara",
     openGoogleMaps: "Buka di Google Maps",
     openMap: "Buka peta",
     mapOf: (venue) => `Peta ${venue ?? "lokasi acara"}`,
@@ -667,6 +670,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     otherSpeakers: "Other speakers",
     agendaParts: "Event parts",
     andOthers: (names, total) => (total > 2 ? `${names.join(", ")} and ${total - 2} more` : names.join(" and ")),
+    agendaSpeakers: "Speakers",
     openGoogleMaps: "Open in Google Maps",
     openMap: "Open map",
     mapOf: (venue) => `Map of ${venue ?? "the venue"}`,

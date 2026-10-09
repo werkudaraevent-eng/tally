@@ -335,6 +335,16 @@ export const LANDING_SPEAKER_FRAMES = ["portrait", "circle", "arch"] as const;
 export type LandingSpeakerFrame = (typeof LANDING_SPEAKER_FRAMES)[number];
 export const LANDING_SPEAKER_FRAME_LABELS: Record<LandingSpeakerFrame, string> = { portrait: "Portrait", circle: "Circle", arch: "Arch" };
 
+/**
+ * Pembicara di Susunan acara (Modern). `text`: Details apa adanya, foto bertumpuk
+ * di kolom kanan selama bagian Pembicara menyala (bawaan, perilaku lama).
+ * `names` dan `photos`: daftar pembicara tertaut di bawah judul sesi, satu
+ * orang satu baris, diambil dari data Pembicara walau bagiannya dimatikan.
+ */
+export const LANDING_AGENDA_SPEAKERS = ["text", "names", "photos"] as const;
+export type LandingAgendaSpeakers = (typeof LANDING_AGENDA_SPEAKERS)[number];
+export const LANDING_AGENDA_SPEAKERS_LABELS: Record<LandingAgendaSpeakers, string> = { text: "Text", names: "Names", photos: "Names with photos" };
+
 /** Perataan blok. Kolom memakai kiri dan tengah; Logo juga kanan. */
 export type LandingBlockAlign = "left" | "center" | "right";
 export const LANDING_BLOCK_ALIGN_LABELS: Record<LandingBlockAlign, string> = { left: "Left", center: "Centre", right: "Right" };
@@ -1047,6 +1057,8 @@ export type EventLandingConfig = {
   about_media?: LandingAboutMedia;
   /** Bingkai foto kartu pembicara, tata letak Modern saja. Bawaan `portrait`. */
   speaker_frame?: LandingSpeakerFrame;
+  /** Pembicara di Susunan acara, tata letak Modern saja. Bawaan `text`. */
+  agenda_speakers?: LandingAgendaSpeakers;
   about_image_url?: string | null;
   /** Teks alternatif gambar sendiri, dibacakan pembaca layar. */
   about_image_alt?: string;

@@ -10,14 +10,15 @@ import type {
   LandingSection,
   LandingHeadedSection,
   LandingSectionId,
+  LandingSpeaker,
 } from "@/lib/domain";
 import { LANDING_BLOCK_LABELS, LANDING_NAV_DEFAULTS, isLandingBlockId, isPortalEntry, landingBlockHasContent, landingHeadingFontSize, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { gatheringColors, heroCtaColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
 import { landingTokens } from "@/lib/landing-tokens";
 import { preloadLandingFonts } from "@/lib/landing-font-preload";
 import { formatEventDate, formatEventDateRingkas, formatEventTime } from "@/lib/event-datetime";
-import { loadAgendaPreview } from "@/lib/landing-agenda";
-import { jumlahSesi, speakerTabs } from "@/lib/landing-speaker-tabs";
+import { loadAgendaPreview, type AgendaPreview } from "@/lib/landing-agenda";
+import { jumlahSesi, pembicaraSesi, speakerTabs } from "@/lib/landing-speaker-tabs";
 import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingPath, landingSectionHeading, landingSessionLabels, type LandingLang } from "@/lib/landing-i18n";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
@@ -250,8 +251,16 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // Gathering tanpa kotak angka: "6 sesi" adalah bahasa acara rapat.
   const sorotan = !gaya && tampil("highlights") ? config.highlights?.[0] : undefined;
   // Pembicara yang sama dengan Susunan acara, supaya angka dan baris tenangnya sepakat.
-  const orangSesi = tampil("speakers") ? speakers : [];
-  const totalSesi = agenda.reduce((jumlah, bagian) => jumlah + jumlahSesi(bagian.items, orangSesi), 0);
+  // Daftar pembicara di bawah judul sesi (Names / Names with photos) memakai data
+  // Pembicara walau bagian Pembicara dimatikan; Text tetap seperti dulu.
+  const pembicaraAgenda = config.agenda_speakers ?? "text";
+  // Angka sesi tidak ikut berubah saat mode daftar pembicara diganti.
+  const orangHitung = tampil("speakers") ? speakers : [];
+  // Names / Names with photos: hanya pembicara yang tampil di baris agenda
+  // publik, dalam bentuk ringkas. Dengan bagian Pembicara mati, pembicara draf
+  // atau tanpa sesi tidak boleh ikut terkirim ke peramban.
+  const orangSesi = pembicaraAgenda === "text" ? orangHitung : pembicaraDiAgenda(speakers, agenda);
+  const totalSesi = agenda.reduce((jumlah, bagian) => jumlah + jumlahSesi(bagian.items, orangHitung), 0);
   const stat = sorotan
     ? { nilai: sorotan.value, label: sorotan.label }
     : totalSesi > 0 && !gaya
@@ -466,7 +475,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 const akhir = rentangAkhir(bagian);
                 const catatan = config.program_notes?.[index]?.trim();
                 // Program yang isinya jeda semua tidak diberi "0 sesi".
-                const sesiProgram = jumlahSesi(bagian.items, orangSesi);
+                const sesiProgram = jumlahSesi(bagian.items, orangHitung);
                 return (
                   <li
                     key={bagian.sectionTitle ?? index}
@@ -624,7 +633,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               agenda={agenda}
               catatan={config.program_notes ?? []}
               lang={lang}
-              jadwalLengkap={<AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari />}
+              jadwalLengkap={<AgendaPills agenda={agenda} speakers={orangSesi} tampilPembicara={pembicaraAgenda} lang={lang} perHari />}
             />
           </section>
         ) : null}
@@ -649,11 +658,11 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                 agenda={agenda}
                 catatan={config.program_notes ?? []}
                 lang={lang}
-                jadwalLengkap={<AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari />}
+                jadwalLengkap={<AgendaPills agenda={agenda} speakers={orangSesi} tampilPembicara={pembicaraAgenda} lang={lang} perHari />}
               />
             ) : (
               <div className="mt-6 sm:mt-8">
-                <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari={gaya} />
+                <AgendaPills agenda={agenda} speakers={orangSesi} tampilPembicara={pembicaraAgenda} lang={lang} perHari={gaya} />
               </div>
             )}
           </Section>
@@ -1268,4 +1277,38 @@ function TempatMenginap({ hotels, sesamaJenis, zona, lang }: { hotels: LandingHo
       </div>
     </div>
   );
+}
+
+/**
+ * Pembicara untuk daftar di bawah judul sesi: hanya yang dipasangkan ke baris
+ * agenda publik bukan jeda, dengan kolom yang dipakai daftar itu saja. Tautan
+ * sesinya pun dibatasi ke baris yang tampil, supaya label sesi draf tidak bocor.
+ */
+function pembicaraDiAgenda(speakers: LandingSpeaker[], agenda: AgendaPreview[]): LandingSpeaker[] {
+  const baris = agenda.flatMap((bagian) => bagian.items).filter((item) => !item.jeda);
+  const tampil = new Set(baris.flatMap((item) => pembicaraSesiAsli(speakers, item)));
+  const ids = new Set(baris.map((item) => item.id));
+  return speakers
+    .filter((speaker) => tampil.has(speaker))
+    .map((speaker) => {
+      const ringkas: LandingSpeaker = { name: speaker.name };
+      if (speaker.title) ringkas.title = speaker.title;
+      if (speaker.company) ringkas.company = speaker.company;
+      if (speaker.role) ringkas.role = speaker.role;
+      if (speaker.role_id) ringkas.role_id = speaker.role_id;
+      if (speaker.photo_url) ringkas.photo_url = speaker.photo_url;
+      if (speaker.session_refs) {
+        ringkas.session_refs = speaker.session_refs
+          .filter((ref) => ids.has(ref.id))
+          .map(({ id, label, role, role_id, pos }) => ({ id, label, ...(role ? { role } : {}), ...(role_id ? { role_id } : {}), ...(pos !== undefined ? { pos } : {}) }));
+      } else if (speaker.session) {
+        ringkas.session = speaker.session;
+      }
+      return ringkas;
+    });
+}
+
+/** Pembicara asli (bukan salinan berperan) yang tampil di satu baris. */
+function pembicaraSesiAsli(speakers: LandingSpeaker[], item: AgendaPreview["items"][number]): LandingSpeaker[] {
+  return speakers.filter((speaker) => pembicaraSesi([speaker], item).length > 0);
 }

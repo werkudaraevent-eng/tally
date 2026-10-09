@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
-import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
 
@@ -288,6 +288,7 @@ export const landingBodySchema = z.object({
     about_heading: z.string().trim().max(160).optional(),
     about_media: z.enum(LANDING_ABOUT_MEDIA).optional(),
     speaker_frame: z.enum(LANDING_SPEAKER_FRAMES).optional(),
+    agenda_speakers: z.enum(LANDING_AGENDA_SPEAKERS).optional(),
     about_image_url: z.string().url().max(600).nullable().optional(),
     about_image_alt: teks(LANDING_IMAGE_ALT_MAX),
     about_cards: z.array(z.object({

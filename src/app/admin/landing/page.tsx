@@ -51,6 +51,9 @@ import {
   type LandingHeroPosition,
   LANDING_SPEAKER_FRAMES,
   LANDING_SPEAKER_FRAME_LABELS,
+  LANDING_AGENDA_SPEAKERS,
+  LANDING_AGENDA_SPEAKERS_LABELS,
+  type LandingAgendaSpeakers,
   type LandingSpeakerFrame,
 } from "@/lib/domain";
 import { ukurTerangKv } from "@/lib/kv-terang";
@@ -1815,6 +1818,20 @@ export default function LandingCmsPage() {
           onChange={(event) => setLanding({ ...landing, agenda_note: event.target.value })}
         />,
       )}
+      <Kelompok title="Speakers in sessions" note="Names come from the speakers linked to each session, even when the Speakers section is off. Lines in Details that name a linked speaker are left out so nobody shows twice.">
+        <SegmentedButton<LandingAgendaSpeakers>
+          className="w-full"
+          label="Speakers in sessions"
+          value={landing.agenda_speakers ?? "text"}
+          onChange={(agenda_speakers) => setLanding({ ...landing, agenda_speakers: agenda_speakers === "text" ? undefined : agenda_speakers })}
+          options={LANDING_AGENDA_SPEAKERS.map((value) => ({ value, label: LANDING_AGENDA_SPEAKERS_LABELS[value] }))}
+        />
+        <p className="text-body-small text-on-surface-variant">
+          {(landing.agenda_speakers ?? "text") === "text"
+            ? "Details shows as typed. Speaker photos sit to the right of each session while the Speakers section is on."
+            : "Each linked speaker gets a line under the session title, grouped by their role in that session. Link speakers to sessions on the Speakers page."}
+        </p>
+      </Kelompok>
       {gathering ? (
         <Kelompok title="Day cards" note="One card per agenda section. A day with more than three sessions shows the first two and the last, plus how many more; breaks are skipped. The full schedule folds out below the cards.">
           {daftarCatatan}
