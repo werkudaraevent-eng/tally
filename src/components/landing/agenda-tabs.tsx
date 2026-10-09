@@ -22,7 +22,7 @@ import { TeksKaya } from "@/components/landing/teks-kaya";
 export function AgendaTabs({
   agenda,
   stacked = false,
-  warnaTanda = "var(--reg-primary)",
+  warnaTanda = "var(--warna-tanda, var(--reg-primary))",
 }: {
   agenda: AgendaPreview[];
   /** Warna tanda Theme colour di Details; null = tebal saja (warna utama sama dengan teks). */

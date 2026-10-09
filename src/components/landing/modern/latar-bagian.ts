@@ -55,6 +55,8 @@ export function gayaLatarBagian(
     "--inisial-teks": "#ffffff",
     "--inisial-opasitas": "1",
     "--reg-primary": "#ffffff",
+    // Tanda ==warna== di Details: putih tebal di atas latar gelap.
+    "--warna-tanda": "#ffffff",
     "--reg-on-primary": "#181d27",
     "--aksi": "#ffffff",
     "--on-aksi": "#181d27",

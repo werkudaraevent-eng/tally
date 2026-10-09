@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { adaFormat, pecahBaris, pecahTeks, susunTeks, teksPolos } from "./landing-teks-kaya.ts";
+import { adaFormat, panjangTerlindung, pecahBaris, pecahTeks, susunTeks, teksPolos } from "./landing-teks-kaya.ts";
 
 // Teks lama tanpa tanda: bukan format, polosnya sama persis.
 const lama = "Panelists:\nSantoso, Chairman - ASPI\nModerator:\nAbraham J. Adriaansz";
@@ -33,5 +33,11 @@ assert.equal(susunTeks([{ jenis: "p", isi: [{ teks: "- x" }] }]), "\\- x");
 assert.equal(teksPolos("\\- x"), "- x");
 // Spasi di tepi tanda keluar dari tanda.
 assert.equal(susunTeks([{ jenis: "p", isi: [{ teks: "a" }, { teks: " b ", tebal: true }, { teks: "c" }] }]), "a **b** c");
+
+// Panjang tempelan setelah dilindungi: tidak pernah kurang dari yang tersimpan.
+for (const teks of ["a*b=c\\d", "- butir\n1. satu\nbiasa", "x"]) {
+  assert.ok(panjangTerlindung(teks) >= susunTeks(pecahTeks(teks).length ? [{ jenis: "p", isi: [{ teks }] }] : []).length);
+}
+assert.equal(panjangTerlindung("- a\n2. b"), "\\- a\n2\\. b".length);
 
 console.log("landing-teks-kaya ok");

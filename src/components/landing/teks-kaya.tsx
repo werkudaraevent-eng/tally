@@ -39,7 +39,7 @@ function kelompokkan(blok: Blok[]): Kelompok[] {
 export function TeksKaya({
   teks,
   className,
-  warna = "var(--reg-primary)",
+  warna = "var(--warna-tanda, var(--reg-primary))",
   as: Tag = "p",
 }: {
   teks: string;

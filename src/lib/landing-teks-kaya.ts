@@ -101,6 +101,15 @@ function lindungi(teks: string, awalBaris: boolean): string {
   return aman;
 }
 
+/**
+ * Panjang teks polos (tempelan) setelah dilindungi seperti `susunTeks`: tiap
+ * baris dianggap awal paragraf, jadi hasilnya tidak pernah kurang dari yang
+ * tersimpan.
+ */
+export function panjangTerlindung(teks: string): number {
+  return teks.split("\n").reduce((jumlah, baris, index) => jumlah + (index ? 1 : 0) + lindungi(baris, true).length, 0);
+}
+
 /** Kebalikan pecahTeks: blok ke teks bertanda. Nomor daftar ditulis berurutan. */
 export function susunTeks(blok: Blok[]): string {
   let nomor = 0;

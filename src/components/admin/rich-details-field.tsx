@@ -4,7 +4,7 @@ import { ListBullets, ListNumbers, TextB, TextItalic } from "@phosphor-icons/rea
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
 import { FieldMessages } from "@/components/m3/text-field";
 import { cx } from "@/lib/m3/cx";
-import { pecahTeks, susunTeks, type Blok, type Potongan } from "@/lib/landing-teks-kaya";
+import { panjangTerlindung, pecahTeks, susunTeks, type Blok, type Potongan } from "@/lib/landing-teks-kaya";
 
 /**
  * Kolom Details butir agenda dengan toolbar: Bold, Italic, Theme colour,
@@ -187,6 +187,8 @@ export function RichDetailsField({
   const [aktif, setAktif] = useState<Aktif>(TANPA);
   const [kosong, setKosong] = useState(!value);
   const [alat, setAlat] = useState(0);
+  // Pesan saat tempelan dipotong atau perubahan dibatalkan karena batas.
+  const [pesan, setPesan] = useState<string | null>(null);
 
   // Isi kolom hanya ditulis ulang saat nilainya berubah dari luar (pilih butir
   // lain, muat ulang), bukan setiap ketikan, supaya kursor tidak melompat.
@@ -210,8 +212,10 @@ export function RichDetailsField({
         sel.selectAllChildren(el);
         sel.collapseToEnd();
       }
+      setPesan(`That change would go over ${maxLength} characters, so it was undone.`);
       return;
     }
+    setPesan(null);
     setKosong(!el.textContent?.trim() && !el.querySelector("li"));
     if (nilai === terakhir.current) return;
     terakhir.current = nilai;
@@ -312,10 +316,23 @@ export function RichDetailsField({
   function tempel(event: ClipboardEvent<HTMLDivElement>) {
     event.preventDefault();
     const sisa = Math.max(0, maxLength - (terakhir.current ?? "").length);
-    const teks = event.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n").slice(0, sisa);
-    if (!teks) return;
-    document.execCommand("insertText", false, teks);
-    kirim();
+    const semua = event.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n");
+    // Potongan terpanjang yang muat setelah * = \\ "- " "1. " dilindungi.
+    let bawah = 0;
+    let atas = semua.length;
+    while (bawah < atas) {
+      const tengah = Math.ceil((bawah + atas) / 2);
+      if (panjangTerlindung(semua.slice(0, tengah)) <= sisa) bawah = tengah;
+      else atas = tengah - 1;
+    }
+    let teks = semua.slice(0, bawah);
+    // Jangan memotong emoji di tengah pasangan surrogate.
+    if (/[\uD800-\uDBFF]$/.test(teks)) teks = teks.slice(0, -1);
+    if (teks) {
+      document.execCommand("insertText", false, teks);
+      kirim();
+    }
+    if (teks.length < semua.length) setPesan(`Pasted text was cut to fit the ${maxLength}-character limit.`);
   }
 
   return (
@@ -356,7 +373,7 @@ export function RichDetailsField({
             role="textbox"
             aria-multiline="true"
             aria-labelledby={`${id}-label`}
-            aria-describedby={hint ? `${id}-hint` : undefined}
+            aria-describedby={[pesan ? `${id}-error` : hint ? `${id}-hint` : null, `${id}-count`].filter(Boolean).join(" ")}
             aria-placeholder={placeholder}
             contentEditable
             suppressContentEditableWarning
@@ -377,7 +394,7 @@ export function RichDetailsField({
           />
         </div>
       </div>
-      <FieldMessages id={id} hint={hint} count={{ length: value.length, max: maxLength }} />
+      <FieldMessages id={id} hint={hint} error={pesan ?? undefined} count={{ length: value.length, max: maxLength }} />
     </div>
   );
 }

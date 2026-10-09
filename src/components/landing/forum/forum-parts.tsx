@@ -115,7 +115,7 @@ export function PanelSusunan({
                         <td className="py-[clamp(10px,0.94vw,18px)] pl-[clamp(12px,2.29vw,44px)] pr-[clamp(12px,2.29vw,44px)] align-top sm:pl-0">
                           {jam ? <span className={`mb-1 block tabular-nums sm:hidden ${warnaJam}`}>{jam}</span> : null}
                           <span className={`block ${jeda ? `font-normal ${redup}` : "font-semibold"}`}>{item.title}</span>
-                          {item.subtitle ? <TeksKaya as="span" teks={item.subtitle} warna="var(--f-primary-text)" className={`mt-1 block whitespace-pre-line text-[max(14px,0.85em)] font-normal ${redup}`} /> : null}
+                          {item.subtitle ? <TeksKaya as="span" teks={item.subtitle} className={`mt-1 block whitespace-pre-line text-[max(14px,0.85em)] font-normal ${redup}`} /> : null}
                           {orang.length > 0 ? <DeretPembicara orang={orang} lang={lang} namaTampil /> : null}
                         </td>
                       </tr>
