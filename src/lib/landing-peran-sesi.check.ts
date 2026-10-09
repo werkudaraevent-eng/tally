@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { aturUrutanSesi, gabungEntriSesi, hapusUrutanSesi, isiPeranSesiEn, kunciPeran, pembicaraDiSesi, pembicaraSesiLama, peranSesiUntukEn, saranPeran, ubahPeranEntri } from "./landing-peran-sesi.ts";
+import { aturUrutanSesi, gabungEntriSesi, hapusUrutanSesi, kunciPeran, pembicaraDiSesi, pembicaraSesiLama, peranSesiUntukEn, saranPeran, ubahPeranEntri } from "./landing-peran-sesi.ts";
 import type { LandingSpeaker } from "./domain.ts";
 
 // Kunci: huruf besar-kecil, spasi ganda, dan spasi di ujung tidak membedakan peran.
@@ -45,10 +45,6 @@ assert.equal(saranPeran([{ name: "A", role: "mc" }, { name: "B", role: "MC" }])[
 // Tab EN: satu kolom per peran sesi berbeda; nilai hanya bila semua entri sepakat.
 const dua: LandingSpeaker = { name: "Dua", session_refs: [{ id: 6, label: "Breakout Session 2", role: "moderator" }] };
 assert.deepEqual(peranSesiUntukEn([ilo, nancy, dua]), [{ kunci: "moderator", teks: "Moderator", en: undefined, sesi: ["Breakout Session 1", "Breakout Session 2"] }]);
-const terisi = isiPeranSesiEn([ilo, nancy, dua], "moderator", "Moderator");
-assert.equal(peranSesiUntukEn(terisi)[0].en, "Moderator");
-assert.equal(terisi[1], nancy, "pembicara tanpa peran itu tidak disalin");
-assert.equal(terisi[0].session_refs![0], ilo.session_refs![0], "entri lain tidak disentuh");
 
 // Mencentang sesi lain tidak menghapus peran sesi yang sudah ada.
 const lama = ilo.session_refs!;

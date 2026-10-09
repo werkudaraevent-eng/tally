@@ -56,25 +56,33 @@ export async function PATCH(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const client = getSupabaseServiceClient();
-  // Dibaca ulang tepat sebelum menulis: bisa saja editor Halaman acara baru
-  // menyimpan sejak permintaan ini dimuat.
-  const { data: terkini, error: galatBaca } = await client
-    .from("events")
-    .select("landing_config")
-    .eq("id", auth.scope.event.id)
-    .single();
-  if (galatBaca) return apiError("INTERNAL_ERROR", 500);
-  const landing = ((terkini as { landing_config?: EventLandingConfig } | null)?.landing_config ?? {}) as EventLandingConfig;
-
-  const { data, error } = await client
-    .from("events")
-    // Digabung, bukan diganti: kunci yang tidak dikirim layar ini (mis.
-    // show_roommates) tetap tersimpan.
-    .update({ landing_config: { ...landing, member: { ...(landing.member ?? {}), ...parsed.data } }, updated_at: new Date().toISOString() } as never)
-    .eq("id", auth.scope.event.id)
-    .select("landing_config")
-    .single();
-  if (error) return apiError("INTERNAL_ERROR", 500);
+  // Dibaca ulang tepat sebelum menulis, dan ditulis hanya kalau updated_at masih
+  // sama: editor Halaman acara dan halaman Speakers menulis kolom yang sama.
+  // Berubah di antaranya -> baca ulang, coba sekali lagi.
+  let landing: EventLandingConfig = {};
+  let data: unknown = null;
+  for (let percobaan = 0; ; percobaan++) {
+    const { data: terkini, error: galatBaca } = await client
+      .from("events")
+      .select("landing_config,updated_at")
+      .eq("id", auth.scope.event.id)
+      .single();
+    if (galatBaca || !terkini) return apiError("INTERNAL_ERROR", 500);
+    const baris = terkini as { landing_config?: EventLandingConfig | null; updated_at: string };
+    landing = (baris.landing_config ?? {}) as EventLandingConfig;
+    const hasil = await client
+      .from("events")
+      // Digabung, bukan diganti: kunci yang tidak dikirim layar ini (mis.
+      // show_roommates) tetap tersimpan.
+      .update({ landing_config: { ...landing, member: { ...(landing.member ?? {}), ...parsed.data } }, updated_at: new Date().toISOString() } as never)
+      .eq("id", auth.scope.event.id)
+      .eq("updated_at", baris.updated_at)
+      .select("landing_config")
+      .maybeSingle();
+    if (hasil.error) return apiError("INTERNAL_ERROR", 500);
+    if (hasil.data) { data = hasil.data; break; }
+    if (percobaan >= 1) return apiError("CONFLICT", 409);
+  }
 
   await client.from("audit_logs").insert({
     event_id: auth.scope.event.id,

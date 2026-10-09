@@ -24,20 +24,27 @@ import type { BarisSesi } from "./pilih-sesi";
  * - Tab sesi rundown: otomatis (moderator lebih dulu, urutan daftar) sampai
  *   admin memindah seseorang; sejak itu urutannya `pos` di entri sesi tiap
  *   pembicara, untuk tab itu saja, dan bisa dikembalikan ke otomatis.
- * - Sorotan, Pembicara lain, dan sesi teks lama: urutan daftar pembicara itu
- *   sendiri. Pembicara tab itu bertukar tempat di antara posisi mereka di daftar.
+ * - Sorotan dan Pembicara lain: urutan daftar pembicara itu sendiri.
+ *   Pembicara tab itu bertukar tempat di antara posisi mereka di daftar.
+ * - Tab sesi yang masih memuat sesi teks lama: tidak bisa diurutkan. Tab itu
+ *   menaruh moderator lebih dulu, jadi tukar posisi daftar tidak terlihat
+ *   (orangnya kembali ke tempatnya). Hubungkan dulu ke rundown.
+ *
+ * Menyeret dengan tetikus hanya mengubah urutan di layar; `onChange` dipanggil
+ * sekali saat dilepas. Setiap `onChange` di halaman Speakers adalah satu simpan,
+ * jadi satu gerakan = satu simpan.
  */
 
 type Bertanda = LandingSpeaker & { _i: number };
 
 /** Bingkai foto kecil, sama bentuknya dengan kartu di halaman acara. */
-const BINGKAI_KECIL: Record<LandingSpeakerFrame, string> = {
+export const BINGKAI_KECIL: Record<LandingSpeakerFrame, string> = {
   portrait: "aspect-[4/5] rounded-sm",
   circle: "aspect-square rounded-full",
   arch: "aspect-[4/5] rounded-b-sm [border-top-left-radius:50%_40%] [border-top-right-radius:50%_40%]",
 };
 
-function inisial(nama: string): string {
+export function inisial(nama: string): string {
   return nama
     .split(/\s+/)
     .filter((kata) => /^\p{L}/u.test(kata))
@@ -47,7 +54,7 @@ function inisial(nama: string): string {
 }
 
 /** Baris rundown di editor sebagai susunan acara, supaya tab di sini sama dengan tab di halaman. */
-function agendaDariBaris(baris: BarisSesi[] | null): AgendaPreview[] {
+export function agendaDariBaris(baris: BarisSesi[] | null): AgendaPreview[] {
   const bagian = new Map<string, AgendaPreview>();
   for (const item of baris ?? []) {
     const kunci = item.bagian ?? "";
@@ -69,6 +76,10 @@ export function UrutanPembicara({
   bingkai,
   onChange,
   onTab,
+  tab: tabTetap,
+  terpilih,
+  onPilih,
+  terkunci,
 }: {
   speakers: LandingSpeaker[];
   baris: BarisSesi[] | null;
@@ -76,13 +87,27 @@ export function UrutanPembicara({
   onChange: (next: LandingSpeaker[]) => void;
   /** Tab yang sedang diatur, supaya pratinjau membuka tab yang sama. */
   onTab?: (kunci: string) => void;
+  /**
+   * Halaman Speakers: tab dipilih di luar (tab halaman), jadi pilihan Tab di
+   * sini tidak tampil dan tab berisi satu orang pun ikut.
+   */
+  tab?: string;
+  /** Indeks daftar pembicara yang sedang dibuka di panel sunting. */
+  terpilih?: number | null;
+  /** Nama pembicara jadi tombol yang membukanya di panel sunting. */
+  onPilih?: (indeks: number) => void;
+  /** Alasan urutan belum bisa diubah (mis. ada suntingan yang belum disimpan). */
+  terkunci?: string | null;
 }) {
   const bertanda: Bertanda[] = speakers.map((speaker, index) => ({ ...speaker, _i: index }));
-  const tabs = speakerTabs(bertanda, agendaDariBaris(baris), { highlights: "Highlights", others: "Other speakers" }).filter((tab) => tab.speakers.length > 1);
-  const [kunci, setKunci] = useState<string | null>(null);
+  const tabs = speakerTabs(bertanda, agendaDariBaris(baris), { highlights: "Highlights", others: "Other speakers" }).filter((tab) => tabTetap !== undefined || tab.speakers.length > 1);
+  const [kunciPilihan, setKunci] = useState<string | null>(null);
+  const kunci = tabTetap ?? kunciPilihan;
   const panel = useRef<HTMLDivElement>(null);
   const [kabar, setKabar] = useState("");
-  const [seret, setSeret] = useState<number | null>(null);
+  // Seretan yang sedang berjalan: urutan sementara di layar dan posisi orang
+  // yang diseret di urutan itu. Disimpan sekali saat dilepas.
+  const [seret, setSeret] = useState<{ urutan: Bertanda[]; ke: number } | null>(null);
   const dasar = useId();
   const tab = tabs.find((item) => item.key === kunci) ?? tabs[0];
   if (!tab) return <p className="text-body-small text-on-surface-variant">Ordering appears once a tab has two or more speakers.</p>;
@@ -90,6 +115,12 @@ export function UrutanPembicara({
   const id = idSesi(tab);
   const sesiRundown = id !== null && orang.every((item) => speakers[item._i]?.session_refs?.some((ref) => ref.id === id));
   const khusus = sesiRundown && orang.some((item) => posisiDiSesi(speakers[item._i]!, id!) !== undefined);
+  // Tab sesi dengan sesi teks lama: urutannya tidak bisa diatur di sini.
+  const teksLama = tab.key.startsWith("sesi-") && !sesiRundown;
+  const kunciUrutan = teksLama
+    ? "This tab has speakers whose session is still old text. Link them to the agenda first to change the order here."
+    : terkunci ?? null;
+  const tampil = seret?.urutan ?? orang;
 
   function pilihTab(baru: string) {
     setKunci(baru);
@@ -111,6 +142,7 @@ export function UrutanPembicara({
   }
 
   function pindah(dari: number, ke: number, fokus: "pegangan" | "atas" | "bawah" | null = "pegangan") {
+    if (kunciUrutan) return;
     if (ke < 0 || ke >= orang.length || dari === ke) return;
     const urutan = [...orang];
     const [item] = urutan.splice(dari, 1);
@@ -140,55 +172,70 @@ export function UrutanPembicara({
 
   function lepas(event: DragEvent<HTMLLIElement>) {
     event.preventDefault();
+    if (!seret) return;
+    const { urutan, ke } = seret;
     setSeret(null);
+    if (kunciUrutan || urutan.every((item, k) => item._i === orang[k]?._i)) return;
+    terapkan(urutan);
+    setKabar(`${urutan[ke]!.name} moved to position ${ke + 1} of ${orang.length}.`);
   }
 
   return (
     <div ref={panel} className="flex flex-col gap-2">
-      <SelectMenu<string>
-        label="Tab"
-        width="100%"
-        value={tab.key}
-        onChange={pilihTab}
-        options={tabs.map((item) => ({ value: item.key, label: `${item.label} · ${item.speakers.length}` }))}
-      />
+      {tabTetap === undefined ? (
+        <SelectMenu<string>
+          label="Tab"
+          width="100%"
+          value={tab.key}
+          onChange={pilihTab}
+          options={tabs.map((item) => ({ value: item.key, label: `${item.label} · ${item.speakers.length}` }))}
+        />
+      ) : null}
       <div className="flex min-h-[30px] flex-wrap items-center gap-x-1 text-body-small text-on-surface-variant">
         {sesiRundown ? (
           khusus ? (
             <>
               <span>Order: custom ·</span>
-              <Button variant="text" size="sm" className="!min-h-[30px] !px-2" onClick={reset}>Reset to automatic</Button>
+              <Button variant="text" size="sm" className="!min-h-[30px] !px-2" onClick={() => { if (!kunciUrutan) reset(); }} aria-disabled={kunciUrutan ? true : undefined}>Reset to automatic</Button>
             </>
           ) : (
             <span>Order: automatic (moderator first)</span>
           )
+        ) : teksLama ? (
+          <span>Order: moderator first. Link the old sessions to the agenda to change it.</span>
         ) : (
-          <span>Order: same as the speaker list below</span>
+          <span>{tabTetap !== undefined ? "Order: same as the All tab" : "Order: same as the speaker list below"}</span>
         )}
       </div>
       <ol data-urutan={dasar} aria-label={`Order in the ${tab.label} tab, first is leftmost`} className="flex flex-col">
-        {orang.map((speaker, index) => {
+        {tampil.map((speaker, index) => {
           const pertama = index === 0;
-          const terakhir = index === orang.length - 1;
+          const terakhir = index === tampil.length - 1;
           const peran = speaker.role?.trim();
           return (
             <li
               key={speaker._i}
               onDragOver={(event) => {
-                if (seret === null) return;
+                if (!seret) return;
                 event.preventDefault();
-                if (seret !== index) {
-                  pindah(seret, index, null);
-                  setSeret(index);
-                }
+                if (seret.ke === index) return;
+                // Hanya urutan di layar; disimpan sekali di onDrop.
+                const urutan = [...seret.urutan];
+                const [item] = urutan.splice(seret.ke, 1);
+                urutan.splice(index, 0, item!);
+                setSeret({ urutan, ke: index });
               }}
+              // dragenter juga harus dibatalkan, bukan hanya dragover: tanpa ini
+              // pelepasan cepat setelah gerakan terakhir tidak menjadi drop.
+              onDragEnter={(event) => { if (seret) event.preventDefault(); }}
               onDrop={lepas}
-              className={cx("flex min-h-12 items-center gap-2 border-b border-outline-variant py-1 last:border-b-0", seret === index && "opacity-60")}
+              className={cx("flex min-h-12 items-center gap-2 border-b border-outline-variant py-1 last:border-b-0", seret?.ke === index && "opacity-60", onPilih && "px-2", terpilih === speaker._i && "bg-secondary-container")}
             >
               <button
                 type="button"
                 data-fokus="pegangan"
-                draggable
+                draggable={!kunciUrutan}
+                aria-disabled={kunciUrutan ? true : undefined}
                 aria-label={`Reorder ${speaker.name}, position ${index + 1} of ${orang.length}`}
                 aria-describedby={`${dasar}-petunjuk`}
                 title="Drag to reorder, or use the arrow keys"
@@ -198,14 +245,16 @@ export function UrutanPembicara({
                   pindah(index, index + (event.key === "ArrowUp" ? -1 : 1));
                 }}
                 onDragStart={(event) => {
+                  if (kunciUrutan) { event.preventDefault(); return; }
                   event.dataTransfer.effectAllowed = "move";
                   event.dataTransfer.setData("text/plain", String(speaker._i));
                   const baris = event.currentTarget.closest("li");
                   if (baris) event.dataTransfer.setDragImage(baris, 24, 20);
-                  setSeret(index);
+                  setSeret({ urutan: [...orang], ke: index });
                 }}
+                // Dilepas di luar daftar (atau Esc): batal, urutan kembali.
                 onDragEnd={() => setSeret(null)}
-                className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-md text-on-surface-variant hover:bg-primary-soft hover:text-on-surface active:cursor-grabbing pointer-coarse:hidden"
+                className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-md text-on-surface-variant hover:bg-primary-soft hover:text-on-surface active:cursor-grabbing aria-disabled:cursor-default aria-disabled:opacity-40 aria-disabled:hover:bg-transparent pointer-coarse:hidden"
               >
                 <DotsSixVertical size={18} weight="bold" aria-hidden />
               </button>
@@ -219,7 +268,13 @@ export function UrutanPembicara({
                 )}
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-body-medium text-on-surface">{speaker.name}</span>
+                {onPilih ? (
+                  <button type="button" onClick={() => onPilih(speaker._i)} aria-current={terpilih === speaker._i ? "true" : undefined} className="truncate text-left text-body-medium font-medium text-on-surface hover:underline">
+                    {speaker.name}
+                  </button>
+                ) : (
+                  <span className="truncate text-body-medium text-on-surface">{speaker.name}</span>
+                )}
                 {peran ? <span className="truncate text-body-small text-on-surface-variant">{peran}</span> : null}
               </span>
               <span className="hidden shrink-0 gap-1 pointer-coarse:flex">
@@ -227,7 +282,7 @@ export function UrutanPembicara({
                   size="sm"
                   data-fokus="atas"
                   label={`Move ${speaker.name} up, position ${index + 1} of ${orang.length}`}
-                  aria-disabled={pertama || undefined}
+                  aria-disabled={pertama || Boolean(kunciUrutan) || undefined}
                   className="!size-12 aria-disabled:cursor-default aria-disabled:opacity-40"
                   onClick={() => (pertama ? undefined : pindah(index, index - 1, index - 1 === 0 ? "bawah" : "atas"))}
                 >
@@ -237,7 +292,7 @@ export function UrutanPembicara({
                   size="sm"
                   data-fokus="bawah"
                   label={`Move ${speaker.name} down, position ${index + 1} of ${orang.length}`}
-                  aria-disabled={terakhir || undefined}
+                  aria-disabled={terakhir || Boolean(kunciUrutan) || undefined}
                   className="!size-12 aria-disabled:cursor-default aria-disabled:opacity-40"
                   onClick={() => (terakhir ? undefined : pindah(index, index + 1, index + 1 === orang.length - 1 ? "atas" : "bawah"))}
                 >
@@ -248,13 +303,18 @@ export function UrutanPembicara({
           );
         })}
       </ol>
+      {kunciUrutan ? <p className="text-body-small text-on-surface-variant" role="status">{kunciUrutan}</p> : null}
       <p className="text-body-small text-on-surface-variant">
         1 is leftmost on the page.{" "}
         {sesiRundown
           ? khusus
             ? `This order applies to the ${tab.label} tab only. New speakers in this tab are added at the end.`
             : `Moving someone makes a custom order for the ${tab.label} tab only.`
-          : "Changing this order also changes the speaker list below, which sets the automatic order inside session tabs."}
+          : teksLama
+            ? ""
+            : tabTetap !== undefined
+            ? "Changing this order also changes the order in the All tab, which sets the automatic order inside session tabs."
+            : "Changing this order also changes the speaker list below, which sets the automatic order inside session tabs."}
       </p>
       <span id={`${dasar}-petunjuk`} hidden>Use the up and down arrow keys to move this speaker. Position 1 is leftmost on the event page.</span>
       <p role="status" className="sr-only">{kabar}</p>

@@ -81,7 +81,9 @@ export async function renderPratinjau(
   const draft: EventRow = {
     ...event,
     ...facts,
-    landing_config: { ...landing, theme: landing.theme ? withDerivedRoles(landing.theme) : undefined },
+    // Pembicara selalu dari salinan tersimpan: disunting dan disimpan di
+    // halaman Speakers, bukan di draf editor ini.
+    landing_config: { ...landing, speakers: event.landing_config?.speakers, theme: landing.theme ? withDerivedRoles(landing.theme) : undefined },
   } as EventRow;
   // Bahasa mengikuti mode editor, bukan bahasa utama: mode ID menyunting teks
   // Indonesia, mode EN teks English. Draf yang baru berganti dari Forum ke tata

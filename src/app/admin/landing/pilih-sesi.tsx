@@ -138,6 +138,10 @@ export function PilihSesi({ speaker, speakers, baris, memuat, onChange, onMuatUl
   // Sesi teks lama yang belum terhubung (petakanSesiLama sudah menghubungkan
   // yang cocok dengan tepat satu baris).
   const lama = !sesiDariRundown(speaker) ? speaker.session?.trim() : undefined;
+  // Halaman acara mencocokkan teks lama ke awal judul rundown saat tampil. Tepat
+  // satu baris cocok: foto dan jam sudah tampil, jadi bukan peringatan.
+  const cocokLama = lama && baris ? baris.filter((item) => cocokSesi(lama, item.title)) : [];
+  const lamaCocok = cocokLama.length === 1 ? cocokLama[0]! : null;
 
   // Yang hilang dari rundown lebih dulu, dengan label terakhirnya; sisanya urut
   // rundown. Selama rundown gagal dimuat, urut tersimpan.
@@ -270,13 +274,18 @@ export function PilihSesi({ speaker, speakers, baris, memuat, onChange, onMuatUl
 
   const ringkasan = terpilih.length
     ? `${terpilih.length} selected. Add session`
-    : lama ? `Old session "${lama}", not linked to the agenda` : baris === null ? (memuat ? "Loading agenda" : "Agenda failed to load") : dikenal.length === 0 ? "No published sessions yet" : "Add session";
+    : lama ? (lamaCocok ? `Old session "${lama}", shown with ${lamaCocok.title}` : `Old session "${lama}", not linked to the agenda`) : baris === null ? (memuat ? "Loading agenda" : "Agenda failed to load") : dikenal.length === 0 ? "No published sessions yet" : "Add session";
   const aktif = menu.open && pilihan.length ? pilihan[Math.min(sorot, pilihan.length - 1)] : undefined;
   const galat = hilang.length ? `${hilang.length === 1 ? "1 session is" : `${hilang.length} sessions are`} no longer shown in the agenda: deleted, unpublished, or turned into a break. Pick again or remove.` : null;
   // Teks lama hanya peringatan, dan hanya bila rundown sudah dimuat dan ada
   // sesi yang bisa dipilih: tanpa sesi terbit, tidak ada yang bisa dicocokkan.
-  const peringatan = !galat && lama && baris && dikenal.length > 0 ? "This old session doesn't match one agenda row. Pick its row so the photo and time show." : null;
-  const pesan = galat ?? peringatan;
+  const peringatan = !galat && lama && !lamaCocok && baris && dikenal.length > 0
+    ? cocokLama.length > 1
+      ? "This old session matches more than one agenda row. Pick the right row."
+      : "This old session doesn't match an agenda row. Pick its row so the photo and time show."
+    : null;
+  const catatanLama = !galat && lamaCocok ? `Matched to "${lamaCocok.title}" by name. Pick that row to keep the link if the title changes.` : null;
+  const pesan = galat ?? peringatan ?? catatanLama;
   const utama = speaker.role?.trim();
 
   return (
@@ -319,10 +328,12 @@ export function PilihSesi({ speaker, speakers, baris, memuat, onChange, onMuatUl
         <ul ref={daftarRef} aria-label={`Sessions of ${nama}`} className="mt-2 overflow-hidden rounded-lg border border-outline-variant">
           {lama ? (
             <li className="flex items-start gap-3 py-1.5 pl-3 pr-1">
-              <WarningCircle size={16} weight="fill" className={cx("mt-2.5 shrink-0", baris ? "text-warning" : "text-on-surface-variant")} aria-hidden />
+              <WarningCircle size={16} weight="fill" className={cx("mt-2.5 shrink-0", baris && !lamaCocok ? "text-warning" : "text-on-surface-variant")} aria-hidden />
               <div className="min-w-0 flex-1 py-2">
                 <p className="break-words text-body-medium text-on-surface">{lama}</p>
-                <p className={cx("text-body-small", baris ? "font-medium text-warning" : "text-on-surface-variant")}>{baris ? "Old session, not linked to the agenda" : "Old session"}</p>
+                <p className={cx("text-body-small", baris && !lamaCocok ? "font-medium text-warning" : "text-on-surface-variant")}>
+                  {!baris ? "Old session" : lamaCocok ? "Old session, matched to the agenda by name" : "Old session, not linked to the agenda"}
+                </p>
               </div>
               <IconButton size="sm" data-lepas label={`Remove old session "${lama}" from ${nama}`} onClick={lepasLama}>
                 <X size={16} />
@@ -365,7 +376,7 @@ export function PilihSesi({ speaker, speakers, baris, memuat, onChange, onMuatUl
         role={galat && diubah ? "alert" : undefined}
         className={cx("mt-2 flex items-start gap-1.5 text-body-small", galat ? "font-medium text-error" : peringatan ? "font-medium text-warning" : "text-on-surface-variant")}
       >
-        {pesan ? <WarningCircle size={16} weight="fill" className="mt-px shrink-0" aria-hidden /> : null}
+        {galat || peringatan ? <WarningCircle size={16} weight="fill" className="mt-px shrink-0" aria-hidden /> : null}
         {pesan ??
           (baris === null
             ? memuat ? "Loading agenda…" : "Agenda failed to load. Sessions already picked stay saved."
@@ -445,10 +456,14 @@ const SARAN_MAKS = 8;
  * keluar kolom menyimpan persis yang diketik; Esc menutup saran dan teksnya
  * tetap. Kosong berarti peran utama, yang disebut di placeholder.
  */
-function KolomPeran({ label, value, utama, speakers, onChange }: {
+export function KolomPeran({ label, value, utama, speakers, onChange, placeholder, labelledBy }: {
   label: string;
   value: string;
   utama: string | undefined;
+  /** Bawaan: peran utama, atau "No role". */
+  placeholder?: string;
+  /** Id label yang tampil di atas kolom; tanpa ini `label` jadi aria-label. */
+  labelledBy?: string;
   speakers: LandingSpeaker[];
   onChange: (role: string, en?: string) => void;
 }) {
@@ -501,7 +516,8 @@ function KolomPeran({ label, value, utama, speakers, onChange }: {
         ref={setInput}
         type="text"
         role="combobox"
-        aria-label={label}
+        aria-label={labelledBy ? undefined : label}
+        aria-labelledby={labelledBy}
         aria-autocomplete="list"
         aria-expanded={terbuka}
         aria-controls={terbuka ? `${id}-saran` : undefined}
@@ -509,7 +525,7 @@ function KolomPeran({ label, value, utama, speakers, onChange }: {
         autoComplete="off"
         maxLength={60}
         value={value}
-        placeholder={utama ? `${utama} (main role)` : "No role"}
+        placeholder={placeholder ?? (utama ? `${utama} (main role)` : "No role")}
         onChange={(peristiwa) => {
           onChange(peristiwa.target.value);
           setSorot(-1);

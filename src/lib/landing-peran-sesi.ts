@@ -194,18 +194,6 @@ export function peranSesiUntukEn(speakers: LandingSpeaker[] | undefined): PeranS
   return [...peta.entries()].map(([kunci, { teks, en, sesi }]) => ({ kunci, teks, en: en.size === 1 ? [...en][0] || undefined : undefined, sesi }));
 }
 
-/** Versi English satu peran sesi ditulis ke semua entri yang perannya sama. */
-export function isiPeranSesiEn(speakers: LandingSpeaker[], kunci: string, en: string): LandingSpeaker[] {
-  return speakers.map((speaker) =>
-    speaker.session_refs?.some((ref) => ref.role?.trim() && kunciPeran(ref.role) === kunci)
-      ? {
-          ...speaker,
-          session_refs: speaker.session_refs.map((ref) => (ref.role?.trim() && kunciPeran(ref.role) === kunci ? { ...ref, en: { ...ref.en, role: en } } : ref)),
-        }
-      : speaker,
-  );
-}
-
 /**
  * Entri sesi baru setelah mencentang atau melepas: `dipilih` dalam urutan
  * rundown dengan label terkini, digabung dengan entri lamanya supaya peran

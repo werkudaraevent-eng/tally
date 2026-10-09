@@ -72,15 +72,15 @@ import { plural } from "@/lib/plural";
 import { BlockEditor, butirBerlebih, isianButirTampil, kolomBlokTampil, labelIsianButir, labelKolomBlok, namaButirBlok, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok, type KolomButir } from "./blocks";
 import { ForumSusunan, forumTautanSalah, halamanBagianForum } from "./forum-editor";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
-import { BentukBingkai, UrutanPembicara } from "./urutan-pembicara";
+import { BentukBingkai } from "./urutan-pembicara";
 import { pakaiPreset } from "./theme-presets";
 import { TabTema } from "./theme-tab";
 import { LANDING_THEME_PRESETS } from "@/lib/landing-theme-presets";
 import { BagianEn, BlockEditorEn, kartuRundownId, labelIsianButirEn, labelKolomBlokEn, namaButirBlokEn, rundownBelumDiterjemahkan, type BarisRundownEn } from "./editor-en";
-import { barisSesiDariAdmin, petakanSesiLama, PilihSesi, sesiHilang, urutRundown, type BarisSesi, type HasilPetakan } from "./pilih-sesi";
+import { barisSesiDariAdmin, sesiHilang, urutRundown, type BarisSesi } from "./pilih-sesi";
 import { formatClock, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { LANDING_UI, landingEyebrowShown, landingUntranslated } from "@/lib/landing-i18n";
-import { sesiDariRundown } from "@/lib/landing-speaker-tabs";
+import { cocokSesi, sesiDariRundown } from "@/lib/landing-speaker-tabs";
 
 // Supporting pane: halaman publik yang sungguhan di panel utama, setelannya di
 // panel kanan. Pratinjau hanya menampilkan versi tersimpan (lihat LandingPreview),
@@ -504,18 +504,13 @@ export default function LandingCmsPage() {
   // null: rundown gagal dimuat, beda dengan rundown tanpa sesi.
   const [rundownEn, setRundownEn] = useState<BarisRundownEn[] | null>([]);
   const [rundownEnTersimpan, setRundownEnTersimpan] = useState<BarisRundownEn[]>([]);
-  // Baris rundown yang bisa dipilih sebagai sesi pembicara. null = belum ada
-  // atau gagal dimuat (lihat sesiMemuat): pilihan tersimpan tidak disentuh.
+  // Baris rundown sesi pembicara. null = belum ada atau gagal dimuat.
   const [barisSesi, setBarisSesi] = useState<BarisSesi[] | null>(null);
-  // Tab yang sedang diurutkan di "Order on the page": pratinjau membuka tab yang sama.
-  const [tabPembicara, setTabPembicara] = useState<string | null>(null);
-  /** Rundown gagal dimuat saat editor dibuka: pemetaan sesi lama menunggu muat ulang yang berhasil. */
-  const petakanTertunda = useRef(false);
+  /** Rundown gagal dimuat saat editor dibuka: terjemahan rundown menunggu muat ulang yang berhasil. */
+  const rundownTertunda = useRef(false);
   const terkini = useRef<{ facts: Facts | null; landing: EventLandingConfig; formInherit: boolean; formSeed: string; tersimpan: string | null }>({
     facts: null, landing: {}, formInherit: true, formSeed: DEFAULT_REGISTRATION_SEED, tersimpan: null,
   });
-  const [sesiMemuat, setSesiMemuat] = useState(true);
-  const [hasilPetakan, setHasilPetakan] = useState<HasilPetakan | null>(null);
   const [tambahTerbuka, setTambahTerbuka] = useState(false);
   // Baris tersembunyi tetap di tempatnya; penyaring ini hanya menyembunyikannya dari daftar.
   const [tampilTersembunyi, setTampilTersembunyi] = useState(true);
@@ -553,8 +548,9 @@ export default function LandingCmsPage() {
   // berubah di sana. Menyegarkannya di setiap ketikan berarti memuat ulang satu
   // halaman penuh berkali-kali per detik.
   const [previewKey, setPreviewKey] = useState(0);
-  // Potret terakhir rundown admin dan `landing_config.member`; null = belum ada.
-  const jejakLuar = useRef<{ rundown: string | null; member: string | null }>({ rundown: null, member: null });
+  // Potret terakhir rundown admin, `landing_config.member`, dan
+  // `landing_config.speakers` (halaman Speakers); null = belum ada.
+  const jejakLuar = useRef<{ rundown: string | null; member: string | null; speakers: string | null }>({ rundown: null, member: null, speakers: null });
   // Warna formulir disimpan di kolom lain (`registration_form_config.theme`),
   // jadi ia punya keadaan sendiri di layar ini alih-alih ikut `landing`.
   const [formInherit, setFormInherit] = useState(true);
@@ -594,7 +590,7 @@ export default function LandingCmsPage() {
     setFormSeed(nextSeed);
     setTersimpan(JSON.stringify({ facts: found, landing: nextLanding, formInherit: nextInherit, formSeed: nextSeed }));
     setError("");
-    jejakLuar.current = { rundown: null, member: JSON.stringify(nextLanding.member ?? null) };
+    jejakLuar.current = { rundown: null, member: JSON.stringify(nextLanding.member ?? null), speakers: JSON.stringify(nextLanding.speakers ?? null) };
     // Baris yang sama dengan yang dibaca halaman acara (loadAgendaPreview):
     // baris berjudul yang bagian dan barisnya diterbitkan, urut bagian lalu
     // urutan baris.
@@ -613,24 +609,13 @@ export default function LandingCmsPage() {
       setRundownEn(null);
       setRundownEnTersimpan([]);
       setBarisSesi(null);
-      petakanTertunda.current = true;
+      rundownTertunda.current = true;
     } else {
       const baris = barisRundownEnDariAdmin(isiAdmin);
       setRundownEn(baris);
       setRundownEnTersimpan(baris);
-      // Sesi teks lama dihubungkan ke baris rundown begitu barisnya diketahui.
-      // Ikut dicatat sebagai tersimpan: halaman acara sudah menampilkan baris
-      // yang sama persis, jadi ini bukan perubahan yang perlu ditekan Simpan.
-      const sesi = barisSesiDariAdmin(isiAdmin);
-      setBarisSesi(sesi);
-      const { landing: terpetakan, hasil } = petakanSesiLama(nextLanding, sesi);
-      setHasilPetakan(hasil.terhubung || hasil.perluDipilih ? hasil : null);
-      if (terpetakan !== nextLanding) {
-        setLanding(terpetakan);
-        setTersimpan(JSON.stringify({ facts: found, landing: terpetakan, formInherit: nextInherit, formSeed: nextSeed }));
-      }
+      setBarisSesi(barisSesiDariAdmin(isiAdmin));
     }
-    setSesiMemuat(false);
   }, []);
 
   const segarkanPratinjau = useCallback(async (rundown: string) => {
@@ -640,17 +625,23 @@ export default function LandingCmsPage() {
     const found = ((body?.events ?? []) as { slug: string; landing_config?: EventLandingConfig }[]).find((item) => item.slug === slug);
     const jejak = jejakLuar.current;
     const memberBaru = found ? JSON.stringify(found.landing_config?.member ?? null) : jejak.member;
-    const berganti = (jejak.rundown !== null && jejak.rundown !== rundown) || (jejak.member !== null && jejak.member !== memberBaru);
-    jejakLuar.current = { rundown, member: memberBaru };
-    if (found && memberBaru !== jejak.member) {
-      // Disimpan di /admin/area-peserta, bukan dari editor ini (Save memakai
-      // salinan server), jadi ikut dicatat tersimpan: bukan suntingan.
-      const member = found.landing_config?.member;
-      setLanding((prev) => ({ ...prev, member }));
+    const speakersBaru = found ? JSON.stringify(found.landing_config?.speakers ?? null) : jejak.speakers;
+    const berganti =
+      (jejak.rundown !== null && jejak.rundown !== rundown) ||
+      (jejak.member !== null && jejak.member !== memberBaru) ||
+      (jejak.speakers !== null && jejak.speakers !== speakersBaru);
+    jejakLuar.current = { rundown, member: memberBaru, speakers: speakersBaru };
+    // Disimpan di /admin/area-peserta dan /admin/speakers, bukan dari editor ini
+    // (Save memakai salinan server), jadi ikut dicatat tersimpan: bukan suntingan.
+    const luar: Partial<EventLandingConfig> = {};
+    if (found && memberBaru !== jejak.member) luar.member = found.landing_config?.member;
+    if (found && speakersBaru !== jejak.speakers) luar.speakers = found.landing_config?.speakers;
+    if (Object.keys(luar).length) {
+      setLanding((prev) => ({ ...prev, ...luar }));
       const kini = terkini.current;
       if (kini.tersimpan) {
         const lama = JSON.parse(kini.tersimpan) as { landing: EventLandingConfig };
-        lama.landing = { ...lama.landing, member };
+        lama.landing = { ...lama.landing, ...luar };
         setTersimpan(JSON.stringify(lama));
       }
     }
@@ -670,30 +661,15 @@ export default function LandingCmsPage() {
     // ulang, dan pratinjau dimuat ulang bila salah satunya berubah.
     setIsiRundown(statusRundown(isiAdmin));
     await segarkanPratinjau(JSON.stringify(isiAdmin));
-    // Rundown gagal dimuat saat editor dibuka: sesi teks lama dihubungkan
-    // sekarang, sekali, sama dengan saat memuat. Tercatat tersimpan hanya bila
-    // belum ada suntingan, supaya suntingan yang belum disimpan tetap terlihat.
-    if (!petakanTertunda.current) return;
-    petakanTertunda.current = false;
+    // Rundown gagal dimuat saat editor dibuka: terjemahannya dimuat sekarang, sekali.
+    if (!rundownTertunda.current) return;
+    rundownTertunda.current = false;
     // Hanya di sini, sekali: muat ulang karena fokus jendela tidak boleh
     // menimpa terjemahan rundown yang sedang disunting.
     const en = barisRundownEnDariAdmin(isiAdmin);
     setRundownEn(en);
     setRundownEnTersimpan(en);
     setIsiRundown(statusRundown(isiAdmin));
-    const kini = terkini.current;
-    const { landing: terpetakan, hasil } = petakanSesiLama(kini.landing, sesi);
-    setHasilPetakan(hasil.terhubung || hasil.perluDipilih ? hasil : null);
-    if (terpetakan === kini.landing) return;
-    setLanding(terpetakan);
-    // Pemetaan yang sama diterapkan pada salinan tersimpan, supaya hubungan
-    // otomatis tidak terhitung suntingan: membatalkan semua suntingan kembali
-    // ke "Tersimpan".
-    if (kini.tersimpan) {
-      const tersimpanLama = JSON.parse(kini.tersimpan) as { landing: EventLandingConfig };
-      tersimpanLama.landing = petakanSesiLama(tersimpanLama.landing, sesi).landing;
-      setTersimpan(JSON.stringify(tersimpanLama));
-    }
   }, [segarkanPratinjau]);
   useEffect(() => {
     // Fokus bisa datang beruntun (pindah jendela bolak-balik): ditunggu sebentar,
@@ -832,9 +808,16 @@ export default function LandingCmsPage() {
     patchFacts(fakta);
     // Kunci yang tidak ada di berkas (gambar sampul, warna, dsb.) tetap memakai
     // isi yang sekarang, jadi berkas tanpa gambar tidak menghapus gambar yang ada.
-    setLanding((current) => (barisSesi ? petakanSesiLama({ ...current, ...isi.landing }, barisSesi).landing : { ...current, ...isi.landing }));
+    // Pembicara tidak ikut: disimpan di halaman Speakers, bukan dengan Simpan di sini.
+    const { speakers: _pembicara, ...isiLanding } = isi.landing ?? {};
+    void _pembicara;
+    setLanding((current) => ({ ...current, ...isiLanding }));
     setBagian("susunan");
-    toast.success("Content imported", "Check the content, then select Save. Reload the page to discard it.");
+    const adaPembicara = Array.isArray(_pembicara) && _pembicara.length > 0;
+    toast.success(
+      "Content imported",
+      `Check the content, then select Save. Reload the page to discard it.${adaPembicara ? " Speakers in the file were not imported: they are edited on the Speakers page." : ""}`,
+    );
   }
 
   /**
@@ -910,11 +893,6 @@ export default function LandingCmsPage() {
     const tanyaKosong = (landing.faq ?? []).findIndex((item) => !item.q.trim() || !item.a.trim());
     if (tanyaKosong >= 0) {
       toast.error("FAQ incomplete", `Question ${tanyaKosong + 1}: fill in the question and the answer, or delete the question.`);
-      return;
-    }
-    const pembicaraKosong = (landing.speakers ?? []).findIndex((item) => !item.name.trim());
-    if (pembicaraKosong >= 0) {
-      toast.error("Speakers incomplete", `Speaker ${pembicaraKosong + 1}: fill in the name, or delete the row.`);
       return;
     }
     const blokSalah = sections.findIndex((section) => {
@@ -1083,7 +1061,13 @@ export default function LandingCmsPage() {
   // terhubung: ditandai titik di baris Pembicara. Selama rundown belum dimuat
   // (atau gagal) teks lama tidak dihitung: cocok tidaknya belum diketahui.
   const sesiLamaBelumTerhubung =
-    barisSesi === null ? 0 : (landing.speakers ?? []).filter((speaker) => speaker.name?.trim() && !sesiDariRundown(speaker) && !!speaker.session?.trim()).length;
+    barisSesi === null
+      ? 0
+      // Teks lama yang cocok dengan tepat satu baris sudah tampil dengan foto dan jamnya.
+      : (landing.speakers ?? []).filter((speaker) => {
+          const label = speaker.name?.trim() && !sesiDariRundown(speaker) ? speaker.session?.trim() : undefined;
+          return !!label && barisSesi.filter((item) => cocokSesi(label, item.title)).length !== 1;
+        }).length;
   const sesiPerluDipilih =
     (landing.speakers ?? []).filter((speaker) => speaker.name?.trim() && sesiHilang(speaker, barisSesi).length > 0).length + sesiLamaBelumTerhubung;
   const catatanProgram = landing.program_notes ?? [];
@@ -2150,19 +2134,24 @@ export default function LandingCmsPage() {
         );
       }
       case "speakers": {
+        // Orangnya (foto, jabatan, sesi, urutan per tab) disunting di halaman
+        // Speakers: 24 kartu bertumpuk tidak muat di panel ini. Di sini tinggal
+        // setelan tampilan bagian ini.
         const list = landing.speakers ?? [];
-        const setList = (next: typeof list) => setLanding({ ...landing, speakers: next });
-        const ubah = (index: number, patch: Partial<(typeof list)[number]>) => {
-          const next = [...list];
-          next[index] = { ...next[index], ...patch };
-          setList(next);
-        };
         return (
           <div className="flex flex-col gap-3">
             <p className="text-body-medium text-on-surface-variant">
-              Featured speakers (up to 8) open first in the Highlights tab. Without any featured speaker, the first session tab opens. The rest open per session through the tabs. Without a photo, initials are used.
+              {pembicaraIsi.length
+                ? `${plural(pembicaraIsi.length, "speaker")}${sesiPerluDipilih > 0 ? `, ${sesiPerluDipilih} with a session to choose again` : ""}. People, photos, sessions and their order per tab are edited on the Speakers page. The preview updates when you come back to this tab.`
+                : "No speakers yet. Add them on the Speakers page. The preview updates when you come back to this tab."}
             </p>
-            {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">No speakers yet.</p> : null}
+            <div>
+              {facts ? (
+                <ButtonLink href={`/e/${facts.slug}/admin/speakers`} target="_blank" rel="noreferrer" variant="outlined" size="sm" icon={<ArrowSquareOut size={16} />}>
+                  {pembicaraIsi.length ? `Manage speakers (${pembicaraIsi.length})` : "Add speakers"}
+                </ButtonLink>
+              ) : null}
+            </div>
             {list.length > 0 ? (
               <div className="flex flex-col gap-2">
                 <p id="label-bingkai-foto" className="text-body-medium font-medium text-on-surface">Photo frame</p>
@@ -2183,90 +2172,6 @@ export default function LandingCmsPage() {
                 </p>
               </div>
             ) : null}
-            {list.filter((speaker) => speaker.name?.trim()).length > 1 ? (
-              <div className="flex flex-col gap-2 border-t border-outline-variant pt-3">
-                <p className="text-body-medium font-medium text-on-surface">Order on the page</p>
-                <UrutanPembicara speakers={list} baris={barisSesi} bingkai={modern ? landing.speaker_frame ?? "portrait" : "portrait"} onChange={setList} onTab={setTabPembicara} />
-              </div>
-            ) : null}
-            {hasilPetakan?.terhubung || sesiLamaBelumTerhubung ? (
-              <p className="rounded-md bg-surface-container-high px-3 py-2 text-body-small text-on-surface" role="status">
-                {[
-                  hasilPetakan?.terhubung ? `${plural(hasilPetakan.terhubung, "speaker")} linked to the agenda automatically` : null,
-                  sesiLamaBelumTerhubung ? `${plural(sesiLamaBelumTerhubung, "speaker")} still need a session chosen` : null,
-                ].filter(Boolean).join(", ")}.
-              </p>
-            ) : null}
-            {list.map((speaker, index) => (
-              <div key={index} className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
-                <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                  <ImageUploadField
-                    label={speaker.name.trim() ? `Photo · ${speaker.name.trim()}` : "Speaker photo"}
-                    kind="landing"
-                    fit="cover"
-                    previewClassName="size-16 rounded-full"
-                    hint="Square, at least 400×400."
-                    value={speaker.photo_url ?? null}
-                    disabled={busy}
-                    onChange={(url) => ubah(index, { photo_url: url })}
-                  />
-                  </div>
-                  <IconButton size="sm" label={`Delete speaker ${index + 1}`} className="text-error" onClick={() => setList(list.filter((_, position) => position !== index))}>
-                    <Trash size={16} />
-                  </IconButton>
-                </div>
-                <TextField label="Name" value={speaker.name} onChange={(event) => ubah(index, { name: event.target.value })} />
-                <TextField
-                  label="Job title"
-                  optional
-                  placeholder="e.g. Direktur Utama"
-                  value={speaker.title ?? ""}
-                  onChange={(event) => ubah(index, { title: event.target.value })}
-                />
-                <TextField
-                  label="Organisation"
-                  optional
-                  placeholder="e.g. Bank Indonesia"
-                  hint="Shown below the job title, in the primary colour."
-                  value={speaker.company ?? ""}
-                  onChange={(event) => ubah(index, { company: event.target.value })}
-                />
-                <TextField
-                  label="Role"
-                  optional
-                  placeholder="e.g. Moderator"
-                  hint="Main role. Used in Highlights and in sessions without their own role."
-                  value={speaker.role ?? ""}
-                  onChange={(event) => ubah(index, { role: event.target.value })}
-                />
-                <PilihSesi
-                  speaker={speaker}
-                  speakers={list}
-                  baris={barisSesi}
-                  memuat={sesiMemuat}
-                  onMuatUlang={() => void muatBarisSesi()}
-                  onChange={(next) => { const daftar = [...list]; daftar[index] = next; setList(daftar); }}
-                />
-                <Switch
-                  checked={Boolean(speaker.featured)}
-                  onChange={(value) => ubah(index, { featured: value })}
-                  label="Feature this speaker"
-                  description="Goes in the Highlights tab (up to 8), for officials giving remarks or keynote speakers."
-                />
-                <div className="flex gap-1">
-                  <IconButton size="sm" label={`Move speaker ${index + 1} up`} disabled={index === 0} onClick={() => { const next = [...list]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setList(next); }}>
-                    <ArrowUp size={16} />
-                  </IconButton>
-                  <IconButton size="sm" label={`Move speaker ${index + 1} down`} disabled={index === list.length - 1} onClick={() => { const next = [...list]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; setList(next); }}>
-                    <ArrowDown size={16} />
-                  </IconButton>
-                </div>
-              </div>
-            ))}
-            <div>
-              <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setList([...list, { name: "" }])}>Add speaker</Button>
-            </div>
             {judulBagian(
               "speakers",
               lembaga >= 3
@@ -3092,7 +2997,6 @@ export default function LandingCmsPage() {
               slug={facts.slug}
               reloadKey={previewKey}
               sorot={sorot}
-              tabPembicara={tabPembicara}
               draf={drafPratinjau}
               halaman={forum ? halamanPratinjau : null}
               onHalaman={setHalamanPratinjau}
