@@ -83,10 +83,19 @@ function pasangUlang(draf: LandingSpeaker, asli: LandingSpeaker, terbaru: Landin
     const hasil: Record<string, unknown> = { ...t };
     for (const kunci of new Set([...Object.keys(d), ...Object.keys(a)])) {
       if (!awalan && kunci === "en") continue;
-      if (samaJson(d[kunci], a[kunci])) continue;
-      if (!samaJson(t[kunci], a[kunci]) && !samaJson(t[kunci], d[kunci])) bentrok.push(`${awalan}${kunci}`);
+      const sama = (x: unknown, y: unknown) => (kunci === "session_refs" ? samaJson(tanpaPos(x), tanpaPos(y)) : samaJson(x, y));
+      if (sama(d[kunci], a[kunci])) continue;
+      if (!sama(t[kunci], a[kunci]) && !sama(t[kunci], d[kunci])) bentrok.push(`${awalan}${kunci}`);
       if (d[kunci] === undefined) delete hasil[kunci];
-      else hasil[kunci] = d[kunci];
+      else if (kunci === "session_refs" && Array.isArray(d[kunci])) {
+        // Sesi dari layar ini, urutan tab (`pos`) dari versi terbaru.
+        const posTerbaru = new Map((terbaru.session_refs ?? []).map((ref) => [ref.id, ref.pos]));
+        hasil[kunci] = (d[kunci] as NonNullable<LandingSpeaker["session_refs"]>).map(({ pos: _pos, ...ref }) => {
+          void _pos;
+          const pos = posTerbaru.get(ref.id);
+          return pos === undefined ? ref : { ...ref, pos };
+        });
+      } else hasil[kunci] = d[kunci];
     }
     return hasil;
   };
@@ -97,13 +106,21 @@ function pasangUlang(draf: LandingSpeaker, asli: LandingSpeaker, terbaru: Landin
   return { hasil, bentrok };
 }
 
+/**
+ * Sesi tanpa `pos`: satu geseran di tab sesi menulis ulang `pos` semua orang di
+ * tab itu, dan itu bukan perubahan orangnya.
+ */
+function tanpaPos(nilai: unknown): unknown {
+  return Array.isArray(nilai) ? nilai.map((ref) => (ref && typeof ref === "object" ? { ...ref, pos: undefined } : ref)) : nilai;
+}
+
 /** Kolom yang diubah di layar ini (draf vs versi yang dibuka); kolom English sebagai "en.title" dst. */
 function kolomDiubah(draf: LandingSpeaker, asli: LandingSpeaker): Set<string> {
   const hasil = new Set<string>();
   const banding = (d: Record<string, unknown>, a: Record<string, unknown>, awalan: string) => {
     for (const kunci of new Set([...Object.keys(d), ...Object.keys(a)])) {
       if (!awalan && kunci === "en") continue;
-      if (!samaJson(d[kunci], a[kunci])) hasil.add(`${awalan}${kunci}`);
+      if (kunci === "session_refs" ? !samaJson(tanpaPos(d[kunci]), tanpaPos(a[kunci])) : !samaJson(d[kunci], a[kunci])) hasil.add(`${awalan}${kunci}`);
     }
   };
   banding(draf, asli, "");
@@ -359,14 +376,17 @@ export default function SpeakersAdminPage() {
   async function aturUrutan(next: LandingSpeaker[]) {
     if (menyimpan || berubah) return;
     setUrutanSementara(next);
+    // Orang yang terbuka dicari dari objeknya, bukan namanya (nama bisa kembar).
+    // Tab Highlights dan Other speakers menukar objek yang sama di daftar; tab
+    // sesi hanya menulis `pos` dan urutan daftar tetap.
+    const terbuka = typeof pilihan === "number" ? tersimpan?.[pilihan] : undefined;
+    const posisiBaru = terbuka ? next.indexOf(terbuka) : -1;
     const hasil = await kirim(next);
     setUrutanSementara(null);
-    // Panel sunting mengikuti orang yang sama: geseran di tab Highlights
-    // menukar posisi di daftar.
     if (hasil && typeof pilihan === "number" && draf) {
-      const posisi = hasil.findIndex((speaker) => speaker.name === draf.name);
-      setPilihan(posisi >= 0 ? posisi : null);
-      setDraf(posisi >= 0 ? hasil[posisi]! : null);
+      const posisi = posisiBaru >= 0 ? posisiBaru : pilihan;
+      setPilihan(posisi);
+      setDraf(hasil[posisi] ?? null);
     }
   }
 

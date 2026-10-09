@@ -225,6 +225,9 @@ export function UrutanPembicara({
                 urutan.splice(index, 0, item!);
                 setSeret({ urutan, ke: index });
               }}
+              // dragenter juga harus dibatalkan, bukan hanya dragover: tanpa ini
+              // pelepasan cepat setelah gerakan terakhir tidak menjadi drop.
+              onDragEnter={(event) => { if (seret) event.preventDefault(); }}
               onDrop={lepas}
               className={cx("flex min-h-12 items-center gap-2 border-b border-outline-variant py-1 last:border-b-0", seret?.ke === index && "opacity-60", onPilih && "px-2", terpilih === speaker._i && "bg-secondary-container")}
             >
