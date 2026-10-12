@@ -69,18 +69,20 @@ export async function POST(request: Request) {
   // dari 1, jadi `asal` memetakan nomor baris RPC kembali ke nomor baris
   // berkas. Tanpa itu, satu jawaban yang ditolak di sini menggeser nomor semua
   // masalah dari RPC sesudahnya.
-  // Kolom kursi hanya bisa dipetakan bila tepat SATU sesi denah memakai sumber
-  // "Set in Tally"; dengan dua sesi, satu kolom tidak bisa tahu sesi mana.
-  const adaKursi = kursiBerkas.some(Boolean);
-  const sesiKursi = adaKursi ? await loadTallySeatSessions(auth.scope.event.id) : [];
-  if (adaKursi && sesiKursi.length !== 1) {
+  // Kolom kursi hanya dipakai bila tepat SATU sesi denah memakai sumber "Set in
+  // Tally". Tanpa sesi seperti itu kolomnya diabaikan diam-diam, sama seperti
+  // sebelum fitur ini ada; dengan dua sesi, satu kolom tidak bisa tahu sesi mana.
+  const sesiKursi = kursiBerkas.some(Boolean) ? await loadTallySeatSessions(auth.scope.event.id) : [];
+  if (sesiKursi.length > 1) {
     return apiError("VALIDATION_ERROR", 422, {
-      message: sesiKursi.length === 0
-        ? "The file has a seat column, but no seating session takes seats from Tally. In Seating plan › This session, set Seat source to Set in Tally, or remove the column."
-        : "The file has a seat column, but more than one seating session takes seats from Tally, so the seats can't be matched to a session. Set the seats in each participant's Edit panel instead.",
+      message: "The file has a seat column, but more than one seating session takes seats from Tally, so the seats can't be matched to a session. Remove the column and set the seats in each participant's Edit panel instead.",
     });
   }
+  const adaKursi = sesiKursi.length === 1;
   const labelSah = adaKursi ? await loadSeatLabels(auth.scope.event.id) : new Map<string, string>();
+  // Kursi yang tidak bisa dipasang TIDAK menolak barisnya: data kontaknya tetap
+  // masuk, hanya kursinya yang dilewati dan disebut di daftar masalah.
+  const catatanKursi: ImportIssue[] = [];
   const kursiDiminta: Array<{ qr_code: string; label: string }> = [];
   const barisKursi = new Map<string, number>();
 
@@ -96,16 +98,19 @@ export async function POST(request: Request) {
       }
       row.extra = clean;
     }
-    const ketik = kursiBerkas[index] ?? "";
+    const ketik = adaKursi ? (kursiBerkas[index] ?? "") : "";
     if (ketik) {
       const label = labelSah.get(normalizeSeatLabel(ketik));
-      const tolak = (reason: string) => { ditolak.push({ row: index + 1, qr_code: row.qr_code ?? null, reason }); return false; };
-      if (!row.qr_code) return tolak("Add a QR code to this row to set its seat.");
-      if (!label) return tolak(`Seat ${ketik} isn't on the Seating plan.`);
-      const dipakai = barisKursi.get(normalizeSeatLabel(label));
-      if (dipakai) return tolak(`Seat ${label} is also used in row ${dipakai}.`);
-      barisKursi.set(normalizeSeatLabel(label), index + 1);
-      kursiDiminta.push({ qr_code: row.qr_code, label });
+      const lewati = (reason: string) => catatanKursi.push({ row: index + 1, qr_code: row.qr_code ?? null, reason: `${reason} The rest of the row is imported.` });
+      const dipakai = label ? barisKursi.get(normalizeSeatLabel(label)) : undefined;
+      if (ketik.includes("|")) lewati(`Seat "${ketik}" lists more than one seat, so no seat was set.`);
+      else if (!row.qr_code) lewati("No QR code, so no seat was set.");
+      else if (!label) lewati(`Seat ${ketik} isn't on the Seating plan, so no seat was set.`);
+      else if (dipakai) lewati(`Seat ${label} is also used in row ${dipakai}, so no seat was set.`);
+      else {
+        barisKursi.set(normalizeSeatLabel(label), index + 1);
+        kursiDiminta.push({ qr_code: row.qr_code, label });
+      }
     }
     asal.push(index + 1);
     return true;
@@ -137,13 +142,15 @@ export async function POST(request: Request) {
   // supaya pratinjau menampilkan SATU daftar masalah dengan satu hitungan.
   const hasil = data as { rows: number; generated?: number; unchecked?: number; rejected: number; issues: ImportIssue[]; issues_truncated: boolean };
   const dariRpc = hasil.issues.map((issue) => ({ ...issue, row: asal[issue.row - 1] ?? issue.row }));
-  const issues = [...ditolak, ...dariRpc].sort((a, b) => a.row - b.row);
+  const issues = [...ditolak, ...dariRpc, ...catatanKursi].sort((a, b) => a.row - b.row);
 
-  // Baris yang ditolak RPC tidak ikut mendapat kursi.
-  const ditolakRpc = new Set(hasil.issues.map((issue) => issue.qr_code).filter(Boolean));
+  // Baris yang ditolak RPC tidak ikut mendapat kursi. Catatan "peserta dari
+  // Scanner API" bukan penolakan; baris itu dihitung sebagai kursi yang dilewati.
+  const CATATAN_SCANNER = "Participant from Scanner API";
+  const ditolakRpc = new Set(hasil.issues.filter((issue) => !issue.reason.startsWith(CATATAN_SCANNER)).map((issue) => issue.qr_code).filter(Boolean));
   const kursiBerlaku = kursiDiminta.filter((item) => !ditolakRpc.has(item.qr_code));
   let kursi: { set: number; freed: number; scanner: number } | null = null;
-  if (sesiKursi.length === 1 && kursiBerlaku.length > 0) {
+  if (adaKursi && kursiBerlaku.length > 0) {
     try {
       kursi = await applyImportSeats(auth.scope.event.id, sesiKursi[0], kursiBerlaku, { dryRun, actor: auth.user.id });
     } catch {
@@ -161,7 +168,8 @@ export async function POST(request: Request) {
     rejected: hasil.rejected + ditolak.length,
     issues: issues.slice(0, 50),
     issues_truncated: hasil.issues_truncated || issues.length > 50,
-    recognized_columns: recognized,
+    // Kolom seat yang diabaikan (tidak ada sesi "Set in Tally") tidak disebut dikenali.
+    recognized_columns: adaKursi ? recognized : recognized.filter((column) => column !== "seat"),
     file_name: file.name,
   });
 }

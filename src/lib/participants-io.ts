@@ -106,10 +106,12 @@ export function mapRows(matrix: string[][], fields: RegistrationField[] = []) {
   }
 
   const columns = headerRow.map((cell) => kolomImpor(cell ?? "", byLabel));
-  // Kolom kursi ("seat", atau "kursi" seperti di berkas ekspor) tidak ikut ke
-  // RPC impor: kursi ditulis terpisah oleh route lewat `seat-tally`. Kolom yang
-  // sudah dikenali sebagai pertanyaan form tetap milik form.
-  const kolomKursi = headerRow.findIndex((cell, index) => !columns[index] && ["seat", "kursi"].includes(normalizeHeader(cell ?? "")));
+  // Kolom kursi "seat" tidak ikut ke RPC impor: kursi ditulis terpisah oleh
+  // route lewat `seat-tally`. Kolom "kursi" milik ekspor SENGAJA tidak dibaca:
+  // isinya gabungan kursi dari semua sumber (scanner, sesi lama) dan berkas
+  // ekspor yang diunggah ulang tidak boleh memindahkan kursi siapa pun. Kolom
+  // yang sudah dikenali sebagai pertanyaan form tetap milik form.
+  const kolomKursi = headerRow.findIndex((cell, index) => !columns[index] && normalizeHeader(cell ?? "") === "seat");
   const recognized = [...new Set(columns.filter((column): column is NonNullable<KolomImpor> => column !== null).map((column) => (column.kind === "base" ? column.field : column.key)))];
 
   const rows: ImportRow[] = [];
