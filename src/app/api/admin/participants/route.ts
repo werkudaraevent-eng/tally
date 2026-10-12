@@ -1,53 +1,19 @@
-import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import type { RegistrationFormConfig } from "@/lib/domain";
+import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { logistikPeserta } from "@/lib/logistik/server";
 import { cleanExtra, participantBodySchema, toRpcArgs } from "@/lib/participant-input";
+import { argumenRpc, nilaiKolomAdmin, querySchema, saring, saringanAdmin, semuaBarisRpc } from "@/lib/participants-saring";
+import { kolomSaringanAdmin } from "@/lib/saringan-kolom";
+import { normalizeTimeZone } from "@/lib/timezone";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
-// Whitelist kolom sort. Nama kolom TIDAK BOLEH diambil langsung dari query
-// string ke .order(), karena itu membuka celah injeksi lewat parameter PostgREST.
-const SORTABLE = {
-  name: "name",
-  // Instansi dan jabatan berdiri sebagai kolom sendiri di tabel, jadi keduanya
-  // harus bisa diurutkan juga: header yang bisa diklik di sebagian kolom dan
-  // tidak di sebagian lain terbaca sebagai kerusakan, bukan sebagai aturan.
-  company: "company",
-  title: "title",
-  qr_code: "qr_code",
-  participant_type: "participant_type",
-  rsvp_status: "rsvp_status",
-  source_checked_in: "source_checked_in",
-  source_total_scans: "source_total_scans",
-  // Kapan data peserta masuk ke Tally (form dikirim, atau diimpor/ditambahkan).
-  // Dihitung di list_event_participants, bukan kolom tabel.
-  registered_at: "registered_at",
-} as const;
-
-
-/**
- * Penyaring daftar peserta.
- *
- * Seluruhnya dikerjakan `list_event_participants` di database, bukan di sini.
- * Dua di antaranya menanyakan keberadaan baris di tabel lain -- "belum hadir di
- * sesi ini" dan "mendaftar sendiri" -- dan menjawabnya dari luar SQL menuntut
- * seluruh id yang cocok ditempelkan ke kueri berikutnya sebagai daftar. Seribu
- * uuid adalah URL 37 KB; batas lazim sebuah server 8 KB.
- */
-const querySchema = z.object({
-  q: z.string().trim().max(100).default(""),
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
-  sort: z.enum(Object.keys(SORTABLE) as [keyof typeof SORTABLE]).default("name"),
-  dir: z.enum(["asc", "desc"]).default("asc"),
-  source: z.enum(["walkin", "scanner", "registration", "manual"]).optional(),
-  session: z.coerce.number().int().positive().optional(),
-  attended: z.enum(["yes", "no"]).optional(),
-  rsvp: z.enum(["invited", "confirmed", "none"]).optional(),
-  /** "Pilih semua yang cocok": hanya id seluruh baris yang lolos saringan. */
-  ids_only: z.enum(["1"]).optional(),
-});
+// Whitelist kolom sort dan skema parameter ada di participants-saring: Export
+// memakai penyaring yang sama. Nama kolom TIDAK BOLEH diambil langsung dari
+// query string ke .order(), karena itu membuka celah injeksi lewat PostgREST.
+// Seluruh penyaring lama dikerjakan `list_event_participants` di database;
+// dua di antaranya menanyakan baris di tabel lain ("belum hadir di sesi ini",
+// "mendaftar sendiri"), dan seribu uuid di URL melewati batas lazim 8 KB.
 
 /** Batas "pilih semua yang cocok", sama dengan batas penerima manual Pesan peserta. */
 const BATAS_PILIH = 5000;
@@ -88,39 +54,52 @@ export async function GET(request: Request) {
 
   const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
+  const fields = ((auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
+  const zona = normalizeTimeZone(auth.scope.event.time_zone);
   // Nama perusahaan bisa mengandung koma, jadi dikirim sebagai parameter berulang.
   const companies = new URL(request.url).searchParams.getAll("company").map((nama) => nama.trim()).slice(0, 50);
+  const argumen = argumenRpc(eventId, parsed.data, companies);
+  const saringan = saringanAdmin(parsed.data.f, fields);
+  if (!saringan) return apiError("VALIDATION_ERROR", 422, { message: "Unknown filter." });
 
-  const argumen = {
-    p_event_id: eventId,
-    p_q: parsed.data.q,
-    p_source: parsed.data.source ?? null,
-    // Penyaring kehadiran hanya berarti bila sesinya disebut. "Belum hadir"
-    // tanpa menyebut di sesi mana adalah pertanyaan yang tidak punya jawaban
-    // di acara yang punya registrasi, workshop, dan makan siang.
-    p_session: parsed.data.attended ? (parsed.data.session ?? null) : null,
-    p_attended: parsed.data.session ? (parsed.data.attended ?? null) : null,
-    p_rsvp: parsed.data.rsvp ?? null,
-    p_sort: parsed.data.sort,
-    p_dir: parsed.data.dir,
-    p_limit: parsed.data.limit,
-    p_offset: parsed.data.offset,
-    // Hanya dikirim bila dipakai: fungsi versi lama (sebelum migrasi
-    // 202609290001) tidak mengenal parameter ini dan akan menolak panggilannya.
-    ...(companies.length > 0 ? { p_companies: companies } : {}),
-  };
+  // Daftar centang "+ Filter": nilai yang benar-benar ada di kolom itu.
+  if (parsed.data.facet !== undefined) {
+    const kolom = kolomSaringanAdmin(fields).find((item) => item.key === parsed.data.facet && item.jenis === "pilihan");
+    if (!kolom) return apiError("VALIDATION_ERROR", 422, { message: "This column has no value list." });
+    try {
+      return Response.json({ key: kolom.key, values: await nilaiKolomAdmin(eventId, kolom.key, fields, zona) });
+    } catch {
+      return apiError("INTERNAL_ERROR", 500);
+    }
+  }
+
+  // Saringan per kolom: semua baris yang lolos penyaring database, disaring di
+  // sini, lalu dipotong per halaman. Urutannya tetap urutan RPC.
+  let tersaring: Array<{ id: string }> | null = null;
+  if (saringan.length) {
+    try {
+      tersaring = saring(await semuaBarisRpc(argumen), saringan, fields, zona);
+    } catch {
+      return apiError("INTERNAL_ERROR", 500);
+    }
+  }
 
   // Saringan yang persis sama dengan tabel, tanpa paginasi: yang dicentang
   // "Pilih semua 278 yang cocok" harus 278 orang yang sama dengan di layar.
   if (parsed.data.ids_only) {
+    if (tersaring) return Response.json({ ids: tersaring.slice(0, BATAS_PILIH).map((baris) => baris.id), total: tersaring.length, limit: BATAS_PILIH });
     const { data, error } = await client.rpc("list_event_participants" as never, { ...argumen, p_limit: BATAS_PILIH, p_offset: 0 } as never);
     if (error) return apiError("INTERNAL_ERROR", 500);
     const hasil = (data ?? { rows: [], total: 0 }) as { rows: Array<{ id: string }>; total: number };
     return Response.json({ ids: hasil.rows.map((baris) => baris.id), total: hasil.total, limit: BATAS_PILIH });
   }
 
+  const halamanTersaring = tersaring
+    ? { data: { rows: tersaring.slice(parsed.data.offset, parsed.data.offset + parsed.data.limit), total: tersaring.length }, error: null }
+    : null;
+
   const [halaman, sesi, semua, dihapus, dariScanner, terakhir, perusahaan] = await Promise.all([
-    client.rpc("list_event_participants" as never, argumen as never),
+    halamanTersaring ?? client.rpc("list_event_participants" as never, argumen as never),
     client
       .from("attendance_sessions")
       .select("id,name,sort_order,is_active")
@@ -177,7 +156,7 @@ export async function GET(request: Request) {
     // dari endpoint pendaftaran: kolom tabel dan isinya harus datang dari satu
     // jawaban, supaya tidak ada satu putaran render dengan kolom yang belum
     // punya nama atau nama yang belum punya kolom.
-    fields: ((auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []),
+    fields,
   });
 }
 

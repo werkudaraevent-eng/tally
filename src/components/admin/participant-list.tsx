@@ -16,6 +16,8 @@ import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
+import { bacaSaringanMentah, kolomSaringanAdmin, type Saringan } from "@/lib/saringan-kolom";
+import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
 import { DEFAULT_TIME_ZONE, type EventTimeZone } from "@/lib/timezone";
 
 type ParticipantSeat = { subEventId: string; subEventName: string; label: string };
@@ -193,11 +195,13 @@ type Kolom = {
   cell: (participant: Participant) => ReactNode;
 };
 
-export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, onChanged, onStats, ref }: {
+export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, onChanged, onStats, onSaringan, ref }: {
   reloadKey?: number;
   timeZone?: EventTimeZone;
   onChanged?: () => void;
   onStats?: (stats: ParticipantStats) => void;
+  /** Parameter saringan yang sedang berlaku (tanpa paginasi), untuk Export. Null bila tidak ada. */
+  onSaringan?: (query: string | null) => void;
   ref?: React.Ref<ParticipantListHandle>;
 }) {
   const toast = useToast();
@@ -217,6 +221,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [filterHadir, setFilterHadir] = useState("");
   const [filterRsvp, setFilterRsvp] = useState("");
   const [filterPerusahaan, setFilterPerusahaan] = useState<string[]>([]);
+  // "+ Filter": saringan per kolom. Dibaca dari `?f=` supaya tampilan bisa dibagikan sebagai tautan.
+  const [saringan, setSaringan] = useState<Saringan[]>([]);
   const [total, setTotal] = useState(0);
   const [removedCount, setRemovedCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -254,8 +260,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       params.set("attended", keadaan);
     }
     for (const nama of filterPerusahaan) params.append("company", nama);
+    if (saringan.length) params.set("f", JSON.stringify(saringan));
     return params;
-  }, [filterAsal, filterHadir, filterRsvp, filterPerusahaan]);
+  }, [filterAsal, filterHadir, filterRsvp, filterPerusahaan, saringan]);
 
   const urutanMuat = useRef(0);
   const load = useCallback(async (search: string, pageIndex: number, sortKey: SortKey, sortDir: "asc" | "desc", size: number) => {
@@ -327,6 +334,41 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     const timer = window.setTimeout(() => { setLastViewed(orang); setMode({ kind: "view", id: orang.id }); }, 0);
     return () => window.clearTimeout(timer);
   }, [participants, loading]);
+
+  // `?f=` saat halaman dibuka, supaya tampilan bisa dibagikan sebagai tautan.
+  // Kunci yang tidak dikenal dibuang server dan tidak mendapat chip.
+  useEffect(() => {
+    const awal = bacaSaringanMentah(new URLSearchParams(window.location.search).get("f"));
+    if (!awal.length) return;
+    const pewaktu = window.setTimeout(() => setSaringan(awal), 0);
+    return () => window.clearTimeout(pewaktu);
+  }, []);
+
+  const ubahSaringan = useCallback((next: Saringan[]) => {
+    setSaringan(next);
+    setPage(0);
+    const url = new URL(window.location.href);
+    if (next.length) url.searchParams.set("f", JSON.stringify(next)); else url.searchParams.delete("f");
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
+
+  const kolomSaringan = useMemo(() => kolomSaringanAdmin(fields), [fields]);
+
+  const cacheNilai = useRef(new Map<string, Promise<NilaiKolom[]>>());
+  useEffect(() => { cacheNilai.current.clear(); }, [reloadKey]);
+  const muatNilai = useCallback((kunci: string) => {
+    const lama = cacheNilai.current.get(kunci);
+    if (lama) return lama;
+    const janji = fetch(`/api/admin/participants?${new URLSearchParams({ facet: kunci }).toString()}`, { cache: "no-store" })
+      .then(async (response) => {
+        const body = await response.json().catch(() => null);
+        if (!response.ok || !Array.isArray(body?.values)) throw new Error("facet");
+        return body.values as NilaiKolom[];
+      });
+    janji.catch(() => cacheNilai.current.delete(kunci));
+    cacheNilai.current.set(kunci, janji);
+    return janji;
+  }, []);
 
   async function toggleExclusion(participant: Participant) {
     const isExcluded = excluded.has(participant.id);
@@ -607,16 +649,25 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const opsiKolom: ColumnOption[] = [{ key: "name", label: "Name", locked: true }, ...kolom.map((item) => ({ key: item.key, label: item.label }))];
   const jabatanDiBawahNama = !visible.includes("title");
 
-  const adaFilter = Boolean(filterAsal || filterHadir || filterRsvp || filterPerusahaan.length);
+  const adaFilter = Boolean(filterAsal || filterHadir || filterRsvp || filterPerusahaan.length || saringan.length);
   // Saringan yang sedang berlaku, disebut di bilah pilihan karena barisnya tertutup.
-  const jumlahSaringan = [filterAsal, filterHadir, filterRsvp].filter(Boolean).length + (filterPerusahaan.length ? 1 : 0);
+  const jumlahSaringan = [filterAsal, filterHadir, filterRsvp].filter(Boolean).length + (filterPerusahaan.length ? 1 : 0)
+    + saringan.filter((item) => kolomSaringan.some((k) => k.key === item.k)).length;
   const ringkasSaringan = [
     debouncedQuery ? `“${debouncedQuery}”` : "",
     jumlahSaringan ? plural(jumlahSaringan, "filter") : "",
   ].filter(Boolean).join(", ");
   const tercentangDiHalaman = participants.filter((p) => pilih.has(p.id)).length;
   const halamanTercentang = participants.length > 0 && tercentangDiHalaman === participants.length;
-  const resetFilter = () => { setFilterAsal(""); setFilterHadir(""); setFilterRsvp(""); setFilterPerusahaan([]); setPage(0); };
+  const resetFilter = () => { setFilterAsal(""); setFilterHadir(""); setFilterRsvp(""); setFilterPerusahaan([]); ubahSaringan([]); };
+
+  // Export di kepala halaman mengikuti saringan yang sedang dipakai.
+  useEffect(() => {
+    if (!onSaringan) return;
+    const params = paramSaringan(debouncedQuery);
+    if (!debouncedQuery) params.delete("q");
+    onSaringan(params.toString() ? params.toString() : null);
+  }, [onSaringan, paramSaringan, debouncedQuery]);
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const dari = total === 0 ? 0 : page * perPage + 1;
   const sampai = Math.min(total, (page + 1) * perPage);
@@ -701,6 +752,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           selected={filterRsvp ? [filterRsvp] : []}
           onChange={(next) => { setFilterRsvp(next[0] ?? ""); setPage(0); }}
         />
+        <SaringanKolom kolom={kolomSaringan} nilai={saringan} onChange={ubahSaringan} muatNilai={muatNilai} kelasChip="order-last flex w-full flex-wrap gap-2" />
         <ColumnMenu columns={opsiKolom} visible={visible} onChange={setVisible} onReset={() => setVisible(null)} isDefault={isDefault} />
         </div>
         {/* Bilah pilihan MENUTUPI baris saringan, bukan disisipkan di bawahnya:
@@ -782,7 +834,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                     <CentangHalaman checked={halamanTercentang} indeterminate={tercentangDiHalaman > 0 && !halamanTercentang} onChange={centangHalaman} />
                   </label>
                 </th>
-                <th scope="col" aria-sort={ariaSort("name")} className="sticky left-12 z-10 border-b border-outline-variant bg-surface-container-high px-4 py-2.5 font-medium">{sortHeader("Name", "name")}</th>
+                <th scope="col" aria-sort={ariaSort("name")} className="sticky left-12 z-10 border-b border-r border-outline-variant bg-surface-container-high px-4 py-2.5 font-medium">{sortHeader("Name", "name")}</th>
                 {kolomTampil.map((item) => (
                   <th key={item.key} scope="col" aria-sort={ariaSort(item.sort)} className="border-b border-outline-variant px-3 py-2.5 font-medium">{sortHeader(item.label, item.sort, item.align)}</th>
                 ))}
@@ -812,7 +864,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                         />
                       </label>
                     </td>
-                    <td className="sticky left-12 border-b border-outline-variant bg-inherit px-4 py-2.5">
+                    {/* Garis kanan: tanda kolom beku. Tanpanya kolom yang tergulir ke bawah Nama
+                        terbaca terpotong ("e Officer"), bukan tertutup. z-[1]: di atas sel biasa. */}
+                    <td className="sticky left-12 z-[1] border-b border-r border-outline-variant bg-inherit px-4 py-2.5">
                       <button
                         type="button"
                         onClick={(event) => { event.stopPropagation(); select(participant); }}

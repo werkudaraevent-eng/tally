@@ -13,12 +13,14 @@ import {
   templateFilename,
   templateRows,
 } from "@/lib/participants-io";
+import { idsTersaring } from "@/lib/participants-saring";
 import { normalizeTimeZone } from "@/lib/timezone";
 
 /**
  * Unduh seluruh peserta event ini.
  *
- * Tanpa filter pencarian dan tanpa paginasi, sengaja. Ekspor dipakai untuk dua
+ * Tanpa paginasi, sengaja. Saringan daftar (cari, chip, "+ Filter") ikut bila
+ * dikirim; tanpa itu seluruh acara. Ekspor dipakai untuk dua
  * hal -- menyunting massal lalu mengunggah kembali, dan menyerahkan daftar ke
  * klien -- dan keduanya rusak oleh hasil yang diam-diam terpotong pada 25 baris
  * yang kebetulan sedang tampil di layar.
@@ -45,7 +47,11 @@ export async function GET(request: Request) {
 
   try {
     const headers = isTemplate ? importHeaders(fields) : exportHeaders(fields);
-    const rows = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, normalizeTimeZone(auth.scope.event.time_zone));
+    const zona = normalizeTimeZone(auth.scope.event.time_zone);
+    // Saringan yang sedang dipakai di daftar ikut ke berkas: yang diunduh adalah
+    // yang terlihat. Tanpa saringan, seluruh acara seperti sebelumnya.
+    const ids = isTemplate ? null : await idsTersaring(auth.scope.event.id, params, fields, zona);
+    const rows = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, zona, ids ? new Set(ids) : undefined);
     const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers);
     return new Response(body as BodyInit, {
       headers: {
@@ -54,7 +60,8 @@ export async function GET(request: Request) {
         "Cache-Control": "no-store",
       },
     });
-  } catch {
+  } catch (galat) {
+    if (galat instanceof Error && galat.message === "VALIDATION") return apiError("VALIDATION_ERROR", 422, { message: "Unknown filter." });
     return Response.json({ error: { code: "INTERNAL_ERROR", message: "Participant export failed." } }, { status: 500 });
   }
 }

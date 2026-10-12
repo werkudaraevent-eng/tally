@@ -40,9 +40,11 @@ export type ExportMenuProps = {
   className?: string;
   /** Keterangan CSV pengganti, mis. untuk berkas klien yang selnya dinetralkan. */
   csvDetail?: string;
+  /** Baris keterangan di atas pilihan format, mis. bahwa berkasnya mengikuti saringan. */
+  note?: string;
 };
 
-export function ExportMenu({ endpoint = "/api/admin/export", label = "Export data", className, csvDetail }: ExportMenuProps) {
+export function ExportMenu({ endpoint = "/api/admin/export", label = "Export data", className, csvDetail, note }: ExportMenuProps) {
   const [pemicu, setPemicu] = useState<HTMLElement | null>(null);
   const menu = usePopoverAnchor(pemicu);
   const menuId = useId();
@@ -69,11 +71,12 @@ export function ExportMenu({ endpoint = "/api/admin/export", label = "Export dat
       {menu.open ? (
         <Popover anchor={menu} id={menuId} label="Choose export format"
  width={288} className="p-0">
+          {note ? <p className="border-b border-outline-variant px-3 py-2 text-body-medium text-on-surface-variant">{note}</p> : null}
           {CHOICES.map(({ format, label, detail, Icon }) => (
             <a
               key={format}
               role="menuitem"
-              href={`${endpoint}?format=${format}`}
+              href={`${endpoint}${endpoint.includes("?") ? "&" : "?"}format=${format}`}
               onClick={menu.tutup}
               className="flex items-start gap-3 border-b border-outline-variant p-3 text-left last:border-b-0 hover:bg-primary-soft"
             >
