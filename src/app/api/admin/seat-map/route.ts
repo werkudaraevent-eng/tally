@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { computeSeatMapGeometry, duplicateTableLabels, normalizeLayout, normalizeLayoutParams, normalizeSeatLabel, MAX_SEATS_PER_TABLE, MAX_TABLE_LABEL_LENGTH, PUBLIC_VIEW_MODES, SEAT_MAP_LAYOUTS, type SeatMapConfig } from "@/lib/seat-map";
+import { computeSeatMapGeometry, duplicateTableLabels, normalizeLayout, normalizeLayoutParams, normalizeSeatLabel, normalizeSections, MAX_SEATS_PER_TABLE, MAX_TABLE_LABEL_LENGTH, PUBLIC_VIEW_MODES, SEAT_MAP_LAYOUTS, type SeatMapConfig } from "@/lib/seat-map";
 import {
   CONFIG_COLUMNS,
   LEGACY_CONFIG_COLUMNS,
@@ -220,7 +220,13 @@ export async function PATCH(request: Request) {
   // Kegagalan yang tidak terlihat seperti itu baru ketahuan di hari-H.
   const layoutBaru = parsed.data.layout_type;
   const layoutLama = normalizeLayout((current as { layout_type?: unknown } | null)?.layout_type);
-  if (layoutBaru && normalizeLayout(layoutBaru) !== layoutLama) {
+  // Beralih ke atau dari ruangan gabungan (sections) mengganti format label
+  // kursi sama seperti mengganti layout, jadi dijaga dengan aturan yang sama.
+  const punyaBagian = (params: unknown) =>
+    Boolean(params && typeof params === "object" && normalizeSections((params as { sections?: unknown }).sections).length);
+  const bagianBerganti = Boolean(parsed.data.layout_params && "sections" in parsed.data.layout_params)
+    && punyaBagian(parsed.data.layout_params) !== punyaBagian((current as { layout_params?: unknown } | null)?.layout_params);
+  if ((layoutBaru && normalizeLayout(layoutBaru) !== layoutLama) || bagianBerganti) {
     // Dibaca sampai 500 baris, bukan dihitung seluruhnya: yang dibutuhkan hanya
     // jawaban ada/tidak ada, dan satu penempatan saja sudah cukup untuk menolak.
     const { data: peserta } = await client

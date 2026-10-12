@@ -14,7 +14,7 @@ export type KursiPeserta = {
   label: string;
   sesiNama: string | null;
   /** "row" untuk theater (A8 = baris A kursi 8), "table" untuk meja (5C). Null bila label tidak ada di denah. */
-  jenis: "row" | "table" | null;
+  jenis: "row" | "table" | "section" | null;
   kelompok: string | null;
   nomor: string | null;
   /** Null bila sesinya tidak dipublikasikan: denah mini dan tautan disembunyikan. */
@@ -45,8 +45,10 @@ export async function loadKursiPeserta(eventId: string, seats: KursiMentah[]): P
     return {
       label,
       sesiNama: seat.subEventName?.trim() || null,
-      jenis: posisi ? (posisi.table.shape === "none" ? "row" : "table") : null,
-      kelompok: posisi?.table.label ?? null,
+      // Sofa di ruangan gabungan tidak punya baris atau meja yang perlu disebut:
+      // kartunya cukup "VIP · Seat 7".
+      jenis: posisi ? (posisi.table.shape === "sofa" ? "section" : posisi.table.shape === "none" ? "row" : "table") : null,
+      kelompok: posisi ? (posisi.table.shape === "sofa" ? posisi.table.section || posisi.table.label : posisi.table.label) : null,
       nomor: posisi?.code ?? null,
       denah: sesi && posisi
         ? {

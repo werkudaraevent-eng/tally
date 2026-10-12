@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowSquareOut, CaretDown, Info, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, Info, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
@@ -10,8 +10,8 @@ import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import {
   computeSeatMapGeometry, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor,
-  type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule,
-  LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS,
+  type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule, type SeatSection,
+  LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS, defaultSection, MAX_SECTIONS,
 } from "@/lib/seat-map";
 import { tallySeatSource } from "@/lib/seat-tally-source";
 import {
@@ -384,21 +384,88 @@ export default function SeatMapAdminPage() {
   ) : null;
 
   // ---- Panel pendukung ---------------------------------------------------------
+  const sections = config?.layout_params.sections ?? [];
+  function pilihLayout(value: string) {
+    if (value === "mixed") {
+      // Ruangan gabungan dimulai dari contoh yang paling sering diminta: sofa VIP
+      // di depan, theater di belakang. Layout dasarnya tidak diubah.
+      setConfig((current) => current && { ...current, layout_params: { ...current.layout_params, sections: [defaultSection("sofa"), defaultSection("theater")] } });
+      return;
+    }
+    const layout = value as SeatMapLayout;
+    // Parameter kembali ke bawaan layout baru; nilai lama menimpa bawaan dan pilihannya tampak tidak berpengaruh.
+    // `sections: []` dikirim eksplisit supaya server menghapus bagian yang tersimpan.
+    setConfig((current) => current && { ...current, layout_type: layout, layout_params: { ...layoutDefaults(layout), sections: [] } });
+  }
+  function pindahBagian(index: number, arah: -1 | 1) {
+    const next = [...sections];
+    [next[index], next[index + arah]] = [next[index + arah], next[index]];
+    updateParam("sections", next);
+  }
+
   const isiRuangan = config ? (
     <div className="flex flex-col gap-5">
       <p className="flex items-start gap-2 rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant"><Info size={16} className="mt-0.5 shrink-0" />Applies to every session.</p>
       <Kelompok title="Room shape" first>
+        {sections.length ? (
+          <>
+            <Field label="Layout type" htmlFor="layout-type" hint="Sections stacked from the stage backwards. Each section has its own layout and its own seat labels.">
+              <select id="layout-type" value="mixed" onChange={(event) => pilihLayout(event.target.value)} className={INPUT}>
+                <option value="mixed">Mixed (sections)</option>
+                {SEAT_MAP_LAYOUTS.map((layout) => <option key={layout} value={layout}>{LAYOUT_INFO[layout].name}</option>)}
+              </select>
+            </Field>
+            <div className="flex flex-col gap-2">
+              {sections.map((section, index) => {
+                const set = (patch: Partial<SeatSection>) => updateParam("sections", sections.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+                const contoh = section.kind === "sofa" ? `${section.prefix}1 … ${section.prefix}${section.rows * section.per_row * section.seats_per_sofa}` : `${section.prefix}A1 … ${section.prefix}${String.fromCharCode(64 + section.rows)}${section.per_row}`;
+                return (
+                  <div key={index} className="rounded-md border border-outline-variant bg-surface-container-lowest">
+                    <div className="flex h-11 items-center gap-2 border-b border-outline-variant px-2">
+                      <span className="truncate pl-1 text-label-large font-semibold">{index + 1}. {section.name || (section.kind === "sofa" ? "Sofas" : "Theater")}</span>
+                      <span className="ml-auto shrink-0 text-body-small text-on-surface-variant">{section.kind === "sofa" ? section.rows * section.per_row * section.seats_per_sofa : section.rows * section.per_row} seats</span>
+                      <IconButton size="sm" label="Move section towards the stage" disabled={index === 0} onClick={() => pindahBagian(index, -1)}><ArrowUp size={16} /></IconButton>
+                      <IconButton size="sm" label="Move section away from the stage" disabled={index === sections.length - 1} onClick={() => pindahBagian(index, 1)}><ArrowDown size={16} /></IconButton>
+                      <IconButton size="sm" label="Delete section" disabled={sections.length <= 1} onClick={() => updateParam("sections", sections.filter((_, i) => i !== index))}><Trash size={16} /></IconButton>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 p-3">
+                      <Field label="Type">
+                        <select value={section.kind} onChange={(event) => set({ kind: event.target.value as SeatSection["kind"] })} className={INPUT}>
+                          <option value="sofa">Sofas</option>
+                          <option value="theater">Theater</option>
+                                                  </select>
+                      </Field>
+                      <Field label="Name on map"><input value={section.name} placeholder="None" onChange={(event) => set({ name: event.target.value })} className={INPUT} /></Field>
+                      <Field label="Label prefix"><input value={section.prefix} placeholder="None" onChange={(event) => set({ prefix: event.target.value })} className={INPUT} /></Field>
+                      <Field label="Rows"><input type="number" min={1} max={40} value={section.rows} onChange={(event) => set({ rows: Number(event.target.value) })} className={INPUT} /></Field>
+                      <Field label={section.kind === "sofa" ? "Sofas per row" : "Seats per row"}><input type="number" min={1} max={40} value={section.per_row} onChange={(event) => set({ per_row: Number(event.target.value) })} className={INPUT} /></Field>
+                      {section.kind === "sofa" ? (
+                        <Field label="Seats per sofa"><input type="number" min={1} max={6} value={section.seats_per_sofa} onChange={(event) => set({ seats_per_sofa: Number(event.target.value) })} className={INPUT} /></Field>
+                      ) : <div />}
+                      <div className="col-span-3">
+                        <Field label={section.kind === "sofa" ? "Aisle after sofa number" : "Aisle after seat number"} hint={`Seat labels: ${contoh}`}>
+                          <InputLorong aisles={section.aisles} onChange={(aisles) => set({ aisles })} />
+                        </Field>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {sections.length < MAX_SECTIONS ? (
+                <div><Button variant="outlined" size="sm" onClick={() => updateParam("sections", [...sections, defaultSection("theater")])}><Plus size={16} />Add section</Button></div>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <>
         <Field label="Layout type" htmlFor="layout-type" hint={`${LAYOUT_INFO[config.layout_type].desc} ${LAYOUT_INFO[config.layout_type].labelHint}.`}>
           <select
             id="layout-type"
             value={config.layout_type}
-            onChange={(event) => {
-              const layout = event.target.value as SeatMapLayout;
-              // Parameter kembali ke bawaan layout baru; nilai lama menimpa bawaan dan pilihannya tampak tidak berpengaruh.
-              setConfig((current) => current && { ...current, layout_type: layout, layout_params: layoutDefaults(layout) });
-            }}
+            onChange={(event) => pilihLayout(event.target.value)}
             className={INPUT}
           >
+            <option value="mixed">Mixed (sections)</option>
             {SEAT_MAP_LAYOUTS.map((layout) => <option key={layout} value={layout}>{LAYOUT_INFO[layout].name}</option>)}
           </select>
         </Field>
@@ -434,6 +501,8 @@ export default function SeatMapAdminPage() {
         {config.layout_type === "head_table" ? (
           <Field label="Head table seats"><input type="number" min={1} max={26} value={config.layout_params.head_seats} onChange={(event) => updateParam("head_seats", Number(event.target.value))} className={cx(INPUT, "w-32")} /></Field>
         ) : null}
+          </>
+        )}
       </Kelompok>
 
       <Kelompok title="Tables and labels">
@@ -743,7 +812,7 @@ export default function SeatMapAdminPage() {
       <WorkspaceHeader
         meta={config ? (
           <>
-            <span>{LAYOUT_INFO[config.layout_type].name}</span>
+            <span>{config.layout_params.sections?.length ? "Mixed (sections)" : LAYOUT_INFO[config.layout_type].name}</span>
             <MetaSeparator />
             <span>{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}</span>
             <MetaSeparator />

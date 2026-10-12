@@ -314,7 +314,9 @@ export async function DashboardModern({
                       <div className="grid gap-6">
                         {denahKursi.kursi.map((seat, index) => {
                           const tulisan = seat.jenis && seat.kelompok && seat.nomor
-                            ? `${seat.jenis === "row" ? p.seatRow : p.seatTable} ${seat.kelompok} · ${p.seat} ${seat.nomor}`
+                            ? seat.jenis === "section"
+                              ? `${seat.kelompok} · ${p.seat} ${seat.nomor}`
+                              : `${seat.jenis === "row" ? p.seatRow : p.seatTable} ${seat.kelompok} · ${p.seat} ${seat.nomor}`
                             : seat.label;
                           const denahUrl = seat.denah
                             ? `/e/${event.slug}/denah?sesi=${encodeURIComponent(seat.denah.sesiSlug)}&kursi=${encodeURIComponent(seat.label)}`
