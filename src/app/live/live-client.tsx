@@ -11,6 +11,8 @@ import type { BarisKlien } from "@/lib/live/data";
 import { DEFAULT_TIME_ZONE, normalizeTimeZone, timeZoneAbbr } from "@/lib/timezone";
 import type { StatusPertanyaan } from "@/lib/live/kolom-klien";
 import { KolomKlienDialog } from "./kolom-klien";
+import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
+import { bacaSaringanMentah, type KolomSaringan, type Saringan } from "@/lib/saringan-kolom";
 
 
 type Data = {
@@ -18,6 +20,8 @@ type Data = {
   counts: { registered: number; today: number; pending: number; checked_in: number };
   /** Pertanyaan form yang dibagikan admin, dalam urutan form. */
   answer_columns: { key: string; label: string }[];
+  /** Kolom yang bisa disaring di layar ini; disusun server dari kolom klien dan jawaban yang dibagikan. */
+  filter_columns?: KolomSaringan[];
   rows: BarisKlien[];
   total: number;
   fetched_at: string;
@@ -61,6 +65,8 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<Urut>("registered_at");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
+  // "+ Filter", dibaca dari `?f=` supaya tampilan bisa dibagikan sebagai tautan.
+  const [saringan, setSaringan] = useState<Saringan[]>([]);
   const [keluar, setKeluar] = useState(false);
   // Batas "baru": baris yang masuk setelah muatan pertama diberi penanda,
   // supaya klien yang membiarkan layar terbuka melihat siapa yang baru datang.
@@ -84,10 +90,41 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
     return () => window.clearTimeout(pewaktu);
   }, [query]);
 
+  useEffect(() => {
+    const awal = bacaSaringanMentah(new URLSearchParams(window.location.search).get("f"));
+    if (!awal.length) return;
+    const pewaktu = window.setTimeout(() => setSaringan(awal), 0);
+    return () => window.clearTimeout(pewaktu);
+  }, []);
+
+  const ubahSaringan = useCallback((next: Saringan[]) => {
+    setSaringan(next);
+    setPage(1);
+    const url = new URL(window.location.href);
+    if (next.length) url.searchParams.set("f", JSON.stringify(next)); else url.searchParams.delete("f");
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
+
+  const cacheNilai = useRef(new Map<string, Promise<NilaiKolom[]>>());
+  const muatNilai = useCallback((kunci: string) => {
+    const lama = cacheNilai.current.get(kunci);
+    if (lama) return lama;
+    const janji = fetch(`/e/${encodeURIComponent(slug)}/api/live?${new URLSearchParams({ facet: kunci }).toString()}`, { cache: "no-store" })
+      .then(async (response) => {
+        const body = await response.json().catch(() => null);
+        if (!response.ok || !Array.isArray(body?.values)) throw new Error("facet");
+        return body.values as NilaiKolom[];
+      });
+    janji.catch(() => cacheNilai.current.delete(kunci));
+    cacheNilai.current.set(kunci, janji);
+    return janji;
+  }, [slug]);
+
   const muat = useCallback(async () => {
     const nomor = ++urutan.current;
     setMemuat(true);
     const params = new URLSearchParams({ q: cari, sort, dir, limit: String(UKURAN), offset: String((page - 1) * UKURAN) });
+    if (saringan.length) params.set("f", JSON.stringify(saringan));
     const response = await fetch(`/e/${encodeURIComponent(slug)}/api/live?${params.toString()}`, { cache: "no-store" }).catch(() => null);
     if (nomor !== urutan.current) return;
     setMemuat(false);
@@ -100,7 +137,7 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
     if (page > halamanTerakhir) setPage(halamanTerakhir);
     setGagal(false);
     setData(isi);
-  }, [slug, cari, sort, dir, page]);
+  }, [slug, cari, sort, dir, page, saringan]);
 
   useEffect(() => {
     const awal = window.setTimeout(() => { void muat(); }, 0);
@@ -132,6 +169,13 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
   useEffect(samakanGeser, [data, menempel]);
 
   const zona = data ? normalizeTimeZone(data.event.time_zone) : DEFAULT_TIME_ZONE;
+  // Download mengikuti kata cari dan saringan yang sedang dipakai.
+  const unduhSaring = (() => {
+    const params = new URLSearchParams();
+    if (cari) params.set("q", cari);
+    if (saringan.length) params.set("f", JSON.stringify(saringan));
+    return params.toString();
+  })();
   const jam = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: zona });
   const tanggalJam = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: zona });
 
@@ -275,6 +319,7 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
                 className="h-9 w-full rounded-md border border-outline bg-surface-container-lowest pl-9 pr-3 text-body-medium outline-none placeholder:text-on-surface-variant focus:border-primary"
               />
             </label>
+            {data?.filter_columns ? <SaringanKolom kolom={data.filter_columns} nilai={saringan} onChange={ubahSaringan} muatNilai={muatNilai} /> : null}
             <span className="px-1 text-body-medium text-on-surface-variant tabular-nums">
               {/* Admin di ponsel: kata "participants" disembunyikan supaya
                   tombol Form answers dan Download muat sebaris di bawah pencarian. */}
@@ -296,8 +341,9 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
               </Button>
             ) : null}
             <ExportMenu
-              endpoint={`/e/${encodeURIComponent(slug)}/api/live/export`}
+              endpoint={`/e/${encodeURIComponent(slug)}/api/live/export${unduhSaring ? `?${unduhSaring}` : ""}`}
               label="Download"
+              note={unduhSaring ? "Only the participants matching your search and filters." : undefined}
               // CSV klien memberi ' di depan sel yang diawali = + - @ (mis. nomor
               // +62) supaya tidak dijalankan sebagai rumus. Tanda itu TAMPIL saat
               // CSV dibuka di Excel, jadi pengguna Excel diarahkan ke .xlsx.
@@ -329,7 +375,7 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
             ) : !data ? (
               <div className="flex flex-col gap-3 p-4">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-5 w-full" />)}</div>
             ) : data.rows.length === 0 ? (
-              <EmptyState plain icon={<UsersThree size={40} />} title={cari ? "No matching participants" : "No registrations yet"} description={cari ? "Try another name, organisation or email." : "New registrations appear here on their own."} />
+              <EmptyState plain icon={<UsersThree size={40} />} title={cari || saringan.length ? "No matching participants" : "No registrations yet"} description={saringan.length ? "Loosen a filter or change the search." : cari ? "Try another name, organisation or email." : "New registrations appear here on their own."} action={saringan.length ? <Button variant="outlined" size="sm" onClick={() => ubahSaringan([])}>Clear all filters</Button> : undefined} />
             ) : (
               <table style={{ minWidth: lebarTabel }} className={cx("w-full table-fixed border-separate border-spacing-0 text-left text-body-medium", memuat && "opacity-80")}>
                 {kolom}

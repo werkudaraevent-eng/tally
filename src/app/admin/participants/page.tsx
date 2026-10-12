@@ -33,6 +33,8 @@ export default function ParticipantsAdminPage() {
   const toast = useToast();
   const { zone, abbr } = useEventTimeZone();
   const [stats, setStats] = useState<ParticipantStats | null>(null);
+  // Saringan daftar yang sedang berlaku; Export mengikutinya.
+  const [saringanEkspor, setSaringanEkspor] = useState<string | null>(null);
   // Layar Viewer selalu ber-slug (/e/<slug>/live). Di alamat lama tanpa slug
   // tautannya tidak ditampilkan: /live tanpa slug hanya memantul ke /events.
   const [tautanKlien, setTautanKlien] = useState<string | null>(null);
@@ -116,7 +118,11 @@ export default function ParticipantsAdminPage() {
               />
             ) : null}
             <Button simpan variant="outlined" onClick={() => setImportOpen(true)} icon={<FileArrowUp size={16} />}>Import</Button>
-            <ExportMenu endpoint="/api/admin/participants/export" label="Export" />
+            <ExportMenu
+              endpoint={saringanEkspor ? `/api/admin/participants/export?${saringanEkspor}` : "/api/admin/participants/export"}
+              label="Export"
+              note={saringanEkspor ? (stats ? `Only the ${plural(stats.total, "participant")} matching your search and filters.` : "Only participants matching your search and filters.") : undefined}
+            />
             <Button onClick={() => daftar.current?.tambah()} icon={<Plus size={16} weight="bold" />}>Add participant</Button>
           </>
         }
@@ -128,6 +134,7 @@ export default function ParticipantsAdminPage() {
       <ParticipantList
         ref={daftar}
         reloadKey={reloadKey}
+        onSaringan={setSaringanEkspor}
         timeZone={zone}
         onStats={setStats}
         onChanged={() => setReloadKey((key) => key + 1)}

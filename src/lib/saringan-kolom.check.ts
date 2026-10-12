@@ -1,0 +1,46 @@
+import assert from "node:assert/strict";
+import { bacaSaringan, bacaSaringanMentah, cocokSatu, cocokSemua, hitungNilai, kolomSaringanAdmin, kolomSaringanKlien } from "./saringan-kolom.ts";
+
+const fields = [
+  { key: "sesi", label: "Which breakout session?", type: "select" as const, required: true, options: ["BR 1", "BR 2"] },
+  { key: "diet", label: "Dietary requirements", type: "text" as const, required: false },
+  { key: "tiba", label: "Arrival date", type: "date" as const, required: false },
+  { key: "ktp", label: "ID card", type: "file" as const, required: false },
+];
+const admin = kolomSaringanAdmin(fields);
+const json = (v: unknown) => JSON.stringify(v);
+
+// Kunci tidak dikenal dan bentuk yang salah jenis dibuang, bukan dipakai.
+assert.deepEqual(bacaSaringan(json([{ k: "field:sesi", in: ["BR 1"] }, { k: "field:nope", in: ["x"] }, { k: "field:diet", in: ["x"] }]), admin), [{ k: "field:sesi", in: ["BR 1"] }]);
+assert.deepEqual(bacaSaringan(json([{ k: "field:diet", has: "  veg " }]), admin), [{ k: "field:diet", has: "veg" }]);
+assert.deepEqual(bacaSaringan(json([{ k: "registered_at", from: "2026-10-01", to: "bukan" }]), admin), [{ k: "registered_at", from: "2026-10-01" }]);
+assert.deepEqual(bacaSaringan(json([{ k: "field:sesi", in: [] }]), admin), []);
+assert.equal(bacaSaringan("{", admin), null);
+assert.equal(bacaSaringan(json(Array.from({ length: 11 }, () => ({ k: "title", has: "a" }))), admin), null);
+assert.deepEqual(bacaSaringan(null, admin), []);
+
+// Layar klien: hanya jawaban yang dibagikan, tanpa QR code.
+const klien = kolomSaringanKlien([{ key: "sesi", label: "Which breakout session?", type: "select" }]);
+assert.deepEqual(bacaSaringan(json([{ k: "answer:diet", has: "veg" }, { k: "qr_code", has: "REG" }, { k: "field:sesi", in: ["BR 1"] }]), klien), []);
+assert.deepEqual(bacaSaringan(json([{ k: "answer:sesi", in: ["BR 1"] }]), klien), [{ k: "answer:sesi", in: ["BR 1"] }]);
+
+// Cocok.
+assert.equal(cocokSatu(" BR 1 ", { k: "x", in: ["BR 1"] }), true);
+assert.equal(cocokSatu("", { k: "x", in: [""] }), true);
+assert.equal(cocokSatu("Vegetarian", { k: "x", has: "VEG" }), true);
+assert.equal(cocokSatu("2026-10-05", { k: "x", from: "2026-10-01", to: "2026-10-05" }), true);
+assert.equal(cocokSatu("2026-10-06", { k: "x", from: "2026-10-01", to: "2026-10-05" }), false);
+assert.equal(cocokSatu("", { k: "x", from: "2026-10-01" }), false);
+const baris = { a: "BR 1", b: "veg" };
+assert.equal(cocokSemua(baris, [{ k: "a", in: ["BR 1"] }, { k: "b", has: "x" }], (r, k) => r[k as "a" | "b"]), false);
+
+// Nilai: "" (kosong) selalu terakhir.
+assert.deepEqual(hitungNilai([{ v: "B" }, { v: "" }, { v: "A" }, { v: "B" }], "v", (r) => r.v), [{ value: "A", count: 1 }, { value: "B", count: 2 }, { value: "", count: 1 }]);
+
+console.log("saringan-kolom ok");
+
+// Tautan rusak tidak boleh meruntuhkan halaman (QA #130 M3).
+assert.deepEqual(bacaSaringanMentah(json([{ k: "field:sesi", in: null }, { k: "title", has: 5 }, { k: "a", in: ["x", 3] }, { k: "a", in: ["y"] }, null, "x"])), [{ k: "a", in: ["x"] }]);
+assert.deepEqual(bacaSaringanMentah("{rusak"), []);
+assert.deepEqual(bacaSaringanMentah(json({ k: "title" })), []);
+console.log("saringan-kolom mentah ok");
