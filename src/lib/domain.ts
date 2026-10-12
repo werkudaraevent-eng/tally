@@ -293,6 +293,8 @@ export type LandingBlock = {
   /** Rute: titik berangkat dan tujuan. Butir = pilihan transportasi; `body` = langkah, satu per baris. */
   route_from?: LandingRouteStop;
   route_to?: LandingRouteStop;
+  /** Rute: cara Google Maps menggambar rute. Kosong = mengemudi. */
+  maps_mode?: "walking" | "driving" | "transit";
   /** Teks English blok ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingBlockEn;
 };

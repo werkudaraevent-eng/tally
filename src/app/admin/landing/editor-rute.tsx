@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import { IconButton, SegmentedButton, SelectField, TextArea, TextField } from "@/components/m3";
 import type { LandingBlock, LandingBlockItem, LandingBlockShowOn, LandingRouteStop } from "@/lib/domain";
 import { eventApiPath } from "@/lib/event-url";
+import { PilihIkonKartu, type WarnaUbin } from "./pilih-ikon";
+
+const UBIN: WarnaUbin = { button: { latar: "#E6F2EC", teks: "#00603C" }, brand: { latar: "#E8ECF4", teks: "#1B2D57" }, accent: { latar: "#FBF3DF", teks: "#7A5A00" } };
 
 type Hotel = { id: number; name: string; address: string | null };
 
@@ -59,7 +62,7 @@ function Titik({ label, stop, hotels, onChange }: { label: string; stop: Landing
   );
 }
 
-export function EditorRute({ block, ubah, judul, alis }: { block: LandingBlock; ubah: (patch: Partial<LandingBlock>) => void; judul: React.ReactNode; alis: React.ReactNode }) {
+export function EditorRute({ block, ubah, judul, alis, semuaBlok }: { block: LandingBlock; ubah: (patch: Partial<LandingBlock>) => void; judul: React.ReactNode; alis: React.ReactNode; semuaBlok?: LandingBlock[] }) {
   const [hotels, setHotels] = useState<Hotel[]>([]);
   useEffect(() => {
     void fetch(eventApiPath("/api/admin/logistik"), { cache: "no-store" })
@@ -70,7 +73,8 @@ export function EditorRute({ block, ubah, judul, alis }: { block: LandingBlock; 
   const items = block.items ?? [];
   const ubahItem = (index: number, patch: Partial<LandingBlockItem> & { icon?: string }) => ubah({ items: items.map((item, i) => (i === index ? { ...item, ...patch } : item)) });
   // Saran nama transportasi dari isi blok Rute lain di acara ini, lalu contoh umum. Tetap teks bebas.
-  const saran = ["Shuttle panitia", "Taksi online", "Jalan kaki", "Bus kota"];
+  // Saran = nama cara yang sudah ditulis di blok Rute acara ini (bukan daftar di kode).
+  const saran = [...new Set((semuaBlok ?? []).filter((b) => b.type === "route").flatMap((b) => (b.items ?? []).map((i) => i.label?.trim() ?? "")).filter(Boolean))];
   return (
     <div className="flex flex-col gap-4">
       <TampilDi block={block} ubah={ubah} />
@@ -84,11 +88,22 @@ export function EditorRute({ block, ubah, judul, alis }: { block: LandingBlock; 
         <p className="text-body-medium font-medium text-on-surface">Ways to get there</p>
         <datalist id={`saran-${block.id}`}>{saran.map((s) => <option key={s} value={s} />)}</datalist>
         {items.map((item, index) => (
-          <div key={index} className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_36px] items-start gap-2 rounded-lg border border-outline-variant p-3">
-            <TextField label="Name" list={`saran-${block.id}`} value={item.label ?? ""} onChange={(event) => ubahItem(index, { label: event.target.value })} />
-            <TextField label="Time" placeholder="± 30 menit" value={item.value ?? ""} onChange={(event) => ubahItem(index, { value: event.target.value })} />
-            <IconButton label="Remove" className="mt-6" onClick={() => ubah({ items: items.filter((_, i) => i !== index) })}><Trash size={16} /></IconButton>
-            <TextField className="col-span-2" label="Note" optional value={item.body ?? ""} onChange={(event) => ubahItem(index, { body: event.target.value })} />
+          <div key={index} className="grid grid-cols-[minmax(0,1fr)_112px] gap-x-2 gap-y-3 rounded-lg border border-outline-variant p-3">
+            <div className="flex items-start justify-between gap-2 col-span-2">
+              <PilihIkonKartu
+                nomor={index + 1}
+                ikon={(item as { icon?: string }).icon ?? "Car"}
+                nada="brand"
+                bawaan={!(item as { icon?: string }).icon}
+                warna={UBIN}
+                gambar={null}
+                onChange={(x) => ubahItem(index, { icon: x?.icon })}
+              />
+              <IconButton label="Remove" onClick={() => ubah({ items: items.filter((_, i) => i !== index) })}><Trash size={16} /></IconButton>
+            </div>
+            <TextField label="Name" list={`saran-${block.id}`} placeholder="e.g. Jalan kaki lewat jembatan" value={item.label ?? ""} onChange={(event) => ubahItem(index, { label: event.target.value })} />
+            <TextField label="Time" optional placeholder="± 5 menit" value={item.value ?? ""} onChange={(event) => ubahItem(index, { value: event.target.value })} />
+            <TextArea className="col-span-2" rows={2} label="Note" optional value={item.body ?? ""} onChange={(event) => ubahItem(index, { body: event.target.value })} />
           </div>
         ))}
         {items.length < 4 ? (
@@ -96,6 +111,16 @@ export function EditorRute({ block, ubah, judul, alis }: { block: LandingBlock; 
             <Plus size={16} aria-hidden /> Add a way
           </button>
         ) : null}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <p className="text-body-medium font-medium text-on-surface">Route in Google Maps</p>
+        <SegmentedButton<"walking" | "driving" | "transit">
+          label="Route in Google Maps"
+          value={block.maps_mode ?? "driving"}
+          onChange={(maps_mode) => ubah({ maps_mode })}
+          options={[{ value: "walking", label: "Walking" }, { value: "driving", label: "Driving" }, { value: "transit", label: "Public transport" }]}
+        />
+        <p className="text-body-small text-on-surface-variant">How Google Maps draws the route when a participant taps the button.</p>
       </div>
       <TextArea label="Steps" optional rows={4} hint="One step per line. Shown numbered." value={block.body ?? ""} onChange={(event) => ubah({ body: event.target.value })} />
       <p className="text-body-small text-on-surface-variant">The &ldquo;Open route in Google Maps&rdquo; button is built from the two addresses.</p>

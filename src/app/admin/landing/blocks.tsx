@@ -709,7 +709,7 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
         </div>
       );
     case "route":
-      return <EditorRute block={block} ubah={ubah} judul={teks("heading", "Heading", { optional: true, hint: "Empty = Dari <place> ke <place>." })} alis={alis} />;
+      return <EditorRute block={block} ubah={ubah} judul={teks("heading", "Heading", { optional: true, hint: "Empty = Dari <place> ke <place>." })} alis={alis} semuaBlok={[block]} />;
     case "cta":
       return (
         <div className="flex flex-col gap-4">

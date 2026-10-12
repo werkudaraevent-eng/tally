@@ -61,7 +61,7 @@ export async function siapkanRute(block: LandingBlock, hotels: LandingHotel[], l
         .map(async (item) => ({ Ikon: await ikon((item as { icon?: string }).icon), label: item.label!.trim(), waktu: item.value?.trim() || null, catatan: item.body?.trim() || null })),
     ),
     langkah: (block.body ?? "").split("\n").map((baris) => baris.replace(/^\s*(\d+[.)]|[-•])\s*/, "").trim()).filter(Boolean),
-    peta: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(alamat(dari))}&destination=${encodeURIComponent(alamat(ke))}`,
+    peta: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(alamat(dari))}&destination=${encodeURIComponent(alamat(ke))}&travelmode=${block.maps_mode ?? "driving"}`,
   };
 }
 

@@ -57,6 +57,7 @@ const blockSchema = z.object({
   id: blockId,
   type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route"]),
   show_on: z.enum(["public", "member", "both"]).optional(),
+  maps_mode: z.enum(["walking", "driving", "transit"]).optional(),
   route_from: z.object({ hotel_id: z.number().int().positive().optional(), name: teks(120), address: teks(300) }).optional(),
   route_to: z.object({ hotel_id: z.number().int().positive().optional(), name: teks(120), address: teks(300) }).optional(),
   tone: z.enum(["light", "panel", "dark"]).optional(),
