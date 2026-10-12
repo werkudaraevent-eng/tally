@@ -113,7 +113,7 @@ function TiketDitutup({ lang, eventName, fakta }: { lang: LandingLang; eventName
       style={{ background: "var(--reg-brand, var(--reg-primary))" }}
     >
       <div className="px-7 pb-6 pt-7">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] opacity-75">{t.closed.ticket}</p>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.16em]">{t.closed.ticket}</p>
         <p className={`mt-3 text-balance text-[24px] font-semibold leading-tight tracking-[-0.02em] [overflow-wrap:anywhere] ${HEAD}`}>{eventName}</p>
       </div>
       <div className="relative">
