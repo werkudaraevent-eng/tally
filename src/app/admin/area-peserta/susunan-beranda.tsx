@@ -167,7 +167,7 @@ export function SusunanBeranda({
       </ol>
       <p className="text-body-small text-on-surface-variant">
         {gathering
-          ? "Drag to reorder. Phones show this order from top to bottom; on wide screens Quick links, Bus and room and Roommates stay in the side column, in this order. "
+          ? "Drag to reorder. Phones show this order from top to bottom; on wide screens Bus and room, Roommates and Quick links stay in the side column, in that order. "
           : "Drag to reorder. The ticket, Room, bus and items and Quick links stay in the side column, in this order, which phones show first. "}
         To add your own content, add a block on the{" "}
         <Link href="/admin/landing" className="rounded-sm font-medium text-primary hover:underline">Event page</Link> and set Show on to Participant page.

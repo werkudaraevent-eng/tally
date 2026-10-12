@@ -530,7 +530,10 @@ export async function DashboardGathering({
           })}
         </div>
         <div className="hidden flex-col gap-4 lg:flex">
-          {beranda.order.map((id) =>
+          {/* Kolom samping urutannya tetap (Bus dan kamar, Teman sekamar, Akses
+              cepat), sama dengan sebelum Participant home ada: urutan Beranda
+              hanya mengatur kolom utama dan tampilan ponsel. */}
+          {(["logistics", "roommates", "quick"] as const).map((id) =>
             !diBeranda(id) ? null : id === "logistics" ? (
               <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
                 {kartuBus}
