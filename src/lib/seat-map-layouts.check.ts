@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { computeSeatMapGeometry, duplicateSeatLabels, normalizeLayoutParams, sectionPrefixError, type SeatMapConfig } from "./seat-map.ts";
+import { SEAT_RADIUS, computeSeatMapGeometry, duplicateSeatLabels, normalizeLayoutParams, sectionPrefixError, type SeatMapConfig } from "./seat-map.ts";
 
 /**
  * Pemeriksaan geometri denah untuk setiap tata ruang.
@@ -216,5 +216,29 @@ assert.equal(sectionPrefixError("VIP1-"), null, "awalan: tanda hubung sah");
 assert.equal(sectionPrefixError("A.B/C_D"), null, "awalan: titik, garis miring, garis bawah sah");
 assert.ok(sectionPrefixError("VIP#"), "awalan: karakter lain ditolak");
 assert.ok(sectionPrefixError("ABCDEFGHI"), "awalan: lebih dari 8 karakter ditolak");
+
+// Ruangan gabungan: tepi luar bagian yang lebih sempit sejajar dengan bagian terlebar.
+const tepi = (g: ReturnType<typeof computeSeatMapGeometry>, pilih: (t: (typeof g.tables)[number]) => boolean) => {
+  const xs = g.tables.filter(pilih).flatMap((t) => (t.shape === "sofa" ? [t.x - (t.w ?? 0) / 2, t.x + (t.w ?? 0) / 2] : t.seats.flatMap((k) => [k.x - SEAT_RADIUS, k.x + SEAT_RADIUS])));
+  return [Math.min(...xs), Math.max(...xs)];
+};
+const sejajar = computeSeatMapGeometry({ layout_type: "theater", layout_params: { ...normalizeLayoutParams("theater", {}), sections: [
+  { kind: "sofa", name: "VIP", prefix: "VIP", rows: 1, per_row: 21, seats_per_sofa: 1, aisles: [] },
+  { kind: "theater", name: "", prefix: "", rows: 8, per_row: 24, seats_per_sofa: 1, aisles: [6, 12, 18] },
+] } } as Partial<SeatMapConfig>);
+const [sofaKiri, sofaKanan] = tepi(sejajar, (t) => t.shape === "sofa");
+const [teaterKiri, teaterKanan] = tepi(sejajar, (t) => t.shape === "none");
+assert.ok(Math.abs(sofaKiri - teaterKiri) < 0.01 && Math.abs(sofaKanan - teaterKanan) < 0.01, "gabungan: tepi sofa dan theater sejajar");
+const kursiA = sejajar.tables.find((t) => t.shape === "none")!.seats;
+assert.equal(kursiA[0].x + SEAT_RADIUS < kursiA[1].x - SEAT_RADIUS, true, "gabungan: kursi tidak bertumpuk");
+// Peregangan dibatasi: baris yang jauh lebih pendek tetap di tengah, tidak direntang.
+const pendek = computeSeatMapGeometry({ layout_type: "theater", layout_params: { ...normalizeLayoutParams("theater", {}), sections: [
+  { kind: "sofa", name: "VIP", prefix: "VIP", rows: 1, per_row: 3, seats_per_sofa: 2, aisles: [] },
+  { kind: "theater", name: "", prefix: "", rows: 2, per_row: 30, seats_per_sofa: 1, aisles: [] },
+] } } as Partial<SeatMapConfig>);
+const sofaPendek = pendek.tables.filter((t) => t.shape === "sofa");
+assert.ok(sofaPendek[1].x - sofaPendek[0].x <= (sofaPendek[0].w ?? 0) + 16 * 1.8 + 0.01, "gabungan: jarak sofa paling 1.8x");
+const [pk, pn] = tepi(pendek, (t) => t.shape === "sofa");
+assert.ok(Math.abs((pk + pn) / 2 - pendek.width / 2) < 0.01, "gabungan: bagian pendek tetap di tengah");
 
 console.log("seat-map-layouts: semua pemeriksaan lolos");
