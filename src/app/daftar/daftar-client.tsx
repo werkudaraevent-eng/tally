@@ -732,15 +732,21 @@ export default function DaftarClient(props: Props) {
   );
 }
 
-function Bingkai({
+/**
+ * Kerangka formulir lama (Editorial): kolom identitas acara di kiri, kartu di
+ * kanan. Diekspor untuk pesan "Pendaftaran ditutup", supaya pesan itu tetap
+ * berdiri di halaman acara, bukan kotak polos di layar kosong.
+ */
+export function Bingkai({
   lang,
   halamanUrl,
   eventName,
   schedule,
   welcomeText,
   theme,
+  eyebrow,
   children,
-}: Props & { children: React.ReactNode }) {
+}: Pick<Props, "lang" | "halamanUrl" | "eventName" | "schedule" | "welcomeText" | "theme"> & { eyebrow?: string; children: React.ReactNode }) {
   const t = DAFTAR_UI[lang];
   return (
     <main
@@ -779,7 +785,7 @@ function Bingkai({
               ) : null}
 
               <p className="text-label-large font-semibold uppercase tracking-[0.18em] text-[var(--reg-primary)]">
-                {t.registration}
+                {eyebrow ?? t.registration}
               </p>
               <h1 className="mt-3 text-balance text-display-small font-semibold tracking-[-0.03em]">{eventName}</h1>
 
