@@ -114,6 +114,21 @@ const jarakSetelahLorong =
 const jarakBiasa = denganLorong.tables[0].seats[1].x - denganLorong.tables[0].seats[0].x;
 assert.ok(jarakSetelahLorong > jarakBiasa * 1.5, "theater: celah lorong harus terlihat");
 
+// Dua lorong (denah Thamrin: blok 8 | 8 | 8). Lorong hanya menggeser posisi;
+// label kursi harus sama persis dengan tanpa lorong agar penempatan lama cocok.
+const duaLorong = buat("theater", { rows: 8, per_row: 24, aisles: [8, 16] });
+const satuLorong = buat("theater", { rows: 8, per_row: 24, aisles: [8] });
+const tanpaLorong24 = buat("theater", { rows: 8, per_row: 24, aisles: [] });
+const labelSemua = (hasil: typeof tanpaLorong24) => hasil.tables.flatMap((t) => t.seats.map((s) => s.label));
+assert.deepEqual(labelSemua(duaLorong), labelSemua(tanpaLorong24), "theater: lorong tidak boleh mengubah label kursi");
+assert.deepEqual(labelSemua(satuLorong), labelSemua(tanpaLorong24), "theater: satu lorong juga sama labelnya");
+assert.equal(duaLorong.totalSeats, 192, "theater: 8 x 24 kursi");
+const baris = duaLorong.tables[0].seats;
+const pitch = baris[1].x - baris[0].x;
+assert.ok(baris[8].x - baris[7].x > pitch * 1.5, "theater: celah setelah kursi 8");
+assert.ok(baris[16].x - baris[15].x > pitch * 1.5, "theater: celah setelah kursi 16");
+assert.ok(duaLorong.width > satuLorong.width, "theater: lorong kedua melebarkan kanvas");
+
 // ---- Classroom: kursi duduk di sisi yang menjauhi panggung ------------------
 const classroom = buat("classroom", { rows: 2, per_row: 3, seats_per_table: 3 });
 assert.equal(classroom.totalTables, 6, "classroom: 2 baris x 3 meja");
