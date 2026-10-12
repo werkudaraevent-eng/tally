@@ -276,6 +276,18 @@ export type SeatMapLayoutParams = {
   seats_head: number;
   /** Head table: kursi di meja utama. */
   head_seats: number;
+  /** PROTOTIPE: ruangan gabungan, bagian berurutan dari panggung ke belakang. */
+  sections?: SeatSection[];
+};
+
+export type SeatSection = {
+  kind: "sofa" | "theater";
+  name: string;
+  prefix: string;
+  rows: number;
+  per_row: number;
+  seats_per_sofa: number;
+  aisles: number[];
 };
 
 export const DEFAULT_LAYOUT_PARAMS: SeatMapLayoutParams = {
@@ -326,6 +338,7 @@ export function normalizeLayoutParams(layout: SeatMapLayout, raw: unknown): Seat
     seats_per_side: angka(data.seats_per_side, bawaan.seats_per_side, 1, 40),
     seats_head: angka(data.seats_head, bawaan.seats_head, 0, 20),
     head_seats: angka(data.head_seats, bawaan.head_seats, 1, MAX_SEATS_PER_TABLE),
+    ...(Array.isArray(data.sections) && data.sections.length ? { sections: data.sections as SeatSection[] } : {}),
   };
 }
 
@@ -353,7 +366,7 @@ export type SeatGeometry = {
  * panel "kursi meja ini", pewarnaan, dan LED — tidak perlu mengenal dua bentuk
  * data yang berbeda.
  */
-export type TableShape = "round" | "rect" | "none";
+export type TableShape = "round" | "rect" | "none" | "sofa";
 
 export type TableGeometry = {
   /**
@@ -384,6 +397,7 @@ export type SeatMapGeometry = {
   height: number;
   stage: { x: number; y: number; width: number; height: number; label: string };
   tables: TableGeometry[];
+  zones: { name: string; x: number; y: number; width: number; height: number }[];
   totalTables: number;
   totalSeats: number;
 };
@@ -560,7 +574,7 @@ export function normalizeConfig(raw: Partial<SeatMapConfig> | null | undefined):
  */
 export function computeSeatMapGeometry(input: Partial<SeatMapConfig> | null | undefined): SeatMapGeometry {
   const config = normalizeConfig(input);
-  const { tables, width, height } = generateLayout(config.layout_type, config, config.layout_params);
+  const { tables, width, height, zones = [] } = generateLayout(config.layout_type, config, config.layout_params);
 
   // Panggung dibuat selebar dua per tiga kanvas dan dipusatkan: ia acuan arah
   // pandang, jadi harus terbaca lebih dulu sebelum mata mencari nomor meja.
@@ -577,6 +591,7 @@ export function computeSeatMapGeometry(input: Partial<SeatMapConfig> | null | un
       label: config.stage_label,
     },
     tables,
+    zones,
     totalTables: tables.length,
     totalSeats: tables.reduce((sum, table) => sum + table.seats.length, 0),
   };

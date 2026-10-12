@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowSquareOut, CaretDown, Info, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
+import { ArrowSquareOut, CaretDown, DotsSixVertical, Info, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
@@ -10,7 +10,7 @@ import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import {
   computeSeatMapGeometry, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor,
-  type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule,
+  type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule, type SeatSection,
   LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS,
 } from "@/lib/seat-map";
 import { tallySeatSource } from "@/lib/seat-tally-source";
@@ -388,6 +388,56 @@ export default function SeatMapAdminPage() {
     <div className="flex flex-col gap-5">
       <p className="flex items-start gap-2 rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant"><Info size={16} className="mt-0.5 shrink-0" />Applies to every session.</p>
       <Kelompok title="Room shape" first>
+        {config.layout_params.sections?.length ? (
+          <>
+            <Field label="Layout type" htmlFor="layout-type" hint="Sections stacked from the stage backwards. Each section has its own layout and its own seat labels.">
+              <select id="layout-type" value="mixed" onChange={() => updateParam("sections", undefined)} className={INPUT}>
+                <option value="mixed">Mixed (sections)</option>
+                {SEAT_MAP_LAYOUTS.map((layout) => <option key={layout} value={layout}>{LAYOUT_INFO[layout].name}</option>)}
+              </select>
+            </Field>
+            <div className="flex flex-col gap-2">
+              {config.layout_params.sections.map((section, index) => {
+                const set = (patch: Partial<SeatSection>) => updateParam("sections", config.layout_params.sections!.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+                const contoh = section.kind === "sofa" ? `${section.prefix}1 … ${section.prefix}${section.rows * section.per_row * section.seats_per_sofa}` : `${section.prefix}A1 … ${section.prefix}${String.fromCharCode(64 + section.rows)}${section.per_row}`;
+                return (
+                  <div key={index} className="rounded-md border border-outline-variant bg-surface-container-lowest">
+                    <div className="flex h-11 items-center gap-2 border-b border-outline-variant px-2">
+                      <DotsSixVertical size={18} className="shrink-0 cursor-grab text-on-surface-variant" aria-hidden />
+                      <span className="text-label-large font-semibold">{index + 1}. {section.name || (section.kind === "sofa" ? "Sofas" : "Theater")}</span>
+                      <span className="text-body-small text-on-surface-variant">{index === 0 ? "nearest the stage" : ""}</span>
+                      <span className="ml-auto text-body-small text-on-surface-variant">{section.kind === "sofa" ? section.rows * section.per_row * section.seats_per_sofa : section.rows * section.per_row} seats</span>
+                      <IconButton size="sm" label="Delete section" onClick={() => {}}><Trash size={16} /></IconButton>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 p-3">
+                      <Field label="Type">
+                        <select value={section.kind} onChange={(event) => set({ kind: event.target.value as SeatSection["kind"] })} className={INPUT}>
+                          <option value="sofa">Sofas</option>
+                          <option value="theater">Theater</option>
+                          <option value="rounds" disabled>Round tables (later)</option>
+                        </select>
+                      </Field>
+                      <Field label="Name on map"><input value={section.name} placeholder="None" onChange={(event) => set({ name: event.target.value })} className={INPUT} /></Field>
+                      <Field label="Label prefix"><input value={section.prefix} placeholder="None" onChange={(event) => set({ prefix: event.target.value })} className={INPUT} /></Field>
+                      <Field label="Rows"><input type="number" min={1} max={40} value={section.rows} onChange={(event) => set({ rows: Number(event.target.value) })} className={INPUT} /></Field>
+                      <Field label={section.kind === "sofa" ? "Sofas per row" : "Seats per row"}><input type="number" min={1} max={40} value={section.per_row} onChange={(event) => set({ per_row: Number(event.target.value) })} className={INPUT} /></Field>
+                      {section.kind === "sofa" ? (
+                        <Field label="Seats per sofa"><input type="number" min={1} max={6} value={section.seats_per_sofa} onChange={(event) => set({ seats_per_sofa: Number(event.target.value) })} className={INPUT} /></Field>
+                      ) : <div />}
+                      <div className="col-span-3">
+                        <Field label={section.kind === "sofa" ? "Aisle after sofa number" : "Aisle after seat number"} hint={`Seat labels: ${contoh}`}>
+                          <InputLorong aisles={section.aisles} onChange={(aisles) => set({ aisles })} />
+                        </Field>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div><Button variant="outlined" size="sm" onClick={() => {}}><Plus size={16} />Add section</Button></div>
+            </div>
+          </>
+        ) : (
+          <>
         <Field label="Layout type" htmlFor="layout-type" hint={`${LAYOUT_INFO[config.layout_type].desc} ${LAYOUT_INFO[config.layout_type].labelHint}.`}>
           <select
             id="layout-type"
@@ -434,6 +484,8 @@ export default function SeatMapAdminPage() {
         {config.layout_type === "head_table" ? (
           <Field label="Head table seats"><input type="number" min={1} max={26} value={config.layout_params.head_seats} onChange={(event) => updateParam("head_seats", Number(event.target.value))} className={cx(INPUT, "w-32")} /></Field>
         ) : null}
+          </>
+        )}
       </Kelompok>
 
       <Kelompok title="Tables and labels">
