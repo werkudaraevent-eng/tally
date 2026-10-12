@@ -47,6 +47,8 @@ export type DaftarUiText = {
   notFoundBody: string;
   closedTitle: string;
   closedBody: (eventName: string) => string;
+  /** Halaman /daftar saat pendaftaran ditutup, di dalam kerangka acara. */
+  closed: { eyebrow: string; heading: string; lead: string; memberHint: string; contact: string; ticket: string; stamp: string };
   /**
    * Galat server per kode API, untuk halaman English: pesan server ditulis
    * dalam bahasa Indonesia. Di halaman Indonesia pesan server tampil apa adanya.
@@ -141,6 +143,15 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
     notFoundBody: "Tautan pendaftaran ini tidak menunjuk ke acara mana pun. Periksa kembali alamat yang Anda terima dari panitia.",
     closedTitle: "Pendaftaran ditutup",
     closedBody: (eventName) => `Pendaftaran untuk "${eventName}" sedang tidak dibuka. Hubungi panitia bila Anda merasa ini keliru.`,
+    closed: {
+      eyebrow: "Pendaftaran ditutup",
+      heading: "Pendaftaran sudah ditutup",
+      lead: "Terima kasih atas minat Anda. Saat ini acara ini tidak menerima pendaftaran baru.",
+      memberHint: "Masuk untuk melihat kode QR dan informasi acara Anda.",
+      contact: "Ada pertanyaan? Hubungi panitia:",
+      ticket: "Tiket acara",
+      stamp: "Ditutup",
+    },
     errors: {},
     account: {
       heading: "Akun area peserta",
@@ -226,6 +237,15 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
     notFoundBody: "This registration link does not point to any event. Check the address you received from the organisers.",
     closedTitle: "Registration is closed",
     closedBody: (eventName) => `Registration for "${eventName}" is not open. Contact the organisers if you think this is a mistake.`,
+    closed: {
+      eyebrow: "Registration closed",
+      heading: "Registration has closed",
+      lead: "Thank you for your interest. This event is not accepting new registrations right now.",
+      memberHint: "Sign in to see your QR code and event details.",
+      contact: "Questions? Contact the organisers:",
+      ticket: "Event ticket",
+      stamp: "Closed",
+    },
     errors: {
       REGISTRATION_DUPLICATE_EMAIL: "This email is already registered for this event. Contact the organisers if you have not received your participant code.",
       REGISTRATION_CLOSED: "Registration for this event has just closed.",
