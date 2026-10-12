@@ -26,6 +26,18 @@ export type KursiPeserta = {
 
 export type DenahPeserta = { config: SeatMapConfig; kursi: KursiPeserta[] };
 
+/**
+ * Tulisan kursi: "Baris A · Kursi 8", "Meja 5 · Kursi C", atau "VIP · Kursi 7"
+ * untuk sofa di ruangan gabungan. Label apa adanya bila kursinya tidak ada di
+ * denah. Dipakai kartu tiket peserta dan lembar hasil pemindai, supaya keduanya
+ * menyebut kursi yang sama dengan kata yang sama.
+ */
+export function tulisKursi(seat: Pick<KursiPeserta, "label" | "jenis" | "kelompok" | "nomor">, kata: { seat: string; seatRow: string; seatTable: string }): string {
+  if (!seat.jenis || !seat.kelompok || !seat.nomor) return seat.label;
+  if (seat.jenis === "section") return `${seat.kelompok} · ${kata.seat} ${seat.nomor}`;
+  return `${seat.jenis === "row" ? kata.seatRow : kata.seatTable} ${seat.kelompok} · ${kata.seat} ${seat.nomor}`;
+}
+
 export async function loadKursiPeserta(eventId: string, seats: KursiMentah[]): Promise<DenahPeserta | null> {
   if (seats.length === 0) return null;
   const [config, sessions] = await Promise.all([

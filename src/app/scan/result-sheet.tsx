@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Armchair,
   CheckCircle,
   Clock,
   CloudSlash,
@@ -284,10 +285,26 @@ export function ResultSheet({
                 ) : null}
               </div>
 
-              {peserta?.qr_code && hadir ? (
-                <p className="mt-3 inline-flex rounded-lg bg-black/15 px-3 py-1.5 text-title-medium">
-                  {peserta.qr_code}
-                </p>
+              {/* Kode REG tidak ditampilkan: petugas tidak memakainya, dan tempat
+                  ini dipakai kursi. Kursinya ditulis lengkap, bukan "A8": petugas
+                  membacakannya kepada tamu, dan "Row A · Seat 8" tidak bisa salah
+                  dengar. Acara tanpa kursi tidak mendapat baris ini sama sekali. */}
+              {hasil.kursi && hasil.kursi.length > 0 && hadir ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {hasil.kursi.map((seat, index) => (
+                    <p
+                      key={`${index}-${seat.tulisan}`}
+                      className="inline-flex min-w-0 items-center gap-2 rounded-lg bg-black/15 px-3 py-1.5 text-title-large font-semibold [overflow-wrap:anywhere]"
+                    >
+                      <Armchair size={22} weight="fill" aria-hidden className="shrink-0" />
+                      <span>
+                        <span className="sr-only">Seat: </span>
+                        {seat.sesi && hasil.kursi!.length > 1 ? <span className="font-normal opacity-80">{seat.sesi} · </span> : null}
+                        {seat.tulisan}
+                      </span>
+                    </p>
+                  ))}
+                </div>
               ) : null}
 
               {hasil.tersimpanSebelumnya ? (

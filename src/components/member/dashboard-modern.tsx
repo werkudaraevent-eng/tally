@@ -15,7 +15,7 @@ import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingMemberBlocks, memberHome
 import { BagianBeranda } from "@/components/member/bagian-beranda";
 import { KartuBlok } from "@/components/member/kartu-blok";
 import { DenahMini } from "@/components/member/denah-mini";
-import { loadKursiPeserta } from "@/lib/member/kursi-peserta";
+import { loadKursiPeserta, tulisKursi } from "@/lib/member/kursi-peserta";
 import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
@@ -313,11 +313,7 @@ export async function DashboardModern({
                     {denahKursi ? (
                       <div className="grid gap-6">
                         {denahKursi.kursi.map((seat, index) => {
-                          const tulisan = seat.jenis && seat.kelompok && seat.nomor
-                            ? seat.jenis === "section"
-                              ? `${seat.kelompok} · ${p.seat} ${seat.nomor}`
-                              : `${seat.jenis === "row" ? p.seatRow : p.seatTable} ${seat.kelompok} · ${p.seat} ${seat.nomor}`
-                            : seat.label;
+                          const tulisan = tulisKursi(seat, p);
                           const denahUrl = seat.denah
                             ? `/e/${event.slug}/denah?sesi=${encodeURIComponent(seat.denah.sesiSlug)}&kursi=${encodeURIComponent(seat.label)}`
                             : `/e/${event.slug}/denah`;
