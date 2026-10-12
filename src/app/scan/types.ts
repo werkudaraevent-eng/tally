@@ -62,6 +62,8 @@ export type Hasil = {
   tersimpanSebelumnya?: boolean;
   /** Badge kertas di stasiun cetak: pekerjaan yang diantrekan, atau yang terakhir untuk pemindaian ulang. */
   badge_cetak?: HasilCetakMeja;
+  /** Walk-in baru: email Sign-in link (Participant area > Email a sign-in link to walk-ins). */
+  signin_link?: { state: "queued"; email: string } | { state: "skipped"; reason: string } | { state: "failed" };
   /**
    * Pencatatan dari Cari nama yang gagal sampai ke server: siapa yang dicoba,
    * untuk judul lembar merah dan untuk Ulangi. Pencarian tidak membawa kode QR.

@@ -72,7 +72,7 @@ export function memberLinkUrl(requestUrl: string, slug: string, purpose: "konfir
  * (`/e/<slug>/en/masuk?sandi=`, konfirmasi `&bahasa=en`) bila English bukan
  * bahasa utama. Tanpa `lang` semuanya tetap seperti sebelumnya.
  */
-function versiBahasa(event: Pick<EventRow, "slug" | "name" | "landing_config">, lang: LandingLang | undefined, url: string) {
+export function versiBahasa(event: Pick<EventRow, "slug" | "name" | "landing_config">, lang: LandingLang | undefined, url: string) {
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
   const en = lang === "en" && landingEnAvailable(landing);
   const namaEn = landing.en?.public_name?.trim();

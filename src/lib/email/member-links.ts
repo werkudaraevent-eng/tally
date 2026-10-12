@@ -12,7 +12,7 @@ import type { LandingLang } from "@/lib/landing-i18n";
  * isinya tidak berubah.
  */
 
-export type MemberLinkKind = "konfirmasi" | "sandi" | "tertutup";
+export type MemberLinkKind = "konfirmasi" | "sandi" | "tertutup" | "walkin";
 
 type Isi = Record<MemberLinkKind, { subjek: (acara: string) => string; pembuka: string; tombol: string | null; catatan: string }>;
 
@@ -36,6 +36,13 @@ const ISI: Isi = {
     tombol: null,
     catatan: "Bila Anda tidak memintanya, abaikan email ini.",
   },
+  // Walk-in yang baru didaftarkan petugas di meja registrasi (sendWalkinLink).
+  walkin: {
+    subjek: (acara) => `Akses area peserta — ${acara}`,
+    pembuka: "Anda sudah terdaftar di meja registrasi. Buat kata sandi lewat tombol di bawah untuk membuka tiket dan info acara Anda di area peserta.",
+    tombol: "Buat kata sandi",
+    catatan: "Tautan ini hanya untuk Anda, berlaku 7 hari, dan hanya bisa dipakai sekali. Jangan teruskan email ini ke orang lain.",
+  },
 };
 
 const ISI_EN: Isi = {
@@ -56,6 +63,12 @@ const ISI_EN: Isi = {
     pembuka: "someone asked for a participant area password link for this email. This email is registered as a participant, but the participant area is not open to you yet. Contact the organisers if you need access.",
     tombol: null,
     catatan: "If you did not ask for it, ignore this email.",
+  },
+  walkin: {
+    subjek: (acara) => `Your participant area — ${acara}`,
+    pembuka: "you have been registered at the registration desk. Create a password with the button below to open your ticket and event information in the participant area.",
+    tombol: "Create password",
+    catatan: "This link is only for you, is valid for 7 days and works once. Do not forward this email to anyone.",
   },
 };
 
