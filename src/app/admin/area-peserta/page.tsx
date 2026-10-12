@@ -4,7 +4,8 @@ import { Info, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
 import { Banner, Button, MetaSeparator, Pane, PaneBody, PaneFooter, Switch, TextField, WorkspaceHeader, WorkspacePage } from "@/components/m3";
-import { SettingRow } from "@/components/admin/settings-panel";
+import { SettingRow as BarisSetelan } from "@/components/admin/settings-panel";
+import { PratinjauPeserta } from "./pratinjau-peserta";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { type LandingMemberAudience, type LandingMemberConfig } from "@/lib/domain";
@@ -12,6 +13,9 @@ import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import { SusunanBeranda, type BlokPeserta } from "./susunan-beranda";
+
+// PROTO PR 2: panel setelan sempit di samping pratinjau, jadi judul baris di atas isinya.
+const SettingRow = (props: Parameters<typeof BarisSetelan>[0]) => <BarisSetelan {...props} stacked />;
 
 /**
  * Area peserta: siapa yang bisa masuk ke Dashboard saya dan apa yang tampil di
@@ -63,6 +67,8 @@ export default function AreaPesertaPage() {
   const [galatMuat, setGalatMuat] = useState("");
   const [simpan, setSimpan] = useState(false);
   const toast = useToast();
+  const [slug, setSlug] = useState("");
+  useEffect(() => { const timer = window.setTimeout(() => setSlug(window.location.pathname.split("/")[2] ?? ""), 0); return () => window.clearTimeout(timer); }, []);
 
   const load = useCallback(async () => {
     setGalatMuat("");
@@ -105,7 +111,7 @@ export default function AreaPesertaPage() {
 
   return (
     <div lang="en" className="contents">
-    <WorkspacePage width="form">
+    <WorkspacePage fill>
       <WorkspaceHeader
         title="Participant area"
         meta={
@@ -137,7 +143,12 @@ export default function AreaPesertaPage() {
           ))}
         </Pane>
       ) : (
-        <Pane aria-label="Participant area settings">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+        <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0">
+          <PratinjauPeserta slug={slug} sebagai="Rina Kartika" />
+        </div>
+        <div className="flex min-h-0 flex-col *:flex-1 lg:w-[460px] lg:shrink-0">
+        <Pane aria-label="Participant area settings" className="lg:overflow-y-auto">
           <PaneBody>
             <SettingRow title="Participant area" description="Participants sign in with their email and a password to see their QR code, seat and agenda.">
               <Switch
@@ -199,6 +210,8 @@ export default function AreaPesertaPage() {
             <Button simpan size="sm" loading={simpan} disabled={!berubah} onClick={() => void save()}>Save changes</Button>
           </PaneFooter>
         </Pane>
+        </div>
+        </div>
       )}
     </WorkspacePage>
     </div>

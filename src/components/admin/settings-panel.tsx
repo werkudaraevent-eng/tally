@@ -31,9 +31,9 @@ const FIELD_DISIMPAN = ["time_zone", "pickup_mode", "cashier_confirmation_requir
 const kelasInput = "h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
 
 /** Satu baris setelan: judul dan penjelasan di kiri, kontrolnya di kanan. */
-export function SettingRow({ title, description, children }: { title: ReactNode; description?: ReactNode; children: ReactNode }) {
+export function SettingRow({ title, description, children, stacked = false }: { title: ReactNode; description?: ReactNode; children: ReactNode; stacked?: boolean }) {
   return (
-    <div className="grid gap-3 border-b border-outline-variant px-5 py-5 last:border-b-0 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-8">
+    <div className={cx("grid gap-3 border-b border-outline-variant px-5 py-5 last:border-b-0", !stacked && "md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-8")}>
       <div className="min-w-0">
         <h3 className="text-body-medium font-semibold text-on-surface">{title}</h3>
         {description ? <p className="mt-1 text-body-medium text-on-surface-variant">{description}</p> : null}
