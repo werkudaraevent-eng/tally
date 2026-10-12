@@ -99,6 +99,9 @@ export async function POST(request: Request) {
   } as never);
   if (error) {
     const code = mapDatabaseError(error);
+    if (code === "REGISTRATION_QR_EXHAUSTED") {
+      return apiError(code, 422, { message: "Could not create a new QR code for this event. Add QR codes to the rows without one and import again." });
+    }
     return apiError(code, code === "INTERNAL_ERROR" ? 500 : 422);
   }
 

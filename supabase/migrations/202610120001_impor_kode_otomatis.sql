@@ -19,11 +19,12 @@
 --     atau email yang sudah dipakai baris sebelumnya di berkas, ditolak dengan
 --     menyebut kode orang itu / nomor barisnya. Hasilnya tidak bergantung
 --     urutan baris.
---   * Baris TANPA kode juga dicek nomor teleponnya, dinormalkan ke angka saja
---     dengan awalan 0 (+62 812..., 62812..., dan 812... dari Excel yang
---     membuang nol semuanya jadi 0812...). Nomor telepon tidak dicek untuk
---     baris yang menuliskan kodenya sendiri: nomor kantor bersama lazim, dan
---     kode yang ditulis panitia adalah pernyataan eksplisit siapa orangnya.
+--   * Baris TANPA kode dan TANPA email dicek nomor teleponnya, dinormalkan ke
+--     angka saja dengan awalan 0 (+62 812..., +62 (0) 812..., 62812..., dan
+--     812... dari Excel yang membuang nol semuanya jadi 0812...). Telepon
+--     tidak dicek bila baris punya email sendiri atau kode sendiri: nomor
+--     kantor atau asisten bersama lazim di daftar klien korporat, dan email
+--     atau kode yang berbeda sudah cukup menunjukkan orangnya berbeda.
 --   * Nama TIDAK dipakai untuk mencocokkan; orang berbeda bisa bernama sama.
 --     Baris tanpa kode, email, dan telepon tetap masuk, dan hitungannya
 --     (`unchecked`) ditampilkan di pratinjau sebagai peringatan.
@@ -115,7 +116,8 @@ begin
   -- Normalisasi telepon yang sama dengan v_hp di dalam loop.
   select coalesce(jsonb_object_agg(h, q), '{}'::jsonb) into hp_dipakai
     from (select distinct on (h) h, q
-            from (select case when d like '62%' then '0' || substr(d, 3)
+            from (select case when d like '620%' then substr(d, 3)
+                              when d like '62%' then '0' || substr(d, 3)
                               when d like '8%' then '0' || d
                               else d end as h,
                          qr_code as q, created_at
@@ -139,7 +141,8 @@ begin
     v_extra := case when jsonb_typeof(item->'extra') = 'object' then item->'extra' else '{}'::jsonb end;
     v_otomatis := v_qr is null;
     v_hp := regexp_replace(coalesce(v_phone, ''), '\D', '', 'g');
-    v_hp := case when v_hp like '62%' then '0' || substr(v_hp, 3)
+    v_hp := case when v_hp like '620%' then substr(v_hp, 3)
+                 when v_hp like '62%' then '0' || substr(v_hp, 3)
                  when v_hp like '8%' then '0' || v_hp
                  else v_hp end;
     if length(v_hp) < 8 then v_hp := null; end if;
@@ -155,10 +158,10 @@ begin
       v_alasan := format('This email already belongs to participant %s. To update that person, put %s in the qr_code column.', pemilik, pemilik);
     elsif v_email is not null and email_berkas ? v_email then
       v_alasan := format('This email is already used by row %s of the file.', email_berkas->>v_email);
-    elsif v_otomatis and v_hp is not null and hp_dipakai ? v_hp then
+    elsif v_otomatis and v_email is null and v_hp is not null and hp_dipakai ? v_hp then
       pemilik := hp_dipakai->>v_hp;
-      v_alasan := format('This phone number already belongs to participant %s. To update that person, put %s in the qr_code column. If this is a different person, give them their own code.', pemilik, pemilik);
-    elsif v_otomatis and v_hp is not null and hp_berkas ? v_hp then
+      v_alasan := format('This phone number already belongs to participant %s. To update that person, put %s in the qr_code column. If this is a different person, add their email or give them their own code.', pemilik, pemilik);
+    elsif v_otomatis and v_email is null and v_hp is not null and hp_berkas ? v_hp then
       v_alasan := format('This phone number is already used by row %s of the file.', hp_berkas->>v_hp);
     end if;
 
