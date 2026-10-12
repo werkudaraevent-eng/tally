@@ -36,6 +36,7 @@ import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
 import { HEAD, JUDUL, JUDUL_BUTIR, LABEL_BAGIAN, LEBAR_BACA, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
 import { LandingBlockView } from "./modern/landing-blocks";
+import { BagianRute } from "./modern/blok-rute";
 import { KotakKosong } from "./modern/kotak-kosong";
 import { KakiModern, KV_SCRIM, KV_SCRIM_RATA, PitaMitra, bagianModern, gayaModern, tinta } from "./modern/kerangka";
 import { muatNavPeserta } from "@/lib/member/nav";
@@ -214,12 +215,16 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // Gaya gathering (preset Gathering). Acara lain tidak membaca hotel apa pun
   // dan tampil persis seperti sebelumnya.
   const gaya = config.gathering === true;
-  const inap = gaya ? await loadLandingLodging(event.id) : null;
+  // Blok Rute juga butuh hotel (titik dari Logistik), di jenis acara apa pun.
+  const adaRute = (config.blocks ?? []).some((block) => block.type === "route");
+  const inap = gaya || adaRute ? await loadLandingLodging(event.id) : null;
   const hotelInap = inap?.hotels ?? [];
 
   const { tampil, tampilProgram, speakers, blokById, jangkar, navSections, mitra, kontak } = bagianModern(event, config, sections, agenda, lang, {
     gathering: gaya,
     adaHotel: hotelInap.length > 0,
+    // Blok Rute yang hotelnya sudah dihapus tidak dirender, jadi juga tidak di menu.
+    hotelIds: new Set(hotelInap.map((hotel) => hotel.id)),
   });
 
   const kv = config.banner_url ?? null;
@@ -1018,6 +1023,9 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                   <KotakKosong slug={event.slug} judul={block.heading?.trim() || block.name?.trim() || LANDING_BLOCK_LABELS[block.type]} chip="No content yet" teks="This block shows here once it has content." aksi={{ label: "Fill it in" }} />
                 </div>
               );
+            }
+            if (block?.type === "route") {
+              return <BagianRute key={section.id} block={block} hotels={hotelInap} lang={lang} shell={SHELL} section={SECTION} judulKelas={JUDUL} alisKelas={ALIS} muted={MUTED} />;
             }
             return block ? (
               <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled && !peserta ? daftarUrl : null} daftarLabel={ctaLabel} jangkar={jangkar} lang={lang} />

@@ -4,11 +4,14 @@ import { CaretDown, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
 import { useState, type ReactNode } from "react";
 import { Button, Dialog, IconButton, SegmentedButton, TextArea, TextField } from "@/components/m3";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
+import { EditorRute, TampilDi } from "./editor-rute";
 import {
   LANDING_BLOCK_ALIGN_LABELS,
   LANDING_BLOCK_DEFAULT_TONE,
   LANDING_BLOCK_DESCRIPTIONS,
   LANDING_BLOCK_LABELS,
+  LANDING_BLOCK_MEMBER_TYPES,
+  LANDING_BLOCK_SHOW_ON_LABELS,
   LANDING_BLOCK_LAYOUTS,
   LANDING_BLOCK_TONE_LABELS,
   LANDING_COLUMNS_DEFAULT,
@@ -42,7 +45,7 @@ import { plural } from "@/lib/plural";
  * menyebut rasio slotnya, karena gambar dipotong otomatis ke rasio itu.
  */
 
-const URUTAN_JENIS: LandingBlockType[] = ["text_image", "multicolumn", "cards", "points", "stats", "logos", "download", "cta", "gallery", "quote"];
+const URUTAN_JENIS: LandingBlockType[] = ["text_image", "multicolumn", "cards", "points", "stats", "logos", "download", "cta", "gallery", "quote", "route"];
 
 export function buatBlok(type: LandingBlockType): LandingBlock {
   const acak = Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) => byte.toString(36).padStart(2, "0")).join("").slice(0, 10);
@@ -76,6 +79,7 @@ export function ringkasanBlok(block: LandingBlock): string | null {
     case "logos": return jumlah ? plural(jumlah, "logo") : null;
     case "multicolumn": return jumlah ? `${plural(jumlah, "item")} · ${plural(landingColumnCount(block), "column")}` : null;
     case "quote": return block.name?.trim() || null;
+    case "route": return [jumlah ? plural(jumlah, "way") : null, LANDING_BLOCK_SHOW_ON_LABELS[block.show_on ?? "public"]].filter(Boolean).join(" · ");
     default: return block.heading?.trim() || null;
   }
 }
@@ -97,6 +101,7 @@ function Sketsa({ type }: { type: LandingBlockType }) {
       {type === "download" ? (<span className="flex flex-1 items-center gap-2 rounded-[3px] bg-surface-container-lowest p-1.5"><span className="flex flex-1 flex-col gap-1">{garis("w-full", "h-1.5")}{garis("w-3/4")}<span className="h-2 w-8 rounded-[2px] bg-primary" /></span><span className={cx(kotak, "h-10 w-7 -rotate-6")} /></span>) : null}
       {type === "multicolumn" ? (<span className="flex flex-1 gap-1.5">{[0, 1, 2].map((key) => <span key={key} className="flex flex-1 flex-col gap-1"><span className={cx(kotak, "h-6")} />{garis("w-full", "h-1.5")}{garis("w-3/4")}</span>)}</span>) : null}
       {type === "cta" ? (<span className="flex flex-1 items-center gap-2"><span className="flex flex-1 flex-col gap-1">{garis("w-full", "h-1.5")}{garis("w-2/3")}</span><span className="h-3 w-8 rounded-[2px] bg-white" /></span>) : null}
+      {type === "route" ? (<><span className="flex w-10 flex-col justify-between rounded-[3px] bg-surface-container-lowest p-1.5"><span className="flex items-center gap-1"><span className="size-1.5 shrink-0 rounded-full border border-primary" />{garis("w-full")}</span><span className="ml-[2px] h-3 border-l border-dashed border-on-surface-variant/50" /><span className="flex items-center gap-1"><span className="size-1.5 shrink-0 rounded-full bg-primary" />{garis("w-full")}</span></span><span className="flex flex-1 flex-col gap-1">{[0, 1].map((key) => <span key={key} className="flex flex-1 items-center gap-1 rounded-[3px] bg-surface-container-lowest p-1"><span className="size-2.5 shrink-0 rounded-[2px] bg-primary/30" />{garis("w-full")}</span>)}</span></>) : null}
     </span>
   );
 }
@@ -284,7 +289,7 @@ export function namaButirBlok(block: LandingBlock, index: number): string {
 type KolomTeks = "eyebrow" | "heading" | "body" | "link_label" | "link2_label" | "fact_title" | "fact_body" | "source" | "quote" | "name" | "role";
 export type KolomButir = "label" | "title" | "body" | "value";
 
-export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange: (next: LandingBlock) => void }) {
+export function BlockEditor({ block, onChange, semuaBlok = [] }: { block: LandingBlock; onChange: (next: LandingBlock) => void; semuaBlok?: LandingBlock[] }) {
   const ubah = (patch: Partial<LandingBlock>) => onChange({ ...block, ...patch });
   const items = block.items ?? [];
   const setItems = (next: LandingBlockItem[]) => ubah({ items: next });
@@ -345,6 +350,8 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
       onChange={(event) => ubah({ nav_label: event.target.value })}
     />
   );
+  // Pilihan halaman paling atas di editor: menentukan siapa yang melihat blok ini.
+  const tampilDi = LANDING_BLOCK_MEMBER_TYPES.includes(block.type) ? <TampilDi block={block} ubah={ubah} /> : null;
   const latar = block.type === "cta" ? null : (
     <>
     {menuAtas}
@@ -701,6 +708,20 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
             kind="landing"
             value={block.image_url ?? null}
             onChange={(url) => ubah({ image_url: url })}
+          />
+          {latar}
+        </div>
+      );
+    case "route":
+      return (
+        <div className="flex flex-col gap-4">
+          {tampilDi}
+          <EditorRute
+            block={block}
+            ubah={ubah}
+            alis={alis}
+            judul={teks("heading", "Heading", { optional: true, hint: "Leave empty to use \u201cDari <from> ke <to>\u201d, or \u201cFrom <from> to <to>\u201d in English." })}
+            semuaBlok={semuaBlok}
           />
           {latar}
         </div>
