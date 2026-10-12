@@ -381,6 +381,9 @@ export default function ScanClient() {
   const [lembarMeja, setLembarMeja] = useState(false);
   const [menuTerbuka, setMenuTerbuka] = useState(false);
   const [keluarJalan, setKeluarJalan] = useState(false);
+  // Ada pemindaian yang ditolak karena meja belum dipilih. Ditampilkan di
+  // lembar meja, satu-satunya yang terlihat saat itu.
+  const [pindaiDitolak, setPindaiDitolak] = useState(false);
   const router = useRouter();
   const [sesiHilang, setSesiHilang] = useState(false);
   const sessionRef = useRef<number | null>(null);
@@ -725,6 +728,15 @@ export default function ScanClient() {
 
   const kirim = useCallback(async (qr: string): Promise<Hasil | null> => {
     if (!sessionId) { setPesan("Pilih sesi lebih dulu."); return null; }
+    // Meja belum dipilih padahal acara ini punya meja: lembar "Siapkan meja
+    // ini" sedang terbuka. Pemindai genggam tetap mengetik di baliknya, dan
+    // tanpa penjaga ini kehadirannya tersimpan tanpa meja dan lembar hasilnya
+    // menumpuk di atas pertanyaan yang belum dijawab.
+    if (lanes.length > 0 && laneId === null) {
+      setPindaiDitolak(true);
+      bunyikan("galat", suaraRef.current);
+      return null;
+    }
     setSibuk(true);
     setMembaca(qr);
     const dikirim = Date.now();
@@ -779,7 +791,7 @@ export default function ScanClient() {
     }
     terapkanHasil({ ...data, qr: data.qr ?? qr }, sessionId);
     return data;
-  }, [bodyCetak, laneId, sessionId, terapkanHasil, tampilGagal]);
+  }, [bodyCetak, laneId, lanes.length, sessionId, terapkanHasil, tampilGagal]);
 
   /**
    * Pintu masuk setiap kode yang terbaca kamera atau pemindai genggam.
@@ -1134,6 +1146,7 @@ export default function ScanClient() {
       tutupLembar();
     }
     setSesiHilang(false);
+    setPindaiDitolak(false);
     if (jalur !== laneId) gantiJalur(jalur);
     setLembarMeja(false);
   }
@@ -1597,7 +1610,9 @@ export default function ScanClient() {
         keterangan={
           sesiHilang
             ? <span className="text-error">Sesi yang tadi dipilih sudah ditutup panitia. Pilih sesi lagi sebelum memindai.</span>
-            : perluSetup
+            : pindaiDitolak && perluSetup
+              ? <span role="alert" className="text-error">Pindaian tadi belum tercatat. Pilih meja dulu, lalu pindai lagi.</span>
+              : perluSetup
               ? "Dipilih sekali. HP ini mengingatnya sampai diganti."
               : "Pemindaian berikutnya tercatat di pilihan baru."
         }

@@ -2253,6 +2253,8 @@ html:hover {
 		--md-sys-color-secondary-container: #1d3a6b;
 		--md-sys-color-on-secondary-container: #d8e2ff;
 		--md-sys-color-surface-container-lowest: #151515;
+		--md-sys-color-primary-soft: #1d3a6b;
+		--md-sys-color-on-primary-soft: #d8e2ff;
 	}
 }
 
@@ -2263,4 +2265,6 @@ html[data-theme="dark"] .warna-pemindai {
 	--md-sys-color-secondary-container: #1d3a6b;
 	--md-sys-color-on-secondary-container: #d8e2ff;
 	--md-sys-color-surface-container-lowest: #151515;
+	--md-sys-color-primary-soft: #1d3a6b;
+	--md-sys-color-on-primary-soft: #d8e2ff;
 }
