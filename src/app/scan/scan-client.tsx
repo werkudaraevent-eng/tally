@@ -37,6 +37,7 @@ import {
 } from "@/components/m3";
 import { SearchResultsSkeleton } from "@/components/search-loading";
 import type { RegistrationField } from "@/lib/domain";
+import { aturanWalkIn, periksaWalkIn, type AturanWalkIn } from "@/lib/walkin-form";
 import { eventApiPath } from "@/lib/event-url";
 import type { LabelData, LabelSettings } from "@/lib/label/layout";
 import {
@@ -355,6 +356,9 @@ export default function ScanClient() {
   // Disimpan per sesi: petugas yang berpindah dari Registrasi ke Makan siang dan
   // kembali lagi harus melihat angka masing-masing sesi.
   const [hadirTerbaru, setHadirTerbaru] = useState<Record<number, number>>({});
+  // Peserta aktif acara, seluruh meja. Null sampai terbaca, atau bila hitungannya
+  // gagal: layar lalu kembali ke angka hadir saja, tanpa "dari".
+  const [terdaftar, setTerdaftar] = useState<number | null>(null);
   const [riwayat, setRiwayat] = useState<Array<{ nama: string; status: Hasil["status"]; waktu: string }>>([]);
   const [pesan, setPesan] = useState("");
   const [sibuk, setSibuk] = useState(false);
@@ -422,6 +426,8 @@ export default function ScanClient() {
   // yang tidak terdaftar, dan di sana tombolnya harus benar-benar tidak ada.
   const [allowWalkIn, setAllowWalkIn] = useState(false);
   const [walkinFields, setWalkinFields] = useState<RegistrationField[]>([]);
+  const [walkinWajib, setWalkinWajib] = useState<AturanWalkIn>(() => aturanWalkIn(null));
+  const [galatKolomWalkIn, setGalatKolomWalkIn] = useState<Record<string, string>>({});
   const [dialogWalkIn, setDialogWalkIn] = useState(false);
   const [formWalkIn, setFormWalkIn] = useState<FormWalkIn>(FORM_KOSONG);
   const [kandidat, setKandidat] = useState<Kandidat[] | null>(null);
@@ -478,6 +484,11 @@ export default function ScanClient() {
     setUsername(body.user?.username ?? "");
     setAllowWalkIn(Boolean(body.allow_walk_in));
     setWalkinFields((body.walkin_fields ?? []) as RegistrationField[]);
+    if (body.walkin_wajib) setWalkinWajib(body.walkin_wajib as AturanWalkIn);
+    setTerdaftar(typeof body.terdaftar === "number" ? body.terdaftar : null);
+    // Angka dari daftar sesi lebih baru daripada yang tersimpan dari pindaian
+    // sebelumnya: muat ulang berarti "ambil yang terbaru".
+    setHadirTerbaru({});
     setLabel((body.label ?? null) as LabelSettings | null);
     setBadgeMeja((body.badge_meja ?? null) as { siap: boolean; menit: number } | null);
     setEventSlug(body.event?.slug ?? "");
@@ -556,6 +567,38 @@ export default function ScanClient() {
     const timer = window.setTimeout(() => void muatSesi(), 0);
     return () => window.clearTimeout(timer);
   }, [muatSesi]);
+
+  // Angka seluruh meja dibaca ulang tiap 30 detik, dan segera saat layar
+  // kembali dibuka. Tanpa ini angkanya hanya bertambah oleh pindaian HP ini
+  // sendiri, padahal empat meja lain memindai di sebelahnya.
+  useEffect(() => {
+    if (sessions.length === 0) return;
+    let batal = false;
+    const segarkan = async () => {
+      if (document.visibilityState !== "visible") return;
+      const response = await fetch(eventApiPath("/api/attendance/progress"), { cache: "no-store" }).catch(() => null);
+      if (batal || !response?.ok) return;
+      const body = (await response.json().catch(() => null)) as { terdaftar?: number; hadir?: Record<string, number> } | null;
+      if (batal || !body) return;
+      if (typeof body.terdaftar === "number") setTerdaftar(body.terdaftar);
+      const hadirBaru = body.hadir;
+      if (hadirBaru) {
+        setHadirTerbaru((current) => {
+          const gabung = { ...current };
+          for (const [id, angka] of Object.entries(hadirBaru)) gabung[Number(id)] = angka;
+          return gabung;
+        });
+      }
+    };
+    const timer = window.setInterval(() => void segarkan(), 30_000);
+    const saatTerlihat = () => void segarkan();
+    document.addEventListener("visibilitychange", saatTerlihat);
+    return () => {
+      batal = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", saatTerlihat);
+    };
+  }, [sessions.length]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1082,13 +1125,39 @@ export default function ScanClient() {
     setFormWalkIn({ ...FORM_KOSONG, name: namaAwal.trim() });
     setKandidat(null);
     setGalatWalkIn("");
+    setGalatKolomWalkIn({});
     setDialogWalkIn(true);
+  }
+
+  // Kolom yang disunting kehilangan tanda galatnya. Tanda yang tertinggal di
+  // kolom yang sudah diisi membuat petugas mengira isiannya masih salah.
+  function gantiFormWalkIn(baru: FormWalkIn) {
+    const lama = formWalkIn;
+    setFormWalkIn(baru);
+    setGalatKolomWalkIn((galat) => {
+      if (Object.keys(galat).length === 0) return galat;
+      const sisa = { ...galat };
+      for (const kunci of ["name", "company", "title", "phone", "email"] as const) {
+        if (baru[kunci] !== lama[kunci]) delete sisa[kunci];
+      }
+      for (const kunci of Object.keys(baru.extra)) {
+        if (baru.extra[kunci] !== lama.extra[kunci]) delete sisa[`extra.${kunci}`];
+      }
+      return sisa;
+    });
   }
 
   async function simpanWalkIn(paksa: boolean) {
     if (!sessionId) { setGalatWalkIn("Pilih sesi lebih dulu."); return; }
     const nama = formWalkIn.name.trim();
-    if (!nama) { setGalatWalkIn("Nama wajib diisi."); return; }
+    // Aturan yang sama dengan server (lib/walkin-form.ts): yang kurang ditandai
+    // di kolomnya sebelum apa pun dikirim.
+    const galatKolom = periksaWalkIn(formWalkIn, walkinWajib, walkinFields);
+    setGalatKolomWalkIn(galatKolom);
+    if (Object.keys(galatKolom).length > 0) {
+      setGalatWalkIn("");
+      return;
+    }
 
     setMenyimpanWalkIn(true);
     setGalatWalkIn("");
@@ -1115,7 +1184,17 @@ export default function ScanClient() {
     // kosong, lalu mengulang dari awal dengan yakin.
     if (!response) { setGalatWalkIn("Koneksi terputus. Tamu ini BELUM tersimpan, coba lagi."); return; }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) { setGalatWalkIn(pesanGalat(body, "Gagal disimpan. Coba lagi.")); return; }
+    if (!response.ok) {
+      // Galat per kolom dari server: ditaruh di bawah kolomnya, bukan di kotak
+      // galat umum yang tidak menunjuk ke mana pun.
+      const rinci = (body?.error?.details ?? {}) as Record<string, unknown>;
+      const perKolom = Object.fromEntries(
+        Object.entries(rinci).filter(([kunci, nilai]) => kunci !== "message" && typeof nilai === "string"),
+      ) as Record<string, string>;
+      if (Object.keys(perKolom).length > 0) { setGalatKolomWalkIn(perKolom); return; }
+      setGalatWalkIn(pesanGalat(body, "Gagal disimpan. Coba lagi."));
+      return;
+    }
 
     if (body.status === "possible_duplicate") {
       setKandidat((body.candidates ?? []) as Kandidat[]);
@@ -1123,6 +1202,7 @@ export default function ScanClient() {
     }
 
     terapkanHasil(body as Hasil, sessionId);
+    if (body.status === "created") setTerdaftar((n) => (n === null ? n : n + 1));
     setDialogWalkIn(false);
     setFormWalkIn(FORM_KOSONG);
     setKandidat(null);
@@ -1248,26 +1328,58 @@ export default function ScanClient() {
     ? { teks: "Terbaca, menyimpan…", nada: "bg-primary text-on-primary" }
     : { teks: "Siap memindai", nada: "bg-black/60 text-white" };
 
+  // "Belum" dihitung dari dua angka server yang dibaca terpisah; tidak pernah
+  // negatif meski pindaian masuk di antara keduanya.
+  const belum = terdaftar === null || hadir === null ? null : Math.max(0, terdaftar - hadir);
+  const persen = terdaftar ? Math.min(100, Math.round(((hadir ?? 0) / terdaftar) * 100)) : 0;
+  const angka = (n: number) => n.toLocaleString("id-ID");
+  const bilahKemajuan = (
+    <div
+      role="progressbar"
+      aria-label="Hadir dari terdaftar"
+      aria-valuemin={0}
+      aria-valuemax={terdaftar ?? 0}
+      aria-valuenow={hadir ?? 0}
+      className="h-1.5 overflow-hidden rounded-full bg-surface-container-highest"
+    >
+      <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${persen}%` }} />
+    </div>
+  );
+
   const judulMeja = `${sesiAktif?.name ?? "Pilih sesi"}${jalurAktif ? ` · ${jalurAktif.name}` : ""}`;
 
-  /** Strip hadir di ponsel: angka sesi ini dan tamu terakhir, selalu di atas panggung. */
+  /**
+   * Strip hadir di ponsel: angka seluruh meja dan tamu terakhir, selalu di atas
+   * panggung. "dari … · … belum" ada di baris kedua, bukan di kalimat panjang:
+   * yang dilirik petugas di tengah antrean adalah angka besarnya.
+   */
   const stripHadir = (
-    <div className="flex items-center gap-4 rounded-2xl bg-surface-container px-4 py-3 lg:hidden">
-      <p className="flex shrink-0 items-baseline gap-2">
-        <span className="text-headline-medium font-semibold tabular-nums">{hadir ?? 0}</span>
-        <span className="text-body-medium text-on-surface-variant">hadir</span>
-      </p>
-      <span aria-hidden className="h-8 w-px shrink-0 bg-outline-variant" />
-      <div className="min-w-0 flex-1" role="status">
-        {terakhirHadir ? (
-          <>
-            <p className="text-label-medium text-on-surface-variant">Terakhir · {jam(terakhirHadir.waktu)}</p>
-            <p className="truncate text-body-medium font-semibold">{terakhirHadir.nama}</p>
-          </>
-        ) : (
-          <p className="text-body-medium text-on-surface-variant">Belum ada pindaian.</p>
-        )}
+    <div className="rounded-2xl bg-surface-container px-4 pb-3 pt-3 lg:hidden">
+      <div className="flex items-center gap-4">
+        <div className="shrink-0">
+          <p className="flex items-baseline gap-2">
+            <span className="text-headline-medium font-semibold tabular-nums">{angka(hadir ?? 0)}</span>
+            <span className="text-body-medium text-on-surface-variant">hadir</span>
+          </p>
+          {terdaftar !== null ? (
+            <p className="text-label-medium tabular-nums text-on-surface-variant">
+              dari {angka(terdaftar)}{belum !== null ? ` · ${angka(belum)} belum` : ""}
+            </p>
+          ) : null}
+        </div>
+        <span aria-hidden className="h-10 w-px shrink-0 bg-outline-variant" />
+        <div className="min-w-0 flex-1" role="status">
+          {terakhirHadir ? (
+            <>
+              <p className="text-label-medium text-on-surface-variant">Terakhir · {jam(terakhirHadir.waktu)}</p>
+              <p className="truncate text-body-medium font-semibold">{terakhirHadir.nama}</p>
+            </>
+          ) : (
+            <p className="text-body-medium text-on-surface-variant">Belum ada pindaian.</p>
+          )}
+        </div>
       </div>
+      {terdaftar ? <div className="mt-3">{bilahKemajuan}</div> : null}
     </div>
   );
 
@@ -1580,7 +1692,9 @@ export default function ScanClient() {
                 {stripHadir}
                 <div>
                   <h2 className="text-title-medium font-semibold">Pemindaian di HP ini</h2>
-                  <p className="text-body-small text-on-surface-variant">Angka hadir menghitung orang, bukan pemindaian ulang.</p>
+                  <p className="text-body-small text-on-surface-variant">
+                    Angka hadir di atas adalah total semua meja di sesi ini dan menghitung orang, bukan pemindaian ulang.
+                  </p>
                   {daftarRiwayat(20)}
                 </div>
               </div>
@@ -1591,12 +1705,21 @@ export default function ScanClient() {
               Setelan pindah ke menu ⋮, sama dengan di ponsel. */}
           <aside className="hidden lg:sticky lg:top-[88px] lg:block">
             <Card>
-              <p className="text-label-large text-on-surface-variant">{sesiAktif?.name ?? "Belum ada sesi"}</p>
+              <p className="text-label-large text-on-surface-variant">{sesiAktif?.name ?? "Belum ada sesi"} · semua meja</p>
               <p className="mt-1 flex items-baseline gap-2">
-                <span className="text-display-small tabular-nums">{hadir ?? "0"}</span>
-                <span className="text-body-medium text-on-surface-variant">orang hadir</span>
+                <span className="text-display-small tabular-nums">{angka(hadir ?? 0)}</span>
+                <span className="text-body-medium text-on-surface-variant">
+                  {terdaftar !== null ? `hadir dari ${angka(terdaftar)} terdaftar` : "orang hadir"}
+                </span>
               </p>
-              <p className="mt-1 text-body-small text-on-surface-variant">Pemindaian ulang tidak menambah angka ini.</p>
+              {terdaftar ? <div className="mt-3">{bilahKemajuan}</div> : null}
+              {belum !== null ? (
+                <p className="mt-3 flex items-baseline justify-between gap-2 text-body-medium">
+                  <span className="text-on-surface-variant">Belum hadir</span>
+                  <span className="font-semibold tabular-nums">{angka(belum)}</span>
+                </p>
+              ) : null}
+              <p className="mt-1 text-body-small text-on-surface-variant">Menghitung orang, bukan pemindaian ulang. Diperbarui tiap 30 detik.</p>
               <Divider className="my-4" />
               <h2 className="text-title-small">Pemindaian terakhir</h2>
               {daftarRiwayat(8)}
@@ -1860,8 +1983,10 @@ export default function ScanClient() {
         open={dialogWalkIn}
         onClose={() => setDialogWalkIn(false)}
         form={formWalkIn}
-        onForm={setFormWalkIn}
+        onForm={gantiFormWalkIn}
         fields={walkinFields}
+        wajib={walkinWajib}
+        galatKolom={galatKolomWalkIn}
         kandidat={kandidat}
         onLupakanKandidat={() => setKandidat(null)}
         sesiNama={sesiAktif?.name ?? "yang dipilih"}
@@ -1869,7 +1994,7 @@ export default function ScanClient() {
         galat={galatWalkIn}
         onSimpan={(paksa) => void simpanWalkIn(paksa)}
         onPakaiKandidat={(baris) => void pakaiKandidat(baris)}
-        bisaSimpan={Boolean(formWalkIn.name.trim()) && sessionId != null}
+        bisaSimpan={sessionId != null}
       />
     </div>
   );

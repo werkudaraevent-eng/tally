@@ -1,8 +1,10 @@
 "use client";
 
 import { Clock, UserCheck, UserPlus } from "@phosphor-icons/react";
+import { useEffect, useRef } from "react";
 import { Button, Dialog, SelectField, Switch, TextArea, TextField } from "@/components/m3";
 import type { RegistrationField } from "@/lib/domain";
+import type { AturanWalkIn } from "@/lib/walkin-form";
 import type { FormWalkIn, Kandidat } from "./types";
 
 /**
@@ -16,7 +18,15 @@ import type { FormWalkIn, Kandidat } from "./types";
  * Dua isi bergantian di dialog yang sama, bukan dua dialog bertumpuk: daftar
  * nama kembar adalah LANJUTAN dari tombol simpan yang barusan ditekan. Ditumpuk,
  * petugas harus menutup dua lapis untuk kembali membetulkan satu huruf.
+ *
+ * Kolomnya = form registrasi utama acara, dengan urutan dan tanda wajib yang
+ * sama (lib/walkin-form.ts). Judul dan tombol menempel; hanya kolom yang
+ * bergulir, dan di ponsel dialognya memenuhi layar. Formulir panjang yang
+ * judul dan tombol simpannya ikut tergulir pergi membuat petugas tidak tahu
+ * sedang di mana dan bagaimana menyelesaikannya.
  */
+
+const ID_FORM = "form-walkin";
 
 type Props = {
   open: boolean;
@@ -24,6 +34,10 @@ type Props = {
   form: FormWalkIn;
   onForm: (form: FormWalkIn) => void;
   fields: RegistrationField[];
+  /** Tanda wajib kolom inti, sama dengan form registrasi utama. */
+  wajib: AturanWalkIn;
+  /** Galat per kolom: `name`, `email`, `phone`, `company`, `title`, `extra.<key>`. */
+  galatKolom: Record<string, string>;
   kandidat: Kandidat[] | null;
   onLupakanKandidat: () => void;
   sesiNama: string;
@@ -40,6 +54,8 @@ export function WalkinDialog({
   form,
   onForm,
   fields,
+  wajib,
+  galatKolom,
   kandidat,
   onLupakanKandidat,
   sesiNama,
@@ -50,6 +66,17 @@ export function WalkinDialog({
   bisaSimpan,
 }: Props) {
   const setExtra = (key: string, value: string) => onForm({ ...form, extra: { ...form.extra, [key]: value } });
+
+  // Simpan ditekan dengan kolom yang kurang: kolom pertama yang bermasalah
+  // difokus dan digulir ke tengah. Pesan di bawah kolom yang tidak terlihat
+  // sama saja dengan tidak ada pesan.
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (Object.keys(galatKolom).length === 0) return;
+    const pertama = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    pertama?.focus();
+    pertama?.scrollIntoView({ block: "center" });
+  }, [galatKolom]);
 
   /**
    * Satu pertanyaan tambahan dari formulir pendaftaran, versi meja registrasi.
@@ -66,16 +93,19 @@ export function WalkinDialog({
    */
   function kolomTambahan(field: RegistrationField) {
     const nilai = form.extra[field.key] ?? "";
+    const galat = galatKolom[`extra.${field.key}`];
 
     if (field.type === "checkbox") {
       return (
-        <Switch
-          key={field.key}
-          checked={nilai === "true"}
-          onChange={(centang) => setExtra(field.key, centang ? "true" : "")}
-          label={field.label}
-          description={field.help_text}
-        />
+        <div key={field.key}>
+          <Switch
+            checked={nilai === "true"}
+            onChange={(centang) => setExtra(field.key, centang ? "true" : "")}
+            label={field.label}
+            description={field.help_text}
+          />
+          {galat ? <p role="alert" className="mt-1 text-body-small text-error">{galat}</p> : null}
+        </div>
       );
     }
 
@@ -84,7 +114,8 @@ export function WalkinDialog({
         <SelectField
           key={field.key}
           label={field.label}
-          optional
+          optional={!field.required}
+          error={galat}
           hint={field.help_text}
           value={nilai}
           onChange={(event) => setExtra(field.key, event.target.value)}
@@ -100,7 +131,8 @@ export function WalkinDialog({
         <TextArea
           key={field.key}
           label={field.label}
-          optional
+          optional={!field.required}
+          error={galat}
           hint={field.help_text}
           rows={2}
           maxLength={2000}
@@ -115,7 +147,8 @@ export function WalkinDialog({
       <TextField
         key={field.key}
         label={field.label}
-        optional
+        optional={!field.required}
+        error={galat}
         hint={field.help_text}
         type={field.type}
         inputMode={field.type === "number" ? "numeric" : field.type === "tel" ? "tel" : undefined}
@@ -135,12 +168,46 @@ export function WalkinDialog({
       onClose={() => { if (!menyimpan) onClose(); }}
       dismissible={!menyimpan}
       size="md"
+      scrollBody
+      fullScreenOnMobile
+      actions={
+        kandidat ? (
+          <>
+            <Button variant="text" onClick={onLupakanKandidat} disabled={menyimpan}>
+              Betulkan datanya
+            </Button>
+            {/* Kata "tetap" ada di labelnya dengan sengaja: yang ditekan di sini
+                adalah keputusan bahwa dua orang memang bernama sama, dan label
+                netral seperti "Lanjutkan" membuatnya terbaca sebagai langkah
+                berikutnya yang wajar. */}
+            <Button variant="filled" loading={menyimpan} onClick={() => onSimpan(true)}>
+              Tetap tambahkan sebagai orang lain
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button type="button" variant="text" onClick={onClose} disabled={menyimpan}>
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              form={ID_FORM}
+              variant="filled"
+              loading={menyimpan}
+              disabled={!bisaSimpan}
+              icon={<UserPlus size={20} weight="bold" aria-hidden />}
+            >
+              Simpan dan catat hadir
+            </Button>
+          </>
+        )
+      }
       icon={<UserPlus size={24} weight="fill" />}
       title={kandidat ? "Nama ini sudah ada di daftar" : "Tamu walk-in"}
       description={
         kandidat
           ? "Periksa dulu apakah salah satunya orang yang sama. Menambahkan orang kedua bernama sama membuat keduanya tidak bisa dibedakan lagi setelah acara selesai."
-          : `Peserta baru dibuat dan langsung tercatat hadir di sesi ${sesiNama}. Kode pesertanya terbit sendiri.`
+          : `Langsung tercatat hadir di ${sesiNama}. Kode peserta terbit sendiri.`
       }
     >
       {kandidat ? (
@@ -177,103 +244,70 @@ export function WalkinDialog({
             <p role="alert" className="mt-4 rounded-lg bg-error-soft p-3 text-body-medium text-on-error-soft">{galat}</p>
           ) : null}
 
-          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="text" onClick={onLupakanKandidat} disabled={menyimpan}>
-              Betulkan datanya
-            </Button>
-            {/* Kata "tetap" ada di labelnya dengan sengaja: yang ditekan di sini
-                adalah keputusan bahwa dua orang memang bernama sama, dan label
-                netral seperti "Lanjutkan" membuatnya terbaca sebagai langkah
-                berikutnya yang wajar. */}
-            <Button variant="filled" loading={menyimpan} onClick={() => onSimpan(true)}>
-              Tetap tambahkan sebagai orang lain
-            </Button>
-          </div>
         </>
       ) : (
-        <form onSubmit={(event) => { event.preventDefault(); onSimpan(false); }}>
-          <div className="mt-5 space-y-4">
+        <form id={ID_FORM} ref={formRef} noValidate onSubmit={(event) => { event.preventDefault(); onSimpan(false); }}>
+          {/* Urutan sama dengan formulir pendaftaran publik (daftar-client.tsx):
+              nama, email, telepon, instansi, jabatan, lalu pertanyaan acara. */}
+          <div className="mt-5 space-y-4 pb-5">
             <TextField
               label="Nama lengkap"
               size="lg"
               autoFocus
               autoComplete="off"
               maxLength={200}
+              error={galatKolom.name}
               value={form.name}
               onChange={(event) => onForm({ ...form, name: event.target.value })}
             />
             <TextField
+              label="Email"
+              optional={!wajib.email}
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              maxLength={320}
+              error={galatKolom.email}
+              hint={wajib.email ? undefined : "Hanya perlu bila tamu ingin kode pesertanya dikirim ulang lewat email."}
+              value={form.email}
+              onChange={(event) => onForm({ ...form, email: event.target.value })}
+            />
+            <TextField
+              label="No. HP"
+              optional={!wajib.phone}
+              type="tel"
+              inputMode="tel"
+              autoComplete="off"
+              maxLength={50}
+              error={galatKolom.phone}
+              value={form.phone}
+              onChange={(event) => onForm({ ...form, phone: event.target.value })}
+            />
+            <TextField
               label="Instansi"
-              optional
+              optional={!wajib.company}
               autoComplete="off"
               maxLength={300}
+              error={galatKolom.company}
               value={form.company}
               onChange={(event) => onForm({ ...form, company: event.target.value })}
             />
             <TextField
               label="Jabatan"
-              optional
+              optional={!wajib.title}
               autoComplete="off"
               maxLength={300}
+              error={galatKolom.title}
               value={form.title}
               onChange={(event) => onForm({ ...form, title: event.target.value })}
             />
-            <TextField
-              label="No. HP"
-              optional
-              type="tel"
-              inputMode="tel"
-              autoComplete="off"
-              maxLength={50}
-              value={form.phone}
-              onChange={(event) => onForm({ ...form, phone: event.target.value })}
-            />
-            <TextField
-              label="Email"
-              optional
-              type="email"
-              inputMode="email"
-              autoComplete="off"
-              maxLength={320}
-              hint="Hanya perlu bila tamu ingin kode pesertanya dikirim ulang lewat email."
-              value={form.email}
-              onChange={(event) => onForm({ ...form, email: event.target.value })}
-            />
 
-            {/* Hanya pertanyaan bertanda WAJIB di formulir acara yang ikut ke
-                sini, dan di layar ini pun tidak ada yang ditegakkan. Antrean yang
-                bergerak mengalahkan kelengkapan data: yang belum terisi masih
-                bisa dilengkapi di halaman peserta, sedangkan tamu yang ditahan di
-                pintu tidak bisa dikembalikan. */}
-            {fields.length > 0 ? (
-              <div className="rounded-lg bg-surface-container p-4">
-                <p className="text-body-small text-on-surface-variant">
-                  Pertanyaan dari formulir pendaftaran. Boleh dikosongkan sekarang dan dilengkapi nanti di Admin,
-                  Daftar peserta.
-                </p>
-                <div className="mt-3 space-y-4">{fields.map((field) => kolomTambahan(field))}</div>
-              </div>
-            ) : null}
+            {fields.map((field) => kolomTambahan(field))}
           </div>
 
           {galat ? (
-            <p role="alert" className="mt-4 rounded-lg bg-error-soft p-3 text-body-medium text-on-error-soft">{galat}</p>
+            <p role="alert" className="mb-5 rounded-lg bg-error-soft p-3 text-body-medium text-on-error-soft">{galat}</p>
           ) : null}
-
-          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="text" onClick={onClose} disabled={menyimpan}>
-              Batal
-            </Button>
-            <Button
-              type="submit"
-              variant="filled"
-              loading={menyimpan}
-              disabled={!bisaSimpan}
-              icon={<UserPlus size={20} weight="bold" aria-hidden />}
-            >
-              Simpan dan catat hadir
-            </Button>
-          </div>
         </form>
       )}
     </Dialog>
