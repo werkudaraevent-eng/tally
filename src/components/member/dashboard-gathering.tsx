@@ -24,6 +24,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
+import { kontakPanitia } from "@/lib/kontak-panitia";
 import { LANDING_NAV_DEFAULTS, isPortalEntry, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { formatEventDate, formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
@@ -179,9 +180,10 @@ export async function DashboardGathering({
     (venue || event.venue_address?.trim()
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([venue, event.venue_address?.trim()].filter(Boolean).join(", "))}`
       : null);
-  // Nomor panitia hanya bila bagian Kontak dinyalakan di halaman acara.
-  const kontakTampil = normalizeLandingSections(config.sections, config.blocks).some((section) => section.id === "contact" && section.enabled);
-  const telepon = kontakTampil ? config.contact_phone?.trim() || null : null;
+  // Nomor panitia dari Event settings > Kontak panitia. Tidak lagi menunggu
+  // bagian Kontak halaman acara dinyalakan: peserta yang sudah masuk tetap
+  // perlu tahu siapa yang dihubungi.
+  const telepon = kontakPanitia(config)?.telepon ?? null;
 
   // Hari yang tampil di Beranda: hari ini selama acara, hari pertama sebelumnya,
   // hari terakhir sesudahnya.

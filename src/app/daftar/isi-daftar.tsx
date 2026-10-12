@@ -16,6 +16,7 @@ import { maskEmail } from "@/lib/undangan/email";
 import { readInvite } from "@/lib/undangan/publik";
 import { eventSender } from "@/lib/email/client";
 import { formulirGathering } from "@/lib/gathering-formulir";
+import { kontakPanitia } from "@/lib/kontak-panitia";
 
 /**
  * Formulir pendaftaran satu acara dalam satu bahasa. Dipakai halaman publik
@@ -146,7 +147,8 @@ export async function isiDaftar(
     const u = PUBLIK[lang];
     const [setelan, baca] = await Promise.all([invitationSettings(event.id), readInvite(event, opsi.undangan, opsi.ip ?? null)]);
     if (baca.state === "used") {
-      const kontak = (await eventSender(event.id).catch(() => null))?.replyTo ?? null;
+      const panitia = kontakPanitia(landing, (await eventSender(event.id).catch(() => null))?.replyTo);
+      const kontak = panitia?.email ?? panitia?.telepon ?? null;
       return halamanTamu(event, lang, {
         judul: u.usedTitle,
         isi: u.usedBody,
