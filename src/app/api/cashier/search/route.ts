@@ -22,12 +22,16 @@ export async function GET(request: Request) {
   const client = getSupabaseServiceClient();
   // Escape wildcard agar input pengguna tidak mengubah pola pencarian.
   const pattern = `%${parsed.data.q.replace(/[%_,]/g, " ")}%`;
+  // Kode utuh untuk pencocokan persis; karakter tata bahasa penyaring dibuang.
+  const kode = parsed.data.q.trim().replace(/[%,()*"'\\\s]/g, "") || "-";
   const { data, error } = await client
     .from("participants")
     .select("id,qr_code,name,company,title")
     .eq("event_id", eventId)
     .is("source_removed_at", null)
-    .or(`name.ilike.${pattern},company.ilike.${pattern},qr_code.ilike.${pattern}`)
+    // Kode peserta hanya cocok utuh. Penggalan kode ("RE") dulu menampilkan
+    // kode semua orang; kode adalah kunci masuk peserta.
+    .or(`name.ilike.${pattern},company.ilike.${pattern},qr_code.eq.${kode},qr_code.eq.${kode.toUpperCase()}`)
     .order("name", { ascending: true })
     .limit(parsed.data.limit);
   if (error) return apiError("INTERNAL_ERROR", 500);

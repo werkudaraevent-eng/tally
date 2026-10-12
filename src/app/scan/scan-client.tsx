@@ -714,7 +714,7 @@ export default function ScanClient() {
    * menatap tamu. Sekarang ia lembar yang sama dengan hasil lain: merah, berbunyi,
    * dan membawa aksi yang memang menolong.
    */
-  const tampilGagal = useCallback((qr: string, status: "gagal" | "login" | "ditolak", teks: string, dikirim: number) => {
+  const tampilGagal = useCallback((qr: string, status: "gagal" | "login" | "ditolak", teks: string, dikirim: number, dicoba?: { id: string; nama: string }) => {
     if (status === "gagal") {
       setOffline(true);
       // Waktu KIRIM, bukan waktu lembar merah muncul. Jawaban yang hilang paling
@@ -722,11 +722,18 @@ export default function ScanClient() {
       // menyimpannya sebelum lembar merah ini terbuka.
       gagalRef.current = { qr, waktu: dikirim };
     }
-    pasangLembar({ status, qr, pesan: teks });
+    pasangLembar({ status, qr: dicoba ? undefined : qr, pesan: teks, dicoba });
     bunyikan("galat", suaraRef.current);
   }, [pasangLembar]);
 
-  const kirim = useCallback(async (qr: string): Promise<Hasil | null> => {
+  /**
+   * Mengirim satu pencatatan. `qr` dari kamera, pemindai genggam, atau Ulangi;
+   * `dicoba` dari Cari nama, yang hanya membawa id peserta (lihat
+   * /api/attendance/search). Kunci internalnya `id:<uuid>` supaya tahanan dan
+   * pengenalan Ulangi tetap bekerja tanpa kode.
+   */
+  const kirim = useCallback(async (kodeMasuk: string, dicoba?: { id: string; nama: string }): Promise<Hasil | null> => {
+    const qr = dicoba ? `id:${dicoba.id}` : kodeMasuk;
     if (!sessionId) { setPesan("Pilih sesi lebih dulu."); return null; }
     // Meja belum dipilih padahal acara ini punya meja: lembar "Siapkan meja
     // ini" sedang terbuka. Pemindai genggam tetap mengetik di baliknya, dan
@@ -738,7 +745,7 @@ export default function ScanClient() {
       return null;
     }
     setSibuk(true);
-    setMembaca(qr);
+    setMembaca(dicoba ? dicoba.nama : qr);
     const dikirim = Date.now();
     const batas = new AbortController();
     const pewaktu = window.setTimeout(() => batas.abort(), BATAS_TUNGGU_MS);
@@ -750,7 +757,12 @@ export default function ScanClient() {
       // jadi `scanned_by` tidak pernah bisa menjawab "meja yang mana".
       // Stasiun cetak dan mode cetak otomatis HP ini. Server yang mengantrekan
       // badge-nya, di permintaan yang sama dengan pencatatan kehadiran.
-      body: JSON.stringify({ session_id: sessionId, qr, lane_id: laneId, cetak: bodyCetak() }),
+      body: JSON.stringify({
+        session_id: sessionId,
+        ...(dicoba ? { participant_id: dicoba.id } : { qr }),
+        lane_id: laneId,
+        cetak: bodyCetak(),
+      }),
       signal: batas.signal,
     }).catch(() => null);
     window.clearTimeout(pewaktu);
@@ -758,16 +770,16 @@ export default function ScanClient() {
     setMembaca(null);
 
     if (!response || response.status >= 500) {
-      tampilGagal(qr, "gagal", "Koneksi terputus atau server tidak menjawab, jadi tamu ini BELUM masuk daftar hadir. Tekan Ulangi, atau pindai lagi badge-nya.", dikirim);
+      tampilGagal(qr, "gagal", "Koneksi terputus atau server tidak menjawab, jadi tamu ini BELUM masuk daftar hadir. Tekan Ulangi, atau pindai lagi badge-nya.", dikirim, dicoba);
       return null;
     }
     const body = await response.json().catch(() => ({}));
     if (response.status === 401) {
-      tampilGagal(qr, "login", "Login petugas di ponsel ini sudah habis, jadi pemindaian ini TIDAK tercatat. Login lagi, lalu pindai ulang.", dikirim);
+      tampilGagal(qr, "login", "Login petugas di ponsel ini sudah habis, jadi pemindaian ini TIDAK tercatat. Login lagi, lalu pindai ulang.", dikirim, dicoba);
       return null;
     }
     if (!response.ok) {
-      tampilGagal(qr, "ditolak", pesanGalat(body, "Server menolak pemindaian ini. Hubungi panitia."), dikirim);
+      tampilGagal(qr, "ditolak", pesanGalat(body, "Server menolak pemindaian ini. Hubungi panitia."), dikirim, dicoba);
       return null;
     }
 
@@ -789,7 +801,7 @@ export default function ScanClient() {
       const pertama = new Date(data.first_scan_at).getTime();
       if (pertama >= gagal.waktu + selisih - KELONGGARAN_JAM_MS) data = { ...data, tersimpanSebelumnya: true };
     }
-    terapkanHasil({ ...data, qr: data.qr ?? qr }, sessionId);
+    terapkanHasil({ ...data, qr: data.qr ?? (dicoba ? undefined : qr) }, sessionId);
     return data;
   }, [bodyCetak, laneId, lanes.length, sessionId, terapkanHasil, tampilGagal]);
 
@@ -1018,7 +1030,7 @@ export default function ScanClient() {
 
   const catatDariCari = async (baris: BarisCari) => {
     setMencatatId(baris.id);
-    const data = await kirim(baris.qr_code);
+    const data = await kirim("", { id: baris.id, nama: baris.name });
     setMencatatId(null);
     if (!data) return;
     // Baris diperbarui di tempat, bukan lewat pencarian ulang. Daftar yang
@@ -1124,7 +1136,7 @@ export default function ScanClient() {
     setDialogWalkIn(false);
     setKandidat(null);
     setFormWalkIn(FORM_KOSONG);
-    await kirim(baris.qr_code);
+    await kirim("", { id: baris.id, nama: baris.name });
     setKueri("");
   }
 
@@ -1526,7 +1538,7 @@ export default function ScanClient() {
                                 {/* Nama tidak dipotong: ia bahan memastikan orangnya. */}
                                 <p className="text-body-large font-semibold leading-tight">{baris.name}</p>
                                 <p className="truncate text-body-small text-on-surface-variant">
-                                  {[baris.company, baris.title].filter(Boolean).join(" · ") || baris.qr_code}
+                                  {[baris.company, baris.title].filter(Boolean).join(" · ") || "Tanpa instansi"}
                                 </p>
                                 {/* Status dibawa teks, tidak hanya warna. */}
                                 {sudahHadir ? (
@@ -1830,6 +1842,7 @@ export default function ScanClient() {
         onUlangi={() => {
           // Langsung ke server, melewati tahanan kode-sama: petugas menekannya
           // dengan sengaja.
+          if (hasil?.dicoba) { void kirim("", hasil.dicoba); return; }
           const kode = hasil?.qr;
           if (kode) void kirim(kode);
         }}
