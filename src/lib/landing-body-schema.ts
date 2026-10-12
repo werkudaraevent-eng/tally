@@ -233,6 +233,8 @@ export const memberSchema = z.object({
   show_logistics: z.boolean().optional(),
   /** Dibaca member_logistics di database; bawaan tampil. */
   show_roommates: z.boolean().optional(),
+  /** Email Sign-in link ke walk-in baru. Bawaan mati. */
+  walkin_link: z.boolean().optional(),
   feedback_url: z.string().trim().url().max(600).nullable().optional(),
   /** Beranda halaman peserta: id bawaan (MEMBER_HOME_BUILTINS) atau id blok. */
   home: z.object({ order: z.array(idBeranda).max(MAX_BLOCKS + 10).optional(), hidden: z.array(idBeranda).max(MAX_BLOCKS + 10).optional() }).optional(),

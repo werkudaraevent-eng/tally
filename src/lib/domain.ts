@@ -1115,6 +1115,11 @@ export type LandingMemberConfig = {
   show_logistics?: boolean;
   /** Teman sekamar di kartu Kamar (dibaca member_logistics). Bawaan tampil. */
   show_roommates?: boolean;
+  /**
+   * Email Sign-in link ke walk-in yang baru didaftarkan petugas (lihat
+   * sendWalkinLink). Bawaan MATI: menyalakannya tidak mengirim ke peserta lama.
+   */
+  walkin_link?: boolean;
   feedback_url?: string | null;
   /**
    * Beranda halaman peserta (Participant area > Participant home): urutan id
