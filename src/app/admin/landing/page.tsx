@@ -2726,7 +2726,7 @@ export default function LandingCmsPage() {
               saklar,
               indeks: index,
               menu: menuBaris(index, judul, blok),
-              isi: <BlockEditor block={blok} onChange={ubahBlok} semuaBlok={landing.blocks ?? []} />,
+              isi: <BlockEditor block={blok} onChange={ubahBlok} semuaBlok={landing.blocks ?? []} warnaTema={{ brand: tokensHero.brand, accent: tokensHero.accent ?? null }} />,
             });
           }
 

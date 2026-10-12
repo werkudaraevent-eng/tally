@@ -203,7 +203,7 @@ export function isLandingBlockId(id: string): id is LandingBlockId {
  * Satu bentuk data untuk semua jenis, dengan kolom opsional. Tiap jenis hanya
  * membaca kolom miliknya; editor CMS hanya menampilkan kolom itu.
  */
-export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn" | "route";
+export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn" | "route" | "countdown";
 
 /**
  * Tempat blok tampil. `public` = halaman acara (bawaan, perilaku sebelum pilihan
@@ -218,7 +218,7 @@ export const LANDING_BLOCK_SHOW_ON_LABELS: Record<LandingBlockShowOn, string> = 
  * `show_on`. Jenis lain selalu di halaman acara saja: memilih "Participant
  * page" untuk blok yang tidak bisa dirender di sana sama dengan menghapusnya.
  */
-export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = ["route"];
+export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = ["route", "countdown"];
 
 /** Apakah blok tampil di halaman ini. Jenis tanpa tampilan peserta selalu halaman acara saja. */
 export function landingBlockShownOn(block: Pick<LandingBlock, "type" | "show_on">, page: "public" | "member"): boolean {
@@ -261,7 +261,20 @@ export const LANDING_ROUTE_MAPS_MODES = ["walking", "driving", "transit"] as con
 export type LandingRouteMapsMode = (typeof LANDING_ROUTE_MAPS_MODES)[number];
 export const LANDING_ROUTE_MAPS_MODE_LABELS: Record<LandingRouteMapsMode, string> = { walking: "Walking", driving: "Driving", transit: "Public transport" };
 
-export type LandingBlockLayout = "featured" | "overlay" | "columns" | "cards" | "numbered" | "list";
+export type LandingBlockLayout = "featured" | "overlay" | "columns" | "cards" | "numbered" | "list" | LandingCountdownStyle;
+
+/**
+ * Gaya blok Hitung mundur. Tiap gaya punya kontrolnya sendiri di CMS; kolom
+ * yang tidak dipakai gaya terpilih tetap tersimpan tetapi tidak dibaca.
+ */
+export type LandingCountdownStyle = "numbers" | "board" | "ticket" | "strip" | "photo";
+
+/**
+ * Warna sorot blok Hitung mundur: warna tema (merek, aksen gathering, tinta)
+ * atau heksadesimal sendiri "#RRGGBB". Bila kontrasnya terhadap latar kurang
+ * dari 3:1 (angka besar), halaman memakai warna teks; CMS memperingatkan.
+ */
+export type LandingHighlight = "brand" | "accent" | "ink" | `#${string}`;
 
 export type LandingBlockItem = {
   image_url?: string | null;
@@ -329,6 +342,18 @@ export type LandingBlock = {
   maps_mode?: LandingRouteMapsMode;
   /** Halaman tempat blok tampil (LANDING_BLOCK_MEMBER_TYPES saja). Kosong = halaman acara. */
   show_on?: LandingBlockShowOn;
+  /** Hitung mundur: label asal dan tujuan di gaya Tiket (bawaan "Hari ini" dan nama tempat acara). */
+  countdown_from?: string;
+  countdown_to?: string;
+  /** Hitung mundur: ikon Phosphor penanda rute (mis. "Airplane", "Train"), atau gambar sendiri. Kosong = tanpa ikon. */
+  icon?: string;
+  icon_url?: string | null;
+  /** Hitung mundur: warna sorot. Kosong = merek. */
+  highlight?: LandingHighlight;
+  /** Hitung mundur: latar warna sendiri "#RRGGBB", menggantikan `tone`. Warna teks dipilih otomatis. */
+  bg_color?: string;
+  /** Hitung mundur: tampilkan detik. Bawaan menyala di Papan, mati di gaya lain. */
+  seconds?: boolean;
   /** Teks English blok ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingBlockEn;
 };
@@ -343,7 +368,7 @@ export type LandingBlock = {
 
 /** Kolom teks blok yang punya versi English. */
 export const LANDING_BLOCK_EN_KEYS = [
-  "eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role", "nav_label",
+  "eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role", "nav_label", "countdown_from", "countdown_to",
 ] as const;
 export type LandingBlockEn = Partial<Record<(typeof LANDING_BLOCK_EN_KEYS)[number], string>>;
 
@@ -426,6 +451,7 @@ export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
   cta: "Call-to-action strip",
   multicolumn: "Columns",
   route: "Directions",
+  countdown: "Countdown",
 };
 
 export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
@@ -440,6 +466,7 @@ export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
   cta: "A call to register, with or without a background photo.",
   multicolumn: "1 to 4 columns, each with an image, title, text and link.",
   route: "How to get from one place to another, e.g. between two hotels, with a Google Maps button.",
+  countdown: "Days, hours and minutes to the event start. Hides itself once the event is over.",
 };
 
 export const LANDING_BLOCK_TONE_LABELS: Record<LandingBlockTone, string> = {
@@ -461,6 +488,7 @@ export const LANDING_BLOCK_DEFAULT_TONE: Record<LandingBlockType, LandingBlockTo
   cta: "light",
   multicolumn: "light",
   route: "panel",
+  countdown: "dark",
 };
 
 export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: LandingBlockLayout; label: string; hint: string }[]>> = {
@@ -474,7 +502,19 @@ export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: La
     { value: "numbered", label: "Numbered list", hint: "Title on the left, 3 to 7 numbered rows on the right." },
     { value: "list", label: "Two-column list", hint: "Title on the left, short points in two columns." },
   ],
+  countdown: [
+    { value: "numbers", label: "Numbers", hint: "Heading on the left, large days, hours and minutes on the right. Calm and fits any event." },
+    { value: "board", label: "Flip board", hint: "Each digit on its own tile, like an airport departure board. The digits flip as they change." },
+    { value: "ticket", label: "Ticket", hint: "A ticket with a route from today to the event, an icon that moves closer each day, and the days left on the stub." },
+    { value: "strip", label: "Slim strip", hint: "One slim line: days left, a progress route and the time. Good right under the hero." },
+    { value: "photo", label: "Photo", hint: "Large numbers over your own photo, with a dark layer so they stay readable." },
+  ],
 };
+
+/** Detik tampil? Bawaan menyala di Papan saja. */
+export function countdownSeconds(block: Pick<LandingBlock, "type" | "layout" | "seconds">): boolean {
+  return block.seconds ?? landingBlockLayout(block) === "board";
+}
 
 export function landingBlockLayout(block: Pick<LandingBlock, "type" | "layout">): LandingBlockLayout | null {
   const pilihan = LANDING_BLOCK_LAYOUTS[block.type];
@@ -509,6 +549,8 @@ export type LandingBlockLimits = {
   quote?: LandingTextLimit;
   name?: LandingTextLimit;
   role?: LandingTextLimit;
+  countdown_from?: LandingTextLimit;
+  countdown_to?: LandingTextLimit;
   item?: { label?: LandingTextLimit; title?: LandingTextLimit; body?: LandingTextLimit; value?: LandingTextLimit };
   /** Jumlah butir. `full` = jumlah yang membuat baris penuh; selain itu CMS memberi peringatan. */
   items?: { max: number; full?: number[] };
@@ -591,6 +633,8 @@ export function landingBlockLimits(block: Pick<LandingBlock, "type" | "layout" |
     }
     case "route":
       return { eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: { max: 600 }, item: { label: { max: 40 }, value: { max: 20 }, body: { max: 160, ideal: 120 } }, items: { max: 4 } };
+    case "countdown":
+      return { eyebrow: ALIS_BATAS, heading: { max: 44, ideal: 36 }, countdown_from: { max: 16 }, countdown_to: { max: 28, ideal: 20 } };
   }
 }
 
@@ -630,6 +674,9 @@ export function landingBlockHasContent(
     case "multicolumn": return items.some((item) => item.title?.trim() || item.body?.trim());
     // Dua ujung saja sudah berguna: tombol Maps.
     case "route": return routeStopFilled(block.route_from, hotelIds) && routeStopFilled(block.route_to, hotelIds);
+    // Isinya tanggal acara, bukan isian blok. Acara tanpa tanggal atau yang sudah
+    // selesai disaring saat render (src/lib/landing-hitung-mundur.ts).
+    case "countdown": return true;
   }
 }
 

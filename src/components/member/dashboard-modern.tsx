@@ -29,6 +29,8 @@ import { KartuBarang, KartuBerikutnya, KartuBus, KartuKamar } from "@/components
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
 import { loadLandingLodging } from "@/lib/landing-hotel";
 import { KartuRute } from "@/components/landing/modern/blok-rute";
+import { KartuHitungMundur } from "@/components/landing/modern/landing-blocks";
+import { landingTokens } from "@/lib/landing-tokens";
 
 /**
  * Dashboard saya (`/e/<slug>/peserta`), tata letak Modern.
@@ -92,6 +94,8 @@ export async function DashboardModern({
   const hotelIds = inap ? new Set(inap.hotels.map((hotel) => hotel.id)) : undefined;
   // Blok yang admin pilih untuk halaman peserta (Show on), di atas susunan acara.
   const blokPeserta = landingMemberBlocks(config.sections, config.blocks, hotelIds);
+  const tokens = landingTokens(config, "modern");
+  const warnaTema = { brand: tokens.brand, accent: tokens.accent ?? null };
   const { aktif, blokById, tampil, speakers, navSections, mitra: sponsor, kontak } = bagianModern(event, config, sections, agenda, lang, { gathering: gaya, adaHotel, hotelIds });
   // Pita mitra seperti di kaki halaman acara. Banyak acara (ILO salah satunya)
   // memasang logo lewat blok Logo, bukan daftar Sponsor; tanpa sponsor, pakai
@@ -374,7 +378,11 @@ export async function DashboardModern({
             ) : null}
 
             {blokPeserta.map((block) =>
-              block.type === "route" ? <KartuRute key={block.id} block={block} hotels={inap?.hotels ?? []} lang={lang} /> : null,
+              block.type === "route" ? (
+                <KartuRute key={block.id} block={block} hotels={inap?.hotels ?? []} lang={lang} />
+              ) : block.type === "countdown" ? (
+                <KartuHitungMundur key={block.id} block={block} acara={event} lang={lang} warnaTema={warnaTema} />
+              ) : null,
             )}
 
             {tampilSusunan ? (

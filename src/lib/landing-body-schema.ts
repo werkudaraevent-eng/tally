@@ -16,6 +16,14 @@ const blockId = z.string().regex(/^blk_[a-z0-9]{6,24}$/) as z.ZodType<`blk_${str
 // sama (#agenda). Bukan `z.string().url()` saja karena kolom yang dikosongkan
 // admin terkirim sebagai "".
 const tautan = z.string().trim().max(600).refine((value) => value === "" || /^(https?:\/\/\S+|#[A-Za-z][\w-]*)$/.test(value), "Links must start with http://, https://, or # for a section on this page");
+// Gambar baru di blok Hitung mundur: http(s) atau jalur di situs ini (/uploads/...),
+// bukan javascript:, data:, atau ftp:. "//host" ditolak karena itu alamat situs
+// lain. Sengaja hanya untuk kolom Hitung mundur: image_url blok lain tetap
+// seperti semula, karena satu alamat lama yang tidak lolos akan menggagalkan
+// setiap simpan acara itu.
+const GAMBAR_KETAT = /^(https?:\/\/\S+|\/(?!\/)\S*)$/;
+const PESAN_GAMBAR = "Images must be an http(s) address or a path on this site";
+const gambarUrl = z.string().max(600).refine((value) => GAMBAR_KETAT.test(value), PESAN_GAMBAR).nullable().optional();
 // Batas luar. Batas per jenis blok (lebih ketat) diperiksa di superRefine dengan
 // landingBlockLimits, sumber yang sama dengan penghitung di CMS.
 const teks = (max: number) => z.string().trim().max(max).optional();
@@ -52,23 +60,27 @@ const blockEnSchema = z.object({
   name: teks(120),
   role: teks(160),
   nav_label: teks(LANDING_NAV_LABEL_MAX),
+  countdown_from: teks(40),
+  countdown_to: teks(60),
 });
 // Hanya https (QA #115 L1): gambar ikon dari unggahan CMS selalu https.
 const ikonUrl = z.string().trim().max(600).regex(/^https:\/\/[^\s"'<>]+$/, "Icon images must be an https:// address").nullable().optional();
 const routeStop = z.object({ hotel_id: z.number().int().positive().optional(), name: teks(120), address: teks(300) });
 const blockSchema = z.object({
   id: blockId,
-  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route"]),
+  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route", "countdown"]),
   show_on: z.enum(LANDING_BLOCK_SHOW_ON).optional(),
   route_from: routeStop.optional(),
   route_to: routeStop.optional(),
   maps_mode: z.enum(LANDING_ROUTE_MAPS_MODES).optional(),
   tone: z.enum(["light", "panel", "dark"]).optional(),
-  layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list"]).optional(),
+  layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list", "numbers", "board", "ticket", "strip", "photo"]).optional(),
   eyebrow: teks(60),
   heading: teks(160),
   body: teks(1200),
-  image_url: z.string().url().max(600).nullable().optional(),
+  // Alamat lengkap seperti sebelumnya, atau jalur di situs ini (/uploads/...).
+  // Hanya menambah yang diterima; Hitung mundur diperketat lagi di superRefine.
+  image_url: z.union([z.string().url(), z.string().regex(/^\/(?!\/)\S*$/)]).pipe(z.string().max(600)).nullable().optional(),
   image_side: z.enum(["left", "right"]).optional(),
   items: z.array(z.object({
     image_url: z.string().url().max(600).nullable().optional(),
@@ -96,15 +108,25 @@ const blockSchema = z.object({
   columns: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
   image_shape: z.enum(["wide", "square", "circle"]).optional(),
   align: z.enum(["left", "center", "right"]).optional(),
+  countdown_from: teks(40),
+  countdown_to: teks(60),
+  icon: z.string().regex(/^[A-Za-z0-9]{1,48}$/).optional(),
+  icon_url: gambarUrl,
+  highlight: z.union([z.enum(["brand", "accent", "ink"]), z.string().regex(/^#[0-9a-fA-F]{6}$/)]).optional(),
+  bg_color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  seconds: z.boolean().optional(),
   en: blockEnSchema.optional(),
 }).superRefine((block, ctx) => {
+  if (block.type === "countdown" && block.image_url && !GAMBAR_KETAT.test(block.image_url)) {
+    ctx.addIssue({ code: "custom", path: ["image_url"], message: PESAN_GAMBAR });
+  }
   const batas = landingBlockLimits(block);
   const periksa = (nilai: string | undefined, limit: LandingTextLimit | undefined, path: (string | number)[]) => {
     if (nilai && limit && nilai.length > limit.max) {
       ctx.addIssue({ code: "custom", path, message: `Maximum ${limit.max} characters` });
     }
   };
-  (["eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role"] as const).forEach((key) => {
+  (["eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role", "countdown_from", "countdown_to"] as const).forEach((key) => {
     periksa(block[key], batas[key], [key]);
     periksa(block.en?.[key], batas[key], ["en", key]);
   });

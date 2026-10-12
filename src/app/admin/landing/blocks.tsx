@@ -2,6 +2,7 @@
 
 import { CaretDown, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
 import { useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { Button, Dialog, IconButton, SegmentedButton, TextArea, TextField } from "@/components/m3";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { EditorRute, TampilDi } from "./editor-rute";
@@ -34,6 +35,9 @@ import {
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 
+// Editor Hitung mundur dimuat hanya saat blok itu dibuka.
+const EditorHitungMundur = dynamic(() => import("./editor-hitung-mundur").then((m) => m.EditorHitungMundur));
+
 /**
  * CMS pustaka blok: dialog Tambah blok dan editor isi tiap jenis blok.
  * Rancangan: Figma "Pustaka blok (usulan)" (CMS) dan kartu "ISI DI CMS" di
@@ -45,7 +49,7 @@ import { plural } from "@/lib/plural";
  * menyebut rasio slotnya, karena gambar dipotong otomatis ke rasio itu.
  */
 
-const URUTAN_JENIS: LandingBlockType[] = ["text_image", "multicolumn", "cards", "points", "stats", "logos", "download", "cta", "gallery", "quote", "route"];
+const URUTAN_JENIS: LandingBlockType[] = ["text_image", "multicolumn", "cards", "points", "stats", "logos", "download", "cta", "countdown", "gallery", "quote", "route"];
 
 export function buatBlok(type: LandingBlockType): LandingBlock {
   const acak = Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) => byte.toString(36).padStart(2, "0")).join("").slice(0, 10);
@@ -86,7 +90,7 @@ export function ringkasanBlok(block: LandingBlock): string | null {
 
 /** Gambaran kecil tiap jenis blok di dialog Tambah blok. */
 function Sketsa({ type }: { type: LandingBlockType }) {
-  const gelap = type === "stats" || type === "cta";
+  const gelap = type === "stats" || type === "cta" || type === "countdown";
   const kotak = "rounded-[3px] bg-outline-variant";
   const garis = (lebar: string, tebal = "h-1") => <span className={cx("block rounded-full", tebal, lebar, gelap ? "bg-white/70" : "bg-on-surface-variant/50")} />;
   return (
@@ -100,6 +104,7 @@ function Sketsa({ type }: { type: LandingBlockType }) {
       {type === "logos" ? (<span className="flex flex-1 items-center gap-1.5">{[0, 1, 2].map((key) => <span key={key} className={cx(kotak, "h-5 flex-1")} />)}</span>) : null}
       {type === "download" ? (<span className="flex flex-1 items-center gap-2 rounded-[3px] bg-surface-container-lowest p-1.5"><span className="flex flex-1 flex-col gap-1">{garis("w-full", "h-1.5")}{garis("w-3/4")}<span className="h-2 w-8 rounded-[2px] bg-primary" /></span><span className={cx(kotak, "h-10 w-7 -rotate-6")} /></span>) : null}
       {type === "multicolumn" ? (<span className="flex flex-1 gap-1.5">{[0, 1, 2].map((key) => <span key={key} className="flex flex-1 flex-col gap-1"><span className={cx(kotak, "h-6")} />{garis("w-full", "h-1.5")}{garis("w-3/4")}</span>)}</span>) : null}
+      {type === "countdown" ? (<span className="flex flex-1 items-center gap-2"><span className="flex w-8 flex-col gap-1">{garis("w-full", "h-1.5")}{garis("w-3/4")}</span>{[0, 1, 2].map((key) => <span key={key} className="flex flex-1 flex-col items-start gap-1 border-l border-white/30 pl-1"><span className="text-[13px] font-semibold leading-none text-white tabular-nums">{["24", "08", "15"][key]}</span>{garis("w-3/4")}</span>)}</span>) : null}
       {type === "cta" ? (<span className="flex flex-1 items-center gap-2"><span className="flex flex-1 flex-col gap-1">{garis("w-full", "h-1.5")}{garis("w-2/3")}</span><span className="h-3 w-8 rounded-[2px] bg-white" /></span>) : null}
       {type === "route" ? (<><span className="flex w-10 flex-col justify-between rounded-[3px] bg-surface-container-lowest p-1.5"><span className="flex items-center gap-1"><span className="size-1.5 shrink-0 rounded-full border border-primary" />{garis("w-full")}</span><span className="ml-[2px] h-3 border-l border-dashed border-on-surface-variant/50" /><span className="flex items-center gap-1"><span className="size-1.5 shrink-0 rounded-full bg-primary" />{garis("w-full")}</span></span><span className="flex flex-1 flex-col gap-1">{[0, 1].map((key) => <span key={key} className="flex flex-1 items-center gap-1 rounded-[3px] bg-surface-container-lowest p-1"><span className="size-2.5 shrink-0 rounded-[2px] bg-primary/30" />{garis("w-full")}</span>)}</span></>) : null}
     </span>
@@ -233,6 +238,8 @@ export function labelKolomBlok(block: LandingBlock, key: string): string {
     case "quote": return "Quote";
     case "name": return "Name";
     case "role": return "Position and organisation";
+    case "countdown_from": return "Start label";
+    case "countdown_to": return "Destination";
     default: return key;
   }
 }
@@ -289,7 +296,7 @@ export function namaButirBlok(block: LandingBlock, index: number): string {
 type KolomTeks = "eyebrow" | "heading" | "body" | "link_label" | "link2_label" | "fact_title" | "fact_body" | "source" | "quote" | "name" | "role";
 export type KolomButir = "label" | "title" | "body" | "value";
 
-export function BlockEditor({ block, onChange, semuaBlok = [] }: { block: LandingBlock; onChange: (next: LandingBlock) => void; semuaBlok?: LandingBlock[] }) {
+export function BlockEditor({ block, onChange, semuaBlok = [], warnaTema }: { block: LandingBlock; onChange: (next: LandingBlock) => void; semuaBlok?: LandingBlock[]; warnaTema?: { brand: string; accent: string | null } }) {
   const ubah = (patch: Partial<LandingBlock>) => onChange({ ...block, ...patch });
   const items = block.items ?? [];
   const setItems = (next: LandingBlockItem[]) => ubah({ items: next });
@@ -724,6 +731,13 @@ export function BlockEditor({ block, onChange, semuaBlok = [] }: { block: Landin
             semuaBlok={semuaBlok}
           />
           {latar}
+        </div>
+      );
+    case "countdown":
+      return (
+        <div className="flex flex-col gap-4">
+          {tampilDi}
+          <EditorHitungMundur block={block} ubah={ubah} warnaTema={warnaTema ?? { brand: "#1B2D57", accent: null }} />
         </div>
       );
     case "cta":

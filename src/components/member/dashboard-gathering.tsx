@@ -27,6 +27,7 @@ import type { EventRow, LandingMemberConfig } from "@/lib/domain";
 import { kontakPanitia } from "@/lib/kontak-panitia";
 import { LANDING_NAV_DEFAULTS, isPortalEntry, landingMemberBlocks, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { KartuRute } from "@/components/landing/modern/blok-rute";
+import { KartuHitungMundur } from "@/components/landing/modern/landing-blocks";
 import { formatEventDate, formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
@@ -164,7 +165,11 @@ export async function DashboardGathering({
   // Blok yang admin pilih untuk halaman peserta (Show on), di atas Rundown hari ini.
   const hotelIds = new Set(inap.hotels.map((hotel) => hotel.id));
   const kartuBlok = landingMemberBlocks(config.sections, config.blocks, hotelIds).map((block) =>
-    block.type === "route" ? <KartuRute key={block.id} block={block} hotels={inap.hotels} lang={lang} /> : null,
+    block.type === "route" ? (
+      <KartuRute key={block.id} block={block} hotels={inap.hotels} lang={lang} />
+    ) : block.type === "countdown" ? (
+      <KartuHitungMundur key={block.id} block={block} acara={event} lang={lang} warnaTema={{ brand: landingTokens(config, "modern").brand, accent: landingTokens(config, "modern").accent ?? null }} />
+    ) : null,
   );
   const { navSections, tampil } = bagianModern(event, config, sectionsHalaman, agendaNav, lang, { gathering: true, adaHotel, hotelIds });
   const menuAtas = (() => {

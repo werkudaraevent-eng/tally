@@ -7,11 +7,18 @@ import {
   landingBlockHasContent,
   landingBlockLayout,
   landingColumnCount,
+  countdownSeconds,
+  type LandingCountdownStyle,
   type LandingBlock,
   type LandingBlockItem,
   type LandingBlockTone,
 } from "@/lib/domain";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
+import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
+import { keadaanSaatIni, LAPISAN_FOTO, sekarangServer, TINTA, warnaHitungMundur, type JadwalHitungMundur } from "@/lib/landing-hitung-mundur";
+import { readableOn } from "@/lib/color";
+import { HitungMundurIsi } from "./hitung-mundur-lazy";
+import { MUAT_IKON } from "./ikon-ssr";
 import { HEAD, JUDUL, LABEL_BAGIAN, MUTED, PIL, SHELL } from "./styles";
 
 /**
@@ -115,9 +122,9 @@ function IkonTaut({ href, size = 18 }: { href: string; size?: number }) {
   return /^https?:\/\//.test(href) ? <ArrowUpRight size={size} aria-hidden /> : <ArrowDown size={size} aria-hidden />;
 }
 
-function Wadah({ block, children, className = "py-12 sm:py-16 lg:py-[var(--bagian-y,72px)]" }: { block: LandingBlock; children: ReactNode; className?: string }) {
+function Wadah({ block, children, className = "py-12 sm:py-16 lg:py-[var(--bagian-y,72px)]", style }: { block: LandingBlock; children: ReactNode; className?: string; style?: CSSProperties }) {
   return (
-    <section id={block.id} className={`scroll-mt-[var(--nav-h)] text-[var(--reg-on-surface)] ${className}`} style={NADA[block.tone ?? "light"]}>
+    <section id={block.id} className={`scroll-mt-[var(--nav-h)] text-[var(--reg-on-surface)] ${className}`} style={{ ...NADA[block.tone ?? "light"], ...style }}>
       <div className={SHELL}>{children}</div>
     </section>
   );
@@ -477,6 +484,133 @@ function Angka({ block }: { block: LandingBlock }) {
   );
 }
 
+/** Data acara yang dibaca blok Hitung mundur: jadwal, tempat, dan kapan acara dibuat (awal garis kemajuan). */
+export type AcaraHitungMundur = JadwalHitungMundur & { venue_name?: string | null; created_at?: string | null };
+
+/** Warna tema untuk blok yang warnanya bisa dipilih admin. */
+export type WarnaTemaBlok = { brand: string; accent: string | null };
+
+/**
+ * Blok Hitung mundur: menuju tanggal dan jam mulai acara di zona acara, dalam
+ * lima gaya (Angka, Papan, Tiket, Pita, Foto). Selama acara berjalan angkanya
+ * diganti "Sedang berlangsung"; sesudah acara, dan untuk acara tanpa tanggal,
+ * blok tidak dirender.
+ */
+async function siapkanHitungMundur(block: LandingBlock, acara: AcaraHitungMundur, lang: LandingLang, warnaTema: WarnaTemaBlok) {
+  // Hanya lima kolom jadwal yang dikirim ke peramban, bukan baris acara utuh.
+  const { event_date, end_date, start_time, end_time, time_zone } = acara;
+  const jadwal: JadwalHitungMundur = { event_date, end_date, start_time, end_time, time_zone };
+  const keadaan = keadaanSaatIni(jadwal);
+  if (!keadaan || keadaan.fase === "selesai") return null;
+  const t = LANDING_UI[lang];
+  const gaya = (landingBlockLayout(block) ?? "numbers") as LandingCountdownStyle;
+  const foto = gaya === "photo" && block.image_url ? block.image_url : null;
+  const warna = warnaHitungMundur(block, warnaTema, Boolean(foto));
+
+  // Latar dan warna teks. Latar sendiri dan foto menimpa `tone`; variabel teks
+  // ikut diganti seperti latar Merek gelap, jadi isi blok tidak perlu bercabang.
+  const gelap = warna.teks !== TINTA;
+  const latarTone = block.tone === "panel" ? "var(--reg-panel)" : block.tone === "light" ? "var(--reg-surface)" : LATAR_GELAP;
+  const latar = foto ? "#141821" : warna.latar ?? latarTone;
+  const gayaTeks: CSSProperties = warna.latar || foto
+    ? {
+        backgroundColor: warna.latar ?? undefined,
+        color: warna.teks,
+        "--reg-on-surface": warna.teks,
+        "--reg-on-surface-variant": gelap ? "rgb(255 255 255 / 0.8)" : "rgb(11 16 32 / 0.72)",
+        "--reg-outline-variant": gelap ? "rgb(255 255 255 / 0.2)" : "rgb(11 16 32 / 0.16)",
+      } as CSSProperties
+    : {};
+  const gayaWarna = {
+    ...gayaTeks,
+    ...(foto ? { backgroundImage: `${LAPISAN_FOTO}, url("${foto.replace(/"/g, "%22")}")`, backgroundSize: "cover", backgroundPosition: "center" } : null),
+    "--hm-sorot": warna.sorot,
+    "--hm-pada-sorot": readableOn(warna.sorot),
+    "--hm-sorot-kecil": warna.sorotKecil,
+    "--hm-latar": latar,
+    "--hm-sorot-putih": warna.sorotPutih,
+    "--hm-pada-sorot-putih": readableOn(warna.sorotPutih),
+    "--hm-papan": warna.sorotPapan,
+  } as CSSProperties;
+
+  // Ikon penanda rute (Tiket, Pita): gambar sendiri, ikon Phosphor, atau titik.
+  let ikon: ReactNode = null;
+  if (gaya === "ticket" || gaya === "strip") {
+    if (block.icon_url) {
+      // eslint-disable-next-line @next/next/no-img-element
+      ikon = <img src={block.icon_url} alt="" className="size-6 object-contain" />;
+    } else if (block.icon && Object.hasOwn(MUAT_IKON, block.icon)) {
+      const Ikon = await MUAT_IKON[block.icon]().catch(() => null);
+      if (Ikon) ikon = <Ikon size={18} weight="fill" aria-hidden />;
+    }
+  }
+
+  const zona = jadwal.time_zone;
+  const locale = lang === "en" ? "en-GB" : "id-ID";
+  const sekarang = sekarangServer();
+  const tanggalPendek = jadwal.event_date
+    ? new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short", timeZone: zona }).format(new Date(`${jadwal.event_date}T12:00:00Z`))
+    : "";
+  const jamMulai = formatEventTime({ ...jadwal, end_time: null }, lang)?.replace(/^(mulai|from) /, "") ?? null;
+  const dibuat = acara.created_at ? Date.parse(acara.created_at) : NaN;
+  const mulaiAcara = Date.parse(`${jadwal.event_date}T00:00:00Z`);
+  // Tanpa tanggal dibuat (atau dibuat sesudah hari H diatur), garis mulai 60 hari sebelumnya.
+  const mulaiProgres = Number.isFinite(dibuat) && dibuat < mulaiAcara ? dibuat : mulaiAcara - 60 * 86_400_000;
+  // Jam selesai acara beberapa hari tidak menjawab "kapan hari H": tanggal dan jam mulai saja.
+  const kapan = [formatEventDate(jadwal, lang), formatEventTime({ ...jadwal, end_time: null }, lang)].filter(Boolean).join(" · ");
+
+  return {
+    gaya,
+    gayaWarna,
+    isi: (
+      <HitungMundurIsi
+          gaya={gaya}
+          jadwal={jadwal}
+          lang={lang}
+          detik={countdownSeconds(block)}
+          ikon={ikon}
+          mulaiProgres={mulaiProgres}
+          sekarangAwal={sekarang}
+          teks={{
+            alis: block.eyebrow?.trim() || null,
+            judul: block.heading?.trim() || t.countdownHeading,
+            kapan,
+            tanggalPendek,
+            jamMulai,
+            dari: block.countdown_from?.trim() || t.countdownFrom,
+            ke: block.countdown_to?.trim() || acara.venue_name?.trim() || "",
+          }}
+        />
+    ),
+  };
+}
+
+async function HitungMundur({ block, acara, lang, warnaTema }: { block: LandingBlock; acara: AcaraHitungMundur; lang: LandingLang; warnaTema: WarnaTemaBlok }) {
+  const siap = await siapkanHitungMundur(block, acara, lang, warnaTema);
+  if (!siap) return null;
+  const { gaya, gayaWarna, isi } = siap;
+  return (
+    // Nada kosong = Merek gelap, sama dengan dasar perhitungan warnanya (warnaHitungMundur).
+    <Wadah block={{ ...block, tone: block.tone ?? "dark" }} className={gaya === "strip" ? "py-6 sm:py-8" : gaya === "photo" ? "py-20 sm:py-28" : "py-16 sm:py-20"} style={gayaWarna}>
+      {isi}
+    </Wadah>
+  );
+}
+
+/**
+ * Blok Hitung mundur di halaman peserta (Show on): gaya dan warna yang sama
+ * dengan halaman acara, sebagai kartu di kolom utama dashboard.
+ */
+export async function KartuHitungMundur({ block, acara, lang, warnaTema }: { block: LandingBlock; acara: AcaraHitungMundur; lang: LandingLang; warnaTema: WarnaTemaBlok }) {
+  const siap = await siapkanHitungMundur(block, acara, lang, warnaTema);
+  if (!siap) return null;
+  return (
+    <section className={`overflow-clip rounded-[20px] text-[var(--reg-on-surface)] ${siap.gaya === "photo" ? "px-5 py-10 sm:px-8 sm:py-14" : "p-5 sm:p-8"}`} style={{ ...NADA[block.tone ?? "dark"], ...siap.gayaWarna }}>
+      {siap.isi}
+    </section>
+  );
+}
+
 function inisial(nama: string) {
   return nama.split(/\s+/).filter(Boolean).slice(0, 2).map((kata) => kata[0]?.toUpperCase()).join("");
 }
@@ -787,6 +921,8 @@ export function LandingBlockView({
   daftarLabel,
   jangkar,
   lang = "id",
+  jadwal,
+  warnaTema,
 }: {
   block: LandingBlock;
   daftarUrl: string | null;
@@ -794,6 +930,10 @@ export function LandingBlockView({
   jangkar?: ReadonlySet<string>;
   /** Bahasa halaman, untuk label tombol bawaan. Teks blok sudah dalam bahasa ini (resolveLanding). */
   lang?: LandingLang;
+  /** Tanggal, jam, dan tempat acara, untuk blok Hitung mundur. Tanpa ini blok itu tidak dirender. */
+  jadwal?: AcaraHitungMundur;
+  /** Warna merek dan aksen, untuk warna sorot yang dipilih admin. */
+  warnaTema?: WarnaTemaBlok;
 }) {
   if (!landingBlockHasContent(asli)) return null;
   const block = denganLabelBawaan(tanpaJangkarMati(asli, jangkar), lang);
@@ -808,5 +948,6 @@ export function LandingBlockView({
     case "download": return <Unduhan block={block} lang={lang} />;
     case "cta": return <Ajakan block={block} daftarUrl={daftarUrl} daftarLabel={daftarLabel} />;
     case "multicolumn": return <Kolom block={block} lang={lang} />;
+    case "countdown": return jadwal ? <HitungMundur block={block} acara={jadwal} lang={lang} warnaTema={warnaTema ?? { brand: "#1B2D57", accent: null }} /> : null;
   }
 }
