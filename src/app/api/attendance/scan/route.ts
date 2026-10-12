@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     // masih memegang pilihan lama yang tersimpan di ponselnya. Pesannya
     // menyebutkan langkah pemulihannya, bukan sekadar menyatakan salah.
     if (pesan.includes("LANE_NOT_FOUND")) {
-      return apiError("VALIDATION_ERROR", 422, { message: "This lane no longer exists. Choose another desk." });
+      return apiError("VALIDATION_ERROR", 422, { message: "This desk no longer exists. Choose another desk." });
     }
     return apiError("INTERNAL_ERROR", 500);
   }

@@ -1363,6 +1363,7 @@ export default function ScanClient() {
     <div className="rounded-2xl bg-surface-container px-4 pb-3 pt-3 lg:hidden">
       <div className="flex items-center gap-4">
         <div className="shrink-0">
+          <p className="text-label-small text-on-surface-variant">All desks</p>
           <p className="flex items-baseline gap-2">
             <span className="text-headline-medium font-semibold tabular-nums">{angka(hadir ?? 0)}</span>
             <span className="text-body-medium text-on-surface-variant">checked in</span>

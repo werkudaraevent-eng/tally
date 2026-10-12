@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       return apiError("VALIDATION_ERROR", 404, { message: "Check-in point not found in this event." });
     }
     if (pesan.includes("LANE_NOT_FOUND")) {
-      return apiError("VALIDATION_ERROR", 422, { message: "This lane no longer exists. Choose another desk." });
+      return apiError("VALIDATION_ERROR", 422, { message: "This desk no longer exists. Choose another desk." });
     }
     // Satu juta kombinasi REG###### terpakai habis, atau lima puluh tabrakan
     // berturut-turut. Menyuruh "coba lagi" adalah saran yang benar di sini —
