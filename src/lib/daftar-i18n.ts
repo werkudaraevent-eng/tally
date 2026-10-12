@@ -191,7 +191,7 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
     code: {
       participantCode: "Kode peserta",
       preparing: "Menyiapkan…",
-      saveOrShare: "Simpan atau bagikan kode",
+      saveOrShare: "Simpan atau bagikan",
       download: "Unduh kode",
       imageFailed: "Gambar gagal dibuat. Potret layar ini sebagai gantinya.",
       showAtDesk: "Tunjukkan kode ini di meja registrasi",
@@ -291,7 +291,7 @@ export const DAFTAR_UI: Record<LandingLang, DaftarUiText> = {
     code: {
       participantCode: "Participant code",
       preparing: "Preparing…",
-      saveOrShare: "Save or share the code",
+      saveOrShare: "Save or share",
       download: "Download code",
       imageFailed: "The image could not be created. Take a screenshot of this screen instead.",
       showAtDesk: "Show this code at the check-in desk",
