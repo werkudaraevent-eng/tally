@@ -86,6 +86,34 @@ function Lipatan({ title, detail, children }: { title: string; detail: string; c
   );
 }
 
+function bacaLorong(teks: string): number[] {
+  return teks.split(",").map((bagian) => Number(bagian.trim())).filter((angka) => Number.isFinite(angka) && angka > 0);
+}
+
+/**
+ * Teks yang diketik disimpan apa adanya. Kalau nilainya dibentuk ulang dari
+ * angka di setiap ketukan, "8," langsung kembali menjadi "8" dan koma tidak
+ * pernah bisa diketik.
+ */
+function InputLorong({ aisles, onChange }: { aisles: number[]; onChange: (aisles: number[]) => void }) {
+  const [teks, setTeks] = useState(() => aisles.join(", "));
+  // Nilai dari luar (muat ulang, ganti tata ruang) menggantikan teks hanya
+  // bila memang berbeda dari yang sedang diketik.
+  const [terakhir, setTerakhir] = useState(aisles);
+  if (aisles !== terakhir) {
+    setTerakhir(aisles);
+    if (bacaLorong(teks).join(",") !== aisles.join(",")) setTeks(aisles.join(", "));
+  }
+  return (
+    <input
+      value={teks}
+      onChange={(event) => { setTeks(event.target.value); onChange(bacaLorong(event.target.value)); }}
+      placeholder="e.g. 8, 16"
+      className={INPUT}
+    />
+  );
+}
+
 export default function SeatMapAdminPage() {
   const [payload, setPayload] = useState<Payload | null>(null);
   const [config, setConfig] = useState<ConfigState | null>(null);
@@ -391,12 +419,7 @@ export default function SeatMapAdminPage() {
         ) : null}
         {config.layout_type === "theater" ? (
           <Field label="Aisle after seat number" hint="Separate with commas. Leave empty for no aisles.">
-            <input
-              value={config.layout_params.aisles.join(", ")}
-              onChange={(event) => updateParam("aisles", event.target.value.split(",").map((bagian) => Number(bagian.trim())).filter((angka) => Number.isFinite(angka) && angka > 0))}
-              placeholder="e.g. 5, 10"
-              className={INPUT}
-            />
+            <InputLorong aisles={config.layout_params.aisles} onChange={(aisles) => updateParam("aisles", aisles)} />
           </Field>
         ) : null}
         {config.layout_type === "u_shape" || config.layout_type === "hollow_square" || config.layout_type === "boardroom" ? (
