@@ -397,7 +397,7 @@ export default function SeatMapAdminPage() {
     const layout = value as SeatMapLayout;
     // Parameter kembali ke bawaan layout baru; nilai lama menimpa bawaan dan pilihannya tampak tidak berpengaruh.
     // `sections: []` dikirim eksplisit supaya server menghapus bagian yang tersimpan.
-    setConfig((current) => current && { ...current, layout_type: layout, layout_params: { ...layoutDefaults(layout), sections: [] } });
+    setConfig((current) => current && { ...current, layout_type: layout, layout_params: { ...layoutDefaults(layout), sections: [], ...(current.layout_params.search_company ? { search_company: true } : {}) } });
   }
   function pindahBagian(index: number, arah: -1 | 1) {
     const next = [...sections];
@@ -661,6 +661,12 @@ export default function SeatMapAdminPage() {
           })}
         </fieldset>
         <p className="text-body-medium text-on-surface-variant">To force one screen into a mode, use /denah?mode=qr or ?mode=search.</p>
+        <Switch
+          checked={Boolean(config.layout_params.search_company)}
+          onChange={(checked) => updateParam("search_company", checked)}
+          label="Search by organisation"
+          description="Name search also finds participants by their Organisation, and each result shows it under the name."
+        />
       </Kelompok>
     </div>
   ) : null;

@@ -55,16 +55,22 @@ export async function GET(request: Request) {
     if (!session) return apiErrorPeserta("SEAT_MAP_SESSION_NOT_FOUND", 404);
 
     const needle = parsed.data.q.toLowerCase();
+    // Cari per Organisation hanya bila admin menyalakannya untuk acara ini.
+    // Bila mati, organisasi tidak dicocokkan dan tidak pernah dikirim.
+    const cariPerusahaan = config.layout_params.search_company === true;
     const { assignments } = await loadAssignmentsForSession(eventId, session.sub_event_id);
 
     // Satu orang bisa memegang lebih dari satu kursi; dikelompokkan per orang
     // supaya tamu melihat satu hasil dengan daftar kursinya, bukan hasil ganda.
-    const grouped = new Map<string, { name: string; seatLabels: string[]; tableNumbers: Set<string> }>();
+    const grouped = new Map<string, { name: string; company: string; seatLabels: string[]; tableNumbers: Set<string> }>();
 
     for (const assignment of assignments) {
-      if (!assignment.name.toLowerCase().includes(needle)) continue;
+      const company = (assignment.company ?? "").trim();
+      const cocok = assignment.name.toLowerCase().includes(needle) || (cariPerusahaan && company.toLowerCase().includes(needle));
+      if (!cocok) continue;
       const entry = grouped.get(assignment.participantId) ?? {
         name: assignment.name,
+        company,
         seatLabels: [],
         tableNumbers: new Set<string>(),
       };
@@ -82,12 +88,15 @@ export async function GET(request: Request) {
         total,
         truncated: true,
         results: [],
-        message: `Ada ${total} nama yang cocok. Ketik nama lebih lengkap.`,
+        message: cariPerusahaan
+          ? `Ada ${total} peserta yang cocok. Ketik nama Anda lebih lengkap.`
+          : `Ada ${total} nama yang cocok. Ketik nama lebih lengkap.`,
       });
     }
 
     const results = [...grouped.values()].map((entry) => ({
       name: searchConfirmationLabel(entry.name, parsed.data.q),
+      ...(cariPerusahaan && entry.company ? { company: entry.company } : {}),
       seat_labels: entry.seatLabels,
       normalized_labels: entry.seatLabels.map(normalizeSeatLabel),
     }));

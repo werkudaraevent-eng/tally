@@ -285,7 +285,10 @@ export async function PATCH(request: Request) {
     // parameter tersimpan dipertahankan supaya PATCH sebagian tidak menghapus
     // setelan yang tidak disebut permintaan ini.
     const bergantiLayout = Boolean(layoutBaru) && normalizeLayout(layoutBaru) !== layoutLama;
-    const sebelumnya = bergantiLayout ? {} : (current as { layout_params?: unknown } | null)?.layout_params;
+    const tersimpan = (current as { layout_params?: unknown } | null)?.layout_params;
+    // Setelan layar publik ikut bertahan saat layout berganti; ia bukan milik tata ruang.
+    const cariPerusahaan = (tersimpan as { search_company?: unknown } | null | undefined)?.search_company === true;
+    const sebelumnya = bergantiLayout ? (cariPerusahaan ? { search_company: true } : {}) : tersimpan;
     muatan.layout_params = normalizeLayoutParams(layoutAkhir, {
       ...(sebelumnya && typeof sebelumnya === "object" ? sebelumnya : {}),
       ...(parsed.data.layout_params ?? {}),
