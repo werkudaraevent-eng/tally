@@ -286,6 +286,17 @@ export function ResultSheet({
                 </p>
               ) : null}
 
+              {status === "created" && hasil.signin_link?.state === "sent" ? (
+                <p className="mt-3 text-body-medium opacity-90 [overflow-wrap:anywhere]">
+                  Sign-in link sent to {hasil.signin_link.email}.
+                </p>
+              ) : null}
+              {status === "created" && hasil.signin_link?.state === "failed" ? (
+                <p className="mt-3 text-body-medium opacity-90">
+                  The sign-in link email was not sent. They can use &quot;Forgot password?&quot; on the Sign in page.
+                </p>
+              ) : null}
+
               {status === "duplicate" && !hasil.tersimpanSebelumnya ? (
                 <p className="mt-3 text-body-medium opacity-90">
                   First scanned at {jam(hasil.first_scan_at)}. This is scan number {hasil.scan_count}. They can still go in.

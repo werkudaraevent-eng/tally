@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { EventLandingConfig, EventRow } from "@/lib/domain";
+import { linkOrigin } from "@/lib/domain-klien/asal";
 import { isEmailConfigured } from "@/lib/email/client";
 import { sendMemberLink } from "@/lib/email/member-links";
 import { landingDefaultLang } from "@/lib/landing-i18n";
@@ -26,7 +27,7 @@ export type WalkinLinkResult =
 
 export async function sendWalkinLink(
   event: Pick<EventRow, "id" | "slug" | "name" | "landing_config">,
-  input: { participantId: string; email: string | null; name: string; requestUrl: string },
+  input: { participantId: string; email: string | null; name: string; request: Request },
 ): Promise<WalkinLinkResult> {
   const member = memberConfig(event);
   if (!member?.enabled || !member.walkin_link) return { state: "skipped", reason: "off" };
@@ -49,6 +50,7 @@ export async function sendWalkinLink(
     if ((akun.data ?? []).length > 0) return { state: "skipped", reason: "has_account" };
     if ((token.data ?? []).length > 0) return { state: "skipped", reason: "already_sent" };
 
+    const asal = await linkOrigin(input.request, event.id);
     const rahasia = randomBytes(32).toString("base64url");
     const { error } = await client.from("participant_account_tokens").insert({
       event_id: event.id,
@@ -63,7 +65,7 @@ export async function sendWalkinLink(
     if (error) return { state: "failed" };
 
     const lang = landingDefaultLang((event.landing_config ?? {}) as EventLandingConfig);
-    const versi = versiBahasa(event, lang, memberLinkUrl(input.requestUrl, event.slug, "undangan", rahasia));
+    const versi = versiBahasa(event, lang, memberLinkUrl(asal, event.slug, "undangan", rahasia));
     const hasil = await sendMemberLink({
       eventId: event.id,
       kind: "walkin",
