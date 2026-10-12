@@ -1028,7 +1028,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               return <BagianRute key={section.id} block={block} hotels={hotelInap} lang={lang} shell={SHELL} section={SECTION} judulKelas={JUDUL} alisKelas={ALIS} muted={MUTED} />;
             }
             return block ? (
-              <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled && !peserta ? daftarUrl : null} daftarLabel={ctaLabel} jangkar={jangkar} lang={lang} />
+              <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled && !peserta ? daftarUrl : null} daftarLabel={ctaLabel} jangkar={jangkar} lang={lang} jadwal={event} warnaTema={{ brand: tokens.brand, accent: tokens.accent ?? null }} />
             ) : null;
           }
           const kosong = pratinjau && !tampil(section.id) ? KOSONG[section.id] : undefined;

@@ -86,9 +86,24 @@ export function PilihIkonKartu({
   warna,
   gambar,
   onChange,
+  label = "Icon",
+  namaPopover,
+  tanpaWarna = false,
+  saranDepan,
+  teksKembali = "Back to the default icon and colour",
 }: {
   /** Nomor kartu (1, 2, ...) untuk label. */
   nomor: number;
+  /** Label di atas tombol. */
+  label?: string;
+  /** Nama dialog untuk pembaca layar; bawaan "Icon for card N". */
+  namaPopover?: string;
+  /** Sembunyikan pilihan warna ubin (pemakai lain menentukan warnanya sendiri). */
+  tanpaWarna?: boolean;
+  /** Ikon yang ditawarkan paling depan, mis. kendaraan untuk Hitung mundur. */
+  saranDepan?: readonly string[];
+  /** Teks tautan kembali ke bawaan (mis. "No icon"). */
+  teksKembali?: string;
   /** Nama ikon yang berlaku (tersimpan atau bawaan). */
   ikon: string;
   nada: LandingCardTone;
@@ -109,13 +124,16 @@ export function PilihIkonKartu({
   const ubin = warna[nada];
 
   const { saran, lain, jumlahLain } = useMemo(() => {
-    if (!kata) return { saran: LANDING_CARD_ICON_SARAN.map((item) => item.nama), lain: [] as string[], jumlahLain: 0 };
+    const urut = saranDepan
+      ? [...saranDepan, ...LANDING_CARD_ICON_SARAN.map((item) => item.nama).filter((nama) => !saranDepan.includes(nama))]
+      : LANDING_CARD_ICON_SARAN.map((item) => item.nama);
+    if (!kata) return { saran: urut, lain: [] as string[], jumlahLain: 0 };
     const cocok = (teks: string) => kata.split(/\s+/).every((bagian) => teks.includes(bagian));
     const saran = LANDING_CARD_ICON_SARAN.filter((item) => cocok(`${item.nama} ${item.label} ${item.cari}`.toLowerCase())).map((item) => item.nama);
     const sudah = new Set(saran);
     const semua = semuaNama ? semuaNama.filter((nama) => !sudah.has(nama) && cocok(labelIkon(nama).toLowerCase() + " " + nama.toLowerCase())) : [];
     return { saran, lain: semua.slice(0, BATAS_HASIL), jumlahLain: semua.length };
-  }, [kata, semuaNama]);
+  }, [kata, semuaNama, saranDepan]);
 
   // Kisi ikon adalah satu perhentian Tab (roving tabindex); panah, Home dan
   // End berpindah di dalamnya. Indeks berlaku atas saran lalu hasil lain.
@@ -188,7 +206,7 @@ export function PilihIkonKartu({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-body-medium font-medium text-on-surface" id={`${id}-label`}>Icon</span>
+      <span className="text-body-medium font-medium text-on-surface" id={`${id}-label`}>{label}</span>
       <button
         ref={setPemicu}
         type="button"
@@ -201,17 +219,19 @@ export function PilihIkonKartu({
         {gambar ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={gambar} alt="" aria-hidden width={28} height={28} className="size-7 object-contain" />
+        ) : !ikon ? (
+          <span aria-hidden className="flex size-7 items-center justify-center rounded-[7px] border border-dashed border-outline" />
         ) : (
           <span aria-hidden className="flex size-7 items-center justify-center rounded-[7px]" style={{ background: ubin.latar, color: ubin.teks }}>
             <IkonBernama nama={ikon} size={16} />
           </span>
         )}
-        <span id={`${id}-nama`} className="max-w-[7rem] truncate">{gambar ? "Own image" : labelIkon(ikon)}</span>
+        <span id={`${id}-nama`} className="max-w-[7rem] truncate">{gambar ? "Own image" : ikon ? labelIkon(ikon) : "No icon"}</span>
       </button>
 
       {/* Seluruh panel yang menggulir, kolom cari menempel di atas. Kisi punya
           tinggi minimum tiga baris, jadi tidak pernah kempis di layar pendek. */}
-      <Popover anchor={menu} id={`${id}-menu`} label={`Icon for card ${nomor}`} role="dialog" align="start" width={344} onKeyDown={kurung} className="flex flex-col gap-3 p-3 pt-0">
+      <Popover anchor={menu} id={`${id}-menu`} label={namaPopover ?? `Icon for card ${nomor}`} role="dialog" align="start" width={344} onKeyDown={kurung} className="flex flex-col gap-3 p-3 pt-0">
         <div className="sticky top-0 z-10 -mx-3 shrink-0 bg-surface-container-lowest px-3 pb-1 pt-3">
           <div className="relative">
             <MagnifyingGlass size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" aria-hidden />
@@ -249,7 +269,7 @@ export function PilihIkonKartu({
             <p className="pt-3 text-body-small text-on-surface-variant">Search to see all {JUMLAH_PUSTAKA} icons.</p>
           )}
         </div>
-        {gambar ? null : (
+        {gambar || tanpaWarna ? null : (
           <div className="flex shrink-0 flex-col gap-1.5">
             <span className="text-body-medium font-medium text-on-surface">Tile colour</span>
             <SegmentedButton<LandingCardTone>
@@ -285,7 +305,7 @@ export function PilihIkonKartu({
         </div>
         {!bawaan ? (
           <button type="button" onClick={() => onChange(null)} className="shrink-0 self-start rounded-sm text-body-medium font-medium text-primary hover:underline">
-            Back to the default icon and colour
+            {teksKembali}
           </button>
         ) : null}
       </Popover>

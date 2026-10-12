@@ -374,6 +374,20 @@ export type LandingUiText = {
   /** Pil hitung mundur di hero: null setelah acara selesai (tidak dirender). */
   /** Angka (tebal, warna aksen) dan sisa kalimatnya; tanpa angka seluruh label ditebalkan. */
   countdown: (sisa: number, hariKe: number, lama: number) => { angka: string | null; teks: string };
+  /** Blok Hitung mundur: judul bawaan, satuan, dan keadaan saat acara berjalan. */
+  countdownHeading: string;
+  countdownUnits: { days: string; hours: string; minutes: string; seconds: string };
+  /** Label sisi asal dan tujuan gaya Tiket. */
+  countdownFrom: string;
+  countdownDay: string;
+  countdownDaysLeft: (hari: number) => string;
+  /** Kalimat gaya Pita, dipecah supaya angkanya bisa diberi warna sorot. */
+  countdownStrip: (hari: number, tujuan: string) => { teks: string; sorot: boolean }[];
+  countdownLive: string;
+  /** Kalimat utuh untuk pembaca layar; angkanya sendiri tidak diumumkan tiap menit. */
+  countdownSr: (hari: number, jam: number, menit: number) => string;
+  /** Sisa waktu ringkas dengan satuan, mis. "Mulai dalam 24 hr 22 j 05 mnt". */
+  countdownIn: (sisa: { hari: number; jam: number; menit: number; detik: number }, detik: boolean) => string;
   seeTrip: string;
   fullSchedule: string;
   moreItems: (n: number) => string;
@@ -500,6 +514,19 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     invitedYou: "Anda diundang",
     countdown: (sisa, hariKe, lama) =>
       sisa > 1 ? { angka: String(sisa), teks: "hari lagi" } : { angka: null, teks: sisa === 1 ? "Besok" : lama > 1 ? `Hari ke-${hariKe} dari ${lama}` : "Hari ini" },
+    countdownHeading: "Menuju hari H",
+    countdownUnits: { days: "Hari", hours: "Jam", minutes: "Menit", seconds: "Detik" },
+    countdownFrom: "Hari ini",
+    countdownDay: "Hari H",
+    countdownDaysLeft: () => "hari lagi",
+    countdownStrip: (hari, tujuan) =>
+      hari > 1
+        ? [{ teks: `${hari} hari`, sorot: true }, { teks: tujuan ? ` lagi ke ${tujuan}` : " lagi", sorot: false }]
+        : [{ teks: hari === 1 ? "Besok" : "Hari ini", sorot: true }, { teks: tujuan ? ` ke ${tujuan}` : "", sorot: false }],
+    countdownLive: "Sedang berlangsung",
+    countdownSr: (hari, jam, menit) => `Acara dimulai dalam ${hari} hari ${jam} jam ${menit} menit.`,
+    countdownIn: (s, detik) =>
+      ["Mulai dalam", s.hari ? `${s.hari} hr` : null, `${s.jam} j`, `${String(s.menit).padStart(2, "0")} mnt`, detik ? `${String(s.detik).padStart(2, "0")} dtk` : null].filter(Boolean).join(" "),
     seeTrip: "Intip Rundown",
     fullSchedule: "Lihat jadwal lengkap jam per jam",
     moreItems: (n) => `+${n} lagi di jadwal lengkap`,
@@ -613,6 +640,19 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     invitedYou: "You're invited",
     countdown: (sisa, hariKe, lama) =>
       sisa > 1 ? { angka: String(sisa), teks: "days to go" } : { angka: null, teks: sisa === 1 ? "Tomorrow" : lama > 1 ? `Day ${hariKe} of ${lama}` : "Today" },
+    countdownHeading: "Counting down to the day",
+    countdownUnits: { days: "Days", hours: "Hours", minutes: "Minutes", seconds: "Seconds" },
+    countdownFrom: "Today",
+    countdownDay: "Event day",
+    countdownDaysLeft: (hari) => (hari === 1 ? "day to go" : "days to go"),
+    countdownStrip: (hari, tujuan) =>
+      hari > 1
+        ? [{ teks: `${hari} days`, sorot: true }, { teks: tujuan ? ` to ${tujuan}` : " to go", sorot: false }]
+        : [{ teks: hari === 1 ? "Tomorrow" : "Today", sorot: true }, { teks: tujuan ? `: ${tujuan}` : "", sorot: false }],
+    countdownLive: "Happening now",
+    countdownSr: (hari, jam, menit) => `The event starts in ${hari} ${hari === 1 ? "day" : "days"}, ${jam} ${jam === 1 ? "hour" : "hours"} and ${menit} ${menit === 1 ? "minute" : "minutes"}.`,
+    countdownIn: (s, detik) =>
+      ["Starts in", s.hari ? `${s.hari} d` : null, `${s.jam} h`, `${String(s.menit).padStart(2, "0")} min`, detik ? `${String(s.detik).padStart(2, "0")} s` : null].filter(Boolean).join(" "),
     seeTrip: "Peek at the Rundown",
     fullSchedule: "See the full hour-by-hour schedule",
     moreItems: (n) => `+${n} more in the full schedule`,
