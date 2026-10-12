@@ -42,7 +42,8 @@ const JENIS: Record<string, Jenis> = {
     skema: z.object({
       name: z.string().trim().min(1).max(120),
       address: teks(300),
-      map_url: z.string().trim().url("The map link must be a full web address, such as https://maps.app.goo.gl/...").max(500).nullish()
+      map_url: z.string().trim().url("The map link must be a full web address, such as https://maps.app.goo.gl/...").max(500)
+        .refine((nilai) => /^https?:\/\//i.test(nilai), "The map link must start with https:// or http://").nullish()
         .or(z.literal("")).transform((nilai) => (nilai ? nilai : null)),
       check_in_at: waktu,
       check_out_at: waktu,
