@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
 import { Banner, Button, MetaSeparator, Pane, PaneBody, PaneFooter, Switch, TextField, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { SettingRow } from "@/components/admin/settings-panel";
+import { SusunanPeserta } from "./susunan-peserta";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { type LandingMemberAudience, type LandingMemberConfig } from "@/lib/domain";
@@ -160,6 +161,9 @@ export default function AreaPesertaPage() {
                       />
                     ))}
                   </div>
+                </SettingRow>
+                <SettingRow title="Participant page" description={<>The participant&apos;s Home tab after signing in. Drag to reorder, the eye hides a card. Blocks set to Participant page or Both on the <Link href="/admin/landing" className={TAUTAN}>Event page</Link> appear here.</>}>
+                  <SusunanPeserta />
                 </SettingRow>
                 <SettingRow title="Shown in the Participant area">
                   <div className="flex flex-col gap-4">

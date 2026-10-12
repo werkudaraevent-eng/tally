@@ -29,6 +29,7 @@ import {
   type LandingTextLimit,
 } from "@/lib/domain";
 import { cx } from "@/lib/m3/cx";
+import { EditorRute, SHOW_ON_LABELS, TampilDi } from "./editor-rute";
 import { plural } from "@/lib/plural";
 
 /**
@@ -42,7 +43,7 @@ import { plural } from "@/lib/plural";
  * menyebut rasio slotnya, karena gambar dipotong otomatis ke rasio itu.
  */
 
-const URUTAN_JENIS: LandingBlockType[] = ["text_image", "multicolumn", "cards", "points", "stats", "logos", "download", "cta", "gallery", "quote"];
+const URUTAN_JENIS: LandingBlockType[] = ["text_image", "multicolumn", "cards", "points", "stats", "logos", "download", "cta", "gallery", "quote", "route"];
 
 export function buatBlok(type: LandingBlockType): LandingBlock {
   const acak = Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) => byte.toString(36).padStart(2, "0")).join("").slice(0, 10);
@@ -76,6 +77,7 @@ export function ringkasanBlok(block: LandingBlock): string | null {
     case "logos": return jumlah ? plural(jumlah, "logo") : null;
     case "multicolumn": return jumlah ? `${plural(jumlah, "item")} · ${plural(landingColumnCount(block), "column")}` : null;
     case "quote": return block.name?.trim() || null;
+    case "route": return [jumlah ? plural(jumlah, "way") : null, SHOW_ON_LABELS[block.show_on ?? "public"]].filter(Boolean).join(" · ");
     default: return block.heading?.trim() || null;
   }
 }
@@ -345,8 +347,9 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
       onChange={(event) => ubah({ nav_label: event.target.value })}
     />
   );
-  const latar = block.type === "cta" ? null : (
+  const latar = block.type === "cta" ? <TampilDi block={block} ubah={ubah} /> : (
     <>
+    <TampilDi block={block} ubah={ubah} />
     {menuAtas}
     <div className="flex flex-col gap-1.5">
       <p className="text-body-medium font-medium text-on-surface">Background</p>
@@ -705,6 +708,8 @@ export function BlockEditor({ block, onChange }: { block: LandingBlock; onChange
           {latar}
         </div>
       );
+    case "route":
+      return <EditorRute block={block} ubah={ubah} judul={teks("heading", "Heading", { optional: true, hint: "Empty = Dari <place> ke <place>." })} alis={alis} />;
     case "cta":
       return (
         <div className="flex flex-col gap-4">

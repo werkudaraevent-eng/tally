@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import type { EventLandingConfig, EventRow, LandingSection, LandingSectionId } from "@/lib/domain";
-import { isLandingBlockId, landingBlockHasContent } from "@/lib/domain";
+import { isLandingBlockId, landingBlockHasContent, landingBlockShownOn } from "@/lib/domain";
 import { modernNavStyle, modernThemeStyle, registrationThemeStyle } from "@/lib/registration-theme-css";
 import { landingFontStyle, landingTokens } from "@/lib/landing-tokens";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
@@ -109,7 +109,8 @@ export function bagianModern(
   // perlu kartu: susunan acara di bawahnya sudah mengatakan hal yang sama.
   const tampilProgram = tampil("agenda") && agenda.length >= 2 && !config.program_hidden && !opsi.gathering;
 
-  const blokById = new Map((config.blocks ?? []).map((block) => [block.id, block]));
+  // Blok khusus halaman peserta tidak ada di halaman acara (menu, jangkar, isi).
+  const blokById = new Map((config.blocks ?? []).filter((block) => landingBlockShownOn(block, "public")).map((block) => [block.id, block]));
 
   // Menu atas mengikuti urutan halaman: bagian bawaan yang tampil, plus blok
   // yang diberi label menu di CMS. Dibatasi enam supaya tetap satu baris.

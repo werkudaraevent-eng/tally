@@ -24,7 +24,8 @@ import {
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
-import { LANDING_NAV_DEFAULTS, isPortalEntry, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
+import { LANDING_NAV_DEFAULTS, isPortalEntry, landingBlockShownOn, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
+import { KartuRute } from "@/components/landing/modern/blok-rute";
 import { formatEventDate, formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
@@ -157,7 +158,18 @@ export async function DashboardGathering({
   // bagian yang kembali ke halaman acara, lonceng, dan "Dashboard saya".
   const sectionsHalaman = normalizeLandingSections(config.sections, config.blocks);
   const agendaNav = tampilSusunan ? agenda : await loadAgendaPreview(event.id, lang);
-  const adaHotel = (await loadLandingLodging(event.id)).hotels.length > 0;
+  const inap = await loadLandingLodging(event.id);
+  const adaHotel = inap.hotels.length > 0;
+  // Blok yang dipilih tampil di halaman peserta, urut seperti di Page sections.
+  const blokPeserta = normalizeLandingSections(config.sections, config.blocks)
+    .filter((section) => section.enabled)
+    .map((section) => (config.blocks ?? []).find((block) => block.id === section.id))
+    .filter((block): block is NonNullable<typeof block> => Boolean(block) && landingBlockShownOn(block!, "member") && block!.type === "route");
+  const kartuBlok = blokPeserta.length > 0 ? (
+    <>
+      {blokPeserta.map((block) => <KartuRute key={block.id} block={block} hotels={inap.hotels} lang={lang} />)}
+    </>
+  ) : null;
   const { navSections, tampil } = bagianModern(event, config, sectionsHalaman, agendaNav, lang, { gathering: true, adaHotel });
   const menuAtas = (() => {
     const urutan = susunanDenganPortal(config.sections, config.blocks);
@@ -477,6 +489,7 @@ export async function DashboardGathering({
             </div>
           ) : null}
           <div className="lg:hidden">{kartuTeman}</div>
+          {kartuBlok}
           {kartuRundown}
         </div>
         <div className="hidden flex-col gap-4 lg:flex">

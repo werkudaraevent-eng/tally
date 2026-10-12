@@ -55,7 +55,10 @@ const blockEnSchema = z.object({
 });
 const blockSchema = z.object({
   id: blockId,
-  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn"]),
+  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route"]),
+  show_on: z.enum(["public", "member", "both"]).optional(),
+  route_from: z.object({ hotel_id: z.number().int().positive().optional(), name: teks(120), address: teks(300) }).optional(),
+  route_to: z.object({ hotel_id: z.number().int().positive().optional(), name: teks(120), address: teks(300) }).optional(),
   tone: z.enum(["light", "panel", "dark"]).optional(),
   layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list"]).optional(),
   eyebrow: teks(60),
@@ -70,6 +73,7 @@ const blockSchema = z.object({
     body: teks(400),
     value: teks(30),
     href: tautan.optional(),
+    icon: z.string().regex(/^[A-Z][A-Za-z0-9]{1,40}$/).optional(),
     en: itemEnSchema.optional(),
   })).max(16).optional(),
   quote: teks(600),

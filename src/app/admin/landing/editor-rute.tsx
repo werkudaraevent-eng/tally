@@ -1,0 +1,104 @@
+"use client";
+
+import { Plus, Trash } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
+import { IconButton, SegmentedButton, SelectField, TextArea, TextField } from "@/components/m3";
+import type { LandingBlock, LandingBlockItem, LandingBlockShowOn, LandingRouteStop } from "@/lib/domain";
+import { eventApiPath } from "@/lib/event-url";
+
+type Hotel = { id: number; name: string; address: string | null };
+
+export const SHOW_ON_LABELS: Record<LandingBlockShowOn, string> = { public: "Event page", member: "Participant page", both: "Both" };
+
+/** Halaman tempat blok tampil. Ada di setiap jenis blok. */
+export function TampilDi({ block, ubah }: { block: LandingBlock; ubah: (patch: Partial<LandingBlock>) => void }) {
+  const nilai = block.show_on ?? "public";
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-body-medium font-medium text-on-surface">Show on</p>
+      <SegmentedButton<LandingBlockShowOn>
+        label="Show on"
+        value={nilai}
+        onChange={(show_on) => ubah({ show_on: show_on === "public" ? undefined : show_on })}
+        options={(["public", "member", "both"] as const).map((value) => ({ value, label: SHOW_ON_LABELS[value] }))}
+      />
+      <p className="text-body-small text-on-surface-variant">
+        {nilai === "public"
+          ? "Everyone who opens the Event page sees it."
+          : nilai === "member"
+            ? "Only signed-in participants see it, on their own page. Arrange it in Participant area › Participant page."
+            : "On the Event page and on the participant's own page."}
+      </p>
+    </div>
+  );
+}
+
+function Titik({ label, stop, hotels, onChange }: { label: string; stop: LandingRouteStop | undefined; hotels: Hotel[]; onChange: (stop: LandingRouteStop) => void }) {
+  const pilihan = stop?.hotel_id ? String(stop.hotel_id) : stop?.name !== undefined ? "lain" : "";
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-outline-variant p-3">
+      <SelectField
+        label={label}
+        value={pilihan}
+        hint={hotels.length ? "Hotels come from Logistics; the address stays in sync." : "No hotels in Logistics yet. Type a place below."}
+        onChange={(event) => onChange(event.target.value === "lain" ? { name: "" } : { hotel_id: Number(event.target.value) })}
+      >
+        <option value="" disabled>Choose a place</option>
+        {hotels.map((hotel) => <option key={hotel.id} value={hotel.id}>{hotel.name}</option>)}
+        <option value="lain">Another place…</option>
+      </SelectField>
+      {pilihan === "lain" ? (
+        <>
+          <TextField label="Place name" placeholder="e.g. Stasiun Tugu" value={stop?.name ?? ""} onChange={(event) => onChange({ ...stop, name: event.target.value })} />
+          <TextField label="Address" optional hint="Used for the Maps link." value={stop?.address ?? ""} onChange={(event) => onChange({ ...stop, address: event.target.value })} />
+        </>
+      ) : pilihan ? (
+        <p className="text-body-small text-on-surface-variant">{hotels.find((h) => String(h.id) === pilihan)?.address}</p>
+      ) : null}
+    </div>
+  );
+}
+
+export function EditorRute({ block, ubah, judul, alis }: { block: LandingBlock; ubah: (patch: Partial<LandingBlock>) => void; judul: React.ReactNode; alis: React.ReactNode }) {
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  useEffect(() => {
+    void fetch(eventApiPath("/api/admin/logistik"), { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { hotels?: Hotel[] } | null) => setHotels(data?.hotels ?? []))
+      .catch(() => {});
+  }, []);
+  const items = block.items ?? [];
+  const ubahItem = (index: number, patch: Partial<LandingBlockItem> & { icon?: string }) => ubah({ items: items.map((item, i) => (i === index ? { ...item, ...patch } : item)) });
+  // Saran nama transportasi dari isi blok Rute lain di acara ini, lalu contoh umum. Tetap teks bebas.
+  const saran = ["Shuttle panitia", "Taksi online", "Jalan kaki", "Bus kota"];
+  return (
+    <div className="flex flex-col gap-4">
+      <TampilDi block={block} ubah={ubah} />
+      <div className="flex flex-col gap-3">
+        <Titik label="From" stop={block.route_from} hotels={hotels} onChange={(route_from) => ubah({ route_from })} />
+        <Titik label="To" stop={block.route_to} hotels={hotels} onChange={(route_to) => ubah({ route_to })} />
+      </div>
+      {alis}
+      {judul}
+      <div className="flex flex-col gap-2">
+        <p className="text-body-medium font-medium text-on-surface">Ways to get there</p>
+        <datalist id={`saran-${block.id}`}>{saran.map((s) => <option key={s} value={s} />)}</datalist>
+        {items.map((item, index) => (
+          <div key={index} className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_36px] items-start gap-2 rounded-lg border border-outline-variant p-3">
+            <TextField label="Name" list={`saran-${block.id}`} value={item.label ?? ""} onChange={(event) => ubahItem(index, { label: event.target.value })} />
+            <TextField label="Time" placeholder="± 30 menit" value={item.value ?? ""} onChange={(event) => ubahItem(index, { value: event.target.value })} />
+            <IconButton label="Remove" className="mt-6" onClick={() => ubah({ items: items.filter((_, i) => i !== index) })}><Trash size={16} /></IconButton>
+            <TextField className="col-span-2" label="Note" optional value={item.body ?? ""} onChange={(event) => ubahItem(index, { body: event.target.value })} />
+          </div>
+        ))}
+        {items.length < 4 ? (
+          <button type="button" onClick={() => ubah({ items: [...items, {}] })} className="m3-state inline-flex min-h-9 items-center gap-1.5 self-start rounded-md px-2 text-label-large font-semibold text-primary">
+            <Plus size={16} aria-hidden /> Add a way
+          </button>
+        ) : null}
+      </div>
+      <TextArea label="Steps" optional rows={4} hint="One step per line. Shown numbered." value={block.body ?? ""} onChange={(event) => ubah({ body: event.target.value })} />
+      <p className="text-body-small text-on-surface-variant">The &ldquo;Open route in Google Maps&rdquo; button is built from the two addresses.</p>
+    </div>
+  );
+}

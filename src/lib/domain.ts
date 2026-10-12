@@ -203,7 +203,16 @@ export function isLandingBlockId(id: string): id is LandingBlockId {
  * Satu bentuk data untuk semua jenis, dengan kolom opsional. Tiap jenis hanya
  * membaca kolom miliknya; editor CMS hanya menampilkan kolom itu.
  */
-export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn";
+export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn" | "route";
+
+/**
+ * Tempat blok tampil. `public` = halaman acara (bawaan, perilaku sebelum pilihan
+ * ini ada), `member` = halaman peserta setelah masuk saja, `both` = keduanya.
+ */
+export type LandingBlockShowOn = "public" | "member" | "both";
+
+/** Satu ujung blok Rute: hotel dari Logistik (`hotel_id`) atau teks bebas. */
+export type LandingRouteStop = { hotel_id?: number; name?: string; address?: string };
 
 /**
  * Blok Kolom: pola multicolumn Shopify Dawn (columns_desktop 1 sampai 6,
@@ -279,9 +288,19 @@ export type LandingBlock = {
   image_shape?: LandingImageShape;
   /** Kolom: perataan teks dan gambar di dalam kolom (kiri, tengah). Logo: perataan judul dan deret logo. */
   align?: LandingBlockAlign;
+  /** Halaman tempat blok tampil. Kosong = halaman acara saja. */
+  show_on?: LandingBlockShowOn;
+  /** Rute: titik berangkat dan tujuan. Butir = pilihan transportasi; `body` = langkah, satu per baris. */
+  route_from?: LandingRouteStop;
+  route_to?: LandingRouteStop;
   /** Teks English blok ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingBlockEn;
 };
+
+export function landingBlockShownOn(block: Pick<LandingBlock, "show_on">, page: "public" | "member"): boolean {
+  const on = block.show_on ?? "public";
+  return on === "both" || on === page;
+}
 
 // ---- Teks English (halaman dwibahasa) -------------------------------------------
 //
@@ -375,6 +394,7 @@ export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
   download: "Downloads",
   cta: "Call-to-action strip",
   multicolumn: "Columns",
+  route: "Directions",
 };
 
 export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
@@ -388,6 +408,7 @@ export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
   download: "Links to terms of reference, brochures or PDF materials.",
   cta: "A call to register, with or without a background photo.",
   multicolumn: "1 to 4 columns, each with an image, title, text and link.",
+  route: "How to get from one place to another, e.g. between two hotels, with a Maps link.",
 };
 
 export const LANDING_BLOCK_TONE_LABELS: Record<LandingBlockTone, string> = {
@@ -408,6 +429,7 @@ export const LANDING_BLOCK_DEFAULT_TONE: Record<LandingBlockType, LandingBlockTo
   download: "panel",
   cta: "light",
   multicolumn: "light",
+  route: "panel",
 };
 
 export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: LandingBlockLayout; label: string; hint: string }[]>> = {
@@ -536,6 +558,8 @@ export function landingBlockLimits(block: Pick<LandingBlock, "type" | "layout" |
         items: { max: 8, full: kolom === 1 ? undefined : [kolom, kolom * 2].filter((n) => n <= 8) },
       };
     }
+    case "route":
+      return { eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: { max: 600 }, item: { label: { max: 32 }, value: { max: 24 }, body: { max: 140 } }, items: { max: 4 } };
   }
 }
 
@@ -569,6 +593,7 @@ export function landingBlockHasContent(block: LandingBlock): boolean {
     case "cta": return Boolean(block.heading?.trim());
     // Gambar saja tidak cukup: kolomnya kosong bagi pembaca layar.
     case "multicolumn": return items.some((item) => item.title?.trim() || item.body?.trim());
+    case "route": return Boolean((block.route_from?.hotel_id || block.route_from?.name?.trim()) && (block.route_to?.hotel_id || block.route_to?.name?.trim()));
   }
 }
 
