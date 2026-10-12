@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Plus, Trash } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { IconButton, SegmentedButton, SelectField, TextArea, TextField } from "@/components/m3";
 import {
@@ -18,11 +18,12 @@ import {
 import { eventApiPath } from "@/lib/event-url";
 import { PilihIkonKartu, type WarnaUbin } from "./pilih-ikon";
 
-const UBIN: WarnaUbin = { button: { latar: "#E6F2EC", teks: "#00603C" }, brand: { latar: "#E8ECF4", teks: "#1B2D57" }, accent: { latar: "#FBF3DF", teks: "#7A5A00" } };
+/** Cadangan bila editor tidak diberi warna tema (mis. sebelum tema dimuat). */
+const UBIN_CADANGAN: WarnaUbin = { button: { latar: "#E6F2EC", teks: "#00603C" }, brand: { latar: "#E8ECF4", teks: "#1B2D57" }, accent: { latar: "#FBF3DF", teks: "#7A5A00" } };
 
 type Hotel = { id: number; name: string; address: string | null };
 
-/** Halaman tempat blok tampil. Hanya untuk jenis di LANDING_BLOCK_MEMBER_TYPES. */
+/** Halaman tempat blok tampil, untuk semua jenis di LANDING_BLOCK_MEMBER_TYPES. */
 export function TampilDi({ block, ubah }: { block: LandingBlock; ubah: (patch: Partial<LandingBlock>) => void }) {
   const nilai = block.show_on ?? "public";
   return (
@@ -38,8 +39,8 @@ export function TampilDi({ block, ubah }: { block: LandingBlock; ubah: (patch: P
         {nilai === "public"
           ? "Everyone who opens the Event page sees it."
           : nilai === "member"
-            ? "Only signed-in participants see it, on their own page, above today\u2019s schedule."
-            : "On the Event page and on the participant's own page."}
+            ? "Only signed-in participants see it, on their own page. Arrange it in Participant area \u203a Participant home."
+            : "On the Event page and on the participant\u2019s own page, arranged in Participant area \u203a Participant home."}
       </p>
     </div>
   );
@@ -75,7 +76,22 @@ function Titik({ label, stop, hotels, onChange }: { label: string; stop: Landing
   );
 }
 
-export function EditorRute({ block, ubah, judul, alis, semuaBlok }: { block: LandingBlock; ubah: (patch: Partial<LandingBlock>) => void; judul: React.ReactNode; alis: React.ReactNode; semuaBlok: LandingBlock[] }) {
+export function EditorRute({
+  block,
+  ubah,
+  judul,
+  alis,
+  semuaBlok,
+  ubin,
+}: {
+  block: LandingBlock;
+  ubah: (patch: Partial<LandingBlock>) => void;
+  judul: React.ReactNode;
+  alis: React.ReactNode;
+  semuaBlok: LandingBlock[];
+  /** Warna ubin dari tema acara, sama dengan halaman publik. */
+  ubin?: { warna: WarnaUbin; tanpaWarna: boolean };
+}) {
   // null = belum dimuat: jangan tandai hotel sebagai terhapus sebelum daftarnya ada.
   const [hotels, setHotels] = useState<Hotel[] | null>(null);
   useEffect(() => {
@@ -85,11 +101,32 @@ export function EditorRute({ block, ubah, judul, alis, semuaBlok }: { block: Lan
       .catch(() => {});
   }, []);
   const items = block.items ?? [];
+  // Kunci tetap per cara (hanya di layar ini, tidak disimpan): fokus dan unggahan
+  // foto yang sedang berjalan ikut cara yang dipindah, bukan tertinggal di nomornya.
+  const nomorKunci = useRef(0);
+  const [kunci, setKunci] = useState<string[]>(() => items.map((_, index) => `cara-${index}`));
+  const kunciCara = items.map((_, index) => kunci[index] ?? `cara-lebih-${index}`);
   const ubahItem = (index: number, patch: Partial<LandingBlockItem>) => ubah({ items: items.map((item, i) => (i === index ? { ...item, ...patch } : item)) });
-  const geser = (index: number, ke: number) => {
+  const geser = (index: number, ke: number, tombol: "naik" | "turun") => {
     const next = [...items];
     [next[index], next[ke]] = [next[ke], next[index]];
+    const kunciBaru = [...kunciCara];
+    [kunciBaru[index], kunciBaru[ke]] = [kunciBaru[ke], kunciBaru[index]];
+    setKunci(kunciBaru);
     ubah({ items: next });
+    // Fokus ikut caranya; di ujung daftar tombol yang sama nonaktif, jadi pakai arah sebaliknya.
+    const ujung = tombol === "naik" ? ke === 0 : ke === items.length - 1;
+    const arah = ujung ? (tombol === "naik" ? "turun" : "naik") : tombol;
+    window.requestAnimationFrame(() => document.getElementById(`${block.id}-${kunciBaru[ke]}-${arah}`)?.focus());
+  };
+  const hapus = (index: number) => {
+    setKunci(kunciCara.filter((_, i) => i !== index));
+    ubah({ items: items.filter((_, i) => i !== index) });
+  };
+  const tambah = () => {
+    nomorKunci.current += 1;
+    setKunci([...kunciCara, `cara-baru-${nomorKunci.current}`]);
+    ubah({ items: [...items, {}] });
   };
   // Saran = nama cara yang sudah ditulis di blok Rute acara ini (bukan daftar di kode).
   const saran = [...new Set(semuaBlok.filter((b) => b.type === "route").flatMap((b) => (b.items ?? []).map((i) => i.label?.trim() ?? "")).filter(Boolean))];
@@ -105,22 +142,23 @@ export function EditorRute({ block, ubah, judul, alis, semuaBlok }: { block: Lan
         <p className="text-body-medium font-medium text-on-surface">Ways to get there</p>
         <datalist id={`saran-${block.id}`}>{saran.map((s) => <option key={s} value={s} />)}</datalist>
         {items.map((item, index) => (
-          <div key={index} className="grid grid-cols-[minmax(0,1fr)_112px] gap-x-2 gap-y-3 rounded-lg border border-outline-variant p-3">
+          <div key={kunciCara[index]} className="grid grid-cols-[minmax(0,1fr)_112px] gap-x-2 gap-y-3 rounded-lg border border-outline-variant p-3">
             <div className="flex items-start justify-between gap-2 col-span-2">
               <PilihIkonKartu
                 nomor={index + 1}
                 ikon={item.icon ?? "Car"}
                 nada={item.tone ?? "brand"}
                 bawaan={!item.icon && !item.tone && !item.icon_url}
-                warna={UBIN}
+                warna={ubin?.warna ?? UBIN_CADANGAN}
+                tanpaWarna={ubin?.tanpaWarna ?? false}
                 gambar={item.icon_url?.trim() || null}
                 // Picker mengirim sebagian (ikon, warna ubin, atau gambar sendiri); null = kembali ke bawaan.
                 onChange={(x) => ubahItem(index, x ?? { icon: undefined, tone: undefined, icon_url: undefined })}
               />
               <div className="flex items-center gap-1">
-                <IconButton label={`Move way ${index + 1} up`} disabled={index === 0} onClick={() => geser(index, index - 1)}><ArrowUp size={16} /></IconButton>
-                <IconButton label={`Move way ${index + 1} down`} disabled={index === items.length - 1} onClick={() => geser(index, index + 1)}><ArrowDown size={16} /></IconButton>
-                <IconButton label={`Remove way ${index + 1}`} onClick={() => ubah({ items: items.filter((_, i) => i !== index) })}><Trash size={16} /></IconButton>
+                <IconButton id={`${block.id}-${kunciCara[index]}-naik`} label={`Move way ${index + 1} up`} disabled={index === 0} onClick={() => geser(index, index - 1, "naik")}><ArrowUp size={16} /></IconButton>
+                <IconButton id={`${block.id}-${kunciCara[index]}-turun`} label={`Move way ${index + 1} down`} disabled={index === items.length - 1} onClick={() => geser(index, index + 1, "turun")}><ArrowDown size={16} /></IconButton>
+                <IconButton label={`Remove way ${index + 1}`} onClick={() => hapus(index)}><Trash size={16} /></IconButton>
               </div>
             </div>
             <TextField label="Name" list={`saran-${block.id}`} placeholder="e.g. Jalan kaki lewat jembatan" value={item.label ?? ""} onChange={(event) => ubahItem(index, { label: event.target.value })} />
@@ -138,7 +176,7 @@ export function EditorRute({ block, ubah, judul, alis, semuaBlok }: { block: Lan
           </div>
         ))}
         {items.length < 4 ? (
-          <button type="button" onClick={() => ubah({ items: [...items, {}] })} className="m3-state inline-flex min-h-9 items-center gap-1.5 self-start rounded-md px-2 text-label-large font-semibold text-primary">
+          <button type="button" onClick={tambah} className="m3-state inline-flex min-h-9 items-center gap-1.5 self-start rounded-md px-2 text-label-large font-semibold text-primary">
             <Plus size={16} aria-hidden /> Add a way
           </button>
         ) : null}

@@ -267,3 +267,26 @@ export async function logoutMember() {
   }
   store.delete(COOKIE);
 }
+
+/** Akun tiruan pratinjau: uuid nol tidak cocok dengan akun mana pun, jadi tidak ada yang terbaca atau tertulis atas nama akun. */
+const AKUN_PRATINJAU = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * Sesi peserta untuk pratinjau Participant area: peserta acara ini yang
+ * dipilih admin ("Preview as"), dirender seperti setelah ia masuk. Tidak ada
+ * sesi, cookie, atau baris akun yang dibuat; pemanggilnya wajib sudah
+ * memastikan yang membuka adalah admin acara ini.
+ */
+export async function previewMemberSession(eventId: string, participantId: string): Promise<MemberSession | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(participantId)) return null;
+  const { data } = await getSupabaseServiceClient()
+    .from("participants")
+    .select(PARTICIPANT_COLUMNS)
+    .eq("event_id", eventId)
+    .eq("id", participantId)
+    .is("source_removed_at", null)
+    .maybeSingle();
+  if (!data) return null;
+  const p = data as unknown as MemberParticipant;
+  return { accountId: AKUN_PRATINJAU, sessionId: AKUN_PRATINJAU, email: p.email ?? "", emailVerified: true, name: p.name, status: "approved", participant: p };
+}

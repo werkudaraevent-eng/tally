@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { Button, Dialog, IconButton, SegmentedButton, TextArea, TextField } from "@/components/m3";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { EditorRute, TampilDi } from "./editor-rute";
+import type { WarnaUbin } from "./pilih-ikon";
 import {
   LANDING_BLOCK_ALIGN_LABELS,
   LANDING_BLOCK_DEFAULT_TONE,
@@ -296,7 +297,20 @@ export function namaButirBlok(block: LandingBlock, index: number): string {
 type KolomTeks = "eyebrow" | "heading" | "body" | "link_label" | "link2_label" | "fact_title" | "fact_body" | "source" | "quote" | "name" | "role";
 export type KolomButir = "label" | "title" | "body" | "value";
 
-export function BlockEditor({ block, onChange, semuaBlok = [], warnaTema }: { block: LandingBlock; onChange: (next: LandingBlock) => void; semuaBlok?: LandingBlock[]; warnaTema?: { brand: string; accent: string | null } }) {
+export function BlockEditor({
+  block,
+  onChange,
+  semuaBlok = [],
+  warnaTema,
+  ubinRute,
+}: {
+  block: LandingBlock;
+  onChange: (next: LandingBlock) => void;
+  semuaBlok?: LandingBlock[];
+  warnaTema?: { brand: string; accent: string | null };
+  /** Warna ubin ikon blok Rute dari tema acara; `tanpaWarna` = satu warna saja (di luar Gathering). */
+  ubinRute?: { warna: WarnaUbin; tanpaWarna: boolean };
+}) {
   const ubah = (patch: Partial<LandingBlock>) => onChange({ ...block, ...patch });
   const items = block.items ?? [];
   const setItems = (next: LandingBlockItem[]) => ubah({ items: next });
@@ -543,6 +557,7 @@ export function BlockEditor({ block, onChange, semuaBlok = [], warnaTema }: { bl
     </Kelompok>
   ) : null;
 
+  const isiEditor = (() => {
   switch (block.type) {
     case "text_image":
       return (
@@ -722,13 +737,13 @@ export function BlockEditor({ block, onChange, semuaBlok = [], warnaTema }: { bl
     case "route":
       return (
         <div className="flex flex-col gap-4">
-          {tampilDi}
           <EditorRute
             block={block}
             ubah={ubah}
             alis={alis}
             judul={teks("heading", "Heading", { optional: true, hint: "Leave empty to use \u201cDari <from> ke <to>\u201d, or \u201cFrom <from> to <to>\u201d in English." })}
             semuaBlok={semuaBlok}
+            ubin={ubinRute}
           />
           {latar}
         </div>
@@ -736,7 +751,6 @@ export function BlockEditor({ block, onChange, semuaBlok = [], warnaTema }: { bl
     case "countdown":
       return (
         <div className="flex flex-col gap-4">
-          {tampilDi}
           <EditorHitungMundur block={block} ubah={ubah} warnaTema={warnaTema ?? { brand: "#1B2D57", accent: null }} />
         </div>
       );
@@ -757,4 +771,12 @@ export function BlockEditor({ block, onChange, semuaBlok = [], warnaTema }: { bl
         </div>
       );
   }
+  })();
+  // Show on paling atas untuk semua jenis: menentukan siapa yang melihat blok ini.
+  return tampilDi ? (
+    <div className="flex flex-col gap-4">
+      {tampilDi}
+      {isiEditor}
+    </div>
+  ) : isiEditor;
 }

@@ -66,7 +66,7 @@ import { LANDING_SECTION_TONE_IDS, latarBagian } from "@/lib/landing-section-ton
 import { formatEventDate } from "@/lib/event-datetime";
 import { DEFAULT_TIME_ZONE } from "@/lib/timezone";
 import { jumlahLembaga } from "@/lib/landing-speaker-tabs";
-import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
+import { DEFAULT_REGISTRATION_SEED, buildRegistrationThemeRoles } from "@/lib/registration-theme";
 import { eventApiPath } from "@/lib/event-url";
 import { Kelompok } from "@/components/admin/compact-form";
 import { BilahAtasEditor } from "@/components/admin/landing-nav-editor";
@@ -704,6 +704,23 @@ export default function LandingCmsPage() {
   }, [muatBarisSesi]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+
+  // `?blok=<id>`: tautan Edit dari Participant area > Participant home membuka
+  // blok itu di Susunan halaman, sekali, setelah isinya dimuat.
+  const blokDariTautan = useRef(false);
+  useEffect(() => {
+    if (blokDariTautan.current || !facts) return;
+    blokDariTautan.current = true;
+    const id = new URLSearchParams(window.location.search).get("blok");
+    if (!id || !(landing.blocks ?? []).some((block) => block.id === id)) return;
+    const timer = window.setTimeout(() => {
+      setBagian("susunan");
+      setTerbuka(id);
+      setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }));
+      gulirKeBaris(id);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [facts, landing.blocks]);
 
   // Gaya gathering: Portal peserta ikut di susunan sebagai baris yang bisa
   // digeser (lihat susunanDenganPortal); gaya lain tidak punya portal.
@@ -1641,6 +1658,15 @@ export default function LandingCmsPage() {
   const warnaUbin: WarnaUbin | null = warnaGathering
     ? { button: warnaGathering.chipAksi, brand: warnaGathering.chipMerek, accent: warnaGathering.chipAksen }
     : null;
+  // Ubin ikon blok Rute: warna tema yang sama dengan halaman publik. Di luar
+  // Gathering ketiga nada jatuh ke primary-container yang sama (KartuRute), jadi
+  // editornya memakai warna itu dan tidak menawarkan pilihan warna ubin.
+  const ubinRute: { warna: WarnaUbin; tanpaWarna: boolean } = (() => {
+    if (warnaUbin) return { warna: warnaUbin, tanpaWarna: false };
+    const roles = landing.theme?.roles ?? buildRegistrationThemeRoles(landing.theme?.seed ?? DEFAULT_REGISTRATION_SEED, false);
+    const satu = { latar: roles.primary_container ?? roles.primary, teks: roles.on_primary_container ?? roles.on_primary };
+    return { warna: { button: satu, brand: satu, accent: satu }, tanpaWarna: true };
+  })();
   const urutanBerjudul = (index: number) => kartuTentang.slice(0, index).filter((kartu) => kartu.title.trim()).length;
   const editorKartuTentang = (
     <div ref={kartuTentangRef} className="flex flex-col gap-3">
@@ -2726,7 +2752,7 @@ export default function LandingCmsPage() {
               saklar,
               indeks: index,
               menu: menuBaris(index, judul, blok),
-              isi: <BlockEditor block={blok} onChange={ubahBlok} semuaBlok={landing.blocks ?? []} warnaTema={{ brand: tokensHero.brand, accent: tokensHero.accent ?? null }} />,
+              isi: <BlockEditor block={blok} onChange={ubahBlok} semuaBlok={landing.blocks ?? []} warnaTema={{ brand: tokensHero.brand, accent: tokensHero.accent ?? null }} ubinRute={ubinRute} />,
             });
           }
 

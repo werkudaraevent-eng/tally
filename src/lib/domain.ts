@@ -215,10 +215,12 @@ export const LANDING_BLOCK_SHOW_ON_LABELS: Record<LandingBlockShowOn, string> = 
 
 /**
  * Jenis blok yang punya tampilan di halaman peserta, jadi boleh memilih
- * `show_on`. Jenis lain selalu di halaman acara saja: memilih "Participant
- * page" untuk blok yang tidak bisa dirender di sana sama dengan menghapusnya.
+ * `show_on`. Sejak PR 2 semua jenis: di halaman peserta tiap jenis dirender
+ * sebagai kartu ringkas (components/member/kartu-blok.tsx). Jenis baru yang
+ * belum punya kartu tidak masuk daftar ini, supaya "Participant page" tidak
+ * sama dengan menghapusnya.
  */
-export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = ["route", "countdown"];
+export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = ["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route", "countdown"];
 
 /** Apakah blok tampil di halaman ini. Jenis tanpa tampilan peserta selalu halaman acara saja. */
 export function landingBlockShownOn(block: Pick<LandingBlock, "type" | "show_on">, page: "public" | "member"): boolean {
@@ -1114,7 +1116,62 @@ export type LandingMemberConfig = {
   /** Teman sekamar di kartu Kamar (dibaca member_logistics). Bawaan tampil. */
   show_roommates?: boolean;
   feedback_url?: string | null;
+  /**
+   * Beranda halaman peserta (Participant area > Participant home): urutan id
+   * bawaan (MEMBER_HOME_BUILTINS) dan blok `blk_...`, dan yang disembunyikan
+   * dari Beranda. Kosong = urutan bawaan, sama dengan sebelum pilihan ini ada.
+   * Menyembunyikan di sini hanya dari Beranda: tab Jadwal, Info, dan data
+   * Logistik tetap diatur saklarnya sendiri (show_schedule, show_logistics).
+   */
+  home?: { order?: string[]; hidden?: string[] };
 };
+
+export type MemberHomeId = "quick" | "announcements" | "next" | "logistics" | "roommates" | "agenda";
+
+/**
+ * Isi bawaan Beranda halaman peserta, dalam urutan bawaannya per tata letak.
+ * Urutan bawaan sama persis dengan dashboard sebelum daftar ini ada, supaya
+ * acara yang belum menyentuhnya tidak bergeser satu piksel pun. Blok peserta
+ * masuk tepat sebelum `agenda`.
+ */
+export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern", readonly { id: MemberHomeId; label: string; sub: string; side?: boolean }[]> = {
+  gathering: [
+    { id: "quick", label: "Quick links", sub: "Ticket, map, organisers", side: true },
+    { id: "announcements", label: "Announcements", sub: "Latest message from Messages \u2192 Announcements" },
+    { id: "next", label: "Next up", sub: "The next session, from the Agenda" },
+    { id: "logistics", label: "Bus and room", sub: "From Logistics", side: true },
+    { id: "roommates", label: "Roommates", sub: "From Logistics", side: true },
+    { id: "agenda", label: "Today\u2019s agenda", sub: "From the Agenda" },
+  ],
+  modern: [
+    { id: "next", label: "Next bus", sub: "The next trip, from Logistics" },
+    { id: "announcements", label: "Announcements", sub: "Messages \u2192 Announcements" },
+    { id: "agenda", label: "Agenda", sub: "From the Agenda" },
+    { id: "logistics", label: "Room, bus and items", sub: "From Logistics", side: true },
+    { id: "quick", label: "Quick links", sub: "Voting, feedback, map", side: true },
+  ],
+};
+
+/**
+ * Urutan Beranda halaman peserta: yang tersimpan dulu, lalu yang belum ada di
+ * sana (blok baru, isi bawaan baru) di tempat bawaannya, yaitu sebelum isi
+ * berikutnya dalam urutan bawaan yang sudah ada. Dipakai CMS dan kedua
+ * dashboard, jadi daftar di CMS selalu sama dengan halamannya.
+ */
+export function memberHomeOrder(home: LandingMemberConfig["home"], blockIds: readonly string[], gathering: boolean): { order: string[]; hidden: Set<string> } {
+  const bawaan = MEMBER_HOME_BUILTINS[gathering ? "gathering" : "modern"].map((item) => item.id as string);
+  const posisiAgenda = bawaan.indexOf("agenda");
+  const urutanBawaan = [...bawaan.slice(0, posisiAgenda), ...blockIds, ...bawaan.slice(posisiAgenda)];
+  const dikenal = new Set(urutanBawaan);
+  const order = [...new Set((home?.order ?? []).filter((id) => dikenal.has(id)))];
+  urutanBawaan.forEach((id, index) => {
+    if (order.includes(id)) return;
+    const sesudah = urutanBawaan.slice(index + 1).find((lain) => order.includes(lain));
+    if (sesudah) order.splice(order.indexOf(sesudah), 0, id);
+    else order.push(id);
+  });
+  return { order, hidden: new Set((home?.hidden ?? []).filter((id) => dikenal.has(id))) };
+}
 
 export const LANDING_MEMBER_AUDIENCE_LABELS: Record<LandingMemberAudience, string> = {
   approved: "Peserta yang pendaftarannya disetujui",

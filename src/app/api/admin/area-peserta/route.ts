@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { type EventLandingConfig } from "@/lib/domain";
+import { landingBlockHasContent, landingBlockShownOn, normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
 import { memberSchema } from "@/lib/landing-body-schema";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -13,8 +13,46 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * layar ini tidak saling menimpa, ke arah mana pun urutan Simpan-nya.
  *
  * GET ikut mengembalikan jumlah peserta per pilihan "Siapa yang bisa masuk",
- * supaya panitia melihat siapa yang tertinggal sebelum memilih.
+ * supaya panitia melihat siapa yang tertinggal sebelum memilih, blok yang
+ * tampil di halaman peserta (daftar Participant home), dan peserta bawaan
+ * untuk pratinjau. `?cari=` hanya mencari peserta untuk pilihan "Preview as".
  */
+
+/** Peserta pratinjau, untuk pilihan "Preview as". */
+type PesertaPratinjau = { id: string; name: string; company: string | null };
+
+/** `%` dan `_` dari ketikan admin dicari apa adanya, bukan sebagai wildcard. */
+function polaCari(teks: string) {
+  return `%${teks.replace(/[\\%_]/g, (huruf) => `\\${huruf}`)}%`;
+}
+
+/**
+ * Peserta pertama yang punya kamar dan bus: kartu Bus dan Kamar di Beranda
+ * hanya muncul untuk peserta yang sudah dialokasikan, jadi pratinjau dengan
+ * peserta lain menyembunyikan justru kartu yang sedang diatur. Tanpa alokasi:
+ * peserta pertama menurut nama.
+ */
+async function pesertaBawaan(eventId: string): Promise<PesertaPratinjau | null> {
+  const client = getSupabaseServiceClient();
+  const [kamar, bus] = await Promise.all([
+    client.from("lodging_assignments").select("participant_id").eq("event_id", eventId).limit(1000),
+    client.from("transport_assignments").select("participant_id").eq("event_id", eventId).not("vehicle_id", "is", null).limit(1000),
+  ]);
+  const punyaKamar = new Set(((kamar.data ?? []) as { participant_id: string }[]).map((baris) => baris.participant_id));
+  const punyaBus = new Set(((bus.data ?? []) as { participant_id: string }[]).map((baris) => baris.participant_id));
+  const keduanya = [...punyaKamar].filter((id) => punyaBus.has(id));
+  const salahSatu = [...new Set([...punyaKamar, ...punyaBus])];
+  // Pertama menurut nama, berturut-turut: kamar dan bus, salah satunya, siapa saja.
+  for (const calon of [keduanya, salahSatu, null]) {
+    if (calon && !calon.length) continue;
+    let kueri = client.from("participants").select("id,name,company").eq("event_id", eventId).is("source_removed_at", null).order("name").limit(1);
+    if (calon) kueri = kueri.in("id", calon.slice(0, 200));
+    const { data } = await kueri;
+    const pilihan = ((data ?? []) as PesertaPratinjau[])[0];
+    if (pilihan) return pilihan;
+  }
+  return null;
+}
 
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
@@ -22,6 +60,16 @@ export async function GET(request: Request) {
   const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
   const landing = (auth.scope.event.landing_config ?? {}) as EventLandingConfig;
+
+  const cari = new URL(request.url).searchParams.get("cari");
+  if (cari !== null) {
+    const teks = cari.trim().slice(0, 80);
+    let kueri = client.from("participants").select("id,name,company").eq("event_id", eventId).is("source_removed_at", null).order("name").limit(20);
+    if (teks) kueri = kueri.ilike("name", polaCari(teks));
+    const { data, error } = await kueri;
+    if (error) return apiError("INTERNAL_ERROR", 500);
+    return Response.json({ peserta: (data ?? []) as PesertaPratinjau[] });
+  }
 
   const [peserta, berEmail, disetujui, akun] = await Promise.all([
     client.from("participants").select("id", { count: "exact", head: true }).eq("event_id", eventId).is("source_removed_at", null),
@@ -35,9 +83,27 @@ export async function GET(request: Request) {
     client.from("event_registrations").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("status", "approved"),
     client.from("participant_accounts").select("id", { count: "exact", head: true }).eq("event_id", eventId),
   ]);
+  const layout = landing.layout === "modern" ? (landing.gathering === true ? "gathering" : "modern") : null;
+  const diSusunan = new Map(normalizeLandingSections(landing.sections, landing.blocks).map((section) => [section.id as string, section.enabled]));
 
   return Response.json({
     member: landing.member ?? { enabled: false },
+    /** Tata letak dashboard peserta: Participant home hanya ada di Modern dan Gathering. */
+    layout,
+    // Blok yang tampil di halaman peserta, dalam urutan Page sections. `aktif`
+    // false = tidak tampil walau dipilih (disembunyikan di Page sections, atau
+    // belum ada isinya): daftarnya menyebut alasannya.
+    blocks: (landing.blocks ?? [])
+      .filter((block) => landingBlockShownOn(block, "member") && diSusunan.has(block.id))
+      .map((block) => ({
+        id: block.id,
+        type: block.type,
+        heading: block.heading?.trim() || null,
+        show_on: block.show_on,
+        hidden_on_page: diSusunan.get(block.id) === false,
+        empty: !landingBlockHasContent(block),
+      })),
+    preview: layout ? await pesertaBawaan(eventId) : null,
     // null bila hitungan gagal: layar menyembunyikan angkanya, bukan menampilkan 0.
     counts: {
       participants: peserta.error ? null : peserta.count ?? 0,

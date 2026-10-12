@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowSquareOut,
@@ -25,9 +25,11 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
 import { kontakPanitia } from "@/lib/kontak-panitia";
-import { LANDING_NAV_DEFAULTS, isPortalEntry, landingMemberBlocks, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
+import { LANDING_NAV_DEFAULTS, isPortalEntry, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { KartuRute } from "@/components/landing/modern/blok-rute";
 import { KartuHitungMundur } from "@/components/landing/modern/landing-blocks";
+import { BagianBeranda } from "@/components/member/bagian-beranda";
+import { KartuBlok } from "@/components/member/kartu-blok";
 import { formatEventDate, formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
@@ -121,6 +123,7 @@ export async function DashboardGathering({
   konfirmasi,
   tab,
   hari,
+  pratinjau = false,
 }: {
   event: EventRow;
   lang?: LandingLang;
@@ -131,6 +134,8 @@ export async function DashboardGathering({
   tab: PortalTab;
   /** Hari yang dipilih di tab Jadwal (1, 2, ...). */
   hari: number | null;
+  /** Pratinjau di Participant area: tiap isi Beranda diberi penanda untuk digulir ke sana. */
+  pratinjau?: boolean;
 }) {
   const t = PORTAL_UI[lang];
   const p = PESERTA_UI[lang];
@@ -162,15 +167,26 @@ export async function DashboardGathering({
   const agendaNav = tampilSusunan ? agenda : await loadAgendaPreview(event.id, lang);
   const inap = await loadLandingLodging(event.id);
   const adaHotel = inap.hotels.length > 0;
-  // Blok yang admin pilih untuk halaman peserta (Show on), di atas Rundown hari ini.
+  // Blok yang admin pilih untuk halaman peserta (Show on), dalam urutan
+  // Participant home (bawaannya tepat sebelum Rundown hari ini).
   const hotelIds = new Set(inap.hotels.map((hotel) => hotel.id));
-  const kartuBlok = landingMemberBlocks(config.sections, config.blocks, hotelIds).map((block) =>
-    block.type === "route" ? (
-      <KartuRute key={block.id} block={block} hotels={inap.hotels} lang={lang} />
-    ) : block.type === "countdown" ? (
-      <KartuHitungMundur key={block.id} block={block} acara={event} lang={lang} warnaTema={{ brand: landingTokens(config, "modern").brand, accent: landingTokens(config, "modern").accent ?? null }} />
-    ) : null,
+  const blokPeserta = landingMemberBlocks(config.sections, config.blocks, hotelIds);
+  const tokensTema = landingTokens(config, "modern");
+  const warnaTema = { brand: tokensTema.brand, accent: tokensTema.accent ?? null };
+  const kartuBlok = new Map(
+    blokPeserta.map((block) => [
+      block.id as string,
+      block.type === "route" ? (
+        <KartuRute block={block} hotels={inap.hotels} lang={lang} />
+      ) : block.type === "countdown" ? (
+        <KartuHitungMundur block={block} acara={event} lang={lang} warnaTema={warnaTema} />
+      ) : (
+        <KartuBlok block={block} lang={lang} />
+      ),
+    ]),
   );
+  const beranda = memberHomeOrder(member.home, [...kartuBlok.keys()], true);
+  const diBeranda = (id: string) => !beranda.hidden.has(id);
   const { navSections, tampil } = bagianModern(event, config, sectionsHalaman, agendaNav, lang, { gathering: true, adaHotel, hotelIds });
   const menuAtas = (() => {
     const urutan = susunanDenganPortal(config.sections, config.blocks);
@@ -473,32 +489,60 @@ export async function DashboardGathering({
             <h1 className={`${HEAD} mt-1 text-balance [overflow-wrap:anywhere] text-[40px] font-extrabold leading-[1.08] sm:text-[52px] lg:text-[62px] lg:leading-[1.05]`}>{sesi.name}</h1>
           </div>
         </div>
-        <div className="hidden w-full max-w-[400px] lg:block">{kartuSelanjutnya(true)}</div>
+        {diBeranda("next") ? <div className="hidden w-full max-w-[400px] lg:block">{kartuSelanjutnya(true)}</div> : null}
       </div>
     );
     isi = (
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start lg:gap-6">
+        {/* Ponsel: urutan Participant home dari atas ke bawah. Layar lebar:
+            Tautan cepat, Bus dan kamar, dan Teman sekamar di kolom samping. */}
         <div className="flex min-w-0 flex-col gap-4">
           {pitaEmail}
-          <div className="lg:hidden">{aksesCepat}</div>
-          {statusPendaftaran}
-          {kartuPengumuman}
-          <div className="lg:hidden">{kartuSelanjutnya(false)}</div>
-          {kartuBus || kartuKamar ? (
-            <div className="grid grid-cols-2 gap-4 lg:hidden">
-              {kartuBus}
-              {kartuKamar}
-            </div>
-          ) : null}
-          <div className="lg:hidden">{kartuTeman}</div>
-          {kartuBlok}
-          {kartuRundown}
+          {beranda.order.map((id, index) => {
+            // Status pendaftaran sebelum isi pertama selain Tautan cepat, seperti sebelum urutan ini ada.
+            const status = index === beranda.order.findIndex((lain) => lain !== "quick") ? statusPendaftaran : null;
+            const isi = !diBeranda(id) ? null : id === "quick" ? (
+              <div className="lg:hidden">{aksesCepat}</div>
+            ) : id === "announcements" ? (
+              kartuPengumuman
+            ) : id === "next" ? (
+              <div className="lg:hidden">{kartuSelanjutnya(false)}</div>
+            ) : id === "logistics" ? (
+              kartuBus || kartuKamar ? (
+                <div className="grid grid-cols-2 gap-4 lg:hidden">
+                  {kartuBus}
+                  {kartuKamar}
+                </div>
+              ) : null
+            ) : id === "roommates" ? (
+              <div className="lg:hidden">{kartuTeman}</div>
+            ) : id === "agenda" ? (
+              kartuRundown
+            ) : (
+              kartuBlok.get(id) ?? null
+            );
+            return (
+              <Fragment key={id}>
+                {status}
+                <BagianBeranda id={id} pratinjau={pratinjau}>{isi}</BagianBeranda>
+              </Fragment>
+            );
+          })}
         </div>
         <div className="hidden flex-col gap-4 lg:flex">
-          {kartuBus}
-          {kartuKamar}
-          {kartuTeman}
-          {aksesCepat}
+          {/* Kolom samping urutannya tetap (Bus dan kamar, Teman sekamar, Akses
+              cepat), sama dengan sebelum Participant home ada: urutan Beranda
+              hanya mengatur kolom utama dan tampilan ponsel. */}
+          {(["logistics", "roommates", "quick"] as const).map((id) =>
+            !diBeranda(id) ? null : id === "logistics" ? (
+              <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
+                {kartuBus}
+                {kartuKamar}
+              </BagianBeranda>
+            ) : id === "roommates" || id === "quick" ? (
+              <BagianBeranda key={id} id={id} pratinjau={pratinjau}>{id === "roommates" ? kartuTeman : aksesCepat}</BagianBeranda>
+            ) : null,
+          )}
         </div>
       </div>
     );
