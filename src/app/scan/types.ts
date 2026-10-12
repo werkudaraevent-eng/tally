@@ -60,6 +60,8 @@ export type Hasil = {
    * datang, bukan masuk dua kali.
    */
   tersimpanSebelumnya?: boolean;
+  /** Kursi tamu ini ("Row A · Seat 8"), satu per sesi. Tidak ada bila acaranya tanpa kursi. */
+  kursi?: { sesi: string | null; tulisan: string }[];
   /** Badge kertas di stasiun cetak: pekerjaan yang diantrekan, atau yang terakhir untuk pemindaian ulang. */
   badge_cetak?: HasilCetakMeja;
   /** Walk-in baru: email Sign-in link (Participant area > Email a sign-in link to walk-ins). */

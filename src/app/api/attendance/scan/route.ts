@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { cetakSetelahHadir } from "@/lib/badge/stasiun-server";
+import { loadKursiPeserta, tulisKursi } from "@/lib/member/kursi-peserta";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -96,13 +97,45 @@ export async function POST(request: Request) {
   // HP tidak perlu permintaan kedua yang bisa hilang di jaringan venue.
   // Gagal mengantrekan tidak menggagalkan kehadiran; HP menampilkan galatnya.
   const hasil = data as { status?: string; participant?: { id?: string } } | null;
-  const badgeCetak = await cetakSetelahHadir({
+  const [badgeCetak, kursi] = await Promise.all([cetakSetelahHadir({
     eventId: auth.scope.event.id,
     cetak: parsed.data.cetak,
     status: hasil?.status ?? "",
     participantId: hasil?.participant?.id ?? null,
     userId: auth.user.id,
     laneId: parsed.data.lane_id ?? null,
-  }).catch(() => ({ pekerjaan: null, galat: "The badge could not be queued." }));
-  return Response.json(badgeCetak ? { ...(data as object), badge_cetak: badgeCetak } : data);
+  }).catch(() => ({ pekerjaan: null, galat: "The badge could not be queued." })),
+    kursiTamu(auth.scope.event.id, hasil).catch(() => [])]);
+  const tambahan = {
+    ...(badgeCetak ? { badge_cetak: badgeCetak } : {}),
+    ...(kursi.length > 0 ? { kursi } : {}),
+  };
+  return Response.json(Object.keys(tambahan).length > 0 ? { ...(data as object), ...tambahan } : data);
+}
+
+/**
+ * Kursi orang yang baru dipindai, supaya petugas bisa langsung mengarahkannya.
+ *
+ * Hanya kursi orang itu sendiri, dari barisnya sendiri, sama dengan yang ia
+ * lihat di kartu tiketnya. Acara tanpa kursi tidak mendapat apa-apa: kuncinya
+ * tidak ikut dikirim, dan lembar hasilnya tetap seperti sebelumnya.
+ */
+async function kursiTamu(
+  eventId: string,
+  hasil: { status?: string; participant?: { id?: string } } | null,
+): Promise<{ sesi: string | null; tulisan: string }[]> {
+  const id = hasil?.participant?.id;
+  if (!id || (hasil?.status !== "recorded" && hasil?.status !== "duplicate")) return [];
+  const { data } = await getSupabaseServiceClient()
+    .from("participants")
+    .select("seats")
+    .eq("event_id", eventId)
+    .eq("id", id)
+    .maybeSingle() as { data: { seats: { subEventId?: string | number | null; subEventName?: string | null; label?: string | null }[] | null } | null };
+  const seats = (Array.isArray(data?.seats) ? data.seats : []).filter((seat) => seat?.label?.trim());
+  const denah = seats.length > 0 ? await loadKursiPeserta(eventId, seats) : null;
+  return (denah?.kursi ?? []).map((seat) => ({
+    sesi: seat.sesiNama,
+    tulisan: tulisKursi(seat, { seat: "Seat", seatRow: "Row", seatTable: "Table" }),
+  }));
 }
