@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { computeSeatMapGeometry, duplicateSeatLabels, duplicateTableLabels, normalizeLayout, normalizeLayoutParams, normalizeSeatLabel, normalizeSections, MAX_SEATS_PER_TABLE, MAX_TABLE_LABEL_LENGTH, PUBLIC_VIEW_MODES, SEAT_MAP_LAYOUTS, type SeatMapConfig } from "@/lib/seat-map";
+import { computeSeatMapGeometry, duplicateSeatLabels, duplicateTableLabels, normalizeLayout, normalizeLayoutParams, normalizeSeatLabel, normalizeSections, sectionPrefixError, MAX_SEATS_PER_TABLE, MAX_TABLE_LABEL_LENGTH, PUBLIC_VIEW_MODES, SEAT_MAP_LAYOUTS, type SeatMapConfig } from "@/lib/seat-map";
 import {
   CONFIG_COLUMNS,
   LEGACY_CONFIG_COLUMNS,
@@ -182,6 +182,15 @@ export async function PATCH(request: Request) {
   // saja akan meloloskan bentrokan yang lahir dari gabungan keduanya.
   // Ruangan gabungan: label kursi antarbagian tidak boleh bentrok.
   if (parsed.data.layout_params && "sections" in parsed.data.layout_params) {
+    // Awalan yang tidak sah ditolak di sini. Kalau dibiarkan sampai
+    // `normalizeSections`, karakternya dibuang diam-diam dan "VIP1-" tersimpan
+    // sebagai "VIP1".
+    const mentah = (parsed.data.layout_params as { sections?: unknown }).sections;
+    for (const bagian of Array.isArray(mentah) ? mentah : []) {
+      const awalan = bagian && typeof bagian === "object" ? (bagian as { prefix?: unknown }).prefix : undefined;
+      const galat = typeof awalan === "string" ? sectionPrefixError(awalan) : null;
+      if (galat) return apiError("VALIDATION_ERROR", 422, { message: `Label prefix "${awalan}" isn't valid: ${galat.toLowerCase()}.` });
+    }
     const { data: existing } = await bacaConfig(client, eventId);
     const gabungan = { ...(existing ?? {}), ...parsed.data } as Partial<SeatMapConfig>;
     const dobel = duplicateSeatLabels(gabungan);

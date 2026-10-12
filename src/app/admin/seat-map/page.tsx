@@ -11,7 +11,7 @@ import { plural } from "@/lib/plural";
 import {
   computeSeatMapGeometry, duplicateSeatLabels, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor,
   type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule, type SeatSection,
-  LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS, defaultSection, MAX_SECTIONS, nextSectionPrefix,
+  LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS, defaultSection, MAX_SECTIONS, nextSectionPrefix, sectionPrefixError,
 } from "@/lib/seat-map";
 import { tallySeatSource } from "@/lib/seat-tally-source";
 import {
@@ -300,6 +300,7 @@ export default function SeatMapAdminPage() {
   const totalTablesFromRows = (config?.row_table_counts ?? []).reduce((sum, count) => sum + count, 0);
   const labelConflicts = config ? duplicateTableLabels(config) : [];
   const seatConflicts = config?.layout_params.sections?.length ? duplicateSeatLabels(config) : [];
+  const prefixInvalid = (config?.layout_params.sections ?? []).some((section) => sectionPrefixError(section.prefix) !== null);
   const labeledTables = Object.keys(config?.table_labels ?? {})
     .map(Number)
     .filter((position) => Number.isFinite(position) && position >= 1 && position <= totalTablesFromRows)
@@ -437,7 +438,9 @@ export default function SeatMapAdminPage() {
                                                   </select>
                       </Field>
                       <Field label="Name on map"><input value={section.name} placeholder="None" onChange={(event) => set({ name: event.target.value })} className={INPUT} /></Field>
-                      <Field label="Label prefix"><input value={section.prefix} placeholder="None" onChange={(event) => set({ prefix: event.target.value })} className={INPUT} /></Field>
+                      <Field label="Label prefix" htmlFor={`awalan-${index}`} hint={sectionPrefixError(section.prefix) ? <span id={`awalan-${index}-galat`} className="text-error">{sectionPrefixError(section.prefix)}</span> : undefined}>
+                        <input id={`awalan-${index}`} value={section.prefix} placeholder="None" aria-invalid={sectionPrefixError(section.prefix) ? true : undefined} aria-describedby={sectionPrefixError(section.prefix) ? `awalan-${index}-galat` : undefined} onChange={(event) => set({ prefix: event.target.value })} className={INPUT} />
+                      </Field>
                       <Field label="Rows"><input type="number" min={1} max={40} value={section.rows} onChange={(event) => set({ rows: Number(event.target.value) })} className={INPUT} /></Field>
                       <Field label={section.kind === "sofa" ? "Sofas per row" : "Seats per row"}><input type="number" min={1} max={40} value={section.per_row} onChange={(event) => set({ per_row: Number(event.target.value) })} className={INPUT} /></Field>
                       {section.kind === "sofa" ? (
@@ -784,12 +787,12 @@ export default function SeatMapAdminPage() {
 
   const kaki: Record<Bagian, { note: ReactNode; aksi: ReactNode }> = {
     ruangan: {
-      note: seatConflicts.length > 0 ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Give each section its own label prefix</span> : labelConflicts.length > 0 ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Fix duplicate table labels first</span> : "Changes every session",
-      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0 || seatConflicts.length > 0}>Save layout</Button>,
+      note: prefixInvalid ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Fix the label prefix first</span> : seatConflicts.length > 0 ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Give each section its own label prefix</span> : labelConflicts.length > 0 ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Fix duplicate table labels first</span> : "Changes every session",
+      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0 || seatConflicts.length > 0 || prefixInvalid}>Save layout</Button>,
     },
     layar: {
       note: "Applies to every screen",
-      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0 || seatConflicts.length > 0}>Save</Button>,
+      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0 || seatConflicts.length > 0 || prefixInvalid}>Save</Button>,
     },
     agenda: {
       note: aktif ? "This session only" : null,

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { computeSeatMapGeometry, duplicateSeatLabels, normalizeLayoutParams, type SeatMapConfig } from "./seat-map.ts";
+import { computeSeatMapGeometry, duplicateSeatLabels, normalizeLayoutParams, sectionPrefixError, type SeatMapConfig } from "./seat-map.ts";
 
 /**
  * Pemeriksaan geometri denah untuk setiap tata ruang.
@@ -206,5 +206,15 @@ const zona = gabungan.zones[0];
 const sofaPertama = gabungan.tables.find((t) => t.shape === "sofa")!;
 assert.ok(sofaPertama.y - (sofaPertama.h ?? 0) / 2 >= zona.y + 30, "gabungan: nama bagian tidak menimpa sofa");
 assert.ok(zona.y + zona.height - (sofaTerakhir.y + (sofaTerakhir.h ?? 0) / 2) <= 14, "gabungan: bingkai pas di bawah sofa");
+
+// Awalan boleh memuat - . / _ dan spasi; "VIP1-" tidak boleh menjadi "VIP1".
+const berstrip = computeSeatMapGeometry({ layout_type: "theater", layout_params: { ...normalizeLayoutParams("theater", {}), sections: [
+  { kind: "sofa", name: "VIP", prefix: "vip1-", rows: 1, per_row: 2, seats_per_sofa: 2, aisles: [] },
+] } } as Partial<SeatMapConfig>);
+assert.deepEqual(berstrip.tables.flatMap((t) => t.seats.map((s) => s.label)), ["VIP1-1", "VIP1-2", "VIP1-3", "VIP1-4"], "awalan: tanda hubung dipertahankan");
+assert.equal(sectionPrefixError("VIP1-"), null, "awalan: tanda hubung sah");
+assert.equal(sectionPrefixError("A.B/C_D"), null, "awalan: titik, garis miring, garis bawah sah");
+assert.ok(sectionPrefixError("VIP#"), "awalan: karakter lain ditolak");
+assert.ok(sectionPrefixError("ABCDEFGHI"), "awalan: lebih dari 8 karakter ditolak");
 
 console.log("seat-map-layouts: semua pemeriksaan lolos");
