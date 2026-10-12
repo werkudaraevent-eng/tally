@@ -206,6 +206,27 @@ export function isLandingBlockId(id: string): id is LandingBlockId {
 export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn";
 
 /**
+ * Tempat blok tampil. `public` = halaman acara (bawaan, perilaku sebelum pilihan
+ * ini ada), `member` = halaman peserta setelah masuk saja, `both` = keduanya.
+ */
+export const LANDING_BLOCK_SHOW_ON = ["public", "member", "both"] as const;
+export type LandingBlockShowOn = (typeof LANDING_BLOCK_SHOW_ON)[number];
+export const LANDING_BLOCK_SHOW_ON_LABELS: Record<LandingBlockShowOn, string> = { public: "Event page", member: "Participant page", both: "Both" };
+
+/**
+ * Jenis blok yang punya tampilan di halaman peserta, jadi boleh memilih
+ * `show_on`. Jenis lain selalu di halaman acara saja: memilih "Participant
+ * page" untuk blok yang tidak bisa dirender di sana sama dengan menghapusnya.
+ */
+export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = [];
+
+/** Apakah blok tampil di halaman ini. Jenis tanpa tampilan peserta selalu halaman acara saja. */
+export function landingBlockShownOn(block: Pick<LandingBlock, "type" | "show_on">, page: "public" | "member"): boolean {
+  const on = LANDING_BLOCK_MEMBER_TYPES.includes(block.type) ? block.show_on ?? "public" : "public";
+  return on === "both" || on === page;
+}
+
+/**
  * Blok Kolom: pola multicolumn Shopify Dawn (columns_desktop 1 sampai 6,
  * image_ratio, column_alignment). Di sini dibatasi 1 sampai 4 kolom dan tiga
  * bentuk gambar bernama. Ukuran piksel, posisi bebas, dan warna per teks
@@ -279,6 +300,8 @@ export type LandingBlock = {
   image_shape?: LandingImageShape;
   /** Kolom: perataan teks dan gambar di dalam kolom (kiri, tengah). Logo: perataan judul dan deret logo. */
   align?: LandingBlockAlign;
+  /** Halaman tempat blok tampil (LANDING_BLOCK_MEMBER_TYPES saja). Kosong = halaman acara. */
+  show_on?: LandingBlockShowOn;
   /** Teks English blok ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingBlockEn;
 };
