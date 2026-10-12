@@ -232,18 +232,18 @@ type Mode = "qr" | "cari" | "riwayat";
  * termasuk peserta yang baru saja berhasil didaftarkan.
  */
 const RIWAYAT: Record<Hasil["status"], { teks: string; kelas: string }> = {
-  recorded: { teks: "hadir", kelas: "text-success" },
-  created: { teks: "baru", kelas: "text-primary" },
-  duplicate: { teks: "ulang", kelas: "text-warning" },
-  not_found: { teks: "gagal", kelas: "text-error" },
+  recorded: { teks: "checked in", kelas: "text-success" },
+  created: { teks: "new", kelas: "text-primary" },
+  duplicate: { teks: "repeat", kelas: "text-warning" },
+  not_found: { teks: "failed", kelas: "text-error" },
   // Tiga yang terakhir tidak pernah masuk riwayat: tidak ada yang tercatat.
-  gagal: { teks: "belum", kelas: "text-error" },
-  login: { teks: "belum", kelas: "text-error" },
-  ditolak: { teks: "ditolak", kelas: "text-error" },
+  gagal: { teks: "not saved", kelas: "text-error" },
+  login: { teks: "not saved", kelas: "text-error" },
+  ditolak: { teks: "rejected", kelas: "text-error" },
 };
 
 const jam = (iso: string | null | undefined) =>
-  iso ? new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "";
+  iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
 
 /**
  * Isi label uji cetak.
@@ -253,7 +253,7 @@ const jam = (iso: string | null | undefined) =>
  * di dada orang yang salah. TEST0000 tidak akan pernah cocok dengan siapa pun,
  * karena kode peserta selalu berawalan REG diikuti enam angka.
  */
-const UJI_LABEL: LabelData = { name: "Uji Cetak", company: "Tes printer", title: null, qr_code: "TEST0000" };
+const UJI_LABEL: LabelData = { name: "Test print", company: "Printer test", title: null, qr_code: "TEST0000" };
 
 type JawabanGalat = { error?: { message?: string; details?: unknown } };
 
@@ -263,7 +263,7 @@ type JawabanGalat = { error?: { message?: string; details?: unknown } };
  * Tiga bentuk `details` beredar di API ini: `{ message }` yang ditulis tangan di
  * route handler, peta `{ "extra.ukuran_kaus": "..." }` dari pemeriksaan jawaban
  * formulir, dan `flatten()` milik Zod. Yang ketiga paling mudah terlewat, dan
- * hasilnya petugas membaca "Gagal disimpan. Coba lagi." untuk sebuah kolom yang
+ * hasilnya petugas membaca "Could not save. Try again." untuk sebuah kolom yang
  * sebenarnya sudah disebutkan namanya oleh server.
  */
 function pesanGalat(body: JawabanGalat, cadangan: string): string {
@@ -297,18 +297,18 @@ function pesanPrinter(error: unknown): string {
   const nama = error instanceof Error ? error.name : "";
   const pesan = error instanceof Error ? error.message : String(error ?? "");
   if (nama === "NotFoundError") {
-    return "Tidak ada printer yang dipilih. Pastikan printernya menyala dan tidak sedang tersambung ke ponsel lain.";
+    return "No printer was chosen. Make sure the printer is on and not connected to another phone.";
   }
   if (nama === "NotAllowedError") {
-    return "Peramban minta printer dipilih ulang. Tekan Cetak label sekali lagi, lalu pilih printernya.";
+    return "The browser needs the printer chosen again. Tap Print label once more, then choose the printer.";
   }
   if (nama === "SecurityError") {
-    return "Bluetooth hanya bisa lewat HTTPS. Buka layar ini dari alamat https.";
+    return "Bluetooth only works over HTTPS. Open this screen from an https address.";
   }
   if (/Web Bluetooth unavailable/i.test(pesan)) {
-    return "Peramban ini tidak punya Bluetooth. Pakai Chrome atau Edge di Android, Windows, atau macOS.";
+    return "This browser has no Bluetooth. Use Chrome or Edge on Android, Windows or macOS.";
   }
-  return pesan || "Printer tidak menjawab. Periksa dayanya dan gulungan labelnya.";
+  return pesan || "The printer is not responding. Check its power and label roll.";
 }
 
 /** Dua huruf awal dari dua kata pertama. Cukup untuk membedakan baris sekilas. */
@@ -475,7 +475,7 @@ export default function ScanClient() {
 
   const muatSesi = useCallback(async () => {
     const response = await fetch(eventApiPath("/api/attendance/sessions"), { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) { setPesan("Daftar sesi gagal dimuat. Periksa koneksi lalu muat ulang."); return; }
+    if (!response?.ok) { setPesan("Could not load the check-in points. Check the connection, then reload."); return; }
     const body = await response.json();
     const daftar = (body.sessions ?? []) as Sesi[];
     const jalurDaftar = (body.lanes ?? []) as Jalur[];
@@ -513,7 +513,7 @@ export default function ScanClient() {
     laneRef.current = jalurTerpilih;
     setLaneId(jalurTerpilih);
 
-    setPesan(daftar.length === 0 ? "Belum ada sesi kehadiran yang dibuka. Hubungi panitia." : "");
+    setPesan(daftar.length === 0 ? "No check-in point is open yet. Contact the organisers." : "");
   }, []);
 
   // Sesi atau meja berganti: pemindaian ulang tamu yang barusan adalah koreksi,
@@ -543,7 +543,7 @@ export default function ScanClient() {
    * menghadap meja yang mana.
    */
   async function pasangLayar(kode: string) {
-    if (!laneId) { setPesanLayar({ nada: "galat", teks: "Pilih jalur meja ini lebih dulu." }); return; }
+    if (!laneId) { setPesanLayar({ nada: "galat", teks: "Choose a desk first." }); return; }
     setMemasang(true);
     const response = await fetch(eventApiPath("/api/sapa/pair"), {
       method: "POST",
@@ -552,14 +552,14 @@ export default function ScanClient() {
     }).catch(() => null);
     setMemasang(false);
 
-    if (!response) { setPesanLayar({ nada: "galat", teks: "Koneksi terputus. Coba lagi." }); return; }
+    if (!response) { setPesanLayar({ nada: "galat", teks: "Connection lost. Try again." }); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setPesanLayar({ nada: "galat", teks: pesanGalat(body, "Kode tidak diterima. Lihat lagi angka di layar.") });
+      setPesanLayar({ nada: "galat", teks: pesanGalat(body, "Code not accepted. Check the number on the screen again.") });
       return;
     }
     setKodeLayar("");
-    setPesanLayar({ nada: "ok", teks: `Layar terpasang ke ${body.lane?.name ?? "jalur ini"}.` });
+    setPesanLayar({ nada: "ok", teks: `Screen linked to ${body.lane?.name ?? "this desk"}.` });
   }
 
   useEffect(() => {
@@ -650,16 +650,16 @@ export default function ScanClient() {
 
   const cetakLabel = useCallback(async (data: LabelData) => {
     if (!label?.enabled) return;
-    setCetak({ fase: "jalan", teks: "Mengirim ke printer..." });
+    setCetak({ fase: "jalan", teks: "Sending to printer…" });
     try {
       const dataUrl = await renderLabelDataUrl(label, data);
       if (!bisaBluetooth) {
         await simpanLabelPng(dataUrl, data.qr_code);
-        setCetak({ fase: "selesai", teks: "Label disimpan sebagai gambar. Cetak dari aplikasi NIIMBOT." });
+        setCetak({ fase: "selesai", teks: "Label saved as an image. Print it from the NIIMBOT app." });
         return;
       }
       await printLabel(dataUrl, label);
-      setCetak({ fase: "selesai", teks: `Label ${data.qr_code} tercetak.` });
+      setCetak({ fase: "selesai", teks: `Label ${data.qr_code} printed.` });
     } catch (error) {
       setCetak({ fase: "galat", teks: pesanPrinter(error) });
     }
@@ -730,7 +730,7 @@ export default function ScanClient() {
     bunyikan(beres ? "ok" : data.status === "duplicate" ? "ulang" : "galat", suaraRef.current);
     const waktu = new Date().toISOString();
     setRiwayat((current) => [
-      { nama: data.participant?.name ?? data.qr ?? "Tidak dikenal", status: beres ? "recorded" : data.status, waktu },
+      { nama: data.participant?.name ?? data.qr ?? "Unknown", status: beres ? "recorded" : data.status, waktu },
       ...current,
     ].slice(0, 20));
     if (beres && data.participant) {
@@ -778,7 +778,7 @@ export default function ScanClient() {
    */
   const kirim = useCallback(async (kodeMasuk: string, dicoba?: { id: string; nama: string }): Promise<Hasil | null> => {
     const qr = dicoba ? `id:${dicoba.id}` : kodeMasuk;
-    if (!sessionId) { setPesan("Pilih sesi lebih dulu."); return null; }
+    if (!sessionId) { setPesan("Choose a check-in point first."); return null; }
     // Meja belum dipilih padahal acara ini punya meja: lembar "Siapkan meja
     // ini" sedang terbuka. Pemindai genggam tetap mengetik di baliknya, dan
     // tanpa penjaga ini kehadirannya tersimpan tanpa meja dan lembar hasilnya
@@ -814,16 +814,16 @@ export default function ScanClient() {
     setMembaca(null);
 
     if (!response || response.status >= 500) {
-      tampilGagal(qr, "gagal", "Koneksi terputus atau server tidak menjawab, jadi tamu ini BELUM masuk daftar hadir. Tekan Ulangi, atau pindai lagi badge-nya.", dikirim, dicoba);
+      tampilGagal(qr, "gagal", "Connection lost or the server did not respond, so this participant is NOT checked in. Tap Retry, or scan the badge again.", dikirim, dicoba);
       return null;
     }
     const body = await response.json().catch(() => ({}));
     if (response.status === 401) {
-      tampilGagal(qr, "login", "Login petugas di ponsel ini sudah habis, jadi pemindaian ini TIDAK tercatat. Login lagi, lalu pindai ulang.", dikirim, dicoba);
+      tampilGagal(qr, "login", "You are signed out on this phone, so this scan was NOT saved. Sign in again, then scan again.", dikirim, dicoba);
       return null;
     }
     if (!response.ok) {
-      tampilGagal(qr, "ditolak", pesanGalat(body, "Server menolak pemindaian ini. Hubungi panitia."), dikirim, dicoba);
+      tampilGagal(qr, "ditolak", pesanGalat(body, "The server rejected this scan. Contact the organisers."), dikirim, dicoba);
       return null;
     }
 
@@ -926,7 +926,7 @@ export default function ScanClient() {
         // pernah melaporkannya ke peramban.
         setSenter({ ada: typeof kontrol.switchTorch === "function", nyala: false });
       })
-      .catch(() => setPesan("Kamera tidak tersedia atau izinnya ditolak."));
+      .catch(() => setPesan("Camera not available or permission denied."));
 
     return () => {
       berhenti = true;
@@ -1100,7 +1100,7 @@ export default function ScanClient() {
 
   async function sambungPrinter() {
     if (!label?.enabled) return;
-    setCetak({ fase: "jalan", teks: "Mencari printer..." });
+    setCetak({ fase: "jalan", teks: "Looking for printer…" });
     try {
       const info = await identifyPrinter(label);
       setPrinter(info);
@@ -1109,7 +1109,7 @@ export default function ScanClient() {
       // menghabiskan label untuk mencobanya, dan angka itulah yang diisikan
       // admin di Setelan printer ketika tepi kanan label hilang.
       setLebarKepala(await readPrintHeadWidth().catch(() => null));
-      setCetak({ fase: "selesai", teks: `Tersambung ke ${info.label}.` });
+      setCetak({ fase: "selesai", teks: `Connected to ${info.label}.` });
     } catch (error) {
       setPrinter(null);
       setCetak({ fase: "galat", teks: pesanPrinter(error) });
@@ -1149,7 +1149,7 @@ export default function ScanClient() {
   }
 
   async function simpanWalkIn(paksa: boolean) {
-    if (!sessionId) { setGalatWalkIn("Pilih sesi lebih dulu."); return; }
+    if (!sessionId) { setGalatWalkIn("Choose a check-in point first."); return; }
     const nama = formWalkIn.name.trim();
     // Aturan yang sama dengan server (lib/walkin-form.ts): yang kurang ditandai
     // di kolomnya sebelum apa pun dikirim.
@@ -1184,7 +1184,7 @@ export default function ScanClient() {
     // Menyebut dengan tegas bahwa TIDAK ada yang tersimpan. Petugas yang ragu
     // akan menutup dialognya dan mencari nama itu di tab pencarian, menemukan
     // kosong, lalu mengulang dari awal dengan yakin.
-    if (!response) { setGalatWalkIn("Koneksi terputus. Tamu ini BELUM tersimpan, coba lagi."); return; }
+    if (!response) { setGalatWalkIn("Connection lost. This participant is NOT saved yet. Try again."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       // Galat per kolom dari server: ditaruh di bawah kolomnya, bukan di kotak
@@ -1198,7 +1198,7 @@ export default function ScanClient() {
         setTolakSimpanWalkIn((n) => n + 1);
         return;
       }
-      setGalatWalkIn(pesanGalat(body, "Gagal disimpan. Coba lagi."));
+      setGalatWalkIn(pesanGalat(body, "Could not save. Try again."));
       return;
     }
 
@@ -1331,18 +1331,18 @@ export default function ScanClient() {
   }, [hasil, kedip, lembarMenutup]);
 
   const pil = membaca
-    ? { teks: "Terbaca, menyimpan…", nada: "bg-primary text-on-primary" }
-    : { teks: "Siap memindai", nada: "bg-black/60 text-white" };
+    ? { teks: "Read, saving…", nada: "bg-primary text-on-primary" }
+    : { teks: "Ready to scan", nada: "bg-black/60 text-white" };
 
   // "Belum" dihitung dari dua angka server yang dibaca terpisah; tidak pernah
   // negatif meski pindaian masuk di antara keduanya.
   const belum = terdaftar === null || hadir === null ? null : Math.max(0, terdaftar - hadir);
   const persen = terdaftar ? Math.min(100, Math.round(((hadir ?? 0) / terdaftar) * 100)) : 0;
-  const angka = (n: number) => n.toLocaleString("id-ID");
+  const angka = (n: number) => n.toLocaleString("en-GB");
   const bilahKemajuan = (
     <div
       role="progressbar"
-      aria-label="Hadir dari terdaftar"
+      aria-label="Checked in of registered"
       aria-valuemin={0}
       aria-valuemax={terdaftar ?? 0}
       aria-valuenow={hadir ?? 0}
@@ -1352,7 +1352,7 @@ export default function ScanClient() {
     </div>
   );
 
-  const judulMeja = `${sesiAktif?.name ?? "Pilih sesi"}${jalurAktif ? ` · ${jalurAktif.name}` : ""}`;
+  const judulMeja = `${sesiAktif?.name ?? "Choose a check-in point"}${jalurAktif ? ` · ${jalurAktif.name}` : ""}`;
 
   /**
    * Strip hadir di ponsel: angka seluruh meja dan tamu terakhir, selalu di atas
@@ -1363,13 +1363,14 @@ export default function ScanClient() {
     <div className="rounded-2xl bg-surface-container px-4 pb-3 pt-3 lg:hidden">
       <div className="flex items-center gap-4">
         <div className="shrink-0">
+          <p className="text-label-small text-on-surface-variant">All desks</p>
           <p className="flex items-baseline gap-2">
             <span className="text-headline-medium font-semibold tabular-nums">{angka(hadir ?? 0)}</span>
-            <span className="text-body-medium text-on-surface-variant">hadir</span>
+            <span className="text-body-medium text-on-surface-variant">checked in</span>
           </p>
           {terdaftar !== null ? (
             <p className="text-label-medium tabular-nums text-on-surface-variant">
-              dari {angka(terdaftar)}{belum !== null ? ` · ${angka(belum)} belum` : ""}
+              of {angka(terdaftar)}{belum !== null ? ` · ${angka(belum)} not yet` : ""}
             </p>
           ) : null}
         </div>
@@ -1377,11 +1378,11 @@ export default function ScanClient() {
         <div className="min-w-0 flex-1" role="status">
           {terakhirHadir ? (
             <>
-              <p className="text-label-medium text-on-surface-variant">Terakhir · {jam(terakhirHadir.waktu)}</p>
+              <p className="text-label-medium text-on-surface-variant">Last · {jam(terakhirHadir.waktu)}</p>
               <p className="truncate text-body-medium font-semibold">{terakhirHadir.nama}</p>
             </>
           ) : (
-            <p className="text-body-medium text-on-surface-variant">Belum ada pindaian.</p>
+            <p className="text-body-medium text-on-surface-variant">No scans yet.</p>
           )}
         </div>
       </div>
@@ -1391,7 +1392,7 @@ export default function ScanClient() {
 
   const daftarRiwayat = (batas: number) =>
     riwayat.length === 0 ? (
-      <p className="mt-2 text-body-small text-on-surface-variant">Belum ada yang dipindai di perangkat ini sejak layar dibuka.</p>
+      <p className="mt-2 text-body-small text-on-surface-variant">No scans yet on this phone since the screen was opened.</p>
     ) : (
       <ul className="mt-1 divide-y divide-outline-variant">
         {riwayat.slice(0, batas).map((baris, index) => (
@@ -1423,7 +1424,7 @@ export default function ScanClient() {
   };
 
   return (
-    <div className="scan-teks warna-pemindai min-h-dvh bg-surface pb-24 text-on-surface lg:pb-12">
+    <div lang="en" className="scan-teks warna-pemindai min-h-dvh bg-surface pb-24 text-on-surface lg:pb-12">
       {/* -------------------------------------------------------------------
           Bilah atas.
 
@@ -1443,14 +1444,14 @@ export default function ScanClient() {
           >
             <span className="min-w-0">
               <span className="block truncate text-title-large font-semibold">{judulMeja}</span>
-              <span className="block truncate text-body-small text-on-surface-variant">{eventName || "Memuat..."}</span>
+              <span className="block truncate text-body-small text-on-surface-variant">{eventName || "Loading…"}</span>
             </span>
             <CaretDown size={20} className="shrink-0 text-on-surface-variant" aria-hidden />
-            <span className="sr-only">Ganti sesi atau meja</span>
+            <span className="sr-only">Change check-in point or desk</span>
           </button>
           <span className="hidden flex-1 lg:block" />
           {offline ? <ChipOffline /> : null}
-          <IconButton label="Menu pemindai" onClick={() => setMenuTerbuka(true)}>
+          <IconButton label="Scanner menu" onClick={() => setMenuTerbuka(true)}>
             <DotsThreeVertical size={24} weight="bold" />
           </IconButton>
         </div>
@@ -1474,20 +1475,20 @@ export default function ScanClient() {
                 diambil navigasi bawah, yang terjangkau jempol. */}
             <div className="hidden lg:block">
               <Tabs<Mode>
-                label="Cara mencatat kehadiran"
+                label="How to check in"
                 idPrefix="mode"
                 size="lg"
                 value={mode === "cari" ? "cari" : "qr"}
                 onChange={gantiMode}
                 options={[
-                  { value: "qr", label: "Pindai QR", icon: <QrCode size={20} aria-hidden /> },
-                  { value: "cari", label: "Cari nama", icon: <MagnifyingGlass size={20} aria-hidden /> },
+                  { value: "qr", label: "Scan QR", icon: <QrCode size={20} aria-hidden /> },
+                  { value: "cari", label: "Find name", icon: <MagnifyingGlass size={20} aria-hidden /> },
                 ]}
               />
             </div>
 
             {mode === "qr" ? (
-              <div role="tabpanel" id="mode-panel-qr" aria-label="Pindai QR">
+              <div role="tabpanel" id="mode-panel-qr" aria-label="Scan QR">
                 {/* 4:5 di ponsel, setinggi sisa layar di antara strip hadir dan
                     navigasi bawah. Tablet dan layar lebar tetap 4:3 dan 16:9. */}
                 <div className="relative aspect-[4/5] max-h-[calc(100dvh-16rem)] min-h-72 w-full overflow-hidden rounded-3xl bg-scrim sm:aspect-[4/3] lg:aspect-video lg:max-h-[70dvh]">
@@ -1499,7 +1500,7 @@ export default function ScanClient() {
                         autoPlay
                         muted
                         playsInline
-                        aria-label="Pratinjau kamera pemindai"
+                        aria-label="Scanner camera preview"
                       />
                       {/* Bingkai bidik. QR yang dipegang di luar tengah bingkai
                           tetap terbaca, tetapi tamu mengarahkan badge-nya ke
@@ -1527,7 +1528,7 @@ export default function ScanClient() {
                         </p>
                         <div className="flex shrink-0 gap-2">
                           <IconButton
-                            label={suara ? "Suara nyala" : "Suara mati"}
+                            label="Sound"
                             selected={suara}
                             onClick={gantiSuara}
                             className="!rounded-full !bg-black/60 !text-white"
@@ -1536,7 +1537,7 @@ export default function ScanClient() {
                           </IconButton>
                           {senter.ada ? (
                             <IconButton
-                              label={senter.nyala ? "Senter nyala" : "Senter mati"}
+                              label="Torch"
                               selected={senter.nyala}
                               onClick={() => void gantiSenter()}
                               className={senter.nyala ? "!rounded-full" : "!rounded-full !bg-black/60 !text-white"}
@@ -1551,9 +1552,9 @@ export default function ScanClient() {
                         {membaca ? (
                           <p aria-hidden className="rounded-full bg-black/60 px-4 py-1.5 text-title-medium text-white">{membaca}</p>
                         ) : (
-                          <p aria-hidden className="rounded-full bg-black/60 px-4 py-2 text-label-large text-white">Arahkan QR badge ke kotak</p>
+                          <p aria-hidden className="rounded-full bg-black/60 px-4 py-2 text-label-large text-white">Point the badge QR at the frame</p>
                         )}
-                        <IconButton label="Matikan kamera" onClick={() => setScanning(false)} className="!rounded-full !bg-black/60 !text-white">
+                        <IconButton label="Turn off camera" onClick={() => setScanning(false)} className="!rounded-full !bg-black/60 !text-white">
                           <VideoCameraSlash size={22} weight="fill" />
                         </IconButton>
                       </div>
@@ -1567,8 +1568,8 @@ export default function ScanClient() {
                         <QrCode size={40} />
                       </span>
                       <div>
-                        <p className="text-title-large font-semibold text-white">Kamera belum menyala</p>
-                        <p className="mt-1 text-body-medium text-white/70">Nyalakan sekali. Kamera tetap menyala untuk tamu berikutnya.</p>
+                        <p className="text-title-large font-semibold text-white">Camera is off</p>
+                        <p className="mt-1 text-body-medium text-white/70">Turn it on once. It stays on for the next participants.</p>
                       </div>
                       <Button
                         size="xl"
@@ -1577,7 +1578,7 @@ export default function ScanClient() {
                         disabled={!sessionId}
                         icon={<QrCode size={24} weight="bold" aria-hidden />}
                       >
-                        Nyalakan kamera
+                        Turn on camera
                       </Button>
                     </div>
                   )}
@@ -1586,21 +1587,21 @@ export default function ScanClient() {
             ) : null}
 
             {mode === "cari" ? (
-              <div role="tabpanel" id="mode-panel-cari" aria-label="Cari nama">
+              <div role="tabpanel" id="mode-panel-cari" aria-label="Find name">
                 {/* Satu kolom untuk nama, instansi, DAN kode peserta: kolom
                     "ketik kode" terpisah di bawah kamera dulu mengerjakan hal
                     yang sama dengan pencarian ini. */}
                 <TextField
-                  label="Cari peserta"
+                  label="Find participant"
                   type="search"
                   size="lg"
                   value={kueri}
                   onChange={(event) => setKueri(event.target.value)}
                   autoComplete="off"
                   autoFocus
-                  placeholder="Nama, instansi, atau kode REG"
+                  placeholder="Name, organisation or REG code"
                   leading={<MagnifyingGlass size={20} />}
-                  hint="Boleh sepenggal dan dibolak-balik."
+                  hint="Part of a name works, in any order."
                 />
 
                 <div className="mt-3" aria-busy={mencari}>
@@ -1609,8 +1610,8 @@ export default function ScanClient() {
                   ) : cariSekarang?.gagal ? (
                     <EmptyState
                       icon={<WarningCircle size={40} />}
-                      title="Pencarian gagal"
-                      description="Jaringan venue sedang tidak menjawab. Ubah satu huruf pada kata kuncinya untuk mengulang, atau pakai Pindai sementara."
+                      title="Search failed"
+                      description="The venue network is not responding. Change one letter of the search to retry, or use Scan for now."
                     />
                   ) : cariSekarang && cariSekarang.hasil.length === 0 ? (
                     /* Satu-satunya tempat tombol walk-in muncul di jalur
@@ -1620,11 +1621,11 @@ export default function ScanClient() {
                        namanya dieja berbeda oleh tiga petugas. */
                     <EmptyState
                       icon={<MagnifyingGlass size={40} />}
-                      title="Tidak ada yang cocok"
+                      title="No matching participants"
                       description={
                         allowWalkIn
-                          ? "Coba potongan nama yang lebih pendek, atau cari dengan nama instansinya. Kalau tetap kosong, tamu ini memang belum terdaftar."
-                          : "Coba potongan nama yang lebih pendek, atau cari dengan nama instansinya. Kalau tetap kosong, tamu ini belum terdaftar. Arahkan ke meja panitia."
+                          ? "Try a shorter part of the name, or search by organisation. If nothing comes up, this person is not registered."
+                          : "Try a shorter part of the name, or search by organisation. If nothing comes up, this person is not registered. Send them to the organisers' desk."
                       }
                       action={
                         allowWalkIn ? (
@@ -1634,7 +1635,7 @@ export default function ScanClient() {
                             onClick={() => bukaWalkIn(kueriBersih)}
                             icon={<UserPlus size={20} weight="bold" aria-hidden />}
                           >
-                            Daftarkan sebagai tamu walk-in
+                            Register as walk-in
                           </Button>
                         ) : undefined
                       }
@@ -1656,12 +1657,12 @@ export default function ScanClient() {
                                 {/* Nama tidak dipotong: ia bahan memastikan orangnya. */}
                                 <p className="text-body-large font-semibold leading-tight">{baris.name}</p>
                                 <p className="truncate text-body-small text-on-surface-variant">
-                                  {[baris.company, baris.title].filter(Boolean).join(" · ") || "Tanpa instansi"}
+                                  {[baris.company, baris.title].filter(Boolean).join(" · ") || "No organisation"}
                                 </p>
                                 {/* Status dibawa teks, tidak hanya warna. */}
                                 {sudahHadir ? (
                                   <p className="mt-0.5 text-label-medium text-warning">
-                                    Sudah hadir {jam(baris.first_scan_at)}, {baris.scan_count} kali
+                                    Checked in {jam(baris.first_scan_at)}, {baris.scan_count} {baris.scan_count === 1 ? "time" : "times"}
                                   </p>
                                 ) : null}
                               </div>
@@ -1672,10 +1673,10 @@ export default function ScanClient() {
                                 loading={mencatatId === baris.id}
                                 disabled={!sessionId || (sibuk && mencatatId !== baris.id)}
                                 icon={sudahHadir ? undefined : <UserCheck size={20} weight="bold" aria-hidden />}
-                                aria-label={sudahHadir ? `Catat lagi ${baris.name}` : `Catat hadir ${baris.name}`}
+                                aria-label={sudahHadir ? `Check in ${baris.name} again` : `Check in ${baris.name}`}
                                 className="shrink-0"
                               >
-                                {sudahHadir ? "Lagi" : "Hadir"}
+                                {sudahHadir ? "Again" : "Check in"}
                               </Button>
                             </li>
                           );
@@ -1684,7 +1685,7 @@ export default function ScanClient() {
                       {/* Pemotongan diberitahukan, bukan didiamkan. */}
                       {cariSekarang?.terpotong ? (
                         <p className="mt-3 text-body-small text-on-surface-variant">
-                          Menampilkan 25 teratas. Persempit kata kuncinya dengan menambahkan nama instansi.
+                          Showing the top 25. Narrow the search by adding the organisation.
                         </p>
                       ) : null}
                     </>
@@ -1697,9 +1698,9 @@ export default function ScanClient() {
               <div className="space-y-3 lg:hidden">
                 {stripHadir}
                 <div>
-                  <h2 className="text-title-medium font-semibold">Pemindaian di HP ini</h2>
+                  <h2 className="text-title-medium font-semibold">Scans on this phone</h2>
                   <p className="text-body-small text-on-surface-variant">
-                    Angka hadir di atas adalah total semua meja di sesi ini dan menghitung orang, bukan pemindaian ulang.
+                    The count above covers all desks at this check-in point and counts people, not repeat scans.
                   </p>
                   {daftarRiwayat(20)}
                 </div>
@@ -1711,33 +1712,33 @@ export default function ScanClient() {
               Setelan pindah ke menu ⋮, sama dengan di ponsel. */}
           <aside className="hidden lg:sticky lg:top-[88px] lg:block">
             <Card>
-              <p className="text-label-large text-on-surface-variant">{sesiAktif?.name ?? "Belum ada sesi"} · semua meja</p>
+              <p className="text-label-large text-on-surface-variant">{sesiAktif?.name ?? "No check-in point yet"} · all desks</p>
               <p className="mt-1 flex items-baseline gap-2">
                 <span className="text-display-small tabular-nums">{angka(hadir ?? 0)}</span>
                 <span className="text-body-medium text-on-surface-variant">
-                  {terdaftar !== null ? `hadir dari ${angka(terdaftar)} terdaftar` : "orang hadir"}
+                  {terdaftar !== null ? `checked in of ${angka(terdaftar)} registered` : "people checked in"}
                 </span>
               </p>
               {terdaftar ? <div className="mt-3">{bilahKemajuan}</div> : null}
               {belum !== null ? (
                 <p className="mt-3 flex items-baseline justify-between gap-2 text-body-medium">
-                  <span className="text-on-surface-variant">Belum hadir</span>
+                  <span className="text-on-surface-variant">Not checked in yet</span>
                   <span className="font-semibold tabular-nums">{angka(belum)}</span>
                 </p>
               ) : null}
-              <p className="mt-1 text-body-small text-on-surface-variant">Menghitung orang, bukan pemindaian ulang. Diperbarui tiap 30 detik.</p>
+              <p className="mt-1 text-body-small text-on-surface-variant">Counts people, not repeat scans. Updates every 30 seconds.</p>
               <Divider className="my-4" />
-              <h2 className="text-title-small">Pemindaian terakhir</h2>
+              <h2 className="text-title-small">Recent scans</h2>
               {daftarRiwayat(8)}
             </Card>
           </aside>
         </div>
       </main>
 
-      <nav aria-label="Mode pemindai" className="fixed inset-x-0 bottom-0 z-30 flex h-20 border-t border-outline-variant bg-surface-container pb-[env(safe-area-inset-bottom)] lg:hidden">
-        {navBawah("qr", "Pindai", <QrCode size={24} weight={mode === "qr" ? "fill" : "regular"} aria-hidden />)}
-        {navBawah("cari", "Cari nama", <MagnifyingGlass size={24} weight={mode === "cari" ? "bold" : "regular"} aria-hidden />)}
-        {navBawah("riwayat", "Riwayat", <ClockCounterClockwise size={24} weight={mode === "riwayat" ? "bold" : "regular"} aria-hidden />)}
+      <nav aria-label="Scanner mode" className="fixed inset-x-0 bottom-0 z-30 flex h-20 border-t border-outline-variant bg-surface-container pb-[env(safe-area-inset-bottom)] lg:hidden">
+        {navBawah("qr", "Scan", <QrCode size={24} weight={mode === "qr" ? "fill" : "regular"} aria-hidden />)}
+        {navBawah("cari", "Find name", <MagnifyingGlass size={24} weight={mode === "cari" ? "bold" : "regular"} aria-hidden />)}
+        {navBawah("riwayat", "History", <ClockCounterClockwise size={24} weight={mode === "riwayat" ? "bold" : "regular"} aria-hidden />)}
       </nav>
 
       {/* Sesi dan meja. Terbuka sendiri, dan tidak bisa ditutup, selama belum
@@ -1747,15 +1748,15 @@ export default function ScanClient() {
         open={lembarMejaBuka}
         onClose={() => setLembarMeja(false)}
         bolehTutup={!perluSetup}
-        judul={perluSetup ? "Siapkan meja ini" : "Ganti sesi atau meja"}
+        judul={perluSetup ? "Set up this desk" : "Change check-in point or desk"}
         keterangan={
           sesiHilang
-            ? <span className="text-error">Sesi yang tadi dipilih sudah ditutup panitia. Pilih sesi lagi sebelum memindai.</span>
+            ? <span className="text-error">The organisers closed the check-in point you chose. Choose another before scanning.</span>
             : pindaiDitolak && perluSetup
-              ? <span role="alert" className="text-error">Pindaian tadi belum tercatat. Pilih meja dulu, lalu pindai lagi.</span>
+              ? <span role="alert" className="text-error">That scan was not saved. Choose a desk first, then scan again.</span>
               : perluSetup
-              ? "Dipilih sekali. HP ini mengingatnya sampai diganti."
-              : "Pemindaian berikutnya tercatat di pilihan baru."
+              ? "Set once. This phone remembers it until you change it."
+              : "The next scans are saved to the new choice."
         }
       >
         <PilihMeja
@@ -1770,7 +1771,7 @@ export default function ScanClient() {
         {perluSetup ? (
           <div className="-mt-4 flex justify-center px-6 pb-4">
             <Button variant="text" size="lg" onClick={() => void keluar()} loading={keluarJalan}>
-              Bukan akun ini? Keluar
+              Not your account? Sign out
             </Button>
           </div>
         ) : null}
@@ -1781,21 +1782,21 @@ export default function ScanClient() {
       <LembarScan
         open={menuTerbuka}
         onClose={() => setMenuTerbuka(false)}
-        judul="Pengaturan HP ini"
-        keterangan={username ? <>Masuk sebagai <b className="font-semibold text-on-surface">{username}</b></> : undefined}
+        judul="Settings for this phone"
+        keterangan={username ? <>Signed in as <b className="font-semibold text-on-surface">{username}</b></> : undefined}
       >
         <div className="space-y-4 px-6 pt-4">
           <Switch
             className="!items-center"
-            label="Bunyi tiap pemindaian"
-            description="Di iPhone, bunyi ikut mati kalau sakelar senyap menyala."
+            label="Sound on each scan"
+            description="On iPhone, there is no sound while the silent switch is on."
             checked={suara}
             onChange={(nyala) => { if (nyala !== suaraRef.current) gantiSuara(); }}
           />
           <Switch
             className="!items-center"
-            label="Tutup hasil hijau sendiri"
-            description="Setelah 3 detik, di sesi tanpa barang. Sentuh hasilnya untuk menahan."
+            label="Auto-close green results"
+            description="After 3 seconds, at check-in points without kit items. Touch the result to keep it open."
             checked={tutupOtomatis}
             onChange={gantiTutupOtomatis}
           />
@@ -1820,30 +1821,29 @@ export default function ScanClient() {
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="flex items-center gap-2 text-title-small">
                     <Printer size={18} aria-hidden />
-                    Printer meja ini
+                    Printer for this desk
                   </h3>
                   {bisaBluetooth ? (
                     <span className={`text-label-medium ${printer ? "text-success" : "text-on-surface-variant"}`}>
-                      {printer ? "tersambung" : "belum"}
+                      {printer ? "connected" : "not connected"}
                     </span>
                   ) : null}
                 </div>
 
                 {!bisaBluetooth ? (
                   <p className="mt-2 text-body-small text-on-surface-variant">
-                    Peramban di perangkat ini tidak punya Bluetooth, dan iPhone, iPad, serta Firefox memang tidak
-                    pernah punya. Tombol cetak tetap ada dan menyimpan labelnya sebagai gambar untuk dicetak dari
-                    aplikasi NIIMBOT.
+                    The browser on this device has no Bluetooth, and iPhone, iPad and Firefox never do. The print
+                    button still works and saves the label as an image to print from the NIIMBOT app.
                   </p>
                 ) : (
                   <>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button variant={printer ? "outlined" : "filled"} size="lg" onClick={() => void sambungPrinter()}>
-                        {printer ? "Sambungkan ulang" : "Sambungkan"}
+                        {printer ? "Reconnect" : "Connect"}
                       </Button>
                       {/* Menghabiskan satu lembar label, dan itu disebutkan. */}
                       <Button variant="text" size="lg" onClick={() => void cetakLabel(UJI_LABEL)}>
-                        Uji cetak, 1 label
+                        Test print, 1 label
                       </Button>
                     </div>
 
@@ -1861,31 +1861,31 @@ export default function ScanClient() {
                     {/* Angka yang dilaporkan printer, bukan yang kita duga. */}
                     {lebarKepala != null && lebarKepala !== label.head_px ? (
                       <p className="mt-2 rounded-lg bg-warning-soft p-3 text-body-small text-on-warning-soft">
-                        Printer melaporkan lebar kepala cetak {lebarKepala} px, setelan acara memakai {label.head_px}.
-                        Minta admin membetulkannya di Label &amp; printer.
+                        The printer reports a print head width of {lebarKepala} px, but the event setting uses {label.head_px}.
+                        Ask an admin to fix it in Label &amp; printer.
                       </p>
                     ) : null}
 
                     <div className="mt-4">
-                      <p className="text-label-large text-on-surface-variant">Cetak otomatis</p>
+                      <p className="text-label-large text-on-surface-variant">Automatic printing</p>
                       <SegmentedButton
                         className="mt-2"
                         size="lg"
-                        label="Kapan label dicetak sendiri"
+                        label="When labels print automatically"
                         value={modeCetak}
                         onChange={gantiModeCetak}
                         options={[
-                          { value: "off" as const, label: "Mati" },
+                          { value: "off" as const, label: "Off" },
                           { value: "walkin" as const, label: "Walk-in" },
-                          { value: "semua" as const, label: "Semua" },
+                          { value: "semua" as const, label: "All" },
                         ]}
                       />
                       <p className="mt-2 text-body-small text-on-surface-variant">
                         {modeCetak === "off"
-                          ? "Label hanya tercetak kalau tombolnya ditekan."
+                          ? "Labels print only when you tap the button."
                           : modeCetak === "walkin"
-                            ? "Hanya tamu yang didaftarkan di meja ini. Peserta terdaftar sudah punya kodenya."
-                            : "Setiap tamu yang baru tercatat hadir. Pemindaian ulang tidak ikut."}
+                            ? "Only walk-ins registered at this desk. Registered participants already have their code."
+                            : "Every participant who has just checked in. Repeat scans are not included."}
                       </p>
                     </div>
                   </>
@@ -1903,12 +1903,12 @@ export default function ScanClient() {
                 <summary className="m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 rounded-lg text-body-large">
                   <span className="flex items-center gap-4">
                     <Television size={22} className="text-on-surface-variant" aria-hidden />
-                    Hubungkan layar sapa
+                    Link Welcome screen
                   </span>
                   <CaretDown size={18} aria-hidden />
                 </summary>
                 <p className="mt-2 text-body-small text-on-surface-variant">
-                  TV yang belum terpasang menampilkan enam angka. Ketik angkanya di sini.
+                  A TV that is not linked yet shows six digits. Type them here.
                 </p>
                 <form
                   className="mt-3 flex items-end gap-2"
@@ -1916,7 +1916,7 @@ export default function ScanClient() {
                 >
                   <TextField
                     className="min-w-0 flex-1"
-                    label="Kode layar"
+                    label="Screen code"
                     value={kodeLayar}
                     onChange={(event) => setKodeLayar(event.target.value.replace(/\D/g, "").slice(0, 6))}
                     // `inputMode` numerik, bukan `type="number"`: kode ini
@@ -1927,7 +1927,7 @@ export default function ScanClient() {
                     style={{ letterSpacing: "0.2em" }}
                   />
                   <Button type="submit" variant="tonal" size="lg" loading={memasang} disabled={kodeLayar.length !== 6 || !laneId}>
-                    Hubungkan
+                    Link
                   </Button>
                 </form>
                 {pesanLayar ? (
@@ -1943,11 +1943,11 @@ export default function ScanClient() {
           <div className="-mx-6">
             <button type="button" onClick={() => { void muatSesi(); setMenuTerbuka(false); }} className="m3-state flex min-h-14 w-full items-center gap-4 px-6 text-left text-body-large">
               <ArrowsClockwise size={22} className="text-on-surface-variant" aria-hidden />
-              Muat ulang daftar sesi
+              Reload check-in points
             </button>
             <button type="button" onClick={() => void keluar()} disabled={keluarJalan} className="m3-state flex min-h-14 w-full items-center gap-4 px-6 text-left text-body-large text-error">
               {keluarJalan ? <CircleNotch size={22} className="animate-spin" aria-hidden /> : <SignOut size={22} aria-hidden />}
-              {keluarJalan ? "Keluar..." : "Keluar"}
+              {keluarJalan ? "Signing out…" : "Sign out"}
             </button>
           </div>
         </div>
@@ -1996,7 +1996,7 @@ export default function ScanClient() {
         tolakSimpan={tolakSimpanWalkIn}
         kandidat={kandidat}
         onLupakanKandidat={() => setKandidat(null)}
-        sesiNama={sesiAktif?.name ?? "yang dipilih"}
+        sesiNama={sesiAktif?.name ?? "the chosen check-in point"}
         menyimpan={menyimpanWalkIn}
         galat={galatWalkIn}
         onSimpan={(paksa) => void simpanWalkIn(paksa)}

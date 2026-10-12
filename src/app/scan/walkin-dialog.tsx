@@ -128,7 +128,7 @@ export function WalkinDialog({
           value={nilai}
           onChange={(event) => setExtra(field.key, event.target.value)}
         >
-          <option value="">Pilih...</option>
+          <option value="">Choose…</option>
           {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
         </SelectField>
       );
@@ -182,20 +182,20 @@ export function WalkinDialog({
         kandidat ? (
           <>
             <Button variant="text" onClick={onLupakanKandidat} disabled={menyimpan}>
-              Betulkan datanya
+              Fix the details
             </Button>
             {/* Kata "tetap" ada di labelnya dengan sengaja: yang ditekan di sini
                 adalah keputusan bahwa dua orang memang bernama sama, dan label
                 netral seperti "Lanjutkan" membuatnya terbaca sebagai langkah
                 berikutnya yang wajar. */}
             <Button variant="filled" loading={menyimpan} onClick={() => onSimpan(true)}>
-              Tetap tambahkan sebagai orang lain
+              Add as a different person anyway
             </Button>
           </>
         ) : (
           <>
             <Button type="button" variant="text" onClick={onClose} disabled={menyimpan}>
-              Batal
+              Cancel
             </Button>
             <Button
               type="submit"
@@ -205,17 +205,17 @@ export function WalkinDialog({
               disabled={!bisaSimpan}
               icon={<UserPlus size={20} weight="bold" aria-hidden />}
             >
-              Simpan dan catat hadir
+              Save and check in
             </Button>
           </>
         )
       }
       icon={<UserPlus size={24} weight="fill" />}
-      title={kandidat ? "Nama ini sudah ada di daftar" : "Tamu walk-in"}
+      title={kandidat ? "This name is already on the list" : "Walk-in guest"}
       description={
         kandidat
-          ? "Periksa dulu apakah salah satunya orang yang sama. Menambahkan orang kedua bernama sama membuat keduanya tidak bisa dibedakan lagi setelah acara selesai."
-          : `Langsung tercatat hadir di ${sesiNama}. Kode peserta terbit sendiri.`
+          ? "Check whether one of them is the same person. Adding a second person with the same name makes them impossible to tell apart after the event."
+          : `Checked in at ${sesiNama} right away. The participant code is created automatically.`
       }
     >
       {kandidat ? (
@@ -226,12 +226,12 @@ export function WalkinDialog({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-body-large font-semibold">{baris.name}</p>
                   <p className="truncate text-body-small text-on-surface-variant">
-                    {[baris.company, baris.title].filter(Boolean).join(" · ") || "Tanpa instansi"}
+                    {[baris.company, baris.title].filter(Boolean).join(" · ") || "No organisation"}
                   </p>
                   {baris.scan_count > 0 ? (
                     <p className="mt-1 flex items-center gap-1 text-label-medium text-warning">
                       <Clock size={14} weight="fill" aria-hidden />
-                      Sudah tercatat hadir di sesi ini, {baris.scan_count} kali
+                      Already checked in at this check-in point, {baris.scan_count} {baris.scan_count === 1 ? "time" : "times"}
                     </p>
                   ) : null}
                 </div>
@@ -242,7 +242,7 @@ export function WalkinDialog({
                   onClick={() => onPakaiKandidat(baris)}
                   icon={<UserCheck size={18} weight="bold" aria-hidden />}
                 >
-                  Ini orangnya
+                  This is the person
                 </Button>
               </li>
             ))}
@@ -259,7 +259,7 @@ export function WalkinDialog({
               nama, email, telepon, instansi, jabatan, lalu pertanyaan acara. */}
           <div className="mt-5 space-y-4 pb-5">
             <TextField
-              label="Nama lengkap"
+              label="Full name"
               size="lg"
               autoFocus
               autoComplete="off"
@@ -276,12 +276,12 @@ export function WalkinDialog({
               autoComplete="off"
               maxLength={320}
               error={galatKolom.email}
-              hint={wajib.email ? undefined : "Hanya perlu bila tamu ingin kode pesertanya dikirim ulang lewat email."}
+              hint={wajib.email ? undefined : "Only needed if the participant wants their participant code sent again by email."}
               value={form.email}
               onChange={(event) => onForm({ ...form, email: event.target.value })}
             />
             <TextField
-              label="No. HP"
+              label="Phone number"
               optional={!wajib.phone}
               type="tel"
               inputMode="tel"
@@ -292,7 +292,7 @@ export function WalkinDialog({
               onChange={(event) => onForm({ ...form, phone: event.target.value })}
             />
             <TextField
-              label="Instansi"
+              label="Organisation"
               optional={!wajib.company}
               autoComplete="off"
               maxLength={300}
@@ -301,7 +301,7 @@ export function WalkinDialog({
               onChange={(event) => onForm({ ...form, company: event.target.value })}
             />
             <TextField
-              label="Jabatan"
+              label="Job title"
               optional={!wajib.title}
               autoComplete="off"
               maxLength={300}

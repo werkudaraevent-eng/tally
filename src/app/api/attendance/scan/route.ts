@@ -46,7 +46,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   // Tepat satu: kode dari kamera, atau id dari hasil pencarian.
   if (Boolean(parsed.data.qr) === Boolean(parsed.data.participant_id)) {
-    return apiError("VALIDATION_ERROR", 422, { message: "Kirim kode QR atau peserta, salah satu." });
+    return apiError("VALIDATION_ERROR", 422, { message: "Send exactly one: a QR code or a participant." });
   }
 
   let qr = parsed.data.qr ?? "";
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       .eq("id", parsed.data.participant_id)
       .is("source_removed_at", null)
       .maybeSingle() as { data: { qr_code: string } | null };
-    if (!peserta) return apiError("VALIDATION_ERROR", 404, { message: "Peserta ini tidak ditemukan di acara ini. Cari lagi namanya." });
+    if (!peserta) return apiError("VALIDATION_ERROR", 404, { message: "This participant was not found in this event. Search for the name again." });
     qr = peserta.qr_code;
   }
 
@@ -78,16 +78,16 @@ export async function POST(request: Request) {
     // sistem: petugas cukup memilih sesi lain, bukan melapor ke admin.
     const pesan = String(error.message ?? "");
     if (pesan.includes("SESSION_CLOSED")) {
-      return apiError("VALIDATION_ERROR", 422, { message: "Sesi ini sudah ditutup. Pilih sesi lain." });
+      return apiError("VALIDATION_ERROR", 422, { message: "This check-in point is closed. Choose another one." });
     }
     if (pesan.includes("SESSION_NOT_FOUND")) {
-      return apiError("VALIDATION_ERROR", 404, { message: "Sesi tidak ditemukan di acara ini." });
+      return apiError("VALIDATION_ERROR", 404, { message: "Check-in point not found in this event." });
     }
     // Jalur yang hilang biasanya berarti admin menghapusnya sementara petugas
     // masih memegang pilihan lama yang tersimpan di ponselnya. Pesannya
     // menyebutkan langkah pemulihannya, bukan sekadar menyatakan salah.
     if (pesan.includes("LANE_NOT_FOUND")) {
-      return apiError("VALIDATION_ERROR", 422, { message: "Jalur ini sudah tidak ada. Pilih jalur lain di atas." });
+      return apiError("VALIDATION_ERROR", 422, { message: "This desk no longer exists. Choose another desk." });
     }
     return apiError("INTERNAL_ERROR", 500);
   }

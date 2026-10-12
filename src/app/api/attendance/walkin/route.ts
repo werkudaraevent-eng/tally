@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   const config = auth.scope.event.registration_form_config as RegistrationFormConfig | null;
   const galatKolom = periksaWalkIn(parsed.data, aturanWalkIn(config), editableFields(config));
   if (Object.keys(galatKolom).length > 0) {
-    return apiError("VALIDATION_ERROR", 422, { ...galatKolom, message: "Lengkapi kolom yang ditandai." });
+    return apiError("VALIDATION_ERROR", 422, { ...galatKolom, message: "Complete the marked fields." });
   }
 
   const { issues, clean } = cleanExtra(config, parsed.data.extra);
@@ -85,20 +85,20 @@ export async function POST(request: Request) {
     // /api/attendance/scan. Petugas yang berpindah antara memindai dan
     // mendaftarkan tidak boleh membaca dua kalimat berbeda untuk sebab yang sama.
     if (pesan.includes("SESSION_CLOSED")) {
-      return apiError("VALIDATION_ERROR", 422, { message: "Sesi ini sudah ditutup. Pilih sesi lain." });
+      return apiError("VALIDATION_ERROR", 422, { message: "This check-in point is closed. Choose another one." });
     }
     if (pesan.includes("SESSION_NOT_FOUND")) {
-      return apiError("VALIDATION_ERROR", 404, { message: "Sesi tidak ditemukan di acara ini." });
+      return apiError("VALIDATION_ERROR", 404, { message: "Check-in point not found in this event." });
     }
     if (pesan.includes("LANE_NOT_FOUND")) {
-      return apiError("VALIDATION_ERROR", 422, { message: "Jalur ini sudah tidak ada. Pilih jalur lain di atas." });
+      return apiError("VALIDATION_ERROR", 422, { message: "This desk no longer exists. Choose another desk." });
     }
     // Satu juta kombinasi REG###### terpakai habis, atau lima puluh tabrakan
     // berturut-turut. Menyuruh "coba lagi" adalah saran yang benar di sini —
     // percobaan berikutnya mengambil undian angka yang baru.
     if (pesan.includes("REGISTRATION_QR_EXHAUSTED")) {
       return apiError("VALIDATION_ERROR", 422, {
-        message: "Gagal membuat kode peserta baru. Coba sekali lagi; bila tetap gagal, hubungi admin.",
+        message: "Could not create a new participant code. Try once more; if it still fails, contact an admin.",
       });
     }
     const code = mapDatabaseError(error);
