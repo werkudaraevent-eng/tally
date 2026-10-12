@@ -428,6 +428,7 @@ export default function ScanClient() {
   const [walkinFields, setWalkinFields] = useState<RegistrationField[]>([]);
   const [walkinWajib, setWalkinWajib] = useState<AturanWalkIn>(() => aturanWalkIn(null));
   const [galatKolomWalkIn, setGalatKolomWalkIn] = useState<Record<string, string>>({});
+  const [tolakSimpanWalkIn, setTolakSimpanWalkIn] = useState(0);
   const [dialogWalkIn, setDialogWalkIn] = useState(false);
   const [formWalkIn, setFormWalkIn] = useState<FormWalkIn>(FORM_KOSONG);
   const [kandidat, setKandidat] = useState<Kandidat[] | null>(null);
@@ -1143,7 +1144,7 @@ export default function ScanClient() {
       for (const kunci of Object.keys(baru.extra)) {
         if (baru.extra[kunci] !== lama.extra[kunci]) delete sisa[`extra.${kunci}`];
       }
-      return sisa;
+      return Object.keys(sisa).length === Object.keys(galat).length ? galat : sisa;
     });
   }
 
@@ -1156,6 +1157,7 @@ export default function ScanClient() {
     setGalatKolomWalkIn(galatKolom);
     if (Object.keys(galatKolom).length > 0) {
       setGalatWalkIn("");
+      setTolakSimpanWalkIn((n) => n + 1);
       return;
     }
 
@@ -1191,7 +1193,11 @@ export default function ScanClient() {
       const perKolom = Object.fromEntries(
         Object.entries(rinci).filter(([kunci, nilai]) => kunci !== "message" && typeof nilai === "string"),
       ) as Record<string, string>;
-      if (Object.keys(perKolom).length > 0) { setGalatKolomWalkIn(perKolom); return; }
+      if (Object.keys(perKolom).length > 0) {
+        setGalatKolomWalkIn(perKolom);
+        setTolakSimpanWalkIn((n) => n + 1);
+        return;
+      }
       setGalatWalkIn(pesanGalat(body, "Could not save. Try again."));
       return;
     }
@@ -1986,6 +1992,7 @@ export default function ScanClient() {
         fields={walkinFields}
         wajib={walkinWajib}
         galatKolom={galatKolomWalkIn}
+        tolakSimpan={tolakSimpanWalkIn}
         kandidat={kandidat}
         onLupakanKandidat={() => setKandidat(null)}
         sesiNama={sesiAktif?.name ?? "the chosen check-in point"}

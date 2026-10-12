@@ -38,6 +38,8 @@ type Props = {
   wajib: AturanWalkIn;
   /** Galat per kolom: `name`, `email`, `phone`, `company`, `title`, `extra.<key>`. */
   galatKolom: Record<string, string>;
+  /** Naik setiap Simpan ditolak karena kolom yang kurang. Hanya ini yang memindahkan fokus. */
+  tolakSimpan: number;
   kandidat: Kandidat[] | null;
   onLupakanKandidat: () => void;
   sesiNama: string;
@@ -56,6 +58,7 @@ export function WalkinDialog({
   fields,
   wajib,
   galatKolom,
+  tolakSimpan,
   kandidat,
   onLupakanKandidat,
   sesiNama,
@@ -70,13 +73,18 @@ export function WalkinDialog({
   // Simpan ditekan dengan kolom yang kurang: kolom pertama yang bermasalah
   // difokus dan digulir ke tengah. Pesan di bawah kolom yang tidak terlihat
   // sama saja dengan tidak ada pesan.
+  //
+  // Dipicu HANYA oleh penolakan Simpan, bukan oleh perubahan galat. Galat
+  // berubah di setiap ketikan (kolom yang disunting kehilangan tandanya), dan
+  // efek yang mengikuti galat memindahkan fokus ke kolom berikutnya di tengah
+  // petugas mengetik (QA #139 H1).
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
-    if (Object.keys(galatKolom).length === 0) return;
+    if (tolakSimpan === 0) return;
     const pertama = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
     pertama?.focus();
     pertama?.scrollIntoView({ block: "center" });
-  }, [galatKolom]);
+  }, [tolakSimpan]);
 
   /**
    * Satu pertanyaan tambahan dari formulir pendaftaran, versi meja registrasi.
