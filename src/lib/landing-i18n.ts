@@ -417,8 +417,6 @@ export type LandingUiText = {
   hotelHeading: string;
   checkIn: string;
   checkOut: string;
-  room: string;
-  roomShare: (capacity: number, sameGender: boolean) => string;
   program: string;
   /** `${n} sesi` */
   sessions: (n: number) => string;
@@ -541,9 +539,6 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     hotelHeading: "Tempat menginap",
     checkIn: "Check-in",
     checkOut: "Check-out",
-    room: "Kamar",
-    roomShare: (capacity, sameGender) =>
-      `${capacity === 1 ? "Sendiri" : capacity === 2 ? "Berdua" : capacity === 3 ? "Bertiga" : `${capacity} orang`}${capacity > 1 && sameGender ? ", sesama jenis kelamin" : ""}`,
     program: "Program",
     sessions: (n) => `${n} sesi`,
     inPrograms: (n) => `Dalam ${n} program.`,
@@ -657,9 +652,6 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     hotelHeading: "Where you'll stay",
     checkIn: "Check-in",
     checkOut: "Check-out",
-    room: "Room",
-    roomShare: (capacity, sameGender) =>
-      `${capacity === 1 ? "Single" : capacity === 2 ? "Twin share" : `${capacity} per room`}${capacity > 1 && sameGender ? ", same gender" : ""}`,
     program: "Programme",
     sessions: (n) => `${n} ${n === 1 ? "session" : "sessions"}`,
     inPrograms: (n) => `Across ${n} programmes.`,

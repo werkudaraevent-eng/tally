@@ -700,7 +700,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         {/* ---- Tempat menginap (gathering) ---------------------------------- */}
         {gaya && hotelInap.length > 0 && tampil("venue") ? (
           <Section id="venue">
-            <TempatMenginap hotels={hotelInap} sesamaJenis={inap?.same_gender ?? false} zona={event.time_zone} lang={lang} />
+            <TempatMenginap hotels={hotelInap} zona={event.time_zone} lang={lang} />
           </Section>
         ) : null}
         {/* ---- Lokasi ------------------------------------------------------- */}
@@ -1212,69 +1212,97 @@ function waktuInap(iso: string | null, zona: EventTimeZone, lang: LandingLang): 
 
 /**
  * Bagian "Tempat menginap" gaya gathering: hotel dari Logistik, dengan jam
- * check-in/out dan aturan kamar. Peta tersemat di kanan, sama dengan Lokasi.
+ * check-in/out. Satu hotel: peta tersemat di kanan, sama
+ * dengan Lokasi. Dua hotel atau lebih: tiap hotel jadi kartu dengan petanya
+ * sendiri, supaya tamu tidak menebak peta itu milik hotel yang mana.
  * Nomor kamar dan teman sekamar TIDAK di sini; itu milik Dashboard saya.
  */
-function TempatMenginap({ hotels, sesamaJenis, zona, lang }: { hotels: LandingHotel[]; sesamaJenis: boolean; zona: EventTimeZone; lang: LandingLang }) {
+function TempatMenginap({ hotels, zona, lang }: { hotels: LandingHotel[]; zona: EventTimeZone; lang: LandingLang }) {
   const t = LANDING_UI[lang];
+  const judul = (
+    <div className="flex flex-col gap-3">
+      <p className={ALIS}>{t.hotelEyebrow}</p>
+      <h2 className={JUDUL}>{t.hotelHeading}</h2>
+    </div>
+  );
+  if (hotels.length > 1) {
+    return (
+      <div className="flex flex-col gap-8 sm:gap-10">
+        {judul}
+        <ul className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+          {hotels.map((hotel) => (
+            <li key={hotel.id} className="flex flex-col overflow-hidden rounded-lg bg-[var(--reg-panel)] [box-shadow:inset_0_0_0_1px_var(--garis-kartu,transparent)]">
+              <PetaHotel hotel={hotel} lang={lang} className="h-48 sm:h-56" />
+              <div className="flex flex-1 flex-col items-start gap-5 p-5 sm:p-7">
+                <InfoHotel hotel={hotel} zona={zona} lang={lang} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
   const utama = hotels[0];
-  const kueriPeta = [utama.name, utama.address].filter(Boolean).join(", ");
   return (
     <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-20">
       <div className="flex max-w-[572px] flex-col gap-8 sm:gap-10">
-        <div className="flex flex-col gap-3">
-          <p className={ALIS}>{t.hotelEyebrow}</p>
-          <h2 className={JUDUL}>{t.hotelHeading}</h2>
+        {judul}
+        <div className="flex flex-col items-start gap-5">
+          <InfoHotel hotel={utama} zona={zona} lang={lang} />
         </div>
-        {hotels.map((hotel) => {
-          const masuk = waktuInap(hotel.check_in_at, zona, lang);
-          const keluar = waktuInap(hotel.check_out_at, zona, lang);
-          const petaUrl = hotel.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([hotel.name, hotel.address].filter(Boolean).join(", "))}`;
-          return (
-            <div key={hotel.id} className="flex flex-col items-start gap-5">
-              <div className="flex flex-col gap-1.5">
-                <h3 className={`${HEAD} text-[24px] font-semibold leading-tight`}>{hotel.name}</h3>
-                {hotel.address ? <p className={`whitespace-pre-line text-isi ${MUTED}`}>{hotel.address}</p> : null}
-              </div>
-              {masuk || keluar || hotel.room_capacity ? (
-                <dl className="grid w-full grid-cols-[120px_minmax(0,1fr)] gap-y-2.5 text-isi">
-                  {masuk ? (
-                    <>
-                      <dt className={MUTED}>{t.checkIn}</dt>
-                      <dd className="font-medium tabular-nums">{masuk}</dd>
-                    </>
-                  ) : null}
-                  {keluar ? (
-                    <>
-                      <dt className={MUTED}>{t.checkOut}</dt>
-                      <dd className="font-medium tabular-nums">{keluar}</dd>
-                    </>
-                  ) : null}
-                  {hotel.room_capacity ? (
-                    <>
-                      <dt className={MUTED}>{t.room}</dt>
-                      <dd className="font-medium">{t.roomShare(hotel.room_capacity, sesamaJenis)}</dd>
-                    </>
-                  ) : null}
-                </dl>
-              ) : null}
-              <a href={petaUrl} target="_blank" rel="noreferrer noopener" className={PIL_GARIS}>
-                {t.openMap}
-                <ArrowUpRight size={16} weight="bold" aria-hidden />
-              </a>
-            </div>
-          );
-        })}
       </div>
-      <div className="overflow-hidden rounded-lg bg-[var(--reg-panel)] [aspect-ratio:4/3] sm:[aspect-ratio:625/460]">
-        <iframe
-          title={t.mapOf(utama.name)}
-          src={`https://www.google.com/maps?q=${encodeURIComponent(kueriPeta)}&output=embed`}
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          className="size-full border-0"
-        />
+      <PetaHotel hotel={utama} lang={lang} className="rounded-lg [aspect-ratio:4/3] sm:[aspect-ratio:625/460]" />
+    </div>
+  );
+}
+
+function InfoHotel({ hotel, zona, lang }: { hotel: LandingHotel; zona: EventTimeZone; lang: LandingLang }) {
+  const t = LANDING_UI[lang];
+  const masuk = waktuInap(hotel.check_in_at, zona, lang);
+  const keluar = waktuInap(hotel.check_out_at, zona, lang);
+  const petaUrl = hotel.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([hotel.name, hotel.address].filter(Boolean).join(", "))}`;
+  return (
+    <>
+      <div className="flex flex-col gap-1.5">
+        <h3 className={`${HEAD} text-[24px] font-semibold leading-tight`}>{hotel.name}</h3>
+        {hotel.address ? <p className={`whitespace-pre-line text-isi ${MUTED}`}>{hotel.address}</p> : null}
       </div>
+      {masuk || keluar ? (
+        <dl className="grid w-full grid-cols-[120px_minmax(0,1fr)] gap-y-2.5 text-isi">
+          {masuk ? (
+            <>
+              <dt className={MUTED}>{t.checkIn}</dt>
+              <dd className="font-medium tabular-nums">{masuk}</dd>
+            </>
+          ) : null}
+          {keluar ? (
+            <>
+              <dt className={MUTED}>{t.checkOut}</dt>
+              <dd className="font-medium tabular-nums">{keluar}</dd>
+            </>
+          ) : null}
+        </dl>
+      ) : null}
+      <a href={petaUrl} target="_blank" rel="noreferrer noopener" className={`${PIL_GARIS} mt-auto`}>
+        {t.openMap}
+        <ArrowUpRight size={16} weight="bold" aria-hidden />
+      </a>
+    </>
+  );
+}
+
+/** Peta tersemat dari nama dan alamat hotel (tanpa kunci API), dimuat malas. */
+function PetaHotel({ hotel, lang, className }: { hotel: LandingHotel; lang: LandingLang; className: string }) {
+  const kueri = [hotel.name, hotel.address].filter(Boolean).join(", ");
+  return (
+    <div className={`overflow-hidden bg-[var(--reg-panel)] ${className}`}>
+      <iframe
+        title={LANDING_UI[lang].mapOf(hotel.name)}
+        src={`https://www.google.com/maps?q=${encodeURIComponent(kueri)}&output=embed`}
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        className="size-full border-0"
+      />
     </div>
   );
 }
