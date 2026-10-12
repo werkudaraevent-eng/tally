@@ -1,9 +1,10 @@
+import { after } from "next/server";
 import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { cetakSetelahHadir } from "@/lib/badge/stasiun-server";
 import type { RegistrationFormConfig } from "@/lib/domain";
-import { sendWalkinLink } from "@/lib/member/walkin-link";
+import { prepareWalkinLink } from "@/lib/member/walkin-link";
 import { cleanExtra, editableFields } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { aturanWalkIn, periksaWalkIn } from "@/lib/walkin-form";
@@ -45,6 +46,9 @@ const bodySchema = z.object({
    */
   force: z.boolean().optional(),
 });
+
+/** Ruang untuk email Sign-in link di after(); jawaban ke meja tidak menunggunya. */
+export const maxDuration = 30;
 
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["scanner", "admin"]);
@@ -133,19 +137,22 @@ export async function POST(request: Request) {
     laneId: parsed.data.lane_id ?? null,
   }).catch(() => ({ pekerjaan: null, galat: "The badge could not be queued." }));
   // Email Sign-in link (sakelar Participant area, bawaan mati) juga SETELAH
-  // kehadiran tersimpan. sendWalkinLink tidak melempar; galatnya hanya menjadi
-  // satu baris di lembar hasil, check-in tetap berhasil.
-  const signinLink = hasil?.status === "created" && hasil.participant?.id
-    ? await sendWalkinLink(auth.scope.event, {
+  // kehadiran tersimpan. Keputusan dan tokennya dibuat di sini; emailnya
+  // berangkat di after(), jadi meja tidak menunggu penyedia email. Tidak ada
+  // yang melempar: check-in tetap berhasil apa pun hasilnya.
+  const tautan = hasil?.status === "created" && hasil.participant?.id
+    ? await prepareWalkinLink(auth.scope.event, {
       participantId: hasil.participant.id,
       email: blank(parsed.data.email),
       name: parsed.data.name,
       request,
     })
     : null;
+  if (tautan?.kirim) after(tautan.kirim);
+  const signinLink = tautan && !(tautan.result.state === "skipped" && tautan.result.reason === "off") ? tautan.result : null;
   const tambahan = {
     ...(badgeCetak ? { badge_cetak: badgeCetak } : {}),
-    ...(signinLink && signinLink.state !== "skipped" ? { signin_link: signinLink } : {}),
+    ...(signinLink ? { signin_link: signinLink } : {}),
   };
   return Response.json(Object.keys(tambahan).length > 0 ? { ...(data as object), ...tambahan } : data);
 }

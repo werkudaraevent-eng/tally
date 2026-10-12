@@ -17,38 +17,66 @@ import { MASA_UNDANGAN_MS, memberLinkUrl, versiBahasa } from "./links";
  * baru saja dibuat (status `created`), jadi menyalakan sakelar tidak mengirim
  * apa pun ke peserta lama.
  *
- * Tidak pernah melempar: check-in sudah tersimpan sebelum ini dipanggil, dan
- * meja hanya membaca `state` untuk satu baris keterangan.
+ * Dua langkah. prepareWalkinLink memutuskan dan membuat tokennya selama
+ * permintaan (beberapa kueri cepat), lalu `kirim` dijalankan pemanggil di
+ * `after()`: meja tidak pernah menunggu penyedia email. Keduanya tidak
+ * melempar; check-in sudah tersimpan sebelum ini dipanggil.
  */
+export type WalkinLinkSkip =
+  | "off"
+  | "no_email"
+  | "email_not_configured"
+  | "not_eligible"
+  | "has_account"
+  | "email_taken"
+  | "already_sent";
+
 export type WalkinLinkResult =
-  | { state: "sent"; email: string }
-  | { state: "skipped"; reason: "off" | "no_email" | "not_eligible" | "has_account" | "already_sent" | "email_not_configured" }
+  | { state: "queued"; email: string }
+  | { state: "skipped"; reason: WalkinLinkSkip }
   | { state: "failed" };
 
-export async function sendWalkinLink(
+/** `%` dan `_` di email dicari apa adanya, bukan sebagai wildcard ilike. */
+function polaPersis(teks: string) {
+  return teks.replace(/[\\%_]/g, (huruf) => `\\${huruf}`);
+}
+
+export async function prepareWalkinLink(
   event: Pick<EventRow, "id" | "slug" | "name" | "landing_config">,
   input: { participantId: string; email: string | null; name: string; request: Request },
-): Promise<WalkinLinkResult> {
+): Promise<{ result: WalkinLinkResult; kirim?: () => Promise<void> }> {
   const member = memberConfig(event);
-  if (!member?.enabled || !member.walkin_link) return { state: "skipped", reason: "off" };
+  if (!member?.enabled || !member.walkin_link) return { result: { state: "skipped", reason: "off" } };
   const email = input.email ? normalizeEmail(input.email) : "";
-  if (!email) return { state: "skipped", reason: "no_email" };
-  if (!isEmailConfigured()) return { state: "skipped", reason: "email_not_configured" };
+  if (!email) return { result: { state: "skipped", reason: "no_email" } };
+  if (!isEmailConfigured()) return { result: { state: "skipped", reason: "email_not_configured" } };
 
   try {
     const client = getSupabaseServiceClient();
-    if (!(await eligible(event.id, input.participantId, member))) return { state: "skipped", reason: "not_eligible" };
+    if (!(await eligible(event.id, input.participantId, member))) return { result: { state: "skipped", reason: "not_eligible" } };
 
-    // Email yang sudah punya akun di acara ini tidak diberi tautan buat kata
-    // sandi baru: tautan itu sama dengan reset, dan petugas bisa salah ketik
-    // email orang lain. Pemiliknya masuk dengan kata sandinya sendiri.
-    const [akun, token] = await Promise.all([
+    // Email yang sudah punya akun, atau sudah dipakai peserta lain di acara
+    // ini, tidak diberi tautan. Akun yang dibuat dari tautan ini menempel di
+    // baris walk-in, jadi pemilik email yang asli tidak akan pernah bisa punya
+    // akun, dan email yang salah ketik menyerahkan tiket walk-in ke orang lain.
+    const [akun, lain, token] = await Promise.all([
       client.from("participant_accounts").select("id").eq("event_id", event.id).eq("email", email).limit(1),
+      client
+        .from("participants")
+        .select("id,email")
+        .eq("event_id", event.id)
+        .is("source_removed_at", null)
+        .neq("id", input.participantId)
+        .ilike("email", polaPersis(email))
+        .limit(20),
       client.from("participant_account_tokens").select("id").eq("event_id", event.id).eq("participant_id", input.participantId).eq("purpose", "undangan").limit(1),
     ]);
-    if (akun.error || token.error) return { state: "failed" };
-    if ((akun.data ?? []).length > 0) return { state: "skipped", reason: "has_account" };
-    if ((token.data ?? []).length > 0) return { state: "skipped", reason: "already_sent" };
+    if (akun.error || lain.error || token.error) return { result: { state: "failed" } };
+    if ((akun.data ?? []).length > 0) return { result: { state: "skipped", reason: "has_account" } };
+    if (((lain.data ?? []) as { email: string | null }[]).some((p) => normalizeEmail(p.email ?? "") === email)) {
+      return { result: { state: "skipped", reason: "email_taken" } };
+    }
+    if ((token.data ?? []).length > 0) return { result: { state: "skipped", reason: "already_sent" } };
 
     const asal = await linkOrigin(input.request, event.id);
     const rahasia = randomBytes(32).toString("base64url");
@@ -62,24 +90,29 @@ export async function sendWalkinLink(
       registration_id: null,
       expires_at: new Date(Date.now() + MASA_UNDANGAN_MS).toISOString(),
     } as never);
-    if (error) return { state: "failed" };
+    if (error) return { result: { state: "failed" } };
 
     const lang = landingDefaultLang((event.landing_config ?? {}) as EventLandingConfig);
     const versi = versiBahasa(event, lang, memberLinkUrl(asal, event.slug, "undangan", rahasia));
-    const hasil = await sendMemberLink({
-      eventId: event.id,
-      kind: "walkin",
-      to: email,
-      name: input.name,
-      eventName: versi.eventName,
-      url: versi.url,
-      lang: versi.lang,
-    });
-    if (hasil.state === "sent") return { state: "sent", email };
-    if (hasil.state === "failed") console.error("[walk-in] sign-in link not sent:", hasil.error);
-    return { state: "failed" };
-  } catch (error) {
-    console.error("[walk-in] sign-in link not sent:", error instanceof Error ? error.message : error);
-    return { state: "failed" };
+    const kirim = async () => {
+      try {
+        const hasil = await sendMemberLink({
+          eventId: event.id,
+          kind: "walkin",
+          to: email,
+          name: input.name,
+          eventName: versi.eventName,
+          url: versi.url,
+          lang: versi.lang,
+        });
+        if (hasil.state !== "sent") console.error("[walk-in] sign-in link not sent:", hasil.state === "failed" ? hasil.error : hasil.state);
+      } catch (galat) {
+        console.error("[walk-in] sign-in link not sent:", galat instanceof Error ? galat.message : galat);
+      }
+    };
+    return { result: { state: "queued", email }, kirim };
+  } catch (galat) {
+    console.error("[walk-in] sign-in link not prepared:", galat instanceof Error ? galat.message : galat);
+    return { result: { state: "failed" } };
   }
 }
