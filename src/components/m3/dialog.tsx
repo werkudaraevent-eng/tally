@@ -267,7 +267,9 @@ export function Dialog({
 								</span>
 							) : null}
 							{icon ? (
-								<span className={cx("mt-0.5 shrink-0", tone === "danger" ? "text-error" : "text-primary")} aria-hidden>
+								// Turun bersama judul di layar penuh ponsel (max-sm:pt-2 di bawah),
+								// supaya ikon tetap sebaris dengan judulnya.
+								<span className={cx("mt-0.5 shrink-0", fullScreenOnMobile && "max-sm:mt-2.5", tone === "danger" ? "text-error" : "text-primary")} aria-hidden>
 									{icon}
 								</span>
 							) : null}
