@@ -251,7 +251,7 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                   >
                     <span className="block truncate text-body-large font-semibold">{field.label || "(no label)"}</span>
                     <span className="mt-0.5 block truncate text-body-small text-on-surface-variant">
-                      {REGISTRATION_FIELD_TYPE_LABELS[field.type]} · {field.required ? "required" : "optional"} · {field.key}
+                      {REGISTRATION_FIELD_TYPE_LABELS[field.type]} · {field.required ? "required" : "optional"}{field.participant_update && field.type !== "file" ? " · participants can update" : ""} · {field.key}
                     </span>
                   </button>
                   {problem ? <StatusChip tone="error" className="shrink-0">Needs fixing</StatusChip> : null}
@@ -374,6 +374,16 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                         ? "Registrants must tick it before they can submit."
                         : "Registrants can't submit until this field is filled in."}
                     />
+
+                    {field.type !== "file" ? (
+                      <Switch
+                        checked={field.participant_update === true}
+                        onChange={(value) => patchField(index, { participant_update: value || undefined })}
+                        disabled={disabled}
+                        label="Participants can update this"
+                        description="Participants fill it in or change it later, from their dashboard or from an Update details link email, without a password. The Client view shows it only if you add it there."
+                      />
+                    ) : null}
                   </div>
                 ) : null}
               </li>

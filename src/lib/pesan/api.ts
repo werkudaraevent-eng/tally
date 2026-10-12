@@ -1,3 +1,5 @@
+import type { EventRow } from "@/lib/domain";
+import { missingFields, updatableFields } from "@/lib/member/lengkapi";
 import { z } from "zod";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BLAST_COLUMNS, type BlastRow } from "./mesin";
@@ -44,6 +46,24 @@ export async function recipientCounts(blastId: string) {
  * "Sudah masuk": penerima kiriman ini yang masuk ke area peserta setelah
  * kiriman berangkat, lewat tautan maupun kata sandi.
  */
+/**
+ * Update details link: "Sudah isi", peserta di `ids` yang kini tidak punya
+ * pertanyaan participant_update yang kosong. Dipakai hitungan laporan dan chip
+ * "Not answered yet".
+ */
+export async function answeredIds(eventId: string, ids: string[]): Promise<Set<string>> {
+  const client = getSupabaseServiceClient();
+  const isi = new Set<string>();
+  const { data: acara } = await client.from("events").select("registration_form_config").eq("id", eventId).maybeSingle();
+  const pertanyaan = updatableFields((acara ?? { registration_form_config: null }) as unknown as Pick<EventRow, "registration_form_config">);
+  if (pertanyaan.length === 0) return isi;
+  for (let i = 0; i < ids.length; i += 300) {
+    const { data } = await client.from("participants").select("id,extra").eq("event_id", eventId).in("id", ids.slice(i, i + 300));
+    for (const p of (data ?? []) as { id: string; extra: Record<string, unknown> | null }[]) if (missingFields(pertanyaan, p.extra).length === 0) isi.add(p.id);
+  }
+  return isi;
+}
+
 export async function signedInCount(blast: Pick<BlastRow, "id" | "event_id" | "sent_at" | "kind">) {
   if (!blast.sent_at) return 0;
   const client = getSupabaseServiceClient();
@@ -85,6 +105,7 @@ export async function signedInCount(blast: Pick<BlastRow, "id" | "event_id" | "s
     ids.push(...((data ?? []) as { participant_id: string }[]).map((r) => r.participant_id));
     if ((data ?? []).length < 1000) break;
   }
+  if (blast.kind === "data") return (await answeredIds(blast.event_id, ids)).size;
   let jumlah = 0;
   for (let i = 0; i < ids.length; i += 300) {
     const { count } = await client

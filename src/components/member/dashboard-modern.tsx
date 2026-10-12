@@ -25,6 +25,8 @@ import { muatNavPeserta, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
+import { KartuLengkapi } from "@/components/member/kartu-lengkapi";
+import { kartuLengkapi, updatableFields } from "@/lib/member/lengkapi";
 import { AgendaPills } from "@/components/landing/modern/agenda-pills";
 import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
 import { KakiModern, KV_SCRIM_RATA, PitaMitra, bagianModern, gayaModern, tinta } from "@/components/landing/modern/kerangka";
@@ -92,6 +94,8 @@ export async function DashboardModern({
   const lainnya: LandingLang = lang === "en" ? "id" : "en";
   const sections = normalizeLandingSections(config.sections, config.blocks);
   const agenda = await loadAgendaPreview(event.id, lang);
+  // Pratinjau admin: semua pertanyaannya, supaya kartu terlihat seperti yang diterima peserta.
+  const lengkapi = pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, sesi.participant?.id);
   // Gaya gathering: menu dan susunan acara sama dengan halaman acaranya.
   const gaya = config.gathering === true;
   // Blok Rute (di halaman ini atau di menu ke halaman acara) butuh hotel dari Logistik.
@@ -259,6 +263,14 @@ export async function DashboardModern({
               <KirimUlangKonfirmasi slug={event.slug} lang={lang} />
             </span>
           </p>
+        ) : null}
+
+        {/* Di atas tiket pada ponsel juga: satu-satunya hal di sini yang meminta peserta berbuat. */}
+        {lengkapi.length > 0 ? (
+          // Selebar kolom kiri di bawahnya, supaya tepinya segaris dengan Pengumuman.
+          <div className="mt-6 lg:grid lg:grid-cols-12 lg:gap-6">
+            <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="modern" className="lg:col-span-7" />
+          </div>
         ) : null}
 
         <div className="grid gap-10 pb-16 pt-8 lg:grid-cols-12 lg:gap-6 lg:pb-24">

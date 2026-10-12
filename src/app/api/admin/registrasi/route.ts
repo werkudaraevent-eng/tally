@@ -54,6 +54,7 @@ const fieldSchema = z.object({
   help_text: z.string().trim().max(300).optional(),
   min: z.number().optional(),
   max: z.number().optional(),
+  participant_update: z.boolean().optional(),
 });
 
 /**

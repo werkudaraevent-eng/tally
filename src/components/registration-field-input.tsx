@@ -38,8 +38,11 @@ export const REG_LABEL = "mt-6 block text-label-large font-semibold";
 
 type UploadState = { id: string; name: string } | null;
 
-/** `lang` hanya untuk teks bawaan kolom; label dan pilihan dari panitia tampil apa adanya. */
-export function RegistrationFieldInput({ field, lang = "id" }: { field: RegistrationField; lang?: LandingLang }) {
+/**
+ * `lang` hanya untuk teks bawaan kolom; label dan pilihan dari panitia tampil apa adanya.
+ * `nilai`: jawaban yang sudah tersimpan (halaman Lengkapi data); formulir pendaftaran tidak mengisinya.
+ */
+export function RegistrationFieldInput({ field, lang = "id", nilai }: { field: RegistrationField; lang?: LandingLang; nilai?: string }) {
   const t = DAFTAR_UI[lang].field;
   const [upload, setUpload] = useState<UploadState>(null);
   const [uploading, setUploading] = useState(false);
@@ -83,6 +86,7 @@ export function RegistrationFieldInput({ field, lang = "id" }: { field: Registra
           required={field.required}
           name={`extra.${field.key}`}
           value="true"
+          defaultChecked={nilai === "true"}
           className="mt-1 size-5 shrink-0 accent-[var(--reg-primary)]"
         />
         <span>
@@ -118,6 +122,7 @@ export function RegistrationFieldInput({ field, lang = "id" }: { field: Registra
                   required={field.required}
                   name={`extra.${field.key}`}
                   value={option}
+                  defaultChecked={nilai === option}
                   // Nama tombol = judul saja; keterangan dibacakan sekali lewat
                   // aria-describedby, bukan dua kali dari isi <label>.
                   aria-labelledby={keterangan ? `${field.key}-pilihan-${index}-judul` : undefined}
@@ -195,11 +200,12 @@ export function RegistrationFieldInput({ field, lang = "id" }: { field: Registra
           maxLength={2000}
           rows={3}
           name={`extra.${field.key}`}
+          defaultValue={nilai}
           placeholder={field.placeholder}
           className={`${REG_CONTROL} resize-y font-normal leading-6`}
         />
       ) : field.type === "select" ? (
-        <select required={field.required} name={`extra.${field.key}`} defaultValue="" className={`${REG_CONTROL} font-normal`}>
+        <select required={field.required} name={`extra.${field.key}`} defaultValue={nilai && (field.options ?? []).includes(nilai) ? nilai : ""} className={`${REG_CONTROL} font-normal`}>
           <option value="" disabled>{t.choose}</option>
           {(field.options ?? []).filter((option) => option.trim()).map((option) => (
             <option key={option} value={option}>{option}</option>
@@ -213,6 +219,7 @@ export function RegistrationFieldInput({ field, lang = "id" }: { field: Registra
           min={field.type === "number" ? field.min : undefined}
           max={field.type === "number" ? field.max : undefined}
           name={`extra.${field.key}`}
+          defaultValue={nilai}
           placeholder={field.placeholder}
           className={`${REG_CONTROL} font-normal`}
         />

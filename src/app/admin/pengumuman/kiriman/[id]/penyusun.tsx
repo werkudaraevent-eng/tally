@@ -34,11 +34,11 @@ import { AUDIENCE_LABEL, KIND_LABEL, TAMU } from "@/lib/pesan/label";
  * sudah berubah sejak dialog dibuka.
  */
 
-type Jenis = "semua" | "belum_masuk" | "manual" | "belum_dikirim" | "belum_daftar";
+type Jenis = "semua" | "belum_masuk" | "manual" | "belum_dikirim" | "belum_daftar" | "belum_isi";
 type Audience = { jenis: Jenis; perusahaan: string[]; ids: string[]; label?: string };
 type SkipCode =
   | "tanpa_email" | "berhenti_email" | "email_memantul" | "area_mati" | "belum_boleh_masuk" | "di_luar_daftar_uji"
-  | "sudah_daftar" | "sudah_peserta" | "terjadwal";
+  | "sudah_daftar" | "sudah_peserta" | "terjadwal" | "sudah_isi" | "tanpa_pertanyaan";
 
 const ALASAN_LEWAT: Record<SkipCode, string> = {
   tanpa_email: "with no email",
@@ -50,6 +50,8 @@ const ALASAN_LEWAT: Record<SkipCode, string> = {
   sudah_daftar: "already registered",
   sudah_peserta: "already used by a participant",
   terjadwal: "already in another blast that hasn't finished",
+  sudah_isi: "already answered",
+  tanpa_pertanyaan: "with nothing to ask, because no question is marked Participants can update this",
 };
 
 type Ringkas = {
@@ -79,6 +81,8 @@ export type DetailDraf = {
   time_zone?: string;
   /** Invitation terkunci sampai pengirim undangan terpisah disiapkan. */
   invitation_sending?: { ok: true } | { ok: false; missing: string[] };
+  /** Pertanyaan "Participants can update this", untuk jenis Update details link. */
+  update_fields?: { key: string; label: string }[];
 };
 
 type Isi = { title: string; kind: BlastKind; audience: Audience; email_subject: string; email_body: string };
@@ -202,8 +206,13 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
     const lama = DEFAULT_CONTENT[isi.kind];
     const baru = DEFAULT_CONTENT[kind];
     // Teks bawaan ikut berganti hanya bila panitia belum menyuntingnya.
+    // Server juga mengembalikan penerima ke bawaan jenisnya; ikuti di sini supaya
+    // tombol Recipients tidak menunjuk pilihan yang tidak ada.
+    const audienceBaru: Jenis | null =
+      kind === "data" ? "belum_isi" : isi.audience.jenis === "belum_isi" ? (kind === "undangan" ? "belum_masuk" : "semua") : null;
     ubah({
       kind,
+      ...(audienceBaru ? { audience: { ...isi.audience, jenis: audienceBaru, ids: [], label: undefined } } : {}),
       title: isi.title === lama.title ? baru.title : isi.title,
       email_subject: isi.email_subject === lama.subject ? baru.subject : isi.email_subject,
       email_body: isi.email_body === lama.body ? baru.body : isi.email_body,
@@ -333,6 +342,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
   const pilihPerusahaan = detail.companies.map((c) => ({ value: c.name, label: c.name, count: c.count }));
   const jadwalSalah = waktuKirim === "jadwal" && (!jadwal || jadwalLewat);
   const tamu = isi.kind === "invitation";
+  const pertanyaan = detail.update_fields ?? [];
   const orang = (n: number) => plural(n, tamu ? "invited guest" : "participant");
   const undanganTerkunci = tamu && detail.invitation_sending?.ok === false;
   const bolehKirim =
@@ -428,22 +438,30 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
             </Baris>
 
             <Baris judul="Type" id="jenis">
-              <SegmentedButton
-                label="Blast type"
-                labelledBy="jenis"
-                value={isi.kind}
-                onChange={gantiJenis}
-                options={tamu
-                  ? [{ value: "invitation" as const, label: KIND_LABEL.invitation }]
-                  : [
-                      { value: "undangan" as const, label: KIND_LABEL.undangan },
-                      { value: "info" as const, label: KIND_LABEL.info },
-                    ]}
-                className="self-start"
-              />
+              {/* Kolom ini sempit di 1280 (bilah samping + pratinjau): tiga pilihan
+                  bertumpuk sampai kolomnya cukup lebar, tidak meluber keluar kartu. */}
+              <div className="@container">
+                <SegmentedButton
+                  label="Blast type"
+                  labelledBy="jenis"
+                  value={isi.kind}
+                  onChange={gantiJenis}
+                  options={tamu
+                    ? [{ value: "invitation" as const, label: KIND_LABEL.invitation }]
+                    : [
+                        { value: "undangan" as const, label: KIND_LABEL.undangan },
+                        { value: "info" as const, label: KIND_LABEL.info },
+                        // Label pendek, supaya tiga pilihan muat sebaris begitu kolomnya cukup lebar.
+                        { value: "data" as const, label: "Update details" },
+                      ]}
+                  className={tamu ? "self-start" : "w-full flex-col items-stretch @[360px]:w-auto @[360px]:flex-row @[360px]:items-center"}
+                />
+              </div>
               <p className="text-body-small text-on-surface-variant">
                 {isi.kind === "undangan"
                   ? "Each email has a personal sign-in button. It works once and expires after 7 days."
+                  : isi.kind === "data"
+                    ? "Each email has a personal button that opens the questions participants can update. No password needed. The link expires after 14 days."
                   : tamu
                     ? "An invitation to register. Each email has a personal link to the form, with the invited guest's name already filled in. Sent gradually: about 10% first, the rest after 15 minutes if few bounce."
                     : "A regular email with a button to the event page. It has no sign-in link."}
@@ -454,6 +472,27 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
                 </Banner>
               ) : null}
             </Baris>
+
+            {isi.kind === "data" ? (
+              <Baris judul="Asks for" id="pertanyaan">
+                {pertanyaan.length > 0 ? (
+                  <ul className="flex flex-wrap gap-2">
+                    {pertanyaan.map((field) => (
+                      <li key={field.key} className="min-w-0 max-w-full rounded-md border border-outline-variant px-3 py-1.5 text-body-medium text-on-surface [overflow-wrap:anywhere]">
+                        {field.label}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <Banner tone="warning" icon={<Warning size={18} />}>
+                    No question is marked “Participants can update this” yet, so there is nothing to ask.
+                  </Banner>
+                )}
+                <Link href="/admin/registrasi" className="self-start rounded-sm text-body-medium font-medium text-primary hover:underline">
+                  {pertanyaan.length > 0 ? "Change these questions in Registration › Edit form" : "Mark questions in Registration › Edit form"}
+                </Link>
+              </Baris>
+            ) : null}
 
             <Baris judul="Recipients" id="penerima">
               {/* Satu keluarga kontrol dengan baris Saluran, Jenis, dan Waktu kirim:
@@ -476,10 +515,15 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
                         { value: "belum_dikirim" as const, label: "Not sent yet" },
                         { value: "belum_daftar" as const, label: "Not registered yet" },
                       ]
-                    : [
-                        { value: "semua" as const, label: "All participants" },
-                        { value: "belum_masuk" as const, label: "Never signed in" },
-                      ]),
+                    : isi.kind === "data"
+                      ? [
+                          { value: "belum_isi" as const, label: "Not answered yet" },
+                          { value: "semua" as const, label: "All participants" },
+                        ]
+                      : [
+                          { value: "semua" as const, label: "All participants" },
+                          { value: "belum_masuk" as const, label: "Never signed in" },
+                        ]),
                 ]}
                 className="self-start"
               />
@@ -525,7 +569,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
                 maxLength={5000}
                 onFocus={(e) => (kolomTerakhir.current = { jenis: "isi", el: e.currentTarget })}
                 onChange={(e) => ubah({ email_body: e.target.value })}
-                hint={isi.kind === "undangan" ? "A “Masuk ke acara” button is added below the text automatically." : tamu ? "A “Daftar sekarang” button with the invited guest's personal link is added below the text automatically." : "A “Buka halaman acara” button is added below the text automatically."}
+                hint={isi.kind === "undangan" ? "A “Masuk ke acara” button is added below the text automatically." : isi.kind === "data" ? "A “Lengkapi data saya” button with each participant's personal link is added below the text automatically." : tamu ? "A “Daftar sekarang” button with the invited guest's personal link is added below the text automatically." : "A “Buka halaman acara” button is added below the text automatically."}
               />
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-body-small text-on-surface-variant">Insert:</span>
@@ -653,6 +697,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
           <>
             Sent emails can&apos;t be recalled.
             {isi.kind === "undangan" ? " Sign-in links work once and expire after 7 days. Older unused sign-in links stop working." : ""}
+            {isi.kind === "data" ? " Each link opens the participant's own questions for 14 days. Links from an earlier Update details email stop working." : ""}
             {tamu && counts.email > gelombangPertama(counts.email)
               ? ` Sent in stages: ${plural(gelombangPertama(counts.email), "invitation")} first, the rest about 15 minutes later if few bounce and nobody reports spam.`
               : ""}

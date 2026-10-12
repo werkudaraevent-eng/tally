@@ -13,6 +13,7 @@ import { audienceSchema, companies, countAudience, resolveAudience } from "@/lib
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { linkOrigin } from "@/lib/domain-klien/asal";
 import { invitationSendingReady } from "@/lib/undangan/data";
+import { updatableFields } from "@/lib/member/lengkapi";
 
 /**
  * Satu kiriman. Draf: isi penyusun, hitungan penerima, dan pratinjau email.
@@ -21,7 +22,7 @@ import { invitationSendingReady } from "@/lib/undangan/data";
 
 const ubahSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
-  kind: z.enum(["undangan", "info", "invitation"]).optional(),
+  kind: z.enum(["undangan", "info", "invitation", "data"]).optional(),
   audience: audienceSchema.optional(),
   email_subject: z.string().max(200).optional(),
   email_body: z.string().max(5000).optional(),
@@ -72,6 +73,8 @@ export async function GET(request: Request, context: Konteks) {
     test_mode: messagingAllowlist().mode,
     invitation_sending: invitationSendingReady(),
     time_zone: event.time_zone,
+    // Pertanyaan "Participants can update this", untuk baris Asks for kiriman Update details link.
+    update_fields: updatableFields(event).map((field) => ({ key: field.key, label: field.label })),
   };
   if (blast.status === "draf") {
     const sebagai = new URL(request.url).searchParams.get("sebagai");
@@ -99,7 +102,11 @@ export async function PATCH(request: Request, context: Konteks) {
   // tamu undangan, karena saringan keduanya tidak sama.
   const ubah = { ...parsed.data };
   if (ubah.kind && !ubah.audience) {
-    ubah.audience = { jenis: ubah.kind === "undangan" ? "belum_masuk" : ubah.kind === "invitation" ? "belum_dikirim" : "semua", perusahaan: [], ids: [] };
+    ubah.audience = {
+      jenis: ubah.kind === "undangan" ? "belum_masuk" : ubah.kind === "invitation" ? "belum_dikirim" : ubah.kind === "data" ? "belum_isi" : "semua",
+      perusahaan: [],
+      ids: [],
+    };
   }
   const { data, error } = await getSupabaseServiceClient()
     .from("message_blasts")

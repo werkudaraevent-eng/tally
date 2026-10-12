@@ -19,7 +19,7 @@ import { invitationSendingReady, undanganBelumAda } from "@/lib/undangan/data";
  */
 
 const buatSchema = z.object({
-  kind: z.enum(["undangan", "info", "invitation"]).default("undangan"),
+  kind: z.enum(["undangan", "info", "invitation", "data"]).default("undangan"),
   audience: audienceSchema.optional(),
   title: z.string().trim().min(1).max(120).optional(),
   /** Duplikat: salin isi dan penerima kiriman ini. */
@@ -119,8 +119,8 @@ async function ringkasAcara(eventId: string) {
   return { perKiriman, masuk };
 }
 
-function audienceDefault(kind: "undangan" | "info" | "invitation") {
-  return kind === "undangan" ? "belum_masuk" : kind === "invitation" ? "belum_dikirim" : "semua";
+function audienceDefault(kind: "undangan" | "info" | "invitation" | "data") {
+  return kind === "undangan" ? "belum_masuk" : kind === "invitation" ? "belum_dikirim" : kind === "data" ? "belum_isi" : "semua";
 }
 
 export async function POST(request: Request) {

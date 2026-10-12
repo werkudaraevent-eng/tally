@@ -1476,7 +1476,18 @@ export type RegistrationField = {
   /** Hanya untuk `number`. Dibiarkan kosong berarti tanpa batas. */
   min?: number;
   max?: number;
+  /**
+   * Peserta boleh mengisi atau mengubah jawaban ini sendiri setelah terdaftar:
+   * kartu "Lengkapi data" di dashboard dan kiriman "Update details link"
+   * (halaman /e/<slug>/lengkapi). Tidak berlaku untuk `file`.
+   */
+  participant_update?: boolean;
 };
+
+/** Pertanyaan yang boleh diisi atau diubah peserta sendiri (participant_update). */
+export function participantUpdatableFields(config: { fields?: RegistrationField[] } | null | undefined): RegistrationField[] {
+  return ((config?.fields ?? []) as RegistrationField[]).filter((field) => field.participant_update === true && field.type !== "file");
+}
 
 /** Jenis yang memerlukan daftar pilihan. Kosongnya membuat field mustahil diisi. */
 export const CHOICE_FIELD_TYPES: RegistrationFieldType[] = ["select", "radio"];

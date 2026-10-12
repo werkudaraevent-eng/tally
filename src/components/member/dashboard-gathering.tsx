@@ -45,6 +45,8 @@ import { landingTokens } from "@/lib/landing-tokens";
 import { normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
+import { KartuLengkapi } from "@/components/member/kartu-lengkapi";
+import { kartuLengkapi, updatableFields } from "@/lib/member/lengkapi";
 import { FokusPemicuQr, PemicuQr, TutupQrEscape } from "@/components/member/qr-fokus";
 import { bagianModern, gayaModern } from "@/components/landing/modern/kerangka";
 import { HEAD, SHELL } from "@/components/landing/modern/styles";
@@ -154,6 +156,8 @@ export async function DashboardGathering({
   const tampilSusunan = member.show_schedule !== false;
   const agenda = tampilSusunan ? await loadAgendaPreview(event.id, lang) : [];
   const peserta = sesi.participant;
+  // Kartu Lengkapi data hanya di Beranda. Pratinjau admin: semua pertanyaannya.
+  const lengkapi = tab !== "beranda" && tab !== "qr" ? [] : pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, peserta?.id);
   const logistik = peserta ? await loadMemberLogistics(event.id, peserta.id, member.show_logistics === true) : null;
   const tampilKode = Boolean(peserta) && member.show_code !== false;
 
@@ -498,6 +502,7 @@ export async function DashboardGathering({
             Tautan cepat, Bus dan kamar, dan Teman sekamar di kolom samping. */}
         <div className="flex min-w-0 flex-col gap-4">
           {pitaEmail}
+          <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
           {beranda.order.map((id, index) => {
             // Status pendaftaran sebelum isi pertama selain Tautan cepat, seperti sebelum urutan ini ada.
             const status = index === beranda.order.findIndex((lain) => lain !== "quick") ? statusPendaftaran : null;

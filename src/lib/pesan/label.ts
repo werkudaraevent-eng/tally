@@ -13,6 +13,7 @@ export const KIND_LABEL = {
   undangan: "Sign-in link",
   invitation: "Invitation",
   info: "Event update",
+  data: "Update details link",
 } as const;
 
 export const AUDIENCE_LABEL = {

@@ -70,7 +70,7 @@ export type DetailTerkirim = {
   blast: {
     id: string;
     title: string;
-    kind: "undangan" | "info" | "invitation";
+    kind: "undangan" | "info" | "invitation" | "data";
     channel: "email" | "whatsapp" | "keduanya";
     audience: { jenis?: string; label?: string; perusahaan?: string[]; ids?: string[] } | null;
     status: Exclude<BlastStatus, "draf">;
@@ -95,6 +95,8 @@ type Baris = {
   reason: string | null;
   reason_code: string | null;
   signed_in_at: string | null;
+  /** Update details link: semua pertanyaannya sudah terisi. */
+  answered?: boolean;
 };
 
 type Halaman = { rows: Baris[]; total: number; page: number; page_size: number };
@@ -208,7 +210,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
     { value: "bisa_dicoba", label: "Retrying", count: counts.gagal_sementara },
     { value: "gagal_tetap", label: "Failed", count: counts.gagal_tetap },
     { value: "tidak_pasti", label: "Unconfirmed", count: counts.tidak_pasti },
-    { value: "belum_masuk", label: tamu ? "Not registered yet" : "Not signed in yet", count: Math.max(0, total - detail.signed_in) },
+    { value: "belum_masuk", label: tamu ? "Not registered yet" : blast.kind === "data" ? "Not answered yet" : "Not signed in yet", count: Math.max(0, total - detail.signed_in) },
     { value: "dilewati", label: "Skipped", count: counts.dilewati },
   ];
 
@@ -283,7 +285,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
       <section aria-label="Summary" className="grid overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest sm:grid-cols-2">
         <div className="flex flex-col gap-1 border-b border-outline-variant px-5 py-4 sm:border-b-0 sm:border-e">
           <h2 className="text-label-medium font-semibold uppercase tracking-[0.08em] text-on-surface-variant">
-            {blast.kind === "undangan" ? "Signed in" : tamu ? "Registered" : "Signed in after the blast"}
+            {blast.kind === "undangan" ? "Signed in" : blast.kind === "data" ? "Answered" : tamu ? "Registered" : "Signed in after the blast"}
           </h2>
           <p className="text-body-large text-on-surface-variant">
             <span className="me-2 text-headline-small font-semibold text-on-surface tabular-nums">{detail.signed_in}</span>
@@ -327,7 +329,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
                   <TableHeaderCell>{tamu ? "Invited guest" : "Participant"}</TableHeaderCell>
                   <TableHeaderCell>Email</TableHeaderCell>
                   <TableHeaderCell>Status</TableHeaderCell>
-                  <TableHeaderCell>{tamu ? "Registered" : "Signed in"}</TableHeaderCell>
+                  <TableHeaderCell>{tamu ? "Registered" : blast.kind === "data" ? "Answered" : "Signed in"}</TableHeaderCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -348,7 +350,7 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
                         ) : null}
                       </span>
                     </TableCell>
-                    <TableCell numeric>{r.signed_in_at ? waktu(r.signed_in_at, detail.time_zone) : "–"}</TableCell>
+                    <TableCell numeric>{blast.kind === "data" ? (r.answered ? "Yes" : "–") : r.signed_in_at ? waktu(r.signed_in_at, detail.time_zone) : "–"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
