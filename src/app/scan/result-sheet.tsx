@@ -265,7 +265,7 @@ export function ResultSheet({
                 </button>
 
                 <p className="col-start-2 row-start-2 line-clamp-3 text-headline-small font-semibold [overflow-wrap:anywhere] max-[400px]:col-span-3 max-[400px]:col-start-1 max-[400px]:mt-2 max-[400px]:text-title-large">
-                  {peserta ? peserta.name : hasil.qr ? `Kode ${hasil.qr}` : "Kode ?"}
+                  {peserta ? peserta.name : hasil.dicoba ? hasil.dicoba.nama : hasil.qr ? `Kode ${hasil.qr}` : "Kode ?"}
                 </p>
                 {peserta ? (
                   <p className="col-start-2 row-start-3 line-clamp-2 text-body-medium opacity-80 max-[400px]:col-span-3 max-[400px]:col-start-1">
@@ -274,7 +274,7 @@ export function ResultSheet({
                 ) : null}
               </div>
 
-              {peserta && hadir ? (
+              {peserta?.qr_code && hadir ? (
                 <p className="mt-3 inline-flex rounded-lg bg-black/15 px-3 py-1.5 text-title-medium">
                   {peserta.qr_code}
                 </p>

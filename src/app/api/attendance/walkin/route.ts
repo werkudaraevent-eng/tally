@@ -103,6 +103,20 @@ export async function POST(request: Request) {
     return apiError(code, code === "INTERNAL_ERROR" ? 500 : 422);
   }
 
+  // Kandidat bernama sama dikirim tanpa kode QR: petugas memilihnya lewat id,
+  // sama seperti hasil Cari nama. Kode adalah kunci masuk peserta.
+  const jawaban = data as { status?: string; candidates?: Array<Record<string, unknown>> } | null;
+  if (jawaban?.status === "possible_duplicate") {
+    return Response.json({
+      ...jawaban,
+      candidates: (jawaban.candidates ?? []).map((kandidat) => {
+        const salinan = { ...kandidat };
+        delete salinan.qr_code;
+        return salinan;
+      }),
+    });
+  }
+
   // Badge diantrekan SETELAH kehadiran tersimpan, di permintaan yang sama:
   // HP tidak perlu permintaan kedua yang bisa hilang di jaringan venue.
   // Gagal mengantrekan tidak menggagalkan kehadiran; HP menampilkan galatnya.

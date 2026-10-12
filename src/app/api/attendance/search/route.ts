@@ -20,6 +20,13 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * terpisah memaksa petugas memilih lebih dulu sebelum mengetik; satu kolom yang
  * menyapu nama, instansi, dan kode peserta sekaligus tidak menuntut pilihan itu.
  *
+ * ---- Kode peserta: hanya cocok persis, dan tidak pernah dikirim balik --------
+ *
+ * Kode QR adalah kunci masuk peserta (badge, area peserta). Dulu kode dicocokkan
+ * sepenggal dan ikut di setiap baris hasil, sehingga mengetik "RE" di HP petugas
+ * memperlihatkan kode semua orang. Sekarang kode hanya cocok bila diketik utuh,
+ * dan hasilnya membawa id peserta; /api/attendance/scan mencari kodenya sendiri.
+ *
  * ---- Kenapa setiap kata dicari terpisah ------------------------------------
  *
  * "bud sant" harus menemukan "Budi Santoso", dan "sari bca" harus menemukan
@@ -99,7 +106,11 @@ export async function GET(request: Request) {
 
   for (const potongan of kata) {
     const pola = `%${potongan}%`;
-    kueri = kueri.or(`name.ilike.${pola},company.ilike.${pola},qr_code.ilike.${pola}`);
+    // Kode utuh dicoba apa adanya dan dalam huruf besar (REG159425 diketik
+    // reg159425). `eq`, bukan `ilike`: garis bawah adalah wildcard di `ilike`.
+    kueri = kueri.or(
+      `name.ilike.${pola},company.ilike.${pola},qr_code.eq.${potongan},qr_code.eq.${potongan.toUpperCase()}`,
+    );
   }
 
   const { data, error } = await kueri;
@@ -146,11 +157,23 @@ export async function GET(request: Request) {
 
   const hasil = baris
     .map((row) => ({
-      ...row,
+      id: row.id,
+      name: row.name,
+      company: row.company,
+      title: row.title,
+      peringkat: peringkat(row),
       scan_count: kehadiran.get(row.id)?.jumlah ?? 0,
       first_scan_at: kehadiran.get(row.id)?.pertama ?? null,
     }))
-    .sort((a, b) => peringkat(a) - peringkat(b) || a.name.localeCompare(b.name, "id"));
+    .sort((a, b) => a.peringkat - b.peringkat || a.name.localeCompare(b.name, "id"))
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      company: row.company,
+      title: row.title,
+      scan_count: row.scan_count,
+      first_scan_at: row.first_scan_at,
+    }));
 
   return Response.json({ results: hasil, truncated: dipotong });
 }

@@ -21,7 +21,13 @@ const bodySchema = z.object({
   session_id: z.number().int().positive(),
   // QR peserta apa adanya. Dibersihkan di database, bukan di sini, supaya aturan
   // pemangkasan spasi hanya ada di satu tempat.
-  qr: z.string().trim().min(1).max(120),
+  qr: z.string().trim().min(1).max(120).optional(),
+  /**
+   * Peserta yang dipilih dari hasil Cari nama. Pencarian tidak lagi mengirim
+   * kode QR ke perangkat petugas (kode itu kunci masuk peserta), jadi yang
+   * dikirim balik adalah id-nya, dan kodenya dicari di sini.
+   */
+  participant_id: z.string().uuid().optional(),
   // Meja tempat pemindaian ini terjadi. Opsional: acara satu meja tidak
   // mengenal jalur sama sekali, dan layar sapa tunggalnya menyapa semua orang.
   lane_id: z.number().int().positive().nullish(),
@@ -38,11 +44,30 @@ export async function POST(request: Request) {
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+  // Tepat satu: kode dari kamera, atau id dari hasil pencarian.
+  if (Boolean(parsed.data.qr) === Boolean(parsed.data.participant_id)) {
+    return apiError("VALIDATION_ERROR", 422, { message: "Kirim kode QR atau peserta, salah satu." });
+  }
+
+  let qr = parsed.data.qr ?? "";
+  if (parsed.data.participant_id) {
+    // Peserta acara INI saja, dan bukan yang dibatalkan: aturan yang sama
+    // dengan pencarian yang menampilkannya.
+    const { data: peserta } = await getSupabaseServiceClient()
+      .from("participants")
+      .select("qr_code")
+      .eq("event_id", auth.scope.event.id)
+      .eq("id", parsed.data.participant_id)
+      .is("source_removed_at", null)
+      .maybeSingle() as { data: { qr_code: string } | null };
+    if (!peserta) return apiError("VALIDATION_ERROR", 404, { message: "Peserta ini tidak ditemukan di acara ini. Cari lagi namanya." });
+    qr = peserta.qr_code;
+  }
 
   const { data, error } = await getSupabaseServiceClient().rpc("record_attendance_scan" as never, {
     p_event_id: auth.scope.event.id,
     p_session_id: parsed.data.session_id,
-    p_qr: parsed.data.qr,
+    p_qr: qr,
     p_user: auth.user.id,
     p_lane_id: parsed.data.lane_id ?? null,
   } as never);

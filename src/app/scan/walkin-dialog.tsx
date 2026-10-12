@@ -151,7 +151,7 @@ export function WalkinDialog({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-body-large font-semibold">{baris.name}</p>
                   <p className="truncate text-body-small text-on-surface-variant">
-                    {[baris.company, baris.title].filter(Boolean).join(" · ") || baris.qr_code}
+                    {[baris.company, baris.title].filter(Boolean).join(" · ") || "Tanpa instansi"}
                   </p>
                   {baris.scan_count > 0 ? (
                     <p className="mt-1 flex items-center gap-1 text-label-medium text-warning">

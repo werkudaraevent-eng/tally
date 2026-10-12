@@ -62,6 +62,11 @@ export type Hasil = {
   tersimpanSebelumnya?: boolean;
   /** Badge kertas di stasiun cetak: pekerjaan yang diantrekan, atau yang terakhir untuk pemindaian ulang. */
   badge_cetak?: HasilCetakMeja;
+  /**
+   * Pencatatan dari Cari nama yang gagal sampai ke server: siapa yang dicoba,
+   * untuk judul lembar merah dan untuk Ulangi. Pencarian tidak membawa kode QR.
+   */
+  dicoba?: { id: string; nama: string };
 };
 
 /**
@@ -77,16 +82,15 @@ export type Kandidat = {
   name: string;
   company: string | null;
   title: string | null;
-  qr_code: string;
   scan_count: number;
 };
 
+/** Hasil Cari nama. Tanpa kode QR: kode adalah kunci masuk peserta, dicatat lewat id. */
 export type BarisCari = {
   id: string;
   name: string;
   company: string | null;
   title: string | null;
-  qr_code: string;
   scan_count: number;
   first_scan_at: string | null;
 };
