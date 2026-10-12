@@ -1,9 +1,10 @@
 import type { Icon } from "@phosphor-icons/react";
 import { ArrowUpRight, Car, CaretDown, MapPin, NavigationArrow } from "@phosphor-icons/react/dist/ssr";
 import type { LandingBlock, LandingRouteStop } from "@/lib/domain";
-import { LANDING_CARD_ICON_POLA } from "@/lib/landing-card-icons";
+import { LANDING_CARD_ICON_POLA, type LandingCardTone } from "@/lib/landing-card-icons";
 import type { LandingHotel } from "@/lib/landing-hotel";
 import type { LandingLang } from "@/lib/landing-i18n";
+import { GambarIkonKartu } from "./gambar-ikon-kartu";
 import { MUAT_IKON } from "./ikon-ssr";
 
 // Blok Rute (Directions): dari satu tempat ke tempat lain, mis. hotel A ke
@@ -58,7 +59,7 @@ type Rute = {
   ke: Titik;
   judul: string;
   alis: string;
-  cara: { Ikon: Icon; label: string; waktu: string | null; catatan: string | null; foto: string | null }[];
+  cara: { Ikon: Icon; nada: LandingCardTone; gambarIkon: string | null; label: string; waktu: string | null; catatan: string | null; foto: string | null }[];
   langkah: string[];
   peta: string;
 };
@@ -79,6 +80,8 @@ async function siapkanRute(block: LandingBlock, hotels: LandingHotel[], lang: La
         .filter((item) => item.label?.trim())
         .map(async (item) => ({
           Ikon: await ikon(item.icon),
+          nada: item.tone ?? "brand",
+          gambarIkon: item.icon_url?.trim() || null,
           label: item.label!.trim(),
           waktu: item.value?.trim() || null,
           catatan: item.body?.trim() || null,
@@ -95,7 +98,15 @@ const LABEL = "text-[12px] font-bold uppercase leading-4 tracking-[0.08em]";
 /** Teks sekunder di dalam kartu putih: selalu gelap, juga di latar Dark brand. */
 const MUTED_KARTU = "text-[#5F6B7F]";
 const KARTU_PUTIH = "bg-white text-[#1A2333] shadow-[0_1px_2px_rgb(16_24_40/0.06)]";
-const TOMBOL = "m3-state inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--aksi,var(--reg-primary))] px-5 text-center font-bold text-[var(--on-aksi,#fff)]";
+// Semua warna di atas kartu putih memakai versi "di atas putih" (cukup kontras
+// dengan putih): merek yang terlalu terang jatuh ke tinta gelap (QA #127 M3).
+const TOMBOL = "m3-state inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--aksi-putih,var(--aksi,var(--reg-primary)))] px-5 text-center font-bold text-[var(--on-aksi-putih,var(--on-aksi,var(--reg-on-primary)))]";
+/** Ubin ikon: warna chip tema Gathering, atau warna primary di tata letak lain. */
+const UBIN: Record<LandingCardTone, { latar: string; teks: string }> = {
+  button: { latar: "var(--chip-aksi,var(--reg-primary-container))", teks: "var(--on-chip-aksi,var(--reg-on-primary-container))" },
+  brand: { latar: "var(--chip-merek,var(--reg-primary-container))", teks: "var(--on-chip-merek,var(--reg-on-primary-container))" },
+  accent: { latar: "var(--chip-aksen,var(--reg-primary-container))", teks: "var(--on-chip-aksen,var(--reg-on-primary-container))" },
+};
 
 /** Dua titik dengan garis putus-putus di antaranya. */
 function TitikRute({ rute, lang, besar = false }: { rute: Rute; lang: LandingLang; besar?: boolean }) {
@@ -108,13 +119,13 @@ function TitikRute({ rute, lang, besar = false }: { rute: Rute; lang: LandingLan
       ].map(({ x, label, akhir }) => (
         <li key={label} className="relative flex gap-4">
           {akhir ? null : (
-            <span aria-hidden className="absolute -bottom-4 left-[11px] top-8 border-l-2 border-dashed border-[color-mix(in_srgb,var(--reg-brand)_30%,white)]" />
+            <span aria-hidden className="absolute -bottom-4 left-[11px] top-8 border-l-2 border-dashed border-[color-mix(in_srgb,var(--reg-primary)_40%,white)]" />
           )}
           <span aria-hidden className="flex size-6 shrink-0 items-center justify-center pt-0.5">
             {akhir ? (
-              <MapPin size={24} weight="fill" className="text-[var(--aksi,var(--reg-primary))]" />
+              <MapPin size={24} weight="fill" className="text-[var(--aksi-putih,var(--aksi,var(--reg-primary)))]" />
             ) : (
-              <span className="size-4 rounded-full border-4 border-[var(--reg-brand)] bg-white" />
+              <span className="size-4 rounded-full border-4 border-[var(--reg-primary)] bg-white" />
             )}
           </span>
           <span className="min-w-0">
@@ -131,11 +142,16 @@ function TitikRute({ rute, lang, besar = false }: { rute: Rute; lang: LandingLan
 function DaftarCara({ rute, lang, kartu }: { rute: Rute; lang: LandingLang; kartu: string }) {
   return (
     <ul className="flex flex-col gap-3">
-      {rute.cara.map(({ Ikon, label, waktu, catatan, foto }, index) => (
+      {rute.cara.map(({ Ikon, nada, gambarIkon, label, waktu, catatan, foto }, index) => (
         <li key={index} className={kartu}>
           <div className="flex items-start gap-4">
-            <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-[14px] bg-[color-mix(in_srgb,var(--reg-brand)_8%,white)] text-[var(--reg-brand)]">
-              <Ikon size={24} />
+            <span className="flex size-12 shrink-0 items-center justify-center [&>img]:my-0 [&>img]:size-12">
+              {/* Ikon sendiri menggantikan ubin; ubin kembali bila gambarnya gagal dimuat. */}
+              <GambarIkonKartu src={gambarIkon}>
+                <span aria-hidden className="flex size-12 items-center justify-center rounded-[14px]" style={{ background: UBIN[nada].latar, color: UBIN[nada].teks }}>
+                  <Ikon size={24} />
+                </span>
+              </GambarIkonKartu>
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -167,7 +183,7 @@ function DaftarLangkah({ rute }: { rute: Rute }) {
       {rute.langkah.map((baris, index) => (
         <li key={index} className="relative flex gap-4 pb-4 last:pb-0">
           {index < rute.langkah.length - 1 ? <span aria-hidden className="absolute bottom-0 left-[13px] top-8 w-px bg-[#D9DEE5]" /> : null}
-          <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--reg-brand)] text-[13px] font-bold tabular-nums text-white">
+          <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--reg-primary)] text-[13px] font-bold tabular-nums text-[var(--reg-on-primary)]">
             {index + 1}
           </span>
           <span className="min-w-0 pt-0.5 text-body-large [overflow-wrap:anywhere]">{baris}</span>
@@ -203,7 +219,12 @@ export async function BagianRute({ block, hotels, lang, shell, section, judulKel
   const t = UI[lang];
   const latar = block.tone === "light" ? undefined : block.tone === "dark" ? "color-mix(in srgb, var(--reg-primary) 45%, black)" : "var(--reg-panel)";
   return (
-    <section id={block.id} className={section} style={{ backgroundColor: latar, color: block.tone === "dark" ? "#fff" : undefined }}>
+    <section
+      id={block.id}
+      className={section}
+      // Di latar gelap label kecil memakai putih redup, sama dengan blok lain (QA #127 M3).
+      style={{ backgroundColor: latar, ...(block.tone === "dark" ? { color: "#fff", "--alis": "rgb(255 255 255 / 0.8)" } : {}) } as React.CSSProperties}
+    >
       <div className={`${shell} grid gap-10 lg:grid-cols-12 lg:gap-16`}>
         <div className="flex flex-col gap-8 lg:col-span-5">
           <div className="flex flex-col gap-3">
@@ -244,7 +265,7 @@ export async function KartuRute({ block, hotels, lang }: { block: LandingBlock; 
   return (
     <section aria-labelledby={`${block.id}-judul`} className={`${KARTU_PUTIH} rounded-[20px] p-5 sm:p-6`}>
       <div className="flex items-start gap-3">
-        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--reg-brand)_8%,white)] text-[var(--reg-brand)]">
+        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl" style={{ background: UBIN.brand.latar, color: UBIN.brand.teks }}>
           <NavigationArrow size={20} weight="fill" />
         </span>
         <div className="min-w-0">
@@ -268,7 +289,7 @@ export async function KartuRute({ block, hotels, lang }: { block: LandingBlock; 
       </div>
       {rute.langkah.length > 0 ? (
         <details className="group mt-5 border-t border-[#E6E9EE] pt-2">
-          <summary className="m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 text-title-small font-bold text-[var(--alis,var(--reg-brand))] [&::-webkit-details-marker]:hidden">
+          <summary className="m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 text-title-small font-bold text-[var(--alis,var(--reg-primary))] [&::-webkit-details-marker]:hidden">
             {t.stepByStep(rute.langkah.length)}
             <CaretDown size={18} weight="bold" aria-hidden className="transition-transform group-open:rotate-180 motion-reduce:transition-none" />
           </summary>

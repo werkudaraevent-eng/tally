@@ -85,11 +85,14 @@ export async function DashboardModern({
   const agenda = await loadAgendaPreview(event.id, lang);
   // Gaya gathering: menu dan susunan acara sama dengan halaman acaranya.
   const gaya = config.gathering === true;
-  // Blok yang admin pilih untuk halaman peserta (Show on), di atas susunan acara.
-  const blokPeserta = landingMemberBlocks(config.sections, config.blocks);
-  const inap = gaya || blokPeserta.some((block) => block.type === "route") ? await loadLandingLodging(event.id) : null;
+  // Blok Rute (di halaman ini atau di menu ke halaman acara) butuh hotel dari Logistik.
+  const adaRute = (config.blocks ?? []).some((block) => block.type === "route");
+  const inap = gaya || adaRute ? await loadLandingLodging(event.id) : null;
   const adaHotel = gaya ? (inap?.hotels.length ?? 0) > 0 : false;
-  const { aktif, blokById, tampil, speakers, navSections, mitra: sponsor, kontak } = bagianModern(event, config, sections, agenda, lang, { gathering: gaya, adaHotel });
+  const hotelIds = inap ? new Set(inap.hotels.map((hotel) => hotel.id)) : undefined;
+  // Blok yang admin pilih untuk halaman peserta (Show on), di atas susunan acara.
+  const blokPeserta = landingMemberBlocks(config.sections, config.blocks, hotelIds);
+  const { aktif, blokById, tampil, speakers, navSections, mitra: sponsor, kontak } = bagianModern(event, config, sections, agenda, lang, { gathering: gaya, adaHotel, hotelIds });
   // Pita mitra seperti di kaki halaman acara. Banyak acara (ILO salah satunya)
   // memasang logo lewat blok Logo, bukan daftar Sponsor; tanpa sponsor, pakai
   // blok Logo pertama yang tampil supaya kaki dashboard sama dengan halaman acara.

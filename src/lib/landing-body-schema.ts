@@ -53,6 +53,8 @@ const blockEnSchema = z.object({
   role: teks(160),
   nav_label: teks(LANDING_NAV_LABEL_MAX),
 });
+// Hanya https (QA #115 L1): gambar ikon dari unggahan CMS selalu https.
+const ikonUrl = z.string().trim().max(600).regex(/^https:\/\/[^\s"'<>]+$/, "Icon images must be an https:// address").nullable().optional();
 const routeStop = z.object({ hotel_id: z.number().int().positive().optional(), name: teks(120), address: teks(300) });
 const blockSchema = z.object({
   id: blockId,
@@ -76,6 +78,8 @@ const blockSchema = z.object({
     value: teks(30),
     href: tautan.optional(),
     icon: z.string().regex(LANDING_CARD_ICON_POLA).optional(),
+    tone: z.enum(LANDING_CARD_TONES).optional(),
+    icon_url: ikonUrl,
     en: itemEnSchema.optional(),
   })).max(16).optional(),
   quote: teks(600),
@@ -302,8 +306,7 @@ export const landingBodySchema = z.object({
       body: z.string().trim().max(LANDING_ABOUT_CARDS.body),
       icon: z.string().regex(LANDING_CARD_ICON_POLA).optional(),
       tone: z.enum(LANDING_CARD_TONES).optional(),
-      // Hanya https (QA #115 L1): gambar dari unggahan CMS selalu https.
-      icon_url: z.string().trim().max(600).regex(/^https:\/\/[^\s"'<>]+$/, "Icon images must be an https:// address").nullable().optional(),
+      icon_url: ikonUrl,
     })).max(LANDING_ABOUT_CARDS.max).optional(),
     program_heading: z.string().trim().max(120).optional(),
     program_intro: z.string().trim().max(400).optional(),

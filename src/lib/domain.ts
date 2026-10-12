@@ -277,6 +277,10 @@ export type LandingBlockItem = {
   href?: string;
   /** Rute: nama ikon Phosphor tiap cara ke sana (landing-card-icons.ts). Kosong = mobil. */
   icon?: string;
+  /** Rute: warna ubin ikon dari tema. Kosong = Brand. */
+  tone?: LandingCardTone;
+  /** Rute: gambar ikon sendiri. Diisi = menggantikan ikon dan ubinnya. */
+  icon_url?: string | null;
   /** Teks English butir ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingItemEn;
 };
@@ -604,7 +608,11 @@ export function landingBlockMaxItems(block: Pick<LandingBlock, "type" | "layout"
  * Apakah blok punya isi untuk dirender. Sama di halaman publik dan CMS: blok
  * kosong tidak tampil, dan CMS menandainya "Belum ada isinya".
  */
-export function landingBlockHasContent(block: LandingBlock): boolean {
+export function landingBlockHasContent(
+  block: LandingBlock,
+  /** Id hotel di Logistik. Diisi = titik Rute yang hotelnya sudah dihapus dihitung kosong. */
+  hotelIds?: ReadonlySet<number>,
+): boolean {
   const items = block.items ?? [];
   switch (block.type) {
     case "text_image": return Boolean(block.heading?.trim() || block.body?.trim());
@@ -620,13 +628,14 @@ export function landingBlockHasContent(block: LandingBlock): boolean {
     case "cta": return Boolean(block.heading?.trim());
     // Gambar saja tidak cukup: kolomnya kosong bagi pembaca layar.
     case "multicolumn": return items.some((item) => item.title?.trim() || item.body?.trim());
-    // Dua ujung saja sudah berguna: tombol Maps. Hotel yang terhapus diperiksa saat render.
-    case "route": return routeStopFilled(block.route_from) && routeStopFilled(block.route_to);
+    // Dua ujung saja sudah berguna: tombol Maps.
+    case "route": return routeStopFilled(block.route_from, hotelIds) && routeStopFilled(block.route_to, hotelIds);
   }
 }
 
-function routeStopFilled(stop: LandingRouteStop | undefined): boolean {
-  return Boolean(stop && (stop.hotel_id || stop.name?.trim()));
+function routeStopFilled(stop: LandingRouteStop | undefined, hotelIds?: ReadonlySet<number>): boolean {
+  if (stop?.hotel_id) return hotelIds ? hotelIds.has(stop.hotel_id) : true;
+  return Boolean(stop?.name?.trim());
 }
 
 export const LANDING_SECTION_LABELS: Record<LandingSectionId, string> = {
@@ -721,11 +730,11 @@ export function normalizeLandingSections(saved: LandingSectionEntry[] | undefine
  * Blok untuk halaman peserta: yang tampil (mata menyala), dipilih untuk
  * Participant page atau Both, dan berisi; urut seperti di Page sections.
  */
-export function landingMemberBlocks(saved: LandingSectionEntry[] | undefined, blocks: LandingBlock[] = []): LandingBlock[] {
+export function landingMemberBlocks(saved: LandingSectionEntry[] | undefined, blocks: LandingBlock[] = [], hotelIds?: ReadonlySet<number>): LandingBlock[] {
   const byId = new Map<string, LandingBlock>(blocks.map((block) => [block.id, block]));
   return normalizeLandingSections(saved, blocks).flatMap((section) => {
     const block = section.enabled ? byId.get(section.id) : undefined;
-    return block && landingBlockShownOn(block, "member") && landingBlockHasContent(block) ? [block] : [];
+    return block && landingBlockShownOn(block, "member") && landingBlockHasContent(block, hotelIds) ? [block] : [];
   });
 }
 

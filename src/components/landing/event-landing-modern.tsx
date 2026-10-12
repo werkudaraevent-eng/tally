@@ -223,6 +223,8 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const { tampil, tampilProgram, speakers, blokById, jangkar, navSections, mitra, kontak } = bagianModern(event, config, sections, agenda, lang, {
     gathering: gaya,
     adaHotel: hotelInap.length > 0,
+    // Blok Rute yang hotelnya sudah dihapus tidak dirender, jadi juga tidak di menu.
+    hotelIds: new Set(hotelInap.map((hotel) => hotel.id)),
   });
 
   const kv = config.banner_url ?? null;

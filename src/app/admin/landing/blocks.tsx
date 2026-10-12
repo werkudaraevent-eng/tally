@@ -720,7 +720,7 @@ export function BlockEditor({ block, onChange, semuaBlok = [] }: { block: Landin
             block={block}
             ubah={ubah}
             alis={alis}
-            judul={teks("heading", "Heading", { optional: true, hint: "Empty = Dari <place> ke <place>." })}
+            judul={teks("heading", "Heading", { optional: true, hint: "Leave empty to use \u201cDari <from> ke <to>\u201d, or \u201cFrom <from> to <to>\u201d in English." })}
             semuaBlok={semuaBlok}
           />
           {latar}

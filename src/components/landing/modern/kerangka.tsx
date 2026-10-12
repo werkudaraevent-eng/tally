@@ -85,7 +85,7 @@ export function bagianModern(
   agenda: Agenda,
   lang: LandingLang,
   /** Gaya gathering: tanpa kartu Program, Lokasi menjadi Tempat menginap bila ada hotel. */
-  opsi: { gathering?: boolean; adaHotel?: boolean } = {},
+  opsi: { gathering?: boolean; adaHotel?: boolean; hotelIds?: ReadonlySet<number> } = {},
 ) {
   const t = LANDING_UI[lang];
   const NAV_LABEL = opsi.gathering
@@ -122,7 +122,7 @@ export function bagianModern(
     .forEach((section) => {
       if (isLandingBlockId(section.id)) {
         const block = blokById.get(section.id);
-        if (block && landingBlockHasContent(block)) jangkar.add(block.id);
+        if (block && landingBlockHasContent(block, opsi.hotelIds)) jangkar.add(block.id);
       } else if (tampil(section.id)) {
         jangkar.add(section.id);
       }
@@ -139,7 +139,7 @@ export function bagianModern(
       if (isLandingBlockId(section.id)) {
         const block = blokById.get(section.id);
         const label = block?.nav_label?.trim();
-        if (block && label && landingBlockHasContent(block)) tambahNav(block.id, label);
+        if (block && label && landingBlockHasContent(block, opsi.hotelIds)) tambahNav(block.id, label);
         return;
       }
       // Kartu program menempel pada Tentang acara, atau pada Susunan acara bila

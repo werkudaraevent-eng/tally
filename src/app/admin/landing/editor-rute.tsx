@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Plus, Trash } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { IconButton, SegmentedButton, SelectField, TextArea, TextField } from "@/components/m3";
@@ -45,18 +45,22 @@ export function TampilDi({ block, ubah }: { block: LandingBlock; ubah: (patch: P
   );
 }
 
-function Titik({ label, stop, hotels, onChange }: { label: string; stop: LandingRouteStop | undefined; hotels: Hotel[]; onChange: (stop: LandingRouteStop) => void }) {
-  const pilihan = stop?.hotel_id ? String(stop.hotel_id) : stop?.name !== undefined ? "lain" : "";
+function Titik({ label, stop, hotels, onChange }: { label: string; stop: LandingRouteStop | undefined; hotels: Hotel[] | null; onChange: (stop: LandingRouteStop) => void }) {
+  // Hotel yang sudah dihapus dari Logistik: blok tidak tampil sampai tempatnya dipilih lagi.
+  const hilang = Boolean(stop?.hotel_id && hotels && !hotels.some((hotel) => hotel.id === stop.hotel_id));
+  const pilihan = stop?.hotel_id ? (hilang ? "" : String(stop.hotel_id)) : stop?.name !== undefined ? "lain" : "";
+  const daftar = hotels ?? [];
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-outline-variant p-3">
       <SelectField
         label={label}
         value={pilihan}
-        hint={hotels.length ? "Hotels come from Logistics; the address stays in sync." : "No hotels in Logistics yet. Type a place below."}
+        error={hilang ? "This hotel was removed from Logistics. Choose a place again; the block is hidden until you do." : undefined}
+        hint={hilang ? undefined : daftar.length ? "Hotels come from Logistics; the address stays in sync." : "No hotels in Logistics yet. Choose Another place."}
         onChange={(event) => onChange(event.target.value === "lain" ? { name: "" } : { hotel_id: Number(event.target.value) })}
       >
         <option value="" disabled>Choose a place</option>
-        {hotels.map((hotel) => <option key={hotel.id} value={hotel.id}>{hotel.name}</option>)}
+        {daftar.map((hotel) => <option key={hotel.id} value={hotel.id}>{hotel.name}</option>)}
         <option value="lain">Another place…</option>
       </SelectField>
       {pilihan === "lain" ? (
@@ -65,24 +69,30 @@ function Titik({ label, stop, hotels, onChange }: { label: string; stop: Landing
           <TextField label="Address" optional hint="Used for the Maps link." value={stop?.address ?? ""} onChange={(event) => onChange({ ...stop, address: event.target.value })} />
         </>
       ) : pilihan ? (
-        <p className="text-body-small text-on-surface-variant">{hotels.find((h) => String(h.id) === pilihan)?.address}</p>
+        <p className="text-body-small text-on-surface-variant">{daftar.find((h) => String(h.id) === pilihan)?.address}</p>
       ) : null}
     </div>
   );
 }
 
 export function EditorRute({ block, ubah, judul, alis, semuaBlok }: { block: LandingBlock; ubah: (patch: Partial<LandingBlock>) => void; judul: React.ReactNode; alis: React.ReactNode; semuaBlok: LandingBlock[] }) {
-  const [hotels, setHotels] = useState<Hotel[]>([]);
+  // null = belum dimuat: jangan tandai hotel sebagai terhapus sebelum daftarnya ada.
+  const [hotels, setHotels] = useState<Hotel[] | null>(null);
   useEffect(() => {
     void fetch(eventApiPath("/api/admin/logistik"), { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { hotels?: Hotel[] } | null) => setHotels(data?.hotels ?? []))
+      .then((data: { hotels?: Hotel[] } | null) => { if (data?.hotels) setHotels(data.hotels); })
       .catch(() => {});
   }, []);
   const items = block.items ?? [];
   const ubahItem = (index: number, patch: Partial<LandingBlockItem>) => ubah({ items: items.map((item, i) => (i === index ? { ...item, ...patch } : item)) });
+  const geser = (index: number, ke: number) => {
+    const next = [...items];
+    [next[index], next[ke]] = [next[ke], next[index]];
+    ubah({ items: next });
+  };
   // Saran = nama cara yang sudah ditulis di blok Rute acara ini (bukan daftar di kode).
-  const saran = [...new Set((semuaBlok).filter((b) => b.type === "route").flatMap((b) => (b.items ?? []).map((i) => i.label?.trim() ?? "")).filter(Boolean))];
+  const saran = [...new Set(semuaBlok.filter((b) => b.type === "route").flatMap((b) => (b.items ?? []).map((i) => i.label?.trim() ?? "")).filter(Boolean))];
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
@@ -100,13 +110,18 @@ export function EditorRute({ block, ubah, judul, alis, semuaBlok }: { block: Lan
               <PilihIkonKartu
                 nomor={index + 1}
                 ikon={item.icon ?? "Car"}
-                nada="brand"
-                bawaan={!item.icon}
+                nada={item.tone ?? "brand"}
+                bawaan={!item.icon && !item.tone && !item.icon_url}
                 warna={UBIN}
-                gambar={null}
-                onChange={(x) => ubahItem(index, { icon: x?.icon })}
+                gambar={item.icon_url?.trim() || null}
+                // Picker mengirim sebagian (ikon, warna ubin, atau gambar sendiri); null = kembali ke bawaan.
+                onChange={(x) => ubahItem(index, x ?? { icon: undefined, tone: undefined, icon_url: undefined })}
               />
-              <IconButton label="Remove" onClick={() => ubah({ items: items.filter((_, i) => i !== index) })}><Trash size={16} /></IconButton>
+              <div className="flex items-center gap-1">
+                <IconButton label={`Move way ${index + 1} up`} disabled={index === 0} onClick={() => geser(index, index - 1)}><ArrowUp size={16} /></IconButton>
+                <IconButton label={`Move way ${index + 1} down`} disabled={index === items.length - 1} onClick={() => geser(index, index + 1)}><ArrowDown size={16} /></IconButton>
+                <IconButton label={`Remove way ${index + 1}`} onClick={() => ubah({ items: items.filter((_, i) => i !== index) })}><Trash size={16} /></IconButton>
+              </div>
             </div>
             <TextField label="Name" list={`saran-${block.id}`} placeholder="e.g. Jalan kaki lewat jembatan" value={item.label ?? ""} onChange={(event) => ubahItem(index, { label: event.target.value })} />
             <TextField label="Time" optional placeholder="± 5 menit" value={item.value ?? ""} onChange={(event) => ubahItem(index, { value: event.target.value })} />

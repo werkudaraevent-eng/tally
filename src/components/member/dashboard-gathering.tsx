@@ -161,10 +161,11 @@ export async function DashboardGathering({
   const inap = await loadLandingLodging(event.id);
   const adaHotel = inap.hotels.length > 0;
   // Blok yang admin pilih untuk halaman peserta (Show on), di atas Rundown hari ini.
-  const kartuBlok = landingMemberBlocks(config.sections, config.blocks).map((block) =>
+  const hotelIds = new Set(inap.hotels.map((hotel) => hotel.id));
+  const kartuBlok = landingMemberBlocks(config.sections, config.blocks, hotelIds).map((block) =>
     block.type === "route" ? <KartuRute key={block.id} block={block} hotels={inap.hotels} lang={lang} /> : null,
   );
-  const { navSections, tampil } = bagianModern(event, config, sectionsHalaman, agendaNav, lang, { gathering: true, adaHotel });
+  const { navSections, tampil } = bagianModern(event, config, sectionsHalaman, agendaNav, lang, { gathering: true, adaHotel, hotelIds });
   const menuAtas = (() => {
     const urutan = susunanDenganPortal(config.sections, config.blocks);
     if (config.portal_section === false || navSections.some((section) => section.id === "portal")) return navSections;
