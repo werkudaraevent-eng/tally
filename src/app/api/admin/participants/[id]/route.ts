@@ -3,6 +3,7 @@ import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationFormConfig } from "@/lib/domain";
 import { cleanExtra, participantBodySchema, toRpcArgs } from "@/lib/participant-input";
+import { applyTallySeats, prepareTallySeats, SeatInputError } from "@/lib/seat-tally";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const paramsSchema = z.string().uuid();
@@ -38,6 +39,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return apiError("VALIDATION_ERROR", 422, Object.fromEntries(issues.map((issue) => [`extra.${issue.key}`, issue.message])));
   }
 
+  // Kursi diperiksa sebelum apa pun ditulis: label salah ketik ditolak tanpa
+  // menyisakan peserta yang sudah tersimpan setengah.
+  let kursi: Awaited<ReturnType<typeof prepareTallySeats>> = [];
+  try {
+    kursi = await prepareTallySeats(auth.scope.event.id, id.data, body.data.seats ?? []);
+  } catch (galat) {
+    if (galat instanceof SeatInputError) return apiError("VALIDATION_ERROR", 422, { seats: galat.message });
+    throw galat;
+  }
+
   const { data, error } = await client.rpc("save_participant" as never, {
     p_event_id: auth.scope.event.id,
     p_id: id.data,
@@ -48,7 +59,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const code = mapDatabaseError(error);
     return apiError(code, code === "INTERNAL_ERROR" ? 500 : code === "PARTICIPANT_NOT_FOUND" ? 404 : 422);
   }
-  return Response.json({ participant: data });
+  try {
+    const { freed } = await applyTallySeats(auth.scope.event.id, id.data, kursi, auth.user.id);
+    return Response.json({ participant: data, freed });
+  } catch {
+    return apiError("INTERNAL_ERROR", 500, { seats: "Participant saved, but the seat wasn't. Try saving again." });
+  }
 }
 
 /**

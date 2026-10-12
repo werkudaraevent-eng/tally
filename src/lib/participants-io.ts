@@ -96,7 +96,7 @@ export type ImportRow = Partial<Record<ImportField, string>> & { extra?: Record<
  */
 export function mapRows(matrix: string[][], fields: RegistrationField[] = []) {
   const [headerRow, ...bodyRows] = matrix;
-  if (!headerRow) return { rows: [] as ImportRow[], recognized: [] as string[] };
+  if (!headerRow) return { rows: [] as ImportRow[], recognized: [] as string[], seats: [] as string[] };
 
   const tambahan = importableFields(fields);
   const byLabel = new Map<string, string>();
@@ -106,9 +106,14 @@ export function mapRows(matrix: string[][], fields: RegistrationField[] = []) {
   }
 
   const columns = headerRow.map((cell) => kolomImpor(cell ?? "", byLabel));
+  // Kolom kursi ("seat", atau "kursi" seperti di berkas ekspor) tidak ikut ke
+  // RPC impor: kursi ditulis terpisah oleh route lewat `seat-tally`. Kolom yang
+  // sudah dikenali sebagai pertanyaan form tetap milik form.
+  const kolomKursi = headerRow.findIndex((cell, index) => !columns[index] && ["seat", "kursi"].includes(normalizeHeader(cell ?? "")));
   const recognized = [...new Set(columns.filter((column): column is NonNullable<KolomImpor> => column !== null).map((column) => (column.kind === "base" ? column.field : column.key)))];
 
   const rows: ImportRow[] = [];
+  const seats: string[] = [];
   for (const cells of bodyRows) {
     const row: ImportRow = {};
     let filled = false;
@@ -123,9 +128,13 @@ export function mapRows(matrix: string[][], fields: RegistrationField[] = []) {
     // Baris kosong dilewati tanpa dihitung sebagai penolakan. Spreadsheet nyaris
     // selalu punya baris kosong di bawah data, dan melaporkannya sebagai galat
     // membuat setiap impor terlihat bermasalah.
-    if (filled) rows.push(row);
+    if (filled) {
+      rows.push(row);
+      seats.push(kolomKursi >= 0 ? (cells[kolomKursi] ?? "").trim() : "");
+    }
   }
-  return { rows, recognized };
+  if (kolomKursi >= 0) recognized.push("seat");
+  return { rows, recognized, seats };
 }
 
 /**

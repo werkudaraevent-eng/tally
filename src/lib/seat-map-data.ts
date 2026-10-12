@@ -1,4 +1,5 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { isTallySeatSource } from "@/lib/seat-tally-source";
 import { BRANDING_COLUMNS, normalizeBranding, type Branding } from "@/lib/branding";
 import { normalizeConfig, normalizePublicViewMode, normalizeSeatColors, normalizeSeatLabel, SEAT_COLOR_COLUMNS, type PublicViewMode, type SeatColors, type SeatMapConfig } from "@/lib/seat-map";
 
@@ -236,6 +237,9 @@ export async function discoverSubEvents(eventId: string) {
     const seats = Array.isArray(participant.seats) ? participant.seats : [];
     for (const seat of seats) {
       if (!seat || typeof seat.subEventId !== "string" || !seat.subEventId) continue;
+      // Kursi yang diisi di Tally bukan sub-event scanner; sumbernya dipilih
+      // lewat opsi "Set in Tally" milik sesi itu sendiri.
+      if (isTallySeatSource(seat.subEventId)) continue;
       const existing = found.get(seat.subEventId);
       if (existing) existing.seatCount += 1;
       else

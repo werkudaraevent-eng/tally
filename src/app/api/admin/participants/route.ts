@@ -6,6 +6,7 @@ import { cleanExtra, participantBodySchema, toRpcArgs } from "@/lib/participant-
 import { BATAS_BACA, TerlaluBanyak, argumenRpc, nilaiKolomAdmin, querySchema, saring, saringanAdmin, semuaBarisRpc } from "@/lib/participants-saring";
 import { kolomSaringanAdmin } from "@/lib/saringan-kolom";
 import { normalizeTimeZone } from "@/lib/timezone";
+import { applyTallySeats, prepareTallySeats, SeatInputError } from "@/lib/seat-tally";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Whitelist kolom sort dan skema parameter ada di participants-saring: Export
@@ -184,6 +185,14 @@ export async function POST(request: Request) {
     return apiError("VALIDATION_ERROR", 422, Object.fromEntries(issues.map((issue) => [`extra.${issue.key}`, issue.message])));
   }
 
+  let kursi: Awaited<ReturnType<typeof prepareTallySeats>> = [];
+  try {
+    kursi = await prepareTallySeats(auth.scope.event.id, null, body.data.seats ?? []);
+  } catch (galat) {
+    if (galat instanceof SeatInputError) return apiError("VALIDATION_ERROR", 422, { seats: galat.message });
+    throw galat;
+  }
+
   const { data, error } = await getSupabaseServiceClient().rpc("save_participant" as never, {
     p_event_id: auth.scope.event.id,
     p_id: null,
@@ -193,6 +202,15 @@ export async function POST(request: Request) {
   if (error) {
     const code = mapDatabaseError(error);
     return apiError(code, code === "INTERNAL_ERROR" ? 500 : 422);
+  }
+  const baru = (data as { id?: string } | null)?.id;
+  if (baru && kursi.length > 0) {
+    try {
+      const { freed } = await applyTallySeats(auth.scope.event.id, baru, kursi, auth.user.id);
+      return Response.json({ participant: data, freed }, { status: 201 });
+    } catch {
+      return apiError("INTERNAL_ERROR", 500, { seats: "Participant added, but the seat wasn't saved. Edit the participant to set it." });
+    }
   }
   return Response.json({ participant: data }, { status: 201 });
 }

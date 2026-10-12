@@ -25,6 +25,11 @@ type ImportPreview = {
   issues_truncated: boolean;
   recognized_columns: string[];
   file_name: string;
+  /** Hanya ada bila berkas membawa kolom seat untuk sesi "Set in Tally". */
+  seats_set?: number;
+  seats_freed?: number;
+  seats_scanner?: number;
+  seat_session?: string;
 };
 
 export default function ParticipantsAdminPage() {
@@ -84,7 +89,8 @@ export default function ParticipantsAdminPage() {
     closeImport();
     const kodeBaru = body.generated > 0 ? ` (${body.generated} with a generated QR code)` : "";
     toast.success("Import complete", `${body.inserted} added${kodeBaru}, ${body.updated} updated, ${body.rejected} rejected.`);
-    setMessage(`Import complete: ${plural(body.inserted, "participant")} added${kodeBaru}, ${body.updated} updated, ${body.source_locked} with contact details only, ${body.rejected} rejected.`);
+    const kursi = typeof body.seats_set === "number" ? ` ${plural(body.seats_set, "seat")} set in ${body.seat_session}.` : "";
+    setMessage(`Import complete: ${plural(body.inserted, "participant")} added${kodeBaru}, ${body.updated} updated, ${body.source_locked} with contact details only, ${body.rejected} rejected.${kursi}`);
     setReloadKey((key) => key + 1);
   }
 
@@ -183,6 +189,9 @@ export default function ParticipantsAdminPage() {
                 {preview.unchecked > 0 ? <li className="flex items-start gap-1.5 text-warning"><Warning size={16} className="mt-0.5 shrink-0" />{preview.unchecked} of them {preview.unchecked === 1 ? "has" : "have"} no usable email or phone, so duplicates can&apos;t be detected</li> : null}
                 <li><span className="font-medium">{preview.updated}</span> {preview.updated === 1 ? "manual participant" : "manual participants"} updated</li>
                 <li><span className="font-medium">{preview.source_locked}</span> Scanner API {preview.source_locked === 1 ? "participant" : "participants"}, email and phone only</li>
+                {typeof preview.seats_set === "number" ? (
+                  <li><span className="font-medium">{preview.seats_set}</span> {preview.seats_set === 1 ? "seat" : "seats"} set in {preview.seat_session}{preview.seats_freed ? `, ${preview.seats_freed} taken from other participants` : ""}{preview.seats_scanner ? `, ${preview.seats_scanner} skipped (seat comes from Scanner API)` : ""}</li>
+                ) : null}
                 <li><span className="font-medium text-error">{preview.rejected}</span> {preview.rejected === 1 ? "row" : "rows"} rejected</li>
               </ul>
               <p className="mt-2 text-on-surface-variant">Recognised columns: {preview.recognized_columns.join(", ") || "none"}</p>

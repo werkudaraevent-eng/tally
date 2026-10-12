@@ -34,6 +34,13 @@ export const participantBodySchema = z.object({
     .record(z.string().max(MAX_ANSWER_LENGTH))
     .refine((value) => Object.keys(value).length <= MAX_CUSTOM_FIELDS)
     .optional(),
+  // Kursi yang diisi di Tally, per sesi denah ber-sumber "Set in Tally". Tidak
+  // ikut `save_participant`: ditulis terpisah oleh `applyTallySeats`. Bila tidak
+  // dikirim, kursi yang ada dibiarkan.
+  seats: z
+    .array(z.object({ session_id: z.number().int().positive(), label: z.string().trim().max(40).nullable() }))
+    .max(20)
+    .optional(),
 });
 
 export type ParticipantBody = z.infer<typeof participantBodySchema>;

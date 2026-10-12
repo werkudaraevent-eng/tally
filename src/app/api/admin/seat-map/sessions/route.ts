@@ -4,6 +4,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_FONTS, SCALE_MAX, SCALE_MIN, type BrandingFont } from "@/lib/branding";
 import { SESSION_COLUMNS } from "@/lib/seat-map-data";
+import { isTallySeatSource, tallySeatSource } from "@/lib/seat-tally-source";
 
 // Pengelolaan agenda denah. Admin saja.
 //
@@ -224,6 +225,12 @@ export async function PATCH(request: Request) {
   const client = getSupabaseServiceClient();
   const { data: current } = await client.from("seat_map_sessions").select(SESSION_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   if (!current) return apiError("SEAT_MAP_SESSION_NOT_FOUND", 404);
+
+  // Sumber "Set in Tally" selalu menunjuk sesi itu sendiri. Nilai `tally:` milik
+  // sesi lain akan membuat dua denah berbagi kursi tanpa ada yang menyadarinya.
+  if (isTallySeatSource(changes.sub_event_id?.trim()) && changes.sub_event_id?.trim() !== tallySeatSource(id)) {
+    return apiError("VALIDATION_ERROR", 422, { message: "Invalid seat source." });
+  }
 
   const { data, error } = await client
     .from("seat_map_sessions")
