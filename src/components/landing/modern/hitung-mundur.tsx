@@ -202,34 +202,34 @@ function Papan({ sisa, detik, teks, lang, berlangsung, hariKe }: Dasar) {
       <style>{ANIMASI}</style>
       <Kepala teks={teks} kapan={false} />
       <div className="rounded-xl bg-[#0D1117] p-4 text-white ring-1 ring-white/10 sm:p-6">
-        <div className="mb-4 flex flex-col gap-1 font-mono text-[12px] uppercase tracking-[0.12em] text-white/60 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <span className="break-words sm:truncate">{teks.ke}</span>
+        <div className="mb-4 flex flex-col gap-1 font-mono text-[12px] uppercase tracking-[0.12em] text-white/60 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-4">
+          <span className="break-words @xl:truncate">{teks.ke}</span>
           <span className="shrink-0 text-[var(--hm-papan)]">{[teks.tanggalPendek, teks.jamMulai].filter(Boolean).join(" · ")}</span>
         </div>
         {berlangsung ? (
-          <div aria-hidden className="flex min-h-[84px] flex-col justify-center gap-2 sm:min-h-[112px]">
-            <p className={`${HEAD} flex items-center gap-3 text-[28px] font-semibold leading-none sm:text-[40px]`}>
+          <div aria-hidden className="flex min-h-[84px] flex-col justify-center gap-2 @2xl:min-h-[112px]">
+            <p className={`${HEAD} flex items-center gap-3 text-[28px] font-semibold leading-none @2xl:text-[40px]`}>
               <span className="size-3 shrink-0 rounded-full bg-[var(--hm-papan)]" />
               {LANDING_UI[lang].countdownLive}
             </p>
             {hariKe ? <p className="text-isi text-white/70">{hariKe}</p> : null}
           </div>
         ) : (
-          <div aria-hidden className={`flex items-start ${sempit ? "gap-1.5 sm:gap-3" : "gap-2 sm:gap-3"}`}>
+          <div aria-hidden className={`flex items-start ${sempit ? "gap-1.5 @2xl:gap-3" : "gap-2 @2xl:gap-3"}`}>
             {grup.map((g, i) => (
-              <div key={g.label} className={`flex items-start ${sempit ? "gap-1.5 sm:gap-3" : "gap-2 sm:gap-3"}`}>
-                {i > 0 ? <span className={`${HEAD} pt-1.5 text-[20px] font-semibold text-white/40 sm:pt-4 sm:text-[36px]`}>:</span> : null}
+              <div key={g.label} className={`flex items-start ${sempit ? "gap-1.5 @2xl:gap-3" : "gap-2 @2xl:gap-3"}`}>
+                {i > 0 ? <span className={`${HEAD} pt-1.5 text-[20px] font-semibold text-white/40 @2xl:pt-4 @2xl:text-[36px]`}>:</span> : null}
                 <div className="flex flex-col items-center gap-2">
-                  <div className="flex gap-0.5 sm:gap-1">
+                  <div className="flex gap-0.5 @2xl:gap-1">
                     {g.angka.split("").map((d, k) => (
-                      <span key={k} className={`relative flex items-center justify-center overflow-hidden rounded-md bg-[#1A1F29] [perspective:300px] ${sempit ? "h-[44px] w-[28px]" : "h-[56px] w-[38px]"} sm:h-[84px] sm:w-[56px]`}>
-                        <span key={d} className={`hm-balik ${HEAD} font-semibold tabular-nums ${sempit ? "text-[26px]" : "text-[34px]"} sm:text-[52px]`}>{d}</span>
+                      <span key={k} className={`relative flex items-center justify-center overflow-hidden rounded-md bg-[#1A1F29] [perspective:300px] ${sempit ? "h-[44px] w-[28px]" : "h-[56px] w-[38px]"} @2xl:h-[84px] @2xl:w-[56px]`}>
+                        <span key={d} className={`hm-balik ${HEAD} font-semibold tabular-nums ${sempit ? "text-[26px]" : "text-[34px]"} @2xl:text-[52px]`}>{d}</span>
                         <span className="absolute inset-x-0 top-1/2 h-px bg-black/70" />
                         <span className="absolute inset-x-0 top-0 h-1/2 bg-white/[0.04]" />
                       </span>
                     ))}
                   </div>
-                  <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/60 sm:text-[12px]">{g.label}</span>
+                  <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/60 @2xl:text-[12px]">{g.label}</span>
                 </div>
               </div>
             ))}
@@ -264,16 +264,17 @@ function Tiket({ sisa, detik, teks, lang, berlangsung, hariKe, hariKalender, har
     <div className="flex flex-col gap-8">
       <Kepala teks={teks} kapan={false} />
       {/* Kartu tiket selalu putih, apa pun latar bloknya: warnanya dikembalikan ke tinta. */}
-      <div className="relative flex flex-col rounded-2xl bg-white text-[#0B1020] shadow-[0_1px_2px_rgb(0_0_0/0.06),0_12px_32px_-16px_rgb(0_0_0/0.35)] [--reg-on-surface-variant:#4B5263] [--reg-outline-variant:#D9DCE3] sm:flex-row">
-        <div className="flex min-w-0 flex-1 flex-col gap-6 p-5 sm:p-8">
-          <div className="flex items-end justify-between gap-4">
+      <div className="relative flex flex-col rounded-2xl bg-white text-[#0B1020] shadow-[0_1px_2px_rgb(0_0_0/0.06),0_12px_32px_-16px_rgb(0_0_0/0.35)] [--reg-on-surface-variant:#4B5263] [--reg-outline-variant:#D9DCE3] @container/tiket @2xl/tiket:flex-row">
+        <div className="@container/isi flex min-w-0 flex-1 flex-col gap-6 p-5 @md/tiket:p-8">
+          {/* Tanggal dan tujuan bertumpuk bila kolomnya sempit (kartu dashboard, ponsel). */}
+          <div className="flex flex-col gap-4 @md/isi:flex-row @md/isi:items-end @md/isi:justify-between">
             <div className="flex shrink-0 flex-col gap-1">
               <span className={LABEL}>{teks.dari}</span>
-              <span className={`${HEAD} whitespace-nowrap text-[24px] font-semibold leading-none sm:text-[36px]`}>{hariIni}</span>
+              <span className={`${HEAD} whitespace-nowrap text-[24px] font-semibold leading-none @xl/isi:text-[36px]`}>{hariIni}</span>
             </div>
-            <div className="flex min-w-0 flex-col items-end gap-1 text-right">
+            <div className="flex min-w-0 flex-col gap-1 @md/isi:items-end @md/isi:text-right">
               <span className={LABEL}>{t.countdownDay}</span>
-              <span className={`${HEAD} text-balance text-[24px] font-semibold leading-none sm:text-[36px]`}>{teks.ke}</span>
+              <span className={`${HEAD} text-balance text-[24px] font-semibold leading-none [overflow-wrap:anywhere] @xl/isi:text-[36px]`}>{teks.ke}</span>
             </div>
           </div>
           {/* Kartu putih: garis, ujung, dan penanda memakai sorot yang diukur terhadap putih. */}
@@ -281,11 +282,11 @@ function Tiket({ sisa, detik, teks, lang, berlangsung, hariKe, hariKalender, har
           <p className="text-body-medium text-[#4B5263]">{teks.kapan}</p>
         </div>
         {/* Sobekan: garis putus dengan dua takik setengah lingkaran warna latar blok. */}
-        <div className="relative mx-5 border-t-2 border-dashed border-[#D9DCE3] sm:mx-0 sm:my-5 sm:border-l-2 sm:border-t-0">
-          <span className="absolute -left-8 -top-3 size-6 rounded-full bg-[var(--hm-latar)] sm:-left-3 sm:-top-8" />
-          <span className="absolute -right-8 -top-3 size-6 rounded-full bg-[var(--hm-latar)] sm:-bottom-8 sm:-left-3 sm:right-auto sm:top-auto" />
+        <div className="relative mx-5 border-t-2 border-dashed border-[#D9DCE3] @2xl/tiket:mx-0 @2xl/tiket:my-5 @2xl/tiket:border-l-2 @2xl/tiket:border-t-0">
+          <span className="absolute -left-8 -top-3 size-6 rounded-full bg-[var(--hm-latar)] @2xl/tiket:-left-3 @2xl/tiket:-top-8" />
+          <span className="absolute -right-8 -top-3 size-6 rounded-full bg-[var(--hm-latar)] @2xl/tiket:-bottom-8 @2xl/tiket:-left-3 @2xl/tiket:right-auto @2xl/tiket:top-auto" />
         </div>
-        <div aria-hidden className="flex items-center justify-between gap-6 p-5 sm:w-[280px] sm:flex-col sm:items-start sm:justify-center sm:gap-3 sm:p-8">
+        <div aria-hidden className="flex items-center justify-between gap-6 p-5 @2xl/tiket:w-[280px] @2xl/tiket:flex-col @2xl/tiket:items-start @2xl/tiket:justify-center @2xl/tiket:gap-3 @2xl/tiket:p-8">
           {berlangsung ? (
             <div className="flex flex-col gap-1">
               <span className={`${HEAD} text-[28px] font-semibold leading-tight text-[var(--hm-sorot-putih)]`}>{t.countdownLive}</span>
@@ -295,13 +296,13 @@ function Tiket({ sisa, detik, teks, lang, berlangsung, hariKe, hariKalender, har
             <>
               {hitung.angka ? (
                 <div className="flex items-baseline gap-2">
-                  <span className={`${HEAD} text-[56px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-[var(--hm-sorot-putih)] sm:text-[72px]`}>{hitung.angka}</span>
+                  <span className={`${HEAD} text-[56px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-[var(--hm-sorot-putih)] @md/tiket:text-[72px]`}>{hitung.angka}</span>
                   <span className="whitespace-nowrap text-title-medium font-semibold">{t.countdownDaysLeft(hariKalender)}</span>
                 </div>
               ) : (
-                <span className={`${HEAD} text-[40px] font-semibold leading-none tracking-[-0.02em] text-[var(--hm-sorot-putih)] sm:text-[48px]`}>{hitung.teks}</span>
+                <span className={`${HEAD} text-[40px] font-semibold leading-none tracking-[-0.02em] text-[var(--hm-sorot-putih)] @md/tiket:text-[48px]`}>{hitung.teks}</span>
               )}
-              <span className="text-right text-body-medium tabular-nums text-[#4B5263] sm:text-left">{t.countdownIn(sisa, detik)}</span>
+              <span className="text-right text-body-medium tabular-nums text-[#4B5263] @2xl/tiket:text-left">{t.countdownIn(sisa, detik)}</span>
             </>
           )}
         </div>
