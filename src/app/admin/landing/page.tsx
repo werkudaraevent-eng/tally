@@ -2247,10 +2247,18 @@ export default function LandingCmsPage() {
       }
       case "contact":
         return (
-          <div className="flex flex-col gap-3">
-            <TextField label="Name" optional value={landing.contact_name ?? ""} onChange={(event) => setLanding({ ...landing, contact_name: event.target.value })} />
-            <TextField label="Phone" optional value={landing.contact_phone ?? ""} onChange={(event) => setLanding({ ...landing, contact_phone: event.target.value })} />
-            <TextField label="Email" optional type="email" value={landing.contact_email ?? ""} onChange={(event) => setLanding({ ...landing, contact_email: event.target.value })} />
+          // Kontak panitia diisi sekali di Event settings dan dipakai juga di
+          // halaman daftar, undangan, dan dashboard peserta. Di sini hanya
+          // ringkasannya; bagian ini tetap dinyalakan/dimatikan di daftar bagian.
+          <div className="flex flex-col gap-2 text-body-medium">
+            <p className="text-on-surface-variant">Filled in once under Event settings. The same contact shows on the registration, invitation and participant pages.</p>
+            {[landing.contact_name, landing.contact_email, landing.contact_phone].some((nilai) => nilai?.trim()) ? (
+              <ul className="flex flex-col gap-0.5 text-on-surface">
+                {[landing.contact_name, landing.contact_email, landing.contact_phone].map((nilai, i) => (nilai?.trim() ? <li key={i} className="[overflow-wrap:anywhere]">{nilai}</li> : null))}
+              </ul>
+            ) : (
+              <p className="text-on-surface-variant">No organiser contact yet.</p>
+            )}
           </div>
         );
       default:
@@ -2718,7 +2726,7 @@ export default function LandingCmsPage() {
               saklar,
               indeks: index,
               menu: menuBaris(index, judul, blok),
-              isi: <BlockEditor block={blok} onChange={ubahBlok} />,
+              isi: <BlockEditor block={blok} onChange={ubahBlok} semuaBlok={landing.blocks ?? []} />,
             });
           }
 

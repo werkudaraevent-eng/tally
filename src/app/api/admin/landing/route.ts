@@ -71,6 +71,10 @@ export async function PATCH(request: Request) {
           // bisa basi, jadi yang tersimpan dipakai.
           member: tersimpan.landing_config?.member,
           speakers: tersimpan.landing_config?.speakers,
+          // Kontak panitia diisi di Event settings (/api/admin/kontak).
+          contact_name: tersimpan.landing_config?.contact_name,
+          contact_phone: tersimpan.landing_config?.contact_phone,
+          contact_email: tersimpan.landing_config?.contact_email,
           // Peran warna diturunkan di server, sama seperti tema form pendaftaran.
           // Halaman publiknya menerima hex jadi dan tidak memuat pustaka warna.
           theme: landing.theme ? withDerivedRoles(landing.theme) : undefined,

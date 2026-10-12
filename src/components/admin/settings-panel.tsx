@@ -28,6 +28,9 @@ type Settings = {
 /** Field yang dikirim PATCH. Hanya ini yang dihitung sebagai perubahan belum tersimpan. */
 const FIELD_DISIMPAN = ["time_zone", "pickup_mode", "cashier_confirmation_required", "pending_auto_void_minutes", "email_sender_name", "email_reply_to"] as const;
 
+type Kontak = { contact_name: string; contact_email: string; contact_phone: string };
+const KUNCI_KONTAK = ["contact_name", "contact_email", "contact_phone"] as const;
+
 const kelasInput = "h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
 
 /** Satu baris setelan: judul dan penjelasan di kiri, kontrolnya di kanan. */
@@ -78,15 +81,25 @@ export function SettingsPanel() {
   const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Kontak panitia: endpoint sendiri (/api/admin/kontak), hanya Admin. Null =
+  // tidak bisa dibaca, barisnya disembunyikan.
+  const [kontakSaved, setKontakSaved] = useState<Kontak | null>(null);
+  const [kontak, setKontak] = useState<Kontak | null>(null);
   const toast = useToast();
 
   const load = useCallback(async () => {
     setLoadError("");
-    const response = await fetch("/api/settings", { cache: "no-store" }).catch(() => null);
+    const [response, jawabKontak] = await Promise.all([
+      fetch("/api/settings", { cache: "no-store" }).catch(() => null),
+      fetch("/api/admin/kontak", { cache: "no-store" }).catch(() => null),
+    ]);
     if (!response?.ok) { setLoadError("Pengaturan gagal dimuat."); return; }
     const data = (await response.json()) as Settings;
     setSaved(data);
     setSettings(data);
+    const dataKontak = jawabKontak?.ok ? ((await jawabKontak.json().catch(() => null)) as Kontak | null) : null;
+    setKontakSaved(dataKontak);
+    setKontak(dataKontak);
   }, []);
 
   useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
@@ -106,7 +119,30 @@ export function SettingsPanel() {
       email_reply_to: settings.email_reply_to?.trim() || null,
     };
     const ubah = Object.fromEntries(Object.entries(semua).filter(([key]) => saved && !samaNilai(settings[key as keyof Settings], saved[key as keyof Settings])));
-    if (!Object.keys(ubah).length) { setSaving(false); return; }
+    const kontakUbah = Boolean(kontak && kontakSaved && KUNCI_KONTAK.some((kunci) => !samaNilai(kontak[kunci], kontakSaved[kunci])));
+    if (kontakUbah && kontak && kontakSaved) {
+      const jawab = await fetch("/api/admin/kontak", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base: kontakSaved, contact: kontak }),
+      }).catch(() => null);
+      const body = await jawab?.json().catch(() => null);
+      if (!jawab?.ok) {
+        setSaving(false);
+        // Diubah di tab lain: tampilkan yang terbaru, admin mengulang perubahannya.
+        if (body?.error?.code === "CONTACT_CHANGED" && body.error.details) { setKontakSaved(body.error.details); setKontak(body.error.details); }
+        const failure = body?.error?.message ?? "Kontak panitia gagal disimpan.";
+        setError(failure);
+        toast.error("Kontak panitia gagal disimpan", failure);
+        return;
+      }
+      setKontakSaved(body); setKontak(body);
+    }
+    if (!Object.keys(ubah).length) {
+      setSaving(false);
+      if (kontakUbah) toast.success("Kontak panitia tersimpan", "Tampil di halaman acara dan halaman peserta.");
+      return;
+    }
     const response = await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ubah) });
     const data = await response.json();
     setSaving(false);
@@ -147,13 +183,17 @@ export function SettingsPanel() {
     );
   }
 
-  const jumlahUbah = FIELD_DISIMPAN.filter((key) => !samaNilai(settings[key], saved[key])).length;
+  const jumlahUbah =
+    FIELD_DISIMPAN.filter((key) => !samaNilai(settings[key], saved[key])).length +
+    (kontak && kontakSaved ? KUNCI_KONTAK.filter((kunci) => !samaNilai(kontak[kunci], kontakSaved[kunci])).length : 0);
   const zonaTersimpan = saved.time_zone ?? DEFAULT_TIME_ZONE;
   const waktuUbah = saved.updated_at ? `${formatEventDateTime(saved.updated_at, zonaTersimpan)} ${timeZoneAbbr(zonaTersimpan)}` : "";
   const zonaDipilih = EVENT_TIME_ZONES.find((option) => option.id === settings.time_zone);
   const bawaan = saved.email_default ?? null;
   const namaTampil = settings.email_sender_name?.trim() || bawaan?.name || "";
   const balasanTampil = settings.email_reply_to?.trim() || bawaan?.reply_to || null;
+  // Halaman peserta jatuh ke Balasan ke milik acara ini, bukan bawaan situs.
+  const balasanAcara = saved.email_reply_to?.trim() || null;
   const set = (patch: Partial<Settings>) => setSettings((current) => current && { ...current, ...patch });
 
   return (
@@ -224,6 +264,43 @@ export function SettingsPanel() {
             </div>
           </SettingRow>
 
+          {/* Kontak panitia: satu sumber untuk halaman acara (bagian Kontak),
+              halaman daftar saat ditutup, halaman undangan, dan dashboard
+              peserta. Disimpan di landing_config lewat /api/admin/kontak. */}
+          {kontak ? (
+            <SettingRow title="Kontak panitia" description="Satu kontak untuk peserta. Tampil di halaman acara, halaman daftar saat ditutup, halaman undangan, dan dashboard peserta.">
+              <div className="flex flex-col gap-3">
+                {([
+                  ["contact_name", "Nama", "text", 120, "Tim Acara", true],
+                  ["contact_email", "Email", "email", 160, balasanAcara ?? "panitia@penyelenggara.com", false],
+                  ["contact_phone", "Telepon / WhatsApp", "tel", 40, "+62 812-3456-7890", false],
+                ] as const).map(([kunci, label, jenis, maks, contoh, opsional]) => (
+                  <div key={kunci}>
+                    <label className="mb-1.5 block text-body-medium font-medium text-on-surface" htmlFor={`kontak-${kunci}`}>
+                      {label}{opsional ? <span className="font-normal text-on-surface-variant"> (opsional)</span> : null}
+                    </label>
+                    <input
+                      id={`kontak-${kunci}`}
+                      type={jenis}
+                      maxLength={maks}
+                      autoComplete="off"
+                      value={kontak[kunci]}
+                      placeholder={contoh}
+                      onChange={(event) => setKontak((sekarang) => sekarang && { ...sekarang, [kunci]: event.target.value })}
+                      className={kelasInput}
+                    />
+                  </div>
+                ))}
+                <p className="text-body-medium text-on-surface-variant">
+                  {balasanAcara
+                    ? <>Email kosong: memakai alamat Balasan ke (<span className="font-medium text-on-surface">{balasanAcara}</span>).</>
+                    : "Email kosong: memakai alamat Balasan ke bila diisi."}
+                  {" "}Bagian Kontak di halaman acara dinyalakan di Event page.
+                </p>
+              </div>
+            </SettingRow>
+          ) : null}
+
           <SettingRow title="Penyerahan barang" description="Kapan booth menyerahkan barang ke peserta.">
             <div className="flex flex-col gap-2">
               {([["after_payment", "Ambil setelah lunas", "Barang disimpan di booth. Peserta kembali setelah membayar di kasir."], ["immediate", "Serahkan langsung di booth", "Barang diberikan saat order dibuat."]] as const).map(([value, label, desc]) => (
@@ -274,7 +351,7 @@ export function SettingsPanel() {
             ? `${jumlahUbah} perubahan belum disimpan${waktuUbah ? ` · terakhir diubah ${waktuUbah}` : ""}`
             : waktuUbah ? `Terakhir diubah ${waktuUbah}` : null}
         >
-          {jumlahUbah > 0 ? <Button variant="outlined" size="sm" disabled={saving} onClick={() => { setSettings(saved); setError(""); }}>Batalkan</Button> : null}
+          {jumlahUbah > 0 ? <Button variant="outlined" size="sm" disabled={saving} onClick={() => { setSettings(saved); setKontak(kontakSaved); setError(""); }}>Batalkan</Button> : null}
           <Button simpan size="sm" loading={saving} disabled={jumlahUbah === 0} onClick={() => void save()}>Simpan perubahan</Button>
         </PaneFooter>
       </Pane>

@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import type { EventLandingConfig, EventRow, LandingSection, LandingSectionId } from "@/lib/domain";
-import { isLandingBlockId, landingBlockHasContent } from "@/lib/domain";
+import { isLandingBlockId, landingBlockHasContent, landingBlockShownOn } from "@/lib/domain";
 import { modernNavStyle, modernThemeStyle, registrationThemeStyle } from "@/lib/registration-theme-css";
 import { landingFontStyle, landingTokens } from "@/lib/landing-tokens";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
@@ -85,7 +85,7 @@ export function bagianModern(
   agenda: Agenda,
   lang: LandingLang,
   /** Gaya gathering: tanpa kartu Program, Lokasi menjadi Tempat menginap bila ada hotel. */
-  opsi: { gathering?: boolean; adaHotel?: boolean } = {},
+  opsi: { gathering?: boolean; adaHotel?: boolean; hotelIds?: ReadonlySet<number> } = {},
 ) {
   const t = LANDING_UI[lang];
   const NAV_LABEL = opsi.gathering
@@ -109,7 +109,8 @@ export function bagianModern(
   // perlu kartu: susunan acara di bawahnya sudah mengatakan hal yang sama.
   const tampilProgram = tampil("agenda") && agenda.length >= 2 && !config.program_hidden && !opsi.gathering;
 
-  const blokById = new Map((config.blocks ?? []).map((block) => [block.id, block]));
+  // Blok khusus halaman peserta tidak ada di halaman acara: isi, menu, dan jangkar.
+  const blokById = new Map((config.blocks ?? []).filter((block) => landingBlockShownOn(block, "public")).map((block) => [block.id, block]));
 
   // Menu atas mengikuti urutan halaman: bagian bawaan yang tampil, plus blok
   // yang diberi label menu di CMS. Dibatasi enam supaya tetap satu baris.
@@ -121,7 +122,7 @@ export function bagianModern(
     .forEach((section) => {
       if (isLandingBlockId(section.id)) {
         const block = blokById.get(section.id);
-        if (block && landingBlockHasContent(block)) jangkar.add(block.id);
+        if (block && landingBlockHasContent(block, opsi.hotelIds)) jangkar.add(block.id);
       } else if (tampil(section.id)) {
         jangkar.add(section.id);
       }
@@ -138,7 +139,7 @@ export function bagianModern(
       if (isLandingBlockId(section.id)) {
         const block = blokById.get(section.id);
         const label = block?.nav_label?.trim();
-        if (block && label && landingBlockHasContent(block)) tambahNav(block.id, label);
+        if (block && label && landingBlockHasContent(block, opsi.hotelIds)) tambahNav(block.id, label);
         return;
       }
       // Kartu program menempel pada Tentang acara, atau pada Susunan acara bila

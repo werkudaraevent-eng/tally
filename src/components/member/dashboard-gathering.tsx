@@ -24,7 +24,9 @@ import {
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
-import { LANDING_NAV_DEFAULTS, isPortalEntry, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
+import { kontakPanitia } from "@/lib/kontak-panitia";
+import { LANDING_NAV_DEFAULTS, isPortalEntry, landingMemberBlocks, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
+import { KartuRute } from "@/components/landing/modern/blok-rute";
 import { formatEventDate, formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
@@ -157,8 +159,14 @@ export async function DashboardGathering({
   // bagian yang kembali ke halaman acara, lonceng, dan "Dashboard saya".
   const sectionsHalaman = normalizeLandingSections(config.sections, config.blocks);
   const agendaNav = tampilSusunan ? agenda : await loadAgendaPreview(event.id, lang);
-  const adaHotel = (await loadLandingLodging(event.id)).hotels.length > 0;
-  const { navSections, tampil } = bagianModern(event, config, sectionsHalaman, agendaNav, lang, { gathering: true, adaHotel });
+  const inap = await loadLandingLodging(event.id);
+  const adaHotel = inap.hotels.length > 0;
+  // Blok yang admin pilih untuk halaman peserta (Show on), di atas Rundown hari ini.
+  const hotelIds = new Set(inap.hotels.map((hotel) => hotel.id));
+  const kartuBlok = landingMemberBlocks(config.sections, config.blocks, hotelIds).map((block) =>
+    block.type === "route" ? <KartuRute key={block.id} block={block} hotels={inap.hotels} lang={lang} /> : null,
+  );
+  const { navSections, tampil } = bagianModern(event, config, sectionsHalaman, agendaNav, lang, { gathering: true, adaHotel, hotelIds });
   const menuAtas = (() => {
     const urutan = susunanDenganPortal(config.sections, config.blocks);
     if (config.portal_section === false || navSections.some((section) => section.id === "portal")) return navSections;
@@ -179,9 +187,10 @@ export async function DashboardGathering({
     (venue || event.venue_address?.trim()
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([venue, event.venue_address?.trim()].filter(Boolean).join(", "))}`
       : null);
-  // Nomor panitia hanya bila bagian Kontak dinyalakan di halaman acara.
-  const kontakTampil = normalizeLandingSections(config.sections, config.blocks).some((section) => section.id === "contact" && section.enabled);
-  const telepon = kontakTampil ? config.contact_phone?.trim() || null : null;
+  // Nomor panitia dari Event settings > Kontak panitia. Tidak lagi menunggu
+  // bagian Kontak halaman acara dinyalakan: peserta yang sudah masuk tetap
+  // perlu tahu siapa yang dihubungi.
+  const telepon = kontakPanitia(config)?.telepon ?? null;
 
   // Hari yang tampil di Beranda: hari ini selama acara, hari pertama sebelumnya,
   // hari terakhir sesudahnya.
@@ -477,6 +486,7 @@ export async function DashboardGathering({
             </div>
           ) : null}
           <div className="lg:hidden">{kartuTeman}</div>
+          {kartuBlok}
           {kartuRundown}
         </div>
         <div className="hidden flex-col gap-4 lg:flex">

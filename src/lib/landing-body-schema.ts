@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
-import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
 
@@ -53,9 +53,16 @@ const blockEnSchema = z.object({
   role: teks(160),
   nav_label: teks(LANDING_NAV_LABEL_MAX),
 });
+// Hanya https (QA #115 L1): gambar ikon dari unggahan CMS selalu https.
+const ikonUrl = z.string().trim().max(600).regex(/^https:\/\/[^\s"'<>]+$/, "Icon images must be an https:// address").nullable().optional();
+const routeStop = z.object({ hotel_id: z.number().int().positive().optional(), name: teks(120), address: teks(300) });
 const blockSchema = z.object({
   id: blockId,
-  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn"]),
+  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route"]),
+  show_on: z.enum(LANDING_BLOCK_SHOW_ON).optional(),
+  route_from: routeStop.optional(),
+  route_to: routeStop.optional(),
+  maps_mode: z.enum(LANDING_ROUTE_MAPS_MODES).optional(),
   tone: z.enum(["light", "panel", "dark"]).optional(),
   layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list"]).optional(),
   eyebrow: teks(60),
@@ -70,6 +77,9 @@ const blockSchema = z.object({
     body: teks(400),
     value: teks(30),
     href: tautan.optional(),
+    icon: z.string().regex(LANDING_CARD_ICON_POLA).optional(),
+    tone: z.enum(LANDING_CARD_TONES).optional(),
+    icon_url: ikonUrl,
     en: itemEnSchema.optional(),
   })).max(16).optional(),
   quote: teks(600),
@@ -296,8 +306,7 @@ export const landingBodySchema = z.object({
       body: z.string().trim().max(LANDING_ABOUT_CARDS.body),
       icon: z.string().regex(LANDING_CARD_ICON_POLA).optional(),
       tone: z.enum(LANDING_CARD_TONES).optional(),
-      // Hanya https (QA #115 L1): gambar dari unggahan CMS selalu https.
-      icon_url: z.string().trim().max(600).regex(/^https:\/\/[^\s"'<>]+$/, "Icon images must be an https:// address").nullable().optional(),
+      icon_url: ikonUrl,
     })).max(LANDING_ABOUT_CARDS.max).optional(),
     program_heading: z.string().trim().max(120).optional(),
     program_intro: z.string().trim().max(400).optional(),
@@ -382,6 +391,8 @@ export const landingBodySchema = z.object({
       a: z.string().trim().min(1).max(2000),
       en: z.object({ q: teks(200), a: teks(2000) }).optional(),
     })).max(20).optional(),
+    // Kontak panitia diisi di Event settings (/api/admin/kontak); server
+    // memakai yang tersimpan, bukan salinan editor ini (lihat PATCH /api/admin/landing).
     contact_name: z.string().trim().max(120).optional(),
     contact_phone: z.string().trim().max(40).optional(),
     contact_email: z.string().trim().max(160).optional(),
@@ -412,3 +423,13 @@ export const landingBodySchema = z.object({
     .optional(),
 });
 
+
+/** Kontak panitia (Event settings). Kosong = tidak diisi. */
+const kontakSchema = z.object({
+  contact_name: z.string().trim().max(120),
+  contact_email: z.union([z.literal(""), z.string().trim().toLowerCase().max(160).email("Contact email is not a valid email address.")]),
+  contact_phone: z.string().trim().max(40).regex(/^[0-9+()\-.\s]*$/, "Phone may only contain digits, spaces, + ( ) - and ."),
+});
+export type KontakPanitia = z.infer<typeof kontakSchema>;
+/** PATCH /api/admin/kontak: `base` = kontak seperti yang terakhir dibaca klien. */
+export const kontakBodySchema = z.object({ base: kontakSchema.partial(), contact: kontakSchema });

@@ -1,5 +1,5 @@
 import { LANDING_HEADING_FONTS, LANDING_NAV_DEFAULTS, publicEventName, type EventLandingConfig, type EventRow } from "@/lib/domain";
-import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
+import { formatEventDate, formatEventDateRingkas, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { modernNavStyle, modernThemeStyle, registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
 import { landingShapeStyle, landingTokens } from "@/lib/landing-tokens";
@@ -7,8 +7,8 @@ import { preloadLandingFonts } from "@/lib/landing-font-preload";
 import { DAFTAR_UI } from "@/lib/daftar-i18n";
 import { landingDefaultLang, landingEnAvailable, landingFormOnly, landingPath, LANDING_LANG_LABELS, type LandingLang } from "@/lib/landing-i18n";
 import { HtmlLang } from "@/components/html-lang";
-import type { CSSProperties } from "react";
-import DaftarClient, { BingkaiModern, type FormModern, type TamuProp } from "./daftar-client";
+import DaftarClient, { Bingkai, BingkaiModern, type FormModern, type TamuProp } from "./daftar-client";
+import { PendaftaranDitutup } from "./ditutup";
 import { HalamanUndangan } from "./undangan-publik";
 import { PUBLIK } from "@/lib/pesan/label";
 import { invitationSettings } from "@/lib/undangan/data";
@@ -16,6 +16,7 @@ import { maskEmail } from "@/lib/undangan/email";
 import { readInvite } from "@/lib/undangan/publik";
 import { eventSender } from "@/lib/email/client";
 import { formulirGathering } from "@/lib/gathering-formulir";
+import { kontakPanitia } from "@/lib/kontak-panitia";
 
 /**
  * Formulir pendaftaran satu acara dalam satu bahasa. Dipakai halaman publik
@@ -113,30 +114,46 @@ export async function isiDaftar(
   const member = memberConfig(event);
 
   if (!event.registration_enabled && !opsi.pratinjau) {
-    // Hanya formulir: alamat acara berakhir di sini, jadi pesannya tetap
-    // memakai Tema dan, bila area peserta aktif, membawa jalan ke Masuk:
-    // peserta yang sudah terdaftar membuka alamat undangan untuk kodenya.
-    if (landingFormOnly(landing)) {
-      const bingkai = await bingkaiFormulir(event, lang);
-      if (bingkai.modern) {
-        return (
-          <BingkaiModern lang={lang} halamanUrl={null} eventName={bingkai.eventName} welcomeText={null} theme={bingkai.theme} modern={bingkai.modern} areaUrl={bingkai.modern.areaUrl}>
-            <h2 className="text-title-large font-medium">{t.closedTitle}</h2>
-            <p className="mt-2 max-w-[60ch] text-body-large text-[var(--reg-on-surface-variant)]">{t.closedBody(bingkai.eventName)}</p>
-            {member ? (
-              <a
-                href={bingkai.modern.areaUrl ?? bingkai.modern.masukUrl ?? `/e/${event.slug}/masuk`}
-                className="m3-state mt-6 inline-flex min-h-12 items-center rounded-md bg-[var(--reg-primary)] px-5 text-label-large font-semibold text-[var(--reg-on-primary)]"
-                style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
-              >
-                {bingkai.modern.areaUrl ? t.account.openArea : t.signInMemberArea}
-              </a>
-            ) : null}
-          </BingkaiModern>
-        );
-      }
+    // Pesan "ditutup" berdiri di kerangka formulir acara (bilah atas, hero,
+    // kaki), di semua tata letak, dengan jalan keluar yang tersedia: masuk
+    // area peserta, kembali ke halaman acara, dan email panitia.
+    const [bingkai, pengirim] = await Promise.all([bingkaiFormulir(event, lang), eventSender(event.id).catch(() => null)]);
+    // Tiket memakai tanggal ringkas ("6–8 Nov 2026"), sama dengan hero gathering.
+    const venue = event.venue_name?.trim() || null;
+    const fakta = [formatEventDateRingkas(event, lang), formatEventTime(event, lang), venue]
+      .filter((item): item is string => Boolean(item));
+    const dasar = landingPath(event.slug, lang, landingDefaultLang(landing));
+    const masukUrl = member ? (bingkai.modern?.masukUrl ?? `${dasar}/masuk`) : null;
+    // Kerangka Editorial tidak menghitung sesi peserta; yang sudah masuk tetap
+    // dibawa langsung ke areanya, sama dengan kerangka Modern.
+    const areaUrl = bingkai.modern ? bingkai.modern.areaUrl : member && (await getMemberSession(event)) ? `${dasar}/peserta` : null;
+    const panitia = kontakPanitia(landing, pengirim?.replyTo);
+    const isi = (sempit: boolean) => (
+      <PendaftaranDitutup
+        lang={lang}
+        eventName={bingkai.eventName}
+        fakta={fakta}
+        masukUrl={masukUrl}
+        areaUrl={areaUrl}
+        halamanUrl={bingkai.halamanUrl}
+        // Kontak panitia (Event settings); email jatuh ke Balasan ke bila kosong.
+        kontak={panitia?.email ?? null}
+        telepon={panitia?.telepon ?? null}
+        sempit={sempit}
+      />
+    );
+    if (bingkai.modern) {
+      return (
+        <BingkaiModern lang={lang} halamanUrl={bingkai.halamanUrl} eventName={bingkai.eventName} welcomeText={null} theme={bingkai.theme} modern={bingkai.modern} areaUrl={bingkai.modern.areaUrl} eyebrow={t.closed.eyebrow}>
+          {isi(false)}
+        </BingkaiModern>
+      );
     }
-    return <Pesan lang={lang} judul={t.closedTitle} isi={t.closedBody(publicEventName(event))} />;
+    return (
+      <Bingkai lang={lang} halamanUrl={bingkai.halamanUrl} eventName={bingkai.eventName} schedule={[jadwal(event, lang), venue].filter(Boolean).join(" · ") || null} welcomeText={null} theme={bingkai.theme} eyebrow={t.closed.eyebrow}>
+        {isi(true)}
+      </Bingkai>
+    );
   }
 
   // Tamu undangan: tautan pribadi (`?undangan=`), tautan yang sudah dipakai
@@ -146,7 +163,8 @@ export async function isiDaftar(
     const u = PUBLIK[lang];
     const [setelan, baca] = await Promise.all([invitationSettings(event.id), readInvite(event, opsi.undangan, opsi.ip ?? null)]);
     if (baca.state === "used") {
-      const kontak = (await eventSender(event.id).catch(() => null))?.replyTo ?? null;
+      const panitia = kontakPanitia(landing, (await eventSender(event.id).catch(() => null))?.replyTo);
+      const kontak = panitia?.email ?? panitia?.telepon ?? null;
       return halamanTamu(event, lang, {
         judul: u.usedTitle,
         isi: u.usedBody,
@@ -180,8 +198,6 @@ export async function isiDaftar(
   }
 
   const bingkai = await bingkaiFormulir(event, lang, opsi);
-  const tanggal = formatEventDate(event, lang);
-  const jam = formatEventTime(event, lang);
   return <DaftarClient
     lang={lang}
     halamanUrl={bingkai.halamanUrl}
@@ -189,7 +205,7 @@ export async function isiDaftar(
     theme={bingkai.theme}
     eventName={bingkai.eventName}
     eventSlug={event.slug}
-    schedule={lang === "id" ? formatEventSchedule(event) : tanggal ? [tanggal, jam].filter(Boolean).join(" · ") : null}
+    schedule={jadwal(event, lang)}
     fields={config.fields ?? []}
     welcomeText={bingkai.welcomeText}
     successText={config.success_text ?? null}
@@ -201,6 +217,12 @@ export async function isiDaftar(
     requireJobTitle={config.require_job_title ?? false}
     undangan={undangan}
   />;
+}
+
+/** "Senin, 17 Agustus 2026 · 09.00–17.00 WITA", seperti halaman acara. */
+function jadwal(event: EventRow, lang: LandingLang) {
+  const tanggal = formatEventDate(event, lang);
+  return lang === "id" ? formatEventSchedule(event) : tanggal ? [tanggal, formatEventTime(event, lang)].filter(Boolean).join(" · ") : null;
 }
 
 /** Halaman tamu undangan tanpa formulir, dalam kerangka formulir acara. */
