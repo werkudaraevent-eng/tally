@@ -59,6 +59,11 @@ export type SeatMapViewProps = {
    * seluruh isinya tetap masuk.
    */
   maxHeight?: string;
+  /**
+   * Denah hiasan (mis. denah mini di kartu tiket): tanpa tooltip per meja dan
+   * tersembunyi dari pembaca layar; pemanggil memberi labelnya sendiri.
+   */
+  decorative?: boolean;
   onSeatClick?: (seatLabel: string, tableNumber: number) => void;
   onTableClick?: (tableNumber: number) => void;
   className?: string;
@@ -79,6 +84,7 @@ export function SeatMapView({
   showAttendance = false,
   seatColors,
   maxHeight,
+  decorative = false,
   onSeatClick,
   onTableClick,
   className,
@@ -126,8 +132,9 @@ export function SeatMapView({
       viewBox={`0 0 ${geometry.width} ${geometry.height}`}
       className={className}
       style={{ background: canvasColor ?? backgroundColor, display: "block", width: "100%", height: "auto", maxHeight }}
-      role="img"
-      aria-label={`Denah tempat duduk, ${geometry.totalTables} meja dan ${geometry.totalSeats} kursi. Acuan arah: ${geometry.stage.label} berada di depan.`}
+      role={decorative ? undefined : "img"}
+      aria-hidden={decorative || undefined}
+      aria-label={decorative ? undefined : `Denah tempat duduk, ${geometry.totalTables} meja dan ${geometry.totalSeats} kursi. Acuan arah: ${geometry.stage.label} berada di depan.`}
     >
       {/* Panggung digambar lebih dulu: ia acuan arah pandang, jadi harus terbaca
           sebelum mata mencari nomor meja. */}
@@ -212,7 +219,7 @@ export function SeatMapView({
 
             {/* Deskripsi per meja untuk pembaca layar. Denah visual saja tidak
                 terbaca, jadi tiap meja membawa ringkasan keterisiannya. */}
-            <title>{`Meja ${table.label}: ${occupiedCount} dari ${tableSeats.length} kursi terisi`}</title>
+            {decorative ? null : <title>{`Meja ${table.label}: ${occupiedCount} dari ${tableSeats.length} kursi terisi`}</title>}
 
             {tableSeats.map((seat) => {
               const key = normalizeSeatLabel(seat.label);

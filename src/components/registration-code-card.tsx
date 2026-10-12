@@ -158,9 +158,13 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
 
   if (layout === "samping") {
     return (
-      <div ref={kartu} className="flex flex-col items-center gap-5 sm:grid sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center sm:gap-6">
+      // Berdampingan diatur oleh lebar KARTU (container query), bukan lebar
+      // layar: di dashboard kartu ini duduk di kolom samping yang di layar
+      // 1024px hanya ~330px, dan kolom tombol jadi terlalu sempit untuk labelnya.
+      <div className="@container/kode">
+      <div ref={kartu} className="flex flex-col items-center gap-5 @sm/kode:grid @sm/kode:grid-cols-[auto_minmax(0,1fr)] @sm/kode:items-center @sm/kode:gap-6">
         {/* Ruang QR disediakan sejak awal; alasannya di kartu tumpuk di bawah. */}
-        <div className="relative size-48 shrink-0 sm:size-40">
+        <div className="relative size-48 shrink-0 @sm/kode:size-40">
           <span aria-hidden className={`absolute inset-0 rounded-2xl bg-white transition-opacity duration-300 ${qr ? "opacity-0" : "opacity-100"}`} />
           {qr ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -168,7 +172,7 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
           ) : null}
         </div>
         <div className="flex w-full min-w-0 flex-col gap-3">
-          <div className="text-center sm:text-left">
+          <div className="text-center @sm/kode:text-left">
             <p className={`text-body-medium ${MUTED}`}>{t.participantCode}</p>
             <p className="mt-0.5 select-all break-all font-mono text-[24px] font-semibold leading-8 tracking-[0.06em]">{code}</p>
           </div>
@@ -176,6 +180,7 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
           {children}
           {galat ? <p role="alert" className="text-body-medium font-medium text-[var(--reg-error)]">{galat}</p> : null}
         </div>
+      </div>
       </div>
     );
   }

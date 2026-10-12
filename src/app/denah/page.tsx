@@ -77,6 +77,8 @@ export default function SeatMapPage() {
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searchNote, setSearchNote] = useState("");
   const [highlighted, setHighlighted] = useState<string[]>([]);
+  // Sorotan dari `?kursi=` bertahan sampai tamu mulai mengetik.
+  const sorotanDariUrl = useRef(false);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
 
@@ -86,18 +88,6 @@ export default function SeatMapPage() {
     if (typeof window === "undefined") return null;
     const raw = new URLSearchParams(window.location.search).get("mode");
     return raw === "qr" || raw === "search" ? raw : null;
-  });
-
-  // Agenda yang dipatok lewat URL, juga dibaca sekali saat mount.
-  //
-  // Tanpa ini halaman selalu jatuh ke agenda pertama, sehingga LED yang dipasang
-  // untuk sesi malam tetap menampilkan judul dan warna sesi pagi. Layar yang
-  // sudah terpasang di dinding tidak bisa diklik untuk berpindah agenda, jadi
-  // alamatnya harus bisa menentukan agenda mana yang tampil.
-  const [slugFromUrl] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    const raw = new URLSearchParams(window.location.search).get("sesi")?.trim();
-    return raw && /^[a-z0-9-]{2,40}$/.test(raw) ? raw : null;
   });
 
   // Ref, bukan state: dipakai hanya untuk membatalkan permintaan lama dan tidak
@@ -131,10 +121,30 @@ export default function SeatMapPage() {
 
   // Pemuatan awal ditunda satu tick: memanggil setState langsung di dalam efek
   // memicu render berantai, dan React Compiler menolaknya.
+  //
+  // `?sesi=` dan `?kursi=` dibaca DI SINI, bukan di penginisialisasi useState.
+  // Saat tamu datang lewat navigasi sisi klien (tautan kartu tiket di dashboard),
+  // halaman ini dirender sebelum alamat browser berganti, jadi penginisialisasi
+  // masih membaca alamat dashboard. Efek berjalan setelah alamat diperbarui.
+  //
+  // - `sesi`: tanpa ini halaman selalu jatuh ke agenda pertama, sehingga LED
+  //   yang dipasang untuk sesi malam tetap menampilkan sesi pagi.
+  // - `kursi`: kursi tamu dari kartu tiket langsung disorot. Hanya label yang
+  //   dibaca, bukan nama, jadi tidak ada data orang yang bisa diturunkan dari
+  //   alamat ini.
   useEffect(() => {
-    const timer = window.setTimeout(() => { void loadMap(slugFromUrl); }, 0);
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      const sesi = params.get("sesi")?.trim();
+      const kursi = params.get("kursi")?.trim();
+      if (kursi && /^[A-Za-z0-9-]{1,12}$/.test(kursi)) {
+        sorotanDariUrl.current = true;
+        setHighlighted([kursi]);
+      }
+      void loadMap(sesi && /^[a-z0-9-]{2,40}$/.test(sesi) ? sesi : null);
+    }, 0);
     return () => window.clearTimeout(timer);
-  }, [loadMap, slugFromUrl]);
+  }, [loadMap]);
 
   // Pencarian ditunda sejenak setelah tamu berhenti mengetik. Tanpa ini, setiap
   // huruf memicu satu permintaan dan ratusan tamu mengetik bersamaan saat acara.
@@ -149,7 +159,7 @@ export default function SeatMapPage() {
         searchAbort.current?.abort();
         setResults(null);
         setSearchNote("");
-        setHighlighted([]);
+        if (!sorotanDariUrl.current) setHighlighted([]);
         setSearching(false);
         return;
       }
@@ -253,6 +263,15 @@ export default function SeatMapPage() {
     setQuery("");
     void loadMap(slug);
   }
+
+  // "Hapus sorotan" hanya tampil bila ada kursi yang benar-benar tersorot di
+  // denah. `?kursi=Z99` yang tidak ada di denah tidak menyorot apa pun.
+  const sorotanTerlihat = useMemo(() => {
+    if (highlighted.length === 0 || !payload?.config) return false;
+    const label = new Set(highlighted.map(normalizeSeatLabel));
+    return computeSeatMapGeometry(payload.config).tables.some((table) =>
+      table.seats.some((seat) => label.has(normalizeSeatLabel(seat.label))));
+  }, [highlighted, payload]);
 
   const selectedTableSeats = useMemo(() => {
     const mapConfig = payload?.config;
@@ -402,7 +421,7 @@ export default function SeatMapPage() {
                   id="seat-search"
                   type="search"
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={(event) => { sorotanDariUrl.current = false; setQuery(event.target.value); }}
                   placeholder="Ketik minimal 3 huruf nama Anda"
                   autoComplete="off"
                   enterKeyHint="search"
@@ -443,7 +462,7 @@ export default function SeatMapPage() {
                 </ul>
               ) : null}
 
-              {highlighted.length > 0 ? (
+              {sorotanTerlihat ? (
                 <button
                   type="button"
                   onClick={() => { setHighlighted([]); setQuery(""); }}

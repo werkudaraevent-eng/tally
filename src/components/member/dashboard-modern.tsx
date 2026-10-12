@@ -14,6 +14,8 @@ import type { EventRow, LandingMemberConfig } from "@/lib/domain";
 import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName } from "@/lib/domain";
 import { BagianBeranda } from "@/components/member/bagian-beranda";
 import { KartuBlok } from "@/components/member/kartu-blok";
+import { DenahMini } from "@/components/member/denah-mini";
+import { loadKursiPeserta } from "@/lib/member/kursi-peserta";
 import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
@@ -155,6 +157,9 @@ export async function DashboardModern({
   const tampilSusunan = member.show_schedule !== false && agenda.length > 0;
   const tampilVote = Boolean(peserta) && member.show_vote !== false;
   const kursi = (peserta?.seats ?? []).filter((seat) => seat.label?.trim());
+  // Kursi dibaca bersama tata ruang denah supaya kartu bisa menulis "Baris A ·
+  // Kursi 8" dan menggambar denah mini, bukan sekadar "A8".
+  const denahKursi = tampilKursi && kursi.length > 0 ? await loadKursiPeserta(event.id, kursi) : null;
   const kalenderUrl = event.event_date ? `/kalender.ics?eventSlug=${encodeURIComponent(event.slug)}` : null;
   const petaUrl =
     event.venue_map_url ||
@@ -305,25 +310,48 @@ export async function DashboardModern({
                 ) : null}
                 {tampilKursi ? (
                   <div className={tampilKode ? "mt-6 border-t border-[var(--reg-outline-variant)] pt-5" : "mt-4"}>
-                    {kursi.length > 0 ? (
-                      <dl className={`grid gap-4 ${kursi.length > 1 ? "sm:grid-cols-2" : ""}`}>
-                        {kursi.map((seat, index) => (
-                          <div key={`${seat.subEventId ?? index}-${seat.label}`}>
-                            <dt className={`text-body-medium ${MUTED}`}>{seat.subEventName?.trim() || p.seat}</dt>
-                            <dd className="mt-0.5 text-[20px] font-semibold leading-7 tabular-nums">{seat.label}</dd>
-                          </div>
-                        ))}
-                      </dl>
+                    {denahKursi ? (
+                      <div className="grid gap-6">
+                        {denahKursi.kursi.map((seat, index) => {
+                          const tulisan = seat.jenis && seat.kelompok && seat.nomor
+                            ? `${seat.jenis === "row" ? p.seatRow : p.seatTable} ${seat.kelompok} · ${p.seat} ${seat.nomor}`
+                            : seat.label;
+                          const denahUrl = seat.denah
+                            ? `/e/${event.slug}/denah?sesi=${encodeURIComponent(seat.denah.sesiSlug)}&kursi=${encodeURIComponent(seat.label)}`
+                            : `/e/${event.slug}/denah`;
+                          return (
+                            <div key={`${index}-${seat.label}`}>
+                              <p className={`${LABEL_BAGIAN} ${MUTED}`}>{p.yourSeat}</p>
+                              {seat.sesiNama ? <p className={`mt-1 text-body-medium ${MUTED}`}>{seat.sesiNama}</p> : null}
+                              <p className={`${HEAD} mt-1 text-[24px] font-semibold leading-tight tabular-nums`}>{tulisan}</p>
+                              {seat.denah ? (
+                                <a href={denahUrl} className="mt-3 block" aria-label={`${p.viewSeatingPlan}: ${tulisan}`}>
+                                  <DenahMini config={denahKursi.config} label={seat.label} warna={seat.denah.warna} ariaLabel={tulisan} />
+                                </a>
+                              ) : null}
+                              <a
+                                href={denahUrl}
+                                className="m3-state -mx-2 mt-2 inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-title-small font-semibold text-[var(--reg-primary)]"
+                              >
+                                {p.viewSeatingPlan}
+                                <ArrowRight size={18} weight="bold" />
+                              </a>
+                            </div>
+                          );
+                        })}
+                      </div>
                     ) : (
-                      <p className={`text-body-large ${MUTED}`}>{p.seatPending}</p>
+                      <>
+                        <p className={`text-body-large ${MUTED}`}>{p.seatPending}</p>
+                        <Link
+                          href={`/e/${event.slug}/denah`}
+                          className="m3-state -mx-2 mt-2 inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-title-small font-semibold text-[var(--reg-primary)]"
+                        >
+                          {p.viewSeatingPlan}
+                          <ArrowRight size={18} weight="bold" />
+                        </Link>
+                      </>
                     )}
-                    <Link
-                      href={`/e/${event.slug}/denah`}
-                      className="m3-state -mx-2 mt-2 inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-title-small font-semibold text-[var(--reg-primary)]"
-                    >
-                      {p.viewSeatingPlan}
-                      <ArrowRight size={18} weight="bold" />
-                    </Link>
                   </div>
                 ) : null}
               </section>

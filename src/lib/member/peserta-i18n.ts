@@ -32,6 +32,9 @@ export type PesertaUiText = {
   showAtDesk: string;
   yourSeat: string;
   seat: string;
+  /** Kata untuk kelompok kursi di kartu tiket: baris (theater) atau meja. */
+  seatRow: string;
+  seatTable: string;
   seatPending: string;
   viewSeatingPlan: string;
   quickLinksAria: string;
@@ -80,6 +83,8 @@ export const PESERTA_UI: Record<LandingLang, PesertaUiText> = {
     showAtDesk: "Tunjukkan di meja registrasi",
     yourSeat: "Kursi Anda",
     seat: "Kursi",
+    seatRow: "Baris",
+    seatTable: "Meja",
     seatPending: "Kursi belum ditentukan panitia. Halaman ini diperbarui begitu kursinya diatur.",
     viewSeatingPlan: "Lihat denah",
     quickLinksAria: "Tautan acara",
@@ -128,6 +133,8 @@ export const PESERTA_UI: Record<LandingLang, PesertaUiText> = {
     showAtDesk: "Show this at the registration desk",
     yourSeat: "Your seat",
     seat: "Seat",
+    seatRow: "Row",
+    seatTable: "Table",
     seatPending: "The organisers have not assigned seats yet. This page updates as soon as they do.",
     viewSeatingPlan: "View seating plan",
     quickLinksAria: "Event links",
