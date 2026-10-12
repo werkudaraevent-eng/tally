@@ -3,7 +3,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { logistikPeserta } from "@/lib/logistik/server";
 import { cleanExtra, participantBodySchema, toRpcArgs } from "@/lib/participant-input";
-import { BATAS_BACA, TerlaluBanyak, argumenRpc, nilaiKolomAdmin, querySchema, saring, saringanAdmin, semuaBarisRpc } from "@/lib/participants-saring";
+import { BATAS_BACA, TerlaluBanyak, argumenRpc, nilaiKolomAdmin, querySchema, saring, saringanAdmin, semuaBarisRpc, urutKursi } from "@/lib/participants-saring";
 import { kolomSaringanAdmin } from "@/lib/saringan-kolom";
 import { normalizeTimeZone } from "@/lib/timezone";
 import { applyTallySeats, prepareTallySeats, SeatInputError } from "@/lib/seat-tally";
@@ -75,14 +75,16 @@ export async function GET(request: Request) {
     }
   }
 
-  // Saringan per kolom: semua baris yang lolos penyaring database, disaring di
-  // sini, lalu dipotong per halaman. Urutannya tetap urutan RPC.
+  // Saringan per kolom dan urutan Seat: semua baris yang lolos penyaring
+  // database, disaring (dan untuk Seat diurutkan) di sini, lalu dipotong per
+  // halaman. Selain Seat, urutannya tetap urutan RPC.
   let tersaring: Array<{ id: string }> | null = null;
-  if (saringan.length) {
+  if (saringan.length || parsed.data.sort === "seat") {
     try {
-      tersaring = saring(await semuaBarisRpc(argumen), saringan, fields, zona);
+      const baris = saring(await semuaBarisRpc(argumen), saringan, fields, zona);
+      tersaring = parsed.data.sort === "seat" ? urutKursi(baris, parsed.data.dir) : baris;
     } catch (galat) {
-      if (galat instanceof TerlaluBanyak) return apiError("VALIDATION_ERROR", 422, { message: `Column filters work on up to ${BATAS_BACA.toLocaleString("en-GB")} participants. Narrow the list with search or the other filters first.` });
+      if (galat instanceof TerlaluBanyak) return apiError("VALIDATION_ERROR", 422, { message: `Column filters and seat sorting work on up to ${BATAS_BACA.toLocaleString("en-GB")} participants. Narrow the list with search or the other filters first.` });
       return apiError("INTERNAL_ERROR", 500);
     }
   }

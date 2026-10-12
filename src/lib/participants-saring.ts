@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
-import { bacaSaringan, cocokSemua, hariDiZona, hitungNilai, kolomSaringanAdmin, type Saringan } from "@/lib/saringan-kolom";
+import { bacaSaringan, cocokSemua, hariDiZona, hitungNilai, kolomSaringanAdmin, labelKursi, type Saringan } from "@/lib/saringan-kolom";
+export { urutKursi } from "@/lib/saringan-kolom";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -17,7 +18,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  */
 
 export const SORTABLE = [
-  "name", "company", "title", "qr_code", "participant_type", "rsvp_status", "source_checked_in", "source_total_scans", "registered_at",
+  "name", "company", "title", "qr_code", "participant_type", "rsvp_status", "source_checked_in", "source_total_scans", "registered_at", "seat",
 ] as const;
 
 export const querySchema = z.object({
@@ -50,6 +51,7 @@ export type BarisPeserta = {
   participant_type: string | null;
   registered_at?: string | null;
   extra: Record<string, unknown> | null;
+  seats?: Array<{ label?: string | null }> | null;
 };
 
 /** Argumen RPC dari parameter URL. `companies` dikirim berulang karena nama bisa memuat koma. */
@@ -64,8 +66,10 @@ export function argumenRpc(eventId: string, data: QueryPeserta, companies: strin
     p_session: data.attended ? (data.session ?? null) : null,
     p_attended: data.session ? (data.attended ?? null) : null,
     p_rsvp: data.rsvp ?? null,
-    p_sort: data.sort,
-    p_dir: data.dir,
+    // Seat diurutkan di sini (urutKursi), bukan di database: RPC tidak mengenal
+    // kolom itu. Urutan nama dari RPC jadi pemecah seri.
+    p_sort: data.sort === "seat" ? "name" : data.sort,
+    p_dir: data.sort === "seat" ? "asc" : data.dir,
     p_limit: data.limit,
     p_offset: data.offset,
     // Hanya dikirim bila dipakai: fungsi versi lama (sebelum migrasi
@@ -78,6 +82,7 @@ export function argumenRpc(eventId: string, data: QueryPeserta, companies: strin
 export function nilaiAdmin(fields: RegistrationField[], zona: string) {
   const perKunci = new Map(fields.map((field) => [field.key, field]));
   return (baris: BarisPeserta, kunci: string): string => {
+    if (kunci === "seat") return labelKursi(baris).join(", ");
     if (kunci === "registered_at") return baris.registered_at ? hariDiZona(baris.registered_at, zona) : "";
     if (kunci.startsWith("field:")) {
       const field = perKunci.get(kunci.slice(6));
