@@ -4,6 +4,7 @@ import { MagnifyingGlass, Users, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrandFooter, BrandHeader } from "@/components/brand-header-footer";
 import { SeatMapLedView } from "@/components/seat-map-led-view";
+import { SeatMapScroll } from "@/components/seat-map-scroll";
 import { SeatMapView, type SeatState } from "@/components/seat-map-view";
 import { Spinner } from "@/components/search-loading";
 import { normalizeBranding, type Branding } from "@/lib/branding";
@@ -460,19 +461,28 @@ export default function SeatMapPage() {
               </p>
             ) : null}
 
-            <div className="mt-6 overflow-x-auto">
-              <SeatMapView
+            {/* Denah tetap selebar 820px dan digeser di HP; lihat SeatMapScroll
+                untuk tanda geser, huruf baris yang menempel, dan geser otomatis
+                ke kursi yang dicari. */}
+            <div className="mt-6">
+              <SeatMapScroll
                 config={payload.config}
-                seatStates={seatStates}
                 highlightedSeatLabels={highlighted}
-                backgroundColor={background}
-                canvasColor={mapCanvas}
                 textColor={ink}
-                accentColor={accent}
-                seatColors={session}
-                onTableClick={(tableNumber) => setSelectedTable((current) => (current === tableNumber ? null : tableNumber))}
-                className="min-w-[820px]"
-              />
+                backgroundColor={background}
+              >
+                <SeatMapView
+                  config={payload.config}
+                  seatStates={seatStates}
+                  highlightedSeatLabels={highlighted}
+                  backgroundColor={background}
+                  canvasColor={mapCanvas}
+                  textColor={ink}
+                  accentColor={accent}
+                  seatColors={session}
+                  onTableClick={(tableNumber) => setSelectedTable((current) => (current === tableNumber ? null : tableNumber))}
+                />
+              </SeatMapScroll>
             </div>
 
             {payload.summary ? (
