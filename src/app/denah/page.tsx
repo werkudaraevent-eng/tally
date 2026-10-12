@@ -76,7 +76,16 @@ export default function SeatMapPage() {
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searchNote, setSearchNote] = useState("");
-  const [highlighted, setHighlighted] = useState<string[]>([]);
+  // `?kursi=A8` dari kartu tiket di dashboard peserta: kursinya langsung
+  // disorot dan denah bergeser ke sana. Hanya label yang dibaca, bukan nama,
+  // jadi tidak ada data orang yang bisa diturunkan dari alamat ini.
+  const [highlighted, setHighlighted] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    const raw = new URLSearchParams(window.location.search).get("kursi")?.trim();
+    return raw && /^[A-Za-z0-9-]{1,12}$/.test(raw) ? [raw] : [];
+  });
+  // Sorotan dari alamat bertahan sampai tamu mulai mengetik.
+  const sorotanDariUrl = useRef(highlighted.length > 0);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
 
@@ -149,7 +158,7 @@ export default function SeatMapPage() {
         searchAbort.current?.abort();
         setResults(null);
         setSearchNote("");
-        setHighlighted([]);
+        if (!sorotanDariUrl.current) setHighlighted([]);
         setSearching(false);
         return;
       }
@@ -402,7 +411,7 @@ export default function SeatMapPage() {
                   id="seat-search"
                   type="search"
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={(event) => { sorotanDariUrl.current = false; setQuery(event.target.value); }}
                   placeholder="Ketik minimal 3 huruf nama Anda"
                   autoComplete="off"
                   enterKeyHint="search"
