@@ -19,6 +19,7 @@ import {
   WorkspacePage,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { cx } from "@/lib/m3/cx";
 import { withEventPrefix } from "@/lib/event-path";
 import { plural } from "@/lib/plural";
 import { DEFAULT_CONTENT, FIELDS, type BlastKind } from "@/lib/pesan/bawaan";
@@ -86,6 +87,13 @@ export type DetailDraf = {
 };
 
 type Isi = { title: string; kind: BlastKind; audience: Audience; email_subject: string; email_body: string };
+
+/** Jenis kiriman untuk peserta, dengan satu kalimat apa yang diterima penerimanya. */
+const JENIS_PESERTA: { value: Exclude<BlastKind, "invitation">; keterangan: string }[] = [
+  { value: "undangan", keterangan: "A personal sign-in button. It works once and expires after 7 days." },
+  { value: "info", keterangan: "A regular email with a button to the event page. No sign-in link." },
+  { value: "data", keterangan: "A personal button that opens the questions participants can update. No password needed. Expires after 14 days." },
+];
 
 const KUNCI_EMAIL_TES = "tally:pesan:email-tes";
 
@@ -438,34 +446,48 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
             </Baris>
 
             <Baris judul="Type" id="jenis">
-              {/* Kolom ini sempit di 1280 (bilah samping + pratinjau): tiga pilihan
-                  bertumpuk sampai kolomnya cukup lebar, tidak meluber keluar kartu. */}
-              <div className="@container">
-                <SegmentedButton
-                  label="Blast type"
-                  labelledBy="jenis"
-                  value={isi.kind}
-                  onChange={gantiJenis}
-                  options={tamu
-                    ? [{ value: "invitation" as const, label: KIND_LABEL.invitation }]
-                    : [
-                        { value: "undangan" as const, label: KIND_LABEL.undangan },
-                        { value: "info" as const, label: KIND_LABEL.info },
-                        // Label pendek, supaya tiga pilihan muat sebaris begitu kolomnya cukup lebar.
-                        { value: "data" as const, label: "Update details" },
-                      ]}
-                  className={tamu ? "self-start" : "w-full flex-col items-stretch @[360px]:w-auto @[360px]:flex-row @[360px]:items-center"}
-                />
-              </div>
-              <p className="text-body-small text-on-surface-variant">
-                {isi.kind === "undangan"
-                  ? "Each email has a personal sign-in button. It works once and expires after 7 days."
-                  : isi.kind === "data"
-                    ? "Each email has a personal button that opens the questions participants can update. No password needed. The link expires after 14 days."
-                  : tamu
-                    ? "An invitation to register. Each email has a personal link to the form, with the invited guest's name already filled in. Sent gradually: about 10% first, the rest after 15 minutes if few bounce."
-                    : "A regular email with a button to the event page. It has no sign-in link."}
-              </p>
+              {tamu ? (
+                <>
+                  <SegmentedButton
+                    label="Blast type"
+                    labelledBy="jenis"
+                    value={isi.kind}
+                    onChange={gantiJenis}
+                    options={[{ value: "invitation" as const, label: KIND_LABEL.invitation }]}
+                    className="self-start"
+                  />
+                  <p className="text-body-small text-on-surface-variant">
+                    An invitation to register. Each email has a personal link to the form, with the invited guest&apos;s name already filled in. Sent gradually: about 10% first, the rest after 15 minutes if few bounce.
+                  </p>
+                </>
+              ) : (
+                // Pilihan tunggal yang tiap opsinya perlu penjelasan: daftar radio
+                // (M3), bukan tombol bersegmen. Tiga label tidak muat sebaris di
+                // kolom ini pada 1280, dan tombol bersegmen M3 tidak bertumpuk.
+                <div role="radiogroup" aria-labelledby="jenis" className="flex flex-col gap-2">
+                  {JENIS_PESERTA.map((pilihan) => (
+                    <label
+                      key={pilihan.value}
+                      className={cx(
+                        "flex cursor-pointer gap-3 rounded-lg border px-3 py-2.5",
+                        isi.kind === pilihan.value ? "border-primary" : "border-outline-variant hover:bg-primary-soft",
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="jenis-kiriman"
+                        checked={isi.kind === pilihan.value}
+                        onChange={() => gantiJenis(pilihan.value)}
+                        className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-body-medium font-medium text-on-surface">{KIND_LABEL[pilihan.value]}</span>
+                        <span className="mt-0.5 block text-body-medium text-on-surface-variant">{pilihan.keterangan}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
               {isi.kind === "undangan" && !detail.member_enabled ? (
                 <Banner tone="warning" icon={<Warning size={18} />}>
                   The participant area is turned off, so sign-in links won&apos;t work. Turn it on in Participant area first.
