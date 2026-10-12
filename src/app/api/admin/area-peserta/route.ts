@@ -38,6 +38,8 @@ export async function GET(request: Request) {
 
   return Response.json({
     member: landing.member ?? { enabled: false },
+    // PROTO PR 2: blok yang dipilih tampil di halaman peserta, untuk daftar Beranda.
+    blocks: (landing.blocks ?? []).filter((block) => block.show_on === "member" || block.show_on === "both").map((block) => ({ id: block.id, type: block.type, heading: block.heading ?? null, show_on: block.show_on })),
     // null bila hitungan gagal: layar menyembunyikan angkanya, bukan menampilkan 0.
     counts: {
       participants: peserta.error ? null : peserta.count ?? 0,

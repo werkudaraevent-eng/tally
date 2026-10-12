@@ -218,7 +218,8 @@ export const LANDING_BLOCK_SHOW_ON_LABELS: Record<LandingBlockShowOn, string> = 
  * `show_on`. Jenis lain selalu di halaman acara saja: memilih "Participant
  * page" untuk blok yang tidak bisa dirender di sana sama dengan menghapusnya.
  */
-export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = ["route"];
+// PROTO PR 2: semua jenis blok boleh tampil di halaman peserta.
+export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = ["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route"];
 
 /** Apakah blok tampil di halaman ini. Jenis tanpa tampilan peserta selalu halaman acara saja. */
 export function landingBlockShownOn(block: Pick<LandingBlock, "type" | "show_on">, page: "public" | "member"): boolean {
@@ -1063,7 +1064,19 @@ export type LandingMemberConfig = {
   /** Teman sekamar di kartu Kamar (dibaca member_logistics). Bawaan tampil. */
   show_roommates?: boolean;
   feedback_url?: string | null;
+  /** PROTO PR 2: urutan Beranda halaman peserta (id bawaan atau blk_...), dan yang disembunyikan. */
+  home?: { order?: string[]; hidden?: string[] };
 };
+
+/** PROTO PR 2: isi bawaan Beranda halaman peserta, urutan bawaan. */
+export const MEMBER_HOME_BUILTINS = [
+  { id: "announcements", label: "Announcements", sub: "Latest messages from Messages \u2192 Announcements" },
+  { id: "next", label: "Next up", sub: "The next session, from the Agenda" },
+  { id: "logistics", label: "Bus and room", sub: "From Logistics" },
+  { id: "roommates", label: "Roommates", sub: "From Logistics" },
+  { id: "agenda", label: "Today\u2019s agenda", sub: "From the Agenda" },
+  { id: "quick", label: "Quick links", sub: "Ticket, map, organisers" },
+] as const;
 
 export const LANDING_MEMBER_AUDIENCE_LABELS: Record<LandingMemberAudience, string> = {
   approved: "Peserta yang pendaftarannya disetujui",

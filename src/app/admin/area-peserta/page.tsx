@@ -11,6 +11,7 @@ import { type LandingMemberAudience, type LandingMemberConfig } from "@/lib/doma
 import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
+import { SusunanBeranda, type BlokPeserta } from "./susunan-beranda";
 
 /**
  * Area peserta: siapa yang bisa masuk ke Dashboard saya dan apa yang tampil di
@@ -23,7 +24,7 @@ import { plural } from "@/lib/plural";
  */
 
 type Hitungan = { participants: number | null; with_email: number | null; approved: number | null; accounts: number | null };
-type Muat = { member: LandingMemberConfig; counts: Hitungan };
+type Muat = { member: LandingMemberConfig; counts: Hitungan; blocks?: BlokPeserta[] };
 
 const angka = (nilai: number) => nilai.toLocaleString("en-GB");
 
@@ -161,17 +162,13 @@ export default function AreaPesertaPage() {
                     ))}
                   </div>
                 </SettingRow>
-                <SettingRow title="Shown in the Participant area">
+                <SettingRow title="Participant home" description="What participants see first after signing in, and in what order.">
+                  <SusunanBeranda member={anggota} blocks={data.blocks ?? []} set={set} />
+                </SettingRow>
+                <SettingRow title="Also available to participants">
                   <div className="flex flex-col gap-4">
                     <Switch checked={anggota.show_code !== false} onChange={(value) => set({ show_code: value })} label="QR code and participant code" description="For check-in at the entrance." />
                     <Switch checked={anggota.show_seat !== false} onChange={(value) => set({ show_seat: value })} label="Seat" description="From the Seating plan." />
-                    <Switch checked={anggota.show_schedule !== false} onChange={(value) => set({ show_schedule: value })} label="Agenda" description="From the Agenda page." />
-                    <Switch
-                      checked={anggota.show_logistics === true}
-                      onChange={(value) => set({ show_logistics: value })}
-                      label="Room and bus"
-                      description="From Logistics: room, roommate, bus and kit items. Turn this on once allocations are final."
-                    />
                     <Switch checked={anggota.show_vote !== false} onChange={(value) => set({ show_vote: value })} label="Live voting" description="The participant code is filled in automatically on the voting page." />
                     <TextField
                       label="Feedback form link"

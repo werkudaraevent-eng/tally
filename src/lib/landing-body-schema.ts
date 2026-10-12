@@ -210,6 +210,7 @@ export const memberSchema = z.object({
   /** Dibaca member_logistics di database; bawaan tampil. */
   show_roommates: z.boolean().optional(),
   feedback_url: z.string().trim().url().max(600).nullable().optional(),
+  home: z.object({ order: z.array(z.string().max(40)).max(60).optional(), hidden: z.array(z.string().max(40)).max(60).optional() }).optional(),
 });
 
 /** Satu pembicara (`landing_config.speakers[]`), disimpan di halaman Speakers. */

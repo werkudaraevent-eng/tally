@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowSquareOut,
@@ -26,6 +26,7 @@ import {
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
 import { LANDING_NAV_DEFAULTS, isPortalEntry, landingMemberBlocks, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { KartuRute } from "@/components/landing/modern/blok-rute";
+import { KartuBlok } from "@/components/member/kartu-blok";
 import { formatEventDate, formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
@@ -162,9 +163,30 @@ export async function DashboardGathering({
   const adaHotel = inap.hotels.length > 0;
   // Blok yang admin pilih untuk halaman peserta (Show on), di atas Rundown hari ini.
   const hotelIds = new Set(inap.hotels.map((hotel) => hotel.id));
-  const kartuBlok = landingMemberBlocks(config.sections, config.blocks, hotelIds).map((block) =>
-    block.type === "route" ? <KartuRute key={block.id} block={block} hotels={inap.hotels} lang={lang} /> : null,
+  // PROTO PR 2: setiap jenis blok bisa tampil; blok selain Rute dirender dalam kartu.
+  const kartuBlokById = new Map(
+    landingMemberBlocks(config.sections, config.blocks, hotelIds).map((block) => [
+      block.id as string,
+      block.type === "route" ? (
+        <KartuRute key={block.id} block={block} hotels={inap.hotels} lang={lang} />
+      ) : (
+        <KartuBlok key={block.id} block={block} lang={lang} />
+      ),
+    ]),
   );
+  const urutanBeranda = (() => {
+    const bawaan = ["announcements", "next", "logistics", "roommates", "agenda", "quick"];
+    const semua = [...bawaan, ...kartuBlokById.keys()];
+    const hasil = (member.home?.order ?? []).filter((id) => semua.includes(id));
+    semua.forEach((id) => {
+      if (hasil.includes(id)) return;
+      const posisi = id.startsWith("blk_") ? hasil.indexOf("agenda") : -1;
+      if (posisi >= 0) hasil.splice(posisi, 0, id);
+      else hasil.push(id);
+    });
+    const sembunyi = new Set(member.home?.hidden ?? []);
+    return hasil.filter((id) => !sembunyi.has(id));
+  })();
   const { navSections, tampil } = bagianModern(event, config, sectionsHalaman, agendaNav, lang, { gathering: true, adaHotel, hotelIds });
   const menuAtas = (() => {
     const urutan = susunanDenganPortal(config.sections, config.blocks);
@@ -473,25 +495,30 @@ export async function DashboardGathering({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start lg:gap-6">
         <div className="flex min-w-0 flex-col gap-4">
           {pitaEmail}
-          <div className="lg:hidden">{aksesCepat}</div>
           {statusPendaftaran}
-          {kartuPengumuman}
-          <div className="lg:hidden">{kartuSelanjutnya(false)}</div>
-          {kartuBus || kartuKamar ? (
-            <div className="grid grid-cols-2 gap-4 lg:hidden">
-              {kartuBus}
-              {kartuKamar}
-            </div>
-          ) : null}
-          <div className="lg:hidden">{kartuTeman}</div>
-          {kartuBlok}
-          {kartuRundown}
+          {urutanBeranda.map((id) => {
+            switch (id) {
+              case "announcements": return <Fragment key={id}>{kartuPengumuman}</Fragment>;
+              case "next": return <div key={id} className="lg:hidden">{kartuSelanjutnya(false)}</div>;
+              case "logistics":
+                return kartuBus || kartuKamar ? (
+                  <div key={id} className="grid grid-cols-2 gap-4 lg:hidden">
+                    {kartuBus}
+                    {kartuKamar}
+                  </div>
+                ) : null;
+              case "roommates": return <div key={id} className="lg:hidden">{kartuTeman}</div>;
+              case "agenda": return <Fragment key={id}>{kartuRundown}</Fragment>;
+              case "quick": return <div key={id} className="lg:hidden">{aksesCepat}</div>;
+              default: return kartuBlokById.get(id) ?? null;
+            }
+          })}
         </div>
         <div className="hidden flex-col gap-4 lg:flex">
-          {kartuBus}
-          {kartuKamar}
-          {kartuTeman}
-          {aksesCepat}
+          {urutanBeranda.includes("logistics") ? kartuBus : null}
+          {urutanBeranda.includes("logistics") ? kartuKamar : null}
+          {urutanBeranda.includes("roommates") ? kartuTeman : null}
+          {urutanBeranda.includes("quick") ? aksesCepat : null}
         </div>
       </div>
     );
