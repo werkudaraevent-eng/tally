@@ -1,5 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeTimeZone, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
+import { cocokSemua, hariDiZona, hitungNilai, type Saringan } from "../saringan-kolom";
 import { teksJawaban, type KolomJawaban } from "./kolom-klien";
 
 export { kolomJawabanKlien, pertanyaanUntukKlien, statusPertanyaanKlien, type KolomJawaban } from "./kolom-klien";
@@ -221,9 +222,86 @@ async function semuaFormPertama(eventId: string, lengkap = false) {
 }
 
 /** Satu halaman tabel. */
-export async function halamanKlien(eventId: string, opsi: { q: string; sort: UrutKlien; dir: "asc" | "desc"; limit: number; offset: number }, kolom: KolomJawaban[]) {
+export async function halamanKlien(
+  eventId: string,
+  opsi: { q: string; sort: UrutKlien; dir: "asc" | "desc"; limit: number; offset: number },
+  kolom: KolomJawaban[],
+  saringan: { daftar: Saringan[]; zona: string } = { daftar: [], zona: "Asia/Jakarta" },
+) {
   const cari = filterCari(opsi.q);
+  if (saringan.daftar.length) return halamanTersaring(eventId, cari, opsi, kolom, saringan.daftar, saringan.zona);
   return opsi.sort === "registered_at" ? halamanMenurutWaktu(eventId, cari, opsi, kolom) : halamanMenurutKolom(eventId, cari, opsi, kolom);
+}
+
+/**
+ * Teks sel yang dibandingkan saringan "+ Filter", sama dengan yang tampil di
+ * layar klien. Hanya kunci dari `kolomSaringanKlien` yang pernah sampai ke
+ * sini (diperiksa route); jawaban hanya yang ada di `answers`, yaitu yang
+ * dibagikan admin.
+ */
+export function nilaiKlien(zona: string) {
+  return (baris: BarisKlien, kunci: string): string => {
+    if (kunci === "registered_at") return hariDiZona(baris.registered_at, zona);
+    if (kunci === "checked_in") return baris.checked_in ? "Yes" : "No";
+    if (kunci.startsWith("answer:")) return (baris.answers[kunci.slice(7)] ?? "").trim();
+    const v = baris[kunci as "company" | "title" | "email" | "phone" | "participant_type"];
+    return typeof v === "string" ? v.trim() : "";
+  };
+}
+
+/** Semua baris aktif yang cocok dengan kata cari, dengan waktu terdaftar dan jawaban. */
+async function semuaBarisCocok(eventId: string, cari: string | null, kolom: KolomJawaban[]) {
+  const [baris, form] = await Promise.all([
+    bacaSemua<BarisDb>(() => {
+      let kueri = pesertaAktif(eventId);
+      if (cari) kueri = kueri.or(cari);
+      return kueri.order("id", { ascending: true }) as unknown as KueriBerhalaman<BarisDb>;
+    }, (b) => b.id),
+    semuaFormPertama(eventId),
+  ]);
+  return baris.map((b) => keBaris(b, form, kolom));
+}
+
+/**
+ * Halaman dengan saringan "+ Filter". Jawaban form ada di `extra` dan kolomnya
+ * berbeda per acara, jadi seluruh baris yang cocok dengan kata cari dibaca
+ * (per 1000, seperti urut waktu di bawah), disaring dan diurutkan di sini.
+ */
+async function halamanTersaring(
+  eventId: string,
+  cari: string | null,
+  opsi: { sort: UrutKlien; dir: "asc" | "desc"; limit: number; offset: number },
+  kolom: KolomJawaban[],
+  saringan: Saringan[],
+  zona: string,
+) {
+  const nilai = nilaiKlien(zona);
+  const arah = opsi.dir === "asc" ? 1 : -1;
+  const kunci = (b: BarisKlien) => (opsi.sort === "registered_at" ? b.registered_at : (opsi.sort === "name" ? b.name : b.company) ?? "");
+  const cocok = (await semuaBarisCocok(eventId, cari, kolom))
+    .filter((b) => cocokSemua(b, saringan, nilai))
+    .sort((a, b) => {
+      const x = kunci(a), y = kunci(b);
+      // Kosong selalu di akhir, seperti `nullsFirst: false` di jalur database.
+      if (!x !== !y) return x ? -1 : 1;
+      const banding = opsi.sort === "registered_at" ? Date.parse(x) - Date.parse(y) : x.localeCompare(y, "en");
+      return banding * arah || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    });
+  return { rows: cocok.slice(opsi.offset, opsi.offset + opsi.limit), total: cocok.length };
+}
+
+/** Nilai yang ada di satu kolom pilihan layar klien beserta jumlahnya. */
+export async function nilaiKolomKlien(eventId: string, kunci: string, kolom: KolomJawaban[], zona: string) {
+  return hitungNilai(await semuaBarisCocok(eventId, null, kolom), kunci, nilaiKlien(zona));
+}
+
+/** Saring baris unduhan dengan kata cari dan "+ Filter" yang sama dengan layar. */
+export function saringBarisKlien(baris: BarisKlien[], q: string, saringan: Saringan[], zona: string) {
+  const kata = q.trim().toLocaleLowerCase("en");
+  const nilai = nilaiKlien(zona);
+  return baris.filter((b) =>
+    (!kata || [b.name, b.company, b.email].some((v) => (v ?? "").toLocaleLowerCase("en").includes(kata))) &&
+    cocokSemua(b, saringan, nilai));
 }
 
 /** Urut nama/organisasi: urutan dan halaman langsung dari database. */
