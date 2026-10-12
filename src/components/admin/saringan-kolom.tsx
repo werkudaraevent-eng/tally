@@ -32,7 +32,7 @@ type Props = {
   kelasChip?: string;
 };
 
-const kosong = (s: Saringan) => ("in" in s ? s.in.length === 0 : "has" in s ? !s.has : !s.from && !s.to);
+const kosong = (s: Saringan) => ("in" in s ? s.in.length === 0 : "has" in s ? !s.has : "kosong" in s ? false : !s.from && !s.to);
 
 export function SaringanKolom({ kolom, nilai, onChange, muatNilai, kelasChip = "contents" }: Props) {
   const [baru, setBaru] = useState<string | null>(null);
@@ -163,6 +163,7 @@ function ringkasan(s: Saringan): string {
     return s.in.length === 1 ? pertama : `${pertama} +${s.in.length - 1}`;
   }
   if ("has" in s) return s.has ? `contains “${s.has}”` : "";
+  if ("kosong" in s) return s.kosong ? "is empty" : "is not empty";
   if (s.from && s.to) return s.from === s.to ? fmtHari(s.from) : `${fmtHari(s.from)}–${fmtHari(s.to)}`;
   if (s.from) return `from ${fmtHari(s.from)}`;
   if (s.to) return `until ${fmtHari(s.to)}`;
@@ -192,7 +193,7 @@ function ChipSaringan({ kolom, saringan, bukaSaatMuncul, onDibuka, onUbah, onHap
   }, [bukaSaatMuncul, pemicu, buka, onDibuka]);
 
   const isi = ringkasan(saringan);
-  const teks = isi ? `${kolom.label}${"has" in saringan ? " " : ": "}${isi}` : kolom.label;
+  const teks = isi ? `${kolom.label}${"has" in saringan || "kosong" in saringan ? " " : ": "}${isi}` : kolom.label;
   return (
     <div
       className={cx(
@@ -211,7 +212,7 @@ function ChipSaringan({ kolom, saringan, bukaSaatMuncul, onDibuka, onUbah, onHap
         className="inline-flex h-full min-w-0 items-center gap-1.5 rounded-full pl-3 pr-1.5"
       >
         {/* Pertanyaan form bisa sepanjang kalimat: judulnya yang dipotong, nilainya tetap terbaca. */}
-        <span className={cx("truncate", isi && "max-w-[150px] shrink-[2]")}>{kolom.label}{isi && !("has" in saringan) ? ":" : ""}</span>
+        <span className={cx("truncate", isi && "max-w-[150px] shrink-[2]")}>{kolom.label}{isi && !("has" in saringan || "kosong" in saringan) ? ":" : ""}</span>
         {isi ? <span className="-ml-0.5 min-w-0 truncate">{isi}</span> : null}
         {aktif ? null : <CaretDown size={14} aria-hidden className="shrink-0 text-on-surface-variant" />}
       </button>
@@ -227,8 +228,14 @@ function ChipSaringan({ kolom, saringan, bukaSaatMuncul, onDibuka, onUbah, onHap
         <p className="line-clamp-2 px-3 pb-1 pt-1.5 text-body-medium font-medium text-on-surface-variant" title={kolom.label}>{kolom.label}</p>
         {"in" in saringan ? (
           <EditorPilihan kunci={kolom.key} pilihan={saringan.in} onUbah={(next) => onUbah({ k: kolom.key, in: next })} muatNilai={muatNilai} />
-        ) : "has" in saringan ? (
-          <EditorTeks nilai={saringan.has} onUbah={(has) => onUbah({ k: kolom.key, has })} onSelesai={anchor.tutup} />
+        ) : "has" in saringan || "kosong" in saringan ? (
+          <EditorTeks
+            nilai={"has" in saringan ? saringan.has : ""}
+            kosong={"kosong" in saringan ? saringan.kosong : null}
+            onUbah={(has) => onUbah({ k: kolom.key, has })}
+            onKosong={(next) => onUbah(next === null ? { k: kolom.key, has: "" } : { k: kolom.key, kosong: next })}
+            onSelesai={anchor.tutup}
+          />
         ) : (
           <EditorTanggal dari={saringan.from ?? ""} sampai={saringan.to ?? ""} onUbah={(from, to) => onUbah({ k: kolom.key, ...(from ? { from } : {}), ...(to ? { to } : {}) })} />
         )}
@@ -287,7 +294,14 @@ function EditorPilihan({ kunci, pilihan, onUbah, muatNilai }: { kunci: string; p
   );
 }
 
-function EditorTeks({ nilai, onUbah, onSelesai }: { nilai: string; onUbah: (next: string) => void; onSelesai: () => void }) {
+function EditorTeks({ nilai, kosong, onUbah, onKosong, onSelesai }: {
+  nilai: string;
+  /** true = "Is empty", false = "Is not empty", null = memuat teks. */
+  kosong: boolean | null;
+  onUbah: (next: string) => void;
+  onKosong: (next: boolean | null) => void;
+  onSelesai: () => void;
+}) {
   const [teks, setTeks] = useState(nilai);
   const terakhir = useRef(nilai);
   useEffect(() => {
@@ -306,6 +320,26 @@ function EditorTeks({ nilai, onUbah, onSelesai }: { nilai: string; onUbah: (next
         aria-label="Contains"
         className="h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium outline-none placeholder:text-on-surface-variant focus:border-primary"
       />
+      <div role="radiogroup" aria-label="Or match" className="mt-1">
+        {([[true, "Is empty"], [false, "Is not empty"]] as const).map(([nilaiKosong, label]) => {
+          const on = kosong === nilaiKosong;
+          return (
+            <button
+              key={label}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => { setTeks(""); terakhir.current = ""; onKosong(on ? null : nilaiKosong); }}
+              className="flex min-h-[34px] w-full items-center gap-2.5 rounded-md px-1 py-1.5 text-left text-body-medium text-on-surface hover:bg-primary-soft"
+            >
+              <span aria-hidden className={cx("grid size-4 shrink-0 place-items-center rounded-full border", on ? "border-primary" : "border-outline bg-surface-container-lowest")}>
+                {on ? <span className="size-2 rounded-full bg-primary" /> : null}
+              </span>
+              {label}
+            </button>
+          );
+        })}
+      </div>
     </form>
   );
 }

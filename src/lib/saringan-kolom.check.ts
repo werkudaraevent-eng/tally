@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bacaSaringan, bacaSaringanMentah, cocokSatu, cocokSemua, hitungNilai, kolomSaringanAdmin, kolomSaringanKlien } from "./saringan-kolom.ts";
+import { bacaSaringan, bacaSaringanMentah, cocokSatu, cocokSemua, hitungNilai, kolomSaringanAdmin, kolomSaringanKlien, urutKursi } from "./saringan-kolom.ts";
 
 const fields = [
   { key: "sesi", label: "Which breakout session?", type: "select" as const, required: true, options: ["BR 1", "BR 2"] },
@@ -44,3 +44,19 @@ assert.deepEqual(bacaSaringanMentah(json([{ k: "field:sesi", in: null }, { k: "t
 assert.deepEqual(bacaSaringanMentah("{rusak"), []);
 assert.deepEqual(bacaSaringanMentah(json({ k: "title" })), []);
 console.log("saringan-kolom mentah ok");
+
+// Seat: kosong / terisi, urutan alami, tanpa kursi di akhir (ke dua arah).
+assert.ok(admin.some((k) => k.key === "seat" && k.jenis === "teks"));
+assert.deepEqual(bacaSaringan(json([{ k: "seat", kosong: true }]), admin), [{ k: "seat", kosong: true }]);
+assert.deepEqual(bacaSaringan(json([{ k: "seat", kosong: "ya" }]), admin), []);
+assert.deepEqual(bacaSaringanMentah(json([{ k: "seat", kosong: false }])), [{ k: "seat", kosong: false }]);
+assert.equal(cocokSatu("", { k: "seat", kosong: true }), true);
+assert.equal(cocokSatu("A1", { k: "seat", kosong: true }), false);
+assert.equal(cocokSatu("A1", { k: "seat", kosong: false }), true);
+assert.equal(cocokSatu("A1, VIP1-2", { k: "seat", has: "vip1-2" }), true);
+const kursi = (...label: string[]) => ({ seats: label.map((l) => ({ label: l })) });
+const urut = [kursi("A10"), kursi(), kursi("VIP1-10"), kursi("A2"), kursi("VIP1-2", "B1"), kursi("b1")];
+const label = (daftar: Array<{ seats: Array<{ label: string }> }>) => daftar.map((b) => b.seats[0]?.label ?? "");
+assert.deepEqual(label(urutKursi(urut, "asc")), ["A2", "A10", "b1", "VIP1-2", "VIP1-10", ""]);
+assert.deepEqual(label(urutKursi(urut, "desc")), ["VIP1-10", "VIP1-2", "b1", "A10", "A2", ""]);
+console.log("saringan-kolom kursi ok");

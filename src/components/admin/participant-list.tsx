@@ -153,7 +153,7 @@ function EksporTerpilih({ busy, onPick }: { busy: boolean; onPick: (format: "xls
 }
 
 // Harus cocok dengan whitelist SORTABLE di /api/admin/participants.
-type SortKey = "name" | "company" | "title" | "qr_code" | "participant_type" | "rsvp_status" | "source_checked_in" | "source_total_scans" | "registered_at";
+type SortKey = "name" | "company" | "title" | "qr_code" | "participant_type" | "rsvp_status" | "source_checked_in" | "source_total_scans" | "registered_at" | "seat";
 
 type Draft = {
   qr_code: string; name: string; company: string; title: string; email: string; phone: string;
@@ -647,7 +647,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       { key: "rsvp", label: "RSVP", sort: "rsvp_status", width: 128, cell: (p) => p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell /> },
       { key: "kamar", label: "Room", width: 120, cell: (p) => p.logistik?.kamar ? <span className="block truncate" title={p.logistik.kamar}>{p.logistik.kamar}</span> : <EmptyCell /> },
       { key: "bus", label: "Bus", width: 96, cell: (p) => p.logistik?.bus ?? <EmptyCell /> },
-      { key: "seat", label: "Seat", width: 168, cell: (p) => p.seats?.length ? <span className="block truncate" title={p.seats.map((s) => `${s.subEventName}: ${s.label}`).join(", ")}>{p.seats.map((s) => s.label).join(", ")}</span> : <EmptyCell /> },
+      { key: "seat", label: "Seat", sort: "seat", width: 168, cell: (p) => p.seats?.length ? <span className="block truncate" title={p.seats.map((s) => `${s.subEventName}: ${s.label}`).join(", ")}>{p.seats.map((s) => s.label).join(", ")}</span> : <EmptyCell /> },
       { key: "source", label: "Source", width: 128, cell: (p) => <span title={ASAL[p.source].judul}>{ASAL[p.source].label}</span> },
       { key: "type", label: "Type", sort: "participant_type", width: 112, cell: (p) => p.participant_type ?? <EmptyCell /> },
       { key: "qr", label: "QR code", sort: "qr_code", width: 128, cell: (p) => <span className="tabular-nums">{p.qr_code}</span> },
