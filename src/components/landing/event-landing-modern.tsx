@@ -1229,7 +1229,7 @@ function TempatMenginap({ hotels, zona, lang }: { hotels: LandingHotel[]; zona: 
     return (
       <div className="flex flex-col gap-8 sm:gap-10">
         {judul}
-        <ul className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+        <ul className={`grid gap-6 lg:grid-cols-2 lg:gap-8 ${hotels.length === 3 ? "xl:grid-cols-3" : ""}`}>
           {hotels.map((hotel) => (
             <li key={hotel.id} className="flex flex-col overflow-hidden rounded-lg bg-[var(--reg-panel)] [box-shadow:inset_0_0_0_1px_var(--garis-kartu,transparent)]">
               <PetaHotel hotel={hotel} lang={lang} className="h-48 sm:h-56" />
@@ -1264,8 +1264,8 @@ function InfoHotel({ hotel, zona, lang }: { hotel: LandingHotel; zona: EventTime
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        <h3 className={`${HEAD} text-[24px] font-semibold leading-tight`}>{hotel.name}</h3>
-        {hotel.address ? <p className={`whitespace-pre-line text-isi ${MUTED}`}>{hotel.address}</p> : null}
+        <h3 className={`${HEAD} text-[24px] font-semibold leading-tight [overflow-wrap:anywhere]`}>{hotel.name}</h3>
+        {hotel.address ? <p className={`whitespace-pre-line text-isi [overflow-wrap:anywhere] ${MUTED}`}>{hotel.address}</p> : null}
       </div>
       {masuk || keluar ? (
         <dl className="grid w-full grid-cols-[120px_minmax(0,1fr)] gap-y-2.5 text-isi">
