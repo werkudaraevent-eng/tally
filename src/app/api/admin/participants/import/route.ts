@@ -62,25 +62,30 @@ export async function POST(request: Request) {
   }
   if (semua.length === 0) return apiError("IMPORT_EMPTY", 422);
 
-  // Nomor baris dihitung dari berkas yang sama dengan RPC (baris kosong sudah
-  // dibuang oleh mapRows), jadi angka di daftar masalah tetap sepadan antara
-  // penolakan di sini dan penolakan di dalam fungsi.
+  // Nomor baris dihitung dari `semua` (baris kosong sudah dibuang oleh
+  // mapRows). RPC hanya menerima baris yang lolos di sini dan menomori ulang
+  // dari 1, jadi `asal` memetakan nomor baris RPC kembali ke nomor baris
+  // berkas. Tanpa itu, satu jawaban yang ditolak di sini menggeser nomor semua
+  // masalah dari RPC sesudahnya.
   const tambahan = importableFields(fields);
   const ditolak: ImportIssue[] = [];
+  const asal: number[] = [];
   const rows = semua.filter((row, index) => {
-    if (!row.extra) return true;
-    const { issues, clean } = validateAnswers(tambahan, row.extra, { enforceRequired: false });
-    if (issues.length > 0) {
-      ditolak.push({ row: index + 1, qr_code: row.qr_code ?? null, reason: issues.map((issue) => issue.message).join(" ") });
-      return false;
+    if (row.extra) {
+      const { issues, clean } = validateAnswers(tambahan, row.extra, { enforceRequired: false });
+      if (issues.length > 0) {
+        ditolak.push({ row: index + 1, qr_code: row.qr_code ?? null, reason: issues.map((issue) => issue.message).join(" ") });
+        return false;
+      }
+      row.extra = clean;
     }
-    row.extra = clean;
+    asal.push(index + 1);
     return true;
   });
 
   if (rows.length === 0) {
     return Response.json({
-      dry_run: dryRun, rows: semua.length, inserted: 0, updated: 0, generated: 0, source_locked: 0,
+      dry_run: dryRun, rows: semua.length, inserted: 0, updated: 0, generated: 0, unchecked: 0, source_locked: 0,
       rejected: ditolak.length, issues: ditolak.slice(0, 50), issues_truncated: ditolak.length > 50,
       recognized_columns: recognized, file_name: file.name,
     });
@@ -99,12 +104,14 @@ export async function POST(request: Request) {
 
   // Penolakan dari pemeriksaan jawaban digabung dengan penolakan dari RPC,
   // supaya pratinjau menampilkan SATU daftar masalah dengan satu hitungan.
-  const hasil = data as { rows: number; generated?: number; rejected: number; issues: ImportIssue[]; issues_truncated: boolean };
-  const issues = [...ditolak, ...hasil.issues].sort((a, b) => a.row - b.row);
+  const hasil = data as { rows: number; generated?: number; unchecked?: number; rejected: number; issues: ImportIssue[]; issues_truncated: boolean };
+  const dariRpc = hasil.issues.map((issue) => ({ ...issue, row: asal[issue.row - 1] ?? issue.row }));
+  const issues = [...ditolak, ...dariRpc].sort((a, b) => a.row - b.row);
   return Response.json({
     ...hasil,
-    // Fungsi lama (sebelum 202610120001) tidak mengirim kunci ini.
+    // Fungsi lama (sebelum 202610120001) tidak mengirim kedua kunci ini.
     generated: hasil.generated ?? 0,
+    unchecked: hasil.unchecked ?? 0,
     rows: hasil.rows + ditolak.length,
     rejected: hasil.rejected + ditolak.length,
     issues: issues.slice(0, 50),

@@ -125,6 +125,7 @@ const messages: Record<ApiErrorCode, string> = {
   WALKIN_DISABLED: "Acara ini tidak menerima tamu walk-in. Minta admin menyalakannya di Admin → Kehadiran bila memang boleh.",
   IMPORT_EMPTY: "The file has no data rows.",
   IMPORT_TOO_LARGE: "The file has more than 5,000 rows. Split it into several files.",
+  REGISTRATION_QR_EXHAUSTED: "Could not create a new QR code for this event. Add QR codes to the rows without one and import again.",
   IMPORT_UNREADABLE: "The file can't be read. Make sure it is CSV or XLSX and the first row holds the column names.",
   SCANNER_NOT_CONFIGURED: "The Scanner API is not set up for this event. Enter the base URL, API key and event slug in the Scanner API card.",
   VOTE_POLL_NOT_FOUND: "Pertanyaan voting tidak ditemukan.",
@@ -268,6 +269,7 @@ export function mapDatabaseError(error: { code?: string; message?: string }) {
   // kode terpakai, bukan sebagai "sudah mengambil item diskon".
   if (message.includes("participants_qr_code_event_unique")) return "PARTICIPANT_QR_TAKEN" as const;
   if (message.includes("IMPORT_TOO_LARGE")) return "IMPORT_TOO_LARGE" as const;
+  if (message.includes("REGISTRATION_QR_EXHAUSTED")) return "REGISTRATION_QR_EXHAUSTED" as const;
   if (message.includes("IMPORT_EMPTY")) return "IMPORT_EMPTY" as const;
   // Dilempar cast_vote dan save_vote_poll. Urutannya penting: VOTE_TOO_MANY dan
   // VOTE_TOO_MANY_OPTIONS berbagi awalan, jadi yang lebih panjang diperiksa
