@@ -27,6 +27,7 @@ export function DenahMini({
         accentColor={warna.accent}
         seatColors={warna}
         maxHeight="200px"
+        decorative
       />
     </div>
   );

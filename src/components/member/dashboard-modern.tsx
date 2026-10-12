@@ -313,6 +313,9 @@ export async function DashboardModern({
                     {denahKursi ? (
                       <div className="grid gap-6">
                         {denahKursi.kursi.map((seat, index) => {
+                          const tulisan = seat.jenis && seat.kelompok && seat.nomor
+                            ? `${seat.jenis === "row" ? p.seatRow : p.seatTable} ${seat.kelompok} · ${p.seat} ${seat.nomor}`
+                            : seat.label;
                           const denahUrl = seat.denah
                             ? `/e/${event.slug}/denah?sesi=${encodeURIComponent(seat.denah.sesiSlug)}&kursi=${encodeURIComponent(seat.label)}`
                             : `/e/${event.slug}/denah`;
@@ -320,23 +323,19 @@ export async function DashboardModern({
                             <div key={`${index}-${seat.label}`}>
                               <p className={`${LABEL_BAGIAN} ${MUTED}`}>{p.yourSeat}</p>
                               {seat.sesiNama ? <p className={`mt-1 text-body-medium ${MUTED}`}>{seat.sesiNama}</p> : null}
-                              <p className={`${HEAD} mt-1 text-[24px] font-semibold leading-tight tabular-nums`}>
-                                {seat.jenis && seat.kelompok && seat.nomor
-                                  ? `${seat.jenis === "row" ? p.seatRow : p.seatTable} ${seat.kelompok} · ${p.seat} ${seat.nomor}`
-                                  : seat.label}
-                              </p>
+                              <p className={`${HEAD} mt-1 text-[24px] font-semibold leading-tight tabular-nums`}>{tulisan}</p>
                               {seat.denah ? (
-                                <Link href={denahUrl} className="mt-3 block" aria-label={p.viewSeatingPlan}>
-                                  <DenahMini config={denahKursi.config} label={seat.label} warna={seat.denah.warna} ariaLabel={seat.label} />
-                                </Link>
+                                <a href={denahUrl} className="mt-3 block" aria-label={`${p.viewSeatingPlan}: ${tulisan}`}>
+                                  <DenahMini config={denahKursi.config} label={seat.label} warna={seat.denah.warna} ariaLabel={tulisan} />
+                                </a>
                               ) : null}
-                              <Link
+                              <a
                                 href={denahUrl}
                                 className="m3-state -mx-2 mt-2 inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-title-small font-semibold text-[var(--reg-primary)]"
                               >
                                 {p.viewSeatingPlan}
                                 <ArrowRight size={18} weight="bold" />
-                              </Link>
+                              </a>
                             </div>
                           );
                         })}
