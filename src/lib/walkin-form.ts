@@ -49,27 +49,52 @@ export function periksaWalkIn(isian: IsianWalkIn, aturan: AturanWalkIn, fields: 
   const galat: Record<string, string> = {};
   const isi = (nilai: string | null | undefined) => (nilai ?? "").trim();
 
-  if (!isi(isian.name)) galat.name = "Nama wajib diisi.";
+  if (!isi(isian.name)) galat.name = "Full name is required.";
 
   const email = isi(isian.email);
   if (!email) {
-    if (aturan.email) galat.email = "Email wajib diisi.";
+    if (aturan.email) galat.email = "Email is required.";
   } else if (!POLA_EMAIL.test(email)) {
-    galat.email = "Format email belum benar.";
+    galat.email = "Enter a valid email address.";
   }
 
   const telepon = isi(isian.phone);
   if (!telepon) {
-    if (aturan.phone) galat.phone = "No. HP wajib diisi.";
+    if (aturan.phone) galat.phone = "Phone number is required.";
   } else if (telepon.length < 6 || !POLA_TELEPON.test(telepon)) {
-    galat.phone = "No. HP hanya berisi angka, minimal 6 digit.";
+    galat.phone = "Phone number can only contain digits, at least 6.";
   }
 
-  if (aturan.company && !isi(isian.company)) galat.company = "Instansi wajib diisi.";
-  if (aturan.title && !isi(isian.title)) galat.title = "Jabatan wajib diisi.";
+  if (aturan.company && !isi(isian.company)) galat.company = "Organisation is required.";
+  if (aturan.title && !isi(isian.title)) galat.title = "Job title is required.";
 
-  for (const issue of validateAnswers(fields, isian.extra ?? {}).issues) {
-    galat[`extra.${issue.key}`] = issue.message;
+  const jawaban = isian.extra ?? {};
+  for (const issue of validateAnswers(fields, jawaban).issues) {
+    const field = fields.find((f) => f.key === issue.key);
+    galat[`extra.${issue.key}`] = field ? pesanTambahan(field, isi(jawaban[field.key]), issue.message) : issue.message;
   }
   return galat;
+}
+
+/**
+ * Pesan berbahasa Inggris untuk pertanyaan tambahan.
+ *
+ * validateAnswers dipakai juga oleh formulir pendaftaran publik, jadi pesannya
+ * tetap berbahasa acara di sana. Layar pemindai (staf) memakai bahasa Inggris:
+ * jenis masalahnya dibaca dari jawaban yang kosong atau dari pesan aslinya.
+ */
+function pesanTambahan(field: RegistrationField, nilai: string, asli: string): string {
+  const label = field.label;
+  if (!nilai) return field.type === "checkbox" ? `Tick ${label}.` : `${label} is required.`;
+  const sisa = asli.startsWith(label) ? asli.slice(label.length) : asli;
+  if (sisa.includes("terlalu panjang")) return `${label} is too long.`;
+  if (sisa.includes("pilihan")) return `${label} has an option that is not available.`;
+  if (sisa.includes("berupa angka")) return `${label} must be a number.`;
+  if (sisa.includes("minimal") && field.min !== undefined) return `${label} must be at least ${field.min}.`;
+  if (sisa.includes("maksimal") && field.max !== undefined) return `${label} must be at most ${field.max}.`;
+  if (sisa.includes("tanggal")) return `${label} is not a valid date.`;
+  if (sisa.includes("alamat email")) return `${label} is not a valid email address.`;
+  if (sisa.includes("nomor telepon")) return `${label} is not a valid phone number.`;
+  if (sisa.includes("diunggah")) return `${label} did not upload. Upload it again.`;
+  return `${label} is not valid.`;
 }

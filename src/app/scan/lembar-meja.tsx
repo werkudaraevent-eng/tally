@@ -35,7 +35,7 @@ export function LembarScan({
       <div className="flex items-center justify-between gap-2 px-6 pb-1 pt-5">
         <h2 className="text-title-large font-semibold">{judul}</h2>
         {bolehTutup ? (
-          <button type="button" onClick={onClose} aria-label="Tutup" className="m3-state -mr-3 flex size-12 shrink-0 items-center justify-center rounded-full">
+          <button type="button" onClick={onClose} aria-label="Close" className="m3-state -mr-3 flex size-12 shrink-0 items-center justify-center rounded-full">
             <X size={22} aria-hidden />
           </button>
         ) : null}
@@ -113,7 +113,7 @@ export function PilihMeja({
       }}
     >
       <fieldset className="mt-4">
-        <legend className="px-6 text-title-small text-on-surface-variant">Sesi</legend>
+        <legend className="px-6 text-title-small text-on-surface-variant">Check-in point</legend>
         <div className="mt-1 space-y-1 px-2">
           {sessions.map((baris) => {
             const angka = hadir(baris);
@@ -123,7 +123,7 @@ export function PilihMeja({
                 nama="sesi-meja"
                 value={baris.id}
                 label={baris.name}
-                sub={angka === null ? undefined : `${angka} hadir`}
+                sub={angka === null ? undefined : `${angka.toLocaleString("en-GB")} checked in`}
                 dipilih={sesi === baris.id}
                 onPilih={setSesi}
               />
@@ -136,7 +136,7 @@ export function PilihMeja({
           memahami konsep yang tidak dipakainya. */}
       {perluJalur ? (
         <fieldset className="mt-4">
-          <legend className="px-6 text-title-small text-on-surface-variant">Meja</legend>
+          <legend className="px-6 text-title-small text-on-surface-variant">Desk</legend>
           <div className="mt-1 space-y-1 px-2">
             {lanes.map((baris) => (
               <BarisPilihan key={baris.id} nama="jalur-meja" value={baris.id} label={baris.name} dipilih={jalur === baris.id} onPilih={setJalur} />
@@ -147,7 +147,7 @@ export function PilihMeja({
 
       <div className="px-6 pb-6 pt-6">
         <Button type="submit" size="xl" shape="pill" block disabled={!siap}>
-          {sesi === null ? "Pilih sesi dulu" : !siap ? "Pilih meja dulu" : "Mulai memindai"}
+          {sesi === null ? "Choose a check-in point first" : !siap ? "Choose a desk first" : "Start scanning"}
         </Button>
       </div>
     </form>

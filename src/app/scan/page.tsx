@@ -13,7 +13,7 @@ import ScanClient from "./scan-client";
  */
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Pemindai kehadiran — Tally" };
+export const metadata = { title: "Check-in scanner — Tally" };
 
 export default async function ScanPage() {
   const user = await getCurrentUser();

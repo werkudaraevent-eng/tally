@@ -23,7 +23,7 @@ import type { BarisBarang } from "./types";
  */
 
 const jam = (iso: string | null | undefined) =>
-  iso ? new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "";
+  iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
 
 export function ItemChecklist({
   sessionId,
@@ -67,7 +67,7 @@ export function ItemChecklist({
       { cache: "no-store" },
     ).catch(() => null);
     if (!response?.ok) {
-      setGalat("Daftar barang gagal dimuat.");
+      setGalat("Could not load the kit items.");
       return;
     }
     setItems(((await response.json()).items ?? []) as BarisBarang[]);
@@ -88,7 +88,7 @@ export function ItemChecklist({
     setMenyimpan(false);
     const body = await response?.json().catch(() => ({}));
     if (!response?.ok) {
-      setCatatan({ nada: "peringatan", teks: pesanGalatApi(body) ?? "Penyerahan gagal dicatat. Coba lagi." });
+      setCatatan({ nada: "peringatan", teks: pesanGalatApi(body) ?? "Could not save the hand-out. Try again." });
       return;
     }
     const baru = (body.items ?? []) as BarisBarang[];
@@ -98,8 +98,8 @@ export function ItemChecklist({
     setPilih(new Set());
     setCatatan(sudah.length > 0
       // Petugas lain mencatatnya di antara layar ini dimuat dan tombol ditekan.
-      ? { nada: "peringatan", teks: `${nama(sudah)} ternyata sudah diambil sebelumnya, jadi tidak dicatat ulang.` }
-      : { nada: "ok", teks: `Tercatat diserahkan: ${nama((body.recorded ?? []) as number[])}.` });
+      ? { nada: "peringatan", teks: `${nama(sudah)} already handed out earlier, so not saved again.` }
+      : { nada: "ok", teks: `Handed out: ${nama((body.recorded ?? []) as number[])}.` });
   }
 
   if (galat) {
@@ -107,13 +107,13 @@ export function ItemChecklist({
       <div role="alert" className="mb-3 flex flex-wrap items-center gap-2 text-body-medium text-error">
         <Warning size={18} aria-hidden />
         <span className="min-w-0 flex-1">{galat}</span>
-        <Button variant="outlined" size="sm" onClick={() => void muat()}>Coba lagi</Button>
+        <Button variant="outlined" size="sm" onClick={() => void muat()}>Try again</Button>
       </div>
     );
   }
 
   if (!items) {
-    return <p role="status" className="mb-3 text-body-medium text-on-surface-variant">Memuat daftar barang</p>;
+    return <p role="status" className="mb-3 text-body-medium text-on-surface-variant">Loading kit items…</p>;
   }
   if (items.length === 0) return null;
 
@@ -128,7 +128,7 @@ export function ItemChecklist({
       disabled={pilih.size === 0}
       onClick={() => void serahkan()}
     >
-      {pilih.size === 0 ? "Serahkan barang" : `Serahkan ${pilih.size} barang`}
+      {pilih.size === 0 ? "Hand out items" : `Hand out ${pilih.size} ${pilih.size === 1 ? "item" : "items"}`}
     </Button>
   );
 
@@ -136,7 +136,7 @@ export function ItemChecklist({
     <fieldset>
       <legend className="mb-2 flex items-center gap-2 text-title-small font-semibold">
         <Package size={18} aria-hidden />
-        Barang yang diserahkan
+        Kit items to hand out
       </legend>
       <ul className="flex flex-col gap-2">
         {items.map((item) => {
@@ -166,10 +166,10 @@ export function ItemChecklist({
                   <span className="block text-body-large font-medium">{item.name}</span>
                   {diambil ? (
                     <span className="block text-body-medium">
-                      Sudah diambil pukul {jam(item.picked_up_at)}{item.picked_up_size ? `, ukuran ${item.picked_up_size}` : ""}
+                      Handed out at {jam(item.picked_up_at)}{item.picked_up_size ? `, size ${item.picked_up_size}` : ""}
                     </span>
                   ) : item.has_size && !item.size ? (
-                    <span className="block text-body-medium text-error">Ukuran belum diisi. Tanyakan, lalu minta admin mengisinya.</span>
+                    <span className="block text-body-medium text-error">Size not set. Ask the participant, then ask an admin to fill it in.</span>
                   ) : null}
                 </span>
                 {/* Ukuran dibuat sebesar ini karena itulah yang dicari petugas
@@ -189,7 +189,7 @@ export function ItemChecklist({
         </p>
       ) : null}
       {belum === 0 ? (
-        <p className="mt-2 text-body-medium text-on-surface-variant">Semua barang di sesi ini sudah diambil.</p>
+        <p className="mt-2 text-body-medium text-on-surface-variant">All kit items at this check-in point are handed out.</p>
       ) : null}
       {belum > 0 ? (tempatTombol ? createPortal(tombol, tempatTombol) : <div className="mt-3">{tombol}</div>) : null}
     </fieldset>

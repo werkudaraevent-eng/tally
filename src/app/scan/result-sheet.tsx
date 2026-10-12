@@ -72,43 +72,43 @@ export const TUTUP_OTOMATIS_MS = 3000;
  */
 const TAMPILAN: Record<StatusHasil, { judul: string; blok: string; ikon: string; Icon: typeof CheckCircle }> = {
   recorded: {
-    judul: "Tercatat hadir",
+    judul: "Checked in",
     blok: "bg-success-container text-on-success-container",
     ikon: "bg-success text-on-success",
     Icon: CheckCircle,
   },
   created: {
-    judul: "Tamu walk-in didaftarkan",
+    judul: "Walk-in registered",
     blok: "bg-success-container text-on-success-container",
     ikon: "bg-success text-on-success",
     Icon: UserPlus,
   },
   duplicate: {
-    judul: "Sudah pernah dipindai",
+    judul: "Already scanned",
     blok: "bg-warning-container text-on-warning-container",
     ikon: "bg-warning text-on-warning",
     Icon: Clock,
   },
   not_found: {
-    judul: "Kode tidak dikenal",
+    judul: "Unknown code",
     blok: "bg-error-container text-on-error-container",
     ikon: "bg-error text-on-error",
     Icon: XCircle,
   },
   gagal: {
-    judul: "Belum tercatat",
+    judul: "Not saved",
     blok: "bg-error-container text-on-error-container",
     ikon: "bg-error text-on-error",
     Icon: CloudSlash,
   },
   login: {
-    judul: "Login petugas habis",
+    judul: "Signed out",
     blok: "bg-warning-container text-on-warning-container",
     ikon: "bg-warning text-on-warning",
     Icon: SignIn,
   },
   ditolak: {
-    judul: "Tidak dicatat",
+    judul: "Not checked in",
     blok: "bg-error-container text-on-error-container",
     ikon: "bg-error text-on-error",
     Icon: Prohibit,
@@ -116,7 +116,7 @@ const TAMPILAN: Record<StatusHasil, { judul: string; blok: string; ikon: string;
 };
 
 const jam = (iso: string | null | undefined) =>
-  iso ? new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "";
+  iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
 
 type Props = {
   hasil: Hasil | null;
@@ -195,10 +195,10 @@ export function ResultSheet({
 
   const teksLabel =
     cetak.fase === "galat"
-      ? "Cetak lagi"
+      ? "Print again"
       : cetak.fase === "selesai"
-        ? labelUntukPerangkatIni ? "Cetak ulang" : "Unduh lagi"
-        : labelUntukPerangkatIni ? "Cetak label" : "Unduh label";
+        ? labelUntukPerangkatIni ? "Reprint" : "Download again"
+        : labelUntukPerangkatIni ? "Print label" : "Download label";
   // Satu-satunya keadaan tombol label pantas berwarna penuh: printer baru saja
   // gagal dan tamunya masih berdiri di depan meja. Di sesi berbarang tetap teks,
   // karena Serahkan barang sudah menjadi aksi utamanya.
@@ -210,7 +210,7 @@ export function ResultSheet({
       onClose={onTutup}
       bare
       size="xl"
-      title={tampilan?.judul ?? "Hasil pemindaian"}
+      title={tampilan?.judul ?? "Scan result"}
     >
       {hasil && tampilan ? (
         // `aria-live` menempel di wadah yang TIDAK ikut dipasang ulang. Memasang
@@ -258,18 +258,18 @@ export function ResultSheet({
                 <button
                   type="button"
                   onClick={onTutup}
-                  aria-label="Tutup hasil"
+                  aria-label="Close result"
                   className="m3-state col-start-3 row-span-2 row-start-1 -mr-1 -mt-1 flex size-12 max-[400px]:row-span-1 shrink-0 items-center justify-center rounded-full text-current opacity-80 max-[400px]:-my-1"
                 >
                   <X size={20} />
                 </button>
 
                 <p className="col-start-2 row-start-2 line-clamp-3 text-headline-small font-semibold [overflow-wrap:anywhere] max-[400px]:col-span-3 max-[400px]:col-start-1 max-[400px]:mt-2 max-[400px]:text-title-large">
-                  {peserta ? peserta.name : hasil.dicoba ? hasil.dicoba.nama : hasil.qr ? `Kode ${hasil.qr}` : "Kode ?"}
+                  {peserta ? peserta.name : hasil.dicoba ? hasil.dicoba.nama : hasil.qr ? `Code ${hasil.qr}` : "Code ?"}
                 </p>
                 {peserta ? (
                   <p className="col-start-2 row-start-3 line-clamp-2 text-body-medium opacity-80 max-[400px]:col-span-3 max-[400px]:col-start-1">
-                    {[peserta.company, peserta.title].filter(Boolean).join(" · ") || "Tanpa instansi"}
+                    {[peserta.company, peserta.title].filter(Boolean).join(" · ") || "No organisation"}
                   </p>
                 ) : null}
               </div>
@@ -282,23 +282,23 @@ export function ResultSheet({
 
               {hasil.tersimpanSebelumnya ? (
                 <p className="mt-3 text-body-medium opacity-90">
-                  Tercatat pada percobaan sebelumnya, pukul {jam(hasil.first_scan_at)}. Jawabannya tadi tidak sampai ke ponsel ini.
+                  Saved on the previous attempt, at {jam(hasil.first_scan_at)}. The reply did not reach this phone.
                 </p>
               ) : null}
 
               {status === "duplicate" && !hasil.tersimpanSebelumnya ? (
                 <p className="mt-3 text-body-medium opacity-90">
-                  Pertama dipindai {jam(hasil.first_scan_at)}, ini pemindaian ke-{hasil.scan_count}. Tetap boleh masuk.
-                  Jumlah hadir tidak bertambah.
+                  First scanned at {jam(hasil.first_scan_at)}. This is scan number {hasil.scan_count}. They can still go in.
+                  The check-in count does not change.
                 </p>
               ) : null}
 
               {status === "not_found" ? (
                 <p className="mt-2 text-body-medium opacity-90">
-                  Kode ini bukan peserta acara ini, atau pendaftarannya sudah dibatalkan.{" "}
+                  This code is not a participant of this event, or their registration was cancelled.{" "}
                   {bolehWalkIn
-                    ? "Cari namanya dulu. Kalau memang tidak ada, daftarkan sebagai tamu walk-in."
-                    : "Cari namanya di tab Cari nama sebelum mengarahkan tamu ke meja panitia."}
+                    ? "Search for the name first. If it is not there, register them as a walk-in."
+                    : "Search for the name in Find name before sending them to the organisers' desk."}
                 </p>
               ) : null}
 
@@ -311,7 +311,7 @@ export function ResultSheet({
                   berdetak akan dibacakan setiap detik. Bilahnya hiasan semata. */}
               {tutupOtomatis ? (
                 <>
-                  <p className="mt-3 text-body-medium opacity-80">Langsung pindai tamu berikutnya. Lembar ini menutup sendiri.</p>
+                  <p className="mt-3 text-body-medium opacity-80">Scan the next participant. This closes automatically.</p>
                   <div aria-hidden className="absolute inset-x-0 bottom-0 h-1 bg-black/10">
                     <div className="scan-hitung h-full bg-current opacity-60" style={{ animationDuration: `${TUTUP_OTOMATIS_MS}ms` }} />
                   </div>
@@ -345,10 +345,10 @@ export function ResultSheet({
                 {tertahan ? (
                   <div role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-body-medium text-on-warning-soft">
                     <span className="min-w-0 flex-1">
-                      {tertahan.participant?.name ?? `Kode ${tertahan.qr ?? "?"}`} sudah terpindai dan menunggu. Serahkan barang{" "}
-                      {peserta?.name ?? "tamu ini"} dulu.
+                      {tertahan.participant?.name ?? `Code ${tertahan.qr ?? "?"}`} is scanned and waiting. Hand out items to{" "}
+                      {peserta?.name ?? "this participant"} first.
                     </span>
-                    <Button variant="text" size="md" onClick={onLewati}>Lewati</Button>
+                    <Button variant="text" size="md" onClick={onLewati}>Skip</Button>
                   </div>
                 ) : null}
 
@@ -385,25 +385,25 @@ export function ResultSheet({
                   {adaOrang ? aksiMeja : null}
 
                   <Button variant="text" size="md" onClick={onTutup}>
-                    Tutup
+                    Close
                   </Button>
 
                   {status === "not_found" && bolehWalkIn ? (
                     <Button variant="filled" size="md" onClick={onWalkIn} icon={<UserPlus size={20} weight="bold" aria-hidden />}>
-                      Daftarkan tamu walk-in
+                      Register walk-in
                     </Button>
                   ) : null}
 
                   {status === "gagal" ? (
                     <Button variant="filled" size="md" onClick={onUlangi}>
-                      Ulangi
+                      Retry
                     </Button>
                   ) : null}
 
                   {status === "login" ? (
                     // Halaman penuh, bukan klien: sesi baru harus membawa kuki baru.
                     <Button variant="filled" size="md" onClick={() => window.location.assign("/login")} icon={<SignIn size={20} aria-hidden />}>
-                      Login lagi
+                      Sign in again
                     </Button>
                   ) : null}
 
