@@ -135,6 +135,11 @@ export async function GET(request: Request) {
         // tanpa ini meja yang seharusnya "3A" akan tampil sebagai "4" di layar
         // tamu walau CMS sudah benar.
         table_labels: config.table_labels,
+        // Sama alasannya: tanpa tata ruang, browser menggambar setiap denah
+        // sebagai meja bundar (bawaan) dan label kursi theater ("A12") tidak
+        // pernah cocok, sehingga kursi yang dicari tidak ikut menyala.
+        layout_type: config.layout_type,
+        layout_params: config.layout_params,
       },
       // Mode bawaan layar. Halaman publik boleh menimpanya lewat ?mode= agar
       // satu acara bisa menjalankan LED dan layar sentuh sekaligus.
