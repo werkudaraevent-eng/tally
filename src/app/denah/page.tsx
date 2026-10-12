@@ -4,6 +4,7 @@ import { MagnifyingGlass, Users, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrandFooter, BrandHeader } from "@/components/brand-header-footer";
 import { SeatMapLedView } from "@/components/seat-map-led-view";
+import { SeatMapScroll } from "@/components/seat-map-scroll";
 import { SeatMapView, type SeatState } from "@/components/seat-map-view";
 import { Spinner } from "@/components/search-loading";
 import { normalizeBranding, type Branding } from "@/lib/branding";
@@ -460,23 +461,28 @@ export default function SeatMapPage() {
               </p>
             ) : null}
 
-            {/* Denah selalu dipaskan ke lebar layar, tanpa lebar minimum. Dulu
-                denah dikunci 820px di dalam wadah gulir; di HP tamu hanya melihat
-                potongan tengahnya (huruf baris dan kursi terluar tersembunyi)
-                tanpa tanda bahwa denah bisa digeser. Kursi yang dicari tetap
-                disorot, dan tamu bisa mencubit untuk memperbesar. */}
+            {/* Denah tetap selebar 820px dan digeser di HP; lihat SeatMapScroll
+                untuk tanda geser, huruf baris yang menempel, dan geser otomatis
+                ke kursi yang dicari. */}
             <div className="mt-6">
-              <SeatMapView
+              <SeatMapScroll
                 config={payload.config}
-                seatStates={seatStates}
                 highlightedSeatLabels={highlighted}
-                backgroundColor={background}
-                canvasColor={mapCanvas}
                 textColor={ink}
-                accentColor={accent}
-                seatColors={session}
-                onTableClick={(tableNumber) => setSelectedTable((current) => (current === tableNumber ? null : tableNumber))}
-              />
+                backgroundColor={background}
+              >
+                <SeatMapView
+                  config={payload.config}
+                  seatStates={seatStates}
+                  highlightedSeatLabels={highlighted}
+                  backgroundColor={background}
+                  canvasColor={mapCanvas}
+                  textColor={ink}
+                  accentColor={accent}
+                  seatColors={session}
+                  onTableClick={(tableNumber) => setSelectedTable((current) => (current === tableNumber ? null : tableNumber))}
+                />
+              </SeatMapScroll>
             </div>
 
             {payload.summary ? (
