@@ -32,7 +32,8 @@ export async function generateMetadata({ searchParams }: { searchParams: Kueri }
   const kueri = await searchParams;
   return {
     title: LENGKAPI_UI[kueri.bahasa === "en" ? "en" : "id"].title,
-    // Tautan pribadi: jangan diindeks, dan jangan bocorkan tokennya lewat Referer.
+    // Tautan pribadi: jangan diindeks, dan jangan bocorkan tokennya lewat Referer
+    // (juga dikirim sebagai header Referrer-Policy, lihat next.config.ts).
     robots: { index: false, follow: false },
     referrer: "no-referrer" as const,
   };
@@ -94,7 +95,7 @@ export default async function LengkapiPage({ searchParams }: { searchParams: Kue
         nama={peserta.name}
         email={token && peserta.email ? maskEmail(peserta.email) : null}
         fields={fields}
-        nilaiAwal={peserta.extra}
+        nilaiAwal={Object.fromEntries(fields.flatMap((field) => (field.key in peserta.extra ? [[field.key, peserta.extra[field.key]]] : [])))}
         berlakuSampai={berlakuSampai}
         areaUrl={areaUrl}
         halamanUrl={dasar}

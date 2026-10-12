@@ -71,16 +71,20 @@ export async function loadPesertaLengkapi(eventId: string, participantId: string
 export type SaveOutcome = { status: "ok" } | { status: "invalid"; issues: FieldIssue[] } | { status: "not_found" } | { status: "no_fields" };
 
 /**
- * Simpan jawaban pertanyaan participant_update saja; kunci lain di `answers`
- * diabaikan. Pertanyaan yang dikirim kosong dikosongkan.
+ * Simpan jawaban pertanyaan participant_update yang ADA di `answers` saja;
+ * kunci lain diabaikan, dan pertanyaan yang tidak dikirim tidak disentuh
+ * (mis. pertanyaan yang baru ditandai setelah halamannya dibuka). Pertanyaan
+ * yang dikirim kosong dikosongkan.
  */
 export async function saveAnswers(
   event: Pick<EventRow, "id" | "registration_form_config">,
   participantId: string,
   answers: Record<string, string>,
 ): Promise<SaveOutcome> {
-  const fields = updatableFields(event);
-  if (fields.length === 0) return { status: "no_fields" };
+  const semua = updatableFields(event);
+  if (semua.length === 0) return { status: "no_fields" };
+  const fields = semua.filter((field) => Object.hasOwn(answers, field.key));
+  if (fields.length === 0) return { status: "ok" };
   const { issues, clean } = validateAnswers(fields, answers, { enforceRequired: true });
   if (issues.length > 0) return { status: "invalid", issues };
   const kosong = fields.map((field) => field.key).filter((kunci) => !(kunci in clean));
