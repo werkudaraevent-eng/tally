@@ -203,7 +203,7 @@ export function isLandingBlockId(id: string): id is LandingBlockId {
  * Satu bentuk data untuk semua jenis, dengan kolom opsional. Tiap jenis hanya
  * membaca kolom miliknya; editor CMS hanya menampilkan kolom itu.
  */
-export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn";
+export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn" | "route";
 
 /**
  * Tempat blok tampil. `public` = halaman acara (bawaan, perilaku sebelum pilihan
@@ -218,7 +218,7 @@ export const LANDING_BLOCK_SHOW_ON_LABELS: Record<LandingBlockShowOn, string> = 
  * `show_on`. Jenis lain selalu di halaman acara saja: memilih "Participant
  * page" untuk blok yang tidak bisa dirender di sana sama dengan menghapusnya.
  */
-export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = [];
+export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = ["route"];
 
 /** Apakah blok tampil di halaman ini. Jenis tanpa tampilan peserta selalu halaman acara saja. */
 export function landingBlockShownOn(block: Pick<LandingBlock, "type" | "show_on">, page: "public" | "member"): boolean {
@@ -249,6 +249,18 @@ export type LandingBlockTone = "light" | "panel" | "dark";
  * - Kartu poin: `cards` (kartu bernomor sebaris), `numbered` (daftar bernomor
  *   di samping judul), `list` (daftar dua kolom tanpa nomor).
  */
+/**
+ * Blok Rute: satu ujung perjalanan. `hotel_id` = hotel di Logistik (nama dan
+ * alamat selalu ikut data Logistik); tanpa itu, tempat ditulis bebas
+ * (mis. stasiun). Hotel yang sudah dihapus membuat blok tidak tampil.
+ */
+export type LandingRouteStop = { hotel_id?: number; name?: string; address?: string };
+
+/** Cara Google Maps menggambar rute (parameter `travelmode`). */
+export const LANDING_ROUTE_MAPS_MODES = ["walking", "driving", "transit"] as const;
+export type LandingRouteMapsMode = (typeof LANDING_ROUTE_MAPS_MODES)[number];
+export const LANDING_ROUTE_MAPS_MODE_LABELS: Record<LandingRouteMapsMode, string> = { walking: "Walking", driving: "Driving", transit: "Public transport" };
+
 export type LandingBlockLayout = "featured" | "overlay" | "columns" | "cards" | "numbered" | "list";
 
 export type LandingBlockItem = {
@@ -263,6 +275,8 @@ export type LandingBlockItem = {
   /** Angka pada Pita angka, atau chip kedua (mis. jam) di kartu foto. */
   value?: string;
   href?: string;
+  /** Rute: nama ikon Phosphor tiap cara ke sana (landing-card-icons.ts). Kosong = mobil. */
+  icon?: string;
   /** Teks English butir ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingItemEn;
 };
@@ -300,6 +314,15 @@ export type LandingBlock = {
   image_shape?: LandingImageShape;
   /** Kolom: perataan teks dan gambar di dalam kolom (kiri, tengah). Logo: perataan judul dan deret logo. */
   align?: LandingBlockAlign;
+  /**
+   * Rute: titik berangkat dan tujuan. Butir = cara ke sana (`icon`, `label`
+   * nama, `value` waktu, `body` catatan, `image_url` foto patokan); `body`
+   * blok = langkah, satu per baris.
+   */
+  route_from?: LandingRouteStop;
+  route_to?: LandingRouteStop;
+  /** Rute: kosong = mengemudi. */
+  maps_mode?: LandingRouteMapsMode;
   /** Halaman tempat blok tampil (LANDING_BLOCK_MEMBER_TYPES saja). Kosong = halaman acara. */
   show_on?: LandingBlockShowOn;
   /** Teks English blok ini. Lihat src/lib/landing-i18n.ts. */
@@ -398,6 +421,7 @@ export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
   download: "Downloads",
   cta: "Call-to-action strip",
   multicolumn: "Columns",
+  route: "Directions",
 };
 
 export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
@@ -411,6 +435,7 @@ export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
   download: "Links to terms of reference, brochures or PDF materials.",
   cta: "A call to register, with or without a background photo.",
   multicolumn: "1 to 4 columns, each with an image, title, text and link.",
+  route: "How to get from one place to another, e.g. between two hotels, with a Google Maps button.",
 };
 
 export const LANDING_BLOCK_TONE_LABELS: Record<LandingBlockTone, string> = {
@@ -431,6 +456,7 @@ export const LANDING_BLOCK_DEFAULT_TONE: Record<LandingBlockType, LandingBlockTo
   download: "panel",
   cta: "light",
   multicolumn: "light",
+  route: "panel",
 };
 
 export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: LandingBlockLayout; label: string; hint: string }[]>> = {
@@ -559,6 +585,8 @@ export function landingBlockLimits(block: Pick<LandingBlock, "type" | "layout" |
         items: { max: 8, full: kolom === 1 ? undefined : [kolom, kolom * 2].filter((n) => n <= 8) },
       };
     }
+    case "route":
+      return { eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: { max: 600 }, item: { label: { max: 40 }, value: { max: 20 }, body: { max: 160, ideal: 120 } }, items: { max: 4 } };
   }
 }
 
@@ -592,7 +620,13 @@ export function landingBlockHasContent(block: LandingBlock): boolean {
     case "cta": return Boolean(block.heading?.trim());
     // Gambar saja tidak cukup: kolomnya kosong bagi pembaca layar.
     case "multicolumn": return items.some((item) => item.title?.trim() || item.body?.trim());
+    // Dua ujung saja sudah berguna: tombol Maps. Hotel yang terhapus diperiksa saat render.
+    case "route": return routeStopFilled(block.route_from) && routeStopFilled(block.route_to);
   }
+}
+
+function routeStopFilled(stop: LandingRouteStop | undefined): boolean {
+  return Boolean(stop && (stop.hotel_id || stop.name?.trim()));
 }
 
 export const LANDING_SECTION_LABELS: Record<LandingSectionId, string> = {
@@ -681,6 +715,18 @@ export function normalizeLandingSections(saved: LandingSectionEntry[] | undefine
     next.splice(Math.min(index, next.length), 0, item);
   });
   return [...next, ...yatim];
+}
+
+/**
+ * Blok untuk halaman peserta: yang tampil (mata menyala), dipilih untuk
+ * Participant page atau Both, dan berisi; urut seperti di Page sections.
+ */
+export function landingMemberBlocks(saved: LandingSectionEntry[] | undefined, blocks: LandingBlock[] = []): LandingBlock[] {
+  const byId = new Map<string, LandingBlock>(blocks.map((block) => [block.id, block]));
+  return normalizeLandingSections(saved, blocks).flatMap((section) => {
+    const block = section.enabled ? byId.get(section.id) : undefined;
+    return block && landingBlockShownOn(block, "member") && landingBlockHasContent(block) ? [block] : [];
+  });
 }
 
 /**

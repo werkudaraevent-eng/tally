@@ -11,7 +11,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
-import { LANDING_NAV_DEFAULTS, isLandingBlockId, normalizeLandingSections, publicEventName } from "@/lib/domain";
+import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingMemberBlocks, normalizeLandingSections, publicEventName } from "@/lib/domain";
 import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
@@ -28,6 +28,7 @@ import { HEAD, LABEL_BAGIAN, MUTED, PIL, SHELL } from "@/components/landing/mode
 import { KartuBarang, KartuBerikutnya, KartuBus, KartuKamar } from "@/components/member/kartu-logistik";
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
 import { loadLandingLodging } from "@/lib/landing-hotel";
+import { KartuRute } from "@/components/landing/modern/blok-rute";
 
 /**
  * Dashboard saya (`/e/<slug>/peserta`), tata letak Modern.
@@ -84,7 +85,10 @@ export async function DashboardModern({
   const agenda = await loadAgendaPreview(event.id, lang);
   // Gaya gathering: menu dan susunan acara sama dengan halaman acaranya.
   const gaya = config.gathering === true;
-  const adaHotel = gaya ? (await loadLandingLodging(event.id)).hotels.length > 0 : false;
+  // Blok yang admin pilih untuk halaman peserta (Show on), di atas susunan acara.
+  const blokPeserta = landingMemberBlocks(config.sections, config.blocks);
+  const inap = gaya || blokPeserta.some((block) => block.type === "route") ? await loadLandingLodging(event.id) : null;
+  const adaHotel = gaya ? (inap?.hotels.length ?? 0) > 0 : false;
   const { aktif, blokById, tampil, speakers, navSections, mitra: sponsor, kontak } = bagianModern(event, config, sections, agenda, lang, { gathering: gaya, adaHotel });
   // Pita mitra seperti di kaki halaman acara. Banyak acara (ILO salah satunya)
   // memasang logo lewat blok Logo, bukan daftar Sponsor; tanpa sponsor, pakai
@@ -365,6 +369,10 @@ export async function DashboardModern({
                 )}
               </section>
             ) : null}
+
+            {blokPeserta.map((block) =>
+              block.type === "route" ? <KartuRute key={block.id} block={block} hotels={inap?.hotels ?? []} lang={lang} /> : null,
+            )}
 
             {tampilSusunan ? (
               <section aria-labelledby="susunan-judul">

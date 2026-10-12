@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
-import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
 
@@ -53,10 +53,14 @@ const blockEnSchema = z.object({
   role: teks(160),
   nav_label: teks(LANDING_NAV_LABEL_MAX),
 });
+const routeStop = z.object({ hotel_id: z.number().int().positive().optional(), name: teks(120), address: teks(300) });
 const blockSchema = z.object({
   id: blockId,
-  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn"]),
+  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route"]),
   show_on: z.enum(LANDING_BLOCK_SHOW_ON).optional(),
+  route_from: routeStop.optional(),
+  route_to: routeStop.optional(),
+  maps_mode: z.enum(LANDING_ROUTE_MAPS_MODES).optional(),
   tone: z.enum(["light", "panel", "dark"]).optional(),
   layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list"]).optional(),
   eyebrow: teks(60),
@@ -71,6 +75,7 @@ const blockSchema = z.object({
     body: teks(400),
     value: teks(30),
     href: tautan.optional(),
+    icon: z.string().regex(LANDING_CARD_ICON_POLA).optional(),
     en: itemEnSchema.optional(),
   })).max(16).optional(),
   quote: teks(600),
