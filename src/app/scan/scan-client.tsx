@@ -5,19 +5,24 @@ import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import {
   ArrowsClockwise,
   CaretDown,
-  CaretUp,
   CircleNotch,
+  ClockCounterClockwise,
+  DotsThreeVertical,
   Flashlight,
   MagnifyingGlass,
   Printer,
   QrCode,
   SpeakerHigh,
+  SignOut,
   SpeakerSlash,
+  Television,
   UserCheck,
   UserPlus,
+  VideoCameraSlash,
   WarningCircle,
   WifiSlash,
 } from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Button,
@@ -26,14 +31,11 @@ import {
   EmptyState,
   IconButton,
   SegmentedButton,
-  SelectField,
   Switch,
   Tabs,
   TextField,
-  TopAppBar,
 } from "@/components/m3";
 import { SearchResultsSkeleton } from "@/components/search-loading";
-import { LogoutButton } from "@/components/logout-button";
 import type { RegistrationField } from "@/lib/domain";
 import { eventApiPath } from "@/lib/event-url";
 import type { LabelData, LabelSettings } from "@/lib/label/layout";
@@ -47,6 +49,7 @@ import {
 } from "@/lib/label/printer";
 import { renderLabelDataUrl } from "@/lib/label/render";
 import { DialogGantiStasiun, PanelCetakMeja, barisCetakMeja, useCetakMeja } from "./cetak-meja";
+import { LembarScan, PilihMeja } from "./lembar-meja";
 import { usePemindaiKeyboard } from "./pemindai-keyboard";
 import { ResultSheet, TUTUP_OTOMATIS_MS } from "./result-sheet";
 import { bacaSuara, bukaSuara, bunyikan, simpanSuara } from "./umpan-balik";
@@ -217,7 +220,8 @@ function pilihJalur(daftar: Jalur[], sekarang: number | null): number | null {
   return daftar.length === 1 ? daftar[0].id : null;
 }
 
-type Mode = "qr" | "cari";
+/** `riwayat` hanya di ponsel; di layar lebar riwayat selalu tampil di panel kanan. */
+type Mode = "qr" | "cari" | "riwayat";
 
 /**
  * Kata di kolom kanan daftar pemindaian terakhir.
@@ -372,7 +376,12 @@ export default function ScanClient() {
   const kontrolKameraRef = useRef<{ stop: () => void; switchTorch?: (nyala: boolean) => Promise<void> } | null>(null);
 
   // ---- Bilah meja -------------------------------------------------------------
-  const [mejaTerbuka, setMejaTerbuka] = useState(false);
+  // Lembar sesi/meja yang dibuka petugas sendiri. Yang terbuka karena meja
+  // belum disiapkan diturunkan dari keadaan, lihat `perluSetup`.
+  const [lembarMeja, setLembarMeja] = useState(false);
+  const [menuTerbuka, setMenuTerbuka] = useState(false);
+  const [keluarJalan, setKeluarJalan] = useState(false);
+  const router = useRouter();
   const [sesiHilang, setSesiHilang] = useState(false);
   const sessionRef = useRef<number | null>(null);
 
@@ -984,6 +993,17 @@ export default function ScanClient() {
     if (berikutnya !== "qr") setScanning(false);
   };
 
+  // Riwayat adalah tab ponsel saja. Layar yang melebar ke ukuran desktop
+  // (tablet diputar) kembali ke Pindai, karena tab riwayatnya tidak ada di sana.
+  useEffect(() => {
+    if (mode !== "riwayat") return;
+    const lebar = window.matchMedia("(min-width: 1024px)");
+    const cek = () => { if (lebar.matches) setMode("qr"); };
+    cek();
+    lebar.addEventListener("change", cek);
+    return () => lebar.removeEventListener("change", cek);
+  }, [mode]);
+
   const catatDariCari = async (baris: BarisCari) => {
     setMencatatId(baris.id);
     const data = await kirim(baris.qr_code);
@@ -1102,7 +1122,28 @@ export default function ScanClient() {
   const jalurAktif = lanes.find((jalur) => jalur.id === laneId);
   // Bilah meja terbuka sampai sesi (dan jalur, bila ada) benar-benar dipilih.
   // Terlipat sebelum itu berarti petugas tidak pernah melihat pertanyaannya.
-  const mejaTerlipat = !mejaTerbuka && sessionId !== null && !perluJalur && !sesiHilang;
+  // Meja belum siap: lembar sesi/meja terbuka sendiri dan tidak bisa ditutup.
+  const perluSetup = sessions.length > 0 && (sessionId === null || perluJalur || sesiHilang);
+  const lembarMejaBuka = lembarMeja || perluSetup;
+
+  function simpanMeja(sesi: number, jalur: number | null) {
+    if (sesi !== sessionId) {
+      sessionRef.current = sesi;
+      lupakanBarusan();
+      setSessionId(sesi);
+      tutupLembar();
+    }
+    setSesiHilang(false);
+    if (jalur !== laneId) gantiJalur(jalur);
+    setLembarMeja(false);
+  }
+
+  async function keluar() {
+    setKeluarJalan(true);
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    router.replace("/login");
+    router.refresh();
+  }
 
   /**
    * Apakah lembar yang sedang terbuka menutup sendiri.
@@ -1180,126 +1221,101 @@ export default function ScanClient() {
 
   const pil = membaca
     ? { teks: "Terbaca, menyimpan…", nada: "bg-primary text-on-primary" }
-    : terakhirHadir
-      ? { teks: `Terakhir: ${terakhirHadir.nama} · ${jam(terakhirHadir.waktu)}`, nada: "bg-black/60 text-white" }
-      : { teks: "Siap memindai", nada: "bg-black/60 text-white" };
+    : { teks: "Siap memindai", nada: "bg-black/60 text-white" };
+
+  const judulMeja = `${sesiAktif?.name ?? "Pilih sesi"}${jalurAktif ? ` · ${jalurAktif.name}` : ""}`;
+
+  /** Strip hadir di ponsel: angka sesi ini dan tamu terakhir, selalu di atas panggung. */
+  const stripHadir = (
+    <div className="flex items-center gap-4 rounded-2xl bg-surface-container px-4 py-3 lg:hidden">
+      <p className="flex shrink-0 items-baseline gap-2">
+        <span className="text-headline-medium font-semibold tabular-nums">{hadir ?? 0}</span>
+        <span className="text-body-medium text-on-surface-variant">hadir</span>
+      </p>
+      <span aria-hidden className="h-8 w-px shrink-0 bg-outline-variant" />
+      <div className="min-w-0 flex-1" role="status">
+        {terakhirHadir ? (
+          <>
+            <p className="text-label-medium text-on-surface-variant">Terakhir · {jam(terakhirHadir.waktu)}</p>
+            <p className="truncate text-body-medium font-semibold">{terakhirHadir.nama}</p>
+          </>
+        ) : (
+          <p className="text-body-medium text-on-surface-variant">Belum ada pindaian di HP ini.</p>
+        )}
+      </div>
+    </div>
+  );
+
+  const daftarRiwayat = (batas: number) =>
+    riwayat.length === 0 ? (
+      <p className="mt-2 text-body-small text-on-surface-variant">Belum ada yang dipindai di perangkat ini sejak layar dibuka.</p>
+    ) : (
+      <ul className="mt-1 divide-y divide-outline-variant">
+        {riwayat.slice(0, batas).map((baris, index) => (
+          <li key={`${baris.waktu}-${index}`} className="flex min-h-12 items-center justify-between gap-3 py-2 text-body-medium">
+            <span className="min-w-0 flex-1 truncate">{baris.nama}</span>
+            <span className={RIWAYAT[baris.status].kelas}>{RIWAYAT[baris.status].teks}</span>
+            <span className="tabular-nums text-on-surface-variant">{jam(baris.waktu)}</span>
+          </li>
+        ))}
+      </ul>
+    );
+
+  const navBawah = (nilai: Mode, label: string, ikon: React.ReactNode) => {
+    const aktif = mode === nilai;
+    return (
+      <button
+        key={nilai}
+        type="button"
+        aria-current={aktif ? "page" : undefined}
+        onClick={() => gantiMode(nilai)}
+        className="flex min-w-0 flex-1 flex-col items-center gap-1 pb-4 pt-3"
+      >
+        <span className={`flex h-8 w-16 items-center justify-center rounded-full transition-colors ${aktif ? "bg-secondary-container text-on-secondary-container" : "text-on-surface-variant"}`}>
+          {ikon}
+        </span>
+        <span className={`text-label-medium ${aktif ? "font-semibold text-on-surface" : "text-on-surface-variant"}`}>{label}</span>
+      </button>
+    );
+  };
 
   return (
-    <div className="scan-teks min-h-dvh bg-surface text-on-surface">
-      <TopAppBar
-        title="Pemindai kehadiran"
-        subtitle={`${eventName || "Memuat..."}${username ? ` · ${username}` : ""}`}
-        // Teks biasa, bukan label tebal: di layar ini subjudul hanya keterangan.
-        subtitleClassName="!font-normal"
-        actions={<LogoutButton size="md" />}
-        maxWidth="1280px"
-      />
+    <div className="scan-teks min-h-dvh bg-surface pb-24 text-on-surface lg:pb-12">
+      {/* -------------------------------------------------------------------
+          Bilah atas.
 
-      <main className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-4 sm:px-6 lg:px-8">
-        {/* -------------------------------------------------------------------
-            Bilah meja.
-
-            Sesi dan jalur disetel sekali di awal pagi lalu tidak disentuh lagi
-            berjam-jam. Versi sebelumnya memberi keduanya satu kartu penuh di
-            puncak layar, sehingga bagian yang paling jarang dipakai justru yang
-            paling besar. Sekarang ia satu baris setinggi kolom isian.
-            ------------------------------------------------------------------- */}
-        {mejaTerlipat ? (
-          // Satu tombol setinggi 56 px, seluruh barisnya. "Ganti" di ujungnya
-          // hanya penanda; yang ditekan adalah barisnya.
+          Judulnya adalah meja ini sendiri ("Registration · Meja 1"), karena
+          itulah yang perlu dipastikan petugas sekilas. Mengetuknya membuka
+          pemilih sesi dan meja. Semua yang jarang disentuh, termasuk Keluar,
+          ada di menu ⋮: tombol Keluar yang menonjol di pojok atas dulu adalah
+          tombol paling besar di layar kerja.
+          ------------------------------------------------------------------- */}
+      <header className="sticky top-0 z-30 border-b border-outline-variant bg-surface">
+        <div className="mx-auto flex h-16 w-full max-w-[1280px] items-center gap-2 px-4 sm:px-6 lg:px-8">
           <button
             type="button"
-            aria-expanded={false}
-            aria-controls="bilah-meja"
-            onClick={() => setMejaTerbuka(true)}
-            className="m3-state flex min-h-14 w-full items-center gap-3 rounded-2xl bg-surface-container pl-5 pr-2 text-left"
+            onClick={() => setLembarMeja(true)}
+            aria-haspopup="dialog"
+            className="m3-state -ml-2 flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-xl px-2 text-left lg:flex-none"
           >
-            <span className="min-w-0 flex-1 truncate text-body-large">
-              {sesiAktif?.name ?? "Sesi"}
-              {jalurAktif ? <span className="text-on-surface-variant"> · {jalurAktif.name}</span> : null}
+            <span className="min-w-0">
+              <span className="block truncate text-title-large font-semibold">{judulMeja}</span>
+              <span className="block truncate text-body-small text-on-surface-variant">{eventName || "Memuat..."}</span>
             </span>
-            {offline ? <ChipOffline /> : null}
-            <span className="flex min-h-12 shrink-0 items-center gap-1 rounded-full px-3 text-label-large text-primary">
-              Ganti
-              <CaretDown size={16} aria-hidden />
-            </span>
+            <CaretDown size={20} className="shrink-0 text-on-surface-variant" aria-hidden />
+            <span className="sr-only">Ganti sesi atau meja</span>
           </button>
-        ) : (
-          <div id="bilah-meja" className="rounded-2xl bg-surface-container px-3 py-3 sm:px-4">
-            {/* Lipat lagi hanya setelah semuanya terpilih. Barisnya sendiri di
-                atas, supaya baris kolom di bawahnya tetap sama dengan sebelumnya
-                dan tidak menyempit di ponsel. */}
-            {sessionId !== null && !perluJalur ? (
-              <div className="-mt-1 mb-1 flex items-center justify-between gap-2">
-                <span className="text-title-small text-on-surface-variant">Sesi dan meja ini</span>
-                <IconButton
-                  label="Lipat bilah meja"
-                  aria-expanded
-                  aria-controls="bilah-meja"
-                  onClick={() => { setMejaTerbuka(false); setSesiHilang(false); }}
-                >
-                  <CaretUp size={22} />
-                </IconButton>
-              </div>
-            ) : null}
-            <div className="flex flex-wrap items-end gap-2">
-              <SelectField
-                label="Sesi kehadiran"
-                value={sessionId ?? ""}
-                onChange={(event) => {
-                  const id = Number(event.target.value) || null;
-                  sessionRef.current = id;
-                  lupakanBarusan();
-                  setSessionId(id);
-                  setSesiHilang(false);
-                  tutupLembar();
-                }}
-                className="min-w-0 flex-1 sm:max-w-xs"
-              >
-                {sessions.length === 0 ? <option value="">Belum ada sesi</option> : null}
-                {/* Tanpa pilihan kosong, peramban menampilkan sesi pertama yang
-                    tersisa sebagai terpilih, dan mengetuknya tidak memicu
-                    perubahan: petugas terkunci sampai halaman dimuat ulang. */}
-                {sessions.length > 0 && sessionId === null ? <option value="">Pilih sesi...</option> : null}
-                {sessions.map((sesi) => <option key={sesi.id} value={sesi.id}>{sesi.name}</option>)}
-              </SelectField>
+          <span className="hidden flex-1 lg:block" />
+          {offline ? <ChipOffline /> : null}
+          <IconButton label="Menu pemindai" onClick={() => setMenuTerbuka(true)}>
+            <DotsThreeVertical size={24} weight="bold" />
+          </IconButton>
+        </div>
+      </header>
 
-              {/* Pemilih jalur hanya muncul kalau acara ini memang punya jalur.
-                  Acara satu meja tidak boleh dipaksa memahami konsep yang tidak
-                  dipakainya: kolom berisi satu pilihan adalah pertanyaan yang
-                  jawabannya sudah pasti. */}
-              {lanes.length > 0 ? (
-                <SelectField
-                  label="Jalur / meja"
-                  value={laneId ?? ""}
-                  onChange={(event) => gantiJalur(Number(event.target.value) || null)}
-                  error={perluJalur ? "Belum dipilih" : undefined}
-                  className="min-w-0 flex-1 sm:max-w-xs"
-                >
-                  <option value="">Pilih meja...</option>
-                  {lanes.map((jalur) => <option key={jalur.id} value={jalur.id}>{jalur.name}</option>)}
-                </SelectField>
-              ) : null}
-
-              {/* `lg` = 56px, tinggi yang sama persis dengan kolom pilihan di
-                  sebelahnya. Ukuran yang lebih kecil menggantung di atas garis dasar
-                  kolom dan membuat barisnya terbaca miring. */}
-              <IconButton label="Muat ulang daftar sesi" variant="outlined" size="lg" onClick={() => void muatSesi()}>
-                <ArrowsClockwise size={22} />
-              </IconButton>
-
-              {offline ? <ChipOffline className="self-center" /> : null}
-            </div>
-            {sesiHilang ? (
-              <p role="alert" className="mt-2 text-body-medium text-error">
-                Sesi yang tadi dipilih sudah ditutup. Pilih sesi lagi sebelum memindai.
-              </p>
-            ) : null}
-          </div>
-        )}
-
+      <main className="mx-auto w-full max-w-[1280px] px-4 pt-3 sm:px-6 lg:px-8 lg:pt-6">
         {pesan ? (
-          <p role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-error-soft p-3 text-body-medium text-on-error-soft">
+          <p role="alert" className="mb-3 flex items-start gap-2 rounded-lg bg-error-soft p-3 text-body-medium text-on-error-soft">
             <WarningCircle size={20} weight="fill" className="mt-0.5 shrink-0" />
             {pesan}
           </p>
@@ -1307,34 +1323,31 @@ export default function ScanClient() {
 
         {/* `minmax(0,1fr)` juga di ponsel, bukan kolom `auto`: nama tamu yang
             panjang tidak boleh melebarkan seluruh halaman. */}
-        <div className="mt-4 grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          {/* ---------------------------------------------------------------
-              Panggung
-              --------------------------------------------------------------- */}
-          <div className="min-w-0 space-y-4">
-            {/* Tab, bukan segmented button. Keduanya BERGANTI TAMPILAN, dan itu
-                yang membedakan tab dari segmented button di spesifikasi M3:
-                segmented button menyaring isi yang sedang dilihat, tab
-                menggantinya. Perbedaannya ikut terdengar, karena `tablist`
-                mengumumkan panel yang dikendalikannya dan `radiogroup` tidak. */}
-            <Tabs<Mode>
-              label="Cara mencatat kehadiran"
-              idPrefix="mode"
-              size="lg"
-              value={mode}
-              onChange={gantiMode}
-              options={[
-                { value: "qr", label: "Pindai QR", icon: <QrCode size={20} aria-hidden /> },
-                { value: "cari", label: "Cari nama", icon: <MagnifyingGlass size={20} aria-hidden /> },
-              ]}
-            />
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0 space-y-3">
+            {mode !== "riwayat" ? stripHadir : null}
+
+            {/* Di layar lebar tab tetap di atas panggung; di ponsel perannya
+                diambil navigasi bawah, yang terjangkau jempol. */}
+            <div className="hidden lg:block">
+              <Tabs<Mode>
+                label="Cara mencatat kehadiran"
+                idPrefix="mode"
+                size="lg"
+                value={mode === "cari" ? "cari" : "qr"}
+                onChange={gantiMode}
+                options={[
+                  { value: "qr", label: "Pindai QR", icon: <QrCode size={20} aria-hidden /> },
+                  { value: "cari", label: "Cari nama", icon: <MagnifyingGlass size={20} aria-hidden /> },
+                ]}
+              />
+            </div>
 
             {mode === "qr" ? (
-              <div role="tabpanel" id="mode-panel-qr" aria-labelledby="mode-tab-qr" className="space-y-3">
-                {/* 4:5 di ponsel supaya bingkai bidiknya besar, dibatasi tinggi
-                    layar supaya tombol dan kolom kode tetap terlihat di ponsel
-                    pendek. Tablet dan layar lebar tetap 4:3 dan 16:9. */}
-                <div className="relative aspect-[4/5] max-h-[52dvh] w-full overflow-hidden rounded-2xl bg-scrim sm:aspect-[4/3] lg:aspect-video">
+              <div role="tabpanel" id="mode-panel-qr" aria-label="Pindai QR">
+                {/* 4:5 di ponsel, setinggi sisa layar di antara strip hadir dan
+                    navigasi bawah. Tablet dan layar lebar tetap 4:3 dan 16:9. */}
+                <div className="relative aspect-[4/5] max-h-[calc(100dvh-16rem)] min-h-72 w-full overflow-hidden rounded-3xl bg-scrim sm:aspect-[4/3] lg:aspect-video lg:max-h-[70dvh]">
                   {scanning ? (
                     <>
                       <video
@@ -1351,17 +1364,17 @@ export default function ScanClient() {
                           adalah yang paling tajam di hampir semua lensa ponsel. */}
                       <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
                         <div
-                          className={`aspect-square h-[62%] max-h-64 min-h-32 rounded-2xl transition-colors ${
-                            membaca ? "border-4 border-primary-fixed-dim bg-white/10" : "border-2 border-on-primary/70"
+                          className={`aspect-square h-[62%] max-h-72 min-h-32 rounded-3xl transition-colors ${
+                            membaca ? "border-4 border-primary-fixed-dim bg-white/10" : "border-[3px] border-white/80"
                           }`}
                         />
                       </div>
 
                       {/* Kabar di atas gambar kamera, tempat mata petugas berada
-                          saat mengarahkan ponsel. Pil di kiri: siap, terbaca dan
-                          menyimpan, atau tamu terakhir yang tercatat. */}
+                          saat mengarahkan ponsel. Tamu terakhir sudah ada di strip
+                          hadir, jadi pil ini cukup siap atau menyimpan. */}
                       <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
-                        <p role="status" className={`flex min-h-8 min-w-0 items-center gap-2 rounded-full px-3 py-1 text-label-large ${pil.nada}`}>
+                        <p role="status" className={`flex min-h-9 min-w-0 items-center gap-2 rounded-full px-3 py-1 text-label-large ${pil.nada}`}>
                           {membaca ? (
                             <CircleNotch size={16} weight="bold" className="shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
                           ) : (
@@ -1391,96 +1404,77 @@ export default function ScanClient() {
                         </div>
                       </div>
 
-                      {membaca ? (
-                        <p
-                          aria-hidden
-                          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-1.5 text-title-medium text-white"
-                        >
-                          {membaca}
-                        </p>
-                      ) : null}
+                      <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
+                        {membaca ? (
+                          <p aria-hidden className="rounded-full bg-black/60 px-4 py-1.5 text-title-medium text-white">{membaca}</p>
+                        ) : (
+                          <p aria-hidden className="rounded-full bg-black/60 px-4 py-2 text-label-large text-white">Arahkan QR badge ke kotak</p>
+                        )}
+                        <IconButton label="Matikan kamera" onClick={() => setScanning(false)} className="!rounded-full !bg-black/60 !text-white">
+                          <VideoCameraSlash size={22} weight="fill" />
+                        </IconButton>
+                      </div>
                     </>
                   ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-on-surface-variant">
-                      <QrCode size={56} />
-                      <p className="text-body-medium">Kamera mati</p>
+                    // Tombolnya di dalam bingkai kamera: itulah tempat yang
+                    // sedang dipandang petugas, dan setelah dinyalakan sekali
+                    // kamera tetap menyala untuk tamu-tamu berikutnya.
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-5 px-8 text-center">
+                      <span aria-hidden className="flex size-20 items-center justify-center rounded-full bg-white/10 text-white">
+                        <QrCode size={40} />
+                      </span>
+                      <div>
+                        <p className="text-title-large font-semibold text-white">Kamera belum menyala</p>
+                        <p className="mt-1 text-body-medium text-white/70">Nyalakan sekali. Kamera tetap menyala untuk tamu berikutnya.</p>
+                      </div>
+                      <Button
+                        size="xl"
+                        shape="pill"
+                        onClick={() => { bukaSuara(); setScanning(true); }}
+                        disabled={!sessionId}
+                        icon={<QrCode size={24} weight="bold" aria-hidden />}
+                      >
+                        Nyalakan kamera
+                      </Button>
                     </div>
                   )}
                 </div>
-
-                <Button
-                  variant={scanning ? "outlined" : "filled"}
-                  size="xl"
-                  shape="pill"
-                  block
-                  onClick={() => { bukaSuara(); setScanning((current) => !current); }}
-                  disabled={!sessionId}
-                  icon={<QrCode size={24} weight="bold" aria-hidden />}
-                >
-                  {scanning ? "Matikan kamera" : "Nyalakan kamera"}
-                </Button>
-
-                {/* Jalur cadangan di dalam jalur cadangan. Kamera ponsel bisa
-                    rusak, badge bisa terlipat, dan antrean tidak berhenti untuk
-                    menunggu keduanya beres. `pt-3` menambah jarak tumpukan
-                    jadi 24 px: kamera dan tombolnya satu kelompok, ini yang lain. */}
-                <form
-                  className="flex items-end gap-2 pt-3"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const form = event.currentTarget;
-                    const kode = String(new FormData(form).get(KOLOM_KODE) ?? "").trim();
-                    if (kode) { bukaSuara(); void kirim(kode); form.reset(); }
-                  }}
-                >
-                  <TextField
-                    className="min-w-0 flex-1"
-                    label="Atau ketik kode peserta"
-                    name={KOLOM_KODE}
-                    autoComplete="off"
-                    autoCapitalize="characters"
-                    placeholder="mis. REG159425"
-                  />
-                  <Button type="submit" variant="tonal" size="lg" loading={sibuk} disabled={!sessionId}>
-                    Catat
-                  </Button>
-                </form>
               </div>
-            ) : (
-              <Card role="tabpanel" id="mode-panel-cari" aria-labelledby="mode-tab-cari" padded={false} className="p-4 sm:p-5">
+            ) : null}
+
+            {mode === "cari" ? (
+              <div role="tabpanel" id="mode-panel-cari" aria-label="Cari nama">
+                {/* Satu kolom untuk nama, instansi, DAN kode peserta: kolom
+                    "ketik kode" terpisah di bawah kamera dulu mengerjakan hal
+                    yang sama dengan pencarian ini. */}
                 <TextField
-                  label="Cari nama atau instansi"
+                  label="Cari peserta"
                   type="search"
                   size="lg"
                   value={kueri}
                   onChange={(event) => setKueri(event.target.value)}
                   autoComplete="off"
-                  placeholder="Hanung, Werkudara, REG159425..."
+                  autoFocus
+                  placeholder="Nama, instansi, atau kode REG"
                   leading={<MagnifyingGlass size={20} />}
-                  hint="Boleh sepenggal dan boleh dibolak-balik."
+                  hint="Boleh sepenggal dan dibolak-balik."
                 />
 
-                <div className="mt-4" aria-busy={mencari}>
-                  {!cukupHuruf ? (
-                    <p className="rounded-lg bg-surface-container px-4 py-8 text-center text-body-medium text-on-surface-variant">
-                      Ketik minimal dua huruf untuk mulai mencari.
-                    </p>
-                  ) : mencari ? (
+                <div className="mt-3" aria-busy={mencari}>
+                  {!cukupHuruf ? null : mencari ? (
                     <SearchResultsSkeleton rows={3} />
                   ) : cariSekarang?.gagal ? (
                     <EmptyState
                       icon={<WarningCircle size={40} />}
                       title="Pencarian gagal"
-                      description="Jaringan venue sedang tidak menjawab. Ubah satu huruf pada kata kuncinya untuk mengulang, atau pakai tab Pindai QR sementara."
+                      description="Jaringan venue sedang tidak menjawab. Ubah satu huruf pada kata kuncinya untuk mengulang, atau pakai Pindai sementara."
                     />
                   ) : cariSekarang && cariSekarang.hasil.length === 0 ? (
                     /* Satu-satunya tempat tombol walk-in muncul di jalur
                        pencarian, dan itu disengaja. Tombol yang berdiri sendiri
-                       di bilah atas akan ditekan lebih dulu daripada kolom
-                       pencarian, dan hasilnya satu tamu tercatat sebagai tiga
-                       peserta karena namanya dieja berbeda oleh tiga petugas.
-                       Melewati pencarian menjadi mustahil ketika tombolnya hanya
-                       ada di dalam hasil pencarian yang kosong. */
+                       akan ditekan lebih dulu daripada kolom pencarian, dan
+                       hasilnya satu tamu tercatat sebagai tiga peserta karena
+                       namanya dieja berbeda oleh tiga petugas. */
                     <EmptyState
                       icon={<MagnifyingGlass size={40} />}
                       title="Tidak ada yang cocok"
@@ -1504,15 +1498,11 @@ export default function ScanClient() {
                     />
                   ) : (
                     <>
-                      {/* Wadah bernada, bukan kotak bergaris. M3 mendahulukan
-                          elevasi tonal: naikkan tier `surface-container` sebelum
-                          menambah garis atau bayangan. Garis disisakan untuk tepi
-                          yang membawa arti, seperti kolom isian. */}
-                      <ul key={cariSekarang?.kunci} className="rise-in-fast divide-y divide-outline-variant overflow-hidden rounded-lg bg-surface-container">
+                      <ul key={cariSekarang?.kunci} className="rise-in-fast divide-y divide-outline-variant">
                         {(cariSekarang?.hasil ?? []).map((baris) => {
                           const sudahHadir = baris.scan_count > 0;
                           return (
-                            <li key={baris.id} className="flex items-center gap-3 p-3 sm:gap-4 sm:p-4">
+                            <li key={baris.id} className="flex min-h-[72px] items-center gap-3 py-2 sm:gap-4">
                               <span
                                 aria-hidden
                                 className="flex size-11 shrink-0 items-center justify-center rounded-full bg-secondary-container text-label-large font-semibold text-on-secondary-container"
@@ -1520,39 +1510,35 @@ export default function ScanClient() {
                                 {inisial(baris.name)}
                               </span>
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-body-large font-semibold">{baris.name}</p>
+                                {/* Nama tidak dipotong: ia bahan memastikan orangnya. */}
+                                <p className="text-body-large font-semibold leading-tight">{baris.name}</p>
                                 <p className="truncate text-body-small text-on-surface-variant">
                                   {[baris.company, baris.title].filter(Boolean).join(" · ") || baris.qr_code}
                                 </p>
-                                {/* Status dibawa ikon DAN teks, tidak hanya warna. */}
+                                {/* Status dibawa teks, tidak hanya warna. */}
                                 {sudahHadir ? (
-                                  <p className="mt-1 text-label-medium text-warning">
+                                  <p className="mt-0.5 text-label-medium text-warning">
                                     Sudah hadir {jam(baris.first_scan_at)}, {baris.scan_count} kali
                                   </p>
                                 ) : null}
                               </div>
                               <Button
-                                variant={sudahHadir ? "outlined" : "filled"}
-                                size="md"
+                                variant={sudahHadir ? "tonal" : "filled"}
+                                size="lg"
                                 onClick={() => { bukaSuara(); void catatDariCari(baris); }}
                                 loading={mencatatId === baris.id}
                                 disabled={!sessionId || (sibuk && mencatatId !== baris.id)}
-                                icon={<UserCheck size={18} weight="bold" aria-hidden />}
+                                icon={sudahHadir ? undefined : <UserCheck size={20} weight="bold" aria-hidden />}
+                                aria-label={sudahHadir ? `Catat lagi ${baris.name}` : `Catat hadir ${baris.name}`}
                                 className="shrink-0"
                               >
-                                <span className="hidden sm:inline">{sudahHadir ? "Catat lagi" : "Catat hadir"}</span>
-                                <span className="sr-only sm:hidden">
-                                  {sudahHadir ? `Catat lagi ${baris.name}` : `Catat hadir ${baris.name}`}
-                                </span>
+                                {sudahHadir ? "Lagi" : "Hadir"}
                               </Button>
                             </li>
                           );
                         })}
                       </ul>
-                      {/* Pemotongan diberitahukan, bukan didiamkan. Daftar yang
-                          diam-diam dipotong terbaca sebagai "hanya ini yang ada",
-                          dan petugas berhenti mencari orang yang sebenarnya
-                          terdaftar. */}
+                      {/* Pemotongan diberitahukan, bukan didiamkan. */}
                       {cariSekarang?.terpotong ? (
                         <p className="mt-3 text-body-small text-on-surface-variant">
                           Menampilkan 25 teratas. Persempit kata kuncinya dengan menambahkan nama instansi.
@@ -1561,102 +1547,169 @@ export default function ScanClient() {
                     </>
                   )}
                 </div>
-              </Card>
-            )}
+              </div>
+            ) : null}
 
+            {mode === "riwayat" ? (
+              <div className="space-y-3 lg:hidden">
+                {stripHadir}
+                <div>
+                  <h2 className="text-title-medium font-semibold">Pemindaian di HP ini</h2>
+                  <p className="text-body-small text-on-surface-variant">Angka hadir menghitung orang, bukan pemindaian ulang.</p>
+                  {daftarRiwayat(20)}
+                </div>
+              </div>
+            ) : null}
           </div>
 
-          {/* ---------------------------------------------------------------
-              Panel meja.
-
-              Satu kartu, bukan empat. Versi sebelumnya menumpuk empat kartu
-              sederajat di kolom ini, sehingga tidak ada satu pun yang terbaca
-              sebagai yang utama. Sekarang angka hadir memimpin, dan sisanya
-              adalah bagian di bawah garis pemisah.
-              --------------------------------------------------------------- */}
-          <aside className="lg:sticky lg:top-[88px]">
+          {/* Panel kanan di layar lebar: angka hadir dan arus pemindaian.
+              Setelan pindah ke menu ⋮, sama dengan di ponsel. */}
+          <aside className="hidden lg:sticky lg:top-[88px] lg:block">
             <Card>
               <p className="text-label-large text-on-surface-variant">{sesiAktif?.name ?? "Belum ada sesi"}</p>
               <p className="mt-1 flex items-baseline gap-2">
                 <span className="text-display-small tabular-nums">{hadir ?? "0"}</span>
                 <span className="text-body-medium text-on-surface-variant">orang hadir</span>
               </p>
-              <p className="mt-1 text-body-small text-on-surface-variant">
-                Peserta unik. Pemindaian ulang menambah catatan, bukan angka ini.
-              </p>
+              <p className="mt-1 text-body-small text-on-surface-variant">Pemindaian ulang tidak menambah angka ini.</p>
+              <Divider className="my-4" />
+              <h2 className="text-title-small">Pemindaian terakhir</h2>
+              {daftarRiwayat(8)}
+            </Card>
+          </aside>
+        </div>
+      </main>
 
-              {badgeMeja && !label?.enabled ? (
-                <>
-                  <Divider className="my-4" />
-                  {badgeMeja.siap ? (
-                    <PanelCetakMeja meja={meja} slug={eventSlug} />
-                  ) : (
-                    <p className="text-body-small text-on-surface-variant">
-                      Paper badges are selected for this desk, but print stations aren&apos;t active yet. Ask the Tally admin to run the database update.
-                    </p>
-                  )}
-                </>
-              ) : null}
+      <nav aria-label="Mode pemindai" className="fixed inset-x-0 bottom-0 z-30 flex h-20 border-t border-outline-variant bg-surface-container pb-[env(safe-area-inset-bottom)] lg:hidden">
+        {navBawah("qr", "Pindai", <QrCode size={24} weight={mode === "qr" ? "fill" : "regular"} aria-hidden />)}
+        {navBawah("cari", "Cari nama", <MagnifyingGlass size={24} weight={mode === "cari" ? "bold" : "regular"} aria-hidden />)}
+        {navBawah("riwayat", "Riwayat", <ClockCounterClockwise size={24} weight={mode === "riwayat" ? "bold" : "regular"} aria-hidden />)}
+      </nav>
 
-              {label?.enabled ? (
-                <>
-                  <Divider className="my-4" />
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="flex items-center gap-2 text-title-small">
-                      <Printer size={18} aria-hidden />
-                      Printer meja ini
-                    </h2>
-                    {bisaBluetooth ? (
-                      <span className={`text-label-medium ${printer ? "text-success" : "text-on-surface-variant"}`}>
-                        {printer ? "tersambung" : "belum"}
-                      </span>
-                    ) : null}
-                  </div>
+      {/* Sesi dan meja. Terbuka sendiri, dan tidak bisa ditutup, selama belum
+          ada sesi atau meja yang dipilih: tanpa itu tidak ada yang bisa
+          dipindai, dan bilah yang terlipat menyembunyikan pertanyaannya. */}
+      <LembarScan
+        open={lembarMejaBuka}
+        onClose={() => setLembarMeja(false)}
+        bolehTutup={!perluSetup}
+        judul={perluSetup ? "Siapkan meja ini" : "Ganti sesi atau meja"}
+        keterangan={
+          sesiHilang
+            ? <span className="text-error">Sesi yang tadi dipilih sudah ditutup panitia. Pilih sesi lagi sebelum memindai.</span>
+            : perluSetup
+              ? "Dipilih sekali. HP ini mengingatnya sampai diganti."
+              : "Pemindaian berikutnya tercatat di pilihan baru."
+        }
+      >
+        <PilihMeja
+          key={`${sessionId}-${laneId}-${lembarMejaBuka}`}
+          sessions={sessions}
+          lanes={lanes}
+          sessionId={sessionId}
+          laneId={laneId}
+          hadir={(sesi) => hadirTerbaru[sesi.id] ?? sesi.hadir ?? null}
+          onSimpan={simpanMeja}
+        />
+        {perluSetup ? (
+          <div className="-mt-4 flex justify-center px-6 pb-4">
+            <Button variant="text" size="lg" onClick={() => void keluar()} loading={keluarJalan}>
+              Bukan akun ini? Keluar
+            </Button>
+          </div>
+        ) : null}
+      </LembarScan>
 
-                  {!bisaBluetooth ? (
-                    <p className="mt-2 text-body-small text-on-surface-variant">
-                      Peramban di perangkat ini tidak punya Bluetooth, dan iPhone, iPad, serta Firefox memang tidak
-                      pernah punya. Tombol cetak tetap ada dan menyimpan labelnya sebagai gambar untuk dicetak dari
-                      aplikasi NIIMBOT.
-                    </p>
-                  ) : (
-                    <>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Button variant={printer ? "outlined" : "filled"} size="md" onClick={() => void sambungPrinter()}>
-                          {printer ? "Sambungkan ulang" : "Sambungkan"}
-                        </Button>
-                        {/* Menghabiskan satu lembar label, dan itu disebutkan.
-                            Uji cetak yang diam-diam memakan label adalah cara
-                            tercepat menghabiskan gulungan di pagi hari. */}
-                        <Button variant="text" size="md" onClick={() => void cetakLabel(UJI_LABEL)}>
-                          Uji cetak, 1 label
-                        </Button>
-                      </div>
+      {/* Menu ⋮: setelan perangkat ini dan Keluar. Dikerjakan sekali di pagi
+          hari, jadi tidak berhak atas ruang di layar kerja. */}
+      <LembarScan
+        open={menuTerbuka}
+        onClose={() => setMenuTerbuka(false)}
+        judul="Pengaturan HP ini"
+        keterangan={username ? <>Masuk sebagai <b className="font-semibold text-on-surface">{username}</b></> : undefined}
+      >
+        <div className="space-y-4 px-6 pt-4">
+          <Switch
+            className="!items-center"
+            label="Bunyi tiap pemindaian"
+            description="Di iPhone, bunyi ikut mati kalau sakelar senyap menyala."
+            checked={suara}
+            onChange={(nyala) => { if (nyala !== suaraRef.current) gantiSuara(); }}
+          />
+          <Switch
+            className="!items-center"
+            label="Tutup hasil hijau sendiri"
+            description="Setelah 3 detik, di sesi tanpa barang. Sentuh hasilnya untuk menahan."
+            checked={tutupOtomatis}
+            onChange={gantiTutupOtomatis}
+          />
 
-                      {printer ? (
-                        <p className="mt-2 text-body-small text-on-surface-variant">
-                          {printer.label}
-                          {printer.modelId != null ? ` · id ${printer.modelId}` : ""}
-                        </p>
-                      ) : null}
+          {badgeMeja && !label?.enabled ? (
+            <>
+              <Divider />
+              {badgeMeja.siap ? (
+                <div><PanelCetakMeja meja={meja} slug={eventSlug} /></div>
+              ) : (
+                <p className="text-body-small text-on-surface-variant">
+                  Paper badges are selected for this desk, but print stations aren&apos;t active yet. Ask the Tally admin to run the database update.
+                </p>
+              )}
+            </>
+          ) : null}
 
-                      {/* Angka yang dilaporkan printer, bukan yang kita duga.
-                          Inilah yang harus diketik admin di Setelan printer saat
-                          tepi kanan label hilang, dan tidak ada layar lain yang
-                          bisa menanyakannya. */}
-                      {lebarKepala != null && lebarKepala !== label.head_px ? (
-                        <p className="mt-2 rounded-lg bg-warning-soft p-3 text-body-small text-on-warning-soft">
-                          Printer melaporkan lebar kepala cetak {lebarKepala} px, setelan acara memakai {label.head_px}.
-                          Minta admin membetulkannya di Label &amp; printer.
-                        </p>
-                      ) : null}
-                    </>
-                  )}
-
-                  {/* Tanpa Bluetooth tidak ada cetak otomatis: "mencetak" di sana
-                      berarti membuka lembar bagikan, dan peramban menolaknya
-                      tanpa ketukan. Penjelasannya sudah ada di paragraf atas. */}
+          {label?.enabled ? (
+            <>
+              <Divider />
+              <div>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-2 text-title-small">
+                    <Printer size={18} aria-hidden />
+                    Printer meja ini
+                  </h3>
                   {bisaBluetooth ? (
+                    <span className={`text-label-medium ${printer ? "text-success" : "text-on-surface-variant"}`}>
+                      {printer ? "tersambung" : "belum"}
+                    </span>
+                  ) : null}
+                </div>
+
+                {!bisaBluetooth ? (
+                  <p className="mt-2 text-body-small text-on-surface-variant">
+                    Peramban di perangkat ini tidak punya Bluetooth, dan iPhone, iPad, serta Firefox memang tidak
+                    pernah punya. Tombol cetak tetap ada dan menyimpan labelnya sebagai gambar untuk dicetak dari
+                    aplikasi NIIMBOT.
+                  </p>
+                ) : (
+                  <>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button variant={printer ? "outlined" : "filled"} size="lg" onClick={() => void sambungPrinter()}>
+                        {printer ? "Sambungkan ulang" : "Sambungkan"}
+                      </Button>
+                      {/* Menghabiskan satu lembar label, dan itu disebutkan. */}
+                      <Button variant="text" size="lg" onClick={() => void cetakLabel(UJI_LABEL)}>
+                        Uji cetak, 1 label
+                      </Button>
+                    </div>
+
+                    {printer ? (
+                      <p className="mt-2 text-body-small text-on-surface-variant">
+                        {printer.label}
+                        {printer.modelId != null ? ` · id ${printer.modelId}` : ""}
+                      </p>
+                    ) : null}
+
+                    {cetak.fase !== "diam" && !hasil ? (
+                      <p role="status" className={`mt-2 text-body-small ${cetak.fase === "galat" ? "text-error" : "text-on-surface-variant"}`}>{cetak.teks}</p>
+                    ) : null}
+
+                    {/* Angka yang dilaporkan printer, bukan yang kita duga. */}
+                    {lebarKepala != null && lebarKepala !== label.head_px ? (
+                      <p className="mt-2 rounded-lg bg-warning-soft p-3 text-body-small text-on-warning-soft">
+                        Printer melaporkan lebar kepala cetak {lebarKepala} px, setelan acara memakai {label.head_px}.
+                        Minta admin membetulkannya di Label &amp; printer.
+                      </p>
+                    ) : null}
+
                     <div className="mt-4">
                       <p className="text-label-large text-on-surface-variant">Cetak otomatis</p>
                       <SegmentedButton
@@ -1679,85 +1732,70 @@ export default function ScanClient() {
                             : "Setiap tamu yang baru tercatat hadir. Pemindaian ulang tidak ikut."}
                       </p>
                     </div>
-                  ) : null}
-                </>
-              ) : null}
+                  </>
+                )}
+              </div>
+            </>
+          ) : null}
 
-              <Divider className="my-4" />
-              {/* Per perangkat, seperti Suara. Meja yang memeriksa setiap tamu
-                  lebih lama dari tiga detik mematikannya di sini. */}
-              <Switch className="!items-center" label={<span className="font-semibold">Tutup otomatis</span>} checked={tutupOtomatis} onChange={gantiTutupOtomatis} />
-              <p className="mt-2 text-body-small text-on-surface-variant">
-                Lembar hijau di sesi tanpa barang menutup sendiri setelah 3 detik; sentuh lembarnya untuk menahan. Suara
-                diatur dari tombol speaker di kamera. Di iPhone, bunyi ikut mati kalau sakelar senyap menyala.
-              </p>
-
-              {/* Pemasangan TV hanya muncul kalau jalurnya LEBIH DARI SATU. Kode
-                  enam angka menjawab "TV ini melayani meja yang mana", dan
-                  pertanyaan itu tidak ada ketika mejanya cuma satu. Terlipat,
-                  karena dikerjakan sekali di pagi hari. */}
-              {lanes.length > 1 ? (
-                <>
-                  <Divider className="my-4" />
-                  <details>
-                    <summary className="m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 rounded-lg text-title-small">
-                      Layar sapa di meja ini
-                      <CaretDown size={18} aria-hidden />
-                    </summary>
-                    <p className="mt-2 text-body-small text-on-surface-variant">
-                      TV yang belum terpasang menampilkan enam angka. Ketik angkanya di sini.
-                    </p>
-                    <form
-                      className="mt-3 flex items-end gap-2"
-                      onSubmit={(event) => { event.preventDefault(); void pasangLayar(kodeLayar); }}
-                    >
-                      <TextField
-                        className="min-w-0 flex-1"
-                        label="Kode layar"
-                        value={kodeLayar}
-                        onChange={(event) => setKodeLayar(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                        // `inputMode` numerik, bukan `type="number"`: kode ini
-                        // bisa diawali nol, dan input angka membuang nol di depan
-                        // pada sebagian peramban.
-                        inputMode="numeric"
-                        autoComplete="off"
-                        placeholder="000000"
-                        style={{ letterSpacing: "0.2em" }}
-                      />
-                      <Button type="submit" variant="tonal" size="lg" loading={memasang} disabled={kodeLayar.length !== 6 || !laneId}>
-                        Hubungkan
-                      </Button>
-                    </form>
-                    {pesanLayar ? (
-                      <p role="status" className={`mt-3 text-body-small ${pesanLayar.nada === "ok" ? "text-primary" : "text-error"}`}>
-                        {pesanLayar.teks}
-                      </p>
-                    ) : null}
-                  </details>
-                </>
-              ) : null}
-
-              <Divider className="my-4" />
-              <h2 className="text-title-small">Pemindaian terakhir</h2>
-              {riwayat.length === 0 ? (
+          {/* Pemasangan TV hanya muncul kalau jalurnya LEBIH DARI SATU: kode
+              enam angka menjawab "TV ini melayani meja yang mana". */}
+          {lanes.length > 1 ? (
+            <>
+              <Divider />
+              <details>
+                <summary className="m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 rounded-lg text-body-large">
+                  <span className="flex items-center gap-4">
+                    <Television size={22} className="text-on-surface-variant" aria-hidden />
+                    Hubungkan layar sapa
+                  </span>
+                  <CaretDown size={18} aria-hidden />
+                </summary>
                 <p className="mt-2 text-body-small text-on-surface-variant">
-                  Belum ada yang dipindai di perangkat ini sejak layar dibuka.
+                  TV yang belum terpasang menampilkan enam angka. Ketik angkanya di sini.
                 </p>
-              ) : (
-                <ul className="mt-1 divide-y divide-outline-variant">
-                  {riwayat.slice(0, 8).map((baris, index) => (
-                    <li key={`${baris.waktu}-${index}`} className="flex items-center justify-between gap-3 py-2 text-body-medium">
-                      <span className="min-w-0 flex-1 truncate">{baris.nama}</span>
-                      <span className={RIWAYAT[baris.status].kelas}>{RIWAYAT[baris.status].teks}</span>
-                      <span className="tabular-nums text-on-surface-variant">{jam(baris.waktu)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-          </aside>
+                <form
+                  className="mt-3 flex items-end gap-2"
+                  onSubmit={(event) => { event.preventDefault(); void pasangLayar(kodeLayar); }}
+                >
+                  <TextField
+                    className="min-w-0 flex-1"
+                    label="Kode layar"
+                    value={kodeLayar}
+                    onChange={(event) => setKodeLayar(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                    // `inputMode` numerik, bukan `type="number"`: kode ini
+                    // bisa diawali nol.
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="000000"
+                    style={{ letterSpacing: "0.2em" }}
+                  />
+                  <Button type="submit" variant="tonal" size="lg" loading={memasang} disabled={kodeLayar.length !== 6 || !laneId}>
+                    Hubungkan
+                  </Button>
+                </form>
+                {pesanLayar ? (
+                  <p role="status" className={`mt-3 text-body-small ${pesanLayar.nada === "ok" ? "text-primary" : "text-error"}`}>
+                    {pesanLayar.teks}
+                  </p>
+                ) : null}
+              </details>
+            </>
+          ) : null}
+
+          <Divider />
+          <div className="-mx-6">
+            <button type="button" onClick={() => { void muatSesi(); setMenuTerbuka(false); }} className="m3-state flex min-h-14 w-full items-center gap-4 px-6 text-left text-body-large">
+              <ArrowsClockwise size={22} className="text-on-surface-variant" aria-hidden />
+              Muat ulang daftar sesi
+            </button>
+            <button type="button" onClick={() => void keluar()} disabled={keluarJalan} className="m3-state flex min-h-14 w-full items-center gap-4 px-6 text-left text-body-large text-error">
+              {keluarJalan ? <CircleNotch size={22} className="animate-spin" aria-hidden /> : <SignOut size={22} aria-hidden />}
+              {keluarJalan ? "Keluar..." : "Keluar"}
+            </button>
+          </div>
         </div>
-      </main>
+      </LembarScan>
 
       {/* Modal hasil dan dialog walk-in adalah dua lapisan yang tidak boleh
           bertumpuk. Lihat `onWalkIn`: yang satu ditutup sebelum yang lain
