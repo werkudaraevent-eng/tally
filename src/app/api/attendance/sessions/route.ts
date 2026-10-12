@@ -5,6 +5,8 @@ import { setelanMeja } from "@/lib/badge/stasiun-server";
 import { loadLabelSettings } from "@/lib/label/load";
 import { editableFields } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { hitungKehadiran } from "@/lib/attendance-progress";
+import { aturanWalkIn } from "@/lib/walkin-form";
 
 /**
  * Daftar sesi kehadiran untuk layar pemindai.
@@ -29,7 +31,7 @@ export async function GET(request: Request) {
   const client = getSupabaseServiceClient();
   const eventId = auth.scope.event.id;
 
-  const [sesi, jalur, scans, barang] = await Promise.all([
+  const [sesi, jalur, barang] = await Promise.all([
     client
       .from("attendance_sessions")
       .select("id,name,slug,sort_order")
@@ -48,9 +50,6 @@ export async function GET(request: Request) {
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
       .order("id", { ascending: true }),
-    // Dua kolom saja: tabel ini yang tumbuh paling cepat di hari-H, dan yang
-    // dibutuhkan di sini hanya menghitung orang unik per sesi.
-    client.from("attendance_scans").select("session_id,participant_id").eq("event_id", eventId),
     // Berapa barang yang diperiksa di tiap sesi. Layar pemindai hanya memuat
     // daftar centang barang untuk sesi yang memang punya barang, jadi sesi
     // Gala dinner tidak menunggu satu permintaan kosong di setiap pemindaian.
@@ -59,22 +58,16 @@ export async function GET(request: Request) {
 
   if (sesi.error) return apiError("INTERNAL_ERROR", 500);
 
-  // Peserta UNIK, bukan jumlah baris. Tabel scan menyimpan setiap pemindaian
-  // termasuk yang berulang — itu yang membuat "jam berapa dia kembali" bisa
-  // dijawab — tetapi "berapa orang yang hadir" harus menghitung orang.
-  const unik = new Map<number, Set<string>>();
-  for (const scan of (scans.data ?? []) as Array<{ session_id: number; participant_id: string }>) {
-    if (!unik.has(scan.session_id)) unik.set(scan.session_id, new Set());
-    unik.get(scan.session_id)!.add(scan.participant_id);
-  }
+  // Orang unik per sesi dan jumlah terdaftar, sebagai hitungan. Dulu dihitung
+  // dari baris attendance_scans di sini, yang terpotong di 1.000 baris.
+  const daftarSesi = (sesi.data ?? []) as Array<{ id: number }>;
+  const angka = await hitungKehadiran(eventId, daftarSesi.map((row) => row.id)).catch(() => null);
 
-  // Setelan walk-in ikut di jawaban yang sama, bukan endpoint kedua — alasan
-  // yang sama dengan jalur di atas. Yang dikirim hanya field bertanda WAJIB:
-  // formulir pendaftaran acara bisa berisi dua puluh pertanyaan, dan menaruh
-  // semuanya di dialog yang dibuka di depan antrean berarti tidak ada yang akan
-  // memakainya. Sisanya dilengkapi di halaman peserta setelah antrean surut.
+  // Setelan walk-in ikut di jawaban yang sama, bukan endpoint kedua, dengan
+  // alasan yang sama dengan jalur di atas. Formnya = form registrasi utama:
+  // seluruh pertanyaan dan tanda wajibnya (lib/walkin-form.ts). Pertanyaan
+  // berkas tidak ikut karena tidak bisa diunggah dari meja.
   const config = auth.scope.event.registration_form_config as RegistrationFormConfig | null;
-  const walkinFields = editableFields(config).filter((field) => field.required);
 
   // Setelan label ikut di sini juga, dan bukan di endpoint ketiga. Layar
   // pemindai membutuhkannya pada saat yang persis sama dengan daftar sesi —
@@ -88,16 +81,18 @@ export async function GET(request: Request) {
   }
 
   return Response.json({
-    sessions: ((sesi.data ?? []) as Array<{ id: number }>).map((row) => ({
+    sessions: daftarSesi.map((row) => ({
       ...row,
-      hadir: unik.get(row.id)?.size ?? 0,
+      hadir: angka?.hadir[row.id] ?? null,
       jumlah_barang: jumlahBarang.get(row.id) ?? 0,
     })),
     lanes: jalur.data ?? [],
     event: { name: auth.scope.event.name, slug: auth.scope.event.slug },
     user: { username: auth.user.username },
     allow_walk_in: auth.scope.event.attendance_allow_walk_in,
-    walkin_fields: walkinFields,
+    walkin_fields: editableFields(config),
+    walkin_wajib: aturanWalkIn(config),
+    terdaftar: angka?.terdaftar ?? null,
     label,
     // Badge kertas lewat stasiun cetak. Label stiker menang bila keduanya
     // tersimpan menyala: itulah urutan "Yang dicetak di meja registrasi".

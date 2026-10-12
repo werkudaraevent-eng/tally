@@ -3,8 +3,9 @@ import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { cetakSetelahHadir } from "@/lib/badge/stasiun-server";
 import type { RegistrationFormConfig } from "@/lib/domain";
-import { cleanExtra } from "@/lib/participant-input";
+import { cleanExtra, editableFields } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { aturanWalkIn, periksaWalkIn } from "@/lib/walkin-form";
 
 /**
  * Mendaftarkan tamu walk-in dan mencatat kehadirannya sekaligus.
@@ -14,15 +15,13 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * nama kembar hanya berarti bila ia dilakukan pada transaksi yang sama dengan
  * penulisannya.
  *
- * ---- Kenapa jawaban formulir DIPERIKSA tapi tidak DIWAJIBKAN ---------------
+ * ---- Form walk-in = form registrasi utama ----------------------------------
  *
- * Field bertanda wajib tetap dikirim ke layar petugas supaya terlihat, tetapi
- * kosongnya tidak menahan penyimpanan. Yang berdiri di depan meja adalah antrean
- * yang bergerak, dan satu kolom "ukuran kaus" yang belum dijawab bukan alasan
- * untuk menahan seorang tamu di pintu masuk — jawabannya bisa dilengkapi di
- * halaman peserta setelah acara ramai lewat. Yang tetap ditegakkan adalah
- * bentuknya: pilihan di luar daftar dropdown tetap ditolak, karena jawaban
- * seperti itu tidak akan pernah cocok dengan formulir mana pun.
+ * Kolom dan tanda wajibnya sama dengan formulir pendaftaran acara (keputusan
+ * Hanung 2026-10-12): data walk-in dipakai di daftar peserta, Client view, dan
+ * ekspor yang sama dengan pendaftar daring, jadi aturannya pun sama. Aturannya
+ * tinggal di src/lib/walkin-form.ts, dipakai juga oleh layar pemindai, supaya
+ * yang ditolak di sini selalu sudah ditandai di kolomnya di layar.
  */
 
 const bodySchema = z.object({
@@ -53,10 +52,13 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
-  const { issues, clean } = cleanExtra(
-    auth.scope.event.registration_form_config as RegistrationFormConfig | null,
-    parsed.data.extra,
-  );
+  const config = auth.scope.event.registration_form_config as RegistrationFormConfig | null;
+  const galatKolom = periksaWalkIn(parsed.data, aturanWalkIn(config), editableFields(config));
+  if (Object.keys(galatKolom).length > 0) {
+    return apiError("VALIDATION_ERROR", 422, { ...galatKolom, message: "Lengkapi kolom yang ditandai." });
+  }
+
+  const { issues, clean } = cleanExtra(config, parsed.data.extra);
   if (issues.length > 0) {
     return apiError("VALIDATION_ERROR", 422, Object.fromEntries(issues.map((issue) => [`extra.${issue.key}`, issue.message])));
   }
