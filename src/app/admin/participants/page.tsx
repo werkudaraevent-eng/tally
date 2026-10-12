@@ -17,6 +17,7 @@ type ImportPreview = {
   rows: number;
   inserted: number;
   updated: number;
+  generated: number;
   source_locked: number;
   rejected: number;
   issues: Array<{ row: number; qr_code: string | null; reason: string }>;
@@ -136,7 +137,7 @@ export default function ParticipantsAdminPage() {
         dismissible={!importing}
         size="lg"
         title="Import participants from CSV or XLSX"
-        description="Rows are matched by QR code: existing participants are updated and new ones are added. Participants from Scanner API only get their email, phone and answers updated."
+        description="A row with a QR code updates the participant who has that code, or adds them if the code is new. A row without a QR code adds a new participant with a generated code. Participants from Scanner API only get their email, phone and answers updated."
         actions={
           <>
             <Button variant="outlined" disabled={importing} onClick={closeImport}>Cancel</Button>
@@ -153,7 +154,7 @@ export default function ParticipantsAdminPage() {
             <ButtonLink native variant="outlined" size="sm" href="/api/admin/participants/export?template=1&format=csv" icon={<DownloadSimple size={16} />}>CSV template</ButtonLink>
           </div>
           <p className="text-on-surface-variant">
-            Columns are recognised from the first row, in English or Indonesian (for example organisation or perusahaan, phone or no_hp). Only <span className="font-medium text-on-surface">qr_code</span> and <span className="font-medium text-on-surface">name</span> are required. Empty cells do not delete existing answers.
+            Columns are recognised from the first row, in English or Indonesian (for example organisation or perusahaan, phone or no_hp). Only <span className="font-medium text-on-surface">name</span> is required. Leave <span className="font-medium text-on-surface">qr_code</span> empty unless the person already has a code, for example from an export or a printed badge. Empty cells never erase existing details.
           </p>
           <label className="block font-medium">
             File
@@ -169,7 +170,7 @@ export default function ParticipantsAdminPage() {
             <div className="rounded-md border border-outline-variant p-3">
               <p className="font-medium">{preview.file_name}, {plural(preview.rows, "row")} read</p>
               <ul className="mt-2 space-y-0.5">
-                <li><span className="font-medium">{preview.inserted}</span> {preview.inserted === 1 ? "new participant" : "new participants"} added</li>
+                <li><span className="font-medium">{preview.inserted}</span> {preview.inserted === 1 ? "new participant" : "new participants"} added{preview.generated > 0 ? `, ${preview.generated} with a generated QR code` : ""}</li>
                 <li><span className="font-medium">{preview.updated}</span> {preview.updated === 1 ? "manual participant" : "manual participants"} updated</li>
                 <li><span className="font-medium">{preview.source_locked}</span> Scanner API {preview.source_locked === 1 ? "participant" : "participants"}, email and phone only</li>
                 <li><span className="font-medium text-error">{preview.rejected}</span> {preview.rejected === 1 ? "row" : "rows"} rejected</li>

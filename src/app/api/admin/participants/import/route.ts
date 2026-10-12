@@ -50,14 +50,14 @@ export async function POST(request: Request) {
 
   const fields = ((auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
   const { rows: semua, recognized } = mapRows(matrix, fields);
-  // Dua kolom wajib diperiksa DI SINI, bukan dibiarkan jadi 5.000 penolakan
+  // Kolom nama diperiksa DI SINI, bukan dibiarkan jadi 5.000 penolakan
   // per-baris di dalam RPC. Berkas yang headernya salah menghasilkan galat yang
   // identik untuk setiap baris, dan daftar itu tidak memberi tahu apa pun yang
   // tidak sudah dijawab oleh satu kalimat tentang headernya.
-  const missing = (["qr_code", "name"] as const).filter((field) => !recognized.includes(field));
-  if (missing.length > 0) {
+  // qr_code tidak wajib: baris tanpa kode mendapat kode REG dari RPC.
+  if (!recognized.includes("name")) {
     return apiError("VALIDATION_ERROR", 422, {
-      message: `${missing.length === 1 ? "Column" : "Columns"} ${missing.join(" and ")} not found in the first row of the file. Recognised columns: ${importHeaders(fields).join(", ")}.`,
+      message: `Column name not found in the first row of the file. Recognised columns: ${importHeaders(fields).join(", ")}.`,
     });
   }
   if (semua.length === 0) return apiError("IMPORT_EMPTY", 422);
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 
   if (rows.length === 0) {
     return Response.json({
-      dry_run: dryRun, rows: semua.length, inserted: 0, updated: 0, source_locked: 0,
+      dry_run: dryRun, rows: semua.length, inserted: 0, updated: 0, generated: 0, source_locked: 0,
       rejected: ditolak.length, issues: ditolak.slice(0, 50), issues_truncated: ditolak.length > 50,
       recognized_columns: recognized, file_name: file.name,
     });
@@ -99,10 +99,12 @@ export async function POST(request: Request) {
 
   // Penolakan dari pemeriksaan jawaban digabung dengan penolakan dari RPC,
   // supaya pratinjau menampilkan SATU daftar masalah dengan satu hitungan.
-  const hasil = data as { rows: number; rejected: number; issues: ImportIssue[]; issues_truncated: boolean };
+  const hasil = data as { rows: number; generated?: number; rejected: number; issues: ImportIssue[]; issues_truncated: boolean };
   const issues = [...ditolak, ...hasil.issues].sort((a, b) => a.row - b.row);
   return Response.json({
     ...hasil,
+    // Fungsi lama (sebelum 202610120001) tidak mengirim kunci ini.
+    generated: hasil.generated ?? 0,
     rows: hasil.rows + ditolak.length,
     rejected: hasil.rejected + ditolak.length,
     issues: issues.slice(0, 50),
