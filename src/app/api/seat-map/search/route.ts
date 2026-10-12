@@ -3,7 +3,8 @@ import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { normalizeSeatLabel } from "@/lib/seat-map";
 import { loadAssignmentsForSession, loadSeatMapConfig, loadSessions, resolveSession } from "@/lib/seat-map-data";
-import { searchConfirmationLabel } from "@/lib/seat-map-privacy";
+import { searchConfirmationLabel, type NameDisplayMode } from "@/lib/seat-map-privacy";
+import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Pencarian kursi untuk tamu. Publik, tanpa login.
 //
@@ -58,6 +59,17 @@ export async function GET(request: Request) {
     // Cari per Organisation hanya bila admin menyalakannya untuk acara ini.
     // Bila mati, organisasi tidak dicocokkan dan tidak pernah dikirim.
     const cariPerusahaan = config.layout_params.search_company === true;
+    // Cocok lewat organisasi saja tidak boleh membuka orang yang namanya
+    // disembunyikan: penanya tidak tahu namanya, jadi aturan tampilan nama denah
+    // berlaku penuh. Acara dengan nama tersembunyi tidak dicari per organisasi
+    // sama sekali; peserta yang menolak namanya tampil tidak ikut hasil
+    // organisasi. Keduanya tetap bisa menemukan dirinya lewat nama sendiri.
+    let organisasiBoleh = cariPerusahaan;
+    if (cariPerusahaan) {
+      const { data: setelan } = await getSupabaseServiceClient().from("event_settings").select("name_display_mode").eq("event_id", eventId).maybeSingle();
+      const mode = ((setelan as { name_display_mode?: NameDisplayMode } | null)?.name_display_mode ?? "initials") as NameDisplayMode;
+      if (mode === "hidden") organisasiBoleh = false;
+    }
     const { assignments } = await loadAssignmentsForSession(eventId, session.sub_event_id);
 
     // Satu orang bisa memegang lebih dari satu kursi; dikelompokkan per orang
@@ -66,11 +78,14 @@ export async function GET(request: Request) {
 
     for (const assignment of assignments) {
       const company = (assignment.company ?? "").trim();
-      const cocok = assignment.name.toLowerCase().includes(needle) || (cariPerusahaan && company.toLowerCase().includes(needle));
+      const cocokNama = assignment.name.toLowerCase().includes(needle);
+      const cocokOrganisasi = organisasiBoleh && assignment.allowNameDisplay && company.toLowerCase().includes(needle);
+      const cocok = cocokNama || cocokOrganisasi;
       if (!cocok) continue;
       const entry = grouped.get(assignment.participantId) ?? {
         name: assignment.name,
-        company,
+        // Organisasi hanya ikut tampil bila boleh dicari: tidak untuk peserta yang menolak namanya tampil.
+        company: organisasiBoleh && assignment.allowNameDisplay ? company : "",
         seatLabels: [],
         tableNumbers: new Set<string>(),
       };
