@@ -13,6 +13,7 @@ import {
   type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule,
   LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS,
 } from "@/lib/seat-map";
+import { tallySeatSource } from "@/lib/seat-tally-source";
 import {
   Banner, Button, ButtonLink, Dialog, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter,
   SegmentedButton, StatusChip, SupportingPane, Switch, Tabs, WorkspaceHeader, WorkspacePage,
@@ -323,7 +324,9 @@ export default function SeatMapAdminPage() {
   }, [config]);
 
   const warnaEfektif = aktif ? resolveSeatColors(aktif, { backgroundColor: aktif.background_color, textColor: aktif.text_color }) : null;
-  const orphanSubEvent = aktif?.sub_event_id != null && payload !== null && !payload.available_sub_events.some((item) => item.subEventId === aktif.sub_event_id);
+  const sumberTally = aktif ? tallySeatSource(aktif.id) : null;
+  const pakaiTally = aktif?.sub_event_id != null && aktif.sub_event_id === sumberTally;
+  const orphanSubEvent = aktif?.sub_event_id != null && !pakaiTally && payload !== null && !payload.available_sub_events.some((item) => item.subEventId === aktif.sub_event_id);
   const publik = sessions.filter((item) => item.is_published);
 
   // ---- Panel utama: denah hidup --------------------------------------------
@@ -597,14 +600,15 @@ export default function SeatMapAdminPage() {
         </Field>
         <Field label="Title on the public page" htmlFor="agenda-title"><input id="agenda-title" value={aktif.title} onChange={(event) => updateSession(aktif.id, { title: event.target.value })} className={INPUT} /></Field>
         <Field label="Subtitle" htmlFor="agenda-subtitle"><input id="agenda-subtitle" value={aktif.subtitle ?? ""} onChange={(event) => updateSession(aktif.id, { subtitle: event.target.value })} className={INPUT} /></Field>
-        <Field label="Seat source" htmlFor="agenda-source" hint="The scanner API sub-event that fills in participants' seat numbers.">
+        <Field label="Seat source" htmlFor="agenda-source" hint={pakaiTally ? "Seats are typed in Participant list › Edit, one field per session." : "The scanner API sub-event that fills in participants' seat numbers."}>
           <select id="agenda-source" value={aktif.sub_event_id ?? ""} onChange={(event) => updateSession(aktif.id, { sub_event_id: event.target.value || null })} className={INPUT}>
             <option value="">Not selected</option>
+            {sumberTally ? <option value={sumberTally}>Set in Tally (participant list)</option> : null}
             {payload?.available_sub_events.map((item) => <option key={item.subEventId} value={item.subEventId}>{item.subEventName} ({plural(item.seatCount, "seat")})</option>)}
             {orphanSubEvent && aktif.sub_event_id ? <option value={aktif.sub_event_id}>{aktif.sub_event_id} (not in the latest data)</option> : null}
           </select>
         </Field>
-        {payload?.available_sub_events.length === 0 ? <p className="text-body-medium text-warning">The scanner API has not sent any seat data yet. Options appear once staff fill it in.</p> : null}
+        {payload?.available_sub_events.length === 0 && !pakaiTally ? <p className="text-body-medium text-warning">The scanner API has not sent any seat data yet. To type seats yourself, choose Set in Tally.</p> : null}
         {aktif.is_published && (!aktif.sub_event_id || orphanSubEvent) ? (
           <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
             <Warning size={16} className="mt-0.5 shrink-0 text-warning" />
@@ -743,7 +747,7 @@ export default function SeatMapAdminPage() {
             <MetaSeparator />
             <span>{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}</span>
             <MetaSeparator />
-            <span>Seat assignments come from the scanner API</span>
+            <span>{sessions.length > 0 && sessions.every((item) => item.sub_event_id === tallySeatSource(item.id)) ? "Seats are set in the participant list" : "Seat assignments come from the scanner API"}</span>
           </>
         ) : null}
         actions={

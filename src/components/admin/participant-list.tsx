@@ -19,6 +19,8 @@ import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
 import { bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, type Saringan } from "@/lib/saringan-kolom";
 import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
 import { DEFAULT_TIME_ZONE, type EventTimeZone } from "@/lib/timezone";
+import { normalizeSeatLabel } from "@/lib/seat-map";
+import { tallySeatSource } from "@/lib/seat-tally-source";
 
 type ParticipantSeat = { subEventId: string; subEventName: string; label: string };
 type AsalPeserta = "walkin" | "scanner" | "registration" | "manual";
@@ -54,6 +56,12 @@ type Participant = {
   logistik: { kamar: string | null; bus: string | null } | null;
 };
 type SesiKehadiran = { id: number; name: string; is_active: boolean };
+/** Jawaban /api/admin/participants/seat-options. Kosong bila tidak ada sesi denah "Set in Tally". */
+type OpsiKursi = {
+  sessions: Array<{ id: number; name: string; source: string }>;
+  labels: string[];
+  taken: Record<string, Record<string, { participantId: string; name: string; label: string }>>;
+};
 type FacetPerusahaan = { company: string; count: number };
 
 const ASAL: Record<AsalPeserta, { label: string; judul: string }> = {
@@ -235,6 +243,11 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  // Kursi yang diketik panitia, per id sesi denah. `kursiAwal` dipakai supaya
+  // hanya kursi yang benar-benar diubah yang dikirim.
+  const [opsiKursi, setOpsiKursi] = useState<OpsiKursi | null>(null);
+  const [kursiDraft, setKursiDraft] = useState<Record<number, string>>({});
+  const [kursiAwal, setKursiAwal] = useState<Record<number, string>>({});
   const [confirmDelete, setConfirmDelete] = useState<Participant | null>(null);
   // Pilihan bertahan lintas halaman. Saringan dan pencarian tidak bisa diubah
   // selama ada pilihan, karena bilah pilihan menutupi barisnya (pola bilah
@@ -399,8 +412,22 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     setMode({ kind: "view", id: participant.id });
   }
 
+  async function muatKursi(participant: Participant | null) {
+    setOpsiKursi(null); setKursiDraft({}); setKursiAwal({});
+    const response = await fetch("/api/admin/participants/seat-options").catch(() => null);
+    if (!response?.ok) return;
+    const opsi = (await response.json().catch(() => null)) as OpsiKursi | null;
+    if (!opsi || opsi.sessions.length === 0) return;
+    const awal: Record<number, string> = {};
+    for (const sesi of opsi.sessions) {
+      awal[sesi.id] = participant?.seats?.find((seat) => seat.subEventId === tallySeatSource(sesi.id))?.label ?? "";
+    }
+    setOpsiKursi(opsi); setKursiDraft(awal); setKursiAwal(awal);
+  }
+
   function startAdd() {
     if (mode?.kind === "edit" || mode?.kind === "new") return;
+    void muatKursi(null);
     setDraft(EMPTY_DRAFT); setFormError(""); setNotice("");
     setMode({ kind: "new" });
   }
@@ -408,6 +435,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   useImperativeHandle(ref, () => ({ tambah: startAdd }));
 
   function startEdit(participant: Participant) {
+    void muatKursi(participant);
     setDraft(toDraft(participant)); setFormError(""); setNotice("");
     setMode({ kind: "edit", row: participant });
   }
@@ -421,10 +449,17 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     if (mode?.kind !== "edit" && mode?.kind !== "new") return;
     setSaving(true); setFormError(""); setNotice("");
     const isNew = mode.kind === "new";
+    // Kursi hanya dikirim bila ada yang diubah. Acara tanpa sesi "Set in Tally"
+    // mengirim badan yang sama persis seperti sebelumnya.
+    const kursi = opsiKursi && !(mode.kind === "edit" && mode.row.source_participant_id != null)
+      ? opsiKursi.sessions
+        .filter((sesi) => (kursiDraft[sesi.id] ?? "").trim() !== (kursiAwal[sesi.id] ?? "").trim())
+        .map((sesi) => ({ session_id: sesi.id, label: (kursiDraft[sesi.id] ?? "").trim() || null }))
+      : [];
     const response = await fetch(isNew ? "/api/admin/participants" : `/api/admin/participants/${mode.row.id}`, {
       method: isNew ? "POST" : "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft),
+      body: JSON.stringify(kursi.length > 0 ? { ...draft, seats: kursi } : draft),
     }).catch(() => null);
     setSaving(false);
     if (!response) { setFormError("Connection lost. Participant not saved."); return; }
@@ -436,7 +471,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       setFormError((typeof rincian === "string" ? rincian : undefined) ?? body.error?.message ?? "Couldn't save participant.");
       return;
     }
-    setNotice(isNew ? `${draft.name} added.` : `${draft.name} updated.`);
+    const dilepas = Array.isArray(body.freed) ? (body.freed as Array<{ name: string; label: string }>) : [];
+    setNotice(`${draft.name} ${isNew ? "added" : "updated"}.${dilepas.map((item) => ` Seat ${item.label} freed from ${item.name}.`).join("")}`);
     const savedId: string | undefined = body.participant?.id ?? body.id ?? (isNew ? undefined : mode.row.id);
     setMode(savedId ? { kind: "view", id: savedId } : null);
     setDraft(EMPTY_DRAFT);
@@ -988,6 +1024,38 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     ), item.help_text);
   }
 
+  function kursiField(sesi: OpsiKursi["sessions"][number]) {
+    const label = `Seat · ${sesi.name}`;
+    if (editingLocked) return field(label, <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />Comes from the scanner API</p>);
+    const nilai = kursiDraft[sesi.id] ?? "";
+    const kunci = normalizeSeatLabel(nilai);
+    const labels = opsiKursi?.labels ?? [];
+    const ada = !nilai.trim() || labels.some((item) => normalizeSeatLabel(item) === kunci);
+    const pemegang = nilai.trim() ? opsiKursi?.taken[String(sesi.id)]?.[kunci] : undefined;
+    const milikOrangLain = pemegang && pemegang.participantId !== editingRow?.id;
+    const contoh = labels.length > 1 ? `, e.g. ${labels[0]} to ${labels[labels.length - 1]}` : "";
+    const daftarId = `kursi-daftar-${sesi.id}`;
+    return (
+      <label className="block text-body-medium font-medium text-on-surface">
+        {label}
+        <input
+          value={nilai}
+          onChange={(event) => setKursiDraft({ ...kursiDraft, [sesi.id]: event.target.value })}
+          list={daftarId}
+          maxLength={40}
+          autoComplete="off"
+          placeholder="No seat"
+          aria-invalid={!ada}
+          className={cx(inputClass, "tabular-nums", !ada && "border-error")}
+        />
+        <datalist id={daftarId}>{labels.map((item) => <option key={item} value={item} />)}</datalist>
+        <span className="mt-1 block font-normal text-on-surface-variant">Must match a seat on the Seating plan{contoh}. Leave empty for no seat.</span>
+        {!ada ? <span className="mt-1 block font-normal text-error">{nilai.trim()} isn&apos;t on the Seating plan.</span> : null}
+        {ada && milikOrangLain ? <span className="mt-1 block font-normal text-warning">{pemegang.label} is taken by {pemegang.name}. Saving frees it from them.</span> : null}
+      </label>
+    );
+  }
+
   const editor = editing ? (
     <Pane as="aside" aria-label={mode?.kind === "new" ? "Add participant" : "Edit participant"}>
       <PaneHeader className="px-5 py-4">
@@ -1013,6 +1081,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             ? field("QR code", <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{editingRow?.qr_code}</p>)
             : field("QR code", <input value={draft.qr_code} onChange={(event) => setDraft({ ...draft, qr_code: event.target.value })} className={`${inputClass} tabular-nums`} placeholder="REG000000" required />, "Must be unique in this event. Booths and cashiers scan this code.")}
           {textField("Participant type", "participant_type", { locked: editingLocked, value: editingRow?.participant_type ?? "", placeholder: "e.g. VIP, regular" })}
+          {opsiKursi?.sessions.map((sesi) => <div key={`kursi-${sesi.id}`}>{kursiField(sesi)}</div>)}
           {editingLocked
             ? field("RSVP", <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{LABEL_RSVP[editingRow?.rsvp_status ?? ""] ?? "Not set"}</p>)
             : field("RSVP", (
