@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { EventRow } from "@/lib/domain";
+import { missingFields, updatableFields } from "@/lib/member/lengkapi";
 import { memberConfig } from "@/lib/member/account";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { SkipCode } from "./alasan";
@@ -19,11 +20,12 @@ import { emailHash, inviteSecretReady } from "@/lib/undangan/tanda";
 
 export const audienceSchema = z.object({
   /**
-   * Peserta: semua | belum_masuk | manual.
+   * Peserta: semua | belum_masuk | manual, dan belum_isi untuk kiriman
+   * `data` (masih ada pertanyaan participant_update yang kosong).
    * Tamu undangan (jenis kiriman `invitation`): belum_dikirim | belum_daftar |
    * manual, dengan `ids` berisi id undangan.
    */
-  jenis: z.enum(["semua", "belum_masuk", "manual", "belum_dikirim", "belum_daftar"]).default("semua"),
+  jenis: z.enum(["semua", "belum_masuk", "manual", "belum_dikirim", "belum_daftar", "belum_isi"]).default("semua"),
   /** Penyempit: hanya perusahaan ini. Kosong = semua perusahaan. */
   perusahaan: z.array(z.string().trim().min(1).max(200)).max(200).default([]),
   /** Untuk `manual`: id peserta yang dipilih (Daftar peserta, Logistik). */
@@ -43,6 +45,8 @@ export type ParticipantRow = {
   phone: string | null;
   email_opt_out_at: string | null;
   email_invalid_at: string | null;
+  /** Hanya dibaca untuk kiriman `data`. */
+  extra?: Record<string, unknown> | null;
 };
 
 export type ResolvedRecipient = {
@@ -67,19 +71,19 @@ export type AudienceCounts = {
 const KOLOM = "id,name,company,email,phone,email_opt_out_at,email_invalid_at";
 const HALAMAN = 1000;
 
-async function semuaPeserta(eventId: string): Promise<ParticipantRow[]> {
+async function semuaPeserta(eventId: string, denganJawaban = false): Promise<ParticipantRow[]> {
   const client = getSupabaseServiceClient();
   const hasil: ParticipantRow[] = [];
   for (let dari = 0; ; dari += HALAMAN) {
     const { data, error } = await client
       .from("participants")
-      .select(KOLOM)
+      .select(denganJawaban ? `${KOLOM},extra` : KOLOM)
       .eq("event_id", eventId)
       .is("source_removed_at", null)
       .order("name")
       .range(dari, dari + HALAMAN - 1);
     if (error) throw new Error(error.message);
-    hasil.push(...((data ?? []) as ParticipantRow[]));
+    hasil.push(...((data ?? []) as unknown as ParticipantRow[]));
     if ((data ?? []).length < HALAMAN) return hasil;
   }
 }
@@ -121,12 +125,14 @@ async function pesertaDisetujui(eventId: string) {
 }
 
 export async function resolveAudience(
-  event: Pick<EventRow, "id" | "landing_config">,
+  event: Pick<EventRow, "id" | "landing_config" | "registration_form_config">,
   kind: BlastKind,
   audience: Audience,
 ): Promise<ResolvedRecipient[]> {
   if (kind === "invitation") return resolveInvitees(event, audience);
-  const [peserta, akun] = await Promise.all([semuaPeserta(event.id), akunPeserta(event.id)]);
+  const [peserta, akun] = await Promise.all([semuaPeserta(event.id, kind === "data"), akunPeserta(event.id)]);
+  // Lengkapi data: pertanyaan yang boleh diisi peserta. Tanpa satu pun, tidak ada yang bisa dikirimi.
+  const pertanyaan = kind === "data" ? updatableFields(event) : [];
   const member = memberConfig(event);
   const disetujui = kind === "undangan" && member && (member.audience ?? "approved") === "approved" ? await pesertaDisetujui(event.id) : null;
   const perusahaan = new Set(audience.perusahaan.map((nama) => nama.toLowerCase()));
@@ -145,6 +151,8 @@ export async function resolveAudience(
       else if (p.email_invalid_at) skip = "email_memantul";
       else if (kind === "undangan" && !member) skip = "area_mati";
       else if (disetujui && !disetujui.has(p.id)) skip = "belum_boleh_masuk";
+      else if (kind === "data" && pertanyaan.length === 0) skip = "tanpa_pertanyaan";
+      else if (kind === "data" && audience.jenis === "belum_isi" && missingFields(pertanyaan, p.extra).length === 0) skip = "sudah_isi";
       else if (!allowedByList(email, daftarUji)) skip = "di_luar_daftar_uji";
       return { target: "participant" as const, participant: p, email, accountId: akun.get(p.id)?.id ?? null, skip };
     });

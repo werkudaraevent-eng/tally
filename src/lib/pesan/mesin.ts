@@ -3,6 +3,7 @@ import { publicEventName } from "@/lib/domain";
 import { BATCH_MAX, invitationFrom, sendEmailBatchDetailed, type BatchItem } from "@/lib/email/client";
 import { normalizeEmail } from "@/lib/member/account";
 import { MASA_UNDANGAN_MS } from "@/lib/member/links";
+import { MASA_DATA_MS } from "@/lib/member/lengkapi";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { allowedByList, claimOrigins, messagingAllowlist, normalizeAddress } from "./alamat";
 import { fieldValues, renderEmail, type BlastKind } from "./isi";
@@ -125,7 +126,7 @@ export type EnqueueOutcome =
  */
 export async function enqueueBlast(
   blastId: string,
-  event: EventForMail,
+  event: EventForMail & Pick<EventRow, "registration_form_config">,
   input: { scheduledAt: string | null; origin: string; linkOrigin: string | null },
 ): Promise<EnqueueOutcome> {
   const client = getSupabaseServiceClient();
@@ -163,7 +164,7 @@ export async function enqueueBlast(
       // diambil alih. Mereka mendapat tautan masuk biasa (lihat drainQueue).
       //
       // Undangan lama TIDAK dicabut di sini, tetapi saat undangan baru benar-benar
-      // terkirim (cabutUndanganLama). Jadwal yang dibatalkan atau kiriman yang
+      // terkirim (cabutTautanLama). Jadwal yang dibatalkan atau kiriman yang
       // gagal tidak meninggalkan peserta tanpa tautan yang berlaku.
       const token = terkirim.filter((baris) => !baris.accountId).map((baris) => ({
         event_id: event.id,
@@ -173,6 +174,27 @@ export async function enqueueBlast(
         account_id: baris.accountId,
         participant_id: baris.participant.id,
         expires_at: new Date(mulai.getTime() + MASA_UNDANGAN_MS).toISOString(),
+        blast_id: blastId,
+      }));
+      for (let i = 0; i < token.length; i += 500) {
+        const { error } = await client
+          .from("participant_account_tokens")
+          .upsert(token.slice(i, i + 500) as never, { onConflict: "token_hash", ignoreDuplicates: true });
+        if (error) throw new Error(error.message);
+      }
+    }
+    if (blast.kind === "data") {
+      // Tautan Lengkapi data untuk SEMUA penerima, termasuk pemilik akun: ia
+      // hanya membuka pertanyaan participant_update, bukan akun. Berlaku 14
+      // hari dan boleh dibuka berkali-kali; kiriman berikutnya mencabutnya
+      // (cabutTautanLama), sama seperti undangan.
+      const token = terkirim.map((baris) => ({
+        event_id: event.id,
+        purpose: "data",
+        token_hash: inviteTokenHash(blastId, baris.participant.id),
+        email: normalizeEmail(baris.email ?? ""),
+        participant_id: baris.participant.id,
+        expires_at: new Date(mulai.getTime() + MASA_DATA_MS).toISOString(),
         blast_id: blastId,
       }));
       for (let i = 0; i < token.length; i += 500) {
@@ -394,11 +416,12 @@ async function tutupSisa(blastId: string, pesan: string) {
 }
 
 /**
- * Undangan yang benar-benar terkirim mencabut undangan lama orang itu yang
- * belum dipakai: hanya tautan terbaru yang berlaku, jadi email lama yang
- * diteruskan ke orang lain tidak bisa dipakai lagi.
+ * Undangan (atau tautan Lengkapi data) yang benar-benar terkirim mencabut
+ * tautan lama orang itu dengan tujuan yang sama yang belum dipakai: hanya
+ * tautan terbaru yang berlaku, jadi email lama yang diteruskan ke orang lain
+ * tidak bisa dipakai lagi.
  */
-async function cabutUndanganLama(blast: BlastRow, participantIds: string[]) {
+async function cabutTautanLama(blast: BlastRow, participantIds: string[]) {
   const client = getSupabaseServiceClient();
   const sekarang = new Date().toISOString();
   for (let i = 0; i < participantIds.length; i += 200) {
@@ -406,7 +429,7 @@ async function cabutUndanganLama(blast: BlastRow, participantIds: string[]) {
       .from("participant_account_tokens")
       .update({ expires_at: sekarang } as never)
       .eq("event_id", blast.event_id)
-      .eq("purpose", "undangan")
+      .eq("purpose", blast.kind === "data" ? "data" : "undangan")
       .neq("blast_id", blast.id)
       .in("participant_id", participantIds.slice(i, i + 200))
       .is("used_at", null)
@@ -550,7 +573,13 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
         const pid = r.participant_id ?? "";
         const akun = punyaAkun.has(pid);
         const actionUrl =
-          blast.kind !== "undangan" ? `${origin}/e/${slug}` : akun ? `${origin}/e/${slug}/masuk` : `${origin}/e/${slug}/masuk?sandi=${inviteToken(blast.id, pid)}`;
+          blast.kind === "data"
+            ? `${origin}/e/${slug}/lengkapi?t=${inviteToken(blast.id, pid)}`
+            : blast.kind !== "undangan"
+              ? `${origin}/e/${slug}`
+              : akun
+                ? `${origin}/e/${slug}/masuk`
+                : `${origin}/e/${slug}/masuk?sandi=${inviteToken(blast.id, pid)}`;
         const berhenti = `${origin}/api/pesan/berhenti?e=${event.id}&p=${pid}&s=${unsubscribeSignature(event.id, pid)}`;
         const isi = renderEmail({
           kind: blast.kind,
@@ -612,9 +641,9 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
             });
       const { error: galatCatat } = await client.rpc("record_message_results" as never, { p_rows: catatan } as never);
       if (galatCatat) throw new Error(galatCatat.message);
-      if (blast.kind === "undangan") {
+      if (blast.kind === "undangan" || blast.kind === "data") {
         const sampai = kirimKe.filter((r, i) => catatan[i].status === "terkirim" && r.participant_id).map((r) => r.participant_id!);
-        await cabutUndanganLama(blast, sampai);
+        await cabutTautanLama(blast, sampai);
       }
       hasil.sent += catatan.filter((c) => c.status === "terkirim").length;
       hasil.failed += catatan.filter((c) => c.status !== "terkirim").length;

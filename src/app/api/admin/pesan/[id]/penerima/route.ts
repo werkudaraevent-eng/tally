@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { idSchema, pesanBelumAda } from "@/lib/pesan/api";
+import { answeredIds, idSchema, pesanBelumAda } from "@/lib/pesan/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -52,6 +52,21 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       .eq("event_id", auth.scope.event.id)
       .gte("registered_at", sentAt);
     for (const d of (daftar ?? []) as { id: string; registered_at: string }[]) masuk.set(d.id, d.registered_at);
+  } else if (sentAt && (blast as { kind: string }).kind === "data") {
+    // Update details link: "masuk" berarti semua pertanyaannya sudah terisi.
+    // Tidak ada waktunya, jadi nilainya kosong dan kolomnya menampilkan "Yes".
+    const ids: string[] = [];
+    for (let dari = 0; ; dari += 1000) {
+      const { data: baris } = await client
+        .from("message_blast_recipients")
+        .select("participant_id")
+        .eq("blast_id", id)
+        .not("participant_id", "is", null)
+        .range(dari, dari + 999);
+      ids.push(...((baris ?? []) as { participant_id: string }[]).map((r) => r.participant_id));
+      if ((baris ?? []).length < 1000) break;
+    }
+    for (const pid of await answeredIds(auth.scope.event.id, ids)) masuk.set(pid, "");
   } else if (sentAt) {
     const { data: akun } = await client
       .from("participant_accounts")
@@ -79,7 +94,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   const rows = ((data ?? []) as { participant_id: string | null; invitation_id: string | null }[]).map((r) => {
     const kunci = tamu ? r.invitation_id : r.participant_id;
-    return { ...r, signed_in_at: kunci ? masuk.get(kunci) ?? null : null };
+    return { ...r, signed_in_at: kunci ? masuk.get(kunci) ?? null : null, answered: kunci ? masuk.has(kunci) : false };
   });
   return Response.json({ rows, total: count ?? 0, page: halaman, page_size: UKURAN, signed_in_total: masuk.size });
 }

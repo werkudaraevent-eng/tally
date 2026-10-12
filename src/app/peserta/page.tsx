@@ -11,6 +11,8 @@ import { memberPageStyle } from "@/lib/member/page-theme";
 import { warnaTandaHalaman } from "@/lib/registration-theme-css";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
 import { DashboardModern } from "@/components/member/dashboard-modern";
+import { KartuLengkapi } from "@/components/member/kartu-lengkapi";
+import { kartuLengkapi } from "@/lib/member/lengkapi";
 import { DashboardGathering, type PortalTab } from "@/components/member/dashboard-gathering";
 import { isUnread, loadMemberAnnouncements, markAnnouncementsSeen } from "@/lib/member/pengumuman";
 import { waktuPengumuman } from "@/lib/member/nav";
@@ -99,6 +101,7 @@ export default async function AreaPesertaPage({
     return <DashboardModern event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} />;
   }
   const agenda = tampilSusunan ? await loadAgendaPreview(event.id) : [];
+  const lengkapi = await kartuLengkapi(event, peserta?.id);
 
   return (
     <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={memberPageStyle(event)}>
@@ -143,6 +146,8 @@ export default async function AreaPesertaPage({
             </span>
           </p>
         ) : null}
+
+        <KartuLengkapi lang="id" href={`/e/${event.slug}/lengkapi`} fields={lengkapi} gaya="klasik" className="mt-6 max-w-[720px]" />
 
         <div className="mt-10 grid gap-12 lg:grid-cols-12 lg:gap-6">
           {!peserta ? (

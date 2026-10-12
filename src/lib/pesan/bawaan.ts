@@ -4,8 +4,11 @@
  * yang dibuat API.
  */
 
-/** undangan = Link login (peserta); invitation = undangan mendaftar (tamu); info = Info acara. */
-export type BlastKind = "undangan" | "info" | "invitation";
+/**
+ * undangan = Link login (peserta); invitation = undangan mendaftar (tamu);
+ * info = Info acara; data = tautan Lengkapi data (pertanyaan participant_update).
+ */
+export type BlastKind = "undangan" | "info" | "invitation" | "data";
 
 export const FIELDS = [
   { key: "nama", label: "Name" },
@@ -43,6 +46,17 @@ export const DEFAULT_CONTENT: Record<BlastKind, { title: string; subject: string
     title: "Event update",
     subject: "{acara}: ",
     body: "Halo {nama},\n\n",
+  },
+  data: {
+    title: "Update details link",
+    subject: "Lengkapi data Anda: {acara}",
+    body: [
+      "Halo {nama},",
+      "",
+      "Panitia {acara} membutuhkan beberapa data tambahan dari Anda.",
+      "",
+      "Tekan tombol di bawah untuk mengisinya. Tautan ini khusus untuk Anda, tanpa kata sandi, dan berlaku 14 hari.",
+    ].join("\n"),
   },
 };
 

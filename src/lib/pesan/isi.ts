@@ -45,6 +45,7 @@ export function contohTautan(origin: string, slug: string, kind: BlastKind) {
   const dasar = `${origin}/e/${encodeURIComponent(slug)}`;
   if (kind === "undangan") return `${dasar}/masuk?sandi=contoh-tidak-berlaku`;
   if (kind === "invitation") return `${dasar}/daftar?undangan=contoh-tidak-berlaku`;
+  if (kind === "data") return `${dasar}/lengkapi?t=contoh-tidak-berlaku`;
   return dasar;
 }
 
@@ -56,7 +57,7 @@ export function renderEmail(input: {
   body: string;
   eventName: string;
   values: Record<FieldKey, string>;
-  /** Tombol utama: tautan masuk (undangan) atau halaman acara (info). */
+  /** Tombol utama: tautan masuk (undangan), tautan Lengkapi data (data), atau halaman acara (info). */
   actionUrl: string;
   /** Tautan berhenti berlangganan untuk kaki email. Null di email tes. */
   unsubscribeUrl: string | null;
@@ -66,7 +67,8 @@ export function renderEmail(input: {
 }): RenderedEmail {
   const subjek = `${input.test ? "[TEST] " : ""}${fillFields(input.subject, input.values).trim() || input.eventName}`;
   const isi = fillFields(input.body, input.values).trim();
-  const tombol = input.kind === "undangan" ? "Masuk ke acara" : input.kind === "invitation" ? "Daftar sekarang" : "Buka halaman acara";
+  const tombol =
+    input.kind === "undangan" ? "Masuk ke acara" : input.kind === "invitation" ? "Daftar sekarang" : input.kind === "data" ? "Lengkapi data saya" : "Buka halaman acara";
   // Tamu undangan belum peserta: kaki email menyebut alasan yang benar.
   const alasan =
     input.kind === "invitation"

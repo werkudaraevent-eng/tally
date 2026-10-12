@@ -19,7 +19,9 @@ export type SkipCode =
   | "di_luar_daftar_uji"
   | "sudah_daftar"
   | "sudah_peserta"
-  | "terjadwal";
+  | "terjadwal"
+  | "sudah_isi"
+  | "tanpa_pertanyaan";
 
 export const SKIP_REASON: Record<SkipCode, string> = {
   tanpa_email: "No email",
@@ -31,6 +33,8 @@ export const SKIP_REASON: Record<SkipCode, string> = {
   sudah_daftar: "Already registered",
   sudah_peserta: "Email already used by a participant",
   terjadwal: "Already in another blast that hasn't finished",
+  sudah_isi: "Already answered",
+  tanpa_pertanyaan: "No questions are marked Participants can update",
 };
 
 /** Kode yang kalimatnya tetap: kalimat tersimpan diganti seluruhnya. */

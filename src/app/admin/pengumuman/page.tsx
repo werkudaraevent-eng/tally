@@ -38,7 +38,7 @@ import { BLAST_STATUS_LABEL, BLAST_STATUS_TONE, audienceLabel, waktu, type Blast
 type Item = {
   id: string;
   title: string;
-  kind: "undangan" | "info" | "invitation";
+  kind: "undangan" | "info" | "invitation" | "data";
   channel: "email" | "whatsapp" | "keduanya";
   audience: { jenis?: string; label?: string; perusahaan?: string[] } | null;
   status: BlastStatus;
