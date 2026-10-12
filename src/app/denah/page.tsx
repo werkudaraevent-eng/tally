@@ -460,7 +460,12 @@ export default function SeatMapPage() {
               </p>
             ) : null}
 
-            <div className="mt-6 overflow-x-auto">
+            {/* Denah selalu dipaskan ke lebar layar, tanpa lebar minimum. Dulu
+                denah dikunci 820px di dalam wadah gulir; di HP tamu hanya melihat
+                potongan tengahnya (huruf baris dan kursi terluar tersembunyi)
+                tanpa tanda bahwa denah bisa digeser. Kursi yang dicari tetap
+                disorot, dan tamu bisa mencubit untuk memperbesar. */}
+            <div className="mt-6">
               <SeatMapView
                 config={payload.config}
                 seatStates={seatStates}
@@ -471,7 +476,6 @@ export default function SeatMapPage() {
                 accentColor={accent}
                 seatColors={session}
                 onTableClick={(tableNumber) => setSelectedTable((current) => (current === tableNumber ? null : tableNumber))}
-                className="min-w-[820px]"
               />
             </div>
 

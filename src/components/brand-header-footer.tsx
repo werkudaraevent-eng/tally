@@ -124,13 +124,17 @@ export function BrandHeader({ branding, title, subtitle, textColor, accentColor,
     <header className={`w-full shrink-0 text-center ${className ?? ""}`}>
       <BrandLogo branding={branding} variant={variant} />
 
+      {/* Judul tampil persis seperti diketik di CMS. Huruf besar paksa dilepas:
+          panitia menulis judul dengan kapitalisasi yang benar, dan judul panjang
+          dalam huruf besar semua sulit dibaca. Judul yang memang diketik kapital
+          tetap kapital. */}
       <h1
-        className="text-balance font-bold uppercase"
+        className="text-balance font-bold"
         style={{
           fontFamily: headingFont,
           fontSize: scaleClamp(TITLE_SIZE[variant], branding.title_scale),
           lineHeight: variant === "led" ? 1.1 : 1.15,
-          letterSpacing: "0.02em",
+          letterSpacing: "-0.01em",
           color: branding.title_color ?? textColor,
         }}
       >
