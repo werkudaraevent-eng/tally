@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { computeSeatMapGeometry, duplicateTableLabels, normalizeLayout, normalizeLayoutParams, normalizeSeatLabel, normalizeSections, MAX_SEATS_PER_TABLE, MAX_TABLE_LABEL_LENGTH, PUBLIC_VIEW_MODES, SEAT_MAP_LAYOUTS, type SeatMapConfig } from "@/lib/seat-map";
+import { computeSeatMapGeometry, duplicateSeatLabels, duplicateTableLabels, normalizeLayout, normalizeLayoutParams, normalizeSeatLabel, normalizeSections, MAX_SEATS_PER_TABLE, MAX_TABLE_LABEL_LENGTH, PUBLIC_VIEW_MODES, SEAT_MAP_LAYOUTS, type SeatMapConfig } from "@/lib/seat-map";
 import {
   CONFIG_COLUMNS,
   LEGACY_CONFIG_COLUMNS,
@@ -180,6 +180,18 @@ export async function PATCH(request: Request) {
   // bersifat sebagian, jadi admin bisa mengirim `table_labels` saja sementara
   // jumlah barisnya datang dari baris yang sudah tersimpan. Memeriksa kiriman
   // saja akan meloloskan bentrokan yang lahir dari gabungan keduanya.
+  // Ruangan gabungan: label kursi antarbagian tidak boleh bentrok.
+  if (parsed.data.layout_params && "sections" in parsed.data.layout_params) {
+    const { data: existing } = await bacaConfig(client, eventId);
+    const gabungan = { ...(existing ?? {}), ...parsed.data } as Partial<SeatMapConfig>;
+    const dobel = duplicateSeatLabels(gabungan);
+    if (dobel.length > 0) {
+      return apiError("VALIDATION_ERROR", 422, {
+        message: `Seat labels must be unique across sections: ${dobel.slice(0, 5).join(", ")}${dobel.length > 5 ? ` and ${dobel.length - 5} more` : ""}. Give each section its own label prefix.`,
+      });
+    }
+  }
+
   if (parsed.data.table_labels || parsed.data.row_table_counts) {
     const { data: existing } = await bacaConfig(client, eventId);
     // Cast: `layout_type` datang dari Zod sebagai string biasa, sedangkan

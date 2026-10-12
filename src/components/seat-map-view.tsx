@@ -164,7 +164,7 @@ export function SeatMapView({
       {geometry.zones.map((zone) => (
         <g key={zone.name} pointerEvents="none">
           <rect x={zone.x} y={zone.y} width={zone.width} height={zone.height} rx={14} fill={textColor} fillOpacity={0.05} stroke={textColor} strokeOpacity={0.22} strokeDasharray="5 5" />
-          <text x={zone.x + 14} y={zone.y + 14} dominantBaseline="central" fill={textColor} fillOpacity={0.75} fontSize={13} fontWeight={700} letterSpacing={1.2}>{zone.name.toUpperCase()}</text>
+          <text x={zone.x + 14} y={zone.y + 12 + 11} dominantBaseline="central" fill={textColor} fillOpacity={0.75} fontSize={13} fontWeight={700} letterSpacing={1.2}>{zone.name.toUpperCase()}</text>
         </g>
       ))}
 

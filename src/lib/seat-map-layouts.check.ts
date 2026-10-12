@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { computeSeatMapGeometry, normalizeLayoutParams, type SeatMapConfig } from "./seat-map.ts";
+import { computeSeatMapGeometry, duplicateSeatLabels, normalizeLayoutParams, type SeatMapConfig } from "./seat-map.ts";
 
 /**
  * Pemeriksaan geometri denah untuk setiap tata ruang.
@@ -173,7 +173,7 @@ assert.equal(digeser.tables[1].x - polos.tables[1].x, 25, "override: meja ikut b
 assert.equal(digeser.tables[1].seats[0].y - polos.tables[1].seats[0].y, -10, "override: kursinya ikut bergeser");
 
 // Ruangan gabungan: sofa VIP di depan, theater di belakang.
-const gabungan = computeSeatMapGeometry({
+const gabungan_config = {
   layout_type: "theater",
   layout_params: {
     ...normalizeLayoutParams("theater", {}),
@@ -182,7 +182,8 @@ const gabungan = computeSeatMapGeometry({
       { kind: "theater", name: "", prefix: "", rows: 8, per_row: 26, seats_per_sofa: 1, aisles: [7, 13, 19] },
     ],
   },
-} as Partial<SeatMapConfig>);
+} as Partial<SeatMapConfig>;
+const gabungan = computeSeatMapGeometry(gabungan_config);
 const labelGabungan = gabungan.tables.flatMap((t) => t.seats.map((s) => s.label));
 assert.equal(labelGabungan.length, 40 + 208, "gabungan: 40 kursi sofa + 208 theater");
 assert.equal(new Set(labelGabungan).size, labelGabungan.length, "gabungan: label kursi unik");
@@ -194,5 +195,16 @@ assert.ok(sofaTerakhir.y < barisPertama.y, "gabungan: sofa di depan theater");
 assert.equal(gabungan.zones.length, 1, "gabungan: hanya bagian bernama yang dibingkai");
 assert.equal(computeSeatMapGeometry({ layout_type: "theater" }).zones.length, 0, "tanpa sections: tidak ada bingkai");
 assert.equal(normalizeLayoutParams("theater", { sections: [] }).sections, undefined, "sections kosong dibuang");
+
+const dobel = { layout_type: "theater", layout_params: { ...normalizeLayoutParams("theater", {}), sections: [
+  { kind: "theater", name: "", prefix: "", rows: 2, per_row: 4, seats_per_sofa: 1, aisles: [] },
+  { kind: "theater", name: "", prefix: "", rows: 2, per_row: 4, seats_per_sofa: 1, aisles: [] },
+] } } as Partial<SeatMapConfig>;
+assert.equal(duplicateSeatLabels(dobel).length, 8, "gabungan: dua theater tanpa awalan terdeteksi bentrok");
+assert.equal(duplicateSeatLabels(gabungan_config).length, 0, "gabungan: sofa + theater tidak bentrok");
+const zona = gabungan.zones[0];
+const sofaPertama = gabungan.tables.find((t) => t.shape === "sofa")!;
+assert.ok(sofaPertama.y - (sofaPertama.h ?? 0) / 2 >= zona.y + 30, "gabungan: nama bagian tidak menimpa sofa");
+assert.ok(zona.y + zona.height - (sofaTerakhir.y + (sofaTerakhir.h ?? 0) / 2) <= 14, "gabungan: bingkai pas di bawah sofa");
 
 console.log("seat-map-layouts: semua pemeriksaan lolos");

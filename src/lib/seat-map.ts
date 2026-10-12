@@ -673,3 +673,28 @@ export function duplicateTableLabels(input: Partial<SeatMapConfig> | null | unde
   }
   return [...seen.entries()].filter(([, count]) => count > 1).map(([label]) => label);
 }
+
+/**
+ * Label KURSI yang muncul lebih dari sekali.
+ *
+ * Pemeriksaan label meja tidak cukup untuk ruangan gabungan: dua bagian
+ * theater tanpa awalan sama-sama menghasilkan A1..H24, dan pencarian nama
+ * akan menyorot dua kursi sekaligus.
+ */
+export function duplicateSeatLabels(input: Partial<SeatMapConfig> | null | undefined): string[] {
+  const seen = new Map<string, number>();
+  for (const table of computeSeatMapGeometry(input).tables) {
+    for (const seat of table.seats) {
+      const key = normalizeSeatLabel(seat.label);
+      seen.set(key, (seen.get(key) ?? 0) + 1);
+    }
+  }
+  return [...seen.entries()].filter(([, count]) => count > 1).map(([label]) => label);
+}
+
+/** Awalan bawaan untuk bagian baru yang belum dipakai bagian lain. */
+export function nextSectionPrefix(sections: SeatSection[]): string {
+  const dipakai = new Set(sections.map((s) => s.prefix.toUpperCase()));
+  for (let n = 2; n < 20; n += 1) if (!dipakai.has(`T${n}`)) return `T${n}`;
+  return "";
+}

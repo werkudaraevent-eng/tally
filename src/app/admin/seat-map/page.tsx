@@ -9,9 +9,9 @@ import { normalizeBranding, type Branding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import {
-  computeSeatMapGeometry, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor,
+  computeSeatMapGeometry, duplicateSeatLabels, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor,
   type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule, type SeatSection,
-  LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS, defaultSection, MAX_SECTIONS,
+  LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS, defaultSection, MAX_SECTIONS, nextSectionPrefix,
 } from "@/lib/seat-map";
 import { tallySeatSource } from "@/lib/seat-tally-source";
 import {
@@ -299,6 +299,7 @@ export default function SeatMapAdminPage() {
   const report = aktif ? payload?.reports.find((item) => item.session_id === aktif.id) : undefined;
   const totalTablesFromRows = (config?.row_table_counts ?? []).reduce((sum, count) => sum + count, 0);
   const labelConflicts = config ? duplicateTableLabels(config) : [];
+  const seatConflicts = config?.layout_params.sections?.length ? duplicateSeatLabels(config) : [];
   const labeledTables = Object.keys(config?.table_labels ?? {})
     .map(Number)
     .filter((position) => Number.isFinite(position) && position >= 1 && position <= totalTablesFromRows)
@@ -451,8 +452,14 @@ export default function SeatMapAdminPage() {
                   </div>
                 );
               })}
+              {seatConflicts.length > 0 ? (
+                <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
+                  <Warning size={16} className="mt-0.5 shrink-0 text-warning" />
+                  Seat labels {seatConflicts.slice(0, 3).join(", ")}{seatConflicts.length > 3 ? ` and ${seatConflicts.length - 3} more` : ""} appear in more than one section. Give each section its own label prefix.
+                </p>
+              ) : null}
               {sections.length < MAX_SECTIONS ? (
-                <div><Button variant="outlined" size="sm" onClick={() => updateParam("sections", [...sections, defaultSection("theater")])}><Plus size={16} />Add section</Button></div>
+                <div><Button variant="outlined" size="sm" onClick={() => updateParam("sections", [...sections, { ...defaultSection("theater"), prefix: nextSectionPrefix(sections) }])}><Plus size={16} />Add section</Button></div>
               ) : null}
             </div>
           </>
@@ -777,12 +784,12 @@ export default function SeatMapAdminPage() {
 
   const kaki: Record<Bagian, { note: ReactNode; aksi: ReactNode }> = {
     ruangan: {
-      note: labelConflicts.length > 0 ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Fix duplicate table labels first</span> : "Changes every session",
-      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>Save layout</Button>,
+      note: seatConflicts.length > 0 ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Give each section its own label prefix</span> : labelConflicts.length > 0 ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Fix duplicate table labels first</span> : "Changes every session",
+      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0 || seatConflicts.length > 0}>Save layout</Button>,
     },
     layar: {
       note: "Applies to every screen",
-      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0}>Save</Button>,
+      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0 || seatConflicts.length > 0}>Save</Button>,
     },
     agenda: {
       note: aktif ? "This session only" : null,
