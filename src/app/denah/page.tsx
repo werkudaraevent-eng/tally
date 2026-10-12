@@ -137,7 +137,7 @@ export default function SeatMapPage() {
       const params = new URLSearchParams(window.location.search);
       const sesi = params.get("sesi")?.trim();
       const kursi = params.get("kursi")?.trim();
-      if (kursi && /^[A-Za-z0-9-]{1,12}$/.test(kursi)) {
+      if (kursi && /^[A-Za-z0-9 ._/-]{1,24}$/.test(kursi)) {
         sorotanDariUrl.current = true;
         setHighlighted([kursi]);
       }

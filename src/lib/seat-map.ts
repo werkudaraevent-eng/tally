@@ -307,6 +307,22 @@ export type SeatSection = {
 
 export const MAX_SECTIONS = 6;
 
+/**
+ * Awalan label kursi: huruf, angka, spasi, dan - . / _ ("VIP1-", "B.").
+ * Karakter lain ditolak di CMS dan API dengan pesan, bukan dibuang diam-diam;
+ * penyaring di `normalizeSections` hanya jaring pengaman untuk data lama.
+ */
+export const MAX_SECTION_PREFIX = 8;
+export const POLA_AWALAN = /^[A-Za-z0-9 ._/-]*$/;
+const POLA_BUKAN_AWALAN = /[^A-Za-z0-9 ._/-]/g;
+
+/** Pesan kesalahan untuk awalan, atau null bila sah. */
+export function sectionPrefixError(prefix: string): string | null {
+  if (prefix.trim().length > MAX_SECTION_PREFIX) return `Max ${MAX_SECTION_PREFIX} characters`;
+  if (!POLA_AWALAN.test(prefix)) return "Only letters, numbers, spaces and - . / _";
+  return null;
+}
+
 export function defaultSection(kind: SeatSectionKind): SeatSection {
   return kind === "sofa"
     ? { kind, name: "VIP", prefix: "VIP", rows: 2, per_row: 10, seats_per_sofa: 2, aisles: [5] }
@@ -332,7 +348,7 @@ export function normalizeSections(raw: unknown): SeatSection[] {
     return [{
       kind,
       name: teks(data.name, 24, /[\u0000-\u001f]/g),
-      prefix: teks(data.prefix, 4, /[^A-Za-z0-9]/g).toUpperCase(),
+      prefix: teks(data.prefix, MAX_SECTION_PREFIX, POLA_BUKAN_AWALAN).toUpperCase(),
       rows: angka(data.rows, 1, 1, 40),
       per_row: angka(data.per_row, kind === "sofa" ? 10 : 24, 1, 40),
       seats_per_sofa: angka(data.seats_per_sofa, 2, 1, 6),
