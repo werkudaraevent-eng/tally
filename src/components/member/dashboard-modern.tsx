@@ -11,7 +11,9 @@ import {
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
-import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingMemberBlocks, normalizeLandingSections, publicEventName } from "@/lib/domain";
+import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName } from "@/lib/domain";
+import { BagianBeranda } from "@/components/member/bagian-beranda";
+import { KartuBlok } from "@/components/member/kartu-blok";
 import { formatEventDate, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
@@ -67,6 +69,7 @@ export async function DashboardModern({
   sesi,
   pengumuman,
   konfirmasi,
+  pratinjau = false,
 }: {
   event: EventRow;
   lang?: LandingLang;
@@ -75,6 +78,8 @@ export async function DashboardModern({
   /** Dimuat halaman sebelum menandai terbaca, jadi titik "baru" masih benar. */
   pengumuman: MemberAnnouncements;
   konfirmasi: "ok" | "gagal" | null;
+  /** Pratinjau di Participant area: tiap isi Beranda diberi penanda untuk digulir ke sana. */
+  pratinjau?: boolean;
 }) {
   const t = LANDING_UI[lang];
   const p = PESERTA_UI[lang];
@@ -92,10 +97,30 @@ export async function DashboardModern({
   const inap = gaya || adaRute ? await loadLandingLodging(event.id) : null;
   const adaHotel = gaya ? (inap?.hotels.length ?? 0) > 0 : false;
   const hotelIds = inap ? new Set(inap.hotels.map((hotel) => hotel.id)) : undefined;
-  // Blok yang admin pilih untuk halaman peserta (Show on), di atas susunan acara.
+  // Blok yang admin pilih untuk halaman peserta (Show on), dalam urutan
+  // Participant home (bawaannya tepat sebelum susunan acara).
   const blokPeserta = landingMemberBlocks(config.sections, config.blocks, hotelIds);
   const tokens = landingTokens(config, "modern");
   const warnaTema = { brand: tokens.brand, accent: tokens.accent ?? null };
+  const kartuBlok = new Map(
+    blokPeserta.map((block) => [
+      block.id as string,
+      block.type === "route" ? (
+        <KartuRute block={block} hotels={inap?.hotels ?? []} lang={lang} />
+      ) : block.type === "countdown" ? (
+        <KartuHitungMundur block={block} acara={event} lang={lang} warnaTema={warnaTema} />
+      ) : (
+        <KartuBlok block={block} lang={lang} />
+      ),
+    ]),
+  );
+  const beranda = memberHomeOrder(member.home, [...kartuBlok.keys()], false);
+  const diBeranda = (id: string) => !beranda.hidden.has(id);
+  // Kolom samping (tiket, logistik, tautan cepat) tetap di samping; urutan
+  // Participant home berlaku di dalam masing-masing kolom.
+  const urutanSamping = beranda.order.filter((id) => (id === "logistics" || id === "quick") && diBeranda(id));
+  const urutanUtama = beranda.order.filter((id) => id !== "logistics" && id !== "quick" && diBeranda(id));
+  const nextDuluan = urutanUtama[0] === "next";
   const { aktif, blokById, tampil, speakers, navSections, mitra: sponsor, kontak } = bagianModern(event, config, sections, agenda, lang, { gathering: gaya, adaHotel, hotelIds });
   // Pita mitra seperti di kaki halaman acara. Banyak acara (ILO salah satunya)
   // memasang logo lewat blok Logo, bukan daftar Sponsor; tanpa sponsor, pakai
@@ -234,7 +259,11 @@ export async function DashboardModern({
         <div className="grid gap-10 pb-16 pt-8 lg:grid-cols-12 lg:gap-6 lg:pb-24">
           {/* Kanan di layar lebar, PERTAMA di ponsel: tiket lalu tautan cepat. */}
           <div className="flex flex-col gap-4 lg:sticky lg:top-[calc(var(--nav-h)+24px)] lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:self-start">
-            {berikutnya ? <KartuBerikutnya agenda={berikutnya} zona={event.time_zone} now={sekarang} className="lg:hidden" /> : null}
+            {berikutnya && nextDuluan ? (
+              <BagianBeranda id="next" pratinjau={pratinjau}>
+                <KartuBerikutnya agenda={berikutnya} zona={event.time_zone} now={sekarang} className="lg:hidden" />
+              </BagianBeranda>
+            ) : null}
             {!peserta ? (
               <section aria-labelledby="status-judul" className={KARTU}>
                 {sesi.status === "rejected" ? (
@@ -300,109 +329,115 @@ export async function DashboardModern({
               </section>
             ) : null}
 
-            {logistik ? (
-              <>
-                <KartuKamar logistik={logistik} zona={event.time_zone} />
-                <KartuBus logistik={logistik} zona={event.time_zone} />
-                <KartuBarang logistik={logistik} />
-              </>
-            ) : null}
-
-            {tautanCepat.length > 0 ? (
-              <ul aria-label={p.quickLinksAria} className="grid grid-cols-2 gap-3">
-                {tautanCepat.map((item) => (
-                  <li key={item.judul}>
-                    <TautanKartu {...item} />
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+            {urutanSamping.map((id) =>
+              id === "logistics" ? (
+                logistik ? (
+                  <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
+                    <KartuKamar logistik={logistik} zona={event.time_zone} />
+                    <KartuBus logistik={logistik} zona={event.time_zone} />
+                    <KartuBarang logistik={logistik} />
+                  </BagianBeranda>
+                ) : null
+              ) : tautanCepat.length > 0 ? (
+                <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
+                  <ul aria-label={p.quickLinksAria} className="grid grid-cols-2 gap-3">
+                    {tautanCepat.map((item) => (
+                      <li key={item.judul}>
+                        <TautanKartu {...item} />
+                      </li>
+                    ))}
+                  </ul>
+                </BagianBeranda>
+              ) : null,
+            )}
           </div>
 
           <div className="flex min-w-0 flex-col gap-12 lg:col-span-7 lg:col-start-1 lg:row-start-1">
-            {/* Di ponsel kartu ini tampil paling atas kolom kanan (sebelum tiket). */}
-            {berikutnya ? <KartuBerikutnya agenda={berikutnya} zona={event.time_zone} now={sekarang} className="hidden lg:block" /> : null}
-            {pengumuman.ready ? (
-              <section aria-labelledby="pengumuman-judul">
-                <p className={ALIS}>{p.fromOrganisers}</p>
-                <h2 id="pengumuman-judul" className={`${JUDUL_DASBOR} mt-1.5`}>
-                  {t.announcements}
-                </h2>
-                {pengumuman.items.length === 0 ? (
-                  <p className={`mt-5 rounded-lg border border-[var(--reg-outline-variant)] px-6 py-5 text-body-large ${MUTED}`}>
-                    {p.noAnnouncements}
-                  </p>
-                ) : (
-                  <ul className="mt-5 overflow-hidden rounded-lg border border-[var(--reg-outline-variant)]">
-                    {pengumuman.items.map((item, index) => {
-                      const baru = isUnread(item, pengumuman.seenAt);
-                      return (
-                        <li
-                          key={item.id}
-                          className={`grid grid-cols-[8px_minmax(0,1fr)] gap-3 px-5 py-4 sm:gap-4 sm:px-6 sm:py-5 ${
-                            index > 0 ? "border-t border-[var(--reg-outline-variant)]" : ""
-                          }`}
-                        >
-                          <span aria-hidden className={`mt-2 size-2 rounded-full ${baru ? "bg-[#b41340]" : ""}`} />
-                          <div className="min-w-0">
-                            {item.pinned ? (
-                              <p className="mb-1 inline-flex items-center gap-1 text-[12px] font-semibold uppercase leading-4 tracking-[0.06em] text-[var(--reg-primary)]">
-                                <PushPin size={13} weight="fill" aria-hidden />
-                                {t.pinned}
-                              </p>
-                            ) : null}
-                            <h3 className="text-[17px] font-semibold leading-6">
-                              {baru ? <span className="sr-only">{p.newPrefix}</span> : null}
-                              {item.title}
-                            </h3>
-                            {item.body ? <p className={`mt-1 whitespace-pre-line text-isi ${MUTED}`}>{item.body}</p> : null}
-                            {item.link_url ? (
-                              <a
-                                href={item.link_url}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="mt-1 inline-flex min-h-10 items-center gap-1.5 text-title-small font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline"
-                              >
-                                {item.link_label?.trim() || item.link_url}
-                                <ArrowSquareOut size={16} aria-hidden />
-                              </a>
-                            ) : null}
-                            <p className="mt-1.5 text-body-small text-[#535862]">{waktuPengumuman(item.published_at, event.time_zone, lang)}</p>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </section>
-            ) : null}
-
-            {blokPeserta.map((block) =>
-              block.type === "route" ? (
-                <KartuRute key={block.id} block={block} hotels={inap?.hotels ?? []} lang={lang} />
-              ) : block.type === "countdown" ? (
-                <KartuHitungMundur key={block.id} block={block} acara={event} lang={lang} warnaTema={warnaTema} />
-              ) : null,
-            )}
-
-            {tampilSusunan ? (
-              <section aria-labelledby="susunan-judul">
-                <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-                  <div>
-                    <p className={ALIS}>{p.agendaEyebrow}</p>
-                    <h2 id="susunan-judul" className={`${JUDUL_DASBOR} mt-1.5`}>
-                      {tanggal ?? p.agendaEyebrow}
+            {/* Urutan Participant home. "Berikutnya" di ponsel tampil paling atas
+                kolom kanan (sebelum tiket) selama ia isi pertama di sini. */}
+            {urutanUtama.map((id) => (
+              <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
+                {id === "next" ? (
+                  berikutnya ? <KartuBerikutnya agenda={berikutnya} zona={event.time_zone} now={sekarang} className={nextDuluan ? "hidden lg:block" : undefined} /> : null
+                ) : id === "announcements" ? (
+                  pengumuman.ready ? (
+                  <section aria-labelledby="pengumuman-judul">
+                    <p className={ALIS}>{p.fromOrganisers}</p>
+                    <h2 id="pengumuman-judul" className={`${JUDUL_DASBOR} mt-1.5`}>
+                      {t.announcements}
                     </h2>
-                  </div>
-                  <Link href={`/e/${event.slug}/rundown`} className="inline-flex min-h-11 items-center text-title-small font-semibold text-[var(--reg-primary)]">
-                    {p.fullScreen}
-                  </Link>
-                </div>
-                <div className="mt-5">
-                  <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari={gaya} />
-                </div>
-              </section>
-            ) : null}
+                    {pengumuman.items.length === 0 ? (
+                      <p className={`mt-5 rounded-lg border border-[var(--reg-outline-variant)] px-6 py-5 text-body-large ${MUTED}`}>
+                        {p.noAnnouncements}
+                      </p>
+                    ) : (
+                      <ul className="mt-5 overflow-hidden rounded-lg border border-[var(--reg-outline-variant)]">
+                        {pengumuman.items.map((item, index) => {
+                          const baru = isUnread(item, pengumuman.seenAt);
+                          return (
+                            <li
+                              key={item.id}
+                              className={`grid grid-cols-[8px_minmax(0,1fr)] gap-3 px-5 py-4 sm:gap-4 sm:px-6 sm:py-5 ${
+                                index > 0 ? "border-t border-[var(--reg-outline-variant)]" : ""
+                              }`}
+                            >
+                              <span aria-hidden className={`mt-2 size-2 rounded-full ${baru ? "bg-[#b41340]" : ""}`} />
+                              <div className="min-w-0">
+                                {item.pinned ? (
+                                  <p className="mb-1 inline-flex items-center gap-1 text-[12px] font-semibold uppercase leading-4 tracking-[0.06em] text-[var(--reg-primary)]">
+                                    <PushPin size={13} weight="fill" aria-hidden />
+                                    {t.pinned}
+                                  </p>
+                                ) : null}
+                                <h3 className="text-[17px] font-semibold leading-6">
+                                  {baru ? <span className="sr-only">{p.newPrefix}</span> : null}
+                                  {item.title}
+                                </h3>
+                                {item.body ? <p className={`mt-1 whitespace-pre-line text-isi ${MUTED}`}>{item.body}</p> : null}
+                                {item.link_url ? (
+                                  <a
+                                    href={item.link_url}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className="mt-1 inline-flex min-h-10 items-center gap-1.5 text-title-small font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline"
+                                  >
+                                    {item.link_label?.trim() || item.link_url}
+                                    <ArrowSquareOut size={16} aria-hidden />
+                                  </a>
+                                ) : null}
+                                <p className="mt-1.5 text-body-small text-[#535862]">{waktuPengumuman(item.published_at, event.time_zone, lang)}</p>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </section>
+                ) : null
+                ) : id === "agenda" ? (
+                  tampilSusunan ? (
+                  <section aria-labelledby="susunan-judul">
+                    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+                      <div>
+                        <p className={ALIS}>{p.agendaEyebrow}</p>
+                        <h2 id="susunan-judul" className={`${JUDUL_DASBOR} mt-1.5`}>
+                          {tanggal ?? p.agendaEyebrow}
+                        </h2>
+                      </div>
+                      <Link href={`/e/${event.slug}/rundown`} className="inline-flex min-h-11 items-center text-title-small font-semibold text-[var(--reg-primary)]">
+                        {p.fullScreen}
+                      </Link>
+                    </div>
+                    <div className="mt-5">
+                      <AgendaPills agenda={agenda} speakers={tampil("speakers") ? speakers : []} lang={lang} perHari={gaya} />
+                    </div>
+                  </section>
+                ) : null
+                ) : (
+                  kartuBlok.get(id) ?? null
+                )}
+              </BagianBeranda>
+            ))}
           </div>
         </div>
       </div>

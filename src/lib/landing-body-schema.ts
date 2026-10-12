@@ -220,6 +220,8 @@ const forumSchema = z.object({
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
 /** Setelan area peserta (`landing_config.member`), disimpan di /admin/area-peserta. */
+const idBeranda = z.union([z.enum(["quick", "announcements", "next", "logistics", "roommates", "agenda"]), blockId]);
+
 export const memberSchema = z.object({
   enabled: z.boolean(),
   audience: z.enum(["approved", "all"]).optional(),
@@ -232,6 +234,8 @@ export const memberSchema = z.object({
   /** Dibaca member_logistics di database; bawaan tampil. */
   show_roommates: z.boolean().optional(),
   feedback_url: z.string().trim().url().max(600).nullable().optional(),
+  /** Beranda halaman peserta: id bawaan (MEMBER_HOME_BUILTINS) atau id blok. */
+  home: z.object({ order: z.array(idBeranda).max(MAX_BLOCKS + 10).optional(), hidden: z.array(idBeranda).max(MAX_BLOCKS + 10).optional() }).optional(),
 });
 
 /** Satu pembicara (`landing_config.speakers[]`), disimpan di halaman Speakers. */

@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
 import { Banner, Button, MetaSeparator, Pane, PaneBody, PaneFooter, Switch, TextField, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { SettingRow } from "@/components/admin/settings-panel";
+import { PratinjauPeserta, type PesertaPratinjau } from "./pratinjau-peserta";
+import { SusunanBeranda, type BlokPeserta } from "./susunan-beranda";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { type LandingMemberAudience, type LandingMemberConfig } from "@/lib/domain";
@@ -23,7 +25,15 @@ import { plural } from "@/lib/plural";
  */
 
 type Hitungan = { participants: number | null; with_email: number | null; approved: number | null; accounts: number | null };
-type Muat = { member: LandingMemberConfig; counts: Hitungan };
+type Muat = {
+  member: LandingMemberConfig;
+  counts: Hitungan;
+  /** Tata letak dashboard peserta; null = Editorial atau Forum, tanpa Participant home. */
+  layout: "gathering" | "modern" | null;
+  blocks: BlokPeserta[];
+  /** Peserta bawaan pratinjau: yang pertama punya kamar dan bus. */
+  preview: PesertaPratinjau | null;
+};
 
 const angka = (nilai: number) => nilai.toLocaleString("en-GB");
 
@@ -62,6 +72,9 @@ export default function AreaPesertaPage() {
   const [galatMuat, setGalatMuat] = useState("");
   const [simpan, setSimpan] = useState(false);
   const toast = useToast();
+  const [slug, setSlug] = useState<string | null>(null);
+  const [pesertaPratinjau, setPesertaPratinjau] = useState<PesertaPratinjau | null>(null);
+  const [sorot, setSorot] = useState<{ id: string; n: number } | null>(null);
 
   const load = useCallback(async () => {
     setGalatMuat("");
@@ -70,6 +83,9 @@ export default function AreaPesertaPage() {
     const body = (await response.json()) as Muat;
     setData(body);
     setAnggotaState(body.member);
+    setPesertaPratinjau((current) => current ?? body.preview ?? null);
+    const dariAlamat = window.location.pathname.match(/^\/e\/([^/]+)/)?.[1];
+    setSlug(dariAlamat ? decodeURIComponent(dariAlamat) : null);
   }, []);
 
   useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
@@ -101,10 +117,12 @@ export default function AreaPesertaPage() {
   }
 
   const counts = data?.counts ?? null;
+  // Modern dan Gathering: pratinjau di kiri, setelan di kanan, seperti Event page.
+  const berpratinjau = Boolean(data?.layout && slug);
 
   return (
     <div lang="en" className="contents">
-    <WorkspacePage width="form">
+    <WorkspacePage width={berpratinjau ? "full" : "form"} fill={berpratinjau}>
       <WorkspaceHeader
         title="Participant area"
         meta={
@@ -136,9 +154,15 @@ export default function AreaPesertaPage() {
           ))}
         </Pane>
       ) : (
-        <Pane aria-label="Participant area settings">
+        <div className={berpratinjau ? "flex min-h-0 flex-1 flex-col gap-4 lg:flex-row" : "contents"}>
+        {berpratinjau && slug ? (
+          <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0">
+            <PratinjauPeserta slug={slug} peserta={pesertaPratinjau} onPeserta={setPesertaPratinjau} member={anggota} sorot={sorot} reloadKey={0} />
+          </div>
+        ) : null}
+        <Pane aria-label="Participant area settings" className={berpratinjau ? "lg:w-[460px] lg:shrink-0" : undefined}>
           <PaneBody>
-            <SettingRow title="Participant area" description="Participants sign in with their email and a password to see their QR code, seat and agenda.">
+            <SettingRow stacked={berpratinjau} title="Participant area" description="Participants sign in with their email and a password to see their QR code, seat and agenda.">
               <Switch
                 checked={anggota.enabled}
                 onChange={(value) => set({ enabled: value })}
@@ -148,7 +172,7 @@ export default function AreaPesertaPage() {
             </SettingRow>
             {anggota.enabled ? (
               <>
-                <SettingRow title="Who can sign in" description={<>Imported participants are in the <Link href="/admin/participants" className={TAUTAN}>Participant list</Link>, not in Registration.</>}>
+                <SettingRow stacked={berpratinjau} title="Who can sign in" description={<>Imported participants are in the <Link href="/admin/participants" className={TAUTAN}>Participant list</Link>, not in Registration.</>}>
                   <div role="radiogroup" aria-label="Who can sign in" className="flex flex-col gap-2">
                     {(Object.keys(AUDIENCE_LABELS) as LandingMemberAudience[]).map((key) => (
                       <Pilihan
@@ -161,7 +185,19 @@ export default function AreaPesertaPage() {
                     ))}
                   </div>
                 </SettingRow>
-                <SettingRow title="Shown in the Participant area">
+                {data.layout ? (
+                  <SettingRow stacked={berpratinjau} title="Participant home" description="What participants see first after signing in, and in what order. Click a row to find it in the preview.">
+                    <SusunanBeranda
+                      layout={data.layout}
+                      member={anggota}
+                      blocks={data.blocks}
+                      set={set}
+                      dipilih={sorot?.id ?? null}
+                      onPilih={(id) => setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }))}
+                    />
+                  </SettingRow>
+                ) : null}
+                <SettingRow stacked={berpratinjau} title="Shown in the Participant area">
                   <div className="flex flex-col gap-4">
                     <Switch checked={anggota.show_code !== false} onChange={(value) => set({ show_code: value })} label="QR code and participant code" description="For check-in at the entrance." />
                     <Switch checked={anggota.show_seat !== false} onChange={(value) => set({ show_seat: value })} label="Seat" description="From the Seating plan." />
@@ -184,14 +220,14 @@ export default function AreaPesertaPage() {
                     />
                   </div>
                 </SettingRow>
-                <SettingRow title="How participants sign in">
+                <SettingRow stacked={berpratinjau} title="How participants sign in">
                   <Banner tone="info" icon={<Info size={18} />}>
                     There is no activation email yet. Participants create their own password on the Sign in page, using their registration email and the participant code from the confirmation or invitation email. Participants without an email address in their data can&apos;t sign in yet.
                   </Banner>
                 </SettingRow>
               </>
             ) : null}
-            <SettingRow title="Set on other pages">
+            <SettingRow stacked={berpratinjau} title="Set on other pages">
               <ul className="flex flex-col gap-1.5 text-body-medium text-on-surface-variant">
                 <li>Event page design and the Sign in button are on the <Link href="/admin/landing" className={TAUTAN}>Event page</Link>.</li>
               </ul>
@@ -202,6 +238,7 @@ export default function AreaPesertaPage() {
             <Button simpan size="sm" loading={simpan} disabled={!berubah} onClick={() => void save()}>Save changes</Button>
           </PaneFooter>
         </Pane>
+        </div>
       )}
     </WorkspacePage>
     </div>
