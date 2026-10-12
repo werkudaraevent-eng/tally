@@ -999,7 +999,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                     <a href={aksiTertutup.href} className={`${kv ? PIL_CTA_KV : PIL_INK} justify-center`} style={kv ? ctaKv : undefined}>
                       {aksiTertutup.label}
                     </a>
-                    <p className="text-isi opacity-90">{t.registrationSoon}</p>
+                    <p className="text-isi opacity-90">{t.registrationClosed}</p>
                   </>
                 )}
               </div>

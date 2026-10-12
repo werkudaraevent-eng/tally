@@ -2320,7 +2320,7 @@ export default function LandingCmsPage() {
             onChange={(value) => setLanding({ ...landing, invite_only: value })}
             disabled={busy}
             label="Invite only"
-            description="While registration is closed, the page asks invited guests to sign in instead of saying registration opens soon. The sign-in banner above the footer uses standard text. Works only while the participant area is open."
+            description="While registration is closed, the page asks invited guests to sign in instead of saying registration is closed. The sign-in banner above the footer uses standard text. Works only while the participant area is open."
             note={landing.member?.enabled === true ? undefined : <span className="text-body-medium text-on-surface-variant">The participant area is closed, so this has no effect now.</span>}
           />
         </Kelompok>
