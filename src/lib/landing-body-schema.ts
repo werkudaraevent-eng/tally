@@ -391,6 +391,8 @@ export const landingBodySchema = z.object({
       a: z.string().trim().min(1).max(2000),
       en: z.object({ q: teks(200), a: teks(2000) }).optional(),
     })).max(20).optional(),
+    // Kontak panitia diisi di Event settings (/api/admin/kontak); server
+    // memakai yang tersimpan, bukan salinan editor ini (lihat PATCH /api/admin/landing).
     contact_name: z.string().trim().max(120).optional(),
     contact_phone: z.string().trim().max(40).optional(),
     contact_email: z.string().trim().max(160).optional(),
@@ -421,3 +423,13 @@ export const landingBodySchema = z.object({
     .optional(),
 });
 
+
+/** Kontak panitia (Event settings). Kosong = tidak diisi. */
+const kontakSchema = z.object({
+  contact_name: z.string().trim().max(120),
+  contact_email: z.union([z.literal(""), z.string().trim().toLowerCase().max(160).email("Contact email is not a valid email address.")]),
+  contact_phone: z.string().trim().max(40).regex(/^[0-9+()\-.\s]*$/, "Phone may only contain digits, spaces, + ( ) - and ."),
+});
+export type KontakPanitia = z.infer<typeof kontakSchema>;
+/** PATCH /api/admin/kontak: `base` = kontak seperti yang terakhir dibaca klien. */
+export const kontakBodySchema = z.object({ base: kontakSchema.partial(), contact: kontakSchema });

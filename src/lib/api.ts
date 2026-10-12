@@ -78,6 +78,7 @@ const messages: Record<ApiErrorCode, string> = {
   INVITATIONS_NOT_READY: "Invited guests are not ready yet: the database migration has not been run.",
   CONFLICT: "This event was saved somewhere else at the same moment. Nothing was changed. Try again.",
   PAYLOAD_TOO_LARGE: "The request is too large to save.",
+  CONTACT_CHANGED: "The organiser contact was changed in another tab or by another admin. The latest contact is shown now. Make your change again.",
   SPEAKERS_CHANGED: "The speaker list was changed in another tab or by another admin. The latest list is shown now. Make your change again.",
   // Menyebut env-nya: yang bisa membereskan ini pemilik sistem, bukan panitia.
   INVITATION_SENDING_LOCKED: "Invitation blasts stay locked until the system owner sets up a separate invitation sender.",

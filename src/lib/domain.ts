@@ -688,7 +688,11 @@ export const LANDING_SECTION_SOURCES: Record<LandingSectionId, LandingSectionSou
   },
   faq: { text: "Filled in on this page" },
   sponsors: { text: "Logos are uploaded on this page" },
-  contact: { text: "Filled in on this page" },
+  contact: {
+    text: "Filled in once under Event settings, and shared with the registration, invitation and participant pages",
+    href: "/admin/settings",
+    linkLabel: "Open Event settings",
+  },
 };
 
 /** Susunan bawaan, dipakai saat event belum pernah menyimpan konfigurasi. */
@@ -1599,6 +1603,7 @@ export type ApiErrorCode =
   // Acara disimpan di tempat lain pada saat yang sama; simpanan ini tidak ditulis.
   | "CONFLICT"
   | "SPEAKERS_CHANGED"
+  | "CONTACT_CHANGED"
   | "PAYLOAD_TOO_LARGE"
   | "INVITATION_SENDING_LOCKED"
   | "MESSAGE_NOT_PAUSED"
