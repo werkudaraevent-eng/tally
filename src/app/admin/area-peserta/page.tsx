@@ -1,6 +1,6 @@
 "use client";
 
-import { Info, XCircle } from "@phosphor-icons/react";
+import { Info, Warning, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
 import { Banner, Button, MetaSeparator, Pane, PaneBody, PaneFooter, Switch, TextField, WorkspaceHeader, WorkspacePage } from "@/components/m3";
@@ -221,9 +221,22 @@ export default function AreaPesertaPage() {
                   </div>
                 </SettingRow>
                 <SettingRow stacked={berpratinjau} title="How participants sign in">
-                  <Banner tone="info" icon={<Info size={18} />}>
-                    There is no activation email yet. Participants create their own password on the Sign in page, using their registration email and the participant code from the confirmation or invitation email. Participants without an email address in their data can&apos;t sign in yet.
-                  </Banner>
+                  <div className="flex flex-col gap-4">
+                    <Banner tone="info" icon={<Info size={18} />}>
+                      Participants create their password from a one-time link in their email: the Sign-in link message, &quot;Forgot password?&quot; on the Sign in page, or the walk-in email below. Participants without an email address in their data can&apos;t sign in.
+                    </Banner>
+                    <Switch
+                      checked={anggota.walkin_link === true}
+                      onChange={(value) => set({ walkin_link: value })}
+                      label="Email a sign-in link to walk-ins"
+                      description="When the desk saves a walk-in with an email address, they get a link to create a password. Valid for 7 days. Only new walk-ins get it, nobody already on the list."
+                    />
+                    {anggota.walkin_link === true && (anggota.audience ?? "approved") !== "all" ? (
+                      <Banner tone="warning" icon={<Warning size={18} />}>
+                        Walk-ins have no approved registration, so no email goes out while Who can sign in is set to {AUDIENCE_LABELS.approved.toLowerCase()}. Choose {AUDIENCE_LABELS.all.toLowerCase()}.
+                      </Banner>
+                    ) : null}
+                  </div>
                 </SettingRow>
               </>
             ) : null}

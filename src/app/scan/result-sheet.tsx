@@ -115,6 +115,16 @@ const TAMPILAN: Record<StatusHasil, { judul: string; blok: string; ikon: string;
   },
 };
 
+/** Kenapa email Sign-in link walk-in tidak dikirim (prepareWalkinLink). */
+const ALASAN_TAUTAN: Record<string, string> = {
+  no_email: "no email address",
+  email_not_configured: "email sending is not set up",
+  not_eligible: "Who can sign in does not include walk-ins",
+  has_account: "this email already has an account",
+  email_taken: "email already belongs to another participant",
+  already_sent: "a link was already sent",
+};
+
 const jam = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
 
@@ -283,6 +293,14 @@ export function ResultSheet({
               {hasil.tersimpanSebelumnya ? (
                 <p className="mt-3 text-body-medium opacity-90">
                   Saved on the previous attempt, at {jam(hasil.first_scan_at)}. The reply did not reach this phone.
+                </p>
+              ) : null}
+
+              {status === "created" && hasil.signin_link ? (
+                <p className="mt-3 text-body-medium opacity-90 [overflow-wrap:anywhere]">
+                  {hasil.signin_link.state === "queued"
+                    ? `A sign-in link will be emailed to ${hasil.signin_link.email}.`
+                    : `Sign-in link not sent: ${hasil.signin_link.state === "skipped" ? ALASAN_TAUTAN[hasil.signin_link.reason] ?? "it could not be prepared" : "it could not be prepared"}. They can use "Forgot password?" on the Sign in page.`}
                 </p>
               ) : null}
 
