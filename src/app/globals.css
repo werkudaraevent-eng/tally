@@ -2233,3 +2233,34 @@ html:hover {
 	padding-inline: 0;
 	justify-content: center;
 }
+
+/* ---- Warna layar pemindai ---------------------------------------------------
+   Palet gelap bawaan menurunkan biru Tally (#2649D0) menjadi periwinkle dengan
+   wadah nila (#3c37a0), dan di atas latar hampir hitam keduanya terbaca ungu.
+   Di layar pemindai saja, biru dikembalikan ke biru: primary bernada 220°,
+   wadah terpilih biru tua, bukan nila. Kolom isian tidak lagi hitam pekat,
+   yang di HP terlihat seperti lubang di kartu. Halaman lain tidak berubah. */
+.warna-pemindai {
+	--md-sys-color-secondary-container: #d8e2ff;
+	--md-sys-color-on-secondary-container: #0b2a6b;
+}
+
+@media (prefers-color-scheme: dark) {
+	html:not([data-theme="light"]) .warna-pemindai {
+		--md-sys-color-primary: #8ab4ff;
+		--md-sys-color-on-primary: #002a64;
+		--md-sys-color-primary-fixed-dim: #8ab4ff;
+		--md-sys-color-secondary-container: #1d3a6b;
+		--md-sys-color-on-secondary-container: #d8e2ff;
+		--md-sys-color-surface-container-lowest: #151515;
+	}
+}
+
+html[data-theme="dark"] .warna-pemindai {
+	--md-sys-color-primary: #8ab4ff;
+	--md-sys-color-on-primary: #002a64;
+	--md-sys-color-primary-fixed-dim: #8ab4ff;
+	--md-sys-color-secondary-container: #1d3a6b;
+	--md-sys-color-on-secondary-container: #d8e2ff;
+	--md-sys-color-surface-container-lowest: #151515;
+}

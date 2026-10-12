@@ -1240,7 +1240,7 @@ export default function ScanClient() {
             <p className="truncate text-body-medium font-semibold">{terakhirHadir.nama}</p>
           </>
         ) : (
-          <p className="text-body-medium text-on-surface-variant">Belum ada pindaian di HP ini.</p>
+          <p className="text-body-medium text-on-surface-variant">Belum ada pindaian.</p>
         )}
       </div>
     </div>
@@ -1280,7 +1280,7 @@ export default function ScanClient() {
   };
 
   return (
-    <div className="scan-teks min-h-dvh bg-surface pb-24 text-on-surface lg:pb-12">
+    <div className="scan-teks warna-pemindai min-h-dvh bg-surface pb-24 text-on-surface lg:pb-12">
       {/* -------------------------------------------------------------------
           Bilah atas.
 
