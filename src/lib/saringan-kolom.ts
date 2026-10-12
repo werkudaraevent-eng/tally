@@ -150,15 +150,28 @@ export function hariDiZona(iso: string, zona: string): string {
 
 /**
  * Bentuk saringan dari `?f=` sebelum daftar kolom acara diketahui (di peramban,
- * saat halaman dibuka). Hanya memeriksa bentuk; kuncinya diperiksa server.
+ * saat halaman dibuka). Hanya memeriksa bentuk, supaya tautan rusak tidak
+ * meruntuhkan halaman (QA #130 M3); kuncinya diperiksa `bacaSaringan` dengan
+ * daftar kolom, di server dan sebelum chip digambar.
  */
 export function bacaSaringanMentah(mentah: string | null): Saringan[] {
   if (!mentah) return [];
-  try {
-    const data: unknown = JSON.parse(mentah);
-    if (!Array.isArray(data)) return [];
-    return data.slice(0, BATAS_SARINGAN).filter((item): item is Saringan => Boolean(item) && typeof item === "object" && typeof (item as Saringan).k === "string");
-  } catch {
-    return [];
+  let data: unknown;
+  try { data = JSON.parse(mentah); } catch { return []; }
+  if (!Array.isArray(data)) return [];
+  const hasil: Saringan[] = [];
+  for (const item of data.slice(0, BATAS_SARINGAN)) {
+    if (!item || typeof item !== "object") continue;
+    const { k, in: daftar, has, from, to } = item as { k?: unknown; in?: unknown; has?: unknown; from?: unknown; to?: unknown };
+    if (typeof k !== "string" || hasil.some((s) => s.k === k)) continue;
+    if (Array.isArray(daftar)) {
+      const nilai = daftar.filter((v): v is string => typeof v === "string");
+      if (nilai.length) hasil.push({ k, in: nilai });
+    } else if (typeof has === "string") {
+      if (has.trim()) hasil.push({ k, has });
+    } else if (typeof from === "string" || typeof to === "string") {
+      hasil.push({ k, ...(typeof from === "string" ? { from } : {}), ...(typeof to === "string" ? { to } : {}) });
+    }
   }
+  return hasil;
 }

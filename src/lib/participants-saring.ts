@@ -97,26 +97,31 @@ export function saringanAdmin(f: string | undefined, fields: RegistrationField[]
   return bacaSaringan(f, kolomSaringanAdmin(fields));
 }
 
-/** Satu permintaan RPC paling banyak sekian baris. */
-const PER_BACA = 2000;
 /** Batas baca untuk saringan per kolom, jauh di atas acara terbesar sejauh ini. */
-const BATAS_BACA = 20000;
+export const BATAS_BACA = 20000;
+
+/** Dilempar bila acara melewati BATAS_BACA: lebih baik menolak daripada diam-diam memotong. */
+export class TerlaluBanyak extends Error {
+  constructor(public total: number) { super("TOO_MANY"); }
+}
 
 /**
- * Semua baris yang lolos penyaring RPC, berurutan seperti tabel, dibaca per
- * PER_BACA. Untuk saringan per kolom dan daftar nilai.
+ * Semua baris yang lolos penyaring RPC, berurutan seperti tabel. Untuk saringan
+ * per kolom dan daftar nilai.
+ *
+ * SATU panggilan, bukan per halaman: urutan RPC (kolom, lalu nama) tidak unik,
+ * jadi halaman-halaman offset bisa saling bertumpuk dan melewatkan baris (QA
+ * #130 M1: 157 kembar dan 157 hilang di 21 ribu peserta). Hasil RPC adalah satu
+ * nilai jsonb, jadi tidak terpotong batas 1000 baris PostgREST. Id kembar tetap
+ * dibuang sebagai pengaman.
  */
 export async function semuaBarisRpc<T extends BarisPeserta>(argumen: ReturnType<typeof argumenRpc>): Promise<T[]> {
-  const client = getSupabaseServiceClient();
-  const semua: T[] = [];
-  for (let dari = 0; dari < BATAS_BACA; dari += PER_BACA) {
-    const { data, error } = await client.rpc("list_event_participants" as never, { ...argumen, p_limit: PER_BACA, p_offset: dari } as never);
-    if (error) throw new Error(error.message);
-    const hasil = (data ?? { rows: [], total: 0 }) as { rows: T[]; total: number };
-    semua.push(...hasil.rows);
-    if (hasil.rows.length < PER_BACA || semua.length >= hasil.total) break;
-  }
-  return semua;
+  const { data, error } = await getSupabaseServiceClient().rpc("list_event_participants" as never, { ...argumen, p_limit: BATAS_BACA, p_offset: 0 } as never);
+  if (error) throw new Error(error.message);
+  const hasil = (data ?? { rows: [], total: 0 }) as { rows: T[]; total: number };
+  if (hasil.total > BATAS_BACA) throw new TerlaluBanyak(hasil.total);
+  const terlihat = new Set<string>();
+  return hasil.rows.filter((baris) => (terlihat.has(baris.id) ? false : (terlihat.add(baris.id), true)));
 }
 
 export function saring<T extends BarisPeserta>(baris: T[], saringan: Saringan[], fields: RegistrationField[], zona: string): T[] {

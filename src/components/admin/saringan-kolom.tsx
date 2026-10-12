@@ -4,7 +4,7 @@ import { CaretDown, Check, Funnel, MagnifyingGlass, Plus, X } from "@phosphor-ic
 import { useEffect, useId, useRef, useState } from "react";
 import { Popover, usePopoverAnchor } from "@/components/m3";
 import { cx } from "@/lib/m3/cx";
-import { BATAS_SARINGAN, type KolomSaringan, type Saringan } from "@/lib/saringan-kolom";
+import { BATAS_SARINGAN, bacaSaringan, type KolomSaringan, type Saringan } from "@/lib/saringan-kolom";
 
 /**
  * "+ Filter": saring menurut kolom apa pun yang tampil, termasuk jawaban form.
@@ -38,20 +38,23 @@ export function SaringanKolom({ kolom, nilai, onChange, muatNilai, kelasChip = "
   const [baru, setBaru] = useState<string | null>(null);
   const [draf, setDraf] = useState<Saringan | null>(null);
   const perKunci = new Map(kolom.map((item) => [item.key, item]));
-  const tampil = [...nilai.filter((s) => perKunci.has(s.k)), ...(draf && !nilai.some((s) => s.k === draf.k) ? [draf] : [])];
+  // Chip hanya untuk saringan yang benar-benar dipakai server: kunci yang tidak
+  // dikenal, bentuk yang salah jenis, atau kembar dibuang di sini juga (QA #130 L1).
+  const berlaku = bacaSaringan(JSON.stringify(nilai), kolom) ?? [];
+  const tampil = [...berlaku, ...(draf && !berlaku.some((s) => s.k === draf.k) ? [draf] : [])];
 
   // Chip yang dikosongkan selagi terbuka tetap di tempatnya sebagai draf, dan
   // baru hilang saat ditutup; yang berisi masuk ke saringan yang berlaku.
   const ubah = (s: Saringan) => {
     const urutan = (item: Saringan) => { const i = tampil.findIndex((t) => t.k === item.k); return i < 0 ? tampil.length : i; };
-    const lain = nilai.filter((item) => item.k !== s.k);
+    const lain = berlaku.filter((item) => item.k !== s.k);
     if (kosong(s)) { setDraf(s); onChange(lain); return; }
     if (draf?.k === s.k) setDraf(null);
     onChange([...lain, s].sort((a, b) => urutan(a) - urutan(b)));
   };
   const hapus = (kunci: string) => {
     if (draf?.k === kunci) setDraf(null);
-    onChange(nilai.filter((item) => item.k !== kunci));
+    onChange(berlaku.filter((item) => item.k !== kunci));
   };
 
   return (

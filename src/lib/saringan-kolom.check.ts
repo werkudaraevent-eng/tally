@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bacaSaringan, cocokSatu, cocokSemua, hitungNilai, kolomSaringanAdmin, kolomSaringanKlien } from "./saringan-kolom.ts";
+import { bacaSaringan, bacaSaringanMentah, cocokSatu, cocokSemua, hitungNilai, kolomSaringanAdmin, kolomSaringanKlien } from "./saringan-kolom.ts";
 
 const fields = [
   { key: "sesi", label: "Which breakout session?", type: "select" as const, required: true, options: ["BR 1", "BR 2"] },
@@ -38,3 +38,9 @@ assert.equal(cocokSemua(baris, [{ k: "a", in: ["BR 1"] }, { k: "b", has: "x" }],
 assert.deepEqual(hitungNilai([{ v: "B" }, { v: "" }, { v: "A" }, { v: "B" }], "v", (r) => r.v), [{ value: "A", count: 1 }, { value: "B", count: 2 }, { value: "", count: 1 }]);
 
 console.log("saringan-kolom ok");
+
+// Tautan rusak tidak boleh meruntuhkan halaman (QA #130 M3).
+assert.deepEqual(bacaSaringanMentah(json([{ k: "field:sesi", in: null }, { k: "title", has: 5 }, { k: "a", in: ["x", 3] }, { k: "a", in: ["y"] }, null, "x"])), [{ k: "a", in: ["x"] }]);
+assert.deepEqual(bacaSaringanMentah("{rusak"), []);
+assert.deepEqual(bacaSaringanMentah(json({ k: "title" })), []);
+console.log("saringan-kolom mentah ok");

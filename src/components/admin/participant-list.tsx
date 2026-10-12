@@ -16,7 +16,7 @@ import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
-import { bacaSaringanMentah, kolomSaringanAdmin, type Saringan } from "@/lib/saringan-kolom";
+import { bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, type Saringan } from "@/lib/saringan-kolom";
 import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
 import { DEFAULT_TIME_ZONE, type EventTimeZone } from "@/lib/timezone";
 
@@ -652,7 +652,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const adaFilter = Boolean(filterAsal || filterHadir || filterRsvp || filterPerusahaan.length || saringan.length);
   // Saringan yang sedang berlaku, disebut di bilah pilihan karena barisnya tertutup.
   const jumlahSaringan = [filterAsal, filterHadir, filterRsvp].filter(Boolean).length + (filterPerusahaan.length ? 1 : 0)
-    + saringan.filter((item) => kolomSaringan.some((k) => k.key === item.k)).length;
+    + (bacaSaringan(JSON.stringify(saringan), kolomSaringan)?.length ?? 0);
   const ringkasSaringan = [
     debouncedQuery ? `“${debouncedQuery}”` : "",
     jumlahSaringan ? plural(jumlahSaringan, "filter") : "",

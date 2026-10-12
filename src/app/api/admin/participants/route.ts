@@ -3,7 +3,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { logistikPeserta } from "@/lib/logistik/server";
 import { cleanExtra, participantBodySchema, toRpcArgs } from "@/lib/participant-input";
-import { argumenRpc, nilaiKolomAdmin, querySchema, saring, saringanAdmin, semuaBarisRpc } from "@/lib/participants-saring";
+import { BATAS_BACA, TerlaluBanyak, argumenRpc, nilaiKolomAdmin, querySchema, saring, saringanAdmin, semuaBarisRpc } from "@/lib/participants-saring";
 import { kolomSaringanAdmin } from "@/lib/saringan-kolom";
 import { normalizeTimeZone } from "@/lib/timezone";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -68,7 +68,8 @@ export async function GET(request: Request) {
     if (!kolom) return apiError("VALIDATION_ERROR", 422, { message: "This column has no value list." });
     try {
       return Response.json({ key: kolom.key, values: await nilaiKolomAdmin(eventId, kolom.key, fields, zona) });
-    } catch {
+    } catch (galat) {
+      if (galat instanceof TerlaluBanyak) return apiError("VALIDATION_ERROR", 422, { message: "This event is too large for a value list." });
       return apiError("INTERNAL_ERROR", 500);
     }
   }
@@ -79,7 +80,8 @@ export async function GET(request: Request) {
   if (saringan.length) {
     try {
       tersaring = saring(await semuaBarisRpc(argumen), saringan, fields, zona);
-    } catch {
+    } catch (galat) {
+      if (galat instanceof TerlaluBanyak) return apiError("VALIDATION_ERROR", 422, { message: `Column filters work on up to ${BATAS_BACA.toLocaleString("en-GB")} participants. Narrow the list with search or the other filters first.` });
       return apiError("INTERNAL_ERROR", 500);
     }
   }

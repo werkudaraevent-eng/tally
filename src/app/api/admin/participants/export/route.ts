@@ -13,7 +13,7 @@ import {
   templateFilename,
   templateRows,
 } from "@/lib/participants-io";
-import { idsTersaring } from "@/lib/participants-saring";
+import { BATAS_BACA, TerlaluBanyak, idsTersaring } from "@/lib/participants-saring";
 import { normalizeTimeZone } from "@/lib/timezone";
 
 /**
@@ -62,6 +62,7 @@ export async function GET(request: Request) {
     });
   } catch (galat) {
     if (galat instanceof Error && galat.message === "VALIDATION") return apiError("VALIDATION_ERROR", 422, { message: "Unknown filter." });
+    if (galat instanceof TerlaluBanyak) return apiError("VALIDATION_ERROR", 422, { message: `Filtered export works on up to ${BATAS_BACA.toLocaleString("en-GB")} participants.` });
     return Response.json({ error: { code: "INTERNAL_ERROR", message: "Participant export failed." } }, { status: 500 });
   }
 }
