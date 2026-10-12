@@ -370,6 +370,11 @@ export async function loadParticipantExportRows(
  * suntingannya diabaikan tanpa penjelasan -- kolom yang tidak berpengaruh
  * sebaiknya tidak pernah muncul di berkas yang dibuat untuk diisi.
  *
+ * qr_code contoh sengaja kosong: kode diisi hanya kalau orangnya sudah punya
+ * kode (dari ekspor atau badge tercetak). Contoh "REG000001" mengajarkan
+ * mengarang kode, dan baris contoh yang lupa dihapus akan MENIMPA peserta
+ * sungguhan yang kebetulan memegang kode itu.
+ *
  * Dua baris contoh, bukan nol: berkas berisi header saja menyisakan pertanyaan
  * seperti apa isi `rsvp_status` yang sah, dan jawabannya paling cepat dibaca
  * dari contohnya sendiri. Keduanya harus dihapus sebelum diunggah, dan itu
@@ -382,8 +387,8 @@ export async function loadParticipantExportRows(
  */
 export function templateRows(fields: RegistrationField[]): string[][] {
   const dasar = [
-    ["REG000001", "Budi Santoso", "PT Contoh Sejahtera", "Direktur Utama", "budi@contoh.com", "081234567890", "VIP", "confirmed"],
-    ["REG000002", "Siti Rahayu", "CV Mitra Abadi", "Manajer", "siti@contoh.com", "+6281298765432", "reguler", "invited"],
+    ["", "Budi Santoso", "PT Contoh Sejahtera", "Direktur Utama", "budi@contoh.com", "081234567890", "VIP", "confirmed"],
+    ["", "Siti Rahayu", "CV Mitra Abadi", "Manajer", "siti@contoh.com", "+6281298765432", "reguler", "invited"],
   ];
   const tambahan = importableFields(fields);
   return dasar.map((row, index) => [...row, ...tambahan.map((field) => contohJawaban(field, index))]);
