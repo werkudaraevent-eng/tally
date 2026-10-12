@@ -161,6 +161,13 @@ export function SeatMapView({
         </text>
       </g>
 
+      {geometry.zones.map((zone) => (
+        <g key={zone.name} pointerEvents="none">
+          <rect x={zone.x} y={zone.y} width={zone.width} height={zone.height} rx={14} fill={textColor} fillOpacity={0.05} stroke={textColor} strokeOpacity={0.22} strokeDasharray="5 5" />
+          <text x={zone.x + 14} y={zone.y + 12 + 11} dominantBaseline="central" fill={textColor} fillOpacity={0.75} fontSize={13} fontWeight={700} letterSpacing={1.2}>{zone.name.toUpperCase()}</text>
+        </g>
+      ))}
+
       {geometry.tables.map((table) => {
         const tableSeats = table.seats;
         const occupiedCount = tableSeats.filter((seat) => seatStates[normalizeSeatLabel(seat.label)]?.occupied).length;
@@ -199,8 +206,21 @@ export function SeatMapView({
                 onClick={onTableClick ? () => onTableClick(table.number) : undefined}
                 style={onTableClick ? { cursor: "pointer" } : undefined}
               />
+            ) : table.shape === "sofa" ? (
+              <rect
+                x={table.x - (table.w ?? 0) / 2}
+                y={table.y - (table.h ?? 0) / 2}
+                width={table.w ?? 0}
+                height={table.h ?? 0}
+                rx={table.r}
+                fill={textColor}
+                fillOpacity={tableHighlighted ? 0.35 : 0.16}
+                stroke={tableHighlighted ? accentColor : textColor}
+                strokeOpacity={tableHighlighted ? 1 : 0.4}
+                strokeWidth={tableHighlighted ? 2.5 : 1.5}
+              />
             ) : null}
-            <text
+            {table.shape === "sofa" ? null : <text
               x={table.x}
               y={table.y}
               textAnchor={table.shape === "none" ? "end" : "middle"}
@@ -215,7 +235,7 @@ export function SeatMapView({
               pointerEvents="none"
             >
               {table.label}
-            </text>
+            </text>}
 
             {/* Deskripsi per meja untuk pembaca layar. Denah visual saja tidak
                 terbaca, jadi tiap meja membawa ringkasan keterisiannya. */}

@@ -276,7 +276,70 @@ export type SeatMapLayoutParams = {
   seats_head: number;
   /** Head table: kursi di meja utama. */
   head_seats: number;
+  /**
+   * Ruangan gabungan: bagian-bagian berurutan dari panggung ke belakang,
+   * misalnya sofa VIP di depan lalu baris theater. Bila terisi, `layout_type`
+   * tidak lagi dipakai untuk menggambar. Disimpan di jsonb yang sama supaya
+   * fitur ini tidak butuh migrasi, dan ruangan lama (tanpa `sections`) tetap
+   * dirender persis seperti sebelumnya.
+   */
+  sections?: SeatSection[];
 };
+
+export type SeatSectionKind = "sofa" | "theater";
+
+export type SeatSection = {
+  kind: SeatSectionKind;
+  /** Nama yang tertulis di denah, mis. "VIP". Kosong = tanpa bingkai nama. */
+  name: string;
+  /**
+   * Awalan label kursi. Sofa: "VIP" menghasilkan VIP1, VIP2, ... Theater:
+   * kosong menghasilkan A1; awalan dipakai bila ada dua bagian theater.
+   */
+  prefix: string;
+  rows: number;
+  /** Sofa: sofa per baris. Theater: kursi per baris. */
+  per_row: number;
+  seats_per_sofa: number;
+  /** Lorong SETELAH sofa/kursi ke-n. */
+  aisles: number[];
+};
+
+export const MAX_SECTIONS = 6;
+
+export function defaultSection(kind: SeatSectionKind): SeatSection {
+  return kind === "sofa"
+    ? { kind, name: "VIP", prefix: "VIP", rows: 2, per_row: 10, seats_per_sofa: 2, aisles: [5] }
+    : { kind, name: "", prefix: "", rows: 8, per_row: 24, seats_per_sofa: 1, aisles: [6, 12, 18] };
+}
+
+function bersihkanLorong(value: unknown): number[] {
+  return Array.isArray(value)
+    ? [...new Set(value.filter((n): n is number => typeof n === "number" && Number.isFinite(n) && n > 0).map(Math.floor))]
+        .sort((a, b) => a - b)
+        .slice(0, 6)
+    : [];
+}
+
+export function normalizeSections(raw: unknown): SeatSection[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0, MAX_SECTIONS).flatMap((item): SeatSection[] => {
+    if (!item || typeof item !== "object") return [];
+    const data = item as Record<string, unknown>;
+    const kind: SeatSectionKind = data.kind === "sofa" ? "sofa" : "theater";
+    const teks = (value: unknown, max: number, pola: RegExp) =>
+      typeof value === "string" ? value.replace(pola, "").trim().slice(0, max) : "";
+    return [{
+      kind,
+      name: teks(data.name, 24, /[\u0000-\u001f]/g),
+      prefix: teks(data.prefix, 4, /[^A-Za-z0-9]/g).toUpperCase(),
+      rows: angka(data.rows, 1, 1, 40),
+      per_row: angka(data.per_row, kind === "sofa" ? 10 : 24, 1, 40),
+      seats_per_sofa: angka(data.seats_per_sofa, 2, 1, 6),
+      aisles: bersihkanLorong(data.aisles),
+    }];
+  });
+}
 
 export const DEFAULT_LAYOUT_PARAMS: SeatMapLayoutParams = {
   arc_sweep: 300,
@@ -326,6 +389,7 @@ export function normalizeLayoutParams(layout: SeatMapLayout, raw: unknown): Seat
     seats_per_side: angka(data.seats_per_side, bawaan.seats_per_side, 1, 40),
     seats_head: angka(data.seats_head, bawaan.seats_head, 0, 20),
     head_seats: angka(data.head_seats, bawaan.head_seats, 1, MAX_SEATS_PER_TABLE),
+    ...(normalizeSections(data.sections).length ? { sections: normalizeSections(data.sections) } : {}),
   };
 }
 
@@ -353,7 +417,7 @@ export type SeatGeometry = {
  * panel "kursi meja ini", pewarnaan, dan LED — tidak perlu mengenal dua bentuk
  * data yang berbeda.
  */
-export type TableShape = "round" | "rect" | "none";
+export type TableShape = "round" | "rect" | "none" | "sofa";
 
 export type TableGeometry = {
   /**
@@ -376,6 +440,8 @@ export type TableGeometry = {
   w?: number;
   h?: number;
   rowIndex: number;
+  /** Nama bagian (ruangan gabungan), mis. "VIP". Untuk kartu kursi peserta. */
+  section?: string;
   seats: SeatGeometry[];
 };
 
@@ -384,6 +450,7 @@ export type SeatMapGeometry = {
   height: number;
   stage: { x: number; y: number; width: number; height: number; label: string };
   tables: TableGeometry[];
+  zones: { name: string; x: number; y: number; width: number; height: number }[];
   totalTables: number;
   totalSeats: number;
 };
@@ -560,7 +627,7 @@ export function normalizeConfig(raw: Partial<SeatMapConfig> | null | undefined):
  */
 export function computeSeatMapGeometry(input: Partial<SeatMapConfig> | null | undefined): SeatMapGeometry {
   const config = normalizeConfig(input);
-  const { tables, width, height } = generateLayout(config.layout_type, config, config.layout_params);
+  const { tables, width, height, zones = [] } = generateLayout(config.layout_type, config, config.layout_params);
 
   // Panggung dibuat selebar dua per tiga kanvas dan dipusatkan: ia acuan arah
   // pandang, jadi harus terbaca lebih dulu sebelum mata mencari nomor meja.
@@ -577,6 +644,7 @@ export function computeSeatMapGeometry(input: Partial<SeatMapConfig> | null | un
       label: config.stage_label,
     },
     tables,
+    zones,
     totalTables: tables.length,
     totalSeats: tables.reduce((sum, table) => sum + table.seats.length, 0),
   };
@@ -604,4 +672,29 @@ export function duplicateTableLabels(input: Partial<SeatMapConfig> | null | unde
     seen.set(key, (seen.get(key) ?? 0) + 1);
   }
   return [...seen.entries()].filter(([, count]) => count > 1).map(([label]) => label);
+}
+
+/**
+ * Label KURSI yang muncul lebih dari sekali.
+ *
+ * Pemeriksaan label meja tidak cukup untuk ruangan gabungan: dua bagian
+ * theater tanpa awalan sama-sama menghasilkan A1..H24, dan pencarian nama
+ * akan menyorot dua kursi sekaligus.
+ */
+export function duplicateSeatLabels(input: Partial<SeatMapConfig> | null | undefined): string[] {
+  const seen = new Map<string, number>();
+  for (const table of computeSeatMapGeometry(input).tables) {
+    for (const seat of table.seats) {
+      const key = normalizeSeatLabel(seat.label);
+      seen.set(key, (seen.get(key) ?? 0) + 1);
+    }
+  }
+  return [...seen.entries()].filter(([, count]) => count > 1).map(([label]) => label);
+}
+
+/** Awalan bawaan untuk bagian baru yang belum dipakai bagian lain. */
+export function nextSectionPrefix(sections: SeatSection[]): string {
+  const dipakai = new Set(sections.map((s) => s.prefix.toUpperCase()));
+  for (let n = 2; n < 20; n += 1) if (!dipakai.has(`T${n}`)) return `T${n}`;
+  return "";
 }

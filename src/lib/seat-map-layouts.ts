@@ -17,6 +17,7 @@ import {
   type SeatMapConfig,
   type SeatMapLayout,
   type SeatMapLayoutParams,
+  type SeatSection,
   type TableGeometry,
   type TableShape,
 } from "./seat-map.ts";
@@ -62,7 +63,7 @@ const ROW_SEAT_PITCH = 34;
 const ROW_PITCH = 46;
 const AISLE_WIDTH = 44;
 
-export type Kanvas = { tables: TableGeometry[]; width: number; height: number };
+export type Kanvas = { tables: TableGeometry[]; width: number; height: number; zones?: { name: string; x: number; y: number; width: number; height: number }[] };
 
 type Konteks = {
   config: SeatMapConfig;
@@ -361,6 +362,7 @@ export function layoutHeadTable(config: SeatMapConfig, params: SeatMapLayoutPara
 
 /** Memilih generator menurut jenis tata ruang. */
 export function generateLayout(layout: SeatMapLayout, config: SeatMapConfig, params: SeatMapLayoutParams): Kanvas {
+  if (params.sections?.length) return layoutSections(config, params.sections);
   switch (layout) {
     case "theater": return layoutTheater(config, params);
     case "classroom": return layoutClassroom(config, params);
@@ -372,4 +374,88 @@ export function generateLayout(layout: SeatMapLayout, config: SeatMapConfig, par
     // hanya `arc_sweep`, dan itu sudah menjadi bawaan masing-masing layout.
     default: return layoutRounds(config, params);
   }
+}
+
+const SOFA_DEPTH = 30;
+const SOFA_GAP = 16;
+const SOFA_ROW_PITCH = 56;
+const SECTION_GAP = 40;
+/** Jarak dalam bingkai bagian bernama, dan tinggi pita namanya. */
+const ZONE_PADDING = 12;
+const ZONE_TITLE = 22;
+
+/**
+ * Ruangan gabungan: bagian-bagian berurutan dari panggung ke belakang.
+ *
+ * Nomor posisi meja tetap menerus lintas bagian, jadi `table_overrides` dan
+ * `table_labels` tetap berlaku. Sofa memakai satu nomor menerus per bagian
+ * (VIP1 ... VIP40) karena tamu dan usher menyebut "VIP 7", bukan "sofa 4
+ * kursi kedua"; baris theater tetap A1, A2, ... seperti layout theater biasa.
+ */
+export function layoutSections(config: SeatMapConfig, sections: SeatSection[]): Kanvas {
+  const ctx: Konteks = { config, nomor: 0 };
+  const lebar = sections.map((s) => {
+    const lorong = s.aisles.filter((n) => n < s.per_row).length;
+    return s.kind === "sofa"
+      ? s.per_row * (s.seats_per_sofa * ROW_SEAT_PITCH + 8) + (s.per_row - 1) * SOFA_GAP + lorong * AISLE_WIDTH
+      : s.per_row * ROW_SEAT_PITCH + lorong * AISLE_WIDTH;
+  });
+  const width = Math.max(...lebar) + PADDING_X * 2 + 40;
+  const tables: TableGeometry[] = [];
+  const zones: NonNullable<Kanvas["zones"]> = [];
+  // `y` adalah tepi ATAS bagian berikutnya. Bagian pertama dimulai tepat di
+  // atas baris pertama layout biasa, jadi theater tanpa nama duduk di posisi
+  // yang sama dengan layout theater tunggal.
+  let y = contentTop() - SEAT_RADIUS;
+  let rowIndex = 0;
+  sections.forEach((s, si) => {
+    const kiri = (width - lebar[si]) / 2;
+    const lorong = s.aisles.filter((n) => n < s.per_row);
+    const setengah = s.kind === "sofa" ? SOFA_DEPTH / 2 : SEAT_RADIUS;
+    const pitch = s.kind === "sofa" ? SOFA_ROW_PITCH : ROW_PITCH;
+    const atas = y;
+    // Bagian bernama dibingkai, dan namanya mendapat pita sendiri di atas
+    // baris pertama supaya tidak menimpa kursi.
+    let cy = (s.name ? atas + ZONE_PADDING + ZONE_TITLE : atas) + setengah;
+    if (s.kind === "sofa") {
+      let nomorKursi = 0;
+      const sofaW = s.seats_per_sofa * ROW_SEAT_PITCH + 8;
+      for (let r = 0; r < s.rows; r += 1) {
+        let geser = 0;
+        for (let i = 0; i < s.per_row; i += 1) {
+          if (lorong.includes(i)) geser += AISLE_WIDTH;
+          const cx = kiri + i * (sofaW + SOFA_GAP) + geser + sofaW / 2;
+          const kursi = Array.from({ length: s.seats_per_sofa }, (_, k) => ({ x: cx - sofaW / 2 + 4 + ROW_SEAT_PITCH / 2 + k * ROW_SEAT_PITCH, y: cy }));
+          const meja = buatMeja(ctx, { x: cx, y: cy, rowIndex, shape: "sofa", r: 10, w: sofaW, h: SOFA_DEPTH }, kursi, "angka", `${s.prefix}S${r * s.per_row + i + 1}`);
+          meja.section = s.name || s.prefix;
+          meja.seats = meja.seats.map((seat) => {
+            nomorKursi += 1;
+            return { ...seat, code: String(nomorKursi), label: `${s.prefix}${nomorKursi}` };
+          });
+          tables.push(meja);
+        }
+        cy += pitch;
+        rowIndex += 1;
+      }
+    } else {
+      for (let r = 0; r < s.rows; r += 1) {
+        const kursi: Titik[] = [];
+        let geser = 0;
+        for (let i = 0; i < s.per_row; i += 1) {
+          if (lorong.includes(i)) geser += AISLE_WIDTH;
+          kursi.push({ x: kiri + ROW_SEAT_PITCH / 2 + i * ROW_SEAT_PITCH + geser, y: cy });
+        }
+        const baris = buatMeja(ctx, { x: kiri - 18, y: cy, rowIndex, shape: "none", r: 0 }, kursi, "angka", `${s.prefix}${seatLetter(r)}`);
+        if (s.name) baris.section = s.name;
+        tables.push(baris);
+        cy += pitch;
+        rowIndex += 1;
+      }
+    }
+    const bawahIsi = cy - pitch + setengah;
+    const bawah = s.name ? bawahIsi + ZONE_PADDING : bawahIsi;
+    if (s.name) zones.push({ name: s.name, x: PADDING_X - 8, y: atas, width: width - (PADDING_X - 8) * 2, height: bawah - atas });
+    y = bawah + SECTION_GAP;
+  });
+  return { tables, width, height: y - SECTION_GAP + PADDING_BOTTOM, zones };
 }
