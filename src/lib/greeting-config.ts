@@ -43,7 +43,7 @@ export type GreetingConfig = {
 export const DEFAULT_GREETING: GreetingConfig = {
   is_enabled: true,
   orientation: "landscape",
-  headline: "Selamat datang",
+  headline: "Selamat Datang",
   idle_message: "Silakan pindai QR Anda di meja registrasi",
   session_id: null,
   greet_duplicates: false,

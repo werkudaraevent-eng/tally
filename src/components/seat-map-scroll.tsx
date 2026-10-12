@@ -1,5 +1,6 @@
 "use client";
 
+import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { computeSeatMapGeometry, normalizeSeatLabel, type SeatMapConfig } from "@/lib/seat-map";
 
@@ -13,7 +14,10 @@ import { computeSeatMapGeometry, normalizeSeatLabel, type SeatMapConfig } from "
 // 1. Tepi yang masih punya isi di baliknya dipudarkan, tanda bisa digeser.
 // 2. Huruf baris (theater) menempel di tepi kiri saat denah digeser, supaya
 //    tamu tetap tahu sedang melihat baris mana.
-// 3. Setelah tamu mencari namanya, denah bergeser sendiri sampai kursinya di
+// 3. Baris petunjuk di bawah denah dengan dua tombol panah (48px) untuk
+//    tamu yang tidak terpikir menggeser. Pudar saja terlalu halus: di layar gelap ia terbaca sebagai
+//    kursi yang redup, bukan sebagai tanda geser.
+// 4. Setelah tamu mencari namanya, denah bergeser sendiri sampai kursinya di
 //    tengah layar.
 
 type Props = {
@@ -26,7 +30,7 @@ type Props = {
   children: ReactNode;
 };
 
-const FADE = 40;
+const FADE = 56;
 
 export function SeatMapScroll({ config, highlightedSeatLabels, textColor, backgroundColor, minWidth = 820, children }: Props) {
   const geometry = useMemo(() => computeSeatMapGeometry(config), [config]);
@@ -61,8 +65,15 @@ export function SeatMapScroll({ config, highlightedSeatLabels, textColor, backgr
     el.scrollTo({ left: seat.x * s - el.clientWidth / 2, behavior: "smooth" });
   }, [highlightedSeatLabels, geometry]);
 
-  const fadeLeft = view.left > 1;
-  const fadeRight = view.max - view.left > 1;
+  // Satu ketukan menggeser hampir selebar layar, menyisakan sedikit kursi lama
+  // supaya tamu tidak kehilangan jejak posisinya.
+  const nudge = (direction: 1 | -1) => {
+    const el = scroller.current;
+    if (el) el.scrollBy({ left: direction * el.clientWidth * 0.75, behavior: "smooth" });
+  };
+
+  const fadeLeft = view.left > 2;
+  const fadeRight = view.max - view.left > 2;
   const mask = `linear-gradient(to right, ${fadeLeft ? "transparent" : "#000"} 0, #000 ${FADE}px, #000 calc(100% - ${FADE}px), ${fadeRight ? "transparent" : "#000"} 100%)`;
 
   // Huruf baris hanya ada pada theater (baris tanpa meja). Huruf tempel muncul
@@ -72,6 +83,7 @@ export function SeatMapScroll({ config, highlightedSeatLabels, textColor, backgr
   const showStickyRows = rows.length > 0 && scale > 0 && view.left > rowLetterX - 12;
 
   return (
+    <div>
     <div className="relative">
       <div
         ref={scroller}
@@ -101,5 +113,30 @@ export function SeatMapScroll({ config, highlightedSeatLabels, textColor, backgr
         </div>
       ) : null}
     </div>
+
+      {view.max > 1 ? (
+        <div className="mt-3 flex items-center justify-center gap-3" style={{ color: textColor }}>
+          <EdgeButton side="left" disabled={!fadeLeft} textColor={textColor} backgroundColor={backgroundColor} onClick={() => nudge(-1)} />
+          <p className="text-center text-body-medium font-semibold">Geser untuk lihat semua kursi</p>
+          <EdgeButton side="right" disabled={!fadeRight} textColor={textColor} backgroundColor={backgroundColor} onClick={() => nudge(1)} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function EdgeButton({ side, disabled, textColor, backgroundColor, onClick }: { side: "left" | "right"; disabled: boolean; textColor: string; backgroundColor: string; onClick: () => void }) {
+  const Icon = side === "left" ? CaretLeft : CaretRight;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={side === "left" ? "Geser denah ke kiri" : "Geser denah ke kanan"}
+      className="flex size-12 shrink-0 items-center justify-center rounded-full disabled:invisible"
+      style={{ background: textColor, color: backgroundColor }}
+    >
+      <Icon size={22} weight="bold" aria-hidden />
+    </button>
   );
 }
