@@ -21,7 +21,15 @@ export type KursiDipilih = {
 
 type Kandidat = { id: string; name: string; company: string | null; email: string | null; seat: string | null };
 
-export function AssignSeatDialog({ kursi, onClose, onSaved }: { kursi: KursiDipilih | null; onClose: () => void; onSaved: (pesan: string) => void }) {
+/** Langkah untuk membatalkan perubahan terakhir: dudukkan lagi pemegang lama. */
+export type Urungkan = { sessionId: number; label: string; participantId: string; currentParticipantId: string | null };
+
+export function AssignSeatDialog({ kursi, onClose, onSaved }: {
+  kursi: KursiDipilih | null;
+  onClose: () => void;
+  /** `pesan` kosong berarti kursi berubah di tempat lain (409). */
+  onSaved: (pesan: string, urungkan?: Urungkan) => void;
+}) {
   const [mencari, setMencari] = useState(false);
   const [q, setQ] = useState("");
   const [hasil, setHasil] = useState<Kandidat[] | null>(null);
@@ -80,7 +88,17 @@ export function AssignSeatDialog({ kursi, onClose, onSaved }: { kursi: KursiDipi
       setGalat(data?.error?.details?.seat ?? data?.error?.message ?? "The seat wasn't saved. Try again.");
       return;
     }
-    onSaved(participantId ? `${pilihan?.name ?? "Participant"} is now in seat ${kursi.label}.` : `Seat ${kursi.label} is now empty.`);
+    const lama = kursi.holder;
+    if (!participantId) {
+      onSaved(lama ? `${lama.name} removed from ${kursi.label}.` : `Seat ${kursi.label} is now empty.`, lama ? { sessionId: kursi.sessionId, label: kursi.label, participantId: lama.participantId, currentParticipantId: null } : undefined);
+      return;
+    }
+    const nama = pilihan?.name ?? "Participant";
+    const tergeser = ((data?.freed ?? []) as Array<{ participantId: string; name: string }>).find((item) => item.participantId !== participantId);
+    onSaved(
+      tergeser ? `${nama} is now in ${kursi.label}. ${tergeser.name} no longer has a seat.` : `${nama} is now in seat ${kursi.label}.`,
+      tergeser ? { sessionId: kursi.sessionId, label: kursi.label, participantId: tergeser.participantId, currentParticipantId: participantId } : undefined,
+    );
   }
 
   const terbuka = kursi !== null;
@@ -89,18 +107,18 @@ export function AssignSeatDialog({ kursi, onClose, onSaved }: { kursi: KursiDipi
 
   const aksi = !kursi ? null : mencari ? (
     <>
-      <Button variant="outlined" size="sm" onClick={kursi.holder ? () => { setMencari(false); setPilihan(null); } : onClose} disabled={menyimpan}>
+      <Button variant="outlined" onClick={kursi.holder ? () => { setMencari(false); setPilihan(null); } : onClose} disabled={menyimpan}>
         {kursi.holder ? "Back" : "Cancel"}
       </Button>
-      <Button size="sm" onClick={() => void simpan(pilihan!.id)} disabled={!pilihan} loading={menyimpan}>
+      <Button onClick={() => void simpan(pilihan!.id)} disabled={!pilihan} loading={menyimpan}>
         {!pilihan ? "Choose a participant" : pilihan.seat ? `Move ${pilihan.name} from ${pilihan.seat} to ${kursi.label}` : `Seat ${pilihan.name} in ${kursi.label}`}
       </Button>
     </>
   ) : (
     <>
-      <Button variant="danger" size="sm" onClick={() => void simpan(null)} loading={menyimpan}>Remove from seat</Button>
-      <Button variant="outlined" size="sm" onClick={() => setMencari(true)} disabled={menyimpan}>Change person</Button>
-      <Button size="sm" onClick={onClose} disabled={menyimpan}>Done</Button>
+      <Button variant="danger" onClick={() => void simpan(null)} loading={menyimpan}>Remove from seat</Button>
+      <Button variant="outlined" onClick={() => setMencari(true)} disabled={menyimpan}>Change person</Button>
+      <Button onClick={onClose} disabled={menyimpan}>Done</Button>
     </>
   );
 

@@ -4,7 +4,7 @@ import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, Info, Monitor, Plus, Tra
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
-import { AssignSeatDialog, type KursiDipilih } from "./assign-seat-dialog";
+import { AssignSeatDialog, type KursiDipilih, type Urungkan } from "./assign-seat-dialog";
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
@@ -135,6 +135,9 @@ export default function SeatMapAdminPage() {
   const [modeDenah, setModeDenah] = useState<"preview" | "assign">("preview");
   const [terisi, setTerisi] = useState<Record<number, Record<string, { participantId: string; name: string; label: string }>> | null>(null);
   const [kursiDipilih, setKursiDipilih] = useState<KursiDipilih | null>(null);
+  // Perubahan kursi terakhir yang masih bisa dibatalkan (Remove / Change person).
+  const [urungkan, setUrungkan] = useState<{ pesan: string; langkah: Urungkan } | null>(null);
+  const [mengurungkan, setMengurungkan] = useState(false);
   const toast = useToast();
 
   /**
@@ -170,6 +173,29 @@ export default function SeatMapAdminPage() {
     const response = await fetch("/api/admin/participants/seat-options", { cache: "no-store" }).catch(() => null);
     if (!response?.ok) { toast.error("Seats could not be loaded", "Reload the page and try again."); return; }
     setTerisi(((await response.json()) as { taken: NonNullable<typeof terisi> }).taken);
+  }
+
+  useEffect(() => {
+    if (!urungkan) return;
+    const timer = window.setTimeout(() => setUrungkan(null), 10000);
+    return () => window.clearTimeout(timer);
+  }, [urungkan]);
+
+  async function batalkanPerubahan() {
+    if (!urungkan) return;
+    const { langkah } = urungkan;
+    setMengurungkan(true);
+    const response = await fetch("/api/admin/seat-map/assign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: langkah.sessionId, label: langkah.label, participant_id: langkah.participantId, current_participant_id: langkah.currentParticipantId }),
+    }).catch(() => null);
+    setMengurungkan(false);
+    setUrungkan(null);
+    if (response?.ok) toast.success(`Seat ${langkah.label} restored.`);
+    else toast.error("Couldn't undo", "The seat changed again in the meantime. Check the map.");
+    void muatKursi();
+    void load(true);
   }
 
   function updateConfig<K extends keyof ConfigState>(key: K, value: ConfigState[K]) {
@@ -405,6 +431,12 @@ export default function SeatMapAdminPage() {
           className="mx-auto min-w-[480px]"
         />
       </div>
+      {menugaskan && urungkan ? (
+        <div role="status" className="flex shrink-0 items-center gap-3 border-t border-outline-variant bg-inverse-surface px-4 py-1.5 text-body-medium text-inverse-on-surface">
+          <span className="min-w-0 flex-1">{urungkan.pesan}</span>
+          <button type="button" onClick={() => void batalkanPerubahan()} disabled={mengurungkan} className="min-h-9 shrink-0 rounded-full px-3 text-label-large font-semibold underline disabled:opacity-60">{mengurungkan ? "Undoing…" : "Undo"}</button>
+        </div>
+      ) : null}
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant px-4 py-2.5 text-body-medium">
         {report ? (
           <>
@@ -922,10 +954,11 @@ export default function SeatMapAdminPage() {
       <AssignSeatDialog
         kursi={kursiDipilih}
         onClose={() => setKursiDipilih(null)}
-        onSaved={(pesan) => {
+        onSaved={(pesan, langkah) => {
           setKursiDipilih(null);
-          if (pesan) toast.success(pesan);
-          else toast.error("Seat not changed", "Someone else changed this seat. The map has been refreshed.");
+          if (!pesan) toast.error("Seat not changed", "Someone else changed this seat. The map has been refreshed.");
+          else if (langkah) setUrungkan({ pesan, langkah });
+          else { setUrungkan(null); toast.success(pesan); }
           void muatKursi();
           void load(true);
         }}

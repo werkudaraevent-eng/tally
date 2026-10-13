@@ -40,7 +40,8 @@ export async function GET(request: Request) {
     .is("source_removed_at", null);
   if (kata) kueri = kueri.or(["name", "company", "email"].map((kolom) => `${kolom}.ilike.*${kata}*`).join(","));
   // Tanpa kata kunci: yang belum duduk di sesi ini saja, supaya tidak tenggelam di urutan abjad.
-  else kueri = kueri.not("seats", "cs", JSON.stringify([{ subEventId: sumber }]));
+  // `seats` kosong (NULL) juga dihitung belum duduk; `not cs` saja membuangnya.
+  else kueri = kueri.or(`seats.is.null,seats.not.cs.${JSON.stringify([{ subEventId: sumber }])}`);
   const { data, error } = await kueri.order("name", { ascending: true }).limit(200);
   if (error) return apiError("INTERNAL_ERROR", 500);
 
@@ -81,9 +82,48 @@ export async function POST(request: Request) {
 
   const target = participant_id ?? current_participant_id;
   if (!target) return Response.json({ ok: true, freed: [] });
+
+  // Peserta harus milik acara ini, aktif, dan bukan baris scanner. Diperiksa
+  // sebelum menulis apa pun supaya pemegang lama tidak terlepas tanpa pengganti.
+  const client = getSupabaseServiceClient();
+  const ids = [...new Set([participant_id, current_participant_id].filter((id): id is string => Boolean(id)))];
+  const { data: baris, error: bacaGagal } = await client
+    .from("participants")
+    .select("id,name,seats")
+    .eq("event_id", eventId)
+    .is("source_participant_id", null)
+    .is("source_removed_at", null)
+    .in("id", ids);
+  if (bacaGagal) return apiError("INTERNAL_ERROR", 500);
+  const peserta = new Map(((baris ?? []) as unknown as Array<{ id: string; name: string; seats: StoredSeat[] | null }>).map((row) => [row.id, row]));
+  if (ids.some((id) => !peserta.has(id))) return apiError("PARTICIPANT_NOT_FOUND", 404, { seat: "That participant isn't in this event's list any more. Reload the page." });
+
   try {
     const kursi = await prepareTallySeats(eventId, target, [{ session_id, label: participant_id ? label : null }]);
+    const sebelum = peserta.get(target)?.seats ?? [];
     const { freed } = await applyTallySeats(eventId, target, kursi, auth.user.id);
+
+    // Dua admin yang mengisi kursi kosong yang sama pada saat bersamaan sama-sama
+    // lolos pemeriksaan di atas. Sesudah menulis, pemegang kursi dibaca ulang;
+    // bila ada orang lain juga di situ, tulisan ini dibatalkan. Keduanya bisa
+    // gagal dan harus mencoba lagi, tetapi kursi ganda tidak pernah tersisa.
+    // (Kunci di SQL lewat RPC menyusul di jalur migrasi.)
+    const labelSah = kursi[0]?.label;
+    if (participant_id && labelSah) {
+      const sumber = tallySeatSource(session_id);
+      const { data: pemegangBaru } = await client
+        .from("participants")
+        .select("id")
+        .eq("event_id", eventId)
+        .is("source_removed_at", null)
+        .contains("seats", JSON.stringify([{ subEventId: sumber, label: labelSah }]))
+        .limit(5);
+      const lain = ((pemegangBaru ?? []) as Array<{ id: string }>).filter((row) => row.id !== participant_id);
+      if (lain.length > 0) {
+        await client.from("participants").update({ seats: sebelum } as never).eq("event_id", eventId).eq("id", participant_id).is("source_participant_id", null);
+        return apiError("CONFLICT", 409, { seat: "Seat was just taken. Try again." });
+      }
+    }
     return Response.json({ ok: true, freed });
   } catch (galat) {
     if (galat instanceof SeatInputError) return apiError("VALIDATION_ERROR", 422, { seat: galat.message });
