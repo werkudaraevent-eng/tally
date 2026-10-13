@@ -45,6 +45,14 @@ export const GATHERING_NAV_DEFAULT = { color: "#ffffff", opacity: 100, height: 8
 export const GATHERING_ACCENT_DEFAULT = "#E9C46A";
 /** Warna tombol bawaan preset Gathering: hijau yang 5:1 dengan teks putih (hijau rancangan Hanung #00A86B hanya 3:1). */
 export const GATHERING_BUTTON_DEFAULT = "#007F50";
+/**
+ * Gathering Horizon (rancangan V5 Hanung, pen.dev 2026-10-13): navy #0B182D,
+ * emas #E8C968 untuk aksen dan tombol. Bilah atas bening di atas hero navy,
+ * navy pekat setelah hero lewat; tingginya diatur halaman (102/128px), bukan CMS.
+ */
+export const HORIZON_BRAND_DEFAULT = "#0B182D";
+export const HORIZON_GOLD_DEFAULT = "#E8C968";
+export const HORIZON_NAV_DEFAULT = { color: "#0B182D", opacity: 0, height: 120 } as const;
 
 export type LandingTokens = {
   layout: LandingLayout;

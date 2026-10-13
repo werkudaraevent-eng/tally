@@ -96,7 +96,7 @@ export function HariGathering({
  * pertama dan yang terakhir. Pembuka hari dan acara malamnya biasanya yang
  * ditunggu tamu; jeda (makan siang, rehat) tidak dihitung.
  */
-function jamPenting(items: AgendaItem[]): { tampil: AgendaItem[]; sisa: number } {
+export function jamPenting(items: AgendaItem[]): { tampil: AgendaItem[]; sisa: number } {
   const isi = items.filter((item) => !item.jeda);
   if (isi.length <= 3) return { tampil: isi, sisa: 0 };
   return { tampil: [isi[0], isi[1], isi[isi.length - 1]], sisa: isi.length - 3 };

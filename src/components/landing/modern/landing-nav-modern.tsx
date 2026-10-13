@@ -157,6 +157,7 @@ export function LandingNavModern({
   sectionBase = "",
   dashboardAktif = false,
   gathering = null,
+  horizon = false,
 }: {
   eventName: string;
   daftarUrl: string;
@@ -182,6 +183,14 @@ export function LandingNavModern({
   dashboardAktif?: boolean;
   /** Gaya aplikasi preset Gathering; null = bilah Modern biasa. */
   gathering?: { tanda: string; sub: string | null } | null;
+  /**
+   * Gathering Horizon (rancangan V5): bilah bening di atas hero navy, logo
+   * 80px (62px di ponsel), tautan putih 14/600, "Masuk" teks dan "Daftar
+   * sekarang" pil emas. Setelah hero lewat bilah menyusut (72/64px) dan
+   * menjadi navy, supaya tidak memakan seperlima layar laptop. Di ponsel hanya
+   * logo dan Menu; Masuk dan Daftar pindah ke dalam Menu.
+   */
+  horizon?: boolean;
 }) {
   const t = LANDING_UI[lang];
   const [aktif, setAktif] = useState<string | null>(null);
@@ -228,7 +237,10 @@ export function LandingNavModern({
     if (!hero) return;
     const periksa = () => {
       const nav = document.querySelector<HTMLElement>("[data-landing-nav]");
-      const lewat = hero.getBoundingClientRect().bottom <= (nav?.offsetHeight ?? 64);
+      // Tinggi bilah termasuk margin bawahnya: bilah Horizon yang menyusut
+      // menggantinya dengan margin, jadi ambangnya tetap dan tidak berkedip.
+      const tinggiNav = nav ? nav.offsetHeight + (parseFloat(getComputedStyle(nav).marginBottom) || 0) : 64;
+      const lewat = hero.getBoundingClientRect().bottom <= tinggiNav;
       setLewatHero(lewat);
       // Kembali ke hero: tidak ada bagian yang sedang dibaca, jadi garis bawah menu hilang.
       if (hero.getBoundingClientRect().top >= 0) setAktif(null);
@@ -276,13 +288,19 @@ export function LandingNavModern({
   // Garis rambut di bawah bilah setelah hero lewat: bilah putih di atas isi
   // putih tanpa garis terlihat seperti teks yang mengambang.
   const bilah = `bg-[var(--nav-fill)] text-[var(--nav-text)] transition-[background-color,box-shadow] duration-200 ${
-    lewatHero || gathering ? "shadow-[0_1px_0_color-mix(in_srgb,var(--nav-text)_12%,transparent)]" : ""
+    lewatHero || (gathering && !horizon) ? "shadow-[0_1px_0_color-mix(in_srgb,var(--nav-text)_12%,transparent)]" : ""
   }`;
   // Gathering: tombol pil terisi warna tombol Tema versi putih (--aksi-putih
   // dipasang di <main>), 13/700 seperti rancangan, area ketuk 48px.
   const PIL_GATHERING =
     "m3-state inline-flex min-h-12 items-center whitespace-nowrap rounded-full bg-[var(--aksi-putih)] px-4 text-[13px] sm:px-[26px] font-bold text-[var(--on-aksi-putih)]";
   const selebarIsi = width === "content";
+  const ringkas = horizon && lewatHero;
+  // Horizon: pil emas rancangan (14/800, 25px kiri-kanan), area ketuk 48px.
+  const PIL_EMAS =
+    "m3-state inline-flex min-h-12 items-center whitespace-nowrap rounded-full bg-[var(--hz-emas)] px-[25px] text-[14px] font-extrabold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)]";
+  const masukHorizon = horizon && !peserta && memberLink ? memberLink : null;
+  const daftarHorizon = horizon && !peserta && registrationOpen;
 
   return (
     <nav
@@ -290,18 +308,24 @@ export function LandingNavModern({
       data-landing-nav
       data-sunting="pembuka:nav"
       ref={navRef}
-      className={`sticky top-0 z-30 ${selebarIsi ? "" : bilah}`}
-      style={{ ...isi, ...(selebarIsi ? {} : { backdropFilter: lewatHero ? "blur(12px)" : "var(--nav-blur)" }) }}
+      className={`sticky top-0 z-30 ${selebarIsi ? "" : bilah} ${horizon ? "transition-[margin] duration-200 [--nav-ringkas:64px] md:[--nav-ringkas:72px]" : ""}`}
+      style={{
+        ...isi,
+        ...(selebarIsi ? {} : { backdropFilter: lewatHero ? "blur(12px)" : "var(--nav-blur)" }),
+        ...(horizon ? { marginBottom: ringkas ? "calc(var(--nav-h) - var(--nav-ringkas))" : "0px" } : {}),
+      }}
     >
       {/* Tata letak akar menulis <html lang="id">; halaman English membetulkannya. */}
       <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
       <div
-        className={`mx-auto flex h-[var(--nav-h)] w-full max-w-[1440px] items-center gap-6 ${
+        className={`mx-auto flex w-full max-w-[1440px] items-center gap-6 ${horizon ? `transition-[height] duration-200 ${ringkas ? "h-[var(--nav-ringkas)]" : "h-[var(--nav-h)]"}` : "h-[var(--nav-h)]"} ${
           // Selebar isi: bilahnya sendiri yang mengikuti kolom isi halaman, jadi
           // jarak tepinya pindah ke luar dan bilah mendapat sudut membulat.
           selebarIsi
             ? `${bilah} rounded-b-lg px-5 sm:px-8 lg:max-w-[calc(1440px-80px)] lg:px-6 xl:max-w-[calc(1440px-160px)]`
-            : "px-5 sm:px-8 lg:px-[var(--pinggir-lg,2.5rem)] xl:px-[var(--pinggir-xl,5rem)]"
+            : horizon
+              ? "px-6 md:px-16"
+              : "px-5 sm:px-8 lg:px-[var(--pinggir-lg,2.5rem)] xl:px-[var(--pinggir-xl,5rem)]"
         }`}
         style={selebarIsi ? { backdropFilter: lewatHero ? "blur(12px)" : "var(--nav-blur)" } : undefined}
       >
@@ -309,7 +333,15 @@ export function LandingNavModern({
           href={homeHref}
           className="flex min-h-12 min-w-0 flex-1 items-center text-title-large font-semibold [font-family:var(--landing-heading)]"
         >
-          {gathering && !logoUrl ? (
+          {horizon && logoUrl ? (
+            // Logo rancangan 140×80 (106×62 di ponsel), warna asli di atas navy.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt={eventName}
+              className={`block w-auto max-w-[min(240px,50vw,100%)] object-contain object-left transition-[height] duration-200 ${ringkas ? "h-10 md:h-12" : "h-[62px] md:h-20"}`}
+            />
+          ) : gathering && !logoUrl ? (
             <span className="flex min-w-0 items-center gap-3 [font-family:inherit]">
               <span
                 aria-hidden
@@ -343,7 +375,7 @@ export function LandingNavModern({
           )}
         </a>
 
-        <ul className={`hidden items-center xl:flex ${gathering ? "gap-5" : "gap-1"}`}>
+        <ul className={`hidden items-center xl:flex ${horizon ? "gap-6" : gathering ? "gap-5" : "gap-1"}`}>
           {sections.map((section) => (
             <li key={section.id}>
               <a
@@ -352,7 +384,9 @@ export function LandingNavModern({
                 // Tebal sama untuk semua tautan, bagian aktif ditandai garis
                 // bawah: tautan yang menebal menggeser tetangganya saat digulir.
                 className={
-                  gathering
+                  horizon
+                    ? "m3-state relative inline-flex min-h-12 items-center whitespace-nowrap rounded-md px-1 text-[14px] font-semibold"
+                    : gathering
                     ? "m3-state relative inline-flex min-h-12 items-center whitespace-nowrap rounded-md px-2 text-[14px] font-semibold text-[color-mix(in_srgb,var(--nav-text)_72%,transparent)] aria-[current]:text-[var(--nav-text)]"
                     : "m3-state relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 text-[15px] font-medium"
                 }
@@ -360,7 +394,7 @@ export function LandingNavModern({
                 {section.label}
                 <span
                   aria-hidden
-                  className={`absolute ${gathering ? "inset-x-2" : "inset-x-3"} bottom-1 h-0.5 rounded-full bg-current transition-transform duration-200 ${
+                  className={`absolute ${horizon ? "inset-x-1" : gathering ? "inset-x-2" : "inset-x-3"} bottom-1 h-0.5 rounded-full bg-current transition-transform duration-200 ${
                     aktif === section.id ? "scale-x-100" : "scale-x-0"
                   }`}
                 />
@@ -446,12 +480,18 @@ export function LandingNavModern({
                 // Ukuran dan warna tombol Daftar yang digantikannya. Lingkaran
                 // inisial memakai pasangan warna yang dibalik, jadi tetap terlihat
                 // di bilah terang maupun gelap.
-                className="m3-state hidden min-h-11 items-center gap-2 whitespace-nowrap rounded-md bg-[var(--nav-text)] pl-1.5 pr-4 text-label-large font-semibold text-[var(--nav-on-text)] sm:inline-flex"
-                style={{ "--m3-state-color": "var(--nav-on-text)" } as CSSProperties}
+                className={
+                  horizon
+                    ? `${PIL_EMAS} gap-2 pl-1.5 pr-5 max-sm:hidden`
+                    : "m3-state hidden min-h-11 items-center gap-2 whitespace-nowrap rounded-md bg-[var(--nav-text)] pl-1.5 pr-4 text-label-large font-semibold text-[var(--nav-on-text)] sm:inline-flex"
+                }
+                style={horizon ? undefined : ({ "--m3-state-color": "var(--nav-on-text)" } as CSSProperties)}
               >
                 <span
                   aria-hidden
-                  className="inline-flex size-8 items-center justify-center rounded-full bg-[var(--nav-on-text)] text-[12px] font-semibold tracking-[0.02em] text-[var(--nav-text)]"
+                  className={`inline-flex size-8 items-center justify-center rounded-full text-[12px] font-semibold tracking-[0.02em] ${
+                    horizon ? "bg-[var(--hz-navy)] text-[var(--hz-emas)]" : "bg-[var(--nav-on-text)] text-[var(--nav-text)]"
+                  }`}
                 >
                   {peserta.inisial}
                 </span>
@@ -459,7 +499,22 @@ export function LandingNavModern({
               </Link>
             </>
           ) : null}
-          {!peserta && memberLink && gathering ? (
+          {masukHorizon ? (
+            // Pendaftaran terbuka: "Masuk" teks putih di samping pil Daftar, seperti
+            // rancangan. Tertutup (undangan): Masuk menjadi satu-satunya pil emas.
+            <Link
+              href={masukHorizon.href}
+              className={`${daftarHorizon ? "m3-state inline-flex min-h-12 items-center whitespace-nowrap rounded-md px-2 text-[14px] font-semibold" : PIL_EMAS} max-md:hidden`}
+            >
+              {masukHorizon.label}
+            </Link>
+          ) : null}
+          {daftarHorizon ? (
+            <Link href={daftarUrl} className={`${PIL_EMAS} max-md:hidden`}>
+              {t.registerNow}
+            </Link>
+          ) : null}
+          {!peserta && memberLink && gathering && !horizon ? (
             // Gathering: satu tombol pil terisi. Bila pendaftaran juga terbuka,
             // Daftar yang terisi dan Masuk bergaris, supaya tidak ada dua tombol hijau.
             <Link
@@ -474,7 +529,7 @@ export function LandingNavModern({
               {registrationOpen || memberLink.area ? memberLink.label : t.navPortalSignIn}
             </Link>
           ) : null}
-          {!peserta && registrationOpen && gathering ? (
+          {!peserta && registrationOpen && gathering && !horizon ? (
             <Link href={daftarUrl} className={PIL_GATHERING} style={{ "--m3-state-color": "var(--on-aksi-putih)" } as CSSProperties}>
               {t.register}
             </Link>
@@ -500,7 +555,7 @@ export function LandingNavModern({
               {t.register}
             </Link>
           ) : null}
-          {sections.length > 0 || peserta ? (
+          {sections.length > 0 || peserta || masukHorizon || daftarHorizon ? (
             <button
               ref={tombolMenuRef}
               type="button"
@@ -511,13 +566,13 @@ export function LandingNavModern({
                 setMenuBuka((buka) => !buka);
                 setLoncengBuka(false);
               }}
-              className={`m3-state target-48 -mr-2 inline-flex size-11 items-center justify-center rounded-md xl:hidden ${
+              className={`m3-state target-48 -mr-2 inline-flex items-center justify-center rounded-md xl:hidden ${horizon ? "size-12" : "size-11"} ${
                 // Tanpa bagian halaman, Menu hanya berisi Dashboard saya dan
                 // Keluar, dan di layar sm+ tombol Dashboard sudah di bilah.
-                sections.length === 0 ? "sm:hidden" : ""
+                sections.length === 0 ? (horizon ? "md:hidden" : "sm:hidden") : ""
               }`}
             >
-              {menuBuka ? <X size={22} aria-hidden /> : <List size={22} aria-hidden />}
+              {menuBuka ? <X size={horizon ? 24 : 22} aria-hidden /> : <List size={horizon ? 24 : 22} aria-hidden />}
             </button>
           ) : null}
         </div>
@@ -528,6 +583,25 @@ export function LandingNavModern({
           id={menuId}
           className="absolute inset-x-0 top-full flex flex-col border-t border-[color-mix(in_srgb,var(--nav-text)_12%,transparent)] bg-[var(--nav-fill)] px-3 pb-3 pt-2 text-[var(--nav-text)] shadow-[0_8px_16px_rgb(0_0_0/0.08)] backdrop-blur-md xl:hidden"
         >
+          {masukHorizon || daftarHorizon ? (
+            // Horizon di ponsel: bilah hanya logo dan Menu, jadi Daftar dan Masuk ada di sini.
+            <li className="flex flex-col gap-2 px-1 pb-2 pt-1 md:hidden">
+              {daftarHorizon ? (
+                <Link href={daftarUrl} onClick={() => setMenuBuka(false)} className={`${PIL_EMAS} justify-center`}>
+                  {t.registerNow}
+                </Link>
+              ) : null}
+              {masukHorizon ? (
+                <Link
+                  href={masukHorizon.href}
+                  onClick={() => setMenuBuka(false)}
+                  className={daftarHorizon ? "m3-state inline-flex min-h-12 items-center justify-center rounded-full border border-current text-[14px] font-bold" : `${PIL_EMAS} justify-center`}
+                >
+                  {masukHorizon.label}
+                </Link>
+              ) : null}
+            </li>
+          ) : null}
           {peserta ? (
             <>
               <li className="sm:hidden">

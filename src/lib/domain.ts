@@ -1209,6 +1209,13 @@ export type LandingNavConfig = {
 
 export type LandingNavLogoTone = "white" | "original";
 
+export type LandingGatheringVariant = "horizon";
+
+/** Gaya Gathering Horizon dipakai halaman ini: varian hanya berlaku di gaya gathering. */
+export function gatheringHorizon(config: EventLandingConfig | null | undefined): boolean {
+  return config?.gathering === true && config.gathering_variant === "horizon";
+}
+
 /**
  * Logo bilah atas diputihkan selagi di atas gambar hero? Hanya bila bilahnya
  * bening (opacity < 50), ada gambar di belakangnya, dan admin tidak memilih
@@ -1395,6 +1402,20 @@ export type EventLandingConfig = {
    * angka sesi (khas acara rapat) disembunyikan.
    */
   gathering?: boolean;
+  /**
+   * Varian gaya gathering. Kosong = Gathering yang sudah ada (tidak berubah).
+   * `horizon`: rancangan V5 "Beyond Everyday" Hanung (pen.dev, 2026-10-13):
+   * hero navy dengan KV utuh di bawah judul, cerita bergambar di atas krem,
+   * perjalanan per hari di atas navy, kartu perjalanan, pita penutup emas.
+   * Hanya dibaca bila `gathering` menyala; dipilih lewat preset Gathering Horizon.
+   */
+  gathering_variant?: LandingGatheringVariant;
+  /**
+   * Kartu perjalanan Gathering Horizon: asal dan tujuan ("Gambir" dan
+   * "Yogyakarta"). Kosong = tujuan dari nama tempat acara, tanpa asal.
+   */
+  pass_from?: string;
+  pass_to?: string;
   /**
    * Logo di tengah hero gaya gathering, di atas judul ajakan. Kosong = hero
    * tanpa logo. Acara lain tidak membacanya.
