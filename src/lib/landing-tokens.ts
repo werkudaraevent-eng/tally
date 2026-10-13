@@ -60,12 +60,13 @@ export function emasHorizon(warnaTombol: string | null | undefined, aksen: strin
 }
 /**
  * Warna teks emas Horizon di atas navy (kata disorot di judul, label hero,
- * nomor hari, kartu perjalanan): emasnya bila terbaca di atas navy (3:1),
+ * nomor hari, kartu perjalanan): emasnya bila terbaca di atas navy (4,5:1,
+ * karena sebagian besar teksnya kecil),
  * lalu aksen, lalu emas rancangan. Warna tombol gelap (mis. #1F3B73) tetap
  * dipakai tombol, tapi tidak untuk teks.
  */
 export function sorotHorizon(emas: string, aksen: string | null | undefined, navy: string): string {
-  return [emas, aksen].find((warna) => HEKS.test(warna ?? "") && kontras(warna as string, navy) >= 3) ?? HORIZON_GOLD_DEFAULT;
+  return [emas, aksen].find((warna) => HEKS.test(warna ?? "") && kontras(warna as string, navy) >= 4.5) ?? HORIZON_GOLD_DEFAULT;
 }
 export const HORIZON_NAV_DEFAULT = { color: "#0B182D", opacity: 0, height: 120 } as const;
 

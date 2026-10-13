@@ -20,7 +20,7 @@ import { modernNavStyle } from "@/lib/registration-theme-css";
  * tersimpan, sedangkan warna dan transparansi paling mudah dinilai sambil
  * menggeser; latar bergaris gelap-terang memperlihatkan seberapa tembus bilahnya.
  */
-function BilahAtasContoh({ warna, opasitas, lebar, nama, logo, logoPutih }: { warna: string; opasitas: number; lebar: LandingNavWidth; nama: string; logo: string | null; logoPutih: boolean }) {
+function BilahAtasContoh({ warna, opasitas, lebar, nama, logo, logoPutih, latar }: { warna: string; opasitas: number; lebar: LandingNavWidth; nama: string; logo: string | null; logoPutih: boolean; latar?: string }) {
   // Variabel yang sama dengan halaman publik (hero ber-KV), supaya warna teks
   // di contoh ini tidak bisa berbeda dari yang dilihat tamu.
   const gaya = modernNavStyle({ color: warna, opacity: opasitas }, { ink: "#ffffff", onInk: "#181d27" });
@@ -28,7 +28,7 @@ function BilahAtasContoh({ warna, opasitas, lebar, nama, logo, logoPutih }: { wa
     <div
       aria-hidden
       className="overflow-hidden rounded-md border border-outline-variant"
-      style={{ ...gaya, background: "linear-gradient(110deg, #3b2f25 0%, #8a6a4a 35%, #d9c7a8 55%, #f4efe6 70%, #6b5a48 100%)" }}
+      style={{ ...gaya, background: latar ?? "linear-gradient(110deg, #3b2f25 0%, #8a6a4a 35%, #d9c7a8 55%, #f4efe6 70%, #6b5a48 100%)" }}
     >
       <div className={lebar === "content" ? "px-4" : ""}>
         <div
@@ -61,6 +61,7 @@ export function BilahAtasEditor({
   horizon = false,
   logoCadangan = null,
   onLogo,
+  navyHorizon,
 }: {
   value: LandingNavConfig;
   onChange: (next: LandingNavConfig) => void;
@@ -74,6 +75,8 @@ export function BilahAtasEditor({
   logoCadangan?: string | null;
   /** Dipanggil saat logo diganti atau dihapus bila ada logoCadangan: hapus berarti logo cadangannya juga. */
   onLogo?: (url: string | null) => void;
+  /** Horizon: navy hero di halaman, latar contoh bilah (logo tampil warna aslinya, seperti di halaman). */
+  navyHorizon?: string;
 }) {
   const setBilahAtas = (patch: Partial<LandingNavConfig>) => onChange({ ...bilahAtas, ...patch });
   const warnaBilah = bilahAtas.color ?? LANDING_NAV_DEFAULTS.color;
@@ -88,7 +91,8 @@ export function BilahAtasEditor({
         lebar={bilahAtas.width ?? "full"}
         nama={eventName}
         logo={logoTampil}
-        logoPutih={logoNavPutih(bilahAtas, true)}
+        logoPutih={horizon ? false : logoNavPutih(bilahAtas, true)}
+        latar={horizon ? navyHorizon : undefined}
       />
       <ImageUploadField
         label="Event logo"

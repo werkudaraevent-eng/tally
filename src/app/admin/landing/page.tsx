@@ -1323,6 +1323,7 @@ export default function LandingCmsPage() {
           horizon={horizon}
           // Horizon memakai logo hero di bilah saat logo bilah kosong: tampilkan di sini, hapus keduanya.
           logoCadangan={horizon ? landing.hero_logo_url?.trim() || null : null}
+          navyHorizon={tokensHero.brand}
           onLogo={(url) => setLanding({ ...landing, nav: { ...(landing.nav ?? {}), logo_url: url }, hero_logo_url: url ? landing.hero_logo_url : null })}
         />
         </div>

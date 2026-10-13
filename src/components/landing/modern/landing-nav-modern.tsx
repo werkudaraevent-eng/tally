@@ -493,7 +493,7 @@ export function LandingNavModern({
                 <span
                   aria-hidden
                   className={`inline-flex size-8 items-center justify-center rounded-full text-[12px] font-semibold tracking-[0.02em] ${
-                    horizon ? "bg-[var(--hz-navy)] text-[var(--hz-emas)]" : "bg-[var(--nav-on-text)] text-[var(--nav-text)]"
+                    horizon ? "bg-[var(--hz-navy)] text-[var(--hz-sorot,var(--hz-emas))]" : "bg-[var(--nav-on-text)] text-[var(--nav-text)]"
                   }`}
                 >
                   {peserta.inisial}
