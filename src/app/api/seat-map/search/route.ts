@@ -25,6 +25,9 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const MIN_QUERY_LENGTH = 3;
 const MAX_RESULTS = 5;
+// Cari per organisasi menyorot kursi seluruh anggotanya sekaligus, tanpa nama.
+// Batas ini menjaga kata kunci yang terlalu umum tetap diminta lebih lengkap.
+const MAX_ORGANISATION_MATCHES = 100;
 
 const querySchema = z.object({
   q: z.string().trim().min(MIN_QUERY_LENGTH, `Ketik minimal ${MIN_QUERY_LENGTH} huruf.`).max(80),
@@ -75,6 +78,9 @@ export async function GET(request: Request) {
     // Satu orang bisa memegang lebih dari satu kursi; dikelompokkan per orang
     // supaya tamu melihat satu hasil dengan daftar kursinya, bukan hasil ganda.
     const grouped = new Map<string, { name: string; company: string; seatLabels: string[]; tableNumbers: Set<string> }>();
+    // Peserta yang cocok lewat organisasinya. Yang dikirim hanya kursinya, bukan
+    // namanya, supaya seluruh rombongan bisa disorot tanpa membuka daftar nama.
+    const perOrganisasi = new Map<string, string[]>();
 
     for (const assignment of assignments) {
       const company = (assignment.company ?? "").trim();
@@ -82,6 +88,7 @@ export async function GET(request: Request) {
       const cocokOrganisasi = organisasiBoleh && assignment.allowNameDisplay && company.toLowerCase().includes(needle);
       const cocok = cocokNama || cocokOrganisasi;
       if (!cocok) continue;
+      if (cocokOrganisasi) perOrganisasi.set(assignment.participantId, [...(perOrganisasi.get(assignment.participantId) ?? []), assignment.seatLabel]);
       const entry = grouped.get(assignment.participantId) ?? {
         name: assignment.name,
         // Organisasi hanya ikut tampil bila boleh dicari: tidak untuk peserta yang menolak namanya tampil.
@@ -94,6 +101,11 @@ export async function GET(request: Request) {
     }
 
     const total = grouped.size;
+    const totalOrganisasi = perOrganisasi.size;
+    const kursiOrganisasi = [...perOrganisasi.values()].flat();
+    const organisasi = totalOrganisasi > 0 && totalOrganisasi <= MAX_ORGANISATION_MATCHES
+      ? { total: totalOrganisasi, seat_labels: kursiOrganisasi, normalized_labels: kursiOrganisasi.map(normalizeSeatLabel) }
+      : null;
 
     // Kata kunci yang terlalu umum tidak dilayani dengan daftar. Tamu asli
     // cukup mengetik lebih lengkap; penyapu data tidak mendapat nama.
@@ -103,7 +115,10 @@ export async function GET(request: Request) {
         total,
         truncated: true,
         results: [],
-        message: cariPerusahaan
+        organisasi,
+        message: organisasi
+          ? `Kursi ${organisasi.total} peserta dari organisasi ini disorot di denah.`
+          : cariPerusahaan
           ? `Ada ${total} peserta yang cocok. Ketik nama Anda lebih lengkap.`
           : `Ada ${total} nama yang cocok. Ketik nama lebih lengkap.`,
       });
@@ -116,7 +131,7 @@ export async function GET(request: Request) {
       normalized_labels: entry.seatLabels.map(normalizeSeatLabel),
     }));
 
-    return Response.json({ session: session.slug, total, truncated: false, results });
+    return Response.json({ session: session.slug, total, truncated: false, results, organisasi });
   } catch {
     return apiErrorPeserta("INTERNAL_ERROR", 500);
   }

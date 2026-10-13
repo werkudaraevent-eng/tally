@@ -179,17 +179,19 @@ export default function SeatMapPage() {
             setHighlighted([]);
             return;
           }
+          // Cocok lewat organisasi: seluruh kursi anggotanya langsung disorot.
+          const organisasi = (data.organisasi ?? null) as { total: number; normalized_labels: string[] } | null;
           if (data.truncated) {
             setResults([]);
             setSearchNote(data.message ?? "Ketik nama lebih lengkap.");
-            setHighlighted([]);
+            setHighlighted(organisasi ? organisasi.normalized_labels : []);
             return;
           }
           const found = (data.results ?? []) as SearchResult[];
           setResults(found);
           setSearchNote(found.length === 0 ? "Nama tidak ditemukan pada sesi ini." : "");
           // Satu hasil langsung disorot supaya tamu tidak perlu menekan apa pun.
-          setHighlighted(found.length === 1 ? found[0].normalized_labels : []);
+          setHighlighted(organisasi ? organisasi.normalized_labels : found.length === 1 ? found[0].normalized_labels : []);
         })
         .catch((error: unknown) => {
           if (error instanceof DOMException && error.name === "AbortError") return;
