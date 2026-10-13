@@ -12,15 +12,18 @@ import { m, useMotionValueEvent, useReducedMotion, useScroll, useTransform } fro
  * sistem meminta gerak dikurangi (garisnya tampil penuh, diam).
  */
 
-const EASE = [0.2, 0, 0, 1] as const;
-
-type Keadaan = "awal" | "sembunyi" | "tampil";
-
 /**
- * Isi yang naik-pudar sekali saat masuk layar. HTML server tetap terlihat
- * (initial={false}): isi baru disembunyikan setelah terpasang, dan hanya bila
- * masih di bawah layar, jadi tanpa JavaScript atau saat dimuat di tengah
- * halaman tidak ada yang hilang atau berkedip.
+ * Isi yang naik-pudar sekali saat masuk layar. HTML server tetap terlihat:
+ * isi baru disembunyikan setelah terpasang, dan hanya bila masih di bawah
+ * layar, jadi tanpa JavaScript atau saat dimuat di tengah halaman tidak ada
+ * yang hilang atau berkedip.
+ *
+ * Sembunyi dan tampil ditulis langsung ke data-muncul dan dijalankan transisi
+ * CSS, bukan animate framer: animasi sembunyi berdurasi nol dari framer bisa
+ * menang atas animasi tampil saat halaman digulir cepat selagi hidrasi, dan
+ * isinya tertahan tak terlihat. Di sini tampil selalu menang: setiap panggilan
+ * pengamat membaca posisi saat itu, dan isi yang sudah sampai atau melewati
+ * layar langsung tampil, termasuk yang terlewat dalam satu gulir cepat.
  */
 export function Muncul({
   children,
@@ -37,50 +40,51 @@ export function Muncul({
 }) {
   const ref = useRef<HTMLElement | null>(null);
   const kurangi = useReducedMotion();
-  const [keadaan, setKeadaan] = useState<Keadaan>("awal");
 
   useEffect(() => {
     const el = ref.current;
     if (!el || kurangi || typeof IntersectionObserver === "undefined") return;
-    // Keadaan awal dari posisi nyata, bukan isIntersecting (rootMargin -8%
-    // menganggap isi di tepi bawah layar "di bawah" lalu menyembunyikannya):
-    // apa pun yang sudah terlihat saat dimuat dibiarkan apa adanya.
-    // Disembunyikan baru di panggilan pertama pengamat, jadi bila pengamat
-    // tidak pernah memanggil, isi tetap terlihat.
+    // Garis tampil sama dengan rootMargin pengamat (-8% di bawah).
+    const sudahSampai = () => el.getBoundingClientRect().top < window.innerHeight * 0.92;
+    // Apa pun yang sudah terlihat saat dimuat dibiarkan apa adanya.
     if (el.getBoundingClientRect().top < window.innerHeight) return;
     let pertama = true;
     const pengamat = new IntersectionObserver(
-      ([entri]) => {
-        if (pertama) {
-          pertama = false;
-          if (!entri.isIntersecting && entri.boundingClientRect.top >= window.innerHeight) {
-            setKeadaan("sembunyi");
-            return;
+      () => {
+        // Posisi dibaca ulang, bukan dari entri: entri bisa basi atau datang
+        // beberapa sekaligus.
+        if (sudahSampai()) {
+          if (el.dataset.muncul === "sembunyi") {
+            el.style.transitionDelay = `${jeda}s`;
+            el.dataset.muncul = "tampil";
           }
-        }
-        if (entri.isIntersecting) {
-          setKeadaan("tampil");
           pengamat.disconnect();
+          return;
         }
+        // Disembunyikan baru di panggilan pertama pengamat, jadi bila
+        // pengamat tidak pernah memanggil, isi tetap terlihat.
+        if (pertama && el.getBoundingClientRect().top >= window.innerHeight) el.dataset.muncul = "sembunyi";
+        pertama = false;
       },
       { rootMargin: "0px 0px -8% 0px" },
     );
     pengamat.observe(el);
-    return () => pengamat.disconnect();
-  }, [kurangi]);
+    return () => {
+      pengamat.disconnect();
+      // Dipasang ulang (mis. gerak dikurangi dinyalakan): jangan tinggalkan isi tersembunyi.
+      if (el.dataset.muncul === "sembunyi") el.dataset.muncul = "tampil";
+    };
+  }, [kurangi, jeda]);
 
-  const Komponen = as === "li" ? m.li : m.div;
+  const Komponen = as;
   return (
     <Komponen
       ref={(node: HTMLElement | null) => {
         ref.current = node;
       }}
       // Cetak: isi yang belum digulir tetap tercetak (gaya sembunyi ditimpa).
-      className={`print:!transform-none print:!opacity-100 ${className ?? ""}`}
+      className={`transition-[opacity,translate] duration-[450ms] ease-[cubic-bezier(0.2,0,0,1)] data-[muncul=sembunyi]:translate-y-4 data-[muncul=sembunyi]:opacity-0 data-[muncul=sembunyi]:duration-0 motion-reduce:transition-none print:!translate-none print:!opacity-100 ${className ?? ""}`}
       style={style}
-      initial={false}
-      animate={keadaan === "sembunyi" ? { opacity: 0, y: 16 } : { opacity: 1, y: 0 }}
-      transition={keadaan === "tampil" ? { duration: 0.45, delay: jeda, ease: EASE } : { duration: 0 }}
     >
       {children}
     </Komponen>
