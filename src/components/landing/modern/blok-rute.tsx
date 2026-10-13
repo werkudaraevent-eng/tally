@@ -3,6 +3,7 @@ import { ArrowUpRight, Car, CaretDown, MapPin, NavigationArrow } from "@phosphor
 import type { LandingBlock, LandingRouteStop } from "@/lib/domain";
 import { LANDING_CARD_ICON_POLA, type LandingCardTone } from "@/lib/landing-card-icons";
 import type { LandingHotel } from "@/lib/landing-hotel";
+import { hexLatarSendiri, warnaLatarSendiri } from "@/lib/landing-latar-sendiri";
 import type { LandingLang } from "@/lib/landing-i18n";
 import { GambarIkonKartu } from "./gambar-ikon-kartu";
 import { MUAT_IKON } from "./ikon-ssr";
@@ -218,12 +219,18 @@ export async function BagianRute({ block, hotels, lang, shell, section, judulKel
   if (!rute) return null;
   const t = UI[lang];
   const latar = block.tone === "light" ? undefined : block.tone === "dark" ? "color-mix(in srgb, var(--reg-primary) 45%, black)" : "var(--reg-panel)";
+  // Background › Custom: teks dan label kecil ikut warna yang terbaca di latar itu.
+  const sendiri = hexLatarSendiri(block.bg_color);
+  const warnaSendiri = sendiri ? warnaLatarSendiri(sendiri) : null;
+  const labelGelap = warnaSendiri ? "text-[var(--alis)]" : block.tone === "dark" ? "text-white/80" : muted;
   return (
     <section
       id={block.id}
       className={section}
       // Di latar gelap label kecil memakai putih redup, sama dengan blok lain (QA #127 M3).
-      style={{ backgroundColor: latar, ...(block.tone === "dark" ? { color: "#fff", "--alis": "rgb(255 255 255 / 0.8)" } : {}) } as React.CSSProperties}
+      style={(warnaSendiri
+        ? { backgroundColor: warnaSendiri.latar, color: warnaSendiri.teks, "--alis": warnaSendiri.redup }
+        : { backgroundColor: latar, ...(block.tone === "dark" ? { color: "#fff", "--alis": "rgb(255 255 255 / 0.8)" } : {}) }) as React.CSSProperties}
     >
       <div className={`${shell} grid gap-10 lg:grid-cols-12 lg:gap-16`}>
         <div className="flex flex-col gap-8 lg:col-span-5">
@@ -239,13 +246,13 @@ export async function BagianRute({ block, hotels, lang, shell, section, judulKel
         <div className="flex flex-col gap-8 lg:col-span-7">
           {rute.cara.length > 0 ? (
             <div className="flex flex-col gap-4">
-              <h3 className={`${LABEL} ${block.tone === "dark" ? "text-white/80" : muted}`}>{t.ways}</h3>
+              <h3 className={`${LABEL} ${labelGelap}`}>{t.ways}</h3>
               <DaftarCara rute={rute} lang={lang} kartu={`${KARTU_PUTIH} rounded-[16px] p-4`} />
             </div>
           ) : null}
           {rute.langkah.length > 0 ? (
             <div className="flex flex-col gap-4">
-              <h3 className={`${LABEL} ${block.tone === "dark" ? "text-white/80" : muted}`}>{t.steps}</h3>
+              <h3 className={`${LABEL} ${labelGelap}`}>{t.steps}</h3>
               <div className={`${KARTU_PUTIH} rounded-[16px] p-5`}>
                 <DaftarLangkah rute={rute} />
               </div>

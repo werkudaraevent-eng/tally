@@ -3,6 +3,7 @@ import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-i
 import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
+const WARNA_BAGIAN = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 // Skema isi CMS Halaman acara. Dipakai PATCH /api/admin/landing saat menyimpan
 // dan pratinjau langsung saat merender draf, supaya pratinjau menolak hal yang
@@ -344,6 +345,8 @@ export const landingBodySchema = z.object({
     ...JUDUL_BAGIAN,
     eyebrow_shown: z.object({ about: z.boolean(), agenda: z.boolean(), speakers: z.boolean(), venue: z.boolean(), faq: z.boolean() }).partial().optional(),
     section_tone: z.object({ about: NADA_BAGIAN, agenda: NADA_BAGIAN, speakers: NADA_BAGIAN, venue: NADA_BAGIAN, faq: NADA_BAGIAN }).partial().optional(),
+    // Background › Custom per bagian; kosong = pilihan section_tone.
+    section_bg_color: z.object({ about: WARNA_BAGIAN, agenda: WARNA_BAGIAN, speakers: WARNA_BAGIAN, venue: WARNA_BAGIAN, faq: WARNA_BAGIAN }).partial().optional(),
     footer_note: z.string().trim().max(180).optional(),
     cta_heading: z.string().trim().max(120).optional(),
     cta_note: z.string().trim().max(300).optional(),

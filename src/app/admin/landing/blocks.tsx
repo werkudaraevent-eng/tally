@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { Button, Dialog, IconButton, SegmentedButton, TextArea, TextField } from "@/components/m3";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { EditorRute, TampilDi } from "./editor-rute";
+import { PilihLatar } from "./pilih-latar";
 import type { WarnaUbin } from "./pilih-ikon";
 import {
   LANDING_BLOCK_ALIGN_LABELS,
@@ -27,7 +28,6 @@ import {
   type LandingBlockId,
   type LandingBlockItem,
   type LandingBlockLayout,
-  type LandingBlockTone,
   type LandingBlockType,
   type LandingColumnCount,
   type LandingImageShape,
@@ -301,12 +301,15 @@ export function BlockEditor({
   block,
   onChange,
   semuaBlok = [],
+  warnaHalaman = [],
   warnaTema,
   ubinRute,
 }: {
   block: LandingBlock;
   onChange: (next: LandingBlock) => void;
   semuaBlok?: LandingBlock[];
+  /** Warna milik acara (merek, aksen, latar sendiri yang sudah dipakai), saran untuk Background › Custom. */
+  warnaHalaman?: string[];
   warnaTema?: { brand: string; accent: string | null };
   /** Warna ubin ikon blok Rute dari tema acara; `tanpaWarna` = satu warna saja (di luar Gathering). */
   ubinRute?: { warna: WarnaUbin; tanpaWarna: boolean };
@@ -376,15 +379,14 @@ export function BlockEditor({
   const latar = block.type === "cta" ? null : (
     <>
     {menuAtas}
-    <div className="flex flex-col gap-1.5">
-      <p className="text-body-medium font-medium text-on-surface">Background</p>
-      <SegmentedButton<LandingBlockTone>
-        label="Block background"
-        value={block.tone ?? LANDING_BLOCK_DEFAULT_TONE[block.type]}
-        onChange={(tone) => ubah({ tone })}
-        options={(["light", "panel", "dark"] as const).map((tone) => ({ value: tone, label: LANDING_BLOCK_TONE_LABELS[tone] }))}
-      />
-    </div>
+    <PilihLatar
+      label="Block background"
+      tone={block.tone ?? LANDING_BLOCK_DEFAULT_TONE[block.type]}
+      warna={block.bg_color}
+      saran={warnaHalaman}
+      onTone={(tone) => ubah({ tone, bg_color: undefined })}
+      onWarna={(bg_color) => ubah({ bg_color })}
+    />
     </>
   );
   const pilihanTataLetak = LANDING_BLOCK_LAYOUTS[block.type];
@@ -610,7 +612,7 @@ export function BlockEditor({
         </div>
       );
     case "multicolumn": {
-      const ringkasanTampilan = `${plural(landingColumnCount(block), "column")} · ${LANDING_IMAGE_SHAPE_LABELS[block.image_shape ?? "wide"]} · ${block.align === "center" ? "Centre" : "Left"} · ${LANDING_BLOCK_TONE_LABELS[block.tone ?? LANDING_BLOCK_DEFAULT_TONE.multicolumn]}`;
+      const ringkasanTampilan = `${plural(landingColumnCount(block), "column")} · ${LANDING_IMAGE_SHAPE_LABELS[block.image_shape ?? "wide"]} · ${block.align === "center" ? "Centre" : "Left"} · ${block.bg_color ? `Custom ${block.bg_color}` : LANDING_BLOCK_TONE_LABELS[block.tone ?? LANDING_BLOCK_DEFAULT_TONE.multicolumn]}`;
       return (
         <div className="flex flex-col gap-4">
           {alis}

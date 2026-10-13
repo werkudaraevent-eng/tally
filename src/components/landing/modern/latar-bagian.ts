@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { LandingBlockTone, LandingSectionId } from "@/lib/domain";
+import { gayaBagianLatarSendiri, hexLatarSendiri } from "@/lib/landing-latar-sendiri";
 import { LATAR_BAGIAN_BAWAAN, latarBagian } from "@/lib/landing-section-tone";
 import { latarGelapBagian } from "@/lib/registration-theme-css";
 import { LATAR_HERO } from "./gathering-app";
@@ -22,7 +23,11 @@ export function gayaLatarBagian(
   id: LandingSectionId,
   pilihan: Partial<Record<string, LandingBlockTone>> | undefined,
   merek: string | undefined,
+  warnaSendiri?: Partial<Record<string, string>>,
 ): CSSProperties | undefined {
+  // Background › Custom menimpa pilihan Light, Grey, atau Dark brand.
+  const sendiri = hexLatarSendiri(warnaSendiri?.[id]);
+  if (sendiri) return gayaBagianLatarSendiri(sendiri) as CSSProperties;
   const nada = latarBagian(id, pilihan);
   if (nada === (LATAR_BAGIAN_BAWAAN[id] ?? "light")) return undefined;
   if (nada === "light") return { backgroundColor: "#ffffff", "--landing-panel": "#ffffff", "--garis-pita": "transparent" } as CSSProperties;

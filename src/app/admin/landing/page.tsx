@@ -58,7 +58,6 @@ import {
 } from "@/lib/domain";
 import { ukurTerangKv } from "@/lib/kv-terang";
 import { HERO_KV_KUAT, landingTokens } from "@/lib/landing-tokens";
-import { LANDING_BLOCK_TONE_LABELS, type LandingBlockTone } from "@/lib/domain";
 import { gatheringColors } from "@/lib/registration-theme-css";
 import { ikonKartu, nadaKartu } from "@/lib/landing-card-icons";
 import { PilihIkonKartu, type WarnaUbin } from "./pilih-ikon";
@@ -72,6 +71,7 @@ import { Kelompok } from "@/components/admin/compact-form";
 import { BilahAtasEditor } from "@/components/admin/landing-nav-editor";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
+import { PilihLatar } from "./pilih-latar";
 import { BlockEditor, butirBerlebih, isianButirTampil, kolomBlokTampil, labelIsianButir, labelKolomBlok, namaButirBlok, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok, type KolomButir } from "./blocks";
 import { ForumSusunan, forumTautanSalah, halamanBagianForum } from "./forum-editor";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
@@ -1104,6 +1104,13 @@ export default function LandingCmsPage() {
   };
 
   const tokensHero = landingTokens(landing);
+  // Saran Background › Custom: warna acara ini sendiri, lalu latar sendiri yang sudah dipakai.
+  const warnaHalaman = [
+    tokensHero.brand,
+    tokensHero.accent,
+    ...Object.values(landing.section_bg_color ?? {}),
+    ...(landing.blocks ?? []).map((blok) => blok.bg_color),
+  ].filter((warna): warna is string => Boolean(warna));
   // Kotak HP di kanan hero gathering. Isinya otomatis dari layar lain, jadi
   // panel ini menyebut sumber tiap bagiannya dan memberi jalan ke sana (CMS
   // mudah, butir 1): sebelumnya kotak ini tidak punya baris di editor sama sekali.
@@ -2619,13 +2626,18 @@ export default function LandingCmsPage() {
         {isi}
         {gathering && (LANDING_SECTION_TONE_IDS as readonly string[]).includes(id) ? (
           // Pilihan yang sama dengan latar blok; bawaannya latar bagian sebelum ada pilihan.
-          <div data-kolom="latar" className="flex flex-col gap-1.5">
-            <p className="text-body-medium font-medium text-on-surface">Background</p>
-            <SegmentedButton<LandingBlockTone>
+          <div data-kolom="latar">
+            <PilihLatar
               label={`${LANDING_SECTION_ADMIN_LABELS[id]} background`}
-              value={latarBagian(id, landing.section_tone)}
-              onChange={(tone) => setLanding({ ...landing, section_tone: { ...landing.section_tone, [id]: tone } })}
-              options={(["light", "panel", "dark"] as const).map((tone) => ({ value: tone, label: LANDING_BLOCK_TONE_LABELS[tone] }))}
+              tone={latarBagian(id, landing.section_tone)}
+              warna={landing.section_bg_color?.[id]}
+              saran={warnaHalaman}
+              onTone={(tone) => {
+                const warnaLain = { ...landing.section_bg_color };
+                delete warnaLain[id];
+                setLanding({ ...landing, section_tone: { ...landing.section_tone, [id]: tone }, section_bg_color: warnaLain });
+              }}
+              onWarna={(hex) => setLanding({ ...landing, section_bg_color: { ...landing.section_bg_color, [id]: hex } })}
             />
           </div>
         ) : null}
@@ -2752,7 +2764,7 @@ export default function LandingCmsPage() {
               saklar,
               indeks: index,
               menu: menuBaris(index, judul, blok),
-              isi: <BlockEditor block={blok} onChange={ubahBlok} semuaBlok={landing.blocks ?? []} warnaTema={{ brand: tokensHero.brand, accent: tokensHero.accent ?? null }} ubinRute={ubinRute} />,
+              isi: <BlockEditor block={blok} onChange={ubahBlok} semuaBlok={landing.blocks ?? []} warnaHalaman={warnaHalaman} warnaTema={{ brand: tokensHero.brand, accent: tokensHero.accent ?? null }} ubinRute={ubinRute} />,
             });
           }
 
