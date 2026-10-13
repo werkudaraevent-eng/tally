@@ -62,7 +62,7 @@ export type PortalUiText = {
     participant: string;
     bus: string;
     room: string;
-    roommate: string;
+    roommate: (jumlah: number) => string;
     nextUp: string;
     nextUpMobile: string;
     today: string;
@@ -70,7 +70,7 @@ export type PortalUiText = {
     dayOrdinal: (hari: number) => string;
     showQr: string;
     help: string;
-    roommateTitle: string;
+    roommateTitle: (jumlah: number) => string;
     roomNo: (nomor: string) => string;
     profileAria: string;
   };
@@ -137,7 +137,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       participant: "Peserta",
       bus: "Bus",
       room: "Kamar",
-      roommate: "Teman sekamar",
+      roommate: (jumlah) => (jumlah > 1 ? "Teman-teman sekamar" : "Teman sekamar"),
       nextUp: "Selanjutnya",
       nextUpMobile: "Agenda berikutnya",
       today: "Hari ini",
@@ -145,7 +145,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       dayOrdinal: (hari) => `Hari ${["pertama", "kedua", "ketiga", "keempat", "kelima", "keenam", "ketujuh"][hari - 1] ?? `ke-${hari}`}`,
       showQr: "Tampilkan QR kehadiran",
       help: "Butuh bantuan? Hubungi panitia",
-      roommateTitle: "Teman sekamarmu",
+      roommateTitle: (jumlah) => (jumlah > 1 ? "Teman-teman sekamarmu" : "Teman sekamarmu"),
       roomNo: (nomor) => `Kamar ${nomor}`,
       profileAria: "Profil",
     },
@@ -210,7 +210,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       participant: "Participant",
       bus: "Bus",
       room: "Room",
-      roommate: "Roommate",
+      roommate: (jumlah) => (jumlah > 1 ? "Roommates" : "Roommate"),
       nextUp: "Next up",
       nextUpMobile: "Next on the agenda",
       today: "Today",
@@ -218,7 +218,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       dayOrdinal: (hari) => `Day ${["one", "two", "three", "four", "five", "six", "seven"][hari - 1] ?? hari}`,
       showQr: "Show attendance QR",
       help: "Need help? Contact the organisers",
-      roommateTitle: "Your roommate",
+      roommateTitle: (jumlah) => (jumlah > 1 ? "Your roommates" : "Your roommate"),
       roomNo: (nomor) => `Room ${nomor}`,
       profileAria: "Profile",
     },
