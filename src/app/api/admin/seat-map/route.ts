@@ -288,7 +288,10 @@ export async function PATCH(request: Request) {
     const tersimpan = (current as { layout_params?: unknown } | null)?.layout_params;
     // Setelan layar publik ikut bertahan saat layout berganti; ia bukan milik tata ruang.
     const cariPerusahaan = (tersimpan as { search_company?: unknown } | null | undefined)?.search_company === true;
-    const sebelumnya = bergantiLayout ? (cariPerusahaan ? { search_company: true } : {}) : tersimpan;
+    const bentukKursi = (tersimpan as { seat_shape?: unknown } | null | undefined)?.seat_shape;
+    const sebelumnya = bergantiLayout
+      ? { ...(cariPerusahaan ? { search_company: true } : {}), ...(bentukKursi ? { seat_shape: bentukKursi } : {}) }
+      : tersimpan;
     muatan.layout_params = normalizeLayoutParams(layoutAkhir, {
       ...(sebelumnya && typeof sebelumnya === "object" ? sebelumnya : {}),
       ...(parsed.data.layout_params ?? {}),

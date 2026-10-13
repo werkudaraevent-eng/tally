@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { computeSeatMapGeometry, normalizeSeatLabel, readableOn, resolveSeatColors, type SeatColors, type SeatMapConfig } from "@/lib/seat-map";
+import { useMemo, type SVGProps } from "react";
+import { computeSeatMapGeometry, normalizeSeatLabel, readableOn, resolveSeatColors, type SeatColors, type SeatMapConfig, type SeatShape } from "@/lib/seat-map";
 
 // Renderer denah. Satu komponen dipakai bersama halaman publik dan editor CMS.
 //
@@ -242,6 +242,8 @@ export function SeatMapView({
             {decorative ? null : <title>{`Meja ${table.label}: ${occupiedCount} dari ${tableSeats.length} kursi terisi`}</title>}
 
             {tableSeats.map((seat) => {
+              // Kursi di sofa tetap bulat: sofanya sendiri sudah menjadi bentuknya.
+              const bentukKursi: SeatShape = table.shape === "sofa" ? "circle" : (config?.layout_params?.seat_shape ?? "circle");
               const key = normalizeSeatLabel(seat.label);
               const state = seatStates[key];
               const isHighlighted = highlighted.has(key);
@@ -274,11 +276,12 @@ export function SeatMapView({
                       `.seat-pulse` di globals.css). Kursi yang hanya berganti
                       warna tenggelam di antara dua ratus kursi lain. */}
                   {isHighlighted ? (
-                    <circle
+                    <BentukKursi
                       key={`pulse-${highlightKey}`}
+                      bentuk={bentukKursi}
                       className="seat-pulse"
-                      cx={seat.x}
-                      cy={seat.y}
+                      x={seat.x}
+                      y={seat.y}
                       r={seat.r}
                       fill="none"
                       stroke={accentColor}
@@ -286,9 +289,10 @@ export function SeatMapView({
                       pointerEvents="none"
                     />
                   ) : null}
-                  <circle
-                    cx={seat.x}
-                    cy={seat.y}
+                  <BentukKursi
+                    bentuk={bentukKursi}
+                    x={seat.x}
+                    y={seat.y}
                     r={seat.r}
                     fill={fill}
                     stroke={stroke}
@@ -299,7 +303,8 @@ export function SeatMapView({
                   {showSeatCodes ? (
                     <text
                       x={seat.x}
-                      y={seat.y}
+                      // Kursi bioskop: nomor di dudukannya, di bawah sandaran.
+                      y={bentukKursi === "cinema" ? seat.y + seat.r * 0.38 : seat.y}
                       textAnchor="middle"
                       dominantBaseline="central"
                       // Teks harus kontras terhadap ISIAN KURSI yang sebenarnya
@@ -312,7 +317,7 @@ export function SeatMapView({
                       // sekali. `readableOn` menghitungnya dari luminansi isian, jadi
                       // pilihan warna apa pun tetap terbaca.
                       fill={readableOn(fill, backgroundColor, textColor)}
-                      fontSize={9}
+                      fontSize={bentukKursi === "cinema" ? 8 : 9}
                       fontWeight={600}
                       pointerEvents="none"
                     >
@@ -330,4 +335,27 @@ export function SeatMapView({
       {interactive ? null : <desc>Denah hanya untuk dilihat.</desc>}
     </svg>
   );
+}
+
+/**
+ * Satu penanda kursi. Bulat adalah bentuk lama; kotak bersudut membulat; kursi
+ * bioskop adalah sandaran di atas dudukan berlengan. Ketiganya muat di dalam
+ * kotak 2r x 2r yang sama, jadi geometri, jarak, dan area sentuh tidak berubah.
+ */
+function BentukKursi({ bentuk, x, y, r, ...props }: { bentuk: SeatShape; x: number; y: number; r: number } & SVGProps<SVGGElement> & SVGProps<SVGRectElement> & SVGProps<SVGCircleElement>) {
+  if (bentuk === "square") {
+    return <rect x={x - r} y={y - r} width={r * 2} height={r * 2} rx={r * 0.32} {...(props as SVGProps<SVGRectElement>)} />;
+  }
+  if (bentuk === "cinema") {
+    const { fill, stroke, strokeWidth, className, onClick, style, pointerEvents } = props;
+    return (
+      <g className={className} onClick={onClick as SVGProps<SVGGElement>["onClick"]} style={style} pointerEvents={pointerEvents}>
+        {/* Area sentuh penuh 2r x 2r, termasuk celah antara sandaran dan dudukan. */}
+        {onClick ? <rect x={x - r} y={y - r} width={r * 2} height={r * 2} fill="transparent" /> : null}
+        <rect x={x - r * 0.8} y={y - r} width={r * 1.6} height={r * 0.62} rx={r * 0.24} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
+        <rect x={x - r} y={y - r * 0.26} width={r * 2} height={r * 1.26} rx={r * 0.28} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
+      </g>
+    );
+  }
+  return <circle cx={x} cy={y} r={r} {...(props as SVGProps<SVGCircleElement>)} />;
 }

@@ -10,7 +10,7 @@ import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import {
   computeSeatMapGeometry, duplicateSeatLabels, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor,
-  type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule, type SeatSection,
+  type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule, type SeatSection, type SeatShape,
   LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS, defaultSection, MAX_SECTIONS, nextSectionPrefix, sectionPrefixError,
 } from "@/lib/seat-map";
 import { tallySeatSource } from "@/lib/seat-tally-source";
@@ -397,7 +397,7 @@ export default function SeatMapAdminPage() {
     const layout = value as SeatMapLayout;
     // Parameter kembali ke bawaan layout baru; nilai lama menimpa bawaan dan pilihannya tampak tidak berpengaruh.
     // `sections: []` dikirim eksplisit supaya server menghapus bagian yang tersimpan.
-    setConfig((current) => current && { ...current, layout_type: layout, layout_params: { ...layoutDefaults(layout), sections: [], ...(current.layout_params.search_company ? { search_company: true } : {}) } });
+    setConfig((current) => current && { ...current, layout_type: layout, layout_params: { ...layoutDefaults(layout), sections: [], ...(current.layout_params.search_company ? { search_company: true } : {}), ...(current.layout_params.seat_shape ? { seat_shape: current.layout_params.seat_shape } : {}) } });
   }
   function pindahBagian(index: number, arah: -1 | 1) {
     const next = [...sections];
@@ -513,6 +513,17 @@ export default function SeatMapAdminPage() {
         ) : null}
           </>
         )}
+      </Kelompok>
+
+      <Kelompok title="Seat shape">
+        <SegmentedButton<SeatShape>
+          label="Seat shape"
+          value={config.layout_params.seat_shape ?? "circle"}
+          onChange={(shape) => updateParam("seat_shape", shape)}
+          className="w-full"
+          options={[{ value: "circle", label: "Circle" }, { value: "square", label: "Square" }, { value: "cinema", label: "Cinema seat" }]}
+        />
+        <p className="text-body-medium text-on-surface-variant">Applies to every screen and the participant&apos;s ticket. Seats on sofas stay round.</p>
       </Kelompok>
 
       <Kelompok title="Tables and labels">
