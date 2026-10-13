@@ -58,7 +58,7 @@ import {
   type LandingSpeakerFrame,
 } from "@/lib/domain";
 import { ukurTerangKv } from "@/lib/kv-terang";
-import { HERO_KV_KUAT, HORIZON_GOLD_DEFAULT, landingTokens } from "@/lib/landing-tokens";
+import { HERO_KV_KUAT, emasHorizon as hitungEmasHorizon, landingTokens, sorotHorizon } from "@/lib/landing-tokens";
 import { gatheringColors } from "@/lib/registration-theme-css";
 import { ikonKartu, nadaKartu } from "@/lib/landing-card-icons";
 import { PilihIkonKartu, type WarnaUbin } from "./pilih-ikon";
@@ -1269,8 +1269,8 @@ export default function LandingCmsPage() {
       ) : null}
     </>
   );
-  // Emas Horizon sama dengan halaman: warna tombol Tema, lalu aksen, lalu emas rancangan.
-  const emasHorizon = [landing.button_color, tokensHero.accent].find((warna) => /^#[0-9a-f]{6}$/i.test(warna ?? "")) ?? HORIZON_GOLD_DEFAULT;
+  // Warna sorotan judul sama dengan halaman (emas yang terbaca di atas navy hero).
+  const emasHorizon = sorotHorizon(hitungEmasHorizon(landing.button_color, tokensHero.accent), tokensHero.accent, tokensHero.brand);
   const isiPembuka = facts ? (
     <div className="flex flex-col gap-5">
       <Kelompok title="Content" first>
@@ -1321,6 +1321,9 @@ export default function LandingCmsPage() {
           disabled={busy}
           gathering={gathering}
           horizon={horizon}
+          // Horizon memakai logo hero di bilah saat logo bilah kosong: tampilkan di sini, hapus keduanya.
+          logoCadangan={horizon ? landing.hero_logo_url?.trim() || null : null}
+          onLogo={(url) => setLanding({ ...landing, nav: { ...(landing.nav ?? {}), logo_url: url }, hero_logo_url: url ? landing.hero_logo_url : null })}
         />
         </div>
       ) : null}
@@ -2880,7 +2883,7 @@ export default function LandingCmsPage() {
             isi: <BagianEn id={id} landing={landing} facts={facts} setLanding={setLanding} rundown={rundownEn} ubahRundown={ubahRundown} sesiRundown={agendaAktif ? [] : (rundownEn ?? []).filter((baris) => idSesiDipakai.has(baris.id))} />,
           });
         })}
-        {barisSusunan({ id: "kaki", nomor: sections.length + 2, judul: "Footer", sub: "Organiser line, call-to-action banner", titik: barisKurangEn.has("kaki"), isi: <BagianEn id="kaki" landing={landing} facts={facts} setLanding={setLanding} /> })}
+        {barisSusunan({ id: "kaki", nomor: sections.length + 2, judul: "Footer", sub: horizon ? "Organiser line, closing band" : "Organiser line, call-to-action banner", titik: barisKurangEn.has("kaki"), isi: <BagianEn id="kaki" landing={landing} facts={facts} setLanding={setLanding} /> })}
       </ol>
     </div>
   ) : null;
@@ -2968,7 +2971,7 @@ export default function LandingCmsPage() {
           id: "kaki",
           nomor: sections.length + 2,
           judul: "Footer",
-          sub: modern ? "Organiser line, call-to-action banner" : "Organiser line",
+          sub: horizon ? "Organiser line, closing band" : modern ? "Organiser line, call-to-action banner" : "Organiser line",
           isi: isiKaki,
         })}
       </ol>
@@ -3179,6 +3182,7 @@ export default function LandingCmsPage() {
         ["portal:portal_eyebrow", "Portal small label"],
         ["portal:portal_heading", "Portal heading"],
         ["portal:portal_note", "Portal text"],
+        ["portal:portal_button_label", "Sign-in button text"],
         ["kaki:cta_heading", horizon ? "Closing band" : "Call-to-action banner"],
       ]);
   const labelPilih = useMemo<Record<string, string> | null>(() => (kunciLabel ? Object.fromEntries(JSON.parse(kunciLabel)) : null), [kunciLabel]);

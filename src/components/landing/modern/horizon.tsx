@@ -57,16 +57,38 @@ export function patahJudul(judul: string): string {
 
 /**
  * Kata yang disorot di CMS (Highlight, tersimpan *berbintang*) tampil emas,
- * sama seperti judul Gathering yang memakai warna aksennya.
+ * sama seperti judul Gathering yang memakai warna aksennya. Sorotan dipecah
+ * dulu, baru jeda barisnya dipasang: jeda yang jatuh di dalam sorotan
+ * ("*Bersama, kita*") tidak boleh membuat bintangnya tampil apa adanya.
  */
 function judulBersorot(judul: string): ReactNode[] {
-  return pecahJudul(judul).map((bagian, index) =>
-    bagian.sorot ? (
-      <span key={index} className="text-[var(--hz-emas)]">
-        {bagian.teks}
+  const bagian = pecahJudul(judul);
+  const polos = bagian.map((b) => b.teks).join("");
+  const patah = patahJudul(polos);
+  // patahJudul hanya mengganti deret spasi dengan "\n"; sejajarkan kembali ke tiap bagian.
+  let j = 0;
+  const hasil = bagian.map((b) => {
+    let teks = "";
+    for (const huruf of b.teks) {
+      if (patah[j] === huruf) {
+        teks += huruf;
+        j += 1;
+      } else if (/\s/.test(huruf) && patah[j] === "\n") {
+        teks += "\n";
+        j += 1;
+      } else if (!/\s/.test(huruf)) {
+        teks += huruf;
+      }
+    }
+    return { ...b, teks };
+  });
+  return hasil.map((b, index) =>
+    b.sorot ? (
+      <span key={index} className="text-[var(--hz-sorot,var(--hz-emas))]">
+        {b.teks}
       </span>
     ) : (
-      bagian.teks
+      b.teks
     ),
   );
 }
@@ -78,10 +100,11 @@ function patahCatatan(catatan: string): string {
   return kalimat.length === 2 ? kalimat.join("\n") : catatan;
 }
 
-export type HorizonAksi = { href: string; label: string; link?: boolean };
+/** `sunting`: kolom CMS teks tombol ini (klik-untuk-ubah di pratinjau editor). */
+export type HorizonAksi = { href: string; label: string; link?: boolean; sunting?: string };
 
 function Tautan({ aksi, className, children, style }: { aksi: HorizonAksi; className: string; children?: ReactNode; style?: CSSProperties }) {
-  const isi = children ?? aksi.label;
+  const isi = children ?? (aksi.sunting ? <span data-sunting={aksi.sunting}>{aksi.label}</span> : aksi.label);
   return aksi.link ? (
     <Link href={aksi.href} className={className} style={style}>
       {isi}
@@ -93,9 +116,9 @@ function Tautan({ aksi, className, children, style }: { aksi: HorizonAksi; class
   );
 }
 
-/** Variabel warna Horizon untuk <main>. `emas` = warna tombol Tema; `onEmas` diukur pemanggil. */
-export function gayaHorizon(navy: string, emas: string, onEmas: string): CSSProperties {
-  return { "--hz-navy": navy, "--hz-emas": emas, "--hz-on-emas": onEmas } as CSSProperties;
+/** Variabel warna Horizon untuk <main>. `emas` = warna tombol Tema; `onEmas` dan `sorot` (kata disorot di judul) diukur pemanggil. */
+export function gayaHorizon(navy: string, emas: string, onEmas: string, sorot: string = emas): CSSProperties {
+  return { "--hz-navy": navy, "--hz-emas": emas, "--hz-on-emas": onEmas, "--hz-sorot": sorot } as CSSProperties;
 }
 
 /**
@@ -157,7 +180,7 @@ export function HeroHorizon({
         <div aria-hidden className="hidden md:block" />
         <div className="flex flex-col gap-[22px] px-6 pb-6 [container-type:inline-size] md:mx-auto md:w-full md:max-w-[980px] md:items-center md:px-0 md:pb-0 md:text-center">
           {alis || alisPonsel ? (
-            <p data-sunting="pembuka:hero_eyebrow" className="whitespace-pre-wrap text-[11px] font-bold uppercase leading-[1.26] tracking-[1.2px] text-[var(--hz-emas)] md:text-[12px] md:tracking-[1.8px] md:text-[#F3DF9E]">
+            <p data-sunting="pembuka:hero_eyebrow" className="whitespace-pre-wrap text-[11px] font-bold uppercase leading-[1.26] tracking-[1.2px] text-[var(--hz-sorot,var(--hz-emas))] md:text-[12px] md:tracking-[1.8px] md:text-[#F3DF9E]">
               <span className="md:hidden">{alisPonsel ?? alis}</span>
               <span className="hidden md:inline">{alis ?? alisPonsel}</span>
             </p>
@@ -167,7 +190,7 @@ export function HeroHorizon({
             style={{ "--hz-h1": ukuranPonsel } as CSSProperties}
             className="whitespace-pre-line text-balance text-[length:var(--hz-h1)] font-extrabold leading-[1.04] [overflow-wrap:break-word] md:w-full md:text-[64px] md:leading-[1.03] lg:text-[82px]"
           >
-            {judulBersorot(patahJudul(judul))}
+            {judulBersorot(judul)}
           </h1>
           {catatan ? (
             <p data-sunting="pembuka:hero_note" className="whitespace-pre-line text-[17px] leading-[1.5] text-[#E1E6F1] md:max-w-[580px] md:text-[22px] md:leading-[1.55] md:text-[#F2F4FA]">
@@ -338,10 +361,10 @@ export function PerjalananHorizon({
             return (
               // Indeks, bukan judul: dua bagian rundown boleh berjudul sama.
               <Muncul as="li" key={index} jeda={Math.min(index, 4) * 0.06} className="flex flex-col gap-3 border-t pt-5 md:flex-row md:gap-9 md:py-8" style={{ borderColor: GARIS_NAVY }}>
-                <span aria-hidden className="hidden w-[84px] shrink-0 text-[64px] font-extrabold leading-[1.26] tabular-nums text-[var(--hz-emas)] md:block">
+                <span aria-hidden className="hidden w-[84px] shrink-0 text-[64px] font-extrabold leading-[1.26] tabular-nums text-[var(--hz-sorot,var(--hz-emas))] md:block">
                   {nomor}
                 </span>
-                <p className="text-[12px] font-bold uppercase leading-[1.26] text-[var(--hz-emas)] md:hidden">
+                <p className="text-[12px] font-bold uppercase leading-[1.26] text-[var(--hz-sorot,var(--hz-emas))] md:hidden">
                   <span className="sr-only">{t.day(index + 1)}, </span>
                   <span aria-hidden>{nomor}</span>
                   {hariPendek ? ` / ${hariPendek}` : null}
@@ -382,7 +405,7 @@ export function PerjalananHorizon({
         {/* Jadwal lengkap hanya bila ada acara yang tidak tampil di daftar per hari. */}
         {agenda.some((bagian) => jamPenting(bagian.items).tampil.length < bagian.items.length) ? (
           <details className="group -mt-2 border-t pt-2 md:-mt-10 md:pt-4" style={{ borderColor: GARIS_NAVY }}>
-            <summary className="m3-state -mx-3 inline-flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-md px-3 text-[14px] font-bold text-[var(--hz-emas)] [--m3-state-color:var(--hz-emas)] [&::-webkit-details-marker]:hidden">
+            <summary className="m3-state -mx-3 inline-flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-md px-3 text-[14px] font-bold text-[var(--hz-sorot,var(--hz-emas))] [--m3-state-color:var(--hz-emas)] [&::-webkit-details-marker]:hidden">
               {t.horizon.scheduleNote}
               <CaretDown size={16} weight="bold" aria-hidden className="transition-transform group-open:rotate-180" />
             </summary>
@@ -437,7 +460,7 @@ export function UndanganHorizon({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={kartu.kv} alt="" loading="lazy" decoding="async" className="block h-[130px] w-full object-cover" />
           ) : null}
-          <p className="text-[12px] uppercase leading-[1.26] tracking-[1.4px] text-[var(--hz-emas)]">{kartu.label}</p>
+          <p className="text-[12px] uppercase leading-[1.26] tracking-[1.4px] text-[var(--hz-sorot,var(--hz-emas))]">{kartu.label}</p>
           {kartu.dari || kartu.ke ? (
             <p className="flex flex-col text-[38px] font-extrabold leading-[1.2] [overflow-wrap:anywhere]">
               {kartu.dari ? (
@@ -449,7 +472,7 @@ export function UndanganHorizon({
               {kartu.ke ? <span>{kartu.ke}</span> : null}
             </p>
           ) : null}
-          {kartu.tanggal ? <p className="text-[14px] font-bold uppercase leading-[1.26] tabular-nums text-[var(--hz-emas)]">{kartu.tanggal}</p> : null}
+          {kartu.tanggal ? <p className="text-[14px] font-bold uppercase leading-[1.26] tabular-nums text-[var(--hz-sorot,var(--hz-emas))]">{kartu.tanggal}</p> : null}
           <p className="text-[12px] leading-[1.26]" style={{ color: REDUP_NAVY }}>
             {kartu.info}
           </p>

@@ -15,7 +15,7 @@ import type {
 import { LANDING_BLOCK_LABELS, logoNavPutih, isLandingBlockId, isPortalEntry, landingBlockHasContent, landingHeadingFontSize, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { gatheringColors, heroCtaColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
 import { kontras } from "@/lib/landing-hitung-mundur";
-import { HORIZON_GOLD_DEFAULT } from "@/lib/landing-tokens";
+import { emasHorizon as hitungEmasHorizon, sorotHorizon } from "@/lib/landing-tokens";
 import { landingTokens } from "@/lib/landing-tokens";
 import { preloadLandingFonts } from "@/lib/landing-font-preload";
 import { formatEventDate, formatEventDateRingkas, formatEventTime } from "@/lib/event-datetime";
@@ -324,7 +324,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const subNama = gaya && event.name.trim() && event.name.trim() !== nama ? event.name.trim() : null;
   const latarG = gaya ? latarGathering(tokens.brand) : null;
   // Emas Horizon: warna tombol Tema, lalu aksen, lalu emas rancangan.
-  const emasHorizon = [config.button_color, tokens.accent].find((warna) => /^#[0-9a-f]{6}$/i.test(warna ?? "")) ?? HORIZON_GOLD_DEFAULT;
+  const emasHorizon = hitungEmasHorizon(config.button_color, tokens.accent);
   const mainStyle: CSSProperties = warnaGathering
     ? {
         ...gayaModern(config, theme),
@@ -383,7 +383,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     // Tinggi bilah atas Horizon diatur halaman (102px ponsel, 128px layar lebar,
     // logo 62/80px seperti rancangan) lewat kelas di <main>, bukan dari CMS.
     delete (mainStyle as Record<string, unknown>)["--nav-h"];
-    Object.assign(mainStyle, gayaHorizon(tokens.brand, emasHorizon, kontras(emasHorizon, "#101E38") >= 4.5 ? "#101E38" : "#ffffff"));
+    Object.assign(mainStyle, gayaHorizon(tokens.brand, emasHorizon, kontras(emasHorizon, "#101E38") >= 4.5 ? "#101E38" : "#ffffff", sorotHorizon(emasHorizon, tokens.accent, tokens.brand)));
   }
 
   // Paling banyak 8 kartu sekaligus; sisanya per sesi lewat tab (lihat
@@ -438,7 +438,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         alis={config.portal_eyebrow?.trim() || (sudahMasuk ? t.horizon.signedInEyebrow : t.horizon.inviteEyebrow)}
         judul={config.portal_heading?.trim() || t.horizon.inviteHeading}
         catatan={config.portal_note?.trim() || t.horizon.inviteNote(member.show_logistics === true)}
-        aksi={aksiPeserta ? { ...aksiPeserta, link: true } : sudahMasuk ? null : { href: masukUrl, label: tombolPortalHorizon, link: true }}
+        aksi={aksiPeserta ? { ...aksiPeserta, link: true } : sudahMasuk ? null : { href: masukUrl, label: tombolPortalHorizon, link: true, sunting: "portal:portal_button_label" }}
         kartu={{
           kv: kvGathering(config)?.src ?? null,
           label: t.horizon.pass,
@@ -1216,7 +1216,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       {horizon && penutupTampil ? (
         <PenutupHorizon
           judul={config.cta_heading?.trim() || t.horizon.closing}
-          aksi={undangan ? { href: masukUrl, label: tombolPortalHorizon, link: true } : { href: daftarUrl, label: ctaLabel, link: true }}
+          aksi={undangan ? { href: masukUrl, label: tombolPortalHorizon, link: true, sunting: "portal:portal_button_label" } : { href: daftarUrl, label: ctaLabel, link: true }}
           masuk={!undangan && memberLink ? { href: memberLink.href, label: t.horizon.registered, link: true } : null}
           tandaTangan={tandaTanganHorizon}
         />

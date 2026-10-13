@@ -59,6 +59,8 @@ export function BilahAtasEditor({
   disabled,
   gathering = false,
   horizon = false,
+  logoCadangan = null,
+  onLogo,
 }: {
   value: LandingNavConfig;
   onChange: (next: LandingNavConfig) => void;
@@ -68,10 +70,15 @@ export function BilahAtasEditor({
   horizon?: boolean;
   eventName: string;
   disabled?: boolean;
+  /** Logo yang dipakai bilah saat logo bilah kosong (Horizon: logo hero), supaya editor menampilkan yang tampil di halaman. */
+  logoCadangan?: string | null;
+  /** Dipanggil saat logo diganti atau dihapus bila ada logoCadangan: hapus berarti logo cadangannya juga. */
+  onLogo?: (url: string | null) => void;
 }) {
   const setBilahAtas = (patch: Partial<LandingNavConfig>) => onChange({ ...bilahAtas, ...patch });
   const warnaBilah = bilahAtas.color ?? LANDING_NAV_DEFAULTS.color;
   const opasitasBilah = bilahAtas.opacity ?? LANDING_NAV_DEFAULTS.opacity;
+  const logoTampil = bilahAtas.logo_url ?? logoCadangan ?? null;
   return (
     <div lang="en" className="contents">
     <Kelompok title="Top bar" note="The bar that sticks to the top of the page, with the logo or event name and the sign-in and registration buttons.">
@@ -80,7 +87,7 @@ export function BilahAtasEditor({
         opasitas={opasitasBilah}
         lebar={bilahAtas.width ?? "full"}
         nama={eventName}
-        logo={bilahAtas.logo_url ?? null}
+        logo={logoTampil}
         logoPutih={logoNavPutih(bilahAtas, true)}
       />
       <ImageUploadField
@@ -89,8 +96,8 @@ export function BilahAtasEditor({
         fit="contain"
         previewClassName="h-12 w-36"
         hint="Shown at the left of the bar in place of the event name. Leave empty to use the name. A transparent PNG looks tidiest; its height follows the bar, 240px wide max."
-        value={bilahAtas.logo_url ?? null}
-        onChange={(url) => setBilahAtas({ logo_url: url })}
+        value={logoTampil}
+        onChange={(url) => (logoCadangan && onLogo ? onLogo(url) : setBilahAtas({ logo_url: url }))}
         disabled={disabled}
       />
       <label className="flex items-center gap-3">
