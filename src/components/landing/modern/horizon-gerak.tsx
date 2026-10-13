@@ -42,19 +42,13 @@ export function Muncul({
   useEffect(() => {
     const el = ref.current;
     if (!el || kurangi || typeof IntersectionObserver === "undefined") return;
-    let pertama = true;
+    // Keadaan awal dari posisi nyata, bukan isIntersecting (rootMargin -8%
+    // menganggap isi di tepi bawah layar "di bawah" lalu menyembunyikannya):
+    // apa pun yang sudah terlihat saat dimuat dibiarkan apa adanya.
+    if (el.getBoundingClientRect().top < window.innerHeight) return;
+    setKeadaan("sembunyi");
     const pengamat = new IntersectionObserver(
       ([entri]) => {
-        if (pertama) {
-          pertama = false;
-          // Sudah terlihat (atau sudah lewat) saat dimuat: biarkan apa adanya.
-          if (entri.isIntersecting || entri.boundingClientRect.top < 0) {
-            pengamat.disconnect();
-            return;
-          }
-          setKeadaan("sembunyi");
-          return;
-        }
         if (entri.isIntersecting) {
           setKeadaan("tampil");
           pengamat.disconnect();
@@ -72,7 +66,8 @@ export function Muncul({
       ref={(node: HTMLElement | null) => {
         ref.current = node;
       }}
-      className={className}
+      // Cetak: isi yang belum digulir tetap tercetak (gaya sembunyi ditimpa).
+      className={`print:!transform-none print:!opacity-100 ${className ?? ""}`}
       style={style}
       initial={false}
       animate={keadaan === "sembunyi" ? { opacity: 0, y: 16 } : { opacity: 1, y: 0 }}
@@ -122,12 +117,28 @@ export function JalurHorizon({ children }: { children: ReactNode }) {
         const baris = parseFloat(getComputedStyle(judul).lineHeight) || 40;
         return { y: Math.round(atasDari(judul) + Math.min(baris, judul.offsetHeight) / 2) };
       });
-      setUkur({ tinggi: el.offsetHeight, simpul });
+      const tinggi = el.offsetHeight;
+      setUkur((lama) => (lama.tinggi === tinggi && lama.simpul.length === simpul.length && lama.simpul.every((s, i) => s.y === simpul[i].y) ? lama : { tinggi, simpul }));
     };
     hitung();
+    // Ukur ulang saat wadah atau salah satu bagian berubah ukuran, dan saat
+    // bagian diurutkan ulang di pratinjau editor (tinggi total bisa sama).
     const pengamat = new ResizeObserver(hitung);
-    pengamat.observe(el);
-    return () => pengamat.disconnect();
+    const amati = () => {
+      pengamat.disconnect();
+      pengamat.observe(el);
+      Array.from(el.children).forEach((anak) => pengamat.observe(anak));
+    };
+    amati();
+    const susunan = new MutationObserver(() => {
+      amati();
+      hitung();
+    });
+    susunan.observe(el, { childList: true });
+    return () => {
+      pengamat.disconnect();
+      susunan.disconnect();
+    };
   }, []);
 
   const awal = ukur.simpul[0]?.y ?? 0;
