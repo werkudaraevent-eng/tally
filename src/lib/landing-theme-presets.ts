@@ -216,6 +216,15 @@ const adaTeks = (teks: string | null | undefined) => Boolean(teks?.trim());
  * - Bagian Lokasi disembunyikan: rancangan tidak memilikinya. Tetap bisa
  *   dinyalakan lagi di Page sections.
  */
+/**
+ * Kartu Tentang acara bawaan hanya untuk Gathering biasa yang belum punya
+ * kartu. Gathering Horizon tidak menampilkan kartu, jadi tidak ditulis.
+ */
+function tulisKartuTentang(landing: EventLandingConfig): boolean {
+  if (landing.gathering_variant === "horizon") return false;
+  return !(landing.about_cards ?? []).some((kartu) => adaTeks(kartu.title) || adaTeks(kartu.body));
+}
+
 export function isiGathering(landing: EventLandingConfig, bawaan: TentangBawaan): EventLandingConfig {
   const en = { ...landing.en };
   const hasil: EventLandingConfig = { ...landing };
@@ -224,7 +233,7 @@ export function isiGathering(landing: EventLandingConfig, bawaan: TentangBawaan)
     if (!adaTeks(en.about_heading)) en.about_heading = bawaan.en.heading;
   }
   if (landing.eyebrow_shown?.about === undefined) hasil.eyebrow_shown = { ...landing.eyebrow_shown, about: true };
-  if (!(landing.about_cards ?? []).some((kartu) => adaTeks(kartu.title) || adaTeks(kartu.body))) {
+  if (tulisKartuTentang(landing)) {
     hasil.about_cards = bawaan.id.cards.map((kartu) => ({ ...kartu }));
     en.about_cards = bawaan.en.cards.map((kartu) => ({ ...kartu }));
   }
@@ -256,7 +265,7 @@ export function isiGatheringMengubah(landing: EventLandingConfig): { tentang: bo
   const tentang =
     !adaTeks(landing.about_heading) ||
     landing.eyebrow_shown?.about === undefined ||
-    !(landing.about_cards ?? []).some((kartu) => adaTeks(kartu.title) || adaTeks(kartu.body));
+    tulisKartuTentang(landing);
   const lokasi = normalizeLandingSections(landing.sections, landing.blocks).find((section) => section.id === "venue")?.enabled !== false;
   const portal = portalSebelumFaq(susunanDenganPortal(landing.sections, landing.blocks)) !== null;
   return { tentang, lokasi, portal };

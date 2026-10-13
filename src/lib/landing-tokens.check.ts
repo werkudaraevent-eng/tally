@@ -168,6 +168,12 @@ for (const key of LANDING_BODY_FONTS) {
   assert.equal(kosong.sections?.find((s) => s.id === "venue")?.enabled, false);
   assert.equal(kosong.sections?.find((s) => s.id === "about")?.enabled, true);
   assert.deepEqual(isiGatheringMengubah(kosong), { tentang: false, lokasi: false, portal: false });
+  // Gathering Horizon tidak menampilkan kartu Tentang acara, jadi tidak ditulis (QA #158 L10).
+  const horizon = isiGathering({ gathering: true, gathering_variant: "horizon" }, bawaan);
+  assert.equal(horizon.about_heading, "Judul");
+  assert.equal(horizon.about_cards, undefined);
+  assert.equal(horizon.en?.about_cards, undefined);
+  assert.deepEqual(isiGatheringMengubah(horizon), { tentang: false, lokasi: false, portal: false });
   // Kartu tanpa judul tetapi bertulisan adalah isi admin (L1).
   const tanpaJudul = isiGathering({ about_cards: [{ title: "", body: "isi tanpa judul" }], about_heading: "Milik admin", eyebrow_shown: { about: false } }, bawaan);
   assert.deepEqual(tanpaJudul.about_cards, [{ title: "", body: "isi tanpa judul" }]);

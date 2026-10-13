@@ -435,8 +435,11 @@ export const LANDING_IMAGE_ALT_MAX = 160;
 /** Bagian bawaan yang judulnya bisa disunting, dan label kecilnya menyala atau tidak bila belum diatur. */
 export const LANDING_EYEBROW_DEFAULT = { about: false, agenda: true, speakers: false, venue: true, faq: false } as const satisfies Partial<Record<LandingSectionId, boolean>>;
 export type LandingHeadedSection = keyof typeof LANDING_EYEBROW_DEFAULT;
-/** Batas judul bagian: sama dengan blok tambahan (label 24, judul 60, pengantar 140). */
-export const LANDING_SECTION_TEXT_MAX = { eyebrow: 24, heading: 60, headingIdeal: 48, intro: 140 } as const;
+/**
+ * Batas judul bagian (label 36, judul 60, pengantar 140). Label 36 supaya
+ * label rancangan Gathering Horizon "KEBERSAMAAN, TANPA TERBURU-BURU" (31) muat.
+ */
+export const LANDING_SECTION_TEXT_MAX = { eyebrow: 36, heading: 60, headingIdeal: 48, intro: 140 } as const;
 
 /** Panjang label menu atas: satu atau dua kata pendek, supaya menu muat satu baris. */
 export const LANDING_NAV_LABEL_MAX = 16;

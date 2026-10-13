@@ -1187,7 +1187,11 @@ export default function LandingCmsPage() {
   const isiPortal = (
     <>
       <p className="text-body-medium text-on-surface-variant">
-        This section appears automatically while the Participant area is open. Drag its row to choose where it sits; by default it is just above the footer. Its text is fixed, and its tiles follow the Participant area: entry ticket, room and bus, and announcements. The top bar gets a link to it, &ldquo;Perjalanan&rdquo; (&ldquo;Your trip&rdquo; in English).
+        This section appears automatically while the Participant area is open. Drag its row to choose where it sits; by default it is just above the footer. Its text is fixed,{" "}
+        {landing.gathering && landing.gathering_variant === "horizon"
+          ? "and the journey pass card beside it uses the From and To fields below, the event dates, and the hero KV."
+          : "and its tiles follow the Participant area: entry ticket, room and bus, and announcements."}{" "}
+        The top bar gets a link to it, &ldquo;Perjalanan&rdquo; (&ldquo;Your trip&rdquo; in English).
       </p>
       {tautanSumberPortal("/admin/area-peserta", "Open Participant area")}
       {landing.gathering && landing.gathering_variant === "horizon" ? (
