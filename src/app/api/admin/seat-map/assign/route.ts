@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { normalizeSeatLabel } from "@/lib/seat-map";
-import { applyTallySeats, loadSeatOptions, prepareTallySeats, SeatInputError, type StoredSeat } from "@/lib/seat-tally";
+import { applyTallySeats, loadSeatOptions, prepareTallySeats, SeatConflictError, SeatInputError, type StoredSeat } from "@/lib/seat-tally";
 import { tallySeatSource } from "@/lib/seat-tally-source";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -100,33 +100,71 @@ export async function POST(request: Request) {
 
   try {
     const kursi = await prepareTallySeats(eventId, target, [{ session_id, label: participant_id ? label : null }]);
-    const sebelum = peserta.get(target)?.seats ?? [];
-    const { freed } = await applyTallySeats(eventId, target, kursi, auth.user.id);
+    const sumber = tallySeatSource(session_id);
+    const entriSebelum = (peserta.get(target)?.seats ?? []).find((seat) => seat?.subEventId === sumber) ?? null;
+    // Pemegang saat menulis harus sama dengan yang dilihat admin; kalau tidak,
+    // tidak ada yang dilepas dan permintaan ini yang ditolak.
+    const { freed } = await applyTallySeats(eventId, target, kursi, auth.user.id, { expectedHolder: current_participant_id });
 
-    // Dua admin yang mengisi kursi kosong yang sama pada saat bersamaan sama-sama
-    // lolos pemeriksaan di atas. Sesudah menulis, pemegang kursi dibaca ulang;
-    // bila ada orang lain juga di situ, tulisan ini dibatalkan. Keduanya bisa
-    // gagal dan harus mencoba lagi, tetapi kursi ganda tidak pernah tersisa.
-    // (Kunci di SQL lewat RPC menyusul di jalur migrasi.)
+    // Dua admin yang mengisi kursi kosong yang sama pada saat bersamaan bisa
+    // sama-sama lolos pemeriksaan di atas. Sesudah menulis, pemegang kursi dibaca
+    // ulang; bila ada orang lain juga di situ, hanya entri sesi ini yang
+    // dikembalikan. Keduanya bisa gagal dan harus mencoba lagi, tetapi kursi
+    // ganda tidak pernah tersisa. (Kunci di SQL lewat RPC menyusul di jalur migrasi.)
     const labelSah = kursi[0]?.label;
     if (participant_id && labelSah) {
-      const sumber = tallySeatSource(session_id);
-      const { data: pemegangBaru } = await client
-        .from("participants")
-        .select("id")
-        .eq("event_id", eventId)
-        .is("source_removed_at", null)
-        .contains("seats", JSON.stringify([{ subEventId: sumber, label: labelSah }]))
-        .limit(5);
-      const lain = ((pemegangBaru ?? []) as Array<{ id: string }>).filter((row) => row.id !== participant_id);
+      const lain = (await pemegangKursi(eventId, sumber, labelSah)).filter((id) => id !== participant_id);
       if (lain.length > 0) {
-        await client.from("participants").update({ seats: sebelum } as never).eq("event_id", eventId).eq("id", participant_id).is("source_participant_id", null);
+        await kembalikanSesi(eventId, participant_id, sumber, labelSah, entriSebelum, auth.user.id);
+        // Orang yang tergeser oleh tulisan ini kembali ke kursinya bila kursi itu kosong lagi.
+        if ((await pemegangKursi(eventId, sumber, labelSah)).length === 0) {
+          const kursiAsal = { subEventId: sumber, subEventName: kursi[0].session.name, label: labelSah };
+          for (const orang of freed) await kembalikanSesi(eventId, orang.participantId, sumber, null, kursiAsal, auth.user.id);
+        }
         return apiError("CONFLICT", 409, { seat: "Seat was just taken. Try again." });
       }
     }
     return Response.json({ ok: true, freed });
   } catch (galat) {
+    if (galat instanceof SeatConflictError) return apiError("CONFLICT", 409, { seat: galat.message });
     if (galat instanceof SeatInputError) return apiError("VALIDATION_ERROR", 422, { seat: galat.message });
     return apiError("INTERNAL_ERROR", 500);
   }
+}
+
+/** Id peserta aktif yang memegang `label` di sesi `sumber`. */
+async function pemegangKursi(eventId: string, sumber: string, label: string) {
+  const { data } = await getSupabaseServiceClient()
+    .from("participants")
+    .select("id")
+    .eq("event_id", eventId)
+    .is("source_removed_at", null)
+    .contains("seats", JSON.stringify([{ subEventId: sumber, label }]))
+    .limit(5);
+  return ((data ?? []) as Array<{ id: string }>).map((row) => row.id);
+}
+
+/**
+ * Mengembalikan entri satu sesi milik satu peserta, dibaca ulang dari baris
+ * terkini supaya kursi di sesi lain yang berubah sementara itu tidak tertimpa.
+ * `hanyaBila` = label yang ditulis permintaan ini; entri sesi itu hanya diganti
+ * bila masih label tersebut (null: hanya bila sesi itu kosong).
+ */
+async function kembalikanSesi(eventId: string, participantId: string, sumber: string, hanyaBila: string | null, entri: StoredSeat | null, actor: string) {
+  const client = getSupabaseServiceClient();
+  const { data } = await client.from("participants").select("seats").eq("event_id", eventId).eq("id", participantId).is("source_participant_id", null).maybeSingle();
+  if (!data) return;
+  const lama = (((data as { seats: StoredSeat[] | null }).seats) ?? []).filter(Boolean);
+  const kini = lama.find((seat) => seat.subEventId === sumber) ?? null;
+  if ((kini?.label ?? null) !== hanyaBila) return;
+  // Kursi asal yang sudah diambil orang lain tidak direbut kembali.
+  if (entri && (await pemegangKursi(eventId, sumber, entri.label)).some((id) => id !== participantId)) entri = null;
+  const baru = [...lama.filter((seat) => seat.subEventId !== sumber), ...(entri ? [entri] : [])];
+  await client.from("participants").update({ seats: baru } as never).eq("event_id", eventId).eq("id", participantId).is("source_participant_id", null);
+  await client.from("audit_logs").insert({
+    event_id: eventId,
+    user_id: actor,
+    action: "participant_seat_revert",
+    payload: { participant_id: participantId, old: lama, new: baru },
+  } as never);
 }
