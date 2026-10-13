@@ -4,6 +4,7 @@ import { BrowserMultiFormatReader } from "@zxing/browser";
 import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import {
   ArrowsClockwise,
+  BookOpenText,
   CaretDown,
   CircleNotch,
   ClockCounterClockwise,
@@ -1941,6 +1942,19 @@ export default function ScanClient() {
 
           <Divider />
           <div className="-mx-6">
+            {/* Tab baru, bukan pindah halaman: kamera, riwayat ponsel ini, dan
+                lembar yang terbuka hanya hidup di layar ini. Halamannya statis
+                di public/panduan/, terbuka tanpa login, berisi data contoh. */}
+            <a
+              href="/panduan/scanner.html"
+              target="_blank"
+              rel="noopener"
+              onClick={() => setMenuTerbuka(false)}
+              className="m3-state flex min-h-14 w-full items-center gap-4 px-6 text-left text-body-large"
+            >
+              <BookOpenText size={22} className="text-on-surface-variant" aria-hidden />
+              Scanner guide
+            </a>
             <button type="button" onClick={() => { void muatSesi(); setMenuTerbuka(false); }} className="m3-state flex min-h-14 w-full items-center gap-4 px-6 text-left text-body-large">
               <ArrowsClockwise size={22} className="text-on-surface-variant" aria-hidden />
               Reload check-in points

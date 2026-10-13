@@ -88,3 +88,12 @@ supaya panduan tetap bergambar bila admin mengubah setting.
 Di halaman cetak, gambar ditampilkan kecil dan berdampingan dengan teksnya.
 Kalau ditampilkan sebesar di panel, panduan satu halaman bisa membengkak menjadi
 belasan halaman dan boros tinta.
+
+## Panduan tim scanner (`scanner.html`)
+
+`/panduan/scanner.html` adalah halaman statis untuk petugas `/scan`, dibuka dari
+menu ⋮ › **Scanner guide** di layar scanner. Gambarnya ada di `scanner/` dan
+semuanya memakai data contoh (nama, angka, akun), bukan data peserta asli.
+Gambar diambil dari `ScanClient` yang dirender lokal dengan jawaban API tiruan;
+skripnya ada di folder proyek `panduan-scanner/gambar/capture.mjs`. Kalau layar
+`/scan` berubah, ambil ulang gambarnya supaya panduan tetap sesuai layar.

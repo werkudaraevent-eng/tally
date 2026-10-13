@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panduan Tim Scanner — Tally</title>
+<meta name="robots" content="noindex">
+<style>
+/* Layout: one narrow reading column for a phone held in one hand; sticky chip bar jumps between the six tasks. */
+:root {
+  --bg: #f5f6fb;
+  --surface: #ffffff;
+  --fg: #171a26;
+  --muted: #5a6075;
+  --line: #dfe2ee;
+  --accent: #2f4fd6;
+  --accent-soft: #e6eafc;
+  --ok: #1d7a43; --ok-soft: #dcf3e4;
+  --warn: #9a5a00; --warn-soft: #fdebd2;
+  --bad: #b3261e; --bad-soft: #fde1df;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-ui: ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11131b; --surface: #1a1d28; --fg: #eceef6; --muted: #a3a8bd; --line: #2c3142;
+    --accent: #9fb0ff; --accent-soft: #252c4d;
+    --ok: #7fd9a0; --ok-soft: #173525; --warn: #f5bd6b; --warn-soft: #3a2a12; --bad: #ffa59e; --bad-soft: #3d1a19;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11131b; --surface: #1a1d28; --fg: #eceef6; --muted: #a3a8bd; --line: #2c3142;
+  --accent: #9fb0ff; --accent-soft: #252c4d;
+  --ok: #7fd9a0; --ok-soft: #173525; --warn: #f5bd6b; --warn-soft: #3a2a12; --bad: #ffa59e; --bad-soft: #3d1a19;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 640px; margin: 0 auto; padding-inline: 16px; padding-block: 0 48px; }
+header.top { padding-block: 28px 16px; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0; }
+h1 { font-size: 30px; line-height: 1.15; font-weight: 800; margin: 6px 0 10px; text-wrap: balance; }
+.lead { color: var(--muted); margin: 0; }
+nav.chips { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 10px; margin-inline: -16px; padding-inline: 16px; border-bottom: 1px solid var(--line); overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+nav.chips::-webkit-scrollbar { display: none; }
+nav.chips a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; margin-right: 6px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--fg); text-decoration: none; font-weight: 600; font-size: 14px; }
+nav.chips a:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+section { padding-top: 28px; scroll-margin-top: 64px; }
+h2 { font-size: 22px; line-height: 1.25; font-weight: 800; margin: 0 0 6px; display: flex; gap: 10px; align-items: baseline; text-wrap: balance; }
+h2 .no { font-family: var(--font-ui); font-size: 14px; color: var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 2px 8px; flex: none; }
+h3 { font-size: 17px; margin: 20px 0 4px; }
+p { margin: 8px 0; }
+ol.steps { padding-left: 0; list-style: none; counter-reset: s; margin: 12px 0; display: grid; gap: 10px; }
+ol.steps > li { counter-increment: s; position: relative; padding-left: 40px; }
+ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--bg); font-weight: 800; font-size: 14px; display: grid; place-items: center; }
+ul { padding-left: 20px; margin: 8px 0; }
+li { margin: 4px 0; }
+.ui { font-family: var(--font-ui); font-size: .86em; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+figure { margin: 16px auto; max-width: 300px; }
+figure img { display: block; width: 100%; height: auto; border-radius: 22px; border: 1px solid var(--line); box-shadow: 0 6px 20px rgb(0 0 0 / .12); }
+figcaption { font-size: 13px; color: var(--muted); text-align: center; margin-top: 8px; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+.pair figure { margin: 0; max-width: none; }
+.note { background: var(--accent-soft); border-radius: 14px; padding: 12px 14px; margin: 14px 0; font-size: 15px; }
+.note b { color: var(--accent); }
+.warn { background: var(--warn-soft); }
+.warn b { color: var(--warn); }
+.result { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); }
+.result:last-child { border-bottom: 1px solid var(--line); }
+.dot { width: 14px; height: 14px; border-radius: 50%; margin-top: 5px; }
+.dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+.result p { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
+.result strong { display: block; }
+.fix { display: grid; gap: 10px; margin: 12px 0; }
+.fix div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.fix strong { display: block; margin-bottom: 2px; }
+.fix p { margin: 0; color: var(--muted); font-size: 15px; }
+footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
+@media (max-width: 360px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">Tally · layar /scan</p>
+    <h1>Panduan Tim Scanner</h1>
+    <p class="lead">Cara menyiapkan HP di meja registrasi, memindai badge, mencari nama, mendaftarkan tamu walk-in, dan mengecek riwayat. Tulisan di layar scanner berbahasa Inggris, jadi nama tombol di panduan ini ditulis persis seperti di layar.</p>
+  </header>
+
+  <nav class="chips" aria-label="Bagian panduan">
+    <a href="#mulai">Mulai</a><a href="#meja">Sesi &amp; meja</a><a href="#scan">Scan QR</a><a href="#hasil">Arti warna</a><a href="#cari">Find name</a><a href="#walkin">Walk-in</a><a href="#riwayat">Riwayat</a><a href="#masalah">Kalau ada masalah</a>
+  </nav>
+
+  <section id="mulai">
+    <h2><span class="no">0</span>Sebelum mulai</h2>
+    <ul>
+      <li>Buka tautan scanner yang dibagikan panitia (alamatnya berakhiran <span class="ui">/scan</span>) di Chrome (Android) atau Safari (iPhone).</li>
+      <li>Masuk dengan akun petugas scan dari panitia. Kalau setelah masuk layar scanner tidak terbuka, minta admin menambahkan akun Anda ke acara ini.</li>
+      <li>Pastikan baterai cukup dan HP tersambung ke internet. Volume dinyalakan supaya bunyi hasil terdengar.</li>
+      <li>Panduan ini bisa dibuka lagi kapan saja dari menu <span class="ui">⋮</span> › <span class="ui">Scanner guide</span> di layar scanner. Panduan terbuka di tab baru, jadi layar scanner tidak tertutup.</li>
+    </ul>
+    <p class="note"><b>Satu akun boleh dipakai di beberapa HP.</b> Pilihan sesi dan meja disimpan di HP, bukan di akun, jadi tiap HP diatur sendiri.</p>
+  </section>
+
+  <section id="meja">
+    <h2><span class="no">1</span>Pilih sesi dan meja</h2>
+    <p>Saat pertama dibuka, layar langsung menampilkan <span class="ui">Set up this desk</span>. Lembar ini tidak bisa ditutup sebelum diisi.</p>
+    <ol class="steps">
+      <li>Di <span class="ui">Check-in point</span>, pilih sesi yang sedang berjalan, misalnya <span class="ui">Registration</span>. Angka di kanan adalah jumlah orang yang sudah hadir di sesi itu.</li>
+      <li>Di <span class="ui">Desk</span>, pilih meja tempat Anda berdiri. Bagian ini hanya muncul kalau acara punya lebih dari satu meja.</li>
+      <li>Tekan <span class="ui">Start scanning</span>. Tombolnya baru aktif setelah sesi dan meja dipilih.</li>
+    </ol>
+    <div class="pair">
+      <figure><img src="/panduan/scanner/01-siapkan-meja.jpg" alt="Lembar Set up this desk sebelum meja dipilih" loading="lazy"><figcaption>Belum lengkap: tombol masih abu-abu</figcaption></figure>
+      <figure><img src="/panduan/scanner/02-meja-dipilih.jpg" alt="Sesi Registration dan Desk 2 sudah dipilih" loading="lazy"><figcaption>Siap: tekan Start scanning</figcaption></figure>
+    </div>
+    <h3>Ganti sesi atau meja di tengah acara</h3>
+    <p>Ketuk judul di bagian atas layar (misalnya <span class="ui">Registration · Desk 2 ⌄</span>). Lembar <span class="ui">Change check-in point or desk</span> terbuka. Pilih yang baru, lalu tekan <span class="ui">Start scanning</span>. Pindaian berikutnya tercatat di pilihan baru.</p>
+    <p class="note warn"><b>Selalu cek judul atas sebelum memindai.</b> Kalau sesi salah (misalnya masih <span class="ui">Registration</span> padahal sudah jam makan siang), kehadiran tercatat di sesi yang salah. Kalau admin menutup sesi yang Anda pilih, lembar ini terbuka sendiri dan meminta Anda memilih lagi.</p>
+  </section>
+
+  <section id="scan">
+    <h2><span class="no">2</span>Scan QR</h2>
+    <ol class="steps">
+      <li>Di tab <span class="ui">Scan</span> (menu bawah), tekan <span class="ui">Turn on camera</span>. Izinkan kamera kalau browser bertanya.</li>
+      <li>Arahkan QR di badge atau HP peserta ke dalam kotak putih. Tidak perlu menekan apa pun, kamera membaca sendiri.</li>
+      <li>Saat terbaca, tulisan di kiri atas berubah jadi <span class="ui">Read, saving…</span>, lalu lembar hasil muncul dari bawah dengan bunyi.</li>
+      <li>Baca nama di lembar hasil, cocokkan dengan orangnya, lalu lanjut ke peserta berikutnya.</li>
+    </ol>
+    <div class="pair">
+      <figure><img src="/panduan/scanner/03-kamera-mati.jpg" alt="Layar Scan dengan kamera mati dan tombol Turn on camera" loading="lazy"><figcaption>Nyalakan kamera sekali</figcaption></figure>
+      <figure><img src="/panduan/scanner/04-kamera-nyala.jpg" alt="Kamera menyala dengan kotak bidik dan tulisan Ready to scan" loading="lazy"><figcaption>Ready to scan: arahkan QR ke kotak</figcaption></figure>
+    </div>
+    <ul>
+      <li>Kamera tetap menyala untuk peserta berikutnya. Kamera mati sendiri kalau Anda pindah tab atau HP dikunci; tekan <span class="ui">Turn on camera</span> lagi.</li>
+      <li>Kotak <span class="ui">All desks</span> di atas menunjukkan berapa orang sudah hadir di sesi ini dari semua meja, dan berapa yang belum. Angkanya diperbarui tiap 30 detik.</li>
+      <li>Ikon speaker di pojok kanan atas kamera mematikan atau menyalakan bunyi. Di iPhone, bunyi tidak keluar selama tombol silent aktif.</li>
+      <li>Ruangan gelap? Kalau HP punya senter, tombol senter muncul di sebelah ikon speaker.</li>
+      <li>Pakai scanner genggam (USB/Bluetooth)? Cukup buka tab <span class="ui">Scan</span> lalu tembak badge. Kamera tidak perlu dinyalakan.</li>
+    </ul>
+  </section>
+
+  <section id="hasil">
+    <h2><span class="no">3</span>Arti warna lembar hasil</h2>
+    <div>
+      <div class="result"><span class="dot ok"></span><div><strong>Hijau · <span class="ui">Checked in</span></strong><p>Berhasil. Kalau peserta punya kursi, nomornya tampil besar (misalnya <span class="ui">Row C · Seat 12</span>). Bacakan ke peserta. Lembar hijau menutup sendiri setelah 3 detik; sentuh lembarnya kalau ingin tetap terbuka.</p></div></div>
+      <div class="result"><span class="dot warn"></span><div><strong>Oranye · <span class="ui">Already scanned</span></strong><p>Peserta ini sudah pernah dipindai di sesi ini (jam pertama tertulis). Peserta tetap boleh masuk dan angka hadir tidak bertambah. Tekan <span class="ui">Close</span>.</p></div></div>
+      <div class="result"><span class="dot bad"></span><div><strong>Merah · <span class="ui">Unknown code</span></strong><p>QR bukan milik peserta acara ini, atau pendaftarannya dibatalkan. Cari namanya di <span class="ui">Find name</span>. Kalau tidak ada dan acara menerima walk-in, tekan <span class="ui">Register walk-in</span>.</p></div></div>
+      <div class="result"><span class="dot bad"></span><div><strong>Merah · <span class="ui">Not saved</span></strong><p>Koneksi putus, peserta <b>belum</b> tercatat. Tekan <span class="ui">Retry</span> atau pindai ulang. Lihat bagian <a href="#masalah">Kalau ada masalah</a>.</p></div></div>
+    </div>
+    <div class="pair">
+      <figure><img src="/panduan/scanner/05-hasil-hijau.jpg" alt="Lembar hijau Checked in dengan nomor kursi" loading="lazy"><figcaption>Checked in + kursi</figcaption></figure>
+      <figure><img src="/panduan/scanner/06-hasil-oranye.jpg" alt="Lembar oranye Already scanned" loading="lazy"><figcaption>Already scanned</figcaption></figure>
+    </div>
+    <figure><img src="/panduan/scanner/07-hasil-merah.jpg" alt="Lembar merah Unknown code dengan tombol Register walk-in" loading="lazy"><figcaption>Unknown code: cari nama dulu, baru walk-in</figcaption></figure>
+  </section>
+
+  <section id="cari">
+    <h2><span class="no">4</span>Mode Find name</h2>
+    <p>Dipakai kalau peserta lupa QR, layar HP-nya retak, atau QR tidak terbaca.</p>
+    <ol class="steps">
+      <li>Ketuk <span class="ui">Find name</span> di menu bawah.</li>
+      <li>Ketik minimal 2 huruf di <span class="ui">Find participant</span>: sebagian nama, nama instansi, atau kode REG. Urutan kata bebas.</li>
+      <li>Pastikan orangnya benar dari nama, instansi, dan jabatan, lalu tekan <span class="ui">Check in</span> di barisnya. Lembar hasil muncul sama seperti saat scan QR.</li>
+    </ol>
+    <figure><img src="/panduan/scanner/09-cari-nama.jpg" alt="Hasil pencarian rina dengan tombol Check in dan Again" loading="lazy"><figcaption>Baris dengan tulisan oranye sudah hadir</figcaption></figure>
+    <ul>
+      <li>Kalau barisnya bertuliskan <span class="ui">Checked in 01:35, 1 time</span> dan tombolnya <span class="ui">Again</span>, orang itu sudah hadir. Tidak perlu ditekan lagi kecuali memang mau dicatat ulang.</li>
+      <li>Hasil terlalu banyak (<span class="ui">Showing the top 25</span>)? Tambahkan nama instansi di kolom pencarian.</li>
+      <li>Muncul <span class="ui">Search failed</span>? Jaringan venue sedang lambat. Ubah satu huruf untuk mencoba lagi, atau pakai Scan dulu.</li>
+    </ul>
+  </section>
+
+  <section id="walkin">
+    <h2><span class="no">5</span>Mode Walk-in</h2>
+    <p>Untuk tamu yang datang tanpa terdaftar. Tombol walk-in hanya ada kalau admin mengizinkan walk-in untuk acara ini. Kalau tidak ada, arahkan tamu ke meja panitia.</p>
+    <p class="note"><b>Selalu cari namanya dulu.</b> Tombol walk-in sengaja hanya muncul setelah pencarian tidak menemukan apa pun, supaya satu orang tidak terdaftar dua kali karena ejaan nama yang berbeda.</p>
+    <ol class="steps">
+      <li>Di <span class="ui">Find name</span>, ketik nama tamu. Kalau muncul <span class="ui">No matching participants</span>, coba sekali lagi dengan sebagian nama atau instansinya.</li>
+      <li>Tetap tidak ada? Tekan <span class="ui">Register as walk-in</span>. Nama yang Anda ketik sudah terisi di formulir. (Dari lembar merah <span class="ui">Unknown code</span>, tombolnya bernama <span class="ui">Register walk-in</span>.)</li>
+      <li>Isi formulir <span class="ui">Walk-in guest</span>. Kolom tanpa tulisan <span class="ui">optional</span> wajib diisi. Isinya mengikuti formulir pendaftaran acara, jadi bisa ada pertanyaan tambahan.</li>
+      <li>Tekan <span class="ui">Save and check in</span>. Tamu langsung tercatat hadir di sesi yang dipilih dan kode pesertanya dibuat otomatis.</li>
+    </ol>
+    <div class="pair">
+      <figure><img src="/panduan/scanner/10-cari-kosong.jpg" alt="No matching participants dengan tombol Register as walk-in" loading="lazy"><figcaption>Tidak ditemukan</figcaption></figure>
+      <figure><img src="/panduan/scanner/11-walkin-form.jpg" alt="Formulir Walk-in guest terisi" loading="lazy"><figcaption>Isi lalu Save and check in</figcaption></figure>
+    </div>
+    <figure><img src="/panduan/scanner/12-walkin-tersimpan.jpg" alt="Lembar hijau Walk-in registered" loading="lazy"><figcaption>Walk-in registered</figcaption></figure>
+    <ul>
+      <li>Kalau muncul <span class="ui">This name is already on the list</span>, sistem menemukan peserta dengan nama yang sama. Tanyakan instansinya. Kalau orangnya sama, tekan <span class="ui">This is the person</span>. Kalau memang orang berbeda, tekan <span class="ui">Add as a different person anyway</span>.</li>
+      <li>Kalau admin menyalakan email tautan masuk untuk walk-in, lembar hasil menulis ke alamat mana tautan dikirim. Pastikan email yang diketik benar.</li>
+    </ul>
+  </section>
+
+  <section id="riwayat">
+    <h2><span class="no">6</span>Cek riwayat</h2>
+    <p>Ketuk <span class="ui">History</span> di menu bawah untuk melihat <span class="ui">Scans on this phone</span>: 20 pindaian terakhir dari HP ini, lengkap dengan jamnya.</p>
+    <figure><img src="/panduan/scanner/14-riwayat.jpg" alt="Daftar Scans on this phone" loading="lazy"><figcaption>Status di kanan tiap nama</figcaption></figure>
+    <ul>
+      <li><span class="ui">checked in</span> berhasil, <span class="ui">new</span> walk-in baru, <span class="ui">repeat</span> pindaian ulang, <span class="ui">failed</span> kode tidak dikenal.</li>
+      <li>Riwayat hanya berisi pindaian dari HP ini sejak layar dibuka. Kalau halaman dimuat ulang, daftarnya kosong lagi, tetapi datanya tetap aman di server.</li>
+      <li>Ragu apakah seseorang sudah hadir? Cari namanya di <span class="ui">Find name</span>. Orang yang sudah hadir bertuliskan <span class="ui">Checked in</span> beserta jamnya, dari meja mana pun.</li>
+      <li>Angka besar di atas riwayat menghitung orang dari semua meja, bukan jumlah pindaian.</li>
+    </ul>
+  </section>
+
+  <section id="masalah">
+    <h2><span class="no">7</span>Kalau ada masalah</h2>
+    <figure><img src="/panduan/scanner/08-tidak-tersimpan.jpg" alt="Lembar merah Not saved dan tanda Offline" loading="lazy"><figcaption>Not saved dan tanda Offline di atas</figcaption></figure>
+    <div class="fix">
+      <div><strong><span class="ui">Not saved</span> / tanda <span class="ui">Offline</span></strong><p>Koneksi putus, peserta belum tercatat. Tekan <span class="ui">Retry</span>. Tanda Offline hilang sendiri setelah pindaian berikutnya berhasil.</p></div>
+      <div><strong><span class="ui">Signed out</span></strong><p>Akun di HP ini keluar. Tekan <span class="ui">Sign in again</span>, masuk, lalu pindai ulang peserta tadi.</p></div>
+      <div><strong><span class="ui">Not checked in</span></strong><p>Server menolak, misalnya sesi sudah ditutup admin. Mencoba ulang tidak akan berhasil; hubungi panitia.</p></div>
+      <div><strong>Kamera tidak menyala</strong><p>Izin kamera ditolak. Buka pengaturan situs di browser, izinkan kamera, lalu muat ulang halaman. Sambil menunggu, pakai <span class="ui">Find name</span>.</p></div>
+      <div><strong>Sesi baru tidak muncul</strong><p>Buka menu <span class="ui">⋮</span> lalu <span class="ui">Reload check-in points</span>.</p></div>
+      <div><strong>Lembar hijau terlalu cepat hilang</strong><p>Menu <span class="ui">⋮</span>, matikan <span class="ui">Auto-close green results</span>. Di sesi pengambilan barang (kaos, goodie bag) lembar tidak menutup sendiri.</p></div>
+    </div>
+    <figure><img src="/panduan/scanner/13-menu.jpg" alt="Menu Settings for this phone" loading="lazy"><figcaption>Menu ⋮: bunyi, tutup otomatis, muat ulang, keluar</figcaption></figure>
+    <p>Di menu <span class="ui">⋮</span> juga ada <span class="ui">Sign out</span> untuk ganti akun, dan <span class="ui">Link Welcome screen</span> untuk menyambungkan TV sambutan ke meja ini (ketik 6 angka yang tampil di TV).</p>
+  </section>
+
+  <footer>Tutup tab ini untuk kembali ke layar scanner. Gambar diambil dari layar scanner Tally dengan data contoh. Nama dan angka di gambar bukan data peserta sungguhan.</footer>
+</div>
+
+</body>
+</html>
