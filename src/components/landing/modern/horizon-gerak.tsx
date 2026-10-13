@@ -1,0 +1,200 @@
+"use client";
+
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { m, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from "framer-motion";
+
+/**
+ * Gerak halus Gathering Horizon (rancangan V5, PR 3): garis perjalanan emas
+ * di talang kiri dan muncul-pelan saat bagian masuk layar.
+ *
+ * Batas dari brief Hanung: tidak ada pinning panjang, topeng elips, teater
+ * gulir, angka hari raksasa, atau kartu berperspektif. Semua gerak mati saat
+ * sistem meminta gerak dikurangi (garisnya tampil penuh, diam).
+ */
+
+/**
+ * Isi yang naik-pudar sekali saat masuk layar. HTML server tetap terlihat:
+ * isi baru disembunyikan setelah terpasang, dan hanya bila masih di bawah
+ * layar, jadi tanpa JavaScript atau saat dimuat di tengah halaman tidak ada
+ * yang hilang atau berkedip.
+ *
+ * Sembunyi dan tampil ditulis langsung ke data-muncul dan dijalankan transisi
+ * CSS, bukan animate framer: animasi sembunyi berdurasi nol dari framer bisa
+ * menang atas animasi tampil saat halaman digulir cepat selagi hidrasi, dan
+ * isinya tertahan tak terlihat. Di sini tampil selalu menang: setiap panggilan
+ * pengamat membaca posisi saat itu, dan isi yang sudah sampai atau melewati
+ * layar langsung tampil, termasuk yang terlewat dalam satu gulir cepat.
+ */
+export function Muncul({
+  children,
+  className,
+  style,
+  jeda = 0,
+  as = "div",
+}: {
+  children: ReactNode;
+  className?: string;
+  style?: CSSProperties;
+  jeda?: number;
+  as?: "div" | "li";
+}) {
+  const ref = useRef<HTMLElement | null>(null);
+  const kurangi = useReducedMotion();
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || kurangi || typeof IntersectionObserver === "undefined") return;
+    // Garis tampil sama dengan rootMargin pengamat (-8% di bawah).
+    const sudahSampai = () => el.getBoundingClientRect().top < window.innerHeight * 0.92;
+    // Apa pun yang sudah terlihat saat dimuat dibiarkan apa adanya.
+    if (el.getBoundingClientRect().top < window.innerHeight) return;
+    let pertama = true;
+    const pengamat = new IntersectionObserver(
+      (entri) => {
+        // Posisi juga dibaca ulang: entri bisa basi atau datang beberapa
+        // sekaligus. Tampil bila salah satu menyatakan sampai, karena di
+        // pratinjau editor yang diskalakan garis pengamat (layar teratas) dan
+        // garis posisi (iframe) bisa berbeda beberapa piksel.
+        if (entri.some((e) => e.isIntersecting) || sudahSampai()) {
+          if (el.dataset.muncul === "sembunyi") {
+            el.style.transitionDelay = `${jeda}s`;
+            el.dataset.muncul = "tampil";
+          }
+          pengamat.disconnect();
+          return;
+        }
+        // Disembunyikan baru di panggilan pertama pengamat, jadi bila
+        // pengamat tidak pernah memanggil, isi tetap terlihat.
+        if (pertama && el.getBoundingClientRect().top >= window.innerHeight) el.dataset.muncul = "sembunyi";
+        pertama = false;
+      },
+      { rootMargin: "0px 0px -8% 0px" },
+    );
+    pengamat.observe(el);
+    return () => {
+      pengamat.disconnect();
+      // Dipasang ulang (mis. gerak dikurangi dinyalakan): jangan tinggalkan isi tersembunyi.
+      if (el.dataset.muncul === "sembunyi") el.dataset.muncul = "tampil";
+    };
+  }, [kurangi, jeda]);
+
+  const Komponen = as;
+  return (
+    <Komponen
+      ref={(node: HTMLElement | null) => {
+        ref.current = node;
+      }}
+      // Cetak: isi yang belum digulir tetap tercetak (gaya sembunyi ditimpa).
+      className={`transition-[opacity,translate] duration-[450ms] ease-[cubic-bezier(0.2,0,0,1)] data-[muncul=sembunyi]:translate-y-4 data-[muncul=sembunyi]:opacity-0 data-[muncul=sembunyi]:duration-0 motion-reduce:transition-none print:!translate-none print:!opacity-100 ${className ?? ""}`}
+      style={style}
+    >
+      {children}
+    </Komponen>
+  );
+}
+
+type Simpul = { y: number };
+
+/**
+ * Garis perjalanan: satu garis tipis di talang kiri (layar lebar saja), dari
+ * judul bagian pertama sampai bagian terakhir. Isian emas mengikuti gulir
+ * sampai tengah layar; titik tiap bagian menyala saat dilewati. Posisinya
+ * diukur dari bagian yang benar-benar dirender (anak langsung yang tampil), diukur ulang
+ * saat ukurannya berubah.
+ */
+export function JalurHorizon({ children }: { children: ReactNode }) {
+  const wadah = useRef<HTMLDivElement | null>(null);
+  const kurangi = useReducedMotion();
+  const [ukur, setUkur] = useState<{ tinggi: number; simpul: Simpul[] }>({ tinggi: 0, simpul: [] });
+  const [aktif, setAktif] = useState(-1);
+  const { scrollYProgress } = useScroll({ target: wadah, offset: ["start 50%", "end 50%"] });
+
+  useEffect(() => {
+    const el = wadah.current;
+    if (!el) return;
+    // offsetTop, bukan getBoundingClientRect: tidak ikut geseran Muncul (y: 16).
+    const atasDari = (node: HTMLElement) => {
+      let y = 0;
+      let kini: HTMLElement | null = node;
+      while (kini && kini !== el) {
+        y += kini.offsetTop;
+        kini = kini.offsetParent as HTMLElement | null;
+      }
+      return y;
+    };
+    const hitung = () => {
+      const bagian = Array.from(el.querySelectorAll<HTMLElement>(":scope > :not([data-garis])")).filter((node) => node.offsetHeight > 40);
+      // Titik sejajar baris pertama judul bagian (h2 pertama yang tampil);
+      // bagian tanpa judul memakai tepi atasnya ditambah 64px.
+      const simpul = bagian.map((node) => {
+        const judul = Array.from(node.querySelectorAll<HTMLElement>("h2")).find((h) => h.offsetHeight > 0);
+        if (!judul) return { y: atasDari(node) + 64 };
+        const baris = parseFloat(getComputedStyle(judul).lineHeight) || 40;
+        return { y: Math.round(atasDari(judul) + Math.min(baris, judul.offsetHeight) / 2) };
+      });
+      const tinggi = el.offsetHeight;
+      setUkur((lama) => (lama.tinggi === tinggi && lama.simpul.length === simpul.length && lama.simpul.every((s, i) => s.y === simpul[i].y) ? lama : { tinggi, simpul }));
+    };
+    hitung();
+    // Ukur ulang saat wadah atau salah satu bagian berubah ukuran, dan saat
+    // bagian diurutkan ulang di pratinjau editor (tinggi total bisa sama).
+    const pengamat = new ResizeObserver(hitung);
+    const amati = () => {
+      pengamat.disconnect();
+      pengamat.observe(el);
+      Array.from(el.children).forEach((anak) => pengamat.observe(anak));
+    };
+    amati();
+    const susunan = new MutationObserver(() => {
+      amati();
+      hitung();
+    });
+    susunan.observe(el, { childList: true });
+    return () => {
+      pengamat.disconnect();
+      susunan.disconnect();
+    };
+  }, []);
+
+  const awal = ukur.simpul[0]?.y ?? 0;
+  const akhir = ukur.simpul[ukur.simpul.length - 1]?.y ?? 0;
+  const panjang = Math.max(akhir - awal, 0);
+  const isi = useTransform(scrollYProgress, (p) => Math.min(Math.max(p * ukur.tinggi - awal, 0), panjang));
+
+  useMotionValueEvent(isi, "change", (nilai) => {
+    const ujung = awal + nilai;
+    let indeks = -1;
+    ukur.simpul.forEach((s, i) => {
+      if (s.y <= ujung + 1) indeks = i;
+    });
+    if (indeks !== aktif) setAktif(indeks);
+  });
+
+  const tampilGaris = ukur.simpul.length > 1 && panjang > 0;
+  return (
+    <div ref={wadah} className="relative">
+      {children}
+      {tampilGaris ? (
+        <div
+          aria-hidden
+          data-garis
+          className="pointer-events-none absolute inset-y-0 hidden w-[10px] lg:block"
+          style={{ left: "calc(max(0px, (100% - 1440px) / 2) + 27px)" }}
+        >
+          <span className="absolute left-[4px] w-[2px] rounded-full bg-[#7F8CA6]/40" style={{ top: awal, height: panjang }} />
+          <m.span className="absolute left-[4px] w-[2px] rounded-full bg-[var(--hz-emas)]" style={{ top: awal, height: kurangi ? panjang : isi }} />
+          {ukur.simpul.map((s, i) => {
+            const nyala = kurangi || i <= aktif;
+            return (
+              <span
+                key={i}
+                className={`absolute left-0 size-[10px] rounded-full border-2 transition-colors duration-300 ${nyala ? "border-[var(--hz-emas)] bg-[var(--hz-emas)]" : "border-[#7F8CA6]/60 bg-transparent"}`}
+                style={{ top: s.y - 5 }}
+              />
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
