@@ -290,7 +290,15 @@ export type SeatMapLayoutParams = {
    * kolom baru) supaya tanpa migrasi; ikut dipertahankan saat layout berganti.
    */
   search_company?: boolean;
+  /**
+   * Bentuk penanda kursi di semua denah. Tidak ada = bulat (bawaan lama), jadi
+   * acara lama tetap tergambar persis sama. Kursi di sofa tetap bulat.
+   */
+  seat_shape?: SeatShape;
 };
+
+export const SEAT_SHAPES = ["circle", "square", "cinema"] as const;
+export type SeatShape = (typeof SEAT_SHAPES)[number];
 
 export type SeatSectionKind = "sofa" | "theater";
 
@@ -413,6 +421,7 @@ export function normalizeLayoutParams(layout: SeatMapLayout, raw: unknown): Seat
     head_seats: angka(data.head_seats, bawaan.head_seats, 1, MAX_SEATS_PER_TABLE),
     ...(normalizeSections(data.sections).length ? { sections: normalizeSections(data.sections) } : {}),
     ...(data.search_company === true ? { search_company: true } : {}),
+    ...(data.seat_shape === "square" || data.seat_shape === "cinema" ? { seat_shape: data.seat_shape } : {}),
   };
 }
 

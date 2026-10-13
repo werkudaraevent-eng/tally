@@ -246,4 +246,9 @@ assert.equal(normalizeLayoutParams("theater", { search_company: true }).search_c
 assert.equal("search_company" in normalizeLayoutParams("theater", { search_company: "ya" }), false, "search_company: selain true dibuang");
 assert.equal("search_company" in normalizeLayoutParams("theater", {}), false, "search_company: bawaan mati");
 
+// Bentuk kursi: hanya square/cinema disimpan; bulat = tidak ada kunci (acara lama 0 px).
+assert.equal(normalizeLayoutParams("theater", { seat_shape: "cinema" }).seat_shape, "cinema", "seat_shape: cinema disimpan");
+assert.equal("seat_shape" in normalizeLayoutParams("theater", { seat_shape: "circle" }), false, "seat_shape: circle = bawaan");
+assert.equal("seat_shape" in normalizeLayoutParams("theater", { seat_shape: "<svg>" }), false, "seat_shape: nilai lain dibuang");
+
 console.log("seat-map-layouts: semua pemeriksaan lolos");
