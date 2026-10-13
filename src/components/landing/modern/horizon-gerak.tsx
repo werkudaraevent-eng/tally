@@ -50,10 +50,12 @@ export function Muncul({
     if (el.getBoundingClientRect().top < window.innerHeight) return;
     let pertama = true;
     const pengamat = new IntersectionObserver(
-      () => {
-        // Posisi dibaca ulang, bukan dari entri: entri bisa basi atau datang
-        // beberapa sekaligus.
-        if (sudahSampai()) {
+      (entri) => {
+        // Posisi juga dibaca ulang: entri bisa basi atau datang beberapa
+        // sekaligus. Tampil bila salah satu menyatakan sampai, karena di
+        // pratinjau editor yang diskalakan garis pengamat (layar teratas) dan
+        // garis posisi (iframe) bisa berbeda beberapa piksel.
+        if (entri.some((e) => e.isIntersecting) || sudahSampai()) {
           if (el.dataset.muncul === "sembunyi") {
             el.style.transitionDelay = `${jeda}s`;
             el.dataset.muncul = "tampil";
