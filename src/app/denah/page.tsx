@@ -192,9 +192,12 @@ export default function SeatMapPage() {
           const found = (data.results ?? []) as SearchResult[];
           setResults(found);
           setSearchNote(found.length === 0 ? "Nama tidak ditemukan pada sesi ini." : (data.message ?? ""));
-          setKursiOrganisasi(organisasi ? organisasi.normalized_labels : []);
+          // Cocok lewat organisasi: semua kursi di daftar disorot, termasuk
+          // peserta yang ikut terdaftar karena namanya cocok.
+          const semuaKursi = organisasi ? found.flatMap((result) => result.normalized_labels) : [];
+          setKursiOrganisasi(semuaKursi);
           // Satu hasil langsung disorot supaya tamu tidak perlu menekan apa pun.
-          setHighlighted(organisasi ? organisasi.normalized_labels : found.length === 1 ? found[0].normalized_labels : []);
+          setHighlighted(organisasi ? semuaKursi : found.length === 1 ? found[0].normalized_labels : []);
         })
         .catch((error: unknown) => {
           if (error instanceof DOMException && error.name === "AbortError") return;

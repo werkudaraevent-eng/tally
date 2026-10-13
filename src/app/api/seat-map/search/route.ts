@@ -129,7 +129,11 @@ export async function GET(request: Request) {
         truncated: false,
         results: daftar,
         organisasi,
-        message: daftar.length > 1 ? `Kursi ${organisasi.total} peserta dari organisasi ini disorot. Ketuk nama untuk melihat satu kursi.` : undefined,
+        message: hanyaNama > MAX_RESULTS
+          ? `Kursi ${organisasi.total} peserta dari organisasi ini disorot. Bila nama Anda tidak ada di daftar, ketik nama lebih lengkap.`
+          : daftar.length > 1
+          ? `Kursi ${daftar.length} peserta disorot. Ketuk nama untuk melihat satu kursi.`
+          : undefined,
       });
     }
 
