@@ -40,6 +40,9 @@ export type SeatInput = { session_id: number; label: string | null };
 
 export class SeatInputError extends Error {}
 
+/** Kursi sudah dipegang orang lain daripada yang dilihat admin saat membukanya. */
+export class SeatConflictError extends Error {}
+
 export async function loadTallySeatSessions(eventId: string): Promise<TallySeatSession[]> {
   const { data, error } = await getSupabaseServiceClient()
     .from("seat_map_sessions")
@@ -166,7 +169,19 @@ export async function prepareTallySeats(eventId: string, participantId: string |
  * sama-sama lolos; kursinya lalu tampil berisi dua nama di laporan denah.
  * Untuk tim panitia sekecil ini itu diterima ketimbang menambah kunci di SQL.
  */
-export async function applyTallySeats(eventId: string, participantId: string, prepared: PreparedSeat[], actor: string) {
+export async function applyTallySeats(
+  eventId: string,
+  participantId: string,
+  prepared: PreparedSeat[],
+  actor: string,
+  options: {
+    /**
+     * Pemegang kursi yang dilihat admin (null = kosong). Bila diisi dan pemegang
+     * saat menulis berbeda, tidak ada yang dilepas: `SeatConflictError`.
+     */
+    expectedHolder?: string | null;
+  } = {},
+) {
   if (prepared.length === 0) return { freed: [] as SeatTaken[] };
   const client = getSupabaseServiceClient();
   const holders = await loadTallySeatHolders(eventId);
@@ -177,6 +192,9 @@ export async function applyTallySeats(eventId: string, participantId: string, pr
   for (const { session, label } of prepared) {
     if (!label) continue;
     const pemegang = taken[session.id]?.[normalizeSeatLabel(label)];
+    if (options.expectedHolder !== undefined && (pemegang?.participantId ?? null) !== options.expectedHolder && pemegang?.participantId !== participantId) {
+      throw new SeatConflictError("Someone else changed this seat. The map has been refreshed.");
+    }
     if (pemegang && pemegang.participantId !== participantId) {
       freed.push(pemegang);
       (lepasDari.get(pemegang.participantId) ?? lepasDari.set(pemegang.participantId, new Set()).get(pemegang.participantId)!).add(session.source);
@@ -184,8 +202,11 @@ export async function applyTallySeats(eventId: string, participantId: string, pr
   }
 
   for (const [id, sources] of lepasDari) {
-    const row = holders.find((item) => item.id === id);
-    const sisa = (row?.seats ?? []).filter((seat) => !sources.has(seat.subEventId));
+    // Dibaca ulang tepat sebelum menulis supaya kursi lain milik orang itu
+    // yang berubah sejak pembacaan di atas tidak tertimpa salinan lama.
+    const { data: segar, error: segarGagal } = await client.from("participants").select("seats").eq("event_id", eventId).eq("id", id).maybeSingle();
+    if (segarGagal) throw new Error(segarGagal.message);
+    const sisa = (((segar as { seats: StoredSeat[] | null } | null)?.seats) ?? []).filter((seat) => seat && !sources.has(seat.subEventId));
     const { error } = await client.from("participants").update({ seats: sisa } as never).eq("event_id", eventId).eq("id", id).is("source_participant_id", null);
     if (error) throw new Error(error.message);
   }
