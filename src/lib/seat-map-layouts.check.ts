@@ -241,4 +241,9 @@ assert.ok(sofaPendek[1].x - sofaPendek[0].x <= (sofaPendek[0].w ?? 0) + 16 * 1.8
 const [pk, pn] = tepi(pendek, (t) => t.shape === "sofa");
 assert.ok(Math.abs((pk + pn) / 2 - pendek.width / 2) < 0.01, "gabungan: bagian pendek tetap di tengah");
 
+// Cari per organisasi: hanya true yang disimpan; bawaan tidak ada.
+assert.equal(normalizeLayoutParams("theater", { search_company: true }).search_company, true, "search_company: true disimpan");
+assert.equal("search_company" in normalizeLayoutParams("theater", { search_company: "ya" }), false, "search_company: selain true dibuang");
+assert.equal("search_company" in normalizeLayoutParams("theater", {}), false, "search_company: bawaan mati");
+
 console.log("seat-map-layouts: semua pemeriksaan lolos");

@@ -58,7 +58,7 @@ type MapPayload = {
   // setelan butuh login.
   time_zone?: string;
 };
-type SearchResult = { name: string; seat_labels: string[]; normalized_labels: string[] };
+type SearchResult = { name: string; company?: string; seat_labels: string[]; normalized_labels: string[] };
 
 const MIN_QUERY_LENGTH = 3;
 
@@ -243,6 +243,7 @@ export default function SeatMapPage() {
   // Penimpa lewat URL menang atas setelan CMS. Layar yang sudah dipasang di
   // dinding tidak bisa diubah dari jauh, jadi alamatnya harus bisa memaksa mode.
   const effectiveMode: PublicViewMode = modeOverride ?? normalizePublicViewMode(payload?.public_view_mode);
+  const cariPerusahaan = payload?.config?.layout_params?.search_company === true;
 
   // LED dipasang lalu ditinggal, jadi ia menyegarkan datanya sendiri. Hanya di
   // mode qr: di mode pencarian, memuat ulang saat tamu sedang mengetik akan
@@ -409,7 +410,7 @@ export default function SeatMapPage() {
           <>
             <div className="mx-auto mt-6 max-w-xl">
               <label htmlFor="seat-search" className="block text-body-medium font-semibold">
-                Cari nama Anda untuk melihat tempat duduk
+                {cariPerusahaan ? "Cari nama atau organisasi Anda untuk melihat tempat duduk" : "Cari nama Anda untuk melihat tempat duduk"}
               </label>
               <div className="relative mt-2">
                 <MagnifyingGlass
@@ -422,7 +423,7 @@ export default function SeatMapPage() {
                   type="search"
                   value={query}
                   onChange={(event) => { sorotanDariUrl.current = false; setQuery(event.target.value); }}
-                  placeholder="Ketik minimal 3 huruf nama Anda"
+                  placeholder={cariPerusahaan ? "Ketik minimal 3 huruf nama atau organisasi" : "Ketik minimal 3 huruf nama Anda"}
                   autoComplete="off"
                   enterKeyHint="search"
                   className="min-h-12 w-full border-0 pl-10 pr-4 text-body-large outline-none"
@@ -452,7 +453,10 @@ export default function SeatMapPage() {
                         className="rounded-md flex min-h-12 w-full items-center justify-between gap-3 border px-4 text-left text-body-medium"
                         style={{ borderColor: `${ink}55` }}
                       >
-                        <span className="font-semibold">{result.name}</span>
+                        <span className="min-w-0">
+                          <span className="block font-semibold">{result.name}</span>
+                          {result.company ? <span className="block truncate opacity-80">{result.company}</span> : null}
+                        </span>
                         <span className="font-bold" style={{ color: accent }}>
                           {result.seat_labels.join(", ")}
                         </span>

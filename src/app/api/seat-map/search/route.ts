@@ -3,7 +3,8 @@ import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { normalizeSeatLabel } from "@/lib/seat-map";
 import { loadAssignmentsForSession, loadSeatMapConfig, loadSessions, resolveSession } from "@/lib/seat-map-data";
-import { searchConfirmationLabel } from "@/lib/seat-map-privacy";
+import { searchConfirmationLabel, type NameDisplayMode } from "@/lib/seat-map-privacy";
+import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Pencarian kursi untuk tamu. Publik, tanpa login.
 //
@@ -55,16 +56,36 @@ export async function GET(request: Request) {
     if (!session) return apiErrorPeserta("SEAT_MAP_SESSION_NOT_FOUND", 404);
 
     const needle = parsed.data.q.toLowerCase();
+    // Cari per Organisation hanya bila admin menyalakannya untuk acara ini.
+    // Bila mati, organisasi tidak dicocokkan dan tidak pernah dikirim.
+    const cariPerusahaan = config.layout_params.search_company === true;
+    // Cocok lewat organisasi saja tidak boleh membuka orang yang namanya
+    // disembunyikan: penanya tidak tahu namanya, jadi aturan tampilan nama denah
+    // berlaku penuh. Acara dengan nama tersembunyi tidak dicari per organisasi
+    // sama sekali; peserta yang menolak namanya tampil tidak ikut hasil
+    // organisasi. Keduanya tetap bisa menemukan dirinya lewat nama sendiri.
+    let organisasiBoleh = cariPerusahaan;
+    if (cariPerusahaan) {
+      const { data: setelan } = await getSupabaseServiceClient().from("event_settings").select("name_display_mode").eq("event_id", eventId).maybeSingle();
+      const mode = ((setelan as { name_display_mode?: NameDisplayMode } | null)?.name_display_mode ?? "initials") as NameDisplayMode;
+      if (mode === "hidden") organisasiBoleh = false;
+    }
     const { assignments } = await loadAssignmentsForSession(eventId, session.sub_event_id);
 
     // Satu orang bisa memegang lebih dari satu kursi; dikelompokkan per orang
     // supaya tamu melihat satu hasil dengan daftar kursinya, bukan hasil ganda.
-    const grouped = new Map<string, { name: string; seatLabels: string[]; tableNumbers: Set<string> }>();
+    const grouped = new Map<string, { name: string; company: string; seatLabels: string[]; tableNumbers: Set<string> }>();
 
     for (const assignment of assignments) {
-      if (!assignment.name.toLowerCase().includes(needle)) continue;
+      const company = (assignment.company ?? "").trim();
+      const cocokNama = assignment.name.toLowerCase().includes(needle);
+      const cocokOrganisasi = organisasiBoleh && assignment.allowNameDisplay && company.toLowerCase().includes(needle);
+      const cocok = cocokNama || cocokOrganisasi;
+      if (!cocok) continue;
       const entry = grouped.get(assignment.participantId) ?? {
         name: assignment.name,
+        // Organisasi hanya ikut tampil bila boleh dicari: tidak untuk peserta yang menolak namanya tampil.
+        company: organisasiBoleh && assignment.allowNameDisplay ? company : "",
         seatLabels: [],
         tableNumbers: new Set<string>(),
       };
@@ -82,12 +103,15 @@ export async function GET(request: Request) {
         total,
         truncated: true,
         results: [],
-        message: `Ada ${total} nama yang cocok. Ketik nama lebih lengkap.`,
+        message: cariPerusahaan
+          ? `Ada ${total} peserta yang cocok. Ketik nama Anda lebih lengkap.`
+          : `Ada ${total} nama yang cocok. Ketik nama lebih lengkap.`,
       });
     }
 
     const results = [...grouped.values()].map((entry) => ({
       name: searchConfirmationLabel(entry.name, parsed.data.q),
+      ...(cariPerusahaan && entry.company ? { company: entry.company } : {}),
       seat_labels: entry.seatLabels,
       normalized_labels: entry.seatLabels.map(normalizeSeatLabel),
     }));

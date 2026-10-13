@@ -284,6 +284,12 @@ export type SeatMapLayoutParams = {
    * dirender persis seperti sebelumnya.
    */
   sections?: SeatSection[];
+  /**
+   * Layar publik: pencarian /denah juga mencocokkan Organisation peserta, dan
+   * hasilnya menampilkan organisasinya. Bawaan mati. Disimpan di sini (bukan
+   * kolom baru) supaya tanpa migrasi; ikut dipertahankan saat layout berganti.
+   */
+  search_company?: boolean;
 };
 
 export type SeatSectionKind = "sofa" | "theater";
@@ -406,6 +412,7 @@ export function normalizeLayoutParams(layout: SeatMapLayout, raw: unknown): Seat
     seats_head: angka(data.seats_head, bawaan.seats_head, 0, 20),
     head_seats: angka(data.head_seats, bawaan.head_seats, 1, MAX_SEATS_PER_TABLE),
     ...(normalizeSections(data.sections).length ? { sections: normalizeSections(data.sections) } : {}),
+    ...(data.search_company === true ? { search_company: true } : {}),
   };
 }
 
