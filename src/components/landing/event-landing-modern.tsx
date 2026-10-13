@@ -34,6 +34,7 @@ import { komponenIkonKartu } from "./modern/ikon-kartu";
 import { gayaLatarBagian } from "./modern/latar-bagian";
 import { nadaKartu } from "@/lib/landing-card-icons";
 import { HeroGathering, KakiGathering, PitaPenutupGathering, PortalGathering, PratinjauPortal, TentangGathering, agendaSelanjutnya, inisialNama, tanpaBintang as tanpaBintangJudul } from "./modern/gathering-app";
+import { JalurHorizon } from "./modern/horizon-gerak";
 import { CeritaHorizon, HeroHorizon, KakiHorizon, PenutupHorizon, PerjalananHorizon, UndanganHorizon, gayaHorizon } from "./modern/horizon";
 import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
@@ -559,6 +560,8 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // Gathering Horizon: "24 Fly Beyond Limits • 2026" di hero, pita penutup, dan kaki.
   const tahunTampil = tanpaTahunUjung(nama, tahun) || nama;
   const tandaTanganHorizon = `${tahunTampil} • ${tahun}`;
+  // Gathering Horizon: garis perjalanan emas di talang kiri sepanjang bagian halaman.
+  const bungkusJalur = (isi: ReactNode) => (horizon ? <JalurHorizon>{isi}</JalurHorizon> : isi);
   const bawaanHorizon: Partial<Record<LandingSectionId, ReactNode>> = horizon
     ? {
         about: tampil("about") ? (
@@ -1097,7 +1100,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       {/* Gathering Horizon: tujuan tombol hero, di bawah bilah atas yang sudah menyusut (72px). */}
       {horizon ? <div id="mulai" aria-hidden className="scroll-mt-16 md:scroll-mt-[72px]" /> : null}
 
-      {urutan
+      {bungkusJalur(urutan
         .filter((section) => section.enabled)
         .map((section) => {
           if (isPortalEntry(section)) return portalTampil ? <Fragment key="portal">{portal}</Fragment> : kosongPortal ? <Fragment key="portal">{kosongPortal}</Fragment> : null;
@@ -1146,7 +1149,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               {konten}
             </div>
           );
-        })}
+        }))}
 
       <div className={SHELL}>
         {/* ---- Banner ajakan ------------------------------------------------ */}

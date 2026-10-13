@@ -4,6 +4,7 @@ import { ArrowDown, CaretDown } from "@phosphor-icons/react/dist/ssr";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { jamPenting } from "./hari-gathering";
+import { Muncul } from "./horizon-gerak";
 
 /**
  * Gathering Horizon: rancangan V5 "Beyond Everyday" Hanung (pen.dev,
@@ -202,7 +203,7 @@ export function CeritaHorizon({
         </div>
       ) : null}
       {pembuka ? (
-        <div className={`${BINGKAI} flex flex-col gap-[14px] py-8 md:flex-row md:items-center md:gap-20 md:py-12`}>
+        <Muncul className={`${BINGKAI} flex flex-col gap-[14px] py-8 md:flex-row md:items-center md:gap-20 md:py-12`}>
           {pembuka.nomor ? (
             <p aria-hidden className="hidden shrink-0 text-[16px] font-bold leading-[1.26] tabular-nums md:block" style={{ color: BIRU }}>
               {pembuka.nomor}
@@ -219,10 +220,10 @@ export function CeritaHorizon({
               <span aria-hidden>↓</span>
             </Tautan>
           ) : null}
-        </div>
+        </Muncul>
       ) : null}
       {judul || isi || foto ? (
-        <div className={`${BINGKAI} flex flex-col gap-4 pb-10 pt-3 md:flex-row md:items-center md:gap-16 md:pb-24 md:pt-9 ${pembuka ? "" : "md:pt-24"}`}>
+        <Muncul className={`${BINGKAI} flex flex-col gap-4 pb-10 pt-3 md:flex-row md:items-center md:gap-16 md:pb-24 md:pt-9 ${pembuka ? "" : "md:pt-24"}`}>
           {foto ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -247,7 +248,7 @@ export function CeritaHorizon({
               ) : null}
             </div>
           ) : null}
-        </div>
+        </Muncul>
       ) : null}
     </section>
   );
@@ -292,7 +293,7 @@ export function PerjalananHorizon({
   return (
     <section id="agenda" className="scroll-mt-16 md:scroll-mt-[72px] bg-[var(--hz-navy)] text-white">
       <div className={`${BINGKAI} flex flex-col gap-7 py-10 md:gap-10 md:py-20`}>
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-10">
+        <Muncul className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-10">
           <h2 className="whitespace-pre-line text-balance text-[30px] font-extrabold leading-[1.26] [overflow-wrap:anywhere] md:max-w-[720px] md:text-[56px] md:leading-[1.1]" style={{ color: KREM }}>
             {patahJudul(judul)}
           </h2>
@@ -302,7 +303,7 @@ export function PerjalananHorizon({
               {catatan ? <span className="block max-w-[360px]">{catatan}</span> : null}
             </p>
           ) : null}
-        </div>
+        </Muncul>
         <ol className="flex flex-col gap-7 md:gap-0">
           {agenda.map((bagian, index) => {
             const { tampil } = jamPenting(bagian.items);
@@ -312,7 +313,7 @@ export function PerjalananHorizon({
             const isiCerita = cerita[index]?.trim();
             return (
               // Indeks, bukan judul: dua bagian rundown boleh berjudul sama.
-              <li key={index} className="flex flex-col gap-3 border-t pt-5 md:flex-row md:gap-9 md:py-8" style={{ borderColor: GARIS_NAVY }}>
+              <Muncul as="li" key={index} jeda={Math.min(index, 4) * 0.06} className="flex flex-col gap-3 border-t pt-5 md:flex-row md:gap-9 md:py-8" style={{ borderColor: GARIS_NAVY }}>
                 <span aria-hidden className="hidden w-[84px] shrink-0 text-[64px] font-extrabold leading-[1.26] tabular-nums text-[var(--hz-emas)] md:block">
                   {nomor}
                 </span>
@@ -345,7 +346,7 @@ export function PerjalananHorizon({
                     ))}
                   </ul>
                 ) : null}
-              </li>
+              </Muncul>
             );
           })}
         </ol>
@@ -391,7 +392,7 @@ export function UndanganHorizon({
   return (
     <section id="portal" className="scroll-mt-16 md:scroll-mt-[72px]" style={{ backgroundColor: PUCAT, color: TINTA }}>
       <div className={`${BINGKAI} flex flex-col gap-5 py-10 lg:flex-row lg:items-center lg:gap-[72px] md:py-[88px]`}>
-        <div className="flex min-w-0 flex-1 flex-col gap-5 md:gap-6">
+        <Muncul className="flex min-w-0 flex-1 flex-col gap-5 md:gap-6">
           <p className={`hidden tracking-[1px] md:block ${LABEL_KECIL}`} style={{ color: LABEL }}>
             {alis}
           </p>
@@ -402,8 +403,9 @@ export function UndanganHorizon({
           {aksi ? (
             <Tautan aksi={aksi} className={`${PIL_EMAS} w-full justify-center px-[18px] py-[15px] text-[14px] font-bold md:w-auto md:self-start md:px-7 md:py-4 md:text-[15px]`} />
           ) : null}
-        </div>
-        <div aria-hidden className="hidden w-[440px] shrink-0 flex-col gap-6 rounded-[24px] bg-[var(--hz-navy)] p-[30px] text-white lg:flex">
+        </Muncul>
+        <Muncul jeda={0.1} className="hidden w-[440px] shrink-0 lg:block">
+        <div aria-hidden className="flex flex-col gap-6 rounded-[24px] bg-[var(--hz-navy)] p-[30px] text-white">
           {kartu.kv ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={kartu.kv} alt="" loading="lazy" decoding="async" className="block h-[130px] w-full object-cover" />
@@ -425,6 +427,7 @@ export function UndanganHorizon({
             {kartu.info}
           </p>
         </div>
+        </Muncul>
       </div>
     </section>
   );
@@ -448,7 +451,7 @@ export function PenutupHorizon({
 }) {
   return (
     <section data-sunting="kaki:cta_heading" className="bg-[var(--hz-emas)] text-[var(--hz-on-emas)]">
-      <div className={`${BINGKAI} flex flex-col gap-6 py-10 md:items-center md:py-[88px] md:text-center`}>
+      <Muncul className={`${BINGKAI} flex flex-col gap-6 py-10 md:items-center md:py-[88px] md:text-center`}>
         <h2 className="max-w-[1000px] whitespace-pre-line text-balance text-[31px] font-extrabold leading-[1.2] [overflow-wrap:anywhere] md:text-[58px] md:leading-[1.1]">{patahJudul(judul)}</h2>
         <Tautan
           aksi={aksi}
@@ -458,7 +461,7 @@ export function PenutupHorizon({
           <Tautan aksi={masuk} className="m3-state -my-3 hidden min-h-12 items-center rounded-md px-2 text-[14px] leading-[1.26] opacity-90 md:inline-flex" />
         ) : null}
         <p className="text-[11px] leading-[1.26] opacity-90 md:hidden">{tandaTangan}</p>
-      </div>
+      </Muncul>
     </section>
   );
 }
