@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bacaSaringan, bacaSaringanMentah, cocokSatu, cocokSemua, hitungNilai, kolomSaringanAdmin, kolomSaringanKlien, urutKursi } from "./saringan-kolom.ts";
+import { bacaSaringan, bacaSaringanMentah, cocokSatu, cocokSemua, hitungNilai, kolomSaringanAdmin, kolomSaringanKlien, urutKursi, urutMenurut } from "./saringan-kolom.ts";
 
 const fields = [
   { key: "sesi", label: "Which breakout session?", type: "select" as const, required: true, options: ["BR 1", "BR 2"] },
@@ -60,3 +60,13 @@ const label = (daftar: Array<{ seats: Array<{ label: string }> }>) => daftar.map
 assert.deepEqual(label(urutKursi(urut, "asc")), ["A2", "A10", "b1", "VIP1-2", "VIP1-10", ""]);
 assert.deepEqual(label(urutKursi(urut, "desc")), ["VIP1-10", "VIP1-2", "b1", "A10", "A2", ""]);
 console.log("saringan-kolom kursi ok");
+
+// Semua kolom tabel: check-in per sesi, Room, Bus, Source, Lucky draw ikut; sesi lain tidak.
+const lengkap = kolomSaringanAdmin(fields, [{ id: 7, name: "Registration" }]);
+for (const k of ["company", "checkin:7", "rsvp", "kamar", "bus", "source", "undian", "seat"]) assert.ok(lengkap.some((c) => c.key === k), k);
+assert.deepEqual(bacaSaringan(json([{ k: "checkin:7", in: ["Checked in"] }, { k: "checkin:8", in: ["Checked in"] }]), lengkap), [{ k: "checkin:7", in: ["Checked in"] }]);
+// Urutan alami, kosong selalu di akhir, seri tetap urutan masukan.
+const teks = ["10", "", "9", "b", "A", "9"];
+assert.deepEqual(urutMenurut(teks.map((t, i) => ({ t, i })), (b) => b.t, "asc").map((b) => b.i), [2, 5, 0, 4, 3, 1]);
+assert.deepEqual(urutMenurut(teks.map((t, i) => ({ t, i })), (b) => b.t, "desc").map((b) => b.i), [3, 4, 0, 2, 5, 1]);
+console.log("saringan-kolom semua kolom ok");

@@ -3,7 +3,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { logistikPeserta } from "@/lib/logistik/server";
 import { cleanExtra, participantBodySchema, toRpcArgs } from "@/lib/participant-input";
-import { BATAS_BACA, TerlaluBanyak, argumenRpc, nilaiKolomAdmin, querySchema, saring, saringanAdmin, semuaBarisRpc, urutKursi } from "@/lib/participants-saring";
+import { BATAS_BACA, TerlaluBanyak, argumenRpc, muatKonteks, nilaiKolomAdmin, pengurut, querySchema, saring, saringanAdmin, semuaBarisRpc, sesiAcara, urutPeserta } from "@/lib/participants-saring";
 import { kolomSaringanAdmin } from "@/lib/saringan-kolom";
 import { normalizeTimeZone } from "@/lib/timezone";
 import { applyTallySeats, prepareTallySeats, SeatInputError } from "@/lib/seat-tally";
@@ -60,12 +60,16 @@ export async function GET(request: Request) {
   // Nama perusahaan bisa mengandung koma, jadi dikirim sebagai parameter berulang.
   const companies = new URL(request.url).searchParams.getAll("company").map((nama) => nama.trim()).slice(0, 50);
   const argumen = argumenRpc(eventId, parsed.data, companies);
-  const saringan = saringanAdmin(parsed.data.f, fields);
+  // Sesi dibaca lebih dulu: kolom check-in per sesi adalah kunci saringan dan urutan yang sah.
+  const daftarSesi = await sesiAcara(eventId);
+  const saringan = saringanAdmin(parsed.data.f, fields, daftarSesi);
   if (!saringan) return apiError("VALIDATION_ERROR", 422, { message: "Unknown filter." });
+  const urut = pengurut(parsed.data.sort, fields, daftarSesi);
+  if (!urut) return apiError("VALIDATION_ERROR", 422, { message: "This column can't be sorted." });
 
   // Daftar centang "+ Filter": nilai yang benar-benar ada di kolom itu.
   if (parsed.data.facet !== undefined) {
-    const kolom = kolomSaringanAdmin(fields).find((item) => item.key === parsed.data.facet && item.jenis === "pilihan");
+    const kolom = kolomSaringanAdmin(fields, daftarSesi).find((item) => item.key === parsed.data.facet && item.jenis === "pilihan");
     if (!kolom) return apiError("VALIDATION_ERROR", 422, { message: "This column has no value list." });
     try {
       return Response.json({ key: kolom.key, values: await nilaiKolomAdmin(eventId, kolom.key, fields, zona) });
@@ -75,16 +79,18 @@ export async function GET(request: Request) {
     }
   }
 
-  // Saringan per kolom dan urutan Seat: semua baris yang lolos penyaring
-  // database, disaring (dan untuk Seat diurutkan) di sini, lalu dipotong per
-  // halaman. Selain Seat, urutannya tetap urutan RPC.
+  // Saringan per kolom dan urutan kolom yang tidak dikenal RPC: semua baris
+  // yang lolos penyaring database, disaring dan diurutkan di sini, lalu
+  // dipotong per halaman. Selain itu, urutannya tetap urutan RPC.
   let tersaring: Array<{ id: string }> | null = null;
-  if (saringan.length || parsed.data.sort === "seat") {
+  if (saringan.length || urut === "js") {
     try {
-      const baris = saring(await semuaBarisRpc(argumen), saringan, fields, zona);
-      tersaring = parsed.data.sort === "seat" ? urutKursi(baris, parsed.data.dir) : baris;
+      const kunci = [...saringan.map((s) => s.k), ...(urut === "js" ? [parsed.data.sort] : [])];
+      const [semuaBaris, konteks] = await Promise.all([semuaBarisRpc(argumen), muatKonteks(eventId, kunci, fields, zona)]);
+      const baris = saring(semuaBaris, saringan, konteks);
+      tersaring = urut === "js" ? urutPeserta(baris, parsed.data.sort, parsed.data.dir, konteks) : baris;
     } catch (galat) {
-      if (galat instanceof TerlaluBanyak) return apiError("VALIDATION_ERROR", 422, { message: `Column filters and seat sorting work on up to ${BATAS_BACA.toLocaleString("en-GB")} participants. Narrow the list with search or the other filters first.` });
+      if (galat instanceof TerlaluBanyak) return apiError("VALIDATION_ERROR", 422, { message: `Column filters and sorting work on up to ${BATAS_BACA.toLocaleString("en-GB")} participants. Narrow the list with search or the other filters first.` });
       return apiError("INTERNAL_ERROR", 500);
     }
   }

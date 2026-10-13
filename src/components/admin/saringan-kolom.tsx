@@ -30,11 +30,18 @@ type Props = {
    * yang sudah dikenal (Organisation, RSVP, Columns) tidak bergeser.
    */
   kelasChip?: string;
+  /**
+   * Permintaan membuka chip satu kolom dari luar ("Filter this column…" di judul
+   * kolom). `n` naik tiap permintaan, supaya kolom yang sama bisa dibuka lagi.
+   */
+  buka?: { key: string; n: number } | null;
 };
 
 const kosong = (s: Saringan) => ("in" in s ? s.in.length === 0 : "has" in s ? !s.has : "kosong" in s ? false : !s.from && !s.to);
 
-export function SaringanKolom({ kolom, nilai, onChange, muatNilai, kelasChip = "contents" }: Props) {
+const awalSaringan = (item: KolomSaringan): Saringan => (item.jenis === "pilihan" ? { k: item.key, in: [] } : item.jenis === "teks" ? { k: item.key, has: "" } : { k: item.key });
+
+export function SaringanKolom({ kolom, nilai, onChange, muatNilai, kelasChip = "contents", buka = null }: Props) {
   const [baru, setBaru] = useState<string | null>(null);
   const [draf, setDraf] = useState<Saringan | null>(null);
   const perKunci = new Map(kolom.map((item) => [item.key, item]));
@@ -42,6 +49,19 @@ export function SaringanKolom({ kolom, nilai, onChange, muatNilai, kelasChip = "
   // dikenal, bentuk yang salah jenis, atau kembar dibuang di sini juga (QA #130 L1).
   const berlaku = bacaSaringan(JSON.stringify(nilai), kolom) ?? [];
   const tampil = [...berlaku, ...(draf && !berlaku.some((s) => s.k === draf.k) ? [draf] : [])];
+
+  // Permintaan dari judul kolom, diolah saat render (bukan di efek): chip yang
+  // sudah ada dibuka lagi, yang belum ada dibuat sebagai draf lalu dibuka.
+  const [bukaLama, setBukaLama] = useState(buka);
+  if (buka !== bukaLama) {
+    setBukaLama(buka);
+    const info = buka ? perKunci.get(buka.key) : undefined;
+    const ada = info ? tampil.some((s) => s.k === info.key) : false;
+    if (info && (ada || tampil.length < BATAS_SARINGAN)) {
+      if (!ada) setDraf(awalSaringan(info));
+      setBaru(info.key);
+    }
+  }
 
   // Chip yang dikosongkan selagi terbuka tetap di tempatnya sebagai draf, dan
   // baru hilang saat ditutup; yang berisi masuk ke saringan yang berlaku.
@@ -79,8 +99,7 @@ export function SaringanKolom({ kolom, nilai, onChange, muatNilai, kelasChip = "
         kolom={kolom.filter((item) => !tampil.some((s) => s.k === item.key))}
         penuh={tampil.length >= BATAS_SARINGAN}
         onPilih={(item) => {
-          const awal: Saringan = item.jenis === "pilihan" ? { k: item.key, in: [] } : item.jenis === "teks" ? { k: item.key, has: "" } : { k: item.key };
-          setDraf(awal);
+          setDraf(awalSaringan(item));
           setBaru(item.key);
         }}
       />
