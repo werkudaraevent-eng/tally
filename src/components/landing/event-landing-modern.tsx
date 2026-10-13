@@ -33,7 +33,7 @@ import { HariGathering } from "./modern/hari-gathering";
 import { komponenIkonKartu } from "./modern/ikon-kartu";
 import { gayaLatarBagian } from "./modern/latar-bagian";
 import { nadaKartu } from "@/lib/landing-card-icons";
-import { HeroGathering, KakiGathering, PitaPenutupGathering, PortalGathering, PratinjauPortal, TentangGathering, agendaSelanjutnya, inisialNama, tanpaBintang as tanpaBintangJudul } from "./modern/gathering-app";
+import { HeroGathering, KakiGathering, PitaPenutupGathering, PortalGathering, PratinjauPortal, TentangGathering, agendaSelanjutnya, inisialNama } from "./modern/gathering-app";
 import { JalurHorizon } from "./modern/horizon-gerak";
 import { CeritaHorizon, HeroHorizon, KakiHorizon, PenutupHorizon, PerjalananHorizon, UndanganHorizon, gayaHorizon } from "./modern/horizon";
 import { LandingNavModern } from "./modern/landing-nav-modern";
@@ -430,13 +430,15 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
 
   // Gathering: apa yang menunggu tamu di area peserta (ubin mengikuti saklar
   // Area peserta). Tempatnya di susunan halaman, bawaannya tepat di atas kaki.
+  // Tombol masuk Horizon: sama di bagian Portal peserta dan pita penutup undangan.
+  const tombolPortalHorizon = config.portal_button_label?.trim() || t.horizon.inviteCta;
   const portal = member && horizon ? (
     <div data-bagian="portal">
       <UndanganHorizon
-        alis={sudahMasuk ? t.horizon.signedInEyebrow : t.horizon.inviteEyebrow}
-        judul={t.horizon.inviteHeading}
-        catatan={t.horizon.inviteNote(member.show_logistics === true)}
-        aksi={aksiPeserta ? { ...aksiPeserta, link: true } : sudahMasuk ? null : { href: masukUrl, label: t.horizon.inviteCta, link: true }}
+        alis={config.portal_eyebrow?.trim() || (sudahMasuk ? t.horizon.signedInEyebrow : t.horizon.inviteEyebrow)}
+        judul={config.portal_heading?.trim() || t.horizon.inviteHeading}
+        catatan={config.portal_note?.trim() || t.horizon.inviteNote(member.show_logistics === true)}
+        aksi={aksiPeserta ? { ...aksiPeserta, link: true } : sudahMasuk ? null : { href: masukUrl, label: tombolPortalHorizon, link: true }}
         kartu={{
           kv: kvGathering(config)?.src ?? null,
           label: t.horizon.pass,
@@ -560,6 +562,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // Gathering Horizon: "24 Fly Beyond Limits • 2026" di hero, pita penutup, dan kaki.
   const tahunTampil = tanpaTahunUjung(nama, tahun) || nama;
   const tandaTanganHorizon = `${tahunTampil} • ${tahun}`;
+  const indeksHorizon = config.hero_index?.trim() || t.horizon.index;
   // Gathering Horizon: garis perjalanan emas di talang kiri sepanjang bagian halaman.
   const bungkusJalur = (isi: ReactNode) => (horizon ? <JalurHorizon>{isi}</JalurHorizon> : isi);
   const bawaanHorizon: Partial<Record<LandingSectionId, ReactNode>> = horizon
@@ -575,7 +578,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             alis={judulBagian("about").alis}
             judul={judulBagian("about").judul}
             isi={event.description?.trim() || null}
-            indeks={t.horizon.index}
+            indeks={indeksHorizon}
           />
         ) : null,
         agenda: tampil("agenda") ? (
@@ -912,11 +915,11 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         <HeroHorizon
           alis={config.hero_eyebrow?.trim() || [venue, tanggalPanjang].filter(Boolean).join("  /  ") || null}
           alisPonsel={config.hero_eyebrow?.trim() || [formatEventDateRingkas(event, lang) ?? tanggal, venue].filter(Boolean).join("  /  ") || null}
-          judul={tanpaBintangJudul(judulAjakan ?? nama)}
+          judul={judulAjakan ?? nama}
           catatan={config.hero_note?.trim() || null}
-          aksi={{ href: "#mulai", label: t.horizon.start }}
+          aksi={{ href: "#mulai", label: config.hero_button_label?.trim() || t.horizon.start }}
           kv={kvGathering(config)?.src ?? null}
-          indeks={t.horizon.index}
+          indeks={indeksHorizon}
           tandaTangan={tandaTanganHorizon}
         />
       ) : gaya ? (
@@ -1213,7 +1216,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       {horizon && penutupTampil ? (
         <PenutupHorizon
           judul={config.cta_heading?.trim() || t.horizon.closing}
-          aksi={undangan ? { href: masukUrl, label: t.horizon.inviteCta, link: true } : { href: daftarUrl, label: ctaLabel, link: true }}
+          aksi={undangan ? { href: masukUrl, label: tombolPortalHorizon, link: true } : { href: daftarUrl, label: ctaLabel, link: true }}
           masuk={!undangan && memberLink ? { href: memberLink.href, label: t.horizon.registered, link: true } : null}
           tandaTangan={tandaTanganHorizon}
         />

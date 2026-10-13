@@ -15,6 +15,7 @@ import {
   LANDING_NAV_LABEL_MAX,
   LANDING_SECTION_ADMIN_LABELS,
   LANDING_SECTION_TEXT_MAX,
+  HORIZON_TEXT_MAX,
   landingBlockLimits,
   type EventLandingConfig,
   type LandingBlock,
@@ -251,7 +252,7 @@ export function BagianEn({
   ubahRundown,
   sesiRundown = [],
 }: {
-  id: LandingSectionId | "pembuka" | "kaki";
+  id: LandingSectionId | "pembuka" | "kaki" | "portal";
   landing: EventLandingConfig;
   facts: FaktaEn;
   setLanding: (next: EventLandingConfig) => void;
@@ -267,6 +268,8 @@ export function BagianEn({
   sesiRundown?: BarisRundownEn[];
 }) {
   const en = landing.en ?? {};
+  // Gathering Horizon: kolom yang tidak dibaca Horizon tidak ditanya terjemahannya.
+  const horizon = landing.layout === "modern" && landing.gathering === true && landing.gathering_variant === "horizon";
   const ubahEn = (patch: LandingConfigEn) => setLanding({ ...landing, en: { ...en, ...patch } });
   const kolom = (key: KunciEn, label: string, sumber: string | null | undefined, max: number, area = false, ideal?: number) =>
     ada(sumber) ? <KolomEn key={key} kunci={key} label={label} sumber={sumber} value={en[key]} onChange={(value) => ubahEn({ [key]: value })} max={max} ideal={ideal} area={area} /> : null;
@@ -310,13 +313,23 @@ export function BagianEn({
           ...(landing.gathering
             ? [kolom("hero_eyebrow", "Label above the title", landing.hero_eyebrow, 60, true), kolom("hero_note", "Line below the title", landing.hero_note, 240, true)]
             : []),
+          ...(horizon
+            ? [kolom("hero_button_label", "Button text", landing.hero_button_label, HORIZON_TEXT_MAX.hero_button_label), kolom("hero_index", "Corner label", landing.hero_index, HORIZON_TEXT_MAX.hero_index)]
+            : []),
           kolom("cta_label", "Register button text", landing.cta_label, 40),
         ];
       case "kaki":
         return [
           kolom("footer_note", "Organiser line", landing.footer_note, 180, true),
-          kolom("cta_heading", "Banner heading", landing.cta_heading, 120),
-          kolom("cta_note", "Banner text", landing.cta_note, 300, true),
+          kolom("cta_heading", horizon ? "Closing band heading" : "Banner heading", landing.cta_heading, 120),
+          horizon ? null : kolom("cta_note", "Banner text", landing.cta_note, 300, true),
+        ];
+      case "portal":
+        return [
+          kolom("portal_eyebrow", "Small label", landing.portal_eyebrow, HORIZON_TEXT_MAX.portal_eyebrow),
+          kolom("portal_heading", "Heading", landing.portal_heading, HORIZON_TEXT_MAX.portal_heading, true),
+          kolom("portal_note", "Text", landing.portal_note, HORIZON_TEXT_MAX.portal_note, true),
+          kolom("portal_button_label", "Sign-in button text", landing.portal_button_label, HORIZON_TEXT_MAX.portal_button_label),
         ];
       case "about":
         return [
@@ -328,7 +341,8 @@ export function BagianEn({
           judulBagian("about"),
           // Kartu Tentang acara (gaya gathering): satu kartu terjemahan per
           // kartu Indonesia, urut sama; kolom kosong memakai teks Indonesia.
-          ...(landing.gathering
+          horizon ? kolom("program_heading", "Opening line", landing.program_heading, 120, true) : null,
+          ...(landing.gathering && !horizon
             ? (landing.about_cards ?? []).map((kartu, index) => {
                 if (!ada(kartu.title) && !ada(kartu.body)) return null;
                 const ubahKartu = (patch: { title?: string; body?: string }) => {
@@ -473,7 +487,7 @@ export function BagianEn({
   })().filter(Boolean);
 
   if (hasil.length === 0) {
-    const nama = id === "pembuka" ? "Hero" : id === "kaki" ? "Footer" : LANDING_SECTION_ADMIN_LABELS[id];
+    const nama = id === "pembuka" ? "Hero" : id === "kaki" ? "Footer" : id === "portal" ? "Portal peserta" : LANDING_SECTION_ADMIN_LABELS[id];
     return <Kosong>{nama} has no Indonesian text to translate yet.</Kosong>;
   }
   return (

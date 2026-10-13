@@ -271,7 +271,17 @@ export function landingUntranslated(event: Partial<LandingHeadingFacts> & {
   periksa(event.tagline, en.tagline, "event.tagline", "pembuka");
   periksa(config.footer_note, en.footer_note, "footer_note", "kaki");
   periksa(config.cta_heading, en.cta_heading, "cta_heading", "kaki");
-  periksa(config.cta_note, en.cta_note, "cta_note", "kaki");
+  // Gathering Horizon tidak menampilkan kalimat pita penutup, tetapi punya teks hero dan Portal peserta sendiri.
+  const horizon = config.layout === "modern" && config.gathering === true && config.gathering_variant === "horizon";
+  if (!horizon) periksa(config.cta_note, en.cta_note, "cta_note", "kaki");
+  if (horizon) {
+    periksa(config.hero_button_label, en.hero_button_label, "hero_button_label", "pembuka");
+    periksa(config.hero_index, en.hero_index, "hero_index", "pembuka");
+    if (config.member?.enabled === true && config.portal_section !== false) {
+      (["portal_eyebrow", "portal_heading", "portal_note", "portal_button_label"] as const).forEach((kunci) => periksa(config[kunci], en[kunci], kunci, "portal"));
+    }
+    if (bagian("about")) periksa(config.program_heading, en.program_heading, "program_heading", "about");
+  }
   // Judul bagian bawaan. Label kecil yang dimatikan tidak tampil, jadi tidak ditagih.
   (Object.keys(LANDING_EYEBROW_DEFAULT) as LandingHeadedSection[]).forEach((id) => {
     if (!bagian(id)) return;
@@ -588,7 +598,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
           ? "Buka kartu perjalananmu, temukan informasi bus dan kamar, lalu ikuti agenda tanpa kehilangan momen."
           : "Buka kartu perjalananmu, lalu ikuti agenda tanpa kehilangan momen.",
       inviteCta: "Masuk ke perjalanan saya",
-      pass: "Your journey pass",
+      pass: "Kartu perjalananmu",
       passInfo: (logistik) => (logistik ? "Tiket perjalanan • Bus • Kamar • Agenda" : "Tiket perjalanan • Agenda"),
       closing: "Cerita berikutnya,\nkita mulai bersama.",
       registered: "Sudah terdaftar? Masuk ke portal peserta",

@@ -392,6 +392,7 @@ export const LANDING_CONFIG_EN_KEYS = [
   "public_name", "cta_label", "about_heading", "about_image_alt", "program_heading", "program_intro", "agenda_note", "footer_note", "cta_heading", "cta_note", "contact_name",
   "about_eyebrow", "agenda_eyebrow", "speakers_eyebrow", "venue_eyebrow", "faq_eyebrow",
   "agenda_heading", "speakers_heading", "venue_heading", "faq_heading", "faq_intro", "hero_note", "hero_eyebrow",
+  "hero_button_label", "hero_index", "portal_eyebrow", "portal_heading", "portal_note", "portal_button_label",
 ] as const;
 export const LANDING_EVENT_EN_KEYS = ["tagline", "description", "venue_name", "venue_address"] as const;
 export type LandingConfigEn = Partial<Record<(typeof LANDING_CONFIG_EN_KEYS)[number] | (typeof LANDING_EVENT_EN_KEYS)[number], string>> & {
@@ -440,6 +441,9 @@ export type LandingHeadedSection = keyof typeof LANDING_EYEBROW_DEFAULT;
  * label rancangan Gathering Horizon "KEBERSAMAAN, TANPA TERBURU-BURU" (31) muat.
  */
 export const LANDING_SECTION_TEXT_MAX = { eyebrow: 36, heading: 60, headingIdeal: 48, intro: 140 } as const;
+
+/** Batas teks Gathering Horizon yang bisa disunting (tombol hero, label sudut, ajakan Portal peserta). */
+export const HORIZON_TEXT_MAX = { hero_button_label: 40, hero_index: 40, portal_eyebrow: 60, portal_heading: 80, portal_note: 240, portal_button_label: 40 } as const;
 
 /** Panjang label menu atas: satu atau dua kata pendek, supaya menu muat satu baris. */
 export const LANDING_NAV_LABEL_MAX = 16;
@@ -1419,6 +1423,17 @@ export type EventLandingConfig = {
    */
   pass_from?: string;
   pass_to?: string;
+  /**
+   * Teks Gathering Horizon yang bisa disunting. Kosong = teks bawaan
+   * ("Mulai perjalanan kita", "01 / Sebuah awal baru", ajakan Portal peserta).
+   * Gaya lain tidak membacanya.
+   */
+  hero_button_label?: string;
+  hero_index?: string;
+  portal_eyebrow?: string;
+  portal_heading?: string;
+  portal_note?: string;
+  portal_button_label?: string;
   /**
    * Logo di tengah hero gaya gathering, di atas judul ajakan. Kosong = hero
    * tanpa logo. Acara lain tidak membacanya.

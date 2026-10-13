@@ -58,11 +58,14 @@ export function BilahAtasEditor({
   eventName,
   disabled,
   gathering = false,
+  horizon = false,
 }: {
   value: LandingNavConfig;
   onChange: (next: LandingNavConfig) => void;
   /** Hero gathering tanpa gambar: petunjuknya menyebut "hero", bukan "hero image" (CMS mudah, butir 15). */
   gathering?: boolean;
+  /** Gathering Horizon: tinggi bilah dan logo diatur halaman, jadi kontrolnya tidak ditampilkan. */
+  horizon?: boolean;
   eventName: string;
   disabled?: boolean;
 }) {
@@ -119,10 +122,13 @@ export function BilahAtasEditor({
           className="h-11 w-full accent-primary"
         />
         <p className="mt-1.5 text-body-medium text-on-surface-variant">
-          0% is clear, 100% is solid. Applies while the bar sits over the {gathering ? "hero" : "hero image"}. Past the hero, the bar is at least 90% solid so its text stays readable over the white page.
+          {horizon
+            ? "0% is clear, 100% is solid. Applies only at the very top of the page; as soon as the page scrolls, the bar turns solid and shorter so the logo never sits on the hero image."
+            : `0% is clear, 100% is solid. Applies while the bar sits over the ${gathering ? "hero" : "hero image"}. Past the hero, the bar is at least 90% solid so its text stays readable over the white page.`}
         </p>
       </div>
-      {bilahAtas.logo_url && opasitasBilah < 50 ? (
+      {/* Horizon selalu menampilkan logo dengan warna aslinya di atas navy. */}
+      {bilahAtas.logo_url && opasitasBilah < 50 && !horizon ? (
         <div>
           <p className="text-body-medium font-medium text-on-surface">Logo over the hero</p>
           <SegmentedButton<LandingNavLogoTone>
@@ -156,6 +162,9 @@ export function BilahAtasEditor({
           {LANDING_NAV_WIDTH_LABELS.content}: the bar lines up with the page content, its bottom corners are rounded, and the {gathering ? "hero colour" : "hero image"} shows on either side.
         </p>
       </div>
+      {horizon ? (
+        <p className="text-body-medium text-on-surface-variant">Bar height follows the design in Gathering Horizon: 128 px at the top of wide screens, 102 px on phones, and shorter once the page scrolls.</p>
+      ) : (
       <div className="flex flex-col gap-1.5">
         <TextField
           className="w-32"
@@ -186,6 +195,7 @@ export function BilahAtasEditor({
           Default {LANDING_NAV_DEFAULTS.height}. Range {LANDING_NAV_HEIGHT_MIN} to {LANDING_NAV_HEIGHT_MAX} px.
         </p>
       </div>
+      )}
     </Kelompok>
     </div>
   );

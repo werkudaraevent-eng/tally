@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
-import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
 const WARNA_BAGIAN = z.string().regex(/^#[0-9a-fA-F]{6}$/);
@@ -28,6 +28,8 @@ const gambarUrl = z.string().max(600).refine((value) => GAMBAR_KETAT.test(value)
 // Batas luar. Batas per jenis blok (lebih ketat) diperiksa di superRefine dengan
 // landingBlockLimits, sumber yang sama dengan penghitung di CMS.
 const teks = (max: number) => z.string().trim().max(max).optional();
+/** Teks Gathering Horizon yang bisa disunting, sama di kolom dasar dan `en`. */
+const TEKS_HORIZON = Object.fromEntries(Object.entries(HORIZON_TEXT_MAX).map(([kunci, max]) => [kunci, teks(max)])) as Record<keyof typeof HORIZON_TEXT_MAX, ReturnType<typeof teks>>;
 
 const { eyebrow: ALIS_MAX, heading: JUDUL_MAX, intro: PENGANTAR_MAX } = LANDING_SECTION_TEXT_MAX;
 /** Judul bagian bawaan; bentuk yang sama di Indonesia dan di `en`. */
@@ -372,6 +374,7 @@ export const landingBodySchema = z.object({
     gathering_variant: z.enum(["horizon"]).optional(),
     pass_from: teks(40),
     pass_to: teks(40),
+    ...TEKS_HORIZON,
     hero_logo_url: z.string().url().max(600).nullable().optional(),
     accent: warna,
     button_color: warna,
@@ -405,6 +408,7 @@ export const landingBodySchema = z.object({
       cta_note: teks(300),
       hero_note: teks(240),
       hero_eyebrow: teks(60),
+      ...TEKS_HORIZON,
       contact_name: teks(120),
       // Versi English kolom `events` (lihat LANDING_EVENT_EN_KEYS), batas sama dengan kolomnya.
       tagline: teks(200),
