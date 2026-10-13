@@ -618,7 +618,11 @@ export async function DashboardGathering({
                       href={keTab("jadwal", { hari: String(index + 1) })}
                       aria-current={index === pilihan ? "page" : undefined}
                       className={`m3-state inline-flex min-h-12 min-w-[104px] items-center justify-center rounded-full px-5 text-title-small font-bold ${
-                        index === pilihan ? "bg-[var(--aksi)] text-[var(--on-aksi)]" : "bg-white text-[#1A2333] shadow-[inset_0_0_0_1px_#E6E9EE]"
+                        index === pilihan
+                          ? horizon
+                            ? "bg-[var(--hz-emas)] text-[var(--hz-on-emas)]"
+                            : "bg-[var(--aksi)] text-[var(--on-aksi)]"
+                          : "bg-white text-[#1A2333] shadow-[inset_0_0_0_1px_#E6E9EE]"
                       }`}
                     >
                       {t.day(index + 1)}
@@ -761,7 +765,7 @@ export async function DashboardGathering({
         { label: tH.participant, nilai: sesi.name, ponsel: false },
         ...(tampilLogistik && namaBus ? [{ label: tH.bus, nilai: namaBus, ponsel: true }] : []),
         ...(tampilLogistik && kamar ? [{ label: tH.room, nilai: kamar.room_number, ponsel: true }] : []),
-        ...(tampilTeman ? [{ label: tH.roommate, nilai: teman.map((orang) => orang.name).join(", "), ponsel: false }] : []),
+        ...(tampilTeman ? [{ label: tH.roommate(teman.length), nilai: teman.map((orang) => orang.name).join(", "), ponsel: false }] : []),
       ];
       // Label hari agenda berikutnya: hari ini, besok, atau "Hari pertama".
       const hariSelanjutnya = selanjutnya ? agenda.findIndex((bagian) => bagian.items.some((butir) => butir.id === selanjutnya.item.id)) : -1;
@@ -825,7 +829,7 @@ export async function DashboardGathering({
             {tampilTeman ? (
               <BagianBeranda id="roommates" pratinjau={pratinjau}>
                 <TemanSekamarHorizon
-                  judul={tH.roommateTitle}
+                  judul={tH.roommateTitle(teman.length)}
                   orang={teman.map((orang) => ({ nama: orang.name, detail: [kamar ? tH.roomNo(kamar.room_number) : null, orang.company].filter(Boolean).join(" • ") || null }))}
                 />
               </BagianBeranda>
