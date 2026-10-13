@@ -352,7 +352,7 @@ export type LandingBlock = {
   icon_url?: string | null;
   /** Hitung mundur: warna sorot. Kosong = merek. */
   highlight?: LandingHighlight;
-  /** Hitung mundur: latar warna sendiri "#RRGGBB", menggantikan `tone`. Warna teks dipilih otomatis. */
+  /** Background › Custom: latar warna sendiri "#RRGGBB", menggantikan `tone`. Warna teks dipilih otomatis. */
   bg_color?: string;
   /** Hitung mundur: tampilkan detik. Bawaan menyala di Papan, mati di gaya lain. */
   seconds?: boolean;
@@ -1301,6 +1301,8 @@ export type EventLandingConfig = {
    * Kosong = bawaan bagiannya (Susunan acara dan Pembicara abu-abu, lainnya putih).
    */
   section_tone?: Partial<Record<LandingSectionId, LandingBlockTone>>;
+  /** Background › Custom per bagian (#RRGGBB); menimpa section_tone bila diisi. */
+  section_bg_color?: Partial<Record<LandingSectionId, string>>;
   /** Kalimat penyelenggara di kaki halaman, mis. "Diselenggarakan oleh ...". */
   footer_note?: string;
   /** Judul banner ajakan di bawah halaman. */

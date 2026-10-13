@@ -15,6 +15,7 @@ import {
 } from "@/lib/domain";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { formatEventDate, formatEventTime } from "@/lib/event-datetime";
+import { gayaBlokLatarSendiri, hexLatarSendiri } from "@/lib/landing-latar-sendiri";
 import { keadaanSaatIni, LAPISAN_FOTO, sekarangServer, TINTA, warnaHitungMundur, type JadwalHitungMundur } from "@/lib/landing-hitung-mundur";
 import { readableOn } from "@/lib/color";
 import { HitungMundurIsi } from "./hitung-mundur-lazy";
@@ -122,9 +123,19 @@ function IkonTaut({ href, size = 18 }: { href: string; size?: number }) {
   return /^https?:\/\//.test(href) ? <ArrowUpRight size={size} aria-hidden /> : <ArrowDown size={size} aria-hidden />;
 }
 
+/**
+ * Latar blok: warna sendiri (Background › Custom) bila diisi, selain itu
+ * Light, Grey, atau Merek gelap. Hitung mundur mengatur latar sendirinya
+ * (warnaHitungMundur), jadi tetap memakai nada di sini.
+ */
+function gayaLatarBlok(block: LandingBlock): CSSProperties {
+  const sendiri = block.type === "countdown" ? null : hexLatarSendiri(block.bg_color);
+  return sendiri ? (gayaBlokLatarSendiri(sendiri) as CSSProperties) : NADA[block.tone ?? "light"];
+}
+
 function Wadah({ block, children, className = "py-12 sm:py-16 lg:py-[var(--bagian-y,72px)]", style }: { block: LandingBlock; children: ReactNode; className?: string; style?: CSSProperties }) {
   return (
-    <section id={block.id} className={`scroll-mt-[var(--nav-h)] text-[var(--reg-on-surface)] ${className}`} style={{ ...NADA[block.tone ?? "light"], ...style }}>
+    <section id={block.id} className={`scroll-mt-[var(--nav-h)] text-[var(--reg-on-surface)] ${className}`} style={{ ...gayaLatarBlok(block), ...style }}>
       <div className={SHELL}>{children}</div>
     </section>
   );

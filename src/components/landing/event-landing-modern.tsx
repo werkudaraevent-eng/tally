@@ -617,7 +617,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           <section
             id="agenda"
             className={`${SECTION} relative bg-[var(--landing-panel)] [clip-path:inset(0_-100vmax)] [box-shadow:0_0_0_100vmax_var(--landing-panel)]`}
-            style={gaya && gayaLatarBagian("agenda", config.section_tone, tokens.brand) ? undefined : ({ "--landing-panel": PANEL_GATHERING } as CSSProperties)}
+            style={gaya && gayaLatarBagian("agenda", config.section_tone, tokens.brand, config.section_bg_color) ? undefined : ({ "--landing-panel": PANEL_GATHERING } as CSSProperties)}
           >
             {/* Garis tipis atas dan bawah selebar layar, seperti rancangan. */}
             <span aria-hidden className={`top-0 ${GARIS_LEBAR}`} />
@@ -684,7 +684,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           <section
             id="speakers"
             className={`${SECTION} bg-[var(--landing-panel)] [clip-path:inset(0_-100vmax)] [box-shadow:0_0_0_100vmax_var(--landing-panel)]`}
-            style={gaya && gayaLatarBagian("speakers", config.section_tone, tokens.brand) ? undefined : ({ "--landing-panel": "color-mix(in srgb, var(--reg-on-surface) 4%, var(--reg-surface))" } as CSSProperties)}
+            style={gaya && gayaLatarBagian("speakers", config.section_tone, tokens.brand, config.section_bg_color) ? undefined : ({ "--landing-panel": "color-mix(in srgb, var(--reg-on-surface) 4%, var(--reg-surface))" } as CSSProperties)}
           >
             <SpeakerTabs
               tabs={tabPembicara}
@@ -1042,7 +1042,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           const konten = bawaan[section.id];
           if (!konten) return null;
           // Gathering: latar pilihan admin selebar layar (Light, Grey, Dark brand).
-          const latar = gaya ? gayaLatarBagian(section.id, config.section_tone, tokens.brand) : undefined;
+          const latar = gaya ? gayaLatarBagian(section.id, config.section_tone, tokens.brand, config.section_bg_color) : undefined;
           return latar ? (
             <div key={section.id} data-bagian={section.id} style={latar}>
               <div className={SHELL}>{konten}</div>
