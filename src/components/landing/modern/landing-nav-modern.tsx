@@ -240,7 +240,10 @@ export function LandingNavModern({
       // Tinggi bilah termasuk margin bawahnya: bilah Horizon yang menyusut
       // menggantinya dengan margin, jadi ambangnya tetap dan tidak berkedip.
       const tinggiNav = nav ? nav.offsetHeight + (parseFloat(getComputedStyle(nav).marginBottom) || 0) : 64;
-      const lewat = hero.getBoundingClientRect().bottom <= tinggiNav;
+      // Horizon: bilah bening hanya di puncak halaman. Begitu hero mulai
+      // bergulir di bawahnya, bilah langsung navy pekat dan ringkas supaya
+      // logo dan menu tidak tenggelam di ornamen emas KV.
+      const lewat = hero.getBoundingClientRect().bottom <= tinggiNav || (horizon && window.scrollY > 8);
       setLewatHero(lewat);
       // Kembali ke hero: tidak ada bagian yang sedang dibaca, jadi garis bawah menu hilang.
       if (hero.getBoundingClientRect().top >= 0) setAktif(null);
@@ -252,7 +255,7 @@ export function LandingNavModern({
       window.removeEventListener("scroll", periksa);
       window.removeEventListener("resize", periksa);
     };
-  }, []);
+  }, [horizon]);
 
   useEffect(() => {
     // Sama dengan nav Editorial: bagian yang menempati paruh atas layar ditandai.

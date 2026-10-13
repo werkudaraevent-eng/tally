@@ -111,6 +111,12 @@ export function HeroHorizon({
   /** Baris kecil kanan bawah hero ("24 Fly Beyond Limits • 2026"). */
   tandaTangan: string;
 }) {
+  // Ponsel: judul 56px seperti rancangan, mengecil bila kata terpanjangnya
+  // tidak muat selebar kolom teks ("kebersamaan" di 360-412px). Hitungannya
+  // 0,64em per huruf (huruf kecil Plus Jakarta 800 sekitar 0,6em); kata yang
+  // lebih lebar (huruf besar semua) tetap dipatahkan oleh break-word.
+  const kataTerpanjang = Math.max(1, ...judul.split(/\s+/).map((kata) => kata.length));
+  const ukuranPonsel = `min(56px, max(32px, calc(100cqw / ${(kataTerpanjang * 0.64).toFixed(2)})))`;
   return (
     <header data-bagian="pembuka" data-landing-hero className="relative isolate -mt-[var(--nav-h)] overflow-hidden bg-[var(--hz-navy)] text-white">
       {kv ? (
@@ -132,7 +138,7 @@ export function HeroHorizon({
       >
         {/* Penyeimbang: rancangan membagi ruang antara bilah atas, teks, dan baris bawah. */}
         <div aria-hidden className="hidden md:block" />
-        <div className="flex flex-col gap-[22px] px-6 pb-6 md:mx-auto md:w-full md:max-w-[980px] md:items-center md:px-0 md:pb-0 md:text-center">
+        <div className="flex flex-col gap-[22px] px-6 pb-6 [container-type:inline-size] md:mx-auto md:w-full md:max-w-[980px] md:items-center md:px-0 md:pb-0 md:text-center">
           {alis || alisPonsel ? (
             <p data-sunting="pembuka:hero_eyebrow" className="whitespace-pre-wrap text-[11px] font-bold uppercase leading-[1.26] tracking-[1.2px] text-[var(--hz-emas)] md:text-[12px] md:tracking-[1.8px] md:text-[#F3DF9E]">
               <span className="md:hidden">{alisPonsel ?? alis}</span>
@@ -141,7 +147,8 @@ export function HeroHorizon({
           ) : null}
           <h1
             data-sunting="pembuka:tagline"
-            className="whitespace-pre-line text-balance text-[56px] font-extrabold leading-[1.04] [overflow-wrap:anywhere] md:w-full md:text-[64px] md:leading-[1.03] lg:text-[82px]"
+            style={{ "--hz-h1": ukuranPonsel } as CSSProperties}
+            className="whitespace-pre-line text-balance text-[length:var(--hz-h1)] font-extrabold leading-[1.04] [overflow-wrap:break-word] md:w-full md:text-[64px] md:leading-[1.03] lg:text-[82px]"
           >
             {patahJudul(judul)}
           </h1>
@@ -355,16 +362,19 @@ export function PerjalananHorizon({
             {catatan}
           </p>
         ) : null}
-        <details className="group -mt-2 border-t pt-2 md:-mt-10 md:pt-4" style={{ borderColor: GARIS_NAVY }}>
-          <summary className="m3-state -mx-3 inline-flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-md px-3 text-[14px] font-bold text-[var(--hz-emas)] [--m3-state-color:var(--hz-emas)] [&::-webkit-details-marker]:hidden">
-            {t.horizon.scheduleNote}
-            <CaretDown size={16} weight="bold" aria-hidden className="transition-transform group-open:rotate-180" />
-          </summary>
-          {/* Jadwal lengkap memakai warna halaman terang (AgendaPills), jadi diberi kartu krem. */}
-          <div className="mt-4 rounded-[20px] p-4 text-[#101E38] sm:p-6" style={{ backgroundColor: KREM }}>
-            {jadwalLengkap}
-          </div>
-        </details>
+        {/* Jadwal lengkap hanya bila ada acara yang tidak tampil di daftar per hari. */}
+        {agenda.some((bagian) => jamPenting(bagian.items).tampil.length < bagian.items.length) ? (
+          <details className="group -mt-2 border-t pt-2 md:-mt-10 md:pt-4" style={{ borderColor: GARIS_NAVY }}>
+            <summary className="m3-state -mx-3 inline-flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-md px-3 text-[14px] font-bold text-[var(--hz-emas)] [--m3-state-color:var(--hz-emas)] [&::-webkit-details-marker]:hidden">
+              {t.horizon.scheduleNote}
+              <CaretDown size={16} weight="bold" aria-hidden className="transition-transform group-open:rotate-180" />
+            </summary>
+            {/* Jadwal lengkap memakai warna halaman terang (AgendaPills), jadi diberi kartu krem. */}
+            <div className="mt-4 rounded-[20px] p-4 text-[#101E38] sm:p-6" style={{ backgroundColor: KREM }}>
+              {jadwalLengkap}
+            </div>
+          </details>
+        ) : null}
       </div>
     </section>
   );
