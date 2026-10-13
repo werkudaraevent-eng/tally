@@ -51,6 +51,29 @@ export type PortalUiText = {
   qrShow: string;
   qrShowNote: string;
   qrBrightness: string;
+  /** Gathering Horizon (rancangan V5, frame f13sV, pgOAT, eY05h). */
+  horizon: {
+    tabs: { beranda: string; jadwal: string; info: string; profil: string };
+    tabsShort: { beranda: string; jadwal: string; info: string; profil: string };
+    welcome: string;
+    heading: (namaDepan: string) => string;
+    headingMobile: (namaDepan: string) => string;
+    subtitle: (hari: number) => string;
+    participant: string;
+    bus: string;
+    room: string;
+    roommate: (jumlah: number) => string;
+    nextUp: string;
+    nextUpMobile: string;
+    today: string;
+    tomorrow: string;
+    dayOrdinal: (hari: number) => string;
+    showQr: string;
+    help: string;
+    roommateTitle: (jumlah: number) => string;
+    roomNo: (nomor: string) => string;
+    profileAria: string;
+  };
 };
 
 export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
@@ -101,6 +124,31 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
     qrShow: "Tunjukkan QR ini ke panitia",
     qrShowNote: "untuk absen kehadiran dan check-in",
     qrBrightness: "Naikkan kecerahan layar supaya mudah dipindai.",
+    horizon: {
+      tabs: { beranda: "Perjalanan saya", jadwal: "Jadwal", info: "Info panitia", profil: "Profil" },
+      tabsShort: { beranda: "Perjalanan", jadwal: "Jadwal", info: "Info", profil: "Profil" },
+      welcome: "Perjalananmu dimulai di sini",
+      heading: (nama) => `${nama}, siap bikin cerita baru?`,
+      headingMobile: (nama) => `${nama},\nini perjalananmu.`,
+      subtitle: (hari) =>
+        hari > 0
+          ? `Tiket, teman perjalanan, dan ${["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh"][hari] ?? hari} hari yang menunggumu.`
+          : "Tiket, teman perjalanan, dan agenda yang menunggumu.",
+      participant: "Peserta",
+      bus: "Bus",
+      room: "Kamar",
+      roommate: (jumlah) => (jumlah > 1 ? "Teman-teman sekamar" : "Teman sekamar"),
+      nextUp: "Selanjutnya",
+      nextUpMobile: "Agenda berikutnya",
+      today: "Hari ini",
+      tomorrow: "Besok",
+      dayOrdinal: (hari) => `Hari ${["pertama", "kedua", "ketiga", "keempat", "kelima", "keenam", "ketujuh"][hari - 1] ?? `ke-${hari}`}`,
+      showQr: "Tampilkan QR kehadiran",
+      help: "Butuh bantuan? Hubungi panitia",
+      roommateTitle: (jumlah) => (jumlah > 1 ? "Teman-teman sekamarmu" : "Teman sekamarmu"),
+      roomNo: (nomor) => `Kamar ${nomor}`,
+      profileAria: "Profil",
+    },
   },
   en: {
     portal: "Participant portal",
@@ -149,5 +197,30 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
     qrShow: "Show this QR to the organisers",
     qrShowNote: "for attendance and check-in",
     qrBrightness: "Turn up your screen brightness so it scans easily.",
+    horizon: {
+      tabs: { beranda: "My trip", jadwal: "Schedule", info: "Updates", profil: "Profile" },
+      tabsShort: { beranda: "Trip", jadwal: "Schedule", info: "Info", profil: "Profile" },
+      welcome: "Your journey starts here",
+      heading: (nama) => `${nama}, ready for a new story?`,
+      headingMobile: (nama) => `${nama},\nthis is your trip.`,
+      subtitle: (hari) =>
+        hari > 0
+          ? `Your ticket, travel mates, and ${["", "one day", "two days", "three days", "four days", "five days", "six days", "seven days"][hari] ?? `${hari} days`} ahead.`
+          : "Your ticket, travel mates, and the agenda ahead.",
+      participant: "Participant",
+      bus: "Bus",
+      room: "Room",
+      roommate: (jumlah) => (jumlah > 1 ? "Roommates" : "Roommate"),
+      nextUp: "Next up",
+      nextUpMobile: "Next on the agenda",
+      today: "Today",
+      tomorrow: "Tomorrow",
+      dayOrdinal: (hari) => `Day ${["one", "two", "three", "four", "five", "six", "seven"][hari - 1] ?? hari}`,
+      showQr: "Show attendance QR",
+      help: "Need help? Contact the organisers",
+      roommateTitle: (jumlah) => (jumlah > 1 ? "Your roommates" : "Your roommate"),
+      roomNo: (nomor) => `Room ${nomor}`,
+      profileAria: "Profile",
+    },
   },
 };
