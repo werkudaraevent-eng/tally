@@ -432,7 +432,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const portal = member && horizon ? (
     <div data-bagian="portal">
       <UndanganHorizon
-        alis={t.horizon.inviteEyebrow}
+        alis={sudahMasuk ? t.horizon.signedInEyebrow : t.horizon.inviteEyebrow}
         judul={t.horizon.inviteHeading}
         catatan={t.horizon.inviteNote(member.show_logistics === true)}
         aksi={aksiPeserta ? { ...aksiPeserta, link: true } : sudahMasuk ? null : { href: masukUrl, label: t.horizon.inviteCta, link: true }}
@@ -897,7 +897,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         lang={lang}
         langSwitch={otherLang ? { href: landingPath(event.slug, otherLang, landingDefaultLang(config)), lang: otherLang } : null}
         peserta={peserta}
-        gathering={gaya ? { tanda: inisialNama(nama), sub: subNama } : null}
+        gathering={gaya ? { tanda: inisialNama(nama), sub: horizon ? null : subNama } : null}
         horizon={horizon}
       />
 
@@ -1210,7 +1210,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       {horizon && penutupTampil ? (
         <PenutupHorizon
           judul={config.cta_heading?.trim() || t.horizon.closing}
-          aksi={undangan ? { href: masukUrl, label: t.inviteCta, link: true } : { href: daftarUrl, label: ctaLabel, link: true }}
+          aksi={undangan ? { href: masukUrl, label: t.horizon.inviteCta, link: true } : { href: daftarUrl, label: ctaLabel, link: true }}
           masuk={!undangan && memberLink ? { href: memberLink.href, label: t.horizon.registered, link: true } : null}
           tandaTangan={tandaTanganHorizon}
         />

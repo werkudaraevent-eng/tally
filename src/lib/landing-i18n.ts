@@ -429,6 +429,8 @@ export type LandingUiText = {
     teaserLink: string;
     days: (days: number) => string;
     inviteEyebrow: string;
+    /** Label kecil bagian portal bagi peserta yang sudah masuk. */
+    signedInEyebrow: string;
     inviteHeading: string;
     inviteNote: (logistik: boolean) => string;
     inviteCta: string;
@@ -579,6 +581,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       teaserLink: "Kenali perjalanannya",
       days: (days) => `${["Nol", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh"][days] ?? days} hari.\nSatu cerita kita.`,
       inviteEyebrow: "Setelah masuk, ceritanya jadi milikmu",
+      signedInEyebrow: "Ceritamu sudah dimulai",
       inviteHeading: "Satu perjalanan.\nPunya tempatmu sendiri.",
       inviteNote: (logistik) =>
         logistik
@@ -724,6 +727,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       teaserLink: "See the journey",
       days: (days) => `${["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"][days] ?? days} ${days === 1 ? "day" : "days"}.\nOne story, together.`,
       inviteEyebrow: "Sign in and the story is yours",
+      signedInEyebrow: "Your story has already begun",
       inviteHeading: "One journey.\nA place of your own.",
       inviteNote: (logistik) =>
         logistik
