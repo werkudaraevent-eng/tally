@@ -25,8 +25,9 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const MIN_QUERY_LENGTH = 3;
 const MAX_RESULTS = 5;
-// Cari per organisasi menyorot kursi seluruh anggotanya sekaligus, tanpa nama.
-// Batas ini menjaga kata kunci yang terlalu umum tetap diminta lebih lengkap.
+// Cari per organisasi mendaftar seluruh anggotanya (nama disamarkan) dan
+// menyorot semua kursinya. Batas ini menjaga kata kunci yang terlalu umum tetap
+// diminta lebih lengkap.
 const MAX_ORGANISATION_MATCHES = 100;
 
 const querySchema = z.object({
@@ -78,8 +79,7 @@ export async function GET(request: Request) {
     // Satu orang bisa memegang lebih dari satu kursi; dikelompokkan per orang
     // supaya tamu melihat satu hasil dengan daftar kursinya, bukan hasil ganda.
     const grouped = new Map<string, { name: string; company: string; seatLabels: string[]; tableNumbers: Set<string> }>();
-    // Peserta yang cocok lewat organisasinya. Yang dikirim hanya kursinya, bukan
-    // namanya, supaya seluruh rombongan bisa disorot tanpa membuka daftar nama.
+    // Peserta yang cocok lewat organisasinya, untuk menyorot seluruh rombongan.
     const perOrganisasi = new Map<string, string[]>();
 
     for (const assignment of assignments) {
@@ -107,6 +107,32 @@ export async function GET(request: Request) {
       ? { total: totalOrganisasi, seat_labels: kursiOrganisasi, normalized_labels: kursiOrganisasi.map(normalizeSeatLabel) }
       : null;
 
+    const keHasil = (entry: { name: string; company: string; seatLabels: string[] }) => ({
+      name: searchConfirmationLabel(entry.name, parsed.data.q),
+      ...(cariPerusahaan && entry.company ? { company: entry.company } : {}),
+      seat_labels: entry.seatLabels,
+      normalized_labels: entry.seatLabels.map(normalizeSeatLabel),
+    });
+
+    // Cocok lewat organisasi: seluruh anggotanya dikirim sebagai daftar (nama
+    // tetap disamarkan) dan semua kursinya disorot. Peserta yang hanya cocok
+    // lewat nama ikut didaftar bila jumlahnya masih dalam batas biasa.
+    if (organisasi) {
+      const hanyaNama = [...grouped.keys()].filter((id) => !perOrganisasi.has(id)).length;
+      const daftar = [...grouped.entries()]
+        .filter(([id]) => perOrganisasi.has(id) || hanyaNama <= MAX_RESULTS)
+        .map(([, entry]) => keHasil(entry))
+        .sort((a, b) => a.seat_labels[0].localeCompare(b.seat_labels[0], undefined, { numeric: true }));
+      return Response.json({
+        session: session.slug,
+        total,
+        truncated: false,
+        results: daftar,
+        organisasi,
+        message: daftar.length > 1 ? `Kursi ${organisasi.total} peserta dari organisasi ini disorot. Ketuk nama untuk melihat satu kursi.` : undefined,
+      });
+    }
+
     // Kata kunci yang terlalu umum tidak dilayani dengan daftar. Tamu asli
     // cukup mengetik lebih lengkap; penyapu data tidak mendapat nama.
     if (total > MAX_RESULTS) {
@@ -115,23 +141,16 @@ export async function GET(request: Request) {
         total,
         truncated: true,
         results: [],
-        organisasi,
-        message: organisasi
-          ? `Kursi ${organisasi.total} peserta dari organisasi ini disorot di denah.`
-          : cariPerusahaan
+        organisasi: null,
+        message: cariPerusahaan
           ? `Ada ${total} peserta yang cocok. Ketik nama Anda lebih lengkap.`
           : `Ada ${total} nama yang cocok. Ketik nama lebih lengkap.`,
       });
     }
 
-    const results = [...grouped.values()].map((entry) => ({
-      name: searchConfirmationLabel(entry.name, parsed.data.q),
-      ...(cariPerusahaan && entry.company ? { company: entry.company } : {}),
-      seat_labels: entry.seatLabels,
-      normalized_labels: entry.seatLabels.map(normalizeSeatLabel),
-    }));
+    const results = [...grouped.values()].map(keHasil);
 
-    return Response.json({ session: session.slug, total, truncated: false, results, organisasi });
+    return Response.json({ session: session.slug, total, truncated: false, results, organisasi: null });
   } catch {
     return apiErrorPeserta("INTERNAL_ERROR", 500);
   }

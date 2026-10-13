@@ -77,6 +77,8 @@ export default function SeatMapPage() {
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searchNote, setSearchNote] = useState("");
   const [highlighted, setHighlighted] = useState<string[]>([]);
+  // Kursi seluruh peserta yang cocok lewat organisasi, untuk tombol "Sorot semua".
+  const [kursiOrganisasi, setKursiOrganisasi] = useState<string[]>([]);
   // Sorotan dari `?kursi=` bertahan sampai tamu mulai mengetik.
   const sorotanDariUrl = useRef(false);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
@@ -189,7 +191,8 @@ export default function SeatMapPage() {
           }
           const found = (data.results ?? []) as SearchResult[];
           setResults(found);
-          setSearchNote(found.length === 0 ? "Nama tidak ditemukan pada sesi ini." : "");
+          setSearchNote(found.length === 0 ? "Nama tidak ditemukan pada sesi ini." : (data.message ?? ""));
+          setKursiOrganisasi(organisasi ? organisasi.normalized_labels : []);
           // Satu hasil langsung disorot supaya tamu tidak perlu menekan apa pun.
           setHighlighted(organisasi ? organisasi.normalized_labels : found.length === 1 ? found[0].normalized_labels : []);
         })
@@ -446,7 +449,8 @@ export default function SeatMapPage() {
               </p>
 
               {results && results.length > 0 ? (
-                <ul className="space-y-2">
+                <>
+                <ul className={results.length > 5 ? "mt-2 max-h-80 space-y-2 overflow-y-auto pr-1" : "mt-2 space-y-2"}>
                   {results.map((result) => (
                     <li key={`${result.name}-${result.seat_labels.join()}`}>
                       <button
@@ -466,17 +470,35 @@ export default function SeatMapPage() {
                     </li>
                   ))}
                 </ul>
+                {results.length > 5 ? (
+                  <p className="mt-2 text-body-small opacity-80">Gulir daftar untuk melihat semua {results.length} peserta.</p>
+                ) : null}
+                </>
               ) : null}
 
-              {sorotanTerlihat ? (
-                <button
-                  type="button"
-                  onClick={() => { setHighlighted([]); setQuery(""); }}
-                  className="mt-3 inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold underline"
-                  style={{ color: accent }}
-                >
-                  <X size={16} /> Hapus sorotan
-                </button>
+              {sorotanTerlihat || (results && results.length > 0 && kursiOrganisasi.length > 0) ? (
+                <div className="mt-3 flex flex-wrap items-center gap-x-6">
+                  {results && results.length > 0 && kursiOrganisasi.length > 0 && highlighted.join() !== kursiOrganisasi.join() ? (
+                    <button
+                      type="button"
+                      onClick={() => setHighlighted(kursiOrganisasi)}
+                      className="inline-flex min-h-11 items-center text-body-medium font-semibold underline"
+                      style={{ color: accent }}
+                    >
+                      Sorot semua
+                    </button>
+                  ) : null}
+                  {sorotanTerlihat ? (
+                    <button
+                      type="button"
+                      onClick={() => { setHighlighted([]); setQuery(""); }}
+                      className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold underline"
+                      style={{ color: accent }}
+                    >
+                      <X size={16} /> Hapus sorotan
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
             </div>
 
