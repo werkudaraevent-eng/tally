@@ -703,7 +703,18 @@ export default function LandingCmsPage() {
     };
   }, [muatBarisSesi]);
 
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+  // Isi dari server dimuat sekali per kunjungan. Efek bisa dijalankan ulang tanpa
+  // halaman dipasang ulang (mis. bagian editor yang ditangguhkan Suspense lalu
+  // tampil lagi); muat ulang di saat itu menimpa suntingan yang belum disimpan.
+  const sudahDimuat = useRef(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (sudahDimuat.current) return;
+      sudahDimuat.current = true;
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   // `?blok=<id>`: tautan Edit dari Participant area > Participant home membuka
   // blok itu di Susunan halaman, sekali, setelah isinya dimuat.

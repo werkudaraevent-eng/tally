@@ -12,7 +12,7 @@ import type {
   LandingSectionId,
   LandingSpeaker,
 } from "@/lib/domain";
-import { LANDING_BLOCK_LABELS, LANDING_NAV_DEFAULTS, isLandingBlockId, isPortalEntry, landingBlockHasContent, landingHeadingFontSize, publicEventName, susunanDenganPortal } from "@/lib/domain";
+import { LANDING_BLOCK_LABELS, logoNavPutih, isLandingBlockId, isPortalEntry, landingBlockHasContent, landingHeadingFontSize, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { gatheringColors, heroCtaColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
 import { landingTokens } from "@/lib/landing-tokens";
 import { preloadLandingFonts } from "@/lib/landing-font-preload";
@@ -821,7 +821,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         sections={menuAtas}
         width={config.nav?.width ?? "full"}
         logoUrl={config.nav?.logo_url ?? null}
-        logoOnDark={Boolean(kv) && (config.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50}
+        logoOnDark={logoNavPutih(config.nav, Boolean(kv))}
         lang={lang}
         langSwitch={otherLang ? { href: landingPath(event.slug, otherLang, landingDefaultLang(config)), lang: otherLang } : null}
         peserta={peserta}

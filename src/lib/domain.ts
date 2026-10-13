@@ -1199,7 +1199,24 @@ export type LandingNavConfig = {
   height?: number;
   /** Logo acara di pojok kiri, menggantikan nama acara. Kosong = nama acara. */
   logo_url?: string | null;
+  /**
+   * Logo di atas gambar hero selagi bilah bening (opacity < 50). Bawaan
+   * `white`: diputihkan (perilaku lama, acara lama tidak berubah). `original`:
+   * warna logo sendiri.
+   */
+  logo_on_image?: LandingNavLogoTone;
 };
+
+export type LandingNavLogoTone = "white" | "original";
+
+/**
+ * Logo bilah atas diputihkan selagi di atas gambar hero? Hanya bila bilahnya
+ * bening (opacity < 50), ada gambar di belakangnya, dan admin tidak memilih
+ * warna asli logo.
+ */
+export function logoNavPutih(nav: LandingNavConfig | undefined, adaGambar: boolean): boolean {
+  return adaGambar && (nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50 && nav?.logo_on_image !== "original";
+}
 
 export type LandingNavWidth = "full" | "content";
 

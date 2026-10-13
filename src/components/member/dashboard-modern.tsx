@@ -11,7 +11,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
-import { LANDING_NAV_DEFAULTS, isLandingBlockId, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName } from "@/lib/domain";
+import { logoNavPutih, isLandingBlockId, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName } from "@/lib/domain";
 import { BagianBeranda } from "@/components/member/bagian-beranda";
 import { KartuBlok } from "@/components/member/kartu-blok";
 import { DenahMini } from "@/components/member/denah-mini";
@@ -197,7 +197,7 @@ export async function DashboardModern({
         homeHref={halamanAcara}
         width={config.nav?.width ?? "full"}
         logoUrl={config.nav?.logo_url ?? null}
-        logoOnDark={Boolean(kv) && (config.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50}
+        logoOnDark={logoNavPutih(config.nav, Boolean(kv))}
         lang={lang}
         langSwitch={landingEnAvailable(config) ? { href: `${landingPath(event.slug, lainnya, utama)}/peserta`, lang: lainnya } : null}
         peserta={nav}

@@ -25,7 +25,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
 import { kontakPanitia } from "@/lib/kontak-panitia";
-import { LANDING_NAV_DEFAULTS, isPortalEntry, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
+import { logoNavPutih, isPortalEntry, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { KartuRute } from "@/components/landing/modern/blok-rute";
 import { KartuHitungMundur } from "@/components/landing/modern/landing-blocks";
 import { BagianBeranda } from "@/components/member/bagian-beranda";
@@ -721,7 +721,7 @@ export async function DashboardGathering({
         homeHref={halamanAcara}
         width={config.nav?.width ?? "full"}
         logoUrl={logo}
-        logoOnDark={Boolean(config.banner_url) && (config.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50}
+        logoOnDark={logoNavPutih(config.nav, Boolean(config.banner_url))}
         lang={lang}
         langSwitch={landingEnAvailable(config) ? { href: `${landingPath(event.slug, lainnya, utama)}/peserta${tabAktif === "beranda" ? "" : `?tab=${tabAktif}`}`, lang: lainnya } : null}
         peserta={navPeserta}
