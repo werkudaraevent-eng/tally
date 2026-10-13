@@ -59,13 +59,13 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
 
   const { data: sections } = await client
     .from("rundown_sections")
-    .select("id,title,event_date,sort_order")
+    .select("id,name,title,event_date,sort_order")
     .eq("event_id", eventId)
     .eq("is_published", true)
     .order("sort_order", { ascending: true })
     .order("id", { ascending: true });
 
-  const daftarSeksi = (sections ?? []) as unknown as Array<{ id: number; title: string | null; event_date: string | null }>;
+  const daftarSeksi = (sections ?? []) as unknown as Array<{ id: number; name: string | null; title: string | null; event_date: string | null }>;
   if (daftarSeksi.length === 0) return [];
 
   const { data: items } = await client
@@ -93,7 +93,9 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
 
   return daftarSeksi
     .map((section) => ({
-      sectionTitle: section.title,
+      // Label tab yang disunting di CMS Rundown. Kolom `title` tidak lagi punya
+      // isian di CMS (hanya terisi saat bagian dibuat), jadi ia hanya cadangan.
+      sectionTitle: section.name?.trim() || section.title?.trim() || null,
       hari: hariPendek(section.event_date, bahasa),
       tanggal: section.event_date && /^\d{4}-\d{2}-\d{2}$/.test(section.event_date) ? section.event_date : null,
       items: daftarItem

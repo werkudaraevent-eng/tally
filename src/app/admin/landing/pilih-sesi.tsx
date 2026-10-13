@@ -41,7 +41,7 @@ export function barisSesiDariAdmin(isi: { sections?: RundownSection[]; items?: R
         jam: formatClock(item.start_time).replace(":", "."),
         title: item.title.trim(),
         title_en: item.title_en?.trim() ?? "",
-        bagian: seksi.title?.trim() || null,
+        bagian: seksi.name?.trim() || seksi.title?.trim() || null,
       })),
   );
 }
