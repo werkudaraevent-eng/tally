@@ -45,10 +45,19 @@ export function Muncul({
     // Keadaan awal dari posisi nyata, bukan isIntersecting (rootMargin -8%
     // menganggap isi di tepi bawah layar "di bawah" lalu menyembunyikannya):
     // apa pun yang sudah terlihat saat dimuat dibiarkan apa adanya.
+    // Disembunyikan baru di panggilan pertama pengamat, jadi bila pengamat
+    // tidak pernah memanggil, isi tetap terlihat.
     if (el.getBoundingClientRect().top < window.innerHeight) return;
-    setKeadaan("sembunyi");
+    let pertama = true;
     const pengamat = new IntersectionObserver(
       ([entri]) => {
+        if (pertama) {
+          pertama = false;
+          if (!entri.isIntersecting && entri.boundingClientRect.top >= window.innerHeight) {
+            setKeadaan("sembunyi");
+            return;
+          }
+        }
         if (entri.isIntersecting) {
           setKeadaan("tampil");
           pengamat.disconnect();
