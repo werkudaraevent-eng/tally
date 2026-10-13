@@ -20,7 +20,7 @@ import { modernNavStyle } from "@/lib/registration-theme-css";
  * tersimpan, sedangkan warna dan transparansi paling mudah dinilai sambil
  * menggeser; latar bergaris gelap-terang memperlihatkan seberapa tembus bilahnya.
  */
-function BilahAtasContoh({ warna, opasitas, lebar, nama, logo, logoPutih }: { warna: string; opasitas: number; lebar: LandingNavWidth; nama: string; logo: string | null; logoPutih: boolean }) {
+function BilahAtasContoh({ warna, opasitas, lebar, nama, logo, logoPutih, latar }: { warna: string; opasitas: number; lebar: LandingNavWidth; nama: string; logo: string | null; logoPutih: boolean; latar?: string }) {
   // Variabel yang sama dengan halaman publik (hero ber-KV), supaya warna teks
   // di contoh ini tidak bisa berbeda dari yang dilihat tamu.
   const gaya = modernNavStyle({ color: warna, opacity: opasitas }, { ink: "#ffffff", onInk: "#181d27" });
@@ -28,7 +28,7 @@ function BilahAtasContoh({ warna, opasitas, lebar, nama, logo, logoPutih }: { wa
     <div
       aria-hidden
       className="overflow-hidden rounded-md border border-outline-variant"
-      style={{ ...gaya, background: "linear-gradient(110deg, #3b2f25 0%, #8a6a4a 35%, #d9c7a8 55%, #f4efe6 70%, #6b5a48 100%)" }}
+      style={{ ...gaya, background: latar ?? "linear-gradient(110deg, #3b2f25 0%, #8a6a4a 35%, #d9c7a8 55%, #f4efe6 70%, #6b5a48 100%)" }}
     >
       <div className={lebar === "content" ? "px-4" : ""}>
         <div
@@ -58,17 +58,30 @@ export function BilahAtasEditor({
   eventName,
   disabled,
   gathering = false,
+  horizon = false,
+  logoCadangan = null,
+  onLogo,
+  navyHorizon,
 }: {
   value: LandingNavConfig;
   onChange: (next: LandingNavConfig) => void;
   /** Hero gathering tanpa gambar: petunjuknya menyebut "hero", bukan "hero image" (CMS mudah, butir 15). */
   gathering?: boolean;
+  /** Gathering Horizon: tinggi bilah dan logo diatur halaman, jadi kontrolnya tidak ditampilkan. */
+  horizon?: boolean;
   eventName: string;
   disabled?: boolean;
+  /** Logo yang dipakai bilah saat logo bilah kosong (Horizon: logo hero), supaya editor menampilkan yang tampil di halaman. */
+  logoCadangan?: string | null;
+  /** Dipanggil saat logo diganti atau dihapus bila ada logoCadangan: hapus berarti logo cadangannya juga. */
+  onLogo?: (url: string | null) => void;
+  /** Horizon: navy hero di halaman, latar contoh bilah (logo tampil warna aslinya, seperti di halaman). */
+  navyHorizon?: string;
 }) {
   const setBilahAtas = (patch: Partial<LandingNavConfig>) => onChange({ ...bilahAtas, ...patch });
   const warnaBilah = bilahAtas.color ?? LANDING_NAV_DEFAULTS.color;
   const opasitasBilah = bilahAtas.opacity ?? LANDING_NAV_DEFAULTS.opacity;
+  const logoTampil = bilahAtas.logo_url ?? logoCadangan ?? null;
   return (
     <div lang="en" className="contents">
     <Kelompok title="Top bar" note="The bar that sticks to the top of the page, with the logo or event name and the sign-in and registration buttons.">
@@ -77,8 +90,9 @@ export function BilahAtasEditor({
         opasitas={opasitasBilah}
         lebar={bilahAtas.width ?? "full"}
         nama={eventName}
-        logo={bilahAtas.logo_url ?? null}
-        logoPutih={logoNavPutih(bilahAtas, true)}
+        logo={logoTampil}
+        logoPutih={horizon ? false : logoNavPutih(bilahAtas, true)}
+        latar={horizon ? navyHorizon : undefined}
       />
       <ImageUploadField
         label="Event logo"
@@ -86,8 +100,8 @@ export function BilahAtasEditor({
         fit="contain"
         previewClassName="h-12 w-36"
         hint="Shown at the left of the bar in place of the event name. Leave empty to use the name. A transparent PNG looks tidiest; its height follows the bar, 240px wide max."
-        value={bilahAtas.logo_url ?? null}
-        onChange={(url) => setBilahAtas({ logo_url: url })}
+        value={logoTampil}
+        onChange={(url) => (logoCadangan && onLogo ? onLogo(url) : setBilahAtas({ logo_url: url }))}
         disabled={disabled}
       />
       <label className="flex items-center gap-3">
@@ -119,10 +133,13 @@ export function BilahAtasEditor({
           className="h-11 w-full accent-primary"
         />
         <p className="mt-1.5 text-body-medium text-on-surface-variant">
-          0% is clear, 100% is solid. Applies while the bar sits over the {gathering ? "hero" : "hero image"}. Past the hero, the bar is at least 90% solid so its text stays readable over the white page.
+          {horizon
+            ? "0% is clear, 100% is solid. Applies only at the very top of the page; as soon as the page scrolls, the bar turns solid and shorter so the logo never sits on the hero image."
+            : `0% is clear, 100% is solid. Applies while the bar sits over the ${gathering ? "hero" : "hero image"}. Past the hero, the bar is at least 90% solid so its text stays readable over the white page.`}
         </p>
       </div>
-      {bilahAtas.logo_url && opasitasBilah < 50 ? (
+      {/* Horizon selalu menampilkan logo dengan warna aslinya di atas navy. */}
+      {bilahAtas.logo_url && opasitasBilah < 50 && !horizon ? (
         <div>
           <p className="text-body-medium font-medium text-on-surface">Logo over the hero</p>
           <SegmentedButton<LandingNavLogoTone>
@@ -156,6 +173,9 @@ export function BilahAtasEditor({
           {LANDING_NAV_WIDTH_LABELS.content}: the bar lines up with the page content, its bottom corners are rounded, and the {gathering ? "hero colour" : "hero image"} shows on either side.
         </p>
       </div>
+      {horizon ? (
+        <p className="text-body-medium text-on-surface-variant">Bar height follows the design in Gathering Horizon: 128 px at the top of wide screens, 102 px on phones, and shorter once the page scrolls.</p>
+      ) : (
       <div className="flex flex-col gap-1.5">
         <TextField
           className="w-32"
@@ -186,6 +206,7 @@ export function BilahAtasEditor({
           Default {LANDING_NAV_DEFAULTS.height}. Range {LANDING_NAV_HEIGHT_MIN} to {LANDING_NAV_HEIGHT_MAX} px.
         </p>
       </div>
+      )}
     </Kelompok>
     </div>
   );

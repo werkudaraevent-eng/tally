@@ -10,6 +10,7 @@ import {
   type LandingHeroPosition,
   type LandingLayout,
 } from "./domain.ts";
+import { kontras } from "./landing-hitung-mundur.ts";
 
 /**
  * Token gaya halaman acara: satu tempat yang menjawab "warna dan huruf apa
@@ -52,6 +53,21 @@ export const GATHERING_BUTTON_DEFAULT = "#007F50";
  */
 export const HORIZON_BRAND_DEFAULT = "#0B182D";
 export const HORIZON_GOLD_DEFAULT = "#E8C968";
+const HEKS = /^#[0-9a-f]{6}$/i;
+/** Emas Horizon: warna tombol Tema, lalu aksen, lalu emas rancangan. */
+export function emasHorizon(warnaTombol: string | null | undefined, aksen: string | null | undefined): string {
+  return [warnaTombol, aksen].find((warna) => HEKS.test(warna ?? "")) ?? HORIZON_GOLD_DEFAULT;
+}
+/**
+ * Warna teks emas Horizon di atas navy (kata disorot di judul, label hero,
+ * nomor hari, kartu perjalanan): emasnya bila terbaca di atas navy (4,5:1,
+ * karena sebagian besar teksnya kecil),
+ * lalu aksen, lalu emas rancangan. Warna tombol gelap (mis. #1F3B73) tetap
+ * dipakai tombol, tapi tidak untuk teks.
+ */
+export function sorotHorizon(emas: string, aksen: string | null | undefined, navy: string): string {
+  return [emas, aksen].find((warna) => HEKS.test(warna ?? "") && kontras(warna as string, navy) >= 4.5) ?? HORIZON_GOLD_DEFAULT;
+}
 export const HORIZON_NAV_DEFAULT = { color: "#0B182D", opacity: 0, height: 120 } as const;
 
 export type LandingTokens = {

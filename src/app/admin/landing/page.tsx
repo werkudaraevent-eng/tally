@@ -27,6 +27,7 @@ import {
   LANDING_SECTION_LABELS,
   LANDING_SECTION_SOURCES,
   LANDING_SECTION_TEXT_MAX,
+  HORIZON_TEXT_MAX,
   LANDING_EYEBROW_DEFAULT,
   LANDING_BLOCK_LABELS,
   isLandingBlockId,
@@ -57,7 +58,7 @@ import {
   type LandingSpeakerFrame,
 } from "@/lib/domain";
 import { ukurTerangKv } from "@/lib/kv-terang";
-import { HERO_KV_KUAT, landingTokens } from "@/lib/landing-tokens";
+import { HERO_KV_KUAT, emasHorizon as hitungEmasHorizon, landingTokens, sorotHorizon } from "@/lib/landing-tokens";
 import { gatheringColors } from "@/lib/registration-theme-css";
 import { ikonKartu, nadaKartu } from "@/lib/landing-card-icons";
 import { PilihIkonKartu, type WarnaUbin } from "./pilih-ikon";
@@ -1062,6 +1063,9 @@ export default function LandingCmsPage() {
   const forum = tataLetak === "forum";
   // Gaya gathering (preset Gathering) hanya dibaca tata letak Modern.
   const gathering = modern && landing.gathering === true;
+  // Gathering Horizon: susunan dan teksnya sendiri. Kolom yang tidak dibacanya
+  // disembunyikan (isinya tetap tersimpan untuk Gathering biasa).
+  const horizon = gathering && landing.gathering_variant === "horizon";
   // Teks yang tampil di halaman Indonesia tetapi belum punya versi English.
   const kurangEn = landingUntranslated({
     landing_config: { ...landing, sections },
@@ -1187,14 +1191,61 @@ export default function LandingCmsPage() {
   const isiPortal = (
     <>
       <p className="text-body-medium text-on-surface-variant">
-        This section appears automatically while the Participant area is open. Drag its row to choose where it sits; by default it is just above the footer. Its text is fixed,{" "}
-        {landing.gathering && landing.gathering_variant === "horizon"
-          ? "and the journey pass card beside it uses the From and To fields below, the event dates, and the hero KV."
+        This section appears automatically while the Participant area is open. Drag its row to choose where it sits; by default it is just above the footer. {horizon ? "" : "Its text is fixed, "}
+        {horizon
+          ? "Its text can be changed below, and the journey pass card beside it uses the From and To fields, the event dates, and the hero image."
           : "and its tiles follow the Participant area: entry ticket, room and bus, and announcements."}{" "}
         The top bar gets a link to it, &ldquo;Perjalanan&rdquo; (&ldquo;Your trip&rdquo; in English).
       </p>
       {tautanSumberPortal("/admin/area-peserta", "Open Participant area")}
-      {landing.gathering && landing.gathering_variant === "horizon" ? (
+      {horizon ? (
+        <Kelompok title="Section text" note="Leave a field empty to use the standard text, which also has an English version.">
+          <TextField
+            label="Small label"
+            data-kolom="portal_eyebrow"
+            optional
+            placeholder={LANDING_UI.id.horizon.inviteEyebrow}
+            hint="Above the heading, on wide screens. Empty shows a signed-in version to participants who are signed in."
+            maxLength={HORIZON_TEXT_MAX.portal_eyebrow}
+            value={landing.portal_eyebrow ?? ""}
+            onChange={(event) => setLanding({ ...landing, portal_eyebrow: event.target.value })}
+          />
+          <TextArea
+            label="Heading"
+            data-kolom="portal_heading"
+            optional
+            rows={2}
+            placeholder={LANDING_UI.id.horizon.inviteHeading}
+            hint="Press Enter to start a new line."
+            maxLength={HORIZON_TEXT_MAX.portal_heading}
+            value={landing.portal_heading ?? ""}
+            onChange={(event) => setLanding({ ...landing, portal_heading: event.target.value })}
+          />
+          <TextArea
+            label="Text"
+            data-kolom="portal_note"
+            optional
+            rows={3}
+            placeholder={LANDING_UI.id.horizon.inviteNote(landing.member?.show_logistics === true)}
+            maxLength={HORIZON_TEXT_MAX.portal_note}
+            counter
+            value={landing.portal_note ?? ""}
+            onChange={(event) => setLanding({ ...landing, portal_note: event.target.value })}
+          />
+          <TextField
+            label="Sign-in button text"
+            data-kolom="portal_button_label"
+            optional
+            placeholder={LANDING_UI.id.horizon.inviteCta}
+            hint="For guests who are not signed in. Also used on the gold closing band while the page is invite only."
+            maxLength={HORIZON_TEXT_MAX.portal_button_label}
+            counter
+            value={landing.portal_button_label ?? ""}
+            onChange={(event) => setLanding({ ...landing, portal_button_label: event.target.value })}
+          />
+        </Kelompok>
+      ) : null}
+      {horizon ? (
         <Kelompok title="Journey pass" note="The card beside this section on wide screens.">
           <TextField
             label="From"
@@ -1218,6 +1269,8 @@ export default function LandingCmsPage() {
       ) : null}
     </>
   );
+  // Warna sorotan judul sama dengan halaman (emas yang terbaca di atas navy hero).
+  const emasHorizon = sorotHorizon(hitungEmasHorizon(landing.button_color, tokensHero.accent), tokensHero.accent, tokensHero.brand);
   const isiPembuka = facts ? (
     <div className="flex flex-col gap-5">
       <Kelompok title="Content" first>
@@ -1239,8 +1292,8 @@ export default function LandingCmsPage() {
             label="Title"
             data-kolom="tagline"
             optional
-            hint="The large title in the hero. Select a word and press Highlight to show it in the accent colour."
-            accent={tokensHero.accent ?? "#d4a72c"}
+            hint={horizon ? "The large title in the hero. Select a word and press Highlight to show it in gold." : "The large title in the hero. Select a word and press Highlight to show it in the accent colour."}
+            accent={horizon ? emasHorizon : tokensHero.accent ?? "#d4a72c"}
             maxLength={200}
             value={facts.tagline ?? ""}
             onChange={(tagline) => patchFacts({ tagline })}
@@ -1267,6 +1320,11 @@ export default function LandingCmsPage() {
           eventName={landing.public_name?.trim() || facts.name || "Nama acara"}
           disabled={busy}
           gathering={gathering}
+          horizon={horizon}
+          // Horizon memakai logo hero di bilah saat logo bilah kosong: tampilkan di sini, hapus keduanya.
+          logoCadangan={horizon ? landing.hero_logo_url?.trim() || null : null}
+          navyHorizon={tokensHero.brand}
+          onLogo={(url) => setLanding({ ...landing, nav: { ...(landing.nav ?? {}), logo_url: url }, hero_logo_url: url ? landing.hero_logo_url : null })}
         />
         </div>
       ) : null}
@@ -1340,13 +1398,13 @@ export default function LandingCmsPage() {
       )}
 
       {gathering ? (
-        <Kelompok title="Hero text" note="The gathering hero: a label, the tagline as the title, and a line below it.">
+        <Kelompok title="Hero text" note={horizon ? "A label, the title, a line below it, and the button. The hero image sits below them." : "The gathering hero: a label, the tagline as the title, and a line below it."}>
           <TextField
             label="Label above the title"
             data-kolom="hero_eyebrow"
             optional
             maxLength={60}
-            hint={'Empty shows "You\'re invited · event name" while the page is invite only.'}
+            hint={horizon ? "Empty shows the venue and dates, like \"Yogyakarta / 6–8 November 2026\"." : 'Empty shows "You\'re invited · event name" while the page is invite only.'}
             value={landing.hero_eyebrow ?? ""}
             onChange={(event) => setLanding({ ...landing, hero_eyebrow: event.target.value })}
           />
@@ -1361,9 +1419,35 @@ export default function LandingCmsPage() {
             value={landing.hero_note ?? ""}
             onChange={(event) => setLanding({ ...landing, hero_note: event.target.value })}
           />
+          {horizon ? (
+            <>
+              <TextField
+                label="Button text"
+                data-kolom="hero_button_label"
+                optional
+                placeholder={LANDING_UI.id.horizon.start}
+                hint="The gold button under the title. It scrolls to the next section."
+                maxLength={HORIZON_TEXT_MAX.hero_button_label}
+                counter
+                value={landing.hero_button_label ?? ""}
+                onChange={(event) => setLanding({ ...landing, hero_button_label: event.target.value })}
+              />
+              <TextField
+                label="Corner label"
+                data-kolom="hero_index"
+                optional
+                placeholder={LANDING_UI.id.horizon.index}
+                hint="Small text at the bottom left of the hero image and on the About photo, on wide screens."
+                maxLength={HORIZON_TEXT_MAX.hero_index}
+                value={landing.hero_index ?? ""}
+                onChange={(event) => setLanding({ ...landing, hero_index: event.target.value })}
+              />
+            </>
+          ) : null}
           {/* Logo hero dari gaya sebelumnya: tidak lagi digambar, jadi admin
-              melihatnya dan bisa menghapusnya (QA #103 L5). */}
-          {landing.hero_logo_url ? (
+              melihatnya dan bisa menghapusnya (QA #103 L5). Horizon memakainya
+              di bilah atas selama Top bar belum punya logo. */}
+          {landing.hero_logo_url && !horizon ? (
             <div className="flex items-center gap-3 rounded-md border border-outline-variant p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={landing.hero_logo_url} alt="" className="h-10 w-16 shrink-0 object-contain" />
@@ -1382,14 +1466,25 @@ export default function LandingCmsPage() {
           (Figma Hanung 2026-10-08). Kosong = gradasi saja seperti sebelumnya. */}
       {gathering ? (
         <div data-kolom="hero_bg_url">
-          <Kelompok title="Background image" note="Two layers behind the hero and at the top of the participant portal: the image, faded, on top of a colour layer.">
+          <Kelompok
+            title={horizon ? "Hero image (KV)" : "Background image"}
+            note={
+              horizon
+                ? "Shown in full under the title, across the page, and on the journey pass card. The top edge fades into the navy."
+                : "Two layers behind the hero and at the top of the participant portal: the image, faded, on top of a colour layer."
+            }
+          >
             <ImageUploadField
-              label="Hero background image"
+              label={horizon ? "Hero image" : "Hero background image"}
               kind="landing"
               fit="cover"
               previewClassName="h-20 w-36"
               perkecil={{ lebar: 1920, mutu: 0.75 }}
-              hint="Use an artwork without text, such as the event ornaments. It is cropped to fill the area, so keep the important parts near the middle. Landscape, at least 1440×480. Most browsers save wider images at 1920 px wide. PNG, JPG or WebP, up to 5 MB and 8000 px."
+              hint={
+                horizon
+                  ? "Use an artwork without text, such as the event ornaments. Shown at its own proportions, about 1440×506 in the design. Most browsers save wider images at 1920 px wide. PNG, JPG or WebP, up to 5 MB and 8000 px."
+                  : "Use an artwork without text, such as the event ornaments. It is cropped to fill the area, so keep the important parts near the middle. Landscape, at least 1440×480. Most browsers save wider images at 1920 px wide. PNG, JPG or WebP, up to 5 MB and 8000 px."
+              }
               value={landing.hero_bg_url ?? null}
               onChange={(url, berkas) => {
                 setLanding({ ...landing, hero_bg_url: url, hero_bg_on: url ? true : landing.hero_bg_on, hero_bg_terang: undefined, hero_bg_terang_src: undefined });
@@ -1409,7 +1504,8 @@ export default function LandingCmsPage() {
               description={landing.hero_bg_url ? "Off keeps the image saved and shows the hero as it was without it." : "Upload an image first."}
               disabled={busy || !landing.hero_bg_url}
             />
-            {landing.hero_bg_url && landing.hero_bg_on !== false ? (
+            {/* Horizon menampilkan gambarnya utuh: kekuatan dan lapisan warna tidak berlaku. */}
+            {landing.hero_bg_url && landing.hero_bg_on !== false && !horizon ? (
               <AngkaPx
                 label="Image strength"
                 satuan="%"
@@ -1419,7 +1515,7 @@ export default function LandingCmsPage() {
                 hint="How much of the image shows through. 20 matches the design. Higher values add a dark shade over the image where needed, so the text stays readable."
               />
             ) : null}
-            {landing.hero_bg_url && landing.hero_bg_on !== false ? (
+            {landing.hero_bg_url && landing.hero_bg_on !== false && !horizon ? (
             <div className="flex flex-col gap-2">
               <p id="label-lapisan-warna" className="text-body-medium font-medium text-on-surface">Colour layer</p>
               <SegmentedButton<"merek" | "sendiri">
@@ -1447,7 +1543,8 @@ export default function LandingCmsPage() {
         </div>
       ) : null}
 
-      {gathering ? <div data-kolom="portal">{panelPratinjauPortal}</div> : null}
+      {/* Horizon tidak punya kotak HP di hero: ajakannya di bagian Portal peserta. */}
+      {gathering && !horizon ? <div data-kolom="portal">{panelPratinjauPortal}</div> : null}
 
       {/* Gathering tidak memakai KV di hero: kolomnya pindah ke tab Theme,
           grup Page, dengan nama sesuai gunanya (QA #110, Mas Hanung 8 Okt). */}
@@ -1493,6 +1590,7 @@ export default function LandingCmsPage() {
         <TextField
           label="Register button text"
           optional
+          hint={horizon ? "In the top bar and on the gold closing band while registration is open." : undefined}
           placeholder="Daftar sekarang"
           maxLength={40}
           counter
@@ -1504,7 +1602,9 @@ export default function LandingCmsPage() {
       <Kelompok
         title="Time"
         note={
-          gathering
+          horizon
+            ? "Gathering Horizon shows the dates above the title and on the journey pass, not the times. The times are used in calendar files and emails."
+            : gathering
             ? "The gathering hero shows the dates and the trip length (like 3 days 2 nights), counted from the start and end date. It does not show the times; they are used in calendar files and emails."
             : "Also used in calendar files and emails, not only on this page."
         }
@@ -1546,15 +1646,17 @@ export default function LandingCmsPage() {
     if (!modern) return null;
     // Rundown gathering selalu memakai label kecil ("Rundown" bila kosong) dan
     // tidak membaca sakelarnya: panel menampilkan yang benar-benar tampil (CMS mudah, butir 6).
-    const selalu = gathering && id === "agenda";
-    const nyala = selalu || landingEyebrowShown(landing, id);
+    const selalu = gathering && !horizon && id === "agenda";
+    // Rundown Horizon hanya punya judul besar ("Tiga hari. Satu cerita kita."), tanpa label kecil.
+    const tanpaLabel = horizon && id === "agenda";
+    const nyala = !tanpaLabel && (selalu || landingEyebrowShown(landing, id));
     const alisBawaan = selalu ? "Rundown" : LANDING_SECTION_LABELS[id];
     const alis = landing[`${id}_eyebrow`] ?? "";
     const kunciJudul = id === "about" ? "about_heading" : (`${id}_heading` as const);
     const judul = landing[kunciJudul] ?? "";
     const buka = judulTerbuka === id;
     const catatan = id === "agenda" && landing.agenda_note?.trim() ? " · Note filled in" : "";
-    const ringkasan = `Label: ${nyala ? alis.trim() || alisBawaan : "hidden"} · Heading: ${judul.trim() || otomatis.jenis}${catatan}`;
+    const ringkasan = `${tanpaLabel ? "" : `Label: ${nyala ? alis.trim() || alisBawaan : "hidden"} · `}Heading: ${judul.trim() || otomatis.jenis}${catatan}`;
     return (
       <div className="flex flex-col gap-4 border-t border-outline-variant pt-2">
         <button
@@ -1571,7 +1673,7 @@ export default function LandingCmsPage() {
         </button>
         {buka ? (
           <>
-            {selalu ? null : (
+            {selalu || tanpaLabel ? null : (
               <Switch
                 checked={nyala}
                 onChange={(value) => setLanding({ ...landing, eyebrow_shown: { ...landing.eyebrow_shown, [id]: value } })}
@@ -1580,7 +1682,7 @@ export default function LandingCmsPage() {
             )}
             {/* Dimatikan: kolomnya disembunyikan, isinya tetap tersimpan (kecuali
                 terlalu panjang: Simpan menolaknya, jadi harus terlihat). */}
-            {nyala || alis.trim().length > LANDING_SECTION_TEXT_MAX.eyebrow ? (
+            {(nyala || alis.trim().length > LANDING_SECTION_TEXT_MAX.eyebrow) && !tanpaLabel ? (
               <TextField
                 data-kolom={`${id}_eyebrow`}
                 className={TEKS_BAWAAN}
@@ -1611,6 +1713,8 @@ export default function LandingCmsPage() {
       </div>
     );
   }
+  // Jumlah hari acara untuk judul Rundown Horizon yang otomatis (halaman menghitung bagian rundown; ini perkiraannya dari tanggal).
+  const barisHari = facts?.event_date ? Math.max(1, Math.round((Date.parse(facts.end_date ?? facts.event_date) - Date.parse(facts.event_date)) / 86_400_000) + 1) : 3;
   const tanggalAcara = facts ? formatEventDate({ ...facts, time_zone: DEFAULT_TIME_ZONE }) : null;
   const pembicaraIsi = (landing.speakers ?? []).filter((speaker) => speaker.name?.trim());
   const lembaga = jumlahLembaga(pembicaraIsi);
@@ -1634,7 +1738,9 @@ export default function LandingCmsPage() {
           options={(["auto", "image", "none"] as const).map((value) => ({ value, label: LANDING_ABOUT_MEDIA_LABELS[value] }))}
         />
         <p className="mt-1.5 text-body-medium text-on-surface-variant">
-          {mediaTentang === "auto" && gathering
+          {mediaTentang === "auto" && horizon
+            ? "No photo: the heading and description stand alone. Choose Image to show one."
+            : mediaTentang === "auto" && gathering
             ? "No image in the gathering style: the heading and cards stand alone. Choose Image to show one."
             : mediaTentang === "auto"
             ? landing.banner_url
@@ -1653,7 +1759,9 @@ export default function LandingCmsPage() {
             fit="cover"
             previewClassName="h-24 w-28"
             hint={
-              gathering
+              horizon
+                ? "Landscape (13:9), at least 1300×900. Wide screens round the top right corner; phones show a wide strip under the hero. PNG, JPG or WebP, up to 5 MB."
+                : gathering
                 ? "Landscape (4:3), at least 1250×940. PNG, JPG or WebP, up to 5 MB. Until an image is uploaded, no image shows."
                 : "Close to square (8:7), at least 1250×1100. PNG, JPG or WebP, up to 5 MB. Until an image is uploaded, the automatic panel shows."
             }
@@ -1783,19 +1891,38 @@ export default function LandingCmsPage() {
     </div>
   );
 
+  // Horizon: urutan editor mengikuti halaman (kalimat pembuka, foto, judul, deskripsi).
+  const garisPembukaHorizon = (
+    <TextArea
+      label="Opening line"
+      data-kolom="program_heading"
+      optional
+      rows={2}
+      placeholder={LANDING_UI.id.horizon.teaser}
+      hint="The large line at the top of this section, beside the day count (01–03). Its link scrolls to the agenda. Press Enter to start a new line."
+      maxLength={120}
+      value={landing.program_heading ?? ""}
+      onChange={(event) => setLanding({ ...landing, program_heading: event.target.value })}
+    />
+  );
+  const deskripsiTentang = facts ? (
+    <TextArea
+      label="Event description"
+      optional
+      rows={6}
+      hint="Separate paragraphs with Enter; the breaks show on the page."
+      value={facts.description ?? ""}
+      onChange={(event) => patchFacts({ description: event.target.value })}
+    />
+  ) : null;
   const isiTentang = facts ? (
     <div className="flex flex-col gap-4">
-      <TextArea
-        label="Event description"
-        optional
-        rows={6}
-        hint="Separate paragraphs with Enter; the breaks show on the page."
-        value={facts.description ?? ""}
-        onChange={(event) => patchFacts({ description: event.target.value })}
-      />
+      {horizon ? garisPembukaHorizon : deskripsiTentang}
       {modern ? gambarTentang : null}
-      {judulBagian("about", { judul: LANDING_SECTION_LABELS.about, jenis: "default", hint: gathering ? "The large sentence above the cards." : "The large sentence next to the event description." })}
-      {gathering ? editorKartuTentang : null}
+      {judulBagian("about", { judul: LANDING_SECTION_LABELS.about, jenis: "default", hint: horizon ? "The large sentence above the description, beside the photo." : gathering ? "The large sentence above the cards." : "The large sentence next to the event description." })}
+      {/* Horizon tidak menampilkan kartu: editornya disembunyikan, kartunya tetap tersimpan. */}
+      {gathering && !horizon ? editorKartuTentang : null}
+      {horizon ? deskripsiTentang : null}
     </div>
   ) : null;
 
@@ -1873,7 +2000,9 @@ export default function LandingCmsPage() {
     <div className="flex flex-col gap-5">
       {judulBagian(
         "agenda",
-        tanggalAcara
+        horizon
+          ? { judul: LANDING_UI.id.horizon.days(barisHari).replace("\n", " "), jenis: "automatic (day count)", hint: "Leave empty to count the agenda days, like \"Tiga hari. Satu cerita kita.\"" }
+          : tanggalAcara
           ? { judul: tanggalAcara, jenis: "automatic (date)", hint: "Leave empty to use the event date." }
           : { judul: LANDING_SECTION_LABELS.agenda, jenis: "default", hint: "Leave empty to use the event date once it is set." },
         <TextField
@@ -1903,7 +2032,14 @@ export default function LandingCmsPage() {
         </p>
       </Kelompok>
       {gathering ? (
-        <Kelompok title="Day cards" note="One card per agenda section. A day with more than three sessions shows the first two and the last, plus how many more; breaks are skipped. The full schedule folds out below the cards.">
+        <Kelompok
+          title={horizon ? "Days" : "Day cards"}
+          note={
+            horizon
+              ? "One row per agenda section, with its date, title, story and up to three times (the first two and the last; breaks are skipped). \"Jadwal lengkap\" folds out below when some sessions are hidden."
+              : "One card per agenda section. A day with more than three sessions shows the first two and the last, plus how many more; breaks are skipped. The full schedule folds out below the cards."
+          }
+        >
           {daftarCatatan}
         </Kelompok>
       ) : (
@@ -1948,7 +2084,9 @@ export default function LandingCmsPage() {
           rows={2}
           placeholder="Diselenggarakan oleh ..."
           hint={
-            gathering
+            horizon
+              ? "The small line on the right of the navy footer. Empty = no line."
+              : gathering
               ? "The gold line on the right of the footer. Empty = no line."
               : modern
                 ? "Below the event name in the footer. Empty = event date and venue name."
@@ -1962,8 +2100,11 @@ export default function LandingCmsPage() {
       </Kelompok>
       {modern ? (
         <Kelompok
-          title="Call-to-action banner"
+          title={horizon ? "Closing band" : "Call-to-action banner"}
           note={
+            horizon
+              ? "The gold band above the footer: a heading and one button. While registration is open the button registers; on an invite-only page it signs guests in. Hidden for signed-in participants."
+              :
             // Isinya mengikuti keadaan, bukan selalu "masuk" (CMS mudah, butir 12).
             (landing.blocks ?? []).some((blok) => blok.type === "cta" && landingBlockHasContent(blok) && sections.some((section) => section.enabled && section.id === blok.id))
               ? "Hidden now, because the page has a call-to-action strip block. Hide or delete that block to show this banner above the footer."
@@ -1971,13 +2112,14 @@ export default function LandingCmsPage() {
           }
         >
           <TextField
-            label="Banner heading"
+            label={horizon ? "Heading" : "Banner heading"}
             data-kolom="cta_heading"
             optional
-            placeholder="Amankan tempat Anda"
+            placeholder={horizon ? LANDING_UI.id.horizon.closing.replace("\n", " ") : "Amankan tempat Anda"}
             value={landing.cta_heading ?? ""}
             onChange={(event) => setLanding({ ...landing, cta_heading: event.target.value })}
           />
+          {horizon ? null : (
           <TextArea
             label="Banner text"
             optional
@@ -1986,6 +2128,7 @@ export default function LandingCmsPage() {
             value={landing.cta_note ?? ""}
             onChange={(event) => setLanding({ ...landing, cta_note: event.target.value })}
           />
+          )}
         </Kelompok>
       ) : null}
     </div>
@@ -2616,7 +2759,7 @@ export default function LandingCmsPage() {
 
   function subBawaan(id: LandingSectionId): string {
     switch (id) {
-      case "about": return gathering ? "Heading, cards and description" : "From the event description";
+      case "about": return horizon ? "Opening line, photo, heading and description" : gathering ? "Heading, cards and description" : "From the event description";
       case "agenda": return "Built-in · from the Agenda";
       // Gathering menampilkan hotel dari Logistik di tempat Venue (CMS mudah, butir 5).
       case "venue": return gathering ? "Your hotel from Logistics, else the venue" : "Venue name, address, map";
@@ -2661,7 +2804,8 @@ export default function LandingCmsPage() {
         ) : null}
         {tautanSumber}
         {isi}
-        {gathering && (LANDING_SECTION_TONE_IDS as readonly string[]).includes(id) ? (
+        {/* Horizon memakai warna rancangannya sendiri untuk Tentang (krem) dan Rundown (navy). */}
+        {gathering && (LANDING_SECTION_TONE_IDS as readonly string[]).includes(id) && !(horizon && (id === "about" || id === "agenda")) ? (
           // Pilihan yang sama dengan latar blok; bawaannya latar bagian sebelum ada pilihan.
           <div data-kolom="latar">
             <PilihLatar
@@ -2704,14 +2848,17 @@ export default function LandingCmsPage() {
           // (hanya bisa terjadi lewat Impor).
           if (!section.enabled && terbuka !== section.id) return null;
           // Portal peserta juga tampil di /en; teksnya tetap dan sudah berbahasa Inggris (QA #109 L5).
+          // Horizon: teks yang diubah di versi Indonesia ditanya terjemahannya.
           if (isPortalEntry(section)) {
             if (landing.member?.enabled !== true || landing.portal_section === false) return null;
+            const teksPortalDiubah = horizon && [landing.portal_eyebrow, landing.portal_heading, landing.portal_note, landing.portal_button_label].some((teks) => teks?.trim());
             return barisSusunan({
               id: "portal",
               nomor: index + 2,
               judul: "Portal peserta",
-              sub: "Automatic · fixed English text",
-              isi: <p className="text-body-medium text-on-surface-variant">This section has fixed text in both languages, so there is nothing to translate.</p>,
+              sub: teksPortalDiubah ? "Your text" : "Automatic · fixed English text",
+              titik: barisKurangEn.has("portal"),
+              isi: teksPortalDiubah ? <BagianEn id="portal" landing={landing} facts={facts} setLanding={setLanding} /> : <p className="text-body-medium text-on-surface-variant">This section has fixed text in both languages, so there is nothing to translate.</p>,
             });
           }
           if (isLandingBlockId(section.id)) {
@@ -2737,7 +2884,7 @@ export default function LandingCmsPage() {
             isi: <BagianEn id={id} landing={landing} facts={facts} setLanding={setLanding} rundown={rundownEn} ubahRundown={ubahRundown} sesiRundown={agendaAktif ? [] : (rundownEn ?? []).filter((baris) => idSesiDipakai.has(baris.id))} />,
           });
         })}
-        {barisSusunan({ id: "kaki", nomor: sections.length + 2, judul: "Footer", sub: "Organiser line, call-to-action banner", titik: barisKurangEn.has("kaki"), isi: <BagianEn id="kaki" landing={landing} facts={facts} setLanding={setLanding} /> })}
+        {barisSusunan({ id: "kaki", nomor: sections.length + 2, judul: "Footer", sub: horizon ? "Organiser line, closing band" : "Organiser line, call-to-action banner", titik: barisKurangEn.has("kaki"), isi: <BagianEn id="kaki" landing={landing} facts={facts} setLanding={setLanding} /> })}
       </ol>
     </div>
   ) : null;
@@ -2763,7 +2910,7 @@ export default function LandingCmsPage() {
         </div>
       ) : null}
       <ol className="flex flex-col">
-        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Hero", sub: gathering ? "Top bar, title, portal preview, buttons" : modern ? "Top bar, event name, tagline, KV, register button" : "Event name, tagline, KV, register button", isi: isiPembuka })}
+        {barisSusunan({ id: "pembuka", nomor: 1, judul: "Hero", sub: horizon ? "Top bar, title, button, hero image" : gathering ? "Top bar, title, portal preview, buttons" : modern ? "Top bar, event name, tagline, KV, register button" : "Event name, tagline, KV, register button", isi: isiPembuka })}
         {sections.map((section, index) => {
           if (!section.enabled && !tampilTersembunyi) return null;
           const saklar = { checked: section.enabled, onChange: (value: boolean) => setTampil(index, value) };
@@ -2825,7 +2972,7 @@ export default function LandingCmsPage() {
           id: "kaki",
           nomor: sections.length + 2,
           judul: "Footer",
-          sub: modern ? "Organiser line, call-to-action banner" : "Organiser line",
+          sub: horizon ? "Organiser line, closing band" : modern ? "Organiser line, call-to-action banner" : "Organiser line",
           isi: isiKaki,
         })}
       </ol>
@@ -3029,8 +3176,15 @@ export default function LandingCmsPage() {
         ["portal", "Portal peserta"],
         ["pembuka:hero_eyebrow", "Label above the title"],
         ["pembuka:hero_note", "Line below the title"],
-        ["pembuka:hero_bg_url", "Background image"],
-        ["kaki:cta_heading", "Call-to-action banner"],
+        ["pembuka:hero_bg_url", horizon ? "Hero image" : "Background image"],
+        ["pembuka:hero_button_label", "Button text"],
+        ["pembuka:hero_index", "Corner label"],
+        ["about:program_heading", "Opening line"],
+        ["portal:portal_eyebrow", "Portal small label"],
+        ["portal:portal_heading", "Portal heading"],
+        ["portal:portal_note", "Portal text"],
+        ["portal:portal_button_label", "Sign-in button text"],
+        ["kaki:cta_heading", horizon ? "Closing band" : "Call-to-action banner"],
       ]);
   const labelPilih = useMemo<Record<string, string> | null>(() => (kunciLabel ? Object.fromEntries(JSON.parse(kunciLabel)) : null), [kunciLabel]);
 
