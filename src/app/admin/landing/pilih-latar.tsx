@@ -125,7 +125,7 @@ function WarnaSendiri({ id, label, value, usul, onChange }: { id: string; label:
                 aria-pressed={hex === value}
                 onClick={() => onChange(hex)}
                 className={cx(
-                  "size-7 rounded-full border border-outline-variant outline-offset-2 focus-visible:outline-2 focus-visible:outline-primary",
+                  "size-9 rounded-full border border-outline-variant outline-offset-2 focus-visible:outline-2 focus-visible:outline-primary",
                   hex === value && "ring-2 ring-primary ring-offset-2 ring-offset-surface",
                 )}
                 style={{ backgroundColor: hex }}

@@ -23,13 +23,19 @@ export function hexLatarSendiri(nilai: string | null | undefined): string | null
 
 export type WarnaLatarSendiri = {
   latar: string;
-  /** Teks utama di atas latar: putih, tinta, atau hitam. Selalu 4,5:1 ke atas. */
+  /** Teks utama: putih, tinta, atau hitam. 4,5:1 ke atas di latar dan di isi kartu. */
   teks: string;
-  /** Teks redup (keterangan, label kecil): campuran ke arah teks, atau teks penuh bila di bawah 4,5:1. */
+  /** Teks redup (keterangan, label kecil): 4,5:1 ke atas di latar dan di isi kartu, atau teks penuh. */
   redup: string;
+  /** Isi kartu di atas latar (kartu poin, FAQ, kartu kecil). */
+  kartu: string;
+  /** Garis tab dan kartu: 3:1 ke atas terhadap latar (WCAG 1.4.11, QA #115 L4). */
+  garisTegas: string;
   /** Teks putih (latar gelap). */
   gelap: boolean;
 };
+
+const lolos = (warna: string, latar: string[], min = KONTRAS_TEKS_MIN) => latar.every((l) => kontras(warna, l) >= min);
 
 export function warnaLatarSendiri(hex: string): WarnaLatarSendiri {
   const latar = hexLatarSendiri(hex) ?? LATAR_SENDIRI_AWAL;
@@ -39,11 +45,28 @@ export function warnaLatarSendiri(hex: string): WarnaLatarSendiri {
   const biasa = terbaik(TINTA);
   const teks = kontras(biasa, latar) >= KONTRAS_TEKS_MIN ? biasa : terbaik(HITAM);
   const gelap = teks === PUTIH;
+  const alfa = gelap ? 0.08 : 0.05;
+  // Isi kartu biasanya sedikit ke arah teks (seperti putih 8% di Merek gelap).
+  // Di warna tengah itu menurunkan kontras teks di kartu, jadi kartu bergeser
+  // menjauhi teks: kontras teks di kartu malah naik.
+  const keTeks = mixHex(latar, teks, alfa);
+  const menjauh = mixHex(latar, gelap ? HITAM : PUTIH, alfa);
   const campur = mixHex(latar, teks, gelap ? 0.8 : 0.72);
-  return { latar, teks, redup: kontras(campur, latar) >= KONTRAS_TEKS_MIN ? campur : teks, gelap };
+  const kartu = lolos(teks, [keTeks]) && lolos(campur, [latar, keTeks]) ? keTeks : menjauh;
+  const redup = lolos(campur, [latar, kartu]) ? campur : teks;
+  // Garis 50% ke arah teks, dipertebal sampai 3:1 di warna tengah.
+  let garisTegas = teks;
+  for (let a = 0.5; a < 1; a += 0.05) {
+    const calon = mixHex(latar, teks, a);
+    if (kontras(calon, latar) >= 3) {
+      garisTegas = calon;
+      break;
+    }
+  }
+  return { latar, teks, redup, kartu, garisTegas, gelap };
 }
 
-/** Garis tipis (kartu, pemisah) dan isi kartu di atas latar sendiri: latar dicampur ke arah teks. */
+/** Garis tipis (pemisah) dan bingkai di atas latar sendiri: latar dicampur ke arah teks. */
 function garis(w: WarnaLatarSendiri, alfa: number) {
   return mixHex(w.latar, w.teks, alfa);
 }
@@ -64,15 +87,14 @@ export function gayaBlokLatarSendiri(hex: string): Record<string, string> {
     "--blok-aksen": w.redup,
     "--blok-tombol": w.teks,
     "--blok-tombol-ink": w.latar,
-    "--blok-kartu": garis(w, w.gelap ? 0.08 : 0.05),
+    "--blok-kartu": w.kartu,
     "--m3-state-color": w.teks,
   };
 }
 
 /**
  * Variabel untuk bagian bawaan gaya gathering (latar-bagian.ts): susunan yang
- * sama dengan Merek gelap. Garis tab dan kartu 3:1 terhadap latar terang tetap
- * dijaga dengan tinta 50%.
+ * sama dengan Merek gelap. Garis tab dan kartu 3:1 terhadap latar.
  */
 export function gayaBagianLatarSendiri(hex: string): Record<string, string> {
   const w = warnaLatarSendiri(hex);
@@ -83,9 +105,9 @@ export function gayaBagianLatarSendiri(hex: string): Record<string, string> {
     "--garis-pita": "transparent",
     "--reg-on-surface": w.teks,
     "--reg-on-surface-variant": w.redup,
-    "--reg-outline-variant": garis(w, 0.5),
-    "--garis-kartu": garis(w, 0.5),
-    "--reg-panel": garis(w, w.gelap ? 0.08 : 0.05),
+    "--reg-outline-variant": w.garisTegas,
+    "--garis-kartu": w.garisTegas,
+    "--reg-panel": w.kartu,
     "--alis": w.redup,
     "--primer-teks": w.teks,
     "--teks-pita": w.redup,
