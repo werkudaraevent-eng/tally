@@ -4,6 +4,7 @@ import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, Info, Monitor, Plus, Tra
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
+import { AssignSeatDialog, type KursiDipilih } from "./assign-seat-dialog";
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
@@ -130,6 +131,10 @@ export default function SeatMapAdminPage() {
   const [confirmDelete, setConfirmDelete] = useState<Session | null>(null);
   const [uploadingBackground, setUploadingBackground] = useState<number | null>(null);
   const [error, setError] = useState("");
+  // Assign seats: denah menampilkan isi kursi sebenarnya dan kursinya bisa diklik.
+  const [modeDenah, setModeDenah] = useState<"preview" | "assign">("preview");
+  const [terisi, setTerisi] = useState<Record<number, Record<string, { participantId: string; name: string; label: string }>> | null>(null);
+  const [kursiDipilih, setKursiDipilih] = useState<KursiDipilih | null>(null);
   const toast = useToast();
 
   /**
@@ -160,6 +165,12 @@ export default function SeatMapAdminPage() {
     const timer = window.setTimeout(() => { void load(); }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  async function muatKursi() {
+    const response = await fetch("/api/admin/participants/seat-options", { cache: "no-store" }).catch(() => null);
+    if (!response?.ok) { toast.error("Seats could not be loaded", "Reload the page and try again."); return; }
+    setTerisi(((await response.json()) as { taken: NonNullable<typeof terisi> }).taken);
+  }
 
   function updateConfig<K extends keyof ConfigState>(key: K, value: ConfigState[K]) {
     setConfig((current) => current && { ...current, [key]: value });
@@ -330,12 +341,37 @@ export default function SeatMapAdminPage() {
   const pakaiTally = aktif?.sub_event_id != null && aktif.sub_event_id === sumberTally;
   const orphanSubEvent = aktif?.sub_event_id != null && !pakaiTally && payload !== null && !payload.available_sub_events.some((item) => item.subEventId === aktif.sub_event_id);
   const publik = sessions.filter((item) => item.is_published);
+  const menugaskan = modeDenah === "assign" && pakaiTally && aktif !== null;
+  // Kursi diisi pada tata ruang yang TERSIMPAN; suntingan yang belum disimpan bisa mengubah label kursi.
+  const configTersimpan = payload?.config ?? null;
+  const tataRuangBerubah = config !== null && configTersimpan !== null && JSON.stringify(config) !== JSON.stringify(configTersimpan);
+  const kursiAsli = useMemo(() => {
+    const states: Record<string, { occupied: boolean; checkedIn: boolean }> = {};
+    for (const kunci of Object.keys((aktif && terisi?.[aktif.id]) ?? {})) states[kunci] = { occupied: true, checkedIn: false };
+    return states;
+  }, [aktif, terisi]);
+
+  function bukaKursi(label: string) {
+    if (!aktif) return;
+    const pemegang = terisi?.[aktif.id]?.[normalizeSeatLabel(label)] ?? null;
+    setKursiDipilih({ sessionId: aktif.id, sessionName: aktif.name, label, holder: pemegang ? { participantId: pemegang.participantId, name: pemegang.name } : null });
+  }
 
   // ---- Panel utama: denah hidup --------------------------------------------
   const peta = config ? (
     <Pane aria-label="Seating plan preview">
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-outline-variant px-4 py-2.5 text-body-medium text-on-surface-variant">
-        {warnaEfektif ? (
+        {pakaiTally ? (
+          <SegmentedButton<"preview" | "assign">
+            label="Map mode"
+            value={modeDenah}
+            onChange={(mode) => { setModeDenah(mode); if (mode === "assign") void muatKursi(); }}
+            options={[{ value: "preview", label: "Preview" }, { value: "assign", label: "Assign seats" }]}
+          />
+        ) : null}
+        {menugaskan ? (
+          <span>{tataRuangBerubah ? "Showing the saved layout. Save layout to assign seats on your changes." : "Click a seat to put someone in it or change who sits there."}</span>
+        ) : warnaEfektif ? (
           <>
             {([["Empty", warnaEfektif.available], ["Occupied", warnaEfektif.occupied], ["Checked in", warnaEfektif.checkedIn]] as const).map(([label, warna]) => (
               <span key={label} className="inline-flex items-center gap-1.5">
@@ -344,7 +380,7 @@ export default function SeatMapAdminPage() {
             ))}
           </>
         ) : <span>Sample occupancy: table 1 checked in, table 2 occupied.</span>}
-        <span className="ml-auto">Display: {VIEW_MODES.find((mode) => mode.value === config.public_view_mode)?.label}</span>
+        <span className={cx("ml-auto", menugaskan && "hidden")}>Display: {VIEW_MODES.find((mode) => mode.value === config.public_view_mode)?.label}</span>
       </div>
       {/* Pratinjau memakai renderer publik, yang teksnya berbahasa Indonesia. */}
       <div
@@ -356,8 +392,9 @@ export default function SeatMapAdminPage() {
         }}
       >
         <SeatMapView
-          config={config}
-          seatStates={previewSeatStates}
+          config={menugaskan && configTersimpan ? configTersimpan : config}
+          seatStates={menugaskan ? kursiAsli : previewSeatStates}
+          onSeatClick={menugaskan && terisi ? (label) => bukaKursi(label) : undefined}
           showAttendance
           backgroundColor={aktif?.background_color ?? "#111a63"}
           canvasColor={aktif?.map_panel_transparent && aktif.background_image_url ? "transparent" : undefined}
@@ -881,6 +918,18 @@ export default function SeatMapAdminPage() {
           </div>
         </>
       )}
+
+      <AssignSeatDialog
+        kursi={kursiDipilih}
+        onClose={() => setKursiDipilih(null)}
+        onSaved={(pesan) => {
+          setKursiDipilih(null);
+          if (pesan) toast.success(pesan);
+          else toast.error("Seat not changed", "Someone else changed this seat. The map has been refreshed.");
+          void muatKursi();
+          void load(true);
+        }}
+      />
 
       <Dialog
         open={addOpen}
