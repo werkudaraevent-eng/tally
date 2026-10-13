@@ -162,8 +162,10 @@ export function urutPeserta<T extends BarisPeserta>(baris: T[], sort: string, di
   if (sort === "seat") return urutKursi(baris, dir);
   if (sort.startsWith("checkin:")) return urutMenurut(baris, (b) => b.attendance?.[sort.slice(8)]?.first ?? "", dir);
   const nilai = nilaiAdmin(konteks);
-  // Kotak centang yang tidak dicentang tampil kosong di tabel, jadi ikut di akhir.
-  return urutMenurut(baris, (b) => { const v = nilai(b, sort); return v === "No" && sort.startsWith("field:") ? "" : v; }, dir);
+  // Kotak centang yang tidak dicentang tampil kosong di tabel, jadi ikut di
+  // akhir. Hanya kotak centang: pilihan yang memang bernama "No" tetap diurutkan.
+  const kotakCentang = sort.startsWith("field:") && konteks.fields.some((field) => `field:${field.key}` === sort && field.type === "checkbox");
+  return urutMenurut(baris, (b) => { const v = nilai(b, sort); return kotakCentang && v === "No" ? "" : v; }, dir);
 }
 
 /** Sesi kehadiran acara, untuk kolom check-in di "+ Filter" dan urutan. */

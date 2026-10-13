@@ -16,7 +16,7 @@ import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
-import { LABEL_ASAL, LABEL_RSVP, bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, type Saringan } from "@/lib/saringan-kolom";
+import { BATAS_SARINGAN, LABEL_ASAL, LABEL_RSVP, bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, type Saringan } from "@/lib/saringan-kolom";
 import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
 import { DEFAULT_TIME_ZONE, type EventTimeZone } from "@/lib/timezone";
 import { normalizeSeatLabel } from "@/lib/seat-map";
@@ -154,7 +154,8 @@ function KepalaKolom({ label, aktif, dir, jenis = "teks", align, onUrut, onSarin
         aria-haspopup="menu"
         aria-expanded={menu.open}
         aria-controls={menu.open ? id : undefined}
-        className={cx("inline-flex max-w-full items-center gap-1 whitespace-nowrap hover:text-on-surface", (aktif || menu.open) && "text-on-surface", align === "right" && "ml-auto")}
+        // min-h-6: area tekan 24 px; -my-0.5 supaya tinggi kepala tabel tidak berubah.
+        className={cx("-my-0.5 inline-flex min-h-6 max-w-full items-center gap-1 whitespace-nowrap hover:text-on-surface", (aktif || menu.open) && "text-on-surface", align === "right" && "ml-auto")}
         title={onSaring ? `Sort or filter by ${label}` : `Sort by ${label}`}
       >
         <span className="truncate">{label}</span>
@@ -808,7 +809,14 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         jenis={item.urutJenis}
         align={align}
         onUrut={(arah) => urutkan(key, arah)}
-        onSaring={saringKunci && kolomSaringan.some((k) => k.key === saringKunci) ? () => setMintaSaring((lama) => ({ key: saringKunci, n: (lama?.n ?? 0) + 1 })) : undefined}
+        onSaring={saringKunci && kolomSaringan.some((k) => k.key === saringKunci) ? () => {
+          // Batas yang sama dengan "+ Filter"; di sana tombolnya mati, di sini perlu kata-kata.
+          if (saringan.length >= BATAS_SARINGAN && !saringan.some((s) => s.k === saringKunci)) {
+            toast.error(`Up to ${BATAS_SARINGAN} filters`, "Remove a filter first.");
+            return;
+          }
+          setMintaSaring((lama) => ({ key: saringKunci, n: (lama?.n ?? 0) + 1 }));
+        } : undefined}
       />
     );
   };
