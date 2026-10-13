@@ -1187,9 +1187,35 @@ export default function LandingCmsPage() {
   const isiPortal = (
     <>
       <p className="text-body-medium text-on-surface-variant">
-        This section appears automatically while the Participant area is open. Drag its row to choose where it sits; by default it is just above the footer. Its text is fixed, and its tiles follow the Participant area: entry ticket, room and bus, and announcements. The top bar gets a link to it, &ldquo;Perjalanan&rdquo; (&ldquo;Your trip&rdquo; in English).
+        This section appears automatically while the Participant area is open. Drag its row to choose where it sits; by default it is just above the footer. Its text is fixed,{" "}
+        {landing.gathering && landing.gathering_variant === "horizon"
+          ? "and the journey pass card beside it uses the From and To fields below, the event dates, and the hero KV."
+          : "and its tiles follow the Participant area: entry ticket, room and bus, and announcements."}{" "}
+        The top bar gets a link to it, &ldquo;Perjalanan&rdquo; (&ldquo;Your trip&rdquo; in English).
       </p>
       {tautanSumberPortal("/admin/area-peserta", "Open Participant area")}
+      {landing.gathering && landing.gathering_variant === "horizon" ? (
+        <Kelompok title="Journey pass" note="The card beside this section on wide screens.">
+          <TextField
+            label="From"
+            data-kolom="pass_from"
+            optional
+            hint="Where the trip starts, for example a station or city. Leave empty to show only the destination."
+            maxLength={40}
+            value={landing.pass_from ?? ""}
+            onChange={(event) => setLanding({ ...landing, pass_from: event.target.value })}
+          />
+          <TextField
+            label="To"
+            data-kolom="pass_to"
+            optional
+            hint="Leave empty to use the venue name."
+            maxLength={40}
+            value={landing.pass_to ?? ""}
+            onChange={(event) => setLanding({ ...landing, pass_to: event.target.value })}
+          />
+        </Kelompok>
+      ) : null}
     </>
   );
   const isiPembuka = facts ? (

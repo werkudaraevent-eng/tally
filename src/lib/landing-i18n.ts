@@ -421,6 +421,25 @@ export type LandingUiText = {
   bandNote: string;
   /** Judul Rundown gaya gathering tanpa isian CMS: "Perjalanan 3 hari". */
   tripDays: (days: number) => string;
+  /** Gathering Horizon (rancangan V5): teks bawaan selama kolom CMS-nya kosong. */
+  horizon: {
+    start: string;
+    index: string;
+    teaser: string;
+    teaserLink: string;
+    days: (days: number) => string;
+    inviteEyebrow: string;
+    /** Label kecil bagian portal bagi peserta yang sudah masuk. */
+    signedInEyebrow: string;
+    inviteHeading: string;
+    inviteNote: (logistik: boolean) => string;
+    inviteCta: string;
+    pass: string;
+    passInfo: (logistik: boolean) => string;
+    closing: string;
+    registered: string;
+    scheduleNote: string;
+  };
   /** Kartu Tentang acara bawaan preset Gathering. */
   aboutCardsDefault: { title: string; body: string }[];
   /** Judul Tentang acara yang diisi preset Gathering bila masih kosong. */
@@ -555,6 +574,26 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     bandHeading: "Siap berangkat bareng?",
     bandNote: "Masuk dengan email yang terdaftar untuk lihat tiket dan kamarmu.",
     tripDays: (days) => `Perjalanan ${days} hari`,
+    horizon: {
+      start: "Mulai perjalanan kita",
+      index: "01 / Sebuah awal baru",
+      teaser: "Bukan sekadar pergi.\nAda cerita yang kita bawa pulang.",
+      teaserLink: "Kenali perjalanannya",
+      days: (days) => `${["Nol", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh"][days] ?? days} hari.\nSatu cerita kita.`,
+      inviteEyebrow: "Setelah masuk, ceritanya jadi milikmu",
+      signedInEyebrow: "Ceritamu sudah dimulai",
+      inviteHeading: "Satu perjalanan.\nPunya tempatmu sendiri.",
+      inviteNote: (logistik) =>
+        logistik
+          ? "Buka kartu perjalananmu, temukan informasi bus dan kamar, lalu ikuti agenda tanpa kehilangan momen."
+          : "Buka kartu perjalananmu, lalu ikuti agenda tanpa kehilangan momen.",
+      inviteCta: "Masuk ke perjalanan saya",
+      pass: "Your journey pass",
+      passInfo: (logistik) => (logistik ? "Tiket perjalanan • Bus • Kamar • Agenda" : "Tiket perjalanan • Agenda"),
+      closing: "Cerita berikutnya,\nkita mulai bersama.",
+      registered: "Sudah terdaftar? Masuk ke portal peserta",
+      scheduleNote: "Jadwal lengkap",
+    },
     aboutHeadingDefault: "Bukan sekadar kumpul, ini waktunya kita recharge bareng.",
     navAbout: "Tentang",
     aboutCardsDefault: [
@@ -681,6 +720,26 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     bandHeading: "Ready to go together?",
     bandNote: "Sign in with your registered email to see your ticket and room.",
     tripDays: (days) => `${days}-day trip`,
+    horizon: {
+      start: "Start our journey",
+      index: "01 / A new beginning",
+      teaser: "Not just a trip.\nA story we bring home.",
+      teaserLink: "See the journey",
+      days: (days) => `${["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"][days] ?? days} ${days === 1 ? "day" : "days"}.\nOne story, together.`,
+      inviteEyebrow: "Sign in and the story is yours",
+      signedInEyebrow: "Your story has already begun",
+      inviteHeading: "One journey.\nA place of your own.",
+      inviteNote: (logistik) =>
+        logistik
+          ? "Open your journey pass, find your bus and room, then follow the agenda without missing a moment."
+          : "Open your journey pass, then follow the agenda without missing a moment.",
+      inviteCta: "Open my journey",
+      pass: "Your journey pass",
+      passInfo: (logistik) => (logistik ? "Travel ticket • Bus • Room • Agenda" : "Travel ticket • Agenda"),
+      closing: "The next story,\nwe start together.",
+      registered: "Already registered? Sign in to the participant portal",
+      scheduleNote: "Full schedule",
+    },
     aboutHeadingDefault: "More than a get-together: this is our time to recharge.",
     navAbout: "About",
     aboutCardsDefault: [

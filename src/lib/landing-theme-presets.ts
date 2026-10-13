@@ -1,5 +1,5 @@
 import { isPortalEntry, normalizeLandingSections, PORTAL_SECTION_ID, susunanDenganPortal, type EventLandingConfig, type LandingSectionEntry, type LandingBodyFont, type LandingCorners, type LandingHeadingFont, type LandingLayout } from "./domain.ts";
-import { DEFAULT_BRAND, FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, GATHERING_BRAND_DEFAULT, GATHERING_BUTTON_DEFAULT, GATHERING_NAV_DEFAULT, LANDING_TOKEN_DEFAULTS, landingLayout, landingTokens } from "./landing-tokens.ts";
+import { DEFAULT_BRAND, FORUM_DEFAULTS, GATHERING_ACCENT_DEFAULT, GATHERING_BRAND_DEFAULT, GATHERING_BUTTON_DEFAULT, GATHERING_NAV_DEFAULT, HORIZON_BRAND_DEFAULT, HORIZON_GOLD_DEFAULT, HORIZON_NAV_DEFAULT, LANDING_TOKEN_DEFAULTS, landingLayout, landingTokens } from "./landing-tokens.ts";
 
 /**
  * Preset tema halaman acara: satu klik mengisi tata letak, warna, dan huruf
@@ -48,6 +48,8 @@ export type LandingThemePreset = {
     invite_only?: boolean;
     /** Menyalakan gaya gathering (lihat EventLandingConfig.gathering). */
     gathering?: boolean;
+    /** Varian Gathering Horizon (EventLandingConfig.gathering_variant). */
+    horizon?: boolean;
   };
 };
 
@@ -90,6 +92,18 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     tokens: { brand: GATHERING_BRAND_DEFAULT, accent: GATHERING_ACCENT_DEFAULT, button: GATHERING_BUTTON_DEFAULT, nav: GATHERING_NAV_DEFAULT, heading_font: "sans", body_font: "sans", corners: "soft" },
     features: { invite_only: true, gathering: true },
   },
+  {
+    // Rancangan V5 "Beyond Everyday" Hanung (pen.dev, 2026-10-13): navy, krem,
+    // dan emas, KV utuh di bawah judul hero, Plus Jakarta Sans. Preset sendiri
+    // supaya Gathering di atas tetap persis seperti yang sudah tayang.
+    key: "gathering-horizon",
+    label: "Gathering Horizon",
+    note: "Invite only, story photo, journey pass",
+    thumb: "/preset-tema/gathering-horizon.png",
+    layout: "modern",
+    tokens: { brand: HORIZON_BRAND_DEFAULT, accent: HORIZON_GOLD_DEFAULT, button: HORIZON_GOLD_DEFAULT, nav: HORIZON_NAV_DEFAULT, heading_font: "jakarta", body_font: "jakarta", corners: "soft" },
+    features: { invite_only: true, gathering: true, horizon: true },
+  },
 ];
 
 const sama = (a: string | null | undefined, b: string | null | undefined) => (a ?? "").toLowerCase() === (b ?? "").toLowerCase();
@@ -101,7 +115,11 @@ const sama = (a: string | null | undefined, b: string | null | undefined) => (a 
  */
 export function presetCocok(preset: LandingThemePreset, landing: EventLandingConfig): boolean {
   const gathering = landingLayout(landing) === "modern" && landing.gathering === true;
-  return landingLayout(landing) === preset.layout && gathering === Boolean(preset.features.gathering);
+  return (
+    landingLayout(landing) === preset.layout &&
+    gathering === Boolean(preset.features.gathering) &&
+    (gathering && landing.gathering_variant === "horizon") === Boolean(preset.features.horizon)
+  );
 }
 
 /** Token mana yang berbeda dari bundel preset (dibaca dari token yang berlaku, bukan config mentah). */
@@ -155,11 +173,14 @@ export function gayaPreset(preset: LandingThemePreset, landing: EventLandingConf
 function lepasBilahGathering(nav: EventLandingConfig["nav"]): EventLandingConfig["nav"] {
   if (!nav) return nav;
   const sisa = { ...nav };
-  if (sama(sisa.color, GATHERING_NAV_DEFAULT.color) && sisa.opacity === GATHERING_NAV_DEFAULT.opacity) {
-    delete sisa.color;
-    delete sisa.opacity;
+  // Bilah Gathering atau Gathering Horizon, mana pun yang masih utuh.
+  for (const bawaan of [GATHERING_NAV_DEFAULT, HORIZON_NAV_DEFAULT]) {
+    if (sama(sisa.color, bawaan.color) && sisa.opacity === bawaan.opacity) {
+      delete sisa.color;
+      delete sisa.opacity;
+    }
+    if (sisa.height === bawaan.height) delete sisa.height;
   }
-  if (sisa.height === GATHERING_NAV_DEFAULT.height) delete sisa.height;
   return Object.keys(sisa).length ? sisa : undefined;
 }
 
@@ -174,6 +195,8 @@ export function terapkanPreset(preset: LandingThemePreset, landing: EventLanding
     invite_only: preset.features.invite_only ?? landing.invite_only,
     // Satu preset, satu gaya: memilih preset lain mematikan gaya gathering.
     gathering: Boolean(preset.features.gathering),
+    // Varian ikut preset: Gathering biasa melepasnya, Horizon menyalakannya.
+    gathering_variant: preset.features.horizon ? "horizon" : undefined,
     ...(dariGathering ? { nav: lepasBilahGathering(landing.nav) } : {}),
   });
 }
@@ -193,6 +216,15 @@ const adaTeks = (teks: string | null | undefined) => Boolean(teks?.trim());
  * - Bagian Lokasi disembunyikan: rancangan tidak memilikinya. Tetap bisa
  *   dinyalakan lagi di Page sections.
  */
+/**
+ * Kartu Tentang acara bawaan hanya untuk Gathering biasa yang belum punya
+ * kartu. Gathering Horizon tidak menampilkan kartu, jadi tidak ditulis.
+ */
+function tulisKartuTentang(landing: EventLandingConfig): boolean {
+  if (landing.gathering_variant === "horizon") return false;
+  return !(landing.about_cards ?? []).some((kartu) => adaTeks(kartu.title) || adaTeks(kartu.body));
+}
+
 export function isiGathering(landing: EventLandingConfig, bawaan: TentangBawaan): EventLandingConfig {
   const en = { ...landing.en };
   const hasil: EventLandingConfig = { ...landing };
@@ -201,7 +233,7 @@ export function isiGathering(landing: EventLandingConfig, bawaan: TentangBawaan)
     if (!adaTeks(en.about_heading)) en.about_heading = bawaan.en.heading;
   }
   if (landing.eyebrow_shown?.about === undefined) hasil.eyebrow_shown = { ...landing.eyebrow_shown, about: true };
-  if (!(landing.about_cards ?? []).some((kartu) => adaTeks(kartu.title) || adaTeks(kartu.body))) {
+  if (tulisKartuTentang(landing)) {
     hasil.about_cards = bawaan.id.cards.map((kartu) => ({ ...kartu }));
     en.about_cards = bawaan.en.cards.map((kartu) => ({ ...kartu }));
   }
@@ -233,7 +265,7 @@ export function isiGatheringMengubah(landing: EventLandingConfig): { tentang: bo
   const tentang =
     !adaTeks(landing.about_heading) ||
     landing.eyebrow_shown?.about === undefined ||
-    !(landing.about_cards ?? []).some((kartu) => adaTeks(kartu.title) || adaTeks(kartu.body));
+    tulisKartuTentang(landing);
   const lokasi = normalizeLandingSections(landing.sections, landing.blocks).find((section) => section.id === "venue")?.enabled !== false;
   const portal = portalSebelumFaq(susunanDenganPortal(landing.sections, landing.blocks)) !== null;
   return { tentang, lokasi, portal };

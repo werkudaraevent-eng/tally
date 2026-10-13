@@ -435,8 +435,11 @@ export const LANDING_IMAGE_ALT_MAX = 160;
 /** Bagian bawaan yang judulnya bisa disunting, dan label kecilnya menyala atau tidak bila belum diatur. */
 export const LANDING_EYEBROW_DEFAULT = { about: false, agenda: true, speakers: false, venue: true, faq: false } as const satisfies Partial<Record<LandingSectionId, boolean>>;
 export type LandingHeadedSection = keyof typeof LANDING_EYEBROW_DEFAULT;
-/** Batas judul bagian: sama dengan blok tambahan (label 24, judul 60, pengantar 140). */
-export const LANDING_SECTION_TEXT_MAX = { eyebrow: 24, heading: 60, headingIdeal: 48, intro: 140 } as const;
+/**
+ * Batas judul bagian (label 36, judul 60, pengantar 140). Label 36 supaya
+ * label rancangan Gathering Horizon "KEBERSAMAAN, TANPA TERBURU-BURU" (31) muat.
+ */
+export const LANDING_SECTION_TEXT_MAX = { eyebrow: 36, heading: 60, headingIdeal: 48, intro: 140 } as const;
 
 /** Panjang label menu atas: satu atau dua kata pendek, supaya menu muat satu baris. */
 export const LANDING_NAV_LABEL_MAX = 16;
@@ -1209,6 +1212,13 @@ export type LandingNavConfig = {
 
 export type LandingNavLogoTone = "white" | "original";
 
+export type LandingGatheringVariant = "horizon";
+
+/** Gaya Gathering Horizon dipakai halaman ini: varian hanya berlaku di gaya gathering. */
+export function gatheringHorizon(config: EventLandingConfig | null | undefined): boolean {
+  return config?.gathering === true && config.gathering_variant === "horizon";
+}
+
 /**
  * Logo bilah atas diputihkan selagi di atas gambar hero? Hanya bila bilahnya
  * bening (opacity < 50), ada gambar di belakangnya, dan admin tidak memilih
@@ -1395,6 +1405,20 @@ export type EventLandingConfig = {
    * angka sesi (khas acara rapat) disembunyikan.
    */
   gathering?: boolean;
+  /**
+   * Varian gaya gathering. Kosong = Gathering yang sudah ada (tidak berubah).
+   * `horizon`: rancangan V5 "Beyond Everyday" Hanung (pen.dev, 2026-10-13):
+   * hero navy dengan KV utuh di bawah judul, cerita bergambar di atas krem,
+   * perjalanan per hari di atas navy, kartu perjalanan, pita penutup emas.
+   * Hanya dibaca bila `gathering` menyala; dipilih lewat preset Gathering Horizon.
+   */
+  gathering_variant?: LandingGatheringVariant;
+  /**
+   * Kartu perjalanan Gathering Horizon: asal dan tujuan ("Gambir" dan
+   * "Yogyakarta"). Kosong = tujuan dari nama tempat acara, tanpa asal.
+   */
+  pass_from?: string;
+  pass_to?: string;
   /**
    * Logo di tengah hero gaya gathering, di atas judul ajakan. Kosong = hero
    * tanpa logo. Acara lain tidak membacanya.
