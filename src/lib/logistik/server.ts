@@ -102,8 +102,7 @@ export type LogistikRingkas = { kamar: string | null; bus: string | null };
  * daftar pesertanya.
  */
 export async function logistikPeserta(eventId: string, ids: string[]): Promise<Map<string, LogistikRingkas>> {
-  const hasil = new Map<string, LogistikRingkas>();
-  if (ids.length === 0) return hasil;
+  if (ids.length === 0) return new Map();
   const db = klien();
   const [inap, angkut] = await Promise.all([
     db.from("lodging_assignments").select("participant_id,room_id").eq("event_id", eventId).in("participant_id", ids),
@@ -111,7 +110,40 @@ export async function logistikPeserta(eventId: string, ids: string[]): Promise<M
   ]);
   const barisInap = (inap.error ? [] : inap.data ?? []) as Array<{ participant_id: string; room_id: number }>;
   const barisAngkut = (angkut.error ? [] : angkut.data ?? []) as Array<{ participant_id: string; vehicle_id: number | null }>;
+  return susunLogistik(eventId, barisInap, barisAngkut);
+}
 
+/**
+ * Kamar dan bus bawaan SEMUA peserta acara, untuk saringan dan urutan Room/Bus
+ * di Daftar peserta. Dibaca per 1000 baris karena PostgREST memotong satu
+ * jawaban di 1000; batasnya sama dengan batas baca saringan (20.000).
+ */
+export async function logistikAcara(eventId: string): Promise<Map<string, LogistikRingkas>> {
+  const db = klien();
+  const semua = async <T>(baca: (dari: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> => {
+    const hasil: T[] = [];
+    for (let dari = 0; dari < 20000; dari += 1000) {
+      const { data, error } = await baca(dari);
+      if (error || !Array.isArray(data)) break;
+      hasil.push(...(data as T[]));
+      if (data.length < 1000) break;
+    }
+    return hasil;
+  };
+  const [barisInap, barisAngkut] = await Promise.all([
+    semua<{ participant_id: string; room_id: number }>((dari) => db.from("lodging_assignments").select("participant_id,room_id").eq("event_id", eventId).order("participant_id").order("room_id").range(dari, dari + 999)),
+    semua<{ participant_id: string; vehicle_id: number | null }>((dari) => db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).order("participant_id").order("vehicle_id").range(dari, dari + 999)),
+  ]);
+  return susunLogistik(eventId, barisInap, barisAngkut);
+}
+
+async function susunLogistik(
+  eventId: string,
+  barisInap: Array<{ participant_id: string; room_id: number }>,
+  barisAngkut: Array<{ participant_id: string; vehicle_id: number | null }>,
+): Promise<Map<string, LogistikRingkas>> {
+  const hasil = new Map<string, LogistikRingkas>();
+  const db = klien();
   const idKamar = [...new Set(barisInap.map((b) => b.room_id))];
   const idBus = [...new Set(barisAngkut.map((b) => b.vehicle_id).filter((id): id is number => id !== null))];
   const [kamar, bus] = await Promise.all([

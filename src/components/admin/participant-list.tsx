@@ -2,10 +2,10 @@
 
 import {
   ArrowDown, ArrowUp, CaretDown, CaretLeft, CaretRight, CaretUpDown, Check, Copy, EnvelopeSimple, FileCsv, FileXls, LockSimple,
-  MagnifyingGlass, Package, Paperclip, PencilSimple, Trash, UsersThree, X, XCircle,
+  Funnel, MagnifyingGlass, Package, Paperclip, PencilSimple, Trash, UsersThree, X, XCircle,
 } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Banner, Button, ButtonLink, ChipMenu, ColumnMenu, DetailSection, Dialog, EmptyCell, EmptyState, IconButton, KeyValue,
   ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, Popover, StatusChip, useColumnPrefs, usePopoverAnchor, type ColumnOption,
@@ -16,7 +16,7 @@ import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
-import { bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, type Saringan } from "@/lib/saringan-kolom";
+import { LABEL_ASAL, LABEL_RSVP, bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, type Saringan } from "@/lib/saringan-kolom";
 import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
 import { DEFAULT_TIME_ZONE, type EventTimeZone } from "@/lib/timezone";
 import { normalizeSeatLabel } from "@/lib/seat-map";
@@ -64,11 +64,12 @@ type OpsiKursi = {
 };
 type FacetPerusahaan = { company: string; count: number };
 
+// Label sama dengan saringan Source di server (LABEL_ASAL), supaya nilai yang dicentang cocok dengan sel.
 const ASAL: Record<AsalPeserta, { label: string; judul: string }> = {
-  walkin: { label: "Walk-in", judul: "Added by staff at the check-in desk on event day" },
-  registration: { label: "Self-registered", judul: "Filled in the public registration form" },
-  manual: { label: "Manual", judul: "Typed in or imported by staff" },
-  scanner: { label: "Scanner API", judul: "Pulled from Scanner API; some fields are managed there" },
+  walkin: { label: LABEL_ASAL.walkin, judul: "Added by staff at the check-in desk on event day" },
+  registration: { label: LABEL_ASAL.registration, judul: "Filled in the public registration form" },
+  manual: { label: LABEL_ASAL.manual, judul: "Typed in or imported by staff" },
+  scanner: { label: LABEL_ASAL.scanner, judul: "Pulled from Scanner API; some fields are managed there" },
 };
 
 /**
@@ -83,7 +84,6 @@ function artiMasuk(p: Participant): string {
   return "Imported or added by staff";
 }
 
-const LABEL_RSVP: Record<string, string> = { confirmed: "Confirmed", invited: "Awaiting reply", declined: "Declined" };
 const RSVP_TONE: Record<string, "success" | "warning" | "error"> = { confirmed: "success", invited: "warning", declined: "error" };
 
 const PAGE_SIZE = 25;
@@ -108,6 +108,74 @@ function CentangHalaman({ checked, indeterminate, onChange }: { checked: boolean
       onChange={(event) => onChange(event.target.checked)}
       className={kotakCentang}
     />
+  );
+}
+
+type JenisUrut = "teks" | "waktu" | "angka";
+const KATA_URUT: Record<JenisUrut, [string, string]> = {
+  teks: ["Sort A → Z", "Sort Z → A"],
+  waktu: ["Sort earliest first", "Sort latest first"],
+  angka: ["Sort lowest first", "Sort highest first"],
+};
+
+/**
+ * Judul kolom yang bisa diurutkan: klik membuka menu kecil berisi dua arah
+ * urutan dan, bila kolomnya bisa disaring, "Filter this column". Satu tempat
+ * yang sama untuk semua kolom, jadi admin tidak perlu tahu kolom mana yang
+ * punya chip sendiri dan mana yang ada di "+ Filter".
+ */
+function KepalaKolom({ label, aktif, dir, jenis = "teks", align, onUrut, onSaring }: {
+  label: string;
+  aktif: boolean;
+  dir: "asc" | "desc";
+  jenis?: JenisUrut;
+  align?: "right";
+  onUrut: (dir: "asc" | "desc") => void;
+  onSaring?: () => void;
+}) {
+  const [pemicu, setPemicu] = useState<HTMLButtonElement | null>(null);
+  const menu = usePopoverAnchor(pemicu);
+  const id = useId();
+  const [naik, turun] = KATA_URUT[jenis];
+  const butir = "flex min-h-9 w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-body-medium font-normal text-on-surface hover:bg-primary-soft";
+  const arah = (nilai: "asc" | "desc", teks: string, Ikon: typeof ArrowUp) => (
+    <button type="button" role="menuitemradio" aria-checked={aktif && dir === nilai} onClick={() => { menu.tutup(); onUrut(nilai); }} className={butir}>
+      <Ikon size={16} aria-hidden className="shrink-0 text-on-surface-variant" />
+      <span className="flex-1">{teks}</span>
+      {aktif && dir === nilai ? <Check size={16} aria-hidden className="shrink-0 text-primary" /> : null}
+    </button>
+  );
+  return (
+    <>
+      <button
+        ref={setPemicu}
+        type="button"
+        onClick={menu.toggle}
+        aria-haspopup="menu"
+        aria-expanded={menu.open}
+        aria-controls={menu.open ? id : undefined}
+        className={cx("inline-flex max-w-full items-center gap-1 whitespace-nowrap hover:text-on-surface", (aktif || menu.open) && "text-on-surface", align === "right" && "ml-auto")}
+        title={onSaring ? `Sort or filter by ${label}` : `Sort by ${label}`}
+      >
+        <span className="truncate">{label}</span>
+        {aktif ? (dir === "asc" ? <ArrowUp size={14} className="shrink-0" /> : <ArrowDown size={14} className="shrink-0" />) : <CaretUpDown size={14} className="shrink-0 text-outline" />}
+      </button>
+      {menu.open ? (
+        <Popover anchor={menu} id={id} label={label} align={align === "right" ? "end" : "start"} width={232}>
+          {arah("asc", naik, ArrowUp)}
+          {arah("desc", turun, ArrowDown)}
+          {onSaring ? (
+            <>
+              <div role="separator" className="my-1 border-t border-outline-variant" />
+              <button type="button" role="menuitem" onClick={() => { menu.tutup(); onSaring(); }} className={butir}>
+                <Funnel size={16} aria-hidden className="shrink-0 text-on-surface-variant" />
+                <span className="flex-1">Filter this column…</span>
+              </button>
+            </>
+          ) : null}
+        </Popover>
+      ) : null}
+    </>
   );
 }
 
@@ -152,8 +220,9 @@ function EksporTerpilih({ busy, onPick }: { busy: boolean; onPick: (format: "xls
   );
 }
 
-// Harus cocok dengan whitelist SORTABLE di /api/admin/participants.
-type SortKey = "name" | "company" | "title" | "qr_code" | "participant_type" | "rsvp_status" | "source_checked_in" | "source_total_scans" | "registered_at" | "seat";
+// Diperiksa server (`pengurut` di participants-saring): kolom RPC, kolom yang
+// diurutkan di server, `checkin:<sesi>`, atau `field:<kunci>`.
+type SortKey = string;
 
 type Draft = {
   qr_code: string; name: string; company: string; title: string; email: string; phone: string;
@@ -197,6 +266,10 @@ type Kolom = {
   key: string;
   label: string;
   sort?: SortKey;
+  /** Kata urutan di menu judul kolom. Bawaan "teks" (A → Z). */
+  urutJenis?: JenisUrut;
+  /** Kunci "+ Filter" kolom ini; ada = menu judul menawarkan "Filter this column". */
+  saring?: string;
   /** Lebar kolom dalam piksel. Tabel `table-fixed`, jadi isi panjang dipotong, bukan melebarkan tabel. */
   width: number;
   align?: "right";
@@ -365,7 +438,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     window.history.replaceState(window.history.state, "", url);
   }, []);
 
-  const kolomSaringan = useMemo(() => kolomSaringanAdmin(fields), [fields]);
+  const kolomSaringan = useMemo(() => kolomSaringanAdmin(fields, sessions), [fields, sessions]);
+  // "Filter this column…" dari menu judul kolom: membuka chip kolom itu di "+ Filter".
+  const [mintaSaring, setMintaSaring] = useState<{ key: string; n: number } | null>(null);
 
   const cacheNilai = useRef(new Map<string, Promise<NilaiKolom[]>>());
   useEffect(() => { cacheNilai.current.clear(); }, [reloadKey]);
@@ -399,9 +474,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     });
   }
 
-  function toggleSort(key: SortKey) {
-    if (key === sort) setDir((current) => (current === "asc" ? "desc" : "asc"));
-    else { setSort(key); setDir("asc"); }
+  function urutkan(key: SortKey, arah: "asc" | "desc") {
+    setSort(key);
+    setDir(arah);
     setPage(0);
   }
 
@@ -620,11 +695,15 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   // ---- Kolom -------------------------------------------------------------
   const kolom = useMemo<Kolom[]>(() => {
     const daftar: Kolom[] = [
-      { key: "company", label: "Organisation", sort: "company", width: 200, cell: (p) => p.company ? <span className="block truncate" title={p.company}>{p.company}</span> : <EmptyCell /> },
-      { key: "title", label: "Job title", sort: "title", width: 180, cell: (p) => p.title ? <span className="block truncate" title={p.title}>{p.title}</span> : <EmptyCell /> },
+      { key: "company", label: "Organisation", sort: "company", saring: "company", width: 200, cell: (p) => p.company ? <span className="block truncate" title={p.company}>{p.company}</span> : <EmptyCell /> },
+      { key: "title", label: "Job title", sort: "title", saring: "title", width: 180, cell: (p) => p.title ? <span className="block truncate" title={p.title}>{p.title}</span> : <EmptyCell /> },
       ...sessions.map<Kolom>((sesi) => ({
         key: `sesi:${sesi.id}`,
         label: sesi.is_active ? sesi.name : `${sesi.name} (closed)`,
+        // Menurut jam check-in pertama; yang belum check-in selalu di akhir.
+        sort: `checkin:${sesi.id}`,
+        urutJenis: "waktu",
+        saring: `checkin:${sesi.id}`,
         width: 140,
         cell: (p) => {
           const catatan = p.attendance?.[String(sesi.id)];
@@ -639,24 +718,29 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         // Hanya bisa diurutkan bila database sudah mengirim nilainya (migrasi
         // 202610060001). Fungsi lama diam-diam mengurutkan menurut nama.
         sort: adaRegistered ? "registered_at" : undefined,
+        urutJenis: "waktu",
+        saring: "registered_at",
         width: 152,
         cell: (p) => p.registered_at
           ? <span className="block truncate tabular-nums" title={artiMasuk(p)}>{tanggalJam(p.registered_at)}</span>
           : <EmptyCell />,
       },
-      { key: "rsvp", label: "RSVP", sort: "rsvp_status", width: 128, cell: (p) => p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell /> },
-      { key: "kamar", label: "Room", width: 120, cell: (p) => p.logistik?.kamar ? <span className="block truncate" title={p.logistik.kamar}>{p.logistik.kamar}</span> : <EmptyCell /> },
-      { key: "bus", label: "Bus", width: 96, cell: (p) => p.logistik?.bus ?? <EmptyCell /> },
-      { key: "seat", label: "Seat", sort: "seat", width: 168, cell: (p) => p.seats?.length ? <span className="block truncate" title={p.seats.map((s) => `${s.subEventName}: ${s.label}`).join(", ")}>{p.seats.map((s) => s.label).join(", ")}</span> : <EmptyCell /> },
-      { key: "source", label: "Source", width: 128, cell: (p) => <span title={ASAL[p.source].judul}>{ASAL[p.source].label}</span> },
-      { key: "type", label: "Type", sort: "participant_type", width: 112, cell: (p) => p.participant_type ?? <EmptyCell /> },
-      { key: "qr", label: "QR code", sort: "qr_code", width: 128, cell: (p) => <span className="tabular-nums">{p.qr_code}</span> },
-      { key: "email", label: "Email", width: 220, cell: (p) => p.email ? <span className="block truncate" title={p.email}>{p.email}</span> : <EmptyCell /> },
-      { key: "phone", label: "Phone", width: 140, cell: (p) => p.phone ?? <EmptyCell /> },
-      { key: "undian", label: "Lucky draw", width: 128, cell: (p) => excluded.has(p.id) ? <StatusChip tone="warning">Excluded</StatusChip> : <span className="text-on-surface-variant">Included</span> },
+      { key: "rsvp", label: "RSVP", sort: "rsvp_status", saring: "rsvp", width: 128, cell: (p) => p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell /> },
+      { key: "kamar", label: "Room", sort: "kamar", saring: "kamar", width: 120, cell: (p) => p.logistik?.kamar ? <span className="block truncate" title={p.logistik.kamar}>{p.logistik.kamar}</span> : <EmptyCell /> },
+      { key: "bus", label: "Bus", sort: "bus", saring: "bus", width: 96, cell: (p) => p.logistik?.bus ?? <EmptyCell /> },
+      { key: "seat", label: "Seat", sort: "seat", saring: "seat", width: 168, cell: (p) => p.seats?.length ? <span className="block truncate" title={p.seats.map((s) => `${s.subEventName}: ${s.label}`).join(", ")}>{p.seats.map((s) => s.label).join(", ")}</span> : <EmptyCell /> },
+      { key: "source", label: "Source", sort: "source", saring: "source", width: 128, cell: (p) => <span title={ASAL[p.source].judul}>{ASAL[p.source].label}</span> },
+      { key: "type", label: "Type", sort: "participant_type", saring: "participant_type", width: 112, cell: (p) => p.participant_type ?? <EmptyCell /> },
+      { key: "qr", label: "QR code", sort: "qr_code", saring: "qr_code", width: 128, cell: (p) => <span className="tabular-nums">{p.qr_code}</span> },
+      { key: "email", label: "Email", sort: "email", saring: "email", width: 220, cell: (p) => p.email ? <span className="block truncate" title={p.email}>{p.email}</span> : <EmptyCell /> },
+      { key: "phone", label: "Phone", sort: "phone", saring: "phone", width: 140, cell: (p) => p.phone ?? <EmptyCell /> },
+      { key: "undian", label: "Lucky draw", sort: "undian", saring: "undian", width: 128, cell: (p) => excluded.has(p.id) ? <StatusChip tone="warning">Excluded</StatusChip> : <span className="text-on-surface-variant">Included</span> },
       ...fields.map<Kolom>((item) => ({
         key: `field:${item.key}`,
         label: item.label,
+        sort: `field:${item.key}`,
+        urutJenis: item.type === "number" ? "angka" : item.type === "date" ? "waktu" : "teks",
+        saring: `field:${item.key}`,
         width: 180,
         cell: (p) => {
           const value = p.extra?.[item.key];
@@ -670,7 +754,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       daftar.push(
         { key: "scanner_status", label: "Source status", width: 150, cell: (p) => p.source_removed_at ? <StatusChip tone="warning">Deleted at source</StatusChip> : <span className="text-on-surface-variant">Active</span> },
         { key: "checked_in", label: "Source check-in", sort: "source_checked_in", width: 140, cell: (p) => p.source_checked_in ? <Check size={16} className="text-success" aria-label="Checked in" /> : <EmptyCell /> },
-        { key: "scans", label: "Scans", sort: "source_total_scans", width: 88, align: "right", cell: (p) => <span className="tabular-nums">{p.source_total_scans}</span> },
+        { key: "scans", label: "Scans", sort: "source_total_scans", urutJenis: "angka", width: 88, align: "right", cell: (p) => <span className="tabular-nums">{p.source_total_scans}</span> },
       );
     }
     return daftar;
@@ -712,19 +796,20 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     ? participants.find((p) => p.id === mode.id) ?? (lastViewed?.id === mode.id ? lastViewed : null)
     : mode?.kind === "edit" ? mode.row : null;
 
-  const sortHeader = (label: string, key?: SortKey, align?: "right") => {
+  const sortHeader = (item: Pick<Kolom, "label" | "sort" | "urutJenis" | "saring" | "align">) => {
+    const { label, sort: key, align } = item;
     if (!key) return <span className={cx("block truncate", align === "right" && "text-right")}>{label}</span>;
-    const active = sort === key;
+    const saringKunci = item.saring;
     return (
-      <button
-        type="button"
-        onClick={() => toggleSort(key)}
-        className={cx("inline-flex max-w-full items-center gap-1 whitespace-nowrap hover:text-on-surface", active && "text-on-surface", align === "right" && "ml-auto")}
-        title={`Sort by ${label}`}
-      >
-        <span className="truncate">{label}</span>
-        {active ? (dir === "asc" ? <ArrowUp size={14} className="shrink-0" /> : <ArrowDown size={14} className="shrink-0" />) : <CaretUpDown size={14} className="shrink-0 text-outline" />}
-      </button>
+      <KepalaKolom
+        label={label}
+        aktif={sort === key}
+        dir={dir}
+        jenis={item.urutJenis}
+        align={align}
+        onUrut={(arah) => urutkan(key, arah)}
+        onSaring={saringKunci && kolomSaringan.some((k) => k.key === saringKunci) ? () => setMintaSaring((lama) => ({ key: saringKunci, n: (lama?.n ?? 0) + 1 })) : undefined}
+      />
     );
   };
 
@@ -788,7 +873,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           selected={filterRsvp ? [filterRsvp] : []}
           onChange={(next) => { setFilterRsvp(next[0] ?? ""); setPage(0); }}
         />
-        <SaringanKolom kolom={kolomSaringan} nilai={saringan} onChange={ubahSaringan} muatNilai={muatNilai} kelasChip="order-last flex w-full flex-wrap gap-2" />
+        <SaringanKolom kolom={kolomSaringan} nilai={saringan} onChange={ubahSaringan} muatNilai={muatNilai} buka={mintaSaring} kelasChip="order-last flex w-full flex-wrap gap-2" />
         <ColumnMenu columns={opsiKolom} visible={visible} onChange={setVisible} onReset={() => setVisible(null)} isDefault={isDefault} />
         </div>
         {/* Bilah pilihan MENUTUPI baris saringan, bukan disisipkan di bawahnya:
@@ -870,9 +955,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                     <CentangHalaman checked={halamanTercentang} indeterminate={tercentangDiHalaman > 0 && !halamanTercentang} onChange={centangHalaman} />
                   </label>
                 </th>
-                <th scope="col" aria-sort={ariaSort("name")} className="sticky left-12 z-10 border-b border-r border-outline-variant bg-surface-container-high px-4 py-2.5 font-medium">{sortHeader("Name", "name")}</th>
+                <th scope="col" aria-sort={ariaSort("name")} className="sticky left-12 z-10 border-b border-r border-outline-variant bg-surface-container-high px-4 py-2.5 font-medium">{sortHeader({ label: "Name", sort: "name" })}</th>
                 {kolomTampil.map((item) => (
-                  <th key={item.key} scope="col" aria-sort={ariaSort(item.sort)} className="border-b border-outline-variant px-3 py-2.5 font-medium">{sortHeader(item.label, item.sort, item.align)}</th>
+                  <th key={item.key} scope="col" aria-sort={ariaSort(item.sort)} className="border-b border-outline-variant px-3 py-2.5 font-medium">{sortHeader(item)}</th>
                 ))}
               </tr>
             </thead>

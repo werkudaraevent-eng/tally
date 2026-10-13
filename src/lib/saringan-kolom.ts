@@ -39,16 +39,27 @@ export function jenisPertanyaan(type: RegistrationFieldType): JenisSaringan {
   return "teks";
 }
 
+/** Label RSVP dan asal peserta, sama dengan yang tampil di tabel admin. */
+export const LABEL_RSVP: Record<string, string> = { confirmed: "Confirmed", invited: "Awaiting reply", declined: "Declined" };
+export const LABEL_ASAL: Record<string, string> = { walkin: "Walk-in", registration: "Self-registered", manual: "Manual", scanner: "Scanner API" };
+
+/** Sesi kehadiran yang punya kolom check-in di tabel. */
+export type SesiSaringan = { id: number; name: string };
+
 /**
- * Kolom daftar peserta admin yang bisa disaring lewat "+ Filter".
+ * Kolom daftar peserta admin yang bisa disaring lewat "+ Filter": semua kolom
+ * tabel kecuali Name (sudah dicari lewat kotak cari) dan tiga kolom Scanner API.
  *
- * Organisation, Source, Check-in, dan RSVP tidak ada di sini: keempatnya sudah
- * punya chip sendiri di baris saringan. Room, Bus, dan Lucky draw belum:
- * isinya dari tabel lain yang tidak ikut terbaca bersama daftar. Seat ikut
- * terbaca (participants.seats), jadi bisa.
+ * Check-in per sesi memakai nama sesinya saja, sama dengan judul kolomnya
+ * ("Registration: Checked in"). Organisation, Check-in, Source, dan RSVP juga punya chip sendiri di baris
+ * saringan; keduanya berlaku bersamaan (DAN), seperti saringan lain. Room dan
+ * Bus dibaca dari Logistik, Lucky draw dari daftar pengecualian undian.
  */
-export function kolomSaringanAdmin(fields: RegistrationField[]): KolomSaringan[] {
+export function kolomSaringanAdmin(fields: RegistrationField[], sesi: SesiSaringan[] = []): KolomSaringan[] {
   return [
+    { key: "company", label: "Organisation", jenis: "pilihan", grup: "kolom" },
+    ...sesi.map<KolomSaringan>((item) => ({ key: `checkin:${item.id}`, label: item.name, jenis: "pilihan", grup: "kolom" })),
+    { key: "rsvp", label: "RSVP", jenis: "pilihan", grup: "kolom" },
     { key: "title", label: "Job title", jenis: "teks", grup: "kolom" },
     { key: "registered_at", label: "Registered", jenis: "tanggal", grup: "kolom" },
     { key: "participant_type", label: "Type", jenis: "pilihan", grup: "kolom" },
@@ -56,6 +67,10 @@ export function kolomSaringanAdmin(fields: RegistrationField[]): KolomSaringan[]
     { key: "phone", label: "Phone", jenis: "teks", grup: "kolom" },
     { key: "qr_code", label: "QR code", jenis: "teks", grup: "kolom" },
     { key: "seat", label: "Seat", jenis: "teks", grup: "kolom" },
+    { key: "kamar", label: "Room", jenis: "teks", grup: "kolom" },
+    { key: "bus", label: "Bus", jenis: "pilihan", grup: "kolom" },
+    { key: "source", label: "Source", jenis: "pilihan", grup: "kolom" },
+    { key: "undian", label: "Lucky draw", jenis: "pilihan", grup: "kolom" },
     ...fields.map<KolomSaringan>((field) => ({ key: `field:${field.key}`, label: field.label, jenis: jenisPertanyaan(field.type), grup: "jawaban" })),
   ];
 }
@@ -156,23 +171,30 @@ export function labelKursi(baris: BerKursi): string[] {
   return (baris.seats ?? []).map((kursi) => (typeof kursi?.label === "string" ? kursi.label.trim() : "")).filter(Boolean);
 }
 
-const PEMBANDING_KURSI = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
+const PEMBANDING = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
 
 /**
- * Urutkan menurut kursi dengan urutan alami: A2 sebelum A10, VIP1-2 sebelum
- * VIP1-10. Yang punya beberapa kursi (beberapa sesi) diurutkan menurut kursi
- * pertama, yang juga tampil pertama di kolom. Tanpa kursi selalu di akhir,
- * ke arah mana pun. Seri tetap urutan masukan (nama, dari RPC).
+ * Urutkan menurut satu nilai teks dengan urutan alami: A2 sebelum A10, VIP1-2
+ * sebelum VIP1-10, 9 sebelum 10. Nilai kosong selalu di akhir, ke arah mana
+ * pun. Seri tetap urutan masukan (nama, dari RPC).
  */
-export function urutKursi<T extends BerKursi>(baris: T[], dir: "asc" | "desc"): T[] {
+export function urutMenurut<T>(baris: T[], ambil: (baris: T) => string, dir: "asc" | "desc"): T[] {
   const arah = dir === "desc" ? -1 : 1;
   return baris
-    .map((b, i) => ({ b, i, kunci: labelKursi(b)[0] ?? "" }))
+    .map((b, i) => ({ b, i, kunci: ambil(b).trim() }))
     .sort((x, y) => {
       if (!x.kunci || !y.kunci) return (x.kunci ? 0 : 1) - (y.kunci ? 0 : 1) || x.i - y.i;
-      return arah * PEMBANDING_KURSI.compare(x.kunci, y.kunci) || x.i - y.i;
+      return arah * PEMBANDING.compare(x.kunci, y.kunci) || x.i - y.i;
     })
     .map((item) => item.b);
+}
+
+/**
+ * Urutkan menurut kursi. Yang punya beberapa kursi (beberapa sesi) diurutkan
+ * menurut kursi pertama, yang juga tampil pertama di kolom.
+ */
+export function urutKursi<T extends BerKursi>(baris: T[], dir: "asc" | "desc"): T[] {
+  return urutMenurut(baris, (b) => labelKursi(b)[0] ?? "", dir);
 }
 
 /** Tanggal kalender di zona acara, "YYYY-MM-DD", untuk saringan rentang "Registered". */
