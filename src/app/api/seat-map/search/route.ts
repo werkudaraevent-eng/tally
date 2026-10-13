@@ -69,10 +69,11 @@ export async function GET(request: Request) {
     // sama sekali; peserta yang menolak namanya tampil tidak ikut hasil
     // organisasi. Keduanya tetap bisa menemukan dirinya lewat nama sendiri.
     let organisasiBoleh = cariPerusahaan;
+    let modeNama: NameDisplayMode = "initials";
     if (cariPerusahaan) {
       const { data: setelan } = await getSupabaseServiceClient().from("event_settings").select("name_display_mode").eq("event_id", eventId).maybeSingle();
-      const mode = ((setelan as { name_display_mode?: NameDisplayMode } | null)?.name_display_mode ?? "initials") as NameDisplayMode;
-      if (mode === "hidden") organisasiBoleh = false;
+      modeNama = ((setelan as { name_display_mode?: NameDisplayMode } | null)?.name_display_mode ?? "initials") as NameDisplayMode;
+      if (modeNama === "hidden") organisasiBoleh = false;
     }
     const { assignments } = await loadAssignmentsForSession(eventId, session.sub_event_id);
 
@@ -81,6 +82,7 @@ export async function GET(request: Request) {
     const grouped = new Map<string, { name: string; company: string; seatLabels: string[]; tableNumbers: Set<string> }>();
     // Peserta yang cocok lewat organisasinya, untuk menyorot seluruh rombongan.
     const perOrganisasi = new Map<string, string[]>();
+    const cocokLewatNama = new Set<string>();
 
     for (const assignment of assignments) {
       const company = (assignment.company ?? "").trim();
@@ -88,6 +90,7 @@ export async function GET(request: Request) {
       const cocokOrganisasi = organisasiBoleh && assignment.allowNameDisplay && company.toLowerCase().includes(needle);
       const cocok = cocokNama || cocokOrganisasi;
       if (!cocok) continue;
+      if (cocokNama) cocokLewatNama.add(assignment.participantId);
       if (cocokOrganisasi) perOrganisasi.set(assignment.participantId, [...(perOrganisasi.get(assignment.participantId) ?? []), assignment.seatLabel]);
       const entry = grouped.get(assignment.participantId) ?? {
         name: assignment.name,
@@ -107,8 +110,10 @@ export async function GET(request: Request) {
       ? { total: totalOrganisasi, seat_labels: kursiOrganisasi, normalized_labels: kursiOrganisasi.map(normalizeSeatLabel) }
       : null;
 
-    const keHasil = (entry: { name: string; company: string; seatLabels: string[] }) => ({
-      name: searchConfirmationLabel(entry.name, parsed.data.q),
+    // Mode "Perusahaan saja": denah publik hanya menampilkan organisasi, jadi
+    // peserta yang cocok lewat organisasi saja tidak diberi inisial di daftar.
+    const keHasil = (id: string, entry: { name: string; company: string; seatLabels: string[] }) => ({
+      name: modeNama === "company_only" && !cocokLewatNama.has(id) ? "Peserta" : searchConfirmationLabel(entry.name, parsed.data.q),
       ...(cariPerusahaan && entry.company ? { company: entry.company } : {}),
       seat_labels: entry.seatLabels,
       normalized_labels: entry.seatLabels.map(normalizeSeatLabel),
@@ -121,7 +126,7 @@ export async function GET(request: Request) {
       const hanyaNama = [...grouped.keys()].filter((id) => !perOrganisasi.has(id)).length;
       const daftar = [...grouped.entries()]
         .filter(([id]) => perOrganisasi.has(id) || hanyaNama <= MAX_RESULTS)
-        .map(([, entry]) => keHasil(entry))
+        .map(([id, entry]) => keHasil(id, entry))
         .sort((a, b) => a.seat_labels[0].localeCompare(b.seat_labels[0], undefined, { numeric: true }));
       return Response.json({
         session: session.slug,
@@ -152,7 +157,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const results = [...grouped.values()].map(keHasil);
+    const results = [...grouped.entries()].map(([id, entry]) => keHasil(id, entry));
 
     return Response.json({ session: session.slug, total, truncated: false, results, organisasi: null });
   } catch {

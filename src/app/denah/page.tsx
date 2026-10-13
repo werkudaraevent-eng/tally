@@ -453,7 +453,7 @@ export default function SeatMapPage() {
 
               {results && results.length > 0 ? (
                 <>
-                <ul className={results.length > 5 ? "mt-2 max-h-80 space-y-2 overflow-y-auto pr-1" : "mt-2 space-y-2"}>
+                <ul className={results.length > 5 ? "mt-2 max-h-80 space-y-2 overflow-y-auto pr-1" : "space-y-2"}>
                   {results.map((result) => (
                     <li key={`${result.name}-${result.seat_labels.join()}`}>
                       <button
@@ -485,7 +485,7 @@ export default function SeatMapPage() {
                     <button
                       type="button"
                       onClick={() => setHighlighted(kursiOrganisasi)}
-                      className="inline-flex min-h-11 items-center text-body-medium font-semibold underline"
+                      className="inline-flex min-h-12 items-center text-body-medium font-semibold underline"
                       style={{ color: accent }}
                     >
                       Sorot semua
@@ -495,7 +495,7 @@ export default function SeatMapPage() {
                     <button
                       type="button"
                       onClick={() => { setHighlighted([]); setQuery(""); }}
-                      className="inline-flex min-h-11 items-center gap-2 text-body-medium font-semibold underline"
+                      className={`inline-flex ${kursiOrganisasi.length > 0 ? "min-h-12" : "min-h-11"} items-center gap-2 text-body-medium font-semibold underline`}
                       style={{ color: accent }}
                     >
                       <X size={16} /> Hapus sorotan
