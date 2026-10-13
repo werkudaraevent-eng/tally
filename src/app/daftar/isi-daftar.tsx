@@ -1,4 +1,4 @@
-import { LANDING_HEADING_FONTS, LANDING_NAV_DEFAULTS, publicEventName, type EventLandingConfig, type EventRow } from "@/lib/domain";
+import { LANDING_HEADING_FONTS, logoNavPutih, publicEventName, type EventLandingConfig, type EventRow } from "@/lib/domain";
 import { formatEventDate, formatEventDateRingkas, formatEventSchedule, formatEventTime } from "@/lib/event-datetime";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { modernNavStyle, modernThemeStyle, registrationThemeStyle, resolveFormTheme } from "@/lib/registration-theme-css";
@@ -62,7 +62,7 @@ export async function bingkaiFormulir(
         nav: {
           logoUrl: landing.nav?.logo_url ?? null,
           width: landing.nav?.width ?? "full",
-          logoOnDark: Boolean(gambarKepala) && (landing.nav?.opacity ?? LANDING_NAV_DEFAULTS.opacity) < 50,
+          logoOnDark: logoNavPutih(landing.nav, Boolean(gambarKepala)),
           style: modernNavStyle(
             landing.nav,
             gambarKepala ? { ink: "#ffffff", onInk: "#181d27" } : { ink: "var(--reg-on-brand)", onInk: "var(--reg-brand)" },

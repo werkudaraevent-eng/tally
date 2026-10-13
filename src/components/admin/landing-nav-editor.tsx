@@ -8,7 +8,9 @@ import {
   LANDING_NAV_HEIGHT_MAX,
   LANDING_NAV_HEIGHT_MIN,
   LANDING_NAV_WIDTH_LABELS,
+  logoNavPutih,
   type LandingNavConfig,
+  type LandingNavLogoTone,
   type LandingNavWidth,
 } from "@/lib/domain";
 import { modernNavStyle } from "@/lib/registration-theme-css";
@@ -18,7 +20,7 @@ import { modernNavStyle } from "@/lib/registration-theme-css";
  * tersimpan, sedangkan warna dan transparansi paling mudah dinilai sambil
  * menggeser; latar bergaris gelap-terang memperlihatkan seberapa tembus bilahnya.
  */
-function BilahAtasContoh({ warna, opasitas, lebar, nama, logo }: { warna: string; opasitas: number; lebar: LandingNavWidth; nama: string; logo: string | null }) {
+function BilahAtasContoh({ warna, opasitas, lebar, nama, logo, logoPutih }: { warna: string; opasitas: number; lebar: LandingNavWidth; nama: string; logo: string | null; logoPutih: boolean }) {
   // Variabel yang sama dengan halaman publik (hero ber-KV), supaya warna teks
   // di contoh ini tidak bisa berbeda dari yang dilihat tamu.
   const gaya = modernNavStyle({ color: warna, opacity: opasitas }, { ink: "#ffffff", onInk: "#181d27" });
@@ -34,7 +36,7 @@ function BilahAtasContoh({ warna, opasitas, lebar, nama, logo }: { warna: string
         >
           {logo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logo} alt="" className="block max-h-7 w-auto max-w-[120px] object-contain object-left" />
+            <img src={logo} alt="" className="block max-h-7 w-auto max-w-[120px] object-contain object-left" style={logoPutih ? { filter: "brightness(0) invert(1)" } : undefined} />
           ) : (
             <span className="truncate">{nama}</span>
           )}
@@ -76,6 +78,7 @@ export function BilahAtasEditor({
         lebar={bilahAtas.width ?? "full"}
         nama={eventName}
         logo={bilahAtas.logo_url ?? null}
+        logoPutih={logoNavPutih(bilahAtas, true)}
       />
       <ImageUploadField
         label="Event logo"
@@ -119,6 +122,24 @@ export function BilahAtasEditor({
           0% is clear, 100% is solid. Applies while the bar sits over the {gathering ? "hero" : "hero image"}. Past the hero, the bar is at least 90% solid so its text stays readable over the white page.
         </p>
       </div>
+      {bilahAtas.logo_url && opasitasBilah < 50 ? (
+        <div>
+          <p className="text-body-medium font-medium text-on-surface">Logo over the hero</p>
+          <SegmentedButton<LandingNavLogoTone>
+            className="mt-1.5 w-full"
+            label="Logo over the hero"
+            value={bilahAtas.logo_on_image ?? "white"}
+            onChange={(value) => setBilahAtas({ logo_on_image: value })}
+            options={[
+              { value: "white", label: "White" },
+              { value: "original", label: "Original colours" },
+            ]}
+          />
+          <p className="mt-1.5 text-body-medium text-on-surface-variant">
+            Applies while the bar is under 50% opacity. White keeps a dark logo readable over a dark {gathering ? "hero" : "photo"}. Past the hero, the logo always shows in its own colours.
+          </p>
+        </div>
+      ) : null}
       <div>
         <p className="text-body-medium font-medium text-on-surface">Bar width</p>
         <SegmentedButton<LandingNavWidth>

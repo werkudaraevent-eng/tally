@@ -3,7 +3,7 @@
 import { CaretDown, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
 import { useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { Button, Dialog, IconButton, SegmentedButton, TextArea, TextField } from "@/components/m3";
+import { Button, Dialog, IconButton, SegmentedButton, Skeleton, TextArea, TextField } from "@/components/m3";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { EditorRute, TampilDi } from "./editor-rute";
 import { PilihLatar } from "./pilih-latar";
@@ -36,8 +36,19 @@ import {
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 
-// Editor Hitung mundur dimuat hanya saat blok itu dibuka.
-const EditorHitungMundur = dynamic(() => import("./editor-hitung-mundur").then((m) => m.EditorHitungMundur));
+// Editor Hitung mundur dimuat hanya saat blok itu dibuka. `loading` wajib ada:
+// tanpa itu next/dynamic tidak memasang Suspense sendiri, jadi seluruh editor
+// ikut ditangguhkan, efek muatnya berjalan ulang, dan suntingan yang belum
+// disimpan (termasuk blok yang baru ditambahkan) tertimpa salinan server.
+const EditorHitungMundur = dynamic(() => import("./editor-hitung-mundur").then((m) => m.EditorHitungMundur), {
+  loading: () => (
+    <div className="flex flex-col gap-3" aria-busy>
+      <Skeleton className="h-20 w-full" />
+      <Skeleton className="h-10 w-2/3" />
+      <Skeleton className="h-10 w-full" />
+    </div>
+  ),
+});
 
 /**
  * CMS pustaka blok: dialog Tambah blok dan editor isi tiap jenis blok.

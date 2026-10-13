@@ -323,6 +323,7 @@ export const landingBodySchema = z.object({
       width: z.enum(["full", "content"]).optional(),
       height: z.number().int().min(LANDING_NAV_HEIGHT_MIN).max(LANDING_NAV_HEIGHT_MAX).optional(),
       logo_url: z.string().url().max(600).nullable().optional(),
+      logo_on_image: z.enum(["white", "original"]).optional(),
     }).optional(),
     about_heading: z.string().trim().max(160).optional(),
     about_media: z.enum(LANDING_ABOUT_MEDIA).optional(),
