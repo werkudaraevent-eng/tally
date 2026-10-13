@@ -30,7 +30,7 @@ import { KartuRute } from "@/components/landing/modern/blok-rute";
 import { KartuHitungMundur } from "@/components/landing/modern/landing-blocks";
 import { BagianBeranda } from "@/components/member/bagian-beranda";
 import { KartuBlok } from "@/components/member/kartu-blok";
-import { formatEventDate, formatEventSchedule } from "@/lib/event-datetime";
+import { formatEventDate, formatEventDateRingkas, formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { PESERTA_UI } from "@/lib/member/peserta-i18n";
@@ -53,6 +53,26 @@ import { HEAD, SHELL } from "@/components/landing/modern/styles";
 import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
 import { LatarKv, inisialNama as inisialAcara } from "@/components/landing/modern/gathering-app";
 import { teksPolos } from "@/lib/landing-teks-kaya";
+import { kontras } from "@/lib/landing-hitung-mundur";
+import { HORIZON_GOLD_DEFAULT } from "@/lib/landing-tokens";
+import { gayaHorizon } from "@/components/landing/modern/horizon";
+import {
+  BabHorizon,
+  BantuanPonselHorizon,
+  IsiTombolQr,
+  KepalaHorizon,
+  LATAR_PORTAL_HORIZON,
+  NavBawahHorizon,
+  PassHorizon,
+  PitaKepalaHorizon,
+  QrHorizon,
+  SapaanHorizon,
+  SelanjutnyaHorizon,
+  TOMBOL_QR_HORIZON,
+  TemanSekamarHorizon,
+  type FaktaPass,
+  type TabHorizon,
+} from "@/components/member/portal-horizon";
 
 /**
  * Portal peserta gaya gathering (`/e/<slug>/peserta`, preset Gathering),
@@ -269,6 +289,15 @@ export async function DashboardGathering({
     fontVariantNumeric: "normal",
     backgroundColor: PANEL,
   } as CSSProperties;
+  // Gathering Horizon (rancangan V5): navy dan emas dari Tema, latar krem.
+  const horizon = config.gathering_variant === "horizon";
+  if (horizon) {
+    const emas = [config.button_color, tokensTema.accent].find((warna) => /^#[0-9a-f]{6}$/i.test(warna ?? "")) ?? HORIZON_GOLD_DEFAULT;
+    Object.assign(gaya, gayaHorizon(tokensTema.brand, emas, kontras(emas, "#101E38") >= 4.5 ? "#101E38" : "#ffffff"), { backgroundColor: LATAR_PORTAL_HORIZON });
+  }
+  const tH = t.horizon;
+  const tabsHorizon: TabHorizon[] = (["beranda", "jadwal", "info", "profil"] as const).map((id) => ({ id, label: tH.tabs[id], labelPendek: tH.tabsShort[id], href: keTab(id) }));
+  const infoBaru = pengumuman.items.some((item) => isUnread(item, pengumuman.seenAt));
 
   const tautanCepat = [
     ...(tampilKode ? [{ href: keTab("qr"), label: t.quick.tiket, Ikon: Ticket, warna: "text-[var(--alis)]", luar: false, pemicuQr: "pemicu-qr-cepat" }] : []),
@@ -282,6 +311,25 @@ export async function DashboardGathering({
     { id: "info", label: t.tabs.info, Ikon: Bell },
     { id: "profil", label: t.tabs.profil, Ikon: User },
   ];
+
+  if (tab === "qr" && tampilKode && peserta && horizon) {
+    return (
+      <main className="min-h-dvh" style={{ ...gaya, backgroundColor: "var(--hz-navy)", color: "#ffffff" }}>
+        <TutupQrEscape href={keTab("beranda")} />
+        <QrHorizon
+          judul={t.qrTitle}
+          tutup={keTab("beranda")}
+          tutupLabel={t.qrClose}
+          nama={peserta.name}
+          sub={[peserta.title, peserta.company].filter(Boolean).join(" • ") || null}
+          kartuKode={<RegistrationCodeCard code={peserta.qr_code} eventName={nama} personName={peserta.name} schedule={formatEventSchedule(event, lang)} lang={lang} horizon />}
+          petunjuk={t.qrShow}
+          petunjukCatatan={t.qrShowNote}
+          kecerahan={t.qrBrightness}
+        />
+      </main>
+    );
+  }
 
   if (tab === "qr" && tampilKode && peserta) {
     return (
@@ -703,6 +751,137 @@ export async function DashboardGathering({
     );
   }
 
+  if (horizon) {
+    let badan: ReactNode;
+    if (tabAktif === "beranda") {
+      const namaDepan = sesi.name.trim().split(/\s+/)[0] || sesi.name;
+      const tampilLogistik = diBeranda("logistics");
+      const tampilTeman = diBeranda("roommates") && teman && teman.length > 0;
+      const fakta: FaktaPass[] = [
+        { label: tH.participant, nilai: sesi.name, ponsel: false },
+        ...(tampilLogistik && namaBus ? [{ label: tH.bus, nilai: namaBus, ponsel: true }] : []),
+        ...(tampilLogistik && kamar ? [{ label: tH.room, nilai: kamar.room_number, ponsel: true }] : []),
+        ...(tampilTeman ? [{ label: tH.roommate, nilai: teman.map((orang) => orang.name).join(", "), ponsel: false }] : []),
+      ];
+      // Label hari agenda berikutnya: hari ini, besok, atau "Hari pertama".
+      const hariSelanjutnya = selanjutnya ? agenda.findIndex((bagian) => bagian.items.some((butir) => butir.id === selanjutnya.item.id)) : -1;
+      const labelHari = !selanjutnya
+        ? null
+        : selanjutnya.hari === null
+          ? tH.today
+          : selanjutnya.hari === t.tomorrow
+            ? tH.tomorrow
+            : hariSelanjutnya >= 0
+              ? tH.dayOrdinal(hariSelanjutnya + 1)
+              : selanjutnya.hari;
+      const tampilBerikut = diBeranda("next") && selanjutnya;
+      const bantuan = telepon ? { href: `tel:${telepon.replace(/[^\d+]/g, "")}`, label: tH.help } : null;
+      const tombolQr =
+        tampilKode && peserta ? (
+          <PemicuQr id="pemicu-qr-horizon" href={keTab("qr")} className={TOMBOL_QR_HORIZON}>
+            <IsiTombolQr label={tH.showQr} />
+          </PemicuQr>
+        ) : null;
+      const lainnya = beranda.order.filter((id) => diBeranda(id) && ((id === "announcements" && pengumuman.items.length > 0) || kartuBlok.has(id)));
+      badan = (
+        <>
+          <SapaanHorizon alis={tH.welcome} judul={tH.heading(namaDepan)} judulPonsel={tH.headingMobile(namaDepan)} catatan={tH.subtitle(agenda.length)} />
+          <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-6 pb-10 pt-6 md:px-16 md:pt-3">
+            {pitaEmail || lengkapi.length > 0 ? (
+              <div className="flex flex-col gap-4">
+                {pitaEmail}
+                <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
+              </div>
+            ) : null}
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+              <div className="min-w-0 lg:w-[790px] lg:shrink">
+                <BagianBeranda id="logistics" pratinjau={pratinjau}>
+                  <PassHorizon
+                    kv={latarKv?.src ?? null}
+                    label={LANDING_UI[lang].horizon.pass}
+                    tanggalPendek={formatEventDateRingkas(event, lang)}
+                    tanggalPanjang={formatEventDateRingkas(event, lang, false)}
+                    dari={config.pass_from?.trim() || null}
+                    ke={config.pass_to?.trim() || venue || nama}
+                    fakta={fakta}
+                  />
+                </BagianBeranda>
+              </div>
+              <div className="min-w-0 lg:min-w-[320px] lg:flex-1">
+                <BagianBeranda id="next" pratinjau={pratinjau}>
+                  <SelanjutnyaHorizon
+                    alis={labelHari ? `${tH.nextUp} • ${labelHari}` : tH.nextUp}
+                    alisPonsel={tH.nextUpMobile}
+                    judul={tampilBerikut ? selanjutnya.item.title : null}
+                    baris={tampilBerikut ? [`${selanjutnya.item.time} ${singkatanZona}`, selanjutnya.hitung].filter(Boolean).join(" • ") : null}
+                    catatan={tampilBerikut ? teksPolos(selanjutnya.item.subtitle) || null : null}
+                    qr={tombolQr ? { href: keTab("qr"), label: tH.showQr, pemicu: tombolQr } : null}
+                    bantuan={bantuan}
+                    sisipan={statusPendaftaran}
+                  />
+                </BagianBeranda>
+              </div>
+            </div>
+            {tampilTeman ? (
+              <BagianBeranda id="roommates" pratinjau={pratinjau}>
+                <TemanSekamarHorizon
+                  judul={tH.roommateTitle}
+                  orang={teman.map((orang) => ({ nama: orang.name, detail: [kamar ? tH.roomNo(kamar.room_number) : null, orang.company].filter(Boolean).join(" • ") || null }))}
+                />
+              </BagianBeranda>
+            ) : null}
+            {bantuan ? <BantuanPonselHorizon href={bantuan.href} label={bantuan.label} /> : null}
+            {diBeranda("agenda") ? (
+              <BagianBeranda id="agenda" pratinjau={pratinjau}>
+                <BabHorizon
+                  bab={agenda.map((bagian, index) => ({
+                    label: [String(index + 1).padStart(2, "0"), bagian.tanggal ? tanggalBab(bagian.tanggal, lang) : null].filter(Boolean).join(" / "),
+                    judul: bagian.sectionTitle?.trim() || bagian.hari || t.day(index + 1),
+                    href: keTab("jadwal", { hari: String(index + 1) }),
+                  }))}
+                />
+              </BagianBeranda>
+            ) : null}
+            {lainnya.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {lainnya.map((id) => (
+                  <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
+                    {id === "announcements" ? kartuPengumuman : kartuBlok.get(id)}
+                  </BagianBeranda>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </>
+      );
+    } else {
+      badan = (
+        <>
+          <PitaKepalaHorizon>{kepala}</PitaKepalaHorizon>
+          <div className="relative mx-auto -mt-3 w-full max-w-[1440px] px-6 md:-mt-6 md:px-16">{isi}</div>
+        </>
+      );
+    }
+    return (
+      <main className="min-h-dvh pb-[calc(100px+env(safe-area-inset-bottom))] text-[#101E38] md:pb-16" style={gaya}>
+        <FokusPemicuQr />
+        <KepalaHorizon
+          logo={logo ?? config.hero_logo_url ?? null}
+          nama={nama}
+          homeHref={halamanAcara}
+          tabs={tabsHorizon}
+          aktif={tabAktif}
+          inisial={inisial}
+          profilLabel={tH.profileAria}
+          infoBaru={infoBaru}
+          tabsAria={t.tabsAria}
+        />
+        {badan}
+        <NavBawahHorizon tabs={tabsHorizon} aktif={tabAktif} tabsAria={t.tabsAria} infoBaru={infoBaru} />
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-dvh pb-[calc(88px+env(safe-area-inset-bottom))] text-[#1A2333] lg:pb-16" style={gaya}>
       <FokusPemicuQr />
@@ -782,6 +961,11 @@ export async function DashboardGathering({
       </nav>
     </main>
   );
+}
+
+/** "6 November" untuk label bab Horizon. */
+function tanggalBab(tanggal: string, lang: LandingLang): string {
+  return new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "id-ID", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${tanggal}T00:00:00Z`));
 }
 
 function JudulKepala({ judul, catatan }: { judul: string; catatan: string | null }) {

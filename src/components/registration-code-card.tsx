@@ -55,6 +55,11 @@ type Props = {
   children?: ReactNode;
   /** QR besar untuk layar penuh (portal gathering, layout tumpuk): selebar layar, paling besar 320px. */
   qrBesar?: boolean;
+  /**
+   * Gathering Horizon (frame eY05h): tanpa bingkai dan label, QR 192px di kotak
+   * 220px bergaris tipis, kode di bawahnya, tombol simpan bergaris. Di atas putih.
+   */
+  horizon?: boolean;
 };
 
 const MUTED = "text-[var(--reg-on-surface-variant)]";
@@ -80,7 +85,7 @@ function bacaBisaBagikan() {
   return cacheBagikan;
 }
 
-export function RegistrationCodeCard({ code, eventName, personName, schedule, inverse = false, lang = "id", layout = "tumpuk", children, qrBesar = false }: Props) {
+export function RegistrationCodeCard({ code, eventName, personName, schedule, inverse = false, lang = "id", layout = "tumpuk", children, qrBesar = false, horizon = false }: Props) {
   const t = DAFTAR_UI[lang].code;
   const [qr, setQr] = useState<string | null>(null);
   const [sibuk, setSibuk] = useState(false);
@@ -181,6 +186,36 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
           {galat ? <p role="alert" className="text-body-medium font-medium text-[var(--reg-error)]">{galat}</p> : null}
         </div>
       </div>
+      </div>
+    );
+  }
+
+  if (horizon) {
+    return (
+      <div ref={kartu} className="flex flex-col items-center">
+        <div className="relative flex size-[220px] items-center justify-center rounded-2xl border border-[#E1E6F1] bg-white p-[14px]">
+          <span aria-hidden className={`absolute inset-[14px] rounded-lg bg-[#F1F3F8] transition-opacity duration-300 ${qr ? "opacity-0" : "opacity-100"}`} />
+          {qr ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={qr} alt={t.qrAlt(code)} className="rise-in-fast relative size-48" width={192} height={192} />
+          ) : null}
+        </div>
+        {/* Rancangan 11px; kode dibuat 15px supaya panitia bisa mengetiknya bila pemindai mati. */}
+        <p className="mt-4 select-all text-center font-mono text-[15px] font-bold tracking-[1px] text-[#526078]">{code}</p>
+        <button
+          type="button"
+          onClick={() => void simpan()}
+          disabled={!qr || sibuk}
+          className="m3-state mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#BCC7DA] px-5 text-[14px] font-bold text-[#101E38] disabled:opacity-50"
+        >
+          {bisaBagikan ? <ShareNetwork size={18} weight="fill" /> : <DownloadSimple size={18} weight="fill" />}
+          {sibuk ? t.preparing : bisaBagikan ? t.saveOrShare : t.download}
+        </button>
+        {galat ? (
+          <p role="alert" className="mt-3 text-body-medium font-medium text-[#B42318]">
+            {galat}
+          </p>
+        ) : null}
       </div>
     );
   }
