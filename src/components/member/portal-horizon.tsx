@@ -359,7 +359,7 @@ export function BabHorizon({ bab }: { bab: { label: string; judul: string; href:
  */
 export function HariJadwalHorizon({ hari, aria }: { hari: { label: string; judul: string; href: string; aktif: boolean }[]; aria: string }) {
   return (
-    <nav aria-label={aria} className="sticky top-[118px] -my-1 -ml-6 -mr-1 hidden max-h-[calc(100dvh-134px)] self-start overflow-y-auto overscroll-contain p-1 lg:block" style={{ color: TINTA }}>
+    <nav aria-label={aria} className="sticky top-[118px] -my-1 -ml-6 -mr-1 hidden max-h-[calc(100dvh-134px)] scroll-py-1 self-start overflow-y-auto p-1 print:max-h-none print:overflow-visible lg:block" style={{ color: TINTA }}>
       <GulirHariAktif />
       <ol className="flex flex-col gap-1">
         {hari.map((item) => (
