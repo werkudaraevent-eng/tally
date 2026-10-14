@@ -73,6 +73,7 @@ export type PortalUiText = {
     tomorrow: string;
     dayOrdinal: (hari: number) => string;
     showQr: string;
+    enlargeQr: string;
     help: string;
     roommateTitle: (jumlah: number) => string;
     roomNo: (nomor: string) => string;
@@ -150,6 +151,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       tomorrow: "Besok",
       dayOrdinal: (hari) => `Hari ${["pertama", "kedua", "ketiga", "keempat", "kelima", "keenam", "ketujuh"][hari - 1] ?? `ke-${hari}`}`,
       showQr: "Tampilkan QR kehadiran",
+      enlargeQr: "Perbesar",
       help: "Butuh bantuan? Hubungi panitia",
       roommateTitle: (jumlah) => (jumlah > 1 ? "Teman-teman sekamarmu" : "Teman sekamarmu"),
       roomNo: (nomor) => `Kamar ${nomor}`,
@@ -225,6 +227,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       tomorrow: "Tomorrow",
       dayOrdinal: (hari) => `Day ${["one", "two", "three", "four", "five", "six", "seven"][hari - 1] ?? hari}`,
       showQr: "Show attendance QR",
+      enlargeQr: "Enlarge",
       help: "Need help? Contact the organisers",
       roommateTitle: (jumlah) => (jumlah > 1 ? "Your roommates" : "Your roommate"),
       roomNo: (nomor) => `Room ${nomor}`,

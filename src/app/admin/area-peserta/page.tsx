@@ -35,6 +35,8 @@ type Muat = {
   preview: PesertaPratinjau | null;
   /** Check-in > Checkpoints dinyalakan. */
   checkpoints_on?: boolean;
+  /** Gathering Horizon: Participant home tanpa "Today's agenda". */
+  horizon?: boolean;
 };
 
 const angka = (nilai: number) => nilai.toLocaleString("en-GB");
@@ -194,6 +196,7 @@ export default function AreaPesertaPage() {
                       member={anggota}
                       blocks={data.blocks}
                       checkpointsOn={data.checkpoints_on === true}
+                      horizon={data.horizon === true}
                       set={set}
                       dipilih={sorot?.id ?? null}
                       onPilih={(id) => setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }))}

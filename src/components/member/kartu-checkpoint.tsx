@@ -178,7 +178,7 @@ export function KartuCheckpoint({
         {step.points !== null ? (
           <span className={`text-[13px] font-semibold tabular-nums ${g.redup}`}>
             <span className="sr-only">{t.poinSr(step.points)}</span>
-            <span aria-hidden>{selesai ? `+${step.points}` : step.points}</span>
+            <span aria-hidden>{`+${step.points}`}</span>
           </span>
         ) : (
           <span />

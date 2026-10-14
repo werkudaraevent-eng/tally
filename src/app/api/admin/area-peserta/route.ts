@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { landingBlockHasContent, landingBlockShownOn, normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
+import { gatheringHorizon, landingBlockHasContent, landingBlockShownOn, normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
 import { memberSchema } from "@/lib/landing-body-schema";
 import { loadSetelanCheckpoint } from "@/lib/checkpoint/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -107,6 +107,8 @@ export async function GET(request: Request) {
     preview: layout ? await pesertaBawaan(eventId) : null,
     // Baris Checkpoints di Participant home menyebut bila fiturnya mati di Check-in.
     checkpoints_on: layout ? (await loadSetelanCheckpoint(eventId))?.enabled === true : false,
+    // Gathering Horizon tidak menampilkan "Today's agenda": barisnya disembunyikan di CMS.
+    horizon: gatheringHorizon(landing),
     // null bila hitungan gagal: layar menyembunyikan angkanya, bukan menampilkan 0.
     counts: {
       participants: peserta.error ? null : peserta.count ?? 0,
