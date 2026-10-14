@@ -49,6 +49,15 @@ export default function LogistikPage() {
   const [impor, setImpor] = useState(false);
   const toast = useToast();
 
+  // ?tab=barang dari Check-in > Checkpoints membuka Kit items langsung. Dibaca
+  // sesudah mount supaya render server dan klien sama.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (new URLSearchParams(window.location.search).get("tab") === "barang") setBagian("barang");
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const muat = useCallback(async () => {
     const response = await fetch(eventApiPath("/api/admin/logistik"), { cache: "no-store" }).catch(() => null);
     if (!response?.ok) {
