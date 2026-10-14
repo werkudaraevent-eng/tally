@@ -51,6 +51,7 @@ import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi
 import { KartuLengkapi } from "@/components/member/kartu-lengkapi";
 import { kartuLengkapi, updatableFields } from "@/lib/member/lengkapi";
 import { FokusPemicuQr, PemicuQr, TutupQrEscape } from "@/components/member/qr-fokus";
+import { QrMini } from "@/components/member/qr-mini";
 import { bagianModern, gayaModern } from "@/components/landing/modern/kerangka";
 import { HEAD, SHELL } from "@/components/landing/modern/styles";
 import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
@@ -60,10 +61,8 @@ import { kontras } from "@/lib/landing-hitung-mundur";
 import { HORIZON_GOLD_DEFAULT } from "@/lib/landing-tokens";
 import { gayaHorizon } from "@/components/landing/modern/horizon";
 import {
-  BabHorizon,
   HariJadwalHorizon,
   BantuanPonselHorizon,
-  IsiTombolQr,
   KepalaHorizon,
   LATAR_PORTAL_HORIZON,
   NavBawahHorizon,
@@ -72,7 +71,6 @@ import {
   QrHorizon,
   SapaanHorizon,
   SelanjutnyaHorizon,
-  TOMBOL_QR_HORIZON,
   TemanSekamarHorizon,
   TiketKeretaHorizon,
   type FaktaPass,
@@ -847,12 +845,6 @@ export async function DashboardGathering({
               : selanjutnya.hari;
       const tampilBerikut = diBeranda("next") && selanjutnya;
       const bantuan = telepon ? { href: `tel:${telepon.replace(/[^\d+]/g, "")}`, label: tH.help } : null;
-      const tombolQr =
-        tampilKode && peserta ? (
-          <PemicuQr id="pemicu-qr-horizon" href={keTab("qr")} className={TOMBOL_QR_HORIZON}>
-            <IsiTombolQr label={tH.showQr} />
-          </PemicuQr>
-        ) : null;
       // Pengumuman mengikuti urutan Participant home terhadap Next up (kolom
       // kanan di layar lebar) dan terhadap Bus and room (ponsel: di atas atau
       // di bawah kartu perjalanan). Urutan bawaan menaruhnya paling atas.
@@ -876,11 +868,13 @@ export async function DashboardGathering({
                 <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
               </div>
             ) : null}
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-              {/* Ponsel: kedua kolom "contents" agar kartunya bisa diurutkan dengan order. */}
-              <div className="contents min-w-0 lg:block lg:w-[790px] lg:shrink">
+            {/* Layar lebar: baris 1 kartu perjalanan + kolom kanan (pengumuman, Next up),
+                lalu tiket kereta dan checkpoint selebar penuh. Ponsel: semua kartu satu
+                tumpukan, diurutkan dengan order. */}
+            <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,790px)_minmax(320px,1fr)] lg:items-start lg:gap-x-8 lg:gap-y-6">
+              <div className="contents">
                 <BagianBeranda id="logistics" pratinjau={pratinjau}>
-                  <div className="order-[20] lg:order-none">
+                  <div className="order-[20] lg:order-none lg:col-start-1 lg:row-start-1">
                     <PassHorizon
                       kv={latarKv?.src ?? null}
                       label={LANDING_UI[lang].horizon.pass}
@@ -889,21 +883,26 @@ export async function DashboardGathering({
                       dari={config.pass_from?.trim() || null}
                       ke={config.pass_to?.trim() || venue || nama}
                       fakta={fakta}
+                      qr={
+                        tampilKode && peserta
+                          ? { href: keTab("qr"), label: t.qrTitle, perbesar: tH.enlargeQr, kode: <QrMini code={peserta.qr_code} alt={t.qrTitle} /> }
+                          : null
+                      }
                     />
                   </div>
                   {tampilLogistik && legKereta.length > 0 ? (
-                    <div className="order-[30] lg:order-none lg:mt-6">
+                    <div className="order-[30] lg:order-none lg:col-span-2">
                       <TiketKeretaHorizon judul={tH.train.title} label={{ gerbong: tH.train.carriage, kursi: tH.train.seat, kode: tH.train.booking }} leg={legKereta} />
                     </div>
                   ) : null}
                 </BagianBeranda>
                 {diBeranda("checkpoints") && checkpoint ? (
                   <BagianBeranda id="checkpoints" pratinjau={pratinjau}>
-                    <div className="order-[40] lg:order-none lg:mt-6">{kartuCheckpoint("horizon")}</div>
+                    <div className="order-[40] lg:order-none lg:col-span-2">{kartuCheckpoint("horizon")}</div>
                   </BagianBeranda>
                 ) : null}
               </div>
-              <div className="contents min-w-0 lg:flex lg:min-w-[320px] lg:flex-1 lg:flex-col lg:gap-6">
+              <div className="contents min-w-0 lg:col-start-2 lg:row-start-1 lg:flex lg:flex-col lg:gap-6">
                 {pengumumanDulu ? blokPengumuman : null}
                 <BagianBeranda id="next" pratinjau={pratinjau}>
                   <div className="order-[50] lg:order-none">
@@ -913,7 +912,7 @@ export async function DashboardGathering({
                       judul={tampilBerikut ? selanjutnya.item.title : null}
                       baris={tampilBerikut ? [`${selanjutnya.item.time} ${singkatanZona}`, selanjutnya.hitung].filter(Boolean).join(" • ") : null}
                       catatan={tampilBerikut ? teksPolos(selanjutnya.item.subtitle) || null : null}
-                      qr={tombolQr ? { href: keTab("qr"), label: tH.showQr, pemicu: tombolQr } : null}
+                      qr={null}
                       bantuan={bantuan}
                       sisipan={statusPendaftaran}
                     />
@@ -931,17 +930,6 @@ export async function DashboardGathering({
               </BagianBeranda>
             ) : null}
             {bantuan ? <BantuanPonselHorizon href={bantuan.href} label={bantuan.label} /> : null}
-            {diBeranda("agenda") ? (
-              <BagianBeranda id="agenda" pratinjau={pratinjau}>
-                <BabHorizon
-                  bab={agenda.map((bagian, index) => ({
-                    label: [String(index + 1).padStart(2, "0"), bagian.tanggal ? tanggalBab(bagian.tanggal, lang) : null].filter(Boolean).join(" / "),
-                    judul: bagian.sectionTitle?.trim() || bagian.hari || t.day(index + 1),
-                    href: keTab("jadwal", { hari: String(index + 1) }),
-                  }))}
-                />
-              </BagianBeranda>
-            ) : null}
             {lainnya.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2">
                 {lainnya.map((id) => (
@@ -981,7 +969,7 @@ export async function DashboardGathering({
           tabsAria={t.tabsAria}
         />
         {badan}
-        <NavBawahHorizon tabs={tabsHorizon} aktif={tabAktif} tabsAria={t.tabsAria} infoBaru={infoBaru} />
+        <NavBawahHorizon tabs={tabsHorizon} aktif={tabAktif} tabsAria={t.tabsAria} infoBaru={infoBaru} qr={tampilKode && peserta ? { href: keTab("qr"), label: tH.showQr, labelPendek: "QR" } : null} />
       </main>
     );
   }

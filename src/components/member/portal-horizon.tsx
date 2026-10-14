@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Bell, CalendarDots, Compass, QrCode, Train, User, X } from "@phosphor-icons/react/dist/ssr";
+import { ArrowsOut, Bell, CalendarDots, Compass, QrCode, Train, User, X } from "@phosphor-icons/react/dist/ssr";
 import type { PortalTab } from "@/components/member/dashboard-gathering";
 import { GulirHariAktif } from "@/components/member/gulir-hari-aktif";
+import { PemicuQr } from "@/components/member/qr-fokus";
 
 /**
  * Portal peserta Gathering Horizon: rancangan pen.dev V5 Hanung (2026-10-13),
@@ -102,14 +103,44 @@ export function KepalaHorizon({
 }
 
 /** Bilah tab bawah ponsel (frame "Bottom navigation"). */
-export function NavBawahHorizon({ tabs, aktif, tabsAria, infoBaru }: { tabs: TabHorizon[]; aktif: Exclude<PortalTab, "qr">; tabsAria: string; infoBaru: boolean }) {
+/**
+ * Navigasi bawah ponsel. `qr`: tombol emas di tengah (pola tombol Bayar/Pindai
+ * di aplikasi dompet), jadi QR kehadiran terjangkau ibu jari dari tab mana pun.
+ */
+export function NavBawahHorizon({
+  tabs,
+  aktif,
+  tabsAria,
+  infoBaru,
+  qr,
+}: {
+  tabs: TabHorizon[];
+  aktif: Exclude<PortalTab, "qr">;
+  tabsAria: string;
+  infoBaru: boolean;
+  qr?: { href: string; label: string; labelPendek: string } | null;
+}) {
+  const tengah = Math.ceil(tabs.length / 2);
   return (
     <nav aria-label={tabsAria} className="fixed inset-x-0 bottom-0 z-20 bg-white px-2 pb-[calc(20px+env(safe-area-inset-bottom))] pt-3 shadow-[0_-1px_0_#E6E9EE] md:hidden">
-      <ul className="mx-auto grid max-w-[560px] grid-cols-4">
-        {tabs.map((tab) => {
+      <ul className={`mx-auto grid max-w-[560px] ${qr ? "grid-cols-5" : "grid-cols-4"}`}>
+        {tabs.flatMap((tab, index) => {
           const Ikon = IKON_TAB[tab.id];
           const ini = tab.id === aktif;
-          return (
+          const tombolQr =
+            qr && index === tengah ? (
+              <li key="qr">
+                <PemicuQr id="pemicu-qr-nav" href={qr.href} className="m3-state flex min-h-12 flex-col items-center justify-center gap-[5px] rounded-md text-[10px] font-bold text-[#101E38]">
+                  <span aria-hidden className="-mt-7 flex size-14 items-center justify-center rounded-full bg-[var(--hz-emas)] text-[var(--hz-on-emas)] shadow-[0_4px_12px_rgba(16,30,56,0.25)] ring-4 ring-white">
+                    <QrCode size={26} weight="bold" />
+                  </span>
+                  <span aria-hidden>{qr.labelPendek}</span>
+                  <span className="sr-only">{qr.label}</span>
+                </PemicuQr>
+              </li>
+            ) : null;
+          return [
+            tombolQr,
             <li key={tab.id}>
               <Link
                 href={tab.href}
@@ -124,8 +155,8 @@ export function NavBawahHorizon({ tabs, aktif, tabsAria, infoBaru }: { tabs: Tab
                 </span>
                 {tab.labelPendek}
               </Link>
-            </li>
-          );
+            </li>,
+          ];
         })}
       </ul>
     </nav>
@@ -170,6 +201,7 @@ export function PassHorizon({
   dari,
   ke,
   fakta,
+  qr,
 }: {
   kv: string | null;
   label: string;
@@ -178,6 +210,11 @@ export function PassHorizon({
   dari: string | null;
   ke: string;
   fakta: FaktaPass[];
+  /**
+   * Sobekan tiket berisi QR kehadiran (pola boarding pass / Wallet): desktop di
+   * kanan kartu, ponsel di bawahnya. Seluruh sobekan membuka QR layar penuh.
+   */
+  qr?: { href: string; label: string; perbesar: string; kode: ReactNode } | null;
 }) {
   const faktaPonsel = fakta.filter((item) => item.ponsel);
   return (
@@ -187,7 +224,8 @@ export function PassHorizon({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={kv} alt="" aria-hidden decoding="async" className="h-[145px] w-full select-none object-cover md:h-[200px]" />
       ) : null}
-      <div className="flex flex-col gap-4 p-5 md:gap-6 md:p-[30px]">
+      <div className="md:flex">
+      <div className="flex min-w-0 flex-col gap-4 p-5 md:flex-1 md:gap-6 md:p-[30px]">
         <div className="flex items-center justify-between gap-4">
           <p className="text-[10px] font-bold uppercase tracking-[1.3px] text-[var(--hz-emas)] md:text-[11px] md:tracking-[1.7px]">{label}</p>
           {tanggalPendek ? <p className="hidden text-[12px] font-semibold uppercase md:block">{tanggalPendek}</p> : null}
@@ -234,6 +272,23 @@ export function PassHorizon({
             ))}
           </dl>
         ) : null}
+      </div>
+      {qr ? (
+        <PemicuQr
+          id="pemicu-qr-pass"
+          href={qr.href}
+          className="m3-state group relative flex items-center gap-4 border-t border-dashed border-[#405272] px-5 py-4 md:w-[210px] md:shrink-0 md:flex-col md:justify-center md:gap-3 md:border-l md:border-t-0 md:px-6 md:py-[30px]"
+        >
+          <span className="size-[72px] shrink-0 rounded-xl bg-white p-1.5 md:size-[148px] md:rounded-2xl md:p-2.5">{qr.kode}</span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5 md:flex-none md:items-center md:text-center">
+            <span className="text-[15px] font-bold">{qr.label}</span>
+            <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--hz-emas)]">
+              <ArrowsOut size={14} weight="bold" aria-hidden />
+              {qr.perbesar}
+            </span>
+          </span>
+        </PemicuQr>
+      ) : null}
       </div>
     </section>
   );
@@ -473,13 +528,14 @@ export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label
           {judul}
         </h2>
       </div>
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:gap-10">
       {leg.map((item, index) => {
         const isian = [
           [label.gerbong, item.gerbong],
           [label.kursi, item.kursi],
         ].filter((pasangan): pasangan is [string, string] => Boolean(pasangan[1]));
         return (
-          <div key={item.kunci} className={`flex flex-col gap-3 ${index > 0 ? "border-t border-dashed pt-5" : ""}`} style={{ borderColor: "#C9D1DE" }}>
+          <div key={item.kunci} className={`flex flex-col gap-3 ${index > 0 ? "border-t border-dashed pt-5 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0" : ""}`} style={{ borderColor: "#C9D1DE" }}>
             <p className="text-[12px] font-semibold uppercase tracking-[0.6px]" style={{ color: BIRU }}>
               {item.arah}
             </p>
@@ -517,6 +573,7 @@ export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label
           </div>
         );
       })}
+      </div>
     </section>
   );
 }
