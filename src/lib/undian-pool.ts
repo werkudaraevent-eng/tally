@@ -1,5 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import {
+  invalidateBonusSessions,
   invalidateUnknownSessions,
   isTrulyEmpty,
   matchesConditions,
@@ -124,8 +125,11 @@ export function needsAttendance(...trees: UndianConditionNode[]): boolean {
   return trees.some(usesAttendance);
 }
 
-/** Bobot "Jumlah scan" juga membaca pemindaian. */
-export function weightNeedsAttendance(weight: Pick<WeightConfig, "weight_mode" | "weight_var">): boolean {
+/** Bobot "Jumlah scan" dan aturan tiket tambahan berbasis check-in juga membaca pemindaian. */
+export function weightNeedsAttendance(weight: Pick<WeightConfig, "weight_mode" | "weight_var" | "bonus_rules">): boolean {
+  if (weight.weight_mode === "bonus") {
+    return (weight.bonus_rules ?? []).some((rule) => rule.source === "conditions" && usesAttendance(rule.conditions));
+  }
   return weight.weight_mode === "formula" && weight.weight_var === "scan_count";
 }
 
@@ -271,7 +275,8 @@ export async function buildPool(eventId: string, prize: UndianPrize): Promise<Po
   const known = new Set(sessions.map((session) => session.id));
   const rules = rawRules.map((rule) => ({ ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) }));
   const conditions = invalidateUnknownSessions(prize.conditions, known);
-  const rows = await loadParticipantPool(eventId, weightNeedsAttendance(prize) || needsAttendance(conditions, ...rules.map((rule) => rule.conditions)));
+  const weight = { ...prize, bonus_rules: invalidateBonusSessions(prize.bonus_rules, known) };
+  const rows = await loadParticipantPool(eventId, weightNeedsAttendance(weight) || needsAttendance(conditions, ...rules.map((rule) => rule.conditions)));
   if (!rows) return { error: "POOL_ERROR" };
   const wonIds = await previousWinnerRefs(eventId, prize, "participant");
 
@@ -313,7 +318,7 @@ export async function buildPool(eventId: string, prize: UndianPrize): Promise<Po
       breakdown.by_previous_wins += 1;
       continue;
     }
-    candidates.push(participantToCandidate(row, prize));
+    candidates.push(participantToCandidate(row, weight));
   }
 
   // Hanya aturan yang benar-benar menyingkirkan seseorang dilaporkan di sini.

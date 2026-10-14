@@ -93,20 +93,25 @@ export function parseEntryText(text: string): ParsedEntry[] {
  * supaya kedua impor mengenali pemisah dan BOM dengan cara yang sama.
  */
 export function textToCells(text: string): string[][] {
+  return textToRows(text).map((row) => row.cells);
+}
+
+/** Seperti textToCells, dengan nomor baris aslinya (mulai 1) untuk pesan galat per baris. */
+export function textToRows(text: string): { row: number; cells: string[] }[] {
   // BOM dibuang. Berkas CSV yang diekspor Excel di Windows hampir selalu punya BOM,
   // dan tanpa ini karakter itu menempel pada nama pertama sehingga baris pertama
   // tampil dengan karakter aneh di layar panggung.
   const clean = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const lines = clean.split("\n").map((line) => line.trim()).filter((line) => line !== "");
+  const lines = clean.split("\n").map((line, index) => ({ row: index + 1, line: line.trim() })).filter((item) => item.line !== "");
   if (lines.length === 0) return [];
 
   // Pemisah ditentukan dari baris pertama. Tab didahulukan karena tempelan dari
   // Excel memakai tab, dan nama perusahaan Indonesia sering memuat koma
   // ("PT Sinar Mas, Tbk") yang akan salah pecah bila koma dipilih lebih dulu.
-  const first = lines[0];
+  const first = lines[0].line;
   const delimiter = first.includes("\t") ? "\t" : first.includes(";") ? ";" : first.includes(",") ? "," : "";
 
-  return lines.map((line) => (delimiter ? splitLine(line, delimiter) : [line]));
+  return lines.map(({ row, line }) => ({ row, cells: delimiter ? splitLine(line, delimiter) : [line] }));
 }
 
 /**
@@ -127,6 +132,12 @@ export async function parseEntryXlsx(buffer: ArrayBuffer): Promise<ParsedEntry[]
 
 /** Sheet pertama XLSX menjadi matriks sel, atau null bila berkasnya tidak terbaca. */
 export async function xlsxToCells(buffer: ArrayBuffer): Promise<string[][] | null> {
+  const rows = await xlsxToRows(buffer);
+  return rows ? rows.map((row) => row.cells) : null;
+}
+
+/** Seperti xlsxToCells, dengan nomor baris Excel-nya untuk pesan galat per baris. */
+export async function xlsxToRows(buffer: ArrayBuffer): Promise<{ row: number; cells: string[] }[] | null> {
   try {
     const ExcelJS = (await import("exceljs")).default;
     const workbook = new ExcelJS.Workbook();
@@ -135,8 +146,8 @@ export async function xlsxToCells(buffer: ArrayBuffer): Promise<string[][] | nul
     const sheet = workbook.worksheets[0];
     if (!sheet) return null;
 
-    const cells: string[][] = [];
-    sheet.eachRow({ includeEmpty: false }, (row) => {
+    const cells: { row: number; cells: string[] }[] = [];
+    sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
       const values: string[] = [];
       // `eachCell` melewati sel kosong, sehingga kolom bisa bergeser. Karena itu
       // pengisian dilakukan lewat INDEKS, bukan lewat push: satu sel Perusahaan
@@ -147,7 +158,7 @@ export async function xlsxToCells(buffer: ArrayBuffer): Promise<string[][] | nul
         values[columnNumber - 1] = cellText(cell.value);
       });
       for (let i = 0; i < values.length; i += 1) values[i] ??= "";
-      cells.push(values);
+      cells.push({ row: rowNumber, cells: values });
     });
 
     return cells;

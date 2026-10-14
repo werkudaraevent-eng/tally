@@ -2,7 +2,8 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { normalizePrize, type UndianPrize } from "@/lib/undian";
+import { auditPrize, normalizePrize, type UndianPrize } from "@/lib/undian";
+import { bonusRulesSchema } from "@/lib/undian-bonus-schema";
 import { buildPool, listAttendanceSessions, type AttendanceSessionOption } from "@/lib/undian-pool";
 
 // CRUD hadiah undian. Admin saja.
@@ -10,7 +11,7 @@ import { buildPool, listAttendanceSessions, type AttendanceSessionOption } from 
 export const PRIZE_COLUMNS =
   "id,name,description,image_url,sponsor_name,winners_per_draw,winner_quota,backup_per_draw," +
   "animation,spin_mode,spin_seconds,source,entry_group_id,conditions,exclude_scope," +
-  "weight_mode,weight_var,weight_divisor,weight_base,weight_max,sort_order,is_active";
+  "weight_mode,weight_var,weight_divisor,weight_base,weight_max,bonus_rules,sort_order,is_active";
 
 // Pohon syarat divalidasi rekursif. Kedalaman dibatasi 4 karena z.lazy tanpa
 // batas dapat dipakai untuk memaksa parser menelusuri struktur bersarang yang
@@ -72,11 +73,12 @@ const bodySchema = z.object({
   entry_group_id: z.number().int().positive().nullable().optional(),
   conditions: groupSchema,
   exclude_scope: z.enum(["none", "this_prize", "all_prizes"]),
-  weight_mode: z.enum(["equal", "formula"]),
+  weight_mode: z.enum(["equal", "formula", "bonus"]),
   weight_var: z.enum(["total_spend", "booth_count", "scan_count"]),
   weight_divisor: z.number().min(1).max(1_000_000_000),
   weight_base: z.number().int().min(0).max(100),
   weight_max: z.number().int().min(1).max(1000),
+  bonus_rules: bonusRulesSchema(groupSchema, true).default([]),
   sort_order: z.number().int().min(0).max(9999),
   is_active: z.boolean(),
 }).superRefine((value, ctx) => {
@@ -232,7 +234,7 @@ export async function POST(request: Request) {
     event_id: eventId,
     user_id: auth.user.id,
     action: "undian_prize_create",
-    payload: { old: null, new: prize },
+    payload: { old: null, new: auditPrize(prize) },
   } as never);
   return Response.json(prize, { status: 201 });
 }
