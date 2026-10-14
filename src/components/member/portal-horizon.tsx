@@ -148,7 +148,8 @@ export function SapaanHorizon({ alis, judul, judulPonsel, catatan }: { alis: str
   );
 }
 
-export type FaktaPass = { label: string; nilai: string; ponsel: boolean };
+/** `lebar`: di ponsel memakai satu baris penuh dengan teks lebih kecil (nama hotel bisa panjang). */
+export type FaktaPass = { label: string; nilai: string; ponsel: boolean; lebar?: boolean };
 
 /** Kartu "Personal journey pass": KV, rute, dan fakta peserta. */
 export function PassHorizon({
@@ -214,11 +215,11 @@ export function PassHorizon({
         {faktaPonsel.length > 0 ? (
           <dl className="grid grid-cols-2 gap-7 border-t pt-4 md:hidden" style={{ borderColor: GARIS_NAVY }}>
             {faktaPonsel.map((item) => (
-              <div key={item.label} className="flex min-w-0 flex-col gap-[5px]">
+              <div key={item.label} className={`flex min-w-0 flex-col gap-[5px] ${item.lebar ? "col-span-2" : ""}`}>
                 <dt className="text-[10px] uppercase tracking-[1px]" style={{ color: REDUP_NAVY }}>
                   {item.label}
                 </dt>
-                <dd className="text-[26px] font-extrabold leading-[1.26] [overflow-wrap:anywhere]">{item.nilai}</dd>
+                <dd className={`${item.lebar ? "text-[18px] font-bold" : "text-[26px] font-extrabold"} leading-[1.26] [overflow-wrap:anywhere]`}>{item.nilai}</dd>
               </div>
             ))}
           </dl>

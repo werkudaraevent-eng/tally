@@ -61,6 +61,7 @@ export type PortalUiText = {
     headingMobile: (namaDepan: string) => string;
     subtitle: (hari: number) => string;
     participant: string;
+    hotel: string;
     bus: string;
     room: string;
     roommate: (jumlah: number) => string;
@@ -136,6 +137,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           ? `Tiket, teman perjalanan, dan ${["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh"][hari] ?? hari} hari yang menunggumu.`
           : "Tiket, teman perjalanan, dan agenda yang menunggumu.",
       participant: "Peserta",
+      hotel: "Hotel",
       bus: "Bus",
       room: "Kamar",
       roommate: (jumlah) => (jumlah > 1 ? "Teman-teman sekamar" : "Teman sekamar"),
@@ -209,6 +211,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           ? `Your ticket, travel mates, and ${["", "one day", "two days", "three days", "four days", "five days", "six days", "seven days"][hari] ?? `${hari} days`} ahead.`
           : "Your ticket, travel mates, and the agenda ahead.",
       participant: "Participant",
+      hotel: "Hotel",
       bus: "Bus",
       room: "Room",
       roommate: (jumlah) => (jumlah > 1 ? "Roommates" : "Roommate"),
