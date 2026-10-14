@@ -148,8 +148,13 @@ export function SapaanHorizon({ alis, judul, judulPonsel, catatan }: { alis: str
   );
 }
 
-/** `lebar`: di ponsel memakai satu baris penuh dengan teks lebih kecil (nama hotel bisa panjang). */
-export type FaktaPass = { label: string; nilai: string; ponsel: boolean; lebar?: boolean };
+/**
+ * `lebar`: nilai panjang (nama hotel). Di ponsel satu baris penuh dengan teks
+ * lebih kecil; di desktop mengambil sisa lebar baris.
+ * `pendek`: nilai singkat (bus, nomor kamar) yang tidak boleh dipatahkan di
+ * tengah kata, mis. "1208" menjadi "12/08" saat baris desktop sempit.
+ */
+export type FaktaPass = { label: string; nilai: string; ponsel: boolean; lebar?: boolean; pendek?: boolean };
 
 /** Kartu "Personal journey pass": KV, rute, dan fakta peserta. */
 export function PassHorizon({
@@ -203,11 +208,11 @@ export function PassHorizon({
         {fakta.length > 0 ? (
           <dl className="hidden justify-between gap-6 border-t pt-5 md:flex" style={{ borderColor: GARIS_NAVY }}>
             {fakta.map((item) => (
-              <div key={item.label} className="flex min-w-0 flex-col gap-2">
+              <div key={item.label} className={`flex flex-col gap-2 ${item.pendek ? "max-w-[14rem] shrink-0" : item.lebar ? "min-w-0 flex-1 basis-0" : "min-w-0"}`}>
                 <dt className="text-[10px] uppercase tracking-[1px]" style={{ color: REDUP_NAVY }}>
                   {item.label}
                 </dt>
-                <dd className="text-[16px] font-bold [overflow-wrap:anywhere]">{item.nilai}</dd>
+                <dd className={`text-[16px] font-bold ${item.pendek ? "[overflow-wrap:normal]" : "[overflow-wrap:anywhere]"}`}>{item.nilai}</dd>
               </div>
             ))}
           </dl>
