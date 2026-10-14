@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { hasInvalidLeaf, isTrulyEmpty, matchesConditions, normalizeConditions } from "@/lib/undian";
-import { loadParticipantPool, needsAttendance } from "@/lib/undian-pool";
+import { hasInvalidLeaf, invalidateUnknownSessions, isTrulyEmpty, matchesConditions, normalizeConditions } from "@/lib/undian";
+import { listAttendanceSessions, loadParticipantPool, needsAttendance } from "@/lib/undian-pool";
 import { groupSchema } from "../route";
 
 // Pratinjau aturan pengecualian: siapa saja yang akan tersaring.
@@ -38,7 +38,8 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
-  const conditions = normalizeConditions(parsed.data.conditions);
+  const sessions = await listAttendanceSessions(auth.scope.event.id);
+  const conditions = invalidateUnknownSessions(normalizeConditions(parsed.data.conditions), new Set(sessions.map((session) => session.id)));
   const rows = await loadParticipantPool(auth.scope.event.id, needsAttendance(conditions));
   if (!rows) return apiError("INTERNAL_ERROR", 500);
 

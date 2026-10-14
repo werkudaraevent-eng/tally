@@ -1,5 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import {
+  invalidateUnknownSessions,
   isTrulyEmpty,
   matchesConditions,
   normalizeExclusionRule,
@@ -71,13 +72,12 @@ export type AttendanceSessionOption = { id: number; name: string };
  * dipakai.
  */
 export async function loadParticipantPool(eventId: string, withAttendance: boolean): Promise<ParticipantPoolRow[] | null> {
-  const client = getSupabaseServiceClient();
   const [pool, scans] = await Promise.all([
-    client.rpc("undian_participant_pool" as never, { p_event_id: eventId } as never),
+    poolRows(eventId),
     withAttendance ? attendedSessions(eventId) : Promise.resolve(new Map<string, number[]>()),
   ]);
-  if (pool.error || !scans) return null;
-  return ((pool.data ?? []) as ParticipantPoolRow[]).map((row) => {
+  if (!pool || !scans) return null;
+  return pool.map((row) => {
     const attended = scans.get(row.participant_id) ?? [];
     return {
       ...row,
@@ -86,6 +86,30 @@ export async function loadParticipantPool(eventId: string, withAttendance: boole
       attended_sessions: attended,
     };
   });
+}
+
+/**
+ * Seluruh baris RPC kolam, per halaman 1.000. PostgREST memotong hasil RPC di
+ * 1.000 baris juga; tanpa ini acara 2.500 orang hanya melihat 1.000 pertama,
+ * dan "Belum check-in" bisa bernilai nol padahal 150 orang belum datang.
+ * Diurutkan per participant_id supaya halaman stabil (nama bisa kembar), lalu
+ * diurutkan kembali per nama seperti keluaran RPC aslinya.
+ */
+async function poolRows(eventId: string): Promise<ParticipantPoolRow[] | null> {
+  const client = getSupabaseServiceClient();
+  const rows: ParticipantPoolRow[] = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await client
+      .rpc("undian_participant_pool" as never, { p_event_id: eventId } as never)
+      .order("participant_id")
+      .range(from, from + PAGE - 1);
+    if (error) return null;
+    const page = (data ?? []) as ParticipantPoolRow[];
+    rows.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Apakah salah satu pohon butuh data pemindaian. */
@@ -230,8 +254,11 @@ export async function buildPool(eventId: string, prize: UndianPrize): Promise<Po
     };
   }
 
-  const rules = await activeRulesFor(eventId, prize.id);
-  const rows = await loadParticipantPool(eventId, weightNeedsAttendance(prize) || needsAttendance(prize.conditions, ...rules.map((rule) => rule.conditions)));
+  const [rawRules, sessions] = await Promise.all([activeRulesFor(eventId, prize.id), listAttendanceSessions(eventId)]);
+  const known = new Set(sessions.map((session) => session.id));
+  const rules = rawRules.map((rule) => ({ ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) }));
+  const conditions = invalidateUnknownSessions(prize.conditions, known);
+  const rows = await loadParticipantPool(eventId, weightNeedsAttendance(prize) || needsAttendance(conditions, ...rules.map((rule) => rule.conditions)));
   if (!rows) return { error: "POOL_ERROR" };
   const wonIds = await previousWinnerRefs(eventId, prize, "participant");
 
@@ -249,7 +276,7 @@ export async function buildPool(eventId: string, prize: UndianPrize): Promise<Po
   const candidates: Candidate[] = [];
 
   for (const row of rows) {
-    if (!matchesConditions(row, prize.conditions)) {
+    if (!matchesConditions(row, conditions)) {
       breakdown.failed_conditions += 1;
       continue;
     }

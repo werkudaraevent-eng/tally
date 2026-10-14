@@ -152,7 +152,7 @@ export function PrizeEditor({
                     participantTypes={preview?.participant_types ?? []}
                     rsvpStatuses={preview?.rsvp_statuses ?? []}
                     companies={preview?.companies ?? []}
-                    sessions={preview?.attendance_sessions ?? []}
+                    sessions={preview?.attendance_sessions}
                     onChange={(next) => onChange({ conditions: next })}
                   />
                 </div>

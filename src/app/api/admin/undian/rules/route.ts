@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import {
+  invalidateUnknownSessions,
   isTrulyEmpty,
   matchesConditions,
   normalizeExclusionRule,
@@ -109,7 +110,8 @@ export async function GET(request: Request) {
     const rows: ParticipantPoolRow[] = pool ?? [];
     attendanceSessions = sessions;
     totalParticipants = rows.length;
-    counts = countMatches(rows, rules);
+    const known = new Set(sessions.map((session) => session.id));
+    counts = countMatches(rows, rules.map((rule) => ({ ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) })));
     participantTypes = distinct(rows.map((row) => row.participant_type));
     rsvpStatuses = distinct(rows.map((row) => row.rsvp_status));
     companies = distinct(rows.map((row) => row.company));

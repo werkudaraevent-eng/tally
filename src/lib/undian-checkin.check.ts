@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describeConditions, matchesConditions, normalizeConditions, usesAttendance, type ParticipantPoolRow } from "./undian.ts";
+import { describeConditions, hasInvalidLeaf, invalidateUnknownSessions, matchesConditions, normalizeConditions, usesAttendance, type ParticipantPoolRow } from "./undian.ts";
 
 // Syarat check-in undian: gabungan pemindaian /scan dan salinan scanner API,
 // dengan pilihan satu sesi.
@@ -48,6 +48,14 @@ assert.equal(usesAttendance(normalizeConditions({ op: "and", children: [{ var: "
 
 assert.equal(describeConditions(anySession), "sudah check-in");
 assert.equal(describeConditions(gala, { 7: "Gala Dinner" }), "sudah check-in di Gala Dinner");
-assert.equal(describeConditions(notGala, {}), "belum check-in di sesi yang sudah dihapus");
+assert.equal(describeConditions(notGala, {}), "SESI CHECK-IN SUDAH DIHAPUS, pilih ulang");
+
+// Sesi yang sudah dihapus: syaratnya rusak, tidak ada yang lolos, termasuk
+// "Belum check-in" yang tanpa ini meloloskan semua orang.
+const gone = invalidateUnknownSessions(notGala, new Set([3]));
+assert.equal(hasInvalidLeaf(gone), true);
+assert.equal(matchesConditions(absent, gone), false);
+assert.equal(hasInvalidLeaf(invalidateUnknownSessions(notGala, new Set([7]))), false);
+assert.equal(hasInvalidLeaf(invalidateUnknownSessions(anySession, new Set())), false);
 
 console.log("undian-checkin ok");

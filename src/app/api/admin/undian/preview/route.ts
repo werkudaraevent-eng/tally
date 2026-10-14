@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import {
+  invalidateUnknownSessions,
   matchesConditions,
   normalizeConditions,
   ticketsFor,
@@ -82,11 +83,14 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const eventId = auth.scope.event.id;
-  const conditions = normalizeConditions(parsed.data.conditions);
-  const [rules, attendanceSessions] = await Promise.all([
+  const [rawRules, attendanceSessions] = await Promise.all([
     activeRulesFor(eventId, parsed.data.prize_id ?? null),
     listAttendanceSessions(eventId),
   ]);
+  // Sesi yang sudah dihapus membuat syaratnya rusak, sama seperti di buildPool().
+  const known = new Set(attendanceSessions.map((session) => session.id));
+  const conditions = invalidateUnknownSessions(normalizeConditions(parsed.data.conditions), known);
+  const rules = rawRules.map((rule) => ({ ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) }));
   const rows = await loadParticipantPool(eventId, weightNeedsAttendance(parsed.data) || needsAttendance(conditions, ...rules.map((rule) => rule.conditions)));
   if (!rows) return apiError("INTERNAL_ERROR", 500);
   const weight: WeightConfig = parsed.data;
