@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Bell, CalendarDots, Compass, QrCode, Train, User, X } from "@phosphor-icons/react/dist/ssr";
 import type { PortalTab } from "@/components/member/dashboard-gathering";
+import { GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 
 /**
  * Portal peserta Gathering Horizon: rancangan pen.dev V5 Hanung (2026-10-13),
@@ -65,8 +66,9 @@ export function KepalaHorizon({
             <span className="truncate text-[18px] font-extrabold">{nama}</span>
           )}
         </a>
-        <nav aria-label={tabsAria} className="hidden md:block">
-          <ul className="flex items-center gap-4">
+        {/* Tab di kanan, berdampingan dengan profil: sama dengan bilah atas halaman acara Horizon. */}
+        <nav aria-label={tabsAria} className="ml-auto hidden md:block">
+          <ul className="flex items-center gap-6">
             {tabs
               .filter((tab) => tab.id !== "profil")
               .map((tab) => (
@@ -347,6 +349,38 @@ export function BabHorizon({ bab }: { bab: { label: string; judul: string; href:
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * Daftar hari di kiri halaman Jadwal (layar lebar): pola bab yang sama dengan
+ * BabHorizon di Beranda, disusun tegak dan menempel saat digulir, supaya
+ * semua hari terlihat sekaligus tanpa tab yang harus digeser.
+ */
+export function HariJadwalHorizon({ hari, aria }: { hari: { label: string; judul: string; href: string; aktif: boolean }[]; aria: string }) {
+  return (
+    <nav aria-label={aria} className="sticky top-[118px] -my-1 -ml-6 -mr-1 hidden max-h-[calc(100dvh-134px)] scroll-py-1 self-start overflow-y-auto p-1 print:max-h-none print:overflow-visible lg:block" style={{ color: TINTA }}>
+      <GulirHariAktif />
+      <ol className="flex flex-col gap-1">
+        {hari.map((item) => (
+          <li key={item.href}>
+            {/* Hari terpilih memakai kartu putih yang sama dengan kartu acara di kanannya. */}
+            <Link
+              href={item.href}
+              aria-current={item.aktif ? "page" : undefined}
+              className={`m3-state flex min-h-12 flex-col gap-1.5 rounded-[16px] px-5 py-4 ${item.aktif ? "bg-white shadow-[0_1px_2px_rgb(16_24_40/0.06)]" : ""}`}
+            >
+              <span className="text-[11px] font-bold uppercase tracking-[0.6px]" style={{ color: item.aktif ? BIRU : LABEL }}>
+                {item.label}
+              </span>
+              <span className={`text-[17px] leading-[1.3] text-balance [overflow-wrap:anywhere] ${item.aktif ? "font-extrabold" : "font-semibold"}`} style={item.aktif ? undefined : { color: REDUP }}>
+                {item.judul}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </nav>
   );
 }
 
