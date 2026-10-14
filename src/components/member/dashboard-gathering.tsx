@@ -184,10 +184,15 @@ export async function DashboardGathering({
   const peserta = sesi.participant;
   // Kartu Lengkapi data hanya di Beranda. Pratinjau admin: semua pertanyaannya.
   const lengkapi = tab !== "beranda" && tab !== "qr" ? [] : pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, peserta?.id);
-  const logistik = peserta ? await loadMemberLogistics(event.id, peserta.id, member.show_logistics === true) : null;
+  // Checkpoint (Check-in > Checkpoints): hanya Beranda, hanya bila dinyalakan
+  // dan tidak disembunyikan di Participant home.
+  const [logistik, checkpoint] = peserta
+    ? await Promise.all([
+        loadMemberLogistics(event.id, peserta.id, member.show_logistics === true),
+        tab === "beranda" && !(member.home?.hidden ?? []).includes("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang) : null,
+      ])
+    : [null, null];
   const tampilKode = Boolean(peserta) && member.show_code !== false;
-  // Checkpoint (Check-in > Checkpoints): hanya Beranda, hanya bila dinyalakan.
-  const checkpoint = peserta && tab === "beranda" ? await loadCheckpointPeserta(event.id, peserta.id, lang) : null;
 
   const nama = publicEventName(event);
   const tanggal = formatEventDate(event, lang);

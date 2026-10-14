@@ -149,12 +149,16 @@ export async function DashboardModern({
   const peserta = sesi.participant;
   // Logistik gathering (kamar, bus, barang). null di acara tanpa logistik:
   // ILO dan acara lain tampil persis seperti sebelumnya.
-  const logistik = peserta ? await loadMemberLogistics(event.id, peserta.id, member.show_logistics === true) : null;
-  // Checkpoint (Check-in > Checkpoints), hanya bila dinyalakan. Barang yang sudah
-  // menjadi checkpoint tidak diulang di kartu "Barang untuk Anda".
-  const checkpoint = peserta ? await loadCheckpointPeserta(event.id, peserta.id, lang) : null;
-  const tampilCheckpoint = Boolean(checkpoint) && diBeranda("checkpoints");
-  const barangCheckpoint = new Set(tampilCheckpoint ? checkpoint!.item_names : []);
+  // Checkpoint (Check-in > Checkpoints), hanya bila dinyalakan dan tidak
+  // disembunyikan di Participant home. Barang yang sudah menjadi checkpoint
+  // tidak diulang di kartu "Barang untuk Anda".
+  const [logistik, checkpoint] = peserta
+    ? await Promise.all([
+        loadMemberLogistics(event.id, peserta.id, member.show_logistics === true),
+        diBeranda("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang) : null,
+      ])
+    : [null, null];
+  const barangCheckpoint = new Set(checkpoint ? checkpoint.item_names : []);
   const sekarang = new Date();
   const berikutnya = logistik ? agendaBerikutnya(logistik, sekarang) : null;
   const nama = publicEventName(event);

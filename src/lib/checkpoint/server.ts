@@ -97,6 +97,16 @@ async function selesaiPeserta(
   return hasil;
 }
 
+/**
+ * Setelan dan daftar dibaca bersamaan (satu putaran, bukan dua). Null bila fitur
+ * mati, daftar kosong, atau galat.
+ */
+async function muatAktif(eventId: string): Promise<{ setelan: SetelanCheckpoint; daftar: BarisCheckpoint[] } | null> {
+  const [setelan, daftar] = await Promise.all([loadSetelanCheckpoint(eventId), loadDaftarCheckpoint(eventId)]);
+  if (!setelan?.enabled || !daftar || daftar.length === 0) return null;
+  return { setelan, daftar };
+}
+
 /** Satu checkpoint seperti yang dilihat peserta, dalam bahasa halamannya. */
 export type LangkahPeserta = {
   id: number;
@@ -123,10 +133,9 @@ export type CheckpointPeserta = {
  */
 export async function loadCheckpointPeserta(eventId: string, participantId: string, lang: "id" | "en"): Promise<CheckpointPeserta | null> {
   try {
-    const setelan = await loadSetelanCheckpoint(eventId);
-    if (!setelan?.enabled) return null;
-    const daftar = await loadDaftarCheckpoint(eventId);
-    if (!daftar || daftar.length === 0) return null;
+    const aktif = await muatAktif(eventId);
+    if (!aktif) return null;
+    const { setelan, daftar } = aktif;
     const barangIds = daftar.map((cp) => cp.item_id).filter((id): id is number => id !== null);
     const [selesai, barang] = await Promise.all([
       selesaiPeserta(eventId, participantId, daftar),
@@ -180,10 +189,9 @@ export async function catatanCheckpointScan(
   bukti: { sessionId?: number; itemIds?: number[] },
 ): Promise<CatatanCheckpointScan | null> {
   try {
-    const setelan = await loadSetelanCheckpoint(eventId);
-    if (!setelan?.enabled) return null;
-    const daftar = await loadDaftarCheckpoint(eventId);
-    if (!daftar || daftar.length === 0) return null;
+    const aktif = await muatAktif(eventId);
+    if (!aktif) return null;
+    const { setelan, daftar } = aktif;
     const kena = daftar
       .map((cp, index) => ({ cp, posisi: index + 1 }))
       .filter(({ cp }) => (bukti.sessionId !== undefined && cp.session_id === bukti.sessionId) || (cp.item_id !== null && (bukti.itemIds ?? []).includes(cp.item_id)));

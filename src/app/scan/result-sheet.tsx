@@ -479,7 +479,7 @@ function CatatanCheckpointHasil({ catatan, baru }: { catatan: CatatanCheckpoint;
       ))}
       {catatan.terbuka_sebelum.length > 0 ? (
         <p className="rounded-lg bg-warning-soft px-3 py-2 text-body-medium text-on-warning-soft [overflow-wrap:anywhere]">
-          Still open: {catatan.terbuka_sebelum.map((cp) => `${cp.posisi} ${cp.judul}`).join(", ")}. They can carry on; point them there afterwards.
+          Still open: {catatan.terbuka_sebelum.map((cp) => `${cp.posisi}. ${cp.judul}`).join(", ")}. They can carry on; point them there afterwards.
         </p>
       ) : null}
     </div>
