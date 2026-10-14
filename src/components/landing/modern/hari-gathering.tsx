@@ -54,7 +54,6 @@ export function HariGathering({
                 </span>
                 {hari ? (
                   <p className={`inline-flex min-h-7 items-center rounded-full px-3 text-[12px] font-bold ${WARNA_CHIP[index % WARNA_CHIP.length]}`}>
-                    <span className="sr-only">{t.day(index + 1)}, </span>
                     {hari}
                   </p>
                 ) : (

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bandingkanBaris, geserDalamSlot, pindahDalamSlot, susunUlangSlot, type BarisUrut } from "./rundown-urutan.ts";
+import { bandingkanBaris, bandingkanBagian, geserBagian, geserDalamSlot, pindahDalamSlot, susunUlangBagian, susunUlangSlot, urutBagianMenurutTanggal, type BagianUrut, type BarisUrut } from "./rundown-urutan.ts";
 
 // Kasus ILO: End of Forum dibuat sebelum Breakout 2 dan 3.
 const ilo: BarisUrut[] = [
@@ -48,3 +48,34 @@ assert.equal(bandingkanBaris({ id: 1, start_time: "13:00", sort_order: 9 }, { id
 assert.equal(bandingkanBaris({ id: 1, start_time: "13:00:30", sort_order: 1 }, { id: 2, start_time: "13:00:00", sort_order: 9 }) > 0, true);
 
 console.log("rundown-urutan ok");
+
+// ---- Bagian (tab) ----------------------------------------------------------
+// Kasus KSO: tab dibuat tidak urut, Batch 1 hari Jumat dibuat paling akhir.
+const kso: BagianUrut[] = [
+  { id: 21, sort_order: 1, event_date: "2026-11-05", name: "Kamis, 05 November 2026" },
+  { id: 22, sort_order: 2, event_date: "2026-11-06", name: "Jumat, 06 November 2026 (Batch 2)" },
+  { id: 23, sort_order: 3, event_date: "2026-11-07", name: "Sabtu, 07 November 2026" },
+  { id: 24, sort_order: 4, event_date: "2026-11-08", name: "Minggu, 08 November 2026 (Batch 1)" },
+  { id: 25, sort_order: 5, event_date: "2026-11-06", name: "Jumat, 06 November 2026 (Batch 1)" },
+];
+assert.deepEqual(urutBagianMenurutTanggal(kso), [21, 25, 22, 23, 24]);
+// Angka dibaca sebagai angka; tanggal dan label sama ikut urutan sekarang.
+assert.deepEqual(urutBagianMenurutTanggal([
+  { id: 1, sort_order: 1, event_date: "2026-11-06", name: "Batch 10" },
+  { id: 2, sort_order: 2, event_date: "2026-11-06", name: "Batch 2" },
+  { id: 3, sort_order: 4, event_date: "2026-11-06", name: "Sesi" },
+  { id: 4, sort_order: 3, event_date: "2026-11-06", name: "sesi" },
+]), [2, 1, 4, 3]);
+
+// Hanya yang berubah ditulis; kembar dari data lama tetap bisa disusun.
+assert.deepEqual(susunUlangBagian(kso, [21, 25, 22, 23, 24]), [{ id: 25, sort_order: 2 }, { id: 22, sort_order: 3 }, { id: 23, sort_order: 4 }, { id: 24, sort_order: 5 }]);
+assert.deepEqual(susunUlangBagian([{ id: 1, sort_order: 0 }, { id: 2, sort_order: 0 }], [2, 1]), [{ id: 2, sort_order: 1 }, { id: 1, sort_order: 2 }]);
+assert.deepEqual(susunUlangBagian(kso, [21, 22, 23, 24, 25]), []);
+// Ditolak: kurang, id asing, id dobel.
+assert.equal(susunUlangBagian(kso, [21, 22, 23, 24]), null);
+assert.equal(susunUlangBagian(kso, [21, 22, 23, 24, 99]), null);
+assert.equal(susunUlangBagian(kso, [21, 22, 23, 24, 24]), null);
+
+assert.deepEqual(geserBagian([1, 2, 3], 3, -1), [1, 3, 2]);
+assert.equal(geserBagian([1, 2, 3], 1, -1), null);
+assert.deepEqual([{ id: 5, sort_order: 1 }, { id: 2, sort_order: 1 }, { id: 9, sort_order: 0 }].sort(bandingkanBagian).map((r) => r.id), [9, 2, 5]);
