@@ -206,7 +206,7 @@ export default function AreaPesertaPage() {
                       checked={anggota.show_logistics === true}
                       onChange={(value) => set({ show_logistics: value })}
                       label="Room and bus"
-                      description="From Logistics: room, roommate, bus and kit items. Turn this on once allocations are final."
+                      description="From Logistics: room, roommate, bus, train tickets and kit items. Turn this on once allocations are final."
                     />
                     <Switch checked={anggota.show_vote !== false} onChange={(value) => set({ show_vote: value })} label="Live voting" description="The participant code is filled in automatically on the voting page." />
                     <TextField

@@ -1,7 +1,7 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationFormConfig } from "@/lib/domain";
-import { klien, semuaBaris } from "@/lib/logistik/server";
+import { bacaTiketKereta, klien, semuaBaris } from "@/lib/logistik/server";
 import type { LogistikData, LogistikField } from "@/lib/logistik/types";
 
 /**
@@ -48,6 +48,9 @@ export async function GET(request: Request) {
 
   const gagal = [settings, hotels, rooms, vehicles, trips, items, overview, recap, sesiBarang].some((hasil) => hasil.error);
   if (gagal || !peserta || !lodging || !transport) return apiError("INTERNAL_ERROR", 500);
+
+  const kereta = await bacaTiketKereta(eventId);
+  if (kereta === "galat") return apiError("INTERNAL_ERROR", 500);
 
   const setelan = (settings.data as LogistikData["settings"] | null) ?? { gender_field_key: null, enforce_same_gender: true };
   const kunciGender = setelan.gender_field_key;
@@ -99,6 +102,8 @@ export async function GET(request: Request) {
       .map((baris) => ({ item_id: Number(baris.item_id), size: baris.size, participants: Number(baris.participants), picked_up: Number(baris.picked_up) })),
     item_sessions: ((sesiBarang.data ?? []) as unknown as Array<{ item_id: number; session_id: number; attendance_sessions: { name: string } | null }>)
       .map((baris) => ({ item_id: baris.item_id, session_id: baris.session_id, session_name: baris.attendance_sessions?.name ?? "" })),
+    trains: kereta ?? [],
+    trains_ready: kereta !== null,
   };
   return Response.json(body);
 }

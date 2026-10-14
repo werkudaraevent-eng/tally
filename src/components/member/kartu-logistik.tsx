@@ -1,7 +1,8 @@
-import { ArrowSquareOut, Bed, Bus, CheckCircle, Package } from "@phosphor-icons/react/dist/ssr";
+import { ArrowSquareOut, Bed, Bus, CheckCircle, Package, Train } from "@phosphor-icons/react/dist/ssr";
 import type { ReactNode } from "react";
 import type { EventTimeZone } from "@/lib/timezone";
 import type { LogistikAgenda, LogistikPeserta } from "@/lib/logistik/peserta";
+import { jamLeg, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
 import { HEAD, LABEL_BAGIAN, MUTED } from "@/components/landing/modern/styles";
 
 /**
@@ -212,6 +213,60 @@ export function KartuBarang({ logistik }: { logistik: LogistikPeserta }) {
             )}
           </li>
         ))}
+      </ul>
+    </section>
+  );
+}
+
+const TEKS_KERETA = {
+  id: { judul: "Tiket kereta", outbound: "Berangkat", return: "Pulang", gerbong: "Gerbong", kursi: "Kursi", kode: "Kode booking" },
+  en: { judul: "Train tickets", outbound: "Outbound", return: "Return", gerbong: "Carriage", kursi: "Seat", kode: "Booking code" },
+} as const;
+
+/**
+ * Tiket kereta peserta, satu blok per arah. Tidak tampil bila peserta tidak
+ * punya tiket: berbeda dengan kamar dan bus, tidak semua acara memakai kereta,
+ * jadi "sedang disiapkan" akan menjanjikan sesuatu yang mungkin tidak ada.
+ * `kelas` dan `redup` mengikuti kartu di sebelahnya (Gathering atau Modern).
+ */
+export function KartuKereta({ logistik, lang, kelas = KARTU, redup = MUTED }: { logistik: LogistikPeserta; lang: "id" | "en"; kelas?: string; redup?: string }) {
+  if (logistik.trains.length === 0) return null;
+  const t = TEKS_KERETA[lang];
+  return (
+    <section aria-labelledby="kereta-judul" className={kelas}>
+      <h2 id="kereta-judul" className={`${LABEL_BAGIAN} ${redup} inline-flex items-center gap-1.5`}>
+        <Train size={16} aria-hidden />
+        {t.judul}
+      </h2>
+      <ul className="mt-3 flex flex-col">
+        {logistik.trains.map((tiket, index) => {
+          const rute = ruteLeg(tiket);
+          const baris = [rute ? tiket.train_name : null, tiket.travel_class, jamLeg(tiket, lang)].filter(Boolean).join(" · ");
+          return (
+            <li key={tiket.direction} className={index > 0 ? "mt-4 border-t border-dashed border-[#C9D1DE] pt-4" : ""}>
+              <p className={`text-label-large font-semibold ${redup}`}>
+                {[t[tiket.direction], tanggalLeg(tiket.depart_date, lang)].filter(Boolean).join(" · ")}
+              </p>
+              <p className={`${HEAD} mt-1 text-[20px] font-semibold leading-tight [overflow-wrap:anywhere]`}>{rute ?? tiket.train_name}</p>
+              {baris ? <p className={`mt-1 text-body-medium ${redup}`}>{baris}</p> : null}
+              {tiket.carriage || tiket.seat ? (
+                <dl className="mt-3 grid grid-cols-2 gap-3">
+                  {([[t.gerbong, tiket.carriage], [t.kursi, tiket.seat]] as const).map(([label, nilai]) => nilai ? (
+                    <div key={label} className="min-w-0">
+                      <dt className={`text-body-medium ${redup}`}>{label}</dt>
+                      <dd className="text-[28px] font-bold leading-tight tabular-nums [overflow-wrap:anywhere]">{nilai}</dd>
+                    </div>
+                  ) : null)}
+                </dl>
+              ) : null}
+              {tiket.booking_code ? (
+                <p className="mt-3 text-body-medium">
+                  <span className={redup}>{t.kode}</span> <span className="font-semibold tracking-[0.06em]">{tiket.booking_code}</span>
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

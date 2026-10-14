@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { idDariQuery, klien } from "@/lib/logistik/server";
+import { idDariQuery, klien, KOLOM_KERETA } from "@/lib/logistik/server";
 import { plural } from "@/lib/plural";
 
 /**
- * Data induk logistik: hotel, kamar, bus, agenda bus, dan barang.
+ * Data induk logistik: hotel, kamar, bus, agenda bus, barang, dan tiket kereta.
  *
  * Kelimanya tabel biasa tanpa aturan lintas baris, jadi satu route melayani
  * semuanya lewat tabel konfigurasi di bawah. Penempatan orang (siapa di kamar
@@ -18,6 +18,7 @@ import { plural } from "@/lib/plural";
 const teks = (maks: number) => z.string().trim().max(maks).nullish().transform((nilai) => (nilai ? nilai : null));
 const waktu = z.string().datetime({ offset: true }).nullish().transform((nilai) => nilai ?? null);
 const urutan = z.number().int().min(0).max(9999).optional();
+const jam = z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, "Use HH:MM, such as 08:20").nullish().or(z.literal("")).transform((nilai) => (nilai ? nilai : null));
 
 type Jenis = {
   tabel: string;
@@ -130,6 +131,27 @@ const JENIS: Record<string, Jenis> = {
         ? `This kit item has been handed out to ${plural(count ?? 0, "participant")}. Deleting it would also delete those hand-out records, so it cannot be deleted.`
         : null;
     },
+  },
+  kereta: {
+    tabel: "train_tickets",
+    kolom: KOLOM_KERETA,
+    skema: z.object({
+      participant_id: z.string().uuid(),
+      direction: z.enum(["outbound", "return"]),
+      train_name: z.string().trim().min(1).max(80),
+      travel_class: teks(40),
+      origin: teks(80),
+      destination: teks(80),
+      depart_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().or(z.literal("")).transform((nilai) => (nilai ? nilai : null)),
+      depart_time: jam,
+      arrive_time: jam,
+      carriage: teks(20),
+      seat: teks(20),
+      booking_code: teks(40),
+    }),
+    ganda: "This participant already has a ticket in that direction. Edit that ticket instead.",
+    indukHilang: "The participant was not found. Reload the page.",
+    // Tiket tidak punya turunan; menghapusnya hanya menghapus tiket itu.
   },
 };
 

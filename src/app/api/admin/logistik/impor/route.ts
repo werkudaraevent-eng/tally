@@ -1,12 +1,12 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { rencanaBus, rencanaKamar, TEMPLAT, type JenisImpor, type KeadaanAcara, type Rencana } from "@/lib/logistik/impor";
-import { klien, pesanRpc, semuaBaris } from "@/lib/logistik/server";
+import { LABEL_ARAH, rencanaBus, rencanaKamar, rencanaKereta, TEMPLAT, type JenisImpor, type KeadaanAcara, type Rencana } from "@/lib/logistik/impor";
+import { bacaTiketKereta, klien, pesanRpc, semuaBaris } from "@/lib/logistik/server";
 import { plural } from "@/lib/plural";
 import { textToCells, xlsxToCells } from "@/lib/undian-import";
 
 /**
- * Impor Excel Logistik: rooming list dari hotel, dan daftar bus.
+ * Impor Excel Logistik: rooming list dari hotel, daftar bus, dan tiket kereta.
  *
  * POST dengan `simpan` kosong hanya mengembalikan rencana (pratinjau). POST
  * dengan `simpan=1` dan berkas yang sama menyusun rencana ulang dari keadaan
@@ -15,7 +15,10 @@ import { textToCells, xlsxToCells } from "@/lib/undian-import";
  * transaksi yang sama dengan penulisannya; rencana hanya menyaring yang pasti
  * ditolak supaya panitia melihatnya sebelum menekan Simpan.
  *
- * GET `?jenis=kamar|bus` mengunduh templatnya.
+ * Tiket kereta tidak lewat RPC: tidak ada aturan lintas baris selain satu
+ * tiket per orang per arah, yang dijaga indeks unik dan upsert.
+ *
+ * GET `?jenis=kamar|bus|kereta` mengunduh templatnya.
  */
 
 const BATAS_BERKAS = 10 * 1024 * 1024;
@@ -23,7 +26,13 @@ const BATAS_BERKAS = 10 * 1024 * 1024;
 /** Sama dengan pembanding di impor.ts: spasi dirapikan, huruf kecil. */
 const kunci = (nilai: string | null) => (nilai ?? "").replace(/\s+/g, " ").trim().toLowerCase();
 
-const jenisDari = (nilai: unknown): JenisImpor | null => (nilai === "kamar" || nilai === "bus" ? nilai : null);
+const jenisDari = (nilai: unknown): JenisImpor | null => (nilai === "kamar" || nilai === "bus" || nilai === "kereta" ? nilai : null);
+
+const NAMA_TEMPLAT: Record<JenisImpor, { sheet: string; berkas: string }> = {
+  kamar: { sheet: "Rooming list", berkas: "room" },
+  bus: { sheet: "Bus", berkas: "bus" },
+  kereta: { sheet: "Trains", berkas: "train" },
+};
 
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
@@ -33,7 +42,7 @@ export async function GET(request: Request) {
 
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet(jenis === "kamar" ? "Rooming list" : "Bus");
+  const sheet = workbook.addWorksheet(NAMA_TEMPLAT[jenis].sheet);
   sheet.addRow(TEMPLAT[jenis].judul);
   sheet.getRow(1).font = { bold: true };
   sheet.views = [{ state: "frozen", ySplit: 1 }];
@@ -43,7 +52,7 @@ export async function GET(request: Request) {
   return new Response(buffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${jenis === "kamar" ? "room" : "bus"}-template.xlsx"`,
+      "Content-Disposition": `attachment; filename="${NAMA_TEMPLAT[jenis].berkas}-template.xlsx"`,
     },
   });
 }
@@ -56,7 +65,7 @@ export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
   const jenis = jenisDari(form?.get("jenis"));
   const file = form?.get("file");
-  if (!form || !jenis) return apiError("VALIDATION_ERROR", 422, { message: "Choose what to import: rooms or buses." });
+  if (!form || !jenis) return apiError("VALIDATION_ERROR", 422, { message: "Choose what to import: rooms, buses or trains." });
   if (!(file instanceof File) || file.size === 0) return apiError("VALIDATION_ERROR", 422, { message: "Choose an Excel or CSV file first." });
   if (file.size > BATAS_BERKAS) return apiError("VALIDATION_ERROR", 422, { message: "The file can be at most 10 MB." });
 
@@ -68,19 +77,23 @@ export async function POST(request: Request) {
   const sel = xlsx ? await xlsxToCells(await file.arrayBuffer()) : textToCells(await file.text());
   if (!sel) return apiError("VALIDATION_ERROR", 422, { message: "The Excel file could not be read. Check that it is not damaged or password-protected." });
 
-  const acara = await muatKeadaan(eventId);
+  const acara = await muatKeadaan(eventId, jenis === "kereta");
+  if (acara === "belum") return apiError("VALIDATION_ERROR", 422, { message: "Train tickets need a database update first. Ask your Tally administrator to run the train tickets migration." });
   if (!acara) return apiError("INTERNAL_ERROR", 500);
-  const rencana = jenis === "kamar" ? rencanaKamar(sel, acara) : rencanaBus(sel, acara);
+  const rencana = jenis === "kamar" ? rencanaKamar(sel, acara) : jenis === "bus" ? rencanaBus(sel, acara) : rencanaKereta(sel, acara);
   if (rencana.galat) return apiError("VALIDATION_ERROR", 422, { message: rencana.galat });
 
   if (form.get("simpan") !== "1") return Response.json({ rencana });
 
-  const hasil = jenis === "kamar" ? await simpanKamar(eventId, auth.user.id, rencana, acara) : await simpanBus(eventId, auth.user.id, rencana, acara);
+  const hasil = jenis === "kamar"
+    ? await simpanKamar(eventId, auth.user.id, rencana, acara)
+    : jenis === "bus" ? await simpanBus(eventId, auth.user.id, rencana, acara) : await simpanKereta(eventId, auth.user.id, rencana, acara);
   if ("galat" in hasil) return apiError("VALIDATION_ERROR", 422, { message: hasil.galat });
   return Response.json({ rencana, hasil });
 }
 
-async function muatKeadaan(eventId: string): Promise<KeadaanAcara | null> {
+/** "belum" = impor kereta di database yang belum punya tabel `train_tickets`. */
+async function muatKeadaan(eventId: string, denganKereta: boolean): Promise<KeadaanAcara | null | "belum"> {
   const db = klien();
   const setelan = await db.from("lodging_settings").select("gender_field_key,enforce_same_gender").eq("event_id", eventId).maybeSingle();
   if (setelan.error) return null;
@@ -96,6 +109,9 @@ async function muatKeadaan(eventId: string): Promise<KeadaanAcara | null> {
       db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).order("id")),
   ]);
   if (!peserta || !hotels || !rooms || !lodging || !vehicles || !transport) return null;
+  const kereta = denganKereta ? await bacaTiketKereta(eventId) : [];
+  if (kereta === null) return "belum";
+  if (kereta === "galat") return null;
   const kunci = settings.gender_field_key;
   return {
     peserta: peserta.map((orang) => {
@@ -108,6 +124,7 @@ async function muatKeadaan(eventId: string): Promise<KeadaanAcara | null> {
     settings,
     vehicles,
     busBawaan: transport.filter((b): b is { participant_id: string; vehicle_id: number } => b.vehicle_id !== null),
+    kereta,
   };
 }
 
@@ -209,4 +226,34 @@ async function simpanBus(eventId: string, actor: string, rencana: Rencana, acara
     }
   }
   return { masuk, dibuat, gagal };
+}
+
+/** Tiket per upsert. Jauh di bawah batas ukuran permintaan PostgREST. */
+const POTONG_TIKET = 500;
+
+async function simpanKereta(eventId: string, actor: string, rencana: Rencana, acara: KeadaanAcara): Promise<Hasil> {
+  const db = klien();
+  const nama = new Map(acara.peserta.map((orang) => [orang.id, orang.name]));
+  const sekarang = new Date().toISOString();
+  const baris = rencana.tiket.map((tiket) => ({ ...tiket, event_id: eventId, created_by: actor, updated_at: sekarang }));
+  const tulis = (potong: typeof baris) =>
+    db.from("train_tickets").upsert(potong as never, { onConflict: "event_id,participant_id,direction" });
+  let masuk = 0;
+  const gagal: Array<{ nama: string; alasan: string }> = [];
+  for (let i = 0; i < baris.length; i += POTONG_TIKET) {
+    const potong = baris.slice(i, i + POTONG_TIKET);
+    const { error } = await tulis(potong);
+    if (!error) { masuk += potong.length; continue; }
+    // Satu peserta yang baru dihapus (FK) menolak seluruh potongan. Sisanya
+    // dicoba satu per satu supaya yang sah tetap tersimpan.
+    for (const satu of potong) {
+      const hasil = await tulis([satu]);
+      if (!hasil.error) { masuk += 1; continue; }
+      gagal.push({
+        nama: `${nama.get(satu.participant_id) ?? satu.participant_id} (${LABEL_ARAH[satu.direction]})`,
+        alasan: String(hasil.error.code) === "23503" ? "This participant was deleted. Reload the page." : "Could not save.",
+      });
+    }
+  }
+  return { masuk, dibuat: [], gagal };
 }

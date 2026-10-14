@@ -62,6 +62,8 @@ export type PortalUiText = {
     subtitle: (hari: number) => string;
     participant: string;
     hotel: string;
+    /** Kartu tiket kereta (tabel train_tickets). */
+    train: { title: string; outbound: string; return: string; carriage: string; seat: string; booking: string };
     bus: string;
     room: string;
     roommate: (jumlah: number) => string;
@@ -138,6 +140,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           : "Tiket, teman perjalanan, dan agenda yang menunggumu.",
       participant: "Peserta",
       hotel: "Hotel",
+      train: { title: "Tiket kereta", outbound: "Berangkat", return: "Pulang", carriage: "Gerbong", seat: "Kursi", booking: "Kode booking" },
       bus: "Bus",
       room: "Kamar",
       roommate: (jumlah) => (jumlah > 1 ? "Teman-teman sekamar" : "Teman sekamar"),
@@ -212,6 +215,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           : "Your ticket, travel mates, and the agenda ahead.",
       participant: "Participant",
       hotel: "Hotel",
+      train: { title: "Train tickets", outbound: "Outbound", return: "Return", carriage: "Carriage", seat: "Seat", booking: "Booking code" },
       bus: "Bus",
       room: "Room",
       roommate: (jumlah) => (jumlah > 1 ? "Roommates" : "Roommate"),

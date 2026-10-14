@@ -11,7 +11,8 @@ import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 
 /**
- * Impor Excel untuk Logistik: rooming list dari hotel, atau daftar bus.
+ * Impor Excel untuk Logistik: rooming list dari hotel, daftar bus, atau
+ * tiket kereta.
  *
  * Dua langkah dengan berkas yang sama. Memilih berkas langsung meminta
  * pratinjau (tidak ada yang ditulis), lalu Simpan mengirim berkas itu lagi dan
@@ -25,7 +26,10 @@ type Hasil = { masuk: number; dibuat: string[]; gagal: Array<{ nama: string; ala
 const URAIAN: Record<JenisImpor, string> = {
   kamar: "One row per person: Hotel, Room, then QR code or Name. Hotels and rooms that do not exist yet are created; fill in Type and Capacity for new rooms.",
   bus: "One row per person: Bus, then QR code or Name. Buses that do not exist yet are created with no capacity limit.",
+  kereta: "One row per person per direction: QR code or Name, Direction (Outbound or Return), Train, then Class, From, To, Date, Departs, Arrives, Carriage, Seat and Booking code. A person's existing ticket in the same direction is updated.",
 };
+
+const JUDUL: Record<JenisImpor, string> = { kamar: "Import rooms from Excel", bus: "Import buses from Excel", kereta: "Import train tickets from Excel" };
 
 const STATUS: Record<StatusBaris, { label: string; tone: "success" | "warning" | "neutral" | "error" }> = {
   masuk: { label: "Added", tone: "success" },
@@ -33,6 +37,9 @@ const STATUS: Record<StatusBaris, { label: string; tone: "success" | "warning" |
   tetap: { label: "Unchanged", tone: "neutral" },
   tolak: { label: "Rejected", tone: "error" },
 };
+
+/** Tiket kereta tidak "pindah": tiket yang sudah ada diperbarui. */
+const labelStatus = (status: StatusBaris, jenis: JenisImpor) => (jenis === "kereta" && status === "pindah" ? "Updated" : STATUS[status].label);
 
 // Pratinjau ribuan baris tetap cepat; ringkasan di atas tabel menghitung semuanya.
 const BATAS_TAMPIL = 500;
@@ -108,7 +115,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     const selesai = jawaban.hasil!;
     const dibuat = selesai.dibuat.length > 0 ? `Created ${selesai.dibuat.join(" and ")}.` : "";
     if (selesai.gagal.length === 0) {
-      toast.success(`${plural(selesai.masuk, "person", "people")} assigned`, dibuat || undefined);
+      toast.success(jenis === "kereta" ? `${plural(selesai.masuk, "ticket")} saved` : `${plural(selesai.masuk, "person", "people")} assigned`, dibuat || undefined);
       onClose();
       return;
     }
@@ -137,7 +144,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
       dismissible={!sibuk}
       size="xl"
       icon={<FileXls size={20} />}
-      title={jenis === "kamar" ? "Import rooms from Excel" : "Import buses from Excel"}
+      title={JUDUL[jenis]}
       description={hasil ? undefined : URAIAN[jenis]}
       actions={hasil ? (
         <Button onClick={onClose}>Done</Button>
@@ -150,7 +157,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             disabled={!rencana || proses === "baca" || (akanDitulis === 0 && dibuatNanti.length === 0)}
             onClick={() => void simpan()}
           >
-            {akanDitulis > 0 ? `Save ${plural(akanDitulis, "assignment")}` : "Save"}
+            {akanDitulis > 0 ? `Save ${plural(akanDitulis, jenis === "kereta" ? "ticket" : "assignment")}` : "Save"}
           </Button>
         </>
       )}
@@ -158,7 +165,9 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
       {hasil ? (
         <div className="flex flex-col gap-3">
           <p className="text-body-medium text-on-surface">
-            {plural(hasil.masuk, "person", "people")} assigned{hasil.dibuat.length > 0 ? `, and created ${hasil.dibuat.join(" and ")}` : ""}. {plural(hasil.gagal.length, "person", "people")} could not be assigned because things changed since the preview:
+            {jenis === "kereta"
+              ? `${plural(hasil.masuk, "ticket")} saved. ${plural(hasil.gagal.length, "ticket")} could not be saved because things changed since the preview:`
+              : <>{plural(hasil.masuk, "person", "people")} assigned{hasil.dibuat.length > 0 ? `, and created ${hasil.dibuat.join(" and ")}` : ""}. {plural(hasil.gagal.length, "person", "people")} could not be assigned because things changed since the preview:</>}
           </p>
           <ul className="flex max-h-[44dvh] flex-col overflow-y-auto rounded-md border border-outline-variant">
             {hasil.gagal.map((g, i) => (
@@ -175,7 +184,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             label="File contents"
             value={jenis}
             onChange={(nilai) => { setJenis(nilai); if (berkas) void baca(berkas, nilai); }}
-            options={[{ value: "kamar", label: "Hotel rooms" }, { value: "bus", label: "Buses" }]}
+            options={[{ value: "kamar", label: "Hotel rooms" }, { value: "bus", label: "Buses" }, { value: "kereta", label: "Train tickets" }]}
             className="self-start"
           />
 
@@ -219,7 +228,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
                 {(["masuk", "pindah", "tetap", "tolak"] as const).map((status) => hitung(status) > 0 ? (
                   <span key={status} className="inline-flex items-center gap-1.5">
                     <StatusDot tone={STATUS[status].tone} />
-                    <span className="tabular-nums text-on-surface">{hitung(status)}</span> {STATUS[status].label.toLowerCase()}
+                    <span className="tabular-nums text-on-surface">{hitung(status)}</span> {labelStatus(status, jenis).toLowerCase()}
                   </span>
                 ) : null)}
                 {dibuatNanti.length > 0 ? <span>Will be created: {dibuatNanti.join(", ")}</span> : null}
@@ -259,7 +268,7 @@ function TabelRencana({ baris, jenis }: { baris: BarisRencana[]; jenis: JenisImp
           <tr className="h-9 border-b border-outline-variant">
             <th scope="col" className="hidden w-16 px-4 font-normal sm:table-cell">Row</th>
             <th scope="col" className="px-4 font-normal">Name</th>
-            <th scope="col" className="hidden px-4 font-normal sm:table-cell">{jenis === "kamar" ? "Room" : "Bus"}</th>
+            <th scope="col" className="hidden px-4 font-normal sm:table-cell">{jenis === "kamar" ? "Room" : jenis === "bus" ? "Bus" : "Ticket"}</th>
             <th scope="col" className="px-4 font-normal">Status</th>
           </tr>
         </thead>
@@ -270,14 +279,14 @@ function TabelRencana({ baris, jenis }: { baris: BarisRencana[]; jenis: JenisImp
               <td className="px-4 py-2 text-on-surface sm:whitespace-nowrap">
                 {b.nama || <span className="text-on-surface-variant">{b.kode}</span>}
                 {/* Di layar sempit kolom tujuan digabung ke sini, supaya Keterangan tetap terlihat tanpa menggeser tabel. */}
-                <span className="block text-on-surface-variant sm:hidden">{b.tujuan || "No room or bus"}</span>
+                <span className="block text-on-surface-variant sm:hidden">{b.tujuan || (jenis === "kereta" ? "No ticket" : "No room or bus")}</span>
               </td>
               <td className="hidden whitespace-nowrap px-4 py-2 text-on-surface sm:table-cell">{b.tujuan || <span className="text-on-surface-variant">Empty</span>}</td>
               <td className="px-4 py-2 sm:min-w-48">
                 <span className="flex items-start gap-1.5">
                   <span className="mt-[7px] flex"><StatusDot tone={STATUS[b.status].tone} /></span>
                   <span className={b.status === "tolak" ? "text-on-surface" : "text-on-surface-variant"}>
-                    {b.alasan && b.status !== "tetap" ? b.alasan : STATUS[b.status].label}
+                    {b.alasan && b.status !== "tetap" ? b.alasan : labelStatus(b.status, jenis)}
                   </span>
                 </span>
               </td>

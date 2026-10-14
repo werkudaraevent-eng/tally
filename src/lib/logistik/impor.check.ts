@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { rencanaBus, rencanaKamar, TEMPLAT, type KeadaanAcara } from "./impor.ts";
+import { bacaJam, bacaTanggal, rencanaBus, rencanaKamar, rencanaKereta, TEMPLAT, type KeadaanAcara } from "./impor.ts";
 
 const acara: KeadaanAcara = {
   peserta: [
@@ -16,6 +16,7 @@ const acara: KeadaanAcara = {
   settings: { gender_field_key: "jk", enforce_same_gender: true },
   vehicles: [{ id: 5, code: "Bus 1", capacity: 1 }],
   busBawaan: [],
+  kereta: [],
 };
 
 // Judul di baris kedua, hotel tanpa kolom (satu hotel), kamar baru dibuat.
@@ -93,3 +94,59 @@ assert.equal(lamaBus.galat, null);
 assert.equal(lamaBus.baris[0]?.status, "masuk");
 
 console.log("impor.check: ok");
+
+// ------------------------------------------------------------------ Kereta
+assert.equal(bacaTanggal("2026-11-06"), "2026-11-06");
+assert.equal(bacaTanggal("6/11/2026"), "2026-11-06");
+assert.equal(bacaTanggal("06-11-26"), "2026-11-06");
+assert.equal(bacaTanggal("31/02/2026"), undefined);
+assert.equal(bacaTanggal("Nov 6"), undefined);
+assert.equal(bacaTanggal(" "), null);
+assert.equal(bacaJam("8:20"), "08:20");
+assert.equal(bacaJam("08.20"), "08:20");
+assert.equal(bacaJam("15:10:00"), "15:10");
+assert.equal(bacaJam("24:00"), undefined);
+assert.equal(bacaJam("pagi"), undefined);
+
+const tersimpan = {
+  id: 1, participant_id: "a", direction: "outbound" as const, train_name: "Argo Lawu 8", travel_class: "Executive", origin: "Gambir", destination: "Yogyakarta",
+  depart_date: "2026-11-06", depart_time: "08:20", arrive_time: "15:10", carriage: "EKS 3", seat: "12A", booking_code: "KBX7Q2",
+};
+const kereta = rencanaKereta([
+  TEMPLAT.kereta.judul,
+  ["", "Andi Pratama", "Berangkat", "Argo Lawu 8", "Executive", "Gambir", "Yogyakarta", "06/11/2026", "08:20", "15:10", "EKS 3", "12A", "KBX7Q2"],
+  ["", "Andi Pratama", "Pulang", "Taksaka 72", "Executive", "Yogyakarta", "Gambir", "2026-11-08", "15.30", "22:05", "EKS 5", "8C", ""],
+  ["Q-2", "", "outbound", "Argo Lawu 8", "", "", "", "06/11/2026", "", "", "EKS 1", "1A", ""],
+  ["Q-2", "", "Outbound", "Argo Lawu 8", "", "", "", "", "", "", "", "", ""],
+  ["", "Citra Lestari", "Both", "Argo Lawu 8"],
+  ["", "Citra Lestari", "Return", ""],
+  ["", "Citra Lestari", "Return", "Taksaka", "", "", "", "6 Nov"],
+  ["", "Citra Lestari", "Return", "Taksaka", "", "", "", "", "8 pagi"],
+  ["", "Eko", "Return", "Taksaka"],
+  ["", "", "", ""],
+], { ...acara, kereta: [tersimpan, { ...tersimpan, id: 2, participant_id: "b", seat: "2B" }] });
+assert.equal(kereta.galat, null);
+const sk = Object.fromEntries(kereta.baris.map((b) => [b.baris, `${b.status}:${b.alasan ?? ""}`]));
+assert.equal(sk[2], "tetap:Already saved");
+assert.equal(sk[3], "masuk:");
+assert.equal(sk[4], "pindah:Updates the saved ticket");
+assert.equal(sk[5], "tolak:Same person and direction already on row 4");
+assert.match(sk[6], /^tolak:Direction must be/);
+assert.equal(sk[7], "tolak:Train name is empty");
+assert.match(sk[8], /^tolak:Date not recognised/);
+assert.match(sk[9], /^tolak:Time not recognised/);
+assert.match(sk[10], /^tolak:2 participants have this name/);
+assert.equal(kereta.baris.length, 9);
+assert.equal(kereta.tiket.length, 2);
+assert.deepEqual(kereta.tiket[0], {
+  participant_id: "a", direction: "return", train_name: "Taksaka 72", travel_class: "Executive", origin: "Yogyakarta", destination: "Gambir",
+  depart_date: "2026-11-08", depart_time: "15:30", arrive_time: "22:05", carriage: "EKS 5", seat: "8C", booking_code: null,
+});
+// Kolom yang ada tetapi kosong mengosongkan nilai lama.
+assert.equal(kereta.tiket[1].travel_class, null);
+assert.equal(kereta.tiket[1].seat, "1A");
+
+// Kolom yang tidak ada di berkas mempertahankan nilai lama.
+const sebagian = rencanaKereta([["Name", "Direction", "Train", "Seat"], ["Andi Pratama", "Outbound", "Argo Lawu 8", "14C"]], { ...acara, kereta: [tersimpan] });
+assert.deepEqual(sebagian.tiket[0], { participant_id: "a", direction: "outbound", train_name: "Argo Lawu 8", travel_class: "Executive", origin: "Gambir", destination: "Yogyakarta", depart_date: "2026-11-06", depart_time: "08:20", arrive_time: "15:10", carriage: "EKS 3", seat: "14C", booking_code: "KBX7Q2" });
+assert.match(rencanaKereta([["Name", "Train"], ["Andi", "X"]], acara).galat ?? "", /Direction/);

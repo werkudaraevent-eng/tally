@@ -169,7 +169,9 @@ function cellText(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value.trim();
   if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  // Sel jam saja (08:20) tiba sebagai tanggal 30 Des 1899 di exceljs. Tanggal
+  // itu tidak pernah berarti, jadi yang dibaca jamnya.
+  if (value instanceof Date) return value.getUTCFullYear() < 1900 ? value.toISOString().slice(11, 16) : value.toISOString().slice(0, 10);
 
   const raw = value as Record<string, unknown>;
   // Rumus: pakai hasil hitungnya, bukan rumusnya. Kolom "Bobot" yang berisi
