@@ -411,6 +411,17 @@ export function bacaJam(teks: string): string | null | undefined {
 
 const BIDANG_KERETA = ["train_name", "travel_class", "origin", "destination", "depart_date", "depart_time", "arrive_time", "carriage", "seat", "booking_code"] as const;
 
+/** Batas panjang kolom tiket kereta, sama dengan check di tabel train_tickets. */
+const BATAS_KERETA: [keyof typeof ALIAS, string, number][] = [
+  ["kereta", "Train", 80],
+  ["kelas", "Class", 40],
+  ["dari", "From", 80],
+  ["ke", "To", 80],
+  ["gerbong", "Carriage", 20],
+  ["kursi", "Seat", 20],
+  ["booking", "Booking code", 40],
+];
+
 /**
  * Impor tiket kereta: satu baris = satu orang satu arah (Outbound atau
  * Return). Tiket yang sudah ada untuk orang dan arah yang sama diperbarui.
@@ -432,13 +443,13 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
   const baris: BarisRencana[] = [];
   const tiket: TiketImpor[] = [];
   const sudah = new Map<string, number>();
-  const ambil = (sel1: string[], nama: keyof typeof ALIAS, maks: number) => (kolom[nama] !== undefined ? rapi(sel1[kolom[nama]!]).slice(0, maks) : undefined);
+  const ambil = (sel1: string[], nama: keyof typeof ALIAS) => (kolom[nama] !== undefined ? rapi(sel1[kolom[nama]!]) : undefined);
 
   isi.forEach((sel1, i) => {
     const nomorBaris = mulai + i + 1;
     const kode = kolom.kode !== undefined ? rapi(sel1[kolom.kode]) : "";
     const nama = kolom.nama !== undefined ? rapi(sel1[kolom.nama]) : "";
-    const kereta = ambil(sel1, "kereta", 80) ?? "";
+    const kereta = ambil(sel1, "kereta") ?? "";
     const arahTeks = kunci(sel1[kolom.arah!]);
     if (!kode && !nama && !kereta && !arahTeks) return;
     const tujuanSementara = [arahTeks ? LABEL_ARAH[ARAH[arahTeks]] ?? arahTeks : "", kereta].filter(Boolean).join(" · ");
@@ -447,6 +458,9 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
     const arah = ARAH[arahTeks];
     if (!arah) return tolak("Direction must be Outbound or Return (Berangkat or Pulang)");
     if (!kereta) return tolak("Train name is empty");
+    // Ditolak, bukan dipotong diam-diam: kode booking atau kursi yang terpotong menyesatkan peserta.
+    const terlalu = BATAS_KERETA.find(([nama, , maks]) => (ambil(sel1, nama)?.length ?? 0) > maks);
+    if (terlalu) return tolak(`${terlalu[1]} is longer than ${terlalu[2]} characters`);
     const tanggal = kolom.tanggal !== undefined ? bacaTanggal(sel1[kolom.tanggal]) : null;
     if (tanggal === undefined) return tolak("Date not recognised. Use DD/MM/YYYY, such as 06/11/2026");
     const berangkat = kolom.berangkat !== undefined ? bacaJam(sel1[kolom.berangkat]) : null;
@@ -462,15 +476,15 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
     const ada = lama.get(kunciTiket) ?? null;
     const dariBerkas = {
       train_name: kereta,
-      travel_class: ambil(sel1, "kelas", 40),
-      origin: ambil(sel1, "dari", 80),
-      destination: ambil(sel1, "ke", 80),
+      travel_class: ambil(sel1, "kelas"),
+      origin: ambil(sel1, "dari"),
+      destination: ambil(sel1, "ke"),
       depart_date: kolom.tanggal !== undefined ? tanggal : undefined,
       depart_time: kolom.berangkat !== undefined ? berangkat : undefined,
       arrive_time: kolom.tiba !== undefined ? tiba : undefined,
-      carriage: ambil(sel1, "gerbong", 20),
-      seat: ambil(sel1, "kursi", 20),
-      booking_code: ambil(sel1, "booking", 40),
+      carriage: ambil(sel1, "gerbong"),
+      seat: ambil(sel1, "kursi"),
+      booking_code: ambil(sel1, "booking"),
     };
     const baru: TiketImpor = { participant_id: hasil.id, direction: arah, ...Object.fromEntries(BIDANG_KERETA.map((bidang) => {
       const nilai = dariBerkas[bidang];
