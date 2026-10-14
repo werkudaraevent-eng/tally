@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { ArrowDown } from "@phosphor-icons/react/dist/ssr";
+import type { LandingSpeaker } from "@/lib/domain";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { pecahJudul, tanpaBintang } from "@/lib/landing-tagline";
@@ -327,6 +328,7 @@ export function PerjalananHorizon({
   agenda,
   cerita,
   lang,
+  speakers,
 }: {
   judul: string;
   /** Rentang tanggal acara di kanan judul ("6–8 November 2026"). */
@@ -335,6 +337,8 @@ export function PerjalananHorizon({
   agenda: AgendaPreview[];
   cerita: string[];
   lang: LandingLang;
+  /** Pembicara yang tertaut ke sesi (sama dengan agenda Modern), tampil saat satu hari dibuka penuh. */
+  speakers: LandingSpeaker[];
 }) {
   const t = LANDING_UI[lang];
   return (
@@ -381,7 +385,7 @@ export function PerjalananHorizon({
                     </p>
                   ) : null}
                 </div>
-                <JamHariHorizon penting={tampil} semua={bagian.items} lang={lang} />
+                <JamHariHorizon penting={tampil} semua={bagian.items} speakers={speakers} lang={lang} />
               </Muncul>
             );
           })}
