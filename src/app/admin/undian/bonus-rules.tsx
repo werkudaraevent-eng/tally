@@ -2,6 +2,7 @@
 
 import { DownloadSimple, Minus, Plus, UploadSimple } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button, ButtonLink, Dialog } from "@/components/m3";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import { cx } from "@/lib/m3/cx";
@@ -45,7 +46,7 @@ export function BonusRules({
           <p className="text-body-medium text-on-surface-variant">
             Semua peserta mulai dengan 1 tiket. Tambahkan aturan untuk memberi tiket lebih kepada peserta tertentu, misalnya daftar VIP dari panitia atau yang hadir di sesi tertentu.
           </p>
-          <Button size="sm" icon={<Plus size={16} />} onClick={() => setEditing({ index: null, startAt: "rule" })}>Tambah aturan tiket</Button>
+          <Button type="button" size="sm" icon={<Plus size={16} />} onClick={() => setEditing({ index: null, startAt: "rule" })}>Tambah aturan tiket</Button>
         </div>
       ) : (
         <>
@@ -70,29 +71,32 @@ export function BonusRules({
                 <div className="-ml-2 flex flex-wrap">
                   {rule.source === "list" ? (
                     <>
-                      <Button variant="text" size="sm" onClick={() => setNames(rule)}>Lihat nama</Button>
-                      <Button variant="text" size="sm" onClick={() => setEditing({ index, startAt: "upload" })}>Ganti berkas</Button>
+                      <Button type="button" variant="text" size="sm" onClick={() => setNames(rule)}>Lihat nama</Button>
+                      <Button type="button" variant="text" size="sm" onClick={() => setEditing({ index, startAt: "upload" })}>Ganti berkas</Button>
                     </>
                   ) : null}
-                  <Button variant="text" size="sm" onClick={() => setEditing({ index, startAt: "rule" })}>Ubah</Button>
-                  <Button variant="text" size="sm" className="text-error" onClick={() => onChange(rules.filter((_, i) => i !== index))}>Hapus</Button>
+                  <Button type="button" variant="text" size="sm" onClick={() => setEditing({ index, startAt: "rule" })}>Ubah</Button>
+                  <Button type="button" variant="text" size="sm" className="text-error" onClick={() => onChange(rules.filter((_, i) => i !== index))}>Hapus</Button>
                 </div>
               </li>
             ))}
           </ul>
           {rules.length < BONUS_RULES_MAX ? (
-            <div><Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setEditing({ index: null, startAt: "rule" })}>Tambah aturan tiket</Button></div>
+            <div><Button type="button" variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setEditing({ index: null, startAt: "rule" })}>Tambah aturan tiket</Button></div>
           ) : null}
         </>
       )}
 
-      <div className="max-w-40">
+      <div className="max-w-56">
         <NumberField id="bonus-max" label="Tiket maksimum per orang" value={weightMax} min={1} max={1000} onChange={onWeightMax} />
       </div>
 
       {rules.length > 0 ? <OddsTable rules={rules} preview={preview} failed={previewFailed} winnerQuota={winnerQuota} /> : null}
 
-      {editing ? (
+      {/* Dialog dipasang di luar <form id="form-hadiah">. Di dalamnya, Enter di
+          kolom nama aturan atau tombol dialog mana pun ikut mengirim formulir
+          hadiah dan menyimpan hadiah yang belum selesai diatur. */}
+      {editing ? createPortal(
         <RuleDialog
           key={`${editing.index}-${editing.startAt}`}
           initial={editing.index === null ? null : rules[editing.index]}
@@ -101,9 +105,10 @@ export function BonusRules({
           previewFailed={previewFailed}
           onClose={() => setEditing(null)}
           onSave={save}
-        />
+        />,
+        document.body,
       ) : null}
-      {names && names.source === "list" ? <NamesDialog rule={names} onClose={() => setNames(null)} /> : null}
+      {names && names.source === "list" ? createPortal(<NamesDialog rule={names} onClose={() => setNames(null)} />, document.body) : null}
     </div>
   );
 }
@@ -129,13 +134,18 @@ function OddsTable({ rules, preview, failed, winnerQuota }: { rules: BonusRule[]
   }
   const groups = preview.bonus_groups;
   const total = groups.reduce((sum, group) => sum + group.count * group.tickets, 0);
-  const boosted = groups.filter((group) => group.rules.length > 0);
-  const boostedPeople = boosted.reduce((sum, group) => sum + group.count, 0);
-  const boostedTickets = boosted.reduce((sum, group) => sum + group.count * group.tickets, 0);
-  const share = total > 0 ? boostedTickets / total : 0;
-  const expected = Math.min(winnerQuota, boostedPeople, winnerQuota * share);
   const percent = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
   const decimal = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 });
+  // Satu kalimat per aturan: berapa orang yang terkena, berapa bagian tiket yang
+  // mereka pegang, dan perkiraan pemenang dari mereka. Dijumlah per aturan, bukan
+  // untuk "semua yang bertiket tambahan", karena aturan luas seperti "hadir di
+  // Gala" menenggelamkan angka daftar VIP yang justru ingin diperiksa panitia.
+  const perRule = rules.map((rule, index) => {
+    const hit = groups.filter((group) => group.rules.includes(index));
+    const people = hit.reduce((sum, group) => sum + group.count, 0);
+    const share = total > 0 ? hit.reduce((sum, group) => sum + group.count * group.tickets, 0) / total : 0;
+    return { name: rule.name, people, share, expected: Math.min(winnerQuota, people, winnerQuota * share) };
+  });
 
   return (
     <div className="flex flex-col gap-2 rounded-md bg-surface-container-high p-3 text-body-medium" aria-live="polite">
@@ -166,13 +176,19 @@ function OddsTable({ rules, preview, failed, winnerQuota }: { rules: BonusRule[]
           </table>
         </div>
       )}
-      {boostedPeople > 0 && total > 0 ? (
-        <p>
-          {boostedPeople.toLocaleString("id-ID")} dari {preview.available.toLocaleString("id-ID")} orang dengan tiket tambahan memegang <strong>{percent.format(share * 100)}% tiket</strong>.
-          {" "}Dari {winnerQuota} pemenang, rata-rata <strong>{decimal.format(expected)}</strong> berasal dari mereka.
-        </p>
-      ) : groups.length > 0 ? (
-        <p className="text-on-surface-variant">Belum ada peserta yang cocok dengan aturan tiket tambahan, jadi peluang semua orang masih sama.</p>
+      {groups.length > 0 && total > 0 ? (
+        <ul className="flex flex-col gap-1">
+          {perRule.map((item, index) => (
+            <li key={index}>
+              {item.people === 0
+                ? <><span className="font-medium">{item.name}</span>: belum ada peserta yang cocok.</>
+                : <>
+                    <span className="font-medium">{item.name}</span> ({item.people.toLocaleString("id-ID")} orang) memegang <strong>{percent.format(item.share * 100)}% tiket</strong>.
+                    {" "}Dari {winnerQuota} pemenang, rata-rata <strong>{decimal.format(item.expected)}</strong> dari mereka.
+                  </>}
+            </li>
+          ))}
+        </ul>
       ) : null}
     </div>
   );
@@ -263,11 +279,11 @@ function RuleDialog({
   if (step === "rule") {
     actions = (
       <>
-        <Button variant="text" onClick={onClose}>Batal</Button>
-        {source === "list" && existingList ? <Button variant="outlined" onClick={() => validRule() && setStep("upload")}>Ganti berkas</Button> : null}
+        <Button type="button" variant="text" onClick={onClose}>Batal</Button>
+        {source === "list" && existingList ? <Button type="button" variant="outlined" onClick={() => validRule() && setStep("upload")}>Ganti berkas</Button> : null}
         {source === "list" && !existingList
-          ? <Button onClick={() => validRule() && setStep("upload")}>Lanjut: upload daftar</Button>
-          : <Button onClick={saveRule}>Simpan aturan</Button>}
+          ? <Button type="button" onClick={() => validRule() && setStep("upload")}>Lanjut: upload daftar</Button>
+          : <Button type="button" onClick={saveRule}>Simpan aturan</Button>}
       </>
     );
     content = (
@@ -321,7 +337,7 @@ function RuleDialog({
     );
   } else if (step === "upload") {
     title = `Upload daftar ${name.trim()}`;
-    actions = <Button variant="text" disabled={checking} onClick={() => { setError(""); setStep("rule"); }}>Kembali</Button>;
+    actions = <Button type="button" variant="text" disabled={checking} onClick={() => { setError(""); setStep("rule"); }}>Kembali</Button>;
     content = (
       <div className="flex flex-col gap-4 text-body-medium">
         {stepper}
@@ -364,8 +380,8 @@ function RuleDialog({
     title = `${check.file_name}: ${check.rows_read.toLocaleString("id-ID")} baris dibaca`;
     actions = (
       <>
-        <Button variant="text" onClick={() => { setCheck(null); setStep("upload"); }}>Upload ulang</Button>
-        {check.matched.length > 0 ? <Button onClick={saveList}>Simpan {check.matched.length.toLocaleString("id-ID")} orang</Button> : null}
+        <Button type="button" variant="text" onClick={() => { setCheck(null); setStep("upload"); }}>Upload ulang</Button>
+        {check.matched.length > 0 ? <Button type="button" onClick={saveList}>Simpan {check.matched.length.toLocaleString("id-ID")} orang</Button> : null}
       </>
     );
     content = (
@@ -467,7 +483,7 @@ function NamesDialog({ rule, onClose }: { rule: Extract<BonusRule, { source: "li
     return () => { alive = false; };
   }, [rule]);
   return (
-    <Dialog open onClose={onClose} title={rule.name} description={rule.file_name ?? undefined} size="md" scrollBody actions={<Button variant="text" onClick={onClose}>Tutup</Button>}>
+    <Dialog open onClose={onClose} title={rule.name} description={rule.file_name ?? undefined} size="md" scrollBody actions={<Button type="button" variant="text" onClick={onClose}>Tutup</Button>}>
       {state === "loading" ? <p className="text-body-medium text-on-surface-variant">Memuat nama...</p>
         : state === "failed" ? <PaneError>Nama gagal dimuat. Tutup lalu coba lagi.</PaneError>
         : (
