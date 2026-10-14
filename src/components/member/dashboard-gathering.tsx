@@ -649,7 +649,13 @@ export async function DashboardGathering({
           ) : null}
           <div className={horizon ? "min-w-0 lg:col-start-2 lg:max-w-[880px]" : "contents"}>
           {agenda.length > 1 ? (
-            <nav aria-label={t.daysAria} className={`-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0 ${horizon ? "lg:hidden" : ""}`}>
+            <nav
+              aria-label={t.daysAria}
+              className={`-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0 ${
+                // Horizon: tanggal yang terpotong di tepi layar memudar, jadi jelas deretannya bisa digeser.
+                horizon ? "[mask-image:linear-gradient(to_right,transparent,#000_20px,#000_calc(100%-56px),transparent)] sm:[mask-image:none] lg:hidden" : ""
+              }`}
+            >
               <ul className="flex gap-2">
                 {agenda.map((b, index) => (
                   <li key={index} className="shrink-0">
@@ -689,7 +695,16 @@ export async function DashboardGathering({
                   const status = statusBagian.get(item.id) ?? null;
                   return (
                     <li key={item.id} className="grid grid-cols-[52px_minmax(0,1fr)] gap-3">
-                      <span className={`pt-4 text-body-medium font-bold tabular-nums ${status === "berlangsung" ? "text-[var(--alis)]" : MUTED}`}>{item.time}</span>
+                      <span className={`pt-4 text-body-medium font-bold tabular-nums ${status === "berlangsung" ? "text-[var(--alis)]" : MUTED}`}>
+                        {item.time}
+                        {/* Horizon: jam selesai di bawah jam mulai, seperti tampilan agenda kalender. */}
+                        {horizon && item.end ? (
+                          <span className="mt-0.5 block text-[13px] font-medium">
+                            <span className="sr-only">–</span>
+                            {item.end}
+                          </span>
+                        ) : null}
+                      </span>
                       <div
                         className={`rounded-[16px] bg-white px-4 py-3.5 ${
                           status === "berlangsung" ? "shadow-[inset_0_0_0_2px_var(--aksi)]" : "shadow-[0_1px_2px_rgb(16_24_40/0.06)]"
