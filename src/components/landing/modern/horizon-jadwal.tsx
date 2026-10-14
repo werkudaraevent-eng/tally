@@ -80,7 +80,7 @@ export function JamHariHorizon({
           onClick={() => setBuka((v) => !v)}
           className="m3-state -mx-3 mt-1 inline-flex min-h-12 items-center gap-2 self-start rounded-md px-3 text-[13px] font-bold text-[var(--hz-sorot,var(--hz-emas))] [--m3-state-color:var(--hz-emas)] print:hidden"
         >
-          {buka ? t.horizon.scheduleLess : t.horizon.scheduleAll(semua.length)}
+          {buka ? t.horizon.scheduleLess : semua.length > penting.length ? t.horizon.scheduleAll(semua.length) : t.horizon.scheduleDetails}
           <CaretDown size={14} weight="bold" aria-hidden className={buka ? "rotate-180" : undefined} />
         </button>
       ) : null}

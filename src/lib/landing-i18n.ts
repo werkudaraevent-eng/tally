@@ -451,6 +451,8 @@ export type LandingUiText = {
     scheduleNote: string;
     /** Tombol buka seluruh acara satu hari di daftar jam Horizon. */
     scheduleAll: (n: number) => string;
+    /** Hari pendek: semua acara sudah tampil, tombol hanya membuka keterangan dan pembicara. */
+    scheduleDetails: string;
     scheduleLess: string;
   };
   /** Kartu Tentang acara bawaan preset Gathering. */
@@ -607,6 +609,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       registered: "Sudah terdaftar? Masuk ke portal peserta",
       scheduleNote: "Jadwal lengkap",
       scheduleAll: (n) => `Lihat semua ${n} acara`,
+      scheduleDetails: "Lihat detail",
       scheduleLess: "Ringkas",
     },
     aboutHeadingDefault: "Bukan sekadar kumpul, ini waktunya kita recharge bareng.",
@@ -755,6 +758,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       registered: "Already registered? Sign in to the participant portal",
       scheduleNote: "Full schedule",
       scheduleAll: (n) => `See all ${n} items`,
+      scheduleDetails: "Show details",
       scheduleLess: "Show less",
     },
     aboutHeadingDefault: "More than a get-together: this is our time to recharge.",
