@@ -154,7 +154,9 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
     <>
       <ListDetail list={daftar} detail={detail} />
 
+      {/* key: ganti arah memulai pilihan dari awal; pilihan arah lain tidak boleh terbawa. */}
       <PilihPeserta
+        key={arahBaru}
         open={baru}
         onClose={() => { tutupBaru(); setArahBaru("outbound"); }}
         title="Add train ticket"
