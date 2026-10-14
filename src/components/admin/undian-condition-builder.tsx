@@ -35,7 +35,11 @@ type Props = {
   rsvpStatuses: string[];
   /** Nilai perusahaan yang benar-benar ada di data, untuk saran ketik. */
   companies?: string[];
-  /** Sesi kehadiran acara (Check-in > Sessions), untuk syarat check-in per sesi. */
+  /**
+   * Sesi kehadiran acara (Check-in > Sessions), untuk syarat check-in per sesi.
+   * `undefined` = belum dimuat, supaya sesi yang dipilih tidak sempat terbaca
+   * sebagai "sudah dihapus" sebelum daftarnya datang.
+   */
   sessions?: { id: number; name: string }[];
   tone?: "include" | "exclude";
   depth?: number;
@@ -114,7 +118,7 @@ function TombolHapus({ label, onClick, icon }: { label: string; onClick: () => v
   return <button type="button" onClick={onClick} aria-label={label} title={label} className="ml-auto grid size-8 shrink-0 place-items-center rounded-md text-error hover:bg-error-soft">{icon}</button>;
 }
 
-export function UndianConditionBuilder({ value, onChange, participantTypes, rsvpStatuses, companies = [], sessions = [], tone = "include", depth = 0 }: Props) {
+export function UndianConditionBuilder({ value, onChange, participantTypes, rsvpStatuses, companies = [], sessions, tone = "include", depth = 0 }: Props) {
   function updateChild(index: number, next: UndianConditionNode) {
     onChange({ ...value, children: value.children.map((child, i) => (i === index ? next : child)) });
   }
@@ -193,7 +197,7 @@ function LeafEditor({
   participantTypes: string[];
   rsvpStatuses: string[];
   companies: string[];
-  sessions: { id: number; name: string }[];
+  sessions: { id: number; name: string }[] | undefined;
   onChange: (next: UndianConditionNode) => void;
   onRemove: () => void;
 }) {
@@ -203,6 +207,11 @@ function LeafEditor({
   // tetap di kode. Daftar tetap membuat admin memilih nilai yang tidak dipakai
   // sistem lain, lalu bertanya-tanya kenapa kolamnya kosong.
   const options = leaf.var === "participant_type" ? participantTypes : rsvpStatuses;
+  const sessionList = sessions ?? [];
+  // Sesi yang dipilih sudah dihapus. Server menganggap syarat ini rusak (tidak
+  // ada yang lolos), jadi panitia harus memilih ulang sebelum undian.
+  const sessionGone = leaf.var === "checked_in" && leaf.session_id !== undefined && sessions !== undefined
+    && !sessions.some((session) => session.id === leaf.session_id);
 
   // Syarat yang tidak terbaca. Ditampilkan sebagai peringatan yang bisa dihapus,
   // bukan disembunyikan: ia membuat seluruh aturan tidak pernah terpenuhi, dan
@@ -301,9 +310,12 @@ function LeafEditor({
       className={cx(CONTROL, "max-w-56")}
     >
       <option value={0}>di sesi mana pun</option>
-      {sessions.map((session) => <option key={session.id} value={session.id}>di {session.name}</option>)}
-      {leaf.session_id !== undefined && !sessions.some((session) => session.id === leaf.session_id) && <option value={leaf.session_id}>di sesi yang sudah dihapus</option>}
+      {sessionList.map((session) => <option key={session.id} value={session.id}>di {session.name}</option>)}
+      {leaf.session_id !== undefined && !sessionList.some((session) => session.id === leaf.session_id) && <option value={leaf.session_id}>{sessionGone ? "di sesi yang sudah dihapus" : "memuat sesi..."}</option>}
     </select>}
+    {sessionGone && <span role="alert" className="order-last flex basis-full items-center gap-1.5 font-medium text-error">
+      <Warning size={16} aria-hidden /> Sesi ini sudah dihapus, jadi tidak ada peserta yang lolos. Pilih sesi lain.
+    </span>}
 
     <TombolHapus label="Hapus syarat" onClick={onRemove} icon={<Trash size={16} />} />
   </div>;

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describeConditions, matchesConditions, normalizeConditions, usesCheckIn, type ParticipantPoolRow } from "./undian.ts";
+import { describeConditions, hasInvalidLeaf, invalidateUnknownSessions, matchesConditions, normalizeConditions, usesAttendance, type ParticipantPoolRow } from "./undian.ts";
 
 // Syarat check-in undian: gabungan pemindaian /scan dan salinan scanner API,
 // dengan pilihan satu sesi.
@@ -40,12 +40,22 @@ assert.equal(matchesConditions(sourceOnly, gala), false);
 assert.equal(matchesConditions(scannedAtRegistration, notGala), true);
 assert.equal(matchesConditions(scannedAtGala, notGala), false);
 
-assert.equal(usesCheckIn(gala), true);
-assert.equal(usesCheckIn(normalizeConditions({ op: "and", children: [{ op: "or", children: [{ var: "checked_in", is: true }] }] })), true);
-assert.equal(usesCheckIn(normalizeConditions({ op: "and", children: [{ var: "has_seat", is: true }] })), false);
+assert.equal(usesAttendance(gala), true);
+assert.equal(usesAttendance(normalizeConditions({ op: "and", children: [{ op: "or", children: [{ var: "checked_in", is: true }] }] })), true);
+assert.equal(usesAttendance(normalizeConditions({ op: "and", children: [{ var: "has_seat", is: true }] })), false);
+// Jumlah scan juga butuh pemindaian /scan (nilai gabungannya disusun di server).
+assert.equal(usesAttendance(normalizeConditions({ op: "and", children: [{ var: "scan_count", cmp: "gte", value: 2 }] })), true);
 
 assert.equal(describeConditions(anySession), "sudah check-in");
 assert.equal(describeConditions(gala, { 7: "Gala Dinner" }), "sudah check-in di Gala Dinner");
-assert.equal(describeConditions(notGala, {}), "belum check-in di sesi yang sudah dihapus");
+assert.equal(describeConditions(notGala, {}), "SESI CHECK-IN SUDAH DIHAPUS, pilih ulang");
+
+// Sesi yang sudah dihapus: syaratnya rusak, tidak ada yang lolos, termasuk
+// "Belum check-in" yang tanpa ini meloloskan semua orang.
+const gone = invalidateUnknownSessions(notGala, new Set([3]));
+assert.equal(hasInvalidLeaf(gone), true);
+assert.equal(matchesConditions(absent, gone), false);
+assert.equal(hasInvalidLeaf(invalidateUnknownSessions(notGala, new Set([7]))), false);
+assert.equal(hasInvalidLeaf(invalidateUnknownSessions(anySession, new Set())), false);
 
 console.log("undian-checkin ok");

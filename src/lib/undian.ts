@@ -149,10 +149,27 @@ export function isTextLeaf(node: UndianConditionLeaf): node is UndianTextLeaf {
   return isTextVar(node.var);
 }
 
-/** Apakah pohon memuat syarat check-in, yang butuh data pemindaian sesi. */
-export function usesCheckIn(node: UndianConditionNode): boolean {
-  if (isConditionGroup(node)) return node.children.some(usesCheckIn);
-  return node.var === "checked_in";
+/** Apakah pohon memuat syarat check-in atau jumlah scan, yang butuh data pemindaian sesi. */
+export function usesAttendance(node: UndianConditionNode): boolean {
+  if (isConditionGroup(node)) return node.children.some(usesAttendance);
+  return node.var === "checked_in" || node.var === "scan_count";
+}
+
+/**
+ * Syarat check-in yang menunjuk sesi yang sudah dihapus diganti dengan syarat
+ * rusak (selalu salah). Tanpa ini "Belum check-in di <sesi terhapus>" cocok
+ * dengan SEMUA orang, karena pemindaian sesi itu ikut terhapus, dan hadiahnya
+ * tetap tampil siap. Dijalankan di server, yang tahu daftar sesi acara.
+ */
+export function invalidateUnknownSessions(node: UndianConditionGroup, known: Set<number>): UndianConditionGroup {
+  return {
+    ...node,
+    children: node.children.map((child): UndianConditionNode => {
+      if (isConditionGroup(child)) return invalidateUnknownSessions(child, known);
+      if (child.var === "checked_in" && child.session_id !== undefined && !known.has(child.session_id)) return INVALID_LEAF;
+      return child;
+    }),
+  };
 }
 
 /** Apakah pohon memuat syarat yang tidak terbaca. Dipakai layar untuk memperingatkan. */
@@ -295,6 +312,11 @@ export type ParticipantPoolRow = {
    * loadParticipantPool) hanya bila ada syarat check-in; tanpa itu kosong.
    */
   attended_sessions?: number[];
+  /**
+   * Salinan scanner API ditambah jumlah sesi tempat peserta dipindai lewat /scan.
+   * Pindaian ulang di sesi yang sama tidak ikut, supaya bobot tidak naik hanya
+   * karena seseorang dipindai dua kali di pintu yang sama.
+   */
   scan_count: number;
   seat_label: string | null;
   allow_name_display: boolean;
@@ -720,7 +742,11 @@ export function describeConditions(node: UndianConditionGroup, sessionNames: Rec
       case "checked_in": {
         const status = child.is ? "sudah check-in" : "belum check-in";
         if (child.session_id === undefined) return status;
-        return `${status} di ${sessionNames[child.session_id] ?? "sesi yang sudah dihapus"}`;
+        // Sesi terhapus disebut keras, seperti syarat rusak: syaratnya tidak
+        // pernah terpenuhi sampai sesinya dipilih ulang.
+        return sessionNames[child.session_id] === undefined
+          ? "SESI CHECK-IN SUDAH DIHAPUS, pilih ulang"
+          : `${status} di ${sessionNames[child.session_id]}`;
       }
       case "has_seat": return child.is ? "punya kursi" : "tanpa kursi";
       default: return "syarat tidak dikenal";
