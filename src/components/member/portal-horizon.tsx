@@ -430,7 +430,7 @@ export function HariJadwalHorizon({ hari, aria }: { hari: { label: string; judul
               <span className="text-[11px] font-bold uppercase tracking-[0.6px]" style={{ color: item.aktif ? BIRU : LABEL }}>
                 {item.label}
               </span>
-              <span className={`text-[17px] leading-[1.3] text-balance [overflow-wrap:anywhere] ${item.aktif ? "font-extrabold" : "font-semibold"}`} style={item.aktif ? undefined : { color: REDUP }}>
+              <span className={`text-[16px] leading-6 text-balance [overflow-wrap:anywhere] ${item.aktif ? "font-semibold" : "font-medium"}`} style={item.aktif ? undefined : { color: REDUP }}>
                 {item.judul}
               </span>
             </Link>
