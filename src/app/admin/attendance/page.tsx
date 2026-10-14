@@ -510,7 +510,18 @@ export default function AttendanceAdminPage() {
       <div role="tabpanel" id={`kehadiran-panel-${bagian}`} aria-labelledby={`kehadiran-tab-${bagian}`} className="flex min-h-0 flex-1 flex-col">
         {bagian === "sesi" ? <ListDetail list={daftarSesi} detail={detailSesi} />
           : bagian === "meja" ? <ListDetail list={daftarJalur} detail={detailJalur} />
-          : bagian === "checkpoint" ? <CheckpointsTab keSesi={() => setBagian("sesi")} />
+          : bagian === "checkpoint" ? <CheckpointsTab
+            keSesi={() => {
+              setBagian("sesi");
+              // Tombolnya ikut hilang bersama tab Checkpoints: fokus pindah ke
+              // tab Sessions, dan tab itu digeser masuk ke layar di ponsel.
+              requestAnimationFrame(() => {
+                const tab = document.getElementById("kehadiran-tab-sesi");
+                tab?.focus();
+                tab?.scrollIntoView({ block: "nearest", inline: "nearest" });
+              });
+            }}
+          />
           : walkIn}
       </div>
 

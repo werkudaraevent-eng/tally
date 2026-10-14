@@ -53,7 +53,10 @@ export default function LogistikPage() {
   // sesudah mount supaya render server dan klien sama.
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (new URLSearchParams(window.location.search).get("tab") === "barang") setBagian("barang");
+      if (new URLSearchParams(window.location.search).get("tab") !== "barang") return;
+      setBagian("barang");
+      // Di ponsel tab Kit items ada di ujung kanan strip dan terpotong.
+      requestAnimationFrame(() => document.getElementById("logistik-tab-barang")?.scrollIntoView({ block: "nearest", inline: "nearest" }));
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
