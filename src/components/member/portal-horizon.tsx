@@ -143,9 +143,11 @@ export function SapaanHorizon({ alis, judul, judulPonsel, catatan }: { alis: str
         <span className="md:hidden">{judulPonsel}</span>
         <span className="hidden md:inline">{judul}</span>
       </h1>
-      <p className="mt-[14px] hidden text-[17px] leading-[1.5] md:block" style={{ color: REDUP }}>
-        {catatan}
-      </p>
+      {catatan ? (
+        <p className="mt-[14px] hidden text-[17px] leading-[1.5] md:block" style={{ color: REDUP }}>
+          {catatan}
+        </p>
+      ) : null}
     </div>
   );
 }

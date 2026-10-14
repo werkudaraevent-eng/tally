@@ -549,6 +549,8 @@ export async function DashboardGathering({
   // ---- Isi tiap tab ------------------------------------------------------
   let isi: ReactNode;
   let kepala: ReactNode;
+  // Horizon: judul tab di atas latar krem seperti sapaan Beranda, bukan pita navy.
+  let judulHorizon: { alis: string; judul: string; catatan: string } | null = null;
   if (tabAktif === "beranda") {
     kepala = (
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -630,11 +632,12 @@ export async function DashboardGathering({
     const bagian: AgendaPreview | undefined = agenda[pilihan];
     const statusBagian = bagian && bagian.tanggal === kini.tanggal ? statusHari(bagian.items, kini.menit) : new Map<number, StatusButir>();
     kepala = <JudulKepala judul={t.schedule} catatan={[tanggal, venue].filter(Boolean).join(" · ")} />;
+    judulHorizon = { alis: tanggal ?? nama, judul: t.schedule, catatan: venue ?? "" };
     isi =
       agenda.length === 0 ? (
         <p className={`${KARTU} text-body-large ${MUTED}`}>{t.noSchedule}</p>
       ) : (
-        <div className={!horizon ? "mx-auto w-full max-w-[720px]" : agenda.length > 1 ? "w-full lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-14 lg:pt-10" : "w-full lg:pt-10"}>
+        <div className={!horizon ? "mx-auto w-full max-w-[720px]" : agenda.length > 1 ? "w-full lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-14" : "w-full"}>
           {horizon && agenda.length > 1 ? (
             <HariJadwalHorizon
               aria={t.daysAria}
@@ -711,15 +714,17 @@ export async function DashboardGathering({
       );
   } else if (tabAktif === "info") {
     kepala = <JudulKepala judul={t.info} catatan={t.infoNote} />;
+    judulHorizon = { alis: nama, judul: t.info, catatan: t.infoNote };
     isi = (
-      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3">
+      // Horizon di layar lebar: kartu dua kolom selebar halaman, yang disematkan selebar penuh.
+      <div className={horizon ? "grid gap-4 md:grid-cols-2" : "mx-auto flex w-full max-w-[720px] flex-col gap-3"}>
         {pengumuman.items.length === 0 ? (
           <p className={`${KARTU} text-body-large ${MUTED}`}>{t.noAnnouncements}</p>
         ) : (
           pengumuman.items.map((item) => {
             const baru = isUnread(item, pengumuman.seenAt);
             return (
-              <article key={item.id} className={`${KARTU} ${item.pinned ? "shadow-[inset_0_0_0_2px_var(--aksen)]!" : ""}`}>
+              <article key={item.id} className={`${KARTU} ${item.pinned ? `shadow-[inset_0_0_0_2px_var(--aksen)]! ${horizon ? "md:col-span-2" : ""}` : ""}`}>
                 {item.pinned || baru ? (
                   <div className="mb-2 flex flex-wrap gap-2">
                     {item.pinned ? (
@@ -731,8 +736,8 @@ export async function DashboardGathering({
                     {baru ? <Chip nada="aksi">{t.isNew}</Chip> : null}
                   </div>
                 ) : null}
-                <h2 className="text-title-large font-bold">{item.title}</h2>
-                {item.body ? <p className={`mt-1.5 whitespace-pre-line text-body-large ${MUTED}`}>{item.body}</p> : null}
+                <h2 className="max-w-[70ch] text-title-large font-bold">{item.title}</h2>
+                {item.body ? <p className={`mt-1.5 max-w-[70ch] whitespace-pre-line text-body-large ${MUTED}`}>{item.body}</p> : null}
                 {item.link_url ? (
                   <a href={item.link_url} target="_blank" rel="noreferrer noopener" className="mt-1 inline-flex min-h-12 items-center gap-1.5 text-title-small font-bold text-[var(--alis)]">
                     {item.link_label?.trim() || item.link_url}
@@ -748,6 +753,7 @@ export async function DashboardGathering({
     );
   } else {
     const statusLabel = sesi.status === "approved" ? p.status.approved : sesi.status === "rejected" ? p.status.rejected : p.status.pending;
+    judulHorizon = { alis: statusLabel, judul: sesi.name, catatan: peserta ? [peserta.title, peserta.company].filter(Boolean).join(" · ") : "" };
     kepala = (
       <div className="flex flex-col items-center text-center">
         <span aria-hidden className="flex size-20 items-center justify-center rounded-full bg-[var(--aksen)] text-[28px] font-extrabold text-[#1A2333]">
@@ -769,7 +775,7 @@ export async function DashboardGathering({
       { href: halamanAcara, judul: t.eventPageRow, isi: nama, Ikon: CalendarBlank },
     ];
     isi = (
-      <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3">
+      <div className={`flex w-full max-w-[560px] flex-col gap-3 ${horizon ? "" : "mx-auto"}`}>
         {pitaEmail}
         {statusPendaftaran}
         <ul className="flex flex-col gap-3">
@@ -951,8 +957,12 @@ export async function DashboardGathering({
     } else {
       badan = (
         <>
-          <PitaKepalaHorizon>{kepala}</PitaKepalaHorizon>
-          <div className="relative mx-auto -mt-3 w-full max-w-[1440px] px-6 md:-mt-6 md:px-16">{isi}</div>
+          {judulHorizon ? (
+            <SapaanHorizon alis={judulHorizon.alis} judul={judulHorizon.judul} judulPonsel={judulHorizon.judul} catatan={judulHorizon.catatan} />
+          ) : (
+            <PitaKepalaHorizon>{kepala}</PitaKepalaHorizon>
+          )}
+          <div className={`relative mx-auto w-full max-w-[1440px] px-6 md:px-16 ${judulHorizon ? "pb-10 pt-6 md:pt-3" : "-mt-3 md:-mt-6"}`}>{isi}</div>
         </>
       );
     }
