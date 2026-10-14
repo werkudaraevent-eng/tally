@@ -1287,6 +1287,14 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           sandi={sandi}
           lang={lang}
           aksi={gaya}
+          kepala={{
+            nama,
+            keterangan: [nama, formatEventDateRingkas(event, lang) ?? tanggal].filter(Boolean).join(" · "),
+            logo: config.nav?.logo_url ?? (horizon ? config.hero_logo_url?.trim() || null : null),
+            kv: gaya ? (kvGathering(config)?.src ?? null) : kv,
+            gaya: horizon ? "horizon" : gaya ? "gathering" : "modern",
+            bantuan: kontak.find((item) => item.href)?.href ?? null,
+          }}
         />
       ) : null}
     </main>
