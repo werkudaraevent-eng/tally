@@ -11,9 +11,13 @@ export function QrMini({ code, alt }: { code: string; alt: string }) {
   useEffect(() => {
     let batal = false;
     void (async () => {
-      const QRCode = (await import("qrcode")).default;
-      const url = await QRCode.toDataURL(code, { errorCorrectionLevel: "M", margin: 0, width: 320 });
-      if (!batal) setSrc(url);
+      try {
+        const QRCode = (await import("qrcode")).default;
+        const url = await QRCode.toDataURL(code, { errorCorrectionLevel: "M", margin: 0, width: 320 });
+        if (!batal) setSrc(url);
+      } catch {
+        // Kode kosong atau paket gagal dimuat: kotaknya tetap kosong, QR layar penuh tetap bisa dibuka.
+      }
     })();
     return () => {
       batal = true;

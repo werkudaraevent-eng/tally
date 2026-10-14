@@ -150,6 +150,7 @@ export async function DashboardGathering({
   konfirmasi,
   tab,
   hari,
+  dari = null,
   pratinjau = false,
 }: {
   event: EventRow;
@@ -161,6 +162,8 @@ export async function DashboardGathering({
   tab: PortalTab;
   /** Hari yang dipilih di tab Jadwal (1, 2, ...). */
   hari: number | null;
+  /** Tab asal QR layar penuh (`?dari=`): tombol tutup dan Escape kembali ke sana. */
+  dari?: "jadwal" | "info" | "profil" | null;
   /** Pratinjau di Participant area: tiap isi Beranda diberi penanda untuk digulir ke sana. */
   pratinjau?: boolean;
 }) {
@@ -325,12 +328,13 @@ export async function DashboardGathering({
   ];
 
   if (tab === "qr" && tampilKode && peserta && horizon) {
+    const tutupQr = dari ? keTab(dari, dari === "jadwal" && hari ? { hari: String(hari) } : {}) : keTab("beranda");
     return (
       <main className="min-h-dvh" style={{ ...gaya, backgroundColor: "var(--hz-navy)", color: "#ffffff" }}>
-        <TutupQrEscape href={keTab("beranda")} />
+        <TutupQrEscape href={tutupQr} />
         <QrHorizon
           judul={t.qrTitle}
-          tutup={keTab("beranda")}
+          tutup={tutupQr}
           tutupLabel={t.qrClose}
           nama={peserta.name}
           sub={[peserta.title, peserta.company].filter(Boolean).join(" • ") || null}
@@ -906,7 +910,7 @@ export async function DashboardGathering({
                       fakta={fakta}
                       qr={
                         tampilKode && peserta
-                          ? { href: keTab("qr"), label: t.qrTitle, perbesar: tH.enlargeQr, kode: <QrMini code={peserta.qr_code} alt={t.qrTitle} /> }
+                          ? { href: keTab("qr"), label: t.qrTitle, perbesar: tH.enlargeQr, kode: <QrMini code={peserta.qr_code} alt="" /> }
                           : null
                       }
                     />
@@ -926,7 +930,9 @@ export async function DashboardGathering({
               <div className="contents min-w-0 lg:col-start-2 lg:row-start-1 lg:flex lg:flex-col lg:gap-6">
                 {pengumumanDulu ? blokPengumuman : null}
                 <BagianBeranda id="next" pratinjau={pratinjau}>
-                  <div className="order-[50] lg:order-none">
+                  {/* Tanpa agenda berikutnya hanya tautan bantuan (layar lebar) yang tersisa:
+                      ponsel tidak mendapat bungkus kosong yang menambah jarak. */}
+                  <div className={tampilBerikut || statusPendaftaran ? "order-[50] lg:order-none" : "hidden md:block"}>
                     <SelanjutnyaHorizon
                       alis={labelHari ? `${tH.nextUp} • ${labelHari}` : tH.nextUp}
                       alisPonsel={tH.nextUpMobile}
@@ -976,7 +982,7 @@ export async function DashboardGathering({
       );
     }
     return (
-      <main className="min-h-dvh pb-[calc(100px+env(safe-area-inset-bottom))] text-[#101E38] md:pb-16" style={gaya}>
+      <main className={`min-h-dvh ${tampilKode && peserta ? "pb-[calc(124px+env(safe-area-inset-bottom))]" : "pb-[calc(100px+env(safe-area-inset-bottom))]"} text-[#101E38] md:pb-16`} style={gaya}>
         <FokusPemicuQr />
         <KepalaHorizon
           logo={logo ?? config.hero_logo_url ?? null}
@@ -990,7 +996,16 @@ export async function DashboardGathering({
           tabsAria={t.tabsAria}
         />
         {badan}
-        <NavBawahHorizon tabs={tabsHorizon} aktif={tabAktif} tabsAria={t.tabsAria} infoBaru={infoBaru} qr={tampilKode && peserta ? { href: keTab("qr"), label: tH.showQr, labelPendek: "QR" } : null} />
+        <NavBawahHorizon tabs={tabsHorizon} aktif={tabAktif} tabsAria={t.tabsAria} infoBaru={infoBaru} qr={
+            tampilKode && peserta
+              ? {
+                  href: tabAktif === "beranda" ? keTab("qr") : keTab("qr", { dari: tabAktif, ...(tabAktif === "jadwal" && hari ? { hari: String(hari) } : {}) }),
+                  label: tH.showQr,
+                  labelPendek: "QR",
+                }
+              : null
+          }
+        />
       </main>
     );
   }

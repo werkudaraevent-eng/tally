@@ -224,8 +224,9 @@ export function PassHorizon({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={kv} alt="" aria-hidden decoding="async" className="h-[145px] w-full select-none object-cover md:h-[200px]" />
       ) : null}
-      <div className="md:flex">
-      <div className="flex min-w-0 flex-col gap-4 p-5 md:flex-1 md:gap-6 md:p-[30px]">
+      {/* Sobekan QR di samping rute hanya bila kartunya cukup lebar (xl); di bawahnya rute tetap utuh. */}
+      <div className="xl:flex">
+      <div className="flex min-w-0 flex-col gap-4 p-5 md:gap-6 md:p-[30px] xl:flex-1">
         <div className="flex items-center justify-between gap-4">
           <p className="text-[10px] font-bold uppercase tracking-[1.3px] text-[var(--hz-emas)] md:text-[11px] md:tracking-[1.7px]">{label}</p>
           {tanggalPendek ? <p className="hidden text-[12px] font-semibold uppercase md:block">{tanggalPendek}</p> : null}
@@ -277,10 +278,10 @@ export function PassHorizon({
         <PemicuQr
           id="pemicu-qr-pass"
           href={qr.href}
-          className="m3-state group relative flex items-center gap-4 border-t border-dashed border-[#405272] px-5 py-4 md:w-[210px] md:shrink-0 md:flex-col md:justify-center md:gap-3 md:border-l md:border-t-0 md:px-6 md:py-[30px]"
+          className="m3-state group relative flex items-center gap-4 border-t border-dashed border-[#405272] px-5 py-4 focus-visible:outline-offset-[-4px] md:px-[30px] xl:w-[210px] xl:shrink-0 xl:flex-col xl:justify-center xl:gap-3 xl:border-l xl:border-t-0 xl:px-6 xl:py-[30px]"
         >
-          <span className="size-[72px] shrink-0 rounded-xl bg-white p-1.5 md:size-[148px] md:rounded-2xl md:p-2.5">{qr.kode}</span>
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5 md:flex-none md:items-center md:text-center">
+          <span className="size-[72px] shrink-0 rounded-xl bg-white p-1.5 xl:size-[148px] xl:rounded-2xl xl:p-2.5">{qr.kode}</span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5 xl:flex-none xl:items-center xl:text-center">
             <span className="text-[15px] font-bold">{qr.label}</span>
             <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--hz-emas)]">
               <ArrowsOut size={14} weight="bold" aria-hidden />
@@ -320,7 +321,7 @@ export function SelanjutnyaHorizon({
 }) {
   if (!judul && !qr && !sisipan && !bantuan) return null;
   return (
-    <section className="flex flex-col gap-3 md:gap-5 md:rounded-[24px] md:bg-white md:p-7" style={{ color: TINTA }}>
+    <section className={`flex flex-col gap-3 md:gap-5 ${judul || sisipan ? "md:rounded-[24px] md:bg-white md:p-7" : ""}`} style={{ color: TINTA }}>
       {sisipan}
       {judul ? (
         <>

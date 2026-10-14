@@ -37,6 +37,7 @@ export function SusunanBeranda({
   member,
   blocks,
   checkpointsOn,
+  horizon = false,
   set,
   dipilih,
   onPilih,
@@ -46,6 +47,8 @@ export function SusunanBeranda({
   blocks: BlokPeserta[];
   /** Check-in > Checkpoints dinyalakan; mati = barisnya menyebut di mana menyalakannya. */
   checkpointsOn: boolean;
+  /** Gathering Horizon tidak menampilkan "Today's agenda": barisnya tidak ditawarkan, datanya tetap. */
+  horizon?: boolean;
   set: (patch: Partial<LandingMemberConfig>) => void;
   /** Baris yang sedang disorot di pratinjau. */
   dipilih: string | null;
@@ -54,7 +57,15 @@ export function SusunanBeranda({
   const gathering = layout === "gathering";
   const [seret, setSeret] = useState<number | null>(null);
   const [sasaran, setSasaran] = useState<number | null>(null);
-  const { order, hidden } = memberHomeOrder(member.home, blocks.map((block) => block.id), gathering);
+  const { order: urutanPenuh, hidden } = memberHomeOrder(member.home, blocks.map((block) => block.id), gathering);
+  const tanpa = gathering && horizon ? "agenda" : null;
+  const order = tanpa ? urutanPenuh.filter((id) => id !== tanpa) : urutanPenuh;
+  // Baris yang tidak ditawarkan kembali ke posisi lamanya saat urutan disimpan.
+  const lengkapi = (next: string[]) => {
+    if (!tanpa) return next;
+    const posisi = Math.min(urutanPenuh.indexOf(tanpa), next.length);
+    return [...next.slice(0, posisi), tanpa, ...next.slice(posisi)];
+  };
   const logistikMati = member.show_logistics !== true;
   const alasanMati = (id: string): string | null => {
     if (id === "agenda" && member.show_schedule === false) return "Agenda is off below";
@@ -78,7 +89,7 @@ export function SusunanBeranda({
     };
   });
 
-  const simpanUrutan = (next: string[]) => set({ home: { ...member.home, order: next } });
+  const simpanUrutan = (next: string[]) => set({ home: { ...member.home, order: lengkapi(next) } });
   const pindah = (dari: number, ke: number) => {
     if (ke < 0 || ke >= order.length || dari === ke) return;
     const next = [...order];
@@ -97,7 +108,7 @@ export function SusunanBeranda({
     else next.delete(b.id);
     // Urutan ikut disimpan: tanpa itu, blok yang ditambahkan nanti bisa
     // menggeser isi yang posisinya sudah dilihat admin di pratinjau.
-    set({ home: { ...member.home, order, hidden: [...next] } });
+    set({ home: { ...member.home, order: urutanPenuh, hidden: [...next] } });
   };
   const tombolPegangan = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
