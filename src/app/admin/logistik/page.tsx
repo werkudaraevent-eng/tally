@@ -36,7 +36,7 @@ import { plural } from "@/lib/plural";
 type Bagian = "penempatan" | "kamar" | "bus" | "kereta" | "barang";
 type BagianBus = "bus" | "agenda";
 /** Dialog "baru" yang dibuka dari kepala halaman. */
-type Baru = "kamar" | "bus" | "agenda" | "barang";
+type Baru = "kamar" | "bus" | "agenda" | "barang" | "kereta";
 
 export default function LogistikPage() {
   const [data, setData] = useState<LogistikData | null>(null);
@@ -112,9 +112,9 @@ export default function LogistikPage() {
 
   // Dialog "baru" milik bagian yang sedang tampil: Bus baru di Daftar bus,
   // Agenda baru di bagian Agenda.
-  const aktifBaru: Baru | null = bagian === "penempatan" || bagian === "kereta" ? null : bagian === "bus" ? bagianBus : bagian;
+  const aktifBaru: Baru | null = bagian === "penempatan" || (bagian === "kereta" && !data?.trains_ready) ? null : bagian === "bus" ? bagianBus : bagian;
   const tabProps = data ? { data, kirim, busy, baru: baru !== null && baru === aktifBaru, tutupBaru: () => setBaru(null) } : null;
-  const LABEL_BARU: Record<Baru, string> = { kamar: "Add room", bus: "Add bus", agenda: "Add trip", barang: "Add kit item" };
+  const LABEL_BARU: Record<Baru, string> = { kamar: "Add room", bus: "Add bus", agenda: "Add trip", barang: "Add kit item", kereta: "Add ticket" };
 
   const pilihBus = (
     <SegmentedButton<BagianBus>
@@ -194,7 +194,7 @@ export default function LogistikPage() {
         ) : bagian === "bus" ? (
           bagianBus === "bus" ? <TabBus {...tabProps} atas={pilihBus} /> : <TabAgenda {...tabProps} atas={pilihBus} />
         ) : bagian === "kereta" ? (
-          <TabKereta data={tabProps.data} kirim={kirim} busy={busy} />
+          <TabKereta {...tabProps} />
         ) : (
           <TabBarang {...tabProps} />
         )}

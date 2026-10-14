@@ -3,20 +3,21 @@
 import { Train, Warning } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import {
-  Banner, Button, DetailSection, Dialog, EmptyState, KeyValue, ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, TextField, EMPTY_VALUE,
+  Banner, Button, DetailSection, Dialog, EmptyState, KeyValue, ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, SelectField, TextField, EMPTY_VALUE,
 } from "@/components/m3";
 import { LABEL_ARAH } from "@/lib/logistik/impor";
-import type { TiketKereta } from "@/lib/logistik/types";
+import type { ArahKereta, TiketKereta } from "@/lib/logistik/types";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
-import { KepalaDetail, KepalaKolom, KolomCari, type TabProps } from "./bersama";
+import { KepalaDetail, KepalaKolom, KolomCari, PilihPeserta, type TabProps } from "./bersama";
 
 /**
  * Tab Trains: tiket kereta tiap peserta, satu baris per orang per arah
  * (Outbound, Return).
  *
- * Tiket datang dari daftar agen atau KAI lewat Import from Excel, jadi tab
- * ini terutama untuk memeriksa dan membetulkan satu tiket. Peserta melihat
+ * Tiket biasanya datang dari daftar agen atau KAI lewat Import from Excel;
+ * Add ticket menambah satu tiket (pilih peserta dan arah, lalu isi tiketnya)
+ * untuk peserta susulan atau pembetulan cepat. Peserta melihat
  * tiketnya di Dashboard saya bila "Kamar dan bus" dinyalakan di Area peserta.
  */
 
@@ -30,8 +31,13 @@ export function tanggalTiket(iso: string | null): string | null {
 const kursiTiket = (tiket: TiketKereta) => [tiket.carriage, tiket.seat].filter(Boolean).join(" / ") || null;
 const jamTiket = (tiket: TiketKereta) => [tiket.depart_time, tiket.arrive_time].filter(Boolean).join("–") || null;
 
-export function TabKereta({ data, kirim, busy }: Omit<TabProps, "baru" | "tutupBaru">) {
+/** Tiket yang sedang ditambah: peserta dan arah sudah dipilih, isi tiket belum. */
+type TiketBaru = { participant_id: string; direction: ArahKereta };
+
+export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
   const [pilih, setPilih] = useState<number | null>(null);
+  const [arahBaru, setArahBaru] = useState<ArahKereta>("outbound");
+  const [tiketBaru, setTiketBaru] = useState<TiketBaru | null>(null);
   const [cari, setCari] = useState("");
   const [ubah, setUbah] = useState<TiketKereta | null>(null);
   const [hapus, setHapus] = useState<TiketKereta | null>(null);
@@ -52,6 +58,7 @@ export function TabKereta({ data, kirim, busy }: Omit<TabProps, "baru" | "tutupB
       })
     : tiket;
   const punyaTiket = new Set(tiket.map((t) => t.participant_id)).size;
+  const sudahPunya = useMemo(() => new Set(tiket.filter((t) => t.direction === arahBaru).map((t) => t.participant_id)), [tiket, arahBaru]);
 
   if (!data.trains_ready) {
     return (
@@ -80,7 +87,7 @@ export function TabKereta({ data, kirim, busy }: Omit<TabProps, "baru" | "tutupB
             plain
             icon={<Train size={40} />}
             title="No train tickets yet"
-            description="Use Import from Excel at the top right: one row per person per direction, with the train, carriage, seat and booking code. Participants see their tickets once Room and bus is on in the Participant area."
+            description="Use Import from Excel at the top right for the whole list (one row per person per direction), or Add ticket for one person. Participants see their tickets once Room and bus is on in the Participant area."
           />
         ) : tampil.length === 0 ? (
           <p className="px-4 py-6 text-center text-body-medium text-on-surface-variant">No tickets match that search.</p>
@@ -104,7 +111,7 @@ export function TabKereta({ data, kirim, busy }: Omit<TabProps, "baru" | "tutupB
                     <span className="block truncate text-on-surface-variant">{[t.train_name, tanggalTiket(t.depart_date)].filter(Boolean).join(" · ")}</span>
                   </span>
                   <span className="w-20 shrink-0 text-on-surface-variant">{LABEL_ARAH[t.direction]}</span>
-                  <span className="w-28 shrink-0 truncate text-right tabular-nums text-on-surface">{kursiTiket(t) ?? EMPTY_VALUE}</span>
+                  <span className="w-28 shrink-0 text-right tabular-nums text-on-surface [overflow-wrap:anywhere]">{kursiTiket(t) ?? EMPTY_VALUE}</span>
                 </button>
               );
             })}
@@ -147,12 +154,48 @@ export function TabKereta({ data, kirim, busy }: Omit<TabProps, "baru" | "tutupB
     <>
       <ListDetail list={daftar} detail={detail} />
 
+      {/* key: ganti arah memulai pilihan dari awal; pilihan arah lain tidak boleh terbawa. */}
+      <PilihPeserta
+        key={arahBaru}
+        open={baru}
+        onClose={() => { tutupBaru(); setArahBaru("outbound"); }}
+        title="Add train ticket"
+        description="Choose the direction and one participant, then fill in the ticket."
+        peserta={data.participants}
+        utama={(orang) => !sudahPunya.has(orang.id)}
+        labelUtama={`Participants without ${arahBaru === "outbound" ? "an outbound" : "a return"} ticket.`}
+        labelSemua="Also show participants who already have this ticket"
+        labelHabis={`Every participant already has ${arahBaru === "outbound" ? "an outbound" : "a return"} ticket. Edit a ticket in the list instead.`}
+        alasanTolak={(orang) => (sudahPunya.has(orang.id) ? `Already has ${arahBaru === "outbound" ? "an outbound" : "a return"} ticket` : null)}
+        batas={1}
+        tombol="Next"
+        busy={busy}
+        onSubmit={async ([id]) => {
+          if (!id || sudahPunya.has(id)) return false;
+          setTiketBaru({ participant_id: id, direction: arahBaru });
+          return true;
+        }}
+      >
+        <SelectField label="Direction" value={arahBaru} onChange={(event) => setArahBaru(event.target.value as ArahKereta)}>
+          <option value="outbound">{LABEL_ARAH.outbound}</option>
+          <option value="return">{LABEL_ARAH.return}</option>
+        </SelectField>
+      </PilihPeserta>
+
       <FormKereta
         tiket={ubah}
-        nama={ubah ? orangById.get(ubah.participant_id)?.name ?? "" : ""}
+        baru={tiketBaru}
+        nama={(() => { const id = ubah?.participant_id ?? tiketBaru?.participant_id; return id ? orangById.get(id)?.name ?? "" : ""; })()}
         busy={busy}
-        onClose={() => setUbah(null)}
-        simpan={async (nilai, id) => Boolean(await kirim("/api/admin/logistik/data/kereta", "PATCH", { id, ...nilai }))}
+        onClose={() => { setUbah(null); setTiketBaru(null); }}
+        simpan={async (nilai) => {
+          if (ubah) return Boolean(await kirim("/api/admin/logistik/data/kereta", "PATCH", { id: ubah.id, ...nilai }));
+          if (!tiketBaru) return false;
+          const hasil = await kirim("/api/admin/logistik/data/kereta", "POST", { ...tiketBaru, ...nilai }) as { id?: number } | null;
+          // Tiket baru langsung terbuka di panel detail supaya terlihat apa yang dilihat peserta.
+          if (hasil && typeof hasil.id === "number") setPilih(hasil.id);
+          return Boolean(hasil);
+        }}
       />
 
       <Dialog
@@ -179,14 +222,17 @@ export function TabKereta({ data, kirim, busy }: Omit<TabProps, "baru" | "tutupB
 
 type NilaiKereta = Pick<TiketKereta, "train_name" | "travel_class" | "origin" | "destination" | "depart_date" | "depart_time" | "arrive_time" | "carriage" | "seat" | "booking_code">;
 
-function FormKereta({ tiket, nama, busy, onClose, simpan }: {
-  /** Null = dialog tertutup. */
+function FormKereta({ tiket, baru, nama, busy, onClose, simpan }: {
+  /** Tiket yang diubah. Dialog tertutup bila ini dan `baru` sama-sama null. */
   tiket: TiketKereta | null;
+  /** Tiket baru: peserta dan arah yang dipilih di langkah sebelumnya. */
+  baru: TiketBaru | null;
   nama: string;
   busy: boolean;
   onClose: () => void;
-  simpan: (nilai: NilaiKereta, id: number) => Promise<boolean>;
+  simpan: (nilai: NilaiKereta) => Promise<boolean>;
 }) {
+  const arah = tiket?.direction ?? baru?.direction ?? null;
   const awal = {
     train_name: tiket?.train_name ?? "", travel_class: tiket?.travel_class ?? "", origin: tiket?.origin ?? "", destination: tiket?.destination ?? "",
     depart_date: tiket?.depart_date ?? "", depart_time: tiket?.depart_time ?? "", arrive_time: tiket?.arrive_time ?? "",
@@ -199,22 +245,22 @@ function FormKereta({ tiket, nama, busy, onClose, simpan }: {
   const isi = (kunci: keyof typeof awal) => ({ value: nilai[kunci], onChange: (event: { target: { value: string } }) => setDraf({ ...nilai, [kunci]: event.target.value }) });
 
   async function kirimForm() {
-    if (!tiket || !sah) return;
+    if (!arah || !sah) return;
     const rapi = (teks: string) => teks.trim() || null;
     const ok = await simpan({
       train_name: nilai.train_name.trim(), travel_class: rapi(nilai.travel_class), origin: rapi(nilai.origin), destination: rapi(nilai.destination),
       depart_date: nilai.depart_date || null, depart_time: nilai.depart_time.slice(0, 5) || null, arrive_time: nilai.arrive_time.slice(0, 5) || null,
       carriage: rapi(nilai.carriage), seat: rapi(nilai.seat), booking_code: rapi(nilai.booking_code),
-    }, tiket.id);
+    });
     if (ok) tutup();
   }
 
   return (
     <Dialog
-      open={tiket !== null}
+      open={arah !== null}
       onClose={tutup}
       dismissible={!busy}
-      title={tiket ? `Edit ${LABEL_ARAH[tiket.direction].toLowerCase()} ticket` : ""}
+      title={arah ? `${tiket ? "Edit" : "Add"} ${LABEL_ARAH[arah].toLowerCase()} ticket` : ""}
       description={nama || undefined}
       icon={<Train size={20} />}
       actions={
