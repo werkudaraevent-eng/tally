@@ -100,7 +100,8 @@ export async function GET(request: Request) {
   let rsvpStatuses: string[] = [];
   let companies: string[] = [];
   let totalParticipants = 0;
-  let attendanceSessions: AttendanceSessionOption[] = [];
+  // null = gagal dibaca; layar lalu tidak menandai sesi mana pun sebagai terhapus.
+  let attendanceSessions: AttendanceSessionOption[] | null = [];
 
   if (withCounts) {
     const [pool, sessions] = await Promise.all([
@@ -110,8 +111,10 @@ export async function GET(request: Request) {
     const rows: ParticipantPoolRow[] = pool ?? [];
     attendanceSessions = sessions;
     totalParticipants = rows.length;
-    const known = new Set(sessions.map((session) => session.id));
-    counts = countMatches(rows, rules.map((rule) => ({ ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) })));
+    const known = sessions ? new Set(sessions.map((session) => session.id)) : null;
+    counts = countMatches(rows, known
+      ? rules.map((rule) => ({ ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) }))
+      : rules);
     participantTypes = distinct(rows.map((row) => row.participant_type));
     rsvpStatuses = distinct(rows.map((row) => row.rsvp_status));
     companies = distinct(rows.map((row) => row.company));

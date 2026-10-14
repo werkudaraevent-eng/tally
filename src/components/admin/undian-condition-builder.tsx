@@ -37,10 +37,10 @@ type Props = {
   companies?: string[];
   /**
    * Sesi kehadiran acara (Check-in > Sessions), untuk syarat check-in per sesi.
-   * `undefined` = belum dimuat, supaya sesi yang dipilih tidak sempat terbaca
-   * sebagai "sudah dihapus" sebelum daftarnya datang.
+   * `undefined` = belum dimuat dan `null` = gagal dimuat; keduanya tidak
+   * menandai sesi yang dipilih sebagai "sudah dihapus".
    */
-  sessions?: { id: number; name: string }[];
+  sessions?: { id: number; name: string }[] | null;
   tone?: "include" | "exclude";
   depth?: number;
 };
@@ -149,6 +149,7 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
           rsvpStatuses={rsvpStatuses}
           companies={companies}
           sessions={sessions}
+          tone={tone}
           onChange={(next) => updateChild(index, next)}
           onRemove={() => removeChild(index)}
         />}
@@ -190,6 +191,7 @@ function LeafEditor({
   rsvpStatuses,
   companies,
   sessions,
+  tone,
   onChange,
   onRemove,
 }: {
@@ -197,7 +199,8 @@ function LeafEditor({
   participantTypes: string[];
   rsvpStatuses: string[];
   companies: string[];
-  sessions: { id: number; name: string }[] | undefined;
+  sessions: { id: number; name: string }[] | null | undefined;
+  tone: "include" | "exclude";
   onChange: (next: UndianConditionNode) => void;
   onRemove: () => void;
 }) {
@@ -210,7 +213,7 @@ function LeafEditor({
   const sessionList = sessions ?? [];
   // Sesi yang dipilih sudah dihapus. Server menganggap syarat ini rusak (tidak
   // ada yang lolos), jadi panitia harus memilih ulang sebelum undian.
-  const sessionGone = leaf.var === "checked_in" && leaf.session_id !== undefined && sessions !== undefined
+  const sessionGone = leaf.var === "checked_in" && leaf.session_id !== undefined && sessions != null
     && !sessions.some((session) => session.id === leaf.session_id);
 
   // Syarat yang tidak terbaca. Ditampilkan sebagai peringatan yang bisa dihapus,
@@ -311,10 +314,15 @@ function LeafEditor({
     >
       <option value={0}>di sesi mana pun</option>
       {sessionList.map((session) => <option key={session.id} value={session.id}>di {session.name}</option>)}
-      {leaf.session_id !== undefined && !sessionList.some((session) => session.id === leaf.session_id) && <option value={leaf.session_id}>{sessionGone ? "di sesi yang sudah dihapus" : "memuat sesi..."}</option>}
+      {leaf.session_id !== undefined && !sessionList.some((session) => session.id === leaf.session_id) && <option value={leaf.session_id}>{sessionGone ? "di sesi yang sudah dihapus" : sessions === null ? "sesi gagal dimuat" : "memuat sesi..."}</option>}
     </select>}
+    {/* Syarat dengan sesi terhapus selalu bernilai salah. Pada syarat hadiah
+        artinya tidak ada yang lolos; pada aturan pengecualian artinya aturan
+        ini tidak mengecualikan siapa pun. */}
     {sessionGone && <span role="alert" className="order-last flex basis-full items-center gap-1.5 font-medium text-error">
-      <Warning size={16} aria-hidden /> Sesi ini sudah dihapus, jadi tidak ada peserta yang lolos. Pilih sesi lain.
+      <Warning size={16} aria-hidden className="shrink-0" /> {tone === "exclude"
+        ? "Sesi ini sudah dihapus, jadi aturan ini tidak mengecualikan siapa pun. Pilih sesi lain."
+        : "Sesi ini sudah dihapus, jadi tidak ada peserta yang lolos. Pilih sesi lain."}
     </span>}
 
     <TombolHapus label="Hapus syarat" onClick={onRemove} icon={<Trash size={16} />} />

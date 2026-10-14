@@ -181,7 +181,7 @@ export async function GET(request: Request) {
   const withPool = new URL(request.url).searchParams.get("pool") === "1";
   const pools: Record<number, { eligible: number; candidates: number; tickets: number }> = {};
   // Nama sesi kehadiran, untuk ringkasan syarat "sudah check-in di Gala" di daftar.
-  let attendanceSessions: AttendanceSessionOption[] = [];
+  let attendanceSessions: AttendanceSessionOption[] | null = [];
   if (withPool) {
     attendanceSessions = await listAttendanceSessions(eventId);
     for (const prize of prizes) {

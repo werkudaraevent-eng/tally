@@ -719,7 +719,11 @@ const CMP_TEXT: Record<UndianCmp, string> = {
 const rupiah = (value: number) => `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
 
 /** Satu baris ringkas, supaya admin tidak perlu membuka form hanya untuk tahu syaratnya. */
-export function describeConditions(node: UndianConditionGroup, sessionNames: Record<number, string> = {}): string {
+/**
+ * `sessionNames` null = daftar sesi gagal dimuat; sesi yang dipilih lalu disebut
+ * "sesi tertentu", bukan "sudah dihapus".
+ */
+export function describeConditions(node: UndianConditionGroup, sessionNames: Record<number, string> | null = {}): string {
   if (node.children.length === 0) return "semua peserta aktif";
 
   const parts = node.children.map((child) => {
@@ -742,6 +746,7 @@ export function describeConditions(node: UndianConditionGroup, sessionNames: Rec
       case "checked_in": {
         const status = child.is ? "sudah check-in" : "belum check-in";
         if (child.session_id === undefined) return status;
+        if (sessionNames === null) return `${status} di sesi tertentu`;
         // Sesi terhapus disebut keras, seperti syarat rusak: syaratnya tidak
         // pernah terpenuhi sampai sesinya dipilih ulang.
         return sessionNames[child.session_id] === undefined
