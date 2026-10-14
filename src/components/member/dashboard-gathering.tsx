@@ -61,6 +61,7 @@ import { HORIZON_GOLD_DEFAULT } from "@/lib/landing-tokens";
 import { gayaHorizon } from "@/components/landing/modern/horizon";
 import {
   BabHorizon,
+  HariJadwalHorizon,
   BantuanPonselHorizon,
   IsiTombolQr,
   KepalaHorizon,
@@ -633,9 +634,21 @@ export async function DashboardGathering({
       agenda.length === 0 ? (
         <p className={`${KARTU} text-body-large ${MUTED}`}>{t.noSchedule}</p>
       ) : (
-        <div className="mx-auto w-full max-w-[720px]">
+        <div className={!horizon ? "mx-auto w-full max-w-[720px]" : agenda.length > 1 ? "w-full lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-14 lg:pt-10" : "w-full lg:pt-10"}>
+          {horizon && agenda.length > 1 ? (
+            <HariJadwalHorizon
+              aria={t.daysAria}
+              hari={agenda.map((b, index) => ({
+                label: [String(index + 1).padStart(2, "0"), b.tanggal ? tanggalBab(b.tanggal, lang) : null].filter(Boolean).join(" / "),
+                judul: b.sectionTitle?.trim() || t.day(index + 1),
+                href: keTab("jadwal", { hari: String(index + 1) }),
+                aktif: index === pilihan,
+              }))}
+            />
+          ) : null}
+          <div className={horizon ? "min-w-0 lg:col-start-2 lg:max-w-[880px]" : "contents"}>
           {agenda.length > 1 ? (
-            <nav aria-label={t.daysAria} className="-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+            <nav aria-label={t.daysAria} className={`-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0 ${horizon ? "lg:hidden" : ""}`}>
               <ul className="flex gap-2">
                 {agenda.map((b, index) => (
                   <li key={index} className="shrink-0">
@@ -661,7 +674,13 @@ export async function DashboardGathering({
           ) : null}
           {bagian ? (
             <>
-              {bagian.sectionTitle?.trim() || bagian.hari ? (
+              {horizon ? (
+                // Layar lebar: judul hari di atas daftar; tanggal panjang dari tanggal bagian, jadi tanggal yang salah di CMS langsung terlihat.
+                <div className="mt-5 flex flex-col gap-1 lg:mt-0">
+                  {bagian.tanggal ? <p className={`text-body-medium font-semibold ${MUTED}`}>{tanggalPanjangBab(bagian.tanggal, lang)}</p> : null}
+                  <h2 className="text-[20px] font-extrabold leading-[1.26] [overflow-wrap:anywhere] lg:text-[26px]">{bagian.sectionTitle?.trim() || t.day(pilihan + 1)}</h2>
+                </div>
+              ) : bagian.sectionTitle?.trim() || bagian.hari ? (
                 <p className={`mt-5 text-body-medium font-semibold ${MUTED}`}>{[bagian.hari, bagian.sectionTitle?.trim()].filter(Boolean).join(" · ")}</p>
               ) : null}
               <ol className="mt-3 flex flex-col gap-3">
@@ -687,6 +706,7 @@ export async function DashboardGathering({
               </ol>
             </>
           ) : null}
+          </div>
         </div>
       );
   } else if (tabAktif === "info") {
@@ -1021,6 +1041,11 @@ export async function DashboardGathering({
 /** "6 November" untuk label bab Horizon. */
 function tanggalBab(tanggal: string, lang: LandingLang): string {
   return new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "id-ID", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${tanggal}T00:00:00Z`));
+}
+
+/** "Jumat, 6 November 2026" untuk judul hari di halaman Jadwal Horizon. */
+function tanggalPanjangBab(tanggal: string, lang: LandingLang): string {
+  return new Date(`${tanggal}T00:00:00Z`).toLocaleDateString(lang === "en" ? "en-GB" : "id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 }
 
 function JudulKepala({ judul, catatan }: { judul: string; catatan: string | null }) {
