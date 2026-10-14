@@ -22,7 +22,8 @@ const leafSchema = z.union([
     cmp: z.enum(["in", "not_in"]),
     values: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
   }),
-  z.object({ var: z.enum(["checked_in", "has_seat"]), is: z.boolean() }),
+  z.object({ var: z.literal("checked_in"), is: z.boolean(), session_id: z.number().int().positive().optional() }),
+  z.object({ var: z.literal("has_seat"), is: z.boolean() }),
   z.object({
     var: z.enum(TEXT_VARS),
     cmp: z.enum(TEXT_CMPS),
