@@ -765,8 +765,9 @@ export async function DashboardGathering({
       const tampilTeman = diBeranda("roommates") && teman && teman.length > 0;
       const fakta: FaktaPass[] = [
         { label: tH.participant, nilai: sesi.name, ponsel: false },
-        ...(tampilLogistik && namaBus ? [{ label: tH.bus, nilai: namaBus, ponsel: true }] : []),
-        ...(tampilLogistik && kamar ? [{ label: tH.room, nilai: kamar.room_number, ponsel: true }] : []),
+        ...(tampilLogistik && kamar?.hotel?.name?.trim() ? [{ label: tH.hotel, nilai: kamar.hotel.name.trim(), ponsel: true, lebar: true }] : []),
+        ...(tampilLogistik && namaBus ? [{ label: tH.bus, nilai: namaBus, ponsel: true, pendek: true }] : []),
+        ...(tampilLogistik && kamar ? [{ label: tH.room, nilai: kamar.room_number, ponsel: true, pendek: true }] : []),
         ...(tampilTeman ? [{ label: tH.roommate(teman.length), nilai: teman.map((orang) => orang.name).join(", "), ponsel: false }] : []),
       ];
       // Label hari agenda berikutnya: hari ini, besok, atau "Hari pertama".
