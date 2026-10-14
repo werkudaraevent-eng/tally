@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Bell, CalendarDots, Compass, QrCode, Train, User, X } from "@phosphor-icons/react/dist/ssr";
 import type { PortalTab } from "@/components/member/dashboard-gathering";
+import { GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 
 /**
  * Portal peserta Gathering Horizon: rancangan pen.dev V5 Hanung (2026-10-13),
@@ -358,7 +359,8 @@ export function BabHorizon({ bab }: { bab: { label: string; judul: string; href:
  */
 export function HariJadwalHorizon({ hari, aria }: { hari: { label: string; judul: string; href: string; aktif: boolean }[]; aria: string }) {
   return (
-    <nav aria-label={aria} className="sticky top-[118px] -ml-5 hidden self-start lg:block" style={{ color: TINTA }}>
+    <nav aria-label={aria} className="sticky top-[118px] -my-1 -ml-6 -mr-1 hidden max-h-[calc(100dvh-134px)] self-start overflow-y-auto overscroll-contain p-1 lg:block" style={{ color: TINTA }}>
+      <GulirHariAktif />
       <ol className="flex flex-col gap-1">
         {hari.map((item) => (
           <li key={item.href}>
@@ -371,7 +373,7 @@ export function HariJadwalHorizon({ hari, aria }: { hari: { label: string; judul
               <span className="text-[11px] font-bold uppercase tracking-[0.6px]" style={{ color: item.aktif ? BIRU : LABEL }}>
                 {item.label}
               </span>
-              <span className={`text-[17px] leading-[1.3] [overflow-wrap:anywhere] ${item.aktif ? "font-extrabold" : "font-semibold"}`} style={item.aktif ? undefined : { color: REDUP }}>
+              <span className={`text-[17px] leading-[1.3] text-balance [overflow-wrap:anywhere] ${item.aktif ? "font-extrabold" : "font-semibold"}`} style={item.aktif ? undefined : { color: REDUP }}>
                 {item.judul}
               </span>
             </Link>
