@@ -111,7 +111,7 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
                     <span className="block truncate text-on-surface-variant">{[t.train_name, tanggalTiket(t.depart_date)].filter(Boolean).join(" · ")}</span>
                   </span>
                   <span className="w-20 shrink-0 text-on-surface-variant">{LABEL_ARAH[t.direction]}</span>
-                  <span className="w-28 shrink-0 truncate text-right tabular-nums text-on-surface">{kursiTiket(t) ?? EMPTY_VALUE}</span>
+                  <span className="w-28 shrink-0 text-right tabular-nums text-on-surface [overflow-wrap:anywhere]">{kursiTiket(t) ?? EMPTY_VALUE}</span>
                 </button>
               );
             })}
@@ -162,12 +162,14 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
         peserta={data.participants}
         utama={(orang) => !sudahPunya.has(orang.id)}
         labelUtama={`Participants without ${arahBaru === "outbound" ? "an outbound" : "a return"} ticket.`}
+        labelSemua="Also show participants who already have this ticket"
+        labelHabis={`Every participant already has ${arahBaru === "outbound" ? "an outbound" : "a return"} ticket. Edit a ticket in the list instead.`}
         alasanTolak={(orang) => (sudahPunya.has(orang.id) ? `Already has ${arahBaru === "outbound" ? "an outbound" : "a return"} ticket` : null)}
         batas={1}
         tombol="Next"
         busy={busy}
         onSubmit={async ([id]) => {
-          if (!id) return false;
+          if (!id || sudahPunya.has(id)) return false;
           setTiketBaru({ participant_id: id, direction: arahBaru });
           return true;
         }}

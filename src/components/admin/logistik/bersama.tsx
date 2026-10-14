@@ -158,7 +158,7 @@ export function BarisOrang({ orang, keterangan, aksi }: { orang: LogistikPeserta
  * berbeda) dengan menyebut sebabnya, daripada membiarkan panitia memilih lalu
  * menerima toast galat.
  */
-export function PilihPeserta({ open, onClose, title, description, peserta, utama, labelUtama, keterangan, alasanTolak, batas, tombol, busy, onSubmit, children }: {
+export function PilihPeserta({ open, onClose, title, description, peserta, utama, labelUtama, labelSemua = "Also show participants already assigned", labelHabis = "Every participant is already assigned. Tick the box above to move someone.", keterangan, alasanTolak, batas, tombol, busy, onSubmit, children }: {
   open: boolean;
   onClose: () => void;
   title: string;
@@ -166,6 +166,10 @@ export function PilihPeserta({ open, onClose, title, description, peserta, utama
   peserta: LogistikPeserta[];
   utama: (orang: LogistikPeserta) => boolean;
   labelUtama: string;
+  /** Kotak centang untuk menampilkan semua peserta. */
+  labelSemua?: string;
+  /** Daftar kosong karena semua sudah punya tempat. */
+  labelHabis?: string;
   keterangan?: (orang: LogistikPeserta) => string | null;
   alasanTolak?: (orang: LogistikPeserta) => string | null;
   /** Paling banyak yang boleh dipilih. Tanpa batas bila kosong. */
@@ -195,7 +199,11 @@ export function PilihPeserta({ open, onClose, title, description, peserta, utama
   // Daftar dirender paling banyak 200 baris. Acara 2.000 peserta tetap
   // terbuka seketika, dan pencarian menemukan sisanya.
   const BATAS_RENDER = 200;
-  const penuh = batas !== undefined && pilih.size >= batas;
+  // Pilihan yang kemudian menjadi tertolak (mis. kolom tujuan di atas daftar
+  // diganti) tidak ikut terkirim: server pasti menolaknya.
+  const orangById = useMemo(() => new Map(peserta.map((orang) => [orang.id, orang])), [peserta]);
+  const sah = [...pilih].filter((id) => { const orang = orangById.get(id); return orang !== undefined && !alasanTolak?.(orang); });
+  const penuh = batas !== undefined && sah.length >= batas;
 
   function ubah(id: string, centang: boolean) {
     setPilih((lama) => {
@@ -206,7 +214,7 @@ export function PilihPeserta({ open, onClose, title, description, peserta, utama
   }
 
   async function simpan() {
-    if (await onSubmit([...pilih])) tutup();
+    if (await onSubmit(sah)) tutup();
   }
 
   return (
@@ -220,10 +228,10 @@ export function PilihPeserta({ open, onClose, title, description, peserta, utama
       actions={
         <>
           <span className="mr-auto text-body-medium tabular-nums text-on-surface-variant" aria-live="polite">
-            {pilih.size.toLocaleString("en-GB")} selected{batas !== undefined ? ` · ${plural(batas, "place")} left` : ""}
+            {sah.length.toLocaleString("en-GB")} selected{batas !== undefined ? ` · ${plural(Math.max(batas - sah.length, 0), "place")} left` : ""}
           </span>
           <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
-          <Button simpan loading={busy} disabled={pilih.size === 0} onClick={() => void simpan()}>{tombol}</Button>
+          <Button simpan loading={busy} disabled={sah.length === 0} onClick={() => void simpan()}>{tombol}</Button>
         </>
       }
     >
@@ -239,13 +247,13 @@ export function PilihPeserta({ open, onClose, title, description, peserta, utama
         />
         <label className="flex items-center gap-2 text-body-medium text-on-surface">
           <input type="checkbox" checked={semua} onChange={(event) => setSemua(event.target.checked)} className="size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
-          Also show participants already assigned
+          {labelSemua}
         </label>
         <p className="text-body-small text-on-surface-variant">{semua ? "All active participants." : labelUtama}</p>
         <ul className="flex max-h-[44dvh] flex-col overflow-y-auto rounded-md border border-outline-variant" aria-label="Participants">
           {tampil.length === 0 ? (
             <li className="px-4 py-6 text-center text-body-medium text-on-surface-variant">
-              {cari.trim() ? "No participants match that search." : "Every participant is already assigned. Tick the box above to move someone."}
+              {cari.trim() ? "No participants match that search." : labelHabis}
             </li>
           ) : tampil.slice(0, BATAS_RENDER).map((orang) => {
             const tolak = alasanTolak?.(orang) ?? null;
@@ -253,7 +261,8 @@ export function PilihPeserta({ open, onClose, title, description, peserta, utama
             const mati = Boolean(tolak) || (!dipilih && penuh);
             // Alasan tolak menggantikan keterangan: "Jenis kelamin kosong · Jenis
             // kelamin belum diisi" menyebut hal yang sama dua kali.
-            const ket = [orang.company, tolak ?? keterangan?.(orang)].filter(Boolean).join(" · ");
+            // Alasan tolak di depan: nama organisasi yang panjang tidak boleh menyembunyikannya.
+            const ket = (tolak ? [tolak, orang.company] : [orang.company, keterangan?.(orang)]).filter(Boolean).join(" · ");
             return (
               <li key={orang.id} className="border-b border-outline-variant last:border-b-0">
                 <label className={cx("flex min-h-12 items-center gap-3 px-4 py-2 text-body-medium", mati ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-primary-soft")}>
