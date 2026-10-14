@@ -1,11 +1,12 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown, CaretDown } from "@phosphor-icons/react/dist/ssr";
+import { ArrowDown } from "@phosphor-icons/react/dist/ssr";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { pecahJudul, tanpaBintang } from "@/lib/landing-tagline";
 import { jamPenting } from "./hari-gathering";
 import { Muncul } from "./horizon-gerak";
+import { JamHariHorizon } from "./horizon-jadwal";
 
 /**
  * Gathering Horizon: rancangan V5 "Beyond Everyday" Hanung (pen.dev,
@@ -38,18 +39,6 @@ const BINGKAI = "mx-auto w-full max-w-[1440px] px-6 md:px-16";
 /** Tombol pil emas, teks dari --hz-on-emas (diukur terhadap emasnya). Tinggi >= 48px. */
 const PIL_EMAS =
   "m3-state inline-flex min-h-12 items-center rounded-full bg-[var(--hz-emas)] font-extrabold leading-[1.26] text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)]";
-/**
- * Peran warna AgendaPills dipetakan ke navy Horizon: jam sesi emas (sorot,
- * >= 4.5:1 di navy), judul krem, keterangan dan garis navy redup.
- */
-const GAYA_JADWAL = {
-  "--reg-primary": "var(--hz-sorot,var(--hz-emas))",
-  "--reg-on-primary": "var(--hz-on-emas)",
-  "--reg-on-surface": KREM,
-  "--reg-on-surface-variant": REDUP_NAVY,
-  "--reg-outline-variant": GARIS_NAVY,
-  "--reg-surface": "var(--hz-navy)",
-} as CSSProperties;
 const LABEL_KECIL = "text-[11px] font-bold uppercase leading-[1.26]";
 
 /**
@@ -327,8 +316,9 @@ function labelHari(tanggal: string | null, lang: LandingLang, panjang: boolean):
  * Susunan acara (frame "03 • Journey chapters"): judul besar di atas navy,
  * satu baris per hari rundown dengan nomor emas, nama hari, judul bagian,
  * cerita singkat (`program_notes`, sama dengan Gathering), dan tiga jam
- * penting. Jadwal lengkap jam per jam dilipat di bawahnya: rancangan hanya
- * menampilkan tiga jam, dan sisanya tetap harus bisa ditemukan tamu.
+ * penting. "Lihat semua" membuka seluruh acara hari itu di daftar yang sama
+ * (gaya sama, tanpa panel atau tab baru), karena tamu tetap harus bisa
+ * menemukan acara yang tidak masuk tiga jam penting.
  */
 export function PerjalananHorizon({
   judul,
@@ -337,7 +327,6 @@ export function PerjalananHorizon({
   agenda,
   cerita,
   lang,
-  jadwalLengkap,
 }: {
   judul: string;
   /** Rentang tanggal acara di kanan judul ("6–8 November 2026"). */
@@ -346,8 +335,6 @@ export function PerjalananHorizon({
   agenda: AgendaPreview[];
   cerita: string[];
   lang: LandingLang;
-  /** Jadwal lengkap satu hari (AgendaPills satu bagian), dilipat di bawah barisnya. */
-  jadwalLengkap: (bagian: AgendaPreview) => ReactNode;
 }) {
   const t = LANDING_UI[lang];
   return (
@@ -373,53 +360,28 @@ export function PerjalananHorizon({
             const isiCerita = cerita[index]?.trim();
             return (
               // Indeks, bukan judul: dua bagian rundown boleh berjudul sama.
-              <Muncul as="li" key={index} jeda={Math.min(index, 4) * 0.06} className="border-t pt-5 md:py-8" style={{ borderColor: GARIS_NAVY }}>
-                <div className="flex flex-col gap-3 md:flex-row md:gap-9">
-                  <span aria-hidden className="hidden w-[84px] shrink-0 text-[64px] font-extrabold leading-[1.26] tabular-nums text-[var(--hz-sorot,var(--hz-emas))] md:block">
-                    {nomor}
-                  </span>
-                  <p className="text-[12px] font-bold uppercase leading-[1.26] text-[var(--hz-sorot,var(--hz-emas))] md:hidden">
-                    <span aria-hidden>{nomor}</span>
-                    {hariPendek ? <><span aria-hidden>{" / "}</span>{hariPendek}</> : null}
-                  </p>
-                  <div className="flex min-w-0 flex-1 flex-col gap-3 md:gap-[14px]">
-                    {hariPanjang ? (
-                      <p className="hidden text-[11px] uppercase leading-[1.26] tracking-[1.2px] md:block" style={{ color: REDUP_NAVY }}>
-                        {hariPanjang}
-                      </p>
-                    ) : null}
-                    <h3 className="text-balance text-[23px] font-extrabold leading-[1.26] [overflow-wrap:anywhere] md:text-[30px]">{bagian.sectionTitle?.trim() || t.day(index + 1)}</h3>
-                    {isiCerita ? (
-                      <p className="hidden whitespace-pre-line text-[16px] leading-[1.65] md:block" style={{ color: REDUP_NAVY }}>
-                        {isiCerita}
-                      </p>
-                    ) : null}
-                  </div>
-                  {tampil.length > 0 ? (
-                    <ul className="flex flex-col text-[14px] leading-[2] text-[#CDD7EA] md:w-[260px] md:shrink-0 md:text-[15px] md:leading-[2.2] md:text-[#FAF8F2]">
-                      {tampil.map((item) => (
-                        <li key={item.id} className="flex gap-[8px]">
-                          <span className="shrink-0 tabular-nums">{item.time}</span>
-                          <span className="min-w-0 [overflow-wrap:anywhere]">{item.title}</span>
-                        </li>
-                      ))}
-                    </ul>
+              <Muncul as="li" key={index} jeda={Math.min(index, 4) * 0.06} className="flex flex-col gap-3 border-t pt-5 md:flex-row md:gap-9 md:py-8" style={{ borderColor: GARIS_NAVY }}>
+                <span aria-hidden className="hidden w-[84px] shrink-0 text-[64px] font-extrabold leading-[1.26] tabular-nums text-[var(--hz-sorot,var(--hz-emas))] md:block">
+                  {nomor}
+                </span>
+                <p className="text-[12px] font-bold uppercase leading-[1.26] text-[var(--hz-sorot,var(--hz-emas))] md:hidden">
+                  <span aria-hidden>{nomor}</span>
+                  {hariPendek ? <><span aria-hidden>{" / "}</span>{hariPendek}</> : null}
+                </p>
+                <div className="flex min-w-0 flex-1 flex-col gap-3 md:gap-[14px]">
+                  {hariPanjang ? (
+                    <p className="hidden text-[11px] uppercase leading-[1.26] tracking-[1.2px] md:block" style={{ color: REDUP_NAVY }}>
+                      {hariPanjang}
+                    </p>
+                  ) : null}
+                  <h3 className="text-balance text-[23px] font-extrabold leading-[1.26] [overflow-wrap:anywhere] md:text-[30px]">{bagian.sectionTitle?.trim() || t.day(index + 1)}</h3>
+                  {isiCerita ? (
+                    <p className="hidden whitespace-pre-line text-[16px] leading-[1.65] md:block" style={{ color: REDUP_NAVY }}>
+                      {isiCerita}
+                    </p>
                   ) : null}
                 </div>
-                {/* Jadwal lengkap per hari, di bawah hari itu sendiri: tamu sudah
-                    memilih harinya dengan membaca barisnya, jadi tidak perlu
-                    deret tab hari kedua. Gaya navy yang sama dengan halaman. */}
-                {tampil.length < bagian.items.length ? (
-                  <details className="group mt-2 md:mt-3 md:pl-[120px]">
-                    <summary className="m3-state -mx-3 inline-flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-md px-3 text-[14px] font-bold text-[var(--hz-sorot,var(--hz-emas))] [--m3-state-color:var(--hz-emas)] [&::-webkit-details-marker]:hidden">
-                      {t.horizon.scheduleAll(bagian.items.length)}
-                      <CaretDown size={16} weight="bold" aria-hidden className="transition-transform group-open:rotate-180" />
-                    </summary>
-                    <div className="mt-2 text-[#FAF8F2] [&_ol]:border-b-0" style={GAYA_JADWAL}>
-                      {jadwalLengkap(bagian)}
-                    </div>
-                  </details>
-                ) : null}
+                <JamHariHorizon penting={tampil} semua={bagian.items} lang={lang} />
               </Muncul>
             );
           })}

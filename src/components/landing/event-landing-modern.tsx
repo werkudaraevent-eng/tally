@@ -589,7 +589,6 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             agenda={agenda}
             cerita={config.program_notes ?? []}
             lang={lang}
-            jadwalLengkap={(bagian) => <AgendaPills agenda={[bagian]} speakers={orangSesi} tampilPembicara={pembicaraAgenda} lang={lang} perHari />}
           />
         ) : null,
       }
