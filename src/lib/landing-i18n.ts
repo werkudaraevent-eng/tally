@@ -449,6 +449,8 @@ export type LandingUiText = {
     closing: string;
     registered: string;
     scheduleNote: string;
+    /** Pembuka jadwal lengkap satu hari. */
+    scheduleAll: (n: number) => string;
   };
   /** Kartu Tentang acara bawaan preset Gathering. */
   aboutCardsDefault: { title: string; body: string }[];
@@ -603,6 +605,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       closing: "Cerita berikutnya,\nkita mulai bersama.",
       registered: "Sudah terdaftar? Masuk ke portal peserta",
       scheduleNote: "Jadwal lengkap",
+      scheduleAll: (n) => `Lihat ${n} acara`,
     },
     aboutHeadingDefault: "Bukan sekadar kumpul, ini waktunya kita recharge bareng.",
     navAbout: "Tentang",
@@ -749,6 +752,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       closing: "The next story,\nwe start together.",
       registered: "Already registered? Sign in to the participant portal",
       scheduleNote: "Full schedule",
+      scheduleAll: (n) => `See all ${n} items`,
     },
     aboutHeadingDefault: "More than a get-together: this is our time to recharge.",
     navAbout: "About",
