@@ -3,7 +3,7 @@
 import { Flag, Plus, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
-import { Button, DetailSection, EmptyState, IconButton, ListDetail, ListRow, Pane, PaneBody, PaneFooter, SelectField, Switch, TextField, Dialog } from "@/components/m3";
+import { Button, ButtonLink, DetailSection, EmptyState, IconButton, ListDetail, ListRow, Pane, PaneBody, PaneFooter, SelectField, Switch, TextField, Dialog } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { eventApiPath } from "@/lib/event-url";
@@ -74,10 +74,12 @@ function keIsi(form: Form, poin: boolean) {
   };
 }
 
-export function CheckpointsTab() {
+export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
   const [data, setData] = useState<Muat | null>(null);
   const [galat, setGalat] = useState("");
   const [pilih, setPilih] = useState<number | "baru" | null>(null);
+  // Galat isian baru tampil sesudah admin menekan Add/Save, bukan saat mengetik.
+  const [dicoba, setDicoba] = useState(false);
   const [form, setForm] = useState<Form>(FORM_KOSONG);
   const [busy, setBusy] = useState(false);
   const [hapus, setHapus] = useState<Checkpoint | null>(null);
@@ -127,6 +129,7 @@ export function CheckpointsTab() {
 
   function buka(id: number | "baru") {
     setPilih(id);
+    setDicoba(false);
     const cp = id === "baru" ? null : data?.checkpoints.find((item) => item.id === id) ?? null;
     setForm(cp ? keForm(cp) : FORM_KOSONG);
   }
@@ -167,7 +170,8 @@ export function CheckpointsTab() {
       : { jenis: "Item handed out", nama: data?.items.find((i) => i.id === cp.item_id)?.name ?? "Kit item" };
   const terpilih = typeof pilih === "number" ? daftar.find((cp) => cp.id === pilih) ?? null : null;
   const posisi = terpilih ? daftar.indexOf(terpilih) : -1;
-  const bisaSimpan = form.title.trim().length > 0 && form.bukti !== "" && !busy;
+  const galatJudul = dicoba && form.title.trim().length === 0 ? "Add a title participants will see." : undefined;
+  const galatBukti = dicoba && form.bukti === "" ? "Choose what records this checkpoint." : undefined;
 
   const list = (
     <Pane aria-label="Checkpoints">
@@ -252,11 +256,25 @@ export function CheckpointsTab() {
       <PaneBody>
         <form
           id="form-checkpoint"
-          onSubmit={(event) => { event.preventDefault(); if (bisaSimpan) void simpan(); }}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (busy) return;
+            // Tombol tidak pernah mati diam-diam: isian yang kurang ditandai di
+            // tempatnya, dan fokus pindah ke sana.
+            if (form.title.trim().length === 0 || form.bukti === "") {
+              setDicoba(true);
+              const sasaran = form.title.trim().length === 0 ? "checkpoint-judul-isian" : "checkpoint-bukti";
+              requestAnimationFrame(() => document.querySelector<HTMLElement>(`#${sasaran} input, #${sasaran} select, #${sasaran} [tabindex]`)?.focus());
+              return;
+            }
+            void simpan();
+          }}
         >
           <DetailSection>
+            <div id="checkpoint-judul-isian">
             <TextField
               label="Title participants see"
+              error={galatJudul}
               value={form.title}
               maxLength={80}
               autoFocus={pilih === "baru"}
@@ -264,6 +282,7 @@ export function CheckpointsTab() {
               hint="In the event's main language."
               onChange={(event) => setForm({ ...form, title: event.target.value })}
             />
+            </div>
             <TextField
               label="Where"
               optional
@@ -275,11 +294,17 @@ export function CheckpointsTab() {
           </DetailSection>
           <DetailSection title="Done when">
             {tanpaPilihan ? (
-              <p className="text-body-medium text-on-surface-variant">
-                Create a scan session in the Sessions tab, or a kit item in Logistics, first. A checkpoint is done when one of them is recorded.
-              </p>
+              <div id="checkpoint-bukti">
+                <p tabIndex={-1} className={`text-body-medium outline-none ${dicoba ? "text-error" : "text-on-surface-variant"}`}>
+                  A checkpoint is done when a scan session or a kit item records it. This event has neither yet, so create one first.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button variant="outlined" size="sm" onClick={keSesi}>Open Sessions</Button>
+                  <ButtonLink href="/admin/logistik?tab=barang" variant="outlined" size="sm">Open Logistics &gt; Kit items</ButtonLink>
+                </div>
+              </div>
             ) : (
-              <SelectField label="Recorded by" value={form.bukti} onChange={(event) => setForm({ ...form, bukti: event.target.value })} hint="Staff scan the participant's QR at that session, or hand the item out on the scan screen.">
+              <div id="checkpoint-bukti"><SelectField label="Recorded by" error={galatBukti} value={form.bukti} onChange={(event) => setForm({ ...form, bukti: event.target.value })} hint="Staff scan the participant's QR at that session, or hand the item out on the scan screen.">
                 <option value="" disabled>Choose a session or kit item</option>
                 {data.sessions.length > 0 ? (
                   <optgroup label="Scanned at session">
@@ -291,7 +316,7 @@ export function CheckpointsTab() {
                     {data.items.map((i) => <option key={`i${i.id}`} value={`i:${i.id}`}>{i.name}</option>)}
                   </optgroup>
                 ) : null}
-              </SelectField>
+              </SelectField></div>
             )}
             {poin ? (
               <TextField
@@ -329,7 +354,7 @@ export function CheckpointsTab() {
             <Button simpan variant="outlined" size="sm" disabled={busy || posisi < 0 || posisi >= daftar.length - 1} onClick={() => void kirim("PATCH", { id: terpilih.id, move: "down" })}>Move down</Button>
           </>
         ) : null}
-        <Button simpan size="sm" type="submit" form="form-checkpoint" loading={busy} disabled={!bisaSimpan}>{pilih === "baru" ? "Add checkpoint" : "Save"}</Button>
+        <Button simpan size="sm" type="submit" form="form-checkpoint" loading={busy}>{pilih === "baru" ? "Add checkpoint" : "Save"}</Button>
       </PaneFooter>
     </Pane>
   ) : null;
