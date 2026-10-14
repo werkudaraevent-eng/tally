@@ -1,6 +1,6 @@
 "use client";
 
-import { Flag, Plus, X, XCircle } from "@phosphor-icons/react";
+import { Flag, Plus, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
 import { Button, ButtonLink, DetailSection, EmptyState, IconButton, ListDetail, ListRow, Pane, PaneBody, PaneFooter, SelectField, Switch, TextField, Dialog } from "@/components/m3";
@@ -139,7 +139,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
     const isi = keIsi(form, data.settings.points_enabled);
     if (pilih === "baru") {
       const hasil = await kirim("POST", isi);
-      if (hasil) { toast.success("Checkpoint added", `${isi.title} is now step ${data.checkpoints.length + 1}.`); setPilih(Number(hasil.id)); }
+      if (hasil) { toast.success("Checkpoint added", `${isi.title} is now step ${data.checkpoints.length + 1}.`); setPilih(Number(hasil.id)); setDicoba(false); }
     } else if (typeof pilih === "number") {
       const hasil = await kirim("PATCH", { id: pilih, ...isi });
       if (hasil) toast.success("Checkpoint saved", isi.title);
@@ -295,8 +295,9 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
           <DetailSection title="Done when">
             {tanpaPilihan ? (
               <div id="checkpoint-bukti">
-                <p tabIndex={-1} className={`text-body-medium outline-none ${dicoba ? "text-error" : "text-on-surface-variant"}`}>
-                  A checkpoint is done when a scan session or a kit item records it. This event has neither yet, so create one first.
+                <p tabIndex={-1} className={`flex gap-2 text-body-medium outline-none ${dicoba ? "text-error" : "text-on-surface"}`}>
+                  <WarningCircle size={20} weight="fill" aria-hidden className="mt-px shrink-0 text-error" />
+                  <span><span className="font-semibold">Can&apos;t add yet:</span> a checkpoint is done when a scan session or a kit item records it, and this event has neither. Create one first.</span>
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button variant="outlined" size="sm" onClick={keSesi}>Open Sessions</Button>
