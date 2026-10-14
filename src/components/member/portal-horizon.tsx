@@ -420,3 +420,64 @@ export function QrHorizon({
 }
 
 export const LATAR_PORTAL_HORIZON = KREM;
+
+export type LegKereta = { kunci: string; arah: string; judul: string; baris: string | null; gerbong: string | null; kursi: string | null; kode: string | null };
+
+/**
+ * Kartu "Tiket kereta" di bawah pass: satu blok per arah (berangkat, pulang)
+ * dengan gerbong dan kursi sebesar fakta pass, lalu kode booking. Hanya tampil
+ * bila peserta punya tiket (train_tickets).
+ */
+export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label: { gerbong: string; kursi: string; kode: string }; leg: LegKereta[] }) {
+  return (
+    <section aria-label={judul} className="flex flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7" style={{ color: TINTA }}>
+      <div className="flex items-center gap-2">
+        <Train size={18} weight="bold" aria-hidden style={{ color: BIRU }} />
+        <h2 className="text-[11px] font-bold uppercase tracking-[1px]" style={{ color: LABEL }}>
+          {judul}
+        </h2>
+      </div>
+      {leg.map((item, index) => {
+        const isian = [
+          [label.gerbong, item.gerbong],
+          [label.kursi, item.kursi],
+        ].filter((pasangan): pasangan is [string, string] => Boolean(pasangan[1]));
+        return (
+          <div key={item.kunci} className={`flex flex-col gap-3 ${index > 0 ? "border-t border-dashed pt-5" : ""}`} style={{ borderColor: "#C9D1DE" }}>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.6px]" style={{ color: BIRU }}>
+              {item.arah}
+            </p>
+            <div className="flex flex-col gap-1">
+              <p className="text-[20px] font-extrabold leading-[1.26] [overflow-wrap:anywhere] md:text-[24px]">{item.judul}</p>
+              {item.baris ? (
+                <p className="text-[14px] leading-[1.5]" style={{ color: REDUP }}>
+                  {item.baris}
+                </p>
+              ) : null}
+            </div>
+            {isian.length > 0 ? (
+              <dl className="grid grid-cols-2 gap-3">
+                {isian.map(([dt, dd]) => (
+                  <div key={dt} className="flex min-w-0 flex-col gap-1">
+                    <dt className="text-[10px] uppercase tracking-[1px]" style={{ color: LABEL }}>
+                      {dt}
+                    </dt>
+                    <dd className="text-[26px] font-extrabold leading-[1.26] tabular-nums [overflow-wrap:anywhere]">{dd}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+            {item.kode ? (
+              <p className="flex items-baseline justify-between gap-3 rounded-[12px] px-4 py-3 text-[13px]" style={{ background: "#F1F3F8", color: REDUP }}>
+                {label.kode}
+                <span className="text-[16px] font-bold tracking-[1.5px] tabular-nums [overflow-wrap:anywhere]" style={{ color: TINTA }}>
+                  {item.kode}
+                </span>
+              </p>
+            ) : null}
+          </div>
+        );
+      })}
+    </section>
+  );
+}

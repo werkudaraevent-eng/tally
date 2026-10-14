@@ -34,24 +34,61 @@ export type LogistikAgenda = {
 
 export type LogistikBarang = { name: string; size: string | null; pickup_note: string | null; picked_up_at: string | null };
 
+/** Tiket kereta peserta (tabel `train_tickets`), berangkat dulu lalu pulang. */
+export type LogistikKereta = {
+  direction: "outbound" | "return";
+  train_name: string;
+  travel_class: string | null;
+  origin: string | null;
+  destination: string | null;
+  /** YYYY-MM-DD dan HH:MM seperti di tiket, tanpa zona. */
+  depart_date: string | null;
+  depart_time: string | null;
+  arrive_time: string | null;
+  carriage: string | null;
+  seat: string | null;
+  booking_code: string | null;
+};
+
 export type LogistikPeserta = {
   lodging: LogistikKamar | null;
   transport: { default_bus: string | null; trips: LogistikAgenda[] } | null;
   items: LogistikBarang[];
+  trains: LogistikKereta[];
 };
 
 export async function loadMemberLogistics(eventId: string, participantId: string, tampil: boolean): Promise<LogistikPeserta | null> {
   if (!tampil) return null;
   try {
-    const { data, error } = await getSupabaseServiceClient().rpc(
-      "member_logistics" as never,
-      { p_event_id: eventId, p_participant_id: participantId } as never,
-    );
+    const db = getSupabaseServiceClient();
+    const [{ data, error }, trains] = await Promise.all([
+      db.rpc("member_logistics" as never, { p_event_id: eventId, p_participant_id: participantId } as never),
+      loadTrainTickets(eventId, participantId),
+    ]);
     if (error || !data || typeof data !== "object") return null;
     const hasil = data as Partial<LogistikPeserta>;
-    return { lodging: hasil.lodging ?? null, transport: hasil.transport ?? null, items: hasil.items ?? [] };
+    return { lodging: hasil.lodging ?? null, transport: hasil.transport ?? null, items: hasil.items ?? [], trains };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Tiket kereta satu peserta. Galat (termasuk tabel yang belum dibuat di
+ * database lama) menjadi daftar kosong: kartunya tidak tampil, sisanya tetap.
+ * Tiket dibaca lewat service role dan selalu disaring ke peserta yang masuk.
+ */
+async function loadTrainTickets(eventId: string, participantId: string): Promise<LogistikKereta[]> {
+  try {
+    const { data, error } = await getSupabaseServiceClient()
+      .from("train_tickets")
+      .select("direction,train_name,travel_class,origin,destination,depart_date,depart_time,arrive_time,carriage,seat,booking_code")
+      .eq("event_id", eventId)
+      .eq("participant_id", participantId);
+    if (error || !Array.isArray(data)) return [];
+    return (data as LogistikKereta[]).sort((a, b) => (a.direction === b.direction ? 0 : a.direction === "outbound" ? -1 : 1));
+  } catch {
+    return [];
   }
 }
 

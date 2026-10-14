@@ -72,6 +72,27 @@ export type Barang = {
   sort_order: number;
 };
 
+/** Tiket kereta satu peserta untuk satu arah (tabel `train_tickets`). */
+export type TiketKereta = {
+  id: number;
+  participant_id: string;
+  direction: ArahKereta;
+  train_name: string;
+  travel_class: string | null;
+  origin: string | null;
+  destination: string | null;
+  /** YYYY-MM-DD, tanggal di tiket. */
+  depart_date: string | null;
+  /** HH:MM jam stasiun, tanpa zona. */
+  depart_time: string | null;
+  arrive_time: string | null;
+  carriage: string | null;
+  seat: string | null;
+  booking_code: string | null;
+};
+
+export type ArahKereta = "outbound" | "return";
+
 export type LogistikData = {
   settings: { gender_field_key: string | null; enforce_same_gender: boolean };
   fields: LogistikField[];
@@ -87,6 +108,9 @@ export type LogistikData = {
   items: Barang[];
   recap: Array<{ item_id: number; size: string | null; participants: number; picked_up: number }>;
   item_sessions: Array<{ item_id: number; session_id: number; session_name: string }>;
+  trains: TiketKereta[];
+  /** false = tabel `train_tickets` belum ada di database (migrasi 202610140001 belum dijalankan). */
+  trains_ready: boolean;
 };
 
 /** Pembanding jenis kelamin yang sama dengan `lodging_gender_of` di database. */

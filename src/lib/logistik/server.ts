@@ -1,5 +1,6 @@
 import { apiError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import type { TiketKereta } from "@/lib/logistik/types";
 
 /**
  * Potongan bersama route Logistik (kamar, bus, barang).
@@ -80,6 +81,27 @@ export async function semuaBaris<T>(
 export function idDariQuery(request: Request): number | null {
   const id = Number(new URL(request.url).searchParams.get("id"));
   return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+/** Kolom `train_tickets` yang dibaca admin. */
+export const KOLOM_KERETA = "id,participant_id,direction,train_name,travel_class,origin,destination,depart_date,depart_time,arrive_time,carriage,seat,booking_code";
+
+/** Galat PostgREST/Postgres untuk tabel yang belum ada. */
+export const tabelBelumAda = (error: { code?: string | number } | null) => ["PGRST205", "42P01"].includes(String(error?.code ?? ""));
+
+/**
+ * Semua tiket kereta acara. null = tabelnya belum ada (migrasi 202610140001
+ * belum dijalankan), supaya halaman Logistik tetap terbuka dan tab Trains
+ * menyebut langkah yang kurang. "galat" = gagal baca karena hal lain.
+ */
+export async function bacaTiketKereta(eventId: string): Promise<TiketKereta[] | null | "galat"> {
+  const db = klien();
+  // GET, bukan HEAD: jawaban HEAD tidak membawa badan, jadi kode PGRST205
+  // ("tabel tidak ada") tidak terbaca dan halaman jatuh ke galat 500.
+  const uji = await db.from("train_tickets").select("id").eq("event_id", eventId).limit(1);
+  if (uji.error) return tabelBelumAda(uji.error) ? null : "galat";
+  const baris = await semuaBaris<TiketKereta>(() => db.from("train_tickets").select(KOLOM_KERETA).eq("event_id", eventId).order("id"));
+  return baris ?? "galat";
 }
 
 export function klien() {

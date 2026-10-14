@@ -12,7 +12,9 @@
  * (`impor.check.ts`).
  */
 
-export type JenisImpor = "kamar" | "bus";
+import type { ArahKereta, TiketKereta } from "./types";
+
+export type JenisImpor = "kamar" | "bus" | "kereta";
 
 export type StatusBaris = "masuk" | "pindah" | "tetap" | "tolak";
 
@@ -43,7 +45,12 @@ export type Rencana = {
    * hotel dan nomor, bukan id, karena kamar baru belum punya id.
    */
   penempatan: Array<{ hotel: string | null; tujuan: string; participant_ids: string[] }>;
+  /** Hanya impor kereta: tiket yang akan ditulis (baru atau diperbarui), satu per orang per arah. */
+  tiket: TiketImpor[];
 };
+
+/** Satu tiket dari berkas, siap di-upsert ke `train_tickets`. */
+export type TiketImpor = Omit<TiketKereta, "id">;
 
 export type KeadaanAcara = {
   peserta: Array<{ id: string; name: string; qr_code: string; gender: string | null }>;
@@ -54,6 +61,8 @@ export type KeadaanAcara = {
   vehicles: Array<{ id: number; code: string; capacity: number | null }>;
   /** Bus bawaan saja (trip_id null, vehicle_id terisi). */
   busBawaan: Array<{ participant_id: string; vehicle_id: number }>;
+  /** Tiket kereta yang sudah tersimpan, untuk menandai Updated atau Unchanged. */
+  kereta: TiketKereta[];
 };
 
 export const BATAS_BARIS = 3000;
@@ -66,6 +75,17 @@ const ALIAS = {
   kode: ["kode qr", "qr", "qr code", "kode", "kode peserta", "participant code", "code"],
   nama: ["nama", "nama peserta", "nama tamu", "name", "guest", "guest name", "peserta", "tamu", "participant", "participant name", "full name"],
   bus: ["bus", "nama bus", "kendaraan", "armada", "bus name", "vehicle"],
+  arah: ["direction", "arah", "leg", "pergi/pulang", "berangkat/pulang", "outbound/return"],
+  kereta: ["train", "kereta", "nama kereta", "kereta api", "train name", "nama ka", "ka"],
+  kelas: ["class", "kelas", "travel class"],
+  dari: ["from", "dari", "asal", "origin", "stasiun asal", "departure station"],
+  ke: ["to", "ke", "tujuan", "destination", "stasiun tujuan", "arrival station"],
+  tanggal: ["date", "tanggal", "tgl", "departure date", "tanggal berangkat"],
+  berangkat: ["departs", "depart", "departure", "departure time", "jam berangkat", "berangkat"],
+  tiba: ["arrives", "arrive", "arrival", "arrival time", "jam tiba", "tiba"],
+  gerbong: ["carriage", "coach", "car", "gerbong", "no gerbong"],
+  kursi: ["seat", "kursi", "no kursi", "nomor kursi", "seat number"],
+  booking: ["booking code", "kode booking", "booking", "pnr", "booking ref", "kode pemesanan"],
 } as const;
 
 export const TEMPLAT: Record<JenisImpor, { judul: string[]; contoh: string[][] }> = {
@@ -82,6 +102,13 @@ export const TEMPLAT: Record<JenisImpor, { judul: string[]; contoh: string[][] }
     contoh: [
       ["", "Budi Santoso", "Bus 1"],
       ["", "Siti Rahayu", "Bus 2"],
+    ],
+  },
+  kereta: {
+    judul: ["QR code", "Name", "Direction", "Train", "Class", "From", "To", "Date", "Departs", "Arrives", "Carriage", "Seat", "Booking code"],
+    contoh: [
+      ["", "Budi Santoso", "Outbound", "Argo Lawu 8", "Executive", "Gambir", "Yogyakarta", "06/11/2026", "08:20", "15:10", "EKS 3", "12A", "KBX7Q2"],
+      ["", "Budi Santoso", "Return", "Taksaka 72", "Executive", "Yogyakarta", "Gambir", "08/11/2026", "15:30", "22:05", "EKS 5", "8C", "KBX7Q2"],
     ],
   },
 };
@@ -101,7 +128,7 @@ function bacaJudul(sel: string[][]): { kolom: Kolom; mulai: number } | null {
       const indeks = judul.findIndex((isi) => alias.includes(isi));
       if (indeks >= 0) kolom[nama] = indeks;
     }
-    if (kolom.kamar !== undefined || kolom.bus !== undefined || kolom.nama !== undefined) return { kolom, mulai: i + 1 };
+    if (kolom.kamar !== undefined || kolom.bus !== undefined || kolom.kereta !== undefined || kolom.nama !== undefined) return { kolom, mulai: i + 1 };
   }
   return null;
 }
@@ -127,7 +154,7 @@ function buatPencocok(peserta: KeadaanAcara["peserta"]): Pencocok {
 }
 
 function kosong(jenis: JenisImpor, galat: string): Rencana {
-  return { jenis, galat, baris: [], hotelBaru: [], kamarBaru: [], busBaru: [], penempatan: [] };
+  return { jenis, galat, baris: [], hotelBaru: [], kamarBaru: [], busBaru: [], penempatan: [], tiket: [] };
 }
 
 /* ------------------------------------------------------------------ Kamar */
@@ -264,7 +291,7 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
   }
 
   baris.sort((a, b) => a.baris - b.baris);
-  return { jenis: "kamar", galat: null, baris, hotelBaru: [...hotelBaru], kamarBaru, busBaru: [], penempatan };
+  return { jenis: "kamar", galat: null, baris, hotelBaru: [...hotelBaru], kamarBaru, busBaru: [], penempatan, tiket: [] };
 }
 
 /* -------------------------------------------------------------------- Bus */
@@ -340,5 +367,130 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
   }
 
   baris.sort((a, b) => a.baris - b.baris);
-  return { jenis: "bus", galat: null, baris, hotelBaru: [], kamarBaru: [], busBaru, penempatan };
+  return { jenis: "bus", galat: null, baris, hotelBaru: [], kamarBaru: [], busBaru, penempatan, tiket: [] };
+}
+
+/* ----------------------------------------------------------------- Kereta */
+
+const ARAH: Record<string, ArahKereta> = {
+  outbound: "outbound", berangkat: "outbound", pergi: "outbound", go: "outbound", departure: "outbound",
+  return: "return", pulang: "return", kembali: "return", back: "return",
+};
+
+export const LABEL_ARAH: Record<ArahKereta, string> = { outbound: "Outbound", return: "Return" };
+
+/**
+ * Tanggal tiket ke YYYY-MM-DD. Menerima hasil sel tanggal Excel (2026-11-06)
+ * dan tulisan Indonesia/Inggris hari dulu (06/11/2026, 6-11-26, 6.11.2026).
+ * Kosong = null; tidak dikenal = undefined.
+ */
+export function bacaTanggal(teks: string): string | null | undefined {
+  const t = rapi(teks);
+  if (!t) return null;
+  let y: number, m: number, d: number;
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t);
+  const dmy = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/.exec(t);
+  if (iso) [y, m, d] = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+  else if (dmy) [d, m, y] = [Number(dmy[1]), Number(dmy[2]), Number(dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3])];
+  else return undefined;
+  const tanggal = new Date(Date.UTC(y, m - 1, d));
+  if (tanggal.getUTCFullYear() !== y || tanggal.getUTCMonth() !== m - 1 || tanggal.getUTCDate() !== d || y < 2000 || y > 2100) return undefined;
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/** Jam tiket ke HH:MM (8:20, 08.20, 08:20:00). Kosong = null; tidak dikenal = undefined. */
+export function bacaJam(teks: string): string | null | undefined {
+  const t = rapi(teks);
+  if (!t) return null;
+  const cocok = /^(\d{1,2})[:.](\d{2})(?:[:.]\d{2})?$/.exec(t);
+  if (!cocok) return undefined;
+  const [jam, menit] = [Number(cocok[1]), Number(cocok[2])];
+  if (jam > 23 || menit > 59) return undefined;
+  return `${String(jam).padStart(2, "0")}:${cocok[2]}`;
+}
+
+const BIDANG_KERETA = ["train_name", "travel_class", "origin", "destination", "depart_date", "depart_time", "arrive_time", "carriage", "seat", "booking_code"] as const;
+
+/**
+ * Impor tiket kereta: satu baris = satu orang satu arah (Outbound atau
+ * Return). Tiket yang sudah ada untuk orang dan arah yang sama diperbarui.
+ * Kolom yang tidak ada di berkas tidak menyentuh nilai lama; kolom yang ada
+ * tetapi selnya kosong mengosongkannya, karena itulah isi berkas terbaru.
+ */
+export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
+  const judul = bacaJudul(sel);
+  if (!judul || judul.kolom.kereta === undefined || judul.kolom.arah === undefined || (judul.kolom.nama === undefined && judul.kolom.kode === undefined)) {
+    return kosong("kereta", "Train, Direction and Name (or QR code) columns not found in the header row. Download the template for an example.");
+  }
+  const { kolom, mulai } = judul;
+  const isi = sel.slice(mulai);
+  if (isi.length > BATAS_BARIS) return kosong("kereta", `You can import at most ${BATAS_BARIS.toLocaleString("en-GB")} rows at a time.`);
+
+  const orangById = new Map(acara.peserta.map((orang) => [orang.id, orang]));
+  const lama = new Map(acara.kereta.map((t) => [`${t.participant_id}\u0000${t.direction}`, t]));
+  const cocokkan = buatPencocok(acara.peserta);
+  const baris: BarisRencana[] = [];
+  const tiket: TiketImpor[] = [];
+  const sudah = new Map<string, number>();
+  const ambil = (sel1: string[], nama: keyof typeof ALIAS, maks: number) => (kolom[nama] !== undefined ? rapi(sel1[kolom[nama]!]).slice(0, maks) : undefined);
+
+  isi.forEach((sel1, i) => {
+    const nomorBaris = mulai + i + 1;
+    const kode = kolom.kode !== undefined ? rapi(sel1[kolom.kode]) : "";
+    const nama = kolom.nama !== undefined ? rapi(sel1[kolom.nama]) : "";
+    const kereta = ambil(sel1, "kereta", 80) ?? "";
+    const arahTeks = kunci(sel1[kolom.arah!]);
+    if (!kode && !nama && !kereta && !arahTeks) return;
+    const tujuanSementara = [arahTeks ? LABEL_ARAH[ARAH[arahTeks]] ?? arahTeks : "", kereta].filter(Boolean).join(" · ");
+    const tolak = (alasan: string) => { baris.push({ baris: nomorBaris, nama, kode: kode || null, tujuan: tujuanSementara, status: "tolak", alasan, participant_id: null }); };
+    if (!kode && !nama) return tolak("Name and QR code are empty");
+    const arah = ARAH[arahTeks];
+    if (!arah) return tolak("Direction must be Outbound or Return (Berangkat or Pulang)");
+    if (!kereta) return tolak("Train name is empty");
+    const tanggal = kolom.tanggal !== undefined ? bacaTanggal(sel1[kolom.tanggal]) : null;
+    if (tanggal === undefined) return tolak("Date not recognised. Use DD/MM/YYYY, such as 06/11/2026");
+    const berangkat = kolom.berangkat !== undefined ? bacaJam(sel1[kolom.berangkat]) : null;
+    const tiba = kolom.tiba !== undefined ? bacaJam(sel1[kolom.tiba]) : null;
+    if (berangkat === undefined || tiba === undefined) return tolak("Time not recognised. Use HH:MM, such as 08:20");
+    const hasil = cocokkan(kode, nama);
+    if ("alasan" in hasil) return tolak(hasil.alasan);
+    const kunciTiket = `${hasil.id}\u0000${arah}`;
+    const pertama = sudah.get(kunciTiket);
+    if (pertama !== undefined) return tolak(`Same person and direction already on row ${pertama}`);
+    sudah.set(kunciTiket, nomorBaris);
+
+    const ada = lama.get(kunciTiket) ?? null;
+    const dariBerkas = {
+      train_name: kereta,
+      travel_class: ambil(sel1, "kelas", 40),
+      origin: ambil(sel1, "dari", 80),
+      destination: ambil(sel1, "ke", 80),
+      depart_date: kolom.tanggal !== undefined ? tanggal : undefined,
+      depart_time: kolom.berangkat !== undefined ? berangkat : undefined,
+      arrive_time: kolom.tiba !== undefined ? tiba : undefined,
+      carriage: ambil(sel1, "gerbong", 20),
+      seat: ambil(sel1, "kursi", 20),
+      booking_code: ambil(sel1, "booking", 40),
+    };
+    const baru: TiketImpor = { participant_id: hasil.id, direction: arah, ...Object.fromEntries(BIDANG_KERETA.map((bidang) => {
+      const nilai = dariBerkas[bidang];
+      // undefined = kolomnya tidak ada di berkas: nilai lama dipertahankan.
+      return [bidang, nilai === undefined ? ada?.[bidang] ?? null : nilai || null];
+    })) } as TiketImpor;
+    const sama = ada !== null && BIDANG_KERETA.every((bidang) => (ada[bidang] ?? null) === baru[bidang]);
+    const kursi = [baru.carriage, baru.seat].filter(Boolean).join(" / ");
+    baris.push({
+      baris: nomorBaris,
+      nama: orangById.get(hasil.id)!.name,
+      kode: kode || null,
+      tujuan: [LABEL_ARAH[arah], baru.train_name, kursi].filter(Boolean).join(" · "),
+      status: sama ? "tetap" : ada ? "pindah" : "masuk",
+      alasan: sama ? "Already saved" : ada ? "Updates the saved ticket" : null,
+      participant_id: hasil.id,
+    });
+    if (!sama) tiket.push(baru);
+  });
+
+  baris.sort((a, b) => a.baris - b.baris);
+  return { jenis: "kereta", galat: null, baris, hotelBaru: [], kamarBaru: [], busBaru: [], penempatan: [], tiket };
 }

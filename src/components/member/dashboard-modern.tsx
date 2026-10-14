@@ -31,7 +31,7 @@ import { AgendaPills } from "@/components/landing/modern/agenda-pills";
 import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
 import { KakiModern, KV_SCRIM_RATA, PitaMitra, bagianModern, gayaModern, tinta } from "@/components/landing/modern/kerangka";
 import { HEAD, LABEL_BAGIAN, MUTED, PIL, SHELL } from "@/components/landing/modern/styles";
-import { KartuBarang, KartuBerikutnya, KartuBus, KartuKamar } from "@/components/member/kartu-logistik";
+import { KartuBarang, KartuBerikutnya, KartuBus, KartuKamar, KartuKereta } from "@/components/member/kartu-logistik";
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
 import { loadLandingLodging } from "@/lib/landing-hotel";
 import { KartuRute } from "@/components/landing/modern/blok-rute";
@@ -373,6 +373,7 @@ export async function DashboardModern({
                   <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
                     <KartuKamar logistik={logistik} zona={event.time_zone} />
                     <KartuBus logistik={logistik} zona={event.time_zone} />
+                    <KartuKereta logistik={logistik} lang={lang} />
                     <KartuBarang logistik={logistik} />
                   </BagianBeranda>
                 ) : null

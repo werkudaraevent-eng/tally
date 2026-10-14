@@ -39,6 +39,7 @@ import type { MemberSession } from "@/lib/member/account";
 import { inisialNama, muatNavPeserta, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
+import { KartuKereta } from "@/components/member/kartu-logistik";
 import { gatheringColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
 import { loadLandingLodging } from "@/lib/landing-hotel";
 import { landingTokens } from "@/lib/landing-tokens";
@@ -70,9 +71,12 @@ import {
   SelanjutnyaHorizon,
   TOMBOL_QR_HORIZON,
   TemanSekamarHorizon,
+  TiketKeretaHorizon,
   type FaktaPass,
+  type LegKereta,
   type TabHorizon,
 } from "@/components/member/portal-horizon";
+import { jamLeg, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
 
 /**
  * Portal peserta gaya gathering (`/e/<slug>/peserta`, preset Gathering),
@@ -431,6 +435,7 @@ export async function DashboardGathering({
       catatan={teman && teman.length > 0 ? t.withRoommate(teman.map((orang) => orang.name).join(", ")) : [kamar.floor ? t.floor(kamar.floor) : null, kamar.room_type].filter(Boolean).join(" · ") || kamar.hotel.name}
     />
   ) : null;
+  const kartuKereta = logistik && logistik.trains.length > 0 ? <KartuKereta logistik={logistik} lang={lang} kelas={KARTU} redup={MUTED} /> : null;
   const kartuTeman =
     teman && teman.length > 0 ? (
       <section aria-labelledby="teman-judul" className={KARTU}>
@@ -561,11 +566,16 @@ export async function DashboardGathering({
             ) : id === "next" ? (
               <div className="lg:hidden">{kartuSelanjutnya(false)}</div>
             ) : id === "logistics" ? (
-              kartuBus || kartuKamar ? (
-                <div className="grid grid-cols-2 gap-4 lg:hidden">
-                  {kartuBus}
-                  {kartuKamar}
-                </div>
+              kartuBus || kartuKamar || kartuKereta ? (
+                <>
+                  {kartuBus || kartuKamar ? (
+                    <div className="grid grid-cols-2 gap-4 lg:hidden">
+                      {kartuBus}
+                      {kartuKamar}
+                    </div>
+                  ) : null}
+                  {kartuKereta ? <div className="lg:hidden">{kartuKereta}</div> : null}
+                </>
               ) : null
             ) : id === "roommates" ? (
               <div className="lg:hidden">{kartuTeman}</div>
@@ -591,6 +601,7 @@ export async function DashboardGathering({
               <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
                 {kartuBus}
                 {kartuKamar}
+                {kartuKereta}
               </BagianBeranda>
             ) : id === "roommates" || id === "quick" ? (
               <BagianBeranda key={id} id={id} pratinjau={pratinjau}>{id === "roommates" ? kartuTeman : aksesCepat}</BagianBeranda>
@@ -770,6 +781,18 @@ export async function DashboardGathering({
         ...(tampilLogistik && kamar ? [{ label: tH.room, nilai: kamar.room_number, ponsel: true, pendek: true }] : []),
         ...(tampilTeman ? [{ label: tH.roommate(teman.length), nilai: teman.map((orang) => orang.name).join(", "), ponsel: false }] : []),
       ];
+      const legKereta: LegKereta[] = (logistik?.trains ?? []).map((tiket) => {
+        const rute = ruteLeg(tiket);
+        return {
+          kunci: tiket.direction,
+          arah: [tiket.direction === "outbound" ? tH.train.outbound : tH.train.return, tanggalLeg(tiket.depart_date, lang)].filter(Boolean).join(" • "),
+          judul: rute ?? tiket.train_name,
+          baris: [rute ? tiket.train_name : null, tiket.travel_class, jamLeg(tiket, lang)].filter(Boolean).join(" • ") || null,
+          gerbong: tiket.carriage,
+          kursi: tiket.seat,
+          kode: tiket.booking_code,
+        };
+      });
       // Label hari agenda berikutnya: hari ini, besok, atau "Hari pertama".
       const hariSelanjutnya = selanjutnya ? agenda.findIndex((bagian) => bagian.items.some((butir) => butir.id === selanjutnya.item.id)) : -1;
       const labelHari = !selanjutnya
@@ -812,6 +835,11 @@ export async function DashboardGathering({
                     ke={config.pass_to?.trim() || venue || nama}
                     fakta={fakta}
                   />
+                  {tampilLogistik && legKereta.length > 0 ? (
+                    <div className="mt-6">
+                      <TiketKeretaHorizon judul={tH.train.title} label={{ gerbong: tH.train.carriage, kursi: tH.train.seat, kode: tH.train.booking }} leg={legKereta} />
+                    </div>
+                  ) : null}
                 </BagianBeranda>
               </div>
               <div className="min-w-0 lg:min-w-[320px] lg:flex-1">

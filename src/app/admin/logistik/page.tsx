@@ -8,6 +8,7 @@ import { DialogImpor } from "@/components/admin/logistik/dialog-impor";
 import { TabBarang } from "@/components/admin/logistik/tab-barang";
 import { TabAgenda, TabBus } from "@/components/admin/logistik/tab-bus";
 import { TabKamar } from "@/components/admin/logistik/tab-kamar";
+import { TabKereta } from "@/components/admin/logistik/tab-kereta";
 import { TabPenempatan } from "@/components/admin/logistik/tab-penempatan";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
@@ -16,7 +17,7 @@ import type { LogistikData } from "@/lib/logistik/types";
 import { plural } from "@/lib/plural";
 
 /**
- * Logistik peserta: kamar, bus, dan barang yang dibagikan.
+ * Logistik peserta: kamar, bus, tiket kereta, dan barang yang dibagikan.
  *
  * Tiga hal yang peserta lihat di area pesertanya (`member_logistics`), diatur
  * di satu halaman karena panitia mengerjakannya bersamaan dan saling
@@ -32,7 +33,7 @@ import { plural } from "@/lib/plural";
  * dan setiap perubahan memuat ulang datanya.
  */
 
-type Bagian = "penempatan" | "kamar" | "bus" | "barang";
+type Bagian = "penempatan" | "kamar" | "bus" | "kereta" | "barang";
 type BagianBus = "bus" | "agenda";
 /** Dialog "baru" yang dibuka dari kepala halaman. */
 type Baru = "kamar" | "bus" | "agenda" | "barang";
@@ -99,7 +100,7 @@ export default function LogistikPage() {
 
   // Dialog "baru" milik bagian yang sedang tampil: Bus baru di Daftar bus,
   // Agenda baru di bagian Agenda.
-  const aktifBaru: Baru | null = bagian === "penempatan" ? null : bagian === "bus" ? bagianBus : bagian;
+  const aktifBaru: Baru | null = bagian === "penempatan" || bagian === "kereta" ? null : bagian === "bus" ? bagianBus : bagian;
   const tabProps = data ? { data, kirim, busy, baru: baru !== null && baru === aktifBaru, tutupBaru: () => setBaru(null) } : null;
   const LABEL_BARU: Record<Baru, string> = { kamar: "Add room", bus: "Add bus", agenda: "Add trip", barang: "Add kit item" };
 
@@ -136,7 +137,7 @@ export default function LogistikPage() {
             ) : null}
           </>
         ) : null}
-        actions={data && bagian !== "barang" && !(bagian === "bus" && bagianBus === "agenda") ? (
+        actions={data && bagian !== "barang" && !(bagian === "bus" && bagianBus === "agenda") && !(bagian === "kereta" && !data.trains_ready) ? (
           <>
             <Button variant="outlined" icon={<UploadSimple size={16} />} onClick={() => setImpor(true)}>Import from Excel</Button>
             {aktifBaru === "kamar" && data.hotels.length === 0 ? (
@@ -164,6 +165,7 @@ export default function LogistikPage() {
           { value: "penempatan", label: "Assignments" },
           { value: "kamar", label: "Rooms", badge: data?.rooms.length || undefined },
           { value: "bus", label: "Buses", badge: data?.vehicles.length || undefined },
+          { value: "kereta", label: "Trains", badge: data?.trains.length || undefined },
           { value: "barang", label: "Kit items", badge: data?.items.length || undefined },
         ]}
       />
@@ -179,12 +181,14 @@ export default function LogistikPage() {
           <TabKamar {...tabProps} hotelBaru={hotelBaru} tutupHotelBaru={() => setHotelBaru(false)} />
         ) : bagian === "bus" ? (
           bagianBus === "bus" ? <TabBus {...tabProps} atas={pilihBus} /> : <TabAgenda {...tabProps} atas={pilihBus} />
+        ) : bagian === "kereta" ? (
+          <TabKereta data={tabProps.data} kirim={kirim} busy={busy} />
         ) : (
           <TabBarang {...tabProps} />
         )}
       </div>
 
-      <DialogImpor open={impor} jenisAwal={bagian === "bus" ? "bus" : "kamar"} onClose={() => setImpor(false)} onSelesai={muat} />
+      <DialogImpor open={impor} jenisAwal={bagian === "bus" ? "bus" : bagian === "kereta" ? "kereta" : "kamar"} onClose={() => setImpor(false)} onSelesai={muat} />
       </div>
     </WorkspacePage>
   );
