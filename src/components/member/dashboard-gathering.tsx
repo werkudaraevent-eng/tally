@@ -691,19 +691,15 @@ export async function DashboardGathering({
                 <p className={`mt-5 text-body-medium font-semibold ${MUTED}`}>{[bagian.hari, bagian.sectionTitle?.trim()].filter(Boolean).join(" · ")}</p>
               ) : null}
               <ol className="mt-3 flex flex-col gap-3">
-                {bagian.items.map((item) => {
+                {bagian.items.map((item, _i, semua) => {
+                  // Kolom jam dilebarkan hanya bila hari ini punya jam selesai, supaya semua baris sejajar.
+                  const adaJamSelesai = horizon && semua.some((butir) => butir.end);
                   const status = statusBagian.get(item.id) ?? null;
                   return (
-                    <li key={item.id} className="grid grid-cols-[52px_minmax(0,1fr)] gap-3">
+                    <li key={item.id} className={`grid gap-3 ${adaJamSelesai ? "grid-cols-[92px_minmax(0,1fr)] md:grid-cols-[104px_minmax(0,1fr)]" : "grid-cols-[52px_minmax(0,1fr)]"}`}>
                       <span className={`pt-4 text-body-medium font-bold tabular-nums ${status === "berlangsung" ? "text-[var(--alis)]" : MUTED}`}>
-                        {item.time}
-                        {/* Horizon: jam selesai di bawah jam mulai, seperti tampilan agenda kalender. */}
-                        {horizon && item.end ? (
-                          <span className="mt-0.5 block text-[13px] font-medium">
-                            <span className="sr-only">–</span>
-                            {item.end}
-                          </span>
-                        ) : null}
+                        {/* Horizon: jam mulai dan selesai satu baris, "07.00–08.00". */}
+                        {horizon && item.end ? `${item.time}–${item.end}` : item.time}
                       </span>
                       <div
                         className={`rounded-[16px] bg-white px-4 py-3.5 ${
