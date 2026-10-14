@@ -41,6 +41,7 @@ import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
 import { KartuKereta } from "@/components/member/kartu-logistik";
 import { KartuCheckpoint } from "@/components/member/kartu-checkpoint";
+import { KartuCheckpointHorizon } from "@/components/member/kartu-checkpoint-horizon";
 import { loadCheckpointPeserta } from "@/lib/checkpoint/server";
 import { gatheringColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
 import { loadLandingLodging } from "@/lib/landing-hotel";
@@ -471,8 +472,7 @@ export async function DashboardGathering({
       </section>
     ) : null;
 
-  const kartuCheckpoint = (gayaKartu: "gathering" | "horizon") =>
-    checkpoint ? <KartuCheckpoint data={checkpoint} lang={lang} zona={zona} gaya={gayaKartu} qrHref={gayaKartu === "gathering" && tampilKode ? keTab("qr") : null} /> : null;
+  const kartuCheckpoint = () => (checkpoint ? <KartuCheckpoint data={checkpoint} lang={lang} zona={zona} gaya="gathering" qrHref={tampilKode ? keTab("qr") : null} /> : null);
 
   const bagianBeranda = agenda[indeksBeranda];
   const kartuRundown = bagianBeranda ? (
@@ -583,7 +583,7 @@ export async function DashboardGathering({
             ) : id === "next" ? (
               <div className="lg:hidden">{kartuSelanjutnya(false)}</div>
             ) : id === "checkpoints" ? (
-              kartuCheckpoint("gathering")
+              kartuCheckpoint()
             ) : id === "logistics" ? (
               kartuBus || kartuKamar || kartuKereta ? (
                 <>
@@ -876,6 +876,11 @@ export async function DashboardGathering({
       const tampilPengumuman = diBeranda("announcements") && pengumuman.items.length > 0;
       const posisi = (id: string) => beranda.order.indexOf(id);
       const pengumumanDulu = posisi("announcements") < posisi("next");
+      // Panduan checkpoint: kartu aksi di atas selama ada langkah tersisa, lalu turun ke bawah tiket kereta.
+      const tampilCheckpoint = diBeranda("checkpoints") && checkpoint !== null;
+      const checkpointAktif = tampilCheckpoint && checkpoint.done < checkpoint.steps.length;
+      const checkpointSelesai = tampilCheckpoint && !checkpointAktif;
+      const kartuCheckpointHorizon = checkpoint ? <KartuCheckpointHorizon data={checkpoint} lang={lang} zona={zona} qrHref={tampilKode ? keTab("qr") : null} /> : null;
       const urutanPengumuman = posisi("announcements") < posisi("logistics") ? "order-[10]" : pengumumanDulu ? "order-[45]" : "order-[55]";
       const blokPengumuman = tampilPengumuman ? (
         <BagianBeranda id="announcements" pratinjau={pratinjau}>
@@ -893,11 +898,11 @@ export async function DashboardGathering({
                 <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
               </div>
             ) : null}
-            {/* Layar lebar: baris 1 kartu perjalanan + kolom kanan (pengumuman, Next up),
-                lalu tiket kereta dan checkpoint selebar penuh. Ponsel: semua kartu satu
+            {/* Layar lebar: kolom kiri kartu perjalanan, tiket kereta (dan checkpoint yang
+                sudah selesai); kolom kanan panduan checkpoint, pengumuman, Next up. Ponsel: semua kartu satu
                 tumpukan, diurutkan dengan order. */}
             <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,790px)_minmax(320px,1fr)] lg:items-start lg:gap-x-8 lg:gap-y-6">
-              <div className="contents">
+              <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:gap-6">
                 <BagianBeranda id="logistics" pratinjau={pratinjau}>
                   <div className="order-[20] lg:order-none lg:col-start-1 lg:row-start-1">
                     <PassHorizon
@@ -916,18 +921,23 @@ export async function DashboardGathering({
                     />
                   </div>
                   {tampilLogistik && legKereta.length > 0 ? (
-                    <div className="order-[30] lg:order-none lg:col-span-2">
+                    <div className="order-[30] lg:order-none lg:col-start-1">
                       <TiketKeretaHorizon judul={tH.train.title} label={{ gerbong: tH.train.carriage, kursi: tH.train.seat, kode: tH.train.booking }} leg={legKereta} />
                     </div>
                   ) : null}
                 </BagianBeranda>
-                {diBeranda("checkpoints") && checkpoint ? (
+                {checkpointSelesai ? (
                   <BagianBeranda id="checkpoints" pratinjau={pratinjau}>
-                    <div className="order-[40] lg:order-none lg:col-span-2">{kartuCheckpoint("horizon")}</div>
+                    <div className="order-[40] lg:order-none">{kartuCheckpointHorizon}</div>
                   </BagianBeranda>
                 ) : null}
               </div>
               <div className="contents min-w-0 lg:col-start-2 lg:row-start-1 lg:flex lg:flex-col lg:gap-6">
+                {checkpointAktif ? (
+                  <BagianBeranda id="checkpoints" pratinjau={pratinjau}>
+                    <div className="order-[15] lg:order-none">{kartuCheckpointHorizon}</div>
+                  </BagianBeranda>
+                ) : null}
                 {pengumumanDulu ? blokPengumuman : null}
                 <BagianBeranda id="next" pratinjau={pratinjau}>
                   {/* Tanpa agenda berikutnya hanya tautan bantuan (layar lebar) yang tersisa:

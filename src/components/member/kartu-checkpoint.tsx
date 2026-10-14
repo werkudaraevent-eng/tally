@@ -9,9 +9,9 @@ import { CheckpointLipat } from "@/components/member/checkpoint-lipat";
 /**
  * Kartu Checkpoint di Beranda Dashboard saya (Check-in > Checkpoints).
  *
- * Satu isi untuk semua tata letak, kulitnya ikut tata letak: Gathering klasik
- * (kartu putih, warna tombol tema), Modern (panel abu, warna utama), Horizon
- * (kartu putih pola Tiket kereta, navy dan emas). Rancangan:
+ * Satu isi untuk Gathering klasik (kartu putih, warna tombol tema) dan Modern
+ * (panel abu, warna utama). Horizon punya kartunya sendiri:
+ * kartu-checkpoint-horizon.tsx. Rancangan:
  * /mnt/project-files/checkpoint/ (4-classic, 5-classic-390, 6-horizon-390).
  *
  * Layar lebar menampilkan semua langkah. Ponsel hanya langkah berikutnya dan
@@ -75,7 +75,7 @@ type Gaya = {
   titik: "lg" | "md";
 };
 
-const GAYA: Record<"gathering" | "modern" | "horizon", Gaya> = {
+const GAYA: Record<"gathering" | "modern", Gaya> = {
   gathering: {
     kartu: "rounded-[20px] bg-white p-5 shadow-[0_1px_2px_rgb(16_24_40/0.06)] sm:p-6",
     label: "text-[12px] font-bold uppercase tracking-[0.08em] text-[#5F6B7F]",
@@ -104,21 +104,7 @@ const GAYA: Record<"gathering" | "modern" | "horizon", Gaya> = {
     tautan: "text-[var(--reg-primary)]",
     titik: "lg",
   },
-  horizon: {
-    kartu: "rounded-[20px] bg-white p-5 text-[#101E38] md:rounded-[24px] md:p-7",
-    label: "text-[11px] font-bold uppercase tracking-[1px] text-[#4D5D77]",
-    redup: "text-[#526078]",
-    judul: "text-[22px] font-extrabold leading-[1.26] md:text-[28px]",
-    isi: "bg-[var(--hz-navy)]",
-    diAtasIsi: "text-white",
-    berikut: "bg-[var(--hz-emas)] text-[var(--hz-on-emas)]",
-    // Emas di atas putih 1,6:1: tanda "Berikutnya" ditulis biru seperti label arah tiket.
-    tandaBerikut: "text-[#274FC0] uppercase tracking-[0.8px] text-[10px]",
-    barisBerikut: "bg-[#F6F4EC] -mx-5 px-5 md:-mx-7 md:px-7",
-    garis: "border-[#E6E9EE]",
-    tautan: "text-[#274FC0]",
-    titik: "md",
-  },
+
 };
 
 function jam(iso: string, zona: EventTimeZone, lang: LandingLang) {
@@ -135,8 +121,8 @@ export function KartuCheckpoint({
   data: CheckpointPeserta;
   lang: LandingLang;
   zona: EventTimeZone;
-  gaya: "gathering" | "modern" | "horizon";
-  /** Tombol "Tampilkan QR" di kartu; Horizon tidak memakainya (tombol emasnya tepat di bawah). */
+  gaya: "gathering" | "modern";
+  /** Tombol "Tampilkan QR" di kartu. */
   qrHref?: string | null;
 }) {
   const t = TEKS[lang];
@@ -165,11 +151,10 @@ export function KartuCheckpoint({
           {selesai ? <Check size={14} weight="bold" /> : index + 1}
         </span>
         <div className="min-w-0">
-          {iniBerikut && jenis === "horizon" ? <p className={`font-bold ${g.tandaBerikut}`}>{t.tandaBerikut}</p> : null}
           <p className={`[overflow-wrap:anywhere] text-[15px] leading-snug ${selesai ? `font-medium ${g.redup}` : "font-semibold"}`}>
             <span className="sr-only">{`${index + 1}. ${selesai ? t.sudah : t.belum}: `}</span>
             {step.title}
-            {iniBerikut && jenis !== "horizon" ? (
+            {iniBerikut ? (
               <span className={`ml-2 inline-flex min-h-6 items-center rounded-md px-2 align-[2px] text-[12px] font-semibold ${g.tandaBerikut}`}>{t.tandaBerikut}</span>
             ) : null}
           </p>
@@ -196,7 +181,7 @@ export function KartuCheckpoint({
     <section aria-labelledby="checkpoint-judul" className={g.kartu}>
       <div className="flex items-center justify-between gap-4">
         <p className={`inline-flex items-center gap-2 ${g.label}`}>
-          <Flag size={16} weight="bold" aria-hidden className={jenis === "horizon" ? "text-[#274FC0]" : undefined} />
+          <Flag size={16} weight="bold" aria-hidden />
           {t.judul}
         </p>
         {data.points ? (
