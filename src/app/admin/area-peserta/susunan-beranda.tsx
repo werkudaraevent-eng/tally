@@ -30,7 +30,35 @@ export type BlokPeserta = {
   empty: boolean;
 };
 
-type Baris = { id: string; judul: string; sub: string; blok: boolean; tampil: boolean; mati: string | null };
+type Baris = { id: string; judul: string; sub: string; blok: boolean; tampil: boolean; mati: string | null; tetap: boolean };
+
+/**
+ * Gathering Horizon menaruh isi bawaan di tempat tetap (pass, tiket, panduan
+ * checkpoint, Next up, teman sekamar). Yang dipakai dari urutan hanya posisi
+ * Announcements terhadap Bus and room dan Next up, dan urutan blok di bawah.
+ * Quick links dan Today's agenda tidak dirender, jadi tidak ditawarkan.
+ */
+const HORIZON_TETAP = ["checkpoints", "logistics", "next", "roommates"] as const;
+const HORIZON_TANPA = ["quick", "agenda"];
+
+function geser(order: string[], dari: number, ke: number) {
+  const next = [...order];
+  const [id] = next.splice(dari, 1);
+  next.splice(ke, 0, id);
+  return next;
+}
+
+/** Urutan apa pun menjadi urutan yang benar-benar tampil di Horizon. */
+function susunHorizon(order: string[], tetap: Set<string>): string[] {
+  const posisi = (id: string) => order.indexOf(id);
+  const pengumuman = order.includes("announcements") ? "announcements" : null;
+  const isi: string[] = [...HORIZON_TETAP];
+  if (pengumuman) {
+    const slot = posisi(pengumuman) < posisi("logistics") ? 0 : posisi(pengumuman) < posisi("next") ? isi.indexOf("next") : isi.indexOf("roommates");
+    isi.splice(slot, 0, pengumuman);
+  }
+  return [...isi, ...order.filter((id) => !tetap.has(id) && id !== pengumuman)];
+}
 
 export function SusunanBeranda({
   layout,
@@ -58,13 +86,18 @@ export function SusunanBeranda({
   const [seret, setSeret] = useState<number | null>(null);
   const [sasaran, setSasaran] = useState<number | null>(null);
   const { order: urutanPenuh, hidden } = memberHomeOrder(member.home, blocks.map((block) => block.id), gathering);
-  const tanpa = gathering && horizon ? "agenda" : null;
-  const order = tanpa ? urutanPenuh.filter((id) => id !== tanpa) : urutanPenuh;
+  const diHorizon = gathering && horizon;
+  const tetap = new Set<string>(diHorizon ? HORIZON_TETAP : []);
+  const tanpa = new Set(diHorizon ? HORIZON_TANPA : []);
+  const rapikan = (next: string[]) => (diHorizon ? susunHorizon(next, new Set([...tetap, ...tanpa])) : next);
+  const order = rapikan(urutanPenuh.filter((id) => !tanpa.has(id)));
   // Baris yang tidak ditawarkan kembali ke posisi lamanya saat urutan disimpan.
   const lengkapi = (next: string[]) => {
-    if (!tanpa) return next;
-    const posisi = Math.min(urutanPenuh.indexOf(tanpa), next.length);
-    return [...next.slice(0, posisi), tanpa, ...next.slice(posisi)];
+    const hasil = [...next];
+    urutanPenuh.forEach((id, index) => {
+      if (tanpa.has(id)) hasil.splice(Math.min(index, hasil.length), 0, id);
+    });
+    return hasil;
   };
   const logistikMati = member.show_logistics !== true;
   const alasanMati = (id: string): string | null => {
@@ -76,7 +109,7 @@ export function SusunanBeranda({
   };
   const baris: Baris[] = order.map((id) => {
     const bawaan = MEMBER_HOME_BUILTINS[layout].find((item) => item.id === id);
-    if (bawaan) return { id, judul: bawaan.label, sub: bawaan.sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id) };
+    if (bawaan) return { id, judul: bawaan.label, sub: bawaan.sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id), tetap: tetap.has(id) };
     const block = blocks.find((item) => item.id === id)!;
     const jenis = `${LANDING_BLOCK_LABELS[block.type]} block`;
     return {
@@ -86,16 +119,14 @@ export function SusunanBeranda({
       blok: true,
       tampil: !hidden.has(id),
       mati: block.hidden_on_page ? "Hidden in Page sections" : block.empty ? "Empty, add content on the Event page" : null,
+      tetap: false,
     };
   });
 
-  const simpanUrutan = (next: string[]) => set({ home: { ...member.home, order: lengkapi(next) } });
+  const simpanUrutan = (next: string[]) => set({ home: { ...member.home, order: lengkapi(rapikan(next)) } });
   const pindah = (dari: number, ke: number) => {
     if (ke < 0 || ke >= order.length || dari === ke) return;
-    const next = [...order];
-    const [id] = next.splice(dari, 1);
-    next.splice(ke, 0, id);
-    simpanUrutan(next);
+    simpanUrutan(geser(order, dari, ke));
   };
   const lepas = (target: number) => {
     if (seret !== null) pindah(seret, target);
@@ -108,12 +139,16 @@ export function SusunanBeranda({
     else next.delete(b.id);
     // Urutan ikut disimpan: tanpa itu, blok yang ditambahkan nanti bisa
     // menggeser isi yang posisinya sudah dilihat admin di pratinjau.
-    set({ home: { ...member.home, order: urutanPenuh, hidden: [...next] } });
+    set({ home: { ...member.home, order: diHorizon ? lengkapi(order) : urutanPenuh, hidden: [...next] } });
   };
   const tombolPegangan = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
     event.preventDefault();
-    const ke = index + (event.key === "ArrowUp" ? -1 : 1);
+    const arah = event.key === "ArrowUp" ? -1 : 1;
+    // Horizon merapikan ke tempat tampil yang tetap: lompati langkah yang
+    // tidak mengubah apa pun, supaya satu panah selalu terlihat hasilnya.
+    let ke = index + arah;
+    while (ke >= 0 && ke < order.length && rapikan(geser(order, index, ke)).join() === order.join()) ke += arah;
     pindah(index, ke);
     // Fokus ikut barisnya, supaya panah berikutnya memindahkan baris yang sama.
     window.requestAnimationFrame(() => document.getElementById(`pegangan-${order[index]}`)?.focus());
@@ -135,19 +170,23 @@ export function SusunanBeranda({
             onDragOver={(event: DragEvent<HTMLLIElement>) => { if (seret === null) return; event.preventDefault(); setSasaran(index); }}
             onDrop={(event: DragEvent<HTMLLIElement>) => { event.preventDefault(); lepas(index); }}
           >
-            <button
-              type="button"
-              id={`pegangan-${b.id}`}
-              draggable
-              onDragStart={(event) => { setSeret(index); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", b.judul); }}
-              onDragEnd={() => { setSeret(null); setSasaran(null); }}
-              onKeyDown={(event) => tombolPegangan(event, index)}
-              aria-label={`Move ${b.judul}, position ${index + 1} of ${baris.length}. Use the up and down arrow keys.`}
-              title="Drag to move"
-              className="flex h-14 w-7 shrink-0 cursor-grab items-center justify-center self-stretch rounded-sm text-on-surface-variant opacity-80 hover:opacity-100"
-            >
-              <DotsSixVertical size={16} aria-hidden />
-            </button>
+            {b.tetap ? (
+              <span aria-hidden className="w-7 shrink-0" />
+            ) : (
+              <button
+                type="button"
+                id={`pegangan-${b.id}`}
+                draggable
+                onDragStart={(event) => { setSeret(index); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", b.judul); }}
+                onDragEnd={() => { setSeret(null); setSasaran(null); }}
+                onKeyDown={(event) => tombolPegangan(event, index)}
+                aria-label={`Move ${b.judul}, position ${index + 1} of ${baris.length}. Use the up and down arrow keys.`}
+                title="Drag to move"
+                className="flex h-14 w-7 shrink-0 cursor-grab items-center justify-center self-stretch rounded-sm text-on-surface-variant opacity-80 hover:opacity-100"
+              >
+                <DotsSixVertical size={16} aria-hidden />
+              </button>
+            )}
             <span
               aria-hidden
               className={cx(
@@ -160,7 +199,7 @@ export function SusunanBeranda({
             <button type="button" onClick={() => onPilih(b.id)} className="m3-state min-w-0 flex-1 self-stretch rounded-sm px-1 py-2 text-left" aria-label={`${b.judul}: show in preview`}>
               <span className={cx("block truncate text-body-medium font-medium", b.tampil && !b.mati ? "text-on-surface" : "text-on-surface-variant")}>{b.judul}</span>
               <span className="block truncate text-body-small text-on-surface-variant">
-                {!b.tampil ? `Hidden · ${b.sub}` : b.mati ? `${b.mati} · ${b.sub}` : b.sub}
+                {[!b.tampil ? "Hidden" : b.mati, b.tetap ? "Fixed place" : null, b.sub].filter(Boolean).join(" · ")}
               </span>
             </button>
             {b.blok ? (
@@ -181,7 +220,9 @@ export function SusunanBeranda({
         ))}
       </ol>
       <p className="text-body-small text-on-surface-variant">
-        {gathering
+        {diHorizon
+          ? "Horizon keeps Checkpoints, Bus and room, Next up and Roommates in fixed places. Drag Announcements to choose where it shows; your blocks follow at the bottom in this order. "
+          : gathering
           ? "Drag to reorder. Phones show this order from top to bottom; on wide screens Bus and room, Roommates and Quick links stay in the side column, in that order. "
           : "Drag to reorder. The ticket, Room, bus and items and Quick links stay in the side column, in this order, which phones show first. "}
         To add your own content, add a block on the{" "}
