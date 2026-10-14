@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import {
   matchesConditions,
   normalizeConditions,
@@ -9,7 +8,7 @@ import {
   type ParticipantPoolRow,
   type WeightConfig,
 } from "@/lib/undian";
-import { activeRulesFor } from "@/lib/undian-pool";
+import { activeRulesFor, listAttendanceSessions, loadParticipantPool, needsAttendance } from "@/lib/undian-pool";
 
 // Pratinjau kolam: berapa peserta yang lolos syarat, dan bagaimana tiket terbagi.
 //
@@ -42,7 +41,8 @@ const leafSchema = z.union([
     cmp: z.enum(["in", "not_in"]),
     values: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
   }),
-  z.object({ var: z.enum(["checked_in", "has_seat"]), is: z.boolean() }),
+  z.object({ var: z.literal("checked_in"), is: z.boolean(), session_id: z.number().int().positive().optional() }),
+  z.object({ var: z.literal("has_seat"), is: z.boolean() }),
   // Di sini teks kosong TIDAK ditolak, berbeda dengan endpoint penyimpanan.
   // Pratinjau dipanggil pada setiap ketikan, termasuk saat kolomnya masih kosong
   // karena baru saja ditambahkan; menolaknya membuat angka pratinjau berkedip
@@ -82,14 +82,13 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const eventId = auth.scope.event.id;
-  const [poolResult, rules] = await Promise.all([
-    getSupabaseServiceClient().rpc("undian_participant_pool" as never, { p_event_id: eventId } as never),
-    activeRulesFor(eventId, parsed.data.prize_id ?? null),
-  ]);
-  if (poolResult.error) return apiError("INTERNAL_ERROR", 500);
-
-  const rows = (poolResult.data ?? []) as ParticipantPoolRow[];
   const conditions = normalizeConditions(parsed.data.conditions);
+  const [rules, attendanceSessions] = await Promise.all([
+    activeRulesFor(eventId, parsed.data.prize_id ?? null),
+    listAttendanceSessions(eventId),
+  ]);
+  const rows = await loadParticipantPool(eventId, needsAttendance(conditions, ...rules.map((rule) => rule.conditions)));
+  if (!rows) return apiError("INTERNAL_ERROR", 500);
   const weight: WeightConfig = parsed.data;
 
   const eligible = rows.filter((row) => matchesConditions(row, conditions));
@@ -157,6 +156,8 @@ export async function POST(request: Request) {
     participant_types: distinct(rows.map((row) => row.participant_type)),
     rsvp_statuses: distinct(rows.map((row) => row.rsvp_status)),
     companies: distinct(rows.map((row) => row.company)),
+    // Sesi kehadiran acara, untuk pilihan "di sesi" pada syarat check-in.
+    attendance_sessions: attendanceSessions,
   });
 }
 

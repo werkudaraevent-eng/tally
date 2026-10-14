@@ -83,10 +83,18 @@ export type UndianConditionLeaf =
   | { var: "scan_count"; cmp: UndianCmp; value: number }
   | { var: "participant_type"; cmp: "in" | "not_in"; values: string[] }
   | { var: "rsvp_status"; cmp: "in" | "not_in"; values: string[] }
-  | { var: "checked_in"; is: boolean }
+  | UndianCheckInLeaf
   | { var: "has_seat"; is: boolean }
   | UndianTextLeaf
   | UndianInvalidLeaf;
+
+/**
+ * Check-in dibaca dari pemindaian aplikasi ini (`attendance_scans`) DAN salinan
+ * scanner API lama (`participants.source_checked_in`). `session_id` kosong berarti
+ * "sesi mana pun"; terisi berarti hanya pemindaian di sesi itu yang dihitung.
+ * Salinan scanner API tidak punya sesi, jadi tidak ikut pada pilihan sesi.
+ */
+export type UndianCheckInLeaf = { var: "checked_in"; is: boolean; session_id?: number };
 
 export type UndianTextLeaf = { var: UndianTextVar; cmp: UndianTextCmp; text: string };
 
@@ -139,6 +147,12 @@ export function isTextVar(value: unknown): value is UndianTextVar {
  */
 export function isTextLeaf(node: UndianConditionLeaf): node is UndianTextLeaf {
   return isTextVar(node.var);
+}
+
+/** Apakah pohon memuat syarat check-in, yang butuh data pemindaian sesi. */
+export function usesCheckIn(node: UndianConditionNode): boolean {
+  if (isConditionGroup(node)) return node.children.some(usesCheckIn);
+  return node.var === "checked_in";
 }
 
 /** Apakah pohon memuat syarat yang tidak terbaca. Dipakai layar untuk memperingatkan. */
@@ -206,7 +220,12 @@ function normalizeNode(value: unknown): UndianConditionNode {
       if (values.length === 0) return INVALID_LEAF;
       return { var: raw.var, cmp, values };
     }
-    case "checked_in":
+    case "checked_in": {
+      const sessionId = Number(raw.session_id);
+      return Number.isInteger(sessionId) && sessionId > 0
+        ? { var: "checked_in", is: raw.is !== false, session_id: sessionId }
+        : { var: "checked_in", is: raw.is !== false };
+    }
     case "has_seat":
       return { var: raw.var, is: raw.is !== false };
     default:
@@ -269,7 +288,13 @@ export type ParticipantPoolRow = {
   qr_code: string;
   participant_type: string | null;
   rsvp_status: string | null;
+  /** Sudah check-in di sesi mana pun, termasuk salinan scanner API. */
   checked_in: boolean;
+  /**
+   * Sesi kehadiran tempat peserta pernah dipindai. Diisi server (lihat
+   * loadParticipantPool) hanya bila ada syarat check-in; tanpa itu kosong.
+   */
+  attended_sessions?: number[];
   scan_count: number;
   seat_label: string | null;
   allow_name_display: boolean;
@@ -324,7 +349,9 @@ export function matchesConditions(row: ParticipantPoolRow, node: UndianCondition
       const inList = node.values.includes(row.rsvp_status ?? "");
       return node.cmp === "in" ? inList : !inList;
     }
-    case "checked_in": return row.checked_in === node.is;
+    case "checked_in": return (node.session_id === undefined
+      ? row.checked_in
+      : (row.attended_sessions ?? []).includes(node.session_id)) === node.is;
     case "has_seat": return Boolean(row.seat_label) === node.is;
     // `job_title` dipetakan ke kolom `title`. Namanya dibedakan di sisi aturan
     // karena "title" sendirian ambigu — di layar admin ia mudah terbaca sebagai
@@ -670,11 +697,11 @@ const CMP_TEXT: Record<UndianCmp, string> = {
 const rupiah = (value: number) => `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
 
 /** Satu baris ringkas, supaya admin tidak perlu membuka form hanya untuk tahu syaratnya. */
-export function describeConditions(node: UndianConditionGroup): string {
+export function describeConditions(node: UndianConditionGroup, sessionNames: Record<number, string> = {}): string {
   if (node.children.length === 0) return "semua peserta aktif";
 
   const parts = node.children.map((child) => {
-    if (isConditionGroup(child)) return `(${describeConditions(child)})`;
+    if (isConditionGroup(child)) return `(${describeConditions(child, sessionNames)})`;
     if (isTextLeaf(child)) {
       const label = TEXT_VAR_LABEL[child.var].toLowerCase();
       if (TEXT_CMP_WITHOUT_VALUE.includes(child.cmp)) return `${label} ${TEXT_CMP_LABEL[child.cmp]}`;
@@ -690,7 +717,11 @@ export function describeConditions(node: UndianConditionGroup): string {
       case "scan_count": return `${CMP_TEXT[child.cmp]} ${child.value} scan`;
       case "participant_type": return `tipe ${child.cmp === "in" ? "" : "bukan "}${child.values.join("/")}`;
       case "rsvp_status": return `RSVP ${child.cmp === "in" ? "" : "bukan "}${child.values.join("/")}`;
-      case "checked_in": return child.is ? "sudah check-in" : "belum check-in";
+      case "checked_in": {
+        const status = child.is ? "sudah check-in" : "belum check-in";
+        if (child.session_id === undefined) return status;
+        return `${status} di ${sessionNames[child.session_id] ?? "sesi yang sudah dihapus"}`;
+      }
       case "has_seat": return child.is ? "punya kursi" : "tanpa kursi";
       default: return "syarat tidak dikenal";
     }

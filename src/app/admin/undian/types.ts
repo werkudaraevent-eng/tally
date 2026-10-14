@@ -12,7 +12,11 @@ export type Preview = {
   breakdown: PoolBreakdown;
   sample: { name: string; company: string | null; checked_in: boolean; total_spend: number; tickets: number }[];
   participant_types: string[]; rsvp_statuses: string[]; companies: string[];
+  attendance_sessions?: AttendanceSessionOption[];
 };
+
+/** Sesi kehadiran acara (Check-in > Sessions), untuk syarat check-in per sesi. */
+export type AttendanceSessionOption = { id: number; name: string };
 
 export type Settings = {
   page_title: string; page_subtitle: string | null;

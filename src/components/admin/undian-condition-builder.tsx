@@ -35,6 +35,8 @@ type Props = {
   rsvpStatuses: string[];
   /** Nilai perusahaan yang benar-benar ada di data, untuk saran ketik. */
   companies?: string[];
+  /** Sesi kehadiran acara (Check-in > Sessions), untuk syarat check-in per sesi. */
+  sessions?: { id: number; name: string }[];
   tone?: "include" | "exclude";
   depth?: number;
 };
@@ -112,7 +114,7 @@ function TombolHapus({ label, onClick, icon }: { label: string; onClick: () => v
   return <button type="button" onClick={onClick} aria-label={label} title={label} className="ml-auto grid size-8 shrink-0 place-items-center rounded-md text-error hover:bg-error-soft">{icon}</button>;
 }
 
-export function UndianConditionBuilder({ value, onChange, participantTypes, rsvpStatuses, companies = [], tone = "include", depth = 0 }: Props) {
+export function UndianConditionBuilder({ value, onChange, participantTypes, rsvpStatuses, companies = [], sessions = [], tone = "include", depth = 0 }: Props) {
   function updateChild(index: number, next: UndianConditionNode) {
     onChange({ ...value, children: value.children.map((child, i) => (i === index ? next : child)) });
   }
@@ -136,12 +138,13 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
             <span className="text-body-medium font-medium text-on-surface-variant">Grup syarat</span>
             <TombolHapus label="Hapus grup" onClick={() => removeChild(index)} icon={<X size={16} />} />
           </div>
-          <UndianConditionBuilder value={child} participantTypes={participantTypes} rsvpStatuses={rsvpStatuses} companies={companies} tone={tone} depth={depth + 1} onChange={(next) => updateChild(index, next)} />
+          <UndianConditionBuilder value={child} participantTypes={participantTypes} rsvpStatuses={rsvpStatuses} companies={companies} sessions={sessions} tone={tone} depth={depth + 1} onChange={(next) => updateChild(index, next)} />
         </div> : <LeafEditor
           leaf={child}
           participantTypes={participantTypes}
           rsvpStatuses={rsvpStatuses}
           companies={companies}
+          sessions={sessions}
           onChange={(next) => updateChild(index, next)}
           onRemove={() => removeChild(index)}
         />}
@@ -182,6 +185,7 @@ function LeafEditor({
   participantTypes,
   rsvpStatuses,
   companies,
+  sessions,
   onChange,
   onRemove,
 }: {
@@ -189,6 +193,7 @@ function LeafEditor({
   participantTypes: string[];
   rsvpStatuses: string[];
   companies: string[];
+  sessions: { id: number; name: string }[];
   onChange: (next: UndianConditionNode) => void;
   onRemove: () => void;
 }) {
@@ -281,6 +286,24 @@ function LeafEditor({
           : (option ? "Punya kursi" : "Tanpa kursi")}
       </Pilihan>)}
     </div>}
+
+    {/* Check-in dicatat per sesi (registrasi, gala, workshop). Bawaannya "sesi
+        mana pun"; pilihannya diambil dari sesi acara ini sendiri. Sesi yang sudah
+        dihapus tetap tampil sebagai pilihan terpilih supaya syaratnya tidak
+        diam-diam berubah arti saat form dibuka lagi. */}
+    {leaf.var === "checked_in" && <select
+      value={leaf.session_id ?? 0}
+      onChange={(event) => {
+        const id = Number(event.target.value);
+        onChange(id > 0 ? { ...leaf, session_id: id } : { var: "checked_in", is: leaf.is });
+      }}
+      aria-label="Sesi check-in"
+      className={cx(CONTROL, "max-w-56")}
+    >
+      <option value={0}>di sesi mana pun</option>
+      {sessions.map((session) => <option key={session.id} value={session.id}>di {session.name}</option>)}
+      {leaf.session_id !== undefined && !sessions.some((session) => session.id === leaf.session_id) && <option value={leaf.session_id}>di sesi yang sudah dihapus</option>}
+    </select>}
 
     <TombolHapus label="Hapus syarat" onClick={onRemove} icon={<Trash size={16} />} />
   </div>;

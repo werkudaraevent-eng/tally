@@ -92,6 +92,7 @@ export function ExclusionRuleManager({
   const [participantTypes, setParticipantTypes] = useState<string[]>([]);
   const [rsvpStatuses, setRsvpStatuses] = useState<string[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
+  const [sessions, setSessions] = useState<{ id: number; name: string }[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
@@ -117,6 +118,7 @@ export function ExclusionRuleManager({
     setParticipantTypes(data.participant_types ?? []);
     setRsvpStatuses(data.rsvp_statuses ?? []);
     setCompanies(data.companies ?? []);
+    setSessions(data.attendance_sessions ?? []);
   }
 
   // setState langsung di badan effect ditolak React Compiler, jadi pemuatan awal
@@ -271,7 +273,7 @@ export function ExclusionRuleManager({
                       {!rule.is_active ? <StatusChip>Nonaktif</StatusChip> : null}
                       {rule.prize_id !== null ? <StatusChip tone="primary">{prizes.find((prize) => prize.id === rule.prize_id)?.name ?? "Hadiah tertentu"}</StatusChip> : null}
                     </span>
-                    <span className="mt-0.5 block text-on-surface-variant">Kecualikan bila: {describeConditions(rule.conditions)}</span>
+                    <span className="mt-0.5 block text-on-surface-variant">Kecualikan bila: {describeConditions(rule.conditions, Object.fromEntries(sessions.map((item) => [item.id, item.name])))}</span>
                     {rule.note ? <span className="mt-0.5 block text-on-surface-variant">{rule.note}</span> : null}
                     {/* Angka nol ditandai, bukan disembunyikan. Aturan yang tidak
                         mengenai siapa pun hampir selalu salah tulis, dan itu
@@ -357,6 +359,7 @@ export function ExclusionRuleManager({
               participantTypes={participantTypes}
               rsvpStatuses={rsvpStatuses}
               companies={companies}
+              sessions={sessions}
               tone="exclude"
               onChange={(next) => setDraft({ ...draft, conditions: next })}
             />

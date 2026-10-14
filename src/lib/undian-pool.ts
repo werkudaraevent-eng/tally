@@ -4,9 +4,11 @@ import {
   matchesConditions,
   normalizeExclusionRule,
   participantToCandidate,
+  usesCheckIn,
   type Candidate,
   type ParticipantPoolRow,
   type PoolBreakdown,
+  type UndianConditionNode,
   type UndianExclusionRule,
   type UndianPrize,
 } from "@/lib/undian";
@@ -51,6 +53,79 @@ type EntryRow = {
   code: string | null;
   weight: number;
 };
+
+export type AttendanceSessionOption = { id: number; name: string };
+
+/**
+ * Baris kolam peserta, dengan check-in dari pemindaian aplikasi ini.
+ *
+ * RPC `undian_participant_pool` hanya membawa `source_checked_in`, salinan
+ * scanner API lama. Acara yang memindai lewat /scan mencatat kehadirannya di
+ * `attendance_scans`, sehingga syarat "Sudah check-in" dulu menghasilkan nol
+ * pada acara yang jelas sudah ramai check-in. Di sini keduanya digabung, pola
+ * yang sama dengan Client view (src/lib/live/data.ts).
+ *
+ * Pemindaian hanya dibaca bila `withAttendance` benar, yaitu bila ada syarat
+ * check-in. Tombol undi di panggung tidak perlu membayar bacaan yang tidak
+ * dipakai.
+ */
+export async function loadParticipantPool(eventId: string, withAttendance: boolean): Promise<ParticipantPoolRow[] | null> {
+  const client = getSupabaseServiceClient();
+  const [pool, scans] = await Promise.all([
+    client.rpc("undian_participant_pool" as never, { p_event_id: eventId } as never),
+    withAttendance ? attendedSessions(eventId) : Promise.resolve(new Map<string, number[]>()),
+  ]);
+  if (pool.error || !scans) return null;
+  return ((pool.data ?? []) as ParticipantPoolRow[]).map((row) => {
+    const attended = scans.get(row.participant_id) ?? [];
+    return { ...row, checked_in: row.checked_in || attended.length > 0, attended_sessions: attended };
+  });
+}
+
+/** Apakah salah satu pohon butuh data pemindaian. */
+export function needsAttendance(...trees: UndianConditionNode[]): boolean {
+  return trees.some(usesCheckIn);
+}
+
+/**
+ * Sesi kehadiran per peserta. Dibaca per halaman 1.000 baris karena pembacaan
+ * tabel berhenti di sana; pindaian ulang (`is_duplicate`) dilewati supaya
+ * halamannya tidak bertambah oleh orang yang dipindai dua kali.
+ */
+async function attendedSessions(eventId: string): Promise<Map<string, number[]> | null> {
+  const client = getSupabaseServiceClient();
+  const result = new Map<string, number[]>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await client
+      .from("attendance_scans")
+      .select("id,participant_id,session_id")
+      .eq("event_id", eventId)
+      .eq("is_duplicate", false)
+      .order("id")
+      .range(from, from + PAGE - 1);
+    if (error) return null;
+    const rows = (data ?? []) as { participant_id: string; session_id: number }[];
+    for (const row of rows) {
+      const list = result.get(row.participant_id) ?? [];
+      if (!list.includes(row.session_id)) list.push(row.session_id);
+      result.set(row.participant_id, list);
+    }
+    if (rows.length < PAGE) return result;
+  }
+}
+
+/** Sesi kehadiran acara, untuk pilihan "di sesi" pada syarat check-in. */
+export async function listAttendanceSessions(eventId: string): Promise<AttendanceSessionOption[]> {
+  const { data, error } = await getSupabaseServiceClient()
+    .from("attendance_sessions")
+    .select("id,name")
+    .eq("event_id", eventId)
+    .order("sort_order")
+    .order("id");
+  if (error || !data) return [];
+  return (data as { id: number; name: string }[]).map((row) => ({ id: Number(row.id), name: row.name }));
+}
 
 /**
  * Aturan yang berlaku untuk sebuah hadiah: yang global plus yang khusus hadiah itu.
@@ -144,13 +219,9 @@ export async function buildPool(eventId: string, prize: UndianPrize): Promise<Po
     };
   }
 
-  const [poolResult, rules] = await Promise.all([
-    client.rpc("undian_participant_pool" as never, { p_event_id: eventId } as never),
-    activeRulesFor(eventId, prize.id),
-  ]);
-  if (poolResult.error) return { error: "POOL_ERROR" };
-
-  const rows = (poolResult.data ?? []) as ParticipantPoolRow[];
+  const rules = await activeRulesFor(eventId, prize.id);
+  const rows = await loadParticipantPool(eventId, needsAttendance(prize.conditions, ...rules.map((rule) => rule.conditions)));
+  if (!rows) return { error: "POOL_ERROR" };
   const wonIds = await previousWinnerRefs(eventId, prize, "participant");
 
   const breakdown: PoolBreakdown = {

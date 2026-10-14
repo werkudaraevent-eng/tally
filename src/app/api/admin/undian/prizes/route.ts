@@ -3,7 +3,7 @@ import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizePrize, type UndianPrize } from "@/lib/undian";
-import { buildPool } from "@/lib/undian-pool";
+import { buildPool, listAttendanceSessions, type AttendanceSessionOption } from "@/lib/undian-pool";
 
 // CRUD hadiah undian. Admin saja.
 
@@ -30,7 +30,8 @@ const leafSchema = z.union([
     cmp: z.enum(["in", "not_in"]),
     values: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
   }),
-  z.object({ var: z.enum(["checked_in", "has_seat"]), is: z.boolean() }),
+  z.object({ var: z.literal("checked_in"), is: z.boolean(), session_id: z.number().int().positive().optional() }),
+  z.object({ var: z.literal("has_seat"), is: z.boolean() }),
   z.object({
     var: z.enum(TEXT_VARS),
     cmp: z.enum(TEXT_CMPS),
@@ -179,7 +180,10 @@ export async function GET(request: Request) {
   // diri setiap 2 detik tidak boleh membayar biaya itu.
   const withPool = new URL(request.url).searchParams.get("pool") === "1";
   const pools: Record<number, { eligible: number; candidates: number; tickets: number }> = {};
+  // Nama sesi kehadiran, untuk ringkasan syarat "sudah check-in di Gala" di daftar.
+  let attendanceSessions: AttendanceSessionOption[] = [];
   if (withPool) {
+    attendanceSessions = await listAttendanceSessions(eventId);
     for (const prize of prizes) {
       const result = await buildPool(eventId, prize);
       if ("error" in result) continue;
@@ -197,6 +201,7 @@ export async function GET(request: Request) {
     pending_counts: pending,
     active_session: (activeSession as { id: number; name: string } | null) ?? null,
     pools,
+    attendance_sessions: attendanceSessions,
   });
 }
 

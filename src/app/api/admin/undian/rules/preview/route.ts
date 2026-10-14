@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { hasInvalidLeaf, isTrulyEmpty, matchesConditions, normalizeConditions, type ParticipantPoolRow } from "@/lib/undian";
+import { hasInvalidLeaf, isTrulyEmpty, matchesConditions, normalizeConditions } from "@/lib/undian";
+import { loadParticipantPool, needsAttendance } from "@/lib/undian-pool";
 import { groupSchema } from "../route";
 
 // Pratinjau aturan pengecualian: siapa saja yang akan tersaring.
@@ -38,11 +38,9 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
-  const { data, error } = await getSupabaseServiceClient().rpc("undian_participant_pool" as never, { p_event_id: auth.scope.event.id } as never);
-  if (error) return apiError("INTERNAL_ERROR", 500);
-
-  const rows = (data ?? []) as ParticipantPoolRow[];
   const conditions = normalizeConditions(parsed.data.conditions);
+  const rows = await loadParticipantPool(auth.scope.event.id, needsAttendance(conditions));
+  if (!rows) return apiError("INTERNAL_ERROR", 500);
 
   // Pohon yang benar-benar kosong dilaporkan sebagai nol, BUKAN sebagai semua
   // orang: pohon kosong bernilai benar, dan pada aturan pengecualian benar berarti

@@ -9,6 +9,7 @@ import {
   type ParticipantPoolRow,
   type UndianExclusionRule,
 } from "@/lib/undian";
+import { listAttendanceSessions, loadParticipantPool, needsAttendance, type AttendanceSessionOption } from "@/lib/undian-pool";
 
 // Aturan pengecualian undian.
 //
@@ -34,7 +35,8 @@ const leafSchema = z.union([
     cmp: z.enum(["in", "not_in"]),
     values: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
   }),
-  z.object({ var: z.enum(["checked_in", "has_seat"]), is: z.boolean() }),
+  z.object({ var: z.literal("checked_in"), is: z.boolean(), session_id: z.number().int().positive().optional() }),
+  z.object({ var: z.literal("has_seat"), is: z.boolean() }),
   z.object({
     var: z.enum(TEXT_VARS),
     cmp: z.enum(TEXT_CMPS),
@@ -97,10 +99,15 @@ export async function GET(request: Request) {
   let rsvpStatuses: string[] = [];
   let companies: string[] = [];
   let totalParticipants = 0;
+  let attendanceSessions: AttendanceSessionOption[] = [];
 
   if (withCounts) {
-    const { data: pool } = await client.rpc("undian_participant_pool" as never, { p_event_id: eventId } as never);
-    const rows = (pool ?? []) as ParticipantPoolRow[];
+    const [pool, sessions] = await Promise.all([
+      loadParticipantPool(eventId, needsAttendance(...rules.map((rule) => rule.conditions))),
+      listAttendanceSessions(eventId),
+    ]);
+    const rows: ParticipantPoolRow[] = pool ?? [];
+    attendanceSessions = sessions;
     totalParticipants = rows.length;
     counts = countMatches(rows, rules);
     participantTypes = distinct(rows.map((row) => row.participant_type));
@@ -108,7 +115,7 @@ export async function GET(request: Request) {
     companies = distinct(rows.map((row) => row.company));
   }
 
-  return Response.json({ rules, counts, total_participants: totalParticipants, participant_types: participantTypes, rsvp_statuses: rsvpStatuses, companies });
+  return Response.json({ rules, counts, total_participants: totalParticipants, participant_types: participantTypes, rsvp_statuses: rsvpStatuses, companies, attendance_sessions: attendanceSessions });
 }
 
 export async function POST(request: Request) {
