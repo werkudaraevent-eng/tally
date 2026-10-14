@@ -33,10 +33,22 @@ alter table public.undian_prizes
 alter table public.undian_prizes
   add constraint undian_prizes_bonus_rules_shape check (jsonb_typeof(bonus_rules) = 'array');
 
--- 'bonus' = tiket tambahan. Nama constraint bawaan Postgres untuk CHECK sebaris
--- pada kolom weight_mode.
-alter table public.undian_prizes
-  drop constraint if exists undian_prizes_weight_mode_check;
+-- 'bonus' = tiket tambahan. CHECK lama ditulis sebaris tanpa nama, jadi namanya
+-- dicari dari definisinya, bukan ditebak: kalau tebakan nama meleset, CHECK lama
+-- tetap ada dan menolak 'bonus' walau constraint baru sudah terpasang.
+do $$
+declare
+  c record;
+begin
+  for c in
+    select conname from pg_constraint
+    where conrelid = 'public.undian_prizes'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) like '%weight_mode%'
+  loop
+    execute format('alter table public.undian_prizes drop constraint %I', c.conname);
+  end loop;
+end $$;
 alter table public.undian_prizes
   add constraint undian_prizes_weight_mode_check check (weight_mode in ('equal', 'formula', 'bonus'));
 
