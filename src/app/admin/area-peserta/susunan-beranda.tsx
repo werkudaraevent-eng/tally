@@ -48,16 +48,34 @@ function geser(order: string[], dari: number, ke: number) {
   return next;
 }
 
-/** Urutan apa pun menjadi urutan yang benar-benar tampil di Horizon. */
-function susunHorizon(order: string[], tetap: Set<string>): string[] {
+/**
+ * Tempat Announcements di Horizon, dihitung persis seperti dashboard: ponsel
+ * melihat posisinya terhadap Bus and room, layar lebar terhadap Next up.
+ * 0 = paling atas (layar lebar sebelum Next up), 1 = setelah Bus and room,
+ * 2 = setelah Next up, 3 = paling atas di ponsel tetapi setelah Next up di
+ * layar lebar (urutan lama dari Gathering klasik; dipertahankan sampai admin
+ * memindahkannya sendiri).
+ */
+type SlotPengumuman = 0 | 1 | 2 | 3;
+
+function slotPengumuman(order: string[]): SlotPengumuman | null {
   const posisi = (id: string) => order.indexOf(id);
-  const pengumuman = order.includes("announcements") ? "announcements" : null;
+  if (!order.includes("announcements")) return null;
+  const sebelumBus = posisi("announcements") < posisi("logistics");
+  const sebelumNext = posisi("announcements") < posisi("next");
+  return sebelumBus ? (sebelumNext ? 0 : 3) : sebelumNext ? 1 : 2;
+}
+
+/** Urutan yang tampil di editor: urutan ponsel, lalu blok. */
+function tampilanHorizon(slot: SlotPengumuman | null, blok: string[]): string[] {
   const isi: string[] = [...HORIZON_TETAP];
-  if (pengumuman) {
-    const slot = posisi(pengumuman) < posisi("logistics") ? 0 : posisi(pengumuman) < posisi("next") ? isi.indexOf("next") : isi.indexOf("roommates");
-    isi.splice(slot, 0, pengumuman);
-  }
-  return [...isi, ...order.filter((id) => !tetap.has(id) && id !== pengumuman)];
+  if (slot !== null) isi.splice(slot === 0 || slot === 3 ? 0 : slot === 1 ? isi.indexOf("next") : isi.indexOf("roommates"), 0, "announcements");
+  return [...isi, ...blok];
+}
+
+/** Urutan yang disimpan: sama dengan tampilan, kecuali slot 3 yang butuh Next up di depan. */
+function simpananHorizon(slot: SlotPengumuman | null, blok: string[]): string[] {
+  return slot === 3 ? ["next", "announcements", "checkpoints", "logistics", "roommates", ...blok] : tampilanHorizon(slot, blok);
 }
 
 export function SusunanBeranda({
@@ -89,13 +107,27 @@ export function SusunanBeranda({
   const diHorizon = gathering && horizon;
   const tetap = new Set<string>(diHorizon ? HORIZON_TETAP : []);
   const tanpa = new Set(diHorizon ? HORIZON_TANPA : []);
-  const rapikan = (next: string[]) => (diHorizon ? susunHorizon(next, new Set([...tetap, ...tanpa])) : next);
-  const order = rapikan(urutanPenuh.filter((id) => !tanpa.has(id)));
-  // Baris yang tidak ditawarkan kembali ke posisi lamanya saat urutan disimpan.
+  const blokDari = (ids: string[]) => ids.filter((id) => !tetap.has(id) && !tanpa.has(id) && id !== "announcements");
+  const slot = diHorizon ? slotPengumuman(urutanPenuh) : null;
+  const order = diHorizon ? tampilanHorizon(slot, blokDari(urutanPenuh)) : urutanPenuh;
+  /**
+   * Urutan tampilan setelah satu baris dipindah menjadi urutan simpanan. Di
+   * Horizon hanya Announcements yang mengganti tempat; baris lain yang dipindah
+   * tidak menyentuh tempatnya, jadi slot 3 tidak hilang karena blok digeser.
+   */
+  const keSimpanan = (next: string[], yangDipindah: string | null) => {
+    if (!diHorizon) return next;
+    const slotBaru: SlotPengumuman | null =
+      yangDipindah === "announcements" ? slotPengumuman(next) : slot;
+    return simpananHorizon(slotBaru, blokDari(next));
+  };
+  // Baris yang tidak ditawarkan kembali tepat sebelum isi yang dulu mengikutinya.
   const lengkapi = (next: string[]) => {
     const hasil = [...next];
     urutanPenuh.forEach((id, index) => {
-      if (tanpa.has(id)) hasil.splice(Math.min(index, hasil.length), 0, id);
+      if (!tanpa.has(id)) return;
+      const pengikut = urutanPenuh.slice(index + 1).find((lain) => hasil.includes(lain));
+      hasil.splice(pengikut ? hasil.indexOf(pengikut) : hasil.length, 0, id);
     });
     return hasil;
   };
@@ -109,7 +141,9 @@ export function SusunanBeranda({
   };
   const baris: Baris[] = order.map((id) => {
     const bawaan = MEMBER_HOME_BUILTINS[layout].find((item) => item.id === id);
-    if (bawaan) return { id, judul: bawaan.label, sub: bawaan.sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id), tetap: tetap.has(id) };
+    // Urutan lama: di ponsel paling atas, di layar lebar setelah Next up. Disebut, bukan diam-diam dipindah.
+    const sub = id === "announcements" && slot === 3 ? `Top on phones, after Next up on wide screens · ${bawaan?.sub}` : bawaan?.sub ?? "";
+    if (bawaan) return { id, judul: bawaan.label, sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id), tetap: tetap.has(id) };
     const block = blocks.find((item) => item.id === id)!;
     const jenis = `${LANDING_BLOCK_LABELS[block.type]} block`;
     return {
@@ -123,10 +157,10 @@ export function SusunanBeranda({
     };
   });
 
-  const simpanUrutan = (next: string[]) => set({ home: { ...member.home, order: lengkapi(rapikan(next)) } });
+  const hasilPindah = (dari: number, ke: number) => keSimpanan(geser(order, dari, ke), order[dari]);
   const pindah = (dari: number, ke: number) => {
     if (ke < 0 || ke >= order.length || dari === ke) return;
-    simpanUrutan(geser(order, dari, ke));
+    set({ home: { ...member.home, order: lengkapi(hasilPindah(dari, ke)) } });
   };
   const lepas = (target: number) => {
     if (seret !== null) pindah(seret, target);
@@ -139,7 +173,7 @@ export function SusunanBeranda({
     else next.delete(b.id);
     // Urutan ikut disimpan: tanpa itu, blok yang ditambahkan nanti bisa
     // menggeser isi yang posisinya sudah dilihat admin di pratinjau.
-    set({ home: { ...member.home, order: diHorizon ? lengkapi(order) : urutanPenuh, hidden: [...next] } });
+    set({ home: { ...member.home, order: diHorizon ? lengkapi(keSimpanan(order, null)) : urutanPenuh, hidden: [...next] } });
   };
   const tombolPegangan = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
@@ -148,7 +182,8 @@ export function SusunanBeranda({
     // Horizon merapikan ke tempat tampil yang tetap: lompati langkah yang
     // tidak mengubah apa pun, supaya satu panah selalu terlihat hasilnya.
     let ke = index + arah;
-    while (ke >= 0 && ke < order.length && rapikan(geser(order, index, ke)).join() === order.join()) ke += arah;
+    const sekarang = keSimpanan(order, null).join();
+    while (ke >= 0 && ke < order.length && hasilPindah(index, ke).join() === sekarang) ke += arah;
     pindah(index, ke);
     // Fokus ikut barisnya, supaya panah berikutnya memindahkan baris yang sama.
     window.requestAnimationFrame(() => document.getElementById(`pegangan-${order[index]}`)?.focus());
