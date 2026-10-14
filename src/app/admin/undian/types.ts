@@ -13,6 +13,9 @@ export type Preview = {
   sample: { name: string; company: string | null; checked_in: boolean; total_spend: number; tickets: number }[];
   participant_types: string[]; rsvp_statuses: string[]; companies: string[];
   attendance_sessions?: AttendanceSessionOption[];
+  /** Mode tiket tambahan: kelompok menurut kombinasi aturan yang cocok, dan jumlah per aturan. */
+  bonus_groups?: { rules: number[]; count: number; tickets: number }[];
+  bonus_rule_counts?: number[];
 };
 
 /** Sesi kehadiran acara (Check-in > Sessions), untuk syarat check-in per sesi. */

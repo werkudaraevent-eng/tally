@@ -6,9 +6,10 @@ import { ImagePreview } from "@/components/admin/image-preview";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import {
   ANIMATIONS, EXCLUDE_SCOPE_LABEL, SPIN_MODES, WEIGHT_VAR_LABEL,
-  type ExcludeScope, type SpinMode, type UndianAnimation, type UndianPrize, type WeightVar,
+  type ExcludeScope, type SpinMode, type UndianAnimation, type UndianPrize, type WeightMode, type WeightVar,
 } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
+import { BonusRules } from "./bonus-rules";
 import { Field, INPUT, NumberField, PaneError, UploadButton } from "./form";
 import type { EntryGroup, Preview } from "./types";
 
@@ -26,10 +27,10 @@ const digitsOnly = (value: string) => value.replace(/\D/g, "");
  * syarat terlihat tanpa berpindah tab.
  */
 export function PrizeEditor({
-  draft, isNew, groups, preview, previewFailed, saving, uploading, error,
+  draft, isNew, legacyFormula, groups, preview, previewFailed, saving, uploading, error,
   onChange, onSave, onClose, onUpload, onDelete,
 }: {
-  draft: Draft; isNew: boolean; groups: EntryGroup[]; preview: Preview | null; previewFailed: boolean;
+  draft: Draft; isNew: boolean; legacyFormula: boolean; groups: EntryGroup[]; preview: Preview | null; previewFailed: boolean;
   saving: boolean; uploading: boolean; error: string;
   onChange: (changes: Partial<Draft>) => void;
   onSave: () => void; onClose: () => void; onUpload: (file: File) => void;
@@ -169,13 +170,30 @@ export function PrizeEditor({
 
           {draft.source === "participants" ? (
             <DetailSection title="Peluang menang">
-              <SegmentedButton<"equal" | "formula">
+              <SegmentedButton<WeightMode>
                 label="Cara menghitung peluang"
                 value={draft.weight_mode}
                 onChange={(value) => onChange({ weight_mode: value })}
-                options={[{ value: "equal", label: "Sama rata" }, { value: "formula", label: "Berbobot" }]}
+                options={[
+                  { value: "equal", label: "Sama rata" },
+                  { value: "bonus", label: "Tiket tambahan" },
+                  // Hadiah lama yang memakai rumus tetap bisa melihat dan
+                  // mempertahankannya; hadiah lain tidak ditawari.
+                  ...(legacyFormula ? [{ value: "formula" as const, label: "Rumus lama" }] : []),
+                ]}
                 className="w-full"
               />
+              {draft.weight_mode === "bonus" ? (
+                <BonusRules
+                  rules={draft.bonus_rules}
+                  weightMax={draft.weight_max}
+                  winnerQuota={draft.winner_quota}
+                  preview={preview}
+                  previewFailed={previewFailed}
+                  onChange={(bonus_rules) => onChange({ bonus_rules })}
+                  onWeightMax={(weight_max) => onChange({ weight_max })}
+                />
+              ) : null}
               {draft.weight_mode === "formula" ? (
                 <>
                   <Field label="Dasar bobot" htmlFor="weight-var">

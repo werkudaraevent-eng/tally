@@ -2,13 +2,17 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import {
+  invalidateBonusSessions,
   invalidateUnknownSessions,
   matchesConditions,
+  matchingBonusRules,
+  normalizeBonusRules,
   normalizeConditions,
   ticketsFor,
   type ParticipantPoolRow,
   type WeightConfig,
 } from "@/lib/undian";
+import { bonusRulesSchema } from "@/lib/undian-bonus-schema";
 import { activeRulesFor, listAttendanceSessions, loadParticipantPool, needsAttendance, weightNeedsAttendance } from "@/lib/undian-pool";
 
 // Pratinjau kolam: berapa peserta yang lolos syarat, dan bagaimana tiket terbagi.
@@ -58,13 +62,16 @@ const nodeSchema: z.ZodType<ConditionInput> = z.lazy(() =>
   z.union([leafSchema, z.object({ op: z.enum(["and", "or"]), children: z.array(nodeSchema).max(20) })]),
 );
 
+const groupSchema = z.object({ op: z.enum(["and", "or"]), children: z.array(nodeSchema).max(20) });
+
 const bodySchema = z.object({
-  conditions: z.object({ op: z.enum(["and", "or"]), children: z.array(nodeSchema).max(20) }),
-  weight_mode: z.enum(["equal", "formula"]).default("equal"),
+  conditions: groupSchema,
+  weight_mode: z.enum(["equal", "formula", "bonus"]).default("equal"),
   weight_var: z.enum(["total_spend", "booth_count", "scan_count"]).default("total_spend"),
   weight_divisor: z.number().min(1).max(1_000_000_000).default(500000),
   weight_base: z.number().int().min(0).max(100).default(1),
   weight_max: z.number().int().min(1).max(1000).default(10),
+  bonus_rules: bonusRulesSchema(groupSchema, false).default([]),
 });
 
 const bodySchemaWithPrize = bodySchema.extend({
@@ -92,9 +99,12 @@ export async function POST(request: Request) {
   const known = new Set(attendanceSessions.map((session) => session.id));
   const conditions = invalidateUnknownSessions(normalizeConditions(parsed.data.conditions), known);
   const rules = rawRules.map((rule) => ({ ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) }));
-  const rows = await loadParticipantPool(eventId, weightNeedsAttendance(parsed.data) || needsAttendance(conditions, ...rules.map((rule) => rule.conditions)));
+  // Lewat normalizeBonusRules supaya pohon syarat aturan tiket tambahan dibaca
+  // dengan cara yang sama seperti yang tersimpan di hadiah.
+  const bonusRules = invalidateBonusSessions(normalizeBonusRules(parsed.data.bonus_rules), known);
+  const weight: WeightConfig = { ...parsed.data, bonus_rules: bonusRules };
+  const rows = await loadParticipantPool(eventId, weightNeedsAttendance(weight) || needsAttendance(conditions, ...rules.map((rule) => rule.conditions)));
   if (!rows) return apiError("INTERNAL_ERROR", 500);
-  const weight: WeightConfig = parsed.data;
 
   const eligible = rows.filter((row) => matchesConditions(row, conditions));
 
@@ -127,6 +137,23 @@ export async function POST(request: Request) {
   // berguna saat menyetel bobot: "maksimal 10 tiket" terdengar wajar sampai
   // terlihat bahwa artinya satu orang memegang 34% peluang.
   const topShare = totalTickets > 0 ? Math.max(...tickets, 0) / totalTickets : 0;
+
+  // Tabel peluang tiket tambahan: peserta yang benar-benar diundi dikelompokkan
+  // menurut kombinasi aturan yang mengenai mereka. Kombinasi, bukan per aturan,
+  // karena tiket dijumlahkan: "VIP + hadir Gala" punya peluang yang berbeda dari
+  // "VIP saja", dan panitia perlu melihat keduanya.
+  const bonusGroups = new Map<string, { rules: number[]; count: number; tickets: number }>();
+  const bonusRuleCounts = bonusRules.map(() => 0);
+  if (weight.weight_mode === "bonus") {
+    available.forEach((row, index) => {
+      const hits = matchingBonusRules(row, bonusRules);
+      for (const hit of hits) bonusRuleCounts[hit] += 1;
+      const key = hits.join(",");
+      const group = bonusGroups.get(key) ?? { rules: hits, count: 0, tickets: tickets[index] };
+      group.count += 1;
+      bonusGroups.set(key, group);
+    });
+  }
 
   return Response.json({
     total_participants: rows.length,
@@ -163,6 +190,9 @@ export async function POST(request: Request) {
     companies: distinct(rows.map((row) => row.company)),
     // Sesi kehadiran acara, untuk pilihan "di sesi" pada syarat check-in.
     attendance_sessions: attendanceSessions,
+    // Hanya terisi pada mode tiket tambahan. Urut dari tiket terbanyak.
+    bonus_groups: [...bonusGroups.values()].sort((a, b) => b.tickets - a.tickets || b.count - a.count),
+    bonus_rule_counts: bonusRuleCounts,
   });
 }
 

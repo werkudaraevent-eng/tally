@@ -391,8 +391,25 @@ export function matchesConditions(row: ParticipantPoolRow, node: UndianCondition
 // Bobot
 // ---------------------------------------------------------------------------
 
-export type WeightMode = "equal" | "formula";
+/**
+ * `equal` = semua satu tiket. `bonus` = tiket tambahan per aturan. `formula`
+ * = rumus lama (base + nilai ÷ pembagi); hanya untuk hadiah yang sudah
+ * memakainya, layar tidak menawarkannya untuk hadiah lain.
+ */
+export type WeightMode = "equal" | "formula" | "bonus";
 export type WeightVar = "total_spend" | "booth_count" | "scan_count";
+
+/**
+ * Satu aturan tiket tambahan. Sumbernya daftar dari panitia (sudah dicocokkan
+ * ke id peserta saat diupload) atau pohon syarat dari data acara.
+ */
+export type BonusRule =
+  | { name: string; tickets: number; source: "list"; participant_ids: string[]; file_name: string | null; uploaded_at: string | null }
+  | { name: string; tickets: number; source: "conditions"; conditions: UndianConditionGroup };
+
+export const BONUS_TICKETS_MAX = 100;
+export const BONUS_RULES_MAX = 20;
+export const BONUS_LIST_MAX = 5000;
 
 export type WeightConfig = {
   weight_mode: WeightMode;
@@ -400,6 +417,8 @@ export type WeightConfig = {
   weight_divisor: number;
   weight_base: number;
   weight_max: number;
+  /** Hanya dipakai saat weight_mode = "bonus". */
+  bonus_rules?: BonusRule[];
 };
 
 export const WEIGHT_VAR_LABEL: Record<WeightVar, string> = {
@@ -425,12 +444,68 @@ export const WEIGHT_VAR_LABEL: Record<WeightVar, string> = {
  */
 export function ticketsFor(row: ParticipantPoolRow, config: WeightConfig): number {
   if (config.weight_mode === "equal") return 1;
+  if (config.weight_mode === "bonus") {
+    const extra = matchingBonusRules(row, config.bonus_rules ?? []).reduce((sum, index) => sum + (config.bonus_rules ?? [])[index].tickets, 0);
+    return Math.max(1, Math.min(config.weight_max, 1 + extra));
+  }
   const source = config.weight_var === "total_spend" ? row.total_spend
     : config.weight_var === "booth_count" ? row.booth_count
     : row.scan_count;
   const divisor = config.weight_divisor > 0 ? config.weight_divisor : 1;
   const tickets = config.weight_base + Math.floor(source / divisor);
   return Math.max(1, Math.min(config.weight_max, tickets));
+}
+
+// Daftar id per aturan disimpan sebagai Set sekali saja. Tanpa ini setiap
+// peserta memindai seluruh daftar, dan 2.000 peserta x daftar 2.000 nama
+// berjalan di setiap pratinjau.
+const bonusSets = new WeakMap<BonusRule, Set<string>>();
+
+/** Indeks aturan tiket tambahan yang cocok untuk satu peserta, berurutan. */
+export function matchingBonusRules(row: ParticipantPoolRow, rules: BonusRule[]): number[] {
+  const hits: number[] = [];
+  rules.forEach((rule, index) => {
+    if (rule.source === "list") {
+      let set = bonusSets.get(rule);
+      if (!set) { set = new Set(rule.participant_ids); bonusSets.set(rule, set); }
+      if (set.has(row.participant_id)) hits.push(index);
+      return;
+    }
+    // Pohon kosong bernilai benar. Di sini benar berarti SEMUA orang dapat tiket
+    // tambahan, yang sama saja dengan tidak memberi siapa pun kelebihan; aturan
+    // setengah jadi seperti itu dianggap tidak cocok dengan siapa pun.
+    if (isTrulyEmpty(rule.conditions)) return;
+    if (matchesConditions(row, rule.conditions)) hits.push(index);
+  });
+  return hits;
+}
+
+/** Bentuk aman dari kolom bonus_rules. Baris yang rusak dibuang, bukan ditebak. */
+export function normalizeBonusRules(value: unknown): BonusRule[] {
+  if (!Array.isArray(value)) return [];
+  const rules: BonusRule[] = [];
+  for (const item of value.slice(0, BONUS_RULES_MAX)) {
+    if (typeof item !== "object" || item === null) continue;
+    const raw = item as Record<string, unknown>;
+    const name = typeof raw.name === "string" ? raw.name : "";
+    const tickets = Math.max(1, Math.min(BONUS_TICKETS_MAX, Math.round(Number(raw.tickets) || 1)));
+    if (raw.source === "list") {
+      const ids = Array.isArray(raw.participant_ids) ? raw.participant_ids.filter((id): id is string => typeof id === "string") : [];
+      rules.push({
+        name, tickets, source: "list", participant_ids: ids,
+        file_name: typeof raw.file_name === "string" ? raw.file_name : null,
+        uploaded_at: typeof raw.uploaded_at === "string" ? raw.uploaded_at : null,
+      });
+    } else if (raw.source === "conditions") {
+      rules.push({ name, tickets, source: "conditions", conditions: normalizeConditions(raw.conditions) });
+    }
+  }
+  return rules;
+}
+
+/** Aturan tiket tambahan dengan sesi check-in yang sudah dihapus dibuat tidak cocok. */
+export function invalidateBonusSessions(rules: BonusRule[], known: Set<number>): BonusRule[] {
+  return rules.map((rule) => rule.source === "conditions" ? { ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) } : rule);
 }
 
 // ---------------------------------------------------------------------------
@@ -595,6 +670,7 @@ export type UndianPrize = {
   weight_divisor: number;
   weight_base: number;
   weight_max: number;
+  bonus_rules: BonusRule[];
   sort_order: number;
   is_active: boolean;
 };
@@ -626,13 +702,29 @@ export function normalizePrize(raw: Record<string, unknown>): UndianPrize {
     entry_group_id: raw.entry_group_id == null ? null : Number(raw.entry_group_id),
     conditions: normalizeConditions(raw.conditions),
     exclude_scope: (raw.exclude_scope === "none" || raw.exclude_scope === "this_prize" ? raw.exclude_scope : "all_prizes") as ExcludeScope,
-    weight_mode: raw.weight_mode === "formula" ? "formula" : "equal",
+    weight_mode: raw.weight_mode === "formula" || raw.weight_mode === "bonus" ? raw.weight_mode : "equal",
     weight_var: (raw.weight_var === "booth_count" || raw.weight_var === "scan_count" ? raw.weight_var : "total_spend") as WeightVar,
     weight_divisor: numeric(raw.weight_divisor, 500000),
     weight_base: numeric(raw.weight_base, 1),
     weight_max: numeric(raw.weight_max, 10),
+    bonus_rules: normalizeBonusRules(raw.bonus_rules),
     sort_order: numeric(raw.sort_order, 0),
     is_active: raw.is_active !== false,
+  };
+}
+
+/**
+ * Hadiah untuk audit_logs. Daftar id peserta pada aturan tiket tambahan diganti
+ * jumlahnya: daftar 5.000 nama ditulis dua kali (sebelum dan sesudah) pada
+ * setiap simpan akan menenggelamkan riwayat, padahal yang perlu terbaca adalah
+ * siapa mengubah aturan apa.
+ */
+export function auditPrize(prize: UndianPrize) {
+  return {
+    ...prize,
+    bonus_rules: prize.bonus_rules.map((rule) => rule.source === "list"
+      ? { name: rule.name, tickets: rule.tickets, source: rule.source, participant_count: rule.participant_ids.length, file_name: rule.file_name, uploaded_at: rule.uploaded_at }
+      : rule),
   };
 }
 

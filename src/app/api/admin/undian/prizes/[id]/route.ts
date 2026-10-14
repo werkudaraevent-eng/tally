@@ -2,7 +2,8 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { normalizePrize } from "@/lib/undian";
+import { auditPrize, normalizePrize } from "@/lib/undian";
+import { bonusRulesSchema } from "@/lib/undian-bonus-schema";
 import { PRIZE_COLUMNS } from "../route";
 
 // Ubah dan hapus satu hadiah.
@@ -41,6 +42,8 @@ const nodeSchema: z.ZodType<ConditionInput> = z.lazy(() =>
   z.union([leafSchema, z.object({ op: z.enum(["and", "or"]), children: z.array(nodeSchema).max(20) })]),
 );
 
+const groupSchema = z.object({ op: z.enum(["and", "or"]), children: z.array(nodeSchema).max(20) });
+
 const patchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   description: z.string().trim().max(400).nullable().optional(),
@@ -56,11 +59,12 @@ const patchSchema = z.object({
   entry_group_id: z.number().int().positive().nullable().optional(),
   conditions: z.object({ op: z.enum(["and", "or"]), children: z.array(nodeSchema).max(20) }).optional(),
   exclude_scope: z.enum(["none", "this_prize", "all_prizes"]).optional(),
-  weight_mode: z.enum(["equal", "formula"]).optional(),
+  weight_mode: z.enum(["equal", "formula", "bonus"]).optional(),
   weight_var: z.enum(["total_spend", "booth_count", "scan_count"]).optional(),
   weight_divisor: z.number().min(1).max(1_000_000_000).optional(),
   weight_base: z.number().int().min(0).max(100).optional(),
   weight_max: z.number().int().min(1).max(1000).optional(),
+  bonus_rules: bonusRulesSchema(groupSchema, true).optional(),
   sort_order: z.number().int().min(0).max(9999).optional(),
   is_active: z.boolean().optional(),
 });
@@ -111,7 +115,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     event_id: eventId,
     user_id: auth.user.id,
     action: "undian_prize_update",
-    payload: { old: before, new: after },
+    payload: { old: auditPrize(before), new: auditPrize(after) },
   } as never);
   return Response.json(after);
 }
@@ -148,7 +152,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     event_id: eventId,
     user_id: auth.user.id,
     action: "undian_prize_delete",
-    payload: { old: normalizePrize(current as Record<string, unknown>), new: null },
+    payload: { old: auditPrize(normalizePrize(current as Record<string, unknown>)), new: null },
   } as never);
   return Response.json({ ok: true });
 }

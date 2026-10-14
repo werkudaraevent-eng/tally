@@ -44,6 +44,7 @@ function newPrizeDraft(): Omit<UndianPrize, "id"> {
     source: "participants", entry_group_id: null,
     conditions: EMPTY_CONDITIONS, exclude_scope: "all_prizes",
     weight_mode: "equal", weight_var: "total_spend", weight_divisor: 500000, weight_base: 1, weight_max: 10,
+    bonus_rules: [],
     sort_order: 0, is_active: true,
   };
 }
@@ -159,6 +160,7 @@ export default function UndianAdminPage() {
           body: JSON.stringify({
             conditions: draft.conditions, weight_mode: draft.weight_mode, weight_var: draft.weight_var,
             weight_divisor: draft.weight_divisor, weight_base: draft.weight_base, weight_max: draft.weight_max,
+            bonus_rules: draft.bonus_rules,
             // Aturan pengecualian bisa berlaku khusus untuk satu hadiah, jadi
             // pratinjaunya harus tahu hadiah mana yang sedang diedit. Tanpa ini,
             // angka di layar mengabaikan aturan khusus dan menjanjikan kolam yang
@@ -171,7 +173,7 @@ export default function UndianAdminPage() {
       })();
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [editingId, draft.conditions, draft.source, draft.weight_mode, draft.weight_var, draft.weight_divisor, draft.weight_base, draft.weight_max]);
+  }, [editingId, draft.conditions, draft.source, draft.weight_mode, draft.weight_var, draft.weight_divisor, draft.weight_base, draft.weight_max, draft.bonus_rules]);
 
   const branding = useMemo(
     () => (settings ? normalizeBranding(settings as unknown as Record<string, unknown>) : null),
@@ -476,6 +478,8 @@ export default function UndianAdminPage() {
     <PrizeEditor
       draft={draft}
       isNew={editingId === "new"}
+      // Rumus lama hanya ditawarkan untuk hadiah yang sudah tersimpan dengannya.
+      legacyFormula={editingId !== "new" && prizes.find((item) => item.id === editingId)?.weight_mode === "formula"}
       groups={groups}
       preview={preview}
       previewFailed={previewFailed}
