@@ -54,8 +54,10 @@ export function pesanTautanTerkirim(email: string, lang: LandingLang = "id") {
   return MASUK_UI[lang].tautanTerkirim(email);
 }
 
+// Garis dan placeholder sama dengan dialog masuk (masuk-dialog.tsx, KOLOM):
+// campuran tinta 58% (sekitar 4,2:1) menggantikan --reg-outline (2,41:1).
 const FIELD =
-  "h-[52px] w-full rounded-md border border-[var(--reg-outline)] bg-[var(--reg-field)] px-4 text-body-large text-[var(--reg-on-surface)] outline-none focus-visible:border-[var(--reg-primary)] focus-visible:ring-2 focus-visible:ring-[var(--reg-primary)]";
+  "h-[52px] w-full rounded-md border border-[color-mix(in_srgb,var(--reg-on-surface)_58%,var(--reg-field,#ffffff))] bg-[var(--reg-field)] px-4 placeholder:text-[var(--reg-on-surface-variant)] text-body-large text-[var(--reg-on-surface)] outline-none focus-visible:border-[var(--reg-primary)] focus-visible:ring-2 focus-visible:ring-[var(--reg-primary)]";
 const LABEL = "flex flex-col gap-2 text-body-large font-medium";
 const TAUTAN = "min-h-11 self-start font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline";
 

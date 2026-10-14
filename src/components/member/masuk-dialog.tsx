@@ -83,7 +83,9 @@ function warnaKepala(kepala: KepalaMasuk): CSSProperties {
     // `background`, bukan background-color: latar gathering berupa gradasi.
     "--masuk-pita": gathering ? "var(--latar-gathering, var(--reg-brand))" : "var(--reg-brand)",
     "--masuk-pita-teks": teks,
-    "--masuk-pita-alis": gathering ? "var(--hero-alis, #ffffff)" : teks,
+    // Alis emas gathering dipilih untuk lapisan hero halaman, bukan untuk
+    // lapisan pita ini: di atas KV terang ia hanya 2,96:1, jadi putih.
+    "--masuk-pita-alis": gathering && !kepala.kv ? "var(--hero-alis, #ffffff)" : teks,
   } as CSSProperties;
 }
 
@@ -93,11 +95,12 @@ const LABEL = "block text-label-large font-semibold";
 // Cincin fokus global (:focus-visible di globals.css, tanpa layer) mengalahkan
 // utilitas Tailwind, jadi penimpanya memakai `!`.
 // Garis kolom dan placeholder digelapkan dari --reg-outline (2,41:1 di atas
-// putih) ke campuran tinta 58% (sekitar 4,5:1), supaya batas kolom terlihat
+// putih) ke campuran tinta 58% (sekitar 4,2:1), supaya batas kolom terlihat
 // (WCAG 1.4.11, paling sedikit 3:1). Hanya di dialog ini; formulir pendaftaran
 // tidak berubah.
 const KOLOM = `${REG_CONTROL} font-normal border-[color-mix(in_srgb,var(--reg-on-surface)_58%,var(--reg-field,#ffffff))]! placeholder:text-[var(--reg-on-surface-variant)] focus:border-[var(--reg-primary)]! focus-visible:outline-none! focus-visible:shadow-[0_0_0_2px_var(--reg-primary)]! aria-invalid:border-[var(--reg-error)]! aria-invalid:focus-visible:shadow-[0_0_0_2px_var(--reg-error)]!`;
-const TAUTAN = "inline-flex min-h-11 items-center font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline";
+// 44px di layar lebar seperti dulu, 48px di ponsel (target sentuh halaman publik).
+const TAUTAN = "inline-flex min-h-11 max-[599px]:min-h-12 items-center font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline";
 
 export function MasukDialog({
   slug,
@@ -436,7 +439,8 @@ export function MasukDialog({
           >
             {kepala.kv ? (
               // Hiasan, bukan isi. Horizon: ornamen KV menempel di bawah seperti
-              // hero-nya; lainnya: gambar penuh dengan lapisan gelap untuk teks.
+              // hero-nya, baru tampak mulai 32% tingginya supaya tidak pernah di
+              // belakang baris tanggal; lainnya: gambar penuh dengan lapisan gelap.
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={kepala.kv}
@@ -445,13 +449,16 @@ export function MasukDialog({
                 decoding="async"
                 className={
                   kepala.gaya === "horizon"
-                    ? "pointer-events-none absolute inset-x-0 bottom-6 -z-10 h-[100px] w-full select-none object-cover object-bottom [mask-image:linear-gradient(to_bottom,transparent,black_35%)]"
+                    ? "pointer-events-none absolute inset-x-0 bottom-6 -z-10 h-[100px] w-full select-none object-cover object-bottom [mask-image:linear-gradient(to_bottom,transparent_32%,black_60%)]"
                     : "pointer-events-none absolute inset-0 -z-20 size-full select-none object-cover"
                 }
               />
             ) : null}
             {kepala.kv && kepala.gaya !== "horizon" ? (
-              <div aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgb(0_0_0/0.62),rgb(0_0_0/0.38))]" />
+              // Rata 60%, bukan gradasi: teks terkecil (nama, tanggal) ada di
+              // bawah, jadi lapisannya harus sama gelap di sana. Teks putih
+              // 14px tetap di atas 4,5:1 di atas KV seterang apa pun.
+              <div aria-hidden className="absolute inset-0 -z-10 bg-black/60" />
             ) : null}
             <p className="text-[12px] font-bold uppercase leading-4 tracking-[0.12em] text-[var(--masuk-pita-alis)]">{t.alis}</p>
             {/* Judul dialog di ponsel; judul kepala layar lebar (aria-labelledby) tersembunyi di sini. */}
