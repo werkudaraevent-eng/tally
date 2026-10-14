@@ -30,6 +30,10 @@ export type MasukUiText = {
   tautanTerkirim: (email: string) => string;
   koneksi: string;
   gagalUmum: string;
+  /** Label kecil di pita acara (dialog layar penuh di ponsel). */
+  alis: string;
+  bantuan: string;
+  hubungiPanitia: string;
   /** English saja: pesan untuk kode galat API. Indonesia memakai pesan server. */
   galat?: (kode: string, mode: MasukMode, menit: number | null) => string;
 };
@@ -58,6 +62,9 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     tautanTerkirim: (email) => `Bila ${email} terdaftar di acara ini, kami sudah mengirim email berisi langkah berikutnya. Periksa juga folder spam.`,
     koneksi: "Koneksi terputus. Periksa jaringan Anda, lalu coba lagi.",
     gagalUmum: "Belum berhasil. Coba lagi.",
+    alis: "Area peserta",
+    bantuan: "Butuh bantuan?",
+    hubungiPanitia: "Hubungi panitia",
   },
   en: {
     judul: { masuk: "Participant sign-in", tautan: "Email me a link", sandi: "Create a password" },
@@ -80,6 +87,9 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     tautanTerkirim: (email) => `If ${email} is registered for this event, we have sent an email with the next step. Check your spam folder too.`,
     koneksi: "Connection lost. Check your network, then try again.",
     gagalUmum: "That did not work. Please try again.",
+    alis: "Participant area",
+    bantuan: "Need help?",
+    hubungiPanitia: "Contact the organisers",
     galat: (kode, mode, menit) => {
       switch (kode) {
         case "RATE_LIMITED":

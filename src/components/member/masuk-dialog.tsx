@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
-import { X } from "@phosphor-icons/react";
+import { EnvelopeSimple, X } from "@phosphor-icons/react";
 import { REG_CONTROL } from "@/components/registration-field-input";
 import { kirimMasuk, pesanTautanTerkirim, type MasukMode, type MasukSandi } from "@/app/masuk/masuk-client";
 import type { LandingLang } from "@/lib/landing-i18n";
@@ -34,14 +34,69 @@ import { MASUK_UI } from "@/lib/member/masuk-i18n";
  * `<dialog>` bawaan dengan showModal(): fokus terkurung di dalam, isi di
  * belakangnya inert, Esc menutup. Logika masuk sama dengan halaman /masuk
  * (kirimMasuk).
+ *
+ * Ponsel dengan `kepala`: dialog layar penuh memakai wajah acaranya, yaitu
+ * bilah atas (logo, warna bilah setelah hero lewat) dan pita berisi KV,
+ * judul, serta tanggal. Formulirnya duduk di lembar bersudut di atas pita.
+ * Pita ikut bergulir, jadi begitu papan ketik terbuka kolomnya yang tampil.
+ * Layar >= 600px tetap kotak 440px seperti sebelumnya.
  */
+
+/** Wajah acara di dialog layar penuh (ponsel). Semua dari CMS halaman acara. */
+export type KepalaMasuk = {
+  /** Nama publik acara, pengganti logo dan teks alt-nya. */
+  nama: string;
+  /** Baris di bawah judul pita: nama dan tanggal ringkas ("6–8 Nov 2026"). */
+  keterangan: string;
+  /** Logo bilah atas (Horizon: logo hero bila bilah tidak punya logo). */
+  logo: string | null;
+  /** Gambar utama hero halaman acara. */
+  kv: string | null;
+  /** Preset halaman: menentukan warna pita dan bentuk tombol. */
+  gaya: "modern" | "gathering" | "horizon";
+  /** mailto:/tel: kontak panitia bila bagian Kontak menyala. */
+  bantuan: string | null;
+};
+
+// Warna bilah dan pita per preset. Bilah memakai warna bilah atas halaman
+// setelah hero lewat (`--nav-*-scrolled`, modernNavStyle); Horizon navy polos
+// seperti bilah dan hero-nya. Pita gathering memakai latar hero gathering.
+function warnaKepala(kepala: KepalaMasuk): CSSProperties {
+  if (kepala.gaya === "horizon") {
+    return {
+      "--masuk-bilah": "var(--hz-navy)",
+      "--masuk-bilah-teks": "#ffffff",
+      "--masuk-pita": "var(--hz-navy)",
+      "--masuk-pita-teks": "#ffffff",
+      "--masuk-pita-alis": "var(--hz-sorot,var(--hz-emas))",
+      "--masuk-tombol": "var(--hz-emas)",
+      "--masuk-on-tombol": "var(--hz-on-emas)",
+    } as CSSProperties;
+  }
+  const gathering = kepala.gaya === "gathering";
+  // Teks putih di atas KV (ada lapisan gelap) dan di atas latar hero gathering
+  // (merek yang sudah digelapkan); Modern tanpa KV memakai tinta di atas merek.
+  const teks = kepala.kv || gathering ? "#ffffff" : "var(--reg-on-brand)";
+  return {
+    "--masuk-bilah": "var(--nav-bg-scrolled)",
+    "--masuk-bilah-teks": "var(--nav-ink-scrolled)",
+    // `background`, bukan background-color: latar gathering berupa gradasi.
+    "--masuk-pita": gathering ? "var(--latar-gathering, var(--reg-brand))" : "var(--reg-brand)",
+    "--masuk-pita-teks": teks,
+    "--masuk-pita-alis": gathering ? "var(--hero-alis, #ffffff)" : teks,
+  } as CSSProperties;
+}
 
 const LABEL = "block text-label-large font-semibold";
 // Kolom sama dengan formulir pendaftaran (REG_CONTROL: 50px, sudut 12px).
 // Penanda fokusnya cincin 2px warna primer acara, seperti halaman /masuk.
 // Cincin fokus global (:focus-visible di globals.css, tanpa layer) mengalahkan
 // utilitas Tailwind, jadi penimpanya memakai `!`.
-const KOLOM = `${REG_CONTROL} font-normal focus-visible:outline-none! focus-visible:shadow-[0_0_0_2px_var(--reg-primary)]! aria-invalid:border-[var(--reg-error)] aria-invalid:focus-visible:shadow-[0_0_0_2px_var(--reg-error)]!`;
+// Garis kolom dan placeholder digelapkan dari --reg-outline (2,41:1 di atas
+// putih) ke campuran tinta 58% (sekitar 4,5:1), supaya batas kolom terlihat
+// (WCAG 1.4.11, paling sedikit 3:1). Hanya di dialog ini; formulir pendaftaran
+// tidak berubah.
+const KOLOM = `${REG_CONTROL} font-normal border-[color-mix(in_srgb,var(--reg-on-surface)_58%,var(--reg-field,#ffffff))]! placeholder:text-[var(--reg-on-surface-variant)] focus:border-[var(--reg-primary)]! focus-visible:outline-none! focus-visible:shadow-[0_0_0_2px_var(--reg-primary)]! aria-invalid:border-[var(--reg-error)]! aria-invalid:focus-visible:shadow-[0_0_0_2px_var(--reg-error)]!`;
 const TAUTAN = "inline-flex min-h-11 items-center font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline";
 
 export function MasukDialog({
@@ -54,6 +109,7 @@ export function MasukDialog({
   sandi = null,
   lang = "id",
   aksi = false,
+  kepala = null,
 }: {
   slug: string;
   /** `/e/<slug>/masuk`: alamat dialog, juga href tautan pemicunya. */
@@ -73,6 +129,8 @@ export function MasukDialog({
    * (`--alis`, sudah terbaca di atas putih) seperti tombol halamannya.
    */
   aksi?: boolean;
+  /** Wajah acara untuk dialog layar penuh di ponsel. Tanpanya ponsel memakai lembar polos. */
+  kepala?: KepalaMasuk | null;
 }) {
   const t = MASUK_UI[lang];
   const judulId = useId();
@@ -204,6 +262,29 @@ export function MasukDialog({
     return () => pengamat.disconnect();
   }, [terbuka, mode, galat, terkirim]);
 
+  // iPhone: papan ketik tidak mengecilkan 100dvh, ia menutup bagian bawah
+  // dialog sehingga tombol Masuk tidak bisa digulir ke atasnya. Tinggi dan
+  // posisi dialog layar penuh mengikuti visualViewport (bagian yang benar-benar
+  // terlihat). Di layar >= 600px variabel ini tidak dipakai.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const layar = window.visualViewport;
+    if (!terbuka || !dialog || !layar) return;
+    const ukur = () => {
+      dialog.style.setProperty("--masuk-vv-h", `${layar.height}px`);
+      dialog.style.setProperty("--masuk-vv-top", `${layar.offsetTop}px`);
+    };
+    ukur();
+    layar.addEventListener("resize", ukur);
+    layar.addEventListener("scroll", ukur);
+    return () => {
+      layar.removeEventListener("resize", ukur);
+      layar.removeEventListener("scroll", ukur);
+      dialog.style.removeProperty("--masuk-vv-h");
+      dialog.style.removeProperty("--masuk-vv-top");
+    };
+  }, [terbuka]);
+
   // Pesan galat di atas formulir; di layar pendek isi bisa sudah tergulir ke
   // tombol, jadi pesannya digulir ke tampilan.
   useEffect(() => {
@@ -257,9 +338,10 @@ export function MasukDialog({
   // tetap keluar ke bilah peramban. Fokus diputar di dalam dialog.
   function kurungTab(event: KeyboardEvent<HTMLDialogElement>) {
     if (event.key !== "Tab") return;
+    // Hanya yang tampil: ponsel dan layar lebar punya tombol tutup sendiri.
     const daftar = Array.from(
       event.currentTarget.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), a[href]"),
-    );
+    ).filter((elemen) => elemen.getClientRects().length > 0);
     const pertama = daftar[0];
     const terakhir = daftar[daftar.length - 1];
     if (event.shiftKey && document.activeElement === pertama) {
@@ -274,6 +356,21 @@ export function MasukDialog({
   const invalid = galat ? true : undefined;
   const describedGalat = galat ? galatId : undefined;
   const judul = t.judul[mode];
+  const pil = kepala && kepala.gaya !== "modern";
+  const gayaDialog = {
+    ...(aksi ? { "--reg-primary": "var(--alis)", "--reg-on-primary": "#ffffff" } : null),
+    ...(kepala ? warnaKepala(kepala) : null),
+  } as CSSProperties;
+  const tutupTombol = (
+    <button
+      type="button"
+      onClick={tutup}
+      aria-label={t.tutup}
+      className="m3-state inline-flex size-12 shrink-0 items-center justify-center rounded-full text-[var(--reg-on-surface-variant)]"
+    >
+      <X size={24} aria-hidden />
+    </button>
+  );
 
   return (
     <dialog
@@ -287,14 +384,33 @@ export function MasukDialog({
       }}
       onClick={klikLatar}
       onKeyDown={kurungTab}
-      style={aksi ? ({ "--reg-primary": "var(--alis)", "--reg-on-primary": "#ffffff" } as CSSProperties) : undefined}
+      style={gayaDialog}
       // Ponsel (< 600px): layar penuh, bilah atas 64px tetap di tempat dan hanya
       // isinya yang bergulir, supaya tombol bisa digulir ke atas papan ketik.
       // Lebih lebar: kotak 440px bersudut kartu situs (rounded-lg, 16px), kepala
       // tetap, isi bergulir bila layar pendek.
-      className="m-0 h-dvh max-h-none w-full max-w-none flex-col overflow-hidden bg-[var(--reg-surface)] p-0 text-[var(--reg-on-surface)] backdrop:bg-black/50 open:flex min-[600px]:m-auto min-[600px]:h-fit min-[600px]:max-h-[calc(100dvh-32px)] min-[600px]:w-[440px] min-[600px]:rounded-lg min-[600px]:shadow-[0_8px_24px_rgb(0_0_0/0.2)]"
+      className="m-0 top-[var(--masuk-vv-top,0px)] h-[var(--masuk-vv-h,100dvh)] max-h-none w-full max-w-none flex-col overflow-hidden bg-[var(--reg-surface)] p-0 text-[var(--reg-on-surface)] backdrop:bg-black/50 open:flex min-[600px]:top-0 min-[600px]:m-auto min-[600px]:h-fit min-[600px]:max-h-[calc(100dvh-32px)] min-[600px]:w-[440px] min-[600px]:rounded-lg min-[600px]:shadow-[0_8px_24px_rgb(0_0_0/0.2)]"
     >
-      <div className={`flex h-16 shrink-0 items-center gap-1 border-b px-2 ${meluap ? "border-[var(--reg-outline-variant)]" : "border-transparent"} min-[600px]:h-auto min-[600px]:pb-2 min-[600px]:items-start min-[600px]:justify-between min-[600px]:gap-2 min-[600px]:pl-8 min-[600px]:pr-4 min-[600px]:pt-5`}>
+      {kepala ? (
+        // Bilah atas acara (ponsel): logo kiri, tutup kanan.
+        <div className="flex h-16 shrink-0 items-center justify-between gap-2 bg-[var(--masuk-bilah)] pl-5 pr-2 text-[var(--masuk-bilah-teks)] [--m3-state-color:var(--masuk-bilah-teks)] min-[600px]:hidden">
+          {kepala.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={kepala.logo} alt={kepala.nama} className="block h-10 w-auto max-w-[60%] object-contain object-left" />
+          ) : (
+            <span className="min-w-0 truncate text-title-medium font-semibold [font-family:var(--landing-heading)]">{kepala.nama}</span>
+          )}
+          <button
+            type="button"
+            onClick={tutup}
+            aria-label={t.tutup}
+            className="m3-state inline-flex size-12 shrink-0 items-center justify-center rounded-full"
+          >
+            <X size={24} aria-hidden />
+          </button>
+        </div>
+      ) : null}
+      <div className={`${kepala ? "hidden min-[600px]:flex" : "flex"} h-16 shrink-0 items-center gap-1 border-b px-2 ${meluap ? "border-[var(--reg-outline-variant)]" : "border-transparent"} min-[600px]:h-auto min-[600px]:pb-2 min-[600px]:items-start min-[600px]:justify-between min-[600px]:gap-2 min-[600px]:pl-8 min-[600px]:pr-4 min-[600px]:pt-5`}>
         <h2
           id={judulId}
           className="order-last min-w-0 text-[22px] font-semibold leading-7 [font-family:var(--landing-heading)] min-[600px]:order-first min-[600px]:pt-2 min-[600px]:text-[28px] min-[600px]:leading-9 min-[600px]:tracking-[-0.02em]"
@@ -302,21 +418,52 @@ export function MasukDialog({
           {judul}
         </h2>
         {/* ✕ di kiri pada layar penuh (M3), di kanan atas pada kotak dialog. */}
-        <button
-          type="button"
-          onClick={tutup}
-          aria-label={t.tutup}
-          className="m3-state inline-flex size-12 shrink-0 items-center justify-center rounded-full text-[var(--reg-on-surface-variant)]"
-        >
-          <X size={24} aria-hidden />
-        </button>
+        {tutupTombol}
       </div>
 
-      <div ref={isiRef} className="min-h-0 flex-1 scroll-pb-8 overflow-y-auto overscroll-contain px-5 pb-8 pt-2 min-[600px]:px-8 min-[600px]:pb-7">
+      <div
+        ref={isiRef}
+        className={`min-h-0 flex-1 scroll-pb-8 overflow-y-auto overscroll-contain ${
+          kepala ? "flex flex-col min-[600px]:block min-[600px]:px-8 min-[600px]:pb-7 min-[600px]:pt-2" : "px-5 pb-8 pt-2 min-[600px]:px-8 min-[600px]:pb-7"
+        }`}
+      >
+        {kepala ? (
+          // Pita acara (ponsel). Ikut bergulir bersama formulir.
+          <div
+            className={`relative isolate shrink-0 overflow-hidden [background:var(--masuk-pita)] px-5 pt-6 text-[var(--masuk-pita-teks)] min-[600px]:hidden ${
+              kepala.kv && kepala.gaya === "horizon" ? "pb-[92px]" : "pb-12"
+            }`}
+          >
+            {kepala.kv ? (
+              // Hiasan, bukan isi. Horizon: ornamen KV menempel di bawah seperti
+              // hero-nya; lainnya: gambar penuh dengan lapisan gelap untuk teks.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={kepala.kv}
+                alt=""
+                aria-hidden
+                decoding="async"
+                className={
+                  kepala.gaya === "horizon"
+                    ? "pointer-events-none absolute inset-x-0 bottom-6 -z-10 h-[100px] w-full select-none object-cover object-bottom [mask-image:linear-gradient(to_bottom,transparent,black_35%)]"
+                    : "pointer-events-none absolute inset-0 -z-20 size-full select-none object-cover"
+                }
+              />
+            ) : null}
+            {kepala.kv && kepala.gaya !== "horizon" ? (
+              <div aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgb(0_0_0/0.62),rgb(0_0_0/0.38))]" />
+            ) : null}
+            <p className="text-[12px] font-bold uppercase leading-4 tracking-[0.12em] text-[var(--masuk-pita-alis)]">{t.alis}</p>
+            {/* Judul dialog di ponsel; judul kepala layar lebar (aria-labelledby) tersembunyi di sini. */}
+            <h2 className="mt-2 text-balance text-[28px] font-bold leading-[1.2] tracking-[-0.02em] [font-family:var(--landing-heading)]">{judul}</h2>
+            <p className="mt-1.5 text-body-medium">{kepala.keterangan}</p>
+          </div>
+        ) : null}
+        <div className={kepala ? "relative -mt-6 flex flex-[1_0_auto] flex-col rounded-t-3xl bg-[var(--reg-surface)] px-5 pb-6 pt-5 min-[600px]:mt-0 min-[600px]:block min-[600px]:rounded-none min-[600px]:p-0" : "contents"}>
         <p aria-live="polite" className="sr-only">
           {pengumuman}
         </p>
-        <p className="text-body-medium text-[var(--reg-on-surface-variant)]">{keterangan}</p>
+        <p className={`${kepala ? "hidden min-[600px]:block" : ""} text-body-medium text-[var(--reg-on-surface-variant)]`}>{keterangan}</p>
         {mode === "tautan" ? (
           <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">
             {t.untukPertamaKali}
@@ -401,19 +548,50 @@ export function MasukDialog({
             // aria-disabled, bukan disabled: tombol yang dinonaktifkan selagi
             // berfokus menjatuhkan fokus ke <body> saat kiriman gagal.
             aria-disabled={sibuk || undefined}
-            className="m3-state mt-6 min-h-[52px] rounded-md bg-[var(--reg-primary)] px-5 text-title-medium font-semibold text-[var(--reg-on-primary)] aria-disabled:opacity-60"
-            style={{ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties}
+            // Warna tombol pita (Horizon: emas) hanya di ponsel; kotak 440px tetap seperti dulu.
+            className={`m3-state mt-6 min-h-[52px] bg-[var(--masuk-tombol,var(--reg-primary))] px-5 text-title-medium font-semibold text-[var(--masuk-on-tombol,var(--reg-on-primary))] aria-disabled:opacity-60 min-[600px]:bg-[var(--reg-primary)] min-[600px]:text-[var(--reg-on-primary)] ${
+              pil ? "rounded-full min-[600px]:rounded-md" : "rounded-md"
+            }`}
+            style={{ "--m3-state-color": "var(--masuk-on-tombol,var(--reg-on-primary))" } as CSSProperties}
           >
             {sibuk ? t.memproses : t.tombol[mode]}
           </button>}
         </form>
 
-        <p className="mt-5 flex flex-wrap items-center gap-x-1 border-t border-[var(--reg-outline-variant)] pt-3 text-body-medium text-[var(--reg-on-surface-variant)]">
+        {kepala ? (
+          // Ponsel: pindah mode sebagai tombol bergaris selebar layar (48px),
+          // bukan tautan kecil di akhir kalimat.
+          <div className="mt-6 min-[600px]:hidden">
+            <p className="flex items-center gap-3 text-body-small text-[var(--reg-on-surface-variant)] before:h-px before:flex-1 before:bg-[var(--reg-outline-variant)] after:h-px after:flex-1 after:bg-[var(--reg-outline-variant)]">
+              {mode === "masuk" ? t.belumPunya : t.sudahPunya}
+            </p>
+            <button
+              type="button"
+              onClick={() => ganti(mode === "masuk" ? "tautan" : "masuk")}
+              className={`m3-state mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 border border-[color-mix(in_srgb,var(--reg-on-surface)_58%,var(--reg-surface))] bg-[var(--reg-field,#ffffff)] px-4 text-title-small font-semibold text-[var(--reg-on-surface)] ${
+                pil ? "rounded-full" : "rounded-md"
+              }`}
+            >
+              {mode === "masuk" ? <EnvelopeSimple size={20} aria-hidden /> : null}
+              {mode === "masuk" ? t.kirimTautan : t.masuk}
+            </button>
+          </div>
+        ) : null}
+        <p className={`${kepala ? "hidden min-[600px]:flex" : "flex"} mt-5 flex-wrap items-center gap-x-1 border-t border-[var(--reg-outline-variant)] pt-3 text-body-medium text-[var(--reg-on-surface-variant)]`}>
           <span>{mode === "masuk" ? t.belumPunya : t.sudahPunya}</span>
           <button type="button" onClick={() => ganti(mode === "masuk" ? "tautan" : "masuk")} className={`text-left ${TAUTAN}`}>
             {mode === "masuk" ? t.kirimTautan : t.masuk}
           </button>
         </p>
+        {kepala?.bantuan ? (
+          <p className="mt-auto pt-8 text-center text-body-medium text-[var(--reg-on-surface-variant)] min-[600px]:hidden">
+            {t.bantuan}{" "}
+            <a href={kepala.bantuan} className={TAUTAN}>
+              {t.hubungiPanitia}
+            </a>
+          </p>
+        ) : null}
+        </div>
       </div>
     </dialog>
   );
