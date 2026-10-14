@@ -36,11 +36,11 @@ export async function POST(request: Request) {
   const baris = (rows ?? []) as unknown as Baris[];
   const perubahan = susunUlangBagian(baris, parsed.data.ids);
   if (!perubahan) {
-    return apiError("VALIDATION_ERROR", 422, { message: "Sections were added or deleted elsewhere. Reload the page and try again." });
+    return apiError("VALIDATION_ERROR", 422, { message: "Sections were added or deleted elsewhere. The latest tabs are shown; check the order and try again." });
   }
   const sekarang = [...baris].sort(bandingkanBagian).map((row) => row.id);
   if (sekarang.length !== parsed.data.expected.length || sekarang.some((id, index) => id !== parsed.data.expected[index])) {
-    return apiError("CONFLICT", 409, { message: "The tab order was changed in another window. Reload the page and try again." });
+    return apiError("CONFLICT", 409, { message: "The tab order was changed in another window. The latest order is shown; try again if needed." });
   }
 
   // Satu pernyataan untuk semua bagian yang berubah, supaya urutan tidak

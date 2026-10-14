@@ -17,7 +17,8 @@ import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
  *
  * Saat terbuka, keterangan dan pembicara sesi (Speakers, `session_refs`) tampil
  * kecil di bawah judul. Baris keterangan yang hanya mengulang nama pembicara
- * tertaut tidak ditulis dua kali (sisaKeterangan, sama dengan agenda Modern).
+ * tertaut tidak ditulis dua kali (sisaKeterangan, sama dengan agenda Modern);
+ * catatan dalam kurungnya ("(online)") pindah ke sebelah nama pembicara.
  */
 export function JamHariHorizon({
   penting,
@@ -34,14 +35,16 @@ export function JamHariHorizon({
   const idDaftar = useId();
   const t = LANDING_UI[lang];
   const isi = buka ? semua : penting;
-  const bisaBuka = semua.length > penting.length;
+  // Hari pendek (tiga acara atau kurang) tetap bisa dibuka bila ada keterangan
+  // atau pembicara: keduanya hanya tampil saat terbuka (QA #165 H2).
+  const bisaBuka = semua.length > penting.length || semua.some((item) => Boolean(item.subtitle?.trim()) || pembicaraSesi(speakers, item).length > 0);
   return (
     <div className="flex flex-col md:w-[260px] md:shrink-0 lg:w-[360px] 2xl:w-[420px]">
       {isi.length > 0 ? (
         <ul id={idDaftar} className="flex flex-col text-[14px] leading-[2] text-[#CDD7EA] md:text-[15px] md:leading-[2.2] md:text-[#FAF8F2]">
           {isi.map((item) => {
             const orang = buka ? pembicaraSesi(speakers, item) : [];
-            const { subjudul, lain } = orang.length > 0 ? sisaKeterangan(item.subtitle, orang) : { subjudul: item.subtitle, lain: null };
+            const { subjudul, lain, catatan } = orang.length > 0 ? sisaKeterangan(item.subtitle, orang) : { subjudul: item.subtitle, lain: null, catatan: new Map<string, string>() };
             const keterangan = buka ? [subjudul, lain].filter(Boolean).join("\n") : "";
             return (
               <li key={item.id} className="flex gap-[8px]">
@@ -54,7 +57,12 @@ export function JamHariHorizon({
                   {orang.length > 0
                     ? kelompokPeran(orang, t.agendaSpeakers).map((grup) => (
                         <p key={grup.kunci} className="mb-1 text-[13px] leading-[1.6] text-[#CDD7EA]">
-                          <span className="font-bold">{grup.label}:</span> {grup.orang.map((speaker) => speaker.name).join(", ")}
+                          <span className="font-bold">{grup.label}:</span> {grup.orang
+                            .map((speaker) => {
+                              const kurung = catatan.get(speaker.name);
+                              return kurung ? `${speaker.name.trim()} ${kurung}` : speaker.name.trim();
+                            })
+                            .join(", ")}
                         </p>
                       ))
                     : null}
