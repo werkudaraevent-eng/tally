@@ -932,7 +932,7 @@ export async function DashboardGathering({
                 <BagianBeranda id="next" pratinjau={pratinjau}>
                   {/* Tanpa agenda berikutnya hanya tautan bantuan (layar lebar) yang tersisa:
                       ponsel tidak mendapat bungkus kosong yang menambah jarak. */}
-                  <div className={tampilBerikut || statusPendaftaran ? "order-[50] lg:order-none" : "hidden md:block"}>
+                  <div className={tampilBerikut || statusPendaftaran ? "order-[50] lg:order-none" : "order-[50] hidden md:block lg:order-none"}>
                     <SelanjutnyaHorizon
                       alis={labelHari ? `${tH.nextUp} • ${labelHari}` : tH.nextUp}
                       alisPonsel={tH.nextUpMobile}
