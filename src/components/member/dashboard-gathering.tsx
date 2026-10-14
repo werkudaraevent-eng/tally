@@ -847,7 +847,19 @@ export async function DashboardGathering({
             <IsiTombolQr label={tH.showQr} />
           </PemicuQr>
         ) : null;
-      const lainnya = beranda.order.filter((id) => diBeranda(id) && ((id === "announcements" && pengumuman.items.length > 0) || kartuBlok.has(id)));
+      // Pengumuman mengikuti urutan Participant home terhadap Next up (kolom
+      // kanan di layar lebar) dan terhadap Bus and room (ponsel: di atas atau
+      // di bawah kartu perjalanan). Urutan bawaan menaruhnya paling atas.
+      const tampilPengumuman = diBeranda("announcements") && pengumuman.items.length > 0;
+      const posisi = (id: string) => beranda.order.indexOf(id);
+      const pengumumanDulu = posisi("announcements") < posisi("next");
+      const urutanPengumuman = posisi("announcements") < posisi("logistics") ? "order-[10]" : pengumumanDulu ? "order-[45]" : "order-[55]";
+      const blokPengumuman = tampilPengumuman ? (
+        <BagianBeranda id="announcements" pratinjau={pratinjau}>
+          <div className={`${urutanPengumuman} lg:order-none`}>{kartuPengumuman}</div>
+        </BagianBeranda>
+      ) : null;
+      const lainnya = beranda.order.filter((id) => diBeranda(id) && kartuBlok.has(id));
       badan = (
         <>
           <SapaanHorizon alis={tH.welcome} judul={tH.heading(namaDepan)} judulPonsel={tH.headingMobile(namaDepan)} catatan={tH.subtitle(jumlahHariAgenda(agenda))} />
@@ -859,42 +871,49 @@ export async function DashboardGathering({
               </div>
             ) : null}
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-              <div className="min-w-0 lg:w-[790px] lg:shrink">
+              {/* Ponsel: kedua kolom "contents" agar kartunya bisa diurutkan dengan order. */}
+              <div className="contents min-w-0 lg:block lg:w-[790px] lg:shrink">
                 <BagianBeranda id="logistics" pratinjau={pratinjau}>
-                  <PassHorizon
-                    kv={latarKv?.src ?? null}
-                    label={LANDING_UI[lang].horizon.pass}
-                    tanggalPendek={formatEventDateRingkas(event, lang)}
-                    tanggalPanjang={formatEventDateRingkas(event, lang, false)}
-                    dari={config.pass_from?.trim() || null}
-                    ke={config.pass_to?.trim() || venue || nama}
-                    fakta={fakta}
-                  />
+                  <div className="order-[20] lg:order-none">
+                    <PassHorizon
+                      kv={latarKv?.src ?? null}
+                      label={LANDING_UI[lang].horizon.pass}
+                      tanggalPendek={formatEventDateRingkas(event, lang)}
+                      tanggalPanjang={formatEventDateRingkas(event, lang, false)}
+                      dari={config.pass_from?.trim() || null}
+                      ke={config.pass_to?.trim() || venue || nama}
+                      fakta={fakta}
+                    />
+                  </div>
                   {tampilLogistik && legKereta.length > 0 ? (
-                    <div className="mt-6">
+                    <div className="order-[30] lg:order-none lg:mt-6">
                       <TiketKeretaHorizon judul={tH.train.title} label={{ gerbong: tH.train.carriage, kursi: tH.train.seat, kode: tH.train.booking }} leg={legKereta} />
                     </div>
                   ) : null}
                 </BagianBeranda>
                 {diBeranda("checkpoints") && checkpoint ? (
                   <BagianBeranda id="checkpoints" pratinjau={pratinjau}>
-                    <div className="mt-6">{kartuCheckpoint("horizon")}</div>
+                    <div className="order-[40] lg:order-none lg:mt-6">{kartuCheckpoint("horizon")}</div>
                   </BagianBeranda>
                 ) : null}
               </div>
-              <div className="min-w-0 lg:min-w-[320px] lg:flex-1">
+              <div className="contents min-w-0 lg:flex lg:min-w-[320px] lg:flex-1 lg:flex-col lg:gap-6">
+                {pengumumanDulu ? blokPengumuman : null}
                 <BagianBeranda id="next" pratinjau={pratinjau}>
-                  <SelanjutnyaHorizon
-                    alis={labelHari ? `${tH.nextUp} • ${labelHari}` : tH.nextUp}
-                    alisPonsel={tH.nextUpMobile}
-                    judul={tampilBerikut ? selanjutnya.item.title : null}
-                    baris={tampilBerikut ? [`${selanjutnya.item.time} ${singkatanZona}`, selanjutnya.hitung].filter(Boolean).join(" • ") : null}
-                    catatan={tampilBerikut ? teksPolos(selanjutnya.item.subtitle) || null : null}
-                    qr={tombolQr ? { href: keTab("qr"), label: tH.showQr, pemicu: tombolQr } : null}
-                    bantuan={bantuan}
-                    sisipan={statusPendaftaran}
-                  />
+                  <div className="order-[50] lg:order-none">
+                    <SelanjutnyaHorizon
+                      alis={labelHari ? `${tH.nextUp} • ${labelHari}` : tH.nextUp}
+                      alisPonsel={tH.nextUpMobile}
+                      judul={tampilBerikut ? selanjutnya.item.title : null}
+                      baris={tampilBerikut ? [`${selanjutnya.item.time} ${singkatanZona}`, selanjutnya.hitung].filter(Boolean).join(" • ") : null}
+                      catatan={tampilBerikut ? teksPolos(selanjutnya.item.subtitle) || null : null}
+                      qr={tombolQr ? { href: keTab("qr"), label: tH.showQr, pemicu: tombolQr } : null}
+                      bantuan={bantuan}
+                      sisipan={statusPendaftaran}
+                    />
+                  </div>
                 </BagianBeranda>
+                {pengumumanDulu ? null : blokPengumuman}
               </div>
             </div>
             {tampilTeman ? (
@@ -921,7 +940,7 @@ export async function DashboardGathering({
               <div className="grid gap-4 md:grid-cols-2">
                 {lainnya.map((id) => (
                   <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
-                    {id === "announcements" ? kartuPengumuman : kartuBlok.get(id)}
+                    {kartuBlok.get(id)}
                   </BagianBeranda>
                 ))}
               </div>
