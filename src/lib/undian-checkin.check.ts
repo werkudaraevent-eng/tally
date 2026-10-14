@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describeConditions, matchesConditions, normalizeConditions, usesCheckIn, type ParticipantPoolRow } from "./undian.ts";
+import { describeConditions, matchesConditions, normalizeConditions, usesAttendance, type ParticipantPoolRow } from "./undian.ts";
 
 // Syarat check-in undian: gabungan pemindaian /scan dan salinan scanner API,
 // dengan pilihan satu sesi.
@@ -40,9 +40,11 @@ assert.equal(matchesConditions(sourceOnly, gala), false);
 assert.equal(matchesConditions(scannedAtRegistration, notGala), true);
 assert.equal(matchesConditions(scannedAtGala, notGala), false);
 
-assert.equal(usesCheckIn(gala), true);
-assert.equal(usesCheckIn(normalizeConditions({ op: "and", children: [{ op: "or", children: [{ var: "checked_in", is: true }] }] })), true);
-assert.equal(usesCheckIn(normalizeConditions({ op: "and", children: [{ var: "has_seat", is: true }] })), false);
+assert.equal(usesAttendance(gala), true);
+assert.equal(usesAttendance(normalizeConditions({ op: "and", children: [{ op: "or", children: [{ var: "checked_in", is: true }] }] })), true);
+assert.equal(usesAttendance(normalizeConditions({ op: "and", children: [{ var: "has_seat", is: true }] })), false);
+// Jumlah scan juga butuh pemindaian /scan (nilai gabungannya disusun di server).
+assert.equal(usesAttendance(normalizeConditions({ op: "and", children: [{ var: "scan_count", cmp: "gte", value: 2 }] })), true);
 
 assert.equal(describeConditions(anySession), "sudah check-in");
 assert.equal(describeConditions(gala, { 7: "Gala Dinner" }), "sudah check-in di Gala Dinner");

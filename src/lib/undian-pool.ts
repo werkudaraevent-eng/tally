@@ -4,13 +4,14 @@ import {
   matchesConditions,
   normalizeExclusionRule,
   participantToCandidate,
-  usesCheckIn,
+  usesAttendance,
   type Candidate,
   type ParticipantPoolRow,
   type PoolBreakdown,
   type UndianConditionNode,
   type UndianExclusionRule,
   type UndianPrize,
+  type WeightConfig,
 } from "@/lib/undian";
 
 // Pembangun kolam undian.
@@ -66,7 +67,7 @@ export type AttendanceSessionOption = { id: number; name: string };
  * yang sama dengan Client view (src/lib/live/data.ts).
  *
  * Pemindaian hanya dibaca bila `withAttendance` benar, yaitu bila ada syarat
- * check-in. Tombol undi di panggung tidak perlu membayar bacaan yang tidak
+ * check-in atau jumlah scan, atau bobotnya memakai jumlah scan. Tombol undi di panggung tidak perlu membayar bacaan yang tidak
  * dipakai.
  */
 export async function loadParticipantPool(eventId: string, withAttendance: boolean): Promise<ParticipantPoolRow[] | null> {
@@ -78,13 +79,23 @@ export async function loadParticipantPool(eventId: string, withAttendance: boole
   if (pool.error || !scans) return null;
   return ((pool.data ?? []) as ParticipantPoolRow[]).map((row) => {
     const attended = scans.get(row.participant_id) ?? [];
-    return { ...row, checked_in: row.checked_in || attended.length > 0, attended_sessions: attended };
+    return {
+      ...row,
+      checked_in: row.checked_in || attended.length > 0,
+      scan_count: row.scan_count + attended.length,
+      attended_sessions: attended,
+    };
   });
 }
 
 /** Apakah salah satu pohon butuh data pemindaian. */
 export function needsAttendance(...trees: UndianConditionNode[]): boolean {
-  return trees.some(usesCheckIn);
+  return trees.some(usesAttendance);
+}
+
+/** Bobot "Jumlah scan" juga membaca pemindaian. */
+export function weightNeedsAttendance(weight: Pick<WeightConfig, "weight_mode" | "weight_var">): boolean {
+  return weight.weight_mode === "formula" && weight.weight_var === "scan_count";
 }
 
 /**
@@ -220,7 +231,7 @@ export async function buildPool(eventId: string, prize: UndianPrize): Promise<Po
   }
 
   const rules = await activeRulesFor(eventId, prize.id);
-  const rows = await loadParticipantPool(eventId, needsAttendance(prize.conditions, ...rules.map((rule) => rule.conditions)));
+  const rows = await loadParticipantPool(eventId, weightNeedsAttendance(prize) || needsAttendance(prize.conditions, ...rules.map((rule) => rule.conditions)));
   if (!rows) return { error: "POOL_ERROR" };
   const wonIds = await previousWinnerRefs(eventId, prize, "participant");
 

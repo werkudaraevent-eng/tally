@@ -149,10 +149,10 @@ export function isTextLeaf(node: UndianConditionLeaf): node is UndianTextLeaf {
   return isTextVar(node.var);
 }
 
-/** Apakah pohon memuat syarat check-in, yang butuh data pemindaian sesi. */
-export function usesCheckIn(node: UndianConditionNode): boolean {
-  if (isConditionGroup(node)) return node.children.some(usesCheckIn);
-  return node.var === "checked_in";
+/** Apakah pohon memuat syarat check-in atau jumlah scan, yang butuh data pemindaian sesi. */
+export function usesAttendance(node: UndianConditionNode): boolean {
+  if (isConditionGroup(node)) return node.children.some(usesAttendance);
+  return node.var === "checked_in" || node.var === "scan_count";
 }
 
 /** Apakah pohon memuat syarat yang tidak terbaca. Dipakai layar untuk memperingatkan. */
@@ -295,6 +295,11 @@ export type ParticipantPoolRow = {
    * loadParticipantPool) hanya bila ada syarat check-in; tanpa itu kosong.
    */
   attended_sessions?: number[];
+  /**
+   * Salinan scanner API ditambah jumlah sesi tempat peserta dipindai lewat /scan.
+   * Pindaian ulang di sesi yang sama tidak ikut, supaya bobot tidak naik hanya
+   * karena seseorang dipindai dua kali di pintu yang sama.
+   */
   scan_count: number;
   seat_label: string | null;
   allow_name_display: boolean;

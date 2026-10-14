@@ -8,7 +8,7 @@ import {
   type ParticipantPoolRow,
   type WeightConfig,
 } from "@/lib/undian";
-import { activeRulesFor, listAttendanceSessions, loadParticipantPool, needsAttendance } from "@/lib/undian-pool";
+import { activeRulesFor, listAttendanceSessions, loadParticipantPool, needsAttendance, weightNeedsAttendance } from "@/lib/undian-pool";
 
 // Pratinjau kolam: berapa peserta yang lolos syarat, dan bagaimana tiket terbagi.
 //
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     activeRulesFor(eventId, parsed.data.prize_id ?? null),
     listAttendanceSessions(eventId),
   ]);
-  const rows = await loadParticipantPool(eventId, needsAttendance(conditions, ...rules.map((rule) => rule.conditions)));
+  const rows = await loadParticipantPool(eventId, weightNeedsAttendance(parsed.data) || needsAttendance(conditions, ...rules.map((rule) => rule.conditions)));
   if (!rows) return apiError("INTERNAL_ERROR", 500);
   const weight: WeightConfig = parsed.data;
 
