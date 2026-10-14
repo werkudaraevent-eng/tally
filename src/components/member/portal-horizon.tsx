@@ -150,7 +150,8 @@ export function SapaanHorizon({ alis, judul, judulPonsel, catatan }: { alis: str
 
 /**
  * `lebar`: nilai panjang (nama hotel). Di ponsel satu baris penuh dengan teks
- * lebih kecil; di desktop mengambil sisa lebar baris.
+ * lebih kecil; di desktop mengambil sisa lebar baris, paling sempit 9rem
+ * (fakta lain turun ke baris kedua bila tidak muat).
  * `pendek`: nilai singkat (bus, nomor kamar) yang tidak boleh dipatahkan di
  * tengah kata, mis. "1208" menjadi "12/08" saat baris desktop sempit.
  */
@@ -206,13 +207,13 @@ export function PassHorizon({
           <p className={`min-w-0 text-[35px] font-extrabold leading-[1.26] [overflow-wrap:anywhere] ${dari ? "text-right" : ""}`}>{ke}</p>
         </div>
         {fakta.length > 0 ? (
-          <dl className="hidden justify-between gap-6 border-t pt-5 md:flex" style={{ borderColor: GARIS_NAVY }}>
+          <dl className="hidden flex-wrap justify-between gap-x-6 gap-y-4 border-t pt-5 md:flex" style={{ borderColor: GARIS_NAVY }}>
             {fakta.map((item) => (
-              <div key={item.label} className={`flex flex-col gap-2 ${item.pendek ? "max-w-[14rem] shrink-0" : item.lebar ? "min-w-0 flex-1 basis-0" : "min-w-0"}`}>
+              <div key={item.label} className={`flex flex-col gap-2 ${item.pendek ? "max-w-[14rem] shrink-0" : item.lebar ? "min-w-[9rem] flex-[1_1_12rem]" : "min-w-0"}`}>
                 <dt className="text-[10px] uppercase tracking-[1px]" style={{ color: REDUP_NAVY }}>
                   {item.label}
                 </dt>
-                <dd className={`text-[16px] font-bold ${item.pendek ? "[overflow-wrap:normal]" : "[overflow-wrap:anywhere]"}`}>{item.nilai}</dd>
+                <dd className={`text-[16px] font-bold ${item.pendek ? "[overflow-wrap:break-word]" : "[overflow-wrap:anywhere]"}`}>{item.nilai}</dd>
               </div>
             ))}
           </dl>
