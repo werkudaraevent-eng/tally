@@ -241,14 +241,21 @@ export function KartuKereta({ logistik, lang, kelas = KARTU, redup = MUTED }: { 
       <ul className="mt-3 flex flex-col">
         {logistik.trains.map((tiket, index) => {
           const rute = ruteLeg(tiket);
-          const baris = [rute ? tiket.train_name : null, tiket.travel_class, jamLeg(tiket, lang)].filter(Boolean).join(" · ");
+          const baris = [rute ? tiket.train_name : null, tiket.travel_class].filter(Boolean).join(" · ");
+          const jam = jamLeg(tiket, lang);
           return (
             <li key={tiket.direction} className={index > 0 ? "mt-4 border-t border-dashed border-[#C9D1DE] pt-4" : ""}>
               <p className={`text-label-large font-semibold ${redup}`}>
                 {[t[tiket.direction], tanggalLeg(tiket.depart_date, lang)].filter(Boolean).join(" · ")}
               </p>
               <p className={`${HEAD} mt-1 text-[20px] font-semibold leading-tight [overflow-wrap:anywhere]`}>{rute ?? tiket.train_name}</p>
-              {baris ? <p className={`mt-1 text-body-medium ${redup}`}>{baris}</p> : null}
+              {baris || jam ? (
+                <p className={`mt-1 text-body-medium ${redup}`}>
+                  {baris}
+                  {baris && jam ? " · " : null}
+                  {jam ? <span className="whitespace-nowrap">{jam}</span> : null}
+                </p>
+              ) : null}
               {tiket.carriage || tiket.seat ? (
                 <dl className="mt-3 grid grid-cols-2 gap-3">
                   {([[t.gerbong, tiket.carriage], [t.kursi, tiket.seat]] as const).map(([label, nilai]) => nilai ? (

@@ -421,7 +421,7 @@ export function QrHorizon({
 
 export const LATAR_PORTAL_HORIZON = KREM;
 
-export type LegKereta = { kunci: string; arah: string; judul: string; baris: string | null; gerbong: string | null; kursi: string | null; kode: string | null };
+export type LegKereta = { kunci: string; arah: string; judul: string; baris: string | null; jam: string | null; gerbong: string | null; kursi: string | null; kode: string | null };
 
 /**
  * Kartu "Tiket kereta" di bawah pass: satu blok per arah (berangkat, pulang)
@@ -449,9 +449,12 @@ export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label
             </p>
             <div className="flex flex-col gap-1">
               <p className="text-[20px] font-extrabold leading-[1.26] [overflow-wrap:anywhere] md:text-[24px]">{item.judul}</p>
-              {item.baris ? (
+              {item.baris || item.jam ? (
                 <p className="text-[14px] leading-[1.5]" style={{ color: REDUP }}>
                   {item.baris}
+                  {item.baris && item.jam ? " • " : null}
+                  {/* Jam berangkat–tiba tidak dipisah di tanda pisah saat baris panjang. */}
+                  {item.jam ? <span className="whitespace-nowrap">{item.jam}</span> : null}
                 </p>
               ) : null}
             </div>

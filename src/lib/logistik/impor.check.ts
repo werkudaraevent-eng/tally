@@ -150,3 +150,9 @@ assert.equal(kereta.tiket[1].seat, "1A");
 const sebagian = rencanaKereta([["Name", "Direction", "Train", "Seat"], ["Andi Pratama", "Outbound", "Argo Lawu 8", "14C"]], { ...acara, kereta: [tersimpan] });
 assert.deepEqual(sebagian.tiket[0], { participant_id: "a", direction: "outbound", train_name: "Argo Lawu 8", travel_class: "Executive", origin: "Gambir", destination: "Yogyakarta", depart_date: "2026-11-06", depart_time: "08:20", arrive_time: "15:10", carriage: "EKS 3", seat: "14C", booking_code: "KBX7Q2" });
 assert.match(rencanaKereta([["Name", "Train"], ["Andi", "X"]], acara).galat ?? "", /Direction/);
+
+// Nilai di atas batas tabel ditolak di pratinjau, tidak dipotong diam-diam.
+const panjang = rencanaKereta([["Name", "Direction", "Train", "Seat", "Booking code"], ["Andi Pratama", "Outbound", "Argo Lawu 8", "14C", "K".repeat(41)], ["Andi Pratama", "Return", "T".repeat(81), "1A", "X"]], acara);
+assert.equal(panjang.tiket.length, 0);
+assert.equal(panjang.baris[0].alasan, "Booking code is longer than 40 characters");
+assert.equal(panjang.baris[1].alasan, "Train is longer than 80 characters");
