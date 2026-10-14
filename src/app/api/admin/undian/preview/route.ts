@@ -87,6 +87,7 @@ export async function POST(request: Request) {
     activeRulesFor(eventId, parsed.data.prize_id ?? null),
     listAttendanceSessions(eventId),
   ]);
+  if (!attendanceSessions) return apiError("INTERNAL_ERROR", 500);
   // Sesi yang sudah dihapus membuat syaratnya rusak, sama seperti di buildPool().
   const known = new Set(attendanceSessions.map((session) => session.id));
   const conditions = invalidateUnknownSessions(normalizeConditions(parsed.data.conditions), known);

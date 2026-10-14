@@ -92,22 +92,29 @@ export async function loadParticipantPool(eventId: string, withAttendance: boole
  * Seluruh baris RPC kolam, per halaman 1.000. PostgREST memotong hasil RPC di
  * 1.000 baris juga; tanpa ini acara 2.500 orang hanya melihat 1.000 pertama,
  * dan "Belum check-in" bisa bernilai nol padahal 150 orang belum datang.
- * Diurutkan per participant_id supaya halaman stabil (nama bisa kembar), lalu
+ * Dibaca per participant_id supaya halaman stabil (nama bisa kembar), lalu
  * diurutkan kembali per nama seperti keluaran RPC aslinya.
  */
 async function poolRows(eventId: string): Promise<ParticipantPoolRow[] | null> {
   const client = getSupabaseServiceClient();
   const rows: ParticipantPoolRow[] = [];
   const PAGE = 1000;
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await client
+  // Keyset (participant_id > terakhir), bukan offset: peserta yang ditambah atau
+  // dihapus di tengah pembacaan tidak membuat satu orang terbaca dua kali atau
+  // terlewat.
+  let after: string | null = null;
+  for (;;) {
+    let query = client
       .rpc("undian_participant_pool" as never, { p_event_id: eventId } as never)
       .order("participant_id")
-      .range(from, from + PAGE - 1);
+      .limit(PAGE);
+    if (after) query = query.gt("participant_id", after);
+    const { data, error } = await query;
     if (error) return null;
     const page = (data ?? []) as ParticipantPoolRow[];
     rows.push(...page);
     if (page.length < PAGE) break;
+    after = page[page.length - 1].participant_id;
   }
   return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -150,15 +157,20 @@ async function attendedSessions(eventId: string): Promise<Map<string, number[]> 
   }
 }
 
-/** Sesi kehadiran acara, untuk pilihan "di sesi" pada syarat check-in. */
-export async function listAttendanceSessions(eventId: string): Promise<AttendanceSessionOption[]> {
+/**
+ * Sesi kehadiran acara, untuk pilihan "di sesi" pada syarat check-in.
+ *
+ * null bila gagal dibaca, BUKAN daftar kosong: daftar kosong berarti semua sesi
+ * yang dipilih di syarat dianggap sudah dihapus, dan syaratnya ikut rusak.
+ */
+export async function listAttendanceSessions(eventId: string): Promise<AttendanceSessionOption[] | null> {
   const { data, error } = await getSupabaseServiceClient()
     .from("attendance_sessions")
     .select("id,name")
     .eq("event_id", eventId)
     .order("sort_order")
     .order("id");
-  if (error || !data) return [];
+  if (error || !data) return null;
   return (data as { id: number; name: string }[]).map((row) => ({ id: Number(row.id), name: row.name }));
 }
 
@@ -255,6 +267,7 @@ export async function buildPool(eventId: string, prize: UndianPrize): Promise<Po
   }
 
   const [rawRules, sessions] = await Promise.all([activeRulesFor(eventId, prize.id), listAttendanceSessions(eventId)]);
+  if (!sessions) return { error: "POOL_ERROR" };
   const known = new Set(sessions.map((session) => session.id));
   const rules = rawRules.map((rule) => ({ ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) }));
   const conditions = invalidateUnknownSessions(prize.conditions, known);

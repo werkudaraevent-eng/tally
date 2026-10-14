@@ -39,6 +39,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const sessions = await listAttendanceSessions(auth.scope.event.id);
+  if (!sessions) return apiError("INTERNAL_ERROR", 500);
   const conditions = invalidateUnknownSessions(normalizeConditions(parsed.data.conditions), new Set(sessions.map((session) => session.id)));
   const rows = await loadParticipantPool(auth.scope.event.id, needsAttendance(conditions));
   if (!rows) return apiError("INTERNAL_ERROR", 500);

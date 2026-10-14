@@ -49,6 +49,8 @@ assert.equal(usesAttendance(normalizeConditions({ op: "and", children: [{ var: "
 assert.equal(describeConditions(anySession), "sudah check-in");
 assert.equal(describeConditions(gala, { 7: "Gala Dinner" }), "sudah check-in di Gala Dinner");
 assert.equal(describeConditions(notGala, {}), "SESI CHECK-IN SUDAH DIHAPUS, pilih ulang");
+// Daftar sesi gagal dimuat: jangan sebut terhapus.
+assert.equal(describeConditions(gala, null), "sudah check-in di sesi tertentu");
 
 // Sesi yang sudah dihapus: syaratnya rusak, tidak ada yang lolos, termasuk
 // "Belum check-in" yang tanpa ini meloloskan semua orang.

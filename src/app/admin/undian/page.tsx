@@ -57,7 +57,7 @@ export default function UndianAdminPage() {
   const [groups, setGroups] = useState<EntryGroup[]>([]);
   const [exclusions, setExclusions] = useState<Exclusion[]>([]);
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [sessionNames, setSessionNames] = useState<Record<number, string>>({});
+  const [sessionNames, setSessionNames] = useState<Record<number, string> | null>({});
   const [previewFailed, setPreviewFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -111,7 +111,7 @@ export default function UndianAdminPage() {
       setPrizes((data.prizes as Record<string, unknown>[]).map(normalizePrize));
       setWinnerCounts(data.winner_counts ?? {});
       setPools(data.pools ?? {});
-      setSessionNames(Object.fromEntries(((data.attendance_sessions ?? []) as { id: number; name: string }[]).map((item) => [item.id, item.name])));
+      setSessionNames(data.attendance_sessions === null ? null : Object.fromEntries(((data.attendance_sessions ?? []) as { id: number; name: string }[]).map((item) => [item.id, item.name])));
       // Kegagalan pada bagian pendukung tidak menggagalkan seluruh halaman: daftar
       // hadiah tetap dapat disusun tanpa daftar entri dan daftar pengecualian.
       if (settingsResponse.ok) {
