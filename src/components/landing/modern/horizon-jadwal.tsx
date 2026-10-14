@@ -18,7 +18,7 @@ export function JamHariHorizon({ penting, semua, lang }: { penting: AgendaItem[]
   const isi = buka ? semua : penting;
   const bisaBuka = semua.length > penting.length;
   return (
-    <div className="flex flex-col md:w-[260px] md:shrink-0">
+    <div className="flex flex-col md:w-[260px] md:shrink-0 lg:w-[360px] xl:w-[420px]">
       {isi.length > 0 ? (
         <ul className="flex flex-col text-[14px] leading-[2] text-[#CDD7EA] md:text-[15px] md:leading-[2.2] md:text-[#FAF8F2]">
           {isi.map((item) => (
