@@ -71,6 +71,7 @@ const keys = rowsToBonusKeys([
   { row: 7, cells: ["", "", "Budi S."] },
   { row: 9, cells: ["", "", ""] },
 ]);
+assert.ok(keys);
 const result = matchBonusRows(keys, people);
 assert.deepEqual(result.matched.map((item) => item.participant_id), ["a", "b"]);
 assert.equal(result.duplicates, 1);
@@ -87,5 +88,19 @@ assert.deepEqual(rowsToBonusKeys([{ row: 1, cells: ["andi@kso.co.id"] }, { row: 
   { row: 1, qr: "", email: "andi@kso.co.id", name: "" },
   { row: 2, qr: "KSO-0200", email: "", name: "" },
 ]);
+
+// Email yang dipakai dua peserta tidak diberikan ke salah satunya; QR tetap cocok.
+const shared = [
+  { id: "c", name: "Tamu 101", company: null, qr_code: "T-101", email: "kantor@ptx.co" },
+  { id: "d", name: "Tamu 102", company: null, qr_code: "T-102", email: "Kantor@PTX.co" },
+];
+const sharedResult = matchBonusRows([
+  { row: 2, qr: "", email: "kantor@ptx.co", name: "" },
+  { row: 3, qr: "T-101", email: "kantor@ptx.co", name: "" },
+], shared);
+assert.deepEqual(sharedResult.matched.map((item) => item.participant_id), ["c"]);
+assert.deepEqual(sharedResult.missing, [{ row: 2, value: "kantor@ptx.co", reason: "Email dipakai 2 peserta, isi QR-nya" }]);
+// Ada judul tapi tanpa kolom QR/Email: null, bukan judulnya dilaporkan sebagai baris.
+assert.equal(rowsToBonusKeys([{ row: 1, cells: ["No", "NIK", "Nama"] }, { row: 2, cells: ["1", "3201", "Andi"] }]), null);
 
 console.log("undian-bonus ok");

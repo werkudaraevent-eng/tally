@@ -35,8 +35,10 @@ const MISSING_LIMIT = 200;
  * Baris judul dikenali dari namanya. Berkas tanpa judul tetap terbaca: sel yang
  * memuat "@" dianggap email, sel pertama yang lain dianggap QR. Panitia sering
  * menempelkan satu kolom email dari sistem lain tanpa judul apa pun.
+ *
+ * null bila berkas punya baris judul tetapi tidak ada kolom QR atau Email.
  */
-export function rowsToBonusKeys(rows: { row: number; cells: string[] }[]): BonusListRow[] {
+export function rowsToBonusKeys(rows: { row: number; cells: string[] }[]): BonusListRow[] | null {
   const nonEmpty = rows.filter((item) => item.cells.some((cell) => cell.trim() !== ""));
   if (nonEmpty.length === 0) return [];
 
@@ -45,6 +47,11 @@ export function rowsToBonusKeys(rows: { row: number; cells: string[] }[]): Bonus
   const qrAt = find(ALIASES.qr);
   const emailAt = find(ALIASES.email);
   const nameAt = find(ALIASES.name);
+
+  // Ada baris judul (mis. "No, NIK, Nama") tapi tanpa kolom QR maupun Email:
+  // tidak ada yang bisa dicocokkan, dan membacanya sebagai berkas tanpa judul
+  // hanya menghasilkan daftar "tidak ditemukan" yang membingungkan.
+  if (qrAt < 0 && emailAt < 0 && nameAt >= 0) return null;
 
   if (qrAt >= 0 || emailAt >= 0) {
     const cell = (cells: string[], at: number) => (at >= 0 ? (cells[at] ?? "").trim() : "");
@@ -63,9 +70,18 @@ export function rowsToBonusKeys(rows: { row: number; cells: string[] }[]): Bonus
 export function matchBonusRows(rows: BonusListRow[], participants: BonusParticipant[]): BonusMatch {
   const byQr = new Map<string, BonusParticipant>();
   const byEmail = new Map<string, BonusParticipant>();
+  // Email tidak unik per acara (satu email kantor bisa dipakai beberapa
+  // peserta), QR unik. Email yang dipakai lebih dari satu peserta tidak
+  // dicocokkan ke siapa pun: memilih salah satunya berarti tiket tambahan jatuh
+  // ke orang yang tidak dipilih panitia tanpa ada yang tahu.
+  const emailUsers = new Map<string, number>();
   for (const person of participants) {
     if (person.qr_code) byQr.set(person.qr_code.trim().toLowerCase(), person);
-    if (person.email) byEmail.set(person.email.trim().toLowerCase(), person);
+    if (person.email) {
+      const key = person.email.trim().toLowerCase();
+      byEmail.set(key, person);
+      emailUsers.set(key, (emailUsers.get(key) ?? 0) + 1);
+    }
   }
 
   const seen = new Set<string>();
@@ -88,7 +104,13 @@ export function matchBonusRows(rows: BonusListRow[], participants: BonusParticip
       if (item.name) miss({ row: item.row, value: item.name, reason: "QR dan email kosong" });
       continue;
     }
-    const person = (qr ? byQr.get(qr) : undefined) ?? (email ? byEmail.get(email) : undefined);
+    const byQrCode = qr ? byQr.get(qr) : undefined;
+    const sharedBy = !byQrCode && email ? (emailUsers.get(email) ?? 0) : 0;
+    if (sharedBy > 1) {
+      miss({ row: item.row, value: item.email, reason: `Email dipakai ${sharedBy} peserta, isi QR-nya` });
+      continue;
+    }
+    const person = byQrCode ?? (email ? byEmail.get(email) : undefined);
     if (!person) {
       miss({
         row: item.row,

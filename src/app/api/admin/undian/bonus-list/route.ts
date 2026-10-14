@@ -18,7 +18,9 @@ import { textToRows, xlsxToRows } from "@/lib/undian-import";
 //   multipart  berkas .xlsx / .csv / .txt -> hasil pencocokan per baris.
 //   JSON       { participant_ids } -> nama peserta itu, untuk "Lihat nama".
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
+// 5.000 baris CSV sekitar 200 KB, xlsx lebih kecil lagi. Di bawah batas body
+// proxy Next (10 MB), supaya berkas besar mendapat pesan ini, bukan 500.
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 const idsSchema = z.object({ participant_ids: z.array(z.string().uuid()).max(BONUS_LIST_MAX) });
 
@@ -44,10 +46,13 @@ export async function POST(request: Request) {
     return Response.json({ participants: found, gone: wanted.size - found.length });
   }
 
+  // Ditolak dari header sebelum body dibaca: body di atas batas proxy terpotong
+  // dan formData() menggantung sampai koneksi putus.
+  if (Number(request.headers.get("content-length") ?? 0) > MAX_FILE_BYTES + 64 * 1024) return fileError("Ukuran berkas maksimal 5 MB.");
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
   if (!(file instanceof File)) return fileError("Berkas tidak ditemukan.");
-  if (file.size === 0 || file.size > MAX_FILE_BYTES) return fileError("Ukuran berkas maksimal 10 MB.");
+  if (file.size === 0 || file.size > MAX_FILE_BYTES) return fileError("Ukuran berkas maksimal 5 MB.");
 
   // Jenis berkas dari ekstensi, sama seperti impor Daftar import: MIME type
   // berkas Excel tidak dapat diandalkan antar sistem operasi.
@@ -60,6 +65,7 @@ export async function POST(request: Request) {
   const rows = isXlsx ? await xlsxToRows(await file.arrayBuffer()) : textToRows(await file.text());
   if (!rows) return fileError("Berkas tidak terbaca. Pastikan berkasnya .xlsx yang bisa dibuka di Excel.");
   const keys = rowsToBonusKeys(rows);
+  if (!keys) return fileError("Kolom QR atau Email tidak ditemukan. Pakai judul kolom dari templat.");
   if (keys.length === 0) return fileError("Tidak ada baris yang terbaca. Unduh templatnya lalu isi kolom QR atau Email.");
   if (keys.length > BONUS_LIST_MAX) return fileError(`Maksimal ${BONUS_LIST_MAX.toLocaleString("id-ID")} baris per daftar.`);
 

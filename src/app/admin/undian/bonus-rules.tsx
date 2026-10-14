@@ -30,6 +30,9 @@ export function BonusRules({
 }) {
   const [editing, setEditing] = useState<{ index: number | null; startAt: Step } | null>(null);
   const [names, setNames] = useState<BonusRule | null>(null);
+  // Kartu aturan menulis "+N tiket" apa adanya; tanpa catatan ini, batas
+  // maksimum memotong tiket diam-diam (+20 dengan maksimum 10 menjadi 10).
+  const fullTickets = 1 + rules.reduce((sum, rule) => sum + rule.tickets, 0);
   const sessionNames = preview?.attendance_sessions ? Object.fromEntries(preview.attendance_sessions.map((item) => [item.id, item.name])) : previewFailed ? null : {};
 
   function save(rule: BonusRule) {
@@ -90,6 +93,11 @@ export function BonusRules({
       <div className="max-w-56">
         <NumberField id="bonus-max" label="Tiket maksimum per orang" value={weightMax} min={1} max={1000} onChange={onWeightMax} />
       </div>
+      {fullTickets > weightMax ? (
+        <p className="-mt-2 text-body-small text-on-surface-variant">
+          Orang yang cocok semua aturan mendapat {weightMax} tiket, bukan {fullTickets}: dibatasi tiket maksimum.
+        </p>
+      ) : null}
 
       {rules.length > 0 ? <OddsTable rules={rules} preview={preview} failed={previewFailed} winnerQuota={winnerQuota} /> : null}
 
