@@ -19,7 +19,7 @@ import { emasHorizon as hitungEmasHorizon, sorotHorizon } from "@/lib/landing-to
 import { landingTokens } from "@/lib/landing-tokens";
 import { preloadLandingFonts } from "@/lib/landing-font-preload";
 import { formatEventDate, formatEventDateRingkas, formatEventTime } from "@/lib/event-datetime";
-import { loadAgendaPreview, type AgendaPreview } from "@/lib/landing-agenda";
+import { jumlahHariAgenda, loadAgendaPreview, type AgendaPreview } from "@/lib/landing-agenda";
 import { jumlahSesi, pembicaraSesi, speakerTabs } from "@/lib/landing-speaker-tabs";
 import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingPath, landingSectionHeading, landingSessionLabels, type LandingLang } from "@/lib/landing-i18n";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
@@ -414,7 +414,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const penutupTampil = gaya && !adaBlokAjakan && (undangan || (event.registration_enabled && !peserta));
   // Gathering, tanpa judul rundown dari CMS: "Perjalanan 3 hari", tanggal di
   // kanan. Satu hari: judulnya tanggal, jadi tanggal di kanan tidak diulang.
-  const judulAgenda = config.agenda_heading?.trim() || (agenda.length > 1 ? t.tripDays(agenda.length) : judulBagian("agenda").judul);
+  const judulAgenda = config.agenda_heading?.trim() || (jumlahHariAgenda(agenda) > 1 ? t.tripDays(jumlahHariAgenda(agenda)) : judulBagian("agenda").judul);
   // Gathering: "Perjalanan" ke bagian Portal peserta, seperti rancangan.
   // Tautannya mengikuti tempat portal di susunan halaman (bisa digeser di CMS).
   const portalTampil = Boolean(gaya && member && config.portal_section !== false);
@@ -583,7 +583,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         ) : null,
         agenda: tampil("agenda") ? (
           <PerjalananHorizon
-            judul={config.agenda_heading?.trim() || (agenda.length > 0 ? t.horizon.days(agenda.length) : judulBagian("agenda").judul)}
+            judul={config.agenda_heading?.trim() || (agenda.length > 0 ? t.horizon.days(jumlahHariAgenda(agenda)) : judulBagian("agenda").judul)}
             tanggal={tanggalPanjang}
             catatan={config.agenda_note?.trim() || null}
             agenda={agenda}

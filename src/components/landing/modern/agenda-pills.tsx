@@ -32,8 +32,8 @@ export function AgendaPills({
   /** `landing_config.agenda_speakers`. Bawaan `text`: tampilan lama, foto di kolom kanan. */
   tampilPembicara?: LandingAgendaSpeakers;
   /**
-   * Gaya gathering: tab dinamai "Hari 1 · <judul bagian>" tanpa rentang jam,
-   * dan di ponsel cukup "Hari 1" supaya tiga tab muat tanpa menggulir.
+   * Gaya gathering: tab memakai label bagian tanpa rentang jam ("Hari N" hanya
+   * bila label kosong). Di ponsel deretan tab digulir menyamping.
    */
   perHari?: boolean;
 }) {
@@ -95,10 +95,10 @@ export function AgendaPills({
                 style={pilih ? ({ "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties) : undefined}
               >
                 {perHari ? (
-                  <>
-                    {t.day(index + 1)}
-                    {bagian.sectionTitle ? <span className="hidden sm:inline">{`\u00a0· ${bagian.sectionTitle}`}</span> : null}
-                  </>
+                  // Label tab apa adanya. "Hari N" dari posisi tab hanya cadangan
+                  // bila label kosong: satu hari bisa punya dua bagian (Batch 1
+                  // dan Batch 2), dan nomor urut tab bukan nomor hari.
+                  bagian.sectionTitle || t.day(index + 1)
                 ) : (
                   <>
                     {bagian.sectionTitle || t.part(index + 1)}

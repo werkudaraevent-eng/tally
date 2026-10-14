@@ -38,7 +38,7 @@ const updateSchema = z.object({
   event_date: isoDate.optional(),
   highlight_current: z.boolean().optional(),
   is_published: z.boolean().optional(),
-  sort_order: z.number().int().min(0).max(999).optional(),
+  // sort_order tidak diterima di sini: urutan tab diatur lewat /sections/order.
 });
 
 const deleteSchema = z.object({ id: z.coerce.number().int().positive() });

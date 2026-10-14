@@ -1,13 +1,13 @@
 "use client";
 
-import { ArrowDown, ArrowSquareOut, ArrowUp, DotsSixVertical, Info, Plus, Stack, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowSquareOut, ArrowUp, DotsSixVertical, Info, Plus, Stack, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { useToast } from "@/components/toast";
 import { normalizeBranding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
 import { DEFAULT_HEADER, formatClock, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
-import { bandingkanBaris, geserDalamSlot, kunciSlot, pindahDalamSlot, susunUlangSlot } from "@/lib/rundown-urutan";
+import { bandingkanBagian, bandingkanBaris, geserBagian, geserDalamSlot, kunciSlot, pindahDalamSlot, susunUlangBagian, susunUlangSlot, urutBagianMenurutTanggal } from "@/lib/rundown-urutan";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import {
@@ -142,6 +142,11 @@ export default function RundownAdminPage() {
   }, []);
 
   const active = sections.find((row) => row.id === activeId) ?? null;
+  // Tab tampil menurut sort_order lalu id, sama dengan halaman publik.
+  const sectionsUrut = useMemo(() => [...sections].sort(bandingkanBagian), [sections]);
+  const idBagian = sectionsUrut.map((row) => row.id);
+  const idMenurutTanggal = urutBagianMenurutTanggal(sections);
+  const sudahUrutTanggal = idMenurutTanggal.every((id, index) => id === idBagian[index]);
   const draft = (activeId !== null ? drafts[activeId] : null) ?? EMPTY_DRAFT;
 
   // Urut jam, lalu sort_order untuk butir berjam sama. Urutan yang sama dipakai
@@ -310,7 +315,9 @@ export default function RundownAdminPage() {
         event_date: section.event_date,
         highlight_current: section.highlight_current,
         is_published: section.is_published,
-        sort_order: section.sort_order,
+        // sort_order sengaja tidak dikirim: urutan tab hanya lewat
+        // /sections/order, supaya simpanan dari halaman basi tidak memindahkan
+        // tab kembali ke tempat lamanya.
         // Branding TIDAK dikirim dari sini. Ia setelan global dengan tombol Simpan
         // sendiri di panel Header publik, karena header adalah identitas acara.
       }),
@@ -461,6 +468,50 @@ export default function RundownAdminPage() {
     apply((data as { items?: RundownItem[] }).items ?? []);
     const moved = sectionItems.find((item) => item.id === movedId);
     setReorderNote(`${moved?.title.trim() || "Item"} moved to position ${ids.indexOf(movedId) + 1} of ${ids.length}.`);
+  }
+
+  async function reorderSections(ids: number[], note: string) {
+    if (reordering) return;
+    const changes = susunUlangBagian(sections, ids);
+    if (!changes || changes.length === 0) return;
+    // Optimistis dan hanya sort_order, supaya suntingan bagian yang belum
+    // disimpan tidak ikut hilang.
+    const before = sections;
+    const apply = (list: Array<{ id: number; sort_order: number }>) =>
+      setSections((current) => current.map((row) => {
+        const found = list.find((change) => change.id === row.id);
+        return found ? { ...row, sort_order: found.sort_order } : row;
+      }));
+    apply(changes);
+    setReordering(true); setError("");
+    const response = await fetch("/api/admin/rundown/sections/order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, expected: idBagian }),
+    }).catch(() => null);
+    setReordering(false);
+    const data = response ? await response.json().catch(() => ({})) : {};
+    if (!response?.ok) {
+      setSections(before);
+      const failure = (data as { error?: { details?: { message?: string } } }).error?.details?.message
+        ?? (response ? "Something went wrong. Try again." : "Check your connection and try again.");
+      setError(failure); toast.error("Tab order not saved", failure);
+      const fresh = await fetch("/api/admin/rundown/sections", { cache: "no-store" }).catch(() => null);
+      if (fresh?.ok) apply(((await fresh.json()) as Payload).sections);
+      return;
+    }
+    apply((data as { sections?: RundownSection[] }).sections ?? []);
+    setReorderNote(note);
+  }
+
+  function moveSection(section: RundownSection, direction: -1 | 1) {
+    const next = geserBagian(idBagian, section.id, direction);
+    if (!next) return;
+    void reorderSections(next, `${section.name} moved to tab ${next.indexOf(section.id) + 1} of ${next.length}.`);
+    // Sampai di ujung: tombol yang baru dipakai jadi mati, fokus pindah ke arah sebaliknya.
+    const posisi = next.indexOf(section.id);
+    const tujuan = posisi === 0 ? "right" : posisi === next.length - 1 ? "left" : null;
+    if (tujuan) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-move-tab="${tujuan}"]`)?.focus());
   }
 
   function moveInSlot(item: RundownItem, direction: -1 | 1, fromPanel = false) {
@@ -745,6 +796,49 @@ export default function RundownAdminPage() {
           value={active.event_date}
           onChange={(event) => updateSection(active.id, { event_date: event.target.value })}
         />
+        {sectionsUrut.length > 1 ? (
+          <div className="flex flex-col gap-2">
+            <div>
+              <p className="text-body-medium font-medium text-on-surface">Tab order</p>
+              <p className="text-body-small text-on-surface-variant">
+                Tab {idBagian.indexOf(active.id) + 1} of {idBagian.length}. Saved straight away; the event page uses the same order.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outlined"
+                size="md"
+                icon={<ArrowLeft size={16} />}
+                data-move-tab="left"
+                aria-disabled={reordering || idBagian[0] === active.id || undefined}
+                className="aria-disabled:cursor-default aria-disabled:opacity-40"
+                onClick={() => { if (!reordering && idBagian[0] !== active.id) moveSection(active, -1); }}
+              >
+                Move left
+              </Button>
+              <Button
+                variant="outlined"
+                size="md"
+                icon={<ArrowRight size={16} />}
+                data-move-tab="right"
+                aria-disabled={reordering || idBagian[idBagian.length - 1] === active.id || undefined}
+                className="aria-disabled:cursor-default aria-disabled:opacity-40"
+                onClick={() => { if (!reordering && idBagian[idBagian.length - 1] !== active.id) moveSection(active, 1); }}
+              >
+                Move right
+              </Button>
+              <Button
+                variant="text"
+                size="md"
+                aria-disabled={reordering || sudahUrutTanggal || undefined}
+                className="aria-disabled:cursor-default aria-disabled:opacity-40"
+                onClick={() => { if (!reordering && !sudahUrutTanggal) void reorderSections(idMenurutTanggal, "Tabs sorted by date."); }}
+              >
+                Sort all by date
+              </Button>
+            </div>
+          </div>
+        ) : null}
         {/* Kolom "Judul di halaman publik" dan "Sub judul" per bagian sengaja
             tidak ada: judul header kini satu untuk seluruh acara (panel Header
             publik). Kolomnya tetap ada di database supaya data lama tidak rusak. */}
@@ -958,7 +1052,7 @@ export default function RundownAdminPage() {
                   value={String(activeId ?? "")}
                   onChange={(value) => pilihBagian(Number(value))}
                   className="border-b-0"
-                  options={sections.map((section) => ({ value: String(section.id), label: section.name, badge: section.is_published ? undefined : "Draft" }))}
+                  options={sectionsUrut.map((section) => ({ value: String(section.id), label: section.name, badge: section.is_published ? undefined : "Draft" }))}
                 />
               </div>
             ) :<span className="py-2.5 text-body-medium text-on-surface-variant">No sections yet</span>}

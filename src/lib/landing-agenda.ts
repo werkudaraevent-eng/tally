@@ -40,6 +40,16 @@ export type AgendaPreview = {
   items: AgendaItem[];
 };
 
+/**
+ * Jumlah hari acara menurut tanggal bagian, bukan jumlah tab: dua bagian di
+ * tanggal yang sama (Batch 1 dan Batch 2) tetap satu hari. Bagian tanpa tanggal
+ * dihitung satu hari masing-masing.
+ */
+export function jumlahHariAgenda(agenda: Array<Pick<AgendaPreview, "tanggal">>): number {
+  const tanggal = new Set(agenda.map((bagian) => bagian.tanggal).filter(Boolean));
+  return tanggal.size + agenda.filter((bagian) => !bagian.tanggal).length;
+}
+
 /** "2026-10-15" menjadi "Kam 15" (Indonesia) atau "Thu 15" (English). */
 function hariPendek(tanggal: string | null, bahasa: "id" | "en"): string | null {
   if (!tanggal || !/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) return null;

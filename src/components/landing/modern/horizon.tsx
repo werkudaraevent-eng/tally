@@ -365,14 +365,12 @@ export function PerjalananHorizon({
                   {nomor}
                 </span>
                 <p className="text-[12px] font-bold uppercase leading-[1.26] text-[var(--hz-sorot,var(--hz-emas))] md:hidden">
-                  <span className="sr-only">{t.day(index + 1)}, </span>
                   <span aria-hidden>{nomor}</span>
-                  {hariPendek ? ` / ${hariPendek}` : null}
+                  {hariPendek ? <><span aria-hidden>{" / "}</span>{hariPendek}</> : null}
                 </p>
                 <div className="flex min-w-0 flex-1 flex-col gap-3 md:gap-[14px]">
                   {hariPanjang ? (
                     <p className="hidden text-[11px] uppercase leading-[1.26] tracking-[1.2px] md:block" style={{ color: REDUP_NAVY }}>
-                      <span className="sr-only">{t.day(index + 1)}, </span>
                       {hariPanjang}
                     </p>
                   ) : null}

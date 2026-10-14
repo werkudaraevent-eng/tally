@@ -71,3 +71,50 @@ export function pindahDalamSlot(idSlot: number[], id: number, ke: number): numbe
   hasil.splice(ke, 0, id);
   return hasil;
 }
+
+// ---------------------------------------------------------------------------
+// Urutan bagian (tab) rundown. Berbeda dari baris, bagian tidak punya jam: ia
+// tampil menurut `sort_order` lalu id, sama di CMS, halaman acara, /rundown dan
+// badge. Admin mengaturnya sendiri, karena tanggal saja tidak cukup (dua batch
+// di hari yang sama).
+
+export type BagianUrut = { id: number; sort_order: number; event_date: string; name: string };
+
+/** Pembanding urutan tab: sort_order lalu id, sama dengan `.order()` di server. */
+export function bandingkanBagian(a: Pick<BagianUrut, "id" | "sort_order">, b: Pick<BagianUrut, "id" | "sort_order">): number {
+  return a.sort_order - b.sort_order || a.id - b.id;
+}
+
+/**
+ * Nomor `sort_order` baru 1..n mengikuti `ids`. Null bila `ids` bukan persis
+ * seluruh bagian acara (data basi dari tab lain, id asing atau dobel). Yang
+ * dikembalikan hanya bagian yang nomornya berubah.
+ */
+export function susunUlangBagian(bagian: Array<Pick<BagianUrut, "id" | "sort_order">>, ids: number[]): Array<{ id: number; sort_order: number }> | null {
+  if (ids.length !== bagian.length || new Set(ids).size !== ids.length) return null;
+  const perId = new Map(bagian.map((row) => [row.id, row]));
+  if (!ids.every((id) => perId.has(id))) return null;
+  return ids
+    .map((id, index) => ({ id, sort_order: index + 1, lama: perId.get(id)!.sort_order }))
+    .filter((row) => row.sort_order !== row.lama)
+    .map(({ id, sort_order }) => ({ id, sort_order }));
+}
+
+/** Urutan id sesudah satu bagian digeser satu langkah ke kiri (-1) atau kanan (+1). */
+export function geserBagian(ids: number[], id: number, arah: -1 | 1): number[] | null {
+  return geserDalamSlot(ids, id, arah);
+}
+
+/**
+ * Urutan id menurut tanggal, lalu label tab dengan angka dibaca sebagai angka
+ * ("Batch 2" sebelum "Batch 10"), lalu urutan sekarang.
+ */
+export function urutBagianMenurutTanggal(bagian: BagianUrut[]): number[] {
+  const sekarang = [...bagian].sort(bandingkanBagian).map((row) => row.id);
+  return [...bagian]
+    .sort((a, b) =>
+      a.event_date.localeCompare(b.event_date)
+      || a.name.localeCompare(b.name, "id", { numeric: true, sensitivity: "base" })
+      || sekarang.indexOf(a.id) - sekarang.indexOf(b.id))
+    .map((row) => row.id);
+}
