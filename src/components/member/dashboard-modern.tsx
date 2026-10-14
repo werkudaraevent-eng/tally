@@ -33,6 +33,8 @@ import { KakiModern, KV_SCRIM_RATA, PitaMitra, bagianModern, gayaModern, tinta }
 import { HEAD, LABEL_BAGIAN, MUTED, PIL, SHELL } from "@/components/landing/modern/styles";
 import { KartuBarang, KartuBerikutnya, KartuBus, KartuKamar, KartuKereta } from "@/components/member/kartu-logistik";
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
+import { KartuCheckpoint } from "@/components/member/kartu-checkpoint";
+import { loadCheckpointPeserta } from "@/lib/checkpoint/server";
 import { loadLandingLodging } from "@/lib/landing-hotel";
 import { KartuRute } from "@/components/landing/modern/blok-rute";
 import { KartuHitungMundur } from "@/components/landing/modern/landing-blocks";
@@ -148,6 +150,11 @@ export async function DashboardModern({
   // Logistik gathering (kamar, bus, barang). null di acara tanpa logistik:
   // ILO dan acara lain tampil persis seperti sebelumnya.
   const logistik = peserta ? await loadMemberLogistics(event.id, peserta.id, member.show_logistics === true) : null;
+  // Checkpoint (Check-in > Checkpoints), hanya bila dinyalakan. Barang yang sudah
+  // menjadi checkpoint tidak diulang di kartu "Barang untuk Anda".
+  const checkpoint = peserta ? await loadCheckpointPeserta(event.id, peserta.id, lang) : null;
+  const tampilCheckpoint = Boolean(checkpoint) && diBeranda("checkpoints");
+  const barangCheckpoint = new Set(tampilCheckpoint ? checkpoint!.item_names : []);
   const sekarang = new Date();
   const berikutnya = logistik ? agendaBerikutnya(logistik, sekarang) : null;
   const nama = publicEventName(event);
@@ -374,7 +381,7 @@ export async function DashboardModern({
                     <KartuKamar logistik={logistik} zona={event.time_zone} />
                     <KartuBus logistik={logistik} zona={event.time_zone} />
                     <KartuKereta logistik={logistik} lang={lang} />
-                    <KartuBarang logistik={logistik} />
+                    <KartuBarang logistik={barangCheckpoint.size > 0 ? { ...logistik, items: logistik.items.filter((item) => !barangCheckpoint.has(item.name)) } : logistik} />
                   </BagianBeranda>
                 ) : null
               ) : tautanCepat.length > 0 ? (
@@ -396,7 +403,9 @@ export async function DashboardModern({
                 kolom kanan (sebelum tiket) selama ia isi pertama di sini. */}
             {urutanUtama.map((id) => (
               <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
-                {id === "next" ? (
+                {id === "checkpoints" ? (
+                  checkpoint ? <KartuCheckpoint data={checkpoint} lang={lang} zona={event.time_zone} gaya="modern" /> : null
+                ) : id === "next" ? (
                   berikutnya ? <KartuBerikutnya agenda={berikutnya} zona={event.time_zone} now={sekarang} className={nextDuluan ? "hidden lg:block" : undefined} /> : null
                 ) : id === "announcements" ? (
                   pengumuman.ready ? (

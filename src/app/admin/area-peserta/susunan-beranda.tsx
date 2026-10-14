@@ -36,6 +36,7 @@ export function SusunanBeranda({
   layout,
   member,
   blocks,
+  checkpointsOn,
   set,
   dipilih,
   onPilih,
@@ -43,6 +44,8 @@ export function SusunanBeranda({
   layout: "gathering" | "modern";
   member: LandingMemberConfig;
   blocks: BlokPeserta[];
+  /** Check-in > Checkpoints dinyalakan; mati = barisnya menyebut di mana menyalakannya. */
+  checkpointsOn: boolean;
   set: (patch: Partial<LandingMemberConfig>) => void;
   /** Baris yang sedang disorot di pratinjau. */
   dipilih: string | null;
@@ -57,6 +60,7 @@ export function SusunanBeranda({
     if (id === "agenda" && member.show_schedule === false) return "Agenda is off below";
     if ((id === "logistics" || id === "roommates" || (id === "next" && !gathering)) && logistikMati) return "Room and bus is off below";
     if (id === "roommates" && member.show_roommates === false) return "Roommates are off in Logistics";
+    if (id === "checkpoints" && !checkpointsOn) return "Off in Check-in";
     return null;
   };
   const baris: Baris[] = order.map((id) => {

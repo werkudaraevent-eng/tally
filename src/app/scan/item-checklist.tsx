@@ -96,10 +96,14 @@ export function ItemChecklist({
     const sudah = (body.already ?? []) as number[];
     setItems(baru);
     setPilih(new Set());
+    const checkpoint = body.checkpoint as { total: number; selesai: { posisi: number }[] } | undefined;
+    const tambahan = checkpoint?.selesai.length
+      ? ` Checkpoint ${checkpoint.selesai.map((cp) => cp.posisi).join(" and ")} of ${checkpoint.total} done.`
+      : "";
     setCatatan(sudah.length > 0
       // Petugas lain mencatatnya di antara layar ini dimuat dan tombol ditekan.
       ? { nada: "peringatan", teks: `${nama(sudah)} already handed out earlier, so not saved again.` }
-      : { nada: "ok", teks: `Handed out: ${nama((body.recorded ?? []) as number[])}.` });
+      : { nada: "ok", teks: `Handed out: ${nama((body.recorded ?? []) as number[])}.${tambahan}` });
   }
 
   if (galat) {

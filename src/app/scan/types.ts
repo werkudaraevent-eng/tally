@@ -24,6 +24,20 @@ export type BarisBarang = {
 };
 
 /**
+ * Checkpoint peserta (Check-in > Checkpoints) yang selesai lewat pemindaian
+ * atau penyerahan barang ini. Hanya ada bila fiturnya dinyalakan dan sesi atau
+ * barangnya memang checkpoint. `terbuka_sebelum`: langkah sebelumnya yang belum
+ * dikerjakan; petugas mengarahkan, tidak menolak.
+ */
+export type CatatanCheckpoint = {
+  total: number;
+  done: number;
+  points: boolean;
+  selesai: { posisi: number; judul: string; poin: number | null }[];
+  terbuka_sebelum: { posisi: number; judul: string }[];
+};
+
+/**
  * Jalur registrasi, yaitu satu MEJA, bukan satu tahap acara.
  *
  * Lima meja berdampingan melayani sesi "Registrasi" yang sama. Jalur ikut
@@ -64,6 +78,8 @@ export type Hasil = {
   kursi?: { sesi: string | null; tulisan: string }[];
   /** Badge kertas di stasiun cetak: pekerjaan yang diantrekan, atau yang terakhir untuk pemindaian ulang. */
   badge_cetak?: HasilCetakMeja;
+  /** Checkpoint yang selesai di pemindaian ini (lihat CatatanCheckpoint). */
+  checkpoint?: CatatanCheckpoint;
   /** Walk-in baru: email Sign-in link (Participant area > Email a sign-in link to walk-ins). */
   signin_link?: { state: "queued"; email: string } | { state: "skipped"; reason: string } | { state: "failed" };
   /**

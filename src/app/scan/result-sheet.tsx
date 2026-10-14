@@ -6,6 +6,7 @@ import {
   Clock,
   CloudSlash,
   DownloadSimple,
+  Flag,
   Prohibit,
   Printer,
   SignIn,
@@ -19,7 +20,7 @@ import { Button, Dialog } from "@/components/m3";
 import { standard } from "@/lib/m3/motion";
 import { ItemChecklist } from "./item-checklist";
 import { bukaSuara } from "./umpan-balik";
-import type { Hasil, StatusCetak, StatusHasil } from "./types";
+import type { CatatanCheckpoint, Hasil, StatusCetak, StatusHasil } from "./types";
 
 /**
  * Lembar hasil pemindaian.
@@ -307,6 +308,8 @@ export function ResultSheet({
                 </div>
               ) : null}
 
+              {hasil.checkpoint && hadir ? <CatatanCheckpointHasil catatan={hasil.checkpoint} baru={status === "recorded" || Boolean(hasil.tersimpanSebelumnya)} /> : null}
+
               {hasil.tersimpanSebelumnya ? (
                 <p className="mt-3 text-body-medium opacity-90">
                   Saved on the previous attempt, at {jam(hasil.first_scan_at)}. The reply did not reach this phone.
@@ -453,5 +456,32 @@ export function ResultSheet({
         </div>
       ) : null}
     </Dialog>
+  );
+}
+
+/**
+ * Checkpoint di lembar hijau: posisinya, poin bila acara memakai poin, dan
+ * langkah sebelumnya yang belum dikerjakan. Yang terakhir hanya arahan untuk
+ * petugas, bukan penolakan: urutan checkpoint tidak pernah menahan orang.
+ */
+function CatatanCheckpointHasil({ catatan, baru }: { catatan: CatatanCheckpoint; baru: boolean }) {
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      {catatan.selesai.map((cp) => (
+        <p key={cp.posisi} className="inline-flex min-w-0 items-center gap-2 self-start rounded-lg bg-black/15 px-3 py-1.5 text-title-medium font-semibold [overflow-wrap:anywhere]">
+          <Flag size={20} weight="fill" aria-hidden className="shrink-0" />
+          <span>
+            Checkpoint {cp.posisi} of {catatan.total}
+            <span className="font-normal"> · {cp.judul}</span>
+            {!baru ? <span className="font-normal opacity-80"> · done earlier</span> : cp.poin ? <span> · +{cp.poin} pts</span> : null}
+          </span>
+        </p>
+      ))}
+      {catatan.terbuka_sebelum.length > 0 ? (
+        <p className="rounded-lg bg-warning-soft px-3 py-2 text-body-medium text-on-warning-soft [overflow-wrap:anywhere]">
+          Still open: {catatan.terbuka_sebelum.map((cp) => `${cp.posisi} ${cp.judul}`).join(", ")}. They can carry on; point them there afterwards.
+        </p>
+      ) : null}
+    </div>
   );
 }

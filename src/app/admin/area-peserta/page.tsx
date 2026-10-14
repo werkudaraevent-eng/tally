@@ -33,6 +33,8 @@ type Muat = {
   blocks: BlokPeserta[];
   /** Peserta bawaan pratinjau: yang pertama punya kamar dan bus. */
   preview: PesertaPratinjau | null;
+  /** Check-in > Checkpoints dinyalakan. */
+  checkpoints_on?: boolean;
 };
 
 const angka = (nilai: number) => nilai.toLocaleString("en-GB");
@@ -191,6 +193,7 @@ export default function AreaPesertaPage() {
                       layout={data.layout}
                       member={anggota}
                       blocks={data.blocks}
+                      checkpointsOn={data.checkpoints_on === true}
                       set={set}
                       dipilih={sorot?.id ?? null}
                       onPilih={(id) => setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }))}

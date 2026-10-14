@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { catatanCheckpointScan } from "@/lib/checkpoint/server";
 import { galatRpc } from "@/lib/logistik/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -62,5 +63,8 @@ export async function POST(request: Request) {
     p_lane_id: parsed.data.lane_id ?? null,
   } as never);
   if (error) return galatRpc(error);
-  return Response.json(data);
+  // Barang yang baru tercatat dan menjadi checkpoint (Check-in > Checkpoints).
+  const tercatat = Array.isArray((data as { recorded?: unknown } | null)?.recorded) ? (data as { recorded: number[] }).recorded : [];
+  const checkpoint = tercatat.length > 0 ? await catatanCheckpointScan(auth.scope.event.id, parsed.data.participant_id, { itemIds: tercatat }) : null;
+  return Response.json(checkpoint ? { ...(data as object), checkpoint } : data);
 }

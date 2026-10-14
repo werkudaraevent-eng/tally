@@ -12,6 +12,7 @@ import { formatEventDateTime } from "@/lib/datetime";
 import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
+import { CheckpointsTab } from "./checkpoints";
 
 /**
  * CMS sesi kehadiran.
@@ -57,7 +58,7 @@ type Jalur = {
   total_scan: number;
 };
 
-type Bagian = "sesi" | "meja" | "walkin";
+type Bagian = "sesi" | "meja" | "walkin" | "checkpoint";
 
 /** Barang yang dibagikan (dibuat di Logistik) dan pasangannya dengan sesi. */
 type Barang = { id: number; name: string; size_field_key: string | null };
@@ -502,12 +503,14 @@ export default function AttendanceAdminPage() {
           { value: "sesi", label: "Sesi", badge: dimuat && !error ? sessions.length : undefined },
           { value: "meja", label: "Meja registrasi", badge: dimuat && !errorJalur && lanes.length > 0 ? lanes.length : undefined },
           { value: "walkin", label: "Walk-in" },
+          { value: "checkpoint", label: "Checkpoints" },
         ]}
       />
 
       <div role="tabpanel" id={`kehadiran-panel-${bagian}`} aria-labelledby={`kehadiran-tab-${bagian}`} className="flex min-h-0 flex-1 flex-col">
         {bagian === "sesi" ? <ListDetail list={daftarSesi} detail={detailSesi} />
           : bagian === "meja" ? <ListDetail list={daftarJalur} detail={detailJalur} />
+          : bagian === "checkpoint" ? <CheckpointsTab />
           : walkIn}
       </div>
 
