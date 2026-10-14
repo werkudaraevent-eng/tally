@@ -529,14 +529,14 @@ export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label
           {judul}
         </h2>
       </div>
-      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:gap-10">
+      <div className="flex flex-col gap-5 xl:grid xl:grid-cols-2 xl:gap-10">
       {leg.map((item, index) => {
         const isian = [
           [label.gerbong, item.gerbong],
           [label.kursi, item.kursi],
         ].filter((pasangan): pasangan is [string, string] => Boolean(pasangan[1]));
         return (
-          <div key={item.kunci} className={`flex flex-col gap-3 ${index > 0 ? "border-t border-dashed pt-5 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0" : ""}`} style={{ borderColor: "#C9D1DE" }}>
+          <div key={item.kunci} className={`flex flex-col gap-3 ${index > 0 ? "border-t border-dashed pt-5 xl:border-l xl:border-t-0 xl:pl-10 xl:pt-0" : ""}`} style={{ borderColor: "#C9D1DE" }}>
             <p className="text-[12px] font-semibold uppercase tracking-[0.6px]" style={{ color: BIRU }}>
               {item.arah}
             </p>
@@ -566,7 +566,7 @@ export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label
             {item.kode ? (
               <p className="flex items-baseline justify-between gap-3 rounded-[12px] px-4 py-3 text-[13px]" style={{ background: "#F1F3F8", color: REDUP }}>
                 {label.kode}
-                <span className="text-[16px] font-bold tracking-[1.5px] tabular-nums [overflow-wrap:anywhere]" style={{ color: TINTA }}>
+                <span className="whitespace-nowrap text-[16px] font-bold tracking-[1.5px] tabular-nums" style={{ color: TINTA }}>
                   {item.kode}
                 </span>
               </p>
