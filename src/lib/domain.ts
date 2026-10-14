@@ -1138,7 +1138,7 @@ export type LandingMemberConfig = {
   home?: { order?: string[]; hidden?: string[] };
 };
 
-export type MemberHomeId = "quick" | "announcements" | "next" | "logistics" | "roommates" | "agenda";
+export type MemberHomeId = "quick" | "announcements" | "next" | "checkpoints" | "logistics" | "roommates" | "agenda";
 
 /**
  * Isi bawaan Beranda halaman peserta, dalam urutan bawaannya per tata letak.
@@ -1151,12 +1151,14 @@ export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern", readonly { id:
     { id: "quick", label: "Quick links", sub: "Ticket, map, organisers", side: true },
     { id: "announcements", label: "Announcements", sub: "Latest message from Messages \u2192 Announcements" },
     { id: "next", label: "Next up", sub: "The next session, from the Agenda" },
+    { id: "checkpoints", label: "Checkpoints", sub: "Progress and next step, from Check-in \u2192 Checkpoints" },
     { id: "logistics", label: "Bus and room", sub: "From Logistics", side: true },
     { id: "roommates", label: "Roommates", sub: "From Logistics", side: true },
     { id: "agenda", label: "Today\u2019s agenda", sub: "From the Agenda" },
   ],
   modern: [
     { id: "next", label: "Next bus", sub: "The next trip, from Logistics" },
+    { id: "checkpoints", label: "Checkpoints", sub: "Progress and next step, from Check-in \u2192 Checkpoints" },
     { id: "announcements", label: "Announcements", sub: "Messages \u2192 Announcements" },
     { id: "agenda", label: "Agenda", sub: "From the Agenda" },
     { id: "logistics", label: "Room, bus and items", sub: "From Logistics", side: true },

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { cetakSetelahHadir } from "@/lib/badge/stasiun-server";
+import { catatanCheckpointScan } from "@/lib/checkpoint/server";
 import { loadKursiPeserta, tulisKursi } from "@/lib/member/kursi-peserta";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
   // HP tidak perlu permintaan kedua yang bisa hilang di jaringan venue.
   // Gagal mengantrekan tidak menggagalkan kehadiran; HP menampilkan galatnya.
   const hasil = data as { status?: string; participant?: { id?: string } } | null;
-  const [badgeCetak, kursi] = await Promise.all([cetakSetelahHadir({
+  const [badgeCetak, kursi, checkpoint] = await Promise.all([cetakSetelahHadir({
     eventId: auth.scope.event.id,
     cetak: parsed.data.cetak,
     status: hasil?.status ?? "",
@@ -105,10 +106,16 @@ export async function POST(request: Request) {
     userId: auth.user.id,
     laneId: parsed.data.lane_id ?? null,
   }).catch(() => ({ pekerjaan: null, galat: "The badge could not be queued." })),
-    kursiTamu(auth.scope.event.id, hasil).catch(() => [])]);
+    kursiTamu(auth.scope.event.id, hasil).catch(() => []),
+    // Checkpoint peserta (Check-in > Checkpoints): hanya bila sesi ini salah
+    // satu checkpoint dan fiturnya dinyalakan. Acara lain tidak mendapat kunci ini.
+    hasil?.participant?.id && (hasil.status === "recorded" || hasil.status === "duplicate")
+      ? catatanCheckpointScan(auth.scope.event.id, hasil.participant.id, { sessionId: parsed.data.session_id })
+      : Promise.resolve(null)]);
   const tambahan = {
     ...(badgeCetak ? { badge_cetak: badgeCetak } : {}),
     ...(kursi.length > 0 ? { kursi } : {}),
+    ...(checkpoint ? { checkpoint } : {}),
   };
   return Response.json(Object.keys(tambahan).length > 0 ? { ...(data as object), ...tambahan } : data);
 }
