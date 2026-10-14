@@ -31,7 +31,8 @@ export type PortalUiText = {
   room: (nomor: string) => string;
   todayRundown: string;
   dayRundown: (hari: number) => string;
-  seeDays: (jumlah: number) => string;
+  /** Tautan dari kartu rundown beranda ke seluruh jadwal. */
+  seeSchedule: string;
   schedule: string;
   day: (hari: number) => string;
   daysAria: string;
@@ -104,7 +105,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
     room: (nomor) => `Kamar ${nomor}`,
     todayRundown: "Rundown hari ini",
     dayRundown: (hari) => `Rundown hari ${hari}`,
-    seeDays: (jumlah) => `Lihat ${jumlah} hari`,
+    seeSchedule: "Lihat semua jadwal",
     schedule: "Jadwal acara",
     day: (hari) => `Hari ${hari}`,
     daysAria: "Pilih hari",
@@ -177,7 +178,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
     room: (nomor) => `Room ${nomor}`,
     todayRundown: "Today's rundown",
     dayRundown: (hari) => `Day ${hari} rundown`,
-    seeDays: (jumlah) => `See ${jumlah} days`,
+    seeSchedule: "See full schedule",
     schedule: "Schedule",
     day: (hari) => `Day ${hari}`,
     daysAria: "Choose a day",
