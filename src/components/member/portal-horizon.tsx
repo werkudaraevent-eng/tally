@@ -133,7 +133,7 @@ export function NavBawahHorizon({ tabs, aktif, tabsAria, infoBaru }: { tabs: Tab
 }
 
 /** Sapaan (frame "Personal greeting"; ponsel: "Personal greeting" 30/800). */
-export function SapaanHorizon({ alis, judul, judulPonsel, catatan }: { alis: string; judul: string; judulPonsel: string; catatan: string }) {
+export function SapaanHorizon({ alis, judul, judulPonsel, catatan, catatanPonsel = false }: { alis: string; judul: string; judulPonsel: string; catatan: string; catatanPonsel?: boolean }) {
   return (
     <div className="mx-auto w-full max-w-[1440px] px-6 pt-6 md:px-16 md:pb-7 md:pt-12">
       <p className="hidden text-[11px] font-bold uppercase leading-[1.26] tracking-[1.5px] md:block" style={{ color: LABEL }}>
@@ -144,7 +144,7 @@ export function SapaanHorizon({ alis, judul, judulPonsel, catatan }: { alis: str
         <span className="hidden md:inline">{judul}</span>
       </h1>
       {catatan ? (
-        <p className="mt-[14px] hidden text-[17px] leading-[1.5] md:block" style={{ color: REDUP }}>
+        <p className={`text-[17px] leading-[1.5] md:mt-[14px] md:block ${catatanPonsel ? "mt-1.5 text-[15px] md:text-[17px]" : "mt-[14px] hidden"}`} style={{ color: REDUP }}>
           {catatan}
         </p>
       ) : null}

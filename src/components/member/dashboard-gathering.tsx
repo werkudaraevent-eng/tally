@@ -632,7 +632,7 @@ export async function DashboardGathering({
     const bagian: AgendaPreview | undefined = agenda[pilihan];
     const statusBagian = bagian && bagian.tanggal === kini.tanggal ? statusHari(bagian.items, kini.menit) : new Map<number, StatusButir>();
     kepala = <JudulKepala judul={t.schedule} catatan={[tanggal, venue].filter(Boolean).join(" · ")} />;
-    judulHorizon = { alis: tanggal ?? nama, judul: t.schedule, catatan: venue ?? "" };
+    judulHorizon = { alis: nama, judul: t.schedule, catatan: [tanggal, venue].filter(Boolean).join(" · ") };
     isi =
       agenda.length === 0 ? (
         <p className={`${KARTU} text-body-large ${MUTED}`}>{t.noSchedule}</p>
@@ -958,11 +958,11 @@ export async function DashboardGathering({
       badan = (
         <>
           {judulHorizon ? (
-            <SapaanHorizon alis={judulHorizon.alis} judul={judulHorizon.judul} judulPonsel={judulHorizon.judul} catatan={judulHorizon.catatan} />
+            <SapaanHorizon alis={judulHorizon.alis} judul={judulHorizon.judul} judulPonsel={judulHorizon.judul} catatan={judulHorizon.catatan} catatanPonsel />
           ) : (
             <PitaKepalaHorizon>{kepala}</PitaKepalaHorizon>
           )}
-          <div className={`relative mx-auto w-full max-w-[1440px] px-6 md:px-16 ${judulHorizon ? "pb-10 pt-6 md:pt-3" : "-mt-3 md:-mt-6"}`}>{isi}</div>
+          <div className={`relative mx-auto w-full max-w-[1440px] px-6 md:px-16 ${judulHorizon ? "pt-6 md:pt-3" : "-mt-3 md:-mt-6"}`}>{isi}</div>
         </>
       );
     }
