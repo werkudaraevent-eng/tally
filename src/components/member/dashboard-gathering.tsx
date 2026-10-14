@@ -31,7 +31,7 @@ import { KartuHitungMundur } from "@/components/landing/modern/landing-blocks";
 import { BagianBeranda } from "@/components/member/bagian-beranda";
 import { KartuBlok } from "@/components/member/kartu-blok";
 import { formatEventDate, formatEventDateRingkas, formatEventSchedule } from "@/lib/event-datetime";
-import { loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
+import { jumlahHariAgenda, loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { PESERTA_UI } from "@/lib/member/peserta-i18n";
 import { PORTAL_UI } from "@/lib/member/portal-i18n";
@@ -459,11 +459,11 @@ export async function DashboardGathering({
     <section aria-labelledby="rundown-judul" className={KARTU}>
       <div className="flex items-center justify-between gap-3">
         <h2 id="rundown-judul" className="text-title-large font-bold">
-          {indeksHariIni >= 0 ? t.todayRundown : t.dayRundown(indeksBeranda + 1)}
+          {indeksHariIni >= 0 ? t.todayRundown : bagianBeranda.sectionTitle?.trim() || t.dayRundown(indeksBeranda + 1)}
         </h2>
         {agenda.length > 1 ? (
           <Link href={keTab("jadwal", { hari: String(indeksBeranda + 1) })} className="inline-flex min-h-12 items-center text-title-small font-bold text-[var(--alis)]">
-            {t.seeDays(agenda.length)}
+            {t.seeSchedule}
           </Link>
         ) : null}
       </div>
@@ -617,7 +617,7 @@ export async function DashboardGathering({
                     <Link
                       href={keTab("jadwal", { hari: String(index + 1) })}
                       aria-current={index === pilihan ? "page" : undefined}
-                      className={`m3-state inline-flex min-h-12 min-w-[104px] items-center justify-center rounded-full px-5 text-title-small font-bold ${
+                      className={`m3-state inline-flex min-h-12 min-w-[104px] items-center justify-center whitespace-nowrap rounded-full px-5 text-title-small font-bold ${
                         index === pilihan
                           ? horizon
                             ? "bg-[var(--hz-emas)] text-[var(--hz-on-emas)]"
@@ -625,7 +625,9 @@ export async function DashboardGathering({
                           : "bg-white text-[#1A2333] shadow-[inset_0_0_0_1px_#E6E9EE]"
                       }`}
                     >
-                      {t.day(index + 1)}
+                      {/* Label tab dari CMS; "Hari N" dari posisi hanya cadangan
+                          karena satu hari bisa punya dua bagian (Batch 1 dan 2). */}
+                      {b.sectionTitle?.trim() || t.day(index + 1)}
                     </Link>
                   </li>
                 ))}
@@ -789,7 +791,7 @@ export async function DashboardGathering({
       const lainnya = beranda.order.filter((id) => diBeranda(id) && ((id === "announcements" && pengumuman.items.length > 0) || kartuBlok.has(id)));
       badan = (
         <>
-          <SapaanHorizon alis={tH.welcome} judul={tH.heading(namaDepan)} judulPonsel={tH.headingMobile(namaDepan)} catatan={tH.subtitle(agenda.length)} />
+          <SapaanHorizon alis={tH.welcome} judul={tH.heading(namaDepan)} judulPonsel={tH.headingMobile(namaDepan)} catatan={tH.subtitle(jumlahHariAgenda(agenda))} />
           <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-6 pb-10 pt-6 md:px-16 md:pt-3">
             {pitaEmail || lengkapi.length > 0 ? (
               <div className="flex flex-col gap-4">

@@ -47,7 +47,6 @@ assert.equal(pindahDalamSlot([3, 5, 6], 5, 1), null);
 assert.equal(bandingkanBaris({ id: 1, start_time: "13:00", sort_order: 9 }, { id: 2, start_time: "13:00:00", sort_order: 1 }) > 0, true);
 assert.equal(bandingkanBaris({ id: 1, start_time: "13:00:30", sort_order: 1 }, { id: 2, start_time: "13:00:00", sort_order: 9 }) > 0, true);
 
-console.log("rundown-urutan ok");
 
 // ---- Bagian (tab) ----------------------------------------------------------
 // Kasus KSO: tab dibuat tidak urut, Batch 1 hari Jumat dibuat paling akhir.
@@ -79,3 +78,4 @@ assert.equal(susunUlangBagian(kso, [21, 22, 23, 24, 24]), null);
 assert.deepEqual(geserBagian([1, 2, 3], 3, -1), [1, 3, 2]);
 assert.equal(geserBagian([1, 2, 3], 1, -1), null);
 assert.deepEqual([{ id: 5, sort_order: 1 }, { id: 2, sort_order: 1 }, { id: 9, sort_order: 0 }].sort(bandingkanBagian).map((r) => r.id), [9, 2, 5]);
+console.log("rundown-urutan ok");

@@ -315,7 +315,9 @@ export default function RundownAdminPage() {
         event_date: section.event_date,
         highlight_current: section.highlight_current,
         is_published: section.is_published,
-        sort_order: section.sort_order,
+        // sort_order sengaja tidak dikirim: urutan tab hanya lewat
+        // /sections/order, supaya simpanan dari halaman basi tidak memindahkan
+        // tab kembali ke tempat lamanya.
         // Branding TIDAK dikirim dari sini. Ia setelan global dengan tombol Simpan
         // sendiri di panel Header publik, karena header adalah identitas acara.
       }),
@@ -485,7 +487,7 @@ export default function RundownAdminPage() {
     const response = await fetch("/api/admin/rundown/sections/order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
+      body: JSON.stringify({ ids, expected: idBagian }),
     }).catch(() => null);
     setReordering(false);
     const data = response ? await response.json().catch(() => ({})) : {};
@@ -805,7 +807,7 @@ export default function RundownAdminPage() {
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outlined"
-                size="sm"
+                size="md"
                 icon={<ArrowLeft size={16} />}
                 data-move-tab="left"
                 aria-disabled={reordering || idBagian[0] === active.id || undefined}
@@ -816,7 +818,7 @@ export default function RundownAdminPage() {
               </Button>
               <Button
                 variant="outlined"
-                size="sm"
+                size="md"
                 icon={<ArrowRight size={16} />}
                 data-move-tab="right"
                 aria-disabled={reordering || idBagian[idBagian.length - 1] === active.id || undefined}
@@ -827,7 +829,7 @@ export default function RundownAdminPage() {
               </Button>
               <Button
                 variant="text"
-                size="sm"
+                size="md"
                 aria-disabled={reordering || sudahUrutTanggal || undefined}
                 className="aria-disabled:cursor-default aria-disabled:opacity-40"
                 onClick={() => { if (!reordering && !sudahUrutTanggal) void reorderSections(idMenurutTanggal, "Tabs sorted by date."); }}
