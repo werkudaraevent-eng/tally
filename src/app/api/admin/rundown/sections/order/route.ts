@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   }
   const sekarang = [...baris].sort(bandingkanBagian).map((row) => row.id);
   if (sekarang.length !== parsed.data.expected.length || sekarang.some((id, index) => id !== parsed.data.expected[index])) {
-    return apiError("CONFLICT", 409, { message: "The tab order was changed in another window. Reload the page and try again." });
+    return apiError("CONFLICT", 409, { message: "The tab order was changed in another window. The latest order is shown; try again if needed." });
   }
 
   // Satu pernyataan untuk semua bagian yang berubah, supaya urutan tidak

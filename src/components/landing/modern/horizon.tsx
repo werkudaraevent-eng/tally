@@ -1,11 +1,13 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown, CaretDown } from "@phosphor-icons/react/dist/ssr";
+import { ArrowDown } from "@phosphor-icons/react/dist/ssr";
+import type { LandingSpeaker } from "@/lib/domain";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { pecahJudul, tanpaBintang } from "@/lib/landing-tagline";
 import { jamPenting } from "./hari-gathering";
 import { Muncul } from "./horizon-gerak";
+import { JamHariHorizon } from "./horizon-jadwal";
 
 /**
  * Gathering Horizon: rancangan V5 "Beyond Everyday" Hanung (pen.dev,
@@ -315,8 +317,9 @@ function labelHari(tanggal: string | null, lang: LandingLang, panjang: boolean):
  * Susunan acara (frame "03 • Journey chapters"): judul besar di atas navy,
  * satu baris per hari rundown dengan nomor emas, nama hari, judul bagian,
  * cerita singkat (`program_notes`, sama dengan Gathering), dan tiga jam
- * penting. Jadwal lengkap jam per jam dilipat di bawahnya: rancangan hanya
- * menampilkan tiga jam, dan sisanya tetap harus bisa ditemukan tamu.
+ * penting. "Lihat semua" membuka seluruh acara hari itu di daftar yang sama
+ * (gaya sama, tanpa panel atau tab baru), karena tamu tetap harus bisa
+ * menemukan acara yang tidak masuk tiga jam penting.
  */
 export function PerjalananHorizon({
   judul,
@@ -325,7 +328,7 @@ export function PerjalananHorizon({
   agenda,
   cerita,
   lang,
-  jadwalLengkap,
+  speakers,
 }: {
   judul: string;
   /** Rentang tanggal acara di kanan judul ("6–8 November 2026"). */
@@ -334,7 +337,8 @@ export function PerjalananHorizon({
   agenda: AgendaPreview[];
   cerita: string[];
   lang: LandingLang;
-  jadwalLengkap: ReactNode;
+  /** Pembicara yang tertaut ke sesi (sama dengan agenda Modern), tampil saat satu hari dibuka penuh. */
+  speakers: LandingSpeaker[];
 }) {
   const t = LANDING_UI[lang];
   return (
@@ -381,16 +385,7 @@ export function PerjalananHorizon({
                     </p>
                   ) : null}
                 </div>
-                {tampil.length > 0 ? (
-                  <ul className="flex flex-col text-[14px] leading-[2] text-[#CDD7EA] md:w-[260px] md:shrink-0 md:text-[15px] md:leading-[2.2] md:text-[#FAF8F2]">
-                    {tampil.map((item) => (
-                      <li key={item.id} className="flex gap-[8px]">
-                        <span className="shrink-0 tabular-nums">{item.time}</span>
-                        <span className="min-w-0 [overflow-wrap:anywhere]">{item.title}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
+                <JamHariHorizon penting={tampil} semua={bagian.items} speakers={speakers} lang={lang} />
               </Muncul>
             );
           })}
@@ -399,19 +394,6 @@ export function PerjalananHorizon({
           <p className="text-[11px] leading-[1.26] md:hidden" style={{ color: REDUP_NAVY }}>
             {catatan}
           </p>
-        ) : null}
-        {/* Jadwal lengkap hanya bila ada acara yang tidak tampil di daftar per hari. */}
-        {agenda.some((bagian) => jamPenting(bagian.items).tampil.length < bagian.items.length) ? (
-          <details className="group -mt-2 border-t pt-2 md:-mt-10 md:pt-4" style={{ borderColor: GARIS_NAVY }}>
-            <summary className="m3-state -mx-3 inline-flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-md px-3 text-[14px] font-bold text-[var(--hz-sorot,var(--hz-emas))] [--m3-state-color:var(--hz-emas)] [&::-webkit-details-marker]:hidden">
-              {t.horizon.scheduleNote}
-              <CaretDown size={16} weight="bold" aria-hidden className="transition-transform group-open:rotate-180" />
-            </summary>
-            {/* Jadwal lengkap memakai warna halaman terang (AgendaPills), jadi diberi kartu krem. */}
-            <div className="mt-4 rounded-[20px] p-4 text-[#101E38] sm:p-6" style={{ backgroundColor: KREM }}>
-              {jadwalLengkap}
-            </div>
-          </details>
         ) : null}
       </div>
     </section>
