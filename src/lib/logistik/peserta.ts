@@ -91,7 +91,7 @@ export async function loadMemberLogistics(
 
 /**
  * Detail bus yang memang dinaiki peserta ini (bus bawaan dan bus per agenda
- * dari member_logistics), dicari dengan kode bus yang unik per acara. Galat
+ * dari member_logistics), dicocokkan persis dengan kode bus yang unik per acara. Galat
  * menjadi daftar kosong: kartu Bus tetap tampil dengan nama busnya saja.
  */
 async function loadBusDetails(
@@ -107,9 +107,12 @@ async function loadBusDetails(
       .from("transport_vehicles")
       .select("code,plate_number,crew_contact")
       .eq("event_id", eventId)
-      .in("code", kode);
+      .limit(1000);
     if (error || !Array.isArray(data)) return [];
+    // Disaring di sini, bukan dengan .in("code", ...): kode bus teks bebas
+    // panitia, dan tanda kutip atau koma di dalamnya merusak filter PostgREST.
     return (data as Array<{ code: string; plate_number: string | null; crew_contact: string | null }>)
+      .filter((baris) => kode.includes(baris.code))
       .map((baris) => ({
         code: baris.code,
         plate: tampil.plate ? baris.plate_number?.trim() || null : null,

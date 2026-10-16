@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowCounterClockwise, Bus as IkonBus, CalendarDots, Eye, SignOut, Warning } from "@phosphor-icons/react";
+import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   Banner, Button, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, Pane, PaneBody, PaneFooter,
@@ -86,7 +87,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
           {atas}
           {/* Sama dengan Room rules di tab Rooms: disetel sekali, cukup terlihat. */}
           <Button variant="text" size="sm" className="ml-auto" icon={<Eye size={16} />} onClick={() => setTampilan(true)}>
-            {tampil.plate && tampil.crew ? "Participants see plate and crew" : tampil.plate ? "Participants see plate" : tampil.crew ? "Participants see crew" : "Participants see bus name only"}
+            {!tampil.logistics ? "Participants don't see buses yet" : tampil.plate && tampil.crew ? "Participants see plate and crew" : tampil.plate ? "Participants see plate" : tampil.crew ? "Participants see crew" : "Participants see bus name only"}
           </Button>
         </PaneHeader>
       ) : null}
@@ -170,7 +171,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
         {bus.crew_contact ? (
           <DetailSection title="Crew">
             <p className="whitespace-pre-line text-body-medium text-on-surface">{bus.crew_contact}</p>
-            <p className="text-body-small text-on-surface-variant">{tampil.crew ? "Shown to this bus's passengers in their Participant area." : "Not shown to participants."}</p>
+            <p className="text-body-small text-on-surface-variant">{!tampil.crew ? "Not shown to participants." : tampil.logistics ? "Shown to this bus's passengers in their Participant area." : "Not shown yet: Room and bus is off in the Participant area."}</p>
           </DetailSection>
         ) : null}
         <DetailSection title="Default passengers">
@@ -235,6 +236,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
         onClose={() => setTampilan(false)}
         busy={busy}
         awal={tampil}
+        logistik={tampil.logistics}
         simpan={async (nilai) => Boolean(await kirim("/api/admin/area-peserta", "PATCH", { member: { show_bus_plate: nilai.plate, show_bus_crew: nilai.crew } }))}
       />
 
@@ -628,8 +630,10 @@ function FormAgenda({ agenda, busy, zone, onClose, simpan }: {
  * nama bus selalu, plat nomor dan kontak kru hanya bila dinyalakan. Disimpan
  * di `landing_config.member` lewat Area peserta, tempat sakelar portal lainnya.
  */
-function DialogTampilan({ open, onClose, busy, awal, simpan }: {
+function DialogTampilan({ open, onClose, busy, awal, logistik, simpan }: {
   open: boolean;
+  /** "Room and bus" di Participant area; mati = kartu Bus tidak tampil ke peserta sama sekali. */
+  logistik: boolean;
   onClose: () => void;
   busy: boolean;
   awal: { plate: boolean; crew: boolean };
@@ -653,6 +657,12 @@ function DialogTampilan({ open, onClose, busy, awal, simpan }: {
       }
     >
       <div className="flex flex-col gap-4">
+        {!logistik ? (
+          <p className="rounded-sm bg-surface-container-low px-3 py-2 text-body-small text-on-surface-variant">
+            Participants don&apos;t see their bus yet, because Room and bus is off. Turn it on in{" "}
+            <Link href="/admin/area-peserta" className="rounded-sm font-medium text-primary hover:underline">Participant area</Link>.
+          </p>
+        ) : null}
         <Switch
           checked={nilai.plate}
           onChange={(plate) => setDraf({ ...nilai, plate })}

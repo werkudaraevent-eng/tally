@@ -850,7 +850,9 @@ export async function DashboardGathering({
           <PerjalananBusHorizon
             baris={perjalananBusHorizon.map((trip, index) => {
               // Bus lain dari bus utama: plat ditulis bersama namanya, kru di bawahnya.
-              const lain = trip.bus && (trip.differs_from_default || !busUtama) ? trip.bus : null;
+              // Bus yang sama dengan "Bus utama" tidak diulang (juga bila peserta
+              // tanpa bus bawaan, saat bus utama diambil dari agenda berikutnya).
+              const lain = trip.bus && trip.bus !== busUtama ? trip.bus : null;
               const detail = lain ? detailBus.get(lain) : undefined;
               return {
               kunci: `${index}-${trip.name}`,

@@ -74,6 +74,7 @@ export async function GET(request: Request) {
       .map(([kunci, jumlah]) => ({ key: kunci, label: kunci, source: "data" as const, filled: jumlah })),
   ];
 
+  const anggota = (auth.scope.event.landing_config as EventLandingConfig | null)?.member;
   const body: LogistikData = {
     settings: setelan,
     fields,
@@ -105,8 +106,9 @@ export async function GET(request: Request) {
     trains: kereta ?? [],
     trains_ready: kereta !== null,
     bus_shown: {
-      plate: (auth.scope.event.landing_config as EventLandingConfig | null)?.member?.show_bus_plate === true,
-      crew: (auth.scope.event.landing_config as EventLandingConfig | null)?.member?.show_bus_crew === true,
+      plate: anggota?.show_bus_plate === true,
+      crew: anggota?.show_bus_crew === true,
+      logistics: anggota?.show_logistics === true,
     },
   };
   return Response.json(body);
