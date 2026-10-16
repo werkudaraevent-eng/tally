@@ -9,17 +9,18 @@
  */
 export type NomorKru = { tel: string; wa: string };
 
-// Awalan, lalu 8 dan sisa nomor dalam kelompok yang dipisah satu spasi, titik,
-// atau tanda hubung (tidak menyeberang baris). Tidak boleh menempel ke angka lain.
-const PONSEL = /(?<![\d+])(?:(?:\+|00)?62[ \t.-]?(?:\(0\)[ \t]?|0)?|0)8\d{1,3}(?:[ \t.-]?\d{2,5}){1,3}(?!\d)/;
+// Awalan, lalu 8 dan sisa nomor dalam kelompok minimal 3 digit yang dipisah
+// satu spasi, titik, atau tanda hubung (tidak menyeberang baris). Kelompok
+// 2 digit sesudahnya (tanggal, "24 jam") tidak ikut. Tidak boleh menempel ke angka lain.
+const PONSEL = /(?<![\d+])(?:(?:\+|00)?62[ \t.-]?(?:\(0\)[ \t]?|0)?|0)8\d{1,3}(?:[ \t.-]?\d{3,5}){1,3}(?!\d)/;
 
 export function nomorKru(teks: string | null | undefined): NomorKru | null {
   const cocok = (teks ?? "").match(PONSEL);
   if (!cocok) return null;
   let angka = cocok[0].replace(/\D/g, "");
   if (angka.startsWith("00")) angka = angka.slice(2);
-  // Nomor nasional tanpa 0 dan tanpa 62: 8xx..., 9 sampai 12 digit.
+  // Nomor nasional tanpa 0 dan tanpa 62: 8xx..., 10 sampai 12 digit.
   const nasional = angka.startsWith("62") ? angka.slice(2).replace(/^0/, "") : angka.slice(1);
-  if (!nasional.startsWith("8") || nasional.length < 9 || nasional.length > 12) return null;
+  if (!nasional.startsWith("8") || nasional.length < 10 || nasional.length > 12) return null;
   return { tel: `+62${nasional}`, wa: `https://wa.me/62${nasional}` };
 }

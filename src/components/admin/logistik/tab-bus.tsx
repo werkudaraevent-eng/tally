@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowCounterClockwise, Bus as IkonBus, CalendarDots, Eye, SignOut, Warning } from "@phosphor-icons/react";
-import Link from "next/link";
+import Link from "@/components/event-link";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   Banner, Button, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, Pane, PaneBody, PaneFooter,

@@ -19,6 +19,11 @@ assert.deepEqual(nomorKru("Bus 3 - 0811 2836 676"), hadi);
 assert.deepEqual(nomorKru("Hadi 0811 2836 676 (2 orang)"), hadi);
 assert.deepEqual(nomorKru("Hadi 0811 2836 676 - 24 jam"), hadi);
 assert.deepEqual(nomorKru("Siaga 16-10-2026, Hadi 0811 2836 676"), hadi);
+assert.deepEqual(nomorKru("08112836676 16-10-2026"), hadi);
+assert.deepEqual(nomorKru("0811 2836 676 16/10"), hadi);
+assert.deepEqual(nomorKru("Hadi 0811 2836 676 24 jam"), hadi);
+assert.deepEqual(nomorKru("Hadi 0811 2836 676 24jam"), hadi);
+assert.deepEqual(nomorKru("0811-2836-676-12"), hadi);
 
 // Tanpa awalan Indonesia yang jelas: tanpa tombol (QA #192 L1).
 assert.equal(nomorKru("812-3456-7890"), null);
