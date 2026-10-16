@@ -17,7 +17,9 @@ import {
   Phone,
   PushPin,
   SignOut,
+  Suitcase,
   Ticket,
+  Train,
   User,
   Users,
   X,
@@ -62,12 +64,15 @@ import { kontras } from "@/lib/landing-hitung-mundur";
 import { HORIZON_GOLD_DEFAULT } from "@/lib/landing-tokens";
 import { gayaHorizon } from "@/components/landing/modern/horizon";
 import {
+  BarisTautanHorizon,
   HariJadwalHorizon,
   BantuanPonselHorizon,
+  KartuInfoHorizon,
   KepalaHorizon,
   LATAR_PORTAL_HORIZON,
   NavBawahHorizon,
   PassHorizon,
+  PerjalananBusHorizon,
   PitaKepalaHorizon,
   QrHorizon,
   SapaanHorizon,
@@ -96,7 +101,8 @@ import { jamLeg, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
  * Acara Modern non-gathering tetap memakai DashboardModern.
  */
 
-export type PortalTab = "beranda" | "jadwal" | "info" | "profil" | "qr";
+/** `perjalanan` hanya untuk Gathering Horizon; preset lain membukanya sebagai Beranda. */
+export type PortalTab = "beranda" | "jadwal" | "perjalanan" | "info" | "profil" | "qr";
 
 const KARTU = "rounded-[20px] bg-white p-5 shadow-[0_1px_2px_rgb(16_24_40/0.06)] sm:p-6";
 const MUTED = "text-[#5F6B7F]";
@@ -149,7 +155,7 @@ export async function DashboardGathering({
   sesi,
   pengumuman,
   konfirmasi,
-  tab,
+  tab: tabDiminta,
   hari,
   dari = null,
   pratinjau = false,
@@ -164,7 +170,7 @@ export async function DashboardGathering({
   /** Hari yang dipilih di tab Jadwal (1, 2, ...). */
   hari: number | null;
   /** Tab asal QR layar penuh (`?dari=`): tombol tutup dan Escape kembali ke sana. */
-  dari?: "jadwal" | "info" | "profil" | null;
+  dari?: "jadwal" | "perjalanan" | "info" | "profil" | null;
   /** Pratinjau di Participant area: tiap isi Beranda diberi penanda untuk digulir ke sana. */
   pratinjau?: boolean;
 }) {
@@ -176,6 +182,9 @@ export async function DashboardGathering({
   const dasar = `${halamanAcara}/peserta`;
   const keTab = (tujuan: PortalTab, ekstra: Record<string, string> = {}) => (tujuan === "beranda" ? withQuery(dasar, ekstra) : withQuery(dasar, { tab: tujuan, ...ekstra }));
   const lainnya: LandingLang = lang === "en" ? "id" : "en";
+  // Gathering Horizon (rancangan V5): halaman per topik, termasuk Perjalanan.
+  const horizon = config.gathering_variant === "horizon";
+  const tab: PortalTab = !horizon && tabDiminta === "perjalanan" ? "beranda" : tabDiminta;
 
   const zona = normalizeTimeZone(event.time_zone);
   const singkatanZona = timeZoneAbbr(zona);
@@ -306,13 +315,11 @@ export async function DashboardGathering({
     backgroundColor: PANEL,
   } as CSSProperties;
   // Gathering Horizon (rancangan V5): navy dan emas dari Tema, latar krem.
-  const horizon = config.gathering_variant === "horizon";
   if (horizon) {
     const emas = [config.button_color, tokensTema.accent].find((warna) => /^#[0-9a-f]{6}$/i.test(warna ?? "")) ?? HORIZON_GOLD_DEFAULT;
     Object.assign(gaya, gayaHorizon(tokensTema.brand, emas, kontras(emas, "#101E38") >= 4.5 ? "#101E38" : "#ffffff"), { backgroundColor: LATAR_PORTAL_HORIZON });
   }
   const tH = t.horizon;
-  const tabsHorizon: TabHorizon[] = (["beranda", "jadwal", "info", "profil"] as const).map((id) => ({ id, label: tH.tabs[id], labelPendek: tH.tabsShort[id], href: keTab(id) }));
   const infoBaru = pengumuman.items.some((item) => isUnread(item, pengumuman.seenAt));
 
   const tautanCepat = [
@@ -434,6 +441,10 @@ export async function DashboardGathering({
   const namaBus = perjalananBus?.bus ?? logistik?.transport?.default_bus ?? null;
   const kamar = logistik?.lodging ?? null;
   const teman = kamar?.roommates ?? null;
+  // Horizon: halaman Perjalanan (dan menunya) hanya ada bila panitia membagikan
+  // hotel, bus, atau tiket kereta peserta ini.
+  const perjalananBusHorizon = (logistik?.transport?.trips ?? []).filter((trip) => trip.bus);
+  const adaPerjalanan = horizon && Boolean(kamar || namaBus || perjalananBusHorizon.length > 0 || (logistik?.trains.length ?? 0) > 0);
 
   const kartuBus = namaBus ? (
     <KartuAngka id="bus" Ikon={Bus} ikonWarna="brand" label={t.yourBus} angka={namaBus} catatan={perjalananBus?.meeting_point ? t.meetAt(perjalananBus.meeting_point) : null} />
@@ -471,6 +482,21 @@ export async function DashboardGathering({
         </ul>
       </section>
     ) : null;
+
+  // Tiket kereta Horizon: kartu di halaman Perjalanan, baris ringkas di Beranda.
+  const legKereta: LegKereta[] = (logistik?.trains ?? []).map((tiket) => {
+    const rute = ruteLeg(tiket);
+    return {
+      kunci: tiket.direction,
+      arah: [tiket.direction === "outbound" ? tH.train.outbound : tH.train.return, tanggalLeg(tiket.depart_date, lang)].filter(Boolean).join(" • "),
+      judul: rute ?? tiket.train_name,
+      baris: [rute ? tiket.train_name : null, tiket.travel_class].filter(Boolean).join(" • ") || null,
+      jam: jamLeg(tiket, lang),
+      gerbong: tiket.carriage,
+      kursi: tiket.seat,
+      kode: tiket.booking_code,
+    };
+  });
 
   const kartuCheckpoint = () => (checkpoint ? <KartuCheckpoint data={checkpoint} lang={lang} zona={zona} gaya="gathering" qrHref={tampilKode ? keTab("qr") : null} /> : null);
 
@@ -735,6 +761,74 @@ export async function DashboardGathering({
           </div>
         </div>
       );
+  } else if (tabAktif === "perjalanan") {
+    // Hanya Horizon (preset lain sudah dialihkan ke Beranda di atas).
+    const tv = tH.travel;
+    judulHorizon = { alis: nama, judul: tH.tabs.perjalanan, catatan: tv.note };
+    const hotel = kamar?.hotel ?? null;
+    const peta = hotel
+      ? hotel.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([hotel.name, hotel.address].filter(Boolean).join(", "))}`
+      : null;
+    const kartuHotel = kamar ? (
+      <KartuInfoHorizon
+        judul={tv.hotelTitle}
+        Ikon={Bed}
+        nama={hotel?.name?.trim() || null}
+        alamat={hotel?.address?.trim() || null}
+        tautan={peta ? { href: peta, label: tv.openMap } : null}
+        kolom={4}
+        fakta={[
+          { label: tH.room, nilai: kamar.room_number, besar: true },
+          ...(teman && teman.length > 0 ? [{ label: tH.roommate(teman.length), nilai: teman.map((orang) => orang.name).join(", ") }] : []),
+          ...(kamar.floor ? [{ label: tv.floor, nilai: kamar.floor }] : []),
+          ...(kamar.room_type ? [{ label: tv.roomType, nilai: kamar.room_type }] : []),
+          // Tanggal sebagai nilai, jam di bawahnya: kolom ponsel sempit tidak memotong "Kam, 5 Nov • 14.00".
+          ...(kamar.check_in_at ? [{ label: tv.checkIn, nilai: hariHorizon(kamar.check_in_at, zona, lang), catatan: jamHorizon(kamar.check_in_at, zona, lang) }] : []),
+          ...(kamar.check_out_at ? [{ label: tv.checkOut, nilai: hariHorizon(kamar.check_out_at, zona, lang), catatan: jamHorizon(kamar.check_out_at, zona, lang) }] : []),
+        ]}
+      />
+    ) : null;
+    const busUtama = logistik?.transport?.default_bus ?? namaBus;
+    const kartuBusHorizon =
+      busUtama || perjalananBusHorizon.length > 0 ? (
+        <KartuInfoHorizon
+          judul={tv.busTitle}
+          Ikon={Bus}
+          kolom={3}
+          fakta={busUtama ? [{ label: tH.bus, nilai: busUtama, besar: true }] : []}
+        >
+          <PerjalananBusHorizon
+            baris={perjalananBusHorizon.map((trip, index) => ({
+              kunci: `${index}-${trip.name}`,
+              judul: trip.name,
+              jam: trip.depart_at ? hariJamHorizon(trip.depart_at, zona, lang) : null,
+              detail: [
+                [trip.origin?.trim(), trip.destination?.trim()].filter(Boolean).join(" → "),
+                trip.meeting_point?.trim() ? `${tv.meetingPoint}: ${trip.meeting_point.trim()}` : "",
+                // Nama bus dari Logistics sudah berbunyi "Bus 5"; hanya ditulis bila berbeda dari bus utama.
+                trip.bus && (trip.differs_from_default || !busUtama) ? trip.bus : "",
+              ].filter(Boolean),
+            }))}
+          />
+        </KartuInfoHorizon>
+      ) : null;
+    const kartuKeretaHorizon =
+      legKereta.length > 0 ? <TiketKeretaHorizon judul={tH.train.title} label={{ gerbong: tH.train.carriage, kursi: tH.train.seat, kode: tH.train.booking }} leg={legKereta} /> : null;
+    isi = !adaPerjalanan ? (
+      <p className={`${KARTU} max-w-[720px] text-body-large ${MUTED}`}>{tv.empty}</p>
+    ) : (
+      <div className="flex flex-col gap-4 md:gap-6">
+        {kartuHotel && kartuBusHorizon ? (
+          <div className="flex flex-col gap-4 md:gap-6 xl:grid xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start">
+            {kartuHotel}
+            {kartuBusHorizon}
+          </div>
+        ) : (
+          (kartuHotel ?? kartuBusHorizon)
+        )}
+        {kartuKeretaHorizon}
+      </div>
+    );
   } else if (tabAktif === "info") {
     kepala = <JudulKepala judul={t.info} catatan={t.infoNote} />;
     judulHorizon = { alis: nama, judul: t.info, catatan: t.infoNote };
@@ -791,8 +885,15 @@ export async function DashboardGathering({
     );
     const baris: { href: string; judul: string; isi: string | null; Ikon: typeof House; luar?: boolean; pemicuQr?: string }[] = [
       ...(tampilKode && peserta ? [{ href: keTab("qr"), judul: t.ticket, isi: peserta.qr_code, Ikon: Ticket, pemicuQr: "pemicu-qr-profil" }] : []),
-      ...(kamar ? [{ href: `${keTab("beranda")}#kamar`, judul: t.roomRow, isi: [kamar.room_number, teman?.map((o) => o.name).join(", ")].filter(Boolean).join(" · "), Ikon: Bed }] : []),
-      ...(namaBus ? [{ href: `${keTab("beranda")}#bus`, judul: t.busRow, isi: [namaBus, perjalananBus?.meeting_point].filter(Boolean).join(" · "), Ikon: Bus }] : []),
+      // Horizon: kamar, bus, dan kereta punya halaman Perjalanan sendiri; di ponsel halaman ini adalah Menu.
+      ...(horizon
+        ? adaPerjalanan
+          ? [{ href: keTab("perjalanan"), judul: tH.tabs.perjalanan, isi: tH.travel.menuRow, Ikon: Suitcase }]
+          : []
+        : [
+            ...(kamar ? [{ href: `${keTab("beranda")}#kamar`, judul: t.roomRow, isi: [kamar.room_number, teman?.map((o) => o.name).join(", ")].filter(Boolean).join(" · "), Ikon: Bed }] : []),
+            ...(namaBus ? [{ href: `${keTab("beranda")}#bus`, judul: t.busRow, isi: [namaBus, perjalananBus?.meeting_point].filter(Boolean).join(" · "), Ikon: Bus }] : []),
+          ]),
       ...(telepon ? [{ href: `tel:${telepon.replace(/[^\d+]/g, "")}`, judul: t.contactRow, isi: [config.contact_name?.trim(), telepon].filter(Boolean).join(" · "), Ikon: Phone, luar: true }] : []),
       ...(landingEnAvailable(config) ? [{ href: `${landingPath(event.slug, lainnya, utama)}/peserta?tab=profil`, judul: t.languageRow, isi: null, Ikon: Globe }] : []),
       { href: halamanAcara, judul: t.eventPageRow, isi: nama, Ikon: CalendarBlank },
@@ -832,6 +933,11 @@ export async function DashboardGathering({
   }
 
   if (horizon) {
+    const tabHorizon = (id: TabHorizon["id"]): TabHorizon => ({ id, label: tH.tabs[id], labelPendek: tH.tabsShort[id], href: keTab(id) });
+    // Desktop: semua halaman di bilah atas (Profil lewat inisial). Ponsel: lima
+    // tujuan (Beranda, Jadwal, QR, Pengumuman, Menu); Perjalanan dibuka dari Menu.
+    const tabsHorizon = (["beranda", "jadwal", ...(adaPerjalanan ? (["perjalanan"] as const) : []), "info", "profil"] as const).map(tabHorizon);
+    const tabsBawahHorizon = (["beranda", "jadwal", "info", "profil"] as const).map(tabHorizon);
     let badan: ReactNode;
     if (tabAktif === "beranda") {
       const namaDepan = sesi.name.trim().split(/\s+/)[0] || sesi.name;
@@ -844,19 +950,11 @@ export async function DashboardGathering({
         ...(tampilLogistik && kamar ? [{ label: tH.room, nilai: kamar.room_number, ponsel: true, pendek: true }] : []),
         ...(tampilTeman ? [{ label: tH.roommate(teman.length), nilai: teman.map((orang) => orang.name).join(", "), ponsel: false }] : []),
       ];
-      const legKereta: LegKereta[] = (logistik?.trains ?? []).map((tiket) => {
-        const rute = ruteLeg(tiket);
-        return {
-          kunci: tiket.direction,
-          arah: [tiket.direction === "outbound" ? tH.train.outbound : tH.train.return, tanggalLeg(tiket.depart_date, lang)].filter(Boolean).join(" • "),
-          judul: rute ?? tiket.train_name,
-          baris: [rute ? tiket.train_name : null, tiket.travel_class].filter(Boolean).join(" • ") || null,
-          jam: jamLeg(tiket, lang),
-          gerbong: tiket.carriage,
-          kursi: tiket.seat,
-          kode: tiket.booking_code,
-        };
-      });
+      // Tiket kereta: satu baris (perjalanan berikutnya) menuju halaman Perjalanan.
+      const tiketBeranda = (() => {
+        const tiket = logistik?.trains ?? [];
+        return tiket.find((leg) => leg.depart_date && leg.depart_date >= kini.tanggal) ?? tiket.at(-1) ?? null;
+      })();
       // Label hari agenda berikutnya: hari ini, besok, atau "Hari pertama".
       const hariSelanjutnya = selanjutnya ? agenda.findIndex((bagian) => bagian.items.some((butir) => butir.id === selanjutnya.item.id)) : -1;
       const labelHari = !selanjutnya
@@ -920,9 +1018,15 @@ export async function DashboardGathering({
                       }
                     />
                   </div>
-                  {tampilLogistik && legKereta.length > 0 ? (
+                  {tampilLogistik && tiketBeranda ? (
                     <div className="order-[30] lg:order-none lg:col-start-1">
-                      <TiketKeretaHorizon judul={tH.train.title} label={{ gerbong: tH.train.carriage, kursi: tH.train.seat, kode: tH.train.booking }} leg={legKereta} />
+                      <BarisTautanHorizon
+                        href={keTab("perjalanan")}
+                        Ikon={Train}
+                        alis={[tH.travel.trainRow, tanggalLeg(tiketBeranda.depart_date, lang)].filter(Boolean).join(" • ")}
+                        judul={ruteLeg(tiketBeranda) ?? tiketBeranda.train_name}
+                        catatan={[jamLeg(tiketBeranda, lang), tH.travel.seatLine(tiketBeranda.carriage, tiketBeranda.seat)].filter(Boolean).join(" • ") || null}
+                      />
                     </div>
                   ) : null}
                 </BagianBeranda>
@@ -983,7 +1087,14 @@ export async function DashboardGathering({
       badan = (
         <>
           {judulHorizon ? (
-            <SapaanHorizon alis={judulHorizon.alis} judul={judulHorizon.judul} judulPonsel={judulHorizon.judul} catatan={judulHorizon.catatan} catatanPonsel />
+            <SapaanHorizon
+              alis={judulHorizon.alis}
+              judul={judulHorizon.judul}
+              judulPonsel={judulHorizon.judul}
+              catatan={judulHorizon.catatan}
+              catatanPonsel
+              kembali={tabAktif === "perjalanan" ? { href: keTab("profil"), label: tH.travel.backToMenu } : null}
+            />
           ) : (
             <PitaKepalaHorizon>{kepala}</PitaKepalaHorizon>
           )}
@@ -1006,7 +1117,7 @@ export async function DashboardGathering({
           tabsAria={t.tabsAria}
         />
         {badan}
-        <NavBawahHorizon tabs={tabsHorizon} aktif={tabAktif} tabsAria={t.tabsAria} infoBaru={infoBaru} qr={
+        <NavBawahHorizon tabs={tabsBawahHorizon} aktif={tabAktif === "perjalanan" ? "profil" : tabAktif} tabsAria={t.tabsAria} infoBaru={infoBaru} qr={
             tampilKode && peserta
               ? {
                   href: tabAktif === "beranda" ? keTab("qr") : keTab("qr", { dari: tabAktif, ...(tabAktif === "jadwal" && hari ? { hari: String(hari) } : {}) }),
@@ -1099,6 +1210,21 @@ export async function DashboardGathering({
       </nav>
     </main>
   );
+}
+
+/** "Kam, 5 Nov" (id) atau "Thu, 5 Nov" (en), dalam zona acara. */
+function hariHorizon(iso: string, zona: EventTimeZone, lang: LandingLang): string {
+  return new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "id-ID", { timeZone: zona, weekday: "short", day: "numeric", month: "short" }).format(new Date(iso)).replace(/\.(?=\s|$)/g, "");
+}
+
+/** "14.00" (id) atau "14:00" (en), dalam zona acara. */
+function jamHorizon(iso: string, zona: EventTimeZone, lang: LandingLang): string {
+  return new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "id-ID", { timeZone: zona, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
+}
+
+/** "Kam, 5 Nov • 14.00" (id) atau "Thu, 5 Nov • 14:00" (en). */
+function hariJamHorizon(iso: string, zona: EventTimeZone, lang: LandingLang): string {
+  return `${hariHorizon(iso, zona, lang)} • ${jamHorizon(iso, zona, lang)}`;
 }
 
 /** "6 November" untuk label bab Horizon. */

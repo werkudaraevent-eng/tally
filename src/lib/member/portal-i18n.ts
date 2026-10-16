@@ -54,8 +54,28 @@ export type PortalUiText = {
   qrBrightness: string;
   /** Gathering Horizon (rancangan V5, frame f13sV, pgOAT, eY05h). */
   horizon: {
-    tabs: { beranda: string; jadwal: string; info: string; profil: string };
-    tabsShort: { beranda: string; jadwal: string; info: string; profil: string };
+    tabs: { beranda: string; jadwal: string; perjalanan: string; info: string; profil: string };
+    /** Ponsel: Profil menjadi "Menu" (Perjalanan, kontak, bahasa, keluar). */
+    tabsShort: { beranda: string; jadwal: string; perjalanan: string; info: string; profil: string };
+    /** Halaman Perjalanan: hotel dan kamar, bus, tiket kereta. */
+    travel: {
+      note: string;
+      empty: string;
+      backToMenu: string;
+      menuRow: string;
+      hotelTitle: string;
+      openMap: string;
+      floor: string;
+      roomType: string;
+      checkIn: string;
+      checkOut: string;
+      busTitle: string;
+      meetingPoint: string;
+      route: string;
+      /** Baris tiket kereta di Beranda: "Kereta • Kam, 5 Nov". */
+      trainRow: string;
+      seatLine: (gerbong: string | null, kursi: string | null) => string | null;
+    };
     welcome: string;
     heading: (namaDepan: string) => string;
     headingMobile: (namaDepan: string) => string;
@@ -130,8 +150,25 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
     qrShowNote: "untuk absen kehadiran dan check-in",
     qrBrightness: "Naikkan kecerahan layar supaya mudah dipindai.",
     horizon: {
-      tabs: { beranda: "Perjalanan saya", jadwal: "Jadwal", info: "Info panitia", profil: "Profil" },
-      tabsShort: { beranda: "Perjalanan", jadwal: "Jadwal", info: "Info", profil: "Profil" },
+      tabs: { beranda: "Beranda", jadwal: "Jadwal", perjalanan: "Perjalanan", info: "Pengumuman", profil: "Profil" },
+      tabsShort: { beranda: "Beranda", jadwal: "Jadwal", perjalanan: "Perjalanan", info: "Pengumuman", profil: "Menu" },
+      travel: {
+        note: "Hotel, kamar, bus, dan kereta kamu.",
+        empty: "Info perjalanan belum dibagikan panitia.",
+        backToMenu: "Menu",
+        menuRow: "Hotel, kamar, bus, kereta",
+        hotelTitle: "Hotel & kamar",
+        openMap: "Buka di Google Maps",
+        floor: "Lantai",
+        roomType: "Tipe kamar",
+        checkIn: "Check-in",
+        checkOut: "Check-out",
+        busTitle: "Bus",
+        meetingPoint: "Titik kumpul",
+        route: "Rute",
+        trainRow: "Kereta",
+        seatLine: (gerbong, kursi) => [gerbong ? `Gerbong ${gerbong}` : null, kursi ? `kursi ${kursi}` : null].filter(Boolean).join(", ") || null,
+      },
       welcome: "Perjalananmu dimulai di sini",
       heading: (nama) => `${nama}, siap bikin cerita baru?`,
       headingMobile: (nama) => `${nama},\nini perjalananmu.`,
@@ -206,8 +243,25 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
     qrShowNote: "for attendance and check-in",
     qrBrightness: "Turn up your screen brightness so it scans easily.",
     horizon: {
-      tabs: { beranda: "My trip", jadwal: "Schedule", info: "Updates", profil: "Profile" },
-      tabsShort: { beranda: "Trip", jadwal: "Schedule", info: "Info", profil: "Profile" },
+      tabs: { beranda: "Home", jadwal: "Schedule", perjalanan: "Travel", info: "Updates", profil: "Profile" },
+      tabsShort: { beranda: "Home", jadwal: "Schedule", perjalanan: "Travel", info: "Updates", profil: "Menu" },
+      travel: {
+        note: "Your hotel, room, bus, and train.",
+        empty: "The organisers haven't shared travel details yet.",
+        backToMenu: "Menu",
+        menuRow: "Hotel, room, bus, train",
+        hotelTitle: "Hotel & room",
+        openMap: "Open in Google Maps",
+        floor: "Floor",
+        roomType: "Room type",
+        checkIn: "Check-in",
+        checkOut: "Check-out",
+        busTitle: "Bus",
+        meetingPoint: "Meeting point",
+        route: "Route",
+        trainRow: "Train",
+        seatLine: (gerbong, kursi) => [gerbong ? `Carriage ${gerbong}` : null, kursi ? `seat ${kursi}` : null].filter(Boolean).join(", ") || null,
+      },
       welcome: "Your journey starts here",
       heading: (nama) => `${nama}, ready for a new story?`,
       headingMobile: (nama) => `${nama},\nthis is your trip.`,
