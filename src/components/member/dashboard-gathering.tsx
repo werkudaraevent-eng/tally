@@ -43,7 +43,7 @@ import { inisialNama, muatNavPeserta, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { nomorKru } from "@/lib/logistik/kontak-kru";
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
-import { KartuKereta } from "@/components/member/kartu-logistik";
+import { KartuKereta, KontakKru } from "@/components/member/kartu-logistik";
 import { KartuCheckpoint } from "@/components/member/kartu-checkpoint";
 import { KartuCheckpointHorizon } from "@/components/member/kartu-checkpoint-horizon";
 import { loadCheckpointPeserta } from "@/lib/checkpoint/server";
@@ -463,8 +463,27 @@ export async function DashboardGathering({
   const perjalananBusHorizon = (logistik?.transport?.trips ?? []).filter((trip) => trip.bus);
   const adaPerjalanan = horizon && Boolean(kamar || namaBus || perjalananBusHorizon.length > 0 || (logistik?.trains.length ?? 0) > 0);
 
+  // Plat dan kru bus yang ditampilkan kartu (bila panitia menyalakannya di Logistics > Buses).
+  const detailNamaBus = namaBus ? logistik?.buses.find((bus) => bus.code === namaBus) : undefined;
   const kartuBus = namaBus ? (
-    <KartuAngka id="bus" Ikon={Bus} ikonWarna="brand" label={t.yourBus} angka={namaBus} catatan={perjalananBus?.meeting_point ? t.meetAt(perjalananBus.meeting_point) : null} />
+    <KartuAngka
+      id="bus"
+      Ikon={Bus}
+      ikonWarna="brand"
+      label={t.yourBus}
+      angka={namaBus}
+      catatan={[detailNamaBus?.plate ? `${tH.travel.plate}: ${detailNamaBus.plate}` : null, perjalananBus?.meeting_point ? t.meetAt(perjalananBus.meeting_point) : null].filter(Boolean).join(" · ") || null}
+    >
+      {detailNamaBus?.crew ? (
+        <div className="mt-3 flex flex-col gap-1">
+          <KontakKru
+            teks={detailNamaBus.crew}
+            awalan={`${tH.travel.crew}: `}
+            aksi={{ call: tH.travel.call, whatsapp: tH.travel.whatsapp, callAria: tH.travel.contactLabel(tH.travel.call, namaBus), whatsappAria: tH.travel.contactLabel(tH.travel.whatsapp, namaBus) }}
+          />
+        </div>
+      ) : null}
+    </KartuAngka>
   ) : null;
   const kartuKamar = kamar ? (
     <KartuAngka
@@ -1369,6 +1388,7 @@ function KartuAngka({
   label,
   angka,
   catatan,
+  children,
 }: {
   id: string;
   Ikon: typeof House;
@@ -1376,6 +1396,7 @@ function KartuAngka({
   label: string;
   angka: string;
   catatan: string | null;
+  children?: ReactNode;
 }) {
   return (
     <section id={id} className={`${KARTU} scroll-mt-6`}>
@@ -1390,6 +1411,7 @@ function KartuAngka({
       <h2 className={`mt-3 text-body-medium ${MUTED}`}>{label}</h2>
       <p className={`${HEAD} mt-1 break-words text-[28px] font-extrabold leading-tight lg:text-[32px]`}>{angka}</p>
       {catatan ? <p className={`mt-1 text-body-medium ${MUTED}`}>{catatan}</p> : null}
+      {children}
     </section>
   );
 }
