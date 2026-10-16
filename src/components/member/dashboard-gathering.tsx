@@ -472,11 +472,13 @@ export async function DashboardGathering({
       ikonWarna="brand"
       label={t.yourBus}
       angka={namaBus}
-      catatan={[detailNamaBus?.plate ? `${tH.travel.plate}: ${detailNamaBus.plate}` : null, perjalananBus?.meeting_point ? t.meetAt(perjalananBus.meeting_point) : null].filter(Boolean).join(" · ") || null}
+      catatan={perjalananBus?.meeting_point ? t.meetAt(perjalananBus.meeting_point) : null}
     >
+      {detailNamaBus?.plate ? <p className={`mt-1 text-body-medium ${MUTED}`}>{`${tH.travel.plate}: ${detailNamaBus.plate}`}</p> : null}
       {detailNamaBus?.crew ? (
         <div className="mt-3 flex flex-col gap-1">
           <KontakKru
+            ringkas
             teks={detailNamaBus.crew}
             awalan={`${tH.travel.crew}: `}
             aksi={{ call: tH.travel.call, whatsapp: tH.travel.whatsapp, callAria: tH.travel.contactLabel(tH.travel.call, namaBus), whatsappAria: tH.travel.contactLabel(tH.travel.whatsapp, namaBus) }}

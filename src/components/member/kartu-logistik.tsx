@@ -192,26 +192,30 @@ export function KartuBus({ logistik, zona }: { logistik: LogistikPeserta; zona: 
  * panitia apa adanya, lalu tombol Telepon dan WhatsApp setinggi 48 px untuk
  * nomor pertama di dalamnya. Dipakai kartu Bus preset Modern dan Gathering.
  */
-export function KontakKru({ teks, awalan, aksi }: {
+export function KontakKru({ teks, awalan, aksi, ringkas = false }: {
   teks: string;
   /** Mis. "Kru: " di depan teks; kosong bila judulnya sudah di atas. */
   awalan?: string;
   aksi: { call: string; whatsapp: string; callAria: string; whatsappAria: string };
+  /** Kartu sempit (petak setengah lebar di ponsel): tombol ikon bulat 48 px tanpa teks. */
+  ringkas?: boolean;
 }) {
   const nomor = nomorKru(teks);
-  const tombol = "inline-flex min-h-12 items-center gap-2 rounded-full border border-[var(--reg-outline-variant)] px-4 text-label-large font-semibold text-[var(--reg-primary)]";
+  const tombol = ringkas
+    ? "inline-flex size-12 items-center justify-center rounded-full border border-[var(--reg-outline-variant)] text-[var(--reg-primary)]"
+    : "inline-flex min-h-12 items-center gap-2 rounded-full border border-[var(--reg-outline-variant)] px-4 text-label-large font-semibold text-[var(--reg-primary)]";
   return (
     <>
       <p className={`whitespace-pre-line text-body-medium ${MUTED}`}>{awalan}{teks}</p>
       {nomor ? (
         <div className="mt-1 flex flex-wrap gap-2">
           <a href={`tel:${nomor.tel}`} aria-label={aksi.callAria} className={tombol}>
-            <Phone size={18} aria-hidden />
-            {aksi.call}
+            <Phone size={ringkas ? 20 : 18} aria-hidden />
+            {ringkas ? null : aksi.call}
           </a>
           <a href={nomor.wa} target="_blank" rel="noreferrer noopener" aria-label={aksi.whatsappAria} className={tombol}>
-            <WhatsappLogo size={18} aria-hidden />
-            {aksi.whatsapp}
+            <WhatsappLogo size={ringkas ? 20 : 18} aria-hidden />
+            {ringkas ? null : aksi.whatsapp}
           </a>
         </div>
       ) : null}
