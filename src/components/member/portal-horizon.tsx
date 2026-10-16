@@ -662,7 +662,7 @@ export function KartuInfoHorizon({
         <div className="flex flex-col gap-1.5">
           <p className="text-[22px] font-extrabold leading-[1.2] [overflow-wrap:anywhere] md:text-[28px]">{nama}</p>
           {alamat ? (
-            <p className="text-[14px] leading-5" style={{ color: REDUP }}>
+            <p className="text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
               {alamat}
             </p>
           ) : null}

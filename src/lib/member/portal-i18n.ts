@@ -71,7 +71,8 @@ export type PortalUiText = {
       checkOut: string;
       busTitle: string;
       meetingPoint: string;
-      route: string;
+      /** Label bus di kartu Bus (judul kartunya sudah "Bus"). */
+      mainBus: string;
       /** Baris tiket kereta di Beranda: "Kereta • Kam, 5 Nov". */
       trainRow: string;
       seatLine: (gerbong: string | null, kursi: string | null) => string | null;
@@ -165,7 +166,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         checkOut: "Check-out",
         busTitle: "Bus",
         meetingPoint: "Titik kumpul",
-        route: "Rute",
+        mainBus: "Bus utama",
         trainRow: "Kereta",
         seatLine: (gerbong, kursi) => [gerbong ? `Gerbong ${gerbong}` : null, kursi ? `kursi ${kursi}` : null].filter(Boolean).join(", ") || null,
       },
@@ -258,7 +259,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         checkOut: "Check-out",
         busTitle: "Bus",
         meetingPoint: "Meeting point",
-        route: "Route",
+        mainBus: "Main bus",
         trainRow: "Train",
         seatLine: (gerbong, kursi) => [gerbong ? `Carriage ${gerbong}` : null, kursi ? `seat ${kursi}` : null].filter(Boolean).join(", ") || null,
       },
