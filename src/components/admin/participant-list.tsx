@@ -352,7 +352,16 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   }, [filterAsal, filterHadir, filterRsvp, filterPerusahaan, saringan]);
 
   const urutanMuat = useRef(0);
-  const load = useCallback(async (search: string, pageIndex: number, sortKey: SortKey, sortDir: "asc" | "desc", size: number) => {
+  // Hitungan acara terakhir. Muat tanpa meta hanya membawa total yang tersaring.
+  const statsTerakhir = useRef<ParticipantStats | null>(null);
+  // `reloadKey` yang meta-nya sudah termuat. Berbeda = ada sync atau impor: muat ulang meta.
+  const metaUntuk = useRef<number | null>(null);
+  /**
+   * `denganMeta` false: hanya baris (pencarian, halaman, urutan, saringan).
+   * Hitungan acara, sesi, organisasi dan field tetap yang terakhir; semuanya
+   * tidak berubah oleh pencarian. Setelah simpan, hapus, sync atau impor, true.
+   */
+  const load = useCallback(async (search: string, pageIndex: number, sortKey: SortKey, sortDir: "asc" | "desc", size: number, denganMeta = true) => {
     const nomor = ++urutanMuat.current;
     setLoading(true); setError("");
     try {
@@ -361,20 +370,29 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       params.set("offset", String(pageIndex * size));
       params.set("sort", sortKey);
       params.set("dir", sortDir);
+      if (!denganMeta) params.set("meta", "0");
       const response = await fetch(`/api/admin/participants?${params.toString()}`, { cache: "no-store" });
       const data = await response.json();
-      if (nomor !== urutanMuat.current) return;
-      if (!response.ok) { setError(data.error?.details?.message ?? data.error?.message ?? "Couldn't load the participant list."); return; }
+      if (nomor !== urutanMuat.current) return false;
+      if (!response.ok) { setError(data.error?.details?.message ?? data.error?.message ?? "Couldn't load the participant list."); return false; }
       setParticipants(data.participants ?? []);
       setTotal(data.total ?? 0);
+      if (!denganMeta) {
+        if (statsTerakhir.current) onStats?.({ ...statsTerakhir.current, total: data.total ?? 0 });
+        return true;
+      }
       setFields((data.fields ?? []) as RegistrationField[]);
       setSessions((data.sessions ?? []) as SesiKehadiran[]);
       setCompanies((data.companies ?? []) as FacetPerusahaan[]);
       setScannerColumns(Boolean(data.scanner_columns));
       setRemovedCount(data.removed_count ?? 0);
-      onStats?.({ total: data.total ?? 0, activeTotal: data.active_total ?? data.total ?? 0, removedCount: data.removed_count ?? 0, lastSyncedAt: data.last_synced_at ?? null });
+      const stats = { total: data.total ?? 0, activeTotal: data.active_total ?? data.total ?? 0, removedCount: data.removed_count ?? 0, lastSyncedAt: data.last_synced_at ?? null };
+      statsTerakhir.current = stats;
+      onStats?.(stats);
+      return true;
     } catch {
       if (nomor === urutanMuat.current) setError("Connection lost. Try again.");
+      return false;
     } finally {
       if (nomor === urutanMuat.current) setLoading(false);
     }
@@ -398,7 +416,12 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   }, [reloadKey]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => { void load(debouncedQuery, page, sort, dir, perPage); }, 0);
+    const timer = window.setTimeout(() => {
+      const denganMeta = metaUntuk.current !== reloadKey;
+      void load(debouncedQuery, page, sort, dir, perPage, denganMeta).then((berhasil) => {
+        if (berhasil && denganMeta) metaUntuk.current = reloadKey;
+      });
+    }, 0);
     return () => window.clearTimeout(timer);
   }, [load, debouncedQuery, page, sort, dir, perPage, reloadKey]);
 
