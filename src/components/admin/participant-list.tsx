@@ -87,6 +87,8 @@ function artiMasuk(p: Participant): string {
 const RSVP_TONE: Record<string, "success" | "warning" | "error"> = { confirmed: "success", invited: "warning", declined: "error" };
 
 const PAGE_SIZE = 25;
+/** Umur maksimum hitungan acara, sesi dan organisasi sebelum dimuat ulang saat mencari. */
+const UMUR_META_MS = 45_000;
 const LEBAR_NAMA = 240;
 /** Kolom kotak centang. Lengket di kiri bersama kolom Nama. */
 const LEBAR_PILIH = 48;
@@ -354,8 +356,12 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const urutanMuat = useRef(0);
   // Hitungan acara terakhir. Muat tanpa meta hanya membawa total yang tersaring.
   const statsTerakhir = useRef<ParticipantStats | null>(null);
-  // `reloadKey` yang meta-nya sudah termuat. Berbeda = ada sync atau impor: muat ulang meta.
+  // `reloadKey` yang meta-nya sudah termuat, dan kapan. Berbeda = ada sync atau
+  // impor. Perubahan dari tempat lain (walk-in di /scan, formulir publik, sesi
+  // baru) tidak menyentuh reloadKey, jadi meta juga dimuat ulang bila sudah
+  // lebih tua dari UMUR_META_MS atau saat tab kembali dibuka.
   const metaUntuk = useRef<number | null>(null);
+  const metaPada = useRef(0);
   /**
    * `denganMeta` false: hanya baris (pencarian, halaman, urutan, saringan).
    * Hitungan acara, sesi, organisasi dan field tetap yang terakhir; semuanya
@@ -417,12 +423,25 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const denganMeta = metaUntuk.current !== reloadKey;
+      const denganMeta = metaUntuk.current !== reloadKey || Date.now() - metaPada.current > UMUR_META_MS;
       void load(debouncedQuery, page, sort, dir, perPage, denganMeta).then((berhasil) => {
-        if (berhasil && denganMeta) metaUntuk.current = reloadKey;
+        if (berhasil && denganMeta) { metaUntuk.current = reloadKey; metaPada.current = Date.now(); }
       });
     }, 0);
     return () => window.clearTimeout(timer);
+  }, [load, debouncedQuery, page, sort, dir, perPage, reloadKey]);
+
+  // Tab dibuka lagi setelah meta basi: muat penuh, supaya angka di judul,
+  // daftar organisasi dan kolom sesi menyusul perubahan dari perangkat lain.
+  useEffect(() => {
+    function saatTerlihat() {
+      if (document.visibilityState !== "visible" || Date.now() - metaPada.current <= UMUR_META_MS) return;
+      void load(debouncedQuery, page, sort, dir, perPage, true).then((berhasil) => {
+        if (berhasil) { metaUntuk.current = reloadKey; metaPada.current = Date.now(); }
+      });
+    }
+    document.addEventListener("visibilitychange", saatTerlihat);
+    return () => document.removeEventListener("visibilitychange", saatTerlihat);
   }, [load, debouncedQuery, page, sort, dir, perPage, reloadKey]);
 
   // Tautan dari halaman lain, mis. nama di Logistik: `?peserta=<kode QR>`

@@ -56,7 +56,7 @@ export const querySchema = z.object({
   /** Nilai yang ada di satu kolom, untuk daftar centang "+ Filter". */
   facet: z.string().max(200).optional(),
   /** "0": baris saja, tanpa hitungan acara, sesi, organisasi dan field. Lihat GET peserta. */
-  meta: z.enum(["0"]).optional(),
+  meta: z.string().max(10).optional(),
 });
 
 export type QueryPeserta = z.infer<typeof querySchema>;
