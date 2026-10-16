@@ -132,10 +132,11 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
    */
   async function adoptOrphans() {
     setAdopting(true); setError("");
-    const response = await fetch("/api/admin/undian/sessions/adopt", { method: "POST" });
-    const data = await response.json().catch(() => ({}));
+    // Galat jaringan tidak boleh meninggalkan tombol berputar selamanya.
+    const response = await fetch("/api/admin/undian/sessions/adopt", { method: "POST" }).catch(() => null);
+    const data = response ? await response.json().catch(() => ({})) : {};
     setAdopting(false);
-    if (!response.ok) {
+    if (!response?.ok) {
       const failure = data?.error?.details?.form?.[0] ?? data?.error?.message ?? "Hasil lama gagal diarsipkan.";
       setError(failure); toast.error("Gagal mengarsipkan", failure); return;
     }
