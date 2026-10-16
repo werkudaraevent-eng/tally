@@ -123,7 +123,9 @@ export async function PATCH(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
-  const parsed = memberSchema.safeParse((await request.json().catch(() => null))?.member);
+  // `enabled` boleh tidak dikirim: Agenda > Section > Outfit hanya mengirim
+  // `outfit_label`, dan gabungan di bawah mempertahankan kunci lainnya.
+  const parsed = memberSchema.partial({ enabled: true }).safeParse((await request.json().catch(() => null))?.member);
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const client = getSupabaseServiceClient();

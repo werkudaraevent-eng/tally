@@ -8,6 +8,7 @@ import {
   CalendarBlank,
   CaretRight,
   CheckCircle,
+  CoatHanger,
   EnvelopeSimple,
   Globe,
   House,
@@ -65,9 +66,11 @@ import { HORIZON_GOLD_DEFAULT } from "@/lib/landing-tokens";
 import { gayaHorizon } from "@/components/landing/modern/horizon";
 import {
   BarisTautanHorizon,
+  ChipHariHorizon,
   HariJadwalHorizon,
   BantuanPonselHorizon,
   KartuInfoHorizon,
+  KartuOutfitHorizon,
   KepalaHorizon,
   LATAR_PORTAL_HORIZON,
   NavBawahHorizon,
@@ -84,6 +87,8 @@ import {
   type TabHorizon,
 } from "@/components/member/portal-horizon";
 import { jamLeg, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
+import { hariOutfitBeranda, labelOutfit } from "@/lib/outfit";
+import { loadOutfitBagian } from "@/lib/outfit-server";
 
 /**
  * Portal peserta gaya gathering (`/e/<slug>/peserta`, preset Gathering),
@@ -101,8 +106,11 @@ import { jamLeg, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
  * Acara Modern non-gathering tetap memakai DashboardModern.
  */
 
-/** `perjalanan` hanya untuk Gathering Horizon; preset lain membukanya sebagai Beranda. */
-export type PortalTab = "beranda" | "jadwal" | "perjalanan" | "info" | "profil" | "qr";
+/**
+ * `perjalanan` dan `outfit` hanya untuk Gathering Horizon; preset lain
+ * membukanya sebagai Beranda. `outfit` juga Beranda selama belum ada outfit.
+ */
+export type PortalTab = "beranda" | "jadwal" | "perjalanan" | "outfit" | "info" | "profil" | "qr";
 
 const KARTU = "rounded-[20px] bg-white p-5 shadow-[0_1px_2px_rgb(16_24_40/0.06)] sm:p-6";
 const MUTED = "text-[#5F6B7F]";
@@ -170,7 +178,7 @@ export async function DashboardGathering({
   /** Hari yang dipilih di tab Jadwal (1, 2, ...). */
   hari: number | null;
   /** Tab asal QR layar penuh (`?dari=`): tombol tutup dan Escape kembali ke sana. */
-  dari?: "jadwal" | "perjalanan" | "info" | "profil" | null;
+  dari?: "jadwal" | "perjalanan" | "outfit" | "info" | "profil" | null;
   /** Pratinjau di Participant area: tiap isi Beranda diberi penanda untuk digulir ke sana. */
   pratinjau?: boolean;
 }) {
@@ -182,9 +190,8 @@ export async function DashboardGathering({
   const dasar = `${halamanAcara}/peserta`;
   const keTab = (tujuan: PortalTab, ekstra: Record<string, string> = {}) => (tujuan === "beranda" ? withQuery(dasar, ekstra) : withQuery(dasar, { tab: tujuan, ...ekstra }));
   const lainnya: LandingLang = lang === "en" ? "id" : "en";
-  // Gathering Horizon (rancangan V5): halaman per topik, termasuk Perjalanan.
+  // Gathering Horizon (rancangan V5): halaman per topik, termasuk Perjalanan dan Outfit.
   const horizon = config.gathering_variant === "horizon";
-  const tab: PortalTab = !horizon && tabDiminta === "perjalanan" ? "beranda" : tabDiminta;
 
   const zona = normalizeTimeZone(event.time_zone);
   const singkatanZona = timeZoneAbbr(zona);
@@ -192,7 +199,16 @@ export async function DashboardGathering({
   const kini = sekarangDi(zona, sekarang);
 
   const tampilSusunan = member.show_schedule !== false;
-  const agenda = tampilSusunan ? await loadAgendaPreview(event.id, lang) : [];
+  // Outfit per bagian Agenda (kolom rundown_sections.outfit): hanya Horizon,
+  // kueri sendiri yang kembali kosong sebelum migrasinya dijalankan.
+  const [agenda, petaOutfit] = await Promise.all([tampilSusunan ? loadAgendaPreview(event.id, lang) : [], horizon ? loadOutfitBagian(event.id) : null]);
+  const agendaNav = tampilSusunan ? agenda : await loadAgendaPreview(event.id, lang);
+  // Hari Outfit = hari tab Jadwal (bagian yang diterbitkan dan berisi), juga bila Jadwal disembunyikan.
+  const hariOutfit = petaOutfit ? agendaNav.map((bagian) => ({ ...bagian, outfit: (bagian.id !== undefined ? petaOutfit.get(bagian.id) : undefined) ?? [] })) : [];
+  const adaOutfit = hariOutfit.some((bagian) => bagian.outfit.length > 0);
+  const labelMenuOutfit = labelOutfit(member.outfit_label);
+  const tab: PortalTab =
+    (!horizon && tabDiminta === "perjalanan") || (tabDiminta === "outfit" && !adaOutfit) ? "beranda" : tabDiminta;
   const peserta = sesi.participant;
   // Kartu Lengkapi data hanya di Beranda. Pratinjau admin: semua pertanyaannya.
   const lengkapi = tab !== "beranda" && tab !== "qr" ? [] : pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, peserta?.id);
@@ -213,7 +229,6 @@ export async function DashboardGathering({
   // Bilah atas sama dengan halaman acara (Mas Hanung, 9 Okt): logo, menu
   // bagian yang kembali ke halaman acara, lonceng, dan "Dashboard saya".
   const sectionsHalaman = normalizeLandingSections(config.sections, config.blocks);
-  const agendaNav = tampilSusunan ? agenda : await loadAgendaPreview(event.id, lang);
   const inap = await loadLandingLodging(event.id);
   const adaHotel = inap.hotels.length > 0;
   // Blok yang admin pilih untuk halaman peserta (Show on), dalam urutan
@@ -336,7 +351,7 @@ export async function DashboardGathering({
   ];
 
   if (tab === "qr" && tampilKode && peserta && horizon) {
-    const tutupQr = dari ? keTab(dari, dari === "jadwal" && hari ? { hari: String(hari) } : {}) : keTab("beranda");
+    const tutupQr = dari ? keTab(dari, (dari === "jadwal" || dari === "outfit") && hari ? { hari: String(hari) } : {}) : keTab("beranda");
     return (
       <main className="min-h-dvh" style={{ ...gaya, backgroundColor: "var(--hz-navy)", color: "#ffffff" }}>
         <TutupQrEscape href={tutupQr} />
@@ -829,6 +844,45 @@ export async function DashboardGathering({
         {kartuKeretaHorizon}
       </div>
     );
+  } else if (tabAktif === "outfit") {
+    // Hanya Horizon dengan outfit (selain itu sudah dialihkan ke Beranda di atas).
+    // Kerangka hari sama dengan tab Jadwal: daftar hari di kiri (lg), pil di ponsel.
+    const to = tH.outfit;
+    judulHorizon = { alis: nama, judul: labelMenuOutfit, catatan: to.note };
+    const indeksHariIniOutfit = hariOutfit.findIndex((bagian) => bagian.tanggal === kini.tanggal);
+    const pilihan = Math.min(Math.max((hari ?? (indeksHariIniOutfit >= 0 ? indeksHariIniOutfit + 1 : 1)) - 1, 0), Math.max(hariOutfit.length - 1, 0));
+    const bagian = hariOutfit[pilihan];
+    const daftarHari = hariOutfit.map((b, index) => ({
+      label: [String(index + 1).padStart(2, "0"), b.tanggal ? tanggalBab(b.tanggal, lang) : null].filter(Boolean).join(" / "),
+      judul: b.sectionTitle?.trim() || t.day(index + 1),
+      href: keTab("outfit", { hari: String(index + 1) }),
+      aktif: index === pilihan,
+    }));
+    isi = (
+      <div className={hariOutfit.length > 1 ? "w-full lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-14" : "w-full"}>
+        {hariOutfit.length > 1 ? <HariJadwalHorizon aria={t.daysAria} hari={daftarHari} /> : null}
+        <div className="min-w-0 lg:col-start-2 lg:max-w-[880px]">
+          {hariOutfit.length > 1 ? <ChipHariHorizon aria={t.daysAria} hari={daftarHari.map((item) => ({ label: item.judul, href: item.href, aktif: item.aktif }))} /> : null}
+          {bagian ? (
+            <>
+              <div className={`flex flex-col gap-1 ${hariOutfit.length > 1 ? "mt-5 lg:mt-0" : ""}`}>
+                {bagian.tanggal ? <p className={`text-[14px] font-medium leading-5 ${MUTED}`}>{tanggalPanjangBab(bagian.tanggal, lang)}</p> : null}
+                <h2 className="text-[22px] font-semibold leading-7 [overflow-wrap:anywhere] lg:text-[24px] lg:leading-8">{bagian.sectionTitle?.trim() || t.day(pilihan + 1)}</h2>
+              </div>
+              {bagian.outfit.length === 0 ? (
+                <p className={`mt-4 text-[16px] leading-6 ${MUTED}`}>{to.dayEmpty}</p>
+              ) : (
+                <div className="mt-4 grid gap-4 lg:grid-cols-2 lg:items-start lg:gap-6">
+                  {bagian.outfit.map((isian, index) => (
+                    <KartuOutfitHorizon key={index} kapan={isian.when ?? null} apa={isian.what} catatan={isian.note ?? null} foto={isian.photo_url ?? null} />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : null}
+        </div>
+      </div>
+    );
   } else if (tabAktif === "info") {
     kepala = <JudulKepala judul={t.info} catatan={t.infoNote} />;
     judulHorizon = { alis: nama, judul: t.info, catatan: t.infoNote };
@@ -894,6 +948,7 @@ export async function DashboardGathering({
             ...(kamar ? [{ href: `${keTab("beranda")}#kamar`, judul: t.roomRow, isi: [kamar.room_number, teman?.map((o) => o.name).join(", ")].filter(Boolean).join(" · "), Ikon: Bed }] : []),
             ...(namaBus ? [{ href: `${keTab("beranda")}#bus`, judul: t.busRow, isi: [namaBus, perjalananBus?.meeting_point].filter(Boolean).join(" · "), Ikon: Bus }] : []),
           ]),
+      ...(adaOutfit ? [{ href: keTab("outfit"), judul: labelMenuOutfit, isi: tH.outfit.menuRow, Ikon: CoatHanger }] : []),
       ...(telepon ? [{ href: `tel:${telepon.replace(/[^\d+]/g, "")}`, judul: t.contactRow, isi: [config.contact_name?.trim(), telepon].filter(Boolean).join(" · "), Ikon: Phone, luar: true }] : []),
       ...(landingEnAvailable(config) ? [{ href: `${landingPath(event.slug, lainnya, utama)}/peserta?tab=profil`, judul: t.languageRow, isi: null, Ikon: Globe }] : []),
       { href: halamanAcara, judul: t.eventPageRow, isi: nama, Ikon: CalendarBlank },
@@ -933,10 +988,13 @@ export async function DashboardGathering({
   }
 
   if (horizon) {
-    const tabHorizon = (id: TabHorizon["id"]): TabHorizon => ({ id, label: tH.tabs[id], labelPendek: tH.tabsShort[id], href: keTab(id) });
+    const tabHorizon = (id: TabHorizon["id"]): TabHorizon =>
+      id === "outfit" ? { id, label: labelMenuOutfit, labelPendek: labelMenuOutfit, href: keTab(id) } : { id, label: tH.tabs[id], labelPendek: tH.tabsShort[id], href: keTab(id) };
     // Desktop: semua halaman di bilah atas (Profil lewat inisial). Ponsel: lima
-    // tujuan (Beranda, Jadwal, QR, Pengumuman, Menu); Perjalanan dibuka dari Menu.
-    const tabsHorizon = (["beranda", "jadwal", ...(adaPerjalanan ? (["perjalanan"] as const) : []), "info", "profil"] as const).map(tabHorizon);
+    // tujuan (Beranda, Jadwal, QR, Pengumuman, Menu); Perjalanan dan Outfit dibuka dari Menu.
+    const tabsHorizon = (
+      ["beranda", "jadwal", ...(adaPerjalanan ? (["perjalanan"] as const) : []), ...(adaOutfit ? (["outfit"] as const) : []), "info", "profil"] as const
+    ).map(tabHorizon);
     const tabsBawahHorizon = (["beranda", "jadwal", "info", "profil"] as const).map(tabHorizon);
     let badan: ReactNode;
     if (tabAktif === "beranda") {
@@ -986,6 +1044,31 @@ export async function DashboardGathering({
         </BagianBeranda>
       ) : null;
       const lainnya = beranda.order.filter((id) => diBeranda(id) && kartuBlok.has(id));
+      // Outfit hari ini (pola "Tonight's Attire" Royal Caribbean): satu baris
+      // sesudah tiket kereta, menuju hari itu di halaman Outfit.
+      const outfitBeranda = adaOutfit ? hariOutfitBeranda(hariOutfit, kini.tanggal, sekarangDi(zona, new Date(sekarang.getTime() + 864e5)).tanggal) : null;
+      const barisOutfit = (() => {
+        if (!outfitBeranda) return null;
+        const bagian = hariOutfit[outfitBeranda.indeks];
+        const [pertama, kedua] = bagian.outfit;
+        const baris = tH.outfit.row;
+        const alisOutfit =
+          outfitBeranda.jenis === "nanti"
+            ? baris.nanti(labelMenuOutfit, bagian.hari ?? bagian.sectionTitle?.trim() ?? t.day(outfitBeranda.indeks + 1))
+            : baris[outfitBeranda.jenis](labelMenuOutfit);
+        return (
+          <div className="order-[32] lg:order-none">
+            <BarisTautanHorizon
+              href={keTab("outfit", { hari: String(outfitBeranda.indeks + 1) })}
+              Ikon={CoatHanger}
+              alis={alisOutfit}
+              judul={pertama.what}
+              // Isian kedua (mis. gala dinner) di bawahnya; tanpa itu, waktu isian pertama.
+              catatan={(kedua ? [kedua.when, kedua.what].filter(Boolean).join(" • ") : pertama.when) || null}
+            />
+          </div>
+        );
+      })();
       badan = (
         <>
           <SapaanHorizon alis={tH.welcome} judul={tH.heading(namaDepan)} judulPonsel={tH.headingMobile(namaDepan)} catatan={tH.subtitle(jumlahHariAgenda(agenda))} />
@@ -1030,6 +1113,7 @@ export async function DashboardGathering({
                     </div>
                   ) : null}
                 </BagianBeranda>
+                {barisOutfit}
                 {checkpointSelesai ? (
                   <BagianBeranda id="checkpoints" pratinjau={pratinjau}>
                     <div className="order-[40] lg:order-none">{kartuCheckpointHorizon}</div>
@@ -1093,7 +1177,7 @@ export async function DashboardGathering({
               judulPonsel={judulHorizon.judul}
               catatan={judulHorizon.catatan}
               catatanPonsel
-              kembali={tabAktif === "perjalanan" ? { href: keTab("profil"), label: tH.travel.backToMenu } : null}
+              kembali={tabAktif === "perjalanan" || tabAktif === "outfit" ? { href: keTab("profil"), label: tH.travel.backToMenu } : null}
             />
           ) : (
             <PitaKepalaHorizon>{kepala}</PitaKepalaHorizon>
@@ -1117,10 +1201,10 @@ export async function DashboardGathering({
           tabsAria={t.tabsAria}
         />
         {badan}
-        <NavBawahHorizon tabs={tabsBawahHorizon} aktif={tabAktif === "perjalanan" ? "profil" : tabAktif} tabsAria={t.tabsAria} infoBaru={infoBaru} qr={
+        <NavBawahHorizon tabs={tabsBawahHorizon} aktif={tabAktif === "perjalanan" || tabAktif === "outfit" ? "profil" : tabAktif} tabsAria={t.tabsAria} infoBaru={infoBaru} qr={
             tampilKode && peserta
               ? {
-                  href: tabAktif === "beranda" ? keTab("qr") : keTab("qr", { dari: tabAktif, ...(tabAktif === "jadwal" && hari ? { hari: String(hari) } : {}) }),
+                  href: tabAktif === "beranda" ? keTab("qr") : keTab("qr", { dari: tabAktif, ...((tabAktif === "jadwal" || tabAktif === "outfit") && hari ? { hari: String(hari) } : {}) }),
                   label: tH.showQr,
                   labelPendek: "QR",
                 }

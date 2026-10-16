@@ -32,6 +32,8 @@ function jamTitik(jam: string, bahasa: "id" | "en"): string {
 export type AgendaItem = { id: number; time: string; end: string | null; title: string; subtitle: string | null; key: string; jeda: boolean };
 
 export type AgendaPreview = {
+  /** Id baris `rundown_sections` (outfit per hari di portal Horizon). */
+  id?: number;
   sectionTitle: string | null;
   /** Hari pendek bagian dalam bahasa halaman, mis. "Kam 15" atau "Thu 15". */
   hari: string | null;
@@ -103,6 +105,7 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
 
   return daftarSeksi
     .map((section) => ({
+      id: section.id,
       // Label tab yang disunting di CMS Rundown. Kolom `title` tidak lagi punya
       // isian di CMS (hanya terisi saat bagian dibuat), jadi ia hanya cadangan.
       sectionTitle: section.name?.trim() || section.title?.trim() || null,

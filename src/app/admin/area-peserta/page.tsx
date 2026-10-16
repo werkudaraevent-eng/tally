@@ -105,10 +105,14 @@ export default function AreaPesertaPage() {
       return;
     }
     setSimpan(true);
+    // Label Outfit disunting di Agenda > Section > Outfit. Tidak dikirim dari
+    // sini, jadi salinan lama di layar ini tidak menimpa label yang baru disimpan.
+    const setelan: Partial<LandingMemberConfig> = { ...anggota, feedback_url: umpanBalik };
+    delete setelan.outfit_label;
     const response = await fetch(eventApiPath("/api/admin/area-peserta"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ member: { ...anggota, feedback_url: umpanBalik } }),
+      body: JSON.stringify({ member: setelan }),
     }).catch(() => null);
     setSimpan(false);
     if (!response) { toast.error("Connection failed", "Reload to see the current state."); return; }

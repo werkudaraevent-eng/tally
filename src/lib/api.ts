@@ -51,6 +51,7 @@ const messages: Record<ApiErrorCode, string> = {
   RUNDOWN_SECTION_NOT_FOUND: "Agenda section not found.",
   RUNDOWN_ITEM_NOT_FOUND: "Agenda item not found.",
   DUPLICATE_RUNDOWN_SLUG: "Another agenda section already uses this slug. Use a different slug.",
+  OUTFIT_NOT_READY: "Outfit needs a database update first.",
   UNDIAN_PRIZE_NOT_FOUND: "Hadiah undian tidak ditemukan.",
   UNDIAN_PRIZE_IN_USE: "Hadiah sudah punya pemenang. Matikan saja, jangan dihapus.",
   UNDIAN_NO_ACTIVE_PRIZE: "Belum ada hadiah yang dipilih untuk diundi.",
