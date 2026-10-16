@@ -810,7 +810,7 @@ export async function DashboardGathering({
           judul={tv.busTitle}
           Ikon={Bus}
           kolom={3}
-          fakta={busUtama ? [{ label: tH.bus, nilai: busUtama, besar: true }] : []}
+          fakta={busUtama ? [{ label: tv.mainBus, nilai: busUtama, besar: true }] : []}
         >
           <PerjalananBusHorizon
             baris={perjalananBusHorizon.map((trip, index) => ({
@@ -885,7 +885,8 @@ export async function DashboardGathering({
     );
   } else if (tabAktif === "info") {
     kepala = <JudulKepala judul={t.info} catatan={t.infoNote} />;
-    judulHorizon = { alis: nama, judul: t.info, catatan: t.infoNote };
+    // Horizon: judul halaman sama dengan nama menunya ("Pengumuman").
+    judulHorizon = { alis: nama, judul: horizon ? tH.tabs.info : t.info, catatan: t.infoNote };
     isi = (
       // Horizon di layar lebar: kartu dua kolom selebar halaman, yang disematkan selebar penuh.
       <div className={horizon ? "grid gap-4 md:grid-cols-2" : "mx-auto flex w-full max-w-[720px] flex-col gap-3"}>
