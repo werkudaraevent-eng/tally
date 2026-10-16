@@ -6,17 +6,16 @@ import { escapeHtml } from "@/lib/email/registration-code";
 import { invitationSendingReady, invitationUrl, loadInvitation, type InvitationRow } from "./data";
 import { normalizeInviteEmail } from "./email";
 import { emailHash, inviteSecretReady, inviteUnsubscribeSignature, parseInviteToken, verifyInviteToken } from "./tanda";
+import { ipKlien } from "@/lib/ip-klien";
 
 /**
  * Sisi publik tamu undangan: membaca tautan pribadi, batas laju, kirim ulang
  * undangan, dan pemberitahuan "undangan Anda dipakai dengan email lain".
  */
 
-/** IP klien di belakang proxy Vercel: elemen PALING KIRI x-forwarded-for. */
+/** IP klien di belakang proxy Vercel (lib/ip-klien.ts). */
 export function requestIp(headers: Headers): string | null {
-  const chain = headers.get("x-forwarded-for");
-  if (chain) return chain.split(",")[0].trim() || null;
-  return headers.get("x-real-ip");
+  return ipKlien(headers);
 }
 
 type JenisLaju = "kirim_ulang" | "token_salah" | "penanda";

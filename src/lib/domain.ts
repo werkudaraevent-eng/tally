@@ -1140,6 +1140,12 @@ export type LandingMemberConfig = {
   sign_in?: LandingMemberSignIn;
   /** Dua kolom untuk `sign_in: "fields"`: "email", "phone", "name", atau "x:<kunci pertanyaan tambahan>". */
   sign_in_fields?: [string, string] | null;
+  /**
+   * Kapan acara ini terakhir pindah KE cara dua kolom. Diisi server
+   * (api/admin/area-peserta), bukan layar admin: sesi dua kolom yang lebih
+   * tua ditolak, jadi pindah ke cara lain lalu kembali tidak menghidupkannya.
+   */
+  sign_in_since?: string;
   feedback_url?: string | null;
   /**
    * Beranda halaman peserta (Participant area > Participant home): urutan id

@@ -59,6 +59,11 @@ export type ResolvedRecipient = {
   email: string | null;
   /** Akun area peserta yang sudah ada, untuk sasaran tautan undangan. */
   accountId: string | null;
+  /**
+   * Akun itu punya kata sandi buatan pesertanya. Akun dari kode email atau dua
+   * kolom data peserta (kata sandi acak) tetap mendapat tautan buat kata sandi.
+   */
+  passwordSet: boolean;
   skip: SkipCode | null;
 };
 
@@ -90,17 +95,17 @@ async function semuaPeserta(eventId: string, denganJawaban = false): Promise<Par
 
 async function akunPeserta(eventId: string) {
   const client = getSupabaseServiceClient();
-  const peta = new Map<string, { id: string; last_login_at: string | null }>();
+  const peta = new Map<string, { id: string; last_login_at: string | null; password_set_at: string | null }>();
   for (let dari = 0; ; dari += HALAMAN) {
     const { data, error } = await client
       .from("participant_accounts")
-      .select("id,participant_id,last_login_at")
+      .select("id,participant_id,last_login_at,password_set_at")
       .eq("event_id", eventId)
       .not("participant_id", "is", null)
       .range(dari, dari + HALAMAN - 1);
     if (error) throw new Error(error.message);
-    const rows = (data ?? []) as unknown as { id: string; participant_id: string; last_login_at: string | null }[];
-    for (const baris of rows) peta.set(baris.participant_id, { id: baris.id, last_login_at: baris.last_login_at });
+    const rows = (data ?? []) as unknown as { id: string; participant_id: string; last_login_at: string | null; password_set_at: string | null }[];
+    for (const baris of rows) peta.set(baris.participant_id, { id: baris.id, last_login_at: baris.last_login_at, password_set_at: baris.password_set_at });
     if (rows.length < HALAMAN) return peta;
   }
 }
@@ -154,7 +159,7 @@ export async function resolveAudience(
       else if (kind === "data" && pertanyaan.length === 0) skip = "tanpa_pertanyaan";
       else if (kind === "data" && audience.jenis === "belum_isi" && missingFields(pertanyaan, p.extra).length === 0) skip = "sudah_isi";
       else if (!allowedByList(email, daftarUji)) skip = "di_luar_daftar_uji";
-      return { target: "participant" as const, participant: p, email, accountId: akun.get(p.id)?.id ?? null, skip };
+      return { target: "participant" as const, participant: p, email, accountId: akun.get(p.id)?.id ?? null, passwordSet: Boolean(akun.get(p.id)?.password_set_at), skip };
     });
 }
 
@@ -196,6 +201,7 @@ async function resolveInvitees(event: Pick<EventRow, "id">, audience: Audience):
         participant: { id: u.id, name: u.name, company: u.company, email: u.email, phone: u.phone, email_opt_out_at: u.opted_out_at, email_invalid_at: u.email_invalid_at },
         email,
         accountId: null,
+        passwordSet: false,
         skip,
       };
     })

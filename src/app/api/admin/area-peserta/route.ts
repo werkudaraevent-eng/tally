@@ -175,11 +175,14 @@ export async function PATCH(request: Request) {
     if (galatBaca || !terkini) return apiError("INTERNAL_ERROR", 500);
     const baris = terkini as { landing_config?: EventLandingConfig | null; updated_at: string };
     landing = (baris.landing_config ?? {}) as EventLandingConfig;
+    // Masuk ke cara dua kolom (lagi): sesi dua kolom dari masa sebelumnya
+    // tidak hidup kembali (getMemberSession membandingkan dengan waktu ini).
+    const mulaiKolom = parsed.data.sign_in === "fields" && landing.member?.sign_in !== "fields" ? { sign_in_since: new Date().toISOString() } : {};
     const hasil = await client
       .from("events")
       // Digabung, bukan diganti: kunci yang tidak dikirim layar ini (mis.
       // show_roommates) tetap tersimpan.
-      .update({ landing_config: { ...landing, member: { ...(landing.member ?? {}), ...parsed.data } }, updated_at: new Date().toISOString() } as never)
+      .update({ landing_config: { ...landing, member: { ...(landing.member ?? {}), ...parsed.data, ...mulaiKolom } }, updated_at: new Date().toISOString() } as never)
       .eq("id", auth.scope.event.id)
       .eq("updated_at", baris.updated_at)
       .select("landing_config")

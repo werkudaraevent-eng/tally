@@ -3,6 +3,7 @@ import { z } from "zod";
 import { memberError, requireMemberEvent } from "@/lib/member/api";
 import { caraMasuk, kirimKodeMasuk } from "@/lib/member/masuk-lain";
 import { linkOrigin } from "@/lib/domain-klien/asal";
+import { ipKlien } from "@/lib/ip-klien";
 
 /**
  * "Kirim kode": kode masuk 6 digit ke email (cara masuk Email code). Jawaban
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return memberError("VALIDATION_ERROR", 400, "Isi email pendaftaran Anda.");
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || request.headers.get("x-real-ip");
+  const ip = ipKlien(request.headers);
   const hasil = await kirimKodeMasuk(resolved.event, resolved.member, { email: parsed.data.email, ip, requestUrl: await linkOrigin(request, resolved.event.id), lang: parsed.data.lang });
   switch (hasil.status) {
     case "sent":
