@@ -1,10 +1,14 @@
 "use client";
 
-import { ArrowSquareOut, DotsSixVertical, Eye, EyeSlash } from "@phosphor-icons/react";
+import { ArrowSquareOut, DotsSixVertical, Eye, EyeSlash, Plus } from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
 import { useState, type DragEvent, type KeyboardEvent } from "react";
 import Link from "@/components/event-link";
-import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, memberHomeOrder, type LandingBlockShowOn, type LandingBlockType, type LandingMemberConfig } from "@/lib/domain";
+import { Button } from "@/components/m3";
+import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, memberHomeOrder, type LandingBlockShowOn, type MemberHomeId, type LandingBlockType, type LandingMemberConfig } from "@/lib/domain";
+import { withEventPrefix } from "@/lib/event-path";
 import { cx } from "@/lib/m3/cx";
+import { TambahBlokDialog } from "../landing/blocks";
 
 /**
  * Participant home: urutan Beranda halaman peserta, pola yang sama dengan
@@ -31,6 +35,24 @@ export type BlokPeserta = {
 };
 
 type Baris = { id: string; judul: string; sub: string; blok: boolean; tampil: boolean; mati: string | null; tetap: boolean };
+
+/**
+ * Tempat isi tiap baris bawaan disunting. Barisnya diisi otomatis dari data
+ * acara, jadi tautannya menunjuk layar sumber, bukan editor salinan di sini:
+ * satu data, satu tempat menyuntingnya.
+ */
+const SUMBER: Record<MemberHomeId, { label: string; href: string }> = {
+  quick: { label: "Event page", href: "/admin/landing" },
+  announcements: { label: "Messages", href: "/admin/pengumuman/lonceng" },
+  next: { label: "Agenda", href: "/admin/rundown" },
+  checkpoints: { label: "Check-in", href: "/admin/attendance" },
+  logistics: { label: "Logistics", href: "/admin/logistik" },
+  roommates: { label: "Logistics", href: "/admin/logistik" },
+  agenda: { label: "Agenda", href: "/admin/rundown" },
+};
+
+/** Batas jumlah blok per acara, sama dengan Event page dan skema server. */
+const MAKS_BLOK = 30;
 
 /**
  * Gathering Horizon menaruh isi bawaan di tempat tetap (pass, tiket, panduan
@@ -84,6 +106,8 @@ export function SusunanBeranda({
   blocks,
   checkpointsOn,
   horizon = false,
+  jumlahBlok,
+  adaPerubahan,
   set,
   dipilih,
   onPilih,
@@ -95,12 +119,19 @@ export function SusunanBeranda({
   checkpointsOn: boolean;
   /** Gathering Horizon tidak menampilkan "Today's agenda": barisnya tidak ditawarkan, datanya tetap. */
   horizon?: boolean;
+  /** Semua blok acara, untuk batas Add block. */
+  jumlahBlok: number;
+  /** Ada setelan yang belum disimpan: Add block membuka Event page, jadi disimpan dulu. */
+  adaPerubahan: boolean;
   set: (patch: Partial<LandingMemberConfig>) => void;
   /** Baris yang sedang disorot di pratinjau. */
   dipilih: string | null;
   onPilih: (id: string) => void;
 }) {
   const gathering = layout === "gathering";
+  const router = useRouter();
+  const [tambahTerbuka, setTambahTerbuka] = useState(false);
+  const [catatanTambah, setCatatanTambah] = useState<string | null>(null);
   const [seret, setSeret] = useState<number | null>(null);
   const [sasaran, setSasaran] = useState<number | null>(null);
   const { order: urutanPenuh, hidden } = memberHomeOrder(member.home, blocks.map((block) => block.id), gathering);
@@ -142,14 +173,14 @@ export function SusunanBeranda({
   const baris: Baris[] = order.map((id) => {
     const bawaan = MEMBER_HOME_BUILTINS[layout].find((item) => item.id === id);
     // Urutan lama: di ponsel paling atas, di layar lebar setelah Next up. Disebut, bukan diam-diam dipindah.
-    const sub = id === "announcements" && slot === 3 ? `Top on phones, after Next up on wide screens · ${bawaan?.sub}` : bawaan?.sub ?? "";
+    const sub = id === "announcements" && slot === 3 ? `Top on phones, after Next up on wide screens · ${bawaan?.sub}` : `Automatic · ${bawaan?.sub ?? ""}`;
     if (bawaan) return { id, judul: bawaan.label, sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id), tetap: tetap.has(id) };
     const block = blocks.find((item) => item.id === id)!;
-    const jenis = `${LANDING_BLOCK_LABELS[block.type]} block`;
+    const jenis = LANDING_BLOCK_LABELS[block.type];
     return {
       id,
       judul: block.heading || LANDING_BLOCK_LABELS[block.type],
-      sub: block.show_on === "both" ? `${jenis} · also on the Event page` : `${jenis} · participant page only`,
+      sub: block.show_on === "both" ? `Your block · ${jenis} · also on the Event page` : `Your block · ${jenis}`,
       blok: true,
       tampil: !hidden.has(id),
       mati: block.hidden_on_page ? "Hidden in Page sections" : block.empty ? "Empty, add content on the Event page" : null,
@@ -238,8 +269,19 @@ export function SusunanBeranda({
               </span>
             </button>
             {b.blok ? (
-              <Link href={`/admin/landing?blok=${encodeURIComponent(b.id)}`} className="m3-state inline-flex min-h-9 shrink-0 items-center gap-1 rounded-md px-2 text-label-large font-medium text-primary" aria-label={`Edit ${b.judul} on the Event page`}>
-                Edit <ArrowSquareOut size={14} aria-hidden />
+              <Link href={`/admin/landing?blok=${encodeURIComponent(b.id)}`} className="m3-state inline-flex min-h-9 min-w-9 shrink-0 items-center justify-center gap-1 rounded-md px-2 text-label-large font-medium text-primary" aria-label={`Edit ${b.judul}`} title="Edit">
+                <span className="hidden sm:inline">Edit</span>
+                <ArrowSquareOut size={14} aria-hidden />
+              </Link>
+            ) : SUMBER[b.id as MemberHomeId] ? (
+              <Link
+                href={SUMBER[b.id as MemberHomeId].href}
+                className="m3-state inline-flex min-h-9 min-w-9 shrink-0 items-center justify-center gap-1 rounded-md px-2 text-label-large font-medium text-primary"
+                aria-label={`Edit ${b.judul} in ${SUMBER[b.id as MemberHomeId].label}`}
+                title={`Edit in ${SUMBER[b.id as MemberHomeId].label}`}
+              >
+                <span className="hidden sm:inline">Edit in {SUMBER[b.id as MemberHomeId].label}</span>
+                <ArrowSquareOut size={14} aria-hidden />
               </Link>
             ) : null}
             <button
@@ -260,9 +302,33 @@ export function SusunanBeranda({
           : gathering
           ? "Drag to reorder. Phones show this order from top to bottom; on wide screens Bus and room, Roommates and Quick links stay in the side column, in that order. "
           : "Drag to reorder. The ticket, Room, bus and items and Quick links stay in the side column, in this order, which phones show first. "}
-        To add your own content, add a block on the{" "}
-        <Link href="/admin/landing" className="rounded-sm font-medium text-primary hover:underline">Event page</Link> and set Show on to Participant page.
+        Automatic rows fill themselves from your event data: edit them where their link points.
       </p>
+      <div className="flex flex-col items-start gap-1.5">
+        <Button
+          variant="outlined"
+          size="sm"
+          icon={<Plus size={16} aria-hidden />}
+          onClick={() => {
+            if (jumlahBlok >= MAKS_BLOK) { setCatatanTambah(`This event already has ${MAKS_BLOK} blocks, the most allowed. Delete one on the Event page first.`); return; }
+            if (adaPerubahan) { setCatatanTambah("Save or cancel your changes first. Adding a block opens it on the Event page."); return; }
+            setCatatanTambah(null);
+            setTambahTerbuka(true);
+          }}
+        >
+          Add block
+        </Button>
+        {catatanTambah ? <p role="status" className="text-body-small text-on-surface-variant">{catatanTambah}</p> : null}
+      </div>
+      <TambahBlokDialog
+        open={tambahTerbuka}
+        onClose={() => setTambahTerbuka(false)}
+        description="Only signed-in participants see it. You fill it in on the Event page and save there; it then joins your blocks in this list."
+        onPick={(type) => {
+          setTambahTerbuka(false);
+          router.push(withEventPrefix(`/admin/landing?tambah=${type}&untuk=peserta`, window.location.pathname));
+        }}
+      />
     </div>
   );
 }

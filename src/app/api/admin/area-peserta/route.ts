@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { gatheringHorizon, landingBlockHasContent, landingBlockShownOn, normalizeLandingSections, type EventLandingConfig } from "@/lib/domain";
+import { gatheringHorizon, landingBlockHasContent, landingBlockMemberOnly, landingBlockShownOn, normalizeLandingSections, sectionsDenganBlokPeserta, type EventLandingConfig, type LandingMemberConfig } from "@/lib/domain";
 import { memberSchema } from "@/lib/landing-body-schema";
 import { loadSetelanCheckpoint } from "@/lib/checkpoint/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -87,8 +87,18 @@ export async function GET(request: Request) {
   const layout = landing.layout === "modern" ? (landing.gathering === true ? "gathering" : "modern") : null;
   const diSusunan = new Map(normalizeLandingSections(landing.sections, landing.blocks).map((section) => [section.id as string, section.enabled]));
 
+  // Blok khusus peserta yang dulu dimatikan di Page sections: kini diatur di
+  // Participant home, jadi tampil di sana sebagai tersembunyi (matanya mati),
+  // persis seperti di halaman peserta sekarang.
+  const member: LandingMemberConfig = landing.member ?? { enabled: false };
+  const matiLama = (landing.blocks ?? [])
+    .filter((block) => landingBlockMemberOnly(block) && diSusunan.get(block.id) === false && !(member.home?.hidden ?? []).includes(block.id))
+    .map((block) => block.id as string);
+
   return Response.json({
-    member: landing.member ?? { enabled: false },
+    member: matiLama.length ? { ...member, home: { ...member.home, hidden: [...(member.home?.hidden ?? []), ...matiLama] } } : member,
+    /** Semua blok acara: tombol Add block berhenti di batas jumlah blok. */
+    blocks_count: (landing.blocks ?? []).length,
     /** Tata letak dashboard peserta: Participant home hanya ada di Modern dan Gathering. */
     layout,
     // Blok yang tampil di halaman peserta, dalam urutan Page sections. `aktif`
@@ -101,7 +111,8 @@ export async function GET(request: Request) {
         type: block.type,
         heading: block.heading?.trim() || null,
         show_on: block.show_on,
-        hidden_on_page: diSusunan.get(block.id) === false,
+        // Blok khusus peserta tidak diatur di Page sections: lihat matiLama.
+        hidden_on_page: !landingBlockMemberOnly(block) && diSusunan.get(block.id) === false,
         empty: !landingBlockHasContent(block),
       })),
     preview: layout ? await pesertaBawaan(eventId) : null,
@@ -117,6 +128,17 @@ export async function GET(request: Request) {
       accounts: akun.error ? null : akun.count ?? 0,
     },
   });
+}
+
+/**
+ * Setelan baru di atas salinan server. Mata Participant home yang menyalakan
+ * blok khusus peserta ikut menyalakannya di Page sections, satu-satunya tempat
+ * lama yang bisa mematikannya (sectionsDenganBlokPeserta).
+ */
+function gabung(landing: EventLandingConfig, patch: Partial<LandingMemberConfig>): EventLandingConfig {
+  const member = { ...(landing.member ?? {}), ...patch } as LandingMemberConfig;
+  const sections = patch.home ? sectionsDenganBlokPeserta(landing.sections, landing.blocks, patch.home.hidden ?? []) : landing.sections;
+  return { ...landing, member, ...(sections !== landing.sections ? { sections } : {}) };
 }
 
 export async function PATCH(request: Request) {
@@ -147,7 +169,7 @@ export async function PATCH(request: Request) {
       .from("events")
       // Digabung, bukan diganti: kunci yang tidak dikirim layar ini (mis.
       // show_roommates) tetap tersimpan.
-      .update({ landing_config: { ...landing, member: { ...(landing.member ?? {}), ...parsed.data } }, updated_at: new Date().toISOString() } as never)
+      .update({ landing_config: gabung(landing, parsed.data), updated_at: new Date().toISOString() } as never)
       .eq("id", auth.scope.event.id)
       .eq("updated_at", baris.updated_at)
       .select("landing_config")

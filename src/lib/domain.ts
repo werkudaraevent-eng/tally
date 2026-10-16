@@ -799,6 +799,29 @@ export function landingMemberBlocks(saved: LandingSectionEntry[] | undefined, bl
 }
 
 /**
+ * Blok khusus peserta: Show on = Participant page. Tampil-sembunyinya diatur di
+ * Participant area > Participant home (`member.home.hidden`), bukan di Page
+ * sections Event page, karena halaman publik memang tidak menampilkannya.
+ */
+export function landingBlockMemberOnly(block: Pick<LandingBlock, "type" | "show_on">): boolean {
+  return landingBlockShownOn(block, "member") && !landingBlockShownOn(block, "public");
+}
+
+/**
+ * Page sections setelah mata Participant home disimpan: blok khusus peserta
+ * yang tidak disembunyikan di `home` dinyalakan lagi di susunan. Blok lama yang
+ * dulu dimatikan di Page sections tampil di Participant home sebagai
+ * tersembunyi (lihat GET Area peserta), jadi tidak ada yang muncul sendiri
+ * sebelum admin menyalakan matanya. Tanpa perubahan: susunan yang sama.
+ */
+export function sectionsDenganBlokPeserta(saved: LandingSectionEntry[] | undefined, blocks: LandingBlock[] = [], hidden: readonly string[] = []): LandingSectionEntry[] | undefined {
+  if (!saved) return saved;
+  const nyalakan = new Set(blocks.filter((block) => landingBlockMemberOnly(block) && !hidden.includes(block.id)).map((block) => block.id as string));
+  if (!saved.some((section) => !section.enabled && nyalakan.has(section.id))) return saved;
+  return saved.map((section) => (!section.enabled && nyalakan.has(section.id) ? { ...section, enabled: true } : section));
+}
+
+/**
  * Susunan gaya gathering: `normalizeLandingSections` plus entri Portal peserta
  * di tempat yang disimpan admin. Tempatnya diukur dari bagian sebelum entri itu
  * di susunan tersimpan, jadi bagian yang ditambahkan normalisasi tidak

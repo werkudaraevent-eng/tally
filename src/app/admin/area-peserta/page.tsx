@@ -31,6 +31,8 @@ type Muat = {
   /** Tata letak dashboard peserta; null = Editorial atau Forum, tanpa Participant home. */
   layout: "gathering" | "modern" | null;
   blocks: BlokPeserta[];
+  /** Semua blok acara, untuk batas Add block. */
+  blocks_count?: number;
   /** Peserta bawaan pratinjau: yang pertama punya kamar dan bus. */
   preview: PesertaPratinjau | null;
   /** Check-in > Checkpoints dinyalakan. */
@@ -201,6 +203,8 @@ export default function AreaPesertaPage() {
                       blocks={data.blocks}
                       checkpointsOn={data.checkpoints_on === true}
                       horizon={data.horizon === true}
+                      jumlahBlok={data.blocks_count ?? data.blocks.length}
+                      adaPerubahan={berubah}
                       set={set}
                       dipilih={sorot?.id ?? null}
                       onPilih={(id) => setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }))}
