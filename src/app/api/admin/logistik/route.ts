@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import type { RegistrationFormConfig } from "@/lib/domain";
+import type { EventLandingConfig, RegistrationFormConfig } from "@/lib/domain";
 import { bacaTiketKereta, klien, semuaBaris } from "@/lib/logistik/server";
 import type { LogistikData, LogistikField } from "@/lib/logistik/types";
 
@@ -74,6 +74,7 @@ export async function GET(request: Request) {
       .map(([kunci, jumlah]) => ({ key: kunci, label: kunci, source: "data" as const, filled: jumlah })),
   ];
 
+  const anggota = (auth.scope.event.landing_config as EventLandingConfig | null)?.member;
   const body: LogistikData = {
     settings: setelan,
     fields,
@@ -104,6 +105,11 @@ export async function GET(request: Request) {
       .map((baris) => ({ item_id: baris.item_id, session_id: baris.session_id, session_name: baris.attendance_sessions?.name ?? "" })),
     trains: kereta ?? [],
     trains_ready: kereta !== null,
+    bus_shown: {
+      plate: anggota?.show_bus_plate === true,
+      crew: anggota?.show_bus_crew === true,
+      logistics: anggota?.show_logistics === true,
+    },
   };
   return Response.json(body);
 }
