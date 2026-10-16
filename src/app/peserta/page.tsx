@@ -93,10 +93,11 @@ export default async function AreaPesertaPage({
 
   // Preset Gathering: portal bergaya aplikasi dengan tab (rancangan 2026-10-07).
   if (landing.layout === "modern" && landing.gathering === true) {
-    const tab: PortalTab = kueri.tab === "jadwal" || kueri.tab === "info" || kueri.tab === "profil" || kueri.tab === "qr" ? kueri.tab : "beranda";
+    const tab: PortalTab =
+      kueri.tab === "jadwal" || kueri.tab === "perjalanan" || kueri.tab === "info" || kueri.tab === "profil" || kueri.tab === "qr" ? kueri.tab : "beranda";
     const hari = typeof kueri.hari === "string" && /^\d{1,2}$/.test(kueri.hari) ? Number(kueri.hari) : null;
     // QR layar penuh dibuka dari tab lain: tutup kembali ke tab (dan hari) asalnya.
-    const dari = kueri.dari === "jadwal" || kueri.dari === "info" || kueri.dari === "profil" ? kueri.dari : null;
+    const dari = kueri.dari === "jadwal" || kueri.dari === "perjalanan" || kueri.dari === "info" || kueri.dari === "profil" ? kueri.dari : null;
     return <DashboardGathering event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} tab={tab} hari={hari} dari={dari} />;
   }
   if (landing.layout === "modern") {
