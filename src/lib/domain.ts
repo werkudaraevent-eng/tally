@@ -1123,6 +1123,12 @@ export type LandingMemberConfig = {
   /** Teman sekamar di kartu Kamar (dibaca member_logistics). Bawaan tampil. */
   show_roommates?: boolean;
   /**
+   * Plat nomor dan kontak kru bus yang dinaiki peserta, di kartu Bus. Bawaan
+   * MATI: kontak kru adalah nomor pribadi. Diatur di Logistics > Buses.
+   */
+  show_bus_plate?: boolean;
+  show_bus_crew?: boolean;
+  /**
    * Email Sign-in link ke walk-in yang baru didaftarkan petugas (lihat
    * sendWalkinLink). Bawaan MATI: menyalakannya tidak mengirim ke peserta lama.
    */

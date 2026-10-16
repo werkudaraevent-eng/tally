@@ -41,8 +41,9 @@ import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import type { MemberSession } from "@/lib/member/account";
 import { inisialNama, muatNavPeserta, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
+import { nomorKru } from "@/lib/logistik/kontak-kru";
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
-import { KartuKereta } from "@/components/member/kartu-logistik";
+import { KartuKereta, KontakKru } from "@/components/member/kartu-logistik";
 import { KartuCheckpoint } from "@/components/member/kartu-checkpoint";
 import { KartuCheckpointHorizon } from "@/components/member/kartu-checkpoint-horizon";
 import { loadCheckpointPeserta } from "@/lib/checkpoint/server";
@@ -72,6 +73,7 @@ import {
   KartuInfoHorizon,
   KartuOutfitHorizon,
   KepalaHorizon,
+  KontakKruHorizon,
   LATAR_PORTAL_HORIZON,
   NavBawahHorizon,
   PassHorizon,
@@ -216,7 +218,7 @@ export async function DashboardGathering({
   // dan tidak disembunyikan di Participant home.
   const [logistik, checkpoint] = peserta
     ? await Promise.all([
-        loadMemberLogistics(event.id, peserta.id, member.show_logistics === true),
+        loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }),
         tab === "beranda" && !(member.home?.hidden ?? []).includes("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang) : null,
       ])
     : [null, null];
@@ -461,8 +463,29 @@ export async function DashboardGathering({
   const perjalananBusHorizon = (logistik?.transport?.trips ?? []).filter((trip) => trip.bus);
   const adaPerjalanan = horizon && Boolean(kamar || namaBus || perjalananBusHorizon.length > 0 || (logistik?.trains.length ?? 0) > 0);
 
+  // Plat dan kru bus yang ditampilkan kartu (bila panitia menyalakannya di Logistics > Buses).
+  const detailNamaBus = namaBus ? logistik?.buses.find((bus) => bus.code === namaBus) : undefined;
   const kartuBus = namaBus ? (
-    <KartuAngka id="bus" Ikon={Bus} ikonWarna="brand" label={t.yourBus} angka={namaBus} catatan={perjalananBus?.meeting_point ? t.meetAt(perjalananBus.meeting_point) : null} />
+    <KartuAngka
+      id="bus"
+      Ikon={Bus}
+      ikonWarna="brand"
+      label={t.yourBus}
+      angka={namaBus}
+      catatan={perjalananBus?.meeting_point ? t.meetAt(perjalananBus.meeting_point) : null}
+    >
+      {detailNamaBus?.plate ? <p className={`mt-1 text-body-medium ${MUTED}`}>{`${tH.travel.plate}: ${detailNamaBus.plate}`}</p> : null}
+      {detailNamaBus?.crew ? (
+        <div className="mt-3 flex flex-col gap-1">
+          <KontakKru
+            ringkas
+            teks={detailNamaBus.crew}
+            awalan={`${tH.travel.crew}: `}
+            aksi={{ call: tH.travel.call, whatsapp: tH.travel.whatsapp, callAria: tH.travel.contactLabel(tH.travel.call, namaBus), whatsappAria: tH.travel.contactLabel(tH.travel.whatsapp, namaBus) }}
+          />
+        </div>
+      ) : null}
+    </KartuAngka>
   ) : null;
   const kartuKamar = kamar ? (
     <KartuAngka
@@ -804,16 +827,34 @@ export async function DashboardGathering({
       />
     ) : null;
     const busUtama = logistik?.transport?.default_bus ?? namaBus;
+    // Plat dan kru hanya ada bila panitia menyalakannya di Logistics > Buses.
+    const detailBus = new Map((logistik?.buses ?? []).map((bus) => [bus.code, bus]));
+    const utama = busUtama ? detailBus.get(busUtama) : undefined;
+    const kontakKru = (bus: string, teks: string, label: string | null) => (
+      <KontakKruHorizon
+        label={label}
+        teks={teks}
+        nomor={nomorKru(teks)}
+        aksi={{ call: tv.call, whatsapp: tv.whatsapp, callAria: tv.contactLabel(tv.call, bus), whatsappAria: tv.contactLabel(tv.whatsapp, bus) }}
+      />
+    );
     const kartuBusHorizon =
       busUtama || perjalananBusHorizon.length > 0 ? (
         <KartuInfoHorizon
           judul={tv.busTitle}
           Ikon={Bus}
           kolom={3}
-          fakta={busUtama ? [{ label: tv.mainBus, nilai: busUtama, besar: true }] : []}
+          fakta={busUtama ? [{ label: tv.mainBus, nilai: busUtama, besar: true }, ...(utama?.plate ? [{ label: tv.plate, nilai: utama.plate }] : [])] : []}
         >
+          {busUtama && utama?.crew ? kontakKru(busUtama, utama.crew, tv.crew) : null}
           <PerjalananBusHorizon
-            baris={perjalananBusHorizon.map((trip, index) => ({
+            baris={perjalananBusHorizon.map((trip, index) => {
+              // Bus lain dari bus utama: plat ditulis bersama namanya, kru di bawahnya.
+              // Bus yang sama dengan "Bus utama" tidak diulang (juga bila peserta
+              // tanpa bus bawaan, saat bus utama diambil dari agenda berikutnya).
+              const lain = trip.bus && trip.bus !== busUtama ? trip.bus : null;
+              const detail = lain ? detailBus.get(lain) : undefined;
+              return {
               kunci: `${index}-${trip.name}`,
               judul: trip.name,
               jam: trip.depart_at ? hariJamHorizon(trip.depart_at, zona, lang) : null,
@@ -821,9 +862,11 @@ export async function DashboardGathering({
                 [trip.origin?.trim(), trip.destination?.trim()].filter(Boolean).join(" → "),
                 trip.meeting_point?.trim() ? `${tv.meetingPoint}: ${trip.meeting_point.trim()}` : "",
                 // Nama bus dari Logistics sudah berbunyi "Bus 5"; hanya ditulis bila berbeda dari bus utama.
-                trip.bus && (trip.differs_from_default || !busUtama) ? trip.bus : "",
+                lain ? [lain, detail?.plate].filter(Boolean).join(" · ") : "",
               ].filter(Boolean),
-            }))}
+              kru: lain && detail?.crew ? kontakKru(lain, detail.crew, null) : undefined,
+              };
+            })}
           />
         </KartuInfoHorizon>
       ) : null;
@@ -1349,6 +1392,7 @@ function KartuAngka({
   label,
   angka,
   catatan,
+  children,
 }: {
   id: string;
   Ikon: typeof House;
@@ -1356,6 +1400,7 @@ function KartuAngka({
   label: string;
   angka: string;
   catatan: string | null;
+  children?: ReactNode;
 }) {
   return (
     <section id={id} className={`${KARTU} scroll-mt-6`}>
@@ -1370,6 +1415,7 @@ function KartuAngka({
       <h2 className={`mt-3 text-body-medium ${MUTED}`}>{label}</h2>
       <p className={`${HEAD} mt-1 break-words text-[28px] font-extrabold leading-tight lg:text-[32px]`}>{angka}</p>
       {catatan ? <p className={`mt-1 text-body-medium ${MUTED}`}>{catatan}</p> : null}
+      {children}
     </section>
   );
 }
