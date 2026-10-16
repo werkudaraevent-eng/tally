@@ -109,6 +109,26 @@ export async function GET(request: Request) {
     ? { data: { rows: tersaring.slice(parsed.data.offset, parsed.data.offset + parsed.data.limit), total: tersaring.length }, error: null }
     : null;
 
+  // `meta=0`: hanya halaman baris. Dikirim daftar peserta saat mengetik di
+  // pencarian, pindah halaman, mengurutkan dan menyaring. Hitungan acara,
+  // sesi, organisasi dan field tidak berubah karena itu, padahal daftar
+  // organisasi saja dibaca per 1000 baris; tabel memakai yang sudah ada.
+  if (parsed.data.meta === "0") {
+    const halaman = halamanTersaring ?? await client.rpc("list_event_participants" as never, argumen as never);
+    if (halaman.error) {
+      if (companies.length > 0) return apiError("VALIDATION_ERROR", 422, { message: "The organisation filter isn't available yet: migration 202609290001 hasn't been applied." });
+      return apiError("INTERNAL_ERROR", 500);
+    }
+    const hasil = (halaman.data ?? { rows: [], total: 0 }) as { rows: Array<{ id: string }>; total: number };
+    const logistik = await logistikPeserta(eventId, hasil.rows.map((baris) => baris.id));
+    return Response.json({
+      total: hasil.total,
+      limit: parsed.data.limit,
+      offset: parsed.data.offset,
+      participants: hasil.rows.map((baris) => ({ ...baris, logistik: logistik.get(baris.id) ?? null })),
+    });
+  }
+
   const [halaman, sesi, semua, dihapus, dariScanner, terakhir, perusahaan] = await Promise.all([
     halamanTersaring ?? client.rpc("list_event_participants" as never, argumen as never),
     client

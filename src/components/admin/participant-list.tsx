@@ -87,6 +87,8 @@ function artiMasuk(p: Participant): string {
 const RSVP_TONE: Record<string, "success" | "warning" | "error"> = { confirmed: "success", invited: "warning", declined: "error" };
 
 const PAGE_SIZE = 25;
+/** Umur maksimum hitungan acara, sesi dan organisasi sebelum dimuat ulang saat mencari. */
+const UMUR_META_MS = 45_000;
 const LEBAR_NAMA = 240;
 /** Kolom kotak centang. Lengket di kiri bersama kolom Nama. */
 const LEBAR_PILIH = 48;
@@ -352,7 +354,20 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   }, [filterAsal, filterHadir, filterRsvp, filterPerusahaan, saringan]);
 
   const urutanMuat = useRef(0);
-  const load = useCallback(async (search: string, pageIndex: number, sortKey: SortKey, sortDir: "asc" | "desc", size: number) => {
+  // Hitungan acara terakhir. Muat tanpa meta hanya membawa total yang tersaring.
+  const statsTerakhir = useRef<ParticipantStats | null>(null);
+  // `reloadKey` yang meta-nya sudah termuat, dan kapan. Berbeda = ada sync atau
+  // impor. Perubahan dari tempat lain (walk-in di /scan, formulir publik, sesi
+  // baru) tidak menyentuh reloadKey, jadi meta juga dimuat ulang bila sudah
+  // lebih tua dari UMUR_META_MS atau saat tab kembali dibuka.
+  const metaUntuk = useRef<number | null>(null);
+  const metaPada = useRef(0);
+  /**
+   * `denganMeta` false: hanya baris (pencarian, halaman, urutan, saringan).
+   * Hitungan acara, sesi, organisasi dan field tetap yang terakhir; semuanya
+   * tidak berubah oleh pencarian. Setelah simpan, hapus, sync atau impor, true.
+   */
+  const load = useCallback(async (search: string, pageIndex: number, sortKey: SortKey, sortDir: "asc" | "desc", size: number, denganMeta = true) => {
     const nomor = ++urutanMuat.current;
     setLoading(true); setError("");
     try {
@@ -361,20 +376,29 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       params.set("offset", String(pageIndex * size));
       params.set("sort", sortKey);
       params.set("dir", sortDir);
+      if (!denganMeta) params.set("meta", "0");
       const response = await fetch(`/api/admin/participants?${params.toString()}`, { cache: "no-store" });
       const data = await response.json();
-      if (nomor !== urutanMuat.current) return;
-      if (!response.ok) { setError(data.error?.details?.message ?? data.error?.message ?? "Couldn't load the participant list."); return; }
+      if (nomor !== urutanMuat.current) return false;
+      if (!response.ok) { setError(data.error?.details?.message ?? data.error?.message ?? "Couldn't load the participant list."); return false; }
       setParticipants(data.participants ?? []);
       setTotal(data.total ?? 0);
+      if (!denganMeta) {
+        if (statsTerakhir.current) onStats?.({ ...statsTerakhir.current, total: data.total ?? 0 });
+        return true;
+      }
       setFields((data.fields ?? []) as RegistrationField[]);
       setSessions((data.sessions ?? []) as SesiKehadiran[]);
       setCompanies((data.companies ?? []) as FacetPerusahaan[]);
       setScannerColumns(Boolean(data.scanner_columns));
       setRemovedCount(data.removed_count ?? 0);
-      onStats?.({ total: data.total ?? 0, activeTotal: data.active_total ?? data.total ?? 0, removedCount: data.removed_count ?? 0, lastSyncedAt: data.last_synced_at ?? null });
+      const stats = { total: data.total ?? 0, activeTotal: data.active_total ?? data.total ?? 0, removedCount: data.removed_count ?? 0, lastSyncedAt: data.last_synced_at ?? null };
+      statsTerakhir.current = stats;
+      onStats?.(stats);
+      return true;
     } catch {
       if (nomor === urutanMuat.current) setError("Connection lost. Try again.");
+      return false;
     } finally {
       if (nomor === urutanMuat.current) setLoading(false);
     }
@@ -398,8 +422,26 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   }, [reloadKey]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => { void load(debouncedQuery, page, sort, dir, perPage); }, 0);
+    const timer = window.setTimeout(() => {
+      const denganMeta = metaUntuk.current !== reloadKey || Date.now() - metaPada.current > UMUR_META_MS;
+      void load(debouncedQuery, page, sort, dir, perPage, denganMeta).then((berhasil) => {
+        if (berhasil && denganMeta) { metaUntuk.current = reloadKey; metaPada.current = Date.now(); }
+      });
+    }, 0);
     return () => window.clearTimeout(timer);
+  }, [load, debouncedQuery, page, sort, dir, perPage, reloadKey]);
+
+  // Tab dibuka lagi setelah meta basi: muat penuh, supaya angka di judul,
+  // daftar organisasi dan kolom sesi menyusul perubahan dari perangkat lain.
+  useEffect(() => {
+    function saatTerlihat() {
+      if (document.visibilityState !== "visible" || Date.now() - metaPada.current <= UMUR_META_MS) return;
+      void load(debouncedQuery, page, sort, dir, perPage, true).then((berhasil) => {
+        if (berhasil) { metaUntuk.current = reloadKey; metaPada.current = Date.now(); }
+      });
+    }
+    document.addEventListener("visibilitychange", saatTerlihat);
+    return () => document.removeEventListener("visibilitychange", saatTerlihat);
   }, [load, debouncedQuery, page, sort, dir, perPage, reloadKey]);
 
   // Tautan dari halaman lain, mis. nama di Logistik: `?peserta=<kode QR>`
